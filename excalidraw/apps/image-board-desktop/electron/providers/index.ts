@@ -1,0 +1,56 @@
+import { getProviderCapabilities } from "../../src/shared/providerCatalog";
+import { getProviderApiKey, updateProviderStatus } from "../settingsStore";
+
+import type { GenerationRequest, GenerationResponse } from "../../src/shared/providerTypes";
+
+import { generateFalImages } from "./fal";
+import { generateGeminiImages } from "./gemini";
+import { generateZenMuxImages } from "./zenmux";
+
+const ZENMUX_API_KEY_PATTERN = /^sk-(ai|ss)-v1-/i;
+
+export const generateImages = async (
+  input: {
+    projectPath?: string | null;
+    request: GenerationRequest;
+  },
+): Promise<GenerationResponse> => {
+  const { projectPath, request } = input;
+  const apiKey = await getProviderApiKey(request.provider);
+  if (!apiKey) {
+    throw new Error(`${request.provider} API key is not configured.`);
+  }
+
+  if (request.provider === "gemini" && ZENMUX_API_KEY_PATTERN.test(apiKey)) {
+    throw new Error("你当前保存的是 ZenMux API Key，请把“当前服务”切到 ZenMux 再生成。");
+  }
+
+  if (
+    request.reference?.enabled &&
+    !getProviderCapabilities({
+      provider: request.provider,
+      model: request.model,
+    }).supportsReferenceImages
+  ) {
+    throw new Error("当前模型暂时不支持参考图，请切换到支持参考图的模型。");
+  }
+
+  try {
+    const response = await (
+      {
+        gemini: generateGeminiImages,
+        zenmux: generateZenMuxImages,
+        fal: generateFalImages,
+      } as const
+    )[request.provider]({
+      apiKey,
+      request,
+      projectPath,
+    });
+    await updateProviderStatus(request.provider, "success");
+    return response;
+  } catch (error: any) {
+    await updateProviderStatus(request.provider, "error", error.message);
+    throw error;
+  }
+};

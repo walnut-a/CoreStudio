@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "types": ["vitest/globals", "@testing-library/jest-dom", "node"],
+    "noEmit": true
+  },
+  "include": ["src", "electron", "vite.config.mts"],
+  "exclude": ["dist", "dist-electron", "release"]
+}

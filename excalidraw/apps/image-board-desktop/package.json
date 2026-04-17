@@ -1,0 +1,57 @@
+{
+  "name": "image-board-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CoreStudio desktop image board",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "ensure:electron": "node scripts/ensure-electron.cjs",
+    "check:dev-port": "node scripts/ensure-dev-port.cjs",
+    "dev:renderer": "vite --config vite.config.mts --host 127.0.0.1 --port 5174",
+    "dev:electron": "yarn ensure:electron && wait-on tcp:5174 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_RENDERER_URL=http://127.0.0.1:5174 electron dist-electron/main.js",
+    "build:renderer": "vite build --config vite.config.mts",
+    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --outdir=dist-electron --external:electron --tsconfig=tsconfig.electron.json",
+    "start": "yarn check:dev-port && concurrently -k -n ELECTRON,RENDERER -c green,cyan \"yarn build:electron && yarn dev:electron\" \"yarn dev:renderer\"",
+    "build": "yarn build:renderer && yarn build:electron",
+    "preview": "yarn ensure:electron && yarn build && electron dist-electron/main.js",
+    "package:dir": "yarn build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
+    "package:app": "yarn build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "test": "vitest apps/image-board-desktop"
+  },
+  "dependencies": {
+    "@google/genai": "1.49.0",
+    "@excalidraw/common": "0.18.0",
+    "@excalidraw/element": "0.18.0",
+    "@excalidraw/excalidraw": "0.18.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "concurrently": "9.2.1",
+    "electron": "41.2.0",
+    "electron-builder": "26.8.1",
+    "wait-on": "9.0.5"
+  },
+  "build": {
+    "appId": "com.corestudio.desktop",
+    "productName": "CoreStudio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

@@ -1,0 +1,116 @@
+import type { ImageRecordMap, ProjectManifest, ImageSourceType } from "./projectTypes";
+import type {
+  GenerationRequest,
+  GenerationResponse,
+  ProviderId,
+  ProviderSettings,
+} from "./providerTypes";
+
+export const IPC_CHANNELS = {
+  createProject: "image-board:create-project",
+  openProject: "image-board:open-project",
+  openRecentProject: "image-board:open-recent-project",
+  loadRecentProjects: "image-board:load-recent-projects",
+  writeProjectScene: "image-board:write-project-scene",
+  readProjectAssetPayloads: "image-board:read-project-asset-payloads",
+  persistImageAssets: "image-board:persist-image-assets",
+  importImages: "image-board:import-images",
+  revealProjectInFinder: "image-board:reveal-project-in-finder",
+  loadProviderSettings: "image-board:load-provider-settings",
+  saveProviderSettings: "image-board:save-provider-settings",
+  generateImages: "image-board:generate-images",
+  menuAction: "image-board:menu-action",
+} as const;
+
+export type DesktopMenuAction =
+  | "new-project"
+  | "open-project"
+  | "open-recent-project"
+  | "import-images"
+  | "generate-image"
+  | "provider-settings"
+  | "reveal-project";
+
+export interface DesktopMenuEvent {
+  action: DesktopMenuAction;
+  projectPath?: string | null;
+}
+
+export interface DesktopProjectBundle {
+  projectPath: string;
+  project: ProjectManifest;
+  sceneJson: string;
+  imageRecords: ImageRecordMap;
+}
+
+export interface RecentProjectEntry {
+  projectPath: string;
+  name: string;
+  lastOpenedAt: string;
+}
+
+export interface ProjectAssetPayload {
+  fileId: string;
+  mimeType: string;
+  dataBase64: string;
+  width: number;
+  height: number;
+  createdAt: string;
+}
+
+export interface PersistedImageAssetInput extends ProjectAssetPayload {
+  sourceType: ImageSourceType;
+  provider?: ProviderId;
+  model?: string;
+  prompt?: string;
+  negativePrompt?: string;
+  seed?: number | null;
+  parentFileId?: string | null;
+}
+
+export interface ImportedImagePayload extends ProjectAssetPayload {
+  fileName: string;
+}
+
+export type PublicProviderSettings = Record<
+  ProviderId,
+  Omit<ProviderSettings, "apiKey"> & { isConfigured: boolean }
+>;
+
+export interface SaveProviderSettingsInput {
+  provider: ProviderId;
+  apiKey: string;
+  defaultModel?: string;
+}
+
+export interface GenerateImagesInput {
+  projectPath: string;
+  request: GenerationRequest;
+}
+
+export interface DesktopBridgeApi {
+  createProject(): Promise<DesktopProjectBundle | null>;
+  openProject(): Promise<DesktopProjectBundle | null>;
+  openRecentProject(projectPath: string): Promise<DesktopProjectBundle | null>;
+  loadRecentProjects(): Promise<RecentProjectEntry[]>;
+  writeProjectScene(input: {
+    projectPath: string;
+    sceneJson: string;
+  }): Promise<void>;
+  readProjectAssetPayloads(input: {
+    projectPath: string;
+    fileIds: string[];
+  }): Promise<ProjectAssetPayload[]>;
+  persistImageAssets(input: {
+    projectPath: string;
+    files: PersistedImageAssetInput[];
+  }): Promise<ImageRecordMap>;
+  importImages(): Promise<ImportedImagePayload[]>;
+  revealProjectInFinder(projectPath: string): Promise<void>;
+  loadProviderSettings(): Promise<PublicProviderSettings>;
+  saveProviderSettings(
+    input: SaveProviderSettingsInput,
+  ): Promise<PublicProviderSettings>;
+  generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
+  onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
+}

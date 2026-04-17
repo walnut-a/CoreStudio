@@ -1,0 +1,373 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.bezierEquation = void 0;
+exports.curve = curve;
+exports.curveIntersectLineSegment = curveIntersectLineSegment;
+exports.curveClosestPoint = curveClosestPoint;
+exports.curvePointDistance = curvePointDistance;
+exports.isCurve = isCurve;
+exports.curveTangent = curveTangent;
+exports.curveCatmullRomQuadraticApproxPoints = curveCatmullRomQuadraticApproxPoints;
+exports.curveCatmullRomCubicApproxPoints = curveCatmullRomCubicApproxPoints;
+exports.curveOffsetPoints = curveOffsetPoints;
+exports.offsetPointsForQuadraticBezier = offsetPointsForQuadraticBezier;
+exports.curveLength = curveLength;
+exports.curveLengthAtParameter = curveLengthAtParameter;
+exports.curvePointAtLength = curvePointAtLength;
+const point_1 = require("./point");
+const vector_1 = require("./vector");
+const constants_1 = require("./constants");
+/**
+ *
+ * @param a
+ * @param b
+ * @param c
+ * @param d
+ * @returns
+ */
+function curve(a, b, c, d) {
+    return [a, b, c, d];
+}
+function solveWithAnalyticalJacobian(curve, lineSegment, t0, s0, tolerance = 1e-3, iterLimit = 10) {
+    let error = Infinity;
+    let iter = 0;
+    while (error >= tolerance) {
+        if (iter >= iterLimit) {
+            return null;
+        }
+        // Compute bezier point at parameter t0
+        const bt = 1 - t0;
+        const bt2 = bt * bt;
+        const bt3 = bt2 * bt;
+        const t0_2 = t0 * t0;
+        const t0_3 = t0_2 * t0;
+        const bezierX = bt3 * curve[0][0] +
+            3 * bt2 * t0 * curve[1][0] +
+            3 * bt * t0_2 * curve[2][0] +
+            t0_3 * curve[3][0];
+        const bezierY = bt3 * curve[0][1] +
+            3 * bt2 * t0 * curve[1][1] +
+            3 * bt * t0_2 * curve[2][1] +
+            t0_3 * curve[3][1];
+        // Compute line point at parameter s0
+        const lineX = lineSegment[0][0] + s0 * (lineSegment[1][0] - lineSegment[0][0]);
+        const lineY = lineSegment[0][1] + s0 * (lineSegment[1][1] - lineSegment[0][1]);
+        // Function values
+        const fx = bezierX - lineX;
+        const fy = bezierY - lineY;
+        error = Math.abs(fx) + Math.abs(fy);
+        if (error < tolerance) {
+            break;
+        }
+        // Analytical derivatives
+        const dfx_dt = -3 * bt2 * curve[0][0] +
+            3 * bt2 * curve[1][0] -
+            6 * bt * t0 * curve[1][0] -
+            3 * t0_2 * curve[2][0] +
+            6 * bt * t0 * curve[2][0] +
+            3 * t0_2 * curve[3][0];
+        const dfy_dt = -3 * bt2 * curve[0][1] +
+            3 * bt2 * curve[1][1] -
+            6 * bt * t0 * curve[1][1] -
+            3 * t0_2 * curve[2][1] +
+            6 * bt * t0 * curve[2][1] +
+            3 * t0_2 * curve[3][1];
+        // Line derivatives
+        const dfx_ds = -(lineSegment[1][0] - lineSegment[0][0]);
+        const dfy_ds = -(lineSegment[1][1] - lineSegment[0][1]);
+        // Jacobian determinant
+        const det = dfx_dt * dfy_ds - dfx_ds * dfy_dt;
+        if (Math.abs(det) < 1e-12) {
+            return null;
+        }
+        // Newton step
+        const invDet = 1 / det;
+        const dt = invDet * (dfy_ds * -fx - dfx_ds * -fy);
+        const ds = invDet * (-dfy_dt * -fx + dfx_dt * -fy);
+        t0 += dt;
+        s0 += ds;
+        iter += 1;
+    }
+    return [t0, s0];
+}
+const bezierEquation = (c, t) => (0, point_1.pointFrom)((1 - t) ** 3 * c[0][0] +
+    3 * (1 - t) ** 2 * t * c[1][0] +
+    3 * (1 - t) * t ** 2 * c[2][0] +
+    t ** 3 * c[3][0], (1 - t) ** 3 * c[0][1] +
+    3 * (1 - t) ** 2 * t * c[1][1] +
+    3 * (1 - t) * t ** 2 * c[2][1] +
+    t ** 3 * c[3][1]);
+exports.bezierEquation = bezierEquation;
+const initial_guesses = [
+    [0.5, 0],
+    [0.2, 0],
+    [0.8, 0],
+];
+const calculate = ([t0, s0], l, c, tolerance = 1e-2, iterLimit = 4) => {
+    const solution = solveWithAnalyticalJacobian(c, l, t0, s0, tolerance, iterLimit);
+    if (!solution) {
+        return null;
+    }
+    const [t, s] = solution;
+    if (t < 0 || t > 1 || s < 0 || s > 1) {
+        return null;
+    }
+    return (0, exports.bezierEquation)(c, t);
+};
+/**
+ * Computes the intersection between a cubic spline and a line segment.
+ */
+function curveIntersectLineSegment(c, l, opts) {
+    let solution = calculate(initial_guesses[0], l, c, opts?.tolerance, opts?.iterLimit);
+    if (solution) {
+        return [solution];
+    }
+    solution = calculate(initial_guesses[1], l, c, opts?.tolerance, opts?.iterLimit);
+    if (solution) {
+        return [solution];
+    }
+    solution = calculate(initial_guesses[2], l, c, opts?.tolerance, opts?.iterLimit);
+    if (solution) {
+        return [solution];
+    }
+    return [];
+}
+/**
+ * Finds the closest point on the Bezier curve from another point
+ *
+ * @param x
+ * @param y
+ * @param P0
+ * @param P1
+ * @param P2
+ * @param P3
+ * @param tolerance
+ * @param maxLevel
+ * @returns
+ */
+function curveClosestPoint(c, p, tolerance = 1e-3) {
+    const localMinimum = (min, max, f, e = tolerance) => {
+        let m = min;
+        let n = max;
+        let k;
+        while (n - m > e) {
+            k = (n + m) / 2;
+            if (f(k - e) < f(k + e)) {
+                n = k;
+            }
+            else {
+                m = k;
+            }
+        }
+        return k;
+    };
+    const maxSteps = 30;
+    let closestStep = 0;
+    for (let min = Infinity, step = 0; step < maxSteps; step++) {
+        const d = (0, point_1.pointDistance)(p, (0, exports.bezierEquation)(c, step / maxSteps));
+        if (d < min) {
+            min = d;
+            closestStep = step;
+        }
+    }
+    const t0 = Math.max((closestStep - 1) / maxSteps, 0);
+    const t1 = Math.min((closestStep + 1) / maxSteps, 1);
+    const solution = localMinimum(t0, t1, (t) => (0, point_1.pointDistance)(p, (0, exports.bezierEquation)(c, t)));
+    if (!solution) {
+        return null;
+    }
+    return (0, exports.bezierEquation)(c, solution);
+}
+/**
+ * Determines the distance between a point and the closest point on the
+ * Bezier curve.
+ *
+ * @param c The curve to test
+ * @param p The point to measure from
+ */
+function curvePointDistance(c, p) {
+    const closest = curveClosestPoint(c, p);
+    if (!closest) {
+        return 0;
+    }
+    return (0, point_1.pointDistance)(p, closest);
+}
+/**
+ * Determines if the parameter is a Curve
+ */
+function isCurve(v) {
+    return (Array.isArray(v) &&
+        v.length === 4 &&
+        (0, point_1.isPoint)(v[0]) &&
+        (0, point_1.isPoint)(v[1]) &&
+        (0, point_1.isPoint)(v[2]) &&
+        (0, point_1.isPoint)(v[3]));
+}
+function curveTangent([p0, p1, p2, p3], t) {
+    return (0, vector_1.vector)(-3 * (1 - t) * (1 - t) * p0[0] +
+        3 * (1 - t) * (1 - t) * p1[0] -
+        6 * t * (1 - t) * p1[0] -
+        3 * t * t * p2[0] +
+        6 * t * (1 - t) * p2[0] +
+        3 * t * t * p3[0], -3 * (1 - t) * (1 - t) * p0[1] +
+        3 * (1 - t) * (1 - t) * p1[1] -
+        6 * t * (1 - t) * p1[1] -
+        3 * t * t * p2[1] +
+        6 * t * (1 - t) * p2[1] +
+        3 * t * t * p3[1]);
+}
+function curveCatmullRomQuadraticApproxPoints(points, tension = 0.5) {
+    if (points.length < 2) {
+        return;
+    }
+    const pointSets = [];
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i - 1 < 0 ? 0 : i - 1];
+        const p1 = points[i];
+        const p2 = points[i + 1 >= points.length ? points.length - 1 : i + 1];
+        const cpX = p1[0] + ((p2[0] - p0[0]) * tension) / 2;
+        const cpY = p1[1] + ((p2[1] - p0[1]) * tension) / 2;
+        pointSets.push([
+            (0, point_1.pointFrom)(cpX, cpY),
+            (0, point_1.pointFrom)(p2[0], p2[1]),
+        ]);
+    }
+    return pointSets;
+}
+function curveCatmullRomCubicApproxPoints(points, tension = 0.5) {
+    if (points.length < 2) {
+        return;
+    }
+    const pointSets = [];
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i - 1 < 0 ? 0 : i - 1];
+        const p1 = points[i];
+        const p2 = points[i + 1 >= points.length ? points.length - 1 : i + 1];
+        const p3 = points[i + 2 >= points.length ? points.length - 1 : i + 2];
+        const tangent1 = [(p2[0] - p0[0]) * tension, (p2[1] - p0[1]) * tension];
+        const tangent2 = [(p3[0] - p1[0]) * tension, (p3[1] - p1[1]) * tension];
+        const cp1x = p1[0] + tangent1[0] / 3;
+        const cp1y = p1[1] + tangent1[1] / 3;
+        const cp2x = p2[0] - tangent2[0] / 3;
+        const cp2y = p2[1] - tangent2[1] / 3;
+        pointSets.push(curve((0, point_1.pointFrom)(p1[0], p1[1]), (0, point_1.pointFrom)(cp1x, cp1y), (0, point_1.pointFrom)(cp2x, cp2y), (0, point_1.pointFrom)(p2[0], p2[1])));
+    }
+    return pointSets;
+}
+function curveOffsetPoints([p0, p1, p2, p3], offset, steps = 50) {
+    const offsetPoints = [];
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const c = curve(p0, p1, p2, p3);
+        const point = (0, exports.bezierEquation)(c, t);
+        const tangent = (0, vector_1.vectorNormalize)(curveTangent(c, t));
+        const normal = (0, vector_1.vectorNormal)(tangent);
+        offsetPoints.push((0, point_1.pointFromVector)((0, vector_1.vectorScale)(normal, offset), point));
+    }
+    return offsetPoints;
+}
+function offsetPointsForQuadraticBezier(p0, p1, p2, offsetDist, steps = 50) {
+    const offsetPoints = [];
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const t1 = 1 - t;
+        const point = (0, point_1.pointFrom)(t1 * t1 * p0[0] + 2 * t1 * t * p1[0] + t * t * p2[0], t1 * t1 * p0[1] + 2 * t1 * t * p1[1] + t * t * p2[1]);
+        const tangentX = 2 * (1 - t) * (p1[0] - p0[0]) + 2 * t * (p2[0] - p1[0]);
+        const tangentY = 2 * (1 - t) * (p1[1] - p0[1]) + 2 * t * (p2[1] - p1[1]);
+        const tangent = (0, vector_1.vectorNormalize)((0, vector_1.vector)(tangentX, tangentY));
+        const normal = (0, vector_1.vectorNormal)(tangent);
+        offsetPoints.push((0, point_1.pointFromVector)((0, vector_1.vectorScale)(normal, offsetDist), point));
+    }
+    return offsetPoints;
+}
+/**
+ * Implementation based on Legendre-Gauss quadrature for more accurate arc
+ * length calculation.
+ *
+ * Reference: https://pomax.github.io/bezierinfo/#arclength
+ *
+ * @param c The curve to calculate the length of
+ * @returns The approximated length of the curve
+ */
+function curveLength(c) {
+    const z2 = 0.5;
+    let sum = 0;
+    for (let i = 0; i < 24; i++) {
+        const t = z2 * constants_1.LegendreGaussN24TValues[i] + z2;
+        const derivativeVector = curveTangent(c, t);
+        const magnitude = Math.sqrt(derivativeVector[0] * derivativeVector[0] +
+            derivativeVector[1] * derivativeVector[1]);
+        sum += constants_1.LegendreGaussN24CValues[i] * magnitude;
+    }
+    return z2 * sum;
+}
+/**
+ * Calculates the curve length from t=0 to t=parameter using the same
+ * Legendre-Gauss quadrature method used in curveLength
+ *
+ * @param c The curve to calculate the partial length for
+ * @param t The parameter value (0 to 1) to calculate length up to
+ * @returns The length of the curve from beginning to parameter t
+ */
+function curveLengthAtParameter(c, t) {
+    if (t <= 0) {
+        return 0;
+    }
+    if (t >= 1) {
+        return curveLength(c);
+    }
+    // Scale and shift the integration interval from [0,t] to [-1,1]
+    // which is what the Legendre-Gauss quadrature expects
+    const z1 = t / 2;
+    const z2 = t / 2;
+    let sum = 0;
+    for (let i = 0; i < 24; i++) {
+        const parameter = z1 * constants_1.LegendreGaussN24TValues[i] + z2;
+        const derivativeVector = curveTangent(c, parameter);
+        const magnitude = Math.sqrt(derivativeVector[0] * derivativeVector[0] +
+            derivativeVector[1] * derivativeVector[1]);
+        sum += constants_1.LegendreGaussN24CValues[i] * magnitude;
+    }
+    return z1 * sum; // Scale the result back to the original interval
+}
+/**
+ * Calculates the point at a specific percentage of a curve's total length
+ * using binary search for improved efficiency and accuracy.
+ *
+ * @param c The curve to calculate point on
+ * @param percent A value between 0 and 1 representing the percentage of the curve's length
+ * @returns The point at the specified percentage of curve length
+ */
+function curvePointAtLength(c, percent) {
+    if (percent <= 0) {
+        return (0, exports.bezierEquation)(c, 0);
+    }
+    if (percent >= 1) {
+        return (0, exports.bezierEquation)(c, 1);
+    }
+    const totalLength = curveLength(c);
+    const targetLength = totalLength * percent;
+    // Binary search to find parameter t where length at t equals target length
+    let tMin = 0;
+    let tMax = 1;
+    let t = percent; // Start with a reasonable guess (t = percent)
+    let currentLength = 0;
+    // Tolerance for length comparison and iteration limit to avoid infinite loops
+    const tolerance = totalLength * 0.0001;
+    const maxIterations = 20;
+    for (let iteration = 0; iteration < maxIterations; iteration++) {
+        currentLength = curveLengthAtParameter(c, t);
+        const error = Math.abs(currentLength - targetLength);
+        if (error < tolerance) {
+            break;
+        }
+        if (currentLength < targetLength) {
+            tMin = t;
+        }
+        else {
+            tMax = t;
+        }
+        t = (tMin + tMax) / 2;
+    }
+    return (0, exports.bezierEquation)(c, t);
+}

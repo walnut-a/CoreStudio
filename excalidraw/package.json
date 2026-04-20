@@ -62,6 +62,7 @@
     "build": "yarn --cwd ./excalidraw-app build",
     "build:preview": "yarn --cwd ./excalidraw-app build:preview",
     "build:desktop": "yarn --cwd ./apps/image-board-desktop build",
+    "check:desktop-secrets": "yarn --cwd ./apps/image-board-desktop check:secrets",
     "preview:desktop": "yarn --cwd ./apps/image-board-desktop preview",
     "start": "yarn --cwd ./excalidraw-app start",
     "start:desktop": "yarn --cwd ./apps/image-board-desktop start",

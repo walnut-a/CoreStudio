@@ -58,7 +58,12 @@ vi.mock("@excalidraw/utils", () => ({
 vi.mock("@excalidraw/excalidraw", () => {
   const sidebarTabsContext = React.createContext<{
     activeTab: string;
+    sidebarOpen: boolean;
     setActiveTab: (tab: string) => void;
+    toggleDefaultSidebar: (tab?: string) => void;
+    stateChangeRef: React.MutableRefObject<
+      ((state: { name: string; tab?: string } | null) => void) | null
+    >;
   } | null>(null);
 
   return {
@@ -70,23 +75,56 @@ vi.mock("@excalidraw/excalidraw", () => {
         children,
         docked,
         onDock,
+        onStateChange,
       }: {
         children?: React.ReactNode;
         docked?: boolean;
         onDock?: ((docked: boolean) => void) | false;
-      }) => (
-        <div
-          data-testid="default-sidebar"
-          data-docked={docked ? "true" : "false"}
-          data-dock-disabled={onDock === false ? "true" : "false"}
-        >
-          {children}
-        </div>
-      ),
+        onStateChange?: (state: { name: string; tab?: string } | null) => void;
+      }) => {
+        const tabs = React.useContext(sidebarTabsContext);
+        if (tabs) {
+          tabs.stateChangeRef.current = onStateChange ?? null;
+        }
+
+        return (
+          <div
+            data-testid="default-sidebar"
+            data-docked={docked ? "true" : "false"}
+            data-dock-disabled={onDock === false ? "true" : "false"}
+            data-open={tabs?.sidebarOpen ? "true" : "false"}
+          >
+            {children}
+          </div>
+        );
+      },
       {
         TabTriggers: ({ children }: { children?: React.ReactNode }) => (
           <div data-testid="default-sidebar-tab-triggers">{children}</div>
         ),
+        Trigger: ({
+          icon,
+          tab = "library",
+          title = "侧边栏",
+        }: {
+          icon?: React.ReactNode;
+          tab?: string;
+          title?: string;
+        }) => {
+          const tabs = React.useContext(sidebarTabsContext);
+
+          return (
+            <button
+              type="button"
+              aria-label={title}
+              data-testid="default-sidebar-trigger"
+              data-tab={tab}
+              onClick={() => tabs?.toggleDefaultSidebar(tab)}
+            >
+              {icon}
+            </button>
+          );
+        },
       },
     ),
   Button: ({
@@ -135,7 +173,28 @@ vi.mock("@excalidraw/excalidraw", () => {
     ) => void;
   }) => (
     (() => {
-      const [activeTab, setActiveTab] = React.useState("search");
+      const [activeTab, setActiveTabState] = React.useState("library");
+      const [sidebarOpen, setSidebarOpen] = React.useState(true);
+      const stateChangeRef = React.useRef<
+        ((state: { name: string; tab?: string } | null) => void) | null
+      >(null);
+      const setActiveTab = (tab: string) => {
+        setSidebarOpen(true);
+        setActiveTabState(tab);
+        stateChangeRef.current?.({ name: "default", tab });
+      };
+      const toggleDefaultSidebar = (tab = "library") => {
+        setSidebarOpen((current) => {
+          const nextOpen = !current;
+          if (nextOpen) {
+            setActiveTabState(tab);
+            stateChangeRef.current?.({ name: "default", tab });
+          } else {
+            stateChangeRef.current?.(null);
+          }
+          return nextOpen;
+        });
+      };
       const sceneRef = React.useRef<{
         elements: any[];
         appState: Record<string, any>;
@@ -236,7 +295,15 @@ vi.mock("@excalidraw/excalidraw", () => {
             hidden
           />
           <div data-testid="excalidraw-canvas" data-lang-code={langCode}>
-            <sidebarTabsContext.Provider value={{ activeTab, setActiveTab }}>
+            <sidebarTabsContext.Provider
+              value={{
+                activeTab,
+                sidebarOpen,
+                setActiveTab,
+                toggleDefaultSidebar,
+                stateChangeRef,
+              }}
+            >
               {children}
             </sidebarTabsContext.Provider>
           </div>
@@ -292,7 +359,7 @@ vi.mock("@excalidraw/excalidraw", () => {
       }) => {
         const tabs = React.useContext(sidebarTabsContext);
 
-        if (tabs?.activeTab !== tab) {
+        if (!tabs?.sidebarOpen || tabs.activeTab !== tab) {
           return null;
         }
 
@@ -310,7 +377,13 @@ vi.mock("./components/GenerateImageDialog", () => ({
   }: {
     open: boolean;
     initialRequest: {
-      provider: "gemini" | "zenmux" | "fal";
+      provider:
+        | "gemini"
+        | "zenmux"
+        | "fal"
+        | "jimeng"
+        | "openai"
+        | "openrouter";
       model: string;
       prompt: string;
       width: number;
@@ -324,7 +397,13 @@ vi.mock("./components/GenerateImageDialog", () => ({
     };
     onSubmit: (
       request: {
-        provider: "gemini" | "zenmux" | "fal";
+        provider:
+          | "gemini"
+          | "zenmux"
+          | "fal"
+          | "jimeng"
+          | "openai"
+          | "openrouter";
         model: string;
         prompt: string;
         width: number;
@@ -342,6 +421,7 @@ vi.mock("./components/GenerateImageDialog", () => ({
     open ? (
       <div>
         <div>生成图片弹窗</div>
+        <div data-testid="generate-dialog-prompt">{initialRequest.prompt}</div>
         {initialRequest.reference ? (
           <div>{`参考元素: ${initialRequest.reference.elementCount}`}</div>
         ) : null}
@@ -407,9 +487,9 @@ vi.mock("./components/ImageInspector", () => ({
     task ? (
       <aside>{`生成任务: ${task.status === "error" ? "生成失败" : "生成中"} ${task.rawError || ""}`}</aside>
     ) : record ? (
-      <aside>{`图片参数: ${record.model || "无"}${parentRecord?.prompt ? ` 来源图片: ${parentRecord.prompt}` : ""}${ancestorRecords?.length || descendantRecords?.length ? " 编辑链" : ""}${descendantRecords?.length ? ` 后续版本: ${descendantRecords.map(({ record: descendantRecord }) => descendantRecord.prompt || "无").join(" / ")}` : ""}`}</aside>
+      <aside>{`图片信息: ${record.model || "无"}${parentRecord?.prompt ? ` 来源图片: ${parentRecord.prompt}` : ""}${ancestorRecords?.length || descendantRecords?.length ? " 编辑链" : ""}${descendantRecords?.length ? ` 后续版本: ${descendantRecords.map(({ record: descendantRecord }) => descendantRecord.prompt || "无").join(" / ")}` : ""}`}</aside>
     ) : (
-      <aside>图片参数（空）</aside>
+      <aside>图片信息（空）</aside>
     ),
 }));
 
@@ -450,12 +530,13 @@ afterEach(() => {
 
 describe("App startup", () => {
   it("shows a Chinese startup error instead of crashing when the desktop bridge is unavailable", () => {
-    render(<App />);
+    const { container } = render(<App />);
 
-    expect(screen.getByText("桌面桥接不可用")).toBeInTheDocument();
+    expect(screen.getByText("桌面应用未连接")).toBeInTheDocument();
     expect(
-      screen.getByText(/请通过 Electron 启动桌面应用/i),
+      screen.getByText(/当前页面没有连接到本地桌面能力/i),
     ).toBeInTheDocument();
+    expect(container.querySelector(".welcome-pane__diagnostic")).toBeTruthy();
   });
 
   it("boots Excalidraw with Simplified Chinese by default", async () => {
@@ -662,13 +743,13 @@ describe("App startup", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("最近项目")).toBeInTheDocument();
+    expect(await screen.findByText("最近打开")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "继续上次项目" }),
+      screen.getByRole("button", { name: "继续最近项目" }),
     ).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "继续上次项目" }));
+      fireEvent.click(screen.getByRole("button", { name: "继续最近项目" }));
     });
     act(() => {
       triggerExcalidrawInitialize?.();
@@ -812,7 +893,7 @@ describe("App startup", () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "继续上次项目" }));
+    fireEvent.click(await screen.findByRole("button", { name: "继续最近项目" }));
 
     expect(
       await screen.findByRole("heading", { name: "项目界面加载失败" }),
@@ -951,7 +1032,7 @@ describe("App startup", () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText("图片参数（空）")).not.toBeInTheDocument();
+      expect(screen.queryByText("图片信息（空）")).not.toBeInTheDocument();
     });
   });
 
@@ -1098,14 +1179,14 @@ describe("App startup", () => {
     expect(
       container.querySelector(".image-board-shell--with-inspector"),
     ).toBeNull();
-    expect(screen.queryByText("图片参数: fal-ai/nano-banana-2")).not.toBeInTheDocument();
+    expect(screen.queryByText("图片信息: fal-ai/nano-banana-2")).not.toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片参数" }));
+      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
     });
 
     expect(
-      await screen.findByText(/图片参数: fal-ai\/nano-banana-2/),
+      await screen.findByText(/图片信息: fal-ai\/nano-banana-2/),
     ).toBeInTheDocument();
     expect(screen.getByText(/编辑链/)).toBeInTheDocument();
     expect(
@@ -1122,6 +1203,173 @@ describe("App startup", () => {
       "data-dock-disabled",
       "true",
     );
+  });
+
+  it("reopens the default sidebar on the last manually selected tab", async () => {
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: "{}",
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+    });
+
+    const sidebarTrigger = screen.getByTestId("default-sidebar-trigger");
+    expect(sidebarTrigger).toHaveAttribute("data-tab", "image-board-image-info");
+    expect(
+      screen.getByTestId("sidebar-tab-image-board-image-info"),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(sidebarTrigger);
+    });
+    expect(screen.getByTestId("default-sidebar")).toHaveAttribute(
+      "data-open",
+      "false",
+    );
+    expect(
+      screen.queryByTestId("sidebar-tab-image-board-image-info"),
+    ).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(sidebarTrigger);
+    });
+
+    expect(
+      screen.getByTestId("sidebar-tab-image-board-image-info"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the composer prompt cleared after submitting a generation request", async () => {
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: "{}",
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn().mockResolvedValue({
+        provider: "gemini",
+        model: "imagen-4.0-fast-generate-001",
+        seed: null,
+        createdAt: "2026-04-12T08:10:00.000Z",
+        images: [],
+      }),
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交参考生成" }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-dialog-prompt")).toBeEmptyDOMElement();
+    });
   });
 
   it("shows a clear Chinese error when Gemini rejects the API key", async () => {
@@ -1536,7 +1784,7 @@ describe("App startup", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片参数" }));
+      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
     });
 
     expect(await screen.findByText(/生成任务: 生成失败/)).toBeInTheDocument();

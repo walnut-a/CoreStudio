@@ -61,6 +61,18 @@ const getParentImageSummary = (
   return getImageRecordSummary(parentRecord);
 };
 
+const formatDateTime = (value: string) => new Date(value).toLocaleString("zh-CN");
+
+const formatSize = (width: number, height: number) => `${width} × ${height}`;
+
+const getProviderLabel = (provider?: ProviderId) =>
+  provider ? getProviderDefinition(provider).label : copy.inspector.importedProvider;
+
+const getImageRecordTitle = (record: ImageRecord) =>
+  record.sourceType === "generated"
+    ? copy.inspector.generatedImageTitle
+    : copy.inspector.importedImageTitle;
+
 export const ImageInspector = ({
   record,
   parentRecord,
@@ -92,70 +104,82 @@ export const ImageInspector = ({
   };
 
   if (task) {
+    const taskStatusText =
+      task.status === "error" ? copy.inspector.taskFailed : copy.inspector.taskPending;
+
     return (
       <section className="image-inspector">
         <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
-          <h2>{copy.inspector.taskTitle}</h2>
-          <dl>
-            <div>
-              <dt>{copy.inspector.taskStatus}</dt>
-              <dd>
-                {task.status === "error"
-                  ? copy.inspector.taskFailed
-                  : copy.inspector.taskPending}
-              </dd>
+          <header className="image-inspector__hero">
+            <div className="image-inspector__hero-main">
+              <span className="image-inspector__eyebrow">{taskStatusText}</span>
+              <h2>{copy.inspector.taskTitle}</h2>
+              <p>{getOptionalText(task.model)}</p>
             </div>
-            <div>
-              <dt>{copy.inspector.provider}</dt>
-              <dd>{getProviderDefinition(task.provider).label}</dd>
+            <div className="image-inspector__hero-facts">
+              <span>{getProviderDefinition(task.provider).label}</span>
+              <span>{formatSize(task.width, task.height)}</span>
             </div>
-            <div>
-              <dt>{copy.inspector.model}</dt>
-              <dd>{getOptionalText(task.model)}</dd>
+          </header>
+
+          <section className="image-inspector__prompt-card">
+            <div className="image-inspector__section-header">
+              <h3>{copy.inspector.prompt}</h3>
             </div>
-            <div>
-              <dt>{copy.inspector.prompt}</dt>
-              <dd>{getOptionalText(task.prompt)}</dd>
-            </div>
-            <div>
-              <dt>{copy.inspector.negativePrompt}</dt>
-              <dd>{getOptionalText(task.negativePrompt)}</dd>
-            </div>
-            <div>
-              <dt>{copy.inspector.seed}</dt>
-              <dd>{getOptionalText(task.seed)}</dd>
-            </div>
-            <div>
-              <dt>{copy.inspector.size}</dt>
-              <dd>
-                {task.width} × {task.height}
-              </dd>
-            </div>
-            <div>
-              <dt>{copy.inspector.taskStartedAt}</dt>
-              <dd>{new Date(task.startedAt).toLocaleString("zh-CN")}</dd>
-            </div>
-            {task.status === "error" && (
-              <div>
-                <dt>{copy.inspector.taskMessage}</dt>
-                <dd>{getOptionalText(task.errorMessage)}</dd>
+            <p className="image-inspector__prompt-text">
+              {getOptionalText(task.prompt)}
+            </p>
+          </section>
+
+          <section className="image-inspector__section">
+            <h3>{copy.inspector.detailsTitle}</h3>
+            <dl className="image-inspector__detail-grid">
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.taskStatus}</dt>
+                <dd className="image-inspector__detail-value">{taskStatusText}</dd>
               </div>
-            )}
-            {task.status === "error" && (
-              <div>
-                <dt>{copy.inspector.taskRawError}</dt>
-                <dd className="image-inspector__pre">
-                  {getOptionalText(task.rawError)}
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.taskStartedAt}</dt>
+                <dd className="image-inspector__detail-value">
+                  {formatDateTime(task.startedAt)}
                 </dd>
               </div>
-            )}
-            {task.status === "error" && task.stack && (
-              <div>
-                <dt>{copy.inspector.taskStack}</dt>
-                <dd className="image-inspector__pre">{task.stack}</dd>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.negativePrompt}</dt>
+                <dd className="image-inspector__detail-value">
+                  {getOptionalText(task.negativePrompt)}
+                </dd>
               </div>
-            )}
-          </dl>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.seed}</dt>
+                <dd className="image-inspector__detail-value">
+                  {getOptionalText(task.seed)}
+                </dd>
+              </div>
+              {task.status === "error" && (
+                <div className="image-inspector__detail-item image-inspector__detail-item--wide">
+                  <dt>{copy.inspector.taskMessage}</dt>
+                  <dd className="image-inspector__detail-value">
+                    {getOptionalText(task.errorMessage)}
+                  </dd>
+                </div>
+              )}
+              {task.status === "error" && (
+                <div className="image-inspector__detail-item image-inspector__detail-item--wide">
+                  <dt>{copy.inspector.taskRawError}</dt>
+                  <dd className="image-inspector__pre">
+                    {getOptionalText(task.rawError)}
+                  </dd>
+                </div>
+              )}
+              {task.status === "error" && task.stack && (
+                <div className="image-inspector__detail-item image-inspector__detail-item--wide">
+                  <dt>{copy.inspector.taskStack}</dt>
+                  <dd className="image-inspector__pre">{task.stack}</dd>
+                </div>
+              )}
+            </dl>
+          </section>
           {task.status === "error" && (
             <div className="image-inspector__actions">
               <DesktopButton type="button" onClick={onCopyTaskError}>
@@ -171,58 +195,88 @@ export const ImageInspector = ({
   if (!record) {
     return (
       <section className="image-inspector image-inspector--empty">
-        <h2>{copy.inspector.title}</h2>
-        <p>{copy.inspector.empty}</p>
+        <div className="image-inspector__empty-card">
+          <h2>{copy.inspector.title}</h2>
+          <p>{copy.inspector.empty}</p>
+        </div>
       </section>
     );
   }
 
+  const sourceLabel = getImageSourceLabel(record.sourceType);
+  const imageTitle = getImageRecordTitle(record);
+  const modelText = getOptionalText(record.model);
+  const parentSummary = getParentImageSummary(record, parentRecord);
+
   return (
     <section className="image-inspector">
       <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
-        <h2>{copy.inspector.title}</h2>
-        <dl>
-          <div>
-            <dt>{copy.inspector.source}</dt>
-            <dd>{getImageSourceLabel(record.sourceType)}</dd>
+        <header className="image-inspector__hero">
+          <div className="image-inspector__hero-main">
+            <span className="image-inspector__eyebrow">{sourceLabel}</span>
+            <h2>{imageTitle}</h2>
+            <p>{modelText}</p>
           </div>
-          {record.parentFileId && (
-            <div>
-              <dt>{copy.inspector.parentImage}</dt>
-              <dd>{getParentImageSummary(record, parentRecord)}</dd>
+          <div className="image-inspector__hero-facts">
+            <span>{formatSize(record.width, record.height)}</span>
+            <span>{formatDateTime(record.createdAt)}</span>
+          </div>
+        </header>
+
+        <section className="image-inspector__prompt-card">
+          <div className="image-inspector__section-header">
+            <h3>{copy.inspector.prompt}</h3>
+          </div>
+          <p className="image-inspector__prompt-text">
+            {getOptionalText(record.prompt)}
+          </p>
+        </section>
+
+        <section className="image-inspector__section">
+          <h3>{copy.inspector.detailsTitle}</h3>
+          <dl className="image-inspector__detail-grid">
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.source}</dt>
+              <dd className="image-inspector__detail-value">{sourceLabel}</dd>
             </div>
-          )}
-          <div>
-            <dt>{copy.inspector.provider}</dt>
-            <dd>{record.provider || copy.inspector.importedProvider}</dd>
-          </div>
-          <div>
-            <dt>{copy.inspector.model}</dt>
-            <dd>{getOptionalText(record.model)}</dd>
-          </div>
-          <div>
-            <dt>{copy.inspector.prompt}</dt>
-            <dd>{getOptionalText(record.prompt)}</dd>
-          </div>
-          <div>
-            <dt>{copy.inspector.negativePrompt}</dt>
-            <dd>{getOptionalText(record.negativePrompt)}</dd>
-          </div>
-          <div>
-            <dt>{copy.inspector.seed}</dt>
-            <dd>{getOptionalText(record.seed)}</dd>
-          </div>
-          <div>
-            <dt>{copy.inspector.size}</dt>
-            <dd>
-              {record.width} × {record.height}
-            </dd>
-          </div>
-          <div>
-            <dt>{copy.inspector.createdAt}</dt>
-            <dd>{new Date(record.createdAt).toLocaleString("zh-CN")}</dd>
-          </div>
-        </dl>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.provider}</dt>
+              <dd className="image-inspector__detail-value">
+                {getProviderLabel(record.provider)}
+              </dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.model}</dt>
+              <dd className="image-inspector__detail-value">{modelText}</dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.size}</dt>
+              <dd className="image-inspector__detail-value">
+                {formatSize(record.width, record.height)}
+              </dd>
+            </div>
+            {record.parentFileId && (
+              <div className="image-inspector__detail-item image-inspector__detail-item--wide">
+                <dt>{copy.inspector.parentImage}</dt>
+                <dd className="image-inspector__detail-value">
+                  {parentSummary}
+                </dd>
+              </div>
+            )}
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.negativePrompt}</dt>
+              <dd className="image-inspector__detail-value">
+                {getOptionalText(record.negativePrompt)}
+              </dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.seed}</dt>
+              <dd className="image-inspector__detail-value">
+                {getOptionalText(record.seed)}
+              </dd>
+            </div>
+          </dl>
+        </section>
         {(ancestorRecords.length > 0 || descendantRecords.length > 0) && (
           <section className="image-inspector__chain">
             <h3>{copy.inspector.chainTitle}</h3>

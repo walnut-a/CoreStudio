@@ -12,6 +12,10 @@ import {
   Excalidraw,
 } from "@excalidraw/excalidraw";
 import {
+  DEFAULT_SIDEBAR,
+  LIBRARY_SIDEBAR_TAB,
+} from "@excalidraw/common";
+import {
   getCommonBounds,
   newElementWith,
   newFrameElement,
@@ -42,6 +46,7 @@ import type {
   BinaryFiles,
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
+  SidebarTabName,
 } from "@excalidraw/excalidraw/types";
 import type { GenerationRequest } from "../shared/providerTypes";
 
@@ -65,13 +70,16 @@ import {
 import {
   buildSelectionReference,
   buildSelectionReferenceSummary,
+  getSelectionReferenceSignature,
   getSelectedReferenceElements,
 } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
-import { ImageSidebar } from "./components/ImageSidebar";
+import {
+  IMAGE_INFO_SIDEBAR_TAB,
+  ImageSidebar,
+} from "./components/ImageSidebar";
 import type { GenerationTaskRecord } from "./components/ImageInspector";
-import { ProvidersDialog } from "./components/ProvidersDialog";
 import { DesktopButton } from "./components/DesktopButton";
 import { TopBar } from "./components/TopBar";
 import { WelcomePane } from "./components/WelcomePane";
@@ -298,7 +306,7 @@ const normalizeDesktopErrorMessage = (
   }
 
   if (/gemini API key is not configured/i.test(sanitizedMessage)) {
-    return "Gemini API Key 还没配置，请先去“模型服务”里保存。";
+    return "Gemini API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
   }
 
   if (
@@ -320,7 +328,7 @@ const normalizeDesktopErrorMessage = (
   }
 
   if (/zenmux API key is not configured/i.test(sanitizedMessage)) {
-    return "ZenMux API Key 还没配置，请先去“模型服务”里保存。";
+    return "ZenMux API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
   }
 
   if (/fal\.ai request failed: 401/i.test(sanitizedMessage)) {
@@ -386,6 +394,7 @@ const App = () => {
   const pendingGenerationJobsRef = useRef<Map<string, PendingGenerationJob>>(
     new Map(),
   );
+  const removedSelectionReferenceSignatureRef = useRef<string | null>(null);
   const generationTaskByElementIdRef = useRef<Map<string, GenerationTaskRecord>>(
     new Map(),
   );
@@ -407,9 +416,12 @@ const App = () => {
   const [generationErrorDetailsOpen, setGenerationErrorDetailsOpen] = useState(false);
   const [generationErrorCopied, setGenerationErrorCopied] = useState(false);
   const [generateFocusToken, setGenerateFocusToken] = useState(0);
-  const [providersOpen, setProvidersOpen] = useState(false);
+  const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
+  const [defaultSidebarTab, setDefaultSidebarTab] = useState<SidebarTabName>(
+    IMAGE_INFO_SIDEBAR_TAB,
+  );
   const parentRecord =
     selectedRecord?.parentFileId && currentProject
       ? currentProject.imageRecords[selectedRecord.parentFileId] || null
@@ -1073,7 +1085,11 @@ const App = () => {
 
     clearGenerationErrorState();
     try {
-      const normalizedRequest = normalizeGenerationRequest(request);
+      const requestCustomModels =
+        providerSettings?.[request.provider]?.customModels ?? [];
+      const normalizedRequest = normalizeGenerationRequest(request, {
+        customModels: requestCustomModels,
+      });
       let preparedRequest = normalizedRequest;
       if (normalizedRequest.reference?.enabled) {
         const reference = await buildSelectionReference({
@@ -1101,7 +1117,10 @@ const App = () => {
 
       pendingGenerationJobsRef.current.set(pendingJob.jobId, pendingJob);
       setPendingGenerationCount((count) => count + 1);
-      setGenerateRequest(preparedRequest);
+      setGenerateRequest({
+        ...preparedRequest,
+        prompt: "",
+      });
       void (async () => {
         try {
           const response = await desktopBridge.generateImages({
@@ -1124,7 +1143,12 @@ const App = () => {
         }
       })();
     } catch (error: any) {
-      showGenerationError(normalizeGenerationRequest(request), error);
+      showGenerationError(
+        normalizeGenerationRequest(request, {
+          customModels: providerSettings?.[request.provider]?.customModels ?? [],
+        }),
+        error,
+      );
     }
   };
 
@@ -1140,21 +1164,54 @@ const App = () => {
   };
 
   const openGenerateDialog = async (nextRequest?: Partial<GenerationRequest>) => {
-    const reference = await buildSelectionReference({
-      scene: latestSceneRef.current,
-      includeImage: false,
-      imageRecords: currentProjectRef.current?.imageRecords || null,
-    });
+    const selectionReferenceSignature = getSelectionReferenceSignature(
+      latestSceneRef.current,
+    );
+    if (
+      removedSelectionReferenceSignatureRef.current &&
+      removedSelectionReferenceSignatureRef.current !== selectionReferenceSignature
+    ) {
+      removedSelectionReferenceSignatureRef.current = null;
+    }
+    const reference =
+      selectionReferenceSignature &&
+      removedSelectionReferenceSignatureRef.current === selectionReferenceSignature
+        ? null
+        : await buildSelectionReference({
+            scene: latestSceneRef.current,
+            includeImage: false,
+            imageRecords: currentProjectRef.current?.imageRecords || null,
+          });
 
     setGenerationError(null);
-    setGenerateRequest((current) =>
-      normalizeGenerationRequest({
+    setGenerateRequest((current) => {
+      const mergedRequest = {
         ...current,
         ...nextRequest,
         reference,
-      }),
-    );
+      };
+      return normalizeGenerationRequest(mergedRequest, {
+        customModels: providerSettings?.[mergedRequest.provider]?.customModels ?? [],
+      });
+    });
     setGenerateFocusToken((current) => current + 1);
+  };
+
+  const handleRemoveGenerateReference = () => {
+    removedSelectionReferenceSignatureRef.current = getSelectionReferenceSignature(
+      latestSceneRef.current,
+    );
+    setGenerateRequest((current) =>
+      normalizeGenerationRequest(
+        {
+          ...current,
+          reference: null,
+        },
+        {
+          customModels: providerSettings?.[current.provider]?.customModels ?? [],
+        },
+      ),
+    );
   };
 
   const handleSaveProviderSettings = async (
@@ -1216,6 +1273,17 @@ const App = () => {
     });
   };
 
+  const handleDefaultSidebarStateChange = (state: AppState["openSidebar"]) => {
+    if (!state?.tab) {
+      return;
+    }
+    if (state.tab === LIBRARY_SIDEBAR_TAB) {
+      setDefaultSidebarTab(IMAGE_INFO_SIDEBAR_TAB);
+      return;
+    }
+    setDefaultSidebarTab(state.tab);
+  };
+
   useDesktopMenuEvents((event) => {
     switch (event.action) {
       case "new-project":
@@ -1236,7 +1304,7 @@ const App = () => {
         void openGenerateDialog();
         break;
       case "provider-settings":
-        setProvidersOpen(true);
+        setProviderSettingsFocusToken((current) => current + 1);
         break;
       case "reveal-project":
         handleRevealProject();
@@ -1250,8 +1318,8 @@ const App = () => {
     return (
       <div className="image-board-app">
         <div className="welcome-pane">
-          <div className="welcome-pane__card">
-            <span className="welcome-pane__eyebrow">{copy.welcome.eyebrow}</span>
+          <div className="welcome-pane__card welcome-pane__diagnostic">
+            <span className="welcome-pane__eyebrow">{copy.startup.eyebrow}</span>
             <h1>{copy.startup.heading}</h1>
             <p>{copy.startup.description}</p>
             <div className="dialog-card__error welcome-pane__error">
@@ -1330,20 +1398,33 @@ const App = () => {
                 };
               }}
               onChange={(elements, appState, files) => {
+                const nextScene = {
+                  elements,
+                  appState,
+                  files,
+                };
+                const selectionReferenceSignature =
+                  getSelectionReferenceSignature(nextScene);
                 const selectionReferenceSummary = buildSelectionReferenceSummary({
                   elements,
                   appState,
                   files,
                 });
-                latestSceneRef.current = {
-                  elements,
-                  appState,
-                  files,
-                };
+                if (
+                  removedSelectionReferenceSignatureRef.current &&
+                  removedSelectionReferenceSignatureRef.current !==
+                    selectionReferenceSignature
+                ) {
+                  removedSelectionReferenceSignatureRef.current = null;
+                }
+                latestSceneRef.current = nextScene;
                 setGenerateRequest((current) =>
                   syncSelectionReferenceIntoRequest(
                     current,
-                    selectionReferenceSummary,
+                    removedSelectionReferenceSignatureRef.current ===
+                      selectionReferenceSignature
+                      ? null
+                      : selectionReferenceSummary,
                   ),
                 );
                 setSelectedRecord(
@@ -1375,7 +1456,6 @@ const App = () => {
                   onOpenProject={handleOpenProject}
                   onImportImages={handleImportImages}
                   onRevealProject={handleRevealProject}
-                  onOpenProviders={() => setProvidersOpen(true)}
                 />
               )}
               detectScroll={false}
@@ -1388,6 +1468,8 @@ const App = () => {
                 ancestorRecords={ancestorRecords}
                 descendantRecords={descendantRecords}
                 task={selectedTask}
+                defaultSidebarTab={defaultSidebarTab}
+                onDefaultSidebarStateChange={handleDefaultSidebarStateChange}
                 onCopyPrompt={handleCopyPrompt}
                 onCopyTaskError={handleCopyTaskError}
                 onReuseSettings={handleReuseSettings}
@@ -1403,6 +1485,8 @@ const App = () => {
         focusToken={generateFocusToken}
         initialRequest={generateRequest}
         providerSettings={providerSettings}
+        savingProviderSettings={savingProviders}
+        providerSettingsFocusToken={providerSettingsFocusToken}
         loading={pendingGenerationCount > 0}
         error={generationError}
         onOpenErrorDetails={
@@ -1411,15 +1495,9 @@ const App = () => {
             : undefined
         }
         onClose={() => undefined}
+        onReferenceRemove={handleRemoveGenerateReference}
+        onSaveProviderSettings={handleSaveProviderSettings}
         onSubmit={handleGenerateImages}
-      />
-
-      <ProvidersDialog
-        open={providersOpen}
-        providerSettings={providerSettings}
-        saving={savingProviders}
-        onClose={() => setProvidersOpen(false)}
-        onSave={handleSaveProviderSettings}
       />
 
       {generationErrorDetailsOpen && generationErrorDetails && (

@@ -105,6 +105,39 @@ describe("Sidebar", () => {
       });
     });
 
+    it("should keep the sidebar open after outside clicks when outside closing is disabled", async () => {
+      const onStateChange = vi.fn();
+      const { container } = await render(
+        <Excalidraw
+          initialData={{
+            appState: {
+              openSidebar: {
+                name: "customSidebar",
+              },
+            },
+          }}
+        >
+          <Sidebar
+            name="customSidebar"
+            className="test-sidebar"
+            closeOnOutsideClick={false}
+            onStateChange={onStateChange}
+          >
+            <div id="test-sidebar-content">42</div>
+          </Sidebar>
+        </Excalidraw>,
+      );
+
+      expect(container.querySelector(".test-sidebar")).not.toBe(null);
+
+      fireEvent.pointerDown(document.body);
+
+      await waitFor(() => {
+        expect(container.querySelector(".test-sidebar")).not.toBe(null);
+      });
+      expect(onStateChange).not.toHaveBeenCalledWith(null);
+    });
+
     it("should render custom sidebar", async () => {
       const { container } = await render(
         <Excalidraw

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  inferCustomModelCapabilityTemplate,
   getDefaultModel,
+  getProviderModels,
   getProviderCapabilities,
   getProviderDefinition,
   getVisibleGenerationFields,
@@ -13,12 +15,20 @@ describe("providerCatalog", () => {
     expect(getDefaultModel("gemini")).toBe("gemini-2.5-flash-image");
     expect(getDefaultModel("zenmux")).toBe("google/gemini-2.5-flash-image");
     expect(getDefaultModel("fal")).toBe("fal-ai/nano-banana-2");
+    expect(getDefaultModel("jimeng")).toBe("doubao-seedream-5-0-lite-260128");
+    expect(getDefaultModel("openai")).toBe("gpt-image-1.5");
+    expect(getDefaultModel("openrouter")).toBe(
+      "google/gemini-3.1-flash-image-preview",
+    );
   });
 
   it("includes the supported image models for each provider", () => {
     const geminiDefinition = getProviderDefinition("gemini");
     const zenmuxDefinition = getProviderDefinition("zenmux");
     const falDefinition = getProviderDefinition("fal");
+    const jimengDefinition = getProviderDefinition("jimeng");
+    const openaiDefinition = getProviderDefinition("openai");
+    const openrouterDefinition = getProviderDefinition("openrouter");
 
     expect(Object.keys(geminiDefinition.models)).toContain("gemini-2.5-flash-image");
     expect(Object.keys(geminiDefinition.models)).toContain(
@@ -32,9 +42,78 @@ describe("providerCatalog", () => {
       "google/gemini-3-pro-image-preview",
     );
     expect(Object.keys(falDefinition.models)).toContain("fal-ai/nano-banana-2");
+    expect(Object.keys(jimengDefinition.models)).toContain(
+      "doubao-seedream-5-0-lite-260128",
+    );
+    expect(Object.keys(jimengDefinition.models)).toContain(
+      "doubao-seedream-4-0-250828",
+    );
+    expect(Object.keys(openaiDefinition.models)).toContain("gpt-image-1.5");
+    expect(Object.keys(openrouterDefinition.models)).toContain(
+      "google/gemini-3.1-flash-image-preview",
+    );
   });
 
-  it("hides unsupported fields for Gemini native image models", () => {
+  it("adds user-defined models with capability templates to provider model lists", () => {
+    const customModels = [
+      {
+        id: "google/gemini-next-image-preview",
+        label: "google/gemini-next-image-preview",
+        capabilityTemplate: "image-editing-aspect-ratio" as const,
+      },
+    ];
+
+    expect(
+      Object.keys(getProviderModels("zenmux", customModels)),
+    ).toContain("google/gemini-next-image-preview");
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "google/gemini-next-image-preview",
+        customModels,
+      }).supportsReferenceImages,
+    ).toBe(true);
+    expect(
+      getVisibleGenerationFields({
+        provider: "zenmux",
+        model: "google/gemini-next-image-preview",
+        customModels,
+      }),
+    ).toMatchObject({
+      aspectRatio: true,
+      width: false,
+      height: false,
+    });
+  });
+
+  it("recommends a custom model usage from provider and model id", () => {
+    expect(
+      inferCustomModelCapabilityTemplate({
+        provider: "zenmux",
+        modelId: "google/gemini-next-image-preview",
+      }),
+    ).toBe("image-editing-aspect-ratio");
+    expect(
+      inferCustomModelCapabilityTemplate({
+        provider: "zenmux",
+        modelId: "fal-ai/flux-pro/v1.1",
+      }),
+    ).toBe("seeded-exact");
+    expect(
+      inferCustomModelCapabilityTemplate({
+        provider: "jimeng",
+        modelId: "doubao-seedream-next",
+      }),
+    ).toBe("text-to-image-exact");
+    expect(
+      inferCustomModelCapabilityTemplate({
+        provider: "openrouter",
+        modelId: "unknown/new-image-model",
+      }),
+    ).toBe("text-to-image-aspect-ratio");
+  });
+
+  it("shows ratio instead of exact pixels for aspect-ratio based models", () => {
     expect(
       getVisibleGenerationFields({
         provider: "gemini",
@@ -43,10 +122,57 @@ describe("providerCatalog", () => {
     ).toEqual({
       prompt: true,
       negativePrompt: false,
-      width: true,
-      height: true,
+      width: false,
+      height: false,
+      aspectRatio: true,
       seed: false,
       imageCount: false,
+    });
+  });
+
+  it("keeps exact width and height visible for exact-size models", () => {
+    expect(
+      getVisibleGenerationFields({
+        provider: "fal",
+        model: "fal-ai/flux/schnell",
+      }),
+    ).toMatchObject({
+      width: true,
+      height: true,
+      aspectRatio: false,
+    });
+
+    expect(
+      getVisibleGenerationFields({
+        provider: "jimeng",
+        model: "doubao-seedream-5-0-lite-260128",
+      }),
+    ).toMatchObject({
+      width: true,
+      height: true,
+      aspectRatio: false,
+    });
+
+    expect(
+      getVisibleGenerationFields({
+        provider: "openai",
+        model: "gpt-image-1.5",
+      }),
+    ).toMatchObject({
+      width: false,
+      height: false,
+      aspectRatio: true,
+    });
+
+    expect(
+      getVisibleGenerationFields({
+        provider: "openrouter",
+        model: "google/gemini-3.1-flash-image-preview",
+      }),
+    ).toMatchObject({
+      width: false,
+      height: false,
+      aspectRatio: true,
     });
   });
 
@@ -88,6 +214,34 @@ describe("providerCatalog", () => {
         model: "fal-ai/flux/schnell",
       }).supportsReferenceImages,
     ).toBe(false);
+
+    expect(
+      getProviderCapabilities({
+        provider: "jimeng",
+        model: "doubao-seedream-5-0-lite-260128",
+      }).supportsReferenceImages,
+    ).toBe(true);
+
+    expect(
+      getProviderCapabilities({
+        provider: "jimeng",
+        model: "doubao-seedream-3-0-t2i-250415",
+      }).supportsReferenceImages,
+    ).toBe(false);
+
+    expect(
+      getProviderCapabilities({
+        provider: "openai",
+        model: "gpt-image-1.5",
+      }).supportsReferenceImages,
+    ).toBe(true);
+
+    expect(
+      getProviderCapabilities({
+        provider: "openrouter",
+        model: "google/gemini-3.1-flash-image-preview",
+      }).supportsReferenceImages,
+    ).toBe(true);
   });
 
   it("normalizes unsupported generation controls before submit", () => {
@@ -137,6 +291,31 @@ describe("providerCatalog", () => {
       negativePrompt: undefined,
       seed: 42,
       imageCount: 4,
+      reference: {
+        enabled: false,
+      },
+    });
+
+    expect(
+      normalizeGenerationRequest({
+        provider: "jimeng",
+        model: "doubao-seedream-3-0-t2i-250415",
+        prompt: "工业设计方案",
+        negativePrompt: "不要塑料感",
+        width: 1024,
+        height: 1024,
+        seed: 21,
+        imageCount: 4,
+        reference: {
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+        },
+      }),
+    ).toMatchObject({
+      negativePrompt: undefined,
+      seed: 21,
+      imageCount: 1,
       reference: {
         enabled: false,
       },

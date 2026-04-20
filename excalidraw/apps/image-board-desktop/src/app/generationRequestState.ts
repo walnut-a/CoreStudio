@@ -64,7 +64,7 @@ export const syncSelectionReferenceIntoRequest = (
     reference: selectionReferenceSummary
       ? {
           ...selectionReferenceSummary,
-          enabled: current.reference?.enabled ?? false,
+          enabled: selectionReferenceSummary.enabled,
         }
       : null,
   });

@@ -1,12 +1,13 @@
 {
   "name": "image-board-desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "CoreStudio desktop image board",
   "main": "dist-electron/main.js",
   "scripts": {
     "ensure:electron": "node scripts/ensure-electron.cjs",
     "check:dev-port": "node scripts/ensure-dev-port.cjs",
+    "check:secrets": "node scripts/check-secrets.cjs",
     "dev:renderer": "vite --config vite.config.mts --host 127.0.0.1 --port 5174",
     "dev:electron": "yarn ensure:electron && wait-on tcp:5174 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_RENDERER_URL=http://127.0.0.1:5174 electron dist-electron/main.js",
     "build:renderer": "vite build --config vite.config.mts",
@@ -14,8 +15,8 @@
     "start": "yarn check:dev-port && concurrently -k -n ELECTRON,RENDERER -c green,cyan \"yarn build:electron && yarn dev:electron\" \"yarn dev:renderer\"",
     "build": "yarn build:renderer && yarn build:electron",
     "preview": "yarn ensure:electron && yarn build && electron dist-electron/main.js",
-    "package:dir": "yarn build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
-    "package:app": "yarn build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "package:dir": "yarn build && yarn check:secrets --source --package-inputs && electron-builder --dir && yarn check:secrets --release",
+    "package:app": "yarn build && yarn check:secrets --source --package-inputs && electron-builder && yarn check:secrets --release",
     "test": "vitest apps/image-board-desktop"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
     ],
     "mac": {
       "category": "public.app-category.graphics-design",
+      "identity": "junyan liu (CUP682RD2S)",
       "icon": "build/icon.icns"
     },
     "win": {

@@ -27,6 +27,27 @@ const providerSettings: PublicProviderSettings = {
     lastCheckedAt: null,
     lastError: null,
   },
+  jimeng: {
+    defaultModel: "doubao-seedream-5-0-lite-260128",
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  openai: {
+    defaultModel: "gpt-image-1.5",
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  openrouter: {
+    defaultModel: "google/gemini-3.1-flash-image-preview",
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
 };
 
 describe("ProvidersDialog", () => {
@@ -193,5 +214,72 @@ describe("ProvidersDialog", () => {
         defaultModel: "google/gemini-3-pro-image-preview",
       });
     });
+  });
+
+  it("shows 即梦 in the current service list and saves it independently", async () => {
+    const onSave = vi.fn(async () => undefined);
+
+    render(
+      <ProvidersDialog
+        open={true}
+        providerSettings={providerSettings}
+        saving={false}
+        onClose={() => undefined}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("当前服务"), {
+      target: { value: "jimeng" },
+    });
+
+    expect(screen.getAllByText("即梦 / Seedream").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("默认模型")).toHaveValue(
+      "doubao-seedream-5-0-lite-260128",
+    );
+
+    fireEvent.change(screen.getByLabelText("API Key"), {
+      target: { value: "ark-key" },
+    });
+    fireEvent.change(screen.getByLabelText("默认模型"), {
+      target: { value: "doubao-seedream-4-0-250828" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        provider: "jimeng",
+        apiKey: "ark-key",
+        defaultModel: "doubao-seedream-4-0-250828",
+      });
+    });
+  });
+
+  it("shows OpenAI and OpenRouter in the current service list", async () => {
+    const onSave = vi.fn(async () => undefined);
+
+    render(
+      <ProvidersDialog
+        open={true}
+        providerSettings={providerSettings}
+        saving={false}
+        onClose={() => undefined}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("当前服务"), {
+      target: { value: "openai" },
+    });
+
+    expect(screen.getByLabelText("默认模型")).toHaveValue("gpt-image-1.5");
+
+    fireEvent.change(screen.getByLabelText("当前服务"), {
+      target: { value: "openrouter" },
+    });
+
+    expect(screen.getByLabelText("默认模型")).toHaveValue(
+      "google/gemini-3.1-flash-image-preview",
+    );
   });
 });

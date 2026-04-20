@@ -12,7 +12,7 @@ const createRequest = (): GenerationRequest => ({
   imageCount: 1,
   seed: null,
   reference: {
-    enabled: false,
+    enabled: true,
     elementCount: 1,
     textCount: 0,
   },
@@ -23,7 +23,7 @@ describe("generationRequestState", () => {
     const request = createRequest();
 
     const next = syncSelectionReferenceIntoRequest(request, {
-      enabled: false,
+      enabled: true,
       elementCount: 1,
       textCount: 0,
     });
@@ -35,7 +35,7 @@ describe("generationRequestState", () => {
     const request = createRequest();
 
     const next = syncSelectionReferenceIntoRequest(request, {
-      enabled: false,
+      enabled: true,
       elementCount: 2,
       textCount: 1,
       textNotes: ["保留整体比例"],
@@ -43,25 +43,25 @@ describe("generationRequestState", () => {
 
     expect(next).not.toBe(request);
     expect(next.reference).toEqual({
-      enabled: false,
+      enabled: true,
       elementCount: 2,
       textCount: 1,
       textNotes: ["保留整体比例"],
     });
   });
 
-  it("preserves the current enabled state while syncing the latest summary", () => {
+  it("automatically enables a newly synced selection reference", () => {
     const request: GenerationRequest = {
       ...createRequest(),
       reference: {
-        enabled: true,
+        enabled: false,
         elementCount: 1,
         textCount: 0,
       },
     };
 
     const next = syncSelectionReferenceIntoRequest(request, {
-      enabled: false,
+      enabled: true,
       elementCount: 3,
       textCount: 0,
     });

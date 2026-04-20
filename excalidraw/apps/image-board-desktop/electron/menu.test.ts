@@ -18,7 +18,6 @@ describe("createAppMenuTemplate", () => {
 
     expect(template.map((item) => item.label)).toEqual([
       "文件",
-      "生成",
       "编辑",
     ]);
 
@@ -29,7 +28,7 @@ describe("createAppMenuTemplate", () => {
       getSubmenuLabels(template[0].submenu),
     ).toContain("最近项目");
     expect(
-      getSubmenuLabels(template[1].submenu),
-    ).toContain("模型服务");
+      template.map((item) => item.label),
+    ).not.toContain("生成");
   });
 });

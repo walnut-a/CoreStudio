@@ -48,19 +48,6 @@ export const createAppMenuTemplate = (
     ],
   },
   {
-    label: copy.menu.generate,
-    submenu: [
-      {
-        label: copy.menu.generateImage,
-        click: () => sendMenuAction({ action: "generate-image" }),
-      },
-      {
-        label: copy.menu.providers,
-        click: () => sendMenuAction({ action: "provider-settings" }),
-      },
-    ],
-  },
-  {
     label: copy.menu.edit,
     submenu: [
       { role: "undo" },

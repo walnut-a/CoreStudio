@@ -21,36 +21,40 @@ export const WelcomePane = ({
 
   return (
     <div className="welcome-pane">
-      <div className="welcome-pane__card">
-        <span className="welcome-pane__eyebrow">{copy.welcome.eyebrow}</span>
-        <h1>{copy.welcome.title}</h1>
-        <p>{copy.welcome.description}</p>
-        <div className="welcome-pane__actions">
-          <DesktopButton
-            type="button"
-            variant="primary"
-            className="welcome-pane__primary"
-            onClick={onCreateProject}
-            disabled={loading}
-          >
-            {loading ? copy.welcome.creating : copy.welcome.newProject}
-          </DesktopButton>
-          <DesktopButton
-            type="button"
-            onClick={onOpenProject}
-            disabled={loading}
-          >
-            {loading ? copy.welcome.opening : copy.welcome.openProject}
-          </DesktopButton>
-          {latestProject ? (
+      <section className="welcome-pane__card" aria-labelledby="welcome-title">
+        <div className="welcome-pane__intro">
+          <div className="welcome-pane__copy">
+            <span className="welcome-pane__eyebrow">{copy.welcome.eyebrow}</span>
+            <h1 id="welcome-title">{copy.welcome.title}</h1>
+            <p>{copy.welcome.description}</p>
+          </div>
+          <div className="welcome-pane__actions">
             <DesktopButton
               type="button"
-              onClick={() => onOpenRecentProject?.(latestProject.projectPath)}
+              variant="primary"
+              className="welcome-pane__primary"
+              onClick={onCreateProject}
               disabled={loading}
             >
-              {copy.welcome.continueLastProject}
+              {loading ? copy.welcome.creating : copy.welcome.newProject}
             </DesktopButton>
-          ) : null}
+            <DesktopButton
+              type="button"
+              onClick={onOpenProject}
+              disabled={loading}
+            >
+              {loading ? copy.welcome.opening : copy.welcome.openProject}
+            </DesktopButton>
+            {latestProject ? (
+              <DesktopButton
+                type="button"
+                onClick={() => onOpenRecentProject?.(latestProject.projectPath)}
+                disabled={loading}
+              >
+                {copy.welcome.continueLastProject}
+              </DesktopButton>
+            ) : null}
+          </div>
         </div>
         <div className="welcome-pane__recent">
           <div className="welcome-pane__recent-header">
@@ -81,7 +85,7 @@ export const WelcomePane = ({
             <p className="welcome-pane__recent-empty">{copy.welcome.recentEmpty}</p>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 };

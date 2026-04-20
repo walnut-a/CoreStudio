@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, createEvent, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import { getDefaultModel } from "../../shared/providerCatalog";
 import type { ImageRecord } from "../../shared/projectTypes";
@@ -32,6 +40,27 @@ const providerSettings: PublicProviderSettings = {
   },
   fal: {
     defaultModel: getDefaultModel("fal"),
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  jimeng: {
+    defaultModel: getDefaultModel("jimeng"),
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  openai: {
+    defaultModel: getDefaultModel("openai"),
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  openrouter: {
+    defaultModel: getDefaultModel("openrouter"),
     isConfigured: false,
     lastStatus: "unknown",
     lastCheckedAt: null,
@@ -122,9 +151,14 @@ describe("Chinese localization", () => {
       />,
     );
 
-    expect(screen.getByText("CoreStudio")).toBeInTheDocument();
-    expect(screen.getByText("用画板比较不同图片方向")).toBeInTheDocument();
-    expect(screen.getByText("最近项目")).toBeInTheDocument();
+    expect(screen.getByText("本地项目")).toBeInTheDocument();
+    expect(screen.getByText("选择项目开始")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "新建一个本地项目，或打开之前的项目。画板、图片、提示词和生成记录都会保存在项目文件夹里。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("最近打开")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /常用项目/ }),
     ).toBeInTheDocument();
@@ -132,7 +166,7 @@ describe("Chinese localization", () => {
       screen.getByText("/Users/zhaolixing/Documents/工业设计助手/常用项目"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "继续上次项目" }),
+      screen.getByRole("button", { name: "继续最近项目" }),
     ).toHaveClass("excalidraw-button");
     expect(screen.getByRole("button", { name: "新建项目" })).toHaveClass(
       "excalidraw-button",
@@ -149,16 +183,13 @@ describe("Chinese localization", () => {
         onOpenProject={() => undefined}
         onImportImages={() => undefined}
         onRevealProject={() => undefined}
-        onOpenProviders={() => undefined}
       />,
     );
 
     expect(screen.getByRole("button", { name: "导入图片" })).toHaveClass(
       "excalidraw-button",
     );
-    expect(screen.getByRole("button", { name: "模型服务" })).toHaveClass(
-      "excalidraw-button",
-    );
+    expect(screen.queryByRole("button", { name: "模型服务" })).toBeNull();
 
     rerender(
       <ImageInspector
@@ -173,9 +204,11 @@ describe("Chinese localization", () => {
       />,
     );
 
-    expect(screen.getByText("图片参数")).toBeInTheDocument();
+    expect(screen.getByText("AI 生成图片")).toBeInTheDocument();
+    expect(screen.getByText("提示词")).toBeInTheDocument();
+    expect(screen.getByText("生成参数")).toBeInTheDocument();
     expect(screen.getByText("来源")).toBeInTheDocument();
-    expect(screen.getByText("AI 生成")).toBeInTheDocument();
+    expect(screen.getAllByText("AI 生成")).toHaveLength(2);
     expect(screen.getByText("来源图片")).toBeInTheDocument();
     expect(screen.getAllByText(/第一版结构草图/)).toHaveLength(2);
     expect(screen.getByText("编辑链")).toBeInTheDocument();
@@ -215,7 +248,9 @@ describe("Chinese localization", () => {
     );
 
     expect(screen.getByText("生成任务")).toBeInTheDocument();
-    expect(screen.getByText("生成失败")).toBeInTheDocument();
+    expect(screen.getByText("提示词")).toBeInTheDocument();
+    expect(screen.getByText("生成参数")).toBeInTheDocument();
+    expect(screen.getAllByText("生成失败")).toHaveLength(2);
     expect(screen.getByText("原始报错")).toBeInTheDocument();
     expect(
       document.querySelector(".image-inspector__scroll"),
@@ -290,7 +325,7 @@ describe("Chinese localization", () => {
         open={true}
         initialRequest={{
           provider: "gemini",
-          model: "imagen-4.0-fast-generate-001",
+          model: getDefaultModel("gemini"),
           prompt: "工业设计草图",
           negativePrompt: "",
           width: 1024,
@@ -298,7 +333,7 @@ describe("Chinese localization", () => {
           seed: 12,
           imageCount: 2,
           reference: {
-            enabled: false,
+            enabled: true,
             elementCount: 3,
             textCount: 2,
             textNotes: ["保留把手比例", "圈出的面板再薄一点"],
@@ -320,17 +355,19 @@ describe("Chinese localization", () => {
     expect(
       screen.getByPlaceholderText("描述你想生成的内容"),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("提示词")).toHaveAttribute("wrap", "off");
-    expect(screen.getByText("3 项待引用")).toBeInTheDocument();
+    expect(screen.getByLabelText("提示词")).not.toHaveAttribute("wrap");
+    expect(screen.getByText("已引用：3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "移除引用" })).toBeInTheDocument();
     expect(screen.queryByText("宽度")).not.toBeInTheDocument();
     expect(screen.queryByText("参考信息")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "展开输入框" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /设置/ }));
     expect(document.querySelector(".generate-panel--expanded")).not.toBeNull();
-    expect(screen.getByText("参考信息")).toBeInTheDocument();
-    expect(screen.getByText("当前已选 3 个元素，包含 2 段文字。")).toBeInTheDocument();
-    expect(screen.getByText("选中文字")).toBeInTheDocument();
-    expect(screen.getByLabelText("使用当前选区作为参考")).toBeDisabled();
-    expect(screen.getByText("这个模型暂时不支持参考图。")).toBeInTheDocument();
+    expect(screen.queryByText("参考信息")).not.toBeInTheDocument();
+    expect(screen.queryByText("当前已选 3 个元素，包含 2 段文字。")).toBeNull();
+    expect(screen.queryByText("选中文字")).toBeNull();
+    expect(screen.queryByLabelText("使用当前选区作为参考")).toBeNull();
+    expect(screen.queryByText("这个模型暂时不支持参考图。")).toBeNull();
     expect(screen.getByRole("button", { name: "开始生成" })).toHaveClass(
       "excalidraw-button",
     );
@@ -339,11 +376,253 @@ describe("Chinese localization", () => {
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         reference: expect.objectContaining({
-          enabled: false,
+          enabled: true,
         }),
       }),
       false,
     );
+  });
+
+  it("removes the compact reference when clicking the close control", () => {
+    const onSubmit = vi.fn();
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "工业设计草图",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 2,
+            textCount: 1,
+            textNotes: ["保留把手比例"],
+          },
+        }}
+        providerSettings={{
+          ...providerSettings,
+          jimeng: {
+            ...providerSettings.jimeng,
+            isConfigured: true,
+            lastStatus: "success",
+          },
+        }}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "移除引用" }));
+
+    expect(screen.queryByText("已引用：2")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reference: null,
+      }),
+      false,
+    );
+  });
+
+  it("keeps API key settings folded inside the generation settings panel", async () => {
+    const onSaveProviderSettings = vi.fn(async () => providerSettings);
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "工业设计草图",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        savingProviderSettings={false}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSaveProviderSettings={onSaveProviderSettings}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /设置/ }));
+
+    const apiKeyToggle = screen.getByRole("button", {
+      name: /连接与自定义模型/,
+    });
+    expect(apiKeyToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("API Key")).toBeNull();
+
+    fireEvent.click(apiKeyToggle);
+
+    expect(apiKeyToggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.change(screen.getByLabelText("API Key"), {
+      target: { value: "test-api-key" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(onSaveProviderSettings).toHaveBeenCalledWith({
+        provider: "gemini",
+        apiKey: "test-api-key",
+        defaultModel: getDefaultModel("gemini"),
+      });
+    });
+    expect(screen.getByText("已保存到本地，密钥不会回显。")).toBeInTheDocument();
+  });
+
+  it("makes custom model setup read as optional after API key setup", () => {
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "jimeng",
+          model: getDefaultModel("jimeng"),
+          prompt: "工业设计草图",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={{
+          ...providerSettings,
+          jimeng: {
+            ...providerSettings.jimeng,
+            isConfigured: true,
+            lastStatus: "success",
+          },
+        }}
+        savingProviderSettings={false}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /设置/ }));
+    const apiSettingsToggle = screen.getByRole("button", {
+      name: /连接与自定义模型/,
+    });
+    fireEvent.click(apiSettingsToggle);
+
+    const apiSettingsPanel = apiSettingsToggle.closest(
+      ".generate-provider-settings",
+    ) as HTMLElement;
+    expect(apiSettingsPanel).not.toBeNull();
+
+    expect(within(apiSettingsPanel).getByText("连接")).toBeInTheDocument();
+    expect(within(apiSettingsPanel).getByText("当前服务")).toBeInTheDocument();
+    expect(within(apiSettingsPanel).getByText("当前模型")).toBeInTheDocument();
+    expect(
+      within(apiSettingsPanel).getByText("自定义模型（可选）"),
+    ).toBeInTheDocument();
+    expect(
+      within(apiSettingsPanel).getByText(
+        "只填 API Key 就能用预置模型。密钥只保存在本机，保存后不会回显。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(apiSettingsPanel).getByText(
+        "上方“模型”下拉已包含预置模型。列表里没有的新模型，才在这里添加完整模型 ID。",
+      ),
+    ).toBeInTheDocument();
+    expect(within(apiSettingsPanel).getByLabelText("新模型 ID")).toBeInTheDocument();
+    expect(
+      within(apiSettingsPanel).getByPlaceholderText("例如 doubao-seedream-next"),
+    ).toBeInTheDocument();
+    expect(within(apiSettingsPanel).getByLabelText("模型类型")).toBeInTheDocument();
+  });
+
+  it("lets users add a custom provider model from the generation settings panel", async () => {
+    const onSaveProviderSettings = vi.fn(async () => providerSettings);
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "zenmux",
+          model: getDefaultModel("zenmux"),
+          prompt: "工业设计草图",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={{
+          ...providerSettings,
+          zenmux: {
+            ...providerSettings.zenmux,
+            isConfigured: true,
+            customModels: [],
+          },
+        }}
+        savingProviderSettings={false}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSaveProviderSettings={onSaveProviderSettings}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /设置/ }));
+    fireEvent.click(screen.getByRole("button", { name: /连接与自定义模型/ }));
+    expect(screen.queryByLabelText("能力模板")).toBeNull();
+    fireEvent.change(screen.getByLabelText("新模型 ID"), {
+      target: { value: "google/gemini-next-image-preview" },
+    });
+    expect(screen.getByLabelText("模型类型")).toHaveValue(
+      "image-editing-aspect-ratio",
+    );
+    expect(screen.getByText("支持参考图和改图")).toBeInTheDocument();
+    expect(screen.getByText(/会自动引用画板选区/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /高级配置/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "添加到模型列表并使用" }));
+
+    await waitFor(() => {
+      expect(onSaveProviderSettings).toHaveBeenCalledWith({
+        provider: "zenmux",
+        apiKey: "",
+        defaultModel: "google/gemini-next-image-preview",
+        customModels: [
+          {
+            id: "google/gemini-next-image-preview",
+            label: "google/gemini-next-image-preview",
+            capabilityTemplate: "image-editing-aspect-ratio",
+            capabilities: {
+              supportsNegativePrompt: false,
+              supportsSeed: false,
+              supportsImageCount: false,
+              supportsReferenceImages: true,
+              maxImageCount: 1,
+              sizeControlMode: "aspect-ratio",
+            },
+          },
+        ],
+      });
+    });
   });
 
   it("closes the generation island on Escape and outside click", () => {
@@ -418,7 +697,159 @@ describe("Chinese localization", () => {
     expect(keydown.stopPropagation).toHaveBeenCalledTimes(1);
   });
 
-  it("allows enabling reference input on supported image editing models", () => {
+  it("submits the generation request when pressing Enter in the compact prompt", () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "imagen-4.0-fast-generate-001",
+          prompt: "生成新的工业设计方案",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: 12,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const compactPrompt = screen.getByLabelText("提示词");
+
+    fireEvent.keyDown(compactPrompt, { key: "Enter" });
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "生成新的工业设计方案",
+      }),
+      false,
+    );
+    expect(compactPrompt).toHaveValue("");
+  });
+
+  it("does not bubble Enter from the main prompt editor", () => {
+    const onSubmit = vi.fn();
+    const documentListener = vi.fn();
+
+    document.addEventListener("keydown", documentListener);
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "imagen-4.0-fast-generate-001",
+          prompt: "生成新的工业设计方案",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: 12,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+    fireEvent.keyDown(promptInput, { key: "Enter" });
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "生成新的工业设计方案",
+      }),
+      false,
+    );
+    expect(documentListener).not.toHaveBeenCalled();
+    expect(promptInput).toHaveValue("");
+
+    document.removeEventListener("keydown", documentListener);
+  });
+
+  it("submits the generation request when clicking the send button", () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "imagen-4.0-fast-generate-001",
+          prompt: "生成新的工业设计方案",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: 12,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "生成新的工业设计方案",
+      }),
+      false,
+    );
+    expect(screen.getByLabelText("提示词")).toHaveValue("");
+  });
+
+  it("keeps multiline editing inside the main prompt", () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "imagen-4.0-fast-generate-001",
+          prompt: "一台桌面级五轴CNC机器，精致、小型化，很简约，没有多余的按钮，像是苹果发布的设备，同时拥有工业质感。",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: 12,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+    expect(promptInput).toHaveValue(
+      "一台桌面级五轴CNC机器，精致、小型化，很简约，没有多余的按钮，像是苹果发布的设备，同时拥有工业质感。",
+    );
+    fireEvent.keyDown(promptInput, { key: "Enter", shiftKey: true });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "展开输入框" })).toBeNull();
+  });
+
+  it("automatically submits enabled reference input on supported image editing models", () => {
     const onSubmit = vi.fn();
 
     render(
@@ -434,7 +865,7 @@ describe("Chinese localization", () => {
           seed: null,
           imageCount: 1,
           reference: {
-            enabled: false,
+            enabled: true,
             elementCount: 2,
             textCount: 1,
             textNotes: ["把圈出的区域再收一点"],
@@ -449,7 +880,6 @@ describe("Chinese localization", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /设置/ }));
-    fireEvent.click(screen.getByLabelText("使用当前选区作为参考"));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
 
     expect(onSubmit).toHaveBeenCalledWith(

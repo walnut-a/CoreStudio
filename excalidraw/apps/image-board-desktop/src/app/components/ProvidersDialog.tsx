@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   getDefaultModel,
+  getProviderModels,
   getProviderDefinition,
   PROVIDER_IDS,
 } from "../../shared/providerCatalog";
@@ -37,26 +38,31 @@ type SaveFeedbackState = Record<
   } | null
 >;
 
-const emptyFormState = (): FormState => ({
-  gemini: {
-    apiKey: "",
-    defaultModel: getDefaultModel("gemini"),
-  },
-  zenmux: {
-    apiKey: "",
-    defaultModel: getDefaultModel("zenmux"),
-  },
-  fal: {
-    apiKey: "",
-    defaultModel: getDefaultModel("fal"),
-  },
-});
+const buildFormState = (
+  providerSettings: PublicProviderSettings | null,
+): FormState =>
+  PROVIDER_IDS.reduce(
+    (state, provider) => ({
+      ...state,
+      [provider]: {
+        apiKey: "",
+        defaultModel:
+          providerSettings?.[provider]?.defaultModel || getDefaultModel(provider),
+      },
+    }),
+    {} as FormState,
+  );
 
-const emptySaveFeedbackState = (): SaveFeedbackState => ({
-  gemini: null,
-  zenmux: null,
-  fal: null,
-});
+const emptyFormState = (): FormState => buildFormState(null);
+
+const emptySaveFeedbackState = (): SaveFeedbackState =>
+  PROVIDER_IDS.reduce(
+    (state, provider) => ({
+      ...state,
+      [provider]: null,
+    }),
+    {} as SaveFeedbackState,
+  );
 
 const getInitialProvider = (
   settings: PublicProviderSettings | null,
@@ -84,23 +90,7 @@ export const ProvidersDialog = ({
   );
 
   useEffect(() => {
-    setFormState({
-      gemini: {
-        apiKey: "",
-        defaultModel:
-          providerSettings?.gemini.defaultModel || getDefaultModel("gemini"),
-      },
-      zenmux: {
-        apiKey: "",
-        defaultModel:
-          providerSettings?.zenmux.defaultModel || getDefaultModel("zenmux"),
-      },
-      fal: {
-        apiKey: "",
-        defaultModel:
-          providerSettings?.fal.defaultModel || getDefaultModel("fal"),
-      },
-    });
+    setFormState(buildFormState(providerSettings));
   }, [providerSettings, open]);
 
   useEffect(() => {
@@ -117,6 +107,10 @@ export const ProvidersDialog = ({
 
   const definition = getProviderDefinition(activeProvider);
   const settings = providerSettings?.[activeProvider];
+  const providerModels = getProviderModels(
+    activeProvider,
+    settings?.customModels ?? [],
+  );
 
   const handleSave = async () => {
     setSavingProvider(activeProvider);
@@ -245,9 +239,9 @@ export const ProvidersDialog = ({
                   }));
                 }}
               >
-                {Object.values(definition.models).map((model) => (
+                {Object.values(providerModels).map((model) => (
                   <option key={model.id} value={model.id}>
-                    {model.label}
+                    {model.custom ? `自定义：${model.label}` : model.label}
                   </option>
                 ))}
               </select>

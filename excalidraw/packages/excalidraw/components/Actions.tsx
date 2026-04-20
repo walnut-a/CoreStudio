@@ -291,6 +291,7 @@ export const SelectedShapeActions = ({
               {renderAction("alignBottom")}
               {targetElements.length > 2 &&
                 renderAction("distributeVertically")}
+              {renderAction("arrangeIntoGrid")}
             </div>
           </div>
         </fieldset>
@@ -735,6 +736,7 @@ const CombinedExtraActions = ({
                       {renderAction("alignBottom")}
                       {targetElements.length > 2 &&
                         renderAction("distributeVertically")}
+                      {renderAction("arrangeIntoGrid")}
                     </div>
                   </div>
                 </fieldset>

@@ -116,7 +116,7 @@ describe("selectionReference", () => {
 
     expect(exportToBlob).toHaveBeenCalled();
     expect(reference).toMatchObject({
-      enabled: false,
+      enabled: true,
       elementCount: 1,
       textCount: 1,
       textNotes: ["保留右上角状态灯"],
@@ -173,7 +173,7 @@ describe("selectionReference", () => {
 
     expect(exportToBlob).not.toHaveBeenCalled();
     expect(reference).toMatchObject({
-      enabled: false,
+      enabled: true,
       elementCount: 1,
       textCount: 0,
       image: {

@@ -1,10 +1,15 @@
 import React from "react";
+import { screen } from "@testing-library/react";
 
-import { DEFAULT_SIDEBAR } from "@excalidraw/common";
+import {
+  DEFAULT_SIDEBAR,
+  LIBRARY_SIDEBAR_TAB,
+} from "@excalidraw/common";
 
-import { DefaultSidebar } from "../index";
+import { DefaultSidebar, Excalidraw, Sidebar } from "../index";
 import {
   fireEvent,
+  render,
   waitFor,
   withExcalidrawDimensions,
 } from "../tests/test-utils";
@@ -17,6 +22,45 @@ import {
 const { h } = window;
 
 describe("DefaultSidebar", () => {
+  it("can hide the built-in library tab and recover from library as the active tab", async () => {
+    await render(
+      <Excalidraw
+        initialData={{
+          appState: {
+            openSidebar: {
+              name: DEFAULT_SIDEBAR.name,
+              tab: LIBRARY_SIDEBAR_TAB,
+            },
+          },
+        }}
+      >
+        <DefaultSidebar
+          showLibrary={false}
+          libraryFallbackTab="image-board-image-info"
+        >
+          <DefaultSidebar.TabTriggers>
+            <Sidebar.TabTrigger
+              tab="image-board-image-info"
+              aria-label="图片信息"
+            >
+              图片信息
+            </Sidebar.TabTrigger>
+          </DefaultSidebar.TabTriggers>
+          <Sidebar.Tab tab="image-board-image-info">
+            <div>图片信息内容</div>
+          </Sidebar.Tab>
+        </DefaultSidebar>
+      </Excalidraw>,
+    );
+
+    await waitFor(() => {
+      expect(h.state.openSidebar?.tab).toBe("image-board-image-info");
+    });
+
+    expect(screen.queryByRole("button", { name: "素材库" })).toBeNull();
+    expect(screen.getByText("图片信息内容")).toBeInTheDocument();
+  });
+
   it("when `docked={undefined}` & `onDock={undefined}`, should allow docking", async () => {
     await assertExcalidrawWithSidebar(
       <DefaultSidebar />,

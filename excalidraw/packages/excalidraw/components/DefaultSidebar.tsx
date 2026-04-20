@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useEffect } from "react";
 
 import {
   CANVAS_SEARCH_TAB,
@@ -22,6 +23,7 @@ import { withInternalFallback } from "./hoc/withInternalFallback";
 import { LibraryIcon, searchIcon } from "./icons";
 
 import type { SidebarProps, SidebarTriggerProps } from "./Sidebar/common";
+import type { SidebarTabName } from "../types";
 
 const DefaultSidebarTrigger = withInternalFallback(
   "DefaultSidebarTrigger",
@@ -61,12 +63,18 @@ export const DefaultSidebar = Object.assign(
       className,
       onDock,
       docked,
+      showLibrary = true,
+      libraryFallbackTab = CANVAS_SEARCH_TAB,
       ...rest
     }: Merge<
       MarkOptional<Omit<SidebarProps, "name">, "children">,
       {
         /** pass `false` to disable docking */
         onDock?: SidebarProps["onDock"] | false;
+        /** pass `false` when the host app does not expose Excalidraw's library UI */
+        showLibrary?: boolean;
+        /** tab to show if restored state still points at the hidden library tab */
+        libraryFallbackTab?: SidebarTabName;
       }
     >) => {
       const appState = useUIAppState();
@@ -75,6 +83,33 @@ export const DefaultSidebar = Object.assign(
       const { DefaultSidebarTabTriggersTunnel } = useTunnels();
 
       const isForceDocked = appState.openSidebar?.tab === CANVAS_SEARCH_TAB;
+      const resolvedLibraryFallbackTab =
+        libraryFallbackTab === LIBRARY_SIDEBAR_TAB
+          ? CANVAS_SEARCH_TAB
+          : libraryFallbackTab;
+
+      useEffect(() => {
+        if (
+          showLibrary ||
+          appState.openSidebar?.name !== DEFAULT_SIDEBAR.name ||
+          appState.openSidebar.tab !== LIBRARY_SIDEBAR_TAB
+        ) {
+          return;
+        }
+
+        setAppState({
+          openSidebar: {
+            name: DEFAULT_SIDEBAR.name,
+            tab: resolvedLibraryFallbackTab,
+          },
+        });
+      }, [
+        appState.openSidebar?.name,
+        appState.openSidebar?.tab,
+        resolvedLibraryFallbackTab,
+        setAppState,
+        showLibrary,
+      ]);
 
       return (
         <Sidebar
@@ -102,15 +137,19 @@ export const DefaultSidebar = Object.assign(
                 <Sidebar.TabTrigger tab={CANVAS_SEARCH_TAB}>
                   {searchIcon}
                 </Sidebar.TabTrigger>
-                <Sidebar.TabTrigger tab={LIBRARY_SIDEBAR_TAB}>
-                  {LibraryIcon}
-                </Sidebar.TabTrigger>
+                {showLibrary && (
+                  <Sidebar.TabTrigger tab={LIBRARY_SIDEBAR_TAB}>
+                    {LibraryIcon}
+                  </Sidebar.TabTrigger>
+                )}
                 <DefaultSidebarTabTriggersTunnel.Out />
               </Sidebar.TabTriggers>
             </Sidebar.Header>
-            <Sidebar.Tab tab={LIBRARY_SIDEBAR_TAB}>
-              <LibraryMenu />
-            </Sidebar.Tab>
+            {showLibrary && (
+              <Sidebar.Tab tab={LIBRARY_SIDEBAR_TAB}>
+                <LibraryMenu />
+              </Sidebar.Tab>
+            )}
             <Sidebar.Tab tab={CANVAS_SEARCH_TAB}>
               <SearchMenu />
             </Sidebar.Tab>

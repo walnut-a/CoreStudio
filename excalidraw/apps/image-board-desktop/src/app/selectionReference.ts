@@ -129,6 +129,15 @@ export const getSelectedReferenceElements = (
   );
 };
 
+export const getSelectionReferenceSignature = (scene: SceneSnapshot | null) => {
+  const selectedElements = getSelectedReferenceElements(scene);
+  if (!selectedElements.length) {
+    return null;
+  }
+
+  return selectedElements.map((element) => element.id).sort().join("|");
+};
+
 export const extractReferenceTextNotes = (
   elements: readonly ExcalidrawElement[],
 ) => {
@@ -154,7 +163,7 @@ export const buildSelectionReferenceSummary = (
 
   const textNotes = extractReferenceTextNotes(selectedElements);
   return {
-    enabled: false,
+    enabled: true,
     elementCount: selectedElements.length,
     textCount: textNotes.length,
     ...(textNotes.length ? { textNotes } : {}),

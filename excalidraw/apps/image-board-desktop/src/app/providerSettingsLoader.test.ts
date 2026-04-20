@@ -33,6 +33,27 @@ const providerSettingsFixture: PublicProviderSettings = {
     lastCheckedAt: null,
     lastError: null,
   },
+  jimeng: {
+    isConfigured: false,
+    defaultModel: "doubao-seedream-5-0-lite-260128",
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  openai: {
+    isConfigured: false,
+    defaultModel: "gpt-image-1.5",
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  openrouter: {
+    isConfigured: false,
+    defaultModel: "google/gemini-3.1-flash-image-preview",
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
 };
 
 describe("loadProviderSettingsWithRetry", () => {

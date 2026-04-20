@@ -1,14 +1,27 @@
-export type ProviderId = "gemini" | "zenmux" | "fal";
+export type ProviderId =
+  | "gemini"
+  | "zenmux"
+  | "fal"
+  | "jimeng"
+  | "openai"
+  | "openrouter";
 
 export type GenerationField =
   | "prompt"
   | "negativePrompt"
   | "width"
   | "height"
+  | "aspectRatio"
   | "seed"
   | "imageCount";
 
 export type SizeControlMode = "exact" | "aspect-ratio";
+
+export type CustomModelCapabilityTemplateId =
+  | "image-editing-aspect-ratio"
+  | "text-to-image-aspect-ratio"
+  | "text-to-image-exact"
+  | "seeded-exact";
 
 export interface ProviderCapabilities {
   supportsNegativePrompt: boolean;
@@ -19,10 +32,18 @@ export interface ProviderCapabilities {
   sizeControlMode: SizeControlMode;
 }
 
+export interface AspectRatioOption {
+  id: string;
+  label: string;
+  width: number;
+  height: number;
+}
+
 export interface ProviderModelDefinition {
   id: string;
   label: string;
   capabilities: ProviderCapabilities;
+  custom?: boolean;
 }
 
 export interface ProviderDefinition {
@@ -30,6 +51,13 @@ export interface ProviderDefinition {
   label: string;
   defaultModel: string;
   models: Record<string, ProviderModelDefinition>;
+}
+
+export interface CustomProviderModel {
+  id: string;
+  label?: string;
+  capabilityTemplate: CustomModelCapabilityTemplateId;
+  capabilities?: ProviderCapabilities;
 }
 
 export interface GenerationRequest {
@@ -85,6 +113,7 @@ export interface GenerationResponse {
 export interface ProviderSettings {
   apiKey: string;
   defaultModel?: string;
+  customModels?: CustomProviderModel[];
   lastStatus?: "unknown" | "success" | "error";
   lastCheckedAt?: string | null;
   lastError?: string | null;

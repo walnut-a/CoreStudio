@@ -55,6 +55,7 @@ export const isNonDeletedElement = <T extends ExcalidrawElement>(
 ): element is NonDeleted<T> => !element.isDeleted;
 
 export * from "./align";
+export * from "./arrange";
 export * from "./binding";
 export * from "./bounds";
 export * from "./collision";

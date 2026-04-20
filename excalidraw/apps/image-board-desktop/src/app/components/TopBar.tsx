@@ -6,7 +6,6 @@ interface TopBarProps {
   onOpenProject: () => void;
   onImportImages: () => void;
   onRevealProject: () => void;
-  onOpenProviders: () => void;
 }
 
 export const TopBar = ({
@@ -14,7 +13,6 @@ export const TopBar = ({
   onOpenProject,
   onImportImages,
   onRevealProject,
-  onOpenProviders,
 }: TopBarProps) => {
   return (
     <div className="image-board-toolbar">
@@ -28,12 +26,6 @@ export const TopBar = ({
         </DesktopButton>
         <DesktopButton type="button" onClick={onRevealProject}>
           {copy.toolbar.revealProject}
-        </DesktopButton>
-      </div>
-
-      <div className="image-board-toolbar__group">
-        <DesktopButton type="button" onClick={onOpenProviders}>
-          {copy.toolbar.providers}
         </DesktopButton>
       </div>
     </div>

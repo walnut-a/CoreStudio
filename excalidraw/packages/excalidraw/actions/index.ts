@@ -62,6 +62,8 @@ export {
   actionAlignHorizontallyCentered,
 } from "./actionAlign";
 
+export { actionArrangeIntoGrid } from "./actionArrange";
+
 export {
   distributeHorizontally,
   distributeVertically,

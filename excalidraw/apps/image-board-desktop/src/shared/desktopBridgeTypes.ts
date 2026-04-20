@@ -81,6 +81,7 @@ export interface SaveProviderSettingsInput {
   provider: ProviderId;
   apiKey: string;
   defaultModel?: string;
+  customModels?: ProviderSettings["customModels"];
 }
 
 export interface GenerateImagesInput {

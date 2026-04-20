@@ -1,6 +1,6 @@
 # CoreStudio
 
-CoreStudio 是一款面向工业设计与 AI 生图探索的本机桌面画板。它以 [Excalidraw](https://github.com/excalidraw/excalidraw) 为画布基础，保留自由排版、手绘线条、图形编辑、文字标注、图片编排等核心能力，并加入更适合图片方案推演的本机项目、多模型生图、选区引用、参数侧栏和元素整理。
+CoreStudio 是一款面向工业设计与 AI 生图探索的桌面客户端。它以 [Excalidraw](https://github.com/excalidraw/excalidraw) 为画布基础，通过 Electron 打包成可以本地运行的客户端；项目、画布和已有图片资源都保存在本地，可以离线打开和编辑。CoreStudio 保留自由排版、手绘线条、图形编辑、文字标注、图片编排等核心能力，并加入更适合图片方案推演的本地项目、多模型生图、选区引用、参数侧栏和元素整理。
 
 它的核心体验是把生成结果直接放到画板上：生成、比较、标注、引用、继续调整，都围绕同一张画布完成。设计方向、参考图、提示词和结果图片可以放在一起看，适合做产品造型、风格探索、方案对比和设计过程记录。
 
@@ -13,13 +13,13 @@ CoreStudio 基于 Excalidraw 构建：
 - `excalidraw/apps/image-board-desktop/` 是 CoreStudio 新增的 Electron 桌面端。
 - 顶层仓库用于 CoreStudio 的产品说明、发布说明和 GitHub Release。
 
-Excalidraw 使用 MIT License，详见 [excalidraw/LICENSE](excalidraw/LICENSE)。CoreStudio 在 Excalidraw 的画布能力上扩展本机 AI 生图工作流。
+Excalidraw 使用 MIT License，详见 [excalidraw/LICENSE](excalidraw/LICENSE)。CoreStudio 在 Excalidraw 的画布能力上扩展本地客户端的 AI 生图工作流。
 
 ## 1.0 新功能
 
-### 本机项目
+### 本地项目
 
-CoreStudio 以“项目文件夹”为单位保存工作内容。一个项目可以包含画布、图片资源、生成参数、生成记录和调试信息，适合把同一组设计方向持续放在一个文件夹中维护。
+CoreStudio 以“项目文件夹”为单位保存工作内容。画布、图片资源、生成参数、生成记录和调试信息都放在本地项目目录里，适合把同一组设计方向持续放在一个文件夹中维护。即使没有网络，也可以打开项目、整理画布和查看已有记录；调用云端模型生成图片时需要对应服务可用。
 
 项目文件夹大致包含：
 
@@ -48,7 +48,7 @@ My Project/
 
 ### 多模型服务和 BYOK
 
-CoreStudio 支持用户自行配置 API Key。密钥只保存在本机，不写入仓库，也不进入安装包。
+CoreStudio 支持用户自行配置 API Key。密钥只保存在当前电脑，不写入仓库，也不进入安装包。
 
 当前支持的服务包括：
 
@@ -115,7 +115,7 @@ CoreStudio 在 Excalidraw 的元素操作里增加了“整理为网格”的能
 
 1.0 版本同步整理了桌面端的基础体验：
 
-- 启动页改成更清楚的本机项目入口。
+- 启动页改成更清楚的本地项目入口。
 - 侧栏只由自身开关控制，点击画布不会自动关闭。
 - 右侧侧栏打开时，底部输入框会避开侧栏宽度。
 - macOS 顶部菜单精简为项目、导入、文件夹和模型服务等必要入口。
@@ -184,11 +184,11 @@ excalidraw/apps/image-board-desktop/release/
 
 ## 安全说明
 
-CoreStudio 的模型服务 Key 是本机配置，不进入源码仓库，不进入安装包。
+CoreStudio 的模型服务 Key 是本地配置，不进入源码仓库，不进入安装包。
 
-桌面端提供 `check-secrets` 脚本，会检查源码、打包输入和 release 输出，拦截常见 API Key、Bearer Token 以及本机 `image-board-settings.json` 配置文件。
+桌面端提供 `check-secrets` 脚本，会检查源码、打包输入和 release 输出，拦截常见 API Key、Bearer Token 以及本地 `image-board-settings.json` 配置文件。
 
-本机配置文件由 Electron 管理，支持 `safeStorage` 加密；在不可用环境下会保留兼容写法，但发布前扫描会阻止把真实配置带进包里。
+本地配置文件由 Electron 管理，支持 `safeStorage` 加密；在不可用环境下会保留兼容写法，但发布前扫描会阻止把真实配置带进包里。
 
 ## 仓库结构
 

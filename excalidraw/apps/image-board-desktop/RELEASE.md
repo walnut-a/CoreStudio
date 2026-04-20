@@ -16,7 +16,7 @@ excalidraw/apps/image-board-desktop/package.json
 1.0.0
 ```
 
-## 本机打包
+## 本地打包
 
 从代码工作区执行：
 
@@ -72,7 +72,7 @@ TeamIdentifier=CUP682RD2S
 
 ## Apple 公证
 
-本机已有 FileBox 共用的 `notarytool` profile：
+这台开发机已有 FileBox 共用的 `notarytool` profile：
 
 ```text
 filebox-notary
@@ -134,9 +134,9 @@ ditto -c -k --sequesterRsrc --keepParent "$TMP_DIR/CoreStudio.app" \
 corepack yarn check:desktop-secrets --source --package-inputs --release
 ```
 
-扫描会拦截常见 API Key、Bearer Token，以及本机 `image-board-settings.json` 配置文件。
+扫描会拦截常见 API Key、Bearer Token，以及本地 `image-board-settings.json` 配置文件。
 
-模型服务 Key 只保存在用户本机应用数据目录，不应该进入源码或安装包。
+模型服务 Key 只保存在用户本地应用数据目录，不应该进入源码或安装包。
 
 ## GitHub Release
 

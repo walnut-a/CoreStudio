@@ -8,6 +8,7 @@ import {
   createProjectStructure,
   persistImageAssets,
   readProjectBundle,
+  writeProjectScene,
 } from "./projectFs";
 
 const tempDirectories: string[] = [];
@@ -65,5 +66,147 @@ describe("projectFs", () => {
 
     const bundle = await readProjectBundle(project.projectPath);
     expect(bundle.imageRecords["file-123"].prompt).toBe("chair sketch");
+  });
+
+  it("backs up and rejects a non-empty scene before an empty autosave overwrite", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Scene Backup Test");
+    const nonEmptyScene = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "CoreStudio",
+      elements: [
+        {
+          id: "rect-1",
+          type: "rectangle",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+        },
+      ],
+      appState: {},
+      files: {},
+    });
+    const emptyScene = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "CoreStudio",
+      elements: [],
+      appState: {},
+      files: {},
+    });
+
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: nonEmptyScene,
+    });
+    await expect(
+      writeProjectScene({
+        projectPath: project.projectPath,
+        sceneJson: emptyScene,
+      }),
+    ).rejects.toThrow("检测到非空画板即将被空画板覆盖");
+
+    const bundle = await readProjectBundle(project.projectPath);
+    expect(bundle.sceneJson).toBe(nonEmptyScene);
+
+    const backupDir = path.join(
+      project.projectPath,
+      "exports",
+      "scene-backups",
+    );
+    const backups = await fs.readdir(backupDir);
+
+    expect(backups).toHaveLength(1);
+    await expect(
+      fs.readFile(path.join(backupDir, backups[0]), "utf8"),
+    ).resolves.toBe(nonEmptyScene);
+  });
+
+  it("uses unique backup names for repeated empty overwrite attempts", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Scene Backup Name Test");
+    const nonEmptyScene = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "CoreStudio",
+      elements: [
+        {
+          id: "rect-1",
+          type: "rectangle",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+        },
+      ],
+      appState: {},
+      files: {},
+    });
+    const emptyScene = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "CoreStudio",
+      elements: [],
+      appState: {},
+      files: {},
+    });
+
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: nonEmptyScene,
+    });
+    await expect(
+      writeProjectScene({
+        projectPath: project.projectPath,
+        sceneJson: emptyScene,
+      }),
+    ).rejects.toThrow("检测到非空画板即将被空画板覆盖");
+    await expect(
+      writeProjectScene({
+        projectPath: project.projectPath,
+        sceneJson: emptyScene,
+      }),
+    ).rejects.toThrow("检测到非空画板即将被空画板覆盖");
+
+    const backupDir = path.join(
+      project.projectPath,
+      "exports",
+      "scene-backups",
+    );
+    const backups = await fs.readdir(backupDir);
+
+    expect(new Set(backups).size).toBe(2);
+  });
+
+  it("rejects an empty save when the current scene JSON is damaged", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Damaged Scene Test");
+    await fs.writeFile(
+      path.join(project.projectPath, "scene.excalidraw.json"),
+      "{not-json",
+      "utf8",
+    );
+
+    await expect(
+      writeProjectScene({
+        projectPath: project.projectPath,
+        sceneJson: JSON.stringify({ elements: [], appState: {}, files: {} }),
+      }),
+    ).rejects.toThrow("当前画板文件无法解析");
+
+    await expect(
+      fs.readFile(
+        path.join(project.projectPath, "scene.excalidraw.json"),
+        "utf8",
+      ),
+    ).resolves.toBe("{not-json");
   });
 });

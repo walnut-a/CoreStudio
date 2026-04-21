@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import type { ImageRecord } from "../../shared/projectTypes";
 import type { ProviderId } from "../../shared/providerTypes";
 import type { ImageLineageEntry } from "../imageRelationships";
@@ -6,6 +8,7 @@ import {
   getImageSourceLabel,
   getOptionalText,
 } from "../copy";
+import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
 import { DesktopButton } from "./DesktopButton";
 
@@ -83,6 +86,9 @@ export const ImageInspector = ({
   onReuseSettings,
   onCopyTaskError,
 }: ImageInspectorProps) => {
+  const inspectorRef = useRef<HTMLElement | null>(null);
+  usePlainTextCopyWithin(inspectorRef);
+
   const handleScrollWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     const container = event.currentTarget;
     const maxScrollTop = Math.max(
@@ -108,7 +114,7 @@ export const ImageInspector = ({
       task.status === "error" ? copy.inspector.taskFailed : copy.inspector.taskPending;
 
     return (
-      <section className="image-inspector">
+      <section className="image-inspector" ref={inspectorRef}>
         <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
           <header className="image-inspector__hero">
             <div className="image-inspector__hero-main">
@@ -194,7 +200,10 @@ export const ImageInspector = ({
 
   if (!record) {
     return (
-      <section className="image-inspector image-inspector--empty">
+      <section
+        className="image-inspector image-inspector--empty"
+        ref={inspectorRef}
+      >
         <div className="image-inspector__empty-card">
           <h2>{copy.inspector.title}</h2>
           <p>{copy.inspector.empty}</p>
@@ -209,11 +218,10 @@ export const ImageInspector = ({
   const parentSummary = getParentImageSummary(record, parentRecord);
 
   return (
-    <section className="image-inspector">
+    <section className="image-inspector" ref={inspectorRef}>
       <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
         <header className="image-inspector__hero">
           <div className="image-inspector__hero-main">
-            <span className="image-inspector__eyebrow">{sourceLabel}</span>
             <h2>{imageTitle}</h2>
             <p>{modelText}</p>
           </div>

@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { newFrameElement } from "@excalidraw/element";
 
 import App from "./App";
+import { rememberGenerationModelSelection } from "./generationModelSelection";
 
 let triggerExcalidrawInitialize: (() => void) | null = null;
 let triggerExcalidrawChange:
@@ -373,6 +374,8 @@ vi.mock("./components/GenerateImageDialog", () => ({
   GenerateImageDialog: ({
     open,
     initialRequest,
+    error,
+    onOpenErrorDetails,
     onSubmit,
   }: {
     open: boolean;
@@ -395,6 +398,8 @@ vi.mock("./components/GenerateImageDialog", () => ({
         textCount: number;
       } | null;
     };
+    error: string | null;
+    onOpenErrorDetails?: () => void;
     onSubmit: (
       request: {
         provider:
@@ -422,8 +427,20 @@ vi.mock("./components/GenerateImageDialog", () => ({
       <div>
         <div>生成图片弹窗</div>
         <div data-testid="generate-dialog-prompt">{initialRequest.prompt}</div>
+        <div data-testid="generate-dialog-provider">{initialRequest.provider}</div>
+        <div data-testid="generate-dialog-model">{initialRequest.model}</div>
         {initialRequest.reference ? (
           <div>{`参考元素: ${initialRequest.reference.elementCount}`}</div>
+        ) : null}
+        {error ? (
+          <div role="alert">
+            <span>{error}</span>
+            {onOpenErrorDetails ? (
+              <button type="button" onClick={onOpenErrorDetails}>
+                查看详细报错
+              </button>
+            ) : null}
+          </div>
         ) : null}
         <button type="button" onClick={() => onSubmit(initialRequest, false)}>
           提交生成
@@ -518,6 +535,9 @@ vi.mock("./project/sceneSerialization", () => ({
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  window.localStorage.clear();
   delete window.imageBoardDesktop;
   triggerExcalidrawInitialize = null;
   triggerExcalidrawChange = null;
@@ -679,6 +699,599 @@ describe("App startup", () => {
     });
   });
 
+  it("does not autosave canvas changes while Excalidraw is still initializing", async () => {
+    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: JSON.stringify({
+          elements: [
+            {
+              id: "existing-element",
+              type: "rectangle",
+              x: 10,
+              y: 20,
+              width: 100,
+              height: 80,
+              isDeleted: false,
+            },
+          ],
+          appState: {},
+        }),
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene,
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("正在加载画板…")).toBeInTheDocument();
+    });
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [],
+        appState: {
+          selectedElementIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 850));
+    });
+
+    expect(writeProjectScene).not.toHaveBeenCalled();
+  });
+
+  it("keeps autosave blocked after the loading fallback hides before editor init", async () => {
+    vi.useFakeTimers();
+    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: JSON.stringify({
+          elements: [
+            {
+              id: "existing-element",
+              type: "rectangle",
+              x: 10,
+              y: 20,
+              width: 100,
+              height: 80,
+              isDeleted: false,
+            },
+          ],
+          appState: {},
+        }),
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene,
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("正在加载画板…")).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [],
+        appState: {
+          selectedElementIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(800);
+    });
+
+    expect(writeProjectScene).not.toHaveBeenCalled();
+  });
+
+  it("stops project switching when the pending autosave fails", async () => {
+    const writeProjectScene = vi
+      .fn()
+      .mockRejectedValue(new Error("磁盘不可写"));
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
+    let menuActionListener:
+      | ((event: {
+          action: string;
+          openRequestId?: number;
+          projectBundle?: Record<string, unknown> | null;
+        }) => void)
+      | null = null;
+    const projectBBundle = {
+      projectPath: "/tmp/project-b",
+      project: {
+        formatVersion: 1,
+        appVersion: "0.0.0-test",
+        name: "项目 B",
+        createdAt: "2026-04-12T08:00:00.000Z",
+        updatedAt: "2026-04-12T08:00:00.000Z",
+        sceneFile: "scene.excalidraw.json",
+        imageRecordsFile: "image-records.json",
+        assetsDir: "assets",
+        exportsDir: "exports",
+      },
+      sceneJson: JSON.stringify({ elements: [], appState: {} }),
+      imageRecords: {},
+    };
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/project-a",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "项目 A",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: JSON.stringify({ elements: [], appState: {} }),
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(projectBBundle),
+      writeProjectScene,
+      readProjectAssetPayloads,
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "rect-a",
+            type: "rectangle",
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            isDeleted: false,
+          },
+        ],
+        appState: {
+          selectedElementIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "project-opened",
+        openRequestId: 1,
+        projectBundle: projectBBundle,
+      });
+    });
+
+    expect(writeProjectScene).toHaveBeenCalledWith({
+      projectPath: "/tmp/project-a",
+      sceneJson: "{}",
+    });
+    expect(readProjectAssetPayloads).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/旧项目未能保存/)).toBeInTheDocument();
+    expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("flushes pending autosave when the desktop shell requests it", async () => {
+    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+    let flushListener: (() => Promise<void> | void) | null = null;
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: JSON.stringify({ elements: [], appState: {} }),
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene,
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn(() => () => undefined),
+      onFlushAutosaveRequest: vi.fn((listener) => {
+        flushListener = listener;
+        return () => undefined;
+      }),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "rect-a",
+            type: "rectangle",
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            isDeleted: false,
+          },
+        ],
+        appState: {
+          selectedElementIds: {},
+        },
+        files: {},
+      });
+    });
+
+    expect(flushListener).not.toBeNull();
+    await act(async () => {
+      await flushListener?.();
+    });
+
+    expect(writeProjectScene).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      sceneJson: "{}",
+    });
+  });
+
+  it("defaults generation settings to the first configured provider without local memory", async () => {
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: "{}",
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/nano-banana-2",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        jimeng: {
+          defaultModel: "doubao-seedream-5-0-lite-260128",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await screen.findByText("生成图片弹窗");
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-dialog-provider")).toHaveTextContent(
+        "fal",
+      );
+    });
+    expect(screen.getByTestId("generate-dialog-model")).toHaveTextContent(
+      "fal-ai/nano-banana-2",
+    );
+  });
+
+  it("prefers remembered generation settings over configured providers", async () => {
+    rememberGenerationModelSelection({
+      provider: "openrouter",
+      model: "google/gemini-3.1-flash-image-preview",
+    });
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: "{}",
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/nano-banana-2",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        openrouter: {
+          defaultModel: "google/gemini-3.1-flash-image-preview",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await screen.findByText("生成图片弹窗");
+    expect(screen.getByTestId("generate-dialog-provider")).toHaveTextContent(
+      "openrouter",
+    );
+    expect(screen.getByTestId("generate-dialog-model")).toHaveTextContent(
+      "google/gemini-3.1-flash-image-preview",
+    );
+  });
+
   it("shows recent projects on the welcome screen and opens them directly", async () => {
     const openRecentProject = vi.fn().mockResolvedValue({
       projectPath: "/Users/zhaolixing/Documents/工业设计助手/常用项目",
@@ -744,12 +1357,13 @@ describe("App startup", () => {
     render(<App />);
 
     expect(await screen.findByText("最近打开")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "继续最近项目" }),
-    ).toBeInTheDocument();
+    const continueRecentProjectButton = await screen.findByRole("button", {
+      name: "继续最近项目",
+    });
+    expect(continueRecentProjectButton).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "继续最近项目" }));
+      fireEvent.click(continueRecentProjectButton);
     });
     act(() => {
       triggerExcalidrawInitialize?.();
@@ -847,6 +1461,213 @@ describe("App startup", () => {
       );
     });
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("opens a project bundle sent directly by the native menu", async () => {
+    const openProject = vi.fn().mockResolvedValue(null);
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
+    let menuActionListener:
+      | ((event: {
+          action: string;
+          projectBundle?: Record<string, unknown> | null;
+        }) => void)
+      | null = null;
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue(null),
+      openProject,
+      openRecentProject: vi.fn().mockResolvedValue(null),
+      loadRecentProjects: vi.fn().mockResolvedValue([]),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads,
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    } as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "project-opened",
+        projectBundle: {
+          projectPath: "/Users/zhaolixing/Documents/工业设计助手/常用项目",
+          project: {
+            formatVersion: 1,
+            appVersion: "0.0.0-test",
+            name: "常用项目",
+            createdAt: "2026-04-12T08:00:00.000Z",
+            updatedAt: "2026-04-12T08:00:00.000Z",
+            sceneFile: "scene.excalidraw.json",
+            imageRecordsFile: "image-records.json",
+            assetsDir: "assets",
+            exportsDir: "exports",
+          },
+          sceneJson: "{}",
+          imageRecords: {},
+        },
+      });
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/Users/zhaolixing/Documents/工业设计助手/常用项目",
+        fileIds: [],
+      });
+    });
+    expect(openProject).not.toHaveBeenCalled();
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("ignores stale native menu project bundles that arrive out of order", async () => {
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
+    let menuActionListener:
+      | ((event: {
+          action: string;
+          openRequestId?: number;
+          projectBundle?: Record<string, unknown> | null;
+        }) => void)
+      | null = null;
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue(null),
+      openProject: vi.fn().mockResolvedValue(null),
+      openRecentProject: vi.fn().mockResolvedValue(null),
+      loadRecentProjects: vi.fn().mockResolvedValue([]),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads,
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "imagen-4.0-fast-generate-001",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/flux/schnell",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages: vi.fn(),
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    } as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    const newerBundle = {
+      projectPath: "/tmp/project-b",
+      project: {
+        formatVersion: 1,
+        appVersion: "0.0.0-test",
+        name: "项目 B",
+        createdAt: "2026-04-12T08:00:00.000Z",
+        updatedAt: "2026-04-12T08:00:00.000Z",
+        sceneFile: "scene.excalidraw.json",
+        imageRecordsFile: "image-records.json",
+        assetsDir: "assets",
+        exportsDir: "exports",
+      },
+      sceneJson: "{}",
+      imageRecords: {},
+    };
+    const staleBundle = {
+      projectPath: "/tmp/project-a",
+      project: {
+        ...newerBundle.project,
+        name: "项目 A",
+      },
+      sceneJson: "{}",
+      imageRecords: {},
+    };
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "project-opened",
+        openRequestId: 2,
+        projectBundle: newerBundle,
+      });
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/project-b",
+        fileIds: [],
+      });
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "project-opened",
+        openRequestId: 1,
+        projectBundle: staleBundle,
+      });
+    });
+
+    expect(readProjectAssetPayloads).not.toHaveBeenCalledWith({
+      projectPath: "/tmp/project-a",
+      fileIds: [],
+    });
   });
 
   it("shows a visible error instead of a white screen when a recent project crashes during render", async () => {

@@ -57,6 +57,12 @@ import {
   deserializeSceneFromProject,
   serializeSceneForProject,
 } from "./project/sceneSerialization";
+import {
+  readRememberedGenerationModelSelection,
+  rememberGenerationModelSelection,
+  resolvePreferredGenerationModelSelection,
+  type GenerationModelSelection,
+} from "./generationModelSelection";
 import { loadProviderSettingsWithRetry } from "./providerSettingsLoader";
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
 import {
@@ -87,17 +93,39 @@ import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import "./App.css";
 
-const defaultGenerationRequest = (): GenerationRequest => ({
-  provider: "gemini",
-  model: getDefaultModel("gemini"),
-  prompt: "",
-  negativePrompt: "",
-  width: 1024,
-  height: 1024,
-  seed: null,
-  imageCount: 1,
-  reference: null,
-});
+const createGenerationRequestFromSelection = (
+  selection: GenerationModelSelection,
+  providerSettings: PublicProviderSettings | null,
+): GenerationRequest =>
+  normalizeGenerationRequest(
+    {
+      provider: selection.provider,
+      model: selection.model,
+      prompt: "",
+      negativePrompt: "",
+      width: 1024,
+      height: 1024,
+      seed: null,
+      imageCount: 1,
+      reference: null,
+    },
+    {
+      customModels:
+        providerSettings?.[selection.provider]?.customModels ?? [],
+    },
+  );
+
+const defaultGenerationRequest = (
+  providerSettings: PublicProviderSettings | null,
+  rememberedSelection: GenerationModelSelection | null,
+): GenerationRequest =>
+  createGenerationRequestFromSelection(
+    resolvePreferredGenerationModelSelection({
+      providerSettings,
+      rememberedSelection,
+    }),
+    providerSettings,
+  );
 
 const extractBase64 = (dataURL: string) => {
   const [, payload = ""] = dataURL.split(",", 2);
@@ -155,6 +183,13 @@ interface GenerationErrorDetails {
   rawMessage: string;
   stack: string | null;
   requestPayload: string | null;
+}
+
+interface AutosaveSnapshot {
+  project: DesktopProjectBundle;
+  elements: readonly ExcalidrawElement[];
+  appState: AppState;
+  files: BinaryFiles;
 }
 
 interface ProjectRenderBoundaryProps {
@@ -383,6 +418,19 @@ const App = () => {
   const desktopBridge = bridge!;
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
+  const pendingAutosaveRef = useRef<AutosaveSnapshot | null>(null);
+  const autosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const isEditorInitializingRef = useRef(false);
+  const initializingRenderNonceRef = useRef<number | null>(null);
+  const projectRenderNonceRef = useRef(0);
+  const projectOpenSequenceRef = useRef(0);
+  const latestMenuProjectOpenRequestIdRef = useRef(0);
+  const rememberedGenerationModelSelectionRef = useRef(
+    readRememberedGenerationModelSelection(),
+  );
+  const generationModelSelectionLockedRef = useRef(
+    Boolean(rememberedGenerationModelSelectionRef.current),
+  );
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
   const latestSceneRef = useRef<{
     elements: readonly ExcalidrawElement[];
@@ -405,7 +453,12 @@ const App = () => {
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(null);
   const [selectedTask, setSelectedTask] = useState<GenerationTaskRecord | null>(null);
-  const [generateRequest, setGenerateRequest] = useState(defaultGenerationRequest);
+  const [generateRequest, setGenerateRequest] = useState(() =>
+    defaultGenerationRequest(
+      null,
+      rememberedGenerationModelSelectionRef.current,
+    ),
+  );
   const [loadingProject, setLoadingProject] = useState(false);
   const [savingProviders, setSavingProviders] = useState(false);
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
@@ -419,6 +472,7 @@ const App = () => {
   const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
+  const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [defaultSidebarTab, setDefaultSidebarTab] = useState<SidebarTabName>(
     IMAGE_INFO_SIDEBAR_TAB,
   );
@@ -440,6 +494,41 @@ const App = () => {
     setCurrentProject(project);
   };
 
+  const updateEditorInitializing = (
+    initializing: boolean,
+    renderNonce?: number,
+  ) => {
+    if (
+      !initializing &&
+      renderNonce !== undefined &&
+      initializingRenderNonceRef.current !== renderNonce
+    ) {
+      return false;
+    }
+
+    isEditorInitializingRef.current = initializing;
+    initializingRenderNonceRef.current = initializing
+      ? renderNonce ?? initializingRenderNonceRef.current
+      : null;
+    setIsEditorInitializing(initializing);
+    return true;
+  };
+
+  const hideEditorLoading = (renderNonce: number) => {
+    if (initializingRenderNonceRef.current !== renderNonce) {
+      return;
+    }
+    setIsEditorInitializing(false);
+  };
+
+  const beginProjectOpen = () => {
+    projectOpenSequenceRef.current += 1;
+    return projectOpenSequenceRef.current;
+  };
+
+  const isCurrentProjectOpen = (sequence: number) =>
+    projectOpenSequenceRef.current === sequence;
+
   const getGenerationAnchorBounds = (request: GenerationRequest) => {
     if (!request.reference?.enabled) {
       return null;
@@ -456,7 +545,27 @@ const App = () => {
     }
 
     try {
-      setProviderSettings(await loadProviderSettingsWithRetry(bridge));
+      const nextProviderSettings = await loadProviderSettingsWithRetry(bridge);
+      setProviderSettings(nextProviderSettings);
+      if (!generationModelSelectionLockedRef.current) {
+        const selection = resolvePreferredGenerationModelSelection({
+          providerSettings: nextProviderSettings,
+          rememberedSelection: null,
+        });
+        setGenerateRequest((current) =>
+          normalizeGenerationRequest(
+            {
+              ...current,
+              provider: selection.provider,
+              model: selection.model,
+            },
+            {
+              customModels:
+                nextProviderSettings[selection.provider]?.customModels ?? [],
+            },
+          ),
+        );
+      }
       setStartupError(null);
     } catch (error: any) {
       setStartupError(error?.message || copy.startup.providerLoadFailed);
@@ -497,34 +606,118 @@ const App = () => {
     return details;
   };
 
+  const getErrorText = (error: unknown, fallbackMessage: string) =>
+    error instanceof Error ? error.message : String(error || fallbackMessage);
+
+  const reportAutosaveError = (error: unknown) => {
+    console.error("[project:autosave-failed]", error);
+    setProjectError(getErrorText(error, copy.startup.saveProjectFailed));
+  };
+
   useEffect(() => {
+    bridge?.notifyRendererReady?.();
     void loadProviderState();
     void loadRecentProjectsState();
   }, [bridge]);
 
-  const openProjectBundle = async (bundle: DesktopProjectBundle | null) => {
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      void flushPendingAutosave();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      void flushPendingAutosave();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!bridge?.onFlushAutosaveRequest) {
+      return;
+    }
+
+    return bridge.onFlushAutosaveRequest(() =>
+      flushPendingAutosave({ strict: true }),
+    );
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!isEditorInitializing) {
+      return;
+    }
+
+    const renderNonce = projectRenderNonce;
+    const fallbackTimer = window.setTimeout(() => {
+      if (
+        renderNonce === projectRenderNonceRef.current &&
+        excalidrawAPIRef.current
+      ) {
+        hideEditorLoading(renderNonce);
+      }
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [isEditorInitializing, projectRenderNonce]);
+
+  const openProjectBundle = async (
+    bundle: DesktopProjectBundle | null,
+    sequence = beginProjectOpen(),
+  ) => {
     if (!bundle) {
+      if (isCurrentProjectOpen(sequence)) {
+        setLoadingProject(false);
+      }
       return;
     }
 
     setLoadingProject(true);
     setProjectError(null);
-    setIsEditorInitializing(true);
     try {
+      try {
+        await flushPendingAutosave({ strict: true });
+      } catch (error) {
+        if (isCurrentProjectOpen(sequence)) {
+          setProjectError(
+            `${copy.startup.saveBeforeOpenFailed} ${getErrorText(
+              error,
+              copy.startup.saveProjectFailed,
+            )}`,
+          );
+        }
+        return;
+      }
+
+      if (!isCurrentProjectOpen(sequence)) {
+        return;
+      }
+
       const restored = await deserializeSceneFromProject(bundle.sceneJson);
       const fileIds = collectImageFileIds(restored.elements || []);
       const assets = await desktopBridge.readProjectAssetPayloads({
         projectPath: bundle.projectPath,
         fileIds,
       });
+      if (!isCurrentProjectOpen(sequence)) {
+        return;
+      }
+
       const files = toBinaryFiles(assets, bundle.imageRecords);
       const nextInitialData: ExcalidrawInitialDataState = {
         elements: restored.elements,
         appState: restored.appState,
         files,
       };
+      const nextRenderNonce = projectRenderNonceRef.current + 1;
+      projectRenderNonceRef.current = nextRenderNonce;
+      excalidrawAPIRef.current = null;
+      updateEditorInitializing(true, nextRenderNonce);
       updateCurrentProject(bundle);
       setInitialData(nextInitialData);
+      setProjectRenderNonce(nextRenderNonce);
       latestSceneRef.current = {
         elements: restored.elements || [],
         appState: restored.appState as AppState,
@@ -539,24 +732,34 @@ const App = () => {
       setPendingGenerationCount(0);
       await loadRecentProjectsState();
     } catch (error: any) {
-      setProjectError(error.message || copy.startup.openProjectFailed);
-      setIsEditorInitializing(false);
+      if (isCurrentProjectOpen(sequence)) {
+        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
+        updateEditorInitializing(false);
+      }
     } finally {
-      setLoadingProject(false);
+      if (isCurrentProjectOpen(sequence)) {
+        setLoadingProject(false);
+      }
     }
   };
 
   const handleCreateProject = async () => {
-    await openProjectBundle(await desktopBridge.createProject());
+    const sequence = beginProjectOpen();
+    await openProjectBundle(await desktopBridge.createProject(), sequence);
   };
 
   const handleOpenProject = async () => {
-    await openProjectBundle(await desktopBridge.openProject());
+    const sequence = beginProjectOpen();
+    await openProjectBundle(await desktopBridge.openProject(), sequence);
   };
 
   const handleOpenRecentProject = async (projectPath: string) => {
+    const sequence = beginProjectOpen();
     try {
-      await openProjectBundle(await desktopBridge.openRecentProject?.(projectPath));
+      await openProjectBundle(
+        await desktopBridge.openRecentProject?.(projectPath),
+        sequence,
+      );
     } catch (error: any) {
       setProjectError(error?.message || copy.startup.openProjectFailed);
       await loadRecentProjectsState();
@@ -573,13 +776,13 @@ const App = () => {
       componentStack,
       projectPath: currentProjectRef.current?.projectPath || null,
     });
-    setIsEditorInitializing(false);
+    updateEditorInitializing(false);
   };
 
   const handleResetProjectView = () => {
     updateCurrentProject(null);
     setInitialData(null);
-    setIsEditorInitializing(false);
+    updateEditorInitializing(false);
   };
 
   const handleRevealProject = async () => {
@@ -969,14 +1172,10 @@ const App = () => {
   };
 
   const persistUnknownCanvasImages = async (
+    project: DesktopProjectBundle,
     elements: readonly ExcalidrawElement[],
     files: BinaryFiles,
   ) => {
-    const project = currentProjectRef.current;
-    if (!project) {
-      return {};
-    }
-
     const unknownAssets: PersistedImageAssetInput[] = elements.flatMap((element) => {
       if (
         element.isDeleted ||
@@ -1009,46 +1208,105 @@ const App = () => {
       projectPath: project.projectPath,
       files: unknownAssets,
     });
-    updateCurrentProject({
-      ...project,
-      imageRecords: nextImageRecords,
-    });
+    const activeProject = currentProjectRef.current;
+    if (activeProject?.projectPath === project.projectPath) {
+      updateCurrentProject({
+        ...activeProject,
+        imageRecords: nextImageRecords,
+      });
+    }
     return nextImageRecords;
   };
 
-  const scheduleAutosave = (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-    files: BinaryFiles,
-  ) => {
-    const project = currentProjectRef.current;
-    if (!project) {
+  const writeAutosaveSnapshot = async (snapshot: AutosaveSnapshot) => {
+    const nextImageRecords = await persistUnknownCanvasImages(
+      snapshot.project,
+      snapshot.elements,
+      snapshot.files,
+    );
+    const sceneJson = serializeSceneForProject({
+      elements: snapshot.elements,
+      appState: snapshot.appState,
+    });
+    await desktopBridge.writeProjectScene({
+      projectPath: snapshot.project.projectPath,
+      sceneJson,
+    });
+
+    if (currentProjectRef.current?.projectPath !== snapshot.project.projectPath) {
       return;
     }
+
+    setSelectedRecord(
+      buildSelectedImageRecord(
+        snapshot.elements,
+        snapshot.appState,
+        nextImageRecords,
+      ),
+    );
+    setSelectedTask(
+      buildSelectedGenerationTask(
+        snapshot.appState,
+        generationTaskByElementIdRef.current,
+      ),
+    );
+  };
+
+  const enqueueAutosaveWrite = (snapshot: AutosaveSnapshot) => {
+    const writePromise = autosaveQueueRef.current
+      .catch(() => undefined)
+      .then(() => writeAutosaveSnapshot(snapshot));
+    autosaveQueueRef.current = writePromise;
+    return writePromise;
+  };
+
+  const flushPendingAutosave = async ({
+    strict = false,
+  }: {
+    strict?: boolean;
+  } = {}) => {
+    if (autosaveTimerRef.current) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    const snapshot = pendingAutosaveRef.current;
+    pendingAutosaveRef.current = null;
+    if (snapshot) {
+      try {
+        await enqueueAutosaveWrite(snapshot);
+      } catch (error) {
+        if (strict) {
+          throw error;
+        }
+        reportAutosaveError(error);
+      }
+      return;
+    }
+
+    try {
+      await autosaveQueueRef.current;
+    } catch (error) {
+      if (strict) {
+        throw error;
+      }
+    }
+  };
+
+  const scheduleAutosave = (snapshot: AutosaveSnapshot) => {
+    pendingAutosaveRef.current = snapshot;
 
     if (autosaveTimerRef.current) {
       window.clearTimeout(autosaveTimerRef.current);
     }
 
-    autosaveTimerRef.current = window.setTimeout(async () => {
-      const nextImageRecords = await persistUnknownCanvasImages(elements, files);
-      const sceneJson = serializeSceneForProject({
-        elements,
-        appState,
-      });
-      await desktopBridge.writeProjectScene({
-        projectPath: project.projectPath,
-        sceneJson,
-      });
-
-      const selected = buildSelectedImageRecord(elements, appState, nextImageRecords);
-      setSelectedRecord(selected);
-      setSelectedTask(
-        buildSelectedGenerationTask(
-          appState,
-          generationTaskByElementIdRef.current,
-        ),
-      );
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+      const pendingSnapshot = pendingAutosaveRef.current;
+      pendingAutosaveRef.current = null;
+      if (pendingSnapshot) {
+        void enqueueAutosaveWrite(pendingSnapshot).catch(reportAutosaveError);
+      }
     }, 700);
   };
 
@@ -1226,6 +1484,22 @@ const App = () => {
     }
   };
 
+  const handleGenerateRequestChange = (request: GenerationRequest) => {
+    setGenerateRequest(
+      normalizeGenerationRequest(request, {
+        customModels: providerSettings?.[request.provider]?.customModels ?? [],
+      }),
+    );
+  };
+
+  const handleRememberGenerationModelSelection = (
+    selection: GenerationModelSelection,
+  ) => {
+    generationModelSelectionLockedRef.current = true;
+    rememberedGenerationModelSelectionRef.current = selection;
+    rememberGenerationModelSelection(selection);
+  };
+
   const handleCopyPrompt = async () => {
     if (!selectedRecord?.prompt) {
       return;
@@ -1284,18 +1558,69 @@ const App = () => {
     setDefaultSidebarTab(state.tab);
   };
 
+  const handleEditorReady = (
+    api: ExcalidrawImperativeAPI | null,
+    renderNonce: number,
+  ) => {
+    if (renderNonce !== projectRenderNonceRef.current) {
+      return;
+    }
+
+    if (api) {
+      excalidrawAPIRef.current = api;
+    }
+
+    const clearInitializing = () => {
+      updateEditorInitializing(false, renderNonce);
+    };
+
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(clearInitializing);
+      return;
+    }
+
+    window.setTimeout(clearInitializing, 0);
+  };
+
   useDesktopMenuEvents((event) => {
     switch (event.action) {
       case "new-project":
-        handleCreateProject();
+        void handleCreateProject();
         break;
       case "open-project":
-        handleOpenProject();
+        void handleOpenProject();
         break;
       case "open-recent-project":
         if (event.projectPath) {
           void handleOpenRecentProject(event.projectPath);
         }
+        break;
+      case "project-opened":
+        if (event.projectBundle) {
+          if (
+            event.openRequestId !== undefined &&
+            event.openRequestId < latestMenuProjectOpenRequestIdRef.current
+          ) {
+            break;
+          }
+          if (event.openRequestId !== undefined) {
+            latestMenuProjectOpenRequestIdRef.current = event.openRequestId;
+          }
+          const sequence = beginProjectOpen();
+          void openProjectBundle(event.projectBundle, sequence);
+        }
+        break;
+      case "project-open-failed":
+        if (
+          event.openRequestId !== undefined &&
+          event.openRequestId < latestMenuProjectOpenRequestIdRef.current
+        ) {
+          break;
+        }
+        if (event.openRequestId !== undefined) {
+          latestMenuProjectOpenRequestIdRef.current = event.openRequestId;
+        }
+        setProjectError(event.errorMessage || copy.startup.openProjectFailed);
         break;
       case "import-images":
         handleImportImages();
@@ -1347,26 +1672,14 @@ const App = () => {
     );
   }
 
+  const projectRenderKey = `${currentProject.projectPath}:${projectRenderNonce}`;
+
   return (
     <div className="image-board-app">
       {startupError && <div className="app-startup-error">{startupError}</div>}
       {projectError && <div className="dialog-card__error">{projectError}</div>}
-      {generationError && (
-        <div className="dialog-card__error dialog-card__error--actionable">
-          <div className="dialog-card__error-copy">{generationError}</div>
-          {generationErrorDetails && (
-            <DesktopButton
-              type="button"
-              className="dialog-card__error-action"
-              onClick={() => setGenerationErrorDetailsOpen(true)}
-            >
-              {copy.debugError.view}
-            </DesktopButton>
-          )}
-        </div>
-      )}
       <ProjectRenderBoundary
-        projectKey={currentProject.projectPath}
+        projectKey={projectRenderKey}
         onError={handleProjectRenderError}
         onReset={handleResetProjectView}
       >
@@ -1381,15 +1694,16 @@ const App = () => {
               </div>
             )}
             <Excalidraw
-              key={currentProject.projectPath}
+              key={projectRenderKey}
               langCode={DESKTOP_LANG_CODE}
               initialData={initialData}
               onInitialize={(api) => {
-                excalidrawAPIRef.current = api;
-                setIsEditorInitializing(false);
+                handleEditorReady(api ?? null, projectRenderNonce);
               }}
               onExcalidrawAPI={(api) => {
-                excalidrawAPIRef.current = api;
+                if (projectRenderNonce === projectRenderNonceRef.current) {
+                  excalidrawAPIRef.current = api;
+                }
               }}
               onPointerUpdate={({ pointer }) => {
                 lastCanvasPointerRef.current = {
@@ -1398,6 +1712,10 @@ const App = () => {
                 };
               }}
               onChange={(elements, appState, files) => {
+                const activeProject = currentProjectRef.current;
+                if (!activeProject) {
+                  return;
+                }
                 const nextScene = {
                   elements,
                   appState,
@@ -1431,7 +1749,7 @@ const App = () => {
                   buildSelectedImageRecord(
                     elements,
                     appState,
-                    currentProjectRef.current?.imageRecords || null,
+                    activeProject.imageRecords,
                   ),
                 );
                 setSelectedTask(
@@ -1440,7 +1758,14 @@ const App = () => {
                     generationTaskByElementIdRef.current,
                   ),
                 );
-                scheduleAutosave(elements, appState, files);
+                if (!isEditorInitializingRef.current) {
+                  scheduleAutosave({
+                    project: activeProject,
+                    elements,
+                    appState,
+                    files,
+                  });
+                }
               }}
               UIOptions={{
                 canvasActions: {
@@ -1495,6 +1820,8 @@ const App = () => {
             : undefined
         }
         onClose={() => undefined}
+        onRequestChange={handleGenerateRequestChange}
+        onModelSelectionChange={handleRememberGenerationModelSelection}
         onReferenceRemove={handleRemoveGenerateReference}
         onSaveProviderSettings={handleSaveProviderSettings}
         onSubmit={handleGenerateImages}

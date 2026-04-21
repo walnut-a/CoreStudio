@@ -1,4 +1,4 @@
-import type { MenuItemConstructorOptions } from "electron";
+import type { BaseWindow, MenuItemConstructorOptions } from "electron";
 
 import type {
   DesktopMenuEvent,
@@ -7,7 +7,10 @@ import type {
 import { copy } from "../src/app/copy";
 
 export const createAppMenuTemplate = (
-  sendMenuAction: (event: DesktopMenuEvent) => void,
+  sendMenuAction: (
+    event: DesktopMenuEvent,
+    ownerWindow?: BaseWindow | null,
+  ) => void,
   recentProjects: RecentProjectEntry[] = [],
 ): MenuItemConstructorOptions[] => [
   {
@@ -15,33 +18,40 @@ export const createAppMenuTemplate = (
     submenu: [
       {
         label: copy.menu.newProject,
-        click: () => sendMenuAction({ action: "new-project" }),
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "new-project" }, ownerWindow),
       },
       {
         label: copy.menu.openProject,
-        click: () => sendMenuAction({ action: "open-project" }),
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "open-project" }, ownerWindow),
       },
       {
         label: copy.menu.recentProjects,
         submenu: recentProjects.length
           ? recentProjects.map((project) => ({
               label: project.name,
-              click: () =>
-                sendMenuAction({
-                  action: "open-recent-project",
-                  projectPath: project.projectPath,
-                }),
+              click: (_item, ownerWindow) =>
+                sendMenuAction(
+                  {
+                    action: "open-recent-project",
+                    projectPath: project.projectPath,
+                  },
+                  ownerWindow,
+                ),
             }))
           : [{ label: copy.welcome.recentEmpty, enabled: false }],
       },
       { type: "separator" },
       {
         label: copy.menu.importImages,
-        click: () => sendMenuAction({ action: "import-images" }),
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "import-images" }, ownerWindow),
       },
       {
         label: copy.menu.revealProject,
-        click: () => sendMenuAction({ action: "reveal-project" }),
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "reveal-project" }, ownerWindow),
       },
       { type: "separator" },
       { role: "quit" },

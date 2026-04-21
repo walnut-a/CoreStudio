@@ -145,6 +145,8 @@ export const copy = {
     editorLoading: "正在加载画板…",
     providerLoadFailed: "桌面连接异常，暂时无法读取模型服务配置。",
     openProjectFailed: "打开项目失败。",
+    saveProjectFailed: "项目保存失败。",
+    saveBeforeOpenFailed: "旧项目未能保存，已停止打开新项目。",
     generateFailed: "生成图片失败。",
   },
   debugError: {

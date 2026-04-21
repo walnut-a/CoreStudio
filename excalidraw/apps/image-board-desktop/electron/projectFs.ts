@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "path";
 
 import {
@@ -12,6 +13,7 @@ import {
 import type { ProviderId } from "../src/shared/providerTypes";
 
 const APP_VERSION = "0.1.0";
+const SCENE_BACKUPS_DIR = "scene-backups";
 const EMPTY_PROJECT_SCENE = JSON.stringify(
   {
     type: "excalidraw",
@@ -130,6 +132,42 @@ const writeProjectManifest = async (
   await writeJson(path.join(projectPath, PROJECT_FILENAMES.project), project);
 };
 
+const analyzeSceneJson = (sceneJson: string) => {
+  try {
+    const scene = JSON.parse(sceneJson) as { elements?: unknown[] };
+    return {
+      elementCount: Array.isArray(scene.elements) ? scene.elements.length : 0,
+      parseFailed: false,
+    };
+  } catch {
+    return {
+      elementCount: 0,
+      parseFailed: true,
+    };
+  }
+};
+
+const backupSceneBeforeEmptyOverwrite = async ({
+  projectPath,
+  currentSceneJson,
+}: {
+  projectPath: string;
+  currentSceneJson: string;
+}) => {
+  const backupsDir = path.join(
+    projectPath,
+    PROJECT_FILENAMES.exportsDir,
+    SCENE_BACKUPS_DIR,
+  );
+  const backupPath = path.join(
+    backupsDir,
+    `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}.json`,
+  );
+  await fs.mkdir(backupsDir, { recursive: true });
+  await fs.writeFile(backupPath, currentSceneJson, "utf8");
+  return backupPath;
+};
+
 export const writeProjectScene = async ({
   projectPath,
   sceneJson,
@@ -138,6 +176,27 @@ export const writeProjectScene = async ({
   sceneJson: string;
 }) => {
   const bundle = await readProjectBundle(projectPath);
+  const currentScene = analyzeSceneJson(bundle.sceneJson);
+  const nextScene = analyzeSceneJson(sceneJson);
+
+  if (nextScene.parseFailed) {
+    throw new Error("新的画板数据无法解析，已停止保存。");
+  }
+
+  if (currentScene.parseFailed && nextScene.elementCount === 0) {
+    throw new Error("当前画板文件无法解析，为避免被空内容覆盖，已停止保存。");
+  }
+
+  if (currentScene.elementCount > 0 && nextScene.elementCount === 0) {
+    const backupPath = await backupSceneBeforeEmptyOverwrite({
+      projectPath,
+      currentSceneJson: bundle.sceneJson,
+    });
+    throw new Error(
+      `检测到非空画板即将被空画板覆盖，已停止保存。当前文件备份在：${backupPath}`,
+    );
+  }
+
   await fs.writeFile(
     path.join(projectPath, PROJECT_FILENAMES.scene),
     sceneJson,

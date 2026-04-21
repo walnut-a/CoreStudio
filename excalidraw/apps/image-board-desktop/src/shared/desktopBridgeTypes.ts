@@ -20,12 +20,17 @@ export const IPC_CHANNELS = {
   saveProviderSettings: "image-board:save-provider-settings",
   generateImages: "image-board:generate-images",
   menuAction: "image-board:menu-action",
+  rendererReady: "image-board:renderer-ready",
+  flushAutosaveRequest: "image-board:flush-autosave-request",
+  flushAutosaveResponse: "image-board:flush-autosave-response",
 } as const;
 
 export type DesktopMenuAction =
   | "new-project"
   | "open-project"
   | "open-recent-project"
+  | "project-opened"
+  | "project-open-failed"
   | "import-images"
   | "generate-image"
   | "provider-settings"
@@ -33,7 +38,10 @@ export type DesktopMenuAction =
 
 export interface DesktopMenuEvent {
   action: DesktopMenuAction;
+  openRequestId?: number;
   projectPath?: string | null;
+  projectBundle?: DesktopProjectBundle | null;
+  errorMessage?: string | null;
 }
 
 export interface DesktopProjectBundle {
@@ -89,6 +97,16 @@ export interface GenerateImagesInput {
   request: GenerationRequest;
 }
 
+export interface DesktopAutosaveFlushRequest {
+  requestId: number;
+}
+
+export interface DesktopAutosaveFlushResponse {
+  requestId: number;
+  ok: boolean;
+  errorMessage?: string | null;
+}
+
 export interface DesktopBridgeApi {
   createProject(): Promise<DesktopProjectBundle | null>;
   openProject(): Promise<DesktopProjectBundle | null>;
@@ -114,4 +132,8 @@ export interface DesktopBridgeApi {
   ): Promise<PublicProviderSettings>;
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
+  notifyRendererReady?(): void;
+  onFlushAutosaveRequest?(
+    listener: () => Promise<void> | void,
+  ): () => void;
 }

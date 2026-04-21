@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   IPC_CHANNELS,
   type DesktopBridgeApi,
+  type DesktopAutosaveFlushRequest,
   type DesktopMenuEvent,
 } from "../src/shared/desktopBridgeTypes";
 
@@ -33,6 +34,34 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.on(IPC_CHANNELS.menuAction, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.menuAction, handler);
+    };
+  },
+  notifyRendererReady: () => {
+    ipcRenderer.send(IPC_CHANNELS.rendererReady);
+  },
+  onFlushAutosaveRequest: (listener) => {
+    const handler = async (
+      _event: unknown,
+      request: DesktopAutosaveFlushRequest,
+    ) => {
+      try {
+        await listener();
+        ipcRenderer.send(IPC_CHANNELS.flushAutosaveResponse, {
+          requestId: request.requestId,
+          ok: true,
+        });
+      } catch (error) {
+        ipcRenderer.send(IPC_CHANNELS.flushAutosaveResponse, {
+          requestId: request.requestId,
+          ok: false,
+          errorMessage:
+            error instanceof Error ? error.message : String(error || ""),
+        });
+      }
+    };
+    ipcRenderer.on(IPC_CHANNELS.flushAutosaveRequest, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.flushAutosaveRequest, handler);
     };
   },
 };

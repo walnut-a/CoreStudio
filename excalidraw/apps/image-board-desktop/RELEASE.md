@@ -78,6 +78,16 @@ TeamIdentifier=CUP682RD2S
 filebox-notary
 ```
 
+提交公证前先签名 DMG 容器：
+
+```sh
+codesign --sign "Developer ID Application: junyan liu (CUP682RD2S)" \
+  --force \
+  --keychain "$HOME/Library/Keychains/login.keychain-db" \
+  --timestamp \
+  apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg
+```
+
 手动提交 DMG：
 
 ```sh
@@ -122,7 +132,9 @@ codesign --verify --deep --strict --verbose=2 "$TMP_DIR/CoreStudio.app"
 如果需要重新压 ZIP：
 
 ```sh
-ditto -c -k --sequesterRsrc --keepParent "$TMP_DIR/CoreStudio.app" \
+xcrun stapler staple apps/image-board-desktop/release/mac-arm64/CoreStudio.app
+xcrun stapler validate apps/image-board-desktop/release/mac-arm64/CoreStudio.app
+ditto -c -k --sequesterRsrc --keepParent apps/image-board-desktop/release/mac-arm64/CoreStudio.app \
   apps/image-board-desktop/release/CoreStudio-1.0.0-arm64-mac.zip
 ```
 
@@ -164,19 +176,20 @@ gh release create v1.0.0 \
 
 1.0.0 发布时通过了这些检查：
 
-- Desktop tests：145 passed
+- Desktop tests：166 passed
 - TypeScript typecheck：passed
-- Source secret scan：passed
+- Source/package-input/release secret scan：passed
 - Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
-- Apple notarization：submission `9cb6d8f2-0d62-4ad6-b1e3-e2c9d7911840`
+- Apple notarization：submission `677c1102-9ffa-4727-817c-f0133aa40f5f`
 - Gatekeeper：DMG accepted as `Notarized Developer ID`
+- ZIP app：stapler validate passed, Gatekeeper accepted as `Notarized Developer ID`
 
 校验值：
 
 ```text
 CoreStudio-1.0.0-arm64.dmg
-sha256: 23b98e005c3b204d85e3ce9b3aaaa4aa2d42de73ad3dc4dac356ed15792f55a3
+sha256: f46462889b50b3145dd59692012000765d352bb574c96c2e43f131f5e17ed961
 
 CoreStudio-1.0.0-arm64-mac.zip
-sha256: 4e0fee1d6a8607a8bd86078fb904ff2107e4b384dd6e57c42ae23bd671ecd156
+sha256: 5c1b77c11411709c709e0198af91b298152d21083152ec916923e1c6c95feb23
 ```

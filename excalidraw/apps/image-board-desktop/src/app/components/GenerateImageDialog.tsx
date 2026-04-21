@@ -24,6 +24,7 @@ import type {
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
 import type {
+  CustomProviderModel,
   CustomModelCapabilityTemplateId,
   GenerationRequest,
   ProviderCapabilities,
@@ -56,6 +57,11 @@ interface GenerateImageDialogProps {
   error: string | null;
   onOpenErrorDetails?: () => void;
   onClose: () => void;
+  onRequestChange?: (request: GenerationRequest) => void;
+  onModelSelectionChange?: (selection: {
+    provider: ProviderId;
+    model: string;
+  }) => void;
   onReferenceRemove?: () => void;
   onSaveProviderSettings?: (
     input: SaveProviderSettingsInput,
@@ -75,11 +81,15 @@ export const GenerateImageDialog = ({
   error,
   onOpenErrorDetails,
   onClose,
+  onRequestChange,
+  onModelSelectionChange,
   onReferenceRemove,
   onSaveProviderSettings,
   onSubmit,
 }: GenerateImageDialogProps) => {
   const [request, setRequest] = useState(initialRequest);
+  const requestRef = useRef(initialRequest);
+  const providerSettingsRef = useRef(providerSettings);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
@@ -105,12 +115,24 @@ export const GenerateImageDialog = ({
   const currentProviderCustomModels = currentProviderSettings?.customModels ?? [];
 
   useEffect(() => {
-    setRequest(
-      normalizeGenerationRequest(initialRequest, {
-        customModels: providerSettings?.[initialRequest.provider]?.customModels ?? [],
-      }),
-    );
-  }, [initialRequest, open, providerSettings]);
+    const nextRequest = normalizeGenerationRequest(initialRequest, {
+      customModels:
+        providerSettingsRef.current?.[initialRequest.provider]?.customModels ?? [],
+    });
+    requestRef.current = nextRequest;
+    setRequest(nextRequest);
+  }, [initialRequest, open]);
+
+  useEffect(() => {
+    providerSettingsRef.current = providerSettings;
+    setRequest((current) => {
+      const nextRequest = normalizeGenerationRequest(current, {
+        customModels: providerSettings?.[current.provider]?.customModels ?? [],
+      });
+      requestRef.current = nextRequest;
+      return nextRequest;
+    });
+  }, [providerSettings]);
 
   useEffect(() => {
     setApiKeyDraft("");
@@ -259,6 +281,31 @@ export const GenerateImageDialog = ({
   const hasReferenceStatus = Boolean(referenceStatusText);
   const selectedCustomModelUsage = CUSTOM_MODEL_USAGE_PRESETS[customModelTemplate];
 
+  const commitRequest = (
+    nextRequest: GenerationRequest,
+    customModels: readonly CustomProviderModel[] =
+      providerSettingsRef.current?.[nextRequest.provider]?.customModels ?? [],
+  ) => {
+    const normalizedRequest = normalizeGenerationRequest(nextRequest, {
+      customModels,
+    });
+    requestRef.current = normalizedRequest;
+    setRequest(normalizedRequest);
+    onRequestChange?.(normalizedRequest);
+    return normalizedRequest;
+  };
+
+  const updateRequest = (
+    updater:
+      | GenerationRequest
+      | ((current: GenerationRequest) => GenerationRequest),
+    customModels?: readonly CustomProviderModel[],
+  ) => {
+    const nextRequest =
+      typeof updater === "function" ? updater(requestRef.current) : updater;
+    return commitRequest(nextRequest, customModels);
+  };
+
   const applyCustomModelTemplate = (
     templateId: CustomModelCapabilityTemplateId,
     touched = true,
@@ -305,14 +352,14 @@ export const GenerateImageDialog = ({
   };
 
   const updatePrompt = (prompt: string) => {
-    setRequest((current) => ({
+    updateRequest((current) => ({
       ...current,
       prompt,
     }));
   };
 
   const removeReference = () => {
-    setRequest((current) => ({
+    updateRequest((current) => ({
       ...current,
       reference: null,
     }));
@@ -330,7 +377,7 @@ export const GenerateImageDialog = ({
       }),
       false,
     );
-    setRequest((current) => ({
+    updateRequest((current) => ({
       ...current,
       prompt: "",
     }));
@@ -472,17 +519,17 @@ export const GenerateImageDialog = ({
         customModels: nextCustomModels,
       });
       setCustomModelDraft("");
-      setRequest((current) =>
-        normalizeGenerationRequest(
-          {
-            ...current,
-            model: modelId,
-          },
-          {
-            customModels: nextCustomModels,
-          },
-        ),
+      const nextRequest = updateRequest(
+        (current) => ({
+          ...current,
+          model: modelId,
+        }),
+        nextCustomModels,
       );
+      onModelSelectionChange?.({
+        provider: nextRequest.provider,
+        model: nextRequest.model,
+      });
       setProviderSaveFeedback({
         kind: "success",
         message: copy.providersDialog.saved,
@@ -713,20 +760,20 @@ export const GenerateImageDialog = ({
                       const provider = event.target.value as ProviderId;
                       const nextCustomModels =
                         providerSettings?.[provider]?.customModels ?? [];
-                      setRequest((current) =>
-                        normalizeGenerationRequest(
-                          {
-                            ...current,
-                            provider,
-                            model:
-                              providerSettings?.[provider]?.defaultModel ||
-                              getDefaultModel(provider),
-                          },
-                          {
-                            customModels: nextCustomModels,
-                          },
-                        ),
+                      const nextRequest = updateRequest(
+                        (current) => ({
+                          ...current,
+                          provider,
+                          model:
+                            providerSettings?.[provider]?.defaultModel ||
+                            getDefaultModel(provider),
+                        }),
+                        nextCustomModels,
                       );
+                      onModelSelectionChange?.({
+                        provider: nextRequest.provider,
+                        model: nextRequest.model,
+                      });
                     }}
                   >
                     {PROVIDER_IDS.map((providerId) => (
@@ -741,14 +788,16 @@ export const GenerateImageDialog = ({
                   {copy.generateDialog.model}
                   <select
                     value={request.model}
-                    onChange={(event) =>
-                      setRequest((current) =>
-                        normalizeGenerationRequest({
-                          ...current,
-                          model: event.target.value,
-                        }),
-                      )
-                    }
+                    onChange={(event) => {
+                      const nextRequest = updateRequest((current) => ({
+                        ...current,
+                        model: event.target.value,
+                      }));
+                      onModelSelectionChange?.({
+                        provider: nextRequest.provider,
+                        model: nextRequest.model,
+                      });
+                    }}
                   >
                     {Object.values(providerModels).map((model) => (
                       <option key={model.id} value={model.id}>
@@ -766,7 +815,7 @@ export const GenerateImageDialog = ({
                       value={request.negativePrompt || ""}
                       onKeyDown={handleTextInputKeyDown}
                       onChange={(event) =>
-                        setRequest((current) => ({
+                        updateRequest((current) => ({
                           ...current,
                           negativePrompt: event.target.value,
                         }))
@@ -787,7 +836,7 @@ export const GenerateImageDialog = ({
                         if (!option) {
                           return;
                         }
-                        setRequest((current) => ({
+                        updateRequest((current) => ({
                           ...current,
                           width: option.width,
                           height: option.height,
@@ -812,7 +861,7 @@ export const GenerateImageDialog = ({
                       step={64}
                       value={request.width}
                       onChange={(event) =>
-                        setRequest((current) => ({
+                        updateRequest((current) => ({
                           ...current,
                           width: Number(event.target.value),
                         }))
@@ -830,7 +879,7 @@ export const GenerateImageDialog = ({
                       step={64}
                       value={request.height}
                       onChange={(event) =>
-                        setRequest((current) => ({
+                        updateRequest((current) => ({
                           ...current,
                           height: Number(event.target.value),
                         }))
@@ -846,7 +895,7 @@ export const GenerateImageDialog = ({
                       type="number"
                       value={request.seed ?? ""}
                       onChange={(event) =>
-                        setRequest((current) => ({
+                        updateRequest((current) => ({
                           ...current,
                           seed: event.target.value ? Number(event.target.value) : null,
                         }))
@@ -864,7 +913,7 @@ export const GenerateImageDialog = ({
                       max={4}
                       value={request.imageCount}
                       onChange={(event) =>
-                        setRequest((current) => ({
+                        updateRequest((current) => ({
                           ...current,
                           imageCount: Number(event.target.value),
                         }))

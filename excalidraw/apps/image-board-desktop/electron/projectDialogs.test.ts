@@ -56,6 +56,22 @@ describe("projectDialogs", () => {
     );
   });
 
+  it("opens the create dialog as a sheet on the current window when available", async () => {
+    const ownerWindow = {
+      isDestroyed: vi.fn(() => false),
+    } as any;
+
+    await chooseCreateProjectDirectory(ownerWindow);
+
+    expect(showOpenDialog).toHaveBeenCalledWith(
+      ownerWindow,
+      expect.objectContaining({
+        defaultPath: path.join(mockDocumentsPath, "工业设计助手"),
+        properties: ["openDirectory", "createDirectory"],
+      }),
+    );
+  });
+
   it("opens the project picker from the latest recent project when available", async () => {
     vi.mocked(loadRecentProjects).mockResolvedValueOnce([
       {

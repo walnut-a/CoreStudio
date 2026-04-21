@@ -1,5 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ImageRecord } from "../../shared/projectTypes";
 import { ImageInspector } from "./ImageInspector";
@@ -55,6 +55,10 @@ const renderInspector = () =>
     />,
   );
 
+afterEach(() => {
+  window.getSelection()?.removeAllRanges();
+});
+
 describe("ImageInspector", () => {
   it("uses a concrete image heading instead of repeating the generic panel label", () => {
     renderInspector();
@@ -72,7 +76,7 @@ describe("ImageInspector", () => {
     const hero = container.querySelector(".image-inspector__hero") as HTMLElement;
 
     expect(hero).not.toBeNull();
-    expect(within(hero).getByText("AI 生成")).toBeInTheDocument();
+    expect(within(hero).queryByText("AI 生成")).not.toBeInTheDocument();
     expect(within(hero).getByText("fal-ai/nano-banana-2")).toBeInTheDocument();
     expect(within(hero).getByText("1024 × 768")).toBeInTheDocument();
   });
@@ -95,5 +99,48 @@ describe("ImageInspector", () => {
     expect(within(detailGrid).getByText("模型服务")).toBeInTheDocument();
     expect(within(detailGrid).getByText("来源图片")).toBeInTheDocument();
     expect(screen.getByText("编辑链")).toBeInTheDocument();
+  });
+
+  it("copies only the selected visible text from the sidebar", () => {
+    const { container } = renderInspector();
+    const promptText = container.querySelector(
+      ".image-inspector__prompt-text",
+    ) as HTMLElement;
+    expect(promptText).not.toBeNull();
+    const selectionSpy = vi.spyOn(window, "getSelection").mockReturnValue({
+      isCollapsed: false,
+      rangeCount: 1,
+      getRangeAt: () => ({
+        startContainer: promptText.firstChild,
+        endContainer: promptText.firstChild,
+      }),
+      toString: () => generatedRecord.prompt,
+      removeAllRanges: vi.fn(),
+    } as unknown as Selection);
+
+    const documentCopyListener = vi.fn();
+    document.addEventListener("copy", documentCopyListener);
+
+    const clipboardData = {
+      setData: vi.fn(),
+    };
+    const copyEvent = new Event("copy", {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(copyEvent, "clipboardData", {
+      value: clipboardData,
+    });
+    fireEvent(document, copyEvent);
+
+    expect(clipboardData.setData).toHaveBeenCalledWith(
+      "text/plain",
+      generatedRecord.prompt,
+    );
+    expect(documentCopyListener).not.toHaveBeenCalled();
+
+    document.removeEventListener("copy", documentCopyListener);
+    selectionSpy.mockRestore();
+    expect(container.querySelector(".image-inspector")).not.toBeNull();
   });
 });

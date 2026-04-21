@@ -208,7 +208,7 @@ describe("Chinese localization", () => {
     expect(screen.getByText("提示词")).toBeInTheDocument();
     expect(screen.getByText("生成参数")).toBeInTheDocument();
     expect(screen.getByText("来源")).toBeInTheDocument();
-    expect(screen.getAllByText("AI 生成")).toHaveLength(2);
+    expect(screen.getAllByText("AI 生成")).toHaveLength(1);
     expect(screen.getByText("来源图片")).toBeInTheDocument();
     expect(screen.getAllByText(/第一版结构草图/)).toHaveLength(2);
     expect(screen.getByText("编辑链")).toBeInTheDocument();
@@ -380,6 +380,78 @@ describe("Chinese localization", () => {
         }),
       }),
       false,
+    );
+  });
+
+  it("keeps the selected model when provider settings refresh", () => {
+    const initialRequest = {
+      provider: "gemini" as const,
+      model: getDefaultModel("gemini"),
+      prompt: "工业设计草图",
+      negativePrompt: "",
+      width: 1024,
+      height: 1024,
+      seed: null,
+      imageCount: 1,
+      reference: null,
+    };
+    const onRequestChange = vi.fn();
+    const onModelSelectionChange = vi.fn();
+    const onSubmit = vi.fn();
+    const { rerender } = render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={initialRequest}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onModelSelectionChange={onModelSelectionChange}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /设置/ }));
+    fireEvent.change(screen.getByLabelText("模型"), {
+      target: { value: "imagen-4.0-fast-generate-001" },
+    });
+
+    expect(screen.getByLabelText("模型")).toHaveValue(
+      "imagen-4.0-fast-generate-001",
+    );
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        model: "imagen-4.0-fast-generate-001",
+      }),
+    );
+    expect(onModelSelectionChange).toHaveBeenLastCalledWith({
+      provider: "gemini",
+      model: "imagen-4.0-fast-generate-001",
+    });
+
+    rerender(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={initialRequest}
+        providerSettings={{
+          ...providerSettings,
+          gemini: {
+            ...providerSettings.gemini,
+            lastCheckedAt: "2026-04-21T08:00:00.000Z",
+          },
+        }}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onModelSelectionChange={onModelSelectionChange}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.getByLabelText("模型")).toHaveValue(
+      "imagen-4.0-fast-generate-001",
     );
   });
 

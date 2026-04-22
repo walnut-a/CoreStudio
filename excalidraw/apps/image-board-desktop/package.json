@@ -2,6 +2,7 @@
   "name": "image-board-desktop",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "CoreStudio desktop image board",
   "main": "dist-electron/main.js",
   "scripts": {

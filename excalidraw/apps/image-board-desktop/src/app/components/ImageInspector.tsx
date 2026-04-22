@@ -18,6 +18,7 @@ export interface GenerationTaskRecord {
   model: string;
   prompt: string;
   negativePrompt?: string | null;
+  aspectRatio?: string | null;
   seed?: number | null;
   width: number;
   height: number;
@@ -67,6 +68,8 @@ const getParentImageSummary = (
 const formatDateTime = (value: string) => new Date(value).toLocaleString("zh-CN");
 
 const formatSize = (width: number, height: number) => `${width} × ${height}`;
+const formatTaskSize = (task: GenerationTaskRecord) =>
+  task.aspectRatio === null ? "自动比例" : formatSize(task.width, task.height);
 
 const getProviderLabel = (provider?: ProviderId) =>
   provider ? getProviderDefinition(provider).label : copy.inspector.importedProvider;
@@ -124,7 +127,7 @@ export const ImageInspector = ({
             </div>
             <div className="image-inspector__hero-facts">
               <span>{getProviderDefinition(task.provider).label}</span>
-              <span>{formatSize(task.width, task.height)}</span>
+              <span>{formatTaskSize(task)}</span>
             </div>
           </header>
 

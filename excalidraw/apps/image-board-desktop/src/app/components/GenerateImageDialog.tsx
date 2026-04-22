@@ -8,15 +8,19 @@ import {
 } from "react";
 
 import {
+  ASPECT_RATIO_AUTO_ID,
   CUSTOM_MODEL_USAGE_PRESETS,
   getAspectRatioOptions,
-  getClosestAspectRatioOption,
   getDefaultModel,
+  getRequestAspectRatioOption,
   getProviderModels,
   getProviderDefinition,
   getVisibleGenerationFields,
   inferCustomModelCapabilityTemplate,
+  inferProviderRequestAdapter,
   normalizeGenerationRequest,
+  PROVIDER_REQUEST_ADAPTER_LABELS,
+  PROVIDER_REQUEST_ADAPTER_OPTIONS,
   PROVIDER_IDS,
 } from "../../shared/providerCatalog";
 import type {
@@ -29,6 +33,7 @@ import type {
   GenerationRequest,
   ProviderCapabilities,
   ProviderId,
+  ProviderRequestAdapter,
 } from "../../shared/providerTypes";
 import {
   copy,
@@ -96,6 +101,13 @@ export const GenerateImageDialog = ({
   const [customModelDraft, setCustomModelDraft] = useState("");
   const [customModelTemplate, setCustomModelTemplate] =
     useState<CustomModelCapabilityTemplateId>("image-editing-aspect-ratio");
+  const [customModelAdapter, setCustomModelAdapter] =
+    useState<ProviderRequestAdapter>(() =>
+      inferProviderRequestAdapter({
+        provider: initialRequest.provider,
+        modelId: initialRequest.model,
+      }),
+    );
   const [customModelCapabilities, setCustomModelCapabilities] =
     useState<ProviderCapabilities>(() =>
       cloneProviderCapabilities(
@@ -103,6 +115,8 @@ export const GenerateImageDialog = ({
       ),
     );
   const [customModelUsageTouched, setCustomModelUsageTouched] = useState(false);
+  const [customModelAdapterTouched, setCustomModelAdapterTouched] =
+    useState(false);
   const [customModelAdvancedOpen, setCustomModelAdvancedOpen] = useState(false);
   const [providerSaveFeedback, setProviderSaveFeedback] = useState<{
     kind: "success" | "error";
@@ -112,12 +126,14 @@ export const GenerateImageDialog = ({
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
   const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
   const currentProviderSettings = providerSettings?.[request.provider];
-  const currentProviderCustomModels = currentProviderSettings?.customModels ?? [];
+  const currentProviderCustomModels =
+    currentProviderSettings?.customModels ?? [];
 
   useEffect(() => {
     const nextRequest = normalizeGenerationRequest(initialRequest, {
       customModels:
-        providerSettingsRef.current?.[initialRequest.provider]?.customModels ?? [],
+        providerSettingsRef.current?.[initialRequest.provider]?.customModels ??
+        [],
     });
     requestRef.current = nextRequest;
     setRequest(nextRequest);
@@ -141,18 +157,25 @@ export const GenerateImageDialog = ({
       provider: request.provider,
       modelId: "",
     });
+    const recommendedAdapter = inferProviderRequestAdapter({
+      provider: request.provider,
+      modelId: "",
+    });
     setCustomModelTemplate(recommendedTemplate);
+    setCustomModelAdapter(recommendedAdapter);
     setCustomModelCapabilities(
       cloneProviderCapabilities(
         CUSTOM_MODEL_USAGE_PRESETS[recommendedTemplate].capabilities,
       ),
     );
     setCustomModelUsageTouched(false);
+    setCustomModelAdapterTouched(false);
     setCustomModelAdvancedOpen(false);
     setProviderSaveFeedback(null);
   }, [request.provider, open]);
 
-  const isConfigured = providerSettings?.[request.provider]?.isConfigured ?? false;
+  const isConfigured =
+    providerSettings?.[request.provider]?.isConfigured ?? false;
   const hasReferenceSelection = Boolean(request.reference?.elementCount);
 
   useEffect(() => {
@@ -263,12 +286,15 @@ export const GenerateImageDialog = ({
     model: request.model,
     customModels: currentProviderCustomModels,
   });
-  const aspectRatioOptions = getAspectRatioOptions(request);
-  const selectedAspectRatio = getClosestAspectRatioOption(
-    request.width,
-    request.height,
-    aspectRatioOptions,
-  ).id;
+  const aspectRatioOptions = getAspectRatioOptions({
+    ...request,
+    customModels: currentProviderCustomModels,
+  });
+  const selectedAspectRatio =
+    request.aspectRatio === null
+      ? ASPECT_RATIO_AUTO_ID
+      : getRequestAspectRatioOption(request, aspectRatioOptions)?.id ??
+        ASPECT_RATIO_AUTO_ID;
   const referenceEnabled = request.reference?.enabled ?? false;
   const canSubmit = Boolean(request.prompt.trim() && isConfigured);
   const showBody = advancedOpen;
@@ -279,12 +305,13 @@ export const GenerateImageDialog = ({
       )
     : null;
   const hasReferenceStatus = Boolean(referenceStatusText);
-  const selectedCustomModelUsage = CUSTOM_MODEL_USAGE_PRESETS[customModelTemplate];
+  const selectedCustomModelUsage =
+    CUSTOM_MODEL_USAGE_PRESETS[customModelTemplate];
 
   const commitRequest = (
     nextRequest: GenerationRequest,
-    customModels: readonly CustomProviderModel[] =
-      providerSettingsRef.current?.[nextRequest.provider]?.customModels ?? [],
+    customModels: readonly CustomProviderModel[] = providerSettingsRef
+      .current?.[nextRequest.provider]?.customModels ?? [],
   ) => {
     const normalizedRequest = normalizeGenerationRequest(nextRequest, {
       customModels,
@@ -312,7 +339,9 @@ export const GenerateImageDialog = ({
   ) => {
     setCustomModelTemplate(templateId);
     setCustomModelCapabilities(
-      cloneProviderCapabilities(CUSTOM_MODEL_USAGE_PRESETS[templateId].capabilities),
+      cloneProviderCapabilities(
+        CUSTOM_MODEL_USAGE_PRESETS[templateId].capabilities,
+      ),
     );
     setCustomModelUsageTouched(touched);
   };
@@ -321,17 +350,24 @@ export const GenerateImageDialog = ({
     setProviderSaveFeedback(null);
     setCustomModelDraft(modelId);
 
-    if (customModelUsageTouched) {
-      return;
+    if (!customModelUsageTouched) {
+      applyCustomModelTemplate(
+        inferCustomModelCapabilityTemplate({
+          provider: request.provider,
+          modelId,
+        }),
+        false,
+      );
     }
 
-    applyCustomModelTemplate(
-      inferCustomModelCapabilityTemplate({
-        provider: request.provider,
-        modelId,
-      }),
-      false,
-    );
+    if (!customModelAdapterTouched) {
+      setCustomModelAdapter(
+        inferProviderRequestAdapter({
+          provider: request.provider,
+          modelId,
+        }),
+      );
+    }
   };
 
   const updateCustomModelCapabilities = (
@@ -411,7 +447,10 @@ export const GenerateImageDialog = ({
     ) {
       event.preventDefault();
       stopInputEventPropagation(event);
-      event.currentTarget.setSelectionRange(0, event.currentTarget.value.length);
+      event.currentTarget.setSelectionRange(
+        0,
+        event.currentTarget.value.length,
+      );
       return;
     }
 
@@ -438,7 +477,10 @@ export const GenerateImageDialog = ({
     ) {
       event.preventDefault();
       stopInputEventPropagation(event);
-      event.currentTarget.setSelectionRange(0, event.currentTarget.value.length);
+      event.currentTarget.setSelectionRange(
+        0,
+        event.currentTarget.value.length,
+      );
       return;
     }
 
@@ -484,10 +526,9 @@ export const GenerateImageDialog = ({
     } catch (error: any) {
       setProviderSaveFeedback({
         kind: "error",
-        message: `${copy.providersDialog.saveFailed}：${error.message || ""}`.replace(
-          /：$/,
-          "",
-        ),
+        message: `${copy.providersDialog.saveFailed}：${
+          error.message || ""
+        }`.replace(/：$/, ""),
       });
     }
   };
@@ -502,6 +543,7 @@ export const GenerateImageDialog = ({
       id: modelId,
       label: modelId,
       capabilityTemplate: customModelTemplate,
+      adapter: customModelAdapter,
       capabilities: customModelCapabilities,
     };
     const nextCustomModels = [
@@ -537,10 +579,9 @@ export const GenerateImageDialog = ({
     } catch (error: any) {
       setProviderSaveFeedback({
         kind: "error",
-        message: `${copy.providersDialog.saveFailed}：${error.message || ""}`.replace(
-          /：$/,
-          "",
-        ),
+        message: `${copy.providersDialog.saveFailed}：${
+          error.message || ""
+        }`.replace(/：$/, ""),
       });
     }
   };
@@ -830,6 +871,13 @@ export const GenerateImageDialog = ({
                     <select
                       value={selectedAspectRatio}
                       onChange={(event) => {
+                        if (event.target.value === ASPECT_RATIO_AUTO_ID) {
+                          updateRequest((current) => ({
+                            ...current,
+                            aspectRatio: null,
+                          }));
+                          return;
+                        }
                         const option = aspectRatioOptions.find(
                           (item) => item.id === event.target.value,
                         );
@@ -838,11 +886,15 @@ export const GenerateImageDialog = ({
                         }
                         updateRequest((current) => ({
                           ...current,
+                          aspectRatio: option.id,
                           width: option.width,
                           height: option.height,
                         }));
                       }}
                     >
+                      <option value={ASPECT_RATIO_AUTO_ID}>
+                        {copy.generateDialog.aspectRatioAuto}
+                      </option>
                       {aspectRatioOptions.map((option) => (
                         <option key={option.id} value={option.id}>
                           {option.label}
@@ -897,7 +949,9 @@ export const GenerateImageDialog = ({
                       onChange={(event) =>
                         updateRequest((current) => ({
                           ...current,
-                          seed: event.target.value ? Number(event.target.value) : null,
+                          seed: event.target.value
+                            ? Number(event.target.value)
+                            : null,
                         }))
                       }
                     />
@@ -962,7 +1016,9 @@ export const GenerateImageDialog = ({
                         aria-label={copy.generateDialog.apiKeySettings}
                       >
                         <div>
-                          <span>{copy.generateDialog.apiKeyCurrentProvider}</span>
+                          <span>
+                            {copy.generateDialog.apiKeyCurrentProvider}
+                          </span>
                           <strong>{providerDefinition.label}</strong>
                         </div>
                         <div>
@@ -972,7 +1028,9 @@ export const GenerateImageDialog = ({
                       </div>
                       <section className="generate-provider-settings__section">
                         <div className="generate-provider-settings__section-header">
-                          <strong>{copy.generateDialog.apiKeyConnectionTitle}</strong>
+                          <strong>
+                            {copy.generateDialog.apiKeyConnectionTitle}
+                          </strong>
                           <p>{copy.generateDialog.apiKeySettingsHint}</p>
                         </div>
                         <div className="generate-provider-settings__connection-row">
@@ -999,7 +1057,9 @@ export const GenerateImageDialog = ({
                             type="button"
                             variant="primary"
                             className="generate-provider-settings__save"
-                            disabled={savingProviderSettings || !canSaveProviderSettings}
+                            disabled={
+                              savingProviderSettings || !canSaveProviderSettings
+                            }
                             onMouseDown={stopInputEventPropagation}
                             onClick={(event) => {
                               stopInputEventPropagation(event);
@@ -1014,7 +1074,9 @@ export const GenerateImageDialog = ({
                       </section>
                       <section className="generate-provider-settings__section">
                         <div className="generate-provider-settings__section-header">
-                          <strong>{copy.generateDialog.apiKeyModelTitle}</strong>
+                          <strong>
+                            {copy.generateDialog.apiKeyModelTitle}
+                          </strong>
                           <p>{copy.generateDialog.customModelHint}</p>
                         </div>
                         <div className="generate-provider-settings__custom-model">
@@ -1022,7 +1084,9 @@ export const GenerateImageDialog = ({
                             {copy.generateDialog.customModelId}
                             <input
                               value={customModelDraft}
-                              placeholder={getCustomModelPlaceholder(request.provider)}
+                              placeholder={getCustomModelPlaceholder(
+                                request.provider,
+                              )}
                               onMouseDown={stopInputEventPropagation}
                               onKeyDown={handleCustomModelKeyDown}
                               onChange={(event) =>
@@ -1038,7 +1102,8 @@ export const GenerateImageDialog = ({
                               onChange={(event) => {
                                 setProviderSaveFeedback(null);
                                 applyCustomModelTemplate(
-                                  event.target.value as CustomModelCapabilityTemplateId,
+                                  event.target
+                                    .value as CustomModelCapabilityTemplateId,
                                 );
                               }}
                             >
@@ -1064,14 +1129,21 @@ export const GenerateImageDialog = ({
                               setCustomModelAdvancedOpen((current) => !current);
                             }}
                           >
-                            <span>{copy.generateDialog.customModelAdvanced}</span>
-                            <small>{copy.generateDialog.customModelAdvancedHint}</small>
+                            <span>
+                              {copy.generateDialog.customModelAdvanced}
+                            </span>
+                            <small>
+                              {copy.generateDialog.customModelAdvancedHint}
+                            </small>
                           </button>
                           {customModelAdvancedOpen && (
                             <div className="generate-provider-settings__advanced-body">
                               <div className="generate-provider-settings__advanced-group">
                                 <span className="generate-provider-settings__advanced-group-title">
-                                  {copy.generateDialog.customModelCapabilityGroup}
+                                  {
+                                    copy.generateDialog
+                                      .customModelCapabilityGroup
+                                  }
                                 </span>
                                 <label className="generate-provider-settings__advanced-switch">
                                   <input
@@ -1082,18 +1154,24 @@ export const GenerateImageDialog = ({
                                     onMouseDown={stopInputEventPropagation}
                                     onChange={(event) =>
                                       updateCustomModelCapabilities({
-                                        supportsReferenceImages: event.target.checked,
+                                        supportsReferenceImages:
+                                          event.target.checked,
                                       })
                                     }
                                   />
                                   <span>
-                                    {copy.generateDialog.customModelAllowReference}
+                                    {
+                                      copy.generateDialog
+                                        .customModelAllowReference
+                                    }
                                   </span>
                                 </label>
                                 <label className="generate-provider-settings__advanced-switch">
                                   <input
                                     type="checkbox"
-                                    checked={customModelCapabilities.supportsSeed}
+                                    checked={
+                                      customModelCapabilities.supportsSeed
+                                    }
                                     onMouseDown={stopInputEventPropagation}
                                     onChange={(event) =>
                                       updateCustomModelCapabilities({
@@ -1101,17 +1179,51 @@ export const GenerateImageDialog = ({
                                       })
                                     }
                                   />
-                                  <span>{copy.generateDialog.customModelSeed}</span>
+                                  <span>
+                                    {copy.generateDialog.customModelSeed}
+                                  </span>
                                 </label>
                               </div>
                               <div className="generate-provider-settings__advanced-group generate-provider-settings__advanced-group--fields">
                                 <span className="generate-provider-settings__advanced-group-title">
-                                  {copy.generateDialog.customModelParameterGroup}
+                                  {
+                                    copy.generateDialog
+                                      .customModelParameterGroup
+                                  }
                                 </span>
+                                <label className="generate-provider-settings__advanced-field">
+                                  {copy.generateDialog.customModelAdapter}
+                                  <select
+                                    value={customModelAdapter}
+                                    onMouseDown={stopInputEventPropagation}
+                                    onChange={(event) => {
+                                      setProviderSaveFeedback(null);
+                                      setCustomModelAdapterTouched(true);
+                                      setCustomModelAdapter(
+                                        event.target
+                                          .value as ProviderRequestAdapter,
+                                      );
+                                    }}
+                                  >
+                                    {PROVIDER_REQUEST_ADAPTER_OPTIONS[
+                                      request.provider
+                                    ].map((adapter) => (
+                                      <option key={adapter} value={adapter}>
+                                        {
+                                          PROVIDER_REQUEST_ADAPTER_LABELS[
+                                            adapter
+                                          ]
+                                        }
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
                                 <label className="generate-provider-settings__advanced-field">
                                   {copy.generateDialog.customModelSizeMode}
                                   <select
-                                    value={customModelCapabilities.sizeControlMode}
+                                    value={
+                                      customModelCapabilities.sizeControlMode
+                                    }
                                     onMouseDown={stopInputEventPropagation}
                                     onChange={(event) =>
                                       updateCustomModelCapabilities({
@@ -1121,10 +1233,16 @@ export const GenerateImageDialog = ({
                                     }
                                   >
                                     <option value="aspect-ratio">
-                                      {copy.generateDialog.customModelSizeModeAspect}
+                                      {
+                                        copy.generateDialog
+                                          .customModelSizeModeAspect
+                                      }
                                     </option>
                                     <option value="exact">
-                                      {copy.generateDialog.customModelSizeModeExact}
+                                      {
+                                        copy.generateDialog
+                                          .customModelSizeModeExact
+                                      }
                                     </option>
                                   </select>
                                 </label>
@@ -1138,22 +1256,33 @@ export const GenerateImageDialog = ({
                                     }
                                     onMouseDown={stopInputEventPropagation}
                                     onChange={(event) =>
-                                      updateCustomModelCapabilities((current) => {
-                                        const supportsMultiple =
-                                          event.target.value === "multiple";
-                                        return {
-                                          ...current,
-                                          supportsImageCount: supportsMultiple,
-                                          maxImageCount: supportsMultiple ? 4 : 1,
-                                        };
-                                      })
+                                      updateCustomModelCapabilities(
+                                        (current) => {
+                                          const supportsMultiple =
+                                            event.target.value === "multiple";
+                                          return {
+                                            ...current,
+                                            supportsImageCount:
+                                              supportsMultiple,
+                                            maxImageCount: supportsMultiple
+                                              ? 4
+                                              : 1,
+                                          };
+                                        },
+                                      )
                                     }
                                   >
                                     <option value="single">
-                                      {copy.generateDialog.customModelImageCountSingle}
+                                      {
+                                        copy.generateDialog
+                                          .customModelImageCountSingle
+                                      }
                                     </option>
                                     <option value="multiple">
-                                      {copy.generateDialog.customModelImageCountMultiple}
+                                      {
+                                        copy.generateDialog
+                                          .customModelImageCountMultiple
+                                      }
                                     </option>
                                   </select>
                                 </label>
@@ -1163,7 +1292,9 @@ export const GenerateImageDialog = ({
                           <DesktopButton
                             type="button"
                             className="generate-provider-settings__custom-add"
-                            disabled={savingProviderSettings || !canAddCustomModel}
+                            disabled={
+                              savingProviderSettings || !canAddCustomModel
+                            }
                             onMouseDown={stopInputEventPropagation}
                             onClick={(event) => {
                               stopInputEventPropagation(event);
@@ -1184,7 +1315,6 @@ export const GenerateImageDialog = ({
                     </div>
                   )}
                 </div>
-
               </div>
             )}
           </div>

@@ -72,6 +72,49 @@ describe("generateFalImages", () => {
     expect(response.seed).toBe(7);
   });
 
+  it("omits Nano Banana ratio controls when ratio is automatic", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          images: [
+            {
+              url: "https://example.com/output.png",
+              content_type: "image/png",
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        arrayBuffer: async () => Buffer.from("banana auto image"),
+      });
+
+    await generateFalImages({
+      apiKey: "test-key",
+      request: {
+        provider: "fal",
+        model: "fal-ai/nano-banana-2",
+        prompt: "一个工业设计海报",
+        aspectRatio: null,
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://fal.run/fal-ai/nano-banana-2",
+      expect.objectContaining({
+        body: JSON.stringify({
+          prompt: "一个工业设计海报",
+          num_images: 1,
+          output_format: "png",
+        }),
+      }),
+    );
+  });
+
   it("switches Nano Banana to the edit endpoint when a reference image is provided", async () => {
     fetchMock
       .mockResolvedValueOnce({

@@ -11,6 +11,7 @@ import {
   buildOutputFileName,
   clampImageCount,
   ensureGenerateContentImages,
+  getExplicitAspectRatio,
   prepareReferenceImageForUpload,
   toClosestGeminiAspectRatio,
 } from "./providerUtils";
@@ -53,24 +54,32 @@ export const generateGeminiImages = async ({
         },
       ]
     : prompt;
+  const explicitAspectRatio = getExplicitAspectRatio(request);
+  const geminiAspectRatio =
+    explicitAspectRatio === undefined
+      ? toClosestGeminiAspectRatio(request.width, request.height)
+      : explicitAspectRatio;
+  const nativeImageConfig = {
+    ...(geminiAspectRatio ? { aspectRatio: geminiAspectRatio } : {}),
+    ...(request.model === "gemini-3.1-flash-image-preview" ||
+    request.model === "gemini-3-pro-image-preview"
+      ? {
+          imageSize:
+            Math.max(request.width, request.height) > 1024 ? "2K" : "1K",
+        }
+      : {}),
+  };
   const config: {
     responseModalities: string[];
-    imageConfig: {
-      aspectRatio: string;
+    imageConfig?: {
+      aspectRatio?: string;
       imageSize?: string;
     };
   } = {
     responseModalities: ["TEXT", "IMAGE"],
-    imageConfig: {
-      aspectRatio: toClosestGeminiAspectRatio(request.width, request.height),
-      ...(request.model === "gemini-3.1-flash-image-preview" ||
-      request.model === "gemini-3-pro-image-preview"
-        ? {
-            imageSize:
-              Math.max(request.width, request.height) > 1024 ? "2K" : "1K",
-          }
-        : {}),
-    },
+    ...(Object.keys(nativeImageConfig).length
+      ? { imageConfig: nativeImageConfig }
+      : {}),
   };
   const requestSummary = buildGenerateContentRequestSummary({
     provider: "gemini",
@@ -108,7 +117,7 @@ export const generateGeminiImages = async ({
           prompt,
           config: {
             numberOfImages: clampImageCount(request, 4),
-            aspectRatio: toClosestGeminiAspectRatio(request.width, request.height),
+            ...(geminiAspectRatio ? { aspectRatio: geminiAspectRatio } : {}),
             ...(request.model !== "imagen-4.0-fast-generate-001"
               ? {
                   imageSize:

@@ -33,7 +33,9 @@ describe("generateOpenRouterImages", () => {
                 {
                   type: "image_url",
                   image_url: {
-                    url: `data:image/png;base64,${Buffer.from("openrouter image").toString("base64")}`,
+                    url: `data:image/png;base64,${Buffer.from(
+                      "openrouter image",
+                    ).toString("base64")}`,
                   },
                 },
               ],
@@ -86,6 +88,59 @@ describe("generateOpenRouterImages", () => {
     expect(response.images).toHaveLength(1);
   });
 
+  it("omits OpenRouter image_config when ratio is automatic", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              images: [
+                {
+                  image_url: {
+                    url: `data:image/png;base64,${Buffer.from(
+                      "openrouter auto image",
+                    ).toString("base64")}`,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+
+    await generateOpenRouterImages({
+      apiKey: "openrouter-key",
+      request: {
+        provider: "openrouter",
+        model: "google/gemini-3.1-flash-image-preview",
+        prompt: "一张横版产品发布海报",
+        aspectRatio: null,
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://openrouter.ai/api/v1/chat/completions",
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-image-preview",
+          messages: [
+            {
+              role: "user",
+              content: "一张横版产品发布海报",
+            },
+          ],
+          modalities: ["image", "text"],
+          stream: false,
+        }),
+      }),
+    );
+  });
+
   it("passes reference images through OpenRouter multimodal message content", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -96,7 +151,9 @@ describe("generateOpenRouterImages", () => {
               images: [
                 {
                   imageUrl: {
-                    url: `data:image/png;base64,${Buffer.from("openrouter edit image").toString("base64")}`,
+                    url: `data:image/png;base64,${Buffer.from(
+                      "openrouter edit image",
+                    ).toString("base64")}`,
                   },
                 },
               ],
@@ -144,7 +201,9 @@ describe("generateOpenRouterImages", () => {
                 {
                   type: "image_url",
                   image_url: {
-                    url: `data:image/png;base64,${Buffer.from("selection").toString("base64")}`,
+                    url: `data:image/png;base64,${Buffer.from(
+                      "selection",
+                    ).toString("base64")}`,
                   },
                 },
               ],
@@ -154,6 +213,62 @@ describe("generateOpenRouterImages", () => {
           stream: false,
           image_config: {
             aspect_ratio: "1:1",
+            image_size: "1K",
+          },
+        }),
+      }),
+    );
+  });
+
+  it("routes GPT image models through OpenRouter chat image generation", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              images: [
+                {
+                  image_url: {
+                    url: `data:image/png;base64,${Buffer.from(
+                      "openrouter gpt image",
+                    ).toString("base64")}`,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+
+    await generateOpenRouterImages({
+      apiKey: "openrouter-key",
+      request: {
+        provider: "openrouter",
+        model: "openai/gpt-image-2",
+        prompt: "一把折刀",
+        width: 1536,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://openrouter.ai/api/v1/chat/completions",
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: "openai/gpt-image-2",
+          messages: [
+            {
+              role: "user",
+              content: "一把折刀",
+            },
+          ],
+          modalities: ["image", "text"],
+          stream: false,
+          image_config: {
+            aspect_ratio: "3:2",
             image_size: "1K",
           },
         }),

@@ -389,6 +389,7 @@ vi.mock("./components/GenerateImageDialog", () => ({
         | "openrouter";
       model: string;
       prompt: string;
+      aspectRatio?: string | null;
       width: number;
       height: number;
       imageCount: number;
@@ -411,6 +412,7 @@ vi.mock("./components/GenerateImageDialog", () => ({
           | "openrouter";
         model: string;
         prompt: string;
+        aspectRatio?: string | null;
         width: number;
         height: number;
         imageCount: number;
@@ -444,6 +446,20 @@ vi.mock("./components/GenerateImageDialog", () => ({
         ) : null}
         <button type="button" onClick={() => onSubmit(initialRequest, false)}>
           提交生成
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onSubmit(
+              {
+                ...initialRequest,
+                aspectRatio: "1:1",
+              },
+              false,
+            )
+          }
+        >
+          提交固定比例生成
         </button>
         <button
           type="button"
@@ -3105,6 +3121,263 @@ describe("App startup", () => {
 
     expect(pendingFrames).toHaveLength(1);
     expect(pendingLabels).toHaveLength(1);
+  });
+
+  it("keeps the generated image canvas size from the placeholder frame", async () => {
+    const firstJob = createDeferred<{
+      provider: "gemini";
+      model: string;
+      seed: null;
+      createdAt: string;
+      images: Array<{
+        dataBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }>;
+    }>();
+    const generateImages = vi.fn().mockImplementation(() => firstJob.promise);
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: "{}",
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/nano-banana-2",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages,
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await screen.findByText("生成图片弹窗");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交固定比例生成" }));
+    });
+
+    const placeholderUpdate = mockExcalidrawAPI?.updateScene.mock.calls.find(
+      ([update]) =>
+        update?.elements?.some(
+          (element: any) =>
+            !element.isDeleted &&
+            element.type === "frame" &&
+            element.strokeStyle === "dashed",
+        ),
+    )?.[0];
+    const pendingFrame = placeholderUpdate?.elements?.find(
+      (element: any) =>
+        !element.isDeleted &&
+        element.type === "frame" &&
+        element.strokeStyle === "dashed",
+    );
+
+    expect(pendingFrame).toMatchObject({
+      width: 512,
+      height: 512,
+    });
+
+    await act(async () => {
+      firstJob.resolve({
+        provider: "gemini",
+        model: "gemini-2.5-flash-image",
+        seed: null,
+        createdAt: "2026-04-15T08:00:00.000Z",
+        images: [
+          {
+            dataBase64: "Z3B0LXJldHVybi1pbWFnZQ==",
+            mimeType: "image/png",
+            width: 1254,
+            height: 1254,
+          },
+        ],
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const latestElements =
+        mockExcalidrawAPI?.updateScene.mock.calls.at(-1)?.[0]?.elements ?? [];
+      const visibleImages = latestElements.filter(
+        (element: any) => !element.isDeleted && element.type === "image",
+      );
+
+      expect(visibleImages).toHaveLength(1);
+      expect(visibleImages[0]).toMatchObject({
+        width: pendingFrame.width,
+        height: pendingFrame.height,
+      });
+    });
+  });
+
+  it("fits auto-ratio generated images to the returned image dimensions", async () => {
+    const firstJob = createDeferred<{
+      provider: "gemini";
+      model: string;
+      seed: null;
+      createdAt: string;
+      images: Array<{
+        dataBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }>;
+    }>();
+    const generateImages = vi.fn().mockImplementation(() => firstJob.promise);
+
+    window.imageBoardDesktop = {
+      createProject: vi.fn().mockResolvedValue({
+        projectPath: "/tmp/mock-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "0.0.0-test",
+          name: "测试项目",
+          createdAt: "2026-04-12T08:00:00.000Z",
+          updatedAt: "2026-04-12T08:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: "{}",
+        imageRecords: {},
+      }),
+      openProject: vi.fn().mockResolvedValue(null),
+      writeProjectScene: vi.fn().mockResolvedValue(undefined),
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      importImages: vi.fn().mockResolvedValue([]),
+      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/nano-banana-2",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      saveProviderSettings: vi.fn(),
+      generateImages,
+      onMenuAction: vi.fn(() => () => undefined),
+    } as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await screen.findByText("生成图片弹窗");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交生成" }));
+    });
+
+    expect(generateImages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          aspectRatio: null,
+        }),
+      }),
+    );
+
+    await act(async () => {
+      firstJob.resolve({
+        provider: "gemini",
+        model: "gemini-2.5-flash-image",
+        seed: null,
+        createdAt: "2026-04-15T08:00:00.000Z",
+        images: [
+          {
+            dataBase64: "bGFuZHNjYXBlLXBvc3Rlcg==",
+            mimeType: "image/png",
+            width: 1536,
+            height: 1024,
+          },
+        ],
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const latestElements =
+        mockExcalidrawAPI?.updateScene.mock.calls.at(-1)?.[0]?.elements ?? [];
+      const visibleImages = latestElements.filter(
+        (element: any) => !element.isDeleted && element.type === "image",
+      );
+
+      expect(visibleImages).toHaveLength(1);
+      expect(visibleImages[0]).toMatchObject({
+        width: 640,
+        height: 427,
+      });
+    });
   });
 
   it("still inserts placeholders when the canvas API is first received from initialize", async () => {

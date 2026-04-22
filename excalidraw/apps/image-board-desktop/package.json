@@ -16,7 +16,8 @@
     "build": "yarn build:renderer && yarn build:electron",
     "preview": "yarn ensure:electron && yarn build && electron dist-electron/main.js",
     "package:dir": "yarn build && yarn check:secrets --source --package-inputs && electron-builder --dir && yarn check:secrets --release",
-    "package:app": "yarn build && yarn check:secrets --source --package-inputs && electron-builder && yarn check:secrets --release",
+    "notarize:release": "node scripts/notarize-release.cjs",
+    "package:app": "yarn build && yarn check:secrets --source --package-inputs && electron-builder && yarn notarize:release && yarn check:secrets --release",
     "test": "vitest apps/image-board-desktop"
   },
   "dependencies": {

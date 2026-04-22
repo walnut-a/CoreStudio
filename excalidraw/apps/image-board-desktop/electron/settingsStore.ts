@@ -1,13 +1,16 @@
 import fs from "fs/promises";
 import path from "path";
 
-import { app, safeStorage } from "electron";
+import { app } from "electron";
 
 import type {
   PublicProviderSettings,
   SaveProviderSettingsInput,
 } from "../src/shared/desktopBridgeTypes";
-import { PROVIDER_IDS } from "../src/shared/providerCatalog";
+import {
+  isProviderRequestAdapter,
+  PROVIDER_IDS,
+} from "../src/shared/providerCatalog";
 import type {
   ProviderCapabilities,
   ProviderId,
@@ -18,9 +21,8 @@ type StoredProviderSettings = Record<ProviderId, Partial<ProviderSettings>>;
 
 const SETTINGS_FILE_NAME = "image-board-settings.json";
 const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
-const KEY_FORMAT_ERROR = "之前保存的密钥无法读取，请重新填写并保存。";
-const KEY_ENCRYPTION_UNAVAILABLE_ERROR =
-  "系统加密服务暂不可用，请稍后再试或重新登录系统后打开。";
+const KEY_LEGACY_ENCRYPTED_ERROR =
+  "之前保存的密钥使用了系统加密存储。当前版本不再读取钥匙串，请重新填写并保存一次。";
 
 const defaultSettings = (): StoredProviderSettings =>
   PROVIDER_IDS.reduce(
@@ -41,28 +43,12 @@ const getSettingsPath = () =>
 const getLegacySettingsPath = () =>
   path.join(app.getPath("userData"), SETTINGS_FILE_NAME);
 
-const canUseSafeStorage = () => {
-  try {
-    return safeStorage.isEncryptionAvailable();
-  } catch {
-    return false;
-  }
-};
-
 const encodeApiKey = (apiKey: string | undefined) => {
   if (!apiKey) {
     return apiKey;
   }
 
-  if (!canUseSafeStorage()) {
-    return `plain:${apiKey}`;
-  }
-
-  try {
-    return `enc:${safeStorage.encryptString(apiKey).toString("base64")}`;
-  } catch {
-    return `plain:${apiKey}`;
-  }
+  return `plain:${apiKey}`;
 };
 
 const normalizeStoredApiKey = (apiKey: string | undefined) => {
@@ -73,23 +59,10 @@ const normalizeStoredApiKey = (apiKey: string | undefined) => {
     };
   }
   if (apiKey.startsWith("enc:")) {
-    if (!canUseSafeStorage()) {
-      return {
-        apiKey: "",
-        formatError: KEY_ENCRYPTION_UNAVAILABLE_ERROR,
-      };
-    }
-    try {
-      return {
-        apiKey: safeStorage.decryptString(Buffer.from(apiKey.slice(4), "base64")),
-        formatError: null as string | null,
-      };
-    } catch {
-      return {
-        apiKey: "",
-        formatError: KEY_FORMAT_ERROR,
-      };
-    }
+    return {
+      apiKey: "",
+      formatError: KEY_LEGACY_ENCRYPTED_ERROR,
+    };
   }
   if (apiKey.startsWith("plain:")) {
     return {
@@ -103,38 +76,32 @@ const normalizeStoredApiKey = (apiKey: string | undefined) => {
   };
 };
 
-const protectStoredApiKey = (apiKey: string | undefined) => {
-  const normalized = normalizeStoredApiKey(apiKey);
-  if (!normalized.apiKey || normalized.formatError) {
-    return apiKey;
-  }
-
-  if (apiKey?.startsWith("enc:") && canUseSafeStorage()) {
-    return apiKey;
-  }
-
-  return encodeApiKey(normalized.apiKey);
-};
-
-const protectStoredApiKeys = (settings: StoredProviderSettings) => {
-  return PROVIDER_IDS.reduce((nextSettings, provider) => {
-    const providerSettings = settings[provider] ?? {};
+const getPublicApiKeyState = (apiKey: string | undefined) => {
+  if (!apiKey) {
     return {
-      ...nextSettings,
-      [provider]: {
-        ...providerSettings,
-        apiKey: protectStoredApiKey(providerSettings.apiKey),
-      },
+      isConfigured: false,
+      formatError: null as string | null,
     };
-  }, {} as StoredProviderSettings);
-};
-
-const protectAndPersistSettings = async (settings: StoredProviderSettings) => {
-  const protectedSettings = protectStoredApiKeys(settings);
-  if (JSON.stringify(protectedSettings) !== JSON.stringify(settings)) {
-    await writeSettings(protectedSettings);
   }
-  return protectedSettings;
+
+  if (apiKey.startsWith("enc:")) {
+    return {
+      isConfigured: false,
+      formatError: KEY_LEGACY_ENCRYPTED_ERROR,
+    };
+  }
+
+  if (apiKey.startsWith("plain:")) {
+    return {
+      isConfigured: Boolean(apiKey.slice("plain:".length)),
+      formatError: null as string | null,
+    };
+  }
+
+  return {
+    isConfigured: Boolean(apiKey),
+    formatError: null as string | null,
+  };
 };
 
 const normalizeProviderCapabilities = (
@@ -153,7 +120,8 @@ const normalizeProviderCapabilities = (
   return {
     supportsNegativePrompt: Boolean(capabilities.supportsNegativePrompt),
     supportsSeed: Boolean(capabilities.supportsSeed),
-    supportsImageCount: Boolean(capabilities.supportsImageCount) && maxImageCount > 1,
+    supportsImageCount:
+      Boolean(capabilities.supportsImageCount) && maxImageCount > 1,
     supportsReferenceImages: Boolean(capabilities.supportsReferenceImages),
     maxImageCount,
     sizeControlMode:
@@ -172,6 +140,9 @@ const normalizeCustomModels = (
         id: model.id.trim(),
         label: model.label?.trim() || model.id.trim(),
         capabilityTemplate: model.capabilityTemplate,
+        ...(isProviderRequestAdapter(model.adapter)
+          ? { adapter: model.adapter }
+          : {}),
         ...(capabilities ? { capabilities } : {}),
       };
     });
@@ -181,7 +152,7 @@ const toPublicSettings = (
 ): PublicProviderSettings => {
   return PROVIDER_IDS.reduce((publicSettings, provider) => {
     const providerSettings = settings[provider] ?? {};
-    const apiKey = normalizeStoredApiKey(providerSettings.apiKey);
+    const apiKey = getPublicApiKeyState(providerSettings.apiKey);
     const customModels = normalizeCustomModels(providerSettings.customModels);
 
     return {
@@ -189,7 +160,7 @@ const toPublicSettings = (
       [provider]: {
         defaultModel: providerSettings.defaultModel,
         ...(customModels.length ? { customModels } : {}),
-        isConfigured: Boolean(apiKey.apiKey),
+        isConfigured: apiKey.isConfigured,
         lastStatus: apiKey.formatError
           ? "error"
           : providerSettings.lastStatus ?? "unknown",
@@ -204,10 +175,10 @@ const readSettings = async (): Promise<StoredProviderSettings> => {
   try {
     const contents = await fs.readFile(getSettingsPath(), "utf8");
     const parsed = JSON.parse(contents) as StoredProviderSettings;
-    return protectAndPersistSettings({
+    return {
       ...defaultSettings(),
       ...parsed,
-    });
+    };
   } catch (error: any) {
     if (error.code === "ENOENT") {
       const legacyPath = getLegacySettingsPath();
@@ -220,7 +191,8 @@ const readSettings = async (): Promise<StoredProviderSettings> => {
             ...defaultSettings(),
             ...parsed,
           };
-          return protectAndPersistSettings(migratedSettings);
+          await writeSettings(migratedSettings);
+          return migratedSettings;
         } catch (legacyError: any) {
           if (legacyError.code !== "ENOENT") {
             throw legacyError;
@@ -236,7 +208,11 @@ const readSettings = async (): Promise<StoredProviderSettings> => {
 
 const writeSettings = async (settings: StoredProviderSettings) => {
   await fs.mkdir(path.dirname(getSettingsPath()), { recursive: true });
-  await fs.writeFile(getSettingsPath(), JSON.stringify(settings, null, 2), "utf8");
+  await fs.writeFile(
+    getSettingsPath(),
+    JSON.stringify(settings, null, 2),
+    "utf8",
+  );
 };
 
 export const loadProviderSettings = async () => {
@@ -251,7 +227,7 @@ export const saveProviderSettings = async (
     ...settings[input.provider],
     apiKey: input.apiKey
       ? encodeApiKey(input.apiKey)
-      : protectStoredApiKey(settings[input.provider].apiKey),
+      : settings[input.provider].apiKey,
     defaultModel: input.defaultModel,
     customModels:
       input.customModels === undefined
@@ -267,7 +243,8 @@ export const saveProviderSettings = async (
 
 export const getProviderApiKey = async (provider: ProviderId) => {
   const settings = await readSettings();
-  const apiKeyState = normalizeStoredApiKey(settings[provider].apiKey);
+  const storedApiKey = settings[provider].apiKey;
+  const apiKeyState = normalizeStoredApiKey(storedApiKey);
   if (apiKeyState.formatError) {
     throw new Error(apiKeyState.formatError);
   }

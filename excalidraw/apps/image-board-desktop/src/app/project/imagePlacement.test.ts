@@ -75,4 +75,48 @@ describe("placeGeneratedImages", () => {
     expect(placements[0].x + placements[0].width / 2).toBe(860);
     expect(placements[0].y + placements[0].height / 2).toBe(540);
   });
+
+  it("keeps generated image display size stable across viewport and zoom changes", () => {
+    const compactViewport = placeGeneratedImages({
+      images: [{ width: 1024, height: 1024 }],
+      viewportCenter: { x: 400, y: 300 },
+      viewportSize: { width: 1200, height: 800 },
+      zoomValue: 0.4,
+    });
+    const largeViewport = placeGeneratedImages({
+      images: [{ width: 1024, height: 1024 }],
+      viewportCenter: { x: 900, y: 700 },
+      viewportSize: { width: 2400, height: 1600 },
+      zoomValue: 2,
+    });
+
+    expect(compactViewport[0].width).toBe(512);
+    expect(compactViewport[0].height).toBe(512);
+    expect(largeViewport[0].width).toBe(compactViewport[0].width);
+    expect(largeViewport[0].height).toBe(compactViewport[0].height);
+  });
+
+  it("uses the same canvas size for square images with different source pixels", () => {
+    const placements = placeGeneratedImages({
+      images: [
+        { width: 1024, height: 1024 },
+        { width: 1200, height: 1200 },
+        { width: 1254, height: 1254 },
+      ],
+      viewportCenter: { x: 900, y: 700 },
+      viewportSize: { width: 1600, height: 1000 },
+      zoomValue: 1,
+    });
+
+    expect(placements.map((placement) => placement.width)).toEqual([
+      512,
+      512,
+      512,
+    ]);
+    expect(placements.map((placement) => placement.height)).toEqual([
+      512,
+      512,
+      512,
+    ]);
+  });
 });

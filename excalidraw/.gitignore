@@ -13,6 +13,10 @@
 *.log
 *.tgz
 build
+!apps/image-board-desktop/build/
+apps/image-board-desktop/build/*
+!apps/image-board-desktop/build/icon.icns
+!apps/image-board-desktop/build/icon.png
 dist
 firebase
 logs

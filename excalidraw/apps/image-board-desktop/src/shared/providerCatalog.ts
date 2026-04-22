@@ -8,7 +8,45 @@ import type {
   ProviderDefinition,
   ProviderId,
   ProviderModelDefinition,
+  ProviderRequestAdapter,
 } from "./providerTypes";
+
+export const PROVIDER_REQUEST_ADAPTERS: readonly ProviderRequestAdapter[] = [
+  "gemini-generate-content",
+  "zenmux-vertex-generate-content",
+  "zenmux-vertex-gpt-image",
+  "fal-image",
+  "jimeng-image",
+  "openai-images",
+  "openrouter-chat-image",
+];
+
+export const PROVIDER_REQUEST_ADAPTER_LABELS: Record<
+  ProviderRequestAdapter,
+  string
+> = {
+  "gemini-generate-content": "Gemini 官方接口",
+  "zenmux-vertex-generate-content": "ZenMux Vertex：Gemini / Nano Banana",
+  "zenmux-vertex-gpt-image": "ZenMux Vertex：GPT Image",
+  "fal-image": "fal.ai 生图接口",
+  "jimeng-image": "即梦 / Seedream 接口",
+  "openai-images": "OpenAI Images 接口",
+  "openrouter-chat-image": "OpenRouter Chat 图像接口",
+};
+
+export const PROVIDER_REQUEST_ADAPTER_OPTIONS: Record<
+  ProviderId,
+  readonly ProviderRequestAdapter[]
+> = {
+  gemini: ["gemini-generate-content"],
+  zenmux: ["zenmux-vertex-generate-content", "zenmux-vertex-gpt-image"],
+  fal: ["fal-image"],
+  jimeng: ["jimeng-image"],
+  openai: ["openai-images"],
+  openrouter: ["openrouter-chat-image"],
+};
+
+export const ASPECT_RATIO_AUTO_ID = "auto";
 
 const NATIVE_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsNegativePrompt: false,
@@ -63,6 +101,37 @@ const OPENROUTER_TEXT_TO_IMAGE_CAPABILITIES: ProviderCapabilities = {
   maxImageCount: 1,
   sizeControlMode: "aspect-ratio",
 };
+
+const OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES: ProviderCapabilities = {
+  supportsNegativePrompt: false,
+  supportsSeed: false,
+  supportsImageCount: false,
+  supportsReferenceImages: true,
+  maxImageCount: 1,
+  sizeControlMode: "aspect-ratio",
+};
+
+const createOpenAICompatibleGptImageModels = (
+  adapter: ProviderRequestAdapter,
+): Record<string, ProviderModelDefinition> => ({
+  "openai/gpt-image-1.5": {
+    id: "openai/gpt-image-1.5",
+    label: "GPT Image 1.5",
+    capabilities: OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES,
+    adapter,
+  },
+  "openai/gpt-image-2": {
+    id: "openai/gpt-image-2",
+    label: "GPT Image 2",
+    capabilities: OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES,
+    adapter,
+  },
+});
+
+export const isOpenAICompatibleGptImageModel = (model?: string) =>
+  /^openai\/(?:gpt-image-|gpt-[\w.-]*image)/.test(
+    model?.trim().toLowerCase() ?? "",
+  );
 
 export const CUSTOM_MODEL_CAPABILITY_TEMPLATES: Record<
   CustomModelCapabilityTemplateId,
@@ -122,14 +191,10 @@ const ALL_IMAGE_FIELDS: Record<GenerationField, true> = {
 
 export const COMMON_ASPECT_RATIO_OPTIONS = [
   { id: "1:1", label: "1:1", width: 1024, height: 1024 },
+  { id: "16:9", label: "16:9", width: 1344, height: 768 },
+  { id: "9:16", label: "9:16", width: 768, height: 1344 },
   { id: "4:3", label: "4:3", width: 1024, height: 768 },
   { id: "3:4", label: "3:4", width: 768, height: 1024 },
-  { id: "16:9", label: "16:9", width: 1280, height: 720 },
-  { id: "9:16", label: "9:16", width: 720, height: 1280 },
-] as const satisfies readonly AspectRatioOption[];
-
-const FAL_NANO_ASPECT_RATIO_OPTIONS = [
-  ...COMMON_ASPECT_RATIO_OPTIONS,
   { id: "3:2", label: "3:2", width: 1536, height: 1024 },
   { id: "2:3", label: "2:3", width: 1024, height: 1536 },
   { id: "5:4", label: "5:4", width: 1280, height: 1024 },
@@ -137,12 +202,29 @@ const FAL_NANO_ASPECT_RATIO_OPTIONS = [
   { id: "21:9", label: "21:9", width: 1792, height: 768 },
   { id: "4:1", label: "4:1", width: 2048, height: 512 },
   { id: "1:4", label: "1:4", width: 512, height: 2048 },
+  { id: "8:1", label: "8:1", width: 3072, height: 384 },
+  { id: "1:8", label: "1:8", width: 384, height: 3072 },
+] as const satisfies readonly AspectRatioOption[];
+
+const FAL_NANO_ASPECT_RATIO_OPTIONS = [
+  ...COMMON_ASPECT_RATIO_OPTIONS,
 ] as const satisfies readonly AspectRatioOption[];
 
 const OPENAI_IMAGE_ASPECT_RATIO_OPTIONS = [
   { id: "1:1", label: "1:1", width: 1024, height: 1024 },
   { id: "3:2", label: "3:2", width: 1536, height: 1024 },
   { id: "2:3", label: "2:3", width: 1024, height: 1536 },
+] as const satisfies readonly AspectRatioOption[];
+
+const OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS = [
+  { id: "1:1", label: "1:1", width: 1024, height: 1024 },
+  { id: "16:9", label: "16:9", width: 2048, height: 1152 },
+  { id: "9:16", label: "9:16", width: 1152, height: 2048 },
+  { id: "4:3", label: "4:3", width: 1536, height: 1152 },
+  { id: "3:4", label: "3:4", width: 1152, height: 1536 },
+  { id: "3:2", label: "3:2", width: 1536, height: 1024 },
+  { id: "2:3", label: "2:3", width: 1024, height: 1536 },
+  { id: "21:9", label: "21:9", width: 1792, height: 768 },
 ] as const satisfies readonly AspectRatioOption[];
 
 const OPENROUTER_ASPECT_RATIO_OPTIONS = [
@@ -179,6 +261,29 @@ export const getClosestAspectRatioOption = (
       : best,
   );
 };
+
+export const getAspectRatioOptionById = (
+  aspectRatio: string | null | undefined,
+  options: readonly AspectRatioOption[] = COMMON_ASPECT_RATIO_OPTIONS,
+) => options.find((candidate) => candidate.id === aspectRatio) ?? null;
+
+export const getRequestAspectRatioOption = (
+  request: Pick<GenerationRequest, "aspectRatio" | "width" | "height">,
+  options: readonly AspectRatioOption[] = COMMON_ASPECT_RATIO_OPTIONS,
+) => {
+  if (request.aspectRatio === null) {
+    return null;
+  }
+
+  return (
+    getAspectRatioOptionById(request.aspectRatio, options) ||
+    getClosestAspectRatioOption(request.width, request.height, options)
+  );
+};
+
+export const isAutoAspectRatioRequest = (
+  request: Pick<GenerationRequest, "aspectRatio">,
+) => request.aspectRatio === null;
 
 export const PROVIDER_IDS = [
   "gemini",
@@ -245,22 +350,27 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
         id: "google/gemini-2.5-flash-image",
         label: "Gemini 2.5 Flash Image",
         capabilities: NATIVE_IMAGE_CAPABILITIES,
+        adapter: "zenmux-vertex-generate-content",
       },
       "google/gemini-2.5-flash-image-free": {
         id: "google/gemini-2.5-flash-image-free",
         label: "Gemini 2.5 Flash Image Free",
         capabilities: NATIVE_IMAGE_CAPABILITIES,
+        adapter: "zenmux-vertex-generate-content",
       },
       "google/gemini-3-pro-image-preview": {
         id: "google/gemini-3-pro-image-preview",
         label: "Gemini 3 Pro Image Preview",
         capabilities: NATIVE_IMAGE_CAPABILITIES,
+        adapter: "zenmux-vertex-generate-content",
       },
       "google/gemini-3-pro-image-preview-free": {
         id: "google/gemini-3-pro-image-preview-free",
         label: "Gemini 3 Pro Image Preview Free",
         capabilities: NATIVE_IMAGE_CAPABILITIES,
+        adapter: "zenmux-vertex-generate-content",
       },
+      ...createOpenAICompatibleGptImageModels("zenmux-vertex-gpt-image"),
     },
   },
   fal: {
@@ -343,20 +453,29 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
     label: "OpenAI",
     defaultModel: "gpt-image-1.5",
     models: {
+      "gpt-image-2": {
+        id: "gpt-image-2",
+        label: "GPT Image 2",
+        capabilities: OPENAI_IMAGE_CAPABILITIES,
+        adapter: "openai-images",
+      },
       "gpt-image-1.5": {
         id: "gpt-image-1.5",
         label: "GPT Image 1.5",
         capabilities: OPENAI_IMAGE_CAPABILITIES,
+        adapter: "openai-images",
       },
       "gpt-image-1": {
         id: "gpt-image-1",
         label: "GPT Image 1",
         capabilities: OPENAI_IMAGE_CAPABILITIES,
+        adapter: "openai-images",
       },
       "gpt-image-1-mini": {
         id: "gpt-image-1-mini",
         label: "GPT Image 1 Mini",
         capabilities: OPENAI_IMAGE_CAPABILITIES,
+        adapter: "openai-images",
       },
     },
   },
@@ -369,26 +488,32 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
         id: "google/gemini-3.1-flash-image-preview",
         label: "Nano Banana 2 (Gemini 3.1 Flash Image)",
         capabilities: OPENROUTER_IMAGE_CHAT_CAPABILITIES,
+        adapter: "openrouter-chat-image",
       },
       "google/gemini-3-pro-image-preview": {
         id: "google/gemini-3-pro-image-preview",
         label: "Nano Banana Pro (Gemini 3 Pro Image)",
         capabilities: OPENROUTER_IMAGE_CHAT_CAPABILITIES,
+        adapter: "openrouter-chat-image",
       },
       "google/gemini-2.5-flash-image": {
         id: "google/gemini-2.5-flash-image",
         label: "Nano Banana (Gemini 2.5 Flash Image)",
         capabilities: OPENROUTER_IMAGE_CHAT_CAPABILITIES,
+        adapter: "openrouter-chat-image",
       },
+      ...createOpenAICompatibleGptImageModels("openrouter-chat-image"),
       "black-forest-labs/flux.2-pro": {
         id: "black-forest-labs/flux.2-pro",
         label: "FLUX 2 Pro",
         capabilities: OPENROUTER_TEXT_TO_IMAGE_CAPABILITIES,
+        adapter: "openrouter-chat-image",
       },
       "black-forest-labs/flux.2-flex": {
         id: "black-forest-labs/flux.2-flex",
         label: "FLUX 2 Flex",
         capabilities: OPENROUTER_TEXT_TO_IMAGE_CAPABILITIES,
+        adapter: "openrouter-chat-image",
       },
     },
   },
@@ -414,7 +539,46 @@ export const getDefaultModel = (provider: ProviderId) =>
 export const getProviderDefinition = (provider: ProviderId) =>
   PROVIDER_CATALOG[provider];
 
+export const isProviderRequestAdapter = (
+  value: unknown,
+): value is ProviderRequestAdapter =>
+  typeof value === "string" &&
+  PROVIDER_REQUEST_ADAPTERS.includes(value as ProviderRequestAdapter);
+
+export const inferProviderRequestAdapter = ({
+  provider,
+  modelId,
+}: {
+  provider: ProviderId;
+  modelId: string;
+}): ProviderRequestAdapter => {
+  if (provider === "zenmux") {
+    return isOpenAICompatibleGptImageModel(modelId)
+      ? "zenmux-vertex-gpt-image"
+      : "zenmux-vertex-generate-content";
+  }
+
+  if (provider === "openrouter") {
+    return "openrouter-chat-image";
+  }
+
+  if (provider === "openai") {
+    return "openai-images";
+  }
+
+  if (provider === "fal") {
+    return "fal-image";
+  }
+
+  if (provider === "jimeng") {
+    return "jimeng-image";
+  }
+
+  return "gemini-generate-content";
+};
+
 const toCustomModelDefinition = (
+  provider: ProviderId,
   model: CustomProviderModel,
 ): ProviderModelDefinition => {
   const template =
@@ -425,6 +589,12 @@ const toCustomModelDefinition = (
     id: model.id,
     label: model.label || model.id,
     capabilities: model.capabilities ?? template.capabilities,
+    adapter:
+      model.adapter ??
+      inferProviderRequestAdapter({
+        provider,
+        modelId: model.id,
+      }),
     custom: true,
   };
 };
@@ -474,6 +644,7 @@ export const inferCustomModelCapabilityTemplate = ({
 };
 
 const getCustomModelMap = (
+  provider: ProviderId,
   customModels: readonly CustomProviderModel[] = [],
 ) => {
   return customModels.reduce((models, customModel) => {
@@ -484,7 +655,7 @@ const getCustomModelMap = (
 
     return {
       ...models,
-      [id]: toCustomModelDefinition({
+      [id]: toCustomModelDefinition(provider, {
         ...customModel,
         id,
         label: customModel.label?.trim() || id,
@@ -498,14 +669,21 @@ export const getProviderModels = (
   customModels: readonly CustomProviderModel[] = [],
 ) => ({
   ...PROVIDER_CATALOG[provider].models,
-  ...getCustomModelMap(customModels),
+  ...getCustomModelMap(provider, customModels),
 });
 
-const fallbackCustomModel = (model: string): ProviderModelDefinition => ({
+const fallbackCustomModel = (
+  provider: ProviderId,
+  model: string,
+): ProviderModelDefinition => ({
   id: model,
   label: model,
   capabilities:
     CUSTOM_MODEL_CAPABILITY_TEMPLATES["text-to-image-aspect-ratio"].capabilities,
+  adapter: inferProviderRequestAdapter({
+    provider,
+    modelId: model,
+  }),
   custom: true,
 });
 
@@ -518,7 +696,7 @@ export const getModelDefinition = (
   const modelId = model || definition.defaultModel;
   return (
     getProviderModels(provider, customModels)[modelId] ||
-    fallbackCustomModel(modelId)
+    fallbackCustomModel(provider, modelId)
   );
 };
 
@@ -527,6 +705,21 @@ export const getProviderCapabilities = (args: {
   model?: string;
   customModels?: readonly CustomProviderModel[];
 }) => getModelDefinition(args.provider, args.model, args.customModels).capabilities;
+
+export const getProviderRequestAdapter = (args: {
+  provider: ProviderId;
+  model?: string;
+  customModels?: readonly CustomProviderModel[];
+}) => {
+  const modelId = args.model || getDefaultModel(args.provider);
+  return (
+    getModelDefinition(args.provider, modelId, args.customModels).adapter ??
+    inferProviderRequestAdapter({
+      provider: args.provider,
+      modelId,
+    })
+  );
+};
 
 export const normalizeGenerationRequest = (
   request: GenerationRequest,
@@ -538,12 +731,33 @@ export const normalizeGenerationRequest = (
     ...request,
     customModels: options.customModels,
   });
+  const aspectRatioOptions = getAspectRatioOptions({
+    provider: request.provider,
+    model: request.model,
+    customModels: options.customModels,
+  });
+  const requestedAspectRatio =
+    capabilities.sizeControlMode === "aspect-ratio"
+      ? request.aspectRatio === null
+        ? null
+        : request.aspectRatio &&
+            getAspectRatioOptionById(request.aspectRatio, aspectRatioOptions)
+          ? request.aspectRatio
+          : request.aspectRatio === undefined
+            ? undefined
+            : getClosestAspectRatioOption(
+                request.width,
+                request.height,
+                aspectRatioOptions,
+              ).id
+      : undefined;
 
   return {
     ...request,
     negativePrompt: capabilities.supportsNegativePrompt
       ? request.negativePrompt
       : undefined,
+    aspectRatio: requestedAspectRatio,
     seed: capabilities.supportsSeed ? request.seed ?? null : null,
     imageCount: capabilities.supportsImageCount
       ? Math.max(1, Math.min(request.imageCount, capabilities.maxImageCount))
@@ -566,12 +780,22 @@ export const getVisibleGenerationFields = (args: {
 export const getAspectRatioOptions = (args: {
   provider: ProviderId;
   model?: string;
+  customModels?: readonly CustomProviderModel[];
 }): readonly AspectRatioOption[] => {
-  if (args.provider === "openai") {
+  const adapter = getProviderRequestAdapter(args);
+
+  if (
+    (adapter === "openai-images" || adapter === "zenmux-vertex-gpt-image") &&
+    args.model?.includes("gpt-image-2")
+  ) {
+    return OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS;
+  }
+
+  if (adapter === "openai-images" || adapter === "zenmux-vertex-gpt-image") {
     return OPENAI_IMAGE_ASPECT_RATIO_OPTIONS;
   }
 
-  if (args.provider === "openrouter") {
+  if (adapter === "openrouter-chat-image") {
     return args.model === "google/gemini-3.1-flash-image-preview"
       ? OPENROUTER_EXTENDED_ASPECT_RATIO_OPTIONS
       : OPENROUTER_ASPECT_RATIO_OPTIONS;

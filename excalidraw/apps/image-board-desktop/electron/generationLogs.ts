@@ -98,6 +98,7 @@ export const writeGenerationLog = async ({
     request: {
       provider: request.provider,
       model: request.model,
+      aspectRatio: request.aspectRatio ?? null,
       width: request.width,
       height: request.height,
       imageCount: request.imageCount,

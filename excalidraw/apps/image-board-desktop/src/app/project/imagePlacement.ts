@@ -23,17 +23,17 @@ interface PlaceGeneratedImagesArgs {
   gap?: number;
 }
 
-const normalizeDimensions = (
+const DISPLAY_MAX_WIDTH = 640;
+const DISPLAY_MAX_HEIGHT = 512;
+
+export const normalizeGeneratedImageDimensions = (
   image: GeneratedImageGeometry,
-  viewportHeight: number,
-  zoomValue: number,
 ) => {
-  const minHeight = Math.max(viewportHeight - 120, 160);
-  const maxHeight = Math.min(
-    minHeight,
-    Math.floor(viewportHeight * 0.5) / Math.max(zoomValue, 0.1),
+  const scale = Math.min(
+    1,
+    DISPLAY_MAX_WIDTH / image.width,
+    DISPLAY_MAX_HEIGHT / image.height,
   );
-  const scale = Math.min(1, maxHeight / image.height);
   return {
     width: Math.round(image.width * scale),
     height: Math.round(image.height * scale),
@@ -67,8 +67,6 @@ export const measureBatchBounds = (
 export const placeGeneratedImages = ({
   images,
   viewportCenter,
-  viewportSize,
-  zoomValue,
   anchorPoint,
   anchorBounds,
   previousBatchBounds,
@@ -79,7 +77,7 @@ export const placeGeneratedImages = ({
   }
 
   const normalized = images.map((image) =>
-    normalizeDimensions(image, viewportSize.height, zoomValue),
+    normalizeGeneratedImageDimensions(image),
   );
   const columnCount = images.length === 1 ? 1 : Math.ceil(Math.sqrt(images.length));
   const rowCount = Math.ceil(images.length / columnCount);

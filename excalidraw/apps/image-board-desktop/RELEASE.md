@@ -37,6 +37,12 @@ CSC_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" corepack yarn package:d
 - 源码密钥扫描
 - 打包输入密钥扫描
 - electron-builder 打包
+- DMG 签名
+- Apple 公证
+- DMG / App 写入公证票据
+- Gatekeeper 校验
+- ZIP 重新压缩
+- DMG / ZIP blockmap 重新生成
 - release 输出密钥扫描
 
 生成文件位于：
@@ -70,7 +76,7 @@ Developer ID Application: junyan liu (CUP682RD2S)
 TeamIdentifier=CUP682RD2S
 ```
 
-## Apple 公证
+## Apple 公证脚本
 
 这台开发机已有 FileBox 共用的 `notarytool` profile：
 
@@ -78,39 +84,33 @@ TeamIdentifier=CUP682RD2S
 filebox-notary
 ```
 
-提交公证前先签名 DMG 容器：
+正式打包时会自动运行：
 
 ```sh
-codesign --sign "Developer ID Application: junyan liu (CUP682RD2S)" \
-  --force \
-  --keychain "$HOME/Library/Keychains/login.keychain-db" \
-  --timestamp \
-  apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg
+corepack yarn --cwd apps/image-board-desktop notarize:release
 ```
 
-手动提交 DMG：
+这个脚本会使用：
+
+- `CORESTUDIO_NOTARY_PROFILE`：默认 `filebox-notary`
+- `CORESTUDIO_CODESIGN_IDENTITY`：默认 `Developer ID Application: junyan liu (CUP682RD2S)`
+- `CSC_KEYCHAIN`：默认 `$HOME/Library/Keychains/login.keychain-db`
+
+如果只是临时打一个不公证的内部包，可以显式跳过：
 
 ```sh
-xcrun notarytool submit apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg \
-  --keychain-profile filebox-notary \
-  --wait \
-  --progress
+CORESTUDIO_SKIP_NOTARIZE=1 corepack yarn --cwd apps/image-board-desktop notarize:release
 ```
 
-公证通过后写入票据：
+单独重跑公证：
 
 ```sh
-xcrun stapler staple apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg
-xcrun stapler validate apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg
+cd excalidraw
+CSC_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" \
+  corepack yarn --cwd apps/image-board-desktop notarize:release
 ```
 
-验证 Gatekeeper：
-
-```sh
-spctl -a -vvv -t open --context context:primary-signature apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg
-```
-
-预期结果应包含：
+脚本成功后，预期校验结果应包含：
 
 ```text
 accepted
@@ -119,23 +119,22 @@ source=Notarized Developer ID
 
 ## ZIP 处理
 
-如果同时发布 ZIP，需要确认 ZIP 内的 `CoreStudio.app` 也带有公证票据：
+`notarize:release` 会在 `CoreStudio.app` 写入票据后重新压缩 ZIP，并重新生成 `.blockmap`。发布 ZIP 前可以再抽检一次：
 
 ```sh
+cd excalidraw
 TMP_DIR="$(mktemp -d /tmp/corestudio-zip-check.XXXXXX)"
 unzip -q apps/image-board-desktop/release/CoreStudio-1.0.0-arm64-mac.zip -d "$TMP_DIR"
 xcrun stapler validate "$TMP_DIR/CoreStudio.app"
-spctl -a -vvv -t install "$TMP_DIR/CoreStudio.app"
+spctl -a -vvv -t exec "$TMP_DIR/CoreStudio.app"
 codesign --verify --deep --strict --verbose=2 "$TMP_DIR/CoreStudio.app"
 ```
 
-如果需要重新压 ZIP：
+也可以直接校验发布目录里的 app：
 
 ```sh
-xcrun stapler staple apps/image-board-desktop/release/mac-arm64/CoreStudio.app
 xcrun stapler validate apps/image-board-desktop/release/mac-arm64/CoreStudio.app
-ditto -c -k --sequesterRsrc --keepParent apps/image-board-desktop/release/mac-arm64/CoreStudio.app \
-  apps/image-board-desktop/release/CoreStudio-1.0.0-arm64-mac.zip
+spctl -a -vvv -t exec apps/image-board-desktop/release/mac-arm64/CoreStudio.app
 ```
 
 ## 密钥检查
@@ -176,11 +175,11 @@ gh release create v1.0.0 \
 
 1.0.0 发布时通过了这些检查：
 
-- Desktop tests：166 passed
+- Desktop tests：182 passed
 - TypeScript typecheck：passed
 - Source/package-input/release secret scan：passed
 - Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
-- Apple notarization：submission `677c1102-9ffa-4727-817c-f0133aa40f5f`
+- Apple notarization：submission `b6aab739-a138-4295-90a4-55ee172e8587`
 - Gatekeeper：DMG accepted as `Notarized Developer ID`
 - ZIP app：stapler validate passed, Gatekeeper accepted as `Notarized Developer ID`
 
@@ -188,8 +187,8 @@ gh release create v1.0.0 \
 
 ```text
 CoreStudio-1.0.0-arm64.dmg
-sha256: f46462889b50b3145dd59692012000765d352bb574c96c2e43f131f5e17ed961
+sha256: 69e842fbf83ee4e3377d439039b3d9e8222439740a4a6cbd69a4a0e987baab9a
 
 CoreStudio-1.0.0-arm64-mac.zip
-sha256: 5c1b77c11411709c709e0198af91b298152d21083152ec916923e1c6c95feb23
+sha256: c9f4565fee75fb87de2c5672ff6efb7c5fa22585b4ffaf59ac2f145f3e4fc673
 ```

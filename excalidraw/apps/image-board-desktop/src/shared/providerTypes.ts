@@ -17,6 +17,15 @@ export type GenerationField =
 
 export type SizeControlMode = "exact" | "aspect-ratio";
 
+export type ProviderRequestAdapter =
+  | "gemini-generate-content"
+  | "zenmux-vertex-generate-content"
+  | "zenmux-vertex-gpt-image"
+  | "fal-image"
+  | "jimeng-image"
+  | "openai-images"
+  | "openrouter-chat-image";
+
 export type CustomModelCapabilityTemplateId =
   | "image-editing-aspect-ratio"
   | "text-to-image-aspect-ratio"
@@ -43,6 +52,7 @@ export interface ProviderModelDefinition {
   id: string;
   label: string;
   capabilities: ProviderCapabilities;
+  adapter?: ProviderRequestAdapter;
   custom?: boolean;
 }
 
@@ -57,6 +67,7 @@ export interface CustomProviderModel {
   id: string;
   label?: string;
   capabilityTemplate: CustomModelCapabilityTemplateId;
+  adapter?: ProviderRequestAdapter;
   capabilities?: ProviderCapabilities;
 }
 
@@ -65,6 +76,11 @@ export interface GenerationRequest {
   model: string;
   prompt: string;
   negativePrompt?: string;
+  /**
+   * `null` means do not send an explicit ratio and let the provider decide.
+   * `undefined` is treated as a legacy request and falls back to width/height.
+   */
+  aspectRatio?: string | null;
   width: number;
   height: number;
   seed?: number | null;

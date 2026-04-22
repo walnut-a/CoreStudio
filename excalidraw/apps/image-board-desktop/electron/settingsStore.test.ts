@@ -13,7 +13,9 @@ const safeStorageMock = vi.hoisted(() => {
   );
   const decryptString = vi.fn((value: Buffer) => {
     const text = value.toString("utf8");
-    return text.startsWith("encrypted:") ? text.slice("encrypted:".length) : text;
+    return text.startsWith("encrypted:")
+      ? text.slice("encrypted:".length)
+      : text;
   });
 
   return {
@@ -50,8 +52,12 @@ import {
 
 describe("settingsStore", () => {
   beforeEach(async () => {
-    mockAppDataPath = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-app-data-"));
-    mockUserDataPath = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-user-data-"));
+    mockAppDataPath = await fs.mkdtemp(
+      path.join(os.tmpdir(), "image-board-app-data-"),
+    );
+    mockUserDataPath = await fs.mkdtemp(
+      path.join(os.tmpdir(), "image-board-user-data-"),
+    );
     safeStorageMock.encryptionAvailable = true;
     safeStorageMock.encryptString.mockClear();
     safeStorageMock.decryptString.mockClear();
@@ -142,14 +148,14 @@ describe("settingsStore", () => {
         ),
         "utf8",
       ),
-    ).resolves.toContain("\"defaultModel\": \"gemini-2.5-flash-image\"");
+    ).resolves.toContain('"defaultModel": "gemini-2.5-flash-image"');
 
     await expect(
       fs.access(path.join(mockUserDataPath, "image-board-settings.json")),
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("stores API keys encrypted when Electron safe storage is available", async () => {
+  it("stores API keys as local-only plain settings", async () => {
     const apiKey = "sk-proj-" + "A".repeat(48);
 
     await saveProviderSettings({
@@ -167,12 +173,13 @@ describe("settingsStore", () => {
       "utf8",
     );
 
-    expect(contents).not.toContain(apiKey);
-    expect(contents).toContain("\"apiKey\": \"enc:");
+    expect(contents).toContain(`"apiKey": "plain:${apiKey}"`);
+    expect(safeStorageMock.encryptString).not.toHaveBeenCalled();
+    expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
     await expect(getProviderApiKey("openai")).resolves.toBe(apiKey);
   });
 
-  it("upgrades existing plaintext API keys to encrypted storage when reading settings", async () => {
+  it("reads existing plaintext API keys without touching system keychain", async () => {
     const apiKey = "legacy-openrouter-key-with-enough-length";
     await fs.mkdir(path.join(mockAppDataPath, "Excalidraw Image Board"), {
       recursive: true,
@@ -207,8 +214,11 @@ describe("settingsStore", () => {
       ),
       "utf8",
     );
-    expect(contents).not.toContain(apiKey);
-    expect(contents).toContain("\"apiKey\": \"enc:");
+    expect(contents).toContain(
+      '"apiKey":"legacy-openrouter-key-with-enough-length"',
+    );
+    expect(safeStorageMock.encryptString).not.toHaveBeenCalled();
+    expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
   });
 
   it("persists custom provider models with the provider settings", async () => {
@@ -221,6 +231,7 @@ describe("settingsStore", () => {
           id: "google/gemini-next-image-preview",
           label: "google/gemini-next-image-preview",
           capabilityTemplate: "image-editing-aspect-ratio",
+          adapter: "zenmux-vertex-generate-content",
         },
       ],
     });
@@ -234,6 +245,7 @@ describe("settingsStore", () => {
             id: "google/gemini-next-image-preview",
             label: "google/gemini-next-image-preview",
             capabilityTemplate: "image-editing-aspect-ratio",
+            adapter: "zenmux-vertex-generate-content",
           },
         ],
       },
@@ -248,7 +260,7 @@ describe("settingsStore", () => {
         ),
         "utf8",
       ),
-    ).resolves.toContain("\"customModels\"");
+    ).resolves.toContain('"customModels"');
   });
 
   it("loads legacy settings from the Electron userData path", async () => {
@@ -326,10 +338,10 @@ describe("settingsStore", () => {
         ),
         "utf8",
       ),
-    ).resolves.toContain("\"defaultModel\": \"gemini-3.1-flash-image-preview\"");
+    ).resolves.toContain('"defaultModel": "gemini-3.1-flash-image-preview"');
   });
 
-  it("loads encrypted saved keys", async () => {
+  it("flags legacy encrypted saved keys without decrypting them", async () => {
     await fs.mkdir(path.join(mockAppDataPath, "Excalidraw Image Board"), {
       recursive: true,
     });
@@ -341,7 +353,9 @@ describe("settingsStore", () => {
       ),
       JSON.stringify({
         gemini: {
-          apiKey: `enc:${Buffer.from("encrypted:test-key", "utf8").toString("base64")}`,
+          apiKey: `enc:${Buffer.from("encrypted:test-key", "utf8").toString(
+            "base64",
+          )}`,
           defaultModel: "gemini-2.5-flash-image",
           lastStatus: "success",
           lastCheckedAt: "2026-04-16T00:00:00.000Z",
@@ -359,10 +373,11 @@ describe("settingsStore", () => {
     await expect(loadProviderSettings()).resolves.toEqual({
       gemini: {
         defaultModel: "gemini-2.5-flash-image",
-        isConfigured: true,
-        lastStatus: "success",
+        isConfigured: false,
+        lastStatus: "error",
         lastCheckedAt: "2026-04-16T00:00:00.000Z",
-        lastError: null,
+        lastError:
+          "之前保存的密钥使用了系统加密存储。当前版本不再读取钥匙串，请重新填写并保存一次。",
       },
       zenmux: {
         defaultModel: undefined,
@@ -400,6 +415,53 @@ describe("settingsStore", () => {
         lastError: null,
       },
     });
-    await expect(getProviderApiKey("gemini")).resolves.toBe("test-key");
+    expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
+    await expect(getProviderApiKey("gemini")).rejects.toThrow(
+      "之前保存的密钥使用了系统加密存储",
+    );
+    expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
+  });
+
+  it("preserves an encrypted key without decrypting when saving model settings", async () => {
+    const encryptedKey = `enc:${Buffer.from(
+      "encrypted:test-key",
+      "utf8",
+    ).toString("base64")}`;
+    await fs.mkdir(path.join(mockAppDataPath, "Excalidraw Image Board"), {
+      recursive: true,
+    });
+    const settingsPath = path.join(
+      mockAppDataPath,
+      "Excalidraw Image Board",
+      "image-board-settings.json",
+    );
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({
+        gemini: {
+          apiKey: encryptedKey,
+          defaultModel: "gemini-2.5-flash-image",
+        },
+        zenmux: {},
+        fal: {},
+        jimeng: {},
+        openai: {},
+        openrouter: {},
+      }),
+      "utf8",
+    );
+
+    await saveProviderSettings({
+      provider: "gemini",
+      apiKey: "",
+      defaultModel: "gemini-3.1-flash-image-preview",
+    });
+
+    const contents = await fs.readFile(settingsPath, "utf8");
+    expect(contents).toContain(encryptedKey);
+    expect(contents).toContain(
+      '"defaultModel": "gemini-3.1-flash-image-preview"',
+    );
+    expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
   });
 });

@@ -683,6 +683,7 @@ describe("Chinese localization", () => {
             id: "google/gemini-next-image-preview",
             label: "google/gemini-next-image-preview",
             capabilityTemplate: "image-editing-aspect-ratio",
+            adapter: "zenmux-vertex-generate-content",
             capabilities: {
               supportsNegativePrompt: false,
               supportsSeed: false,

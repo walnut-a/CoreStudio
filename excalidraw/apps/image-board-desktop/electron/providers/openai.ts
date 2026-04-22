@@ -1,6 +1,6 @@
 import {
   getAspectRatioOptions,
-  getClosestAspectRatioOption,
+  getRequestAspectRatioOption,
 } from "../../src/shared/providerCatalog";
 import type { GenerationRequest, GenerationResponse } from "../../src/shared/providerTypes";
 
@@ -36,16 +36,15 @@ const truncateText = (value: string, maxLength = 260) =>
   value.length > maxLength ? `${value.slice(0, maxLength)}…` : value;
 
 const toOpenAIImageSize = (request: GenerationRequest) => {
-  const option = getClosestAspectRatioOption(
-    request.width,
-    request.height,
+  const option = getRequestAspectRatioOption(
+    request,
     getAspectRatioOptions({
       provider: "openai",
       model: request.model,
     }),
   );
 
-  return `${option.width}x${option.height}`;
+  return option ? `${option.width}x${option.height}` : "auto";
 };
 
 const inferMimeTypeFromBase64 = (dataBase64: string) => {

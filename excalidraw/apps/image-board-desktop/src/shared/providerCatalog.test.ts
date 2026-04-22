@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   inferCustomModelCapabilityTemplate,
+  inferProviderRequestAdapter,
+  getAspectRatioOptions,
   getDefaultModel,
   getProviderModels,
   getProviderCapabilities,
   getProviderDefinition,
+  getProviderRequestAdapter,
   getVisibleGenerationFields,
   normalizeGenerationRequest,
 } from "./providerCatalog";
@@ -30,16 +33,26 @@ describe("providerCatalog", () => {
     const openaiDefinition = getProviderDefinition("openai");
     const openrouterDefinition = getProviderDefinition("openrouter");
 
-    expect(Object.keys(geminiDefinition.models)).toContain("gemini-2.5-flash-image");
+    expect(Object.keys(geminiDefinition.models)).toContain(
+      "gemini-2.5-flash-image",
+    );
     expect(Object.keys(geminiDefinition.models)).toContain(
       "gemini-3.1-flash-image-preview",
     );
-    expect(Object.keys(geminiDefinition.models)).toContain("gemini-3-pro-image-preview");
+    expect(Object.keys(geminiDefinition.models)).toContain(
+      "gemini-3-pro-image-preview",
+    );
     expect(Object.keys(zenmuxDefinition.models)).toContain(
       "google/gemini-2.5-flash-image",
     );
     expect(Object.keys(zenmuxDefinition.models)).toContain(
       "google/gemini-3-pro-image-preview",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "openai/gpt-image-1.5",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "openai/gpt-image-2",
     );
     expect(Object.keys(falDefinition.models)).toContain("fal-ai/nano-banana-2");
     expect(Object.keys(jimengDefinition.models)).toContain(
@@ -49,8 +62,15 @@ describe("providerCatalog", () => {
       "doubao-seedream-4-0-250828",
     );
     expect(Object.keys(openaiDefinition.models)).toContain("gpt-image-1.5");
+    expect(Object.keys(openaiDefinition.models)).toContain("gpt-image-2");
     expect(Object.keys(openrouterDefinition.models)).toContain(
       "google/gemini-3.1-flash-image-preview",
+    );
+    expect(Object.keys(openrouterDefinition.models)).toContain(
+      "openai/gpt-image-1.5",
+    );
+    expect(Object.keys(openrouterDefinition.models)).toContain(
+      "openai/gpt-image-2",
     );
   });
 
@@ -63,9 +83,9 @@ describe("providerCatalog", () => {
       },
     ];
 
-    expect(
-      Object.keys(getProviderModels("zenmux", customModels)),
-    ).toContain("google/gemini-next-image-preview");
+    expect(Object.keys(getProviderModels("zenmux", customModels))).toContain(
+      "google/gemini-next-image-preview",
+    );
     expect(
       getProviderCapabilities({
         provider: "zenmux",
@@ -111,6 +131,94 @@ describe("providerCatalog", () => {
         modelId: "unknown/new-image-model",
       }),
     ).toBe("text-to-image-aspect-ratio");
+  });
+
+  it("keeps request adapters separate from model capability templates", () => {
+    expect(
+      getProviderRequestAdapter({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      getProviderRequestAdapter({
+        provider: "openrouter",
+        model: "openai/gpt-image-2",
+      }),
+    ).toBe("openrouter-chat-image");
+
+    expect(
+      inferProviderRequestAdapter({
+        provider: "zenmux",
+        modelId: "openai/gpt-5.4-image-2",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      getProviderRequestAdapter({
+        provider: "zenmux",
+        model: "vendor/custom-image-model",
+        customModels: [
+          {
+            id: "vendor/custom-image-model",
+            label: "vendor/custom-image-model",
+            capabilityTemplate: "image-editing-aspect-ratio",
+            adapter: "zenmux-vertex-gpt-image",
+          },
+        ],
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+  });
+
+  it("uses adapter-specific ratio presets for GPT image models", () => {
+    expect(
+      getAspectRatioOptions({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+      }),
+    ).toContainEqual({
+      id: "3:2",
+      label: "3:2",
+      width: 1536,
+      height: 1024,
+    });
+
+    expect(
+      getAspectRatioOptions({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+      }),
+    ).toContainEqual({
+      id: "16:9",
+      label: "16:9",
+      width: 2048,
+      height: 1152,
+    });
+
+    expect(
+      getAspectRatioOptions({
+        provider: "gemini",
+        model: "gemini-3-pro-image-preview",
+      }),
+    ).toContainEqual({
+      id: "21:9",
+      label: "21:9",
+      width: 1792,
+      height: 768,
+    });
+
+    expect(
+      getAspectRatioOptions({
+        provider: "openrouter",
+        model: "openai/gpt-image-2",
+      }),
+    ).toContainEqual({
+      id: "3:2",
+      label: "3:2",
+      width: 1248,
+      height: 832,
+    });
   });
 
   it("shows ratio instead of exact pixels for aspect-ratio based models", () => {
@@ -168,6 +276,17 @@ describe("providerCatalog", () => {
       getVisibleGenerationFields({
         provider: "openrouter",
         model: "google/gemini-3.1-flash-image-preview",
+      }),
+    ).toMatchObject({
+      width: false,
+      height: false,
+      aspectRatio: true,
+    });
+
+    expect(
+      getVisibleGenerationFields({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
       }),
     ).toMatchObject({
       width: false,
@@ -240,6 +359,20 @@ describe("providerCatalog", () => {
       getProviderCapabilities({
         provider: "openrouter",
         model: "google/gemini-3.1-flash-image-preview",
+      }).supportsReferenceImages,
+    ).toBe(true);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+      }).supportsReferenceImages,
+    ).toBe(true);
+
+    expect(
+      getProviderCapabilities({
+        provider: "openrouter",
+        model: "openai/gpt-image-1.5",
       }).supportsReferenceImages,
     ).toBe(true);
   });
@@ -319,6 +452,20 @@ describe("providerCatalog", () => {
       reference: {
         enabled: false,
       },
+    });
+
+    expect(
+      normalizeGenerationRequest({
+        provider: "zenmux",
+        model: "google/gemini-3-pro-image-preview",
+        prompt: "横版海报",
+        aspectRatio: null,
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      }),
+    ).toMatchObject({
+      aspectRatio: null,
     });
   });
 });

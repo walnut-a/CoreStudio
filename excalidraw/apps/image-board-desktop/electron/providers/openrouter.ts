@@ -1,8 +1,14 @@
 import {
   getAspectRatioOptions,
-  getClosestAspectRatioOption,
+  getProviderRequestAdapter,
+  getRequestAspectRatioOption,
 } from "../../src/shared/providerCatalog";
-import type { GenerationRequest, GenerationResponse } from "../../src/shared/providerTypes";
+import type {
+  CustomProviderModel,
+  GenerationRequest,
+  GenerationResponse,
+  ProviderRequestAdapter,
+} from "../../src/shared/providerTypes";
 
 import { writeGenerationLog } from "../generationLogs";
 import {
@@ -40,10 +46,7 @@ type OpenRouterImageResponse = {
   };
 };
 
-const IMAGE_ONLY_MODEL_PREFIXES = [
-  "black-forest-labs/",
-  "sourceful/",
-];
+const IMAGE_ONLY_MODEL_PREFIXES = ["black-forest-labs/", "sourceful/"];
 
 const DATA_URL_PATTERN = /^data:([^;]+);base64,(.+)$/;
 
@@ -53,15 +56,18 @@ const truncateText = (value: string, maxLength = 260) =>
 const isImageOnlyModel = (model: string) =>
   IMAGE_ONLY_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix));
 
-const toOpenRouterAspectRatio = (request: GenerationRequest) =>
-  getClosestAspectRatioOption(
-    request.width,
-    request.height,
+const toOpenRouterAspectRatio = (
+  request: GenerationRequest,
+  customModels: readonly CustomProviderModel[] = [],
+) =>
+  getRequestAspectRatioOption(
+    request,
     getAspectRatioOptions({
       provider: "openrouter",
       model: request.model,
+      customModels,
     }),
-  ).id;
+  )?.id ?? null;
 
 const toOpenRouterImageSize = (request: GenerationRequest) => {
   const longestEdge = Math.max(request.width, request.height);
@@ -116,12 +122,10 @@ const buildMessageContent = ({
   image,
 }: {
   prompt: string;
-  image:
-    | {
-        mimeType: string;
-        dataBase64: string;
-      }
-    | null;
+  image: {
+    mimeType: string;
+    dataBase64: string;
+  } | null;
 }) => {
   if (!image) {
     return prompt;
@@ -144,42 +148,46 @@ const buildMessageContent = ({
 const buildRequestSummary = ({
   request,
   prompt,
+  adapter,
   aspectRatio,
   imageSize,
   hasReferenceImage,
 }: {
   request: GenerationRequest;
   prompt: string;
-  aspectRatio: string;
-  imageSize: string;
+  adapter: ProviderRequestAdapter;
+  aspectRatio: string | null;
+  imageSize: string | null;
   hasReferenceImage: boolean;
 }) =>
   [
     "provider=openrouter",
     `model=${request.model}`,
-    `比例=${aspectRatio}`,
-    `分辨率=${imageSize}`,
+    `adapter=${adapter}`,
+    `比例=${aspectRatio || "自动"}`,
+    `分辨率=${imageSize || "自动"}`,
     `prompt长度=${prompt.length}`,
     `prompt预览=${truncateText(prompt || "空", 80)}`,
     `引用=${hasReferenceImage ? "已启用" : "未启用"}`,
   ].join(" ");
 
 const buildLoggedRequestPayload = ({
+  adapter,
   requestBody,
   image,
 }: {
+  adapter: ProviderRequestAdapter;
   requestBody: Record<string, unknown>;
-  image:
-    | {
-        mimeType: string;
-        dataBase64: string;
-      }
-    | null;
+  image: {
+    mimeType: string;
+    dataBase64: string;
+  } | null;
 }) => {
   if (!image) {
     return JSON.stringify(
       {
         url: OPENROUTER_CHAT_COMPLETIONS_URL,
+        adapter,
         body: requestBody,
       },
       null,
@@ -190,6 +198,7 @@ const buildLoggedRequestPayload = ({
   return JSON.stringify(
     {
       url: OPENROUTER_CHAT_COMPLETIONS_URL,
+      adapter,
       body: {
         ...requestBody,
         messages: [
@@ -205,7 +214,8 @@ const buildLoggedRequestPayload = ({
                 image_url: {
                   kind: "data-uri",
                   mimeType: image.mimeType,
-                  byteLength: Buffer.from(image.dataBase64, "base64").byteLength,
+                  byteLength: Buffer.from(image.dataBase64, "base64")
+                    .byteLength,
                   base64Prefix: image.dataBase64.slice(0, 96),
                   base64Suffix: image.dataBase64.slice(-32),
                 },
@@ -262,17 +272,29 @@ export const generateOpenRouterImages = async ({
   apiKey,
   request,
   projectPath,
+  customModels = [],
 }: {
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
+  customModels?: readonly CustomProviderModel[];
 }): Promise<GenerationResponse> => {
+  const adapter = getProviderRequestAdapter({
+    provider: "openrouter",
+    model: request.model,
+    customModels,
+  });
+
+  if (adapter !== "openrouter-chat-image") {
+    throw new Error(`OpenRouter 暂不支持这个接口格式：${adapter}`);
+  }
+
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
   const reference = getEnabledReference(request);
   const uploadReferenceImage = prepareReferenceImageForUpload(reference);
-  const aspectRatio = toOpenRouterAspectRatio(request);
-  const imageSize = toOpenRouterImageSize(request);
+  const aspectRatio = toOpenRouterAspectRatio(request, customModels);
+  const imageSize = aspectRatio ? toOpenRouterImageSize(request) : null;
   const requestBody = {
     model: request.model,
     messages: [
@@ -286,19 +308,25 @@ export const generateOpenRouterImages = async ({
     ],
     modalities: isImageOnlyModel(request.model) ? ["image"] : ["image", "text"],
     stream: false,
-    image_config: {
-      aspect_ratio: aspectRatio,
-      image_size: imageSize,
-    },
+    ...(aspectRatio
+      ? {
+          image_config: {
+            aspect_ratio: aspectRatio,
+            image_size: imageSize,
+          },
+        }
+      : {}),
   };
   const requestSummary = buildRequestSummary({
     request,
     prompt,
+    adapter,
     aspectRatio,
     imageSize,
     hasReferenceImage: Boolean(uploadReferenceImage),
   });
   const requestPayload = buildLoggedRequestPayload({
+    adapter,
     requestBody,
     image: uploadReferenceImage,
   });

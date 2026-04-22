@@ -47,6 +47,7 @@ const isSameGenerationRequest = (
     left.model === right.model &&
     left.prompt === right.prompt &&
     (left.negativePrompt ?? "") === (right.negativePrompt ?? "") &&
+    (left.aspectRatio ?? undefined) === (right.aspectRatio ?? undefined) &&
     left.width === right.width &&
     left.height === right.height &&
     (left.seed ?? null) === (right.seed ?? null) &&

@@ -38,7 +38,8 @@ export const copy = {
     collapsePrompt: "收起输入框",
     expandSettings: "展开设置",
     collapseSettings: "收起设置",
-    providerWarning: "这个模型服务还没有 API Key，请在下方“连接与自定义模型”里保存。",
+    providerWarning:
+      "这个模型服务还没有 API Key，请在下方“连接与自定义模型”里保存。",
     provider: "模型服务",
     model: "模型",
     apiKeySettings: "连接与自定义模型",
@@ -57,6 +58,7 @@ export const copy = {
     customModelAdvancedHint: "默认按模型类型配置，只有接口参数不匹配时再调整。",
     customModelCapabilityGroup: "模型能力",
     customModelParameterGroup: "参数控制",
+    customModelAdapter: "接口格式",
     customModelAllowReference: "允许发送参考图",
     customModelSizeMode: "尺寸设置",
     customModelSizeModeAspect: "比例",
@@ -69,6 +71,7 @@ export const copy = {
     prompt: "提示词",
     negativePrompt: "反向提示词",
     aspectRatio: "比例",
+    aspectRatioAuto: "自动（不指定）",
     width: "宽度",
     height: "高度",
     seed: "种子",
@@ -178,7 +181,10 @@ export const copy = {
   },
 } as const;
 
-export const getReferenceSummaryText = (elementCount: number, textCount: number) => {
+export const getReferenceSummaryText = (
+  elementCount: number,
+  textCount: number,
+) => {
   if (!textCount) {
     return `当前已选 ${elementCount} 个元素。`;
   }
@@ -212,7 +218,10 @@ const imageSourceLabels: Record<ImageSourceType, string> = {
   imported: "导入",
 };
 
-const providerStatusLabels: Record<NonNullable<ProviderSettings["lastStatus"]>, string> = {
+const providerStatusLabels: Record<
+  NonNullable<ProviderSettings["lastStatus"]>,
+  string
+> = {
   success: "已连接",
   error: "连接失败",
   unknown: "已保存，待验证",

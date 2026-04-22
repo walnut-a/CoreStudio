@@ -68,6 +68,44 @@ describe("generateOpenAIImages", () => {
     expect(response.images).toHaveLength(1);
   });
 
+  it("sends OpenAI automatic size when no ratio is selected", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            b64_json: Buffer.from("openai auto image").toString("base64"),
+          },
+        ],
+      }),
+    });
+
+    await generateOpenAIImages({
+      apiKey: "openai-key",
+      request: {
+        provider: "openai",
+        model: "gpt-image-2",
+        prompt: "一张横版产品发布海报",
+        aspectRatio: null,
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/images/generations",
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: "gpt-image-2",
+          prompt: "一张横版产品发布海报",
+          size: "auto",
+          output_format: "png",
+        }),
+      }),
+    );
+  });
+
   it("uses the official OpenAI image edits endpoint when a reference image is provided", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

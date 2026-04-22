@@ -95,6 +95,46 @@ describe("generateGeminiImages", () => {
     });
   });
 
+  it("omits Gemini aspect ratio when the request is automatic", async () => {
+    generateContent.mockResolvedValue({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: Buffer.from("native image").toString("base64"),
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    await generateGeminiImages({
+      apiKey: "test-key",
+      request: {
+        provider: "gemini",
+        model: "gemini-2.5-flash-image",
+        prompt: "横版产品海报",
+        aspectRatio: null,
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    expect(generateContent).toHaveBeenCalledWith({
+      model: "gemini-2.5-flash-image",
+      contents: "横版产品海报",
+      config: {
+        responseModalities: ["TEXT", "IMAGE"],
+      },
+    });
+  });
+
   it("sends the selected reference image and text notes to Gemini native image models", async () => {
     generateContent.mockResolvedValue({
       candidates: [

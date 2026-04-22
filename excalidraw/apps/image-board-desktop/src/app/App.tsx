@@ -28,8 +28,11 @@ import type {
 } from "@excalidraw/element/types";
 
 import {
+  getAspectRatioOptions,
+  getClosestAspectRatioOption,
   getDefaultModel,
   getProviderDefinition,
+  isAutoAspectRatioRequest,
   normalizeGenerationRequest,
 } from "../shared/providerCatalog";
 import type {
@@ -52,7 +55,11 @@ import type { GenerationRequest } from "../shared/providerTypes";
 
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { syncSelectionReferenceIntoRequest } from "./generationRequestState";
-import { placeGeneratedImages, measureBatchBounds } from "./project/imagePlacement";
+import {
+  normalizeGeneratedImageDimensions,
+  placeGeneratedImages,
+  measureBatchBounds,
+} from "./project/imagePlacement";
 import {
   deserializeSceneFromProject,
   serializeSceneForProject,
@@ -103,6 +110,7 @@ const createGenerationRequestFromSelection = (
       model: selection.model,
       prompt: "",
       negativePrompt: "",
+      aspectRatio: null,
       width: 1024,
       height: 1024,
       seed: null,
@@ -167,6 +175,7 @@ const PENDING_PLACEHOLDER_LABEL = "生成中";
 interface PendingGenerationSlot {
   frameId: string;
   labelId: string;
+  fitReturnedImageSize: boolean;
 }
 
 interface PendingGenerationJob {
@@ -936,6 +945,7 @@ const App = () => {
       slots.push({
         frameId: frame.id,
         labelId: label.id,
+        fitReturnedImageSize: isAutoAspectRatioRequest(request),
       });
 
       return [frame, label];
@@ -948,6 +958,7 @@ const App = () => {
         model: request.model,
         prompt: request.prompt,
         negativePrompt: request.negativePrompt,
+        aspectRatio: request.aspectRatio,
         seed: request.seed,
         width: request.width,
         height: request.height,
@@ -1077,15 +1088,29 @@ const App = () => {
     ];
     api.addFiles(filesToAdd);
 
+    const returnedImageSize = slot.fitReturnedImageSize
+      ? normalizeGeneratedImageDimensions({
+          width: asset.width,
+          height: asset.height,
+        })
+      : {
+          width: frame.width,
+          height: frame.height,
+        };
+    const frameCenter = {
+      x: frame.x + frame.width / 2,
+      y: frame.y + frame.height / 2,
+    };
+
     const newImage = newImageElement({
       type: "image",
       fileId: asset.fileId as FileId,
       status: "saved",
       scale: [1, 1],
-      x: frame.x,
-      y: frame.y,
-      width: frame.width,
-      height: frame.height,
+      x: frameCenter.x - returnedImageSize.width / 2,
+      y: frameCenter.y - returnedImageSize.height / 2,
+      width: returnedImageSize.width,
+      height: returnedImageSize.height,
     });
 
     const selectedElementIds = { ...appState.selectedElementIds };
@@ -1533,13 +1558,23 @@ const App = () => {
     if (!selectedRecord) {
       return;
     }
+    const provider = selectedRecord.provider || "gemini";
+    const model = selectedRecord.model || getDefaultModel(provider);
+    const aspectRatio = getClosestAspectRatioOption(
+      selectedRecord.width,
+      selectedRecord.height,
+      getAspectRatioOptions({
+        provider,
+        model,
+        customModels: providerSettings?.[provider]?.customModels ?? [],
+      }),
+    );
     void openGenerateDialog({
-      provider: selectedRecord.provider || "gemini",
-      model:
-        selectedRecord.model ||
-        getDefaultModel(selectedRecord.provider || "gemini"),
+      provider,
+      model,
       prompt: selectedRecord.prompt || "",
       negativePrompt: selectedRecord.negativePrompt || "",
+      aspectRatio: aspectRatio.id,
       width: selectedRecord.width,
       height: selectedRecord.height,
       seed: selectedRecord.seed ?? null,

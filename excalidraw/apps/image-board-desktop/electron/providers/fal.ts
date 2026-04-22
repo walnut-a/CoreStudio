@@ -5,6 +5,7 @@ import {
   buildImagePayload,
   buildOutputFileName,
   clampImageCount,
+  getExplicitAspectRatio,
   toFalImageSize,
 } from "./providerUtils";
 import {
@@ -75,6 +76,11 @@ export const generateFalImages = async ({
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
   const reference = getEnabledReference(request);
+  const explicitAspectRatio = getExplicitAspectRatio(request);
+  const falAspectRatio =
+    explicitAspectRatio === undefined
+      ? toClosestFalAspectRatio(request.width, request.height)
+      : explicitAspectRatio;
   const endpoint =
     isFalNanoBananaModel(request.model) && reference
       ? `${request.model}/edit`
@@ -83,8 +89,12 @@ export const generateFalImages = async ({
     ? {
         prompt,
         num_images: clampImageCount(request, 4),
-        aspect_ratio: toClosestFalAspectRatio(request.width, request.height),
-        resolution: toFalResolution(request.width, request.height),
+        ...(falAspectRatio
+          ? {
+              aspect_ratio: falAspectRatio,
+              resolution: toFalResolution(request.width, request.height),
+            }
+          : {}),
         output_format: "png",
         ...(reference
           ? {

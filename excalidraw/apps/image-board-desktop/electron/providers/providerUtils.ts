@@ -10,11 +10,23 @@ import type {
 
 const GEMINI_ASPECT_RATIOS = [
   { label: "1:1", ratio: 1 },
-  { label: "3:4", ratio: 3 / 4 },
-  { label: "4:3", ratio: 4 / 3 },
-  { label: "9:16", ratio: 9 / 16 },
   { label: "16:9", ratio: 16 / 9 },
+  { label: "9:16", ratio: 9 / 16 },
+  { label: "4:3", ratio: 4 / 3 },
+  { label: "3:4", ratio: 3 / 4 },
+  { label: "3:2", ratio: 3 / 2 },
+  { label: "2:3", ratio: 2 / 3 },
+  { label: "5:4", ratio: 5 / 4 },
+  { label: "4:5", ratio: 4 / 5 },
+  { label: "21:9", ratio: 21 / 9 },
+  { label: "4:1", ratio: 4 },
+  { label: "1:4", ratio: 1 / 4 },
+  { label: "8:1", ratio: 8 },
+  { label: "1:8", ratio: 1 / 8 },
 ];
+
+export const getExplicitAspectRatio = (request: GenerationRequest) =>
+  request.aspectRatio === null ? null : request.aspectRatio;
 
 export const toClosestGeminiAspectRatio = (width: number, height: number) => {
   const targetRatio = width / height;
@@ -281,6 +293,7 @@ export const buildGenerateContentRequestSummary = ({
   return [
     `provider=${provider}`,
     `model=${request.model}`,
+    `比例=${request.aspectRatio === null ? "自动" : request.aspectRatio || "按尺寸推断"}`,
     `尺寸=${request.width}x${request.height}`,
     `数量=${request.imageCount}`,
     `prompt长度=${prompt.length}`,
@@ -369,6 +382,7 @@ export const buildGenerateContentRequestPayload = ({
       provider: request.provider,
       model: request.model,
       size: {
+        aspectRatio: request.aspectRatio ?? null,
         width: request.width,
         height: request.height,
       },

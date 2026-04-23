@@ -70,6 +70,7 @@ import {
   resolvePreferredGenerationModelSelection,
   type GenerationModelSelection,
 } from "./generationModelSelection";
+import { copyPlainTextToClipboard } from "./clipboardText";
 import { loadProviderSettingsWithRetry } from "./providerSettingsLoader";
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
 import {
@@ -623,6 +624,14 @@ const App = () => {
     setProjectError(getErrorText(error, copy.startup.saveProjectFailed));
   };
 
+  const copyTextToClipboardWithFallback = async (text: string) => {
+    const copied = await copyPlainTextToClipboard(text);
+    if (!copied) {
+      setProjectError(copy.clipboard.writeFailed);
+    }
+    return copied;
+  };
+
   useEffect(() => {
     bridge?.notifyRendererReady?.();
     void loadProviderState();
@@ -754,12 +763,28 @@ const App = () => {
 
   const handleCreateProject = async () => {
     const sequence = beginProjectOpen();
-    await openProjectBundle(await desktopBridge.createProject(), sequence);
+    try {
+      await openProjectBundle(await desktopBridge.createProject(), sequence);
+    } catch (error) {
+      if (isCurrentProjectOpen(sequence)) {
+        setProjectError(getErrorText(error, copy.startup.createProjectFailed));
+        setLoadingProject(false);
+        updateEditorInitializing(false);
+      }
+    }
   };
 
   const handleOpenProject = async () => {
     const sequence = beginProjectOpen();
-    await openProjectBundle(await desktopBridge.openProject(), sequence);
+    try {
+      await openProjectBundle(await desktopBridge.openProject(), sequence);
+    } catch (error) {
+      if (isCurrentProjectOpen(sequence)) {
+        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
+        setLoadingProject(false);
+        updateEditorInitializing(false);
+      }
+    }
   };
 
   const handleOpenRecentProject = async (projectPath: string) => {
@@ -769,9 +794,13 @@ const App = () => {
         await desktopBridge.openRecentProject?.(projectPath),
         sequence,
       );
-    } catch (error: any) {
-      setProjectError(error?.message || copy.startup.openProjectFailed);
-      await loadRecentProjectsState();
+    } catch (error) {
+      if (isCurrentProjectOpen(sequence)) {
+        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
+        setLoadingProject(false);
+        updateEditorInitializing(false);
+        await loadRecentProjectsState();
+      }
     }
   };
 
@@ -798,7 +827,13 @@ const App = () => {
     if (!currentProjectRef.current) {
       return;
     }
-    await desktopBridge.revealProjectInFinder(currentProjectRef.current.projectPath);
+    try {
+      await desktopBridge.revealProjectInFinder(
+        currentProjectRef.current.projectPath,
+      );
+    } catch (error) {
+      setProjectError(getErrorText(error, copy.startup.revealProjectFailed));
+    }
   };
 
   const insertAssetsIntoScene = async (
@@ -1341,20 +1376,24 @@ const App = () => {
       return;
     }
 
-    const importedImages = await desktopBridge.importImages();
-    if (!importedImages.length) {
-      return;
-    }
+    try {
+      const importedImages = await desktopBridge.importImages();
+      if (!importedImages.length) {
+        return;
+      }
 
-    const files: PersistedImageAssetInput[] = importedImages.map((image) => ({
-      ...image,
-      sourceType: "imported",
-    }));
-    const nextImageRecords = await desktopBridge.persistImageAssets({
-      projectPath: project.projectPath,
-      files,
-    });
-    await insertAssetsIntoScene(files, nextImageRecords);
+      const files: PersistedImageAssetInput[] = importedImages.map((image) => ({
+        ...image,
+        sourceType: "imported",
+      }));
+      const nextImageRecords = await desktopBridge.persistImageAssets({
+        projectPath: project.projectPath,
+        files,
+      });
+      await insertAssetsIntoScene(files, nextImageRecords);
+    } catch (error) {
+      setProjectError(getErrorText(error, copy.startup.importImagesFailed));
+    }
   };
 
   const handleGenerateImages = async (
@@ -1440,10 +1479,12 @@ const App = () => {
       return;
     }
 
-    await navigator.clipboard.writeText(
+    const copied = await copyTextToClipboardWithFallback(
       formatGenerationErrorDebugText(generationErrorDetails),
     );
-    setGenerationErrorCopied(true);
+    if (copied) {
+      setGenerationErrorCopied(true);
+    }
   };
 
   const openGenerateDialog = async (nextRequest?: Partial<GenerationRequest>) => {
@@ -1529,7 +1570,7 @@ const App = () => {
     if (!selectedRecord?.prompt) {
       return;
     }
-    await navigator.clipboard.writeText(selectedRecord.prompt);
+    await copyTextToClipboardWithFallback(selectedRecord.prompt);
   };
 
   const handleCopyTaskError = async () => {
@@ -1537,7 +1578,7 @@ const App = () => {
       return;
     }
 
-    await navigator.clipboard.writeText(
+    await copyTextToClipboardWithFallback(
       formatGenerationErrorDebugText({
         provider: selectedTask.provider,
         model: selectedTask.model,
@@ -1658,7 +1699,7 @@ const App = () => {
         setProjectError(event.errorMessage || copy.startup.openProjectFailed);
         break;
       case "import-images":
-        handleImportImages();
+        void handleImportImages();
         break;
       case "generate-image":
         void openGenerateDialog();
@@ -1667,7 +1708,7 @@ const App = () => {
         setProviderSettingsFocusToken((current) => current + 1);
         break;
       case "reveal-project":
-        handleRevealProject();
+        void handleRevealProject();
         break;
       default:
         break;

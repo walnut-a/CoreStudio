@@ -52,6 +52,65 @@ const createDeferred = <T,>() => {
   };
 };
 
+const createMockProjectBundle = (overrides: Record<string, unknown> = {}) => ({
+  projectPath: "/tmp/mock-project",
+  project: {
+    formatVersion: 1,
+    appVersion: "0.0.0-test",
+    name: "测试项目",
+    createdAt: "2026-04-12T08:00:00.000Z",
+    updatedAt: "2026-04-12T08:00:00.000Z",
+    sceneFile: "scene.excalidraw.json",
+    imageRecordsFile: "image-records.json",
+    assetsDir: "assets",
+    exportsDir: "exports",
+  },
+  sceneJson: "{}",
+  imageRecords: {},
+  ...overrides,
+});
+
+const createMockProviderSettings = () => ({
+  gemini: {
+    defaultModel: "imagen-4.0-fast-generate-001",
+    isConfigured: true,
+    lastStatus: "success",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  zenmux: {
+    defaultModel: "google/gemini-2.5-flash-image",
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+  fal: {
+    defaultModel: "fal-ai/flux/schnell",
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+});
+
+const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
+  createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
+  openProject: vi.fn().mockResolvedValue(null),
+  openRecentProject: vi.fn().mockResolvedValue(null),
+  loadRecentProjects: vi.fn().mockResolvedValue([]),
+  writeProjectScene: vi.fn().mockResolvedValue(undefined),
+  readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+  persistImageAssets: vi.fn().mockResolvedValue({}),
+  importImages: vi.fn().mockResolvedValue([]),
+  revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+  loadProviderSettings: vi.fn().mockResolvedValue(createMockProviderSettings()),
+  saveProviderSettings: vi.fn(),
+  generateImages: vi.fn(),
+  onMenuAction: vi.fn(() => () => undefined),
+  ...overrides,
+});
+
 vi.mock("@excalidraw/utils", () => ({
   exportToBlob: hoistedExportToBlob,
 }));
@@ -713,6 +772,27 @@ describe("App startup", () => {
     await waitFor(() => {
       expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
     });
+  });
+
+  it("shows visible errors when welcome project actions fail", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockRejectedValue(new Error("项目目录不可写")),
+      openProject: vi.fn().mockRejectedValue(new Error("项目文件读取失败")),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    expect(await screen.findByText("项目目录不可写")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "打开项目" }));
+    });
+
+    expect(await screen.findByText("项目文件读取失败")).toBeInTheDocument();
   });
 
   it("does not autosave canvas changes while Excalidraw is still initializing", async () => {
@@ -1739,6 +1819,50 @@ describe("App startup", () => {
     expect(
       screen.getByRole("button", { name: "返回项目列表" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows visible errors when project menu actions fail after a project is open", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const importImages = vi
+      .fn()
+      .mockRejectedValue(new Error("图片文件不可读"));
+    const revealProjectInFinder = vi
+      .fn()
+      .mockRejectedValue(new Error("Finder 打开失败"));
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
+      importImages,
+      revealProjectInFinder,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+
+    await act(async () => {
+      menuActionListener?.({ action: "import-images" });
+    });
+
+    expect(await screen.findByText("图片文件不可读")).toBeInTheDocument();
+
+    await act(async () => {
+      menuActionListener?.({ action: "reveal-project" });
+    });
+
+    expect(await screen.findByText("Finder 打开失败")).toBeInTheDocument();
+    expect(revealProjectInFinder).toHaveBeenCalledWith("/tmp/mock-project");
   });
 
   it("does not show a generate image button in the native toolbar after a project is opened", async () => {

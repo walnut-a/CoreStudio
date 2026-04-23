@@ -23,6 +23,16 @@ import {
   PROVIDER_REQUEST_ADAPTER_OPTIONS,
   PROVIDER_IDS,
 } from "../../shared/providerCatalog";
+
+import {
+  copy,
+  getCustomModelPlaceholder,
+  getProviderStatusLabel,
+  getReferenceInlineStatusText,
+} from "../copy";
+
+import { DesktopButton } from "./DesktopButton";
+
 import type {
   PublicProviderSettings,
   SaveProviderSettingsInput,
@@ -35,13 +45,6 @@ import type {
   ProviderId,
   ProviderRequestAdapter,
 } from "../../shared/providerTypes";
-import {
-  copy,
-  getCustomModelPlaceholder,
-  getProviderStatusLabel,
-  getReferenceInlineStatusText,
-} from "../copy";
-import { DesktopButton } from "./DesktopButton";
 
 const COMPACT_PROMPT_MIN_HEIGHT = 32;
 const COMPACT_PROMPT_MAX_HEIGHT = 76;
@@ -739,7 +742,6 @@ export const GenerateImageDialog = ({
                 onMouseDown={stopInputEventPropagation}
                 onClick={(event) => {
                   stopInputEventPropagation(event);
-                  submitRequest();
                 }}
               >
                 <svg

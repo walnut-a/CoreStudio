@@ -21,19 +21,17 @@
     "package:app": "yarn build && yarn check:secrets --source --package-inputs && electron-builder && yarn notarize:release && yarn check:secrets --release",
     "test": "vitest apps/image-board-desktop"
   },
-  "dependencies": {
-    "@google/genai": "1.49.0",
+  "devDependencies": {
     "@excalidraw/common": "0.18.0",
     "@excalidraw/element": "0.18.0",
     "@excalidraw/excalidraw": "0.18.0",
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
-  },
-  "devDependencies": {
+    "@google/genai": "1.49.0",
     "@types/node": "^24.8.1",
     "concurrently": "9.2.1",
     "electron": "41.2.0",
     "electron-builder": "26.8.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "wait-on": "9.0.5"
   },
   "build": {
@@ -42,6 +40,14 @@
     "directories": {
       "output": "release"
     },
+    "electronLanguages": [
+      "en",
+      "en-US",
+      "zh_CN",
+      "zh-CN",
+      "zh_TW",
+      "zh-TW"
+    ],
     "files": [
       "dist/**/*",
       "dist-electron/**/*"

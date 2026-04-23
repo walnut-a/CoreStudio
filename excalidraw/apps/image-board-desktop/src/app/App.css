@@ -752,6 +752,10 @@ body {
   width: clamp(280px, calc(100vw - var(--right-sidebar-width) - 48px), 560px);
 }
 
+.image-board-app .floating-status-stack {
+  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+}
+
 .generate-panel--compact {
   padding: 0;
   border: 0;

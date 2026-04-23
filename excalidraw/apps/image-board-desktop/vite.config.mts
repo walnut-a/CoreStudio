@@ -5,6 +5,8 @@ import react from "@vitejs/plugin-react";
 const resolveAlias = (target: string) =>
   path.resolve(__dirname, "..", "..", target);
 
+const shouldBuildSourceMap = process.env.VITE_DESKTOP_SOURCEMAP === "1";
+
 export default defineConfig({
   base: "./",
   server: {
@@ -59,7 +61,7 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    sourcemap: true,
+    sourcemap: shouldBuildSourceMap,
   },
   plugins: [react()],
 });

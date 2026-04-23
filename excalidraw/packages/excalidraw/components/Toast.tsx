@@ -7,7 +7,7 @@ import "./Toast.scss";
 
 import type { CSSProperties, ReactNode } from "react";
 
-const DEFAULT_TOAST_TIMEOUT = 5000;
+const DEFAULT_TOAST_TIMEOUT = 3000;
 
 const ProgressBar = ({ progress }: { progress: number }) => (
   <div className="Toast__progress-bar">

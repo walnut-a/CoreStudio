@@ -114,8 +114,11 @@ export const actionCut = register<ClipboardEvent | null>({
   label: "labels.cut",
   icon: cutIcon,
   trackEvent: { category: "element" },
-  perform: (elements, appState, event, app) => {
-    actionCopy.perform(elements, appState, event, app);
+  perform: async (elements, appState, event, app) => {
+    const copyResult = await actionCopy.perform(elements, appState, event, app);
+    if (copyResult === false || copyResult?.appState?.errorMessage) {
+      return copyResult;
+    }
     return actionDeleteSelected.perform(elements, appState, null, app);
   },
   keyTest: (event) => event[KEYS.CTRL_OR_CMD] && event.key === KEYS.X,
@@ -255,16 +258,22 @@ export const copyText = register({
   name: "copyText",
   label: "labels.copyText",
   trackEvent: { category: "element" },
-  perform: (elements, appState, _, app) => {
+  perform: async (elements, appState, _, app) => {
     const selectedElements = app.scene.getSelectedElements({
       selectedElementIds: appState.selectedElementIds,
       includeBoundTextElement: true,
     });
 
     try {
-      copyTextToSystemClipboard(getTextFromElements(selectedElements));
+      await copyTextToSystemClipboard(getTextFromElements(selectedElements));
     } catch (e) {
-      throw new Error(t("errors.copyToSystemClipboardFailed"));
+      return {
+        captureUpdate: CaptureUpdateAction.EVENTUALLY,
+        appState: {
+          ...appState,
+          errorMessage: t("errors.copyToSystemClipboardFailed"),
+        },
+      };
     }
     return {
       captureUpdate: CaptureUpdateAction.EVENTUALLY,

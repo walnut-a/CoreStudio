@@ -74,6 +74,29 @@ const getTargetWindow = (ownerWindow?: BaseWindow | null) => {
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
 };
 
+const isClipboardPermission = (permission: string) =>
+  permission === "clipboard-read" ||
+  permission === "clipboard-sanitized-write";
+
+const configureRendererPermissions = (targetWindow: BrowserWindow) => {
+  const targetWebContents = targetWindow.webContents;
+
+  targetWebContents.session.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      callback(
+        webContents.id === targetWebContents.id &&
+          isClipboardPermission(permission),
+      );
+    },
+  );
+
+  targetWebContents.session.setPermissionCheckHandler(
+    (webContents, permission) =>
+      webContents?.id === targetWebContents.id &&
+      isClipboardPermission(permission),
+  );
+};
+
 const sendRendererMenuEvent = (
   event: DesktopMenuEvent,
   ownerWindow?: BaseWindow | null,
@@ -407,6 +430,7 @@ const createWindow = async () => {
       preload: path.join(__dirname, "preload.js"),
     },
   });
+  configureRendererPermissions(mainWindow);
 
   mainWindow.on("close", (event) => {
     const targetWindow = mainWindow;

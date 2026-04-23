@@ -2239,9 +2239,9 @@ class App extends React.Component<AppProps, AppState> {
                                   title={t("labels.copySource")}
                                   icon={copyIcon}
                                   checked={false}
-                                  onChange={() =>
-                                    this.onIframeSrcCopy(firstSelectedElement)
-                                  }
+                                  onChange={() => {
+                                    void this.onIframeSrcCopy(firstSelectedElement);
+                                  }}
                                 />
                                 <ElementCanvasButton
                                   title="Enter fullscreen"
@@ -2604,14 +2604,21 @@ class App extends React.Component<AppProps, AppState> {
     }
   }
 
-  private onIframeSrcCopy(element: ExcalidrawIframeElement) {
+  private async onIframeSrcCopy(element: ExcalidrawIframeElement) {
     if (element.customData?.generationData?.status === "done") {
-      copyTextToSystemClipboard(element.customData.generationData.html);
-      this.setToast({
-        message: "copied to clipboard",
-        closable: false,
-        duration: 1500,
-      });
+      try {
+        await copyTextToSystemClipboard(element.customData.generationData.html);
+        this.setToast({
+          message: "copied to clipboard",
+          closable: false,
+          duration: 1500,
+        });
+      } catch {
+        this.setToast({
+          message: t("errors.copyToSystemClipboardFailed"),
+          closable: true,
+        });
+      }
     }
   }
 

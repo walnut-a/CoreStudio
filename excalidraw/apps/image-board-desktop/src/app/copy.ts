@@ -138,6 +138,9 @@ export const copy = {
     reuseSettings: "复用参数",
     copyTaskError: "复制详细报错",
   },
+  clipboard: {
+    writeFailed: "复制失败，请检查系统剪贴板权限。",
+  },
   startup: {
     eyebrow: "启动诊断",
     heading: "桌面应用未连接",
@@ -147,7 +150,10 @@ export const copy = {
       "开发模式下运行 `corepack yarn start:desktop`；正式包请退出后重新打开 CoreStudio。",
     editorLoading: "正在加载画板…",
     providerLoadFailed: "桌面连接异常，暂时无法读取模型服务配置。",
+    createProjectFailed: "新建项目失败。",
     openProjectFailed: "打开项目失败。",
+    importImagesFailed: "导入图片失败。",
+    revealProjectFailed: "无法显示项目文件夹。",
     saveProjectFailed: "项目保存失败。",
     saveBeforeOpenFailed: "旧项目未能保存，已停止打开新项目。",
     generateFailed: "生成图片失败。",

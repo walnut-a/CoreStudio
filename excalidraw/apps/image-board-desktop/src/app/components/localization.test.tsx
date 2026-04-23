@@ -10,18 +10,21 @@ import {
 } from "@testing-library/react";
 
 import { getDefaultModel } from "../../shared/providerCatalog";
-import type { ImageRecord } from "../../shared/projectTypes";
+
+import { GenerateImageDialog } from "./GenerateImageDialog";
+import { ImageInspector } from "./ImageInspector";
+
+import { ProvidersDialog } from "./ProvidersDialog";
+import { TopBar } from "./TopBar";
+import { WelcomePane } from "./WelcomePane";
+
+import type { ImageLineageEntry } from "../imageRelationships";
+import type { GenerationTaskRecord } from "./ImageInspector";
 import type {
   PublicProviderSettings,
   RecentProjectEntry,
 } from "../../shared/desktopBridgeTypes";
-import { GenerateImageDialog } from "./GenerateImageDialog";
-import { ImageInspector } from "./ImageInspector";
-import type { GenerationTaskRecord } from "./ImageInspector";
-import type { ImageLineageEntry } from "../imageRelationships";
-import { ProvidersDialog } from "./ProvidersDialog";
-import { TopBar } from "./TopBar";
-import { WelcomePane } from "./WelcomePane";
+import type { ImageRecord } from "../../shared/projectTypes";
 
 const providerSettings: PublicProviderSettings = {
   gemini: {
@@ -165,9 +168,9 @@ describe("Chinese localization", () => {
     expect(
       screen.getByText("/Users/zhaolixing/Documents/工业设计助手/常用项目"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "继续最近项目" }),
-    ).toHaveClass("excalidraw-button");
+    expect(screen.getByRole("button", { name: "继续最近项目" })).toHaveClass(
+      "excalidraw-button",
+    );
     expect(screen.getByRole("button", { name: "新建项目" })).toHaveClass(
       "excalidraw-button",
     );
@@ -217,9 +220,7 @@ describe("Chinese localization", () => {
     const descendantCard = screen
       .getByText(/第二版结构细化/)
       .closest(".image-inspector__chain-item") as HTMLLIElement | null;
-    expect(
-      document.querySelector(".image-inspector__scroll"),
-    ).not.toBeNull();
+    expect(document.querySelector(".image-inspector__scroll")).not.toBeNull();
     expect(descendantCard).not.toBeNull();
     expect(descendantCard?.style.paddingLeft).toBe("");
     expect(
@@ -252,9 +253,7 @@ describe("Chinese localization", () => {
     expect(screen.getByText("生成参数")).toBeInTheDocument();
     expect(screen.getAllByText("生成失败")).toHaveLength(2);
     expect(screen.getByText("原始报错")).toBeInTheDocument();
-    expect(
-      document.querySelector(".image-inspector__scroll"),
-    ).not.toBeNull();
+    expect(document.querySelector(".image-inspector__scroll")).not.toBeNull();
     expect(screen.getByRole("button", { name: "复制详细报错" })).toHaveClass(
       "excalidraw-button",
     );
@@ -357,7 +356,9 @@ describe("Chinese localization", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("提示词")).not.toHaveAttribute("wrap");
     expect(screen.getByText("已引用：3")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "移除引用" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "移除引用" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("宽度")).not.toBeInTheDocument();
     expect(screen.queryByText("参考信息")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "展开输入框" })).toBeNull();
@@ -373,6 +374,7 @@ describe("Chinese localization", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         reference: expect.objectContaining({
@@ -554,7 +556,9 @@ describe("Chinese localization", () => {
         defaultModel: getDefaultModel("gemini"),
       });
     });
-    expect(screen.getByText("已保存到本地，密钥不会回显。")).toBeInTheDocument();
+    expect(
+      screen.getByText("已保存到本地，密钥不会回显。"),
+    ).toBeInTheDocument();
   });
 
   it("makes custom model setup read as optional after API key setup", () => {
@@ -615,11 +619,17 @@ describe("Chinese localization", () => {
         "上方“模型”下拉已包含预置模型。列表里没有的新模型，才在这里添加完整模型 ID。",
       ),
     ).toBeInTheDocument();
-    expect(within(apiSettingsPanel).getByLabelText("新模型 ID")).toBeInTheDocument();
     expect(
-      within(apiSettingsPanel).getByPlaceholderText("例如 doubao-seedream-next"),
+      within(apiSettingsPanel).getByLabelText("新模型 ID"),
     ).toBeInTheDocument();
-    expect(within(apiSettingsPanel).getByLabelText("模型类型")).toBeInTheDocument();
+    expect(
+      within(apiSettingsPanel).getByPlaceholderText(
+        "例如 doubao-seedream-next",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(apiSettingsPanel).getByLabelText("模型类型"),
+    ).toBeInTheDocument();
   });
 
   it("lets users add a custom provider model from the generation settings panel", async () => {
@@ -671,7 +681,9 @@ describe("Chinese localization", () => {
       "aria-expanded",
       "false",
     );
-    fireEvent.click(screen.getByRole("button", { name: "添加到模型列表并使用" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "添加到模型列表并使用" }),
+    );
 
     await waitFor(() => {
       expect(onSaveProviderSettings).toHaveBeenCalledWith({
@@ -896,7 +908,8 @@ describe("Chinese localization", () => {
         initialRequest={{
           provider: "gemini",
           model: "imagen-4.0-fast-generate-001",
-          prompt: "一台桌面级五轴CNC机器，精致、小型化，很简约，没有多余的按钮，像是苹果发布的设备，同时拥有工业质感。",
+          prompt:
+            "一台桌面级五轴CNC机器，精致、小型化，很简约，没有多余的按钮，像是苹果发布的设备，同时拥有工业质感。",
           negativePrompt: "",
           width: 1024,
           height: 1024,
@@ -1033,8 +1046,7 @@ describe("Chinese localization", () => {
       screen.getByPlaceholderText("留空则保留当前密钥"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存" })).toSatisfy(
-      (button: HTMLElement) =>
-        button.classList.contains("excalidraw-button"),
+      (button: HTMLElement) => button.classList.contains("excalidraw-button"),
     );
   });
 });

@@ -46,6 +46,16 @@ interface PersistImageAssetInput {
 const safeProjectFolderName = (name: string) =>
   name.trim().replace(/[\\/:*?"<>|]/g, "-");
 
+const safeAssetFileNameSegment = (value: string) => {
+  const safeValue = value
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^\.+$/, "");
+
+  return safeValue || randomUUID();
+};
+
 const extensionFromMimeType = (mimeType: string) => {
   switch (mimeType) {
     case "image/png":
@@ -64,6 +74,63 @@ const extensionFromMimeType = (mimeType: string) => {
 const writeJson = async (filePath: string, value: unknown) => {
   await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
 };
+
+const writeJsonExclusive = async (filePath: string, value: unknown) => {
+  await fs.writeFile(filePath, JSON.stringify(value, null, 2), {
+    encoding: "utf8",
+    flag: "wx",
+  });
+};
+
+const isNodeError = (error: unknown): error is NodeJS.ErrnoException =>
+  error instanceof Error && "code" in error;
+
+const ensureProjectDirectoryAvailable = async (projectPath: string) => {
+  try {
+    const entries = await fs.readdir(projectPath);
+    if (entries.length > 0) {
+      throw new Error(
+        "目标项目文件夹已经存在且不为空，请选择一个空文件夹或新项目名称。",
+      );
+    }
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      await fs.mkdir(projectPath, { recursive: true });
+      return;
+    }
+    throw error;
+  }
+};
+
+const assertPathInsideDirectory = ({
+  directory,
+  targetPath,
+  errorMessage,
+}: {
+  directory: string;
+  targetPath: string;
+  errorMessage: string;
+}) => {
+  const resolvedDirectory = path.resolve(directory);
+  const resolvedTarget = path.resolve(targetPath);
+  const directoryPrefix = `${resolvedDirectory}${path.sep}`;
+
+  if (
+    resolvedTarget !== resolvedDirectory &&
+    !resolvedTarget.startsWith(directoryPrefix)
+  ) {
+    throw new Error(errorMessage);
+  }
+
+  return resolvedTarget;
+};
+
+const resolveProjectAssetPath = (projectPath: string, assetPath: string) =>
+  assertPathInsideDirectory({
+    directory: path.join(projectPath, PROJECT_FILENAMES.assetsDir),
+    targetPath: path.join(projectPath, assetPath),
+    errorMessage: "图片资源路径不在项目 assets 文件夹内。",
+  });
 
 const buildProjectManifest = (name: string): ProjectManifest => {
   const timestamp = new Date().toISOString();
@@ -85,7 +152,7 @@ export const createProjectStructure = async (
   name: string,
 ) => {
   const projectPath = path.join(parentDirectory, safeProjectFolderName(name));
-  await fs.mkdir(projectPath, { recursive: true });
+  await ensureProjectDirectoryAvailable(projectPath);
   await fs.mkdir(path.join(projectPath, PROJECT_FILENAMES.assetsDir), {
     recursive: true,
   });
@@ -96,13 +163,16 @@ export const createProjectStructure = async (
   const project = buildProjectManifest(name);
 
   await Promise.all([
-    writeJson(path.join(projectPath, PROJECT_FILENAMES.project), project),
+    writeJsonExclusive(path.join(projectPath, PROJECT_FILENAMES.project), project),
     fs.writeFile(
       path.join(projectPath, PROJECT_FILENAMES.scene),
       EMPTY_PROJECT_SCENE,
-      "utf8",
+      {
+        encoding: "utf8",
+        flag: "wx",
+      },
     ),
-    writeJson(path.join(projectPath, PROJECT_FILENAMES.imageRecords), {}),
+    writeJsonExclusive(path.join(projectPath, PROJECT_FILENAMES.imageRecords), {}),
   ]);
 
   return { projectPath, project };
@@ -222,7 +292,9 @@ export const readProjectAssetPayloads = async ({
       if (!record) {
         return null;
       }
-      const fileBuffer = await fs.readFile(path.join(projectPath, record.assetPath));
+      const fileBuffer = await fs.readFile(
+        resolveProjectAssetPath(projectPath, record.assetPath),
+      );
       return {
         fileId,
         mimeType: record.mimeType,
@@ -248,13 +320,14 @@ export const persistImageAssets = async ({
   const nextImageRecords: ImageRecordMap = { ...bundle.imageRecords };
 
   for (const file of files) {
-    const assetFileName = `${file.createdAt.replace(/[:.]/g, "-")}_${file.fileId}.${extensionFromMimeType(file.mimeType)}`;
+    const assetFileName = `${file.createdAt.replace(/[:.]/g, "-")}_${safeAssetFileNameSegment(file.fileId)}.${extensionFromMimeType(file.mimeType)}`;
     const relativeAssetPath = path.posix.join(
       PROJECT_FILENAMES.assetsDir,
       assetFileName,
     );
+    const assetPath = resolveProjectAssetPath(projectPath, relativeAssetPath);
     await fs.writeFile(
-      path.join(projectPath, relativeAssetPath),
+      assetPath,
       Buffer.from(file.dataBase64, "base64"),
     );
 

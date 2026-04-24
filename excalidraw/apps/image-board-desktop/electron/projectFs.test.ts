@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createProjectStructure,
   persistImageAssets,
+  readProjectAssetPayloads,
   readProjectBundle,
   writeProjectScene,
 } from "./projectFs";
@@ -38,6 +39,27 @@ describe("projectFs", () => {
     expect(bundle.imageRecords).toEqual({});
   });
 
+  it("rejects creating a project over an existing non-empty folder", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const projectPath = path.join(root, "Existing Project");
+    await fs.mkdir(projectPath, { recursive: true });
+    await fs.writeFile(
+      path.join(projectPath, "scene.excalidraw.json"),
+      "keep-me",
+      "utf8",
+    );
+
+    await expect(
+      createProjectStructure(root, "Existing Project"),
+    ).rejects.toThrow("目标项目文件夹已经存在");
+
+    await expect(
+      fs.readFile(path.join(projectPath, "scene.excalidraw.json"), "utf8"),
+    ).resolves.toBe("keep-me");
+  });
+
   it("persists generated assets and records them by file id", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
@@ -66,6 +88,40 @@ describe("projectFs", () => {
 
     const bundle = await readProjectBundle(project.projectPath);
     expect(bundle.imageRecords["file-123"].prompt).toBe("chair sketch");
+  });
+
+  it("rejects asset records that point outside the project assets folder", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Traversal Test");
+    await fs.writeFile(path.join(root, "secret.txt"), "secret", "utf8");
+    await fs.writeFile(
+      path.join(project.projectPath, "image-records.json"),
+      JSON.stringify(
+        {
+          "file-escape": {
+            fileId: "file-escape",
+            assetPath: "../secret.txt",
+            sourceType: "imported",
+            width: 1,
+            height: 1,
+            createdAt: "2026-04-12T12:00:00.000Z",
+            mimeType: "image/png",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await expect(
+      readProjectAssetPayloads({
+        projectPath: project.projectPath,
+        fileIds: ["file-escape"],
+      }),
+    ).rejects.toThrow("图片资源路径不在项目 assets 文件夹内");
   });
 
   it("backs up and rejects a non-empty scene before an empty autosave overwrite", async () => {

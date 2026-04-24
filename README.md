@@ -134,6 +134,7 @@ https://github.com/walnut-a/CoreStudio/releases/tag/v1.0.0
 
 - [README.md](README.md)：项目定位、功能范围、开发入口。
 - [LICENSE](LICENSE)：本仓库 MIT 协议。
+- [docs/superpowers/specs/2026-04-24-corestudio-modification-boundary.md](docs/superpowers/specs/2026-04-24-corestudio-modification-boundary.md)：CoreStudio 与 Excalidraw 上游之间的修改边界，后续 review 和修复先按这里分类。
 - [excalidraw/apps/image-board-desktop/RELEASE.md](excalidraw/apps/image-board-desktop/RELEASE.md)：打包、公证、发布和密钥扫描流程。
 - [excalidraw/apps/image-board-desktop/src/shared/providerCatalog.ts](excalidraw/apps/image-board-desktop/src/shared/providerCatalog.ts)：模型服务、模型能力、比例和尺寸选项。
 - [excalidraw/apps/image-board-desktop/electron/providers/](excalidraw/apps/image-board-desktop/electron/providers/)：各模型服务的请求适配。

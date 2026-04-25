@@ -48,6 +48,7 @@ import {
 import { DESKTOP_APP_NAME } from "../src/app/copy";
 import { createAppMenuTemplate } from "./menu";
 import { shouldOpenDevTools } from "./devtools";
+import { createQuitState } from "./windowLifecycle";
 
 let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];
@@ -55,6 +56,7 @@ let latestProjectOpenRequestId = 0;
 let latestAutosaveFlushRequestId = 0;
 let rendererReady = false;
 let allowWindowClose = false;
+const quitState = createQuitState();
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingAutosaveFlushes = new Map<
   number,
@@ -249,6 +251,8 @@ const closeWindowAfterAutosave = async (targetWindow: BrowserWindow) => {
     if (shouldClose) {
       allowWindowClose = true;
       targetWindow.close();
+    } else {
+      quitState.clearQuitRequest();
     }
   }
 };
@@ -572,8 +576,12 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on("before-quit", () => {
+  quitState.markQuitRequested();
+});
+
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+  if (quitState.shouldQuitWhenAllWindowsClosed(process.platform)) {
     app.quit();
   }
 });

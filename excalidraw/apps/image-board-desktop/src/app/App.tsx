@@ -51,6 +51,7 @@ import type {
   ExcalidrawInitialDataState,
   SidebarTabName,
 } from "@excalidraw/excalidraw/types";
+import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 import type { GenerationRequest } from "../shared/providerTypes";
 
 import { maybeGetDesktopBridge } from "./desktopBridge";
@@ -140,6 +141,16 @@ const extractBase64 = (dataURL: string) => {
   const [, payload = ""] = dataURL.split(",", 2);
   return payload;
 };
+
+const hasClipboardFiles = (files: BinaryFiles | undefined) =>
+  Boolean(files && Object.keys(files).length > 0);
+
+const isEmptyClipboardData = (data: ClipboardData) =>
+  !data.elements?.length &&
+  !hasClipboardFiles(data.files) &&
+  !data.mixedContent?.length &&
+  !data.errorMessage &&
+  !(data.text ?? "").trim();
 
 const collectImageFileIds = (elements: readonly ExcalidrawElement[]) => {
   return elements.reduce((fileIds, element) => {
@@ -839,6 +850,9 @@ const App = () => {
   const insertAssetsIntoScene = async (
     assets: PersistedImageAssetInput[],
     nextImageRecords: DesktopProjectBundle["imageRecords"],
+    options: {
+      anchorPoint?: { x: number; y: number } | null;
+    } = {},
   ) => {
     const api = excalidrawAPIRef.current;
     const project = currentProjectRef.current;
@@ -851,18 +865,20 @@ const App = () => {
       x: appState.width / 2 - appState.scrollX,
       y: appState.height / 2 - appState.scrollY,
     };
+    const anchorPoint = options.anchorPoint ?? null;
     const placements = placeGeneratedImages({
       images: assets.map((asset) => ({
         width: asset.width,
         height: asset.height,
       })),
+      anchorPoint,
       viewportCenter,
       viewportSize: {
         width: appState.width,
         height: appState.height,
       },
       zoomValue: appState.zoom.value,
-      previousBatchBounds: lastBatchBoundsRef.current,
+      previousBatchBounds: anchorPoint ? null : lastBatchBoundsRef.current,
     });
 
     const filesToAdd: BinaryFileData[] = assets.map((asset) => ({
@@ -1396,6 +1412,40 @@ const App = () => {
     }
   };
 
+  const handleDesktopClipboardPaste = async (data: ClipboardData) => {
+    if (!isEmptyClipboardData(data)) {
+      return true;
+    }
+
+    const project = currentProjectRef.current;
+    if (!project || !desktopBridge.readClipboardImage) {
+      return true;
+    }
+
+    try {
+      const clipboardImage = await desktopBridge.readClipboardImage();
+      if (!clipboardImage) {
+        return true;
+      }
+
+      const file: PersistedImageAssetInput = {
+        ...clipboardImage,
+        sourceType: "imported",
+      };
+      const nextImageRecords = await desktopBridge.persistImageAssets({
+        projectPath: project.projectPath,
+        files: [file],
+      });
+      await insertAssetsIntoScene([file], nextImageRecords, {
+        anchorPoint: lastCanvasPointerRef.current,
+      });
+      return false;
+    } catch (error) {
+      setProjectError(getErrorText(error, copy.startup.importImagesFailed));
+      return false;
+    }
+  };
+
   const handleGenerateImages = async (
     request: GenerationRequest,
     _keepOpen: boolean,
@@ -1787,6 +1837,7 @@ const App = () => {
                   y: pointer.y,
                 };
               }}
+              onPaste={handleDesktopClipboardPaste}
               onChange={(elements, appState, files) => {
                 const activeProject = currentProjectRef.current;
                 if (!activeProject) {

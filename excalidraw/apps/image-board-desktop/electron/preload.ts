@@ -27,6 +27,7 @@ const desktopBridge: DesktopBridgeApi = {
   saveProviderSettings: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.saveProviderSettings, input),
   generateImages: (input) => ipcRenderer.invoke(IPC_CHANNELS.generateImages, input),
+  readClipboardImage: () => ipcRenderer.invoke(IPC_CHANNELS.readClipboardImage),
   onMenuAction: (listener) => {
     const handler = (_event: unknown, menuEvent: DesktopMenuEvent) => {
       listener(menuEvent);

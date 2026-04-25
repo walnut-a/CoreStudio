@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
   generateImages: "image-board:generate-images",
+  readClipboardImage: "image-board:read-clipboard-image",
   menuAction: "image-board:menu-action",
   rendererReady: "image-board:renderer-ready",
   flushAutosaveRequest: "image-board:flush-autosave-request",
@@ -131,6 +132,7 @@ export interface DesktopBridgeApi {
     input: SaveProviderSettingsInput,
   ): Promise<PublicProviderSettings>;
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
+  readClipboardImage?(): Promise<ImportedImagePayload | null>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;
   onFlushAutosaveRequest?(

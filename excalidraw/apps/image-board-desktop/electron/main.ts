@@ -7,6 +7,7 @@ import {
   BrowserWindow,
   Menu,
   app,
+  clipboard,
   dialog,
   ipcMain,
   nativeImage,
@@ -406,6 +407,10 @@ const registerIpcHandlers = () => {
     IPC_CHANNELS.generateImages,
     async (_event, input: GenerateImagesInput) => generateImages(input),
   );
+
+  ipcMain.handle(IPC_CHANNELS.readClipboardImage, async () =>
+    readClipboardImageFromSystem(),
+  );
 };
 
 const buildMenu = () =>
@@ -530,6 +535,29 @@ const importImagesFromDisk = async () => {
       };
     }),
   );
+};
+
+const readClipboardImageFromSystem = () => {
+  const image = clipboard.readImage();
+  if (image.isEmpty()) {
+    return null;
+  }
+
+  const imageBuffer = image.toPNG();
+  const size = image.getSize();
+  if (!imageBuffer.length || !size.width || !size.height) {
+    return null;
+  }
+
+  return {
+    fileName: "clipboard.png",
+    fileId: randomUUID(),
+    mimeType: "image/png",
+    dataBase64: imageBuffer.toString("base64"),
+    width: size.width,
+    height: size.height,
+    createdAt: new Date().toISOString(),
+  };
 };
 
 app.whenReady().then(async () => {

@@ -21,6 +21,12 @@ let triggerExcalidrawPointerUpdate:
       pointersMap: Map<number, { x: number; y: number }>;
     }) => void)
   | null = null;
+let triggerExcalidrawPaste:
+  | ((
+      data: Record<string, unknown>,
+      event?: ClipboardEvent | null,
+    ) => Promise<boolean> | boolean)
+  | null = null;
 let throwExcalidrawRenderError: Error | null = null;
 let mockExcalidrawAPI:
   | {
@@ -103,6 +109,7 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
   readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
   persistImageAssets: vi.fn().mockResolvedValue({}),
   importImages: vi.fn().mockResolvedValue([]),
+  readClipboardImage: vi.fn().mockResolvedValue(null),
   revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
   loadProviderSettings: vi.fn().mockResolvedValue(createMockProviderSettings()),
   saveProviderSettings: vi.fn(),
@@ -216,6 +223,7 @@ vi.mock("@excalidraw/excalidraw", () => {
     onExcalidrawAPI,
     onPointerUpdate,
     onChange,
+    onPaste,
   }: {
     langCode?: string;
     children?: React.ReactNode;
@@ -231,6 +239,10 @@ vi.mock("@excalidraw/excalidraw", () => {
       appState: Record<string, unknown>,
       files: Record<string, unknown>,
     ) => void;
+    onPaste?: (
+      data: Record<string, unknown>,
+      event: ClipboardEvent | null,
+    ) => Promise<boolean> | boolean;
   }) => (
     (() => {
       const [activeTab, setActiveTabState] = React.useState("library");
@@ -326,6 +338,8 @@ vi.mock("@excalidraw/excalidraw", () => {
 
       triggerExcalidrawInitialize = () => onInitialize?.(apiRef.current);
       triggerExcalidrawPointerUpdate = (payload) => onPointerUpdate?.(payload);
+      triggerExcalidrawPaste = (data, event = null) =>
+        onPaste?.(data, event) ?? true;
       triggerExcalidrawChange = (scene) => {
         sceneRef.current = {
           elements: scene.elements,
@@ -617,6 +631,7 @@ afterEach(() => {
   triggerExcalidrawInitialize = null;
   triggerExcalidrawChange = null;
   triggerExcalidrawPointerUpdate = null;
+  triggerExcalidrawPaste = null;
   throwExcalidrawRenderError = null;
   mockExcalidrawAPI = null;
   skipExcalidrawApiRegistration = false;
@@ -1863,6 +1878,88 @@ describe("App startup", () => {
 
     expect(await screen.findByText("Finder 打开失败")).toBeInTheDocument();
     expect(revealProjectInFinder).toHaveBeenCalledWith("/tmp/mock-project");
+  });
+
+  it("uses the native clipboard image when context-menu paste has no browser data", async () => {
+    const readClipboardImage = vi.fn().mockResolvedValue({
+      fileName: "clipboard.png",
+      fileId: "clipboard-file",
+      mimeType: "image/png",
+      dataBase64: "Y2xpcGJvYXJkLWltYWdl",
+      width: 800,
+      height: 600,
+      createdAt: "2026-04-25T08:00:00.000Z",
+    });
+    const persistImageAssets = vi.fn().mockResolvedValue({
+      "clipboard-file": {
+        fileId: "clipboard-file",
+        assetPath: "assets/clipboard-file.png",
+        sourceType: "imported",
+        width: 800,
+        height: 600,
+        createdAt: "2026-04-25T08:00:00.000Z",
+        mimeType: "image/png",
+      },
+    });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
+      readClipboardImage,
+      persistImageAssets,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawPointerUpdate?.({
+        pointer: { x: 300, y: 240, tool: "pointer" },
+        button: "up",
+        pointersMap: new Map(),
+      });
+    });
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+
+    let pasteResult: boolean | undefined;
+    await act(async () => {
+      pasteResult = await triggerExcalidrawPaste?.({ text: "" }, null);
+    });
+
+    expect(pasteResult).toBe(false);
+    expect(readClipboardImage).toHaveBeenCalledTimes(1);
+    expect(persistImageAssets).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      files: [
+        expect.objectContaining({
+          fileId: "clipboard-file",
+          sourceType: "imported",
+          dataBase64: "Y2xpcGJvYXJkLWltYWdl",
+          mimeType: "image/png",
+        }),
+      ],
+    });
+    expect(mockExcalidrawAPI?.addFiles).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "clipboard-file",
+        dataURL: "data:image/png;base64,Y2xpcGJvYXJkLWltYWdl",
+      }),
+    ]);
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        elements: expect.arrayContaining([
+          expect.objectContaining({
+            type: "image",
+            fileId: "clipboard-file",
+            width: 640,
+            height: 480,
+          }),
+        ]),
+      }),
+    );
   });
 
   it("does not show a generate image button in the native toolbar after a project is opened", async () => {

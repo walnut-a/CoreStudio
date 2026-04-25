@@ -27,6 +27,15 @@ const readImageInspector = () =>
     "utf8",
   );
 
+const readCoreStudioIcons = () =>
+  readFileSync(
+    resolve(
+      process.cwd(),
+      "apps/image-board-desktop/src/app/components/CoreStudioIcons.tsx",
+    ),
+    "utf8",
+  );
+
 const getRule = (css: string, selector: string) => {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return css.match(
@@ -153,6 +162,44 @@ describe("generate composer styles", () => {
     expect(mainMenuTriggerHoverRule).toContain("background: #f1f0ff");
     expect(closedMenuRule).toContain("var(--side-dock-toggle-size)");
     expect(openMenuRule).toContain("var(--left-sidebar-width)");
+  });
+
+  it("keeps CoreStudio-only icons in the Excalidraw fine-line style", () => {
+    const iconSource = readCoreStudioIcons();
+    const appCss = readAppCss();
+    const sideDockSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/src/app/components/SideDock.tsx",
+      ),
+      "utf8",
+    );
+    const toolbarButtonSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/src/app/components/GenerateToolbarButton.tsx",
+      ),
+      "utf8",
+    );
+    const generateDialogSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/src/app/components/GenerateImageDialog.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(iconSource).toContain("CORE_STUDIO_ICON_STROKE_WIDTH = 1.25");
+    expect(iconSource).toContain('stroke="currentColor"');
+    expect(iconSource).toContain('strokeLinecap="round"');
+    expect(iconSource).toContain('strokeLinejoin="round"');
+    expect(appCss).toContain("stroke-width=\"1.25\"");
+    expect(appCss).toContain(".side-dock__toggle svg");
+    expect(sideDockSource).not.toContain("<svg");
+    expect(toolbarButtonSource).not.toContain("<svg");
+    expect(generateDialogSource).not.toMatch(
+      /strokeWidth=\"(?:1\.6|1\.7|1\.75|1\.8|2)\"/,
+    );
   });
 
   it("keeps Excalidraw shape controls readable inside the side dock", () => {
@@ -283,8 +330,9 @@ describe("generate composer styles", () => {
     expect(iconRule).toContain("color: var(--generate-composer-settings-color)");
     expect(actionRule).toContain("color: var(--generate-composer-send-color)");
     expect(primaryActionRule).not.toContain("#111111");
-    expect(readGenerateImageDialog()).toContain("M4 7h4");
-    expect(readGenerateImageDialog()).toContain("M4.5 11.5");
+    expect(readGenerateImageDialog()).toContain("settingsSlidersIcon");
+    expect(readCoreStudioIcons()).toContain("M5 7.5h5.25");
+    expect(readCoreStudioIcons()).toContain("M5 11.75 18.25 5.5");
     expect(readGenerateImageDialog()).not.toContain("M12 19V5");
     expect(readGenerateImageDialog()).not.toContain("M6.5 10.5L12 5l5.5 5.5");
     expect(appCss).toContain(".generate-composer__icon:focus-visible");
@@ -406,10 +454,12 @@ describe("generate composer styles", () => {
     const appCss = readAppCss();
     const dialogSource = readGenerateImageDialog();
 
-    expect(appCss).toContain("M3.2 5.2 7 9l3.8-3.8");
+    expect(appCss).toContain("M3.25 5.4 7 9.15l3.75-3.75");
+    expect(appCss).toContain('stroke-width="1.25"');
     expect(appCss).not.toContain("M287 197L159 69");
     expect(dialogSource).toContain("generate-provider-settings__icon");
-    expect(dialogSource).toContain("M5 7 9 11l4-4");
+    expect(dialogSource).toContain("chevronDownIcon");
+    expect(readCoreStudioIcons()).toContain("m7.25 9 4.75 4.75L16.75 9");
     expect(dialogSource).not.toContain("M6 9h6");
     expect(dialogSource).not.toContain("M9 6v6");
     expect(dialogSource).not.toContain("M3 8l4-4 4 4");

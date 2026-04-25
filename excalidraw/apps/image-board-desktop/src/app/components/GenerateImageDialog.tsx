@@ -32,6 +32,12 @@ import {
 } from "../copy";
 
 import { DesktopButton } from "./DesktopButton";
+import {
+  chevronDownIcon,
+  removeReferenceIcon,
+  sendIcon,
+  settingsSlidersIcon,
+} from "./CoreStudioIcons";
 
 import type {
   PublicProviderSettings,
@@ -662,19 +668,7 @@ export const GenerateImageDialog = ({
                       removeReference();
                     }}
                   >
-                    <svg
-                      aria-hidden="true"
-                      width="12"
-                      height="12"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      strokeLinecap="round"
-                    >
-                      <path d="M3 3l6 6" />
-                      <path d="M9 3L3 9" />
-                    </svg>
+                    {removeReferenceIcon}
                   </button>
                 </div>
               ) : null}
@@ -713,24 +707,7 @@ export const GenerateImageDialog = ({
                 }
                 onClick={() => setAdvancedOpen((current) => !current)}
               >
-                <svg
-                  aria-hidden="true"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 7h4" />
-                  <circle cx="11" cy="7" r="2" />
-                  <path d="M14 7h6" />
-                  <path d="M4 17h7" />
-                  <circle cx="14" cy="17" r="2" />
-                  <path d="M17 17h3" />
-                </svg>
+                {settingsSlidersIcon}
               </DesktopButton>
               <DesktopButton
                 type="submit"
@@ -744,20 +721,7 @@ export const GenerateImageDialog = ({
                   stopInputEventPropagation(event);
                 }}
               >
-                <svg
-                  aria-hidden="true"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4.5 11.5 19.2 4.8c.5-.2 1 .3.8.8l-6.7 14.7c-.2.5-.9.5-1.1 0l-2.1-6.1-5.6-2.1c-.5-.2-.5-.9 0-1.1Z" />
-                  <path d="m10.2 14.2 4.6-4.6" />
-                </svg>
+                {sendIcon}
               </DesktopButton>
             </div>
           </div>
@@ -995,20 +959,11 @@ export const GenerateImageDialog = ({
                         {providerDefinition.label} · {currentProviderStatus}
                       </small>
                     </span>
-                    <svg
-                      className={`generate-provider-settings__icon${
+                    {chevronDownIcon(
+                      `generate-provider-settings__icon${
                         apiSettingsOpen ? " is-open" : ""
-                      }`}
-                      aria-hidden="true"
-                      viewBox="0 0 18 18"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M5 7 9 11l4-4" />
-                    </svg>
+                      }`,
+                    )}
                   </button>
 
                   {apiSettingsOpen && (

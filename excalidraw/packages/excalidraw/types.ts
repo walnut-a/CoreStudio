@@ -625,6 +625,10 @@ export interface ExcalidrawProps {
     isMobile: boolean,
     appState: UIAppState,
   ) => JSX.Element | null;
+  renderSelectedShapeActions?: (args: {
+    selectedShapeActions: React.ReactNode;
+    shouldRenderSelectedShapeActions: boolean;
+  }) => JSX.Element | null;
   langCode?: Language["code"];
   viewModeEnabled?: boolean;
   zenModeEnabled?: boolean;
@@ -741,6 +745,7 @@ export type CanvasActions = Partial<{
 
 export type UIOptions = Partial<{
   dockedSidebarBreakpoint: number;
+  defaultSidebar: boolean;
   canvasActions: CanvasActions;
   tools: {
     image: boolean;

@@ -63,11 +63,9 @@ describe("generate composer styles", () => {
     expect(emptyTitleRule).toContain("font-size: var(--image-inspector-title-size)");
     expect(eyebrowRule).toContain("font-size: var(--image-inspector-caption-size)");
     expect(detailValueRule).toContain("font-size: var(--image-inspector-body-size)");
-    expect(imageSidebarSource).toContain("closeOnOutsideClick={false}");
-    expect(imageSidebarSource).toContain("showLibrary={false}");
-    expect(imageSidebarSource).toContain(
-      "libraryFallbackTab={IMAGE_INFO_SIDEBAR_TAB}",
-    );
+    expect(imageSidebarSource).toContain('side="right"');
+    expect(imageSidebarSource).toContain("title={copy.inspector.title}");
+    expect(imageSidebarSource).not.toContain("DefaultSidebar");
   });
 
   it("keeps the focus treatment from shifting the composer upward", () => {
@@ -93,21 +91,77 @@ describe("generate composer styles", () => {
     expect(focusWithinRule).not.toMatch(/box-shadow:\s*\n\s*0\s+\d/);
   });
 
-  it("keeps the bottom composer inside the canvas when the right sidebar is docked", () => {
+  it("keeps the bottom composer inside the canvas when side docks are open", () => {
     const appCss = readAppCss();
-    const dockedLayerRule = getRule(
+    const rightDockLayerRule = getRule(
       appCss,
-      ".image-board-app:has(.default-sidebar.sidebar--docked) .floating-panel-layer",
+      ".image-board-app--right-dock-open .floating-panel-layer",
     );
-    const dockedPanelRule = getRule(
+    const leftDockLayerRule = getRule(
       appCss,
-      ".image-board-app:has(.default-sidebar.sidebar--docked) .generate-panel",
+      ".image-board-app--left-dock-open .floating-panel-layer",
+    );
+    const rightDockPanelRule = getRule(
+      appCss,
+      ".image-board-app--right-dock-open .generate-panel",
+    );
+    const bothDockPanelRule = getRule(
+      appCss,
+      ".image-board-app--left-dock-open.image-board-app--right-dock-open .generate-panel",
     );
 
-    expect(dockedLayerRule).toContain("right: var(--right-sidebar-width)");
-    expect(dockedPanelRule).toContain(
+    expect(rightDockLayerRule).toContain("right: var(--right-sidebar-width)");
+    expect(leftDockLayerRule).toContain("left: var(--left-sidebar-width)");
+    expect(rightDockPanelRule).toContain(
       "clamp(280px, calc(100vw - var(--right-sidebar-width) - 48px), 560px)",
     );
+    expect(bothDockPanelRule).toContain(
+      "var(--left-sidebar-width) - var(--right-sidebar-width)",
+    );
+  });
+
+  it("keeps side dock controls aligned with the top toolbar", () => {
+    const appCss = readAppCss();
+    const appRule = getRule(appCss, ".image-board-app");
+    const toggleRule = getRule(appCss, ".side-dock__toggle");
+    const closedMenuRule = getRule(appCss, ".image-board-app .App-menu_top__left");
+    const mainMenuTriggerRule = getRule(
+      appCss,
+      ".image-board-app .App-menu_top__left .main-menu-trigger",
+    );
+    const mainMenuTriggerHoverRule = getRule(
+      appCss,
+      ".image-board-app .App-menu_top__left .main-menu-trigger:hover",
+    );
+    const openMenuRule = getRule(
+      appCss,
+      ".image-board-app--left-dock-open .App-menu_top__left",
+    );
+
+    expect(appRule).toContain("--left-sidebar-width: 272px");
+    expect(appRule).toContain("--right-sidebar-width: 302px");
+    expect(toggleRule).toContain(
+      "top: calc(var(--editor-container-padding, 16px) + env(safe-area-inset-top, 0px))",
+    );
+    expect(mainMenuTriggerRule).toContain(
+      "width: var(--side-dock-toggle-size)",
+    );
+    expect(mainMenuTriggerRule).toContain(
+      "height: var(--side-dock-toggle-size)",
+    );
+    expect(mainMenuTriggerRule).toContain("background: var(--island-bg-color)");
+    expect(mainMenuTriggerHoverRule).toContain("background: #f1f0ff");
+    expect(closedMenuRule).toContain("var(--side-dock-toggle-size)");
+    expect(openMenuRule).toContain("var(--left-sidebar-width)");
+  });
+
+  it("keeps Excalidraw shape controls readable inside the side dock", () => {
+    const appCss = readAppCss();
+    const shapeActionsRule = getRule(appCss, ".side-dock .selected-shape-actions");
+
+    expect(shapeActionsRule).toContain("--button-bg: var(--color-surface-mid)");
+    expect(shapeActionsRule).toContain("--color-slider-track");
+    expect(shapeActionsRule).toContain("background: color-mix");
   });
 
   it("uses the native Excalidraw radius instead of oversized rounded corners", () => {

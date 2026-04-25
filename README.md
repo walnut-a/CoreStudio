@@ -107,18 +107,18 @@ CoreStudio 会按模型能力显示参数：
 - 选区里包含分组时，以分组作为移动单位。
 - 只选中一个分组时，会保留分组内部结构。
 
-## 1.0 安装包
+## 1.1 安装包
 
-当前 1.0.0 已发布 macOS arm64 安装包：
+当前 1.1.0 已发布 macOS arm64 安装包：
 
-- `CoreStudio-1.0.0-arm64.dmg`
-- `CoreStudio-1.0.0-arm64-mac.zip`
+- `CoreStudio-1.1.0-arm64.dmg`
+- `CoreStudio-1.1.0-arm64-mac.zip`
 
 Release 地址：
 
-https://github.com/walnut-a/CoreStudio/releases/tag/v1.0.0
+https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.0
 
-1.0.0 已完成：
+1.1.0 已完成：
 
 - Developer ID 签名
 - Apple 公证

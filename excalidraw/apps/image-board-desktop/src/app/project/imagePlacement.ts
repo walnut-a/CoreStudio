@@ -19,6 +19,7 @@ interface PlaceGeneratedImagesArgs {
   zoomValue: number;
   anchorPoint?: { x: number; y: number } | null;
   anchorBounds?: SceneBounds | null;
+  occupiedBounds?: readonly SceneBounds[];
   previousBatchBounds?: SceneBounds | null;
   gap?: number;
 }
@@ -64,11 +65,81 @@ export const measureBatchBounds = (
   };
 };
 
+const rectanglesOverlap = (
+  first: SceneBounds,
+  second: SceneBounds,
+  padding = 0,
+) =>
+  first.x < second.x + second.width + padding &&
+  first.x + first.width > second.x - padding &&
+  first.y < second.y + second.height + padding &&
+  first.y + first.height > second.y - padding;
+
+const findNearestOpenBatchStart = ({
+  startX,
+  startY,
+  totalWidth,
+  totalHeight,
+  occupiedBounds,
+  gap,
+}: {
+  startX: number;
+  startY: number;
+  totalWidth: number;
+  totalHeight: number;
+  occupiedBounds: readonly SceneBounds[];
+  gap: number;
+}) => {
+  const isOpen = (x: number, y: number) => {
+    const batchBounds = {
+      x,
+      y,
+      width: totalWidth,
+      height: totalHeight,
+    };
+
+    return !occupiedBounds.some((bounds) =>
+      rectanglesOverlap(batchBounds, bounds, gap),
+    );
+  };
+
+  if (!occupiedBounds.length || isOpen(startX, startY)) {
+    return { x: startX, y: startY };
+  }
+
+  const stepX = totalWidth + gap * 2;
+  const stepY = totalHeight + gap * 2;
+
+  for (let radius = 1; radius <= 8; radius++) {
+    const candidates = [
+      { dx: 0, dy: radius },
+      { dx: 0, dy: -radius },
+      { dx: -radius, dy: 0 },
+      { dx: radius, dy: 0 },
+      { dx: -radius, dy: radius },
+      { dx: radius, dy: radius },
+      { dx: -radius, dy: -radius },
+      { dx: radius, dy: -radius },
+    ];
+
+    for (const candidate of candidates) {
+      const x = startX + candidate.dx * stepX;
+      const y = startY + candidate.dy * stepY;
+      if (isOpen(x, y)) {
+        return { x, y };
+      }
+    }
+  }
+
+  return { x: startX, y: startY };
+};
+
 export const placeGeneratedImages = ({
   images,
   viewportCenter,
   anchorPoint,
   anchorBounds,
+  occupiedBounds = [],
   previousBatchBounds,
   gap = 32,
 }: PlaceGeneratedImagesArgs): ImagePlacement[] => {
@@ -120,8 +191,18 @@ export const placeGeneratedImages = ({
         ? previousBatchBounds.y + previousBatchBounds.height / 2
         : viewportCenter.y;
 
-  const startX = anchorX - totalWidth / 2;
-  const startY = anchorY - totalHeight / 2;
+  const preferredStartX = anchorX - totalWidth / 2;
+  const preferredStartY = anchorY - totalHeight / 2;
+  const openStart = findNearestOpenBatchStart({
+    startX: preferredStartX,
+    startY: preferredStartY,
+    totalWidth,
+    totalHeight,
+    occupiedBounds,
+    gap,
+  });
+  const startX = openStart.x;
+  const startY = openStart.y;
 
   return normalized.map((image, imageIndex) => {
     const rowIndex = Math.floor(imageIndex / columnCount);

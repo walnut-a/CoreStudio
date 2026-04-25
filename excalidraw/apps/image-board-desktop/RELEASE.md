@@ -13,7 +13,7 @@ excalidraw/apps/image-board-desktop/package.json
 当前发布版本：
 
 ```text
-1.0.0
+1.1.0
 ```
 
 ## 本地打包
@@ -124,7 +124,7 @@ source=Notarized Developer ID
 ```sh
 cd excalidraw
 TMP_DIR="$(mktemp -d /tmp/corestudio-zip-check.XXXXXX)"
-unzip -q apps/image-board-desktop/release/CoreStudio-1.0.0-arm64-mac.zip -d "$TMP_DIR"
+unzip -q apps/image-board-desktop/release/CoreStudio-1.1.0-arm64-mac.zip -d "$TMP_DIR"
 xcrun stapler validate "$TMP_DIR/CoreStudio.app"
 spctl -a -vvv -t exec "$TMP_DIR/CoreStudio.app"
 codesign --verify --deep --strict --verbose=2 "$TMP_DIR/CoreStudio.app"
@@ -154,22 +154,44 @@ corepack yarn check:desktop-secrets --source --package-inputs --release
 提交并推送源码后，从仓库顶层上传安装包：
 
 ```text
-excalidraw/apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg
-excalidraw/apps/image-board-desktop/release/CoreStudio-1.0.0-arm64-mac.zip
+excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64.dmg
+excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64-mac.zip
 ```
 
 示例：
 
 ```sh
-gh release create v1.0.0 \
-  excalidraw/apps/image-board-desktop/release/CoreStudio-1.0.0-arm64.dmg \
-  excalidraw/apps/image-board-desktop/release/CoreStudio-1.0.0-arm64-mac.zip \
-  --title "CoreStudio 1.0.0" \
+gh release create v1.1.0 \
+  excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64.dmg \
+  excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64-mac.zip \
+  --title "CoreStudio 1.1.0" \
   --notes-file release-notes.md \
   --repo OWNER/REPO
 ```
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
+
+## 1.1.0 已验证信息
+
+1.1.0 发布时通过了这些检查：
+
+- Desktop tests：199 passed
+- TypeScript typecheck：passed
+- Source/package-input/release secret scan：passed
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `c4371ffa-5f0e-4d9e-926f-93ac4726e6ce`
+- Gatekeeper：DMG accepted as `Notarized Developer ID`
+- ZIP app：stapler validate passed, Gatekeeper accepted as `Notarized Developer ID`
+
+校验值：
+
+```text
+CoreStudio-1.1.0-arm64.dmg
+sha256: e5d3a181946eb3e99491a4de6a882691e44fbc24d7ee5eb08ea5c9021ceec208
+
+CoreStudio-1.1.0-arm64-mac.zip
+sha256: aa0ea56d5913537148ad27b7953d6c690d89f8329a527c1494cb343e19223b67
+```
 
 ## 1.0.0 已验证信息
 

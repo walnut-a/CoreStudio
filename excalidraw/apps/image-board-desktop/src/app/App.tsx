@@ -12,10 +12,6 @@ import {
   Excalidraw,
 } from "@excalidraw/excalidraw";
 import {
-  DEFAULT_SIDEBAR,
-  LIBRARY_SIDEBAR_TAB,
-} from "@excalidraw/common";
-import {
   getCommonBounds,
   newElementWith,
   newFrameElement,
@@ -49,7 +45,6 @@ import type {
   BinaryFiles,
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
-  SidebarTabName,
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 import type { GenerationRequest } from "../shared/providerTypes";
@@ -90,11 +85,9 @@ import {
 } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
-import {
-  IMAGE_INFO_SIDEBAR_TAB,
-  ImageSidebar,
-} from "./components/ImageSidebar";
+import { ImageSidebar } from "./components/ImageSidebar";
 import type { GenerationTaskRecord } from "./components/ImageInspector";
+import { SideDock } from "./components/SideDock";
 import { DesktopButton } from "./components/DesktopButton";
 import { TopBar } from "./components/TopBar";
 import { WelcomePane } from "./components/WelcomePane";
@@ -303,6 +296,18 @@ const getElementsSceneBounds = (
   };
 };
 
+const getSceneOccupiedBounds = (
+  elements: readonly ExcalidrawElement[],
+) =>
+  elements.flatMap((element) => {
+    if (element.isDeleted) {
+      return [];
+    }
+
+    const bounds = getElementsSceneBounds([element]);
+    return bounds && bounds.width > 0 && bounds.height > 0 ? [bounds] : [];
+  });
+
 const stringifyUnknownError = (error: unknown) => {
   if (error === null || error === undefined) {
     return "";
@@ -494,9 +499,8 @@ const App = () => {
   const [startupError, setStartupError] = useState<string | null>(null);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
-  const [defaultSidebarTab, setDefaultSidebarTab] = useState<SidebarTabName>(
-    IMAGE_INFO_SIDEBAR_TAB,
-  );
+  const [elementDockOpen, setElementDockOpen] = useState(false);
+  const [imageDockOpen, setImageDockOpen] = useState(false);
   const parentRecord =
     selectedRecord?.parentFileId && currentProject
       ? currentProject.imageRecords[selectedRecord.parentFileId] || null
@@ -940,6 +944,9 @@ const App = () => {
       y: appState.height / 2 - appState.scrollY,
     };
     const anchorBounds = getGenerationAnchorBounds(request);
+    const occupiedBounds = getSceneOccupiedBounds(
+      api.getSceneElementsIncludingDeleted(),
+    );
     const placements = placeGeneratedImages({
       images: Array.from({ length: request.imageCount }, () => ({
         width: request.width,
@@ -947,6 +954,7 @@ const App = () => {
       })),
       anchorBounds,
       anchorPoint: anchorBounds ? null : lastCanvasPointerRef.current,
+      occupiedBounds,
       viewportCenter,
       viewportSize: {
         width: appState.width,
@@ -1673,17 +1681,6 @@ const App = () => {
     });
   };
 
-  const handleDefaultSidebarStateChange = (state: AppState["openSidebar"]) => {
-    if (!state?.tab) {
-      return;
-    }
-    if (state.tab === LIBRARY_SIDEBAR_TAB) {
-      setDefaultSidebarTab(IMAGE_INFO_SIDEBAR_TAB);
-      return;
-    }
-    setDefaultSidebarTab(state.tab);
-  };
-
   const handleEditorReady = (
     api: ExcalidrawImperativeAPI | null,
     renderNonce: number,
@@ -1799,9 +1796,16 @@ const App = () => {
   }
 
   const projectRenderKey = `${currentProject.projectPath}:${projectRenderNonce}`;
+  const appClassName = [
+    "image-board-app",
+    elementDockOpen ? "image-board-app--left-dock-open" : "",
+    imageDockOpen ? "image-board-app--right-dock-open" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className="image-board-app">
+    <div className={appClassName}>
       {startupError && <div className="app-startup-error">{startupError}</div>}
       {projectError && <div className="dialog-card__error">{projectError}</div>}
       <ProjectRenderBoundary
@@ -1895,6 +1899,7 @@ const App = () => {
                 }
               }}
               UIOptions={{
+                defaultSidebar: false,
                 canvasActions: {
                   loadScene: false,
                   saveToActiveFile: false,
@@ -1913,15 +1918,28 @@ const App = () => {
               detectScroll={false}
               handleKeyboardGlobally={true}
               autoFocus={true}
+              renderSelectedShapeActions={({
+                selectedShapeActions,
+                shouldRenderSelectedShapeActions,
+              }) => (
+                <SideDock
+                  side="left"
+                  title={copy.elementActions.title}
+                  open={elementDockOpen}
+                  onOpenChange={setElementDockOpen}
+                >
+                  {shouldRenderSelectedShapeActions ? selectedShapeActions : null}
+                </SideDock>
+              )}
             >
               <ImageSidebar
+                open={imageDockOpen}
+                onOpenChange={setImageDockOpen}
                 record={selectedRecord}
                 parentRecord={parentRecord}
                 ancestorRecords={ancestorRecords}
                 descendantRecords={descendantRecords}
                 task={selectedTask}
-                defaultSidebarTab={defaultSidebarTab}
-                onDefaultSidebarStateChange={handleDefaultSidebarStateChange}
                 onCopyPrompt={handleCopyPrompt}
                 onCopyTaskError={handleCopyTaskError}
                 onReuseSettings={handleReuseSettings}

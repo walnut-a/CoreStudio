@@ -224,6 +224,7 @@ vi.mock("@excalidraw/excalidraw", () => {
     onPointerUpdate,
     onChange,
     onPaste,
+    renderSelectedShapeActions,
   }: {
     langCode?: string;
     children?: React.ReactNode;
@@ -243,6 +244,10 @@ vi.mock("@excalidraw/excalidraw", () => {
       data: Record<string, unknown>,
       event: ClipboardEvent | null,
     ) => Promise<boolean> | boolean;
+    renderSelectedShapeActions?: (args: {
+      selectedShapeActions: React.ReactNode;
+      shouldRenderSelectedShapeActions: boolean;
+    }) => React.ReactNode;
   }) => (
     (() => {
       const [activeTab, setActiveTabState] = React.useState("library");
@@ -360,6 +365,10 @@ vi.mock("@excalidraw/excalidraw", () => {
         throw throwExcalidrawRenderError;
       }
 
+      const selectedElementCount = Object.values(
+        sceneRef.current.appState.selectedElementIds ?? {},
+      ).filter(Boolean).length;
+
       return (
         <>
           <button
@@ -378,6 +387,14 @@ vi.mock("@excalidraw/excalidraw", () => {
                 stateChangeRef,
               }}
             >
+              {renderSelectedShapeActions?.({
+                selectedShapeActions: (
+                  <div data-testid="mock-selected-shape-actions">
+                    元素编辑动作
+                  </div>
+                ),
+                shouldRenderSelectedShapeActions: selectedElementCount > 0,
+              })}
               {children}
             </sidebarTabsContext.Provider>
           </div>
@@ -2094,7 +2111,136 @@ describe("App startup", () => {
     });
   });
 
-  it("shows selected image parameters inside the native sidebar tab instead of a standalone right column", async () => {
+  it("uses the unified CoreStudio side dock for image info", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock() as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    expect(screen.queryByTestId("default-sidebar")).toBeNull();
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
+      "data-open",
+      "false",
+    );
+    expect(screen.queryByText("图片信息（空）")).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+    });
+
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
+      "data-open",
+      "true",
+    );
+    expect(screen.getByText("图片信息（空）")).toBeInTheDocument();
+  });
+
+  it("keeps the element edit dock closed across selection changes until manually opened", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock() as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+      "data-open",
+      "false",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "元素编辑" }));
+    });
+
+    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+      "data-open",
+      "true",
+    );
+    expect(screen.queryByText("未选中元素")).toBeNull();
+    expect(screen.queryByTestId("mock-selected-shape-actions")).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "关闭元素编辑" }));
+    });
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "rect-1",
+            type: "rectangle",
+            isDeleted: false,
+            groupIds: [],
+          },
+        ],
+        appState: {
+          selectedElementIds: {
+            "rect-1": true,
+          },
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+      "data-open",
+      "false",
+    );
+    expect(screen.queryByTestId("mock-selected-shape-actions")).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "元素编辑" }));
+    });
+
+    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+      "data-open",
+      "true",
+    );
+    expect(screen.getByTestId("mock-selected-shape-actions")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "关闭元素编辑" }));
+    });
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "rect-2",
+            type: "rectangle",
+            isDeleted: false,
+            groupIds: [],
+          },
+        ],
+        appState: {
+          selectedElementIds: {
+            "rect-2": true,
+          },
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+      "data-open",
+      "false",
+    );
+    expect(screen.queryByTestId("mock-selected-shape-actions")).toBeNull();
+  });
+
+  it("shows selected image parameters inside the CoreStudio side dock instead of a standalone right column", async () => {
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({
         projectPath: "/tmp/mock-project",
@@ -2253,17 +2399,14 @@ describe("App startup", () => {
     expect(screen.getByText(/后续版本: 第二版结构细化 \/ 最终版渲染/)).toBeInTheDocument();
     expect(screen.getByText(/第二版结构细化/)).toBeInTheDocument();
     expect(screen.getByText(/最终版渲染/)).toBeInTheDocument();
-    expect(screen.getByTestId("default-sidebar")).toHaveAttribute(
-      "data-docked",
-      "true",
-    );
-    expect(screen.getByTestId("default-sidebar")).toHaveAttribute(
-      "data-dock-disabled",
+    expect(screen.queryByTestId("default-sidebar")).toBeNull();
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
+      "data-open",
       "true",
     );
   });
 
-  it("reopens the default sidebar on the last manually selected tab", async () => {
+  it("reopens the image info side dock after it is manually closed", async () => {
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({
         projectPath: "/tmp/mock-project",
@@ -2328,30 +2471,30 @@ describe("App startup", () => {
       fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
     });
 
-    const sidebarTrigger = screen.getByTestId("default-sidebar-trigger");
-    expect(sidebarTrigger).toHaveAttribute("data-tab", "image-board-image-info");
-    expect(
-      screen.getByTestId("sidebar-tab-image-board-image-info"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
+      "data-open",
+      "true",
+    );
+    expect(screen.getByText("图片信息（空）")).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(sidebarTrigger);
+      fireEvent.click(screen.getByRole("button", { name: "关闭图片信息" }));
     });
-    expect(screen.getByTestId("default-sidebar")).toHaveAttribute(
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",
       "false",
     );
-    expect(
-      screen.queryByTestId("sidebar-tab-image-board-image-info"),
-    ).toBeNull();
+    expect(screen.queryByText("图片信息（空）")).toBeNull();
 
     await act(async () => {
-      fireEvent.click(sidebarTrigger);
+      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
     });
 
-    expect(
-      screen.getByTestId("sidebar-tab-image-board-image-info"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
+      "data-open",
+      "true",
+    );
+    expect(screen.getByText("图片信息（空）")).toBeInTheDocument();
   });
 
   it("keeps the composer prompt cleared after submitting a generation request", async () => {
@@ -3809,6 +3952,92 @@ describe("App startup", () => {
     expect(pendingFrame.y + pendingFrame.height / 2).toBe(
       referenceFrame.y + referenceFrame.height / 2,
     );
+  });
+
+  it("keeps reference generation placeholders away from nearby canvas elements", async () => {
+    const firstJob = createDeferred<{
+      provider: "gemini";
+      model: string;
+      seed: null;
+      createdAt: string;
+      images: Array<{
+        dataBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }>;
+    }>();
+    const generateImages = vi.fn().mockImplementation(() => firstJob.promise);
+    const referenceFrame = newFrameElement({
+      x: 240,
+      y: 320,
+      width: 260,
+      height: 180,
+      backgroundColor: "transparent",
+      strokeColor: "#1f1f1f",
+      roughness: 0,
+    });
+    const blockingFrame = newFrameElement({
+      x: 540,
+      y: 150,
+      width: 560,
+      height: 540,
+      backgroundColor: "transparent",
+      strokeColor: "#444444",
+      roughness: 0,
+    });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      generateImages,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [referenceFrame, blockingFrame],
+        appState: {
+          selectedElementIds: {
+            [referenceFrame.id]: true,
+          },
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交参考生成" }));
+    });
+
+    await waitFor(() => {
+      expect(generateImages).toHaveBeenCalledTimes(1);
+    });
+
+    const placeholderUpdate =
+      mockExcalidrawAPI?.updateScene.mock.calls[
+        mockExcalidrawAPI.updateScene.mock.calls.length - 1
+      ]?.[0];
+    const pendingFrame = placeholderUpdate?.elements?.find(
+      (element: any) =>
+        !element.isDeleted &&
+        element.type === "frame" &&
+        element.id !== referenceFrame.id &&
+        element.id !== blockingFrame.id,
+    );
+
+    expect(pendingFrame).toBeTruthy();
+    const overlapsBlockingFrame =
+      pendingFrame.x < blockingFrame.x + blockingFrame.width &&
+      pendingFrame.x + pendingFrame.width > blockingFrame.x &&
+      pendingFrame.y < blockingFrame.y + blockingFrame.height &&
+      pendingFrame.y + pendingFrame.height > blockingFrame.y;
+    expect(overlapsBlockingFrame).toBe(false);
+    expect(pendingFrame.x).toBeLessThan(blockingFrame.x + blockingFrame.width);
   });
 
   it("places generation placeholders around the latest canvas pointer when there is no reference", async () => {

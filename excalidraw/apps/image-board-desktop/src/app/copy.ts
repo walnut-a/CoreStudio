@@ -138,6 +138,9 @@ export const copy = {
     reuseSettings: "复用参数",
     copyTaskError: "复制详细报错",
   },
+  elementActions: {
+    title: "元素编辑",
+  },
   clipboard: {
     writeFailed: "复制失败，请检查系统剪贴板权限。",
   },

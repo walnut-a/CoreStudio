@@ -82,6 +82,16 @@ Excalidraw 原有画布、元素模型、渲染、编辑器核心、字体、loc
 - 是否有更小的补丁方式。
 - 是否补了 focused test。
 
+## 交互层扩展约定
+
+当 CoreStudio 需要调整 Excalidraw 默认面板、菜单或 sidebar 体验时，优先使用“上游可选接入点 + 桌面端 wrapper”的方式：
+
+- Excalidraw package 只暴露可选 prop 或配置开关，例如 `renderSelectedShapeActions`、`UIOptions.defaultSidebar=false`；默认行为继续保持上游形态。
+- 具体 UI 放在 `apps/image-board-desktop/src/app/`，例如 `SideDock` 统一承载左侧元素编辑和右侧图片信息。
+- 不通过隐藏关键 DOM、抢内部状态、模拟点击来接管面板；需要状态时由 CoreStudio app shell 自己维护。
+- 选中元素只更新侧边栏内容，不自动打开已经被用户手动关闭的面板，避免引用生图时被面板打断。
+- 左右侧栏的画布避让、浮层避让和空状态文案都放在桌面端样式与 copy 中，不改 Excalidraw 元素编辑核心。
+
 ## Review 分类标准
 
 review 发现问题时，先做分类，再决定是否修。

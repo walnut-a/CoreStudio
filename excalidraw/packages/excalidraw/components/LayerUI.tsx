@@ -91,6 +91,7 @@ interface LayerUIProps {
   langCode: Language["code"];
   renderTopLeftUI?: ExcalidrawProps["renderTopLeftUI"];
   renderTopRightUI?: ExcalidrawProps["renderTopRightUI"];
+  renderSelectedShapeActions?: ExcalidrawProps["renderSelectedShapeActions"];
   renderCustomStats?: ExcalidrawProps["renderCustomStats"];
   UIOptions: AppProps["UIOptions"];
   onExportImage: AppClassProperties["onExportImage"];
@@ -150,6 +151,7 @@ const LayerUI = ({
   showExitZenModeBtn,
   renderTopLeftUI,
   renderTopRightUI,
+  renderSelectedShapeActions: renderSelectedShapeActionsHost,
   renderCustomStats,
   UIOptions,
   onExportImage,
@@ -234,6 +236,27 @@ const LayerUI = ({
     </div>
   );
 
+  const renderSelectedShapeActionsContent = () => {
+    const isCompactMode = isCompactStylesPanel;
+
+    return isCompactMode ? (
+      <CompactShapeActions
+        appState={appState}
+        elementsMap={app.scene.getNonDeletedElementsMap()}
+        renderAction={actionManager.renderAction}
+        app={app}
+        setAppState={setAppState}
+      />
+    ) : (
+      <SelectedShapeActions
+        appState={appState}
+        elementsMap={app.scene.getNonDeletedElementsMap()}
+        renderAction={actionManager.renderAction}
+        app={app}
+      />
+    );
+  };
+
   const renderSelectedShapeActions = () => {
     const isCompactMode = isCompactStylesPanel;
 
@@ -254,13 +277,7 @@ const LayerUI = ({
               maxHeight: `${appState.height - 166}px`,
             }}
           >
-            <CompactShapeActions
-              appState={appState}
-              elementsMap={app.scene.getNonDeletedElementsMap()}
-              renderAction={actionManager.renderAction}
-              app={app}
-              setAppState={setAppState}
-            />
+            {renderSelectedShapeActionsContent()}
           </Island>
         ) : (
           <Island
@@ -272,23 +289,18 @@ const LayerUI = ({
               maxHeight: `${appState.height - 166}px`,
             }}
           >
-            <SelectedShapeActions
-              appState={appState}
-              elementsMap={app.scene.getNonDeletedElementsMap()}
-              renderAction={actionManager.renderAction}
-              app={app}
-            />
+            {renderSelectedShapeActionsContent()}
           </Island>
         )}
       </Section>
     );
   };
 
+  const canRenderSelectedShapeActions = () =>
+    showSelectedShapeActions(appState, elements);
+
   const renderFixedSideContainer = () => {
-    const shouldRenderSelectedShapeActions = showSelectedShapeActions(
-      appState,
-      elements,
-    );
+    const shouldRenderSelectedShapeActions = canRenderSelectedShapeActions();
 
     const shouldShowStats =
       appState.stats.open &&
@@ -310,7 +322,9 @@ const LayerUI = ({
                   isCompactStylesPanel,
               })}
             >
-              {shouldRenderSelectedShapeActions && renderSelectedShapeActions()}
+              {!renderSelectedShapeActionsHost &&
+                shouldRenderSelectedShapeActions &&
+                renderSelectedShapeActions()}
             </div>
           </Stack.Col>
           {!appState.viewModeEnabled &&
@@ -412,6 +426,7 @@ const LayerUI = ({
               appState,
             )}
             {!appState.viewModeEnabled &&
+              UIOptions.defaultSidebar !== false &&
               appState.openDialog?.name !== "elementLinkSelector" &&
               // hide button when sidebar docked
               (!isSidebarDocked ||
@@ -434,6 +449,10 @@ const LayerUI = ({
   };
 
   const renderSidebars = () => {
+    if (UIOptions.defaultSidebar === false) {
+      return null;
+    }
+
     return (
       <DefaultSidebar
         __fallback
@@ -462,23 +481,25 @@ const LayerUI = ({
           tunneled away. We only render tunneled components that actually
         have defaults when host do not render anything. */}
       <DefaultMainMenu UIOptions={UIOptions} />
-      <DefaultSidebar.Trigger
-        __fallback
-        icon={sidebarRightIcon}
-        title={capitalizeString(t("toolBar.library"))}
-        onToggle={(open) => {
-          if (open) {
-            trackEvent(
-              "sidebar",
-              `${DEFAULT_SIDEBAR.name} (open)`,
-              `button (${
-                editorInterface.formFactor === "phone" ? "mobile" : "desktop"
-              })`,
-            );
-          }
-        }}
-        tab={DEFAULT_SIDEBAR.defaultTab}
-      />
+      {UIOptions.defaultSidebar !== false && (
+        <DefaultSidebar.Trigger
+          __fallback
+          icon={sidebarRightIcon}
+          title={capitalizeString(t("toolBar.library"))}
+          onToggle={(open) => {
+            if (open) {
+              trackEvent(
+                "sidebar",
+                `${DEFAULT_SIDEBAR.name} (open)`,
+                `button (${
+                  editorInterface.formFactor === "phone" ? "mobile" : "desktop"
+                })`,
+              );
+            }
+          }}
+          tab={DEFAULT_SIDEBAR.defaultTab}
+        />
+      )}
       <DefaultOverwriteConfirmDialog />
       {appState.openDialog?.name === "ttd" && <TTDDialog __fallback />}
       {/* ------------------------------------------------------------------ */}
@@ -599,6 +620,12 @@ const LayerUI = ({
             }
           >
             {renderWelcomeScreen && <tunnels.WelcomeScreenCenterTunnel.Out />}
+            {renderSelectedShapeActionsHost?.({
+              selectedShapeActions: canRenderSelectedShapeActions()
+                ? renderSelectedShapeActionsContent()
+                : null,
+              shouldRenderSelectedShapeActions: canRenderSelectedShapeActions(),
+            })}
             {renderFixedSideContainer()}
             <Footer
               appState={appState}

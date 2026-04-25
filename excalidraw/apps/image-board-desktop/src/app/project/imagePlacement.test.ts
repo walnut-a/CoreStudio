@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { placeGeneratedImages } from "./imagePlacement";
 
+const rectanglesOverlap = (
+  first: { x: number; y: number; width: number; height: number },
+  second: { x: number; y: number; width: number; height: number },
+) =>
+  first.x < second.x + second.width &&
+  first.x + first.width > second.x &&
+  first.y < second.y + second.height &&
+  first.y + first.height > second.y;
+
 describe("placeGeneratedImages", () => {
   it("arranges multiple images into a viewport-centered grid", () => {
     const placements = placeGeneratedImages({
@@ -58,6 +67,35 @@ describe("placeGeneratedImages", () => {
 
     expect(placements[0].x).toBeGreaterThan(500);
     expect(placements[0].y + placements[0].height / 2).toBe(350);
+  });
+
+  it("places a referenced generation in the nearest open space when the preferred right side is occupied", () => {
+    const anchorBounds = {
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 180,
+    };
+    const blockingElement = {
+      x: 250,
+      y: -10,
+      width: 360,
+      height: 220,
+    };
+
+    const placements = placeGeneratedImages({
+      images: [{ width: 320, height: 180 }],
+      viewportCenter: { x: 400, y: 300 },
+      viewportSize: { width: 1200, height: 800 },
+      zoomValue: 1,
+      anchorBounds,
+      occupiedBounds: [anchorBounds, blockingElement],
+    });
+
+    expect(rectanglesOverlap(placements[0], blockingElement)).toBe(false);
+    expect(placements[0].x).toBeLessThan(
+      blockingElement.x + blockingElement.width,
+    );
   });
 
   it("places a generated batch around the latest canvas pointer", () => {

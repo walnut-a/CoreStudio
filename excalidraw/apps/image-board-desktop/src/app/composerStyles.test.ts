@@ -239,6 +239,24 @@ describe("generate composer styles", () => {
       ".generate-composer--with-reference .generate-composer__field",
     );
     const referenceLineRule = getRule(appCss, ".generate-composer__reference-line");
+    const referenceItemsRule = getRule(appCss, ".generate-composer__reference-items");
+    const referenceChipRule = getRule(appCss, ".generate-composer__reference-chip");
+    const referenceChipWithThumbnailRule = getRule(
+      appCss,
+      ".generate-composer__reference-chip--with-thumbnail",
+    );
+    const referenceChipThumbnailRule = getRule(
+      appCss,
+      ".generate-composer__reference-chip-thumbnail",
+    );
+    const referenceChipThumbnailImageRule = getRule(
+      appCss,
+      ".generate-composer__reference-chip-thumbnail img",
+    );
+    const referenceChipIndexRule = getRule(
+      appCss,
+      ".generate-composer__reference-chip-index",
+    );
     const referenceRemoveRule = getRule(
       appCss,
       ".generate-composer__reference-remove",
@@ -276,6 +294,15 @@ describe("generate composer styles", () => {
     expect(referenceLineRule).toContain(
       "color: var(--generate-composer-reference-color)",
     );
+    expect(referenceItemsRule).toContain("display: flex");
+    expect(referenceItemsRule).toContain("overflow-x: auto");
+    expect(referenceChipRule).toContain("border: 1px solid");
+    expect(referenceChipRule).toContain("max-width:");
+    expect(referenceChipWithThumbnailRule).toContain("min-height: 25px");
+    expect(referenceChipThumbnailRule).toContain("width: 21px");
+    expect(referenceChipThumbnailRule).toContain("overflow: hidden");
+    expect(referenceChipThumbnailImageRule).toContain("object-fit: cover");
+    expect(referenceChipIndexRule).toContain("border-radius: 999px");
     expect(referenceRemoveRule).toContain("background:");
     expect(promptRule).toContain("height: 32px");
     expect(promptRule).toContain("padding: 5px 0 6px");
@@ -284,6 +311,9 @@ describe("generate composer styles", () => {
     expect(primaryActionRule).toContain("background: var(--generate-composer-send-bg)");
     expect(dialogSource).toContain("generate-composer--with-reference");
     expect(dialogSource).toContain("generate-composer__reference-line");
+    expect(dialogSource).toContain("generate-composer__reference-items");
+    expect(dialogSource).toContain("generate-composer__reference-chip");
+    expect(dialogSource).toContain("generate-composer__reference-chip-thumbnail");
     expect(dialogSource).toContain("generate-composer__reference-remove");
     expect(dialogSource).toContain("generate-composer__controls");
     expect(dialogSource).toContain("COMPACT_PROMPT_MIN_HEIGHT = 32");

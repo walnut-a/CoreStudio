@@ -155,8 +155,7 @@ describe("generateZenMuxImages", () => {
           ],
           parameters: {
             sampleCount: 1,
-            aspectRatio: "1:1",
-            size: "1024x1024",
+            sampleImageSize: "1024x1024",
             outputOptions: {
               mimeType: "image/png",
             },
@@ -254,7 +253,7 @@ describe("generateZenMuxImages", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "https://zenmux.ai/api/vertex-ai/v1/publishers/vendor/models/custom-gpt-image:predict",
       expect.objectContaining({
-        body: expect.stringContaining('"size":"1024x1024"'),
+        body: expect.stringContaining('"sampleImageSize":"1024x1024"'),
       }),
     );
   });
@@ -321,8 +320,7 @@ describe("generateZenMuxImages", () => {
           ],
           parameters: {
             sampleCount: 1,
-            aspectRatio: "3:2",
-            size: "1536x1024",
+            sampleImageSize: "1536x1024",
             outputOptions: {
               mimeType: "image/png",
             },

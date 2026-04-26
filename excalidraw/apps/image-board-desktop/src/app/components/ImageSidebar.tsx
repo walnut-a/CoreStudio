@@ -15,7 +15,6 @@ interface ImageSidebarProps {
   task: GenerationTaskRecord | null;
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
-  onReuseSettings: () => void;
 }
 
 export const ImageSidebar = ({
@@ -28,7 +27,6 @@ export const ImageSidebar = ({
   task,
   onCopyPrompt,
   onCopyTaskError,
-  onReuseSettings,
 }: ImageSidebarProps) => {
   return (
     <SideDock
@@ -45,7 +43,6 @@ export const ImageSidebar = ({
         task={task}
         onCopyPrompt={onCopyPrompt}
         onCopyTaskError={onCopyTaskError}
-        onReuseSettings={onReuseSettings}
       />
     </SideDock>
   );

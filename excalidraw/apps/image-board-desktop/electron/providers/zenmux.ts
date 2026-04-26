@@ -242,8 +242,7 @@ const buildZenMuxVertexImageRequestPayload = ({
       },
       config: {
         numberOfImages: 1,
-        ...(aspectRatio ? { aspectRatio } : {}),
-        ...(size ? { size } : {}),
+        ...(size ? { imageSize: size } : {}),
       },
       reference: image
         ? {
@@ -293,8 +292,7 @@ const buildZenMuxVertexPredictBody = ({
   ],
   parameters: {
     sampleCount: 1,
-    ...(aspectRatio ? { aspectRatio } : {}),
-    ...(size ? { size } : {}),
+    ...(size ? { sampleImageSize: size } : {}),
     outputOptions: {
       mimeType: "image/png",
     },

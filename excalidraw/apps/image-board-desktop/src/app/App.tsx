@@ -24,9 +24,6 @@ import type {
 } from "@excalidraw/element/types";
 
 import {
-  getAspectRatioOptions,
-  getClosestAspectRatioOption,
-  getDefaultModel,
   getProviderDefinition,
   isAutoAspectRatioRequest,
   normalizeGenerationRequest,
@@ -1653,34 +1650,6 @@ const App = () => {
     );
   };
 
-  const handleReuseSettings = () => {
-    if (!selectedRecord) {
-      return;
-    }
-    const provider = selectedRecord.provider || "gemini";
-    const model = selectedRecord.model || getDefaultModel(provider);
-    const aspectRatio = getClosestAspectRatioOption(
-      selectedRecord.width,
-      selectedRecord.height,
-      getAspectRatioOptions({
-        provider,
-        model,
-        customModels: providerSettings?.[provider]?.customModels ?? [],
-      }),
-    );
-    void openGenerateDialog({
-      provider,
-      model,
-      prompt: selectedRecord.prompt || "",
-      negativePrompt: selectedRecord.negativePrompt || "",
-      aspectRatio: aspectRatio.id,
-      width: selectedRecord.width,
-      height: selectedRecord.height,
-      seed: selectedRecord.seed ?? null,
-      imageCount: 1,
-    });
-  };
-
   const handleEditorReady = (
     api: ExcalidrawImperativeAPI | null,
     renderNonce: number,
@@ -1942,7 +1911,6 @@ const App = () => {
                 task={selectedTask}
                 onCopyPrompt={handleCopyPrompt}
                 onCopyTaskError={handleCopyTaskError}
-                onReuseSettings={handleReuseSettings}
               />
             </Excalidraw>
           </div>

@@ -135,7 +135,6 @@ export const copy = {
     createdAt: "创建时间",
     emptyValue: "无",
     copyPrompt: "复制提示词",
-    reuseSettings: "复用参数",
     copyTaskError: "复制详细报错",
   },
   elementActions: {

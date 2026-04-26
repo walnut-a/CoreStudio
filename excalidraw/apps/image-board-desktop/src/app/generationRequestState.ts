@@ -1,5 +1,6 @@
 import { normalizeGenerationRequest } from "../shared/providerCatalog";
 import type {
+  GenerationReferenceItemPayload,
   GenerationReferencePayload,
   GenerationRequest,
 } from "../shared/providerTypes";
@@ -34,8 +35,32 @@ const isSameReferencePayload = (
     left.enabled === right.enabled &&
     left.elementCount === right.elementCount &&
     left.textCount === right.textCount &&
-    isSameStringArray(left.textNotes, right.textNotes)
+    isSameStringArray(left.textNotes, right.textNotes) &&
+    isSameReferenceItems(left.items, right.items)
   );
+};
+
+const isSameReferenceItems = (
+  left: GenerationReferenceItemPayload[] | undefined,
+  right: GenerationReferenceItemPayload[] | undefined,
+) => {
+  const nextLeft = left ?? [];
+  const nextRight = right ?? [];
+
+  if (nextLeft.length !== nextRight.length) {
+    return false;
+  }
+
+  return nextLeft.every((leftItem, index) => {
+    const rightItem = nextRight[index];
+    return (
+      leftItem.id === rightItem.id &&
+      leftItem.index === rightItem.index &&
+      leftItem.kind === rightItem.kind &&
+      leftItem.label === rightItem.label &&
+      leftItem.thumbnailDataUrl === rightItem.thumbnailDataUrl
+    );
+  });
 };
 
 const isSameGenerationRequest = (

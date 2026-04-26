@@ -35,7 +35,6 @@ interface ImageInspectorProps {
   descendantRecords: ImageLineageEntry[];
   task: GenerationTaskRecord | null;
   onCopyPrompt: () => void;
-  onReuseSettings: () => void;
   onCopyTaskError: () => void;
 }
 
@@ -86,7 +85,6 @@ export const ImageInspector = ({
   descendantRecords,
   task,
   onCopyPrompt,
-  onReuseSettings,
   onCopyTaskError,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -344,13 +342,6 @@ export const ImageInspector = ({
             disabled={!record.prompt}
           >
             {copy.inspector.copyPrompt}
-          </DesktopButton>
-          <DesktopButton
-            type="button"
-            onClick={onReuseSettings}
-            disabled={record.sourceType !== "generated"}
-          >
-            {copy.inspector.reuseSettings}
           </DesktopButton>
         </div>
       </div>

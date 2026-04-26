@@ -51,7 +51,6 @@ const renderInspector = () =>
       task={null}
       onCopyPrompt={vi.fn()}
       onCopyTaskError={vi.fn()}
-      onReuseSettings={vi.fn()}
     />,
   );
 
@@ -99,6 +98,14 @@ describe("ImageInspector", () => {
     expect(within(detailGrid).getByText("模型服务")).toBeInTheDocument();
     expect(within(detailGrid).getByText("来源图片")).toBeInTheDocument();
     expect(screen.getByText("编辑链")).toBeInTheDocument();
+  });
+
+  it("does not show the old parameter reuse action", () => {
+    renderInspector();
+
+    expect(
+      screen.queryByRole("button", { name: "复用参数" }),
+    ).not.toBeInTheDocument();
   });
 
   it("copies only the selected visible text from the sidebar", () => {

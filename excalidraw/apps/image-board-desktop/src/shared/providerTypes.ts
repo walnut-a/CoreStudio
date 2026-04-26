@@ -101,11 +101,22 @@ export interface GenerationReferenceDebugPayload {
   parentFileId?: string | null;
 }
 
+export type GenerationReferenceItemKind = "image" | "text" | "shape";
+
+export interface GenerationReferenceItemPayload {
+  id: string;
+  index: number;
+  kind: GenerationReferenceItemKind;
+  label: string;
+  thumbnailDataUrl?: string;
+}
+
 export interface GenerationReferencePayload {
   enabled: boolean;
   elementCount: number;
   textCount: number;
   textNotes?: string[];
+  items?: GenerationReferenceItemPayload[];
   image?: GenerationReferenceImagePayload;
   debug?: GenerationReferenceDebugPayload;
 }

@@ -49,6 +49,7 @@ import { DESKTOP_APP_NAME } from "../src/app/copy";
 import { createAppMenuTemplate } from "./menu";
 import { shouldOpenDevTools } from "./devtools";
 import { createQuitState } from "./windowLifecycle";
+import { disableRendererPageZoom } from "./windowZoomGuard";
 
 let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];
@@ -440,6 +441,7 @@ const createWindow = async () => {
     },
   });
   configureRendererPermissions(mainWindow);
+  disableRendererPageZoom(mainWindow);
 
   mainWindow.on("close", (event) => {
     const targetWindow = mainWindow;

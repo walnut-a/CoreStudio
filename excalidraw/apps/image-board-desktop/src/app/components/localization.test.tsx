@@ -203,7 +203,6 @@ describe("Chinese localization", () => {
         task={null}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
-        onReuseSettings={() => undefined}
       />,
     );
 
@@ -229,9 +228,7 @@ describe("Chinese localization", () => {
     expect(screen.getByRole("button", { name: "复制提示词" })).toHaveClass(
       "excalidraw-button",
     );
-    expect(screen.getByRole("button", { name: "复用参数" })).toHaveClass(
-      "excalidraw-button",
-    );
+    expect(screen.queryByRole("button", { name: "复用参数" })).toBeNull();
   });
 
   it("renders failed task details in Chinese inside the existing inspector", () => {
@@ -244,7 +241,6 @@ describe("Chinese localization", () => {
         task={failedTask}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
-        onReuseSettings={() => undefined}
       />,
     );
 
@@ -269,7 +265,6 @@ describe("Chinese localization", () => {
         task={null}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
-        onReuseSettings={() => undefined}
       />,
     );
 
@@ -319,6 +314,8 @@ describe("Chinese localization", () => {
 
   it("renders the generation dialog in Chinese", () => {
     const onSubmit = vi.fn();
+    const colorReferenceThumbnail = "data:image/png;base64,Y29sb3ItcmVm";
+    const shapeReferenceThumbnail = "data:image/png;base64,c2hhcGUtcmVm";
     render(
       <GenerateImageDialog
         open={true}
@@ -336,6 +333,28 @@ describe("Chinese localization", () => {
             elementCount: 3,
             textCount: 2,
             textNotes: ["保留把手比例", "圈出的面板再薄一点"],
+            items: [
+              {
+                id: "image-1",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: colorReferenceThumbnail,
+              },
+              {
+                id: "image-2",
+                index: 2,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: shapeReferenceThumbnail,
+              },
+              {
+                id: "text-1",
+                index: 3,
+                kind: "text",
+                label: "文本：保留把手比例",
+              },
+            ],
           },
         }}
         providerSettings={providerSettings}
@@ -355,7 +374,18 @@ describe("Chinese localization", () => {
       screen.getByPlaceholderText("描述你想生成的内容"),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("提示词")).not.toHaveAttribute("wrap");
-    expect(screen.getByText("已引用：3")).toBeInTheDocument();
+    expect(screen.queryByText("已引用：3")).toBeNull();
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getAllByText("图片")).toHaveLength(2);
+    expect(
+      screen.getByRole("img", { name: "参考 1 缩略图" }),
+    ).toHaveAttribute("src", colorReferenceThumbnail);
+    expect(
+      screen.getByRole("img", { name: "参考 2 缩略图" }),
+    ).toHaveAttribute("src", shapeReferenceThumbnail);
+    expect(screen.getByText("文本：保留把手比例")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "移除引用" }),
     ).toBeInTheDocument();
@@ -383,6 +413,27 @@ describe("Chinese localization", () => {
       }),
       false,
     );
+    const submittedRequest = onSubmit.mock.calls[0]?.[0];
+    expect(submittedRequest?.reference?.items).toEqual([
+      {
+        id: "image-1",
+        index: 1,
+        kind: "image",
+        label: "图片",
+      },
+      {
+        id: "image-2",
+        index: 2,
+        kind: "image",
+        label: "图片",
+      },
+      {
+        id: "text-1",
+        index: 3,
+        kind: "text",
+        label: "文本：保留把手比例",
+      },
+    ]);
   });
 
   it("keeps the selected model when provider settings refresh", () => {

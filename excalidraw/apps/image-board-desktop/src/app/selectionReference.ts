@@ -7,6 +7,7 @@ import type { ImageRecordMap } from "../shared/projectTypes";
 import type { GenerationReferencePayload } from "../shared/providerTypes";
 
 const REFERENCE_EXPORT_PADDING = 24;
+const REFERENCE_ITEM_TEXT_MAX_LENGTH = 16;
 
 type SceneSnapshot = {
   elements: readonly ExcalidrawElement[];
@@ -99,6 +100,101 @@ const getSingleImageReferencePayload = (
   };
 };
 
+const getElementPosition = (element: ExcalidrawElement) => ({
+  x: Number.isFinite(element.x) ? element.x : 0,
+  y: Number.isFinite(element.y) ? element.y : 0,
+});
+
+const sortElementsByCanvasPosition = (
+  elements: readonly NonDeleted<ExcalidrawElement>[],
+) =>
+  [...elements].sort((left, right) => {
+    const leftPosition = getElementPosition(left);
+    const rightPosition = getElementPosition(right);
+    if (leftPosition.y !== rightPosition.y) {
+      return leftPosition.y - rightPosition.y;
+    }
+    if (leftPosition.x !== rightPosition.x) {
+      return leftPosition.x - rightPosition.x;
+    }
+    return left.id.localeCompare(right.id);
+  });
+
+const truncateReferenceItemText = (text: string) =>
+  text.length > REFERENCE_ITEM_TEXT_MAX_LENGTH
+    ? `${text.slice(0, REFERENCE_ITEM_TEXT_MAX_LENGTH)}...`
+    : text;
+
+const getTextReferenceItemLabel = (element: ExcalidrawElement) => {
+  if (element.type !== "text") {
+    return "文本";
+  }
+
+  const firstLine = element.text
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  return firstLine ? `文本：${truncateReferenceItemText(firstLine)}` : "文本";
+};
+
+const getImageReferenceItemThumbnail = (
+  element: ExcalidrawElement,
+  files: BinaryFiles,
+) => {
+  if (element.type !== "image" || !element.fileId) {
+    return null;
+  }
+
+  return files[element.fileId]?.dataURL ?? null;
+};
+
+const shapeLabels: Partial<Record<ExcalidrawElement["type"], string>> = {
+  rectangle: "矩形",
+  diamond: "菱形",
+  ellipse: "椭圆",
+  arrow: "箭头",
+  line: "线条",
+  freedraw: "手绘",
+  frame: "画框",
+  magicframe: "画框",
+  embeddable: "嵌入",
+  iframe: "嵌入",
+};
+
+const buildReferenceItems = (
+  selectedElements: readonly NonDeleted<ExcalidrawElement>[],
+  files: BinaryFiles,
+) =>
+  sortElementsByCanvasPosition(selectedElements).map((element, itemIndex) => {
+    if (element.type === "image") {
+      const thumbnailDataUrl = getImageReferenceItemThumbnail(element, files);
+      return {
+        id: element.id,
+        index: itemIndex + 1,
+        kind: "image" as const,
+        label: "图片",
+        ...(thumbnailDataUrl ? { thumbnailDataUrl } : {}),
+      };
+    }
+
+    if (element.type === "text") {
+      return {
+        id: element.id,
+        index: itemIndex + 1,
+        kind: "text" as const,
+        label: getTextReferenceItemLabel(element),
+      };
+    }
+
+    return {
+      id: element.id,
+      index: itemIndex + 1,
+      kind: "shape" as const,
+      label: shapeLabels[element.type] ?? "元素",
+    };
+  });
+
 export const getSelectedReferenceElements = (
   scene: SceneSnapshot | null,
 ): NonDeleted<ExcalidrawElement>[] => {
@@ -157,15 +253,17 @@ export const buildSelectionReferenceSummary = (
   scene: SceneSnapshot | null,
 ): GenerationReferencePayload | null => {
   const selectedElements = getSelectedReferenceElements(scene);
-  if (!selectedElements.length) {
+  if (!scene || !selectedElements.length) {
     return null;
   }
 
   const textNotes = extractReferenceTextNotes(selectedElements);
+  const items = buildReferenceItems(selectedElements, scene.files);
   return {
     enabled: true,
     elementCount: selectedElements.length,
     textCount: textNotes.length,
+    items,
     ...(textNotes.length ? { textNotes } : {}),
   };
 };

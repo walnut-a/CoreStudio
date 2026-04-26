@@ -46,6 +46,7 @@ import type {
 import type {
   CustomProviderModel,
   CustomModelCapabilityTemplateId,
+  GenerationReferenceItemPayload,
   GenerationRequest,
   ProviderCapabilities,
   ProviderId,
@@ -54,6 +55,32 @@ import type {
 
 const COMPACT_PROMPT_MIN_HEIGHT = 32;
 const COMPACT_PROMPT_MAX_HEIGHT = 76;
+
+const stripReferenceItemThumbnails = (
+  request: GenerationRequest,
+): GenerationRequest => {
+  const reference = request.reference;
+  if (!reference?.items?.some((item) => item.thumbnailDataUrl)) {
+    return request;
+  }
+
+  const items: GenerationReferenceItemPayload[] = reference.items.map(
+    ({ id, index, kind, label }) => ({
+      id,
+      index,
+      kind,
+      label,
+    }),
+  );
+
+  return {
+    ...request,
+    reference: {
+      ...reference,
+      items,
+    },
+  };
+};
 
 const cloneProviderCapabilities = (
   capabilities: ProviderCapabilities,
@@ -307,6 +334,7 @@ export const GenerateImageDialog = ({
   const referenceEnabled = request.reference?.enabled ?? false;
   const canSubmit = Boolean(request.prompt.trim() && isConfigured);
   const showBody = advancedOpen;
+  const referenceItems = request.reference?.items ?? [];
   const referenceStatusText = hasReferenceSelection
     ? getReferenceInlineStatusText(
         referenceEnabled,
@@ -417,9 +445,11 @@ export const GenerateImageDialog = ({
     }
 
     onSubmit(
-      normalizeGenerationRequest(request, {
-        customModels: currentProviderCustomModels,
-      }),
+      stripReferenceItemThumbnails(
+        normalizeGenerationRequest(request, {
+          customModels: currentProviderCustomModels,
+        }),
+      ),
       false,
     );
     updateRequest((current) => ({
@@ -622,6 +652,43 @@ export const GenerateImageDialog = ({
     submitRequest();
   };
 
+  const renderReferenceItem = (item: GenerationReferenceItemPayload) => {
+    const thumbnailDataUrl =
+      item.kind === "image" ? item.thumbnailDataUrl : undefined;
+
+    return (
+      <span
+        key={item.id}
+        className={[
+          "generate-composer__reference-chip",
+          `generate-composer__reference-chip--${item.kind}`,
+          thumbnailDataUrl
+            ? "generate-composer__reference-chip--with-thumbnail"
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        title={`参考 ${item.index}：${item.label}`}
+      >
+        {thumbnailDataUrl ? (
+          <span className="generate-composer__reference-chip-thumbnail">
+            <img
+              src={thumbnailDataUrl}
+              alt={`参考 ${item.index} 缩略图`}
+              draggable={false}
+            />
+          </span>
+        ) : null}
+        <span className="generate-composer__reference-chip-index">
+          {item.index}
+        </span>
+        <span className="generate-composer__reference-chip-label">
+          {item.label}
+        </span>
+      </span>
+    );
+  };
+
   return (
     <div className="floating-panel-layer">
       <section
@@ -656,7 +723,13 @@ export const GenerateImageDialog = ({
                     .join(" ")}
                   aria-label={`引用状态：${referenceStatusText}`}
                 >
-                  <span>{referenceStatusText}</span>
+                  {referenceItems.length ? (
+                    <div className="generate-composer__reference-items">
+                      {referenceItems.map(renderReferenceItem)}
+                    </div>
+                  ) : (
+                    <span>{referenceStatusText}</span>
+                  )}
                   <button
                     type="button"
                     className="generate-composer__reference-remove"

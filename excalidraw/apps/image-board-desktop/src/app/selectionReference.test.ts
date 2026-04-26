@@ -11,6 +11,7 @@ vi.mock("@excalidraw/utils", () => ({
 import type { AppState } from "@excalidraw/excalidraw/types";
 
 import {
+  buildSelectionReferenceSummary,
   buildSelectionReference,
   extractReferenceTextNotes,
   getSelectedReferenceElements,
@@ -85,6 +86,78 @@ describe("selectionReference", () => {
         },
       ] as any),
     ).toEqual(["保留外轮廓", "把按键做薄"]);
+  });
+
+  it("describes selected reference items in canvas reading order", () => {
+    const imageDataUrl = "data:image/png;base64,cmlnaHQtaW1hZ2U=";
+    const reference = buildSelectionReferenceSummary({
+      elements: [
+        {
+          id: "image-right",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+          fileId: "file-right",
+          x: 260,
+          y: 20,
+        },
+        {
+          id: "text-left",
+          type: "text",
+          isDeleted: false,
+          groupIds: [],
+          x: 40,
+          y: 10,
+          text: "磨砂银色\n低饱和",
+        },
+        {
+          id: "shape-bottom",
+          type: "rectangle",
+          isDeleted: false,
+          groupIds: [],
+          x: 30,
+          y: 220,
+        },
+      ] as any,
+      appState: {
+        ...baseAppState,
+        selectedElementIds: {
+          "image-right": true,
+          "text-left": true,
+          "shape-bottom": true,
+        },
+      },
+      files: {
+        "file-right": {
+          id: "file-right",
+          mimeType: "image/png",
+          dataURL: imageDataUrl,
+          created: Date.now(),
+        },
+      } as any,
+    });
+
+    expect(reference?.items).toEqual([
+      {
+        id: "text-left",
+        index: 1,
+        kind: "text",
+        label: "文本：磨砂银色",
+      },
+      {
+        id: "image-right",
+        index: 2,
+        kind: "image",
+        label: "图片",
+        thumbnailDataUrl: imageDataUrl,
+      },
+      {
+        id: "shape-bottom",
+        index: 3,
+        kind: "shape",
+        label: "矩形",
+      },
+    ]);
   });
 
   it("builds a PNG reference payload from the current selection", async () => {

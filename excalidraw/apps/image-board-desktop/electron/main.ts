@@ -22,6 +22,7 @@ import {
   type RecentProjectEntry,
   type GenerateImagesInput,
   type SaveProviderSettingsInput,
+  type SavePromptInput,
 } from "../src/shared/desktopBridgeTypes";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
@@ -45,6 +46,12 @@ import {
   rememberRecentProject,
   removeRecentProject,
 } from "./recentProjectsStore";
+import {
+  deleteSavedPrompt,
+  loadPromptLibrary,
+  markSavedPromptUsed,
+  savePrompt,
+} from "./promptLibraryStore";
 import { DESKTOP_APP_NAME } from "../src/app/copy";
 import { createAppMenuTemplate } from "./menu";
 import { shouldOpenDevTools } from "./devtools";
@@ -406,6 +413,23 @@ const registerIpcHandlers = () => {
     IPC_CHANNELS.saveProviderSettings,
     async (_event, input: SaveProviderSettingsInput) =>
       saveProviderSettings(input),
+  );
+
+  ipcMain.handle(IPC_CHANNELS.loadPromptLibrary, async () =>
+    loadPromptLibrary(),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.savePrompt,
+    async (_event, input: SavePromptInput) => savePrompt(input),
+  );
+
+  ipcMain.handle(IPC_CHANNELS.deleteSavedPrompt, async (_event, id: string) =>
+    deleteSavedPrompt(id),
+  );
+
+  ipcMain.handle(IPC_CHANNELS.markSavedPromptUsed, async (_event, id: string) =>
+    markSavedPromptUsed(id),
   );
 
   ipcMain.handle(

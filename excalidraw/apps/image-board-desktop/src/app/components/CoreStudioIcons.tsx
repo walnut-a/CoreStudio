@@ -77,6 +77,14 @@ export const settingsSlidersIcon = (
   </LineIcon>
 );
 
+export const promptLibraryIcon = (
+  <LineIcon>
+    <path d="M7.25 5.25h8.5a1.5 1.5 0 0 1 1.5 1.5v12l-5.25-2.5-5.25 2.5v-12a1.5 1.5 0 0 1 1.5-1.5Z" />
+    <path d="M9.5 8.5h5" />
+    <path d="M9.5 11.25h4" />
+  </LineIcon>
+);
+
 export const sendIcon = (
   <LineIcon>
     <path d="M5 11.75 18.25 5.5a.7.7 0 0 1 .95.82l-3.85 12.9a.7.7 0 0 1-1.26.18l-3.05-4.65-4.98-1.72a.7.7 0 0 1-.06-1.28Z" />

@@ -18,6 +18,10 @@ export const IPC_CHANNELS = {
   revealProjectInFinder: "image-board:reveal-project-in-finder",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
+  loadPromptLibrary: "image-board:load-prompt-library",
+  savePrompt: "image-board:save-prompt",
+  deleteSavedPrompt: "image-board:delete-saved-prompt",
+  markSavedPromptUsed: "image-board:mark-saved-prompt-used",
   generateImages: "image-board:generate-images",
   readClipboardImage: "image-board:read-clipboard-image",
   menuAction: "image-board:menu-action",
@@ -93,6 +97,24 @@ export interface SaveProviderSettingsInput {
   customModels?: ProviderSettings["customModels"];
 }
 
+export interface SavedPrompt {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt?: string;
+  useCount: number;
+}
+
+export interface SavePromptInput {
+  id?: string;
+  title: string;
+  content: string;
+  tags: string[];
+}
+
 export interface GenerateImagesInput {
   projectPath: string;
   request: GenerationRequest;
@@ -131,6 +153,10 @@ export interface DesktopBridgeApi {
   saveProviderSettings(
     input: SaveProviderSettingsInput,
   ): Promise<PublicProviderSettings>;
+  loadPromptLibrary(): Promise<SavedPrompt[]>;
+  savePrompt(input: SavePromptInput): Promise<SavedPrompt[]>;
+  deleteSavedPrompt(id: string): Promise<SavedPrompt[]>;
+  markSavedPromptUsed(id: string): Promise<SavedPrompt[]>;
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
   readClipboardImage?(): Promise<ImportedImagePayload | null>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;

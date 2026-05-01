@@ -508,6 +508,97 @@ describe("Chinese localization", () => {
     );
   });
 
+  it("lets users save, reuse, append, search, and delete saved prompts", () => {
+    const initialRequest = {
+      provider: "gemini" as const,
+      model: getDefaultModel("gemini"),
+      prompt: "生成三组 CMF 方向",
+      negativePrompt: "",
+      width: 1024,
+      height: 1024,
+      seed: null,
+      imageCount: 1,
+      reference: null,
+    };
+    const onRequestChange = vi.fn();
+    const onSavePrompt = vi.fn();
+    const onUsePrompt = vi.fn();
+    const onDeletePrompt = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={initialRequest}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        savedPrompts={[
+          {
+            id: "prompt-color",
+            title: "颜色方案",
+            content: "参考第一张图的颜色，输出三组低饱和配色",
+            tags: ["CMF"],
+            createdAt: "2026-05-02T08:00:00.000Z",
+            updatedAt: "2026-05-02T08:00:00.000Z",
+            useCount: 2,
+          },
+          {
+            id: "prompt-shape",
+            title: "造型方案",
+            content: "参考第二张图的比例，继续细化整体造型",
+            tags: [],
+            createdAt: "2026-05-02T08:00:00.000Z",
+            updatedAt: "2026-05-02T08:00:00.000Z",
+            useCount: 0,
+          },
+        ]}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onSavePrompt={onSavePrompt}
+        onUsePrompt={onUsePrompt}
+        onDeletePrompt={onDeletePrompt}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "常用 Prompt" }));
+    expect(screen.getByText("常用 Prompt")).toBeInTheDocument();
+    expect(screen.getByText("颜色方案")).toBeInTheDocument();
+    expect(screen.getByText("造型方案")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存当前提示词" }));
+    expect(onSavePrompt).toHaveBeenCalledWith({
+      content: "生成三组 CMF 方向",
+      title: "生成三组 CMF 方向",
+      tags: [],
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("搜索常用 Prompt"), {
+      target: { value: "颜色" },
+    });
+    expect(screen.getByText("颜色方案")).toBeInTheDocument();
+    expect(screen.queryByText("造型方案")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "替换：颜色方案" }));
+    expect(onUsePrompt).toHaveBeenCalledWith("prompt-color");
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "参考第一张图的颜色，输出三组低饱和配色",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "追加：颜色方案" }));
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt:
+          "参考第一张图的颜色，输出三组低饱和配色\n\n参考第一张图的颜色，输出三组低饱和配色",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "删除：颜色方案" }));
+    expect(onDeletePrompt).toHaveBeenCalledWith("prompt-color");
+  });
+
   it("removes the compact reference when clicking the close control", () => {
     const onSubmit = vi.fn();
     render(

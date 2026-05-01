@@ -34,6 +34,8 @@ import type {
   ProjectAssetPayload,
   PublicProviderSettings,
   RecentProjectEntry,
+  SavedPrompt,
+  SavePromptInput,
 } from "../shared/desktopBridgeTypes";
 import type { ImageRecord } from "../shared/projectTypes";
 import type {
@@ -473,6 +475,7 @@ const App = () => {
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
+  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(null);
   const [selectedTask, setSelectedTask] = useState<GenerationTaskRecord | null>(null);
@@ -606,6 +609,18 @@ const App = () => {
     }
   };
 
+  const loadPromptLibraryState = async () => {
+    if (!bridge) {
+      return;
+    }
+
+    try {
+      setSavedPrompts(await bridge.loadPromptLibrary());
+    } catch {
+      setSavedPrompts([]);
+    }
+  };
+
   const clearGenerationErrorState = () => {
     setGenerationError(null);
     setGenerationErrorDetails(null);
@@ -648,6 +663,7 @@ const App = () => {
     bridge?.notifyRendererReady?.();
     void loadProviderState();
     void loadRecentProjectsState();
+    void loadPromptLibraryState();
   }, [bridge]);
 
   useEffect(() => {
@@ -1605,6 +1621,18 @@ const App = () => {
     }
   };
 
+  const handleSavePrompt = async (input: SavePromptInput) => {
+    setSavedPrompts(await desktopBridge.savePrompt(input));
+  };
+
+  const handleUsePrompt = async (id: string) => {
+    setSavedPrompts(await desktopBridge.markSavedPromptUsed(id));
+  };
+
+  const handleDeletePrompt = async (id: string) => {
+    setSavedPrompts(await desktopBridge.deleteSavedPrompt(id));
+  };
+
   const handleGenerateRequestChange = (request: GenerationRequest) => {
     setGenerateRequest(
       normalizeGenerationRequest(request, {
@@ -1936,6 +1964,10 @@ const App = () => {
         onRequestChange={handleGenerateRequestChange}
         onModelSelectionChange={handleRememberGenerationModelSelection}
         onReferenceRemove={handleRemoveGenerateReference}
+        savedPrompts={savedPrompts}
+        onSavePrompt={handleSavePrompt}
+        onUsePrompt={handleUsePrompt}
+        onDeletePrompt={handleDeletePrompt}
         onSaveProviderSettings={handleSaveProviderSettings}
         onSubmit={handleGenerateImages}
       />

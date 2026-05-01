@@ -34,6 +34,7 @@ import {
 import { DesktopButton } from "./DesktopButton";
 import {
   chevronDownIcon,
+  promptLibraryIcon,
   removeReferenceIcon,
   sendIcon,
   settingsSlidersIcon,
@@ -41,6 +42,8 @@ import {
 
 import type {
   PublicProviderSettings,
+  SavedPrompt,
+  SavePromptInput,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
 import type {
@@ -55,6 +58,18 @@ import type {
 
 const COMPACT_PROMPT_MIN_HEIGHT = 32;
 const COMPACT_PROMPT_MAX_HEIGHT = 76;
+const PROMPT_LIBRARY_TITLE_MAX_LENGTH = 24;
+
+const createSavedPromptTitle = (content: string) => {
+  const firstLine = content
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+  const title = firstLine || "未命名 Prompt";
+  return title.length > PROMPT_LIBRARY_TITLE_MAX_LENGTH
+    ? `${title.slice(0, PROMPT_LIBRARY_TITLE_MAX_LENGTH)}...`
+    : title;
+};
 
 const stripReferenceItemThumbnails = (
   request: GenerationRequest,
@@ -104,6 +119,10 @@ interface GenerateImageDialogProps {
     model: string;
   }) => void;
   onReferenceRemove?: () => void;
+  savedPrompts?: SavedPrompt[];
+  onSavePrompt?: (input: SavePromptInput) => void | Promise<void>;
+  onUsePrompt?: (id: string) => void | Promise<void>;
+  onDeletePrompt?: (id: string) => void | Promise<void>;
   onSaveProviderSettings?: (
     input: SaveProviderSettingsInput,
   ) => Promise<PublicProviderSettings | void>;
@@ -125,6 +144,10 @@ export const GenerateImageDialog = ({
   onRequestChange,
   onModelSelectionChange,
   onReferenceRemove,
+  savedPrompts = [],
+  onSavePrompt,
+  onUsePrompt,
+  onDeletePrompt,
   onSaveProviderSettings,
   onSubmit,
 }: GenerateImageDialogProps) => {
@@ -158,6 +181,8 @@ export const GenerateImageDialog = ({
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [promptLibraryOpen, setPromptLibraryOpen] = useState(false);
+  const [promptLibrarySearch, setPromptLibrarySearch] = useState("");
   const panelRef = useRef<HTMLElement | null>(null);
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
   const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
@@ -344,6 +369,15 @@ export const GenerateImageDialog = ({
   const hasReferenceStatus = Boolean(referenceStatusText);
   const selectedCustomModelUsage =
     CUSTOM_MODEL_USAGE_PRESETS[customModelTemplate];
+  const normalizedPromptLibrarySearch = promptLibrarySearch.trim().toLowerCase();
+  const visibleSavedPrompts = normalizedPromptLibrarySearch
+    ? savedPrompts.filter((prompt) =>
+        [prompt.title, prompt.content, ...prompt.tags]
+          .join("\n")
+          .toLowerCase()
+          .includes(normalizedPromptLibrarySearch),
+      )
+    : savedPrompts;
 
   const commitRequest = (
     nextRequest: GenerationRequest,
@@ -429,6 +463,33 @@ export const GenerateImageDialog = ({
       ...current,
       prompt,
     }));
+  };
+
+  const saveCurrentPrompt = () => {
+    const content = requestRef.current.prompt.trim();
+    if (!content || !onSavePrompt) {
+      return;
+    }
+
+    void onSavePrompt({
+      title: createSavedPromptTitle(content),
+      content,
+      tags: [],
+    });
+  };
+
+  const applySavedPrompt = (
+    prompt: SavedPrompt,
+    mode: "replace" | "append",
+  ) => {
+    const currentPrompt = requestRef.current.prompt.trimEnd();
+    const nextPrompt =
+      mode === "append" && currentPrompt
+        ? `${currentPrompt}\n\n${prompt.content}`
+        : prompt.content;
+
+    updatePrompt(nextPrompt);
+    void onUsePrompt?.(prompt.id);
   };
 
   const removeReference = () => {
@@ -764,6 +825,24 @@ export const GenerateImageDialog = ({
                 type="button"
                 className={[
                   "generate-composer__icon",
+                  promptLibraryOpen ? "generate-composer__icon--active" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-label={copy.generateDialog.promptLibrary}
+                title={copy.generateDialog.promptLibrary}
+                onMouseDown={stopInputEventPropagation}
+                onClick={(event) => {
+                  stopInputEventPropagation(event);
+                  setPromptLibraryOpen((current) => !current);
+                }}
+              >
+                {promptLibraryIcon}
+              </DesktopButton>
+              <DesktopButton
+                type="button"
+                className={[
+                  "generate-composer__icon",
                   advancedOpen ? "generate-composer__icon--active" : "",
                 ]
                   .filter(Boolean)
@@ -798,6 +877,92 @@ export const GenerateImageDialog = ({
               </DesktopButton>
             </div>
           </div>
+          {promptLibraryOpen ? (
+            <div className="generate-prompt-library">
+              <div className="generate-prompt-library__header">
+                <strong>{copy.generateDialog.promptLibrary}</strong>
+                <DesktopButton
+                  type="button"
+                  className="generate-prompt-library__save"
+                  disabled={!request.prompt.trim() || !onSavePrompt}
+                  onMouseDown={stopInputEventPropagation}
+                  onClick={(event) => {
+                    stopInputEventPropagation(event);
+                    saveCurrentPrompt();
+                  }}
+                >
+                  {copy.generateDialog.promptLibrarySaveCurrent}
+                </DesktopButton>
+              </div>
+              <input
+                className="generate-prompt-library__search"
+                value={promptLibrarySearch}
+                placeholder={copy.generateDialog.promptLibrarySearch}
+                onMouseDown={stopInputEventPropagation}
+                onKeyDown={handleTextInputKeyDown}
+                onChange={(event) => setPromptLibrarySearch(event.target.value)}
+              />
+              <div className="generate-prompt-library__list">
+                {visibleSavedPrompts.length ? (
+                  visibleSavedPrompts.map((savedPrompt) => (
+                    <article
+                      key={savedPrompt.id}
+                      className="generate-prompt-library__item"
+                    >
+                      <div className="generate-prompt-library__item-main">
+                        <strong>{savedPrompt.title}</strong>
+                        <p>{savedPrompt.content}</p>
+                        {savedPrompt.tags.length ? (
+                          <span>{savedPrompt.tags.join(" / ")}</span>
+                        ) : null}
+                      </div>
+                      <div className="generate-prompt-library__item-actions">
+                        <button
+                          type="button"
+                          aria-label={`${copy.generateDialog.promptLibraryReplace}：${savedPrompt.title}`}
+                          onMouseDown={stopInputEventPropagation}
+                          onClick={(event) => {
+                            stopInputEventPropagation(event);
+                            applySavedPrompt(savedPrompt, "replace");
+                          }}
+                        >
+                          {copy.generateDialog.promptLibraryReplace}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${copy.generateDialog.promptLibraryAppend}：${savedPrompt.title}`}
+                          onMouseDown={stopInputEventPropagation}
+                          onClick={(event) => {
+                            stopInputEventPropagation(event);
+                            applySavedPrompt(savedPrompt, "append");
+                          }}
+                        >
+                          {copy.generateDialog.promptLibraryAppend}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${copy.generateDialog.promptLibraryDelete}：${savedPrompt.title}`}
+                          onMouseDown={stopInputEventPropagation}
+                          onClick={(event) => {
+                            stopInputEventPropagation(event);
+                            void onDeletePrompt?.(savedPrompt.id);
+                          }}
+                        >
+                          {copy.generateDialog.promptLibraryDelete}
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <p className="generate-prompt-library__empty">
+                    {savedPrompts.length
+                      ? copy.generateDialog.promptLibraryNoResults
+                      : copy.generateDialog.promptLibraryEmpty}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
         </form>
 
         {showBody && (

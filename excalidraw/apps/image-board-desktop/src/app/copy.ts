@@ -184,7 +184,6 @@ export const copy = {
     stack: "调用堆栈",
   },
   about: {
-    eyebrow: "关于",
     title: `关于 ${DESKTOP_APP_NAME}`,
     close: "关闭",
     closeLabel: "关闭关于页面",

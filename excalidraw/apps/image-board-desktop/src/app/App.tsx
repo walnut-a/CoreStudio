@@ -1789,9 +1789,6 @@ const App = () => {
         >
           <div className="dialog-card__header">
             <div>
-              <span className="dialog-card__eyebrow">
-                {copy.about.eyebrow}
-              </span>
               <h2 id="about-dialog-title">{copy.about.title}</h2>
             </div>
             <DesktopButton

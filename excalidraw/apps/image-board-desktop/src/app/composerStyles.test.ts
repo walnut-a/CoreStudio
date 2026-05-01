@@ -319,6 +319,17 @@ describe("generate composer styles", () => {
     expect(dialogSource).toContain("COMPACT_PROMPT_MIN_HEIGHT = 32");
   });
 
+  it("keeps the prompt library panel aligned to the composer width", () => {
+    const promptLibraryRule = getRule(
+      readAppCss(),
+      ".generate-prompt-library",
+    );
+
+    expect(promptLibraryRule).toContain("width: 100%");
+    expect(promptLibraryRule).toContain("box-sizing: border-box");
+    expect(promptLibraryRule).not.toContain("34rem");
+  });
+
   it("uses a refined desktop-control finish instead of raw black line art", () => {
     const appCss = readAppCss();
     const composerRule = getRule(appCss, ".generate-composer");

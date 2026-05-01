@@ -405,6 +405,11 @@ const registerIpcHandlers = () => {
     },
   );
 
+  ipcMain.handle(IPC_CHANNELS.loadAppInfo, async () => ({
+    name: DESKTOP_APP_NAME,
+    version: app.getVersion(),
+  }));
+
   ipcMain.handle(IPC_CHANNELS.loadProviderSettings, async () =>
     loadProviderSettings(),
   );

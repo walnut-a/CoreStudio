@@ -29,6 +29,7 @@ import {
   normalizeGenerationRequest,
 } from "../shared/providerCatalog";
 import type {
+  DesktopAppInfo,
   DesktopProjectBundle,
   PersistedImageAssetInput,
   ProjectAssetPayload,
@@ -475,6 +476,7 @@ const App = () => {
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
+  const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(null);
@@ -497,6 +499,7 @@ const App = () => {
   const [generateFocusToken, setGenerateFocusToken] = useState(0);
   const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [elementDockOpen, setElementDockOpen] = useState(false);
@@ -609,6 +612,18 @@ const App = () => {
     }
   };
 
+  const loadAppInfoState = async () => {
+    if (!bridge?.loadAppInfo) {
+      return;
+    }
+
+    try {
+      setAppInfo(await bridge.loadAppInfo());
+    } catch {
+      setAppInfo(null);
+    }
+  };
+
   const loadPromptLibraryState = async () => {
     if (!bridge) {
       return;
@@ -661,6 +676,7 @@ const App = () => {
 
   useEffect(() => {
     bridge?.notifyRendererReady?.();
+    void loadAppInfoState();
     void loadProviderState();
     void loadRecentProjectsState();
     void loadPromptLibraryState();
@@ -1754,10 +1770,49 @@ const App = () => {
       case "reveal-project":
         void handleRevealProject();
         break;
+      case "show-about":
+        setAboutOpen(true);
+        break;
       default:
         break;
     }
   });
+
+  const renderAboutDialog = () =>
+    aboutOpen ? (
+      <div className="dialog-backdrop">
+        <div
+          className="dialog-card dialog-card--about"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="about-dialog-title"
+        >
+          <div className="dialog-card__header">
+            <div>
+              <span className="dialog-card__eyebrow">
+                {copy.about.eyebrow}
+              </span>
+              <h2 id="about-dialog-title">{copy.about.title}</h2>
+            </div>
+            <DesktopButton
+              type="button"
+              className="dialog-card__close"
+              aria-label={copy.about.closeLabel}
+              onClick={() => setAboutOpen(false)}
+            >
+              {copy.about.close}
+            </DesktopButton>
+          </div>
+          <p className="about-dialog__description">
+            {copy.about.description}
+          </p>
+          <div className="about-dialog__version">
+            {copy.about.versionLabel}{" "}
+            {appInfo?.version ?? copy.about.versionUnknown}
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   if (!bridge) {
     return (
@@ -1788,6 +1843,7 @@ const App = () => {
           recentProjects={recentProjects}
           onOpenRecentProject={handleOpenRecentProject}
         />
+        {renderAboutDialog()}
       </div>
     );
   }
@@ -1805,6 +1861,7 @@ const App = () => {
     <div className={appClassName}>
       {startupError && <div className="app-startup-error">{startupError}</div>}
       {projectError && <div className="dialog-card__error">{projectError}</div>}
+      {renderAboutDialog()}
       <ProjectRenderBoundary
         projectKey={projectRenderKey}
         onError={handleProjectRenderError}

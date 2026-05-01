@@ -111,6 +111,10 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
   importImages: vi.fn().mockResolvedValue([]),
   readClipboardImage: vi.fn().mockResolvedValue(null),
   revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+  loadAppInfo: vi.fn().mockResolvedValue({
+    name: "CoreStudio",
+    version: "0.0.0-test",
+  }),
   loadProviderSettings: vi.fn().mockResolvedValue(createMockProviderSettings()),
   saveProviderSettings: vi.fn(),
   generateImages: vi.fn(),
@@ -1156,6 +1160,46 @@ describe("App startup", () => {
     expect(readProjectAssetPayloads).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/旧项目未能保存/)).toBeInTheDocument();
     expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("opens an about dialog from the native help menu", async () => {
+    let menuActionListener:
+      | ((event: {
+          action: string;
+        }) => void)
+      | null = null;
+
+    const loadAppInfo = vi.fn().mockResolvedValue({
+        name: "CoreStudio",
+        version: "9.8.7",
+    });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAppInfo,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(loadAppInfo).toHaveBeenCalled();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "show-about" });
+    });
+
+    expect(
+      screen.getByRole("dialog", { name: "关于 CoreStudio" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("版本 9.8.7")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭关于页面" }));
+
+    expect(screen.queryByRole("dialog", { name: "关于 CoreStudio" })).toBeNull();
   });
 
   it("flushes pending autosave when the desktop shell requests it", async () => {

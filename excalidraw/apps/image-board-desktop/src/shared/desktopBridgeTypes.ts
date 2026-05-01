@@ -16,6 +16,7 @@ export const IPC_CHANNELS = {
   persistImageAssets: "image-board:persist-image-assets",
   importImages: "image-board:import-images",
   revealProjectInFinder: "image-board:reveal-project-in-finder",
+  loadAppInfo: "image-board:load-app-info",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
   loadPromptLibrary: "image-board:load-prompt-library",
@@ -39,7 +40,8 @@ export type DesktopMenuAction =
   | "import-images"
   | "generate-image"
   | "provider-settings"
-  | "reveal-project";
+  | "reveal-project"
+  | "show-about";
 
 export interface DesktopMenuEvent {
   action: DesktopMenuAction;
@@ -60,6 +62,11 @@ export interface RecentProjectEntry {
   projectPath: string;
   name: string;
   lastOpenedAt: string;
+}
+
+export interface DesktopAppInfo {
+  name: string;
+  version: string;
 }
 
 export interface ProjectAssetPayload {
@@ -149,6 +156,7 @@ export interface DesktopBridgeApi {
   }): Promise<ImageRecordMap>;
   importImages(): Promise<ImportedImagePayload[]>;
   revealProjectInFinder(projectPath: string): Promise<void>;
+  loadAppInfo?(): Promise<DesktopAppInfo>;
   loadProviderSettings(): Promise<PublicProviderSettings>;
   saveProviderSettings(
     input: SaveProviderSettingsInput,

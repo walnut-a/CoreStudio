@@ -67,4 +67,14 @@ export const createAppMenuTemplate = (
       { role: "paste" },
     ],
   },
+  {
+    label: copy.menu.help,
+    submenu: [
+      {
+        label: copy.menu.about,
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "show-about" }, ownerWindow),
+      },
+    ],
+  },
 ];

@@ -183,6 +183,16 @@ export const copy = {
     payload: "请求载荷",
     stack: "调用堆栈",
   },
+  about: {
+    eyebrow: "关于",
+    title: `关于 ${DESKTOP_APP_NAME}`,
+    close: "关闭",
+    closeLabel: "关闭关于页面",
+    versionLabel: "版本",
+    versionUnknown: "未知",
+    description:
+      "本地优先的工业设计 AI 画板，用来整理参考、生成方案和沉淀设计过程。",
+  },
   menu: {
     file: "文件",
     newProject: "新建项目",
@@ -194,6 +204,8 @@ export const copy = {
     generateImage: "生成图片",
     providers: "模型服务",
     edit: "编辑",
+    help: "帮助",
+    about: `关于 ${DESKTOP_APP_NAME}`,
   },
 } as const;
 

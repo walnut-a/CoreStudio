@@ -1005,6 +1005,42 @@ describe("Chinese localization", () => {
     document.removeEventListener("keydown", documentListener);
   });
 
+  it("keeps regular prompt keydown events inside the prompt editor", () => {
+    const documentListener = vi.fn();
+
+    document.addEventListener("keydown", documentListener);
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "imagen-4.0-fast-generate-001",
+          prompt: "继续细化这个产品方案",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: 12,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+
+    fireEvent.keyDown(promptInput, { key: "n" });
+
+    expect(documentListener).not.toHaveBeenCalled();
+
+    document.removeEventListener("keydown", documentListener);
+  });
+
   it("submits the generation request when clicking the send button", () => {
     const onSubmit = vi.fn();
 

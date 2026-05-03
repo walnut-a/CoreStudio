@@ -540,13 +540,14 @@ export const GenerateImageDialog = ({
   const handleComposerPromptKeyDown = (
     event: KeyboardEvent<HTMLTextAreaElement>,
   ) => {
+    stopInputEventPropagation(event);
+
     if (
       (event.metaKey || event.ctrlKey) &&
       !event.altKey &&
       event.key.toLowerCase() === "a"
     ) {
       event.preventDefault();
-      stopInputEventPropagation(event);
       event.currentTarget.setSelectionRange(
         0,
         event.currentTarget.value.length,
@@ -563,20 +564,20 @@ export const GenerateImageDialog = ({
     }
 
     event.preventDefault();
-    stopInputEventPropagation(event);
     submitRequest();
   };
 
   const handleTextInputKeyDown = (
     event: KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
   ) => {
+    stopInputEventPropagation(event);
+
     if (
       (event.metaKey || event.ctrlKey) &&
       !event.altKey &&
       event.key.toLowerCase() === "a"
     ) {
       event.preventDefault();
-      stopInputEventPropagation(event);
       event.currentTarget.setSelectionRange(
         0,
         event.currentTarget.value.length,
@@ -593,7 +594,6 @@ export const GenerateImageDialog = ({
     }
 
     event.preventDefault();
-    stopInputEventPropagation(event);
     submitRequest();
   };
 

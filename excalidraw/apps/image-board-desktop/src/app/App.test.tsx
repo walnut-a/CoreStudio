@@ -2311,6 +2311,81 @@ describe("App startup", () => {
     expect(screen.queryByTestId("mock-selected-shape-actions")).toBeNull();
   });
 
+  it("soft-stops zoom at the workspace fit level before allowing further zoom-out", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock() as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 0.2 },
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 0.08 },
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    const snapCall = mockExcalidrawAPI?.updateScene.mock.calls.find(
+      ([scene]) => scene.appState?.zoom,
+    );
+    expect(snapCall?.[0].appState?.zoom.value).toBeCloseTo(0.10575);
+    expect(
+      document.querySelector(".image-board-workspace-bounds--fit-pulse"),
+    ).toBeTruthy();
+
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 0.08 },
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    expect(mockExcalidrawAPI?.updateScene).not.toHaveBeenCalled();
+  });
+
   it("shows selected image parameters inside the CoreStudio side dock instead of a standalone right column", async () => {
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({

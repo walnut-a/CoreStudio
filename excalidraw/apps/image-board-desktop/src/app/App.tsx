@@ -57,6 +57,14 @@ import {
   measureBatchBounds,
 } from "./project/imagePlacement";
 import {
+  ENABLE_WORKSPACE_BOUNDS,
+  getWorkspaceFitZoom,
+  getWorkspaceBounds,
+  resolveWorkspaceZoomGate,
+  type WorkspaceBounds,
+  type WorkspaceZoomGateState,
+} from "./workspaceBounds";
+import {
   deserializeSceneFromProject,
   serializeSceneForProject,
 } from "./project/sceneSerialization";
@@ -308,6 +316,84 @@ const getSceneOccupiedBounds = (
     return bounds && bounds.width > 0 && bounds.height > 0 ? [bounds] : [];
   });
 
+interface WorkspaceOverlayState {
+  bounds: WorkspaceBounds;
+  scrollX: number;
+  scrollY: number;
+  zoomValue: number;
+  offsetLeft: number;
+  offsetTop: number;
+}
+
+const createWorkspaceZoomGateState = (): WorkspaceZoomGateState => ({
+  snappedAtFitZoom: false,
+  releasedBelowFitZoom: false,
+});
+
+const getFiniteNumber = (value: unknown, fallback: number) =>
+  typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
+const getViewportCenterFromAppState = (
+  appState: Pick<AppState, "width" | "height" | "scrollX" | "scrollY">,
+) => {
+  const width = getFiniteNumber(appState.width, 0);
+  const height = getFiniteNumber(appState.height, 0);
+  const scrollX = getFiniteNumber(appState.scrollX, 0);
+  const scrollY = getFiniteNumber(appState.scrollY, 0);
+
+  return {
+    x: width / 2 - scrollX,
+    y: height / 2 - scrollY,
+  };
+};
+
+const buildWorkspaceOverlayState = (
+  elements: readonly ExcalidrawElement[],
+  appState: AppState,
+): WorkspaceOverlayState | null => {
+  if (!ENABLE_WORKSPACE_BOUNDS) {
+    return null;
+  }
+
+  const bounds = getWorkspaceBounds(elements, {
+    viewportCenter: getViewportCenterFromAppState(appState),
+  });
+
+  return {
+    bounds,
+    scrollX: getFiniteNumber(appState.scrollX, 0),
+    scrollY: getFiniteNumber(appState.scrollY, 0),
+    zoomValue: getFiniteNumber(appState.zoom?.value, 1),
+    offsetLeft: getFiniteNumber(appState.offsetLeft, 0),
+    offsetTop: getFiniteNumber(appState.offsetTop, 0),
+  };
+};
+
+const getViewportCenteredZoomState = (
+  appState: AppState,
+  nextZoomValue: number,
+) => {
+  const currentZoom = getFiniteNumber(appState.zoom?.value, 1);
+  const nextZoom = getFiniteNumber(nextZoomValue, currentZoom);
+  const appLayerX = getFiniteNumber(appState.width, 0) / 2;
+  const appLayerY = getFiniteNumber(appState.height, 0) / 2;
+  const scrollX = getFiniteNumber(appState.scrollX, 0);
+  const scrollY = getFiniteNumber(appState.scrollY, 0);
+
+  const baseScrollX = scrollX + (appLayerX - appLayerX / currentZoom);
+  const baseScrollY = scrollY + (appLayerY - appLayerY / currentZoom);
+  const zoomOffsetScrollX = -(appLayerX - appLayerX / nextZoom);
+  const zoomOffsetScrollY = -(appLayerY - appLayerY / nextZoom);
+
+  return {
+    scrollX: baseScrollX + zoomOffsetScrollX,
+    scrollY: baseScrollY + zoomOffsetScrollY,
+    zoom: {
+      value: nextZoom as AppState["zoom"]["value"],
+    },
+  };
+};
+
 const stringifyUnknownError = (error: unknown) => {
   if (error === null || error === undefined) {
     return "";
@@ -472,6 +558,11 @@ const App = () => {
   const generationTaskByElementIdRef = useRef<Map<string, GenerationTaskRecord>>(
     new Map(),
   );
+  const previousWorkspaceZoomValueRef = useRef<number | null>(null);
+  const workspaceZoomGateStateRef = useRef<WorkspaceZoomGateState>(
+    createWorkspaceZoomGateState(),
+  );
+  const workspaceFitPulseTimerRef = useRef<number | null>(null);
 
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
@@ -504,6 +595,9 @@ const App = () => {
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [elementDockOpen, setElementDockOpen] = useState(false);
   const [imageDockOpen, setImageDockOpen] = useState(false);
+  const [workspaceOverlayState, setWorkspaceOverlayState] =
+    useState<WorkspaceOverlayState | null>(null);
+  const [workspaceFitPulse, setWorkspaceFitPulse] = useState(false);
   const parentRecord =
     selectedRecord?.parentFileId && currentProject
       ? currentProject.imageRecords[selectedRecord.parentFileId] || null
@@ -565,6 +659,74 @@ const App = () => {
     return getElementsSceneBounds(
       getSelectedReferenceElements(latestSceneRef.current),
     );
+  };
+
+  const updateWorkspaceOverlay = (
+    elements: readonly ExcalidrawElement[],
+    appState: AppState,
+  ) => {
+    const overlayState = buildWorkspaceOverlayState(elements, appState);
+    setWorkspaceOverlayState(overlayState);
+    return overlayState?.bounds ?? null;
+  };
+
+  const resetWorkspaceZoomGate = () => {
+    previousWorkspaceZoomValueRef.current = null;
+    workspaceZoomGateStateRef.current = createWorkspaceZoomGateState();
+    setWorkspaceFitPulse(false);
+  };
+
+  const triggerWorkspaceFitPulse = () => {
+    if (workspaceFitPulseTimerRef.current) {
+      window.clearTimeout(workspaceFitPulseTimerRef.current);
+    }
+
+    setWorkspaceFitPulse(true);
+    workspaceFitPulseTimerRef.current = window.setTimeout(() => {
+      workspaceFitPulseTimerRef.current = null;
+      setWorkspaceFitPulse(false);
+    }, 520);
+  };
+
+  const maybeSnapWorkspaceZoom = (
+    elements: readonly ExcalidrawElement[],
+    appState: AppState,
+  ) => {
+    if (!ENABLE_WORKSPACE_BOUNDS) {
+      return false;
+    }
+
+    const api = excalidrawAPIRef.current;
+    if (!api) {
+      return false;
+    }
+
+    const bounds = getWorkspaceBounds(elements, {
+      viewportCenter: getViewportCenterFromAppState(appState),
+    });
+    const fitZoomValue = getWorkspaceFitZoom(bounds, appState);
+    const currentZoomValue = getFiniteNumber(appState.zoom?.value, 1);
+    const gate = resolveWorkspaceZoomGate({
+      previousZoomValue: previousWorkspaceZoomValueRef.current,
+      currentZoomValue,
+      fitZoomValue,
+      gateState: workspaceZoomGateStateRef.current,
+    });
+
+    workspaceZoomGateStateRef.current = gate.nextGateState;
+
+    if (!gate.shouldSnap || !fitZoomValue) {
+      previousWorkspaceZoomValueRef.current = currentZoomValue;
+      return false;
+    }
+
+    previousWorkspaceZoomValueRef.current = fitZoomValue;
+    triggerWorkspaceFitPulse();
+    api.updateScene({
+      appState: getViewportCenteredZoomState(appState, fitZoomValue),
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+    return true;
   };
 
   const loadProviderState = async () => {
@@ -695,6 +857,15 @@ const App = () => {
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      if (workspaceFitPulseTimerRef.current) {
+        window.clearTimeout(workspaceFitPulseTimerRef.current);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!bridge?.onFlushAutosaveRequest) {
       return;
@@ -785,6 +956,11 @@ const App = () => {
         appState: restored.appState as AppState,
         files,
       };
+      updateWorkspaceOverlay(
+        restored.elements || [],
+        restored.appState as AppState,
+      );
+      resetWorkspaceZoomGate();
       lastCanvasPointerRef.current = null;
       setSelectedRecord(null);
       setSelectedTask(null);
@@ -864,6 +1040,8 @@ const App = () => {
   const handleResetProjectView = () => {
     updateCurrentProject(null);
     setInitialData(null);
+    setWorkspaceOverlayState(null);
+    resetWorkspaceZoomGate();
     updateEditorInitializing(false);
   };
 
@@ -898,6 +1076,10 @@ const App = () => {
       x: appState.width / 2 - appState.scrollX,
       y: appState.height / 2 - appState.scrollY,
     };
+    const workspaceBounds = updateWorkspaceOverlay(
+      api.getSceneElementsIncludingDeleted(),
+      appState,
+    );
     const anchorPoint = options.anchorPoint ?? null;
     const placements = placeGeneratedImages({
       images: assets.map((asset) => ({
@@ -912,6 +1094,7 @@ const App = () => {
       },
       zoomValue: appState.zoom.value,
       previousBatchBounds: anchorPoint ? null : lastBatchBoundsRef.current,
+      workspaceBounds,
     });
 
     const filesToAdd: BinaryFileData[] = assets.map((asset) => ({
@@ -972,6 +1155,10 @@ const App = () => {
       x: appState.width / 2 - appState.scrollX,
       y: appState.height / 2 - appState.scrollY,
     };
+    const workspaceBounds = updateWorkspaceOverlay(
+      api.getSceneElementsIncludingDeleted(),
+      appState,
+    );
     const anchorBounds = getGenerationAnchorBounds(request);
     const occupiedBounds = getSceneOccupiedBounds(
       api.getSceneElementsIncludingDeleted(),
@@ -990,6 +1177,7 @@ const App = () => {
         height: appState.height,
       },
       zoomValue: appState.zoom.value,
+      workspaceBounds,
       previousBatchBounds:
         anchorBounds || lastCanvasPointerRef.current
           ? null
@@ -1888,6 +2076,48 @@ const App = () => {
     .filter(Boolean)
     .join(" ");
 
+  const renderWorkspaceBoundsOverlay = () => {
+    if (!workspaceOverlayState) {
+      return null;
+    }
+
+    const { bounds, scrollX, scrollY, zoomValue, offsetLeft, offsetTop } =
+      workspaceOverlayState;
+    const left = (bounds.x + scrollX) * zoomValue + offsetLeft;
+    const top = (bounds.y + scrollY) * zoomValue + offsetTop;
+    const width = bounds.width * zoomValue;
+    const height = bounds.height * zoomValue;
+
+    if (
+      !Number.isFinite(left) ||
+      !Number.isFinite(top) ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      return null;
+    }
+
+    return (
+      <div
+        aria-hidden="true"
+        className={[
+          "image-board-workspace-bounds",
+          workspaceFitPulse ? "image-board-workspace-bounds--fit-pulse" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{
+          left,
+          top,
+          width,
+          height,
+        }}
+      />
+    );
+  };
+
   return (
     <div className={appClassName}>
       {startupError && <div className="app-startup-error">{startupError}</div>}
@@ -1951,7 +2181,11 @@ const App = () => {
                 ) {
                   removedSelectionReferenceSignatureRef.current = null;
                 }
+                if (maybeSnapWorkspaceZoom(elements, appState)) {
+                  return;
+                }
                 latestSceneRef.current = nextScene;
+                updateWorkspaceOverlay(elements, appState);
                 setGenerateRequest((current) =>
                   syncSelectionReferenceIntoRequest(
                     current,
@@ -2030,6 +2264,7 @@ const App = () => {
                 onLocateImageRecord={handleLocateImageRecord}
               />
             </Excalidraw>
+            {renderWorkspaceBoundsOverlay()}
           </div>
         </div>
       </ProjectRenderBoundary>

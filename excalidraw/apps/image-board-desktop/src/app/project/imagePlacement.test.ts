@@ -98,6 +98,30 @@ describe("placeGeneratedImages", () => {
     );
   });
 
+  it("keeps referenced generation inside the workspace when the preferred right side would exceed it", () => {
+    const placements = placeGeneratedImages({
+      images: [{ width: 320, height: 180 }],
+      viewportCenter: { x: 600, y: 400 },
+      viewportSize: { width: 1200, height: 800 },
+      zoomValue: 1,
+      anchorBounds: {
+        x: 900,
+        y: 300,
+        width: 200,
+        height: 180,
+      },
+      workspaceBounds: {
+        x: 0,
+        y: 0,
+        width: 1200,
+        height: 800,
+      },
+    });
+
+    expect(placements[0].x).toBeGreaterThanOrEqual(0);
+    expect(placements[0].x + placements[0].width).toBeLessThanOrEqual(1200);
+  });
+
   it("places a generated batch around the latest canvas pointer", () => {
     const placements = placeGeneratedImages({
       images: [{ width: 1024, height: 1024 }],

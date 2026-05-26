@@ -21,6 +21,7 @@ interface PlaceGeneratedImagesArgs {
   anchorBounds?: SceneBounds | null;
   occupiedBounds?: readonly SceneBounds[];
   previousBatchBounds?: SceneBounds | null;
+  workspaceBounds?: SceneBounds | null;
   gap?: number;
 }
 
@@ -75,12 +76,19 @@ const rectanglesOverlap = (
   first.y < second.y + second.height + padding &&
   first.y + first.height > second.y - padding;
 
+const rectangleInside = (rect: SceneBounds, bounds: SceneBounds) =>
+  rect.x >= bounds.x &&
+  rect.y >= bounds.y &&
+  rect.x + rect.width <= bounds.x + bounds.width &&
+  rect.y + rect.height <= bounds.y + bounds.height;
+
 const findNearestOpenBatchStart = ({
   startX,
   startY,
   totalWidth,
   totalHeight,
   occupiedBounds,
+  workspaceBounds,
   gap,
 }: {
   startX: number;
@@ -88,24 +96,39 @@ const findNearestOpenBatchStart = ({
   totalWidth: number;
   totalHeight: number;
   occupiedBounds: readonly SceneBounds[];
+  workspaceBounds?: SceneBounds | null;
   gap: number;
 }) => {
+  const getBatchBounds = (x: number, y: number) => ({
+    x,
+    y,
+    width: totalWidth,
+    height: totalHeight,
+  });
   const isOpen = (x: number, y: number) => {
-    const batchBounds = {
-      x,
-      y,
-      width: totalWidth,
-      height: totalHeight,
-    };
+    const batchBounds = getBatchBounds(x, y);
 
     return !occupiedBounds.some((bounds) =>
       rectanglesOverlap(batchBounds, bounds, gap),
     );
   };
+  const isInsideWorkspace = (x: number, y: number) => {
+    if (!workspaceBounds) {
+      return true;
+    }
 
-  if (!occupiedBounds.length || isOpen(startX, startY)) {
+    return rectangleInside(getBatchBounds(x, y), workspaceBounds);
+  };
+  const isOpenInsideWorkspace = (x: number, y: number) =>
+    isOpen(x, y) && isInsideWorkspace(x, y);
+
+  if (isOpenInsideWorkspace(startX, startY)) {
     return { x: startX, y: startY };
   }
+
+  let fallbackOpenStart = isOpen(startX, startY)
+    ? { x: startX, y: startY }
+    : null;
 
   const stepX = totalWidth + gap * 2;
   const stepY = totalHeight + gap * 2;
@@ -125,13 +148,16 @@ const findNearestOpenBatchStart = ({
     for (const candidate of candidates) {
       const x = startX + candidate.dx * stepX;
       const y = startY + candidate.dy * stepY;
-      if (isOpen(x, y)) {
+      if (!fallbackOpenStart && isOpen(x, y)) {
+        fallbackOpenStart = { x, y };
+      }
+      if (isOpenInsideWorkspace(x, y)) {
         return { x, y };
       }
     }
   }
 
-  return { x: startX, y: startY };
+  return fallbackOpenStart ?? { x: startX, y: startY };
 };
 
 export const placeGeneratedImages = ({
@@ -141,6 +167,7 @@ export const placeGeneratedImages = ({
   anchorBounds,
   occupiedBounds = [],
   previousBatchBounds,
+  workspaceBounds,
   gap = 32,
 }: PlaceGeneratedImagesArgs): ImagePlacement[] => {
   if (!images.length) {
@@ -199,6 +226,7 @@ export const placeGeneratedImages = ({
     totalWidth,
     totalHeight,
     occupiedBounds,
+    workspaceBounds,
     gap,
   });
   const startX = openStart.x;

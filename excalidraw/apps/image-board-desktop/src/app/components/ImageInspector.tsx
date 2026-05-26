@@ -36,6 +36,7 @@ interface ImageInspectorProps {
   task: GenerationTaskRecord | null;
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
+  onLocateImageRecord: (fileId: string) => void;
 }
 
 const getImageRecordSummary = (record: ImageRecord) => {
@@ -86,6 +87,7 @@ export const ImageInspector = ({
   task,
   onCopyPrompt,
   onCopyTaskError,
+  onLocateImageRecord,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
   usePlainTextCopyWithin(inspectorRef);
@@ -217,6 +219,32 @@ export const ImageInspector = ({
   const imageTitle = getImageRecordTitle(record);
   const modelText = getOptionalText(record.model);
   const parentSummary = getParentImageSummary(record, parentRecord);
+  const renderLocateChainItem = (
+    chainRecord: ImageRecord,
+    options: {
+      style?: React.CSSProperties;
+    } = {},
+  ) => {
+    const summary = getImageRecordSummary(chainRecord);
+
+    return (
+      <li
+        key={chainRecord.fileId}
+        className="image-inspector__chain-item image-inspector__chain-item--actionable"
+        style={options.style}
+      >
+        <button
+          type="button"
+          className="image-inspector__chain-button"
+          aria-label={`${copy.inspector.locateImage}：${summary}`}
+          title={copy.inspector.locateImage}
+          onClick={() => onLocateImageRecord(chainRecord.fileId)}
+        >
+          <span className="image-inspector__chain-summary">{summary}</span>
+        </button>
+      </li>
+    );
+  };
 
   return (
     <section className="image-inspector" ref={inspectorRef}>
@@ -291,16 +319,9 @@ export const ImageInspector = ({
             <h3>{copy.inspector.chainTitle}</h3>
 
             <ol className="image-inspector__chain-list">
-              {ancestorRecords.map((ancestorRecord) => (
-                <li
-                  key={ancestorRecord.fileId}
-                  className="image-inspector__chain-item"
-                >
-                  <span className="image-inspector__chain-summary">
-                    {getImageRecordSummary(ancestorRecord)}
-                  </span>
-                </li>
-              ))}
+              {ancestorRecords.map((ancestorRecord) =>
+                renderLocateChainItem(ancestorRecord),
+              )}
               <li className="image-inspector__chain-item image-inspector__chain-item--current">
                 <span className="image-inspector__chain-label">
                   {copy.inspector.currentImage}
@@ -318,17 +339,11 @@ export const ImageInspector = ({
                 </p>
                 <ol className="image-inspector__chain-list image-inspector__chain-list--descendants">
                   {descendantRecords.map(({ record: descendantRecord, depth }) => (
-                    <li
-                      key={descendantRecord.fileId}
-                      className="image-inspector__chain-item"
-                      style={{
+                    renderLocateChainItem(descendantRecord, {
+                      style: {
                         "--image-inspector-chain-depth": `${depth}`,
-                      } as React.CSSProperties}
-                    >
-                      <span className="image-inspector__chain-summary">
-                        {getImageRecordSummary(descendantRecord)}
-                      </span>
-                    </li>
+                      } as React.CSSProperties,
+                    })
                   ))}
                 </ol>
               </div>

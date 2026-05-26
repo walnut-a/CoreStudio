@@ -32,9 +32,10 @@ let mockExcalidrawAPI:
   | {
       updateScene: ReturnType<typeof vi.fn>;
       addFiles: ReturnType<typeof vi.fn>;
+      scrollToContent: ReturnType<typeof vi.fn>;
       getSceneElementsIncludingDeleted: () => any[];
       getAppState: () => Record<string, any>;
-  getFiles: () => Record<string, any>;
+      getFiles: () => Record<string, any>;
     }
   | null = null;
 let skipExcalidrawApiRegistration = false;
@@ -140,6 +141,7 @@ vi.mock("@excalidraw/excalidraw", () => {
   return {
     CaptureUpdateAction: {
       IMMEDIATELY: "immediately",
+      NEVER: "never",
     },
     DefaultSidebar: Object.assign(
       ({
@@ -335,6 +337,7 @@ vi.mock("@excalidraw/excalidraw", () => {
           getSceneElementsIncludingDeleted: () => sceneRef.current.elements,
           getAppState: () => sceneRef.current.appState,
           getFiles: () => sceneRef.current.files,
+          scrollToContent: vi.fn(),
         };
       }
 
@@ -601,20 +604,44 @@ vi.mock("./components/ImageInspector", () => ({
     ancestorRecords,
     descendantRecords,
     task,
+    onLocateImageRecord,
   }: {
     record: { model?: string } | null;
-    parentRecord?: { prompt?: string | null } | null;
-    ancestorRecords?: Array<{ prompt?: string | null }>;
-    descendantRecords?: Array<{ record: { prompt?: string | null } }>;
+    parentRecord?: { fileId?: string; prompt?: string | null } | null;
+    ancestorRecords?: Array<{ fileId: string; prompt?: string | null }>;
+    descendantRecords?: Array<{
+      record: { fileId: string; prompt?: string | null };
+    }>;
     task?: {
       status: "pending" | "error";
       rawError?: string | null;
     } | null;
+    onLocateImageRecord?: (fileId: string) => void;
   }) =>
     task ? (
       <aside>{`生成任务: ${task.status === "error" ? "生成失败" : "生成中"} ${task.rawError || ""}`}</aside>
     ) : record ? (
-      <aside>{`图片信息: ${record.model || "无"}${parentRecord?.prompt ? ` 来源图片: ${parentRecord.prompt}` : ""}${ancestorRecords?.length || descendantRecords?.length ? " 编辑链" : ""}${descendantRecords?.length ? ` 后续版本: ${descendantRecords.map(({ record: descendantRecord }) => descendantRecord.prompt || "无").join(" / ")}` : ""}`}</aside>
+      <aside>
+        {`图片信息: ${record.model || "无"}${parentRecord?.prompt ? ` 来源图片: ${parentRecord.prompt}` : ""}${ancestorRecords?.length || descendantRecords?.length ? " 编辑链" : ""}${descendantRecords?.length ? ` 后续版本: ${descendantRecords.map(({ record: descendantRecord }) => descendantRecord.prompt || "无").join(" / ")}` : ""}`}
+        {ancestorRecords?.map((ancestorRecord) => (
+          <button
+            key={`ancestor-${ancestorRecord.fileId}`}
+            type="button"
+            onClick={() => onLocateImageRecord?.(ancestorRecord.fileId)}
+          >
+            {`定位前序: ${ancestorRecord.prompt || ancestorRecord.fileId}`}
+          </button>
+        ))}
+        {descendantRecords?.map(({ record: descendantRecord }) => (
+          <button
+            key={`descendant-${descendantRecord.fileId}`}
+            type="button"
+            onClick={() => onLocateImageRecord?.(descendantRecord.fileId)}
+          >
+            {`定位后续: ${descendantRecord.prompt || descendantRecord.fileId}`}
+          </button>
+        ))}
+      </aside>
     ) : (
       <aside>图片信息（空）</aside>
     ),
@@ -2441,12 +2468,130 @@ describe("App startup", () => {
       screen.getByText(/来源图片: 第一版结构草图/),
     ).toBeInTheDocument();
     expect(screen.getByText(/后续版本: 第二版结构细化 \/ 最终版渲染/)).toBeInTheDocument();
-    expect(screen.getByText(/第二版结构细化/)).toBeInTheDocument();
-    expect(screen.getByText(/最终版渲染/)).toBeInTheDocument();
+    expect(screen.getAllByText(/第二版结构细化/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/最终版渲染/).length).toBeGreaterThan(0);
     expect(screen.queryByTestId("default-sidebar")).toBeNull();
     expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",
       "true",
+    );
+  });
+
+  it("locates a lineage image from the inspector chain", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "file-1": {
+              fileId: "file-1",
+              assetPath: "assets/file-1.png",
+              sourceType: "generated",
+              provider: "fal",
+              model: "fal-ai/nano-banana-2",
+              prompt: "当前方案",
+              negativePrompt: "",
+              seed: 12,
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+            "file-2": {
+              fileId: "file-2",
+              assetPath: "assets/file-2.png",
+              sourceType: "generated",
+              provider: "fal",
+              model: "fal-ai/nano-banana-2",
+              prompt: "第二版结构细化",
+              negativePrompt: "",
+              seed: 21,
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-04-13T08:00:00.000Z",
+              mimeType: "image/png",
+              parentFileId: "file-1",
+            },
+          },
+        }),
+      ),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "image-1",
+            type: "image",
+            fileId: "file-1",
+            isDeleted: false,
+            groupIds: [],
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 320,
+          },
+          {
+            id: "image-2",
+            type: "image",
+            fileId: "file-2",
+            isDeleted: false,
+            groupIds: [],
+            x: 720,
+            y: 0,
+            width: 320,
+            height: 320,
+          },
+        ],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          selectedElementIds: {
+            "image-1": true,
+          },
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+    });
+    const locateButton = await screen.findByRole("button", {
+      name: "定位后续: 第二版结构细化",
+    });
+    act(() => {
+      fireEvent.click(locateButton);
+    });
+
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        appState: expect.objectContaining({
+          selectedElementIds: {
+            "image-2": true,
+          },
+          selectedGroupIds: {},
+        }),
+        captureUpdate: "never",
+      }),
+    );
+    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "image-2",
+        fileId: "file-2",
+      }),
+      expect.objectContaining({
+        animate: true,
+      }),
     );
   });
 

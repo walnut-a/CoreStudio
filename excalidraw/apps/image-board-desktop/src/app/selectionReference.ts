@@ -100,26 +100,6 @@ const getSingleImageReferencePayload = (
   };
 };
 
-const getElementPosition = (element: ExcalidrawElement) => ({
-  x: Number.isFinite(element.x) ? element.x : 0,
-  y: Number.isFinite(element.y) ? element.y : 0,
-});
-
-const sortElementsByCanvasPosition = (
-  elements: readonly NonDeleted<ExcalidrawElement>[],
-) =>
-  [...elements].sort((left, right) => {
-    const leftPosition = getElementPosition(left);
-    const rightPosition = getElementPosition(right);
-    if (leftPosition.y !== rightPosition.y) {
-      return leftPosition.y - rightPosition.y;
-    }
-    if (leftPosition.x !== rightPosition.x) {
-      return leftPosition.x - rightPosition.x;
-    }
-    return left.id.localeCompare(right.id);
-  });
-
 const truncateReferenceItemText = (text: string) =>
   text.length > REFERENCE_ITEM_TEXT_MAX_LENGTH
     ? `${text.slice(0, REFERENCE_ITEM_TEXT_MAX_LENGTH)}...`
@@ -166,7 +146,7 @@ const buildReferenceItems = (
   selectedElements: readonly NonDeleted<ExcalidrawElement>[],
   files: BinaryFiles,
 ) =>
-  sortElementsByCanvasPosition(selectedElements).map((element, itemIndex) => {
+  selectedElements.map((element, itemIndex) => {
     if (element.type === "image") {
       const thumbnailDataUrl = getImageReferenceItemThumbnail(element, files);
       return {
@@ -195,6 +175,13 @@ const buildReferenceItems = (
     };
   });
 
+const getSelectedElementIdOrder = (
+  appState: Pick<AppState, "selectedElementIds">,
+) =>
+  Object.entries(appState.selectedElementIds || {})
+    .filter(([, selected]) => Boolean(selected))
+    .map(([elementId]) => elementId);
+
 export const getSelectedReferenceElements = (
   scene: SceneSnapshot | null,
 ): NonDeleted<ExcalidrawElement>[] => {
@@ -202,11 +189,8 @@ export const getSelectedReferenceElements = (
     return [];
   }
 
-  const selectedElementIds = new Set(
-    Object.entries(scene.appState.selectedElementIds || {})
-      .filter(([, selected]) => Boolean(selected))
-      .map(([elementId]) => elementId),
-  );
+  const selectedElementIdOrder = getSelectedElementIdOrder(scene.appState);
+  const selectedElementIds = new Set(selectedElementIdOrder);
   const selectedGroupIds = new Set(
     Object.entries(scene.appState.selectedGroupIds || {})
       .filter(([, selected]) => Boolean(selected))
@@ -217,12 +201,37 @@ export const getSelectedReferenceElements = (
     return [];
   }
 
-  return scene.elements.filter(
+  const selectableElements = scene.elements.filter(
     (element): element is NonDeleted<ExcalidrawElement> =>
-      !element.isDeleted &&
-      (selectedElementIds.has(element.id) ||
-        isSelectedGroupElement(element, selectedGroupIds)),
+      !element.isDeleted,
   );
+  const elementsById = new Map(
+    selectableElements.map((element) => [element.id, element]),
+  );
+  const selectedElements: NonDeleted<ExcalidrawElement>[] = [];
+
+  for (const elementId of selectedElementIdOrder) {
+    const element = elementsById.get(elementId);
+    if (element) {
+      selectedElements.push(element);
+    }
+  }
+
+  const includedElementIds = new Set(
+    selectedElements.map((element) => element.id),
+  );
+
+  for (const element of selectableElements) {
+    if (
+      !selectedElementIds.has(element.id) &&
+      !includedElementIds.has(element.id) &&
+      isSelectedGroupElement(element, selectedGroupIds)
+    ) {
+      selectedElements.push(element);
+    }
+  }
+
+  return selectedElements;
 };
 
 export const getSelectionReferenceSignature = (scene: SceneSnapshot | null) => {
@@ -231,7 +240,7 @@ export const getSelectionReferenceSignature = (scene: SceneSnapshot | null) => {
     return null;
   }
 
-  return selectedElements.map((element) => element.id).sort().join("|");
+  return selectedElements.map((element) => element.id).join("|");
 };
 
 export const extractReferenceTextNotes = (

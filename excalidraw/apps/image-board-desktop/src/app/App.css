@@ -701,9 +701,39 @@ body {
   background: var(--island-bg-color);
 }
 
+.image-inspector__chain-item--actionable {
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.image-inspector__chain-item--actionable:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-primary-container);
+}
+
 .image-inspector__chain-item--current {
   border-color: var(--color-primary);
   background: var(--color-surface-primary-container);
+}
+
+.image-inspector__chain-button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.image-inspector__chain-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
 }
 
 .image-inspector__chain-label {

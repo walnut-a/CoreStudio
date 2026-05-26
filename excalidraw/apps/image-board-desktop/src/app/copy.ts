@@ -132,6 +132,7 @@ export const copy = {
     chainTitle: "编辑链",
     currentImage: "当前图片",
     descendantImages: "后续版本",
+    locateImage: "定位到图片",
     provider: "模型服务",
     importedProvider: "导入",
     detailsTitle: "生成参数",

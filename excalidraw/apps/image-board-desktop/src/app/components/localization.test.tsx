@@ -203,6 +203,7 @@ describe("Chinese localization", () => {
         task={null}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
+        onLocateImageRecord={() => undefined}
       />,
     );
 
@@ -241,6 +242,7 @@ describe("Chinese localization", () => {
         task={failedTask}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
+        onLocateImageRecord={() => undefined}
       />,
     );
 
@@ -265,6 +267,7 @@ describe("Chinese localization", () => {
         task={null}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
+        onLocateImageRecord={() => undefined}
       />,
     );
 

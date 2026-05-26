@@ -31,7 +31,9 @@ const parentRecord: ImageRecord = {
   prompt: "第一版结构草图",
 };
 
-const renderInspector = () =>
+const renderInspector = (overrides: Partial<{
+  onLocateImageRecord: (fileId: string) => void;
+}> = {}) =>
   render(
     <ImageInspector
       record={generatedRecord}
@@ -51,6 +53,7 @@ const renderInspector = () =>
       task={null}
       onCopyPrompt={vi.fn()}
       onCopyTaskError={vi.fn()}
+      onLocateImageRecord={overrides.onLocateImageRecord ?? vi.fn()}
     />,
   );
 
@@ -105,6 +108,20 @@ describe("ImageInspector", () => {
 
     expect(
       screen.queryByRole("button", { name: "复用参数" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lets lineage entries request locating their canvas image", () => {
+    const onLocateImageRecord = vi.fn();
+    renderInspector({ onLocateImageRecord });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /定位到图片：.*第二版结构细化/ }),
+    );
+
+    expect(onLocateImageRecord).toHaveBeenCalledWith("file-2");
+    expect(
+      screen.queryByRole("button", { name: /当前图片/ }),
     ).not.toBeInTheDocument();
   });
 

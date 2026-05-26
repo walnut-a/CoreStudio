@@ -14,6 +14,7 @@ import {
   buildSelectionReferenceSummary,
   buildSelectionReference,
   extractReferenceTextNotes,
+  getSelectionReferenceSignature,
   getSelectedReferenceElements,
 } from "./selectionReference";
 
@@ -88,19 +89,10 @@ describe("selectionReference", () => {
     ).toEqual(["保留外轮廓", "把按键做薄"]);
   });
 
-  it("describes selected reference items in canvas reading order", () => {
+  it("describes selected reference items in selection order", () => {
     const imageDataUrl = "data:image/png;base64,cmlnaHQtaW1hZ2U=";
     const reference = buildSelectionReferenceSummary({
       elements: [
-        {
-          id: "image-right",
-          type: "image",
-          isDeleted: false,
-          groupIds: [],
-          fileId: "file-right",
-          x: 260,
-          y: 20,
-        },
         {
           id: "text-left",
           type: "text",
@@ -109,6 +101,15 @@ describe("selectionReference", () => {
           x: 40,
           y: 10,
           text: "磨砂银色\n低饱和",
+        },
+        {
+          id: "image-right",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+          fileId: "file-right",
+          x: 260,
+          y: 20,
         },
         {
           id: "shape-bottom",
@@ -139,17 +140,17 @@ describe("selectionReference", () => {
 
     expect(reference?.items).toEqual([
       {
-        id: "text-left",
-        index: 1,
-        kind: "text",
-        label: "文本：磨砂银色",
-      },
-      {
         id: "image-right",
-        index: 2,
+        index: 1,
         kind: "image",
         label: "图片",
         thumbnailDataUrl: imageDataUrl,
+      },
+      {
+        id: "text-left",
+        index: 2,
+        kind: "text",
+        label: "文本：磨砂银色",
       },
       {
         id: "shape-bottom",
@@ -158,6 +159,52 @@ describe("selectionReference", () => {
         label: "矩形",
       },
     ]);
+  });
+
+  it("keeps selection order in the reference signature", () => {
+    const scene = {
+      elements: [
+        {
+          id: "image-left",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+        },
+        {
+          id: "image-right",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+        },
+      ],
+      files: {},
+    };
+
+    expect(
+      getSelectionReferenceSignature({
+        ...scene,
+        appState: {
+          ...baseAppState,
+          selectedElementIds: {
+            "image-left": true,
+            "image-right": true,
+          },
+        },
+      } as any),
+    ).toBe("image-left|image-right");
+
+    expect(
+      getSelectionReferenceSignature({
+        ...scene,
+        appState: {
+          ...baseAppState,
+          selectedElementIds: {
+            "image-right": true,
+            "image-left": true,
+          },
+        },
+      } as any),
+    ).toBe("image-right|image-left");
   });
 
   it("builds a PNG reference payload from the current selection", async () => {

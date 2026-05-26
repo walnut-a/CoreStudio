@@ -77,6 +77,26 @@ describe("fitToContent", () => {
     expect(h.state.zoom.value).toBeLessThanOrEqual(0.1);
   });
 
+  it("should zoom out to 1% for very large content", async () => {
+    await render(<Excalidraw />);
+
+    h.state.width = 10;
+    h.state.height = 10;
+
+    const largeElement = API.createElement({
+      width: 1000,
+      height: 1000,
+      x: 0,
+      y: 0,
+    });
+
+    act(() => {
+      h.app.scrollToContent(largeElement, { fitToContent: true });
+    });
+
+    expect(h.state.zoom.value).toBeCloseTo(0.01);
+  });
+
   it("should scroll the viewport to the selected element", async () => {
     await render(<Excalidraw />);
 

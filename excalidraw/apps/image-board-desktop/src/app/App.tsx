@@ -1694,6 +1694,40 @@ const App = () => {
     );
   };
 
+  const handleLocateImageRecord = (fileId: string) => {
+    const api = excalidrawAPIRef.current;
+    if (!api) {
+      return;
+    }
+
+    const targetElement = api
+      .getSceneElementsIncludingDeleted()
+      .find(
+        (element) =>
+          !element.isDeleted &&
+          element.type === "image" &&
+          element.fileId === fileId,
+      );
+
+    if (!targetElement) {
+      return;
+    }
+
+    api.updateScene({
+      appState: {
+        selectedElementIds: {
+          [targetElement.id]: true,
+        },
+        selectedGroupIds: {},
+      },
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+    api.scrollToContent(targetElement, {
+      animate: true,
+      duration: 300,
+    });
+  };
+
   const handleEditorReady = (
     api: ExcalidrawImperativeAPI | null,
     renderNonce: number,
@@ -1993,6 +2027,7 @@ const App = () => {
                 task={selectedTask}
                 onCopyPrompt={handleCopyPrompt}
                 onCopyTaskError={handleCopyTaskError}
+                onLocateImageRecord={handleLocateImageRecord}
               />
             </Excalidraw>
           </div>

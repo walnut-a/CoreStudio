@@ -13,7 +13,7 @@ excalidraw/apps/image-board-desktop/package.json
 当前发布版本：
 
 ```text
-1.1.4
+1.1.5
 ```
 
 ## 本地打包

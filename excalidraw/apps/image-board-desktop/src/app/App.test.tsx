@@ -28,6 +28,8 @@ let triggerExcalidrawPaste:
     ) => Promise<boolean> | boolean)
   | null = null;
 let throwExcalidrawRenderError: Error | null = null;
+let emitExcalidrawChangeAfterEveryRender = false;
+let renderChangeEmissionCount = 0;
 let mockExcalidrawAPI:
   | {
       updateScene: ReturnType<typeof vi.fn>;
@@ -347,6 +349,23 @@ vi.mock("@excalidraw/excalidraw", () => {
           onExcalidrawAPI?.(apiRef.current);
         }
       }, [onExcalidrawAPI]);
+
+      React.useEffect(() => {
+        if (!emitExcalidrawChangeAfterEveryRender) {
+          return;
+        }
+
+        renderChangeEmissionCount += 1;
+        if (renderChangeEmissionCount > 8) {
+          throw new Error("Excalidraw onChange render loop");
+        }
+
+        onChange?.(
+          sceneRef.current.elements,
+          sceneRef.current.appState,
+          sceneRef.current.files,
+        );
+      });
 
       triggerExcalidrawInitialize = () => onInitialize?.(apiRef.current);
       triggerExcalidrawPointerUpdate = (payload) => onPointerUpdate?.(payload);
@@ -681,6 +700,8 @@ afterEach(() => {
   triggerExcalidrawPointerUpdate = null;
   triggerExcalidrawPaste = null;
   throwExcalidrawRenderError = null;
+  emitExcalidrawChangeAfterEveryRender = false;
+  renderChangeEmissionCount = 0;
   mockExcalidrawAPI = null;
   skipExcalidrawApiRegistration = false;
   hoistedExportToBlob.mockClear();
@@ -1922,6 +1943,38 @@ describe("App startup", () => {
     expect(
       screen.getByRole("button", { name: "返回项目列表" }),
     ).toBeInTheDocument();
+  });
+
+  it("does not loop when Excalidraw reports an unchanged scene after opening a recent project", async () => {
+    const openRecentProject = vi.fn().mockResolvedValue(createMockProjectBundle());
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(null),
+      openProject: vi.fn().mockResolvedValue(null),
+      openRecentProject,
+      loadRecentProjects: vi.fn().mockResolvedValue([
+        {
+          projectPath: "/tmp/mock-project",
+          name: "测试项目",
+          lastOpenedAt: "2026-04-16T08:00:00.000Z",
+        },
+      ]),
+    }) as any;
+    emitExcalidrawChangeAfterEveryRender = true;
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "继续最近项目" }));
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    await waitFor(() => expect(renderChangeEmissionCount).toBeGreaterThan(0));
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 25));
+    });
+    expect(renderChangeEmissionCount).toBeLessThanOrEqual(2);
+    expect(
+      screen.queryByRole("heading", { name: "项目界面加载失败" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows visible errors when project menu actions fail after a project is open", async () => {

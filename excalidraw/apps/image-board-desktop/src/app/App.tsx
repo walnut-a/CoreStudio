@@ -330,8 +330,44 @@ const createWorkspaceZoomGateState = (): WorkspaceZoomGateState => ({
   releasedBelowFitZoom: false,
 });
 
+const WORKSPACE_OVERLAY_STATE_EPSILON = 0.001;
+
 const getFiniteNumber = (value: unknown, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
+const areNumbersClose = (left: number, right: number) =>
+  Math.abs(left - right) <= WORKSPACE_OVERLAY_STATE_EPSILON;
+
+const areWorkspaceBoundsEqual = (
+  left: WorkspaceBounds,
+  right: WorkspaceBounds,
+) =>
+  areNumbersClose(left.x, right.x) &&
+  areNumbersClose(left.y, right.y) &&
+  areNumbersClose(left.width, right.width) &&
+  areNumbersClose(left.height, right.height);
+
+const areWorkspaceOverlayStatesEqual = (
+  left: WorkspaceOverlayState | null,
+  right: WorkspaceOverlayState | null,
+) => {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    areWorkspaceBoundsEqual(left.bounds, right.bounds) &&
+    areNumbersClose(left.scrollX, right.scrollX) &&
+    areNumbersClose(left.scrollY, right.scrollY) &&
+    areNumbersClose(left.zoomValue, right.zoomValue) &&
+    areNumbersClose(left.offsetLeft, right.offsetLeft) &&
+    areNumbersClose(left.offsetTop, right.offsetTop)
+  );
+};
 
 const getViewportCenterFromAppState = (
   appState: Pick<AppState, "width" | "height" | "scrollX" | "scrollY">,
@@ -666,7 +702,11 @@ const App = () => {
     appState: AppState,
   ) => {
     const overlayState = buildWorkspaceOverlayState(elements, appState);
-    setWorkspaceOverlayState(overlayState);
+    setWorkspaceOverlayState((current) =>
+      areWorkspaceOverlayStatesEqual(current, overlayState)
+        ? current
+        : overlayState,
+    );
     return overlayState?.bounds ?? null;
   };
 

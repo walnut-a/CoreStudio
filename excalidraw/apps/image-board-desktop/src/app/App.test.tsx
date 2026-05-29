@@ -5,6 +5,11 @@ import { newFrameElement } from "@excalidraw/element";
 
 import App from "./App";
 import { rememberGenerationModelSelection } from "./generationModelSelection";
+import {
+  DEFAULT_WORKSPACE_HEIGHT,
+  DEFAULT_WORKSPACE_WIDTH,
+  getWorkspaceFitZoom,
+} from "./workspaceBounds";
 
 let triggerExcalidrawInitialize: (() => void) | null = null;
 let triggerExcalidrawChange:
@@ -2384,7 +2389,7 @@ describe("App startup", () => {
           height: 900,
           scrollX: 0,
           scrollY: 0,
-          zoom: { value: 0.2 },
+          zoom: { value: 0.5 },
           selectedElementIds: {},
           selectedGroupIds: {},
         },
@@ -2413,7 +2418,19 @@ describe("App startup", () => {
     const snapCall = mockExcalidrawAPI?.updateScene.mock.calls.find(
       ([scene]) => scene.appState?.zoom,
     );
-    expect(snapCall?.[0].appState?.zoom.value).toBeCloseTo(0.10575);
+    const expectedFitZoom = getWorkspaceFitZoom(
+      {
+        x: -DEFAULT_WORKSPACE_WIDTH / 2,
+        y: -DEFAULT_WORKSPACE_HEIGHT / 2,
+        width: DEFAULT_WORKSPACE_WIDTH,
+        height: DEFAULT_WORKSPACE_HEIGHT,
+      },
+      {
+        width: 1440,
+        height: 900,
+      },
+    );
+    expect(snapCall?.[0].appState?.zoom.value).toBeCloseTo(expectedFitZoom!);
     expect(
       document.querySelector(".image-board-workspace-bounds--fit-pulse"),
     ).toBeTruthy();

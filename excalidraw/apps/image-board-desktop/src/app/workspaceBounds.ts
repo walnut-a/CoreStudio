@@ -17,9 +17,9 @@ export interface WorkspaceBoundsOptions {
 }
 
 export const ENABLE_WORKSPACE_BOUNDS = true;
-export const DEFAULT_WORKSPACE_WIDTH = 12000;
-export const DEFAULT_WORKSPACE_HEIGHT = 8000;
-export const WORKSPACE_BOUNDS_PADDING = 800;
+export const DEFAULT_WORKSPACE_WIDTH = 3600;
+export const DEFAULT_WORKSPACE_HEIGHT = 2400;
+export const WORKSPACE_BOUNDS_PADDING = 360;
 export const WORKSPACE_FIT_ZOOM_VIEWPORT_MARGIN = 0.94;
 export const WORKSPACE_ZOOM_GATE_RESET_RATIO = 1.08;
 export const WORKSPACE_ZOOM_GATE_EPSILON = 0.001;

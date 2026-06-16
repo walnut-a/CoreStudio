@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CompositionEvent,
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
@@ -290,10 +291,25 @@ export const InlinePromptEditor = forwardRef<
     const editorRef = useRef<HTMLDivElement | null>(null);
     const [localParts, setLocalParts] = useState(parts);
     const restoreOffsetRef = useRef<number | null>(null);
+    const composingRef = useRef(false);
+    const compositionCommitTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
+      if (composingRef.current) {
+        return;
+      }
+
       setLocalParts(parts);
     }, [parts, resetKey]);
+
+    useEffect(
+      () => () => {
+        if (compositionCommitTimerRef.current !== null) {
+          window.clearTimeout(compositionCommitTimerRef.current);
+        }
+      },
+      [],
+    );
 
     useLayoutEffect(() => {
       restoreCaretOffset(editorRef.current, restoreOffsetRef.current);
@@ -308,11 +324,44 @@ export const InlinePromptEditor = forwardRef<
     );
 
     const commitDomChange = () => {
+      if (composingRef.current) {
+        return;
+      }
+
       const caretOffset = getCaretOffset(editorRef.current);
       const nextParts = readEditorParts(editorRef.current);
       restoreOffsetRef.current = caretOffset;
       setLocalParts(nextParts);
       onChange(nextParts);
+    };
+
+    const clearScheduledCompositionCommit = () => {
+      if (compositionCommitTimerRef.current === null) {
+        return;
+      }
+
+      window.clearTimeout(compositionCommitTimerRef.current);
+      compositionCommitTimerRef.current = null;
+    };
+
+    const handleInput = () => {
+      clearScheduledCompositionCommit();
+      commitDomChange();
+    };
+
+    const handleCompositionStart = (
+      _event: CompositionEvent<HTMLDivElement>,
+    ) => {
+      clearScheduledCompositionCommit();
+      composingRef.current = true;
+    };
+
+    const handleCompositionEnd = (_event: CompositionEvent<HTMLDivElement>) => {
+      composingRef.current = false;
+      compositionCommitTimerRef.current = window.setTimeout(() => {
+        compositionCommitTimerRef.current = null;
+        commitDomChange();
+      }, 0);
     };
 
     useImperativeHandle(ref, () => ({
@@ -357,7 +406,9 @@ export const InlinePromptEditor = forwardRef<
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        onInput={commitDomChange}
+        onInput={handleInput}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         onFocus={onFocusIntent}
         onMouseDown={onMouseDown}
         onKeyPressCapture={onKeyPressCapture}

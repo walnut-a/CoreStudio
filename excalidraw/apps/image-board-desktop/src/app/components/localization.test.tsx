@@ -735,6 +735,52 @@ describe("Chinese localization", () => {
     );
   });
 
+  it("keeps IME composition text local until the input method commits it", async () => {
+    const onRequestChange = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+
+    fireEvent.compositionStart(promptInput);
+    promptInput.textContent = "阿西达";
+    fireEvent.input(promptInput);
+
+    expect(onRequestChange).not.toHaveBeenCalled();
+
+    fireEvent.compositionEnd(promptInput);
+
+    await waitFor(() =>
+      expect(onRequestChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: "阿西达",
+          promptParts: [{ type: "text", text: "阿西达" }],
+        }),
+      ),
+    );
+  });
+
   it("keeps API key settings folded inside the generation settings panel", async () => {
     const onSaveProviderSettings = vi.fn(async () => providerSettings);
 

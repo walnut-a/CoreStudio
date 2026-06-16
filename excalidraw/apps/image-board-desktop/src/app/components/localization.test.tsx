@@ -373,25 +373,18 @@ describe("Chinese localization", () => {
     expect(document.querySelector(".generate-panel")).not.toBeNull();
     expect(document.querySelector(".generate-panel--compact")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "关闭" })).toBeNull();
-    expect(
-      screen.getByPlaceholderText("描述你想生成的内容"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("提示词")).toHaveAttribute(
+      "data-placeholder",
+      "描述你想生成的内容",
+    );
     expect(screen.getByLabelText("提示词")).not.toHaveAttribute("wrap");
     expect(screen.queryByText("已引用：3")).toBeNull();
-    expect(screen.getByText("1")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getAllByText("图片")).toHaveLength(2);
+    expect(screen.getByText("+")).toBeInTheDocument();
+    expect(screen.getAllByText("图片")).toHaveLength(1);
     expect(
-      screen.getByRole("img", { name: "参考 1 缩略图" }),
+      screen.getByRole("img", { name: "待确认参考图缩略图" }),
     ).toHaveAttribute("src", colorReferenceThumbnail);
-    expect(
-      screen.getByRole("img", { name: "参考 2 缩略图" }),
-    ).toHaveAttribute("src", shapeReferenceThumbnail);
-    expect(screen.getByText("文本：保留把手比例")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "移除引用" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "移除引用" })).toBeNull();
     expect(screen.queryByText("宽度")).not.toBeInTheDocument();
     expect(screen.queryByText("参考信息")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "展开输入框" })).toBeNull();
@@ -602,7 +595,7 @@ describe("Chinese localization", () => {
     expect(onDeletePrompt).toHaveBeenCalledWith("prompt-color");
   });
 
-  it("removes the compact reference when clicking the close control", () => {
+  it("renders selected references as a pending inline chip", () => {
     const onSubmit = vi.fn();
     render(
       <GenerateImageDialog
@@ -638,14 +631,105 @@ describe("Chinese localization", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "移除引用" }));
-
     expect(screen.queryByText("已引用：2")).toBeNull();
+    expect(screen.queryByRole("button", { name: "移除引用" })).toBeNull();
+    expect(screen.getByText("+")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reference: expect.objectContaining({
+          enabled: true,
+          textNotes: ["保留把手比例"],
+        }),
+      }),
+      false,
+    );
+  });
+
+  it("confirms a pending reference into the inline prompt on focus", async () => {
+    const onSubmit = vi.fn();
+    const onReferenceRemove = vi.fn();
+    const onReferenceCommit = vi.fn(async () => ({
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      items: [
+        {
+          id: "image-1",
+          index: 1,
+          kind: "image" as const,
+          label: "图片",
+          thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+        },
+      ],
+      image: {
+        mimeType: "image/png",
+        dataBase64: Buffer.from("confirmed").toString("base64"),
+      },
+    }));
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "参考这张",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "image-1",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onReferenceRemove={onReferenceRemove}
+        onReferenceCommit={onReferenceCommit}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+    expect(screen.getByText("+")).toBeInTheDocument();
+
+    fireEvent.focus(promptInput);
+
+    await waitFor(() => expect(onReferenceCommit).toHaveBeenCalledTimes(1));
+    expect(onReferenceRemove).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("+")).toBeNull();
+    expect(screen.getByText("1")).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         reference: null,
+        promptReferences: [
+          expect.objectContaining({
+            label: "图片",
+            image: {
+              mimeType: "image/png",
+              dataBase64: Buffer.from("confirmed").toString("base64"),
+            },
+          }),
+        ],
       }),
       false,
     );
@@ -919,10 +1003,7 @@ describe("Chinese localization", () => {
 
     fireEvent(promptInput, keydown);
 
-    expect((promptInput as HTMLTextAreaElement).selectionStart).toBe(0);
-    expect((promptInput as HTMLTextAreaElement).selectionEnd).toBe(
-      "工业设计草图提示词".length,
-    );
+    expect(window.getSelection()?.toString()).toBe("工业设计草图提示词");
     expect(keydown.preventDefault).toHaveBeenCalledTimes(1);
     expect(keydown.stopPropagation).toHaveBeenCalledTimes(1);
   });
@@ -962,7 +1043,7 @@ describe("Chinese localization", () => {
       }),
       false,
     );
-    expect(compactPrompt).toHaveValue("");
+    expect(compactPrompt).toHaveTextContent("");
   });
 
   it("does not bubble Enter from the main prompt editor", () => {
@@ -1003,7 +1084,7 @@ describe("Chinese localization", () => {
       false,
     );
     expect(documentListener).not.toHaveBeenCalled();
-    expect(promptInput).toHaveValue("");
+    expect(promptInput).toHaveTextContent("");
 
     document.removeEventListener("keydown", documentListener);
   });
@@ -1077,7 +1158,7 @@ describe("Chinese localization", () => {
       }),
       false,
     );
-    expect(screen.getByLabelText("提示词")).toHaveValue("");
+    expect(screen.getByLabelText("提示词")).toHaveTextContent("");
   });
 
   it("keeps multiline editing inside the main prompt", () => {
@@ -1107,7 +1188,7 @@ describe("Chinese localization", () => {
     );
 
     const promptInput = screen.getByLabelText("提示词");
-    expect(promptInput).toHaveValue(
+    expect(promptInput).toHaveTextContent(
       "一台桌面级五轴CNC机器，精致、小型化，很简约，没有多余的按钮，像是苹果发布的设备，同时拥有工业质感。",
     );
     fireEvent.keyDown(promptInput, { key: "Enter", shiftKey: true });

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { generateOpenAIImages } from "./openai";
+
 const fetchMock = vi.fn();
 
 vi.mock("electron", () => ({
@@ -15,8 +17,6 @@ vi.mock("electron", () => ({
 }));
 
 vi.stubGlobal("fetch", fetchMock);
-
-import { generateOpenAIImages } from "./openai";
 
 describe("generateOpenAIImages", () => {
   beforeEach(() => {
@@ -160,5 +160,68 @@ describe("generateOpenAIImages", () => {
     expect(body.get("size")).toBe("1024x1536");
     expect(body.get("output_format")).toBe("png");
     expect(body.get("image")).toBeInstanceOf(Blob);
+  });
+
+  it("sends inline prompt references as image[] in prompt order", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            b64_json: Buffer.from("openai multi edit image").toString("base64"),
+          },
+        ],
+      }),
+    });
+
+    await generateOpenAIImages({
+      apiKey: "openai-key",
+      request: {
+        provider: "openai",
+        model: "gpt-image-2",
+        prompt: "结构看 ，材质看 ",
+        promptParts: [
+          { type: "text", text: "结构看 " },
+          { type: "reference", referenceId: "shape-ref" },
+          { type: "text", text: "，材质看 " },
+          { type: "reference", referenceId: "material-ref" },
+        ],
+        promptReferences: [
+          {
+            id: "material-ref",
+            label: "图片",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/png",
+              dataBase64: Buffer.from("material").toString("base64"),
+            },
+          },
+          {
+            id: "shape-ref",
+            label: "图片",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/png",
+              dataBase64: Buffer.from("shape").toString("base64"),
+            },
+          },
+        ],
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const body = requestInit.body as FormData;
+    expect(body.get("prompt")).toBe("结构看 参考图 1，材质看 参考图 2");
+    expect(body.get("image")).toBeNull();
+    expect(body.getAll("image[]")).toHaveLength(2);
+    expect(body.getAll("image[]")[0]).toBeInstanceOf(Blob);
+    expect(body.getAll("image[]")[1]).toBeInstanceOf(Blob);
   });
 });

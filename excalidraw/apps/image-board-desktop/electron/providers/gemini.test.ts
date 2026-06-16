@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { generateGeminiImages } from "./gemini";
+
 const { createFromBuffer, generateContent, generateImages } = vi.hoisted(() => {
   const generateContent = vi.fn();
   const generateImages = vi.fn();
@@ -32,8 +34,6 @@ vi.mock("@google/genai", () => ({
     },
   })),
 }));
-
-import { generateGeminiImages } from "./gemini";
 
 describe("generateGeminiImages", () => {
   beforeEach(() => {
@@ -195,6 +195,90 @@ describe("generateGeminiImages", () => {
         },
       },
     });
+  });
+
+  it("sends inline prompt references as interleaved Gemini content parts", async () => {
+    generateContent.mockResolvedValue({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: Buffer.from("native image").toString("base64"),
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    await generateGeminiImages({
+      apiKey: "test-key",
+      request: {
+        provider: "gemini",
+        model: "gemini-2.5-flash-image",
+        prompt: "结构看 ，材质看 ",
+        promptParts: [
+          { type: "text", text: "结构看 " },
+          { type: "reference", referenceId: "shape-ref" },
+          { type: "text", text: "，材质看 " },
+          { type: "reference", referenceId: "material-ref" },
+        ],
+        promptReferences: [
+          {
+            id: "material-ref",
+            label: "图片",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/png",
+              dataBase64: Buffer.from("material").toString("base64"),
+            },
+          },
+          {
+            id: "shape-ref",
+            label: "图片",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/png",
+              dataBase64: Buffer.from("shape").toString("base64"),
+            },
+          },
+        ],
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    expect(generateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [
+          { text: "结构看 " },
+          { text: "参考图 1：图片" },
+          {
+            inlineData: {
+              mimeType: "image/png",
+              data: Buffer.from("shape").toString("base64"),
+            },
+          },
+          { text: "，材质看 " },
+          { text: "参考图 2：图片" },
+          {
+            inlineData: {
+              mimeType: "image/png",
+              data: Buffer.from("material").toString("base64"),
+            },
+          },
+        ],
+      }),
+    );
   });
 
   it("re-encodes generated reference images before upload", async () => {

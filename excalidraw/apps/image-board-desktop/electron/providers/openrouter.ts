@@ -3,14 +3,9 @@ import {
   getProviderRequestAdapter,
   getRequestAspectRatioOption,
 } from "../../src/shared/providerCatalog";
-import type {
-  CustomProviderModel,
-  GenerationRequest,
-  GenerationResponse,
-  ProviderRequestAdapter,
-} from "../../src/shared/providerTypes";
 
 import { writeGenerationLog } from "../generationLogs";
+
 import {
   appendRequestSummaryToError,
   buildImagePayload,
@@ -20,8 +15,16 @@ import {
 import {
   buildPromptWithReferenceNotes,
   getEnabledReference,
+  getEnabledPromptReferences,
   toDataUri,
 } from "./promptUtils";
+
+import type {
+  CustomProviderModel,
+  GenerationRequest,
+  GenerationResponse,
+  ProviderRequestAdapter,
+} from "../../src/shared/providerTypes";
 
 const OPENROUTER_CHAT_COMPLETIONS_URL =
   "https://openrouter.ai/api/v1/chat/completions";
@@ -119,15 +122,15 @@ const imageFromUrl = async (url: string, index: number) => {
 
 const buildMessageContent = ({
   prompt,
-  image,
+  images,
 }: {
   prompt: string;
-  image: {
+  images: Array<{
     mimeType: string;
     dataBase64: string;
-  } | null;
+  }>;
 }) => {
-  if (!image) {
+  if (!images.length) {
     return prompt;
   }
 
@@ -136,12 +139,12 @@ const buildMessageContent = ({
       type: "text",
       text: prompt,
     },
-    {
+    ...images.map((image) => ({
       type: "image_url",
       image_url: {
         url: toDataUri(image.mimeType, image.dataBase64),
       },
-    },
+    })),
   ];
 };
 
@@ -152,6 +155,7 @@ const buildRequestSummary = ({
   aspectRatio,
   imageSize,
   hasReferenceImage,
+  referenceImageCount,
 }: {
   request: GenerationRequest;
   prompt: string;
@@ -159,6 +163,7 @@ const buildRequestSummary = ({
   aspectRatio: string | null;
   imageSize: string | null;
   hasReferenceImage: boolean;
+  referenceImageCount: number;
 }) =>
   [
     "provider=openrouter",
@@ -169,21 +174,22 @@ const buildRequestSummary = ({
     `prompt长度=${prompt.length}`,
     `prompt预览=${truncateText(prompt || "空", 80)}`,
     `引用=${hasReferenceImage ? "已启用" : "未启用"}`,
+    `引用图片=${referenceImageCount}`,
   ].join(" ");
 
 const buildLoggedRequestPayload = ({
   adapter,
   requestBody,
-  image,
+  images,
 }: {
   adapter: ProviderRequestAdapter;
   requestBody: Record<string, unknown>;
-  image: {
+  images: Array<{
     mimeType: string;
     dataBase64: string;
-  } | null;
+  }>;
 }) => {
-  if (!image) {
+  if (!images.length) {
     return JSON.stringify(
       {
         url: OPENROUTER_CHAT_COMPLETIONS_URL,
@@ -209,17 +215,18 @@ const buildLoggedRequestPayload = ({
                 type: "text",
                 text: "见 prompt 字段",
               },
-              {
+              ...images.map((image, index) => ({
                 type: "image_url",
                 image_url: {
                   kind: "data-uri",
+                  index: index + 1,
                   mimeType: image.mimeType,
                   byteLength: Buffer.from(image.dataBase64, "base64")
                     .byteLength,
                   base64Prefix: image.dataBase64.slice(0, 96),
                   base64Suffix: image.dataBase64.slice(-32),
                 },
-              },
+              })),
             ],
           },
         ],
@@ -292,7 +299,16 @@ export const generateOpenRouterImages = async ({
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
   const reference = getEnabledReference(request);
-  const uploadReferenceImage = prepareReferenceImageForUpload(reference);
+  const promptReferences = getEnabledPromptReferences(request);
+  const uploadReferenceImages = promptReferences.length
+    ? promptReferences
+        .map((promptReference) =>
+          prepareReferenceImageForUpload(promptReference),
+        )
+        .filter((image): image is NonNullable<typeof image> => Boolean(image))
+    : [prepareReferenceImageForUpload(reference)].filter(
+        (image): image is NonNullable<typeof image> => Boolean(image),
+      );
   const aspectRatio = toOpenRouterAspectRatio(request, customModels);
   const imageSize = aspectRatio ? toOpenRouterImageSize(request) : null;
   const requestBody = {
@@ -302,7 +318,7 @@ export const generateOpenRouterImages = async ({
         role: "user",
         content: buildMessageContent({
           prompt,
-          image: uploadReferenceImage,
+          images: uploadReferenceImages,
         }),
       },
     ],
@@ -323,12 +339,13 @@ export const generateOpenRouterImages = async ({
     adapter,
     aspectRatio,
     imageSize,
-    hasReferenceImage: Boolean(uploadReferenceImage),
+    hasReferenceImage: Boolean(uploadReferenceImages.length),
+    referenceImageCount: uploadReferenceImages.length,
   });
   const requestPayload = buildLoggedRequestPayload({
     adapter,
     requestBody,
-    image: uploadReferenceImage,
+    images: uploadReferenceImages,
   });
 
   try {

@@ -1,5 +1,8 @@
 import { normalizeGenerationRequest } from "../shared/providerCatalog";
+
 import type {
+  GenerationPromptPart,
+  GenerationPromptReferencePayload,
   GenerationReferenceItemPayload,
   GenerationReferencePayload,
   GenerationRequest,
@@ -63,6 +66,51 @@ const isSameReferenceItems = (
   });
 };
 
+const isSamePromptParts = (
+  left: GenerationPromptPart[] | undefined,
+  right: GenerationPromptPart[] | undefined,
+) => {
+  const nextLeft = left ?? [];
+  const nextRight = right ?? [];
+  if (nextLeft.length !== nextRight.length) {
+    return false;
+  }
+
+  return nextLeft.every((leftPart, index) => {
+    const rightPart = nextRight[index];
+    if (leftPart.type !== rightPart?.type) {
+      return false;
+    }
+    return leftPart.type === "text"
+      ? leftPart.text === (rightPart as typeof leftPart).text
+      : leftPart.referenceId === (rightPart as typeof leftPart).referenceId;
+  });
+};
+
+const isSamePromptReferences = (
+  left: GenerationPromptReferencePayload[] | undefined,
+  right: GenerationPromptReferencePayload[] | undefined,
+) => {
+  const nextLeft = left ?? [];
+  const nextRight = right ?? [];
+  if (nextLeft.length !== nextRight.length) {
+    return false;
+  }
+
+  return nextLeft.every((leftReference, index) => {
+    const rightReference = nextRight[index];
+    if (!rightReference) {
+      return false;
+    }
+    return (
+      leftReference.id === rightReference.id &&
+      leftReference.label === rightReference.label &&
+      leftReference.thumbnailDataUrl === rightReference.thumbnailDataUrl &&
+      isSameReferencePayload(leftReference, rightReference)
+    );
+  });
+};
+
 const isSameGenerationRequest = (
   left: GenerationRequest,
   right: GenerationRequest,
@@ -71,6 +119,8 @@ const isSameGenerationRequest = (
     left.provider === right.provider &&
     left.model === right.model &&
     left.prompt === right.prompt &&
+    isSamePromptParts(left.promptParts, right.promptParts) &&
+    isSamePromptReferences(left.promptReferences, right.promptReferences) &&
     (left.negativePrompt ?? "") === (right.negativePrompt ?? "") &&
     (left.aspectRatio ?? undefined) === (right.aspectRatio ?? undefined) &&
     left.width === right.width &&

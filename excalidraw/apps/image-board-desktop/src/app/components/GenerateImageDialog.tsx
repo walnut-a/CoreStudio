@@ -28,17 +28,21 @@ import {
   copy,
   getCustomModelPlaceholder,
   getProviderStatusLabel,
-  getReferenceInlineStatusText,
 } from "../copy";
+
+import { toDataUri } from "../../shared/promptReferences";
 
 import { DesktopButton } from "./DesktopButton";
 import {
   chevronDownIcon,
   promptLibraryIcon,
-  removeReferenceIcon,
   sendIcon,
   settingsSlidersIcon,
 } from "./CoreStudioIcons";
+import {
+  InlinePromptEditor,
+  type InlinePromptEditorHandle,
+} from "./InlinePromptEditor";
 
 import type {
   PublicProviderSettings,
@@ -49,16 +53,57 @@ import type {
 import type {
   CustomProviderModel,
   CustomModelCapabilityTemplateId,
-  GenerationReferenceItemPayload,
+  GenerationPromptPart,
+  GenerationPromptReferencePayload,
+  GenerationReferencePayload,
   GenerationRequest,
   ProviderCapabilities,
   ProviderId,
   ProviderRequestAdapter,
 } from "../../shared/providerTypes";
 
-const COMPACT_PROMPT_MIN_HEIGHT = 32;
-const COMPACT_PROMPT_MAX_HEIGHT = 76;
 const PROMPT_LIBRARY_TITLE_MAX_LENGTH = 24;
+
+const partsToPlainPrompt = (parts: readonly GenerationPromptPart[]) =>
+  parts
+    .filter(
+      (part): part is Extract<GenerationPromptPart, { type: "text" }> =>
+        part.type === "text",
+    )
+    .map((part) => part.text)
+    .join("");
+
+const getInitialPromptParts = (
+  request: GenerationRequest,
+): GenerationPromptPart[] =>
+  request.promptParts?.length
+    ? request.promptParts
+    : request.prompt
+    ? [{ type: "text", text: request.prompt }]
+    : [];
+
+const createPromptReferenceId = () =>
+  `prompt-reference-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const getPromptReferenceLabel = (reference: GenerationReferencePayload) => {
+  const items = reference.items || [];
+  if (items.length === 1 && items[0]?.kind === "image") {
+    return "图片";
+  }
+  return "标注图";
+};
+
+const getPromptReferenceThumbnail = (reference: GenerationReferencePayload) => {
+  const thumbnail = reference.items?.find(
+    (item) => item.thumbnailDataUrl,
+  )?.thumbnailDataUrl;
+  if (thumbnail) {
+    return thumbnail;
+  }
+  return reference.image
+    ? toDataUri(reference.image.mimeType, reference.image.dataBase64)
+    : undefined;
+};
 
 const createSavedPromptTitle = (content: string) => {
   const firstLine = content
@@ -75,25 +120,54 @@ const stripReferenceItemThumbnails = (
   request: GenerationRequest,
 ): GenerationRequest => {
   const reference = request.reference;
-  if (!reference?.items?.some((item) => item.thumbnailDataUrl)) {
+  const hasLegacyThumbnails = reference?.items?.some(
+    (item) => item.thumbnailDataUrl,
+  );
+  const hasPromptReferenceThumbnails = request.promptReferences?.some(
+    (promptReference) =>
+      promptReference.thumbnailDataUrl ||
+      promptReference.items?.some((item) => item.thumbnailDataUrl),
+  );
+  if (!hasLegacyThumbnails && !hasPromptReferenceThumbnails) {
     return request;
   }
 
-  const items: GenerationReferenceItemPayload[] = reference.items.map(
-    ({ id, index, kind, label }) => ({
-      id,
-      index,
-      kind,
-      label,
-    }),
-  );
+  const items = reference?.items?.map(({ id, index, kind, label }) => ({
+    id,
+    index,
+    kind,
+    label,
+  }));
 
   return {
     ...request,
-    reference: {
-      ...reference,
-      items,
-    },
+    ...(reference
+      ? {
+          reference: {
+            ...reference,
+            items,
+          },
+        }
+      : {}),
+    promptReferences: request.promptReferences?.map(
+      ({
+        thumbnailDataUrl: _thumbnailDataUrl,
+        items: promptItems,
+        ...promptReference
+      }) => ({
+        ...promptReference,
+        ...(promptItems
+          ? {
+              items: promptItems.map(({ id, index, kind, label }) => ({
+                id,
+                index,
+                kind,
+                label,
+              })),
+            }
+          : {}),
+      }),
+    ),
   };
 };
 
@@ -119,6 +193,7 @@ interface GenerateImageDialogProps {
     model: string;
   }) => void;
   onReferenceRemove?: () => void;
+  onReferenceCommit?: () => Promise<GenerationReferencePayload | null>;
   savedPrompts?: SavedPrompt[];
   onSavePrompt?: (input: SavePromptInput) => void | Promise<void>;
   onUsePrompt?: (id: string) => void | Promise<void>;
@@ -144,6 +219,7 @@ export const GenerateImageDialog = ({
   onRequestChange,
   onModelSelectionChange,
   onReferenceRemove,
+  onReferenceCommit,
   savedPrompts = [],
   onSavePrompt,
   onUsePrompt,
@@ -184,8 +260,16 @@ export const GenerateImageDialog = ({
   const [promptLibraryOpen, setPromptLibraryOpen] = useState(false);
   const [promptLibrarySearch, setPromptLibrarySearch] = useState("");
   const panelRef = useRef<HTMLElement | null>(null);
-  const promptRef = useRef<HTMLTextAreaElement | null>(null);
+  const promptEditorRef = useRef<InlinePromptEditorHandle | null>(null);
   const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
+  const promptReferencesRef = useRef<GenerationPromptReferencePayload[]>(
+    initialRequest.promptReferences || [],
+  );
+  const committingReferenceRef = useRef(false);
+  const [promptEditorParts, setPromptEditorParts] = useState<
+    GenerationPromptPart[]
+  >(() => getInitialPromptParts(initialRequest));
+  const [promptEditorResetKey, setPromptEditorResetKey] = useState(0);
   const currentProviderSettings = providerSettings?.[request.provider];
   const currentProviderCustomModels =
     currentProviderSettings?.customModels ?? [];
@@ -197,6 +281,9 @@ export const GenerateImageDialog = ({
         [],
     });
     requestRef.current = nextRequest;
+    promptReferencesRef.current = nextRequest.promptReferences || [];
+    setPromptEditorParts(getInitialPromptParts(nextRequest));
+    setPromptEditorResetKey((current) => current + 1);
     setRequest(nextRequest);
   }, [initialRequest, open]);
 
@@ -237,8 +324,6 @@ export const GenerateImageDialog = ({
 
   const isConfigured =
     providerSettings?.[request.provider]?.isConfigured ?? false;
-  const hasReferenceSelection = Boolean(request.reference?.elementCount);
-
   useEffect(() => {
     if (!open) {
       return;
@@ -254,7 +339,7 @@ export const GenerateImageDialog = ({
       return;
     }
 
-    promptRef.current?.focus();
+    promptEditorRef.current?.focus();
   }, [focusToken, open]);
 
   useEffect(() => {
@@ -273,19 +358,6 @@ export const GenerateImageDialog = ({
 
     apiKeyInputRef.current?.focus();
   }, [apiSettingsOpen]);
-
-  useEffect(() => {
-    if (!open || !promptRef.current) {
-      return;
-    }
-
-    const textarea = promptRef.current;
-    textarea.style.height = "0px";
-    textarea.style.height = `${Math.min(
-      Math.max(textarea.scrollHeight, COMPACT_PROMPT_MIN_HEIGHT),
-      COMPACT_PROMPT_MAX_HEIGHT,
-    )}px`;
-  }, [open, request.prompt]);
 
   useEffect(() => {
     if (!open) {
@@ -356,20 +428,19 @@ export const GenerateImageDialog = ({
       ? ASPECT_RATIO_AUTO_ID
       : getRequestAspectRatioOption(request, aspectRatioOptions)?.id ??
         ASPECT_RATIO_AUTO_ID;
-  const referenceEnabled = request.reference?.enabled ?? false;
-  const canSubmit = Boolean(request.prompt.trim() && isConfigured);
+  const promptReferenceCount = request.promptReferences?.length ?? 0;
+  const canSubmit = Boolean(
+    (request.prompt.trim() ||
+      promptReferenceCount ||
+      request.reference?.enabled) &&
+      isConfigured,
+  );
   const showBody = advancedOpen;
-  const referenceItems = request.reference?.items ?? [];
-  const referenceStatusText = hasReferenceSelection
-    ? getReferenceInlineStatusText(
-        referenceEnabled,
-        request.reference!.elementCount,
-      )
-    : null;
-  const hasReferenceStatus = Boolean(referenceStatusText);
   const selectedCustomModelUsage =
     CUSTOM_MODEL_USAGE_PRESETS[customModelTemplate];
-  const normalizedPromptLibrarySearch = promptLibrarySearch.trim().toLowerCase();
+  const normalizedPromptLibrarySearch = promptLibrarySearch
+    .trim()
+    .toLowerCase();
   const visibleSavedPrompts = normalizedPromptLibrarySearch
     ? savedPrompts.filter((prompt) =>
         [prompt.title, prompt.content, ...prompt.tags]
@@ -388,6 +459,7 @@ export const GenerateImageDialog = ({
       customModels,
     });
     requestRef.current = normalizedRequest;
+    promptReferencesRef.current = normalizedRequest.promptReferences || [];
     setRequest(normalizedRequest);
     onRequestChange?.(normalizedRequest);
     return normalizedRequest;
@@ -459,10 +531,82 @@ export const GenerateImageDialog = ({
   };
 
   const updatePrompt = (prompt: string) => {
+    const nextParts = prompt ? [{ type: "text" as const, text: prompt }] : [];
+    promptReferencesRef.current = [];
+    setPromptEditorParts(nextParts);
+    setPromptEditorResetKey((current) => current + 1);
     updateRequest((current) => ({
       ...current,
       prompt,
+      promptParts: nextParts,
+      promptReferences: [],
     }));
+  };
+
+  const updatePromptParts = (parts: GenerationPromptPart[]) => {
+    const referencedIds = new Set(
+      parts
+        .filter(
+          (
+            part,
+          ): part is Extract<GenerationPromptPart, { type: "reference" }> =>
+            part.type === "reference",
+        )
+        .map((part) => part.referenceId),
+    );
+    const nextReferences = promptReferencesRef.current.filter((reference) =>
+      referencedIds.has(reference.id),
+    );
+    promptReferencesRef.current = nextReferences;
+    updateRequest((current) => ({
+      ...current,
+      prompt: partsToPlainPrompt(parts),
+      promptParts: parts,
+      promptReferences: nextReferences,
+    }));
+  };
+
+  const commitPendingReference = async () => {
+    if (
+      committingReferenceRef.current ||
+      !requestRef.current.reference?.enabled ||
+      !onReferenceCommit
+    ) {
+      return;
+    }
+
+    committingReferenceRef.current = true;
+    try {
+      const reference = await onReferenceCommit();
+      if (!reference?.image) {
+        return;
+      }
+
+      const promptReference: GenerationPromptReferencePayload = {
+        ...reference,
+        id: createPromptReferenceId(),
+        label: getPromptReferenceLabel(reference),
+        thumbnailDataUrl: getPromptReferenceThumbnail(reference),
+      };
+      const nextReferences = [...promptReferencesRef.current, promptReference];
+      promptReferencesRef.current = nextReferences;
+      const nextParts = promptEditorRef.current?.insertReference(
+        promptReference.id,
+      ) || [
+        ...promptEditorParts,
+        { type: "reference" as const, referenceId: promptReference.id },
+      ];
+      updateRequest((current) => ({
+        ...current,
+        reference: null,
+        prompt: partsToPlainPrompt(nextParts),
+        promptParts: nextParts,
+        promptReferences: nextReferences,
+      }));
+      onReferenceRemove?.();
+    } finally {
+      committingReferenceRef.current = false;
+    }
   };
 
   const saveCurrentPrompt = () => {
@@ -492,12 +636,24 @@ export const GenerateImageDialog = ({
     void onUsePrompt?.(prompt.id);
   };
 
-  const removeReference = () => {
+  const submitPreparedRequest = (nextRequest: GenerationRequest) => {
+    onSubmit(
+      stripReferenceItemThumbnails(
+        normalizeGenerationRequest(nextRequest, {
+          customModels: currentProviderCustomModels,
+        }),
+      ),
+      false,
+    );
+    promptReferencesRef.current = [];
+    setPromptEditorParts([]);
+    setPromptEditorResetKey((current) => current + 1);
     updateRequest((current) => ({
       ...current,
-      reference: null,
+      prompt: "",
+      promptParts: [],
+      promptReferences: [],
     }));
-    onReferenceRemove?.();
   };
 
   const submitRequest = () => {
@@ -505,25 +661,19 @@ export const GenerateImageDialog = ({
       return;
     }
 
-    onSubmit(
-      stripReferenceItemThumbnails(
-        normalizeGenerationRequest(request, {
-          customModels: currentProviderCustomModels,
-        }),
-      ),
-      false,
-    );
-    updateRequest((current) => ({
-      ...current,
-      prompt: "",
-    }));
+    if (requestRef.current.reference?.enabled && onReferenceCommit) {
+      void (async () => {
+        await commitPendingReference();
+        submitPreparedRequest(requestRef.current);
+      })();
+      return;
+    }
+
+    submitPreparedRequest(requestRef.current);
   };
 
   const stopInputEventPropagation = (
-    event:
-      | KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>
-      | KeyboardEvent<HTMLButtonElement>
-      | MouseEvent<HTMLElement>,
+    event: KeyboardEvent<HTMLElement> | MouseEvent<HTMLElement>,
   ) => {
     event.stopPropagation();
     if ("nativeEvent" in event) {
@@ -532,13 +682,15 @@ export const GenerateImageDialog = ({
   };
 
   const handleInputKeyPhaseCapture = (
-    event: KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    event: KeyboardEvent<
+      HTMLTextAreaElement | HTMLInputElement | HTMLDivElement
+    >,
   ) => {
     stopInputEventPropagation(event);
   };
 
   const handleComposerPromptKeyDown = (
-    event: KeyboardEvent<HTMLTextAreaElement>,
+    event: KeyboardEvent<HTMLDivElement>,
   ) => {
     stopInputEventPropagation(event);
 
@@ -548,10 +700,11 @@ export const GenerateImageDialog = ({
       event.key.toLowerCase() === "a"
     ) {
       event.preventDefault();
-      event.currentTarget.setSelectionRange(
-        0,
-        event.currentTarget.value.length,
-      );
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(event.currentTarget);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
       return;
     }
 
@@ -564,7 +717,7 @@ export const GenerateImageDialog = ({
     }
 
     event.preventDefault();
-    submitRequest();
+    void submitRequest();
   };
 
   const handleTextInputKeyDown = (
@@ -594,7 +747,7 @@ export const GenerateImageDialog = ({
     }
 
     event.preventDefault();
-    submitRequest();
+    void submitRequest();
   };
 
   const canSaveProviderSettings = Boolean(
@@ -710,44 +863,7 @@ export const GenerateImageDialog = ({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    submitRequest();
-  };
-
-  const renderReferenceItem = (item: GenerationReferenceItemPayload) => {
-    const thumbnailDataUrl =
-      item.kind === "image" ? item.thumbnailDataUrl : undefined;
-
-    return (
-      <span
-        key={item.id}
-        className={[
-          "generate-composer__reference-chip",
-          `generate-composer__reference-chip--${item.kind}`,
-          thumbnailDataUrl
-            ? "generate-composer__reference-chip--with-thumbnail"
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        title={`参考 ${item.index}：${item.label}`}
-      >
-        {thumbnailDataUrl ? (
-          <span className="generate-composer__reference-chip-thumbnail">
-            <img
-              src={thumbnailDataUrl}
-              alt={`参考 ${item.index} 缩略图`}
-              draggable={false}
-            />
-          </span>
-        ) : null}
-        <span className="generate-composer__reference-chip-index">
-          {item.index}
-        </span>
-        <span className="generate-composer__reference-chip-label">
-          {item.label}
-        </span>
-      </span>
-    );
+    void submitRequest();
   };
 
   return (
@@ -763,61 +879,29 @@ export const GenerateImageDialog = ({
         aria-label={copy.generateDialog.title}
       >
         <form className="generate-panel__form" onSubmit={handleSubmit}>
-          <div
-            className={[
-              "generate-composer",
-              hasReferenceStatus ? "generate-composer--with-reference" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
+          <div className={["generate-composer"].filter(Boolean).join(" ")}>
             <div className="generate-composer__field">
-              {referenceStatusText ? (
-                <div
-                  className={[
-                    "generate-composer__reference-line",
-                    referenceEnabled
-                      ? "generate-composer__reference-line--active"
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  aria-label={`引用状态：${referenceStatusText}`}
-                >
-                  {referenceItems.length ? (
-                    <div className="generate-composer__reference-items">
-                      {referenceItems.map(renderReferenceItem)}
-                    </div>
-                  ) : (
-                    <span>{referenceStatusText}</span>
-                  )}
-                  <button
-                    type="button"
-                    className="generate-composer__reference-remove"
-                    aria-label={copy.generateDialog.referenceRemove}
-                    title={copy.generateDialog.referenceRemove}
-                    onMouseDown={stopInputEventPropagation}
-                    onClick={(event) => {
-                      stopInputEventPropagation(event);
-                      removeReference();
-                    }}
-                  >
-                    {removeReferenceIcon}
-                  </button>
-                </div>
-              ) : null}
-              <textarea
-                ref={promptRef}
-                className="generate-composer__prompt"
-                rows={1}
-                aria-label={copy.generateDialog.prompt}
+              <InlinePromptEditor
+                ref={promptEditorRef}
+                ariaLabel={copy.generateDialog.prompt}
                 placeholder={copy.generateDialog.promptPlaceholder}
-                value={request.prompt}
-                onMouseDown={stopInputEventPropagation}
+                parts={promptEditorParts}
+                references={request.promptReferences || []}
+                pendingReference={
+                  request.reference?.enabled ? request.reference : null
+                }
+                resetKey={promptEditorResetKey}
+                onChange={updatePromptParts}
+                onFocusIntent={() => {
+                  void commitPendingReference();
+                }}
+                onMouseDown={(event) => {
+                  stopInputEventPropagation(event);
+                  void commitPendingReference();
+                }}
                 onKeyPressCapture={handleInputKeyPhaseCapture}
                 onKeyUpCapture={handleInputKeyPhaseCapture}
                 onKeyDown={handleComposerPromptKeyDown}
-                onChange={(event) => updatePrompt(event.target.value)}
               />
             </div>
             <div className="generate-composer__controls">

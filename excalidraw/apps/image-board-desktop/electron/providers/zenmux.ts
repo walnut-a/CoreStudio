@@ -5,14 +5,9 @@ import {
   getProviderRequestAdapter,
   getRequestAspectRatioOption,
 } from "../../src/shared/providerCatalog";
-import type {
-  CustomProviderModel,
-  GenerationRequest,
-  GenerationResponse,
-  ProviderRequestAdapter,
-} from "../../src/shared/providerTypes";
 
 import { writeGenerationLog } from "../generationLogs";
+
 import {
   appendRequestSummaryToError,
   buildGenerateContentRequestPayload,
@@ -25,9 +20,18 @@ import {
   toClosestGeminiAspectRatio,
 } from "./providerUtils";
 import {
+  buildGenerateContentPartsWithReferences,
   buildPromptWithReferenceNotes,
   getEnabledReference,
+  getEnabledPromptReferences,
 } from "./promptUtils";
+
+import type {
+  CustomProviderModel,
+  GenerationRequest,
+  GenerationResponse,
+  ProviderRequestAdapter,
+} from "../../src/shared/providerTypes";
 
 const ZENMUX_VERTEX_BASE_URL = "https://zenmux.ai/api/vertex-ai";
 
@@ -173,7 +177,7 @@ const buildZenMuxVertexImageRequestSummary = ({
   adapter,
   aspectRatio,
   size,
-  hasReferenceImage,
+  referenceImageCount,
 }: {
   request: GenerationRequest;
   prompt: string;
@@ -181,7 +185,7 @@ const buildZenMuxVertexImageRequestSummary = ({
   adapter: ProviderRequestAdapter;
   aspectRatio: string | null;
   size: string | null;
-  hasReferenceImage: boolean;
+  referenceImageCount: number;
 }) =>
   [
     "provider=zenmux",
@@ -194,7 +198,8 @@ const buildZenMuxVertexImageRequestSummary = ({
     `size=${size || "自动"}`,
     `prompt长度=${prompt.length}`,
     `prompt预览=${truncateText(prompt || "空", 80)}`,
-    `引用=${hasReferenceImage ? "已启用" : "未启用"}`,
+    `引用=${referenceImageCount ? "已启用" : "未启用"}`,
+    `引用图片=${referenceImageCount}`,
   ].join(" ");
 
 const buildZenMuxVertexImageRequestPayload = ({
@@ -204,7 +209,7 @@ const buildZenMuxVertexImageRequestPayload = ({
   aspectRatio,
   size,
   selectedSize,
-  image,
+  images,
 }: {
   request: GenerationRequest;
   prompt: string;
@@ -215,10 +220,10 @@ const buildZenMuxVertexImageRequestPayload = ({
     width: number;
     height: number;
   } | null;
-  image: {
+  images: Array<{
     mimeType: string;
     dataBase64: string;
-  } | null;
+  }>;
 }) => {
   return JSON.stringify(
     {
@@ -244,12 +249,12 @@ const buildZenMuxVertexImageRequestPayload = ({
         numberOfImages: 1,
         ...(size ? { imageSize: size } : {}),
       },
-      reference: image
-        ? {
+      reference: images.length
+        ? images.map((image, index) => ({
             kind: "RawReferenceImage",
-            referenceId: 1,
+            referenceId: index + 1,
             referenceImage: summarizeBase64Image(image),
-          }
+          }))
         : null,
     },
     null,
@@ -261,31 +266,29 @@ const buildZenMuxVertexPredictBody = ({
   prompt,
   aspectRatio,
   size,
-  image,
+  images,
 }: {
   prompt: string;
   aspectRatio: string | null;
   size: string | null;
-  image: {
+  images: Array<{
     mimeType: string;
     dataBase64: string;
-  } | null;
+  }>;
 }) => ({
   instances: [
     {
       prompt,
-      ...(image
+      ...(images.length
         ? {
-            referenceImages: [
-              {
-                referenceImage: {
-                  bytesBase64Encoded: image.dataBase64,
-                  mimeType: image.mimeType,
-                },
-                referenceId: 1,
-                referenceType: "REFERENCE_TYPE_RAW",
+            referenceImages: images.map((image, index) => ({
+              referenceImage: {
+                bytesBase64Encoded: image.dataBase64,
+                mimeType: image.mimeType,
               },
-            ],
+              referenceId: index + 1,
+              referenceType: "REFERENCE_TYPE_RAW",
+            })),
           }
         : {}),
     },
@@ -314,14 +317,22 @@ const generateZenMuxOpenAICompatibleImages = async ({
 }): Promise<GenerationResponse> => {
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
-  const reference = getEnabledReference(request);
-  const uploadReferenceImage = prepareReferenceImageForUpload(reference);
+  const promptReferences = getEnabledPromptReferences(request);
+  const uploadReferenceImages = promptReferences.length
+    ? promptReferences
+        .map((reference) => prepareReferenceImageForUpload(reference))
+        .filter((image): image is NonNullable<typeof image> => Boolean(image))
+    : [prepareReferenceImageForUpload(getEnabledReference(request))].filter(
+        (image): image is NonNullable<typeof image> => Boolean(image),
+      );
   const selectedSize = getZenMuxImageOption(request, customModels);
   const aspectRatio = selectedSize?.id ?? null;
   const size = selectedSize
     ? `${selectedSize.width}x${selectedSize.height}`
     : null;
-  const operation = uploadReferenceImage ? "editImage" : "generateImages";
+  const operation = uploadReferenceImages.length
+    ? "editImage"
+    : "generateImages";
   const requestSummary = buildZenMuxVertexImageRequestSummary({
     request,
     prompt,
@@ -329,7 +340,7 @@ const generateZenMuxOpenAICompatibleImages = async ({
     adapter,
     aspectRatio,
     size,
-    hasReferenceImage: Boolean(uploadReferenceImage),
+    referenceImageCount: uploadReferenceImages.length,
   });
   const requestPayload = buildZenMuxVertexImageRequestPayload({
     request,
@@ -338,14 +349,14 @@ const generateZenMuxOpenAICompatibleImages = async ({
     aspectRatio,
     size,
     selectedSize,
-    image: uploadReferenceImage,
+    images: uploadReferenceImages,
   });
   const endpoint = getZenMuxVertexPredictEndpoint(request.model);
   const body = buildZenMuxVertexPredictBody({
     prompt,
     aspectRatio,
     size,
-    image: uploadReferenceImage,
+    images: uploadReferenceImages,
   });
 
   try {
@@ -442,7 +453,11 @@ export const generateZenMuxImages = async ({
   const prompt = buildPromptWithReferenceNotes(request);
   const reference = getEnabledReference(request);
   const uploadReferenceImage = prepareReferenceImageForUpload(reference);
-  const contents = uploadReferenceImage
+  const inlineReferenceContents =
+    buildGenerateContentPartsWithReferences(request);
+  const contents = inlineReferenceContents
+    ? inlineReferenceContents
+    : uploadReferenceImage
     ? [
         { text: prompt },
         {
@@ -451,7 +466,7 @@ export const generateZenMuxImages = async ({
             data: uploadReferenceImage.dataBase64,
           },
         },
-    ]
+      ]
     : prompt;
   const explicitAspectRatio = getExplicitAspectRatio(request);
   const geminiAspectRatio =

@@ -44,9 +44,11 @@ const getRule = (css: string, selector: string) => {
 };
 
 const getRulesContaining = (css: string, selector: string) => {
-  return css
-    .match(/(?:^|\n)[^{]+\{[\s\S]*?\n\}/g)
-    ?.filter((rule) => rule.includes(selector)) ?? [];
+  return (
+    css
+      .match(/(?:^|\n)[^{]+\{[\s\S]*?\n\}/g)
+      ?.filter((rule) => rule.includes(selector)) ?? []
+  );
 };
 
 describe("generate composer styles", () => {
@@ -69,9 +71,15 @@ describe("generate composer styles", () => {
     expect(inspectorRule).toContain("--image-inspector-body-size: 0.8125rem");
     expect(inspectorRule).toContain("--image-inspector-caption-size: 0.75rem");
     expect(titleRule).toContain("font-size: var(--image-inspector-title-size)");
-    expect(emptyTitleRule).toContain("font-size: var(--image-inspector-title-size)");
-    expect(eyebrowRule).toContain("font-size: var(--image-inspector-caption-size)");
-    expect(detailValueRule).toContain("font-size: var(--image-inspector-body-size)");
+    expect(emptyTitleRule).toContain(
+      "font-size: var(--image-inspector-title-size)",
+    );
+    expect(eyebrowRule).toContain(
+      "font-size: var(--image-inspector-caption-size)",
+    );
+    expect(detailValueRule).toContain(
+      "font-size: var(--image-inspector-body-size)",
+    );
     expect(imageSidebarSource).toContain('side="right"');
     expect(imageSidebarSource).toContain("title={copy.inspector.title}");
     expect(imageSidebarSource).not.toContain("DefaultSidebar");
@@ -114,10 +122,10 @@ describe("generate composer styles", () => {
       appCss,
       ".image-board-app--right-dock-open .generate-panel",
     );
-    const bothDockPanelRule = getRule(
+    const bothDockPanelRule = getRulesContaining(
       appCss,
-      ".image-board-app--left-dock-open.image-board-app--right-dock-open .generate-panel",
-    );
+      ".image-board-app--left-dock-open.image-board-app--right-dock-open",
+    ).find((rule) => rule.includes(".generate-panel"));
 
     expect(rightDockLayerRule).toContain("right: var(--right-sidebar-width)");
     expect(leftDockLayerRule).toContain("left: var(--left-sidebar-width)");
@@ -133,7 +141,10 @@ describe("generate composer styles", () => {
     const appCss = readAppCss();
     const appRule = getRule(appCss, ".image-board-app");
     const toggleRule = getRule(appCss, ".side-dock__toggle");
-    const closedMenuRule = getRule(appCss, ".image-board-app .App-menu_top__left");
+    const closedMenuRule = getRule(
+      appCss,
+      ".image-board-app .App-menu_top__left",
+    );
     const mainMenuTriggerRule = getRule(
       appCss,
       ".image-board-app .App-menu_top__left .main-menu-trigger",
@@ -149,9 +160,9 @@ describe("generate composer styles", () => {
 
     expect(appRule).toContain("--left-sidebar-width: 272px");
     expect(appRule).toContain("--right-sidebar-width: 302px");
-    expect(toggleRule).toContain(
-      "top: calc(var(--editor-container-padding, 16px) + env(safe-area-inset-top, 0px))",
-    );
+    expect(toggleRule).toContain("top: calc(");
+    expect(toggleRule).toContain("var(--editor-container-padding, 16px)");
+    expect(toggleRule).toContain("env(safe-area-inset-top, 0px)");
     expect(mainMenuTriggerRule).toContain(
       "width: var(--side-dock-toggle-size)",
     );
@@ -193,18 +204,21 @@ describe("generate composer styles", () => {
     expect(iconSource).toContain('stroke="currentColor"');
     expect(iconSource).toContain('strokeLinecap="round"');
     expect(iconSource).toContain('strokeLinejoin="round"');
-    expect(appCss).toContain("stroke-width=\"1.25\"");
+    expect(appCss).toContain('stroke-width="1.25"');
     expect(appCss).toContain(".side-dock__toggle svg");
     expect(sideDockSource).not.toContain("<svg");
     expect(toolbarButtonSource).not.toContain("<svg");
     expect(generateDialogSource).not.toMatch(
-      /strokeWidth=\"(?:1\.6|1\.7|1\.75|1\.8|2)\"/,
+      /strokeWidth="(?:1\.6|1\.7|1\.75|1\.8|2)"/,
     );
   });
 
   it("keeps Excalidraw shape controls readable inside the side dock", () => {
     const appCss = readAppCss();
-    const shapeActionsRule = getRule(appCss, ".side-dock .selected-shape-actions");
+    const shapeActionsRule = getRule(
+      appCss,
+      ".side-dock .selected-shape-actions",
+    );
 
     expect(shapeActionsRule).toContain("--button-bg: var(--color-surface-mid)");
     expect(shapeActionsRule).toContain("--color-slider-track");
@@ -229,18 +243,15 @@ describe("generate composer styles", () => {
   it("matches the single-outline composer layout from the reference mock", () => {
     const appCss = readAppCss();
     const composerRule = getRule(appCss, ".generate-composer");
-    const referenceComposerRule = getRule(
-      appCss,
-      ".generate-composer--with-reference",
-    );
     const fieldRule = getRule(appCss, ".generate-composer__field");
-    const referenceFieldRule = getRule(
+    const referenceChipRule = getRule(
       appCss,
-      ".generate-composer--with-reference .generate-composer__field",
+      ".generate-composer__reference-chip",
     );
-    const referenceLineRule = getRule(appCss, ".generate-composer__reference-line");
-    const referenceItemsRule = getRule(appCss, ".generate-composer__reference-items");
-    const referenceChipRule = getRule(appCss, ".generate-composer__reference-chip");
+    const pendingReferenceChipRule = getRule(
+      appCss,
+      ".generate-composer__reference-chip--pending",
+    );
     const referenceChipWithThumbnailRule = getRule(
       appCss,
       ".generate-composer__reference-chip--with-thumbnail",
@@ -257,16 +268,15 @@ describe("generate composer styles", () => {
       appCss,
       ".generate-composer__reference-chip-index",
     );
-    const referenceRemoveRule = getRule(
-      appCss,
-      ".generate-composer__reference-remove",
-    );
     const controlsRule = getRule(appCss, ".generate-composer__controls");
-    const referenceControlsRule = getRule(
+    const promptEditorRule = getRule(
       appCss,
-      ".generate-composer--with-reference .generate-composer__controls",
+      ".generate-composer__prompt-editor",
     );
-    const promptRule = getRule(appCss, ".generate-composer__prompt");
+    const promptEditorPlaceholderRule = getRulesContaining(
+      appCss,
+      ".generate-composer__prompt-editor--empty::before",
+    ).join("\n");
     const iconRule = getRule(appCss, ".generate-composer__icon");
     const actionRule = getRule(appCss, ".generate-composer__action");
     const primaryActionRule = getRule(
@@ -278,52 +288,39 @@ describe("generate composer styles", () => {
     expect(composerRule).toContain(
       "grid-template-columns: minmax(0, 1fr) auto",
     );
-    expect(composerRule).toContain("min-height: calc(var(--lg-button-size) + 10px)");
-    expect(composerRule).toContain("padding: 6px 8px 6px 14px");
-    expect(referenceComposerRule).toContain(
-      "min-height: calc(var(--lg-button-size) + 36px)",
+    expect(composerRule).toContain(
+      "min-height: calc(var(--lg-button-size) + 10px)",
     );
+    expect(composerRule).toContain("padding: 6px 8px 6px 14px");
     expect(controlsRule).toContain("display: flex");
     expect(controlsRule).toContain("align-self: center");
-    expect(referenceControlsRule).toContain("align-self: end");
     expect(fieldRule).toContain("flex-direction: column");
     expect(fieldRule).not.toMatch(/border\s*:/);
-    expect(referenceFieldRule).toContain("justify-content: flex-end");
-    expect(referenceLineRule).toContain("background:");
-    expect(referenceLineRule).toContain("border: 1px solid");
-    expect(referenceLineRule).toContain(
-      "color: var(--generate-composer-reference-color)",
-    );
-    expect(referenceItemsRule).toContain("display: flex");
-    expect(referenceItemsRule).toContain("overflow-x: auto");
     expect(referenceChipRule).toContain("border: 1px solid");
     expect(referenceChipRule).toContain("max-width:");
+    expect(pendingReferenceChipRule).toContain("opacity: 0.48");
+    expect(pendingReferenceChipRule).toContain("border-style: dashed");
     expect(referenceChipWithThumbnailRule).toContain("min-height: 25px");
     expect(referenceChipThumbnailRule).toContain("width: 21px");
     expect(referenceChipThumbnailRule).toContain("overflow: hidden");
     expect(referenceChipThumbnailImageRule).toContain("object-fit: cover");
     expect(referenceChipIndexRule).toContain("border-radius: 999px");
-    expect(referenceRemoveRule).toContain("background:");
-    expect(promptRule).toContain("height: 32px");
-    expect(promptRule).toContain("padding: 5px 0 6px");
+    expect(promptEditorRule).toContain("min-height: 32px");
+    expect(promptEditorRule).toContain("padding: 5px 0 6px");
+    expect(promptEditorPlaceholderRule).toContain(
+      "content: attr(data-placeholder)",
+    );
     expect(iconRule).toContain("background: transparent");
     expect(actionRule).toContain("background: transparent");
-    expect(primaryActionRule).toContain("background: var(--generate-composer-send-bg)");
-    expect(dialogSource).toContain("generate-composer--with-reference");
-    expect(dialogSource).toContain("generate-composer__reference-line");
-    expect(dialogSource).toContain("generate-composer__reference-items");
-    expect(dialogSource).toContain("generate-composer__reference-chip");
-    expect(dialogSource).toContain("generate-composer__reference-chip-thumbnail");
-    expect(dialogSource).toContain("generate-composer__reference-remove");
+    expect(primaryActionRule).toContain(
+      "background: var(--generate-composer-send-bg)",
+    );
+    expect(dialogSource).toContain("InlinePromptEditor");
     expect(dialogSource).toContain("generate-composer__controls");
-    expect(dialogSource).toContain("COMPACT_PROMPT_MIN_HEIGHT = 32");
   });
 
   it("keeps the prompt library panel aligned to the composer width", () => {
-    const promptLibraryRule = getRule(
-      readAppCss(),
-      ".generate-prompt-library",
-    );
+    const promptLibraryRule = getRule(readAppCss(), ".generate-prompt-library");
 
     expect(promptLibraryRule).toContain("width: 100%");
     expect(promptLibraryRule).toContain("box-sizing: border-box");
@@ -334,7 +331,10 @@ describe("generate composer styles", () => {
     const appCss = readAppCss();
     const composerRule = getRule(appCss, ".generate-composer");
     const focusWithinRule = getRule(appCss, ".generate-composer:focus-within");
-    const referenceLineRule = getRule(appCss, ".generate-composer__reference-line");
+    const referenceLineRule = getRule(
+      appCss,
+      ".generate-composer__reference-line",
+    );
     const referenceRemoveRule = getRule(
       appCss,
       ".generate-composer__reference-remove",
@@ -349,11 +349,15 @@ describe("generate composer styles", () => {
 
     expect(composerRule).toContain("--generate-composer-border:");
     expect(composerRule).toContain("--generate-composer-icon-color:");
-    expect(composerRule).toContain("--generate-composer-border: var(--input-border-color)");
+    expect(composerRule).toContain(
+      "--generate-composer-border: var(--input-border-color)",
+    );
     expect(composerRule).toContain(
       "--generate-composer-border-hover: var(--color-border-outline-variant)",
     );
-    expect(composerRule).toContain("border: 1px solid var(--generate-composer-border)");
+    expect(composerRule).toContain(
+      "border: 1px solid var(--generate-composer-border)",
+    );
     expect(composerRule).toContain("background:");
     expect(composerRule).not.toContain("linear-gradient");
     expect(composerRule).not.toContain("var(--text-primary-color) 46%");
@@ -366,9 +370,13 @@ describe("generate composer styles", () => {
     expect(referenceLineRule).toContain(
       "color: var(--generate-composer-reference-color)",
     );
-    expect(referenceRemoveRule).toContain("color: var(--generate-composer-muted-color)");
+    expect(referenceRemoveRule).toContain(
+      "color: var(--generate-composer-muted-color)",
+    );
     expect(controlsRule).toContain("gap: 8px");
-    expect(iconRule).toContain("color: var(--generate-composer-settings-color)");
+    expect(iconRule).toContain(
+      "color: var(--generate-composer-settings-color)",
+    );
     expect(actionRule).toContain("color: var(--generate-composer-send-color)");
     expect(primaryActionRule).not.toContain("#111111");
     expect(readGenerateImageDialog()).toContain("settingsSlidersIcon");
@@ -406,15 +414,21 @@ describe("generate composer styles", () => {
     expect(composerRule).toContain("--generate-composer-send-border:");
     expect(composerRule).toContain("--generate-composer-send-disabled-bg:");
     expect(iconRule).toContain("background: transparent");
-    expect(iconRule).toContain("color: var(--generate-composer-settings-color)");
+    expect(iconRule).toContain(
+      "color: var(--generate-composer-settings-color)",
+    );
     expect(iconHoverRule).toContain(
       "background: var(--generate-composer-settings-hover-bg)",
     );
     expect(primaryActionRule).toContain(
       "border: 1px solid var(--generate-composer-send-border)",
     );
-    expect(primaryActionRule).toContain("background: var(--generate-composer-send-bg)");
-    expect(primaryActionRule).toContain("color: var(--generate-composer-send-color)");
+    expect(primaryActionRule).toContain(
+      "background: var(--generate-composer-send-bg)",
+    );
+    expect(primaryActionRule).toContain(
+      "color: var(--generate-composer-send-color)",
+    );
     expect(primaryActionHoverRule).toContain(
       "background: var(--generate-composer-send-hover-bg)",
     );
@@ -467,8 +481,12 @@ describe("generate composer styles", () => {
     expect(bodyRule).not.toContain("border-radius: 24px");
     expect(bodyRule).not.toContain("0 30px 56px");
     expect(providerSettingsRule).toContain("border: 1px solid");
-    expect(providerSettingsRule).toContain("var(--color-border-outline-variant)");
-    expect(providerSettingsRule).toContain("border-radius: var(--border-radius-lg)");
+    expect(providerSettingsRule).toContain(
+      "var(--color-border-outline-variant)",
+    );
+    expect(providerSettingsRule).toContain(
+      "border-radius: var(--border-radius-lg)",
+    );
     expect(providerToggleRule).toContain("background: transparent");
     expect(panelGridRule).toContain("gap: 14px");
     expect(connectionRowRule).toContain("gap: 10px");
@@ -512,8 +530,12 @@ describe("generate composer styles", () => {
     const settingsIndex = dialogSource.indexOf(
       'className="dialog-form-grid__full generate-provider-settings"',
     );
-    const aspectRatioIndex = dialogSource.indexOf("copy.generateDialog.aspectRatio");
-    const imageCountIndex = dialogSource.indexOf("copy.generateDialog.imageCount");
+    const aspectRatioIndex = dialogSource.indexOf(
+      "copy.generateDialog.aspectRatio",
+    );
+    const imageCountIndex = dialogSource.indexOf(
+      "copy.generateDialog.imageCount",
+    );
 
     expect(settingsIndex).toBeGreaterThan(aspectRatioIndex);
     expect(settingsIndex).toBeGreaterThan(imageCountIndex);
@@ -539,8 +561,10 @@ describe("generate composer styles", () => {
     ).join("\n");
     const switchInputRule = getRulesContaining(
       appCss,
-      ".generate-provider-settings__advanced-switch input",
-    ).join("\n");
+      ".generate-provider-settings__advanced-switch",
+    )
+      .filter((rule) => rule.includes("input"))
+      .join("\n");
     const dialogSource = readGenerateImageDialog();
 
     expect(advancedBodyRule).not.toContain("repeat(2, minmax(0, 1fr))");
@@ -554,9 +578,15 @@ describe("generate composer styles", () => {
     expect(switchInputRule).toContain("flex: 0 0 auto");
     expect(switchInputRule).toContain("width: auto");
     expect(switchInputRule).toContain("margin: 0");
-    expect(dialogSource).toContain("generate-provider-settings__advanced-group");
-    expect(dialogSource).toContain("generate-provider-settings__advanced-switch");
-    expect(dialogSource).not.toContain("generate-provider-settings__advanced-row");
+    expect(dialogSource).toContain(
+      "generate-provider-settings__advanced-group",
+    );
+    expect(dialogSource).toContain(
+      "generate-provider-settings__advanced-switch",
+    );
+    expect(dialogSource).not.toContain(
+      "generate-provider-settings__advanced-row",
+    );
   });
 
   it("allows selecting generated image metadata in the sidebar", () => {

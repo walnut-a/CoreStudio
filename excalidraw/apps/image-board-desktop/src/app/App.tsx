@@ -1853,6 +1853,13 @@ const App = () => {
     );
   };
 
+  const handleCommitGenerateReference = () =>
+    buildSelectionReference({
+      scene: latestSceneRef.current,
+      includeImage: true,
+      imageRecords: currentProjectRef.current?.imageRecords || null,
+    });
+
   const handleSaveProviderSettings = async (
     input: Parameters<typeof desktopBridge.saveProviderSettings>[0],
   ) => {
@@ -2328,6 +2335,7 @@ const App = () => {
         onRequestChange={handleGenerateRequestChange}
         onModelSelectionChange={handleRememberGenerationModelSelection}
         onReferenceRemove={handleRemoveGenerateReference}
+        onReferenceCommit={handleCommitGenerateReference}
         savedPrompts={savedPrompts}
         onSavePrompt={handleSavePrompt}
         onUsePrompt={handleUsePrompt}

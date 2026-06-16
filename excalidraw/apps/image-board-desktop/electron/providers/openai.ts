@@ -2,9 +2,9 @@ import {
   getAspectRatioOptions,
   getRequestAspectRatioOption,
 } from "../../src/shared/providerCatalog";
-import type { GenerationRequest, GenerationResponse } from "../../src/shared/providerTypes";
 
 import { writeGenerationLog } from "../generationLogs";
+
 import {
   appendRequestSummaryToError,
   buildImagePayload,
@@ -15,7 +15,13 @@ import {
 import {
   buildPromptWithReferenceNotes,
   getEnabledReference,
+  getEnabledPromptReferences,
 } from "./promptUtils";
+
+import type {
+  GenerationRequest,
+  GenerationResponse,
+} from "../../src/shared/providerTypes";
 
 const OPENAI_IMAGE_GENERATIONS_URL =
   "https://api.openai.com/v1/images/generations";
@@ -75,7 +81,8 @@ const imageFromUrl = async (url: string, index: number) => {
   const imageBuffer = Buffer.from(await response.arrayBuffer());
   const dataBase64 = imageBuffer.toString("base64");
   const mimeType =
-    response.headers?.get?.("content-type") || inferMimeTypeFromBase64(dataBase64);
+    response.headers?.get?.("content-type") ||
+    inferMimeTypeFromBase64(dataBase64);
 
   return buildImagePayload({
     dataBase64,
@@ -94,13 +101,13 @@ const buildRequestSummary = ({
   request,
   prompt,
   size,
-  hasReferenceImage,
+  referenceImageCount,
 }: {
   endpoint: string;
   request: GenerationRequest;
   prompt: string;
   size: string;
-  hasReferenceImage: boolean;
+  referenceImageCount: number;
 }) =>
   [
     "provider=openai",
@@ -110,7 +117,8 @@ const buildRequestSummary = ({
     `数量=${request.imageCount}`,
     `prompt长度=${prompt.length}`,
     `prompt预览=${truncateText(prompt || "空", 80)}`,
-    `引用=${hasReferenceImage ? "已启用" : "未启用"}`,
+    `引用=${referenceImageCount ? "已启用" : "未启用"}`,
+    `引用图片=${referenceImageCount}`,
   ].join(" ");
 
 const buildLoggedMultipartPayload = ({
@@ -118,16 +126,16 @@ const buildLoggedMultipartPayload = ({
   model,
   prompt,
   size,
-  image,
+  images,
 }: {
   endpoint: string;
   model: string;
   prompt: string;
   size: string;
-  image: {
+  images: Array<{
     mimeType: string;
     dataBase64: string;
-  };
+  }>;
 }) =>
   JSON.stringify(
     {
@@ -137,13 +145,15 @@ const buildLoggedMultipartPayload = ({
         prompt,
         size,
         output_format: "png",
-        image: {
+        images: images.map((image, index) => ({
           kind: "multipart-file",
+          field: images.length > 1 ? "image[]" : "image",
+          index: index + 1,
           mimeType: image.mimeType,
           byteLength: Buffer.from(image.dataBase64, "base64").byteLength,
           base64Prefix: image.dataBase64.slice(0, 96),
           base64Suffix: image.dataBase64.slice(-32),
-        },
+        })),
       },
     },
     null,
@@ -189,11 +199,17 @@ export const generateOpenAIImages = async ({
 }): Promise<GenerationResponse> => {
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
-  const reference = getEnabledReference(request);
-  const uploadReferenceImage = prepareReferenceImageForUpload(reference);
+  const promptReferences = getEnabledPromptReferences(request);
+  const uploadReferenceImages = promptReferences.length
+    ? promptReferences
+        .map((reference) => prepareReferenceImageForUpload(reference))
+        .filter((image): image is NonNullable<typeof image> => Boolean(image))
+    : [prepareReferenceImageForUpload(getEnabledReference(request))].filter(
+        (image): image is NonNullable<typeof image> => Boolean(image),
+      );
   const size = toOpenAIImageSize(request);
   const imageCount = clampImageCount(request, 4);
-  const endpoint = uploadReferenceImage
+  const endpoint = uploadReferenceImages.length
     ? OPENAI_IMAGE_EDITS_URL
     : OPENAI_IMAGE_GENERATIONS_URL;
   const requestSummary = buildRequestSummary({
@@ -201,16 +217,16 @@ export const generateOpenAIImages = async ({
     request,
     prompt,
     size,
-    hasReferenceImage: Boolean(uploadReferenceImage),
+    referenceImageCount: uploadReferenceImages.length,
   });
 
-  const requestPayload = uploadReferenceImage
+  const requestPayload = uploadReferenceImages.length
     ? buildLoggedMultipartPayload({
         endpoint,
         model: request.model,
         prompt,
         size,
-        image: uploadReferenceImage,
+        images: uploadReferenceImages,
       })
     : JSON.stringify(
         {
@@ -228,7 +244,7 @@ export const generateOpenAIImages = async ({
       );
 
   try {
-    const response = uploadReferenceImage
+    const response = uploadReferenceImages.length
       ? await fetch(OPENAI_IMAGE_EDITS_URL, {
           method: "POST",
           headers: {
@@ -243,14 +259,13 @@ export const generateOpenAIImages = async ({
             if (imageCount > 1) {
               formData.set("n", String(imageCount));
             }
-            formData.set(
-              "image",
-              createImageBlob(
-                uploadReferenceImage.mimeType,
-                uploadReferenceImage.dataBase64,
-              ),
-              "reference.png",
-            );
+            uploadReferenceImages.forEach((image, index) => {
+              formData.append(
+                uploadReferenceImages.length > 1 ? "image[]" : "image",
+                createImageBlob(image.mimeType, image.dataBase64),
+                `reference-${index + 1}.png`,
+              );
+            });
             return formData;
           })(),
         })

@@ -75,6 +75,8 @@ export interface GenerationRequest {
   provider: ProviderId;
   model: string;
   prompt: string;
+  promptParts?: GenerationPromptPart[];
+  promptReferences?: GenerationPromptReferencePayload[];
   negativePrompt?: string;
   /**
    * `null` means do not send an explicit ratio and let the provider decide.
@@ -119,6 +121,27 @@ export interface GenerationReferencePayload {
   items?: GenerationReferenceItemPayload[];
   image?: GenerationReferenceImagePayload;
   debug?: GenerationReferenceDebugPayload;
+}
+
+export interface GenerationPromptTextPart {
+  type: "text";
+  text: string;
+}
+
+export interface GenerationPromptReferencePart {
+  type: "reference";
+  referenceId: string;
+}
+
+export type GenerationPromptPart =
+  | GenerationPromptTextPart
+  | GenerationPromptReferencePart;
+
+export interface GenerationPromptReferencePayload
+  extends GenerationReferencePayload {
+  id: string;
+  label: string;
+  thumbnailDataUrl?: string;
 }
 
 export interface ProviderImagePayload {

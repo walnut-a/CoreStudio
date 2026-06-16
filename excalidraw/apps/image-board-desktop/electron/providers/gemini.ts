@@ -1,8 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
-import type { GenerationRequest, GenerationResponse } from "../../src/shared/providerTypes";
-
 import { writeGenerationLog } from "../generationLogs";
+
 import {
   appendRequestSummaryToError,
   buildGenerateContentRequestPayload,
@@ -16,9 +15,15 @@ import {
   toClosestGeminiAspectRatio,
 } from "./providerUtils";
 import {
+  buildGenerateContentPartsWithReferences,
   buildPromptWithReferenceNotes,
   getEnabledReference,
 } from "./promptUtils";
+
+import type {
+  GenerationRequest,
+  GenerationResponse,
+} from "../../src/shared/providerTypes";
 
 const GEMINI_NATIVE_IMAGE_MODELS = new Set([
   "gemini-2.5-flash-image",
@@ -43,7 +48,11 @@ export const generateGeminiImages = async ({
   const prompt = buildPromptWithReferenceNotes(request);
   const reference = getEnabledReference(request);
   const uploadReferenceImage = prepareReferenceImageForUpload(reference);
-  const contents = uploadReferenceImage
+  const inlineReferenceContents =
+    buildGenerateContentPartsWithReferences(request);
+  const contents = inlineReferenceContents
+    ? inlineReferenceContents
+    : uploadReferenceImage
     ? [
         { text: prompt },
         {
@@ -106,27 +115,35 @@ export const generateGeminiImages = async ({
               config,
             })
             .catch((error) => {
-              throw appendRequestSummaryToError(error, requestSummary, requestPayload);
+              throw appendRequestSummaryToError(
+                error,
+                requestSummary,
+                requestPayload,
+              );
             }),
           providerPrefix: "gemini",
           requestSummary,
           requestPayload,
         })
-      : (await client.models.generateImages({
-          model: request.model,
-          prompt,
-          config: {
-            numberOfImages: clampImageCount(request, 4),
-            ...(geminiAspectRatio ? { aspectRatio: geminiAspectRatio } : {}),
-            ...(request.model !== "imagen-4.0-fast-generate-001"
-              ? {
-                  imageSize:
-                    Math.max(request.width, request.height) > 1024 ? "2K" : "1K",
-                }
-              : {}),
-          },
-        }))
-          .generatedImages?.filter((generatedImage) => generatedImage.image?.imageBytes)
+      : (
+          await client.models.generateImages({
+            model: request.model,
+            prompt,
+            config: {
+              numberOfImages: clampImageCount(request, 4),
+              ...(geminiAspectRatio ? { aspectRatio: geminiAspectRatio } : {}),
+              ...(request.model !== "imagen-4.0-fast-generate-001"
+                ? {
+                    imageSize:
+                      Math.max(request.width, request.height) > 1024
+                        ? "2K"
+                        : "1K",
+                  }
+                : {}),
+            },
+          })
+        ).generatedImages
+          ?.filter((generatedImage) => generatedImage.image?.imageBytes)
           .map((generatedImage, index) =>
             buildImagePayload({
               dataBase64: generatedImage.image!.imageBytes!,

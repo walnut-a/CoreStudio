@@ -1,30 +1,84 @@
+import {
+  appendNotesToPrompt,
+  buildInlineReferenceNotes,
+  buildLegacyReferenceNotes,
+  buildPromptTextWithInlineReferences,
+  getOrderedPromptReferences,
+  hasPromptReferences,
+  referencePlaceholderText,
+  toDataUri,
+} from "../../src/shared/promptReferences";
+
 import type { GenerationRequest } from "../../src/shared/providerTypes";
 
-const REFERENCE_PROMPT_PREFIX = "参考选区中的文字说明：";
-
 export const getEnabledReference = (request: GenerationRequest) =>
-  request.reference?.enabled && request.reference.image ? request.reference : null;
+  request.reference?.enabled && request.reference.image
+    ? request.reference
+    : null;
+
+export const getEnabledPromptReferences = (request: GenerationRequest) =>
+  getOrderedPromptReferences(request);
 
 export const buildPromptWithReferenceNotes = (request: GenerationRequest) => {
-  const notes = request.reference?.enabled
-    ? (request.reference.textNotes || []).filter(Boolean)
-    : [];
-
-  if (!notes.length) {
-    return request.prompt;
+  if (hasPromptReferences(request)) {
+    const references = getOrderedPromptReferences(request);
+    return appendNotesToPrompt(
+      buildPromptTextWithInlineReferences(request),
+      buildInlineReferenceNotes(references),
+    );
   }
 
-  const noteLines = notes.map((note, index) => `${index + 1}. ${note}`).join("\n");
-  const prompt = request.prompt.trim();
-
-  if (!prompt) {
-    return `${REFERENCE_PROMPT_PREFIX}\n${noteLines}`;
-  }
-
-  return `${prompt}\n\n${REFERENCE_PROMPT_PREFIX}\n${noteLines}`;
+  return appendNotesToPrompt(
+    request.prompt,
+    buildLegacyReferenceNotes(request.reference),
+  );
 };
 
-export const toDataUri = (
-  mimeType: string,
-  dataBase64: string,
-) => `data:${mimeType};base64,${dataBase64}`;
+export const buildGenerateContentPartsWithReferences = (
+  request: GenerationRequest,
+) => {
+  const references = getOrderedPromptReferences(request);
+  if (!references.length) {
+    return null;
+  }
+
+  const referenceMap = new Map(
+    references.map((reference, index) => [reference.id, { reference, index }]),
+  );
+  const parts: Array<
+    { text: string } | { inlineData: { mimeType: string; data: string } }
+  > = [];
+
+  for (const part of request.promptParts || [
+    { type: "text" as const, text: request.prompt },
+  ]) {
+    if (part.type === "text") {
+      if (part.text) {
+        parts.push({ text: part.text });
+      }
+      continue;
+    }
+
+    const entry = referenceMap.get(part.referenceId);
+    const image = entry?.reference.image;
+    if (!entry || !image) {
+      continue;
+    }
+
+    parts.push({
+      text: `${referencePlaceholderText(entry.index + 1)}：${
+        entry.reference.label
+      }`,
+    });
+    parts.push({
+      inlineData: {
+        mimeType: image.mimeType,
+        data: image.dataBase64,
+      },
+    });
+  }
+
+  return parts.length ? parts : null;
+};
+
+export { toDataUri };

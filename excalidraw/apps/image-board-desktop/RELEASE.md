@@ -13,7 +13,7 @@ excalidraw/apps/image-board-desktop/package.json
 当前发布版本：
 
 ```text
-1.1.7
+1.1.8
 ```
 
 ## 本地打包
@@ -52,6 +52,10 @@ excalidraw/apps/image-board-desktop/release/
 ```
 
 `release/` 已被 git 忽略。
+
+DMG 安装窗口布局由 `apps/image-board-desktop/package.json` 里的 `build.dmg`
+固定，包括窗口尺寸、背景色、图标尺寸以及 `CoreStudio.app` / `Applications`
+两个图标的位置。调整安装窗口视觉时，需要重新生成 DMG。
 
 ## 签名
 
@@ -170,6 +174,36 @@ gh release create v1.1.0 \
 ```
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
+
+## 1.1.8 已验证信息
+
+1.1.8 发布时通过了这些检查：
+
+- DMG 安装窗口：显式固定为 `640x420`，`CoreStudio.app` 和 `Applications` 图标居中横向排列
+- Desktop tests：246 passed
+- TypeScript typecheck：passed
+- `git diff --check`：passed
+- Source/package-input/release secret scan：passed
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `442032c9-dab5-4572-9a51-192c9dc45f79`
+- Gatekeeper：DMG accepted as `Notarized Developer ID`
+- ZIP app：stapler validate passed, Gatekeeper accepted as `Notarized Developer ID`, codesign verify passed
+
+校验值：
+
+```text
+CoreStudio-1.1.8-arm64.dmg
+sha256: 11b0d08aaf4be176fb74b9c5e1deeebaca409519ff0414201ca0227a2ab1ee3f
+
+CoreStudio-1.1.8-arm64-mac.zip
+sha256: dac2d7d128f301704903a72d9d941853737d2b04687b150d05e31e23d127986a
+
+CoreStudio-1.1.8-arm64.dmg.blockmap
+sha256: 6bdfd60e67adb9efc0ac475a15181673e2e3b1fd824bef0b087709fdfd0b1368
+
+CoreStudio-1.1.8-arm64-mac.zip.blockmap
+sha256: 33c023c7d6bbbb1657281c92428e6324f53d3b92ba37e723cc99f6dc36e6ba85
+```
 
 ## 1.1.7 已验证信息
 

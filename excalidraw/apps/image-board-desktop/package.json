@@ -1,6 +1,6 @@
 {
   "name": "image-board-desktop",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "private": true,
   "license": "MIT",
   "description": "CoreStudio desktop image board",
@@ -56,6 +56,29 @@
       "category": "public.app-category.graphics-design",
       "identity": "junyan liu (CUP682RD2S)",
       "icon": "build/icon.icns"
+    },
+    "dmg": {
+      "title": "CoreStudio ${version}",
+      "backgroundColor": "#f5f5f5",
+      "iconSize": 112,
+      "iconTextSize": 14,
+      "window": {
+        "width": 640,
+        "height": 420
+      },
+      "contents": [
+        {
+          "x": 180,
+          "y": 210,
+          "type": "file"
+        },
+        {
+          "x": 460,
+          "y": 210,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "win": {
       "target": "nsis"

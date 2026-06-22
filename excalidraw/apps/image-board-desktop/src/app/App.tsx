@@ -28,6 +28,10 @@ import {
   isAutoAspectRatioRequest,
   normalizeGenerationRequest,
 } from "../shared/providerCatalog";
+import {
+  buildImagePromptReferenceRecords,
+  buildPromptTextWithInlineReferences,
+} from "../shared/promptReferences";
 import type {
   DesktopAppInfo,
   DesktopProjectBundle,
@@ -38,7 +42,10 @@ import type {
   SavedPrompt,
   SavePromptInput,
 } from "../shared/desktopBridgeTypes";
-import type { ImageRecord } from "../shared/projectTypes";
+import type {
+  ImagePromptReferenceRecord,
+  ImageRecord,
+} from "../shared/projectTypes";
 import type {
   AppState,
   BinaryFileData,
@@ -102,6 +109,9 @@ import { WelcomePane } from "./components/WelcomePane";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import "./App.css";
+
+const getPromptHistoryText = (request: GenerationRequest) =>
+  buildPromptTextWithInlineReferences(request).trim() || request.prompt;
 
 const createGenerationRequestFromSelection = (
   selection: GenerationModelSelection,
@@ -1267,12 +1277,13 @@ const App = () => {
       return [frame, label];
     });
 
+    const promptHistoryText = getPromptHistoryText(request);
     for (const slot of slots) {
       const task: GenerationTaskRecord = {
         status: "pending",
         provider: request.provider,
         model: request.model,
-        prompt: request.prompt,
+        prompt: promptHistoryText,
         negativePrompt: request.negativePrompt,
         aspectRatio: request.aspectRatio,
         seed: request.seed,
@@ -1468,17 +1479,20 @@ const App = () => {
       return;
     }
 
+    const promptHistoryText = getPromptHistoryText(request);
+    const promptReferences = buildImagePromptReferenceRecords(request);
     const files: PersistedImageAssetInput[] = response.images.map((image) => ({
       ...image,
       fileId: crypto.randomUUID(),
       sourceType: "generated",
       provider: response.provider,
       model: response.model,
-      prompt: request.prompt,
+      prompt: promptHistoryText,
       negativePrompt: request.negativePrompt,
       seed: response.seed,
       createdAt: response.createdAt,
       parentFileId: request.reference?.debug?.fileId ?? null,
+      ...(promptReferences.length ? { promptReferences } : {}),
     }));
     const nextImageRecords = await desktopBridge.persistImageAssets({
       projectPath: job.projectPath,
@@ -1963,6 +1977,50 @@ const App = () => {
     });
   };
 
+  const handleLocatePromptReference = (
+    reference: ImagePromptReferenceRecord,
+  ) => {
+    const api = excalidrawAPIRef.current;
+    if (!api) {
+      return;
+    }
+
+    const elements = api
+      .getSceneElementsIncludingDeleted()
+      .filter((element) => !element.isDeleted);
+    const elementIds = new Set(reference.elementIds || []);
+    const fileIds = new Set(reference.fileIds || []);
+    const targetElements = elements.filter((element) => {
+      if (elementIds.has(element.id)) {
+        return true;
+      }
+
+      return (
+        element.type === "image" &&
+        element.fileId &&
+        fileIds.has(element.fileId)
+      );
+    });
+
+    if (!targetElements.length) {
+      return;
+    }
+
+    api.updateScene({
+      appState: {
+        selectedElementIds: Object.fromEntries(
+          targetElements.map((element) => [element.id, true]),
+        ),
+        selectedGroupIds: {},
+      },
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+    api.scrollToContent(targetElements, {
+      animate: true,
+      duration: 300,
+    });
+  };
+
   const handleEditorReady = (
     api: ExcalidrawImperativeAPI | null,
     renderNonce: number,
@@ -2309,6 +2367,7 @@ const App = () => {
                 onCopyPrompt={handleCopyPrompt}
                 onCopyTaskError={handleCopyTaskError}
                 onLocateImageRecord={handleLocateImageRecord}
+                onLocatePromptReference={handleLocatePromptReference}
               />
             </Excalidraw>
             {renderWorkspaceBoundsOverlay()}

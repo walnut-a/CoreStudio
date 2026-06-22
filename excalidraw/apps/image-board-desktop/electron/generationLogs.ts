@@ -2,14 +2,23 @@ import fs from "fs/promises";
 import { createHash } from "node:crypto";
 import path from "path";
 
-import type { GenerationRequest, GenerationResponse, ProviderImagePayload } from "../src/shared/providerTypes";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
+import { buildPromptTextWithInlineReferences } from "../src/shared/promptReferences";
+
+import type {
+  GenerationRequest,
+  GenerationResponse,
+  ProviderImagePayload,
+} from "../src/shared/providerTypes";
 
 const GENERATION_LOGS_DIR = "generation-logs";
 const GENERATION_LOG_VERSION = 1;
 
 const safeFileSegment = (value: string) =>
-  value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 80) || "unknown";
+  value
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 80) || "unknown";
 
 const parseRequestPayload = (requestPayload: string | undefined) => {
   if (!requestPayload) {
@@ -83,13 +92,14 @@ export const writeGenerationLog = async ({
 
   const loggedAt = new Date().toISOString();
   const status = error ? "error" : "success";
-  const fileName = [
+  const fileName = `${[
     loggedAt.replace(/[:.]/g, "-"),
     safeFileSegment(request.provider),
     safeFileSegment(request.model),
     status,
-  ].join("_") + ".json";
+  ].join("_")}.json`;
   const filePath = path.join(logsDirectory, fileName);
+  const promptText = buildPromptTextWithInlineReferences(request);
 
   const logContent = {
     formatVersion: GENERATION_LOG_VERSION,
@@ -102,7 +112,7 @@ export const writeGenerationLog = async ({
       width: request.width,
       height: request.height,
       imageCount: request.imageCount,
-      prompt: request.prompt,
+      prompt: promptText,
       negativePrompt: request.negativePrompt ?? null,
       summary: requestSummary || null,
       payload: parseRequestPayload(requestPayload),
@@ -120,6 +130,7 @@ export const writeGenerationLog = async ({
   };
 
   await fs.writeFile(filePath, JSON.stringify(logContent, null, 2), "utf8");
+  // eslint-disable-next-line no-console
   console.log(`[generation-log] ${filePath}`);
   return filePath;
 };

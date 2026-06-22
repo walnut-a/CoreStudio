@@ -48,12 +48,30 @@ export const PROVIDER_REQUEST_ADAPTER_OPTIONS: Record<
 
 export const ASPECT_RATIO_AUTO_ID = "auto";
 
-const NATIVE_IMAGE_CAPABILITIES: ProviderCapabilities = {
+const NO_REFERENCE_IMAGE_COUNT = 0;
+const SINGLE_REFERENCE_IMAGE_COUNT = 1;
+const OPENAI_REFERENCE_IMAGE_COUNT = 4;
+const GEMINI_2_5_REFERENCE_IMAGE_COUNT = 3;
+const GEMINI_3_REFERENCE_IMAGE_COUNT = 14;
+const CUSTOM_IMAGE_REFERENCE_IMAGE_COUNT = 8;
+
+const GEMINI_2_5_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsNegativePrompt: false,
   supportsSeed: false,
   supportsImageCount: false,
   supportsReferenceImages: true,
   maxImageCount: 1,
+  maxReferenceImageCount: GEMINI_2_5_REFERENCE_IMAGE_COUNT,
+  sizeControlMode: "aspect-ratio",
+};
+
+const GEMINI_3_IMAGE_CAPABILITIES: ProviderCapabilities = {
+  supportsNegativePrompt: false,
+  supportsSeed: false,
+  supportsImageCount: false,
+  supportsReferenceImages: true,
+  maxImageCount: 1,
+  maxReferenceImageCount: GEMINI_3_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "aspect-ratio",
 };
 
@@ -63,6 +81,7 @@ const SEEDREAM_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsImageCount: false,
   supportsReferenceImages: true,
   maxImageCount: 1,
+  maxReferenceImageCount: SINGLE_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "exact",
 };
 
@@ -72,6 +91,7 @@ const SEEDREAM_T2I_CAPABILITIES: ProviderCapabilities = {
   supportsImageCount: false,
   supportsReferenceImages: false,
   maxImageCount: 1,
+  maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "exact",
 };
 
@@ -81,15 +101,17 @@ const OPENAI_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsImageCount: true,
   supportsReferenceImages: true,
   maxImageCount: 4,
+  maxReferenceImageCount: OPENAI_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "aspect-ratio",
 };
 
-const OPENROUTER_IMAGE_CHAT_CAPABILITIES: ProviderCapabilities = {
+const FAL_NANO_BANANA_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsNegativePrompt: false,
-  supportsSeed: false,
-  supportsImageCount: false,
+  supportsSeed: true,
+  supportsImageCount: true,
   supportsReferenceImages: true,
-  maxImageCount: 1,
+  maxImageCount: 4,
+  maxReferenceImageCount: GEMINI_3_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "aspect-ratio",
 };
 
@@ -99,6 +121,7 @@ const OPENROUTER_TEXT_TO_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsImageCount: false,
   supportsReferenceImages: false,
   maxImageCount: 1,
+  maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "aspect-ratio",
 };
 
@@ -108,6 +131,7 @@ const OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsImageCount: false,
   supportsReferenceImages: true,
   maxImageCount: 1,
+  maxReferenceImageCount: OPENAI_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "aspect-ratio",
 };
 
@@ -143,8 +167,17 @@ export const CUSTOM_MODEL_CAPABILITY_TEMPLATES: Record<
 > = {
   "image-editing-aspect-ratio": {
     label: "支持参考图和改图",
-    description: "会自动引用画板选区，适合 Gemini、Nano Banana、GPT Image 这类模型。",
-    capabilities: NATIVE_IMAGE_CAPABILITIES,
+    description:
+      "会自动引用画板选区，适合 Gemini、Nano Banana、GPT Image 这类模型。",
+    capabilities: {
+      supportsNegativePrompt: false,
+      supportsSeed: false,
+      supportsImageCount: false,
+      supportsReferenceImages: true,
+      maxImageCount: 1,
+      maxReferenceImageCount: CUSTOM_IMAGE_REFERENCE_IMAGE_COUNT,
+      sizeControlMode: "aspect-ratio",
+    },
   },
   "text-to-image-aspect-ratio": {
     label: "只用文字生成",
@@ -153,13 +186,15 @@ export const CUSTOM_MODEL_CAPABILITY_TEMPLATES: Record<
   },
   "text-to-image-exact": {
     label: "按宽高生成",
-    description: "适合使用 width 和 height 的文生图模型，比如部分即梦/豆包接口。",
+    description:
+      "适合使用 width 和 height 的文生图模型，比如部分即梦/豆包接口。",
     capabilities: {
       supportsNegativePrompt: false,
       supportsSeed: false,
       supportsImageCount: false,
       supportsReferenceImages: false,
       maxImageCount: 1,
+      maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
       sizeControlMode: "exact",
     },
   },
@@ -172,6 +207,7 @@ export const CUSTOM_MODEL_CAPABILITY_TEMPLATES: Record<
       supportsImageCount: true,
       supportsReferenceImages: false,
       maxImageCount: 4,
+      maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
       sizeControlMode: "exact",
     },
   },
@@ -189,7 +225,7 @@ const ALL_IMAGE_FIELDS: Record<GenerationField, true> = {
   imageCount: true,
 };
 
-export const COMMON_ASPECT_RATIO_OPTIONS = [
+export const COMMON_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
   { id: "1:1", label: "1:1", width: 1024, height: 1024 },
   { id: "16:9", label: "16:9", width: 1344, height: 768 },
   { id: "9:16", label: "9:16", width: 768, height: 1344 },
@@ -204,19 +240,19 @@ export const COMMON_ASPECT_RATIO_OPTIONS = [
   { id: "1:4", label: "1:4", width: 512, height: 2048 },
   { id: "8:1", label: "8:1", width: 3072, height: 384 },
   { id: "1:8", label: "1:8", width: 384, height: 3072 },
-] as const satisfies readonly AspectRatioOption[];
+] as const;
 
-const FAL_NANO_ASPECT_RATIO_OPTIONS = [
+const FAL_NANO_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
   ...COMMON_ASPECT_RATIO_OPTIONS,
-] as const satisfies readonly AspectRatioOption[];
+] as const;
 
-const OPENAI_IMAGE_ASPECT_RATIO_OPTIONS = [
+const OPENAI_IMAGE_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
   { id: "1:1", label: "1:1", width: 1024, height: 1024 },
   { id: "3:2", label: "3:2", width: 1536, height: 1024 },
   { id: "2:3", label: "2:3", width: 1024, height: 1536 },
-] as const satisfies readonly AspectRatioOption[];
+] as const;
 
-const OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS = [
+const OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
   { id: "1:1", label: "1:1", width: 1024, height: 1024 },
   { id: "16:9", label: "16:9", width: 2048, height: 1152 },
   { id: "9:16", label: "9:16", width: 1152, height: 2048 },
@@ -225,9 +261,9 @@ const OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS = [
   { id: "3:2", label: "3:2", width: 1536, height: 1024 },
   { id: "2:3", label: "2:3", width: 1024, height: 1536 },
   { id: "21:9", label: "21:9", width: 1792, height: 768 },
-] as const satisfies readonly AspectRatioOption[];
+] as const;
 
-const OPENROUTER_ASPECT_RATIO_OPTIONS = [
+const OPENROUTER_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
   { id: "1:1", label: "1:1", width: 1024, height: 1024 },
   { id: "2:3", label: "2:3", width: 832, height: 1248 },
   { id: "3:2", label: "3:2", width: 1248, height: 832 },
@@ -238,15 +274,15 @@ const OPENROUTER_ASPECT_RATIO_OPTIONS = [
   { id: "9:16", label: "9:16", width: 768, height: 1344 },
   { id: "16:9", label: "16:9", width: 1344, height: 768 },
   { id: "21:9", label: "21:9", width: 1536, height: 672 },
-] as const satisfies readonly AspectRatioOption[];
+] as const;
 
-const OPENROUTER_EXTENDED_ASPECT_RATIO_OPTIONS = [
+const OPENROUTER_EXTENDED_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
   ...OPENROUTER_ASPECT_RATIO_OPTIONS,
   { id: "1:4", label: "1:4", width: 512, height: 2048 },
   { id: "4:1", label: "4:1", width: 2048, height: 512 },
   { id: "1:8", label: "1:8", width: 384, height: 3072 },
   { id: "8:1", label: "8:1", width: 3072, height: 384 },
-] as const satisfies readonly AspectRatioOption[];
+] as const;
 
 export const getClosestAspectRatioOption = (
   width: number,
@@ -303,17 +339,17 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
       "gemini-2.5-flash-image": {
         id: "gemini-2.5-flash-image",
         label: "Gemini 2.5 Flash Image (Nano Banana)",
-        capabilities: NATIVE_IMAGE_CAPABILITIES,
+        capabilities: GEMINI_2_5_IMAGE_CAPABILITIES,
       },
       "gemini-3.1-flash-image-preview": {
         id: "gemini-3.1-flash-image-preview",
         label: "Gemini 3.1 Flash Image Preview (Nano Banana 2)",
-        capabilities: NATIVE_IMAGE_CAPABILITIES,
+        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
       },
       "gemini-3-pro-image-preview": {
         id: "gemini-3-pro-image-preview",
         label: "Gemini 3 Pro Image Preview (Nano Banana Pro)",
-        capabilities: NATIVE_IMAGE_CAPABILITIES,
+        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
       },
       "imagen-4.0-fast-generate-001": {
         id: "imagen-4.0-fast-generate-001",
@@ -324,6 +360,7 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
           supportsImageCount: true,
           supportsReferenceImages: false,
           maxImageCount: 4,
+          maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
           sizeControlMode: "aspect-ratio",
         },
       },
@@ -336,6 +373,7 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
           supportsImageCount: true,
           supportsReferenceImages: false,
           maxImageCount: 4,
+          maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
           sizeControlMode: "aspect-ratio",
         },
       },
@@ -349,25 +387,25 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
       "google/gemini-2.5-flash-image": {
         id: "google/gemini-2.5-flash-image",
         label: "Gemini 2.5 Flash Image",
-        capabilities: NATIVE_IMAGE_CAPABILITIES,
+        capabilities: GEMINI_2_5_IMAGE_CAPABILITIES,
         adapter: "zenmux-vertex-generate-content",
       },
       "google/gemini-2.5-flash-image-free": {
         id: "google/gemini-2.5-flash-image-free",
         label: "Gemini 2.5 Flash Image Free",
-        capabilities: NATIVE_IMAGE_CAPABILITIES,
+        capabilities: GEMINI_2_5_IMAGE_CAPABILITIES,
         adapter: "zenmux-vertex-generate-content",
       },
       "google/gemini-3-pro-image-preview": {
         id: "google/gemini-3-pro-image-preview",
         label: "Gemini 3 Pro Image Preview",
-        capabilities: NATIVE_IMAGE_CAPABILITIES,
+        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
         adapter: "zenmux-vertex-generate-content",
       },
       "google/gemini-3-pro-image-preview-free": {
         id: "google/gemini-3-pro-image-preview-free",
         label: "Gemini 3 Pro Image Preview Free",
-        capabilities: NATIVE_IMAGE_CAPABILITIES,
+        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
         adapter: "zenmux-vertex-generate-content",
       },
       ...createOpenAICompatibleGptImageModels("zenmux-vertex-gpt-image"),
@@ -381,14 +419,7 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
       "fal-ai/nano-banana-2": {
         id: "fal-ai/nano-banana-2",
         label: "Nano Banana 2",
-        capabilities: {
-          supportsNegativePrompt: false,
-          supportsSeed: true,
-          supportsImageCount: true,
-          supportsReferenceImages: true,
-          maxImageCount: 4,
-          sizeControlMode: "aspect-ratio",
-        },
+        capabilities: FAL_NANO_BANANA_IMAGE_CAPABILITIES,
       },
       "fal-ai/flux/schnell": {
         id: "fal-ai/flux/schnell",
@@ -399,6 +430,7 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
           supportsImageCount: true,
           supportsReferenceImages: false,
           maxImageCount: 4,
+          maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
           sizeControlMode: "exact",
         },
       },
@@ -411,6 +443,7 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
           supportsImageCount: true,
           supportsReferenceImages: false,
           maxImageCount: 4,
+          maxReferenceImageCount: NO_REFERENCE_IMAGE_COUNT,
           sizeControlMode: "exact",
         },
       },
@@ -487,19 +520,19 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
       "google/gemini-3.1-flash-image-preview": {
         id: "google/gemini-3.1-flash-image-preview",
         label: "Nano Banana 2 (Gemini 3.1 Flash Image)",
-        capabilities: OPENROUTER_IMAGE_CHAT_CAPABILITIES,
+        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
         adapter: "openrouter-chat-image",
       },
       "google/gemini-3-pro-image-preview": {
         id: "google/gemini-3-pro-image-preview",
         label: "Nano Banana Pro (Gemini 3 Pro Image)",
-        capabilities: OPENROUTER_IMAGE_CHAT_CAPABILITIES,
+        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
         adapter: "openrouter-chat-image",
       },
       "google/gemini-2.5-flash-image": {
         id: "google/gemini-2.5-flash-image",
         label: "Nano Banana (Gemini 2.5 Flash Image)",
-        capabilities: OPENROUTER_IMAGE_CHAT_CAPABILITIES,
+        capabilities: GEMINI_2_5_IMAGE_CAPABILITIES,
         adapter: "openrouter-chat-image",
       },
       ...createOpenAICompatibleGptImageModels("openrouter-chat-image"),
@@ -679,7 +712,8 @@ const fallbackCustomModel = (
   id: model,
   label: model,
   capabilities:
-    CUSTOM_MODEL_CAPABILITY_TEMPLATES["text-to-image-aspect-ratio"].capabilities,
+    CUSTOM_MODEL_CAPABILITY_TEMPLATES["text-to-image-aspect-ratio"]
+      .capabilities,
   adapter: inferProviderRequestAdapter({
     provider,
     modelId: model,
@@ -704,7 +738,8 @@ export const getProviderCapabilities = (args: {
   provider: ProviderId;
   model?: string;
   customModels?: readonly CustomProviderModel[];
-}) => getModelDefinition(args.provider, args.model, args.customModels).capabilities;
+}) =>
+  getModelDefinition(args.provider, args.model, args.customModels).capabilities;
 
 export const getProviderRequestAdapter = (args: {
   provider: ProviderId;
@@ -731,6 +766,9 @@ export const normalizeGenerationRequest = (
     ...request,
     customModels: options.customModels,
   });
+  const supportsReferenceImages =
+    capabilities.supportsReferenceImages &&
+    capabilities.maxReferenceImageCount > 0;
   const aspectRatioOptions = getAspectRatioOptions({
     provider: request.provider,
     model: request.model,
@@ -741,15 +779,15 @@ export const normalizeGenerationRequest = (
       ? request.aspectRatio === null
         ? null
         : request.aspectRatio &&
-            getAspectRatioOptionById(request.aspectRatio, aspectRatioOptions)
-          ? request.aspectRatio
-          : request.aspectRatio === undefined
-            ? undefined
-            : getClosestAspectRatioOption(
-                request.width,
-                request.height,
-                aspectRatioOptions,
-              ).id
+          getAspectRatioOptionById(request.aspectRatio, aspectRatioOptions)
+        ? request.aspectRatio
+        : request.aspectRatio === undefined
+        ? undefined
+        : getClosestAspectRatioOption(
+            request.width,
+            request.height,
+            aspectRatioOptions,
+          ).id
       : undefined;
 
   return {
@@ -765,7 +803,7 @@ export const normalizeGenerationRequest = (
     reference: request.reference
       ? {
           ...request.reference,
-          enabled: capabilities.supportsReferenceImages && request.reference.enabled,
+          enabled: supportsReferenceImages && request.reference.enabled,
         }
       : request.reference ?? null,
   };

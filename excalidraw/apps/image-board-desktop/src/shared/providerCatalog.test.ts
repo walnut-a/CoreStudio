@@ -377,6 +377,64 @@ describe("providerCatalog", () => {
     ).toBe(true);
   });
 
+  it("exposes model-specific reference image limits", () => {
+    expect(
+      getProviderCapabilities({
+        provider: "gemini",
+        model: "gemini-2.5-flash-image",
+      }).maxReferenceImageCount,
+    ).toBe(3);
+
+    expect(
+      getProviderCapabilities({
+        provider: "gemini",
+        model: "gemini-3.1-flash-image-preview",
+      }).maxReferenceImageCount,
+    ).toBe(14);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "google/gemini-3-pro-image-preview",
+      }).maxReferenceImageCount,
+    ).toBe(14);
+
+    expect(
+      getProviderCapabilities({
+        provider: "fal",
+        model: "fal-ai/nano-banana-2",
+      }).maxReferenceImageCount,
+    ).toBe(14);
+
+    expect(
+      getProviderCapabilities({
+        provider: "openai",
+        model: "gpt-image-2",
+      }).maxReferenceImageCount,
+    ).toBe(4);
+
+    expect(
+      getProviderCapabilities({
+        provider: "openrouter",
+        model: "openai/gpt-image-2",
+      }).maxReferenceImageCount,
+    ).toBe(4);
+
+    expect(
+      getProviderCapabilities({
+        provider: "jimeng",
+        model: "doubao-seedream-5-0-lite-260128",
+      }).maxReferenceImageCount,
+    ).toBe(1);
+
+    expect(
+      getProviderCapabilities({
+        provider: "fal",
+        model: "fal-ai/flux/schnell",
+      }).maxReferenceImageCount,
+    ).toBe(0);
+  });
+
   it("normalizes unsupported generation controls before submit", () => {
     expect(
       normalizeGenerationRequest({

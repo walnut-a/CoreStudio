@@ -87,6 +87,11 @@ export const copy = {
     referenceTitle: "参考信息",
     referenceToggle: "使用当前选区作为参考",
     referenceRemove: "移除引用",
+    referenceLimitReached: "当前模型最多可插入 {count} 张参考图。",
+    referenceLimitExceeded:
+      "当前模型最多支持 {count} 张参考图，请先删除多余引用。",
+    referenceUnsupportedWithInlineReferences:
+      "当前模型不支持参考图，请先删除已插入的引用。",
     referenceAutoStatus: "已自动引用当前选区",
     referenceEmpty: "当前没有选中的元素。",
     referenceUnsupported: "这个模型暂时不支持参考图。",

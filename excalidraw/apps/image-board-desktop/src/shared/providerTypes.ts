@@ -38,6 +38,7 @@ export interface ProviderCapabilities {
   supportsImageCount: boolean;
   supportsReferenceImages: boolean;
   maxImageCount: number;
+  maxReferenceImageCount: number;
   sizeControlMode: SizeControlMode;
 }
 
@@ -110,7 +111,13 @@ export interface GenerationReferenceItemPayload {
   index: number;
   kind: GenerationReferenceItemKind;
   label: string;
+  fileId?: string;
   thumbnailDataUrl?: string;
+}
+
+export interface GenerationReferenceSourcePayload {
+  elementIds?: string[];
+  fileIds?: string[];
 }
 
 export interface GenerationReferencePayload {
@@ -121,6 +128,7 @@ export interface GenerationReferencePayload {
   items?: GenerationReferenceItemPayload[];
   image?: GenerationReferenceImagePayload;
   debug?: GenerationReferenceDebugPayload;
+  source?: GenerationReferenceSourcePayload;
 }
 
 export interface GenerationPromptTextPart {

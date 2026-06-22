@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ImageRecord } from "../../shared/projectTypes";
+import type { ImagePromptReferenceRecord } from "../../shared/projectTypes";
 import { ImageInspector } from "./ImageInspector";
 
 const generatedRecord: ImageRecord = {
@@ -32,11 +33,13 @@ const parentRecord: ImageRecord = {
 };
 
 const renderInspector = (overrides: Partial<{
+  record: ImageRecord;
   onLocateImageRecord: (fileId: string) => void;
+  onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }> = {}) =>
   render(
     <ImageInspector
-      record={generatedRecord}
+      record={overrides.record ?? generatedRecord}
       parentRecord={parentRecord}
       ancestorRecords={[parentRecord]}
       descendantRecords={[
@@ -54,6 +57,7 @@ const renderInspector = (overrides: Partial<{
       onCopyPrompt={vi.fn()}
       onCopyTaskError={vi.fn()}
       onLocateImageRecord={overrides.onLocateImageRecord ?? vi.fn()}
+      onLocatePromptReference={overrides.onLocatePromptReference ?? vi.fn()}
     />,
   );
 
@@ -123,6 +127,33 @@ describe("ImageInspector", () => {
     expect(
       screen.queryByRole("button", { name: /当前图片/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("turns structured prompt references into locate actions", () => {
+    const promptReference: ImagePromptReferenceRecord = {
+      id: "reference-style",
+      index: 1,
+      label: "参考图 1",
+      kind: "image",
+      fileIds: ["file-style"],
+      elementIds: ["element-style"],
+    };
+    const onLocatePromptReference = vi.fn();
+
+    renderInspector({
+      record: {
+        ...generatedRecord,
+        prompt: "风格参考这个：参考图 1，整体保持克制。",
+        promptReferences: [promptReference],
+      },
+      onLocatePromptReference,
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "定位参考图 1" }),
+    );
+
+    expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);
   });
 
   it("copies only the selected visible text from the sidebar", () => {

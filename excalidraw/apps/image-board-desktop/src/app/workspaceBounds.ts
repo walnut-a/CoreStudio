@@ -33,6 +33,11 @@ export interface WorkspaceZoomGateState {
 const getFiniteNumber = (value: unknown, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
+const getPositiveFiniteNumber = (value: unknown, fallback: number) => {
+  const numberValue = getFiniteNumber(value, fallback);
+  return numberValue > 0 ? numberValue : fallback;
+};
+
 const isUsableBounds = (bounds: WorkspaceBounds) =>
   Number.isFinite(bounds.x) &&
   Number.isFinite(bounds.y) &&
@@ -41,15 +46,60 @@ const isUsableBounds = (bounds: WorkspaceBounds) =>
   bounds.width > 0 &&
   bounds.height > 0;
 
-const getDefaultWorkspaceBounds = ({
-  viewportCenter,
+const getDefaultWorkspaceSize = ({
   defaultWidth = DEFAULT_WORKSPACE_WIDTH,
   defaultHeight = DEFAULT_WORKSPACE_HEIGHT,
+}: Pick<WorkspaceBoundsOptions, "defaultWidth" | "defaultHeight">) => ({
+  width: getPositiveFiniteNumber(defaultWidth, DEFAULT_WORKSPACE_WIDTH),
+  height: getPositiveFiniteNumber(defaultHeight, DEFAULT_WORKSPACE_HEIGHT),
+});
+
+const getDefaultWorkspaceBounds = ({
+  viewportCenter,
+  defaultWidth,
+  defaultHeight,
 }: WorkspaceBoundsOptions): WorkspaceBounds => {
   const centerX = getFiniteNumber(viewportCenter.x, 0);
   const centerY = getFiniteNumber(viewportCenter.y, 0);
-  const width = getFiniteNumber(defaultWidth, DEFAULT_WORKSPACE_WIDTH);
-  const height = getFiniteNumber(defaultHeight, DEFAULT_WORKSPACE_HEIGHT);
+  const { width, height } = getDefaultWorkspaceSize({
+    defaultWidth,
+    defaultHeight,
+  });
+
+  return {
+    x: centerX - width / 2,
+    y: centerY - height / 2,
+    width,
+    height,
+  };
+};
+
+const padBounds = (
+  bounds: WorkspaceBounds,
+  padding: number,
+): WorkspaceBounds => ({
+  x: bounds.x - padding,
+  y: bounds.y - padding,
+  width: bounds.width + padding * 2,
+  height: bounds.height + padding * 2,
+});
+
+const expandBoundsToMinimumSize = (
+  bounds: WorkspaceBounds,
+  minimumSize: Pick<WorkspaceBounds, "width" | "height">,
+): WorkspaceBounds => {
+  const minimumWidth = getPositiveFiniteNumber(
+    minimumSize.width,
+    DEFAULT_WORKSPACE_WIDTH,
+  );
+  const minimumHeight = getPositiveFiniteNumber(
+    minimumSize.height,
+    DEFAULT_WORKSPACE_HEIGHT,
+  );
+  const width = Math.max(bounds.width, minimumWidth);
+  const height = Math.max(bounds.height, minimumHeight);
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
 
   return {
     x: centerX - width / 2,
@@ -85,12 +135,7 @@ export const expandWorkspaceBoundsForRect = (
     return bounds;
   }
 
-  return expandBounds(bounds, {
-    x: rect.x - padding,
-    y: rect.y - padding,
-    width: rect.width + padding * 2,
-    height: rect.height + padding * 2,
-  });
+  return expandBounds(bounds, padBounds(rect, padding));
 };
 
 const getElementWorkspaceBounds = (
@@ -112,7 +157,6 @@ export const getWorkspaceBounds = (
   options: WorkspaceBoundsOptions,
 ): WorkspaceBounds => {
   const padding = options.padding ?? WORKSPACE_BOUNDS_PADDING;
-  const workspaceBounds = getDefaultWorkspaceBounds(options);
   const visibleElementBounds = elements.flatMap((element) => {
     if (element.isDeleted) {
       return [];
@@ -123,15 +167,15 @@ export const getWorkspaceBounds = (
   });
 
   if (!visibleElementBounds.length) {
-    return workspaceBounds;
+    return getDefaultWorkspaceBounds(options);
   }
 
   const elementsBounds = visibleElementBounds.reduce(expandBounds);
+  const paddedElementsBounds = padBounds(elementsBounds, padding);
 
-  return expandWorkspaceBoundsForRect(
-    workspaceBounds,
-    elementsBounds,
-    padding,
+  return expandBoundsToMinimumSize(
+    paddedElementsBounds,
+    getDefaultWorkspaceSize(options),
   );
 };
 

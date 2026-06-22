@@ -1,15 +1,10 @@
 import { getProviderCapabilities } from "../../src/shared/providerCatalog";
+import { getOrderedPromptReferences } from "../../src/shared/promptReferences";
 import {
   getProviderApiKey,
   getProviderCustomModels,
   updateProviderStatus,
 } from "../settingsStore";
-
-import type {
-  CustomProviderModel,
-  GenerationRequest,
-  GenerationResponse,
-} from "../../src/shared/providerTypes";
 
 import { generateFalImages } from "./fal";
 import { generateGeminiImages } from "./gemini";
@@ -17,6 +12,12 @@ import { generateJimengImages } from "./jimeng";
 import { generateOpenAIImages } from "./openai";
 import { generateOpenRouterImages } from "./openrouter";
 import { generateZenMuxImages } from "./zenmux";
+
+import type {
+  CustomProviderModel,
+  GenerationRequest,
+  GenerationResponse,
+} from "../../src/shared/providerTypes";
 
 const ZENMUX_API_KEY_PATTERN = /^sk-(ai|ss)-v1-/i;
 
@@ -37,15 +38,26 @@ export const generateImages = async (input: {
     );
   }
 
-  if (
-    request.reference?.enabled &&
-    !getProviderCapabilities({
-      provider: request.provider,
-      model: request.model,
-      customModels,
-    }).supportsReferenceImages
-  ) {
+  const capabilities = getProviderCapabilities({
+    provider: request.provider,
+    model: request.model,
+    customModels,
+  });
+  const promptReferenceCount = getOrderedPromptReferences(request).length;
+  const legacyReferenceCount = request.reference?.enabled ? 1 : 0;
+  const referenceInputCount = promptReferenceCount || legacyReferenceCount;
+
+  if (referenceInputCount && !capabilities.supportsReferenceImages) {
     throw new Error("当前模型暂时不支持参考图，请切换到支持参考图的模型。");
+  }
+
+  if (
+    referenceInputCount &&
+    referenceInputCount > capabilities.maxReferenceImageCount
+  ) {
+    throw new Error(
+      `当前模型最多支持 ${capabilities.maxReferenceImageCount} 张参考图，请先删除多余引用。`,
+    );
   }
 
   try {

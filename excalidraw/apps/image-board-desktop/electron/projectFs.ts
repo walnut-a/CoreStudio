@@ -5,6 +5,7 @@ import path from "path";
 import {
   PROJECT_FILENAMES,
   PROJECT_FORMAT_VERSION,
+  type ImagePromptReferenceRecord,
   type ImageRecord,
   type ImageRecordMap,
   type ImageSourceType,
@@ -41,6 +42,7 @@ interface PersistImageAssetInput {
   seed?: number | null;
   createdAt: string;
   parentFileId?: string | null;
+  promptReferences?: ImagePromptReferenceRecord[];
 }
 
 const safeProjectFolderName = (name: string) =>
@@ -345,6 +347,7 @@ export const persistImageAssets = async ({
       createdAt: file.createdAt,
       mimeType: file.mimeType,
       parentFileId: file.parentFileId ?? null,
+      promptReferences: file.promptReferences,
     };
     nextImageRecords[file.fileId] = record;
   }

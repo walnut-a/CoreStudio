@@ -204,6 +204,7 @@ describe("Chinese localization", () => {
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
+        onLocatePromptReference={() => undefined}
       />,
     );
 
@@ -243,6 +244,7 @@ describe("Chinese localization", () => {
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
+        onLocatePromptReference={() => undefined}
       />,
     );
 
@@ -268,6 +270,7 @@ describe("Chinese localization", () => {
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
+        onLocatePromptReference={() => undefined}
       />,
     );
 
@@ -324,7 +327,7 @@ describe("Chinese localization", () => {
         open={true}
         initialRequest={{
           provider: "gemini",
-          model: getDefaultModel("gemini"),
+          model: "gemini-3.1-flash-image-preview",
           prompt: "工业设计草图",
           negativePrompt: "",
           width: 1024,
@@ -379,11 +382,18 @@ describe("Chinese localization", () => {
     );
     expect(screen.getByLabelText("提示词")).not.toHaveAttribute("wrap");
     expect(screen.queryByText("已引用：3")).toBeNull();
-    expect(screen.getByText("+")).toBeInTheDocument();
-    expect(screen.getAllByText("图片")).toHaveLength(1);
+    const pendingReferenceChip = document.querySelector(
+      "[data-pending-reference]",
+    );
+    expect(pendingReferenceChip).not.toBeNull();
+    expect(screen.queryByText("+")).toBeNull();
     expect(
-      screen.getByRole("img", { name: "待确认参考图缩略图" }),
-    ).toHaveAttribute("src", colorReferenceThumbnail);
+      within(pendingReferenceChip as HTMLElement).getByText("1"),
+    ).toBeInTheDocument();
+    expect(
+      within(pendingReferenceChip as HTMLElement).getByText("标注图"),
+    ).toBeInTheDocument();
+    expect(pendingReferenceChip?.querySelector("img")).toBeNull();
     expect(screen.queryByRole("button", { name: "移除引用" })).toBeNull();
     expect(screen.queryByText("宽度")).not.toBeInTheDocument();
     expect(screen.queryByText("参考信息")).not.toBeInTheDocument();
@@ -595,6 +605,91 @@ describe("Chinese localization", () => {
     expect(onDeletePrompt).toHaveBeenCalledWith("prompt-color");
   });
 
+  it("keeps inline prompt references when saving and appending saved prompts", () => {
+    const onSavePrompt = vi.fn();
+    const onUsePrompt = vi.fn();
+    const onRequestChange = vi.fn();
+    const promptReferences = [
+      {
+        id: "style-ref",
+        label: "图片",
+        enabled: true,
+        elementCount: 1,
+        textCount: 0,
+        thumbnailDataUrl: "data:image/png;base64,c3R5bGU=",
+        image: {
+          mimeType: "image/png",
+          dataBase64: Buffer.from("style").toString("base64"),
+        },
+      },
+    ];
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "风格参考：",
+          promptParts: [
+            { type: "text", text: "风格参考：" },
+            { type: "reference", referenceId: "style-ref" },
+          ],
+          promptReferences,
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        savedPrompts={[
+          {
+            id: "prompt-detail",
+            title: "细化",
+            content: "继续细化比例和材质",
+            tags: [],
+            createdAt: "2026-05-02T08:00:00.000Z",
+            updatedAt: "2026-05-02T08:00:00.000Z",
+            useCount: 0,
+          },
+        ]}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onSavePrompt={onSavePrompt}
+        onUsePrompt={onUsePrompt}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "常用 Prompt" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存当前提示词" }));
+
+    expect(onSavePrompt).toHaveBeenCalledWith({
+      content: "风格参考：参考图 1",
+      title: "风格参考：参考图 1",
+      tags: [],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "追加：细化" }));
+
+    expect(onUsePrompt).toHaveBeenCalledWith("prompt-detail");
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "风格参考：\n\n继续细化比例和材质",
+        promptParts: [
+          { type: "text", text: "风格参考：" },
+          { type: "reference", referenceId: "style-ref" },
+          { type: "text", text: "\n\n继续细化比例和材质" },
+        ],
+        promptReferences,
+      }),
+    );
+  });
+
   it("renders selected references as a pending inline chip", () => {
     const onSubmit = vi.fn();
     render(
@@ -633,7 +728,7 @@ describe("Chinese localization", () => {
 
     expect(screen.queryByText("已引用：2")).toBeNull();
     expect(screen.queryByRole("button", { name: "移除引用" })).toBeNull();
-    expect(screen.getByText("+")).toBeInTheDocument();
+    expect(document.querySelector("[data-pending-reference]")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
@@ -707,13 +802,13 @@ describe("Chinese localization", () => {
     );
 
     const promptInput = screen.getByLabelText("提示词");
-    expect(screen.getByText("+")).toBeInTheDocument();
+    expect(document.querySelector("[data-pending-reference]")).not.toBeNull();
 
     fireEvent.focus(promptInput);
 
     await waitFor(() => expect(onReferenceCommit).toHaveBeenCalledTimes(1));
     expect(onReferenceRemove).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("+")).toBeNull();
+    expect(document.querySelector("[data-pending-reference]")).toBeNull();
     expect(screen.getByText("1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
@@ -733,6 +828,358 @@ describe("Chinese localization", () => {
       }),
       false,
     );
+  });
+
+  it("renders pending inline references with the next reference number", () => {
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "风格参考这个： 造型参考这个： ，整体的逻辑关系是： ",
+          promptParts: [
+            { type: "text", text: "风格参考这个： " },
+            { type: "reference", referenceId: "style-ref" },
+            { type: "text", text: " 造型参考这个： " },
+            { type: "reference", referenceId: "shape-ref" },
+            { type: "text", text: "，整体的逻辑关系是： " },
+            { type: "reference", referenceId: "logic-ref" },
+          ],
+          promptReferences: [
+            {
+              id: "style-ref",
+              label: "图片",
+              enabled: true,
+              elementCount: 1,
+              textCount: 0,
+              thumbnailDataUrl: "data:image/png;base64,c3R5bGU=",
+              image: {
+                mimeType: "image/png",
+                dataBase64: Buffer.from("style").toString("base64"),
+              },
+            },
+            {
+              id: "shape-ref",
+              label: "图片",
+              enabled: true,
+              elementCount: 1,
+              textCount: 0,
+              thumbnailDataUrl: "data:image/png;base64,c2hhcGU=",
+              image: {
+                mimeType: "image/png",
+                dataBase64: Buffer.from("shape").toString("base64"),
+              },
+            },
+            {
+              id: "logic-ref",
+              label: "标注图",
+              enabled: true,
+              elementCount: 2,
+              textCount: 1,
+              thumbnailDataUrl: "data:image/png;base64,bG9naWM=",
+              image: {
+                mimeType: "image/png",
+                dataBase64: Buffer.from("logic").toString("base64"),
+              },
+            },
+          ],
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 2,
+            textCount: 1,
+            items: [
+              {
+                id: "image-1",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+              },
+              {
+                id: "text-1",
+                index: 2,
+                kind: "text",
+                label: "文本：关系",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+    const pendingChip = promptInput.querySelector("[data-pending-reference]");
+
+    expect(pendingChip).not.toBeNull();
+    expect(pendingChip).toHaveAttribute("aria-label", "4 标注图，待确认");
+    expect(
+      within(pendingChip as HTMLElement).getByText("4"),
+    ).toBeInTheDocument();
+    expect(
+      within(pendingChip as HTMLElement).getByText("标注图"),
+    ).toBeInTheDocument();
+    expect(pendingChip?.querySelector("img")).toBeNull();
+  });
+
+  it("uses the composed selection image for annotated reference thumbnails", async () => {
+    const onSubmit = vi.fn();
+    const onReferenceRemove = vi.fn();
+    const composedThumbnail = `data:image/png;base64,${Buffer.from(
+      "composed-selection",
+    ).toString("base64")}`;
+    const childThumbnail = `data:image/png;base64,${Buffer.from(
+      "child-image",
+    ).toString("base64")}`;
+    const committedReference = {
+      enabled: true,
+      elementCount: 2,
+      textCount: 1,
+      items: [
+        {
+          id: "image-1",
+          index: 1,
+          kind: "image" as const,
+          label: "图片",
+          thumbnailDataUrl: childThumbnail,
+        },
+        {
+          id: "note-1",
+          index: 2,
+          kind: "text" as const,
+          label: "文本：标注关系",
+        },
+      ],
+      image: {
+        mimeType: "image/png",
+        dataBase64: Buffer.from("composed-selection").toString("base64"),
+      },
+    };
+    const onReferenceCommit = vi.fn(async () => committedReference);
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "整体关系参考",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 2,
+            textCount: 1,
+            items: committedReference.items,
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onReferenceRemove={onReferenceRemove}
+        onReferenceCommit={onReferenceCommit}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+    const pendingChip = promptInput.querySelector("[data-pending-reference]");
+    expect(pendingChip?.querySelector("img")).toBeNull();
+
+    fireEvent.focus(promptInput);
+
+    await waitFor(() => expect(onReferenceCommit).toHaveBeenCalledTimes(1));
+    expect(onReferenceRemove).toHaveBeenCalledTimes(1);
+
+    const committedChipImage = promptInput.querySelector(
+      "[data-reference-id] img",
+    ) as HTMLImageElement | null;
+    expect(committedChipImage?.src).toBe(composedThumbnail);
+    expect(committedChipImage?.src).not.toBe(childThumbnail);
+
+    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reference: null,
+        promptReferences: [
+          expect.objectContaining({
+            label: "标注图",
+            image: committedReference.image,
+          }),
+        ],
+      }),
+      false,
+    );
+  });
+
+  it("blocks pending reference insertion once the selected model limit is reached", async () => {
+    const onReferenceCommit = vi.fn(async () => ({
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      items: [
+        {
+          id: "pending-image",
+          index: 1,
+          kind: "image" as const,
+          label: "图片",
+          thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+        },
+      ],
+      image: {
+        mimeType: "image/png",
+        dataBase64: Buffer.from("pending").toString("base64"),
+      },
+    }));
+    const promptReferences = Array.from({ length: 3 }, (_, index) => ({
+      id: `reference-${index + 1}`,
+      label: "图片",
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      thumbnailDataUrl: `data:image/png;base64,${Buffer.from(
+        `thumb-${index + 1}`,
+      ).toString("base64")}`,
+      image: {
+        mimeType: "image/png",
+        dataBase64: Buffer.from(`image-${index + 1}`).toString("base64"),
+      },
+    }));
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-2.5-flash-image",
+          prompt: "",
+          promptParts: promptReferences.map((reference) => ({
+            type: "reference" as const,
+            referenceId: reference.id,
+          })),
+          promptReferences,
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "pending-image",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onReferenceCommit={onReferenceCommit}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+
+    expect(promptInput.querySelectorAll("[data-reference-id]")).toHaveLength(3);
+    expect(promptInput.querySelector("[data-pending-reference]")).toBeNull();
+    expect(
+      screen.getByText("当前模型最多可插入 3 张参考图。"),
+    ).toBeInTheDocument();
+
+    fireEvent.focus(promptInput);
+
+    expect(onReferenceCommit).not.toHaveBeenCalled();
+    expect(promptInput.querySelectorAll("[data-reference-id]")).toHaveLength(3);
+  });
+
+  it("allows the same pending reference on models with a higher reference limit", async () => {
+    const promptReferences = Array.from({ length: 3 }, (_, index) => ({
+      id: `reference-${index + 1}`,
+      label: "图片",
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      thumbnailDataUrl: `data:image/png;base64,${Buffer.from(
+        `thumb-${index + 1}`,
+      ).toString("base64")}`,
+      image: {
+        mimeType: "image/png",
+        dataBase64: Buffer.from(`image-${index + 1}`).toString("base64"),
+      },
+    }));
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "",
+          promptParts: promptReferences.map((reference) => ({
+            type: "reference" as const,
+            referenceId: reference.id,
+          })),
+          promptReferences,
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "pending-image",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+
+    expect(promptInput.querySelectorAll("[data-reference-id]")).toHaveLength(3);
+    expect(
+      promptInput.querySelector("[data-pending-reference]"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("当前模型最多可插入 3 张参考图。"),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps IME composition text local until the input method commits it", async () => {
@@ -779,6 +1226,274 @@ describe("Chinese localization", () => {
         }),
       ),
     );
+  });
+
+  it("hides the prompt placeholder while IME composition text is active", () => {
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+    expect(promptInput).toHaveClass("generate-composer__prompt-editor--empty");
+
+    fireEvent.compositionStart(promptInput);
+    promptInput.textContent = "ni'ha";
+    fireEvent.input(promptInput);
+
+    expect(promptInput).not.toHaveClass(
+      "generate-composer__prompt-editor--empty",
+    );
+  });
+
+  it("does not leak the pending reference chip text into the prompt", async () => {
+    const onRequestChange = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "image-1",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+    const pendingChip = promptInput.querySelector("[data-pending-reference]");
+
+    promptInput.insertBefore(document.createTextNode("结构参考"), pendingChip);
+    fireEvent.input(promptInput);
+
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "结构参考",
+        promptParts: [{ type: "text", text: "结构参考" }],
+      }),
+    );
+  });
+
+  it("drops browser filler lines before rendering a pending reference chip", () => {
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "",
+          promptParts: [{ type: "text", text: "\n" }],
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "image-1",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+
+    expect(promptInput.firstChild).toBe(
+      promptInput.querySelector("[data-pending-reference]"),
+    );
+    expect(promptInput.textContent).not.toContain("\n");
+  });
+
+  it("keeps the dialog alive when the inline prompt is cleared", () => {
+    const onRequestChange = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "清空这段文字",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+
+    promptInput.textContent = "";
+    fireEvent.input(promptInput);
+
+    expect(
+      screen.getByRole("dialog", { name: "直接生成到画板" }),
+    ).toBeInTheDocument();
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "",
+        promptParts: [],
+        promptReferences: [],
+      }),
+    );
+  });
+
+  it("does not keep a browser filler line after text is cleared before inserting a reference", async () => {
+    const onRequestChange = vi.fn();
+    const onReferenceRemove = vi.fn();
+    const onReferenceCommit = vi.fn(async () => ({
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      items: [
+        {
+          id: "image-1",
+          index: 1,
+          kind: "image" as const,
+          label: "图片",
+          thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+        },
+      ],
+      image: {
+        mimeType: "image/png",
+        dataBase64: Buffer.from("confirmed").toString("base64"),
+      },
+    }));
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        initialRequest={{
+          provider: "gemini",
+          model: getDefaultModel("gemini"),
+          prompt: "",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "image-1",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                thumbnailDataUrl: "data:image/png;base64,cGVuZGluZw==",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onReferenceRemove={onReferenceRemove}
+        onReferenceCommit={onReferenceCommit}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    const promptInput = screen.getByLabelText("提示词");
+
+    promptInput.textContent = "测试";
+    fireEvent.input(promptInput);
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "测试",
+        promptParts: [{ type: "text", text: "测试" }],
+      }),
+    );
+
+    promptInput.innerHTML = "<br>";
+    fireEvent.input(promptInput);
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompt: "",
+        promptParts: [],
+      }),
+    );
+
+    fireEvent.focus(promptInput);
+    await waitFor(() => expect(onReferenceCommit).toHaveBeenCalledTimes(1));
+
+    const committedRequest = onRequestChange.mock.calls.at(-1)?.[0];
+    expect(onReferenceRemove).toHaveBeenCalledTimes(1);
+    expect(committedRequest.prompt).toBe("");
+    expect(committedRequest.promptParts).toHaveLength(1);
+    expect(committedRequest.promptParts[0]).toMatchObject({
+      type: "reference",
+    });
   });
 
   it("keeps API key settings folded inside the generation settings panel", async () => {
@@ -977,6 +1692,7 @@ describe("Chinese localization", () => {
               supportsImageCount: false,
               supportsReferenceImages: true,
               maxImageCount: 1,
+              maxReferenceImageCount: 8,
               sizeControlMode: "aspect-ratio",
             },
           },

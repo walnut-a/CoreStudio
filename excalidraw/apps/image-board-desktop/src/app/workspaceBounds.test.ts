@@ -43,13 +43,30 @@ describe("workspaceBounds", () => {
     expect(bounds.y + bounds.height).toBeGreaterThanOrEqual(6280);
   });
 
+  it("does not stretch a populated workspace to a remote saved viewport", () => {
+    const contentFrame = newFrameElement({
+      x: 100,
+      y: 80,
+      width: 400,
+      height: 300,
+    });
+
+    const bounds = getWorkspaceBounds([contentFrame], {
+      viewportCenter: { x: 50000, y: -40000 },
+    });
+
+    expect(bounds.width).toBe(DEFAULT_WORKSPACE_WIDTH);
+    expect(bounds.height).toBe(DEFAULT_WORKSPACE_HEIGHT);
+    expect(bounds.x).toBeLessThanOrEqual(100 - 360);
+    expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(500 + 360);
+    expect(bounds.y).toBeLessThanOrEqual(80 - 360);
+    expect(bounds.y + bounds.height).toBeGreaterThanOrEqual(380 + 360);
+  });
+
   it("ignores incomplete element geometry while computing the workspace", () => {
-    const bounds = getWorkspaceBounds(
-      [{ isDeleted: false } as never],
-      {
-        viewportCenter: { x: 0, y: 0 },
-      },
-    );
+    const bounds = getWorkspaceBounds([{ isDeleted: false } as never], {
+      viewportCenter: { x: 0, y: 0 },
+    });
 
     expect(bounds).toEqual({
       x: -DEFAULT_WORKSPACE_WIDTH / 2,

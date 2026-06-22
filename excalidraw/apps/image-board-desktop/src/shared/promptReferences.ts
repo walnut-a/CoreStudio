@@ -4,6 +4,7 @@ import type {
   GenerationReferencePayload,
   GenerationRequest,
 } from "./providerTypes";
+import type { ImagePromptReferenceRecord } from "./projectTypes";
 
 export const referencePlaceholderText = (index: number) => `参考图 ${index}`;
 
@@ -109,6 +110,78 @@ export const buildPromptTextWithInlineReferences = (
     .join("");
 
   return text || request.prompt;
+};
+
+const unique = <T,>(values: readonly T[]) => Array.from(new Set(values));
+
+const getReferenceSource = (
+  reference: GenerationReferencePayload,
+): {
+  fileIds: string[];
+  elementIds: string[];
+} => {
+  const sourceFileIds = reference.source?.fileIds || [];
+  const debugFileIds = reference.debug?.fileId ? [reference.debug.fileId] : [];
+  const itemFileIds =
+    reference.items?.flatMap((item) => (item.fileId ? [item.fileId] : [])) || [];
+
+  return {
+    fileIds: unique([...sourceFileIds, ...debugFileIds, ...itemFileIds]),
+    elementIds: unique(reference.source?.elementIds || []),
+  };
+};
+
+const getPromptReferenceKind = (
+  reference: GenerationReferencePayload,
+): ImagePromptReferenceRecord["kind"] =>
+  reference.items?.length === 1 && reference.items[0]?.kind === "image"
+    ? "image"
+    : "snapshot";
+
+const buildPromptReferenceRecord = (
+  reference: GenerationPromptReferencePayload,
+  index: number,
+): ImagePromptReferenceRecord => {
+  const source = getReferenceSource(reference);
+
+  return {
+    id: reference.id,
+    index,
+    label: referencePlaceholderText(index),
+    kind: getPromptReferenceKind(reference),
+    ...(source.fileIds.length ? { fileIds: source.fileIds } : {}),
+    ...(source.elementIds.length ? { elementIds: source.elementIds } : {}),
+  };
+};
+
+export const buildImagePromptReferenceRecords = (
+  request: Pick<
+    GenerationRequest,
+    "prompt" | "promptParts" | "promptReferences" | "reference"
+  >,
+): ImagePromptReferenceRecord[] => {
+  const orderedReferences = getOrderedPromptReferences(request);
+  if (orderedReferences.length) {
+    return orderedReferences.map((reference, index) =>
+      buildPromptReferenceRecord(reference, index + 1),
+    );
+  }
+
+  if (!request.reference?.enabled) {
+    return [];
+  }
+
+  const source = getReferenceSource(request.reference);
+  return [
+    {
+      id: "legacy-reference-1",
+      index: 1,
+      label: referencePlaceholderText(1),
+      kind: getPromptReferenceKind(request.reference),
+      ...(source.fileIds.length ? { fileIds: source.fileIds } : {}),
+      ...(source.elementIds.length ? { elementIds: source.elementIds } : {}),
+    },
+  ];
 };
 
 export const buildInlineReferenceNotes = (

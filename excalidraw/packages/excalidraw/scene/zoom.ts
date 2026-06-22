@@ -2,8 +2,8 @@ import type { AppState, NormalizedZoomValue } from "../types";
 
 import { getNormalizedZoom } from "./normalize";
 
-const WHEEL_ZOOM_SENSITIVITY = 0.004;
-const WHEEL_ZOOM_MAX_ABS_DELTA = 24;
+const WHEEL_ZOOM_SENSITIVITY = 0.0065;
+const WHEEL_ZOOM_MAX_ABS_DELTA = 17;
 
 export const getStateForZoom = (
   {
@@ -43,7 +43,8 @@ export const getWheelZoomValue = (
   currentZoom: number,
   deltaY: number,
 ): NormalizedZoomValue => {
-  const zoom = Number.isFinite(currentZoom) && currentZoom > 0 ? currentZoom : 1;
+  const zoom =
+    Number.isFinite(currentZoom) && currentZoom > 0 ? currentZoom : 1;
   const delta = Number.isFinite(deltaY) ? deltaY : 0;
   const cappedDelta =
     Math.sign(delta) * Math.min(Math.abs(delta), WHEEL_ZOOM_MAX_ABS_DELTA);

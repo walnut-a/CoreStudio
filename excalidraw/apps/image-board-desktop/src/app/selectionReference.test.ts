@@ -144,6 +144,7 @@ describe("selectionReference", () => {
         index: 1,
         kind: "image",
         label: "图片",
+        fileId: "file-right",
         thumbnailDataUrl: imageDataUrl,
       },
       {
@@ -159,6 +160,10 @@ describe("selectionReference", () => {
         label: "矩形",
       },
     ]);
+    expect(reference?.source).toEqual({
+      elementIds: ["image-right", "text-left", "shape-bottom"],
+      fileIds: ["file-right"],
+    });
   });
 
   it("keeps selection order in the reference signature", () => {

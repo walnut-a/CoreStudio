@@ -1,4 +1,9 @@
-import type { ImageRecordMap, ProjectManifest, ImageSourceType } from "./projectTypes";
+import type {
+  ImagePromptReferenceRecord,
+  ImageRecordMap,
+  ImageSourceType,
+  ProjectManifest,
+} from "./projectTypes";
 import type {
   GenerationRequest,
   GenerationResponse,
@@ -86,6 +91,7 @@ export interface PersistedImageAssetInput extends ProjectAssetPayload {
   negativePrompt?: string;
   seed?: number | null;
   parentFileId?: string | null;
+  promptReferences?: ImagePromptReferenceRecord[];
 }
 
 export interface ImportedImagePayload extends ProjectAssetPayload {

@@ -77,6 +77,16 @@ describe("projectFs", () => {
           height: 512,
           sourceType: "generated",
           prompt: "chair sketch",
+          promptReferences: [
+            {
+              id: "reference-style",
+              index: 1,
+              label: "参考图 1",
+              kind: "image",
+              fileIds: ["source-file"],
+              elementIds: ["source-element"],
+            },
+          ],
           model: "fal-ai/flux/schnell",
           provider: "fal",
           createdAt: "2026-04-12T12:00:00.000Z",
@@ -88,6 +98,16 @@ describe("projectFs", () => {
 
     const bundle = await readProjectBundle(project.projectPath);
     expect(bundle.imageRecords["file-123"].prompt).toBe("chair sketch");
+    expect(bundle.imageRecords["file-123"].promptReferences).toEqual([
+      {
+        id: "reference-style",
+        index: 1,
+        label: "参考图 1",
+        kind: "image",
+        fileIds: ["source-file"],
+        elementIds: ["source-element"],
+      },
+    ]);
   });
 
   it("rejects asset records that point outside the project assets folder", async () => {

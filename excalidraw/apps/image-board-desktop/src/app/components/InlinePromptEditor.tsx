@@ -10,6 +10,8 @@ import {
   type MouseEvent,
 } from "react";
 
+import { toDataUri } from "../../shared/promptReferences";
+
 import type {
   GenerationPromptPart,
   GenerationPromptReferencePayload,
@@ -42,6 +44,141 @@ const CHIP_TEXT_LENGTH = 1;
 const isReferenceElement = (node: Node): node is HTMLElement =>
   node instanceof HTMLElement && Boolean(node.dataset.referenceId);
 
+const isPendingReferenceElement = (node: Node): node is HTMLElement =>
+  node instanceof HTMLElement && Boolean(node.dataset.pendingReference);
+
+const createTextNode = (text: string) => document.createTextNode(text);
+
+const createReferenceChipNode = (
+  reference: GenerationPromptReferencePayload,
+  index: number,
+) => {
+  const chip = document.createElement("span");
+  const thumbnail = reference.thumbnailDataUrl;
+  chip.className = [
+    "generate-composer__reference-chip",
+    "generate-composer__reference-chip--image",
+    thumbnail ? "generate-composer__reference-chip--with-thumbnail" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  chip.contentEditable = "false";
+  chip.dataset.referenceId = reference.id;
+  chip.title = getReferenceLabel(reference, index);
+
+  if (thumbnail) {
+    const thumbnailNode = document.createElement("span");
+    thumbnailNode.className = "generate-composer__reference-chip-thumbnail";
+    const image = document.createElement("img");
+    image.src = thumbnail;
+    image.alt = `${getReferenceLabel(reference, index)} 缩略图`;
+    image.draggable = false;
+    thumbnailNode.append(image);
+    chip.append(thumbnailNode);
+  }
+
+  const indexNode = document.createElement("span");
+  indexNode.className = "generate-composer__reference-chip-index";
+  indexNode.textContent = String(index + 1);
+  chip.append(indexNode);
+
+  const labelNode = document.createElement("span");
+  labelNode.className = "generate-composer__reference-chip-label";
+  labelNode.textContent = reference.label;
+  chip.append(labelNode);
+
+  return chip;
+};
+
+const createPendingReferenceChipNode = (
+  reference: GenerationReferencePayload,
+  index: number,
+) => {
+  const chip = document.createElement("span");
+  const thumbnail = getPendingThumbnail(reference);
+  const label = getPendingReferenceLabel(reference);
+  chip.className = [
+    "generate-composer__reference-chip",
+    "generate-composer__reference-chip--pending",
+    "generate-composer__reference-chip--with-thumbnail",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  chip.contentEditable = "false";
+  chip.dataset.pendingReference = "true";
+  chip.title = `${index + 1} ${label}，待确认`;
+  chip.setAttribute("aria-label", `${index + 1} ${label}，待确认`);
+
+  const thumbnailNode = document.createElement("span");
+  thumbnailNode.className = "generate-composer__reference-chip-thumbnail";
+  if (thumbnail) {
+    const image = document.createElement("img");
+    image.src = thumbnail;
+    image.alt = `${index + 1} ${label}待确认缩略图`;
+    image.draggable = false;
+    thumbnailNode.append(image);
+  }
+  chip.append(thumbnailNode);
+
+  const indexNode = document.createElement("span");
+  indexNode.className = "generate-composer__reference-chip-index";
+  indexNode.textContent = String(index + 1);
+  chip.append(indexNode);
+
+  const labelNode = document.createElement("span");
+  labelNode.className = "generate-composer__reference-chip-label";
+  labelNode.textContent = label;
+  chip.append(labelNode);
+
+  return chip;
+};
+
+const renderEditorContent = ({
+  editor,
+  parts,
+  references,
+  pendingReference,
+}: {
+  editor: HTMLElement | null;
+  parts: readonly GenerationPromptPart[];
+  references: readonly GenerationPromptReferencePayload[];
+  pendingReference: GenerationReferencePayload | null;
+}) => {
+  if (!editor) {
+    return;
+  }
+
+  const referenceMap = new Map(
+    references.map((reference, index) => [reference.id, { reference, index }]),
+  );
+  const fragment = document.createDocumentFragment();
+  const renderParts = stripBrowserFillerContent(mergeTextParts([...parts]), {
+    hasVisualReference: Boolean(pendingReference),
+  });
+
+  for (const part of renderParts) {
+    if (part.type === "text") {
+      if (part.text) {
+        fragment.append(createTextNode(part.text));
+      }
+      continue;
+    }
+
+    const entry = referenceMap.get(part.referenceId);
+    if (entry) {
+      fragment.append(createReferenceChipNode(entry.reference, entry.index));
+    }
+  }
+
+  if (pendingReference) {
+    fragment.append(
+      createPendingReferenceChipNode(pendingReference, references.length),
+    );
+  }
+
+  editor.replaceChildren(fragment);
+};
+
 const mergeTextParts = (parts: GenerationPromptPart[]) => {
   const merged: GenerationPromptPart[] = [];
   for (const part of parts) {
@@ -62,6 +199,56 @@ const mergeTextParts = (parts: GenerationPromptPart[]) => {
   return merged;
 };
 
+const isBrowserFillerText = (text: string) =>
+  !text.replace(/[\n\r\u200b\ufeff\u00a0]/g, "");
+
+const stripBrowserFillerContent = (
+  parts: GenerationPromptPart[],
+  options: { hasVisualReference?: boolean } = {},
+) => {
+  const normalizedParts = [...parts];
+
+  while (
+    normalizedParts[0]?.type === "text" &&
+    isBrowserFillerText(normalizedParts[0].text)
+  ) {
+    normalizedParts.shift();
+  }
+
+  while (
+    normalizedParts.at(-1)?.type === "text" &&
+    isBrowserFillerText(
+      (
+        normalizedParts.at(-1) as Extract<
+          GenerationPromptPart,
+          { type: "text" }
+        >
+      ).text,
+    )
+  ) {
+    normalizedParts.pop();
+  }
+
+  const hasReference =
+    options.hasVisualReference ||
+    normalizedParts.some((part) => part.type === "reference");
+  const text = normalizedParts
+    .filter(
+      (part): part is Extract<GenerationPromptPart, { type: "text" }> =>
+        part.type === "text",
+    )
+    .map((part) => part.text)
+    .join("");
+
+  if (!text || isBrowserFillerText(text)) {
+    return hasReference
+      ? normalizedParts.filter((part) => part.type !== "text")
+      : [];
+  }
+
+  return normalizedParts;
+};
+
 const readPartsFromNode = (node: Node): GenerationPromptPart[] => {
   if (node.nodeType === Node.TEXT_NODE) {
     return [{ type: "text", text: node.textContent || "" }];
@@ -69,6 +256,10 @@ const readPartsFromNode = (node: Node): GenerationPromptPart[] => {
 
   if (isReferenceElement(node)) {
     return [{ type: "reference", referenceId: node.dataset.referenceId! }];
+  }
+
+  if (isPendingReferenceElement(node)) {
+    return [];
   }
 
   if (!(node instanceof HTMLElement)) {
@@ -86,8 +277,8 @@ const readEditorParts = (editor: HTMLElement | null) => {
   if (!editor) {
     return [];
   }
-  return mergeTextParts(
-    Array.from(editor.childNodes).flatMap(readPartsFromNode),
+  return stripBrowserFillerContent(
+    mergeTextParts(Array.from(editor.childNodes).flatMap(readPartsFromNode)),
   );
 };
 
@@ -97,6 +288,9 @@ const nodeTextLength = (node: Node): number => {
   }
   if (isReferenceElement(node)) {
     return CHIP_TEXT_LENGTH;
+  }
+  if (isPendingReferenceElement(node)) {
+    return 0;
   }
   if (node instanceof HTMLElement && node.tagName === "BR") {
     return 1;
@@ -262,9 +456,25 @@ const getReferenceLabel = (
   index: number,
 ) => `${index + 1} ${reference.label}`;
 
+const getPendingReferenceLabel = (reference: GenerationReferencePayload) => {
+  const items = reference.items || [];
+  if (items.length === 1 && items[0]?.kind === "image") {
+    return "图片";
+  }
+  return "标注图";
+};
+
 const getPendingThumbnail = (reference: GenerationReferencePayload | null) => {
-  const imageItem = reference?.items?.find((item) => item.thumbnailDataUrl);
-  return imageItem?.thumbnailDataUrl ?? null;
+  if (reference?.image) {
+    return toDataUri(reference.image.mimeType, reference.image.dataBase64);
+  }
+
+  const items = reference?.items || [];
+  if (items.length !== 1 || items[0]?.kind !== "image") {
+    return null;
+  }
+
+  return items[0].thumbnailDataUrl ?? null;
 };
 
 export const InlinePromptEditor = forwardRef<
@@ -290,6 +500,7 @@ export const InlinePromptEditor = forwardRef<
   ) => {
     const editorRef = useRef<HTMLDivElement | null>(null);
     const [localParts, setLocalParts] = useState(parts);
+    const [isComposing, setIsComposing] = useState(false);
     const restoreOffsetRef = useRef<number | null>(null);
     const composingRef = useRef(false);
     const compositionCommitTimerRef = useRef<number | null>(null);
@@ -312,16 +523,15 @@ export const InlinePromptEditor = forwardRef<
     );
 
     useLayoutEffect(() => {
+      renderEditorContent({
+        editor: editorRef.current,
+        parts: localParts,
+        references,
+        pendingReference,
+      });
       restoreCaretOffset(editorRef.current, restoreOffsetRef.current);
       restoreOffsetRef.current = null;
-    }, [localParts]);
-
-    const referenceMap = new Map(
-      references.map((reference, index) => [
-        reference.id,
-        { reference, index },
-      ]),
-    );
+    }, [localParts, pendingReference, references]);
 
     const commitDomChange = () => {
       if (composingRef.current) {
@@ -347,6 +557,9 @@ export const InlinePromptEditor = forwardRef<
     const handleInput = () => {
       clearScheduledCompositionCommit();
       commitDomChange();
+      if (!composingRef.current) {
+        setIsComposing(false);
+      }
     };
 
     const handleCompositionStart = (
@@ -354,6 +567,7 @@ export const InlinePromptEditor = forwardRef<
     ) => {
       clearScheduledCompositionCommit();
       composingRef.current = true;
+      setIsComposing(true);
     };
 
     const handleCompositionEnd = (_event: CompositionEvent<HTMLDivElement>) => {
@@ -361,6 +575,7 @@ export const InlinePromptEditor = forwardRef<
       compositionCommitTimerRef.current = window.setTimeout(() => {
         compositionCommitTimerRef.current = null;
         commitDomChange();
+        setIsComposing(false);
       }, 0);
     };
 
@@ -386,10 +601,10 @@ export const InlinePromptEditor = forwardRef<
     }));
 
     const isEmpty =
+      !isComposing &&
       !pendingReference &&
       (!localParts.length ||
         localParts.every((part) => part.type !== "reference" && !part.text));
-    const pendingThumbnail = getPendingThumbnail(pendingReference);
 
     return (
       <div
@@ -414,86 +629,7 @@ export const InlinePromptEditor = forwardRef<
         onKeyPressCapture={onKeyPressCapture}
         onKeyUpCapture={onKeyUpCapture}
         onKeyDown={onKeyDown}
-      >
-        {localParts.map((part, index) => {
-          if (part.type === "text") {
-            return <span key={`text-${index}`}>{part.text}</span>;
-          }
-
-          const entry = referenceMap.get(part.referenceId);
-          if (!entry) {
-            return null;
-          }
-
-          const thumbnail = entry.reference.thumbnailDataUrl;
-          return (
-            <span
-              key={`reference-${part.referenceId}-${index}`}
-              className={[
-                "generate-composer__reference-chip",
-                "generate-composer__reference-chip--image",
-                thumbnail
-                  ? "generate-composer__reference-chip--with-thumbnail"
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              contentEditable={false}
-              data-reference-id={part.referenceId}
-              title={getReferenceLabel(entry.reference, entry.index)}
-            >
-              {thumbnail ? (
-                <span className="generate-composer__reference-chip-thumbnail">
-                  <img
-                    src={thumbnail}
-                    alt={`${getReferenceLabel(
-                      entry.reference,
-                      entry.index,
-                    )} 缩略图`}
-                    draggable={false}
-                  />
-                </span>
-              ) : null}
-              <span className="generate-composer__reference-chip-index">
-                {entry.index + 1}
-              </span>
-              <span className="generate-composer__reference-chip-label">
-                {entry.reference.label}
-              </span>
-            </span>
-          );
-        })}
-        {pendingReference ? (
-          <span
-            className={[
-              "generate-composer__reference-chip",
-              "generate-composer__reference-chip--pending",
-              pendingThumbnail
-                ? "generate-composer__reference-chip--with-thumbnail"
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            contentEditable={false}
-            data-pending-reference="true"
-            title="待确认的参考图"
-          >
-            {pendingThumbnail ? (
-              <span className="generate-composer__reference-chip-thumbnail">
-                <img
-                  src={pendingThumbnail}
-                  alt="待确认参考图缩略图"
-                  draggable={false}
-                />
-              </span>
-            ) : null}
-            <span className="generate-composer__reference-chip-index">+</span>
-            <span className="generate-composer__reference-chip-label">
-              图片
-            </span>
-          </span>
-        ) : null}
-      </div>
+      />
     );
   },
 );

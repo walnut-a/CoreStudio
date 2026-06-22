@@ -12,6 +12,7 @@ import {
   CUSTOM_MODEL_USAGE_PRESETS,
   getAspectRatioOptions,
   getDefaultModel,
+  getProviderCapabilities,
   getRequestAspectRatioOption,
   getProviderModels,
   getProviderDefinition,
@@ -30,7 +31,10 @@ import {
   getProviderStatusLabel,
 } from "../copy";
 
-import { toDataUri } from "../../shared/promptReferences";
+import {
+  buildPromptTextWithInlineReferences,
+  toDataUri,
+} from "../../shared/promptReferences";
 
 import { DesktopButton } from "./DesktopButton";
 import {
@@ -64,6 +68,9 @@ import type {
 
 const PROMPT_LIBRARY_TITLE_MAX_LENGTH = 24;
 
+const formatCountCopy = (template: string, count: number) =>
+  template.replace("{count}", String(count));
+
 const partsToPlainPrompt = (parts: readonly GenerationPromptPart[]) =>
   parts
     .filter(
@@ -93,16 +100,19 @@ const getPromptReferenceLabel = (reference: GenerationReferencePayload) => {
   return "标注图";
 };
 
-const getPromptReferenceThumbnail = (reference: GenerationReferencePayload) => {
-  const thumbnail = reference.items?.find(
-    (item) => item.thumbnailDataUrl,
-  )?.thumbnailDataUrl;
-  if (thumbnail) {
-    return thumbnail;
+const getSingleImageItemThumbnail = (reference: GenerationReferencePayload) => {
+  const items = reference.items || [];
+  if (items.length !== 1 || items[0]?.kind !== "image") {
+    return undefined;
   }
+
+  return items[0].thumbnailDataUrl;
+};
+
+const getPromptReferenceThumbnail = (reference: GenerationReferencePayload) => {
   return reference.image
     ? toDataUri(reference.image.mimeType, reference.image.dataBase64)
-    : undefined;
+    : getSingleImageItemThumbnail(reference);
 };
 
 const createSavedPromptTitle = (content: string) => {
@@ -132,12 +142,9 @@ const stripReferenceItemThumbnails = (
     return request;
   }
 
-  const items = reference?.items?.map(({ id, index, kind, label }) => ({
-    id,
-    index,
-    kind,
-    label,
-  }));
+  const items = reference?.items?.map(
+    ({ thumbnailDataUrl: _thumbnailDataUrl, ...item }) => item,
+  );
 
   return {
     ...request,
@@ -158,12 +165,9 @@ const stripReferenceItemThumbnails = (
         ...promptReference,
         ...(promptItems
           ? {
-              items: promptItems.map(({ id, index, kind, label }) => ({
-                id,
-                index,
-                kind,
-                label,
-              })),
+              items: promptItems.map(
+                ({ thumbnailDataUrl: _itemThumbnailDataUrl, ...item }) => item,
+              ),
             }
           : {}),
       }),
@@ -419,6 +423,14 @@ export const GenerateImageDialog = ({
     model: request.model,
     customModels: currentProviderCustomModels,
   });
+  const currentCapabilities = getProviderCapabilities({
+    provider: request.provider,
+    model: request.model,
+    customModels: currentProviderCustomModels,
+  });
+  const maxPromptReferenceCount = currentCapabilities.supportsReferenceImages
+    ? currentCapabilities.maxReferenceImageCount
+    : 0;
   const aspectRatioOptions = getAspectRatioOptions({
     ...request,
     customModels: currentProviderCustomModels,
@@ -429,11 +441,40 @@ export const GenerateImageDialog = ({
       : getRequestAspectRatioOption(request, aspectRatioOptions)?.id ??
         ASPECT_RATIO_AUTO_ID;
   const promptReferenceCount = request.promptReferences?.length ?? 0;
+  const hasPendingReference = Boolean(request.reference?.enabled);
+  const hasUsablePendingReference =
+    hasPendingReference && maxPromptReferenceCount > 0;
+  const referenceLimitExceeded = promptReferenceCount > maxPromptReferenceCount;
+  const referenceLimitReached =
+    hasUsablePendingReference &&
+    promptReferenceCount >= maxPromptReferenceCount;
+  const referenceLimitMessage = referenceLimitExceeded
+    ? maxPromptReferenceCount > 0
+      ? formatCountCopy(
+          copy.generateDialog.referenceLimitExceeded,
+          maxPromptReferenceCount,
+        )
+      : copy.generateDialog.referenceUnsupportedWithInlineReferences
+    : hasPendingReference && !hasUsablePendingReference
+    ? copy.generateDialog.referenceUnsupported
+    : referenceLimitReached
+    ? formatCountCopy(
+        copy.generateDialog.referenceLimitReached,
+        maxPromptReferenceCount,
+      )
+    : null;
+  const pendingReference =
+    hasUsablePendingReference && !referenceLimitReached
+      ? request.reference ?? null
+      : null;
+  const hasInlineReferenceVisuals =
+    Boolean(pendingReference) || promptReferenceCount > 0;
   const canSubmit = Boolean(
     (request.prompt.trim() ||
       promptReferenceCount ||
-      request.reference?.enabled) &&
-      isConfigured,
+      hasUsablePendingReference) &&
+      isConfigured &&
+      !referenceLimitExceeded,
   );
   const showBody = advancedOpen;
   const selectedCustomModelUsage =
@@ -449,6 +490,8 @@ export const GenerateImageDialog = ({
           .includes(normalizedPromptLibrarySearch),
       )
     : savedPrompts;
+  const promptLibraryCurrentContent =
+    buildPromptTextWithInlineReferences(request).trim();
 
   const commitRequest = (
     nextRequest: GenerationRequest,
@@ -566,11 +609,30 @@ export const GenerateImageDialog = ({
     }));
   };
 
+  const getCurrentMaxPromptReferenceCount = () => {
+    const currentRequest = requestRef.current;
+    const capabilities = getProviderCapabilities({
+      provider: currentRequest.provider,
+      model: currentRequest.model,
+      customModels:
+        providerSettingsRef.current?.[currentRequest.provider]?.customModels ??
+        [],
+    });
+    return capabilities.supportsReferenceImages
+      ? capabilities.maxReferenceImageCount
+      : 0;
+  };
+
   const commitPendingReference = async () => {
     if (
       committingReferenceRef.current ||
       !requestRef.current.reference?.enabled ||
       !onReferenceCommit
+    ) {
+      return;
+    }
+    if (
+      promptReferencesRef.current.length >= getCurrentMaxPromptReferenceCount()
     ) {
       return;
     }
@@ -610,7 +672,9 @@ export const GenerateImageDialog = ({
   };
 
   const saveCurrentPrompt = () => {
-    const content = requestRef.current.prompt.trim();
+    const content = buildPromptTextWithInlineReferences(
+      requestRef.current,
+    ).trim();
     if (!content || !onSavePrompt) {
       return;
     }
@@ -626,23 +690,61 @@ export const GenerateImageDialog = ({
     prompt: SavedPrompt,
     mode: "replace" | "append",
   ) => {
-    const currentPrompt = requestRef.current.prompt.trimEnd();
-    const nextPrompt =
-      mode === "append" && currentPrompt
-        ? `${currentPrompt}\n\n${prompt.content}`
-        : prompt.content;
+    if (mode === "replace") {
+      updatePrompt(prompt.content);
+      void onUsePrompt?.(prompt.id);
+      return;
+    }
 
-    updatePrompt(nextPrompt);
+    const currentParts = requestRef.current.promptParts?.length
+      ? requestRef.current.promptParts
+      : getInitialPromptParts(requestRef.current);
+    const nextParts: GenerationPromptPart[] = [
+      ...currentParts,
+      {
+        type: "text",
+        text: currentParts.length ? `\n\n${prompt.content}` : prompt.content,
+      },
+    ];
+    const referencedIds = new Set(
+      nextParts
+        .filter(
+          (
+            part,
+          ): part is Extract<GenerationPromptPart, { type: "reference" }> =>
+            part.type === "reference",
+        )
+        .map((part) => part.referenceId),
+    );
+    const nextReferences = promptReferencesRef.current.filter((reference) =>
+      referencedIds.has(reference.id),
+    );
+    promptReferencesRef.current = nextReferences;
+    setPromptEditorParts(nextParts);
+    setPromptEditorResetKey((current) => current + 1);
+    updateRequest((current) => ({
+      ...current,
+      prompt: partsToPlainPrompt(nextParts),
+      promptParts: nextParts,
+      promptReferences: nextReferences,
+    }));
     void onUsePrompt?.(prompt.id);
   };
 
   const submitPreparedRequest = (nextRequest: GenerationRequest) => {
+    const normalizedRequest = normalizeGenerationRequest(nextRequest, {
+      customModels: currentProviderCustomModels,
+    });
+    const requestWithInlineReferencesOnly = normalizedRequest.promptReferences
+      ?.length
+      ? {
+          ...normalizedRequest,
+          reference: null,
+        }
+      : normalizedRequest;
+
     onSubmit(
-      stripReferenceItemThumbnails(
-        normalizeGenerationRequest(nextRequest, {
-          customModels: currentProviderCustomModels,
-        }),
-      ),
+      stripReferenceItemThumbnails(requestWithInlineReferencesOnly),
       false,
     );
     promptReferencesRef.current = [];
@@ -879,7 +981,16 @@ export const GenerateImageDialog = ({
         aria-label={copy.generateDialog.title}
       >
         <form className="generate-panel__form" onSubmit={handleSubmit}>
-          <div className={["generate-composer"].filter(Boolean).join(" ")}>
+          <div
+            className={[
+              "generate-composer",
+              hasInlineReferenceVisuals
+                ? "generate-composer--with-reference"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
             <div className="generate-composer__field">
               <InlinePromptEditor
                 ref={promptEditorRef}
@@ -887,9 +998,7 @@ export const GenerateImageDialog = ({
                 placeholder={copy.generateDialog.promptPlaceholder}
                 parts={promptEditorParts}
                 references={request.promptReferences || []}
-                pendingReference={
-                  request.reference?.enabled ? request.reference : null
-                }
+                pendingReference={pendingReference}
                 resetKey={promptEditorResetKey}
                 onChange={updatePromptParts}
                 onFocusIntent={() => {
@@ -904,6 +1013,11 @@ export const GenerateImageDialog = ({
                 onKeyDown={handleComposerPromptKeyDown}
               />
             </div>
+            {referenceLimitMessage ? (
+              <div className="generate-composer__notice" role="status">
+                {referenceLimitMessage}
+              </div>
+            ) : null}
             <div className="generate-composer__controls">
               <DesktopButton
                 type="button"
@@ -968,7 +1082,7 @@ export const GenerateImageDialog = ({
                 <DesktopButton
                   type="button"
                   className="generate-prompt-library__save"
-                  disabled={!request.prompt.trim() || !onSavePrompt}
+                  disabled={!promptLibraryCurrentContent || !onSavePrompt}
                   onMouseDown={stopInputEventPropagation}
                   onClick={(event) => {
                     stopInputEventPropagation(event);
@@ -1432,10 +1546,21 @@ export const GenerateImageDialog = ({
                                     }
                                     onMouseDown={stopInputEventPropagation}
                                     onChange={(event) =>
-                                      updateCustomModelCapabilities({
-                                        supportsReferenceImages:
-                                          event.target.checked,
-                                      })
+                                      updateCustomModelCapabilities(
+                                        (current) => {
+                                          const supportsReferenceImages =
+                                            event.target.checked;
+                                          return {
+                                            ...current,
+                                            supportsReferenceImages,
+                                            maxReferenceImageCount:
+                                              supportsReferenceImages
+                                                ? current.maxReferenceImageCount ||
+                                                  8
+                                                : 0,
+                                          };
+                                        },
+                                      )
                                     }
                                   />
                                   <span>

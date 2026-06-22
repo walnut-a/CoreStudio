@@ -154,6 +154,7 @@ const buildReferenceItems = (
         index: itemIndex + 1,
         kind: "image" as const,
         label: "图片",
+        ...(element.fileId ? { fileId: element.fileId } : {}),
         ...(thumbnailDataUrl ? { thumbnailDataUrl } : {}),
       };
     }
@@ -174,6 +175,24 @@ const buildReferenceItems = (
       label: shapeLabels[element.type] ?? "元素",
     };
   });
+
+const unique = <T,>(values: readonly T[]) => Array.from(new Set(values));
+
+const buildReferenceSource = (
+  selectedElements: readonly NonDeleted<ExcalidrawElement>[],
+) => {
+  const elementIds = selectedElements.map((element) => element.id);
+  const fileIds = unique(
+    selectedElements.flatMap((element) =>
+      element.type === "image" && element.fileId ? [element.fileId] : [],
+    ),
+  );
+
+  return {
+    ...(elementIds.length ? { elementIds } : {}),
+    ...(fileIds.length ? { fileIds } : {}),
+  };
+};
 
 const getSelectedElementIdOrder = (
   appState: Pick<AppState, "selectedElementIds">,
@@ -268,11 +287,13 @@ export const buildSelectionReferenceSummary = (
 
   const textNotes = extractReferenceTextNotes(selectedElements);
   const items = buildReferenceItems(selectedElements, scene.files);
+  const source = buildReferenceSource(selectedElements);
   return {
     enabled: true,
     elementCount: selectedElements.length,
     textCount: textNotes.length,
     items,
+    source,
     ...(textNotes.length ? { textNotes } : {}),
   };
 };

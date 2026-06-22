@@ -1,7 +1,11 @@
-import { useRef } from "react";
+import { type ReactNode, useRef } from "react";
 
-import type { ImageRecord } from "../../shared/projectTypes";
+import type {
+  ImagePromptReferenceRecord,
+  ImageRecord,
+} from "../../shared/projectTypes";
 import type { ProviderId } from "../../shared/providerTypes";
+import { referencePlaceholderText } from "../../shared/promptReferences";
 import type { ImageLineageEntry } from "../imageRelationships";
 import {
   copy,
@@ -37,6 +41,7 @@ interface ImageInspectorProps {
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
+  onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }
 
 const getImageRecordSummary = (record: ImageRecord) => {
@@ -79,6 +84,60 @@ const getImageRecordTitle = (record: ImageRecord) =>
     ? copy.inspector.generatedImageTitle
     : copy.inspector.importedImageTitle;
 
+const hasPromptReferenceTarget = (reference: ImagePromptReferenceRecord) =>
+  Boolean(reference.fileIds?.length || reference.elementIds?.length);
+
+const renderPromptTextWithReferences = (
+  prompt: string | undefined,
+  references: ImagePromptReferenceRecord[] | undefined,
+  onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void,
+) => {
+  const promptText = getOptionalText(prompt);
+  const renderableReferences = (references || [])
+    .filter(hasPromptReferenceTarget)
+    .sort((left, right) => left.index - right.index);
+
+  if (!prompt?.trim() || !renderableReferences.length) {
+    return promptText;
+  }
+
+  const nodes: ReactNode[] = [];
+  let rest = promptText;
+
+  for (const reference of renderableReferences) {
+    const placeholder = referencePlaceholderText(reference.index);
+    const placeholderIndex = rest.indexOf(placeholder);
+    if (placeholderIndex < 0) {
+      continue;
+    }
+
+    const before = rest.slice(0, placeholderIndex);
+    if (before) {
+      nodes.push(before);
+    }
+
+    nodes.push(
+      <button
+        key={reference.id}
+        type="button"
+        className="image-inspector__prompt-reference"
+        aria-label={`定位${placeholder}`}
+        title={copy.inspector.locateImage}
+        onClick={() => onLocatePromptReference(reference)}
+      >
+        {placeholder}
+      </button>,
+    );
+    rest = rest.slice(placeholderIndex + placeholder.length);
+  }
+
+  if (rest) {
+    nodes.push(rest);
+  }
+
+  return nodes.length ? nodes : promptText;
+};
+
 export const ImageInspector = ({
   record,
   parentRecord,
@@ -88,6 +147,7 @@ export const ImageInspector = ({
   onCopyPrompt,
   onCopyTaskError,
   onLocateImageRecord,
+  onLocatePromptReference,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
   usePlainTextCopyWithin(inspectorRef);
@@ -265,7 +325,11 @@ export const ImageInspector = ({
             <h3>{copy.inspector.prompt}</h3>
           </div>
           <p className="image-inspector__prompt-text">
-            {getOptionalText(record.prompt)}
+            {renderPromptTextWithReferences(
+              record.prompt,
+              record.promptReferences,
+              onLocatePromptReference,
+            )}
           </p>
         </section>
 

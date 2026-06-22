@@ -629,8 +629,17 @@ vi.mock("./components/ImageInspector", () => ({
     descendantRecords,
     task,
     onLocateImageRecord,
+    onLocatePromptReference,
   }: {
-    record: { model?: string } | null;
+    record: {
+      model?: string;
+      promptReferences?: Array<{
+        id: string;
+        label: string;
+        fileIds?: string[];
+        elementIds?: string[];
+      }>;
+    } | null;
     parentRecord?: { fileId?: string; prompt?: string | null } | null;
     ancestorRecords?: Array<{ fileId: string; prompt?: string | null }>;
     descendantRecords?: Array<{
@@ -641,6 +650,12 @@ vi.mock("./components/ImageInspector", () => ({
       rawError?: string | null;
     } | null;
     onLocateImageRecord?: (fileId: string) => void;
+    onLocatePromptReference?: (reference: {
+      id: string;
+      label: string;
+      fileIds?: string[];
+      elementIds?: string[];
+    }) => void;
   }) =>
     task ? (
       <aside>{`生成任务: ${task.status === "error" ? "生成失败" : "生成中"} ${task.rawError || ""}`}</aside>
@@ -663,6 +678,15 @@ vi.mock("./components/ImageInspector", () => ({
             onClick={() => onLocateImageRecord?.(descendantRecord.fileId)}
           >
             {`定位后续: ${descendantRecord.prompt || descendantRecord.fileId}`}
+          </button>
+        ))}
+        {record.promptReferences?.map((promptReference) => (
+          <button
+            key={`prompt-reference-${promptReference.id}`}
+            type="button"
+            onClick={() => onLocatePromptReference?.(promptReference)}
+          >
+            {`定位引用: ${promptReference.label}`}
           </button>
         ))}
       </aside>
@@ -2740,6 +2764,126 @@ describe("App startup", () => {
     );
   });
 
+  it("locates a prompt reference image from the inspector prompt", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "file-1": {
+              fileId: "file-1",
+              assetPath: "assets/file-1.png",
+              sourceType: "imported",
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-04-11T08:00:00.000Z",
+              mimeType: "image/png",
+              prompt: "风格参考",
+            },
+            "file-2": {
+              fileId: "file-2",
+              assetPath: "assets/file-2.png",
+              sourceType: "generated",
+              provider: "fal",
+              model: "fal-ai/nano-banana-2",
+              prompt: "风格参考：参考图 1，生成新方案。",
+              negativePrompt: "",
+              seed: 21,
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-04-13T08:00:00.000Z",
+              mimeType: "image/png",
+              promptReferences: [
+                {
+                  id: "reference-style",
+                  index: 1,
+                  label: "参考图 1",
+                  kind: "image",
+                  fileIds: ["file-1"],
+                  elementIds: ["image-source"],
+                },
+              ],
+            },
+          },
+        }),
+      ),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "image-source",
+            type: "image",
+            fileId: "file-1",
+            isDeleted: false,
+            groupIds: [],
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 320,
+          },
+          {
+            id: "image-current",
+            type: "image",
+            fileId: "file-2",
+            isDeleted: false,
+            groupIds: [],
+            x: 720,
+            y: 0,
+            width: 320,
+            height: 320,
+          },
+        ],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          selectedElementIds: {
+            "image-current": true,
+          },
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+    });
+    const locateButton = await screen.findByRole("button", {
+      name: "定位引用: 参考图 1",
+    });
+    act(() => {
+      fireEvent.click(locateButton);
+    });
+
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        appState: expect.objectContaining({
+          selectedElementIds: {
+            "image-source": true,
+          },
+          selectedGroupIds: {},
+        }),
+        captureUpdate: "never",
+      }),
+    );
+    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: "image-source", fileId: "file-1" })],
+      expect.objectContaining({
+        animate: true,
+      }),
+    );
+  });
+
   it("reopens the image info side dock after it is manually closed", async () => {
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({
@@ -3712,6 +3856,15 @@ describe("App startup", () => {
           files: [
             expect.objectContaining({
               parentFileId: "file-1",
+              promptReferences: [
+                expect.objectContaining({
+                  index: 1,
+                  label: "参考图 1",
+                  kind: "image",
+                  fileIds: ["file-1"],
+                  elementIds: ["image-1"],
+                }),
+              ],
             }),
           ],
         }),

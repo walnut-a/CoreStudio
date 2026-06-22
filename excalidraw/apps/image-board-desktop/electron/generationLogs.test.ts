@@ -4,17 +4,23 @@ import path from "path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { GenerationRequest, GenerationResponse } from "../src/shared/providerTypes";
+import {
+  getGenerationLogsDirectory,
+  writeGenerationLog,
+} from "./generationLogs";
 
-import { getGenerationLogsDirectory, writeGenerationLog } from "./generationLogs";
+import type {
+  GenerationRequest,
+  GenerationResponse,
+} from "../src/shared/providerTypes";
 
 const tempDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    tempDirectories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    tempDirectories
+      .splice(0)
+      .map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -45,7 +51,9 @@ const response: GenerationResponse = {
 
 describe("generationLogs", () => {
   it("writes a success log under exports/generation-logs", async () => {
-    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-log-"));
+    const projectPath = await fs.mkdtemp(
+      path.join(os.tmpdir(), "image-board-log-"),
+    );
     tempDirectories.push(projectPath);
 
     const filePath = await writeGenerationLog({
@@ -61,12 +69,16 @@ describe("generationLogs", () => {
     expect(filePath).toContain(getGenerationLogsDirectory(projectPath));
     const content = JSON.parse(await fs.readFile(filePath!, "utf8"));
     expect(content.status).toBe("success");
-    expect(content.request.payload.model).toBe("google/gemini-3-pro-image-preview");
+    expect(content.request.payload.model).toBe(
+      "google/gemini-3-pro-image-preview",
+    );
     expect(content.response.images[0].byteLength).toBeGreaterThan(0);
   });
 
   it("writes an error log with the request payload and error message", async () => {
-    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-log-"));
+    const projectPath = await fs.mkdtemp(
+      path.join(os.tmpdir(), "image-board-log-"),
+    );
     tempDirectories.push(projectPath);
 
     const filePath = await writeGenerationLog({
@@ -88,5 +100,57 @@ describe("generationLogs", () => {
     expect(content.status).toBe("error");
     expect(content.error.message).toContain("模型没有返回图片");
     expect(content.request.payload.contents[0].text).toBe("工业设计渲染图");
+  });
+
+  it("writes inline prompt references as readable placeholders", async () => {
+    const projectPath = await fs.mkdtemp(
+      path.join(os.tmpdir(), "image-board-log-"),
+    );
+    tempDirectories.push(projectPath);
+
+    const filePath = await writeGenerationLog({
+      projectPath,
+      request: {
+        ...request,
+        prompt: "风格参考： 造型参考：",
+        promptParts: [
+          { type: "text", text: "风格参考：" },
+          { type: "reference", referenceId: "style" },
+          { type: "text", text: " 造型参考：" },
+          { type: "reference", referenceId: "shape" },
+        ],
+        promptReferences: [
+          {
+            id: "style",
+            label: "图片",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/png",
+              dataBase64: "style",
+            },
+          },
+          {
+            id: "shape",
+            label: "图片",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/png",
+              dataBase64: "shape",
+            },
+          },
+        ],
+      },
+      requestSummary: "provider=zenmux",
+      response,
+    });
+
+    const content = JSON.parse(await fs.readFile(filePath!, "utf8"));
+    expect(content.request.prompt).toBe(
+      "风格参考：参考图 1 造型参考：参考图 2",
+    );
   });
 });

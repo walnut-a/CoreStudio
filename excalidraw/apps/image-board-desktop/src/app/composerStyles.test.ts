@@ -110,6 +110,8 @@ describe("generate composer styles", () => {
 
   it("keeps the bottom composer inside the canvas when side docks are open", () => {
     const appCss = readAppCss();
+    const appRule = getRule(appCss, ".image-board-app");
+    const floatingLayerRule = getRule(appCss, ".floating-panel-layer");
     const rightDockLayerRule = getRule(
       appCss,
       ".image-board-app--right-dock-open .floating-panel-layer",
@@ -122,19 +124,45 @@ describe("generate composer styles", () => {
       appCss,
       ".image-board-app--right-dock-open .generate-panel",
     );
-    const bothDockPanelRule = getRulesContaining(
+    const panelRule = getRule(appCss, ".generate-panel");
+    const bothDockPanelRules = getRulesContaining(
       appCss,
       ".image-board-app--left-dock-open.image-board-app--right-dock-open",
-    ).find((rule) => rule.includes(".generate-panel"));
+    ).filter((rule) => rule.includes(".floating-panel-layer"));
 
-    expect(rightDockLayerRule).toContain("right: var(--right-sidebar-width)");
-    expect(leftDockLayerRule).toContain("left: var(--left-sidebar-width)");
-    expect(rightDockPanelRule).toContain(
-      "clamp(280px, calc(100vw - var(--right-sidebar-width) - 48px), 560px)",
+    expect(appRule).toContain("--generate-panel-max-width: 760px");
+    expect(appRule).toContain("--floating-panel-anchor-gutter: max(");
+    expect(appRule).toContain(
+      "calc((100vw - var(--generate-panel-max-width)) / 2)",
     );
-    expect(bothDockPanelRule).toContain(
-      "var(--left-sidebar-width) - var(--right-sidebar-width)",
+    expect(appRule).not.toContain("--bottom-toolbar-clearance");
+    expect(appRule).not.toContain("--floating-panel-left-anchor");
+    expect(floatingLayerRule).toContain(
+      "left: var(--floating-panel-anchor-gutter)",
     );
+    expect(floatingLayerRule).toContain(
+      "right: var(--floating-panel-anchor-gutter)",
+    );
+    expect(floatingLayerRule).toContain("justify-content: center");
+    expect(rightDockLayerRule).toContain(
+      "right: max(\n    var(--floating-panel-anchor-gutter)",
+    );
+    expect(rightDockLayerRule).toContain(
+      "calc(var(--right-sidebar-width) + var(--floating-panel-edge-gap))",
+    );
+    expect(rightDockLayerRule).not.toContain("justify-content:");
+    expect(rightDockLayerRule).not.toContain("left:");
+    expect(leftDockLayerRule).toContain(
+      "left: max(\n    var(--floating-panel-anchor-gutter)",
+    );
+    expect(leftDockLayerRule).toContain(
+      "calc(var(--left-sidebar-width) + var(--floating-panel-edge-gap))",
+    );
+    expect(leftDockLayerRule).not.toContain("justify-content:");
+    expect(leftDockLayerRule).not.toContain("right:");
+    expect(panelRule).toContain("width: 100%");
+    expect(bothDockPanelRules).toHaveLength(0);
+    expect(rightDockPanelRule).toBeUndefined();
   });
 
   it("keeps side dock controls aligned with the top toolbar", () => {
@@ -273,6 +301,18 @@ describe("generate composer styles", () => {
       appCss,
       ".generate-composer__prompt-editor",
     );
+    const promptEditorScrollbarRule = getRule(
+      appCss,
+      ".generate-composer__prompt-editor::-webkit-scrollbar",
+    );
+    const inlinePromptChipRule = getRule(
+      appCss,
+      ".generate-composer__prompt-editor .generate-composer__reference-chip",
+    );
+    const adjacentInlinePromptChipRule = getRulesContaining(
+      appCss,
+      "+ .generate-composer__reference-chip",
+    ).join("\n");
     const promptEditorPlaceholderRule = getRulesContaining(
       appCss,
       ".generate-composer__prompt-editor--empty::before",
@@ -285,16 +325,26 @@ describe("generate composer styles", () => {
     );
     const dialogSource = readGenerateImageDialog();
 
+    expect(composerRule).toContain("display: grid");
+    expect(composerRule).toContain("grid-template-rows:");
+    expect(composerRule).toContain("var(--lg-button-size)");
     expect(composerRule).toContain(
-      "grid-template-columns: minmax(0, 1fr) auto",
+      "--generate-composer-editor-min-height: 36px",
     );
-    expect(composerRule).toContain(
-      "min-height: calc(var(--lg-button-size) + 10px)",
-    );
-    expect(composerRule).toContain("padding: 6px 8px 6px 14px");
+    expect(composerRule).toContain("box-sizing: border-box");
+    expect(composerRule).toContain("padding: 7px 12px 7px 14px");
+    expect(composerRule).not.toContain("justify-content: center");
+    expect(composerRule).not.toMatch(/\n\s+min-height:/);
     expect(controlsRule).toContain("display: flex");
-    expect(controlsRule).toContain("align-self: center");
-    expect(fieldRule).toContain("flex-direction: column");
+    expect(controlsRule).toContain("justify-content: flex-start");
+    expect(controlsRule).toContain("align-self: stretch");
+    expect(controlsRule).toContain("height: var(--lg-button-size)");
+    expect(controlsRule).toContain("flex: 0 0 var(--lg-button-size)");
+    expect(actionRule).toContain("margin-left: auto");
+    expect(fieldRule).toContain("display: block");
+    expect(fieldRule).toContain(
+      "min-height: var(--generate-composer-editor-min-height)",
+    );
     expect(fieldRule).not.toMatch(/border\s*:/);
     expect(referenceChipRule).toContain("border: 1px solid");
     expect(referenceChipRule).toContain("max-width:");
@@ -305,8 +355,23 @@ describe("generate composer styles", () => {
     expect(referenceChipThumbnailRule).toContain("overflow: hidden");
     expect(referenceChipThumbnailImageRule).toContain("object-fit: cover");
     expect(referenceChipIndexRule).toContain("border-radius: 999px");
-    expect(promptEditorRule).toContain("min-height: 32px");
-    expect(promptEditorRule).toContain("padding: 5px 0 6px");
+    expect(promptEditorRule).toContain(
+      "min-height: var(--generate-composer-editor-min-height)",
+    );
+    expect(promptEditorRule).toContain("max-height: min(30vh, 13rem)");
+    expect(promptEditorRule).toContain("overflow-y: auto");
+    expect(promptEditorRule).toContain("padding: 3px 4px 3px 0");
+    expect(promptEditorRule).toContain("line-height: 28px");
+    expect(promptEditorRule).toContain("scrollbar-width: none");
+    expect(promptEditorScrollbarRule).toContain("display: none");
+    expect(inlinePromptChipRule).toContain("margin: 0 6px");
+    expect(inlinePromptChipRule).toContain("font-size: 0.8125rem");
+    expect(inlinePromptChipRule).toContain("line-height: 1");
+    expect(inlinePromptChipRule).toContain("height: 28px");
+    expect(inlinePromptChipRule).toContain("min-height: 28px");
+    expect(inlinePromptChipRule).toContain("box-sizing: border-box");
+    expect(inlinePromptChipRule).toContain("vertical-align: middle");
+    expect(adjacentInlinePromptChipRule).toContain("margin-left: 0");
     expect(promptEditorPlaceholderRule).toContain(
       "content: attr(data-placeholder)",
     );
@@ -316,6 +381,7 @@ describe("generate composer styles", () => {
       "background: var(--generate-composer-send-bg)",
     );
     expect(dialogSource).toContain("InlinePromptEditor");
+    expect(dialogSource).toContain("generate-composer--with-reference");
     expect(dialogSource).toContain("generate-composer__controls");
   });
 

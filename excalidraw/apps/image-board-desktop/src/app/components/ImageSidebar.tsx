@@ -1,4 +1,7 @@
-import type { ImageRecord } from "../../shared/projectTypes";
+import type {
+  ImagePromptReferenceRecord,
+  ImageRecord,
+} from "../../shared/projectTypes";
 import type { ImageLineageEntry } from "../imageRelationships";
 import { copy } from "../copy";
 import { ImageInspector } from "./ImageInspector";
@@ -16,6 +19,7 @@ interface ImageSidebarProps {
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
+  onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }
 
 export const ImageSidebar = ({
@@ -29,6 +33,7 @@ export const ImageSidebar = ({
   onCopyPrompt,
   onCopyTaskError,
   onLocateImageRecord,
+  onLocatePromptReference,
 }: ImageSidebarProps) => {
   return (
     <SideDock
@@ -46,6 +51,7 @@ export const ImageSidebar = ({
         onCopyPrompt={onCopyPrompt}
         onCopyTaskError={onCopyTaskError}
         onLocateImageRecord={onLocateImageRecord}
+        onLocatePromptReference={onLocatePromptReference}
       />
     </SideDock>
   );

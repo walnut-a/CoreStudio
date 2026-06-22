@@ -13,7 +13,7 @@ excalidraw/apps/image-board-desktop/package.json
 当前发布版本：
 
 ```text
-1.1.6
+1.1.7
 ```
 
 ## 本地打包
@@ -170,6 +170,35 @@ gh release create v1.1.0 \
 ```
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
+
+## 1.1.7 已验证信息
+
+1.1.7 发布时通过了这些检查：
+
+- Desktop tests：246 passed
+- TypeScript typecheck：passed
+- `git diff --check`：passed
+- Source/package-input/release secret scan：passed
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `ad3bb935-7b9d-4e09-814a-906ca508d3a7`
+- Gatekeeper：DMG accepted as `Notarized Developer ID`
+- ZIP app：stapler validate passed, Gatekeeper accepted as `Notarized Developer ID`, codesign verify passed
+
+校验值：
+
+```text
+CoreStudio-1.1.7-arm64.dmg
+sha256: 09fc87c7a6d6845dcb135e50db84c1d3f166ec2c710abcb6e2a34c3b034281d4
+
+CoreStudio-1.1.7-arm64-mac.zip
+sha256: 3880624a0835e63b0612a1c07818dffa7fbc66d2bbb9b9cb8475ce8d7f472e9d
+
+CoreStudio-1.1.7-arm64.dmg.blockmap
+sha256: 763557c9197b871558a80af68acaf096e8df4f4812c08e7f349474572b6cb85a
+
+CoreStudio-1.1.7-arm64-mac.zip.blockmap
+sha256: 30001396a99ef1f984b155956042a60d8c5bfdb20ae2d5cc394394abe4f089d7
+```
 
 ## 1.1.6 已验证信息
 

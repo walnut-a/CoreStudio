@@ -11,6 +11,17 @@ export const PROJECT_FILENAMES = {
 
 export type ImageSourceType = "generated" | "imported";
 
+export type ImagePromptReferenceKind = "image" | "snapshot";
+
+export interface ImagePromptReferenceRecord {
+  id: string;
+  index: number;
+  label: string;
+  kind: ImagePromptReferenceKind;
+  fileIds?: string[];
+  elementIds?: string[];
+}
+
 export interface ProjectManifest {
   formatVersion: number;
   appVersion: string;
@@ -38,6 +49,7 @@ export interface ImageRecord {
   mimeType: string;
   notes?: string | null;
   parentFileId?: string | null;
+  promptReferences?: ImagePromptReferenceRecord[];
 }
 
 export type ImageRecordMap = Record<string, ImageRecord>;

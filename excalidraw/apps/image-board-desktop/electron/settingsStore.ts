@@ -3,14 +3,15 @@ import path from "path";
 
 import { app } from "electron";
 
-import type {
-  PublicProviderSettings,
-  SaveProviderSettingsInput,
-} from "../src/shared/desktopBridgeTypes";
 import {
   isProviderRequestAdapter,
   PROVIDER_IDS,
 } from "../src/shared/providerCatalog";
+
+import type {
+  PublicProviderSettings,
+  SaveProviderSettingsInput,
+} from "../src/shared/desktopBridgeTypes";
 import type {
   ProviderCapabilities,
   ProviderId,
@@ -116,14 +117,23 @@ const normalizeProviderCapabilities = (
     Number(capabilities.maxImageCount) > 1
       ? Math.min(4, Math.floor(Number(capabilities.maxImageCount)))
       : 1;
+  const supportsReferenceImages = Boolean(capabilities.supportsReferenceImages);
+  const maxReferenceImageCount = supportsReferenceImages
+    ? Number.isFinite(capabilities.maxReferenceImageCount) &&
+      Number(capabilities.maxReferenceImageCount) > 0
+      ? Math.min(14, Math.floor(Number(capabilities.maxReferenceImageCount)))
+      : 8
+    : 0;
 
   return {
     supportsNegativePrompt: Boolean(capabilities.supportsNegativePrompt),
     supportsSeed: Boolean(capabilities.supportsSeed),
     supportsImageCount:
       Boolean(capabilities.supportsImageCount) && maxImageCount > 1,
-    supportsReferenceImages: Boolean(capabilities.supportsReferenceImages),
+    supportsReferenceImages:
+      supportsReferenceImages && maxReferenceImageCount > 0,
     maxImageCount,
+    maxReferenceImageCount,
     sizeControlMode:
       capabilities.sizeControlMode === "exact" ? "exact" : "aspect-ratio",
   };

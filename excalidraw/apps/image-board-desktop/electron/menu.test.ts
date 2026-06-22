@@ -32,6 +32,12 @@ describe("createAppMenuTemplate", () => {
       getSubmenuLabels(template[0].submenu),
     ).toContain("最近项目");
     expect(
+      getSubmenuLabels(template[0].submenu),
+    ).toContain("修复当前项目缩略图");
+    expect(
+      getSubmenuLabels(template[0].submenu),
+    ).toContain("退出 CoreStudio");
+    expect(
       template.map((item) => item.label),
     ).not.toContain("生成");
   });
@@ -50,6 +56,24 @@ describe("createAppMenuTemplate", () => {
 
     expect(sendMenuAction).toHaveBeenCalledWith(
       { action: "show-about" },
+      undefined,
+    );
+  });
+
+  it("sends a repair current project thumbnails action from the file menu", () => {
+    const sendMenuAction = vi.fn();
+    const template = createAppMenuTemplate(sendMenuAction);
+    const fileMenu = template.find((item) => item.label === "文件");
+    const repairItem = getSubmenuItems(fileMenu?.submenu).find(
+      (item) => item.label === "修复当前项目缩略图",
+    );
+
+    expect(repairItem).toBeTruthy();
+
+    repairItem?.click?.(repairItem as any, undefined, undefined as any);
+
+    expect(sendMenuAction).toHaveBeenCalledWith(
+      { action: "repair-project-thumbnails" },
       undefined,
     );
   });

@@ -5,16 +5,40 @@ import path from "path";
 import {
   PROJECT_FILENAMES,
   PROJECT_FORMAT_VERSION,
+  type ImageAssetRendition,
+  type ImageAssetRequestRendition,
   type ImagePromptReferenceRecord,
   type ImageRecord,
   type ImageRecordMap,
   type ImageSourceType,
   type ProjectManifest,
+  type ProjectThumbnailReadMode,
 } from "../src/shared/projectTypes";
+
 import type { ProviderId } from "../src/shared/providerTypes";
 
 const APP_VERSION = "0.1.0";
 const SCENE_BACKUPS_DIR = "scene-backups";
+const THUMBNAILS_DIR = "thumbnails";
+const PREVIEWS_DIR = "previews";
+export const PROJECT_THUMBNAIL_MAX_DIMENSION = 320;
+export const PROJECT_PREVIEW_MAX_DIMENSION = 1280;
+const IMAGE_CACHE_RENDITION_CONFIG = {
+  thumbnail: {
+    directory: THUMBNAILS_DIR,
+    maxDimension: PROJECT_THUMBNAIL_MAX_DIMENSION,
+  },
+  preview: {
+    directory: PREVIEWS_DIR,
+    maxDimension: PROJECT_PREVIEW_MAX_DIMENSION,
+  },
+} as const satisfies Record<
+  Exclude<ImageAssetRequestRendition, "original">,
+  {
+    directory: string;
+    maxDimension: number;
+  }
+>;
 const EMPTY_PROJECT_SCENE = JSON.stringify(
   {
     type: "excalidraw",
@@ -43,6 +67,29 @@ interface PersistImageAssetInput {
   createdAt: string;
   parentFileId?: string | null;
   promptReferences?: ImagePromptReferenceRecord[];
+}
+
+interface ThumbnailPayload {
+  data: Buffer;
+  mimeType: string;
+  width: number;
+  height: number;
+}
+
+type CreateThumbnail = (input: {
+  sourceBuffer: Buffer;
+  mimeType: string;
+  width: number;
+  height: number;
+  maxDimension: number;
+}) => Promise<ThumbnailPayload | null>;
+
+interface ReadProjectAssetPayloadsOptions {
+  createThumbnail?: CreateThumbnail;
+}
+
+interface RebuildProjectThumbnailsOptions {
+  createThumbnail?: CreateThumbnail;
 }
 
 const safeProjectFolderName = (name: string) =>
@@ -134,6 +181,13 @@ const resolveProjectAssetPath = (projectPath: string, assetPath: string) =>
     errorMessage: "图片资源路径不在项目 assets 文件夹内。",
   });
 
+const resolveProjectCachePath = (projectPath: string, cachePath: string) =>
+  assertPathInsideDirectory({
+    directory: path.join(projectPath, PROJECT_FILENAMES.cacheDir),
+    targetPath: path.join(projectPath, cachePath),
+    errorMessage: "缓存资源路径不在项目 cache 文件夹内。",
+  });
+
 const buildProjectManifest = (name: string): ProjectManifest => {
   const timestamp = new Date().toISOString();
   return {
@@ -158,6 +212,9 @@ export const createProjectStructure = async (
   await fs.mkdir(path.join(projectPath, PROJECT_FILENAMES.assetsDir), {
     recursive: true,
   });
+  await fs.mkdir(path.join(projectPath, PROJECT_FILENAMES.cacheDir), {
+    recursive: true,
+  });
   await fs.mkdir(path.join(projectPath, PROJECT_FILENAMES.exportsDir), {
     recursive: true,
   });
@@ -165,7 +222,10 @@ export const createProjectStructure = async (
   const project = buildProjectManifest(name);
 
   await Promise.all([
-    writeJsonExclusive(path.join(projectPath, PROJECT_FILENAMES.project), project),
+    writeJsonExclusive(
+      path.join(projectPath, PROJECT_FILENAMES.project),
+      project,
+    ),
     fs.writeFile(
       path.join(projectPath, PROJECT_FILENAMES.scene),
       EMPTY_PROJECT_SCENE,
@@ -174,7 +234,10 @@ export const createProjectStructure = async (
         flag: "wx",
       },
     ),
-    writeJsonExclusive(path.join(projectPath, PROJECT_FILENAMES.imageRecords), {}),
+    writeJsonExclusive(
+      path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      {},
+    ),
   ]);
 
   return { projectPath, project };
@@ -184,10 +247,7 @@ export const readProjectBundle = async (projectPath: string) => {
   const [projectJson, sceneJson, imageRecordsJson] = await Promise.all([
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.project), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
-    fs.readFile(
-      path.join(projectPath, PROJECT_FILENAMES.imageRecords),
-      "utf8",
-    ),
+    fs.readFile(path.join(projectPath, PROJECT_FILENAMES.imageRecords), "utf8"),
   ]);
 
   return {
@@ -196,6 +256,14 @@ export const readProjectBundle = async (projectPath: string) => {
     imageRecords: JSON.parse(imageRecordsJson) as ImageRecordMap,
   };
 };
+
+const readProjectImageRecords = async (projectPath: string) =>
+  JSON.parse(
+    await fs.readFile(
+      path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      "utf8",
+    ),
+  ) as ImageRecordMap;
 
 const writeProjectManifest = async (
   projectPath: string,
@@ -280,23 +348,310 @@ export const writeProjectScene = async ({
   });
 };
 
-export const readProjectAssetPayloads = async ({
+type CachedImageAssetRendition = Exclude<ImageAssetRequestRendition, "original">;
+
+const getCachedRenditionConfig = (rendition: CachedImageAssetRendition) =>
+  IMAGE_CACHE_RENDITION_CONFIG[rendition];
+
+const getCachedRenditionDimensions = (
+  record: ImageRecord,
+  rendition: CachedImageAssetRendition,
+) => {
+  const { maxDimension } = getCachedRenditionConfig(rendition);
+  const largestDimension = Math.max(record.width, record.height);
+  if (!Number.isFinite(largestDimension) || largestDimension <= 0) {
+    return {
+      width: record.width,
+      height: record.height,
+      shouldUseThumbnail: false,
+    };
+  }
+
+  const scale = Math.min(1, maxDimension / largestDimension);
+  return {
+    width: Math.max(1, Math.round(record.width * scale)),
+    height: Math.max(1, Math.round(record.height * scale)),
+    shouldUseThumbnail: scale < 1,
+  };
+};
+
+const getCachedRenditionCachePath = (
+  record: ImageRecord,
+  rendition: CachedImageAssetRendition,
+) => {
+  const { directory, maxDimension } = getCachedRenditionConfig(rendition);
+  return path.posix.join(
+    PROJECT_FILENAMES.cacheDir,
+    directory,
+    `${safeAssetFileNameSegment(record.fileId)}-${record.width}x${
+      record.height
+    }-${maxDimension}.png`,
+  );
+};
+
+const getLegacyThumbnailCachePath = (record: ImageRecord) =>
+  path.posix.join(
+    PROJECT_FILENAMES.cacheDir,
+    THUMBNAILS_DIR,
+    `${safeAssetFileNameSegment(record.fileId)}-${record.width}x${
+      record.height
+    }-768.png`,
+  );
+
+const createNativeImageThumbnail: CreateThumbnail = async ({
+  sourceBuffer,
+  width,
+  height,
+  maxDimension,
+}) => {
+  const { nativeImage } = await import("electron");
+  const sourceImage = nativeImage.createFromBuffer(sourceBuffer);
+  if (sourceImage.isEmpty()) {
+    return null;
+  }
+
+  const sourceSize = sourceImage.getSize();
+  const sourceWidth = sourceSize.width || width;
+  const sourceHeight = sourceSize.height || height;
+  const largestDimension = Math.max(sourceWidth, sourceHeight);
+  if (!Number.isFinite(largestDimension) || largestDimension <= maxDimension) {
+    return null;
+  }
+
+  const scale = maxDimension / largestDimension;
+  const thumbnailWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const thumbnailHeight = Math.max(1, Math.round(sourceHeight * scale));
+  const thumbnail = sourceImage.resize({
+    width: thumbnailWidth,
+    height: thumbnailHeight,
+    quality: "best",
+  });
+
+  return {
+    data: thumbnail.toPNG(),
+    mimeType: "image/png",
+    width: thumbnailWidth,
+    height: thumbnailHeight,
+  };
+};
+
+const buildAssetPayload = ({
+  fileId,
+  record,
+  fileBuffer,
+  width,
+  height,
+  mimeType,
+  rendition,
+}: {
+  fileId: string;
+  record: ImageRecord;
+  fileBuffer: Buffer;
+  width: number;
+  height: number;
+  mimeType: string;
+  rendition: ImageAssetRendition;
+}) => ({
+  fileId,
+  mimeType,
+  width,
+  height,
+  createdAt: record.createdAt,
+  dataBase64: fileBuffer.toString("base64"),
+  rendition,
+});
+
+const buildMissingThumbnailPlaceholderPayload = ({
+  fileId,
+  record,
+}: {
+  fileId: string;
+  record: ImageRecord;
+}) => {
+  const dimensions = getCachedRenditionDimensions(record, "thumbnail");
+  const width = dimensions.width;
+  const height = dimensions.height;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="thumbnail pending"><defs><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M0 0h32v32H0z" fill="#fafaff"/><path d="M0 0h16v16H0zM16 16h16v16H16z" fill="#f1f1f8"/></pattern></defs><rect width="100%" height="100%" fill="url(#grid)" opacity="0.58"/><rect x="1" y="1" width="${Math.max(
+    1,
+    width - 2,
+  )}" height="${Math.max(
+    1,
+    height - 2,
+  )}" fill="none" stroke="#d8d8e6" stroke-width="2" stroke-dasharray="10 8" opacity="0.65"/></svg>`;
+
+  return {
+    fileId,
+    mimeType: "image/svg+xml",
+    width,
+    height,
+    createdAt: record.createdAt,
+    dataBase64: Buffer.from(svg, "utf8").toString("base64"),
+    rendition: "placeholder" as const,
+  };
+};
+
+const readCachedRenditionPayload = async ({
   projectPath,
-  fileIds,
+  fileId,
+  record,
+  rendition,
 }: {
   projectPath: string;
-  fileIds: string[];
+  fileId: string;
+  record: ImageRecord;
+  rendition: CachedImageAssetRendition;
 }) => {
-  const bundle = await readProjectBundle(projectPath);
+  const dimensions = getCachedRenditionDimensions(record, rendition);
+  if (!dimensions.shouldUseThumbnail) {
+    return null;
+  }
+
+  const cachePaths = [getCachedRenditionCachePath(record, rendition)];
+  if (rendition === "thumbnail") {
+    cachePaths.push(getLegacyThumbnailCachePath(record));
+  }
+
+  for (const cachePath of cachePaths) {
+    const resolvedCachePath = resolveProjectCachePath(projectPath, cachePath);
+    try {
+      const cachedRendition = await fs.readFile(resolvedCachePath);
+      return buildAssetPayload({
+        fileId,
+        record,
+        fileBuffer: cachedRendition,
+        width: dimensions.width,
+        height: dimensions.height,
+        mimeType: "image/png",
+        rendition,
+      });
+    } catch {
+      // 缓存文件缺失或损坏时继续尝试后续兼容路径。
+    }
+  }
+
+  return null;
+};
+
+const createCachedRenditionPayload = async ({
+  projectPath,
+  fileId,
+  record,
+  sourceBuffer,
+  createThumbnail,
+  rendition,
+}: {
+  projectPath: string;
+  fileId: string;
+  record: ImageRecord;
+  sourceBuffer: Buffer;
+  createThumbnail: CreateThumbnail;
+  rendition: CachedImageAssetRendition;
+}) => {
+  const dimensions = getCachedRenditionDimensions(record, rendition);
+  if (!dimensions.shouldUseThumbnail) {
+    return null;
+  }
+
+  const cachePath = getCachedRenditionCachePath(record, rendition);
+  const resolvedCachePath = resolveProjectCachePath(
+    projectPath,
+    cachePath,
+  );
+  const { maxDimension } = getCachedRenditionConfig(rendition);
+  const thumbnail = await createThumbnail({
+    sourceBuffer,
+    mimeType: record.mimeType,
+    width: record.width,
+    height: record.height,
+    maxDimension,
+  });
+
+  if (!thumbnail) {
+    return null;
+  }
+
+  await fs.mkdir(path.dirname(resolvedCachePath), { recursive: true });
+  await fs.writeFile(resolvedCachePath, thumbnail.data);
+
+  return buildAssetPayload({
+    fileId,
+    record,
+    fileBuffer: thumbnail.data,
+    width: thumbnail.width,
+    height: thumbnail.height,
+    mimeType: thumbnail.mimeType,
+    rendition,
+  });
+};
+
+export const readProjectAssetPayloads = async (
+  {
+    projectPath,
+    fileIds,
+    rendition = "original",
+    thumbnailMode = "read-through",
+  }: {
+    projectPath: string;
+    fileIds: string[];
+    rendition?: ImageAssetRequestRendition;
+    thumbnailMode?: ProjectThumbnailReadMode;
+  },
+  options: ReadProjectAssetPayloadsOptions = {},
+) => {
+  const imageRecords = await readProjectImageRecords(projectPath);
   const payloads = await Promise.all(
     fileIds.map(async (fileId) => {
-      const record = bundle.imageRecords[fileId];
+      const record = imageRecords[fileId];
       if (!record) {
         return null;
       }
+
+      if (rendition !== "original") {
+        try {
+          const cachedRenditionPayload = await readCachedRenditionPayload({
+            projectPath,
+            fileId,
+            record,
+            rendition,
+          });
+
+          if (cachedRenditionPayload) {
+            return cachedRenditionPayload;
+          }
+        } catch {
+          // 显示资源是性能缓存，读取失败不能影响项目打开。
+        }
+
+        const dimensions = getCachedRenditionDimensions(record, rendition);
+        if (thumbnailMode === "cache-only" && dimensions.shouldUseThumbnail) {
+          return buildMissingThumbnailPlaceholderPayload({ fileId, record });
+        }
+      }
+
       const fileBuffer = await fs.readFile(
         resolveProjectAssetPath(projectPath, record.assetPath),
       );
+
+      if (rendition !== "original") {
+        try {
+          const renditionPayload = await createCachedRenditionPayload({
+            projectPath,
+            fileId,
+            record,
+            sourceBuffer: fileBuffer,
+            rendition,
+            createThumbnail:
+              options.createThumbnail ?? createNativeImageThumbnail,
+          });
+
+          if (renditionPayload) {
+            return renditionPayload;
+          }
+        } catch {
+          // 显示资源是性能缓存，生成失败不能影响项目打开。
+        }
+      }
+
       return {
         fileId,
         mimeType: record.mimeType,
@@ -304,11 +659,85 @@ export const readProjectAssetPayloads = async ({
         height: record.height,
         createdAt: record.createdAt,
         dataBase64: fileBuffer.toString("base64"),
+        rendition: "original" as const,
       };
     }),
   );
 
   return payloads.filter(Boolean);
+};
+
+export const rebuildProjectThumbnails = async (
+  {
+    projectPath,
+    fileIds,
+    force = false,
+  }: {
+    projectPath: string;
+    fileIds: string[];
+    force?: boolean;
+  },
+  options: RebuildProjectThumbnailsOptions = {},
+) => {
+  const imageRecords = await readProjectImageRecords(projectPath);
+  const generatedFileIds: string[] = [];
+  const skippedFileIds: string[] = [];
+  const failedFileIds: string[] = [];
+
+  for (const fileId of Array.from(new Set(fileIds))) {
+    const record = imageRecords[fileId];
+    if (!record) {
+      failedFileIds.push(fileId);
+      continue;
+    }
+
+    const dimensions = getCachedRenditionDimensions(record, "thumbnail");
+    if (!dimensions.shouldUseThumbnail) {
+      skippedFileIds.push(fileId);
+      continue;
+    }
+
+    try {
+      if (!force) {
+        const cachedThumbnailPayload = await readCachedRenditionPayload({
+          projectPath,
+          fileId,
+          record,
+          rendition: "thumbnail",
+        });
+        if (cachedThumbnailPayload) {
+          skippedFileIds.push(fileId);
+          continue;
+        }
+      }
+
+      const sourceBuffer = await fs.readFile(
+        resolveProjectAssetPath(projectPath, record.assetPath),
+      );
+      const thumbnailPayload = await createCachedRenditionPayload({
+        projectPath,
+        fileId,
+        record,
+        sourceBuffer,
+        rendition: "thumbnail",
+        createThumbnail: options.createThumbnail ?? createNativeImageThumbnail,
+      });
+
+      if (thumbnailPayload) {
+        generatedFileIds.push(fileId);
+      } else {
+        failedFileIds.push(fileId);
+      }
+    } catch {
+      failedFileIds.push(fileId);
+    }
+  }
+
+  return {
+    generatedFileIds,
+    skippedFileIds,
+    failedFileIds,
+  };
 };
 
 export const persistImageAssets = async ({
@@ -322,16 +751,18 @@ export const persistImageAssets = async ({
   const nextImageRecords: ImageRecordMap = { ...bundle.imageRecords };
 
   for (const file of files) {
-    const assetFileName = `${file.createdAt.replace(/[:.]/g, "-")}_${safeAssetFileNameSegment(file.fileId)}.${extensionFromMimeType(file.mimeType)}`;
+    const assetFileName = `${file.createdAt.replace(
+      /[:.]/g,
+      "-",
+    )}_${safeAssetFileNameSegment(file.fileId)}.${extensionFromMimeType(
+      file.mimeType,
+    )}`;
     const relativeAssetPath = path.posix.join(
       PROJECT_FILENAMES.assetsDir,
       assetFileName,
     );
     const assetPath = resolveProjectAssetPath(projectPath, relativeAssetPath);
-    await fs.writeFile(
-      assetPath,
-      Buffer.from(file.dataBase64, "base64"),
-    );
+    await fs.writeFile(assetPath, Buffer.from(file.dataBase64, "base64"));
 
     const record: ImageRecord = {
       fileId: file.fileId,

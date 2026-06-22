@@ -5,6 +5,7 @@ import { newFrameElement } from "@excalidraw/element";
 
 import App from "./App";
 import { rememberGenerationModelSelection } from "./generationModelSelection";
+import { deserializeSceneFromProject } from "./project/sceneSerialization";
 import {
   DEFAULT_WORKSPACE_HEIGHT,
   DEFAULT_WORKSPACE_WIDTH,
@@ -39,6 +40,7 @@ let mockExcalidrawAPI:
   | {
       updateScene: ReturnType<typeof vi.fn>;
       addFiles: ReturnType<typeof vi.fn>;
+      replaceFiles: ReturnType<typeof vi.fn>;
       scrollToContent: ReturnType<typeof vi.fn>;
       getSceneElementsIncludingDeleted: () => any[];
       getAppState: () => Record<string, any>;
@@ -115,6 +117,11 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
   loadRecentProjects: vi.fn().mockResolvedValue([]),
   writeProjectScene: vi.fn().mockResolvedValue(undefined),
   readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+  rebuildProjectThumbnails: vi.fn().mockResolvedValue({
+    generatedFileIds: [],
+    skippedFileIds: [],
+    failedFileIds: [],
+  }),
   persistImageAssets: vi.fn().mockResolvedValue({}),
   importImages: vi.fn().mockResolvedValue([]),
   readClipboardImage: vi.fn().mockResolvedValue(null),
@@ -332,6 +339,19 @@ vi.mock("@excalidraw/excalidraw", () => {
             },
           ),
           addFiles: vi.fn((files: Array<{ id: string }>) => {
+            const nextFiles = { ...sceneRef.current.files };
+            for (const file of files) {
+              if (nextFiles[file.id]) {
+                continue;
+              }
+              nextFiles[file.id] = file;
+            }
+            sceneRef.current = {
+              ...sceneRef.current,
+              files: nextFiles,
+            };
+          }),
+          replaceFiles: vi.fn((files: Array<{ id: string }>) => {
             const nextFiles = { ...sceneRef.current.files };
             for (const file of files) {
               nextFiles[file.id] = file;
@@ -1712,6 +1732,123 @@ describe("App startup", () => {
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
   });
 
+  it("repairs current project thumbnails from the file menu", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 160,
+          height: 120,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 0.1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi.fn().mockImplementation(async ({
+      fileIds,
+    }) =>
+      fileIds.map((fileId: string) => ({
+        fileId,
+        mimeType: "image/png",
+        dataBase64: Buffer.from(`${fileId}-repaired-thumbnail`).toString(
+          "base64",
+        ),
+        width: 320,
+        height: 213,
+        createdAt: "2026-04-12T08:00:00.000Z",
+        rendition: "thumbnail",
+      })),
+    );
+    const rebuildProjectThumbnails = vi.fn().mockResolvedValue({
+      generatedFileIds: ["visible-file"],
+      skippedFileIds: [],
+      failedFileIds: [],
+    });
+    let menuActionListener:
+      | ((event: {
+          action: string;
+        }) => void)
+      | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+      rebuildProjectThumbnails,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "repair-project-thumbnails",
+      });
+    });
+
+    await waitFor(() => {
+      expect(rebuildProjectThumbnails).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        force: true,
+      });
+    });
+    await waitFor(() => {
+      expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: "visible-file",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "visible-file-repaired-thumbnail",
+          ).toString("base64")}`,
+        }),
+      ]);
+    });
+    expect(
+      screen.getByText("缩略图修复完成：重新生成 1 张，跳过 0 张。"),
+    ).toBeInTheDocument();
+  });
+
   it("opens a project bundle sent directly by the native menu", async () => {
     const openProject = vi.fn().mockResolvedValue(null);
     const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
@@ -1798,10 +1935,514 @@ describe("App startup", () => {
       expect(readProjectAssetPayloads).toHaveBeenCalledWith({
         projectPath: "/Users/zhaolixing/Documents/工业设计助手/常用项目",
         fileIds: [],
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
       });
     });
     expect(openProject).not.toHaveBeenCalled();
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("opens large projects with thumbnail assets first and upgrades visible images to previews", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 300,
+          height: 220,
+        },
+        {
+          id: "far-image",
+          type: "image",
+          fileId: "far-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 5000,
+          y: 5000,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) => {
+        if (rendition === "original") {
+          return fileIds.map((fileId: string) => ({
+            fileId,
+            mimeType: "image/png",
+            dataBase64: Buffer.from(`${fileId}-original`).toString("base64"),
+            width: 1440,
+            height: 960,
+            createdAt: "2026-04-12T08:00:00.000Z",
+            rendition: "original",
+          }));
+        }
+
+        if (rendition === "preview") {
+          return fileIds.map((fileId: string) => ({
+            fileId,
+            mimeType: "image/png",
+            dataBase64: Buffer.from(`${fileId}-preview`).toString("base64"),
+            width: 1280,
+            height: 853,
+            createdAt: "2026-04-12T08:00:00.000Z",
+            rendition: "preview",
+          }));
+        }
+
+        return fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-thumbnail`).toString("base64"),
+          width: 768,
+          height: 512,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: "thumbnail",
+        }));
+      });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+            "far-file": {
+              fileId: "far-file",
+              assetPath: "assets/far.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file", "far-file"],
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
+      });
+    });
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "preview",
+      });
+    });
+    expect(readProjectAssetPayloads).not.toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      fileIds: ["visible-file"],
+      rendition: "original",
+    });
+    expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "visible-file",
+        dataURL: `data:image/png;base64,${Buffer.from(
+          "visible-file-preview",
+        ).toString("base64")}`,
+      }),
+    ]);
+  });
+
+  it("opens projects with placeholders for missing thumbnail cache and refreshes rebuilt thumbnails in the background", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "far-image",
+          type: "image",
+          fileId: "far-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 5000,
+          y: 5000,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const rebuildDeferred = createDeferred<{
+      generatedFileIds: string[];
+      skippedFileIds: string[];
+      failedFileIds: string[];
+    }>();
+    let thumbnailReadCount = 0;
+    const readProjectAssetPayloads = vi.fn().mockImplementation(
+      async ({
+        rendition,
+        thumbnailMode,
+        fileIds,
+      }: {
+        rendition?: string;
+        thumbnailMode?: string;
+        fileIds: string[];
+      }) => {
+        if (rendition !== "thumbnail" || thumbnailMode !== "cache-only") {
+          return [];
+        }
+
+        thumbnailReadCount += 1;
+        return fileIds.map((fileId) => ({
+          fileId,
+          mimeType: thumbnailReadCount === 1 ? "image/svg+xml" : "image/png",
+          dataBase64: Buffer.from(
+            thumbnailReadCount === 1
+              ? `${fileId}-placeholder`
+              : `${fileId}-thumbnail`,
+          ).toString("base64"),
+          width: 768,
+          height: 512,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: thumbnailReadCount === 1 ? "placeholder" : "thumbnail",
+        }));
+      },
+    );
+    const rebuildProjectThumbnails = vi
+      .fn()
+      .mockReturnValue(rebuildDeferred.promise);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "far-file": {
+              fileId: "far-file",
+              assetPath: "assets/far.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+      rebuildProjectThumbnails,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["far-file"],
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
+      });
+    });
+    await waitFor(() => {
+      expect(rebuildProjectThumbnails).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["far-file"],
+      });
+    });
+    expect(screen.getByText("正在生成 1 张缩略图")).toBeInTheDocument();
+    expect(
+      screen.getByText("放大查看时会优先载入原图。"),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      rebuildDeferred.resolve({
+        generatedFileIds: ["far-file"],
+        skippedFileIds: [],
+        failedFileIds: [],
+      });
+      await rebuildDeferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: "far-file",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "far-file-thumbnail",
+          ).toString("base64")}`,
+        }),
+      ]);
+    });
+    expect(mockExcalidrawAPI?.getFiles()["far-file"].dataURL).toBe(
+      `data:image/png;base64,${Buffer.from("far-file-thumbnail").toString(
+        "base64",
+      )}`,
+    );
+    await waitFor(() => {
+      expect(screen.queryByText("正在生成 1 张缩略图")).not.toBeInTheDocument();
+    });
+  });
+
+  it("queues rebuilt thumbnail refreshes until the canvas API is ready", async () => {
+    skipExcalidrawApiRegistration = true;
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "far-image",
+          type: "image",
+          fileId: "far-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 5000,
+          y: 5000,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const rebuildDeferred = createDeferred<{
+      generatedFileIds: string[];
+      skippedFileIds: string[];
+      failedFileIds: string[];
+    }>();
+    let thumbnailReadCount = 0;
+    const readProjectAssetPayloads = vi.fn().mockImplementation(
+      async ({
+        rendition,
+        thumbnailMode,
+        fileIds,
+      }: {
+        rendition?: string;
+        thumbnailMode?: string;
+        fileIds: string[];
+      }) => {
+        if (rendition !== "thumbnail" || thumbnailMode !== "cache-only") {
+          return [];
+        }
+
+        thumbnailReadCount += 1;
+        return fileIds.map((fileId) => ({
+          fileId,
+          mimeType: thumbnailReadCount === 1 ? "image/svg+xml" : "image/png",
+          dataBase64: Buffer.from(
+            thumbnailReadCount === 1
+              ? `${fileId}-placeholder`
+              : `${fileId}-cached-thumbnail`,
+          ).toString("base64"),
+          width: 768,
+          height: 512,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: thumbnailReadCount === 1 ? "placeholder" : "thumbnail",
+        }));
+      },
+    );
+    const rebuildProjectThumbnails = vi
+      .fn()
+      .mockReturnValue(rebuildDeferred.promise);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "far-file": {
+              fileId: "far-file",
+              assetPath: "assets/far.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+      rebuildProjectThumbnails,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    await waitFor(() => {
+      expect(rebuildProjectThumbnails).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["far-file"],
+      });
+    });
+
+    await act(async () => {
+      rebuildDeferred.resolve({
+        generatedFileIds: [],
+        skippedFileIds: ["far-file"],
+        failedFileIds: [],
+      });
+      await rebuildDeferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledTimes(2);
+    });
+    expect(mockExcalidrawAPI?.addFiles).not.toHaveBeenCalled();
+
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: "far-file",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "far-file-cached-thumbnail",
+          ).toString("base64")}`,
+        }),
+      ]);
+    });
+  });
+
+  it("keeps thumbnail projects usable when visible preview lazy loading fails", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) => {
+        if (rendition === "preview") {
+          throw new Error("预览资源缺失");
+        }
+
+        return fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-thumbnail`).toString("base64"),
+          width: 768,
+          height: 512,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: "thumbnail",
+        }));
+      });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "preview",
+      });
+    });
+    expect(mockExcalidrawAPI?.replaceFiles).not.toHaveBeenCalled();
+    expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
   });
 
   it("ignores stale native menu project bundles that arrive out of order", async () => {
@@ -1902,6 +2543,8 @@ describe("App startup", () => {
       expect(readProjectAssetPayloads).toHaveBeenCalledWith({
         projectPath: "/tmp/project-b",
         fileIds: [],
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
       });
     });
 
@@ -1916,6 +2559,8 @@ describe("App startup", () => {
     expect(readProjectAssetPayloads).not.toHaveBeenCalledWith({
       projectPath: "/tmp/project-a",
       fileIds: [],
+      rendition: "thumbnail",
+      thumbnailMode: "cache-only",
     });
   });
 
@@ -3845,6 +4490,8 @@ describe("App startup", () => {
       });
     });
 
+    expect(await screen.findByText("参考元素: 1")).toBeInTheDocument();
+
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "提交参考生成" }));
     });
@@ -3867,6 +4514,137 @@ describe("App startup", () => {
               ],
             }),
           ],
+        }),
+      );
+    });
+  });
+
+  it("uses the original asset payload for selected image references even when the canvas displays a thumbnail", async () => {
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) => {
+        if (rendition !== "original") {
+          return [];
+        }
+
+        return fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from("original-reference").toString("base64"),
+          width: 1440,
+          height: 960,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: "original",
+        }));
+      });
+    const generateImages = vi.fn().mockResolvedValue({
+      provider: "gemini",
+      model: "gemini-2.5-flash-image",
+      seed: null,
+      createdAt: "2026-04-15T08:01:00.000Z",
+      images: [],
+    });
+    const providerSettings = createMockProviderSettings();
+    providerSettings.gemini.defaultModel = "gemini-2.5-flash-image";
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "file-1": {
+              fileId: "file-1",
+              assetPath: "assets/file-1.png",
+              sourceType: "generated",
+              provider: "gemini",
+              model: "gemini-2.5-flash-image",
+              prompt: "初始方案",
+              negativePrompt: "",
+              seed: null,
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+      loadProviderSettings: vi.fn().mockResolvedValue(providerSettings),
+      generateImages,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "image-1",
+            type: "image",
+            fileId: "file-1",
+            isDeleted: false,
+            groupIds: [],
+            x: 100,
+            y: 100,
+            width: 300,
+            height: 220,
+          },
+        ],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          selectedElementIds: {
+            "image-1": true,
+          },
+          selectedGroupIds: {},
+          viewBackgroundColor: "#ffffff",
+        },
+        files: {
+          "file-1": {
+            id: "file-1",
+            dataURL: `data:image/png;base64,${Buffer.from(
+              "thumbnail-reference",
+            ).toString("base64")}`,
+            mimeType: "image/png",
+            created: 1710000000000,
+          },
+        },
+      });
+    });
+
+    expect(await screen.findByText("参考元素: 1")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交参考生成" }));
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["file-1"],
+        rendition: "original",
+      });
+    });
+    await waitFor(() => {
+      expect(generateImages).toHaveBeenCalledWith(
+        expect.objectContaining({
+          request: expect.objectContaining({
+            reference: expect.objectContaining({
+              image: {
+                mimeType: "image/png",
+                dataBase64: Buffer.from("original-reference").toString(
+                  "base64",
+                ),
+              },
+            }),
+          }),
         }),
       );
     });

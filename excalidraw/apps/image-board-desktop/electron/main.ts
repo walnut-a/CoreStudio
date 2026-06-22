@@ -30,6 +30,7 @@ import {
   persistImageAssets,
   readProjectAssetPayloads,
   readProjectBundle,
+  rebuildProjectThumbnails,
   writeProjectScene,
 } from "./projectFs";
 import {
@@ -77,6 +78,8 @@ const pendingAutosaveFlushes = new Map<
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
 const isDev = Boolean(rendererUrl);
+
+app.setName(DESKTOP_APP_NAME);
 
 const getTargetWindow = (ownerWindow?: BaseWindow | null) => {
   if (ownerWindow instanceof BrowserWindow && !ownerWindow.isDestroyed()) {
@@ -389,6 +392,13 @@ const registerIpcHandlers = () => {
     IPC_CHANNELS.readProjectAssetPayloads,
     async (_event, input) => {
       return readProjectAssetPayloads(input);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.rebuildProjectThumbnails,
+    async (_event, input) => {
+      return rebuildProjectThumbnails(input);
     },
   );
 

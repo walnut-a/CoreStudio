@@ -748,6 +748,7 @@ class App extends React.Component<AppProps, AppState> {
       mutateElement: this.mutateElement,
       updateLibrary: this.library.updateLibrary,
       addFiles: this.addFiles,
+      replaceFiles: this.replaceFiles,
       resetScene: this.resetScene,
       getSceneElementsIncludingDeleted: this.getSceneElementsIncludingDeleted,
       getSceneElementsMapIncludingDeleted:
@@ -4505,6 +4506,22 @@ class App extends React.Component<AppProps, AppState> {
       this.addNewImagesToImageCache();
     },
   );
+
+  public replaceFiles: ExcalidrawImperativeAPI["replaceFiles"] =
+    withBatchedUpdates((files) => {
+      const nextFiles = { ...this.files };
+      const replacedFiles: BinaryFiles = {};
+
+      for (const fileData of files) {
+        replacedFiles[fileData.id] = fileData;
+        nextFiles[fileData.id] = fileData;
+      }
+
+      this.files = nextFiles;
+      this.clearImageShapeCache(replacedFiles);
+      this.scene.triggerUpdate();
+      this.addNewImagesToImageCache();
+    });
 
   private addMissingFiles = (
     files: BinaryFiles | BinaryFileData[],

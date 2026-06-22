@@ -203,14 +203,29 @@ export const copy = {
     newProject: "新建项目",
     openProject: "打开项目",
     recentProjects: "最近项目",
+    repairProjectThumbnails: "修复当前项目缩略图",
     importImages: "导入图片",
     revealProject: "显示项目文件夹",
     generate: "生成",
     generateImage: "生成图片",
     providers: "模型服务",
     edit: "编辑",
+    quit: `退出 ${DESKTOP_APP_NAME}`,
     help: "帮助",
     about: `关于 ${DESKTOP_APP_NAME}`,
+  },
+  projectRepair: {
+    noProject: "请先打开一个项目，再修复缩略图。",
+    noImages: "当前项目没有图片资源需要修复。",
+    thumbnailsFailed: "当前项目缩略图修复失败。",
+    thumbnailsRepaired: (
+      generatedCount: number,
+      skippedCount: number,
+      failedCount: number,
+    ) =>
+      failedCount
+        ? `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张，失败 ${failedCount} 张。`
+        : `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张。`,
   },
 } as const;
 

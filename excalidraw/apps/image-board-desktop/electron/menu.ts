@@ -42,6 +42,11 @@ export const createAppMenuTemplate = (
             }))
           : [{ label: copy.welcome.recentEmpty, enabled: false }],
       },
+      {
+        label: copy.menu.repairProjectThumbnails,
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "repair-project-thumbnails" }, ownerWindow),
+      },
       { type: "separator" },
       {
         label: copy.menu.importImages,
@@ -54,7 +59,7 @@ export const createAppMenuTemplate = (
           sendMenuAction({ action: "reveal-project" }, ownerWindow),
       },
       { type: "separator" },
-      { role: "quit" },
+      { label: copy.menu.quit, role: "quit" },
     ],
   },
   {

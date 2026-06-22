@@ -17,6 +17,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.writeProjectScene, input),
   readProjectAssetPayloads: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.readProjectAssetPayloads, input),
+  rebuildProjectThumbnails: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.rebuildProjectThumbnails, input),
   persistImageAssets: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.persistImageAssets, input),
   importImages: () => ipcRenderer.invoke(IPC_CHANNELS.importImages),

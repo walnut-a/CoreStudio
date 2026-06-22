@@ -43,6 +43,7 @@ import type {
   SavePromptInput,
 } from "../shared/desktopBridgeTypes";
 import type {
+  ImageAssetRequestRendition,
   ImagePromptReferenceRecord,
   ImageRecord,
 } from "../shared/projectTypes";
@@ -88,6 +89,10 @@ import {
   getImageAncestors,
   getImageDescendants,
 } from "./imageRelationships";
+import {
+  getImageRenditionRequestsNearViewport,
+  IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
+} from "./imageRenditions";
 import {
   buildSelectedGenerationTask,
   buildSelectedImageRecord,
@@ -223,6 +228,11 @@ interface AutosaveSnapshot {
   appState: AppState;
   files: BinaryFiles;
 }
+
+type ThumbnailMaintenanceState = {
+  status: "pending" | "failed";
+  total: number;
+};
 
 interface ProjectRenderBoundaryProps {
   projectKey: string;
@@ -609,6 +619,12 @@ const App = () => {
     createWorkspaceZoomGateState(),
   );
   const workspaceFitPulseTimerRef = useRef<number | null>(null);
+  const highResImageLoadTimerRef = useRef<number | null>(null);
+  const loadedPreviewImageFileIdsRef = useRef<Set<string>>(new Set());
+  const loadingPreviewImageFileIdsRef = useRef<Set<string>>(new Set());
+  const loadedOriginalImageFileIdsRef = useRef<Set<string>>(new Set());
+  const loadingOriginalImageFileIdsRef = useRef<Set<string>>(new Set());
+  const pendingImageFilesToAddRef = useRef<BinaryFileData[]>([]);
 
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
@@ -628,6 +644,8 @@ const App = () => {
   const [savingProviders, setSavingProviders] = useState(false);
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [projectNotice, setProjectNotice] = useState<string | null>(null);
+  const projectNoticeTimerRef = useRef<number | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationErrorDetails, setGenerationErrorDetails] =
     useState<GenerationErrorDetails | null>(null);
@@ -644,6 +662,8 @@ const App = () => {
   const [workspaceOverlayState, setWorkspaceOverlayState] =
     useState<WorkspaceOverlayState | null>(null);
   const [workspaceFitPulse, setWorkspaceFitPulse] = useState(false);
+  const [thumbnailMaintenance, setThumbnailMaintenance] =
+    useState<ThumbnailMaintenanceState | null>(null);
   const parentRecord =
     selectedRecord?.parentFileId && currentProject
       ? currentProject.imageRecords[selectedRecord.parentFileId] || null
@@ -736,6 +756,396 @@ const App = () => {
       workspaceFitPulseTimerRef.current = null;
       setWorkspaceFitPulse(false);
     }, 520);
+  };
+
+  const clearHighResImageLoadTimer = () => {
+    if (highResImageLoadTimerRef.current) {
+      window.clearTimeout(highResImageLoadTimerRef.current);
+      highResImageLoadTimerRef.current = null;
+    }
+  };
+
+  const clearProjectNoticeTimer = () => {
+    if (projectNoticeTimerRef.current) {
+      window.clearTimeout(projectNoticeTimerRef.current);
+      projectNoticeTimerRef.current = null;
+    }
+  };
+
+  const showProjectNotice = (message: string) => {
+    clearProjectNoticeTimer();
+    setProjectNotice(message);
+    projectNoticeTimerRef.current = window.setTimeout(() => {
+      projectNoticeTimerRef.current = null;
+      setProjectNotice(null);
+    }, 4200);
+  };
+
+  const clearProjectNotice = () => {
+    clearProjectNoticeTimer();
+    setProjectNotice(null);
+  };
+
+  const resetImageRenditionState = () => {
+    clearHighResImageLoadTimer();
+    loadedPreviewImageFileIdsRef.current = new Set();
+    loadingPreviewImageFileIdsRef.current = new Set();
+    loadedOriginalImageFileIdsRef.current = new Set();
+    loadingOriginalImageFileIdsRef.current = new Set();
+    pendingImageFilesToAddRef.current = [];
+    setThumbnailMaintenance(null);
+  };
+
+  const readProjectImageAssets = async (
+    project: DesktopProjectBundle,
+    fileIds: string[],
+    rendition: ImageAssetRequestRendition,
+  ) => {
+    if (!fileIds.length) {
+      return [];
+    }
+
+    return desktopBridge.readProjectAssetPayloads({
+      projectPath: project.projectPath,
+      fileIds,
+      rendition,
+    });
+  };
+
+  const readOriginalImageAssets = async (
+    project: DesktopProjectBundle,
+    fileIds: string[],
+  ) => readProjectImageAssets(project, fileIds, "original");
+
+  const queueImageFilesForReadyCanvas = (filesToAdd: BinaryFileData[]) => {
+    const pendingById = new Map(
+      pendingImageFilesToAddRef.current.map((file) => [file.id, file]),
+    );
+    filesToAdd.forEach((file) => pendingById.set(file.id, file));
+    pendingImageFilesToAddRef.current = Array.from(pendingById.values());
+  };
+
+  const flushQueuedImageFilesToCanvas = () => {
+    const api = excalidrawAPIRef.current;
+    const filesToAdd = pendingImageFilesToAddRef.current;
+    if (!api || !filesToAdd.length) {
+      return;
+    }
+
+    pendingImageFilesToAddRef.current = [];
+    api.replaceFiles(filesToAdd);
+  };
+
+  const addProjectAssetPayloadsToCurrentScene = (
+    project: DesktopProjectBundle,
+    assets: ProjectAssetPayload[],
+  ) => {
+    const activeProject = currentProjectRef.current;
+    if (activeProject?.projectPath !== project.projectPath || !assets.length) {
+      return false;
+    }
+
+    const files = toBinaryFiles(assets, activeProject.imageRecords);
+    const filesToAdd = Object.values(files);
+    if (!filesToAdd.length) {
+      return false;
+    }
+
+    if (excalidrawAPIRef.current) {
+      excalidrawAPIRef.current.replaceFiles(filesToAdd);
+    } else {
+      queueImageFilesForReadyCanvas(filesToAdd);
+    }
+    latestSceneRef.current = latestSceneRef.current
+      ? {
+          ...latestSceneRef.current,
+          files: {
+            ...latestSceneRef.current.files,
+            ...files,
+          },
+        }
+      : latestSceneRef.current;
+
+    return true;
+  };
+
+  const rebuildMissingThumbnailAssets = async (
+    project: DesktopProjectBundle,
+    fileIds: string[],
+  ) => {
+    const uniqueFileIds = Array.from(new Set(fileIds));
+    const rebuildProjectThumbnails = desktopBridge.rebuildProjectThumbnails;
+    if (!uniqueFileIds.length) {
+      return;
+    }
+
+    if (!rebuildProjectThumbnails) {
+      if (currentProjectRef.current?.projectPath === project.projectPath) {
+        setThumbnailMaintenance({
+          status: "failed",
+          total: uniqueFileIds.length,
+        });
+      }
+      return;
+    }
+
+    try {
+      const result = await rebuildProjectThumbnails({
+        projectPath: project.projectPath,
+        fileIds: uniqueFileIds,
+      });
+      if (currentProjectRef.current?.projectPath === project.projectPath) {
+        setThumbnailMaintenance(
+          result.failedFileIds.length
+            ? {
+                status: "failed",
+                total: result.failedFileIds.length,
+              }
+            : null,
+        );
+      }
+      const fileIdsToRefresh = Array.from(
+        new Set([...result.generatedFileIds, ...result.skippedFileIds]),
+      ).filter(
+        (fileId) =>
+          !loadedPreviewImageFileIdsRef.current.has(fileId) &&
+          !loadedOriginalImageFileIdsRef.current.has(fileId),
+      );
+      if (!fileIdsToRefresh.length) {
+        return;
+      }
+
+      const assets = await desktopBridge.readProjectAssetPayloads({
+        projectPath: project.projectPath,
+        fileIds: fileIdsToRefresh,
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
+      });
+      const thumbnailAssets = assets.filter(
+        (asset) =>
+          asset.rendition === "thumbnail" &&
+          !loadedPreviewImageFileIdsRef.current.has(asset.fileId) &&
+          !loadedOriginalImageFileIdsRef.current.has(asset.fileId),
+      );
+      addProjectAssetPayloadsToCurrentScene(project, thumbnailAssets);
+    } catch {
+      if (currentProjectRef.current?.projectPath === project.projectPath) {
+        setThumbnailMaintenance({
+          status: "failed",
+          total: uniqueFileIds.length,
+        });
+      }
+      // 缩略图缓存修复是后台维护动作，失败时继续使用占位图或原图懒加载。
+    }
+  };
+
+  const handleRepairProjectThumbnails = async () => {
+    const project = currentProjectRef.current;
+    const rebuildProjectThumbnails = desktopBridge.rebuildProjectThumbnails;
+    if (!project) {
+      setProjectError(copy.projectRepair.noProject);
+      clearProjectNotice();
+      return;
+    }
+
+    const fileIds = Object.keys(project.imageRecords);
+    if (!fileIds.length) {
+      showProjectNotice(copy.projectRepair.noImages);
+      setProjectError(null);
+      return;
+    }
+
+    if (!rebuildProjectThumbnails) {
+      setProjectError(copy.projectRepair.thumbnailsFailed);
+      clearProjectNotice();
+      return;
+    }
+
+    setProjectError(null);
+    clearProjectNotice();
+    setThumbnailMaintenance({
+      status: "pending",
+      total: fileIds.length,
+    });
+
+    try {
+      const result = await rebuildProjectThumbnails({
+        projectPath: project.projectPath,
+        fileIds,
+        force: true,
+      });
+      if (currentProjectRef.current?.projectPath !== project.projectPath) {
+        return;
+      }
+
+      const fileIdsToRefresh = result.generatedFileIds.filter(
+        (fileId) =>
+          !loadedPreviewImageFileIdsRef.current.has(fileId) &&
+          !loadedOriginalImageFileIdsRef.current.has(fileId),
+      );
+
+      if (fileIdsToRefresh.length) {
+        const assets = await desktopBridge.readProjectAssetPayloads({
+          projectPath: project.projectPath,
+          fileIds: fileIdsToRefresh,
+          rendition: "thumbnail",
+          thumbnailMode: "cache-only",
+        });
+        const thumbnailAssets = assets.filter(
+          (asset) =>
+            asset.rendition === "thumbnail" &&
+            !loadedPreviewImageFileIdsRef.current.has(asset.fileId) &&
+            !loadedOriginalImageFileIdsRef.current.has(asset.fileId),
+        );
+        addProjectAssetPayloadsToCurrentScene(project, thumbnailAssets);
+      }
+
+      setThumbnailMaintenance(
+        result.failedFileIds.length
+          ? {
+              status: "failed",
+              total: result.failedFileIds.length,
+            }
+          : null,
+      );
+      showProjectNotice(
+        copy.projectRepair.thumbnailsRepaired(
+          result.generatedFileIds.length,
+          result.skippedFileIds.length,
+          result.failedFileIds.length,
+        ),
+      );
+    } catch (error) {
+      if (currentProjectRef.current?.projectPath === project.projectPath) {
+        setThumbnailMaintenance({
+          status: "failed",
+          total: fileIds.length,
+        });
+        setProjectError(
+          getErrorText(error, copy.projectRepair.thumbnailsFailed),
+        );
+        clearProjectNotice();
+      }
+    }
+  };
+
+  const markImageAssetRenditionsLoaded = (assets: ProjectAssetPayload[]) => {
+    assets.forEach((asset) => {
+      if (asset.rendition === "original") {
+        loadedOriginalImageFileIdsRef.current.add(asset.fileId);
+        loadedPreviewImageFileIdsRef.current.add(asset.fileId);
+      } else if (asset.rendition === "preview") {
+        loadedPreviewImageFileIdsRef.current.add(asset.fileId);
+      }
+    });
+  };
+
+  const loadVisibleImageRenditionAssets = async (
+    scene: NonNullable<typeof latestSceneRef.current>,
+  ) => {
+    const project = currentProjectRef.current;
+    const api = excalidrawAPIRef.current;
+    if (!project || !api) {
+      return;
+    }
+
+    const requests = getImageRenditionRequestsNearViewport({
+      elements: scene.elements,
+      appState: scene.appState,
+      imageRecords: project.imageRecords,
+      loadedPreviewFileIds: loadedPreviewImageFileIdsRef.current,
+      loadingPreviewFileIds: loadingPreviewImageFileIdsRef.current,
+      loadedOriginalFileIds: loadedOriginalImageFileIdsRef.current,
+      loadingOriginalFileIds: loadingOriginalImageFileIdsRef.current,
+    });
+
+    if (!requests.length) {
+      return;
+    }
+
+    const fileIdsByRendition = requests.reduce((groups, request) => {
+      const fileIds = groups.get(request.rendition) ?? [];
+      fileIds.push(request.fileId);
+      groups.set(request.rendition, fileIds);
+      return groups;
+    }, new Map<ImageAssetRequestRendition, string[]>());
+
+    requests.forEach((request) => {
+      if (request.rendition === "original") {
+        loadingOriginalImageFileIdsRef.current.add(request.fileId);
+      } else if (request.rendition === "preview") {
+        loadingPreviewImageFileIdsRef.current.add(request.fileId);
+      }
+    });
+
+    try {
+      const assetsByRendition = await Promise.all(
+        Array.from(fileIdsByRendition.entries()).map(
+          ([rendition, fileIds]) =>
+            readProjectImageAssets(project, fileIds, rendition),
+        ),
+      );
+      const assets = assetsByRendition.flat();
+      if (!addProjectAssetPayloadsToCurrentScene(project, assets)) {
+        return;
+      }
+      markImageAssetRenditionsLoaded(assets);
+    } catch {
+      // 显示资源升级是渐进增强，失败时保留当前缩略图继续使用画布。
+    } finally {
+      requests.forEach((request) => {
+        loadingPreviewImageFileIdsRef.current.delete(request.fileId);
+        loadingOriginalImageFileIdsRef.current.delete(request.fileId);
+      });
+    }
+  };
+
+  const scheduleVisibleImageRenditionLoad = (
+    scene: NonNullable<typeof latestSceneRef.current> | null,
+  ) => {
+    if (!scene) {
+      return;
+    }
+
+    clearHighResImageLoadTimer();
+    highResImageLoadTimerRef.current = window.setTimeout(() => {
+      highResImageLoadTimerRef.current = null;
+      void loadVisibleImageRenditionAssets(scene);
+    }, IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS);
+  };
+
+  const buildSceneWithOriginalImageFiles = async (
+    scene: typeof latestSceneRef.current,
+  ) => {
+    const project = currentProjectRef.current;
+    if (!scene || !project) {
+      return scene;
+    }
+
+    const selectedImageFileIds = Array.from(
+      new Set(
+        getSelectedReferenceElements(scene).flatMap((element) =>
+          element.type === "image" && element.fileId ? [element.fileId] : [],
+        ),
+      ),
+    );
+
+    if (!selectedImageFileIds.length) {
+      return scene;
+    }
+
+    const assets = await readOriginalImageAssets(project, selectedImageFileIds);
+    if (!assets.length) {
+      return scene;
+    }
+
+    return {
+      ...scene,
+      files: {
+        ...scene.files,
+        ...toBinaryFiles(assets, project.imageRecords),
+      },
+    };
   };
 
   const maybeSnapWorkspaceZoom = (
@@ -912,6 +1322,8 @@ const App = () => {
       if (workspaceFitPulseTimerRef.current) {
         window.clearTimeout(workspaceFitPulseTimerRef.current);
       }
+      clearProjectNoticeTimer();
+      clearHighResImageLoadTimer();
     },
     [],
   );
@@ -959,6 +1371,7 @@ const App = () => {
 
     setLoadingProject(true);
     setProjectError(null);
+    clearProjectNotice();
     try {
       try {
         await flushPendingAutosave({ strict: true });
@@ -983,12 +1396,29 @@ const App = () => {
       const assets = await desktopBridge.readProjectAssetPayloads({
         projectPath: bundle.projectPath,
         fileIds,
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
       });
       if (!isCurrentProjectOpen(sequence)) {
         return;
       }
 
       const files = toBinaryFiles(assets, bundle.imageRecords);
+      const missingThumbnailFileIds = Array.from(
+        new Set(
+          assets
+            .filter((asset) => asset.rendition === "placeholder")
+            .map((asset) => asset.fileId),
+        ),
+      );
+      resetImageRenditionState();
+      if (missingThumbnailFileIds.length) {
+        setThumbnailMaintenance({
+          status: "pending",
+          total: missingThumbnailFileIds.length,
+        });
+      }
+      markImageAssetRenditionsLoaded(assets);
       const nextInitialData: ExcalidrawInitialDataState = {
         elements: restored.elements,
         appState: restored.appState,
@@ -1006,6 +1436,8 @@ const App = () => {
         appState: restored.appState as AppState,
         files,
       };
+      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
+      void rebuildMissingThumbnailAssets(bundle, missingThumbnailFileIds);
       updateWorkspaceOverlay(
         restored.elements || [],
         restored.appState as AppState,
@@ -1743,8 +2175,10 @@ const App = () => {
       });
       let preparedRequest = normalizedRequest;
       if (normalizedRequest.reference?.enabled) {
+        const sceneWithOriginalImageFiles =
+          await buildSceneWithOriginalImageFiles(latestSceneRef.current);
         const reference = await buildSelectionReference({
-          scene: latestSceneRef.current,
+          scene: sceneWithOriginalImageFiles,
           includeImage: true,
           imageRecords: currentProjectRef.current?.imageRecords || null,
         });
@@ -1868,11 +2302,13 @@ const App = () => {
   };
 
   const handleCommitGenerateReference = () =>
-    buildSelectionReference({
-      scene: latestSceneRef.current,
-      includeImage: true,
-      imageRecords: currentProjectRef.current?.imageRecords || null,
-    });
+    buildSceneWithOriginalImageFiles(latestSceneRef.current).then((scene) =>
+      buildSelectionReference({
+        scene,
+        includeImage: true,
+        imageRecords: currentProjectRef.current?.imageRecords || null,
+      }),
+    );
 
   const handleSaveProviderSettings = async (
     input: Parameters<typeof desktopBridge.saveProviderSettings>[0],
@@ -2031,6 +2467,8 @@ const App = () => {
 
     if (api) {
       excalidrawAPIRef.current = api;
+      flushQueuedImageFilesToCanvas();
+      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
     }
 
     const clearInitializing = () => {
@@ -2084,6 +2522,10 @@ const App = () => {
           latestMenuProjectOpenRequestIdRef.current = event.openRequestId;
         }
         setProjectError(event.errorMessage || copy.startup.openProjectFailed);
+        clearProjectNotice();
+        break;
+      case "repair-project-thumbnails":
+        void handleRepairProjectThumbnails();
         break;
       case "import-images":
         void handleImportImages();
@@ -2137,6 +2579,53 @@ const App = () => {
         </div>
       </div>
     ) : null;
+
+  const renderProjectStatusToast = () => {
+    const message =
+      projectNotice ||
+      (thumbnailMaintenance
+        ? thumbnailMaintenance.status === "pending"
+          ? `正在生成 ${thumbnailMaintenance.total} 张缩略图`
+          : `${thumbnailMaintenance.total} 张缩略图暂时不可用`
+        : null);
+
+    if (!message) {
+      return null;
+    }
+
+    const statusClassName = [
+      "image-board-thumbnail-status",
+      projectNotice ? "image-board-thumbnail-status--success" : "",
+      thumbnailMaintenance?.status === "failed"
+        ? "image-board-thumbnail-status--failed"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return (
+      <div className={statusClassName} role="status" aria-live="polite">
+        <span
+          className={[
+            "image-board-thumbnail-status__dot",
+            projectNotice ? "image-board-thumbnail-status__dot--success" : "",
+            thumbnailMaintenance?.status === "failed"
+              ? "image-board-thumbnail-status__dot--muted"
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-hidden="true"
+        />
+        <span>{message}</span>
+        {!projectNotice && thumbnailMaintenance?.status === "pending" && (
+          <span className="image-board-thumbnail-status__hint">
+            放大查看时会优先载入原图。
+          </span>
+        )}
+      </div>
+    );
+  };
 
   if (!bridge) {
     return (
@@ -2243,6 +2732,7 @@ const App = () => {
                 </div>
               </div>
             )}
+            {renderProjectStatusToast()}
             <Excalidraw
               key={projectRenderKey}
               langCode={DESKTOP_LANG_CODE}
@@ -2253,6 +2743,8 @@ const App = () => {
               onExcalidrawAPI={(api) => {
                 if (projectRenderNonce === projectRenderNonceRef.current) {
                   excalidrawAPIRef.current = api;
+                  flushQueuedImageFilesToCanvas();
+                  scheduleVisibleImageRenditionLoad(latestSceneRef.current);
                 }
               }}
               onPointerUpdate={({ pointer }) => {
@@ -2290,6 +2782,7 @@ const App = () => {
                   return;
                 }
                 latestSceneRef.current = nextScene;
+                scheduleVisibleImageRenditionLoad(nextScene);
                 updateWorkspaceOverlay(elements, appState);
                 setGenerateRequest((current) =>
                   syncSelectionReferenceIntoRequest(

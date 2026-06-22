@@ -6,10 +6,21 @@ export const PROJECT_FILENAMES = {
   scene: "scene.excalidraw.json",
   imageRecords: "image-records.json",
   assetsDir: "assets",
+  cacheDir: "cache",
   exportsDir: "exports",
 } as const;
 
 export type ImageSourceType = "generated" | "imported";
+export type ImageAssetRendition =
+  | "original"
+  | "thumbnail"
+  | "preview"
+  | "placeholder";
+export type ImageAssetRequestRendition = Exclude<
+  ImageAssetRendition,
+  "placeholder"
+>;
+export type ProjectThumbnailReadMode = "read-through" | "cache-only";
 
 export type ImagePromptReferenceKind = "image" | "snapshot";
 

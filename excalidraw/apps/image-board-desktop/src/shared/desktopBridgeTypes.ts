@@ -1,8 +1,11 @@
 import type {
   ImagePromptReferenceRecord,
+  ImageAssetRendition,
+  ImageAssetRequestRendition,
   ImageRecordMap,
   ImageSourceType,
   ProjectManifest,
+  ProjectThumbnailReadMode,
 } from "./projectTypes";
 import type {
   GenerationRequest,
@@ -18,6 +21,7 @@ export const IPC_CHANNELS = {
   loadRecentProjects: "image-board:load-recent-projects",
   writeProjectScene: "image-board:write-project-scene",
   readProjectAssetPayloads: "image-board:read-project-asset-payloads",
+  rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
   persistImageAssets: "image-board:persist-image-assets",
   importImages: "image-board:import-images",
   revealProjectInFinder: "image-board:reveal-project-in-finder",
@@ -40,6 +44,7 @@ export type DesktopMenuAction =
   | "new-project"
   | "open-project"
   | "open-recent-project"
+  | "repair-project-thumbnails"
   | "project-opened"
   | "project-open-failed"
   | "import-images"
@@ -81,6 +86,13 @@ export interface ProjectAssetPayload {
   width: number;
   height: number;
   createdAt: string;
+  rendition?: ImageAssetRendition;
+}
+
+export interface RebuildProjectThumbnailsResult {
+  generatedFileIds: string[];
+  skippedFileIds: string[];
+  failedFileIds: string[];
 }
 
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
@@ -155,7 +167,14 @@ export interface DesktopBridgeApi {
   readProjectAssetPayloads(input: {
     projectPath: string;
     fileIds: string[];
+    rendition?: ImageAssetRequestRendition;
+    thumbnailMode?: ProjectThumbnailReadMode;
   }): Promise<ProjectAssetPayload[]>;
+  rebuildProjectThumbnails?(input: {
+    projectPath: string;
+    fileIds: string[];
+    force?: boolean;
+  }): Promise<RebuildProjectThumbnailsResult>;
   persistImageAssets(input: {
     projectPath: string;
     files: PersistedImageAssetInput[];
@@ -175,7 +194,5 @@ export interface DesktopBridgeApi {
   readClipboardImage?(): Promise<ImportedImagePayload | null>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;
-  onFlushAutosaveRequest?(
-    listener: () => Promise<void> | void,
-  ): () => void;
+  onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
 }

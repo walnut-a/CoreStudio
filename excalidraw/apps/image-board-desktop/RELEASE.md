@@ -13,7 +13,7 @@ excalidraw/apps/image-board-desktop/package.json
 当前发布版本：
 
 ```text
-1.1.8
+1.1.9
 ```
 
 ## 本地打包
@@ -174,6 +174,38 @@ gh release create v1.1.0 \
 ```
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
+
+## 1.1.9 已验证信息
+
+1.1.9 发布时通过了这些检查：
+
+- 大项目图片性能：缩略图优先加载，按视口逐步升级预览图/原图
+- 项目维护：支持从文件菜单修复当前项目缩略图缓存
+- 画布体验：底部输入框和维护状态提示收回 Excalidraw 原生岛状控件风格
+- Desktop tests：265 passed
+- TypeScript typecheck：passed
+- `git diff --check`：passed
+- Source/package-input/release secret scan：passed
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `889b5871-a0eb-4ccb-aebb-b035a8da2eb5`
+- Gatekeeper：DMG accepted as `Notarized Developer ID`
+- ZIP app：stapler validate passed, Gatekeeper accepted as `Notarized Developer ID`, codesign verify passed
+
+校验值：
+
+```text
+CoreStudio-1.1.9-arm64.dmg
+sha256: 31dddb6d1fa6b9b5f778225e05c64fb0fd6cb74e828755781e960cfd8bf98fa7
+
+CoreStudio-1.1.9-arm64-mac.zip
+sha256: c7caf39f7e3003e7c36d438dd2b78ca767faa8c73152dc5d090ea7e8e80da000
+
+CoreStudio-1.1.9-arm64.dmg.blockmap
+sha256: db4be761493c219d12007c5f719cf7528c3a0981ef403d3fe202baf2fa4d71e0
+
+CoreStudio-1.1.9-arm64-mac.zip.blockmap
+sha256: 7c91e663a5d2775091ac964d6f60742e9a4087bd4690329e66374c976b95917f
+```
 
 ## 1.1.8 已验证信息
 

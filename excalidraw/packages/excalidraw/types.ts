@@ -949,6 +949,7 @@ export interface ExcalidrawImperativeAPI {
   refresh: InstanceType<typeof App>["refresh"];
   setToast: InstanceType<typeof App>["setToast"];
   addFiles: (data: BinaryFileData[]) => void;
+  replaceFiles: (data: BinaryFileData[]) => void;
   id: string;
   setActiveTool: InstanceType<typeof App>["setActiveTool"];
   setCursor: InstanceType<typeof App>["setCursor"];

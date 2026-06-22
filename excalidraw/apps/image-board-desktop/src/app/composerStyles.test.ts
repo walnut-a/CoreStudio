@@ -95,17 +95,27 @@ describe("generate composer styles", () => {
     expect(focusWithinRule).not.toMatch(/transform\s*:/);
   });
 
-  it("matches the bottom toolbar without a floating drop shadow", () => {
+  it("matches the native canvas island treatment", () => {
     const appCss = readAppCss();
     const floatingLayerRule = getRule(appCss, ".floating-panel-layer");
+    const statusStackRule = getRule(
+      appCss,
+      ".image-board-app .floating-status-stack",
+    );
     const composerRule = getRule(appCss, ".generate-composer");
     const focusWithinRule = getRule(appCss, ".generate-composer:focus-within");
 
     expect(floatingLayerRule).toContain(
       "calc(16px + env(safe-area-inset-bottom, 0px))",
     );
-    expect(composerRule).not.toMatch(/box-shadow:\s*\n\s*0\s+\d/);
-    expect(focusWithinRule).not.toMatch(/box-shadow:\s*\n\s*0\s+\d/);
+    expect(statusStackRule).toContain(
+      "calc(120px + env(safe-area-inset-bottom, 0px))",
+    );
+    expect(composerRule).toContain("border: 0");
+    expect(composerRule).toContain("background: var(--island-bg-color)");
+    expect(composerRule).toContain("box-shadow: var(--shadow-island)");
+    expect(focusWithinRule).toContain("var(--shadow-island)");
+    expect(focusWithinRule).toContain("var(--generate-composer-focus-ring)");
   });
 
   it("keeps the bottom composer inside the canvas when side docks are open", () => {
@@ -131,6 +141,7 @@ describe("generate composer styles", () => {
     ).filter((rule) => rule.includes(".floating-panel-layer"));
 
     expect(appRule).toContain("--generate-panel-max-width: 760px");
+    expect(appRule).toContain("--lg-button-size: 2.25rem");
     expect(appRule).toContain("--floating-panel-anchor-gutter: max(");
     expect(appRule).toContain(
       "calc((100vw - var(--generate-panel-max-width)) / 2)",
@@ -413,26 +424,17 @@ describe("generate composer styles", () => {
       ".image-board-button--primary.generate-composer__action",
     );
 
-    expect(composerRule).toContain("--generate-composer-border:");
     expect(composerRule).toContain("--generate-composer-icon-color:");
-    expect(composerRule).toContain(
-      "--generate-composer-border: var(--input-border-color)",
-    );
-    expect(composerRule).toContain(
-      "--generate-composer-border-hover: var(--color-border-outline-variant)",
-    );
-    expect(composerRule).toContain(
-      "border: 1px solid var(--generate-composer-border)",
-    );
-    expect(composerRule).toContain("background:");
+    expect(composerRule).toContain("border: 0");
+    expect(composerRule).toContain("background: var(--island-bg-color)");
+    expect(composerRule).toContain("box-shadow: var(--shadow-island)");
     expect(composerRule).not.toContain("linear-gradient");
     expect(composerRule).not.toContain("var(--text-primary-color) 46%");
     expect(composerRule).not.toContain("var(--text-primary-color) 52%");
     expect(composerRule).not.toContain("rgba(31, 31, 36, 0.88)");
     expect(composerRule).not.toContain("rgba(255, 255, 255, 0.92)");
-    expect(focusWithinRule).toContain(
-      "border-color: var(--generate-composer-border-focus)",
-    );
+    expect(focusWithinRule).toContain("var(--shadow-island)");
+    expect(focusWithinRule).toContain("var(--generate-composer-focus-ring)");
     expect(referenceLineRule).toContain(
       "color: var(--generate-composer-reference-color)",
     );

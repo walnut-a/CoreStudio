@@ -27,6 +27,7 @@ import {
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
   createProjectStructure,
+  inspectProjectHealth,
   persistImageAssets,
   readProjectAssetPayloads,
   readProjectBundle,
@@ -394,6 +395,10 @@ const registerIpcHandlers = () => {
       return readProjectAssetPayloads(input);
     },
   );
+
+  ipcMain.handle(IPC_CHANNELS.inspectProjectHealth, async (_event, input) => {
+    return inspectProjectHealth(input);
+  });
 
   ipcMain.handle(
     IPC_CHANNELS.rebuildProjectThumbnails,

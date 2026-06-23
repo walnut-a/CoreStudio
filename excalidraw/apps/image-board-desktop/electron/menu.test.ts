@@ -36,6 +36,9 @@ describe("createAppMenuTemplate", () => {
     ).toContain("最近项目");
     expect(
       getSubmenuLabels(template[0].submenu),
+    ).toContain("检查当前项目健康");
+    expect(
+      getSubmenuLabels(template[0].submenu),
     ).toContain("修复当前项目缩略图");
     expect(
       getSubmenuLabels(template[0].submenu),
@@ -77,6 +80,24 @@ describe("createAppMenuTemplate", () => {
 
     expect(sendMenuAction).toHaveBeenCalledWith(
       { action: "repair-project-thumbnails" },
+      undefined,
+    );
+  });
+
+  it("sends an inspect current project health action from the file menu", () => {
+    const sendMenuAction = vi.fn();
+    const template = createAppMenuTemplate(sendMenuAction);
+    const fileMenu = template.find((item) => item.label === "文件");
+    const inspectItem = getSubmenuItems(fileMenu?.submenu).find(
+      (item) => item.label === "检查当前项目健康",
+    );
+
+    expect(inspectItem).toBeTruthy();
+
+    inspectItem?.click?.(inspectItem as any, undefined, undefined as any);
+
+    expect(sendMenuAction).toHaveBeenCalledWith(
+      { action: "inspect-project-health" },
       undefined,
     );
   });

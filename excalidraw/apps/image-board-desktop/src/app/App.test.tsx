@@ -117,6 +117,25 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
   loadRecentProjects: vi.fn().mockResolvedValue([]),
   writeProjectScene: vi.fn().mockResolvedValue(undefined),
   readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+  inspectProjectHealth: vi.fn().mockResolvedValue({
+    checkedAt: "2026-04-12T08:00:00.000Z",
+    projectPath: "/tmp/mock-project",
+    imageRecordCount: 0,
+    sceneImageFileCount: 0,
+    missingImageRecordFileIds: [],
+    missingAssetFileIds: [],
+    missingThumbnailFileIds: [],
+    missingPreviewFileIds: [],
+    orphanImageRecordFileIds: [],
+    brokenParentFileIds: [],
+    brokenPromptReferenceFileIds: [],
+    issues: [],
+    summary: {
+      errorCount: 0,
+      warningCount: 0,
+      repairableCount: 0,
+    },
+  }),
   rebuildProjectThumbnails: vi.fn().mockResolvedValue({
     generatedFileIds: [],
     skippedFileIds: [],
@@ -1836,6 +1855,7 @@ describe("App startup", () => {
         projectPath: "/tmp/mock-project",
         fileIds: ["visible-file"],
         force: true,
+        createBackup: true,
       });
     });
     await waitFor(() => {
@@ -1850,6 +1870,83 @@ describe("App startup", () => {
     });
     expect(
       screen.getByText("缩略图修复完成：重新生成 1 张，跳过 0 张。"),
+    ).toBeInTheDocument();
+  });
+
+  it("inspects current project health from the file menu", async () => {
+    const inspectProjectHealth = vi.fn().mockResolvedValue({
+      checkedAt: "2026-04-12T08:00:00.000Z",
+      projectPath: "/tmp/mock-project",
+      imageRecordCount: 2,
+      sceneImageFileCount: 2,
+      missingImageRecordFileIds: [],
+      missingAssetFileIds: [],
+      missingThumbnailFileIds: ["visible-file"],
+      missingPreviewFileIds: [],
+      orphanImageRecordFileIds: [],
+      brokenParentFileIds: [],
+      brokenPromptReferenceFileIds: [],
+      issues: [],
+      summary: {
+        errorCount: 0,
+        warningCount: 1,
+        repairableCount: 1,
+      },
+    });
+    let menuActionListener:
+      | ((event: {
+          action: string;
+        }) => void)
+      | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      inspectProjectHealth,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "inspect-project-health",
+      });
+    });
+
+    await waitFor(() => {
+      expect(inspectProjectHealth).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+      });
+    });
+    expect(
+      screen.getByText("项目检查完成：发现 0 个错误、1 个警告，其中 1 项可修复。"),
     ).toBeInTheDocument();
   });
 

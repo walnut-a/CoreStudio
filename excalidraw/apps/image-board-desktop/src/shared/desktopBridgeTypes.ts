@@ -21,6 +21,7 @@ export const IPC_CHANNELS = {
   loadRecentProjects: "image-board:load-recent-projects",
   writeProjectScene: "image-board:write-project-scene",
   readProjectAssetPayloads: "image-board:read-project-asset-payloads",
+  inspectProjectHealth: "image-board:inspect-project-health",
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
   persistImageAssets: "image-board:persist-image-assets",
   importImages: "image-board:import-images",
@@ -44,6 +45,7 @@ export type DesktopMenuAction =
   | "new-project"
   | "open-project"
   | "open-recent-project"
+  | "inspect-project-health"
   | "repair-project-thumbnails"
   | "project-opened"
   | "project-open-failed"
@@ -93,6 +95,47 @@ export interface RebuildProjectThumbnailsResult {
   generatedFileIds: string[];
   skippedFileIds: string[];
   failedFileIds: string[];
+  backupPath?: string | null;
+}
+
+export type ProjectHealthIssueSeverity = "info" | "warning" | "error";
+
+export interface ProjectHealthIssue {
+  code:
+    | "scene-parse-failed"
+    | "missing-image-record"
+    | "missing-asset-file"
+    | "missing-thumbnail-cache"
+    | "missing-preview-cache"
+    | "orphan-image-record"
+    | "broken-parent-link"
+    | "broken-prompt-reference";
+  severity: ProjectHealthIssueSeverity;
+  fileId?: string;
+  elementId?: string;
+  path?: string;
+  message: string;
+  repairable: boolean;
+}
+
+export interface ProjectHealthReport {
+  checkedAt: string;
+  projectPath: string;
+  imageRecordCount: number;
+  sceneImageFileCount: number;
+  missingImageRecordFileIds: string[];
+  missingAssetFileIds: string[];
+  missingThumbnailFileIds: string[];
+  missingPreviewFileIds: string[];
+  orphanImageRecordFileIds: string[];
+  brokenParentFileIds: string[];
+  brokenPromptReferenceFileIds: string[];
+  issues: ProjectHealthIssue[];
+  summary: {
+    errorCount: number;
+    warningCount: number;
+    repairableCount: number;
+  };
 }
 
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
@@ -170,10 +213,14 @@ export interface DesktopBridgeApi {
     rendition?: ImageAssetRequestRendition;
     thumbnailMode?: ProjectThumbnailReadMode;
   }): Promise<ProjectAssetPayload[]>;
+  inspectProjectHealth?(input: {
+    projectPath: string;
+  }): Promise<ProjectHealthReport>;
   rebuildProjectThumbnails?(input: {
     projectPath: string;
     fileIds: string[];
     force?: boolean;
+    createBackup?: boolean;
   }): Promise<RebuildProjectThumbnailsResult>;
   persistImageAssets(input: {
     projectPath: string;

@@ -232,6 +232,7 @@ interface AutosaveSnapshot {
 type ThumbnailMaintenanceState = {
   status: "pending" | "failed";
   total: number;
+  message?: string;
 };
 
 interface ProjectRenderBoundaryProps {
@@ -973,6 +974,7 @@ const App = () => {
         projectPath: project.projectPath,
         fileIds,
         force: true,
+        createBackup: true,
       });
       if (currentProjectRef.current?.projectPath !== project.projectPath) {
         return;
@@ -1013,6 +1015,7 @@ const App = () => {
           result.generatedFileIds.length,
           result.skippedFileIds.length,
           result.failedFileIds.length,
+          result.backupPath,
         ),
       );
     } catch (error) {
@@ -1023,6 +1026,58 @@ const App = () => {
         });
         setProjectError(
           getErrorText(error, copy.projectRepair.thumbnailsFailed),
+        );
+        clearProjectNotice();
+      }
+    }
+  };
+
+  const handleInspectProjectHealth = async () => {
+    const project = currentProjectRef.current;
+    const inspectProjectHealth = desktopBridge.inspectProjectHealth;
+    if (!project) {
+      setProjectError(copy.projectRepair.noProject);
+      clearProjectNotice();
+      return;
+    }
+
+    if (!inspectProjectHealth) {
+      setProjectError(copy.projectRepair.healthCheckFailed);
+      clearProjectNotice();
+      return;
+    }
+
+    setProjectError(null);
+    clearProjectNotice();
+    setThumbnailMaintenance({
+      status: "pending",
+      total: Object.keys(project.imageRecords).length,
+      message: copy.projectRepair.healthChecking,
+    });
+
+    try {
+      const report = await inspectProjectHealth({
+        projectPath: project.projectPath,
+      });
+      if (currentProjectRef.current?.projectPath !== project.projectPath) {
+        return;
+      }
+
+      setThumbnailMaintenance(null);
+      showProjectNotice(
+        report.summary.errorCount || report.summary.warningCount
+          ? copy.projectRepair.healthNeedsRepair(
+              report.summary.errorCount,
+              report.summary.warningCount,
+              report.summary.repairableCount,
+            )
+          : copy.projectRepair.healthHealthy(report.imageRecordCount),
+      );
+    } catch (error) {
+      if (currentProjectRef.current?.projectPath === project.projectPath) {
+        setThumbnailMaintenance(null);
+        setProjectError(
+          getErrorText(error, copy.projectRepair.healthCheckFailed),
         );
         clearProjectNotice();
       }
@@ -2528,6 +2583,9 @@ const App = () => {
       case "repair-project-thumbnails":
         void handleRepairProjectThumbnails();
         break;
+      case "inspect-project-health":
+        void handleInspectProjectHealth();
+        break;
       case "import-images":
         void handleImportImages();
         break;
@@ -2585,9 +2643,10 @@ const App = () => {
     const message =
       projectNotice ||
       (thumbnailMaintenance
-        ? thumbnailMaintenance.status === "pending"
-          ? `正在生成 ${thumbnailMaintenance.total} 张缩略图`
-          : `${thumbnailMaintenance.total} 张缩略图暂时不可用`
+        ? thumbnailMaintenance.message ??
+          (thumbnailMaintenance.status === "pending"
+            ? `正在生成 ${thumbnailMaintenance.total} 张缩略图`
+            : `${thumbnailMaintenance.total} 张缩略图暂时不可用`)
         : null);
 
     if (!message) {
@@ -2619,11 +2678,13 @@ const App = () => {
           aria-hidden="true"
         />
         <span>{message}</span>
-        {!projectNotice && thumbnailMaintenance?.status === "pending" && (
-          <span className="image-board-thumbnail-status__hint">
-            放大查看时会优先载入原图。
-          </span>
-        )}
+        {!projectNotice &&
+          thumbnailMaintenance?.status === "pending" &&
+          !thumbnailMaintenance.message && (
+            <span className="image-board-thumbnail-status__hint">
+              放大查看时会优先载入原图。
+            </span>
+          )}
       </div>
     );
   };

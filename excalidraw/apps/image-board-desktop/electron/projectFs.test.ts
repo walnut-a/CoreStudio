@@ -8,6 +8,7 @@ import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 
 import {
   createProjectStructure,
+  inspectProjectHealth,
   persistImageAssets,
   readProjectAssetPayloads,
   readProjectBundle,
@@ -418,6 +419,7 @@ describe("projectFs", () => {
       generatedFileIds: ["file-ok"],
       skippedFileIds: [],
       failedFileIds: ["file-missing"],
+      backupPath: null,
     });
 
     await expect(
@@ -492,6 +494,7 @@ describe("projectFs", () => {
       generatedFileIds: ["file-force"],
       skippedFileIds: [],
       failedFileIds: [],
+      backupPath: null,
     });
 
     await expect(
@@ -508,6 +511,145 @@ describe("projectFs", () => {
         rendition: "thumbnail",
       }),
     ]);
+  });
+
+  it("creates a metadata backup before manual thumbnail repair", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Maintenance Backup Test");
+    await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-backup",
+          dataBase64: Buffer.from("original-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1440,
+          height: 960,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+
+    const result = await rebuildProjectThumbnails(
+      {
+        projectPath: project.projectPath,
+        fileIds: ["file-backup"],
+        force: true,
+        createBackup: true,
+      },
+      {
+        createThumbnail: async () => ({
+          data: Buffer.from("thumbnail-image"),
+          mimeType: "image/png",
+          width: 320,
+          height: 213,
+        }),
+      },
+    );
+
+    expect(result.backupPath).toContain("maintenance-backups");
+    await expect(
+      fs.readFile(
+        path.join(result.backupPath || "", PROJECT_FILENAMES.imageRecords),
+        "utf8",
+      ),
+    ).resolves.toContain("file-backup");
+    await expect(
+      fs.readFile(
+        path.join(result.backupPath || "", "maintenance-backup.json"),
+        "utf8",
+      ),
+    ).resolves.toContain("rebuild-project-thumbnails");
+  });
+
+  it("inspects project health without modifying project files", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Health Check Test");
+    const imageRecords = await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-ok",
+          dataBase64: Buffer.from("original-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1440,
+          height: 960,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    await fs.writeFile(
+      path.join(project.projectPath, PROJECT_FILENAMES.scene),
+      JSON.stringify({
+        type: "excalidraw",
+        elements: [
+          {
+            id: "image-1",
+            type: "image",
+            fileId: "file-ok",
+          },
+          {
+            id: "image-2",
+            type: "image",
+            fileId: "file-missing-record",
+          },
+        ],
+      }),
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+      JSON.stringify(
+        {
+          ...imageRecords,
+          "file-missing-asset": {
+            fileId: "file-missing-asset",
+            assetPath: "assets/missing.png",
+            sourceType: "imported",
+            width: 1440,
+            height: 960,
+            createdAt: "2026-04-12T12:00:00.000Z",
+            mimeType: "image/png",
+            parentFileId: "file-missing-parent",
+            promptReferences: [
+              {
+                id: "reference-missing",
+                index: 1,
+                label: "参考图 1",
+                kind: "image",
+                fileIds: ["file-missing-reference"],
+              },
+            ],
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const report = await inspectProjectHealth({
+      projectPath: project.projectPath,
+    });
+
+    expect(report.imageRecordCount).toBe(2);
+    expect(report.sceneImageFileCount).toBe(2);
+    expect(report.missingImageRecordFileIds).toEqual(["file-missing-record"]);
+    expect(report.missingAssetFileIds).toEqual(["file-missing-asset"]);
+    expect(report.missingThumbnailFileIds).toEqual(["file-ok"]);
+    expect(report.brokenParentFileIds).toEqual(["file-missing-asset"]);
+    expect(report.brokenPromptReferenceFileIds).toEqual([
+      "file-missing-reference",
+    ]);
+    expect(report.summary.errorCount).toBeGreaterThan(0);
+    expect(report.summary.warningCount).toBeGreaterThan(0);
+    expect(report.summary.repairableCount).toBe(1);
   });
 
   it("reads asset payloads without reading the project scene file", async () => {

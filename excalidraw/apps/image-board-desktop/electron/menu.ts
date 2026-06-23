@@ -53,6 +53,11 @@ export const createAppMenuTemplate = (
           : [{ label: copy.welcome.recentEmpty, enabled: false }],
       },
       {
+        label: copy.menu.inspectProjectHealth,
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "inspect-project-health" }, ownerWindow),
+      },
+      {
         label: copy.menu.repairProjectThumbnails,
         click: (_item, ownerWindow) =>
           sendMenuAction({ action: "repair-project-thumbnails" }, ownerWindow),

@@ -204,6 +204,7 @@ export const copy = {
     openProject: "打开项目",
     recentProjects: "最近项目",
     version: "版本",
+    inspectProjectHealth: "检查当前项目健康",
     repairProjectThumbnails: "修复当前项目缩略图",
     importImages: "导入图片",
     revealProject: "显示项目文件夹",
@@ -216,17 +217,32 @@ export const copy = {
     about: `关于 ${DESKTOP_APP_NAME}`,
   },
   projectRepair: {
-    noProject: "请先打开一个项目，再修复缩略图。",
+    noProject: "请先打开一个项目。",
     noImages: "当前项目没有图片资源需要修复。",
+    healthCheckFailed: "当前项目健康检查失败。",
+    healthChecking: "正在检查当前项目",
+    healthHealthy: (imageCount: number) =>
+      `项目检查完成：${imageCount} 张图片资源状态正常。`,
+    healthNeedsRepair: (
+      errorCount: number,
+      warningCount: number,
+      repairableCount: number,
+    ) =>
+      `项目检查完成：发现 ${errorCount} 个错误、${warningCount} 个警告，其中 ${repairableCount} 项可修复。`,
     thumbnailsFailed: "当前项目缩略图修复失败。",
     thumbnailsRepaired: (
       generatedCount: number,
       skippedCount: number,
       failedCount: number,
+      backupPath?: string | null,
     ) =>
       failedCount
-        ? `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张，失败 ${failedCount} 张。`
-        : `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张。`,
+        ? `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张，失败 ${failedCount} 张。${
+            backupPath ? " 已备份项目索引。" : ""
+          }`
+        : `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张。${
+            backupPath ? " 已备份项目索引。" : ""
+          }`,
   },
 } as const;
 

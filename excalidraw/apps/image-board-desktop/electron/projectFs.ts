@@ -14,11 +14,16 @@ import {
   type ProjectManifest,
   type ProjectThumbnailReadMode,
 } from "../src/shared/projectTypes";
+import type {
+  ProjectHealthIssue,
+  ProjectHealthReport,
+} from "../src/shared/desktopBridgeTypes";
 
 import type { ProviderId } from "../src/shared/providerTypes";
 
 const APP_VERSION = "0.1.0";
 const SCENE_BACKUPS_DIR = "scene-backups";
+const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
 const THUMBNAILS_DIR = "thumbnails";
 const PREVIEWS_DIR = "previews";
 export const PROJECT_THUMBNAIL_MAX_DIMENSION = 320;
@@ -90,6 +95,11 @@ interface ReadProjectAssetPayloadsOptions {
 
 interface RebuildProjectThumbnailsOptions {
   createThumbnail?: CreateThumbnail;
+}
+
+interface SceneImageReference {
+  fileId: string;
+  elementId?: string;
 }
 
 const safeProjectFolderName = (name: string) =>
@@ -287,6 +297,45 @@ const analyzeSceneJson = (sceneJson: string) => {
   }
 };
 
+const readSceneImageReferences = (sceneJson: string) => {
+  try {
+    const scene = JSON.parse(sceneJson) as {
+      elements?: Array<{
+        id?: unknown;
+        type?: unknown;
+        fileId?: unknown;
+        isDeleted?: unknown;
+      }>;
+    };
+    const references: SceneImageReference[] = [];
+    for (const element of Array.isArray(scene.elements)
+      ? scene.elements
+      : []) {
+      if (
+        element?.type === "image" &&
+        element.isDeleted !== true &&
+        typeof element.fileId === "string" &&
+        element.fileId
+      ) {
+        references.push({
+          fileId: element.fileId,
+          elementId:
+            typeof element.id === "string" ? element.id : undefined,
+        });
+      }
+    }
+    return {
+      parseFailed: false,
+      references,
+    };
+  } catch {
+    return {
+      parseFailed: true,
+      references: [] as SceneImageReference[],
+    };
+  }
+};
+
 const backupSceneBeforeEmptyOverwrite = async ({
   projectPath,
   currentSceneJson,
@@ -305,6 +354,52 @@ const backupSceneBeforeEmptyOverwrite = async ({
   );
   await fs.mkdir(backupsDir, { recursive: true });
   await fs.writeFile(backupPath, currentSceneJson, "utf8");
+  return backupPath;
+};
+
+const createMaintenanceBackup = async ({
+  projectPath,
+  reason,
+}: {
+  projectPath: string;
+  reason: string;
+}) => {
+  const backupRoot = path.join(
+    projectPath,
+    PROJECT_FILENAMES.exportsDir,
+    MAINTENANCE_BACKUPS_DIR,
+  );
+  const backupPath = path.join(
+    backupRoot,
+    `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`,
+  );
+  await fs.mkdir(backupPath, { recursive: true });
+
+  const files = [
+    PROJECT_FILENAMES.project,
+    PROJECT_FILENAMES.scene,
+    PROJECT_FILENAMES.imageRecords,
+  ];
+  const copiedFiles: string[] = [];
+
+  for (const fileName of files) {
+    try {
+      await fs.copyFile(
+        path.join(projectPath, fileName),
+        path.join(backupPath, fileName),
+      );
+      copiedFiles.push(fileName);
+    } catch {
+      // 维护备份尽量收集已有元数据；缺失文件会在健康检查里报告。
+    }
+  }
+
+  await writeJson(path.join(backupPath, "maintenance-backup.json"), {
+    reason,
+    createdAt: new Date().toISOString(),
+    files: copiedFiles,
+  });
+
   return backupPath;
 };
 
@@ -584,6 +679,235 @@ const createCachedRenditionPayload = async ({
   });
 };
 
+const pathExists = async (targetPath: string) => {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const cachedRenditionExists = async ({
+  projectPath,
+  record,
+  rendition,
+}: {
+  projectPath: string;
+  record: ImageRecord;
+  rendition: CachedImageAssetRendition;
+}) => {
+  const dimensions = getCachedRenditionDimensions(record, rendition);
+  if (!dimensions.shouldUseThumbnail) {
+    return true;
+  }
+
+  const cachePaths = [getCachedRenditionCachePath(record, rendition)];
+  if (rendition === "thumbnail") {
+    cachePaths.push(getLegacyThumbnailCachePath(record));
+  }
+
+  for (const cachePath of cachePaths) {
+    try {
+      if (await pathExists(resolveProjectCachePath(projectPath, cachePath))) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+};
+
+export const inspectProjectHealth = async ({
+  projectPath,
+}: {
+  projectPath: string;
+}): Promise<ProjectHealthReport> => {
+  const bundle = await readProjectBundle(projectPath);
+  const sceneReferences = readSceneImageReferences(bundle.sceneJson);
+  const sceneImageFileIds = Array.from(
+    new Set(sceneReferences.references.map((reference) => reference.fileId)),
+  );
+  const imageRecordFileIds = Object.keys(bundle.imageRecords);
+  const issues: ProjectHealthIssue[] = [];
+
+  if (sceneReferences.parseFailed) {
+    issues.push({
+      code: "scene-parse-failed",
+      severity: "error",
+      message: "画板数据无法解析。",
+      repairable: false,
+    });
+  }
+
+  const addIssue = (issue: ProjectHealthIssue) => {
+    issues.push(issue);
+  };
+
+  const promptReferencedFileIds = new Set<string>();
+  for (const record of Object.values(bundle.imageRecords)) {
+    for (const reference of record.promptReferences ?? []) {
+      for (const fileId of reference.fileIds ?? []) {
+        promptReferencedFileIds.add(fileId);
+      }
+    }
+  }
+
+  const missingImageRecordFileIds: string[] = [];
+  for (const reference of sceneReferences.references) {
+    if (bundle.imageRecords[reference.fileId]) {
+      continue;
+    }
+    if (!missingImageRecordFileIds.includes(reference.fileId)) {
+      missingImageRecordFileIds.push(reference.fileId);
+    }
+    addIssue({
+      code: "missing-image-record",
+      severity: "error",
+      fileId: reference.fileId,
+      elementId: reference.elementId,
+      message: `画板图片缺少索引记录：${reference.fileId}`,
+      repairable: false,
+    });
+  }
+
+  const missingAssetFileIds: string[] = [];
+  const missingThumbnailFileIds: string[] = [];
+  const missingPreviewFileIds: string[] = [];
+  const brokenParentFileIds: string[] = [];
+  const brokenPromptReferenceFileIds: string[] = [];
+
+  await Promise.all(
+    imageRecordFileIds.map(async (fileId) => {
+      const record = bundle.imageRecords[fileId];
+      let assetExists = false;
+      try {
+        assetExists = await pathExists(
+          resolveProjectAssetPath(projectPath, record.assetPath),
+        );
+      } catch {
+        assetExists = false;
+      }
+
+      if (!assetExists) {
+        missingAssetFileIds.push(fileId);
+        addIssue({
+          code: "missing-asset-file",
+          severity: "error",
+          fileId,
+          path: record.assetPath,
+          message: `图片原始文件缺失：${record.assetPath}`,
+          repairable: false,
+        });
+        return;
+      }
+
+      if (
+        !(await cachedRenditionExists({
+          projectPath,
+          record,
+          rendition: "thumbnail",
+        }))
+      ) {
+        missingThumbnailFileIds.push(fileId);
+        addIssue({
+          code: "missing-thumbnail-cache",
+          severity: "warning",
+          fileId,
+          message: `缩略图缓存缺失：${fileId}`,
+          repairable: true,
+        });
+      }
+
+      if (
+        !(await cachedRenditionExists({
+          projectPath,
+          record,
+          rendition: "preview",
+        }))
+      ) {
+        missingPreviewFileIds.push(fileId);
+        addIssue({
+          code: "missing-preview-cache",
+          severity: "info",
+          fileId,
+          message: `预览图缓存尚未生成：${fileId}`,
+          repairable: false,
+        });
+      }
+    }),
+  );
+
+  for (const [fileId, record] of Object.entries(bundle.imageRecords)) {
+    if (record.parentFileId && !bundle.imageRecords[record.parentFileId]) {
+      brokenParentFileIds.push(fileId);
+      addIssue({
+        code: "broken-parent-link",
+        severity: "warning",
+        fileId,
+        message: `图片编辑链前序缺失：${record.parentFileId}`,
+        repairable: false,
+      });
+    }
+
+    for (const reference of record.promptReferences ?? []) {
+      for (const referenceFileId of reference.fileIds ?? []) {
+        if (bundle.imageRecords[referenceFileId]) {
+          continue;
+        }
+        brokenPromptReferenceFileIds.push(referenceFileId);
+        addIssue({
+          code: "broken-prompt-reference",
+          severity: "warning",
+          fileId: referenceFileId,
+          message: `提示词引用图片缺少索引记录：${referenceFileId}`,
+          repairable: false,
+        });
+      }
+    }
+  }
+
+  const sceneImageFileIdSet = new Set(sceneImageFileIds);
+  const orphanImageRecordFileIds = imageRecordFileIds.filter(
+    (fileId) =>
+      !sceneImageFileIdSet.has(fileId) && !promptReferencedFileIds.has(fileId),
+  );
+  for (const fileId of orphanImageRecordFileIds) {
+    addIssue({
+      code: "orphan-image-record",
+      severity: "info",
+      fileId,
+      message: `图片索引没有被当前画板引用：${fileId}`,
+      repairable: false,
+    });
+  }
+
+  return {
+    checkedAt: new Date().toISOString(),
+    projectPath,
+    imageRecordCount: imageRecordFileIds.length,
+    sceneImageFileCount: sceneImageFileIds.length,
+    missingImageRecordFileIds,
+    missingAssetFileIds,
+    missingThumbnailFileIds,
+    missingPreviewFileIds,
+    orphanImageRecordFileIds,
+    brokenParentFileIds,
+    brokenPromptReferenceFileIds: Array.from(
+      new Set(brokenPromptReferenceFileIds),
+    ),
+    issues,
+    summary: {
+      errorCount: issues.filter((issue) => issue.severity === "error").length,
+      warningCount: issues.filter((issue) => issue.severity === "warning")
+        .length,
+      repairableCount: issues.filter((issue) => issue.repairable).length,
+    },
+  };
+};
+
 export const readProjectAssetPayloads = async (
   {
     projectPath,
@@ -672,13 +996,21 @@ export const rebuildProjectThumbnails = async (
     projectPath,
     fileIds,
     force = false,
+    createBackup = false,
   }: {
     projectPath: string;
     fileIds: string[];
     force?: boolean;
+    createBackup?: boolean;
   },
   options: RebuildProjectThumbnailsOptions = {},
 ) => {
+  const backupPath = createBackup
+    ? await createMaintenanceBackup({
+        projectPath,
+        reason: "rebuild-project-thumbnails",
+      })
+    : null;
   const imageRecords = await readProjectImageRecords(projectPath);
   const generatedFileIds: string[] = [];
   const skippedFileIds: string[] = [];
@@ -737,6 +1069,7 @@ export const rebuildProjectThumbnails = async (
     generatedFileIds,
     skippedFileIds,
     failedFileIds,
+    backupPath,
   };
 };
 

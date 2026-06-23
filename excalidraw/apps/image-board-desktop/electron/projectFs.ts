@@ -485,15 +485,6 @@ const getCachedRenditionCachePath = (
   );
 };
 
-const getLegacyThumbnailCachePath = (record: ImageRecord) =>
-  path.posix.join(
-    PROJECT_FILENAMES.cacheDir,
-    THUMBNAILS_DIR,
-    `${safeAssetFileNameSegment(record.fileId)}-${record.width}x${
-      record.height
-    }-768.png`,
-  );
-
 const createNativeImageThumbnail: CreateThumbnail = async ({
   sourceBuffer,
   width,
@@ -602,30 +593,22 @@ const readCachedRenditionPayload = async ({
     return null;
   }
 
-  const cachePaths = [getCachedRenditionCachePath(record, rendition)];
-  if (rendition === "thumbnail") {
-    cachePaths.push(getLegacyThumbnailCachePath(record));
+  const cachePath = getCachedRenditionCachePath(record, rendition);
+  const resolvedCachePath = resolveProjectCachePath(projectPath, cachePath);
+  try {
+    const cachedRendition = await fs.readFile(resolvedCachePath);
+    return buildAssetPayload({
+      fileId,
+      record,
+      fileBuffer: cachedRendition,
+      width: dimensions.width,
+      height: dimensions.height,
+      mimeType: "image/png",
+      rendition,
+    });
+  } catch {
+    return null;
   }
-
-  for (const cachePath of cachePaths) {
-    const resolvedCachePath = resolveProjectCachePath(projectPath, cachePath);
-    try {
-      const cachedRendition = await fs.readFile(resolvedCachePath);
-      return buildAssetPayload({
-        fileId,
-        record,
-        fileBuffer: cachedRendition,
-        width: dimensions.width,
-        height: dimensions.height,
-        mimeType: "image/png",
-        rendition,
-      });
-    } catch {
-      // 缓存文件缺失或损坏时继续尝试后续兼容路径。
-    }
-  }
-
-  return null;
 };
 
 const createCachedRenditionPayload = async ({
@@ -703,22 +686,16 @@ const cachedRenditionExists = async ({
     return true;
   }
 
-  const cachePaths = [getCachedRenditionCachePath(record, rendition)];
-  if (rendition === "thumbnail") {
-    cachePaths.push(getLegacyThumbnailCachePath(record));
+  try {
+    return await pathExists(
+      resolveProjectCachePath(
+        projectPath,
+        getCachedRenditionCachePath(record, rendition),
+      ),
+    );
+  } catch {
+    return false;
   }
-
-  for (const cachePath of cachePaths) {
-    try {
-      if (await pathExists(resolveProjectCachePath(projectPath, cachePath))) {
-        return true;
-      }
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
 };
 
 const collectFilesRecursively = async (directory: string) => {
@@ -750,11 +727,6 @@ const getExpectedCachePaths = (projectPath: string, imageRecords: ImageRecordMap
           getCachedRenditionCachePath(record, rendition),
         ),
       );
-      if (rendition === "thumbnail") {
-        expectedPaths.add(
-          resolveProjectCachePath(projectPath, getLegacyThumbnailCachePath(record)),
-        );
-      }
     }
   }
 

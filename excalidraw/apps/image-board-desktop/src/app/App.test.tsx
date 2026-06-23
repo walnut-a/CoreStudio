@@ -141,6 +141,11 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
     skippedFileIds: [],
     failedFileIds: [],
   }),
+  cleanProjectCache: vi.fn().mockResolvedValue({
+    removedFileCount: 0,
+    removedBytes: 0,
+    skippedFileCount: 0,
+  }),
   persistImageAssets: vi.fn().mockResolvedValue({}),
   importImages: vi.fn().mockResolvedValue([]),
   readClipboardImage: vi.fn().mockResolvedValue(null),
@@ -1950,6 +1955,54 @@ describe("App startup", () => {
     ).toBeInTheDocument();
   });
 
+  it("cleans current project cache from the file menu", async () => {
+    const cleanProjectCache = vi.fn().mockResolvedValue({
+      removedFileCount: 2,
+      removedBytes: 1536,
+      skippedFileCount: 4,
+    });
+    let menuActionListener:
+      | ((event: {
+          action: string;
+        }) => void)
+      | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      cleanProjectCache,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "clean-project-cache",
+      });
+    });
+
+    await waitFor(() => {
+      expect(cleanProjectCache).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+      });
+    });
+    expect(
+      screen.getByText("项目缓存清理完成：删除 2 个缓存文件，释放 1.5 KB。"),
+    ).toBeInTheDocument();
+  });
+
   it("opens a project bundle sent directly by the native menu", async () => {
     const openProject = vi.fn().mockResolvedValue(null);
     const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
@@ -2042,6 +2095,85 @@ describe("App startup", () => {
     });
     expect(openProject).not.toHaveBeenCalled();
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("opens a native project bundle in safe mode without loading image assets", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "safe-image",
+          type: "image",
+          fileId: "safe-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
+    let menuActionListener:
+      | ((event: {
+          action: string;
+          projectBundle?: Record<string, unknown> | null;
+        }) => void)
+      | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      readProjectAssetPayloads,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "project-opened",
+        projectBundle: createMockProjectBundle({
+          safeMode: true,
+          imageRecords: {
+            "safe-file": {
+              fileId: "safe-file",
+              assetPath: "assets/safe.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      });
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(readProjectAssetPayloads).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("已用安全模式打开项目，已跳过缩略图加载和后台修复。"),
+    ).toBeInTheDocument();
   });
 
   it("opens large projects with thumbnail assets first and upgrades visible images to previews", async () => {

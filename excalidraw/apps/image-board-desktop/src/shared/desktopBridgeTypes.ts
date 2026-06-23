@@ -25,6 +25,7 @@ export const IPC_CHANNELS = {
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
   persistImageAssets: "image-board:persist-image-assets",
   importImages: "image-board:import-images",
+  cleanProjectCache: "image-board:clean-project-cache",
   revealProjectInFinder: "image-board:reveal-project-in-finder",
   loadAppInfo: "image-board:load-app-info",
   loadProviderSettings: "image-board:load-provider-settings",
@@ -44,9 +45,11 @@ export const IPC_CHANNELS = {
 export type DesktopMenuAction =
   | "new-project"
   | "open-project"
+  | "open-project-safe"
   | "open-recent-project"
   | "inspect-project-health"
   | "repair-project-thumbnails"
+  | "clean-project-cache"
   | "project-opened"
   | "project-open-failed"
   | "import-images"
@@ -68,6 +71,7 @@ export interface DesktopProjectBundle {
   project: ProjectManifest;
   sceneJson: string;
   imageRecords: ImageRecordMap;
+  safeMode?: boolean;
 }
 
 export interface RecentProjectEntry {
@@ -136,6 +140,12 @@ export interface ProjectHealthReport {
     warningCount: number;
     repairableCount: number;
   };
+}
+
+export interface CleanProjectCacheResult {
+  removedFileCount: number;
+  removedBytes: number;
+  skippedFileCount: number;
 }
 
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
@@ -222,6 +232,9 @@ export interface DesktopBridgeApi {
     force?: boolean;
     createBackup?: boolean;
   }): Promise<RebuildProjectThumbnailsResult>;
+  cleanProjectCache?(input: {
+    projectPath: string;
+  }): Promise<CleanProjectCacheResult>;
   persistImageAssets(input: {
     projectPath: string;
     files: PersistedImageAssetInput[];

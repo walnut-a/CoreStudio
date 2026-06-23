@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 
 import {
+  cleanProjectCache,
   createProjectStructure,
   inspectProjectHealth,
   persistImageAssets,
@@ -650,6 +651,73 @@ describe("projectFs", () => {
     expect(report.summary.errorCount).toBeGreaterThan(0);
     expect(report.summary.warningCount).toBeGreaterThan(0);
     expect(report.summary.repairableCount).toBe(1);
+  });
+
+  it("cleans cache files that are no longer tied to project image records", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Cache Cleanup Test");
+    await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-keep",
+          dataBase64: Buffer.from("original-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1440,
+          height: 960,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    await readProjectAssetPayloads(
+      {
+        projectPath: project.projectPath,
+        fileIds: ["file-keep"],
+        rendition: "thumbnail",
+      },
+      {
+        createThumbnail: async () => ({
+          data: Buffer.from("valid-thumbnail"),
+          mimeType: "image/png",
+          width: 320,
+          height: 213,
+        }),
+      },
+    );
+    const staleCachePath = path.join(
+      project.projectPath,
+      PROJECT_FILENAMES.cacheDir,
+      "thumbnails",
+      "stale-cache.png",
+    );
+    await fs.mkdir(path.dirname(staleCachePath), { recursive: true });
+    await fs.writeFile(staleCachePath, "stale-cache", "utf8");
+
+    const result = await cleanProjectCache({
+      projectPath: project.projectPath,
+    });
+
+    expect(result.removedFileCount).toBe(1);
+    expect(result.removedBytes).toBe(Buffer.byteLength("stale-cache"));
+    await expect(fs.stat(staleCachePath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(
+      readProjectAssetPayloads({
+        projectPath: project.projectPath,
+        fileIds: ["file-keep"],
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        fileId: "file-keep",
+        dataBase64: Buffer.from("valid-thumbnail").toString("base64"),
+      }),
+    ]);
   });
 
   it("reads asset payloads without reading the project scene file", async () => {

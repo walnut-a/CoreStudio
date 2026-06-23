@@ -33,6 +33,9 @@ describe("createAppMenuTemplate", () => {
     ).toContain("新建项目");
     expect(
       getSubmenuLabels(template[0].submenu),
+    ).toContain("安全模式打开项目");
+    expect(
+      getSubmenuLabels(template[0].submenu),
     ).toContain("最近项目");
     expect(
       getSubmenuLabels(template[0].submenu),
@@ -40,6 +43,9 @@ describe("createAppMenuTemplate", () => {
     expect(
       getSubmenuLabels(template[0].submenu),
     ).toContain("修复当前项目缩略图");
+    expect(
+      getSubmenuLabels(template[0].submenu),
+    ).toContain("清理当前项目缓存");
     expect(
       getSubmenuLabels(template[0].submenu),
     ).toContain("退出 CoreStudio");
@@ -98,6 +104,31 @@ describe("createAppMenuTemplate", () => {
 
     expect(sendMenuAction).toHaveBeenCalledWith(
       { action: "inspect-project-health" },
+      undefined,
+    );
+  });
+
+  it("sends safe open and cache cleanup actions from the file menu", () => {
+    const sendMenuAction = vi.fn();
+    const template = createAppMenuTemplate(sendMenuAction);
+    const fileMenu = template.find((item) => item.label === "文件");
+    const fileItems = getSubmenuItems(fileMenu?.submenu);
+    const safeOpenItem = fileItems.find(
+      (item) => item.label === "安全模式打开项目",
+    );
+    const cleanCacheItem = fileItems.find(
+      (item) => item.label === "清理当前项目缓存",
+    );
+
+    safeOpenItem?.click?.(safeOpenItem as any, undefined, undefined as any);
+    cleanCacheItem?.click?.(cleanCacheItem as any, undefined, undefined as any);
+
+    expect(sendMenuAction).toHaveBeenCalledWith(
+      { action: "open-project-safe" },
+      undefined,
+    );
+    expect(sendMenuAction).toHaveBeenCalledWith(
+      { action: "clean-project-cache" },
       undefined,
     );
   });

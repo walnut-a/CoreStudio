@@ -1084,6 +1084,45 @@ const App = () => {
     }
   };
 
+  const handleCleanProjectCache = async () => {
+    const project = currentProjectRef.current;
+    const cleanProjectCache = desktopBridge.cleanProjectCache;
+    if (!project) {
+      setProjectError(copy.projectRepair.noProject);
+      clearProjectNotice();
+      return;
+    }
+
+    if (!cleanProjectCache) {
+      setProjectError(copy.projectRepair.cacheCleanFailed);
+      clearProjectNotice();
+      return;
+    }
+
+    setProjectError(null);
+    clearProjectNotice();
+
+    try {
+      const result = await cleanProjectCache({
+        projectPath: project.projectPath,
+      });
+      if (currentProjectRef.current?.projectPath !== project.projectPath) {
+        return;
+      }
+      showProjectNotice(
+        copy.projectRepair.cacheCleaned(
+          result.removedFileCount,
+          result.removedBytes,
+        ),
+      );
+    } catch (error) {
+      if (currentProjectRef.current?.projectPath === project.projectPath) {
+        setProjectError(getErrorText(error, copy.projectRepair.cacheCleanFailed));
+        clearProjectNotice();
+      }
+    }
+  };
+
   const markImageAssetRenditionsLoaded = (assets: ProjectAssetPayload[]) => {
     assets.forEach((asset) => {
       if (asset.rendition === "original") {
@@ -1100,7 +1139,7 @@ const App = () => {
   ) => {
     const project = currentProjectRef.current;
     const api = excalidrawAPIRef.current;
-    if (!project || !api) {
+    if (!project || !api || project.safeMode) {
       return;
     }
 
@@ -1449,12 +1488,14 @@ const App = () => {
 
       const restored = await deserializeSceneFromProject(bundle.sceneJson);
       const fileIds = collectImageFileIds(restored.elements || []);
-      const assets = await desktopBridge.readProjectAssetPayloads({
-        projectPath: bundle.projectPath,
-        fileIds,
-        rendition: "thumbnail",
-        thumbnailMode: "cache-only",
-      });
+      const assets = bundle.safeMode
+        ? []
+        : await desktopBridge.readProjectAssetPayloads({
+            projectPath: bundle.projectPath,
+            fileIds,
+            rendition: "thumbnail",
+            thumbnailMode: "cache-only",
+          });
       if (!isCurrentProjectOpen(sequence)) {
         return;
       }
@@ -1493,7 +1534,11 @@ const App = () => {
         files,
       };
       scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-      void rebuildMissingThumbnailAssets(bundle, missingThumbnailFileIds);
+      if (bundle.safeMode) {
+        showProjectNotice(copy.projectRepair.safeModeOpened);
+      } else {
+        void rebuildMissingThumbnailAssets(bundle, missingThumbnailFileIds);
+      }
       updateWorkspaceOverlay(
         restored.elements || [],
         restored.appState as AppState,
@@ -2585,6 +2630,9 @@ const App = () => {
         break;
       case "inspect-project-health":
         void handleInspectProjectHealth();
+        break;
+      case "clean-project-cache":
+        void handleCleanProjectCache();
         break;
       case "import-images":
         void handleImportImages();

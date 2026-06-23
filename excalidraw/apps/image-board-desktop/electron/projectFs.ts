@@ -15,6 +15,7 @@ import {
   type ProjectThumbnailReadMode,
 } from "../src/shared/projectTypes";
 import type {
+  CleanProjectCacheResult,
   ProjectHealthIssue,
   ProjectHealthReport,
 } from "../src/shared/desktopBridgeTypes";
@@ -718,6 +719,90 @@ const cachedRenditionExists = async ({
   }
 
   return false;
+};
+
+const collectFilesRecursively = async (directory: string) => {
+  const files: string[] = [];
+  try {
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...(await collectFilesRecursively(entryPath)));
+      } else if (entry.isFile()) {
+        files.push(entryPath);
+      }
+    }
+  } catch {
+    return files;
+  }
+  return files;
+};
+
+const getExpectedCachePaths = (projectPath: string, imageRecords: ImageRecordMap) => {
+  const expectedPaths = new Set<string>();
+
+  for (const record of Object.values(imageRecords)) {
+    for (const rendition of ["thumbnail", "preview"] as const) {
+      expectedPaths.add(
+        resolveProjectCachePath(
+          projectPath,
+          getCachedRenditionCachePath(record, rendition),
+        ),
+      );
+      if (rendition === "thumbnail") {
+        expectedPaths.add(
+          resolveProjectCachePath(projectPath, getLegacyThumbnailCachePath(record)),
+        );
+      }
+    }
+  }
+
+  return expectedPaths;
+};
+
+export const cleanProjectCache = async ({
+  projectPath,
+}: {
+  projectPath: string;
+}): Promise<CleanProjectCacheResult> => {
+  const imageRecords = await readProjectImageRecords(projectPath);
+  const expectedCachePaths = getExpectedCachePaths(projectPath, imageRecords);
+  const cacheRoots = [THUMBNAILS_DIR, PREVIEWS_DIR].map((directory) =>
+    path.join(projectPath, PROJECT_FILENAMES.cacheDir, directory),
+  );
+  const cacheFiles = (
+    await Promise.all(cacheRoots.map((directory) => collectFilesRecursively(directory)))
+  ).flat();
+  let removedFileCount = 0;
+  let removedBytes = 0;
+  let skippedFileCount = 0;
+
+  for (const cacheFile of cacheFiles) {
+    const resolvedCacheFile = resolveProjectCachePath(
+      projectPath,
+      path.relative(projectPath, cacheFile),
+    );
+    if (expectedCachePaths.has(resolvedCacheFile)) {
+      skippedFileCount += 1;
+      continue;
+    }
+
+    try {
+      const stat = await fs.stat(resolvedCacheFile);
+      await fs.unlink(resolvedCacheFile);
+      removedFileCount += 1;
+      removedBytes += stat.size;
+    } catch {
+      skippedFileCount += 1;
+    }
+  }
+
+  return {
+    removedFileCount,
+    removedBytes,
+    skippedFileCount,
+  };
 };
 
 export const inspectProjectHealth = async ({

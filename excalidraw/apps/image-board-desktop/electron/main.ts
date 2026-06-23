@@ -26,6 +26,7 @@ import {
 } from "../src/shared/desktopBridgeTypes";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
+  cleanProjectCache,
   createProjectStructure,
   inspectProjectHealth,
   persistImageAssets,
@@ -139,6 +140,7 @@ const sendMenuAction = (
   if (
     event.action === "new-project" ||
     event.action === "open-project" ||
+    event.action === "open-project-safe" ||
     event.action === "open-recent-project"
   ) {
     void handleProjectMenuAction(event, ownerWindow);
@@ -148,7 +150,10 @@ const sendMenuAction = (
   sendRendererMenuEvent(event, ownerWindow);
 };
 
-const buildProjectBundle = async (projectPath: string) => {
+const buildProjectBundle = async (
+  projectPath: string,
+  options: { safeMode?: boolean } = {},
+) => {
   const bundle = await readProjectBundle(projectPath);
   currentRecentProjects = await rememberRecentProject(
     projectPath,
@@ -157,6 +162,7 @@ const buildProjectBundle = async (projectPath: string) => {
   Menu.setApplicationMenu(buildMenu());
   return {
     projectPath,
+    safeMode: options.safeMode || undefined,
     ...bundle,
   };
 };
@@ -297,14 +303,18 @@ const handleProjectMenuAction = async (
       return;
     }
 
-    if (event.action === "open-project") {
+    if (event.action === "open-project" || event.action === "open-project-safe") {
       const selectedPath = await chooseOpenProjectDirectory(
         getTargetWindow(ownerWindow),
       );
       if (!selectedPath) {
         return;
       }
-      sendLatestProjectBundle(await buildProjectBundle(selectedPath));
+      sendLatestProjectBundle(
+        await buildProjectBundle(selectedPath, {
+          safeMode: event.action === "open-project-safe",
+        }),
+      );
       return;
     }
 
@@ -406,6 +416,10 @@ const registerIpcHandlers = () => {
       return rebuildProjectThumbnails(input);
     },
   );
+
+  ipcMain.handle(IPC_CHANNELS.cleanProjectCache, async (_event, input) => {
+    return cleanProjectCache(input);
+  });
 
   ipcMain.handle(IPC_CHANNELS.persistImageAssets, async (_event, input) => {
     return persistImageAssets(input);

@@ -37,6 +37,11 @@ export const createAppMenuTemplate = (
           sendMenuAction({ action: "open-project" }, ownerWindow),
       },
       {
+        label: copy.menu.openProjectSafe,
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "open-project-safe" }, ownerWindow),
+      },
+      {
         label: copy.menu.recentProjects,
         submenu: recentProjects.length
           ? recentProjects.map((project) => ({
@@ -61,6 +66,11 @@ export const createAppMenuTemplate = (
         label: copy.menu.repairProjectThumbnails,
         click: (_item, ownerWindow) =>
           sendMenuAction({ action: "repair-project-thumbnails" }, ownerWindow),
+      },
+      {
+        label: copy.menu.cleanProjectCache,
+        click: (_item, ownerWindow) =>
+          sendMenuAction({ action: "clean-project-cache" }, ownerWindow),
       },
       { type: "separator" },
       {

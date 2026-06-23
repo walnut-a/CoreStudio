@@ -5,6 +5,20 @@ import type { ProviderId, ProviderSettings } from "../shared/providerTypes";
 export const DESKTOP_APP_NAME = "CoreStudio";
 export const DESKTOP_LANG_CODE = "zh-CN" as const;
 
+const formatFileSize = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) {
+    return `${kilobytes.toFixed(1)} KB`;
+  }
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
+};
+
 export const copy = {
   welcome: {
     eyebrow: "本地项目",
@@ -202,10 +216,12 @@ export const copy = {
     file: "文件",
     newProject: "新建项目",
     openProject: "打开项目",
+    openProjectSafe: "安全模式打开项目",
     recentProjects: "最近项目",
     version: "版本",
     inspectProjectHealth: "检查当前项目健康",
     repairProjectThumbnails: "修复当前项目缩略图",
+    cleanProjectCache: "清理当前项目缓存",
     importImages: "导入图片",
     revealProject: "显示项目文件夹",
     generate: "生成",
@@ -230,6 +246,12 @@ export const copy = {
     ) =>
       `项目检查完成：发现 ${errorCount} 个错误、${warningCount} 个警告，其中 ${repairableCount} 项可修复。`,
     thumbnailsFailed: "当前项目缩略图修复失败。",
+    cacheCleanFailed: "当前项目缓存清理失败。",
+    cacheCleaned: (removedCount: number, removedBytes: number) =>
+      removedCount
+        ? `项目缓存清理完成：删除 ${removedCount} 个缓存文件，释放 ${formatFileSize(removedBytes)}。`
+        : "项目缓存清理完成：没有需要删除的缓存文件。",
+    safeModeOpened: "已用安全模式打开项目，已跳过缩略图加载和后台修复。",
     thumbnailsRepaired: (
       generatedCount: number,
       skippedCount: number,

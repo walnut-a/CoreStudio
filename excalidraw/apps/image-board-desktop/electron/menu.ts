@@ -12,10 +12,20 @@ export const createAppMenuTemplate = (
     ownerWindow?: BaseWindow | null,
   ) => void,
   recentProjects: RecentProjectEntry[] = [],
+  appVersion?: string | null,
 ): MenuItemConstructorOptions[] => [
   {
     label: copy.menu.file,
     submenu: [
+      ...(appVersion
+        ? [
+            {
+              label: `${copy.menu.version} ${appVersion}`,
+              enabled: false,
+            },
+            { type: "separator" as const },
+          ]
+        : []),
       {
         label: copy.menu.newProject,
         click: (_item, ownerWindow) =>

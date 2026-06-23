@@ -459,7 +459,11 @@ const registerIpcHandlers = () => {
 
 const buildMenu = () =>
   Menu.buildFromTemplate(
-    createAppMenuTemplate(sendMenuAction, currentRecentProjects),
+    createAppMenuTemplate(
+      sendMenuAction,
+      currentRecentProjects,
+      app.getVersion(),
+    ),
   );
 
 const createWindow = async () => {
@@ -473,6 +477,11 @@ const createWindow = async () => {
     minHeight: 760,
     backgroundColor: "#f5f3ef",
     title: DESKTOP_APP_NAME,
+    ...(process.platform === "darwin"
+      ? {
+          titleBarStyle: "hiddenInset" as const,
+        }
+      : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

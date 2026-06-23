@@ -283,4 +283,64 @@ describe("imageRenditions", () => {
       }),
     ).toEqual([{ fileId: "large-file", rendition: "original" }]);
   });
+
+  it("uses device pixel ratio when deciding to load original images", () => {
+    const elements = [
+      {
+        id: "retina-large",
+        type: "image",
+        isDeleted: false,
+        fileId: "retina-file",
+        x: 120,
+        y: 120,
+        width: 720,
+        height: 480,
+      },
+    ] as any;
+    const imageRecords = {
+      "retina-file": {
+        fileId: "retina-file",
+        assetPath: "assets/retina.png",
+        sourceType: "imported",
+        width: 2400,
+        height: 1600,
+        createdAt: "2026-04-12T12:00:00.000Z",
+        mimeType: "image/png",
+      },
+    } satisfies ImageRecordMap;
+
+    expect(
+      getImageRenditionRequestsNearViewport({
+        elements,
+        appState: {
+          ...baseAppState,
+          zoom: { value: 1 },
+        } as unknown as AppState,
+        imageRecords,
+        loadedPreviewFileIds: new Set(["retina-file"]),
+        loadingPreviewFileIds: new Set(),
+        loadedOriginalFileIds: new Set(),
+        loadingOriginalFileIds: new Set(),
+        viewportPaddingRatio: 0,
+        devicePixelRatio: 1,
+      }),
+    ).toEqual([]);
+
+    expect(
+      getImageRenditionRequestsNearViewport({
+        elements,
+        appState: {
+          ...baseAppState,
+          zoom: { value: 1 },
+        } as unknown as AppState,
+        imageRecords,
+        loadedPreviewFileIds: new Set(["retina-file"]),
+        loadingPreviewFileIds: new Set(),
+        loadedOriginalFileIds: new Set(),
+        loadingOriginalFileIds: new Set(),
+        viewportPaddingRatio: 0,
+        devicePixelRatio: 2,
+      }),
+    ).toEqual([{ fileId: "retina-file", rendition: "original" }]);
+  });
 });

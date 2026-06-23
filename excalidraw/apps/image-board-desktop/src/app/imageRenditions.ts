@@ -26,6 +26,11 @@ const getPositiveFiniteNumber = (value: unknown, fallback: number) => {
   return numberValue > 0 ? numberValue : fallback;
 };
 
+const getPixelRatio = (value: unknown) => {
+  const pixelRatio = getPositiveFiniteNumber(value, 1);
+  return Math.min(3, Math.max(1, pixelRatio));
+};
+
 const getViewportBounds = (
   appState: Pick<AppState, "width" | "height" | "scrollX" | "scrollY" | "zoom">,
   paddingRatio: number,
@@ -84,11 +89,13 @@ const getLongestScreenDimension = (
 const getRequestedRenditionForScreenSize = ({
   imageBounds,
   zoomValue,
+  devicePixelRatio,
   previewMinScreenDimension,
   originalMinScreenDimension,
 }: {
   imageBounds: { width: number; height: number };
   zoomValue: number;
+  devicePixelRatio: number;
   previewMinScreenDimension: number;
   originalMinScreenDimension: number;
 }): ImageAssetRequestRendition | null => {
@@ -96,8 +103,10 @@ const getRequestedRenditionForScreenSize = ({
     imageBounds,
     zoomValue,
   );
+  const longestPhysicalScreenDimension =
+    longestScreenDimension * getPixelRatio(devicePixelRatio);
 
-  if (longestScreenDimension >= originalMinScreenDimension) {
+  if (longestPhysicalScreenDimension >= originalMinScreenDimension) {
     return "original";
   }
 
@@ -207,6 +216,7 @@ export const getImageRenditionRequestsNearViewport = ({
   viewportPaddingRatio = IMAGE_HIGH_RES_VIEWPORT_PADDING_RATIO,
   previewMinScreenDimension = IMAGE_PREVIEW_MIN_SCREEN_DIMENSION,
   originalMinScreenDimension = IMAGE_ORIGINAL_MIN_SCREEN_DIMENSION,
+  devicePixelRatio = 1,
 }: {
   elements: readonly ExcalidrawElement[];
   appState: AppState;
@@ -218,6 +228,7 @@ export const getImageRenditionRequestsNearViewport = ({
   viewportPaddingRatio?: number;
   previewMinScreenDimension?: number;
   originalMinScreenDimension?: number;
+  devicePixelRatio?: number;
 }) => {
   const zoomValue = getPositiveFiniteNumber(appState.zoom?.value, 1);
   const viewportBounds = getViewportBounds(appState, viewportPaddingRatio);
@@ -243,6 +254,7 @@ export const getImageRenditionRequestsNearViewport = ({
     const rendition = getRequestedRenditionForScreenSize({
       imageBounds,
       zoomValue,
+      devicePixelRatio,
       previewMinScreenDimension,
       originalMinScreenDimension,
     });

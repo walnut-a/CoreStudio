@@ -179,7 +179,14 @@ describe("generate composer styles", () => {
   it("keeps side dock controls aligned with the top toolbar", () => {
     const appCss = readAppCss();
     const appRule = getRule(appCss, ".image-board-app");
+    const titlebarRule = getRule(
+      appCss,
+      "html.image-board-desktop-titlebar-hidden",
+    );
+    const dragRegionRule = getRule(appCss, ".image-board-app::before");
+    const projectOpenRule = getRule(appCss, ".image-board-app--project-open");
     const toggleRule = getRule(appCss, ".side-dock__toggle");
+    const dockRule = getRule(appCss, ".side-dock");
     const closedMenuRule = getRule(
       appCss,
       ".image-board-app .App-menu_top__left",
@@ -199,6 +206,20 @@ describe("generate composer styles", () => {
 
     expect(appRule).toContain("--left-sidebar-width: 272px");
     expect(appRule).toContain("--right-sidebar-width: 302px");
+    expect(appRule).toContain(
+      "padding-top: var(--desktop-window-top-inset, 0px)",
+    );
+    expect(titlebarRule).toContain("--desktop-window-top-inset: 28px");
+    expect(dragRegionRule).toContain("-webkit-app-region: drag");
+    expect(dragRegionRule).toContain("left: 0");
+    expect(dragRegionRule).not.toContain("background:");
+    expect(dragRegionRule).toContain(
+      "height: var(--desktop-window-top-inset, 0px)",
+    );
+    expect(projectOpenRule).toContain(
+      "background: var(--color-surface-lowest)",
+    );
+    expect(dockRule).toContain("top: var(--desktop-window-top-inset, 0px)");
     expect(toggleRule).toContain("top: calc(");
     expect(toggleRule).toContain("var(--editor-container-padding, 16px)");
     expect(toggleRule).toContain("env(safe-area-inset-top, 0px)");

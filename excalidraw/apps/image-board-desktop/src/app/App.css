@@ -12,6 +12,8 @@ body {
 
 .image-board-app {
   height: 100%;
+  box-sizing: border-box;
+  padding-top: var(--desktop-window-top-inset, 0px);
   --left-sidebar-width: 272px;
   --right-sidebar-width: 302px;
   --side-dock-toggle-size: 40px;
@@ -74,8 +76,28 @@ body {
     );
 }
 
+.image-board-app::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--desktop-window-top-inset, 0px);
+  -webkit-app-region: drag;
+  z-index: 60;
+}
+
+.image-board-app--project-open {
+  background: var(--color-surface-lowest);
+}
+
+.image-board-app,
 .image-board-app * {
   box-sizing: border-box;
+}
+
+html.image-board-desktop-titlebar-hidden {
+  --desktop-window-top-inset: 28px;
 }
 
 .image-board-shell {
@@ -110,7 +132,7 @@ body {
 
 .side-dock {
   position: fixed;
-  top: 0;
+  top: var(--desktop-window-top-inset, 0px);
   bottom: 0;
   z-index: 35;
   width: 0;

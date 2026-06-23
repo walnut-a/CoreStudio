@@ -203,6 +203,7 @@ export const copy = {
     newProject: "新建项目",
     openProject: "打开项目",
     recentProjects: "最近项目",
+    version: "版本",
     repairProjectThumbnails: "修复当前项目缩略图",
     importImages: "导入图片",
     revealProject: "显示项目文件夹",

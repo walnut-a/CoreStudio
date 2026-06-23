@@ -1057,6 +1057,7 @@ const App = () => {
       loadingPreviewFileIds: loadingPreviewImageFileIdsRef.current,
       loadedOriginalFileIds: loadedOriginalImageFileIdsRef.current,
       loadingOriginalFileIds: loadingOriginalImageFileIdsRef.current,
+      devicePixelRatio: window.devicePixelRatio,
     });
 
     if (!requests.length) {
@@ -2664,6 +2665,7 @@ const App = () => {
   const projectRenderKey = `${currentProject.projectPath}:${projectRenderNonce}`;
   const appClassName = [
     "image-board-app",
+    "image-board-app--project-open",
     elementDockOpen ? "image-board-app--left-dock-open" : "",
     imageDockOpen ? "image-board-app--right-dock-open" : "",
   ]

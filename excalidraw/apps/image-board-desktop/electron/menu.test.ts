@@ -17,7 +17,7 @@ describe("createAppMenuTemplate", () => {
         name: "常用项目",
         lastOpenedAt: "2026-04-16T08:00:00.000Z",
       },
-    ]);
+    ], "1.1.9");
 
     expect(template.map((item) => item.label)).toEqual([
       "文件",
@@ -25,6 +25,9 @@ describe("createAppMenuTemplate", () => {
       "帮助",
     ]);
 
+    expect(
+      getSubmenuLabels(template[0].submenu),
+    ).toContain("版本 1.1.9");
     expect(
       getSubmenuLabels(template[0].submenu),
     ).toContain("新建项目");

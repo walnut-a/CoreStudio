@@ -742,6 +742,10 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  Object.defineProperty(window, "devicePixelRatio", {
+    configurable: true,
+    value: 1,
+  });
   window.localStorage.clear();
   delete window.imageBoardDesktop;
   triggerExcalidrawInitialize = null;
@@ -2084,6 +2088,101 @@ describe("App startup", () => {
         ).toString("base64")}`,
       }),
     ]);
+  });
+
+  it("uses the window device pixel ratio when upgrading visible images to originals", async () => {
+    Object.defineProperty(window, "devicePixelRatio", {
+      configurable: true,
+      value: 2,
+    });
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-retina-image",
+          type: "image",
+          fileId: "visible-retina-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 720,
+          height: 480,
+        },
+      ] as any,
+      appState: {
+        width: 900,
+        height: 700,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) =>
+        fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-${rendition}`).toString("base64"),
+          width: rendition === "thumbnail" ? 320 : 2400,
+          height: rendition === "thumbnail" ? 213 : 1600,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition,
+        })),
+      );
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-retina-file": {
+              fileId: "visible-retina-file",
+              assetPath: "assets/visible-retina.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-retina-file"],
+        rendition: "thumbnail",
+        thumbnailMode: "cache-only",
+      });
+    });
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-retina-file"],
+        rendition: "original",
+      });
+    });
+    expect(readProjectAssetPayloads).not.toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      fileIds: ["visible-retina-file"],
+      rendition: "preview",
+    });
   });
 
   it("opens projects with placeholders for missing thumbnail cache and refreshes rebuilt thumbnails in the background", async () => {

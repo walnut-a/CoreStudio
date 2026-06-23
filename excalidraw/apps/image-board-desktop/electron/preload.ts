@@ -7,6 +7,23 @@ import {
   type DesktopMenuEvent,
 } from "../src/shared/desktopBridgeTypes";
 
+const markHiddenDesktopTitlebar = () => {
+  if (process.platform !== "darwin") {
+    return;
+  }
+  document.documentElement.classList.add(
+    "image-board-desktop-titlebar-hidden",
+  );
+};
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", markHiddenDesktopTitlebar, {
+    once: true,
+  });
+} else {
+  markHiddenDesktopTitlebar();
+}
+
 const desktopBridge: DesktopBridgeApi = {
   createProject: () => ipcRenderer.invoke(IPC_CHANNELS.createProject),
   openProject: () => ipcRenderer.invoke(IPC_CHANNELS.openProject),

@@ -56,6 +56,7 @@ import {
   savePrompt,
 } from "./promptLibraryStore";
 import { DESKTOP_APP_NAME } from "../src/app/copy";
+import { DESKTOP_APP_VERSION } from "./appVersion";
 import { createAppMenuTemplate } from "./menu";
 import { shouldOpenDevTools } from "./devtools";
 import { createQuitState } from "./windowLifecycle";
@@ -436,7 +437,7 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC_CHANNELS.loadAppInfo, async () => ({
     name: DESKTOP_APP_NAME,
-    version: app.getVersion(),
+    version: DESKTOP_APP_VERSION,
   }));
 
   ipcMain.handle(IPC_CHANNELS.loadProviderSettings, async () =>
@@ -481,7 +482,10 @@ const buildMenu = () =>
     createAppMenuTemplate(
       sendMenuAction,
       currentRecentProjects,
-      app.getVersion(),
+      DESKTOP_APP_VERSION,
+      (url) => {
+        void shell.openExternal(url);
+      },
     ),
   );
 

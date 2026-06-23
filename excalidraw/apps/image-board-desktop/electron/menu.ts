@@ -6,6 +6,9 @@ import type {
 } from "../src/shared/desktopBridgeTypes";
 import { copy } from "../src/app/copy";
 
+export const CORESTUDIO_RELEASES_URL =
+  "https://github.com/walnut-a/CoreStudio/releases";
+
 export const createAppMenuTemplate = (
   sendMenuAction: (
     event: DesktopMenuEvent,
@@ -13,6 +16,7 @@ export const createAppMenuTemplate = (
   ) => void,
   recentProjects: RecentProjectEntry[] = [],
   appVersion?: string | null,
+  openExternal: (url: string) => void = () => undefined,
 ): MenuItemConstructorOptions[] => [
   {
     label: copy.menu.file,
@@ -37,11 +41,6 @@ export const createAppMenuTemplate = (
           sendMenuAction({ action: "open-project" }, ownerWindow),
       },
       {
-        label: copy.menu.openProjectSafe,
-        click: (_item, ownerWindow) =>
-          sendMenuAction({ action: "open-project-safe" }, ownerWindow),
-      },
-      {
         label: copy.menu.recentProjects,
         submenu: recentProjects.length
           ? recentProjects.map((project) => ({
@@ -58,19 +57,36 @@ export const createAppMenuTemplate = (
           : [{ label: copy.welcome.recentEmpty, enabled: false }],
       },
       {
-        label: copy.menu.inspectProjectHealth,
-        click: (_item, ownerWindow) =>
-          sendMenuAction({ action: "inspect-project-health" }, ownerWindow),
-      },
-      {
-        label: copy.menu.repairProjectThumbnails,
-        click: (_item, ownerWindow) =>
-          sendMenuAction({ action: "repair-project-thumbnails" }, ownerWindow),
-      },
-      {
-        label: copy.menu.cleanProjectCache,
-        click: (_item, ownerWindow) =>
-          sendMenuAction({ action: "clean-project-cache" }, ownerWindow),
+        label: copy.menu.projectMaintenance,
+        submenu: [
+          {
+            label: copy.menu.openProjectSafe,
+            click: (_item, ownerWindow) =>
+              sendMenuAction({ action: "open-project-safe" }, ownerWindow),
+          },
+          { type: "separator" },
+          {
+            label: copy.menu.inspectProjectHealth,
+            click: (_item, ownerWindow) =>
+              sendMenuAction(
+                { action: "inspect-project-health" },
+                ownerWindow,
+              ),
+          },
+          {
+            label: copy.menu.repairProjectThumbnails,
+            click: (_item, ownerWindow) =>
+              sendMenuAction(
+                { action: "repair-project-thumbnails" },
+                ownerWindow,
+              ),
+          },
+          {
+            label: copy.menu.cleanProjectCache,
+            click: (_item, ownerWindow) =>
+              sendMenuAction({ action: "clean-project-cache" }, ownerWindow),
+          },
+        ],
       },
       { type: "separator" },
       {
@@ -100,6 +116,10 @@ export const createAppMenuTemplate = (
   {
     label: copy.menu.help,
     submenu: [
+      {
+        label: copy.menu.viewUpdates,
+        click: () => openExternal(CORESTUDIO_RELEASES_URL),
+      },
       {
         label: copy.menu.about,
         click: (_item, ownerWindow) =>

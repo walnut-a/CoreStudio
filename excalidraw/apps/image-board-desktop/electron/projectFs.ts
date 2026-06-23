@@ -21,8 +21,8 @@ import type {
 } from "../src/shared/desktopBridgeTypes";
 
 import type { ProviderId } from "../src/shared/providerTypes";
+import { DESKTOP_APP_VERSION } from "./appVersion";
 
-const APP_VERSION = "0.1.0";
 const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
 const THUMBNAILS_DIR = "thumbnails";
@@ -203,7 +203,7 @@ const buildProjectManifest = (name: string): ProjectManifest => {
   const timestamp = new Date().toISOString();
   return {
     formatVersion: PROJECT_FORMAT_VERSION,
-    appVersion: APP_VERSION,
+    appVersion: DESKTOP_APP_VERSION,
     name,
     createdAt: timestamp,
     updatedAt: timestamp,

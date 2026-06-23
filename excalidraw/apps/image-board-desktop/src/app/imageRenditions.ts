@@ -11,6 +11,7 @@ export const IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS = 220;
 export const IMAGE_HIGH_RES_MIN_ZOOM = 0.35;
 export const IMAGE_HIGH_RES_MIN_SCREEN_DIMENSION = 180;
 export const IMAGE_PREVIEW_MIN_SCREEN_DIMENSION = 180;
+export const IMAGE_ORIGINAL_MIN_CSS_SCREEN_DIMENSION = 720;
 export const IMAGE_ORIGINAL_MIN_SCREEN_DIMENSION = 1400;
 
 export interface ImageRenditionRequest {
@@ -91,12 +92,14 @@ const getRequestedRenditionForScreenSize = ({
   zoomValue,
   devicePixelRatio,
   previewMinScreenDimension,
+  originalMinCssScreenDimension,
   originalMinScreenDimension,
 }: {
   imageBounds: { width: number; height: number };
   zoomValue: number;
   devicePixelRatio: number;
   previewMinScreenDimension: number;
+  originalMinCssScreenDimension: number;
   originalMinScreenDimension: number;
 }): ImageAssetRequestRendition | null => {
   const longestScreenDimension = getLongestScreenDimension(
@@ -106,7 +109,10 @@ const getRequestedRenditionForScreenSize = ({
   const longestPhysicalScreenDimension =
     longestScreenDimension * getPixelRatio(devicePixelRatio);
 
-  if (longestPhysicalScreenDimension >= originalMinScreenDimension) {
+  if (
+    longestScreenDimension >= originalMinCssScreenDimension ||
+    longestPhysicalScreenDimension >= originalMinScreenDimension
+  ) {
     return "original";
   }
 
@@ -215,6 +221,7 @@ export const getImageRenditionRequestsNearViewport = ({
   loadingOriginalFileIds,
   viewportPaddingRatio = IMAGE_HIGH_RES_VIEWPORT_PADDING_RATIO,
   previewMinScreenDimension = IMAGE_PREVIEW_MIN_SCREEN_DIMENSION,
+  originalMinCssScreenDimension = IMAGE_ORIGINAL_MIN_CSS_SCREEN_DIMENSION,
   originalMinScreenDimension = IMAGE_ORIGINAL_MIN_SCREEN_DIMENSION,
   devicePixelRatio = 1,
 }: {
@@ -227,6 +234,7 @@ export const getImageRenditionRequestsNearViewport = ({
   loadingOriginalFileIds: ReadonlySet<string>;
   viewportPaddingRatio?: number;
   previewMinScreenDimension?: number;
+  originalMinCssScreenDimension?: number;
   originalMinScreenDimension?: number;
   devicePixelRatio?: number;
 }) => {
@@ -256,6 +264,7 @@ export const getImageRenditionRequestsNearViewport = ({
       zoomValue,
       devicePixelRatio,
       previewMinScreenDimension,
+      originalMinCssScreenDimension,
       originalMinScreenDimension,
     });
     if (!rendition) {

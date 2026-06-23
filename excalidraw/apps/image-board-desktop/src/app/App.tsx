@@ -342,8 +342,6 @@ interface WorkspaceOverlayState {
   scrollX: number;
   scrollY: number;
   zoomValue: number;
-  offsetLeft: number;
-  offsetTop: number;
 }
 
 const createWorkspaceZoomGateState = (): WorkspaceZoomGateState => ({
@@ -384,23 +382,22 @@ const areWorkspaceOverlayStatesEqual = (
     areWorkspaceBoundsEqual(left.bounds, right.bounds) &&
     areNumbersClose(left.scrollX, right.scrollX) &&
     areNumbersClose(left.scrollY, right.scrollY) &&
-    areNumbersClose(left.zoomValue, right.zoomValue) &&
-    areNumbersClose(left.offsetLeft, right.offsetLeft) &&
-    areNumbersClose(left.offsetTop, right.offsetTop)
+    areNumbersClose(left.zoomValue, right.zoomValue)
   );
 };
 
 const getViewportCenterFromAppState = (
-  appState: Pick<AppState, "width" | "height" | "scrollX" | "scrollY">,
+  appState: Pick<AppState, "width" | "height" | "scrollX" | "scrollY" | "zoom">,
 ) => {
   const width = getFiniteNumber(appState.width, 0);
   const height = getFiniteNumber(appState.height, 0);
   const scrollX = getFiniteNumber(appState.scrollX, 0);
   const scrollY = getFiniteNumber(appState.scrollY, 0);
+  const zoomValue = Math.max(getFiniteNumber(appState.zoom?.value, 1), 0.0001);
 
   return {
-    x: width / 2 - scrollX,
-    y: height / 2 - scrollY,
+    x: width / (2 * zoomValue) - scrollX,
+    y: height / (2 * zoomValue) - scrollY,
   };
 };
 
@@ -421,8 +418,6 @@ const buildWorkspaceOverlayState = (
     scrollX: getFiniteNumber(appState.scrollX, 0),
     scrollY: getFiniteNumber(appState.scrollY, 0),
     zoomValue: getFiniteNumber(appState.zoom?.value, 1),
-    offsetLeft: getFiniteNumber(appState.offsetLeft, 0),
-    offsetTop: getFiniteNumber(appState.offsetTop, 0),
   };
 };
 
@@ -1209,6 +1204,37 @@ const App = () => {
     }, IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS);
   };
 
+  const handleViewportChange = (
+    scrollX: number,
+    scrollY: number,
+    zoom: AppState["zoom"],
+  ) => {
+    const scene = latestSceneRef.current;
+    if (!scene) {
+      return;
+    }
+
+    const api = excalidrawAPIRef.current;
+    const apiAppState = api?.getAppState?.();
+    const elements = api?.getSceneElementsIncludingDeleted?.() ?? scene.elements;
+    const files = api?.getFiles?.() ?? scene.files;
+    const nextAppState = {
+      ...scene.appState,
+      ...(apiAppState ?? {}),
+      scrollX,
+      scrollY,
+      zoom,
+    } as AppState;
+    const nextScene = {
+      elements,
+      appState: nextAppState,
+      files,
+    };
+    latestSceneRef.current = nextScene;
+    scheduleVisibleImageRenditionLoad(nextScene);
+    updateWorkspaceOverlay(elements, nextAppState);
+  };
+
   const buildSceneWithOriginalImageFiles = async (
     scene: typeof latestSceneRef.current,
   ) => {
@@ -1655,10 +1681,7 @@ const App = () => {
     }
 
     const appState = api.getAppState();
-    const viewportCenter = {
-      x: appState.width / 2 - appState.scrollX,
-      y: appState.height / 2 - appState.scrollY,
-    };
+    const viewportCenter = getViewportCenterFromAppState(appState);
     const workspaceBounds = updateWorkspaceOverlay(
       api.getSceneElementsIncludingDeleted(),
       appState,
@@ -1734,10 +1757,7 @@ const App = () => {
     }
 
     const appState = api.getAppState();
-    const viewportCenter = {
-      x: appState.width / 2 - appState.scrollX,
-      y: appState.height / 2 - appState.scrollY,
-    };
+    const viewportCenter = getViewportCenterFromAppState(appState);
     const workspaceBounds = updateWorkspaceOverlay(
       api.getSceneElementsIncludingDeleted(),
       appState,
@@ -2786,10 +2806,9 @@ const App = () => {
       return null;
     }
 
-    const { bounds, scrollX, scrollY, zoomValue, offsetLeft, offsetTop } =
-      workspaceOverlayState;
-    const left = (bounds.x + scrollX) * zoomValue + offsetLeft;
-    const top = (bounds.y + scrollY) * zoomValue + offsetTop;
+    const { bounds, scrollX, scrollY, zoomValue } = workspaceOverlayState;
+    const left = (bounds.x + scrollX) * zoomValue;
+    const top = (bounds.y + scrollY) * zoomValue;
     const width = bounds.width * zoomValue;
     const height = bounds.height * zoomValue;
 
@@ -2864,6 +2883,7 @@ const App = () => {
                   y: pointer.y,
                 };
               }}
+              onScrollChange={handleViewportChange}
               onPaste={handleDesktopClipboardPaste}
               onChange={(elements, appState, files) => {
                 const activeProject = currentProjectRef.current;

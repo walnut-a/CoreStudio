@@ -1,13 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MenuItemConstructorOptions } from "electron";
 
-import { createAppMenuTemplate } from "./menu";
+import { CORESTUDIO_RELEASES_URL, createAppMenuTemplate } from "./menu";
 
 const getSubmenuLabels = (submenu: MenuItemConstructorOptions["submenu"]) =>
   ((submenu || []) as MenuItemConstructorOptions[]).map((item) => item.label);
 
 const getSubmenuItems = (submenu: MenuItemConstructorOptions["submenu"]) =>
   (submenu || []) as MenuItemConstructorOptions[];
+
+const getMenuItem = (
+  submenu: MenuItemConstructorOptions["submenu"],
+  label: string,
+) => getSubmenuItems(submenu).find((item) => item.label === label);
+
+const getProjectMaintenanceMenu = (
+  template: MenuItemConstructorOptions[],
+) => {
+  const fileMenu = template.find((item) => item.label === "文件");
+  const maintenanceMenu = getMenuItem(fileMenu?.submenu, "项目维护");
+  return getSubmenuItems(maintenanceMenu?.submenu);
+};
 
 describe("createAppMenuTemplate", () => {
   it("uses Chinese labels for the desktop application menu", () => {
@@ -33,25 +46,30 @@ describe("createAppMenuTemplate", () => {
     ).toContain("新建项目");
     expect(
       getSubmenuLabels(template[0].submenu),
-    ).toContain("安全模式打开项目");
-    expect(
-      getSubmenuLabels(template[0].submenu),
     ).toContain("最近项目");
     expect(
       getSubmenuLabels(template[0].submenu),
-    ).toContain("检查当前项目健康");
+    ).toContain("项目维护");
     expect(
       getSubmenuLabels(template[0].submenu),
-    ).toContain("修复当前项目缩略图");
+    ).not.toContain("安全模式打开项目");
     expect(
       getSubmenuLabels(template[0].submenu),
-    ).toContain("清理当前项目缓存");
+    ).not.toContain("检查当前项目健康");
     expect(
       getSubmenuLabels(template[0].submenu),
     ).toContain("退出 CoreStudio");
     expect(
       template.map((item) => item.label),
     ).not.toContain("生成");
+
+    const maintenanceLabels = getProjectMaintenanceMenu(template).map(
+      (item) => item.label,
+    );
+    expect(maintenanceLabels).toContain("安全模式打开项目");
+    expect(maintenanceLabels).toContain("检查当前项目健康");
+    expect(maintenanceLabels).toContain("修复当前项目缩略图");
+    expect(maintenanceLabels).toContain("清理当前项目缓存");
   });
 
   it("opens the about page from the help menu", () => {
@@ -72,12 +90,30 @@ describe("createAppMenuTemplate", () => {
     );
   });
 
-  it("sends a repair current project thumbnails action from the file menu", () => {
+  it("opens the GitHub releases page from the help menu", () => {
+    const openExternal = vi.fn();
+    const template = createAppMenuTemplate(
+      vi.fn(),
+      [],
+      "1.1.9",
+      openExternal,
+    );
+    const helpMenu = template.find((item) => item.label === "帮助");
+    const updateItem = getMenuItem(helpMenu?.submenu, "查看更新");
+
+    expect(updateItem).toBeTruthy();
+
+    updateItem?.click?.(updateItem as any, undefined, undefined as any);
+
+    expect(openExternal).toHaveBeenCalledWith(CORESTUDIO_RELEASES_URL);
+  });
+
+  it("sends a repair current project thumbnails action from the maintenance menu", () => {
     const sendMenuAction = vi.fn();
     const template = createAppMenuTemplate(sendMenuAction);
-    const fileMenu = template.find((item) => item.label === "文件");
-    const repairItem = getSubmenuItems(fileMenu?.submenu).find(
-      (item) => item.label === "修复当前项目缩略图",
+    const repairItem = getMenuItem(
+      getProjectMaintenanceMenu(template),
+      "修复当前项目缩略图",
     );
 
     expect(repairItem).toBeTruthy();
@@ -90,12 +126,12 @@ describe("createAppMenuTemplate", () => {
     );
   });
 
-  it("sends an inspect current project health action from the file menu", () => {
+  it("sends an inspect current project health action from the maintenance menu", () => {
     const sendMenuAction = vi.fn();
     const template = createAppMenuTemplate(sendMenuAction);
-    const fileMenu = template.find((item) => item.label === "文件");
-    const inspectItem = getSubmenuItems(fileMenu?.submenu).find(
-      (item) => item.label === "检查当前项目健康",
+    const inspectItem = getMenuItem(
+      getProjectMaintenanceMenu(template),
+      "检查当前项目健康",
     );
 
     expect(inspectItem).toBeTruthy();
@@ -108,15 +144,14 @@ describe("createAppMenuTemplate", () => {
     );
   });
 
-  it("sends safe open and cache cleanup actions from the file menu", () => {
+  it("sends safe open and cache cleanup actions from the maintenance menu", () => {
     const sendMenuAction = vi.fn();
     const template = createAppMenuTemplate(sendMenuAction);
-    const fileMenu = template.find((item) => item.label === "文件");
-    const fileItems = getSubmenuItems(fileMenu?.submenu);
-    const safeOpenItem = fileItems.find(
+    const maintenanceItems = getProjectMaintenanceMenu(template);
+    const safeOpenItem = maintenanceItems.find(
       (item) => item.label === "安全模式打开项目",
     );
-    const cleanCacheItem = fileItems.find(
+    const cleanCacheItem = maintenanceItems.find(
       (item) => item.label === "清理当前项目缓存",
     );
 

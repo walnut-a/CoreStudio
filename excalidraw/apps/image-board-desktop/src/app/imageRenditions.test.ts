@@ -293,7 +293,7 @@ describe("imageRenditions", () => {
         fileId: "retina-file",
         x: 120,
         y: 120,
-        width: 720,
+        width: 700,
         height: 480,
       },
     ] as any;
@@ -342,5 +342,48 @@ describe("imageRenditions", () => {
         devicePixelRatio: 2,
       }),
     ).toEqual([{ fileId: "retina-file", rendition: "original" }]);
+  });
+
+  it("loads originals when an image is visually large even without a high device pixel ratio", () => {
+    const elements = [
+      {
+        id: "large-css",
+        type: "image",
+        isDeleted: false,
+        fileId: "large-css-file",
+        x: 120,
+        y: 120,
+        width: 720,
+        height: 480,
+      },
+    ] as any;
+    const imageRecords = {
+      "large-css-file": {
+        fileId: "large-css-file",
+        assetPath: "assets/large-css.png",
+        sourceType: "imported",
+        width: 2400,
+        height: 1600,
+        createdAt: "2026-04-12T12:00:00.000Z",
+        mimeType: "image/png",
+      },
+    } satisfies ImageRecordMap;
+
+    expect(
+      getImageRenditionRequestsNearViewport({
+        elements,
+        appState: {
+          ...baseAppState,
+          zoom: { value: 1 },
+        } as unknown as AppState,
+        imageRecords,
+        loadedPreviewFileIds: new Set(["large-css-file"]),
+        loadingPreviewFileIds: new Set(),
+        loadedOriginalFileIds: new Set(),
+        loadingOriginalFileIds: new Set(),
+        devicePixelRatio: 1,
+        viewportPaddingRatio: 0,
+      }),
+    ).toEqual([{ fileId: "large-css-file", rendition: "original" }]);
   });
 });

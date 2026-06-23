@@ -219,6 +219,7 @@ export const copy = {
     openProjectSafe: "安全模式打开项目",
     recentProjects: "最近项目",
     version: "版本",
+    projectMaintenance: "项目维护",
     inspectProjectHealth: "检查当前项目健康",
     repairProjectThumbnails: "修复当前项目缩略图",
     cleanProjectCache: "清理当前项目缓存",
@@ -230,6 +231,7 @@ export const copy = {
     edit: "编辑",
     quit: `退出 ${DESKTOP_APP_NAME}`,
     help: "帮助",
+    viewUpdates: "查看更新",
     about: `关于 ${DESKTOP_APP_NAME}`,
   },
   projectRepair: {

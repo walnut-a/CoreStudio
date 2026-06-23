@@ -27,6 +27,14 @@ let triggerExcalidrawPointerUpdate:
       pointersMap: Map<number, { x: number; y: number }>;
     }) => void)
   | null = null;
+let triggerExcalidrawScrollChange:
+  | ((payload: {
+      scrollX: number;
+      scrollY: number;
+      zoom: { value: number };
+      appState?: Record<string, unknown>;
+    }) => void)
+  | null = null;
 let triggerExcalidrawPaste:
   | ((
       data: Record<string, unknown>,
@@ -261,15 +269,22 @@ vi.mock("@excalidraw/excalidraw", () => {
     </button>
   ),
   Excalidraw: ({
+    initialData,
     langCode,
     children,
     onInitialize,
     onExcalidrawAPI,
     onPointerUpdate,
+    onScrollChange,
     onChange,
     onPaste,
     renderSelectedShapeActions,
   }: {
+    initialData?: {
+      elements?: any[];
+      appState?: Record<string, unknown>;
+      files?: Record<string, unknown>;
+    } | null;
     langCode?: string;
     children?: React.ReactNode;
     onInitialize?: (api?: any) => void;
@@ -279,6 +294,11 @@ vi.mock("@excalidraw/excalidraw", () => {
       button: "down" | "up";
       pointersMap: Map<number, { x: number; y: number }>;
     }) => void;
+    onScrollChange?: (
+      scrollX: number,
+      scrollY: number,
+      zoom: { value: number },
+    ) => void;
     onChange?: (
       elements: any[],
       appState: Record<string, unknown>,
@@ -321,7 +341,7 @@ vi.mock("@excalidraw/excalidraw", () => {
         appState: Record<string, any>;
         files: Record<string, any>;
       }>({
-        elements: [],
+        elements: initialData?.elements ?? [],
         appState: {
           width: 1440,
           height: 900,
@@ -330,8 +350,9 @@ vi.mock("@excalidraw/excalidraw", () => {
           zoom: { value: 1 },
           selectedElementIds: {},
           selectedGroupIds: {},
+          ...(initialData?.appState ?? {}),
         },
-        files: {},
+        files: initialData?.files ?? {},
       });
       const apiRef = React.useRef<any>(null);
 
@@ -418,6 +439,24 @@ vi.mock("@excalidraw/excalidraw", () => {
 
       triggerExcalidrawInitialize = () => onInitialize?.(apiRef.current);
       triggerExcalidrawPointerUpdate = (payload) => onPointerUpdate?.(payload);
+      triggerExcalidrawScrollChange = ({
+        scrollX,
+        scrollY,
+        zoom,
+        appState,
+      }) => {
+        sceneRef.current = {
+          ...sceneRef.current,
+          appState: {
+            ...sceneRef.current.appState,
+            ...(appState ?? {}),
+            scrollX,
+            scrollY,
+            zoom,
+          },
+        };
+        onScrollChange?.(scrollX, scrollY, zoom);
+      };
       triggerExcalidrawPaste = (data, event = null) =>
         onPaste?.(data, event) ?? true;
       triggerExcalidrawChange = (scene) => {
@@ -775,6 +814,7 @@ afterEach(() => {
   triggerExcalidrawInitialize = null;
   triggerExcalidrawChange = null;
   triggerExcalidrawPointerUpdate = null;
+  triggerExcalidrawScrollChange = null;
   triggerExcalidrawPaste = null;
   throwExcalidrawRenderError = null;
   emitExcalidrawChangeAfterEveryRender = false;
@@ -2771,6 +2811,192 @@ describe("App startup", () => {
     });
     expect(mockExcalidrawAPI?.replaceFiles).not.toHaveBeenCalled();
     expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("retries visible original loading when zoom changes after a failed upgrade", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 720,
+          height: 480,
+        },
+      ] as any,
+      appState: {
+        width: 900,
+        height: 700,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    let originalReadCount = 0;
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) => {
+        if (rendition === "original") {
+          originalReadCount += 1;
+          if (originalReadCount === 1) {
+            throw new Error("原图读取失败");
+          }
+
+          return fileIds.map((fileId: string) => ({
+            fileId,
+            mimeType: "image/png",
+            dataBase64: Buffer.from(`${fileId}-original-retry`).toString(
+              "base64",
+            ),
+            width: 2400,
+            height: 1600,
+            createdAt: "2026-04-12T08:00:00.000Z",
+            rendition: "original",
+          }));
+        }
+
+        return fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-thumbnail`).toString("base64"),
+          width: 320,
+          height: 213,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: "thumbnail",
+        }));
+      });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(
+        readProjectAssetPayloads.mock.calls.filter(
+          ([input]) => input.rendition === "original",
+        ),
+      ).toHaveLength(1);
+    });
+
+    act(() => {
+      triggerExcalidrawScrollChange?.({
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 0.1 },
+      });
+    });
+    act(() => {
+      triggerExcalidrawScrollChange?.({
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        readProjectAssetPayloads.mock.calls.filter(
+          ([input]) => input.rendition === "original",
+        ),
+      ).toHaveLength(2);
+    });
+    expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "visible-file",
+        dataURL: `data:image/png;base64,${Buffer.from(
+          "visible-file-original-retry",
+        ).toString("base64")}`,
+      }),
+    ]);
+  });
+
+  it("keeps the workspace overlay in canvas-local coordinates after viewport offsets change", async () => {
+    const contentFrame = newFrameElement({
+      x: 100,
+      y: 200,
+      width: 300,
+      height: 200,
+    });
+
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [contentFrame],
+      appState: {
+        width: 1440,
+        height: 900,
+        scrollX: 0,
+        scrollY: 0,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    window.imageBoardDesktop = createDesktopBridgeMock() as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    act(() => {
+      triggerExcalidrawScrollChange?.({
+        scrollX: -50,
+        scrollY: -80,
+        zoom: { value: 0.01 },
+        appState: {
+          width: 1440,
+          height: 900,
+          offsetLeft: 22,
+          offsetTop: 34,
+        },
+      });
+    });
+
+    const overlay = document.querySelector(
+      ".image-board-workspace-bounds",
+    ) as HTMLElement | null;
+
+    expect(overlay).toBeTruthy();
+    expect(parseFloat(overlay!.style.left)).toBeCloseTo(-16);
+    expect(parseFloat(overlay!.style.top)).toBeCloseTo(-9.8);
+    expect(parseFloat(overlay!.style.width)).toBeCloseTo(36);
+    expect(parseFloat(overlay!.style.height)).toBeCloseTo(24);
   });
 
   it("ignores stale native menu project bundles that arrive out of order", async () => {

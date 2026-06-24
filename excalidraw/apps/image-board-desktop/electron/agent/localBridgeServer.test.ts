@@ -216,6 +216,29 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("maps renderer PROJECT_REQUIRED errors on read routes to conflict responses", async () => {
+    const error = Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
+      code: "PROJECT_REQUIRED",
+    });
+    const renderer = {
+      request: vi.fn().mockRejectedValue(error),
+    };
+    const { server } = await track(startServer({ renderer }));
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.context);
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: {
+        ok: false,
+        error: {
+          code: "PROJECT_REQUIRED",
+          message: "当前没有打开 CoreStudio 项目。",
+        },
+      },
+    });
+  });
+
   it("forwards add-prompt with a valid write-board grant", async () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
@@ -232,6 +255,7 @@ describe("createLocalBridgeServer", () => {
         body: JSON.stringify({
           taskId: grant.taskId,
           writeToken: grant.writeToken,
+          projectPath: "/tmp/forged-project",
           text: "make this softer",
         }),
       },

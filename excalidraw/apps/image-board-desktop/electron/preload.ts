@@ -6,11 +6,20 @@ import {
   type DesktopAutosaveFlushRequest,
   type DesktopMenuEvent,
 } from "../src/shared/desktopBridgeTypes";
+import { isAgentErrorCode } from "../src/shared/agentBridgeTypes";
 
 import type {
   AgentRendererCommandRequest,
   AgentRendererCommandResponse,
 } from "../src/shared/agentBridgeTypes";
+
+const getAgentErrorCode = (error: unknown) =>
+  error &&
+  typeof error === "object" &&
+  "code" in error &&
+  isAgentErrorCode(error.code)
+    ? error.code
+    : undefined;
 
 const markHiddenDesktopTitlebar = () => {
   if (process.platform !== "darwin") {
@@ -116,6 +125,7 @@ const desktopBridge: DesktopBridgeApi = {
         const response: AgentRendererCommandResponse = {
           requestId: request.requestId,
           ok: false,
+          errorCode: getAgentErrorCode(error),
           errorMessage:
             error instanceof Error ? error.message : String(error || ""),
         };

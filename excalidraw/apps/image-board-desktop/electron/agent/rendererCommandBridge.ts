@@ -58,7 +58,12 @@ export const createRendererCommandBridge = (
     }
 
     entry.reject(
-      new Error(response.errorMessage || "CoreStudio renderer command failed"),
+      Object.assign(
+        new Error(
+          response.errorMessage || "CoreStudio renderer command failed",
+        ),
+        response.errorCode ? { code: response.errorCode } : {},
+      ),
     );
   });
 

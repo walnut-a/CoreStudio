@@ -111,6 +111,13 @@ import { SideDock } from "./components/SideDock";
 import { DesktopButton } from "./components/DesktopButton";
 import { TopBar } from "./components/TopBar";
 import { WelcomePane } from "./components/WelcomePane";
+import {
+  buildAgentProjectContext,
+  buildAgentSceneSnapshot,
+  buildAgentSelectionContext,
+  createAgentGenerationRequest,
+  createAgentPromptTextElement,
+} from "./agent/agentCommandHandlers";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import "./App.css";
@@ -444,6 +451,107 @@ const getViewportCenteredZoomState = (
       value: nextZoom as AppState["zoom"]["value"],
     },
   };
+};
+
+const isObjectPayload = (payload: unknown): payload is Record<string, unknown> =>
+  Boolean(payload && typeof payload === "object" && !Array.isArray(payload));
+
+const createAgentBadRequestError = (message: string) =>
+  Object.assign(new Error(message), {
+    code: "BAD_REQUEST" as const,
+  });
+
+const createAgentProjectMismatchError = () =>
+  Object.assign(new Error("Agent command projectPath 与当前项目不一致。"), {
+    code: "PROJECT_MISMATCH" as const,
+  });
+
+const assertAgentProjectPath = (
+  payload: unknown,
+  projectPath: string,
+) => {
+  if (!isObjectPayload(payload) || payload.projectPath !== projectPath) {
+    throw createAgentProjectMismatchError();
+  }
+};
+
+const parseAgentAnchorPoint = (anchorPoint: unknown) => {
+  if (anchorPoint === undefined || anchorPoint === null) {
+    return null;
+  }
+
+  if (!isObjectPayload(anchorPoint)) {
+    throw createAgentBadRequestError("anchorPoint 格式不正确。");
+  }
+
+  const { x, y } = anchorPoint;
+  if (
+    typeof x !== "number" ||
+    typeof y !== "number" ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y)
+  ) {
+    throw createAgentBadRequestError("anchorPoint 需要有限的 x/y 数值。");
+  }
+
+  return { x, y };
+};
+
+const toAgentImageAsset = (
+  payload: unknown,
+  createdAt = new Date().toISOString(),
+): PersistedImageAssetInput => {
+  if (!isObjectPayload(payload)) {
+    throw createAgentBadRequestError("图片 payload 格式不正确。");
+  }
+
+  const fileId = payload.fileId;
+  const mimeType = payload.mimeType;
+  const dataBase64 = payload.dataBase64;
+  const width = payload.width;
+  const height = payload.height;
+
+  if (
+    typeof fileId !== "string" ||
+    !fileId.trim() ||
+    typeof mimeType !== "string" ||
+    !mimeType.trim() ||
+    typeof dataBase64 !== "string" ||
+    !dataBase64.trim() ||
+    typeof width !== "number" ||
+    !Number.isFinite(width) ||
+    width <= 0 ||
+    typeof height !== "number" ||
+    !Number.isFinite(height) ||
+    height <= 0
+  ) {
+    throw createAgentBadRequestError("图片 payload 缺少有效的必要字段。");
+  }
+
+  return {
+    ...(payload as Partial<PersistedImageAssetInput>),
+    fileId,
+    mimeType,
+    dataBase64,
+    width,
+    height,
+    createdAt:
+      typeof payload.createdAt === "string" ? payload.createdAt : createdAt,
+    sourceType: "imported",
+  };
+};
+
+const getAgentImageAssetsFromPayload = (
+  payload: unknown,
+): PersistedImageAssetInput[] => {
+  if (isObjectPayload(payload) && Array.isArray(payload.files)) {
+    if (!payload.files.length) {
+      throw createAgentBadRequestError("scene.addImage files 不能为空。");
+    }
+    return payload.files.map((file) => toAgentImageAsset(file));
+  }
+
+  return [toAgentImageAsset(payload)];
 };
 
 const stringifyUnknownError = (error: unknown) => {
@@ -1667,16 +1775,31 @@ const App = () => {
     }
   };
 
+  const assertExpectedAgentProjectActive = (expectedProjectPath?: string) => {
+    if (
+      expectedProjectPath &&
+      currentProjectRef.current?.projectPath !== expectedProjectPath
+    ) {
+      throw createAgentProjectMismatchError();
+    }
+  };
+
   const insertAssetsIntoScene = async (
     assets: PersistedImageAssetInput[],
     nextImageRecords: DesktopProjectBundle["imageRecords"],
     options: {
       anchorPoint?: { x: number; y: number } | null;
+      expectedProjectPath?: string;
+      requireReady?: boolean;
     } = {},
   ) => {
+    assertExpectedAgentProjectActive(options.expectedProjectPath);
     const api = excalidrawAPIRef.current;
     const project = currentProjectRef.current;
     if (!api || !project) {
+      if (options.requireReady) {
+        throw new Error("CoreStudio 画板还没有准备好。");
+      }
       return;
     }
 
@@ -1709,7 +1832,6 @@ const App = () => {
       dataURL: `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
       created: Date.parse(asset.createdAt) || Date.now(),
     }));
-    api.addFiles(filesToAdd);
 
     const newElements = assets.map((asset, index) =>
       newImageElement({
@@ -1728,9 +1850,20 @@ const App = () => {
       newElements.map((element) => [element.id, true as const]),
     ) as AppState["selectedElementIds"];
 
-    api.updateScene({
+    assertExpectedAgentProjectActive(options.expectedProjectPath);
+    const activeApi = excalidrawAPIRef.current;
+    const activeProject = currentProjectRef.current;
+    if (!activeApi || !activeProject) {
+      if (options.requireReady) {
+        throw new Error("CoreStudio 画板还没有准备好。");
+      }
+      return;
+    }
+
+    activeApi.addFiles(filesToAdd);
+    activeApi.updateScene({
       elements: appendElementsWithSyncedIndices(
-        api.getSceneElementsIncludingDeleted(),
+        activeApi.getSceneElementsIncludingDeleted(),
         newElements,
       ),
       appState: {
@@ -1741,7 +1874,7 @@ const App = () => {
 
     lastBatchBoundsRef.current = measureBatchBounds(placements);
     updateCurrentProject({
-      ...project,
+      ...activeProject,
       imageRecords: nextImageRecords,
     });
   };
@@ -1749,10 +1882,18 @@ const App = () => {
   const insertGenerationPlaceholders = (
     request: GenerationRequest,
     startedAt: string,
+    options: {
+      expectedProjectPath?: string;
+      requireReady?: boolean;
+    } = {},
   ) => {
+    assertExpectedAgentProjectActive(options.expectedProjectPath);
     const api = excalidrawAPIRef.current;
     const project = currentProjectRef.current;
     if (!api || !project) {
+      if (options.requireReady) {
+        throw new Error("CoreStudio 画板还没有准备好。");
+      }
       return null;
     }
 
@@ -1830,6 +1971,16 @@ const App = () => {
       return [frame, label];
     });
 
+    assertExpectedAgentProjectActive(options.expectedProjectPath);
+    const activeApi = excalidrawAPIRef.current;
+    const activeProject = currentProjectRef.current;
+    if (!activeApi || !activeProject) {
+      if (options.requireReady) {
+        throw new Error("CoreStudio 画板还没有准备好。");
+      }
+      return null;
+    }
+
     const promptHistoryText = getPromptHistoryText(request);
     for (const slot of slots) {
       const task: GenerationTaskRecord = {
@@ -1848,9 +1999,9 @@ const App = () => {
       generationTaskByElementIdRef.current.set(slot.labelId, task);
     }
 
-    api.updateScene({
+    activeApi.updateScene({
       elements: appendElementsWithSyncedIndices(
-        api.getSceneElementsIncludingDeleted(),
+        activeApi.getSceneElementsIncludingDeleted(),
         placeholderElements,
       ),
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
@@ -1860,7 +2011,7 @@ const App = () => {
 
     return {
       jobId: crypto.randomUUID(),
-      projectPath: project.projectPath,
+      projectPath: activeProject.projectPath,
       slots,
     } satisfies PendingGenerationJob;
   };
@@ -2281,11 +2432,16 @@ const App = () => {
   const handleGenerateImages = async (
     request: GenerationRequest,
     _keepOpen: boolean,
+    options: {
+      expectedProjectPath?: string;
+      rejectOnError?: boolean;
+    } = {},
   ) => {
     const project = currentProjectRef.current;
     if (!project) {
       return;
     }
+    assertExpectedAgentProjectActive(options.expectedProjectPath);
 
     clearGenerationErrorState();
     try {
@@ -2298,11 +2454,13 @@ const App = () => {
       if (normalizedRequest.reference?.enabled) {
         const sceneWithOriginalImageFiles =
           await buildSceneWithOriginalImageFiles(latestSceneRef.current);
+        assertExpectedAgentProjectActive(options.expectedProjectPath);
         const reference = await buildSelectionReference({
           scene: sceneWithOriginalImageFiles,
           includeImage: true,
-          imageRecords: currentProjectRef.current?.imageRecords || null,
+          imageRecords: project.imageRecords,
         });
+        assertExpectedAgentProjectActive(options.expectedProjectPath);
         if (!reference?.image) {
           throw new Error("当前没有可用的选区参考，请重新选中元素后再试。");
         }
@@ -2316,7 +2474,14 @@ const App = () => {
       }
 
       const startedAt = new Date().toISOString();
-      const pendingJob = insertGenerationPlaceholders(preparedRequest, startedAt);
+      const pendingJob = insertGenerationPlaceholders(
+        preparedRequest,
+        startedAt,
+        {
+          expectedProjectPath: options.expectedProjectPath,
+          requireReady: Boolean(options.expectedProjectPath),
+        },
+      );
       if (!pendingJob) {
         throw new Error(copy.startup.generateFailed);
       }
@@ -2355,8 +2520,174 @@ const App = () => {
         }),
         error,
       );
+      if (options.rejectOnError) {
+        throw error;
+      }
     }
   };
+
+  useEffect(() => {
+    if (!bridge?.onAgentCommandRequest) {
+      return;
+    }
+
+    return bridge.onAgentCommandRequest(async (request) => {
+      if (request.command === "task.complete") {
+        return { completed: true };
+      }
+
+      const project = currentProjectRef.current;
+      if (!project) {
+        throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
+          code: "PROJECT_REQUIRED" as const,
+        });
+      }
+
+      switch (request.command) {
+        case "agent.context": {
+          const scene = latestSceneRef.current;
+          const selectionReference = buildSelectionReferenceSummary(scene);
+          const projectContext = buildAgentProjectContext(
+            project,
+            providerSettings,
+          );
+          return {
+            ...projectContext,
+            scene: buildAgentSceneSnapshot(scene, project.imageRecords),
+            selection: buildAgentSelectionContext(selectionReference),
+            providers: projectContext.providers,
+          };
+        }
+        case "project.current":
+          return {
+            projectPath: project.projectPath,
+            name: project.project.name,
+            updatedAt: project.project.updatedAt,
+          };
+        case "scene.snapshot": {
+          const scene = latestSceneRef.current;
+          const sceneJson = scene
+            ? serializeSceneForProject({
+                elements: scene.elements,
+                appState: scene.appState,
+              })
+            : undefined;
+          return buildAgentSceneSnapshot(
+            scene,
+            project.imageRecords,
+            sceneJson,
+          );
+        }
+        case "scene.selection":
+          return buildAgentSelectionContext(
+            buildSelectionReferenceSummary(latestSceneRef.current),
+          );
+        case "scene.addImage": {
+          assertAgentProjectPath(request.payload, project.projectPath);
+          if (!excalidrawAPIRef.current) {
+            throw new Error("CoreStudio 画板还没有准备好。");
+          }
+          const files = getAgentImageAssetsFromPayload(request.payload);
+          const nextImageRecords = await desktopBridge.persistImageAssets({
+            projectPath: project.projectPath,
+            files,
+          });
+          await insertAssetsIntoScene(files, nextImageRecords, {
+            expectedProjectPath: project.projectPath,
+            requireReady: true,
+          });
+          return {
+            inserted: true,
+            fileIds: files.map((file) => file.fileId),
+          };
+        }
+        case "scene.addPrompt": {
+          assertAgentProjectPath(request.payload, project.projectPath);
+          if (
+            !isObjectPayload(request.payload) ||
+            typeof request.payload.text !== "string" ||
+            !request.payload.text.trim()
+          ) {
+            throw createAgentBadRequestError("scene.addPrompt 需要非空 text。");
+          }
+
+          const api = excalidrawAPIRef.current;
+          if (!api) {
+            throw new Error("CoreStudio 画板还没有准备好。");
+          }
+
+          const appState = api.getAppState();
+          const anchorPoint = parseAgentAnchorPoint(
+            request.payload.anchorPoint,
+          );
+          const element = createAgentPromptTextElement({
+            text: request.payload.text,
+            anchorPoint,
+            viewportCenter: getViewportCenterFromAppState(appState),
+          });
+
+          api.updateScene({
+            elements: appendElementsWithSyncedIndices(
+              api.getSceneElementsIncludingDeleted(),
+              [element],
+            ),
+            appState: {
+              selectedElementIds: {
+                [element.id]: true,
+              },
+              selectedGroupIds: {},
+            },
+            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+          });
+
+          return {
+            inserted: true,
+            elementIds: [element.id],
+          };
+        }
+        case "generate": {
+          assertAgentProjectPath(request.payload, project.projectPath);
+          if (
+            !isObjectPayload(request.payload) ||
+            typeof request.payload.prompt !== "string" ||
+            !request.payload.prompt.trim()
+          ) {
+            throw createAgentBadRequestError("generate 需要非空 prompt。");
+          }
+
+          if (
+            request.payload.useSelection === true &&
+            !buildSelectionReferenceSummary(latestSceneRef.current)
+          ) {
+            throw createAgentBadRequestError(
+              "当前没有可用的选区参考，请先选中元素后再试。",
+            );
+          }
+
+          const generationRequest = createAgentGenerationRequest({
+            baseRequest: generateRequest,
+            prompt: request.payload.prompt,
+            useSelection: request.payload.useSelection === true,
+            providerSettings,
+          });
+          await handleGenerateImages(generationRequest, false, {
+            expectedProjectPath: project.projectPath,
+            rejectOnError: true,
+          });
+          return { accepted: true };
+        }
+        default:
+          throw new Error(`不支持的 Agent command: ${request.command}`);
+      }
+    });
+  }, [
+    bridge,
+    desktopBridge,
+    generateRequest,
+    handleGenerateImages,
+    insertAssetsIntoScene,
+    providerSettings,
+  ]);
 
   const handleCopyGenerationErrorDetails = async () => {
     if (!generationErrorDetails) {

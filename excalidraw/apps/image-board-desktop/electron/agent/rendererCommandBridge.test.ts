@@ -85,6 +85,34 @@ describe("createRendererCommandBridge", () => {
     await expect(resultPromise).rejects.toThrow("Generation failed");
   });
 
+  it("preserves renderer error codes on rejected errors", async () => {
+    let responseListener:
+      | ((response: AgentRendererCommandResponse) => void)
+      | undefined;
+    const bridge = createRendererCommandBridge({
+      randomId: () => "request-1",
+      send: vi.fn(),
+      onResponse: (listener) => {
+        responseListener = listener;
+        return vi.fn();
+      },
+      isAvailable: () => true,
+    });
+
+    const resultPromise = bridge.request("agent.context");
+    responseListener?.({
+      requestId: "request-1",
+      ok: false,
+      errorCode: "PROJECT_REQUIRED",
+      errorMessage: "当前没有打开 CoreStudio 项目。",
+    });
+
+    await expect(resultPromise).rejects.toMatchObject({
+      code: "PROJECT_REQUIRED",
+      message: "当前没有打开 CoreStudio 项目。",
+    });
+  });
+
   it("rejects timed out requests and ignores late responses", async () => {
     vi.useFakeTimers();
     let responseListener:

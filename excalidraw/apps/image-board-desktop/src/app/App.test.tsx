@@ -996,6 +996,676 @@ describe("App startup", () => {
     expect(await screen.findByText("项目文件读取失败")).toBeInTheDocument();
   });
 
+  it("handles agent scene.addPrompt requests on the current board", async () => {
+    let agentCommandListener:
+      | ((request: {
+          requestId: string;
+          command: "scene.addPrompt";
+          payload?: unknown;
+        }) => Promise<unknown> | unknown)
+      | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+
+    let result: unknown;
+    await act(async () => {
+      result = await agentCommandListener?.({
+        requestId: "agent-request-1",
+        command: "scene.addPrompt",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          text: "保留出线口位置",
+        },
+      });
+    });
+
+    expect(result).toEqual({
+      inserted: true,
+      elementIds: [expect.any(String)],
+    });
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        elements: expect.arrayContaining([
+          expect.objectContaining({
+            type: "text",
+            text: "保留出线口位置",
+          }),
+        ]),
+        appState: expect.objectContaining({
+          selectedElementIds: expect.any(Object),
+        }),
+        captureUpdate: "immediately",
+      }),
+    );
+  });
+
+  it("marks agent read requests as PROJECT_REQUIRED when no project is open", async () => {
+    type AgentContextListener = (request: {
+      requestId: string;
+      command: "agent.context";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentContextListener | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentContextListener;
+
+    await expect(
+      listener({
+        requestId: "agent-request-1",
+        command: "agent.context",
+      }),
+    ).rejects.toMatchObject({
+      code: "PROJECT_REQUIRED",
+      message: "当前没有打开 CoreStudio 项目。",
+    });
+  });
+
+  it("rejects agent generate with selection when the board has no selection", async () => {
+    type AgentGenerateListener = (request: {
+      requestId: string;
+      command: "generate";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentGenerateListener | null = null;
+    const generateImages = vi.fn();
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      generateImages,
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentGenerateListener;
+
+    await expect(
+      listener({
+        requestId: "agent-request-1",
+        command: "generate",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          prompt: "生成一个新方案",
+          useSelection: true,
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "当前没有可用的选区参考，请先选中元素后再试。",
+    });
+    expect(generateImages).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent scene.addPrompt with an invalid anchor point", async () => {
+    type AgentAddPromptListener = (request: {
+      requestId: string;
+      command: "scene.addPrompt";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentAddPromptListener | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentAddPromptListener;
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    await expect(
+      listener({
+        requestId: "agent-request-1",
+        command: "scene.addPrompt",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          text: "保留出线口位置",
+          anchorPoint: {
+            x: "bad",
+            y: 240,
+          },
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(mockExcalidrawAPI?.updateScene).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent scene.addImage with invalid image payload before persisting", async () => {
+    type AgentAddImageListener = (request: {
+      requestId: string;
+      command: "scene.addImage";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentAddImageListener | null = null;
+    const persistImageAssets = vi.fn().mockResolvedValue({});
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      persistImageAssets,
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentAddImageListener;
+
+    await expect(
+      listener({
+        requestId: "agent-request-1",
+        command: "scene.addImage",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          fileId: "",
+          mimeType: "image/png",
+          dataBase64: "ZmFrZQ==",
+          width: 0,
+          height: 100,
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(persistImageAssets).not.toHaveBeenCalled();
+  });
+
+  it("rejects mutating agent commands when the payload project does not match", async () => {
+    type AgentAddPromptListener = (request: {
+      requestId: string;
+      command: "scene.addPrompt";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentAddPromptListener | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentAddPromptListener;
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    await expect(
+      listener({
+        requestId: "agent-request-1",
+        command: "scene.addPrompt",
+        payload: {
+          projectPath: "/tmp/other-project",
+          text: "保留出线口位置",
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "PROJECT_MISMATCH",
+    });
+    expect(mockExcalidrawAPI?.updateScene).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent scene.addImage before persisting when the canvas API is not ready", async () => {
+    type AgentAddImageListener = (request: {
+      requestId: string;
+      command: "scene.addImage";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentAddImageListener | null = null;
+    const persistImageAssets = vi.fn().mockResolvedValue({});
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      persistImageAssets,
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+    skipExcalidrawApiRegistration = true;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentAddImageListener;
+
+    await expect(
+      listener({
+        requestId: "agent-request-1",
+        command: "scene.addImage",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          fileId: "agent-file",
+          mimeType: "image/png",
+          dataBase64: "ZmFrZQ==",
+          width: 100,
+          height: 100,
+        },
+      }),
+    ).rejects.toThrow("CoreStudio 画板还没有准备好。");
+    expect(persistImageAssets).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent scene.addImage with an empty files array before persisting", async () => {
+    type AgentAddImageListener = (request: {
+      requestId: string;
+      command: "scene.addImage";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentAddImageListener | null = null;
+    const persistImageAssets = vi.fn().mockResolvedValue({});
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      persistImageAssets,
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentAddImageListener;
+
+    await expect(
+      listener({
+        requestId: "agent-request-1",
+        command: "scene.addImage",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          files: [],
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(persistImageAssets).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent scene.addImage if the project changes while persisting assets", async () => {
+    type AgentAddImageListener = (request: {
+      requestId: string;
+      command: "scene.addImage";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentAddImageListener | null = null;
+    let menuActionListener:
+      | ((event: {
+          action: string;
+          openRequestId?: number;
+          projectBundle?: Record<string, unknown> | null;
+        }) => void)
+      | null = null;
+    const persistDeferred =
+      createDeferred<ReturnType<typeof createMockProjectBundle>["imageRecords"]>();
+    const persistImageAssets = vi.fn(() => persistDeferred.promise);
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
+    const projectB = createMockProjectBundle({ projectPath: "/tmp/project-b" });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      readProjectAssetPayloads,
+      persistImageAssets,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentAddImageListener;
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    const resultPromise = Promise.resolve(
+      listener({
+        requestId: "agent-request-1",
+        command: "scene.addImage",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          fileId: "agent-file",
+          mimeType: "image/png",
+          dataBase64: "ZmFrZQ==",
+          width: 100,
+          height: 100,
+        },
+      }),
+    ).catch((error) => error);
+
+    await waitFor(() => {
+      expect(persistImageAssets).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "project-opened",
+        openRequestId: 2,
+        projectBundle: projectB,
+      });
+    });
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectPath: "/tmp/project-b",
+        }),
+      );
+    });
+
+    await act(async () => {
+      persistDeferred.resolve({});
+      await Promise.resolve();
+    });
+
+    await expect(resultPromise).resolves.toMatchObject({
+      code: "PROJECT_MISMATCH",
+    });
+    expect(mockExcalidrawAPI?.updateScene).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent generate if the project changes before inserting placeholders", async () => {
+    type AgentGenerateListener = (request: {
+      requestId: string;
+      command: "generate";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentGenerateListener | null = null;
+    let menuActionListener:
+      | ((event: {
+          action: string;
+          openRequestId?: number;
+          projectBundle?: Record<string, unknown> | null;
+        }) => void)
+      | null = null;
+    const exportDeferred = createDeferred<Blob>();
+    const generateImages = vi.fn();
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
+    const projectB = createMockProjectBundle({ projectPath: "/tmp/project-b" });
+    hoistedExportToBlob.mockImplementationOnce(() => exportDeferred.promise);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      readProjectAssetPayloads,
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        zenmux: {
+          defaultModel: "google/gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+        fal: {
+          defaultModel: "fal-ai/nano-banana-2",
+          isConfigured: false,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      generateImages,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "rect-1",
+            type: "rectangle",
+            x: 10,
+            y: 20,
+            width: 120,
+            height: 80,
+            isDeleted: false,
+            groupIds: [],
+          },
+        ],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          selectedElementIds: {
+            "rect-1": true,
+          },
+          selectedGroupIds: {},
+          viewBackgroundColor: "#ffffff",
+        },
+        files: {},
+      });
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("generate-dialog-model")).toHaveTextContent(
+        "gemini-2.5-flash-image",
+      );
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentGenerateListener;
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    let resultPromise: Promise<unknown> = Promise.resolve(null);
+    await act(async () => {
+      resultPromise = Promise.resolve(
+        listener({
+          requestId: "agent-request-1",
+          command: "generate",
+          payload: {
+            projectPath: "/tmp/mock-project",
+            prompt: "生成一个新方案",
+            useSelection: true,
+          },
+        }),
+      ).catch((error) => error);
+    });
+
+    await waitFor(() => {
+      expect(hoistedExportToBlob).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "project-opened",
+        openRequestId: 2,
+        projectBundle: projectB,
+      });
+    });
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectPath: "/tmp/project-b",
+        }),
+      );
+    });
+
+    let result: unknown;
+    await act(async () => {
+      exportDeferred.resolve(
+        new Blob(["selection-reference"], { type: "image/png" }),
+      );
+      result = await resultPromise;
+    });
+
+    expect(result).toMatchObject({
+      code: "PROJECT_MISMATCH",
+    });
+    expect(generateImages).not.toHaveBeenCalled();
+    expect(mockExcalidrawAPI?.updateScene).not.toHaveBeenCalled();
+  });
+
   it("does not autosave canvas changes while Excalidraw is still initializing", async () => {
     const writeProjectScene = vi.fn().mockResolvedValue(undefined);
 

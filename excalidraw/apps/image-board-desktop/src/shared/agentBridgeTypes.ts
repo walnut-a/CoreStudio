@@ -45,21 +45,29 @@ export interface AgentRendererCommandResponse {
   requestId: string;
   ok: boolean;
   data?: unknown;
+  errorCode?: AgentErrorCode;
   errorMessage?: string;
 }
 
-export type AgentErrorCode =
-  | "APP_NOT_READY"
-  | "AUTH_REQUIRED"
-  | "AUTH_DENIED"
-  | "BAD_REQUEST"
-  | "BRIDGE_UNAVAILABLE"
-  | "COMMAND_FAILED"
-  | "FORBIDDEN"
-  | "PROJECT_MISMATCH"
-  | "PROJECT_REQUIRED"
-  | "TOKEN_EXPIRED"
-  | "UNSUPPORTED_COMMAND";
+export const AGENT_ERROR_CODES = [
+  "APP_NOT_READY",
+  "AUTH_REQUIRED",
+  "AUTH_DENIED",
+  "BAD_REQUEST",
+  "BRIDGE_UNAVAILABLE",
+  "COMMAND_FAILED",
+  "FORBIDDEN",
+  "PROJECT_MISMATCH",
+  "PROJECT_REQUIRED",
+  "TOKEN_EXPIRED",
+  "UNSUPPORTED_COMMAND",
+] as const;
+
+export type AgentErrorCode = typeof AGENT_ERROR_CODES[number];
+
+export const isAgentErrorCode = (code: unknown): code is AgentErrorCode =>
+  typeof code === "string" &&
+  AGENT_ERROR_CODES.includes(code as AgentErrorCode);
 
 export interface AgentErrorEnvelope {
   ok: false;

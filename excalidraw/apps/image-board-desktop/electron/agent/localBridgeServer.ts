@@ -6,6 +6,7 @@ import {
   AGENT_PERMISSIONS,
   createAgentError,
   createAgentOk,
+  isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
 
 import type {
@@ -86,6 +87,14 @@ const GRANT_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   PROJECT_MISMATCH: 409,
 };
 
+const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
+  BAD_REQUEST: 400,
+  FORBIDDEN: 403,
+  PROJECT_MISMATCH: 409,
+  PROJECT_REQUIRED: 409,
+  UNSUPPORTED_COMMAND: 404,
+};
+
 const sendJson = (
   response: http.ServerResponse,
   statusCode: number,
@@ -109,6 +118,34 @@ const sendError = (
 
 const isObjectBody = (body: unknown): body is JsonBody =>
   typeof body === "object" && body !== null && !Array.isArray(body);
+
+const getErrorCode = (error: unknown) =>
+  error &&
+  typeof error === "object" &&
+  "code" in error &&
+  isAgentErrorCode(error.code)
+    ? error.code
+    : null;
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+const sendRendererError = (response: http.ServerResponse, error: unknown) => {
+  const code = getErrorCode(error);
+  if (code) {
+    sendError(
+      response,
+      RENDERER_STATUS_BY_CODE[code] ?? 500,
+      code,
+      getErrorMessage(error),
+    );
+    return;
+  }
+
+  sendError(response, 500, "COMMAND_FAILED", "Renderer command failed", {
+    message: getErrorMessage(error),
+  });
+};
 
 const readRequestBody = async (
   request: http.IncomingMessage,
@@ -149,11 +186,12 @@ const createRendererPayload = (
     taskId: _taskId,
     writeToken: _writeToken,
     dryRun: _dryRun,
+    projectPath: _projectPath,
     ...rest
   } = body;
   return {
-    projectPath,
     ...rest,
+    projectPath,
     dryRun,
   };
 };
@@ -167,9 +205,7 @@ const handleReadCommand = async (
     const result = await renderer.request(command);
     sendJson(response, 200, createAgentOk(result));
   } catch (error) {
-    sendError(response, 500, "COMMAND_FAILED", "Renderer command failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+    sendRendererError(response, error);
   }
 };
 
@@ -266,9 +302,7 @@ const handleWriteCommand = async (
     const result = await options.renderer.request(config.command, payload);
     sendJson(response, 200, createAgentOk(result));
   } catch (error) {
-    sendError(response, 500, "COMMAND_FAILED", "Renderer command failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+    sendRendererError(response, error);
   }
 };
 

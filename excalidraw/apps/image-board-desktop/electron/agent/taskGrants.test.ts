@@ -185,6 +185,30 @@ describe("taskGrants", () => {
     expect(store.listGrants()).toEqual([completedGrant]);
   });
 
+  it("rejects completed grants", () => {
+    let currentTime = new Date("2026-06-24T08:00:00.000Z");
+    const store = createTaskGrantStore({
+      now: () => currentTime,
+      randomId: () => "id-1",
+    });
+    store.createGrant({
+      projectPath: "/Users/alice/project.corestudio",
+      permissions: ["write-board"],
+      ttlSeconds: 60,
+    });
+    currentTime = new Date("2026-06-24T08:00:30.000Z");
+    store.completeGrant("task-id-1");
+
+    expect(
+      store.verifyGrant({
+        taskId: "task-id-1",
+        writeToken: "write-id-1",
+        projectPath: "/Users/alice/project.corestudio",
+        permission: "write-board",
+      }),
+    ).toEqual({ ok: false, code: "TOKEN_EXPIRED" });
+  });
+
   it("returns null when completing an unknown task", () => {
     const store = createTaskGrantStore();
 

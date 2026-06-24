@@ -1151,7 +1151,7 @@ Implement `createLocalBridgeServer` with:
   - `/v1/scene/add-image` -> `write-board`
   - `/v1/scene/add-prompt` -> `write-board`
   - `/v1/generate` -> `generate-image`
-  - `/v1/task/complete` -> `read-context`
+  - `/v1/task/complete` -> valid task grant, no extra permission
 - `--dry-run` support by accepting `dryRun: true` and returning the normalized operation without forwarding mutation commands.
 
 - [ ] **Step 3: Run server tests**
@@ -1409,17 +1409,17 @@ git commit -m "feat: 启动 CoreStudio Agent 本地桥"
 Cover these commands:
 
 ```text
-corestudio agent status --json
-corestudio agent capabilities --json
-corestudio agent authorize --permissions write-board,generate-image --reason "生成参考图" --json
-corestudio agent context --json
-corestudio project current --json
-corestudio scene snapshot --json
-corestudio scene selection --json
-corestudio scene add-image /tmp/a.png --task-id task-1 --write-token write-1 --json
-corestudio scene add-prompt --text "prompt" --task-id task-1 --write-token write-1 --dry-run --json
-corestudio generate --prompt "prompt" --use-selection --task-id task-1 --write-token write-1 --jsonl
-corestudio task complete --task-id task-1 --write-token write-1 --json
+node bin/corestudio.cjs agent status --json
+node bin/corestudio.cjs agent capabilities --json
+node bin/corestudio.cjs agent authorize --permissions write-board,generate-image --reason "生成参考图" --json
+node bin/corestudio.cjs agent context --json
+node bin/corestudio.cjs project current --json
+node bin/corestudio.cjs scene snapshot --json
+node bin/corestudio.cjs scene selection --json
+node bin/corestudio.cjs scene add-image /tmp/a.png --task-id task-1 --write-token write-1 --json
+node bin/corestudio.cjs scene add-prompt --text "prompt" --task-id task-1 --write-token write-1 --dry-run --json
+node bin/corestudio.cjs generate --prompt "prompt" --use-selection --task-id task-1 --write-token write-1 --jsonl
+node bin/corestudio.cjs task complete --task-id task-1 --write-token write-1 --json
 ```
 
 Each test should assert:
@@ -1517,13 +1517,13 @@ CoreStudio exposes a localhost Agent Bridge while the desktop app is running.
 The CLI talks to that bridge and never reads or writes project files directly.
 
 ```sh
-corestudio agent status --json
-corestudio agent capabilities --json
-corestudio agent context --json
-corestudio agent authorize --permissions write-board,generate-image --reason "Agent 写回画板" --json
-corestudio scene selection --json
-corestudio scene add-prompt --text "户外储能产品外观方向" --task-id <taskId> --write-token <writeToken> --json
-corestudio task complete --task-id <taskId> --write-token <writeToken> --json
+node bin/corestudio.cjs agent status --json
+node bin/corestudio.cjs agent capabilities --json
+node bin/corestudio.cjs agent context --json
+node bin/corestudio.cjs agent authorize --permissions write-board,generate-image --reason "Agent 写回画板" --json
+node bin/corestudio.cjs scene selection --json
+node bin/corestudio.cjs scene add-prompt --text "户外储能产品外观方向" --task-id <taskId> --write-token <writeToken> --json
+node bin/corestudio.cjs task complete --task-id <taskId> --write-token <writeToken> --json
 ```
 
 Write commands require a short-lived `taskId` and `writeToken`.

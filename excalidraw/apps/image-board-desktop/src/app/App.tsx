@@ -466,6 +466,8 @@ const createAgentProjectMismatchError = () =>
     code: "PROJECT_MISMATCH" as const,
   });
 
+const createAgentImageFileId = () => `agent-${crypto.randomUUID()}`;
+
 const assertAgentProjectPath = (
   payload: unknown,
   projectPath: string,
@@ -530,7 +532,7 @@ const toAgentImageAsset = (
 
   return {
     ...(payload as Partial<PersistedImageAssetInput>),
-    fileId,
+    fileId: createAgentImageFileId(),
     mimeType,
     dataBase64,
     width,

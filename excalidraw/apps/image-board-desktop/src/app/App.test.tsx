@@ -1455,6 +1455,97 @@ describe("App startup", () => {
     expect(persistImageAssets).not.toHaveBeenCalled();
   });
 
+  it("generates a fresh file id for agent scene.addImage before persisting", async () => {
+    type AgentAddImageListener = (request: {
+      requestId: string;
+      command: "scene.addImage";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentAddImageListener | null = null;
+    const persistImageAssets = vi.fn().mockResolvedValue({
+      "agent-generated-file": {
+        fileId: "agent-generated-file",
+        assetPath: "assets/agent-generated-file.png",
+        sourceType: "imported",
+        width: 100,
+        height: 100,
+        createdAt: "2026-06-24T08:00:00.000Z",
+        mimeType: "image/png",
+      },
+    });
+
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(
+      "generated-file" as `${string}-${string}-${string}-${string}-${string}`,
+    );
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      persistImageAssets,
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentAddImageListener;
+
+    await act(async () => {
+      await listener({
+        requestId: "agent-request-1",
+        command: "scene.addImage",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          fileId: "existing-file",
+          mimeType: "image/png",
+          dataBase64: "ZmFrZQ==",
+          width: 100,
+          height: 100,
+        },
+      });
+    });
+
+    expect(persistImageAssets).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      files: [
+        expect.objectContaining({
+          fileId: "agent-generated-file",
+          dataBase64: "ZmFrZQ==",
+          mimeType: "image/png",
+        }),
+      ],
+    });
+    expect(mockExcalidrawAPI?.addFiles).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "agent-generated-file",
+      }),
+    ]);
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        elements: expect.arrayContaining([
+          expect.objectContaining({
+            type: "image",
+            fileId: "agent-generated-file",
+          }),
+        ]),
+      }),
+    );
+  });
+
   it("rejects agent scene.addImage if the project changes while persisting assets", async () => {
     type AgentAddImageListener = (request: {
       requestId: string;

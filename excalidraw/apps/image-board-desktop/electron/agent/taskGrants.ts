@@ -31,7 +31,7 @@ export interface VerifyGrantParams {
   taskId: string;
   writeToken: string;
   projectPath: string;
-  permission: AgentPermission;
+  permission?: AgentPermission;
 }
 
 export type VerifyGrantResult =
@@ -84,7 +84,10 @@ export const createTaskGrantStore = (options: TaskGrantStoreOptions = {}) => {
     if (now().getTime() >= new Date(grant.expiresAt).getTime()) {
       return { ok: false, code: "TOKEN_EXPIRED" };
     }
-    if (!grant.permissions.includes(permission)) {
+    if (grant.completedAt) {
+      return { ok: false, code: "TOKEN_EXPIRED" };
+    }
+    if (permission && !grant.permissions.includes(permission)) {
       return { ok: false, code: "FORBIDDEN" };
     }
     return { ok: true, grant };

@@ -255,7 +255,7 @@ const handleWriteCommand = async (
     taskId: taskFields.taskId,
     writeToken: taskFields.writeToken,
     projectPath: currentProject.projectPath,
-    permission: config.permission,
+    ...(config.completeGrant ? {} : { permission: config.permission }),
   });
   if (!grantResult.ok) {
     sendError(

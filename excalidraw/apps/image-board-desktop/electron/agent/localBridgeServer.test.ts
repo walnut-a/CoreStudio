@@ -499,7 +499,7 @@ describe("createLocalBridgeServer", () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
       projectPath: currentProject.projectPath,
-      permissions: ["read-context"],
+      permissions: ["write-board", "generate-image"],
       ttlSeconds: 60,
     });
 

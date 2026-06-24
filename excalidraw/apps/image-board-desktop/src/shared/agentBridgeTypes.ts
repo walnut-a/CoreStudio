@@ -25,6 +25,29 @@ export const AGENT_PERMISSIONS = [
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
 
+export type AgentRendererCommandName =
+  | "agent.context"
+  | "project.current"
+  | "scene.snapshot"
+  | "scene.selection"
+  | "scene.addImage"
+  | "scene.addPrompt"
+  | "generate"
+  | "task.complete";
+
+export interface AgentRendererCommandRequest {
+  requestId: string;
+  command: AgentRendererCommandName;
+  payload?: unknown;
+}
+
+export interface AgentRendererCommandResponse {
+  requestId: string;
+  ok: boolean;
+  data?: unknown;
+  errorMessage?: string;
+}
+
 export type AgentErrorCode =
   | "APP_NOT_READY"
   | "AUTH_REQUIRED"

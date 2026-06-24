@@ -7,13 +7,16 @@ import {
   type DesktopMenuEvent,
 } from "../src/shared/desktopBridgeTypes";
 
+import type {
+  AgentRendererCommandRequest,
+  AgentRendererCommandResponse,
+} from "../src/shared/agentBridgeTypes";
+
 const markHiddenDesktopTitlebar = () => {
   if (process.platform !== "darwin") {
     return;
   }
-  document.documentElement.classList.add(
-    "image-board-desktop-titlebar-hidden",
-  );
+  document.documentElement.classList.add("image-board-desktop-titlebar-hidden");
 };
 
 if (document.readyState === "loading") {
@@ -56,7 +59,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.deleteSavedPrompt, id),
   markSavedPromptUsed: (id) =>
     ipcRenderer.invoke(IPC_CHANNELS.markSavedPromptUsed, id),
-  generateImages: (input) => ipcRenderer.invoke(IPC_CHANNELS.generateImages, input),
+  generateImages: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.generateImages, input),
   readClipboardImage: () => ipcRenderer.invoke(IPC_CHANNELS.readClipboardImage),
   onMenuAction: (listener) => {
     const handler = (_event: unknown, menuEvent: DesktopMenuEvent) => {
@@ -93,6 +97,34 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.on(IPC_CHANNELS.flushAutosaveRequest, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.flushAutosaveRequest, handler);
+    };
+  },
+  onAgentCommandRequest: (listener) => {
+    const handler = async (
+      _event: unknown,
+      request: AgentRendererCommandRequest,
+    ) => {
+      try {
+        const data = await listener(request);
+        const response: AgentRendererCommandResponse = {
+          requestId: request.requestId,
+          ok: true,
+          data,
+        };
+        ipcRenderer.send(IPC_CHANNELS.agentCommandResponse, response);
+      } catch (error) {
+        const response: AgentRendererCommandResponse = {
+          requestId: request.requestId,
+          ok: false,
+          errorMessage:
+            error instanceof Error ? error.message : String(error || ""),
+        };
+        ipcRenderer.send(IPC_CHANNELS.agentCommandResponse, response);
+      }
+    };
+    ipcRenderer.on(IPC_CHANNELS.agentCommandRequest, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.agentCommandRequest, handler);
     };
   },
 };

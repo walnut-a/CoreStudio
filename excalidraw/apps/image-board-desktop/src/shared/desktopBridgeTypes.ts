@@ -13,6 +13,7 @@ import type {
   ProviderId,
   ProviderSettings,
 } from "./providerTypes";
+import type { AgentRendererCommandRequest } from "./agentBridgeTypes";
 
 export const IPC_CHANNELS = {
   createProject: "image-board:create-project",
@@ -40,6 +41,8 @@ export const IPC_CHANNELS = {
   rendererReady: "image-board:renderer-ready",
   flushAutosaveRequest: "image-board:flush-autosave-request",
   flushAutosaveResponse: "image-board:flush-autosave-response",
+  agentCommandRequest: "image-board:agent-command-request",
+  agentCommandResponse: "image-board:agent-command-response",
 } as const;
 
 export type DesktopMenuAction =
@@ -255,4 +258,9 @@ export interface DesktopBridgeApi {
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;
   onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
+  onAgentCommandRequest?(
+    listener: (
+      request: AgentRendererCommandRequest,
+    ) => Promise<unknown> | unknown,
+  ): () => void;
 }

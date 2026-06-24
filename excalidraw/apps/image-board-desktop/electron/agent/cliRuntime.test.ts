@@ -203,6 +203,8 @@ describe("runCli", () => {
         "write-board,generate-image",
         "--reason",
         "生成参考图",
+        "--ttl-seconds",
+        "604800",
         "--json",
       ],
       route: AGENT_HTTP_ROUTES.authorize,
@@ -210,6 +212,7 @@ describe("runCli", () => {
       body: {
         permissions: ["write-board", "generate-image"],
         reason: "生成参考图",
+        ttlSeconds: 604800,
       },
     },
     {
@@ -782,6 +785,11 @@ describe("runCli", () => {
       name: "extra read positional",
       argv: ["scene", "selection", "extra", "--json"],
       message: "scene selection does not accept positional arguments.",
+    },
+    {
+      name: "invalid authorize ttl",
+      argv: ["agent", "authorize", "--ttl-seconds", "0", "--json"],
+      message: "--ttl-seconds must be a positive number.",
     },
   ])("fails locally for $name", async ({ argv, message }) => {
     const fetch = createFetch();

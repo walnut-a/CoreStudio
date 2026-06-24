@@ -112,8 +112,8 @@ const pendingAutosaveFlushes = new Map<
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
 const isDev = Boolean(rendererUrl);
-const DEFAULT_AGENT_GRANT_TTL_SECONDS = 30 * 60;
-const MAX_AGENT_GRANT_TTL_SECONDS = 2 * 60 * 60;
+const DEFAULT_AGENT_GRANT_TTL_SECONDS = 7 * 24 * 60 * 60;
+const MAX_AGENT_GRANT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 app.setName(DESKTOP_APP_NAME);
 
@@ -243,6 +243,26 @@ const getGrantTtlSeconds = (ttlSeconds?: number) => {
   return Math.min(ttlSeconds, MAX_AGENT_GRANT_TTL_SECONDS);
 };
 
+const formatGrantDuration = (ttlSeconds: number) => {
+  const totalMinutes = Math.max(1, Math.ceil(ttlSeconds / 60));
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (days > 0) {
+    parts.push(`${days} 天`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours} 小时`);
+  }
+  if (minutes > 0 || parts.length === 0) {
+    parts.push(`${minutes} 分钟`);
+  }
+
+  return parts.join(" ");
+};
+
 const authorizeLocalBridgeRequest = async (
   input: LocalBridgeAuthorizeInput,
 ) => {
@@ -262,7 +282,7 @@ const authorizeLocalBridgeRequest = async (
 
   const permissions = normalizeAgentPermissions(input.permissions);
   const ttlSeconds = getGrantTtlSeconds(input.ttlSeconds);
-  const ttlMinutes = Math.ceil(ttlSeconds / 60);
+  const ttlLabel = formatGrantDuration(ttlSeconds);
   const reason = input.reason?.trim() || "未提供";
   const permissionLabel = permissions.length ? permissions.join(", ") : "无";
 
@@ -278,7 +298,7 @@ const authorizeLocalBridgeRequest = async (
       `路径：${project.projectPath}`,
       `请求权限：${permissionLabel}`,
       `原因：${reason}`,
-      `有效期：${ttlMinutes} 分钟`,
+      `有效期：${ttlLabel}`,
     ].join("\n"),
   });
 

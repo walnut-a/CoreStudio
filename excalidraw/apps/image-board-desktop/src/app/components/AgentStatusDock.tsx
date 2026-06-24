@@ -42,7 +42,6 @@ export const AgentStatusDock = ({
   onRefreshStatus,
 }: AgentStatusDockProps) => {
   const [open, setOpen] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const connected = Boolean(status?.ready && status.currentProject);
   const boardUrlReady = Boolean(status?.boardUrl);
@@ -77,20 +76,6 @@ export const AgentStatusDock = ({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
-
-  useEffect(() => {
-    if (!autoRefresh) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void onRefreshStatus();
-    }, 15_000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [autoRefresh, onRefreshStatus]);
 
   return (
     <div className="agent-status-dock" ref={rootRef}>
@@ -134,14 +119,18 @@ export const AgentStatusDock = ({
             </div>
           </div>
 
-          <label className="agent-status-popover__setting">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(event) => setAutoRefresh(event.currentTarget.checked)}
-            />
-            <span>自动刷新连接状态</span>
-          </label>
+          <div className="agent-status-popover__body agent-status-popover__body--routes">
+            <div className="agent-status-popover__item">
+              <span>CLI</span>
+              <strong>可自动发现当前会话</strong>
+            </div>
+            <div className="agent-status-popover__item">
+              <span>内置浏览器</span>
+              <strong>
+                {boardUrlReady ? "可复制 Board 链接" : "等待 Board 链接"}
+              </strong>
+            </div>
+          </div>
 
           <div className="agent-status-popover__actions">
             <DesktopButton

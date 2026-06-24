@@ -197,6 +197,22 @@ const parsePermissions = (
   }
 };
 
+const parsePositiveNumberFlag = (
+  flag: string,
+  value: string | undefined,
+): number | AgentEnvelope<never> | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return badRequestEnvelope(`${flag} must be a positive number.`);
+  }
+
+  return parsed;
+};
+
 const requiredString = (
   value: string | undefined,
   message: string,
@@ -245,7 +261,7 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
 
   if (scope === "agent" && command === "authorize") {
     const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--permissions", "--reason"],
+      valueFlags: ["--permissions", "--reason", "--ttl-seconds"],
     });
     if (isEnvelope(parsed)) {
       return parsed;
@@ -258,12 +274,20 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
     if (!Array.isArray(permissions)) {
       return permissions;
     }
+    const ttlSeconds = parsePositiveNumberFlag(
+      "--ttl-seconds",
+      parsed.flags["--ttl-seconds"],
+    );
+    if (isEnvelope(ttlSeconds)) {
+      return ttlSeconds;
+    }
     const reason = parsed.flags["--reason"];
     return {
       route: AGENT_HTTP_ROUTES.authorize,
       method: "POST",
       body: {
         permissions,
+        ...(ttlSeconds ? { ttlSeconds } : {}),
         ...(reason ? { reason } : {}),
       },
     };

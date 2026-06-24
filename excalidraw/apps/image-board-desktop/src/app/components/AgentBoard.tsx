@@ -172,7 +172,7 @@ export const AgentBoard = () => {
             <span className="welcome-pane__eyebrow">Agent Board</span>
             <h1>CoreStudio Agent Board</h1>
             <p>
-              通过本地 Agent Bridge 查看当前项目状态，并向桌面端申请短期写入授权。
+              通过本地 Agent Bridge 查看当前项目状态，并向桌面端申请写入授权。
             </p>
           </div>
           <div className="agent-board-header__actions">

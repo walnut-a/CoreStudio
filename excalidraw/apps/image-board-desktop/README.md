@@ -1,9 +1,15 @@
 # CoreStudio Agent CLI
 
 CoreStudio exposes a small localhost Agent Bridge while the desktop app is open.
-The `corestudio` CLI is only a thin client for that bridge: it does not read or
-write project files directly, and write commands must go through CoreStudio's
-local authorization flow.
+Agents can use it in two ways:
+
+1. Use the `corestudio` CLI. The CLI discovers the current local session and is
+   only a thin client for the bridge: it does not read or write project files
+   directly.
+2. Copy the Agent Board link from the desktop app and open it in an Agent's
+   built-in browser.
+
+Write commands still go through CoreStudio's local authorization flow.
 
 Run these commands with CoreStudio open and a project loaded. In this source
 package, use `node bin/corestudio.cjs ...`; a packaged desktop install does not
@@ -19,12 +25,14 @@ node bin/corestudio.cjs scene selection --json
 ```
 
 Before an Agent modifies the board or starts generation, ask CoreStudio for a
-short-lived grant:
+local write grant. Grants default to 7 days and can be requested for up to
+30 days with `--ttl-seconds`.
 
 ```sh
 node bin/corestudio.cjs agent authorize \
   --permissions write-board,generate-image \
   --reason "Agent 写回画板并触发生图" \
+  --ttl-seconds 604800 \
   --json
 ```
 

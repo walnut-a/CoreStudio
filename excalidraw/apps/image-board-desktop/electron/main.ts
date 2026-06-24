@@ -82,6 +82,7 @@ import {
 import { getAgentSessionPath } from "./agent/sessionPaths";
 import { createTaskGrantStore } from "./agent/taskGrants";
 import { createRendererCommandBridge } from "./agent/rendererCommandBridge";
+import { configureNoSystemKeychainAccess } from "./keychainGuard";
 
 let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];
@@ -115,6 +116,7 @@ const isDev = Boolean(rendererUrl);
 const DEFAULT_AGENT_GRANT_TTL_SECONDS = 7 * 24 * 60 * 60;
 const MAX_AGENT_GRANT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
+configureNoSystemKeychainAccess(app.commandLine);
 app.setName(DESKTOP_APP_NAME);
 
 const getTargetWindow = (ownerWindow?: BaseWindow | null) => {

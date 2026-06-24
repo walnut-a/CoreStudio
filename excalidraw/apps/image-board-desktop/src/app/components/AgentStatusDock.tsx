@@ -23,6 +23,19 @@ const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
   return "Agent 未就绪";
 };
 
+const getBridgeEndpoint = (status?: DesktopAgentBridgeStatus | null) => {
+  if (!status?.boardUrl) {
+    return status?.ready ? "本地桥已启动" : "未启动";
+  }
+
+  try {
+    const boardUrl = new URL(status.boardUrl);
+    return boardUrl.searchParams.get("bridge") || "本地桥已启动";
+  } catch {
+    return "本地桥已启动";
+  }
+};
+
 export const AgentStatusDock = ({
   status,
   onCopyAgentBoardUrl,
@@ -34,6 +47,7 @@ export const AgentStatusDock = ({
   const connected = Boolean(status?.ready && status.currentProject);
   const boardUrlReady = Boolean(status?.boardUrl);
   const statusText = getStatusText(status);
+  const bridgeEndpoint = getBridgeEndpoint(status);
 
   useEffect(() => {
     if (!open) {
@@ -105,15 +119,19 @@ export const AgentStatusDock = ({
           </header>
 
           <div className="agent-status-popover__body">
-            <div className="agent-status-popover__row">
+            <div className="agent-status-popover__item">
               <span>当前项目</span>
               <strong>{status?.currentProject?.name ?? "未打开项目"}</strong>
+              {status?.currentProject?.projectPath && (
+                <p className="agent-status-popover__path">
+                  {status.currentProject.projectPath}
+                </p>
+              )}
             </div>
-            {status?.currentProject?.projectPath && (
-              <p className="agent-status-popover__path">
-                {status.currentProject.projectPath}
-              </p>
-            )}
+            <div className="agent-status-popover__item">
+              <span>本地桥</span>
+              <strong>{bridgeEndpoint}</strong>
+            </div>
           </div>
 
           <label className="agent-status-popover__setting">

@@ -16,7 +16,8 @@ describe("AgentStatusDock", () => {
             projectPath: "/tmp/corestudio-project",
             name: "测试项目",
           },
-          boardUrl: "http://127.0.0.1:5174/agent-board?bridge=1&token=2",
+          boardUrl:
+            "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&token=2",
         }}
         onCopyAgentBoardUrl={onCopyAgentBoardUrl}
         onRefreshStatus={onRefreshStatus}
@@ -28,6 +29,7 @@ describe("AgentStatusDock", () => {
     expect(screen.getByRole("region", { name: "Agent 连接设置" })).toBeInTheDocument();
     expect(screen.getByText("Agent 已连接")).toBeInTheDocument();
     expect(screen.getByText("测试项目")).toBeInTheDocument();
+    expect(screen.getByText("http://127.0.0.1:60909")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "复制 Board 链接" }));
     fireEvent.click(screen.getByRole("button", { name: "刷新状态" }));
@@ -53,6 +55,7 @@ describe("AgentStatusDock", () => {
 
     expect(screen.getByText("Agent 未就绪")).toBeInTheDocument();
     expect(screen.getByText("未打开项目")).toBeInTheDocument();
+    expect(screen.getByText("未启动")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制 Board 链接" })).toBeDisabled();
   });
 });

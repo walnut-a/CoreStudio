@@ -17,6 +17,7 @@ describe("agentBridgeTypes", () => {
   it("exports the documented HTTP routes", () => {
     expect(AGENT_HTTP_ROUTES.status).toBe("/v1/status");
     expect(AGENT_HTTP_ROUTES.authorize).toBe("/v1/agent/authorize");
+    expect(AGENT_HTTP_ROUTES.sceneBoard).toBe("/v1/scene/board");
     expect(AGENT_HTTP_ROUTES.sceneAddImage).toBe("/v1/scene/add-image");
   });
 

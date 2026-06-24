@@ -5,14 +5,17 @@ import type { FileId } from "@excalidraw/element/types";
 import type { BinaryFileData } from "@excalidraw/excalidraw/types";
 
 import {
+  buildAgentSceneBoard,
   buildAgentProjectContext,
   buildAgentSceneSnapshot,
   buildAgentSelectionContext,
+  collectAgentImageFileIds,
   createAgentGenerationRequest,
   createAgentPromptTextElement,
 } from "./agentCommandHandlers";
 
 import type { PublicProviderSettings } from "../../shared/desktopBridgeTypes";
+import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import type { GenerationRequest } from "../../shared/providerTypes";
 
@@ -187,6 +190,115 @@ describe("agentCommandHandlers", () => {
       imageRecordCount: 1,
       selectedElementIds: [image.id],
     });
+  });
+
+  it("builds a render-ready browser board with image data URLs", () => {
+    const image = newImageElement({
+      type: "image",
+      fileId: "file-1" as FileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 160,
+    });
+    const missingImage = newImageElement({
+      type: "image",
+      fileId: "missing-file" as FileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 260,
+      y: 0,
+      width: 200,
+      height: 160,
+    });
+    const text = newTextElement({
+      x: 20,
+      y: 30,
+      text: "尺寸约束",
+      fontSize: 20,
+    });
+    const assetPayloads: ProjectAssetPayload[] = [
+      {
+        fileId: "file-1",
+        mimeType: "image/png",
+        dataBase64: "ZmFrZQ==",
+        width: 320,
+        height: 240,
+        createdAt: "2026-06-24T09:00:00.000Z",
+        rendition: "preview",
+      },
+    ];
+
+    const board = buildAgentSceneBoard({
+      project: {
+        projectPath: "/tmp/corestudio-project",
+        project: {
+          formatVersion: 1,
+          appVersion: "1.2.0",
+          name: "Shell concept",
+          createdAt: "2026-06-23T10:00:00.000Z",
+          updatedAt: "2026-06-24T10:00:00.000Z",
+          sceneFile: "scene.excalidraw.json",
+          imageRecordsFile: "image-records.json",
+          assetsDir: "assets",
+          exportsDir: "exports",
+        },
+        sceneJson: "{}",
+        imageRecords,
+      },
+      scene: {
+        elements: [image, missingImage, text],
+        appState: {
+          selectedElementIds: {
+            [image.id]: true,
+          },
+          selectedGroupIds: {},
+          viewBackgroundColor: "#ffffff",
+          scrollX: 12,
+          scrollY: 24,
+        },
+        files: {},
+      },
+      imageRecords,
+      assetPayloads,
+      updatedAt: "2026-06-24T10:30:00.000Z",
+    });
+
+    expect(collectAgentImageFileIds([image, image, missingImage, text])).toEqual(
+      ["file-1", "missing-file"],
+    );
+    expect(board.project).toEqual({
+      projectPath: "/tmp/corestudio-project",
+      name: "Shell concept",
+      updatedAt: "2026-06-24T10:00:00.000Z",
+    });
+    expect(board.updatedAt).toBe("2026-06-24T10:30:00.000Z");
+    expect(board.elements).toHaveLength(3);
+    expect(board.files["file-1"]).toMatchObject({
+      id: "file-1",
+      mimeType: "image/png",
+      dataURL: "data:image/png;base64,ZmFrZQ==",
+    });
+    expect(board.appState).toMatchObject({
+      selectedElementIds: {
+        [image.id]: true,
+      },
+      selectedGroupIds: {},
+      viewBackgroundColor: "#ffffff",
+      scrollX: 12,
+      scrollY: 24,
+    });
+    expect(board.metrics).toMatchObject({
+      elementCount: 3,
+      imageElementCount: 2,
+      textElementCount: 1,
+      fileCount: 0,
+      imageRecordCount: 1,
+      selectedElementIds: [image.id],
+    });
+    expect(board.missingFileIds).toEqual(["missing-file"]);
   });
 
   it("returns an unselected selection context for null references", () => {

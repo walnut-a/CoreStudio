@@ -856,15 +856,43 @@ describe("App startup", () => {
             },
           },
         },
-        "/v1/scene/snapshot": {
+        "/v1/scene/board": {
           ok: true,
           data: {
-            elementCount: 4,
-            imageElementCount: 1,
-            textElementCount: 2,
-            fileCount: 1,
-            imageRecordCount: 1,
-            selectedElementIds: ["element-1"],
+            project: {
+              projectPath: "/tmp/corestudio-project",
+              name: "测试项目",
+              updatedAt: "2026-06-24T10:00:00.000Z",
+            },
+            updatedAt: "2026-06-24T10:30:00.000Z",
+            elements: [
+              {
+                id: "element-1",
+                type: "rectangle",
+                x: 0,
+                y: 0,
+                width: 120,
+                height: 80,
+                isDeleted: false,
+              },
+            ],
+            appState: {
+              viewBackgroundColor: "#ffffff",
+              selectedElementIds: {
+                "element-1": true,
+              },
+              selectedGroupIds: {},
+            },
+            files: {},
+            metrics: {
+              elementCount: 4,
+              imageElementCount: 1,
+              textElementCount: 2,
+              fileCount: 1,
+              imageRecordCount: 1,
+              selectedElementIds: ["element-1"],
+            },
+            missingFileIds: [],
           },
         },
         "/v1/scene/selection": {
@@ -889,7 +917,10 @@ describe("App startup", () => {
     render(<App />);
 
     expect(screen.getByText("CoreStudio Agent Board")).toBeInTheDocument();
-    expect(await screen.findByText("测试项目")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "测试项目" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.queryByText("桌面应用未连接")).not.toBeInTheDocument();
   });

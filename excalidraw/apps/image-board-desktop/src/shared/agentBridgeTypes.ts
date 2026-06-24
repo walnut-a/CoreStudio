@@ -9,6 +9,7 @@ export const AGENT_HTTP_ROUTES = {
   authorize: "/v1/agent/authorize",
   context: "/v1/agent/context",
   projectCurrent: "/v1/project/current",
+  sceneBoard: "/v1/scene/board",
   sceneSnapshot: "/v1/scene/snapshot",
   sceneSelection: "/v1/scene/selection",
   sceneAddImage: "/v1/scene/add-image",
@@ -28,6 +29,7 @@ export type AgentPermission = typeof AGENT_PERMISSIONS[number];
 export type AgentRendererCommandName =
   | "agent.context"
   | "project.current"
+  | "scene.board"
   | "scene.snapshot"
   | "scene.selection"
   | "scene.addImage"

@@ -221,6 +221,7 @@ describe("createLocalBridgeServer", () => {
   it.each([
     [AGENT_HTTP_ROUTES.context, "agent.context"],
     [AGENT_HTTP_ROUTES.projectCurrent, "project.current"],
+    [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
     [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
     [AGENT_HTTP_ROUTES.sceneSelection, "scene.selection"],
   ] as const)("forwards %s to %s", async (route, command) => {

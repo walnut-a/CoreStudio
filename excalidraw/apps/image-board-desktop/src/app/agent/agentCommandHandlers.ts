@@ -1,12 +1,17 @@
 import { newTextElement } from "@excalidraw/element";
 
-import type { ExcalidrawElement } from "@excalidraw/element/types";
-import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
+import type {
+  AppState,
+  BinaryFileData,
+  BinaryFiles,
+} from "@excalidraw/excalidraw/types";
 
 import { normalizeGenerationRequest } from "../../shared/providerCatalog";
 
 import type {
   DesktopProjectBundle,
+  ProjectAssetPayload,
   PublicProviderSettings,
 } from "../../shared/desktopBridgeTypes";
 import type { ImageRecordMap } from "../../shared/projectTypes";
@@ -29,6 +34,7 @@ type Point = {
 const AGENT_AVAILABLE_COMMANDS = [
   "agent.context",
   "project.current",
+  "scene.board",
   "scene.snapshot",
   "scene.selection",
   "scene.addImage",
@@ -78,6 +84,49 @@ export const buildAgentProjectContext = (
   availableCommands: [...AGENT_AVAILABLE_COMMANDS],
 });
 
+export const collectAgentImageFileIds = (
+  elements: readonly ExcalidrawElement[],
+) => {
+  const fileIds = new Set<string>();
+
+  for (const element of elements) {
+    if (!element.isDeleted && element.type === "image" && element.fileId) {
+      fileIds.add(element.fileId);
+    }
+  }
+
+  return Array.from(fileIds);
+};
+
+export const projectAssetPayloadsToBinaryFiles = (
+  assets: readonly ProjectAssetPayload[],
+  imageRecords: ImageRecordMap,
+): BinaryFiles =>
+  assets.reduce((files, asset) => {
+    const fileId = asset.fileId as FileId;
+    files[fileId] = {
+      id: fileId,
+      mimeType: asset.mimeType as BinaryFileData["mimeType"],
+      dataURL:
+        `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
+      created:
+        Date.parse(imageRecords[asset.fileId]?.createdAt || asset.createdAt) ||
+        Date.now(),
+    };
+    return files;
+  }, {} as BinaryFiles);
+
+const buildAgentBoardAppState = (
+  appState: Partial<AppState> | null | undefined,
+): Partial<AppState> => ({
+  viewBackgroundColor: appState?.viewBackgroundColor,
+  selectedElementIds: appState?.selectedElementIds ?? {},
+  selectedGroupIds: appState?.selectedGroupIds ?? {},
+  scrollX: appState?.scrollX,
+  scrollY: appState?.scrollY,
+  zoom: appState?.zoom,
+});
+
 export const buildAgentSceneSnapshot = (
   scene: SceneLike,
   imageRecords: ImageRecordMap | null | undefined,
@@ -101,6 +150,53 @@ export const buildAgentSceneSnapshot = (
     fileCount: Object.keys(files).length,
     imageRecordCount: Object.keys(imageRecords ?? {}).length,
     selectedElementIds,
+  };
+};
+
+export const buildAgentSceneBoard = ({
+  project,
+  scene,
+  imageRecords,
+  assetPayloads,
+  updatedAt,
+}: {
+  project: DesktopProjectBundle;
+  scene: SceneLike;
+  imageRecords: ImageRecordMap;
+  assetPayloads: readonly ProjectAssetPayload[];
+  updatedAt: string;
+}) => {
+  const elements = scene?.elements ?? [];
+  const referencedFileIds = new Set(collectAgentImageFileIds(elements));
+  const existingFiles = Object.fromEntries(
+    Object.entries(scene?.files ?? {}).filter(([fileId]) =>
+      referencedFileIds.has(fileId),
+    ),
+  ) as BinaryFiles;
+  const assetFiles = projectAssetPayloadsToBinaryFiles(
+    assetPayloads,
+    imageRecords,
+  );
+  const files = {
+    ...existingFiles,
+    ...assetFiles,
+  };
+  const loadedFileIds = new Set(Object.keys(files));
+
+  return {
+    project: {
+      projectPath: project.projectPath,
+      name: project.project.name,
+      updatedAt: project.project.updatedAt,
+    },
+    updatedAt,
+    elements,
+    appState: buildAgentBoardAppState(scene?.appState),
+    files,
+    metrics: buildAgentSceneSnapshot(scene, imageRecords),
+    missingFileIds: Array.from(referencedFileIds).filter(
+      (fileId) => !loadedFileIds.has(fileId),
+    ),
   };
 };
 

@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { Excalidraw } from "@excalidraw/excalidraw";
+
 import { AGENT_HTTP_ROUTES } from "../../shared/agentBridgeTypes";
+import { DESKTOP_LANG_CODE } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 
 import type { AgentEnvelope } from "../../shared/agentBridgeTypes";
 import type { DesktopCurrentProject } from "../../shared/desktopBridgeTypes";
+import type { ExcalidrawElement } from "@excalidraw/element/types";
+import type {
+  AppState,
+  BinaryFiles,
+  ExcalidrawInitialDataState,
+} from "@excalidraw/excalidraw/types";
 
 interface AgentBoardStatus {
   ready: boolean;
@@ -18,6 +27,20 @@ interface AgentBoardSnapshot {
   fileCount: number;
   imageRecordCount: number;
   selectedElementIds: string[];
+}
+
+interface AgentBoardScene {
+  project: {
+    projectPath: string;
+    name: string;
+    updatedAt: string;
+  };
+  updatedAt: string;
+  elements: ExcalidrawElement[];
+  appState: Partial<AppState>;
+  files: BinaryFiles;
+  metrics: AgentBoardSnapshot;
+  missingFileIds: string[];
 }
 
 interface AgentBoardSelection {
@@ -49,7 +72,7 @@ const getAgentBoardConfig = () => {
 export const AgentBoard = () => {
   const config = useMemo(getAgentBoardConfig, []);
   const [status, setStatus] = useState<AgentBoardStatus | null>(null);
-  const [snapshot, setSnapshot] = useState<AgentBoardSnapshot | null>(null);
+  const [board, setBoard] = useState<AgentBoardScene | null>(null);
   const [selection, setSelection] = useState<AgentBoardSelection | null>(null);
   const [grant, setGrant] = useState<AgentBoardGrant | null>(null);
   const [loading, setLoading] = useState(false);
@@ -96,17 +119,17 @@ export const AgentBoard = () => {
       );
       setStatus(nextStatus);
       if (!nextStatus.currentProject) {
-        setSnapshot(null);
+        setBoard(null);
         setSelection(null);
         setGrant(null);
         return;
       }
 
-      const [nextSnapshot, nextSelection] = await Promise.all([
-        requestBridge<AgentBoardSnapshot>(AGENT_HTTP_ROUTES.sceneSnapshot),
+      const [nextBoard, nextSelection] = await Promise.all([
+        requestBridge<AgentBoardScene>(AGENT_HTTP_ROUTES.sceneBoard),
         requestBridge<AgentBoardSelection>(AGENT_HTTP_ROUTES.sceneSelection),
       ]);
-      setSnapshot(nextSnapshot);
+      setBoard(nextBoard);
       setSelection(nextSelection);
     } catch (nextError) {
       setError(
@@ -149,6 +172,23 @@ export const AgentBoard = () => {
     void refresh();
   }, []);
 
+  const boardInitialData = useMemo<ExcalidrawInitialDataState | null>(() => {
+    if (!board) {
+      return null;
+    }
+
+    return {
+      elements: board.elements,
+      appState: {
+        ...board.appState,
+        viewModeEnabled: true,
+        zenModeEnabled: true,
+      },
+      files: board.files,
+      scrollToContent: true,
+    };
+  }, [board]);
+
   if (!config) {
     return (
       <div className="agent-board-page">
@@ -165,14 +205,15 @@ export const AgentBoard = () => {
   }
 
   return (
-    <div className="agent-board-page">
-      <main className="agent-board-shell">
+    <div className="agent-board-page agent-board-page--canvas">
+      <main className="agent-board-workspace">
         <header className="agent-board-header">
           <div>
             <span className="welcome-pane__eyebrow">Agent Board</span>
-            <h1>CoreStudio Agent Board</h1>
+            <h1>{board?.project.name ?? "CoreStudio Agent Board"}</h1>
             <p>
-              通过本地 Agent Bridge 查看当前项目状态，并向桌面端申请写入授权。
+              在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回仍通过
+              CLI / Local Bridge 授权完成。
             </p>
           </div>
           <div className="agent-board-header__actions">
@@ -192,48 +233,86 @@ export const AgentBoard = () => {
 
         {error && <div className="dialog-card__error">{error}</div>}
 
-        <section className="agent-board-card">
-          <div>
-            <span className="agent-board-label">当前项目</span>
-            <strong>{status?.currentProject?.name ?? "未打开项目"}</strong>
+        <section className="agent-board-content">
+          <div className="agent-board-canvas-panel">
+            {board && boardInitialData ? (
+              <Excalidraw
+                key={board.updatedAt}
+                langCode={DESKTOP_LANG_CODE}
+                initialData={boardInitialData}
+                viewModeEnabled={true}
+                zenModeEnabled={true}
+              />
+            ) : (
+              <div className="agent-board-empty" role="status">
+                {loading ? "正在载入画板" : "等待当前项目画板"}
+              </div>
+            )}
           </div>
-          {status?.currentProject?.projectPath && (
-            <p>{status.currentProject.projectPath}</p>
-          )}
-        </section>
 
-        <section className="agent-board-grid" aria-label="画板摘要">
-          <div className="agent-board-metric">
-            <span>元素</span>
-            <strong>{snapshot?.elementCount ?? "-"}</strong>
-          </div>
-          <div className="agent-board-metric">
-            <span>图片元素</span>
-            <strong>{snapshot?.imageElementCount ?? "-"}</strong>
-          </div>
-          <div className="agent-board-metric">
-            <span>文字元素</span>
-            <strong>{snapshot?.textElementCount ?? "-"}</strong>
-          </div>
-          <div className="agent-board-metric">
-            <span>选区</span>
-            <strong>
-              {selection?.selected
-                ? `${snapshot?.selectedElementIds?.length ?? 0} 个`
-                : "无"}
-            </strong>
-          </div>
-        </section>
+          <aside className="agent-board-side" aria-label="画板状态">
+            <section className="agent-board-card">
+              <div>
+                <span className="agent-board-label">当前项目</span>
+                <strong>
+                  {status?.currentProject?.name ?? "未打开项目"}
+                </strong>
+              </div>
+              {status?.currentProject?.projectPath && (
+                <p>{status.currentProject.projectPath}</p>
+              )}
+              {board?.updatedAt && (
+                <p>
+                  Board 同步于{" "}
+                  {new Date(board.updatedAt).toLocaleTimeString("zh-CN")}
+                </p>
+              )}
+            </section>
 
-        {grant && (
-          <section className="agent-board-card agent-board-card--grant">
-            <div>
-              <span className="agent-board-label">写入授权</span>
-              <strong>{grant.taskId}</strong>
-            </div>
-            <p>有效期至 {new Date(grant.expiresAt).toLocaleString("zh-CN")}</p>
-          </section>
-        )}
+            <section className="agent-board-grid" aria-label="画板摘要">
+              <div className="agent-board-metric">
+                <span>元素</span>
+                <strong>{board?.metrics.elementCount ?? "-"}</strong>
+              </div>
+              <div className="agent-board-metric">
+                <span>图片</span>
+                <strong>{board?.metrics.imageElementCount ?? "-"}</strong>
+              </div>
+              <div className="agent-board-metric">
+                <span>文字</span>
+                <strong>{board?.metrics.textElementCount ?? "-"}</strong>
+              </div>
+              <div className="agent-board-metric">
+                <span>选区</span>
+                <strong>
+                  {selection?.selected
+                    ? `${board?.metrics.selectedElementIds?.length ?? 0} 个`
+                    : "无"}
+                </strong>
+              </div>
+            </section>
+
+            {board?.missingFileIds.length ? (
+              <section className="agent-board-card agent-board-card--warning">
+                <span className="agent-board-label">图片加载</span>
+                <strong>{board.missingFileIds.length} 张图片未载入</strong>
+                <p>可刷新状态，或在桌面端确认项目资源是否完整。</p>
+              </section>
+            ) : null}
+
+            {grant && (
+              <section className="agent-board-card agent-board-card--grant">
+                <div>
+                  <span className="agent-board-label">写入授权</span>
+                  <strong>{grant.taskId}</strong>
+                </div>
+                <p>
+                  有效期至 {new Date(grant.expiresAt).toLocaleString("zh-CN")}
+                </p>
+              </section>
+            )}
+          </aside>
+        </section>
       </main>
     </div>
   );

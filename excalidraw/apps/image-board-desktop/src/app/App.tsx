@@ -116,10 +116,13 @@ import { TopBar } from "./components/TopBar";
 import { WelcomePane } from "./components/WelcomePane";
 import {
   buildAgentProjectContext,
+  buildAgentSceneBoard,
   buildAgentSceneSnapshot,
   buildAgentSelectionContext,
+  collectAgentImageFileIds,
   createAgentGenerationRequest,
   createAgentPromptTextElement,
+  projectAssetPayloadsToBinaryFiles,
 } from "./agent/agentCommandHandlers";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
@@ -177,31 +180,6 @@ const isEmptyClipboardData = (data: ClipboardData) =>
   !data.mixedContent?.length &&
   !data.errorMessage &&
   !(data.text ?? "").trim();
-
-const collectImageFileIds = (elements: readonly ExcalidrawElement[]) => {
-  return elements.reduce((fileIds, element) => {
-    if (
-      !element.isDeleted &&
-      element.type === "image" &&
-      element.fileId
-    ) {
-      fileIds.push(element.fileId);
-    }
-    return fileIds;
-  }, [] as string[]);
-};
-
-const toBinaryFiles = (assets: ProjectAssetPayload[], imageRecords: DesktopProjectBundle["imageRecords"]): BinaryFiles =>
-  assets.reduce((files, asset) => {
-    const fileId = asset.fileId as FileId;
-    files[fileId] = {
-      id: fileId,
-      mimeType: asset.mimeType as BinaryFileData["mimeType"],
-      dataURL: `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
-      created: Date.parse(imageRecords[asset.fileId]?.createdAt || asset.createdAt) || Date.now(),
-    };
-    return files;
-  }, {} as BinaryFiles);
 
 const REMOTE_METHOD_PREFIX = /^Error invoking remote method '[^']+':\s*/;
 const PENDING_PLACEHOLDER_STROKE = "#6d5efc";
@@ -968,7 +946,10 @@ const App = () => {
       return false;
     }
 
-    const files = toBinaryFiles(assets, activeProject.imageRecords);
+    const files = projectAssetPayloadsToBinaryFiles(
+      assets,
+      activeProject.imageRecords,
+    );
     const filesToAdd = Object.values(files);
     if (!filesToAdd.length) {
       return false;
@@ -1391,7 +1372,7 @@ const App = () => {
       ...scene,
       files: {
         ...scene.files,
-        ...toBinaryFiles(assets, project.imageRecords),
+        ...projectAssetPayloadsToBinaryFiles(assets, project.imageRecords),
       },
     };
   };
@@ -1681,7 +1662,7 @@ const App = () => {
       }
 
       const restored = await deserializeSceneFromProject(bundle.sceneJson);
-      const fileIds = collectImageFileIds(restored.elements || []);
+      const fileIds = collectAgentImageFileIds(restored.elements || []);
       const assets = bundle.safeMode
         ? []
         : await desktopBridge.readProjectAssetPayloads({
@@ -1694,7 +1675,10 @@ const App = () => {
         return;
       }
 
-      const files = toBinaryFiles(assets, bundle.imageRecords);
+      const files = projectAssetPayloadsToBinaryFiles(
+        assets,
+        bundle.imageRecords,
+      );
       const missingThumbnailFileIds = Array.from(
         new Set(
           assets
@@ -2624,6 +2608,22 @@ const App = () => {
             name: project.project.name,
             updatedAt: project.project.updatedAt,
           };
+        case "scene.board": {
+          const scene = latestSceneRef.current;
+          const fileIds = collectAgentImageFileIds(scene?.elements ?? []);
+          const assetPayloads = await readProjectImageAssets(
+            project,
+            fileIds,
+            "preview",
+          );
+          return buildAgentSceneBoard({
+            project,
+            scene,
+            imageRecords: project.imageRecords,
+            assetPayloads,
+            updatedAt: new Date().toISOString(),
+          });
+        }
         case "scene.snapshot": {
           const scene = latestSceneRef.current;
           const sceneJson = scene

@@ -17,10 +17,22 @@ const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
   }
 
   if (status?.ready) {
-    return "等待项目";
+    return "Bridge 已连接，等待项目";
   }
 
   return "Agent 未就绪";
+};
+
+const getBadgeText = (status?: DesktopAgentBridgeStatus | null) => {
+  if (status?.ready && status.currentProject) {
+    return "在线";
+  }
+
+  if (status?.ready) {
+    return "等待项目";
+  }
+
+  return "未连接";
 };
 
 const getBridgeEndpoint = (status?: DesktopAgentBridgeStatus | null) => {
@@ -46,6 +58,7 @@ export const AgentStatusDock = ({
   const connected = Boolean(status?.ready && status.currentProject);
   const boardUrlReady = Boolean(status?.boardUrl);
   const statusText = getStatusText(status);
+  const badgeText = getBadgeText(status);
   const bridgeEndpoint = getBridgeEndpoint(status);
 
   useEffect(() => {
@@ -99,7 +112,7 @@ export const AgentStatusDock = ({
                 .filter(Boolean)
                 .join(" ")}
             >
-              {connected ? "在线" : "未连接"}
+              {badgeText}
             </span>
           </header>
 

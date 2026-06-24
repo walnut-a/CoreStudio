@@ -100,6 +100,27 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("returns bridge-ready status even when no project is open", async () => {
+    const { server } = await track(
+      startServer({
+        getCurrentProject: () => null,
+      }),
+    );
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.status);
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          ready: true,
+          currentProject: null,
+        },
+      },
+    });
+  });
+
   it("returns capabilities with routes, permissions, and protocol version", async () => {
     const { server } = await track(startServer());
 
@@ -239,6 +260,79 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("returns browser board runtime selection before asking the desktop renderer", async () => {
+    const { server, renderer } = await track(startServer());
+    const selection = {
+      selected: true,
+      reference: {
+        enabled: true,
+        elementCount: 1,
+        textCount: 0,
+        items: [
+          {
+            id: "image-1",
+            index: 1,
+            kind: "image",
+            label: "图片",
+            fileId: "file-1",
+          },
+        ],
+        source: {
+          elementIds: ["image-1"],
+          fileIds: ["file-1"],
+        },
+      },
+    };
+
+    const publishResult = await requestJson(
+      server.baseUrl,
+      "/v1/agent/browser-state",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          source: "agent-board",
+          projectPath: currentProject.projectPath,
+          updatedAt: "2026-06-24T08:01:00.000Z",
+          selection,
+          scene: {
+            selectedElementIds: ["image-1"],
+            viewport: {
+              scrollX: 120,
+              scrollY: -80,
+              zoom: 0.75,
+              width: 1440,
+              height: 900,
+            },
+          },
+        }),
+      },
+    );
+
+    expect(publishResult).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          accepted: true,
+        },
+      },
+    });
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneSelection,
+    );
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: selection,
+      },
+    });
+    expect(renderer.request).not.toHaveBeenCalledWith("scene.selection");
+  });
+
   it("maps renderer PROJECT_REQUIRED errors on read routes to conflict responses", async () => {
     const error = Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
       code: "PROJECT_REQUIRED",
@@ -260,6 +354,65 @@ describe("createLocalBridgeServer", () => {
         },
       },
     });
+  });
+
+  it("forwards allowed desktop bridge methods without task grants", async () => {
+    const { server, renderer } = await track(startServer());
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.desktopBridge,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          method: "openRecentProject",
+          args: [currentProject.projectPath],
+        }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
+      method: "openRecentProject",
+      args: [currentProject.projectPath],
+    });
+    expect(result.body).toEqual({
+      ok: true,
+      data: {
+        command: "desktop.bridge",
+        payload: {
+          method: "openRecentProject",
+          args: [currentProject.projectPath],
+        },
+      },
+    });
+  });
+
+  it("rejects unsupported desktop bridge methods", async () => {
+    const { server, renderer } = await track(startServer());
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.desktopBridge,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          method: "onAgentCommandRequest",
+          args: [],
+        }),
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 400,
+      body: {
+        ok: false,
+        error: {
+          code: "BAD_REQUEST",
+        },
+      },
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("forwards add-prompt with a valid write-board grant", async () => {

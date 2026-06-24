@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
+  AGENT_DESKTOP_BRIDGE_METHODS,
   AGENT_HTTP_ROUTES,
   AGENT_PERMISSIONS,
   createAgentError,
   createAgentOk,
+  isAgentDesktopBridgeMethod,
   normalizeAgentPermissions,
 } from "./agentBridgeTypes";
 
@@ -17,8 +19,18 @@ describe("agentBridgeTypes", () => {
   it("exports the documented HTTP routes", () => {
     expect(AGENT_HTTP_ROUTES.status).toBe("/v1/status");
     expect(AGENT_HTTP_ROUTES.authorize).toBe("/v1/agent/authorize");
+    expect(AGENT_HTTP_ROUTES.browserState).toBe("/v1/agent/browser-state");
+    expect(AGENT_HTTP_ROUTES.desktopBridge).toBe("/v1/desktop-bridge");
     expect(AGENT_HTTP_ROUTES.sceneBoard).toBe("/v1/scene/board");
     expect(AGENT_HTTP_ROUTES.sceneAddImage).toBe("/v1/scene/add-image");
+  });
+
+  it("exports the Agent browser desktop bridge method allowlist", () => {
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("openRecentProject");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("writeProjectScene");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("generateImages");
+    expect(isAgentDesktopBridgeMethod("openProject")).toBe(true);
+    expect(isAgentDesktopBridgeMethod("onAgentCommandRequest")).toBe(false);
   });
 
   it("normalizes permissions into the documented order without duplicates", () => {

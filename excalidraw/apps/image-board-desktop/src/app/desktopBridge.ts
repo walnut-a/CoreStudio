@@ -1,13 +1,25 @@
 import type { DesktopBridgeApi } from "../shared/desktopBridgeTypes";
+import { maybeCreateAgentBrowserDesktopBridge } from "./agent/agentBrowserBridge";
 
 const missingBridgeError = () =>
   new Error("Electron desktop bridge is not available in this environment.");
 
 export const getDesktopBridge = (): DesktopBridgeApi => {
-  if (!window.imageBoardDesktop) {
+  const bridge = maybeGetDesktopBridge();
+  if (!bridge) {
     throw missingBridgeError();
   }
-  return window.imageBoardDesktop;
+  return bridge;
 };
 
-export const maybeGetDesktopBridge = () => window.imageBoardDesktop ?? null;
+export const maybeGetDesktopBridge = () => {
+  if (window.imageBoardDesktop) {
+    return window.imageBoardDesktop;
+  }
+
+  const agentBrowserBridge = maybeCreateAgentBrowserDesktopBridge();
+  if (agentBrowserBridge) {
+    window.imageBoardDesktop = agentBrowserBridge;
+  }
+  return agentBrowserBridge ?? null;
+};

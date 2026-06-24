@@ -18,36 +18,12 @@ import {
   newImageElement,
   newTextElement,
 } from "@excalidraw/element";
+
 import type {
   ExcalidrawElement,
   FileId,
 } from "@excalidraw/element/types";
 
-import {
-  getProviderDefinition,
-  isAutoAspectRatioRequest,
-  normalizeGenerationRequest,
-} from "../shared/providerCatalog";
-import {
-  buildImagePromptReferenceRecords,
-  buildPromptTextWithInlineReferences,
-} from "../shared/promptReferences";
-import type {
-  DesktopAppInfo,
-  DesktopAgentBridgeStatus,
-  DesktopProjectBundle,
-  PersistedImageAssetInput,
-  ProjectAssetPayload,
-  PublicProviderSettings,
-  RecentProjectEntry,
-  SavedPrompt,
-  SavePromptInput,
-} from "../shared/desktopBridgeTypes";
-import type {
-  ImageAssetRequestRendition,
-  ImagePromptReferenceRecord,
-  ImageRecord,
-} from "../shared/projectTypes";
 import type {
   AppState,
   BinaryFileData,
@@ -56,8 +32,20 @@ import type {
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
-import type { GenerationRequest } from "../shared/providerTypes";
 
+import {
+  buildImagePromptReferenceRecords,
+  buildPromptTextWithInlineReferences,
+} from "../shared/promptReferences";
+import { isAgentDesktopBridgeMethod } from "../shared/agentBridgeTypes";
+import {
+  getProviderDefinition,
+  isAutoAspectRatioRequest,
+  normalizeGenerationRequest,
+} from "../shared/providerCatalog";
+
+
+import { publishAgentBrowserRuntimeState } from "./agent/agentBrowserBridge";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { syncSelectionReferenceIntoRequest } from "./generationRequestState";
 import {
@@ -109,7 +97,9 @@ import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AgentBoard } from "./components/AgentBoard";
 import { AgentStatusDock } from "./components/AgentStatusDock";
 import { ImageSidebar } from "./components/ImageSidebar";
+
 import type { GenerationTaskRecord } from "./components/ImageInspector";
+
 import { SideDock } from "./components/SideDock";
 import { DesktopButton } from "./components/DesktopButton";
 import { TopBar } from "./components/TopBar";
@@ -127,6 +117,28 @@ import {
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import "./App.css";
+
+import type { AgentBrowserRuntimeState } from "../shared/agentBridgeTypes";
+import type {
+  GenerationReferencePayload,
+  GenerationRequest,
+} from "../shared/providerTypes";
+import type {
+  ImageAssetRequestRendition,
+  ImagePromptReferenceRecord,
+  ImageRecord,
+} from "../shared/projectTypes";
+import type {
+  DesktopAppInfo,
+  DesktopAgentBridgeStatus,
+  DesktopProjectBundle,
+  PersistedImageAssetInput,
+  ProjectAssetPayload,
+  PublicProviderSettings,
+  RecentProjectEntry,
+  SavedPrompt,
+  SavePromptInput,
+} from "../shared/desktopBridgeTypes";
 
 const getPromptHistoryText = (request: GenerationRequest) =>
   buildPromptTextWithInlineReferences(request).trim() || request.prompt;
@@ -668,11 +680,41 @@ const formatGenerationErrorDebugText = (details: GenerationErrorDetails) => {
   ].join("\n");
 };
 
+const stripSelectionReferenceThumbnails = (
+  reference: GenerationReferencePayload | null,
+): GenerationReferencePayload | null => {
+  if (!reference?.items?.length) {
+    return reference;
+  }
+
+  return {
+    ...reference,
+    items: reference.items.map(({ thumbnailDataUrl: _thumbnailDataUrl, ...item }) => item),
+  };
+};
+
+const getRuntimeSelectedElementIds = (appState: AppState) =>
+  Object.entries(appState.selectedElementIds ?? {})
+    .filter(([, selected]) => Boolean(selected))
+    .map(([elementId]) => elementId);
+
+const buildAgentBrowserRuntimeViewport = (
+  appState: AppState,
+): NonNullable<AgentBrowserRuntimeState["scene"]>["viewport"] => ({
+  scrollX: appState.scrollX,
+  scrollY: appState.scrollY,
+  zoom: appState.zoom?.value,
+  width: appState.width,
+  height: appState.height,
+});
+
 const App = () => {
+  const isAgentBrowserRoute = window.location.pathname === "/agent-board";
   const bridge = maybeGetDesktopBridge();
   const desktopBridge = bridge!;
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
+  const agentBrowserStatePublishTimerRef = useRef<number | null>(null);
   const pendingAutosaveRef = useRef<AutosaveSnapshot | null>(null);
   const autosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const isEditorInitializingRef = useRef(false);
@@ -721,6 +763,10 @@ const App = () => {
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
+  const [
+    agentBrowserAutoOpenProjectPath,
+    setAgentBrowserAutoOpenProjectPath,
+  ] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(null);
   const [selectedTask, setSelectedTask] = useState<GenerationTaskRecord | null>(null);
   const [generateRequest, setGenerateRequest] = useState(() =>
@@ -866,6 +912,13 @@ const App = () => {
     }
   };
 
+  const clearAgentBrowserStatePublishTimer = () => {
+    if (agentBrowserStatePublishTimerRef.current) {
+      window.clearTimeout(agentBrowserStatePublishTimerRef.current);
+      agentBrowserStatePublishTimerRef.current = null;
+    }
+  };
+
   const clearProjectNoticeTimer = () => {
     if (projectNoticeTimerRef.current) {
       window.clearTimeout(projectNoticeTimerRef.current);
@@ -885,6 +938,47 @@ const App = () => {
   const clearProjectNotice = () => {
     clearProjectNoticeTimer();
     setProjectNotice(null);
+  };
+
+  const publishAgentBrowserRuntimeStateForScene = (
+    scene: NonNullable<typeof latestSceneRef.current>,
+  ) => {
+    const project = currentProjectRef.current;
+    if (!isAgentBrowserRoute || !project) {
+      return;
+    }
+
+    const selectionReference = stripSelectionReferenceThumbnails(
+      buildSelectionReferenceSummary(scene),
+    );
+    const state: AgentBrowserRuntimeState = {
+      source: "agent-board",
+      projectPath: project.projectPath,
+      updatedAt: new Date().toISOString(),
+      selection: buildAgentSelectionContext(selectionReference),
+      scene: {
+        selectedElementIds: getRuntimeSelectedElementIds(scene.appState),
+        viewport: buildAgentBrowserRuntimeViewport(scene.appState),
+      },
+    };
+
+    void publishAgentBrowserRuntimeState(state).catch(() => {
+      // 浏览器运行态是给 Agent 观察用的临时通道，失败不应阻断画布操作。
+    });
+  };
+
+  const scheduleAgentBrowserRuntimeStatePublish = (
+    scene: NonNullable<typeof latestSceneRef.current> | null,
+  ) => {
+    if (!isAgentBrowserRoute || !scene) {
+      return;
+    }
+
+    clearAgentBrowserStatePublishTimer();
+    agentBrowserStatePublishTimerRef.current = window.setTimeout(() => {
+      agentBrowserStatePublishTimerRef.current = null;
+      publishAgentBrowserRuntimeStateForScene(latestSceneRef.current ?? scene);
+    }, 120);
   };
 
   const resetImageRenditionState = () => {
@@ -1340,6 +1434,7 @@ const App = () => {
     };
     latestSceneRef.current = nextScene;
     scheduleVisibleImageRenditionLoad(nextScene);
+    scheduleAgentBrowserRuntimeStatePublish(nextScene);
     updateWorkspaceOverlay(elements, nextAppState);
   };
 
@@ -1475,6 +1570,24 @@ const App = () => {
     }
   };
 
+  const createUnavailableAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
+    ready: false,
+    currentProject: null,
+    boardUrl: isAgentBrowserRoute ? window.location.href : null,
+  });
+
+  const readAgentBridgeStatus = async () => {
+    if (!bridge?.getAgentBridgeStatus) {
+      return null;
+    }
+
+    try {
+      return await bridge.getAgentBridgeStatus();
+    } catch {
+      return createUnavailableAgentBridgeStatus();
+    }
+  };
+
   const loadAgentBridgeStatus = async () => {
     if (!bridge?.getAgentBridgeStatus) {
       setAgentBridgeStatus(null);
@@ -1482,8 +1595,25 @@ const App = () => {
     }
 
     notifyDesktopProjectState(currentProjectRef.current);
-    const nextStatus = await bridge.getAgentBridgeStatus();
+    const nextStatus = await readAgentBridgeStatus();
     setAgentBridgeStatus(nextStatus);
+    return nextStatus;
+  };
+
+  const refreshAgentBrowserConnectionState = async () => {
+    const nextStatus = await loadAgentBridgeStatus();
+    if (isAgentBrowserRoute && nextStatus?.currentProject) {
+      if (
+        currentProjectRef.current?.projectPath !==
+        nextStatus.currentProject.projectPath
+      ) {
+        setAgentBrowserAutoOpenProjectPath(null);
+      }
+      void loadAppInfoState();
+      void loadProviderState();
+      void loadPromptLibraryState();
+      await loadRecentProjectsState();
+    }
     return nextStatus;
   };
 
@@ -1497,6 +1627,13 @@ const App = () => {
     } catch {
       setSavedPrompts([]);
     }
+  };
+
+  const loadDesktopStartupState = () => {
+    void loadAppInfoState();
+    void loadProviderState();
+    void loadRecentProjectsState();
+    void loadPromptLibraryState();
   };
 
   const clearGenerationErrorState = () => {
@@ -1539,10 +1676,9 @@ const App = () => {
 
   useEffect(() => {
     bridge?.notifyRendererReady?.();
-    void loadAppInfoState();
-    void loadProviderState();
-    void loadRecentProjectsState();
-    void loadPromptLibraryState();
+    if (!isAgentBrowserRoute) {
+      loadDesktopStartupState();
+    }
     let cancelled = false;
     let retryTimer: number | null = null;
     let attempts = 0;
@@ -1554,13 +1690,16 @@ const App = () => {
 
       attempts += 1;
       notifyDesktopProjectState(currentProjectRef.current);
-      const nextStatus = await bridge.getAgentBridgeStatus();
+      const nextStatus = await readAgentBridgeStatus();
       if (cancelled) {
         return;
       }
 
       setAgentBridgeStatus(nextStatus);
-      if (!nextStatus.boardUrl && attempts < 20) {
+      if (isAgentBrowserRoute && nextStatus?.currentProject) {
+        loadDesktopStartupState();
+      }
+      if (!nextStatus?.boardUrl && attempts < 20) {
         retryTimer = window.setTimeout(refreshAgentBridgeStatus, 500);
       }
     };
@@ -1594,6 +1733,7 @@ const App = () => {
       }
       clearProjectNoticeTimer();
       clearHighResImageLoadTimer();
+      clearAgentBrowserStatePublishTimer();
     },
     [],
   );
@@ -1784,6 +1924,28 @@ const App = () => {
       }
     }
   };
+
+  useEffect(() => {
+    const agentBrowserTargetProjectPath = recentProjects[0]?.projectPath;
+    if (
+      !isAgentBrowserRoute ||
+      loadingProject ||
+      !agentBrowserTargetProjectPath ||
+      currentProject?.projectPath === agentBrowserTargetProjectPath ||
+      agentBrowserAutoOpenProjectPath === agentBrowserTargetProjectPath
+    ) {
+      return;
+    }
+
+    setAgentBrowserAutoOpenProjectPath(agentBrowserTargetProjectPath);
+    void handleOpenRecentProject(agentBrowserTargetProjectPath);
+  }, [
+    agentBrowserAutoOpenProjectPath,
+    currentProject?.projectPath,
+    isAgentBrowserRoute,
+    loadingProject,
+    recentProjects,
+  ]);
 
   const handleProjectRenderError = (
     error: Error,
@@ -2570,12 +2732,59 @@ const App = () => {
     }
   };
 
+  const handleAgentDesktopBridgeRequest = async (payload: unknown) => {
+    if (
+      !isObjectPayload(payload) ||
+      !isAgentDesktopBridgeMethod(payload.method)
+    ) {
+      throw createAgentBadRequestError("desktop.bridge method 不受支持。");
+    }
+
+    const args = payload.args;
+    if (args !== undefined && !Array.isArray(args)) {
+      throw createAgentBadRequestError("desktop.bridge args 必须是数组。");
+    }
+
+    if (payload.method === "openRecentProject") {
+      const [projectPath] = args ?? [];
+      const project = currentProjectRef.current;
+      if (
+        typeof projectPath === "string" &&
+        project?.projectPath === projectPath
+      ) {
+        const scene = latestSceneRef.current;
+        return {
+          ...project,
+          sceneJson: scene
+            ? serializeSceneForProject({
+                elements: scene.elements,
+                appState: scene.appState,
+              })
+            : project.sceneJson,
+        };
+      }
+    }
+
+    const bridgeMethod = desktopBridge[payload.method];
+    if (typeof bridgeMethod !== "function") {
+      throw createAgentBadRequestError("desktop.bridge method 不可用。");
+    }
+
+    return (bridgeMethod as (...methodArgs: unknown[]) => unknown)(
+      ...(args ?? []),
+    );
+  };
+
   useEffect(() => {
     if (!bridge?.onAgentCommandRequest) {
       return;
     }
 
     return bridge.onAgentCommandRequest(async (request) => {
+      if (request.command === "desktop.bridge") {
+        return handleAgentDesktopBridgeRequest(request.payload);
+      }
+
       if (request.command === "task.complete") {
         return { completed: true };
       }
@@ -3181,6 +3390,98 @@ const App = () => {
     );
   }
 
+  if (
+    isAgentBrowserRoute &&
+    (!agentBridgeStatus?.ready || !agentBridgeStatus.currentProject)
+  ) {
+    const heading = !agentBridgeStatus
+      ? "正在连接桌面端"
+      : agentBridgeStatus.ready
+        ? "等待桌面端打开项目"
+        : "桌面端未连接";
+    const description = agentBridgeStatus?.ready
+      ? "请先在 CoreStudio 桌面端打开项目。连接状态确认后，Codex 会进入当前画板。"
+      : "请确认 CoreStudio 桌面端仍在运行，然后刷新连接状态。";
+
+    return (
+      <div className="image-board-app">
+        <div className="welcome-pane">
+          <div className="welcome-pane__card welcome-pane__diagnostic">
+            <span className="welcome-pane__eyebrow">Agent Bridge</span>
+            <h1>{heading}</h1>
+            <p>{description}</p>
+            {startupError && (
+              <div className="dialog-card__error welcome-pane__error">
+                {startupError}
+              </div>
+            )}
+            {projectError && (
+              <div className="dialog-card__error welcome-pane__error">
+                {projectError}
+              </div>
+            )}
+            <div className="welcome-pane__actions">
+              <DesktopButton
+                type="button"
+                variant="primary"
+                onClick={refreshAgentBrowserConnectionState}
+              >
+                刷新连接状态
+              </DesktopButton>
+            </div>
+          </div>
+        </div>
+        <AgentStatusDock
+          status={agentBridgeStatus}
+          onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
+          onRefreshStatus={refreshAgentBrowserConnectionState}
+        />
+      </div>
+    );
+  }
+
+  if (isAgentBrowserRoute && (!currentProject || !initialData)) {
+    return (
+      <div className="image-board-app">
+        <div className="welcome-pane">
+          <div className="welcome-pane__card welcome-pane__diagnostic">
+            <span className="welcome-pane__eyebrow">Agent Bridge</span>
+            <h1>正在进入桌面端当前项目</h1>
+            <p>
+              {agentBridgeStatus?.currentProject?.name
+                ? `当前项目：${agentBridgeStatus.currentProject.name}`
+                : "已确认本地桥连接，正在读取桌面端当前项目。"}
+            </p>
+            {startupError && (
+              <div className="dialog-card__error welcome-pane__error">
+                {startupError}
+              </div>
+            )}
+            {projectError && (
+              <div className="dialog-card__error welcome-pane__error">
+                {projectError}
+              </div>
+            )}
+            <div className="welcome-pane__actions">
+              <DesktopButton
+                type="button"
+                variant="primary"
+                onClick={refreshAgentBrowserConnectionState}
+              >
+                重新加载当前画板
+              </DesktopButton>
+            </div>
+          </div>
+        </div>
+        <AgentStatusDock
+          status={agentBridgeStatus}
+          onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
+          onRefreshStatus={refreshAgentBrowserConnectionState}
+        />
+      </div>
+    );
+  }
+
   if (!currentProject || !initialData) {
     return (
       <div className="image-board-app">
@@ -3321,6 +3622,7 @@ const App = () => {
                 }
                 latestSceneRef.current = nextScene;
                 scheduleVisibleImageRenditionLoad(nextScene);
+                scheduleAgentBrowserRuntimeStatePublish(nextScene);
                 updateWorkspaceOverlay(elements, appState);
                 setGenerateRequest((current) =>
                   syncSelectionReferenceIntoRequest(
@@ -3404,7 +3706,7 @@ const App = () => {
             <AgentStatusDock
               status={agentBridgeStatus}
               onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
-              onRefreshStatus={loadAgentBridgeStatus}
+              onRefreshStatus={refreshAgentBrowserConnectionState}
             />
             {renderWorkspaceBoundsOverlay()}
           </div>

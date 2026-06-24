@@ -1,7 +1,18 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { newFrameElement } from "@excalidraw/element";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { newFrameElement, newImageElement } from "@excalidraw/element";
+
+import type { BinaryFileData } from "@excalidraw/excalidraw/types";
+
+import type { FileId } from "@excalidraw/element/types";
 
 import App from "./App";
 import { rememberGenerationModelSelection } from "./generationModelSelection";
@@ -44,21 +55,19 @@ let triggerExcalidrawPaste:
 let throwExcalidrawRenderError: Error | null = null;
 let emitExcalidrawChangeAfterEveryRender = false;
 let renderChangeEmissionCount = 0;
-let mockExcalidrawAPI:
-  | {
-      updateScene: ReturnType<typeof vi.fn>;
-      addFiles: ReturnType<typeof vi.fn>;
-      replaceFiles: ReturnType<typeof vi.fn>;
-      scrollToContent: ReturnType<typeof vi.fn>;
-      getSceneElementsIncludingDeleted: () => any[];
-      getAppState: () => Record<string, any>;
-      getFiles: () => Record<string, any>;
-    }
-  | null = null;
+let mockExcalidrawAPI: {
+  updateScene: ReturnType<typeof vi.fn>;
+  addFiles: ReturnType<typeof vi.fn>;
+  replaceFiles: ReturnType<typeof vi.fn>;
+  scrollToContent: ReturnType<typeof vi.fn>;
+  getSceneElementsIncludingDeleted: () => any[];
+  getAppState: () => Record<string, any>;
+  getFiles: () => Record<string, any>;
+} | null = null;
 let skipExcalidrawApiRegistration = false;
 const { hoistedExportToBlob } = vi.hoisted(() => ({
-  hoistedExportToBlob: vi.fn(async () =>
-    new Blob(["selection-reference"], { type: "image/png" }),
+  hoistedExportToBlob: vi.fn(
+    async () => new Blob(["selection-reference"], { type: "image/png" }),
   ),
 }));
 
@@ -246,290 +255,290 @@ vi.mock("@excalidraw/excalidraw", () => {
         },
       },
     ),
-  Button: ({
-    children,
-    className,
-    onClick,
-    type = "button",
-    disabled,
-  }: {
-    children?: React.ReactNode;
-    className?: string;
-    onClick?: () => void;
-    type?: "button" | "submit" | "reset";
-    disabled?: boolean;
-  }) => (
-    <button
-      type={type}
-      className={className}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {children}
-    </button>
-  ),
-  Excalidraw: ({
-    initialData,
-    langCode,
-    children,
-    onInitialize,
-    onExcalidrawAPI,
-    onPointerUpdate,
-    onScrollChange,
-    onChange,
-    onPaste,
-    renderSelectedShapeActions,
-  }: {
-    initialData?: {
-      elements?: any[];
-      appState?: Record<string, unknown>;
-      files?: Record<string, unknown>;
-    } | null;
-    langCode?: string;
-    children?: React.ReactNode;
-    onInitialize?: (api?: any) => void;
-    onExcalidrawAPI?: (api: any) => void;
-    onPointerUpdate?: (payload: {
-      pointer: { x: number; y: number; tool: "pointer" | "laser" };
-      button: "down" | "up";
-      pointersMap: Map<number, { x: number; y: number }>;
-    }) => void;
-    onScrollChange?: (
-      scrollX: number,
-      scrollY: number,
-      zoom: { value: number },
-    ) => void;
-    onChange?: (
-      elements: any[],
-      appState: Record<string, unknown>,
-      files: Record<string, unknown>,
-    ) => void;
-    onPaste?: (
-      data: Record<string, unknown>,
-      event: ClipboardEvent | null,
-    ) => Promise<boolean> | boolean;
-    renderSelectedShapeActions?: (args: {
-      selectedShapeActions: React.ReactNode;
-      shouldRenderSelectedShapeActions: boolean;
-    }) => React.ReactNode;
-  }) => (
-    (() => {
-      const [activeTab, setActiveTabState] = React.useState("library");
-      const [sidebarOpen, setSidebarOpen] = React.useState(true);
-      const stateChangeRef = React.useRef<
-        ((state: { name: string; tab?: string } | null) => void) | null
-      >(null);
-      const setActiveTab = (tab: string) => {
-        setSidebarOpen(true);
-        setActiveTabState(tab);
-        stateChangeRef.current?.({ name: "default", tab });
-      };
-      const toggleDefaultSidebar = (tab = "library") => {
-        setSidebarOpen((current) => {
-          const nextOpen = !current;
-          if (nextOpen) {
-            setActiveTabState(tab);
-            stateChangeRef.current?.({ name: "default", tab });
-          } else {
-            stateChangeRef.current?.(null);
-          }
-          return nextOpen;
+    Button: ({
+      children,
+      className,
+      onClick,
+      type = "button",
+      disabled,
+    }: {
+      children?: React.ReactNode;
+      className?: string;
+      onClick?: () => void;
+      type?: "button" | "submit" | "reset";
+      disabled?: boolean;
+    }) => (
+      <button
+        type={type}
+        className={className}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {children}
+      </button>
+    ),
+    Excalidraw: ({
+      initialData,
+      langCode,
+      children,
+      onInitialize,
+      onExcalidrawAPI,
+      onPointerUpdate,
+      onScrollChange,
+      onChange,
+      onPaste,
+      renderSelectedShapeActions,
+    }: {
+      initialData?: {
+        elements?: any[];
+        appState?: Record<string, unknown>;
+        files?: Record<string, unknown>;
+      } | null;
+      langCode?: string;
+      children?: React.ReactNode;
+      onInitialize?: (api?: any) => void;
+      onExcalidrawAPI?: (api: any) => void;
+      onPointerUpdate?: (payload: {
+        pointer: { x: number; y: number; tool: "pointer" | "laser" };
+        button: "down" | "up";
+        pointersMap: Map<number, { x: number; y: number }>;
+      }) => void;
+      onScrollChange?: (
+        scrollX: number,
+        scrollY: number,
+        zoom: { value: number },
+      ) => void;
+      onChange?: (
+        elements: any[],
+        appState: Record<string, unknown>,
+        files: Record<string, unknown>,
+      ) => void;
+      onPaste?: (
+        data: Record<string, unknown>,
+        event: ClipboardEvent | null,
+      ) => Promise<boolean> | boolean;
+      renderSelectedShapeActions?: (args: {
+        selectedShapeActions: React.ReactNode;
+        shouldRenderSelectedShapeActions: boolean;
+      }) => React.ReactNode;
+    }) =>
+      (() => {
+        const [activeTab, setActiveTabState] = React.useState("library");
+        const [sidebarOpen, setSidebarOpen] = React.useState(true);
+        const stateChangeRef = React.useRef<
+          ((state: { name: string; tab?: string } | null) => void) | null
+        >(null);
+        const setActiveTab = (tab: string) => {
+          setSidebarOpen(true);
+          setActiveTabState(tab);
+          stateChangeRef.current?.({ name: "default", tab });
+        };
+        const toggleDefaultSidebar = (tab = "library") => {
+          setSidebarOpen((current) => {
+            const nextOpen = !current;
+            if (nextOpen) {
+              setActiveTabState(tab);
+              stateChangeRef.current?.({ name: "default", tab });
+            } else {
+              stateChangeRef.current?.(null);
+            }
+            return nextOpen;
+          });
+        };
+        const sceneRef = React.useRef<{
+          elements: any[];
+          appState: Record<string, any>;
+          files: Record<string, any>;
+        }>({
+          elements: initialData?.elements ?? [],
+          appState: {
+            width: 1440,
+            height: 900,
+            scrollX: 0,
+            scrollY: 0,
+            zoom: { value: 1 },
+            selectedElementIds: {},
+            selectedGroupIds: {},
+            ...(initialData?.appState ?? {}),
+          },
+          files: initialData?.files ?? {},
         });
-      };
-      const sceneRef = React.useRef<{
-        elements: any[];
-        appState: Record<string, any>;
-        files: Record<string, any>;
-      }>({
-        elements: initialData?.elements ?? [],
-        appState: {
-          width: 1440,
-          height: 900,
-          scrollX: 0,
-          scrollY: 0,
-          zoom: { value: 1 },
-          selectedElementIds: {},
-          selectedGroupIds: {},
-          ...(initialData?.appState ?? {}),
-        },
-        files: initialData?.files ?? {},
-      });
-      const apiRef = React.useRef<any>(null);
+        const apiRef = React.useRef<any>(null);
 
-      if (!apiRef.current) {
-        apiRef.current = {
-          updateScene: vi.fn(
-            ({
-              elements,
-              appState,
-              files,
-            }: {
-              elements?: any[];
-              appState?: Record<string, any>;
-              files?: Record<string, any>;
-            }) => {
-              sceneRef.current = {
-                elements: elements ?? sceneRef.current.elements,
-                appState: {
-                  ...sceneRef.current.appState,
-                  ...(appState ?? {}),
-                },
-                files: files ?? sceneRef.current.files,
-              };
-              onChange?.(
-                sceneRef.current.elements,
-                sceneRef.current.appState,
-                sceneRef.current.files,
-              );
-            },
-          ),
-          addFiles: vi.fn((files: Array<{ id: string }>) => {
-            const nextFiles = { ...sceneRef.current.files };
-            for (const file of files) {
-              if (nextFiles[file.id]) {
-                continue;
+        if (!apiRef.current) {
+          apiRef.current = {
+            updateScene: vi.fn(
+              ({
+                elements,
+                appState,
+                files,
+              }: {
+                elements?: any[];
+                appState?: Record<string, any>;
+                files?: Record<string, any>;
+              }) => {
+                sceneRef.current = {
+                  elements: elements ?? sceneRef.current.elements,
+                  appState: {
+                    ...sceneRef.current.appState,
+                    ...(appState ?? {}),
+                  },
+                  files: files ?? sceneRef.current.files,
+                };
+                onChange?.(
+                  sceneRef.current.elements,
+                  sceneRef.current.appState,
+                  sceneRef.current.files,
+                );
+              },
+            ),
+            addFiles: vi.fn((files: Array<{ id: string }>) => {
+              const nextFiles = { ...sceneRef.current.files };
+              for (const file of files) {
+                if (nextFiles[file.id]) {
+                  continue;
+                }
+                nextFiles[file.id] = file;
               }
-              nextFiles[file.id] = file;
-            }
-            sceneRef.current = {
-              ...sceneRef.current,
-              files: nextFiles,
-            };
-          }),
-          replaceFiles: vi.fn((files: Array<{ id: string }>) => {
-            const nextFiles = { ...sceneRef.current.files };
-            for (const file of files) {
-              nextFiles[file.id] = file;
-            }
-            sceneRef.current = {
-              ...sceneRef.current,
-              files: nextFiles,
-            };
-          }),
-          getSceneElementsIncludingDeleted: () => sceneRef.current.elements,
-          getAppState: () => sceneRef.current.appState,
-          getFiles: () => sceneRef.current.files,
-          scrollToContent: vi.fn(),
+              sceneRef.current = {
+                ...sceneRef.current,
+                files: nextFiles,
+              };
+            }),
+            replaceFiles: vi.fn((files: Array<{ id: string }>) => {
+              const nextFiles = { ...sceneRef.current.files };
+              for (const file of files) {
+                nextFiles[file.id] = file;
+              }
+              sceneRef.current = {
+                ...sceneRef.current,
+                files: nextFiles,
+              };
+            }),
+            getSceneElementsIncludingDeleted: () => sceneRef.current.elements,
+            getAppState: () => sceneRef.current.appState,
+            getFiles: () => sceneRef.current.files,
+            scrollToContent: vi.fn(),
+          };
+        }
+
+        React.useEffect(() => {
+          mockExcalidrawAPI = apiRef.current;
+          if (!skipExcalidrawApiRegistration) {
+            onExcalidrawAPI?.(apiRef.current);
+          }
+        }, [onExcalidrawAPI]);
+
+        React.useEffect(() => {
+          if (!emitExcalidrawChangeAfterEveryRender) {
+            return;
+          }
+
+          renderChangeEmissionCount += 1;
+          if (renderChangeEmissionCount > 8) {
+            throw new Error("Excalidraw onChange render loop");
+          }
+
+          onChange?.(
+            sceneRef.current.elements,
+            sceneRef.current.appState,
+            sceneRef.current.files,
+          );
+        });
+
+        triggerExcalidrawInitialize = () => onInitialize?.(apiRef.current);
+        triggerExcalidrawPointerUpdate = (payload) =>
+          onPointerUpdate?.(payload);
+        triggerExcalidrawScrollChange = ({
+          scrollX,
+          scrollY,
+          zoom,
+          appState,
+        }) => {
+          sceneRef.current = {
+            ...sceneRef.current,
+            appState: {
+              ...sceneRef.current.appState,
+              ...(appState ?? {}),
+              scrollX,
+              scrollY,
+              zoom,
+            },
+          };
+          onScrollChange?.(scrollX, scrollY, zoom);
         };
-      }
+        triggerExcalidrawPaste = (data, event = null) =>
+          onPaste?.(data, event) ?? true;
+        triggerExcalidrawChange = (scene) => {
+          sceneRef.current = {
+            elements: scene.elements,
+            appState: {
+              ...sceneRef.current.appState,
+              ...scene.appState,
+            },
+            files: scene.files,
+          };
+          onChange?.(
+            sceneRef.current.elements,
+            sceneRef.current.appState,
+            sceneRef.current.files,
+          );
+        };
 
-      React.useEffect(() => {
-        mockExcalidrawAPI = apiRef.current;
-        if (!skipExcalidrawApiRegistration) {
-          onExcalidrawAPI?.(apiRef.current);
+        if (throwExcalidrawRenderError) {
+          throw throwExcalidrawRenderError;
         }
-      }, [onExcalidrawAPI]);
 
-      React.useEffect(() => {
-        if (!emitExcalidrawChangeAfterEveryRender) {
-          return;
-        }
+        const selectedElementCount = Object.values(
+          sceneRef.current.appState.selectedElementIds ?? {},
+        ).filter(Boolean).length;
 
-        renderChangeEmissionCount += 1;
-        if (renderChangeEmissionCount > 8) {
-          throw new Error("Excalidraw onChange render loop");
-        }
-
-        onChange?.(
-          sceneRef.current.elements,
-          sceneRef.current.appState,
-          sceneRef.current.files,
+        return (
+          <>
+            <button
+              type="button"
+              data-testid="trigger-excalidraw-initialize"
+              onClick={() => onInitialize?.(apiRef.current)}
+              hidden
+            />
+            <div data-testid="excalidraw-canvas" data-lang-code={langCode}>
+              <sidebarTabsContext.Provider
+                value={{
+                  activeTab,
+                  sidebarOpen,
+                  setActiveTab,
+                  toggleDefaultSidebar,
+                  stateChangeRef,
+                }}
+              >
+                {renderSelectedShapeActions?.({
+                  selectedShapeActions: (
+                    <div data-testid="mock-selected-shape-actions">
+                      元素编辑动作
+                    </div>
+                  ),
+                  shouldRenderSelectedShapeActions: selectedElementCount > 0,
+                })}
+                {children}
+              </sidebarTabsContext.Provider>
+            </div>
+          </>
         );
-      });
-
-      triggerExcalidrawInitialize = () => onInitialize?.(apiRef.current);
-      triggerExcalidrawPointerUpdate = (payload) => onPointerUpdate?.(payload);
-      triggerExcalidrawScrollChange = ({
-        scrollX,
-        scrollY,
-        zoom,
-        appState,
-      }) => {
-        sceneRef.current = {
-          ...sceneRef.current,
-          appState: {
-            ...sceneRef.current.appState,
-            ...(appState ?? {}),
-            scrollX,
-            scrollY,
-            zoom,
-          },
-        };
-        onScrollChange?.(scrollX, scrollY, zoom);
-      };
-      triggerExcalidrawPaste = (data, event = null) =>
-        onPaste?.(data, event) ?? true;
-      triggerExcalidrawChange = (scene) => {
-        sceneRef.current = {
-          elements: scene.elements,
-          appState: {
-            ...sceneRef.current.appState,
-            ...scene.appState,
-          },
-          files: scene.files,
-        };
-        onChange?.(
-          sceneRef.current.elements,
-          sceneRef.current.appState,
-          sceneRef.current.files,
-        );
-      };
-
-      if (throwExcalidrawRenderError) {
-        throw throwExcalidrawRenderError;
-      }
-
-      const selectedElementCount = Object.values(
-        sceneRef.current.appState.selectedElementIds ?? {},
-      ).filter(Boolean).length;
-
-      return (
-        <>
-          <button
-            type="button"
-            data-testid="trigger-excalidraw-initialize"
-            onClick={() => onInitialize?.(apiRef.current)}
-            hidden
-          />
-          <div data-testid="excalidraw-canvas" data-lang-code={langCode}>
-            <sidebarTabsContext.Provider
-              value={{
-                activeTab,
-                sidebarOpen,
-                setActiveTab,
-                toggleDefaultSidebar,
-                stateChangeRef,
-              }}
-            >
-              {renderSelectedShapeActions?.({
-                selectedShapeActions: (
-                  <div data-testid="mock-selected-shape-actions">
-                    元素编辑动作
-                  </div>
-                ),
-                shouldRenderSelectedShapeActions: selectedElementCount > 0,
-              })}
-              {children}
-            </sidebarTabsContext.Provider>
-          </div>
-        </>
-      );
-    })()
-  ),
-  ToolbarButton: ({
-    "aria-label": ariaLabel,
-    onClick,
-  }: {
-    "aria-label": string;
-    onClick?: () => void;
-  }) => (
-    <button
-      type="button"
-      data-testid="toolbar-generate-image"
-      aria-label={ariaLabel}
-      onClick={onClick}
-    />
-  ),
+      })(),
+    ToolbarButton: ({
+      "aria-label": ariaLabel,
+      onClick,
+    }: {
+      "aria-label": string;
+      onClick?: () => void;
+    }) => (
+      <button
+        type="button"
+        data-testid="toolbar-generate-image"
+        aria-label={ariaLabel}
+        onClick={onClick}
+      />
+    ),
     Sidebar: {
       TabTrigger: ({
         tab,
@@ -555,13 +564,7 @@ vi.mock("@excalidraw/excalidraw", () => {
           </button>
         );
       },
-      Tab: ({
-        tab,
-        children,
-      }: {
-        tab: string;
-        children?: React.ReactNode;
-      }) => {
+      Tab: ({ tab, children }: { tab: string; children?: React.ReactNode }) => {
         const tabs = React.useContext(sidebarTabsContext);
 
         if (!tabs?.sidebarOpen || tabs.activeTab !== tab) {
@@ -633,7 +636,9 @@ vi.mock("./components/GenerateImageDialog", () => ({
       <div>
         <div>生成图片弹窗</div>
         <div data-testid="generate-dialog-prompt">{initialRequest.prompt}</div>
-        <div data-testid="generate-dialog-provider">{initialRequest.provider}</div>
+        <div data-testid="generate-dialog-provider">
+          {initialRequest.provider}
+        </div>
         <div data-testid="generate-dialog-model">{initialRequest.model}</div>
         {initialRequest.reference ? (
           <div>{`参考元素: ${initialRequest.reference.elementCount}`}</div>
@@ -741,10 +746,25 @@ vi.mock("./components/ImageInspector", () => ({
     }) => void;
   }) =>
     task ? (
-      <aside>{`生成任务: ${task.status === "error" ? "生成失败" : "生成中"} ${task.rawError || ""}`}</aside>
+      <aside>{`生成任务: ${task.status === "error" ? "生成失败" : "生成中"} ${
+        task.rawError || ""
+      }`}</aside>
     ) : record ? (
       <aside>
-        {`图片信息: ${record.model || "无"}${parentRecord?.prompt ? ` 来源图片: ${parentRecord.prompt}` : ""}${ancestorRecords?.length || descendantRecords?.length ? " 编辑链" : ""}${descendantRecords?.length ? ` 后续版本: ${descendantRecords.map(({ record: descendantRecord }) => descendantRecord.prompt || "无").join(" / ")}` : ""}`}
+        {`图片信息: ${record.model || "无"}${
+          parentRecord?.prompt ? ` 来源图片: ${parentRecord.prompt}` : ""
+        }${
+          ancestorRecords?.length || descendantRecords?.length ? " 编辑链" : ""
+        }${
+          descendantRecords?.length
+            ? ` 后续版本: ${descendantRecords
+                .map(
+                  ({ record: descendantRecord }) =>
+                    descendantRecord.prompt || "无",
+                )
+                .join(" / ")}`
+            : ""
+        }`}
         {ancestorRecords?.map((ancestorRecord) => (
           <button
             key={`ancestor-${ancestorRecord.fileId}`}
@@ -837,108 +857,68 @@ describe("App startup", () => {
     expect(container.querySelector(".welcome-pane__diagnostic")).toBeTruthy();
   });
 
-  it("renders the browser Agent Board route without the Electron desktop bridge", async () => {
+  it("boots the browser Agent Board route through the desktop bridge adapter", async () => {
     window.history.pushState(
       null,
       "",
       "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
     );
-    const fetchMock = vi.fn(async (url: string | URL) => {
+    const desktopBridgeCalls: Array<{ method: string; args?: unknown[] }> = [];
+    const currentProject = {
+      projectPath: "/tmp/corestudio-project",
+      name: "测试项目",
+    };
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
       const path = new URL(String(url)).pathname;
-      const bodyByPath: Record<string, unknown> = {
-        "/v1/status": {
-          ok: true,
-          data: {
-            ready: true,
-            currentProject: {
-              projectPath: "/tmp/corestudio-project",
-              name: "测试项目",
+      if (path === "/v1/status") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              ready: true,
+              currentProject,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
             },
           },
-        },
-        "/v1/scene/board": {
-          ok: true,
-          data: {
-            project: {
-              projectPath: "/tmp/corestudio-project",
-              name: "测试项目",
-              updatedAt: "2026-06-24T10:00:00.000Z",
-            },
-            updatedAt: "2026-06-24T10:30:00.000Z",
-            elements: [
-              {
-                id: "element-1",
-                type: "rectangle",
-                x: 0,
-                y: 0,
-                width: 120,
-                height: 80,
-                isDeleted: false,
-              },
-            ],
-            appState: {
-              viewBackgroundColor: "#ffffff",
-              selectedElementIds: {
-                "element-1": true,
-              },
-              selectedGroupIds: {},
-            },
-            files: {},
-            metrics: {
-              elementCount: 4,
-              imageElementCount: 1,
-              textElementCount: 2,
-              fileCount: 1,
-              imageRecordCount: 1,
-              selectedElementIds: ["element-1"],
-            },
-            missingFileIds: [],
-          },
-        },
-        "/v1/scene/selection": {
-          ok: true,
-          data: {
-            selected: true,
-            reference: {
-              elementCount: 1,
-            },
-          },
-        },
+        );
+      }
+
+      const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+        args?: unknown[];
       };
-      return new Response(JSON.stringify(bodyByPath[path]), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
+      desktopBridgeCalls.push(
+        requestBody as { method: string; args?: unknown[] },
+      );
+      const dataByMethod: Record<string, unknown> = {
+        loadAppInfo: {
+          name: "CoreStudio",
+          version: "0.0.0-test",
         },
-      });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(<App />);
-
-    expect(screen.getByText("CoreStudio Agent Board")).toBeInTheDocument();
-    expect(
-      await screen.findByRole("heading", { name: "测试项目" }),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
-    expect(screen.getByText("4")).toBeInTheDocument();
-    expect(screen.queryByText("桌面应用未连接")).not.toBeInTheDocument();
-  });
-
-  it("shows an empty Agent Board state before a desktop project is opened", async () => {
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
-    );
-    const fetchMock = vi.fn(async () => {
+        loadProviderSettings: createMockProviderSettings(),
+        loadRecentProjects: [],
+        loadPromptLibrary: [],
+        openRecentProject: createMockProjectBundle({
+          projectPath: currentProject.projectPath,
+          project: {
+            ...createMockProjectBundle().project,
+            name: currentProject.name,
+          },
+        }),
+        readProjectAssetPayloads: [],
+      };
       return new Response(
         JSON.stringify({
           ok: true,
-          data: {
-            ready: false,
-            currentProject: null,
-          },
+          data:
+            requestBody.method && requestBody.method in dataByMethod
+              ? dataByMethod[requestBody.method]
+              : null,
         }),
         {
           status: 200,
@@ -952,10 +932,377 @@ describe("App startup", () => {
 
     render(<App />);
 
-    expect(screen.getByText("CoreStudio Agent Board")).toBeInTheDocument();
-    expect(await screen.findByText("未打开项目")).toBeInTheDocument();
-    expect(screen.queryByText("Renderer command failed")).not.toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(desktopBridgeCalls).toEqual(
+        expect.arrayContaining([
+          {
+            method: "openRecentProject",
+            args: [currentProject.projectPath],
+          },
+        ]),
+      );
+    });
+    expect(
+      screen.queryByText("CoreStudio Agent Board"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("桌面应用未连接")).not.toBeInTheDocument();
+  });
+
+  it("publishes the browser Agent Board runtime selection to the local bridge", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+    );
+    const currentProject = {
+      projectPath: "/tmp/corestudio-project",
+      name: "测试项目",
+    };
+    const browserRuntimeStates: unknown[] = [];
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const path = new URL(String(url)).pathname;
+      if (path === "/v1/status") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              ready: true,
+              currentProject,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+
+      if (path === "/v1/agent/browser-state") {
+        browserRuntimeStates.push(JSON.parse(String(init?.body ?? "{}")));
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              accepted: true,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+
+      const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+        args?: unknown[];
+      };
+      const dataByMethod: Record<string, unknown> = {
+        loadAppInfo: {
+          name: "CoreStudio",
+          version: "0.0.0-test",
+        },
+        loadProviderSettings: createMockProviderSettings(),
+        loadPromptLibrary: [],
+        openRecentProject: createMockProjectBundle({
+          projectPath: currentProject.projectPath,
+          project: {
+            ...createMockProjectBundle().project,
+            name: currentProject.name,
+          },
+        }),
+        readProjectAssetPayloads: [],
+      };
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data:
+            requestBody.method && requestBody.method in dataByMethod
+              ? dataByMethod[requestBody.method]
+              : null,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+
+    const fileId = "file-1" as FileId;
+    const image = newImageElement({
+      type: "image",
+      fileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 20,
+      y: 30,
+      width: 200,
+      height: 160,
+    });
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [image],
+        appState: {
+          width: 1280,
+          height: 720,
+          scrollX: 120,
+          scrollY: -80,
+          zoom: { value: 0.75 },
+          selectedElementIds: {
+            [image.id]: true,
+          },
+          selectedGroupIds: {},
+          viewBackgroundColor: "#ffffff",
+        },
+        files: {
+          [fileId]: {
+            id: fileId,
+            mimeType: "image/png",
+            dataURL:
+              "data:image/png;base64,ZmFrZQ==" as BinaryFileData["dataURL"],
+            created: 1,
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        browserRuntimeStates.some((state) =>
+          Boolean(
+            (state as { selection?: { selected?: boolean } }).selection
+              ?.selected,
+          ),
+        ),
+      ).toBe(true);
+    });
+    const runtimeState = browserRuntimeStates.find(
+      (state) =>
+        (state as { selection?: { selected?: boolean } }).selection?.selected,
+    ) as any;
+
+    expect(runtimeState).toMatchObject({
+      source: "agent-board",
+      projectPath: currentProject.projectPath,
+      selection: {
+        selected: true,
+        reference: {
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+          items: [
+            {
+              id: image.id,
+              index: 1,
+              kind: "image",
+              label: "图片",
+              fileId,
+            },
+          ],
+          source: {
+            elementIds: [image.id],
+            fileIds: [fileId],
+          },
+        },
+      },
+      scene: {
+        selectedElementIds: [image.id],
+        viewport: {
+          scrollX: 120,
+          scrollY: -80,
+          zoom: 0.75,
+          width: 1280,
+          height: 720,
+        },
+      },
+    });
+    expect(runtimeState.selection.reference.items[0]).not.toHaveProperty(
+      "thumbnailDataUrl",
+    );
+  });
+
+  it("waits for a desktop current project before rendering Agent Board content", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+    );
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const path = new URL(String(url)).pathname;
+      if (path === "/v1/status") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              ready: true,
+              currentProject: null,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+
+      const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      const dataByMethod: Record<string, unknown> = {
+        loadAppInfo: {
+          name: "CoreStudio",
+          version: "0.0.0-test",
+        },
+        loadProviderSettings: createMockProviderSettings(),
+        loadRecentProjects: [],
+        loadPromptLibrary: [],
+      };
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data:
+            requestBody.method && requestBody.method in dataByMethod
+              ? dataByMethod[requestBody.method]
+              : null,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "等待桌面端打开项目" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "刷新连接状态" }),
+    ).toBeInTheDocument();
+    const desktopBridgeRequests = fetchMock.mock.calls.filter(
+      ([url]) => new URL(String(url)).pathname === "/v1/desktop-bridge",
+    );
+    expect(desktopBridgeRequests).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "新建项目" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "打开项目" })).toBeNull();
+    expect(
+      screen.queryByText("CoreStudio Agent Board"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a disconnected state when the browser Agent Board cannot reach the bridge", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+    );
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "桌面端未连接" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("请确认 CoreStudio 桌面端仍在运行，然后刷新连接状态。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "新建项目" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "打开项目" })).toBeNull();
+    expect(screen.queryByTestId("excalidraw-canvas")).toBeNull();
+  });
+
+  it("does not expose project switching while the browser Agent Board is entering the desktop project", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+    );
+    const currentProject = {
+      projectPath: "/tmp/corestudio-project",
+      name: "测试项目",
+    };
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const path = new URL(String(url)).pathname;
+      if (path === "/v1/status") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              ready: true,
+              currentProject,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+
+      const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      const dataByMethod: Record<string, unknown> = {
+        loadAppInfo: {
+          name: "CoreStudio",
+          version: "0.0.0-test",
+        },
+        loadProviderSettings: createMockProviderSettings(),
+        loadPromptLibrary: [],
+        openRecentProject: null,
+      };
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data:
+            requestBody.method && requestBody.method in dataByMethod
+              ? dataByMethod[requestBody.method]
+              : null,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "正在进入桌面端当前项目",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("当前项目：测试项目")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "新建项目" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "打开项目" })).toBeNull();
+    expect(screen.queryByTestId("excalidraw-canvas")).toBeNull();
   });
 
   it("boots Excalidraw with Simplified Chinese by default", async () => {
@@ -1120,9 +1467,8 @@ describe("App startup", () => {
   });
 
   it("notifies the desktop bridge only after the renderer accepts the current project", async () => {
-    let menuListener:
-      | ((event: { action: "open-project" }) => void)
-      | null = null;
+    let menuListener: ((event: { action: "open-project" }) => void) | null =
+      null;
     const notifyProjectStateChanged = vi.fn();
     const openProject = vi
       .fn()
@@ -1150,7 +1496,8 @@ describe("App startup", () => {
         name: "测试项目",
       });
     });
-    const acceptedProjectCallCount = notifyProjectStateChanged.mock.calls.length;
+    const acceptedProjectCallCount =
+      notifyProjectStateChanged.mock.calls.length;
 
     act(() => {
       menuListener?.({ action: "open-project" });
@@ -1684,7 +2031,9 @@ describe("App startup", () => {
         }) => void)
       | null = null;
     const persistDeferred =
-      createDeferred<ReturnType<typeof createMockProjectBundle>["imageRecords"]>();
+      createDeferred<
+        ReturnType<typeof createMockProjectBundle>["imageRecords"]
+      >();
     const persistImageAssets = vi.fn(() => persistDeferred.promise);
     const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
     const projectB = createMockProjectBundle({ projectPath: "/tmp/project-b" });
@@ -2256,15 +2605,11 @@ describe("App startup", () => {
   });
 
   it("opens an about dialog from the native help menu", async () => {
-    let menuActionListener:
-      | ((event: {
-          action: string;
-        }) => void)
-      | null = null;
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
 
     const loadAppInfo = vi.fn().mockResolvedValue({
-        name: "CoreStudio",
-        version: "9.8.7",
+      name: "CoreStudio",
+      version: "9.8.7",
     });
 
     window.imageBoardDesktop = createDesktopBridgeMock({
@@ -2292,7 +2637,9 @@ describe("App startup", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "关闭关于页面" }));
 
-    expect(screen.queryByRole("dialog", { name: "关于 CoreStudio" })).toBeNull();
+    expect(
+      screen.queryByRole("dialog", { name: "关于 CoreStudio" }),
+    ).toBeNull();
   });
 
   it("flushes pending autosave when the desktop shell requests it", async () => {
@@ -2755,31 +3102,27 @@ describe("App startup", () => {
       } as any,
       files: {},
     });
-    const readProjectAssetPayloads = vi.fn().mockImplementation(async ({
-      fileIds,
-    }) =>
-      fileIds.map((fileId: string) => ({
-        fileId,
-        mimeType: "image/png",
-        dataBase64: Buffer.from(`${fileId}-repaired-thumbnail`).toString(
-          "base64",
-        ),
-        width: 320,
-        height: 213,
-        createdAt: "2026-04-12T08:00:00.000Z",
-        rendition: "thumbnail",
-      })),
-    );
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ fileIds }) =>
+        fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-repaired-thumbnail`).toString(
+            "base64",
+          ),
+          width: 320,
+          height: 213,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: "thumbnail",
+        })),
+      );
     const rebuildProjectThumbnails = vi.fn().mockResolvedValue({
       generatedFileIds: ["visible-file"],
       skippedFileIds: [],
       failedFileIds: [],
     });
-    let menuActionListener:
-      | ((event: {
-          action: string;
-        }) => void)
-      | null = null;
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
 
     window.imageBoardDesktop = createDesktopBridgeMock({
       createProject: vi.fn().mockResolvedValue(
@@ -2866,11 +3209,7 @@ describe("App startup", () => {
         repairableCount: 1,
       },
     });
-    let menuActionListener:
-      | ((event: {
-          action: string;
-        }) => void)
-      | null = null;
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
 
     window.imageBoardDesktop = createDesktopBridgeMock({
       createProject: vi.fn().mockResolvedValue(
@@ -2919,7 +3258,9 @@ describe("App startup", () => {
       });
     });
     expect(
-      screen.getByText("项目检查完成：发现 0 个错误、1 个警告，其中 1 项可修复。"),
+      screen.getByText(
+        "项目检查完成：发现 0 个错误、1 个警告，其中 1 项可修复。",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -2929,11 +3270,7 @@ describe("App startup", () => {
       removedBytes: 1536,
       skippedFileCount: 4,
     });
-    let menuActionListener:
-      | ((event: {
-          action: string;
-        }) => void)
-      | null = null;
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
 
     window.imageBoardDesktop = createDesktopBridgeMock({
       cleanProjectCache,
@@ -3415,36 +3752,38 @@ describe("App startup", () => {
       failedFileIds: string[];
     }>();
     let thumbnailReadCount = 0;
-    const readProjectAssetPayloads = vi.fn().mockImplementation(
-      async ({
-        rendition,
-        thumbnailMode,
-        fileIds,
-      }: {
-        rendition?: string;
-        thumbnailMode?: string;
-        fileIds: string[];
-      }) => {
-        if (rendition !== "thumbnail" || thumbnailMode !== "cache-only") {
-          return [];
-        }
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(
+        async ({
+          rendition,
+          thumbnailMode,
+          fileIds,
+        }: {
+          rendition?: string;
+          thumbnailMode?: string;
+          fileIds: string[];
+        }) => {
+          if (rendition !== "thumbnail" || thumbnailMode !== "cache-only") {
+            return [];
+          }
 
-        thumbnailReadCount += 1;
-        return fileIds.map((fileId) => ({
-          fileId,
-          mimeType: thumbnailReadCount === 1 ? "image/svg+xml" : "image/png",
-          dataBase64: Buffer.from(
-            thumbnailReadCount === 1
-              ? `${fileId}-placeholder`
-              : `${fileId}-thumbnail`,
-          ).toString("base64"),
-          width: 768,
-          height: 512,
-          createdAt: "2026-04-12T08:00:00.000Z",
-          rendition: thumbnailReadCount === 1 ? "placeholder" : "thumbnail",
-        }));
-      },
-    );
+          thumbnailReadCount += 1;
+          return fileIds.map((fileId) => ({
+            fileId,
+            mimeType: thumbnailReadCount === 1 ? "image/svg+xml" : "image/png",
+            dataBase64: Buffer.from(
+              thumbnailReadCount === 1
+                ? `${fileId}-placeholder`
+                : `${fileId}-thumbnail`,
+            ).toString("base64"),
+            width: 768,
+            height: 512,
+            createdAt: "2026-04-12T08:00:00.000Z",
+            rendition: thumbnailReadCount === 1 ? "placeholder" : "thumbnail",
+          }));
+        },
+      );
     const rebuildProjectThumbnails = vi
       .fn()
       .mockReturnValue(rebuildDeferred.promise);
@@ -3493,9 +3832,7 @@ describe("App startup", () => {
       });
     });
     expect(screen.getByText("正在生成 1 张缩略图")).toBeInTheDocument();
-    expect(
-      screen.getByText("放大查看时会优先载入原图。"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("放大查看时会优先载入原图。")).toBeInTheDocument();
 
     await act(async () => {
       rebuildDeferred.resolve({
@@ -3560,36 +3897,38 @@ describe("App startup", () => {
       failedFileIds: string[];
     }>();
     let thumbnailReadCount = 0;
-    const readProjectAssetPayloads = vi.fn().mockImplementation(
-      async ({
-        rendition,
-        thumbnailMode,
-        fileIds,
-      }: {
-        rendition?: string;
-        thumbnailMode?: string;
-        fileIds: string[];
-      }) => {
-        if (rendition !== "thumbnail" || thumbnailMode !== "cache-only") {
-          return [];
-        }
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(
+        async ({
+          rendition,
+          thumbnailMode,
+          fileIds,
+        }: {
+          rendition?: string;
+          thumbnailMode?: string;
+          fileIds: string[];
+        }) => {
+          if (rendition !== "thumbnail" || thumbnailMode !== "cache-only") {
+            return [];
+          }
 
-        thumbnailReadCount += 1;
-        return fileIds.map((fileId) => ({
-          fileId,
-          mimeType: thumbnailReadCount === 1 ? "image/svg+xml" : "image/png",
-          dataBase64: Buffer.from(
-            thumbnailReadCount === 1
-              ? `${fileId}-placeholder`
-              : `${fileId}-cached-thumbnail`,
-          ).toString("base64"),
-          width: 768,
-          height: 512,
-          createdAt: "2026-04-12T08:00:00.000Z",
-          rendition: thumbnailReadCount === 1 ? "placeholder" : "thumbnail",
-        }));
-      },
-    );
+          thumbnailReadCount += 1;
+          return fileIds.map((fileId) => ({
+            fileId,
+            mimeType: thumbnailReadCount === 1 ? "image/svg+xml" : "image/png",
+            dataBase64: Buffer.from(
+              thumbnailReadCount === 1
+                ? `${fileId}-placeholder`
+                : `${fileId}-cached-thumbnail`,
+            ).toString("base64"),
+            width: 768,
+            height: 512,
+            createdAt: "2026-04-12T08:00:00.000Z",
+            rendition: thumbnailReadCount === 1 ? "placeholder" : "thumbnail",
+          }));
+        },
+      );
     const rebuildProjectThumbnails = vi
       .fn()
       .mockReturnValue(rebuildDeferred.promise);
@@ -4090,7 +4429,9 @@ describe("App startup", () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "继续最近项目" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "继续最近项目" }),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "项目界面加载失败" }),
@@ -4102,7 +4443,9 @@ describe("App startup", () => {
   });
 
   it("does not loop when Excalidraw reports an unchanged scene after opening a recent project", async () => {
-    const openRecentProject = vi.fn().mockResolvedValue(createMockProjectBundle());
+    const openRecentProject = vi
+      .fn()
+      .mockResolvedValue(createMockProjectBundle());
 
     window.imageBoardDesktop = createDesktopBridgeMock({
       createProject: vi.fn().mockResolvedValue(null),
@@ -4120,7 +4463,9 @@ describe("App startup", () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "继续最近项目" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "继续最近项目" }),
+    );
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
     await waitFor(() => expect(renderChangeEmissionCount).toBeGreaterThan(0));
@@ -4135,9 +4480,7 @@ describe("App startup", () => {
 
   it("shows visible errors when project menu actions fail after a project is open", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
-    const importImages = vi
-      .fn()
-      .mockRejectedValue(new Error("图片文件不可读"));
+    const importImages = vi.fn().mockRejectedValue(new Error("图片文件不可读"));
     const revealProjectInFinder = vi
       .fn()
       .mockRejectedValue(new Error("Finder 打开失败"));
@@ -4487,7 +4830,9 @@ describe("App startup", () => {
       "data-open",
       "true",
     );
-    expect(screen.getByTestId("mock-selected-shape-actions")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("mock-selected-shape-actions"),
+    ).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "关闭元素编辑" }));
@@ -4750,7 +5095,9 @@ describe("App startup", () => {
     expect(
       container.querySelector(".image-board-shell--with-inspector"),
     ).toBeNull();
-    expect(screen.queryByText("图片信息: fal-ai/nano-banana-2")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("图片信息: fal-ai/nano-banana-2"),
+    ).not.toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
@@ -4760,10 +5107,10 @@ describe("App startup", () => {
       await screen.findByText(/图片信息: fal-ai\/nano-banana-2/),
     ).toBeInTheDocument();
     expect(screen.getByText(/编辑链/)).toBeInTheDocument();
+    expect(screen.getByText(/来源图片: 第一版结构草图/)).toBeInTheDocument();
     expect(
-      screen.getByText(/来源图片: 第一版结构草图/),
+      screen.getByText(/后续版本: 第二版结构细化 \/ 最终版渲染/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/后续版本: 第二版结构细化 \/ 最终版渲染/)).toBeInTheDocument();
     expect(screen.getAllByText(/第二版结构细化/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/最终版渲染/).length).toBeGreaterThan(0);
     expect(screen.queryByTestId("default-sidebar")).toBeNull();
@@ -5174,7 +5521,9 @@ describe("App startup", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("generate-dialog-prompt")).toBeEmptyDOMElement();
+      expect(
+        screen.getByTestId("generate-dialog-prompt"),
+      ).toBeEmptyDOMElement();
     });
   });
 
@@ -5254,11 +5603,13 @@ describe("App startup", () => {
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings,
       saveProviderSettings: vi.fn(),
-      generateImages: vi.fn().mockRejectedValue(
-        new Error(
-          `ApiError: {"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}}]}}`,
+      generateImages: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            `ApiError: {"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}}]}}`,
+          ),
         ),
-      ),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;
 
@@ -5279,7 +5630,9 @@ describe("App startup", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。"),
+        screen.getByText(
+          "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。",
+        ),
       ).toBeInTheDocument();
     });
 
@@ -5362,11 +5715,13 @@ describe("App startup", () => {
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings,
       saveProviderSettings: vi.fn(),
-      generateImages: vi.fn().mockRejectedValue(
-        new Error(
-          `ApiError: {"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}}]}}`,
+      generateImages: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            `ApiError: {"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}}]}}`,
+          ),
         ),
-      ),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;
 
@@ -5387,14 +5742,18 @@ describe("App startup", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。"),
+        screen.getByText(
+          "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。",
+        ),
       ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "查看详细报错" }));
 
     expect(screen.getByText("详细报错")).toBeInTheDocument();
-    expect(document.body.textContent).toContain("generativelanguage.googleapis.com");
+    expect(document.body.textContent).toContain(
+      "generativelanguage.googleapis.com",
+    );
     expect(document.body.textContent).toContain("API_KEY_INVALID");
   });
 
@@ -5448,15 +5807,17 @@ describe("App startup", () => {
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings,
       saveProviderSettings: vi.fn(),
-      generateImages: vi.fn().mockRejectedValue(
-        new Error(
-          [
-            "模型没有返回图片。",
-            "请求摘要：provider=zenmux",
-            '请求载荷：{\n  "model": "google/gemini-3-pro-image-preview",\n  "contents": [\n    {\n      "kind": "text",\n      "text": "工业设计渲染图"\n    },\n    {\n      "kind": "inlineData",\n      "mimeType": "image/png",\n      "base64Prefix": "iVBORw0KGgo="\n    }\n  ]\n}',
-          ].join(" "),
+      generateImages: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            [
+              "模型没有返回图片。",
+              "请求摘要：provider=zenmux",
+              '请求载荷：{\n  "model": "google/gemini-3-pro-image-preview",\n  "contents": [\n    {\n      "kind": "text",\n      "text": "工业设计渲染图"\n    },\n    {\n      "kind": "inlineData",\n      "mimeType": "image/png",\n      "base64Prefix": "iVBORw0KGgo="\n    }\n  ]\n}',
+            ].join(" "),
+          ),
         ),
-      ),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;
 
@@ -5482,8 +5843,12 @@ describe("App startup", () => {
     fireEvent.click(screen.getByRole("button", { name: "查看详细报错" }));
 
     expect(screen.getByText("请求载荷")).toBeInTheDocument();
-    expect(document.body.textContent).toContain('"model": "google/gemini-3-pro-image-preview"');
-    expect(document.body.textContent).toContain('"base64Prefix": "iVBORw0KGgo="');
+    expect(document.body.textContent).toContain(
+      '"model": "google/gemini-3-pro-image-preview"',
+    );
+    expect(document.body.textContent).toContain(
+      '"base64Prefix": "iVBORw0KGgo="',
+    );
   });
 
   it("shows failed generation details inside the existing sidebar panel", async () => {
@@ -5562,11 +5927,13 @@ describe("App startup", () => {
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings,
       saveProviderSettings: vi.fn(),
-      generateImages: vi.fn().mockRejectedValue(
-        new Error(
-          `ApiError: {"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}}]}}`,
+      generateImages: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            `ApiError: {"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com","metadata":{"service":"generativelanguage.googleapis.com"}}]}}`,
+          ),
         ),
-      ),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;
 
@@ -5585,7 +5952,9 @@ describe("App startup", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。"),
+        screen.getByText(
+          "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。",
+        ),
       ).toBeInTheDocument();
     });
 
@@ -5672,11 +6041,13 @@ describe("App startup", () => {
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings,
       saveProviderSettings: vi.fn(),
-      generateImages: vi.fn().mockRejectedValue(
-        new Error(
-          `ApiError: {"error":{"code":"402","type":"reject_no_credit","message":"Credit required. To prevent abuse, a positive balance is required for this model."}}`,
+      generateImages: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            `ApiError: {"error":{"code":"402","type":"reject_no_credit","message":"Credit required. To prevent abuse, a positive balance is required for this model."}}`,
+          ),
         ),
-      ),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;
 
@@ -6121,9 +6492,8 @@ describe("App startup", () => {
             reference: expect.objectContaining({
               image: {
                 mimeType: "image/png",
-                dataBase64: Buffer.from("original-reference").toString(
-                  "base64",
-                ),
+                dataBase64:
+                  Buffer.from("original-reference").toString("base64"),
               },
             }),
           }),
@@ -6695,7 +7065,9 @@ describe("App startup", () => {
     );
 
     expect(pendingFrame).toBeTruthy();
-    expect(pendingFrame.x).toBeGreaterThan(referenceFrame.x + referenceFrame.width);
+    expect(pendingFrame.x).toBeGreaterThan(
+      referenceFrame.x + referenceFrame.width,
+    );
     expect(pendingFrame.y + pendingFrame.height / 2).toBe(
       referenceFrame.y + referenceFrame.height / 2,
     );

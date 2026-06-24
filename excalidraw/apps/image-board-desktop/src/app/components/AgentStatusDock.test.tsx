@@ -63,4 +63,27 @@ describe("AgentStatusDock", () => {
     expect(screen.getByText("等待 Board 链接")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制 Board 链接" })).toBeDisabled();
   });
+
+  it("distinguishes a connected bridge from an opened project", () => {
+    render(
+      <AgentStatusDock
+        status={{
+          ready: true,
+          currentProject: null,
+          boardUrl:
+            "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&token=2",
+        }}
+        onCopyAgentBoardUrl={vi.fn()}
+        onRefreshStatus={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Agent 连接状态" }));
+
+    expect(screen.getByText("Bridge 已连接，等待项目")).toBeInTheDocument();
+    expect(screen.getByText("等待项目")).toBeInTheDocument();
+    expect(screen.getByText("未打开项目")).toBeInTheDocument();
+    expect(screen.getByText("http://127.0.0.1:60909")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制 Board 链接" })).toBeEnabled();
+  });
 });

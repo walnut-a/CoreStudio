@@ -7,6 +7,8 @@ export const AGENT_HTTP_ROUTES = {
   status: "/v1/status",
   capabilities: "/v1/agent/capabilities",
   authorize: "/v1/agent/authorize",
+  browserState: "/v1/agent/browser-state",
+  desktopBridge: "/v1/desktop-bridge",
   context: "/v1/agent/context",
   projectCurrent: "/v1/project/current",
   sceneBoard: "/v1/scene/board",
@@ -18,6 +20,27 @@ export const AGENT_HTTP_ROUTES = {
   taskComplete: "/v1/task/complete",
 } as const;
 
+export interface AgentBrowserRuntimeViewport {
+  scrollX?: number;
+  scrollY?: number;
+  zoom?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface AgentBrowserRuntimeSceneState {
+  selectedElementIds?: string[];
+  viewport?: AgentBrowserRuntimeViewport;
+}
+
+export interface AgentBrowserRuntimeState {
+  source: "agent-board";
+  projectPath: string;
+  updatedAt: string;
+  selection?: unknown;
+  scene?: AgentBrowserRuntimeSceneState;
+}
+
 export const AGENT_PERMISSIONS = [
   "read-context",
   "write-board",
@@ -26,7 +49,41 @@ export const AGENT_PERMISSIONS = [
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
 
+export const AGENT_DESKTOP_BRIDGE_METHODS = [
+  "createProject",
+  "openProject",
+  "openRecentProject",
+  "loadRecentProjects",
+  "writeProjectScene",
+  "readProjectAssetPayloads",
+  "inspectProjectHealth",
+  "rebuildProjectThumbnails",
+  "cleanProjectCache",
+  "persistImageAssets",
+  "importImages",
+  "revealProjectInFinder",
+  "loadAppInfo",
+  "loadProviderSettings",
+  "saveProviderSettings",
+  "loadPromptLibrary",
+  "savePrompt",
+  "deleteSavedPrompt",
+  "markSavedPromptUsed",
+  "generateImages",
+  "readClipboardImage",
+] as const;
+
+export type AgentDesktopBridgeMethod =
+  typeof AGENT_DESKTOP_BRIDGE_METHODS[number];
+
+export const isAgentDesktopBridgeMethod = (
+  method: unknown,
+): method is AgentDesktopBridgeMethod =>
+  typeof method === "string" &&
+  AGENT_DESKTOP_BRIDGE_METHODS.includes(method as AgentDesktopBridgeMethod);
+
 export type AgentRendererCommandName =
+  | "desktop.bridge"
   | "agent.context"
   | "project.current"
   | "scene.board"

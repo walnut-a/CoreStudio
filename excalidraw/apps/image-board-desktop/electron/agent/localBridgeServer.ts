@@ -6,10 +6,12 @@ import {
   AGENT_PERMISSIONS,
   createAgentError,
   createAgentOk,
+  isAgentDesktopBridgeMethod,
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
 
 import type {
+  AgentBrowserRuntimeState,
   AgentErrorCode,
   AgentPermission,
   AgentRendererCommandName,
@@ -48,6 +50,10 @@ export interface LocalBridgeServerHandle {
 }
 
 type JsonBody = Record<string, unknown>;
+
+type StoredAgentBrowserRuntimeState = AgentBrowserRuntimeState & {
+  receivedAt: string;
+};
 
 interface WriteRouteConfig {
   route: string;
@@ -146,6 +152,13 @@ const sendError = (
 const isObjectBody = (body: unknown): body is JsonBody =>
   typeof body === "object" && body !== null && !Array.isArray(body);
 
+const isAgentBrowserRuntimeState = (
+  body: JsonBody,
+): body is JsonBody & AgentBrowserRuntimeState =>
+  body.source === "agent-board" &&
+  typeof body.projectPath === "string" &&
+  typeof body.updatedAt === "string";
+
 const getErrorCode = (error: unknown) =>
   error &&
   typeof error === "object" &&
@@ -230,6 +243,44 @@ const handleReadCommand = async (
 ) => {
   try {
     const result = await renderer.request(command);
+    sendJson(response, 200, createAgentOk(result));
+  } catch (error) {
+    sendRendererError(response, error);
+  }
+};
+
+const handleDesktopBridgeCommand = async (
+  response: http.ServerResponse,
+  renderer: LocalBridgeServerOptions["renderer"],
+  body: JsonBody,
+) => {
+  const method = body.method;
+  if (!isAgentDesktopBridgeMethod(method)) {
+    sendError(
+      response,
+      400,
+      "BAD_REQUEST",
+      "Unsupported desktop bridge method",
+    );
+    return;
+  }
+
+  const args = body.args;
+  if (args !== undefined && !Array.isArray(args)) {
+    sendError(
+      response,
+      400,
+      "BAD_REQUEST",
+      "desktop bridge args must be an array",
+    );
+    return;
+  }
+
+  try {
+    const result = await renderer.request("desktop.bridge", {
+      method,
+      args: args ?? [],
+    });
     sendJson(response, 200, createAgentOk(result));
   } catch (error) {
     sendRendererError(response, error);
@@ -336,6 +387,19 @@ const handleWriteCommand = async (
 export const createLocalBridgeServer = async (
   options: LocalBridgeServerOptions,
 ): Promise<LocalBridgeServerHandle> => {
+  let browserRuntimeState: StoredAgentBrowserRuntimeState | null = null;
+
+  const getCurrentBrowserRuntimeState = () => {
+    const currentProject = options.getCurrentProject();
+    if (
+      !currentProject ||
+      browserRuntimeState?.projectPath !== currentProject.projectPath
+    ) {
+      return null;
+    }
+    return browserRuntimeState;
+  };
+
   const server = http.createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -359,7 +423,7 @@ export const createLocalBridgeServer = async (
           response,
           200,
           createAgentOk({
-            ready: Boolean(currentProject),
+            ready: true,
             currentProject,
           }),
         );
@@ -382,12 +446,32 @@ export const createLocalBridgeServer = async (
         return;
       }
 
+      const isBrowserStateRoute =
+        url.pathname === AGENT_HTTP_ROUTES.browserState;
+      if (request.method === "GET" && isBrowserStateRoute) {
+        sendJson(response, 200, createAgentOk(getCurrentBrowserRuntimeState()));
+        return;
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === AGENT_HTTP_ROUTES.sceneSelection
+      ) {
+        const runtimeState = getCurrentBrowserRuntimeState();
+        if (runtimeState?.selection !== undefined) {
+          sendJson(response, 200, createAgentOk(runtimeState.selection));
+          return;
+        }
+
+        await handleReadCommand(response, options.renderer, "scene.selection");
+        return;
+      }
+
       const readRoutes = new Map<string, AgentRendererCommandName>([
         [AGENT_HTTP_ROUTES.context, "agent.context"],
         [AGENT_HTTP_ROUTES.projectCurrent, "project.current"],
         [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
         [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
-        [AGENT_HTTP_ROUTES.sceneSelection, "scene.selection"],
       ]);
       const readCommand = readRoutes.get(url.pathname);
       if (request.method === "GET" && readCommand) {
@@ -399,7 +483,15 @@ export const createLocalBridgeServer = async (
         (config) => config.route === url.pathname,
       );
       const isAuthorizeRoute = url.pathname === AGENT_HTTP_ROUTES.authorize;
-      if (request.method === "POST" && !isAuthorizeRoute && !writeRoute) {
+      const isDesktopBridgeRoute =
+        url.pathname === AGENT_HTTP_ROUTES.desktopBridge;
+      if (
+        request.method === "POST" &&
+        !isAuthorizeRoute &&
+        !writeRoute &&
+        !isDesktopBridgeRoute &&
+        !isBrowserStateRoute
+      ) {
         sendError(
           response,
           404,
@@ -452,6 +544,42 @@ export const createLocalBridgeServer = async (
             message: getErrorMessage(error),
           });
         }
+        return;
+      }
+
+      if (request.method === "POST" && isBrowserStateRoute && body) {
+        if (!isAgentBrowserRuntimeState(body)) {
+          sendError(
+            response,
+            400,
+            "BAD_REQUEST",
+            "browser-state body 必须包含 source、projectPath 和 updatedAt。",
+          );
+          return;
+        }
+
+        browserRuntimeState = {
+          source: body.source,
+          projectPath: body.projectPath,
+          updatedAt: body.updatedAt,
+          ...(body.selection === undefined
+            ? {}
+            : { selection: body.selection }),
+          ...(body.scene === undefined ? {} : { scene: body.scene }),
+          receivedAt: new Date().toISOString(),
+        };
+        sendJson(
+          response,
+          200,
+          createAgentOk({
+            accepted: true,
+          }),
+        );
+        return;
+      }
+
+      if (request.method === "POST" && isDesktopBridgeRoute && body) {
+        await handleDesktopBridgeCommand(response, options.renderer, body);
         return;
       }
 

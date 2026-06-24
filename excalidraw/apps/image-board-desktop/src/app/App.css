@@ -493,10 +493,6 @@ html.image-board-desktop-titlebar-hidden {
   flex-wrap: wrap;
 }
 
-.image-board-toolbar__group--agent {
-  justify-content: flex-end;
-}
-
 .image-board-toolbar__title {
   max-width: 220px;
   overflow: hidden;
@@ -569,36 +565,176 @@ html.image-board-desktop-titlebar-hidden {
   opacity: 0.56;
 }
 
-.agent-bridge-status {
+.agent-status-dock {
+  position: absolute;
+  right: calc(
+    1rem + var(--lg-button-size) + 8px + env(safe-area-inset-right, 0px)
+  );
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 34;
+  pointer-events: auto;
+}
+
+.agent-status-dock__button {
+  position: relative;
+  width: var(--lg-button-size);
+  height: var(--lg-button-size);
+  padding: 0;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+  color: var(--text-primary-color);
   display: inline-flex;
   align-items: center;
-  min-height: 2.5rem;
-  gap: 8px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--default-border-color) 84%, white);
-  border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--color-surface-mid) 72%, white);
-  color: var(--color-gray-70);
-  font-size: 0.875rem;
-  font-weight: 600;
-  white-space: nowrap;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.agent-bridge-status--ready {
-  border-color: color-mix(in srgb, #26a269 26%, var(--default-border-color));
-  background: color-mix(in srgb, #26a269 8%, white);
-  color: #145c37;
+.agent-status-dock__button:hover,
+.agent-status-dock__button[aria-expanded="true"] {
+  background: #f1f0ff;
+  border-color: #e0dfff;
+  color: var(--color-primary);
 }
 
-.agent-bridge-status__dot {
-  width: 8px;
-  height: 8px;
+.agent-status-dock__button--connected {
+  border-color: color-mix(in srgb, #26a269 28%, var(--default-border-color));
+}
+
+.agent-status-dock__button svg {
+  width: var(--lg-icon-size);
+  height: var(--lg-icon-size);
+}
+
+.agent-status-dock__indicator {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--island-bg-color);
   border-radius: 999px;
   background: #a5a5a5;
 }
 
-.agent-bridge-status--ready .agent-bridge-status__dot {
+.agent-status-dock__button--connected .agent-status-dock__indicator {
   background: #26a269;
+}
+
+.agent-status-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 84px);
+  width: min(320px, calc(100vw - 2rem));
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+  color: var(--text-primary-color);
+}
+
+.agent-status-popover__header,
+.agent-status-popover__row,
+.agent-status-popover__setting,
+.agent-status-popover__actions {
+  display: flex;
+  align-items: center;
+}
+
+.agent-status-popover__header {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.agent-status-popover__header strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.95rem;
+}
+
+.agent-status-popover__eyebrow,
+.agent-status-popover__row span {
+  color: var(--color-gray-60);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.agent-status-popover__badge {
+  padding: 4px 8px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface-mid) 72%, white);
+  color: var(--color-gray-70);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.agent-status-popover__badge--connected {
+  border-color: color-mix(in srgb, #26a269 30%, var(--default-border-color));
+  background: color-mix(in srgb, #26a269 10%, white);
+  color: #145c37;
+}
+
+.agent-status-popover__body {
+  padding: 10px;
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--color-surface-mid) 70%, white);
+}
+
+.agent-status-popover__row {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-status-popover__row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.agent-status-popover__path {
+  margin: 6px 0 0;
+  color: var(--color-gray-60);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.agent-status-popover__setting {
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--text-primary-color);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.agent-status-popover__setting input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--color-primary);
+}
+
+.agent-status-popover__actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.agent-status-popover__actions .image-board-button {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .image-inspector {

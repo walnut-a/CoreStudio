@@ -107,6 +107,7 @@ import {
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AgentBoard } from "./components/AgentBoard";
+import { AgentStatusDock } from "./components/AgentStatusDock";
 import { ImageSidebar } from "./components/ImageSidebar";
 import type { GenerationTaskRecord } from "./components/ImageInspector";
 import { SideDock } from "./components/SideDock";
@@ -787,9 +788,7 @@ const App = () => {
       ? getImageDescendants(currentProject.imageRecords, selectedRecord)
       : [];
 
-  const updateCurrentProject = (project: DesktopProjectBundle | null) => {
-    currentProjectRef.current = project;
-    setCurrentProject(project);
+  const notifyDesktopProjectState = (project: DesktopProjectBundle | null) => {
     bridge?.notifyProjectStateChanged?.(
       project
         ? {
@@ -798,6 +797,12 @@ const App = () => {
           }
         : null,
     );
+  };
+
+  const updateCurrentProject = (project: DesktopProjectBundle | null) => {
+    currentProjectRef.current = project;
+    setCurrentProject(project);
+    notifyDesktopProjectState(project);
   };
 
   const updateEditorInitializing = (
@@ -1495,6 +1500,7 @@ const App = () => {
       return null;
     }
 
+    notifyDesktopProjectState(currentProjectRef.current);
     const nextStatus = await bridge.getAgentBridgeStatus();
     setAgentBridgeStatus(nextStatus);
     return nextStatus;
@@ -1566,6 +1572,7 @@ const App = () => {
       }
 
       attempts += 1;
+      notifyDesktopProjectState(currentProjectRef.current);
       const nextStatus = await bridge.getAgentBridgeStatus();
       if (cancelled) {
         return;
@@ -3361,8 +3368,6 @@ const App = () => {
                   onOpenProject={handleOpenProject}
                   onImportImages={handleImportImages}
                   onRevealProject={handleRevealProject}
-                  agentBridgeStatus={agentBridgeStatus}
-                  onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
                 />
               )}
               detectScroll={false}
@@ -3396,6 +3401,11 @@ const App = () => {
                 onLocatePromptReference={handleLocatePromptReference}
               />
             </Excalidraw>
+            <AgentStatusDock
+              status={agentBridgeStatus}
+              onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
+              onRefreshStatus={loadAgentBridgeStatus}
+            />
             {renderWorkspaceBoundsOverlay()}
           </div>
         </div>

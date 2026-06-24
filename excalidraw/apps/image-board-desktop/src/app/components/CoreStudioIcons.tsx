@@ -59,6 +59,16 @@ export const generateImageIcon = (
   </LineIcon>
 );
 
+export const agentBridgeIcon = (
+  <LineIcon>
+    <path d="M7.25 8.25a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+    <path d="M16.75 19.75a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+    <path d="M16.75 8.25a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+    <path d="M9.25 6.25h5.5" />
+    <path d="M8.6 7.85 15.4 16.15" />
+  </LineIcon>
+);
+
 export const removeReferenceIcon = (
   <LineIcon size={12}>
     <path d="M7.5 7.5 16.5 16.5" />

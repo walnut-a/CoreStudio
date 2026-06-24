@@ -11,30 +11,20 @@ describe("TopBar", () => {
     onRevealProject: vi.fn(),
   };
 
-  it("shows the Agent Bridge status and exposes the Agent Board action", () => {
-    const onCopyAgentBoardUrl = vi.fn();
+  it("shows project actions without Agent controls", () => {
+    render(<TopBar {...baseProps} />);
 
-    render(
-      <TopBar
-        {...baseProps}
-        agentBridgeStatus={{
-          ready: true,
-          currentProject: {
-            projectPath: "/tmp/corestudio-project",
-            name: "测试项目",
-          },
-          boardUrl: "http://127.0.0.1:5174/agent-board?bridge=1&token=2",
-        }}
-        onCopyAgentBoardUrl={onCopyAgentBoardUrl}
-      />,
-    );
+    expect(screen.getByText("测试项目")).toBeInTheDocument();
 
-    expect(screen.getByText("Agent Bridge 已连接")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "打开项目" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入图片" }));
+    fireEvent.click(screen.getByRole("button", { name: "显示文件夹" }));
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "复制 Agent Board 链接" }),
-    );
-
-    expect(onCopyAgentBoardUrl).toHaveBeenCalledTimes(1);
+    expect(baseProps.onOpenProject).toHaveBeenCalledTimes(1);
+    expect(baseProps.onImportImages).toHaveBeenCalledTimes(1);
+    expect(baseProps.onRevealProject).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "复制 Agent Board 链接" }),
+    ).not.toBeInTheDocument();
   });
 });

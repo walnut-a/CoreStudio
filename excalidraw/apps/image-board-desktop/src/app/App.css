@@ -35,6 +35,9 @@ body {
   --input-bg-color: #ffffff;
   --input-border-color: #d6d6d6;
   --input-hover-bg-color: #f5f5f5;
+  --button-hover-bg: var(--color-surface-high);
+  --button-active-bg: var(--color-surface-high);
+  --button-active-border: var(--color-brand-active);
   --shadow-island: 0 0 1px 0 rgba(0, 0, 0, 0.17), 0 0 3px 0 rgba(0, 0, 0, 0.08),
     0 7px 14px 0 rgba(0, 0, 0, 0.05);
   --modal-shadow: 0 100px 80px rgba(0, 0, 0, 0.07),
@@ -45,10 +48,14 @@ body {
   --color-primary-hover: #5753d0;
   --color-primary-darkest: #4a47b1;
   --color-icon-white: #ffffff;
+  --color-surface-high: #f1f0ff;
+  --color-surface-low: #ececf4;
   --color-surface-lowest: #ffffff;
   --color-surface-mid: #f6f6f9;
   --color-surface-primary-container: #e0dfff;
+  --color-on-surface: #1b1b1f;
   --color-on-primary-container: #030064;
+  --color-brand-active: #4440bf;
   --color-gray-60: #7a7a7a;
   --color-gray-70: #5c5c5c;
   --color-border-outline-variant: #c5c5d0;
@@ -583,10 +590,10 @@ html.image-board-desktop-titlebar-hidden {
   padding: 0.625rem;
   border: none;
   border-radius: var(--border-radius-lg);
-  background: var(--color-surface-low, #ececf4);
+  background-color: var(--color-surface-low, #ececf4);
   box-shadow: 0 0 0 1px var(--color-surface-lowest, #ffffff);
   color: var(--color-on-surface, var(--text-primary-color));
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--ui-font);
@@ -596,11 +603,17 @@ html.image-board-desktop-titlebar-hidden {
 }
 
 .agent-status-dock__button:hover {
-  background: var(--island-bg-color);
+  background-color: var(--button-hover-bg, var(--island-bg-color));
+  color: var(
+    --button-hover-color,
+    var(--button-color, var(--text-primary-color, inherit))
+  );
 }
 
 .agent-status-dock__button:active {
-  box-shadow: 0 0 0 1px var(--color-brand-active, var(--color-primary-darkest));
+  background-color: var(--button-active-bg, var(--island-bg-color));
+  box-shadow: 0 0 0 1px
+    var(--button-active-border, var(--color-brand-active));
 }
 
 .agent-status-dock__button:focus-visible {

@@ -118,6 +118,24 @@ describe("generate composer styles", () => {
     expect(focusWithinRule).toContain("var(--generate-composer-focus-ring)");
   });
 
+  it("keeps the agent status dock button aligned with canvas help controls", () => {
+    const appCss = readAppCss();
+    const appRule = getRule(appCss, ".image-board-app");
+    const buttonRule = getRule(appCss, ".agent-status-dock__button");
+    const hoverRule = getRule(appCss, ".agent-status-dock__button:hover");
+    const activeRule = getRule(appCss, ".agent-status-dock__button:active");
+
+    expect(appRule).toContain("--button-hover-bg: var(--color-surface-high)");
+    expect(appRule).toContain("--button-active-bg: var(--color-surface-high)");
+    expect(buttonRule).toContain("width: var(--lg-button-size)");
+    expect(buttonRule).toContain("height: var(--lg-button-size)");
+    expect(buttonRule).toContain("background-color: var(--color-surface-low");
+    expect(hoverRule).toContain("background-color: var(--button-hover-bg");
+    expect(hoverRule).not.toContain("background: var(--island-bg-color)");
+    expect(activeRule).toContain("background-color: var(--button-active-bg");
+    expect(activeRule).toContain("var(--button-active-border");
+  });
+
   it("keeps the bottom composer inside the canvas when side docks are open", () => {
     const appCss = readAppCss();
     const appRule = getRule(appCss, ".image-board-app");

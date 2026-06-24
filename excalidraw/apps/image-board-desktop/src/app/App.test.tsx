@@ -996,6 +996,50 @@ describe("App startup", () => {
     expect(await screen.findByText("项目文件读取失败")).toBeInTheDocument();
   });
 
+  it("notifies the desktop bridge only after the renderer accepts the current project", async () => {
+    let menuListener:
+      | ((event: { action: "open-project" }) => void)
+      | null = null;
+    const notifyProjectStateChanged = vi.fn();
+    const openProject = vi
+      .fn()
+      .mockRejectedValue(new Error("项目文件读取失败"));
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      notifyProjectStateChanged,
+      openProject,
+      onMenuAction: vi.fn((listener) => {
+        menuListener = listener;
+        return () => {
+          menuListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    await waitFor(() => {
+      expect(notifyProjectStateChanged).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        name: "测试项目",
+      });
+    });
+    const acceptedProjectCallCount = notifyProjectStateChanged.mock.calls.length;
+
+    act(() => {
+      menuListener?.({ action: "open-project" });
+    });
+
+    expect(await screen.findByText("项目文件读取失败")).toBeInTheDocument();
+    expect(notifyProjectStateChanged).toHaveBeenCalledTimes(
+      acceptedProjectCallCount,
+    );
+    expect(notifyProjectStateChanged).not.toHaveBeenCalledWith(null);
+  });
+
   it("handles agent scene.addPrompt requests on the current board", async () => {
     let agentCommandListener:
       | ((request: {

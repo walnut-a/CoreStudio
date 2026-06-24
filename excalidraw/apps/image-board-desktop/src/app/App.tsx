@@ -784,6 +784,14 @@ const App = () => {
   const updateCurrentProject = (project: DesktopProjectBundle | null) => {
     currentProjectRef.current = project;
     setCurrentProject(project);
+    bridge?.notifyProjectStateChanged?.(
+      project
+        ? {
+            projectPath: project.projectPath,
+            name: project.project.name,
+          }
+        : null,
+    );
   };
 
   const updateEditorInitializing = (

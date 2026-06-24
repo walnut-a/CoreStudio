@@ -87,6 +87,20 @@ const GRANT_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   PROJECT_MISMATCH: 409,
 };
 
+const AUTHORIZE_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
+  APP_NOT_READY: 503,
+  AUTH_DENIED: 401,
+  AUTH_REQUIRED: 401,
+  BAD_REQUEST: 400,
+  BRIDGE_UNAVAILABLE: 503,
+  COMMAND_FAILED: 500,
+  FORBIDDEN: 403,
+  PROJECT_MISMATCH: 409,
+  PROJECT_REQUIRED: 409,
+  TOKEN_EXPIRED: 401,
+  UNSUPPORTED_COMMAND: 404,
+};
+
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   BAD_REQUEST: 400,
   FORBIDDEN: 403,
@@ -404,8 +418,19 @@ export const createLocalBridgeServer = async (
           });
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
+          const code = getErrorCode(error);
+          if (code) {
+            sendError(
+              response,
+              AUTHORIZE_STATUS_BY_CODE[code] ?? 500,
+              code,
+              getErrorMessage(error),
+            );
+            return;
+          }
+
           sendError(response, 500, "COMMAND_FAILED", "Authorize failed", {
-            message: error instanceof Error ? error.message : String(error),
+            message: getErrorMessage(error),
           });
         }
         return;

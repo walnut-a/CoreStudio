@@ -39,6 +39,7 @@ export const IPC_CHANNELS = {
   readClipboardImage: "image-board:read-clipboard-image",
   menuAction: "image-board:menu-action",
   rendererReady: "image-board:renderer-ready",
+  projectStateChanged: "image-board:project-state-changed",
   flushAutosaveRequest: "image-board:flush-autosave-request",
   flushAutosaveResponse: "image-board:flush-autosave-response",
   agentCommandRequest: "image-board:agent-command-request",
@@ -75,6 +76,15 @@ export interface DesktopProjectBundle {
   sceneJson: string;
   imageRecords: ImageRecordMap;
   safeMode?: boolean;
+}
+
+export interface DesktopCurrentProject {
+  projectPath: string;
+  name: string;
+}
+
+export interface DesktopProjectStateChangedPayload {
+  currentProject: DesktopCurrentProject | null;
 }
 
 export interface RecentProjectEntry {
@@ -257,6 +267,7 @@ export interface DesktopBridgeApi {
   readClipboardImage?(): Promise<ImportedImagePayload | null>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;
+  notifyProjectStateChanged?(currentProject: DesktopCurrentProject | null): void;
   onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(
     listener: (

@@ -420,6 +420,74 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("maps denied authorize requests to auth denied responses", async () => {
+    const { server } = await track(
+      startServer({
+        authorize: vi.fn(async () => {
+          throw Object.assign(new Error("用户已取消 Agent 授权。"), {
+            code: "AUTH_DENIED",
+          });
+        }),
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.authorize,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          permissions: ["read-context"],
+        }),
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 401,
+      body: {
+        ok: false,
+        error: {
+          code: "AUTH_DENIED",
+          message: "用户已取消 Agent 授权。",
+        },
+      },
+    });
+  });
+
+  it("maps missing project authorize requests to project required responses", async () => {
+    const { server } = await track(
+      startServer({
+        authorize: vi.fn(async () => {
+          throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
+            code: "PROJECT_REQUIRED",
+          });
+        }),
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.authorize,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          permissions: ["write-board"],
+        }),
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: {
+        ok: false,
+        error: {
+          code: "PROJECT_REQUIRED",
+          message: "当前没有打开 CoreStudio 项目。",
+        },
+      },
+    });
+  });
+
   it("allows close to be called more than once", async () => {
     const { server } = await track(startServer());
 

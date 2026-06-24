@@ -4,6 +4,7 @@ import {
   IPC_CHANNELS,
   type DesktopBridgeApi,
   type DesktopAutosaveFlushRequest,
+  type DesktopCurrentProject,
   type DesktopMenuEvent,
 } from "../src/shared/desktopBridgeTypes";
 import { isAgentErrorCode } from "../src/shared/agentBridgeTypes";
@@ -82,6 +83,11 @@ const desktopBridge: DesktopBridgeApi = {
   },
   notifyRendererReady: () => {
     ipcRenderer.send(IPC_CHANNELS.rendererReady);
+  },
+  notifyProjectStateChanged: (currentProject: DesktopCurrentProject | null) => {
+    ipcRenderer.send(IPC_CHANNELS.projectStateChanged, {
+      currentProject,
+    });
   },
   onFlushAutosaveRequest: (listener) => {
     const handler = async (

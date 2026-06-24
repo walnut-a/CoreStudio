@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "path";
-import type { BaseWindow } from "electron";
+import type { BaseWindow, IpcMainEvent } from "electron";
 
 import {
   BrowserWindow,
@@ -18,12 +18,19 @@ import {
   IPC_CHANNELS,
   type DesktopAutosaveFlushResponse,
   type DesktopMenuEvent,
+  type DesktopProjectStateChangedPayload,
   type DesktopProjectBundle,
   type RecentProjectEntry,
   type GenerateImagesInput,
   type SaveProviderSettingsInput,
   type SavePromptInput,
 } from "../src/shared/desktopBridgeTypes";
+import {
+  AGENT_BRIDGE_PROTOCOL_VERSION,
+  normalizeAgentPermissions,
+  type AgentRendererCommandName,
+  type AgentRendererCommandResponse,
+} from "../src/shared/agentBridgeTypes";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
   cleanProjectCache,
@@ -61,14 +68,37 @@ import { createAppMenuTemplate } from "./menu";
 import { shouldOpenDevTools } from "./devtools";
 import { createQuitState } from "./windowLifecycle";
 import { disableRendererPageZoom } from "./windowZoomGuard";
+import {
+  createLocalBridgeServer,
+  type LocalBridgeAuthorizeInput,
+  type LocalBridgeCurrentProject,
+  type LocalBridgeServerHandle,
+} from "./agent/localBridgeServer";
+import {
+  removeAgentSessionDescriptor,
+  writeAgentSessionDescriptor,
+} from "./agent/sessionStore";
+import { getAgentSessionPath } from "./agent/sessionPaths";
+import { createTaskGrantStore } from "./agent/taskGrants";
+import { createRendererCommandBridge } from "./agent/rendererCommandBridge";
 
 let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];
+let currentProject: LocalBridgeCurrentProject | null = null;
 let latestProjectOpenRequestId = 0;
 let latestAutosaveFlushRequestId = 0;
 let rendererReady = false;
 let allowWindowClose = false;
+let localBridgeHandle: LocalBridgeServerHandle | null = null;
+let rendererCommandBridge: ReturnType<typeof createRendererCommandBridge> | null =
+  null;
+let localBridgeCleanupStarted = false;
+let localBridgeCleanupFinished = false;
+let agentSessionWriteChain: Promise<void> = Promise.resolve();
 const quitState = createQuitState();
+const agentSessionPath = getAgentSessionPath();
+const localBridgeReadToken = randomUUID();
+const taskGrantStore = createTaskGrantStore();
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingAutosaveFlushes = new Map<
   number,
@@ -81,6 +111,8 @@ const pendingAutosaveFlushes = new Map<
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
 const isDev = Boolean(rendererUrl);
+const DEFAULT_AGENT_GRANT_TTL_SECONDS = 30 * 60;
+const MAX_AGENT_GRANT_TTL_SECONDS = 2 * 60 * 60;
 
 app.setName(DESKTOP_APP_NAME);
 
@@ -133,6 +165,218 @@ const sendRendererMenuEvent = (
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error || "");
+
+const getCurrentProject = (): LocalBridgeCurrentProject | null =>
+  currentProject ? { ...currentProject } : null;
+
+const shouldSkipAgentSessionWrite = () =>
+  localBridgeCleanupStarted || localBridgeCleanupFinished;
+
+const writeCurrentAgentSessionDescriptor = async () => {
+  const bridge = localBridgeHandle;
+  if (!bridge || shouldSkipAgentSessionWrite()) {
+    return;
+  }
+
+  const descriptor = {
+    protocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
+    appName: DESKTOP_APP_NAME,
+    appVersion: DESKTOP_APP_VERSION,
+    bridge: {
+      host: bridge.host,
+      port: bridge.port,
+      baseUrl: bridge.baseUrl,
+    },
+    readToken: localBridgeReadToken,
+    currentProject: getCurrentProject(),
+    updatedAt: new Date().toISOString(),
+  } as const;
+
+  agentSessionWriteChain = agentSessionWriteChain
+    .catch(() => undefined)
+    .then(async () => {
+      if (shouldSkipAgentSessionWrite() || localBridgeHandle !== bridge) {
+        return;
+      }
+      await writeAgentSessionDescriptor(agentSessionPath, descriptor);
+    });
+  await agentSessionWriteChain;
+};
+
+const setCurrentProject = async (
+  nextProject: LocalBridgeCurrentProject | null,
+) => {
+  currentProject = nextProject;
+  try {
+    await writeCurrentAgentSessionDescriptor();
+  } catch (error) {
+    console.error("[agent:session-write-failed]", error);
+  }
+};
+
+const getGrantTtlSeconds = (ttlSeconds?: number) => {
+  if (
+    typeof ttlSeconds !== "number" ||
+    !Number.isFinite(ttlSeconds) ||
+    ttlSeconds <= 0
+  ) {
+    return DEFAULT_AGENT_GRANT_TTL_SECONDS;
+  }
+  return Math.min(ttlSeconds, MAX_AGENT_GRANT_TTL_SECONDS);
+};
+
+const authorizeLocalBridgeRequest = async (
+  input: LocalBridgeAuthorizeInput,
+) => {
+  const project = getCurrentProject();
+  if (!project) {
+    throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
+      code: "PROJECT_REQUIRED" as const,
+    });
+  }
+
+  const targetWindow = getTargetWindow();
+  if (!targetWindow) {
+    throw Object.assign(new Error("CoreStudio 主窗口未就绪。"), {
+      code: "APP_NOT_READY" as const,
+    });
+  }
+
+  const permissions = normalizeAgentPermissions(input.permissions);
+  const ttlSeconds = getGrantTtlSeconds(input.ttlSeconds);
+  const ttlMinutes = Math.ceil(ttlSeconds / 60);
+  const reason = input.reason?.trim() || "未提供";
+  const permissionLabel = permissions.length ? permissions.join(", ") : "无";
+
+  const result = await dialog.showMessageBox(targetWindow, {
+    type: "question",
+    buttons: ["允许", "取消"],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    message: "允许 Agent 访问当前 CoreStudio 项目？",
+    detail: [
+      `项目：${project.name}`,
+      `路径：${project.projectPath}`,
+      `请求权限：${permissionLabel}`,
+      `原因：${reason}`,
+      `有效期：${ttlMinutes} 分钟`,
+    ].join("\n"),
+  });
+
+  if (result.response !== 0) {
+    throw Object.assign(new Error("用户已取消 Agent 授权。"), {
+      code: "AUTH_DENIED" as const,
+    });
+  }
+
+  return taskGrantStore.createGrant({
+    projectPath: project.projectPath,
+    permissions,
+    ttlSeconds,
+  });
+};
+
+const createMainRendererCommandBridge = () =>
+  createRendererCommandBridge({
+    send: (channel, request) => {
+      const targetWindow = getTargetWindow();
+      if (!targetWindow || targetWindow.webContents.isDestroyed()) {
+        throw new Error("CoreStudio renderer is not ready");
+      }
+      targetWindow.webContents.send(channel, request);
+    },
+    onResponse: (listener) => {
+      const handler = (
+        _event: IpcMainEvent,
+        response: AgentRendererCommandResponse,
+      ) => {
+        listener(response);
+      };
+      ipcMain.on(IPC_CHANNELS.agentCommandResponse, handler);
+      return () => {
+        ipcMain.removeListener(IPC_CHANNELS.agentCommandResponse, handler);
+      };
+    },
+    isAvailable: () => {
+      const targetWindow = getTargetWindow();
+      return Boolean(
+        rendererReady &&
+          targetWindow &&
+          !targetWindow.webContents.isDestroyed(),
+      );
+    },
+  });
+
+const startLocalBridge = async () => {
+  if (localBridgeHandle) {
+    return;
+  }
+
+  rendererCommandBridge = createMainRendererCommandBridge();
+  try {
+    localBridgeHandle = await createLocalBridgeServer({
+      readToken: localBridgeReadToken,
+      getCurrentProject,
+      renderer: {
+        request: (
+          command: AgentRendererCommandName,
+          payload?: unknown,
+        ) => {
+          if (!rendererCommandBridge) {
+            return Promise.reject(
+              new Error("CoreStudio renderer command bridge is not ready"),
+            );
+          }
+          return rendererCommandBridge.request(command, payload);
+        },
+      },
+      grants: taskGrantStore,
+      authorize: authorizeLocalBridgeRequest,
+    });
+    await writeCurrentAgentSessionDescriptor();
+    console.log("[agent:bridge-started]", localBridgeHandle.baseUrl);
+  } catch (error) {
+    const bridge = localBridgeHandle;
+    rendererCommandBridge?.dispose();
+    rendererCommandBridge = null;
+    localBridgeHandle = null;
+    if (bridge) {
+      await bridge.close().catch((closeError) => {
+        console.error("[agent:bridge-close-after-start-failed]", closeError);
+      });
+    }
+    throw error;
+  }
+};
+
+const stopLocalBridge = async () => {
+  localBridgeCleanupStarted = true;
+  const bridge = localBridgeHandle;
+  localBridgeHandle = null;
+
+  rendererCommandBridge?.dispose();
+  rendererCommandBridge = null;
+
+  await agentSessionWriteChain.catch((error) => {
+    console.error("[agent:session-write-failed]", error);
+  });
+
+  const cleanupOperations: Promise<void>[] = [
+    removeAgentSessionDescriptor(agentSessionPath),
+  ];
+  if (bridge) {
+    cleanupOperations.push(bridge.close());
+  }
+
+  await Promise.all(
+    cleanupOperations.map((operation) =>
+      operation.catch((error) => {
+        console.error("[agent:bridge-cleanup-failed]", error);
+      }),
+    ),
+  );
+};
 
 const sendMenuAction = (
   event: DesktopMenuEvent,
@@ -346,6 +590,13 @@ const registerIpcHandlers = () => {
   });
 
   ipcMain.on(
+    IPC_CHANNELS.projectStateChanged,
+    (_event, payload: DesktopProjectStateChangedPayload) => {
+      void setCurrentProject(payload.currentProject);
+    },
+  );
+
+  ipcMain.on(
     IPC_CHANNELS.flushAutosaveResponse,
     (_event, response: DesktopAutosaveFlushResponse) => {
       const pendingFlush = pendingAutosaveFlushes.get(response.requestId);
@@ -526,6 +777,8 @@ const createWindow = async () => {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+    rendererReady = false;
+    void setCurrentProject(null);
   });
 
   Menu.setApplicationMenu(buildMenu());
@@ -641,6 +894,7 @@ app.whenReady().then(async () => {
   currentRecentProjects = await loadRecentProjects();
   registerIpcHandlers();
   await createWindow();
+  await startLocalBridge();
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -651,6 +905,23 @@ app.whenReady().then(async () => {
 
 app.on("before-quit", () => {
   quitState.markQuitRequested();
+});
+
+app.on("will-quit", (event) => {
+  if (localBridgeCleanupFinished) {
+    return;
+  }
+
+  event.preventDefault();
+  if (localBridgeCleanupStarted) {
+    return;
+  }
+
+  localBridgeCleanupStarted = true;
+  void stopLocalBridge().finally(() => {
+    localBridgeCleanupFinished = true;
+    app.quit();
+  });
 });
 
 app.on("window-all-closed", () => {

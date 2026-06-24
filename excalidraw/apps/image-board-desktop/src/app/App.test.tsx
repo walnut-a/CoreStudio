@@ -805,6 +805,8 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
   Object.defineProperty(window, "devicePixelRatio", {
     configurable: true,
     value: 1,
@@ -833,6 +835,96 @@ describe("App startup", () => {
       screen.getByText(/当前页面没有连接到本地桌面能力/i),
     ).toBeInTheDocument();
     expect(container.querySelector(".welcome-pane__diagnostic")).toBeTruthy();
+  });
+
+  it("renders the browser Agent Board route without the Electron desktop bridge", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+    );
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const path = new URL(String(url)).pathname;
+      const bodyByPath: Record<string, unknown> = {
+        "/v1/status": {
+          ok: true,
+          data: {
+            ready: true,
+            currentProject: {
+              projectPath: "/tmp/corestudio-project",
+              name: "测试项目",
+            },
+          },
+        },
+        "/v1/scene/snapshot": {
+          ok: true,
+          data: {
+            elementCount: 4,
+            imageElementCount: 1,
+            textElementCount: 2,
+            fileCount: 1,
+            imageRecordCount: 1,
+            selectedElementIds: ["element-1"],
+          },
+        },
+        "/v1/scene/selection": {
+          ok: true,
+          data: {
+            selected: true,
+            reference: {
+              elementCount: 1,
+            },
+          },
+        },
+      };
+      return new Response(JSON.stringify(bodyByPath[path]), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(screen.getByText("CoreStudio Agent Board")).toBeInTheDocument();
+    expect(await screen.findByText("测试项目")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.queryByText("桌面应用未连接")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty Agent Board state before a desktop project is opened", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+    );
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            ready: false,
+            currentProject: null,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(screen.getByText("CoreStudio Agent Board")).toBeInTheDocument();
+    expect(await screen.findByText("未打开项目")).toBeInTheDocument();
+    expect(screen.queryByText("Renderer command failed")).not.toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
 
   it("boots Excalidraw with Simplified Chinese by default", async () => {

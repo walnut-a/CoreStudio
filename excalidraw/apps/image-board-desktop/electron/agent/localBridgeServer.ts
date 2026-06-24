@@ -116,8 +116,21 @@ const sendJson = (
 ) => {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   });
   response.end(JSON.stringify(body));
+};
+
+const sendCorsPreflight = (response: http.ServerResponse) => {
+  response.writeHead(204, {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Max-Age": "600",
+  });
+  response.end();
 };
 
 const sendError = (
@@ -326,6 +339,11 @@ export const createLocalBridgeServer = async (
   const server = http.createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
+
+      if (request.method === "OPTIONS") {
+        sendCorsPreflight(response);
+        return;
+      }
 
       if (request.headers.authorization !== `Bearer ${options.readToken}`) {
         sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");

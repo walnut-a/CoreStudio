@@ -89,6 +89,8 @@ const desktopBridge: DesktopBridgeApi = {
       currentProject,
     });
   },
+  getAgentBridgeStatus: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.getAgentBridgeStatus),
   onFlushAutosaveRequest: (listener) => {
     const handler = async (
       _event: unknown,

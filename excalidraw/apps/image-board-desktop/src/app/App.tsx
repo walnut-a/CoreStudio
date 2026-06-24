@@ -34,6 +34,7 @@ import {
 } from "../shared/promptReferences";
 import type {
   DesktopAppInfo,
+  DesktopAgentBridgeStatus,
   DesktopProjectBundle,
   PersistedImageAssetInput,
   ProjectAssetPayload,
@@ -105,6 +106,7 @@ import {
 } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
+import { AgentBoard } from "./components/AgentBoard";
 import { ImageSidebar } from "./components/ImageSidebar";
 import type { GenerationTaskRecord } from "./components/ImageInspector";
 import { SideDock } from "./components/SideDock";
@@ -735,6 +737,8 @@ const App = () => {
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
+  const [agentBridgeStatus, setAgentBridgeStatus] =
+    useState<DesktopAgentBridgeStatus | null>(null);
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
@@ -1485,6 +1489,17 @@ const App = () => {
     }
   };
 
+  const loadAgentBridgeStatus = async () => {
+    if (!bridge?.getAgentBridgeStatus) {
+      setAgentBridgeStatus(null);
+      return null;
+    }
+
+    const nextStatus = await bridge.getAgentBridgeStatus();
+    setAgentBridgeStatus(nextStatus);
+    return nextStatus;
+  };
+
   const loadPromptLibraryState = async () => {
     if (!bridge) {
       return;
@@ -1541,6 +1556,34 @@ const App = () => {
     void loadProviderState();
     void loadRecentProjectsState();
     void loadPromptLibraryState();
+    let cancelled = false;
+    let retryTimer: number | null = null;
+    let attempts = 0;
+    const refreshAgentBridgeStatus = async () => {
+      if (!bridge?.getAgentBridgeStatus) {
+        setAgentBridgeStatus(null);
+        return;
+      }
+
+      attempts += 1;
+      const nextStatus = await bridge.getAgentBridgeStatus();
+      if (cancelled) {
+        return;
+      }
+
+      setAgentBridgeStatus(nextStatus);
+      if (!nextStatus.boardUrl && attempts < 20) {
+        retryTimer = window.setTimeout(refreshAgentBridgeStatus, 500);
+      }
+    };
+
+    void refreshAgentBridgeStatus();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
+    };
   }, [bridge]);
 
   useEffect(() => {
@@ -2819,6 +2862,18 @@ const App = () => {
     await copyTextToClipboardWithFallback(selectedRecord.prompt);
   };
 
+  const handleCopyAgentBoardUrl = async () => {
+    const nextStatus = (await loadAgentBridgeStatus()) ?? agentBridgeStatus;
+    if (!nextStatus?.boardUrl) {
+      setProjectError("Agent Board 链接尚未就绪。");
+      return;
+    }
+
+    if (await copyTextToClipboardWithFallback(nextStatus.boardUrl)) {
+      showProjectNotice("Agent Board 链接已复制。");
+    }
+  };
+
   const handleCopyTaskError = async () => {
     if (!selectedTask || selectedTask.status !== "error") {
       return;
@@ -3099,6 +3154,10 @@ const App = () => {
   };
 
   if (!bridge) {
+    if (window.location.pathname === "/agent-board") {
+      return <AgentBoard />;
+    }
+
     return (
       <div className="image-board-app">
         <div className="welcome-pane">
@@ -3302,6 +3361,8 @@ const App = () => {
                   onOpenProject={handleOpenProject}
                   onImportImages={handleImportImages}
                   onRevealProject={handleRevealProject}
+                  agentBridgeStatus={agentBridgeStatus}
+                  onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
                 />
               )}
               detectScroll={false}

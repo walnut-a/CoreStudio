@@ -135,6 +135,28 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("allows browser CORS preflight requests without bearer auth", async () => {
+    const { server } = await track(startServer());
+
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.status}`,
+      {
+        method: "OPTIONS",
+        headers: {
+          Origin: "http://127.0.0.1:5174",
+          "Access-Control-Request-Method": "GET",
+          "Access-Control-Request-Headers": "authorization",
+        },
+      },
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-allow-headers")).toContain(
+      "Authorization",
+    );
+  });
+
   it("returns unsupported command for unknown routes", async () => {
     const { server } = await track(startServer());
 

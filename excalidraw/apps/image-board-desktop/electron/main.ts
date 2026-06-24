@@ -18,6 +18,7 @@ import {
   IPC_CHANNELS,
   type DesktopAutosaveFlushResponse,
   type DesktopMenuEvent,
+  type DesktopAgentBridgeStatus,
   type DesktopProjectStateChangedPayload,
   type DesktopProjectBundle,
   type RecentProjectEntry,
@@ -168,6 +169,23 @@ const getErrorMessage = (error: unknown) =>
 
 const getCurrentProject = (): LocalBridgeCurrentProject | null =>
   currentProject ? { ...currentProject } : null;
+
+const getAgentBoardUrl = () => {
+  if (!localBridgeHandle || !rendererUrl) {
+    return null;
+  }
+
+  const url = new URL("/agent-board", rendererUrl);
+  url.searchParams.set("bridge", localBridgeHandle.baseUrl);
+  url.searchParams.set("token", localBridgeReadToken);
+  return url.toString();
+};
+
+const getAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
+  ready: Boolean(localBridgeHandle),
+  currentProject: getCurrentProject(),
+  boardUrl: getAgentBoardUrl(),
+});
 
 const shouldSkipAgentSessionWrite = () =>
   localBridgeCleanupStarted || localBridgeCleanupFinished;
@@ -594,6 +612,10 @@ const registerIpcHandlers = () => {
     (_event, payload: DesktopProjectStateChangedPayload) => {
       void setCurrentProject(payload.currentProject);
     },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.getAgentBridgeStatus, async () =>
+    getAgentBridgeStatus(),
   );
 
   ipcMain.on(

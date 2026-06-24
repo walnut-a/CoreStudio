@@ -493,6 +493,10 @@ html.image-board-desktop-titlebar-hidden {
   flex-wrap: wrap;
 }
 
+.image-board-toolbar__group--agent {
+  justify-content: flex-end;
+}
+
 .image-board-toolbar__title {
   max-width: 220px;
   overflow: hidden;
@@ -563,6 +567,38 @@ html.image-board-desktop-titlebar-hidden {
 .image-board-button:disabled {
   cursor: not-allowed;
   opacity: 0.56;
+}
+
+.agent-bridge-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--default-border-color) 84%, white);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--color-surface-mid) 72%, white);
+  color: var(--color-gray-70);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.agent-bridge-status--ready {
+  border-color: color-mix(in srgb, #26a269 26%, var(--default-border-color));
+  background: color-mix(in srgb, #26a269 8%, white);
+  color: #145c37;
+}
+
+.agent-bridge-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #a5a5a5;
+}
+
+.agent-bridge-status--ready .agent-bridge-status__dot {
+  background: #26a269;
 }
 
 .image-inspector {
@@ -1090,6 +1126,109 @@ html.image-board-desktop-titlebar-hidden {
   background: var(--color-danger-background);
   box-shadow: var(--shadow-island);
   color: var(--color-danger-color);
+}
+
+.agent-board-page {
+  min-height: 100%;
+  padding: clamp(32px, 6vh, 56px) 32px;
+  background: linear-gradient(
+    180deg,
+    var(--color-surface-lowest) 0%,
+    var(--color-surface-mid) 100%
+  );
+}
+
+.agent-board-shell {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 860px);
+  margin: 0 auto;
+}
+
+.agent-board-header,
+.agent-board-card,
+.agent-board-metric {
+  border: 1px solid color-mix(in srgb, var(--default-border-color) 78%, white);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(
+    in srgb,
+    var(--island-bg-color) 96%,
+    var(--color-surface-mid)
+  );
+  box-shadow: 0 1px 2px rgba(24, 27, 42, 0.05);
+}
+
+.agent-board-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+}
+
+.agent-board-header h1 {
+  margin: 8px 0;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.agent-board-header p,
+.agent-board-card p {
+  margin: 0;
+  color: var(--color-gray-70);
+  line-height: 1.5;
+}
+
+.agent-board-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.agent-board-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+}
+
+.agent-board-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+}
+
+.agent-board-card--grant {
+  border-color: color-mix(in srgb, #26a269 28%, var(--default-border-color));
+  background: color-mix(in srgb, #26a269 7%, white);
+}
+
+.agent-board-label {
+  color: var(--color-gray-60);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.agent-board-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agent-board-metric {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.agent-board-metric span {
+  color: var(--color-gray-70);
+  font-size: 13px;
+}
+
+.agent-board-metric strong {
+  font-size: 26px;
+  line-height: 1;
 }
 
 .dialog-backdrop {

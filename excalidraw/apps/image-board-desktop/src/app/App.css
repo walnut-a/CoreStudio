@@ -1183,7 +1183,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .welcome-pane p {
   margin: 0;
-  max-width: 58ch;
+  max-width: 100%;
 }
 
 .welcome-pane__actions {

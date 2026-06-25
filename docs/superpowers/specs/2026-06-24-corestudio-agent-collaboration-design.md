@@ -100,9 +100,18 @@ Agent Board 是给 Codex 内置浏览器或其他 Agent 浏览器打开的本地
 定位：
 
 - 它不是独立网页版。
+- 它是 CoreStudio 客户端的 Agent 运行模式，不是独立分叉。
 - 它绑定客户端当前项目。
 - 它显示与客户端一致的 Excalidraw 画板和 CoreStudio 生图上下文。
 - 它服务于观察、选择、对比、插图、标注和确认。
+
+迭代原则：
+
+- Agent Board 不承载独立业务分叉；所有可复用能力先进入 CoreStudio 客户端能力层。
+- Agent Board 通过配置、权限和策略启用、隐藏或收敛客户端能力，例如项目切换、危险操作、API Key 管理和写回权限。
+- 如果一个功能桌面客户端也应该支持，就先把它做成客户端通用能力，再决定 Agent 模式是否默认启用。
+- 只有连接态、Local Bridge、token、CLI/Agent 提示、浏览器运行态同步这类 Agent 专属边界，才允许在 Agent Board 单独处理。
+- 后续实现应优先扩展共同契约，例如 `DesktopBridgeApi`、CLI/Local Bridge route、能力配置和模式策略，避免为 Agent Board 复制一套业务逻辑。
 
 第一版可以保留完整 Excalidraw 画板能力，但隐藏或限制客户端外壳能力：
 

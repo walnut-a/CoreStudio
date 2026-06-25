@@ -15,6 +15,7 @@
 
 ## Notes
 
+- Agent Board is a CoreStudio Agent runtime mode, not a forked client. Reusable features should land in the shared CoreStudio client capability layer first, then be enabled, hidden, or constrained in Agent mode through configuration, permissions, and mode policy.
 - CLI write-back routes keep their task grant flow.
 - The browser client route uses the long local token as a local client session.
 - This slice makes the browser client read and write the same local project files; live bidirectional canvas sync between the desktop renderer and browser renderer can be designed separately if needed.

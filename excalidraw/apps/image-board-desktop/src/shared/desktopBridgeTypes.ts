@@ -45,6 +45,7 @@ export const IPC_CHANNELS = {
   agentCommandRequest: "image-board:agent-command-request",
   agentCommandResponse: "image-board:agent-command-response",
   getAgentBridgeStatus: "image-board:get-agent-bridge-status",
+  setAgentBridgeEnabled: "image-board:set-agent-bridge-enabled",
 } as const;
 
 export type DesktopMenuAction =
@@ -89,6 +90,7 @@ export interface DesktopProjectStateChangedPayload {
 }
 
 export interface DesktopAgentBridgeStatus {
+  enabled: boolean;
   ready: boolean;
   currentProject: DesktopCurrentProject | null;
   boardUrl: string | null;
@@ -276,6 +278,7 @@ export interface DesktopBridgeApi {
   notifyRendererReady?(): void;
   notifyProjectStateChanged?(currentProject: DesktopCurrentProject | null): void;
   getAgentBridgeStatus?(): Promise<DesktopAgentBridgeStatus>;
+  setAgentBridgeEnabled?(enabled: boolean): Promise<DesktopAgentBridgeStatus>;
   onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(
     listener: (

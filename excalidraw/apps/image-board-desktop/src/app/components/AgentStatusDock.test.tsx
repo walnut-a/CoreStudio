@@ -11,6 +11,7 @@ describe("AgentStatusDock", () => {
     render(
       <AgentStatusDock
         status={{
+          enabled: true,
           ready: true,
           currentProject: {
             projectPath: "/tmp/corestudio-project",
@@ -33,6 +34,7 @@ describe("AgentStatusDock", () => {
     expect(screen.getByText("CLI")).toBeInTheDocument();
     expect(screen.getByText("可自动发现当前会话")).toBeInTheDocument();
     expect(screen.getByText("可复制 Board 链接")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "允许 Agent 连接" })).toBeChecked();
     expect(screen.queryByText("自动刷新连接状态")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "复制 Board 链接" }));
@@ -46,6 +48,7 @@ describe("AgentStatusDock", () => {
     render(
       <AgentStatusDock
         status={{
+          enabled: false,
           ready: false,
           currentProject: null,
           boardUrl: null,
@@ -57,10 +60,11 @@ describe("AgentStatusDock", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Agent 连接状态" }));
 
-    expect(screen.getByText("Agent 未就绪")).toBeInTheDocument();
+    expect(screen.getByText("Agent 未连接")).toBeInTheDocument();
     expect(screen.getByText("未打开项目")).toBeInTheDocument();
     expect(screen.getByText("未启动")).toBeInTheDocument();
     expect(screen.getByText("等待 Board 链接")).toBeInTheDocument();
+    expect(screen.getByText("开启连接后可发现")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制 Board 链接" })).toBeDisabled();
   });
 
@@ -68,6 +72,7 @@ describe("AgentStatusDock", () => {
     render(
       <AgentStatusDock
         status={{
+          enabled: true,
           ready: true,
           currentProject: null,
           boardUrl:
@@ -85,5 +90,28 @@ describe("AgentStatusDock", () => {
     expect(screen.getByText("未打开项目")).toBeInTheDocument();
     expect(screen.getByText("http://127.0.0.1:60909")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制 Board 链接" })).toBeEnabled();
+  });
+
+  it("toggles whether the Agent Bridge is connectable", () => {
+    const onSetAgentBridgeEnabled = vi.fn();
+
+    render(
+      <AgentStatusDock
+        status={{
+          enabled: false,
+          ready: false,
+          currentProject: null,
+          boardUrl: null,
+        }}
+        onCopyAgentBoardUrl={vi.fn()}
+        onRefreshStatus={vi.fn()}
+        onSetAgentBridgeEnabled={onSetAgentBridgeEnabled}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Agent 连接状态" }));
+    fireEvent.click(screen.getByRole("switch", { name: "允许 Agent 连接" }));
+
+    expect(onSetAgentBridgeEnabled).toHaveBeenCalledWith(true);
   });
 });

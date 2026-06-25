@@ -131,6 +131,7 @@ import type {
 import type {
   DesktopAppInfo,
   DesktopAgentBridgeStatus,
+  DesktopCurrentProject,
   DesktopProjectBundle,
   PersistedImageAssetInput,
   ProjectAssetPayload,
@@ -185,6 +186,16 @@ const extractBase64 = (dataURL: string) => {
 
 const hasClipboardFiles = (files: BinaryFiles | undefined) =>
   Boolean(files && Object.keys(files).length > 0);
+
+const getDesktopCurrentProject = (
+  project: DesktopProjectBundle | null,
+): DesktopCurrentProject | null =>
+  project
+    ? {
+        projectPath: project.projectPath,
+        name: project.project.name,
+      }
+    : null;
 
 const isEmptyClipboardData = (data: ClipboardData) =>
   !data.elements?.length &&
@@ -813,20 +824,21 @@ const App = () => {
       : [];
 
   const notifyDesktopProjectState = (project: DesktopProjectBundle | null) => {
-    bridge?.notifyProjectStateChanged?.(
-      project
-        ? {
-            projectPath: project.projectPath,
-            name: project.project.name,
-          }
-        : null,
-    );
+    bridge?.notifyProjectStateChanged?.(getDesktopCurrentProject(project));
   };
 
   const updateCurrentProject = (project: DesktopProjectBundle | null) => {
     currentProjectRef.current = project;
     setCurrentProject(project);
     notifyDesktopProjectState(project);
+    setAgentBridgeStatus((status) =>
+      status
+        ? {
+            ...status,
+            currentProject: getDesktopCurrentProject(project),
+          }
+        : status,
+    );
   };
 
   const updateEditorInitializing = (
@@ -1571,6 +1583,7 @@ const App = () => {
   };
 
   const createUnavailableAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
+    enabled: false,
     ready: false,
     currentProject: null,
     boardUrl: isAgentBrowserRoute ? window.location.href : null,
@@ -1712,6 +1725,21 @@ const App = () => {
       }
     };
   }, [bridge]);
+
+  useEffect(() => {
+    if (!currentProject) {
+      return;
+    }
+
+    setAgentBridgeStatus((status) =>
+      status
+        ? {
+            ...status,
+            currentProject: getDesktopCurrentProject(currentProject),
+          }
+        : status,
+    );
+  }, [currentProject?.project.name, currentProject?.projectPath]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -3090,6 +3118,22 @@ const App = () => {
     }
   };
 
+  const handleSetAgentBridgeEnabled = async (enabled: boolean) => {
+    if (!bridge?.setAgentBridgeEnabled) {
+      setProjectError("请在 CoreStudio 桌面端开启或关闭 Agent 连接。");
+      return;
+    }
+
+    notifyDesktopProjectState(currentProjectRef.current);
+    try {
+      setAgentBridgeStatus(await bridge.setAgentBridgeEnabled(enabled));
+    } catch (error) {
+      setProjectError(
+        error instanceof Error ? error.message : "Agent 连接状态切换失败。",
+      );
+    }
+  };
+
   const handleCopyTaskError = async () => {
     if (!selectedTask || selectedTask.status !== "error") {
       return;
@@ -3435,6 +3479,8 @@ const App = () => {
           status={agentBridgeStatus}
           onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
           onRefreshStatus={refreshAgentBrowserConnectionState}
+          onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
+          connectionToggleDisabled={isAgentBrowserRoute}
         />
       </div>
     );
@@ -3477,6 +3523,8 @@ const App = () => {
           status={agentBridgeStatus}
           onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
           onRefreshStatus={refreshAgentBrowserConnectionState}
+          onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
+          connectionToggleDisabled={isAgentBrowserRoute}
         />
       </div>
     );
@@ -3707,6 +3755,8 @@ const App = () => {
               status={agentBridgeStatus}
               onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
               onRefreshStatus={refreshAgentBrowserConnectionState}
+              onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
+              connectionToggleDisabled={isAgentBrowserRoute}
             />
             {renderWorkspaceBoundsOverlay()}
           </div>
@@ -3717,6 +3767,10 @@ const App = () => {
         open={true}
         persistent={true}
         focusToken={generateFocusToken}
+        composerConfig={{
+          defaultMode: isAgentBrowserRoute ? "agent" : "direct",
+          showModeSwitch: isAgentBrowserRoute,
+        }}
         initialRequest={generateRequest}
         providerSettings={providerSettings}
         savingProviderSettings={savingProviders}

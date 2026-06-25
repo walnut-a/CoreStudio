@@ -179,10 +179,22 @@ const cloneProviderCapabilities = (
   capabilities: ProviderCapabilities,
 ): ProviderCapabilities => ({ ...capabilities });
 
+type GenerateComposerMode = "direct" | "agent";
+
+interface GenerateComposerConfig {
+  defaultMode?: GenerateComposerMode;
+  showModeSwitch?: boolean;
+}
+
+const normalizeComposerMode = (
+  mode: GenerateComposerConfig["defaultMode"],
+): GenerateComposerMode => (mode === "agent" ? "agent" : "direct");
+
 interface GenerateImageDialogProps {
   open: boolean;
   persistent?: boolean;
   focusToken?: number;
+  composerConfig?: GenerateComposerConfig;
   initialRequest: GenerationRequest;
   providerSettings: PublicProviderSettings | null;
   savingProviderSettings?: boolean;
@@ -212,6 +224,7 @@ export const GenerateImageDialog = ({
   open,
   persistent = false,
   focusToken = 0,
+  composerConfig,
   initialRequest,
   providerSettings,
   savingProviderSettings = false,
@@ -274,9 +287,22 @@ export const GenerateImageDialog = ({
     GenerationPromptPart[]
   >(() => getInitialPromptParts(initialRequest));
   const [promptEditorResetKey, setPromptEditorResetKey] = useState(0);
+  const defaultComposerMode = normalizeComposerMode(
+    composerConfig?.defaultMode,
+  );
+  const showComposerModeSwitch = Boolean(composerConfig?.showModeSwitch);
+  const [composerMode, setComposerMode] =
+    useState<GenerateComposerMode>(defaultComposerMode);
+  const effectiveComposerMode = showComposerModeSwitch
+    ? composerMode
+    : defaultComposerMode;
   const currentProviderSettings = providerSettings?.[request.provider];
   const currentProviderCustomModels =
     currentProviderSettings?.customModels ?? [];
+
+  useEffect(() => {
+    setComposerMode(defaultComposerMode);
+  }, [defaultComposerMode, open]);
 
   useEffect(() => {
     const nextRequest = normalizeGenerationRequest(initialRequest, {
@@ -333,18 +359,22 @@ export const GenerateImageDialog = ({
       return;
     }
 
+    if (effectiveComposerMode !== "direct") {
+      return;
+    }
+
     if (error || !isConfigured) {
       setAdvancedOpen(true);
     }
-  }, [error, isConfigured, open]);
+  }, [effectiveComposerMode, error, isConfigured, open]);
 
   useEffect(() => {
-    if (!open || focusToken === 0) {
+    if (!open || focusToken === 0 || effectiveComposerMode !== "direct") {
       return;
     }
 
     promptEditorRef.current?.focus();
-  }, [focusToken, open]);
+  }, [effectiveComposerMode, focusToken, open]);
 
   useEffect(() => {
     if (!open || providerSettingsFocusToken === 0) {
@@ -362,6 +392,16 @@ export const GenerateImageDialog = ({
 
     apiKeyInputRef.current?.focus();
   }, [apiSettingsOpen]);
+
+  useEffect(() => {
+    if (effectiveComposerMode === "direct") {
+      return;
+    }
+
+    setAdvancedOpen(false);
+    setApiSettingsOpen(false);
+    setPromptLibraryOpen(false);
+  }, [effectiveComposerMode]);
 
   useEffect(() => {
     if (!open) {
@@ -476,7 +516,11 @@ export const GenerateImageDialog = ({
       isConfigured &&
       !referenceLimitExceeded,
   );
-  const showBody = advancedOpen;
+  const showBody = effectiveComposerMode === "direct" && advancedOpen;
+  const agentSelectionItems =
+    request.reference?.enabled && request.reference.items
+      ? request.reference.items
+      : [];
   const selectedCustomModelUsage =
     CUSTOM_MODEL_USAGE_PRESETS[customModelTemplate];
   const normalizedPromptLibrarySearch = promptLibrarySearch
@@ -759,6 +803,10 @@ export const GenerateImageDialog = ({
   };
 
   const submitRequest = () => {
+    if (effectiveComposerMode !== "direct") {
+      return;
+    }
+
     if (!canSubmit) {
       return;
     }
@@ -987,95 +1035,186 @@ export const GenerateImageDialog = ({
               hasInlineReferenceVisuals
                 ? "generate-composer--with-reference"
                 : "",
+              showComposerModeSwitch
+                ? "generate-composer--with-mode-switch"
+                : "",
+              effectiveComposerMode === "agent"
+                ? "generate-composer--agent-mode"
+                : "",
             ]
               .filter(Boolean)
               .join(" ")}
           >
-            <div className="generate-composer__field">
-              <InlinePromptEditor
-                ref={promptEditorRef}
-                ariaLabel={copy.generateDialog.prompt}
-                placeholder={copy.generateDialog.promptPlaceholder}
-                parts={promptEditorParts}
-                references={request.promptReferences || []}
-                pendingReference={pendingReference}
-                resetKey={promptEditorResetKey}
-                onChange={updatePromptParts}
-                onFocusIntent={() => {
-                  void commitPendingReference();
-                }}
-                onMouseDown={(event) => {
-                  stopInputEventPropagation(event);
-                  void commitPendingReference();
-                }}
-                onKeyPressCapture={handleInputKeyPhaseCapture}
-                onKeyUpCapture={handleInputKeyPhaseCapture}
-                onKeyDown={handleComposerPromptKeyDown}
-              />
-            </div>
-            {referenceLimitMessage ? (
-              <div className="generate-composer__notice" role="status">
-                {referenceLimitMessage}
+            {showComposerModeSwitch ? (
+              <div
+                className="generate-composer__mode-switch"
+                role="tablist"
+                aria-label="输入模式"
+                onMouseDown={stopInputEventPropagation}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveComposerMode === "agent"}
+                  className="generate-composer__mode-tab"
+                  onMouseDown={stopInputEventPropagation}
+                  onClick={(event) => {
+                    stopInputEventPropagation(event);
+                    setComposerMode("agent");
+                  }}
+                >
+                  Agent 操作
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveComposerMode === "direct"}
+                  className="generate-composer__mode-tab"
+                  onMouseDown={stopInputEventPropagation}
+                  onClick={(event) => {
+                    stopInputEventPropagation(event);
+                    setComposerMode("direct");
+                  }}
+                >
+                  直接输入
+                </button>
               </div>
             ) : null}
-            <div className="generate-composer__controls">
-              <DesktopButton
-                type="button"
-                className={[
-                  "generate-composer__icon",
-                  promptLibraryOpen ? "generate-composer__icon--active" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-label={copy.generateDialog.promptLibrary}
-                title={copy.generateDialog.promptLibrary}
-                onMouseDown={stopInputEventPropagation}
-                onClick={(event) => {
-                  stopInputEventPropagation(event);
-                  setPromptLibraryOpen((current) => !current);
-                }}
+            {effectiveComposerMode === "agent" ? (
+              <div
+                className="generate-composer__agent-summary"
+                role="status"
+                aria-live="polite"
               >
-                {promptLibraryIcon}
-              </DesktopButton>
-              <DesktopButton
-                type="button"
-                className={[
-                  "generate-composer__icon",
-                  advancedOpen ? "generate-composer__icon--active" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-label={
-                  advancedOpen
-                    ? copy.generateDialog.collapseSettings
-                    : copy.generateDialog.expandSettings
-                }
-                title={
-                  advancedOpen
-                    ? copy.generateDialog.collapseSettings
-                    : copy.generateDialog.expandSettings
-                }
-                onClick={() => setAdvancedOpen((current) => !current)}
-              >
-                {settingsSlidersIcon}
-              </DesktopButton>
-              <DesktopButton
-                type="submit"
-                variant="primary"
-                className="generate-composer__action"
-                aria-label={copy.generateDialog.generate}
-                title={copy.generateDialog.generate}
-                disabled={!canSubmit}
-                onMouseDown={stopInputEventPropagation}
-                onClick={(event) => {
-                  stopInputEventPropagation(event);
-                }}
-              >
-                {sendIcon}
-              </DesktopButton>
-            </div>
+                <div
+                  className="generate-composer__agent-items"
+                  aria-label="当前选区"
+                >
+                  {agentSelectionItems.length ? (
+                    agentSelectionItems.map((item) => (
+                      <span
+                        key={item.id}
+                        className={[
+                          "generate-composer__agent-item",
+                          `generate-composer__agent-item--${item.kind}`,
+                        ].join(" ")}
+                        title={item.label}
+                      >
+                        {item.kind === "image" && item.thumbnailDataUrl ? (
+                          <span className="generate-composer__agent-thumbnail">
+                            <img
+                              src={item.thumbnailDataUrl}
+                              alt={`${item.label} ${item.index} 缩略图`}
+                              draggable={false}
+                            />
+                          </span>
+                        ) : null}
+                        <span className="generate-composer__agent-index">
+                          {item.index}
+                        </span>
+                        <span className="generate-composer__agent-label">
+                          {item.label}
+                        </span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="generate-composer__agent-empty">
+                      暂无选中元素
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="generate-composer__field">
+                  <InlinePromptEditor
+                    ref={promptEditorRef}
+                    ariaLabel={copy.generateDialog.prompt}
+                    placeholder={copy.generateDialog.promptPlaceholder}
+                    parts={promptEditorParts}
+                    references={request.promptReferences || []}
+                    pendingReference={pendingReference}
+                    resetKey={promptEditorResetKey}
+                    onChange={updatePromptParts}
+                    onFocusIntent={() => {
+                      void commitPendingReference();
+                    }}
+                    onMouseDown={(event) => {
+                      stopInputEventPropagation(event);
+                      void commitPendingReference();
+                    }}
+                    onKeyPressCapture={handleInputKeyPhaseCapture}
+                    onKeyUpCapture={handleInputKeyPhaseCapture}
+                    onKeyDown={handleComposerPromptKeyDown}
+                  />
+                </div>
+                {referenceLimitMessage ? (
+                  <div className="generate-composer__notice" role="status">
+                    {referenceLimitMessage}
+                  </div>
+                ) : null}
+                <div className="generate-composer__controls">
+                  <DesktopButton
+                    type="button"
+                    className={[
+                      "generate-composer__icon",
+                      promptLibraryOpen
+                        ? "generate-composer__icon--active"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-label={copy.generateDialog.promptLibrary}
+                    title={copy.generateDialog.promptLibrary}
+                    onMouseDown={stopInputEventPropagation}
+                    onClick={(event) => {
+                      stopInputEventPropagation(event);
+                      setPromptLibraryOpen((current) => !current);
+                    }}
+                  >
+                    {promptLibraryIcon}
+                  </DesktopButton>
+                  <DesktopButton
+                    type="button"
+                    className={[
+                      "generate-composer__icon",
+                      advancedOpen ? "generate-composer__icon--active" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-label={
+                      advancedOpen
+                        ? copy.generateDialog.collapseSettings
+                        : copy.generateDialog.expandSettings
+                    }
+                    title={
+                      advancedOpen
+                        ? copy.generateDialog.collapseSettings
+                        : copy.generateDialog.expandSettings
+                    }
+                    onClick={() => setAdvancedOpen((current) => !current)}
+                  >
+                    {settingsSlidersIcon}
+                  </DesktopButton>
+                  <DesktopButton
+                    type="submit"
+                    variant="primary"
+                    className="generate-composer__action"
+                    aria-label={copy.generateDialog.generate}
+                    title={copy.generateDialog.generate}
+                    disabled={!canSubmit}
+                    onMouseDown={stopInputEventPropagation}
+                    onClick={(event) => {
+                      stopInputEventPropagation(event);
+                    }}
+                  >
+                    {sendIcon}
+                  </DesktopButton>
+                </div>
+              </>
+            )}
           </div>
-          {promptLibraryOpen ? (
+          {effectiveComposerMode === "direct" && promptLibraryOpen ? (
             <div className="generate-prompt-library">
               <div className="generate-prompt-library__header">
                 <strong>{copy.generateDialog.promptLibrary}</strong>

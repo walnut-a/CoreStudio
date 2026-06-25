@@ -32,11 +32,13 @@ const parentRecord: ImageRecord = {
   prompt: "第一版结构草图",
 };
 
-const renderInspector = (overrides: Partial<{
-  record: ImageRecord;
-  onLocateImageRecord: (fileId: string) => void;
-  onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
-}> = {}) =>
+const renderInspector = (
+  overrides: Partial<{
+    record: ImageRecord;
+    onLocateImageRecord: (fileId: string) => void;
+    onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
+  }> = {},
+) =>
   render(
     <ImageInspector
       record={overrides.record ?? generatedRecord}
@@ -79,12 +81,27 @@ describe("ImageInspector", () => {
 
   it("surfaces the selected image summary before detailed parameters", () => {
     const { container } = renderInspector();
-    const hero = container.querySelector(".image-inspector__hero") as HTMLElement;
+    const hero = container.querySelector(
+      ".image-inspector__hero",
+    ) as HTMLElement;
 
     expect(hero).not.toBeNull();
     expect(within(hero).queryByText("AI 生成")).not.toBeInTheDocument();
     expect(within(hero).getByText("fal-ai/nano-banana-2")).toBeInTheDocument();
     expect(within(hero).getByText("1024 × 768")).toBeInTheDocument();
+  });
+
+  it("shows the stable image ID in the detail panel", () => {
+    renderInspector();
+
+    const detailGrid = screen.getByText("生成参数").closest("section");
+    expect(detailGrid).not.toBeNull();
+    expect(
+      within(detailGrid as HTMLElement).getByText("图片 ID"),
+    ).toBeInTheDocument();
+    expect(
+      within(detailGrid as HTMLElement).getByText("file-1"),
+    ).toBeInTheDocument();
   });
 
   it("gives the prompt its own readable section and keeps secondary details grouped", () => {
@@ -149,9 +166,7 @@ describe("ImageInspector", () => {
       onLocatePromptReference,
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "定位参考图 1" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "定位参考图 1" }));
 
     expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);
   });

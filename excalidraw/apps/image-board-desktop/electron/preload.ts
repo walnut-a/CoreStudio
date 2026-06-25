@@ -91,6 +91,8 @@ const desktopBridge: DesktopBridgeApi = {
   },
   getAgentBridgeStatus: () =>
     ipcRenderer.invoke(IPC_CHANNELS.getAgentBridgeStatus),
+  setAgentBridgeEnabled: (enabled) =>
+    ipcRenderer.invoke(IPC_CHANNELS.setAgentBridgeEnabled, enabled),
   onFlushAutosaveRequest: (listener) => {
     const handler = async (
       _event: unknown,

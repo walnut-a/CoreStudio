@@ -9,9 +9,15 @@ interface AgentStatusDockProps {
   status?: DesktopAgentBridgeStatus | null;
   onCopyAgentBoardUrl: () => void | Promise<void>;
   onRefreshStatus: () => void | Promise<unknown>;
+  onSetAgentBridgeEnabled?: (enabled: boolean) => void | Promise<void>;
+  connectionToggleDisabled?: boolean;
 }
 
 const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
+  if (!status?.enabled) {
+    return "Agent 未连接";
+  }
+
   if (status?.ready && status.currentProject) {
     return "Agent 已连接";
   }
@@ -24,6 +30,10 @@ const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
 };
 
 const getBadgeText = (status?: DesktopAgentBridgeStatus | null) => {
+  if (!status?.enabled) {
+    return "关闭";
+  }
+
   if (status?.ready && status.currentProject) {
     return "在线";
   }
@@ -36,6 +46,10 @@ const getBadgeText = (status?: DesktopAgentBridgeStatus | null) => {
 };
 
 const getBridgeEndpoint = (status?: DesktopAgentBridgeStatus | null) => {
+  if (!status?.enabled) {
+    return "未启动";
+  }
+
   if (!status?.boardUrl) {
     return status?.ready ? "本地桥已启动" : "未启动";
   }
@@ -52,14 +66,18 @@ export const AgentStatusDock = ({
   status,
   onCopyAgentBoardUrl,
   onRefreshStatus,
+  onSetAgentBridgeEnabled,
+  connectionToggleDisabled = false,
 }: AgentStatusDockProps) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const connected = Boolean(status?.ready && status.currentProject);
+  const enabled = Boolean(status?.enabled);
+  const connected = Boolean(enabled && status?.ready && status.currentProject);
   const boardUrlReady = Boolean(status?.boardUrl);
   const statusText = getStatusText(status);
   const badgeText = getBadgeText(status);
   const bridgeEndpoint = getBridgeEndpoint(status);
+  const canToggleConnection = Boolean(onSetAgentBridgeEnabled);
 
   useEffect(() => {
     if (!open) {
@@ -116,6 +134,28 @@ export const AgentStatusDock = ({
             </span>
           </header>
 
+          <div className="agent-status-popover__toggle">
+            <span className="agent-status-popover__toggle-copy">
+              <strong>允许 Agent 连接</strong>
+              <em>
+                {connectionToggleDisabled
+                  ? "请回到 CoreStudio 桌面端切换"
+                  : "开启后 CLI 和内置浏览器才能发现当前会话"}
+              </em>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-label="允许 Agent 连接"
+              aria-checked={enabled}
+              disabled={!canToggleConnection || connectionToggleDisabled}
+              className="agent-status-popover__switch"
+              onClick={() => {
+                void onSetAgentBridgeEnabled?.(!enabled);
+              }}
+            />
+          </div>
+
           <div className="agent-status-popover__body">
             <div className="agent-status-popover__item">
               <span>当前项目</span>
@@ -135,7 +175,9 @@ export const AgentStatusDock = ({
           <div className="agent-status-popover__body agent-status-popover__body--routes">
             <div className="agent-status-popover__item">
               <span>CLI</span>
-              <strong>可自动发现当前会话</strong>
+              <strong>
+                {enabled ? "可自动发现当前会话" : "开启连接后可发现"}
+              </strong>
             </div>
             <div className="agent-status-popover__item">
               <span>内置浏览器</span>

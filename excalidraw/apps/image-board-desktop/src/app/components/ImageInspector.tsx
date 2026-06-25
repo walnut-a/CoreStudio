@@ -7,11 +7,7 @@ import type {
 import type { ProviderId } from "../../shared/providerTypes";
 import { referencePlaceholderText } from "../../shared/promptReferences";
 import type { ImageLineageEntry } from "../imageRelationships";
-import {
-  copy,
-  getImageSourceLabel,
-  getOptionalText,
-} from "../copy";
+import { copy, getImageSourceLabel, getOptionalText } from "../copy";
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
 import { DesktopButton } from "./DesktopButton";
@@ -52,7 +48,9 @@ const getImageRecordSummary = (record: ImageRecord) => {
       : prompt
     : record.fileId;
 
-  return `${new Date(record.createdAt).toLocaleString("zh-CN")} · ${promptSummary}`;
+  return `${new Date(record.createdAt).toLocaleString(
+    "zh-CN",
+  )} · ${promptSummary}`;
 };
 
 const getParentImageSummary = (
@@ -70,14 +68,17 @@ const getParentImageSummary = (
   return getImageRecordSummary(parentRecord);
 };
 
-const formatDateTime = (value: string) => new Date(value).toLocaleString("zh-CN");
+const formatDateTime = (value: string) =>
+  new Date(value).toLocaleString("zh-CN");
 
 const formatSize = (width: number, height: number) => `${width} × ${height}`;
 const formatTaskSize = (task: GenerationTaskRecord) =>
   task.aspectRatio === null ? "自动比例" : formatSize(task.width, task.height);
 
 const getProviderLabel = (provider?: ProviderId) =>
-  provider ? getProviderDefinition(provider).label : copy.inspector.importedProvider;
+  provider
+    ? getProviderDefinition(provider).label
+    : copy.inspector.importedProvider;
 
 const getImageRecordTitle = (record: ImageRecord) =>
   record.sourceType === "generated"
@@ -174,7 +175,9 @@ export const ImageInspector = ({
 
   if (task) {
     const taskStatusText =
-      task.status === "error" ? copy.inspector.taskFailed : copy.inspector.taskPending;
+      task.status === "error"
+        ? copy.inspector.taskFailed
+        : copy.inspector.taskPending;
 
     return (
       <section className="image-inspector" ref={inspectorRef}>
@@ -205,7 +208,9 @@ export const ImageInspector = ({
             <dl className="image-inspector__detail-grid">
               <div className="image-inspector__detail-item">
                 <dt>{copy.inspector.taskStatus}</dt>
-                <dd className="image-inspector__detail-value">{taskStatusText}</dd>
+                <dd className="image-inspector__detail-value">
+                  {taskStatusText}
+                </dd>
               </div>
               <div className="image-inspector__detail-item">
                 <dt>{copy.inspector.taskStartedAt}</dt>
@@ -336,6 +341,12 @@ export const ImageInspector = ({
         <section className="image-inspector__section">
           <h3>{copy.inspector.detailsTitle}</h3>
           <dl className="image-inspector__detail-grid">
+            <div className="image-inspector__detail-item image-inspector__detail-item--wide">
+              <dt>{copy.inspector.imageId}</dt>
+              <dd className="image-inspector__detail-value image-inspector__detail-code">
+                {record.fileId}
+              </dd>
+            </div>
             <div className="image-inspector__detail-item">
               <dt>{copy.inspector.source}</dt>
               <dd className="image-inspector__detail-value">{sourceLabel}</dd>
@@ -402,13 +413,14 @@ export const ImageInspector = ({
                   {copy.inspector.descendantImages}
                 </p>
                 <ol className="image-inspector__chain-list image-inspector__chain-list--descendants">
-                  {descendantRecords.map(({ record: descendantRecord, depth }) => (
-                    renderLocateChainItem(descendantRecord, {
-                      style: {
-                        "--image-inspector-chain-depth": `${depth}`,
-                      } as React.CSSProperties,
-                    })
-                  ))}
+                  {descendantRecords.map(
+                    ({ record: descendantRecord, depth }) =>
+                      renderLocateChainItem(descendantRecord, {
+                        style: {
+                          "--image-inspector-chain-depth": `${depth}`,
+                        } as React.CSSProperties,
+                      }),
+                  )}
                 </ol>
               </div>
             )}

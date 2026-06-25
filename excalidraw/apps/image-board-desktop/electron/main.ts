@@ -91,6 +91,7 @@ let latestProjectOpenRequestId = 0;
 let latestAutosaveFlushRequestId = 0;
 let rendererReady = false;
 let allowWindowClose = false;
+let agentBridgeEnabled = false;
 let localBridgeHandle: LocalBridgeServerHandle | null = null;
 let rendererCommandBridge: ReturnType<typeof createRendererCommandBridge> | null =
   null;
@@ -184,6 +185,7 @@ const getAgentBoardUrl = () => {
 };
 
 const getAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
+  enabled: agentBridgeEnabled,
   ready: Boolean(localBridgeHandle),
   currentProject: getCurrentProject(),
   boardUrl: getAgentBoardUrl(),
@@ -390,8 +392,10 @@ const startLocalBridge = async () => {
   }
 };
 
-const stopLocalBridge = async () => {
-  localBridgeCleanupStarted = true;
+const stopLocalBridge = async ({ final = false } = {}) => {
+  if (final) {
+    localBridgeCleanupStarted = true;
+  }
   const bridge = localBridgeHandle;
   localBridgeHandle = null;
 
@@ -416,6 +420,27 @@ const stopLocalBridge = async () => {
       }),
     ),
   );
+};
+
+const setAgentBridgeEnabled = async (enabled: boolean) => {
+  if (agentBridgeEnabled === enabled && (!enabled || localBridgeHandle)) {
+    return getAgentBridgeStatus();
+  }
+
+  agentBridgeEnabled = enabled;
+  if (!enabled) {
+    await stopLocalBridge();
+    return getAgentBridgeStatus();
+  }
+
+  try {
+    await startLocalBridge();
+  } catch (error) {
+    agentBridgeEnabled = false;
+    throw error;
+  }
+
+  return getAgentBridgeStatus();
 };
 
 const sendMenuAction = (
@@ -638,6 +663,17 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC_CHANNELS.getAgentBridgeStatus, async () =>
     getAgentBridgeStatus(),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.setAgentBridgeEnabled,
+    async (_event, enabled: unknown) => {
+      if (typeof enabled !== "boolean") {
+        throw new Error("Agent Bridge enabled state must be a boolean.");
+      }
+
+      return setAgentBridgeEnabled(enabled);
+    },
   );
 
   ipcMain.on(
@@ -936,9 +972,11 @@ const readClipboardImageFromSystem = () => {
 
 app.whenReady().then(async () => {
   currentRecentProjects = await loadRecentProjects();
+  await removeAgentSessionDescriptor(agentSessionPath).catch((error) => {
+    console.error("[agent:session-cleanup-failed]", error);
+  });
   registerIpcHandlers();
   await createWindow();
-  await startLocalBridge();
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -961,8 +999,7 @@ app.on("will-quit", (event) => {
     return;
   }
 
-  localBridgeCleanupStarted = true;
-  void stopLocalBridge().finally(() => {
+  void stopLocalBridge({ final: true }).finally(() => {
     localBridgeCleanupFinished = true;
     app.quit();
   });

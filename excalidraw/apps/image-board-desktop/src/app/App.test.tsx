@@ -1510,6 +1510,50 @@ describe("App startup", () => {
     expect(notifyProjectStateChanged).not.toHaveBeenCalledWith(null);
   });
 
+  it("updates the Agent status dock after accepting an opened project", async () => {
+    let notifiedProject: { projectPath: string; name: string } | null = null;
+    const notifyProjectStateChanged = vi.fn((project) => {
+      notifiedProject = project;
+    });
+    const getAgentBridgeStatus = vi.fn(async () => ({
+      enabled: true,
+      ready: true,
+      currentProject: notifiedProject,
+      boardUrl:
+        "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&token=2",
+    }));
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus,
+      notifyProjectStateChanged,
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(getAgentBridgeStatus).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    await waitFor(() => {
+      expect(notifyProjectStateChanged).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        name: "测试项目",
+      });
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Agent 连接状态" }),
+    );
+
+    const popover = screen.getByRole("region", { name: "Agent 连接设置" });
+    expect(popover).toHaveTextContent("Agent 已连接");
+    expect(popover).toHaveTextContent("测试项目");
+    expect(popover).not.toHaveTextContent("未打开项目");
+  });
+
   it("handles agent scene.addPrompt requests on the current board", async () => {
     let agentCommandListener:
       | ((request: {

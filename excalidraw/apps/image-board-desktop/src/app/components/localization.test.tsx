@@ -442,6 +442,103 @@ describe("Chinese localization", () => {
     ]);
   });
 
+  it("shows selected elements in Agent operation mode when configured", () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        composerConfig={{ defaultMode: "agent", showModeSwitch: true }}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 3,
+            textCount: 1,
+            textNotes: ["保留把手比例"],
+            items: [
+              {
+                id: "image-1",
+                index: 1,
+                kind: "image",
+                label: "图片",
+                fileId: "file-image-1",
+                thumbnailDataUrl: "data:image/png;base64,aW1hZ2UtMQ==",
+              },
+              {
+                id: "text-1",
+                index: 2,
+                kind: "text",
+                label: "文本：保留把手比例",
+              },
+              {
+                id: "shape-1",
+                index: 3,
+                kind: "shape",
+                label: "箭头",
+              },
+            ],
+          },
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const modeSwitch = screen.getByRole("tablist", { name: "输入模式" });
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "Agent 操作" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "直接输入" }),
+    ).toHaveAttribute("aria-selected", "false");
+
+    const selectionSummary = screen.getByLabelText("当前选区");
+    expect(screen.queryByText("当前选区")).not.toBeInTheDocument();
+    expect(screen.queryByText("已选 3 个元素")).not.toBeInTheDocument();
+    expect(within(selectionSummary).getByText("1")).toBeInTheDocument();
+    expect(
+      within(selectionSummary).getByRole("img", { name: "图片 1 缩略图" }),
+    ).toHaveAttribute("src", "data:image/png;base64,aW1hZ2UtMQ==");
+    expect(within(selectionSummary).getByText("图片")).toBeInTheDocument();
+    expect(
+      within(selectionSummary).queryByText("file-image-1"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(selectionSummary).getByText("文本：保留把手比例"),
+    ).toBeInTheDocument();
+    expect(within(selectionSummary).getByText("箭头")).toBeInTheDocument();
+    expect(screen.queryByLabelText("提示词")).toBeNull();
+    expect(screen.queryByRole("button", { name: "开始生成" })).toBeNull();
+
+    fireEvent.click(within(modeSwitch).getByRole("tab", { name: "直接输入" }));
+
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "Agent 操作" }),
+    ).toHaveAttribute("aria-selected", "false");
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "直接输入" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("提示词")).toHaveAttribute(
+      "data-placeholder",
+      "描述你想生成的内容",
+    );
+    expect(
+      screen.getByRole("button", { name: "开始生成" }),
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("keeps the selected model when provider settings refresh", () => {
     const initialRequest = {
       provider: "gemini" as const,

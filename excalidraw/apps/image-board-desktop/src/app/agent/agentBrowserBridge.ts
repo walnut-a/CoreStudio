@@ -233,6 +233,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
       getAgentBridgeStatus: async (): Promise<DesktopAgentBridgeStatus> => {
         const status = await getStatus();
         return {
+          enabled: true,
           ready: status.ready,
           currentProject: status.currentProject,
           boardUrl: window.location.href,

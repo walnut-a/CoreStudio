@@ -147,6 +147,7 @@ export const copy = {
     taskRawError: "原始报错",
     taskStack: "调用堆栈",
     source: "来源",
+    imageId: "图片 ID",
     parentImage: "来源图片",
     chainTitle: "编辑链",
     currentImage: "当前图片",
@@ -251,7 +252,9 @@ export const copy = {
     cacheCleanFailed: "当前项目缓存清理失败。",
     cacheCleaned: (removedCount: number, removedBytes: number) =>
       removedCount
-        ? `项目缓存清理完成：删除 ${removedCount} 个缓存文件，释放 ${formatFileSize(removedBytes)}。`
+        ? `项目缓存清理完成：删除 ${removedCount} 个缓存文件，释放 ${formatFileSize(
+            removedBytes,
+          )}。`
         : "项目缓存清理完成：没有需要删除的缓存文件。",
     safeModeOpened: "已用安全模式打开项目，已跳过缩略图加载和后台修复。",
     thumbnailsRepaired: (

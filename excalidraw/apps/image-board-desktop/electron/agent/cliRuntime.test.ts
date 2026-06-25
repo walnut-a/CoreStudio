@@ -240,14 +240,37 @@ describe("runCli", () => {
       method: "GET",
     },
     {
+      name: "scene image-paths for selected images",
+      argv: ["scene", "image-paths", "--selection", "--json"],
+      route: "/v1/scene/image-paths",
+      method: "POST",
+      body: {
+        selectionOnly: true,
+      },
+    },
+    {
+      name: "scene image-paths for specific file ids",
+      argv: ["scene", "image-paths", "--file-ids", "file-1,file-2", "--json"],
+      route: "/v1/scene/image-paths",
+      method: "POST",
+      body: {
+        fileIds: ["file-1", "file-2"],
+      },
+    },
+    {
+      name: "scene image-paths for all images",
+      argv: ["scene", "image-paths", "--all", "--json"],
+      route: "/v1/scene/image-paths",
+      method: "POST",
+      body: {
+        all: true,
+      },
+    },
+    {
       name: "scene add-image",
       argv: [
         "scene",
         "add-image",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "/tmp/a.png",
         "--json",
       ],
@@ -255,8 +278,6 @@ describe("runCli", () => {
       method: "POST",
       body: {
         ...imagePayload,
-        taskId: "task-1",
-        writeToken: "write-1",
       },
     },
     {
@@ -266,10 +287,6 @@ describe("runCli", () => {
         "add-prompt",
         "--text",
         "prompt",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--dry-run",
         "--json",
       ],
@@ -277,8 +294,6 @@ describe("runCli", () => {
       method: "POST",
       body: {
         text: "prompt",
-        taskId: "task-1",
-        writeToken: "write-1",
         dryRun: true,
       },
     },
@@ -289,10 +304,6 @@ describe("runCli", () => {
         "--prompt",
         "prompt",
         "--use-selection",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--jsonl",
       ],
       route: AGENT_HTTP_ROUTES.generate,
@@ -300,8 +311,6 @@ describe("runCli", () => {
       body: {
         prompt: "prompt",
         useSelection: true,
-        taskId: "task-1",
-        writeToken: "write-1",
       },
       jsonl: true,
     },
@@ -310,18 +319,11 @@ describe("runCli", () => {
       argv: [
         "task",
         "complete",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--json",
       ],
       route: AGENT_HTTP_ROUTES.taskComplete,
       method: "POST",
-      body: {
-        taskId: "task-1",
-        writeToken: "write-1",
-      },
+      body: {},
     },
   ])(
     "sends $name to the bridge with the expected HTTP request",
@@ -462,10 +464,6 @@ describe("runCli", () => {
         "scene",
         "add-image",
         filePath,
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--json",
       ],
       {
@@ -486,8 +484,6 @@ describe("runCli", () => {
       width,
       height,
       createdAt: "2026-06-24T08:00:00.000Z",
-      taskId: "task-1",
-      writeToken: "write-1",
     });
   });
 
@@ -502,10 +498,6 @@ describe("runCli", () => {
         "scene",
         "add-image",
         "/tmp/source.svg",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--json",
       ],
       {
@@ -545,15 +537,12 @@ describe("runCli", () => {
     ["project current", ["project", "current", "--json"]],
     ["scene snapshot", ["scene", "snapshot", "--json"]],
     ["scene selection", ["scene", "selection", "--json"]],
+    ["scene image-paths", ["scene", "image-paths", "--selection", "--json"]],
     [
       "scene add-image",
       [
         "scene",
         "add-image",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "/tmp/a.png",
         "--json",
       ],
@@ -565,10 +554,6 @@ describe("runCli", () => {
         "add-prompt",
         "--text",
         "prompt",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--json",
       ],
     ],
@@ -578,10 +563,6 @@ describe("runCli", () => {
         "generate",
         "--prompt",
         "prompt",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--jsonl",
       ],
     ],
@@ -590,10 +571,6 @@ describe("runCli", () => {
       [
         "task",
         "complete",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--json",
       ],
     ],
@@ -704,64 +681,6 @@ describe("runCli", () => {
 
   it.each([
     {
-      name: "scene add-image",
-      argv: ["scene", "add-image", "/tmp/a.png", "--task-id", "task-1", "--json"],
-    },
-    {
-      name: "scene add-prompt",
-      argv: [
-        "scene",
-        "add-prompt",
-        "--text",
-        "prompt",
-        "--write-token",
-        "write-1",
-        "--json",
-      ],
-    },
-    {
-      name: "generate",
-      argv: [
-        "generate",
-        "--prompt",
-        "prompt",
-        "--task-id",
-        "task-1",
-        "--jsonl",
-      ],
-    },
-    {
-      name: "task complete",
-      argv: ["task", "complete", "--write-token", "write-1", "--json"],
-    },
-  ])("fails $name locally when task/write token fields are missing", async ({ argv }) => {
-    const fetch = createFetch();
-    const readFile = vi.fn(async () => {
-      throw new Error("session descriptor should not be read");
-    });
-    const readImagePayload = vi.fn(async () => imagePayload);
-
-    const result = await runCommand(argv, {
-      fetch,
-      readFile,
-      readImagePayload,
-    });
-
-    expect(result.exitCode).toBe(1);
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      ok: false,
-      error: {
-        code: "BAD_REQUEST",
-        message: "Write commands require --task-id and --write-token.",
-      },
-    });
-    expect(fetch).not.toHaveBeenCalled();
-    expect(readFile).not.toHaveBeenCalled();
-    expect(readImagePayload).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    {
       name: "unknown flag",
       argv: ["agent", "status", "--bogus", "--json"],
       message: "Unknown flag: --bogus",
@@ -773,10 +692,6 @@ describe("runCli", () => {
         "add-image",
         "/tmp/a.png",
         "/tmp/b.png",
-        "--task-id",
-        "task-1",
-        "--write-token",
-        "write-1",
         "--json",
       ],
       message: "scene add-image accepts exactly one image path.",
@@ -790,6 +705,11 @@ describe("runCli", () => {
       name: "invalid authorize ttl",
       argv: ["agent", "authorize", "--ttl-seconds", "0", "--json"],
       message: "--ttl-seconds must be a positive number.",
+    },
+    {
+      name: "image paths without an explicit scope",
+      argv: ["scene", "image-paths", "--json"],
+      message: "scene image-paths requires --selection, --file-ids, or --all.",
     },
   ])("fails locally for $name", async ({ argv, message }) => {
     const fetch = createFetch();

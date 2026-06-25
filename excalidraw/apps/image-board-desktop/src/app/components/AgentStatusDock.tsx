@@ -4,6 +4,7 @@ import { agentBridgeIcon } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 
 import type { DesktopAgentBridgeStatus } from "../../shared/desktopBridgeTypes";
+import type { GenerationSource } from "../../shared/providerTypes";
 
 interface AgentStatusDockProps {
   status?: DesktopAgentBridgeStatus | null;
@@ -11,6 +12,7 @@ interface AgentStatusDockProps {
   onRefreshStatus: () => void | Promise<unknown>;
   onSetAgentBridgeEnabled?: (enabled: boolean) => void | Promise<void>;
   connectionToggleDisabled?: boolean;
+  generationSource?: GenerationSource;
 }
 
 const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
@@ -68,6 +70,7 @@ export const AgentStatusDock = ({
   onRefreshStatus,
   onSetAgentBridgeEnabled,
   connectionToggleDisabled = false,
+  generationSource = "builtin",
 }: AgentStatusDockProps) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -154,6 +157,20 @@ export const AgentStatusDock = ({
                 void onSetAgentBridgeEnabled?.(!enabled);
               }}
             />
+          </div>
+
+          <div
+            className="agent-status-popover__source"
+            role="status"
+            aria-label="默认生成来源"
+          >
+            <span className="agent-status-popover__source-copy">
+              <strong>默认生成来源</strong>
+              <em>在生成输入区调整本次任务</em>
+            </span>
+            <span className="agent-status-popover__source-value">
+              {generationSource === "agent" ? "Agent" : "内置"}
+            </span>
           </div>
 
           <div className="agent-status-popover__body">

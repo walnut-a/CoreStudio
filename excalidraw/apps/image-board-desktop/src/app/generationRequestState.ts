@@ -116,6 +116,8 @@ const isSameGenerationRequest = (
   right: GenerationRequest,
 ) => {
   return (
+    (left.generationSource ?? "builtin") ===
+      (right.generationSource ?? "builtin") &&
     left.provider === right.provider &&
     left.model === right.model &&
     left.prompt === right.prompt &&

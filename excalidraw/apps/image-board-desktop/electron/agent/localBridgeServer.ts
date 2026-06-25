@@ -11,6 +11,7 @@ import {
 } from "../../src/shared/agentBridgeTypes";
 
 import type {
+  AgentBoardCommandContext,
   AgentBrowserRuntimeState,
   AgentErrorCode,
   AgentPermission,
@@ -55,10 +56,11 @@ type StoredAgentBrowserRuntimeState = AgentBrowserRuntimeState & {
   receivedAt: string;
 };
 
+const AGENT_GENERATION_SOURCES = ["builtin", "agent"] as const;
+
 interface WriteRouteConfig {
   route: string;
   command: AgentRendererCommandName;
-  permission: AgentPermission;
   completeGrant?: boolean;
 }
 
@@ -66,32 +68,21 @@ const WRITE_ROUTES: WriteRouteConfig[] = [
   {
     route: AGENT_HTTP_ROUTES.sceneAddImage,
     command: "scene.addImage",
-    permission: "write-board",
   },
   {
     route: AGENT_HTTP_ROUTES.sceneAddPrompt,
     command: "scene.addPrompt",
-    permission: "write-board",
   },
   {
     route: AGENT_HTTP_ROUTES.generate,
     command: "generate",
-    permission: "generate-image",
   },
   {
     route: AGENT_HTTP_ROUTES.taskComplete,
     command: "task.complete",
-    permission: "read-context",
     completeGrant: true,
   },
 ];
-
-const GRANT_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
-  AUTH_DENIED: 401,
-  TOKEN_EXPIRED: 401,
-  FORBIDDEN: 403,
-  PROJECT_MISMATCH: 409,
-};
 
 const AUTHORIZE_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   APP_NOT_READY: 503,
@@ -187,6 +178,47 @@ const sendRendererError = (response: http.ServerResponse, error: unknown) => {
   });
 };
 
+const getBrowserRuntimeGenerationSource = (
+  runtimeState: StoredAgentBrowserRuntimeState,
+) => (runtimeState.generation?.source === "builtin" ? "builtin" : "agent");
+
+const buildBrowserRuntimeAgentContext = (
+  currentProject: LocalBridgeCurrentProject,
+  runtimeState: StoredAgentBrowserRuntimeState,
+) => ({
+  project: currentProject,
+  generation: {
+    source: getBrowserRuntimeGenerationSource(runtimeState),
+    sources: AGENT_GENERATION_SOURCES,
+    builtin: {
+      configured: null,
+    },
+  },
+  selection: runtimeState.selection ?? {
+    selected: false,
+  },
+  scene: runtimeState.scene ?? null,
+  browserRuntime: {
+    source: runtimeState.source,
+    updatedAt: runtimeState.updatedAt,
+    receivedAt: runtimeState.receivedAt,
+  },
+});
+
+const buildAgentBoardCommandContext = (
+  runtimeState: StoredAgentBrowserRuntimeState,
+): AgentBoardCommandContext => ({
+  ...(runtimeState.selection === undefined
+    ? {}
+    : { selection: runtimeState.selection }),
+  ...(runtimeState.scene === undefined ? {} : { scene: runtimeState.scene }),
+  browserRuntime: {
+    source: runtimeState.source,
+    updatedAt: runtimeState.updatedAt,
+    receivedAt: runtimeState.receivedAt,
+  },
+});
+
 const readRequestBody = async (
   request: http.IncomingMessage,
 ): Promise<JsonBody> => {
@@ -221,18 +253,59 @@ const createRendererPayload = (
   body: JsonBody,
   projectPath: string,
   dryRun: boolean,
+  agentBoardContext?: AgentBoardCommandContext | null,
 ) => {
   const {
     taskId: _taskId,
     writeToken: _writeToken,
     dryRun: _dryRun,
     projectPath: _projectPath,
+    agentBoardContext: _agentBoardContext,
     ...rest
   } = body;
   return {
     ...rest,
     projectPath,
     dryRun,
+    ...(agentBoardContext ? { agentBoardContext } : {}),
+  };
+};
+
+const createDryRunPayload = (body: JsonBody) => {
+  const {
+    taskId: _taskId,
+    writeToken: _writeToken,
+    dryRun: _dryRun,
+    projectPath: _projectPath,
+    agentBoardContext: _agentBoardContext,
+    dataBase64,
+    files,
+    ...rest
+  } = body;
+  const summarizeImagePayload = (payload: unknown) => {
+    if (!isObjectBody(payload)) {
+      return payload;
+    }
+    const {
+      dataBase64: nestedDataBase64,
+      ...nestedRest
+    } = payload;
+    return {
+      ...nestedRest,
+      ...(typeof nestedDataBase64 === "string"
+        ? { dataBase64Length: nestedDataBase64.length }
+        : {}),
+    };
+  };
+
+  return {
+    ...rest,
+    ...(typeof dataBase64 === "string"
+      ? { dataBase64Length: dataBase64.length }
+      : {}),
+    ...(Array.isArray(files)
+      ? { files: files.map((file) => summarizeImagePayload(file)) }
+      : {}),
   };
 };
 
@@ -292,6 +365,7 @@ const handleWriteCommand = async (
   options: LocalBridgeServerOptions,
   config: WriteRouteConfig,
   body: JsonBody,
+  runtimeState?: StoredAgentBrowserRuntimeState | null,
 ) => {
   const currentProject = options.getCurrentProject();
   if (!currentProject) {
@@ -304,45 +378,13 @@ const handleWriteCommand = async (
     return;
   }
 
-  const taskFields = requireTaskFields(body);
-  if (!taskFields) {
-    sendError(
-      response,
-      400,
-      "BAD_REQUEST",
-      "Write routes require taskId and writeToken",
-    );
-    return;
-  }
-
-  const grantResult = options.grants.verifyGrant({
-    taskId: taskFields.taskId,
-    writeToken: taskFields.writeToken,
-    projectPath: currentProject.projectPath,
-    ...(config.completeGrant ? {} : { permission: config.permission }),
-  });
-  if (!grantResult.ok) {
-    sendError(
-      response,
-      GRANT_STATUS_BY_CODE[grantResult.code] ?? 400,
-      grantResult.code,
-      "Task grant verification failed",
-    );
-    return;
-  }
-
   const payload = createRendererPayload(
     body,
     currentProject.projectPath,
     false,
+    runtimeState ? buildAgentBoardCommandContext(runtimeState) : null,
   );
   if (body.dryRun === true) {
-    const {
-      taskId: _taskId,
-      writeToken: _writeToken,
-      dryRun: _dryRun,
-      ...dryRunPayload
-    } = body;
     sendJson(
       response,
       200,
@@ -350,7 +392,7 @@ const handleWriteCommand = async (
         dryRun: true,
         command: config.command,
         projectPath: currentProject.projectPath,
-        payload: dryRunPayload,
+        payload: createDryRunPayload(body),
       }),
     );
     return;
@@ -358,11 +400,18 @@ const handleWriteCommand = async (
 
   try {
     if (config.completeGrant) {
-      const completedGrant = options.grants.completeGrant(taskFields.taskId);
+      const taskFields = requireTaskFields(body);
+      const completedGrant = taskFields
+        ? options.grants.completeGrant(taskFields.taskId)
+        : null;
       const result = await options.renderer.request(config.command, {
         projectPath: currentProject.projectPath,
-        taskId: taskFields.taskId,
-        completedGrant,
+        ...(taskFields
+          ? {
+              taskId: taskFields.taskId,
+              completedGrant,
+            }
+          : {}),
       });
       sendJson(
         response,
@@ -467,8 +516,37 @@ export const createLocalBridgeServer = async (
         return;
       }
 
+      if (
+        request.method === "GET" &&
+        url.pathname === AGENT_HTTP_ROUTES.context
+      ) {
+        try {
+          const result = await options.renderer.request("agent.context");
+          sendJson(response, 200, createAgentOk(result));
+        } catch (error) {
+          const runtimeState = getCurrentBrowserRuntimeState();
+          const currentProject = options.getCurrentProject();
+          if (
+            getErrorCode(error) === "PROJECT_REQUIRED" &&
+            runtimeState &&
+            currentProject
+          ) {
+            sendJson(
+              response,
+              200,
+              createAgentOk(
+                buildBrowserRuntimeAgentContext(currentProject, runtimeState),
+              ),
+            );
+            return;
+          }
+
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
       const readRoutes = new Map<string, AgentRendererCommandName>([
-        [AGENT_HTTP_ROUTES.context, "agent.context"],
         [AGENT_HTTP_ROUTES.projectCurrent, "project.current"],
         [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
         [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
@@ -483,11 +561,14 @@ export const createLocalBridgeServer = async (
         (config) => config.route === url.pathname,
       );
       const isAuthorizeRoute = url.pathname === AGENT_HTTP_ROUTES.authorize;
+      const isSceneImagePathsRoute =
+        url.pathname === AGENT_HTTP_ROUTES.sceneImagePaths;
       const isDesktopBridgeRoute =
         url.pathname === AGENT_HTTP_ROUTES.desktopBridge;
       if (
         request.method === "POST" &&
         !isAuthorizeRoute &&
+        !isSceneImagePathsRoute &&
         !writeRoute &&
         !isDesktopBridgeRoute &&
         !isBrowserStateRoute
@@ -566,6 +647,9 @@ export const createLocalBridgeServer = async (
             ? {}
             : { selection: body.selection }),
           ...(body.scene === undefined ? {} : { scene: body.scene }),
+          ...(body.generation === undefined
+            ? {}
+            : { generation: body.generation }),
           receivedAt: new Date().toISOString(),
         };
         sendJson(
@@ -578,13 +662,32 @@ export const createLocalBridgeServer = async (
         return;
       }
 
+      if (request.method === "POST" && isSceneImagePathsRoute && body) {
+        try {
+          const result = await options.renderer.request(
+            "scene.imagePaths",
+            body,
+          );
+          sendJson(response, 200, createAgentOk(result));
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
       if (request.method === "POST" && isDesktopBridgeRoute && body) {
         await handleDesktopBridgeCommand(response, options.renderer, body);
         return;
       }
 
       if (request.method === "POST" && writeRoute && body) {
-        await handleWriteCommand(response, options, writeRoute, body);
+        await handleWriteCommand(
+          response,
+          options,
+          writeRoute,
+          body,
+          getCurrentBrowserRuntimeState(),
+        );
         return;
       }
 

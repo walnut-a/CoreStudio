@@ -61,6 +61,7 @@ import type {
   GenerationPromptReferencePayload,
   GenerationReferencePayload,
   GenerationRequest,
+  GenerationSource,
   ProviderCapabilities,
   ProviderId,
   ProviderRequestAdapter,
@@ -184,11 +185,17 @@ type GenerateComposerMode = "direct" | "agent";
 interface GenerateComposerConfig {
   defaultMode?: GenerateComposerMode;
   showModeSwitch?: boolean;
+  defaultGenerationSource?: GenerationSource;
+  showGenerationSourceSwitch?: boolean;
 }
 
 const normalizeComposerMode = (
   mode: GenerateComposerConfig["defaultMode"],
 ): GenerateComposerMode => (mode === "agent" ? "agent" : "direct");
+
+const normalizeGenerationSource = (
+  source: GenerateComposerConfig["defaultGenerationSource"],
+): GenerationSource => (source === "agent" ? "agent" : "builtin");
 
 interface GenerateImageDialogProps {
   open: boolean;
@@ -296,6 +303,17 @@ export const GenerateImageDialog = ({
   const effectiveComposerMode = showComposerModeSwitch
     ? composerMode
     : defaultComposerMode;
+  const defaultGenerationSource = normalizeGenerationSource(
+    composerConfig?.defaultGenerationSource ?? initialRequest.generationSource,
+  );
+  const showGenerationSourceSwitch = Boolean(
+    composerConfig?.showGenerationSourceSwitch,
+  );
+  const [generationSource, setGenerationSource] =
+    useState<GenerationSource>(defaultGenerationSource);
+  const effectiveGenerationSource = showGenerationSourceSwitch
+    ? generationSource
+    : defaultGenerationSource;
   const currentProviderSettings = providerSettings?.[request.provider];
   const currentProviderCustomModels =
     currentProviderSettings?.customModels ?? [];
@@ -303,6 +321,10 @@ export const GenerateImageDialog = ({
   useEffect(() => {
     setComposerMode(defaultComposerMode);
   }, [defaultComposerMode, open]);
+
+  useEffect(() => {
+    setGenerationSource(defaultGenerationSource);
+  }, [defaultGenerationSource, open]);
 
   useEffect(() => {
     const nextRequest = normalizeGenerationRequest(initialRequest, {
@@ -514,6 +536,7 @@ export const GenerateImageDialog = ({
       promptReferenceCount ||
       hasUsablePendingReference) &&
       isConfigured &&
+      effectiveGenerationSource === "builtin" &&
       !referenceLimitExceeded,
   );
   const showBody = effectiveComposerMode === "direct" && advancedOpen;
@@ -536,6 +559,8 @@ export const GenerateImageDialog = ({
     : savedPrompts;
   const promptLibraryCurrentContent =
     buildPromptTextWithInlineReferences(request).trim();
+  const showComposerTaskBar =
+    showComposerModeSwitch || showGenerationSourceSwitch;
 
   const commitRequest = (
     nextRequest: GenerationRequest,
@@ -561,6 +586,14 @@ export const GenerateImageDialog = ({
     const nextRequest =
       typeof updater === "function" ? updater(requestRef.current) : updater;
     return commitRequest(nextRequest, customModels);
+  };
+
+  const updateGenerationSource = (source: GenerationSource) => {
+    setGenerationSource(source);
+    updateRequest((current) => ({
+      ...current,
+      generationSource: source,
+    }));
   };
 
   const applyCustomModelTemplate = (
@@ -776,9 +809,15 @@ export const GenerateImageDialog = ({
   };
 
   const submitPreparedRequest = (nextRequest: GenerationRequest) => {
-    const normalizedRequest = normalizeGenerationRequest(nextRequest, {
-      customModels: currentProviderCustomModels,
-    });
+    const normalizedRequest = normalizeGenerationRequest(
+      {
+        ...nextRequest,
+        generationSource: effectiveGenerationSource,
+      },
+      {
+        customModels: currentProviderCustomModels,
+      },
+    );
     const requestWithInlineReferencesOnly = normalizedRequest.promptReferences
       ?.length
       ? {
@@ -804,6 +843,10 @@ export const GenerateImageDialog = ({
 
   const submitRequest = () => {
     if (effectiveComposerMode !== "direct") {
+      return;
+    }
+
+    if (effectiveGenerationSource !== "builtin") {
       return;
     }
 
@@ -1038,6 +1081,10 @@ export const GenerateImageDialog = ({
               showComposerModeSwitch
                 ? "generate-composer--with-mode-switch"
                 : "",
+              showGenerationSourceSwitch
+                ? "generate-composer--with-source-switch"
+                : "",
+              showComposerTaskBar ? "generate-composer--with-taskbar" : "",
               effectiveComposerMode === "agent"
                 ? "generate-composer--agent-mode"
                 : "",
@@ -1045,85 +1092,128 @@ export const GenerateImageDialog = ({
               .filter(Boolean)
               .join(" ")}
           >
-            {showComposerModeSwitch ? (
+            {showComposerTaskBar ? (
               <div
-                className="generate-composer__mode-switch"
-                role="tablist"
-                aria-label="输入模式"
+                className="generate-composer__taskbar"
+                role="toolbar"
+                aria-label="生成任务状态"
                 onMouseDown={stopInputEventPropagation}
               >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={effectiveComposerMode === "agent"}
-                  className="generate-composer__mode-tab"
-                  onMouseDown={stopInputEventPropagation}
-                  onClick={(event) => {
-                    stopInputEventPropagation(event);
-                    setComposerMode("agent");
-                  }}
-                >
-                  Agent 操作
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={effectiveComposerMode === "direct"}
-                  className="generate-composer__mode-tab"
-                  onMouseDown={stopInputEventPropagation}
-                  onClick={(event) => {
-                    stopInputEventPropagation(event);
-                    setComposerMode("direct");
-                  }}
-                >
-                  直接输入
-                </button>
+                {showComposerModeSwitch ? (
+                  <div
+                    className="generate-composer__mode-switch"
+                    role="tablist"
+                    aria-label="输入模式"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={effectiveComposerMode === "agent"}
+                      className="generate-composer__mode-tab"
+                      onMouseDown={stopInputEventPropagation}
+                      onClick={(event) => {
+                        stopInputEventPropagation(event);
+                        setComposerMode("agent");
+                      }}
+                    >
+                      Agent 操作
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={effectiveComposerMode === "direct"}
+                      className="generate-composer__mode-tab"
+                      onMouseDown={stopInputEventPropagation}
+                      onClick={(event) => {
+                        stopInputEventPropagation(event);
+                        setComposerMode("direct");
+                      }}
+                    >
+                      直接输入
+                    </button>
+                  </div>
+                ) : null}
+                {showGenerationSourceSwitch ? (
+                  <div
+                    className="generate-composer__source-switch"
+                    role="group"
+                    aria-label="本次生成来源"
+                  >
+                    <button
+                      type="button"
+                      aria-pressed={effectiveGenerationSource === "builtin"}
+                      className="generate-composer__source-option"
+                      onMouseDown={stopInputEventPropagation}
+                      onClick={(event) => {
+                        stopInputEventPropagation(event);
+                        updateGenerationSource("builtin");
+                      }}
+                    >
+                      内置生成
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={effectiveGenerationSource === "agent"}
+                      className="generate-composer__source-option"
+                      onMouseDown={stopInputEventPropagation}
+                      onClick={(event) => {
+                        stopInputEventPropagation(event);
+                        updateGenerationSource("agent");
+                      }}
+                    >
+                      Agent 生成
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {effectiveComposerMode === "agent" ? (
-              <div
-                className="generate-composer__agent-summary"
-                role="status"
-                aria-live="polite"
+              <section
+                className="generate-composer__agent-context"
+                role="region"
+                aria-label="Agent 上下文"
               >
-                <div
-                  className="generate-composer__agent-items"
-                  aria-label="当前选区"
-                >
-                  {agentSelectionItems.length ? (
-                    agentSelectionItems.map((item) => (
-                      <span
-                        key={item.id}
-                        className={[
-                          "generate-composer__agent-item",
-                          `generate-composer__agent-item--${item.kind}`,
-                        ].join(" ")}
-                        title={item.label}
-                      >
-                        {item.kind === "image" && item.thumbnailDataUrl ? (
-                          <span className="generate-composer__agent-thumbnail">
-                            <img
-                              src={item.thumbnailDataUrl}
-                              alt={`${item.label} ${item.index} 缩略图`}
-                              draggable={false}
-                            />
+                <div className="generate-composer__agent-summary">
+                  <div
+                    className="generate-composer__agent-items"
+                    aria-label="当前选区"
+                    aria-live="polite"
+                  >
+                    {agentSelectionItems.length ? (
+                      agentSelectionItems.map((item) => (
+                        <span
+                          key={item.id}
+                          className={[
+                            "generate-composer__agent-item",
+                            `generate-composer__agent-item--${item.kind}`,
+                          ].join(" ")}
+                          title={item.label}
+                        >
+                          {item.kind === "image" && item.thumbnailDataUrl ? (
+                            <span className="generate-composer__agent-thumbnail">
+                              <img
+                                src={item.thumbnailDataUrl}
+                                alt={`${item.label} ${item.index} 缩略图`}
+                                draggable={false}
+                              />
+                            </span>
+                          ) : null}
+                          <span className="generate-composer__agent-index">
+                            {item.index}
                           </span>
-                        ) : null}
-                        <span className="generate-composer__agent-index">
-                          {item.index}
+                          <span className="generate-composer__agent-label">
+                            {item.label}
+                          </span>
                         </span>
-                        <span className="generate-composer__agent-label">
-                          {item.label}
-                        </span>
+                      ))
+                    ) : (
+                      <span className="generate-composer__agent-empty">
+                        暂无选中元素
                       </span>
-                    ))
-                  ) : (
-                    <span className="generate-composer__agent-empty">
-                      暂无选中元素
-                    </span>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              </section>
             ) : (
               <>
                 <div className="generate-composer__field">

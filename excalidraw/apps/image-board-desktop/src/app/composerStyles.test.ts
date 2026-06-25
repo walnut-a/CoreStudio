@@ -135,9 +135,7 @@ describe("generate composer styles", () => {
     expect(appRule).toContain("--canvas-footer-overlay-z-index: 45");
     expect(dockRule).toContain("var(--canvas-footer-button-size)");
     expect(dockRule).toContain("var(--canvas-footer-button-gap)");
-    expect(dockRule).toContain(
-      "z-index: var(--canvas-footer-overlay-z-index)",
-    );
+    expect(dockRule).toContain("z-index: var(--canvas-footer-overlay-z-index)");
     expect(buttonRule).toContain("width: var(--canvas-footer-button-size)");
     expect(buttonRule).toContain("height: var(--canvas-footer-button-size)");
     expect(iconRule).toContain("width: var(--canvas-footer-icon-size)");
@@ -270,10 +268,9 @@ describe("generate composer styles", () => {
 
   it("keeps the canvas controls usable in narrow embedded browser viewports", () => {
     const appCss = readAppCss();
-    const narrowAppRule = getRulesContaining(
-      appCss,
-      ".image-board-app",
-    ).find((rule) => rule.includes("--canvas-top-control-inline-end-reserve"));
+    const narrowAppRule = getRulesContaining(appCss, ".image-board-app").find(
+      (rule) => rule.includes("--canvas-top-control-inline-end-reserve"),
+    );
     const narrowMenuRule = getRulesContaining(
       appCss,
       ".image-board-app .App-menu_top",
@@ -575,6 +572,27 @@ describe("generate composer styles", () => {
     expect(dialogSource).toContain("InlinePromptEditor");
     expect(dialogSource).toContain("generate-composer--with-reference");
     expect(dialogSource).toContain("generate-composer__controls");
+  });
+
+  it("keeps Agent selection image chips the same size as direct prompt reference chips", () => {
+    const appCss = readAppCss();
+    const agentItemRule = getRule(appCss, ".generate-composer__agent-item");
+    const agentThumbnailRule = getRule(
+      appCss,
+      ".generate-composer__agent-thumbnail",
+    );
+    const agentIndexRule = getRule(appCss, ".generate-composer__agent-index");
+
+    expect(agentItemRule).toContain("max-width: 9rem");
+    expect(agentItemRule).toContain("gap: 4px");
+    expect(agentItemRule).toContain("min-height: 25px");
+    expect(agentItemRule).toContain("padding: 2px 7px 2px 2px");
+    expect(agentThumbnailRule).toContain("width: 21px");
+    expect(agentThumbnailRule).toContain("height: 21px");
+    expect(agentThumbnailRule).toContain("flex: 0 0 21px");
+    expect(agentIndexRule).toContain("width: 15px");
+    expect(agentIndexRule).toContain("height: 15px");
+    expect(agentIndexRule).toContain("font-size: 0.625rem");
   });
 
   it("keeps the prompt library panel aligned to the composer width", () => {

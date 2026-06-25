@@ -37,7 +37,11 @@ import {
   buildImagePromptReferenceRecords,
   buildPromptTextWithInlineReferences,
 } from "../shared/promptReferences";
-import { isAgentDesktopBridgeMethod } from "../shared/agentBridgeTypes";
+import {
+  isAgentDesktopBridgeMethod,
+  type AgentBoardCommandContext,
+  type AgentBrowserRuntimeViewport,
+} from "../shared/agentBridgeTypes";
 import {
   getProviderDefinition,
   isAutoAspectRatioRequest,
@@ -106,6 +110,7 @@ import { TopBar } from "./components/TopBar";
 import { WelcomePane } from "./components/WelcomePane";
 import {
   buildAgentProjectContext,
+  buildAgentImagePathList,
   buildAgentSceneBoard,
   buildAgentSceneSnapshot,
   buildAgentSelectionContext,
@@ -120,6 +125,7 @@ import "./App.css";
 
 import type { AgentBrowserRuntimeState } from "../shared/agentBridgeTypes";
 import type {
+  GenerationSource,
   GenerationReferencePayload,
   GenerationRequest,
 } from "../shared/providerTypes";
@@ -460,6 +466,18 @@ const getViewportCenteredZoomState = (
 const isObjectPayload = (payload: unknown): payload is Record<string, unknown> =>
   Boolean(payload && typeof payload === "object" && !Array.isArray(payload));
 
+type AppSceneSnapshot = {
+  elements: readonly ExcalidrawElement[];
+  appState: AppState;
+  files: BinaryFiles;
+};
+
+type PlacementViewportContext = {
+  viewportCenter: { x: number; y: number };
+  viewportSize: { width: number; height: number };
+  zoomValue: number;
+};
+
 const createAgentBadRequestError = (message: string) =>
   Object.assign(new Error(message), {
     code: "BAD_REQUEST" as const,
@@ -501,6 +519,129 @@ const parseAgentAnchorPoint = (anchorPoint: unknown) => {
   }
 
   return { x, y };
+};
+
+const parseAgentBoardCommandContext = (
+  payload: unknown,
+): AgentBoardCommandContext | null => {
+  if (!isObjectPayload(payload) || !isObjectPayload(payload.agentBoardContext)) {
+    return null;
+  }
+
+  const context = payload.agentBoardContext;
+  if (!isObjectPayload(context.browserRuntime)) {
+    return null;
+  }
+
+  if (context.browserRuntime.source !== "agent-board") {
+    return null;
+  }
+
+  return context as unknown as AgentBoardCommandContext;
+};
+
+const getAgentBoardSelectedElementIds = (
+  context: AgentBoardCommandContext | null,
+) => {
+  const selectedElementIds = context?.scene?.selectedElementIds;
+  if (!Array.isArray(selectedElementIds)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      selectedElementIds.filter(
+        (elementId): elementId is string =>
+          typeof elementId === "string" && Boolean(elementId.trim()),
+      ),
+    ),
+  );
+};
+
+const buildSceneWithSelectedElementIds = (
+  scene: AppSceneSnapshot | null,
+  selectedElementIds: readonly string[],
+): AppSceneSnapshot | null => {
+  if (!scene || !selectedElementIds.length) {
+    return null;
+  }
+
+  return {
+    ...scene,
+    appState: {
+      ...scene.appState,
+      selectedElementIds: Object.fromEntries(
+        selectedElementIds.map((elementId) => [elementId, true as const]),
+      ) as AppState["selectedElementIds"],
+      selectedGroupIds: {},
+    },
+  };
+};
+
+const getPlacementViewportFromRuntimeViewport = (
+  viewport: AgentBrowserRuntimeViewport | undefined,
+): PlacementViewportContext | null => {
+  if (!viewport) {
+    return null;
+  }
+
+  const width = getFiniteNumber(viewport.width, 0);
+  const height = getFiniteNumber(viewport.height, 0);
+  const zoomValue = Math.max(getFiniteNumber(viewport.zoom, 1), 0.0001);
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  const scrollX = getFiniteNumber(viewport.scrollX, 0);
+  const scrollY = getFiniteNumber(viewport.scrollY, 0);
+
+  return {
+    viewportCenter: {
+      x: width / (2 * zoomValue) - scrollX,
+      y: height / (2 * zoomValue) - scrollY,
+    },
+    viewportSize: {
+      width,
+      height,
+    },
+    zoomValue,
+  };
+};
+
+const getPlacementViewportFromAgentBoardContext = (
+  context: AgentBoardCommandContext | null,
+) => getPlacementViewportFromRuntimeViewport(context?.scene?.viewport);
+
+const parseAgentImagePathPayload = (payload: unknown) => {
+  if (payload === undefined || payload === null) {
+    return { selectionOnly: false };
+  }
+
+  if (!isObjectPayload(payload)) {
+    throw createAgentBadRequestError("scene.imagePaths payload 格式不正确。");
+  }
+
+  const fileIds = payload.fileIds;
+  if (fileIds !== undefined && !Array.isArray(fileIds)) {
+    throw createAgentBadRequestError("scene.imagePaths fileIds 必须是数组。");
+  }
+  const normalizedFileIds = Array.from(
+    new Set(
+      (fileIds ?? []).map((fileId) => {
+        if (typeof fileId !== "string" || !fileId.trim()) {
+          throw createAgentBadRequestError(
+            "scene.imagePaths fileIds 必须是非空字符串。",
+          );
+        }
+        return fileId.trim();
+      }),
+    ),
+  );
+
+  return {
+    ...(normalizedFileIds.length ? { fileIds: normalizedFileIds } : {}),
+    selectionOnly: payload.selectionOnly === true,
+  };
 };
 
 const toAgentImageAsset = (
@@ -786,6 +927,10 @@ const App = () => {
       rememberedGenerationModelSelectionRef.current,
     ),
   );
+  const [generationSource, setGenerationSource] =
+    useState<GenerationSource>(() =>
+      isAgentBrowserRoute ? "agent" : "builtin",
+    );
   const [loadingProject, setLoadingProject] = useState(false);
   const [savingProviders, setSavingProviders] = useState(false);
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
@@ -876,13 +1021,16 @@ const App = () => {
   const isCurrentProjectOpen = (sequence: number) =>
     projectOpenSequenceRef.current === sequence;
 
-  const getGenerationAnchorBounds = (request: GenerationRequest) => {
+  const getGenerationAnchorBounds = (
+    request: GenerationRequest,
+    scene: AppSceneSnapshot | null = latestSceneRef.current,
+  ) => {
     if (!request.reference?.enabled) {
       return null;
     }
 
     return getElementsSceneBounds(
-      getSelectedReferenceElements(latestSceneRef.current),
+      getSelectedReferenceElements(scene),
     );
   };
 
@@ -972,6 +1120,9 @@ const App = () => {
         selectedElementIds: getRuntimeSelectedElementIds(scene.appState),
         viewport: buildAgentBrowserRuntimeViewport(scene.appState),
       },
+      generation: {
+        source: generationSource,
+      },
     };
 
     void publishAgentBrowserRuntimeState(state).catch(() => {
@@ -1023,6 +1174,54 @@ const App = () => {
     project: DesktopProjectBundle,
     fileIds: string[],
   ) => readProjectImageAssets(project, fileIds, "original");
+
+  const readInitialVisibleImageRenditionAssets = async (
+    project: DesktopProjectBundle,
+    scene: {
+      elements?: readonly ExcalidrawElement[];
+      appState?: Partial<AppState> | null;
+    },
+  ) => {
+    const elements = scene.elements ?? [];
+    const appState = scene.appState;
+    if (!elements.length || !appState) {
+      return [];
+    }
+
+    const requests = getImageRenditionRequestsNearViewport({
+      elements,
+      appState: appState as AppState,
+      imageRecords: project.imageRecords,
+      loadedPreviewFileIds: new Set(),
+      loadingPreviewFileIds: new Set(),
+      loadedOriginalFileIds: new Set(),
+      loadingOriginalFileIds: new Set(),
+      devicePixelRatio: window.devicePixelRatio,
+    });
+    if (!requests.length) {
+      return [];
+    }
+
+    const fileIdsByRendition = requests.reduce((groups, request) => {
+      const fileIds = groups.get(request.rendition) ?? [];
+      fileIds.push(request.fileId);
+      groups.set(request.rendition, fileIds);
+      return groups;
+    }, new Map<ImageAssetRequestRendition, string[]>());
+
+    try {
+      const assetsByRendition = await Promise.all(
+        Array.from(fileIdsByRendition.entries()).map(
+          ([rendition, fileIds]) =>
+            readProjectImageAssets(project, fileIds, rendition),
+        ),
+      );
+      return assetsByRendition.flat();
+    } catch {
+      // 初始原图预取只是为了避免首屏停在缩略图；失败时继续打开项目，后续懒加载还会重试。
+      return [];
+    }
+  };
 
   const queueImageFilesForReadyCanvas = (filesToAdd: BinaryFileData[]) => {
     const pendingById = new Map(
@@ -1831,7 +2030,7 @@ const App = () => {
 
       const restored = await deserializeSceneFromProject(bundle.sceneJson);
       const fileIds = collectAgentImageFileIds(restored.elements || []);
-      const assets = bundle.safeMode
+      const thumbnailAssets = bundle.safeMode
         ? []
         : await desktopBridge.readProjectAssetPayloads({
             projectPath: bundle.projectPath,
@@ -1839,17 +2038,24 @@ const App = () => {
             rendition: "thumbnail",
             thumbnailMode: "cache-only",
           });
+      const visibleRenditionAssets = bundle.safeMode
+        ? []
+        : await readInitialVisibleImageRenditionAssets(bundle, {
+            elements: restored.elements ?? undefined,
+            appState: restored.appState as AppState,
+          });
       if (!isCurrentProjectOpen(sequence)) {
         return;
       }
 
+      const assets = [...thumbnailAssets, ...visibleRenditionAssets];
       const files = projectAssetPayloadsToBinaryFiles(
         assets,
         bundle.imageRecords,
       );
       const missingThumbnailFileIds = Array.from(
         new Set(
-          assets
+          thumbnailAssets
             .filter((asset) => asset.rendition === "placeholder")
             .map((asset) => asset.fileId),
         ),
@@ -2024,6 +2230,7 @@ const App = () => {
     options: {
       anchorPoint?: { x: number; y: number } | null;
       expectedProjectPath?: string;
+      placementViewport?: PlacementViewportContext | null;
       requireReady?: boolean;
     } = {},
   ) => {
@@ -2038,11 +2245,16 @@ const App = () => {
     }
 
     const appState = api.getAppState();
-    const viewportCenter = getViewportCenterFromAppState(appState);
-    const workspaceBounds = updateWorkspaceOverlay(
-      api.getSceneElementsIncludingDeleted(),
-      appState,
-    );
+    const elements = api.getSceneElementsIncludingDeleted();
+    const placementViewport = options.placementViewport ?? null;
+    const viewportCenter =
+      placementViewport?.viewportCenter ??
+      getViewportCenterFromAppState(appState);
+    const workspaceBounds = placementViewport
+      ? ENABLE_WORKSPACE_BOUNDS
+        ? getWorkspaceBounds(elements, { viewportCenter })
+        : null
+      : updateWorkspaceOverlay(elements, appState);
     const anchorPoint = options.anchorPoint ?? null;
     const placements = placeGeneratedImages({
       images: assets.map((asset) => ({
@@ -2051,11 +2263,11 @@ const App = () => {
       })),
       anchorPoint,
       viewportCenter,
-      viewportSize: {
+      viewportSize: placementViewport?.viewportSize ?? {
         width: appState.width,
         height: appState.height,
       },
-      zoomValue: appState.zoom.value,
+      zoomValue: placementViewport?.zoomValue ?? appState.zoom.value,
       previousBatchBounds: anchorPoint ? null : lastBatchBoundsRef.current,
       workspaceBounds,
     });
@@ -2118,6 +2330,8 @@ const App = () => {
     startedAt: string,
     options: {
       expectedProjectPath?: string;
+      placementViewport?: PlacementViewportContext | null;
+      referenceScene?: AppSceneSnapshot | null;
       requireReady?: boolean;
     } = {},
   ) => {
@@ -2132,15 +2346,21 @@ const App = () => {
     }
 
     const appState = api.getAppState();
-    const viewportCenter = getViewportCenterFromAppState(appState);
-    const workspaceBounds = updateWorkspaceOverlay(
-      api.getSceneElementsIncludingDeleted(),
-      appState,
+    const elements = api.getSceneElementsIncludingDeleted();
+    const placementViewport = options.placementViewport ?? null;
+    const viewportCenter =
+      placementViewport?.viewportCenter ??
+      getViewportCenterFromAppState(appState);
+    const workspaceBounds = placementViewport
+      ? ENABLE_WORKSPACE_BOUNDS
+        ? getWorkspaceBounds(elements, { viewportCenter })
+        : null
+      : updateWorkspaceOverlay(elements, appState);
+    const anchorBounds = getGenerationAnchorBounds(
+      request,
+      options.referenceScene ?? latestSceneRef.current,
     );
-    const anchorBounds = getGenerationAnchorBounds(request);
-    const occupiedBounds = getSceneOccupiedBounds(
-      api.getSceneElementsIncludingDeleted(),
-    );
+    const occupiedBounds = getSceneOccupiedBounds(elements);
     const placements = placeGeneratedImages({
       images: Array.from({ length: request.imageCount }, () => ({
         width: request.width,
@@ -2150,11 +2370,11 @@ const App = () => {
       anchorPoint: anchorBounds ? null : lastCanvasPointerRef.current,
       occupiedBounds,
       viewportCenter,
-      viewportSize: {
+      viewportSize: placementViewport?.viewportSize ?? {
         width: appState.width,
         height: appState.height,
       },
-      zoomValue: appState.zoom.value,
+      zoomValue: placementViewport?.zoomValue ?? appState.zoom.value,
       workspaceBounds,
       previousBatchBounds:
         anchorBounds || lastCanvasPointerRef.current
@@ -2163,6 +2383,7 @@ const App = () => {
     });
 
     const slots: PendingGenerationSlot[] = [];
+    const placeholderFrames: ExcalidrawElement[] = [];
     const placeholderElements = placements.flatMap((placement, index) => {
       const slotGroupId = crypto.randomUUID();
       const frame = newFrameElement({
@@ -2196,6 +2417,7 @@ const App = () => {
         roughness: 0,
       });
 
+      placeholderFrames.push(frame);
       slots.push({
         frameId: frame.id,
         labelId: label.id,
@@ -2240,6 +2462,13 @@ const App = () => {
       ),
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     });
+
+    if (placeholderFrames.length > 0) {
+      activeApi.scrollToContent(placeholderFrames, {
+        animate: true,
+        fitToContent: true,
+      });
+    }
 
     lastBatchBoundsRef.current = measureBatchBounds(placements);
 
@@ -2668,6 +2897,8 @@ const App = () => {
     _keepOpen: boolean,
     options: {
       expectedProjectPath?: string;
+      placementViewport?: PlacementViewportContext | null;
+      referenceScene?: AppSceneSnapshot | null;
       rejectOnError?: boolean;
     } = {},
   ) => {
@@ -2687,7 +2918,9 @@ const App = () => {
       let preparedRequest = normalizedRequest;
       if (normalizedRequest.reference?.enabled) {
         const sceneWithOriginalImageFiles =
-          await buildSceneWithOriginalImageFiles(latestSceneRef.current);
+          await buildSceneWithOriginalImageFiles(
+            options.referenceScene ?? latestSceneRef.current,
+          );
         assertExpectedAgentProjectActive(options.expectedProjectPath);
         const reference = await buildSelectionReference({
           scene: sceneWithOriginalImageFiles,
@@ -2713,6 +2946,8 @@ const App = () => {
         startedAt,
         {
           expectedProjectPath: options.expectedProjectPath,
+          placementViewport: options.placementViewport,
+          referenceScene: options.referenceScene,
           requireReady: Boolean(options.expectedProjectPath),
         },
       );
@@ -2831,6 +3066,9 @@ const App = () => {
           const projectContext = buildAgentProjectContext(
             project,
             providerSettings,
+            {
+              generationSource,
+            },
           );
           return {
             ...projectContext,
@@ -2879,11 +3117,23 @@ const App = () => {
           return buildAgentSelectionContext(
             buildSelectionReferenceSummary(latestSceneRef.current),
           );
+        case "scene.imagePaths": {
+          const payload = parseAgentImagePathPayload(request.payload);
+          return buildAgentImagePathList({
+            projectPath: project.projectPath,
+            scene: latestSceneRef.current,
+            imageRecords: project.imageRecords,
+            ...payload,
+          });
+        }
         case "scene.addImage": {
           assertAgentProjectPath(request.payload, project.projectPath);
           if (!excalidrawAPIRef.current) {
             throw new Error("CoreStudio 画板还没有准备好。");
           }
+          const agentBoardContext = parseAgentBoardCommandContext(
+            request.payload,
+          );
           const files = getAgentImageAssetsFromPayload(request.payload);
           const nextImageRecords = await desktopBridge.persistImageAssets({
             projectPath: project.projectPath,
@@ -2891,6 +3141,8 @@ const App = () => {
           });
           await insertAssetsIntoScene(files, nextImageRecords, {
             expectedProjectPath: project.projectPath,
+            placementViewport:
+              getPlacementViewportFromAgentBoardContext(agentBoardContext),
             requireReady: true,
           });
           return {
@@ -2913,6 +3165,11 @@ const App = () => {
             throw new Error("CoreStudio 画板还没有准备好。");
           }
 
+          const agentBoardContext = parseAgentBoardCommandContext(
+            request.payload,
+          );
+          const placementViewport =
+            getPlacementViewportFromAgentBoardContext(agentBoardContext);
           const appState = api.getAppState();
           const anchorPoint = parseAgentAnchorPoint(
             request.payload.anchorPoint,
@@ -2920,7 +3177,9 @@ const App = () => {
           const element = createAgentPromptTextElement({
             text: request.payload.text,
             anchorPoint,
-            viewportCenter: getViewportCenterFromAppState(appState),
+            viewportCenter:
+              placementViewport?.viewportCenter ??
+              getViewportCenterFromAppState(appState),
           });
 
           api.updateScene({
@@ -2952,9 +3211,18 @@ const App = () => {
             throw createAgentBadRequestError("generate 需要非空 prompt。");
           }
 
+          const agentBoardContext = parseAgentBoardCommandContext(
+            request.payload,
+          );
+          const agentBoardSelectionScene = buildSceneWithSelectedElementIds(
+            latestSceneRef.current,
+            getAgentBoardSelectedElementIds(agentBoardContext),
+          );
+          const referenceScene =
+            agentBoardSelectionScene ?? latestSceneRef.current;
           if (
             request.payload.useSelection === true &&
-            !buildSelectionReferenceSummary(latestSceneRef.current)
+            !buildSelectionReferenceSummary(referenceScene)
           ) {
             throw createAgentBadRequestError(
               "当前没有可用的选区参考，请先选中元素后再试。",
@@ -2969,6 +3237,10 @@ const App = () => {
           });
           await handleGenerateImages(generationRequest, false, {
             expectedProjectPath: project.projectPath,
+            placementViewport:
+              getPlacementViewportFromAgentBoardContext(agentBoardContext),
+            referenceScene:
+              request.payload.useSelection === true ? referenceScene : null,
             rejectOnError: true,
           });
           return { accepted: true };
@@ -2981,6 +3253,7 @@ const App = () => {
     bridge,
     desktopBridge,
     generateRequest,
+    generationSource,
     handleGenerateImages,
     insertAssetsIntoScene,
     providerSettings,
@@ -3084,6 +3357,9 @@ const App = () => {
   };
 
   const handleGenerateRequestChange = (request: GenerationRequest) => {
+    if (request.generationSource) {
+      setGenerationSource(request.generationSource);
+    }
     setGenerateRequest(
       normalizeGenerationRequest(request, {
         customModels: providerSettings?.[request.provider]?.customModels ?? [],
@@ -3132,6 +3408,14 @@ const App = () => {
         error instanceof Error ? error.message : "Agent 连接状态切换失败。",
       );
     }
+  };
+
+  const handleGenerationSourceChange = (source: GenerationSource) => {
+    setGenerationSource(source);
+    setGenerateRequest((current) => ({
+      ...current,
+      generationSource: source,
+    }));
   };
 
   const handleCopyTaskError = async () => {
@@ -3481,6 +3765,7 @@ const App = () => {
           onRefreshStatus={refreshAgentBrowserConnectionState}
           onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
           connectionToggleDisabled={isAgentBrowserRoute}
+          generationSource={generationSource}
         />
       </div>
     );
@@ -3525,6 +3810,7 @@ const App = () => {
           onRefreshStatus={refreshAgentBrowserConnectionState}
           onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
           connectionToggleDisabled={isAgentBrowserRoute}
+          generationSource={generationSource}
         />
       </div>
     );
@@ -3757,6 +4043,7 @@ const App = () => {
               onRefreshStatus={refreshAgentBrowserConnectionState}
               onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
               connectionToggleDisabled={isAgentBrowserRoute}
+              generationSource={generationSource}
             />
             {renderWorkspaceBoundsOverlay()}
           </div>
@@ -3770,6 +4057,8 @@ const App = () => {
         composerConfig={{
           defaultMode: isAgentBrowserRoute ? "agent" : "direct",
           showModeSwitch: isAgentBrowserRoute,
+          defaultGenerationSource: generationSource,
+          showGenerationSourceSwitch: isAgentBrowserRoute,
         }}
         initialRequest={generateRequest}
         providerSettings={providerSettings}

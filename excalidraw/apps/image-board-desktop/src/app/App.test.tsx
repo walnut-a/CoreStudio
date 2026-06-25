@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import { newFrameElement, newImageElement } from "@excalidraw/element";
@@ -1552,6 +1553,15 @@ describe("App startup", () => {
     expect(popover).toHaveTextContent("Agent 已连接");
     expect(popover).toHaveTextContent("测试项目");
     expect(popover).not.toHaveTextContent("未打开项目");
+    expect(popover).toHaveTextContent("默认生成来源");
+    expect(popover).toHaveTextContent("在生成输入区调整本次任务");
+    expect(popover).toHaveTextContent("内置");
+    expect(
+      within(popover).queryByRole("button", { name: "内置" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(popover).queryByRole("button", { name: "Agent" }),
+    ).not.toBeInTheDocument();
   });
 
   it("handles agent scene.addPrompt requests on the current board", async () => {
@@ -1706,6 +1716,196 @@ describe("App startup", () => {
       message: "当前没有可用的选区参考，请先选中元素后再试。",
     });
     expect(generateImages).not.toHaveBeenCalled();
+  });
+
+  it("uses Agent Board selection and viewport context for agent generate requests", async () => {
+    type AgentGenerateListener = (request: {
+      requestId: string;
+      command: "generate";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentGenerateListener | null = null;
+    const generateDeferred = createDeferred<any>();
+    const generateImages = vi.fn(() => generateDeferred.promise);
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([
+      {
+        fileId: "file-1",
+        mimeType: "image/png",
+        dataBase64: Buffer.from("agent-board-reference").toString("base64"),
+        width: 1200,
+        height: 900,
+        createdAt: "2026-06-25T08:00:00.000Z",
+        rendition: "original",
+      },
+    ]);
+    const referenceImage = newImageElement({
+      type: "image",
+      fileId: "file-1" as FileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 240,
+      y: 320,
+      width: 300,
+      height: 200,
+    });
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [referenceImage],
+      appState: {
+        width: 1440,
+        height: 900,
+        scrollX: 0,
+        scrollY: 0,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {
+        "file-1": {
+          id: "file-1" as FileId,
+          dataURL:
+            "data:image/png;base64,dGh1bWI=" as BinaryFileData["dataURL"],
+          mimeType: "image/png",
+          created: 1710000000000,
+        },
+      },
+    });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      readProjectAssetPayloads,
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        ...createMockProviderSettings(),
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: true,
+          lastStatus: "success",
+          lastCheckedAt: null,
+          lastError: null,
+        },
+      }),
+      generateImages,
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as AgentGenerateListener;
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    let result: unknown;
+    await act(async () => {
+      result = await listener({
+        requestId: "agent-request-1",
+        command: "generate",
+        payload: {
+          projectPath: "/tmp/mock-project",
+          prompt: "优化这台桌面 CNC",
+          useSelection: true,
+          agentBoardContext: {
+            selection: {
+              selected: true,
+              reference: {
+                enabled: true,
+                elementCount: 1,
+                textCount: 0,
+                source: {
+                  elementIds: [referenceImage.id],
+                  fileIds: ["file-1"],
+                },
+              },
+            },
+            browserRuntime: {
+              source: "agent-board",
+              updatedAt: "2026-06-25T08:01:00.000Z",
+              receivedAt: "2026-06-25T08:01:00.100Z",
+            },
+            scene: {
+              selectedElementIds: [referenceImage.id],
+              viewport: {
+                scrollX: -1200,
+                scrollY: -640,
+                zoom: 2,
+                width: 900,
+                height: 700,
+              },
+            },
+          },
+        },
+      });
+    });
+
+    expect(result).toEqual({ accepted: true });
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["file-1"],
+        rendition: "original",
+      });
+    });
+    await waitFor(() => {
+      expect(generateImages).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectPath: "/tmp/mock-project",
+          request: expect.objectContaining({
+            prompt: "优化这台桌面 CNC",
+            reference: expect.objectContaining({
+              enabled: true,
+              elementCount: 1,
+              image: {
+                mimeType: "image/png",
+                dataBase64: Buffer.from("agent-board-reference").toString(
+                  "base64",
+                ),
+              },
+            }),
+          }),
+        }),
+      );
+    });
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        elements: expect.arrayContaining([
+          expect.objectContaining({
+            type: "frame",
+            x: expect.any(Number),
+            y: expect.any(Number),
+          }),
+        ]),
+      }),
+    );
+    const placeholderUpdate =
+      mockExcalidrawAPI?.updateScene.mock.calls.at(-1)?.[0];
+    const pendingFrame = placeholderUpdate?.elements?.find(
+      (element: any) =>
+        !element.isDeleted &&
+        element.type === "frame" &&
+        element.id !== referenceImage.id,
+    );
+    expect(pendingFrame).toBeTruthy();
+    expect(pendingFrame.x).toBeGreaterThan(
+      referenceImage.x + referenceImage.width,
+    );
+    expect(pendingFrame.y + pendingFrame.height / 2).toBe(
+      referenceImage.y + referenceImage.height / 2,
+    );
   });
 
   it("rejects agent scene.addPrompt with an invalid anchor point", async () => {
@@ -3525,7 +3725,7 @@ describe("App startup", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens large projects with thumbnail assets first and upgrades visible images to previews", async () => {
+  it("opens large projects with thumbnails and preloads visible previews", async () => {
     vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
       elements: [
         {
@@ -3658,11 +3858,231 @@ describe("App startup", () => {
       fileIds: ["visible-file"],
       rendition: "original",
     });
+    expect(mockExcalidrawAPI?.getFiles()).toMatchObject({
+      "visible-file": {
+        id: "visible-file",
+        dataURL: `data:image/png;base64,${Buffer.from(
+          "visible-file-preview",
+        ).toString("base64")}`,
+      },
+      "far-file": {
+        id: "far-file",
+        dataURL: `data:image/png;base64,${Buffer.from(
+          "far-file-thumbnail",
+        ).toString("base64")}`,
+      },
+    });
+    expect(mockExcalidrawAPI?.replaceFiles).not.toHaveBeenCalled();
+  });
+
+  it("preloads original assets for initially visible large images before the canvas API is ready", async () => {
+    skipExcalidrawApiRegistration = true;
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 720,
+          height: 480,
+        },
+        {
+          id: "far-image",
+          type: "image",
+          fileId: "far-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 5000,
+          y: 5000,
+          width: 720,
+          height: 480,
+        },
+      ] as any,
+      appState: {
+        width: 900,
+        height: 700,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) =>
+        fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-${rendition}`).toString("base64"),
+          width: rendition === "thumbnail" ? 320 : 2400,
+          height: rendition === "thumbnail" ? 213 : 1600,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition,
+        })),
+      );
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+            "far-file": {
+              fileId: "far-file",
+              assetPath: "assets/far.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    await screen.findByTestId("excalidraw-canvas");
+    expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      fileIds: ["visible-file", "far-file"],
+      rendition: "thumbnail",
+      thumbnailMode: "cache-only",
+    });
+    expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      fileIds: ["visible-file"],
+      rendition: "original",
+    });
+    expect(readProjectAssetPayloads).not.toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      fileIds: ["far-file"],
+      rendition: "original",
+    });
+  });
+
+  it("upgrades a visible preview to the original when later zooming in enough", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) =>
+        fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-${rendition}`).toString("base64"),
+          width: rendition === "thumbnail" ? 320 : 2400,
+          height: rendition === "thumbnail" ? 213 : 1600,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition,
+        })),
+      );
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "preview",
+      });
+    });
+    expect(readProjectAssetPayloads).not.toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      fileIds: ["visible-file"],
+      rendition: "original",
+    });
+
+    act(() => {
+      triggerExcalidrawScrollChange?.({
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 3 },
+      });
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "original",
+      });
+    });
     expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
       expect.objectContaining({
         id: "visible-file",
         dataURL: `data:image/png;base64,${Buffer.from(
-          "visible-file-preview",
+          "visible-file-original",
         ).toString("base64")}`,
       }),
     ]);
@@ -4122,6 +4542,112 @@ describe("App startup", () => {
     });
     expect(mockExcalidrawAPI?.replaceFiles).not.toHaveBeenCalled();
     expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("tries loading the original after a preview load fails and the user zooms in", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) => {
+        if (rendition === "preview") {
+          throw new Error("预览资源缺失");
+        }
+
+        return fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-${rendition}`).toString("base64"),
+          width: rendition === "thumbnail" ? 320 : 2400,
+          height: rendition === "thumbnail" ? 213 : 1600,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition,
+        }));
+      });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "preview",
+      });
+    });
+
+    act(() => {
+      triggerExcalidrawScrollChange?.({
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 3 },
+      });
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "original",
+      });
+    });
+    expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "visible-file",
+        dataURL: `data:image/png;base64,${Buffer.from(
+          "visible-file-original",
+        ).toString("base64")}`,
+      }),
+    ]);
   });
 
   it("retries visible original loading when zoom changes after a failed upgrade", async () => {
@@ -6646,6 +7172,64 @@ describe("App startup", () => {
 
     expect(pendingFrames).toHaveLength(1);
     expect(pendingLabels).toHaveLength(1);
+  });
+
+  it("focuses generation placeholder frames after creating them", async () => {
+    const firstJob = createDeferred<{
+      provider: "gemini";
+      model: string;
+      seed: null;
+      createdAt: string;
+      images: Array<{
+        dataBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }>;
+    }>();
+    const generateImages = vi.fn().mockImplementation(() => firstJob.promise);
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      generateImages,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交生成" }));
+    });
+
+    const placeholderUpdate = mockExcalidrawAPI?.updateScene.mock.calls.find(
+      ([update]) =>
+        update?.elements?.some(
+          (element: any) =>
+            !element.isDeleted &&
+            element.type === "frame" &&
+            element.strokeStyle === "dashed",
+        ),
+    )?.[0];
+    const pendingFrames =
+      placeholderUpdate?.elements?.filter(
+        (element: any) =>
+          !element.isDeleted &&
+          element.type === "frame" &&
+          element.strokeStyle === "dashed",
+      ) ?? [];
+
+    expect(pendingFrames).toHaveLength(1);
+    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
+      pendingFrames,
+      expect.objectContaining({
+        animate: true,
+        fitToContent: true,
+      }),
+    );
   });
 
   it("keeps the generated image canvas size from the placeholder frame", async () => {

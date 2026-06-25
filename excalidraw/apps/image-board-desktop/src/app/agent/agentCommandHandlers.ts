@@ -18,6 +18,7 @@ import type { ImageRecordMap } from "../../shared/projectTypes";
 import type {
   GenerationReferencePayload,
   GenerationRequest,
+  GenerationSource,
 } from "../../shared/providerTypes";
 
 type SceneLike = {
@@ -37,6 +38,7 @@ const AGENT_AVAILABLE_COMMANDS = [
   "scene.board",
   "scene.snapshot",
   "scene.selection",
+  "scene.imagePaths",
   "scene.addImage",
   "scene.addPrompt",
   "generate",
@@ -59,6 +61,9 @@ const stripProviderApiKeys = (
 export const buildAgentProjectContext = (
   projectBundle: DesktopProjectBundle,
   providerSettings: PublicProviderSettings | null,
+  options: {
+    generationSource?: GenerationSource;
+  } = {},
 ) => ({
   project: {
     projectPath: projectBundle.projectPath,
@@ -81,6 +86,15 @@ export const buildAgentProjectContext = (
     parentFileId: record.parentFileId,
   })),
   providers: stripProviderApiKeys(providerSettings),
+  generation: {
+    source: options.generationSource ?? "builtin",
+    sources: ["builtin", "agent"] as const,
+    builtin: {
+      configured: Object.values(providerSettings ?? {}).some(
+        (settings) => settings.isConfigured,
+      ),
+    },
+  },
   availableCommands: [...AGENT_AVAILABLE_COMMANDS],
 });
 
@@ -96,6 +110,85 @@ export const collectAgentImageFileIds = (
   }
 
   return Array.from(fileIds);
+};
+
+const joinProjectAssetPath = (projectPath: string, assetPath: string) => {
+  if (/^(?:[a-z]+:)?[\\/]/i.test(assetPath)) {
+    return assetPath;
+  }
+  return `${projectPath.replace(/[\\/]+$/, "")}/${assetPath.replace(
+    /^[\\/]+/,
+    "",
+  )}`;
+};
+
+const collectSelectedAgentImageFileIds = (scene: SceneLike) => {
+  const selectedElementIds = scene?.appState?.selectedElementIds ?? {};
+  const fileIds = new Set<string>();
+  for (const element of scene?.elements ?? []) {
+    if (
+      !element.isDeleted &&
+      element.type === "image" &&
+      element.fileId &&
+      selectedElementIds[element.id]
+    ) {
+      fileIds.add(element.fileId);
+    }
+  }
+  return Array.from(fileIds);
+};
+
+export const buildAgentImagePathList = ({
+  projectPath,
+  scene,
+  imageRecords,
+  fileIds,
+  selectionOnly = false,
+}: {
+  projectPath: string;
+  scene: SceneLike;
+  imageRecords: ImageRecordMap;
+  fileIds?: readonly string[];
+  selectionOnly?: boolean;
+}) => {
+  const candidateFileIds = Array.from(
+    new Set(
+      fileIds?.length
+        ? fileIds
+        : selectionOnly
+          ? collectSelectedAgentImageFileIds(scene)
+          : Object.keys(imageRecords),
+    ),
+  );
+  const missingFileIds: string[] = [];
+  const items = candidateFileIds.flatMap((fileId) => {
+    const record = imageRecords[fileId];
+    if (!record) {
+      missingFileIds.push(fileId);
+      return [];
+    }
+    return [
+      {
+        fileId,
+        path: joinProjectAssetPath(projectPath, record.assetPath),
+        assetPath: record.assetPath,
+        mimeType: record.mimeType,
+        width: record.width,
+        height: record.height,
+        sourceType: record.sourceType,
+        createdAt: record.createdAt,
+        parentFileId: record.parentFileId ?? null,
+      },
+    ];
+  });
+
+  return {
+    projectPath,
+    selectionOnly,
+    ...(fileIds?.length ? { requestedFileIds: candidateFileIds } : {}),
+    items,
+    missingFileIds,
+  };
 };
 
 export const projectAssetPayloadsToBinaryFiles = (

@@ -333,6 +333,128 @@ describe("createLocalBridgeServer", () => {
     expect(renderer.request).not.toHaveBeenCalledWith("scene.selection");
   });
 
+  it("attaches browser board runtime context to generate write requests", async () => {
+    const { server, renderer } = await track(startServer());
+    const selection = {
+      selected: true,
+      reference: {
+        enabled: true,
+        elementCount: 1,
+        textCount: 0,
+        items: [
+          {
+            id: "image-1",
+            index: 1,
+            kind: "image",
+            label: "图片",
+            fileId: "file-1",
+          },
+        ],
+        source: {
+          elementIds: ["image-1"],
+          fileIds: ["file-1"],
+        },
+      },
+    };
+    const scene = {
+      selectedElementIds: ["image-1"],
+      viewport: {
+        scrollX: -1200,
+        scrollY: -640,
+        zoom: 2,
+        width: 900,
+        height: 700,
+      },
+    };
+
+    await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.browserState, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "agent-board",
+        projectPath: currentProject.projectPath,
+        updatedAt: "2026-06-24T08:01:00.000Z",
+        selection,
+        scene,
+      }),
+    });
+    renderer.request.mockClear();
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.generate, {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "优化这台桌面 CNC",
+        useSelection: true,
+      }),
+    });
+
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("generate", {
+      projectPath: currentProject.projectPath,
+      prompt: "优化这台桌面 CNC",
+      useSelection: true,
+      dryRun: false,
+      agentBoardContext: {
+        selection,
+        scene,
+        browserRuntime: {
+          source: "agent-board",
+          updatedAt: "2026-06-24T08:01:00.000Z",
+          receivedAt: expect.any(String),
+        },
+      },
+    });
+  });
+
+  it("falls back to browser runtime generation context when the desktop renderer has no project", async () => {
+    const renderer = {
+      request: vi.fn(async () => {
+        throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
+          code: "PROJECT_REQUIRED",
+        });
+      }),
+    };
+    const { server } = await track(startServer({ renderer }));
+
+    await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.browserState, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "agent-board",
+        projectPath: currentProject.projectPath,
+        updatedAt: "2026-06-25T08:00:00.000Z",
+        selection: {
+          selected: false,
+        },
+        scene: {
+          selectedElementIds: [],
+        },
+        generation: {
+          source: "agent",
+        },
+      }),
+    });
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.context);
+
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("agent.context");
+    expect(result.body).toMatchObject({
+      ok: true,
+      data: {
+        project: currentProject,
+        generation: {
+          source: "agent",
+          sources: ["builtin", "agent"],
+        },
+        selection: {
+          selected: false,
+        },
+        scene: {
+          selectedElementIds: [],
+        },
+      },
+    });
+  });
+
   it("maps renderer PROJECT_REQUIRED errors on read routes to conflict responses", async () => {
     const error = Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
       code: "PROJECT_REQUIRED",
@@ -445,6 +567,48 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("forwards add-prompt with only the local bridge token", async () => {
+    const { server, renderer } = await track(startServer());
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          text: "make this softer",
+        }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
+      projectPath: currentProject.projectPath,
+      text: "make this softer",
+      dryRun: false,
+    });
+  });
+
+  it("forwards image path queries with only the local bridge token", async () => {
+    const { server, renderer } = await track(startServer());
+
+    const result = await requestJson(
+      server.baseUrl,
+      "/v1/scene/image-paths",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          fileIds: ["file-1", "file-2"],
+        }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("scene.imagePaths", {
+      fileIds: ["file-1", "file-2"],
+    });
+  });
+
   it("returns a dry-run add-prompt operation without forwarding to renderer", async () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
@@ -482,31 +646,49 @@ describe("createLocalBridgeServer", () => {
     expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("rejects add-prompt when task token fields are missing", async () => {
+  it("returns a compact dry-run add-image operation without forwarding image bytes", async () => {
     const { server } = await track(startServer());
 
     const result = await requestJson(
       server.baseUrl,
-      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      AGENT_HTTP_ROUTES.sceneAddImage,
       {
         method: "POST",
-        body: JSON.stringify({ text: "missing token" }),
+        body: JSON.stringify({
+          fileId: "file-1",
+          fileName: "source.png",
+          mimeType: "image/png",
+          dataBase64: "ZmFrZQ==",
+          width: 320,
+          height: 240,
+          createdAt: "2026-06-24T09:00:00.000Z",
+          dryRun: true,
+        }),
       },
     );
 
-    expect(result).toMatchObject({
-      status: 400,
-      body: {
-        ok: false,
-        error: {
-          code: "BAD_REQUEST",
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({
+      ok: true,
+      data: {
+        dryRun: true,
+        command: "scene.addImage",
+        projectPath: currentProject.projectPath,
+        payload: {
+          fileId: "file-1",
+          fileName: "source.png",
+          mimeType: "image/png",
+          dataBase64Length: 8,
+          width: 320,
+          height: 240,
+          createdAt: "2026-06-24T09:00:00.000Z",
         },
       },
     });
   });
 
-  it("rejects add-prompt when the grant lacks write-board permission", async () => {
-    const { server, grants } = await track(startServer());
+  it("ignores legacy write grant permissions on local-token write routes", async () => {
+    const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
       projectPath: currentProject.projectPath,
       permissions: ["read-context"],
@@ -526,14 +708,11 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result).toMatchObject({
-      status: 403,
-      body: {
-        ok: false,
-        error: {
-          code: "FORBIDDEN",
-        },
-      },
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
+      projectPath: currentProject.projectPath,
+      text: "not allowed",
+      dryRun: false,
     });
   });
 

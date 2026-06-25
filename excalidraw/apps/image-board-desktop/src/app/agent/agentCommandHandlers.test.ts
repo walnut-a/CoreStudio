@@ -9,6 +9,7 @@ import {
   buildAgentProjectContext,
   buildAgentSceneSnapshot,
   buildAgentSelectionContext,
+  buildAgentImagePathList,
   collectAgentImageFileIds,
   createAgentGenerationRequest,
   createAgentPromptTextElement,
@@ -113,6 +114,9 @@ describe("agentCommandHandlers", () => {
           apiKey: "must-not-leak",
         } as any,
       } as PublicProviderSettings,
+      {
+        generationSource: "agent",
+      },
     );
 
     expect(context.project).toEqual({
@@ -139,6 +143,13 @@ describe("agentCommandHandlers", () => {
     ]);
     expect(JSON.stringify(context.providers)).not.toContain("must-not-leak");
     expect(context.availableCommands).toContain("scene.addPrompt");
+    expect(context.generation).toEqual({
+      source: "agent",
+      sources: ["builtin", "agent"],
+      builtin: {
+        configured: true,
+      },
+    });
   });
 
   it("builds scene snapshots with element, file, image, text, and selection counts", () => {
@@ -299,6 +310,69 @@ describe("agentCommandHandlers", () => {
       selectedElementIds: [image.id],
     });
     expect(board.missingFileIds).toEqual(["missing-file"]);
+  });
+
+  it("builds local original image paths for selected image references", () => {
+    const selectedImage = newImageElement({
+      type: "image",
+      fileId: "file-1" as FileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 160,
+    });
+    const otherImage = newImageElement({
+      type: "image",
+      fileId: "file-2" as FileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 260,
+      y: 0,
+      width: 200,
+      height: 160,
+    });
+
+    const result = buildAgentImagePathList({
+      projectPath: "/tmp/corestudio-project",
+      scene: {
+        elements: [selectedImage, otherImage],
+        appState: {
+          selectedElementIds: {
+            [selectedImage.id]: true,
+          },
+        },
+      },
+      imageRecords: {
+        ...imageRecords,
+        "file-2": {
+          ...imageRecords["file-1"],
+          fileId: "file-2",
+          assetPath: "assets/file-2.png",
+        },
+      },
+      selectionOnly: true,
+    });
+
+    expect(result).toEqual({
+      projectPath: "/tmp/corestudio-project",
+      selectionOnly: true,
+      items: [
+        {
+          fileId: "file-1",
+          path: "/tmp/corestudio-project/assets/file-1.png",
+          assetPath: "assets/file-1.png",
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+          sourceType: "generated",
+          createdAt: "2026-06-24T09:00:00.000Z",
+          parentFileId: "parent-1",
+        },
+      ],
+      missingFileIds: [],
+    });
   });
 
   it("returns an unselected selection context for null references", () => {

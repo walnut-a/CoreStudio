@@ -14,6 +14,7 @@ export const AGENT_HTTP_ROUTES = {
   sceneBoard: "/v1/scene/board",
   sceneSnapshot: "/v1/scene/snapshot",
   sceneSelection: "/v1/scene/selection",
+  sceneImagePaths: "/v1/scene/image-paths",
   sceneAddImage: "/v1/scene/add-image",
   sceneAddPrompt: "/v1/scene/add-prompt",
   generate: "/v1/generate",
@@ -33,12 +34,27 @@ export interface AgentBrowserRuntimeSceneState {
   viewport?: AgentBrowserRuntimeViewport;
 }
 
+export interface AgentBrowserRuntimeGenerationState {
+  source?: "builtin" | "agent";
+}
+
 export interface AgentBrowserRuntimeState {
   source: "agent-board";
   projectPath: string;
   updatedAt: string;
   selection?: unknown;
   scene?: AgentBrowserRuntimeSceneState;
+  generation?: AgentBrowserRuntimeGenerationState;
+}
+
+export interface AgentBoardCommandContext {
+  selection?: unknown;
+  scene?: AgentBrowserRuntimeSceneState;
+  browserRuntime: {
+    source: "agent-board";
+    updatedAt: string;
+    receivedAt?: string;
+  };
 }
 
 export const AGENT_PERMISSIONS = [
@@ -89,6 +105,7 @@ export type AgentRendererCommandName =
   | "scene.board"
   | "scene.snapshot"
   | "scene.selection"
+  | "scene.imagePaths"
   | "scene.addImage"
   | "scene.addPrompt"
   | "generate"

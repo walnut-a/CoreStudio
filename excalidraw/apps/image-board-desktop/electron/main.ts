@@ -102,6 +102,7 @@ const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
 const localBridgeReadToken = randomUUID();
 const taskGrantStore = createTaskGrantStore();
+const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingAutosaveFlushes = new Map<
   number,
@@ -169,6 +170,24 @@ const sendRendererMenuEvent = (
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error || "");
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const getAgentRendererCommandTimeoutMs = (
+  command: AgentRendererCommandName,
+  payload?: unknown,
+) => {
+  if (
+    command === "desktop.bridge" &&
+    isRecord(payload) &&
+    payload.method === "generateImages"
+  ) {
+    return AGENT_GENERATE_IMAGES_TIMEOUT_MS;
+  }
+
+  return undefined;
+};
 
 const getCurrentProject = (): LocalBridgeCurrentProject | null =>
   currentProject ? { ...currentProject } : null;
@@ -370,7 +389,9 @@ const startLocalBridge = async () => {
               new Error("CoreStudio renderer command bridge is not ready"),
             );
           }
-          return rendererCommandBridge.request(command, payload);
+          return rendererCommandBridge.request(command, payload, {
+            timeoutMs: getAgentRendererCommandTimeoutMs(command, payload),
+          });
         },
       },
       grants: taskGrantStore,

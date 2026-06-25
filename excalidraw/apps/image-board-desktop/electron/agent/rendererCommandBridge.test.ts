@@ -144,6 +144,38 @@ describe("createRendererCommandBridge", () => {
     ).not.toThrow();
   });
 
+  it("allows a per-request timeout for long running renderer commands", async () => {
+    vi.useFakeTimers();
+    let responseListener:
+      | ((response: AgentRendererCommandResponse) => void)
+      | undefined;
+    const bridge = createRendererCommandBridge({
+      timeoutMs: 25,
+      randomId: () => "request-1",
+      send: vi.fn(),
+      onResponse: (listener) => {
+        responseListener = listener;
+        return vi.fn();
+      },
+      isAvailable: () => true,
+    });
+
+    const resultPromise = bridge.request(
+      "desktop.bridge",
+      { method: "generateImages", args: [] },
+      { timeoutMs: 100 },
+    );
+    vi.advanceTimersByTime(25);
+
+    responseListener?.({
+      requestId: "request-1",
+      ok: true,
+      data: { provider: "zenmux" },
+    });
+
+    await expect(resultPromise).resolves.toEqual({ provider: "zenmux" });
+  });
+
   it("rejects pending requests on dispose and cancels the response subscription", async () => {
     const unsubscribe = vi.fn();
     const bridge = createRendererCommandBridge({

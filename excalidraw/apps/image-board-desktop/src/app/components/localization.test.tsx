@@ -448,7 +448,12 @@ describe("Chinese localization", () => {
     render(
       <GenerateImageDialog
         open={true}
-        composerConfig={{ defaultMode: "agent", showModeSwitch: true }}
+        composerConfig={{
+          defaultMode: "agent",
+          showModeSwitch: true,
+          defaultGenerationSource: "agent",
+          showGenerationSourceSwitch: true,
+        }}
         initialRequest={{
           provider: "gemini",
           model: "gemini-3.1-flash-image-preview",
@@ -495,15 +500,25 @@ describe("Chinese localization", () => {
       />,
     );
 
-    const modeSwitch = screen.getByRole("tablist", { name: "输入模式" });
+    const taskBar = screen.getByRole("toolbar", { name: "生成任务状态" });
+    const modeSwitch = within(taskBar).getByRole("tablist", {
+      name: "输入模式",
+    });
     expect(
       within(modeSwitch).getByRole("tab", { name: "Agent 操作" }),
     ).toHaveAttribute("aria-selected", "true");
     expect(
       within(modeSwitch).getByRole("tab", { name: "直接输入" }),
     ).toHaveAttribute("aria-selected", "false");
+    expect(
+      within(taskBar).getByRole("group", { name: "本次生成来源" }),
+    ).toBeInTheDocument();
 
+    const agentContext = screen.getByRole("region", {
+      name: "Agent 上下文",
+    });
     const selectionSummary = screen.getByLabelText("当前选区");
+    expect(agentContext).toContainElement(selectionSummary);
     expect(screen.queryByText("当前选区")).not.toBeInTheDocument();
     expect(screen.queryByText("已选 3 个元素")).not.toBeInTheDocument();
     expect(within(selectionSummary).getByText("1")).toBeInTheDocument();
@@ -537,6 +552,67 @@ describe("Chinese localization", () => {
       screen.getByRole("button", { name: "开始生成" }),
     ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("shows the per-request generation source switch when configured", () => {
+    const onRequestChange = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        composerConfig={{
+          defaultMode: "agent",
+          showModeSwitch: true,
+          defaultGenerationSource: "agent",
+          showGenerationSourceSwitch: true,
+        }}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const taskBar = screen.getByRole("toolbar", { name: "生成任务状态" });
+    const sourceSwitch = within(taskBar).getByRole("group", {
+      name: "本次生成来源",
+    });
+    expect(within(sourceSwitch).queryByText("本次生成来源")).toBeNull();
+    expect(
+      within(sourceSwitch).getByRole("button", { name: "内置生成" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      within(sourceSwitch).getByRole("button", { name: "Agent 生成" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(
+      within(sourceSwitch).getByRole("button", { name: "内置生成" }),
+    );
+
+    expect(
+      within(sourceSwitch).getByRole("button", { name: "内置生成" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(sourceSwitch).getByRole("button", { name: "Agent 生成" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        generationSource: "builtin",
+      }),
+    );
   });
 
   it("keeps the selected model when provider settings refresh", () => {

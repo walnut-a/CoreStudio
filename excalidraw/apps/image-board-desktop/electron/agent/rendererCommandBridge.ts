@@ -26,6 +26,10 @@ interface PendingRequest {
   reject: (error: Error) => void;
 }
 
+export interface RendererCommandRequestOptions {
+  timeoutMs?: number;
+}
+
 export const createRendererCommandBridge = (
   options: RendererCommandBridgeOptions,
 ) => {
@@ -70,6 +74,7 @@ export const createRendererCommandBridge = (
   const request = (
     command: AgentRendererCommandName,
     payload?: unknown,
+    requestOptions: RendererCommandRequestOptions = {},
   ): Promise<unknown> => {
     if (disposed) {
       return Promise.reject(
@@ -88,12 +93,13 @@ export const createRendererCommandBridge = (
     };
 
     return new Promise((resolve, reject) => {
+      const requestTimeoutMs = requestOptions.timeoutMs ?? timeoutMs;
       const timer = setTimeout(() => {
         rejectPending(
           requestId,
           new Error("CoreStudio renderer command timed out"),
         );
-      }, timeoutMs);
+      }, requestTimeoutMs);
 
       pending.set(requestId, {
         timer,

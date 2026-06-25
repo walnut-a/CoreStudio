@@ -22,6 +22,7 @@ describe("agentBridgeTypes", () => {
     expect(AGENT_HTTP_ROUTES.browserState).toBe("/v1/agent/browser-state");
     expect(AGENT_HTTP_ROUTES.desktopBridge).toBe("/v1/desktop-bridge");
     expect(AGENT_HTTP_ROUTES.sceneBoard).toBe("/v1/scene/board");
+    expect(AGENT_HTTP_ROUTES.sceneImagePaths).toBe("/v1/scene/image-paths");
     expect(AGENT_HTTP_ROUTES.sceneAddImage).toBe("/v1/scene/add-image");
   });
 

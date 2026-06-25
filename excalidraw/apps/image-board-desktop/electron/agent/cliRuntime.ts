@@ -223,6 +223,27 @@ const requiredString = (
   return value;
 };
 
+const parseFileIdsFlag = (
+  value: string | undefined,
+): string[] | undefined | AgentEnvelope<never> => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const fileIds = Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((fileId) => fileId.trim())
+        .filter(Boolean),
+    ),
+  );
+  if (!fileIds.length) {
+    return badRequestEnvelope("--file-ids must include at least one file id.");
+  }
+  return fileIds;
+};
+
 const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never> => {
   const [scope, command] = argv;
 
@@ -353,6 +374,44 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
     };
   }
 
+  if (scope === "scene" && command === "image-paths") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: ["--file-ids"],
+      boolFlags: ["--selection", "--all"],
+    });
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("scene image-paths", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    const fileIds = parseFileIdsFlag(parsed.flags["--file-ids"]);
+    if (isEnvelope(fileIds)) {
+      return fileIds;
+    }
+    if (
+      !fileIds &&
+      !parsed.boolFlags.has("--selection") &&
+      !parsed.boolFlags.has("--all")
+    ) {
+      return badRequestEnvelope(
+        "scene image-paths requires --selection, --file-ids, or --all.",
+      );
+    }
+    return {
+      route: AGENT_HTTP_ROUTES.sceneImagePaths,
+      method: "POST",
+      body: {
+        ...(fileIds ? { fileIds } : {}),
+        ...(parsed.boolFlags.has("--selection")
+          ? { selectionOnly: true }
+          : {}),
+        ...(parsed.boolFlags.has("--all") ? { all: true } : {}),
+      },
+    };
+  }
+
   if (scope === "scene" && command === "add-image") {
     const parsed = parseArgs(argv.slice(2), {
       valueFlags: ["--task-id", "--write-token"],
@@ -376,11 +435,14 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
     return {
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
-      requiresWriteGrant: true,
       imagePath,
       body: {
-        taskId: parsed.flags["--task-id"],
-        writeToken: parsed.flags["--write-token"],
+        ...(parsed.flags["--task-id"]
+          ? { taskId: parsed.flags["--task-id"] }
+          : {}),
+        ...(parsed.flags["--write-token"]
+          ? { writeToken: parsed.flags["--write-token"] }
+          : {}),
         ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
       },
     };
@@ -408,11 +470,14 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
     return {
       route: AGENT_HTTP_ROUTES.sceneAddPrompt,
       method: "POST",
-      requiresWriteGrant: true,
       body: {
         text,
-        taskId: parsed.flags["--task-id"],
-        writeToken: parsed.flags["--write-token"],
+        ...(parsed.flags["--task-id"]
+          ? { taskId: parsed.flags["--task-id"] }
+          : {}),
+        ...(parsed.flags["--write-token"]
+          ? { writeToken: parsed.flags["--write-token"] }
+          : {}),
         ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
       },
     };
@@ -440,12 +505,15 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
     return {
       route: AGENT_HTTP_ROUTES.generate,
       method: "POST",
-      requiresWriteGrant: true,
       body: {
         prompt,
         useSelection: parsed.boolFlags.has("--use-selection"),
-        taskId: parsed.flags["--task-id"],
-        writeToken: parsed.flags["--write-token"],
+        ...(parsed.flags["--task-id"]
+          ? { taskId: parsed.flags["--task-id"] }
+          : {}),
+        ...(parsed.flags["--write-token"]
+          ? { writeToken: parsed.flags["--write-token"] }
+          : {}),
       },
     };
   }
@@ -464,10 +532,13 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
     return {
       route: AGENT_HTTP_ROUTES.taskComplete,
       method: "POST",
-      requiresWriteGrant: true,
       body: {
-        taskId: parsed.flags["--task-id"],
-        writeToken: parsed.flags["--write-token"],
+        ...(parsed.flags["--task-id"]
+          ? { taskId: parsed.flags["--task-id"] }
+          : {}),
+        ...(parsed.flags["--write-token"]
+          ? { writeToken: parsed.flags["--write-token"] }
+          : {}),
       },
     };
   }

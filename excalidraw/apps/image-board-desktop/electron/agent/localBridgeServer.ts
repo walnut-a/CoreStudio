@@ -14,7 +14,6 @@ import type {
   AgentBoardCommandContext,
   AgentBrowserRuntimeState,
   AgentErrorCode,
-  AgentPermission,
   AgentRendererCommandName,
 } from "../../src/shared/agentBridgeTypes";
 import type { TaskGrantStore } from "./taskGrants";
@@ -22,17 +21,16 @@ import type { TaskGrantStore } from "./taskGrants";
 export interface LocalBridgeCurrentProject {
   projectPath: string;
   name: string;
-}
-
-export interface LocalBridgeAuthorizeInput {
-  permissions: AgentPermission[];
-  ttlSeconds?: number;
-  reason?: string;
+  agentAccess: {
+    token: string;
+    enabled: boolean;
+  };
 }
 
 export interface LocalBridgeServerOptions {
-  readToken: string;
+  preferredPort?: number;
   getCurrentProject: () => LocalBridgeCurrentProject | null;
+  getBoardUrl?: () => string | null;
   renderer: {
     request: (
       command: AgentRendererCommandName,
@@ -40,7 +38,6 @@ export interface LocalBridgeServerOptions {
     ) => Promise<unknown>;
   };
   grants: TaskGrantStore;
-  authorize: (input: LocalBridgeAuthorizeInput) => Promise<unknown> | unknown;
 }
 
 export interface LocalBridgeServerHandle {
@@ -83,20 +80,6 @@ const WRITE_ROUTES: WriteRouteConfig[] = [
     completeGrant: true,
   },
 ];
-
-const AUTHORIZE_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
-  APP_NOT_READY: 503,
-  AUTH_DENIED: 401,
-  AUTH_REQUIRED: 401,
-  BAD_REQUEST: 400,
-  BRIDGE_UNAVAILABLE: 503,
-  COMMAND_FAILED: 500,
-  FORBIDDEN: 403,
-  PROJECT_MISMATCH: 409,
-  PROJECT_REQUIRED: 409,
-  TOKEN_EXPIRED: 401,
-  UNSUPPORTED_COMMAND: 404,
-};
 
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   BAD_REQUEST: 400,
@@ -178,6 +161,43 @@ const sendRendererError = (response: http.ServerResponse, error: unknown) => {
   });
 };
 
+const authenticateProjectRequest = (
+  request: http.IncomingMessage,
+  response: http.ServerResponse,
+  getCurrentProject: LocalBridgeServerOptions["getCurrentProject"],
+) => {
+  const currentProject = getCurrentProject();
+  if (!currentProject) {
+    sendError(
+      response,
+      409,
+      "PROJECT_REQUIRED",
+      "A current CoreStudio project is required",
+    );
+    return null;
+  }
+
+  if (!currentProject.agentAccess.enabled) {
+    sendError(
+      response,
+      403,
+      "FORBIDDEN",
+      "Agent access is disabled for the current project",
+    );
+    return null;
+  }
+
+  if (
+    request.headers.authorization !==
+    `Bearer ${currentProject.agentAccess.token}`
+  ) {
+    sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
+    return null;
+  }
+
+  return currentProject;
+};
+
 const getBrowserRuntimeGenerationSource = (
   runtimeState: StoredAgentBrowserRuntimeState,
 ) => (runtimeState.generation?.source === "builtin" ? "builtin" : "agent");
@@ -237,6 +257,39 @@ const readRequestBody = async (
     throw new Error("Expected a JSON object body");
   }
   return parsedBody;
+};
+
+const listenLocalBridgeServer = async (
+  server: http.Server,
+  preferredPort = 0,
+) => {
+  const listen = (port: number) =>
+    new Promise<void>((resolve, reject) => {
+      const handleError = (error: NodeJS.ErrnoException) => {
+        server.off("listening", handleListening);
+        reject(error);
+      };
+      const handleListening = () => {
+        server.off("error", handleError);
+        resolve();
+      };
+      server.once("error", handleError);
+      server.once("listening", handleListening);
+      server.listen(port, "127.0.0.1");
+    });
+
+  try {
+    await listen(preferredPort);
+  } catch (error) {
+    if (
+      preferredPort === 0 ||
+      !(error instanceof Error) ||
+      (error as NodeJS.ErrnoException).code !== "EADDRINUSE"
+    ) {
+      throw error;
+    }
+    await listen(0);
+  }
 };
 
 const requireTaskFields = (body: JsonBody) => {
@@ -458,8 +511,9 @@ export const createLocalBridgeServer = async (
         return;
       }
 
-      if (request.headers.authorization !== `Bearer ${options.readToken}`) {
-        sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
+      if (
+        !authenticateProjectRequest(request, response, options.getCurrentProject)
+      ) {
         return;
       }
 
@@ -474,6 +528,7 @@ export const createLocalBridgeServer = async (
           createAgentOk({
             ready: true,
             currentProject,
+            boardUrl: options.getBoardUrl?.() ?? null,
           }),
         );
         return;
@@ -595,36 +650,21 @@ export const createLocalBridgeServer = async (
       }
 
       if (request.method === "POST" && isAuthorizeRoute) {
-        try {
-          const authorizeBody = body ?? {};
-          const result = await options.authorize({
+        const authorizeBody = body ?? {};
+        sendJson(
+          response,
+          200,
+          createAgentOk({
+            authorized: true,
+            mode: "project-token",
             permissions: Array.isArray(authorizeBody.permissions)
-              ? (authorizeBody.permissions as AgentPermission[])
+              ? authorizeBody.permissions
               : [],
-            ...(typeof authorizeBody.ttlSeconds === "number"
-              ? { ttlSeconds: authorizeBody.ttlSeconds }
-              : {}),
             ...(typeof authorizeBody.reason === "string"
               ? { reason: authorizeBody.reason }
               : {}),
-          });
-          sendJson(response, 200, createAgentOk(result));
-        } catch (error) {
-          const code = getErrorCode(error);
-          if (code) {
-            sendError(
-              response,
-              AUTHORIZE_STATUS_BY_CODE[code] ?? 500,
-              code,
-              getErrorMessage(error),
-            );
-            return;
-          }
-
-          sendError(response, 500, "COMMAND_FAILED", "Authorize failed", {
-            message: getErrorMessage(error),
-          });
-        }
+          }),
+        );
         return;
       }
 
@@ -704,13 +744,7 @@ export const createLocalBridgeServer = async (
     });
   });
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      server.off("error", reject);
-      resolve();
-    });
-  });
+  await listenLocalBridgeServer(server, options.preferredPort ?? 0);
 
   const address = server.address();
   if (!address || typeof address === "string") {

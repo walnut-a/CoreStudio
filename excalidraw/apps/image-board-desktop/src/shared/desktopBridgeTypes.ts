@@ -5,6 +5,7 @@ import type {
   ImageRecordMap,
   ImageSourceType,
   ProjectManifest,
+  ProjectAgentAccess,
   ProjectThumbnailReadMode,
 } from "./projectTypes";
 import type {
@@ -83,6 +84,7 @@ export interface DesktopProjectBundle {
 export interface DesktopCurrentProject {
   projectPath: string;
   name: string;
+  agentAccess: ProjectAgentAccess;
 }
 
 export interface DesktopProjectStateChangedPayload {

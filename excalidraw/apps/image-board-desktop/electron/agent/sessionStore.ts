@@ -10,10 +10,16 @@ export interface AgentSessionDescriptor {
     port: number;
     baseUrl: string;
   };
+  projectToken?: string;
   readToken: string;
+  boardUrl?: string | null;
   currentProject: {
     projectPath: string;
     name: string;
+    agentAccess?: {
+      token: string;
+      enabled: boolean;
+    };
   } | null;
   updatedAt: string;
 }

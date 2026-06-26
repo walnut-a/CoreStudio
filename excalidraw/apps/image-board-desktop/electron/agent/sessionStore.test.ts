@@ -20,9 +20,16 @@ const descriptor: AgentSessionDescriptor = {
     baseUrl: "http://127.0.0.1:49152",
   },
   readToken: "read-token",
+  projectToken: "project-token",
+  boardUrl:
+    "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152&projectToken=project-token",
   currentProject: {
     projectPath: "/Users/alice/project.corestudio",
     name: "Project",
+    agentAccess: {
+      token: "project-token",
+      enabled: true,
+    },
   },
   updatedAt: "2026-06-24T08:00:00.000Z",
 };
@@ -56,9 +63,16 @@ describe("sessionStore", () => {
         baseUrl: "http://127.0.0.1:49152",
       },
       readToken: "read-token",
+      projectToken: "project-token",
+      boardUrl:
+        "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152&projectToken=project-token",
       currentProject: {
         projectPath: "/Users/alice/project.corestudio",
         name: "Project",
+        agentAccess: {
+          token: "project-token",
+          enabled: true,
+        },
       },
       updatedAt: "2026-06-24T08:00:00.000Z",
     });

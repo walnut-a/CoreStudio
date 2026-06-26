@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { excalidrawSpy } = vi.hoisted(() => ({
@@ -20,7 +20,7 @@ import { AGENT_HTTP_ROUTES } from "../../shared/agentBridgeTypes";
 import { AgentBoard } from "./AgentBoard";
 
 const bridgeUrl = "http://127.0.0.1:60909";
-const token = "read-token";
+const token = "project-token";
 
 const envelope = <T,>(data: T) => ({
   ok: true,
@@ -39,6 +39,10 @@ const createFetch = () =>
             currentProject: {
               projectPath: "/Users/alice/Documents/Shell concept",
               name: "Shell concept",
+              agentAccess: {
+                token,
+                enabled: true,
+              },
             },
           }),
       };
@@ -123,7 +127,9 @@ describe("AgentBoard", () => {
     window.history.pushState(
       {},
       "",
-      `/agent-board?bridge=${encodeURIComponent(bridgeUrl)}&token=${token}`,
+      `/agent-board?bridge=${encodeURIComponent(
+        bridgeUrl,
+      )}&projectToken=${token}`,
     );
   });
 
@@ -177,25 +183,21 @@ describe("AgentBoard", () => {
     });
   });
 
-  it("keeps write authorization separate from browser canvas rendering", async () => {
+  it("does not ask for a second write authorization", async () => {
     const fetch = createFetch();
     vi.stubGlobal("fetch", fetch);
 
     render(<AgentBoard />);
 
     await screen.findByTestId("agent-board-excalidraw");
-    fireEvent.click(screen.getByRole("button", { name: "申请写入授权" }));
-
-    expect(await screen.findByText("task-1")).toBeInTheDocument();
-    const authorizeCall = fetch.mock.calls.find(([url]) =>
-      String(url).endsWith(AGENT_HTTP_ROUTES.authorize),
-    );
-    expect(authorizeCall?.[1]?.body).toBe(
-      JSON.stringify({
-        permissions: ["write-board", "generate-image"],
-        reason: "Agent Board 操作当前画板",
-      }),
-    );
+    expect(
+      screen.queryByRole("button", { name: "申请写入授权" }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetch.mock.calls.some(([url]) =>
+        String(url).endsWith(AGENT_HTTP_ROUTES.authorize),
+      ),
+    ).toBe(false);
   });
 
   it("shows setup guidance when the copied board link is incomplete", () => {

@@ -28,7 +28,6 @@ import {
 } from "../src/shared/desktopBridgeTypes";
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
-  normalizeAgentPermissions,
   type AgentRendererCommandName,
   type AgentRendererCommandResponse,
 } from "../src/shared/agentBridgeTypes";
@@ -41,6 +40,7 @@ import {
   readProjectAssetPayloads,
   readProjectBundle,
   rebuildProjectThumbnails,
+  updateProjectAgentAccess,
   writeProjectScene,
 } from "./projectFs";
 import {
@@ -71,7 +71,6 @@ import { createQuitState } from "./windowLifecycle";
 import { disableRendererPageZoom } from "./windowZoomGuard";
 import {
   createLocalBridgeServer,
-  type LocalBridgeAuthorizeInput,
   type LocalBridgeCurrentProject,
   type LocalBridgeServerHandle,
 } from "./agent/localBridgeServer";
@@ -91,7 +90,6 @@ let latestProjectOpenRequestId = 0;
 let latestAutosaveFlushRequestId = 0;
 let rendererReady = false;
 let allowWindowClose = false;
-let agentBridgeEnabled = false;
 let localBridgeHandle: LocalBridgeServerHandle | null = null;
 let rendererCommandBridge: ReturnType<typeof createRendererCommandBridge> | null =
   null;
@@ -100,9 +98,9 @@ let localBridgeCleanupFinished = false;
 let agentSessionWriteChain: Promise<void> = Promise.resolve();
 const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
-const localBridgeReadToken = randomUUID();
 const taskGrantStore = createTaskGrantStore();
 const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
+const AGENT_BRIDGE_PREFERRED_PORT = 60909;
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingAutosaveFlushes = new Map<
   number,
@@ -115,8 +113,6 @@ const pendingAutosaveFlushes = new Map<
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
 const isDev = Boolean(rendererUrl);
-const DEFAULT_AGENT_GRANT_TTL_SECONDS = 7 * 24 * 60 * 60;
-const MAX_AGENT_GRANT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 configureNoSystemKeychainAccess(app.commandLine);
 app.setName(DESKTOP_APP_NAME);
@@ -193,18 +189,22 @@ const getCurrentProject = (): LocalBridgeCurrentProject | null =>
   currentProject ? { ...currentProject } : null;
 
 const getAgentBoardUrl = () => {
-  if (!localBridgeHandle || !rendererUrl) {
+  if (
+    !localBridgeHandle ||
+    !rendererUrl ||
+    !currentProject?.agentAccess.enabled
+  ) {
     return null;
   }
 
   const url = new URL("/agent-board", rendererUrl);
   url.searchParams.set("bridge", localBridgeHandle.baseUrl);
-  url.searchParams.set("token", localBridgeReadToken);
+  url.searchParams.set("projectToken", currentProject.agentAccess.token);
   return url.toString();
 };
 
 const getAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
-  enabled: agentBridgeEnabled,
+  enabled: Boolean(currentProject?.agentAccess.enabled),
   ready: Boolean(localBridgeHandle),
   currentProject: getCurrentProject(),
   boardUrl: getAgentBoardUrl(),
@@ -219,6 +219,7 @@ const writeCurrentAgentSessionDescriptor = async () => {
     return;
   }
 
+  const projectToken = currentProject?.agentAccess.token ?? "";
   const descriptor = {
     protocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
     appName: DESKTOP_APP_NAME,
@@ -228,7 +229,9 @@ const writeCurrentAgentSessionDescriptor = async () => {
       port: bridge.port,
       baseUrl: bridge.baseUrl,
     },
-    readToken: localBridgeReadToken,
+    projectToken,
+    readToken: projectToken,
+    boardUrl: getAgentBoardUrl(),
     currentProject: getCurrentProject(),
     updatedAt: new Date().toISOString(),
   } as const;
@@ -249,93 +252,19 @@ const setCurrentProject = async (
 ) => {
   currentProject = nextProject;
   try {
+    if (!nextProject || !nextProject.agentAccess.enabled) {
+      await stopLocalBridge();
+    } else {
+      await startLocalBridge();
+    }
+  } catch (error) {
+    console.error("[agent:bridge-sync-failed]", error);
+  }
+  try {
     await writeCurrentAgentSessionDescriptor();
   } catch (error) {
     console.error("[agent:session-write-failed]", error);
   }
-};
-
-const getGrantTtlSeconds = (ttlSeconds?: number) => {
-  if (
-    typeof ttlSeconds !== "number" ||
-    !Number.isFinite(ttlSeconds) ||
-    ttlSeconds <= 0
-  ) {
-    return DEFAULT_AGENT_GRANT_TTL_SECONDS;
-  }
-  return Math.min(ttlSeconds, MAX_AGENT_GRANT_TTL_SECONDS);
-};
-
-const formatGrantDuration = (ttlSeconds: number) => {
-  const totalMinutes = Math.max(1, Math.ceil(ttlSeconds / 60));
-  const days = Math.floor(totalMinutes / (24 * 60));
-  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
-  const minutes = totalMinutes % 60;
-  const parts: string[] = [];
-
-  if (days > 0) {
-    parts.push(`${days} 天`);
-  }
-  if (hours > 0) {
-    parts.push(`${hours} 小时`);
-  }
-  if (minutes > 0 || parts.length === 0) {
-    parts.push(`${minutes} 分钟`);
-  }
-
-  return parts.join(" ");
-};
-
-const authorizeLocalBridgeRequest = async (
-  input: LocalBridgeAuthorizeInput,
-) => {
-  const project = getCurrentProject();
-  if (!project) {
-    throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
-      code: "PROJECT_REQUIRED" as const,
-    });
-  }
-
-  const targetWindow = getTargetWindow();
-  if (!targetWindow) {
-    throw Object.assign(new Error("CoreStudio 主窗口未就绪。"), {
-      code: "APP_NOT_READY" as const,
-    });
-  }
-
-  const permissions = normalizeAgentPermissions(input.permissions);
-  const ttlSeconds = getGrantTtlSeconds(input.ttlSeconds);
-  const ttlLabel = formatGrantDuration(ttlSeconds);
-  const reason = input.reason?.trim() || "未提供";
-  const permissionLabel = permissions.length ? permissions.join(", ") : "无";
-
-  const result = await dialog.showMessageBox(targetWindow, {
-    type: "question",
-    buttons: ["允许", "取消"],
-    defaultId: 1,
-    cancelId: 1,
-    noLink: true,
-    message: "允许 Agent 访问当前 CoreStudio 项目？",
-    detail: [
-      `项目：${project.name}`,
-      `路径：${project.projectPath}`,
-      `请求权限：${permissionLabel}`,
-      `原因：${reason}`,
-      `有效期：${ttlLabel}`,
-    ].join("\n"),
-  });
-
-  if (result.response !== 0) {
-    throw Object.assign(new Error("用户已取消 Agent 授权。"), {
-      code: "AUTH_DENIED" as const,
-    });
-  }
-
-  return taskGrantStore.createGrant({
-    projectPath: project.projectPath,
-    permissions,
-    ttlSeconds,
-  });
 };
 
 const createMainRendererCommandBridge = () =>
@@ -377,8 +306,9 @@ const startLocalBridge = async () => {
   rendererCommandBridge = createMainRendererCommandBridge();
   try {
     localBridgeHandle = await createLocalBridgeServer({
-      readToken: localBridgeReadToken,
+      preferredPort: AGENT_BRIDGE_PREFERRED_PORT,
       getCurrentProject,
+      getBoardUrl: getAgentBoardUrl,
       renderer: {
         request: (
           command: AgentRendererCommandName,
@@ -395,7 +325,6 @@ const startLocalBridge = async () => {
         },
       },
       grants: taskGrantStore,
-      authorize: authorizeLocalBridgeRequest,
     });
     await writeCurrentAgentSessionDescriptor();
     console.log("[agent:bridge-started]", localBridgeHandle.baseUrl);
@@ -444,20 +373,47 @@ const stopLocalBridge = async ({ final = false } = {}) => {
 };
 
 const setAgentBridgeEnabled = async (enabled: boolean) => {
-  if (agentBridgeEnabled === enabled && (!enabled || localBridgeHandle)) {
+  if (!currentProject) {
+    throw new Error("请先打开 CoreStudio 项目。");
+  }
+
+  if (
+    currentProject.agentAccess.enabled === enabled &&
+    (!enabled || localBridgeHandle)
+  ) {
     return getAgentBridgeStatus();
   }
 
-  agentBridgeEnabled = enabled;
+  const nextProject = await updateProjectAgentAccess(currentProject.projectPath, {
+    token: currentProject.agentAccess.token,
+    enabled,
+  });
+  currentProject = {
+    ...currentProject,
+    agentAccess: nextProject.agentAccess,
+  };
   if (!enabled) {
     await stopLocalBridge();
+    await writeCurrentAgentSessionDescriptor();
     return getAgentBridgeStatus();
   }
 
   try {
     await startLocalBridge();
   } catch (error) {
-    agentBridgeEnabled = false;
+    await updateProjectAgentAccess(currentProject.projectPath, {
+      token: currentProject.agentAccess.token,
+      enabled: false,
+    }).catch((persistError) => {
+      console.error("[agent:bridge-enable-rollback-failed]", persistError);
+    });
+    currentProject = {
+      ...currentProject,
+      agentAccess: {
+        ...currentProject.agentAccess,
+        enabled: false,
+      },
+    };
     throw error;
   }
 

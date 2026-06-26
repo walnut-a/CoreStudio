@@ -104,6 +104,10 @@ describe("agentCommandHandlers", () => {
           imageRecordsFile: "image-records.json",
           assetsDir: "assets",
           exportsDir: "exports",
+          agentAccess: {
+            token: "project-token",
+            enabled: true,
+          },
         },
         sceneJson: "{}",
         imageRecords,
@@ -255,6 +259,10 @@ describe("agentCommandHandlers", () => {
           imageRecordsFile: "image-records.json",
           assetsDir: "assets",
           exportsDir: "exports",
+          agentAccess: {
+            token: "project-token",
+            enabled: true,
+          },
         },
         sceneJson: "{}",
         imageRecords,

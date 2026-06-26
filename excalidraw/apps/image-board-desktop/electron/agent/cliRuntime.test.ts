@@ -10,6 +10,8 @@ import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
 
 const baseUrl = "http://127.0.0.1:49152";
 const readToken = "read-token-1";
+const boardUrl =
+  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152&projectToken=read-token-1";
 const okEnvelope = {
   ok: true,
   data: {
@@ -391,7 +393,8 @@ describe("runCli", () => {
           port: 49321,
           baseUrl: "http://127.0.0.1:49321",
         },
-        readToken: "session-token",
+        projectToken: "session-project-token",
+        readToken: "legacy-session-token",
         currentProject: null,
         updatedAt: "2026-06-24T08:00:00.000Z",
       });
@@ -410,7 +413,120 @@ describe("runCli", () => {
     expect(records[0]).toMatchObject({
       url: "http://127.0.0.1:49321/v1/status",
       headers: {
-        Authorization: "Bearer session-token",
+        Authorization: "Bearer session-project-token",
+      },
+    });
+  });
+
+  it("prints the current Agent Board URL as JSON", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(
+      {
+        ok: true,
+        data: {
+          ready: true,
+          currentProject: null,
+          boardUrl,
+        },
+      },
+      records,
+    );
+
+    const result = await runCommand(["agent", "board-url", "--json"], {
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      `${JSON.stringify({
+        ok: true,
+        data: {
+          boardUrl,
+        },
+      })}\n`,
+    );
+    expect(records[0]).toMatchObject({
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.status}`,
+      method: "GET",
+    });
+  });
+
+  it("prints the current Agent Board URL in human mode", async () => {
+    const fetch = createFetch({
+      ok: true,
+      data: {
+        ready: true,
+        currentProject: null,
+        boardUrl,
+      },
+    });
+
+    const result = await runCommand(["agent", "board-url"], {
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(`${boardUrl}\n`);
+  });
+
+  it("returns a command failure when the bridge has no Agent Board URL", async () => {
+    const fetch = createFetch({
+      ok: true,
+      data: {
+        ready: true,
+        currentProject: null,
+        boardUrl: null,
+      },
+    });
+
+    const result = await runCommand(["agent", "board-url", "--json"], {
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe(
+      `${JSON.stringify({
+        ok: false,
+        error: {
+          code: "COMMAND_FAILED",
+          message: "Agent Bridge did not return a Board URL.",
+        },
+      })}\n`,
+    );
+  });
+
+  it("keeps legacy readToken session descriptors working", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+    const sessionPath = path.resolve("/tmp/corestudio-agent-session.json");
+    const readFile = vi.fn(async () =>
+      JSON.stringify({
+        protocolVersion: 1,
+        appName: "CoreStudio",
+        appVersion: "1.1.10",
+        bridge: {
+          host: "127.0.0.1",
+          port: 49321,
+          baseUrl: "http://127.0.0.1:49321",
+        },
+        readToken: "legacy-session-token",
+        currentProject: null,
+        updatedAt: "2026-06-24T08:00:00.000Z",
+      }),
+    );
+
+    const result = await runCommand(["agent", "status", "--json"], {
+      env: {
+        CORESTUDIO_AGENT_SESSION_FILE: sessionPath,
+      },
+      fetch,
+      readFile,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0]).toMatchObject({
+      headers: {
+        Authorization: "Bearer legacy-session-token",
       },
     });
   });

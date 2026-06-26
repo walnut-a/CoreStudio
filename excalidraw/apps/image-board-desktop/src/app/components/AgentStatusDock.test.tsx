@@ -16,9 +16,13 @@ describe("AgentStatusDock", () => {
           currentProject: {
             projectPath: "/tmp/corestudio-project",
             name: "测试项目",
+            agentAccess: {
+              token: "project-token",
+              enabled: true,
+            },
           },
           boardUrl:
-            "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&token=2",
+            "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectToken=2",
         }}
         onCopyAgentBoardUrl={onCopyAgentBoardUrl}
         onRefreshStatus={onRefreshStatus}
@@ -76,7 +80,7 @@ describe("AgentStatusDock", () => {
           ready: true,
           currentProject: null,
           boardUrl:
-            "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&token=2",
+            "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectToken=2",
         }}
         onCopyAgentBoardUrl={vi.fn()}
         onRefreshStatus={vi.fn()}

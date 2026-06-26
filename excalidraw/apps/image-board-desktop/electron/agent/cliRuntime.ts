@@ -53,15 +53,16 @@ export interface CliRuntimeOptions {
 
 interface BridgeSession {
   baseUrl: string;
-  readToken: string;
+  projectToken: string;
 }
 
 interface CliCommand {
   route: string;
   method: "GET" | "POST";
   body?: Record<string, unknown>;
-  requiresWriteGrant?: boolean;
   imagePath?: string;
+  transformEnvelope?: (envelope: AgentEnvelope<unknown>) => AgentEnvelope<unknown>;
+  formatHuman?: (data: unknown) => string;
 }
 
 interface ParsedArgs {
@@ -259,6 +260,42 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
     return {
       route: AGENT_HTTP_ROUTES.status,
       method: "GET",
+    };
+  }
+
+  if (scope === "agent" && command === "board-url") {
+    const parsed = parseArgs(argv.slice(2));
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("agent board-url", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    return {
+      route: AGENT_HTTP_ROUTES.status,
+      method: "GET",
+      transformEnvelope: (envelope) => {
+        if (!envelope.ok) {
+          return envelope;
+        }
+        const data = envelope.data;
+        if (!isObject(data) || typeof data.boardUrl !== "string") {
+          return commandFailedEnvelope(
+            "Agent Bridge did not return a Board URL.",
+          );
+        }
+        return {
+          ok: true,
+          data: {
+            boardUrl: data.boardUrl,
+          },
+        };
+      },
+      formatHuman: (data) =>
+        isObject(data) && typeof data.boardUrl === "string"
+          ? data.boardUrl
+          : "OK",
     };
   }
 
@@ -785,25 +822,6 @@ const prepareRequestBody = async (
   }
 };
 
-const assertWriteGrantFields = (
-  command: CliCommand,
-): AgentEnvelope<never> | null => {
-  if (!command.requiresWriteGrant) {
-    return null;
-  }
-  if (
-    typeof command.body?.taskId !== "string" ||
-    !command.body.taskId.trim() ||
-    typeof command.body.writeToken !== "string" ||
-    !command.body.writeToken.trim()
-  ) {
-    return badRequestEnvelope(
-      "Write commands require --task-id and --write-token.",
-    );
-  }
-  return null;
-};
-
 const readSessionDescriptor = async (
   options: CliRuntimeOptions,
 ): Promise<BridgeSession | null> => {
@@ -822,17 +840,22 @@ const readSessionDescriptor = async (
     const contents = await readFile(sessionPath, "utf8");
     const descriptor = JSON.parse(contents) as {
       bridge?: { baseUrl?: unknown };
+      projectToken?: unknown;
       readToken?: unknown;
     };
+    const projectToken =
+      typeof descriptor.projectToken === "string"
+        ? descriptor.projectToken
+        : descriptor.readToken;
     if (
       typeof descriptor.bridge?.baseUrl !== "string" ||
-      typeof descriptor.readToken !== "string"
+      typeof projectToken !== "string"
     ) {
       return null;
     }
     return {
       baseUrl: normalizeBaseUrl(descriptor.bridge.baseUrl),
-      readToken: descriptor.readToken,
+      projectToken,
     };
   } catch {
     return null;
@@ -844,11 +867,12 @@ const discoverBridge = async (
 ): Promise<BridgeSession | null> => {
   const env = options.env ?? process.env;
   const envBaseUrl = env.CORESTUDIO_AGENT_BRIDGE_URL;
-  const envReadToken = env.CORESTUDIO_AGENT_READ_TOKEN;
-  if (envBaseUrl && envReadToken) {
+  const envProjectToken =
+    env.CORESTUDIO_AGENT_PROJECT_TOKEN ?? env.CORESTUDIO_AGENT_READ_TOKEN;
+  if (envBaseUrl && envProjectToken) {
     return {
       baseUrl: normalizeBaseUrl(envBaseUrl),
-      readToken: envReadToken,
+      projectToken: envProjectToken,
     };
   }
 
@@ -864,7 +888,7 @@ const requestBridge = async (
   const init: CliFetchInit = {
     method: command.method,
     headers: {
-      Authorization: `Bearer ${bridge.readToken}`,
+      Authorization: `Bearer ${bridge.projectToken}`,
       Accept: "application/json",
     },
   };
@@ -897,6 +921,7 @@ const writeEnvelope = (
   mode: OutputMode,
   stdout: CliWritable,
   stderr: CliWritable,
+  formatHuman?: (data: unknown) => string,
 ) => {
   if (mode === "json" || mode === "jsonl") {
     stdout.write(`${JSON.stringify(envelope)}\n`);
@@ -904,7 +929,7 @@ const writeEnvelope = (
   }
 
   if (envelope.ok) {
-    stdout.write("OK\n");
+    stdout.write(`${formatHuman ? formatHuman(envelope.data) : "OK"}\n`);
     return;
   }
 
@@ -916,8 +941,9 @@ const finishWithEnvelope = (
   mode: OutputMode,
   stdout: CliWritable,
   stderr: CliWritable,
+  formatHuman?: (data: unknown) => string,
 ) => {
-  writeEnvelope(envelope, mode, stdout, stderr);
+  writeEnvelope(envelope, mode, stdout, stderr, formatHuman);
   return envelope.ok ? 0 : 1;
 };
 
@@ -929,16 +955,6 @@ export const runCli = async (
   const command = parseCommand(argv);
   if (isEnvelope(command)) {
     return finishWithEnvelope(command, mode, options.stdout, options.stderr);
-  }
-
-  const writeGrantError = assertWriteGrantFields(command);
-  if (writeGrantError) {
-    return finishWithEnvelope(
-      writeGrantError,
-      mode,
-      options.stdout,
-      options.stderr,
-    );
   }
 
   const bridge = await discoverBridge(options);
@@ -961,7 +977,16 @@ export const runCli = async (
 
   try {
     const envelope = await requestBridge(command, bridge, fetchImpl, body);
-    return finishWithEnvelope(envelope, mode, options.stdout, options.stderr);
+    const nextEnvelope = command.transformEnvelope
+      ? command.transformEnvelope(envelope)
+      : envelope;
+    return finishWithEnvelope(
+      nextEnvelope,
+      mode,
+      options.stdout,
+      options.stderr,
+      command.formatHuman,
+    );
   } catch {
     return finishWithEnvelope(
       bridgeUnavailableEnvelope(),

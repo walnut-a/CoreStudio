@@ -98,6 +98,10 @@ const createMockProjectBundle = (overrides: Record<string, unknown> = {}) => ({
     imageRecordsFile: "image-records.json",
     assetsDir: "assets",
     exportsDir: "exports",
+    agentAccess: {
+      token: "project-token",
+      enabled: false,
+    },
   },
   sceneJson: "{}",
   imageRecords: {},
@@ -862,7 +866,7 @@ describe("App startup", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
     );
     const desktopBridgeCalls: Array<{ method: string; args?: unknown[] }> = [];
     const currentProject = {
@@ -954,7 +958,7 @@ describe("App startup", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
     );
     const currentProject = {
       projectPath: "/tmp/corestudio-project",
@@ -1138,7 +1142,7 @@ describe("App startup", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
     );
     const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
       const path = new URL(String(url)).pathname;
@@ -1213,7 +1217,7 @@ describe("App startup", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
     );
     const fetchMock = vi.fn(async () => {
       throw new TypeError("Failed to fetch");
@@ -1237,7 +1241,7 @@ describe("App startup", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&token=read-token",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
     );
     const currentProject = {
       projectPath: "/tmp/corestudio-project",
@@ -1495,6 +1499,10 @@ describe("App startup", () => {
       expect(notifyProjectStateChanged).toHaveBeenCalledWith({
         projectPath: "/tmp/mock-project",
         name: "测试项目",
+        agentAccess: {
+          token: "project-token",
+          enabled: false,
+        },
       });
     });
     const acceptedProjectCallCount =
@@ -1512,7 +1520,11 @@ describe("App startup", () => {
   });
 
   it("updates the Agent status dock after accepting an opened project", async () => {
-    let notifiedProject: { projectPath: string; name: string } | null = null;
+    let notifiedProject: {
+      projectPath: string;
+      name: string;
+      agentAccess: { token: string; enabled: boolean };
+    } | null = null;
     const notifyProjectStateChanged = vi.fn((project) => {
       notifiedProject = project;
     });
@@ -1521,7 +1533,7 @@ describe("App startup", () => {
       ready: true,
       currentProject: notifiedProject,
       boardUrl:
-        "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&token=2",
+        "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectToken=2",
     }));
     window.imageBoardDesktop = createDesktopBridgeMock({
       getAgentBridgeStatus,
@@ -1542,6 +1554,10 @@ describe("App startup", () => {
       expect(notifyProjectStateChanged).toHaveBeenCalledWith({
         projectPath: "/tmp/mock-project",
         name: "测试项目",
+        agentAccess: {
+          token: "project-token",
+          enabled: false,
+        },
       });
     });
 

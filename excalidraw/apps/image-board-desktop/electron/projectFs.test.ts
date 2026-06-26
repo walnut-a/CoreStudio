@@ -14,6 +14,7 @@ import {
   readProjectAssetPayloads,
   readProjectBundle,
   rebuildProjectThumbnails,
+  updateProjectAgentAccess,
   writeProjectScene,
 } from "./projectFs";
 
@@ -43,7 +44,91 @@ describe("projectFs", () => {
 
     const bundle = await readProjectBundle(project.projectPath);
     expect(bundle.project.name).toBe("My Prompt Board");
+    expect(bundle.project.agentAccess).toEqual({
+      token: expect.any(String),
+      enabled: false,
+    });
     expect(bundle.imageRecords).toEqual({});
+  });
+
+  it("migrates legacy projects with a stable Agent token without enabling access", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Legacy Project");
+    const projectFile = path.join(project.projectPath, PROJECT_FILENAMES.project);
+    const legacyProject = {
+      ...project.project,
+      agentAccess: undefined,
+    };
+    delete legacyProject.agentAccess;
+    await fs.writeFile(projectFile, JSON.stringify(legacyProject, null, 2));
+
+    const migrated = await readProjectBundle(project.projectPath);
+    const persisted = JSON.parse(await fs.readFile(projectFile, "utf8"));
+
+    expect(migrated.project.agentAccess).toEqual({
+      token: expect.any(String),
+      enabled: false,
+    });
+    expect(persisted.agentAccess).toEqual(migrated.project.agentAccess);
+
+    const reopened = await readProjectBundle(project.projectPath);
+    expect(reopened.project.agentAccess.token).toBe(
+      migrated.project.agentAccess.token,
+    );
+  });
+
+  it("keeps an existing Agent token when opening a project", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Existing Token");
+    const projectFile = path.join(project.projectPath, PROJECT_FILENAMES.project);
+    await fs.writeFile(
+      projectFile,
+      JSON.stringify(
+        {
+          ...project.project,
+          agentAccess: {
+            token: "project-token-1",
+            enabled: true,
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const bundle = await readProjectBundle(project.projectPath);
+
+    expect(bundle.project.agentAccess).toEqual({
+      token: "project-token-1",
+      enabled: true,
+    });
+  });
+
+  it("updates the saved Agent access switch without changing the token", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Agent Switch");
+    const token = project.project.agentAccess.token;
+
+    const nextProject = await updateProjectAgentAccess(project.projectPath, {
+      token,
+      enabled: true,
+    });
+    const bundle = await readProjectBundle(project.projectPath);
+
+    expect(nextProject.agentAccess).toEqual({
+      token,
+      enabled: true,
+    });
+    expect(bundle.project.agentAccess).toEqual({
+      token,
+      enabled: true,
+    });
   });
 
   it("rejects creating a project over an existing non-empty folder", async () => {

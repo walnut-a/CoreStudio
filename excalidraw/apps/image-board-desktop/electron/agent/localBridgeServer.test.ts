@@ -9,12 +9,16 @@ import {
 import { createLocalBridgeServer } from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
 
-import type { AgentPermission } from "../../src/shared/agentBridgeTypes";
-
-const readToken = "read-token-1";
+const projectToken = "project-token-1";
+const boardUrl =
+  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectToken=project-token-1";
 const currentProject = {
   projectPath: "/Users/alice/CoreStudio/project-1",
   name: "Project 1",
+  agentAccess: {
+    token: projectToken,
+    enabled: true,
+  },
 };
 
 const requestJson = async (
@@ -25,7 +29,7 @@ const requestJson = async (
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${readToken}`,
+      Authorization: `Bearer ${projectToken}`,
       ...(init.headers ?? {}),
     },
   });
@@ -48,16 +52,11 @@ const startServer = async (
     now: () => new Date("2026-06-24T08:00:00.000Z"),
     randomId: () => "id-1",
   });
-  const authorize = vi.fn(async (input) => ({
-    authorized: true,
-    input,
-  }));
   const server = await createLocalBridgeServer({
-    readToken,
     getCurrentProject: () => currentProject,
+    getBoardUrl: () => boardUrl,
     renderer,
     grants,
-    authorize,
     ...overrides,
   });
 
@@ -65,7 +64,6 @@ const startServer = async (
     server,
     renderer,
     grants,
-    authorize,
   };
 };
 
@@ -95,12 +93,13 @@ describe("createLocalBridgeServer", () => {
         data: {
           ready: true,
           currentProject,
+          boardUrl,
         },
       },
     });
   });
 
-  it("returns bridge-ready status even when no project is open", async () => {
+  it("requires an open project before accepting authenticated requests", async () => {
     const { server } = await track(
       startServer({
         getCurrentProject: () => null,
@@ -110,12 +109,39 @@ describe("createLocalBridgeServer", () => {
     const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.status);
 
     expect(result).toEqual({
-      status: 200,
+      status: 409,
       body: {
-        ok: true,
-        data: {
-          ready: true,
-          currentProject: null,
+        ok: false,
+        error: {
+          code: "PROJECT_REQUIRED",
+          message: "A current CoreStudio project is required",
+        },
+      },
+    });
+  });
+
+  it("rejects requests when the current project has not enabled Agent access", async () => {
+    const { server } = await track(
+      startServer({
+        getCurrentProject: () => ({
+          ...currentProject,
+          agentAccess: {
+            token: projectToken,
+            enabled: false,
+          },
+        }),
+      }),
+    );
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.status);
+
+    expect(result).toEqual({
+      status: 403,
+      body: {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Agent access is disabled for the current project",
         },
       },
     });
@@ -200,7 +226,7 @@ describe("createLocalBridgeServer", () => {
     const response = await fetch(`${server.baseUrl}/v1/missing`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${readToken}`,
+        Authorization: `Bearer ${projectToken}`,
         "Content-Type": "application/json",
       },
       body: "{",
@@ -223,7 +249,7 @@ describe("createLocalBridgeServer", () => {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${readToken}`,
+          Authorization: `Bearer ${projectToken}`,
           "Content-Type": "application/json",
         },
         body: "{",
@@ -747,10 +773,10 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("passes authorize requests to the injected authorize handler", async () => {
-    const { server, authorize } = await track(startServer());
+  it("keeps authorize as a local-token compatibility no-op", async () => {
+    const { server } = await track(startServer());
     const body = {
-      permissions: ["read-context", "write-board"] as AgentPermission[],
+      permissions: ["read-context", "write-board"],
       ttlSeconds: 120,
       reason: "inspect and add notes",
     };
@@ -765,58 +791,21 @@ describe("createLocalBridgeServer", () => {
     );
 
     expect(result.status).toBe(200);
-    expect(authorize).toHaveBeenCalledWith(body);
     expect(result.body).toEqual({
       ok: true,
       data: {
         authorized: true,
-        input: body,
+        mode: "project-token",
+        permissions: body.permissions,
+        reason: body.reason,
       },
     });
   });
 
-  it("maps denied authorize requests to auth denied responses", async () => {
+  it("requires a current project before accepting authorize compatibility requests", async () => {
     const { server } = await track(
       startServer({
-        authorize: vi.fn(async () => {
-          throw Object.assign(new Error("用户已取消 Agent 授权。"), {
-            code: "AUTH_DENIED",
-          });
-        }),
-      }),
-    );
-
-    const result = await requestJson(
-      server.baseUrl,
-      AGENT_HTTP_ROUTES.authorize,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          permissions: ["read-context"],
-        }),
-      },
-    );
-
-    expect(result).toMatchObject({
-      status: 401,
-      body: {
-        ok: false,
-        error: {
-          code: "AUTH_DENIED",
-          message: "用户已取消 Agent 授权。",
-        },
-      },
-    });
-  });
-
-  it("maps missing project authorize requests to project required responses", async () => {
-    const { server } = await track(
-      startServer({
-        authorize: vi.fn(async () => {
-          throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
-            code: "PROJECT_REQUIRED",
-          });
-        }),
+        getCurrentProject: () => null,
       }),
     );
 
@@ -837,7 +826,7 @@ describe("createLocalBridgeServer", () => {
         ok: false,
         error: {
           code: "PROJECT_REQUIRED",
-          message: "当前没有打开 CoreStudio 项目。",
+          message: "A current CoreStudio project is required",
         },
       },
     });
@@ -848,6 +837,20 @@ describe("createLocalBridgeServer", () => {
 
     await server.close();
     await expect(server.close()).resolves.toBeUndefined();
+  });
+
+  it("falls back to a dynamic port when the preferred port is already in use", async () => {
+    const first = await track(startServer());
+    const second = await track(
+      startServer({
+        preferredPort: first.server.port,
+      }),
+    );
+
+    expect(second.server.port).not.toBe(first.server.port);
+    expect(second.server.baseUrl).toBe(
+      `http://127.0.0.1:${second.server.port}`,
+    );
   });
 
   it("completes task grants before forwarding task.complete", async () => {

@@ -11,6 +11,7 @@ import {
   type ImageRecord,
   type ImageRecordMap,
   type ImageSourceType,
+  type ProjectAgentAccess,
   type ProjectManifest,
   type ProjectThumbnailReadMode,
 } from "../src/shared/projectTypes";
@@ -57,6 +58,60 @@ const EMPTY_PROJECT_SCENE = JSON.stringify(
   null,
   2,
 );
+
+const createProjectAgentAccess = (): ProjectAgentAccess => ({
+  token: randomUUID(),
+  enabled: false,
+});
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const normalizeProjectAgentAccess = (
+  value: unknown,
+): { access: ProjectAgentAccess; changed: boolean } => {
+  if (!isRecord(value)) {
+    return {
+      access: createProjectAgentAccess(),
+      changed: true,
+    };
+  }
+
+  const token =
+    typeof value.token === "string" && value.token.trim()
+      ? value.token
+      : randomUUID();
+  const enabled = value.enabled === true;
+  return {
+    access: {
+      token,
+      enabled,
+    },
+    changed: token !== value.token || enabled !== value.enabled,
+  };
+};
+
+const normalizeProjectManifest = (
+  project: ProjectManifest,
+): { project: ProjectManifest; changed: boolean } => {
+  const { access, changed } = normalizeProjectAgentAccess(
+    (project as Partial<ProjectManifest>).agentAccess,
+  );
+  if (!changed) {
+    return {
+      project,
+      changed: false,
+    };
+  }
+
+  return {
+    project: {
+      ...project,
+      agentAccess: access,
+    },
+    changed: true,
+  };
+};
 
 interface PersistImageAssetInput {
   fileId: string;
@@ -211,6 +266,7 @@ const buildProjectManifest = (name: string): ProjectManifest => {
     imageRecordsFile: PROJECT_FILENAMES.imageRecords,
     assetsDir: PROJECT_FILENAMES.assetsDir,
     exportsDir: PROJECT_FILENAMES.exportsDir,
+    agentAccess: createProjectAgentAccess(),
   };
 };
 
@@ -260,9 +316,15 @@ export const readProjectBundle = async (projectPath: string) => {
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.imageRecords), "utf8"),
   ]);
+  const { project, changed } = normalizeProjectManifest(
+    JSON.parse(projectJson) as ProjectManifest,
+  );
+  if (changed) {
+    await writeProjectManifest(projectPath, project);
+  }
 
   return {
-    project: JSON.parse(projectJson) as ProjectManifest,
+    project,
     sceneJson,
     imageRecords: JSON.parse(imageRecordsJson) as ImageRecordMap,
   };
@@ -281,6 +343,20 @@ const writeProjectManifest = async (
   project: ProjectManifest,
 ) => {
   await writeJson(path.join(projectPath, PROJECT_FILENAMES.project), project);
+};
+
+export const updateProjectAgentAccess = async (
+  projectPath: string,
+  agentAccess: ProjectAgentAccess,
+) => {
+  const bundle = await readProjectBundle(projectPath);
+  const nextProject: ProjectManifest = {
+    ...bundle.project,
+    agentAccess,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeProjectManifest(projectPath, nextProject);
+  return nextProject;
 };
 
 const analyzeSceneJson = (sceneJson: string) => {

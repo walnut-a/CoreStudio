@@ -47,19 +47,14 @@ interface AgentBoardSelection {
   selected: boolean;
 }
 
-interface AgentBoardGrant {
-  taskId: string;
-  writeToken: string;
-  expiresAt: string;
-}
-
 const isEnvelope = <T,>(value: unknown): value is AgentEnvelope<T> =>
   typeof value === "object" && value !== null && "ok" in value;
 
 const getAgentBoardConfig = () => {
   const url = new URL(window.location.href);
   const bridge = url.searchParams.get("bridge");
-  const token = url.searchParams.get("token");
+  const token =
+    url.searchParams.get("projectToken") ?? url.searchParams.get("token");
   if (!bridge || !token) {
     return null;
   }
@@ -74,9 +69,7 @@ export const AgentBoard = () => {
   const [status, setStatus] = useState<AgentBoardStatus | null>(null);
   const [board, setBoard] = useState<AgentBoardScene | null>(null);
   const [selection, setSelection] = useState<AgentBoardSelection | null>(null);
-  const [grant, setGrant] = useState<AgentBoardGrant | null>(null);
   const [loading, setLoading] = useState(false);
-  const [authorizing, setAuthorizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const requestBridge = async <T,>(
@@ -84,7 +77,7 @@ export const AgentBoard = () => {
     init: RequestInit = {},
   ): Promise<T> => {
     if (!config) {
-      throw new Error("Agent Board 链接缺少 bridge 或 token。");
+      throw new Error("Agent Board 链接缺少 bridge 或 projectToken。");
     }
 
     const response = await fetch(`${config.bridge}${route}`, {
@@ -121,7 +114,6 @@ export const AgentBoard = () => {
       if (!nextStatus.currentProject) {
         setBoard(null);
         setSelection(null);
-        setGrant(null);
         return;
       }
 
@@ -139,32 +131,6 @@ export const AgentBoard = () => {
       );
     } finally {
       setLoading(false);
-    }
-  };
-
-  const authorize = async () => {
-    setAuthorizing(true);
-    setError(null);
-    try {
-      const nextGrant = await requestBridge<AgentBoardGrant>(
-        AGENT_HTTP_ROUTES.authorize,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            permissions: ["write-board", "generate-image"],
-            reason: "Agent Board 操作当前画板",
-          }),
-        },
-      );
-      setGrant(nextGrant);
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "Agent Board 授权失败。",
-      );
-    } finally {
-      setAuthorizing(false);
     }
   };
 
@@ -212,21 +178,13 @@ export const AgentBoard = () => {
             <span className="welcome-pane__eyebrow">Agent Board</span>
             <h1>{board?.project.name ?? "CoreStudio Agent Board"}</h1>
             <p>
-              在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回仍通过
-              CLI / Local Bridge 授权完成。
+              在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回使用
+              本地项目 token 完成。
             </p>
           </div>
           <div className="agent-board-header__actions">
             <DesktopButton type="button" onClick={refresh} disabled={loading}>
               {loading ? "刷新中" : "刷新"}
-            </DesktopButton>
-            <DesktopButton
-              type="button"
-              variant="primary"
-              onClick={authorize}
-              disabled={authorizing || !status?.ready}
-            >
-              {authorizing ? "等待确认" : "申请写入授权"}
             </DesktopButton>
           </div>
         </header>
@@ -300,17 +258,6 @@ export const AgentBoard = () => {
               </section>
             ) : null}
 
-            {grant && (
-              <section className="agent-board-card agent-board-card--grant">
-                <div>
-                  <span className="agent-board-label">写入授权</span>
-                  <strong>{grant.taskId}</strong>
-                </div>
-                <p>
-                  有效期至 {new Date(grant.expiresAt).toLocaleString("zh-CN")}
-                </p>
-              </section>
-            )}
           </aside>
         </section>
       </main>

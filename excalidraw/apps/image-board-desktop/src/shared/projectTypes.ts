@@ -43,6 +43,12 @@ export interface ProjectManifest {
   imageRecordsFile: string;
   assetsDir: string;
   exportsDir: string;
+  agentAccess: ProjectAgentAccess;
+}
+
+export interface ProjectAgentAccess {
+  token: string;
+  enabled: boolean;
 }
 
 export interface ImageRecord {

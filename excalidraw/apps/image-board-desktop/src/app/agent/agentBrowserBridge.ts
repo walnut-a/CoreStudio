@@ -44,7 +44,8 @@ const getAgentBrowserBridgeConfig = (): AgentBrowserBridgeConfig | null => {
 
   const url = new URL(window.location.href);
   const bridge = url.searchParams.get("bridge");
-  const token = url.searchParams.get("token");
+  const token =
+    url.searchParams.get("projectToken") ?? url.searchParams.get("token");
   if (!bridge || !token) {
     return null;
   }

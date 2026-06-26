@@ -200,6 +200,7 @@ const getDesktopCurrentProject = (
     ? {
         projectPath: project.projectPath,
         name: project.project.name,
+        agentAccess: project.project.agentAccess,
       }
     : null;
 
@@ -3402,7 +3403,17 @@ const App = () => {
 
     notifyDesktopProjectState(currentProjectRef.current);
     try {
-      setAgentBridgeStatus(await bridge.setAgentBridgeEnabled(enabled));
+      const nextStatus = await bridge.setAgentBridgeEnabled(enabled);
+      setAgentBridgeStatus(nextStatus);
+      if (nextStatus.currentProject && currentProjectRef.current) {
+        updateCurrentProject({
+          ...currentProjectRef.current,
+          project: {
+            ...currentProjectRef.current.project,
+            agentAccess: nextStatus.currentProject.agentAccess,
+          },
+        });
+      }
     } catch (error) {
       setProjectError(
         error instanceof Error ? error.message : "Agent 连接状态切换失败。",

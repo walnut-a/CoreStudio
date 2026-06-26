@@ -82,6 +82,9 @@ import { getAgentSessionPath } from "./agent/sessionPaths";
 import { createTaskGrantStore } from "./agent/taskGrants";
 import { createRendererCommandBridge } from "./agent/rendererCommandBridge";
 import { configureNoSystemKeychainAccess } from "./keychainGuard";
+import { installBrokenPipeConsoleGuard } from "./safeProcessLogging";
+
+installBrokenPipeConsoleGuard();
 
 let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];

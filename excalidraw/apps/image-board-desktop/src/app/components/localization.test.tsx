@@ -15,7 +15,6 @@ import { GenerateImageDialog } from "./GenerateImageDialog";
 import { ImageInspector } from "./ImageInspector";
 
 import { ProvidersDialog } from "./ProvidersDialog";
-import { TopBar } from "./TopBar";
 import { WelcomePane } from "./WelcomePane";
 
 import type { ImageLineageEntry } from "../imageRelationships";
@@ -179,22 +178,8 @@ describe("Chinese localization", () => {
     );
   });
 
-  it("renders toolbar and inspector labels in Chinese", () => {
-    const { rerender } = render(
-      <TopBar
-        projectName="测试项目"
-        onOpenProject={() => undefined}
-        onImportImages={() => undefined}
-        onRevealProject={() => undefined}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "导入图片" })).toHaveClass(
-      "excalidraw-button",
-    );
-    expect(screen.queryByRole("button", { name: "模型服务" })).toBeNull();
-
-    rerender(
+  it("renders inspector labels in Chinese", () => {
+    render(
       <ImageInspector
         record={generatedRecord}
         parentRecord={parentRecord}
@@ -511,7 +496,10 @@ describe("Chinese localization", () => {
       within(modeSwitch).getByRole("tab", { name: "直接输入" }),
     ).toHaveAttribute("aria-selected", "false");
     expect(
-      within(taskBar).getByRole("group", { name: "本次生成来源" }),
+      within(taskBar).queryByRole("combobox", { name: "生成方式" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "生成方式" }),
     ).toBeInTheDocument();
 
     const agentContext = screen.getByRole("region", {
@@ -551,10 +539,26 @@ describe("Chinese localization", () => {
     expect(
       screen.getByRole("button", { name: "开始生成" }),
     ).toBeInTheDocument();
+    const directSourceStatus = screen
+      .getByText("CoreStudio 生成")
+      .closest(".generate-composer__source-status");
+    expect(directSourceStatus).not.toBeNull();
+    expect(directSourceStatus).toHaveAttribute("aria-label", "生成方式");
+    expect(directSourceStatus).toHaveTextContent("CoreStudio 生成");
+    expect(screen.queryByText("生成方式")).toBeNull();
+    expect(
+      directSourceStatus?.closest(".generate-composer__controls"),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("listbox", { name: "生成方式" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Agent 生成" }),
+    ).not.toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("shows the per-request generation source switch when configured", () => {
+  it("shows the per-request generation mode menu below the composer body", () => {
     const onRequestChange = vi.fn();
 
     render(
@@ -587,30 +591,74 @@ describe("Chinese localization", () => {
     );
 
     const taskBar = screen.getByRole("toolbar", { name: "生成任务状态" });
-    const sourceSwitch = within(taskBar).getByRole("group", {
-      name: "本次生成来源",
-    });
-    expect(within(sourceSwitch).queryByText("本次生成来源")).toBeNull();
     expect(
-      within(sourceSwitch).getByRole("button", { name: "内置生成" }),
-    ).toHaveAttribute("aria-pressed", "false");
+      within(taskBar).queryByRole("button", { name: "生成方式" }),
+    ).toBeNull();
+    const sourceButton = screen.getByRole("button", { name: "生成方式" });
+    expect(sourceButton).toHaveTextContent("Agent 生成");
+    fireEvent.click(sourceButton);
     expect(
-      within(sourceSwitch).getByRole("button", { name: "Agent 生成" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("option", { name: "Agent 生成" }),
+    ).not.toHaveAttribute("aria-disabled", "true");
 
-    fireEvent.click(
-      within(sourceSwitch).getByRole("button", { name: "内置生成" }),
-    );
+    fireEvent.click(screen.getByRole("option", { name: "CoreStudio 生成" }));
 
-    expect(
-      within(sourceSwitch).getByRole("button", { name: "内置生成" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      within(sourceSwitch).getByRole("button", { name: "Agent 生成" }),
-    ).toHaveAttribute("aria-pressed", "false");
+    expect(sourceButton).toHaveTextContent("CoreStudio 生成");
     expect(onRequestChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
         generationSource: "builtin",
+      }),
+    );
+  });
+
+  it("keeps generation mode switchable in Agent operation mode even when direct Agent submission is unavailable", () => {
+    const onRequestChange = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        composerConfig={{
+          defaultMode: "agent",
+          showModeSwitch: true,
+          defaultGenerationSource: "builtin",
+          showGenerationSourceSwitch: true,
+          agentGenerationAvailable: false,
+          agentGenerationUnavailableMessage: "需要先配置 ACP Agent",
+        }}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onRequestChange={onRequestChange}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const sourceButton = screen.getByRole("button", { name: "生成方式" });
+    expect(sourceButton).toHaveTextContent("CoreStudio 生成");
+
+    fireEvent.click(sourceButton);
+
+    const agentOption = screen.getByRole("option", { name: "Agent 生成" });
+    expect(agentOption).not.toHaveAttribute("aria-disabled", "true");
+
+    fireEvent.click(agentOption);
+
+    expect(sourceButton).toHaveTextContent("Agent 生成");
+    expect(onRequestChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        generationSource: "agent",
       }),
     );
   });

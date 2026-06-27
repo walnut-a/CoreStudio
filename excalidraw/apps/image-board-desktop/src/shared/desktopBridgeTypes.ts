@@ -15,6 +15,11 @@ import type {
   ProviderSettings,
 } from "./providerTypes";
 import type { AgentRendererCommandRequest } from "./agentBridgeTypes";
+import type {
+  AcpAgentSettings,
+  AcpTaskEvent,
+  AcpTaskRequest,
+} from "./acpTypes";
 
 export const IPC_CHANNELS = {
   createProject: "image-board:create-project",
@@ -47,6 +52,11 @@ export const IPC_CHANNELS = {
   agentCommandResponse: "image-board:agent-command-response",
   getAgentBridgeStatus: "image-board:get-agent-bridge-status",
   setAgentBridgeEnabled: "image-board:set-agent-bridge-enabled",
+  loadAcpAgentSettings: "image-board:load-acp-agent-settings",
+  saveAcpAgentSettings: "image-board:save-acp-agent-settings",
+  startAcpAgentTask: "image-board:start-acp-agent-task",
+  cancelAcpAgentTask: "image-board:cancel-acp-agent-task",
+  acpAgentTaskEvent: "image-board:acp-agent-task-event",
 } as const;
 
 export type DesktopMenuAction =
@@ -62,6 +72,8 @@ export type DesktopMenuAction =
   | "import-images"
   | "generate-image"
   | "provider-settings"
+  | "app-settings"
+  | "set-agent-bridge-enabled"
   | "reveal-project"
   | "show-about";
 
@@ -71,6 +83,7 @@ export interface DesktopMenuEvent {
   projectPath?: string | null;
   projectBundle?: DesktopProjectBundle | null;
   errorMessage?: string | null;
+  enabled?: boolean;
 }
 
 export interface DesktopProjectBundle {
@@ -278,9 +291,16 @@ export interface DesktopBridgeApi {
   readClipboardImage?(): Promise<ImportedImagePayload | null>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;
-  notifyProjectStateChanged?(currentProject: DesktopCurrentProject | null): void;
+  notifyProjectStateChanged?(
+    currentProject: DesktopCurrentProject | null,
+  ): void;
   getAgentBridgeStatus?(): Promise<DesktopAgentBridgeStatus>;
   setAgentBridgeEnabled?(enabled: boolean): Promise<DesktopAgentBridgeStatus>;
+  loadAcpAgentSettings?(): Promise<AcpAgentSettings>;
+  saveAcpAgentSettings?(settings: AcpAgentSettings): Promise<AcpAgentSettings>;
+  startAcpAgentTask?(request: AcpTaskRequest): Promise<{ taskId: string }>;
+  cancelAcpAgentTask?(taskId: string): Promise<void>;
+  onAcpAgentTaskEvent?(listener: (event: AcpTaskEvent) => void): () => void;
   onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(
     listener: (

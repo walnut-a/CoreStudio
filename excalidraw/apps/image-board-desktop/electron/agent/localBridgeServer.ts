@@ -13,6 +13,7 @@ import {
 import type {
   AgentBoardCommandContext,
   AgentBrowserRuntimeState,
+  AgentDesktopBridgeMethod,
   AgentErrorCode,
   AgentRendererCommandName,
 } from "../../src/shared/agentBridgeTypes";
@@ -29,7 +30,11 @@ export interface LocalBridgeCurrentProject {
 
 export interface LocalBridgeServerOptions {
   preferredPort?: number;
+  isAgentAccessEnabled: () => boolean;
   getCurrentProject: () => LocalBridgeCurrentProject | null;
+  getProjectByToken?: (
+    token: string,
+  ) => Promise<LocalBridgeCurrentProject | null>;
   getBoardUrl?: () => string | null;
   renderer: {
     request: (
@@ -88,6 +93,14 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   PROJECT_REQUIRED: 409,
   UNSUPPORTED_COMMAND: 404,
 };
+
+const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
+  "loadRecentProjects",
+  "openRecentProject",
+  "loadAppInfo",
+  "loadProviderSettings",
+  "loadPromptLibrary",
+]);
 
 const sendJson = (
   response: http.ServerResponse,
@@ -161,41 +174,83 @@ const sendRendererError = (response: http.ServerResponse, error: unknown) => {
   });
 };
 
-const authenticateProjectRequest = (
+const getBearerToken = (request: http.IncomingMessage) => {
+  const authorization = request.headers.authorization;
+  if (!authorization?.startsWith("Bearer ")) {
+    return null;
+  }
+  const token = authorization.slice("Bearer ".length).trim();
+  return token || null;
+};
+
+const resolveProjectByToken = async (
+  token: string,
+  options: Pick<
+    LocalBridgeServerOptions,
+    "getCurrentProject" | "getProjectByToken"
+  >,
+) => {
+  const currentProject = options.getCurrentProject();
+  if (currentProject?.agentAccess.token === token) {
+    return currentProject;
+  }
+
+  return (await options.getProjectByToken?.(token)) ?? null;
+};
+
+const authenticateProjectRequest = async (
   request: http.IncomingMessage,
   response: http.ServerResponse,
-  getCurrentProject: LocalBridgeServerOptions["getCurrentProject"],
+  options: Pick<
+    LocalBridgeServerOptions,
+    "getCurrentProject" | "getProjectByToken" | "isAgentAccessEnabled"
+  >,
 ) => {
-  const currentProject = getCurrentProject();
-  if (!currentProject) {
-    sendError(
-      response,
-      409,
-      "PROJECT_REQUIRED",
-      "A current CoreStudio project is required",
-    );
+  if (!options.isAgentAccessEnabled()) {
+    sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
     return null;
   }
 
-  if (!currentProject.agentAccess.enabled) {
-    sendError(
-      response,
-      403,
-      "FORBIDDEN",
-      "Agent access is disabled for the current project",
-    );
-    return null;
-  }
-
-  if (
-    request.headers.authorization !==
-    `Bearer ${currentProject.agentAccess.token}`
-  ) {
+  const token = getBearerToken(request);
+  if (!token) {
     sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
     return null;
   }
 
-  return currentProject;
+  const project = await resolveProjectByToken(token, options);
+  if (!project) {
+    sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
+    return null;
+  }
+
+  return project;
+};
+
+const resolveOptionalProjectRequest = async (
+  request: http.IncomingMessage,
+  response: http.ServerResponse,
+  options: Pick<
+    LocalBridgeServerOptions,
+    "getCurrentProject" | "getProjectByToken" | "isAgentAccessEnabled"
+  >,
+) => {
+  if (!options.isAgentAccessEnabled()) {
+    sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
+    return undefined;
+  }
+
+  const token = getBearerToken(request);
+  if (!token) {
+    return null;
+  }
+
+  const project = await resolveProjectByToken(token, options);
+  if (!project) {
+    sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
+    return undefined;
+  }
+
+  return project;
 };
 
 const getBrowserRuntimeGenerationSource = (
@@ -377,9 +432,16 @@ const handleReadCommand = async (
 
 const handleDesktopBridgeCommand = async (
   response: http.ServerResponse,
+  request: http.IncomingMessage,
+  options: LocalBridgeServerOptions,
   renderer: LocalBridgeServerOptions["renderer"],
   body: JsonBody,
 ) => {
+  if (!options.isAgentAccessEnabled()) {
+    sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
+    return;
+  }
+
   const method = body.method;
   if (!isAgentDesktopBridgeMethod(method)) {
     sendError(
@@ -389,6 +451,19 @@ const handleDesktopBridgeCommand = async (
       "Unsupported desktop bridge method",
     );
     return;
+  }
+
+  const hasToken = Boolean(getBearerToken(request));
+  if (!hasToken && !PUBLIC_DESKTOP_BRIDGE_METHODS.has(method)) {
+    sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
+    return;
+  }
+
+  if (hasToken) {
+    const project = await authenticateProjectRequest(request, response, options);
+    if (!project) {
+      return;
+    }
   }
 
   const args = body.args;
@@ -416,21 +491,11 @@ const handleDesktopBridgeCommand = async (
 const handleWriteCommand = async (
   response: http.ServerResponse,
   options: LocalBridgeServerOptions,
+  currentProject: LocalBridgeCurrentProject,
   config: WriteRouteConfig,
   body: JsonBody,
   runtimeState?: StoredAgentBrowserRuntimeState | null,
 ) => {
-  const currentProject = options.getCurrentProject();
-  if (!currentProject) {
-    sendError(
-      response,
-      409,
-      "PROJECT_REQUIRED",
-      "A current CoreStudio project is required",
-    );
-    return;
-  }
-
   const payload = createRendererPayload(
     body,
     currentProject.projectPath,
@@ -491,11 +556,10 @@ export const createLocalBridgeServer = async (
 ): Promise<LocalBridgeServerHandle> => {
   let browserRuntimeState: StoredAgentBrowserRuntimeState | null = null;
 
-  const getCurrentBrowserRuntimeState = () => {
-    const currentProject = options.getCurrentProject();
+  const getCurrentBrowserRuntimeState = (projectPath: string) => {
     if (
-      !currentProject ||
-      browserRuntimeState?.projectPath !== currentProject.projectPath
+      !projectPath ||
+      browserRuntimeState?.projectPath !== projectPath
     ) {
       return null;
     }
@@ -512,16 +576,17 @@ export const createLocalBridgeServer = async (
       }
 
       if (
-        !authenticateProjectRequest(request, response, options.getCurrentProject)
-      ) {
-        return;
-      }
-
-      if (
         request.method === "GET" &&
         url.pathname === AGENT_HTTP_ROUTES.status
       ) {
-        const currentProject = options.getCurrentProject();
+        const currentProject = await resolveOptionalProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (currentProject === undefined) {
+          return;
+        }
         sendJson(
           response,
           200,
@@ -538,6 +603,10 @@ export const createLocalBridgeServer = async (
         request.method === "GET" &&
         url.pathname === AGENT_HTTP_ROUTES.capabilities
       ) {
+        if (!options.isAgentAccessEnabled()) {
+          sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
+          return;
+        }
         sendJson(
           response,
           200,
@@ -553,7 +622,19 @@ export const createLocalBridgeServer = async (
       const isBrowserStateRoute =
         url.pathname === AGENT_HTTP_ROUTES.browserState;
       if (request.method === "GET" && isBrowserStateRoute) {
-        sendJson(response, 200, createAgentOk(getCurrentBrowserRuntimeState()));
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
+        sendJson(
+          response,
+          200,
+          createAgentOk(getCurrentBrowserRuntimeState(currentProject.projectPath)),
+        );
         return;
       }
 
@@ -561,7 +642,17 @@ export const createLocalBridgeServer = async (
         request.method === "GET" &&
         url.pathname === AGENT_HTTP_ROUTES.sceneSelection
       ) {
-        const runtimeState = getCurrentBrowserRuntimeState();
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
+        const runtimeState = getCurrentBrowserRuntimeState(
+          currentProject.projectPath,
+        );
         if (runtimeState?.selection !== undefined) {
           sendJson(response, 200, createAgentOk(runtimeState.selection));
           return;
@@ -575,12 +666,21 @@ export const createLocalBridgeServer = async (
         request.method === "GET" &&
         url.pathname === AGENT_HTTP_ROUTES.context
       ) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
         try {
           const result = await options.renderer.request("agent.context");
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
-          const runtimeState = getCurrentBrowserRuntimeState();
-          const currentProject = options.getCurrentProject();
+          const runtimeState = getCurrentBrowserRuntimeState(
+            currentProject.projectPath,
+          );
           if (
             getErrorCode(error) === "PROJECT_REQUIRED" &&
             runtimeState &&
@@ -608,6 +708,14 @@ export const createLocalBridgeServer = async (
       ]);
       const readCommand = readRoutes.get(url.pathname);
       if (request.method === "GET" && readCommand) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
         await handleReadCommand(response, options.renderer, readCommand);
         return;
       }
@@ -650,6 +758,14 @@ export const createLocalBridgeServer = async (
       }
 
       if (request.method === "POST" && isAuthorizeRoute) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
         const authorizeBody = body ?? {};
         sendJson(
           response,
@@ -669,6 +785,14 @@ export const createLocalBridgeServer = async (
       }
 
       if (request.method === "POST" && isBrowserStateRoute && body) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
         if (!isAgentBrowserRuntimeState(body)) {
           sendError(
             response,
@@ -703,6 +827,14 @@ export const createLocalBridgeServer = async (
       }
 
       if (request.method === "POST" && isSceneImagePathsRoute && body) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
         try {
           const result = await options.renderer.request(
             "scene.imagePaths",
@@ -716,17 +848,32 @@ export const createLocalBridgeServer = async (
       }
 
       if (request.method === "POST" && isDesktopBridgeRoute && body) {
-        await handleDesktopBridgeCommand(response, options.renderer, body);
+        await handleDesktopBridgeCommand(
+          response,
+          request,
+          options,
+          options.renderer,
+          body,
+        );
         return;
       }
 
       if (request.method === "POST" && writeRoute && body) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
         await handleWriteCommand(
           response,
           options,
+          currentProject,
           writeRoute,
           body,
-          getCurrentBrowserRuntimeState(),
+          getCurrentBrowserRuntimeState(currentProject.projectPath),
         );
         return;
       }

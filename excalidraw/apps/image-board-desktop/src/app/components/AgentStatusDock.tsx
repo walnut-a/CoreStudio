@@ -10,14 +10,13 @@ interface AgentStatusDockProps {
   status?: DesktopAgentBridgeStatus | null;
   onCopyAgentBoardUrl: () => void | Promise<void>;
   onRefreshStatus: () => void | Promise<unknown>;
-  onSetAgentBridgeEnabled?: (enabled: boolean) => void | Promise<void>;
-  connectionToggleDisabled?: boolean;
   generationSource?: GenerationSource;
+  acpAgentName?: string | null;
 }
 
 const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
   if (!status?.enabled) {
-    return "Agent 未连接";
+    return "Agent 调用已关闭";
   }
 
   if (status?.ready && status.currentProject) {
@@ -25,7 +24,7 @@ const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
   }
 
   if (status?.ready) {
-    return "Bridge 已连接，等待项目";
+    return "Agent 调用已开启";
   }
 
   return "Agent 未就绪";
@@ -68,9 +67,8 @@ export const AgentStatusDock = ({
   status,
   onCopyAgentBoardUrl,
   onRefreshStatus,
-  onSetAgentBridgeEnabled,
-  connectionToggleDisabled = false,
   generationSource = "builtin",
+  acpAgentName = null,
 }: AgentStatusDockProps) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -80,7 +78,6 @@ export const AgentStatusDock = ({
   const statusText = getStatusText(status);
   const badgeText = getBadgeText(status);
   const bridgeEndpoint = getBridgeEndpoint(status);
-  const canToggleConnection = Boolean(onSetAgentBridgeEnabled);
 
   useEffect(() => {
     if (!open) {
@@ -137,39 +134,31 @@ export const AgentStatusDock = ({
             </span>
           </header>
 
-          <div className="agent-status-popover__toggle">
-            <span className="agent-status-popover__toggle-copy">
-              <strong>允许 Agent 连接</strong>
-              <em>
-                {connectionToggleDisabled
-                  ? "请回到 CoreStudio 桌面端切换"
-                  : "开启后 CLI 和内置浏览器才能发现当前会话"}
-              </em>
+          <div
+            className="agent-status-popover__source"
+            role="status"
+            aria-label="默认生成方式"
+          >
+            <span className="agent-status-popover__source-copy">
+              <strong>默认生成方式</strong>
+              <em>在生成输入区调整本次任务</em>
             </span>
-            <button
-              type="button"
-              role="switch"
-              aria-label="允许 Agent 连接"
-              aria-checked={enabled}
-              disabled={!canToggleConnection || connectionToggleDisabled}
-              className="agent-status-popover__switch"
-              onClick={() => {
-                void onSetAgentBridgeEnabled?.(!enabled);
-              }}
-            />
+            <span className="agent-status-popover__source-value">
+              {generationSource === "agent" ? "Agent" : "CoreStudio"}
+            </span>
           </div>
 
           <div
             className="agent-status-popover__source"
             role="status"
-            aria-label="默认生成来源"
+            aria-label="ACP Agent"
           >
             <span className="agent-status-popover__source-copy">
-              <strong>默认生成来源</strong>
-              <em>在生成输入区调整本次任务</em>
+              <strong>ACP Agent</strong>
+              <em>用于从客户端发起 Agent 任务</em>
             </span>
             <span className="agent-status-popover__source-value">
-              {generationSource === "agent" ? "Agent" : "内置"}
+              {acpAgentName ?? "未配置"}
             </span>
           </div>
 

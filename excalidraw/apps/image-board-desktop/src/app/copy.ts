@@ -35,10 +35,6 @@ export const copy = {
     openProject: "打开项目",
   },
   toolbar: {
-    openProject: "打开项目",
-    importImages: "导入图片",
-    revealProject: "显示文件夹",
-    providers: "模型服务",
     generateImage: "生成图片",
   },
   generateDialog: {
@@ -217,6 +213,7 @@ export const copy = {
     file: "文件",
     newProject: "新建项目",
     openProject: "打开项目",
+    switchProject: "切换项目...",
     openProjectSafe: "安全模式打开项目",
     recentProjects: "最近项目",
     version: "版本",
@@ -230,6 +227,9 @@ export const copy = {
     generateImage: "生成图片",
     providers: "模型服务",
     edit: "编辑",
+    settings: "设置",
+    allowAgentAccess: "允许 Agent 调用",
+    appSettings: "应用设置",
     quit: `退出 ${DESKTOP_APP_NAME}`,
     help: "帮助",
     viewUpdates: "查看更新",

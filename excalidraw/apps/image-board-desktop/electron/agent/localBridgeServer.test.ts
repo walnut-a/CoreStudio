@@ -11,7 +11,7 @@ import { createTaskGrantStore } from "./taskGrants";
 
 const projectToken = "project-token-1";
 const boardUrl =
-  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectToken=project-token-1";
+  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909";
 const currentProject = {
   projectPath: "/Users/alice/CoreStudio/project-1",
   name: "Project 1",
@@ -39,6 +39,18 @@ const requestJson = async (
   };
 };
 
+const requestJsonWithoutAuth = async (
+  baseUrl: string,
+  path: string,
+  init: RequestInit = {},
+) => {
+  const response = await fetch(`${baseUrl}${path}`, init);
+  return {
+    status: response.status,
+    body: await response.json(),
+  };
+};
+
 const startServer = async (
   overrides: Partial<Parameters<typeof createLocalBridgeServer>[0]> = {},
 ) => {
@@ -53,6 +65,7 @@ const startServer = async (
     randomId: () => "id-1",
   });
   const server = await createLocalBridgeServer({
+    isAgentAccessEnabled: () => true,
     getCurrentProject: () => currentProject,
     getBoardUrl: () => boardUrl,
     renderer,
@@ -99,7 +112,28 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("requires an open project before accepting authenticated requests", async () => {
+  it("returns bridge readiness without requiring a project token", async () => {
+    const { server } = await track(startServer());
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.status,
+    );
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          ready: true,
+          currentProject: null,
+          boardUrl,
+        },
+      },
+    });
+  });
+
+  it("requires a known project before accepting project token requests", async () => {
     const { server } = await track(
       startServer({
         getCurrentProject: () => null,
@@ -109,27 +143,21 @@ describe("createLocalBridgeServer", () => {
     const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.status);
 
     expect(result).toEqual({
-      status: 409,
+      status: 401,
       body: {
         ok: false,
         error: {
-          code: "PROJECT_REQUIRED",
-          message: "A current CoreStudio project is required",
+          code: "AUTH_REQUIRED",
+          message: "Missing or invalid token",
         },
       },
     });
   });
 
-  it("rejects requests when the current project has not enabled Agent access", async () => {
+  it("rejects requests while global Agent access is disabled", async () => {
     const { server } = await track(
       startServer({
-        getCurrentProject: () => ({
-          ...currentProject,
-          agentAccess: {
-            token: projectToken,
-            enabled: false,
-          },
-        }),
+        isAgentAccessEnabled: () => false,
       }),
     );
 
@@ -141,7 +169,36 @@ describe("createLocalBridgeServer", () => {
         ok: false,
         error: {
           code: "FORBIDDEN",
-          message: "Agent access is disabled for the current project",
+          message: "Agent access is disabled",
+        },
+      },
+    });
+  });
+
+  it("accepts legacy project tokens whose manifest switch is disabled when global Agent access is enabled", async () => {
+    const legacyDisabledProject = {
+      ...currentProject,
+      agentAccess: {
+        token: projectToken,
+        enabled: false,
+      },
+    };
+    const { server } = await track(
+      startServer({
+        getCurrentProject: () => legacyDisabledProject,
+      }),
+    );
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.status);
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          ready: true,
+          currentProject: legacyDisabledProject,
+          boardUrl,
         },
       },
     });
@@ -166,11 +223,11 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("rejects requests without Authorization", async () => {
+  it("rejects project read requests without Authorization", async () => {
     const { server } = await track(startServer());
 
     const response = await fetch(
-      `${server.baseUrl}${AGENT_HTTP_ROUTES.status}`,
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneBoard}`,
     );
 
     expect(response.status).toBe(401);
@@ -179,6 +236,31 @@ describe("createLocalBridgeServer", () => {
       error: {
         code: "AUTH_REQUIRED",
       },
+    });
+  });
+
+  it("allows recent project discovery through the desktop bridge without bearer auth", async () => {
+    const { server, renderer } = await track(startServer());
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.desktopBridge,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          method: "loadRecentProjects",
+          args: [],
+        }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
+      method: "loadRecentProjects",
+      args: [],
     });
   });
 
@@ -742,7 +824,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("requires a current project for write routes", async () => {
+  it("requires a known project token for write routes", async () => {
     const { server } = await track(
       startServer({
         getCurrentProject: () => null,
@@ -763,11 +845,11 @@ describe("createLocalBridgeServer", () => {
     );
 
     expect(result).toMatchObject({
-      status: 409,
+      status: 401,
       body: {
         ok: false,
         error: {
-          code: "PROJECT_REQUIRED",
+          code: "AUTH_REQUIRED",
         },
       },
     });
@@ -802,7 +884,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("requires a current project before accepting authorize compatibility requests", async () => {
+  it("requires a known project token before accepting authorize compatibility requests", async () => {
     const { server } = await track(
       startServer({
         getCurrentProject: () => null,
@@ -821,12 +903,12 @@ describe("createLocalBridgeServer", () => {
     );
 
     expect(result).toMatchObject({
-      status: 409,
+      status: 401,
       body: {
         ok: false,
         error: {
-          code: "PROJECT_REQUIRED",
-          message: "A current CoreStudio project is required",
+          code: "AUTH_REQUIRED",
+          message: "Missing or invalid token",
         },
       },
     });

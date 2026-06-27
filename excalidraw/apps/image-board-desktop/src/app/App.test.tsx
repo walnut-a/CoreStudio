@@ -293,6 +293,7 @@ vi.mock("@excalidraw/excalidraw", () => {
       onChange,
       onPaste,
       renderSelectedShapeActions,
+      renderTopLeftUI,
     }: {
       initialData?: {
         elements?: any[];
@@ -326,6 +327,7 @@ vi.mock("@excalidraw/excalidraw", () => {
         selectedShapeActions: React.ReactNode;
         shouldRenderSelectedShapeActions: boolean;
       }) => React.ReactNode;
+      renderTopLeftUI?: () => React.ReactNode;
     }) =>
       (() => {
         const [activeTab, setActiveTabState] = React.useState("library");
@@ -506,7 +508,11 @@ vi.mock("@excalidraw/excalidraw", () => {
               onClick={() => onInitialize?.(apiRef.current)}
               hidden
             />
-            <div data-testid="excalidraw-canvas" data-lang-code={langCode}>
+            <div
+              data-testid="excalidraw-canvas"
+              data-lang-code={langCode}
+              data-has-top-left-ui={renderTopLeftUI ? "true" : "false"}
+            >
               <sidebarTabsContext.Provider
                 value={{
                   activeTab,
@@ -524,6 +530,7 @@ vi.mock("@excalidraw/excalidraw", () => {
                   ),
                   shouldRenderSelectedShapeActions: selectedElementCount > 0,
                 })}
+                {renderTopLeftUI?.()}
                 {children}
               </sidebarTabsContext.Provider>
             </div>
@@ -600,6 +607,7 @@ vi.mock("./components/GenerateImageDialog", () => ({
         | "openai"
         | "openrouter";
       model: string;
+      generationSource?: "builtin" | "agent";
       prompt: string;
       aspectRatio?: string | null;
       width: number;
@@ -623,6 +631,7 @@ vi.mock("./components/GenerateImageDialog", () => ({
           | "openai"
           | "openrouter";
         model: string;
+        generationSource?: "builtin" | "agent";
         prompt: string;
         aspectRatio?: string | null;
         width: number;
@@ -660,6 +669,20 @@ vi.mock("./components/GenerateImageDialog", () => ({
         ) : null}
         <button type="button" onClick={() => onSubmit(initialRequest, false)}>
           提交生成
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onSubmit(
+              {
+                ...initialRequest,
+                generationSource: "agent",
+              },
+              false,
+            )
+          }
+        >
+          提交 Agent 生成
         </button>
         <button
           type="button"
@@ -807,8 +830,21 @@ vi.mock("./components/ProvidersDialog", () => ({
   ProvidersDialog: () => null,
 }));
 
-vi.mock("./components/TopBar", () => ({
-  TopBar: () => null,
+vi.mock("./components/ProjectMainMenu", () => ({
+  ProjectMainMenu: ({
+    currentProjectName,
+    onSwitchProject,
+  }: {
+    currentProjectName: string;
+    onSwitchProject: () => void;
+  }) => (
+    <div data-testid="project-main-menu">
+      <span>{`菜单当前项目: ${currentProjectName}`}</span>
+      <button type="button" onClick={onSwitchProject}>
+        切换项目...
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("./project/sceneSerialization", () => ({
@@ -881,7 +917,7 @@ describe("App startup", () => {
             ok: true,
             data: {
               ready: true,
-              currentProject,
+              currentProject: null,
             },
           }),
           {
@@ -906,7 +942,13 @@ describe("App startup", () => {
           version: "0.0.0-test",
         },
         loadProviderSettings: createMockProviderSettings(),
-        loadRecentProjects: [],
+        loadRecentProjects: [
+          {
+            projectPath: currentProject.projectPath,
+            name: currentProject.name,
+            lastOpenedAt: "2026-06-26T08:00:00.000Z",
+          },
+        ],
         loadPromptLibrary: [],
         openRecentProject: createMockProjectBundle({
           projectPath: currentProject.projectPath,
@@ -936,6 +978,21 @@ describe("App startup", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
+
+    const recentProjectName = await screen.findByText("测试项目");
+    const recentProjectButton = recentProjectName.closest("button");
+    expect(recentProjectButton).toBeTruthy();
+    expect(screen.queryByTestId("excalidraw-canvas")).not.toBeInTheDocument();
+    expect(desktopBridgeCalls).not.toEqual(
+      expect.arrayContaining([
+        {
+          method: "openRecentProject",
+          args: [currentProject.projectPath],
+        },
+      ]),
+    );
+
+    fireEvent.click(recentProjectButton!);
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
     await waitFor(() => {
@@ -1138,11 +1195,11 @@ describe("App startup", () => {
     );
   });
 
-  it("waits for a desktop current project before rendering Agent Board content", async () => {
+  it("shows project selection when the browser Agent Board is connected without a selected project", async () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567",
     );
     const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
       const path = new URL(String(url)).pathname;
@@ -1197,15 +1254,12 @@ describe("App startup", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: "等待桌面端打开项目" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "刷新连接状态" }),
+      await screen.findByRole("heading", { name: "选择项目开始" }),
     ).toBeInTheDocument();
     const desktopBridgeRequests = fetchMock.mock.calls.filter(
       ([url]) => new URL(String(url)).pathname === "/v1/desktop-bridge",
     );
-    expect(desktopBridgeRequests).toHaveLength(0);
+    expect(desktopBridgeRequests).toHaveLength(4);
     expect(screen.queryByRole("button", { name: "新建项目" })).toBeNull();
     expect(screen.queryByRole("button", { name: "打开项目" })).toBeNull();
     expect(
@@ -1533,11 +1587,24 @@ describe("App startup", () => {
       ready: true,
       currentProject: notifiedProject,
       boardUrl:
-        "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectToken=2",
+        "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
     }));
     window.imageBoardDesktop = createDesktopBridgeMock({
       getAgentBridgeStatus,
       notifyProjectStateChanged,
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "测试 ACP Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio"],
+            cwd: null,
+          },
+        ],
+      })),
     }) as any;
 
     render(<App />);
@@ -1569,11 +1636,13 @@ describe("App startup", () => {
     expect(popover).toHaveTextContent("Agent 已连接");
     expect(popover).toHaveTextContent("测试项目");
     expect(popover).not.toHaveTextContent("未打开项目");
-    expect(popover).toHaveTextContent("默认生成来源");
+    expect(popover).toHaveTextContent("默认生成方式");
     expect(popover).toHaveTextContent("在生成输入区调整本次任务");
-    expect(popover).toHaveTextContent("内置");
+    expect(popover).toHaveTextContent("CoreStudio");
+    expect(popover).toHaveTextContent("ACP Agent");
+    expect(popover).toHaveTextContent("测试 ACP Agent");
     expect(
-      within(popover).queryByRole("button", { name: "内置" }),
+      within(popover).queryByRole("button", { name: "CoreStudio" }),
     ).not.toBeInTheDocument();
     expect(
       within(popover).queryByRole("button", { name: "Agent" }),
@@ -2902,6 +2971,149 @@ describe("App startup", () => {
     ).toBeNull();
   });
 
+  it("opens software settings from the native settings menu and toggles Agent access there", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const setAgentBridgeEnabled = vi.fn(async (enabled: boolean) => ({
+      enabled,
+      ready: enabled,
+      currentProject: null,
+      boardUrl: null,
+    }));
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: false,
+        ready: false,
+        currentProject: null,
+        boardUrl: null,
+      })),
+      setAgentBridgeEnabled,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("Agent 调用")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(dialog).getByRole("switch", { name: "允许 Agent 调用" }),
+    );
+
+    await waitFor(() => {
+      expect(setAgentBridgeEnabled).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it("saves the default ACP Agent command from application settings", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const loadAcpAgentSettings = vi.fn(async () => ({
+      enabled: false,
+      defaultAgentId: null,
+      agents: [],
+    }));
+    const saveAcpAgentSettings = vi.fn(async (settings) => settings);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAcpAgentSettings,
+      saveAcpAgentSettings,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(loadAcpAgentSettings).toHaveBeenCalled();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    const acpSectionHeading = within(dialog).getByText("ACP Agent");
+    const acpSection = acpSectionHeading.closest("section");
+    expect(acpSection).not.toBeNull();
+    const acpControls = within(acpSection as HTMLElement);
+
+    fireEvent.click(acpControls.getByRole("switch", { name: "启用 ACP Agent" }));
+    fireEvent.change(acpControls.getByLabelText("命令"), {
+      target: { value: "/usr/local/bin/acp-agent" },
+    });
+    fireEvent.change(acpControls.getByLabelText("参数"), {
+      target: { value: "--stdio --project current" },
+    });
+    fireEvent.change(acpControls.getByLabelText("工作目录"), {
+      target: { value: "/tmp/corestudio-agent" },
+    });
+    fireEvent.click(acpControls.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(saveAcpAgentSettings).toHaveBeenCalledWith({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "默认 ACP Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio", "--project", "current"],
+            cwd: "/tmp/corestudio-agent",
+          },
+        ],
+      });
+    });
+  });
+
+  it("toggles Agent access from the initial project selection screen", async () => {
+    const setAgentBridgeEnabled = vi.fn(async (enabled: boolean) => ({
+      enabled,
+      ready: enabled,
+      currentProject: null,
+      boardUrl: null,
+    }));
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: false,
+        ready: false,
+        currentProject: null,
+        boardUrl: null,
+      })),
+      setAgentBridgeEnabled,
+    }) as any;
+
+    render(<App />);
+
+    const welcomePane = await screen.findByRole("region", {
+      name: "选择项目开始",
+    });
+    expect(within(welcomePane).getByText("Agent 调用")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(welcomePane).getByRole("switch", { name: "允许 Agent 调用" }),
+    );
+
+    await waitFor(() => {
+      expect(setAgentBridgeEnabled).toHaveBeenCalledWith(true);
+    });
+  });
+
   it("flushes pending autosave when the desktop shell requests it", async () => {
     const writeProjectScene = vi.fn().mockResolvedValue(undefined);
     let flushListener: (() => Promise<void> | void) | null = null;
@@ -3247,6 +3459,74 @@ describe("App startup", () => {
       );
     });
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("returns to the project picker from the native canvas menu", async () => {
+    const currentProject = createMockProjectBundle({
+      projectPath: "/Users/zhaolixing/Documents/工业设计助手/当前项目",
+      project: {
+        ...createMockProjectBundle().project,
+        name: "当前项目",
+      },
+    });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(currentProject),
+      loadRecentProjects: vi.fn().mockResolvedValue([
+        {
+          projectPath: "/Users/zhaolixing/Documents/工业设计助手/当前项目",
+          name: "当前项目",
+          lastOpenedAt: "2026-06-26T08:00:00.000Z",
+        },
+        {
+          projectPath: "/Users/zhaolixing/Documents/工业设计助手/备用项目",
+          name: "备用项目",
+          lastOpenedAt: "2026-06-25T08:00:00.000Z",
+        },
+      ]),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    const projectMenu = await screen.findByTestId("project-main-menu");
+    expect(projectMenu).toHaveTextContent("菜单当前项目: 当前项目");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "切换项目..." }));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("project-main-menu")).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "继续最近项目" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not add a custom project toolbar to the canvas top-left area", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock() as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toHaveAttribute(
+      "data-has-top-left-ui",
+      "false",
+    );
   });
 
   it("opens a recent project from a menu event payload", async () => {
@@ -7246,6 +7526,68 @@ describe("App startup", () => {
         fitToContent: true,
       }),
     );
+  });
+
+  it("starts an ACP Agent task instead of built-in generation when Agent source is selected", async () => {
+    const generateImages = vi.fn();
+    const startAcpAgentTask = vi.fn().mockResolvedValue({ taskId: "task-1" });
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      generateImages,
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: true,
+        ready: true,
+        currentProject: null,
+        boardUrl:
+          "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
+      })),
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "测试 Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio"],
+            cwd: null,
+          },
+        ],
+      })),
+      startAcpAgentTask,
+      onAcpAgentTaskEvent: vi.fn(() => () => undefined),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交 Agent 生成" }));
+    });
+
+    await waitFor(() => {
+      expect(startAcpAgentTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentId: "default",
+          userPrompt: expect.any(String),
+          project: expect.objectContaining({
+            name: "测试项目",
+            projectPath: "/tmp/mock-project",
+            token: "project-token",
+            bridgeBaseUrl: "http://127.0.0.1:60909",
+          }),
+          generation: {
+            source: "agent",
+          },
+        }),
+      );
+    });
+    expect(generateImages).not.toHaveBeenCalled();
   });
 
   it("keeps the generated image canvas size from the placeholder frame", async () => {

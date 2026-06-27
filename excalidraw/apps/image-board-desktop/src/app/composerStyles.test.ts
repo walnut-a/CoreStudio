@@ -118,6 +118,19 @@ describe("generate composer styles", () => {
     expect(focusWithinRule).toContain("var(--generate-composer-focus-ring)");
   });
 
+  it("keeps canvas-level errors out of the native toolbar area", () => {
+    const appCss = readAppCss();
+    const canvasErrorRule = getRule(appCss, ".app-canvas-error-toast");
+
+    expect(canvasErrorRule).toBeTruthy();
+    expect(canvasErrorRule).toContain("position: fixed");
+    expect(canvasErrorRule).toContain("top: calc(");
+    expect(canvasErrorRule).toContain("var(--desktop-window-top-inset, 0px) + 96px");
+    expect(canvasErrorRule).toContain("left: 50%");
+    expect(canvasErrorRule).toContain("transform: translateX(-50%)");
+    expect(canvasErrorRule).toContain("z-index: var(--canvas-footer-overlay-z-index)");
+  });
+
   it("keeps the agent status dock button aligned with canvas help controls", () => {
     const appCss = readAppCss();
     const appRule = getRule(appCss, ".image-board-app");
@@ -132,10 +145,14 @@ describe("generate composer styles", () => {
     expect(appRule).toContain("--canvas-footer-button-size: 2.5rem");
     expect(appRule).toContain("--canvas-footer-icon-size: 1.25rem");
     expect(appRule).toContain("--canvas-footer-button-gap: 8px");
+    expect(appRule).toContain("--floating-panel-z-index: 30");
+    expect(appRule).toContain("--agent-status-dock-z-index: 32");
+    expect(appRule).toContain("--side-dock-z-index: 35");
     expect(appRule).toContain("--canvas-footer-overlay-z-index: 45");
     expect(dockRule).toContain("var(--canvas-footer-button-size)");
     expect(dockRule).toContain("var(--canvas-footer-button-gap)");
-    expect(dockRule).toContain("z-index: var(--canvas-footer-overlay-z-index)");
+    expect(dockRule).toContain("z-index: var(--agent-status-dock-z-index)");
+    expect(dockRule).not.toContain("var(--canvas-footer-overlay-z-index)");
     expect(buttonRule).toContain("width: var(--canvas-footer-button-size)");
     expect(buttonRule).toContain("height: var(--canvas-footer-button-size)");
     expect(iconRule).toContain("width: var(--canvas-footer-icon-size)");
@@ -266,6 +283,26 @@ describe("generate composer styles", () => {
     expect(openMenuRule).toContain("var(--left-sidebar-width)");
   });
 
+  it("keeps CoreStudio project entries compact inside the native menu", () => {
+    const appCss = readAppCss();
+    const currentRule = getRule(appCss, ".project-main-menu__current");
+    const nameRule = getRule(appCss, ".project-main-menu__current strong");
+
+    expect(currentRule).toContain("display: flex");
+    expect(currentRule).toContain("align-items: center");
+    expect(currentRule).toContain("min-height: 2rem");
+    expect(currentRule).toContain("min-width: 0");
+    expect(currentRule).toContain("max-width: 220px");
+    expect(currentRule).toContain("padding: 0 0.5rem");
+    expect(currentRule).toContain("cursor: default");
+    expect(currentRule).toContain("user-select: text");
+    expect(nameRule).toContain("min-width: 0");
+    expect(nameRule).toContain("overflow: hidden");
+    expect(nameRule).toContain("text-overflow: ellipsis");
+    expect(nameRule).toContain("font-size: 0.8125rem");
+    expect(nameRule).toContain("color: var(--color-gray-70)");
+  });
+
   it("keeps the canvas controls usable in narrow embedded browser viewports", () => {
     const appCss = readAppCss();
     const narrowAppRule = getRulesContaining(appCss, ".image-board-app").find(
@@ -339,10 +376,6 @@ describe("generate composer styles", () => {
       appCss,
       ".image-board-app .excalidraw-ui-top-left",
     ).find((rule) => rule.includes("100vw - 72px"));
-    const projectToolbarRule = getRulesContaining(
-      appCss,
-      ".image-board-app .image-board-toolbar",
-    ).find((rule) => rule.includes("display: none"));
     const sideDockToggleRule = getRulesContaining(
       appCss,
       ".image-board-app .side-dock__toggle",
@@ -381,7 +414,6 @@ describe("generate composer styles", () => {
     expect(toolbarContentRule).toContain("overflow: hidden");
     expect(topLeftRule).toContain("max-width: calc(100vw - 72px)");
     expect(topLeftRule).toContain("overflow: hidden");
-    expect(projectToolbarRule).toContain("display: none");
     expect(sideDockToggleRule).toContain("display: none");
     expect(composerLayerRule).toContain("display: none");
     expect(agentDockRule).toContain("display: none");
@@ -576,6 +608,10 @@ describe("generate composer styles", () => {
 
   it("keeps Agent selection image chips the same size as direct prompt reference chips", () => {
     const appCss = readAppCss();
+    const agentContextRule = getRule(
+      appCss,
+      ".generate-composer__agent-context",
+    );
     const agentItemRule = getRule(appCss, ".generate-composer__agent-item");
     const agentThumbnailRule = getRule(
       appCss,
@@ -583,6 +619,8 @@ describe("generate composer styles", () => {
     );
     const agentIndexRule = getRule(appCss, ".generate-composer__agent-index");
 
+    expect(agentContextRule).toContain("background: transparent");
+    expect(agentContextRule).not.toContain("var(--text-primary-color) 3%");
     expect(agentItemRule).toContain("max-width: 9rem");
     expect(agentItemRule).toContain("gap: 4px");
     expect(agentItemRule).toContain("min-height: 25px");
@@ -593,6 +631,48 @@ describe("generate composer styles", () => {
     expect(agentIndexRule).toContain("width: 15px");
     expect(agentIndexRule).toContain("height: 15px");
     expect(agentIndexRule).toContain("font-size: 0.625rem");
+  });
+
+  it("keeps the generation mode control styled as a neutral footer control", () => {
+    const appCss = readAppCss();
+    const sourceSharedRule = getRulesContaining(
+      appCss,
+      ".generate-composer__source-trigger",
+    ).find((rule) => rule.includes(".generate-composer__source-status"));
+    const sourceTriggerRule = getRule(
+      appCss,
+      ".generate-composer__source-trigger",
+    );
+    const sourceStatusRule = getRulesContaining(
+      appCss,
+      ".generate-composer__source-status",
+    ).find((rule) => rule.includes("color: color-mix"));
+    const sourceMenuRule = getRule(appCss, ".generate-composer__source-menu");
+    const sourceMenuItemRule = getRule(
+      appCss,
+      ".generate-composer__source-menu-item",
+    );
+
+    expect(sourceSharedRule).toContain("min-height: 32px");
+    expect(sourceSharedRule).toContain("max-width: 9.75rem");
+    expect(sourceSharedRule).toContain("color: var(--text-primary-color)");
+    expect(sourceSharedRule).toContain("background-color: transparent");
+    expect(sourceTriggerRule).toContain(
+      "border: 1px solid var(--default-border-color)",
+    );
+    expect(sourceStatusRule).toContain("color: color-mix");
+    expect(sourceStatusRule).not.toContain("cursor: pointer");
+    expect(sourceTriggerRule).not.toContain("var(--color-primary)");
+    expect(sourceTriggerRule).not.toContain(
+      "var(--generate-composer-reference-color)",
+    );
+    expect(sourceMenuRule).toContain("background: var(--island-bg-color)");
+    expect(sourceMenuRule).toContain("box-shadow: var(--shadow-island)");
+    expect(sourceMenuItemRule).toContain("color: var(--text-primary-color)");
+    expect(sourceMenuItemRule).not.toContain("var(--color-primary)");
+    expect(sourceMenuItemRule).not.toContain(
+      "var(--generate-composer-reference-color)",
+    );
   });
 
   it("keeps the prompt library panel aligned to the composer width", () => {

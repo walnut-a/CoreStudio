@@ -61,7 +61,7 @@ const EMPTY_PROJECT_SCENE = JSON.stringify(
 
 const createProjectAgentAccess = (): ProjectAgentAccess => ({
   token: randomUUID(),
-  enabled: false,
+  enabled: true,
 });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -81,13 +81,12 @@ const normalizeProjectAgentAccess = (
     typeof value.token === "string" && value.token.trim()
       ? value.token
       : randomUUID();
-  const enabled = value.enabled === true;
   return {
     access: {
       token,
-      enabled,
+      enabled: true,
     },
-    changed: token !== value.token || enabled !== value.enabled,
+    changed: token !== value.token || value.enabled !== true,
   };
 };
 
@@ -350,9 +349,10 @@ export const updateProjectAgentAccess = async (
   agentAccess: ProjectAgentAccess,
 ) => {
   const bundle = await readProjectBundle(projectPath);
+  const { access } = normalizeProjectAgentAccess(agentAccess);
   const nextProject: ProjectManifest = {
     ...bundle.project,
-    agentAccess,
+    agentAccess: access,
     updatedAt: new Date().toISOString(),
   };
   await writeProjectManifest(projectPath, nextProject);

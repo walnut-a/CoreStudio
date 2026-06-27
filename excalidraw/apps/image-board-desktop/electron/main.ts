@@ -31,6 +31,14 @@ import {
   type AgentRendererCommandName,
   type AgentRendererCommandResponse,
 } from "../src/shared/agentBridgeTypes";
+import {
+  createAcpTaskEvent,
+  getSelectedAcpAgent,
+  normalizeAcpAgentSettings,
+  type AcpAgentSettings,
+  type AcpTaskEvent,
+  type AcpTaskRequest,
+} from "../src/shared/acpTypes";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
   cleanProjectCache,
@@ -40,7 +48,6 @@ import {
   readProjectAssetPayloads,
   readProjectBundle,
   rebuildProjectThumbnails,
-  updateProjectAgentAccess,
   writeProjectScene,
 } from "./projectFs";
 import {
@@ -48,10 +55,11 @@ import {
   chooseOpenProjectDirectory,
 } from "./projectDialogs";
 import { generateImages } from "./providers";
+import { loadProviderSettings, saveProviderSettings } from "./settingsStore";
 import {
-  loadProviderSettings,
-  saveProviderSettings,
-} from "./settingsStore";
+  loadAgentAccessSettings,
+  saveAgentAccessSettings,
+} from "./agent/agentAccessStore";
 import {
   loadRecentProjects,
   rememberRecentProject,
@@ -83,6 +91,15 @@ import { createTaskGrantStore } from "./agent/taskGrants";
 import { createRendererCommandBridge } from "./agent/rendererCommandBridge";
 import { configureNoSystemKeychainAccess } from "./keychainGuard";
 import { installBrokenPipeConsoleGuard } from "./safeProcessLogging";
+import {
+  loadAcpAgentSettings,
+  saveAcpAgentSettings,
+} from "./acp/acpSettingsStore";
+import { startAcpAgentProcess } from "./acp/acpAgentProcess";
+import {
+  createAcpSessionClient,
+  type AcpSessionClient,
+} from "./acp/acpSessionClient";
 
 installBrokenPipeConsoleGuard();
 
@@ -94,14 +111,17 @@ let latestAutosaveFlushRequestId = 0;
 let rendererReady = false;
 let allowWindowClose = false;
 let localBridgeHandle: LocalBridgeServerHandle | null = null;
-let rendererCommandBridge: ReturnType<typeof createRendererCommandBridge> | null =
-  null;
+let rendererCommandBridge: ReturnType<
+  typeof createRendererCommandBridge
+> | null = null;
+let agentAccessEnabled = false;
 let localBridgeCleanupStarted = false;
 let localBridgeCleanupFinished = false;
 let agentSessionWriteChain: Promise<void> = Promise.resolve();
 const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
+const activeAcpTasks = new Map<string, AcpSessionClient>();
 const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
 const AGENT_BRIDGE_PREFERRED_PORT = 60909;
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
@@ -128,8 +148,7 @@ const getTargetWindow = (ownerWindow?: BaseWindow | null) => {
 };
 
 const isClipboardPermission = (permission: string) =>
-  permission === "clipboard-read" ||
-  permission === "clipboard-sanitized-write";
+  permission === "clipboard-read" || permission === "clipboard-sanitized-write";
 
 const configureRendererPermissions = (targetWindow: BrowserWindow) => {
   const targetWebContents = targetWindow.webContents;
@@ -191,23 +210,48 @@ const getAgentRendererCommandTimeoutMs = (
 const getCurrentProject = (): LocalBridgeCurrentProject | null =>
   currentProject ? { ...currentProject } : null;
 
+const getAgentProjectByToken = async (
+  token: string,
+): Promise<LocalBridgeCurrentProject | null> => {
+  if (currentProject?.agentAccess.token === token) {
+    return { ...currentProject };
+  }
+
+  const recentProjects = await loadRecentProjects();
+  for (const project of recentProjects) {
+    if (currentProject?.projectPath === project.projectPath) {
+      continue;
+    }
+
+    try {
+      const bundle = await readProjectBundle(project.projectPath);
+      if (bundle.project.agentAccess.token === token) {
+        return {
+          projectPath: project.projectPath,
+          name: bundle.project.name,
+          agentAccess: bundle.project.agentAccess,
+        };
+      }
+    } catch {
+      // Stale recent entries are ignored here; normal project open will prune them.
+    }
+  }
+
+  return null;
+};
+
 const getAgentBoardUrl = () => {
-  if (
-    !localBridgeHandle ||
-    !rendererUrl ||
-    !currentProject?.agentAccess.enabled
-  ) {
+  if (!localBridgeHandle || !rendererUrl || !agentAccessEnabled) {
     return null;
   }
 
   const url = new URL("/agent-board", rendererUrl);
   url.searchParams.set("bridge", localBridgeHandle.baseUrl);
-  url.searchParams.set("projectToken", currentProject.agentAccess.token);
   return url.toString();
 };
 
 const getAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
-  enabled: Boolean(currentProject?.agentAccess.enabled),
+  enabled: agentAccessEnabled,
   ready: Boolean(localBridgeHandle),
   currentProject: getCurrentProject(),
   boardUrl: getAgentBoardUrl(),
@@ -218,7 +262,7 @@ const shouldSkipAgentSessionWrite = () =>
 
 const writeCurrentAgentSessionDescriptor = async () => {
   const bridge = localBridgeHandle;
-  if (!bridge || shouldSkipAgentSessionWrite()) {
+  if (!bridge || !agentAccessEnabled || shouldSkipAgentSessionWrite()) {
     return;
   }
 
@@ -242,7 +286,11 @@ const writeCurrentAgentSessionDescriptor = async () => {
   agentSessionWriteChain = agentSessionWriteChain
     .catch(() => undefined)
     .then(async () => {
-      if (shouldSkipAgentSessionWrite() || localBridgeHandle !== bridge) {
+      if (
+        !agentAccessEnabled ||
+        shouldSkipAgentSessionWrite() ||
+        localBridgeHandle !== bridge
+      ) {
         return;
       }
       await writeAgentSessionDescriptor(agentSessionPath, descriptor);
@@ -255,7 +303,7 @@ const setCurrentProject = async (
 ) => {
   currentProject = nextProject;
   try {
-    if (!nextProject || !nextProject.agentAccess.enabled) {
+    if (!agentAccessEnabled) {
       await stopLocalBridge();
     } else {
       await startLocalBridge();
@@ -310,13 +358,12 @@ const startLocalBridge = async () => {
   try {
     localBridgeHandle = await createLocalBridgeServer({
       preferredPort: AGENT_BRIDGE_PREFERRED_PORT,
+      isAgentAccessEnabled: () => agentAccessEnabled,
       getCurrentProject,
+      getProjectByToken: getAgentProjectByToken,
       getBoardUrl: getAgentBoardUrl,
       renderer: {
-        request: (
-          command: AgentRendererCommandName,
-          payload?: unknown,
-        ) => {
+        request: (command: AgentRendererCommandName, payload?: unknown) => {
           if (!rendererCommandBridge) {
             return Promise.reject(
               new Error("CoreStudio renderer command bridge is not ready"),
@@ -376,51 +423,169 @@ const stopLocalBridge = async ({ final = false } = {}) => {
 };
 
 const setAgentBridgeEnabled = async (enabled: boolean) => {
-  if (!currentProject) {
-    throw new Error("请先打开 CoreStudio 项目。");
-  }
-
-  if (
-    currentProject.agentAccess.enabled === enabled &&
-    (!enabled || localBridgeHandle)
-  ) {
+  if (agentAccessEnabled === enabled && (!enabled || localBridgeHandle)) {
     return getAgentBridgeStatus();
   }
 
-  const nextProject = await updateProjectAgentAccess(currentProject.projectPath, {
-    token: currentProject.agentAccess.token,
-    enabled,
-  });
-  currentProject = {
-    ...currentProject,
-    agentAccess: nextProject.agentAccess,
-  };
+  const previousEnabled = agentAccessEnabled;
+  const settings = await saveAgentAccessSettings({ enabled });
+  agentAccessEnabled = settings.enabled;
+
   if (!enabled) {
+    await cancelAllAcpAgentTasks();
     await stopLocalBridge();
-    await writeCurrentAgentSessionDescriptor();
+    Menu.setApplicationMenu(buildMenu());
     return getAgentBridgeStatus();
   }
 
   try {
     await startLocalBridge();
   } catch (error) {
-    await updateProjectAgentAccess(currentProject.projectPath, {
-      token: currentProject.agentAccess.token,
-      enabled: false,
-    }).catch((persistError) => {
-      console.error("[agent:bridge-enable-rollback-failed]", persistError);
-    });
-    currentProject = {
-      ...currentProject,
-      agentAccess: {
-        ...currentProject.agentAccess,
-        enabled: false,
+    agentAccessEnabled = previousEnabled;
+    await saveAgentAccessSettings({ enabled: previousEnabled }).catch(
+      (persistError) => {
+        console.error("[agent:bridge-enable-rollback-failed]", persistError);
       },
-    };
+    );
+    Menu.setApplicationMenu(buildMenu());
     throw error;
   }
 
+  Menu.setApplicationMenu(buildMenu());
   return getAgentBridgeStatus();
+};
+
+const sendAcpTaskEvent = (taskEvent: AcpTaskEvent) => {
+  const targetWindow = getTargetWindow();
+  if (!targetWindow || targetWindow.webContents.isDestroyed()) {
+    return;
+  }
+  targetWindow.webContents.send(IPC_CHANNELS.acpAgentTaskEvent, taskEvent);
+};
+
+const getAcpAgentForTask = (settings: AcpAgentSettings, agentId: string) => {
+  const normalizedSettings = normalizeAcpAgentSettings(settings);
+  if (!normalizedSettings.enabled) {
+    return null;
+  }
+
+  if (agentId.trim()) {
+    return (
+      normalizedSettings.agents.find((agent) => agent.id === agentId.trim()) ??
+      null
+    );
+  }
+
+  return getSelectedAcpAgent(normalizedSettings);
+};
+
+const validateAcpTaskRequest = (request: AcpTaskRequest) => {
+  if (!request || typeof request !== "object") {
+    throw new Error("ACP task request is required.");
+  }
+  if (!request.taskId?.trim()) {
+    throw new Error("ACP task id is required.");
+  }
+  if (!request.userPrompt?.trim()) {
+    throw new Error("ACP task prompt is required.");
+  }
+};
+
+const startAcpAgentTask = async (request: AcpTaskRequest) => {
+  validateAcpTaskRequest(request);
+
+  if (activeAcpTasks.has(request.taskId)) {
+    throw new Error("ACP task is already running.");
+  }
+  if (!agentAccessEnabled || !localBridgeHandle) {
+    throw new Error("请先在应用设置中开启 Agent 调用。");
+  }
+
+  const settings = await loadAcpAgentSettings();
+  const agent = getAcpAgentForTask(settings, request.agentId);
+  if (!agent) {
+    throw new Error("请先配置可用的 ACP Agent。");
+  }
+
+  sendAcpTaskEvent(
+    createAcpTaskEvent({
+      taskId: request.taskId,
+      type: "status",
+      status: "connecting",
+      message: "正在连接 ACP Agent",
+    }),
+  );
+
+  let acpProcess: Awaited<ReturnType<typeof startAcpAgentProcess>>;
+  try {
+    acpProcess = await startAcpAgentProcess(agent);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    sendAcpTaskEvent(
+      createAcpTaskEvent({
+        taskId: request.taskId,
+        type: "error",
+        code: "ACP_AGENT_START_FAILED",
+        message,
+      }),
+    );
+    sendAcpTaskEvent(
+      createAcpTaskEvent({
+        taskId: request.taskId,
+        type: "status",
+        status: "failed",
+        message: "ACP Agent 启动失败",
+      }),
+    );
+    throw error;
+  }
+  const client = createAcpSessionClient({
+    process: acpProcess,
+    clientInfo: {
+      name: "corestudio",
+      title: DESKTOP_APP_NAME,
+      version: DESKTOP_APP_VERSION,
+    },
+    onEvent: sendAcpTaskEvent,
+  });
+  activeAcpTasks.set(request.taskId, client);
+
+  void client
+    .runTask(request)
+    .catch((error) => {
+      console.error("[acp:task-failed]", error);
+    })
+    .finally(async () => {
+      if (activeAcpTasks.get(request.taskId) === client) {
+        activeAcpTasks.delete(request.taskId);
+      }
+      await client.dispose().catch((error) => {
+        console.error("[acp:task-cleanup-failed]", error);
+      });
+    });
+
+  return { taskId: request.taskId };
+};
+
+const cancelAcpAgentTask = async (taskId: string) => {
+  const client = activeAcpTasks.get(taskId);
+  if (!client) {
+    return;
+  }
+  activeAcpTasks.delete(taskId);
+  try {
+    client.cancelTask(taskId);
+  } finally {
+    await client.dispose().catch((error) => {
+      console.error("[acp:task-cancel-cleanup-failed]", error);
+    });
+  }
+};
+
+const cancelAllAcpAgentTasks = async () => {
+  await Promise.all(
+    [...activeAcpTasks.keys()].map((taskId) => cancelAcpAgentTask(taskId)),
+  );
 };
 
 const sendMenuAction = (
@@ -542,7 +707,9 @@ const showCloseAfterSaveFailedDialog = async (
     defaultId: 1,
     cancelId: 1,
     message: "项目保存失败",
-    detail: `${getErrorMessage(error)}\n\n建议先取消关闭，确认项目保存后再退出。`,
+    detail: `${getErrorMessage(
+      error,
+    )}\n\n建议先取消关闭，确认项目保存后再退出。`,
   });
 
   return result.response === 0;
@@ -555,7 +722,10 @@ const closeWindowAfterAutosave = async (targetWindow: BrowserWindow) => {
     targetWindow.close();
   } catch (error) {
     console.error("[project:flush-before-close-failed]", error);
-    const shouldClose = await showCloseAfterSaveFailedDialog(targetWindow, error);
+    const shouldClose = await showCloseAfterSaveFailedDialog(
+      targetWindow,
+      error,
+    );
     if (shouldClose) {
       allowWindowClose = true;
       targetWindow.close();
@@ -593,7 +763,10 @@ const handleProjectMenuAction = async (
       return;
     }
 
-    if (event.action === "open-project" || event.action === "open-project-safe") {
+    if (
+      event.action === "open-project" ||
+      event.action === "open-project-safe"
+    ) {
       const selectedPath = await chooseOpenProjectDirectory(
         getTargetWindow(ownerWindow),
       );
@@ -656,6 +829,24 @@ const registerIpcHandlers = () => {
     },
   );
 
+  ipcMain.handle(IPC_CHANNELS.loadAcpAgentSettings, async () =>
+    loadAcpAgentSettings(),
+  );
+
+  ipcMain.handle(IPC_CHANNELS.saveAcpAgentSettings, async (_event, settings) =>
+    saveAcpAgentSettings(settings),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.startAcpAgentTask,
+    async (_event, request: AcpTaskRequest) => startAcpAgentTask(request),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.cancelAcpAgentTask,
+    async (_event, taskId: string) => cancelAcpAgentTask(taskId),
+  );
+
   ipcMain.on(
     IPC_CHANNELS.flushAutosaveResponse,
     (_event, response: DesktopAutosaveFlushResponse) => {
@@ -670,9 +861,7 @@ const registerIpcHandlers = () => {
         return;
       }
 
-      pendingFlush.reject(
-        new Error(response.errorMessage || "项目保存失败。"),
-      );
+      pendingFlush.reject(new Error(response.errorMessage || "项目保存失败。"));
     },
   );
 
@@ -797,6 +986,10 @@ const buildMenu = () =>
       (url) => {
         void shell.openExternal(url);
       },
+      {
+        agentAccessEnabled,
+        platform: process.platform,
+      },
     ),
   );
 
@@ -838,25 +1031,28 @@ const createWindow = async () => {
   mainWindow.on("closed", () => {
     mainWindow = null;
     rendererReady = false;
+    void cancelAllAcpAgentTasks();
     void setCurrentProject(null);
   });
 
   Menu.setApplicationMenu(buildMenu());
 
-  mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-    console.log(
-      `[renderer:${level}] ${message}${sourceId ? ` (${sourceId}:${line})` : ""}`,
-    );
-  });
+  mainWindow.webContents.on(
+    "console-message",
+    (_event, level, message, line, sourceId) => {
+      console.log(
+        `[renderer:${level}] ${message}${
+          sourceId ? ` (${sourceId}:${line})` : ""
+        }`,
+      );
+    },
+  );
   mainWindow.webContents.on("did-start-loading", () => {
     rendererReady = false;
   });
-  mainWindow.webContents.on(
-    "render-process-gone",
-    (_event, details) => {
-      console.error("[renderer:gone]", details);
-    },
-  );
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    console.error("[renderer:gone]", details);
+  });
   mainWindow.webContents.on(
     "did-fail-load",
     (_event, errorCode, errorDescription, validatedURL) => {
@@ -951,16 +1147,27 @@ const readClipboardImageFromSystem = () => {
 };
 
 app.whenReady().then(async () => {
+  agentAccessEnabled = (await loadAgentAccessSettings()).enabled;
   currentRecentProjects = await loadRecentProjects();
   await removeAgentSessionDescriptor(agentSessionPath).catch((error) => {
     console.error("[agent:session-cleanup-failed]", error);
   });
   registerIpcHandlers();
   await createWindow();
+  if (agentAccessEnabled) {
+    await startLocalBridge().catch((error) => {
+      console.error("[agent:bridge-startup-failed]", error);
+    });
+  }
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       await createWindow();
+      if (agentAccessEnabled) {
+        await startLocalBridge().catch((error) => {
+          console.error("[agent:bridge-startup-failed]", error);
+        });
+      }
     }
   });
 });
@@ -979,7 +1186,10 @@ app.on("will-quit", (event) => {
     return;
   }
 
-  void stopLocalBridge({ final: true }).finally(() => {
+  void Promise.all([
+    cancelAllAcpAgentTasks(),
+    stopLocalBridge({ final: true }),
+  ]).finally(() => {
     localBridgeCleanupFinished = true;
     app.quit();
   });

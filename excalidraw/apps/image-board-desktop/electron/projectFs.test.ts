@@ -46,12 +46,12 @@ describe("projectFs", () => {
     expect(bundle.project.name).toBe("My Prompt Board");
     expect(bundle.project.agentAccess).toEqual({
       token: expect.any(String),
-      enabled: false,
+      enabled: true,
     });
     expect(bundle.imageRecords).toEqual({});
   });
 
-  it("migrates legacy projects with a stable Agent token without enabling access", async () => {
+  it("migrates legacy projects with a stable Agent token", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
 
@@ -69,7 +69,7 @@ describe("projectFs", () => {
 
     expect(migrated.project.agentAccess).toEqual({
       token: expect.any(String),
-      enabled: false,
+      enabled: true,
     });
     expect(persisted.agentAccess).toEqual(migrated.project.agentAccess);
 
@@ -108,7 +108,7 @@ describe("projectFs", () => {
     });
   });
 
-  it("updates the saved Agent access switch without changing the token", async () => {
+  it("keeps project Agent access token stable when the legacy switch is updated", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
 
@@ -117,7 +117,7 @@ describe("projectFs", () => {
 
     const nextProject = await updateProjectAgentAccess(project.projectPath, {
       token,
-      enabled: true,
+      enabled: false,
     });
     const bundle = await readProjectBundle(project.projectPath);
 

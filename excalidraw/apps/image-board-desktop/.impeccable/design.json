@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-27T16:56:50+08:00",
+  "title": "Design System: CoreStudio",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Excalidraw Purple",
+        "canonical": "#6965db",
+        "tonalRamp": [
+          "#19163f",
+          "#302c82",
+          "#4a47b1",
+          "#6965db",
+          "#918df0",
+          "#c9c7ff",
+          "#e0dfff",
+          "#f1f0ff"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink Black",
+        "canonical": "#1b1b1f",
+        "tonalRamp": [
+          "#0d0d10",
+          "#1b1b1f",
+          "#34343a",
+          "#5c5c5c",
+          "#7a7a7a",
+          "#c5c5d0",
+          "#ececf4",
+          "#f6f6f9"
+        ]
+      },
+      "island": {
+        "role": "neutral",
+        "displayName": "Canvas White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#f1f0ff",
+          "#f6f6f9",
+          "#ffffff"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Product Body",
+        "purpose": "默认产品 UI 文本、中文说明、提示词和路径。"
+      },
+      "title": {
+        "displayName": "Panel Title",
+        "purpose": "popover、inspector、dialog 内部标题。"
+      },
+      "label": {
+        "displayName": "Compact Label",
+        "purpose": "badge、tab、菜单辅助文字和控件标签。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "island",
+        "value": "0 0 1px 0 rgba(0, 0, 0, 0.17), 0 0 3px 0 rgba(0, 0, 0, 0.08), 0 7px 14px 0 rgba(0, 0, 0, 0.05)",
+        "purpose": "默认浮层、菜单、popover、composer。"
+      },
+      {
+        "name": "modal",
+        "value": "0 100px 80px rgba(0, 0, 0, 0.07), 0 41.78px 33.42px rgba(0, 0, 0, 0.05), 0 22.34px 17.87px rgba(0, 0, 0, 0.04)",
+        "purpose": "阻塞式 dialog。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "120ms ease",
+        "purpose": "switch、状态点、轻量反馈。"
+      },
+      {
+        "name": "state-standard",
+        "value": "150ms ease",
+        "purpose": "按钮、popover 控件、composer 状态。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "720px",
+        "purpose": "内置浏览器或窄窗口下隐藏低优先级浮层，保留画布。"
+      },
+      {
+        "name": "narrow",
+        "value": "900px",
+        "purpose": "减少左上工具和浮动 composer 占用。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "继承 Excalidraw button 语汇的普通桌面按钮。",
+      "html": "<button class=\"ds-btn-default\">打开项目</button>",
+      "css": ".ds-btn-default { display:inline-flex; align-items:center; justify-content:center; min-height:2.5rem; padding:0.625rem 0.875rem; border:1px solid var(--default-border-color); border-radius:var(--border-radius-lg); background:var(--island-bg-color); color:var(--text-primary-color); font:inherit; font-size:0.875rem; line-height:1.2; cursor:pointer; transition:background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease; } .ds-btn-default:hover { background:var(--color-surface-high); border-color:var(--color-surface-primary-container); } .ds-btn-default:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "只用于主动作的紫色按钮。",
+      "html": "<button class=\"ds-btn-primary\">新建项目</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; min-height:2.5rem; padding:0.625rem 0.875rem; border:1px solid var(--color-primary); border-radius:var(--border-radius-lg); background:var(--color-primary); color:var(--color-icon-white); font:inherit; font-size:0.875rem; line-height:1.2; cursor:pointer; transition:background-color .15s ease, border-color .15s ease, color .15s ease; } .ds-btn-primary:hover { background:var(--color-primary-hover); border-color:var(--color-primary-hover); } .ds-btn-primary:active { background:var(--color-primary-darkest); border-color:var(--color-primary-darkest); } .ds-btn-primary:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }"
+    },
+    {
+      "name": "Agent Dock Button",
+      "kind": "button",
+      "refersTo": "footer-icon-button",
+      "description": "右下角连接状态按钮，尺寸必须和 Excalidraw 帮助按钮一致。",
+      "html": "<button class=\"ds-agent-dock\" aria-label=\"Agent 连接状态\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"M8.25 4.75v5M15.75 4.75v5M6.25 9.75h11.5v2.5a5.75 5.75 0 0 1-11.5 0v-2.5ZM12 18v1.25\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><span></span></button>",
+      "css": ".ds-agent-dock { position:relative; display:flex; align-items:center; justify-content:center; width:2.5rem; height:2.5rem; padding:0.625rem; border:0; border-radius:var(--border-radius-lg); background:var(--color-surface-low); box-shadow:0 0 0 1px var(--color-surface-lowest); color:var(--color-on-surface); cursor:pointer; transition:background-color .15s ease, box-shadow .15s ease, color .15s ease; } .ds-agent-dock:hover { background:var(--button-hover-bg); } .ds-agent-dock:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; } .ds-agent-dock svg { width:1.25rem; height:1.25rem; } .ds-agent-dock span { position:absolute; right:6px; bottom:6px; width:6px; height:6px; border:1px solid var(--color-surface-low); border-radius:999px; background:#26a269; }"
+    },
+    {
+      "name": "Island Popover",
+      "kind": "card",
+      "refersTo": "island-popover",
+      "description": "Agent 状态、下拉菜单和小设置浮层的默认容器。",
+      "html": "<section class=\"ds-island-popover\"><strong>Agent 已连接</strong><p>当前项目连接到本地桥。</p></section>",
+      "css": ".ds-island-popover { width:min(300px, calc(100vw - 2rem)); padding:12px; border:1px solid var(--default-border-color); border-radius:var(--border-radius-lg); background:var(--island-bg-color); box-shadow:var(--shadow-island); color:var(--text-primary-color); font:inherit; } .ds-island-popover strong { display:block; margin:0 0 4px; font-size:.95rem; line-height:1.3; } .ds-island-popover p { margin:0; color:var(--color-gray-70); font-size:.8125rem; line-height:1.45; }"
+    },
+    {
+      "name": "Generation Source Menu",
+      "kind": "custom",
+      "refersTo": "compact-menu-trigger",
+      "description": "composer 底部生成方式下拉；必须自绘展开态，避免原生 select 风格突兀。",
+      "html": "<div class=\"ds-source-menu\"><button type=\"button\" aria-expanded=\"true\">CoreStudio 生成 <span>⌃</span></button><div role=\"listbox\"><button role=\"option\" aria-selected=\"true\">CoreStudio 生成</button><button role=\"option\" aria-disabled=\"true\">Agent 生成</button></div></div>",
+      "css": ".ds-source-menu { position:relative; display:inline-flex; font:inherit; } .ds-source-menu > button { display:inline-flex; align-items:center; gap:4px; min-height:32px; padding:0 8px 0 10px; border:1px solid var(--default-border-color); border-radius:var(--border-radius-md); background:transparent; color:var(--text-primary-color); font:inherit; font-size:.75rem; font-weight:600; cursor:pointer; } .ds-source-menu > div { position:absolute; right:0; bottom:calc(100% + 4px); display:flex; flex-direction:column; min-width:100%; padding:4px; border:1px solid var(--default-border-color); border-radius:var(--border-radius-md); background:var(--island-bg-color); box-shadow:var(--shadow-island); } .ds-source-menu [role='option'] { min-height:28px; padding:0 8px; border:0; border-radius:calc(var(--border-radius-md) - 2px); background:transparent; color:var(--text-primary-color); font:inherit; font-size:.75rem; font-weight:600; text-align:left; white-space:nowrap; cursor:pointer; } .ds-source-menu [role='option']:hover, .ds-source-menu [aria-selected='true'] { background:color-mix(in srgb, var(--text-primary-color) 4%, transparent); } .ds-source-menu [aria-disabled='true'] { color:var(--color-gray-60); cursor:not-allowed; opacity:.55; }"
+    },
+    {
+      "name": "Reference Chip",
+      "kind": "chip",
+      "refersTo": "reference-chip",
+      "description": "提示词引用和 Agent 选区元素的紧凑 chip。",
+      "html": "<span class=\"ds-reference-chip\"><img alt=\"\" src=\"data:image/gif;base64,R0lGODlhAQABAAAAACw=\"/><b>1</b><span>图片</span></span>",
+      "css": ".ds-reference-chip { display:inline-flex; align-items:center; gap:4px; max-width:9rem; min-height:25px; padding:2px 7px 2px 2px; border:1px solid color-mix(in srgb, var(--color-primary) 18%, var(--input-border-color)); border-radius:var(--border-radius-md); background:color-mix(in srgb, var(--color-primary) 6%, var(--island-bg-color)); color:var(--text-primary-color); font:inherit; font-size:.8125rem; line-height:1; } .ds-reference-chip img { width:21px; height:21px; border-radius:calc(var(--border-radius-md) - 2px); object-fit:cover; flex:0 0 21px; } .ds-reference-chip b { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:999px; background:var(--color-primary); color:var(--color-icon-white); font-size:.625rem; } .ds-reference-chip span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Excalidraw Native Workbench",
+    "overview": "CoreStudio 的界面应该像 Excalidraw 底座自然生长出来的桌面工作台，而不是覆盖在画布上方的新产品皮肤。画布、图片和标注始终是主体；新增的项目管理、生图、Agent Bridge、输入框和状态浮层都应保持克制，使用 Excalidraw 已有的按钮、菜单、侧栏和岛状浮层语汇。",
+    "keyCharacteristics": [
+      "继承 Excalidraw，而不是重做一套 UI。",
+      "画布优先，控制项靠边、轻量、可关闭。",
+      "桌面客户端和 Agent Board 共用同一套视觉语汇。",
+      "状态明确，但不要把 bridge/token/agent 细节包装成主界面。",
+      "产品控件保持熟悉：按钮、下拉、tab、switch、popover、sidebar 都必须有完整交互状态。"
+    ],
+    "rules": [
+      {
+        "name": "The Base Palette Rule",
+        "body": "新组件必须先使用 --island-bg-color、--text-primary-color、--default-border-color、--shadow-island、--color-primary 这些既有 token；除非是新语义状态，不新增颜色。",
+        "section": "colors"
+      },
+      {
+        "name": "The Low Accent Rule",
+        "body": "紫色只用于选择、焦点、主动作和状态，不用于装饰性标题、渐变背景或大面积面板。",
+        "section": "colors"
+      },
+      {
+        "name": "The One Elevation Rule",
+        "body": "除 dialog 外，新浮层使用 --shadow-island。不要发明更重、更软、更玻璃的阴影。",
+        "section": "elevation"
+      },
+      {
+        "name": "The Layer Contract Rule",
+        "body": "下拉、popover、side dock、floating panel、toast 必须进入既有 z-index 语义，不使用 999 或 9999。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 优先复用 Excalidraw 原生 MainMenu、DefaultSidebar、ToolIcon、Island、excalidraw-button 和现有 icon style。",
+      "Do 使用 App.css 顶部 token；新增 token 必须是语义缺口，不是为了局部好看。",
+      "Do 让 Agent 能力通过配置启用，在桌面端和 Agent Board 共用组件。",
+      "Do 为所有新增交互补齐 hover、focus-visible、active、disabled、Escape 关闭和 aria label。"
+    ],
+    "donts": [
+      "Don't 做成独立于 Excalidraw 的新视觉系统。",
+      "Don't 使用 SaaS 官网式 hero、装饰性卡片堆叠、营销文案和大面积视觉包装。",
+      "Don't 使用玻璃拟态、紫蓝渐变、装饰光斑、过重阴影或“AI 工具感”的炫技界面。",
+      "Don't 重造 Excalidraw 已经提供的菜单、工具栏、侧栏、按钮语汇。",
+      "Don't 让 Agent Board 和桌面客户端分叉成两套交互规则。"
+    ]
+  }
+}

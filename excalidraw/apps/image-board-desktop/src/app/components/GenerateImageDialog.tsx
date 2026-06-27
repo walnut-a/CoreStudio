@@ -5,6 +5,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type SyntheticEvent,
 } from "react";
 
 import {
@@ -54,6 +55,7 @@ import type {
   SavePromptInput,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
+import type { AcpTaskStatus } from "../../shared/acpTypes";
 import type {
   CustomProviderModel,
   CustomModelCapabilityTemplateId,
@@ -68,6 +70,9 @@ import type {
 } from "../../shared/providerTypes";
 
 const PROMPT_LIBRARY_TITLE_MAX_LENGTH = 24;
+const GENERATION_MODE_LABEL = "生成方式";
+const BUILTIN_GENERATION_LABEL = "CoreStudio 生成";
+const AGENT_GENERATION_LABEL = "Agent 生成";
 
 const formatCountCopy = (template: string, count: number) =>
   template.replace("{count}", String(count));
@@ -187,6 +192,13 @@ interface GenerateComposerConfig {
   showModeSwitch?: boolean;
   defaultGenerationSource?: GenerationSource;
   showGenerationSourceSwitch?: boolean;
+  agentGenerationAvailable?: boolean;
+  agentGenerationUnavailableMessage?: string;
+  agentTaskStatus?: {
+    status: AcpTaskStatus;
+    message: string;
+    transcript?: string;
+  } | null;
 }
 
 const normalizeComposerMode = (
@@ -309,11 +321,26 @@ export const GenerateImageDialog = ({
   const showGenerationSourceSwitch = Boolean(
     composerConfig?.showGenerationSourceSwitch,
   );
-  const [generationSource, setGenerationSource] =
-    useState<GenerationSource>(defaultGenerationSource);
-  const effectiveGenerationSource = showGenerationSourceSwitch
+  const [generationSource, setGenerationSource] = useState<GenerationSource>(
+    defaultGenerationSource,
+  );
+  const [generationSourceMenuOpen, setGenerationSourceMenuOpen] =
+    useState(false);
+  const selectedGenerationSource = showGenerationSourceSwitch
     ? generationSource
     : defaultGenerationSource;
+  const agentGenerationAvailable =
+    composerConfig?.agentGenerationAvailable ??
+    effectiveComposerMode === "agent";
+  const agentGenerationUnavailableMessage =
+    composerConfig?.agentGenerationUnavailableMessage;
+  const agentTaskStatus = composerConfig?.agentTaskStatus ?? null;
+  const agentGenerationSelectable =
+    effectiveComposerMode === "agent" || agentGenerationAvailable;
+  const effectiveGenerationSource =
+    selectedGenerationSource === "agent" && !agentGenerationSelectable
+      ? "builtin"
+      : selectedGenerationSource;
   const currentProviderSettings = providerSettings?.[request.provider];
   const currentProviderCustomModels =
     currentProviderSettings?.customModels ?? [];
@@ -325,6 +352,10 @@ export const GenerateImageDialog = ({
   useEffect(() => {
     setGenerationSource(defaultGenerationSource);
   }, [defaultGenerationSource, open]);
+
+  useEffect(() => {
+    setGenerationSourceMenuOpen(false);
+  }, [effectiveComposerMode, open]);
 
   useEffect(() => {
     const nextRequest = normalizeGenerationRequest(initialRequest, {
@@ -510,34 +541,41 @@ export const GenerateImageDialog = ({
   const referenceLimitReached =
     hasUsablePendingReference &&
     promptReferenceCount >= maxPromptReferenceCount;
-  const referenceLimitMessage = referenceLimitExceeded
-    ? maxPromptReferenceCount > 0
-      ? formatCountCopy(
-          copy.generateDialog.referenceLimitExceeded,
-          maxPromptReferenceCount,
-        )
-      : copy.generateDialog.referenceUnsupportedWithInlineReferences
-    : hasPendingReference && !hasUsablePendingReference
-    ? copy.generateDialog.referenceUnsupported
-    : referenceLimitReached
-    ? formatCountCopy(
-        copy.generateDialog.referenceLimitReached,
-        maxPromptReferenceCount,
-      )
-    : null;
+  const referenceLimitMessage =
+    effectiveGenerationSource === "builtin"
+      ? referenceLimitExceeded
+        ? maxPromptReferenceCount > 0
+          ? formatCountCopy(
+              copy.generateDialog.referenceLimitExceeded,
+              maxPromptReferenceCount,
+            )
+          : copy.generateDialog.referenceUnsupportedWithInlineReferences
+        : hasPendingReference && !hasUsablePendingReference
+        ? copy.generateDialog.referenceUnsupported
+        : referenceLimitReached
+        ? formatCountCopy(
+            copy.generateDialog.referenceLimitReached,
+            maxPromptReferenceCount,
+          )
+        : null
+      : null;
   const pendingReference =
     hasUsablePendingReference && !referenceLimitReached
       ? request.reference ?? null
       : null;
   const hasInlineReferenceVisuals =
     Boolean(pendingReference) || promptReferenceCount > 0;
-  const canSubmit = Boolean(
-    (request.prompt.trim() ||
+  const hasSubmitContent = Boolean(
+    request.prompt.trim() ||
       promptReferenceCount ||
-      hasUsablePendingReference) &&
-      isConfigured &&
-      effectiveGenerationSource === "builtin" &&
-      !referenceLimitExceeded,
+      (effectiveGenerationSource === "agent"
+        ? hasPendingReference
+        : hasUsablePendingReference),
+  );
+  const canSubmit = Boolean(
+    effectiveGenerationSource === "agent"
+      ? hasSubmitContent && agentGenerationAvailable
+      : hasSubmitContent && isConfigured && !referenceLimitExceeded,
   );
   const showBody = effectiveComposerMode === "direct" && advancedOpen;
   const agentSelectionItems =
@@ -559,8 +597,7 @@ export const GenerateImageDialog = ({
     : savedPrompts;
   const promptLibraryCurrentContent =
     buildPromptTextWithInlineReferences(request).trim();
-  const showComposerTaskBar =
-    showComposerModeSwitch || showGenerationSourceSwitch;
+  const showComposerTaskBar = showComposerModeSwitch;
 
   const commitRequest = (
     nextRequest: GenerationRequest,
@@ -589,11 +626,130 @@ export const GenerateImageDialog = ({
   };
 
   const updateGenerationSource = (source: GenerationSource) => {
+    if (source === "agent" && !agentGenerationSelectable) {
+      return;
+    }
     setGenerationSource(source);
     updateRequest((current) => ({
       ...current,
       generationSource: source,
     }));
+  };
+
+  const selectGenerationSource = (
+    source: GenerationSource,
+    event: SyntheticEvent<HTMLElement>,
+  ) => {
+    stopInputEventPropagation(event);
+    if (source === "agent" && !agentGenerationSelectable) {
+      return;
+    }
+    updateGenerationSource(source);
+    setGenerationSourceMenuOpen(false);
+  };
+
+  const handleGenerationSourceMenuKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+  ) => {
+    stopInputEventPropagation(event);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setGenerationSourceMenuOpen(false);
+    }
+  };
+
+  const generationSourceLabel =
+    effectiveGenerationSource === "agent"
+      ? AGENT_GENERATION_LABEL
+      : BUILTIN_GENERATION_LABEL;
+
+  const renderGenerationSourceSelect = () => {
+    if (!showGenerationSourceSwitch) {
+      return null;
+    }
+
+    if (!agentGenerationSelectable) {
+      return (
+        <span className="generate-composer__source-field">
+          <span
+            className="generate-composer__source-status"
+            aria-label={GENERATION_MODE_LABEL}
+            title={agentGenerationUnavailableMessage}
+          >
+            {BUILTIN_GENERATION_LABEL}
+          </span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="generate-composer__source-field">
+        <button
+          type="button"
+          className={[
+            "generate-composer__source-trigger",
+            generationSourceMenuOpen
+              ? "generate-composer__source-trigger--open"
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-label={GENERATION_MODE_LABEL}
+          aria-haspopup="listbox"
+          aria-expanded={generationSourceMenuOpen}
+          onMouseDown={stopInputEventPropagation}
+          onClick={(event) => {
+            stopInputEventPropagation(event);
+            setGenerationSourceMenuOpen((current) => !current);
+          }}
+        >
+          <span className="generate-composer__source-label">
+            {generationSourceLabel}
+          </span>
+          <span
+            className="generate-composer__source-chevron"
+            aria-hidden="true"
+          >
+            {chevronDownIcon()}
+          </span>
+        </button>
+        {generationSourceMenuOpen ? (
+          <div
+            className="generate-composer__source-menu"
+            role="listbox"
+            aria-label={GENERATION_MODE_LABEL}
+            onMouseDown={stopInputEventPropagation}
+            onKeyDown={handleGenerationSourceMenuKeyDown}
+          >
+            <button
+              type="button"
+              role="option"
+              aria-selected={effectiveGenerationSource === "builtin"}
+              className="generate-composer__source-menu-item"
+              onMouseDown={stopInputEventPropagation}
+              onClick={(event) => {
+                selectGenerationSource("builtin", event);
+              }}
+            >
+              {BUILTIN_GENERATION_LABEL}
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected={effectiveGenerationSource === "agent"}
+              aria-disabled={!agentGenerationSelectable}
+              className="generate-composer__source-menu-item"
+              onMouseDown={stopInputEventPropagation}
+              onClick={(event) => {
+                selectGenerationSource("agent", event);
+              }}
+            >
+              {AGENT_GENERATION_LABEL}
+            </button>
+          </div>
+        ) : null}
+      </span>
+    );
   };
 
   const applyCustomModelTemplate = (
@@ -846,11 +1002,12 @@ export const GenerateImageDialog = ({
       return;
     }
 
-    if (effectiveGenerationSource !== "builtin") {
+    if (!canSubmit) {
       return;
     }
 
-    if (!canSubmit) {
+    if (effectiveGenerationSource === "agent") {
+      submitPreparedRequest(requestRef.current);
       return;
     }
 
@@ -865,9 +1022,7 @@ export const GenerateImageDialog = ({
     submitPreparedRequest(requestRef.current);
   };
 
-  const stopInputEventPropagation = (
-    event: KeyboardEvent<HTMLElement> | MouseEvent<HTMLElement>,
-  ) => {
+  const stopInputEventPropagation = (event: SyntheticEvent<HTMLElement>) => {
     event.stopPropagation();
     if ("nativeEvent" in event) {
       event.nativeEvent.stopImmediatePropagation?.();
@@ -1085,6 +1240,7 @@ export const GenerateImageDialog = ({
                 ? "generate-composer--with-source-switch"
                 : "",
               showComposerTaskBar ? "generate-composer--with-taskbar" : "",
+              agentTaskStatus ? "generate-composer--with-agent-task" : "",
               effectiveComposerMode === "agent"
                 ? "generate-composer--agent-mode"
                 : "",
@@ -1130,38 +1286,6 @@ export const GenerateImageDialog = ({
                       }}
                     >
                       直接输入
-                    </button>
-                  </div>
-                ) : null}
-                {showGenerationSourceSwitch ? (
-                  <div
-                    className="generate-composer__source-switch"
-                    role="group"
-                    aria-label="本次生成来源"
-                  >
-                    <button
-                      type="button"
-                      aria-pressed={effectiveGenerationSource === "builtin"}
-                      className="generate-composer__source-option"
-                      onMouseDown={stopInputEventPropagation}
-                      onClick={(event) => {
-                        stopInputEventPropagation(event);
-                        updateGenerationSource("builtin");
-                      }}
-                    >
-                      内置生成
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={effectiveGenerationSource === "agent"}
-                      className="generate-composer__source-option"
-                      onMouseDown={stopInputEventPropagation}
-                      onClick={(event) => {
-                        stopInputEventPropagation(event);
-                        updateGenerationSource("agent");
-                      }}
-                    >
-                      Agent 生成
                     </button>
                   </div>
                 ) : null}
@@ -1243,66 +1367,85 @@ export const GenerateImageDialog = ({
                     {referenceLimitMessage}
                   </div>
                 ) : null}
-                <div className="generate-composer__controls">
-                  <DesktopButton
-                    type="button"
-                    className={[
-                      "generate-composer__icon",
-                      promptLibraryOpen
-                        ? "generate-composer__icon--active"
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-label={copy.generateDialog.promptLibrary}
-                    title={copy.generateDialog.promptLibrary}
-                    onMouseDown={stopInputEventPropagation}
-                    onClick={(event) => {
-                      stopInputEventPropagation(event);
-                      setPromptLibraryOpen((current) => !current);
-                    }}
-                  >
-                    {promptLibraryIcon}
-                  </DesktopButton>
-                  <DesktopButton
-                    type="button"
-                    className={[
-                      "generate-composer__icon",
-                      advancedOpen ? "generate-composer__icon--active" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-label={
-                      advancedOpen
-                        ? copy.generateDialog.collapseSettings
-                        : copy.generateDialog.expandSettings
-                    }
-                    title={
-                      advancedOpen
-                        ? copy.generateDialog.collapseSettings
-                        : copy.generateDialog.expandSettings
-                    }
-                    onClick={() => setAdvancedOpen((current) => !current)}
-                  >
-                    {settingsSlidersIcon}
-                  </DesktopButton>
-                  <DesktopButton
-                    type="submit"
-                    variant="primary"
-                    className="generate-composer__action"
-                    aria-label={copy.generateDialog.generate}
-                    title={copy.generateDialog.generate}
-                    disabled={!canSubmit}
-                    onMouseDown={stopInputEventPropagation}
-                    onClick={(event) => {
-                      stopInputEventPropagation(event);
-                    }}
-                  >
-                    {sendIcon}
-                  </DesktopButton>
-                </div>
               </>
             )}
+            {effectiveComposerMode === "agent"
+              ? renderGenerationSourceSelect()
+              : null}
+            {effectiveComposerMode === "direct" ? (
+              <div className="generate-composer__controls">
+                <DesktopButton
+                  type="button"
+                  className={[
+                    "generate-composer__icon",
+                    promptLibraryOpen ? "generate-composer__icon--active" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-label={copy.generateDialog.promptLibrary}
+                  title={copy.generateDialog.promptLibrary}
+                  onMouseDown={stopInputEventPropagation}
+                  onClick={(event) => {
+                    stopInputEventPropagation(event);
+                    setPromptLibraryOpen((current) => !current);
+                  }}
+                >
+                  {promptLibraryIcon}
+                </DesktopButton>
+                <DesktopButton
+                  type="button"
+                  className={[
+                    "generate-composer__icon",
+                    advancedOpen ? "generate-composer__icon--active" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-label={
+                    advancedOpen
+                      ? copy.generateDialog.collapseSettings
+                      : copy.generateDialog.expandSettings
+                  }
+                  title={
+                    advancedOpen
+                      ? copy.generateDialog.collapseSettings
+                      : copy.generateDialog.expandSettings
+                  }
+                  onClick={() => setAdvancedOpen((current) => !current)}
+                >
+                  {settingsSlidersIcon}
+                </DesktopButton>
+                {renderGenerationSourceSelect()}
+                <DesktopButton
+                  type="submit"
+                  variant="primary"
+                  className="generate-composer__action"
+                  aria-label={copy.generateDialog.generate}
+                  title={copy.generateDialog.generate}
+                  disabled={!canSubmit}
+                  onMouseDown={stopInputEventPropagation}
+                  onClick={(event) => {
+                    stopInputEventPropagation(event);
+                  }}
+                >
+                  {sendIcon}
+                </DesktopButton>
+              </div>
+            ) : null}
+            {agentTaskStatus ? (
+              <div
+                className={[
+                  "generate-composer__agent-task",
+                  `generate-composer__agent-task--${agentTaskStatus.status}`,
+                ].join(" ")}
+                role="status"
+                aria-live="polite"
+              >
+                <strong>{agentTaskStatus.message}</strong>
+                {agentTaskStatus.transcript ? (
+                  <span>{agentTaskStatus.transcript}</span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           {effectiveComposerMode === "direct" && promptLibraryOpen ? (
             <div className="generate-prompt-library">

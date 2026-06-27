@@ -11,7 +11,7 @@ import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
 const baseUrl = "http://127.0.0.1:49152";
 const readToken = "read-token-1";
 const boardUrl =
-  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152&projectToken=read-token-1";
+  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152";
 const okEnvelope = {
   ok: true,
   data: {

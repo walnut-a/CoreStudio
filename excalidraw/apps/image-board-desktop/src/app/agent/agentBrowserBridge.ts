@@ -29,7 +29,7 @@ import type { GenerationResponse } from "../../shared/providerTypes";
 
 interface AgentBrowserBridgeConfig {
   bridge: string;
-  token: string;
+  token?: string;
 }
 
 interface AgentBridgeStatusResponse {
@@ -46,13 +46,13 @@ const getAgentBrowserBridgeConfig = (): AgentBrowserBridgeConfig | null => {
   const bridge = url.searchParams.get("bridge");
   const token =
     url.searchParams.get("projectToken") ?? url.searchParams.get("token");
-  if (!bridge || !token) {
+  if (!bridge) {
     return null;
   }
 
   return {
     bridge: bridge.replace(/\/+$/, ""),
-    token,
+    ...(token ? { token } : {}),
   };
 };
 
@@ -67,7 +67,7 @@ const requestAgentBridge = async <T>(
   const response = await fetch(`${config.bridge}${route}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${config.token}`,
+      ...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
       Accept: "application/json",
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(init.headers ?? {}),
@@ -115,23 +115,6 @@ export const publishAgentBrowserRuntimeState = async (
   return true;
 };
 
-const currentProjectToRecentEntry = (
-  status: AgentBridgeStatusResponse,
-): RecentProjectEntry[] => {
-  const currentProject = status.currentProject;
-  if (!currentProject) {
-    return [];
-  }
-
-  return [
-    {
-      projectPath: currentProject.projectPath,
-      name: currentProject.name,
-      lastOpenedAt: new Date().toISOString(),
-    },
-  ];
-};
-
 export const maybeCreateAgentBrowserDesktopBridge =
   (): DesktopBridgeApi | null => {
     const config = getAgentBrowserBridgeConfig();
@@ -149,20 +132,21 @@ export const maybeCreateAgentBrowserDesktopBridge =
       createProject: async () => null,
       openProject: async () => null,
       openRecentProject: async (projectPath) => {
-        const status = await getStatus();
-        if (status.currentProject?.projectPath !== projectPath) {
-          return null;
-        }
-
-        return callDesktopBridge<DesktopProjectBundle | null>(
+        const bundle = await callDesktopBridge<DesktopProjectBundle | null>(
           config,
           "openRecentProject",
           [projectPath],
         );
+        if (bundle?.project.agentAccess.token) {
+          config.token = bundle.project.agentAccess.token;
+          const url = new URL(window.location.href);
+          url.searchParams.set("projectToken", config.token);
+          window.history.replaceState(null, "", url.toString());
+        }
+        return bundle;
       },
-      loadRecentProjects: async () => {
-        return currentProjectToRecentEntry(await getStatus());
-      },
+      loadRecentProjects: () =>
+        callDesktopBridge<RecentProjectEntry[]>(config, "loadRecentProjects"),
       writeProjectScene: (input) =>
         callDesktopBridge<void>(config, "writeProjectScene", [input]),
       readProjectAssetPayloads: (input) =>

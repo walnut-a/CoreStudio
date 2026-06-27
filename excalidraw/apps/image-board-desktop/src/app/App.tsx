@@ -3,6 +3,7 @@ import {
   type ErrorInfo,
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -42,6 +43,14 @@ import {
   type AgentBoardCommandContext,
   type AgentBrowserRuntimeViewport,
 } from "../shared/agentBridgeTypes";
+import {
+  getDefaultAcpAgentSettings,
+  getSelectedAcpAgent,
+  type AcpAgentSettings,
+  type AcpTaskEvent,
+  type AcpTaskRequest,
+  type AcpTaskStatus,
+} from "../shared/acpTypes";
 import {
   getProviderDefinition,
   isAutoAspectRatioRequest,
@@ -106,7 +115,7 @@ import type { GenerationTaskRecord } from "./components/ImageInspector";
 
 import { SideDock } from "./components/SideDock";
 import { DesktopButton } from "./components/DesktopButton";
-import { TopBar } from "./components/TopBar";
+import { ProjectMainMenu } from "./components/ProjectMainMenu";
 import { WelcomePane } from "./components/WelcomePane";
 import {
   buildAgentProjectContext,
@@ -133,6 +142,7 @@ import type {
   ImageAssetRequestRendition,
   ImagePromptReferenceRecord,
   ImageRecord,
+  ImageRecordMap,
 } from "../shared/projectTypes";
 import type {
   DesktopAppInfo,
@@ -238,6 +248,13 @@ interface GenerationErrorDetails {
   rawMessage: string;
   stack: string | null;
   requestPayload: string | null;
+}
+
+interface AcpAgentTaskUiState {
+  taskId: string;
+  status: AcpTaskStatus;
+  message: string;
+  transcript: string;
 }
 
 interface AutosaveSnapshot {
@@ -846,6 +863,110 @@ const stripSelectionReferenceThumbnails = (
   };
 };
 
+const createAcpTaskId = () =>
+  `acp-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const getAcpBridgeBaseUrl = (
+  status: DesktopAgentBridgeStatus | null,
+): string | null => {
+  const candidates = [status?.boardUrl, window.location.href].filter(
+    (url): url is string => Boolean(url),
+  );
+  for (const candidate of candidates) {
+    try {
+      const bridgeBaseUrl = new URL(candidate).searchParams.get("bridge");
+      if (bridgeBaseUrl) {
+        return bridgeBaseUrl;
+      }
+    } catch {
+      // Ignore malformed user-facing URLs and try the next candidate.
+    }
+  }
+  return null;
+};
+
+const getAcpSelectionKind = (
+  item: NonNullable<GenerationReferencePayload["items"]>[number],
+): AcpTaskRequest["selection"]["items"][number]["kind"] => {
+  if (item.kind === "image" || item.kind === "text") {
+    return item.kind;
+  }
+  return item.label === "箭头" ? "arrow" : "shape";
+};
+
+const buildAcpSelectionItems = (
+  request: GenerationRequest,
+  imageRecords: ImageRecordMap,
+): AcpTaskRequest["selection"]["items"] => {
+  const seenElementIds = new Set<string>();
+  return [request.reference, ...(request.promptReferences ?? [])]
+    .flatMap((reference) => reference?.items ?? [])
+    .flatMap((item) => {
+      if (seenElementIds.has(item.id)) {
+        return [];
+      }
+      seenElementIds.add(item.id);
+      const imageRecord = item.fileId ? imageRecords[item.fileId] : null;
+      return [
+        {
+          index: item.index,
+          elementId: item.id,
+          kind: getAcpSelectionKind(item),
+          label: item.label,
+          ...(item.fileId ? { fileId: item.fileId } : {}),
+          ...(imageRecord?.fileId ? { imageId: imageRecord.fileId } : {}),
+        },
+      ];
+    });
+};
+
+const buildAcpTaskRequest = ({
+  request,
+  project,
+  status,
+  agentId,
+}: {
+  request: GenerationRequest;
+  project: DesktopProjectBundle;
+  status: DesktopAgentBridgeStatus | null;
+  agentId: string | null;
+}): AcpTaskRequest => {
+  const bridgeBaseUrl = getAcpBridgeBaseUrl(status);
+  if (!bridgeBaseUrl) {
+    throw new Error("Agent Bridge 地址尚未就绪。");
+  }
+
+  const items = buildAcpSelectionItems(request, project.imageRecords);
+  return {
+    taskId: createAcpTaskId(),
+    agentId: agentId ?? "",
+    userPrompt:
+      getPromptHistoryText(request) || "请根据当前 CoreStudio 画板继续操作。",
+    project: {
+      name: project.project.name,
+      projectPath: project.projectPath,
+      token: project.project.agentAccess.token,
+      bridgeBaseUrl,
+      boardUrl: status?.boardUrl ?? null,
+    },
+    generation: {
+      source: "agent",
+    },
+    selection: {
+      elementCount: items.length,
+      items,
+    },
+  };
+};
+
+const parseAcpAgentArgs = (value: string) =>
+  value
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const formatAcpAgentArgs = (args: readonly string[]) => args.join(" ");
+
 const getRuntimeSelectedElementIds = (appState: AppState) =>
   Object.entries(appState.selectedElementIds ?? {})
     .filter(([, selected]) => Boolean(selected))
@@ -863,6 +984,15 @@ const buildAgentBrowserRuntimeViewport = (
 
 const App = () => {
   const isAgentBrowserRoute = window.location.pathname === "/agent-board";
+  const agentBrowserInitialProjectToken = useMemo(() => {
+    if (!isAgentBrowserRoute) {
+      return false;
+    }
+    const url = new URL(window.location.href);
+    return Boolean(
+      url.searchParams.get("projectToken") ?? url.searchParams.get("token"),
+    );
+  }, [isAgentBrowserRoute]);
   const bridge = maybeGetDesktopBridge();
   const desktopBridge = bridge!;
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
@@ -892,6 +1022,7 @@ const App = () => {
   const pendingGenerationJobsRef = useRef<Map<string, PendingGenerationJob>>(
     new Map(),
   );
+  const activeAcpTaskIdRef = useRef<string | null>(null);
   const removedSelectionReferenceSignatureRef = useRef<string | null>(null);
   const generationTaskByElementIdRef = useRef<Map<string, GenerationTaskRecord>>(
     new Map(),
@@ -913,6 +1044,15 @@ const App = () => {
   const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
   const [agentBridgeStatus, setAgentBridgeStatus] =
     useState<DesktopAgentBridgeStatus | null>(null);
+  const [acpAgentSettings, setAcpAgentSettings] =
+    useState<AcpAgentSettings>(() => getDefaultAcpAgentSettings());
+  const [acpAgentEnabledDraft, setAcpAgentEnabledDraft] = useState(false);
+  const [acpAgentCommandDraft, setAcpAgentCommandDraft] = useState("");
+  const [acpAgentArgsDraft, setAcpAgentArgsDraft] = useState("");
+  const [acpAgentCwdDraft, setAcpAgentCwdDraft] = useState("");
+  const [savingAcpAgentSettings, setSavingAcpAgentSettings] = useState(false);
+  const [acpAgentTask, setAcpAgentTask] =
+    useState<AcpAgentTaskUiState | null>(null);
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
@@ -947,6 +1087,7 @@ const App = () => {
   const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [elementDockOpen, setElementDockOpen] = useState(false);
@@ -956,6 +1097,17 @@ const App = () => {
   const [workspaceFitPulse, setWorkspaceFitPulse] = useState(false);
   const [thumbnailMaintenance, setThumbnailMaintenance] =
     useState<ThumbnailMaintenanceState | null>(null);
+  const selectedAcpAgent = getSelectedAcpAgent(acpAgentSettings);
+  const acpAgentTaskRunning = Boolean(
+    acpAgentTask &&
+      !["completed", "failed", "cancelled"].includes(acpAgentTask.status),
+  );
+  const acpAgentGenerationReady = Boolean(
+    agentBridgeStatus?.enabled &&
+      agentBridgeStatus.ready &&
+      selectedAcpAgent &&
+      bridge?.startAcpAgentTask,
+  );
   const parentRecord =
     selectedRecord?.parentFileId && currentProject
       ? currentProject.imageRecords[selectedRecord.parentFileId] || null
@@ -1782,6 +1934,33 @@ const App = () => {
     }
   };
 
+  const syncAcpAgentDraftFromSettings = (settings: AcpAgentSettings) => {
+    const agent = getSelectedAcpAgent(settings) ?? settings.agents[0] ?? null;
+    setAcpAgentEnabledDraft(settings.enabled);
+    setAcpAgentCommandDraft(agent?.command ?? "");
+    setAcpAgentArgsDraft(formatAcpAgentArgs(agent?.args ?? []));
+    setAcpAgentCwdDraft(agent?.cwd ?? "");
+  };
+
+  const loadAcpAgentSettingsState = async () => {
+    if (!bridge?.loadAcpAgentSettings) {
+      const defaultSettings = getDefaultAcpAgentSettings();
+      setAcpAgentSettings(defaultSettings);
+      syncAcpAgentDraftFromSettings(defaultSettings);
+      return;
+    }
+
+    try {
+      const nextSettings = await bridge.loadAcpAgentSettings();
+      setAcpAgentSettings(nextSettings);
+      syncAcpAgentDraftFromSettings(nextSettings);
+    } catch {
+      const defaultSettings = getDefaultAcpAgentSettings();
+      setAcpAgentSettings(defaultSettings);
+      syncAcpAgentDraftFromSettings(defaultSettings);
+    }
+  };
+
   const createUnavailableAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
     enabled: false,
     ready: false,
@@ -1815,10 +1994,11 @@ const App = () => {
 
   const refreshAgentBrowserConnectionState = async () => {
     const nextStatus = await loadAgentBridgeStatus();
-    if (isAgentBrowserRoute && nextStatus?.currentProject) {
+    if (isAgentBrowserRoute && nextStatus?.ready) {
       if (
+        nextStatus.currentProject &&
         currentProjectRef.current?.projectPath !==
-        nextStatus.currentProject.projectPath
+          nextStatus.currentProject.projectPath
       ) {
         setAgentBrowserAutoOpenProjectPath(null);
       }
@@ -1845,6 +2025,7 @@ const App = () => {
   const loadDesktopStartupState = () => {
     void loadAppInfoState();
     void loadProviderState();
+    void loadAcpAgentSettingsState();
     void loadRecentProjectsState();
     void loadPromptLibraryState();
   };
@@ -1859,7 +2040,7 @@ const App = () => {
   const showGenerationError = (
     request: GenerationRequest,
     error: unknown,
-    fallbackMessage = copy.startup.generateFailed,
+    fallbackMessage: string = copy.startup.generateFailed,
   ) => {
     const normalizedMessage =
       normalizeDesktopErrorMessage(request.provider, error) || fallbackMessage;
@@ -1909,7 +2090,7 @@ const App = () => {
       }
 
       setAgentBridgeStatus(nextStatus);
-      if (isAgentBrowserRoute && nextStatus?.currentProject) {
+      if (isAgentBrowserRoute && nextStatus?.ready) {
         loadDesktopStartupState();
       }
       if (!nextStatus?.boardUrl && attempts < 20) {
@@ -1974,6 +2155,68 @@ const App = () => {
     return bridge.onFlushAutosaveRequest(() =>
       flushPendingAutosave({ strict: true }),
     );
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!bridge?.onAcpAgentTaskEvent) {
+      return;
+    }
+
+    return bridge.onAcpAgentTaskEvent((event: AcpTaskEvent) => {
+      if (
+        activeAcpTaskIdRef.current &&
+        event.taskId !== activeAcpTaskIdRef.current
+      ) {
+        return;
+      }
+
+      if (event.type === "status") {
+        setAcpAgentTask((current) => ({
+          taskId: event.taskId,
+          status: event.status,
+          message: event.message,
+          transcript: current?.taskId === event.taskId ? current.transcript : "",
+        }));
+        if (["completed", "failed", "cancelled"].includes(event.status)) {
+          activeAcpTaskIdRef.current = null;
+        }
+        return;
+      }
+
+      if (event.type === "agent-message") {
+        setAcpAgentTask((current) => ({
+          taskId: event.taskId,
+          status: current?.taskId === event.taskId ? current.status : "running",
+          message:
+            current?.taskId === event.taskId
+              ? current.message
+              : "Agent 正在处理",
+          transcript: `${current?.taskId === event.taskId ? current.transcript : ""}${
+            event.text
+          }`.trim(),
+        }));
+        return;
+      }
+
+      if (event.type === "tool") {
+        setAcpAgentTask((current) => ({
+          taskId: event.taskId,
+          status: current?.taskId === event.taskId ? current.status : "running",
+          message: event.title,
+          transcript: current?.taskId === event.taskId ? current.transcript : "",
+        }));
+        return;
+      }
+
+      if (event.type === "error") {
+        setAcpAgentTask((current) => ({
+          taskId: event.taskId,
+          status: "failed",
+          message: event.message,
+          transcript: current?.taskId === event.taskId ? current.transcript : "",
+        }));
+      }
+    });
   }, [bridge]);
 
   useEffect(() => {
@@ -2161,9 +2404,11 @@ const App = () => {
   };
 
   useEffect(() => {
-    const agentBrowserTargetProjectPath = recentProjects[0]?.projectPath;
+    const agentBrowserTargetProjectPath =
+      agentBridgeStatus?.currentProject?.projectPath ?? null;
     if (
       !isAgentBrowserRoute ||
+      !agentBrowserInitialProjectToken ||
       loadingProject ||
       !agentBrowserTargetProjectPath ||
       currentProject?.projectPath === agentBrowserTargetProjectPath ||
@@ -2176,10 +2421,11 @@ const App = () => {
     void handleOpenRecentProject(agentBrowserTargetProjectPath);
   }, [
     agentBrowserAutoOpenProjectPath,
+    agentBrowserInitialProjectToken,
+    agentBridgeStatus?.currentProject?.projectPath,
     currentProject?.projectPath,
     isAgentBrowserRoute,
     loadingProject,
-    recentProjects,
   ]);
 
   const handleProjectRenderError = (
@@ -2195,12 +2441,46 @@ const App = () => {
     updateEditorInitializing(false);
   };
 
-  const handleResetProjectView = () => {
+  const clearProjectViewState = () => {
+    beginProjectOpen();
+    excalidrawAPIRef.current = null;
+    latestSceneRef.current = null;
     updateCurrentProject(null);
     setInitialData(null);
     setWorkspaceOverlayState(null);
     resetWorkspaceZoomGate();
     updateEditorInitializing(false);
+    setSelectedRecord(null);
+    setSelectedTask(null);
+    lastCanvasPointerRef.current = null;
+    lastBatchBoundsRef.current = null;
+    pendingGenerationJobsRef.current.clear();
+    generationTaskByElementIdRef.current.clear();
+    setPendingGenerationCount(0);
+    resetImageRenditionState();
+  };
+
+  const handleResetProjectView = () => {
+    clearProjectViewState();
+  };
+
+  const handleSwitchProject = async () => {
+    setProjectError(null);
+    clearProjectNotice();
+    try {
+      await flushPendingAutosave({ strict: true });
+    } catch (error) {
+      setProjectError(
+        `${copy.startup.saveBeforeOpenFailed} ${getErrorText(
+          error,
+          copy.startup.saveProjectFailed,
+        )}`,
+      );
+      return;
+    }
+
+    clearProjectViewState();
+    void loadRecentProjectsState();
   };
 
   const handleRevealProject = async () => {
@@ -2893,6 +3173,43 @@ const App = () => {
     }
   };
 
+  const handleStartAcpAgentGeneration = async (request: GenerationRequest) => {
+    const project = currentProjectRef.current;
+    if (!project) {
+      return;
+    }
+
+    if (!bridge?.startAcpAgentTask) {
+      throw new Error("当前环境不能直接发起 ACP Agent 任务。");
+    }
+    if (!acpAgentGenerationReady || !selectedAcpAgent) {
+      throw new Error("请先开启 Agent 调用，并在应用设置里配置 ACP Agent。");
+    }
+
+    const taskRequest = buildAcpTaskRequest({
+      request,
+      project,
+      status: agentBridgeStatus,
+      agentId: selectedAcpAgent.id,
+    });
+
+    activeAcpTaskIdRef.current = taskRequest.taskId;
+    setAcpAgentTask({
+      taskId: taskRequest.taskId,
+      status: "connecting",
+      message: "正在连接 ACP Agent",
+      transcript: "",
+    });
+
+    await bridge.startAcpAgentTask(taskRequest);
+    setGenerateRequest((current) => ({
+      ...current,
+      prompt: "",
+      promptParts: [],
+      promptReferences: [],
+    }));
+  };
+
   const handleGenerateImages = async (
     request: GenerationRequest,
     _keepOpen: boolean,
@@ -2910,6 +3227,18 @@ const App = () => {
     assertExpectedAgentProjectActive(options.expectedProjectPath);
 
     clearGenerationErrorState();
+    if (request.generationSource === "agent") {
+      try {
+        await handleStartAcpAgentGeneration(request);
+      } catch (error) {
+        showGenerationError(request, error, "ACP Agent 任务启动失败。");
+        if (options.rejectOnError) {
+          throw error;
+        }
+      }
+      return;
+    }
+
     try {
       const requestCustomModels =
         providerSettings?.[request.provider]?.customModels ?? [];
@@ -3236,7 +3565,10 @@ const App = () => {
             useSelection: request.payload.useSelection === true,
             providerSettings,
           });
-          await handleGenerateImages(generationRequest, false, {
+          await handleGenerateImages({
+            ...generationRequest,
+            generationSource: "builtin",
+          }, false, {
             expectedProjectPath: project.projectPath,
             placementViewport:
               getPlacementViewportFromAgentBoardContext(agentBoardContext),
@@ -3342,6 +3674,41 @@ const App = () => {
       setProviderSettings(nextSettings);
     } finally {
       setSavingProviders(false);
+    }
+  };
+
+  const handleSaveAcpAgentSettings = async () => {
+    if (!bridge?.saveAcpAgentSettings) {
+      setProjectError("当前环境不能保存 ACP Agent 设置。");
+      return;
+    }
+
+    const command = acpAgentCommandDraft.trim();
+    const nextSettings: AcpAgentSettings = {
+      enabled: Boolean(acpAgentEnabledDraft && command),
+      defaultAgentId: command ? "default" : null,
+      agents: command
+        ? [
+            {
+              id: "default",
+              name: "默认 ACP Agent",
+              command,
+              args: parseAcpAgentArgs(acpAgentArgsDraft),
+              cwd: acpAgentCwdDraft.trim() || null,
+            },
+          ]
+        : [],
+    };
+
+    setSavingAcpAgentSettings(true);
+    try {
+      const savedSettings = await bridge.saveAcpAgentSettings(nextSettings);
+      setAcpAgentSettings(savedSettings);
+      syncAcpAgentDraftFromSettings(savedSettings);
+    } catch (error) {
+      setProjectError(getErrorText(error, "ACP Agent 设置保存失败。"));
+    } finally {
+      setSavingAcpAgentSettings(false);
     }
   };
 
@@ -3614,6 +3981,12 @@ const App = () => {
       case "provider-settings":
         setProviderSettingsFocusToken((current) => current + 1);
         break;
+      case "app-settings":
+        setAppSettingsOpen(true);
+        break;
+      case "set-agent-bridge-enabled":
+        void handleSetAgentBridgeEnabled(event.enabled === true);
+        break;
       case "reveal-project":
         void handleRevealProject();
         break;
@@ -3654,6 +4027,128 @@ const App = () => {
             {copy.about.versionLabel}{" "}
             {appInfo?.version ?? copy.about.versionUnknown}
           </div>
+        </div>
+      </div>
+    ) : null;
+
+  const renderAppSettingsDialog = () =>
+    appSettingsOpen ? (
+      <div className="dialog-backdrop">
+        <div
+          className="dialog-card dialog-card--settings"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="app-settings-title"
+        >
+          <div className="dialog-card__header">
+            <div>
+              <span className="dialog-card__eyebrow">设置</span>
+              <h2 id="app-settings-title">应用设置</h2>
+            </div>
+            <DesktopButton
+              type="button"
+              className="dialog-card__close"
+              onClick={() => setAppSettingsOpen(false)}
+            >
+              关闭
+            </DesktopButton>
+          </div>
+
+          <section className="app-settings-section">
+            <div className="app-settings-section__copy">
+              <strong>Agent 调用</strong>
+              <p>
+                允许本机 Agent 通过 CLI 或内置浏览器连接 CoreStudio，并使用当前项目的固定 token 读写画板。
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="允许 Agent 调用"
+              aria-checked={Boolean(agentBridgeStatus?.enabled)}
+              disabled={!bridge?.setAgentBridgeEnabled || isAgentBrowserRoute}
+              className="app-settings-section__switch"
+              onClick={() => {
+                void handleSetAgentBridgeEnabled(
+                  !Boolean(agentBridgeStatus?.enabled),
+                );
+              }}
+            />
+          </section>
+
+          <section className="app-settings-section app-settings-section--stacked">
+            <div className="app-settings-section__copy">
+              <strong>ACP Agent</strong>
+              <p>
+                配置一个外部 ACP Agent。CoreStudio 只负责发起任务和接收状态；写回画板仍然要求 Agent 使用 CoreStudio CLI / Local Bridge。
+              </p>
+            </div>
+            <div className="app-settings-form">
+              <div className="app-settings-form__header">
+                <span>{acpAgentEnabledDraft ? "已启用" : "未启用"}</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="启用 ACP Agent"
+                  aria-checked={acpAgentEnabledDraft}
+                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  className="app-settings-section__switch"
+                  onClick={() =>
+                    setAcpAgentEnabledDraft((current) => !current)
+                  }
+                />
+              </div>
+              <label>
+                命令
+                <input
+                  value={acpAgentCommandDraft}
+                  placeholder="/usr/local/bin/acp-agent"
+                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  onChange={(event) =>
+                    setAcpAgentCommandDraft(event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                参数
+                <input
+                  value={acpAgentArgsDraft}
+                  placeholder="--stdio"
+                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  onChange={(event) => setAcpAgentArgsDraft(event.target.value)}
+                />
+              </label>
+              <label>
+                工作目录
+                <input
+                  value={acpAgentCwdDraft}
+                  placeholder="留空则使用默认目录"
+                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  onChange={(event) => setAcpAgentCwdDraft(event.target.value)}
+                />
+              </label>
+              <div className="app-settings-form__actions">
+                <span>
+                  {selectedAcpAgent
+                    ? `当前：${selectedAcpAgent.command}`
+                    : "尚未配置 ACP Agent"}
+                </span>
+                <DesktopButton
+                  type="button"
+                  disabled={
+                    savingAcpAgentSettings ||
+                    !bridge?.saveAcpAgentSettings ||
+                    isAgentBrowserRoute
+                  }
+                  onClick={() => {
+                    void handleSaveAcpAgentSettings();
+                  }}
+                >
+                  {savingAcpAgentSettings ? "保存中..." : "保存"}
+                </DesktopButton>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     ) : null;
@@ -3731,16 +4226,13 @@ const App = () => {
 
   if (
     isAgentBrowserRoute &&
-    (!agentBridgeStatus?.ready || !agentBridgeStatus.currentProject)
+    (!agentBridgeStatus || !agentBridgeStatus.ready)
   ) {
     const heading = !agentBridgeStatus
       ? "正在连接桌面端"
-      : agentBridgeStatus.ready
-        ? "等待桌面端打开项目"
-        : "桌面端未连接";
-    const description = agentBridgeStatus?.ready
-      ? "请先在 CoreStudio 桌面端打开项目。连接状态确认后，Codex 会进入当前画板。"
-      : "请确认 CoreStudio 桌面端仍在运行，然后刷新连接状态。";
+      : "桌面端未连接";
+    const description =
+      "请确认 CoreStudio 桌面端仍在运行，然后刷新连接状态。";
 
     return (
       <div className="image-board-app">
@@ -3774,15 +4266,19 @@ const App = () => {
           status={agentBridgeStatus}
           onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
           onRefreshStatus={refreshAgentBrowserConnectionState}
-          onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
-          connectionToggleDisabled={isAgentBrowserRoute}
           generationSource={generationSource}
+          acpAgentName={selectedAcpAgent?.name ?? null}
         />
       </div>
     );
   }
 
-  if (isAgentBrowserRoute && (!currentProject || !initialData)) {
+  if (
+    isAgentBrowserRoute &&
+    agentBrowserInitialProjectToken &&
+    agentBridgeStatus?.currentProject &&
+    (!currentProject || !initialData)
+  ) {
     return (
       <div className="image-board-app">
         <div className="welcome-pane">
@@ -3819,9 +4315,8 @@ const App = () => {
           status={agentBridgeStatus}
           onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
           onRefreshStatus={refreshAgentBrowserConnectionState}
-          onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
-          connectionToggleDisabled={isAgentBrowserRoute}
           generationSource={generationSource}
+          acpAgentName={selectedAcpAgent?.name ?? null}
         />
       </div>
     );
@@ -3831,15 +4326,37 @@ const App = () => {
     return (
       <div className="image-board-app">
         {startupError && <div className="app-startup-error">{startupError}</div>}
-        {projectError && <div className="dialog-card__error">{projectError}</div>}
+        {projectError && (
+          <div className="app-canvas-error-toast" role="alert">
+            {projectError}
+          </div>
+        )}
         <WelcomePane
           loading={loadingProject}
           onCreateProject={handleCreateProject}
           onOpenProject={handleOpenProject}
           recentProjects={recentProjects}
           onOpenRecentProject={handleOpenRecentProject}
+          agentAccessEnabled={Boolean(agentBridgeStatus?.enabled)}
+          onAgentAccessToggle={
+            isAgentBrowserRoute ? undefined : handleSetAgentBridgeEnabled
+          }
+          agentAccessToggleDisabled={
+            !bridge?.setAgentBridgeEnabled || isAgentBrowserRoute
+          }
+          manualProjectActionsVisible={!isAgentBrowserRoute}
         />
+        {isAgentBrowserRoute ? (
+          <AgentStatusDock
+            status={agentBridgeStatus}
+            onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
+            onRefreshStatus={refreshAgentBrowserConnectionState}
+            generationSource={generationSource}
+            acpAgentName={selectedAcpAgent?.name ?? null}
+          />
+        ) : null}
         {renderAboutDialog()}
+        {renderAppSettingsDialog()}
       </div>
     );
   }
@@ -3898,8 +4415,13 @@ const App = () => {
   return (
     <div className={appClassName}>
       {startupError && <div className="app-startup-error">{startupError}</div>}
-      {projectError && <div className="dialog-card__error">{projectError}</div>}
+      {projectError && (
+        <div className="app-canvas-error-toast" role="alert">
+          {projectError}
+        </div>
+      )}
       {renderAboutDialog()}
+      {renderAppSettingsDialog()}
       <ProjectRenderBoundary
         projectKey={projectRenderKey}
         onError={handleProjectRenderError}
@@ -4009,14 +4531,6 @@ const App = () => {
                   toggleTheme: true,
                 },
               }}
-              renderTopLeftUI={() => (
-                <TopBar
-                  projectName={currentProject.project.name}
-                  onOpenProject={handleOpenProject}
-                  onImportImages={handleImportImages}
-                  onRevealProject={handleRevealProject}
-                />
-              )}
               detectScroll={false}
               handleKeyboardGlobally={true}
               autoFocus={true}
@@ -4034,6 +4548,12 @@ const App = () => {
                 </SideDock>
               )}
             >
+              <ProjectMainMenu
+                currentProjectName={currentProject.project.name}
+                onSwitchProject={() => {
+                  void handleSwitchProject();
+                }}
+              />
               <ImageSidebar
                 open={imageDockOpen}
                 onOpenChange={setImageDockOpen}
@@ -4052,9 +4572,8 @@ const App = () => {
               status={agentBridgeStatus}
               onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
               onRefreshStatus={refreshAgentBrowserConnectionState}
-              onSetAgentBridgeEnabled={handleSetAgentBridgeEnabled}
-              connectionToggleDisabled={isAgentBrowserRoute}
               generationSource={generationSource}
+              acpAgentName={selectedAcpAgent?.name ?? null}
             />
             {renderWorkspaceBoundsOverlay()}
           </div>
@@ -4069,7 +4588,15 @@ const App = () => {
           defaultMode: isAgentBrowserRoute ? "agent" : "direct",
           showModeSwitch: isAgentBrowserRoute,
           defaultGenerationSource: generationSource,
-          showGenerationSourceSwitch: isAgentBrowserRoute,
+          showGenerationSourceSwitch:
+            isAgentBrowserRoute || Boolean(selectedAcpAgent),
+          agentGenerationAvailable:
+            acpAgentGenerationReady && !acpAgentTaskRunning,
+          agentGenerationUnavailableMessage:
+            selectedAcpAgent && agentBridgeStatus?.enabled
+              ? "Agent Bridge 尚未就绪。"
+              : "请先在应用设置里开启 Agent 调用并配置 ACP Agent。",
+          agentTaskStatus: acpAgentTask,
         }}
         initialRequest={generateRequest}
         providerSettings={providerSettings}

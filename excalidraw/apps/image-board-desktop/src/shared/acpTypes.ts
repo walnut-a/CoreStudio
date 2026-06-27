@@ -1,7 +1,43 @@
 export const ACP_PROTOCOL_VERSION = 1;
 
+export const ACP_AGENT_CUSTOM_PRESET_ID = "custom" as const;
+
+export const ACP_AGENT_PRESETS = [
+  {
+    id: "codex-acp",
+    name: "Codex ACP",
+    command: "npx",
+    args: ["-y", "@agentclientprotocol/codex-acp"],
+    cwd: null,
+    description: "通过 Codex ACP 适配器把任务交给 Codex。",
+  },
+  {
+    id: "gemini-cli",
+    name: "Gemini CLI",
+    command: "gemini",
+    args: ["--acp"],
+    cwd: null,
+    description: "使用 Gemini CLI 的 ACP 模式。",
+  },
+] as const;
+
+export type AcpAgentKnownPresetId = (typeof ACP_AGENT_PRESETS)[number]["id"];
+export type AcpAgentPresetId =
+  | AcpAgentKnownPresetId
+  | typeof ACP_AGENT_CUSTOM_PRESET_ID;
+
+export interface AcpAgentPreset {
+  id: AcpAgentKnownPresetId;
+  name: string;
+  command: string;
+  args: readonly string[];
+  cwd: string | null;
+  description: string;
+}
+
 export interface AcpAgentConfig {
   id: string;
+  presetId?: AcpAgentPresetId | null;
   name: string;
   command: string;
   args: string[];
@@ -107,16 +143,51 @@ export const getDefaultAcpAgentSettings = (): AcpAgentSettings => ({
   defaultAgentId: null,
 });
 
+export const getAcpAgentPreset = (
+  presetId: string | null | undefined,
+): AcpAgentPreset | null =>
+  ACP_AGENT_PRESETS.find((preset) => preset.id === presetId) ?? null;
+
+export const isAcpAgentPresetId = (
+  value: unknown,
+): value is AcpAgentPresetId =>
+  value === ACP_AGENT_CUSTOM_PRESET_ID ||
+  Boolean(getAcpAgentPreset(String(value)));
+
+export const inferAcpAgentPresetId = (
+  agent: AcpAgentConfig | null | undefined,
+): AcpAgentPresetId => {
+  if (!agent) {
+    return "codex-acp";
+  }
+
+  if (isAcpAgentPresetId(agent.presetId)) {
+    return agent.presetId;
+  }
+
+  const matchedPreset = ACP_AGENT_PRESETS.find(
+    (preset) =>
+      preset.command === agent.command &&
+      preset.args.length === agent.args.length &&
+      preset.args.every((arg, index) => arg === agent.args[index]),
+  );
+  return matchedPreset?.id ?? ACP_AGENT_CUSTOM_PRESET_ID;
+};
+
 const normalizeAgent = (agent: AcpAgentConfig): AcpAgentConfig | null => {
   const id = agent.id.trim();
   const name = agent.name.trim();
   const command = agent.command.trim();
+  const presetId = isAcpAgentPresetId(agent.presetId)
+    ? agent.presetId
+    : null;
   if (!id || !name || !command) {
     return null;
   }
 
   return {
     id,
+    ...(presetId ? { presetId } : {}),
     name,
     command,
     args: Array.isArray(agent.args) ? agent.args.map(String) : [],

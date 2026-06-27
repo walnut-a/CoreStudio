@@ -1796,7 +1796,8 @@ html.image-board-desktop-titlebar-hidden {
   font-weight: 600;
 }
 
-.app-settings-form input {
+.app-settings-form input,
+.app-settings-form select {
   width: 100%;
   min-width: 0;
   height: 36px;
@@ -1809,7 +1810,8 @@ html.image-board-desktop-titlebar-hidden {
   font-weight: 500;
 }
 
-.app-settings-form input:disabled {
+.app-settings-form input:disabled,
+.app-settings-form select:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

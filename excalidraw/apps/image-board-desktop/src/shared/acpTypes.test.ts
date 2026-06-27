@@ -4,6 +4,7 @@ import {
   ACP_PROTOCOL_VERSION,
   createAcpTaskEvent,
   getDefaultAcpAgentSettings,
+  getAcpAgentPreset,
   getSelectedAcpAgent,
   normalizeAcpAgentSettings,
 } from "./acpTypes";
@@ -49,6 +50,51 @@ describe("acpTypes", () => {
           command: "/usr/local/bin/acp-agent",
           args: ["--stdio"],
           cwd: "/tmp",
+        },
+      ],
+    });
+  });
+
+  it("keeps a known ACP preset identity with its command template", () => {
+    expect(getAcpAgentPreset("codex-acp")).toMatchObject({
+      id: "codex-acp",
+      name: "Codex ACP",
+      command: "npx",
+      args: ["-y", "@agentclientprotocol/codex-acp"],
+    });
+    expect(getAcpAgentPreset("gemini-cli")).toMatchObject({
+      id: "gemini-cli",
+      name: "Gemini CLI",
+      command: "gemini",
+      args: ["--acp"],
+    });
+
+    expect(
+      normalizeAcpAgentSettings({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            presetId: "gemini-cli",
+            name: "Gemini CLI",
+            command: "gemini",
+            args: ["--acp"],
+            cwd: null,
+          },
+        ],
+      }),
+    ).toEqual({
+      enabled: true,
+      defaultAgentId: "default",
+      agents: [
+        {
+          id: "default",
+          presetId: "gemini-cli",
+          name: "Gemini CLI",
+          command: "gemini",
+          args: ["--acp"],
+          cwd: null,
         },
       ],
     });

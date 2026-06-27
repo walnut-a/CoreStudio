@@ -39,8 +39,14 @@ CoreStudio can also act as an ACP Client. This is separate from the CLI bridge: 
 Configure it from **应用设置 -> ACP Agent**:
 
 - Enable Agent access with the global `Agent 调用` switch.
-- Fill the ACP Agent command, optional args, and optional working directory.
+- Choose an Agent preset (`Codex ACP` or `Gemini CLI`) to fill the default command template, or use
+  `自定义命令` for another ACP-compatible adapter.
+- Adjust the command, optional args, and optional working directory when the preset does not match the
+  local installation.
 - Enable and save the ACP Agent configuration.
+
+The presets only describe how CoreStudio should start the local ACP process. Agent installation, login,
+model choice, and provider credentials still belong to the external Agent.
 
 When `Agent 生成` is selected in the composer, CoreStudio sends an ACP `session/prompt` task instead of calling the built-in image provider. The task context includes the project token, bridge URL, board URL, generation source, and selected element IDs / file IDs. It does not stream original image bytes; Agents should call `scene image-paths` when they need local reference files.
 

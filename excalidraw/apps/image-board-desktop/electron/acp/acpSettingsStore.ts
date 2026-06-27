@@ -5,6 +5,7 @@ import { app } from "electron";
 
 import {
   getDefaultAcpAgentSettings,
+  isAcpAgentPresetId,
   normalizeAcpAgentSettings,
   type AcpAgentSettings,
 } from "../../src/shared/acpTypes";
@@ -32,21 +33,21 @@ const readSettingsShape = (value: unknown): AcpAgentSettings => {
     defaultAgentId:
       typeof value.defaultAgentId === "string" ? value.defaultAgentId : null,
     agents: Array.isArray(value.agents)
-      ? value.agents.map((agent) => ({
-          id: isRecord(agent) && typeof agent.id === "string" ? agent.id : "",
-          name:
-            isRecord(agent) && typeof agent.name === "string" ? agent.name : "",
-          command:
-            isRecord(agent) && typeof agent.command === "string"
-              ? agent.command
-              : "",
-          args:
-            isRecord(agent) && Array.isArray(agent.args)
-              ? agent.args.map(String)
-              : [],
-          cwd:
-            isRecord(agent) && typeof agent.cwd === "string" ? agent.cwd : null,
-        }))
+      ? value.agents.map((agent) => {
+          const record = isRecord(agent) ? agent : null;
+          return {
+            id: typeof record?.id === "string" ? record.id : "",
+            presetId:
+              typeof record?.presetId === "string" &&
+              isAcpAgentPresetId(record.presetId)
+                ? record.presetId
+                : null,
+            name: typeof record?.name === "string" ? record.name : "",
+            command: typeof record?.command === "string" ? record.command : "",
+            args: Array.isArray(record?.args) ? record.args.map(String) : [],
+            cwd: typeof record?.cwd === "string" ? record.cwd : null,
+          };
+        })
       : [],
   };
 };

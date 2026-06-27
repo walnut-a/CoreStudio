@@ -44,8 +44,13 @@ import {
   type AgentBrowserRuntimeViewport,
 } from "../shared/agentBridgeTypes";
 import {
+  ACP_AGENT_CUSTOM_PRESET_ID,
+  ACP_AGENT_PRESETS,
+  getAcpAgentPreset,
   getDefaultAcpAgentSettings,
   getSelectedAcpAgent,
+  inferAcpAgentPresetId,
+  type AcpAgentPresetId,
   type AcpAgentSettings,
   type AcpTaskEvent,
   type AcpTaskRequest,
@@ -967,6 +972,9 @@ const parseAcpAgentArgs = (value: string) =>
 
 const formatAcpAgentArgs = (args: readonly string[]) => args.join(" ");
 
+const getAcpAgentDraftName = (presetId: AcpAgentPresetId) =>
+  getAcpAgentPreset(presetId)?.name ?? "自定义 ACP Agent";
+
 const getRuntimeSelectedElementIds = (appState: AppState) =>
   Object.entries(appState.selectedElementIds ?? {})
     .filter(([, selected]) => Boolean(selected))
@@ -1047,6 +1055,8 @@ const App = () => {
   const [acpAgentSettings, setAcpAgentSettings] =
     useState<AcpAgentSettings>(() => getDefaultAcpAgentSettings());
   const [acpAgentEnabledDraft, setAcpAgentEnabledDraft] = useState(false);
+  const [acpAgentPresetDraft, setAcpAgentPresetDraft] =
+    useState<AcpAgentPresetId>("codex-acp");
   const [acpAgentCommandDraft, setAcpAgentCommandDraft] = useState("");
   const [acpAgentArgsDraft, setAcpAgentArgsDraft] = useState("");
   const [acpAgentCwdDraft, setAcpAgentCwdDraft] = useState("");
@@ -1936,10 +1946,13 @@ const App = () => {
 
   const syncAcpAgentDraftFromSettings = (settings: AcpAgentSettings) => {
     const agent = getSelectedAcpAgent(settings) ?? settings.agents[0] ?? null;
+    const presetId = inferAcpAgentPresetId(agent);
+    const preset = getAcpAgentPreset(presetId);
     setAcpAgentEnabledDraft(settings.enabled);
-    setAcpAgentCommandDraft(agent?.command ?? "");
-    setAcpAgentArgsDraft(formatAcpAgentArgs(agent?.args ?? []));
-    setAcpAgentCwdDraft(agent?.cwd ?? "");
+    setAcpAgentPresetDraft(presetId);
+    setAcpAgentCommandDraft(agent?.command ?? preset?.command ?? "");
+    setAcpAgentArgsDraft(formatAcpAgentArgs(agent?.args ?? preset?.args ?? []));
+    setAcpAgentCwdDraft(agent?.cwd ?? preset?.cwd ?? "");
   };
 
   const loadAcpAgentSettingsState = async () => {
@@ -3677,6 +3690,17 @@ const App = () => {
     }
   };
 
+  const handleAcpAgentPresetDraftChange = (presetId: AcpAgentPresetId) => {
+    setAcpAgentPresetDraft(presetId);
+    const preset = getAcpAgentPreset(presetId);
+    if (!preset) {
+      return;
+    }
+    setAcpAgentCommandDraft(preset.command);
+    setAcpAgentArgsDraft(formatAcpAgentArgs(preset.args));
+    setAcpAgentCwdDraft(preset.cwd ?? "");
+  };
+
   const handleSaveAcpAgentSettings = async () => {
     if (!bridge?.saveAcpAgentSettings) {
       setProjectError("当前环境不能保存 ACP Agent 设置。");
@@ -3684,6 +3708,7 @@ const App = () => {
     }
 
     const command = acpAgentCommandDraft.trim();
+    const preset = getAcpAgentPreset(acpAgentPresetDraft);
     const nextSettings: AcpAgentSettings = {
       enabled: Boolean(acpAgentEnabledDraft && command),
       defaultAgentId: command ? "default" : null,
@@ -3691,7 +3716,8 @@ const App = () => {
         ? [
             {
               id: "default",
-              name: "默认 ACP Agent",
+              ...(preset ? { presetId: preset.id } : {}),
+              name: getAcpAgentDraftName(acpAgentPresetDraft),
               command,
               args: parseAcpAgentArgs(acpAgentArgsDraft),
               cwd: acpAgentCwdDraft.trim() || null,
@@ -4099,14 +4125,34 @@ const App = () => {
                 />
               </div>
               <label>
+                Agent 类型
+                <select
+                  value={acpAgentPresetDraft}
+                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  onChange={(event) =>
+                    handleAcpAgentPresetDraftChange(
+                      event.target.value as AcpAgentPresetId,
+                    )
+                  }
+                >
+                  {ACP_AGENT_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                  <option value={ACP_AGENT_CUSTOM_PRESET_ID}>自定义命令</option>
+                </select>
+              </label>
+              <label>
                 命令
                 <input
                   value={acpAgentCommandDraft}
                   placeholder="/usr/local/bin/acp-agent"
                   disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
-                  onChange={(event) =>
-                    setAcpAgentCommandDraft(event.target.value)
-                  }
+                  onChange={(event) => {
+                    setAcpAgentPresetDraft(ACP_AGENT_CUSTOM_PRESET_ID);
+                    setAcpAgentCommandDraft(event.target.value);
+                  }}
                 />
               </label>
               <label>
@@ -4130,7 +4176,7 @@ const App = () => {
               <div className="app-settings-form__actions">
                 <span>
                   {selectedAcpAgent
-                    ? `当前：${selectedAcpAgent.command}`
+                    ? `当前：${selectedAcpAgent.name} · ${selectedAcpAgent.command}`
                     : "尚未配置 ACP Agent"}
                 </span>
                 <DesktopButton

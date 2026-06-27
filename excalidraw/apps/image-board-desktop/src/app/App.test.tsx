@@ -3017,7 +3017,7 @@ describe("App startup", () => {
     });
   });
 
-  it("saves the default ACP Agent command from application settings", async () => {
+  it("saves a custom ACP Agent command from application settings", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const loadAcpAgentSettings = vi.fn(async () => ({
       enabled: false,
@@ -3070,10 +3070,68 @@ describe("App startup", () => {
         agents: [
           {
             id: "default",
-            name: "默认 ACP Agent",
+            name: "自定义 ACP Agent",
             command: "/usr/local/bin/acp-agent",
             args: ["--stdio", "--project", "current"],
             cwd: "/tmp/corestudio-agent",
+          },
+        ],
+      });
+    });
+  });
+
+  it("applies an ACP Agent preset from application settings", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const loadAcpAgentSettings = vi.fn(async () => ({
+      enabled: false,
+      defaultAgentId: null,
+      agents: [],
+    }));
+    const saveAcpAgentSettings = vi.fn(async (settings) => settings);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAcpAgentSettings,
+      saveAcpAgentSettings,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(loadAcpAgentSettings).toHaveBeenCalled();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    const acpSectionHeading = within(dialog).getByText("ACP Agent");
+    const acpSection = acpSectionHeading.closest("section");
+    expect(acpSection).not.toBeNull();
+    const acpControls = within(acpSection as HTMLElement);
+
+    fireEvent.click(acpControls.getByRole("switch", { name: "启用 ACP Agent" }));
+    fireEvent.change(acpControls.getByLabelText("Agent 类型"), {
+      target: { value: "gemini-cli" },
+    });
+    fireEvent.click(acpControls.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(saveAcpAgentSettings).toHaveBeenCalledWith({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            presetId: "gemini-cli",
+            name: "Gemini CLI",
+            command: "gemini",
+            args: ["--acp"],
+            cwd: null,
           },
         ],
       });

@@ -2,6 +2,8 @@ import {
   Component,
   type ErrorInfo,
   type ReactNode,
+  Suspense,
+  lazy,
   useEffect,
   useMemo,
   useRef,
@@ -10,9 +12,6 @@ import {
 
 import {
   CaptureUpdateAction,
-  Excalidraw,
-} from "@excalidraw/excalidraw";
-import {
   getCommonBounds,
   newElementWith,
   newFrameElement,
@@ -46,12 +45,18 @@ import {
 import {
   ACP_AGENT_CUSTOM_PRESET_ID,
   ACP_AGENT_PRESETS,
+  DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
   getAcpAgentPreset,
   getDefaultAcpAgentSettings,
   getSelectedAcpAgent,
   inferAcpAgentPresetId,
+  normalizeAcpTaskInstructionTemplate,
   type AcpAgentPresetId,
   type AcpAgentSettings,
+  type AcpRunLogEntry,
+  type AcpRunLogDetail,
+  type AcpRunLogKind,
+  type AcpRunSummary,
   type AcpTaskEvent,
   type AcpTaskRequest,
   type AcpTaskStatus,
@@ -112,7 +117,6 @@ import {
 } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
-import { AgentBoard } from "./components/AgentBoard";
 import { AgentStatusDock } from "./components/AgentStatusDock";
 import { ImageSidebar } from "./components/ImageSidebar";
 
@@ -120,7 +124,6 @@ import type { GenerationTaskRecord } from "./components/ImageInspector";
 
 import { SideDock } from "./components/SideDock";
 import { DesktopButton } from "./components/DesktopButton";
-import { ProjectMainMenu } from "./components/ProjectMainMenu";
 import { WelcomePane } from "./components/WelcomePane";
 import {
   buildAgentProjectContext,
@@ -161,6 +164,21 @@ import type {
   SavedPrompt,
   SavePromptInput,
 } from "../shared/desktopBridgeTypes";
+
+const LazyAgentBoard = lazy(async () => {
+  const { AgentBoard } = await import("./components/AgentBoard");
+  return { default: AgentBoard };
+});
+
+const LazyExcalidraw = lazy(async () => {
+  const { Excalidraw } = await import("@excalidraw/excalidraw");
+  return { default: Excalidraw };
+});
+
+const LazyProjectMainMenu = lazy(async () => {
+  const { ProjectMainMenu } = await import("./components/ProjectMainMenu");
+  return { default: ProjectMainMenu };
+});
 
 const getPromptHistoryText = (request: GenerationRequest) =>
   buildPromptTextWithInlineReferences(request).trim() || request.prompt;
@@ -260,6 +278,15 @@ interface AcpAgentTaskUiState {
   status: AcpTaskStatus;
   message: string;
   transcript: string;
+  events: AcpAgentTaskTimelineItem[];
+  logPath?: string;
+}
+
+interface AcpAgentTaskTimelineItem {
+  id: string;
+  title: string;
+  detail?: string;
+  tone?: "neutral" | "success" | "danger";
 }
 
 interface AutosaveSnapshot {
@@ -975,6 +1002,180 @@ const formatAcpAgentArgs = (args: readonly string[]) => args.join(" ");
 const getAcpAgentDraftName = (presetId: AcpAgentPresetId) =>
   getAcpAgentPreset(presetId)?.name ?? "自定义 ACP Agent";
 
+const MAX_ACP_AGENT_TIMELINE_ITEMS = 24;
+
+const getAcpAgentTimelineStatusTone = (
+  status: AcpTaskStatus,
+): AcpAgentTaskTimelineItem["tone"] => {
+  if (status === "completed") {
+    return "success";
+  }
+  if (status === "failed" || status === "cancelled") {
+    return "danger";
+  }
+  return "neutral";
+};
+
+const createAcpAgentTimelineItem = (
+  item: Omit<AcpAgentTaskTimelineItem, "id">,
+): AcpAgentTaskTimelineItem => ({
+  id: `acp-task-event-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`,
+  ...item,
+});
+
+const appendAcpAgentTimelineItem = (
+  current: AcpAgentTaskUiState | null,
+  taskId: string,
+  item: Omit<AcpAgentTaskTimelineItem, "id">,
+) => {
+  const currentEvents = current?.taskId === taskId ? current.events : [];
+  return [
+    ...currentEvents,
+    createAcpAgentTimelineItem(item),
+  ].slice(-MAX_ACP_AGENT_TIMELINE_ITEMS);
+};
+
+const getAcpToolStatusLabel = (
+  status: Extract<AcpTaskEvent, { type: "tool" }>["status"],
+) => {
+  switch (status) {
+    case "pending":
+      return "等待调用";
+    case "in_progress":
+      return "调用中";
+    case "completed":
+      return "已完成";
+    case "failed":
+      return "失败";
+  }
+};
+
+const getAcpRunStatusLabel = (status: AcpRunSummary["status"]) => {
+  switch (status) {
+    case "running":
+      return "运行中";
+    case "completed":
+      return "已完成";
+    case "failed":
+      return "失败";
+    case "cancelled":
+      return "已取消";
+  }
+};
+
+const RAW_ACP_RUN_LOG_KINDS = new Set<AcpRunLogKind>([
+  "acp.request",
+  "acp.response",
+  "acp.notification",
+  "stderr",
+]);
+
+const isRawAcpRunLogEntry = (entry: AcpRunLogEntry) =>
+  RAW_ACP_RUN_LOG_KINDS.has(entry.kind);
+
+const getPayloadRecord = (payload: unknown) =>
+  payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : null;
+
+const getPayloadText = (
+  payload: unknown,
+  keys: readonly string[],
+): string | null => {
+  const record = getPayloadRecord(payload);
+  if (!record) {
+    return typeof payload === "string" ? payload : null;
+  }
+
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const getAcpRunLogDisplayEntry = (entry: AcpRunLogEntry) => {
+  const record = getPayloadRecord(entry.payload);
+  switch (entry.kind) {
+    case "task.created":
+      return {
+        title: "任务已创建",
+        detail: getPayloadText(entry.payload, ["userPrompt", "projectName"]),
+        tone: "neutral" as const,
+      };
+    case "task.package":
+      return {
+        title: "已发送 CoreStudio 任务包",
+        detail: getPayloadText(entry.payload, ["userPrompt"]),
+        tone: "neutral" as const,
+      };
+    case "status":
+      return {
+        title: getPayloadText(entry.payload, ["message"]) ?? "任务状态更新",
+        detail:
+          typeof record?.status === "string"
+            ? getAcpRunStatusLabel(record.status as AcpRunSummary["status"])
+            : null,
+        tone: record?.status === "failed" ? "danger" as const : "neutral" as const,
+      };
+    case "agent.message":
+    case "agent.thought":
+      return {
+        title: entry.kind === "agent.thought" ? "Agent 思考" : "Agent 回复",
+        detail: getPayloadText(entry.payload, ["text", "message"]),
+        tone: "neutral" as const,
+      };
+    case "tool.call":
+    case "tool.update":
+      return {
+        title: getPayloadText(entry.payload, ["title", "name"]) ?? "Agent 工具",
+        detail:
+          getPayloadText(entry.payload, ["status", "message"]) ??
+          getPayloadText(entry.payload, ["detail"]),
+        tone: record?.status === "failed" ? "danger" as const : "neutral" as const,
+      };
+    case "error":
+      return {
+        title: "任务错误",
+        detail: getPayloadText(entry.payload, ["message", "error"]),
+        tone: "danger" as const,
+      };
+    case "task.finished":
+      return {
+        title: "任务结束",
+        detail:
+          getPayloadText(entry.payload, ["errorMessage", "lastMessage"]) ??
+          (typeof record?.status === "string"
+            ? getAcpRunStatusLabel(record.status as AcpRunSummary["status"])
+            : null),
+        tone: record?.status === "failed" ? "danger" as const : "neutral" as const,
+      };
+    case "acp.request":
+    case "acp.response":
+    case "acp.notification":
+    case "stderr":
+      return null;
+  }
+};
+
+const formatAcpRunLogPayload = (payload: unknown) => {
+  if (payload === undefined || payload === null) {
+    return "";
+  }
+  if (typeof payload === "string") {
+    return payload;
+  }
+  try {
+    return JSON.stringify(payload, null, 2);
+  } catch {
+    return String(payload);
+  }
+};
+
 const getRuntimeSelectedElementIds = (appState: AppState) =>
   Object.entries(appState.selectedElementIds ?? {})
     .filter(([, selected]) => Boolean(selected))
@@ -1060,6 +1261,9 @@ const App = () => {
   const [acpAgentCommandDraft, setAcpAgentCommandDraft] = useState("");
   const [acpAgentArgsDraft, setAcpAgentArgsDraft] = useState("");
   const [acpAgentCwdDraft, setAcpAgentCwdDraft] = useState("");
+  const [acpTaskInstructionDraft, setAcpTaskInstructionDraft] = useState(
+    DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
+  );
   const [savingAcpAgentSettings, setSavingAcpAgentSettings] = useState(false);
   const [acpAgentTask, setAcpAgentTask] =
     useState<AcpAgentTaskUiState | null>(null);
@@ -1093,6 +1297,16 @@ const App = () => {
     useState<GenerationErrorDetails | null>(null);
   const [generationErrorDetailsOpen, setGenerationErrorDetailsOpen] = useState(false);
   const [generationErrorCopied, setGenerationErrorCopied] = useState(false);
+  const [acpRunLogDialogOpen, setAcpRunLogDialogOpen] = useState(false);
+  const [acpRunLogLoading, setAcpRunLogLoading] = useState(false);
+  const [acpRunLogDetail, setAcpRunLogDetail] =
+    useState<AcpRunLogDetail | null>(null);
+  const [acpRunLogError, setAcpRunLogError] = useState<string | null>(null);
+  const [acpRunLogRawOpen, setAcpRunLogRawOpen] = useState(false);
+  const [acpRunSummaries, setAcpRunSummaries] = useState<AcpRunSummary[]>([]);
+  const [acpRunSummariesLoading, setAcpRunSummariesLoading] = useState(false);
+  const [acpRunSummariesError, setAcpRunSummariesError] =
+    useState<string | null>(null);
   const [generateFocusToken, setGenerateFocusToken] = useState(0);
   const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
@@ -1945,14 +2159,24 @@ const App = () => {
   };
 
   const syncAcpAgentDraftFromSettings = (settings: AcpAgentSettings) => {
-    const agent = getSelectedAcpAgent(settings) ?? settings.agents[0] ?? null;
+    const normalizedSettings = {
+      ...settings,
+      taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
+        settings.taskInstructionTemplate,
+      ),
+    };
+    const agent =
+      getSelectedAcpAgent(normalizedSettings) ??
+      normalizedSettings.agents[0] ??
+      null;
     const presetId = inferAcpAgentPresetId(agent);
     const preset = getAcpAgentPreset(presetId);
-    setAcpAgentEnabledDraft(settings.enabled);
+    setAcpAgentEnabledDraft(normalizedSettings.enabled);
     setAcpAgentPresetDraft(presetId);
     setAcpAgentCommandDraft(agent?.command ?? preset?.command ?? "");
     setAcpAgentArgsDraft(formatAcpAgentArgs(agent?.args ?? preset?.args ?? []));
     setAcpAgentCwdDraft(agent?.cwd ?? preset?.cwd ?? "");
+    setAcpTaskInstructionDraft(normalizedSettings.taskInstructionTemplate);
   };
 
   const loadAcpAgentSettingsState = async () => {
@@ -2068,6 +2292,28 @@ const App = () => {
   const getErrorText = (error: unknown, fallbackMessage: string) =>
     error instanceof Error ? error.message : String(error || fallbackMessage);
 
+  const loadAcpRunSummariesState = async () => {
+    if (!bridge?.listAcpAgentRunLogs) {
+      setAcpRunSummaries([]);
+      setAcpRunSummariesError(null);
+      setAcpRunSummariesLoading(false);
+      return;
+    }
+
+    setAcpRunSummariesLoading(true);
+    setAcpRunSummariesError(null);
+    try {
+      setAcpRunSummaries(await bridge.listAcpAgentRunLogs({ limit: 8 }));
+    } catch (error) {
+      setAcpRunSummaries([]);
+      setAcpRunSummariesError(
+        getErrorText(error, "读取最近 Agent 任务失败。"),
+      );
+    } finally {
+      setAcpRunSummariesLoading(false);
+    }
+  };
+
   const reportAutosaveError = (error: unknown) => {
     console.error("[project:autosave-failed]", error);
     setProjectError(getErrorText(error, copy.startup.saveProjectFailed));
@@ -2119,6 +2365,14 @@ const App = () => {
       }
     };
   }, [bridge]);
+
+  useEffect(() => {
+    if (!appSettingsOpen) {
+      return;
+    }
+
+    void loadAcpRunSummariesState();
+  }, [appSettingsOpen, bridge]);
 
   useEffect(() => {
     if (!currentProject) {
@@ -2189,6 +2443,13 @@ const App = () => {
           status: event.status,
           message: event.message,
           transcript: current?.taskId === event.taskId ? current.transcript : "",
+          events: appendAcpAgentTimelineItem(current, event.taskId, {
+            title: event.message,
+            tone: getAcpAgentTimelineStatusTone(event.status),
+          }),
+          logPath:
+            event.logPath ??
+            (current?.taskId === event.taskId ? current.logPath : undefined),
         }));
         if (["completed", "failed", "cancelled"].includes(event.status)) {
           activeAcpTaskIdRef.current = null;
@@ -2207,6 +2468,11 @@ const App = () => {
           transcript: `${current?.taskId === event.taskId ? current.transcript : ""}${
             event.text
           }`.trim(),
+          events: appendAcpAgentTimelineItem(current, event.taskId, {
+            title: "Agent 回复",
+            detail: event.text,
+          }),
+          logPath: current?.taskId === event.taskId ? current.logPath : undefined,
         }));
         return;
       }
@@ -2217,6 +2483,12 @@ const App = () => {
           status: current?.taskId === event.taskId ? current.status : "running",
           message: event.title,
           transcript: current?.taskId === event.taskId ? current.transcript : "",
+          events: appendAcpAgentTimelineItem(current, event.taskId, {
+            title: event.title,
+            detail: getAcpToolStatusLabel(event.status),
+            tone: event.status === "failed" ? "danger" : "neutral",
+          }),
+          logPath: current?.taskId === event.taskId ? current.logPath : undefined,
         }));
         return;
       }
@@ -2227,6 +2499,12 @@ const App = () => {
           status: "failed",
           message: event.message,
           transcript: current?.taskId === event.taskId ? current.transcript : "",
+          events: appendAcpAgentTimelineItem(current, event.taskId, {
+            title: "任务失败",
+            detail: event.message,
+            tone: "danger",
+          }),
+          logPath: current?.taskId === event.taskId ? current.logPath : undefined,
         }));
       }
     });
@@ -3212,6 +3490,12 @@ const App = () => {
       status: "connecting",
       message: "正在连接 ACP Agent",
       transcript: "",
+      events: [
+        createAcpAgentTimelineItem({
+          title: "正在连接 ACP Agent",
+        }),
+      ],
+      logPath: undefined,
     });
 
     await bridge.startAcpAgentTask(taskRequest);
@@ -3221,6 +3505,28 @@ const App = () => {
       promptParts: [],
       promptReferences: [],
     }));
+  };
+
+  const handleOpenAcpRunLog = async (taskId: string) => {
+    setAcpRunLogDialogOpen(true);
+    setAcpRunLogLoading(true);
+    setAcpRunLogDetail(null);
+    setAcpRunLogError(null);
+    setAcpRunLogRawOpen(false);
+
+    try {
+      if (!bridge?.readAcpAgentRunLog) {
+        throw new Error("当前环境不能读取 ACP Agent 任务记录。");
+      }
+      const detail = await bridge.readAcpAgentRunLog(taskId);
+      setAcpRunLogDetail(detail);
+    } catch (error) {
+      setAcpRunLogError(
+        getErrorText(error, "读取 ACP Agent 任务记录失败。"),
+      );
+    } finally {
+      setAcpRunLogLoading(false);
+    }
   };
 
   const handleGenerateImages = async (
@@ -3712,6 +4018,9 @@ const App = () => {
     const nextSettings: AcpAgentSettings = {
       enabled: Boolean(acpAgentEnabledDraft && command),
       defaultAgentId: command ? "default" : null,
+      taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
+        acpTaskInstructionDraft,
+      ),
       agents: command
         ? [
             {
@@ -4024,6 +4333,172 @@ const App = () => {
     }
   });
 
+  const renderAcpRunLogDialog = () =>
+    acpRunLogDialogOpen ? (
+      <div className="dialog-backdrop">
+        <div
+          className="dialog-card dialog-card--wide acp-run-log-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="acp-run-log-title"
+        >
+          <div className="dialog-card__header">
+            <div>
+              <span className="dialog-card__eyebrow">ACP Agent</span>
+              <h2 id="acp-run-log-title">Agent 任务记录</h2>
+            </div>
+            <DesktopButton
+              type="button"
+              className="dialog-card__close"
+              onClick={() => setAcpRunLogDialogOpen(false)}
+            >
+              关闭
+            </DesktopButton>
+          </div>
+
+          {acpRunLogLoading ? (
+            <div className="dialog-card__notice">正在读取任务记录…</div>
+          ) : null}
+
+          {acpRunLogError ? (
+            <div className="dialog-card__error">{acpRunLogError}</div>
+          ) : null}
+
+          {acpRunLogDetail
+            ? (() => {
+                const displayEntries = acpRunLogDetail.entries
+                  .filter((entry) => !isRawAcpRunLogEntry(entry))
+                  .map((entry) => ({
+                    entry,
+                    display: getAcpRunLogDisplayEntry(entry),
+                  }))
+                  .filter(
+                    (
+                      item,
+                    ): item is {
+                      entry: AcpRunLogEntry;
+                      display: NonNullable<
+                        ReturnType<typeof getAcpRunLogDisplayEntry>
+                      >;
+                    } => item.display !== null,
+                  );
+                const rawEntries =
+                  acpRunLogDetail.entries.filter(isRawAcpRunLogEntry);
+
+                return (
+                  <>
+                    <div className="acp-run-log-dialog__summary">
+                      <div>
+                        <span>任务</span>
+                        <strong>{acpRunLogDetail.summary.taskId}</strong>
+                      </div>
+                      <div>
+                        <span>Agent</span>
+                        <strong>{acpRunLogDetail.summary.agentName}</strong>
+                      </div>
+                      <div>
+                        <span>状态</span>
+                        <strong>
+                          {getAcpRunStatusLabel(acpRunLogDetail.summary.status)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>项目</span>
+                        <strong>{acpRunLogDetail.summary.projectName}</strong>
+                      </div>
+                    </div>
+
+                    <div
+                      className="acp-run-log-dialog__timeline"
+                      role="log"
+                      aria-label="Agent 任务过程"
+                    >
+                      {displayEntries.length > 0 ? (
+                        displayEntries.map(({ entry, display }) => (
+                          <article
+                            key={`${entry.taskId}-${entry.seq}`}
+                            className={[
+                              "acp-run-log-dialog__timeline-item",
+                              display.tone === "danger"
+                                ? "acp-run-log-dialog__timeline-item--danger"
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          >
+                            <span
+                              className="acp-run-log-dialog__timeline-dot"
+                              aria-hidden="true"
+                            />
+                            <div className="acp-run-log-dialog__timeline-copy">
+                              <div>
+                                <strong>{display.title}</strong>
+                                <span>
+                                  {new Date(entry.timestamp).toLocaleString(
+                                    "zh-CN",
+                                  )}
+                                </span>
+                              </div>
+                              {display.detail ? <p>{display.detail}</p> : null}
+                            </div>
+                          </article>
+                        ))
+                      ) : (
+                        <p className="acp-run-log-dialog__empty">
+                          暂无可读过程记录。
+                        </p>
+                      )}
+                    </div>
+
+                    {rawEntries.length > 0 ? (
+                      <div className="acp-run-log-dialog__debug">
+                        <DesktopButton
+                          type="button"
+                          onClick={() =>
+                            setAcpRunLogRawOpen((current) => !current)
+                          }
+                          aria-expanded={acpRunLogRawOpen}
+                        >
+                          {acpRunLogRawOpen
+                            ? "隐藏原始记录"
+                            : "显示原始记录"}
+                        </DesktopButton>
+                        {acpRunLogRawOpen ? (
+                          <div className="acp-run-log-dialog__events">
+                            {rawEntries.map((entry) => {
+                              const payloadText = formatAcpRunLogPayload(
+                                entry.payload,
+                              );
+                              return (
+                                <article
+                                  key={`${entry.taskId}-${entry.seq}`}
+                                  className="acp-run-log-dialog__event"
+                                >
+                                  <div className="acp-run-log-dialog__event-header">
+                                    <strong>{entry.kind}</strong>
+                                    <span>
+                                      #{entry.seq} ·{" "}
+                                      {new Date(
+                                        entry.timestamp,
+                                      ).toLocaleString("zh-CN")}
+                                    </span>
+                                  </div>
+                                  {payloadText ? <pre>{payloadText}</pre> : null}
+                                </article>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })()
+            : null}
+        </div>
+      </div>
+    ) : null;
+
   const renderAboutDialog = () =>
     aboutOpen ? (
       <div className="dialog-backdrop">
@@ -4057,8 +4532,13 @@ const App = () => {
       </div>
     ) : null;
 
-  const renderAppSettingsDialog = () =>
-    appSettingsOpen ? (
+  const renderAppSettingsDialog = () => {
+    const acpAgentDefaultCwd =
+      currentProject?.projectPath ??
+      agentBridgeStatus?.currentProject?.projectPath ??
+      "当前项目目录";
+
+    return appSettingsOpen ? (
       <div className="dialog-backdrop">
         <div
           className="dialog-card dialog-card--settings"
@@ -4117,7 +4597,7 @@ const App = () => {
                   role="switch"
                   aria-label="启用 ACP Agent"
                   aria-checked={acpAgentEnabledDraft}
-                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  disabled={!bridge?.saveAcpAgentSettings}
                   className="app-settings-section__switch"
                   onClick={() =>
                     setAcpAgentEnabledDraft((current) => !current)
@@ -4128,7 +4608,7 @@ const App = () => {
                 Agent 类型
                 <select
                   value={acpAgentPresetDraft}
-                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  disabled={!bridge?.saveAcpAgentSettings}
                   onChange={(event) =>
                     handleAcpAgentPresetDraftChange(
                       event.target.value as AcpAgentPresetId,
@@ -4148,7 +4628,7 @@ const App = () => {
                 <input
                   value={acpAgentCommandDraft}
                   placeholder="/usr/local/bin/acp-agent"
-                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  disabled={!bridge?.saveAcpAgentSettings}
                   onChange={(event) => {
                     setAcpAgentPresetDraft(ACP_AGENT_CUSTOM_PRESET_ID);
                     setAcpAgentCommandDraft(event.target.value);
@@ -4160,7 +4640,7 @@ const App = () => {
                 <input
                   value={acpAgentArgsDraft}
                   placeholder="--stdio"
-                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  disabled={!bridge?.saveAcpAgentSettings}
                   onChange={(event) => setAcpAgentArgsDraft(event.target.value)}
                 />
               </label>
@@ -4168,10 +4648,27 @@ const App = () => {
                 工作目录
                 <input
                   value={acpAgentCwdDraft}
-                  placeholder="留空则使用默认目录"
-                  disabled={!bridge?.saveAcpAgentSettings || isAgentBrowserRoute}
+                  placeholder={`默认：${acpAgentDefaultCwd}`}
+                  title={`默认：${acpAgentDefaultCwd}`}
+                  disabled={!bridge?.saveAcpAgentSettings}
                   onChange={(event) => setAcpAgentCwdDraft(event.target.value)}
                 />
+              </label>
+              <label className="app-settings-form__wide-field">
+                任务说明模板
+                <textarea
+                  aria-label="任务说明模板"
+                  value={acpTaskInstructionDraft}
+                  rows={7}
+                  placeholder={DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE}
+                  disabled={!bridge?.saveAcpAgentSettings}
+                  onChange={(event) =>
+                    setAcpTaskInstructionDraft(event.target.value)
+                  }
+                />
+                <span>
+                  会作为任务首段文本发送给 Agent；项目、选区、图片 ID、Bridge 地址和写回规则会另附为结构化任务包。
+                </span>
               </label>
               <div className="app-settings-form__actions">
                 <span>
@@ -4183,8 +4680,7 @@ const App = () => {
                   type="button"
                   disabled={
                     savingAcpAgentSettings ||
-                    !bridge?.saveAcpAgentSettings ||
-                    isAgentBrowserRoute
+                    !bridge?.saveAcpAgentSettings
                   }
                   onClick={() => {
                     void handleSaveAcpAgentSettings();
@@ -4194,10 +4690,77 @@ const App = () => {
                 </DesktopButton>
               </div>
             </div>
+            <div className="acp-run-history">
+              <div className="acp-run-history__header">
+                <div>
+                  <strong>最近 Agent 任务</strong>
+                  <span>
+                    查看最近的 ACP Agent 执行记录，方便确认外部 Agent 做了什么。
+                  </span>
+                </div>
+                <DesktopButton
+                  type="button"
+                  disabled={
+                    acpRunSummariesLoading || !bridge?.listAcpAgentRunLogs
+                  }
+                  onClick={() => {
+                    void loadAcpRunSummariesState();
+                  }}
+                >
+                  {acpRunSummariesLoading ? "读取中..." : "刷新"}
+                </DesktopButton>
+              </div>
+              {acpRunSummariesError ? (
+                <div className="dialog-card__error">
+                  {acpRunSummariesError}
+                </div>
+              ) : null}
+              {acpRunSummaries.length > 0 ? (
+                <div className="acp-run-history__list">
+                  {acpRunSummaries.map((summary) => (
+                    <button
+                      key={summary.taskId}
+                      type="button"
+                      className="acp-run-history__item"
+                      aria-label={`查看任务记录：${summary.userPrompt}`}
+                      onClick={() => {
+                        void handleOpenAcpRunLog(summary.taskId);
+                      }}
+                    >
+                      <span className="acp-run-history__item-project">
+                        {summary.projectName}
+                      </span>
+                      <strong>{summary.userPrompt}</strong>
+                      <span className="acp-run-history__item-meta">
+                        <span>{summary.agentName}</span>
+                        <span className="acp-run-history__item-status">
+                          {getAcpRunStatusLabel(summary.status)}
+                        </span>
+                        <span>
+                          {new Date(summary.startedAt).toLocaleString("zh-CN")}
+                        </span>
+                      </span>
+                      {summary.lastMessage || summary.errorMessage ? (
+                        <span className="acp-run-history__item-message">
+                          {summary.errorMessage ?? summary.lastMessage}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="acp-run-history__empty">
+                  {bridge?.listAcpAgentRunLogs
+                    ? "暂无最近任务记录。"
+                    : "当前环境暂不支持读取任务记录。"}
+                </p>
+              )}
+            </div>
           </section>
         </div>
       </div>
     ) : null;
+  };
 
   const renderProjectStatusToast = () => {
     const message =
@@ -4251,7 +4814,23 @@ const App = () => {
 
   if (!bridge) {
     if (window.location.pathname === "/agent-board") {
-      return <AgentBoard />;
+      return (
+        <Suspense
+          fallback={
+            <div className="image-board-app">
+              <div className="welcome-pane">
+                <div className="welcome-pane__card welcome-pane__diagnostic">
+                  <span className="welcome-pane__eyebrow">Agent Board</span>
+                  <h1>正在载入内置画板</h1>
+                  <p>请稍等，CoreStudio 正在准备 Agent Board。</p>
+                </div>
+              </div>
+            </div>
+          }
+        >
+          <LazyAgentBoard />
+        </Suspense>
+      );
     }
 
     return (
@@ -4403,6 +4982,7 @@ const App = () => {
         ) : null}
         {renderAboutDialog()}
         {renderAppSettingsDialog()}
+        {renderAcpRunLogDialog()}
       </div>
     );
   }
@@ -4468,6 +5048,7 @@ const App = () => {
       )}
       {renderAboutDialog()}
       {renderAppSettingsDialog()}
+      {renderAcpRunLogDialog()}
       <ProjectRenderBoundary
         projectKey={projectRenderKey}
         onError={handleProjectRenderError}
@@ -4484,136 +5065,141 @@ const App = () => {
               </div>
             )}
             {renderProjectStatusToast()}
-            <Excalidraw
-              key={projectRenderKey}
-              langCode={DESKTOP_LANG_CODE}
-              initialData={initialData}
-              onInitialize={(api) => {
-                handleEditorReady(api ?? null, projectRenderNonce);
-              }}
-              onExcalidrawAPI={(api) => {
-                if (projectRenderNonce === projectRenderNonceRef.current) {
-                  excalidrawAPIRef.current = api;
-                  flushQueuedImageFilesToCanvas();
-                  scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-                }
-              }}
-              onPointerUpdate={({ pointer }) => {
-                lastCanvasPointerRef.current = {
-                  x: pointer.x,
-                  y: pointer.y,
-                };
-              }}
-              onScrollChange={handleViewportChange}
-              onPaste={handleDesktopClipboardPaste}
-              onChange={(elements, appState, files) => {
-                const activeProject = currentProjectRef.current;
-                if (!activeProject) {
-                  return;
-                }
-                const nextScene = {
-                  elements,
-                  appState,
-                  files,
-                };
-                const selectionReferenceSignature =
-                  getSelectionReferenceSignature(nextScene);
-                const selectionReferenceSummary = buildSelectionReferenceSummary({
-                  elements,
-                  appState,
-                  files,
-                });
-                if (
-                  removedSelectionReferenceSignatureRef.current &&
-                  removedSelectionReferenceSignatureRef.current !==
-                    selectionReferenceSignature
-                ) {
-                  removedSelectionReferenceSignatureRef.current = null;
-                }
-                if (maybeSnapWorkspaceZoom(elements, appState)) {
-                  return;
-                }
-                latestSceneRef.current = nextScene;
-                scheduleVisibleImageRenditionLoad(nextScene);
-                scheduleAgentBrowserRuntimeStatePublish(nextScene);
-                updateWorkspaceOverlay(elements, appState);
-                setGenerateRequest((current) =>
-                  syncSelectionReferenceIntoRequest(
-                    current,
-                    removedSelectionReferenceSignatureRef.current ===
-                      selectionReferenceSignature
-                      ? null
-                      : selectionReferenceSummary,
-                  ),
-                );
-                setSelectedRecord(
-                  buildSelectedImageRecord(
-                    elements,
-                    appState,
-                    activeProject.imageRecords,
-                  ),
-                );
-                setSelectedTask(
-                  buildSelectedGenerationTask(
-                    appState,
-                    generationTaskByElementIdRef.current,
-                  ),
-                );
-                if (!isEditorInitializingRef.current) {
-                  scheduleAutosave({
-                    project: activeProject,
+            <Suspense fallback={null}>
+              <LazyExcalidraw
+                key={projectRenderKey}
+                langCode={DESKTOP_LANG_CODE}
+                initialData={initialData}
+                onInitialize={(api) => {
+                  handleEditorReady(api ?? null, projectRenderNonce);
+                }}
+                onExcalidrawAPI={(api) => {
+                  if (projectRenderNonce === projectRenderNonceRef.current) {
+                    excalidrawAPIRef.current = api;
+                    flushQueuedImageFilesToCanvas();
+                    scheduleVisibleImageRenditionLoad(latestSceneRef.current);
+                  }
+                }}
+                onPointerUpdate={({ pointer }) => {
+                  lastCanvasPointerRef.current = {
+                    x: pointer.x,
+                    y: pointer.y,
+                  };
+                }}
+                onScrollChange={handleViewportChange}
+                onPaste={handleDesktopClipboardPaste}
+                onChange={(elements, appState, files) => {
+                  const activeProject = currentProjectRef.current;
+                  if (!activeProject) {
+                    return;
+                  }
+                  const nextScene = {
                     elements,
                     appState,
                     files,
-                  });
-                }
-              }}
-              UIOptions={{
-                defaultSidebar: false,
-                canvasActions: {
-                  loadScene: false,
-                  saveToActiveFile: false,
-                  export: false,
-                  toggleTheme: true,
-                },
-              }}
-              detectScroll={false}
-              handleKeyboardGlobally={true}
-              autoFocus={true}
-              renderSelectedShapeActions={({
-                selectedShapeActions,
-                shouldRenderSelectedShapeActions,
-              }) => (
-                <SideDock
-                  side="left"
-                  title={copy.elementActions.title}
-                  open={elementDockOpen}
-                  onOpenChange={setElementDockOpen}
-                >
-                  {shouldRenderSelectedShapeActions ? selectedShapeActions : null}
-                </SideDock>
-              )}
-            >
-              <ProjectMainMenu
-                currentProjectName={currentProject.project.name}
-                onSwitchProject={() => {
-                  void handleSwitchProject();
+                  };
+                  const selectionReferenceSignature =
+                    getSelectionReferenceSignature(nextScene);
+                  const selectionReferenceSummary =
+                    buildSelectionReferenceSummary({
+                      elements,
+                      appState,
+                      files,
+                    });
+                  if (
+                    removedSelectionReferenceSignatureRef.current &&
+                    removedSelectionReferenceSignatureRef.current !==
+                      selectionReferenceSignature
+                  ) {
+                    removedSelectionReferenceSignatureRef.current = null;
+                  }
+                  if (maybeSnapWorkspaceZoom(elements, appState)) {
+                    return;
+                  }
+                  latestSceneRef.current = nextScene;
+                  scheduleVisibleImageRenditionLoad(nextScene);
+                  scheduleAgentBrowserRuntimeStatePublish(nextScene);
+                  updateWorkspaceOverlay(elements, appState);
+                  setGenerateRequest((current) =>
+                    syncSelectionReferenceIntoRequest(
+                      current,
+                      removedSelectionReferenceSignatureRef.current ===
+                        selectionReferenceSignature
+                        ? null
+                        : selectionReferenceSummary,
+                    ),
+                  );
+                  setSelectedRecord(
+                    buildSelectedImageRecord(
+                      elements,
+                      appState,
+                      activeProject.imageRecords,
+                    ),
+                  );
+                  setSelectedTask(
+                    buildSelectedGenerationTask(
+                      appState,
+                      generationTaskByElementIdRef.current,
+                    ),
+                  );
+                  if (!isEditorInitializingRef.current) {
+                    scheduleAutosave({
+                      project: activeProject,
+                      elements,
+                      appState,
+                      files,
+                    });
+                  }
                 }}
-              />
-              <ImageSidebar
-                open={imageDockOpen}
-                onOpenChange={setImageDockOpen}
-                record={selectedRecord}
-                parentRecord={parentRecord}
-                ancestorRecords={ancestorRecords}
-                descendantRecords={descendantRecords}
-                task={selectedTask}
-                onCopyPrompt={handleCopyPrompt}
-                onCopyTaskError={handleCopyTaskError}
-                onLocateImageRecord={handleLocateImageRecord}
-                onLocatePromptReference={handleLocatePromptReference}
-              />
-            </Excalidraw>
+                UIOptions={{
+                  defaultSidebar: false,
+                  canvasActions: {
+                    loadScene: false,
+                    saveToActiveFile: false,
+                    export: false,
+                    toggleTheme: true,
+                  },
+                }}
+                detectScroll={false}
+                handleKeyboardGlobally={true}
+                autoFocus={true}
+                renderSelectedShapeActions={({
+                  selectedShapeActions,
+                  shouldRenderSelectedShapeActions,
+                }) => (
+                  <SideDock
+                    side="left"
+                    title={copy.elementActions.title}
+                    open={elementDockOpen}
+                    onOpenChange={setElementDockOpen}
+                  >
+                    {shouldRenderSelectedShapeActions
+                      ? selectedShapeActions
+                      : null}
+                  </SideDock>
+                )}
+              >
+                <LazyProjectMainMenu
+                  currentProjectName={currentProject.project.name}
+                  onSwitchProject={() => {
+                    void handleSwitchProject();
+                  }}
+                />
+                <ImageSidebar
+                  open={imageDockOpen}
+                  onOpenChange={setImageDockOpen}
+                  record={selectedRecord}
+                  parentRecord={parentRecord}
+                  ancestorRecords={ancestorRecords}
+                  descendantRecords={descendantRecords}
+                  task={selectedTask}
+                  onCopyPrompt={handleCopyPrompt}
+                  onCopyTaskError={handleCopyTaskError}
+                  onLocateImageRecord={handleLocateImageRecord}
+                  onLocatePromptReference={handleLocatePromptReference}
+                />
+              </LazyExcalidraw>
+            </Suspense>
             <AgentStatusDock
               status={agentBridgeStatus}
               onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
@@ -4632,10 +5218,15 @@ const App = () => {
         focusToken={generateFocusToken}
         composerConfig={{
           defaultMode: isAgentBrowserRoute ? "agent" : "direct",
-          showModeSwitch: isAgentBrowserRoute,
-          defaultGenerationSource: generationSource,
-          showGenerationSourceSwitch:
-            isAgentBrowserRoute || Boolean(selectedAcpAgent),
+          showModeSwitch: !isAgentBrowserRoute && Boolean(selectedAcpAgent),
+          modeSwitchVariant: isAgentBrowserRoute
+            ? "agent-operation"
+            : "acp-agent",
+          showModeIndicator: isAgentBrowserRoute,
+          defaultGenerationSource: isAgentBrowserRoute
+            ? "agent"
+            : "builtin",
+          showGenerationSourceSwitch: false,
           agentGenerationAvailable:
             acpAgentGenerationReady && !acpAgentTaskRunning,
           agentGenerationUnavailableMessage:
@@ -4660,6 +5251,7 @@ const App = () => {
         onModelSelectionChange={handleRememberGenerationModelSelection}
         onReferenceRemove={handleRemoveGenerateReference}
         onReferenceCommit={handleCommitGenerateReference}
+        onOpenAgentRunLog={handleOpenAcpRunLog}
         savedPrompts={savedPrompts}
         onSavePrompt={handleSavePrompt}
         onUsePrompt={handleUsePrompt}

@@ -24,6 +24,7 @@ import type {
   SavePromptInput,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
+import type { AcpAgentSettings } from "../../shared/acpTypes";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import type { GenerationResponse } from "../../shared/providerTypes";
 
@@ -195,6 +196,12 @@ export const maybeCreateAgentBrowserDesktopBridge =
           "saveProviderSettings",
           [input],
         ),
+      loadAcpAgentSettings: () =>
+        callDesktopBridge<AcpAgentSettings>(config, "loadAcpAgentSettings"),
+      saveAcpAgentSettings: (settings: AcpAgentSettings) =>
+        callDesktopBridge<AcpAgentSettings>(config, "saveAcpAgentSettings", [
+          settings,
+        ]),
       loadPromptLibrary: () =>
         callDesktopBridge<SavedPrompt[]>(config, "loadPromptLibrary"),
       savePrompt: (input: SavePromptInput) =>

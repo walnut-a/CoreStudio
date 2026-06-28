@@ -540,11 +540,11 @@ describe("Chinese localization", () => {
       screen.getByRole("button", { name: "开始生成" }),
     ).toBeInTheDocument();
     const directSourceStatus = screen
-      .getByText("CoreStudio 生成")
+      .getByText("直接生成")
       .closest(".generate-composer__source-status");
     expect(directSourceStatus).not.toBeNull();
     expect(directSourceStatus).toHaveAttribute("aria-label", "生成方式");
-    expect(directSourceStatus).toHaveTextContent("CoreStudio 生成");
+    expect(directSourceStatus).toHaveTextContent("直接生成");
     expect(screen.queryByText("生成方式")).toBeNull();
     expect(
       directSourceStatus?.closest(".generate-composer__controls"),
@@ -553,22 +553,21 @@ describe("Chinese localization", () => {
       screen.queryByRole("listbox", { name: "生成方式" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("option", { name: "Agent 生成" }),
+      screen.queryByRole("option", { name: "ACP Agent" }),
     ).not.toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("shows the per-request generation mode menu below the composer body", () => {
-    const onRequestChange = vi.fn();
-
+  it("shows a fixed Agent operation mode without generation source options", () => {
     render(
       <GenerateImageDialog
         open={true}
         composerConfig={{
           defaultMode: "agent",
-          showModeSwitch: true,
+          showModeSwitch: false,
+          showModeIndicator: true,
           defaultGenerationSource: "agent",
-          showGenerationSourceSwitch: true,
+          showGenerationSourceSwitch: false,
         }}
         initialRequest={{
           provider: "gemini",
@@ -585,50 +584,112 @@ describe("Chinese localization", () => {
         loading={false}
         error={null}
         onClose={() => undefined}
-        onRequestChange={onRequestChange}
         onSubmit={vi.fn()}
       />,
     );
 
-    const taskBar = screen.getByRole("toolbar", { name: "生成任务状态" });
-    expect(
-      within(taskBar).queryByRole("button", { name: "生成方式" }),
-    ).toBeNull();
-    const sourceButton = screen.getByRole("button", { name: "生成方式" });
-    expect(sourceButton).toHaveTextContent("Agent 生成");
-    fireEvent.click(sourceButton);
-    expect(
-      screen.getByRole("option", { name: "Agent 生成" }),
-    ).not.toHaveAttribute("aria-disabled", "true");
-
-    fireEvent.click(screen.getByRole("option", { name: "CoreStudio 生成" }));
-
-    expect(sourceButton).toHaveTextContent("CoreStudio 生成");
-    expect(onRequestChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        generationSource: "builtin",
-      }),
-    );
+    expect(screen.getByText("Agent 操作")).toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "输入模式" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "直接输入" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "生成方式" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "ACP Agent" })).toBeNull();
+    expect(screen.queryByLabelText("提示词")).toBeNull();
+    expect(screen.queryByRole("button", { name: "开始生成" })).toBeNull();
+    expect(screen.getByText("暂无选中元素")).toBeInTheDocument();
   });
 
-  it("keeps generation mode switchable in Agent operation mode even when direct Agent submission is unavailable", () => {
-    const onRequestChange = vi.fn();
+  it("switches the software composer between direct input and ACP Agent modes", () => {
+    const onSubmit = vi.fn();
 
     render(
       <GenerateImageDialog
         open={true}
         composerConfig={{
-          defaultMode: "agent",
+          defaultMode: "direct",
           showModeSwitch: true,
+          modeSwitchVariant: "acp-agent",
           defaultGenerationSource: "builtin",
-          showGenerationSourceSwitch: true,
+          showGenerationSourceSwitch: false,
+          agentGenerationAvailable: true,
+        }}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "优化这台桌面 CNC 的外观",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    const taskBar = screen.getByRole("toolbar", { name: "生成任务状态" });
+    const modeSwitch = within(taskBar).getByRole("tablist", {
+      name: "输入模式",
+    });
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "直接输入" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "ACP Agent" }),
+    ).toHaveAttribute("aria-selected", "false");
+    expect(
+      within(modeSwitch).queryByRole("tab", { name: "Agent 操作" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "生成方式" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(modeSwitch).getByRole("tab", { name: "ACP Agent" }));
+
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "直接输入" }),
+    ).toHaveAttribute("aria-selected", "false");
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "ACP Agent" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("提示词")).toHaveTextContent(
+      "优化这台桌面 CNC 的外观",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "优化这台桌面 CNC 的外观",
+        generationSource: "agent",
+      }),
+      false,
+    );
+  });
+
+  it("keeps ACP Agent mode visible but disables submission while it is unavailable", () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <GenerateImageDialog
+        open={true}
+        composerConfig={{
+          defaultMode: "direct",
+          showModeSwitch: true,
+          modeSwitchVariant: "acp-agent",
+          defaultGenerationSource: "builtin",
+          showGenerationSourceSwitch: false,
           agentGenerationAvailable: false,
           agentGenerationUnavailableMessage: "需要先配置 ACP Agent",
         }}
         initialRequest={{
           provider: "gemini",
           model: "gemini-3.1-flash-image-preview",
-          prompt: "",
+          prompt: "生成一组产品方向",
           negativePrompt: "",
           width: 1024,
           height: 1024,
@@ -640,27 +701,135 @@ describe("Chinese localization", () => {
         loading={false}
         error={null}
         onClose={() => undefined}
-        onRequestChange={onRequestChange}
-        onSubmit={vi.fn()}
+        onSubmit={onSubmit}
       />,
     );
 
-    const sourceButton = screen.getByRole("button", { name: "生成方式" });
-    expect(sourceButton).toHaveTextContent("CoreStudio 生成");
+    const modeSwitch = screen.getByRole("tablist", { name: "输入模式" });
+    fireEvent.click(within(modeSwitch).getByRole("tab", { name: "ACP Agent" }));
 
-    fireEvent.click(sourceButton);
+    expect(
+      within(modeSwitch).getByRole("tab", { name: "ACP Agent" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "生成方式" }),
+    ).not.toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 
-    const agentOption = screen.getByRole("option", { name: "Agent 生成" });
-    expect(agentOption).not.toHaveAttribute("aria-disabled", "true");
-
-    fireEvent.click(agentOption);
-
-    expect(sourceButton).toHaveTextContent("Agent 生成");
-    expect(onRequestChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        generationSource: "agent",
-      }),
+  it("shows the saved ACP run log hint when the current Agent task has a log path", () => {
+    const onOpenAgentRunLog = vi.fn();
+    render(
+      <GenerateImageDialog
+        open={true}
+        onOpenAgentRunLog={onOpenAgentRunLog}
+        composerConfig={{
+          defaultMode: "direct",
+          showModeSwitch: true,
+          modeSwitchVariant: "acp-agent",
+          defaultGenerationSource: "builtin",
+          showGenerationSourceSwitch: false,
+          agentGenerationAvailable: true,
+          agentTaskStatus: {
+            status: "failed",
+            message: "Agent 任务失败",
+            transcript: "No model configured",
+            taskId: "task-1",
+            logPath:
+              "/Users/alice/Library/Application Support/Excalidraw Image Board/agent-runs/task-1.jsonl",
+          },
+        }}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "生成一组产品方向",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
     );
+
+    expect(screen.getByText("Agent 任务失败")).toBeInTheDocument();
+    expect(screen.getByText("No model configured")).toBeInTheDocument();
+    expect(screen.getByText("日志已保存")).toHaveAttribute(
+      "title",
+      "/Users/alice/Library/Application Support/Excalidraw Image Board/agent-runs/task-1.jsonl",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "查看保存日志" }));
+
+    expect(onOpenAgentRunLog).toHaveBeenCalledWith("task-1");
+  });
+
+  it("expands the current ACP Agent task process when requested", () => {
+    render(
+      <GenerateImageDialog
+        open={true}
+        composerConfig={{
+          defaultMode: "direct",
+          showModeSwitch: true,
+          modeSwitchVariant: "acp-agent",
+          defaultGenerationSource: "builtin",
+          showGenerationSourceSwitch: false,
+          agentGenerationAvailable: true,
+          agentTaskStatus: {
+            taskId: "task-1",
+            status: "running",
+            message: "Agent 正在处理",
+            transcript: "",
+            events: [
+              {
+                id: "event-1",
+                title: "创建会话",
+                detail: "session/new",
+              },
+              {
+                id: "event-2",
+                title: "调用 CoreStudio CLI",
+                detail: "调用中",
+              },
+            ],
+          },
+        }}
+        initialRequest={{
+          provider: "gemini",
+          model: "gemini-3.1-flash-image-preview",
+          prompt: "生成一组产品方向",
+          negativePrompt: "",
+          width: 1024,
+          height: 1024,
+          seed: null,
+          imageCount: 1,
+          reference: null,
+        }}
+        providerSettings={providerSettings}
+        loading={false}
+        error={null}
+        onClose={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByText("session/new")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看任务过程" }));
+
+    expect(
+      screen.getByRole("log", { name: "ACP Agent 任务过程" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("创建会话")).toBeInTheDocument();
+    expect(screen.getByText("session/new")).toBeInTheDocument();
+    expect(screen.getByText("调用 CoreStudio CLI")).toBeInTheDocument();
+    expect(screen.getByText("调用中")).toBeInTheDocument();
   });
 
   it("keeps the selected model when provider settings refresh", () => {

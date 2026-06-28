@@ -130,12 +130,25 @@ describe("acpSessionClient", () => {
       type: "text",
       text: expect.stringContaining("优化这台机器的设计"),
     });
+    expect(promptParams.prompt[0].text).toContain(
+      "You are an external ACP Agent working with CoreStudio",
+    );
     expect(promptParams.prompt[1]).toMatchObject({
       type: "resource",
       resource: {
         uri: "corestudio://task/context",
         mimeType: "application/json",
         text: expect.stringContaining("project-token"),
+      },
+    });
+    const taskContext = JSON.parse(promptParams.prompt[1].resource.text);
+    expect(taskContext).toMatchObject({
+      schemaVersion: "corestudio.acpTask.v1",
+      contract: {
+        writeBack: {
+          required: true,
+          authority: "CoreStudio CLI / Local Bridge",
+        },
       },
     });
     expect(events).toEqual(
@@ -173,6 +186,84 @@ describe("acpSessionClient", () => {
     expect(promptParams.prompt).toHaveLength(1);
     expect(promptParams.prompt[0].text).toContain("CoreStudio 上下文");
     expect(promptParams.prompt[0].text).toContain("project-token");
+    expect(promptParams.prompt[0].text).toContain(
+      "You are an external ACP Agent working with CoreStudio",
+    );
+  });
+
+  it("allows CoreStudio settings to override the default task instruction template", async () => {
+    const { process, request } = createFakeProcess();
+    const client = createAcpSessionClient({
+      process,
+      clientInfo: {
+        name: "corestudio",
+        title: "CoreStudio",
+        version: "1.1.10",
+      },
+      taskInstructionTemplate: "请先分析参考图，再用 CLI 写回。",
+      onEvent: vi.fn(),
+    });
+
+    await client.runTask(createTaskRequest());
+
+    const promptParams = request.mock.calls[2][1] as any;
+    expect(promptParams.prompt[0].text).toContain(
+      "请先分析参考图，再用 CLI 写回。",
+    );
+  });
+
+  it("filters Codex runtime warnings from agent transcript", async () => {
+    const { process, notificationListeners } = createFakeProcess();
+    const events: unknown[] = [];
+    const client = createAcpSessionClient({
+      process,
+      clientInfo: {
+        name: "corestudio",
+        title: "CoreStudio",
+        version: "1.1.10",
+      },
+      onEvent: (event) => events.push(event),
+    });
+
+    const task = client.runTask(createTaskRequest());
+
+    for (const listener of notificationListeners) {
+      listener("session/update", {
+        sessionId: "session-1",
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: {
+            type: "text",
+            text: "Warning: Skill descriptions were shortened to fit the 2% skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.\n\n",
+          },
+        },
+      });
+      listener("session/update", {
+        sessionId: "session-1",
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: {
+            type: "text",
+            text: "我会继续处理画板。",
+          },
+        },
+      });
+    }
+
+    await task;
+
+    expect(events).not.toContainEqual(
+      expect.objectContaining({
+        type: "agent-message",
+        text: expect.stringContaining("Skill descriptions were shortened"),
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "agent-message",
+        text: "我会继续处理画板。",
+      }),
+    );
   });
 
   it("rejects unsupported ACP protocol versions", async () => {

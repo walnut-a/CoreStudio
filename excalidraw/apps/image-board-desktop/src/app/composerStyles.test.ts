@@ -142,8 +142,10 @@ describe("generate composer styles", () => {
 
     expect(appRule).toContain("--button-hover-bg: var(--color-surface-high)");
     expect(appRule).toContain("--button-active-bg: var(--color-surface-high)");
-    expect(appRule).toContain("--canvas-footer-button-size: 2.5rem");
-    expect(appRule).toContain("--canvas-footer-icon-size: 1.25rem");
+    expect(appRule).toContain(
+      "--canvas-footer-button-size: var(--lg-button-size)",
+    );
+    expect(appRule).toContain("--canvas-footer-icon-size: var(--lg-icon-size)");
     expect(appRule).toContain("--canvas-footer-button-gap: 8px");
     expect(appRule).toContain("--floating-panel-z-index: 30");
     expect(appRule).toContain("--agent-status-dock-z-index: 32");
@@ -518,6 +520,14 @@ describe("generate composer styles", () => {
       ".generate-composer__reference-chip-index",
     );
     const controlsRule = getRule(appCss, ".generate-composer__controls");
+    const referenceControlsRule = getRule(
+      appCss,
+      ".generate-composer--with-reference .generate-composer__controls",
+    );
+    const taskbarComposerRule = getRule(
+      appCss,
+      ".generate-composer--with-taskbar",
+    );
     const promptEditorRule = getRule(
       appCss,
       ".generate-composer__prompt-editor",
@@ -547,22 +557,38 @@ describe("generate composer styles", () => {
     const dialogSource = readGenerateImageDialog();
 
     expect(composerRule).toContain("display: grid");
-    expect(composerRule).toContain("grid-template-rows:");
-    expect(composerRule).toContain("var(--lg-button-size)");
+    expect(composerRule).toContain(
+      "grid-template-columns: minmax(0, 1fr) auto",
+    );
+    expect(composerRule).toContain("column-gap: 8px");
+    expect(composerRule).toContain(
+      "grid-template-rows: minmax(var(--generate-composer-editor-min-height), auto)",
+    );
     expect(composerRule).toContain(
       "--generate-composer-editor-min-height: 36px",
     );
+    expect(composerRule).toContain(
+      "--generate-composer-editor-max-height: min(30vh, 10rem)",
+    );
     expect(composerRule).toContain("box-sizing: border-box");
-    expect(composerRule).toContain("padding: 7px 12px 7px 14px");
+    expect(composerRule).toContain("padding: 6px 8px 6px 12px");
+    expect(appCss).not.toContain("padding: 7px 12px");
     expect(composerRule).not.toContain("justify-content: center");
     expect(composerRule).not.toMatch(/\n\s+min-height:/);
+    expect(taskbarComposerRule).toContain(
+      "grid-template-rows:\n    auto minmax(var(--generate-composer-editor-min-height), auto)",
+    );
+    expect(taskbarComposerRule).not.toContain("var(--lg-button-size)");
     expect(controlsRule).toContain("display: flex");
     expect(controlsRule).toContain("justify-content: flex-start");
-    expect(controlsRule).toContain("align-self: stretch");
+    expect(controlsRule).toContain("align-self: end");
+    expect(controlsRule).toContain("grid-column: 2");
     expect(controlsRule).toContain("height: var(--lg-button-size)");
-    expect(controlsRule).toContain("flex: 0 0 var(--lg-button-size)");
+    expect(controlsRule).not.toContain("flex: 0 0 var(--lg-button-size)");
+    expect(referenceControlsRule).toContain("align-self: end");
     expect(actionRule).toContain("margin-left: auto");
     expect(fieldRule).toContain("display: block");
+    expect(fieldRule).toContain("grid-column: 1");
     expect(fieldRule).toContain(
       "min-height: var(--generate-composer-editor-min-height)",
     );
@@ -579,7 +605,9 @@ describe("generate composer styles", () => {
     expect(promptEditorRule).toContain(
       "min-height: var(--generate-composer-editor-min-height)",
     );
-    expect(promptEditorRule).toContain("max-height: min(30vh, 13rem)");
+    expect(promptEditorRule).toContain(
+      "max-height: var(--generate-composer-editor-max-height)",
+    );
     expect(promptEditorRule).toContain("overflow-y: auto");
     expect(promptEditorRule).toContain("padding: 3px 4px 3px 0");
     expect(promptEditorRule).toContain("line-height: 28px");

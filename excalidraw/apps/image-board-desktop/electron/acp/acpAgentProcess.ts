@@ -7,6 +7,7 @@ import type {
 import {
   createAcpJsonRpcClient,
   type AcpJsonRpcClient,
+  type AcpJsonRpcTrafficEntry,
   type AcpReadable,
   type AcpWritable,
 } from "./acpJsonRpc";
@@ -28,6 +29,8 @@ export interface StartAcpAgentProcessOptions {
   timeoutMs?: number;
   onExit?: (code: number | null, signal: NodeJS.Signals | null) => void;
   onNotification?: (method: string, params: unknown) => void;
+  onStderrLine?: (line: string) => void;
+  onTraffic?: (entry: AcpJsonRpcTrafficEntry) => void;
 }
 
 const MAX_STDERR_LINES = 80;
@@ -51,6 +54,7 @@ const appendStderr = (lines: string[], chunk: Buffer | string) => {
   if (lines.length > MAX_STDERR_LINES) {
     lines.splice(0, lines.length - MAX_STDERR_LINES);
   }
+  return nextLines;
 };
 
 export const startAcpAgentProcess = async (
@@ -60,6 +64,8 @@ export const startAcpAgentProcess = async (
     timeoutMs,
     onExit,
     onNotification,
+    onStderrLine,
+    onTraffic,
   }: StartAcpAgentProcessOptions = {},
 ): Promise<AcpAgentProcess> => {
   const command = config.command.trim();
@@ -85,9 +91,14 @@ export const startAcpAgentProcess = async (
     stdout: child.stdout as AcpReadable,
     timeoutMs,
     onNotification,
+    onTraffic,
   });
 
-  child.stderr.on("data", (chunk) => appendStderr(recentStderr, chunk));
+  child.stderr.on("data", (chunk) => {
+    for (const line of appendStderr(recentStderr, chunk)) {
+      onStderrLine?.(line);
+    }
+  });
   child.on("exit", (code, signal) => {
     onExit?.(code, signal);
   });

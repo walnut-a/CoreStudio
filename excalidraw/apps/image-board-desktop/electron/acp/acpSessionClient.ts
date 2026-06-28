@@ -1,6 +1,8 @@
 import {
   ACP_PROTOCOL_VERSION,
+  DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
   createAcpTaskEvent,
+  normalizeAcpTaskInstructionTemplate,
 } from "../../src/shared/acpTypes";
 
 import type { AcpAgentProcess } from "./acpAgentProcess";
@@ -25,6 +27,7 @@ export interface AcpSessionClient {
 interface AcpSessionClientOptions {
   process: AcpAgentProcess;
   clientInfo: AcpClientInfo;
+  taskInstructionTemplate?: string;
   onEvent: (event: AcpTaskEvent) => void;
 }
 
@@ -58,42 +61,61 @@ const getStopReason = (value: unknown) => {
 };
 
 const buildTaskContext = (request: AcpTaskRequest) => ({
-  app: {
-    name: "CoreStudio",
+  schemaVersion: "corestudio.acpTask.v1",
+  task: {
+    userPrompt: request.userPrompt,
   },
-  project: request.project,
-  generation: request.generation,
-  selection: request.selection,
-  cli: {
-    executable: "node bin/corestudio.cjs",
-    examples: [
-      "node bin/corestudio.cjs agent context --json",
-      "node bin/corestudio.cjs scene selection --json",
-      "node bin/corestudio.cjs scene image-paths --selection --json",
-      "node bin/corestudio.cjs scene add-image /absolute/path/to/image.png --json",
-      'node bin/corestudio.cjs scene add-prompt --text "..." --json',
+  context: {
+    app: {
+      name: "CoreStudio",
+    },
+    project: request.project,
+    generation: request.generation,
+    selection: request.selection,
+  },
+  capabilities: {
+    cli: {
+      executable: "node bin/corestudio.cjs",
+      examples: [
+        "node bin/corestudio.cjs agent context --json",
+        "node bin/corestudio.cjs scene selection --json",
+        "node bin/corestudio.cjs scene image-paths --selection --json",
+        "node bin/corestudio.cjs scene add-image /absolute/path/to/image.png --json",
+        'node bin/corestudio.cjs scene add-prompt --text "..." --json',
+      ],
+    },
+  },
+  contract: {
+    writeBack: {
+      required: true,
+      authority: "CoreStudio CLI / Local Bridge",
+      rule: "All CoreStudio mutations must go through the CLI.",
+    },
+    constraints: [
+      "Do not modify CoreStudio project files directly.",
+      "Do not treat ACP text output as a CoreStudio project mutation.",
+      "Use CoreStudio CLI / Local Bridge for all image, prompt, and scene writes.",
     ],
-    writeRule: "All CoreStudio mutations must go through the CLI.",
   },
-  constraints: [
-    "Do not modify CoreStudio project files directly.",
-    "Do not treat ACP text output as a CoreStudio project mutation.",
-    "Use CoreStudio CLI / Local Bridge for all image, prompt, and scene writes.",
-  ],
 });
 
 const buildPrompt = (
   request: AcpTaskRequest,
   supportsEmbeddedContext: boolean,
+  taskInstructionTemplate = DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
 ) => {
   const contextText = JSON.stringify(buildTaskContext(request), null, 2);
+  const instructionText = normalizeAcpTaskInstructionTemplate(
+    taskInstructionTemplate,
+  );
   const taskText = `用户任务：${request.userPrompt}`;
+  const promptText = `${instructionText}\n\n${taskText}`;
 
   if (supportsEmbeddedContext) {
     return [
       {
         type: "text",
-        text: taskText,
+        text: promptText,
       },
       {
         type: "resource",
@@ -109,10 +131,17 @@ const buildPrompt = (
   return [
     {
       type: "text",
-      text: `${taskText}\n\nCoreStudio 上下文：\n${contextText}`,
+      text: `${promptText}\n\nCoreStudio 上下文：\n${contextText}`,
     },
   ];
 };
+
+const isRuntimeNoticeText = (text: string) =>
+  text
+    .trim()
+    .startsWith(
+      "Warning: Skill descriptions were shortened to fit the 2% skills context budget.",
+    );
 
 const mapSessionUpdateToEvents = (
   taskId: string,
@@ -126,6 +155,10 @@ const mapSessionUpdateToEvents = (
   if (update.sessionUpdate === "agent_message_chunk") {
     const content = update.content;
     if (isRecord(content) && content.type === "text") {
+      const text = typeof content.text === "string" ? content.text : "";
+      if (isRuntimeNoticeText(text)) {
+        return [];
+      }
       return [
         createAcpTaskEvent({
           taskId,
@@ -133,7 +166,7 @@ const mapSessionUpdateToEvents = (
           ...(typeof update.messageId === "string"
             ? { messageId: update.messageId }
             : {}),
-          text: typeof content.text === "string" ? content.text : "",
+          text,
         }),
       ];
     }
@@ -173,6 +206,7 @@ const mapSessionUpdateToEvents = (
 export const createAcpSessionClient = ({
   process,
   clientInfo,
+  taskInstructionTemplate,
   onEvent,
 }: AcpSessionClientOptions): AcpSessionClient => {
   let currentTaskId: string | null = null;
@@ -246,7 +280,11 @@ export const createAcpSessionClient = ({
             ?.embeddedContext === true;
         const result = await process.jsonRpc.request("session/prompt", {
           sessionId: currentSessionId,
-          prompt: buildPrompt(request, supportsEmbeddedContext),
+          prompt: buildPrompt(
+            request,
+            supportsEmbeddedContext,
+            taskInstructionTemplate,
+          ),
         });
         const stopReason = getStopReason(result);
         emitStatus(request.taskId, "completed", "Agent 已完成");

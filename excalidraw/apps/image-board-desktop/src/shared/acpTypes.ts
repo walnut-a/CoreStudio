@@ -2,6 +2,18 @@ export const ACP_PROTOCOL_VERSION = 1;
 
 export const ACP_AGENT_CUSTOM_PRESET_ID = "custom" as const;
 
+export const DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE = `You are an external ACP Agent working with CoreStudio.
+
+CoreStudio owns the local project data. You may analyze, plan, search, and generate assets, but any CoreStudio project mutation must be done through CoreStudio CLI / Local Bridge.
+
+Use the attached CoreStudio task package as the source of truth for project identity, selected elements, image ids, local bridge address, board URL, and allowed write-back rules.
+
+When you need original image files, prefer querying paths through the CoreStudio CLI instead of asking CoreStudio to inline image data.
+
+When you write back to the board, report the CLI command result, including created or updated imageId, elementId, frameId, or prompt id when available.
+
+Do not modify CoreStudio project files directly. Do not treat ACP text output as a CoreStudio project mutation.`;
+
 export const ACP_AGENT_PRESETS = [
   {
     id: "codex-acp",
@@ -48,6 +60,7 @@ export interface AcpAgentSettings {
   enabled: boolean;
   defaultAgentId: string | null;
   agents: AcpAgentConfig[];
+  taskInstructionTemplate?: string;
 }
 
 export type AcpTaskStatus =
@@ -66,6 +79,7 @@ export type AcpTaskEvent =
       type: "status";
       status: AcpTaskStatus;
       message: string;
+      logPath?: string;
     }
   | {
       taskId: string;
@@ -85,6 +99,60 @@ export type AcpTaskEvent =
       code: string;
       message: string;
     };
+
+export type AcpRunStatus = "running" | "completed" | "failed" | "cancelled";
+
+export type AcpRunLogKind =
+  | "task.created"
+  | "task.package"
+  | "acp.request"
+  | "acp.response"
+  | "acp.notification"
+  | "agent.message"
+  | "agent.thought"
+  | "tool.call"
+  | "tool.update"
+  | "stderr"
+  | "status"
+  | "error"
+  | "task.finished";
+
+export interface AcpRunMetadata {
+  taskId: string;
+  projectToken: string;
+  projectName: string;
+  agentName: string;
+  userPrompt: string;
+}
+
+export interface AcpRunSummary extends AcpRunMetadata {
+  mode: "acp-agent";
+  status: AcpRunStatus;
+  startedAt: string;
+  endedAt?: string;
+  lastMessage?: string;
+  errorMessage?: string;
+  logFile: string;
+}
+
+export interface AcpRunIndex {
+  version: 1;
+  runs: AcpRunSummary[];
+}
+
+export interface AcpRunLogEntry {
+  version: 1;
+  taskId: string;
+  timestamp: string;
+  seq: number;
+  kind: AcpRunLogKind;
+  payload: unknown;
+}
+
+export interface AcpRunLogDetail {
+  summary: AcpRunSummary;
+  entries: AcpRunLogEntry[];
+}
 
 export interface AcpTaskRequest {
   taskId: string;
@@ -141,7 +209,19 @@ export const getDefaultAcpAgentSettings = (): AcpAgentSettings => ({
   enabled: false,
   agents: [],
   defaultAgentId: null,
+  taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
 });
+
+export const normalizeAcpTaskInstructionTemplate = (
+  template: unknown,
+): string => {
+  if (typeof template !== "string") {
+    return DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE;
+  }
+
+  const trimmedTemplate = template.trim();
+  return trimmedTemplate || DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE;
+};
 
 export const getAcpAgentPreset = (
   presetId: string | null | undefined,
@@ -211,6 +291,9 @@ export const normalizeAcpAgentSettings = (
     enabled: Boolean(settings.enabled && defaultAgentId),
     agents,
     defaultAgentId,
+    taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
+      settings.taskInstructionTemplate,
+    ),
   };
 };
 

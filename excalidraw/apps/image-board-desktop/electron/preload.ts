@@ -102,6 +102,10 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.startAcpAgentTask, request),
   cancelAcpAgentTask: (taskId) =>
     ipcRenderer.invoke(IPC_CHANNELS.cancelAcpAgentTask, taskId),
+  listAcpAgentRunLogs: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.listAcpAgentRunLogs, input),
+  readAcpAgentRunLog: (taskId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.readAcpAgentRunLog, taskId),
   onAcpAgentTaskEvent: (listener) => {
     const handler = (_event: unknown, taskEvent: AcpTaskEvent) => {
       listener(taskEvent);

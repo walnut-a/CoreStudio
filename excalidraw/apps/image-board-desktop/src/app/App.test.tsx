@@ -593,8 +593,10 @@ vi.mock("./components/GenerateImageDialog", () => ({
   GenerateImageDialog: ({
     open,
     initialRequest,
+    composerConfig,
     error,
     onOpenErrorDetails,
+    onOpenAgentRunLog,
     onSubmit,
   }: {
     open: boolean;
@@ -619,8 +621,22 @@ vi.mock("./components/GenerateImageDialog", () => ({
         textCount: number;
       } | null;
     };
+    composerConfig?: {
+      defaultMode?: "direct" | "agent" | "acp";
+      showModeSwitch?: boolean;
+      modeSwitchVariant?: "agent-operation" | "acp-agent";
+      showModeIndicator?: boolean;
+      defaultGenerationSource?: "builtin" | "agent";
+      showGenerationSourceSwitch?: boolean;
+      agentGenerationAvailable?: boolean;
+      agentTaskStatus?: {
+        taskId?: string;
+        logPath?: string;
+      } | null;
+    };
     error: string | null;
     onOpenErrorDetails?: () => void;
+    onOpenAgentRunLog?: (taskId: string) => void;
     onSubmit: (
       request: {
         provider:
@@ -654,6 +670,9 @@ vi.mock("./components/GenerateImageDialog", () => ({
           {initialRequest.provider}
         </div>
         <div data-testid="generate-dialog-model">{initialRequest.model}</div>
+        <pre data-testid="generate-dialog-composer-config">
+          {JSON.stringify(composerConfig ?? {})}
+        </pre>
         {initialRequest.reference ? (
           <div>{`参考元素: ${initialRequest.reference.elementCount}`}</div>
         ) : null}
@@ -666,6 +685,18 @@ vi.mock("./components/GenerateImageDialog", () => ({
               </button>
             ) : null}
           </div>
+        ) : null}
+        {composerConfig?.agentTaskStatus?.taskId &&
+        composerConfig.agentTaskStatus.logPath &&
+        onOpenAgentRunLog ? (
+          <button
+            type="button"
+            onClick={() =>
+              onOpenAgentRunLog(composerConfig.agentTaskStatus!.taskId!)
+            }
+          >
+            查看保存日志
+          </button>
         ) : null}
         <button type="button" onClick={() => onSubmit(initialRequest, false)}>
           提交生成
@@ -682,7 +713,7 @@ vi.mock("./components/GenerateImageDialog", () => ({
             )
           }
         >
-          提交 Agent 生成
+          提交 ACP Agent 生成
         </button>
         <button
           type="button"
@@ -902,7 +933,7 @@ describe("App startup", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567",
     );
     const desktopBridgeCalls: Array<{ method: string; args?: unknown[] }> = [];
     const currentProject = {
@@ -942,6 +973,11 @@ describe("App startup", () => {
           version: "0.0.0-test",
         },
         loadProviderSettings: createMockProviderSettings(),
+        loadAcpAgentSettings: {
+          enabled: false,
+          defaultAgentId: null,
+          agents: [],
+        },
         loadRecentProjects: [
           {
             projectPath: currentProject.projectPath,
@@ -995,6 +1031,16 @@ describe("App startup", () => {
     fireEvent.click(recentProjectButton!);
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    const agentBoardComposerConfig = JSON.parse(
+      screen.getByTestId("generate-dialog-composer-config").textContent ?? "{}",
+    ) as Record<string, unknown>;
+    expect(agentBoardComposerConfig).toMatchObject({
+      defaultMode: "agent",
+      showModeSwitch: false,
+      showModeIndicator: true,
+      defaultGenerationSource: "agent",
+      showGenerationSourceSwitch: false,
+    });
     await waitFor(() => {
       expect(desktopBridgeCalls).toEqual(
         expect.arrayContaining([
@@ -1009,6 +1055,16 @@ describe("App startup", () => {
       screen.queryByText("CoreStudio Agent Board"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("桌面应用未连接")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(desktopBridgeCalls).toEqual(
+        expect.arrayContaining([
+          {
+            method: "loadAcpAgentSettings",
+            args: [],
+          },
+        ]),
+      );
+    });
   });
 
   it("publishes the browser Agent Board runtime selection to the local bridge", async () => {
@@ -1230,6 +1286,11 @@ describe("App startup", () => {
           version: "0.0.0-test",
         },
         loadProviderSettings: createMockProviderSettings(),
+        loadAcpAgentSettings: {
+          enabled: false,
+          defaultAgentId: null,
+          agents: [],
+        },
         loadRecentProjects: [],
         loadPromptLibrary: [],
       };
@@ -1259,7 +1320,22 @@ describe("App startup", () => {
     const desktopBridgeRequests = fetchMock.mock.calls.filter(
       ([url]) => new URL(String(url)).pathname === "/v1/desktop-bridge",
     );
-    expect(desktopBridgeRequests).toHaveLength(4);
+    const desktopBridgeMethods = desktopBridgeRequests.map(([, init]) => {
+      const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      return requestBody.method;
+    });
+    expect(desktopBridgeMethods).toHaveLength(5);
+    expect(desktopBridgeMethods).toEqual(
+      expect.arrayContaining([
+        "loadAppInfo",
+        "loadProviderSettings",
+        "loadAcpAgentSettings",
+        "loadRecentProjects",
+        "loadPromptLibrary",
+      ]),
+    );
     expect(screen.queryByRole("button", { name: "新建项目" })).toBeNull();
     expect(screen.queryByRole("button", { name: "打开项目" })).toBeNull();
     expect(
@@ -1707,7 +1783,7 @@ describe("App startup", () => {
         appState: expect.objectContaining({
           selectedElementIds: expect.any(Object),
         }),
-        captureUpdate: "immediately",
+        captureUpdate: "IMMEDIATELY",
       }),
     );
   });
@@ -3052,6 +3128,11 @@ describe("App startup", () => {
     const acpControls = within(acpSection as HTMLElement);
 
     fireEvent.click(acpControls.getByRole("switch", { name: "启用 ACP Agent" }));
+    expect(
+      (acpControls.getByLabelText("任务说明模板") as HTMLTextAreaElement).value,
+    ).toContain(
+      "You are an external ACP Agent working with CoreStudio",
+    );
     fireEvent.change(acpControls.getByLabelText("命令"), {
       target: { value: "/usr/local/bin/acp-agent" },
     });
@@ -3061,12 +3142,16 @@ describe("App startup", () => {
     fireEvent.change(acpControls.getByLabelText("工作目录"), {
       target: { value: "/tmp/corestudio-agent" },
     });
+    fireEvent.change(acpControls.getByLabelText("任务说明模板"), {
+      target: { value: "请严格按照 CoreStudio 任务包操作。" },
+    });
     fireEvent.click(acpControls.getByRole("button", { name: "保存" }));
 
     await waitFor(() => {
       expect(saveAcpAgentSettings).toHaveBeenCalledWith({
         enabled: true,
         defaultAgentId: "default",
+        taskInstructionTemplate: "请严格按照 CoreStudio 任务包操作。",
         agents: [
           {
             id: "default",
@@ -3078,6 +3163,46 @@ describe("App startup", () => {
         ],
       });
     });
+  });
+
+  it("shows the concrete default ACP Agent working directory in application settings", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const loadAcpAgentSettings = vi.fn(async () => ({
+      enabled: false,
+      defaultAgentId: null,
+      agents: [],
+    }));
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAcpAgentSettings,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+
+    await screen.findByTestId("excalidraw-canvas");
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    const acpSectionHeading = within(dialog).getByText("ACP Agent");
+    const acpSection = acpSectionHeading.closest("section");
+    expect(acpSection).not.toBeNull();
+    const acpControls = within(acpSection as HTMLElement);
+
+    expect(acpControls.getByLabelText("工作目录")).toHaveAttribute(
+      "placeholder",
+      "默认：/tmp/mock-project",
+    );
   });
 
   it("applies an ACP Agent preset from application settings", async () => {
@@ -3124,6 +3249,9 @@ describe("App startup", () => {
       expect(saveAcpAgentSettings).toHaveBeenCalledWith({
         enabled: true,
         defaultAgentId: "default",
+        taskInstructionTemplate: expect.stringContaining(
+          "You are an external ACP Agent working with CoreStudio",
+        ),
         agents: [
           {
             id: "default",
@@ -3135,6 +3263,162 @@ describe("App startup", () => {
           },
         ],
       });
+    });
+  });
+
+  it("shows recent ACP Agent task records from application settings", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const recentRun = {
+      mode: "acp-agent" as const,
+      taskId: "task-recent-1",
+      projectToken: "project-token",
+      projectName: "工业设计助手",
+      agentName: "Codex ACP",
+      userPrompt: "优化桌面 CNC 机器外观",
+      status: "failed" as const,
+      startedAt: "2026-06-29T08:00:00.000Z",
+      endedAt: "2026-06-29T08:00:05.000Z",
+      lastMessage: "Agent 返回了中间过程。",
+      errorMessage: "生成任务失败",
+      logFile: "/tmp/corestudio-agent-runs/task-recent-1.ndjson",
+    };
+    const listAcpAgentRunLogs = vi.fn(async () => [recentRun]);
+    const readAcpAgentRunLog = vi.fn(async () => ({
+      summary: recentRun,
+      entries: [
+        {
+          version: 1 as const,
+          taskId: recentRun.taskId,
+          timestamp: "2026-06-29T08:00:01.000Z",
+          seq: 1,
+          kind: "agent.message" as const,
+          payload: { text: "正在分析选中的 CNC 图片。" },
+        },
+      ],
+    }));
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "Codex ACP",
+            command: "npx",
+            args: ["-y", "@agentclientprotocol/codex-acp"],
+            cwd: null,
+          },
+        ],
+      })),
+      listAcpAgentRunLogs,
+      readAcpAgentRunLog,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    await waitFor(() => {
+      expect(listAcpAgentRunLogs).toHaveBeenCalledWith({ limit: 8 });
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    const historyHeading = within(dialog).getByText("最近 Agent 任务");
+    const historySection = historyHeading.closest("section");
+    expect(historySection).not.toBeNull();
+    const historyControls = within(historySection as HTMLElement);
+
+    expect(historyControls.getByText("工业设计助手")).toBeInTheDocument();
+    expect(historyControls.getByText("优化桌面 CNC 机器外观")).toBeInTheDocument();
+    expect(historyControls.getByText("失败")).toBeInTheDocument();
+
+    fireEvent.click(
+      historyControls.getByRole("button", {
+        name: "查看任务记录：优化桌面 CNC 机器外观",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(readAcpAgentRunLog).toHaveBeenCalledWith("task-recent-1");
+    });
+
+    const runLogDialog = await screen.findByRole("dialog", {
+      name: "Agent 任务记录",
+    });
+    expect(
+      within(runLogDialog).getByRole("log", { name: "Agent 任务过程" }),
+    ).toHaveTextContent("Agent 回复");
+    expect(
+      within(runLogDialog).getByText(/正在分析选中的 CNC 图片/),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps ACP Agent settings editable on the Agent Board when the bridge supports settings", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567&projectToken=project-token",
+    );
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const saveAcpAgentSettings = vi.fn(async (settings) => settings);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: true,
+        ready: true,
+        currentProject: null,
+        boardUrl: window.location.href,
+      })),
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: false,
+        defaultAgentId: null,
+        agents: [],
+      })),
+      saveAcpAgentSettings,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    const acpSectionHeading = within(dialog).getByText("ACP Agent");
+    const acpSection = acpSectionHeading.closest("section");
+    expect(acpSection).not.toBeNull();
+    const acpControls = within(acpSection as HTMLElement);
+    const acpSwitch = acpControls.getByRole("switch", {
+      name: "启用 ACP Agent",
+    });
+
+    expect(acpSwitch).not.toBeDisabled();
+    expect(acpControls.getByLabelText("Agent 类型")).not.toBeDisabled();
+
+    fireEvent.click(acpSwitch);
+    fireEvent.click(acpControls.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(saveAcpAgentSettings).toHaveBeenCalled();
     });
   });
 
@@ -6148,7 +6432,7 @@ describe("App startup", () => {
           },
           selectedGroupIds: {},
         }),
-        captureUpdate: "never",
+        captureUpdate: "NEVER",
       }),
     );
     expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
@@ -6271,7 +6555,7 @@ describe("App startup", () => {
           },
           selectedGroupIds: {},
         }),
-        captureUpdate: "never",
+        captureUpdate: "NEVER",
       }),
     );
     expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
@@ -7586,7 +7870,7 @@ describe("App startup", () => {
     );
   });
 
-  it("starts an ACP Agent task instead of built-in generation when Agent source is selected", async () => {
+  it("starts an ACP Agent task instead of built-in generation when ACP Agent mode is selected", async () => {
     const generateImages = vi.fn();
     const startAcpAgentTask = vi.fn().mockResolvedValue({ taskId: "task-1" });
     window.imageBoardDesktop = createDesktopBridgeMock({
@@ -7624,8 +7908,25 @@ describe("App startup", () => {
       triggerExcalidrawInitialize?.();
     });
 
+    await waitFor(() => {
+      const clientComposerConfig = JSON.parse(
+        screen.getByTestId("generate-dialog-composer-config").textContent ??
+          "{}",
+      ) as Record<string, unknown>;
+      expect(clientComposerConfig).toMatchObject({
+        defaultMode: "direct",
+        showModeSwitch: true,
+        modeSwitchVariant: "acp-agent",
+        showModeIndicator: false,
+        defaultGenerationSource: "builtin",
+        showGenerationSourceSwitch: false,
+      });
+    });
+
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "提交 Agent 生成" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "提交 ACP Agent 生成" }),
+      );
     });
 
     await waitFor(() => {
@@ -7646,6 +7947,152 @@ describe("App startup", () => {
       );
     });
     expect(generateImages).not.toHaveBeenCalled();
+  });
+
+  it("opens saved ACP Agent run log details from the current task", async () => {
+    let acpTaskListener:
+      | ((event: {
+          taskId: string;
+          type: "status";
+          status: "failed";
+          message: string;
+          logPath: string;
+        }) => void)
+      | null = null;
+    const startAcpAgentTask = vi.fn().mockResolvedValue({ taskId: "task-1" });
+    const readAcpAgentRunLog = vi.fn(async () => ({
+      summary: {
+        taskId: "task-1",
+        projectToken: "project-token",
+        projectName: "测试项目",
+        agentName: "测试 Agent",
+        userPrompt: "继续细化工业设计方案",
+        mode: "acp-agent",
+        status: "failed",
+        startedAt: "2026-06-29T01:00:00.000Z",
+        endedAt: "2026-06-29T01:01:00.000Z",
+        errorMessage: "No model configured",
+        logFile: "task-1.jsonl",
+      },
+      entries: [
+        {
+          version: 1,
+          taskId: "task-1",
+          timestamp: "2026-06-29T01:00:00.000Z",
+          seq: 1,
+          kind: "task.created",
+          payload: { projectName: "测试项目" },
+        },
+        {
+          version: 1,
+          taskId: "task-1",
+          timestamp: "2026-06-29T01:00:10.000Z",
+          seq: 2,
+          kind: "agent.message",
+          payload: { text: "正在分析当前画板。" },
+        },
+        {
+          version: 1,
+          taskId: "task-1",
+          timestamp: "2026-06-29T01:00:20.000Z",
+          seq: 3,
+          kind: "acp.request",
+          payload: { method: "session/prompt" },
+        },
+        {
+          version: 1,
+          taskId: "task-1",
+          timestamp: "2026-06-29T01:00:30.000Z",
+          seq: 4,
+          kind: "error",
+          payload: { message: "No model configured" },
+        },
+      ],
+    }));
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: true,
+        ready: true,
+        currentProject: null,
+        boardUrl:
+          "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
+      })),
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "测试 Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio"],
+            cwd: null,
+          },
+        ],
+      })),
+      startAcpAgentTask,
+      readAcpAgentRunLog,
+      onAcpAgentTaskEvent: vi.fn((listener) => {
+        acpTaskListener = listener as typeof acpTaskListener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "提交 ACP Agent 生成" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(startAcpAgentTask).toHaveBeenCalled();
+    });
+    const taskId = startAcpAgentTask.mock.calls[0][0].taskId;
+    act(() => {
+      acpTaskListener?.({
+        taskId,
+        type: "status",
+        status: "failed",
+        message: "Agent 任务失败",
+        logPath:
+          "/Users/alice/Library/Application Support/Excalidraw Image Board/agent-runs/task-1.jsonl",
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "查看保存日志" }));
+    });
+
+    await waitFor(() => {
+      expect(readAcpAgentRunLog).toHaveBeenCalledWith(taskId);
+    });
+    const runLogDialog = screen.getByRole("dialog", {
+      name: "Agent 任务记录",
+    });
+    expect(within(runLogDialog).getByText("测试 Agent")).toBeInTheDocument();
+    expect(within(runLogDialog).getByRole("log", {
+      name: "Agent 任务过程",
+    })).toHaveTextContent("任务已创建");
+    expect(within(runLogDialog).getByText("正在分析当前画板。")).toBeInTheDocument();
+    expect(within(runLogDialog).getAllByText(/No model configured/).length)
+      .toBeGreaterThan(0);
+    expect(within(runLogDialog).queryByText("acp.request")).toBeNull();
+
+    fireEvent.click(
+      within(runLogDialog).getByRole("button", { name: "显示原始记录" }),
+    );
+
+    expect(within(runLogDialog).getByText("acp.request")).toBeInTheDocument();
+    expect(within(runLogDialog).getByText(/session\/prompt/)).toBeInTheDocument();
   });
 
   it("keeps the generated image canvas size from the placeholder frame", async () => {

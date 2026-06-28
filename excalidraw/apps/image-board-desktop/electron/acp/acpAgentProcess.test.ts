@@ -84,6 +84,18 @@ describe("acpAgentProcess", () => {
     expect(process.getRecentStderr()).toEqual(["first", "second"]);
   });
 
+  it("reports stderr lines as they arrive", async () => {
+    const child = createChild();
+    const spawn = vi.fn(() => child);
+    const onStderrLine = vi.fn();
+
+    await startAcpAgentProcess(createConfig(), { spawn, onStderrLine });
+    child.stderr.emit("data", Buffer.from("first\nsecond\n"));
+
+    expect(onStderrLine).toHaveBeenCalledWith("first");
+    expect(onStderrLine).toHaveBeenCalledWith("second");
+  });
+
   it("notifies when the process exits", async () => {
     const child = createChild();
     const onExit = vi.fn();

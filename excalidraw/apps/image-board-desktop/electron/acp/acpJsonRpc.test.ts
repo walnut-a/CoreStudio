@@ -59,6 +59,66 @@ describe("acpJsonRpc", () => {
     });
   });
 
+  it("emits traffic entries for requests, responses, and notifications", async () => {
+    const onTraffic = vi.fn();
+    const stdin = new MemoryStream();
+    const stdout = new MemoryStream();
+    const client = createAcpJsonRpcClient({
+      stdin,
+      stdout,
+      timeoutMs: 1000,
+      onTraffic,
+    });
+
+    const pending = client.request("session/new", { cwd: "/tmp/project" });
+    stdout.emit(
+      "data",
+      Buffer.from('{"jsonrpc":"2.0","id":1,"result":{"sessionId":"s1"}}\n'),
+    );
+    stdout.emit(
+      "data",
+      Buffer.from(
+        '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s1"}}\n',
+      ),
+    );
+
+    await expect(pending).resolves.toEqual({ sessionId: "s1" });
+    expect(onTraffic).toHaveBeenCalledWith({
+      direction: "out",
+      type: "request",
+      method: "session/new",
+      requestId: 1,
+      payload: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "session/new",
+        params: { cwd: "/tmp/project" },
+      },
+    });
+    expect(onTraffic).toHaveBeenCalledWith({
+      direction: "in",
+      type: "response",
+      method: "session/new",
+      requestId: 1,
+      payload: {
+        jsonrpc: "2.0",
+        id: 1,
+        result: { sessionId: "s1" },
+      },
+      error: false,
+    });
+    expect(onTraffic).toHaveBeenCalledWith({
+      direction: "in",
+      type: "notification",
+      method: "session/update",
+      payload: {
+        jsonrpc: "2.0",
+        method: "session/update",
+        params: { sessionId: "s1" },
+      },
+    });
+  });
+
   it("rejects non JSON-RPC stdout", async () => {
     const stdin = new MemoryStream();
     const stdout = new MemoryStream();

@@ -6,6 +6,7 @@ import { app } from "electron";
 import {
   getDefaultAcpAgentSettings,
   isAcpAgentPresetId,
+  normalizeAcpTaskInstructionTemplate,
   normalizeAcpAgentSettings,
   type AcpAgentSettings,
 } from "../../src/shared/acpTypes";
@@ -32,6 +33,9 @@ const readSettingsShape = (value: unknown): AcpAgentSettings => {
     enabled: value.enabled === true,
     defaultAgentId:
       typeof value.defaultAgentId === "string" ? value.defaultAgentId : null,
+    taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
+      value.taskInstructionTemplate,
+    ),
     agents: Array.isArray(value.agents)
       ? value.agents.map((agent) => {
           const record = isRecord(agent) ? agent : null;

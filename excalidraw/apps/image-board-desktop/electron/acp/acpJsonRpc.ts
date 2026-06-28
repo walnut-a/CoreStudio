@@ -9,9 +9,19 @@ export interface AcpReadable extends EventEmitter {
 }
 
 interface PendingRequest {
+  method: string;
   resolve: (result: unknown) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
+}
+
+export interface AcpJsonRpcTrafficEntry {
+  direction: "in" | "out";
+  type: "request" | "response" | "notification";
+  method: string;
+  requestId?: number;
+  payload: Record<string, unknown>;
+  error?: boolean;
 }
 
 export interface AcpJsonRpcClient {
@@ -28,6 +38,7 @@ export interface AcpJsonRpcClientOptions {
   stdout: AcpReadable;
   timeoutMs?: number;
   onNotification?: (method: string, params: unknown) => void;
+  onTraffic?: (entry: AcpJsonRpcTrafficEntry) => void;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -43,6 +54,7 @@ export const createAcpJsonRpcClient = ({
   stdout,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   onNotification,
+  onTraffic,
 }: AcpJsonRpcClientOptions): AcpJsonRpcClient => {
   let nextId = 1;
   let disposed = false;
@@ -77,6 +89,14 @@ export const createAcpJsonRpcClient = ({
     }
 
     const request = pending.get(message.id);
+    onTraffic?.({
+      direction: "in",
+      type: "response",
+      method: request?.method ?? "unknown",
+      requestId: message.id,
+      payload: message,
+      error: isRecord(message.error),
+    });
     if (!request) {
       return;
     }
@@ -101,6 +121,12 @@ export const createAcpJsonRpcClient = ({
       rejectAll(createAcpStdoutError());
       return;
     }
+    onTraffic?.({
+      direction: "in",
+      type: "notification",
+      method: message.method,
+      payload: message,
+    });
     for (const listener of notificationListeners) {
       listener(message.method, message.params);
     }
@@ -167,10 +193,17 @@ export const createAcpJsonRpcClient = ({
           pending.delete(id);
           reject(new Error(`ACP request timed out: ${method}`));
         }, timeoutMs);
-        pending.set(id, { resolve, reject, timeout });
+        pending.set(id, { method, resolve, reject, timeout });
       });
 
       try {
+        onTraffic?.({
+          direction: "out",
+          type: "request",
+          method,
+          requestId: id,
+          payload: message,
+        });
         writeMessage(message);
       } catch (error) {
         const request = pending.get(id);
@@ -194,6 +227,12 @@ export const createAcpJsonRpcClient = ({
       if (params !== undefined) {
         message.params = params;
       }
+      onTraffic?.({
+        direction: "out",
+        type: "notification",
+        method,
+        payload: message,
+      });
       writeMessage(message);
     },
 

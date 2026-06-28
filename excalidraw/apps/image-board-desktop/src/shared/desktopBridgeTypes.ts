@@ -17,6 +17,8 @@ import type {
 import type { AgentRendererCommandRequest } from "./agentBridgeTypes";
 import type {
   AcpAgentSettings,
+  AcpRunLogDetail,
+  AcpRunSummary,
   AcpTaskEvent,
   AcpTaskRequest,
 } from "./acpTypes";
@@ -56,6 +58,8 @@ export const IPC_CHANNELS = {
   saveAcpAgentSettings: "image-board:save-acp-agent-settings",
   startAcpAgentTask: "image-board:start-acp-agent-task",
   cancelAcpAgentTask: "image-board:cancel-acp-agent-task",
+  listAcpAgentRunLogs: "image-board:list-acp-agent-run-logs",
+  readAcpAgentRunLog: "image-board:read-acp-agent-run-log",
   acpAgentTaskEvent: "image-board:acp-agent-task-event",
 } as const;
 
@@ -300,6 +304,8 @@ export interface DesktopBridgeApi {
   saveAcpAgentSettings?(settings: AcpAgentSettings): Promise<AcpAgentSettings>;
   startAcpAgentTask?(request: AcpTaskRequest): Promise<{ taskId: string }>;
   cancelAcpAgentTask?(taskId: string): Promise<void>;
+  listAcpAgentRunLogs?(input?: { limit?: number }): Promise<AcpRunSummary[]>;
+  readAcpAgentRunLog?(taskId: string): Promise<AcpRunLogDetail>;
   onAcpAgentTaskEvent?(listener: (event: AcpTaskEvent) => void): () => void;
   onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(

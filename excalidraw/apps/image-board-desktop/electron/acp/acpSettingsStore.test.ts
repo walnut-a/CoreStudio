@@ -4,6 +4,8 @@ import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE } from "../../src/shared/acpTypes";
+
 let mockAppDataPath = "";
 
 vi.mock("electron", () => ({
@@ -37,6 +39,7 @@ describe("acpSettingsStore", () => {
       enabled: false,
       agents: [],
       defaultAgentId: null,
+      taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
     });
   });
 
@@ -44,6 +47,7 @@ describe("acpSettingsStore", () => {
     await saveAcpAgentSettings({
       enabled: true,
       defaultAgentId: "custom",
+      taskInstructionTemplate: "请严格按照 CoreStudio 任务包操作。",
       agents: [
         {
           id: " custom ",
@@ -58,6 +62,7 @@ describe("acpSettingsStore", () => {
     await expect(loadAcpAgentSettings()).resolves.toEqual({
       enabled: true,
       defaultAgentId: "custom",
+      taskInstructionTemplate: "请严格按照 CoreStudio 任务包操作。",
       agents: [
         {
           id: "custom",
@@ -78,12 +83,23 @@ describe("acpSettingsStore", () => {
         "utf8",
       ),
     ).resolves.toContain('"command": "/usr/local/bin/acp-agent"');
+    await expect(
+      fs.readFile(
+        path.join(
+          mockAppDataPath,
+          "Excalidraw Image Board",
+          "acp-agent-settings.json",
+        ),
+        "utf8",
+      ),
+    ).resolves.toContain("请严格按照 CoreStudio 任务包操作。");
   });
 
   it("filters invalid agents and does not persist secret-shaped fields", async () => {
     await saveAcpAgentSettings({
       enabled: true,
       defaultAgentId: "custom",
+      taskInstructionTemplate: "只保存公开任务说明。",
       agents: [
         {
           id: "broken",
@@ -116,6 +132,7 @@ describe("acpSettingsStore", () => {
     await expect(loadAcpAgentSettings()).resolves.toEqual({
       enabled: true,
       defaultAgentId: "custom",
+      taskInstructionTemplate: "只保存公开任务说明。",
       agents: [
         {
           id: "custom",

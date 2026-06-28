@@ -142,7 +142,7 @@ CoreStudio 发送：
 
 ### Prompt
 
-CoreStudio 发送 `session/prompt`，内容块使用 text 和 resource/resourceLink 组合：
+CoreStudio 发送 `session/prompt`。第一块 text 是可配置的任务说明模板和用户任务；第二块 resource 是 `corestudio.acpTask.v1` 结构化任务包：
 
 ```json
 {
@@ -154,14 +154,14 @@ CoreStudio 发送 `session/prompt`，内容块使用 text 和 resource/resourceL
     "prompt": [
       {
         "type": "text",
-        "text": "用户任务：优化这台桌面级 CNC 机器的设计，要求更有苹果风，简约优雅。"
+        "text": "<任务说明模板>\n\n用户任务：优化这台桌面级 CNC 机器的设计，要求更有苹果风，简约优雅。"
       },
       {
         "type": "resource",
         "resource": {
           "uri": "corestudio://task/context",
           "mimeType": "application/json",
-          "text": "{\"projectToken\":\"...\",\"generation\":{\"source\":\"agent\"}}"
+          "text": "{\"schemaVersion\":\"corestudio.acpTask.v1\",\"context\":{\"project\":{\"token\":\"...\"}},\"contract\":{\"writeBack\":{\"authority\":\"CoreStudio CLI / Local Bridge\"}}}"
         }
       }
     ]
@@ -185,43 +185,7 @@ CoreStudio 接收并展示：
 
 ## CoreStudio 任务上下文
 
-任务上下文必须包含：
-
-```ts
-interface CoreStudioAgentTaskContext {
-  app: {
-    name: "CoreStudio";
-    version: string;
-  };
-  project: {
-    name: string;
-    projectPath: string;
-    token: string;
-    bridgeBaseUrl: string;
-    boardUrl: string | null;
-  };
-  generation: {
-    source: "agent" | "builtin";
-  };
-  selection: {
-    elementCount: number;
-    items: Array<{
-      index: number;
-      elementId: string;
-      kind: "image" | "text" | "arrow" | "shape";
-      fileId?: string;
-      imageId?: string;
-      label: string;
-    }>;
-  };
-  cli: {
-    executable: string;
-    examples: string[];
-    writeRule: "All CoreStudio mutations must go through the CLI.";
-  };
-  constraints: string[];
-}
-```
+任务包格式单独维护在 `docs/superpowers/specs/2026-06-28-corestudio-acp-task-package.md`。实现侧使用 `schemaVersion: "corestudio.acpTask.v1"`，并把项目、选区、生成来源、CLI 能力和写回契约分开放置，避免 Agent 把自然语言结果误当成项目事实。
 
 上下文不要塞完整 scene。完整数据让 Agent 通过 CLI 查询：
 

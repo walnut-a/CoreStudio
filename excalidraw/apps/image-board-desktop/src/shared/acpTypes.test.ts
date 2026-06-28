@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACP_PROTOCOL_VERSION,
+  DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
   createAcpTaskEvent,
   getDefaultAcpAgentSettings,
   getAcpAgentPreset,
@@ -17,11 +18,13 @@ describe("acpTypes", () => {
         enabled: true,
         agents: [],
         defaultAgentId: "missing",
+        taskInstructionTemplate: "",
       }),
     ).toEqual({
       enabled: false,
       agents: [],
       defaultAgentId: null,
+      taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
     });
   });
 
@@ -30,6 +33,7 @@ describe("acpTypes", () => {
       normalizeAcpAgentSettings({
         enabled: true,
         defaultAgentId: "custom",
+        taskInstructionTemplate: "只允许通过 CoreStudio CLI 写回。",
         agents: [
           {
             id: "custom",
@@ -43,6 +47,7 @@ describe("acpTypes", () => {
     ).toEqual({
       enabled: true,
       defaultAgentId: "custom",
+      taskInstructionTemplate: "只允许通过 CoreStudio CLI 写回。",
       agents: [
         {
           id: "custom",
@@ -73,6 +78,7 @@ describe("acpTypes", () => {
       normalizeAcpAgentSettings({
         enabled: true,
         defaultAgentId: "default",
+        taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
         agents: [
           {
             id: "default",
@@ -87,6 +93,7 @@ describe("acpTypes", () => {
     ).toEqual({
       enabled: true,
       defaultAgentId: "default",
+      taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
       agents: [
         {
           id: "default",
@@ -125,6 +132,7 @@ describe("acpTypes", () => {
     ).toEqual({
       enabled: true,
       defaultAgentId: "custom",
+      taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
       agents: [
         {
           id: "custom",

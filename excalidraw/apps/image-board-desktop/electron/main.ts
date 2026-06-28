@@ -100,6 +100,13 @@ import {
   createAcpSessionClient,
   type AcpSessionClient,
 } from "./acp/acpSessionClient";
+import {
+  createAcpRunLogWriter,
+  listAcpRunLogSummaries,
+  readAcpRunLog,
+  type AcpRunLogKind,
+  type AcpRunLogWriter,
+} from "./acp/acpRunLogStore";
 
 installBrokenPipeConsoleGuard();
 
@@ -121,7 +128,12 @@ let agentSessionWriteChain: Promise<void> = Promise.resolve();
 const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
-const activeAcpTasks = new Map<string, AcpSessionClient>();
+interface ActiveAcpTask {
+  client: AcpSessionClient;
+  runLog: AcpRunLogWriter;
+}
+
+const activeAcpTasks = new Map<string, ActiveAcpTask>();
 const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
 const AGENT_BRIDGE_PREFERRED_PORT = 60909;
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
@@ -256,6 +268,61 @@ const getAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
   currentProject: getCurrentProject(),
   boardUrl: getAgentBoardUrl(),
 });
+
+const getAcpRunLogBaseDir = () =>
+  path.join(app.getPath("appData"), "Excalidraw Image Board", "agent-runs");
+
+const createNoopAcpRunLogWriter = (taskId: string): AcpRunLogWriter => ({
+  taskId,
+  logPath: "",
+  async append() {
+    // no-op: task execution should not fail because diagnostic logging failed
+  },
+  async finish() {
+    // no-op
+  },
+});
+
+const createAcpTaskRunLog = async (
+  request: AcpTaskRequest,
+  agentName: string,
+): Promise<AcpRunLogWriter> => {
+  try {
+    return await createAcpRunLogWriter(
+      {
+        taskId: request.taskId,
+        projectToken: request.project.token,
+        projectName: request.project.name,
+        agentName,
+        userPrompt: request.userPrompt,
+      },
+      { baseDir: getAcpRunLogBaseDir() },
+    );
+  } catch (error) {
+    console.error("[acp:run-log-create-failed]", error);
+    return createNoopAcpRunLogWriter(request.taskId);
+  }
+};
+
+const getAcpTaskLogKind = (taskEvent: AcpTaskEvent): AcpRunLogKind => {
+  if (taskEvent.type === "agent-message") {
+    return "agent.message";
+  }
+  if (taskEvent.type === "tool") {
+    return taskEvent.status === "pending" ? "tool.call" : "tool.update";
+  }
+  return taskEvent.type;
+};
+
+const appendAcpRunLog = (
+  runLog: AcpRunLogWriter,
+  kind: AcpRunLogKind,
+  payload: unknown,
+) => {
+  void runLog.append(kind, payload).catch((error) => {
+    console.error("[acp:run-log-append-failed]", error);
+  });
+};
 
 const shouldSkipAgentSessionWrite = () =>
   localBridgeCleanupStarted || localBridgeCleanupFinished;
@@ -507,21 +574,51 @@ const startAcpAgentTask = async (request: AcpTaskRequest) => {
     throw new Error("请先配置可用的 ACP Agent。");
   }
 
-  sendAcpTaskEvent(
+  const runLog = await createAcpTaskRunLog(request, agent.name);
+  appendAcpRunLog(runLog, "task.package", request);
+  const emitTaskEvent = (taskEvent: AcpTaskEvent) => {
+    sendAcpTaskEvent(taskEvent);
+    appendAcpRunLog(runLog, getAcpTaskLogKind(taskEvent), taskEvent);
+  };
+
+  emitTaskEvent(
     createAcpTaskEvent({
       taskId: request.taskId,
       type: "status",
       status: "connecting",
       message: "正在连接 ACP Agent",
+      ...(runLog.logPath ? { logPath: runLog.logPath } : {}),
     }),
   );
 
   let acpProcess: Awaited<ReturnType<typeof startAcpAgentProcess>>;
   try {
-    acpProcess = await startAcpAgentProcess(agent);
+    acpProcess = await startAcpAgentProcess(agent, {
+      onTraffic: (traffic) => {
+        appendAcpRunLog(
+          runLog,
+          traffic.type === "request"
+            ? "acp.request"
+            : traffic.type === "response"
+              ? "acp.response"
+              : "acp.notification",
+          traffic,
+        );
+      },
+      onStderrLine: (line) => {
+        appendAcpRunLog(runLog, "stderr", { line });
+      },
+      onExit: (code, signal) => {
+        appendAcpRunLog(runLog, "status", {
+          status: "process-exited",
+          code,
+          signal,
+        });
+      },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    sendAcpTaskEvent(
+    emitTaskEvent(
       createAcpTaskEvent({
         taskId: request.taskId,
         type: "error",
@@ -529,13 +626,18 @@ const startAcpAgentTask = async (request: AcpTaskRequest) => {
         message,
       }),
     );
-    sendAcpTaskEvent(
+    emitTaskEvent(
       createAcpTaskEvent({
         taskId: request.taskId,
         type: "status",
         status: "failed",
         message: "ACP Agent 启动失败",
       }),
+    );
+    await runLog.finish("failed", { errorMessage: message }).catch(
+      (logError) => {
+        console.error("[acp:run-log-finish-failed]", logError);
+      },
     );
     throw error;
   }
@@ -546,17 +648,33 @@ const startAcpAgentTask = async (request: AcpTaskRequest) => {
       title: DESKTOP_APP_NAME,
       version: DESKTOP_APP_VERSION,
     },
-    onEvent: sendAcpTaskEvent,
+    taskInstructionTemplate: settings.taskInstructionTemplate,
+    onEvent: emitTaskEvent,
   });
-  activeAcpTasks.set(request.taskId, client);
+  const activeTask: ActiveAcpTask = { client, runLog };
+  activeAcpTasks.set(request.taskId, activeTask);
 
   void client
     .runTask(request)
+    .then(async (result) => {
+      await runLog.finish("completed", {
+        lastMessage: "Agent 已完成",
+        payload: result,
+      }).catch((logError) => {
+        console.error("[acp:run-log-finish-failed]", logError);
+      });
+    })
     .catch((error) => {
       console.error("[acp:task-failed]", error);
+      const message = error instanceof Error ? error.message : String(error);
+      return runLog.finish("failed", { errorMessage: message }).catch(
+        (logError) => {
+          console.error("[acp:run-log-finish-failed]", logError);
+        },
+      );
     })
     .finally(async () => {
-      if (activeAcpTasks.get(request.taskId) === client) {
+      if (activeAcpTasks.get(request.taskId) === activeTask) {
         activeAcpTasks.delete(request.taskId);
       }
       await client.dispose().catch((error) => {
@@ -568,15 +686,20 @@ const startAcpAgentTask = async (request: AcpTaskRequest) => {
 };
 
 const cancelAcpAgentTask = async (taskId: string) => {
-  const client = activeAcpTasks.get(taskId);
-  if (!client) {
+  const activeTask = activeAcpTasks.get(taskId);
+  if (!activeTask) {
     return;
   }
   activeAcpTasks.delete(taskId);
   try {
-    client.cancelTask(taskId);
+    activeTask.client.cancelTask(taskId);
+    await activeTask.runLog
+      .finish("cancelled", { lastMessage: "已取消" })
+      .catch((error) => {
+        console.error("[acp:run-log-finish-failed]", error);
+      });
   } finally {
-    await client.dispose().catch((error) => {
+    await activeTask.client.dispose().catch((error) => {
       console.error("[acp:task-cancel-cleanup-failed]", error);
     });
   }
@@ -846,6 +969,29 @@ const registerIpcHandlers = () => {
     IPC_CHANNELS.cancelAcpAgentTask,
     async (_event, taskId: string) => cancelAcpAgentTask(taskId),
   );
+
+  ipcMain.handle(IPC_CHANNELS.listAcpAgentRunLogs, async (_event, input) =>
+    listAcpRunLogSummaries({
+      baseDir: getAcpRunLogBaseDir(),
+      limit:
+        input &&
+        typeof input === "object" &&
+        "limit" in input &&
+        typeof input.limit === "number"
+          ? input.limit
+          : undefined,
+    }),
+  );
+
+  ipcMain.handle(IPC_CHANNELS.readAcpAgentRunLog, async (_event, taskId) => {
+    if (typeof taskId !== "string" || !taskId.trim()) {
+      throw new Error("ACP run log taskId is required.");
+    }
+
+    return readAcpRunLog(taskId, {
+      baseDir: getAcpRunLogBaseDir(),
+    });
+  });
 
   ipcMain.on(
     IPC_CHANNELS.flushAutosaveResponse,

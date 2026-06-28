@@ -71,8 +71,10 @@ import type {
 
 const PROMPT_LIBRARY_TITLE_MAX_LENGTH = 24;
 const GENERATION_MODE_LABEL = "生成方式";
-const BUILTIN_GENERATION_LABEL = "CoreStudio 生成";
-const AGENT_GENERATION_LABEL = "Agent 生成";
+const DIRECT_INPUT_LABEL = "直接输入";
+const AGENT_OPERATION_LABEL = "Agent 操作";
+const BUILTIN_GENERATION_LABEL = "直接生成";
+const AGENT_GENERATION_LABEL = "ACP Agent";
 
 const formatCountCopy = (template: string, count: number) =>
   template.replace("{count}", String(count));
@@ -185,25 +187,47 @@ const cloneProviderCapabilities = (
   capabilities: ProviderCapabilities,
 ): ProviderCapabilities => ({ ...capabilities });
 
-type GenerateComposerMode = "direct" | "agent";
+type GenerateComposerMode = "direct" | "agent" | "acp";
+type GenerateComposerModeSwitchVariant = "agent-operation" | "acp-agent";
 
 interface GenerateComposerConfig {
   defaultMode?: GenerateComposerMode;
   showModeSwitch?: boolean;
+  modeSwitchVariant?: GenerateComposerModeSwitchVariant;
+  showModeIndicator?: boolean;
   defaultGenerationSource?: GenerationSource;
   showGenerationSourceSwitch?: boolean;
   agentGenerationAvailable?: boolean;
   agentGenerationUnavailableMessage?: string;
   agentTaskStatus?: {
+    taskId?: string;
     status: AcpTaskStatus;
     message: string;
     transcript?: string;
+    events?: Array<{
+      id: string;
+      title: string;
+      detail?: string;
+      tone?: "neutral" | "success" | "danger";
+    }>;
+    logPath?: string;
   } | null;
 }
 
 const normalizeComposerMode = (
   mode: GenerateComposerConfig["defaultMode"],
-): GenerateComposerMode => (mode === "agent" ? "agent" : "direct");
+): GenerateComposerMode =>
+  mode === "agent" || mode === "acp" ? mode : "direct";
+
+const getComposerModeLabel = (mode: GenerateComposerMode) => {
+  if (mode === "agent") {
+    return AGENT_OPERATION_LABEL;
+  }
+  if (mode === "acp") {
+    return AGENT_GENERATION_LABEL;
+  }
+  return DIRECT_INPUT_LABEL;
+};
 
 const normalizeGenerationSource = (
   source: GenerateComposerConfig["defaultGenerationSource"],
@@ -229,6 +253,7 @@ interface GenerateImageDialogProps {
   }) => void;
   onReferenceRemove?: () => void;
   onReferenceCommit?: () => Promise<GenerationReferencePayload | null>;
+  onOpenAgentRunLog?: (taskId: string) => void;
   savedPrompts?: SavedPrompt[];
   onSavePrompt?: (input: SavePromptInput) => void | Promise<void>;
   onUsePrompt?: (id: string) => void | Promise<void>;
@@ -256,6 +281,7 @@ export const GenerateImageDialog = ({
   onModelSelectionChange,
   onReferenceRemove,
   onReferenceCommit,
+  onOpenAgentRunLog,
   savedPrompts = [],
   onSavePrompt,
   onUsePrompt,
@@ -306,10 +332,24 @@ export const GenerateImageDialog = ({
     GenerationPromptPart[]
   >(() => getInitialPromptParts(initialRequest));
   const [promptEditorResetKey, setPromptEditorResetKey] = useState(0);
-  const defaultComposerMode = normalizeComposerMode(
+  const showComposerModeSwitch = Boolean(composerConfig?.showModeSwitch);
+  const modeSwitchVariant =
+    composerConfig?.modeSwitchVariant ?? "agent-operation";
+  const composerModeOptions: readonly GenerateComposerMode[] =
+    modeSwitchVariant === "acp-agent"
+      ? (["direct", "acp"] as const)
+      : (["agent", "direct"] as const);
+  const requestedDefaultComposerMode = normalizeComposerMode(
     composerConfig?.defaultMode,
   );
-  const showComposerModeSwitch = Boolean(composerConfig?.showModeSwitch);
+  const defaultComposerMode =
+    showComposerModeSwitch &&
+    !composerModeOptions.includes(requestedDefaultComposerMode)
+      ? composerModeOptions[0]
+      : requestedDefaultComposerMode;
+  const showComposerModeIndicator = Boolean(
+    composerConfig?.showModeIndicator,
+  );
   const [composerMode, setComposerMode] =
     useState<GenerateComposerMode>(defaultComposerMode);
   const effectiveComposerMode = showComposerModeSwitch
@@ -326,19 +366,25 @@ export const GenerateImageDialog = ({
   );
   const [generationSourceMenuOpen, setGenerationSourceMenuOpen] =
     useState(false);
+  const [agentTaskDetailsOpen, setAgentTaskDetailsOpen] = useState(false);
   const selectedGenerationSource = showGenerationSourceSwitch
     ? generationSource
     : defaultGenerationSource;
+  const isAgentOperationMode = effectiveComposerMode === "agent";
+  const isAcpAgentMode = effectiveComposerMode === "acp";
+  const isPromptComposerMode = !isAgentOperationMode;
   const agentGenerationAvailable =
     composerConfig?.agentGenerationAvailable ??
-    effectiveComposerMode === "agent";
+    isAgentOperationMode;
   const agentGenerationUnavailableMessage =
     composerConfig?.agentGenerationUnavailableMessage;
   const agentTaskStatus = composerConfig?.agentTaskStatus ?? null;
+  const agentTaskEvents = agentTaskStatus?.events ?? [];
   const agentGenerationSelectable =
-    effectiveComposerMode === "agent" || agentGenerationAvailable;
-  const effectiveGenerationSource =
-    selectedGenerationSource === "agent" && !agentGenerationSelectable
+    isAgentOperationMode || isAcpAgentMode || agentGenerationAvailable;
+  const effectiveGenerationSource = isAcpAgentMode
+    ? "agent"
+    : selectedGenerationSource === "agent" && !agentGenerationSelectable
       ? "builtin"
       : selectedGenerationSource;
   const currentProviderSettings = providerSettings?.[request.provider];
@@ -356,6 +402,10 @@ export const GenerateImageDialog = ({
   useEffect(() => {
     setGenerationSourceMenuOpen(false);
   }, [effectiveComposerMode, open]);
+
+  useEffect(() => {
+    setAgentTaskDetailsOpen(false);
+  }, [agentTaskStatus?.taskId, open]);
 
   useEffect(() => {
     const nextRequest = normalizeGenerationRequest(initialRequest, {
@@ -597,7 +647,8 @@ export const GenerateImageDialog = ({
     : savedPrompts;
   const promptLibraryCurrentContent =
     buildPromptTextWithInlineReferences(request).trim();
-  const showComposerTaskBar = showComposerModeSwitch;
+  const showComposerTaskBar =
+    showComposerModeSwitch || showComposerModeIndicator;
 
   const commitRequest = (
     nextRequest: GenerationRequest,
@@ -634,6 +685,28 @@ export const GenerateImageDialog = ({
       ...current,
       generationSource: source,
     }));
+  };
+
+  const syncGenerationSourceForComposerMode = (mode: GenerateComposerMode) => {
+    if (modeSwitchVariant !== "acp-agent") {
+      return;
+    }
+
+    const nextSource: GenerationSource = mode === "acp" ? "agent" : "builtin";
+    setGenerationSource(nextSource);
+    updateRequest((current) => ({
+      ...current,
+      generationSource: nextSource,
+    }));
+  };
+
+  const selectComposerMode = (
+    mode: GenerateComposerMode,
+    event: SyntheticEvent<HTMLElement>,
+  ) => {
+    stopInputEventPropagation(event);
+    setComposerMode(mode);
+    syncGenerationSourceForComposerMode(mode);
   };
 
   const selectGenerationSource = (
@@ -998,7 +1071,7 @@ export const GenerateImageDialog = ({
   };
 
   const submitRequest = () => {
-    if (effectiveComposerMode !== "direct") {
+    if (!isPromptComposerMode) {
       return;
     }
 
@@ -1241,7 +1314,7 @@ export const GenerateImageDialog = ({
                 : "",
               showComposerTaskBar ? "generate-composer--with-taskbar" : "",
               agentTaskStatus ? "generate-composer--with-agent-task" : "",
-              effectiveComposerMode === "agent"
+              isAgentOperationMode
                 ? "generate-composer--agent-mode"
                 : "",
             ]
@@ -1261,37 +1334,30 @@ export const GenerateImageDialog = ({
                     role="tablist"
                     aria-label="输入模式"
                   >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={effectiveComposerMode === "agent"}
-                      className="generate-composer__mode-tab"
-                      onMouseDown={stopInputEventPropagation}
-                      onClick={(event) => {
-                        stopInputEventPropagation(event);
-                        setComposerMode("agent");
-                      }}
-                    >
-                      Agent 操作
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={effectiveComposerMode === "direct"}
-                      className="generate-composer__mode-tab"
-                      onMouseDown={stopInputEventPropagation}
-                      onClick={(event) => {
-                        stopInputEventPropagation(event);
-                        setComposerMode("direct");
-                      }}
-                    >
-                      直接输入
-                    </button>
+                    {composerModeOptions.map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        role="tab"
+                        aria-selected={effectiveComposerMode === mode}
+                        className="generate-composer__mode-tab"
+                        onMouseDown={stopInputEventPropagation}
+                        onClick={(event) => {
+                          selectComposerMode(mode, event);
+                        }}
+                      >
+                        {getComposerModeLabel(mode)}
+                      </button>
+                    ))}
                   </div>
+                ) : showComposerModeIndicator ? (
+                  <span className="generate-composer__mode-status">
+                    {getComposerModeLabel(effectiveComposerMode)}
+                  </span>
                 ) : null}
               </div>
             ) : null}
-            {effectiveComposerMode === "agent" ? (
+            {isAgentOperationMode ? (
               <section
                 className="generate-composer__agent-context"
                 role="region"
@@ -1369,52 +1435,56 @@ export const GenerateImageDialog = ({
                 ) : null}
               </>
             )}
-            {effectiveComposerMode === "agent"
-              ? renderGenerationSourceSelect()
-              : null}
-            {effectiveComposerMode === "direct" ? (
+            {isAgentOperationMode ? renderGenerationSourceSelect() : null}
+            {isPromptComposerMode ? (
               <div className="generate-composer__controls">
-                <DesktopButton
-                  type="button"
-                  className={[
-                    "generate-composer__icon",
-                    promptLibraryOpen ? "generate-composer__icon--active" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  aria-label={copy.generateDialog.promptLibrary}
-                  title={copy.generateDialog.promptLibrary}
-                  onMouseDown={stopInputEventPropagation}
-                  onClick={(event) => {
-                    stopInputEventPropagation(event);
-                    setPromptLibraryOpen((current) => !current);
-                  }}
-                >
-                  {promptLibraryIcon}
-                </DesktopButton>
-                <DesktopButton
-                  type="button"
-                  className={[
-                    "generate-composer__icon",
-                    advancedOpen ? "generate-composer__icon--active" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  aria-label={
-                    advancedOpen
-                      ? copy.generateDialog.collapseSettings
-                      : copy.generateDialog.expandSettings
-                  }
-                  title={
-                    advancedOpen
-                      ? copy.generateDialog.collapseSettings
-                      : copy.generateDialog.expandSettings
-                  }
-                  onClick={() => setAdvancedOpen((current) => !current)}
-                >
-                  {settingsSlidersIcon}
-                </DesktopButton>
-                {renderGenerationSourceSelect()}
+                {effectiveComposerMode === "direct" ? (
+                  <>
+                    <DesktopButton
+                      type="button"
+                      className={[
+                        "generate-composer__icon",
+                        promptLibraryOpen
+                          ? "generate-composer__icon--active"
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      aria-label={copy.generateDialog.promptLibrary}
+                      title={copy.generateDialog.promptLibrary}
+                      onMouseDown={stopInputEventPropagation}
+                      onClick={(event) => {
+                        stopInputEventPropagation(event);
+                        setPromptLibraryOpen((current) => !current);
+                      }}
+                    >
+                      {promptLibraryIcon}
+                    </DesktopButton>
+                    <DesktopButton
+                      type="button"
+                      className={[
+                        "generate-composer__icon",
+                        advancedOpen ? "generate-composer__icon--active" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      aria-label={
+                        advancedOpen
+                          ? copy.generateDialog.collapseSettings
+                          : copy.generateDialog.expandSettings
+                      }
+                      title={
+                        advancedOpen
+                          ? copy.generateDialog.collapseSettings
+                          : copy.generateDialog.expandSettings
+                      }
+                      onClick={() => setAdvancedOpen((current) => !current)}
+                    >
+                      {settingsSlidersIcon}
+                    </DesktopButton>
+                    {renderGenerationSourceSelect()}
+                  </>
+                ) : null}
                 <DesktopButton
                   type="submit"
                   variant="primary"
@@ -1440,9 +1510,79 @@ export const GenerateImageDialog = ({
                 role="status"
                 aria-live="polite"
               >
-                <strong>{agentTaskStatus.message}</strong>
-                {agentTaskStatus.transcript ? (
-                  <span>{agentTaskStatus.transcript}</span>
+                <div className="generate-composer__agent-task-summary">
+                  <strong>{agentTaskStatus.message}</strong>
+                  {agentTaskStatus.transcript ? (
+                    <span>{agentTaskStatus.transcript}</span>
+                  ) : null}
+                  {agentTaskStatus.logPath ? (
+                    <span title={agentTaskStatus.logPath}>日志已保存</span>
+                  ) : null}
+                  {agentTaskStatus.logPath &&
+                  agentTaskStatus.taskId &&
+                  onOpenAgentRunLog ? (
+                    <button
+                      type="button"
+                      className="generate-composer__agent-task-toggle"
+                      aria-label="查看保存日志"
+                      onMouseDown={stopInputEventPropagation}
+                      onClick={(event) => {
+                        stopInputEventPropagation(event);
+                        onOpenAgentRunLog(agentTaskStatus.taskId!);
+                      }}
+                    >
+                      日志
+                    </button>
+                  ) : null}
+                  {agentTaskEvents.length ? (
+                    <button
+                      type="button"
+                      className="generate-composer__agent-task-toggle"
+                      aria-label={
+                        agentTaskDetailsOpen
+                          ? "收起任务过程"
+                          : "查看任务过程"
+                      }
+                      aria-expanded={agentTaskDetailsOpen}
+                      onMouseDown={stopInputEventPropagation}
+                      onClick={(event) => {
+                        stopInputEventPropagation(event);
+                        setAgentTaskDetailsOpen((current) => !current);
+                      }}
+                    >
+                      过程
+                    </button>
+                  ) : null}
+                </div>
+                {agentTaskDetailsOpen && agentTaskEvents.length ? (
+                  <div
+                    className="generate-composer__agent-run-log"
+                    role="log"
+                    aria-label="ACP Agent 任务过程"
+                  >
+                    {agentTaskEvents.map((item) => (
+                      <div
+                        key={item.id}
+                        className={[
+                          "generate-composer__agent-run-item",
+                          item.tone
+                            ? `generate-composer__agent-run-item--${item.tone}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        <span
+                          className="generate-composer__agent-run-dot"
+                          aria-hidden="true"
+                        />
+                        <span className="generate-composer__agent-run-copy">
+                          <strong>{item.title}</strong>
+                          {item.detail ? <span>{item.detail}</span> : null}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 ) : null}
               </div>
             ) : null}

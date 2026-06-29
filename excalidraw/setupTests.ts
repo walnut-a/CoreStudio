@@ -42,6 +42,28 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
+Object.defineProperty(globalThis, "ResizeObserver", {
+  writable: true,
+  value: class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+});
+
+Object.defineProperty(Element.prototype, "scrollTo", {
+  writable: true,
+  value: () => {},
+});
+
+const originalElementMatches = Element.prototype.matches;
+Element.prototype.matches = function (selector: string) {
+  if (selector === ":hover") {
+    return false;
+  }
+  return originalElementMatches.call(this, selector);
+};
+
 Object.defineProperty(window, "FontFace", {
   enumerable: true,
   value: class {

@@ -73,29 +73,30 @@ CLI 必须面向 Agent 友好：
 - 支持 `--jsonl` 输出模式；长任务进度流可以在后续版本扩展。
 - 错误返回稳定 `code`。
 - 写操作支持 `--dry-run`。
-- 写操作只需要当前本地 session token；旧版 `--task-id` 和 `--write-token` 可作为兼容参数保留，但不进入主流程。
+- 写操作只需要当前项目的本地 token；CLI 尚未上线，不保留旧命令兼容层。
 - 查询图片参考时优先返回本地原图路径，避免通过 CLI 来回传输图片数据。
 - CLI 背后调用 Local Bridge，不直接读写项目文件。
 
-建议的第一批命令：
+CLI 对外按四个工具组织：`read`、`write`、`edit`、`bash`。建议的第一批命令：
 
 ```sh
-node bin/corestudio.cjs agent status --json
-node bin/corestudio.cjs agent capabilities --json
-node bin/corestudio.cjs agent context --json
-node bin/corestudio.cjs project current --json
-node bin/corestudio.cjs scene snapshot --json
-node bin/corestudio.cjs scene selection --json
-node bin/corestudio.cjs scene image-paths --selection --json
-node bin/corestudio.cjs scene image-paths --file-ids <fileId>[,<fileId>] --json
-node bin/corestudio.cjs scene image-paths --all --json
-node bin/corestudio.cjs scene add-image <path> --json
-node bin/corestudio.cjs scene add-prompt --text "..." --json
-node bin/corestudio.cjs generate --prompt "..." --use-selection --json
-node bin/corestudio.cjs task complete --json
+node bin/corestudio.cjs read status --json
+node bin/corestudio.cjs read capabilities --json
+node bin/corestudio.cjs read context --json
+node bin/corestudio.cjs read project --json
+node bin/corestudio.cjs read scene --json
+node bin/corestudio.cjs read selection --json
+node bin/corestudio.cjs read image-paths --selection --json
+node bin/corestudio.cjs read image-paths --file-ids <fileId>[,<fileId>] --json
+node bin/corestudio.cjs read image-paths --all --json
+node bin/corestudio.cjs read board-url --json
+node bin/corestudio.cjs write image <path> --origin acp-agent --json
+node bin/corestudio.cjs write prompt --text "..." --json
+node bin/corestudio.cjs write generation --prompt "..." --use-selection --json
+node bin/corestudio.cjs bash examples --json
 ```
 
-当前源码包使用 `node bin/corestudio.cjs ...`；全局 `corestudio ...` 命令需要后续通过 CLI 包、link 或桌面安装器显式安装。
+当前源码包使用 `node bin/corestudio.cjs ...`；全局 `corestudio ...` 命令需要后续通过 CLI 包、link 或桌面安装器显式安装。ACP 任务包不能把这个相对路径直接发给 Agent，因为 `session/new.cwd` 指向用户项目目录；任务包必须提供 CoreStudio 解析后的 `capabilities.cli.executable` 和任务级 `capabilities.cli.environment`。
 
 ### 生成来源策略
 
@@ -112,7 +113,7 @@ CoreStudio 需要把“由谁负责生图”做成显式配置，而不是让 Ag
 - Agent Board 默认 `agent`，在生成输入面板里显示“本次生成来源”切换。
 - Agent 设置浮层只展示当前默认来源，作为状态确认，不作为主要配置入口。
 - Agent Board 的生成输入面板应按“任务状态栏 + Agent 上下文托盘”组织；Agent 操作模式展示当前选中元素和引用上下文，不强行沿用普通 prompt 输入框形态。
-- `agent context --json` 必须返回 `generation.source`，Agent 以这个字段作为默认决策依据。
+- `read context --json` 必须返回 `generation.source`，Agent 以这个字段作为默认决策依据。
 - 如果用户明确要求“用 CoreStudio / 用软件内置”，Agent 应选择 `builtin`。
 - 如果用户明确要求“你来生成 / 用 Agent 能力”，Agent 应选择 `agent`。
 
@@ -184,12 +185,6 @@ Agent 写回时使用本地 session token。Local Bridge 需要校验：
 - 当前项目是否仍然匹配。
 - 图片、prompt、scene 变更是否符合 CoreStudio 数据结构。
 
-Agent 完成后必须调用：
-
-```sh
-node bin/corestudio.cjs task complete --json
-```
-
 CoreStudio 以 CLI 写回记录为准，而不是以 ACP 对话文本为准。
 
 ## 任务上下文格式
@@ -237,7 +232,7 @@ CoreStudio 发给 Agent 的任务上下文应包含：
 - CoreStudio CLI。
 - 当前项目绑定。
 - JSON/JSONL 输出。
-- scene snapshot、selection context、add image、add prompt、generate、task complete。
+- `read scene`、`read selection`、`write image`、`write prompt`、`write generation`。
 - 基础权限和 token。
 
 不做：

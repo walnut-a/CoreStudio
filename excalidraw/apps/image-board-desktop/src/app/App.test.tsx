@@ -2348,12 +2348,14 @@ describe("App startup", () => {
         mimeType: "image/png",
       },
     });
+    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
 
     vi.spyOn(crypto, "randomUUID").mockReturnValue(
       "generated-file" as `${string}-${string}-${string}-${string}-${string}`,
     );
     window.imageBoardDesktop = createDesktopBridgeMock({
       persistImageAssets,
+      writeProjectScene,
       onAgentCommandRequest: vi.fn((listener) => {
         agentCommandListener = listener;
         return () => {
@@ -2390,6 +2392,10 @@ describe("App startup", () => {
           dataBase64: "ZmFrZQ==",
           width: 100,
           height: 100,
+          generationOrigin: "acp-agent",
+          prompt: "优化这台 CNC",
+          referenceFileIds: "file-source",
+          referenceElementIds: "element-source",
         },
       });
     });
@@ -2401,6 +2407,19 @@ describe("App startup", () => {
           fileId: "agent-generated-file",
           dataBase64: "ZmFrZQ==",
           mimeType: "image/png",
+          sourceType: "generated",
+          generationOrigin: "acp-agent",
+          prompt: "优化这台 CNC",
+          promptReferences: [
+            {
+              id: "agent-reference-1",
+              index: 1,
+              label: "参考图 1",
+              kind: "image",
+              fileIds: ["file-source"],
+              elementIds: ["element-source"],
+            },
+          ],
         }),
       ],
     });
@@ -2417,6 +2436,13 @@ describe("App startup", () => {
             fileId: "agent-generated-file",
           }),
         ]),
+      }),
+    );
+    expect(writeProjectScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectPath: "/tmp/mock-project",
+        sceneJson: "{}",
+        expectedSceneHash: expect.any(String),
       }),
     );
   });
@@ -3000,10 +3026,13 @@ describe("App startup", () => {
       });
     });
 
-    expect(writeProjectScene).toHaveBeenCalledWith({
-      projectPath: "/tmp/project-a",
-      sceneJson: "{}",
-    });
+    expect(writeProjectScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectPath: "/tmp/project-a",
+        sceneJson: "{}",
+        expectedSceneHash: expect.any(String),
+      }),
+    );
     expect(readProjectAssetPayloads).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/旧项目未能保存/)).toBeInTheDocument();
     expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
@@ -3127,12 +3156,12 @@ describe("App startup", () => {
     expect(acpSection).not.toBeNull();
     const acpControls = within(acpSection as HTMLElement);
 
-    fireEvent.click(acpControls.getByRole("switch", { name: "启用 ACP Agent" }));
+    fireEvent.click(
+      acpControls.getByRole("switch", { name: "启用 ACP Agent" }),
+    );
     expect(
       (acpControls.getByLabelText("任务说明模板") as HTMLTextAreaElement).value,
-    ).toContain(
-      "You are an external ACP Agent working with CoreStudio",
-    );
+    ).toContain("You are an external ACP Agent working with CoreStudio");
     fireEvent.change(acpControls.getByLabelText("命令"), {
       target: { value: "/usr/local/bin/acp-agent" },
     });
@@ -3239,7 +3268,9 @@ describe("App startup", () => {
     expect(acpSection).not.toBeNull();
     const acpControls = within(acpSection as HTMLElement);
 
-    fireEvent.click(acpControls.getByRole("switch", { name: "启用 ACP Agent" }));
+    fireEvent.click(
+      acpControls.getByRole("switch", { name: "启用 ACP Agent" }),
+    );
     fireEvent.change(acpControls.getByLabelText("Agent 类型"), {
       target: { value: "gemini-cli" },
     });
@@ -3340,7 +3371,9 @@ describe("App startup", () => {
     const historyControls = within(historySection as HTMLElement);
 
     expect(historyControls.getByText("工业设计助手")).toBeInTheDocument();
-    expect(historyControls.getByText("优化桌面 CNC 机器外观")).toBeInTheDocument();
+    expect(
+      historyControls.getByText("优化桌面 CNC 机器外观"),
+    ).toBeInTheDocument();
     expect(historyControls.getByText("失败")).toBeInTheDocument();
 
     fireEvent.click(
@@ -3356,12 +3389,107 @@ describe("App startup", () => {
     const runLogDialog = await screen.findByRole("dialog", {
       name: "Agent 任务记录",
     });
+    const runLog = within(runLogDialog).getByRole("log", {
+      name: "Agent 任务过程",
+    });
+    expect(runLog).toHaveTextContent("Agent");
     expect(
-      within(runLogDialog).getByRole("log", { name: "Agent 任务过程" }),
-    ).toHaveTextContent("Agent 回复");
+      within(runLog).getAllByText(/正在分析选中的 CNC 图片/).length,
+    ).toBeGreaterThan(0);
     expect(
-      within(runLogDialog).getByText(/正在分析选中的 CNC 图片/),
+      runLog.querySelector(".agent-run-chat__content"),
     ).toBeInTheDocument();
+  });
+
+  it("refreshes recent ACP Agent task records when an open settings panel receives a finished task", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    let acpTaskListener:
+      | ((event: {
+          taskId: string;
+          type: "status";
+          status: "failed";
+          message: string;
+          logPath: string;
+        }) => void)
+      | null = null;
+    const finishedRun = {
+      mode: "acp-agent" as const,
+      taskId: "task-finished-1",
+      projectToken: "project-token",
+      projectName: "工业设计助手",
+      agentName: "Codex ACP",
+      userPrompt: "生成一版极简 CNC 外观",
+      status: "failed" as const,
+      startedAt: "2026-06-29T08:00:00.000Z",
+      endedAt: "2026-06-29T08:00:05.000Z",
+      errorMessage: "No model configured",
+      logFile: "task-finished-1.jsonl",
+    };
+    const listAcpAgentRunLogs = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([finishedRun]);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "Codex ACP",
+            command: "npx",
+            args: ["-y", "@agentclientprotocol/codex-acp"],
+            cwd: null,
+          },
+        ],
+      })),
+      listAcpAgentRunLogs,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+      onAcpAgentTaskEvent: vi.fn((listener) => {
+        acpTaskListener = listener as typeof acpTaskListener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+      expect(acpTaskListener).not.toBeNull();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    await waitFor(() => {
+      expect(listAcpAgentRunLogs).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      acpTaskListener?.({
+        taskId: "task-finished-1",
+        type: "status",
+        status: "failed",
+        message: "Agent 任务失败",
+        logPath:
+          "/Users/alice/Library/Application Support/Excalidraw Image Board/agent-runs/task-finished-1.jsonl",
+      });
+    });
+
+    await waitFor(() => {
+      expect(listAcpAgentRunLogs).toHaveBeenCalledTimes(2);
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    expect(
+      within(dialog).getByText("生成一版极简 CNC 外观"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("No model configured")).toBeInTheDocument();
   });
 
   it("keeps ACP Agent settings editable on the Agent Board when the bridge supports settings", async () => {
@@ -3551,10 +3679,13 @@ describe("App startup", () => {
       await flushListener?.();
     });
 
-    expect(writeProjectScene).toHaveBeenCalledWith({
-      projectPath: "/tmp/mock-project",
-      sceneJson: "{}",
-    });
+    expect(writeProjectScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectPath: "/tmp/mock-project",
+        sceneJson: "{}",
+        expectedSceneHash: expect.any(String),
+      }),
+    );
   });
 
   it("defaults generation settings to the first configured provider without local memory", async () => {
@@ -3847,7 +3978,9 @@ describe("App startup", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("project-main-menu")).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "新建项目" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "继续最近项目" }),
     ).toBeInTheDocument();
@@ -7949,6 +8082,105 @@ describe("App startup", () => {
     expect(generateImages).not.toHaveBeenCalled();
   });
 
+  it("merges streamed ACP Agent message chunks without message ids in the current task timeline", async () => {
+    let acpTaskListener: ((event: any) => void) | null = null;
+    const startAcpAgentTask = vi.fn().mockResolvedValue({ taskId: "task-1" });
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: true,
+        ready: true,
+        currentProject: null,
+        boardUrl:
+          "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
+      })),
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "测试 Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio"],
+            cwd: null,
+          },
+        ],
+      })),
+      startAcpAgentTask,
+      onAcpAgentTaskEvent: vi.fn((listener) => {
+        acpTaskListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "提交 ACP Agent 生成" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(startAcpAgentTask).toHaveBeenCalled();
+    });
+    const taskId = startAcpAgentTask.mock.calls[0][0].taskId;
+
+    act(() => {
+      acpTaskListener?.({
+        taskId,
+        type: "agent-message",
+        text: "于",
+      });
+      acpTaskListener?.({
+        taskId,
+        type: "status",
+        status: "running",
+        message: "Agent 正在处理",
+      });
+      acpTaskListener?.({
+        taskId,
+        type: "agent-message",
+        text: "这张图",
+      });
+    });
+
+    await waitFor(() => {
+      const clientComposerConfig = JSON.parse(
+        screen.getByTestId("generate-dialog-composer-config").textContent ??
+          "{}",
+      ) as {
+        agentTaskStatus?: {
+          transcript?: string;
+          events?: Array<{
+            title: string;
+            detail?: string;
+          }>;
+        };
+      };
+      expect(clientComposerConfig.agentTaskStatus?.transcript).toBe("于这张图");
+      expect(
+        clientComposerConfig.agentTaskStatus?.events?.filter(
+          (event) => event.title === "Agent 回复",
+        ),
+      ).toEqual([
+        {
+          title: "Agent 回复",
+          detail: "于这张图",
+          mergeKey: `agent-message:${taskId}`,
+          id: expect.any(String),
+        },
+      ]);
+    });
+  });
+
   it("opens saved ACP Agent run log details from the current task", async () => {
     let acpTaskListener:
       | ((event: {
@@ -8079,20 +8311,302 @@ describe("App startup", () => {
       name: "Agent 任务记录",
     });
     expect(within(runLogDialog).getByText("测试 Agent")).toBeInTheDocument();
-    expect(within(runLogDialog).getByRole("log", {
-      name: "Agent 任务过程",
-    })).toHaveTextContent("任务已创建");
-    expect(within(runLogDialog).getByText("正在分析当前画板。")).toBeInTheDocument();
-    expect(within(runLogDialog).getAllByText(/No model configured/).length)
-      .toBeGreaterThan(0);
-    expect(within(runLogDialog).queryByText("acp.request")).toBeNull();
+    expect(
+      within(runLogDialog).getByRole("log", {
+        name: "Agent 任务过程",
+      }),
+    ).toHaveTextContent("用户任务");
+    expect(
+      within(runLogDialog).getByText("正在分析当前画板。"),
+    ).toBeInTheDocument();
+    expect(
+      within(runLogDialog).getAllByText(/No model configured/).length,
+    ).toBeGreaterThan(0);
+    expect(within(runLogDialog).queryByText(/acp\.request/)).toBeNull();
 
     fireEvent.click(
-      within(runLogDialog).getByRole("button", { name: "显示原始记录" }),
+      within(runLogDialog).getByRole("button", { name: "显示协议 JSON" }),
     );
 
-    expect(within(runLogDialog).getByText("acp.request")).toBeInTheDocument();
-    expect(within(runLogDialog).getByText(/session\/prompt/)).toBeInTheDocument();
+    expect(within(runLogDialog).getByText(/acp\.request/)).toBeInTheDocument();
+    expect(
+      within(runLogDialog).getAllByText(/session\/prompt/).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("refreshes an open ACP Agent run log when the current task finishes", async () => {
+    let acpTaskListener:
+      | ((event: {
+          taskId: string;
+          type: "status";
+          status: "connecting" | "completed";
+          message: string;
+          logPath?: string;
+        }) => void)
+      | null = null;
+    const startAcpAgentTask = vi.fn().mockResolvedValue({ taskId: "task-1" });
+    const readAcpAgentRunLog = vi
+      .fn()
+      .mockResolvedValueOnce({
+        summary: {
+          taskId: "task-1",
+          projectToken: "project-token",
+          projectName: "测试项目",
+          agentName: "测试 Agent",
+          userPrompt: "继续细化工业设计方案",
+          mode: "acp-agent",
+          status: "running",
+          startedAt: "2026-06-29T01:00:00.000Z",
+          logFile: "task-1.jsonl",
+        },
+        entries: [
+          {
+            version: 1,
+            taskId: "task-1",
+            timestamp: "2026-06-29T01:00:00.000Z",
+            seq: 1,
+            kind: "task.created",
+            payload: { userPrompt: "继续细化工业设计方案" },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        summary: {
+          taskId: "task-1",
+          projectToken: "project-token",
+          projectName: "测试项目",
+          agentName: "测试 Agent",
+          userPrompt: "继续细化工业设计方案",
+          mode: "acp-agent",
+          status: "completed",
+          startedAt: "2026-06-29T01:00:00.000Z",
+          endedAt: "2026-06-29T01:01:00.000Z",
+          lastMessage: "Agent 已完成",
+          logFile: "task-1.jsonl",
+        },
+        entries: [
+          {
+            version: 1,
+            taskId: "task-1",
+            timestamp: "2026-06-29T01:00:00.000Z",
+            seq: 1,
+            kind: "task.created",
+            payload: { userPrompt: "继续细化工业设计方案" },
+          },
+          {
+            version: 1,
+            taskId: "task-1",
+            timestamp: "2026-06-29T01:00:10.000Z",
+            seq: 2,
+            kind: "agent.message",
+            payload: { text: "已生成新图片并写回画板。" },
+          },
+          {
+            version: 1,
+            taskId: "task-1",
+            timestamp: "2026-06-29T01:01:00.000Z",
+            seq: 3,
+            kind: "task.finished",
+            payload: { status: "completed", lastMessage: "Agent 已完成" },
+          },
+        ],
+      });
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: true,
+        ready: true,
+        currentProject: null,
+        boardUrl:
+          "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
+      })),
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "测试 Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio"],
+            cwd: null,
+          },
+        ],
+      })),
+      startAcpAgentTask,
+      readAcpAgentRunLog,
+      onAcpAgentTaskEvent: vi.fn((listener) => {
+        acpTaskListener = listener as typeof acpTaskListener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "提交 ACP Agent 生成" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(startAcpAgentTask).toHaveBeenCalled();
+    });
+    const taskId = startAcpAgentTask.mock.calls[0][0].taskId;
+    act(() => {
+      acpTaskListener?.({
+        taskId,
+        type: "status",
+        status: "connecting",
+        message: "正在连接 ACP Agent",
+        logPath:
+          "/Users/alice/Library/Application Support/Excalidraw Image Board/agent-runs/task-1.jsonl",
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "查看保存日志" }));
+    });
+
+    const runLogDialog = screen.getByRole("dialog", {
+      name: "Agent 任务记录",
+    });
+    expect(
+      within(runLogDialog).getByRole("log", { name: "Agent 任务过程" }),
+    ).toHaveTextContent("用户任务");
+
+    act(() => {
+      acpTaskListener?.({
+        taskId,
+        type: "status",
+        status: "completed",
+        message: "Agent 已完成",
+      });
+    });
+
+    await waitFor(() => {
+      expect(readAcpAgentRunLog).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      within(runLogDialog).getByText("已生成新图片并写回画板。"),
+    ).toBeInTheDocument();
+    expect(within(runLogDialog).getByText("Agent 已完成")).toBeInTheDocument();
+  });
+
+  it("retries opening the saved ACP Agent run log while the log is still being finalized", async () => {
+    let acpTaskListener:
+      | ((event: {
+          taskId: string;
+          type: "status";
+          status: "failed";
+          message: string;
+          logPath: string;
+        }) => void)
+      | null = null;
+    const startAcpAgentTask = vi.fn().mockResolvedValue({ taskId: "task-1" });
+    const readAcpAgentRunLog = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("ACP run log not found: task-1"))
+      .mockResolvedValueOnce({
+        summary: {
+          taskId: "task-1",
+          projectToken: "project-token",
+          projectName: "测试项目",
+          agentName: "测试 Agent",
+          userPrompt: "继续细化工业设计方案",
+          mode: "acp-agent",
+          status: "failed",
+          startedAt: "2026-06-29T01:00:00.000Z",
+          endedAt: "2026-06-29T01:01:00.000Z",
+          errorMessage: "No model configured",
+          logFile: "task-1.jsonl",
+        },
+        entries: [
+          {
+            version: 1,
+            taskId: "task-1",
+            timestamp: "2026-06-29T01:00:00.000Z",
+            seq: 1,
+            kind: "error",
+            payload: { message: "No model configured" },
+          },
+        ],
+      });
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: true,
+        ready: true,
+        currentProject: null,
+        boardUrl:
+          "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
+      })),
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "测试 Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio"],
+            cwd: null,
+          },
+        ],
+      })),
+      startAcpAgentTask,
+      readAcpAgentRunLog,
+      onAcpAgentTaskEvent: vi.fn((listener) => {
+        acpTaskListener = listener as typeof acpTaskListener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "提交 ACP Agent 生成" }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(startAcpAgentTask).toHaveBeenCalled();
+    });
+    const taskId = startAcpAgentTask.mock.calls[0][0].taskId;
+    act(() => {
+      acpTaskListener?.({
+        taskId,
+        type: "status",
+        status: "failed",
+        message: "Agent 任务失败",
+        logPath:
+          "/Users/alice/Library/Application Support/Excalidraw Image Board/agent-runs/task-1.jsonl",
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "查看保存日志" }));
+    });
+
+    await waitFor(() => {
+      expect(readAcpAgentRunLog).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      screen.getByRole("dialog", { name: "Agent 任务记录" }),
+    ).toHaveTextContent("No model configured");
   });
 
   it("keeps the generated image canvas size from the placeholder frame", async () => {

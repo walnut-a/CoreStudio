@@ -5,6 +5,7 @@ import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
+import { getSceneContentHash } from "../src/shared/sceneVersion";
 
 import {
   cleanProjectCache,
@@ -1007,6 +1008,89 @@ describe("projectFs", () => {
     const backups = await fs.readdir(backupDir);
 
     expect(new Set(backups).size).toBe(2);
+  });
+
+  it("rejects stale non-empty scene writes", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Scene Version Test");
+    const baseScene = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "CoreStudio",
+      elements: [
+        {
+          id: "rect-base",
+          type: "rectangle",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+        },
+      ],
+      appState: {},
+      files: {},
+    });
+    const nextScene = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "CoreStudio",
+      elements: [
+        {
+          id: "rect-next",
+          type: "rectangle",
+          x: 120,
+          y: 0,
+          width: 100,
+          height: 100,
+        },
+      ],
+      appState: {},
+      files: {},
+    });
+    const staleScene = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "CoreStudio",
+      elements: [
+        {
+          id: "rect-stale",
+          type: "rectangle",
+          x: 240,
+          y: 0,
+          width: 100,
+          height: 100,
+        },
+      ],
+      appState: {},
+      files: {},
+    });
+
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: baseScene,
+    });
+    const baseHash = getSceneContentHash(baseScene);
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: nextScene,
+      expectedSceneHash: baseHash,
+    });
+    await expect(
+      writeProjectScene({
+        projectPath: project.projectPath,
+        sceneJson: staleScene,
+        expectedSceneHash: baseHash,
+      }),
+    ).rejects.toThrow("画板文件已经被其他会话更新");
+
+    await expect(
+      fs.readFile(
+        path.join(project.projectPath, PROJECT_FILENAMES.scene),
+        "utf8",
+      ),
+    ).resolves.toBe(nextScene);
   });
 
   it("rejects an empty save when the current scene JSON is damaged", async () => {

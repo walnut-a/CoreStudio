@@ -7,7 +7,12 @@ import type {
 import type { ProviderId } from "../../shared/providerTypes";
 import { referencePlaceholderText } from "../../shared/promptReferences";
 import type { ImageLineageEntry } from "../imageRelationships";
-import { copy, getImageSourceLabel, getOptionalText } from "../copy";
+import {
+  copy,
+  getImageGenerationOriginLabel,
+  getImageSourceLabel,
+  getOptionalText,
+} from "../copy";
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
 import { DesktopButton } from "./DesktopButton";
@@ -75,10 +80,17 @@ const formatSize = (width: number, height: number) => `${width} × ${height}`;
 const formatTaskSize = (task: GenerationTaskRecord) =>
   task.aspectRatio === null ? "自动比例" : formatSize(task.width, task.height);
 
-const getProviderLabel = (provider?: ProviderId) =>
-  provider
-    ? getProviderDefinition(provider).label
+const getProviderLabel = (record: ImageRecord) => {
+  if (record.provider) {
+    return getProviderDefinition(record.provider).label;
+  }
+  if (record.generationOrigin === "acp-agent") {
+    return copy.inspector.externalAgentProvider;
+  }
+  return record.sourceType === "generated"
+    ? copy.inspector.unrecordedProvider
     : copy.inspector.importedProvider;
+};
 
 const getImageRecordTitle = (record: ImageRecord) =>
   record.sourceType === "generated"
@@ -138,6 +150,13 @@ const renderPromptTextWithReferences = (
 
   return nodes.length ? nodes : promptText;
 };
+
+const getPromptReferenceList = (
+  references: ImagePromptReferenceRecord[] | undefined,
+) =>
+  (references || [])
+    .filter(hasPromptReferenceTarget)
+    .sort((left, right) => left.index - right.index);
 
 export const ImageInspector = ({
   record,
@@ -280,10 +299,17 @@ export const ImageInspector = ({
     );
   }
 
-  const sourceLabel = getImageSourceLabel(record.sourceType);
+  const sourceLabel =
+    getImageGenerationOriginLabel(record.generationOrigin) ??
+    getImageSourceLabel(record.sourceType);
   const imageTitle = getImageRecordTitle(record);
   const modelText = getOptionalText(record.model);
   const parentSummary = getParentImageSummary(record, parentRecord);
+  const promptReferenceList = getPromptReferenceList(record.promptReferences);
+  const detachedPromptReferenceList = promptReferenceList.filter(
+    (reference) =>
+      !record.prompt?.includes(referencePlaceholderText(reference.index)),
+  );
   const renderLocateChainItem = (
     chainRecord: ImageRecord,
     options: {
@@ -336,6 +362,25 @@ export const ImageInspector = ({
               onLocatePromptReference,
             )}
           </p>
+          {detachedPromptReferenceList.length ? (
+            <div
+              className="image-inspector__prompt-reference-list"
+              aria-label={copy.inspector.promptReferences}
+            >
+              {detachedPromptReferenceList.map((reference) => (
+                <button
+                  key={reference.id}
+                  type="button"
+                  className="image-inspector__prompt-reference-chip"
+                  aria-label={`定位${reference.label}`}
+                  title={copy.inspector.locateImage}
+                  onClick={() => onLocatePromptReference(reference)}
+                >
+                  {reference.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="image-inspector__section">
@@ -354,7 +399,7 @@ export const ImageInspector = ({
             <div className="image-inspector__detail-item">
               <dt>{copy.inspector.provider}</dt>
               <dd className="image-inspector__detail-value">
-                {getProviderLabel(record.provider)}
+                {getProviderLabel(record)}
               </dd>
             </div>
             <div className="image-inspector__detail-item">

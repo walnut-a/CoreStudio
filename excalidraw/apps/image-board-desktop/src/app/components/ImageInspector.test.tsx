@@ -171,6 +171,42 @@ describe("ImageInspector", () => {
     expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);
   });
 
+  it("shows ACP Agent provenance and prompt references for externally generated images", () => {
+    const promptReference: ImagePromptReferenceRecord = {
+      id: "reference-acp",
+      index: 1,
+      label: "参考图 1",
+      kind: "image",
+      fileIds: ["file-source"],
+      elementIds: ["element-source"],
+    };
+    const onLocatePromptReference = vi.fn();
+
+    renderInspector({
+      record: {
+        ...generatedRecord,
+        provider: undefined,
+        generationOrigin: "acp-agent",
+        prompt: "改成更简约优雅的桌面 CNC。",
+        promptReferences: [promptReference],
+      },
+      onLocatePromptReference,
+    });
+
+    const detailGrid = screen.getByText("生成参数").closest("section");
+    expect(detailGrid).not.toBeNull();
+    expect(
+      within(detailGrid as HTMLElement).getByText("ACP Agent"),
+    ).toBeInTheDocument();
+    expect(
+      within(detailGrid as HTMLElement).getByText("外部 Agent"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "定位参考图 1" }));
+
+    expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);
+  });
+
   it("copies only the selected visible text from the sidebar", () => {
     const { container } = renderInspector();
     const promptText = container.querySelector(

@@ -8,7 +8,11 @@ CoreStudio owns the local project data. You may analyze, plan, search, and gener
 
 Use the attached CoreStudio task package as the source of truth for project identity, selected elements, image ids, local bridge address, board URL, and allowed write-back rules.
 
+Use capabilities.cli.executable and capabilities.cli.environment from the task package for CoreStudio CLI commands. Do not infer a relative CLI path from the agent working directory.
+
 When you need original image files, prefer querying paths through the CoreStudio CLI instead of asking CoreStudio to inline image data.
+
+When you write a generated image back to the board, preserve provenance. Use \`write image\` with \`--origin acp-agent\`, the original task prompt via \`--prompt\`, and reference ids via \`--reference-file-ids\` / \`--reference-element-ids\` when available. The task package also exposes default CLI environment values for these fields.
 
 When you write back to the board, report the CLI command result, including created or updated imageId, elementId, frameId, or prompt id when available.
 
@@ -33,7 +37,7 @@ export const ACP_AGENT_PRESETS = [
   },
 ] as const;
 
-export type AcpAgentKnownPresetId = (typeof ACP_AGENT_PRESETS)[number]["id"];
+export type AcpAgentKnownPresetId = typeof ACP_AGENT_PRESETS[number]["id"];
 export type AcpAgentPresetId =
   | AcpAgentKnownPresetId
   | typeof ACP_AGENT_CUSTOM_PRESET_ID;
@@ -228,9 +232,7 @@ export const getAcpAgentPreset = (
 ): AcpAgentPreset | null =>
   ACP_AGENT_PRESETS.find((preset) => preset.id === presetId) ?? null;
 
-export const isAcpAgentPresetId = (
-  value: unknown,
-): value is AcpAgentPresetId =>
+export const isAcpAgentPresetId = (value: unknown): value is AcpAgentPresetId =>
   value === ACP_AGENT_CUSTOM_PRESET_ID ||
   Boolean(getAcpAgentPreset(String(value)));
 
@@ -258,9 +260,7 @@ const normalizeAgent = (agent: AcpAgentConfig): AcpAgentConfig | null => {
   const id = agent.id.trim();
   const name = agent.name.trim();
   const command = agent.command.trim();
-  const presetId = isAcpAgentPresetId(agent.presetId)
-    ? agent.presetId
-    : null;
+  const presetId = isAcpAgentPresetId(agent.presetId) ? agent.presetId : null;
   if (!id || !name || !command) {
     return null;
   }

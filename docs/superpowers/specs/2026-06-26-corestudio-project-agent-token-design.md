@@ -90,7 +90,7 @@ corestudio board-url --project-token <token>
 corestudio open --project-token <token>
 ```
 
-第一阶段要求现有 CLI 兼容 session descriptor 中的 `projectToken`，并提供 `agent board-url` 直接返回固定内置画板链接。
+第一阶段要求 CLI 使用 session descriptor 中的 `projectToken`，并提供 `read board-url` 直接返回固定内置画板链接。
 
 ## 项目复制和迁移
 

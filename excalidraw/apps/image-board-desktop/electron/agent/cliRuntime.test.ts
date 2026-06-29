@@ -9,7 +9,7 @@ import { runCli } from "./cliRuntime";
 import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
 
 const baseUrl = "http://127.0.0.1:49152";
-const readToken = "read-token-1";
+const projectToken = "project-token-1";
 const boardUrl =
   "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152";
 const okEnvelope = {
@@ -96,6 +96,7 @@ const runCommand = async (
   argv: string[],
   options: {
     env?: NodeJS.ProcessEnv;
+    executablePath?: string;
     fetch?: ReturnType<typeof createFetch>;
     readFile?: (filePath: string, encoding: "utf8") => Promise<string>;
     readImageFile?: (filePath: string) => Promise<Buffer>;
@@ -119,8 +120,9 @@ const runCommand = async (
     },
     env: options.env ?? {
       CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
-      CORESTUDIO_AGENT_READ_TOKEN: readToken,
+      CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
     },
+    executablePath: options.executablePath,
     fetch: options.fetch,
     readFile: options.readFile,
     readImageFile: options.readImageFile,
@@ -150,17 +152,8 @@ const createPngBuffer = (width: number, height: number) => {
 
 const createJpegBuffer = (width: number, height: number) => {
   const buffer = Buffer.from([
-    0xff, 0xd8,
-    0xff, 0xc0,
-    0x00, 0x11,
-    0x08,
-    0x00, 0x00,
-    0x00, 0x00,
-    0x03,
-    0x01, 0x11, 0x00,
-    0x02, 0x11, 0x00,
-    0x03, 0x11, 0x00,
-    0xff, 0xd9,
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x03,
+    0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00, 0xff, 0xd9,
   ]);
   buffer.writeUInt16BE(height, 7);
   buffer.writeUInt16BE(width, 9);
@@ -185,65 +178,44 @@ const parseRequestBody = (records: RequestRecord[]) =>
 describe("runCli", () => {
   it.each([
     {
-      name: "agent status",
-      argv: ["agent", "status", "--json"],
+      name: "read status",
+      argv: ["read", "status", "--json"],
       route: AGENT_HTTP_ROUTES.status,
       method: "GET",
     },
     {
-      name: "agent capabilities",
-      argv: ["agent", "capabilities", "--json"],
+      name: "read capabilities",
+      argv: ["read", "capabilities", "--json"],
       route: AGENT_HTTP_ROUTES.capabilities,
       method: "GET",
     },
     {
-      name: "agent authorize",
-      argv: [
-        "agent",
-        "authorize",
-        "--permissions",
-        "write-board,generate-image",
-        "--reason",
-        "生成参考图",
-        "--ttl-seconds",
-        "604800",
-        "--json",
-      ],
-      route: AGENT_HTTP_ROUTES.authorize,
-      method: "POST",
-      body: {
-        permissions: ["write-board", "generate-image"],
-        reason: "生成参考图",
-        ttlSeconds: 604800,
-      },
-    },
-    {
-      name: "agent context",
-      argv: ["agent", "context", "--json"],
+      name: "read context",
+      argv: ["read", "context", "--json"],
       route: AGENT_HTTP_ROUTES.context,
       method: "GET",
     },
     {
-      name: "project current",
-      argv: ["project", "current", "--json"],
+      name: "read project",
+      argv: ["read", "project", "--json"],
       route: AGENT_HTTP_ROUTES.projectCurrent,
       method: "GET",
     },
     {
-      name: "scene snapshot",
-      argv: ["scene", "snapshot", "--json"],
+      name: "read scene",
+      argv: ["read", "scene", "--json"],
       route: AGENT_HTTP_ROUTES.sceneSnapshot,
       method: "GET",
     },
     {
-      name: "scene selection",
-      argv: ["scene", "selection", "--json"],
+      name: "read selection",
+      argv: ["read", "selection", "--json"],
       route: AGENT_HTTP_ROUTES.sceneSelection,
       method: "GET",
     },
     {
-      name: "scene image-paths for selected images",
-      argv: ["scene", "image-paths", "--selection", "--json"],
+      name: "read image-paths for selected images",
+      argv: ["read", "image-paths", "--selection", "--json"],
       route: "/v1/scene/image-paths",
       method: "POST",
       body: {
@@ -251,8 +223,8 @@ describe("runCli", () => {
       },
     },
     {
-      name: "scene image-paths for specific file ids",
-      argv: ["scene", "image-paths", "--file-ids", "file-1,file-2", "--json"],
+      name: "read image-paths for specific file ids",
+      argv: ["read", "image-paths", "--file-ids", "file-1,file-2", "--json"],
       route: "/v1/scene/image-paths",
       method: "POST",
       body: {
@@ -260,8 +232,8 @@ describe("runCli", () => {
       },
     },
     {
-      name: "scene image-paths for all images",
-      argv: ["scene", "image-paths", "--all", "--json"],
+      name: "read image-paths for all images",
+      argv: ["read", "image-paths", "--all", "--json"],
       route: "/v1/scene/image-paths",
       method: "POST",
       body: {
@@ -269,13 +241,8 @@ describe("runCli", () => {
       },
     },
     {
-      name: "scene add-image",
-      argv: [
-        "scene",
-        "add-image",
-        "/tmp/a.png",
-        "--json",
-      ],
+      name: "write image",
+      argv: ["write", "image", "/tmp/a.png", "--json"],
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
       body: {
@@ -283,15 +250,8 @@ describe("runCli", () => {
       },
     },
     {
-      name: "scene add-prompt dry-run",
-      argv: [
-        "scene",
-        "add-prompt",
-        "--text",
-        "prompt",
-        "--dry-run",
-        "--json",
-      ],
+      name: "write prompt dry-run",
+      argv: ["write", "prompt", "--text", "prompt", "--dry-run", "--json"],
       route: AGENT_HTTP_ROUTES.sceneAddPrompt,
       method: "POST",
       body: {
@@ -300,14 +260,8 @@ describe("runCli", () => {
       },
     },
     {
-      name: "generate jsonl",
-      argv: [
-        "generate",
-        "--prompt",
-        "prompt",
-        "--use-selection",
-        "--jsonl",
-      ],
+      name: "write generation jsonl",
+      argv: ["write", "generation", "--prompt", "prompt", "--use-selection", "--jsonl"],
       route: AGENT_HTTP_ROUTES.generate,
       method: "POST",
       body: {
@@ -315,17 +269,6 @@ describe("runCli", () => {
         useSelection: true,
       },
       jsonl: true,
-    },
-    {
-      name: "task complete",
-      argv: [
-        "task",
-        "complete",
-        "--json",
-      ],
-      route: AGENT_HTTP_ROUTES.taskComplete,
-      method: "POST",
-      body: {},
     },
   ])(
     "sends $name to the bridge with the expected HTTP request",
@@ -350,7 +293,7 @@ describe("runCli", () => {
         url: `${baseUrl}${route}`,
         method,
         headers: {
-          Authorization: `Bearer ${readToken}`,
+          Authorization: `Bearer ${projectToken}`,
           Accept: "application/json",
         },
       });
@@ -394,13 +337,12 @@ describe("runCli", () => {
           baseUrl: "http://127.0.0.1:49321",
         },
         projectToken: "session-project-token",
-        readToken: "legacy-session-token",
         currentProject: null,
         updatedAt: "2026-06-24T08:00:00.000Z",
       });
     });
 
-    const result = await runCommand(["agent", "status", "--json"], {
+    const result = await runCommand(["read", "status", "--json"], {
       env: {
         CORESTUDIO_AGENT_SESSION_FILE: sessionPath,
       },
@@ -432,7 +374,7 @@ describe("runCli", () => {
       records,
     );
 
-    const result = await runCommand(["agent", "board-url", "--json"], {
+    const result = await runCommand(["read", "board-url", "--json"], {
       fetch,
     });
 
@@ -461,7 +403,7 @@ describe("runCli", () => {
       },
     });
 
-    const result = await runCommand(["agent", "board-url"], {
+    const result = await runCommand(["read", "board-url"], {
       fetch,
     });
 
@@ -479,7 +421,7 @@ describe("runCli", () => {
       },
     });
 
-    const result = await runCommand(["agent", "board-url", "--json"], {
+    const result = await runCommand(["read", "board-url", "--json"], {
       fetch,
     });
 
@@ -495,7 +437,67 @@ describe("runCli", () => {
     );
   });
 
-  it("keeps legacy readToken session descriptors working", async () => {
+  it("prints shell environment for bash mode without calling the bridge", async () => {
+    const fetch = createFetch();
+
+    const result = await runCommand(["bash", "env"], {
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      `CORESTUDIO_AGENT_BRIDGE_URL='${baseUrl}' CORESTUDIO_AGENT_PROJECT_TOKEN='${projectToken}'\n`,
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("prints command examples for bash mode as JSON", async () => {
+    const fetch = createFetch();
+
+    const result = await runCommand(["bash", "examples", "--json"], {
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        environment: {
+          CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+          CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+        },
+        examples: expect.arrayContaining([
+          expect.stringContaining("read context --json"),
+          expect.stringContaining("write image /absolute/path/to/image.png"),
+        ]),
+      },
+    });
+  });
+
+  it("uses the current CLI executable path in bash examples when available", async () => {
+    const fetch = createFetch();
+
+    const result = await runCommand(["bash", "examples", "--json"], {
+      executablePath: "/Applications/CoreStudio/bin/corestudio.cjs",
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        examples: expect.arrayContaining([
+          expect.stringContaining(
+            "node '/Applications/CoreStudio/bin/corestudio.cjs' read context --json",
+          ),
+        ]),
+      },
+    });
+  });
+
+  it("rejects session descriptors without a project token", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(okEnvelope, records);
     const sessionPath = path.resolve("/tmp/corestudio-agent-session.json");
@@ -515,7 +517,7 @@ describe("runCli", () => {
       }),
     );
 
-    const result = await runCommand(["agent", "status", "--json"], {
+    const result = await runCommand(["read", "status", "--json"], {
       env: {
         CORESTUDIO_AGENT_SESSION_FILE: sessionPath,
       },
@@ -523,12 +525,9 @@ describe("runCli", () => {
       readFile,
     });
 
-    expect(result.exitCode).toBe(0);
-    expect(records[0]).toMatchObject({
-      headers: {
-        Authorization: "Bearer legacy-session-token",
-      },
-    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe(`${JSON.stringify(unavailableEnvelope)}\n`);
+    expect(records).toHaveLength(0);
   });
 
   it.each([
@@ -564,58 +563,113 @@ describe("runCli", () => {
       width: 1024,
       height: 768,
     },
-  ])("builds the default add-image payload for $name files", async ({
-    filePath,
-    buffer,
-    mimeType,
-    width,
-    height,
-  }) => {
+  ])(
+    "builds the default add-image payload for $name files",
+    async ({ filePath, buffer, mimeType, width, height }) => {
+      const records: RequestRecord[] = [];
+      const fetch = createFetch(okEnvelope, records);
+      const readImageFile = vi.fn(async () => buffer);
+
+      const result = await runCommand(
+        ["write", "image", filePath, "--json"],
+        {
+          fetch,
+          readImageFile,
+          randomId: () => fixedUuid,
+          now: () => new Date("2026-06-24T08:00:00.000Z"),
+        },
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(readImageFile).toHaveBeenCalledWith(filePath);
+      expect(parseRequestBody(records)).toMatchObject({
+        fileId: fixedUuid,
+        fileName: path.basename(filePath),
+        mimeType,
+        dataBase64: buffer.toString("base64"),
+        width,
+        height,
+        createdAt: "2026-06-24T08:00:00.000Z",
+      });
+    },
+  );
+
+  it("adds ACP provenance metadata to add-image payloads from CLI flags", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(okEnvelope, records);
-    const readImageFile = vi.fn(async () => buffer);
+    const readImagePayload = vi.fn(async () => imagePayload);
 
     const result = await runCommand(
       [
-        "scene",
-        "add-image",
-        filePath,
+        "write",
+        "image",
+        "/tmp/source.png",
+        "--origin",
+        "acp-agent",
+        "--prompt",
+        "优化这台 CNC",
+        "--reference-file-ids",
+        "file-source",
+        "--reference-element-ids",
+        "element-source",
         "--json",
       ],
       {
         fetch,
-        readImageFile,
-        randomId: () => fixedUuid,
-        now: () => new Date("2026-06-24T08:00:00.000Z"),
+        readImagePayload,
       },
     );
 
     expect(result.exitCode).toBe(0);
-    expect(readImageFile).toHaveBeenCalledWith(filePath);
+    expect(readImagePayload).toHaveBeenCalledWith("/tmp/source.png");
     expect(parseRequestBody(records)).toMatchObject({
-      fileId: fixedUuid,
-      fileName: path.basename(filePath),
-      mimeType,
-      dataBase64: buffer.toString("base64"),
-      width,
-      height,
-      createdAt: "2026-06-24T08:00:00.000Z",
+      ...imagePayload,
+      generationOrigin: "acp-agent",
+      prompt: "优化这台 CNC",
+      referenceFileIds: "file-source",
+      referenceElementIds: "element-source",
+    });
+  });
+
+  it("adds ACP provenance metadata to add-image payloads from task environment", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+    const readImagePayload = vi.fn(async () => imagePayload);
+
+    const result = await runCommand(
+      ["write", "image", "/tmp/source.png", "--json"],
+      {
+        env: {
+          CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+          CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+          CORESTUDIO_AGENT_TASK_ID: "task-1",
+          CORESTUDIO_AGENT_USER_PROMPT: "优化这台 CNC",
+          CORESTUDIO_AGENT_REFERENCE_FILE_IDS: "file-source",
+          CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS: "element-source",
+        },
+        fetch,
+        readImagePayload,
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseRequestBody(records)).toMatchObject({
+      ...imagePayload,
+      generationOrigin: "acp-agent",
+      prompt: "优化这台 CNC",
+      referenceFileIds: "file-source",
+      referenceElementIds: "element-source",
     });
   });
 
   it("returns command failed when the default svg inspector cannot find dimensions", async () => {
     const fetch = createFetch();
     const readImageFile = vi.fn(async () =>
-      Buffer.from("<svg><rect width=\"10\" height=\"10\" /></svg>"),
+      Buffer.from('<svg><rect width="10" height="10" /></svg>'),
     );
 
     const result = await runCommand(
-      [
-        "scene",
-        "add-image",
-        "/tmp/source.svg",
-        "--json",
-      ],
+      ["write", "image", "/tmp/source.svg", "--json"],
       {
         fetch,
         readImageFile,
@@ -635,61 +689,16 @@ describe("runCli", () => {
   });
 
   it.each([
-    ["agent status", ["agent", "status", "--json"]],
-    ["agent capabilities", ["agent", "capabilities", "--json"]],
-    [
-      "agent authorize",
-      [
-        "agent",
-        "authorize",
-        "--permissions",
-        "write-board,generate-image",
-        "--reason",
-        "生成参考图",
-        "--json",
-      ],
-    ],
-    ["agent context", ["agent", "context", "--json"]],
-    ["project current", ["project", "current", "--json"]],
-    ["scene snapshot", ["scene", "snapshot", "--json"]],
-    ["scene selection", ["scene", "selection", "--json"]],
-    ["scene image-paths", ["scene", "image-paths", "--selection", "--json"]],
-    [
-      "scene add-image",
-      [
-        "scene",
-        "add-image",
-        "/tmp/a.png",
-        "--json",
-      ],
-    ],
-    [
-      "scene add-prompt",
-      [
-        "scene",
-        "add-prompt",
-        "--text",
-        "prompt",
-        "--json",
-      ],
-    ],
-    [
-      "generate",
-      [
-        "generate",
-        "--prompt",
-        "prompt",
-        "--jsonl",
-      ],
-    ],
-    [
-      "task complete",
-      [
-        "task",
-        "complete",
-        "--json",
-      ],
-    ],
+    ["read status", ["read", "status", "--json"]],
+    ["read capabilities", ["read", "capabilities", "--json"]],
+    ["read context", ["read", "context", "--json"]],
+    ["read project", ["read", "project", "--json"]],
+    ["read scene", ["read", "scene", "--json"]],
+    ["read selection", ["read", "selection", "--json"]],
+    ["read image-paths", ["read", "image-paths", "--selection", "--json"]],
+    ["write image", ["write", "image", "/tmp/a.png", "--json"]],
+    ["write prompt", ["write", "prompt", "--text", "prompt", "--json"]],
+    ["write generation", ["write", "generation", "--prompt", "prompt", "--jsonl"]],
   ])("returns exit 1 when %s returns ok false", async (_name, argv) => {
     const errorEnvelope = {
       ok: false,
@@ -726,7 +735,7 @@ describe("runCli", () => {
       });
     });
 
-    const result = await runCommand(["agent", "context", "--json"], {
+    const result = await runCommand(["read", "context", "--json"], {
       fetch: fetch as ReturnType<typeof createFetch>,
     });
 
@@ -744,7 +753,7 @@ describe("runCli", () => {
       });
     });
 
-    const result = await runCommand(["agent", "context", "--json"], {
+    const result = await runCommand(["read", "context", "--json"], {
       fetch: fetch as ReturnType<typeof createFetch>,
     });
 
@@ -755,7 +764,7 @@ describe("runCli", () => {
   it("returns command failed when the bridge returns a non-envelope object", async () => {
     const fetch = createFetch({ ready: true });
 
-    const result = await runCommand(["agent", "context", "--json"], {
+    const result = await runCommand(["read", "context", "--json"], {
       fetch,
     });
 
@@ -771,7 +780,7 @@ describe("runCli", () => {
       });
     });
 
-    const result = await runCommand(["agent", "status", "--json"], {
+    const result = await runCommand(["read", "status", "--json"], {
       env: {},
       fetch,
       readFile,
@@ -787,7 +796,7 @@ describe("runCli", () => {
       throw new Error("connect ECONNREFUSED");
     });
 
-    const result = await runCommand(["agent", "status", "--json"], {
+    const result = await runCommand(["read", "status", "--json"], {
       fetch: fetch as ReturnType<typeof createFetch>,
     });
 
@@ -798,34 +807,23 @@ describe("runCli", () => {
   it.each([
     {
       name: "unknown flag",
-      argv: ["agent", "status", "--bogus", "--json"],
+      argv: ["read", "status", "--bogus", "--json"],
       message: "Unknown flag: --bogus",
     },
     {
-      name: "multiple add-image positionals",
-      argv: [
-        "scene",
-        "add-image",
-        "/tmp/a.png",
-        "/tmp/b.png",
-        "--json",
-      ],
-      message: "scene add-image accepts exactly one image path.",
+      name: "multiple write image positionals",
+      argv: ["write", "image", "/tmp/a.png", "/tmp/b.png", "--json"],
+      message: "write image accepts exactly one image path.",
     },
     {
       name: "extra read positional",
-      argv: ["scene", "selection", "extra", "--json"],
-      message: "scene selection does not accept positional arguments.",
-    },
-    {
-      name: "invalid authorize ttl",
-      argv: ["agent", "authorize", "--ttl-seconds", "0", "--json"],
-      message: "--ttl-seconds must be a positive number.",
+      argv: ["read", "selection", "extra", "--json"],
+      message: "read selection does not accept positional arguments.",
     },
     {
       name: "image paths without an explicit scope",
-      argv: ["scene", "image-paths", "--json"],
-      message: "scene image-paths requires --selection, --file-ids, or --all.",
+      argv: ["read", "image-paths", "--json"],
+      message: "read image-paths requires --selection, --file-ids, or --all.",
     },
   ])("fails locally for $name", async ({ argv, message }) => {
     const fetch = createFetch();

@@ -28,6 +28,21 @@ describe("acpTypes", () => {
     });
   });
 
+  it("tells ACP agents to use the CLI executable from the task package", () => {
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
+      "capabilities.cli.executable",
+    );
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
+      "capabilities.cli.environment",
+    );
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
+      "--origin acp-agent",
+    );
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
+      "--reference-file-ids",
+    );
+  });
+
   it("keeps a valid custom agent command", () => {
     expect(
       normalizeAcpAgentSettings({

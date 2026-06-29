@@ -7,6 +7,7 @@ import {
   PROJECT_FORMAT_VERSION,
   type ImageAssetRendition,
   type ImageAssetRequestRendition,
+  type ImageGenerationOrigin,
   type ImagePromptReferenceRecord,
   type ImageRecord,
   type ImageRecordMap,
@@ -22,6 +23,7 @@ import type {
 } from "../src/shared/desktopBridgeTypes";
 
 import type { ProviderId } from "../src/shared/providerTypes";
+import { getSceneContentHash } from "../src/shared/sceneVersion";
 import { DESKTOP_APP_VERSION } from "./appVersion";
 
 const SCENE_BACKUPS_DIR = "scene-backups";
@@ -119,6 +121,7 @@ interface PersistImageAssetInput {
   width: number;
   height: number;
   sourceType: ImageSourceType;
+  generationOrigin?: ImageGenerationOrigin;
   provider?: ProviderId;
   model?: string;
   prompt?: string;
@@ -483,16 +486,30 @@ const createMaintenanceBackup = async ({
 export const writeProjectScene = async ({
   projectPath,
   sceneJson,
+  expectedSceneHash,
 }: {
   projectPath: string;
   sceneJson: string;
+  expectedSceneHash?: string | null;
 }) => {
   const bundle = await readProjectBundle(projectPath);
   const currentScene = analyzeSceneJson(bundle.sceneJson);
   const nextScene = analyzeSceneJson(sceneJson);
+  const currentSceneHash = getSceneContentHash(bundle.sceneJson);
+  const nextSceneHash = getSceneContentHash(sceneJson);
 
   if (nextScene.parseFailed) {
     throw new Error("新的画板数据无法解析，已停止保存。");
+  }
+
+  if (
+    expectedSceneHash &&
+    currentSceneHash !== expectedSceneHash &&
+    currentSceneHash !== nextSceneHash
+  ) {
+    throw new Error(
+      "画板文件已经被其他会话更新，已停止保存旧快照。请重新打开项目后再继续。",
+    );
   }
 
   if (currentScene.parseFailed && nextScene.elementCount === 0) {
@@ -514,10 +531,12 @@ export const writeProjectScene = async ({
     sceneJson,
     "utf8",
   );
-  await writeProjectManifest(projectPath, {
+  const nextProject: ProjectManifest = {
     ...bundle.project,
     updatedAt: new Date().toISOString(),
-  });
+  };
+  await writeProjectManifest(projectPath, nextProject);
+  return nextProject;
 };
 
 type CachedImageAssetRendition = Exclude<ImageAssetRequestRendition, "original">;
@@ -1234,6 +1253,7 @@ export const persistImageAssets = async ({
       fileId: file.fileId,
       assetPath: relativeAssetPath,
       sourceType: file.sourceType,
+      generationOrigin: file.generationOrigin,
       provider: file.provider,
       model: file.model,
       prompt: file.prompt,

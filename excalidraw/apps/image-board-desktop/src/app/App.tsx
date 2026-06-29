@@ -53,9 +53,7 @@ import {
   normalizeAcpTaskInstructionTemplate,
   type AcpAgentPresetId,
   type AcpAgentSettings,
-  type AcpRunLogEntry,
   type AcpRunLogDetail,
-  type AcpRunLogKind,
   type AcpRunSummary,
   type AcpTaskEvent,
   type AcpTaskRequest,
@@ -66,7 +64,7 @@ import {
   isAutoAspectRatioRequest,
   normalizeGenerationRequest,
 } from "../shared/providerCatalog";
-
+import { getSceneContentHash } from "../shared/sceneVersion";
 
 import { publishAgentBrowserRuntimeState } from "./agent/agentBrowserBridge";
 import { maybeGetDesktopBridge } from "./desktopBridge";
@@ -118,6 +116,7 @@ import {
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AgentStatusDock } from "./components/AgentStatusDock";
+import { AgentRunChatLog } from "./components/AgentRunChatLog";
 import { ImageSidebar } from "./components/ImageSidebar";
 
 import type { GenerationTaskRecord } from "./components/ImageInspector";
@@ -148,9 +147,11 @@ import type {
 } from "../shared/providerTypes";
 import type {
   ImageAssetRequestRendition,
+  ImageGenerationOrigin,
   ImagePromptReferenceRecord,
   ImageRecord,
   ImageRecordMap,
+  ImageSourceType,
 } from "../shared/projectTypes";
 import type {
   DesktopAppInfo,
@@ -286,6 +287,7 @@ interface AcpAgentTaskTimelineItem {
   id: string;
   title: string;
   detail?: string;
+  mergeKey?: string;
   tone?: "neutral" | "success" | "danger";
 }
 
@@ -294,6 +296,7 @@ interface AutosaveSnapshot {
   elements: readonly ExcalidrawElement[];
   appState: AppState;
   files: BinaryFiles;
+  expectedSceneHash: string | null;
 }
 
 type ThumbnailMaintenanceState = {
@@ -540,6 +543,42 @@ const createAgentProjectMismatchError = () =>
 
 const createAgentImageFileId = () => `agent-${crypto.randomUUID()}`;
 
+const IMAGE_SOURCE_TYPES = ["generated", "imported"] as const;
+const IMAGE_GENERATION_ORIGINS = [
+  "corestudio",
+  "agent-board",
+  "acp-agent",
+] as const;
+
+const isImageSourceType = (value: unknown): value is ImageSourceType =>
+  typeof value === "string" &&
+  IMAGE_SOURCE_TYPES.includes(value as ImageSourceType);
+
+const isImageGenerationOrigin = (
+  value: unknown,
+): value is ImageGenerationOrigin =>
+  typeof value === "string" &&
+  IMAGE_GENERATION_ORIGINS.includes(value as ImageGenerationOrigin);
+
+const parseStringList = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
+
+  return Array.from(
+    new Set(
+      values
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean),
+    ),
+  );
+};
+
 const assertAgentProjectPath = (
   payload: unknown,
   projectPath: string,
@@ -590,6 +629,16 @@ const parseAgentBoardCommandContext = (
   return context as unknown as AgentBoardCommandContext;
 };
 
+const getAgentBoardSelectionReference = (
+  context: AgentBoardCommandContext | null,
+) => {
+  const selection = context?.selection;
+  if (!isObjectPayload(selection) || !isObjectPayload(selection.reference)) {
+    return null;
+  }
+  return selection.reference;
+};
+
 const getAgentBoardSelectedElementIds = (
   context: AgentBoardCommandContext | null,
 ) => {
@@ -606,6 +655,97 @@ const getAgentBoardSelectedElementIds = (
       ),
     ),
   );
+};
+
+const toImagePromptReferenceRecord = (
+  value: unknown,
+  fallbackIndex: number,
+): ImagePromptReferenceRecord | null => {
+  if (!isObjectPayload(value)) {
+    return null;
+  }
+
+  const fileIds = parseStringList(value.fileIds);
+  const elementIds = parseStringList(value.elementIds);
+  if (!fileIds.length && !elementIds.length) {
+    return null;
+  }
+
+  const index =
+    typeof value.index === "number" && Number.isFinite(value.index)
+      ? Math.max(1, Math.floor(value.index))
+      : fallbackIndex;
+  const kind = value.kind === "image" ? "image" : "snapshot";
+
+  return {
+    id:
+      typeof value.id === "string" && value.id.trim()
+        ? value.id.trim()
+        : `agent-reference-${index}`,
+    index,
+    label:
+      typeof value.label === "string" && value.label.trim()
+        ? value.label.trim()
+        : `参考图 ${index}`,
+    kind,
+    ...(fileIds.length ? { fileIds } : {}),
+    ...(elementIds.length ? { elementIds } : {}),
+  };
+};
+
+const buildPromptReferencesFromIds = (
+  payload: Record<string, unknown>,
+  context: AgentBoardCommandContext | null,
+): ImagePromptReferenceRecord[] | undefined => {
+  if (Array.isArray(payload.promptReferences)) {
+    const references = payload.promptReferences
+      .map((reference, index) =>
+        toImagePromptReferenceRecord(reference, index + 1),
+      )
+      .filter(
+        (reference): reference is ImagePromptReferenceRecord =>
+          reference !== null,
+      );
+    return references.length ? references : undefined;
+  }
+
+  const fileIds = parseStringList(payload.referenceFileIds);
+  const elementIds = parseStringList(payload.referenceElementIds);
+  if (fileIds.length || elementIds.length) {
+    return [
+      {
+        id: "agent-reference-1",
+        index: 1,
+        label: "参考图 1",
+        kind: fileIds.length === 1 ? "image" : "snapshot",
+        ...(fileIds.length ? { fileIds } : {}),
+        ...(elementIds.length ? { elementIds } : {}),
+      },
+    ];
+  }
+
+  const reference = getAgentBoardSelectionReference(context);
+  if (!reference) {
+    return undefined;
+  }
+
+  const source = isObjectPayload(reference.source) ? reference.source : {};
+  const sourceFileIds = parseStringList(source.fileIds);
+  const sourceElementIds = parseStringList(source.elementIds);
+  if (!sourceFileIds.length && !sourceElementIds.length) {
+    return undefined;
+  }
+
+  return [
+    {
+      id: "agent-board-reference-1",
+      index: 1,
+      label: "参考图 1",
+      kind: sourceFileIds.length === 1 ? "image" : "snapshot",
+      ...(sourceFileIds.length ? { fileIds: sourceFileIds } : {}),
+      ...(sourceElementIds.length ? { elementIds: sourceElementIds } : {}),
+    },
+  ];
 };
 
 const buildSceneWithSelectedElementIds = (
@@ -696,6 +836,7 @@ const parseAgentImagePathPayload = (payload: unknown) => {
 
 const toAgentImageAsset = (
   payload: unknown,
+  defaults: Partial<PersistedImageAssetInput> = {},
   createdAt = new Date().toISOString(),
 ): PersistedImageAssetInput => {
   if (!isObjectPayload(payload)) {
@@ -725,8 +866,30 @@ const toAgentImageAsset = (
     throw createAgentBadRequestError("图片 payload 缺少有效的必要字段。");
   }
 
+  const prompt =
+    typeof payload.prompt === "string"
+      ? payload.prompt
+      : typeof defaults.prompt === "string"
+        ? defaults.prompt
+        : undefined;
+  const negativePrompt =
+    typeof payload.negativePrompt === "string"
+      ? payload.negativePrompt
+      : defaults.negativePrompt;
+  const parentFileId =
+    typeof payload.parentFileId === "string" && payload.parentFileId.trim()
+      ? payload.parentFileId.trim()
+      : defaults.parentFileId;
+  const generationOrigin = isImageGenerationOrigin(payload.generationOrigin)
+    ? payload.generationOrigin
+    : defaults.generationOrigin;
+  const sourceType = isImageSourceType(payload.sourceType)
+    ? payload.sourceType
+    : defaults.sourceType ?? (generationOrigin ? "generated" : "imported");
+  const promptReferences =
+    buildPromptReferencesFromIds(payload, null) ?? defaults.promptReferences;
+
   return {
-    ...(payload as Partial<PersistedImageAssetInput>),
     fileId: createAgentImageFileId(),
     mimeType,
     dataBase64,
@@ -734,21 +897,70 @@ const toAgentImageAsset = (
     height,
     createdAt:
       typeof payload.createdAt === "string" ? payload.createdAt : createdAt,
-    sourceType: "imported",
+    sourceType,
+    ...(generationOrigin ? { generationOrigin } : {}),
+    ...(typeof payload.provider === "string"
+      ? { provider: payload.provider as PersistedImageAssetInput["provider"] }
+      : defaults.provider
+        ? { provider: defaults.provider }
+        : {}),
+    ...(typeof payload.model === "string"
+      ? { model: payload.model }
+      : defaults.model
+        ? { model: defaults.model }
+        : {}),
+    ...(prompt ? { prompt } : {}),
+    ...(negativePrompt ? { negativePrompt } : {}),
+    ...(typeof payload.seed === "number" || payload.seed === null
+      ? { seed: payload.seed }
+      : defaults.seed !== undefined
+        ? { seed: defaults.seed }
+        : {}),
+    ...(parentFileId ? { parentFileId } : {}),
+    ...(promptReferences ? { promptReferences } : {}),
   };
 };
 
 const getAgentImageAssetsFromPayload = (
   payload: unknown,
+  agentBoardContext: AgentBoardCommandContext | null = null,
 ): PersistedImageAssetInput[] => {
+  const rootPayload = isObjectPayload(payload) ? payload : {};
+  const generationOrigin = isImageGenerationOrigin(rootPayload.generationOrigin)
+    ? rootPayload.generationOrigin
+    : undefined;
+  const promptReferences = buildPromptReferencesFromIds(
+    rootPayload,
+    agentBoardContext,
+  );
+  const defaults: Partial<PersistedImageAssetInput> = {
+    ...(isImageSourceType(rootPayload.sourceType)
+      ? { sourceType: rootPayload.sourceType }
+      : generationOrigin
+        ? { sourceType: "generated" }
+        : {}),
+    ...(generationOrigin ? { generationOrigin } : {}),
+    ...(typeof rootPayload.prompt === "string" && rootPayload.prompt.trim()
+      ? { prompt: rootPayload.prompt }
+      : {}),
+    ...(typeof rootPayload.negativePrompt === "string"
+      ? { negativePrompt: rootPayload.negativePrompt }
+      : {}),
+    ...(typeof rootPayload.parentFileId === "string" &&
+    rootPayload.parentFileId.trim()
+      ? { parentFileId: rootPayload.parentFileId.trim() }
+      : {}),
+    ...(promptReferences ? { promptReferences } : {}),
+  };
+
   if (isObjectPayload(payload) && Array.isArray(payload.files)) {
     if (!payload.files.length) {
       throw createAgentBadRequestError("scene.addImage files 不能为空。");
     }
-    return payload.files.map((file) => toAgentImageAsset(file));
+    return payload.files.map((file) => toAgentImageAsset(file, defaults));
   }
 
-  return [toAgentImageAsset(payload)];
+  return [toAgentImageAsset(payload, defaults)];
 };
 
 const stringifyUnknownError = (error: unknown) => {
@@ -1003,6 +1215,9 @@ const getAcpAgentDraftName = (presetId: AcpAgentPresetId) =>
   getAcpAgentPreset(presetId)?.name ?? "自定义 ACP Agent";
 
 const MAX_ACP_AGENT_TIMELINE_ITEMS = 24;
+const ACP_RUN_LOG_READ_RETRY_DELAYS_MS = [0, 80, 240];
+const ACP_RUN_HISTORY_REFRESH_DELAY_MS = 160;
+const ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS = 240;
 
 const getAcpAgentTimelineStatusTone = (
   status: AcpTaskStatus,
@@ -1031,6 +1246,24 @@ const appendAcpAgentTimelineItem = (
   item: Omit<AcpAgentTaskTimelineItem, "id">,
 ) => {
   const currentEvents = current?.taskId === taskId ? current.events : [];
+  if (item.mergeKey) {
+    const existingItemIndex = currentEvents.findIndex(
+      (eventItem) => eventItem.mergeKey === item.mergeKey,
+    );
+    if (existingItemIndex >= 0) {
+      return currentEvents.map((eventItem, index) => {
+        if (index !== existingItemIndex) {
+          return eventItem;
+        }
+        return {
+          ...eventItem,
+          title: item.title,
+          detail: `${eventItem.detail ?? ""}${item.detail ?? ""}` || undefined,
+          tone: item.tone ?? eventItem.tone,
+        };
+      });
+    }
+  }
   return [
     ...currentEvents,
     createAcpAgentTimelineItem(item),
@@ -1062,117 +1295,6 @@ const getAcpRunStatusLabel = (status: AcpRunSummary["status"]) => {
       return "失败";
     case "cancelled":
       return "已取消";
-  }
-};
-
-const RAW_ACP_RUN_LOG_KINDS = new Set<AcpRunLogKind>([
-  "acp.request",
-  "acp.response",
-  "acp.notification",
-  "stderr",
-]);
-
-const isRawAcpRunLogEntry = (entry: AcpRunLogEntry) =>
-  RAW_ACP_RUN_LOG_KINDS.has(entry.kind);
-
-const getPayloadRecord = (payload: unknown) =>
-  payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : null;
-
-const getPayloadText = (
-  payload: unknown,
-  keys: readonly string[],
-): string | null => {
-  const record = getPayloadRecord(payload);
-  if (!record) {
-    return typeof payload === "string" ? payload : null;
-  }
-
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-  }
-  return null;
-};
-
-const getAcpRunLogDisplayEntry = (entry: AcpRunLogEntry) => {
-  const record = getPayloadRecord(entry.payload);
-  switch (entry.kind) {
-    case "task.created":
-      return {
-        title: "任务已创建",
-        detail: getPayloadText(entry.payload, ["userPrompt", "projectName"]),
-        tone: "neutral" as const,
-      };
-    case "task.package":
-      return {
-        title: "已发送 CoreStudio 任务包",
-        detail: getPayloadText(entry.payload, ["userPrompt"]),
-        tone: "neutral" as const,
-      };
-    case "status":
-      return {
-        title: getPayloadText(entry.payload, ["message"]) ?? "任务状态更新",
-        detail:
-          typeof record?.status === "string"
-            ? getAcpRunStatusLabel(record.status as AcpRunSummary["status"])
-            : null,
-        tone: record?.status === "failed" ? "danger" as const : "neutral" as const,
-      };
-    case "agent.message":
-    case "agent.thought":
-      return {
-        title: entry.kind === "agent.thought" ? "Agent 思考" : "Agent 回复",
-        detail: getPayloadText(entry.payload, ["text", "message"]),
-        tone: "neutral" as const,
-      };
-    case "tool.call":
-    case "tool.update":
-      return {
-        title: getPayloadText(entry.payload, ["title", "name"]) ?? "Agent 工具",
-        detail:
-          getPayloadText(entry.payload, ["status", "message"]) ??
-          getPayloadText(entry.payload, ["detail"]),
-        tone: record?.status === "failed" ? "danger" as const : "neutral" as const,
-      };
-    case "error":
-      return {
-        title: "任务错误",
-        detail: getPayloadText(entry.payload, ["message", "error"]),
-        tone: "danger" as const,
-      };
-    case "task.finished":
-      return {
-        title: "任务结束",
-        detail:
-          getPayloadText(entry.payload, ["errorMessage", "lastMessage"]) ??
-          (typeof record?.status === "string"
-            ? getAcpRunStatusLabel(record.status as AcpRunSummary["status"])
-            : null),
-        tone: record?.status === "failed" ? "danger" as const : "neutral" as const,
-      };
-    case "acp.request":
-    case "acp.response":
-    case "acp.notification":
-    case "stderr":
-      return null;
-  }
-};
-
-const formatAcpRunLogPayload = (payload: unknown) => {
-  if (payload === undefined || payload === null) {
-    return "";
-  }
-  if (typeof payload === "string") {
-    return payload;
-  }
-  try {
-    return JSON.stringify(payload, null, 2);
-  } catch {
-    return String(payload);
   }
 };
 
@@ -1221,6 +1343,7 @@ const App = () => {
     Boolean(rememberedGenerationModelSelectionRef.current),
   );
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
+  const savedSceneHashRef = useRef<string | null>(null);
   const latestSceneRef = useRef<{
     elements: readonly ExcalidrawElement[];
     appState: AppState;
@@ -1232,6 +1355,8 @@ const App = () => {
     new Map(),
   );
   const activeAcpTaskIdRef = useRef<string | null>(null);
+  const acpRunLogTaskIdRef = useRef<string | null>(null);
+  const acpRunLogRefreshTimerRef = useRef<number | null>(null);
   const removedSelectionReferenceSignatureRef = useRef<string | null>(null);
   const generationTaskByElementIdRef = useRef<Map<string, GenerationTaskRecord>>(
     new Map(),
@@ -1351,6 +1476,9 @@ const App = () => {
 
   const updateCurrentProject = (project: DesktopProjectBundle | null) => {
     currentProjectRef.current = project;
+    savedSceneHashRef.current = project
+      ? getSceneContentHash(project.sceneJson)
+      : null;
     setCurrentProject(project);
     notifyDesktopProjectState(project);
     setAgentBridgeStatus((status) =>
@@ -2292,6 +2420,91 @@ const App = () => {
   const getErrorText = (error: unknown, fallbackMessage: string) =>
     error instanceof Error ? error.message : String(error || fallbackMessage);
 
+  const clearAcpRunLogRefreshTimer = () => {
+    if (acpRunLogRefreshTimerRef.current === null) {
+      return;
+    }
+    window.clearTimeout(acpRunLogRefreshTimerRef.current);
+    acpRunLogRefreshTimerRef.current = null;
+  };
+
+  const readAcpRunLogDetailWithRetry = async (taskId: string) => {
+    if (!bridge?.readAcpAgentRunLog) {
+      throw new Error("当前环境不能读取 ACP Agent 任务记录。");
+    }
+
+    let detail: AcpRunLogDetail | null = null;
+    let lastError: unknown = null;
+    for (const delay of ACP_RUN_LOG_READ_RETRY_DELAYS_MS) {
+      if (delay > 0) {
+        await new Promise<void>((resolve) =>
+          window.setTimeout(resolve, delay),
+        );
+      }
+      try {
+        detail = await bridge.readAcpAgentRunLog(taskId);
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (!detail) {
+      throw lastError ?? new Error("读取 ACP Agent 任务记录失败。");
+    }
+    return detail;
+  };
+
+  const refreshAcpRunLogDetailState = async (
+    taskId: string,
+    { showLoading = false }: { showLoading?: boolean } = {},
+  ) => {
+    if (showLoading) {
+      setAcpRunLogLoading(true);
+      setAcpRunLogError(null);
+    }
+
+    try {
+      const detail = await readAcpRunLogDetailWithRetry(taskId);
+      if (acpRunLogTaskIdRef.current !== taskId) {
+        return;
+      }
+      setAcpRunLogDetail(detail);
+      setAcpRunLogError(null);
+    } catch (error) {
+      if (acpRunLogTaskIdRef.current !== taskId) {
+        return;
+      }
+      setAcpRunLogError(
+        getErrorText(error, "读取 ACP Agent 任务记录失败。"),
+      );
+    } finally {
+      if (showLoading && acpRunLogTaskIdRef.current === taskId) {
+        setAcpRunLogLoading(false);
+      }
+    }
+  };
+
+  const scheduleOpenAcpRunLogRefresh = (
+    taskId: string,
+    delay = ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS,
+  ) => {
+    if (acpRunLogTaskIdRef.current !== taskId) {
+      return;
+    }
+
+    clearAcpRunLogRefreshTimer();
+    acpRunLogRefreshTimerRef.current = window.setTimeout(() => {
+      acpRunLogRefreshTimerRef.current = null;
+      void refreshAcpRunLogDetailState(taskId);
+    }, delay);
+  };
+
+  const closeAcpRunLogDialog = () => {
+    clearAcpRunLogRefreshTimer();
+    acpRunLogTaskIdRef.current = null;
+    setAcpRunLogDialogOpen(false);
+  };
+
   const loadAcpRunSummariesState = async () => {
     if (!bridge?.listAcpAgentRunLogs) {
       setAcpRunSummaries([]);
@@ -2409,6 +2622,7 @@ const App = () => {
       }
       clearProjectNoticeTimer();
       clearHighResImageLoadTimer();
+      clearAcpRunLogRefreshTimer();
       clearAgentBrowserStatePublishTimer();
     },
     [],
@@ -2430,10 +2644,20 @@ const App = () => {
     }
 
     return bridge.onAcpAgentTaskEvent((event: AcpTaskEvent) => {
+      const openRunLogTaskId = acpRunLogTaskIdRef.current;
+      const shouldRefreshOpenRunLog = openRunLogTaskId === event.taskId;
+      const scheduleRunLogRefresh = () => {
+        if (!shouldRefreshOpenRunLog) {
+          return;
+        }
+        scheduleOpenAcpRunLogRefresh(event.taskId);
+      };
+
       if (
         activeAcpTaskIdRef.current &&
         event.taskId !== activeAcpTaskIdRef.current
       ) {
+        scheduleRunLogRefresh();
         return;
       }
 
@@ -2453,7 +2677,13 @@ const App = () => {
         }));
         if (["completed", "failed", "cancelled"].includes(event.status)) {
           activeAcpTaskIdRef.current = null;
+          if (appSettingsOpen) {
+            window.setTimeout(() => {
+              void loadAcpRunSummariesState();
+            }, ACP_RUN_HISTORY_REFRESH_DELAY_MS);
+          }
         }
+        scheduleRunLogRefresh();
         return;
       }
 
@@ -2471,9 +2701,11 @@ const App = () => {
           events: appendAcpAgentTimelineItem(current, event.taskId, {
             title: "Agent 回复",
             detail: event.text,
+            mergeKey: `agent-message:${event.messageId ?? event.taskId}`,
           }),
           logPath: current?.taskId === event.taskId ? current.logPath : undefined,
         }));
+        scheduleRunLogRefresh();
         return;
       }
 
@@ -2490,6 +2722,7 @@ const App = () => {
           }),
           logPath: current?.taskId === event.taskId ? current.logPath : undefined,
         }));
+        scheduleRunLogRefresh();
         return;
       }
 
@@ -2506,9 +2739,10 @@ const App = () => {
           }),
           logPath: current?.taskId === event.taskId ? current.logPath : undefined,
         }));
+        scheduleRunLogRefresh();
       }
     });
-  }, [bridge]);
+  }, [bridge, appSettingsOpen]);
 
   useEffect(() => {
     if (!isEditorInitializing) {
@@ -2879,11 +3113,16 @@ const App = () => {
     }
 
     activeApi.addFiles(filesToAdd);
+    const nextElements = appendElementsWithSyncedIndices(
+      activeApi.getSceneElementsIncludingDeleted(),
+      newElements,
+    );
+    const nextAppState = {
+      ...activeApi.getAppState(),
+      selectedElementIds,
+    };
     activeApi.updateScene({
-      elements: appendElementsWithSyncedIndices(
-        activeApi.getSceneElementsIncludingDeleted(),
-        newElements,
-      ),
+      elements: nextElements,
       appState: {
         selectedElementIds,
       },
@@ -2891,10 +3130,19 @@ const App = () => {
     });
 
     lastBatchBoundsRef.current = measureBatchBounds(placements);
-    updateCurrentProject({
+    const nextProject = {
       ...activeProject,
       imageRecords: nextImageRecords,
-    });
+    };
+    updateCurrentProject(nextProject);
+    pendingAutosaveRef.current = {
+      project: nextProject,
+      elements: nextElements,
+      appState: nextAppState,
+      files: activeApi.getFiles(),
+      expectedSceneHash: savedSceneHashRef.current,
+    };
+    await flushPendingAutosave({ strict: Boolean(options.requireReady) });
   };
 
   const insertGenerationPlaceholders = (
@@ -3263,6 +3511,8 @@ const App = () => {
         stack: null,
       });
     });
+
+    await flushPendingAutosave();
   };
 
   const persistUnknownCanvasImages = async (
@@ -3322,15 +3572,23 @@ const App = () => {
       elements: snapshot.elements,
       appState: snapshot.appState,
     });
-    await desktopBridge.writeProjectScene({
+    const nextProjectManifest = await desktopBridge.writeProjectScene({
       projectPath: snapshot.project.projectPath,
       sceneJson,
+      expectedSceneHash: snapshot.expectedSceneHash,
     });
 
-    if (currentProjectRef.current?.projectPath !== snapshot.project.projectPath) {
+    const activeProject = currentProjectRef.current;
+    if (activeProject?.projectPath !== snapshot.project.projectPath) {
       return;
     }
 
+    updateCurrentProject({
+      ...activeProject,
+      project: nextProjectManifest || activeProject.project,
+      sceneJson,
+      imageRecords: nextImageRecords,
+    });
     setSelectedRecord(
       buildSelectedImageRecord(
         snapshot.elements,
@@ -3349,7 +3607,17 @@ const App = () => {
   const enqueueAutosaveWrite = (snapshot: AutosaveSnapshot) => {
     const writePromise = autosaveQueueRef.current
       .catch(() => undefined)
-      .then(() => writeAutosaveSnapshot(snapshot));
+      .then(() => {
+        const activeProject = currentProjectRef.current;
+        const expectedSceneHash =
+          activeProject?.projectPath === snapshot.project.projectPath
+            ? savedSceneHashRef.current
+            : snapshot.expectedSceneHash;
+        return writeAutosaveSnapshot({
+          ...snapshot,
+          expectedSceneHash,
+        });
+      });
     autosaveQueueRef.current = writePromise;
     return writePromise;
   };
@@ -3508,25 +3776,13 @@ const App = () => {
   };
 
   const handleOpenAcpRunLog = async (taskId: string) => {
+    clearAcpRunLogRefreshTimer();
+    acpRunLogTaskIdRef.current = taskId;
     setAcpRunLogDialogOpen(true);
-    setAcpRunLogLoading(true);
     setAcpRunLogDetail(null);
     setAcpRunLogError(null);
     setAcpRunLogRawOpen(false);
-
-    try {
-      if (!bridge?.readAcpAgentRunLog) {
-        throw new Error("当前环境不能读取 ACP Agent 任务记录。");
-      }
-      const detail = await bridge.readAcpAgentRunLog(taskId);
-      setAcpRunLogDetail(detail);
-    } catch (error) {
-      setAcpRunLogError(
-        getErrorText(error, "读取 ACP Agent 任务记录失败。"),
-      );
-    } finally {
-      setAcpRunLogLoading(false);
-    }
+    await refreshAcpRunLogDetailState(taskId, { showLoading: true });
   };
 
   const handleGenerateImages = async (
@@ -3783,7 +4039,10 @@ const App = () => {
           const agentBoardContext = parseAgentBoardCommandContext(
             request.payload,
           );
-          const files = getAgentImageAssetsFromPayload(request.payload);
+          const files = getAgentImageAssetsFromPayload(
+            request.payload,
+            agentBoardContext,
+          );
           const nextImageRecords = await desktopBridge.persistImageAssets({
             projectPath: project.projectPath,
             files,
@@ -3844,6 +4103,7 @@ const App = () => {
             },
             captureUpdate: CaptureUpdateAction.IMMEDIATELY,
           });
+          await flushPendingAutosave({ strict: true });
 
           return {
             inserted: true,
@@ -4350,7 +4610,7 @@ const App = () => {
             <DesktopButton
               type="button"
               className="dialog-card__close"
-              onClick={() => setAcpRunLogDialogOpen(false)}
+              onClick={closeAcpRunLogDialog}
             >
               关闭
             </DesktopButton>
@@ -4366,25 +4626,6 @@ const App = () => {
 
           {acpRunLogDetail
             ? (() => {
-                const displayEntries = acpRunLogDetail.entries
-                  .filter((entry) => !isRawAcpRunLogEntry(entry))
-                  .map((entry) => ({
-                    entry,
-                    display: getAcpRunLogDisplayEntry(entry),
-                  }))
-                  .filter(
-                    (
-                      item,
-                    ): item is {
-                      entry: AcpRunLogEntry;
-                      display: NonNullable<
-                        ReturnType<typeof getAcpRunLogDisplayEntry>
-                      >;
-                    } => item.display !== null,
-                  );
-                const rawEntries =
-                  acpRunLogDetail.entries.filter(isRawAcpRunLogEntry);
-
                 return (
                   <>
                     <div className="acp-run-log-dialog__summary">
@@ -4408,89 +4649,24 @@ const App = () => {
                       </div>
                     </div>
 
-                    <div
-                      className="acp-run-log-dialog__timeline"
-                      role="log"
-                      aria-label="Agent 任务过程"
-                    >
-                      {displayEntries.length > 0 ? (
-                        displayEntries.map(({ entry, display }) => (
-                          <article
-                            key={`${entry.taskId}-${entry.seq}`}
-                            className={[
-                              "acp-run-log-dialog__timeline-item",
-                              display.tone === "danger"
-                                ? "acp-run-log-dialog__timeline-item--danger"
-                                : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                          >
-                            <span
-                              className="acp-run-log-dialog__timeline-dot"
-                              aria-hidden="true"
-                            />
-                            <div className="acp-run-log-dialog__timeline-copy">
-                              <div>
-                                <strong>{display.title}</strong>
-                                <span>
-                                  {new Date(entry.timestamp).toLocaleString(
-                                    "zh-CN",
-                                  )}
-                                </span>
-                              </div>
-                              {display.detail ? <p>{display.detail}</p> : null}
-                            </div>
-                          </article>
-                        ))
-                      ) : (
-                        <p className="acp-run-log-dialog__empty">
-                          暂无可读过程记录。
-                        </p>
-                      )}
+                    <div className="acp-run-log-dialog__chat-actions">
+                      <DesktopButton
+                        type="button"
+                        onClick={() =>
+                          setAcpRunLogRawOpen((current) => !current)
+                        }
+                        aria-expanded={acpRunLogRawOpen}
+                      >
+                        {acpRunLogRawOpen
+                          ? "隐藏协议 JSON"
+                          : "显示协议 JSON"}
+                      </DesktopButton>
                     </div>
 
-                    {rawEntries.length > 0 ? (
-                      <div className="acp-run-log-dialog__debug">
-                        <DesktopButton
-                          type="button"
-                          onClick={() =>
-                            setAcpRunLogRawOpen((current) => !current)
-                          }
-                          aria-expanded={acpRunLogRawOpen}
-                        >
-                          {acpRunLogRawOpen
-                            ? "隐藏原始记录"
-                            : "显示原始记录"}
-                        </DesktopButton>
-                        {acpRunLogRawOpen ? (
-                          <div className="acp-run-log-dialog__events">
-                            {rawEntries.map((entry) => {
-                              const payloadText = formatAcpRunLogPayload(
-                                entry.payload,
-                              );
-                              return (
-                                <article
-                                  key={`${entry.taskId}-${entry.seq}`}
-                                  className="acp-run-log-dialog__event"
-                                >
-                                  <div className="acp-run-log-dialog__event-header">
-                                    <strong>{entry.kind}</strong>
-                                    <span>
-                                      #{entry.seq} ·{" "}
-                                      {new Date(
-                                        entry.timestamp,
-                                      ).toLocaleString("zh-CN")}
-                                    </span>
-                                  </div>
-                                  {payloadText ? <pre>{payloadText}</pre> : null}
-                                </article>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
+                    <AgentRunChatLog
+                      entries={acpRunLogDetail.entries}
+                      includeRawEntries={acpRunLogRawOpen}
+                    />
                   </>
                 );
               })()
@@ -5148,6 +5324,7 @@ const App = () => {
                       elements,
                       appState,
                       files,
+                      expectedSceneHash: savedSceneHashRef.current,
                     });
                   }
                 }}

@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   ACP_PROTOCOL_VERSION,
   DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
@@ -60,44 +63,113 @@ const getStopReason = (value: unknown) => {
   return value.stopReason;
 };
 
-const buildTaskContext = (request: AcpTaskRequest) => ({
-  schemaVersion: "corestudio.acpTask.v1",
-  task: {
-    userPrompt: request.userPrompt,
-  },
-  context: {
-    app: {
-      name: "CoreStudio",
+const ACP_PROMPT_REQUEST_TIMEOUT_MS = 30 * 60_000;
+
+const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+
+const getCoreStudioCliPath = () => {
+  const candidates = [
+    path.resolve(process.cwd(), "bin/corestudio.cjs"),
+    path.resolve(process.cwd(), "apps/image-board-desktop/bin/corestudio.cjs"),
+    path.resolve(__dirname, "../bin/corestudio.cjs"),
+    path.resolve(__dirname, "../../bin/corestudio.cjs"),
+  ];
+
+  return (
+    candidates.find((candidate) => fs.existsSync(candidate)) ??
+    path.resolve(process.cwd(), "bin/corestudio.cjs")
+  );
+};
+
+const getCoreStudioCliExecutable = () =>
+  `node ${shellQuote(getCoreStudioCliPath())}`;
+
+const getAcpSelectionIds = (request: AcpTaskRequest) => ({
+  fileIds: Array.from(
+    new Set(
+      request.selection.items
+        .map((item) => item.fileId)
+        .filter((fileId): fileId is string => Boolean(fileId)),
+    ),
+  ),
+  elementIds: Array.from(
+    new Set(
+      request.selection.items
+        .map((item) => item.elementId)
+        .filter((elementId): elementId is string => Boolean(elementId)),
+    ),
+  ),
+});
+
+const getCoreStudioCliEnvironment = (request: AcpTaskRequest) => ({
+  CORESTUDIO_AGENT_BRIDGE_URL: request.project.bridgeBaseUrl,
+  CORESTUDIO_AGENT_PROJECT_TOKEN: request.project.token,
+  CORESTUDIO_AGENT_TASK_ID: request.taskId,
+  CORESTUDIO_AGENT_USER_PROMPT: request.userPrompt,
+  ...(() => {
+    const { fileIds, elementIds } = getAcpSelectionIds(request);
+    return {
+      ...(fileIds.length
+        ? { CORESTUDIO_AGENT_REFERENCE_FILE_IDS: fileIds.join(",") }
+        : {}),
+      ...(elementIds.length
+        ? { CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS: elementIds.join(",") }
+        : {}),
+    };
+  })(),
+});
+
+const formatCliEnvPrefix = (environment: Record<string, string>) =>
+  Object.entries(environment)
+    .map(([key, value]) => `${key}=${shellQuote(value)}`)
+    .join(" ");
+
+const buildTaskContext = (request: AcpTaskRequest) => {
+  const executable = getCoreStudioCliExecutable();
+  const environment = getCoreStudioCliEnvironment(request);
+  const commandPrefix = `${formatCliEnvPrefix(environment)} ${executable}`;
+  return {
+    schemaVersion: "corestudio.acpTask.v1",
+    task: {
+      userPrompt: request.userPrompt,
     },
-    project: request.project,
-    generation: request.generation,
-    selection: request.selection,
-  },
-  capabilities: {
-    cli: {
-      executable: "node bin/corestudio.cjs",
-      examples: [
-        "node bin/corestudio.cjs agent context --json",
-        "node bin/corestudio.cjs scene selection --json",
-        "node bin/corestudio.cjs scene image-paths --selection --json",
-        "node bin/corestudio.cjs scene add-image /absolute/path/to/image.png --json",
-        'node bin/corestudio.cjs scene add-prompt --text "..." --json',
+    context: {
+      app: {
+        name: "CoreStudio",
+      },
+      project: request.project,
+      generation: request.generation,
+      selection: request.selection,
+    },
+    capabilities: {
+      cli: {
+        executable,
+        environment,
+        examples: [
+          `${commandPrefix} read context --json`,
+          `${commandPrefix} read selection --json`,
+          `${commandPrefix} read image-paths --selection --json`,
+          `${commandPrefix} write image /absolute/path/to/image.png --origin acp-agent --prompt ${shellQuote(
+            request.userPrompt,
+          )} --json`,
+          `${commandPrefix} write prompt --text "..." --json`,
+        ],
+      },
+    },
+    contract: {
+      writeBack: {
+        required: true,
+        authority: "CoreStudio CLI / Local Bridge",
+        rule: "All CoreStudio mutations must go through the CLI.",
+      },
+      constraints: [
+        "Do not modify CoreStudio project files directly.",
+        "Do not treat ACP text output as a CoreStudio project mutation.",
+        "Use CoreStudio CLI / Local Bridge for all image, prompt, and scene writes.",
       ],
     },
-  },
-  contract: {
-    writeBack: {
-      required: true,
-      authority: "CoreStudio CLI / Local Bridge",
-      rule: "All CoreStudio mutations must go through the CLI.",
-    },
-    constraints: [
-      "Do not modify CoreStudio project files directly.",
-      "Do not treat ACP text output as a CoreStudio project mutation.",
-      "Use CoreStudio CLI / Local Bridge for all image, prompt, and scene writes.",
-    ],
-  },
-});
+  };
+};
 
 const buildPrompt = (
   request: AcpTaskRequest,
@@ -278,14 +350,20 @@ export const createAcpSessionClient = ({
         const supportsEmbeddedContext =
           initializeResult.agentCapabilities?.promptCapabilities
             ?.embeddedContext === true;
-        const result = await process.jsonRpc.request("session/prompt", {
-          sessionId: currentSessionId,
-          prompt: buildPrompt(
-            request,
-            supportsEmbeddedContext,
-            taskInstructionTemplate,
-          ),
-        });
+        const result = await process.jsonRpc.request(
+          "session/prompt",
+          {
+            sessionId: currentSessionId,
+            prompt: buildPrompt(
+              request,
+              supportsEmbeddedContext,
+              taskInstructionTemplate,
+            ),
+          },
+          {
+            timeoutMs: ACP_PROMPT_REQUEST_TIMEOUT_MS,
+          },
+        );
         const stopReason = getStopReason(result);
         emitStatus(request.taskId, "completed", "Agent 已完成");
         return { stopReason };

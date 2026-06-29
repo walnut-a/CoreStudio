@@ -29,6 +29,7 @@ export interface StartAcpAgentProcessOptions {
   timeoutMs?: number;
   onExit?: (code: number | null, signal: NodeJS.Signals | null) => void;
   onNotification?: (method: string, params: unknown) => void;
+  onRequest?: (method: string, params: unknown) => unknown | Promise<unknown>;
   onStderrLine?: (line: string) => void;
   onTraffic?: (entry: AcpJsonRpcTrafficEntry) => void;
 }
@@ -57,6 +58,47 @@ const appendStderr = (lines: string[], chunk: Buffer | string) => {
   return nextLines;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const chooseAllowPermissionOption = (params: unknown) => {
+  if (!isRecord(params) || !Array.isArray(params.options)) {
+    return null;
+  }
+
+  return (
+    params.options.find(
+      (option): option is { optionId: string } =>
+        isRecord(option) &&
+        typeof option.optionId === "string" &&
+        typeof option.kind === "string" &&
+        option.kind.startsWith("allow_"),
+    ) ?? null
+  );
+};
+
+const defaultAcpClientRequestHandler = (method: string, params: unknown) => {
+  if (method !== "session/request_permission") {
+    throw new Error(`Unsupported ACP client request: ${method}`);
+  }
+
+  const allowOption = chooseAllowPermissionOption(params);
+  if (!allowOption) {
+    return {
+      outcome: {
+        outcome: "cancelled",
+      },
+    };
+  }
+
+  return {
+    outcome: {
+      outcome: "selected",
+      optionId: allowOption.optionId,
+    },
+  };
+};
+
 export const startAcpAgentProcess = async (
   config: AcpAgentConfig,
   {
@@ -64,6 +106,7 @@ export const startAcpAgentProcess = async (
     timeoutMs,
     onExit,
     onNotification,
+    onRequest,
     onStderrLine,
     onTraffic,
   }: StartAcpAgentProcessOptions = {},
@@ -91,6 +134,7 @@ export const startAcpAgentProcess = async (
     stdout: child.stdout as AcpReadable,
     timeoutMs,
     onNotification,
+    onRequest: onRequest ?? defaultAcpClientRequestHandler,
     onTraffic,
   });
 

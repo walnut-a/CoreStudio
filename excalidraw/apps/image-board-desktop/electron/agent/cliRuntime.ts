@@ -4,14 +4,12 @@ import {
   AGENT_HTTP_ROUTES,
   createAgentError,
   isAgentErrorCode,
-  normalizeAgentPermissions,
 } from "../../src/shared/agentBridgeTypes";
 import { readLocalImagePayload } from "./localImagePayload";
 import { getAgentSessionPath } from "./sessionPaths";
 
 import type {
   AgentEnvelope,
-  AgentPermission,
 } from "../../src/shared/agentBridgeTypes";
 import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
 import type { LocalImagePayloadOptions } from "./localImagePayload";
@@ -32,15 +30,13 @@ interface CliFetchResponse {
   json: () => Promise<unknown>;
 }
 
-type CliFetch = (
-  url: string,
-  init?: CliFetchInit,
-) => Promise<CliFetchResponse>;
+type CliFetch = (url: string, init?: CliFetchInit) => Promise<CliFetchResponse>;
 
 export interface CliRuntimeOptions {
   stdout: CliWritable;
   stderr: CliWritable;
   env?: NodeJS.ProcessEnv;
+  executablePath?: string;
   fetch?: CliFetch;
   readFile?: (filePath: string, encoding: "utf8") => Promise<string>;
   readImageFile?: (filePath: string) => Promise<Buffer>;
@@ -57,11 +53,17 @@ interface BridgeSession {
 }
 
 interface CliCommand {
-  route: string;
-  method: "GET" | "POST";
+  route?: string;
+  method?: "GET" | "POST";
   body?: Record<string, unknown>;
   imagePath?: string;
-  transformEnvelope?: (envelope: AgentEnvelope<unknown>) => AgentEnvelope<unknown>;
+  local?: (
+    bridge: BridgeSession,
+    options: CliRuntimeOptions,
+  ) => AgentEnvelope<unknown>;
+  transformEnvelope?: (
+    envelope: AgentEnvelope<unknown>,
+  ) => AgentEnvelope<unknown>;
   formatHuman?: (data: unknown) => string;
 }
 
@@ -108,8 +110,7 @@ const isAgentEnvelope = (value: unknown): value is AgentEnvelope<unknown> => {
   );
 };
 
-const hasFlag = (argv: readonly string[], flag: string) =>
-  argv.includes(flag);
+const hasFlag = (argv: readonly string[], flag: string) => argv.includes(flag);
 
 const getOutputMode = (argv: readonly string[]): OutputMode => {
   if (hasFlag(argv, "--jsonl")) {
@@ -122,6 +123,8 @@ const getOutputMode = (argv: readonly string[]): OutputMode => {
 };
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
+
+const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -181,39 +184,6 @@ const expectNoPositionals = (
   return null;
 };
 
-const parsePermissions = (
-  value: string | undefined,
-): AgentPermission[] | AgentEnvelope<never> => {
-  try {
-    return normalizeAgentPermissions(
-      (value ?? "")
-        .split(",")
-        .map((permission) => permission.trim())
-        .filter(Boolean) as AgentPermission[],
-    );
-  } catch (error) {
-    return badRequestEnvelope(
-      error instanceof Error ? error.message : String(error),
-    );
-  }
-};
-
-const parsePositiveNumberFlag = (
-  flag: string,
-  value: string | undefined,
-): number | AgentEnvelope<never> | undefined => {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return badRequestEnvelope(`${flag} must be a positive number.`);
-  }
-
-  return parsed;
-};
-
 const requiredString = (
   value: string | undefined,
   message: string,
@@ -245,226 +215,126 @@ const parseFileIdsFlag = (
   return fileIds;
 };
 
-const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never> => {
-  const [scope, command] = argv;
+const parseCommand = (
+  argv: readonly string[],
+): CliCommand | AgentEnvelope<never> => {
+  const [tool, target] = argv;
 
-  if (scope === "agent" && command === "status") {
-    const parsed = parseArgs(argv.slice(2));
-    if (isEnvelope(parsed)) {
-      return parsed;
+  if (tool === "read") {
+    if (target === "image-paths") {
+      const parsed = parseArgs(argv.slice(2), {
+        valueFlags: ["--file-ids"],
+        boolFlags: ["--selection", "--all"],
+      });
+      if (isEnvelope(parsed)) {
+        return parsed;
+      }
+      const positionalsError = expectNoPositionals("read image-paths", parsed);
+      if (positionalsError) {
+        return positionalsError;
+      }
+      const fileIds = parseFileIdsFlag(parsed.flags["--file-ids"]);
+      if (isEnvelope(fileIds)) {
+        return fileIds;
+      }
+      if (
+        !fileIds &&
+        !parsed.boolFlags.has("--selection") &&
+        !parsed.boolFlags.has("--all")
+      ) {
+        return badRequestEnvelope(
+          "read image-paths requires --selection, --file-ids, or --all.",
+        );
+      }
+      return {
+        route: AGENT_HTTP_ROUTES.sceneImagePaths,
+        method: "POST",
+        body: {
+          ...(fileIds ? { fileIds } : {}),
+          ...(parsed.boolFlags.has("--selection") ? { selectionOnly: true } : {}),
+          ...(parsed.boolFlags.has("--all") ? { all: true } : {}),
+        },
+      };
     }
-    const positionalsError = expectNoPositionals("agent status", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.status,
-      method: "GET",
-    };
-  }
 
-  if (scope === "agent" && command === "board-url") {
-    const parsed = parseArgs(argv.slice(2));
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("agent board-url", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.status,
-      method: "GET",
-      transformEnvelope: (envelope) => {
-        if (!envelope.ok) {
-          return envelope;
-        }
-        const data = envelope.data;
-        if (!isObject(data) || typeof data.boardUrl !== "string") {
-          return commandFailedEnvelope(
-            "Agent Bridge did not return a Board URL.",
-          );
-        }
-        return {
-          ok: true,
-          data: {
-            boardUrl: data.boardUrl,
-          },
-        };
-      },
-      formatHuman: (data) =>
-        isObject(data) && typeof data.boardUrl === "string"
-          ? data.boardUrl
-          : "OK",
-    };
-  }
-
-  if (scope === "agent" && command === "capabilities") {
-    const parsed = parseArgs(argv.slice(2));
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals(
-      "agent capabilities",
-      parsed,
-    );
-    if (positionalsError) {
-      return positionalsError;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.capabilities,
-      method: "GET",
-    };
-  }
-
-  if (scope === "agent" && command === "authorize") {
-    const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--permissions", "--reason", "--ttl-seconds"],
-    });
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("agent authorize", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    const permissions = parsePermissions(parsed.flags["--permissions"]);
-    if (!Array.isArray(permissions)) {
-      return permissions;
-    }
-    const ttlSeconds = parsePositiveNumberFlag(
-      "--ttl-seconds",
-      parsed.flags["--ttl-seconds"],
-    );
-    if (isEnvelope(ttlSeconds)) {
-      return ttlSeconds;
-    }
-    const reason = parsed.flags["--reason"];
-    return {
-      route: AGENT_HTTP_ROUTES.authorize,
-      method: "POST",
-      body: {
-        permissions,
-        ...(ttlSeconds ? { ttlSeconds } : {}),
-        ...(reason ? { reason } : {}),
+    const readRoutes: Record<
+      string,
+      { route: string; method: "GET"; formatHuman?: CliCommand["formatHuman"] }
+    > = {
+      status: { route: AGENT_HTTP_ROUTES.status, method: "GET" },
+      capabilities: { route: AGENT_HTTP_ROUTES.capabilities, method: "GET" },
+      context: { route: AGENT_HTTP_ROUTES.context, method: "GET" },
+      project: { route: AGENT_HTTP_ROUTES.projectCurrent, method: "GET" },
+      scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
+      selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
+      "board-url": {
+        route: AGENT_HTTP_ROUTES.status,
+        method: "GET",
+        formatHuman: (data) =>
+          isObject(data) && typeof data.boardUrl === "string"
+            ? data.boardUrl
+            : "OK",
       },
     };
-  }
-
-  if (scope === "agent" && command === "context") {
-    const parsed = parseArgs(argv.slice(2));
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("agent context", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.context,
-      method: "GET",
-    };
-  }
-
-  if (scope === "project" && command === "current") {
-    const parsed = parseArgs(argv.slice(2));
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("project current", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.projectCurrent,
-      method: "GET",
-    };
-  }
-
-  if (scope === "scene" && command === "snapshot") {
-    const parsed = parseArgs(argv.slice(2));
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("scene snapshot", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.sceneSnapshot,
-      method: "GET",
-    };
-  }
-
-  if (scope === "scene" && command === "selection") {
-    const parsed = parseArgs(argv.slice(2));
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("scene selection", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.sceneSelection,
-      method: "GET",
-    };
-  }
-
-  if (scope === "scene" && command === "image-paths") {
-    const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--file-ids"],
-      boolFlags: ["--selection", "--all"],
-    });
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("scene image-paths", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    const fileIds = parseFileIdsFlag(parsed.flags["--file-ids"]);
-    if (isEnvelope(fileIds)) {
-      return fileIds;
-    }
-    if (
-      !fileIds &&
-      !parsed.boolFlags.has("--selection") &&
-      !parsed.boolFlags.has("--all")
-    ) {
+    const route = target ? readRoutes[target] : null;
+    if (!route) {
       return badRequestEnvelope(
-        "scene image-paths requires --selection, --file-ids, or --all.",
+        "read requires one of: status, capabilities, context, project, scene, selection, image-paths, board-url.",
       );
     }
-    return {
-      route: AGENT_HTTP_ROUTES.sceneImagePaths,
-      method: "POST",
-      body: {
-        ...(fileIds ? { fileIds } : {}),
-        ...(parsed.boolFlags.has("--selection")
-          ? { selectionOnly: true }
-          : {}),
-        ...(parsed.boolFlags.has("--all") ? { all: true } : {}),
-      },
-    };
+    const parsed = parseArgs(argv.slice(2));
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals(`read ${target}`, parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    if (target === "board-url") {
+      return {
+        ...route,
+        transformEnvelope: (envelope) => {
+          if (!envelope.ok) {
+            return envelope;
+          }
+          const data = envelope.data;
+          if (!isObject(data) || typeof data.boardUrl !== "string") {
+            return commandFailedEnvelope(
+              "Agent Bridge did not return a Board URL.",
+            );
+          }
+          return {
+            ok: true,
+            data: {
+              boardUrl: data.boardUrl,
+            },
+          };
+        },
+      };
+    }
+    return route;
   }
 
-  if (scope === "scene" && command === "add-image") {
+  if (tool === "write" && target === "image") {
     const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--task-id", "--write-token"],
+      valueFlags: [
+        "--origin",
+        "--prompt",
+        "--parent-file-id",
+        "--reference-file-ids",
+        "--reference-element-ids",
+      ],
       boolFlags: ["--dry-run"],
     });
     if (isEnvelope(parsed)) {
       return parsed;
     }
     if (parsed.positionals.length !== 1) {
-      return badRequestEnvelope(
-        "scene add-image accepts exactly one image path.",
-      );
+      return badRequestEnvelope("write image accepts exactly one image path.");
     }
     const imagePath = requiredString(
       parsed.positionals[0],
-      "scene add-image requires an image path.",
+      "write image requires an image path.",
     );
     if (typeof imagePath !== "string") {
       return imagePath;
@@ -474,32 +344,41 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
       method: "POST",
       imagePath,
       body: {
-        ...(parsed.flags["--task-id"]
-          ? { taskId: parsed.flags["--task-id"] }
+        ...(parsed.flags["--origin"]
+          ? { generationOrigin: parsed.flags["--origin"] }
           : {}),
-        ...(parsed.flags["--write-token"]
-          ? { writeToken: parsed.flags["--write-token"] }
+        ...(parsed.flags["--prompt"]
+          ? { prompt: parsed.flags["--prompt"] }
+          : {}),
+        ...(parsed.flags["--parent-file-id"]
+          ? { parentFileId: parsed.flags["--parent-file-id"] }
+          : {}),
+        ...(parsed.flags["--reference-file-ids"]
+          ? { referenceFileIds: parsed.flags["--reference-file-ids"] }
+          : {}),
+        ...(parsed.flags["--reference-element-ids"]
+          ? { referenceElementIds: parsed.flags["--reference-element-ids"] }
           : {}),
         ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
       },
     };
   }
 
-  if (scope === "scene" && command === "add-prompt") {
+  if (tool === "write" && target === "prompt") {
     const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--text", "--task-id", "--write-token"],
+      valueFlags: ["--text"],
       boolFlags: ["--dry-run"],
     });
     if (isEnvelope(parsed)) {
       return parsed;
     }
-    const positionalsError = expectNoPositionals("scene add-prompt", parsed);
+    const positionalsError = expectNoPositionals("write prompt", parsed);
     if (positionalsError) {
       return positionalsError;
     }
     const text = requiredString(
       parsed.flags["--text"],
-      "scene add-prompt requires --text.",
+      "write prompt requires --text.",
     );
     if (typeof text !== "string") {
       return text;
@@ -509,32 +388,26 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
       method: "POST",
       body: {
         text,
-        ...(parsed.flags["--task-id"]
-          ? { taskId: parsed.flags["--task-id"] }
-          : {}),
-        ...(parsed.flags["--write-token"]
-          ? { writeToken: parsed.flags["--write-token"] }
-          : {}),
         ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
       },
     };
   }
 
-  if (scope === "generate") {
-    const parsed = parseArgs(argv.slice(1), {
-      valueFlags: ["--prompt", "--task-id", "--write-token"],
+  if (tool === "write" && target === "generation") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: ["--prompt"],
       boolFlags: ["--use-selection"],
     });
     if (isEnvelope(parsed)) {
       return parsed;
     }
-    const positionalsError = expectNoPositionals("generate", parsed);
+    const positionalsError = expectNoPositionals("write generation", parsed);
     if (positionalsError) {
       return positionalsError;
     }
     const prompt = requiredString(
       parsed.flags["--prompt"],
-      "generate requires --prompt.",
+      "write generation requires --prompt.",
     );
     if (typeof prompt !== "string") {
       return prompt;
@@ -545,49 +418,89 @@ const parseCommand = (argv: readonly string[]): CliCommand | AgentEnvelope<never
       body: {
         prompt,
         useSelection: parsed.boolFlags.has("--use-selection"),
-        ...(parsed.flags["--task-id"]
-          ? { taskId: parsed.flags["--task-id"] }
-          : {}),
-        ...(parsed.flags["--write-token"]
-          ? { writeToken: parsed.flags["--write-token"] }
-          : {}),
       },
     };
   }
 
-  if (scope === "task" && command === "complete") {
-    const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--task-id", "--write-token"],
-    });
+  if (tool === "write") {
+    return badRequestEnvelope(
+      "write requires one of: image, prompt, generation.",
+    );
+  }
+
+  if (tool === "edit") {
+    const parsed = parseArgs(argv.slice(1));
     if (isEnvelope(parsed)) {
       return parsed;
     }
-    const positionalsError = expectNoPositionals("task complete", parsed);
+    return badRequestEnvelope(
+      "edit is reserved for element updates. Current mutations use write image, write prompt, or write generation.",
+    );
+  }
+
+  if (tool === "bash") {
+    if (target !== "env" && target !== "examples") {
+      return badRequestEnvelope("bash requires one of: env, examples.");
+    }
+    const parsed = parseArgs(argv.slice(2));
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals(`bash ${target}`, parsed);
     if (positionalsError) {
       return positionalsError;
     }
     return {
-      route: AGENT_HTTP_ROUTES.taskComplete,
-      method: "POST",
-      body: {
-        ...(parsed.flags["--task-id"]
-          ? { taskId: parsed.flags["--task-id"] }
-          : {}),
-        ...(parsed.flags["--write-token"]
-          ? { writeToken: parsed.flags["--write-token"] }
-          : {}),
+      local: (bridge, options) => {
+        const environment = {
+          CORESTUDIO_AGENT_BRIDGE_URL: bridge.baseUrl,
+          CORESTUDIO_AGENT_PROJECT_TOKEN: bridge.projectToken,
+        };
+        const envPrefix = Object.entries(environment)
+          .map(([key, value]) => `${key}=${shellQuote(value)}`)
+          .join(" ");
+        const executable = options.executablePath
+          ? `node ${shellQuote(options.executablePath)}`
+          : "corestudio";
+        const examples = [
+          `${envPrefix} ${executable} read context --json`,
+          `${envPrefix} ${executable} read selection --json`,
+          `${envPrefix} ${executable} read image-paths --selection --json`,
+          `${envPrefix} ${executable} write image /absolute/path/to/image.png --origin acp-agent --json`,
+          `${envPrefix} ${executable} write prompt --text "..." --json`,
+        ];
+        return {
+          ok: true,
+          data:
+            target === "env"
+              ? {
+                  environment,
+                  shell: envPrefix,
+                }
+              : {
+                  environment,
+                  examples,
+                },
+        };
+      },
+      formatHuman: (data) => {
+        if (!isObject(data)) {
+          return "OK";
+        }
+        if (typeof data.shell === "string") {
+          return data.shell;
+        }
+        return Array.isArray(data.examples) ? data.examples.join("\n") : "OK";
       },
     };
   }
 
-  return badRequestEnvelope(`Unsupported command: ${argv.join(" ")}`);
+  return badRequestEnvelope(
+    "CoreStudio CLI tools are: read, write, edit, bash.",
+  );
 };
 
-const assertDimensions = (
-  width: number,
-  height: number,
-  format: string,
-) => {
+const assertDimensions = (width: number, height: number, format: string) => {
   if (
     !Number.isFinite(width) ||
     !Number.isFinite(height) ||
@@ -799,12 +712,44 @@ const defaultReadImagePayload = async (
   return readLocalImagePayload(filePath, imageOptions);
 };
 
+const getAddImageMetadataDefaults = (
+  command: CliCommand,
+  options: CliRuntimeOptions,
+) => {
+  if (command.route !== AGENT_HTTP_ROUTES.sceneAddImage) {
+    return {};
+  }
+
+  const env = options.env ?? process.env;
+  return {
+    ...(env.CORESTUDIO_AGENT_TASK_ID
+      ? {
+          generationOrigin: "acp-agent",
+        }
+      : {}),
+    ...(env.CORESTUDIO_AGENT_USER_PROMPT
+      ? { prompt: env.CORESTUDIO_AGENT_USER_PROMPT }
+      : {}),
+    ...(env.CORESTUDIO_AGENT_REFERENCE_FILE_IDS
+      ? { referenceFileIds: env.CORESTUDIO_AGENT_REFERENCE_FILE_IDS }
+      : {}),
+    ...(env.CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS
+      ? { referenceElementIds: env.CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS }
+      : {}),
+  };
+};
+
 const prepareRequestBody = async (
   command: CliCommand,
   options: CliRuntimeOptions,
 ): Promise<Record<string, unknown> | undefined | AgentEnvelope<never>> => {
+  const metadataDefaults = getAddImageMetadataDefaults(command, options);
+  const hasMetadataDefaults = Object.keys(metadataDefaults).length > 0;
   if (!command.imagePath) {
-    return command.body;
+    if (command.body) {
+      return { ...metadataDefaults, ...command.body };
+    }
+    return hasMetadataDefaults ? metadataDefaults : undefined;
   }
 
   const readImagePayload =
@@ -813,6 +758,7 @@ const prepareRequestBody = async (
   try {
     return {
       ...(await readImagePayload(command.imagePath)),
+      ...metadataDefaults,
       ...(command.body ?? {}),
     };
   } catch (error) {
@@ -841,21 +787,16 @@ const readSessionDescriptor = async (
     const descriptor = JSON.parse(contents) as {
       bridge?: { baseUrl?: unknown };
       projectToken?: unknown;
-      readToken?: unknown;
     };
-    const projectToken =
-      typeof descriptor.projectToken === "string"
-        ? descriptor.projectToken
-        : descriptor.readToken;
     if (
       typeof descriptor.bridge?.baseUrl !== "string" ||
-      typeof projectToken !== "string"
+      typeof descriptor.projectToken !== "string"
     ) {
       return null;
     }
     return {
       baseUrl: normalizeBaseUrl(descriptor.bridge.baseUrl),
-      projectToken,
+      projectToken: descriptor.projectToken,
     };
   } catch {
     return null;
@@ -867,8 +808,7 @@ const discoverBridge = async (
 ): Promise<BridgeSession | null> => {
   const env = options.env ?? process.env;
   const envBaseUrl = env.CORESTUDIO_AGENT_BRIDGE_URL;
-  const envProjectToken =
-    env.CORESTUDIO_AGENT_PROJECT_TOKEN ?? env.CORESTUDIO_AGENT_READ_TOKEN;
+  const envProjectToken = env.CORESTUDIO_AGENT_PROJECT_TOKEN;
   if (envBaseUrl && envProjectToken) {
     return {
       baseUrl: normalizeBaseUrl(envBaseUrl),
@@ -961,9 +901,37 @@ export const runCli = async (
   const globalFetch = (globalThis as typeof globalThis & { fetch?: CliFetch })
     .fetch;
   const fetchImpl = options.fetch ?? globalFetch?.bind(globalThis);
-  if (!bridge || !fetchImpl) {
+  if (!bridge) {
     return finishWithEnvelope(
       bridgeUnavailableEnvelope(),
+      mode,
+      options.stdout,
+      options.stderr,
+    );
+  }
+
+  if (command.local) {
+    return finishWithEnvelope(
+      command.local(bridge, options),
+      mode,
+      options.stdout,
+      options.stderr,
+      command.formatHuman,
+    );
+  }
+
+  if (!fetchImpl) {
+    return finishWithEnvelope(
+      bridgeUnavailableEnvelope(),
+      mode,
+      options.stdout,
+      options.stderr,
+    );
+  }
+
+  if (!command.route || !command.method) {
+    return finishWithEnvelope(
+      commandFailedEnvelope("CoreStudio CLI command is not routable."),
       mode,
       options.stdout,
       options.stderr,

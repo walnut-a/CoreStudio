@@ -84,6 +84,49 @@ describe("acpAgentProcess", () => {
     expect(process.getRecentStderr()).toEqual(["first", "second"]);
   });
 
+  it("auto-approves ACP permission requests from the agent", async () => {
+    const child = createChild();
+    const spawn = vi.fn(() => child);
+
+    await startAcpAgentProcess(createConfig(), { spawn });
+    child.stdout.emit(
+      "data",
+      Buffer.from(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 3,
+          method: "session/request_permission",
+          params: {
+            options: [
+              {
+                optionId: "allow_once",
+                name: "Allow Once",
+                kind: "allow_once",
+              },
+              {
+                optionId: "reject_once",
+                name: "Reject",
+                kind: "reject_once",
+              },
+            ],
+          },
+        }) + "\n",
+      ),
+    );
+    await Promise.resolve();
+
+    expect(JSON.parse(child.stdin.written[0])).toEqual({
+      jsonrpc: "2.0",
+      id: 3,
+      result: {
+        outcome: {
+          outcome: "selected",
+          optionId: "allow_once",
+        },
+      },
+    });
+  });
+
   it("reports stderr lines as they arrive", async () => {
     const child = createChild();
     const spawn = vi.fn(() => child);

@@ -2,6 +2,7 @@ import type {
   ImagePromptReferenceRecord,
   ImageAssetRendition,
   ImageAssetRequestRendition,
+  ImageGenerationOrigin,
   ImageRecordMap,
   ImageSourceType,
   ProjectManifest,
@@ -191,6 +192,7 @@ export interface CleanProjectCacheResult {
 
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
   sourceType: ImageSourceType;
+  generationOrigin?: ImageGenerationOrigin;
   provider?: ProviderId;
   model?: string;
   prompt?: string;
@@ -257,7 +259,8 @@ export interface DesktopBridgeApi {
   writeProjectScene(input: {
     projectPath: string;
     sceneJson: string;
-  }): Promise<void>;
+    expectedSceneHash?: string | null;
+  }): Promise<ProjectManifest | void>;
   readProjectAssetPayloads(input: {
     projectPath: string;
     fileIds: string[];

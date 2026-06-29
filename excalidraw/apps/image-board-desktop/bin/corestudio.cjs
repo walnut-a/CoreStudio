@@ -7,6 +7,7 @@ runCli(process.argv.slice(2), {
   stdout: process.stdout,
   stderr: process.stderr,
   env: process.env,
+  executablePath: process.argv[1],
 })
   .then((exitCode) => {
     process.exitCode = exitCode;

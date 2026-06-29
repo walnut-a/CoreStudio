@@ -90,5 +90,8 @@
     "linux": {
       "target": "AppImage"
     }
+  },
+  "dependencies": {
+    "@assistant-ui/react": "0.14.24"
   }
 }

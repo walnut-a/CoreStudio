@@ -1,5 +1,8 @@
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
-import type { ImageSourceType } from "../shared/projectTypes";
+import type {
+  ImageGenerationOrigin,
+  ImageSourceType,
+} from "../shared/projectTypes";
 import type { ProviderId, ProviderSettings } from "../shared/providerTypes";
 
 export const DESKTOP_APP_NAME = "CoreStudio";
@@ -151,9 +154,12 @@ export const copy = {
     locateImage: "定位到图片",
     provider: "模型服务",
     importedProvider: "导入",
+    externalAgentProvider: "外部 Agent",
+    unrecordedProvider: "未记录",
     detailsTitle: "生成参数",
     model: "模型",
     prompt: "提示词",
+    promptReferences: "参考图",
     negativePrompt: "反向提示词",
     seed: "种子",
     size: "尺寸",
@@ -310,6 +316,12 @@ const imageSourceLabels: Record<ImageSourceType, string> = {
   imported: "导入",
 };
 
+const imageGenerationOriginLabels: Record<ImageGenerationOrigin, string> = {
+  corestudio: "CoreStudio 生成",
+  "agent-board": "内置画板 Agent",
+  "acp-agent": "ACP Agent",
+};
+
 const providerStatusLabels: Record<
   NonNullable<ProviderSettings["lastStatus"]>,
   string
@@ -321,6 +333,10 @@ const providerStatusLabels: Record<
 
 export const getImageSourceLabel = (sourceType: ImageSourceType) =>
   imageSourceLabels[sourceType];
+
+export const getImageGenerationOriginLabel = (
+  origin: ImageGenerationOrigin | undefined,
+) => (origin ? imageGenerationOriginLabels[origin] : null);
 
 export const getProviderStatusLabel = (
   settings: PublicProviderSettings[ProviderId] | undefined,

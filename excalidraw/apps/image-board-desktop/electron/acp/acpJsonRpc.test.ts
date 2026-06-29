@@ -119,6 +119,82 @@ describe("acpJsonRpc", () => {
     });
   });
 
+  it("responds to ACP requests sent by the agent", async () => {
+    const onTraffic = vi.fn();
+    const onRequest = vi.fn(async () => ({
+      outcome: {
+        outcome: "selected",
+        optionId: "allow_once",
+      },
+    }));
+    const stdin = new MemoryStream();
+    const stdout = new MemoryStream();
+    createAcpJsonRpcClient({
+      stdin,
+      stdout,
+      timeoutMs: 1000,
+      onRequest,
+      onTraffic,
+    });
+
+    stdout.emit(
+      "data",
+      Buffer.from(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 7,
+          method: "session/request_permission",
+          params: {
+            options: [
+              {
+                optionId: "allow_once",
+                name: "Allow Once",
+                kind: "allow_once",
+              },
+            ],
+          },
+        }) + "\n",
+      ),
+    );
+    await Promise.resolve();
+
+    expect(onRequest).toHaveBeenCalledWith("session/request_permission", {
+      options: [
+        {
+          optionId: "allow_once",
+          name: "Allow Once",
+          kind: "allow_once",
+        },
+      ],
+    });
+    expect(JSON.parse(stdin.written[0])).toEqual({
+      jsonrpc: "2.0",
+      id: 7,
+      result: {
+        outcome: {
+          outcome: "selected",
+          optionId: "allow_once",
+        },
+      },
+    });
+    expect(onTraffic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: "in",
+        type: "request",
+        method: "session/request_permission",
+        requestId: 7,
+      }),
+    );
+    expect(onTraffic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: "out",
+        type: "response",
+        method: "session/request_permission",
+        requestId: 7,
+      }),
+    );
+  });
+
   it("rejects non JSON-RPC stdout", async () => {
     const stdin = new MemoryStream();
     const stdout = new MemoryStream();
@@ -168,6 +244,24 @@ describe("acpJsonRpc", () => {
     vi.advanceTimersByTime(51);
 
     await expect(pending).rejects.toThrow("ACP request timed out");
+    vi.useRealTimers();
+  });
+
+  it("allows a single request to override the default timeout", async () => {
+    vi.useFakeTimers();
+    const stdin = new MemoryStream();
+    const stdout = new MemoryStream();
+    const client = createAcpJsonRpcClient({
+      stdin,
+      stdout,
+      timeoutMs: 50,
+    });
+
+    const pending = client.request("session/prompt", {}, { timeoutMs: 200 });
+    vi.advanceTimersByTime(51);
+    stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n'));
+
+    await expect(pending).resolves.toEqual({});
     vi.useRealTimers();
   });
 });

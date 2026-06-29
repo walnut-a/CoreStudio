@@ -11,6 +11,7 @@ export const PROJECT_FILENAMES = {
 } as const;
 
 export type ImageSourceType = "generated" | "imported";
+export type ImageGenerationOrigin = "corestudio" | "agent-board" | "acp-agent";
 export type ImageAssetRendition =
   | "original"
   | "thumbnail"
@@ -55,6 +56,7 @@ export interface ImageRecord {
   fileId: string;
   assetPath: string;
   sourceType: ImageSourceType;
+  generationOrigin?: ImageGenerationOrigin;
   provider?: ProviderId;
   model?: string;
   prompt?: string;

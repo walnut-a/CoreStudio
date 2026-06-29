@@ -151,6 +151,36 @@ describe("acpSessionClient", () => {
         },
       },
     });
+    expect(taskContext.capabilities.cli.executable).toContain("corestudio.cjs");
+    expect(taskContext.capabilities.cli.executable).not.toBe(
+      "node bin/corestudio.cjs",
+    );
+    expect(taskContext.capabilities.cli.environment).toMatchObject({
+      CORESTUDIO_AGENT_BRIDGE_URL: "http://127.0.0.1:60909",
+      CORESTUDIO_AGENT_PROJECT_TOKEN: "project-token",
+      CORESTUDIO_AGENT_TASK_ID: "task-1",
+      CORESTUDIO_AGENT_USER_PROMPT: "优化这台机器的设计",
+      CORESTUDIO_AGENT_REFERENCE_FILE_IDS: "file-1",
+      CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS: "element-1",
+    });
+    expect(taskContext.capabilities.cli.examples[0]).toContain(
+      taskContext.capabilities.cli.executable,
+    );
+    expect(taskContext.capabilities.cli.examples[0]).toContain(
+      "CORESTUDIO_AGENT_PROJECT_TOKEN",
+    );
+    expect(taskContext.capabilities.cli.examples[3]).toContain(
+      "--origin acp-agent",
+    );
+    expect(taskContext.capabilities.cli.examples[3]).toContain("--prompt");
+    expect(request).toHaveBeenNthCalledWith(
+      3,
+      "session/prompt",
+      expect.any(Object),
+      expect.objectContaining({
+        timeoutMs: expect.any(Number),
+      }),
+    );
     expect(events).toEqual(
       expect.arrayContaining([
         {

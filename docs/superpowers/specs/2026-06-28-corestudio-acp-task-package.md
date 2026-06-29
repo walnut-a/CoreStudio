@@ -65,6 +65,8 @@ CoreStudio owns the local project data. You may analyze, plan, search, and gener
 
 Use the attached CoreStudio task package as the source of truth for project identity, selected elements, image ids, local bridge address, board URL, and allowed write-back rules.
 
+Use capabilities.cli.executable and capabilities.cli.environment from the task package for CoreStudio CLI commands. Do not infer a relative CLI path from the agent working directory.
+
 When you need original image files, prefer querying paths through the CoreStudio CLI instead of asking CoreStudio to inline image data.
 
 When you write back to the board, report the CLI command result, including created or updated imageId, elementId, frameId, or prompt id when available.
@@ -112,7 +114,11 @@ interface CoreStudioAcpTaskPackageV1 {
   };
   capabilities: {
     cli: {
-      executable: "node bin/corestudio.cjs";
+      executable: string;
+      environment: {
+        CORESTUDIO_AGENT_BRIDGE_URL: string;
+        CORESTUDIO_AGENT_PROJECT_TOKEN: string;
+      };
       examples: string[];
     };
   };
@@ -135,6 +141,8 @@ interface CoreStudioAcpTaskPackageV1 {
 - `context.project.boardUrl`：Agent Board 地址。Agent 可以用内置浏览器打开查看当前项目。
 - `context.selection.items[].elementId`：Excalidraw 元素 ID，用于精确指向选中内容。
 - `context.selection.items[].imageId`：CoreStudio 图片 ID，用于查询原始路径、生成记录和写回关系。
+- `capabilities.cli.executable`：CoreStudio 生成的 CLI 可执行命令。由于 `session/new.cwd` 是用户项目目录，Agent 必须使用这个字段，不能自己拼相对路径。
+- `capabilities.cli.environment`：调用 CLI 时需要携带的本地 bridge 地址和项目 token。示例命令会把这些 env 直接放在命令前面，避免 CLI 读到旧的 session descriptor。
 - `capabilities.cli.examples`：给 Agent 的最小命令示例，不代表完整 CLI 文档。
 - `contract.writeBack`：写回规则。Agent 必须通过 CLI / Local Bridge 写回，不能直接改数据库或项目文件。
 

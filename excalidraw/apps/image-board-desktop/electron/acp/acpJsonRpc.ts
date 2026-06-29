@@ -25,7 +25,11 @@ export interface AcpJsonRpcTrafficEntry {
 }
 
 export interface AcpJsonRpcClient {
-  request(method: string, params?: unknown): Promise<unknown>;
+  request(
+    method: string,
+    params?: unknown,
+    options?: { timeoutMs?: number },
+  ): Promise<unknown>;
   notify(method: string, params?: unknown): void;
   onNotification(
     listener: (method: string, params: unknown) => void,
@@ -38,6 +42,7 @@ export interface AcpJsonRpcClientOptions {
   stdout: AcpReadable;
   timeoutMs?: number;
   onNotification?: (method: string, params: unknown) => void;
+  onRequest?: (method: string, params: unknown) => unknown | Promise<unknown>;
   onTraffic?: (entry: AcpJsonRpcTrafficEntry) => void;
 }
 
@@ -54,6 +59,7 @@ export const createAcpJsonRpcClient = ({
   stdout,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   onNotification,
+  onRequest,
   onTraffic,
 }: AcpJsonRpcClientOptions): AcpJsonRpcClient => {
   let nextId = 1;
@@ -116,6 +122,81 @@ export const createAcpJsonRpcClient = ({
     request.resolve(message.result);
   };
 
+  const writeResponse = (
+    id: number,
+    method: string,
+    result: unknown,
+  ) => {
+    const response = {
+      jsonrpc: "2.0",
+      id,
+      result,
+    };
+    onTraffic?.({
+      direction: "out",
+      type: "response",
+      method,
+      requestId: id,
+      payload: response,
+      error: false,
+    });
+    writeMessage(response);
+  };
+
+  const writeRequestError = (
+    id: number,
+    method: string,
+    error: { code: number; message: string },
+  ) => {
+    const response = {
+      jsonrpc: "2.0",
+      id,
+      error,
+    };
+    onTraffic?.({
+      direction: "out",
+      type: "response",
+      method,
+      requestId: id,
+      payload: response,
+      error: true,
+    });
+    writeMessage(response);
+  };
+
+  const handleRequest = (message: Record<string, unknown>) => {
+    if (typeof message.id !== "number" || typeof message.method !== "string") {
+      rejectAll(createAcpStdoutError());
+      return;
+    }
+    onTraffic?.({
+      direction: "in",
+      type: "request",
+      method: message.method,
+      requestId: message.id,
+      payload: message,
+    });
+
+    if (!onRequest) {
+      writeRequestError(message.id, message.method, {
+        code: -32601,
+        message: `Unsupported ACP client request: ${message.method}`,
+      });
+      return;
+    }
+
+    Promise.resolve(onRequest(message.method, message.params))
+      .then((result) => writeResponse(message.id as number, message.method as string, result))
+      .catch((error) => {
+        const messageText =
+          error instanceof Error ? error.message : String(error);
+        writeRequestError(message.id as number, message.method as string, {
+          code: -32000,
+          message: messageText,
+        });
+      });
+  };
+
   const handleNotification = (message: Record<string, unknown>) => {
     if (typeof message.method !== "string") {
       rejectAll(createAcpStdoutError());
@@ -151,6 +232,11 @@ export const createAcpJsonRpcClient = ({
       return;
     }
 
+    if ("id" in parsed && "method" in parsed) {
+      handleRequest(parsed);
+      return;
+    }
+
     if ("id" in parsed) {
       handleResponse(parsed);
       return;
@@ -177,7 +263,7 @@ export const createAcpJsonRpcClient = ({
   stdout.on("data", handleData);
 
   return {
-    request(method, params) {
+    request(method, params, options = {}) {
       const id = nextId++;
       const message: Record<string, unknown> = {
         jsonrpc: "2.0",
@@ -192,7 +278,7 @@ export const createAcpJsonRpcClient = ({
         const timeout = setTimeout(() => {
           pending.delete(id);
           reject(new Error(`ACP request timed out: ${method}`));
-        }, timeoutMs);
+        }, options.timeoutMs ?? timeoutMs);
         pending.set(id, { method, resolve, reject, timeout });
       });
 

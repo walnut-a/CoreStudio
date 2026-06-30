@@ -123,6 +123,7 @@ export type AcpRunLogKind =
 
 export interface AcpRunMetadata {
   taskId: string;
+  threadId: string;
   projectToken: string;
   projectName: string;
   agentName: string;
@@ -144,6 +145,26 @@ export interface AcpRunIndex {
   runs: AcpRunSummary[];
 }
 
+export interface AcpThreadSummary {
+  threadId: string;
+  projectToken: string;
+  projectName: string;
+  agentName: string;
+  title: string;
+  status: AcpRunStatus;
+  createdAt: string;
+  updatedAt: string;
+  taskIds: string[];
+  lastTaskId?: string;
+  lastMessage?: string;
+  errorMessage?: string;
+}
+
+export interface AcpThreadIndex {
+  version: 1;
+  threads: AcpThreadSummary[];
+}
+
 export interface AcpRunLogEntry {
   version: 1;
   taskId: string;
@@ -158,8 +179,15 @@ export interface AcpRunLogDetail {
   entries: AcpRunLogEntry[];
 }
 
+export interface AcpThreadDetail {
+  summary: AcpThreadSummary;
+  runs: AcpRunLogDetail[];
+  entries: AcpRunLogEntry[];
+}
+
 export interface AcpTaskRequest {
   taskId: string;
+  threadId?: string | null;
   agentId: string;
   userPrompt: string;
   project: {

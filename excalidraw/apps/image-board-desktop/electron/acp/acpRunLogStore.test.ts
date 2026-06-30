@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   createAcpRunLogWriter,
+  listAcpThreadSummaries,
+  readAcpThread,
   listAcpRunLogSummaries,
   readAcpRunLog,
 } from "./acpRunLogStore";
@@ -27,6 +29,7 @@ describe("acpRunLogStore", () => {
     const writer = await createAcpRunLogWriter(
       {
         taskId: "task-1",
+        threadId: "thread-1",
         projectToken: "project-token",
         projectName: "工业设计助手",
         agentName: "Codex ACP",
@@ -54,6 +57,7 @@ describe("acpRunLogStore", () => {
       runs: [
         expect.objectContaining({
           taskId: "task-1",
+          threadId: "thread-1",
           projectToken: "project-token",
           projectName: "工业设计助手",
           agentName: "Codex ACP",
@@ -88,6 +92,7 @@ describe("acpRunLogStore", () => {
     const writer = await createAcpRunLogWriter(
       {
         taskId: "task/readable",
+        threadId: "thread-readable",
         projectToken: "project-token",
         projectName: "工业设计助手",
         agentName: "Codex ACP",
@@ -110,6 +115,7 @@ describe("acpRunLogStore", () => {
     expect(summaries).toHaveLength(1);
     expect(summaries[0]).toMatchObject({
       taskId: "task/readable",
+      threadId: "thread-readable",
       status: "completed",
       agentName: "Codex ACP",
       lastMessage: "已写回画板",
@@ -120,6 +126,7 @@ describe("acpRunLogStore", () => {
     });
     expect(detail.summary).toMatchObject({
       taskId: "task/readable",
+      threadId: "thread-readable",
       status: "completed",
     });
     expect(detail.entries.map((entry) => entry.seq)).toEqual([1, 2, 3, 4]);
@@ -132,5 +139,72 @@ describe("acpRunLogStore", () => {
     expect(detail.entries[2].payload).toEqual({
       text: "我会先分析参考图。",
     });
+  });
+
+  it("groups multiple task logs into a persistent thread index", async () => {
+    const firstWriter = await createAcpRunLogWriter(
+      {
+        taskId: "task-1",
+        threadId: "thread-1",
+        projectToken: "project-token",
+        projectName: "工业设计助手",
+        agentName: "Codex ACP",
+        userPrompt: "先分析这张参考图",
+      },
+      {
+        baseDir: tempDir,
+        now: () => new Date("2026-06-29T10:00:00.000Z"),
+      },
+    );
+    await firstWriter.append("agent.message", { text: "我会先分析结构。" });
+    await firstWriter.finish("completed", { lastMessage: "第一轮完成" });
+
+    const secondWriter = await createAcpRunLogWriter(
+      {
+        taskId: "task-2",
+        threadId: "thread-1",
+        projectToken: "project-token",
+        projectName: "工业设计助手",
+        agentName: "Codex ACP",
+        userPrompt: "继续优化外壳",
+      },
+      {
+        baseDir: tempDir,
+        now: () => new Date("2026-06-29T10:02:00.000Z"),
+      },
+    );
+    await secondWriter.append("agent.message", { text: "我会继续处理。" });
+    await secondWriter.finish("failed", {
+      errorMessage: "No model configured",
+    });
+
+    const summaries = await listAcpThreadSummaries({
+      baseDir: tempDir,
+      projectToken: "project-token",
+    });
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      threadId: "thread-1",
+      title: "先分析这张参考图",
+      status: "failed",
+      lastTaskId: "task-2",
+      errorMessage: "No model configured",
+      taskIds: ["task-1", "task-2"],
+    });
+
+    const detail = await readAcpThread("thread-1", { baseDir: tempDir });
+    expect(detail.summary.taskIds).toEqual(["task-1", "task-2"]);
+    expect(detail.runs.map((run) => run.summary.taskId)).toEqual([
+      "task-1",
+      "task-2",
+    ]);
+    expect(detail.entries.map((entry) => entry.taskId)).toEqual([
+      "task-1",
+      "task-1",
+      "task-1",
+      "task-2",
+      "task-2",
+      "task-2",
+    ]);
   });
 });

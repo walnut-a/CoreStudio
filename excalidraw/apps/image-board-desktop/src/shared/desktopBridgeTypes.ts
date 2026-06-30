@@ -20,6 +20,8 @@ import type {
   AcpAgentSettings,
   AcpRunLogDetail,
   AcpRunSummary,
+  AcpThreadDetail,
+  AcpThreadSummary,
   AcpTaskEvent,
   AcpTaskRequest,
 } from "./acpTypes";
@@ -61,6 +63,8 @@ export const IPC_CHANNELS = {
   cancelAcpAgentTask: "image-board:cancel-acp-agent-task",
   listAcpAgentRunLogs: "image-board:list-acp-agent-run-logs",
   readAcpAgentRunLog: "image-board:read-acp-agent-run-log",
+  listAcpAgentThreads: "image-board:list-acp-agent-threads",
+  readAcpAgentThread: "image-board:read-acp-agent-thread",
   acpAgentTaskEvent: "image-board:acp-agent-task-event",
 } as const;
 
@@ -305,10 +309,17 @@ export interface DesktopBridgeApi {
   setAgentBridgeEnabled?(enabled: boolean): Promise<DesktopAgentBridgeStatus>;
   loadAcpAgentSettings?(): Promise<AcpAgentSettings>;
   saveAcpAgentSettings?(settings: AcpAgentSettings): Promise<AcpAgentSettings>;
-  startAcpAgentTask?(request: AcpTaskRequest): Promise<{ taskId: string }>;
+  startAcpAgentTask?(
+    request: AcpTaskRequest,
+  ): Promise<{ taskId: string; threadId?: string }>;
   cancelAcpAgentTask?(taskId: string): Promise<void>;
   listAcpAgentRunLogs?(input?: { limit?: number }): Promise<AcpRunSummary[]>;
   readAcpAgentRunLog?(taskId: string): Promise<AcpRunLogDetail>;
+  listAcpAgentThreads?(input?: {
+    projectToken?: string;
+    limit?: number;
+  }): Promise<AcpThreadSummary[]>;
+  readAcpAgentThread?(threadId: string): Promise<AcpThreadDetail>;
   onAcpAgentTaskEvent?(listener: (event: AcpTaskEvent) => void): () => void;
   onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(

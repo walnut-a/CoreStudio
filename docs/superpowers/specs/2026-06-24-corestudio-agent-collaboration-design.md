@@ -117,6 +117,94 @@ CoreStudio 需要把“由谁负责生图”做成显式配置，而不是让 Ag
 - 如果用户明确要求“用 CoreStudio / 用软件内置”，Agent 应选择 `builtin`。
 - 如果用户明确要求“你来生成 / 用 Agent 能力”，Agent 应选择 `agent`。
 
+### 生图交互模式
+
+生成来源回答“谁执行生成”，交互模式回答“用户和历史如何组织”。这两个概念必须分开。
+
+CoreStudio 客户端先支持两种生图交互模式：
+
+1. `direct`：直接输入，单次生成。
+2. `acp-agent`：ACP Agent，连续会话生成。
+
+Agent Board 另有 `agent-board-operation` 模式，用于在 Agent 内置浏览器里把当前选区、标注和画板状态交给外部 Agent 操作。它复用客户端能力层，但不是桌面客户端默认工作流。
+
+#### 直接输入模式
+
+直接输入是单次生成任务，不是聊天。
+
+规则：
+
+- 每次提交都是独立生成任务。
+- 多次直接生成之间不继承上下文。
+- 不存在“继续对话”。
+- 用户可以复用上一条记录重新发起任务，但这会创建新的任务，而不是续写旧任务。
+- 记录面板应显示任务列表：时间、状态、prompt 摘要、参考图、模型/来源、结果数量。
+- 点击记录进入任务详情或定位结果图片。
+
+第一版可以用已生成图片记录近似展示生成历史，但长期数据对象应升级为一等 `GenerationTask`：
+
+```ts
+interface GenerationTask {
+  id: string;
+  mode: "direct";
+  status: "pending" | "completed" | "failed";
+  provider: string;
+  model: string;
+  prompt: string;
+  promptReferences: ImagePromptReferenceRecord[];
+  resultFileIds: string[];
+  createdAt: string;
+  completedAt?: string;
+  errorMessage?: string;
+}
+```
+
+#### ACP Agent 模式
+
+ACP Agent 是连续会话生成，核心对象是 `AgentThread`，不是单个生成任务。
+
+规则：
+
+- 一个 thread 内可以有多轮用户消息。
+- Agent 文本、工具调用、写回结果、生成图片按时间线混排。
+- 单次 ACP task/run 挂在 thread 下，作为该会话的一段执行证据。
+- 用户进入 thread 后可以继续对话。
+- Agent 写回的图片必须保留 `generationOrigin = "acp-agent"`，并关联 prompt、参考图、threadId/taskId 或等价运行记录。
+
+推荐数据关系：
+
+```ts
+interface AgentThread {
+  id: string;
+  projectToken: string;
+  title: string;
+  messages: AgentMessage[];
+  runs: AgentRun[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AgentRun {
+  id: string;
+  threadId: string;
+  acpSessionId?: string;
+  status: "running" | "completed" | "failed" | "cancelled";
+  userPrompt: string;
+  resultFileIds: string[];
+  logFile: string;
+}
+```
+
+#### 记录面板规则
+
+左侧记录面板按当前交互模式切换：
+
+- 直接输入：标题为“生成记录”，显示独立任务列表，不显示继续对话输入框。
+- ACP Agent：标题为“Agent 对话”，显示 thread 列表、当前 thread 的消息流和继续对话输入框。
+- 底部输入框仍是快捷入口：直接输入模式发起单次生成；ACP Agent 模式发送到当前 thread，没有当前 thread 时创建新 thread。
+
+这个规则避免把“单次生成历史”伪装成聊天，也避免把 Agent thread 降级成普通任务列表。
+
 ### Agent Board
 
 Agent Board 是给 Codex 内置浏览器或其他 Agent 浏览器打开的本地画板入口。
@@ -254,6 +342,7 @@ CoreStudio 发给 Agent 的任务上下文应包含：
 - taskId/writeToken 生成。
 - 上下文打包。
 - Agent 过程展示。
+- 连续对话 thread 记录，单次 ACP task log 作为 thread 内证据。
 - CLI 写回结果识别。
 
 不做：
@@ -289,6 +378,7 @@ CoreStudio 发给 Agent 的任务上下文应包含：
 - 用户可以在 CoreStudio 内选择一个外部 Agent。
 - 用户可以把当前选区和任务说明发送给 Agent。
 - Agent 过程能在 CoreStudio 中展示。
+- 同一项目的 Agent 追问能延续到同一个 thread，重开项目后能恢复最近对话。
 - Agent 必须通过 CLI 写回结果。
 - CoreStudio 能识别任务完成状态和写回产物。
 

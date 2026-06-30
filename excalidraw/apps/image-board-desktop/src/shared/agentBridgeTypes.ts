@@ -85,6 +85,8 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "saveAcpAgentSettings",
   "listAcpAgentRunLogs",
   "readAcpAgentRunLog",
+  "listAcpAgentThreads",
+  "readAcpAgentThread",
   "loadPromptLibrary",
   "savePrompt",
   "deleteSavedPrompt",

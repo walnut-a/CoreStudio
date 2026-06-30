@@ -34,6 +34,7 @@ interface AgentRunChatLogProps {
 
 interface AgentRunThreadMessageCustom {
   agentRunItem: AgentRunChatItem;
+  showJsonPayloads: boolean;
 }
 
 const RAW_ACP_RUN_LOG_KINDS = new Set<AcpRunLogEntry["kind"]>([
@@ -226,10 +227,8 @@ const appendAgentMessageChunk = (
   });
 };
 
-const getAgentMessageStreamKey = (entry: AcpRunLogEntry) => {
-  const messageId = getPayloadText(entry.payload, ["messageId"]);
-  return messageId ?? `${entry.taskId}:agent-message-stream`;
-};
+const getAgentMessageId = (entry: AcpRunLogEntry) =>
+  getPayloadText(entry.payload, ["messageId"]);
 
 export const formatAcpRunLogPayload = (payload: unknown) => {
   if (payload === undefined || payload === null) {
@@ -251,6 +250,7 @@ export const createAgentRunChatItems = (
 ): AgentRunChatItem[] => {
   const items: AgentRunChatItem[] = [];
   const agentMessageItemsByMessageId = new Map<string, AgentRunChatItem>();
+  let fallbackAgentMessageItem: AgentRunChatItem | undefined;
 
   for (const entry of entries) {
     if (RAW_ACP_RUN_LOG_KINDS.has(entry.kind) && !includeRawEntries) {
@@ -260,16 +260,28 @@ export const createAgentRunChatItems = (
     const detail = getEntryDetail(entry) ?? undefined;
     const lastItem = items.at(-1);
     if (entry.kind === "agent.message") {
-      const messageStreamKey = getAgentMessageStreamKey(entry);
-      const existingMessageItem =
-        agentMessageItemsByMessageId.get(messageStreamKey);
-      if (existingMessageItem) {
-        appendAgentMessageChunk(existingMessageItem, entry, detail);
+      const messageId = getAgentMessageId(entry);
+      if (messageId) {
+        const existingMessageItem =
+          agentMessageItemsByMessageId.get(messageId);
+        if (existingMessageItem) {
+          appendAgentMessageChunk(existingMessageItem, entry, detail);
+          continue;
+        }
+      } else if (
+        fallbackAgentMessageItem &&
+        shouldMergeAssistantEntry(fallbackAgentMessageItem, entry)
+      ) {
+        appendAgentMessageChunk(fallbackAgentMessageItem, entry, detail);
         continue;
       }
       if (shouldMergeAssistantEntry(lastItem, entry)) {
         appendAgentMessageChunk(lastItem!, entry, detail);
-        agentMessageItemsByMessageId.set(messageStreamKey, lastItem!);
+        if (messageId) {
+          agentMessageItemsByMessageId.set(messageId, lastItem!);
+        } else {
+          fallbackAgentMessageItem = lastItem!;
+        }
         continue;
       }
     }
@@ -290,7 +302,14 @@ export const createAgentRunChatItems = (
     };
 
     if (entry.kind === "agent.message") {
-      agentMessageItemsByMessageId.set(getAgentMessageStreamKey(entry), item);
+      const messageId = getAgentMessageId(entry);
+      if (messageId) {
+        agentMessageItemsByMessageId.set(messageId, item);
+      } else {
+        fallbackAgentMessageItem = item;
+      }
+    } else if (!RAW_ACP_RUN_LOG_KINDS.has(entry.kind)) {
+      fallbackAgentMessageItem = undefined;
     }
 
     items.push(item);
@@ -315,6 +334,7 @@ const getThreadMessageRole = (
 
 export const createAgentRunThreadMessages = (
   items: AgentRunChatItem[],
+  { showJsonPayloads = false }: { showJsonPayloads?: boolean } = {},
 ): ExternalThreadMessage[] =>
   items.map((item) => {
     const role = getThreadMessageRole(item.role);
@@ -327,6 +347,7 @@ export const createAgentRunThreadMessages = (
     const createdAt = new Date(item.timestamp);
     const custom = {
       agentRunItem: item,
+      showJsonPayloads,
     };
 
     if (role === "user") {
@@ -395,34 +416,104 @@ const AgentRunThreadProvider: FC<
 const getRoleBadge = (role: AgentRunChatRole) => {
   switch (role) {
     case "assistant":
-      return "A";
+      return "AI";
     case "user":
-      return "U";
+      return "我";
     case "tool":
-      return "T";
+      return "工";
     case "system":
-      return "S";
+      return "态";
   }
 };
 
+const getTimeLabel = (timestamp: string) =>
+  new Date(timestamp).toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const getInlineCallLabel = (item: AgentRunChatItem) => {
+  if (item.role === "tool") {
+    return "工具调用";
+  }
+  if (item.tone === "danger") {
+    return "错误";
+  }
+  if (item.title.startsWith("ACP")) {
+    return "ACP";
+  }
+  return "状态";
+};
+
+const AgentRunJsonList: FC<{ item: AgentRunChatItem }> = ({ item }) => (
+  <div className="agent-run-chat__json-list">
+    {item.jsonPayloads.map((jsonPayload) => {
+      const payloadText = formatAcpRunLogPayload(jsonPayload.payload);
+      return payloadText ? (
+        <details key={jsonPayload.label} className="agent-run-chat__json">
+          <summary>{jsonPayload.label}</summary>
+          <pre>{payloadText}</pre>
+        </details>
+      ) : null;
+    })}
+  </div>
+);
+
 const AgentRunMessage: FC = () => {
-  const item = useAuiState(
+  const custom = useAuiState(
     (state) =>
       (
         state.message.metadata.custom as unknown as
           | AgentRunThreadMessageCustom
           | undefined
-      )?.agentRunItem,
+      ),
   );
+  const item = custom?.agentRunItem;
+  const showJsonPayloads = Boolean(custom?.showJsonPayloads);
 
   if (!item) {
     return null;
+  }
+
+  const timeLabel = getTimeLabel(item.timestamp);
+  const isInlineCall = item.role === "tool" || item.role === "system";
+
+  if (isInlineCall) {
+    return (
+      <MessagePrimitive.Root
+        className={[
+          "agent-run-chat__item",
+          "agent-run-chat__message",
+          "agent-run-chat__item--inline-call",
+          `agent-run-chat__item--${item.role}`,
+          item.tone !== "neutral" ? `agent-run-chat__item--${item.tone}` : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <div className="agent-run-chat__avatar" aria-hidden="true">
+          {getRoleBadge(item.role)}
+        </div>
+        <div className="agent-run-chat__tool-card">
+          <div className="agent-run-chat__tool-meta">
+            <span>{getInlineCallLabel(item)}</span>
+            <strong>{item.title}</strong>
+            <span>{timeLabel}</span>
+          </div>
+          {item.detail ? (
+            <p className="agent-run-chat__tool-content">{item.detail}</p>
+          ) : null}
+          {showJsonPayloads ? <AgentRunJsonList item={item} /> : null}
+        </div>
+      </MessagePrimitive.Root>
+    );
   }
 
   return (
     <MessagePrimitive.Root
       className={[
         "agent-run-chat__item",
+        "agent-run-chat__message",
         `agent-run-chat__item--${item.role}`,
         item.tone !== "neutral" ? `agent-run-chat__item--${item.tone}` : "",
       ]
@@ -435,25 +526,12 @@ const AgentRunMessage: FC = () => {
       <div className="agent-run-chat__bubble">
         <div className="agent-run-chat__meta">
           <strong>{item.title}</strong>
-          <span>{new Date(item.timestamp).toLocaleString("zh-CN")}</span>
+          <span>{timeLabel}</span>
         </div>
         {item.detail ? (
           <p className="agent-run-chat__content">{item.detail}</p>
         ) : null}
-        <div className="agent-run-chat__json-list">
-          {item.jsonPayloads.map((jsonPayload) => {
-            const payloadText = formatAcpRunLogPayload(jsonPayload.payload);
-            return payloadText ? (
-              <details
-                key={jsonPayload.label}
-                className="agent-run-chat__json"
-              >
-                <summary>{jsonPayload.label}</summary>
-                <pre>{payloadText}</pre>
-              </details>
-            ) : null;
-          })}
-        </div>
+        {showJsonPayloads ? <AgentRunJsonList item={item} /> : null}
       </div>
     </MessagePrimitive.Root>
   );
@@ -467,7 +545,13 @@ export const AgentRunChatLog = ({
     () => createAgentRunChatItems(entries, { includeRawEntries }),
     [entries, includeRawEntries],
   );
-  const messages = useMemo(() => createAgentRunThreadMessages(items), [items]);
+  const messages = useMemo(
+    () =>
+      createAgentRunThreadMessages(items, {
+        showJsonPayloads: includeRawEntries,
+      }),
+    [includeRawEntries, items],
+  );
 
   return (
     <AgentRunThreadProvider messages={messages}>

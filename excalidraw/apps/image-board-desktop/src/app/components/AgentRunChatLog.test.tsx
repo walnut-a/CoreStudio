@@ -86,6 +86,35 @@ describe("AgentRunChatLog", () => {
       .toEqual(["#2 · agent.message", "#4 · agent.message"]);
   });
 
+  it("keeps tool calls interleaved between assistant messages", () => {
+    const items = createAgentRunChatItems([
+      createEntry(1, "task.created", { userPrompt: "优化这台机器" }),
+      createEntry(2, "agent.message", { text: "我先读取参考图。" }),
+      createEntry(3, "tool.call", {
+        title: "read image",
+        status: "completed",
+      }),
+      createEntry(4, "agent.message", { text: "然后写回新方案。" }),
+    ]);
+
+    expect(items.map((item) => item.role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+    expect(items[1]).toMatchObject({
+      detail: "我先读取参考图。",
+    });
+    expect(items[2]).toMatchObject({
+      title: "read image",
+      detail: "已完成",
+    });
+    expect(items[3]).toMatchObject({
+      detail: "然后写回新方案。",
+    });
+  });
+
   it("converts chat items into assistant-ui external thread messages", () => {
     const items = createAgentRunChatItems([
       createEntry(1, "task.created", { userPrompt: "优化这台机器" }),
@@ -141,5 +170,26 @@ describe("AgentRunChatLog", () => {
     expect(within(rawEntry as HTMLElement).getByText("#3 · acp.request"))
       .toBeInTheDocument();
     expect(container.textContent).toContain('"method": "session/prompt"');
+  });
+
+  it("renders tool calls as inline cards in the same message stream", () => {
+    const { container } = render(
+      <AgentRunChatLog
+        entries={[
+          createEntry(1, "task.created", { userPrompt: "优化这台机器" }),
+          createEntry(2, "agent.message", { text: "我会先读取图片。" }),
+          createEntry(3, "tool.update", {
+            title: "read image",
+            status: "completed",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("工具调用")).toBeInTheDocument();
+    expect(screen.getByText("read image")).toBeInTheDocument();
+    expect(container.querySelector(".agent-run-chat__tool-card"))
+      .not.toBeNull();
+    expect(container.querySelector(".agent-run-chat__event")).toBeNull();
   });
 });

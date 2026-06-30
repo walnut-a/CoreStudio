@@ -366,7 +366,6 @@ export const GenerateImageDialog = ({
   );
   const [generationSourceMenuOpen, setGenerationSourceMenuOpen] =
     useState(false);
-  const [agentTaskDetailsOpen, setAgentTaskDetailsOpen] = useState(false);
   const selectedGenerationSource = showGenerationSourceSwitch
     ? generationSource
     : defaultGenerationSource;
@@ -402,10 +401,6 @@ export const GenerateImageDialog = ({
   useEffect(() => {
     setGenerationSourceMenuOpen(false);
   }, [effectiveComposerMode, open]);
-
-  useEffect(() => {
-    setAgentTaskDetailsOpen(false);
-  }, [agentTaskStatus?.taskId, open]);
 
   useEffect(() => {
     const nextRequest = normalizeGenerationRequest(initialRequest, {
@@ -1534,56 +1529,23 @@ export const GenerateImageDialog = ({
                       日志
                     </button>
                   ) : null}
-                  {agentTaskEvents.length ? (
+                  {agentTaskEvents.length &&
+                  agentTaskStatus.taskId &&
+                  onOpenAgentRunLog ? (
                     <button
                       type="button"
                       className="generate-composer__agent-task-toggle"
-                      aria-label={
-                        agentTaskDetailsOpen
-                          ? "收起任务过程"
-                          : "查看任务过程"
-                      }
-                      aria-expanded={agentTaskDetailsOpen}
+                      aria-label="查看任务过程"
                       onMouseDown={stopInputEventPropagation}
                       onClick={(event) => {
                         stopInputEventPropagation(event);
-                        setAgentTaskDetailsOpen((current) => !current);
+                        onOpenAgentRunLog(agentTaskStatus.taskId!);
                       }}
                     >
                       过程
                     </button>
                   ) : null}
                 </div>
-                {agentTaskDetailsOpen && agentTaskEvents.length ? (
-                  <div
-                    className="generate-composer__agent-run-log"
-                    role="log"
-                    aria-label="ACP Agent 任务过程"
-                  >
-                    {agentTaskEvents.map((item) => (
-                      <div
-                        key={item.id}
-                        className={[
-                          "generate-composer__agent-run-item",
-                          item.tone
-                            ? `generate-composer__agent-run-item--${item.tone}`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      >
-                        <span
-                          className="generate-composer__agent-run-dot"
-                          aria-hidden="true"
-                        />
-                        <span className="generate-composer__agent-run-copy">
-                          <strong>{item.title}</strong>
-                          {item.detail ? <span>{item.detail}</span> : null}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
               </div>
             ) : null}
           </div>

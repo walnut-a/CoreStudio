@@ -3325,6 +3325,14 @@ describe("App startup", () => {
           kind: "agent.message" as const,
           payload: { text: "正在分析选中的 CNC 图片。" },
         },
+        {
+          version: 1 as const,
+          taskId: recentRun.taskId,
+          timestamp: "2026-06-29T08:00:02.000Z",
+          seq: 2,
+          kind: "acp.request" as const,
+          payload: { method: "session/prompt" },
+        },
       ],
     }));
 
@@ -3386,6 +3394,7 @@ describe("App startup", () => {
       expect(readAcpAgentRunLog).toHaveBeenCalledWith("task-recent-1");
     });
 
+    expect(screen.queryByRole("dialog", { name: "应用设置" })).toBeNull();
     const runLogDialog = await screen.findByRole("dialog", {
       name: "Agent 任务记录",
     });
@@ -3396,9 +3405,15 @@ describe("App startup", () => {
     expect(
       within(runLog).getAllByText(/正在分析选中的 CNC 图片/).length,
     ).toBeGreaterThan(0);
-    expect(
-      runLog.querySelector(".agent-run-chat__content"),
-    ).toBeInTheDocument();
+    expect(runLog.querySelector(".agent-run-chat__content")).toBeInTheDocument();
+    expect(runLog).not.toHaveTextContent("acp.request");
+
+    fireEvent.click(
+      within(runLogDialog).getByRole("button", { name: "显示协议 JSON" }),
+    );
+
+    expect(runLog).toHaveTextContent("acp.request");
+    expect(runLog).toHaveTextContent("session/prompt");
   });
 
   it("refreshes recent ACP Agent task records when an open settings panel receives a finished task", async () => {
@@ -6075,7 +6090,7 @@ describe("App startup", () => {
     });
   });
 
-  it("uses the unified CoreStudio side dock for image info", async () => {
+  it("uses the unified CoreStudio side dock for details", async () => {
     window.imageBoardDesktop = createDesktopBridgeMock() as any;
 
     render(<App />);
@@ -6095,7 +6110,7 @@ describe("App startup", () => {
     expect(screen.queryByText("图片信息（空）")).not.toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
 
     expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
@@ -6105,7 +6120,137 @@ describe("App startup", () => {
     expect(screen.getByText("图片信息（空）")).toBeInTheDocument();
   });
 
-  it("keeps the element edit dock closed across selection changes until manually opened", async () => {
+  it("shows direct generation records without mixing ACP Agent threads", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "corestudio-image": {
+              fileId: "corestudio-image",
+              assetPath: "assets/corestudio-image.png",
+              sourceType: "generated",
+              provider: "gemini",
+              model: "imagen-4.0-fast-generate-001",
+              prompt: "CoreStudio 单次生成记录",
+              negativePrompt: "",
+              seed: null,
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-06-29T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+            "acp-image": {
+              fileId: "acp-image",
+              assetPath: "assets/acp-image.png",
+              sourceType: "generated",
+              generationOrigin: "acp-agent",
+              provider: "gemini",
+              model: "imagen-4.0-fast-generate-001",
+              prompt: "ACP Agent 连续对话记录",
+              negativePrompt: "",
+              seed: null,
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-06-29T08:01:00.000Z",
+              mimeType: "image/png",
+            },
+            "orphan-generated-image": {
+              fileId: "orphan-generated-image",
+              assetPath: "assets/orphan-generated-image.png",
+              sourceType: "generated",
+              provider: "gemini",
+              model: "imagen-4.0-fast-generate-001",
+              prompt: "已经不在画布上的旧生成记录",
+              negativePrompt: "",
+              seed: null,
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-06-29T08:02:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "corestudio-element",
+            type: "image",
+            fileId: "corestudio-image",
+            isDeleted: false,
+            groupIds: [],
+            x: 100,
+            y: 120,
+            width: 320,
+            height: 240,
+          },
+          {
+            id: "deleted-generated-element",
+            type: "image",
+            fileId: "orphan-generated-image",
+            isDeleted: true,
+            groupIds: [],
+          },
+        ],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "生成记录" }));
+    });
+
+    const generationDock = within(screen.getByTestId("side-dock-left"));
+    expect(generationDock.getByText("生成记录")).toBeInTheDocument();
+    expect(
+      generationDock.getByText("CoreStudio 单次生成记录"),
+    ).toBeInTheDocument();
+    expect(
+      generationDock.queryByText("ACP Agent 连续对话记录"),
+    ).not.toBeInTheDocument();
+    expect(
+      generationDock.queryByText("已经不在画布上的旧生成记录"),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(
+        generationDock.getByRole("button", {
+          name: /CoreStudio 单次生成记录/,
+        }),
+      );
+    });
+
+    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "corestudio-element",
+        fileId: "corestudio-image",
+      }),
+      {
+        animate: true,
+        duration: 300,
+      },
+    );
+  });
+
+  it("keeps the detail dock closed across selection changes until manually opened", async () => {
     window.imageBoardDesktop = createDesktopBridgeMock() as any;
 
     render(<App />);
@@ -6121,20 +6266,26 @@ describe("App startup", () => {
       "data-open",
       "false",
     );
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
+      "data-open",
+      "false",
+    );
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "元素编辑" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
 
-    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",
       "true",
     );
-    expect(screen.queryByText("未选中元素")).toBeNull();
+    expect(
+      screen.getByText("选中元素后可在这里调整样式。"),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("mock-selected-shape-actions")).toBeNull();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "关闭元素编辑" }));
+      fireEvent.click(screen.getByRole("button", { name: "关闭详情" }));
     });
 
     act(() => {
@@ -6157,17 +6308,17 @@ describe("App startup", () => {
       });
     });
 
-    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",
       "false",
     );
     expect(screen.queryByTestId("mock-selected-shape-actions")).toBeNull();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "元素编辑" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
 
-    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",
       "true",
     );
@@ -6176,7 +6327,7 @@ describe("App startup", () => {
     ).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "关闭元素编辑" }));
+      fireEvent.click(screen.getByRole("button", { name: "关闭详情" }));
     });
 
     act(() => {
@@ -6199,7 +6350,7 @@ describe("App startup", () => {
       });
     });
 
-    expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+    expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",
       "false",
     );
@@ -6441,7 +6592,7 @@ describe("App startup", () => {
     ).not.toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
 
     expect(
@@ -6548,7 +6699,7 @@ describe("App startup", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
     const locateButton = await screen.findByRole("button", {
       name: "定位后续: 第二版结构细化",
@@ -6671,7 +6822,7 @@ describe("App startup", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
     const locateButton = await screen.findByRole("button", {
       name: "定位引用: 参考图 1",
@@ -6761,7 +6912,7 @@ describe("App startup", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
 
     expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
@@ -6771,7 +6922,7 @@ describe("App startup", () => {
     expect(screen.getByText("图片信息（空）")).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "关闭图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "关闭详情" }));
     });
     expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",
@@ -6780,7 +6931,7 @@ describe("App startup", () => {
     expect(screen.queryByText("图片信息（空）")).toBeNull();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
 
     expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
@@ -7300,7 +7451,7 @@ describe("App startup", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "图片信息" }));
+      fireEvent.click(screen.getByRole("button", { name: "详情" }));
     });
 
     expect(await screen.findByText(/生成任务: 生成失败/)).toBeInTheDocument();
@@ -8066,6 +8217,7 @@ describe("App startup", () => {
       expect(startAcpAgentTask).toHaveBeenCalledWith(
         expect.objectContaining({
           agentId: "default",
+          threadId: expect.stringMatching(/^acp-thread-/),
           userPrompt: expect.any(String),
           project: expect.objectContaining({
             name: "测试项目",
@@ -8307,31 +8459,29 @@ describe("App startup", () => {
     await waitFor(() => {
       expect(readAcpAgentRunLog).toHaveBeenCalledWith(taskId);
     });
-    const runLogDialog = screen.getByRole("dialog", {
-      name: "Agent 任务记录",
+    await waitFor(() => {
+      expect(screen.getByTestId("side-dock-left")).toHaveAttribute(
+        "data-open",
+        "true",
+      );
     });
-    expect(within(runLogDialog).getByText("测试 Agent")).toBeInTheDocument();
+    const agentDockElement = screen.getByTestId("side-dock-left");
+    const agentDock = within(agentDockElement);
+    expect(agentDock.getByText("测试 Agent")).toBeInTheDocument();
     expect(
-      within(runLogDialog).getByRole("log", {
+      agentDock.getByRole("log", {
         name: "Agent 任务过程",
       }),
     ).toHaveTextContent("用户任务");
+    expect(agentDock.getByText("正在分析当前画板。")).toBeInTheDocument();
     expect(
-      within(runLogDialog).getByText("正在分析当前画板。"),
-    ).toBeInTheDocument();
-    expect(
-      within(runLogDialog).getAllByText(/No model configured/).length,
+      agentDock.getAllByText(/No model configured/).length,
     ).toBeGreaterThan(0);
-    expect(within(runLogDialog).queryByText(/acp\.request/)).toBeNull();
-
-    fireEvent.click(
-      within(runLogDialog).getByRole("button", { name: "显示协议 JSON" }),
-    );
-
-    expect(within(runLogDialog).getByText(/acp\.request/)).toBeInTheDocument();
+    expect(agentDock.queryByText(/acp\.request/)).toBeNull();
     expect(
-      within(runLogDialog).getAllByText(/session\/prompt/).length,
-    ).toBeGreaterThan(0);
+      agentDock.queryByRole("button", { name: "显示原始事件" }),
+    ).toBeNull();
+    expect(agentDock.queryByText(/session\/prompt/)).toBeNull();
   });
 
   it("refreshes an open ACP Agent run log when the current task finishes", async () => {
@@ -8474,11 +8624,9 @@ describe("App startup", () => {
       fireEvent.click(screen.getByRole("button", { name: "查看保存日志" }));
     });
 
-    const runLogDialog = screen.getByRole("dialog", {
-      name: "Agent 任务记录",
-    });
+    const agentDock = within(screen.getByTestId("side-dock-left"));
     expect(
-      within(runLogDialog).getByRole("log", { name: "Agent 任务过程" }),
+      agentDock.getByRole("log", { name: "Agent 任务过程" }),
     ).toHaveTextContent("用户任务");
 
     act(() => {
@@ -8494,9 +8642,9 @@ describe("App startup", () => {
       expect(readAcpAgentRunLog).toHaveBeenCalledTimes(2);
     });
     expect(
-      within(runLogDialog).getByText("已生成新图片并写回画板。"),
+      agentDock.getByText("已生成新图片并写回画板。"),
     ).toBeInTheDocument();
-    expect(within(runLogDialog).getByText("Agent 已完成")).toBeInTheDocument();
+    expect(agentDock.getAllByText("Agent 已完成").length).toBeGreaterThan(0);
   });
 
   it("retries opening the saved ACP Agent run log while the log is still being finalized", async () => {
@@ -8604,9 +8752,240 @@ describe("App startup", () => {
     await waitFor(() => {
       expect(readAcpAgentRunLog).toHaveBeenCalledTimes(2);
     });
-    expect(
-      screen.getByRole("dialog", { name: "Agent 任务记录" }),
-    ).toHaveTextContent("No model configured");
+    expect(screen.getByTestId("side-dock-left")).toHaveTextContent(
+      "No model configured",
+    );
+  });
+
+  it("restores the latest ACP Agent thread for the opened project", async () => {
+    const threadSummary = {
+      threadId: "thread-1",
+      projectToken: "project-token",
+      projectName: "测试项目",
+      agentName: "测试 Agent",
+      title: "优化桌面级 CNC",
+      status: "completed" as const,
+      createdAt: "2026-06-29T01:00:00.000Z",
+      updatedAt: "2026-06-29T01:01:00.000Z",
+      taskIds: ["task-1"],
+      lastTaskId: "task-1",
+      lastMessage: "已完成视觉分析",
+    };
+    const threadEntries = [
+      {
+        version: 1 as const,
+        taskId: "task-1",
+        timestamp: "2026-06-29T01:00:00.000Z",
+        seq: 1,
+        kind: "task.created" as const,
+        payload: {
+          userPrompt: "优化桌面级 CNC",
+        },
+      },
+      {
+        version: 1 as const,
+        taskId: "task-1",
+        timestamp: "2026-06-29T01:00:10.000Z",
+        seq: 2,
+        kind: "agent.message" as const,
+        payload: {
+          text: "已完成视觉分析。",
+        },
+      },
+    ];
+    const listAcpAgentThreads = vi.fn(async () => [threadSummary]);
+    const readAcpAgentThread = vi.fn(async () => ({
+      summary: threadSummary,
+      runs: [
+        {
+          summary: {
+            taskId: "task-1",
+            threadId: "thread-1",
+            projectToken: "project-token",
+            projectName: "测试项目",
+            agentName: "测试 Agent",
+            userPrompt: "优化桌面级 CNC",
+            mode: "acp-agent" as const,
+            status: "completed" as const,
+            startedAt: "2026-06-29T01:00:00.000Z",
+            endedAt: "2026-06-29T01:01:00.000Z",
+            lastMessage: "已完成视觉分析",
+            logFile: "task-1.jsonl",
+          },
+          entries: threadEntries,
+        },
+      ],
+      entries: threadEntries,
+    }));
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      listAcpAgentThreads,
+      readAcpAgentThread,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(listAcpAgentThreads).toHaveBeenCalledWith({
+        projectToken: "project-token",
+        limit: 20,
+      });
+    });
+    await waitFor(() => {
+      expect(readAcpAgentThread).toHaveBeenCalledWith("thread-1");
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Agent 对话" }));
+    });
+
+    const agentDock = within(screen.getByTestId("side-dock-left"));
+    expect(agentDock.getByText("测试 Agent")).toBeInTheDocument();
+    expect(agentDock.getAllByText("优化桌面级 CNC").length).toBeGreaterThan(0);
+    expect(agentDock.getByText("已完成视觉分析。")).toBeInTheDocument();
+  });
+
+  it("switches ACP Agent conversation history from the left sidebar", async () => {
+    const threadSummaries = [
+      {
+        threadId: "thread-latest",
+        projectToken: "project-token",
+        projectName: "测试项目",
+        agentName: "测试 Agent",
+        title: "最新优化任务",
+        status: "completed" as const,
+        createdAt: "2026-06-29T02:00:00.000Z",
+        updatedAt: "2026-06-29T02:01:00.000Z",
+        taskIds: ["task-latest"],
+        lastTaskId: "task-latest",
+      },
+      {
+        threadId: "thread-older",
+        projectToken: "project-token",
+        projectName: "测试项目",
+        agentName: "测试 Agent",
+        title: "旧方案讨论",
+        status: "completed" as const,
+        createdAt: "2026-06-29T01:00:00.000Z",
+        updatedAt: "2026-06-29T01:01:00.000Z",
+        taskIds: ["task-older"],
+        lastTaskId: "task-older",
+      },
+    ];
+    const createThreadDetail = (
+      thread: (typeof threadSummaries)[number],
+      text: string,
+    ) => ({
+      summary: thread,
+      runs: [
+        {
+          summary: {
+            taskId: thread.lastTaskId,
+            threadId: thread.threadId,
+            projectToken: "project-token",
+            projectName: "测试项目",
+            agentName: "测试 Agent",
+            userPrompt: thread.title,
+            mode: "acp-agent" as const,
+            status: "completed" as const,
+            startedAt: thread.createdAt,
+            endedAt: thread.updatedAt,
+            lastMessage: text,
+            logFile: `${thread.lastTaskId}.jsonl`,
+          },
+          entries: [
+            {
+              version: 1 as const,
+              taskId: thread.lastTaskId,
+              timestamp: thread.createdAt,
+              seq: 1,
+              kind: "task.created" as const,
+              payload: { userPrompt: thread.title },
+            },
+            {
+              version: 1 as const,
+              taskId: thread.lastTaskId,
+              timestamp: thread.updatedAt,
+              seq: 2,
+              kind: "agent.message" as const,
+              payload: { text },
+            },
+          ],
+        },
+      ],
+      entries: [
+        {
+          version: 1 as const,
+          taskId: thread.lastTaskId,
+          timestamp: thread.createdAt,
+          seq: 1,
+          kind: "task.created" as const,
+          payload: { userPrompt: thread.title },
+        },
+        {
+          version: 1 as const,
+          taskId: thread.lastTaskId,
+          timestamp: thread.updatedAt,
+          seq: 2,
+          kind: "agent.message" as const,
+          payload: { text },
+        },
+      ],
+    });
+    const listAcpAgentThreads = vi.fn(async () => threadSummaries);
+    const readAcpAgentThread = vi.fn(async (threadId: string) => {
+      const thread = threadSummaries.find(
+        (summary) => summary.threadId === threadId,
+      );
+      if (!thread) {
+        throw new Error("thread not found");
+      }
+      return createThreadDetail(
+        thread,
+        thread.threadId === "thread-latest"
+          ? "最新任务已完成。"
+          : "旧方案的讨论记录。",
+      );
+    });
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      listAcpAgentThreads,
+      readAcpAgentThread,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(readAcpAgentThread).toHaveBeenCalledWith("thread-latest");
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Agent 对话" }));
+    });
+
+    const agentDock = within(screen.getByTestId("side-dock-left"));
+    expect(agentDock.getByText("最新任务已完成。")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(agentDock.getByRole("button", { name: /旧方案讨论/ }));
+    });
+
+    await waitFor(() => {
+      expect(readAcpAgentThread).toHaveBeenCalledWith("thread-older");
+    });
+    expect(agentDock.getByText("旧方案的讨论记录。")).toBeInTheDocument();
+    expect(agentDock.queryByText("最新任务已完成。")).toBeNull();
   });
 
   it("keeps the generated image canvas size from the placeholder frame", async () => {

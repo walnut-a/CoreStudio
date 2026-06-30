@@ -9,6 +9,9 @@ import type {
   AcpRunMetadata,
   AcpRunStatus,
   AcpRunSummary,
+  AcpThreadDetail,
+  AcpThreadIndex,
+  AcpThreadSummary,
 } from "../../src/shared/acpTypes";
 
 export type {
@@ -16,10 +19,13 @@ export type {
   AcpRunLogEntry,
   AcpRunLogKind,
   AcpRunSummary,
+  AcpThreadDetail,
+  AcpThreadSummary,
 } from "../../src/shared/acpTypes";
 
 export interface AcpRunLogWriter {
   readonly taskId: string;
+  readonly threadId: string;
   readonly logPath: string;
   append(kind: AcpRunLogKind, payload: unknown): Promise<void>;
   finish(
@@ -46,10 +52,19 @@ interface ListAcpRunLogSummariesOptions extends AcpRunLogReaderOptions {
   limit?: number;
 }
 
+interface ListAcpThreadSummariesOptions extends AcpRunLogReaderOptions {
+  projectToken?: string | null;
+  limit?: number;
+}
+
 const DEFAULT_MAX_RUNS = 100;
+const DEFAULT_MAX_THREADS = 100;
 
 const sanitizeLogFileName = (taskId: string) =>
   `${taskId.replace(/[^a-zA-Z0-9._-]/g, "_")}.jsonl`;
+const getRunIndexPath = (baseDir: string) => path.join(baseDir, "index.json");
+const getThreadIndexPath = (baseDir: string) =>
+  path.join(baseDir, "threads", "index.json");
 
 const readIndex = async (indexPath: string): Promise<AcpRunIndex> => {
   try {
@@ -70,6 +85,23 @@ const readIndex = async (indexPath: string): Promise<AcpRunIndex> => {
   return { version: 1, runs: [] };
 };
 
+const readThreadIndex = async (
+  indexPath: string,
+): Promise<AcpThreadIndex> => {
+  try {
+    const raw = await fs.readFile(indexPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.version === 1 && Array.isArray(parsed.threads)) {
+      return parsed as AcpThreadIndex;
+    }
+  } catch (error: any) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+  }
+  return { version: 1, threads: [] };
+};
+
 const writeIndex = async (
   indexPath: string,
   summary: AcpRunSummary,
@@ -87,19 +119,77 @@ const writeIndex = async (
   );
 };
 
+const getThreadSummaryFromRun = (
+  existing: AcpThreadSummary | undefined,
+  run: AcpRunSummary,
+): AcpThreadSummary => {
+  const existingTaskIds = existing?.taskIds.filter(
+    (taskId) => taskId !== run.taskId,
+  ) ?? [];
+  const updatedAt = run.endedAt ?? run.startedAt;
+  return {
+    threadId: run.threadId,
+    projectToken: run.projectToken,
+    projectName: run.projectName,
+    agentName: run.agentName,
+    title: existing?.title || run.userPrompt,
+    status: run.status,
+    createdAt: existing?.createdAt ?? run.startedAt,
+    updatedAt,
+    taskIds: [...existingTaskIds, run.taskId],
+    lastTaskId: run.taskId,
+    ...(run.lastMessage ? { lastMessage: run.lastMessage } : {}),
+    ...(run.errorMessage ? { errorMessage: run.errorMessage } : {}),
+  };
+};
+
+const writeThreadIndex = async (
+  indexPath: string,
+  run: AcpRunSummary,
+  maxThreads: number,
+) => {
+  await fs.mkdir(path.dirname(indexPath), { recursive: true });
+  const index = await readThreadIndex(indexPath);
+  const existing = index.threads.find(
+    (thread) => thread.threadId === run.threadId,
+  );
+  const nextThread = getThreadSummaryFromRun(existing, run);
+  const threads = [
+    nextThread,
+    ...index.threads.filter((thread) => thread.threadId !== run.threadId),
+  ].slice(0, maxThreads);
+  await fs.writeFile(
+    indexPath,
+    JSON.stringify({ version: 1, threads }, null, 2),
+    "utf8",
+  );
+};
+
 export const listAcpRunLogSummaries = async ({
   baseDir,
   limit = DEFAULT_MAX_RUNS,
 }: ListAcpRunLogSummariesOptions): Promise<AcpRunSummary[]> => {
-  const index = await readIndex(path.join(baseDir, "index.json"));
+  const index = await readIndex(getRunIndexPath(baseDir));
   return index.runs.slice(0, Math.max(0, limit));
+};
+
+export const listAcpThreadSummaries = async ({
+  baseDir,
+  projectToken,
+  limit = DEFAULT_MAX_THREADS,
+}: ListAcpThreadSummariesOptions): Promise<AcpThreadSummary[]> => {
+  const index = await readThreadIndex(getThreadIndexPath(baseDir));
+  const threads = projectToken
+    ? index.threads.filter((thread) => thread.projectToken === projectToken)
+    : index.threads;
+  return threads.slice(0, Math.max(0, limit));
 };
 
 export const readAcpRunLog = async (
   taskId: string,
   { baseDir }: AcpRunLogReaderOptions,
 ): Promise<AcpRunLogDetail> => {
-  const index = await readIndex(path.join(baseDir, "index.json"));
+  const index = await readIndex(getRunIndexPath(baseDir));
   const summary = index.runs.find((run) => run.taskId === taskId);
   if (!summary) {
     throw new Error(`ACP run log not found: ${taskId}`);
@@ -116,6 +206,26 @@ export const readAcpRunLog = async (
   return { summary, entries };
 };
 
+export const readAcpThread = async (
+  threadId: string,
+  { baseDir }: AcpRunLogReaderOptions,
+): Promise<AcpThreadDetail> => {
+  const index = await readThreadIndex(getThreadIndexPath(baseDir));
+  const summary = index.threads.find((thread) => thread.threadId === threadId);
+  if (!summary) {
+    throw new Error(`ACP thread not found: ${threadId}`);
+  }
+
+  const runs = await Promise.all(
+    summary.taskIds.map((taskId) => readAcpRunLog(taskId, { baseDir })),
+  );
+  return {
+    summary,
+    runs,
+    entries: runs.flatMap((run) => run.entries),
+  };
+};
+
 export const createAcpRunLogWriter = async (
   metadata: AcpRunMetadata,
   {
@@ -127,12 +237,15 @@ export const createAcpRunLogWriter = async (
   await fs.mkdir(baseDir, { recursive: true });
 
   const startedAt = now().toISOString();
+  const threadId = metadata.threadId || metadata.taskId;
   const logFile = sanitizeLogFileName(metadata.taskId);
   const logPath = path.join(baseDir, logFile);
-  const indexPath = path.join(baseDir, "index.json");
+  const indexPath = getRunIndexPath(baseDir);
+  const threadIndexPath = getThreadIndexPath(baseDir);
   let seq = 0;
   let summary: AcpRunSummary = {
     ...metadata,
+    threadId,
     mode: "acp-agent",
     status: "running",
     startedAt,
@@ -165,9 +278,11 @@ export const createAcpRunLogWriter = async (
     userPrompt: metadata.userPrompt,
   });
   await writeIndex(indexPath, summary, maxRuns);
+  await writeThreadIndex(threadIndexPath, summary, DEFAULT_MAX_THREADS);
 
   return {
     taskId: metadata.taskId,
+    threadId,
     logPath,
     append,
     async finish(status, details = {}) {
@@ -189,6 +304,9 @@ export const createAcpRunLogWriter = async (
         ...(details.payload !== undefined ? { payload: details.payload } : {}),
       });
       await enqueue(() => writeIndex(indexPath, summary, maxRuns));
+      await enqueue(() =>
+        writeThreadIndex(threadIndexPath, summary, DEFAULT_MAX_THREADS),
+      );
     },
   };
 };

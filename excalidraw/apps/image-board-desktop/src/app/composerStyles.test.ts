@@ -59,10 +59,10 @@ describe("generate composer styles", () => {
     const emptyTitleRule = getRule(appCss, ".image-inspector__empty-card h2");
     const eyebrowRule = getRule(appCss, ".image-inspector__eyebrow");
     const detailValueRule = getRule(appCss, ".image-inspector__detail-value");
-    const imageSidebarSource = readFileSync(
+    const inspectorSidebarSource = readFileSync(
       resolve(
         process.cwd(),
-        "apps/image-board-desktop/src/app/components/ImageSidebar.tsx",
+        "apps/image-board-desktop/src/app/components/InspectorSidebar.tsx",
       ),
       "utf8",
     );
@@ -80,9 +80,125 @@ describe("generate composer styles", () => {
     expect(detailValueRule).toContain(
       "font-size: var(--image-inspector-body-size)",
     );
-    expect(imageSidebarSource).toContain('side="right"');
-    expect(imageSidebarSource).toContain("title={copy.inspector.title}");
-    expect(imageSidebarSource).not.toContain("DefaultSidebar");
+    expect(inspectorSidebarSource).toContain('side="right"');
+    expect(inspectorSidebarSource).toContain('title="详情"');
+    expect(inspectorSidebarSource).toContain("copy.elementActions.title");
+    expect(inspectorSidebarSource).toContain("copy.inspector.title");
+    expect(inspectorSidebarSource).not.toContain("DefaultSidebar");
+  });
+
+  it("keeps merged inspector sections from inheriting canvas-height shape actions", () => {
+    const appCss = readAppCss();
+    const sidebarRule = getRule(appCss, ".inspector-sidebar");
+    const actionsSectionRule = getRule(
+      appCss,
+      ".inspector-sidebar__section--actions",
+    );
+    const shapeActionsRule = getRule(
+      appCss,
+      ".inspector-sidebar .selected-shape-actions",
+    );
+    const islandRule = getRule(
+      appCss,
+      ".inspector-sidebar .selected-shape-actions > .Island",
+    );
+
+    expect(sidebarRule).toContain(
+      "grid-template-rows: max-content minmax(0, 1fr)",
+    );
+    expect(actionsSectionRule).toContain("align-content: start");
+    expect(actionsSectionRule).toContain("max-height: min(340px, 36vh)");
+    expect(shapeActionsRule).toContain("height: auto");
+    expect(shapeActionsRule).toContain("overflow: visible");
+    expect(islandRule).toContain("max-height: min(260px, 30vh) !important");
+    expect(islandRule).toContain("overflow-y: auto");
+  });
+
+  it("keeps the Agent conversation sidebar on the shared chat thread surface", () => {
+    const appCss = readAppCss();
+    const agentSidebarSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/src/app/components/AgentConversationSidebar.tsx",
+      ),
+      "utf8",
+    );
+    const sidebarRule = getRule(appCss, ".agent-conversation-sidebar");
+    const composerRule = getRule(
+      appCss,
+      ".agent-conversation-sidebar__composer",
+    );
+    const composerSendIconRule = getRule(
+      appCss,
+      ".agent-conversation-sidebar__send svg",
+    );
+    const composerSendDisabledRule = getRule(
+      appCss,
+      ".agent-conversation-sidebar__send:disabled",
+    );
+    const sidebarChatRule = getRule(
+      appCss,
+      ".agent-conversation-sidebar .agent-run-chat",
+    );
+    const userItemRule = getRule(appCss, ".agent-run-chat__item--user");
+    const userAvatarRule = getRule(
+      appCss,
+      ".agent-run-chat__item--user .agent-run-chat__avatar",
+    );
+    const inlineCallRule = getRule(
+      appCss,
+      ".agent-run-chat__item--inline-call",
+    );
+    const toolCardRule = getRule(appCss, ".agent-run-chat__tool-card");
+    const toolMetaRule = getRule(appCss, ".agent-run-chat__tool-meta");
+
+    expect(agentSidebarSource).toContain("<AgentRunChatLog");
+    expect(agentSidebarSource).not.toContain(
+      "agent-conversation-sidebar__timeline",
+    );
+    expect(agentSidebarSource).not.toContain(
+      "agent-conversation-sidebar__actions",
+    );
+    expect(agentSidebarSource).not.toContain("showRunLogActions");
+    expect(agentSidebarSource).not.toContain("刷新记录");
+    expect(agentSidebarSource).not.toContain("显示原始事件");
+    expect(agentSidebarSource).not.toContain("隐藏原始事件");
+    expect(agentSidebarSource).not.toContain("显示 JSON");
+    expect(agentSidebarSource).not.toContain("对话记录");
+    expect(agentSidebarSource).not.toContain("还没有 Agent 对话");
+    expect(agentSidebarSource).not.toContain("暂无对话");
+    expect(agentSidebarSource).not.toContain("发起任务后");
+    expect(agentSidebarSource).not.toContain("从底部输入任务");
+    expect(agentSidebarSource).not.toContain("Agent Bridge 尚未就绪");
+    expect(agentSidebarSource).toContain("showThreadShelf");
+    expect(agentSidebarSource).toContain("输入任务");
+    expect(agentSidebarSource).toContain("继续对话");
+    expect(agentSidebarSource).toContain("onSubmitMessage");
+    expect(agentSidebarSource).toContain("threadEntries");
+    expect(agentSidebarSource).toContain("threadSummaries");
+    expect(agentSidebarSource).toContain("onSelectThread");
+    expect(agentSidebarSource).toContain("hasConversationContext");
+    expect(sidebarRule).toContain(
+      "grid-template-rows: auto auto minmax(0, 1fr) auto",
+    );
+    expect(composerRule).toContain(
+      "grid-template-columns: minmax(0, 1fr) 34px",
+    );
+    expect(composerRule).toContain("border-top: 1px solid");
+    expect(composerSendIconRule).toContain("width: 18px");
+    expect(composerSendIconRule).toContain("height: 18px");
+    expect(composerSendIconRule).toContain("stroke-width: 1.6");
+    expect(composerSendDisabledRule).toContain("color: var(--color-gray-70)");
+    expect(sidebarChatRule).toContain(
+      "grid-template-rows: minmax(0, 1fr)",
+    );
+    expect(userItemRule).toContain("justify-content: flex-end");
+    expect(userAvatarRule).toContain("display: none");
+    expect(appCss).not.toContain(".agent-run-chat__event-rail");
+    expect(inlineCallRule).toContain("padding: 1px 0");
+    expect(toolCardRule).toContain("border: 1px solid");
+    expect(toolCardRule).toContain("background: var(--island-bg-color)");
+    expect(toolMetaRule).toContain("align-items: baseline");
   });
 
   it("keeps the focus treatment from shifting the composer upward", () => {
@@ -207,7 +323,7 @@ describe("generate composer styles", () => {
       "right: max(\n    var(--floating-panel-anchor-gutter)",
     );
     expect(rightDockLayerRule).toContain(
-      "calc(var(--right-sidebar-width) + var(--floating-panel-edge-gap))",
+      "calc(var(--corestudio-right-sidebar-width) + var(--floating-panel-edge-gap))",
     );
     expect(rightDockLayerRule).not.toContain("justify-content:");
     expect(rightDockLayerRule).not.toContain("left:");
@@ -215,7 +331,7 @@ describe("generate composer styles", () => {
       "left: max(\n    var(--floating-panel-anchor-gutter)",
     );
     expect(leftDockLayerRule).toContain(
-      "calc(var(--left-sidebar-width) + var(--floating-panel-edge-gap))",
+      "calc(var(--corestudio-left-sidebar-width) + var(--floating-panel-edge-gap))",
     );
     expect(leftDockLayerRule).not.toContain("justify-content:");
     expect(leftDockLayerRule).not.toContain("right:");
@@ -252,8 +368,16 @@ describe("generate composer styles", () => {
       ".image-board-app--left-dock-open .App-menu_top__left",
     );
 
-    expect(appRule).toContain("--left-sidebar-width: 272px");
-    expect(appRule).toContain("--right-sidebar-width: 302px");
+    expect(appRule).toContain("--corestudio-side-panel-width: 300px");
+    expect(appRule).toContain(
+      "--corestudio-left-sidebar-width: var(--corestudio-side-panel-width)",
+    );
+    expect(appRule).toContain(
+      "--corestudio-right-sidebar-width: var(--corestudio-side-panel-width)",
+    );
+    expect(appRule).not.toContain("--side-panel-width");
+    expect(appRule).not.toContain("--left-sidebar-width");
+    expect(appRule).not.toContain("--right-sidebar-width");
     expect(appRule).toContain(
       "padding-top: var(--desktop-window-top-inset, 0px)",
     );
@@ -282,7 +406,7 @@ describe("generate composer styles", () => {
     expect(mainMenuTriggerRule).toContain("background: var(--island-bg-color)");
     expect(mainMenuTriggerHoverRule).toContain("background: #f1f0ff");
     expect(closedMenuRule).toContain("var(--side-dock-toggle-size)");
-    expect(openMenuRule).toContain("var(--left-sidebar-width)");
+    expect(openMenuRule).toContain("var(--corestudio-left-sidebar-width)");
   });
 
   it("keeps CoreStudio project entries compact inside the native menu", () => {
@@ -336,8 +460,11 @@ describe("generate composer styles", () => {
     ).find((rule) => rule.includes("display: none"));
 
     expect(appCss).toContain("@media (max-width: 900px)");
-    expect(narrowAppRule).toContain("--right-sidebar-width: min(302px, 86vw)");
-    expect(narrowAppRule).toContain("--left-sidebar-width: min(272px, 86vw)");
+    expect(narrowAppRule).toContain(
+      "--corestudio-side-panel-width: min(300px, 86vw)",
+    );
+    expect(narrowAppRule).not.toContain("--corestudio-right-sidebar-width: min(");
+    expect(narrowAppRule).not.toContain("--corestudio-left-sidebar-width: min(");
     expect(narrowAppRule).toContain("--floating-panel-edge-gap: 16px");
     expect(narrowAppRule).toContain("--canvas-toolbar-max-inline-size: calc(");
     expect(narrowMenuRule).toContain(

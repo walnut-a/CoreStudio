@@ -103,6 +103,8 @@ import {
 import {
   createAcpRunLogWriter,
   listAcpRunLogSummaries,
+  listAcpThreadSummaries,
+  readAcpThread,
   readAcpRunLog,
   type AcpRunLogKind,
   type AcpRunLogWriter,
@@ -274,6 +276,7 @@ const getAcpRunLogBaseDir = () =>
 
 const createNoopAcpRunLogWriter = (taskId: string): AcpRunLogWriter => ({
   taskId,
+  threadId: taskId,
   logPath: "",
   async append() {
     // no-op: task execution should not fail because diagnostic logging failed
@@ -291,6 +294,7 @@ const createAcpTaskRunLog = async (
     return await createAcpRunLogWriter(
       {
         taskId: request.taskId,
+        threadId: request.threadId || request.taskId,
         projectToken: request.project.token,
         projectName: request.project.name,
         agentName,
@@ -682,7 +686,7 @@ const startAcpAgentTask = async (request: AcpTaskRequest) => {
       });
     });
 
-  return { taskId: request.taskId };
+  return { taskId: request.taskId, threadId: runLog.threadId };
 };
 
 const cancelAcpAgentTask = async (taskId: string) => {
@@ -989,6 +993,36 @@ const registerIpcHandlers = () => {
     }
 
     return readAcpRunLog(taskId, {
+      baseDir: getAcpRunLogBaseDir(),
+    });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.listAcpAgentThreads, async (_event, input) =>
+    listAcpThreadSummaries({
+      baseDir: getAcpRunLogBaseDir(),
+      projectToken:
+        input &&
+        typeof input === "object" &&
+        "projectToken" in input &&
+        typeof input.projectToken === "string"
+          ? input.projectToken
+          : undefined,
+      limit:
+        input &&
+        typeof input === "object" &&
+        "limit" in input &&
+        typeof input.limit === "number"
+          ? input.limit
+          : undefined,
+    }),
+  );
+
+  ipcMain.handle(IPC_CHANNELS.readAcpAgentThread, async (_event, threadId) => {
+    if (typeof threadId !== "string" || !threadId.trim()) {
+      throw new Error("ACP thread id is required.");
+    }
+
+    return readAcpThread(threadId, {
       baseDir: getAcpRunLogBaseDir(),
     });
   });

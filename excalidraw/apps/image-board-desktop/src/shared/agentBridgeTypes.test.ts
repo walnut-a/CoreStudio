@@ -34,6 +34,8 @@ describe("agentBridgeTypes", () => {
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("saveAcpAgentSettings");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("listAcpAgentRunLogs");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("readAcpAgentRunLog");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("listAcpAgentThreads");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("readAcpAgentThread");
     expect(isAgentDesktopBridgeMethod("openProject")).toBe(true);
     expect(isAgentDesktopBridgeMethod("onAgentCommandRequest")).toBe(false);
   });

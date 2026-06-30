@@ -151,6 +151,22 @@ describe("generate composer styles", () => {
     );
     const toolCardRule = getRule(appCss, ".agent-run-chat__tool-card");
     const toolMetaRule = getRule(appCss, ".agent-run-chat__tool-meta");
+    const threadTitleRule = getRule(
+      appCss,
+      ".agent-conversation-sidebar__thread strong",
+    );
+    const threadMetaRule = getRule(
+      appCss,
+      ".agent-conversation-sidebar__thread span",
+    );
+    const generationTitleRule = getRule(
+      appCss,
+      ".generation-record-sidebar__item strong",
+    );
+    const generationMetaRule = getRule(
+      appCss,
+      ".generation-record-sidebar__item span",
+    );
 
     expect(agentSidebarSource).toContain("<AgentRunChatLog");
     expect(agentSidebarSource).not.toContain(
@@ -199,6 +215,28 @@ describe("generate composer styles", () => {
     expect(toolCardRule).toContain("border: 1px solid");
     expect(toolCardRule).toContain("background: var(--island-bg-color)");
     expect(toolMetaRule).toContain("align-items: baseline");
+    expect(threadTitleRule).toContain(
+      "font-weight: var(--font-weight-medium)",
+    );
+    expect(threadMetaRule).toContain(
+      "font-weight: var(--font-weight-regular)",
+    );
+    expect(generationTitleRule).toContain(
+      "font-weight: var(--font-weight-medium)",
+    );
+    expect(generationMetaRule).toContain(
+      "font-weight: var(--font-weight-regular)",
+    );
+  });
+
+  it("keeps CoreStudio font weights on design-system tokens", () => {
+    const appCss = readAppCss();
+
+    expect(appCss).toContain("--font-weight-regular: 400");
+    expect(appCss).toContain("--font-weight-medium: 500");
+    expect(appCss).toContain("--font-weight-semibold: 600");
+    expect(appCss).toContain("--font-weight-bold: 700");
+    expect(appCss).not.toMatch(/font-weight:\s*(?:400|500|600|650|700|800);/);
   });
 
   it("keeps the focus treatment from shifting the composer upward", () => {

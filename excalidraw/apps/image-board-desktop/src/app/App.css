@@ -29,6 +29,10 @@ body {
   );
   --ui-font: "Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
   --text-primary-color: #1b1b1f;
   --island-bg-color: #ffffff;
   --default-border-color: #f1f0ff;
@@ -253,7 +257,7 @@ html.image-board-desktop-titlebar-hidden {
   margin: 0;
   font-size: 0.9375rem;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary-color);
 }
 
@@ -349,7 +353,7 @@ html.image-board-desktop-titlebar-hidden {
   margin: 0;
   color: var(--color-gray-70);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1.2;
 }
 
@@ -422,7 +426,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--text-primary-color);
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -482,7 +486,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--text-primary-color);
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-medium);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -492,7 +496,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--color-gray-60);
   font-size: 0.71875rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-regular);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -543,7 +547,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--text-primary-color);
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-medium);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -553,7 +557,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--color-gray-60);
   font-size: 0.71875rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-regular);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -593,7 +597,7 @@ html.image-board-desktop-titlebar-hidden {
 .agent-conversation-sidebar__summary span {
   color: var(--color-gray-60);
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 
 .agent-conversation-sidebar__summary strong {
@@ -601,7 +605,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--text-primary-color);
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -615,7 +619,7 @@ html.image-board-desktop-titlebar-hidden {
   background: var(--island-bg-color);
   color: var(--color-gray-70);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1.2;
 }
 
@@ -776,7 +780,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--color-gray-70);
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -891,7 +895,7 @@ html.image-board-desktop-titlebar-hidden {
   background: var(--island-bg-color);
   box-shadow: var(--shadow-island);
   color: var(--text-primary-color);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .image-board-canvas__loading-spinner {
@@ -1182,7 +1186,7 @@ html.image-board-desktop-titlebar-hidden {
 .agent-status-popover__eyebrow {
   color: var(--color-gray-60);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .agent-status-popover__badge {
@@ -1192,7 +1196,7 @@ html.image-board-desktop-titlebar-hidden {
   background: color-mix(in srgb, var(--color-surface-mid) 72%, white);
   color: var(--color-gray-70);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   white-space: nowrap;
 }
 
@@ -1282,7 +1286,7 @@ html.image-board-desktop-titlebar-hidden {
   background: var(--island-bg-color);
   color: var(--color-primary);
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: var(--font-weight-bold);
   white-space: nowrap;
   box-shadow: 0 1px 3px color-mix(in srgb, #000 10%, transparent);
 }
@@ -1322,7 +1326,7 @@ html.image-board-desktop-titlebar-hidden {
 .agent-status-popover__item span {
   color: var(--color-gray-60);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .agent-status-popover__path {
@@ -1446,7 +1450,7 @@ html.image-board-desktop-titlebar-hidden {
     var(--text-primary-color) 18%
   );
   font-size: var(--image-inspector-caption-size);
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.2;
 }
 
@@ -1513,7 +1517,7 @@ html.image-board-desktop-titlebar-hidden {
   margin: 0;
   color: var(--text-primary-color);
   font-size: var(--image-inspector-body-size);
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.3;
 }
 
@@ -1538,7 +1542,7 @@ html.image-board-desktop-titlebar-hidden {
   background: transparent;
   color: var(--color-primary);
   font: inherit;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -1568,7 +1572,7 @@ html.image-board-desktop-titlebar-hidden {
   color: var(--text-primary-color);
   font: inherit;
   font-size: var(--image-inspector-caption-size);
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
 
@@ -1606,7 +1610,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .image-inspector__detail-item dt {
   font-size: var(--image-inspector-caption-size);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-gray-60);
   user-select: text;
 }
@@ -1654,7 +1658,7 @@ html.image-board-desktop-titlebar-hidden {
 .image-inspector__chain-group-title {
   margin: 0;
   font-size: var(--image-inspector-body-size);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .image-inspector__chain-list {
@@ -1780,7 +1784,7 @@ html.image-board-desktop-titlebar-hidden {
   background: transparent;
   color: var(--color-gray-60);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.2;
 }
 
@@ -1894,7 +1898,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .welcome-pane__recent-name {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 
 .welcome-pane__recent-path,
@@ -2087,7 +2091,7 @@ html.image-board-desktop-titlebar-hidden {
 .agent-board-label {
   color: var(--color-gray-60);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 
 .agent-board-grid {
@@ -2235,7 +2239,7 @@ html.image-board-desktop-titlebar-hidden {
   gap: 6px;
   color: var(--color-gray-60);
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .app-settings-form input,
@@ -2248,7 +2252,7 @@ html.image-board-desktop-titlebar-hidden {
   background: var(--island-bg-color);
   color: var(--text-primary-color);
   font: inherit;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .app-settings-form input,
@@ -2275,7 +2279,7 @@ html.image-board-desktop-titlebar-hidden {
 .app-settings-form label > span {
   color: var(--color-gray-60);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   line-height: 1.45;
 }
 
@@ -2372,7 +2376,7 @@ html.image-board-desktop-titlebar-hidden {
   border-radius: var(--border-radius-md);
   background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   color: var(--text-primary-color);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .about-dialog__description {
@@ -2389,7 +2393,7 @@ html.image-board-desktop-titlebar-hidden {
   background: color-mix(in srgb, var(--color-primary) 5%, transparent);
   color: var(--text-primary-color);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .generate-panel {
@@ -2675,7 +2679,7 @@ html.image-board-desktop-titlebar-hidden {
   color: var(--generate-composer-muted-color);
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
@@ -2708,7 +2712,7 @@ html.image-board-desktop-titlebar-hidden {
   color: var(--text-primary-color);
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1;
   white-space: nowrap;
 }
@@ -2734,7 +2738,7 @@ html.image-board-desktop-titlebar-hidden {
   color: var(--text-primary-color);
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1;
   white-space: nowrap;
   transition: border-color 0.15s ease, background-color 0.15s ease,
@@ -2813,7 +2817,7 @@ html.image-board-desktop-titlebar-hidden {
   color: var(--text-primary-color);
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1;
   text-align: left;
   white-space: nowrap;
@@ -2974,7 +2978,7 @@ html.image-board-desktop-titlebar-hidden {
   flex: 0 0 auto;
   color: var(--text-primary-color);
   font-size: inherit;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
 
@@ -2998,7 +3002,7 @@ html.image-board-desktop-titlebar-hidden {
   color: var(--text-primary-color);
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1;
   cursor: pointer;
 }
@@ -3038,7 +3042,7 @@ html.image-board-desktop-titlebar-hidden {
   color: var(--generate-composer-reference-color);
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.25;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -3546,7 +3550,7 @@ html.image-board-desktop-titlebar-hidden {
   flex-direction: column;
   gap: 6px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   color: var(--color-gray-80);
 }
 
@@ -3579,7 +3583,7 @@ html.image-board-desktop-titlebar-hidden {
 .generate-panel__body .dialog-form-grid label {
   gap: 6px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   color: var(--color-gray-80);
 }
 
@@ -3681,7 +3685,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .generate-provider-settings__toggle strong {
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .generate-provider-settings__toggle small {
@@ -3745,7 +3749,7 @@ html.image-board-desktop-titlebar-hidden {
 .generate-provider-settings__summary-grid span {
   color: var(--color-gray-60);
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.2;
 }
 
@@ -3753,7 +3757,7 @@ html.image-board-desktop-titlebar-hidden {
   min-width: 0;
   color: var(--text-primary-color);
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3779,7 +3783,7 @@ html.image-board-desktop-titlebar-hidden {
 .generate-provider-settings__section-header strong {
   color: var(--text-primary-color);
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .generate-provider-settings__section-header p {
@@ -3847,7 +3851,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .generate-provider-settings__advanced-toggle span {
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .generate-provider-settings__advanced-toggle small {
@@ -3904,7 +3908,7 @@ html.image-board-desktop-titlebar-hidden {
   grid-column: 1 / -1;
   color: var(--color-gray-60);
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: 1.2;
 }
 
@@ -3920,7 +3924,7 @@ html.image-board-desktop-titlebar-hidden {
   padding: 4px 2px;
   color: var(--text-primary-color);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   line-height: 1.35;
   white-space: nowrap;
   cursor: pointer;
@@ -3934,7 +3938,7 @@ html.image-board-desktop-titlebar-hidden {
   min-width: 0;
   color: var(--color-gray-80);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .generate-provider-settings__advanced-switch span {
@@ -4067,7 +4071,7 @@ html.image-board-desktop-titlebar-hidden {
 .provider-card label {
   display: grid;
   gap: 8px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .dialog-form-grid input,
@@ -4135,7 +4139,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .dialog-checkbox--compact {
   margin-top: 0;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
 
@@ -4174,7 +4178,7 @@ html.image-board-desktop-titlebar-hidden {
   background: color-mix(in srgb, var(--color-primary) 9%, transparent);
   color: var(--color-primary);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
 
@@ -4188,7 +4192,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .dialog-reference-card__notes span {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary-color);
 }
 
@@ -4212,7 +4216,7 @@ html.image-board-desktop-titlebar-hidden {
 .acp-run-log-dialog__summary span {
   color: var(--color-gray-60);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .acp-run-log-dialog__summary strong {
@@ -4274,7 +4278,7 @@ html.image-board-desktop-titlebar-hidden {
   background: var(--island-bg-color);
   color: var(--text-primary-color);
   font-size: 0.6875rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .agent-run-chat__item--user .agent-run-chat__avatar {
@@ -4329,7 +4333,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--text-primary-color);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4356,7 +4360,7 @@ html.image-board-desktop-titlebar-hidden {
 
 .agent-run-chat__item--inline-call .agent-run-chat__avatar {
   color: var(--color-gray-70);
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 
 .agent-run-chat__tool-card {
@@ -4391,7 +4395,7 @@ html.image-board-desktop-titlebar-hidden {
   overflow: hidden;
   color: var(--text-primary-color);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4404,7 +4408,7 @@ html.image-board-desktop-titlebar-hidden {
 }
 
 .agent-run-chat__tool-meta span:first-child {
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 
 .agent-run-chat__tool-content {
@@ -4430,7 +4434,7 @@ html.image-board-desktop-titlebar-hidden {
   cursor: pointer;
   color: var(--color-gray-60);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   user-select: none;
 }
 

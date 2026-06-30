@@ -230,6 +230,14 @@ const extractBase64 = (dataURL: string) => {
   return payload;
 };
 
+const mergePersistedImageRecords = (
+  currentRecords: ImageRecordMap | null | undefined,
+  persistedRecords: ImageRecordMap | null | undefined,
+): ImageRecordMap => ({
+  ...(currentRecords ?? {}),
+  ...(persistedRecords ?? {}),
+});
+
 const hasClipboardFiles = (files: BinaryFiles | undefined) =>
   Boolean(files && Object.keys(files).length > 0);
 
@@ -289,7 +297,6 @@ const buildDirectGenerationRecordItems = (
         new Date(right.createdAt).getTime() -
         new Date(left.createdAt).getTime(),
     )
-    .slice(0, 24)
     .map((record) => {
       const timeLabel = getGenerationRecordTimeLabel(record.createdAt);
       const providerLabel = record.provider
@@ -1588,7 +1595,7 @@ const App = () => {
   const hasAgentConversationContext =
     generationSource === "agent" ||
     acpRunLogSurface === "conversation" ||
-    Boolean(acpAgentTask || activeAcpThreadIdRef.current);
+    acpAgentTaskRunning;
   const generationSidebarMode: "direct" | "agent" =
     hasAgentConversationContext ? "agent" : "direct";
 
@@ -2719,13 +2726,26 @@ const App = () => {
     }
   };
 
-  const applyAcpThreadDetail = (detail: AcpThreadDetail) => {
+  const showDirectGenerationRecords = () => {
+    if (acpRunLogSurfaceRef.current === "conversation") {
+      acpRunLogSurfaceRef.current = null;
+      setAcpRunLogSurface(null);
+    }
+  };
+
+  const applyAcpThreadDetail = (
+    detail: AcpThreadDetail,
+    options: { activateSurface?: boolean } = {},
+  ) => {
     const latestRun = detail.runs[detail.runs.length - 1] ?? null;
+    const activateSurface = options.activateSurface ?? true;
     activeAcpThreadIdRef.current = detail.summary.threadId;
     acpRunLogTaskIdRef.current =
       detail.summary.lastTaskId ?? latestRun?.summary.taskId ?? null;
-    acpRunLogSurfaceRef.current = "conversation";
-    setAcpRunLogSurface("conversation");
+    if (activateSurface) {
+      acpRunLogSurfaceRef.current = "conversation";
+      setAcpRunLogSurface("conversation");
+    }
     setAcpConversationEntries(detail.entries);
     setAcpRunLogDetail(latestRun);
     setAcpRunLogError(null);
@@ -2864,7 +2884,7 @@ const App = () => {
           return;
         }
 
-        applyAcpThreadDetail(detail);
+        applyAcpThreadDetail(detail, { activateSurface: false });
       } catch (error) {
         setAcpThreadSummaries([]);
         setAcpThreadSummariesLoading(false);
@@ -3773,10 +3793,14 @@ const App = () => {
       parentFileId: request.reference?.debug?.fileId ?? null,
       ...(promptReferences.length ? { promptReferences } : {}),
     }));
-    const nextImageRecords = await desktopBridge.persistImageAssets({
+    const persistedImageRecords = await desktopBridge.persistImageAssets({
       projectPath: job.projectPath,
       files,
     });
+    const nextImageRecords = mergePersistedImageRecords(
+      project.imageRecords,
+      persistedImageRecords,
+    );
 
     const activeProject = currentProjectRef.current;
     if (activeProject?.projectPath === job.projectPath) {
@@ -3803,6 +3827,33 @@ const App = () => {
         stack: null,
       });
     });
+
+    const activeApi = excalidrawAPIRef.current;
+    const projectAfterReplacement = currentProjectRef.current;
+    if (activeApi && projectAfterReplacement?.projectPath === job.projectPath) {
+      const elements = activeApi.getSceneElementsIncludingDeleted();
+      const appState = activeApi.getAppState();
+      const sceneFiles = activeApi.getFiles();
+      const snapshotProject = {
+        ...projectAfterReplacement,
+        imageRecords: nextImageRecords,
+      };
+      latestSceneRef.current = {
+        elements,
+        appState,
+        files: sceneFiles,
+      };
+      updateSceneImageFileIds(elements);
+      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
+      updateWorkspaceOverlay(elements, appState);
+      pendingAutosaveRef.current = {
+        project: snapshotProject,
+        elements,
+        appState,
+        files: sceneFiles,
+        expectedSceneHash: savedSceneHashRef.current,
+      };
+    }
 
     await flushPendingAutosave();
   };
@@ -3840,10 +3891,14 @@ const App = () => {
       return project.imageRecords;
     }
 
-    const nextImageRecords = await desktopBridge.persistImageAssets({
+    const persistedImageRecords = await desktopBridge.persistImageAssets({
       projectPath: project.projectPath,
       files: unknownAssets,
     });
+    const nextImageRecords = mergePersistedImageRecords(
+      project.imageRecords,
+      persistedImageRecords,
+    );
     const activeProject = currentProjectRef.current;
     if (activeProject?.projectPath === project.projectPath) {
       updateCurrentProject({
@@ -3980,10 +4035,16 @@ const App = () => {
         ...image,
         sourceType: "imported",
       }));
-      const nextImageRecords = await desktopBridge.persistImageAssets({
+      const persistedImageRecords = await desktopBridge.persistImageAssets({
         projectPath: project.projectPath,
         files,
       });
+      const nextImageRecords = mergePersistedImageRecords(
+        currentProjectRef.current?.projectPath === project.projectPath
+          ? currentProjectRef.current.imageRecords
+          : project.imageRecords,
+        persistedImageRecords,
+      );
       await insertAssetsIntoScene(files, nextImageRecords);
     } catch (error) {
       setProjectError(getErrorText(error, copy.startup.importImagesFailed));
@@ -4010,10 +4071,16 @@ const App = () => {
         ...clipboardImage,
         sourceType: "imported",
       };
-      const nextImageRecords = await desktopBridge.persistImageAssets({
+      const persistedImageRecords = await desktopBridge.persistImageAssets({
         projectPath: project.projectPath,
         files: [file],
       });
+      const nextImageRecords = mergePersistedImageRecords(
+        currentProjectRef.current?.projectPath === project.projectPath
+          ? currentProjectRef.current.imageRecords
+          : project.imageRecords,
+        persistedImageRecords,
+      );
       await insertAssetsIntoScene([file], nextImageRecords, {
         anchorPoint: lastCanvasPointerRef.current,
       });
@@ -4205,6 +4272,8 @@ const App = () => {
     }
 
     try {
+      setGenerationSource("builtin");
+      showDirectGenerationRecords();
       const requestCustomModels =
         providerSettings?.[request.provider]?.customModels ?? [];
       const normalizedRequest = normalizeGenerationRequest(request, {
@@ -4433,10 +4502,16 @@ const App = () => {
             request.payload,
             agentBoardContext,
           );
-          const nextImageRecords = await desktopBridge.persistImageAssets({
+          const persistedImageRecords = await desktopBridge.persistImageAssets({
             projectPath: project.projectPath,
             files,
           });
+          const nextImageRecords = mergePersistedImageRecords(
+            currentProjectRef.current?.projectPath === project.projectPath
+              ? currentProjectRef.current.imageRecords
+              : project.imageRecords,
+            persistedImageRecords,
+          );
           await insertAssetsIntoScene(files, nextImageRecords, {
             expectedProjectPath: project.projectPath,
             placementViewport:
@@ -4712,6 +4787,9 @@ const App = () => {
   const handleGenerateRequestChange = (request: GenerationRequest) => {
     if (request.generationSource) {
       setGenerationSource(request.generationSource);
+      if (request.generationSource === "builtin") {
+        showDirectGenerationRecords();
+      }
     }
     setGenerateRequest(
       normalizeGenerationRequest(request, {
@@ -4775,6 +4853,9 @@ const App = () => {
 
   const handleGenerationSourceChange = (source: GenerationSource) => {
     setGenerationSource(source);
+    if (source === "builtin") {
+      showDirectGenerationRecords();
+    }
     setGenerateRequest((current) => ({
       ...current,
       generationSource: source,

@@ -930,6 +930,24 @@ html.image-board-desktop-titlebar-hidden {
   pointer-events: none;
 }
 
+.image-board-thumbnail-status__action {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-md);
+  background: var(--island-bg-color);
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.image-board-thumbnail-status__action:hover {
+  background: var(--button-hover-bg);
+}
+
 .image-board-app--left-dock-open .image-board-thumbnail-status {
   left: calc(var(--corestudio-left-sidebar-width) + 1rem + env(safe-area-inset-left, 0px));
 }
@@ -4232,6 +4250,152 @@ html.image-board-desktop-titlebar-hidden {
   display: flex;
   margin-top: 16px;
   justify-content: flex-end;
+}
+
+.project-health-dialog {
+  display: grid;
+  gap: 16px;
+}
+
+.project-health-dialog__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.project-health-dialog__summary div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface-lowest);
+}
+
+.project-health-dialog__summary span,
+.project-health-dialog__description,
+.project-health-group__header p,
+.project-health-group__header span,
+.project-health-group__suggestion,
+.project-health-issue__meta {
+  color: var(--color-gray-60);
+}
+
+.project-health-dialog__summary strong {
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.project-health-dialog__description,
+.project-health-dialog__empty {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.project-health-dialog__groups {
+  display: grid;
+  gap: 12px;
+}
+
+.project-health-group {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+}
+
+.project-health-group__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.project-health-group__header div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.project-health-group__header strong,
+.project-health-issue__body strong {
+  font-weight: var(--font-weight-semibold);
+}
+
+.project-health-group__header p,
+.project-health-group__suggestion {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.project-health-group__header span {
+  flex: 0 0 auto;
+  font-size: 0.8125rem;
+}
+
+.project-health-group__suggestion {
+  padding: 8px 10px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface-lowest);
+}
+
+.project-health-issue-list {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.project-health-issue {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface-lowest);
+}
+
+.project-health-issue__severity {
+  align-self: start;
+  padding: 2px 6px;
+  border-radius: var(--border-radius-md);
+  background: var(--island-bg-color);
+  color: var(--color-gray-60);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  font-weight: var(--font-weight-medium);
+}
+
+.project-health-issue__severity--error {
+  background: var(--color-danger-background);
+  color: var(--color-danger-color);
+}
+
+.project-health-issue__severity--warning {
+  background: var(--color-warning-background);
+  color: var(--color-warning-color);
+}
+
+.project-health-issue__body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-health-issue__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.project-health-issue__meta span {
+  overflow-wrap: anywhere;
 }
 
 .agent-run-chat {

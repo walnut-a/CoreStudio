@@ -169,6 +169,7 @@ describe("projectFs", () => {
           width: 512,
           height: 512,
           sourceType: "generated",
+          generationOrigin: "corestudio",
           prompt: "chair sketch",
           promptReferences: [
             {
@@ -188,6 +189,7 @@ describe("projectFs", () => {
     });
 
     expect(records["file-123"].assetPath).toContain("assets/");
+    expect(records["file-123"].generationOrigin).toBe("corestudio");
 
     const bundle = await readProjectBundle(project.projectPath);
     expect(bundle.imageRecords["file-123"].prompt).toBe("chair sketch");
@@ -201,6 +203,31 @@ describe("projectFs", () => {
         elementIds: ["source-element"],
       },
     ]);
+  });
+
+  it("rejects generated assets without a generation origin", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Asset Validation Test");
+
+    await expect(
+      persistImageAssets({
+        projectPath: project.projectPath,
+        files: [
+          {
+            fileId: "file-generated-without-origin",
+            dataBase64: Buffer.from("generated-image").toString("base64"),
+            mimeType: "image/png",
+            width: 512,
+            height: 512,
+            sourceType: "generated",
+            prompt: "",
+            createdAt: "2026-04-12T12:00:00.000Z",
+          },
+        ],
+      }),
+    ).rejects.toThrow("生成图片必须记录生成来源");
   });
 
   it("rejects asset records that point outside the project assets folder", async () => {
@@ -506,6 +533,7 @@ describe("projectFs", () => {
       generatedFileIds: ["file-ok"],
       skippedFileIds: [],
       failedFileIds: ["file-missing"],
+      repairedGenerationRecordFileIds: [],
       backupPath: null,
     });
 
@@ -523,6 +551,155 @@ describe("projectFs", () => {
         rendition: "thumbnail",
       }),
     ]);
+  });
+
+  it("repairs legacy generated image origins during explicit project repair", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(
+      root,
+      "Legacy Generated Repair Test",
+    );
+    await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "legacy-generated",
+          dataBase64: Buffer.from("legacy-generated-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+          sourceType: "imported",
+          prompt: "旧版本生成图",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    const legacyImageRecords = JSON.parse(
+      await fs.readFile(
+        path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+        "utf8",
+      ),
+    );
+    await fs.writeFile(
+      path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+      JSON.stringify(
+        {
+          ...legacyImageRecords,
+          "legacy-generated": {
+            ...legacyImageRecords["legacy-generated"],
+            sourceType: "generated",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await rebuildProjectThumbnails(
+      {
+        projectPath: project.projectPath,
+        fileIds: ["legacy-generated"],
+        force: true,
+        createBackup: true,
+      },
+      {
+        createThumbnail: async () => ({
+          data: Buffer.from("legacy-thumbnail"),
+          mimeType: "image/png",
+          width: 320,
+          height: 320,
+        }),
+      },
+    );
+
+    expect(result.repairedGenerationRecordFileIds).toEqual([
+      "legacy-generated",
+    ]);
+    expect(result.backupPath).toEqual(expect.any(String));
+    const imageRecords = JSON.parse(
+      await fs.readFile(
+        path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+        "utf8",
+      ),
+    );
+    expect(imageRecords["legacy-generated"].generationOrigin).toBe(
+      "corestudio",
+    );
+  });
+
+  it("repairs legacy generated image origins even when the prompt is empty", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(
+      root,
+      "Legacy Empty Prompt Generated Repair Test",
+    );
+    const imageRecords = await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "legacy-generated-empty-prompt",
+          dataBase64: Buffer.from("legacy-generated-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    await fs.writeFile(
+      path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+      JSON.stringify(
+        {
+          ...imageRecords,
+          "legacy-generated-empty-prompt": {
+            ...imageRecords["legacy-generated-empty-prompt"],
+            sourceType: "generated",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await rebuildProjectThumbnails(
+      {
+        projectPath: project.projectPath,
+        fileIds: ["legacy-generated-empty-prompt"],
+        force: true,
+        createBackup: true,
+      },
+      {
+        createThumbnail: async () => ({
+          data: Buffer.from("legacy-thumbnail"),
+          mimeType: "image/png",
+          width: 320,
+          height: 320,
+        }),
+      },
+    );
+
+    expect(result.repairedGenerationRecordFileIds).toEqual([
+      "legacy-generated-empty-prompt",
+    ]);
+    const repairedImageRecords = JSON.parse(
+      await fs.readFile(
+        path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+        "utf8",
+      ),
+    );
+    expect(
+      repairedImageRecords["legacy-generated-empty-prompt"].generationOrigin,
+    ).toBe("corestudio");
+    expect(repairedImageRecords["legacy-generated-empty-prompt"].prompt).toBe(
+      undefined,
+    );
   });
 
   it("force rebuilds thumbnail cache even when a cached thumbnail already exists", async () => {
@@ -581,6 +758,7 @@ describe("projectFs", () => {
       generatedFileIds: ["file-force"],
       skippedFileIds: [],
       failedFileIds: [],
+      repairedGenerationRecordFileIds: [],
       backupPath: null,
     });
 
@@ -669,6 +847,53 @@ describe("projectFs", () => {
           sourceType: "imported",
           createdAt: "2026-04-12T12:00:00.000Z",
         },
+        {
+          fileId: "file-generated-on-board",
+          dataBase64: Buffer.from("generated-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+          sourceType: "generated",
+          generationOrigin: "corestudio",
+          provider: "zenmux",
+          model: "google/gemini-3-pro-image-preview",
+          prompt: "生成一张桌面 CNC 机器",
+          createdAt: "2026-04-12T12:01:00.000Z",
+        },
+        {
+          fileId: "file-generated-orphan",
+          dataBase64: Buffer.from("orphan-generated-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+          sourceType: "imported",
+          prompt: "旧生成记录",
+          createdAt: "2026-04-12T12:02:00.000Z",
+        },
+        {
+          fileId: "file-generated-restorable-orphan",
+          dataBase64: Buffer.from("restorable-orphan-generated-image").toString(
+            "base64",
+          ),
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+          sourceType: "generated",
+          generationOrigin: "corestudio",
+          provider: "zenmux",
+          model: "google/gemini-3-pro-image-preview",
+          prompt: "恢复一张丢失的生成图",
+          createdAt: "2026-04-12T12:03:00.000Z",
+        },
+        {
+          fileId: "file-imported-orphan",
+          dataBase64: Buffer.from("orphan-imported-image").toString("base64"),
+          mimeType: "image/png",
+          width: 960,
+          height: 640,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:04:00.000Z",
+        },
       ],
     });
     await fs.writeFile(
@@ -684,6 +909,11 @@ describe("projectFs", () => {
           {
             id: "image-2",
             type: "image",
+            fileId: "file-generated-on-board",
+          },
+          {
+            id: "image-3",
+            type: "image",
             fileId: "file-missing-record",
           },
         ],
@@ -695,6 +925,10 @@ describe("projectFs", () => {
       JSON.stringify(
         {
           ...imageRecords,
+          "file-generated-orphan": {
+            ...imageRecords["file-generated-orphan"],
+            sourceType: "generated",
+          },
           "file-missing-asset": {
             fileId: "file-missing-asset",
             assetPath: "assets/missing.png",
@@ -725,18 +959,100 @@ describe("projectFs", () => {
       projectPath: project.projectPath,
     });
 
-    expect(report.imageRecordCount).toBe(2);
-    expect(report.sceneImageFileCount).toBe(2);
+    expect(report.imageRecordCount).toBe(6);
+    expect(report.generatedImageRecordCount).toBe(3);
+    expect(report.sceneImageFileCount).toBe(3);
     expect(report.missingImageRecordFileIds).toEqual(["file-missing-record"]);
     expect(report.missingAssetFileIds).toEqual(["file-missing-asset"]);
-    expect(report.missingThumbnailFileIds).toEqual(["file-ok"]);
+    expect(report.missingThumbnailFileIds).toEqual(
+      expect.arrayContaining([
+        "file-ok",
+        "file-generated-on-board",
+        "file-generated-orphan",
+        "file-generated-restorable-orphan",
+      ]),
+    );
+    expect(report.orphanGeneratedImageRecordFileIds).toEqual([
+      "file-generated-orphan",
+      "file-generated-restorable-orphan",
+    ]);
+    expect(report.orphanImageRecordFileIds).toEqual([
+      "file-generated-orphan",
+      "file-generated-restorable-orphan",
+      "file-imported-orphan",
+    ]);
+    expect(report.incompleteGenerationRecordFileIds).toEqual([
+      "file-generated-orphan",
+    ]);
     expect(report.brokenParentFileIds).toEqual(["file-missing-asset"]);
     expect(report.brokenPromptReferenceFileIds).toEqual([
       "file-missing-reference",
     ]);
+    expect(report.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "orphan-generated-record",
+          fileId: "file-generated-orphan",
+          repairable: true,
+        }),
+        expect.objectContaining({
+          code: "orphan-generated-record",
+          fileId: "file-generated-restorable-orphan",
+          repairable: true,
+        }),
+        expect.objectContaining({
+          code: "orphan-image-record",
+          fileId: "file-imported-orphan",
+          severity: "warning",
+          repairable: true,
+        }),
+        expect.objectContaining({
+          code: "incomplete-generation-record",
+          fileId: "file-generated-orphan",
+          severity: "error",
+          repairable: true,
+        }),
+      ]),
+    );
     expect(report.summary.errorCount).toBeGreaterThan(0);
     expect(report.summary.warningCount).toBeGreaterThan(0);
-    expect(report.summary.repairableCount).toBe(1);
+    expect(report.summary.repairableCount).toBe(9);
+  });
+
+  it("does not require generated records to have prompts when the origin is present", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Blank Prompt Health");
+    await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-generated-without-prompt",
+          dataBase64: Buffer.from("generated-image").toString("base64"),
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+          sourceType: "generated",
+          generationOrigin: "corestudio",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+
+    const report = await inspectProjectHealth({
+      projectPath: project.projectPath,
+    });
+
+    expect(report.incompleteGenerationRecordFileIds).toEqual([]);
+    expect(report.issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "incomplete-generation-record",
+          fileId: "file-generated-without-prompt",
+        }),
+      ]),
+    );
   });
 
   it("cleans cache files that are no longer tied to project image records", async () => {
@@ -837,6 +1153,64 @@ describe("projectFs", () => {
       expect.objectContaining({
         fileId: "file-original",
         dataBase64: Buffer.from("original-image").toString("base64"),
+        rendition: "original",
+      }),
+    ]);
+  });
+
+  it("keeps readable image payloads when another requested asset is missing", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(
+      root,
+      "Partial Asset Payload Test",
+    );
+    const imageRecords = await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-ok",
+          dataBase64: Buffer.from("readable-original").toString("base64"),
+          mimeType: "image/png",
+          width: 1440,
+          height: 960,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    await fs.writeFile(
+      path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+      JSON.stringify(
+        {
+          ...imageRecords,
+          "file-missing": {
+            fileId: "file-missing",
+            assetPath: "assets/missing.png",
+            sourceType: "imported",
+            width: 1440,
+            height: 960,
+            createdAt: "2026-04-12T12:00:00.000Z",
+            mimeType: "image/png",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await expect(
+      readProjectAssetPayloads({
+        projectPath: project.projectPath,
+        fileIds: ["file-ok", "file-missing"],
+        rendition: "original",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        fileId: "file-ok",
+        dataBase64: Buffer.from("readable-original").toString("base64"),
         rendition: "original",
       }),
     ]);

@@ -32,6 +32,7 @@ export interface GenerationRecordListItem {
   fileId: string;
   title: string;
   meta: string;
+  statusLabel?: string;
 }
 
 interface AgentConversationSidebarProps {
@@ -293,7 +294,11 @@ export const AgentConversationSidebar = ({
                     onClick={() => onSelectGenerationRecord?.(record.fileId)}
                   >
                     <strong>{record.title}</strong>
-                    <span>{record.meta}</span>
+                    <span>
+                      {[record.meta, record.statusLabel]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   </button>
                 ))}
               </div>

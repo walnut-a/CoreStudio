@@ -166,6 +166,8 @@ import type {
   DesktopProjectBundle,
   PersistedImageAssetInput,
   ProjectAssetPayload,
+  ProjectHealthIssue,
+  ProjectHealthReport,
   PublicProviderSettings,
   RecentProjectEntry,
   SavedPrompt,
@@ -282,13 +284,26 @@ const areStringArraysEqual = (left: string[], right: string[]) =>
 
 const buildDirectGenerationRecordItems = (
   imageRecords: ImageRecordMap | null | undefined,
-  sceneImageFileIds: readonly string[],
+  sceneImageFileIds: readonly string[] = [],
 ): GenerationRecordListItem[] => {
   const sceneImageFileIdSet = new Set(sceneImageFileIds);
+  const livePromptReferencedFileIds = new Set<string>();
+
+  Object.values(imageRecords ?? {}).forEach((record) => {
+    if (!sceneImageFileIdSet.has(record.fileId)) {
+      return;
+    }
+
+    record.promptReferences?.forEach((reference) => {
+      reference.fileIds?.forEach((fileId) => {
+        livePromptReferencedFileIds.add(fileId);
+      });
+    });
+  });
+
   return Object.values(imageRecords ?? {})
     .filter(
       (record) =>
-        sceneImageFileIdSet.has(record.fileId) &&
         record.sourceType === "generated" &&
         record.generationOrigin !== "acp-agent",
     )
@@ -303,13 +318,173 @@ const buildDirectGenerationRecordItems = (
         ? getProviderDefinition(record.provider).label
         : "CoreStudio";
       const sizeLabel = `${record.width} × ${record.height}`;
+      const statusLabel = sceneImageFileIdSet.has(record.fileId)
+        ? undefined
+        : livePromptReferencedFileIds.has(record.fileId)
+          ? "引用链中间图"
+          : "未在画板";
       return {
         id: record.fileId,
         fileId: record.fileId,
         title: getGenerationRecordTitle(record),
         meta: [timeLabel, providerLabel, sizeLabel].filter(Boolean).join(" · "),
+        statusLabel,
       };
     });
+};
+
+const getRestorableImageRecords = (
+  imageRecords: ImageRecordMap,
+  sceneImageFileIds: readonly string[],
+) => {
+  const sceneImageFileIdSet = new Set(sceneImageFileIds);
+
+  return Object.values(imageRecords)
+    .filter(
+      (record) =>
+        (record.sourceType === "imported" ||
+          (record.sourceType === "generated" &&
+            Boolean(record.generationOrigin))) &&
+        !sceneImageFileIdSet.has(record.fileId),
+    )
+    .sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() -
+        new Date(right.createdAt).getTime(),
+    );
+};
+
+const repairImageRecordsWithCoreStudioOrigin = (
+  imageRecords: ImageRecordMap,
+  fileIds: readonly string[],
+) => {
+  if (!fileIds.length) {
+    return imageRecords;
+  }
+
+  const nextImageRecords = { ...imageRecords };
+  fileIds.forEach((fileId) => {
+    const record = nextImageRecords[fileId];
+    if (!record || record.generationOrigin) {
+      return;
+    }
+    nextImageRecords[fileId] = {
+      ...record,
+      generationOrigin: "corestudio",
+    };
+  });
+  return nextImageRecords;
+};
+
+const PROJECT_HEALTH_SEVERITY_LABELS: Record<
+  ProjectHealthIssue["severity"],
+  string
+> = {
+  error: "错误",
+  warning: "警告",
+  info: "提示",
+};
+
+const PROJECT_HEALTH_ISSUE_META: Record<
+  ProjectHealthIssue["code"],
+  {
+    title: string;
+    description: string;
+    suggestion: string;
+  }
+> = {
+  "scene-parse-failed": {
+    title: "画板文件无法解析",
+    description: "scene.excalidraw.json 不是有效的画板数据。",
+    suggestion: "需要从备份或历史版本恢复画板文件。",
+  },
+  "missing-image-record": {
+    title: "画板图片缺少索引记录",
+    description: "画布上有图片元素，但 image-records.json 里找不到对应记录。",
+    suggestion: "需要补索引或重新导入这张图片。",
+  },
+  "missing-asset-file": {
+    title: "图片原始文件缺失",
+    description: "索引记录还在，但 assets 里的原始图片文件已经找不到。",
+    suggestion: "需要从备份恢复原始图片，或删除对应记录。",
+  },
+  "missing-thumbnail-cache": {
+    title: "图片缓存待重建",
+    description: "原始图片存在，但用于快速打开项目的显示缓存不完整。",
+    suggestion: "运行项目数据修复会重建这部分缓存。",
+  },
+  "missing-preview-cache": {
+    title: "预览缓存尚未生成",
+    description: "高清预览缓存还没有生成，不影响项目数据完整性。",
+    suggestion: "通常无需手动处理，后续查看或缩放时会按需生成。",
+  },
+  "orphan-image-record": {
+    title: "项目图片未显示在画板",
+    description: "图片记录和资产文件存在，但当前画板没有对应图片元素。",
+    suggestion: "运行项目数据修复会把可读取的图片放回画板。",
+  },
+  "orphan-generated-record": {
+    title: "生成图未显示在画板",
+    description:
+      "生成图的资产和记录存在，但当前画板没有对应图片元素，所以从生成记录列表点击时可能无法定位。",
+    suggestion: "运行项目数据修复会把可读取的生成图放回画板。",
+  },
+  "incomplete-generation-record": {
+    title: "生成记录元数据不完整",
+    description:
+      "生成图缺少来源字段。提示词允许为空，但来源不能为空，否则后续无法判断它来自 CoreStudio、内置画板还是 ACP Agent。",
+    suggestion:
+      "旧项目修复会把这类记录补为 CoreStudio 来源；新写入会在保存前直接校验并拒绝不完整数据。",
+  },
+  "broken-parent-link": {
+    title: "图片编辑链前序缺失",
+    description: "一张图片记录指向了不存在的父图片。",
+    suggestion: "需要恢复父图片记录，或清理这条链路关系。",
+  },
+  "broken-prompt-reference": {
+    title: "提示词引用缺少索引记录",
+    description: "生成记录里引用的参考图片，在 image-records.json 中不存在。",
+    suggestion: "需要恢复参考图片索引，或清理这条引用。",
+  },
+};
+
+const PROJECT_HEALTH_ISSUE_ORDER: ProjectHealthIssue["code"][] = [
+  "scene-parse-failed",
+  "missing-asset-file",
+  "missing-image-record",
+  "orphan-generated-record",
+  "incomplete-generation-record",
+  "missing-thumbnail-cache",
+  "missing-preview-cache",
+  "orphan-image-record",
+  "broken-parent-link",
+  "broken-prompt-reference",
+];
+
+const getProjectHealthIssueGroups = (report: ProjectHealthReport) => {
+  const order = new Map(
+    PROJECT_HEALTH_ISSUE_ORDER.map((code, index) => [code, index]),
+  );
+  const groupsByCode = new Map<ProjectHealthIssue["code"], ProjectHealthIssue[]>();
+
+  report.issues.forEach((issue) => {
+    const issues = groupsByCode.get(issue.code) ?? [];
+    issues.push(issue);
+    groupsByCode.set(issue.code, issues);
+  });
+
+  return Array.from(groupsByCode.entries())
+    .sort(
+      ([leftCode], [rightCode]) =>
+        (order.get(leftCode) ?? PROJECT_HEALTH_ISSUE_ORDER.length) -
+        (order.get(rightCode) ?? PROJECT_HEALTH_ISSUE_ORDER.length),
+    )
+    .map(([code, issues]) => ({
+      code,
+      meta: PROJECT_HEALTH_ISSUE_META[code],
+      issues,
+      repairableCount: issues.filter((issue) => issue.repairable).length,
+    }));
 };
 
 const isEmptyClipboardData = (data: ClipboardData) =>
@@ -1515,6 +1690,10 @@ const App = () => {
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
+  const [projectHealthReport, setProjectHealthReport] =
+    useState<ProjectHealthReport | null>(null);
+  const [projectHealthReportOpen, setProjectHealthReportOpen] =
+    useState(false);
   const projectNoticeTimerRef = useRef<number | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationErrorDetails, setGenerationErrorDetails] =
@@ -1633,6 +1812,8 @@ const App = () => {
       setAcpThreadSummariesError(null);
       setAcpThreadSummariesLoading(false);
       setAgentChatDockOpen(false);
+      setProjectHealthReport(null);
+      setProjectHealthReportOpen(false);
     }
     notifyDesktopProjectState(project);
     setAgentBridgeStatus((status) =>
@@ -2007,6 +2188,87 @@ const App = () => {
     }
   };
 
+  const restoreOrphanImageRecordsToScene = async (
+    project: DesktopProjectBundle,
+  ) => {
+    const api = excalidrawAPIRef.current;
+    if (!api) {
+      return {
+        restoredCount: 0,
+        skippedCount: 0,
+      };
+    }
+
+    const sceneImageFileIds = collectAgentImageFileIds(
+      api.getSceneElementsIncludingDeleted(),
+    );
+    const recordsToRestore = getRestorableImageRecords(
+      project.imageRecords,
+      sceneImageFileIds,
+    );
+    if (!recordsToRestore.length) {
+      return {
+        restoredCount: 0,
+        skippedCount: 0,
+      };
+    }
+
+    const assets = await desktopBridge.readProjectAssetPayloads({
+      projectPath: project.projectPath,
+      fileIds: recordsToRestore.map((record) => record.fileId),
+      rendition: "thumbnail",
+      thumbnailMode: "read-through",
+    });
+    const assetsByFileId = new Map(
+      assets.map((asset) => [asset.fileId, asset]),
+    );
+    const restorableAssets: PersistedImageAssetInput[] =
+      recordsToRestore.flatMap((record) => {
+        const asset = assetsByFileId.get(record.fileId);
+        if (!asset) {
+          return [];
+        }
+
+        return [
+          {
+            ...asset,
+            width: record.width,
+            height: record.height,
+            createdAt: record.createdAt,
+            sourceType: record.sourceType,
+            ...(record.generationOrigin
+              ? { generationOrigin: record.generationOrigin }
+              : {}),
+            ...(record.provider ? { provider: record.provider } : {}),
+            ...(record.model ? { model: record.model } : {}),
+            ...(record.prompt ? { prompt: record.prompt } : {}),
+            ...(record.negativePrompt
+              ? { negativePrompt: record.negativePrompt }
+              : {}),
+            ...(record.seed !== undefined ? { seed: record.seed } : {}),
+            ...(record.parentFileId
+              ? { parentFileId: record.parentFileId }
+              : {}),
+            ...(record.promptReferences?.length
+              ? { promptReferences: record.promptReferences }
+              : {}),
+          },
+        ];
+      });
+
+    if (restorableAssets.length) {
+      await insertAssetsIntoScene(restorableAssets, project.imageRecords, {
+        expectedProjectPath: project.projectPath,
+        requireReady: true,
+      });
+    }
+
+    return {
+      restoredCount: restorableAssets.length,
+      skippedCount: recordsToRestore.length - restorableAssets.length,
+    };
+  };
+
   const handleRepairProjectThumbnails = async () => {
     const project = currentProjectRef.current;
     const rebuildProjectThumbnails = desktopBridge.rebuildProjectThumbnails;
@@ -2047,6 +2309,20 @@ const App = () => {
         return;
       }
 
+      const repairedGenerationRecordFileIds =
+        result.repairedGenerationRecordFileIds ?? [];
+      const repairedImageRecords = repairImageRecordsWithCoreStudioOrigin(
+        project.imageRecords,
+        repairedGenerationRecordFileIds,
+      );
+      const projectAfterMetadataRepair =
+        repairedImageRecords === project.imageRecords
+          ? project
+          : {
+              ...project,
+              imageRecords: repairedImageRecords,
+            };
+
       const fileIdsToRefresh = result.generatedFileIds.filter(
         (fileId) =>
           !loadedPreviewImageFileIdsRef.current.has(fileId) &&
@@ -2069,6 +2345,27 @@ const App = () => {
         addProjectAssetPayloadsToCurrentScene(project, thumbnailAssets);
       }
 
+      const imageRecordRestoreResult =
+        await restoreOrphanImageRecordsToScene(
+          projectAfterMetadataRepair,
+        );
+      if (currentProjectRef.current?.projectPath !== project.projectPath) {
+        return;
+      }
+
+      if (repairedGenerationRecordFileIds.length) {
+        const activeProject = currentProjectRef.current;
+        if (activeProject?.projectPath === project.projectPath) {
+          updateCurrentProject({
+            ...activeProject,
+            imageRecords: repairImageRecordsWithCoreStudioOrigin(
+              activeProject.imageRecords,
+              repairedGenerationRecordFileIds,
+            ),
+          });
+        }
+      }
+
       setThumbnailMaintenance(
         result.failedFileIds.length
           ? {
@@ -2083,6 +2380,9 @@ const App = () => {
           result.skippedFileIds.length,
           result.failedFileIds.length,
           result.backupPath,
+          repairedGenerationRecordFileIds.length,
+          imageRecordRestoreResult.restoredCount,
+          imageRecordRestoreResult.skippedCount,
         ),
       );
     } catch (error) {
@@ -2130,7 +2430,12 @@ const App = () => {
         return;
       }
 
+      setProjectHealthReport(report);
+      setProjectHealthReportOpen(Boolean(report.issues.length));
       setThumbnailMaintenance(null);
+      const infoCount = report.issues.filter(
+        (issue) => issue.severity === "info",
+      ).length;
       showProjectNotice(
         report.summary.errorCount || report.summary.warningCount
           ? copy.projectRepair.healthNeedsRepair(
@@ -2138,10 +2443,17 @@ const App = () => {
               report.summary.warningCount,
               report.summary.repairableCount,
             )
-          : copy.projectRepair.healthHealthy(report.imageRecordCount),
+          : infoCount
+            ? copy.projectRepair.healthHasInfo(infoCount)
+          : copy.projectRepair.healthHealthy(
+              report.imageRecordCount,
+              report.generatedImageRecordCount,
+            ),
       );
     } catch (error) {
       if (currentProjectRef.current?.projectPath === project.projectPath) {
+        setProjectHealthReport(null);
+        setProjectHealthReportOpen(false);
         setThumbnailMaintenance(null);
         setProjectError(
           getErrorText(error, copy.projectRepair.healthCheckFailed),
@@ -2209,10 +2521,19 @@ const App = () => {
     if (!project || !api || project.safeMode) {
       return;
     }
+    const activeScene = {
+      elements: api.getSceneElementsIncludingDeleted?.() ?? scene.elements,
+      appState: {
+        ...scene.appState,
+        ...(api.getAppState?.() ?? {}),
+      } as AppState,
+      files: api.getFiles?.() ?? scene.files,
+    };
+    latestSceneRef.current = activeScene;
 
     const requests = getImageRenditionRequestsNearViewport({
-      elements: scene.elements,
-      appState: scene.appState,
+      elements: activeScene.elements,
+      appState: activeScene.appState,
       imageRecords: project.imageRecords,
       loadedPreviewFileIds: loadedPreviewImageFileIdsRef.current,
       loadingPreviewFileIds: loadingPreviewImageFileIdsRef.current,
@@ -2272,7 +2593,7 @@ const App = () => {
     clearHighResImageLoadTimer();
     highResImageLoadTimerRef.current = window.setTimeout(() => {
       highResImageLoadTimerRef.current = null;
-      void loadVisibleImageRenditionAssets(scene);
+      void loadVisibleImageRenditionAssets(latestSceneRef.current ?? scene);
     }, IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS);
   };
 
@@ -3784,6 +4105,7 @@ const App = () => {
       ...image,
       fileId: crypto.randomUUID(),
       sourceType: "generated",
+      generationOrigin: "corestudio",
       provider: response.provider,
       model: response.model,
       prompt: promptHistoryText,
@@ -3855,7 +4177,7 @@ const App = () => {
       };
     }
 
-    await flushPendingAutosave();
+    await flushPendingAutosave({ strict: true });
   };
 
   const persistUnknownCanvasImages = async (
@@ -3969,6 +4291,17 @@ const App = () => {
     return writePromise;
   };
 
+  const restoreFailedAutosaveSnapshot = (snapshot: AutosaveSnapshot) => {
+    const activeProject = currentProjectRef.current;
+    if (activeProject?.projectPath !== snapshot.project.projectPath) {
+      return;
+    }
+
+    if (!pendingAutosaveRef.current) {
+      pendingAutosaveRef.current = snapshot;
+    }
+  };
+
   const flushPendingAutosave = async ({
     strict = false,
   }: {
@@ -3985,6 +4318,7 @@ const App = () => {
       try {
         await enqueueAutosaveWrite(snapshot);
       } catch (error) {
+        restoreFailedAutosaveSnapshot(snapshot);
         if (strict) {
           throw error;
         }
@@ -4014,7 +4348,10 @@ const App = () => {
       const pendingSnapshot = pendingAutosaveRef.current;
       pendingAutosaveRef.current = null;
       if (pendingSnapshot) {
-        void enqueueAutosaveWrite(pendingSnapshot).catch(reportAutosaveError);
+        void enqueueAutosaveWrite(pendingSnapshot).catch((error) => {
+          restoreFailedAutosaveSnapshot(pendingSnapshot);
+          reportAutosaveError(error);
+        });
       }
     }, 700);
   };
@@ -4890,32 +5227,65 @@ const App = () => {
       return;
     }
 
-    const targetElement = api
-      .getSceneElementsIncludingDeleted()
-      .find(
-        (element) =>
-          !element.isDeleted &&
-          element.type === "image" &&
-          element.fileId === fileId,
-      );
+    const locateElement = (targetFileId: string) => {
+      const activeApi = excalidrawAPIRef.current;
+      if (!activeApi) {
+        return false;
+      }
+      const targetElement = activeApi
+        .getSceneElementsIncludingDeleted()
+        .find(
+          (element) =>
+            !element.isDeleted &&
+            element.type === "image" &&
+            element.fileId === targetFileId,
+        );
 
-    if (!targetElement) {
+      if (!targetElement) {
+        return false;
+      }
+
+      activeApi.updateScene({
+        appState: {
+          selectedElementIds: {
+            [targetElement.id]: true,
+          },
+          selectedGroupIds: {},
+        },
+        captureUpdate: CaptureUpdateAction.NEVER,
+      });
+      activeApi.scrollToContent(targetElement, {
+        animate: true,
+        duration: 300,
+      });
+      return true;
+    };
+
+    if (locateElement(fileId)) {
+      setProjectError(null);
+      clearProjectNotice();
       return;
     }
 
-    api.updateScene({
-      appState: {
-        selectedElementIds: {
-          [targetElement.id]: true,
-        },
-        selectedGroupIds: {},
-      },
-      captureUpdate: CaptureUpdateAction.NEVER,
-    });
-    api.scrollToContent(targetElement, {
-      animate: true,
-      duration: 300,
-    });
+    const imageRecords = currentProjectRef.current?.imageRecords;
+    const referencingRecord = Object.values(imageRecords ?? {}).find((record) =>
+      record.promptReferences?.some((reference) =>
+        reference.fileIds?.includes(fileId),
+      ),
+    );
+
+    if (referencingRecord && locateElement(referencingRecord.fileId)) {
+      setProjectError(null);
+      showProjectNotice(
+        "这条生成记录是后续结果的参考图，已定位到引用它的画板图片。",
+      );
+      return;
+    }
+
+    setProjectError(null);
+    showProjectNotice(
+      "这条生成记录没有对应的画板图片，可以先运行项目数据修复。",
+    );
   };
 
   const handleLocatePromptReference = (
@@ -5145,6 +5515,135 @@ const App = () => {
         </div>
       </div>
     ) : null;
+
+  const renderProjectHealthReportDialog = () => {
+    if (!projectHealthReportOpen || !projectHealthReport) {
+      return null;
+    }
+
+    const issueGroups = getProjectHealthIssueGroups(projectHealthReport);
+    const infoCount = projectHealthReport.issues.filter(
+      (issue) => issue.severity === "info",
+    ).length;
+
+    return (
+      <div className="dialog-backdrop">
+        <div
+          className="dialog-card dialog-card--wide project-health-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="project-health-title"
+        >
+          <div className="dialog-card__header">
+            <div>
+              <span className="dialog-card__eyebrow">项目健康检查</span>
+              <h2 id="project-health-title">数据检查详情</h2>
+            </div>
+            <DesktopButton
+              type="button"
+              className="dialog-card__close"
+              onClick={() => setProjectHealthReportOpen(false)}
+            >
+              关闭
+            </DesktopButton>
+          </div>
+
+          <div className="project-health-dialog__summary">
+            <div>
+              <span>错误</span>
+              <strong>{projectHealthReport.summary.errorCount}</strong>
+            </div>
+            <div>
+              <span>警告</span>
+              <strong>{projectHealthReport.summary.warningCount}</strong>
+            </div>
+            <div>
+              <span>提示</span>
+              <strong>{infoCount}</strong>
+            </div>
+            <div>
+              <span>可修复项</span>
+              <strong>{projectHealthReport.summary.repairableCount}</strong>
+            </div>
+          </div>
+
+          <p className="project-health-dialog__description">
+            当前项目共有 {projectHealthReport.imageRecordCount} 条图片记录，
+            其中 {projectHealthReport.generatedImageRecordCount} 条生成记录，
+            画板中引用了 {projectHealthReport.sceneImageFileCount} 张图片。
+          </p>
+
+          <div className="project-health-dialog__groups">
+            {issueGroups.length ? (
+              issueGroups.map((group) => (
+                <section
+                  className="project-health-group"
+                  key={group.code}
+                  aria-label={group.meta.title}
+                >
+                  <div className="project-health-group__header">
+                    <div>
+                      <strong>{group.meta.title}</strong>
+                      <p>{group.meta.description}</p>
+                    </div>
+                    <span>
+                      {group.issues.length} 项
+                      {group.repairableCount
+                        ? ` · ${group.repairableCount} 项可通过修复处理`
+                        : ""}
+                    </span>
+                  </div>
+                  <p className="project-health-group__suggestion">
+                    {group.meta.suggestion}
+                  </p>
+                  <div className="project-health-issue-list">
+                    {group.issues.map((issue, index) => (
+                      <article
+                        className="project-health-issue"
+                        key={`${issue.code}:${
+                          issue.fileId ?? issue.elementId ?? issue.path ?? index
+                        }`}
+                      >
+                        <span
+                          className={[
+                            "project-health-issue__severity",
+                            `project-health-issue__severity--${issue.severity}`,
+                          ].join(" ")}
+                        >
+                          {PROJECT_HEALTH_SEVERITY_LABELS[issue.severity]}
+                        </span>
+                        <div className="project-health-issue__body">
+                          <strong>{issue.message}</strong>
+                          <div className="project-health-issue__meta">
+                            {issue.fileId ? (
+                              <span>File ID: {issue.fileId}</span>
+                            ) : null}
+                            {issue.elementId ? (
+                              <span>Element ID: {issue.elementId}</span>
+                            ) : null}
+                            {issue.path ? <span>路径: {issue.path}</span> : null}
+                            <span>
+                              {issue.repairable
+                                ? "可通过项目数据修复处理"
+                                : "需手动确认"}
+                            </span>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))
+            ) : (
+              <p className="project-health-dialog__empty">
+                没有发现需要处理的问题。
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderAboutDialog = () =>
     aboutOpen ? (
@@ -5415,14 +5914,15 @@ const App = () => {
       (thumbnailMaintenance
         ? thumbnailMaintenance.message ??
           (thumbnailMaintenance.status === "pending"
-            ? `正在生成 ${thumbnailMaintenance.total} 张缩略图`
-            : `${thumbnailMaintenance.total} 张缩略图暂时不可用`)
+            ? `正在修复 ${thumbnailMaintenance.total} 个图片资源`
+            : `${thumbnailMaintenance.total} 个图片资源暂时不可用`)
         : null);
 
     if (!message) {
       return null;
     }
 
+    const hasHealthReportDetails = Boolean(projectHealthReport?.issues.length);
     const statusClassName = [
       "image-board-thumbnail-status",
       projectNotice ? "image-board-thumbnail-status--success" : "",
@@ -5448,13 +5948,15 @@ const App = () => {
           aria-hidden="true"
         />
         <span>{message}</span>
-        {!projectNotice &&
-          thumbnailMaintenance?.status === "pending" &&
-          !thumbnailMaintenance.message && (
-            <span className="image-board-thumbnail-status__hint">
-              放大查看时会优先载入原图。
-            </span>
-          )}
+        {hasHealthReportDetails ? (
+          <button
+            type="button"
+            className="image-board-thumbnail-status__action"
+            onClick={() => setProjectHealthReportOpen(true)}
+          >
+            查看详情
+          </button>
+        ) : null}
       </div>
     );
   };
@@ -5630,6 +6132,7 @@ const App = () => {
         {renderAboutDialog()}
         {renderAppSettingsDialog()}
         {renderAcpRunLogDialog()}
+        {renderProjectHealthReportDialog()}
       </div>
     );
   }
@@ -5696,6 +6199,7 @@ const App = () => {
       {renderAboutDialog()}
       {renderAppSettingsDialog()}
       {renderAcpRunLogDialog()}
+      {renderProjectHealthReportDialog()}
       <ProjectRenderBoundary
         projectKey={projectRenderKey}
         onError={handleProjectRenderError}

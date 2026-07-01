@@ -145,6 +145,7 @@ export interface RebuildProjectThumbnailsResult {
   generatedFileIds: string[];
   skippedFileIds: string[];
   failedFileIds: string[];
+  repairedGenerationRecordFileIds: string[];
   backupPath?: string | null;
 }
 
@@ -158,6 +159,8 @@ export interface ProjectHealthIssue {
     | "missing-thumbnail-cache"
     | "missing-preview-cache"
     | "orphan-image-record"
+    | "orphan-generated-record"
+    | "incomplete-generation-record"
     | "broken-parent-link"
     | "broken-prompt-reference";
   severity: ProjectHealthIssueSeverity;
@@ -172,12 +175,15 @@ export interface ProjectHealthReport {
   checkedAt: string;
   projectPath: string;
   imageRecordCount: number;
+  generatedImageRecordCount: number;
   sceneImageFileCount: number;
   missingImageRecordFileIds: string[];
   missingAssetFileIds: string[];
   missingThumbnailFileIds: string[];
   missingPreviewFileIds: string[];
   orphanImageRecordFileIds: string[];
+  orphanGeneratedImageRecordFileIds: string[];
+  incompleteGenerationRecordFileIds: string[];
   brokenParentFileIds: string[];
   brokenPromptReferenceFileIds: string[];
   issues: ProjectHealthIssue[];

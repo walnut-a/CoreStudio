@@ -75,7 +75,7 @@ describe("createAppMenuTemplate", () => {
     );
     expect(maintenanceLabels).toContain("安全模式打开项目");
     expect(maintenanceLabels).toContain("检查当前项目健康");
-    expect(maintenanceLabels).toContain("修复当前项目缩略图");
+    expect(maintenanceLabels).toContain("修复当前项目数据");
     expect(maintenanceLabels).toContain("清理当前项目缓存");
   });
 
@@ -216,12 +216,12 @@ describe("createAppMenuTemplate", () => {
     expect(openExternal).toHaveBeenCalledWith(CORESTUDIO_RELEASES_URL);
   });
 
-  it("sends a repair current project thumbnails action from the maintenance menu", () => {
+  it("sends a repair current project data action from the maintenance menu", () => {
     const sendMenuAction = vi.fn();
     const template = createAppMenuTemplate(sendMenuAction);
     const repairItem = getMenuItem(
       getProjectMaintenanceMenu(template),
-      "修复当前项目缩略图",
+      "修复当前项目数据",
     );
 
     expect(repairItem).toBeTruthy();

@@ -114,6 +114,43 @@ const normalizeProjectManifest = (
   };
 };
 
+const IMAGE_SOURCE_TYPES = new Set<ImageSourceType>(["generated", "imported"]);
+const IMAGE_GENERATION_ORIGINS = new Set<ImageGenerationOrigin>([
+  "corestudio",
+  "agent-board",
+  "acp-agent",
+]);
+
+const isImageSourceType = (value: unknown): value is ImageSourceType =>
+  typeof value === "string" && IMAGE_SOURCE_TYPES.has(value as ImageSourceType);
+
+const isImageGenerationOrigin = (
+  value: unknown,
+): value is ImageGenerationOrigin =>
+  typeof value === "string" &&
+  IMAGE_GENERATION_ORIGINS.has(value as ImageGenerationOrigin);
+
+const assertPersistImageAssetInput = (file: PersistImageAssetInput) => {
+  if (!isImageSourceType(file.sourceType)) {
+    throw new Error("图片必须记录有效来源类型。");
+  }
+
+  if (
+    file.sourceType === "generated" &&
+    !isImageGenerationOrigin(file.generationOrigin)
+  ) {
+    throw new Error("生成图片必须记录生成来源。");
+  }
+
+  if (
+    file.sourceType === "imported" &&
+    file.generationOrigin !== undefined &&
+    !isImageGenerationOrigin(file.generationOrigin)
+  ) {
+    throw new Error("图片生成来源格式不正确。");
+  }
+};
+
 interface PersistImageAssetInput {
   fileId: string;
   dataBase64: string;
@@ -339,6 +376,34 @@ const readProjectImageRecords = async (projectPath: string) =>
       "utf8",
     ),
   ) as ImageRecordMap;
+
+const repairLegacyGeneratedImageRecordOrigins = (
+  imageRecords: ImageRecordMap,
+) => {
+  let nextImageRecords: ImageRecordMap | null = null;
+  const repairedFileIds: string[] = [];
+
+  for (const [fileId, record] of Object.entries(imageRecords)) {
+    if (
+      record.sourceType !== "generated" ||
+      record.generationOrigin
+    ) {
+      continue;
+    }
+
+    nextImageRecords ??= { ...imageRecords };
+    nextImageRecords[fileId] = {
+      ...record,
+      generationOrigin: "corestudio",
+    };
+    repairedFileIds.push(fileId);
+  }
+
+  return {
+    imageRecords: nextImageRecords ?? imageRecords,
+    repairedFileIds,
+  };
+};
 
 const writeProjectManifest = async (
   projectPath: string,
@@ -883,6 +948,9 @@ export const inspectProjectHealth = async ({
     new Set(sceneReferences.references.map((reference) => reference.fileId)),
   );
   const imageRecordFileIds = Object.keys(bundle.imageRecords);
+  const generatedImageRecordFileIds = imageRecordFileIds.filter(
+    (fileId) => bundle.imageRecords[fileId]?.sourceType === "generated",
+  );
   const issues: ProjectHealthIssue[] = [];
 
   if (sceneReferences.parseFailed) {
@@ -897,15 +965,6 @@ export const inspectProjectHealth = async ({
   const addIssue = (issue: ProjectHealthIssue) => {
     issues.push(issue);
   };
-
-  const promptReferencedFileIds = new Set<string>();
-  for (const record of Object.values(bundle.imageRecords)) {
-    for (const reference of record.promptReferences ?? []) {
-      for (const fileId of reference.fileIds ?? []) {
-        promptReferencedFileIds.add(fileId);
-      }
-    }
-  }
 
   const missingImageRecordFileIds: string[] = [];
   for (const reference of sceneReferences.references) {
@@ -930,6 +989,7 @@ export const inspectProjectHealth = async ({
   const missingPreviewFileIds: string[] = [];
   const brokenParentFileIds: string[] = [];
   const brokenPromptReferenceFileIds: string[] = [];
+  const incompleteGenerationRecordFileIds: string[] = [];
 
   await Promise.all(
     imageRecordFileIds.map(async (fileId) => {
@@ -968,7 +1028,7 @@ export const inspectProjectHealth = async ({
           code: "missing-thumbnail-cache",
           severity: "warning",
           fileId,
-          message: `缩略图缓存缺失：${fileId}`,
+          message: `图片缓存待重建：${fileId}`,
           repairable: true,
         });
       }
@@ -985,7 +1045,7 @@ export const inspectProjectHealth = async ({
           code: "missing-preview-cache",
           severity: "info",
           fileId,
-          message: `预览图缓存尚未生成：${fileId}`,
+          message: `预览缓存尚未生成：${fileId}`,
           repairable: false,
         });
       }
@@ -993,6 +1053,25 @@ export const inspectProjectHealth = async ({
   );
 
   for (const [fileId, record] of Object.entries(bundle.imageRecords)) {
+    if (record.sourceType === "generated") {
+      const missingGenerationFields = [
+        record.generationOrigin ? null : "生成来源",
+      ].filter((field): field is string => Boolean(field));
+
+      if (missingGenerationFields.length) {
+        incompleteGenerationRecordFileIds.push(fileId);
+        addIssue({
+          code: "incomplete-generation-record",
+          severity: "error",
+          fileId,
+          message: `生成记录缺少${missingGenerationFields.join(
+            "、",
+          )}：${fileId}。提示词可以为空；修复会按历史 CoreStudio 生成记录补齐来源。`,
+          repairable: !record.generationOrigin,
+        });
+      }
+    }
+
     if (record.parentFileId && !bundle.imageRecords[record.parentFileId]) {
       brokenParentFileIds.push(fileId);
       addIssue({
@@ -1022,17 +1101,27 @@ export const inspectProjectHealth = async ({
   }
 
   const sceneImageFileIdSet = new Set(sceneImageFileIds);
+  const missingAssetFileIdSet = new Set(missingAssetFileIds);
   const orphanImageRecordFileIds = imageRecordFileIds.filter(
     (fileId) =>
-      !sceneImageFileIdSet.has(fileId) && !promptReferencedFileIds.has(fileId),
+      !sceneImageFileIdSet.has(fileId) && !missingAssetFileIdSet.has(fileId),
+  );
+  const orphanGeneratedImageRecordFileIds = orphanImageRecordFileIds.filter(
+    (fileId) => bundle.imageRecords[fileId]?.sourceType === "generated",
   );
   for (const fileId of orphanImageRecordFileIds) {
+    const record = bundle.imageRecords[fileId];
+    const isGeneratedRecord = record?.sourceType === "generated";
     addIssue({
-      code: "orphan-image-record",
-      severity: "info",
+      code: isGeneratedRecord
+        ? "orphan-generated-record"
+        : "orphan-image-record",
+      severity: "warning",
       fileId,
-      message: `图片索引没有被当前画板引用：${fileId}`,
-      repairable: false,
+      message: isGeneratedRecord
+        ? `生成图未显示在画板：${fileId}`
+        : `项目图片未显示在画板：${fileId}`,
+      repairable: true,
     });
   }
 
@@ -1040,12 +1129,15 @@ export const inspectProjectHealth = async ({
     checkedAt: new Date().toISOString(),
     projectPath,
     imageRecordCount: imageRecordFileIds.length,
+    generatedImageRecordCount: generatedImageRecordFileIds.length,
     sceneImageFileCount: sceneImageFileIds.length,
     missingImageRecordFileIds,
     missingAssetFileIds,
     missingThumbnailFileIds,
     missingPreviewFileIds,
     orphanImageRecordFileIds,
+    orphanGeneratedImageRecordFileIds,
+    incompleteGenerationRecordFileIds,
     brokenParentFileIds,
     brokenPromptReferenceFileIds: Array.from(
       new Set(brokenPromptReferenceFileIds),
@@ -1104,9 +1196,13 @@ export const readProjectAssetPayloads = async (
         }
       }
 
-      const fileBuffer = await fs.readFile(
-        resolveProjectAssetPath(projectPath, record.assetPath),
-      );
+      const assetPath = resolveProjectAssetPath(projectPath, record.assetPath);
+      let fileBuffer: Buffer;
+      try {
+        fileBuffer = await fs.readFile(assetPath);
+      } catch {
+        return null;
+      }
 
       if (rendition !== "original") {
         try {
@@ -1163,7 +1259,24 @@ export const rebuildProjectThumbnails = async (
         reason: "rebuild-project-thumbnails",
       })
     : null;
-  const imageRecords = await readProjectImageRecords(projectPath);
+  const bundle = await readProjectBundle(projectPath);
+  let imageRecords = bundle.imageRecords;
+  const repairedGenerationRecordFileIds: string[] = [];
+  if (createBackup) {
+    const repairResult = repairLegacyGeneratedImageRecordOrigins(imageRecords);
+    if (repairResult.repairedFileIds.length) {
+      imageRecords = repairResult.imageRecords;
+      repairedGenerationRecordFileIds.push(...repairResult.repairedFileIds);
+      await writeJson(
+        path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+        imageRecords,
+      );
+      await writeProjectManifest(projectPath, {
+        ...bundle.project,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
   const generatedFileIds: string[] = [];
   const skippedFileIds: string[] = [];
   const failedFileIds: string[] = [];
@@ -1221,6 +1334,7 @@ export const rebuildProjectThumbnails = async (
     generatedFileIds,
     skippedFileIds,
     failedFileIds,
+    repairedGenerationRecordFileIds,
     backupPath,
   };
 };
@@ -1236,6 +1350,7 @@ export const persistImageAssets = async ({
   const nextImageRecords: ImageRecordMap = { ...bundle.imageRecords };
 
   for (const file of files) {
+    assertPersistImageAssetInput(file);
     const assetFileName = `${file.createdAt.replace(
       /[:.]/g,
       "-",

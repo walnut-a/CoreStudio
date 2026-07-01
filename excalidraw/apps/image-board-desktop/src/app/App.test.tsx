@@ -144,12 +144,15 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
     checkedAt: "2026-04-12T08:00:00.000Z",
     projectPath: "/tmp/mock-project",
     imageRecordCount: 0,
+    generatedImageRecordCount: 0,
     sceneImageFileCount: 0,
     missingImageRecordFileIds: [],
     missingAssetFileIds: [],
     missingThumbnailFileIds: [],
     missingPreviewFileIds: [],
     orphanImageRecordFileIds: [],
+    orphanGeneratedImageRecordFileIds: [],
+    incompleteGenerationRecordFileIds: [],
     brokenParentFileIds: [],
     brokenPromptReferenceFileIds: [],
     issues: [],
@@ -4159,7 +4162,7 @@ describe("App startup", () => {
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
   });
 
-  it("repairs current project thumbnails from the file menu", async () => {
+  it("repairs current project data from the file menu", async () => {
     vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
       elements: [
         {
@@ -4202,9 +4205,10 @@ describe("App startup", () => {
         })),
       );
     const rebuildProjectThumbnails = vi.fn().mockResolvedValue({
-      generatedFileIds: ["visible-file"],
+      generatedFileIds: ["visible-file", "generated-file", "imported-orphan"],
       skippedFileIds: [],
       failedFileIds: [],
+      repairedGenerationRecordFileIds: ["generated-file"],
     });
     let menuActionListener: ((event: { action: string }) => void) | null = null;
 
@@ -4219,6 +4223,27 @@ describe("App startup", () => {
               width: 1440,
               height: 960,
               createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+            "generated-file": {
+              fileId: "generated-file",
+              assetPath: "assets/generated.png",
+              sourceType: "generated",
+              provider: "zenmux",
+              model: "google/gemini-3-pro-image-preview",
+              prompt: "生成记录图片",
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-04-12T08:01:00.000Z",
+              mimeType: "image/png",
+            },
+            "imported-orphan": {
+              fileId: "imported-orphan",
+              assetPath: "assets/imported-orphan.png",
+              sourceType: "imported",
+              width: 960,
+              height: 640,
+              createdAt: "2026-04-12T08:02:00.000Z",
               mimeType: "image/png",
             },
           },
@@ -4253,7 +4278,7 @@ describe("App startup", () => {
     await waitFor(() => {
       expect(rebuildProjectThumbnails).toHaveBeenCalledWith({
         projectPath: "/tmp/mock-project",
-        fileIds: ["visible-file"],
+        fileIds: ["visible-file", "generated-file", "imported-orphan"],
         force: true,
         createBackup: true,
       });
@@ -4266,10 +4291,60 @@ describe("App startup", () => {
             "visible-file-repaired-thumbnail",
           ).toString("base64")}`,
         }),
+        expect.objectContaining({
+          id: "generated-file",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "generated-file-repaired-thumbnail",
+          ).toString("base64")}`,
+        }),
+        expect.objectContaining({
+          id: "imported-orphan",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "imported-orphan-repaired-thumbnail",
+          ).toString("base64")}`,
+        }),
       ]);
     });
+    await waitFor(() => {
+      expect(mockExcalidrawAPI?.addFiles).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: "generated-file",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "generated-file-repaired-thumbnail",
+          ).toString("base64")}`,
+        }),
+        expect.objectContaining({
+          id: "imported-orphan",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "imported-orphan-repaired-thumbnail",
+          ).toString("base64")}`,
+        }),
+      ]);
+    });
+    await waitFor(() => {
+      expect(
+        mockExcalidrawAPI
+          ?.getSceneElementsIncludingDeleted()
+          .some(
+            (element) =>
+              element.type === "image" &&
+              element.fileId === "generated-file",
+          ),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(
+        mockExcalidrawAPI
+          ?.getSceneElementsIncludingDeleted()
+          .some(
+            (element) =>
+              element.type === "image" &&
+              element.fileId === "imported-orphan",
+          ),
+      ).toBe(true);
+    });
     expect(
-      screen.getByText("缩略图修复完成：重新生成 1 张，跳过 0 张。"),
+      screen.getByText("项目数据修复完成。"),
     ).toBeInTheDocument();
   });
 
@@ -4278,15 +4353,26 @@ describe("App startup", () => {
       checkedAt: "2026-04-12T08:00:00.000Z",
       projectPath: "/tmp/mock-project",
       imageRecordCount: 2,
+      generatedImageRecordCount: 1,
       sceneImageFileCount: 2,
       missingImageRecordFileIds: [],
       missingAssetFileIds: [],
       missingThumbnailFileIds: ["visible-file"],
-      missingPreviewFileIds: [],
+      missingPreviewFileIds: ["imported-orphan"],
       orphanImageRecordFileIds: [],
+      orphanGeneratedImageRecordFileIds: [],
+      incompleteGenerationRecordFileIds: [],
       brokenParentFileIds: [],
       brokenPromptReferenceFileIds: [],
-      issues: [],
+      issues: [
+        {
+          code: "missing-thumbnail-cache",
+          severity: "warning",
+          fileId: "visible-file",
+          message: "图片缓存待重建：visible-file",
+          repairable: true,
+        },
+      ],
       summary: {
         errorCount: 0,
         warningCount: 1,
@@ -4343,9 +4429,15 @@ describe("App startup", () => {
     });
     expect(
       screen.getByText(
-        "项目检查完成：发现 0 个错误、1 个警告，其中 1 项可修复。",
+        "项目检查完成：发现 0 个错误、1 个警告，其中 1 项可通过项目数据修复处理。",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看详情" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "数据检查详情" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("图片缓存待重建")).toBeInTheDocument();
+    expect(screen.getByText("File ID: visible-file")).toBeInTheDocument();
   });
 
   it("cleans current project cache from the file menu", async () => {
@@ -4561,7 +4653,7 @@ describe("App startup", () => {
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
     expect(readProjectAssetPayloads).not.toHaveBeenCalled();
     expect(
-      screen.getByText("已用安全模式打开项目，已跳过缩略图加载和后台修复。"),
+      screen.getByText("已用安全模式打开项目，已暂停缓存加载和后台数据修复。"),
     ).toBeInTheDocument();
   });
 
@@ -4928,6 +5020,110 @@ describe("App startup", () => {
     ]);
   });
 
+  it("uses the latest canvas API zoom when a queued rendition load fires", async () => {
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "visible-image",
+          type: "image",
+          fileId: "visible-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi
+      .fn()
+      .mockImplementation(async ({ rendition, fileIds }) =>
+        fileIds.map((fileId: string) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-${rendition}`).toString("base64"),
+          width: rendition === "thumbnail" ? 320 : 2400,
+          height: rendition === "thumbnail" ? 213 : 1600,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition,
+        })),
+      );
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "visible-file": {
+              fileId: "visible-file",
+              assetPath: "assets/visible.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "preview",
+      });
+    });
+
+    suppressUpdateSceneChangeEvent = true;
+    act(() => {
+      mockExcalidrawAPI?.updateScene({
+        appState: {
+          zoom: { value: 3 },
+        },
+      });
+    });
+    suppressUpdateSceneChangeEvent = false;
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["visible-file"],
+        rendition: "original",
+      });
+    });
+    expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "visible-file",
+        dataURL: `data:image/png;base64,${Buffer.from(
+          "visible-file-original",
+        ).toString("base64")}`,
+      }),
+    ]);
+  });
+
   it("uses the window device pixel ratio when upgrading visible images to originals", async () => {
     Object.defineProperty(window, "devicePixelRatio", {
       configurable: true,
@@ -5135,8 +5331,10 @@ describe("App startup", () => {
         fileIds: ["far-file"],
       });
     });
-    expect(screen.getByText("正在生成 1 张缩略图")).toBeInTheDocument();
-    expect(screen.getByText("放大查看时会优先载入原图。")).toBeInTheDocument();
+    expect(screen.getByText("正在修复 1 个图片资源")).toBeInTheDocument();
+    expect(
+      screen.queryByText("放大查看时会优先载入原图。"),
+    ).not.toBeInTheDocument();
 
     await act(async () => {
       rebuildDeferred.resolve({
@@ -5163,7 +5361,7 @@ describe("App startup", () => {
       )}`,
     );
     await waitFor(() => {
-      expect(screen.queryByText("正在生成 1 张缩略图")).not.toBeInTheDocument();
+      expect(screen.queryByText("正在修复 1 个图片资源")).not.toBeInTheDocument();
     });
   });
 
@@ -6235,6 +6433,7 @@ describe("App startup", () => {
               fileId: "orphan-generated-image",
               assetPath: "assets/orphan-generated-image.png",
               sourceType: "generated",
+              generationOrigin: "corestudio",
               provider: "gemini",
               model: "imagen-4.0-fast-generate-001",
               prompt: "已经不在画布上的旧生成记录",
@@ -6244,6 +6443,45 @@ describe("App startup", () => {
               height: 1024,
               createdAt: "2026-06-29T08:02:00.000Z",
               mimeType: "image/png",
+            },
+            "reference-step-image": {
+              fileId: "reference-step-image",
+              assetPath: "assets/reference-step-image.png",
+              sourceType: "generated",
+              generationOrigin: "corestudio",
+              provider: "gemini",
+              model: "imagen-4.0-fast-generate-001",
+              prompt: "参考图 1去掉右侧刀库",
+              negativePrompt: "",
+              seed: null,
+              width: 1254,
+              height: 1254,
+              createdAt: "2026-06-25T13:27:51.120Z",
+              mimeType: "image/png",
+            },
+            "referencing-result-image": {
+              fileId: "referencing-result-image",
+              assetPath: "assets/referencing-result-image.png",
+              sourceType: "generated",
+              generationOrigin: "corestudio",
+              provider: "gemini",
+              model: "imagen-4.0-fast-generate-001",
+              prompt: "参考图 1改一下造型，要精致，有工业感",
+              negativePrompt: "",
+              seed: null,
+              width: 1254,
+              height: 1254,
+              createdAt: "2026-06-25T13:40:01.079Z",
+              mimeType: "image/png",
+              promptReferences: [
+                {
+                  id: "reference-step",
+                  index: 1,
+                  label: "参考图 1",
+                  kind: "image",
+                  fileIds: ["reference-step-image"],
+                },
+              ],
             },
             ...extraDirectRecords,
           },
@@ -6286,6 +6524,17 @@ describe("App startup", () => {
             };
           }),
           {
+            id: "referencing-result-element",
+            type: "image",
+            fileId: "referencing-result-image",
+            isDeleted: false,
+            groupIds: [],
+            x: 460,
+            y: 160,
+            width: 320,
+            height: 240,
+          },
+          {
             id: "deleted-generated-element",
             type: "image",
             fileId: "orphan-generated-image",
@@ -6319,8 +6568,10 @@ describe("App startup", () => {
       generationDock.queryByText("ACP Agent 连续对话记录"),
     ).not.toBeInTheDocument();
     expect(
-      generationDock.queryByText("已经不在画布上的旧生成记录"),
-    ).not.toBeInTheDocument();
+      generationDock.getByText("已经不在画布上的旧生成记录"),
+    ).toBeInTheDocument();
+    expect(generationDock.getByText(/引用链中间图/)).toBeInTheDocument();
+    expect(generationDock.getByText(/未在画板/)).toBeInTheDocument();
     expect(generationDock.getByText("第 01 条生成记录")).toBeInTheDocument();
 
     await act(async () => {
@@ -6341,6 +6592,108 @@ describe("App startup", () => {
         duration: 300,
       },
     );
+
+    await act(async () => {
+      fireEvent.click(
+        generationDock.getByRole("button", {
+          name: /参考图 1去掉右侧刀库/,
+        }),
+      );
+    });
+
+    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "referencing-result-element",
+        fileId: "referencing-result-image",
+      }),
+      {
+        animate: true,
+        duration: 300,
+      },
+    );
+    expect(
+      screen.getByText(
+        "这条生成记录是后续结果的参考图，已定位到引用它的画板图片。",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      mockExcalidrawAPI
+        ?.getSceneElementsIncludingDeleted()
+        .some(
+          (element) =>
+            !element.isDeleted &&
+            element.type === "image" &&
+            element.fileId === "orphan-generated-image",
+      ),
+    ).toBe(false);
+  });
+
+  it("reports info-only project health checks as details instead of fully healthy", async () => {
+    const inspectProjectHealth = vi.fn().mockResolvedValue({
+      checkedAt: "2026-04-12T08:00:00.000Z",
+      projectPath: "/tmp/mock-project",
+      imageRecordCount: 2,
+      generatedImageRecordCount: 1,
+      sceneImageFileCount: 1,
+      missingImageRecordFileIds: [],
+      missingAssetFileIds: [],
+      missingThumbnailFileIds: [],
+      missingPreviewFileIds: [],
+      orphanImageRecordFileIds: [],
+      orphanGeneratedImageRecordFileIds: [],
+      incompleteGenerationRecordFileIds: [],
+      brokenParentFileIds: [],
+      brokenPromptReferenceFileIds: [],
+      issues: [
+        {
+          code: "missing-preview-cache",
+          severity: "info",
+          fileId: "imported-orphan",
+          message: "预览缓存尚未生成：imported-orphan",
+          repairable: false,
+        },
+      ],
+      summary: {
+        errorCount: 0,
+        warningCount: 0,
+        repairableCount: 0,
+      },
+    });
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
+      inspectProjectHealth,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "inspect-project-health",
+      });
+    });
+
+    expect(
+      await screen.findByText(
+        "项目检查完成：没有错误或警告，另有 1 条说明可查看。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看详情" })).toBeInTheDocument();
   });
 
   it("returns to generation records after a builtin image is generated from an ACP conversation context", async () => {
@@ -9520,6 +9873,71 @@ describe("App startup", () => {
         }),
       );
     });
+  });
+
+  it("reports a failed scene save after a generated image is inserted", async () => {
+    const generateImages = vi.fn().mockResolvedValue({
+      provider: "gemini",
+      model: "gemini-2.5-flash-image",
+      seed: null,
+      createdAt: "2026-04-15T08:00:00.000Z",
+      images: [
+        {
+          dataBase64: "Z2VuZXJhdGVkLWltYWdl",
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+        },
+      ],
+    });
+    const persistImageAssets = vi.fn().mockResolvedValue({
+      "generated-file": {
+        fileId: "generated-file",
+        assetPath: "assets/generated-file.png",
+        sourceType: "generated",
+        generationOrigin: "corestudio",
+        provider: "gemini",
+        model: "gemini-2.5-flash-image",
+        prompt: "内置生成测试记录",
+        width: 1024,
+        height: 1024,
+        createdAt: "2026-04-15T08:00:00.000Z",
+        mimeType: "image/png",
+      },
+    });
+    const writeProjectScene = vi
+      .fn()
+      .mockRejectedValue(new Error("磁盘不可写"));
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {},
+        }),
+      ),
+      generateImages,
+      persistImageAssets,
+      writeProjectScene,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await screen.findByText("生成图片弹窗");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交固定比例生成" }));
+    });
+
+    await waitFor(() => {
+      expect(writeProjectScene).toHaveBeenCalled();
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("磁盘不可写");
   });
 
   it("fits auto-ratio generated images to the returned image dimensions", async () => {

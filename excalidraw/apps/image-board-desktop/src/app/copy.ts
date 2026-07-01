@@ -225,7 +225,7 @@ export const copy = {
     version: "版本",
     projectMaintenance: "项目维护",
     inspectProjectHealth: "检查当前项目健康",
-    repairProjectThumbnails: "修复当前项目缩略图",
+    repairProjectThumbnails: "修复当前项目数据",
     cleanProjectCache: "清理当前项目缓存",
     importImages: "导入图片",
     revealProject: "显示项目文件夹",
@@ -243,18 +243,22 @@ export const copy = {
   },
   projectRepair: {
     noProject: "请先打开一个项目。",
-    noImages: "当前项目没有图片资源需要修复。",
+    noImages: "当前项目没有需要处理的图片资源。",
     healthCheckFailed: "当前项目健康检查失败。",
-    healthChecking: "正在检查当前项目",
-    healthHealthy: (imageCount: number) =>
-      `项目检查完成：${imageCount} 张图片资源状态正常。`,
+    healthChecking: "正在检查项目数据",
+    healthHealthy: (imageCount: number, generationRecordCount = 0) =>
+      generationRecordCount
+        ? `项目检查完成：${imageCount} 张图片资源、${generationRecordCount} 条生成记录与画板一致。`
+        : `项目检查完成：${imageCount} 张图片资源与画板一致。`,
+    healthHasInfo: (infoCount: number) =>
+      `项目检查完成：没有错误或警告，另有 ${infoCount} 条说明可查看。`,
     healthNeedsRepair: (
       errorCount: number,
       warningCount: number,
       repairableCount: number,
     ) =>
-      `项目检查完成：发现 ${errorCount} 个错误、${warningCount} 个警告，其中 ${repairableCount} 项可修复。`,
-    thumbnailsFailed: "当前项目缩略图修复失败。",
+      `项目检查完成：发现 ${errorCount} 个错误、${warningCount} 个警告，其中 ${repairableCount} 项可通过项目数据修复处理。`,
+    thumbnailsFailed: "项目数据修复未完成。",
     cacheCleanFailed: "当前项目缓存清理失败。",
     cacheCleaned: (removedCount: number, removedBytes: number) =>
       removedCount
@@ -262,20 +266,19 @@ export const copy = {
             removedBytes,
           )}。`
         : "项目缓存清理完成：没有需要删除的缓存文件。",
-    safeModeOpened: "已用安全模式打开项目，已跳过缩略图加载和后台修复。",
+    safeModeOpened: "已用安全模式打开项目，已暂停缓存加载和后台数据修复。",
     thumbnailsRepaired: (
-      generatedCount: number,
-      skippedCount: number,
+      _generatedCount: number,
+      _skippedCount: number,
       failedCount: number,
-      backupPath?: string | null,
+      _backupPath?: string | null,
+      _repairedGenerationRecordCount = 0,
+      _restoredImageRecordCount = 0,
+      skippedImageRecordCount = 0,
     ) =>
-      failedCount
-        ? `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张，失败 ${failedCount} 张。${
-            backupPath ? " 已备份项目索引。" : ""
-          }`
-        : `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张。${
-            backupPath ? " 已备份项目索引。" : ""
-          }`,
+      failedCount || skippedImageRecordCount
+        ? "项目数据修复完成，部分图片需要再确认。"
+        : "项目数据修复完成。",
   },
 } as const;
 

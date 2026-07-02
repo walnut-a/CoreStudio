@@ -13,9 +13,9 @@ Run these commands with CoreStudio open and Agent access enabled. In this source
 
 The CLI is intentionally small. Its public surface is organized as four tools:
 
-- `read`: inspect the bridge, project, scene, selection, board URL, and local image paths.
+- `read`: inspect the bridge, project, image records, project health, scene, selection, ACP logs, board URL, and local image paths.
 - `write`: add generated images, prompts, or start a CoreStudio generation.
-- `edit`: reserved for future element updates.
+- `edit`: select or locate existing board elements without changing project assets.
 - `bash`: print shell environment and examples for Agents that need copyable commands.
 
 ```sh
@@ -23,16 +23,28 @@ node bin/corestudio.cjs read status --json
 node bin/corestudio.cjs read capabilities --json
 node bin/corestudio.cjs read context --json
 node bin/corestudio.cjs read project --json
+node bin/corestudio.cjs read records --json
+node bin/corestudio.cjs read health --json
 node bin/corestudio.cjs read scene --json
 node bin/corestudio.cjs read selection --json
 node bin/corestudio.cjs read image-paths --selection --json
 node bin/corestudio.cjs read image-paths --file-ids <fileId>[,<fileId>] --json
 node bin/corestudio.cjs read image-paths --all --json
 node bin/corestudio.cjs read board-url --json
+node bin/corestudio.cjs read acp-runs --json
+node bin/corestudio.cjs read acp-run --task-id <taskId> --json
+node bin/corestudio.cjs read acp-threads --json
+node bin/corestudio.cjs read acp-thread --thread-id <threadId> --json
+node bin/corestudio.cjs edit locate --file-id <fileId> --json
+node bin/corestudio.cjs edit select --element-ids <elementId>[,<elementId>] --json
 node bin/corestudio.cjs bash examples --json
 ```
 
 Use `read image-paths` when an Agent needs local reference files. It returns the original image paths from the current project instead of streaming image bytes through the CLI. Prefer `--selection` or `--file-ids`; `--all` is explicit because large projects can contain many images.
+
+Use `read records` before reasoning about generated outputs or missing board items. It returns project image records from the local data layer plus whether each record is currently present on the board. Use `read health` when the project appears inconsistent; it reports missing assets, stale caches, incomplete generation metadata, orphan records, and repairable issues.
+
+Use `edit locate` when an Agent needs CoreStudio to focus a referenced image or element for the user. It selects the target and scrolls the board to it. Use `edit select` when the Agent only needs to update selection state.
 
 Generation mode is an explicit user preference. `read context --json` returns `generation.source`:
 
@@ -48,14 +60,11 @@ CoreStudio can also act as an ACP Client. This is separate from the CLI bridge: 
 Configure it from **应用设置 -> ACP Agent**:
 
 - Enable Agent access with the global `Agent 调用` switch.
-- Choose an Agent preset (`Codex ACP` or `Gemini CLI`) to fill the default command template, or use
-  `自定义命令` for another ACP-compatible adapter.
-- Adjust the command, optional args, and optional working directory when the preset does not match the
-  local installation.
+- Choose an Agent preset (`Codex ACP` or `Gemini CLI`) to fill the default command template, or use `自定义命令` for another ACP-compatible adapter.
+- Adjust the command, optional args, and optional working directory when the preset does not match the local installation.
 - Enable and save the ACP Agent configuration.
 
-The presets only describe how CoreStudio should start the local ACP process. Agent installation, login,
-model choice, and provider credentials still belong to the external Agent.
+The presets only describe how CoreStudio should start the local ACP process. Agent installation, login, model choice, and provider credentials still belong to the external Agent.
 
 When `Agent 生成` is selected in the composer, CoreStudio sends an ACP `session/prompt` task instead of calling the built-in image provider. The task context includes the project token, bridge URL, board URL, generation source, and selected element IDs / file IDs. It does not stream original image bytes; Agents should call `read image-paths` when they need local reference files.
 

@@ -1,13 +1,19 @@
 import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import type {
+  AcpRunStatus,
   AcpRunLogDetail,
   AcpRunLogEntry,
   AcpThreadSummary,
   AcpTaskStatus,
 } from "../../shared/acpTypes";
 import { DesktopButton } from "./DesktopButton";
-import { AgentRunChatLog } from "./AgentRunChatLog";
+import {
+  createAgentThreadFromEntries,
+  type AgentImageResult,
+  type AgentThreadStatus,
+} from "../agentThreadModel";
+import { AgentThreadTimeline } from "./AgentThreadTimeline";
 import { sendIcon } from "./CoreStudioIcons";
 import { SideDock } from "./SideDock";
 
@@ -33,6 +39,7 @@ export interface GenerationRecordListItem {
   title: string;
   meta: string;
   statusLabel?: string;
+  thumbnailDataUrl?: string | null;
 }
 
 interface AgentConversationSidebarProps {
@@ -40,6 +47,7 @@ interface AgentConversationSidebarProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   generationRecords?: GenerationRecordListItem[];
+  agentResultRecords?: GenerationRecordListItem[];
   onSelectGenerationRecord?: (fileId: string) => void;
   task: AgentConversationTaskState | null;
   runLogDetail: AcpRunLogDetail | null;
@@ -193,11 +201,56 @@ const getThreadTimeLabel = (updatedAt: string) => {
   });
 };
 
+const getThreadTitle = (
+  runLogDetail: AcpRunLogDetail | null,
+  task: AgentConversationTaskState | null,
+) => {
+  const prompt = runLogDetail?.summary.userPrompt ?? task?.message;
+  if (!prompt) {
+    return "当前对话";
+  }
+  return prompt;
+};
+
+const getAgentThreadStatus = (
+  status: AcpTaskStatus | AcpRunStatus,
+): AgentThreadStatus => {
+  switch (status) {
+    case "completed":
+      return "completed";
+    case "failed":
+      return "failed";
+    case "cancelled":
+      return "cancelled";
+    case "idle":
+      return "idle";
+    case "connecting":
+    case "initializing":
+    case "creating-session":
+    case "running":
+    default:
+      return "running";
+  }
+};
+
+const createAgentImageResultFromRecord = (
+  record: GenerationRecordListItem,
+): AgentImageResult => ({
+  id: record.id,
+  fileId: record.fileId,
+  title: record.title,
+  thumbnailDataUrl: record.thumbnailDataUrl,
+  source: "acp-agent",
+  meta: record.meta || undefined,
+  statusLabel: record.statusLabel,
+});
+
 export const AgentConversationSidebar = ({
   mode,
   open,
   onOpenChange,
   generationRecords = [],
+  agentResultRecords = [],
   onSelectGenerationRecord,
   task,
   runLogDetail,
@@ -216,16 +269,55 @@ export const AgentConversationSidebar = ({
 }: AgentConversationSidebarProps) => {
   const [draftMessage, setDraftMessage] = useState("");
   const [submittingMessage, setSubmittingMessage] = useState(false);
+  const [threadListOpen, setThreadListOpen] = useState(false);
   const status = getSummaryStatus(task, runLogDetail);
   const taskEntries = useMemo(() => buildTaskRunLogEntries(task), [task]);
-  const chatEntries = mergeThreadEntries(
-    threadEntries.length ? threadEntries : runLogDetail?.entries ?? [],
-    taskEntries,
+  const chatEntries = useMemo(
+    () =>
+      mergeThreadEntries(
+        threadEntries.length ? threadEntries : runLogDetail?.entries ?? [],
+        taskEntries,
+      ),
+    [runLogDetail?.entries, taskEntries, threadEntries],
   );
   const hasConversationContext = Boolean(task || runLogDetail || error);
+  const hasConversationContent =
+    Boolean(error) || chatEntries.length > 0 || agentResultRecords.length > 0;
+  const agentThreadImageResults = useMemo(
+    () => agentResultRecords.map(createAgentImageResultFromRecord),
+    [agentResultRecords],
+  );
+  const agentThread = useMemo(() => {
+    if (!chatEntries.length && !agentThreadImageResults.length) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    return createAgentThreadFromEntries(chatEntries, {
+      id:
+        activeThreadId ??
+        runLogDetail?.summary.threadId ??
+        task?.taskId ??
+        "agent-thread",
+      title: getThreadTitle(runLogDetail, task),
+      status: getAgentThreadStatus(status),
+      createdAt:
+        runLogDetail?.summary.startedAt ?? chatEntries[0]?.timestamp ?? now,
+      updatedAt:
+        runLogDetail?.summary.endedAt ??
+        chatEntries.at(-1)?.timestamp ??
+        now,
+      fallbackUserPrompt: runLogDetail?.summary.userPrompt ?? task?.message,
+      imageResults: agentThreadImageResults,
+    });
+  }, [
+    activeThreadId,
+    agentThreadImageResults,
+    chatEntries,
+    runLogDetail,
+    status,
+    task,
+  ]);
   const hasThreadSummaries = threadSummaries.length > 0;
-  const showThreadShelf =
-    Boolean(threadsError) || threadsLoading || hasThreadSummaries;
   const isAgentMode = mode === "agent";
   const dockTitle = isAgentMode ? "Agent 对话" : "生成记录";
   const trimmedDraftMessage = draftMessage.trim();
@@ -262,6 +354,72 @@ export const AgentConversationSidebar = ({
     event.preventDefault();
     void submitDraftMessage();
   };
+  const handleSelectThread = async (threadId: string) => {
+    await onSelectThread(threadId);
+    setThreadListOpen(false);
+  };
+  const handleStartNewThread = () => {
+    onStartNewThread();
+    setThreadListOpen(false);
+  };
+  const threadListContent = threadsError ? (
+    <p className="agent-conversation-sidebar__threads-note">{threadsError}</p>
+  ) : threadsLoading ? (
+    <p className="agent-conversation-sidebar__threads-note">同步中</p>
+  ) : hasThreadSummaries ? (
+    <div className="agent-conversation-sidebar__thread-list">
+      {threadSummaries.map((thread) => (
+        <button
+          key={thread.threadId}
+          type="button"
+          className="agent-conversation-sidebar__thread"
+          aria-pressed={thread.threadId === activeThreadId}
+          disabled={threadActionsDisabled}
+          onClick={() => void handleSelectThread(thread.threadId)}
+        >
+          <strong>{thread.title || "未命名对话"}</strong>
+          <span>
+            {getThreadStatusLabel(thread.status)}
+            {getThreadTimeLabel(thread.updatedAt)
+              ? ` · ${getThreadTimeLabel(thread.updatedAt)}`
+              : ""}
+          </span>
+        </button>
+      ))}
+    </div>
+  ) : (
+    <p className="agent-conversation-sidebar__threads-note">暂无历史对话</p>
+  );
+  const renderAgentEmptyState = () => (
+    <div
+      className="agent-conversation-sidebar__empty"
+      aria-label="Agent 空白对话"
+    >
+      <span aria-hidden="true" />
+    </div>
+  );
+  const agentHeaderActions = isAgentMode ? (
+    <>
+      <DesktopButton
+        type="button"
+        disabled={threadActionsDisabled}
+        aria-label={
+          threadListOpen ? "返回当前 Agent 对话" : "打开 Agent 对话列表"
+        }
+        onClick={() => setThreadListOpen((current) => !current)}
+      >
+        {threadListOpen ? "返回" : "列表"}
+      </DesktopButton>
+      <DesktopButton
+        type="button"
+        disabled={threadActionsDisabled}
+        aria-label="开始新的 Agent 对话"
+        onClick={handleStartNewThread}
+      >
+        新建
+      </DesktopButton>
+    </>
+  ) : null;
 
   return (
     <SideDock
@@ -269,6 +427,7 @@ export const AgentConversationSidebar = ({
       title={dockTitle}
       open={open}
       onOpenChange={onOpenChange}
+      headerActions={agentHeaderActions}
     >
       <div
         className={[
@@ -276,6 +435,7 @@ export const AgentConversationSidebar = ({
           isAgentMode
             ? "agent-conversation-sidebar--agent"
             : "agent-conversation-sidebar--direct",
+          threadListOpen ? "agent-conversation-sidebar--thread-list" : "",
         ].join(" ")}
       >
         {!isAgentMode ? (
@@ -306,112 +466,79 @@ export const AgentConversationSidebar = ({
           </div>
         ) : (
           <>
-        {showThreadShelf ? (
-          <section
-            className="agent-conversation-sidebar__threads"
-            aria-label="Agent 历史对话"
-          >
-            <div className="agent-conversation-sidebar__threads-header">
-              <strong>最近对话</strong>
-              {hasThreadSummaries ? (
-                <DesktopButton
-                  type="button"
-                  disabled={threadActionsDisabled}
-                  aria-label="开始新的 Agent 对话"
-                  onClick={onStartNewThread}
-                >
-                  新建
-                </DesktopButton>
-              ) : null}
-            </div>
-            {threadsError ? (
-              <p className="agent-conversation-sidebar__threads-note">
-                {threadsError}
-              </p>
-            ) : threadsLoading ? (
-              <p className="agent-conversation-sidebar__threads-note">同步中</p>
-            ) : hasThreadSummaries ? (
-              <div className="agent-conversation-sidebar__thread-list">
-                {threadSummaries.slice(0, 6).map((thread) => (
-                  <button
-                    key={thread.threadId}
-                    type="button"
-                    className="agent-conversation-sidebar__thread"
-                    aria-pressed={thread.threadId === activeThreadId}
-                    disabled={threadActionsDisabled}
-                    onClick={() => onSelectThread(thread.threadId)}
-                  >
-                    <strong>{thread.title || "未命名对话"}</strong>
-                    <span>
-                      {getThreadStatusLabel(thread.status)}
-                      {getThreadTimeLabel(thread.updatedAt)
-                        ? ` · ${getThreadTimeLabel(thread.updatedAt)}`
-                        : ""}
+            {threadListOpen ? (
+              <section
+                className="agent-conversation-sidebar__threads"
+                aria-label="Agent 历史对话"
+              >
+                {threadListContent}
+              </section>
+            ) : (
+              <>
+                {hasConversationContext ? (
+                  <header className="agent-conversation-sidebar__summary">
+                    <div>
+                      <span>
+                        {runLogDetail?.summary.agentName ?? "ACP Agent"}
+                      </span>
+                      <strong>{getThreadTitle(runLogDetail, task)}</strong>
+                    </div>
+                    <span
+                      className={[
+                        "agent-conversation-sidebar__status",
+                        `agent-conversation-sidebar__status--${status}`,
+                      ].join(" ")}
+                    >
+                      {getStatusLabel(status)}
                     </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </section>
-        ) : null}
+                  </header>
+                ) : null}
 
-        {hasConversationContext ? (
-          <header className="agent-conversation-sidebar__summary">
-            <div>
-              <span>{runLogDetail?.summary.agentName ?? "ACP Agent"}</span>
-              <strong>
-                {runLogDetail?.summary.userPrompt ??
-                  task?.message ??
-                  "当前对话"}
-              </strong>
-            </div>
-            <span
-              className={[
-                "agent-conversation-sidebar__status",
-                `agent-conversation-sidebar__status--${status}`,
-              ].join(" ")}
-            >
-              {getStatusLabel(status)}
-            </span>
-          </header>
-        ) : null}
+                <div className="agent-conversation-sidebar__body">
+                  {error ? (
+                    <div className="agent-conversation-sidebar__error">
+                      {error}
+                    </div>
+                  ) : null}
 
-        <div className="agent-conversation-sidebar__body">
-          {error ? (
-            <div className="agent-conversation-sidebar__error">{error}</div>
-          ) : null}
+                  <div className="agent-conversation-sidebar__content">
+                    {agentThread ? (
+                      <AgentThreadTimeline
+                        thread={agentThread}
+                        onSelectImageResult={onSelectGenerationRecord}
+                      />
+                    ) : hasConversationContent ? null : (
+                      renderAgentEmptyState()
+                    )}
+                  </div>
+                </div>
 
-          <div className="agent-conversation-sidebar__content">
-            {chatEntries.length > 0 ? (
-              <AgentRunChatLog entries={chatEntries} />
-            ) : null}
-          </div>
-        </div>
-
-        <form
-          className="agent-conversation-sidebar__composer"
-          onSubmit={handleComposerSubmit}
-        >
-          <textarea
-            value={draftMessage}
-            rows={2}
-            disabled={messageInputDisabled}
-            placeholder={messagePlaceholder}
-            aria-label="继续 Agent 对话"
-            onChange={(event) => setDraftMessage(event.target.value)}
-            onKeyDown={handleComposerKeyDown}
-          />
-          <DesktopButton
-            type="submit"
-            variant="primary"
-            className="agent-conversation-sidebar__send"
-            disabled={!canSendMessage}
-            aria-label={submittingMessage ? "发送中" : "发送给 Agent"}
-            title={submittingMessage ? "发送中" : "发送给 Agent"}
-          >
-            {sendIcon}
-          </DesktopButton>
-        </form>
+                <form
+                  className="agent-conversation-sidebar__composer"
+                  onSubmit={handleComposerSubmit}
+                >
+                  <textarea
+                    value={draftMessage}
+                    rows={2}
+                    disabled={messageInputDisabled}
+                    placeholder={messagePlaceholder}
+                    aria-label="继续 Agent 对话"
+                    onChange={(event) => setDraftMessage(event.target.value)}
+                    onKeyDown={handleComposerKeyDown}
+                  />
+                  <DesktopButton
+                    type="submit"
+                    variant="primary"
+                    className="agent-conversation-sidebar__send"
+                    disabled={!canSendMessage}
+                    aria-label={submittingMessage ? "发送中" : "发送给 Agent"}
+                    title={submittingMessage ? "发送中" : "发送给 Agent"}
+                  >
+                    {sendIcon}
+                  </DesktopButton>
+                </form>
+              </>
+            )}
           </>
         )}
       </div>

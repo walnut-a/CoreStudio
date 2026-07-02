@@ -333,6 +333,184 @@ const buildDirectGenerationRecordItems = (
     });
 };
 
+interface AcpThreadTaskContext {
+  taskId: string;
+  prompt: string;
+  startedAtMs: number | null;
+  endedAtMs: number | null;
+}
+
+const ACP_RESULT_MATCH_GRACE_MS = 15 * 60 * 1000;
+
+const getRunLogPayloadRecord = (payload: unknown) =>
+  payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : null;
+
+const parseDateMs = (value: string | undefined | null) => {
+  if (!value) {
+    return null;
+  }
+  const dateMs = new Date(value).getTime();
+  return Number.isNaN(dateMs) ? null : dateMs;
+};
+
+const mergeAcpThreadTaskContext = (
+  contexts: Map<string, AcpThreadTaskContext>,
+  patch: Partial<AcpThreadTaskContext> & { taskId: string },
+) => {
+  const current = contexts.get(patch.taskId);
+  contexts.set(patch.taskId, {
+    taskId: patch.taskId,
+    prompt: patch.prompt ?? current?.prompt ?? "",
+    startedAtMs:
+      patch.startedAtMs !== undefined
+        ? patch.startedAtMs
+        : current?.startedAtMs ?? null,
+    endedAtMs:
+      patch.endedAtMs !== undefined
+        ? patch.endedAtMs
+        : current?.endedAtMs ?? null,
+  });
+};
+
+const collectAcpThreadTaskContexts = ({
+  entries,
+  runLogDetail,
+  task,
+}: {
+  entries: readonly AcpRunLogEntry[];
+  runLogDetail: AcpRunLogDetail | null;
+  task: { taskId: string; message: string } | null;
+}) => {
+  const contexts = new Map<string, AcpThreadTaskContext>();
+
+  for (const entry of entries) {
+    const timestampMs = parseDateMs(entry.timestamp);
+    const current = contexts.get(entry.taskId);
+    const payload = getRunLogPayloadRecord(entry.payload);
+    const prompt =
+      typeof payload?.userPrompt === "string" && payload.userPrompt.trim()
+        ? payload.userPrompt.trim()
+        : current?.prompt;
+    mergeAcpThreadTaskContext(contexts, {
+      taskId: entry.taskId,
+      ...(prompt ? { prompt } : {}),
+      startedAtMs:
+        timestampMs === null
+          ? current?.startedAtMs ?? null
+          : Math.min(current?.startedAtMs ?? timestampMs, timestampMs),
+      endedAtMs:
+        timestampMs === null
+          ? current?.endedAtMs ?? null
+          : Math.max(current?.endedAtMs ?? timestampMs, timestampMs),
+    });
+  }
+
+  if (runLogDetail) {
+    mergeAcpThreadTaskContext(contexts, {
+      taskId: runLogDetail.summary.taskId,
+      prompt: runLogDetail.summary.userPrompt.trim(),
+      startedAtMs: parseDateMs(runLogDetail.summary.startedAt),
+      endedAtMs: parseDateMs(
+        runLogDetail.summary.endedAt ?? runLogDetail.summary.startedAt,
+      ),
+    });
+  }
+
+  if (task) {
+    mergeAcpThreadTaskContext(contexts, {
+      taskId: task.taskId,
+      prompt: task.message.trim(),
+    });
+  }
+
+  return Array.from(contexts.values());
+};
+
+const recordMatchesAcpThreadTask = (
+  record: ImageRecord,
+  contexts: readonly AcpThreadTaskContext[],
+) => {
+  const recordPrompt = record.prompt?.trim() ?? "";
+  const recordCreatedAtMs = parseDateMs(record.createdAt);
+
+  return contexts.some((context) => {
+    const promptMatches =
+      Boolean(context.prompt) && recordPrompt === context.prompt;
+    const hasTaskTime =
+      context.startedAtMs !== null || context.endedAtMs !== null;
+    const timeMatches =
+      recordCreatedAtMs !== null &&
+      hasTaskTime &&
+      recordCreatedAtMs >=
+        (context.startedAtMs ?? context.endedAtMs ?? recordCreatedAtMs) -
+          ACP_RESULT_MATCH_GRACE_MS &&
+      recordCreatedAtMs <=
+        (context.endedAtMs ?? context.startedAtMs ?? recordCreatedAtMs) +
+          ACP_RESULT_MATCH_GRACE_MS;
+
+    if (promptMatches) {
+      return !hasTaskTime || timeMatches;
+    }
+    return !recordPrompt && timeMatches;
+  });
+};
+
+const buildAcpAgentResultRecordItems = ({
+  imageRecords,
+  sceneImageFileIds,
+  entries,
+  runLogDetail,
+  task,
+  files,
+}: {
+  imageRecords: ImageRecordMap | null | undefined;
+  sceneImageFileIds: readonly string[];
+  entries: readonly AcpRunLogEntry[];
+  runLogDetail: AcpRunLogDetail | null;
+  task: { taskId: string; message: string } | null;
+  files: BinaryFiles | null | undefined;
+}): GenerationRecordListItem[] => {
+  const contexts = collectAcpThreadTaskContexts({
+    entries,
+    runLogDetail,
+    task,
+  });
+  if (!contexts.length) {
+    return [];
+  }
+
+  const sceneImageFileIdSet = new Set(sceneImageFileIds);
+  return Object.values(imageRecords ?? {})
+    .filter(
+      (record) =>
+        record.sourceType === "generated" &&
+        record.generationOrigin === "acp-agent" &&
+        recordMatchesAcpThreadTask(record, contexts),
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() -
+        new Date(left.createdAt).getTime(),
+    )
+    .map((record) => {
+      const timeLabel = getGenerationRecordTimeLabel(record.createdAt);
+      const sizeLabel = `${record.width} × ${record.height}`;
+      const thumbnailDataUrl = files?.[record.fileId as FileId]?.dataURL ?? null;
+      return {
+        id: record.fileId,
+        fileId: record.fileId,
+        title: getGenerationRecordTitle(record),
+        meta: [timeLabel, "ACP Agent", sizeLabel].filter(Boolean).join(" · "),
+        statusLabel: sceneImageFileIdSet.has(record.fileId)
+          ? "已在画板"
+          : "未在画板",
+        thumbnailDataUrl,
+      };
+    });
+};
+
 const getRestorableImageRecords = (
   imageRecords: ImageRecordMap,
   sceneImageFileIds: readonly string[],
@@ -429,6 +607,12 @@ const PROJECT_HEALTH_ISSUE_META: Record<
       "生成图的资产和记录存在，但当前画板没有对应图片元素，所以从生成记录列表点击时可能无法定位。",
     suggestion: "运行项目数据修复会把可读取的生成图放回画板。",
   },
+  "unwritten-acp-output": {
+    title: "ACP 生成结果未写入项目",
+    description:
+      "ACP Agent 已经在本地生成图片，但写回 CoreStudio 项目时中断或失败。",
+    suggestion: "运行项目数据修复会把这张本地生成图补进项目资产和画板。",
+  },
   "incomplete-generation-record": {
     title: "生成记录元数据不完整",
     description:
@@ -453,6 +637,7 @@ const PROJECT_HEALTH_ISSUE_ORDER: ProjectHealthIssue["code"][] = [
   "missing-asset-file",
   "missing-image-record",
   "orphan-generated-record",
+  "unwritten-acp-output",
   "incomplete-generation-record",
   "missing-thumbnail-cache",
   "missing-preview-cache",
@@ -1080,6 +1265,101 @@ const parseAgentImagePathPayload = (payload: unknown) => {
   return {
     ...(normalizedFileIds.length ? { fileIds: normalizedFileIds } : {}),
     selectionOnly: payload.selectionOnly === true,
+  };
+};
+
+const parseAgentStringList = (value: unknown, label: string) => {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw createAgentBadRequestError(`${label} 必须是数组。`);
+  }
+
+  return Array.from(
+    new Set(
+      value.map((item) => {
+        if (typeof item !== "string" || !item.trim()) {
+          throw createAgentBadRequestError(`${label} 必须是非空字符串数组。`);
+        }
+        return item.trim();
+      }),
+    ),
+  );
+};
+
+const parseAgentLocatePayload = (payload: unknown) => {
+  if (!isObjectPayload(payload)) {
+    throw createAgentBadRequestError("scene.locate payload 格式不正确。");
+  }
+  const elementId =
+    typeof payload.elementId === "string" && payload.elementId.trim()
+      ? payload.elementId.trim()
+      : null;
+  const fileId =
+    typeof payload.fileId === "string" && payload.fileId.trim()
+      ? payload.fileId.trim()
+      : null;
+  if (!elementId && !fileId) {
+    throw createAgentBadRequestError("scene.locate 需要 elementId 或 fileId。");
+  }
+  return { elementId, fileId };
+};
+
+const parseAgentSelectPayload = (payload: unknown) => {
+  if (!isObjectPayload(payload)) {
+    throw createAgentBadRequestError("scene.select payload 格式不正确。");
+  }
+  const elementIds = parseAgentStringList(payload.elementIds, "elementIds");
+  const fileIds = parseAgentStringList(payload.fileIds, "fileIds");
+  if (!elementIds.length && !fileIds.length) {
+    throw createAgentBadRequestError("scene.select 需要 elementIds 或 fileIds。");
+  }
+  return { elementIds, fileIds };
+};
+
+const buildAgentProjectRecords = ({
+  project,
+  scene,
+}: {
+  project: DesktopProjectBundle;
+  scene: { elements: readonly ExcalidrawElement[] } | null;
+}) => {
+  const sceneImageFileIds = collectAgentImageFileIds(scene?.elements ?? []);
+  const sceneImageFileIdSet = new Set(sceneImageFileIds);
+  const records = Object.values(project.imageRecords)
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() -
+        new Date(left.createdAt).getTime(),
+    )
+    .map((record) => ({
+      ...record,
+      title:
+        record.sourceType === "generated"
+          ? getGenerationRecordTitle(record)
+          : record.assetPath.split(/[\\/]/).pop() || record.fileId,
+      onBoard: sceneImageFileIdSet.has(record.fileId),
+    }));
+
+  return {
+    project: {
+      projectPath: project.projectPath,
+      name: project.project.name,
+      updatedAt: project.project.updatedAt,
+    },
+    summary: {
+      recordCount: records.length,
+      generatedRecordCount: records.filter(
+        (record) => record.sourceType === "generated",
+      ).length,
+      onBoardCount: records.filter((record) => record.onBoard).length,
+      offBoardCount: records.filter((record) => !record.onBoard).length,
+    },
+    scene: {
+      imageFileIds: sceneImageFileIds,
+    },
+    records,
   };
 };
 
@@ -1714,6 +1994,9 @@ const App = () => {
   const [acpThreadSummaries, setAcpThreadSummaries] = useState<
     AcpThreadSummary[]
   >([]);
+  const [activeAcpThreadId, setActiveAcpThreadId] = useState<string | null>(
+    null,
+  );
   const [acpThreadSummariesLoading, setAcpThreadSummariesLoading] =
     useState(false);
   const [acpThreadSummariesError, setAcpThreadSummariesError] =
@@ -1771,12 +2054,39 @@ const App = () => {
         : [],
     [currentProject, sceneImageFileIds],
   );
+  const acpAgentResultRecordItems = useMemo(
+    () =>
+      currentProject
+        ? buildAcpAgentResultRecordItems({
+            imageRecords: currentProject.imageRecords,
+            sceneImageFileIds,
+            entries: acpConversationEntries,
+            runLogDetail:
+              acpRunLogSurface === "conversation" ? acpRunLogDetail : null,
+            task: acpAgentTask,
+            files: latestSceneRef.current?.files ?? null,
+          })
+        : [],
+    [
+      acpAgentTask,
+      acpConversationEntries,
+      acpRunLogDetail,
+      acpRunLogSurface,
+      currentProject,
+      sceneImageFileIds,
+    ],
+  );
   const hasAgentConversationContext =
     generationSource === "agent" ||
     acpRunLogSurface === "conversation" ||
     acpAgentTaskRunning;
   const generationSidebarMode: "direct" | "agent" =
     hasAgentConversationContext ? "agent" : "direct";
+
+  const updateActiveAcpThreadId = (threadId: string | null) => {
+    activeAcpThreadIdRef.current = threadId;
+    setActiveAcpThreadId(threadId);
+  };
 
   const updateSceneImageFileIds = (
     elements: readonly ExcalidrawElement[],
@@ -1801,7 +2111,7 @@ const App = () => {
     setCurrentProject(project);
     if (previousProjectPath !== nextProjectPath) {
       clearAcpRunLogRefreshTimer();
-      activeAcpThreadIdRef.current = null;
+      updateActiveAcpThreadId(null);
       acpRunLogTaskIdRef.current = null;
       acpRunLogSurfaceRef.current = null;
       setAcpRunLogSurface(null);
@@ -2311,16 +2621,22 @@ const App = () => {
 
       const repairedGenerationRecordFileIds =
         result.repairedGenerationRecordFileIds ?? [];
+      const repairedAcpOutputRecords = result.repairedAcpOutputRecords ?? {};
+      const repairedAcpOutputFileIds = Object.keys(repairedAcpOutputRecords);
       const repairedImageRecords = repairImageRecordsWithCoreStudioOrigin(
         project.imageRecords,
         repairedGenerationRecordFileIds,
       );
       const projectAfterMetadataRepair =
-        repairedImageRecords === project.imageRecords
+        repairedImageRecords === project.imageRecords &&
+        !repairedAcpOutputFileIds.length
           ? project
           : {
               ...project,
-              imageRecords: repairedImageRecords,
+              imageRecords: {
+                ...repairedImageRecords,
+                ...repairedAcpOutputRecords,
+              },
             };
 
       const fileIdsToRefresh = result.generatedFileIds.filter(
@@ -2353,15 +2669,23 @@ const App = () => {
         return;
       }
 
-      if (repairedGenerationRecordFileIds.length) {
+      if (
+        repairedGenerationRecordFileIds.length ||
+        repairedAcpOutputFileIds.length
+      ) {
         const activeProject = currentProjectRef.current;
         if (activeProject?.projectPath === project.projectPath) {
-          updateCurrentProject({
-            ...activeProject,
-            imageRecords: repairImageRecordsWithCoreStudioOrigin(
+          const activeRepairedRecords =
+            repairImageRecordsWithCoreStudioOrigin(
               activeProject.imageRecords,
               repairedGenerationRecordFileIds,
-            ),
+            );
+          updateCurrentProject({
+            ...activeProject,
+            imageRecords: {
+              ...activeRepairedRecords,
+              ...repairedAcpOutputRecords,
+            },
           });
         }
       }
@@ -3060,7 +3384,7 @@ const App = () => {
   ) => {
     const latestRun = detail.runs[detail.runs.length - 1] ?? null;
     const activateSurface = options.activateSurface ?? true;
-    activeAcpThreadIdRef.current = detail.summary.threadId;
+    updateActiveAcpThreadId(detail.summary.threadId);
     acpRunLogTaskIdRef.current =
       detail.summary.lastTaskId ?? latestRun?.summary.taskId ?? null;
     if (activateSurface) {
@@ -3158,7 +3482,7 @@ const App = () => {
       !listAcpAgentThreads ||
       !readAcpAgentThread
     ) {
-      activeAcpThreadIdRef.current = null;
+      updateActiveAcpThreadId(null);
       setAcpConversationEntries([]);
       setAcpThreadSummaries([]);
       setAcpThreadSummariesError(null);
@@ -3189,7 +3513,7 @@ const App = () => {
         setAcpThreadSummariesLoading(false);
         const latestThread = threads[0] ?? null;
         if (!latestThread) {
-          activeAcpThreadIdRef.current = null;
+          updateActiveAcpThreadId(null);
           setAcpConversationEntries([]);
           setAcpRunLogDetail(null);
           acpRunLogSurfaceRef.current = null;
@@ -4451,7 +4775,7 @@ const App = () => {
     });
 
     activeAcpTaskIdRef.current = taskRequest.taskId;
-    activeAcpThreadIdRef.current = threadId;
+    updateActiveAcpThreadId(threadId);
     acpRunLogTaskIdRef.current = taskRequest.taskId;
     acpRunLogSurfaceRef.current = "conversation";
     setAcpRunLogSurface("conversation");
@@ -4567,7 +4891,7 @@ const App = () => {
     if (acpAgentTaskRunning) {
       return;
     }
-    activeAcpThreadIdRef.current = null;
+    updateActiveAcpThreadId(null);
     activeAcpTaskIdRef.current = null;
     acpRunLogTaskIdRef.current = null;
     acpRunLogSurfaceRef.current = "conversation";
@@ -4784,6 +5108,62 @@ const App = () => {
             name: project.project.name,
             updatedAt: project.project.updatedAt,
           };
+        case "project.records":
+          return buildAgentProjectRecords({
+            project,
+            scene: latestSceneRef.current,
+          });
+        case "project.health": {
+          if (!desktopBridge.inspectProjectHealth) {
+            throw new Error("当前环境不能检查项目健康度。");
+          }
+          return desktopBridge.inspectProjectHealth({
+            projectPath: project.projectPath,
+          });
+        }
+        case "acp.runs": {
+          if (!desktopBridge.listAcpAgentRunLogs) {
+            throw new Error("当前环境不能读取 ACP Agent 任务记录。");
+          }
+          return desktopBridge.listAcpAgentRunLogs({ limit: 50 });
+        }
+        case "acp.run": {
+          assertAgentProjectPath(request.payload, project.projectPath);
+          if (!desktopBridge.readAcpAgentRunLog) {
+            throw new Error("当前环境不能读取 ACP Agent 任务记录。");
+          }
+          if (
+            !isObjectPayload(request.payload) ||
+            typeof request.payload.taskId !== "string" ||
+            !request.payload.taskId.trim()
+          ) {
+            throw createAgentBadRequestError("acp.run 需要非空 taskId。");
+          }
+          return desktopBridge.readAcpAgentRunLog(request.payload.taskId);
+        }
+        case "acp.threads": {
+          if (!desktopBridge.listAcpAgentThreads) {
+            throw new Error("当前环境不能读取 ACP Agent 对话记录。");
+          }
+          return desktopBridge.listAcpAgentThreads({
+            projectToken: project.project.agentAccess.token,
+            limit: 50,
+          });
+        }
+        case "acp.thread": {
+          assertAgentProjectPath(request.payload, project.projectPath);
+          if (!desktopBridge.readAcpAgentThread) {
+            throw new Error("当前环境不能读取 ACP Agent 对话记录。");
+          }
+          if (
+            !isObjectPayload(request.payload) ||
+            typeof request.payload.threadId !== "string" ||
+            !request.payload.threadId.trim()
+          ) {
+            throw createAgentBadRequestError("acp.thread 需要非空 threadId。");
+          }
+          return desktopBridge.readAcpAgentThread(request.payload.threadId);
+        }
         case "scene.board": {
           const scene = latestSceneRef.current;
           const fileIds = collectAgentImageFileIds(scene?.elements ?? []);
@@ -4826,6 +5206,101 @@ const App = () => {
             imageRecords: project.imageRecords,
             ...payload,
           });
+        }
+        case "scene.locate": {
+          assertAgentProjectPath(request.payload, project.projectPath);
+          const api = excalidrawAPIRef.current;
+          if (!api) {
+            throw new Error("CoreStudio 画板还没有准备好。");
+          }
+          const payload = parseAgentLocatePayload(request.payload);
+          const targetElement = api
+            .getSceneElementsIncludingDeleted()
+            .find((element) => {
+              if (element.isDeleted) {
+                return false;
+              }
+              if (payload.elementId && element.id === payload.elementId) {
+                return true;
+              }
+              return (
+                Boolean(payload.fileId) &&
+                element.type === "image" &&
+                element.fileId === payload.fileId
+              );
+            });
+          if (!targetElement) {
+            return {
+              located: false,
+              elementIds: [],
+              fileIds: payload.fileId ? [payload.fileId] : [],
+            };
+          }
+          api.updateScene({
+            appState: {
+              selectedElementIds: {
+                [targetElement.id]: true,
+              },
+              selectedGroupIds: {},
+            },
+            captureUpdate: CaptureUpdateAction.NEVER,
+          });
+          api.scrollToContent(targetElement, {
+            animate: true,
+            duration: 300,
+          });
+          return {
+            located: true,
+            elementIds: [targetElement.id],
+            fileIds:
+              targetElement.type === "image" && targetElement.fileId
+                ? [targetElement.fileId]
+                : [],
+          };
+        }
+        case "scene.select": {
+          assertAgentProjectPath(request.payload, project.projectPath);
+          const api = excalidrawAPIRef.current;
+          if (!api) {
+            throw new Error("CoreStudio 画板还没有准备好。");
+          }
+          const payload = parseAgentSelectPayload(request.payload);
+          const elementIdSet = new Set(payload.elementIds);
+          const fileIdSet = new Set(payload.fileIds);
+          const targetElements = api
+            .getSceneElementsIncludingDeleted()
+            .filter((element) => {
+              if (element.isDeleted) {
+                return false;
+              }
+              if (elementIdSet.has(element.id)) {
+                return true;
+              }
+              return (
+                element.type === "image" &&
+                element.fileId &&
+                fileIdSet.has(element.fileId)
+              );
+            });
+          api.updateScene({
+            appState: {
+              selectedElementIds: Object.fromEntries(
+                targetElements.map((element) => [element.id, true]),
+              ),
+              selectedGroupIds: {},
+            },
+            captureUpdate: CaptureUpdateAction.NEVER,
+          });
+          return {
+            selected: targetElements.length > 0,
+            elementIds: targetElements.map((element) => element.id),
+            fileIds: targetElements
+              .flatMap((element) =>
+                element.type === "image" && element.fileId
+                  ? [element.fileId]
+                  : [],
+              ),
+          };
         }
         case "scene.addImage": {
           assertAgentProjectPath(request.payload, project.projectPath);
@@ -6352,6 +6827,7 @@ const App = () => {
               open={agentChatDockOpen}
               onOpenChange={setAgentChatDockOpen}
               generationRecords={generationRecordItems}
+              agentResultRecords={acpAgentResultRecordItems}
               onSelectGenerationRecord={handleLocateImageRecord}
               task={acpAgentTask}
               runLogDetail={
@@ -6362,7 +6838,7 @@ const App = () => {
                 acpRunLogSurface === "conversation" ? acpRunLogError : null
               }
               threadSummaries={acpThreadSummaries}
-              activeThreadId={activeAcpThreadIdRef.current}
+              activeThreadId={activeAcpThreadId}
               threadsLoading={acpThreadSummariesLoading}
               threadsError={acpThreadSummariesError}
               canSubmitMessage={

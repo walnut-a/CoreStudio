@@ -194,26 +194,32 @@ const requiredString = (
   return value;
 };
 
-const parseFileIdsFlag = (
+const parseCsvFlag = (
   value: string | undefined,
+  flagName: string,
 ): string[] | undefined | AgentEnvelope<never> => {
   if (value === undefined) {
     return undefined;
   }
 
-  const fileIds = Array.from(
+  const values = Array.from(
     new Set(
       value
         .split(",")
-        .map((fileId) => fileId.trim())
+        .map((item) => item.trim())
         .filter(Boolean),
     ),
   );
-  if (!fileIds.length) {
-    return badRequestEnvelope("--file-ids must include at least one file id.");
+  if (!values.length) {
+    return badRequestEnvelope(`${flagName} must include at least one value.`);
   }
-  return fileIds;
+  return values;
 };
+
+const parseFileIdsFlag = (
+  value: string | undefined,
+): string[] | undefined | AgentEnvelope<never> =>
+  parseCsvFlag(value, "--file-ids");
 
 const parseCommand = (
   argv: readonly string[],
@@ -221,6 +227,35 @@ const parseCommand = (
   const [tool, target] = argv;
 
   if (tool === "read") {
+    if (target === "acp-run" || target === "acp-thread") {
+      const idFlag = target === "acp-run" ? "--task-id" : "--thread-id";
+      const parsed = parseArgs(argv.slice(2), {
+        valueFlags: [idFlag],
+      });
+      if (isEnvelope(parsed)) {
+        return parsed;
+      }
+      const positionalsError = expectNoPositionals(`read ${target}`, parsed);
+      if (positionalsError) {
+        return positionalsError;
+      }
+      const id = requiredString(
+        parsed.flags[idFlag],
+        `read ${target} requires ${idFlag}.`,
+      );
+      if (typeof id !== "string") {
+        return id;
+      }
+      return {
+        route:
+          target === "acp-run"
+            ? AGENT_HTTP_ROUTES.acpRun
+            : AGENT_HTTP_ROUTES.acpThread,
+        method: "POST",
+        body: target === "acp-run" ? { taskId: id } : { threadId: id },
+      };
+    }
+
     if (target === "image-paths") {
       const parsed = parseArgs(argv.slice(2), {
         valueFlags: ["--file-ids"],
@@ -265,6 +300,10 @@ const parseCommand = (
       capabilities: { route: AGENT_HTTP_ROUTES.capabilities, method: "GET" },
       context: { route: AGENT_HTTP_ROUTES.context, method: "GET" },
       project: { route: AGENT_HTTP_ROUTES.projectCurrent, method: "GET" },
+      records: { route: AGENT_HTTP_ROUTES.projectRecords, method: "GET" },
+      health: { route: AGENT_HTTP_ROUTES.projectHealth, method: "GET" },
+      "acp-runs": { route: AGENT_HTTP_ROUTES.acpRuns, method: "GET" },
+      "acp-threads": { route: AGENT_HTTP_ROUTES.acpThreads, method: "GET" },
       scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
       selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
       "board-url": {
@@ -279,7 +318,7 @@ const parseCommand = (
     const route = target ? readRoutes[target] : null;
     if (!route) {
       return badRequestEnvelope(
-        "read requires one of: status, capabilities, context, project, scene, selection, image-paths, board-url.",
+        "read requires one of: status, capabilities, context, project, records, health, scene, selection, image-paths, board-url, acp-runs, acp-run, acp-threads, acp-thread.",
       );
     }
     const parsed = parseArgs(argv.slice(2));
@@ -429,12 +468,72 @@ const parseCommand = (
   }
 
   if (tool === "edit") {
-    const parsed = parseArgs(argv.slice(1));
-    if (isEnvelope(parsed)) {
-      return parsed;
+    if (target === "locate") {
+      const parsed = parseArgs(argv.slice(2), {
+        valueFlags: ["--element-id", "--file-id"],
+      });
+      if (isEnvelope(parsed)) {
+        return parsed;
+      }
+      const positionalsError = expectNoPositionals("edit locate", parsed);
+      if (positionalsError) {
+        return positionalsError;
+      }
+      const elementId = parsed.flags["--element-id"]?.trim();
+      const fileId = parsed.flags["--file-id"]?.trim();
+      if (!elementId && !fileId) {
+        return badRequestEnvelope(
+          "edit locate requires --element-id or --file-id.",
+        );
+      }
+      return {
+        route: AGENT_HTTP_ROUTES.sceneLocate,
+        method: "POST",
+        body: {
+          ...(elementId ? { elementId } : {}),
+          ...(fileId ? { fileId } : {}),
+        },
+      };
+    }
+
+    if (target === "select") {
+      const parsed = parseArgs(argv.slice(2), {
+        valueFlags: ["--element-ids", "--file-ids"],
+      });
+      if (isEnvelope(parsed)) {
+        return parsed;
+      }
+      const positionalsError = expectNoPositionals("edit select", parsed);
+      if (positionalsError) {
+        return positionalsError;
+      }
+      const elementIds = parseCsvFlag(
+        parsed.flags["--element-ids"],
+        "--element-ids",
+      );
+      if (isEnvelope(elementIds)) {
+        return elementIds;
+      }
+      const fileIds = parseFileIdsFlag(parsed.flags["--file-ids"]);
+      if (isEnvelope(fileIds)) {
+        return fileIds;
+      }
+      if (!elementIds && !fileIds) {
+        return badRequestEnvelope(
+          "edit select requires --element-ids or --file-ids.",
+        );
+      }
+      return {
+        route: AGENT_HTTP_ROUTES.sceneSelect,
+        method: "POST",
+        body: {
+          ...(elementIds ? { elementIds } : {}),
+          ...(fileIds ? { fileIds } : {}),
+        },
+      };
     }
     return badRequestEnvelope(
-      "edit is reserved for element updates. Current mutations use write image, write prompt, or write generation.",
+      "edit requires one of: locate, select.",
     );
   }
 
@@ -466,7 +565,10 @@ const parseCommand = (
           `${envPrefix} ${executable} read context --json`,
           `${envPrefix} ${executable} read selection --json`,
           `${envPrefix} ${executable} read image-paths --selection --json`,
+          `${envPrefix} ${executable} read records --json`,
+          `${envPrefix} ${executable} read health --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/image.png --origin acp-agent --json`,
+          `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
           `${envPrefix} ${executable} write prompt --text "..." --json`,
         ];
         return {

@@ -44,6 +44,12 @@ interface CreateAcpRunLogWriterOptions {
   maxRuns?: number;
 }
 
+interface CreateAcpRunLogMirrorWriterOptions {
+  baseDirs: string[];
+  now?: () => Date;
+  maxRuns?: number;
+}
+
 interface AcpRunLogReaderOptions {
   baseDir: string;
 }
@@ -308,5 +314,59 @@ export const createAcpRunLogWriter = async (
         writeThreadIndex(threadIndexPath, summary, DEFAULT_MAX_THREADS),
       );
     },
+  };
+};
+
+const getSuccessfulWriterResults = (
+  results: PromiseSettledResult<AcpRunLogWriter>[],
+) =>
+  results.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
+  );
+
+const runPrimaryAndMirrors = async (
+  writers: AcpRunLogWriter[],
+  operation: (writer: AcpRunLogWriter) => Promise<void>,
+) => {
+  const results = await Promise.allSettled(writers.map(operation));
+  if (results[0]?.status === "rejected") {
+    throw results[0].reason;
+  }
+};
+
+export const createAcpRunLogMirrorWriter = async (
+  metadata: AcpRunMetadata,
+  { baseDirs, now, maxRuns }: CreateAcpRunLogMirrorWriterOptions,
+): Promise<AcpRunLogWriter> => {
+  const uniqueBaseDirs = Array.from(
+    new Set(baseDirs.map((baseDir) => path.resolve(baseDir))),
+  );
+  const writers = getSuccessfulWriterResults(
+    await Promise.allSettled(
+      uniqueBaseDirs.map((baseDir) =>
+        createAcpRunLogWriter(metadata, {
+          baseDir,
+          ...(now ? { now } : {}),
+          ...(maxRuns ? { maxRuns } : {}),
+        }),
+      ),
+    ),
+  );
+
+  if (!writers.length) {
+    throw new Error("Unable to create any ACP run log writer.");
+  }
+
+  const primaryWriter = writers[0];
+  return {
+    taskId: primaryWriter.taskId,
+    threadId: primaryWriter.threadId,
+    logPath: primaryWriter.logPath,
+    append: (kind, payload) =>
+      runPrimaryAndMirrors(writers, (writer) => writer.append(kind, payload)),
+    finish: (status, details) =>
+      runPrimaryAndMirrors(writers, (writer) =>
+        writer.finish(status, details),
+      ),
   };
 };

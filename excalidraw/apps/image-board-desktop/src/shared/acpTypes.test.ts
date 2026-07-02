@@ -35,6 +35,9 @@ describe("acpTypes", () => {
     expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
       "capabilities.cli.environment",
     );
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain("read records");
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain("read health");
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain("edit locate");
     expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
       "--origin acp-agent",
     );

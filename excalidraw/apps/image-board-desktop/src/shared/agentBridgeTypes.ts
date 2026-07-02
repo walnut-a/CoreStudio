@@ -11,10 +11,18 @@ export const AGENT_HTTP_ROUTES = {
   desktopBridge: "/v1/desktop-bridge",
   context: "/v1/agent/context",
   projectCurrent: "/v1/project/current",
+  projectRecords: "/v1/project/records",
+  projectHealth: "/v1/project/health",
+  acpRuns: "/v1/acp/runs",
+  acpRun: "/v1/acp/run",
+  acpThreads: "/v1/acp/threads",
+  acpThread: "/v1/acp/thread",
   sceneBoard: "/v1/scene/board",
   sceneSnapshot: "/v1/scene/snapshot",
   sceneSelection: "/v1/scene/selection",
   sceneImagePaths: "/v1/scene/image-paths",
+  sceneLocate: "/v1/scene/locate",
+  sceneSelect: "/v1/scene/select",
   sceneAddImage: "/v1/scene/add-image",
   sceneAddPrompt: "/v1/scene/add-prompt",
   generate: "/v1/generate",
@@ -108,10 +116,18 @@ export type AgentRendererCommandName =
   | "desktop.bridge"
   | "agent.context"
   | "project.current"
+  | "project.records"
+  | "project.health"
+  | "acp.runs"
+  | "acp.run"
+  | "acp.threads"
+  | "acp.thread"
   | "scene.board"
   | "scene.snapshot"
   | "scene.selection"
   | "scene.imagePaths"
+  | "scene.locate"
+  | "scene.select"
   | "scene.addImage"
   | "scene.addPrompt"
   | "generate"

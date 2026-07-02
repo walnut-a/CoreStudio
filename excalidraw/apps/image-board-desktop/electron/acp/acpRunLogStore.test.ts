@@ -5,6 +5,7 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  createAcpRunLogMirrorWriter,
   createAcpRunLogWriter,
   listAcpThreadSummaries,
   readAcpThread,
@@ -206,5 +207,45 @@ describe("acpRunLogStore", () => {
       "task-2",
       "task-2",
     ]);
+  });
+
+  it("mirrors append-only chat logs into project and app directories", async () => {
+    const projectRunsDir = path.join(tempDir, "project", "exports", "agent-runs");
+    const appRunsDir = path.join(tempDir, "app", "agent-runs");
+
+    const writer = await createAcpRunLogMirrorWriter(
+      {
+        taskId: "task-mirror",
+        threadId: "thread-mirror",
+        projectToken: "project-token",
+        projectName: "工业设计助手",
+        agentName: "Codex ACP",
+        userPrompt: "继续优化这张图",
+      },
+      {
+        baseDirs: [projectRunsDir, appRunsDir],
+        now: () => new Date("2026-07-01T06:00:00.000Z"),
+      },
+    );
+
+    await writer.append("agent.message", { text: "我会继续处理。" });
+    await writer.finish("completed", { lastMessage: "已写回项目" });
+
+    expect(writer.logPath).toBe(path.join(projectRunsDir, "task-mirror.jsonl"));
+
+    for (const baseDir of [projectRunsDir, appRunsDir]) {
+      const detail = await readAcpRunLog("task-mirror", { baseDir });
+      expect(detail.summary).toMatchObject({
+        taskId: "task-mirror",
+        threadId: "thread-mirror",
+        status: "completed",
+        lastMessage: "已写回项目",
+      });
+      expect(detail.entries.map((entry) => entry.kind)).toEqual([
+        "task.created",
+        "agent.message",
+        "task.finished",
+      ]);
+    }
   });
 });

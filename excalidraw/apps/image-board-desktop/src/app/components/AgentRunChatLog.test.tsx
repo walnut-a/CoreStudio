@@ -128,12 +128,12 @@ describe("AgentRunChatLog", () => {
 
     expect(messages).toHaveLength(2);
     expect(messages[0]).toMatchObject({
-      id: "task-1-1",
+      id: "task-1-1-task.created",
       role: "user",
       attachments: [],
     });
     expect(messages[1]).toMatchObject({
-      id: "task-1-2",
+      id: "task-1-2-tool.update",
       role: "assistant",
       status: {
         type: "complete",
@@ -143,6 +143,20 @@ describe("AgentRunChatLog", () => {
       role: "tool",
       title: "write image",
     });
+  });
+
+  it("keeps entries with the same task sequence as unique thread messages", () => {
+    const items = createAgentRunChatItems([
+      createEntry(2, "task.package", { userPrompt: "优化这台机器" }),
+      createEntry(2, "agent.message", { text: "我会先分析。" }),
+    ]);
+
+    const messages = createAgentRunThreadMessages(items);
+
+    expect(messages.map((message) => message.id)).toEqual([
+      "task-1-2-task.package",
+      "task-1-2-agent.message",
+    ]);
   });
 
   it("renders protocol JSON only when raw entries are enabled", () => {
@@ -159,7 +173,7 @@ describe("AgentRunChatLog", () => {
     expect(screen.getByText("用户任务")).toBeInTheDocument();
     expect(screen.getByText("已完成。")).toBeInTheDocument();
     expect(screen.queryByText(/ACP 请求/)).toBeNull();
-    expect(container.querySelector('[data-message-id="task-1-1"]'))
+    expect(container.querySelector('[data-message-id="task-1-1-task.created"]'))
       .not.toBeNull();
 
     rerender(<AgentRunChatLog entries={entries} includeRawEntries />);

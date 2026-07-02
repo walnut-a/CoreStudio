@@ -214,6 +214,48 @@ describe("runCli", () => {
       method: "GET",
     },
     {
+      name: "read records",
+      argv: ["read", "records", "--json"],
+      route: "/v1/project/records",
+      method: "GET",
+    },
+    {
+      name: "read health",
+      argv: ["read", "health", "--json"],
+      route: "/v1/project/health",
+      method: "GET",
+    },
+    {
+      name: "read ACP runs",
+      argv: ["read", "acp-runs", "--json"],
+      route: "/v1/acp/runs",
+      method: "GET",
+    },
+    {
+      name: "read ACP threads",
+      argv: ["read", "acp-threads", "--json"],
+      route: "/v1/acp/threads",
+      method: "GET",
+    },
+    {
+      name: "read ACP run",
+      argv: ["read", "acp-run", "--task-id", "task-1", "--json"],
+      route: "/v1/acp/run",
+      method: "POST",
+      body: {
+        taskId: "task-1",
+      },
+    },
+    {
+      name: "read ACP thread",
+      argv: ["read", "acp-thread", "--thread-id", "thread-1", "--json"],
+      route: "/v1/acp/thread",
+      method: "POST",
+      body: {
+        threadId: "thread-1",
+      },
+    },
+    {
       name: "read image-paths for selected images",
       argv: ["read", "image-paths", "--selection", "--json"],
       route: "/v1/scene/image-paths",
@@ -269,6 +311,33 @@ describe("runCli", () => {
         useSelection: true,
       },
       jsonl: true,
+    },
+    {
+      name: "edit locate image",
+      argv: ["edit", "locate", "--file-id", "file-1", "--json"],
+      route: "/v1/scene/locate",
+      method: "POST",
+      body: {
+        fileId: "file-1",
+      },
+    },
+    {
+      name: "edit select elements and images",
+      argv: [
+        "edit",
+        "select",
+        "--element-ids",
+        "element-1,element-2",
+        "--file-ids",
+        "file-1",
+        "--json",
+      ],
+      route: "/v1/scene/select",
+      method: "POST",
+      body: {
+        elementIds: ["element-1", "element-2"],
+        fileIds: ["file-1"],
+      },
     },
   ])(
     "sends $name to the bridge with the expected HTTP request",
@@ -695,10 +764,18 @@ describe("runCli", () => {
     ["read project", ["read", "project", "--json"]],
     ["read scene", ["read", "scene", "--json"]],
     ["read selection", ["read", "selection", "--json"]],
+    ["read records", ["read", "records", "--json"]],
+    ["read health", ["read", "health", "--json"]],
+    ["read acp-runs", ["read", "acp-runs", "--json"]],
+    ["read acp-threads", ["read", "acp-threads", "--json"]],
+    ["read acp-run", ["read", "acp-run", "--task-id", "task-1", "--json"]],
+    ["read acp-thread", ["read", "acp-thread", "--thread-id", "thread-1", "--json"]],
     ["read image-paths", ["read", "image-paths", "--selection", "--json"]],
     ["write image", ["write", "image", "/tmp/a.png", "--json"]],
     ["write prompt", ["write", "prompt", "--text", "prompt", "--json"]],
     ["write generation", ["write", "generation", "--prompt", "prompt", "--jsonl"]],
+    ["edit locate", ["edit", "locate", "--file-id", "file-1", "--json"]],
+    ["edit select", ["edit", "select", "--element-ids", "element-1", "--json"]],
   ])("returns exit 1 when %s returns ok false", async (_name, argv) => {
     const errorEnvelope = {
       ok: false,
@@ -824,6 +901,26 @@ describe("runCli", () => {
       name: "image paths without an explicit scope",
       argv: ["read", "image-paths", "--json"],
       message: "read image-paths requires --selection, --file-ids, or --all.",
+    },
+    {
+      name: "ACP run without task id",
+      argv: ["read", "acp-run", "--json"],
+      message: "read acp-run requires --task-id.",
+    },
+    {
+      name: "ACP thread without thread id",
+      argv: ["read", "acp-thread", "--json"],
+      message: "read acp-thread requires --thread-id.",
+    },
+    {
+      name: "edit locate without a target",
+      argv: ["edit", "locate", "--json"],
+      message: "edit locate requires --element-id or --file-id.",
+    },
+    {
+      name: "edit select without a target",
+      argv: ["edit", "select", "--json"],
+      message: "edit select requires --element-ids or --file-ids.",
     },
   ])("fails locally for $name", async ({ argv, message }) => {
     const fetch = createFetch();

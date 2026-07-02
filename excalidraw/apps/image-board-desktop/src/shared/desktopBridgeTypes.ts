@@ -146,6 +146,8 @@ export interface RebuildProjectThumbnailsResult {
   skippedFileIds: string[];
   failedFileIds: string[];
   repairedGenerationRecordFileIds: string[];
+  repairedAcpOutputFileIds?: string[];
+  repairedAcpOutputRecords?: ImageRecordMap;
   backupPath?: string | null;
 }
 
@@ -160,6 +162,7 @@ export interface ProjectHealthIssue {
     | "missing-preview-cache"
     | "orphan-image-record"
     | "orphan-generated-record"
+    | "unwritten-acp-output"
     | "incomplete-generation-record"
     | "broken-parent-link"
     | "broken-prompt-reference";
@@ -183,6 +186,7 @@ export interface ProjectHealthReport {
   missingPreviewFileIds: string[];
   orphanImageRecordFileIds: string[];
   orphanGeneratedImageRecordFileIds: string[];
+  unwrittenAcpOutputFileIds?: string[];
   incompleteGenerationRecordFileIds: string[];
   brokenParentFileIds: string[];
   brokenPromptReferenceFileIds: string[];

@@ -136,21 +136,47 @@ describe("generate composer styles", () => {
       appCss,
       ".agent-conversation-sidebar__send:disabled",
     );
-    const sidebarChatRule = getRule(
+    const sidebarTimelineRule = getRule(
       appCss,
-      ".agent-conversation-sidebar .agent-run-chat",
+      ".agent-conversation-sidebar .agent-thread-timeline",
     );
-    const userItemRule = getRule(appCss, ".agent-run-chat__item--user");
-    const userAvatarRule = getRule(
+    const sideDockHeaderActionsRule = getRule(
       appCss,
-      ".agent-run-chat__item--user .agent-run-chat__avatar",
+      ".side-dock__header-actions",
     );
-    const inlineCallRule = getRule(
+    const sideDockHeaderActionButtonRule = getRule(
       appCss,
-      ".agent-run-chat__item--inline-call",
+      ".side-dock__header-actions .image-board-button",
     );
-    const toolCardRule = getRule(appCss, ".agent-run-chat__tool-card");
-    const toolMetaRule = getRule(appCss, ".agent-run-chat__tool-meta");
+    const timelineViewportRule = getRule(
+      appCss,
+      ".agent-thread-timeline__viewport",
+    );
+    const timelineTextRule = getRule(
+      appCss,
+      ".agent-thread-timeline__text,\n.agent-thread-timeline__status-line,\n.agent-thread-timeline__error-line",
+    );
+    const timelineInlineCodeRule = getRule(
+      appCss,
+      ".agent-thread-timeline__inline-code",
+    );
+    const userMessageRule = getRule(
+      appCss,
+      ".agent-thread-timeline__message--user",
+    );
+    const userMessageBodyRule = getRule(
+      appCss,
+      ".agent-thread-timeline__message--user .agent-thread-timeline__message-body",
+    );
+    const toolRule = getRule(appCss, ".agent-thread-timeline__tool");
+    const toolSummaryRule = getRule(
+      appCss,
+      ".agent-thread-timeline__tool summary",
+    );
+    const imageResultRule = getRule(
+      appCss,
+      ".agent-thread-timeline__image-result",
+    );
     const threadTitleRule = getRule(
       appCss,
       ".agent-conversation-sidebar__thread strong",
@@ -168,7 +194,7 @@ describe("generate composer styles", () => {
       ".generation-record-sidebar__item span",
     );
 
-    expect(agentSidebarSource).toContain("<AgentRunChatLog");
+    expect(agentSidebarSource).toContain("<AgentThreadTimeline");
     expect(agentSidebarSource).not.toContain(
       "agent-conversation-sidebar__timeline",
     );
@@ -186,7 +212,8 @@ describe("generate composer styles", () => {
     expect(agentSidebarSource).not.toContain("发起任务后");
     expect(agentSidebarSource).not.toContain("从底部输入任务");
     expect(agentSidebarSource).not.toContain("Agent Bridge 尚未就绪");
-    expect(agentSidebarSource).toContain("showThreadShelf");
+    expect(agentSidebarSource).toContain("threadListOpen");
+    expect(agentSidebarSource).toContain("打开 Agent 对话列表");
     expect(agentSidebarSource).toContain("输入任务");
     expect(agentSidebarSource).toContain("继续对话");
     expect(agentSidebarSource).toContain("onSubmitMessage");
@@ -194,9 +221,16 @@ describe("generate composer styles", () => {
     expect(agentSidebarSource).toContain("threadSummaries");
     expect(agentSidebarSource).toContain("onSelectThread");
     expect(agentSidebarSource).toContain("hasConversationContext");
-    expect(sidebarRule).toContain(
-      "grid-template-rows: auto auto minmax(0, 1fr) auto",
+    expect(agentSidebarSource).toContain("createAgentThreadFromEntries");
+    expect(agentSidebarSource).toContain("headerActions={agentHeaderActions}");
+    expect(agentSidebarSource).not.toContain(
+      "agent-conversation-sidebar__toolbar",
     );
+    expect(sidebarRule).toContain(
+      "grid-template-rows: auto minmax(0, 1fr) auto",
+    );
+    expect(sideDockHeaderActionsRule).toContain("display: flex");
+    expect(sideDockHeaderActionButtonRule).toContain("min-height: 30px");
     expect(composerRule).toContain(
       "grid-template-columns: minmax(0, 1fr) 34px",
     );
@@ -205,22 +239,24 @@ describe("generate composer styles", () => {
     expect(composerSendIconRule).toContain("height: 18px");
     expect(composerSendIconRule).toContain("stroke-width: 1.6");
     expect(composerSendDisabledRule).toContain("color: var(--color-gray-70)");
-    expect(sidebarChatRule).toContain(
-      "grid-template-rows: minmax(0, 1fr)",
-    );
-    expect(userItemRule).toContain("justify-content: flex-end");
-    expect(userAvatarRule).toContain("display: none");
+    expect(sidebarTimelineRule).toContain("grid-template-rows: minmax(0, 1fr)");
+    expect(timelineViewportRule).toContain("gap: 12px");
+    expect(timelineTextRule).toContain("line-height: 1.62");
+    expect(timelineInlineCodeRule).toContain("font-family:");
+    expect(appCss).toContain(".agent-thread-timeline__path-block");
+    expect(appCss).toContain(".agent-thread-timeline__code-block");
+    expect(appCss).toContain("max-height: 12rem");
+    expect(userMessageRule).toContain("justify-items: end");
+    expect(userMessageBodyRule).toContain("max-width: 86%");
     expect(appCss).not.toContain(".agent-run-chat__event-rail");
-    expect(inlineCallRule).toContain("padding: 1px 0");
-    expect(toolCardRule).toContain("border: 1px solid");
-    expect(toolCardRule).toContain("background: var(--island-bg-color)");
-    expect(toolMetaRule).toContain("align-items: baseline");
-    expect(threadTitleRule).toContain(
-      "font-weight: var(--font-weight-medium)",
+    expect(toolRule).toContain("border: 1px solid");
+    expect(toolRule).toContain("background: var(--island-bg-color)");
+    expect(toolSummaryRule).toContain("grid-template-columns");
+    expect(imageResultRule).toContain(
+      "grid-template-columns: 38px minmax(0, 1fr)",
     );
-    expect(threadMetaRule).toContain(
-      "font-weight: var(--font-weight-regular)",
-    );
+    expect(threadTitleRule).toContain("font-weight: var(--font-weight-medium)");
+    expect(threadMetaRule).toContain("font-weight: var(--font-weight-regular)");
     expect(generationTitleRule).toContain(
       "font-weight: var(--font-weight-medium)",
     );
@@ -279,10 +315,14 @@ describe("generate composer styles", () => {
     expect(canvasErrorRule).toBeTruthy();
     expect(canvasErrorRule).toContain("position: fixed");
     expect(canvasErrorRule).toContain("top: calc(");
-    expect(canvasErrorRule).toContain("var(--desktop-window-top-inset, 0px) + 96px");
+    expect(canvasErrorRule).toContain(
+      "var(--desktop-window-top-inset, 0px) + 96px",
+    );
     expect(canvasErrorRule).toContain("left: 50%");
     expect(canvasErrorRule).toContain("transform: translateX(-50%)");
-    expect(canvasErrorRule).toContain("z-index: var(--canvas-footer-overlay-z-index)");
+    expect(canvasErrorRule).toContain(
+      "z-index: var(--canvas-footer-overlay-z-index)",
+    );
   });
 
   it("keeps the agent status dock button aligned with canvas help controls", () => {
@@ -501,8 +541,12 @@ describe("generate composer styles", () => {
     expect(narrowAppRule).toContain(
       "--corestudio-side-panel-width: min(300px, 86vw)",
     );
-    expect(narrowAppRule).not.toContain("--corestudio-right-sidebar-width: min(");
-    expect(narrowAppRule).not.toContain("--corestudio-left-sidebar-width: min(");
+    expect(narrowAppRule).not.toContain(
+      "--corestudio-right-sidebar-width: min(",
+    );
+    expect(narrowAppRule).not.toContain(
+      "--corestudio-left-sidebar-width: min(",
+    );
     expect(narrowAppRule).toContain("--floating-panel-edge-gap: 16px");
     expect(narrowAppRule).toContain("--canvas-toolbar-max-inline-size: calc(");
     expect(narrowMenuRule).toContain(

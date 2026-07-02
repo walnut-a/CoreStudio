@@ -66,6 +66,11 @@ interface WriteRouteConfig {
   completeGrant?: boolean;
 }
 
+interface ProjectCommandRouteConfig {
+  route: string;
+  command: AgentRendererCommandName;
+}
+
 const WRITE_ROUTES: WriteRouteConfig[] = [
   {
     route: AGENT_HTTP_ROUTES.sceneAddImage,
@@ -83,6 +88,25 @@ const WRITE_ROUTES: WriteRouteConfig[] = [
     route: AGENT_HTTP_ROUTES.taskComplete,
     command: "task.complete",
     completeGrant: true,
+  },
+];
+
+const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
+  {
+    route: AGENT_HTTP_ROUTES.acpRun,
+    command: "acp.run",
+  },
+  {
+    route: AGENT_HTTP_ROUTES.acpThread,
+    command: "acp.thread",
+  },
+  {
+    route: AGENT_HTTP_ROUTES.sceneLocate,
+    command: "scene.locate",
+  },
+  {
+    route: AGENT_HTTP_ROUTES.sceneSelect,
+    command: "scene.select",
   },
 ];
 
@@ -417,6 +441,17 @@ const createDryRunPayload = (body: JsonBody) => {
   };
 };
 
+const createProjectCommandPayload = (body: JsonBody, projectPath: string) => {
+  const {
+    projectPath: _projectPath,
+    ...rest
+  } = body;
+  return {
+    ...rest,
+    projectPath,
+  };
+};
+
 const handleReadCommand = async (
   response: http.ServerResponse,
   renderer: LocalBridgeServerOptions["renderer"],
@@ -703,6 +738,10 @@ export const createLocalBridgeServer = async (
 
       const readRoutes = new Map<string, AgentRendererCommandName>([
         [AGENT_HTTP_ROUTES.projectCurrent, "project.current"],
+        [AGENT_HTTP_ROUTES.projectRecords, "project.records"],
+        [AGENT_HTTP_ROUTES.projectHealth, "project.health"],
+        [AGENT_HTTP_ROUTES.acpRuns, "acp.runs"],
+        [AGENT_HTTP_ROUTES.acpThreads, "acp.threads"],
         [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
         [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
       ]);
@@ -723,6 +762,9 @@ export const createLocalBridgeServer = async (
       const writeRoute = WRITE_ROUTES.find(
         (config) => config.route === url.pathname,
       );
+      const projectCommandRoute = PROJECT_COMMAND_ROUTES.find(
+        (config) => config.route === url.pathname,
+      );
       const isAuthorizeRoute = url.pathname === AGENT_HTTP_ROUTES.authorize;
       const isSceneImagePathsRoute =
         url.pathname === AGENT_HTTP_ROUTES.sceneImagePaths;
@@ -733,6 +775,7 @@ export const createLocalBridgeServer = async (
         !isAuthorizeRoute &&
         !isSceneImagePathsRoute &&
         !writeRoute &&
+        !projectCommandRoute &&
         !isDesktopBridgeRoute &&
         !isBrowserStateRoute
       ) {
@@ -855,6 +898,27 @@ export const createLocalBridgeServer = async (
           options.renderer,
           body,
         );
+        return;
+      }
+
+      if (request.method === "POST" && projectCommandRoute && body) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
+        try {
+          const result = await options.renderer.request(
+            projectCommandRoute.command,
+            createProjectCommandPayload(body, currentProject.projectPath),
+          );
+          sendJson(response, 200, createAgentOk(result));
+        } catch (error) {
+          sendRendererError(response, error);
+        }
         return;
       }
 

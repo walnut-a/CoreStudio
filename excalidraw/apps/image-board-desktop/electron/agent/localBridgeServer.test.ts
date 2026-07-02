@@ -350,9 +350,13 @@ describe("createLocalBridgeServer", () => {
   it.each([
     [AGENT_HTTP_ROUTES.context, "agent.context"],
     [AGENT_HTTP_ROUTES.projectCurrent, "project.current"],
+    ["/v1/project/records", "project.records"],
+    ["/v1/project/health", "project.health"],
     [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
     [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
     [AGENT_HTTP_ROUTES.sceneSelection, "scene.selection"],
+    ["/v1/acp/runs", "acp.runs"],
+    ["/v1/acp/threads", "acp.threads"],
   ] as const)("forwards %s to %s", async (route, command) => {
     const { server, renderer } = await track(startServer());
 
@@ -364,6 +368,52 @@ describe("createLocalBridgeServer", () => {
       ok: true,
       data: {
         command,
+      },
+    });
+  });
+
+  it.each([
+    {
+      route: "/v1/acp/run",
+      command: "acp.run",
+      body: { taskId: "task-1" },
+    },
+    {
+      route: "/v1/acp/thread",
+      command: "acp.thread",
+      body: { threadId: "thread-1" },
+    },
+    {
+      route: "/v1/scene/locate",
+      command: "scene.locate",
+      body: { fileId: "file-1" },
+    },
+    {
+      route: "/v1/scene/select",
+      command: "scene.select",
+      body: { elementIds: ["element-1"], fileIds: ["file-1"] },
+    },
+  ])("forwards $route to $command with payload", async ({ route, command, body }) => {
+    const { server, renderer } = await track(startServer());
+
+    const result = await requestJson(server.baseUrl, route, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith(command, {
+      projectPath: currentProject.projectPath,
+      ...body,
+    });
+    expect(result.body).toEqual({
+      ok: true,
+      data: {
+        command,
+        payload: {
+          projectPath: currentProject.projectPath,
+          ...body,
+        },
       },
     });
   });

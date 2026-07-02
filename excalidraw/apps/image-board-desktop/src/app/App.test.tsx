@@ -1845,6 +1845,135 @@ describe("App startup", () => {
     );
   });
 
+  it("returns project records and health through agent read commands", async () => {
+    type AgentProjectReadListener = (request: {
+      requestId: string;
+      command: "project.records" | "project.health";
+      payload?: unknown;
+    }) => Promise<unknown> | unknown;
+    let agentCommandListener: AgentProjectReadListener | null = null;
+    const healthReport = {
+      checkedAt: "2026-06-24T08:00:00.000Z",
+      projectPath: "/tmp/mock-project",
+      imageRecordCount: 1,
+      generatedImageRecordCount: 1,
+      sceneImageFileCount: 1,
+      missingImageRecordFileIds: [],
+      missingAssetFileIds: [],
+      missingThumbnailFileIds: [],
+      missingPreviewFileIds: [],
+      orphanImageRecordFileIds: [],
+      orphanGeneratedImageRecordFileIds: [],
+      incompleteGenerationRecordFileIds: [],
+      brokenParentFileIds: [],
+      brokenPromptReferenceFileIds: [],
+      issues: [],
+      summary: {
+        errorCount: 0,
+        warningCount: 0,
+        repairableCount: 0,
+      },
+    };
+    const inspectProjectHealth = vi.fn().mockResolvedValue(healthReport);
+    const project = createMockProjectBundle({
+      imageRecords: {
+        "generated-file": {
+          fileId: "generated-file",
+          assetPath: "assets/generated-file.png",
+          sourceType: "generated",
+          generationOrigin: "acp-agent",
+          width: 1024,
+          height: 1024,
+          createdAt: "2026-06-24T08:00:00.000Z",
+          mimeType: "image/png",
+          prompt: "优化桌面 CNC",
+        },
+      },
+    });
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(project),
+      inspectProjectHealth,
+      onAgentCommandRequest: vi.fn((listener) => {
+        agentCommandListener = listener;
+        return () => {
+          agentCommandListener = null;
+        };
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [
+          newImageElement({
+            type: "image",
+            fileId: "generated-file" as FileId,
+            status: "saved",
+            scale: [1, 1],
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 240,
+          }),
+        ],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          selectedElementIds: {},
+          selectedGroupIds: {},
+          viewBackgroundColor: "#ffffff",
+        },
+        files: {},
+      });
+    });
+
+    await waitFor(() => {
+      expect(agentCommandListener).toBeTruthy();
+    });
+    if (!agentCommandListener) {
+      throw new Error("agent command listener was not registered");
+    }
+    const listener = agentCommandListener as unknown as AgentProjectReadListener;
+
+    const recordsResult = await listener({
+      requestId: "agent-request-1",
+      command: "project.records",
+    });
+    expect(recordsResult).toMatchObject({
+      summary: {
+        recordCount: 1,
+        generatedRecordCount: 1,
+        onBoardCount: 1,
+      },
+      records: [
+        {
+          fileId: "generated-file",
+          title: "优化桌面 CNC",
+          onBoard: true,
+          generationOrigin: "acp-agent",
+        },
+      ],
+    });
+
+    const healthResult = await listener({
+      requestId: "agent-request-2",
+      command: "project.health",
+    });
+    expect(healthResult).toBe(healthReport);
+    expect(inspectProjectHealth).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+    });
+  });
+
   it("marks agent read requests as PROJECT_REQUIRED when no project is open", async () => {
     type AgentContextListener = (request: {
       requestId: string;
@@ -4209,6 +4338,20 @@ describe("App startup", () => {
       skippedFileIds: [],
       failedFileIds: [],
       repairedGenerationRecordFileIds: ["generated-file"],
+      repairedAcpOutputFileIds: ["acp-output"],
+      repairedAcpOutputRecords: {
+        "acp-output": {
+          fileId: "acp-output",
+          assetPath: "assets/acp-output.png",
+          sourceType: "generated",
+          generationOrigin: "acp-agent",
+          prompt: "ACP 生成图片",
+          width: 1254,
+          height: 1254,
+          createdAt: "2026-04-12T08:03:00.000Z",
+          mimeType: "image/png",
+        },
+      },
     });
     let menuActionListener: ((event: { action: string }) => void) | null = null;
 
@@ -4319,6 +4462,12 @@ describe("App startup", () => {
             "imported-orphan-repaired-thumbnail",
           ).toString("base64")}`,
         }),
+        expect.objectContaining({
+          id: "acp-output",
+          dataURL: `data:image/png;base64,${Buffer.from(
+            "acp-output-repaired-thumbnail",
+          ).toString("base64")}`,
+        }),
       ]);
     });
     await waitFor(() => {
@@ -4340,6 +4489,16 @@ describe("App startup", () => {
             (element) =>
               element.type === "image" &&
               element.fileId === "imported-orphan",
+          ),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(
+        mockExcalidrawAPI
+          ?.getSceneElementsIncludingDeleted()
+          .some(
+            (element) =>
+              element.type === "image" && element.fileId === "acp-output",
           ),
       ).toBe(true);
     });
@@ -9161,9 +9320,9 @@ describe("App startup", () => {
     expect(agentDock.getByText("测试 Agent")).toBeInTheDocument();
     expect(
       agentDock.getByRole("log", {
-        name: "Agent 任务过程",
+        name: "Agent 对话时间线",
       }),
-    ).toHaveTextContent("用户任务");
+    ).toHaveTextContent("继续细化工业设计方案");
     expect(agentDock.getByText("正在分析当前画板。")).toBeInTheDocument();
     expect(
       agentDock.getAllByText(/No model configured/).length,
@@ -9317,8 +9476,8 @@ describe("App startup", () => {
 
     const agentDock = within(screen.getByTestId("side-dock-left"));
     expect(
-      agentDock.getByRole("log", { name: "Agent 任务过程" }),
-    ).toHaveTextContent("用户任务");
+      agentDock.getByRole("log", { name: "Agent 对话时间线" }),
+    ).toHaveTextContent("继续细化工业设计方案");
 
     act(() => {
       acpTaskListener?.({
@@ -9669,7 +9828,28 @@ describe("App startup", () => {
           : "旧方案的讨论记录。",
       );
     });
+    const startAcpAgentTask = vi.fn(async (_request: any) => ({
+      taskId: "task-continue",
+      threadId: "thread-older",
+    }));
     window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "acp-result-image": {
+              fileId: "acp-result-image",
+              assetPath: "assets/acp-result-image.png",
+              sourceType: "generated",
+              generationOrigin: "acp-agent",
+              prompt: "旧方案讨论",
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-06-29T01:00:30.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
       getAgentBridgeStatus: vi.fn(async () => ({
         enabled: true,
         ready: true,
@@ -9692,6 +9872,7 @@ describe("App startup", () => {
       })),
       listAcpAgentThreads,
       readAcpAgentThread,
+      startAcpAgentTask,
     }) as any;
 
     render(<App />);
@@ -9701,6 +9882,38 @@ describe("App startup", () => {
     });
     act(() => {
       triggerExcalidrawInitialize?.();
+      triggerExcalidrawChange?.({
+        elements: [
+          {
+            id: "acp-result-element",
+            type: "image",
+            fileId: "acp-result-image",
+            isDeleted: false,
+            groupIds: [],
+            x: 240,
+            y: 180,
+            width: 320,
+            height: 320,
+          },
+        ],
+        appState: {
+          width: 1440,
+          height: 900,
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+        files: {
+          "acp-result-image": {
+            id: "acp-result-image",
+            dataURL: "data:image/png;base64,YWNw",
+            mimeType: "image/png",
+            created: 1782709230000,
+          },
+        },
+      });
     });
     await waitFor(() => {
       expect(readAcpAgentThread).toHaveBeenCalledWith("thread-latest");
@@ -9720,6 +9933,12 @@ describe("App startup", () => {
     expect(agentDock.getByText("最新任务已完成。")).toBeInTheDocument();
 
     await act(async () => {
+      fireEvent.click(
+        agentDock.getByRole("button", { name: "打开 Agent 对话列表" }),
+      );
+    });
+
+    await act(async () => {
       fireEvent.click(agentDock.getByRole("button", { name: /旧方案讨论/ }));
     });
 
@@ -9728,6 +9947,41 @@ describe("App startup", () => {
     });
     expect(agentDock.getByText("旧方案的讨论记录。")).toBeInTheDocument();
     expect(agentDock.queryByText("最新任务已完成。")).toBeNull();
+    const timeline = within(
+      agentDock.getByRole("log", { name: "Agent 对话时间线" }),
+    );
+    const imageResult = timeline.getByRole("button", { name: /旧方案讨论/ });
+    expect(imageResult).toHaveTextContent("旧方案讨论");
+    expect(imageResult).toHaveTextContent("ACP Agent");
+    expect(imageResult).toHaveTextContent("已在画板");
+
+    await act(async () => {
+      fireEvent.click(imageResult);
+    });
+
+    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "acp-result-element",
+        fileId: "acp-result-image",
+      }),
+      {
+        animate: true,
+        duration: 300,
+      },
+    );
+
+    fireEvent.change(agentDock.getByLabelText("继续 Agent 对话"), {
+      target: { value: "继续优化右侧结构" },
+    });
+    fireEvent.click(agentDock.getByRole("button", { name: "发送给 Agent" }));
+
+    await waitFor(() => {
+      expect(startAcpAgentTask).toHaveBeenCalled();
+    });
+    expect(startAcpAgentTask.mock.calls[0][0]).toMatchObject({
+      threadId: "thread-older",
+      userPrompt: "继续优化右侧结构",
+    });
   });
 
   it("keeps the generated image canvas size from the placeholder frame", async () => {

@@ -249,8 +249,24 @@ export const createAgentRunChatItems = (
   { includeRawEntries = false }: { includeRawEntries?: boolean } = {},
 ): AgentRunChatItem[] => {
   const items: AgentRunChatItem[] = [];
+  const usedItemIds = new Set<string>();
   const agentMessageItemsByMessageId = new Map<string, AgentRunChatItem>();
   let fallbackAgentMessageItem: AgentRunChatItem | undefined;
+  const createItemId = (entry: AcpRunLogEntry) => {
+    const baseId = `${entry.taskId}-${entry.seq}-${entry.kind}`;
+    if (!usedItemIds.has(baseId)) {
+      usedItemIds.add(baseId);
+      return baseId;
+    }
+
+    let index = 2;
+    while (usedItemIds.has(`${baseId}-${index}`)) {
+      index += 1;
+    }
+    const itemId = `${baseId}-${index}`;
+    usedItemIds.add(itemId);
+    return itemId;
+  };
 
   for (const entry of entries) {
     if (RAW_ACP_RUN_LOG_KINDS.has(entry.kind) && !includeRawEntries) {
@@ -287,7 +303,7 @@ export const createAgentRunChatItems = (
     }
 
     const item: AgentRunChatItem = {
-      id: `${entry.taskId}-${entry.seq}`,
+      id: createItemId(entry),
       role: getEntryRole(entry),
       title: getEntryTitle(entry),
       detail,

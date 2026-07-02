@@ -12,6 +12,8 @@ Use capabilities.cli.executable and capabilities.cli.environment from the task p
 
 When you need original image files, prefer querying paths through the CoreStudio CLI instead of asking CoreStudio to inline image data.
 
+Use \`read context\` for current project and selection context, \`read records\` for project image records, \`read health\` for project consistency checks, and \`edit locate\` / \`edit select\` when you need the board to focus or select existing elements.
+
 When you write a generated image back to the board, preserve provenance. Use \`write image\` with \`--origin acp-agent\`, the original task prompt via \`--prompt\`, and reference ids via \`--reference-file-ids\` / \`--reference-element-ids\` when available. The task package also exposes default CLI environment values for these fields.
 
 When you write back to the board, report the CLI command result, including created or updated imageId, elementId, frameId, or prompt id when available.

@@ -101,7 +101,7 @@ import {
   type AcpSessionClient,
 } from "./acp/acpSessionClient";
 import {
-  createAcpRunLogWriter,
+  createAcpRunLogMirrorWriter,
   listAcpRunLogSummaries,
   listAcpThreadSummaries,
   readAcpThread,
@@ -274,6 +274,9 @@ const getAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
 const getAcpRunLogBaseDir = () =>
   path.join(app.getPath("appData"), "Excalidraw Image Board", "agent-runs");
 
+const getProjectAcpRunLogBaseDir = (projectPath: string) =>
+  path.join(projectPath, PROJECT_FILENAMES.exportsDir, "agent-runs");
+
 const createNoopAcpRunLogWriter = (taskId: string): AcpRunLogWriter => ({
   taskId,
   threadId: taskId,
@@ -291,7 +294,7 @@ const createAcpTaskRunLog = async (
   agentName: string,
 ): Promise<AcpRunLogWriter> => {
   try {
-    return await createAcpRunLogWriter(
+    return await createAcpRunLogMirrorWriter(
       {
         taskId: request.taskId,
         threadId: request.threadId || request.taskId,
@@ -300,7 +303,12 @@ const createAcpTaskRunLog = async (
         agentName,
         userPrompt: request.userPrompt,
       },
-      { baseDir: getAcpRunLogBaseDir() },
+      {
+        baseDirs: [
+          getProjectAcpRunLogBaseDir(request.project.projectPath),
+          getAcpRunLogBaseDir(),
+        ],
+      },
     );
   } catch (error) {
     console.error("[acp:run-log-create-failed]", error);
@@ -1088,13 +1096,19 @@ const registerIpcHandlers = () => {
   );
 
   ipcMain.handle(IPC_CHANNELS.inspectProjectHealth, async (_event, input) => {
-    return inspectProjectHealth(input);
+    return inspectProjectHealth({
+      ...input,
+      agentRunsBaseDir: getAcpRunLogBaseDir(),
+    });
   });
 
   ipcMain.handle(
     IPC_CHANNELS.rebuildProjectThumbnails,
     async (_event, input) => {
-      return rebuildProjectThumbnails(input);
+      return rebuildProjectThumbnails({
+        ...input,
+        agentRunsBaseDir: getAcpRunLogBaseDir(),
+      });
     },
   );
 

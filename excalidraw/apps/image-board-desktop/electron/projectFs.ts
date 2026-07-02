@@ -24,7 +24,16 @@ import type {
 
 import type { ProviderId } from "../src/shared/providerTypes";
 import { getSceneContentHash } from "../src/shared/sceneVersion";
+import {
+  readLocalImagePayload,
+  type LocalImagePayloadOptions,
+} from "./agent/localImagePayload";
 import { DESKTOP_APP_VERSION } from "./appVersion";
+import {
+  buildAcpPromptReferences,
+  collectUnwrittenAcpOutputs,
+  type UnwrittenAcpOutput,
+} from "./acp/acpOutputRecovery";
 
 const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
@@ -190,6 +199,9 @@ interface ReadProjectAssetPayloadsOptions {
 
 interface RebuildProjectThumbnailsOptions {
   createThumbnail?: CreateThumbnail;
+  inspectImage?: LocalImagePayloadOptions["inspectImage"];
+  readFile?: LocalImagePayloadOptions["readFile"];
+  now?: LocalImagePayloadOptions["now"];
 }
 
 interface SceneImageReference {
@@ -832,6 +844,51 @@ const pathExists = async (targetPath: string) => {
   }
 };
 
+const createNativeImageInspector = async (): Promise<
+  NonNullable<LocalImagePayloadOptions["inspectImage"]>
+> => {
+  const { nativeImage } = await import("electron");
+  return ({ buffer, mimeType }) => {
+    const image = nativeImage.createFromBuffer(buffer);
+    if (image.isEmpty()) {
+      throw new Error("无法读取 ACP 生成图片尺寸。");
+    }
+    const size = image.getSize();
+    return {
+      width: size.width || 1024,
+      height: size.height || 1024,
+      mimeType,
+    };
+  };
+};
+
+const importUnwrittenAcpOutput = async (
+  projectPath: string,
+  output: UnwrittenAcpOutput,
+  options: RebuildProjectThumbnailsOptions,
+) => {
+  const payload = await readLocalImagePayload(output.outputPath, {
+    ...(options.readFile ? { readFile: options.readFile } : {}),
+    inspectImage: options.inspectImage ?? (await createNativeImageInspector()),
+    ...(options.now ? { now: options.now } : {}),
+    randomId: () => output.fileId,
+  });
+  const imageRecords = await persistImageAssets({
+    projectPath,
+    files: [
+      {
+        ...payload,
+        sourceType: "generated",
+        generationOrigin: "acp-agent",
+        prompt: output.prompt,
+        promptReferences: buildAcpPromptReferences(output),
+      },
+    ],
+  });
+
+  return imageRecords[output.fileId];
+};
+
 const cachedRenditionExists = async ({
   projectPath,
   record,
@@ -939,8 +996,10 @@ export const cleanProjectCache = async ({
 
 export const inspectProjectHealth = async ({
   projectPath,
+  agentRunsBaseDir,
 }: {
   projectPath: string;
+  agentRunsBaseDir?: string;
 }): Promise<ProjectHealthReport> => {
   const bundle = await readProjectBundle(projectPath);
   const sceneReferences = readSceneImageReferences(bundle.sceneJson);
@@ -990,6 +1049,14 @@ export const inspectProjectHealth = async ({
   const brokenParentFileIds: string[] = [];
   const brokenPromptReferenceFileIds: string[] = [];
   const incompleteGenerationRecordFileIds: string[] = [];
+  const unwrittenAcpOutputs = await collectUnwrittenAcpOutputs({
+    projectToken: bundle.project.agentAccess.token,
+    imageRecords: bundle.imageRecords,
+    agentRunsBaseDir,
+  });
+  const unwrittenAcpOutputFileIds = unwrittenAcpOutputs.map(
+    (output) => output.fileId,
+  );
 
   await Promise.all(
     imageRecordFileIds.map(async (fileId) => {
@@ -1125,6 +1192,19 @@ export const inspectProjectHealth = async ({
     });
   }
 
+  for (const output of unwrittenAcpOutputs) {
+    addIssue({
+      code: "unwritten-acp-output",
+      severity: "warning",
+      fileId: output.fileId,
+      path: output.outputPath,
+      message: `ACP 生成结果未写入项目：${path.basename(
+        output.outputPath,
+      )}`,
+      repairable: true,
+    });
+  }
+
   return {
     checkedAt: new Date().toISOString(),
     projectPath,
@@ -1137,6 +1217,7 @@ export const inspectProjectHealth = async ({
     missingPreviewFileIds,
     orphanImageRecordFileIds,
     orphanGeneratedImageRecordFileIds,
+    unwrittenAcpOutputFileIds,
     incompleteGenerationRecordFileIds,
     brokenParentFileIds,
     brokenPromptReferenceFileIds: Array.from(
@@ -1245,11 +1326,13 @@ export const rebuildProjectThumbnails = async (
     fileIds,
     force = false,
     createBackup = false,
+    agentRunsBaseDir,
   }: {
     projectPath: string;
     fileIds: string[];
     force?: boolean;
     createBackup?: boolean;
+    agentRunsBaseDir?: string;
   },
   options: RebuildProjectThumbnailsOptions = {},
 ) => {
@@ -1262,6 +1345,11 @@ export const rebuildProjectThumbnails = async (
   const bundle = await readProjectBundle(projectPath);
   let imageRecords = bundle.imageRecords;
   const repairedGenerationRecordFileIds: string[] = [];
+  const repairedAcpOutputFileIds: string[] = [];
+  const repairedAcpOutputRecords: ImageRecordMap = {};
+  const generatedFileIds: string[] = [];
+  const skippedFileIds: string[] = [];
+  const failedFileIds: string[] = [];
   if (createBackup) {
     const repairResult = repairLegacyGeneratedImageRecordOrigins(imageRecords);
     if (repairResult.repairedFileIds.length) {
@@ -1276,10 +1364,33 @@ export const rebuildProjectThumbnails = async (
         updatedAt: new Date().toISOString(),
       });
     }
+
+    const unwrittenAcpOutputs = await collectUnwrittenAcpOutputs({
+      projectToken: bundle.project.agentAccess.token,
+      imageRecords,
+      agentRunsBaseDir,
+    });
+    for (const output of unwrittenAcpOutputs) {
+      try {
+        const record = await importUnwrittenAcpOutput(
+          projectPath,
+          output,
+          options,
+        );
+        if (!record) {
+          continue;
+        }
+        imageRecords = {
+          ...imageRecords,
+          [record.fileId]: record,
+        };
+        repairedAcpOutputFileIds.push(record.fileId);
+        repairedAcpOutputRecords[record.fileId] = record;
+      } catch {
+        failedFileIds.push(output.fileId);
+      }
+    }
   }
-  const generatedFileIds: string[] = [];
-  const skippedFileIds: string[] = [];
-  const failedFileIds: string[] = [];
 
   for (const fileId of Array.from(new Set(fileIds))) {
     const record = imageRecords[fileId];
@@ -1330,13 +1441,23 @@ export const rebuildProjectThumbnails = async (
     }
   }
 
-  return {
+  const result = {
     generatedFileIds,
     skippedFileIds,
     failedFileIds,
     repairedGenerationRecordFileIds,
     backupPath,
   };
+
+  if (repairedAcpOutputFileIds.length) {
+    return {
+      ...result,
+      repairedAcpOutputFileIds,
+      repairedAcpOutputRecords,
+    };
+  }
+
+  return result;
 };
 
 export const persistImageAssets = async ({

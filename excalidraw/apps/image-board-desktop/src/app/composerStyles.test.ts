@@ -1264,6 +1264,10 @@ describe("generate composer styles", () => {
     ).join("\n");
     const iconRule = getRule(appCss, ".generate-composer__icon");
     const actionRule = getRule(appCss, ".generate-composer__action");
+    const composerIconSvgRule = getRulesContaining(
+      appCss,
+      ".generate-composer__icon > svg",
+    ).join("\n");
     const primaryActionRule = getRule(
       appCss,
       ".image-board-button--primary.generate-composer__action",
@@ -1340,8 +1344,19 @@ describe("generate composer styles", () => {
     expect(promptEditorPlaceholderRule).toContain(
       "content: attr(data-placeholder)",
     );
+    expect(iconRule).toContain("--button-width: var(--lg-button-size)");
+    expect(iconRule).toContain("--button-height: var(--lg-button-size)");
+    expect(actionRule).toContain("--button-width: var(--lg-button-size)");
+    expect(actionRule).toContain("--button-height: var(--lg-button-size)");
     expect(iconRule).toContain("background: transparent");
     expect(actionRule).toContain("background: transparent");
+    expect(composerIconSvgRule).toContain(
+      ".excalidraw .excalidraw-button.generate-composer__icon > svg",
+    );
+    expect(composerIconSvgRule).toContain("width: var(--lg-icon-size)");
+    expect(composerIconSvgRule).toContain("height: var(--lg-icon-size)");
+    expect(composerIconSvgRule).toContain("min-width: var(--lg-icon-size)");
+    expect(composerIconSvgRule).toContain("flex: 0 0 var(--lg-icon-size)");
     expect(primaryActionRule).toContain(
       "background: var(--generate-composer-send-bg)",
     );

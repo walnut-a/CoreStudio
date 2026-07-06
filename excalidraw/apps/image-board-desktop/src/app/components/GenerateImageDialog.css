@@ -902,6 +902,8 @@
 }
 
 .generate-composer__icon {
+  --button-width: var(--lg-button-size);
+  --button-height: var(--lg-button-size);
   width: var(--lg-button-size);
   height: var(--lg-button-size);
   min-height: var(--lg-button-size);
@@ -929,6 +931,8 @@
 }
 
 .generate-composer__action {
+  --button-width: var(--lg-button-size);
+  --button-height: var(--lg-button-size);
   width: var(--lg-button-size);
   min-width: var(--lg-button-size);
   height: var(--lg-button-size);
@@ -1118,10 +1122,12 @@
   outline-offset: 2px;
 }
 
-.generate-composer__icon svg,
-.generate-composer__action svg {
+.excalidraw .excalidraw-button.generate-composer__icon > svg,
+.excalidraw .excalidraw-button.generate-composer__action > svg {
   width: var(--lg-icon-size);
   height: var(--lg-icon-size);
+  min-width: var(--lg-icon-size);
+  flex: 0 0 var(--lg-icon-size);
 }
 
 .generate-panel__body {

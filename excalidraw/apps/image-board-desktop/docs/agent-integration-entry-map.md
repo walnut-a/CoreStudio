@@ -1,6 +1,6 @@
 # Agent Integration Entry Map
 
-> 本文档是 Agent 集成的入口地图和产品边界说明。第一轮架构收口计划是 [agent-integration-architecture-reset-plan.md](./agent-integration-architecture-reset-plan.md)，下一阶段产品与架构清理计划是 [agent-integration-v2-cleanup-plan.md](./agent-integration-v2-cleanup-plan.md)。历史整合稿 [agent-integration-consolidation-plan.md](./agent-integration-consolidation-plan.md) 已合并进主计划，不再作为新的执行入口。
+> 本文档是 Agent 集成的入口地图和产品边界说明。架构设计和长期迭代原则沉淀在 [agent-integration-architecture-and-principles.md](./agent-integration-architecture-and-principles.md)。第一轮架构收口计划是 [agent-integration-architecture-reset-plan.md](./agent-integration-architecture-reset-plan.md)，下一阶段产品与架构清理计划是 [agent-integration-v2-cleanup-plan.md](./agent-integration-v2-cleanup-plan.md)。历史整合稿 [agent-integration-consolidation-plan.md](./agent-integration-consolidation-plan.md) 已合并进主计划，不再作为新的执行入口。
 
 ## 背景
 

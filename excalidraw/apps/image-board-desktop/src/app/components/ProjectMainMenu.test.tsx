@@ -97,6 +97,15 @@ describe("ProjectMainMenu", () => {
         name: "复制 Agent Board 链接",
       }),
     ).not.toBeInTheDocument();
+    expect(
+      within(projectGroup).queryByRole("button", { name: "最近项目" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(projectGroup).queryByRole("button", { name: "项目维护" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(projectGroup).queryByRole("button", { name: "ACP 调试记录" }),
+    ).not.toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "导出图片" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查找画布" })).toBeInTheDocument();

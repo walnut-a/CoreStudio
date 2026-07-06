@@ -105,6 +105,9 @@ const getCoreStudioCliEnvironment = (request: AcpTaskRequest) => ({
   CORESTUDIO_AGENT_BRIDGE_URL: request.project.bridgeBaseUrl,
   CORESTUDIO_AGENT_PROJECT_TOKEN: request.project.token,
   CORESTUDIO_AGENT_TASK_ID: request.taskId,
+  ...(request.threadId
+    ? { CORESTUDIO_AGENT_THREAD_ID: request.threadId }
+    : {}),
   CORESTUDIO_AGENT_USER_PROMPT: request.userPrompt,
   ...(() => {
     const { fileIds, elementIds } = getAcpSelectionIds(request);
@@ -128,6 +131,12 @@ const buildTaskContext = (request: AcpTaskRequest) => {
   const executable = getCoreStudioCliExecutable();
   const environment = getCoreStudioCliEnvironment(request);
   const commandPrefix = `${formatCliEnvPrefix(environment)} ${executable}`;
+  const selectionIds = getAcpSelectionIds(request);
+  const imagePathsCommand = `${commandPrefix} read image-paths --selection --json`;
+  const writeImageExample = `${commandPrefix} write image /absolute/path/to/image.png --origin acp-agent --prompt ${shellQuote(
+    request.userPrompt,
+  )} --json`;
+  const writePromptExample = `${commandPrefix} write prompt --text "..." --json`;
   return {
     schemaVersion: "corestudio.acpTask.v1",
     task: {
@@ -141,6 +150,15 @@ const buildTaskContext = (request: AcpTaskRequest) => {
       generation: request.generation,
       selection: request.selection,
     },
+    references: {
+      fileIds: selectionIds.fileIds,
+      elementIds: selectionIds.elementIds,
+      imagePaths: {
+        source: "CoreStudio CLI",
+        command: imagePathsCommand,
+        note: "Use this command to resolve original local image paths; do not ask CoreStudio to inline full image data unless a tool explicitly needs it.",
+      },
+    },
     capabilities: {
       cli: {
         executable,
@@ -148,13 +166,20 @@ const buildTaskContext = (request: AcpTaskRequest) => {
         examples: [
           `${commandPrefix} read context --json`,
           `${commandPrefix} read selection --json`,
-          `${commandPrefix} read image-paths --selection --json`,
-          `${commandPrefix} write image /absolute/path/to/image.png --origin acp-agent --prompt ${shellQuote(
-            request.userPrompt,
-          )} --json`,
-          `${commandPrefix} write prompt --text "..." --json`,
+          imagePathsCommand,
+          writeImageExample,
+          writePromptExample,
         ],
       },
+    },
+    outputExpectation: {
+      writeBackRequired: true,
+      mutationAuthority: "CoreStudio CLI / Local Bridge",
+      textOnlyDoesNotMutateProject: true,
+      generatedImageWriteBack:
+        "Generated images must be written with write image so CoreStudio can validate provenance, copy assets, create records, and insert board elements.",
+      reportCreatedIds: ["imageId", "elementId", "frameId", "promptId"],
+      writeBackExamples: [writeImageExample, writePromptExample],
     },
     contract: {
       writeBack: {

@@ -1,0 +1,325 @@
+.dialog-card__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: var(--color-surface-primary-container);
+  color: var(--color-on-primary-container);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dialog-card h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.provider-card__header p {
+  margin: 0;
+  color: var(--color-gray-70);
+  line-height: 1.6;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(27, 27, 31, 0.14);
+  backdrop-filter: blur(3px);
+}
+
+.dialog-card {
+  width: min(720px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--dialog-border-color);
+  border-radius: 24px;
+  background: var(--island-bg-color);
+  box-shadow: var(--modal-shadow);
+}
+
+.dialog-card--wide {
+  width: min(900px, calc(100vw - 48px));
+}
+
+.dialog-card--settings {
+  width: min(680px, calc(100vw - 48px));
+}
+
+.dialog-card__header,
+.provider-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dialog-card__close {
+  flex-shrink: 0;
+}
+
+.dialog-card__notice,
+.dialog-card__warning,
+.dialog-card__error {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  line-height: 1.5;
+}
+
+.dialog-card__notice {
+  background: #f1fbf5;
+  border-color: #8ad4a6;
+  color: #1f5c38;
+}
+
+.dialog-card__warning {
+  background: var(--color-warning-background);
+  border-color: var(--color-warning-dark);
+  color: var(--color-warning-color);
+}
+
+.dialog-card__warning--compact {
+  margin-top: 12px;
+}
+
+.dialog-card__error {
+  background: var(--color-danger-background);
+  border-color: var(--color-danger-darker);
+  color: var(--color-danger-color);
+}
+
+.dialog-card__error--actionable {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialog-card__error-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.dialog-card__error-action {
+  flex-shrink: 0;
+}
+
+.dialog-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.dialog-form-grid__full {
+  grid-column: 1 / -1;
+}
+
+.dialog-form-grid label,
+.provider-card label {
+  display: grid;
+  gap: 8px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.dialog-form-grid input,
+.dialog-form-grid select,
+.dialog-form-grid textarea,
+.provider-card input,
+.provider-card select {
+  width: 100%;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--input-bg-color);
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text-primary-color);
+  transition: border-color 0.15s ease, background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.dialog-form-grid input:hover,
+.dialog-form-grid select:hover,
+.dialog-form-grid textarea:hover,
+.provider-card input:hover,
+.provider-card select:hover {
+  background-color: var(--input-hover-bg-color);
+}
+
+.dialog-form-grid input:focus,
+.dialog-form-grid select:focus,
+.dialog-form-grid textarea:focus,
+.provider-card input:focus,
+.provider-card select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(105, 101, 219, 0.16);
+}
+
+.dialog-form-grid textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.dialog-form-grid select,
+.provider-card select {
+  appearance: none;
+  background-image: var(--dropdown-icon);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 14px) 50%;
+  background-size: 12px;
+  padding-right: 40px;
+}
+
+.dialog-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  color: var(--text-primary-color);
+}
+
+.dialog-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+}
+
+.dialog-checkbox--compact {
+  margin-top: 0;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.dialog-reference-card {
+  padding: 16px 18px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 20px;
+  background: var(--color-surface-mid);
+}
+
+.dialog-reference-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dialog-reference-card__header strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.dialog-reference-card__header p,
+.dialog-reference-card__notes p {
+  margin: 0;
+  color: var(--color-gray-60);
+  line-height: 1.55;
+}
+
+.dialog-reference-card__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0 0.625rem;
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.dialog-reference-card__notes {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--default-border-color);
+}
+
+.dialog-reference-card__notes span {
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary-color);
+}
+
+.dialog-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.providers-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.provider-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 20px;
+  background: var(--color-surface-mid);
+}
+
+.provider-card__header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.provider-card__header span {
+  font-size: 13px;
+  color: var(--color-gray-60);
+}
+
+.provider-card .image-board-button {
+  justify-self: start;
+}
+
+.provider-card__feedback {
+  margin: -4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.provider-card__feedback--success {
+  color: var(--color-success);
+}
+
+.provider-card__feedback--error {
+  color: var(--color-danger);
+}
+
+@media (max-width: 720px) {
+  .dialog-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dialog-backdrop {
+    padding: 16px;
+  }
+
+  .dialog-card {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .dialog-card__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

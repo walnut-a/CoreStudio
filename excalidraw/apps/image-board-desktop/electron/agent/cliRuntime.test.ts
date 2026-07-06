@@ -226,6 +226,18 @@ describe("runCli", () => {
       method: "GET",
     },
     {
+      name: "read board",
+      argv: ["read", "board", "--json"],
+      route: AGENT_HTTP_ROUTES.sceneBoard,
+      method: "GET",
+    },
+    {
+      name: "read browser state",
+      argv: ["read", "browser-state", "--json"],
+      route: AGENT_HTTP_ROUTES.browserState,
+      method: "GET",
+    },
+    {
       name: "read ACP runs",
       argv: ["read", "acp-runs", "--json"],
       route: "/v1/acp/runs",
@@ -284,11 +296,13 @@ describe("runCli", () => {
     },
     {
       name: "write image",
-      argv: ["write", "image", "/tmp/a.png", "--json"],
+      argv: ["write", "image", "/tmp/a.png", "--origin", "acp-agent", "--json"],
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
       body: {
         ...imagePayload,
+        sourceType: "generated",
+        generationOrigin: "acp-agent",
       },
     },
     {
@@ -538,6 +552,8 @@ describe("runCli", () => {
         },
         examples: expect.arrayContaining([
           expect.stringContaining("read context --json"),
+          expect.stringContaining("read board --json"),
+          expect.stringContaining("read browser-state --json"),
           expect.stringContaining("write image /absolute/path/to/image.png"),
         ]),
       },
@@ -565,6 +581,34 @@ describe("runCli", () => {
       },
     });
   });
+
+  it.each([
+    ["status", ["status", "--json"]],
+    ["context", ["context", "--json"]],
+    ["records", ["records", "--json"]],
+    ["locate", ["locate", "--file-id", "file-1", "--json"]],
+    ["image-paths", ["image-paths", "--selection", "--json"]],
+    ["add-image", ["add-image", "/tmp/a.png", "--json"]],
+  ])(
+    "rejects the old top-level %s alias and keeps the four-tool surface",
+    async (_name, argv) => {
+      const fetch = createFetch();
+
+      const result = await runCommand(argv, {
+        fetch,
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        ok: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "CoreStudio CLI tools are: read, write, edit, bash.",
+        },
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects session descriptors without a project token", async () => {
     const records: RequestRecord[] = [];
@@ -640,7 +684,7 @@ describe("runCli", () => {
       const readImageFile = vi.fn(async () => buffer);
 
       const result = await runCommand(
-        ["write", "image", filePath, "--json"],
+        ["write", "image", filePath, "--origin", "acp-agent", "--json"],
         {
           fetch,
           readImageFile,
@@ -659,6 +703,8 @@ describe("runCli", () => {
         width,
         height,
         createdAt: "2026-06-24T08:00:00.000Z",
+        sourceType: "generated",
+        generationOrigin: "acp-agent",
       });
     },
   );
@@ -693,10 +739,11 @@ describe("runCli", () => {
     expect(readImagePayload).toHaveBeenCalledWith("/tmp/source.png");
     expect(parseRequestBody(records)).toMatchObject({
       ...imagePayload,
+      sourceType: "generated",
       generationOrigin: "acp-agent",
       prompt: "优化这台 CNC",
-      referenceFileIds: "file-source",
-      referenceElementIds: "element-source",
+      referenceFileIds: ["file-source"],
+      referenceElementIds: ["element-source"],
     });
   });
 
@@ -712,6 +759,7 @@ describe("runCli", () => {
           CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
           CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
           CORESTUDIO_AGENT_TASK_ID: "task-1",
+          CORESTUDIO_AGENT_THREAD_ID: "thread-1",
           CORESTUDIO_AGENT_USER_PROMPT: "优化这台 CNC",
           CORESTUDIO_AGENT_REFERENCE_FILE_IDS: "file-source",
           CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS: "element-source",
@@ -724,10 +772,13 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(0);
     expect(parseRequestBody(records)).toMatchObject({
       ...imagePayload,
+      sourceType: "generated",
       generationOrigin: "acp-agent",
+      generationTaskId: "task-1",
+      generationThreadId: "thread-1",
       prompt: "优化这台 CNC",
-      referenceFileIds: "file-source",
-      referenceElementIds: "element-source",
+      referenceFileIds: ["file-source"],
+      referenceElementIds: ["element-source"],
     });
   });
 
@@ -738,7 +789,7 @@ describe("runCli", () => {
     );
 
     const result = await runCommand(
-      ["write", "image", "/tmp/source.svg", "--json"],
+      ["write", "image", "/tmp/source.svg", "--origin", "acp-agent", "--json"],
       {
         fetch,
         readImageFile,
@@ -752,6 +803,11 @@ describe("runCli", () => {
         code: "COMMAND_FAILED",
         message:
           "Failed to read image payload: Unable to inspect SVG dimensions.",
+        details: {
+          stage: "read-image-payload",
+          imagePath: "/tmp/source.svg",
+          cause: "Unable to inspect SVG dimensions.",
+        },
       },
     });
     expect(fetch).not.toHaveBeenCalled();
@@ -762,6 +818,8 @@ describe("runCli", () => {
     ["read capabilities", ["read", "capabilities", "--json"]],
     ["read context", ["read", "context", "--json"]],
     ["read project", ["read", "project", "--json"]],
+    ["read board", ["read", "board", "--json"]],
+    ["read browser-state", ["read", "browser-state", "--json"]],
     ["read scene", ["read", "scene", "--json"]],
     ["read selection", ["read", "selection", "--json"]],
     ["read records", ["read", "records", "--json"]],
@@ -771,7 +829,7 @@ describe("runCli", () => {
     ["read acp-run", ["read", "acp-run", "--task-id", "task-1", "--json"]],
     ["read acp-thread", ["read", "acp-thread", "--thread-id", "thread-1", "--json"]],
     ["read image-paths", ["read", "image-paths", "--selection", "--json"]],
-    ["write image", ["write", "image", "/tmp/a.png", "--json"]],
+    ["write image", ["write", "image", "/tmp/a.png", "--origin", "acp-agent", "--json"]],
     ["write prompt", ["write", "prompt", "--text", "prompt", "--json"]],
     ["write generation", ["write", "generation", "--prompt", "prompt", "--jsonl"]],
     ["edit locate", ["edit", "locate", "--file-id", "file-1", "--json"]],
@@ -911,6 +969,26 @@ describe("runCli", () => {
       name: "ACP thread without thread id",
       argv: ["read", "acp-thread", "--json"],
       message: "read acp-thread requires --thread-id.",
+    },
+    {
+      name: "write image without generation origin",
+      argv: ["write", "image", "/tmp/a.png", "--json"],
+      message:
+        "write image requires --origin unless an ACP task environment provides one.",
+    },
+    {
+      name: "write image with empty reference file ids",
+      argv: [
+        "write",
+        "image",
+        "/tmp/a.png",
+        "--origin",
+        "acp-agent",
+        "--reference-file-ids",
+        " , ",
+        "--json",
+      ],
+      message: "--reference-file-ids must include at least one value.",
     },
     {
       name: "edit locate without a target",

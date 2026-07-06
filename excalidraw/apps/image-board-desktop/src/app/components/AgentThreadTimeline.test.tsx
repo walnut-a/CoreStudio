@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AgentThreadTimeline } from "./AgentThreadTimeline";
 
-import type { AgentThread } from "../agentThreadModel";
+import type { AgentThread } from "../agentThreadTypes";
 
 const createThread = (overrides: Partial<AgentThread> = {}): AgentThread => ({
   id: "thread-1",
@@ -121,6 +121,8 @@ describe("AgentThreadTimeline", () => {
     });
     expect(imageButton).toHaveTextContent("ACP Agent");
     expect(imageButton).toHaveTextContent("Codex Image");
+    expect(imageButton).toHaveTextContent("提示词：把这台机器做得更简洁");
+    expect(imageButton).toHaveTextContent("参考图 1");
     fireEvent.click(imageButton);
     expect(onSelectImageResult).toHaveBeenCalledWith("file-1");
   });
@@ -391,8 +393,8 @@ describe("AgentThreadTimeline", () => {
 
     fireEvent.click(screen.getByText("读取文件 · SKILL.md"));
 
-    expect(screen.getByText("输入")).toBeInTheDocument();
-    expect(screen.getByText("输出")).toBeInTheDocument();
+    expect(screen.getByText("输入参数")).toBeInTheDocument();
+    expect(screen.getByText("执行结果")).toBeInTheDocument();
     expect(
       screen.getAllByText(/\/Users\/zhaolixing\/\.codex\/skills/).length,
     ).toBeGreaterThan(0);

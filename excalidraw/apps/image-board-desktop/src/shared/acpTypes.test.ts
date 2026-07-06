@@ -39,6 +39,15 @@ describe("acpTypes", () => {
     expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain("read health");
     expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain("edit locate");
     expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
+      'locateKind: "referenced-by-result"',
+    );
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
+      'reason: "missing-board-element"',
+    );
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
+      "project data repair",
+    );
+    expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(
       "--origin acp-agent",
     );
     expect(DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE).toContain(

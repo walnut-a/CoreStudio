@@ -6,6 +6,8 @@ import { AGENT_HTTP_ROUTES } from "../../shared/agentBridgeTypes";
 import { DESKTOP_LANG_CODE } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 
+import "./AgentBoard.css";
+
 import type { AgentEnvelope } from "../../shared/agentBridgeTypes";
 import type { DesktopCurrentProject } from "../../shared/desktopBridgeTypes";
 import type { ExcalidrawElement } from "@excalidraw/element/types";

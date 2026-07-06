@@ -1,6 +1,7 @@
 import { copy } from "../copy";
 import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
 import { DesktopButton } from "./DesktopButton";
+import "./WelcomePane.css";
 
 interface WelcomePaneProps {
   loading: boolean;
@@ -69,13 +70,13 @@ export const WelcomePane = ({
         {onAgentAccessToggle ? (
           <div className="welcome-pane__agent-access">
             <div className="welcome-pane__agent-access-copy">
-              <strong>Agent 调用</strong>
-              <span>允许本机 Agent 通过 CLI 或内置浏览器连接当前项目。</span>
+              <strong>Agent 集成</strong>
+              <span>允许本机 Agent 通过网页画布和 CLI 连接本地项目。</span>
             </div>
             <button
               type="button"
               role="switch"
-              aria-label="允许 Agent 调用"
+              aria-label="启用 Agent 集成"
               aria-checked={agentAccessEnabled}
               disabled={agentAccessToggleDisabled}
               className="app-settings-section__switch"

@@ -9,6 +9,7 @@ const createTaskRequest = (
   overrides: Partial<AcpTaskRequest> = {},
 ): AcpTaskRequest => ({
   taskId: "task-1",
+  threadId: "thread-1",
   agentId: "agent-1",
   userPrompt: "优化这台机器的设计",
   project: {
@@ -159,6 +160,7 @@ describe("acpSessionClient", () => {
       CORESTUDIO_AGENT_BRIDGE_URL: "http://127.0.0.1:60909",
       CORESTUDIO_AGENT_PROJECT_TOKEN: "project-token",
       CORESTUDIO_AGENT_TASK_ID: "task-1",
+      CORESTUDIO_AGENT_THREAD_ID: "thread-1",
       CORESTUDIO_AGENT_USER_PROMPT: "优化这台机器的设计",
       CORESTUDIO_AGENT_REFERENCE_FILE_IDS: "file-1",
       CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS: "element-1",
@@ -173,6 +175,23 @@ describe("acpSessionClient", () => {
       "--origin acp-agent",
     );
     expect(taskContext.capabilities.cli.examples[3]).toContain("--prompt");
+    expect(taskContext.references).toMatchObject({
+      fileIds: ["file-1"],
+      elementIds: ["element-1"],
+      imagePaths: {
+        source: "CoreStudio CLI",
+        command: expect.stringContaining("read image-paths --selection --json"),
+      },
+    });
+    expect(taskContext.outputExpectation).toMatchObject({
+      writeBackRequired: true,
+      mutationAuthority: "CoreStudio CLI / Local Bridge",
+      textOnlyDoesNotMutateProject: true,
+      reportCreatedIds: ["imageId", "elementId", "frameId", "promptId"],
+    });
+    expect(taskContext.outputExpectation.writeBackExamples[0]).toContain(
+      "write image /absolute/path/to/image.png --origin acp-agent",
+    );
     expect(request).toHaveBeenNthCalledWith(
       3,
       "session/prompt",

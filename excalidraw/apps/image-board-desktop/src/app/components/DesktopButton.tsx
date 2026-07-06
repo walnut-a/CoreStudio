@@ -1,5 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
+import "./DesktopButton.css";
+
 interface DesktopButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   children: ReactNode;

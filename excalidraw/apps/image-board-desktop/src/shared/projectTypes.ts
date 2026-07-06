@@ -62,6 +62,8 @@ export interface ImageRecord {
   prompt?: string;
   negativePrompt?: string;
   seed?: number | null;
+  generationTaskId?: string | null;
+  generationThreadId?: string | null;
   width: number;
   height: number;
   createdAt: string;

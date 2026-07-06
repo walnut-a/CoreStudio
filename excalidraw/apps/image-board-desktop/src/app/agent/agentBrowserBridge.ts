@@ -28,9 +28,14 @@ import type { AcpAgentSettings } from "../../shared/acpTypes";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import type { GenerationResponse } from "../../shared/providerTypes";
 
-interface AgentBrowserBridgeConfig {
+export interface AgentBrowserBridgeConfig {
   bridge: string;
   token?: string;
+}
+
+export interface AgentBrowserRouteState {
+  isAgentBrowserRoute: boolean;
+  hasInitialProjectToken: boolean;
 }
 
 interface AgentBridgeStatusResponse {
@@ -38,12 +43,42 @@ interface AgentBridgeStatusResponse {
   currentProject: DesktopCurrentProject | null;
 }
 
-const getAgentBrowserBridgeConfig = (): AgentBrowserBridgeConfig | null => {
-  if (window.location.pathname !== "/agent-board") {
+export const buildAgentBrowserRouteState = ({
+  pathname,
+  href,
+}: {
+  pathname: string;
+  href: string;
+}): AgentBrowserRouteState => {
+  const isAgentBrowserRoute = pathname === "/agent-board";
+  if (!isAgentBrowserRoute) {
+    return {
+      isAgentBrowserRoute: false,
+      hasInitialProjectToken: false,
+    };
+  }
+
+  const url = new URL(href);
+  return {
+    isAgentBrowserRoute,
+    hasInitialProjectToken: Boolean(
+      url.searchParams.get("projectToken") ?? url.searchParams.get("token"),
+    ),
+  };
+};
+
+export const buildAgentBrowserBridgeConfig = ({
+  pathname,
+  href,
+}: {
+  pathname: string;
+  href: string;
+}): AgentBrowserBridgeConfig | null => {
+  if (pathname !== "/agent-board") {
     return null;
   }
 
-  const url = new URL(window.location.href);
+  const url = new URL(href);
   const bridge = url.searchParams.get("bridge");
   const token =
     url.searchParams.get("projectToken") ?? url.searchParams.get("token");
@@ -55,6 +90,25 @@ const getAgentBrowserBridgeConfig = (): AgentBrowserBridgeConfig | null => {
     bridge: bridge.replace(/\/+$/, ""),
     ...(token ? { token } : {}),
   };
+};
+
+export const buildAgentBrowserProjectTokenHref = ({
+  href,
+  token,
+}: {
+  href: string;
+  token: string;
+}) => {
+  const url = new URL(href);
+  url.searchParams.set("projectToken", token);
+  return url.toString();
+};
+
+const getAgentBrowserBridgeConfig = (): AgentBrowserBridgeConfig | null => {
+  return buildAgentBrowserBridgeConfig({
+    pathname: window.location.pathname,
+    href: window.location.href,
+  });
 };
 
 const isEnvelope = <T>(value: unknown): value is AgentEnvelope<T> =>
@@ -140,9 +194,14 @@ export const maybeCreateAgentBrowserDesktopBridge =
         );
         if (bundle?.project.agentAccess.token) {
           config.token = bundle.project.agentAccess.token;
-          const url = new URL(window.location.href);
-          url.searchParams.set("projectToken", config.token);
-          window.history.replaceState(null, "", url.toString());
+          window.history.replaceState(
+            null,
+            "",
+            buildAgentBrowserProjectTokenHref({
+              href: window.location.href,
+              token: config.token,
+            }),
+          );
         }
         return bundle;
       },

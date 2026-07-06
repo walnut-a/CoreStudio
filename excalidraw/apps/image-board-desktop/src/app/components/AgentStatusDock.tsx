@@ -1,83 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 
+import "./AgentStatusDock.css";
+
 import { agentBridgeIcon } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 
-import type { DesktopAgentBridgeStatus } from "../../shared/desktopBridgeTypes";
-import type { GenerationSource } from "../../shared/providerTypes";
+import type { AgentIntegrationViewModel } from "../agent/agentIntegrationViewModel";
 
 interface AgentStatusDockProps {
-  status?: DesktopAgentBridgeStatus | null;
+  integration: AgentIntegrationViewModel;
   onCopyAgentBoardUrl: () => void | Promise<void>;
+  onCopyCliEnvironment?: () => void | Promise<void>;
   onRefreshStatus: () => void | Promise<unknown>;
-  generationSource?: GenerationSource;
-  acpAgentName?: string | null;
+  onOpenAgentSettings?: () => void;
+  onOpenAgentConversation?: () => void;
 }
 
-const getStatusText = (status?: DesktopAgentBridgeStatus | null) => {
-  if (!status?.enabled) {
-    return "Agent 调用已关闭";
-  }
-
-  if (status?.ready && status.currentProject) {
-    return "Agent 已连接";
-  }
-
-  if (status?.ready) {
-    return "Agent 调用已开启";
-  }
-
-  return "Agent 未就绪";
-};
-
-const getBadgeText = (status?: DesktopAgentBridgeStatus | null) => {
-  if (!status?.enabled) {
-    return "关闭";
-  }
-
-  if (status?.ready && status.currentProject) {
-    return "在线";
-  }
-
-  if (status?.ready) {
-    return "等待项目";
-  }
-
-  return "未连接";
-};
-
-const getBridgeEndpoint = (status?: DesktopAgentBridgeStatus | null) => {
-  if (!status?.enabled) {
-    return "未启动";
-  }
-
-  if (!status?.boardUrl) {
-    return status?.ready ? "本地桥已启动" : "未启动";
-  }
-
-  try {
-    const boardUrl = new URL(status.boardUrl);
-    return boardUrl.searchParams.get("bridge") || "本地桥已启动";
-  } catch {
-    return "本地桥已启动";
-  }
-};
-
 export const AgentStatusDock = ({
-  status,
+  integration,
   onCopyAgentBoardUrl,
+  onCopyCliEnvironment,
   onRefreshStatus,
-  generationSource = "builtin",
-  acpAgentName = null,
+  onOpenAgentSettings,
+  onOpenAgentConversation,
 }: AgentStatusDockProps) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const enabled = Boolean(status?.enabled);
-  const connected = Boolean(enabled && status?.ready && status.currentProject);
-  const boardUrlReady = Boolean(status?.boardUrl);
-  const statusText = getStatusText(status);
-  const badgeText = getBadgeText(status);
-  const bridgeEndpoint = getBridgeEndpoint(status);
+  const connected = integration.connected;
 
   useEffect(() => {
     if (!open) {
@@ -113,14 +62,14 @@ export const AgentStatusDock = ({
       {open && (
         <section
           className="agent-status-popover"
-          aria-label="Agent 连接设置"
+          aria-label="Agent 状态"
         >
           <header className="agent-status-popover__header">
             <div>
               <span className="agent-status-popover__eyebrow">
-                Agent Bridge
+                Agent 状态
               </span>
-              <strong>{statusText}</strong>
+              <strong>{integration.statusText}</strong>
             </div>
             <span
               className={[
@@ -130,23 +79,9 @@ export const AgentStatusDock = ({
                 .filter(Boolean)
                 .join(" ")}
             >
-              {badgeText}
+              {integration.badgeText}
             </span>
           </header>
-
-          <div
-            className="agent-status-popover__source"
-            role="status"
-            aria-label="默认生成方式"
-          >
-            <span className="agent-status-popover__source-copy">
-              <strong>默认生成方式</strong>
-              <em>在生成输入区调整本次任务</em>
-            </span>
-            <span className="agent-status-popover__source-value">
-              {generationSource === "agent" ? "Agent" : "CoreStudio"}
-            </span>
-          </div>
 
           <div
             className="agent-status-popover__source"
@@ -158,46 +93,61 @@ export const AgentStatusDock = ({
               <em>用于从客户端发起 Agent 任务</em>
             </span>
             <span className="agent-status-popover__source-value">
-              {acpAgentName ?? "未配置"}
+              {integration.acp.statusText}
             </span>
           </div>
 
           <div className="agent-status-popover__body">
             <div className="agent-status-popover__item">
               <span>当前项目</span>
-              <strong>{status?.currentProject?.name ?? "未打开项目"}</strong>
-              {status?.currentProject?.projectPath && (
+              <strong>{integration.project.name ?? "未打开项目"}</strong>
+              {integration.project.path && (
                 <p className="agent-status-popover__path">
-                  {status.currentProject.projectPath}
+                  {integration.project.path}
                 </p>
               )}
             </div>
             <div className="agent-status-popover__item">
               <span>本地桥</span>
-              <strong>{bridgeEndpoint}</strong>
+              <strong>{integration.bridge.endpointLabel}</strong>
             </div>
           </div>
 
           <div className="agent-status-popover__body agent-status-popover__body--routes">
             <div className="agent-status-popover__item">
               <span>CLI</span>
-              <strong>
-                {enabled ? "可自动发现当前会话" : "开启连接后可发现"}
-              </strong>
+              <strong>{integration.cli.statusText}</strong>
             </div>
             <div className="agent-status-popover__item">
               <span>内置浏览器</span>
-              <strong>
-                {boardUrlReady ? "可复制 Board 链接" : "等待 Board 链接"}
-              </strong>
+              <strong>{integration.board.statusText}</strong>
             </div>
           </div>
 
           <div className="agent-status-popover__actions">
+            {onOpenAgentConversation ? (
+              <DesktopButton type="button" onClick={onOpenAgentConversation}>
+                打开 Agent 对话
+              </DesktopButton>
+            ) : null}
+            {onOpenAgentSettings ? (
+              <DesktopButton type="button" onClick={onOpenAgentSettings}>
+                打开设置
+              </DesktopButton>
+            ) : null}
+            {onCopyCliEnvironment ? (
+              <DesktopButton
+                type="button"
+                onClick={onCopyCliEnvironment}
+                disabled={!integration.cli.envCopyable}
+              >
+                复制 CLI 环境变量
+              </DesktopButton>
+            ) : null}
             <DesktopButton
               type="button"
               onClick={onCopyAgentBoardUrl}
-              disabled={!boardUrlReady}
+              disabled={!integration.board.available}
             >
               复制 Board 链接
             </DesktopButton>
@@ -218,7 +168,7 @@ export const AgentStatusDock = ({
           .join(" ")}
         aria-label="Agent 连接状态"
         aria-expanded={open}
-        title={statusText}
+        title={integration.statusText}
         onClick={() => setOpen((current) => !current)}
       >
         {agentBridgeIcon}

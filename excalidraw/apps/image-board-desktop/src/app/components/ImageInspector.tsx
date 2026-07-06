@@ -4,9 +4,9 @@ import type {
   ImagePromptReferenceRecord,
   ImageRecord,
 } from "../../shared/projectTypes";
-import type { ProviderId } from "../../shared/providerTypes";
 import { referencePlaceholderText } from "../../shared/promptReferences";
 import type { ImageLineageEntry } from "../imageRelationships";
+import type { GenerationTaskRecord } from "../generationTaskState";
 import {
   copy,
   getImageGenerationOriginLabel,
@@ -16,22 +16,6 @@ import {
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
 import { DesktopButton } from "./DesktopButton";
-
-export interface GenerationTaskRecord {
-  status: "pending" | "error";
-  provider: ProviderId;
-  model: string;
-  prompt: string;
-  negativePrompt?: string | null;
-  aspectRatio?: string | null;
-  seed?: number | null;
-  width: number;
-  height: number;
-  startedAt: string;
-  errorMessage?: string | null;
-  rawError?: string | null;
-  stack?: string | null;
-}
 
 interface ImageInspectorProps {
   record: ImageRecord | null;

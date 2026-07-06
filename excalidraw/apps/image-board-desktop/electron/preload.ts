@@ -23,6 +23,11 @@ const getAgentErrorCode = (error: unknown) =>
     ? error.code
     : undefined;
 
+const getAgentErrorDetails = (error: unknown) =>
+  error && typeof error === "object" && "details" in error
+    ? error.details
+    : undefined;
+
 const markHiddenDesktopTitlebar = () => {
   if (process.platform !== "darwin") {
     return;
@@ -164,6 +169,7 @@ const desktopBridge: DesktopBridgeApi = {
           errorCode: getAgentErrorCode(error),
           errorMessage:
             error instanceof Error ? error.message : String(error || ""),
+          errorDetails: getAgentErrorDetails(error),
         };
         ipcRenderer.send(IPC_CHANNELS.agentCommandResponse, response);
       }

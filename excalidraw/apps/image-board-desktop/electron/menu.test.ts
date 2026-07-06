@@ -22,6 +22,14 @@ const getProjectMaintenanceMenu = (
   return getSubmenuItems(maintenanceMenu?.submenu);
 };
 
+const getAllMenuLabels = (
+  items: MenuItemConstructorOptions[],
+): string[] =>
+  items.flatMap((item) => [
+    ...(typeof item.label === "string" ? [item.label] : []),
+    ...getAllMenuLabels(getSubmenuItems(item.submenu)),
+  ]);
+
 describe("createAppMenuTemplate", () => {
   it("uses Chinese labels for the desktop application menu", () => {
     const template = createAppMenuTemplate(
@@ -69,6 +77,10 @@ describe("createAppMenuTemplate", () => {
     expect(
       template.map((item) => item.label),
     ).not.toContain("生成");
+    expect(getAllMenuLabels(template)).not.toContain("复制 Agent Board 链接");
+    expect(getAllMenuLabels(template)).not.toContain("ACP 调试记录");
+    expect(getAllMenuLabels(template)).not.toContain("最近 Agent 任务");
+    expect(getAllMenuLabels(template)).not.toContain("默认生成方式");
 
     const maintenanceLabels = getProjectMaintenanceMenu(template).map(
       (item) => item.label,
@@ -107,7 +119,7 @@ describe("createAppMenuTemplate", () => {
       { agentAccessEnabled: true, platform: "linux" },
     );
     const settingsMenu = template.find((item) => item.label === "设置");
-    const agentAccessItem = getMenuItem(settingsMenu?.submenu, "允许 Agent 调用");
+    const agentAccessItem = getMenuItem(settingsMenu?.submenu, "启用 Agent 集成");
 
     expect(agentAccessItem).toMatchObject({
       type: "checkbox",
@@ -144,12 +156,12 @@ describe("createAppMenuTemplate", () => {
       "编辑",
       "帮助",
     ]);
-    expect(getSubmenuLabels(template[0].submenu)).toContain("允许 Agent 调用");
+    expect(getSubmenuLabels(template[0].submenu)).toContain("启用 Agent 集成");
     expect(getSubmenuLabels(template[0].submenu)).toContain("应用设置");
     expect(template.map((item) => item.label)).not.toContain("设置");
 
     const appSettingsItem = getMenuItem(template[0].submenu, "应用设置");
-    const agentAccessItem = getMenuItem(template[0].submenu, "允许 Agent 调用");
+    const agentAccessItem = getMenuItem(template[0].submenu, "启用 Agent 集成");
 
     expect(agentAccessItem).toMatchObject({
       type: "checkbox",

@@ -1,0 +1,30 @@
+.image-board-runtime-error {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: var(--theme-filter-bg-color);
+}
+
+.image-board-runtime-error__card {
+  display: grid;
+  gap: 12px;
+  width: min(480px, 100%);
+  padding: 20px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 20px;
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+}
+
+.image-board-runtime-error__card h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.image-board-runtime-error__card p {
+  margin: 0;
+  color: var(--text-secondary-color);
+  line-height: 1.5;
+  word-break: break-word;
+}

@@ -1,46 +1,31 @@
-import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useMemo, useState } from "react";
+
+import "./AgentConversation.css";
 
 import type {
-  AcpRunStatus,
   AcpRunLogDetail,
   AcpRunLogEntry,
   AcpThreadSummary,
-  AcpTaskStatus,
 } from "../../shared/acpTypes";
-import { DesktopButton } from "./DesktopButton";
 import {
-  createAgentThreadFromEntries,
-  type AgentImageResult,
-  type AgentThreadStatus,
-} from "../agentThreadModel";
+  createAgentConversationThreadView,
+  type AgentConversationEventItem,
+  type AgentConversationTaskState,
+} from "../agent/agentConversationThreadView";
+import {
+  AgentConversationHeaderActions,
+  AgentConversationSummary,
+} from "./AgentConversationHeader";
+import { AgentConversationComposer } from "./AgentConversationComposer";
+import { AgentThreadList } from "./AgentThreadList";
 import { AgentThreadTimeline } from "./AgentThreadTimeline";
-import { sendIcon } from "./CoreStudioIcons";
+import {
+  GenerationRecordSidebar,
+  type GenerationRecordListItem,
+} from "./GenerationRecordSidebar";
 import { SideDock } from "./SideDock";
 
-interface AgentConversationEventItem {
-  id: string;
-  title: string;
-  detail?: string;
-  tone?: "neutral" | "success" | "danger";
-}
-
-interface AgentConversationTaskState {
-  taskId: string;
-  status: AcpTaskStatus;
-  message: string;
-  transcript: string;
-  events: AgentConversationEventItem[];
-  logPath?: string;
-}
-
-export interface GenerationRecordListItem {
-  id: string;
-  fileId: string;
-  title: string;
-  meta: string;
-  statusLabel?: string;
-  thumbnailDataUrl?: string | null;
-}
+export type { GenerationRecordListItem } from "./GenerationRecordSidebar";
 
 interface AgentConversationSidebarProps {
   mode: "direct" | "agent";
@@ -65,186 +50,6 @@ interface AgentConversationSidebarProps {
   onSubmitMessage: (message: string) => Promise<void> | void;
 }
 
-const getStatusLabel = (status: AcpTaskStatus) => {
-  switch (status) {
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-    case "cancelled":
-      return "已取消";
-    case "running":
-      return "运行中";
-    case "connecting":
-      return "连接中";
-    case "initializing":
-      return "初始化";
-    case "creating-session":
-      return "创建会话";
-    case "idle":
-    default:
-      return "空闲";
-  }
-};
-
-const getThreadStatusLabel = (status: AcpThreadSummary["status"]) => {
-  switch (status) {
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-    case "cancelled":
-      return "已取消";
-    case "running":
-    default:
-      return "运行中";
-  }
-};
-
-const getSummaryStatus = (
-  task: AgentConversationTaskState | null,
-  runLogDetail: AcpRunLogDetail | null,
-) => {
-  if (runLogDetail) {
-    return runLogDetail.summary.status;
-  }
-  return task?.status ?? "idle";
-};
-
-const getEventStatus = (tone?: AgentConversationEventItem["tone"]) => {
-  switch (tone) {
-    case "success":
-      return "completed";
-    case "danger":
-      return "failed";
-    case "neutral":
-    default:
-      return "in_progress";
-  }
-};
-
-const buildTaskRunLogEntries = (
-  task: AgentConversationTaskState | null,
-): AcpRunLogEntry[] => {
-  if (!task) {
-    return [];
-  }
-
-  const timestamp = new Date().toISOString();
-  const entries: AcpRunLogEntry[] = [
-    {
-      version: 1,
-      taskId: task.taskId,
-      timestamp,
-      seq: 1,
-      kind: "task.created",
-      payload: {
-        userPrompt: task.message,
-      },
-    },
-  ];
-
-  if (task.transcript.trim()) {
-    entries.push({
-      version: 1,
-      taskId: task.taskId,
-      timestamp,
-      seq: entries.length + 1,
-      kind: "agent.message",
-      payload: {
-        text: task.transcript,
-      },
-    });
-  }
-
-  task.events.forEach((item) => {
-    entries.push({
-      version: 1,
-      taskId: task.taskId,
-      timestamp,
-      seq: entries.length + 1,
-      kind: "tool.update",
-      payload: {
-        title: item.title,
-        detail: item.detail,
-        status: getEventStatus(item.tone),
-      },
-    });
-  });
-
-  return entries;
-};
-
-const mergeThreadEntries = (
-  threadEntries: AcpRunLogEntry[],
-  taskEntries: AcpRunLogEntry[],
-) => {
-  const seen = new Set<string>();
-  return [...threadEntries, ...taskEntries].filter((entry) => {
-    const key = `${entry.taskId}:${entry.seq}:${entry.kind}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-};
-
-const getThreadTimeLabel = (updatedAt: string) => {
-  const date = new Date(updatedAt);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return date.toLocaleTimeString("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const getThreadTitle = (
-  runLogDetail: AcpRunLogDetail | null,
-  task: AgentConversationTaskState | null,
-) => {
-  const prompt = runLogDetail?.summary.userPrompt ?? task?.message;
-  if (!prompt) {
-    return "当前对话";
-  }
-  return prompt;
-};
-
-const getAgentThreadStatus = (
-  status: AcpTaskStatus | AcpRunStatus,
-): AgentThreadStatus => {
-  switch (status) {
-    case "completed":
-      return "completed";
-    case "failed":
-      return "failed";
-    case "cancelled":
-      return "cancelled";
-    case "idle":
-      return "idle";
-    case "connecting":
-    case "initializing":
-    case "creating-session":
-    case "running":
-    default:
-      return "running";
-  }
-};
-
-const createAgentImageResultFromRecord = (
-  record: GenerationRecordListItem,
-): AgentImageResult => ({
-  id: record.id,
-  fileId: record.fileId,
-  title: record.title,
-  thumbnailDataUrl: record.thumbnailDataUrl,
-  source: "acp-agent",
-  meta: record.meta || undefined,
-  statusLabel: record.statusLabel,
-});
-
 export const AgentConversationSidebar = ({
   mode,
   open,
@@ -267,93 +72,35 @@ export const AgentConversationSidebar = ({
   onStartNewThread,
   onSubmitMessage,
 }: AgentConversationSidebarProps) => {
-  const [draftMessage, setDraftMessage] = useState("");
-  const [submittingMessage, setSubmittingMessage] = useState(false);
   const [threadListOpen, setThreadListOpen] = useState(false);
-  const status = getSummaryStatus(task, runLogDetail);
-  const taskEntries = useMemo(() => buildTaskRunLogEntries(task), [task]);
-  const chatEntries = useMemo(
+  const conversationView = useMemo(
     () =>
-      mergeThreadEntries(
-        threadEntries.length ? threadEntries : runLogDetail?.entries ?? [],
-        taskEntries,
-      ),
-    [runLogDetail?.entries, taskEntries, threadEntries],
+      createAgentConversationThreadView({
+        task,
+        runLogDetail,
+        threadEntries,
+        error,
+        agentResultRecords,
+        activeThreadId,
+      }),
+    [
+      activeThreadId,
+      agentResultRecords,
+      error,
+      runLogDetail,
+      task,
+      threadEntries,
+    ],
   );
-  const hasConversationContext = Boolean(task || runLogDetail || error);
-  const hasConversationContent =
-    Boolean(error) || chatEntries.length > 0 || agentResultRecords.length > 0;
-  const agentThreadImageResults = useMemo(
-    () => agentResultRecords.map(createAgentImageResultFromRecord),
-    [agentResultRecords],
-  );
-  const agentThread = useMemo(() => {
-    if (!chatEntries.length && !agentThreadImageResults.length) {
-      return null;
-    }
-    const now = new Date().toISOString();
-    return createAgentThreadFromEntries(chatEntries, {
-      id:
-        activeThreadId ??
-        runLogDetail?.summary.threadId ??
-        task?.taskId ??
-        "agent-thread",
-      title: getThreadTitle(runLogDetail, task),
-      status: getAgentThreadStatus(status),
-      createdAt:
-        runLogDetail?.summary.startedAt ?? chatEntries[0]?.timestamp ?? now,
-      updatedAt:
-        runLogDetail?.summary.endedAt ??
-        chatEntries.at(-1)?.timestamp ??
-        now,
-      fallbackUserPrompt: runLogDetail?.summary.userPrompt ?? task?.message,
-      imageResults: agentThreadImageResults,
-    });
-  }, [
-    activeThreadId,
-    agentThreadImageResults,
+  const {
+    agentThread,
     chatEntries,
-    runLogDetail,
+    hasConversationContext,
     status,
-    task,
-  ]);
-  const hasThreadSummaries = threadSummaries.length > 0;
+    title,
+  } = conversationView;
   const isAgentMode = mode === "agent";
   const dockTitle = isAgentMode ? "Agent 对话" : "生成记录";
-  const trimmedDraftMessage = draftMessage.trim();
-  const messageInputDisabled = !canSubmitMessage || submittingMessage;
-  const canSendMessage =
-    Boolean(trimmedDraftMessage) && canSubmitMessage && !submittingMessage;
-  const messagePlaceholder = canSubmitMessage
-    ? hasConversationContext || chatEntries.length > 0
-      ? "继续对话"
-      : "输入任务"
-    : submitMessageDisabledReason ?? "Agent 暂不可用";
-  const submitDraftMessage = async () => {
-    if (!canSendMessage) {
-      return;
-    }
-    setSubmittingMessage(true);
-    try {
-      await onSubmitMessage(trimmedDraftMessage);
-      setDraftMessage("");
-    } finally {
-      setSubmittingMessage(false);
-    }
-  };
-  const handleComposerSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    void submitDraftMessage();
-  };
-  const handleComposerKeyDown = (
-    event: KeyboardEvent<HTMLTextAreaElement>,
-  ) => {
-    if (event.key !== "Enter" || event.shiftKey) {
-      return;
-    }
-    event.preventDefault();
-    void submitDraftMessage();
-  };
   const handleSelectThread = async (threadId: string) => {
     await onSelectThread(threadId);
     setThreadListOpen(false);
@@ -362,63 +109,13 @@ export const AgentConversationSidebar = ({
     onStartNewThread();
     setThreadListOpen(false);
   };
-  const threadListContent = threadsError ? (
-    <p className="agent-conversation-sidebar__threads-note">{threadsError}</p>
-  ) : threadsLoading ? (
-    <p className="agent-conversation-sidebar__threads-note">同步中</p>
-  ) : hasThreadSummaries ? (
-    <div className="agent-conversation-sidebar__thread-list">
-      {threadSummaries.map((thread) => (
-        <button
-          key={thread.threadId}
-          type="button"
-          className="agent-conversation-sidebar__thread"
-          aria-pressed={thread.threadId === activeThreadId}
-          disabled={threadActionsDisabled}
-          onClick={() => void handleSelectThread(thread.threadId)}
-        >
-          <strong>{thread.title || "未命名对话"}</strong>
-          <span>
-            {getThreadStatusLabel(thread.status)}
-            {getThreadTimeLabel(thread.updatedAt)
-              ? ` · ${getThreadTimeLabel(thread.updatedAt)}`
-              : ""}
-          </span>
-        </button>
-      ))}
-    </div>
-  ) : (
-    <p className="agent-conversation-sidebar__threads-note">暂无历史对话</p>
-  );
-  const renderAgentEmptyState = () => (
-    <div
-      className="agent-conversation-sidebar__empty"
-      aria-label="Agent 空白对话"
-    >
-      <span aria-hidden="true" />
-    </div>
-  );
   const agentHeaderActions = isAgentMode ? (
-    <>
-      <DesktopButton
-        type="button"
-        disabled={threadActionsDisabled}
-        aria-label={
-          threadListOpen ? "返回当前 Agent 对话" : "打开 Agent 对话列表"
-        }
-        onClick={() => setThreadListOpen((current) => !current)}
-      >
-        {threadListOpen ? "返回" : "列表"}
-      </DesktopButton>
-      <DesktopButton
-        type="button"
-        disabled={threadActionsDisabled}
-        aria-label="开始新的 Agent 对话"
-        onClick={handleStartNewThread}
-      >
-        新建
-      </DesktopButton>
-    </>
+    <AgentConversationHeaderActions
+      threadListOpen={threadListOpen}
+      disabled={threadActionsDisabled}
+      onToggleThreadList={() => setThreadListOpen((current) => !current)}
+      onStartNewThread={handleStartNewThread}
+    />
   ) : null;
 
   return (
@@ -439,31 +136,10 @@ export const AgentConversationSidebar = ({
         ].join(" ")}
       >
         {!isAgentMode ? (
-          <div className="generation-record-sidebar">
-            {generationRecords.length > 0 ? (
-              <div
-                className="generation-record-sidebar__list"
-                aria-label="生成任务列表"
-              >
-                {generationRecords.map((record) => (
-                  <button
-                    key={record.id}
-                    type="button"
-                    className="generation-record-sidebar__item"
-                    disabled={!onSelectGenerationRecord}
-                    onClick={() => onSelectGenerationRecord?.(record.fileId)}
-                  >
-                    <strong>{record.title}</strong>
-                    <span>
-                      {[record.meta, record.statusLabel]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <GenerationRecordSidebar
+            records={generationRecords}
+            onSelectRecord={onSelectGenerationRecord}
+          />
         ) : (
           <>
             {threadListOpen ? (
@@ -471,27 +147,23 @@ export const AgentConversationSidebar = ({
                 className="agent-conversation-sidebar__threads"
                 aria-label="Agent 历史对话"
               >
-                {threadListContent}
+                <AgentThreadList
+                  summaries={threadSummaries}
+                  activeThreadId={activeThreadId}
+                  loading={threadsLoading}
+                  error={threadsError}
+                  actionsDisabled={threadActionsDisabled}
+                  onSelectThread={handleSelectThread}
+                />
               </section>
             ) : (
               <>
                 {hasConversationContext ? (
-                  <header className="agent-conversation-sidebar__summary">
-                    <div>
-                      <span>
-                        {runLogDetail?.summary.agentName ?? "ACP Agent"}
-                      </span>
-                      <strong>{getThreadTitle(runLogDetail, task)}</strong>
-                    </div>
-                    <span
-                      className={[
-                        "agent-conversation-sidebar__status",
-                        `agent-conversation-sidebar__status--${status}`,
-                      ].join(" ")}
-                    >
-                      {getStatusLabel(status)}
-                    </span>
-                  </header>
+                  <AgentConversationSummary
+                    agentName={runLogDetail?.summary.agentName ?? "ACP Agent"}
+                    title={title}
+                    status={status}
+                  />
                 ) : null}
 
                 <div className="agent-conversation-sidebar__body">
@@ -502,41 +174,20 @@ export const AgentConversationSidebar = ({
                   ) : null}
 
                   <div className="agent-conversation-sidebar__content">
-                    {agentThread ? (
-                      <AgentThreadTimeline
-                        thread={agentThread}
-                        onSelectImageResult={onSelectGenerationRecord}
-                      />
-                    ) : hasConversationContent ? null : (
-                      renderAgentEmptyState()
-                    )}
+                    <AgentThreadTimeline
+                      thread={agentThread}
+                      onSelectImageResult={onSelectGenerationRecord}
+                    />
                   </div>
                 </div>
 
-                <form
-                  className="agent-conversation-sidebar__composer"
-                  onSubmit={handleComposerSubmit}
-                >
-                  <textarea
-                    value={draftMessage}
-                    rows={2}
-                    disabled={messageInputDisabled}
-                    placeholder={messagePlaceholder}
-                    aria-label="继续 Agent 对话"
-                    onChange={(event) => setDraftMessage(event.target.value)}
-                    onKeyDown={handleComposerKeyDown}
-                  />
-                  <DesktopButton
-                    type="submit"
-                    variant="primary"
-                    className="agent-conversation-sidebar__send"
-                    disabled={!canSendMessage}
-                    aria-label={submittingMessage ? "发送中" : "发送给 Agent"}
-                    title={submittingMessage ? "发送中" : "发送给 Agent"}
-                  >
-                    {sendIcon}
-                  </DesktopButton>
-                </form>
+                <AgentConversationComposer
+                  canSubmitMessage={canSubmitMessage}
+                  disabledReason={submitMessageDisabledReason}
+                  hasConversationContext={hasConversationContext}
+                  hasConversationEntries={chatEntries.length > 0}
+                  onSubmitMessage={onSubmitMessage}
+                />
               </>
             )}
           </>

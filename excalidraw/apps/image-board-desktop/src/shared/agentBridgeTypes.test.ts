@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
   AGENT_DESKTOP_BRIDGE_METHODS,
+  AGENT_ERROR_CODES,
   AGENT_HTTP_ROUTES,
   AGENT_PERMISSIONS,
   createAgentError,
   createAgentOk,
   isAgentDesktopBridgeMethod,
+  isAgentErrorCode,
   normalizeAgentPermissions,
 } from "./agentBridgeTypes";
 
@@ -73,6 +75,48 @@ describe("agentBridgeTypes", () => {
       error: {
         code: "AUTH_REQUIRED",
         message: "Missing read token",
+      },
+    });
+  });
+
+  it("exports stale snapshot as a structured Agent error code", () => {
+    expect(AGENT_ERROR_CODES).toContain("STALE_PROJECT_SNAPSHOT");
+    expect(isAgentErrorCode("STALE_PROJECT_SNAPSHOT")).toBe(true);
+    expect(
+      createAgentError("STALE_PROJECT_SNAPSHOT", "Stale scene", {
+        expectedSceneHash: "old",
+        currentSceneHash: "new",
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "STALE_PROJECT_SNAPSHOT",
+        message: "Stale scene",
+        details: {
+          expectedSceneHash: "old",
+          currentSceneHash: "new",
+        },
+      },
+    });
+  });
+
+  it("exports capability unavailable as a structured Agent error code", () => {
+    expect(AGENT_ERROR_CODES).toContain("CAPABILITY_UNAVAILABLE");
+    expect(isAgentErrorCode("CAPABILITY_UNAVAILABLE")).toBe(true);
+    expect(
+      createAgentError("CAPABILITY_UNAVAILABLE", "Capability missing", {
+        command: "project.health",
+        capability: "inspectProjectHealth",
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "CAPABILITY_UNAVAILABLE",
+        message: "Capability missing",
+        details: {
+          command: "project.health",
+          capability: "inspectProjectHealth",
+        },
       },
     });
   });

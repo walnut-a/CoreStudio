@@ -112,9 +112,11 @@ const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
 
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   BAD_REQUEST: 400,
+  CAPABILITY_UNAVAILABLE: 409,
   FORBIDDEN: 403,
   PROJECT_MISMATCH: 409,
   PROJECT_REQUIRED: 409,
+  STALE_PROJECT_SNAPSHOT: 409,
   UNSUPPORTED_COMMAND: 404,
 };
 
@@ -181,6 +183,11 @@ const getErrorCode = (error: unknown) =>
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
+const getErrorDetails = (error: unknown) =>
+  error && typeof error === "object" && "details" in error
+    ? error.details
+    : undefined;
+
 const sendRendererError = (response: http.ServerResponse, error: unknown) => {
   const code = getErrorCode(error);
   if (code) {
@@ -189,6 +196,7 @@ const sendRendererError = (response: http.ServerResponse, error: unknown) => {
       RENDERER_STATUS_BY_CODE[code] ?? 500,
       code,
       getErrorMessage(error),
+      getErrorDetails(error),
     );
     return;
   }

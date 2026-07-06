@@ -8,6 +8,8 @@ import {
 } from "@assistant-ui/react";
 import { useMemo, type FC, type PropsWithChildren } from "react";
 
+import "./AgentRunChatLog.css";
+
 import type { AcpRunLogEntry } from "../../shared/acpTypes";
 import type { ExternalThreadMessage } from "@assistant-ui/react";
 

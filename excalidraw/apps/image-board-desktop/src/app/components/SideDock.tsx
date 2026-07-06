@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import "./SideDock.css";
 import { closeIcon, leftDockIcon, rightDockIcon } from "./CoreStudioIcons";
 
 interface SideDockProps {

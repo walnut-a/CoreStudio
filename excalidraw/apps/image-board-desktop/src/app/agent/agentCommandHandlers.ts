@@ -1,11 +1,7 @@
 import { newTextElement } from "@excalidraw/element";
 
-import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
-import type {
-  AppState,
-  BinaryFileData,
-  BinaryFiles,
-} from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement } from "@excalidraw/element/types";
+import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 
 import { normalizeGenerationRequest } from "../../shared/providerCatalog";
 
@@ -20,6 +16,7 @@ import type {
   GenerationRequest,
   GenerationSource,
 } from "../../shared/providerTypes";
+import { buildExcalidrawBinaryFilesFromProjectAssets } from "../canvasImageAssetState";
 
 type SceneLike = {
   elements?: readonly ExcalidrawElement[];
@@ -191,24 +188,6 @@ export const buildAgentImagePathList = ({
   };
 };
 
-export const projectAssetPayloadsToBinaryFiles = (
-  assets: readonly ProjectAssetPayload[],
-  imageRecords: ImageRecordMap,
-): BinaryFiles =>
-  assets.reduce((files, asset) => {
-    const fileId = asset.fileId as FileId;
-    files[fileId] = {
-      id: fileId,
-      mimeType: asset.mimeType as BinaryFileData["mimeType"],
-      dataURL:
-        `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
-      created:
-        Date.parse(imageRecords[asset.fileId]?.createdAt || asset.createdAt) ||
-        Date.now(),
-    };
-    return files;
-  }, {} as BinaryFiles);
-
 const buildAgentBoardAppState = (
   appState: Partial<AppState> | null | undefined,
 ): Partial<AppState> => ({
@@ -266,10 +245,11 @@ export const buildAgentSceneBoard = ({
       referencedFileIds.has(fileId),
     ),
   ) as BinaryFiles;
-  const assetFiles = projectAssetPayloadsToBinaryFiles(
-    assetPayloads,
+  const assetFiles = buildExcalidrawBinaryFilesFromProjectAssets({
+    assets: assetPayloads,
     imageRecords,
-  );
+    fallbackCreatedAt: Date.now(),
+  });
   const files = {
     ...existingFiles,
     ...assetFiles,

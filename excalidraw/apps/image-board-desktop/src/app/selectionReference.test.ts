@@ -8,14 +8,21 @@ vi.mock("@excalidraw/utils", () => ({
   exportToBlob,
 }));
 
-import type { AppState } from "@excalidraw/excalidraw/types";
+import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
+import type { ProjectAssetPayload } from "../shared/desktopBridgeTypes";
+import type { ImageRecordMap } from "../shared/projectTypes";
 
 import {
+  buildSelectionReferenceOriginalImageLoadPlan,
+  createSelectionReferenceOriginalSceneRendererActions,
   buildSelectionReferenceSummary,
   buildSelectionReference,
   extractReferenceTextNotes,
+  getGenerationReferenceAnchorBounds,
   getSelectionReferenceSignature,
+  getSelectedReferenceImageFileIds,
   getSelectedReferenceElements,
+  stripSelectionReferenceThumbnails,
 } from "./selectionReference";
 
 const baseAppState = {
@@ -87,6 +94,188 @@ describe("selectionReference", () => {
         },
       ] as any),
     ).toEqual(["保留外轮廓", "把按键做薄"]);
+  });
+
+  it("extracts unique selected image file ids for original reference loading", () => {
+    expect(
+      getSelectedReferenceImageFileIds({
+        elements: [
+          {
+            id: "image-a",
+            type: "image",
+            isDeleted: false,
+            groupIds: [],
+            fileId: "file-a",
+          },
+          {
+            id: "text-1",
+            type: "text",
+            isDeleted: false,
+            groupIds: [],
+            text: "保留边角",
+          },
+          {
+            id: "image-b",
+            type: "image",
+            isDeleted: false,
+            groupIds: ["group-1"],
+            fileId: "file-b",
+          },
+          {
+            id: "image-c",
+            type: "image",
+            isDeleted: false,
+            groupIds: ["group-1"],
+            fileId: "file-a",
+          },
+          {
+            id: "shape-1",
+            type: "rectangle",
+            isDeleted: false,
+            groupIds: ["group-1"],
+          },
+        ] as any,
+        appState: {
+          ...baseAppState,
+          selectedElementIds: {
+            "image-a": true,
+            "text-1": true,
+          },
+          selectedGroupIds: {
+            "group-1": true,
+          },
+        },
+        files: {},
+      }),
+    ).toEqual(["file-a", "file-b"]);
+  });
+
+  it("builds the original image load plan from selected reference images", () => {
+    expect(
+      buildSelectionReferenceOriginalImageLoadPlan({
+        elements: [
+          {
+            id: "image-a",
+            type: "image",
+            isDeleted: false,
+            groupIds: [],
+            fileId: "file-a",
+          },
+          {
+            id: "image-b",
+            type: "image",
+            isDeleted: false,
+            groupIds: ["group-1"],
+            fileId: "file-b",
+          },
+          {
+            id: "image-c",
+            type: "image",
+            isDeleted: false,
+            groupIds: ["group-1"],
+            fileId: "file-a",
+          },
+        ] as any,
+        appState: {
+          ...baseAppState,
+          selectedElementIds: {
+            "image-a": true,
+          },
+          selectedGroupIds: {
+            "group-1": true,
+          },
+        },
+        files: {},
+      }),
+    ).toEqual({
+      action: "load",
+      fileIds: ["file-a", "file-b"],
+    });
+
+    expect(buildSelectionReferenceOriginalImageLoadPlan(null)).toEqual({
+      action: "skip",
+    });
+  });
+
+  it("loads selected reference originals and merges them into the scene", async () => {
+    const scene = {
+      elements: [
+        {
+          id: "image-a",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+          fileId: "file-a",
+        },
+      ] as any,
+      appState: {
+        ...baseAppState,
+        selectedElementIds: {
+          "image-a": true as true,
+        },
+      },
+      files: {
+        existing: { id: "existing" },
+      } as unknown as BinaryFiles,
+    };
+    const imageRecords: ImageRecordMap = {
+      "file-a": {
+        fileId: "file-a",
+        assetPath: "assets/file-a.png",
+        sourceType: "generated",
+        width: 1024,
+        height: 1024,
+        mimeType: "image/png",
+        createdAt: "2026-07-05T00:00:00.000Z",
+      },
+    };
+    const project = {
+      imageRecords,
+    };
+    const asset: ProjectAssetPayload = {
+      fileId: "file-a",
+      mimeType: "image/png",
+      dataBase64: "AAA",
+      width: 1024,
+      height: 1024,
+      createdAt: "2026-07-06T00:00:00.000Z",
+      rendition: "original",
+    };
+    const readOriginalAssets = vi.fn(async () => [asset]);
+    const actions = createSelectionReferenceOriginalSceneRendererActions({
+      getProject: () => project,
+      readOriginalAssets,
+      getTimestamp: () => 1234,
+    });
+
+    await expect(actions.load(scene)).resolves.toEqual({
+      ...scene,
+      files: {
+        existing: { id: "existing" },
+        "file-a": expect.objectContaining({
+          id: "file-a",
+          dataURL: "data:image/png;base64,AAA",
+          created: Date.parse("2026-07-05T00:00:00.000Z"),
+        }),
+      },
+    });
+    expect(readOriginalAssets).toHaveBeenCalledWith(project, ["file-a"]);
+  });
+
+  it("skips original scene loading when project or selected images are missing", async () => {
+    const readOriginalAssets = vi.fn();
+    const actions = createSelectionReferenceOriginalSceneRendererActions({
+      getProject: () => null,
+      readOriginalAssets,
+    });
+    const scene = {
+      elements: [] as any,
+      appState: baseAppState,
+      files: {} as any,
+    };
+
+    await expect(actions.load(scene)).resolves.toBe(scene);
+    expect(readOriginalAssets).not.toHaveBeenCalled();
   });
 
   it("describes selected reference items in selection order", () => {
@@ -166,6 +355,62 @@ describe("selectionReference", () => {
     });
   });
 
+  it("strips thumbnail data from reference items before persisting request state", () => {
+    expect(
+      stripSelectionReferenceThumbnails({
+        enabled: true,
+        elementCount: 2,
+        textCount: 0,
+        items: [
+          {
+            id: "image-1",
+            index: 1,
+            kind: "image",
+            label: "图片",
+            fileId: "file-1",
+            thumbnailDataUrl: "data:image/png;base64,thumb",
+          },
+          {
+            id: "text-1",
+            index: 2,
+            kind: "text",
+            label: "文本：说明",
+          },
+        ],
+      }),
+    ).toEqual({
+      enabled: true,
+      elementCount: 2,
+      textCount: 0,
+      items: [
+        {
+          id: "image-1",
+          index: 1,
+          kind: "image",
+          label: "图片",
+          fileId: "file-1",
+        },
+        {
+          id: "text-1",
+          index: 2,
+          kind: "text",
+          label: "文本：说明",
+        },
+      ],
+    });
+  });
+
+  it("keeps empty reference payloads stable when stripping thumbnails", () => {
+    const reference = {
+      enabled: true,
+      elementCount: 0,
+      textCount: 0,
+    };
+
+    expect(stripSelectionReferenceThumbnails(null)).toBeNull();
+    expect(stripSelectionReferenceThumbnails(reference)).toBe(reference);
+  });
+
   it("keeps selection order in the reference signature", () => {
     const scene = {
       elements: [
@@ -210,6 +455,81 @@ describe("selectionReference", () => {
         },
       } as any),
     ).toBe("image-right|image-left");
+  });
+
+  it("returns selected bounds only when generation reference is enabled", () => {
+    const scene = {
+      elements: [
+        {
+          id: "rect-1",
+          type: "rectangle",
+          isDeleted: false,
+          groupIds: [],
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 80,
+          angle: 0,
+        },
+        {
+          id: "image-1",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+          fileId: "file-1",
+          x: 180,
+          y: 40,
+          width: 60,
+          height: 90,
+          angle: 0,
+        },
+      ],
+      appState: {
+        ...baseAppState,
+        selectedElementIds: {
+          "rect-1": true,
+          "image-1": true,
+        },
+      },
+      files: {},
+    } as any;
+
+    expect(
+      getGenerationReferenceAnchorBounds(
+        {
+          reference: {
+            enabled: true,
+          },
+        },
+        scene,
+      ),
+    ).toEqual({
+      x: 10,
+      y: 20,
+      width: 230,
+      height: 110,
+    });
+
+    expect(
+      getGenerationReferenceAnchorBounds(
+        {
+          reference: {
+            enabled: false,
+          },
+        },
+        scene,
+      ),
+    ).toBeNull();
+    expect(
+      getGenerationReferenceAnchorBounds(
+        {
+          reference: {
+            enabled: true,
+          },
+        },
+        null,
+      ),
+    ).toBeNull();
   });
 
   it("builds a PNG reference payload from the current selection", async () => {

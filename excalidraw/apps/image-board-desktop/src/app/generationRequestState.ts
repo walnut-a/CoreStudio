@@ -1,11 +1,13 @@
 import { normalizeGenerationRequest } from "../shared/providerCatalog";
 
 import type {
+  CustomProviderModel,
   GenerationPromptPart,
   GenerationPromptReferencePayload,
   GenerationReferenceItemPayload,
   GenerationReferencePayload,
   GenerationRequest,
+  GenerationSource,
 } from "../shared/providerTypes";
 
 const isSameStringArray = (
@@ -149,3 +151,176 @@ export const syncSelectionReferenceIntoRequest = (
 
   return isSameGenerationRequest(current, next) ? current : next;
 };
+
+export type GenerationExecutionPlan =
+  | {
+      kind: "start-acp-agent-task";
+    }
+  | {
+      kind: "start-builtin-generation";
+      generationSource: Extract<GenerationSource, "builtin">;
+      showDirectGenerationRecords: true;
+    };
+
+export const buildGenerationExecutionPlan = (
+  request: GenerationRequest,
+): GenerationExecutionPlan => {
+  if (request.generationSource === "agent") {
+    return {
+      kind: "start-acp-agent-task",
+    };
+  }
+
+  return {
+    kind: "start-builtin-generation",
+    generationSource: "builtin",
+    showDirectGenerationRecords: true,
+  };
+};
+
+export const applyBuiltinGenerationExecutionPlanState = ({
+  plan,
+  setGenerationSource,
+  showDirectGenerationRecords,
+}: {
+  plan: Extract<
+    GenerationExecutionPlan,
+    { kind: "start-builtin-generation" }
+  >;
+  setGenerationSource: (source: Extract<GenerationSource, "builtin">) => void;
+  showDirectGenerationRecords: () => void;
+}) => {
+  setGenerationSource(plan.generationSource);
+  if (plan.showDirectGenerationRecords) {
+    showDirectGenerationRecords();
+  }
+
+  return {
+    generationSource: plan.generationSource,
+    showDirectGenerationRecords: plan.showDirectGenerationRecords,
+  };
+};
+
+export const buildBuiltinGenerationSubmittedRequest = (
+  request: GenerationRequest,
+): GenerationRequest => ({
+  ...request,
+  prompt: "",
+});
+
+export const applyBuiltinGenerationSubmittedRequestState = ({
+  request,
+  setGenerateRequest,
+}: {
+  request: GenerationRequest;
+  setGenerateRequest: (request: GenerationRequest) => void;
+}) => {
+  const submittedRequest = buildBuiltinGenerationSubmittedRequest(request);
+  setGenerateRequest(submittedRequest);
+  return submittedRequest;
+};
+
+export const MISSING_SELECTION_REFERENCE_IMAGE_ERROR_MESSAGE =
+  "当前没有可用的选区参考，请重新选中元素后再试。";
+
+export type BuiltinGenerationReferencePlan =
+  | {
+      kind: "load-selection-reference";
+    }
+  | {
+      kind: "skip-selection-reference";
+    };
+
+export const buildBuiltinGenerationReferencePlan = ({
+  request,
+  customModels = [],
+}: {
+  request: GenerationRequest;
+  customModels?: readonly CustomProviderModel[];
+}): BuiltinGenerationReferencePlan => {
+  const normalizedRequest = normalizeGenerationRequest(request, {
+    customModels,
+  });
+
+  return normalizedRequest.reference?.enabled
+    ? { kind: "load-selection-reference" }
+    : { kind: "skip-selection-reference" };
+};
+
+export const buildBuiltinGenerationPreparedRequest = ({
+  request,
+  customModels = [],
+  selectionReference,
+}: {
+  request: GenerationRequest;
+  customModels?: readonly CustomProviderModel[];
+  selectionReference?: GenerationReferencePayload | null;
+}): GenerationRequest => {
+  const normalizedRequest = normalizeGenerationRequest(request, {
+    customModels,
+  });
+
+  if (!normalizedRequest.reference?.enabled) {
+    return normalizedRequest;
+  }
+
+  if (!selectionReference?.image) {
+    throw new Error(MISSING_SELECTION_REFERENCE_IMAGE_ERROR_MESSAGE);
+  }
+
+  return {
+    ...normalizedRequest,
+    reference: {
+      ...selectionReference,
+      enabled: true,
+    },
+  };
+};
+
+export const prepareBuiltinGenerationRequestAction = async <Scene>({
+  request,
+  customModels = [],
+  sourceScene,
+  loadOriginalScene,
+  readSelectionReference,
+  assertProjectActive = () => {},
+}: {
+  request: GenerationRequest;
+  customModels?: readonly CustomProviderModel[];
+  sourceScene: Scene;
+  loadOriginalScene: (scene: Scene) => Promise<Scene>;
+  readSelectionReference: (
+    sceneWithOriginalImages: Scene,
+  ) => Promise<GenerationReferencePayload | null>;
+  assertProjectActive?: () => void;
+}): Promise<GenerationRequest> => {
+  const referencePlan = buildBuiltinGenerationReferencePlan({
+    request,
+    customModels,
+  });
+  let selectionReference: GenerationReferencePayload | null = null;
+
+  if (referencePlan.kind === "load-selection-reference") {
+    const sceneWithOriginalImageFiles = await loadOriginalScene(sourceScene);
+    assertProjectActive();
+    selectionReference = await readSelectionReference(sceneWithOriginalImageFiles);
+    assertProjectActive();
+  }
+
+  return buildBuiltinGenerationPreparedRequest({
+    request,
+    customModels,
+    selectionReference,
+  });
+};
+
+export const buildGenerationErrorDisplayRequest = ({
+  request,
+  customModels = [],
+}: {
+  request: GenerationRequest;
+  customModels?: readonly CustomProviderModel[];
+}): GenerationRequest =>
+  normalizeGenerationRequest(request, {
+    customModels,
+  });

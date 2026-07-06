@@ -234,7 +234,7 @@ export const copy = {
     providers: "模型服务",
     edit: "编辑",
     settings: "设置",
-    allowAgentAccess: "允许 Agent 调用",
+    allowAgentAccess: "启用 Agent 集成",
     appSettings: "应用设置",
     quit: `退出 ${DESKTOP_APP_NAME}`,
     help: "帮助",

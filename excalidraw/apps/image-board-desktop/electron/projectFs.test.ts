@@ -686,6 +686,13 @@ describe("projectFs", () => {
       generatedFileIds: ["file-ok"],
       skippedFileIds: [],
       failedFileIds: ["file-missing"],
+      failedDetails: [
+        {
+          fileId: "file-missing",
+          reason: "thumbnail-rebuild-failed",
+          message: "图片显示缓存生成失败，请确认原图文件可读取。",
+        },
+      ],
       repairedGenerationRecordFileIds: [],
       backupPath: null,
     });
@@ -1152,18 +1159,27 @@ describe("projectFs", () => {
           code: "orphan-generated-record",
           fileId: "file-generated-restorable-orphan",
           repairable: true,
+          resolution: expect.objectContaining({
+            status: "repairable",
+          }),
         }),
         expect.objectContaining({
           code: "orphan-image-record",
           fileId: "file-imported-orphan",
           severity: "warning",
           repairable: true,
+          resolution: expect.objectContaining({
+            status: "repairable",
+          }),
         }),
         expect.objectContaining({
           code: "incomplete-generation-record",
           fileId: "file-generated-orphan",
           severity: "error",
           repairable: true,
+          resolution: expect.objectContaining({
+            status: "repairable",
+          }),
         }),
       ]),
     );
@@ -1283,6 +1299,8 @@ describe("projectFs", () => {
       fileId,
       sourceType: "generated",
       generationOrigin: "acp-agent",
+      generationTaskId: "acp-task-unwritten",
+      generationThreadId: "thread-1",
       prompt: "改进图标",
       width: 1254,
       height: 1254,
@@ -1301,6 +1319,8 @@ describe("projectFs", () => {
     expect(bundle.imageRecords[fileId]).toMatchObject({
       sourceType: "generated",
       generationOrigin: "acp-agent",
+      generationTaskId: "acp-task-unwritten",
+      generationThreadId: "thread-1",
       prompt: "改进图标",
     });
     await expect(
@@ -1712,7 +1732,14 @@ describe("projectFs", () => {
         sceneJson: staleScene,
         expectedSceneHash: baseHash,
       }),
-    ).rejects.toThrow("画板文件已经被其他会话更新");
+    ).rejects.toMatchObject({
+      code: "STALE_PROJECT_SNAPSHOT",
+      message: expect.stringContaining("画板文件已经被其他会话更新"),
+      details: {
+        expectedSceneHash: baseHash,
+        currentSceneHash: getSceneContentHash(nextScene),
+      },
+    });
 
     await expect(
       fs.readFile(

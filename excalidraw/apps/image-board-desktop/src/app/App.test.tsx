@@ -187,6 +187,15 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const getAcpAgentSettingsControls = (dialog: HTMLElement) => {
+  const acpSwitch = within(dialog).getByRole("switch", {
+    name: "启用 ACP Agent",
+  });
+  const acpSection = acpSwitch.closest("section");
+  expect(acpSection).not.toBeNull();
+  return within(acpSection as HTMLElement);
+};
+
 vi.mock("@excalidraw/utils", () => ({
   exportToBlob: hoistedExportToBlob,
 }));
@@ -1765,15 +1774,22 @@ describe("App startup", () => {
       await screen.findByRole("button", { name: "Agent 连接状态" }),
     );
 
-    const popover = screen.getByRole("region", { name: "Agent 连接设置" });
+    const popover = screen.getByRole("region", { name: "Agent 状态" });
     expect(popover).toHaveTextContent("Agent 已连接");
     expect(popover).toHaveTextContent("测试项目");
     expect(popover).not.toHaveTextContent("未打开项目");
-    expect(popover).toHaveTextContent("默认生成方式");
-    expect(popover).toHaveTextContent("在生成输入区调整本次任务");
-    expect(popover).toHaveTextContent("CoreStudio");
+    expect(popover).not.toHaveTextContent("默认生成方式");
     expect(popover).toHaveTextContent("ACP Agent");
     expect(popover).toHaveTextContent("测试 ACP Agent");
+    expect(
+      within(popover).getByRole("button", { name: "打开 Agent 对话" }),
+    ).toBeInTheDocument();
+    expect(
+      within(popover).getByRole("button", { name: "打开设置" }),
+    ).toBeInTheDocument();
+    expect(
+      within(popover).getByRole("button", { name: "复制 CLI 环境变量" }),
+    ).toBeEnabled();
     expect(
       within(popover).queryByRole("button", { name: "CoreStudio" }),
     ).not.toBeInTheDocument();
@@ -3297,10 +3313,13 @@ describe("App startup", () => {
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText("Agent 调用")).toBeInTheDocument();
+    expect(within(dialog).getByText("Agent 集成")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("网页画布").length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText("CLI").length).toBeGreaterThan(0);
+    expect(within(dialog).getAllByText("ACP Agent").length).toBeGreaterThan(0);
 
     fireEvent.click(
-      within(dialog).getByRole("switch", { name: "允许 Agent 调用" }),
+      within(dialog).getByRole("switch", { name: "启用 Agent 集成" }),
     );
 
     await waitFor(() => {
@@ -3337,10 +3356,7 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpSectionHeading = within(dialog).getByText("ACP Agent");
-    const acpSection = acpSectionHeading.closest("section");
-    expect(acpSection).not.toBeNull();
-    const acpControls = within(acpSection as HTMLElement);
+    const acpControls = getAcpAgentSettingsControls(dialog);
 
     fireEvent.click(
       acpControls.getByRole("switch", { name: "启用 ACP Agent" }),
@@ -3409,10 +3425,7 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpSectionHeading = within(dialog).getByText("ACP Agent");
-    const acpSection = acpSectionHeading.closest("section");
-    expect(acpSection).not.toBeNull();
-    const acpControls = within(acpSection as HTMLElement);
+    const acpControls = getAcpAgentSettingsControls(dialog);
 
     expect(acpControls.getByLabelText("工作目录")).toHaveAttribute(
       "placeholder",
@@ -3449,10 +3462,7 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpSectionHeading = within(dialog).getByText("ACP Agent");
-    const acpSection = acpSectionHeading.closest("section");
-    expect(acpSection).not.toBeNull();
-    const acpControls = within(acpSection as HTMLElement);
+    const acpControls = getAcpAgentSettingsControls(dialog);
 
     fireEvent.click(
       acpControls.getByRole("switch", { name: "启用 ACP Agent" }),
@@ -3483,7 +3493,7 @@ describe("App startup", () => {
     });
   });
 
-  it("shows recent ACP Agent task records from application settings", async () => {
+  it("shows ACP Agent debug records from the advanced application settings", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const recentRun = {
       mode: "acp-agent" as const,
@@ -3554,13 +3564,18 @@ describe("App startup", () => {
       menuActionListener?.({ action: "app-settings" });
     });
 
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    expect(listAcpAgentRunLogs).not.toHaveBeenCalled();
+    expect(within(dialog).queryByText("最近 ACP 任务")).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByText("高级调试"));
+
     await waitFor(() => {
       expect(listAcpAgentRunLogs).toHaveBeenCalledWith({ limit: 8 });
     });
 
-    const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const historyHeading = within(dialog).getByText("最近 Agent 任务");
-    const historySection = historyHeading.closest("section");
+    const historyHeading = within(dialog).getByText("ACP 调试记录");
+    const historySection = historyHeading.closest(".acp-run-history");
     expect(historySection).not.toBeNull();
     const historyControls = within(historySection as HTMLElement);
 
@@ -3572,7 +3587,7 @@ describe("App startup", () => {
 
     fireEvent.click(
       historyControls.getByRole("button", {
-        name: "查看任务记录：优化桌面 CNC 机器外观",
+        name: "查看调试记录：优化桌面 CNC 机器外观",
       }),
     );
 
@@ -3602,7 +3617,7 @@ describe("App startup", () => {
     expect(runLog).toHaveTextContent("session/prompt");
   });
 
-  it("refreshes recent ACP Agent task records when an open settings panel receives a finished task", async () => {
+  it("refreshes ACP Agent debug records when the advanced panel is open and a task finishes", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     let acpTaskListener:
       | ((event: {
@@ -3667,6 +3682,9 @@ describe("App startup", () => {
       menuActionListener?.({ action: "app-settings" });
     });
 
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    fireEvent.click(within(dialog).getByText("高级调试"));
+
     await waitFor(() => {
       expect(listAcpAgentRunLogs).toHaveBeenCalledTimes(1);
     });
@@ -3686,7 +3704,6 @@ describe("App startup", () => {
       expect(listAcpAgentRunLogs).toHaveBeenCalledTimes(2);
     });
 
-    const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(
       within(dialog).getByText("生成一版极简 CNC 外观"),
     ).toBeInTheDocument();
@@ -3732,10 +3749,7 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpSectionHeading = within(dialog).getByText("ACP Agent");
-    const acpSection = acpSectionHeading.closest("section");
-    expect(acpSection).not.toBeNull();
-    const acpControls = within(acpSection as HTMLElement);
+    const acpControls = getAcpAgentSettingsControls(dialog);
     const acpSwitch = acpControls.getByRole("switch", {
       name: "启用 ACP Agent",
     });
@@ -3774,10 +3788,10 @@ describe("App startup", () => {
     const welcomePane = await screen.findByRole("region", {
       name: "选择项目开始",
     });
-    expect(within(welcomePane).getByText("Agent 调用")).toBeInTheDocument();
+    expect(within(welcomePane).getByText("Agent 集成")).toBeInTheDocument();
 
     fireEvent.click(
-      within(welcomePane).getByRole("switch", { name: "允许 Agent 调用" }),
+      within(welcomePane).getByRole("switch", { name: "启用 Agent 集成" }),
     );
 
     await waitFor(() => {
@@ -4292,32 +4306,76 @@ describe("App startup", () => {
   });
 
   it("repairs current project data from the file menu", async () => {
-    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
-      elements: [
-        {
-          id: "visible-image",
-          type: "image",
-          fileId: "visible-file",
-          isDeleted: false,
-          groupIds: [],
-          x: 120,
-          y: 120,
-          width: 160,
-          height: 120,
-        },
-      ] as any,
-      appState: {
-        width: 500,
-        height: 400,
-        scrollX: -100,
-        scrollY: -80,
-        zoom: { value: 0.1 },
-        selectedElementIds: {},
-        selectedGroupIds: {},
-        viewBackgroundColor: "#ffffff",
-      } as any,
-      files: {},
-    });
+    const initialAppState = {
+      width: 500,
+      height: 400,
+      scrollX: -100,
+      scrollY: -80,
+      zoom: { value: 0.1 },
+      selectedElementIds: {},
+      selectedGroupIds: {},
+      viewBackgroundColor: "#ffffff",
+    } as any;
+    const initialSceneElements = [
+      {
+        id: "visible-image",
+        type: "image",
+        fileId: "visible-file",
+        isDeleted: false,
+        groupIds: [],
+        x: 120,
+        y: 120,
+        width: 160,
+        height: 120,
+      },
+    ] as any;
+    const repairedSceneElements = [
+      ...initialSceneElements,
+      {
+        id: "generated-image",
+        type: "image",
+        fileId: "generated-file",
+        isDeleted: false,
+        groupIds: [],
+        x: 320,
+        y: 120,
+        width: 160,
+        height: 160,
+      },
+      {
+        id: "imported-orphan-image",
+        type: "image",
+        fileId: "imported-orphan",
+        isDeleted: false,
+        groupIds: [],
+        x: 500,
+        y: 120,
+        width: 160,
+        height: 106,
+      },
+      {
+        id: "acp-output-image",
+        type: "image",
+        fileId: "acp-output",
+        isDeleted: false,
+        groupIds: [],
+        x: 680,
+        y: 120,
+        width: 160,
+        height: 160,
+      },
+    ] as any;
+    vi.mocked(deserializeSceneFromProject)
+      .mockResolvedValueOnce({
+        elements: initialSceneElements,
+        appState: initialAppState,
+        files: {},
+      })
+      .mockResolvedValueOnce({
+        elements: repairedSceneElements,
+        appState: initialAppState,
+        files: {},
+      });
     const readProjectAssetPayloads = vi
       .fn()
       .mockImplementation(async ({ fileIds }) =>
@@ -4352,6 +4410,13 @@ describe("App startup", () => {
           mimeType: "image/png",
         },
       },
+      restoredBoardFileIds: [
+        "generated-file",
+        "imported-orphan",
+        "acp-output",
+      ],
+      restoredSceneJson:
+        '{"type":"excalidraw","elements":[],"appState":{},"files":{}}',
     });
     let menuActionListener: ((event: { action: string }) => void) | null = null;
 
@@ -4449,7 +4514,7 @@ describe("App startup", () => {
       ]);
     });
     await waitFor(() => {
-      expect(mockExcalidrawAPI?.addFiles).toHaveBeenCalledWith([
+      expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
         expect.objectContaining({
           id: "generated-file",
           dataURL: `data:image/png;base64,${Buffer.from(
@@ -4469,6 +4534,17 @@ describe("App startup", () => {
           ).toString("base64")}`,
         }),
       ]);
+    });
+    expect(mockExcalidrawAPI?.addFiles).not.toHaveBeenCalled();
+    await waitFor(() => {
+      const lastUpdateSceneInput =
+        mockExcalidrawAPI?.updateScene.mock.calls.at(-1)?.[0];
+      expect(lastUpdateSceneInput).toEqual(
+        expect.objectContaining({
+          elements: repairedSceneElements,
+          appState: initialAppState,
+        }),
+      );
     });
     await waitFor(() => {
       expect(
@@ -4507,6 +4583,101 @@ describe("App startup", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows project data repair details from the status toast", async () => {
+    const rebuildProjectThumbnails = vi.fn().mockResolvedValue({
+      generatedFileIds: [],
+      skippedFileIds: ["cached-file"],
+      failedFileIds: ["failed-file"],
+      skippedDetails: [
+        {
+          fileId: "cached-file",
+          reason: "thumbnail-cache-exists",
+          message: "显示缓存已经存在，跳过重建。",
+        },
+      ],
+      failedDetails: [
+        {
+          fileId: "failed-file",
+          reason: "thumbnail-rebuild-failed",
+          message: "图片缓存重建失败。",
+          path: "assets/failed-file.png",
+        },
+      ],
+      repairedGenerationRecordFileIds: [],
+      repairedAcpOutputFileIds: [],
+      repairedAcpOutputRecords: {},
+    });
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "cached-file": {
+              fileId: "cached-file",
+              assetPath: "assets/cached-file.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:00:00.000Z",
+              mimeType: "image/png",
+            },
+            "failed-file": {
+              fileId: "failed-file",
+              assetPath: "assets/failed-file.png",
+              sourceType: "imported",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:01:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+      rebuildProjectThumbnails,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(menuActionListener).not.toBeNull();
+    });
+
+    await act(async () => {
+      menuActionListener?.({
+        action: "repair-project-thumbnails",
+      });
+    });
+
+    expect(
+      await screen.findByText("项目数据修复完成，部分图片需要再确认。"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
+
+    expect(
+      screen.getByRole("dialog", { name: "数据修复详情" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("上次修复结果")).toBeInTheDocument();
+    expect(screen.getByText("缓存已存在")).toBeInTheDocument();
+    expect(screen.getByText("显示缓存已经存在，跳过重建。")).toBeInTheDocument();
+    expect(screen.getByText("File ID: cached-file")).toBeInTheDocument();
+    expect(screen.getByText("缓存重建失败")).toBeInTheDocument();
+    expect(screen.getByText("图片缓存重建失败。")).toBeInTheDocument();
+    expect(screen.getByText("路径: assets/failed-file.png")).toBeInTheDocument();
+  });
+
   it("inspects current project health from the file menu", async () => {
     const inspectProjectHealth = vi.fn().mockResolvedValue({
       checkedAt: "2026-04-12T08:00:00.000Z",
@@ -4530,6 +4701,10 @@ describe("App startup", () => {
           fileId: "visible-file",
           message: "图片缓存待重建：visible-file",
           repairable: true,
+          resolution: {
+            status: "repairable",
+            summary: "项目数据修复会重新生成这张图片的显示缓存。",
+          },
         },
       ],
       summary: {
@@ -4595,8 +4770,14 @@ describe("App startup", () => {
     expect(
       screen.getByRole("dialog", { name: "数据检查详情" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("图片缓存待重建")).toBeInTheDocument();
+    expect(screen.getByText("显示缓存需要处理")).toBeInTheDocument();
+    expect(screen.getByText("图片缓存待重建：visible-file")).toBeInTheDocument();
     expect(screen.getByText("File ID: visible-file")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "可修复：项目数据修复会重新生成这张图片的显示缓存。",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("cleans current project cache from the file menu", async () => {
@@ -6772,7 +6953,7 @@ describe("App startup", () => {
     );
     expect(
       screen.getByText(
-        "这条生成记录是后续结果的参考图，已定位到引用它的画板图片。",
+        "这张图片是后续结果的参考图，已定位到引用它的画板图片。",
       ),
     ).toBeInTheDocument();
 
@@ -6811,6 +6992,10 @@ describe("App startup", () => {
           fileId: "imported-orphan",
           message: "预览缓存尚未生成：imported-orphan",
           repairable: false,
+          resolution: {
+            status: "info",
+            summary: "这是非阻断提示，通常无需手动处理。",
+          },
         },
       ],
       summary: {
@@ -6853,6 +7038,9 @@ describe("App startup", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查看详情" })).toBeInTheDocument();
+    expect(
+      screen.getByText("说明：这是非阻断提示，通常无需手动处理。"),
+    ).toBeInTheDocument();
   });
 
   it("returns to generation records after a builtin image is generated from an ACP conversation context", async () => {
@@ -9726,6 +9914,74 @@ describe("App startup", () => {
     expect(agentDock.getByText("已完成视觉分析。")).toBeInTheDocument();
   });
 
+  it("starts a new ACP Agent thread from the empty conversation sidebar", async () => {
+    const startAcpAgentTask = vi.fn(async (_request: any) => ({
+      taskId: "task-new",
+      threadId: "thread-new",
+    }));
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      getAgentBridgeStatus: vi.fn(async () => ({
+        enabled: true,
+        ready: true,
+        currentProject: null,
+        boardUrl:
+          "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
+      })),
+      loadAcpAgentSettings: vi.fn(async () => ({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "测试 Agent",
+            command: "/usr/local/bin/acp-agent",
+            args: ["--stdio"],
+            cwd: null,
+          },
+        ],
+      })),
+      listAcpAgentThreads: vi.fn(async () => []),
+      startAcpAgentTask,
+      onAcpAgentTaskEvent: vi.fn(() => () => undefined),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "切换 ACP Agent 模式" }),
+      );
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Agent 对话" }));
+    });
+
+    const agentDock = within(screen.getByTestId("side-dock-left"));
+    const composer = agentDock.getByLabelText("继续 Agent 对话");
+    expect(composer).toHaveAttribute("placeholder", "输入任务");
+
+    fireEvent.change(composer, {
+      target: { value: "帮我做一版更轻薄的桌面 CNC" },
+    });
+    fireEvent.click(agentDock.getByRole("button", { name: "发送给 Agent" }));
+
+    await waitFor(() => {
+      expect(startAcpAgentTask).toHaveBeenCalled();
+    });
+    expect(startAcpAgentTask.mock.calls[0][0]).toMatchObject({
+      threadId: expect.stringMatching(/^acp-thread-/),
+      userPrompt: "帮我做一版更轻薄的桌面 CNC",
+    });
+  });
+
   it("switches ACP Agent conversation history from the left sidebar", async () => {
     const threadSummaries = [
       {
@@ -9847,6 +10103,19 @@ describe("App startup", () => {
               createdAt: "2026-06-29T01:00:30.000Z",
               mimeType: "image/png",
             },
+            "acp-missing-image": {
+              fileId: "acp-missing-image",
+              assetPath: "assets/acp-missing-image.png",
+              sourceType: "generated",
+              generationOrigin: "acp-agent",
+              prompt: "缺画板结果",
+              generationTaskId: "task-older",
+              generationThreadId: "thread-older",
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-06-29T01:00:40.000Z",
+              mimeType: "image/png",
+            },
           },
         }),
       ),
@@ -9954,6 +10223,10 @@ describe("App startup", () => {
     expect(imageResult).toHaveTextContent("旧方案讨论");
     expect(imageResult).toHaveTextContent("ACP Agent");
     expect(imageResult).toHaveTextContent("已在画板");
+    const missingImageResult = timeline.getByRole("button", {
+      name: /缺画板结果/,
+    });
+    expect(missingImageResult).toHaveTextContent("未在画板");
 
     await act(async () => {
       fireEvent.click(imageResult);
@@ -9969,6 +10242,16 @@ describe("App startup", () => {
         duration: 300,
       },
     );
+
+    await act(async () => {
+      fireEvent.click(missingImageResult);
+    });
+
+    expect(
+      screen.getByText(
+        "这张图片记录没有对应画板元素，可以运行项目数据修复补回画布。",
+      ),
+    ).toBeInTheDocument();
 
     fireEvent.change(agentDock.getByLabelText("继续 Agent 对话"), {
       target: { value: "继续优化右侧结构" },

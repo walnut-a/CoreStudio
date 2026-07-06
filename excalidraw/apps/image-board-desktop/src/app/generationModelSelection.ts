@@ -13,6 +13,10 @@ export interface GenerationModelSelection {
   model: string;
 }
 
+type MutableCurrent<T> = {
+  current: T;
+};
+
 const isProviderId = (value: unknown): value is ProviderId =>
   typeof value === "string" &&
   PROVIDER_IDS.includes(value as ProviderId);
@@ -91,6 +95,45 @@ export const rememberGenerationModelSelection = (
     // Local storage can be unavailable in restricted renderer contexts.
   }
 };
+
+export const runGenerationModelSelectionRememberAction = ({
+  selection,
+  selectionLockedRef,
+  rememberedSelectionRef,
+  rememberSelection = rememberGenerationModelSelection,
+}: {
+  selection: GenerationModelSelection;
+  selectionLockedRef: MutableCurrent<boolean>;
+  rememberedSelectionRef: MutableCurrent<GenerationModelSelection | null>;
+  rememberSelection?: (selection: GenerationModelSelection) => void;
+}) => {
+  selectionLockedRef.current = true;
+  rememberedSelectionRef.current = selection;
+  rememberSelection(selection);
+
+  return {
+    selectionLocked: true,
+    rememberedSelection: selection,
+  };
+};
+
+export const createGenerationModelSelectionRendererActions = ({
+  selectionLockedRef,
+  rememberedSelectionRef,
+  rememberSelection,
+}: {
+  selectionLockedRef: MutableCurrent<boolean>;
+  rememberedSelectionRef: MutableCurrent<GenerationModelSelection | null>;
+  rememberSelection?: (selection: GenerationModelSelection) => void;
+}) => ({
+  rememberSelection: (selection: GenerationModelSelection) =>
+    runGenerationModelSelectionRememberAction({
+      selection,
+      selectionLockedRef,
+      rememberedSelectionRef,
+      rememberSelection,
+    }),
+});
 
 export const resolvePreferredGenerationModelSelection = ({
   providerSettings,

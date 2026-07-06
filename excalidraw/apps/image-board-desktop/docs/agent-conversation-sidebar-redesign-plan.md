@@ -1,5 +1,7 @@
 # Agent Conversation Sidebar Redesign Plan
 
+> 本文是 [agent-integration-architecture-reset-plan.md](./agent-integration-architecture-reset-plan.md) 中 Milestone C / Task 5 的子计划，只约束左侧 Agent 对话和生成记录体验。产品入口、数据一致性、CLI / ACP contract 的优先级仍以主计划为准。
+
 ## 背景
 
 当前 Agent 对话侧栏已经接入了 `assistant-ui`，但实际表现仍然偏“日志面板”。主要问题不是底层库能力不足，而是 UI 层直接把 ACP run log 映射成了界面结构，缺少一层面向用户的对话语义模型。
@@ -148,6 +150,9 @@ export interface AgentImageResult {
 当前进度：
 
 - 2026-07-02：阶段 1 已完成。新增 `src/app/agentThreadModel.ts` 和 `src/app/agentThreadModel.test.ts`，先把 ACP run/thread log 转成稳定的 `AgentThread` 语义结构。已覆盖流式文本合并、工具调用穿插、重复 seq 唯一 ID、原始协议日志隐藏/调试展开、失败状态和图片结果挂接。
+- 2026-07-02：阶段 1 继续拆语义模型边界。`agentThreadTypes.ts` 现在承载 thread/message/part/tool/image result public types，`agentThreadModelUtils.ts` 承载 payload、状态、工具标题和 raw protocol helper；`agentThreadModel.ts` 保留 builder 入口并 re-export 类型，UI 组件的类型依赖已切到 `agentThreadTypes`。
+- 2026-07-02：阶段 1 继续拆工具事件。新增 `agentThreadToolEvents.ts` 和测试，将 ACP notification 的 tool context、工具 part 创建、工具 update 合并和 last-tool fallback 从 thread builder 中拿出；`agentThreadModel.ts` 继续只承担 message 时间线编排。
+- 2026-07-02：阶段 1 继续拆文本流事件。新增 `agentThreadTextEvents.ts` 和测试，将 messageId 合并、相邻 fallback 合并和 assistant text part 创建从 thread builder 中拿出，继续防止流式回复退化成一字一条。
 
 ## 组件计划
 
@@ -271,6 +276,9 @@ export interface AgentImageResult {
 当前进度：
 
 - 2026-07-02：阶段 2 已完成第一段。新增 `AgentThreadTimeline` 和测试，覆盖空态、用户消息、Agent 回复、工具调用、图片结果和图片定位回调。空态改成无大段说明的安静状态。
+- 2026-07-02：阶段 2 继续拆小侧栏结构。新增 `AgentThreadList` 和 `AgentConversationComposer`，分别负责历史 thread 列表与继续对话输入；`AgentConversationSidebar` 不再内联 thread item、draft message 和发送状态。
+- 2026-07-02：阶段 2 继续拆小 timeline 结构。`AgentThreadTimeline` 已拆成 message、text/status/error part、markdown/path/code block renderer、tool call part、image result part；工具失败默认展开、图片结果来源去重、markdown/path/code block 渲染都有独立或 timeline 测试覆盖。
+- 2026-07-02：阶段 2 继续优化 tool call 可读性。工具调用标题行现在显示动作、对象、状态和一行摘要；展开后使用“输入参数 / 执行结果 / 错误”分区，避免主侧栏继续像原始 JSON 调试面板。
 
 ### 阶段 3：接真实 ACP 数据
 
@@ -290,6 +298,9 @@ export interface AgentImageResult {
 
 - 2026-07-02：阶段 3 已完成第一段。`AgentConversationSidebar` 已改为先把真实 `threadEntries` / `runLogDetail` / 当前 task 事件 / Agent 结果图片转换成 `AgentThread`，再交给 `AgentThreadTimeline` 渲染。原始 ACP JSON 仍保留在设置/任务记录调试弹窗中，不进入主侧栏。
 - 2026-07-02：阶段 3 追加一轮可读性修整。图片结果的来源、时间、尺寸和状态改为独立语义字段后统一拼接，避免 `ACP Agent` 等来源文案重复；失败工具调用默认展开，便于直接看到失败原因。
+- 2026-07-02：阶段 3 继续降低 UI 耦合。新增 `agentConversationThreadView`，专门把 active task、run log detail、thread entries 和 Agent 结果图片转换为侧栏可消费的 `AgentThread` 视图；`AgentConversationSidebar` 只消费转换结果，不再内联构造 fallback run log。
+- 2026-07-02：阶段 3 补齐图片结果语义。ACP 结果图片从项目 `ImageRecord` 带出 prompt、model、尺寸、参考图数量、创建时间和画板状态；左侧 thread 的图片卡片显示来源、prompt 摘要和参考图标签，点击仍通过 `fileId` 定位到画布图片。
+- 2026-07-02：阶段 3 补齐定位失败语义。图片结果点击现在复用 `imageRecordLocator`：能直接定位就定位，参考图缺画板元素时会尝试定位引用它的结果图，完全找不到画板元素时提示运行项目数据修复。
 
 ### 阶段 4：直接输入记录整理
 

@@ -5,6 +5,7 @@ import {
   createAgentError,
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
+import { getPersistedImageAssetIntegrityError } from "../../src/shared/projectRecordIntegrity";
 import { readLocalImagePayload } from "./localImagePayload";
 import { getAgentSessionPath } from "./sessionPaths";
 
@@ -82,8 +83,8 @@ const bridgeUnavailableEnvelope = () =>
 const badRequestEnvelope = (message: string) =>
   createAgentError("BAD_REQUEST", message);
 
-const commandFailedEnvelope = (message: string) =>
-  createAgentError("COMMAND_FAILED", message);
+const commandFailedEnvelope = (message: string, details?: unknown) =>
+  createAgentError("COMMAND_FAILED", message, details);
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -221,6 +222,12 @@ const parseFileIdsFlag = (
 ): string[] | undefined | AgentEnvelope<never> =>
   parseCsvFlag(value, "--file-ids");
 
+const parseReferenceIdsFlag = (
+  value: string | undefined,
+  flagName: "--reference-file-ids" | "--reference-element-ids",
+): string[] | undefined | AgentEnvelope<never> =>
+  parseCsvFlag(value, flagName);
+
 const parseCommand = (
   argv: readonly string[],
 ): CliCommand | AgentEnvelope<never> => {
@@ -304,6 +311,11 @@ const parseCommand = (
       health: { route: AGENT_HTTP_ROUTES.projectHealth, method: "GET" },
       "acp-runs": { route: AGENT_HTTP_ROUTES.acpRuns, method: "GET" },
       "acp-threads": { route: AGENT_HTTP_ROUTES.acpThreads, method: "GET" },
+      "browser-state": {
+        route: AGENT_HTTP_ROUTES.browserState,
+        method: "GET",
+      },
+      board: { route: AGENT_HTTP_ROUTES.sceneBoard, method: "GET" },
       scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
       selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
       "board-url": {
@@ -318,7 +330,7 @@ const parseCommand = (
     const route = target ? readRoutes[target] : null;
     if (!route) {
       return badRequestEnvelope(
-        "read requires one of: status, capabilities, context, project, records, health, scene, selection, image-paths, board-url, acp-runs, acp-run, acp-threads, acp-thread.",
+        "read requires one of: status, capabilities, context, project, records, health, board, scene, selection, image-paths, board-url, browser-state, acp-runs, acp-run, acp-threads, acp-thread.",
       );
     }
     const parsed = parseArgs(argv.slice(2));
@@ -378,11 +390,26 @@ const parseCommand = (
     if (typeof imagePath !== "string") {
       return imagePath;
     }
+    const referenceFileIds = parseReferenceIdsFlag(
+      parsed.flags["--reference-file-ids"],
+      "--reference-file-ids",
+    );
+    if (isEnvelope(referenceFileIds)) {
+      return referenceFileIds;
+    }
+    const referenceElementIds = parseReferenceIdsFlag(
+      parsed.flags["--reference-element-ids"],
+      "--reference-element-ids",
+    );
+    if (isEnvelope(referenceElementIds)) {
+      return referenceElementIds;
+    }
     return {
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
       imagePath,
       body: {
+        sourceType: "generated",
         ...(parsed.flags["--origin"]
           ? { generationOrigin: parsed.flags["--origin"] }
           : {}),
@@ -392,12 +419,8 @@ const parseCommand = (
         ...(parsed.flags["--parent-file-id"]
           ? { parentFileId: parsed.flags["--parent-file-id"] }
           : {}),
-        ...(parsed.flags["--reference-file-ids"]
-          ? { referenceFileIds: parsed.flags["--reference-file-ids"] }
-          : {}),
-        ...(parsed.flags["--reference-element-ids"]
-          ? { referenceElementIds: parsed.flags["--reference-element-ids"] }
-          : {}),
+        ...(referenceFileIds ? { referenceFileIds } : {}),
+        ...(referenceElementIds ? { referenceElementIds } : {}),
         ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
       },
     };
@@ -564,6 +587,8 @@ const parseCommand = (
         const examples = [
           `${envPrefix} ${executable} read context --json`,
           `${envPrefix} ${executable} read selection --json`,
+          `${envPrefix} ${executable} read board --json`,
+          `${envPrefix} ${executable} read browser-state --json`,
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,
@@ -827,7 +852,11 @@ const getAddImageMetadataDefaults = (
     ...(env.CORESTUDIO_AGENT_TASK_ID
       ? {
           generationOrigin: "acp-agent",
+          generationTaskId: env.CORESTUDIO_AGENT_TASK_ID,
         }
+      : {}),
+    ...(env.CORESTUDIO_AGENT_THREAD_ID
+      ? { generationThreadId: env.CORESTUDIO_AGENT_THREAD_ID }
       : {}),
     ...(env.CORESTUDIO_AGENT_USER_PROMPT
       ? { prompt: env.CORESTUDIO_AGENT_USER_PROMPT }
@@ -841,17 +870,115 @@ const getAddImageMetadataDefaults = (
   };
 };
 
+const normalizeAddImageReferenceIds = (
+  value: unknown,
+  fieldName: "referenceFileIds" | "referenceElementIds",
+): string[] | undefined | AgentEnvelope<never> => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : null;
+
+  if (!values) {
+    return badRequestEnvelope(`${fieldName} must be a comma list or array.`);
+  }
+
+  const normalized = Array.from(
+    new Set(
+      values
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean),
+    ),
+  );
+  if (!normalized.length) {
+    return badRequestEnvelope(`${fieldName} must include at least one value.`);
+  }
+  return normalized;
+};
+
+const normalizeAddImageBody = (
+  command: CliCommand,
+  body: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined | AgentEnvelope<never> => {
+  if (command.route !== AGENT_HTTP_ROUTES.sceneAddImage || !body) {
+    return body;
+  }
+
+  const referenceFileIds = normalizeAddImageReferenceIds(
+    body.referenceFileIds,
+    "referenceFileIds",
+  );
+  if (isEnvelope(referenceFileIds)) {
+    return referenceFileIds;
+  }
+  const referenceElementIds = normalizeAddImageReferenceIds(
+    body.referenceElementIds,
+    "referenceElementIds",
+  );
+  if (isEnvelope(referenceElementIds)) {
+    return referenceElementIds;
+  }
+
+  return {
+    ...body,
+    ...(referenceFileIds ? { referenceFileIds } : {}),
+    ...(referenceElementIds ? { referenceElementIds } : {}),
+  };
+};
+
+const getPreparedAddImageBodyError = (
+  command: CliCommand,
+  body: Record<string, unknown> | undefined,
+) => {
+  if (command.route !== AGENT_HTTP_ROUTES.sceneAddImage) {
+    return null;
+  }
+
+  const error = getPersistedImageAssetIntegrityError({
+    sourceType: body?.sourceType,
+    generationOrigin: body?.generationOrigin,
+  });
+  if (!error) {
+    return null;
+  }
+
+  if (body?.sourceType === "generated" && !body.generationOrigin) {
+    return "write image requires --origin unless an ACP task environment provides one.";
+  }
+
+  return error;
+};
+
 const prepareRequestBody = async (
   command: CliCommand,
   options: CliRuntimeOptions,
 ): Promise<Record<string, unknown> | undefined | AgentEnvelope<never>> => {
   const metadataDefaults = getAddImageMetadataDefaults(command, options);
   const hasMetadataDefaults = Object.keys(metadataDefaults).length > 0;
+  const commandBody = command.body
+    ? { ...metadataDefaults, ...command.body }
+    : hasMetadataDefaults
+      ? metadataDefaults
+      : undefined;
+  const normalizedCommandBody = normalizeAddImageBody(command, commandBody);
+  if (isEnvelope(normalizedCommandBody)) {
+    return normalizedCommandBody;
+  }
+  const preparedAddImageBodyError = getPreparedAddImageBodyError(
+    command,
+    normalizedCommandBody,
+  );
+  if (preparedAddImageBodyError) {
+    return badRequestEnvelope(preparedAddImageBodyError);
+  }
+
   if (!command.imagePath) {
-    if (command.body) {
-      return { ...metadataDefaults, ...command.body };
-    }
-    return hasMetadataDefaults ? metadataDefaults : undefined;
+    return normalizedCommandBody;
   }
 
   const readImagePayload =
@@ -860,12 +987,17 @@ const prepareRequestBody = async (
   try {
     return {
       ...(await readImagePayload(command.imagePath)),
-      ...metadataDefaults,
-      ...(command.body ?? {}),
+      ...(normalizedCommandBody ?? {}),
     };
   } catch (error) {
+    const cause = getErrorMessage(error);
     return commandFailedEnvelope(
-      `Failed to read image payload: ${getErrorMessage(error)}`,
+      `Failed to read image payload: ${cause}`,
+      {
+        stage: "read-image-payload",
+        imagePath: command.imagePath,
+        cause,
+      },
     );
   }
 };

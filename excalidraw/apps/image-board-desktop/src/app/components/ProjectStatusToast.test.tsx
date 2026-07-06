@@ -1,0 +1,104 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import type {
+  ProjectRepairReport,
+  ThumbnailMaintenanceState,
+} from "../project/projectMaintenanceController";
+import { ProjectStatusToast } from "./ProjectStatusToast";
+
+const renderToast = (
+  overrides: Partial<Parameters<typeof ProjectStatusToast>[0]> = {},
+  onOpenDetails = vi.fn(),
+) => {
+  const props: Parameters<typeof ProjectStatusToast>[0] = {
+    projectNotice: null,
+    thumbnailMaintenance: null,
+    projectHealthReport: null,
+    projectRepairReport: null,
+    onOpenDetails,
+    ...overrides,
+  };
+
+  return render(<ProjectStatusToast {...props} />);
+};
+
+describe("ProjectStatusToast", () => {
+  it("does not render without a toast view model", () => {
+    renderToast();
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("renders pending project maintenance status", () => {
+    renderToast({
+      thumbnailMaintenance: {
+        status: "pending",
+        total: 3,
+      },
+    });
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("正在修复 3 个图片资源");
+    expect(status).toHaveClass("project-status-toast");
+    expect(status).not.toHaveClass("project-status-toast--success");
+    expect(status).not.toHaveClass("project-status-toast--failed");
+    expect(screen.queryByRole("button", { name: "查看详情" })).toBeNull();
+  });
+
+  it("renders success status with a stable success dot", () => {
+    renderToast({
+      projectNotice: "项目数据修复完成。",
+    });
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveClass("project-status-toast--success");
+    expect(status.querySelector(".project-status-toast__dot")).toHaveClass(
+      "project-status-toast__dot--success",
+    );
+  });
+
+  it("renders failed status and opens details when available", () => {
+    const onOpenDetails = vi.fn();
+    const thumbnailMaintenance: ThumbnailMaintenanceState = {
+      status: "failed",
+      total: 2,
+    };
+    const repairReport: ProjectRepairReport = {
+      generatedCount: 0,
+      skippedCount: 0,
+      failedCount: 1,
+      repairedGenerationRecordCount: 0,
+      repairedAcpOutputCount: 0,
+      restoredImageRecordCount: 0,
+      skippedImageRecordCount: 0,
+      skippedDetails: [],
+      failedDetails: [
+        {
+          fileId: "failed-file",
+          path: "assets/failed-file.png",
+          reason: "thumbnail-rebuild-failed",
+          message: "图片缓存重建失败。",
+        },
+      ],
+    };
+
+    renderToast(
+      {
+        thumbnailMaintenance,
+        projectRepairReport: repairReport,
+      },
+      onOpenDetails,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveClass("project-status-toast--failed");
+    expect(status.querySelector(".project-status-toast__dot")).toHaveClass(
+      "project-status-toast__dot--muted",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
+
+    expect(onOpenDetails).toHaveBeenCalled();
+  });
+});

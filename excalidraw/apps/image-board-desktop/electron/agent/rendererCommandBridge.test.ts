@@ -113,6 +113,42 @@ describe("createRendererCommandBridge", () => {
     });
   });
 
+  it("preserves renderer error details on rejected errors", async () => {
+    let responseListener:
+      | ((response: AgentRendererCommandResponse) => void)
+      | undefined;
+    const bridge = createRendererCommandBridge({
+      randomId: () => "request-1",
+      send: vi.fn(),
+      onResponse: (listener) => {
+        responseListener = listener;
+        return vi.fn();
+      },
+      isAvailable: () => true,
+    });
+
+    const resultPromise = bridge.request("scene.snapshot");
+    responseListener?.({
+      requestId: "request-1",
+      ok: false,
+      errorCode: "STALE_PROJECT_SNAPSHOT",
+      errorMessage: "画板文件已经被其他会话更新。",
+      errorDetails: {
+        expectedSceneHash: "old",
+        currentSceneHash: "new",
+      },
+    });
+
+    await expect(resultPromise).rejects.toMatchObject({
+      code: "STALE_PROJECT_SNAPSHOT",
+      message: "画板文件已经被其他会话更新。",
+      details: {
+        expectedSceneHash: "old",
+        currentSceneHash: "new",
+      },
+    });
+  });
+
   it("rejects timed out requests and ignores late responses", async () => {
     vi.useFakeTimers();
     let responseListener:

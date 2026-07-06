@@ -5,10 +5,11 @@ import type {
   ImageRecord,
 } from "../../shared/projectTypes";
 import type { ImageLineageEntry } from "../imageRelationships";
+import type { GenerationTaskRecord } from "../generationTaskState";
 import { copy } from "../copy";
 import { ImageInspector } from "./ImageInspector";
-import type { GenerationTaskRecord } from "./ImageInspector";
 import { SideDock } from "./SideDock";
+import "./ImageInspector.css";
 
 interface InspectorSidebarProps {
   open: boolean;

@@ -18,7 +18,7 @@ import { ProvidersDialog } from "./ProvidersDialog";
 import { WelcomePane } from "./WelcomePane";
 
 import type { ImageLineageEntry } from "../imageRelationships";
-import type { GenerationTaskRecord } from "./ImageInspector";
+import type { GenerationTaskRecord } from "../generationTaskState";
 import type {
   PublicProviderSettings,
   RecentProjectEntry,
@@ -770,10 +770,13 @@ describe("Chinese localization", () => {
     expect(onOpenAgentRunLog).toHaveBeenCalledWith("task-1");
   });
 
-  it("expands the current ACP Agent task process when requested", () => {
+  it("opens the current ACP Agent task process when requested", () => {
+    const onOpenAgentRunLog = vi.fn();
+
     render(
       <GenerateImageDialog
         open={true}
+        onOpenAgentRunLog={onOpenAgentRunLog}
         composerConfig={{
           defaultMode: "direct",
           showModeSwitch: true,
@@ -823,13 +826,8 @@ describe("Chinese localization", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "查看任务过程" }));
 
-    expect(
-      screen.getByRole("log", { name: "ACP Agent 任务过程" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("创建会话")).toBeInTheDocument();
-    expect(screen.getByText("session/new")).toBeInTheDocument();
-    expect(screen.getByText("调用 CoreStudio CLI")).toBeInTheDocument();
-    expect(screen.getByText("调用中")).toBeInTheDocument();
+    expect(onOpenAgentRunLog).toHaveBeenCalledWith("task-1");
+    expect(screen.queryByText("session/new")).not.toBeInTheDocument();
   });
 
   it("keeps the selected model when provider settings refresh", () => {

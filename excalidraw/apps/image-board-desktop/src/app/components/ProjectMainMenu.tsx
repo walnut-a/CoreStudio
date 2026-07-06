@@ -3,6 +3,8 @@ import { MainMenu } from "@excalidraw/excalidraw/index";
 import { copy } from "../copy";
 import { projectFolderIcon } from "./CoreStudioIcons";
 
+import "./ProjectMainMenu.css";
+
 interface ProjectMainMenuProps {
   currentProjectName: string;
   onSwitchProject: () => void;

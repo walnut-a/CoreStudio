@@ -636,6 +636,74 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("maps renderer STALE_PROJECT_SNAPSHOT errors to conflict responses", async () => {
+    const error = Object.assign(
+      new Error("画板文件已经被其他会话更新，已停止保存旧快照。"),
+      {
+        code: "STALE_PROJECT_SNAPSHOT",
+        details: {
+          expectedSceneHash: "old",
+          currentSceneHash: "new",
+        },
+      },
+    );
+    const renderer = {
+      request: vi.fn().mockRejectedValue(error),
+    };
+    const { server } = await track(startServer({ renderer }));
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.context);
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: {
+        ok: false,
+        error: {
+          code: "STALE_PROJECT_SNAPSHOT",
+          message: "画板文件已经被其他会话更新，已停止保存旧快照。",
+          details: {
+            expectedSceneHash: "old",
+            currentSceneHash: "new",
+          },
+        },
+      },
+    });
+  });
+
+  it("maps renderer CAPABILITY_UNAVAILABLE errors to conflict responses", async () => {
+    const error = Object.assign(new Error("当前环境不能检查项目健康度。"), {
+      code: "CAPABILITY_UNAVAILABLE",
+      details: {
+        command: "project.health",
+        capability: "inspectProjectHealth",
+      },
+    });
+    const renderer = {
+      request: vi.fn().mockRejectedValue(error),
+    };
+    const { server } = await track(startServer({ renderer }));
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.projectHealth,
+    );
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: {
+        ok: false,
+        error: {
+          code: "CAPABILITY_UNAVAILABLE",
+          message: "当前环境不能检查项目健康度。",
+          details: {
+            command: "project.health",
+            capability: "inspectProjectHealth",
+          },
+        },
+      },
+    });
+  });
+
   it("forwards allowed desktop bridge methods without task grants", async () => {
     const { server, renderer } = await track(startServer());
 

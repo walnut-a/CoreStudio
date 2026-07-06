@@ -16,6 +16,7 @@ import {
 export interface UnwrittenAcpOutput {
   fileId: string;
   taskId: string;
+  threadId?: string | null;
   outputPath: string;
   prompt: string;
   referenceFileIds: string[];
@@ -205,17 +206,27 @@ const hasEquivalentAcpOutputRecord = (
   imageRecords: ImageRecordMap,
   output: Omit<UnwrittenAcpOutput, "fileId">,
 ) =>
-  Object.values(imageRecords).some(
-    (record) =>
-      record.sourceType === "generated" &&
-      record.generationOrigin === "acp-agent" &&
+  Object.values(imageRecords).some((record) => {
+    if (
+      record.sourceType !== "generated" ||
+      record.generationOrigin !== "acp-agent"
+    ) {
+      return false;
+    }
+
+    if (record.generationTaskId && record.generationTaskId === output.taskId) {
+      return true;
+    }
+
+    return (
       (record.prompt ?? "") === output.prompt &&
       imageRecordHasPromptReferences(
         record,
         output.referenceFileIds,
         output.referenceElementIds,
-      ),
-  );
+      )
+    );
+  });
 
 export const collectUnwrittenAcpOutputs = async ({
   projectToken,
@@ -270,6 +281,7 @@ export const collectUnwrittenAcpOutputs = async ({
 
       const outputWithoutId = {
         taskId: summary.taskId,
+        threadId: summary.threadId,
         outputPath: resolvedOutputPath,
         prompt,
         referenceFileIds,

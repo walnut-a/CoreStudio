@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
 import {
+  createGenerationModelSelectionRendererActions,
   readRememberedGenerationModelSelection,
   rememberGenerationModelSelection,
   resolvePreferredGenerationModelSelection,
+  runGenerationModelSelectionRememberAction,
 } from "./generationModelSelection";
 
 const providerSettings = {
@@ -67,6 +69,56 @@ describe("generationModelSelection", () => {
       provider: "openrouter",
       model: "google/gemini-3.1-flash-image-preview",
     });
+  });
+
+  it("applies remembered model selection to renderer refs and storage", () => {
+    const selection = {
+      provider: "openrouter",
+      model: "google/gemini-3.1-flash-image-preview",
+    } as const;
+    const selectionLockedRef = { current: false };
+    const rememberedSelectionRef = {
+      current: null as typeof selection | null,
+    };
+    const rememberSelection = vi.fn();
+
+    const state = runGenerationModelSelectionRememberAction({
+      selection,
+      selectionLockedRef,
+      rememberedSelectionRef,
+      rememberSelection,
+    });
+
+    expect(state).toEqual({
+      selectionLocked: true,
+      rememberedSelection: selection,
+    });
+    expect(selectionLockedRef.current).toBe(true);
+    expect(rememberedSelectionRef.current).toBe(selection);
+    expect(rememberSelection).toHaveBeenCalledWith(selection);
+  });
+
+  it("creates renderer actions for remembering selected provider and model", () => {
+    const selection = {
+      provider: "openrouter",
+      model: "google/gemini-3.1-flash-image-preview",
+    } as const;
+    const selectionLockedRef = { current: false };
+    const rememberedSelectionRef = {
+      current: null as typeof selection | null,
+    };
+    const rememberSelection = vi.fn();
+    const actions = createGenerationModelSelectionRendererActions({
+      selectionLockedRef,
+      rememberedSelectionRef,
+      rememberSelection,
+    });
+
+    actions.rememberSelection(selection);
+
+    expect(selectionLockedRef.current).toBe(true);
+    expect(rememberedSelectionRef.current).toBe(selection);
+    expect(rememberSelection).toHaveBeenCalledWith(selection);
   });
 
   it("prefers remembered selection over configured providers", () => {

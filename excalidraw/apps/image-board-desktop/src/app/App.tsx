@@ -1,28 +1,14 @@
 import {
-  Component,
-  type ErrorInfo,
-  type ReactNode,
   Suspense,
   lazy,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import {
-  CaptureUpdateAction,
-  getCommonBounds,
-  newElementWith,
-  newFrameElement,
-  newImageElement,
-  newTextElement,
-} from "@excalidraw/element";
-
-import type {
-  ExcalidrawElement,
-  FileId,
-} from "@excalidraw/element/types";
+import type { ExcalidrawElement } from "@excalidraw/element/types";
 
 import type {
   AppState,
@@ -33,151 +19,238 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 
+import { buildAgentBrowserRouteState } from "./agent/agentBrowserBridge";
 import {
-  buildImagePromptReferenceRecords,
-  buildPromptTextWithInlineReferences,
-} from "../shared/promptReferences";
+  createAutosaveLifecycleRendererActions,
+  createAutosaveRendererActions,
+  type AutosaveSnapshot as ProjectAutosaveSnapshot,
+} from "./autosaveProjectState";
 import {
-  isAgentDesktopBridgeMethod,
-  type AgentBoardCommandContext,
-  type AgentBrowserRuntimeViewport,
-} from "../shared/agentBridgeTypes";
+  createAutosaveSnapshotWriteRendererActions,
+} from "./autosaveSnapshotWriteController";
 import {
-  ACP_AGENT_CUSTOM_PRESET_ID,
-  ACP_AGENT_PRESETS,
-  DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
-  getAcpAgentPreset,
-  getDefaultAcpAgentSettings,
-  getSelectedAcpAgent,
-  inferAcpAgentPresetId,
-  normalizeAcpTaskInstructionTemplate,
-  type AcpAgentPresetId,
-  type AcpAgentSettings,
-  type AcpRunLogDetail,
-  type AcpRunLogEntry,
-  type AcpRunSummary,
-  type AcpThreadDetail,
-  type AcpThreadSummary,
-  type AcpTaskEvent,
-  type AcpTaskRequest,
-  type AcpTaskStatus,
-} from "../shared/acpTypes";
+  createQueuedExcalidrawBinaryFilesRendererActions,
+} from "./canvasImageAssetState";
 import {
-  getProviderDefinition,
-  isAutoAspectRatioRequest,
-  normalizeGenerationRequest,
-} from "../shared/providerCatalog";
-import { getSceneContentHash } from "../shared/sceneVersion";
-
-import { publishAgentBrowserRuntimeState } from "./agent/agentBrowserBridge";
+  createCanvasSceneChangeRendererActions,
+} from "./canvasSceneChangeRendererController";
 import { maybeGetDesktopBridge } from "./desktopBridge";
-import { syncSelectionReferenceIntoRequest } from "./generationRequestState";
+import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
+import { createDesktopStartupRendererActions } from "./desktopStartupState";
+import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleController";
+import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
 import {
-  normalizeGeneratedImageDimensions,
-  placeGeneratedImages,
-  measureBatchBounds,
+  createSavedPromptLibraryRendererActions,
+} from "./generatePromptLibraryActions";
+import {
+  createGenerationRequestRendererActions,
+} from "./generationRequestRendererController";
+import { runBuiltinGenerationRendererAction } from "./builtinGenerationRendererController";
+import { createGenerationSubmitRendererActions } from "./generationSubmitRendererController";
+import {
+  type GeneratedImagePlacementViewport,
+  type SceneBounds,
 } from "./project/imagePlacement";
 import {
-  ENABLE_WORKSPACE_BOUNDS,
-  getWorkspaceFitZoom,
-  getWorkspaceBounds,
-  resolveWorkspaceZoomGate,
+  createWorkspaceFitPulseRendererActions,
+  createWorkspaceOverlayRendererActions,
+  createWorkspaceZoomSnapRendererActions,
+  createWorkspaceZoomGateState,
   type WorkspaceBounds,
+  type WorkspaceOverlayState,
   type WorkspaceZoomGateState,
 } from "./workspaceBounds";
+import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
 import {
-  deserializeSceneFromProject,
   serializeSceneForProject,
 } from "./project/sceneSerialization";
 import {
+  shouldApplyProjectMaintenanceResult,
+  type ProjectRepairReport,
+  type ThumbnailMaintenanceState,
+} from "./project/projectMaintenanceController";
+import { createProjectImageAssetReader } from "./projectImageAssetReader";
+import {
+  createProjectMaintenanceActionStateRendererApplier,
+  createProjectMaintenanceRendererActions,
+  createProjectThumbnailAssetRefreshRendererActions,
+  createProjectThumbnailRebuildRendererActions,
+} from "./project/projectMaintenanceActionsController";
+import { createDesktopProjectRepairSceneRefreshRendererActions } from "./projectRepairSceneRefreshRendererController";
+import { createDesktopProjectAssetSceneApplyRendererAction } from "./projectAssetSceneApplyRendererController";
+import {
+  createGenerationModelSelectionRendererActions,
   readRememberedGenerationModelSelection,
-  rememberGenerationModelSelection,
-  resolvePreferredGenerationModelSelection,
-  type GenerationModelSelection,
 } from "./generationModelSelection";
-import { copyPlainTextToClipboard } from "./clipboardText";
-import { loadProviderSettingsWithRetry } from "./providerSettingsLoader";
+import { createPlainTextClipboardRendererActions } from "./clipboardText";
+import {
+  formatProjectCreateError,
+  formatProjectImportImagesError,
+  formatProjectOpenError,
+  formatProjectRevealError,
+  formatProjectSaveBeforeOpenError,
+  formatProjectSaveError,
+} from "./currentProjectState";
+import {
+  createCurrentProjectAutosaveFailureRendererActions,
+  createCurrentProjectEditorInitializingRendererActions,
+  createCurrentProjectOpenSequenceRendererActions,
+  createCurrentProjectEditorReadyRendererActions,
+  createCurrentProjectRenderBoundaryRendererActions,
+  createCurrentProjectBundleOpenRendererActions,
+  createCurrentProjectEntryRendererActions,
+  createCurrentProjectUpdateRendererActions,
+  createProjectViewClearRendererActions,
+  runCurrentProjectCommandStartAction,
+} from "./currentProjectApplyController";
+import { createProviderSettingsRendererActions } from "./providerSettingsLoader";
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
+import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
+import { buildSelectedImageRelationshipState } from "./imageRecordState";
 import {
-  getImageAncestors,
-  getImageDescendants,
-} from "./imageRelationships";
+  createProjectImageAssetPersistenceRendererActions,
+} from "./projectImageAssetPersistenceController";
 import {
-  getImageRenditionRequestsNearViewport,
-  IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
-} from "./imageRenditions";
+  createProjectImageImportRendererActions,
+} from "./projectImageImportController";
 import {
-  buildSelectedGenerationTask,
-  buildSelectedImageRecord,
-} from "./selectionState";
+  createProjectImageStateResetRendererActions,
+} from "./projectImageStateResetRendererActions";
+import { createImageRecordLocatorRendererActions } from "./imageRecordLocator";
+import { IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS } from "./imageRenditions";
 import {
-  buildSelectionReference,
-  buildSelectionReferenceSummary,
-  getSelectionReferenceSignature,
-  getSelectedReferenceElements,
+  createVisibleImageRenditionLoadRendererActions,
+} from "./imageRenditionLoadPlan";
+import { createViewportChangeRendererActions } from "./viewportChangeRendererController";
+import { createSelectedInspectorRendererActions } from "./selectedInspectorRendererActions";
+import {
+  createSelectionReferenceOriginalSceneRendererActions,
 } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AgentStatusDock } from "./components/AgentStatusDock";
-import { AgentRunChatLog } from "./components/AgentRunChatLog";
-import {
-  AgentConversationSidebar,
-  type GenerationRecordListItem,
-} from "./components/AgentConversationSidebar";
+import { AgentBoardStartupPane } from "./components/AgentBoardStartupPane";
+import { AppBridgeUnavailable } from "./components/AppBridgeUnavailable";
+import { AgentConversationSidebar } from "./components/AgentConversationSidebar";
 import { InspectorSidebar } from "./components/InspectorSidebar";
-
-import type { GenerationTaskRecord } from "./components/ImageInspector";
-
-import { DesktopButton } from "./components/DesktopButton";
-import { WelcomePane } from "./components/WelcomePane";
+import { AppErrorBanners } from "./components/AppErrorBanners";
+import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
+import { AppProjectEntryScreen } from "./components/AppProjectEntryScreen";
+import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
+import { ProjectStatusToast } from "./components/ProjectStatusToast";
+import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
+import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
 import {
-  buildAgentProjectContext,
-  buildAgentImagePathList,
-  buildAgentSceneBoard,
-  buildAgentSceneSnapshot,
-  buildAgentSelectionContext,
-  collectAgentImageFileIds,
-  createAgentGenerationRequest,
-  createAgentPromptTextElement,
-  projectAssetPayloadsToBinaryFiles,
-} from "./agent/agentCommandHandlers";
+  createGenerationTrackingRendererActions,
+  applyPendingGenerationJobRegistryState,
+  type PendingGenerationJob,
+} from "./generationJobState";
+import {
+  type GenerationTaskRecord,
+} from "./generationTaskState";
+import { createBuiltinGenerationJobCompletionRendererActions } from "./builtinGenerationCompletionController";
+import {
+  createPendingGenerationCanvasRendererActions,
+} from "./pendingGenerationCanvasController";
+
+import {
+  buildAgentIntegrationRuntimeViewModel,
+} from "./agent/agentIntegrationViewModel";
+import { createAgentIntegrationCopyShortcutRendererActions } from "./agent/agentIntegrationCopyShortcut";
+import { createAgentIntegrationSettingsDialogRendererActions } from "./agent/agentIntegrationSettingsDialogRendererActions";
+import { createAgentStatusDockRendererActions } from "./agent/agentStatusDockRendererActions";
+import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
+import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
+import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
+import { handleAgentDesktopBridgeRequest } from "./agent/agentDesktopBridgeRequest";
+import { canStartAcpAgentTask } from "./agent/acpTaskStarter";
+import { createAcpTaskStartRendererActions } from "./agent/acpTaskStartController";
+import {
+  getRunningAcpAgentTaskId,
+  isAcpAgentTaskRunning,
+} from "./agent/acpTaskUiState";
+import { createAcpTaskEventSubscriptionRendererActions } from "./agent/acpTaskEventSubscriptionController";
+import {
+  createGenerationErrorStateApplier,
+  createGenerationErrorRendererActions,
+} from "./generationErrorController";
+import {
+  type GenerationErrorDetails,
+} from "./generationErrorViewModel";
+import {
+  buildGenerationSidebarRecordItems,
+  createGenerationRecordRendererActions,
+} from "./generationRecordViewModel";
+import {
+  createTimedNoticeRendererActions,
+} from "./noticeTimerController";
+import { buildDefaultGenerationRequest } from "./generatePromptRequest";
+import {
+  createGenerateDialogReferenceRendererActions,
+} from "./generateDialogReferenceController";
+import {
+  createAcpAgentSettingsRendererActions,
+  useAcpAgentSettingsController,
+} from "./agent/useAcpAgentSettingsController";
+import { useAcpAgentTaskStateController } from "./agent/useAcpAgentTaskStateController";
+import {
+  createAgentBrowserRuntimePublishRendererActions,
+} from "./agent/agentBrowserRuntimePublishController";
+import { createAgentBrowserAutoOpenProjectRendererActions } from "./agent/agentBrowserAutoOpenController";
+import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
+import {
+  canSetAgentBridgeEnabled,
+  getProjectAgentAccessToken,
+  notifyAgentBridgeProjectState,
+} from "./agent/agentBridgeStatus";
+import {
+  applyAgentBridgeStatusCurrentProjectUpdate,
+  createAgentBridgeStatusRendererActions,
+  useAgentBridgeStatusCurrentProjectSyncEffect,
+} from "./agent/agentBridgeStatusController";
+import { useAgentBridgeConnectionStateController } from "./agent/useAgentBridgeConnectionStateController";
+import {
+  buildAgentConversationSurfaceState,
+} from "./agent/agentConversationMode";
+import {
+  createAcpRunLogRendererActions,
+} from "./agent/acpRunLogApplyController";
+import {
+  useAcpRunSummariesAutoLoadEffect,
+  useAcpRunSummariesController,
+} from "./agent/useAcpRunSummariesController";
+import { useAgentRuntimeRefsController } from "./agent/useAgentRuntimeRefsController";
+import { useAgentSurfaceVisibilityController } from "./agent/useAgentSurfaceVisibilityController";
+import {
+  createAcpThreadRendererActions,
+} from "./agent/acpThreadApplyController";
+import { useAcpThreadSummariesController } from "./agent/useAcpThreadSummariesController";
+import {
+  createAcpConversationMessageRendererActions,
+} from "./agent/acpConversationMessageController";
+import { useAcpInteractionTargetsController } from "./agent/useAcpInteractionTargetsController";
+import { useAcpRunLogStateController } from "./agent/useAcpRunLogStateController";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import "./App.css";
 
-import type { AgentBrowserRuntimeState } from "../shared/agentBridgeTypes";
 import type {
   GenerationSource,
-  GenerationReferencePayload,
-  GenerationRequest,
 } from "../shared/providerTypes";
 import type {
   ImageAssetRequestRendition,
-  ImageGenerationOrigin,
   ImagePromptReferenceRecord,
   ImageRecord,
-  ImageRecordMap,
-  ImageSourceType,
 } from "../shared/projectTypes";
 import type {
   DesktopAppInfo,
-  DesktopAgentBridgeStatus,
-  DesktopCurrentProject,
   DesktopProjectBundle,
   PersistedImageAssetInput,
-  ProjectAssetPayload,
-  ProjectHealthIssue,
   ProjectHealthReport,
   PublicProviderSettings,
   RecentProjectEntry,
   SavedPrompt,
-  SavePromptInput,
 } from "../shared/desktopBridgeTypes";
-
-const LazyAgentBoard = lazy(async () => {
-  const { AgentBoard } = await import("./components/AgentBoard");
-  return { default: AgentBoard };
-});
 
 const LazyExcalidraw = lazy(async () => {
   const { Excalidraw } = await import("@excalidraw/excalidraw");
@@ -189,1703 +262,53 @@ const LazyProjectMainMenu = lazy(async () => {
   return { default: ProjectMainMenu };
 });
 
-const getPromptHistoryText = (request: GenerationRequest) =>
-  buildPromptTextWithInlineReferences(request).trim() || request.prompt;
-
-const createGenerationRequestFromSelection = (
-  selection: GenerationModelSelection,
-  providerSettings: PublicProviderSettings | null,
-): GenerationRequest =>
-  normalizeGenerationRequest(
-    {
-      provider: selection.provider,
-      model: selection.model,
-      prompt: "",
-      negativePrompt: "",
-      aspectRatio: null,
-      width: 1024,
-      height: 1024,
-      seed: null,
-      imageCount: 1,
-      reference: null,
-    },
-    {
-      customModels:
-        providerSettings?.[selection.provider]?.customModels ?? [],
-    },
-  );
-
-const defaultGenerationRequest = (
-  providerSettings: PublicProviderSettings | null,
-  rememberedSelection: GenerationModelSelection | null,
-): GenerationRequest =>
-  createGenerationRequestFromSelection(
-    resolvePreferredGenerationModelSelection({
-      providerSettings,
-      rememberedSelection,
-    }),
-    providerSettings,
-  );
-
-const extractBase64 = (dataURL: string) => {
-  const [, payload = ""] = dataURL.split(",", 2);
-  return payload;
-};
-
-const mergePersistedImageRecords = (
-  currentRecords: ImageRecordMap | null | undefined,
-  persistedRecords: ImageRecordMap | null | undefined,
-): ImageRecordMap => ({
-  ...(currentRecords ?? {}),
-  ...(persistedRecords ?? {}),
-});
-
-const hasClipboardFiles = (files: BinaryFiles | undefined) =>
-  Boolean(files && Object.keys(files).length > 0);
-
-const getDesktopCurrentProject = (
-  project: DesktopProjectBundle | null,
-): DesktopCurrentProject | null =>
-  project
-    ? {
-        projectPath: project.projectPath,
-        name: project.project.name,
-        agentAccess: project.project.agentAccess,
-      }
-    : null;
-
-const getProjectAgentAccessToken = (project: DesktopProjectBundle | null) =>
-  project?.project.agentAccess?.token ?? null;
-
-const getGenerationRecordTitle = (record: ImageRecord) => {
-  const prompt = record.prompt?.trim();
-  if (!prompt) {
-    return "未命名生成";
-  }
-  return prompt.length > 36 ? `${prompt.slice(0, 36)}...` : prompt;
-};
-
-const getGenerationRecordTimeLabel = (createdAt: string) => {
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const areStringArraysEqual = (left: string[], right: string[]) =>
-  left.length === right.length &&
-  left.every((value, index) => value === right[index]);
-
-const buildDirectGenerationRecordItems = (
-  imageRecords: ImageRecordMap | null | undefined,
-  sceneImageFileIds: readonly string[] = [],
-): GenerationRecordListItem[] => {
-  const sceneImageFileIdSet = new Set(sceneImageFileIds);
-  const livePromptReferencedFileIds = new Set<string>();
-
-  Object.values(imageRecords ?? {}).forEach((record) => {
-    if (!sceneImageFileIdSet.has(record.fileId)) {
-      return;
-    }
-
-    record.promptReferences?.forEach((reference) => {
-      reference.fileIds?.forEach((fileId) => {
-        livePromptReferencedFileIds.add(fileId);
-      });
-    });
-  });
-
-  return Object.values(imageRecords ?? {})
-    .filter(
-      (record) =>
-        record.sourceType === "generated" &&
-        record.generationOrigin !== "acp-agent",
-    )
-    .sort(
-      (left, right) =>
-        new Date(right.createdAt).getTime() -
-        new Date(left.createdAt).getTime(),
-    )
-    .map((record) => {
-      const timeLabel = getGenerationRecordTimeLabel(record.createdAt);
-      const providerLabel = record.provider
-        ? getProviderDefinition(record.provider).label
-        : "CoreStudio";
-      const sizeLabel = `${record.width} × ${record.height}`;
-      const statusLabel = sceneImageFileIdSet.has(record.fileId)
-        ? undefined
-        : livePromptReferencedFileIds.has(record.fileId)
-          ? "引用链中间图"
-          : "未在画板";
-      return {
-        id: record.fileId,
-        fileId: record.fileId,
-        title: getGenerationRecordTitle(record),
-        meta: [timeLabel, providerLabel, sizeLabel].filter(Boolean).join(" · "),
-        statusLabel,
-      };
-    });
-};
-
-interface AcpThreadTaskContext {
-  taskId: string;
-  prompt: string;
-  startedAtMs: number | null;
-  endedAtMs: number | null;
-}
-
-const ACP_RESULT_MATCH_GRACE_MS = 15 * 60 * 1000;
-
-const getRunLogPayloadRecord = (payload: unknown) =>
-  payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : null;
-
-const parseDateMs = (value: string | undefined | null) => {
-  if (!value) {
-    return null;
-  }
-  const dateMs = new Date(value).getTime();
-  return Number.isNaN(dateMs) ? null : dateMs;
-};
-
-const mergeAcpThreadTaskContext = (
-  contexts: Map<string, AcpThreadTaskContext>,
-  patch: Partial<AcpThreadTaskContext> & { taskId: string },
-) => {
-  const current = contexts.get(patch.taskId);
-  contexts.set(patch.taskId, {
-    taskId: patch.taskId,
-    prompt: patch.prompt ?? current?.prompt ?? "",
-    startedAtMs:
-      patch.startedAtMs !== undefined
-        ? patch.startedAtMs
-        : current?.startedAtMs ?? null,
-    endedAtMs:
-      patch.endedAtMs !== undefined
-        ? patch.endedAtMs
-        : current?.endedAtMs ?? null,
-  });
-};
-
-const collectAcpThreadTaskContexts = ({
-  entries,
-  runLogDetail,
-  task,
-}: {
-  entries: readonly AcpRunLogEntry[];
-  runLogDetail: AcpRunLogDetail | null;
-  task: { taskId: string; message: string } | null;
-}) => {
-  const contexts = new Map<string, AcpThreadTaskContext>();
-
-  for (const entry of entries) {
-    const timestampMs = parseDateMs(entry.timestamp);
-    const current = contexts.get(entry.taskId);
-    const payload = getRunLogPayloadRecord(entry.payload);
-    const prompt =
-      typeof payload?.userPrompt === "string" && payload.userPrompt.trim()
-        ? payload.userPrompt.trim()
-        : current?.prompt;
-    mergeAcpThreadTaskContext(contexts, {
-      taskId: entry.taskId,
-      ...(prompt ? { prompt } : {}),
-      startedAtMs:
-        timestampMs === null
-          ? current?.startedAtMs ?? null
-          : Math.min(current?.startedAtMs ?? timestampMs, timestampMs),
-      endedAtMs:
-        timestampMs === null
-          ? current?.endedAtMs ?? null
-          : Math.max(current?.endedAtMs ?? timestampMs, timestampMs),
-    });
-  }
-
-  if (runLogDetail) {
-    mergeAcpThreadTaskContext(contexts, {
-      taskId: runLogDetail.summary.taskId,
-      prompt: runLogDetail.summary.userPrompt.trim(),
-      startedAtMs: parseDateMs(runLogDetail.summary.startedAt),
-      endedAtMs: parseDateMs(
-        runLogDetail.summary.endedAt ?? runLogDetail.summary.startedAt,
-      ),
-    });
-  }
-
-  if (task) {
-    mergeAcpThreadTaskContext(contexts, {
-      taskId: task.taskId,
-      prompt: task.message.trim(),
-    });
-  }
-
-  return Array.from(contexts.values());
-};
-
-const recordMatchesAcpThreadTask = (
-  record: ImageRecord,
-  contexts: readonly AcpThreadTaskContext[],
-) => {
-  const recordPrompt = record.prompt?.trim() ?? "";
-  const recordCreatedAtMs = parseDateMs(record.createdAt);
-
-  return contexts.some((context) => {
-    const promptMatches =
-      Boolean(context.prompt) && recordPrompt === context.prompt;
-    const hasTaskTime =
-      context.startedAtMs !== null || context.endedAtMs !== null;
-    const timeMatches =
-      recordCreatedAtMs !== null &&
-      hasTaskTime &&
-      recordCreatedAtMs >=
-        (context.startedAtMs ?? context.endedAtMs ?? recordCreatedAtMs) -
-          ACP_RESULT_MATCH_GRACE_MS &&
-      recordCreatedAtMs <=
-        (context.endedAtMs ?? context.startedAtMs ?? recordCreatedAtMs) +
-          ACP_RESULT_MATCH_GRACE_MS;
-
-    if (promptMatches) {
-      return !hasTaskTime || timeMatches;
-    }
-    return !recordPrompt && timeMatches;
-  });
-};
-
-const buildAcpAgentResultRecordItems = ({
-  imageRecords,
-  sceneImageFileIds,
-  entries,
-  runLogDetail,
-  task,
-  files,
-}: {
-  imageRecords: ImageRecordMap | null | undefined;
-  sceneImageFileIds: readonly string[];
-  entries: readonly AcpRunLogEntry[];
-  runLogDetail: AcpRunLogDetail | null;
-  task: { taskId: string; message: string } | null;
-  files: BinaryFiles | null | undefined;
-}): GenerationRecordListItem[] => {
-  const contexts = collectAcpThreadTaskContexts({
-    entries,
-    runLogDetail,
-    task,
-  });
-  if (!contexts.length) {
-    return [];
-  }
-
-  const sceneImageFileIdSet = new Set(sceneImageFileIds);
-  return Object.values(imageRecords ?? {})
-    .filter(
-      (record) =>
-        record.sourceType === "generated" &&
-        record.generationOrigin === "acp-agent" &&
-        recordMatchesAcpThreadTask(record, contexts),
-    )
-    .sort(
-      (left, right) =>
-        new Date(right.createdAt).getTime() -
-        new Date(left.createdAt).getTime(),
-    )
-    .map((record) => {
-      const timeLabel = getGenerationRecordTimeLabel(record.createdAt);
-      const sizeLabel = `${record.width} × ${record.height}`;
-      const thumbnailDataUrl = files?.[record.fileId as FileId]?.dataURL ?? null;
-      return {
-        id: record.fileId,
-        fileId: record.fileId,
-        title: getGenerationRecordTitle(record),
-        meta: [timeLabel, "ACP Agent", sizeLabel].filter(Boolean).join(" · "),
-        statusLabel: sceneImageFileIdSet.has(record.fileId)
-          ? "已在画板"
-          : "未在画板",
-        thumbnailDataUrl,
-      };
-    });
-};
-
-const getRestorableImageRecords = (
-  imageRecords: ImageRecordMap,
-  sceneImageFileIds: readonly string[],
-) => {
-  const sceneImageFileIdSet = new Set(sceneImageFileIds);
-
-  return Object.values(imageRecords)
-    .filter(
-      (record) =>
-        (record.sourceType === "imported" ||
-          (record.sourceType === "generated" &&
-            Boolean(record.generationOrigin))) &&
-        !sceneImageFileIdSet.has(record.fileId),
-    )
-    .sort(
-      (left, right) =>
-        new Date(left.createdAt).getTime() -
-        new Date(right.createdAt).getTime(),
-    );
-};
-
-const repairImageRecordsWithCoreStudioOrigin = (
-  imageRecords: ImageRecordMap,
-  fileIds: readonly string[],
-) => {
-  if (!fileIds.length) {
-    return imageRecords;
-  }
-
-  const nextImageRecords = { ...imageRecords };
-  fileIds.forEach((fileId) => {
-    const record = nextImageRecords[fileId];
-    if (!record || record.generationOrigin) {
-      return;
-    }
-    nextImageRecords[fileId] = {
-      ...record,
-      generationOrigin: "corestudio",
-    };
-  });
-  return nextImageRecords;
-};
-
-const PROJECT_HEALTH_SEVERITY_LABELS: Record<
-  ProjectHealthIssue["severity"],
-  string
-> = {
-  error: "错误",
-  warning: "警告",
-  info: "提示",
-};
-
-const PROJECT_HEALTH_ISSUE_META: Record<
-  ProjectHealthIssue["code"],
-  {
-    title: string;
-    description: string;
-    suggestion: string;
-  }
-> = {
-  "scene-parse-failed": {
-    title: "画板文件无法解析",
-    description: "scene.excalidraw.json 不是有效的画板数据。",
-    suggestion: "需要从备份或历史版本恢复画板文件。",
-  },
-  "missing-image-record": {
-    title: "画板图片缺少索引记录",
-    description: "画布上有图片元素，但 image-records.json 里找不到对应记录。",
-    suggestion: "需要补索引或重新导入这张图片。",
-  },
-  "missing-asset-file": {
-    title: "图片原始文件缺失",
-    description: "索引记录还在，但 assets 里的原始图片文件已经找不到。",
-    suggestion: "需要从备份恢复原始图片，或删除对应记录。",
-  },
-  "missing-thumbnail-cache": {
-    title: "图片缓存待重建",
-    description: "原始图片存在，但用于快速打开项目的显示缓存不完整。",
-    suggestion: "运行项目数据修复会重建这部分缓存。",
-  },
-  "missing-preview-cache": {
-    title: "预览缓存尚未生成",
-    description: "高清预览缓存还没有生成，不影响项目数据完整性。",
-    suggestion: "通常无需手动处理，后续查看或缩放时会按需生成。",
-  },
-  "orphan-image-record": {
-    title: "项目图片未显示在画板",
-    description: "图片记录和资产文件存在，但当前画板没有对应图片元素。",
-    suggestion: "运行项目数据修复会把可读取的图片放回画板。",
-  },
-  "orphan-generated-record": {
-    title: "生成图未显示在画板",
-    description:
-      "生成图的资产和记录存在，但当前画板没有对应图片元素，所以从生成记录列表点击时可能无法定位。",
-    suggestion: "运行项目数据修复会把可读取的生成图放回画板。",
-  },
-  "unwritten-acp-output": {
-    title: "ACP 生成结果未写入项目",
-    description:
-      "ACP Agent 已经在本地生成图片，但写回 CoreStudio 项目时中断或失败。",
-    suggestion: "运行项目数据修复会把这张本地生成图补进项目资产和画板。",
-  },
-  "incomplete-generation-record": {
-    title: "生成记录元数据不完整",
-    description:
-      "生成图缺少来源字段。提示词允许为空，但来源不能为空，否则后续无法判断它来自 CoreStudio、内置画板还是 ACP Agent。",
-    suggestion:
-      "旧项目修复会把这类记录补为 CoreStudio 来源；新写入会在保存前直接校验并拒绝不完整数据。",
-  },
-  "broken-parent-link": {
-    title: "图片编辑链前序缺失",
-    description: "一张图片记录指向了不存在的父图片。",
-    suggestion: "需要恢复父图片记录，或清理这条链路关系。",
-  },
-  "broken-prompt-reference": {
-    title: "提示词引用缺少索引记录",
-    description: "生成记录里引用的参考图片，在 image-records.json 中不存在。",
-    suggestion: "需要恢复参考图片索引，或清理这条引用。",
-  },
-};
-
-const PROJECT_HEALTH_ISSUE_ORDER: ProjectHealthIssue["code"][] = [
-  "scene-parse-failed",
-  "missing-asset-file",
-  "missing-image-record",
-  "orphan-generated-record",
-  "unwritten-acp-output",
-  "incomplete-generation-record",
-  "missing-thumbnail-cache",
-  "missing-preview-cache",
-  "orphan-image-record",
-  "broken-parent-link",
-  "broken-prompt-reference",
-];
-
-const getProjectHealthIssueGroups = (report: ProjectHealthReport) => {
-  const order = new Map(
-    PROJECT_HEALTH_ISSUE_ORDER.map((code, index) => [code, index]),
-  );
-  const groupsByCode = new Map<ProjectHealthIssue["code"], ProjectHealthIssue[]>();
-
-  report.issues.forEach((issue) => {
-    const issues = groupsByCode.get(issue.code) ?? [];
-    issues.push(issue);
-    groupsByCode.set(issue.code, issues);
-  });
-
-  return Array.from(groupsByCode.entries())
-    .sort(
-      ([leftCode], [rightCode]) =>
-        (order.get(leftCode) ?? PROJECT_HEALTH_ISSUE_ORDER.length) -
-        (order.get(rightCode) ?? PROJECT_HEALTH_ISSUE_ORDER.length),
-    )
-    .map(([code, issues]) => ({
-      code,
-      meta: PROJECT_HEALTH_ISSUE_META[code],
-      issues,
-      repairableCount: issues.filter((issue) => issue.repairable).length,
-    }));
-};
-
-const isEmptyClipboardData = (data: ClipboardData) =>
-  !data.elements?.length &&
-  !hasClipboardFiles(data.files) &&
-  !data.mixedContent?.length &&
-  !data.errorMessage &&
-  !(data.text ?? "").trim();
-
-const REMOTE_METHOD_PREFIX = /^Error invoking remote method '[^']+':\s*/;
-const PENDING_PLACEHOLDER_STROKE = "#6d5efc";
-const PENDING_PLACEHOLDER_FILL = "#f4f2ff";
-const PENDING_PLACEHOLDER_ERROR_STROKE = "#d14343";
-const PENDING_PLACEHOLDER_ERROR_FILL = "#fff1f2";
-const PENDING_PLACEHOLDER_LABEL = "生成中";
-
-interface PendingGenerationSlot {
-  frameId: string;
-  labelId: string;
-  fitReturnedImageSize: boolean;
-}
-
-interface PendingGenerationJob {
-  jobId: string;
-  projectPath: string;
-  slots: PendingGenerationSlot[];
-}
-
-interface GenerationErrorDetails {
-  provider: GenerationRequest["provider"];
-  model: string;
-  occurredAt: string;
-  normalizedMessage: string;
-  rawMessage: string;
-  stack: string | null;
-  requestPayload: string | null;
-}
-
-interface AcpAgentTaskUiState {
-  taskId: string;
-  status: AcpTaskStatus;
-  message: string;
-  transcript: string;
-  events: AcpAgentTaskTimelineItem[];
-  logPath?: string;
-}
-
-interface AcpAgentTaskTimelineItem {
-  id: string;
-  title: string;
-  detail?: string;
-  mergeKey?: string;
-  tone?: "neutral" | "success" | "danger";
-}
-
-interface AutosaveSnapshot {
-  project: DesktopProjectBundle;
-  elements: readonly ExcalidrawElement[];
-  appState: AppState;
-  files: BinaryFiles;
-  expectedSceneHash: string | null;
-}
-
-type ThumbnailMaintenanceState = {
-  status: "pending" | "failed";
-  total: number;
-  message?: string;
-};
-
-interface ProjectRenderBoundaryProps {
-  projectKey: string;
-  children: ReactNode;
-  onError: (error: Error, componentStack: string | null) => void;
-  onReset: () => void;
-}
-
-interface ProjectRenderBoundaryState {
-  error: Error | null;
-}
-
-class ProjectRenderBoundary extends Component<
-  ProjectRenderBoundaryProps,
-  ProjectRenderBoundaryState
-> {
-  state: ProjectRenderBoundaryState = {
-    error: null,
-  };
-
-  static getDerivedStateFromError(error: Error): ProjectRenderBoundaryState {
-    return { error };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    this.props.onError(error, info.componentStack || null);
-  }
-
-  componentDidUpdate(prevProps: ProjectRenderBoundaryProps) {
-    if (
-      prevProps.projectKey !== this.props.projectKey &&
-      this.state.error
-    ) {
-      this.setState({ error: null });
-    }
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="image-board-runtime-error" role="alert">
-          <div className="image-board-runtime-error__card">
-            <h2>项目界面加载失败</h2>
-            <p>{this.state.error.message || "发生了未知错误。"}</p>
-            <DesktopButton type="button" onClick={this.props.onReset}>
-              返回项目列表
-            </DesktopButton>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-const REQUEST_PAYLOAD_MARKER = "请求载荷：";
-
-const splitRequestPayload = (message: string) => {
-  const markerIndex = message.indexOf(REQUEST_PAYLOAD_MARKER);
-  if (markerIndex === -1) {
-    return {
-      message: message.trim(),
-      requestPayload: null,
-    };
-  }
-
-  return {
-    message: message.slice(0, markerIndex).trim(),
-    requestPayload: message
-      .slice(markerIndex + REQUEST_PAYLOAD_MARKER.length)
-      .trim(),
-  };
-};
-
-const getElementsSceneBounds = (
-  elements: readonly ExcalidrawElement[],
-) => {
-  if (!elements.length) {
-    return null;
-  }
-
-  const [left, top, right, bottom] = getCommonBounds(elements);
-  return {
-    x: left,
-    y: top,
-    width: right - left,
-    height: bottom - top,
-  };
-};
-
-const getSceneOccupiedBounds = (
-  elements: readonly ExcalidrawElement[],
-) =>
-  elements.flatMap((element) => {
-    if (element.isDeleted) {
-      return [];
-    }
-
-    const bounds = getElementsSceneBounds([element]);
-    return bounds && bounds.width > 0 && bounds.height > 0 ? [bounds] : [];
-  });
-
-interface WorkspaceOverlayState {
-  bounds: WorkspaceBounds;
-  scrollX: number;
-  scrollY: number;
-  zoomValue: number;
-}
-
-const createWorkspaceZoomGateState = (): WorkspaceZoomGateState => ({
-  snappedAtFitZoom: false,
-  releasedBelowFitZoom: false,
-});
-
-const WORKSPACE_OVERLAY_STATE_EPSILON = 0.001;
-
-const getFiniteNumber = (value: unknown, fallback: number) =>
-  typeof value === "number" && Number.isFinite(value) ? value : fallback;
-
-const areNumbersClose = (left: number, right: number) =>
-  Math.abs(left - right) <= WORKSPACE_OVERLAY_STATE_EPSILON;
-
-const areWorkspaceBoundsEqual = (
-  left: WorkspaceBounds,
-  right: WorkspaceBounds,
-) =>
-  areNumbersClose(left.x, right.x) &&
-  areNumbersClose(left.y, right.y) &&
-  areNumbersClose(left.width, right.width) &&
-  areNumbersClose(left.height, right.height);
-
-const areWorkspaceOverlayStatesEqual = (
-  left: WorkspaceOverlayState | null,
-  right: WorkspaceOverlayState | null,
-) => {
-  if (left === right) {
-    return true;
-  }
-
-  if (!left || !right) {
-    return false;
-  }
-
-  return (
-    areWorkspaceBoundsEqual(left.bounds, right.bounds) &&
-    areNumbersClose(left.scrollX, right.scrollX) &&
-    areNumbersClose(left.scrollY, right.scrollY) &&
-    areNumbersClose(left.zoomValue, right.zoomValue)
-  );
-};
-
-const getViewportCenterFromAppState = (
-  appState: Pick<AppState, "width" | "height" | "scrollX" | "scrollY" | "zoom">,
-) => {
-  const width = getFiniteNumber(appState.width, 0);
-  const height = getFiniteNumber(appState.height, 0);
-  const scrollX = getFiniteNumber(appState.scrollX, 0);
-  const scrollY = getFiniteNumber(appState.scrollY, 0);
-  const zoomValue = Math.max(getFiniteNumber(appState.zoom?.value, 1), 0.0001);
-
-  return {
-    x: width / (2 * zoomValue) - scrollX,
-    y: height / (2 * zoomValue) - scrollY,
-  };
-};
-
-const buildWorkspaceOverlayState = (
-  elements: readonly ExcalidrawElement[],
-  appState: AppState,
-): WorkspaceOverlayState | null => {
-  if (!ENABLE_WORKSPACE_BOUNDS) {
-    return null;
-  }
-
-  const bounds = getWorkspaceBounds(elements, {
-    viewportCenter: getViewportCenterFromAppState(appState),
-  });
-
-  return {
-    bounds,
-    scrollX: getFiniteNumber(appState.scrollX, 0),
-    scrollY: getFiniteNumber(appState.scrollY, 0),
-    zoomValue: getFiniteNumber(appState.zoom?.value, 1),
-  };
-};
-
-const getViewportCenteredZoomState = (
-  appState: AppState,
-  nextZoomValue: number,
-) => {
-  const currentZoom = getFiniteNumber(appState.zoom?.value, 1);
-  const nextZoom = getFiniteNumber(nextZoomValue, currentZoom);
-  const appLayerX = getFiniteNumber(appState.width, 0) / 2;
-  const appLayerY = getFiniteNumber(appState.height, 0) / 2;
-  const scrollX = getFiniteNumber(appState.scrollX, 0);
-  const scrollY = getFiniteNumber(appState.scrollY, 0);
-
-  const baseScrollX = scrollX + (appLayerX - appLayerX / currentZoom);
-  const baseScrollY = scrollY + (appLayerY - appLayerY / currentZoom);
-  const zoomOffsetScrollX = -(appLayerX - appLayerX / nextZoom);
-  const zoomOffsetScrollY = -(appLayerY - appLayerY / nextZoom);
-
-  return {
-    scrollX: baseScrollX + zoomOffsetScrollX,
-    scrollY: baseScrollY + zoomOffsetScrollY,
-    zoom: {
-      value: nextZoom as AppState["zoom"]["value"],
-    },
-  };
-};
-
-const isObjectPayload = (payload: unknown): payload is Record<string, unknown> =>
-  Boolean(payload && typeof payload === "object" && !Array.isArray(payload));
-
 type AppSceneSnapshot = {
   elements: readonly ExcalidrawElement[];
   appState: AppState;
   files: BinaryFiles;
 };
 
-type PlacementViewportContext = {
-  viewportCenter: { x: number; y: number };
-  viewportSize: { width: number; height: number };
-  zoomValue: number;
-};
+type PlacementViewportContext = GeneratedImagePlacementViewport;
 
-const createAgentBadRequestError = (message: string) =>
-  Object.assign(new Error(message), {
-    code: "BAD_REQUEST" as const,
-  });
+type AutosaveSnapshot = ProjectAutosaveSnapshot<
+  readonly ExcalidrawElement[],
+  AppState,
+  BinaryFiles
+>;
 
-const createAgentProjectMismatchError = () =>
-  Object.assign(new Error("Agent command projectPath 与当前项目不一致。"), {
-    code: "PROJECT_MISMATCH" as const,
-  });
-
-const createAgentImageFileId = () => `agent-${crypto.randomUUID()}`;
-
-const IMAGE_SOURCE_TYPES = ["generated", "imported"] as const;
-const IMAGE_GENERATION_ORIGINS = [
-  "corestudio",
-  "agent-board",
-  "acp-agent",
-] as const;
-
-const isImageSourceType = (value: unknown): value is ImageSourceType =>
-  typeof value === "string" &&
-  IMAGE_SOURCE_TYPES.includes(value as ImageSourceType);
-
-const isImageGenerationOrigin = (
-  value: unknown,
-): value is ImageGenerationOrigin =>
-  typeof value === "string" &&
-  IMAGE_GENERATION_ORIGINS.includes(value as ImageGenerationOrigin);
-
-const parseStringList = (value: unknown) => {
-  if (value === undefined || value === null) {
-    return [];
-  }
-  const values = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(",")
-      : [];
-
-  return Array.from(
-    new Set(
-      values
-        .map((item) => (typeof item === "string" ? item.trim() : ""))
-        .filter(Boolean),
-    ),
-  );
-};
-
-const assertAgentProjectPath = (
-  payload: unknown,
-  projectPath: string,
-) => {
-  if (!isObjectPayload(payload) || payload.projectPath !== projectPath) {
-    throw createAgentProjectMismatchError();
-  }
-};
-
-const parseAgentAnchorPoint = (anchorPoint: unknown) => {
-  if (anchorPoint === undefined || anchorPoint === null) {
-    return null;
-  }
-
-  if (!isObjectPayload(anchorPoint)) {
-    throw createAgentBadRequestError("anchorPoint 格式不正确。");
-  }
-
-  const { x, y } = anchorPoint;
-  if (
-    typeof x !== "number" ||
-    typeof y !== "number" ||
-    !Number.isFinite(x) ||
-    !Number.isFinite(y)
-  ) {
-    throw createAgentBadRequestError("anchorPoint 需要有限的 x/y 数值。");
-  }
-
-  return { x, y };
-};
-
-const parseAgentBoardCommandContext = (
-  payload: unknown,
-): AgentBoardCommandContext | null => {
-  if (!isObjectPayload(payload) || !isObjectPayload(payload.agentBoardContext)) {
-    return null;
-  }
-
-  const context = payload.agentBoardContext;
-  if (!isObjectPayload(context.browserRuntime)) {
-    return null;
-  }
-
-  if (context.browserRuntime.source !== "agent-board") {
-    return null;
-  }
-
-  return context as unknown as AgentBoardCommandContext;
-};
-
-const getAgentBoardSelectionReference = (
-  context: AgentBoardCommandContext | null,
-) => {
-  const selection = context?.selection;
-  if (!isObjectPayload(selection) || !isObjectPayload(selection.reference)) {
-    return null;
-  }
-  return selection.reference;
-};
-
-const getAgentBoardSelectedElementIds = (
-  context: AgentBoardCommandContext | null,
-) => {
-  const selectedElementIds = context?.scene?.selectedElementIds;
-  if (!Array.isArray(selectedElementIds)) {
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      selectedElementIds.filter(
-        (elementId): elementId is string =>
-          typeof elementId === "string" && Boolean(elementId.trim()),
-      ),
-    ),
-  );
-};
-
-const toImagePromptReferenceRecord = (
-  value: unknown,
-  fallbackIndex: number,
-): ImagePromptReferenceRecord | null => {
-  if (!isObjectPayload(value)) {
-    return null;
-  }
-
-  const fileIds = parseStringList(value.fileIds);
-  const elementIds = parseStringList(value.elementIds);
-  if (!fileIds.length && !elementIds.length) {
-    return null;
-  }
-
-  const index =
-    typeof value.index === "number" && Number.isFinite(value.index)
-      ? Math.max(1, Math.floor(value.index))
-      : fallbackIndex;
-  const kind = value.kind === "image" ? "image" : "snapshot";
-
-  return {
-    id:
-      typeof value.id === "string" && value.id.trim()
-        ? value.id.trim()
-        : `agent-reference-${index}`,
-    index,
-    label:
-      typeof value.label === "string" && value.label.trim()
-        ? value.label.trim()
-        : `参考图 ${index}`,
-    kind,
-    ...(fileIds.length ? { fileIds } : {}),
-    ...(elementIds.length ? { elementIds } : {}),
-  };
-};
-
-const buildPromptReferencesFromIds = (
-  payload: Record<string, unknown>,
-  context: AgentBoardCommandContext | null,
-): ImagePromptReferenceRecord[] | undefined => {
-  if (Array.isArray(payload.promptReferences)) {
-    const references = payload.promptReferences
-      .map((reference, index) =>
-        toImagePromptReferenceRecord(reference, index + 1),
-      )
-      .filter(
-        (reference): reference is ImagePromptReferenceRecord =>
-          reference !== null,
-      );
-    return references.length ? references : undefined;
-  }
-
-  const fileIds = parseStringList(payload.referenceFileIds);
-  const elementIds = parseStringList(payload.referenceElementIds);
-  if (fileIds.length || elementIds.length) {
-    return [
-      {
-        id: "agent-reference-1",
-        index: 1,
-        label: "参考图 1",
-        kind: fileIds.length === 1 ? "image" : "snapshot",
-        ...(fileIds.length ? { fileIds } : {}),
-        ...(elementIds.length ? { elementIds } : {}),
-      },
-    ];
-  }
-
-  const reference = getAgentBoardSelectionReference(context);
-  if (!reference) {
-    return undefined;
-  }
-
-  const source = isObjectPayload(reference.source) ? reference.source : {};
-  const sourceFileIds = parseStringList(source.fileIds);
-  const sourceElementIds = parseStringList(source.elementIds);
-  if (!sourceFileIds.length && !sourceElementIds.length) {
-    return undefined;
-  }
-
-  return [
-    {
-      id: "agent-board-reference-1",
-      index: 1,
-      label: "参考图 1",
-      kind: sourceFileIds.length === 1 ? "image" : "snapshot",
-      ...(sourceFileIds.length ? { fileIds: sourceFileIds } : {}),
-      ...(sourceElementIds.length ? { elementIds: sourceElementIds } : {}),
-    },
-  ];
-};
-
-const buildSceneWithSelectedElementIds = (
-  scene: AppSceneSnapshot | null,
-  selectedElementIds: readonly string[],
-): AppSceneSnapshot | null => {
-  if (!scene || !selectedElementIds.length) {
-    return null;
-  }
-
-  return {
-    ...scene,
-    appState: {
-      ...scene.appState,
-      selectedElementIds: Object.fromEntries(
-        selectedElementIds.map((elementId) => [elementId, true as const]),
-      ) as AppState["selectedElementIds"],
-      selectedGroupIds: {},
-    },
-  };
-};
-
-const getPlacementViewportFromRuntimeViewport = (
-  viewport: AgentBrowserRuntimeViewport | undefined,
-): PlacementViewportContext | null => {
-  if (!viewport) {
-    return null;
-  }
-
-  const width = getFiniteNumber(viewport.width, 0);
-  const height = getFiniteNumber(viewport.height, 0);
-  const zoomValue = Math.max(getFiniteNumber(viewport.zoom, 1), 0.0001);
-  if (width <= 0 || height <= 0) {
-    return null;
-  }
-
-  const scrollX = getFiniteNumber(viewport.scrollX, 0);
-  const scrollY = getFiniteNumber(viewport.scrollY, 0);
-
-  return {
-    viewportCenter: {
-      x: width / (2 * zoomValue) - scrollX,
-      y: height / (2 * zoomValue) - scrollY,
-    },
-    viewportSize: {
-      width,
-      height,
-    },
-    zoomValue,
-  };
-};
-
-const getPlacementViewportFromAgentBoardContext = (
-  context: AgentBoardCommandContext | null,
-) => getPlacementViewportFromRuntimeViewport(context?.scene?.viewport);
-
-const parseAgentImagePathPayload = (payload: unknown) => {
-  if (payload === undefined || payload === null) {
-    return { selectionOnly: false };
-  }
-
-  if (!isObjectPayload(payload)) {
-    throw createAgentBadRequestError("scene.imagePaths payload 格式不正确。");
-  }
-
-  const fileIds = payload.fileIds;
-  if (fileIds !== undefined && !Array.isArray(fileIds)) {
-    throw createAgentBadRequestError("scene.imagePaths fileIds 必须是数组。");
-  }
-  const normalizedFileIds = Array.from(
-    new Set(
-      (fileIds ?? []).map((fileId) => {
-        if (typeof fileId !== "string" || !fileId.trim()) {
-          throw createAgentBadRequestError(
-            "scene.imagePaths fileIds 必须是非空字符串。",
-          );
-        }
-        return fileId.trim();
-      }),
-    ),
-  );
-
-  return {
-    ...(normalizedFileIds.length ? { fileIds: normalizedFileIds } : {}),
-    selectionOnly: payload.selectionOnly === true,
-  };
-};
-
-const parseAgentStringList = (value: unknown, label: string) => {
-  if (value === undefined) {
-    return [];
-  }
-  if (!Array.isArray(value)) {
-    throw createAgentBadRequestError(`${label} 必须是数组。`);
-  }
-
-  return Array.from(
-    new Set(
-      value.map((item) => {
-        if (typeof item !== "string" || !item.trim()) {
-          throw createAgentBadRequestError(`${label} 必须是非空字符串数组。`);
-        }
-        return item.trim();
-      }),
-    ),
-  );
-};
-
-const parseAgentLocatePayload = (payload: unknown) => {
-  if (!isObjectPayload(payload)) {
-    throw createAgentBadRequestError("scene.locate payload 格式不正确。");
-  }
-  const elementId =
-    typeof payload.elementId === "string" && payload.elementId.trim()
-      ? payload.elementId.trim()
-      : null;
-  const fileId =
-    typeof payload.fileId === "string" && payload.fileId.trim()
-      ? payload.fileId.trim()
-      : null;
-  if (!elementId && !fileId) {
-    throw createAgentBadRequestError("scene.locate 需要 elementId 或 fileId。");
-  }
-  return { elementId, fileId };
-};
-
-const parseAgentSelectPayload = (payload: unknown) => {
-  if (!isObjectPayload(payload)) {
-    throw createAgentBadRequestError("scene.select payload 格式不正确。");
-  }
-  const elementIds = parseAgentStringList(payload.elementIds, "elementIds");
-  const fileIds = parseAgentStringList(payload.fileIds, "fileIds");
-  if (!elementIds.length && !fileIds.length) {
-    throw createAgentBadRequestError("scene.select 需要 elementIds 或 fileIds。");
-  }
-  return { elementIds, fileIds };
-};
-
-const buildAgentProjectRecords = ({
-  project,
-  scene,
-}: {
-  project: DesktopProjectBundle;
-  scene: { elements: readonly ExcalidrawElement[] } | null;
-}) => {
-  const sceneImageFileIds = collectAgentImageFileIds(scene?.elements ?? []);
-  const sceneImageFileIdSet = new Set(sceneImageFileIds);
-  const records = Object.values(project.imageRecords)
-    .sort(
-      (left, right) =>
-        new Date(right.createdAt).getTime() -
-        new Date(left.createdAt).getTime(),
-    )
-    .map((record) => ({
-      ...record,
-      title:
-        record.sourceType === "generated"
-          ? getGenerationRecordTitle(record)
-          : record.assetPath.split(/[\\/]/).pop() || record.fileId,
-      onBoard: sceneImageFileIdSet.has(record.fileId),
-    }));
-
-  return {
-    project: {
-      projectPath: project.projectPath,
-      name: project.project.name,
-      updatedAt: project.project.updatedAt,
-    },
-    summary: {
-      recordCount: records.length,
-      generatedRecordCount: records.filter(
-        (record) => record.sourceType === "generated",
-      ).length,
-      onBoardCount: records.filter((record) => record.onBoard).length,
-      offBoardCount: records.filter((record) => !record.onBoard).length,
-    },
-    scene: {
-      imageFileIds: sceneImageFileIds,
-    },
-    records,
-  };
-};
-
-const toAgentImageAsset = (
-  payload: unknown,
-  defaults: Partial<PersistedImageAssetInput> = {},
-  createdAt = new Date().toISOString(),
-): PersistedImageAssetInput => {
-  if (!isObjectPayload(payload)) {
-    throw createAgentBadRequestError("图片 payload 格式不正确。");
-  }
-
-  const fileId = payload.fileId;
-  const mimeType = payload.mimeType;
-  const dataBase64 = payload.dataBase64;
-  const width = payload.width;
-  const height = payload.height;
-
-  if (
-    typeof fileId !== "string" ||
-    !fileId.trim() ||
-    typeof mimeType !== "string" ||
-    !mimeType.trim() ||
-    typeof dataBase64 !== "string" ||
-    !dataBase64.trim() ||
-    typeof width !== "number" ||
-    !Number.isFinite(width) ||
-    width <= 0 ||
-    typeof height !== "number" ||
-    !Number.isFinite(height) ||
-    height <= 0
-  ) {
-    throw createAgentBadRequestError("图片 payload 缺少有效的必要字段。");
-  }
-
-  const prompt =
-    typeof payload.prompt === "string"
-      ? payload.prompt
-      : typeof defaults.prompt === "string"
-        ? defaults.prompt
-        : undefined;
-  const negativePrompt =
-    typeof payload.negativePrompt === "string"
-      ? payload.negativePrompt
-      : defaults.negativePrompt;
-  const parentFileId =
-    typeof payload.parentFileId === "string" && payload.parentFileId.trim()
-      ? payload.parentFileId.trim()
-      : defaults.parentFileId;
-  const generationOrigin = isImageGenerationOrigin(payload.generationOrigin)
-    ? payload.generationOrigin
-    : defaults.generationOrigin;
-  const sourceType = isImageSourceType(payload.sourceType)
-    ? payload.sourceType
-    : defaults.sourceType ?? (generationOrigin ? "generated" : "imported");
-  const promptReferences =
-    buildPromptReferencesFromIds(payload, null) ?? defaults.promptReferences;
-
-  return {
-    fileId: createAgentImageFileId(),
-    mimeType,
-    dataBase64,
-    width,
-    height,
-    createdAt:
-      typeof payload.createdAt === "string" ? payload.createdAt : createdAt,
-    sourceType,
-    ...(generationOrigin ? { generationOrigin } : {}),
-    ...(typeof payload.provider === "string"
-      ? { provider: payload.provider as PersistedImageAssetInput["provider"] }
-      : defaults.provider
-        ? { provider: defaults.provider }
-        : {}),
-    ...(typeof payload.model === "string"
-      ? { model: payload.model }
-      : defaults.model
-        ? { model: defaults.model }
-        : {}),
-    ...(prompt ? { prompt } : {}),
-    ...(negativePrompt ? { negativePrompt } : {}),
-    ...(typeof payload.seed === "number" || payload.seed === null
-      ? { seed: payload.seed }
-      : defaults.seed !== undefined
-        ? { seed: defaults.seed }
-        : {}),
-    ...(parentFileId ? { parentFileId } : {}),
-    ...(promptReferences ? { promptReferences } : {}),
-  };
-};
-
-const getAgentImageAssetsFromPayload = (
-  payload: unknown,
-  agentBoardContext: AgentBoardCommandContext | null = null,
-): PersistedImageAssetInput[] => {
-  const rootPayload = isObjectPayload(payload) ? payload : {};
-  const generationOrigin = isImageGenerationOrigin(rootPayload.generationOrigin)
-    ? rootPayload.generationOrigin
-    : undefined;
-  const promptReferences = buildPromptReferencesFromIds(
-    rootPayload,
-    agentBoardContext,
-  );
-  const defaults: Partial<PersistedImageAssetInput> = {
-    ...(isImageSourceType(rootPayload.sourceType)
-      ? { sourceType: rootPayload.sourceType }
-      : generationOrigin
-        ? { sourceType: "generated" }
-        : {}),
-    ...(generationOrigin ? { generationOrigin } : {}),
-    ...(typeof rootPayload.prompt === "string" && rootPayload.prompt.trim()
-      ? { prompt: rootPayload.prompt }
-      : {}),
-    ...(typeof rootPayload.negativePrompt === "string"
-      ? { negativePrompt: rootPayload.negativePrompt }
-      : {}),
-    ...(typeof rootPayload.parentFileId === "string" &&
-    rootPayload.parentFileId.trim()
-      ? { parentFileId: rootPayload.parentFileId.trim() }
-      : {}),
-    ...(promptReferences ? { promptReferences } : {}),
-  };
-
-  if (isObjectPayload(payload) && Array.isArray(payload.files)) {
-    if (!payload.files.length) {
-      throw createAgentBadRequestError("scene.addImage files 不能为空。");
-    }
-    return payload.files.map((file) => toAgentImageAsset(file, defaults));
-  }
-
-  return [toAgentImageAsset(payload, defaults)];
-};
-
-const stringifyUnknownError = (error: unknown) => {
-  if (error === null || error === undefined) {
-    return "";
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  try {
-    return JSON.stringify(error, null, 2);
-  } catch {
-    return String(error);
-  }
-};
-
-const extractDesktopErrorInfo = (error: unknown) => {
-  const rawMessage =
-    error instanceof Error
-      ? error.message || error.toString()
-      : error && typeof error === "object" && "message" in error
-      ? String((error as { message?: unknown }).message || stringifyUnknownError(error))
-      : stringifyUnknownError(error);
-
-  const stack =
-    error instanceof Error
-      ? error.stack || null
-      : error && typeof error === "object" && "stack" in error
-      ? String((error as { stack?: unknown }).stack || "") || null
-      : null;
-
-  return {
-    rawMessage,
-    message: rawMessage
-      .replace(REMOTE_METHOD_PREFIX, "")
-      .replace(/^Error:\s*/, ""),
-    stack,
-  };
-};
-
-const normalizeDesktopErrorMessage = (
-  provider: GenerationRequest["provider"],
-  error: unknown,
-) => {
-  const { message } = extractDesktopErrorInfo(error);
-  const { message: sanitizedMessage } = splitRequestPayload(message);
-
-  if (
-    /API_KEY_INVALID|API key not valid/i.test(sanitizedMessage) &&
-    /generativelanguage\.googleapis\.com|googleapis\.com/i.test(sanitizedMessage)
-  ) {
-    return "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。";
-  }
-
-  if (/ZenMux API Key/i.test(sanitizedMessage)) {
-    return sanitizedMessage;
-  }
-
-  if (/gemini API key is not configured/i.test(sanitizedMessage)) {
-    return "Gemini API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
-  }
-
-  if (
-    provider === "zenmux" &&
-    /reject_no_credit|Credit required|positive balance is required|\"code\":\"402\"/i.test(
-      sanitizedMessage,
-    )
-  ) {
-    return "ZenMux 余额不足，这个模型需要账户里有正余额。";
-  }
-
-  if (
-    provider === "zenmux" &&
-    /invalid api key|unauthorized|401|forbidden|403|UNAUTHENTICATED/i.test(
-      sanitizedMessage,
-    )
-  ) {
-    return "ZenMux API Key 无效，请检查 ZenMux 后台里的 API Key 和账户状态。";
-  }
-
-  if (/zenmux API key is not configured/i.test(sanitizedMessage)) {
-    return "ZenMux API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
-  }
-
-  if (/fal\.ai request failed: 401/i.test(sanitizedMessage)) {
-    return "fal API Key 无效，请检查后重新保存。";
-  }
-
-  return sanitizedMessage;
-};
-
-const buildGenerationErrorDetails = (
-  request: GenerationRequest,
-  error: unknown,
-  normalizedMessage: string,
-): GenerationErrorDetails => {
-  const { rawMessage, stack } = extractDesktopErrorInfo(error);
-  const { message: sanitizedRawMessage, requestPayload } =
-    splitRequestPayload(rawMessage);
-
-  return {
-    provider: request.provider,
-    model: request.model,
-    occurredAt: new Date().toISOString(),
-    normalizedMessage,
-    rawMessage: sanitizedRawMessage || normalizedMessage,
-    stack,
-    requestPayload,
-  };
-};
-
-const formatGenerationErrorDebugText = (details: GenerationErrorDetails) => {
-  return [
-    `${copy.debugError.provider}：${getProviderDefinition(details.provider).label}`,
-    `${copy.debugError.model}：${details.model}`,
-    `${copy.debugError.occurredAt}：${new Date(details.occurredAt).toLocaleString("zh-CN")}`,
-    "",
-    `${copy.debugError.message}：`,
-    details.normalizedMessage,
-    "",
-    `${copy.debugError.raw}：`,
-    details.rawMessage,
-    ...(details.requestPayload
-      ? ["", `${copy.debugError.payload}：`, details.requestPayload]
-      : []),
-    ...(details.stack
-      ? ["", `${copy.debugError.stack}：`, details.stack]
-      : []),
-  ].join("\n");
-};
-
-const stripSelectionReferenceThumbnails = (
-  reference: GenerationReferencePayload | null,
-): GenerationReferencePayload | null => {
-  if (!reference?.items?.length) {
-    return reference;
-  }
-
-  return {
-    ...reference,
-    items: reference.items.map(({ thumbnailDataUrl: _thumbnailDataUrl, ...item }) => item),
-  };
-};
-
-const createAcpTaskId = () =>
-  `acp-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-const createAcpThreadId = () =>
-  `acp-thread-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-const getAcpBridgeBaseUrl = (
-  status: DesktopAgentBridgeStatus | null,
-): string | null => {
-  const candidates = [status?.boardUrl, window.location.href].filter(
-    (url): url is string => Boolean(url),
-  );
-  for (const candidate of candidates) {
-    try {
-      const bridgeBaseUrl = new URL(candidate).searchParams.get("bridge");
-      if (bridgeBaseUrl) {
-        return bridgeBaseUrl;
-      }
-    } catch {
-      // Ignore malformed user-facing URLs and try the next candidate.
-    }
-  }
-  return null;
-};
-
-const getAcpSelectionKind = (
-  item: NonNullable<GenerationReferencePayload["items"]>[number],
-): AcpTaskRequest["selection"]["items"][number]["kind"] => {
-  if (item.kind === "image" || item.kind === "text") {
-    return item.kind;
-  }
-  return item.label === "箭头" ? "arrow" : "shape";
-};
-
-const buildAcpSelectionItems = (
-  request: GenerationRequest,
-  imageRecords: ImageRecordMap,
-): AcpTaskRequest["selection"]["items"] => {
-  const seenElementIds = new Set<string>();
-  return [request.reference, ...(request.promptReferences ?? [])]
-    .flatMap((reference) => reference?.items ?? [])
-    .flatMap((item) => {
-      if (seenElementIds.has(item.id)) {
-        return [];
-      }
-      seenElementIds.add(item.id);
-      const imageRecord = item.fileId ? imageRecords[item.fileId] : null;
-      return [
-        {
-          index: item.index,
-          elementId: item.id,
-          kind: getAcpSelectionKind(item),
-          label: item.label,
-          ...(item.fileId ? { fileId: item.fileId } : {}),
-          ...(imageRecord?.fileId ? { imageId: imageRecord.fileId } : {}),
-        },
-      ];
-    });
-};
-
-const buildAcpTaskRequest = ({
-  request,
-  project,
-  status,
-  agentId,
-  threadId,
-}: {
-  request: GenerationRequest;
-  project: DesktopProjectBundle;
-  status: DesktopAgentBridgeStatus | null;
-  agentId: string | null;
-  threadId: string;
-}): AcpTaskRequest => {
-  const bridgeBaseUrl = getAcpBridgeBaseUrl(status);
-  if (!bridgeBaseUrl) {
-    throw new Error("Agent Bridge 地址尚未就绪。");
-  }
-
-  const items = buildAcpSelectionItems(request, project.imageRecords);
-  return {
-    taskId: createAcpTaskId(),
-    threadId,
-    agentId: agentId ?? "",
-    userPrompt:
-      getPromptHistoryText(request) || "请根据当前 CoreStudio 画板继续操作。",
-    project: {
-      name: project.project.name,
-      projectPath: project.projectPath,
-      token: project.project.agentAccess.token,
-      bridgeBaseUrl,
-      boardUrl: status?.boardUrl ?? null,
-    },
-    generation: {
-      source: "agent",
-    },
-    selection: {
-      elementCount: items.length,
-      items,
-    },
-  };
-};
-
-const parseAcpAgentArgs = (value: string) =>
-  value
-    .split(/\s+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-const formatAcpAgentArgs = (args: readonly string[]) => args.join(" ");
-
-const getAcpAgentDraftName = (presetId: AcpAgentPresetId) =>
-  getAcpAgentPreset(presetId)?.name ?? "自定义 ACP Agent";
-
-const MAX_ACP_AGENT_TIMELINE_ITEMS = 24;
-const ACP_RUN_LOG_READ_RETRY_DELAYS_MS = [0, 80, 240];
 const ACP_RUN_HISTORY_REFRESH_DELAY_MS = 160;
 const ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS = 240;
-type AcpRunLogSurface = "conversation" | "record";
-
-const mergeAcpConversationEntries = (
-  current: AcpRunLogEntry[],
-  incoming: AcpRunLogEntry[],
-) => {
-  if (!incoming.length) {
-    return current;
-  }
-
-  const incomingTaskIds = new Set(incoming.map((entry) => entry.taskId));
-  return [
-    ...current.filter((entry) => !incomingTaskIds.has(entry.taskId)),
-    ...incoming,
-  ];
-};
-
-const getAcpAgentTimelineStatusTone = (
-  status: AcpTaskStatus,
-): AcpAgentTaskTimelineItem["tone"] => {
-  if (status === "completed") {
-    return "success";
-  }
-  if (status === "failed" || status === "cancelled") {
-    return "danger";
-  }
-  return "neutral";
-};
-
-const createAcpAgentTimelineItem = (
-  item: Omit<AcpAgentTaskTimelineItem, "id">,
-): AcpAgentTaskTimelineItem => ({
-  id: `acp-task-event-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`,
-  ...item,
-});
-
-const appendAcpAgentTimelineItem = (
-  current: AcpAgentTaskUiState | null,
-  taskId: string,
-  item: Omit<AcpAgentTaskTimelineItem, "id">,
-) => {
-  const currentEvents = current?.taskId === taskId ? current.events : [];
-  if (item.mergeKey) {
-    const existingItemIndex = currentEvents.findIndex(
-      (eventItem) => eventItem.mergeKey === item.mergeKey,
-    );
-    if (existingItemIndex >= 0) {
-      return currentEvents.map((eventItem, index) => {
-        if (index !== existingItemIndex) {
-          return eventItem;
-        }
-        return {
-          ...eventItem,
-          title: item.title,
-          detail: `${eventItem.detail ?? ""}${item.detail ?? ""}` || undefined,
-          tone: item.tone ?? eventItem.tone,
-        };
-      });
-    }
-  }
-  return [
-    ...currentEvents,
-    createAcpAgentTimelineItem(item),
-  ].slice(-MAX_ACP_AGENT_TIMELINE_ITEMS);
-};
-
-const getAcpToolStatusLabel = (
-  status: Extract<AcpTaskEvent, { type: "tool" }>["status"],
-) => {
-  switch (status) {
-    case "pending":
-      return "等待调用";
-    case "in_progress":
-      return "调用中";
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-  }
-};
-
-const getAcpRunStatusLabel = (status: AcpRunSummary["status"]) => {
-  switch (status) {
-    case "running":
-      return "运行中";
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-    case "cancelled":
-      return "已取消";
-  }
-};
-
-const getRuntimeSelectedElementIds = (appState: AppState) =>
-  Object.entries(appState.selectedElementIds ?? {})
-    .filter(([, selected]) => Boolean(selected))
-    .map(([elementId]) => elementId);
-
-const buildAgentBrowserRuntimeViewport = (
-  appState: AppState,
-): NonNullable<AgentBrowserRuntimeState["scene"]>["viewport"] => ({
-  scrollX: appState.scrollX,
-  scrollY: appState.scrollY,
-  zoom: appState.zoom?.value,
-  width: appState.width,
-  height: appState.height,
-});
 
 const App = () => {
-  const isAgentBrowserRoute = window.location.pathname === "/agent-board";
-  const agentBrowserInitialProjectToken = useMemo(() => {
-    if (!isAgentBrowserRoute) {
-      return false;
-    }
-    const url = new URL(window.location.href);
-    return Boolean(
-      url.searchParams.get("projectToken") ?? url.searchParams.get("token"),
-    );
-  }, [isAgentBrowserRoute]);
+  const {
+    isAgentBrowserRoute,
+    hasInitialProjectToken: agentBrowserInitialProjectToken,
+  } = buildAgentBrowserRouteState({
+    pathname: window.location.pathname,
+    href: window.location.href,
+  });
   const bridge = maybeGetDesktopBridge();
-  const desktopBridge = bridge!;
+  if (!bridge) {
+    return <AppBridgeUnavailable isAgentBrowserRoute={isAgentBrowserRoute} />;
+  }
+
+  const desktopBridge = bridge;
+  const readProjectImageAssets = useMemo(
+    () =>
+      createProjectImageAssetReader((input) =>
+        desktopBridge.readProjectAssetPayloads(input),
+      ),
+    [desktopBridge],
+  );
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
-  const agentBrowserStatePublishTimerRef = useRef<number | null>(null);
   const pendingAutosaveRef = useRef<AutosaveSnapshot | null>(null);
   const autosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const isEditorInitializingRef = useRef(false);
   const initializingRenderNonceRef = useRef<number | null>(null);
   const projectRenderNonceRef = useRef(0);
   const projectOpenSequenceRef = useRef(0);
-  const acpThreadLoadSequenceRef = useRef(0);
+  const agentRuntimeRefsController = useAgentRuntimeRefsController();
   const latestMenuProjectOpenRequestIdRef = useRef(0);
   const rememberedGenerationModelSelectionRef = useRef(
     readRememberedGenerationModelSelection(),
@@ -1901,15 +324,10 @@ const App = () => {
     files: BinaryFiles;
   } | null>(null);
   const lastCanvasPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const lastBatchBoundsRef = useRef<ReturnType<typeof measureBatchBounds>>(null);
+  const lastBatchBoundsRef = useRef<SceneBounds | null>(null);
   const pendingGenerationJobsRef = useRef<Map<string, PendingGenerationJob>>(
     new Map(),
   );
-  const activeAcpTaskIdRef = useRef<string | null>(null);
-  const activeAcpThreadIdRef = useRef<string | null>(null);
-  const acpRunLogTaskIdRef = useRef<string | null>(null);
-  const acpRunLogSurfaceRef = useRef<AcpRunLogSurface | null>(null);
-  const acpRunLogRefreshTimerRef = useRef<number | null>(null);
   const removedSelectionReferenceSignatureRef = useRef<string | null>(null);
   const generationTaskByElementIdRef = useRef<Map<string, GenerationTaskRecord>>(
     new Map(),
@@ -1926,37 +344,114 @@ const App = () => {
   const loadingOriginalImageFileIdsRef = useRef<Set<string>>(new Set());
   const pendingImageFilesToAddRef = useRef<BinaryFileData[]>([]);
 
+  const selectionReferenceOriginalSceneActions = useMemo(
+    () =>
+      createSelectionReferenceOriginalSceneRendererActions({
+        getProject: () => currentProjectRef.current,
+        readOriginalAssets: (project, fileIds) =>
+          readProjectImageAssets(project, fileIds, "original"),
+      }),
+    [readProjectImageAssets],
+  );
+  const acpInteractionTargets = useAcpInteractionTargetsController();
+  const {
+    activeThreadId: activeAcpThreadId,
+    runLogSurface: acpRunLogSurface,
+  } = acpInteractionTargets.state;
+  const {
+    activeTaskActions: acpActiveTaskIdRendererActions,
+    activeThreadActions: acpActiveThreadIdRendererActions,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    getActiveTaskId: getActiveAcpTaskId,
+    getActiveThreadId: getActiveAcpThreadId,
+    getRunLogTaskId: getAcpRunLogTaskId,
+    getRunLogSurface: getAcpRunLogSurface,
+  } = acpInteractionTargets.actions;
+  const acpRunLogStateController = useAcpRunLogStateController();
+  const {
+    dialogOpen: acpRunLogDialogOpen,
+    loading: acpRunLogLoading,
+    detail: acpRunLogDetail,
+    error: acpRunLogError,
+    rawOpen: acpRunLogRawOpen,
+    conversationEntries: acpConversationEntries,
+  } = acpRunLogStateController.state;
+  const {
+    setDialogOpen: setAcpRunLogDialogOpen,
+    setLoading: setAcpRunLogLoading,
+    setDetail: setAcpRunLogDetail,
+    setError: setAcpRunLogError,
+    setRawOpen: setAcpRunLogRawOpen,
+    setConversationEntries: setAcpConversationEntries,
+  } = acpRunLogStateController.setters;
+  const {
+    getRefreshTimerId: getAcpRunLogRefreshTimerId,
+    setRefreshTimerId: setAcpRunLogRefreshTimerId,
+  } = acpRunLogStateController.actions;
+
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
-  const [agentBridgeStatus, setAgentBridgeStatus] =
-    useState<DesktopAgentBridgeStatus | null>(null);
-  const [acpAgentSettings, setAcpAgentSettings] =
-    useState<AcpAgentSettings>(() => getDefaultAcpAgentSettings());
-  const [acpAgentEnabledDraft, setAcpAgentEnabledDraft] = useState(false);
-  const [acpAgentPresetDraft, setAcpAgentPresetDraft] =
-    useState<AcpAgentPresetId>("codex-acp");
-  const [acpAgentCommandDraft, setAcpAgentCommandDraft] = useState("");
-  const [acpAgentArgsDraft, setAcpAgentArgsDraft] = useState("");
-  const [acpAgentCwdDraft, setAcpAgentCwdDraft] = useState("");
-  const [acpTaskInstructionDraft, setAcpTaskInstructionDraft] = useState(
-    DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
-  );
-  const [savingAcpAgentSettings, setSavingAcpAgentSettings] = useState(false);
-  const [acpAgentTask, setAcpAgentTask] =
-    useState<AcpAgentTaskUiState | null>(null);
+  const agentBridgeConnectionStateController =
+    useAgentBridgeConnectionStateController();
+  const {
+    status: agentBridgeStatus,
+    autoOpenProjectPath: agentBrowserAutoOpenProjectPath,
+  } = agentBridgeConnectionStateController.state;
+  const {
+    setStatus: setAgentBridgeStatus,
+    setAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
+  } = agentBridgeConnectionStateController.setters;
+  const acpAgentSettingsController =
+    useAcpAgentSettingsController(bridge);
+  const {
+    settings: acpAgentSettings,
+    selectedAgent: selectedAcpAgent,
+    draft: acpAgentSettingsDraft,
+    saving: savingAcpAgentSettings,
+    editable: acpAgentSettingsEditable,
+    load: loadAcpAgentSettingsState,
+    save: saveAcpAgentSettingsState,
+    setEnabledDraft: setAcpAgentEnabledDraft,
+    setPresetDraft: setAcpAgentPresetDraft,
+    setCommandDraft: setAcpAgentCommandDraft,
+    setArgsDraft: setAcpAgentArgsDraft,
+    setCwdDraft: setAcpAgentCwdDraft,
+    setTaskInstructionDraft: setAcpTaskInstructionDraft,
+  } = acpAgentSettingsController;
+  const acpAgentTaskStateController = useAcpAgentTaskStateController();
+  const { task: acpAgentTask } = acpAgentTaskStateController.state;
+  const { setTask: setAcpAgentTask } = acpAgentTaskStateController.setters;
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
+  const savedPromptLibraryRendererActions = useMemo(
+    () =>
+      createSavedPromptLibraryRendererActions({
+        bridge: desktopBridge,
+        setSavedPrompts,
+      }),
+    [desktopBridge],
+  );
+  const generationModelSelectionRendererActions = useMemo(
+    () =>
+      createGenerationModelSelectionRendererActions({
+        selectionLockedRef: generationModelSelectionLockedRef,
+        rememberedSelectionRef: rememberedGenerationModelSelectionRef,
+      }),
+    [generationModelSelectionLockedRef, rememberedGenerationModelSelectionRef],
+  );
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
-  const [
-    agentBrowserAutoOpenProjectPath,
-    setAgentBrowserAutoOpenProjectPath,
-  ] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(null);
   const [selectedTask, setSelectedTask] = useState<GenerationTaskRecord | null>(null);
+  const selectedInspectorRendererActions =
+    createSelectedInspectorRendererActions({
+      getGenerationTasks: () => generationTaskByElementIdRef.current,
+      setSelectedRecord,
+      setSelectedTask,
+    });
   const [sceneImageFileIds, setSceneImageFileIds] = useState<string[]>([]);
   const [generateRequest, setGenerateRequest] = useState(() =>
-    defaultGenerationRequest(
+    buildDefaultGenerationRequest(
       null,
       rememberedGenerationModelSelectionRef.current,
     ),
@@ -1967,11 +462,34 @@ const App = () => {
     );
   const [loadingProject, setLoadingProject] = useState(false);
   const [savingProviders, setSavingProviders] = useState(false);
+  const providerSettingsRendererActions = useMemo(
+    () =>
+      createProviderSettingsRendererActions({
+        saveProviderSettings: desktopBridge.saveProviderSettings,
+        setProviderSettings,
+        setSavingProviders,
+      }),
+    [
+      desktopBridge.saveProviderSettings,
+      setProviderSettings,
+      setSavingProviders,
+    ],
+  );
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const acpAgentSettingsRendererActions = useMemo(
+    () =>
+      createAcpAgentSettingsRendererActions({
+        saveSettings: saveAcpAgentSettingsState,
+        setProjectError,
+      }),
+    [saveAcpAgentSettingsState, setProjectError],
+  );
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
+  const [projectRepairReport, setProjectRepairReport] =
+    useState<ProjectRepairReport | null>(null);
   const [projectHealthReportOpen, setProjectHealthReportOpen] =
     useState(false);
   const projectNoticeTimerRef = useRef<number | null>(null);
@@ -1980,1926 +498,1039 @@ const App = () => {
     useState<GenerationErrorDetails | null>(null);
   const [generationErrorDetailsOpen, setGenerationErrorDetailsOpen] = useState(false);
   const [generationErrorCopied, setGenerationErrorCopied] = useState(false);
-  const [acpRunLogDialogOpen, setAcpRunLogDialogOpen] = useState(false);
-  const [acpRunLogLoading, setAcpRunLogLoading] = useState(false);
-  const [acpRunLogDetail, setAcpRunLogDetail] =
-    useState<AcpRunLogDetail | null>(null);
-  const [acpRunLogError, setAcpRunLogError] = useState<string | null>(null);
-  const [acpRunLogRawOpen, setAcpRunLogRawOpen] = useState(false);
-  const [acpRunLogSurface, setAcpRunLogSurface] =
-    useState<AcpRunLogSurface | null>(null);
-  const [acpConversationEntries, setAcpConversationEntries] = useState<
-    AcpRunLogEntry[]
-  >([]);
-  const [acpThreadSummaries, setAcpThreadSummaries] = useState<
-    AcpThreadSummary[]
-  >([]);
-  const [activeAcpThreadId, setActiveAcpThreadId] = useState<string | null>(
-    null,
+  const clipboardTextRendererActions = useMemo(
+    () =>
+      createPlainTextClipboardRendererActions({
+        failureMessage: copy.clipboard.writeFailed,
+        onError: setProjectError,
+      }),
+    [setProjectError],
   );
-  const [acpThreadSummariesLoading, setAcpThreadSummariesLoading] =
-    useState(false);
-  const [acpThreadSummariesError, setAcpThreadSummariesError] =
-    useState<string | null>(null);
-  const [acpRunSummaries, setAcpRunSummaries] = useState<AcpRunSummary[]>([]);
-  const [acpRunSummariesLoading, setAcpRunSummariesLoading] = useState(false);
-  const [acpRunSummariesError, setAcpRunSummariesError] =
-    useState<string | null>(null);
   const [generateFocusToken, setGenerateFocusToken] = useState(0);
   const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const agentSurfaceVisibilityController =
+    useAgentSurfaceVisibilityController();
+  const {
+    acpDebugOpen,
+    chatDockOpen: agentChatDockOpen,
+  } = agentSurfaceVisibilityController.state;
+  const {
+    setAcpDebugOpen,
+    setChatDockOpen: setAgentChatDockOpen,
+  } = agentSurfaceVisibilityController.setters;
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
-  const [agentChatDockOpen, setAgentChatDockOpen] = useState(false);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
   const [workspaceOverlayState, setWorkspaceOverlayState] =
     useState<WorkspaceOverlayState | null>(null);
   const [workspaceFitPulse, setWorkspaceFitPulse] = useState(false);
   const [thumbnailMaintenance, setThumbnailMaintenance] =
     useState<ThumbnailMaintenanceState | null>(null);
-  const selectedAcpAgent = getSelectedAcpAgent(acpAgentSettings);
+
+  const generationTrackingRendererActions =
+    createGenerationTrackingRendererActions({
+      setPendingJobs: (pendingJobs) => {
+        pendingGenerationJobsRef.current = pendingJobs;
+      },
+      setGenerationTasks: (generationTasks) => {
+        generationTaskByElementIdRef.current = generationTasks;
+      },
+      setPendingCount: setPendingGenerationCount,
+    });
+
+  const acpRunSummariesController = useAcpRunSummariesController({
+    bridge,
+  });
+  const {
+    summaries: acpRunSummaries,
+    loading: acpRunSummariesLoading,
+    error: acpRunSummariesError,
+    canRead: canReadAcpRunLogs,
+    load: loadAcpRunSummariesState,
+  } = acpRunSummariesController;
+  useAcpRunSummariesAutoLoadEffect({
+    settingsOpen: appSettingsOpen,
+    debugOpen: acpDebugOpen,
+    load: loadAcpRunSummariesState,
+  });
+
   const currentProjectAgentAccessToken =
     getProjectAgentAccessToken(currentProject);
-  const acpAgentTaskRunning = Boolean(
-    acpAgentTask &&
-      !["completed", "failed", "cancelled"].includes(acpAgentTask.status),
+  const getCurrentProjectAgentAccessToken = useCallback(
+    () => getProjectAgentAccessToken(currentProjectRef.current),
+    [],
   );
-  const acpAgentGenerationReady = Boolean(
-    agentBridgeStatus?.enabled &&
-      agentBridgeStatus.ready &&
-      selectedAcpAgent &&
-      bridge?.startAcpAgentTask,
-  );
-  const parentRecord =
-    selectedRecord?.parentFileId && currentProject
-      ? currentProject.imageRecords[selectedRecord.parentFileId] || null
-      : null;
-  const ancestorRecords =
-    selectedRecord && currentProject
-      ? getImageAncestors(currentProject.imageRecords, selectedRecord)
-      : [];
-  const descendantRecords =
-    selectedRecord && currentProject
-      ? getImageDescendants(currentProject.imageRecords, selectedRecord)
-      : [];
-  const generationRecordItems = useMemo(
+  useAgentBridgeStatusCurrentProjectSyncEffect({
+    project: currentProject,
+    applyBridgeStatus: setAgentBridgeStatus,
+  });
+  const acpThreadSummariesController = useAcpThreadSummariesController({
+    bridge,
+    getProjectToken: getCurrentProjectAgentAccessToken,
+  });
+  const {
+    summaries: acpThreadSummaries,
+    loading: acpThreadSummariesLoading,
+    error: acpThreadSummariesError,
+    applyState: applyAcpThreadSummariesState,
+    load: loadAcpThreadSummariesState,
+  } = acpThreadSummariesController;
+  const acpAgentTaskRunning = isAcpAgentTaskRunning(acpAgentTask);
+  const acpAgentTaskStartable = canStartAcpAgentTask(bridge);
+  const agentIntegrationRuntime = useMemo(
     () =>
-      currentProject
-        ? buildDirectGenerationRecordItems(
-            currentProject.imageRecords,
-            sceneImageFileIds,
-          )
-        : [],
-    [currentProject, sceneImageFileIds],
+      buildAgentIntegrationRuntimeViewModel({
+        bridgeStatus: agentBridgeStatus,
+        acpAgentSettings,
+        agentTaskStatus: acpAgentTask,
+        taskRunning: acpAgentTaskRunning,
+        isAgentBrowserRoute,
+        canStartAcpAgentTask: acpAgentTaskStartable,
+        hasInitialProjectToken: Boolean(agentBrowserInitialProjectToken),
+        hasCurrentProject: Boolean(currentProject),
+        hasInitialData: Boolean(initialData),
+      }),
+    [
+      acpAgentSettings,
+      acpAgentTask,
+      acpAgentTaskRunning,
+      acpAgentTaskStartable,
+      agentBridgeStatus,
+      agentBrowserInitialProjectToken,
+      currentProject,
+      initialData,
+      isAgentBrowserRoute,
+    ],
   );
-  const acpAgentResultRecordItems = useMemo(
+  const agentIntegration = agentIntegrationRuntime.integration;
+  const acpAgentGeneration = agentIntegrationRuntime.acpGeneration;
+  const selectedImageRelationship = useMemo(
     () =>
-      currentProject
-        ? buildAcpAgentResultRecordItems({
-            imageRecords: currentProject.imageRecords,
-            sceneImageFileIds,
-            entries: acpConversationEntries,
-            runLogDetail:
-              acpRunLogSurface === "conversation" ? acpRunLogDetail : null,
-            task: acpAgentTask,
-            files: latestSceneRef.current?.files ?? null,
-          })
-        : [],
+      buildSelectedImageRelationshipState({
+        imageRecords: currentProject?.imageRecords,
+        selectedRecord,
+      }),
+    [currentProject?.imageRecords, selectedRecord],
+  );
+  const agentConversationSurface = useMemo(
+    () =>
+      buildAgentConversationSurfaceState({
+        generationSource,
+        acpRunLogSurface,
+        acpAgentTaskRunning,
+        runLogDetail: acpRunLogDetail,
+        error: acpRunLogError,
+      }),
+    [
+      acpAgentTaskRunning,
+      acpRunLogDetail,
+      acpRunLogError,
+      acpRunLogSurface,
+      generationSource,
+    ],
+  );
+  const generationSidebarRecordItems = useMemo(
+    () =>
+      buildGenerationSidebarRecordItems({
+        project: currentProject,
+        sceneImageFileIds,
+        acpEntries: acpConversationEntries,
+        acpRunLogDetail: agentConversationSurface.runLogDetail,
+        acpTask: acpAgentTask,
+        files: latestSceneRef.current?.files ?? null,
+      }),
     [
       acpAgentTask,
       acpConversationEntries,
-      acpRunLogDetail,
-      acpRunLogSurface,
+      agentConversationSurface.runLogDetail,
       currentProject,
       sceneImageFileIds,
     ],
   );
-  const hasAgentConversationContext =
-    generationSource === "agent" ||
-    acpRunLogSurface === "conversation" ||
-    acpAgentTaskRunning;
-  const generationSidebarMode: "direct" | "agent" =
-    hasAgentConversationContext ? "agent" : "direct";
-
-  const updateActiveAcpThreadId = (threadId: string | null) => {
-    activeAcpThreadIdRef.current = threadId;
-    setActiveAcpThreadId(threadId);
-  };
-
-  const updateSceneImageFileIds = (
-    elements: readonly ExcalidrawElement[],
-  ) => {
-    const nextFileIds = collectAgentImageFileIds(elements);
-    setSceneImageFileIds((current) =>
-      areStringArraysEqual(current, nextFileIds) ? current : nextFileIds,
-    );
-  };
-
-  const notifyDesktopProjectState = (project: DesktopProjectBundle | null) => {
-    bridge?.notifyProjectStateChanged?.(getDesktopCurrentProject(project));
-  };
-
-  const updateCurrentProject = (project: DesktopProjectBundle | null) => {
-    const previousProjectPath = currentProjectRef.current?.projectPath ?? null;
-    const nextProjectPath = project?.projectPath ?? null;
-    currentProjectRef.current = project;
-    savedSceneHashRef.current = project
-      ? getSceneContentHash(project.sceneJson)
-      : null;
-    setCurrentProject(project);
-    if (previousProjectPath !== nextProjectPath) {
-      clearAcpRunLogRefreshTimer();
-      updateActiveAcpThreadId(null);
-      acpRunLogTaskIdRef.current = null;
-      acpRunLogSurfaceRef.current = null;
-      setAcpRunLogSurface(null);
-      setAcpRunLogDetail(null);
-      setAcpRunLogError(null);
-      setAcpConversationEntries([]);
-      setAcpThreadSummaries([]);
-      setAcpThreadSummariesError(null);
-      setAcpThreadSummariesLoading(false);
-      setAgentChatDockOpen(false);
-      setProjectHealthReport(null);
-      setProjectHealthReportOpen(false);
-    }
-    notifyDesktopProjectState(project);
-    setAgentBridgeStatus((status) =>
-      status
-        ? {
-            ...status,
-            currentProject: getDesktopCurrentProject(project),
-          }
-        : status,
-    );
-  };
-
-  const updateEditorInitializing = (
-    initializing: boolean,
-    renderNonce?: number,
-  ) => {
-    if (
-      !initializing &&
-      renderNonce !== undefined &&
-      initializingRenderNonceRef.current !== renderNonce
-    ) {
-      return false;
-    }
-
-    isEditorInitializingRef.current = initializing;
-    initializingRenderNonceRef.current = initializing
-      ? renderNonce ?? initializingRenderNonceRef.current
-      : null;
-    setIsEditorInitializing(initializing);
-    return true;
-  };
-
-  const hideEditorLoading = (renderNonce: number) => {
-    if (initializingRenderNonceRef.current !== renderNonce) {
-      return;
-    }
-    setIsEditorInitializing(false);
-  };
-
-  const beginProjectOpen = () => {
-    projectOpenSequenceRef.current += 1;
-    return projectOpenSequenceRef.current;
-  };
-
-  const isCurrentProjectOpen = (sequence: number) =>
-    projectOpenSequenceRef.current === sequence;
-
-  const getGenerationAnchorBounds = (
-    request: GenerationRequest,
-    scene: AppSceneSnapshot | null = latestSceneRef.current,
-  ) => {
-    if (!request.reference?.enabled) {
-      return null;
-    }
-
-    return getElementsSceneBounds(
-      getSelectedReferenceElements(scene),
-    );
-  };
-
-  const updateWorkspaceOverlay = (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-  ) => {
-    const overlayState = buildWorkspaceOverlayState(elements, appState);
-    setWorkspaceOverlayState((current) =>
-      areWorkspaceOverlayStatesEqual(current, overlayState)
-        ? current
-        : overlayState,
-    );
-    return overlayState?.bounds ?? null;
-  };
-
-  const resetWorkspaceZoomGate = () => {
-    previousWorkspaceZoomValueRef.current = null;
-    workspaceZoomGateStateRef.current = createWorkspaceZoomGateState();
-    setWorkspaceFitPulse(false);
-  };
-
-  const triggerWorkspaceFitPulse = () => {
-    if (workspaceFitPulseTimerRef.current) {
-      window.clearTimeout(workspaceFitPulseTimerRef.current);
-    }
-
-    setWorkspaceFitPulse(true);
-    workspaceFitPulseTimerRef.current = window.setTimeout(() => {
-      workspaceFitPulseTimerRef.current = null;
-      setWorkspaceFitPulse(false);
-    }, 520);
-  };
-
-  const clearHighResImageLoadTimer = () => {
-    if (highResImageLoadTimerRef.current) {
-      window.clearTimeout(highResImageLoadTimerRef.current);
-      highResImageLoadTimerRef.current = null;
-    }
-  };
-
-  const clearAgentBrowserStatePublishTimer = () => {
-    if (agentBrowserStatePublishTimerRef.current) {
-      window.clearTimeout(agentBrowserStatePublishTimerRef.current);
-      agentBrowserStatePublishTimerRef.current = null;
-    }
-  };
-
-  const clearProjectNoticeTimer = () => {
-    if (projectNoticeTimerRef.current) {
-      window.clearTimeout(projectNoticeTimerRef.current);
-      projectNoticeTimerRef.current = null;
-    }
-  };
-
-  const showProjectNotice = (message: string) => {
-    clearProjectNoticeTimer();
-    setProjectNotice(message);
-    projectNoticeTimerRef.current = window.setTimeout(() => {
-      projectNoticeTimerRef.current = null;
-      setProjectNotice(null);
-    }, 4200);
-  };
-
-  const clearProjectNotice = () => {
-    clearProjectNoticeTimer();
-    setProjectNotice(null);
-  };
-
-  const publishAgentBrowserRuntimeStateForScene = (
-    scene: NonNullable<typeof latestSceneRef.current>,
-  ) => {
-    const project = currentProjectRef.current;
-    if (!isAgentBrowserRoute || !project) {
-      return;
-    }
-
-    const selectionReference = stripSelectionReferenceThumbnails(
-      buildSelectionReferenceSummary(scene),
-    );
-    const state: AgentBrowserRuntimeState = {
-      source: "agent-board",
-      projectPath: project.projectPath,
-      updatedAt: new Date().toISOString(),
-      selection: buildAgentSelectionContext(selectionReference),
-      scene: {
-        selectedElementIds: getRuntimeSelectedElementIds(scene.appState),
-        viewport: buildAgentBrowserRuntimeViewport(scene.appState),
-      },
-      generation: {
-        source: generationSource,
-      },
-    };
-
-    void publishAgentBrowserRuntimeState(state).catch(() => {
-      // 浏览器运行态是给 Agent 观察用的临时通道，失败不应阻断画布操作。
-    });
-  };
-
-  const scheduleAgentBrowserRuntimeStatePublish = (
-    scene: NonNullable<typeof latestSceneRef.current> | null,
-  ) => {
-    if (!isAgentBrowserRoute || !scene) {
-      return;
-    }
-
-    clearAgentBrowserStatePublishTimer();
-    agentBrowserStatePublishTimerRef.current = window.setTimeout(() => {
-      agentBrowserStatePublishTimerRef.current = null;
-      publishAgentBrowserRuntimeStateForScene(latestSceneRef.current ?? scene);
-    }, 120);
-  };
-
-  const resetImageRenditionState = () => {
-    clearHighResImageLoadTimer();
-    loadedPreviewImageFileIdsRef.current = new Set();
-    loadingPreviewImageFileIdsRef.current = new Set();
-    loadedOriginalImageFileIdsRef.current = new Set();
-    loadingOriginalImageFileIdsRef.current = new Set();
-    pendingImageFilesToAddRef.current = [];
-    setThumbnailMaintenance(null);
-  };
-
-  const readProjectImageAssets = async (
-    project: DesktopProjectBundle,
-    fileIds: string[],
-    rendition: ImageAssetRequestRendition,
-  ) => {
-    if (!fileIds.length) {
-      return [];
-    }
-
-    return desktopBridge.readProjectAssetPayloads({
-      projectPath: project.projectPath,
-      fileIds,
-      rendition,
-    });
-  };
-
-  const readOriginalImageAssets = async (
-    project: DesktopProjectBundle,
-    fileIds: string[],
-  ) => readProjectImageAssets(project, fileIds, "original");
-
-  const readInitialVisibleImageRenditionAssets = async (
-    project: DesktopProjectBundle,
-    scene: {
-      elements?: readonly ExcalidrawElement[];
-      appState?: Partial<AppState> | null;
-    },
-  ) => {
-    const elements = scene.elements ?? [];
-    const appState = scene.appState;
-    if (!elements.length || !appState) {
-      return [];
-    }
-
-    const requests = getImageRenditionRequestsNearViewport({
-      elements,
-      appState: appState as AppState,
-      imageRecords: project.imageRecords,
-      loadedPreviewFileIds: new Set(),
-      loadingPreviewFileIds: new Set(),
-      loadedOriginalFileIds: new Set(),
-      loadingOriginalFileIds: new Set(),
-      devicePixelRatio: window.devicePixelRatio,
-    });
-    if (!requests.length) {
-      return [];
-    }
-
-    const fileIdsByRendition = requests.reduce((groups, request) => {
-      const fileIds = groups.get(request.rendition) ?? [];
-      fileIds.push(request.fileId);
-      groups.set(request.rendition, fileIds);
-      return groups;
-    }, new Map<ImageAssetRequestRendition, string[]>());
-
-    try {
-      const assetsByRendition = await Promise.all(
-        Array.from(fileIdsByRendition.entries()).map(
-          ([rendition, fileIds]) =>
-            readProjectImageAssets(project, fileIds, rendition),
-        ),
-      );
-      return assetsByRendition.flat();
-    } catch {
-      // 初始原图预取只是为了避免首屏停在缩略图；失败时继续打开项目，后续懒加载还会重试。
-      return [];
-    }
-  };
-
-  const queueImageFilesForReadyCanvas = (filesToAdd: BinaryFileData[]) => {
-    const pendingById = new Map(
-      pendingImageFilesToAddRef.current.map((file) => [file.id, file]),
-    );
-    filesToAdd.forEach((file) => pendingById.set(file.id, file));
-    pendingImageFilesToAddRef.current = Array.from(pendingById.values());
-  };
-
-  const flushQueuedImageFilesToCanvas = () => {
-    const api = excalidrawAPIRef.current;
-    const filesToAdd = pendingImageFilesToAddRef.current;
-    if (!api || !filesToAdd.length) {
-      return;
-    }
-
-    pendingImageFilesToAddRef.current = [];
-    api.replaceFiles(filesToAdd);
-  };
-
-  const addProjectAssetPayloadsToCurrentScene = (
-    project: DesktopProjectBundle,
-    assets: ProjectAssetPayload[],
-  ) => {
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath !== project.projectPath || !assets.length) {
-      return false;
-    }
-
-    const files = projectAssetPayloadsToBinaryFiles(
-      assets,
-      activeProject.imageRecords,
-    );
-    const filesToAdd = Object.values(files);
-    if (!filesToAdd.length) {
-      return false;
-    }
-
-    if (excalidrawAPIRef.current) {
-      excalidrawAPIRef.current.replaceFiles(filesToAdd);
-    } else {
-      queueImageFilesForReadyCanvas(filesToAdd);
-    }
-    latestSceneRef.current = latestSceneRef.current
-      ? {
-          ...latestSceneRef.current,
-          files: {
-            ...latestSceneRef.current.files,
-            ...files,
-          },
-        }
-      : latestSceneRef.current;
-
-    return true;
-  };
-
-  const rebuildMissingThumbnailAssets = async (
-    project: DesktopProjectBundle,
-    fileIds: string[],
-  ) => {
-    const uniqueFileIds = Array.from(new Set(fileIds));
-    const rebuildProjectThumbnails = desktopBridge.rebuildProjectThumbnails;
-    if (!uniqueFileIds.length) {
-      return;
-    }
-
-    if (!rebuildProjectThumbnails) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance({
-          status: "failed",
-          total: uniqueFileIds.length,
-        });
-      }
-      return;
-    }
-
-    try {
-      const result = await rebuildProjectThumbnails({
-        projectPath: project.projectPath,
-        fileIds: uniqueFileIds,
-      });
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance(
-          result.failedFileIds.length
-            ? {
-                status: "failed",
-                total: result.failedFileIds.length,
-              }
-            : null,
-        );
-      }
-      const fileIdsToRefresh = Array.from(
-        new Set([...result.generatedFileIds, ...result.skippedFileIds]),
-      ).filter(
-        (fileId) =>
-          !loadedPreviewImageFileIdsRef.current.has(fileId) &&
-          !loadedOriginalImageFileIdsRef.current.has(fileId),
-      );
-      if (!fileIdsToRefresh.length) {
-        return;
-      }
-
-      const assets = await desktopBridge.readProjectAssetPayloads({
-        projectPath: project.projectPath,
-        fileIds: fileIdsToRefresh,
-        rendition: "thumbnail",
-        thumbnailMode: "cache-only",
-      });
-      const thumbnailAssets = assets.filter(
-        (asset) =>
-          asset.rendition === "thumbnail" &&
-          !loadedPreviewImageFileIdsRef.current.has(asset.fileId) &&
-          !loadedOriginalImageFileIdsRef.current.has(asset.fileId),
-      );
-      addProjectAssetPayloadsToCurrentScene(project, thumbnailAssets);
-    } catch {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance({
-          status: "failed",
-          total: uniqueFileIds.length,
-        });
-      }
-      // 缩略图缓存修复是后台维护动作，失败时继续使用占位图或原图懒加载。
-    }
-  };
-
-  const restoreOrphanImageRecordsToScene = async (
-    project: DesktopProjectBundle,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return {
-        restoredCount: 0,
-        skippedCount: 0,
-      };
-    }
-
-    const sceneImageFileIds = collectAgentImageFileIds(
-      api.getSceneElementsIncludingDeleted(),
-    );
-    const recordsToRestore = getRestorableImageRecords(
-      project.imageRecords,
-      sceneImageFileIds,
-    );
-    if (!recordsToRestore.length) {
-      return {
-        restoredCount: 0,
-        skippedCount: 0,
-      };
-    }
-
-    const assets = await desktopBridge.readProjectAssetPayloads({
-      projectPath: project.projectPath,
-      fileIds: recordsToRestore.map((record) => record.fileId),
-      rendition: "thumbnail",
-      thumbnailMode: "read-through",
-    });
-    const assetsByFileId = new Map(
-      assets.map((asset) => [asset.fileId, asset]),
-    );
-    const restorableAssets: PersistedImageAssetInput[] =
-      recordsToRestore.flatMap((record) => {
-        const asset = assetsByFileId.get(record.fileId);
-        if (!asset) {
-          return [];
-        }
-
-        return [
-          {
-            ...asset,
-            width: record.width,
-            height: record.height,
-            createdAt: record.createdAt,
-            sourceType: record.sourceType,
-            ...(record.generationOrigin
-              ? { generationOrigin: record.generationOrigin }
-              : {}),
-            ...(record.provider ? { provider: record.provider } : {}),
-            ...(record.model ? { model: record.model } : {}),
-            ...(record.prompt ? { prompt: record.prompt } : {}),
-            ...(record.negativePrompt
-              ? { negativePrompt: record.negativePrompt }
-              : {}),
-            ...(record.seed !== undefined ? { seed: record.seed } : {}),
-            ...(record.parentFileId
-              ? { parentFileId: record.parentFileId }
-              : {}),
-            ...(record.promptReferences?.length
-              ? { promptReferences: record.promptReferences }
-              : {}),
-          },
-        ];
-      });
-
-    if (restorableAssets.length) {
-      await insertAssetsIntoScene(restorableAssets, project.imageRecords, {
-        expectedProjectPath: project.projectPath,
-        requireReady: true,
-      });
-    }
-
-    return {
-      restoredCount: restorableAssets.length,
-      skippedCount: recordsToRestore.length - restorableAssets.length,
-    };
-  };
-
-  const handleRepairProjectThumbnails = async () => {
-    const project = currentProjectRef.current;
-    const rebuildProjectThumbnails = desktopBridge.rebuildProjectThumbnails;
-    if (!project) {
-      setProjectError(copy.projectRepair.noProject);
-      clearProjectNotice();
-      return;
-    }
-
-    const fileIds = Object.keys(project.imageRecords);
-    if (!fileIds.length) {
-      showProjectNotice(copy.projectRepair.noImages);
-      setProjectError(null);
-      return;
-    }
-
-    if (!rebuildProjectThumbnails) {
-      setProjectError(copy.projectRepair.thumbnailsFailed);
-      clearProjectNotice();
-      return;
-    }
-
-    setProjectError(null);
-    clearProjectNotice();
-    setThumbnailMaintenance({
-      status: "pending",
-      total: fileIds.length,
-    });
-
-    try {
-      const result = await rebuildProjectThumbnails({
-        projectPath: project.projectPath,
-        fileIds,
-        force: true,
-        createBackup: true,
-      });
-      if (currentProjectRef.current?.projectPath !== project.projectPath) {
-        return;
-      }
-
-      const repairedGenerationRecordFileIds =
-        result.repairedGenerationRecordFileIds ?? [];
-      const repairedAcpOutputRecords = result.repairedAcpOutputRecords ?? {};
-      const repairedAcpOutputFileIds = Object.keys(repairedAcpOutputRecords);
-      const repairedImageRecords = repairImageRecordsWithCoreStudioOrigin(
-        project.imageRecords,
-        repairedGenerationRecordFileIds,
-      );
-      const projectAfterMetadataRepair =
-        repairedImageRecords === project.imageRecords &&
-        !repairedAcpOutputFileIds.length
-          ? project
-          : {
-              ...project,
-              imageRecords: {
-                ...repairedImageRecords,
-                ...repairedAcpOutputRecords,
-              },
-            };
-
-      const fileIdsToRefresh = result.generatedFileIds.filter(
-        (fileId) =>
-          !loadedPreviewImageFileIdsRef.current.has(fileId) &&
-          !loadedOriginalImageFileIdsRef.current.has(fileId),
-      );
-
-      if (fileIdsToRefresh.length) {
-        const assets = await desktopBridge.readProjectAssetPayloads({
-          projectPath: project.projectPath,
-          fileIds: fileIdsToRefresh,
-          rendition: "thumbnail",
-          thumbnailMode: "cache-only",
-        });
-        const thumbnailAssets = assets.filter(
-          (asset) =>
-            asset.rendition === "thumbnail" &&
-            !loadedPreviewImageFileIdsRef.current.has(asset.fileId) &&
-            !loadedOriginalImageFileIdsRef.current.has(asset.fileId),
-        );
-        addProjectAssetPayloadsToCurrentScene(project, thumbnailAssets);
-      }
-
-      const imageRecordRestoreResult =
-        await restoreOrphanImageRecordsToScene(
-          projectAfterMetadataRepair,
-        );
-      if (currentProjectRef.current?.projectPath !== project.projectPath) {
-        return;
-      }
-
-      if (
-        repairedGenerationRecordFileIds.length ||
-        repairedAcpOutputFileIds.length
-      ) {
-        const activeProject = currentProjectRef.current;
-        if (activeProject?.projectPath === project.projectPath) {
-          const activeRepairedRecords =
-            repairImageRecordsWithCoreStudioOrigin(
-              activeProject.imageRecords,
-              repairedGenerationRecordFileIds,
-            );
-          updateCurrentProject({
-            ...activeProject,
-            imageRecords: {
-              ...activeRepairedRecords,
-              ...repairedAcpOutputRecords,
-            },
-          });
-        }
-      }
-
-      setThumbnailMaintenance(
-        result.failedFileIds.length
-          ? {
-              status: "failed",
-              total: result.failedFileIds.length,
-            }
-          : null,
-      );
-      showProjectNotice(
-        copy.projectRepair.thumbnailsRepaired(
-          result.generatedFileIds.length,
-          result.skippedFileIds.length,
-          result.failedFileIds.length,
-          result.backupPath,
-          repairedGenerationRecordFileIds.length,
-          imageRecordRestoreResult.restoredCount,
-          imageRecordRestoreResult.skippedCount,
-        ),
-      );
-    } catch (error) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance({
-          status: "failed",
-          total: fileIds.length,
-        });
-        setProjectError(
-          getErrorText(error, copy.projectRepair.thumbnailsFailed),
-        );
-        clearProjectNotice();
-      }
-    }
-  };
-
-  const handleInspectProjectHealth = async () => {
-    const project = currentProjectRef.current;
-    const inspectProjectHealth = desktopBridge.inspectProjectHealth;
-    if (!project) {
-      setProjectError(copy.projectRepair.noProject);
-      clearProjectNotice();
-      return;
-    }
-
-    if (!inspectProjectHealth) {
-      setProjectError(copy.projectRepair.healthCheckFailed);
-      clearProjectNotice();
-      return;
-    }
-
-    setProjectError(null);
-    clearProjectNotice();
-    setThumbnailMaintenance({
-      status: "pending",
-      total: Object.keys(project.imageRecords).length,
-      message: copy.projectRepair.healthChecking,
-    });
-
-    try {
-      const report = await inspectProjectHealth({
-        projectPath: project.projectPath,
-      });
-      if (currentProjectRef.current?.projectPath !== project.projectPath) {
-        return;
-      }
-
-      setProjectHealthReport(report);
-      setProjectHealthReportOpen(Boolean(report.issues.length));
-      setThumbnailMaintenance(null);
-      const infoCount = report.issues.filter(
-        (issue) => issue.severity === "info",
-      ).length;
-      showProjectNotice(
-        report.summary.errorCount || report.summary.warningCount
-          ? copy.projectRepair.healthNeedsRepair(
-              report.summary.errorCount,
-              report.summary.warningCount,
-              report.summary.repairableCount,
-            )
-          : infoCount
-            ? copy.projectRepair.healthHasInfo(infoCount)
-          : copy.projectRepair.healthHealthy(
-              report.imageRecordCount,
-              report.generatedImageRecordCount,
-            ),
-      );
-    } catch (error) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setProjectHealthReport(null);
-        setProjectHealthReportOpen(false);
-        setThumbnailMaintenance(null);
-        setProjectError(
-          getErrorText(error, copy.projectRepair.healthCheckFailed),
-        );
-        clearProjectNotice();
-      }
-    }
-  };
-
-  const handleCleanProjectCache = async () => {
-    const project = currentProjectRef.current;
-    const cleanProjectCache = desktopBridge.cleanProjectCache;
-    if (!project) {
-      setProjectError(copy.projectRepair.noProject);
-      clearProjectNotice();
-      return;
-    }
-
-    if (!cleanProjectCache) {
-      setProjectError(copy.projectRepair.cacheCleanFailed);
-      clearProjectNotice();
-      return;
-    }
-
-    setProjectError(null);
-    clearProjectNotice();
-
-    try {
-      const result = await cleanProjectCache({
-        projectPath: project.projectPath,
-      });
-      if (currentProjectRef.current?.projectPath !== project.projectPath) {
-        return;
-      }
-      showProjectNotice(
-        copy.projectRepair.cacheCleaned(
-          result.removedFileCount,
-          result.removedBytes,
-        ),
-      );
-    } catch (error) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setProjectError(getErrorText(error, copy.projectRepair.cacheCleanFailed));
-        clearProjectNotice();
-      }
-    }
-  };
-
-  const markImageAssetRenditionsLoaded = (assets: ProjectAssetPayload[]) => {
-    assets.forEach((asset) => {
-      if (asset.rendition === "original") {
-        loadedOriginalImageFileIdsRef.current.add(asset.fileId);
-        loadedPreviewImageFileIdsRef.current.add(asset.fileId);
-      } else if (asset.rendition === "preview") {
-        loadedPreviewImageFileIdsRef.current.add(asset.fileId);
-      }
-    });
-  };
-
-  const loadVisibleImageRenditionAssets = async (
-    scene: NonNullable<typeof latestSceneRef.current>,
-  ) => {
-    const project = currentProjectRef.current;
-    const api = excalidrawAPIRef.current;
-    if (!project || !api || project.safeMode) {
-      return;
-    }
-    const activeScene = {
-      elements: api.getSceneElementsIncludingDeleted?.() ?? scene.elements,
-      appState: {
-        ...scene.appState,
-        ...(api.getAppState?.() ?? {}),
-      } as AppState,
-      files: api.getFiles?.() ?? scene.files,
-    };
-    latestSceneRef.current = activeScene;
-
-    const requests = getImageRenditionRequestsNearViewport({
-      elements: activeScene.elements,
-      appState: activeScene.appState,
-      imageRecords: project.imageRecords,
-      loadedPreviewFileIds: loadedPreviewImageFileIdsRef.current,
-      loadingPreviewFileIds: loadingPreviewImageFileIdsRef.current,
-      loadedOriginalFileIds: loadedOriginalImageFileIdsRef.current,
-      loadingOriginalFileIds: loadingOriginalImageFileIdsRef.current,
-      devicePixelRatio: window.devicePixelRatio,
-    });
-
-    if (!requests.length) {
-      return;
-    }
-
-    const fileIdsByRendition = requests.reduce((groups, request) => {
-      const fileIds = groups.get(request.rendition) ?? [];
-      fileIds.push(request.fileId);
-      groups.set(request.rendition, fileIds);
-      return groups;
-    }, new Map<ImageAssetRequestRendition, string[]>());
-
-    requests.forEach((request) => {
-      if (request.rendition === "original") {
-        loadingOriginalImageFileIdsRef.current.add(request.fileId);
-      } else if (request.rendition === "preview") {
-        loadingPreviewImageFileIdsRef.current.add(request.fileId);
-      }
-    });
-
-    try {
-      const assetsByRendition = await Promise.all(
-        Array.from(fileIdsByRendition.entries()).map(
-          ([rendition, fileIds]) =>
-            readProjectImageAssets(project, fileIds, rendition),
-        ),
-      );
-      const assets = assetsByRendition.flat();
-      if (!addProjectAssetPayloadsToCurrentScene(project, assets)) {
-        return;
-      }
-      markImageAssetRenditionsLoaded(assets);
-    } catch {
-      // 显示资源升级是渐进增强，失败时保留当前缩略图继续使用画布。
-    } finally {
-      requests.forEach((request) => {
-        loadingPreviewImageFileIdsRef.current.delete(request.fileId);
-        loadingOriginalImageFileIdsRef.current.delete(request.fileId);
-      });
-    }
-  };
-
-  const scheduleVisibleImageRenditionLoad = (
-    scene: NonNullable<typeof latestSceneRef.current> | null,
-  ) => {
-    if (!scene) {
-      return;
-    }
-
-    clearHighResImageLoadTimer();
-    highResImageLoadTimerRef.current = window.setTimeout(() => {
-      highResImageLoadTimerRef.current = null;
-      void loadVisibleImageRenditionAssets(latestSceneRef.current ?? scene);
-    }, IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS);
-  };
-
-  const handleViewportChange = (
-    scrollX: number,
-    scrollY: number,
-    zoom: AppState["zoom"],
-  ) => {
-    const scene = latestSceneRef.current;
-    if (!scene) {
-      return;
-    }
-
-    const api = excalidrawAPIRef.current;
-    const apiAppState = api?.getAppState?.();
-    const elements = api?.getSceneElementsIncludingDeleted?.() ?? scene.elements;
-    const files = api?.getFiles?.() ?? scene.files;
-    const nextAppState = {
-      ...scene.appState,
-      ...(apiAppState ?? {}),
-      scrollX,
-      scrollY,
-      zoom,
-    } as AppState;
-    const nextScene = {
-      elements,
-      appState: nextAppState,
-      files,
-    };
-    latestSceneRef.current = nextScene;
-    scheduleVisibleImageRenditionLoad(nextScene);
-    scheduleAgentBrowserRuntimeStatePublish(nextScene);
-    updateWorkspaceOverlay(elements, nextAppState);
-  };
-
-  const buildSceneWithOriginalImageFiles = async (
-    scene: typeof latestSceneRef.current,
-  ) => {
-    const project = currentProjectRef.current;
-    if (!scene || !project) {
-      return scene;
-    }
-
-    const selectedImageFileIds = Array.from(
-      new Set(
-        getSelectedReferenceElements(scene).flatMap((element) =>
-          element.type === "image" && element.fileId ? [element.fileId] : [],
-        ),
-      ),
-    );
-
-    if (!selectedImageFileIds.length) {
-      return scene;
-    }
-
-    const assets = await readOriginalImageAssets(project, selectedImageFileIds);
-    if (!assets.length) {
-      return scene;
-    }
-
-    return {
-      ...scene,
-      files: {
-        ...scene.files,
-        ...projectAssetPayloadsToBinaryFiles(assets, project.imageRecords),
-      },
-    };
-  };
-
-  const maybeSnapWorkspaceZoom = (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-  ) => {
-    if (!ENABLE_WORKSPACE_BOUNDS) {
-      return false;
-    }
-
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return false;
-    }
-
-    const bounds = getWorkspaceBounds(elements, {
-      viewportCenter: getViewportCenterFromAppState(appState),
-    });
-    const fitZoomValue = getWorkspaceFitZoom(bounds, appState);
-    const currentZoomValue = getFiniteNumber(appState.zoom?.value, 1);
-    const gate = resolveWorkspaceZoomGate({
-      previousZoomValue: previousWorkspaceZoomValueRef.current,
-      currentZoomValue,
-      fitZoomValue,
-      gateState: workspaceZoomGateStateRef.current,
-    });
-
-    workspaceZoomGateStateRef.current = gate.nextGateState;
-
-    if (!gate.shouldSnap || !fitZoomValue) {
-      previousWorkspaceZoomValueRef.current = currentZoomValue;
-      return false;
-    }
-
-    previousWorkspaceZoomValueRef.current = fitZoomValue;
-    triggerWorkspaceFitPulse();
-    api.updateScene({
-      appState: getViewportCenteredZoomState(appState, fitZoomValue),
-      captureUpdate: CaptureUpdateAction.NEVER,
-    });
-    return true;
-  };
-
-  const loadProviderState = async () => {
-    if (!bridge) {
-      return;
-    }
-
-    try {
-      const nextProviderSettings = await loadProviderSettingsWithRetry(bridge);
-      setProviderSettings(nextProviderSettings);
-      if (!generationModelSelectionLockedRef.current) {
-        const selection = resolvePreferredGenerationModelSelection({
-          providerSettings: nextProviderSettings,
-          rememberedSelection: null,
-        });
-        setGenerateRequest((current) =>
-          normalizeGenerationRequest(
-            {
-              ...current,
-              provider: selection.provider,
-              model: selection.model,
-            },
-            {
-              customModels:
-                nextProviderSettings[selection.provider]?.customModels ?? [],
-            },
-          ),
-        );
-      }
-      setStartupError(null);
-    } catch (error: any) {
-      setStartupError(error?.message || copy.startup.providerLoadFailed);
-    }
-  };
-
-  const loadRecentProjectsState = async () => {
-    if (!bridge) {
-      return;
-    }
-
-    try {
-      setRecentProjects((await bridge.loadRecentProjects?.()) ?? []);
-    } catch {
-      setRecentProjects([]);
-    }
-  };
-
-  const loadAppInfoState = async () => {
-    if (!bridge?.loadAppInfo) {
-      return;
-    }
-
-    try {
-      setAppInfo(await bridge.loadAppInfo());
-    } catch {
-      setAppInfo(null);
-    }
-  };
-
-  const syncAcpAgentDraftFromSettings = (settings: AcpAgentSettings) => {
-    const normalizedSettings = {
-      ...settings,
-      taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
-        settings.taskInstructionTemplate,
-      ),
-    };
-    const agent =
-      getSelectedAcpAgent(normalizedSettings) ??
-      normalizedSettings.agents[0] ??
-      null;
-    const presetId = inferAcpAgentPresetId(agent);
-    const preset = getAcpAgentPreset(presetId);
-    setAcpAgentEnabledDraft(normalizedSettings.enabled);
-    setAcpAgentPresetDraft(presetId);
-    setAcpAgentCommandDraft(agent?.command ?? preset?.command ?? "");
-    setAcpAgentArgsDraft(formatAcpAgentArgs(agent?.args ?? preset?.args ?? []));
-    setAcpAgentCwdDraft(agent?.cwd ?? preset?.cwd ?? "");
-    setAcpTaskInstructionDraft(normalizedSettings.taskInstructionTemplate);
-  };
-
-  const loadAcpAgentSettingsState = async () => {
-    if (!bridge?.loadAcpAgentSettings) {
-      const defaultSettings = getDefaultAcpAgentSettings();
-      setAcpAgentSettings(defaultSettings);
-      syncAcpAgentDraftFromSettings(defaultSettings);
-      return;
-    }
-
-    try {
-      const nextSettings = await bridge.loadAcpAgentSettings();
-      setAcpAgentSettings(nextSettings);
-      syncAcpAgentDraftFromSettings(nextSettings);
-    } catch {
-      const defaultSettings = getDefaultAcpAgentSettings();
-      setAcpAgentSettings(defaultSettings);
-      syncAcpAgentDraftFromSettings(defaultSettings);
-    }
-  };
-
-  const createUnavailableAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
-    enabled: false,
-    ready: false,
-    currentProject: null,
-    boardUrl: isAgentBrowserRoute ? window.location.href : null,
+  const generationRecordItems = generationSidebarRecordItems.generationRecords;
+  const acpAgentResultRecordItems =
+    generationSidebarRecordItems.agentResultRecords;
+  const generationSidebarMode = agentConversationSurface.mode;
+
+  const acpThreadRendererActions = createAcpThreadRendererActions({
+    getBridge: () => bridge,
+    nextLoadSequence:
+      agentRuntimeRefsController.actions.nextThreadLoadSequence,
+    isLoadSequenceCurrent:
+      agentRuntimeRefsController.actions.isThreadLoadSequenceCurrent,
+    getCurrentProjectToken: getCurrentProjectAgentAccessToken,
+    getTaskRunning: () => acpAgentTaskRunning,
+    getActiveThreadId: getActiveAcpThreadId,
+    applyThreadSummariesState: applyAcpThreadSummariesState,
+    setActiveThreadId: acpActiveThreadIdRendererActions.set,
+    setActiveTaskId: acpActiveTaskIdRendererActions.set,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    setConversationEntries: setAcpConversationEntries,
+    setRunLogDetail: setAcpRunLogDetail,
+    setRunLogError: setAcpRunLogError,
+    setAgentTask: setAcpAgentTask,
+    setChatDockOpen: setAgentChatDockOpen,
+    onInitialReadError: (error) =>
+      console.error("[acp:thread-load-failed]", error),
   });
 
-  const readAgentBridgeStatus = async () => {
-    if (!bridge?.getAgentBridgeStatus) {
-      return null;
-    }
+  const sceneImageFileIdsRendererActions =
+    createSceneImageFileIdsRendererActions({
+      setSceneImageFileIds,
+    });
 
-    try {
-      return await bridge.getAgentBridgeStatus();
-    } catch {
-      return createUnavailableAgentBridgeStatus();
-    }
-  };
-
-  const loadAgentBridgeStatus = async () => {
-    if (!bridge?.getAgentBridgeStatus) {
-      setAgentBridgeStatus(null);
-      return null;
-    }
-
-    notifyDesktopProjectState(currentProjectRef.current);
-    const nextStatus = await readAgentBridgeStatus();
-    setAgentBridgeStatus(nextStatus);
-    return nextStatus;
-  };
-
-  const refreshAgentBrowserConnectionState = async () => {
-    const nextStatus = await loadAgentBridgeStatus();
-    if (isAgentBrowserRoute && nextStatus?.ready) {
-      if (
-        nextStatus.currentProject &&
-        currentProjectRef.current?.projectPath !==
-          nextStatus.currentProject.projectPath
-      ) {
-        setAgentBrowserAutoOpenProjectPath(null);
-      }
-      void loadAppInfoState();
-      void loadProviderState();
-      void loadPromptLibraryState();
-      await loadRecentProjectsState();
-    }
-    return nextStatus;
-  };
-
-  const loadPromptLibraryState = async () => {
-    if (!bridge) {
-      return;
-    }
-
-    try {
-      setSavedPrompts(await bridge.loadPromptLibrary());
-    } catch {
-      setSavedPrompts([]);
-    }
-  };
-
-  const loadDesktopStartupState = () => {
-    void loadAppInfoState();
-    void loadProviderState();
-    void loadAcpAgentSettingsState();
-    void loadRecentProjectsState();
-    void loadPromptLibraryState();
-  };
-
-  const clearGenerationErrorState = () => {
-    setGenerationError(null);
-    setGenerationErrorDetails(null);
-    setGenerationErrorDetailsOpen(false);
-    setGenerationErrorCopied(false);
-  };
-
-  const showGenerationError = (
-    request: GenerationRequest,
-    error: unknown,
-    fallbackMessage: string = copy.startup.generateFailed,
-  ) => {
-    const normalizedMessage =
-      normalizeDesktopErrorMessage(request.provider, error) || fallbackMessage;
-    setGenerationError(normalizedMessage);
-    const details = buildGenerationErrorDetails(request, error, normalizedMessage);
-    setGenerationErrorDetails(details);
-    setGenerationErrorDetailsOpen(false);
-    setGenerationErrorCopied(false);
-    return details;
-  };
-
-  const getErrorText = (error: unknown, fallbackMessage: string) =>
-    error instanceof Error ? error.message : String(error || fallbackMessage);
-
-  const clearAcpRunLogRefreshTimer = () => {
-    if (acpRunLogRefreshTimerRef.current === null) {
-      return;
-    }
-    window.clearTimeout(acpRunLogRefreshTimerRef.current);
-    acpRunLogRefreshTimerRef.current = null;
-  };
-
-  const readAcpRunLogDetailWithRetry = async (taskId: string) => {
-    if (!bridge?.readAcpAgentRunLog) {
-      throw new Error("当前环境不能读取 ACP Agent 任务记录。");
-    }
-
-    let detail: AcpRunLogDetail | null = null;
-    let lastError: unknown = null;
-    for (const delay of ACP_RUN_LOG_READ_RETRY_DELAYS_MS) {
-      if (delay > 0) {
-        await new Promise<void>((resolve) =>
-          window.setTimeout(resolve, delay),
-        );
-      }
-      try {
-        detail = await bridge.readAcpAgentRunLog(taskId);
-        break;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    if (!detail) {
-      throw lastError ?? new Error("读取 ACP Agent 任务记录失败。");
-    }
-    return detail;
-  };
-
-  const refreshAcpRunLogDetailState = async (
-    taskId: string,
-    { showLoading = false }: { showLoading?: boolean } = {},
-  ) => {
-    if (showLoading) {
-      setAcpRunLogLoading(true);
-      setAcpRunLogError(null);
-    }
-
-    try {
-      const detail = await readAcpRunLogDetailWithRetry(taskId);
-      if (acpRunLogTaskIdRef.current !== taskId) {
-        return;
-      }
-      setAcpRunLogDetail(detail);
-      if (acpRunLogSurfaceRef.current === "conversation") {
-        setAcpConversationEntries((current) =>
-          mergeAcpConversationEntries(current, detail.entries),
-        );
-      }
-      setAcpRunLogError(null);
-    } catch (error) {
-      if (acpRunLogTaskIdRef.current !== taskId) {
-        return;
-      }
-      setAcpRunLogError(
-        getErrorText(error, "读取 ACP Agent 任务记录失败。"),
-      );
-    } finally {
-      if (showLoading && acpRunLogTaskIdRef.current === taskId) {
-        setAcpRunLogLoading(false);
-      }
-    }
-  };
-
-  const scheduleOpenAcpRunLogRefresh = (
-    taskId: string,
-    delay = ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS,
-  ) => {
-    if (acpRunLogTaskIdRef.current !== taskId) {
-      return;
-    }
-
-    clearAcpRunLogRefreshTimer();
-    acpRunLogRefreshTimerRef.current = window.setTimeout(() => {
-      acpRunLogRefreshTimerRef.current = null;
-      void refreshAcpRunLogDetailState(taskId);
-    }, delay);
-  };
-
-  const closeAcpRunLogDialog = () => {
-    clearAcpRunLogRefreshTimer();
-    acpRunLogTaskIdRef.current = null;
-    if (acpRunLogSurfaceRef.current === "record") {
-      acpRunLogSurfaceRef.current = null;
-      setAcpRunLogSurface(null);
-      setAcpRunLogDetail(null);
-    }
-    setAcpRunLogDialogOpen(false);
-  };
-
-  const loadAcpRunSummariesState = async () => {
-    if (!bridge?.listAcpAgentRunLogs) {
-      setAcpRunSummaries([]);
-      setAcpRunSummariesError(null);
-      setAcpRunSummariesLoading(false);
-      return;
-    }
-
-    setAcpRunSummariesLoading(true);
-    setAcpRunSummariesError(null);
-    try {
-      setAcpRunSummaries(await bridge.listAcpAgentRunLogs({ limit: 8 }));
-    } catch (error) {
-      setAcpRunSummaries([]);
-      setAcpRunSummariesError(
-        getErrorText(error, "读取最近 Agent 任务失败。"),
-      );
-    } finally {
-      setAcpRunSummariesLoading(false);
-    }
-  };
-
-  const loadAcpThreadSummariesState = async (
-    projectToken = getProjectAgentAccessToken(currentProjectRef.current),
-    { showLoading = false }: { showLoading?: boolean } = {},
-  ) => {
-    if (!projectToken || !bridge?.listAcpAgentThreads) {
-      setAcpThreadSummaries([]);
-      setAcpThreadSummariesError(null);
-      setAcpThreadSummariesLoading(false);
-      return [];
-    }
-
-    if (showLoading) {
-      setAcpThreadSummariesLoading(true);
-    }
-    setAcpThreadSummariesError(null);
-    try {
-      const summaries = await bridge.listAcpAgentThreads({
-        projectToken,
-        limit: 20,
-      });
-      setAcpThreadSummaries(summaries);
-      return summaries;
-    } catch (error) {
-      setAcpThreadSummaries([]);
-      setAcpThreadSummariesError(
-        getErrorText(error, "读取 Agent 对话历史失败。"),
-      );
-      return [];
-    } finally {
-      if (showLoading) {
-        setAcpThreadSummariesLoading(false);
-      }
-    }
-  };
-
-  const showDirectGenerationRecords = () => {
-    if (acpRunLogSurfaceRef.current === "conversation") {
-      acpRunLogSurfaceRef.current = null;
-      setAcpRunLogSurface(null);
-    }
-  };
-
-  const applyAcpThreadDetail = (
-    detail: AcpThreadDetail,
-    options: { activateSurface?: boolean } = {},
-  ) => {
-    const latestRun = detail.runs[detail.runs.length - 1] ?? null;
-    const activateSurface = options.activateSurface ?? true;
-    updateActiveAcpThreadId(detail.summary.threadId);
-    acpRunLogTaskIdRef.current =
-      detail.summary.lastTaskId ?? latestRun?.summary.taskId ?? null;
-    if (activateSurface) {
-      acpRunLogSurfaceRef.current = "conversation";
-      setAcpRunLogSurface("conversation");
-    }
-    setAcpConversationEntries(detail.entries);
-    setAcpRunLogDetail(latestRun);
-    setAcpRunLogError(null);
-    setAcpAgentTask(null);
-  };
-
-  const reportAutosaveError = (error: unknown) => {
-    console.error("[project:autosave-failed]", error);
-    setProjectError(getErrorText(error, copy.startup.saveProjectFailed));
-  };
-
-  const copyTextToClipboardWithFallback = async (text: string) => {
-    const copied = await copyPlainTextToClipboard(text);
-    if (!copied) {
-      setProjectError(copy.clipboard.writeFailed);
-    }
-    return copied;
-  };
-
-  useEffect(() => {
-    bridge?.notifyRendererReady?.();
-    if (!isAgentBrowserRoute) {
-      loadDesktopStartupState();
-    }
-    let cancelled = false;
-    let retryTimer: number | null = null;
-    let attempts = 0;
-    const refreshAgentBridgeStatus = async () => {
-      if (!bridge?.getAgentBridgeStatus) {
-        setAgentBridgeStatus(null);
-        return;
-      }
-
-      attempts += 1;
-      notifyDesktopProjectState(currentProjectRef.current);
-      const nextStatus = await readAgentBridgeStatus();
-      if (cancelled) {
-        return;
-      }
-
-      setAgentBridgeStatus(nextStatus);
-      if (isAgentBrowserRoute && nextStatus?.ready) {
-        loadDesktopStartupState();
-      }
-      if (!nextStatus?.boardUrl && attempts < 20) {
-        retryTimer = window.setTimeout(refreshAgentBridgeStatus, 500);
-      }
-    };
-
-    void refreshAgentBridgeStatus();
-    return () => {
-      cancelled = true;
-      if (retryTimer !== null) {
-        window.clearTimeout(retryTimer);
-      }
-    };
-  }, [bridge]);
-
-  useEffect(() => {
-    if (!appSettingsOpen) {
-      return;
-    }
-
-    void loadAcpRunSummariesState();
-  }, [appSettingsOpen, bridge]);
-
-  useEffect(() => {
-    if (!currentProject) {
-      return;
-    }
-
-    setAgentBridgeStatus((status) =>
-      status
-        ? {
-            ...status,
-            currentProject: getDesktopCurrentProject(currentProject),
-          }
-        : status,
-    );
-  }, [currentProject?.project.name, currentProject?.projectPath]);
-
-  useEffect(() => {
-    const project = currentProject;
-    const projectToken = currentProjectAgentAccessToken;
-    const listAcpAgentThreads = bridge?.listAcpAgentThreads;
-    const readAcpAgentThread = bridge?.readAcpAgentThread;
-    if (
-      !projectToken ||
-      !listAcpAgentThreads ||
-      !readAcpAgentThread
-    ) {
-      updateActiveAcpThreadId(null);
-      setAcpConversationEntries([]);
-      setAcpThreadSummaries([]);
-      setAcpThreadSummariesError(null);
-      setAcpThreadSummariesLoading(false);
-      setAcpRunLogDetail(null);
-      acpRunLogSurfaceRef.current = null;
-      setAcpRunLogSurface(null);
-      return;
-    }
-
-    const loadSequence = ++acpThreadLoadSequenceRef.current;
-    setAcpThreadSummariesLoading(true);
-    setAcpThreadSummariesError(null);
-    void (async () => {
-      try {
-        const threads = await listAcpAgentThreads({
-          projectToken,
-          limit: 20,
+  const currentProjectUpdateRendererActions =
+    createCurrentProjectUpdateRendererActions({
+      getPreviousProject: () => currentProjectRef.current,
+      clearAcpRunLogRefreshTimer: () => {
+        acpRunLogRendererActions.clearTimer();
+      },
+      setCurrentProjectRef: (nextProject) => {
+        currentProjectRef.current = nextProject;
+      },
+      setCurrentProject,
+      setSavedSceneHashRef: (savedSceneHash) => {
+        savedSceneHashRef.current = savedSceneHash;
+      },
+      setActiveAcpThreadId: acpActiveThreadIdRendererActions.set,
+      runLogTargetActions: acpRunLogTargetRendererActions,
+      setAcpRunLogDetail,
+      setAcpRunLogError,
+      setAcpConversationEntries,
+      applyAcpThreadSummariesState,
+      setAgentChatDockOpen,
+      setProjectHealthReport,
+      setProjectRepairReport,
+      setProjectHealthReportOpen,
+      notifyProjectState: (nextProject) => {
+        notifyAgentBridgeProjectState({
+          bridge,
+          currentProject: nextProject,
         });
-        if (
-          acpThreadLoadSequenceRef.current !== loadSequence ||
-          getProjectAgentAccessToken(currentProjectRef.current) !== projectToken
-        ) {
-          return;
-        }
+      },
+      syncAgentBridgeStatus: (nextProject) => {
+        applyAgentBridgeStatusCurrentProjectUpdate({
+          project: nextProject,
+          applyBridgeStatus: setAgentBridgeStatus,
+        });
+      },
+    });
+  const updateCurrentProject = currentProjectUpdateRendererActions.update;
 
-        setAcpThreadSummaries(threads);
-        setAcpThreadSummariesLoading(false);
-        const latestThread = threads[0] ?? null;
-        if (!latestThread) {
-          updateActiveAcpThreadId(null);
-          setAcpConversationEntries([]);
-          setAcpRunLogDetail(null);
-          acpRunLogSurfaceRef.current = null;
-          setAcpRunLogSurface(null);
-          return;
-        }
+  const currentProjectEditorInitializingRendererActions =
+    createCurrentProjectEditorInitializingRendererActions({
+      getCurrentRenderNonce: () => initializingRenderNonceRef.current,
+      setCurrentRenderNonceRef: (renderNonce) => {
+        initializingRenderNonceRef.current = renderNonce;
+      },
+      setInitializingRef: (initializing) => {
+        isEditorInitializingRef.current = initializing;
+      },
+      setInitializing: setIsEditorInitializing,
+      getEditorApi: () => excalidrawAPIRef.current,
+      scheduleFallbackTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      clearFallbackTimeout: (timerId) => window.clearTimeout(timerId),
+    });
 
-        const detail = await readAcpAgentThread(latestThread.threadId);
-        if (
-          acpThreadLoadSequenceRef.current !== loadSequence ||
-          getProjectAgentAccessToken(currentProjectRef.current) !== projectToken
-        ) {
-          return;
-        }
+  const currentProjectOpenSequenceRendererActions =
+    createCurrentProjectOpenSequenceRendererActions({
+      getCurrentSequence: () => projectOpenSequenceRef.current,
+      setCurrentSequenceRef: (sequence) => {
+        projectOpenSequenceRef.current = sequence;
+      },
+    });
 
-        applyAcpThreadDetail(detail, { activateSurface: false });
-      } catch (error) {
-        setAcpThreadSummaries([]);
-        setAcpThreadSummariesLoading(false);
-        setAcpThreadSummariesError(
-          getErrorText(error, "读取 Agent 对话历史失败。"),
-        );
-        console.error("[acp:thread-load-failed]", error);
-      }
-    })();
-  }, [currentProjectAgentAccessToken, bridge]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      void flushPendingAutosave();
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      void flushPendingAutosave();
-    };
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (workspaceFitPulseTimerRef.current) {
-        window.clearTimeout(workspaceFitPulseTimerRef.current);
-      }
-      clearProjectNoticeTimer();
-      clearHighResImageLoadTimer();
-      clearAcpRunLogRefreshTimer();
-      clearAgentBrowserStatePublishTimer();
-    },
+  const workspaceOverlayRendererActions = useMemo(
+    () =>
+      createWorkspaceOverlayRendererActions({
+        setWorkspaceOverlayState,
+      }),
     [],
   );
 
-  useEffect(() => {
-    if (!bridge?.onFlushAutosaveRequest) {
-      return;
-    }
+  const workspaceFitPulseRendererActions = useMemo(
+    () =>
+      createWorkspaceFitPulseRendererActions({
+        delayMs: 520,
+        getTimerId: () => workspaceFitPulseTimerRef.current,
+        clearTimer: (timerId) => window.clearTimeout(timerId),
+        setTimerId: (timerId) => {
+          workspaceFitPulseTimerRef.current = timerId;
+        },
+        setPulse: setWorkspaceFitPulse,
+        setPreviousZoomValue: (zoomValue) => {
+          previousWorkspaceZoomValueRef.current = zoomValue;
+        },
+        setZoomGateState: (state) => {
+          workspaceZoomGateStateRef.current = state;
+        },
+        scheduleTimeout: (callback, delayMs) =>
+          window.setTimeout(callback, delayMs),
+      }),
+    [setWorkspaceFitPulse],
+  );
 
-    return bridge.onFlushAutosaveRequest(() =>
-      flushPendingAutosave({ strict: true }),
-    );
+  const workspaceZoomSnapRendererActions = useMemo(
+    () =>
+      createWorkspaceZoomSnapRendererActions({
+        getApi: () => excalidrawAPIRef.current,
+        getPreviousZoomValue: () => previousWorkspaceZoomValueRef.current,
+        setPreviousZoomValue: (zoomValue) => {
+          previousWorkspaceZoomValueRef.current = zoomValue;
+        },
+        getZoomGateState: () => workspaceZoomGateStateRef.current,
+        setZoomGateState: (state) => {
+          workspaceZoomGateStateRef.current = state;
+        },
+        triggerWorkspaceFitPulse: workspaceFitPulseRendererActions.trigger,
+      }),
+    [workspaceFitPulseRendererActions],
+  );
+
+  const projectNoticeRendererActions = useMemo(
+    () =>
+      createTimedNoticeRendererActions({
+        delayMs: 4200,
+        getTimerId: () => projectNoticeTimerRef.current,
+        clearTimer: (timerId) => window.clearTimeout(timerId),
+        setTimerId: (timerId) => {
+          projectNoticeTimerRef.current = timerId;
+        },
+        setNotice: setProjectNotice,
+        scheduleTimeout: (callback, delayMs) =>
+          window.setTimeout(callback, delayMs),
+      }),
+    [setProjectNotice],
+  );
+
+  const agentBrowserRuntimePublishRendererActions = useMemo(
+    () =>
+      createAgentBrowserRuntimePublishRendererActions({
+        delayMs: 120,
+        isEnabled: () => isAgentBrowserRoute,
+        getProjectPath: () => currentProjectRef.current?.projectPath ?? null,
+        getGenerationSource: () => generationSource,
+        getUpdatedAt: () => new Date().toISOString(),
+        getLatestScene: () => latestSceneRef.current,
+        getTimerId:
+          agentRuntimeRefsController.actions.getStatePublishTimerId,
+        clearTimer: (timerId) => window.clearTimeout(timerId),
+        setTimerId:
+          agentRuntimeRefsController.actions.setStatePublishTimerId,
+        scheduleTimeout: (callback, delayMs) =>
+          window.setTimeout(callback, delayMs),
+      }),
+    [agentRuntimeRefsController.actions, generationSource, isAgentBrowserRoute],
+  );
+
+  const queuedExcalidrawBinaryFilesRendererActions = useMemo(
+    () =>
+      createQueuedExcalidrawBinaryFilesRendererActions({
+        getQueuedFiles: () => pendingImageFilesToAddRef.current,
+        setQueuedFiles: (files) => {
+          pendingImageFilesToAddRef.current = files;
+        },
+        getReplaceFiles: () => {
+          const api = excalidrawAPIRef.current;
+          return api ? (files) => api.replaceFiles(files) : null;
+        },
+      }),
+    [],
+  );
+
+  const projectMaintenanceActionStateApplier =
+    createProjectMaintenanceActionStateRendererApplier<DesktopProjectBundle>({
+      setProjectHealthReport,
+      setProjectHealthReportOpen,
+      setProjectRepairReport,
+      setThumbnailMaintenance,
+      updateCurrentProject,
+      setProjectError,
+      showProjectNotice: projectNoticeRendererActions.show,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+    });
+
+  const projectAssetSceneApplyRendererAction =
+    createDesktopProjectAssetSceneApplyRendererAction({
+      getActiveProject: () => currentProjectRef.current,
+      getLatestScene: () => latestSceneRef.current,
+      getFallbackCreatedAt: () => Date.now(),
+      getEditorApi: () => excalidrawAPIRef.current,
+      queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+    });
+
+  const projectThumbnailAssetRefreshRendererActions =
+    createProjectThumbnailAssetRefreshRendererActions({
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      readThumbnailAssets: ({ project, fileIds }) =>
+        desktopBridge.readProjectAssetPayloads({
+          projectPath: project.projectPath,
+          fileIds,
+          rendition: "thumbnail",
+          thumbnailMode: "cache-only",
+        }),
+      applyThumbnailAssetsToScene: projectAssetSceneApplyRendererAction,
+    });
+
+  const projectThumbnailRebuildRendererActions =
+    createProjectThumbnailRebuildRendererActions({
+      getActiveProject: () => currentProjectRef.current,
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      rebuildProjectThumbnails: desktopBridge.rebuildProjectThumbnails,
+      readThumbnailAssets: ({ project, fileIds }) =>
+        desktopBridge.readProjectAssetPayloads({
+          projectPath: project.projectPath,
+          fileIds,
+          rendition: "thumbnail",
+          thumbnailMode: "cache-only",
+        }),
+      applyThumbnailAssetsToScene: projectAssetSceneApplyRendererAction,
+      applyThumbnailMaintenance: setThumbnailMaintenance,
+    });
+
+  const visibleImageRenditionLoadRendererActions =
+    createVisibleImageRenditionLoadRendererActions({
+      delayMs: IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
+      getProject: () => currentProjectRef.current,
+      getSceneReader: () => excalidrawAPIRef.current,
+      getDevicePixelRatio: () => window.devicePixelRatio,
+      getLatestScene: () => latestSceneRef.current,
+      getTimerId: () => highResImageLoadTimerRef.current,
+      clearTimer: (timerId) => window.clearTimeout(timerId),
+      setTimerId: (timerId) => {
+        highResImageLoadTimerRef.current = timerId;
+      },
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadingPreviewFileIds: () => loadingPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      getLoadingOriginalFileIds: () => loadingOriginalImageFileIdsRef.current,
+      setLoadedPreviewFileIds: (fileIds) => {
+        loadedPreviewImageFileIdsRef.current = fileIds;
+      },
+      setLoadingPreviewFileIds: (fileIds) => {
+        loadingPreviewImageFileIdsRef.current = fileIds;
+      },
+      setLoadedOriginalFileIds: (fileIds) => {
+        loadedOriginalImageFileIdsRef.current = fileIds;
+      },
+      setLoadingOriginalFileIds: (fileIds) => {
+        loadingOriginalImageFileIdsRef.current = fileIds;
+      },
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      readAssets: ({ project, rendition, fileIds }) =>
+        readProjectImageAssets(project, fileIds, rendition),
+      applyAssetsToScene: projectAssetSceneApplyRendererAction,
+    });
+
+  const projectRepairSceneRefreshRendererActions =
+    createDesktopProjectRepairSceneRefreshRendererActions({
+      getActiveProject: () => currentProjectRef.current,
+      getCurrentFiles: () =>
+        excalidrawAPIRef.current?.getFiles() ??
+        latestSceneRef.current?.files ??
+        {},
+      getFallbackCreatedAt: () => Date.now(),
+      readProjectAssets: (input) =>
+        desktopBridge.readProjectAssetPayloads(input),
+      getEditorApi: () => excalidrawAPIRef.current,
+      queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      updateCurrentProject,
+      updateSelectedInspector: selectedInspectorRendererActions.update,
+    });
+
+  const projectMaintenanceRendererActions =
+    createProjectMaintenanceRendererActions({
+      getProject: () => currentProjectRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      repairProjectThumbnails: desktopBridge.rebuildProjectThumbnails,
+      inspectProjectHealth: desktopBridge.inspectProjectHealth,
+      cleanProjectCache: desktopBridge.cleanProjectCache,
+      messages: copy.projectRepair,
+      refreshThumbnailAssets: async ({ project, fileIds }) => {
+        await projectThumbnailAssetRefreshRendererActions.refresh({
+          project,
+          fileIds,
+        });
+      },
+      refreshSceneFromRepair: projectRepairSceneRefreshRendererActions.refresh,
+      applyState: projectMaintenanceActionStateApplier,
+    });
+
+  const projectImageStateResetRendererActions =
+    createProjectImageStateResetRendererActions({
+      resetImageRenditionTracking:
+        visibleImageRenditionLoadRendererActions.resetTracking,
+      resetQueuedFiles: queuedExcalidrawBinaryFilesRendererActions.reset,
+      resetThumbnailMaintenance:
+        projectMaintenanceRendererActions.resetThumbnailMaintenance,
+    });
+
+  const viewportChangeRendererActions = createViewportChangeRendererActions({
+    getScene: () => latestSceneRef.current,
+    getSceneReader: () => excalidrawAPIRef.current ?? {},
+    setLatestScene: (scene) => {
+      latestSceneRef.current = scene;
+    },
+    scheduleVisibleImageRenditionLoad:
+      visibleImageRenditionLoadRendererActions.schedule,
+    scheduleAgentBrowserRuntimeStatePublish:
+      agentBrowserRuntimePublishRendererActions.schedule,
+    updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+  });
+
+  const desktopStartupRendererActions = createDesktopStartupRendererActions({
+    getBridge: () => bridge,
+    isGenerationModelSelectionLocked: () =>
+      generationModelSelectionLockedRef.current,
+    setProviderSettings,
+    setGenerateRequest,
+    setStartupError,
+    setRecentProjects,
+    setAppInfo,
+    setSavedPrompts,
+    loadAcpAgentSettings: loadAcpAgentSettingsState,
+  });
+
+  const agentBridgeStatusRendererActions =
+    createAgentBridgeStatusRendererActions({
+      getBridge: () => bridge,
+      getCurrentProject: () => currentProjectRef.current,
+      getIsAgentBrowserRoute: () => isAgentBrowserRoute,
+      getFallbackBoardUrl: () =>
+        isAgentBrowserRoute ? window.location.href : null,
+      applyBridgeStatus: setAgentBridgeStatus,
+      resetAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
+      refreshDesktopStartupState:
+        desktopStartupRendererActions.refreshAgentBrowser,
+      updateCurrentProject,
+      showError: setProjectError,
+    });
+
+  const generationErrorRendererActions =
+    createGenerationErrorRendererActions({
+      applyState: createGenerationErrorStateApplier({
+        setError: setGenerationError,
+        setDetails: setGenerationErrorDetails,
+        setDetailsOpen: setGenerationErrorDetailsOpen,
+        setCopied: setGenerationErrorCopied,
+      }),
+      getDetails: () => generationErrorDetails,
+      setDetailsCopied: setGenerationErrorCopied,
+      getTask: () => selectedTask,
+      copyText: clipboardTextRendererActions.copy,
+    });
+
+  const acpRunLogRendererActions = createAcpRunLogRendererActions({
+    getBridge: () => bridge,
+    getCurrentTaskId: getAcpRunLogTaskId,
+    getSurface: getAcpRunLogSurface,
+    hasCurrentProject: () => Boolean(currentProjectRef.current),
+    hasInitialData: () => Boolean(initialData),
+    getRefreshTimerId: getAcpRunLogRefreshTimerId,
+    clearTimer: (timerId) => window.clearTimeout(timerId),
+    setLoading: setAcpRunLogLoading,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    setAppSettingsOpen,
+    setRunLogDialogOpen: setAcpRunLogDialogOpen,
+    setChatDockOpen: setAgentChatDockOpen,
+    setRunLogDetail: setAcpRunLogDetail,
+    setRunLogError: setAcpRunLogError,
+    setRunLogRawOpen: setAcpRunLogRawOpen,
+    updateConversationEntries: (updater) => {
+      setAcpConversationEntries(updater);
+    },
+    scheduleTimeout: (callback, timeoutDelay) =>
+      window.setTimeout(callback, timeoutDelay),
+    setRefreshTimerId: setAcpRunLogRefreshTimerId,
+  });
+
+  const closeAcpRunLogDialog = acpRunLogRendererActions.close;
+
+  const generationRequestRendererActions =
+    createGenerationRequestRendererActions({
+      getProviderSettings: () => providerSettings,
+      getCurrentRequest: () => generateRequest,
+      setGenerationSource,
+      showDirectGenerationRecords:
+        acpRunLogRendererActions.showDirectGenerationRecords,
+      setGenerateRequest,
+      updateGenerateRequest: setGenerateRequest,
+    });
+
+  const generateDialogReferenceRendererActions =
+    createGenerateDialogReferenceRendererActions({
+      getScene: () => latestSceneRef.current,
+      getImageRecords: () => currentProjectRef.current?.imageRecords || null,
+      getRemovedSelectionReferenceSignature: () =>
+        removedSelectionReferenceSignatureRef.current,
+      setRemovedSelectionReferenceSignature: (signature) => {
+        removedSelectionReferenceSignatureRef.current = signature;
+      },
+      getCurrentRequest: () => generateRequest,
+      getProviderSettings: () => providerSettings,
+      clearGenerationError: () => setGenerationError(null),
+      updateGenerateRequest: setGenerateRequest,
+      focusGenerateInput: () => setGenerateFocusToken((current) => current + 1),
+      loadOriginalScene: selectionReferenceOriginalSceneActions.load,
+    });
+
+  const currentProjectAutosaveFailureRendererActions =
+    createCurrentProjectAutosaveFailureRendererActions({
+      formatError: formatProjectSaveError,
+      logError: console.error,
+      setProjectError,
+    });
+
+  const generationRecordRendererActions =
+    createGenerationRecordRendererActions({
+      getSelectedRecord: () => selectedRecord,
+      copyText: clipboardTextRendererActions.copy,
+    });
+
+  const imageRecordLocatorRendererActions =
+    createImageRecordLocatorRendererActions({
+      getApi: () => excalidrawAPIRef.current,
+      getImageRecords: () => currentProjectRef.current?.imageRecords,
+      setProjectError,
+      showProjectNotice: projectNoticeRendererActions.show,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+    });
+
+  const agentIntegrationCopyShortcutRendererActions =
+    createAgentIntegrationCopyShortcutRendererActions({
+      getBridgeStatus: () => agentBridgeStatus,
+      getAcpAgentSettings: () => acpAgentSettings,
+      getRunningTaskId: () => getRunningAcpAgentTaskId(acpAgentTask),
+      refreshBridgeStatus: agentBridgeStatusRendererActions.loadStatus,
+      copyText: clipboardTextRendererActions.copy,
+      onSuccess: projectNoticeRendererActions.show,
+      onError: setProjectError,
+    });
+
+  const agentStatusDockRendererActions =
+    createAgentStatusDockRendererActions({
+      copyBoardUrl: agentIntegrationCopyShortcutRendererActions.copyBoardUrl,
+      copyCliEnvironment:
+        agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
+      refreshStatus:
+        agentBridgeStatusRendererActions.refreshBrowserConnectionStatus,
+      openSettings: () => setAppSettingsOpen(true),
+      openConversation: () => setAgentChatDockOpen(true),
+    });
+
+  const agentIntegrationSettingsDialogActions =
+    createAgentIntegrationSettingsDialogRendererActions({
+      close: () => setAppSettingsOpen(false),
+      setIntegrationEnabled: agentBridgeStatusRendererActions.setEnabled,
+      copyBoardUrl: agentIntegrationCopyShortcutRendererActions.copyBoardUrl,
+      getBoardUrl: () => agentIntegration.bridge.boardUrl,
+      openExternalUrl: (url, target) => window.open(url, target),
+      copyCliEnvironment:
+        agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
+      saveAcpAgentSettings: acpAgentSettingsRendererActions.save,
+      setAcpDebugOpen,
+      refreshAcpRunSummaries: loadAcpRunSummariesState,
+      openAcpRunLog: acpRunLogRendererActions.open,
+    });
+
+  const agentBrowserBridgeStatusRetryLoopRendererActions =
+    createAgentBrowserBridgeStatusRetryLoopRendererActions({
+      refreshConnection: ({ canApply }) =>
+        agentBridgeStatusRendererActions.refreshBrowserConnection({
+          refreshDesktopStartupState: desktopStartupRendererActions.loadAll,
+          canApply,
+        }),
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      clearTimeout: (timerId) => window.clearTimeout(timerId),
+    });
+
+  const appStartupLifecycleRendererActions =
+    createAppStartupLifecycleRendererActions({
+      getNotifyRendererReady: () => bridge?.notifyRendererReady,
+      getIsAgentBrowserRoute: () => isAgentBrowserRoute,
+      loadDesktopStartupState: desktopStartupRendererActions.loadAll,
+      startAgentBrowserBridgeStatusRetryLoop:
+        agentBrowserBridgeStatusRetryLoopRendererActions.start,
+    });
+
+  const appUnmountCleanupRendererActions =
+    createAppUnmountCleanupRendererActions({
+      clearWorkspaceFitPulseTimer: workspaceFitPulseRendererActions.clearTimer,
+      clearProjectNoticeTimer: projectNoticeRendererActions.clearTimer,
+      clearVisibleImageRenditionLoadTimer:
+        visibleImageRenditionLoadRendererActions.clearTimer,
+      clearAcpRunLogRefreshTimer: acpRunLogRendererActions.clearTimer,
+      clearAgentBrowserRuntimePublishTimer:
+        agentBrowserRuntimePublishRendererActions.clearTimer,
+    });
+
+  useEffect(() => appStartupLifecycleRendererActions.start(), [bridge]);
+
+  useEffect(() => {
+    acpThreadRendererActions.startInitialLoad();
+  }, [currentProjectAgentAccessToken, bridge, getCurrentProjectAgentAccessToken]);
+
+  useEffect(() => {
+    return autosaveLifecycleRendererActions.startBeforeUnloadFlush();
+  }, []);
+
+  useEffect(() => appUnmountCleanupRendererActions.cleanup, []);
+
+  useEffect(() => {
+    return autosaveLifecycleRendererActions.subscribeFlushRequests();
   }, [bridge]);
 
+  useEffect(() => acpTaskEventSubscriptionRendererActions.start(), [
+    acpDebugOpen,
+    appSettingsOpen,
+    bridge,
+    loadAcpRunSummariesState,
+    loadAcpThreadSummariesState,
+  ]);
+
   useEffect(() => {
-    if (!bridge?.onAcpAgentTaskEvent) {
-      return;
-    }
-
-    return bridge.onAcpAgentTaskEvent((event: AcpTaskEvent) => {
-      const openRunLogTaskId = acpRunLogTaskIdRef.current;
-      const shouldRefreshOpenRunLog = openRunLogTaskId === event.taskId;
-      const scheduleRunLogRefresh = () => {
-        if (!shouldRefreshOpenRunLog) {
-          return;
-        }
-        scheduleOpenAcpRunLogRefresh(event.taskId);
-      };
-
-      if (
-        activeAcpTaskIdRef.current &&
-        event.taskId !== activeAcpTaskIdRef.current
-      ) {
-        scheduleRunLogRefresh();
-        return;
-      }
-
-      if (event.type === "status") {
-        setAcpAgentTask((current) => ({
-          taskId: event.taskId,
-          status: event.status,
-          message: event.message,
-          transcript: current?.taskId === event.taskId ? current.transcript : "",
-          events: appendAcpAgentTimelineItem(current, event.taskId, {
-            title: event.message,
-            tone: getAcpAgentTimelineStatusTone(event.status),
-          }),
-          logPath:
-            event.logPath ??
-            (current?.taskId === event.taskId ? current.logPath : undefined),
-        }));
-        if (["completed", "failed", "cancelled"].includes(event.status)) {
-          activeAcpTaskIdRef.current = null;
-          const projectToken = getProjectAgentAccessToken(
-            currentProjectRef.current,
-          );
-          if (projectToken) {
-            window.setTimeout(() => {
-              void loadAcpThreadSummariesState(projectToken);
-            }, ACP_RUN_HISTORY_REFRESH_DELAY_MS);
-          }
-          if (appSettingsOpen) {
-            window.setTimeout(() => {
-              void loadAcpRunSummariesState();
-            }, ACP_RUN_HISTORY_REFRESH_DELAY_MS);
-          }
-        }
-        scheduleRunLogRefresh();
-        return;
-      }
-
-      if (event.type === "agent-message") {
-        setAcpAgentTask((current) => ({
-          taskId: event.taskId,
-          status: current?.taskId === event.taskId ? current.status : "running",
-          message:
-            current?.taskId === event.taskId
-              ? current.message
-              : "Agent 正在处理",
-          transcript: `${current?.taskId === event.taskId ? current.transcript : ""}${
-            event.text
-          }`.trim(),
-          events: appendAcpAgentTimelineItem(current, event.taskId, {
-            title: "Agent 回复",
-            detail: event.text,
-            mergeKey: `agent-message:${event.messageId ?? event.taskId}`,
-          }),
-          logPath: current?.taskId === event.taskId ? current.logPath : undefined,
-        }));
-        scheduleRunLogRefresh();
-        return;
-      }
-
-      if (event.type === "tool") {
-        setAcpAgentTask((current) => ({
-          taskId: event.taskId,
-          status: current?.taskId === event.taskId ? current.status : "running",
-          message: event.title,
-          transcript: current?.taskId === event.taskId ? current.transcript : "",
-          events: appendAcpAgentTimelineItem(current, event.taskId, {
-            title: event.title,
-            detail: getAcpToolStatusLabel(event.status),
-            tone: event.status === "failed" ? "danger" : "neutral",
-          }),
-          logPath: current?.taskId === event.taskId ? current.logPath : undefined,
-        }));
-        scheduleRunLogRefresh();
-        return;
-      }
-
-      if (event.type === "error") {
-        setAcpAgentTask((current) => ({
-          taskId: event.taskId,
-          status: "failed",
-          message: event.message,
-          transcript: current?.taskId === event.taskId ? current.transcript : "",
-          events: appendAcpAgentTimelineItem(current, event.taskId, {
-            title: "任务失败",
-            detail: event.message,
-            tone: "danger",
-          }),
-          logPath: current?.taskId === event.taskId ? current.logPath : undefined,
-        }));
-        const projectToken = getProjectAgentAccessToken(
-          currentProjectRef.current,
-        );
-        if (projectToken) {
-          window.setTimeout(() => {
-            void loadAcpThreadSummariesState(projectToken);
-          }, ACP_RUN_HISTORY_REFRESH_DELAY_MS);
-        }
-        scheduleRunLogRefresh();
-      }
+    return currentProjectEditorInitializingRendererActions.startFallbackClear({
+      isEditorInitializing,
+      renderNonce: projectRenderNonce,
     });
-  }, [bridge, appSettingsOpen]);
-
-  useEffect(() => {
-    if (!isEditorInitializing) {
-      return;
-    }
-
-    const renderNonce = projectRenderNonce;
-    const fallbackTimer = window.setTimeout(() => {
-      if (
-        renderNonce === projectRenderNonceRef.current &&
-        excalidrawAPIRef.current
-      ) {
-        hideEditorLoading(renderNonce);
-      }
-    }, 3000);
-
-    return () => {
-      window.clearTimeout(fallbackTimer);
-    };
   }, [isEditorInitializing, projectRenderNonce]);
 
-  const openProjectBundle = async (
-    bundle: DesktopProjectBundle | null,
-    sequence = beginProjectOpen(),
-  ) => {
-    if (!bundle) {
-      if (isCurrentProjectOpen(sequence)) {
-        setLoadingProject(false);
-      }
-      return;
-    }
+  const currentProjectBundleOpenRendererActions =
+    createCurrentProjectBundleOpenRendererActions({
+      beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+      isCurrentProjectOpen: currentProjectOpenSequenceRendererActions.isCurrent,
+      flushPendingAutosave: (options) => flushPendingAutosave(options),
+      getDevicePixelRatio: () => window.devicePixelRatio,
+      getFallbackCreatedAt: () => Date.now(),
+      readProjectAssets: (input) =>
+        desktopBridge.readProjectAssetPayloads(input),
+      setLoadingProject,
+      setProjectError,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+      formatSaveBeforeOpenError: formatProjectSaveBeforeOpenError,
+      formatOpenError: formatProjectOpenError,
+      resetImageRenditionState: projectImageStateResetRendererActions.reset,
+      setThumbnailMaintenance,
+      markImageAssetRenditionsLoaded:
+        visibleImageRenditionLoadRendererActions.markLoaded,
+      projectRenderNonceRef,
+      editorApiRef: excalidrawAPIRef,
+      updateEditorInitializing:
+        currentProjectEditorInitializingRendererActions.update,
+      updateCurrentProject,
+      setInitialData,
+      setProjectRenderNonce,
+      latestSceneRef,
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
+      lastCanvasPointerRef,
+      setSelectedRecord,
+      setSelectedTask,
+      lastBatchBoundsRef,
+      resetGenerationTrackingState: generationTrackingRendererActions.reset,
+      safeModeOpenedMessage: copy.projectRepair.safeModeOpened,
+      showProjectNotice: projectNoticeRendererActions.show,
+      rebuildMissingThumbnails:
+        projectThumbnailRebuildRendererActions.rebuildMissing,
+      loadRecentProjectsState: desktopStartupRendererActions.loadRecentProjects,
+    });
+  const openProjectBundle = currentProjectBundleOpenRendererActions.open;
 
-    setLoadingProject(true);
-    setProjectError(null);
-    clearProjectNotice();
-    try {
-      try {
-        await flushPendingAutosave({ strict: true });
-      } catch (error) {
-        if (isCurrentProjectOpen(sequence)) {
-          setProjectError(
-            `${copy.startup.saveBeforeOpenFailed} ${getErrorText(
-              error,
-              copy.startup.saveProjectFailed,
-            )}`,
-          );
+  const projectViewClearRendererActions = createProjectViewClearRendererActions({
+    beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+    editorApiRef: excalidrawAPIRef,
+    latestSceneRef,
+    setSceneImageFileIds,
+    updateCurrentProject,
+    setInitialData,
+    setWorkspaceOverlayState,
+    resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
+    updateEditorInitializing: currentProjectEditorInitializingRendererActions.update,
+    setSelectedRecord,
+    setSelectedTask,
+    lastCanvasPointerRef,
+    lastBatchBoundsRef,
+    resetGenerationTrackingState: generationTrackingRendererActions.reset,
+    resetImageRenditionState: projectImageStateResetRendererActions.reset,
+  });
+
+  const projectRenderBoundaryRendererActions =
+    createCurrentProjectRenderBoundaryRendererActions({
+      getCurrentProject: () => currentProjectRef.current,
+      logError: console.error,
+      updateEditorInitializing:
+        currentProjectEditorInitializingRendererActions.update,
+      clearProjectViewState: projectViewClearRendererActions.clear,
+    });
+
+  const currentProjectEditorReadyRendererActions =
+    createCurrentProjectEditorReadyRendererActions<
+      ExcalidrawImperativeAPI,
+      AppSceneSnapshot,
+      number
+    >({
+      getCurrentRenderNonce: () => projectRenderNonceRef.current,
+      getLatestScene: () => latestSceneRef.current,
+      setEditorApi: (api) => {
+        excalidrawAPIRef.current = api;
+      },
+      flushQueuedImageFilesToCanvas:
+        queuedExcalidrawBinaryFilesRendererActions.flush,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      requestAnimationFrame: window.requestAnimationFrame,
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      clearInitializing: (nextRenderNonce) => {
+        currentProjectEditorInitializingRendererActions.update(
+          false,
+          nextRenderNonce,
+        );
+      },
+    });
+
+  const activeAgentProjectPathRendererActions =
+    createActiveAgentProjectPathRendererActions({
+      getActiveProjectPath: () => currentProjectRef.current?.projectPath,
+    });
+
+  const generatedImageSceneInsertRendererActions =
+    createGeneratedImageSceneInsertRendererActions({
+      getEditorApi: () => excalidrawAPIRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      assertActiveProject:
+        activeAgentProjectPathRendererActions.assertActiveProject,
+      getSavedSceneHash: () => savedSceneHashRef.current,
+      getPreviousBatchBounds: () => lastBatchBoundsRef.current,
+      setPreviousBatchBounds: (bounds) => {
+        lastBatchBoundsRef.current = bounds;
+      },
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      setActiveProject: updateCurrentProject,
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      flushPendingAutosave: (options) => flushPendingAutosave(options),
+      getFallbackCreatedAt: () => Date.now(),
+    });
+
+  const pendingGenerationCanvasRendererActions =
+    createPendingGenerationCanvasRendererActions({
+      getEditorApi: () => excalidrawAPIRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      assertActiveProject:
+        activeAgentProjectPathRendererActions.assertActiveProject,
+      getFallbackReferenceScene: () => latestSceneRef.current,
+      getLastCanvasPointer: () => lastCanvasPointerRef.current,
+      getPreviousBatchBounds: () => lastBatchBoundsRef.current,
+      setPreviousBatchBounds: (bounds) => {
+        lastBatchBoundsRef.current = bounds;
+      },
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      getGenerationTasks: () => generationTaskByElementIdRef.current,
+      setGenerationTasks: (generationTasks) => {
+        generationTaskByElementIdRef.current = generationTasks;
+      },
+    });
+
+  const projectImageAssetPersistenceRendererActions =
+    createProjectImageAssetPersistenceRendererActions({
+      getActiveProject: () => currentProjectRef.current,
+      persistImageAssets: desktopBridge.persistImageAssets,
+      setActiveProject: updateCurrentProject,
+    });
+
+  const builtinGenerationJobCompletionRendererActions =
+    createBuiltinGenerationJobCompletionRendererActions<
+      readonly ExcalidrawElement[],
+      AppState,
+      BinaryFiles
+    >({
+      getActiveProject: () => currentProjectRef.current,
+      persistProjectImageAssets:
+        projectImageAssetPersistenceRendererActions.persistProjectImageAssets,
+      replaceSlot: pendingGenerationCanvasRendererActions.replaceSlot,
+      markSlotFailed: pendingGenerationCanvasRendererActions.markFailed,
+      getCanvasSnapshot: () => {
+        const activeApi = excalidrawAPIRef.current;
+        if (!activeApi) {
+          return null;
         }
-        return;
-      }
+        return {
+          elements: activeApi.getSceneElementsIncludingDeleted(),
+          appState: activeApi.getAppState(),
+          files: activeApi.getFiles(),
+        };
+      },
+      getSavedSceneHash: () => savedSceneHashRef.current,
+      setScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      flushPendingAutosave: (options) => flushPendingAutosave(options),
+    });
 
-      if (!isCurrentProjectOpen(sequence)) {
-        return;
-      }
+  const autosaveSnapshotWriteRendererActions =
+    createAutosaveSnapshotWriteRendererActions<
+      readonly ExcalidrawElement[],
+      AppState,
+      BinaryFiles
+    >({
+      getActiveProject: () => currentProjectRef.current,
+      hasPendingAutosave: () => Boolean(pendingAutosaveRef.current),
+      getPendingSnapshot: () => pendingAutosaveRef.current,
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      getCurrentQueue: () => autosaveQueueRef.current,
+      setQueue: (queue) => {
+        autosaveQueueRef.current = queue;
+      },
+      getSavedSceneHash: () => savedSceneHashRef.current,
+      persistUnknownCanvasImages:
+        projectImageAssetPersistenceRendererActions.persistUnknownCanvasImages,
+      serializeScene: serializeSceneForProject,
+      writeProjectScene: desktopBridge.writeProjectScene,
+      setActiveProject: updateCurrentProject,
+      updateSelectedInspector: selectedInspectorRendererActions.update,
+      reportError: currentProjectAutosaveFailureRendererActions.report,
+    });
 
-      const restored = await deserializeSceneFromProject(bundle.sceneJson);
-      const fileIds = collectAgentImageFileIds(restored.elements || []);
-      const thumbnailAssets = bundle.safeMode
-        ? []
-        : await desktopBridge.readProjectAssetPayloads({
-            projectPath: bundle.projectPath,
-            fileIds,
-            rendition: "thumbnail",
-            thumbnailMode: "cache-only",
-          });
-      const visibleRenditionAssets = bundle.safeMode
-        ? []
-        : await readInitialVisibleImageRenditionAssets(bundle, {
-            elements: restored.elements ?? undefined,
-            appState: restored.appState as AppState,
-          });
-      if (!isCurrentProjectOpen(sequence)) {
-        return;
-      }
+  const autosaveRendererActions =
+    createAutosaveRendererActions<AutosaveSnapshot>({
+      delayMs: 700,
+      getTimerId: () => autosaveTimerRef.current,
+      clearTimer: (timerId) => window.clearTimeout(timerId),
+      setTimerId: (timerId) => {
+        autosaveTimerRef.current = timerId;
+      },
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      takePendingSnapshot: autosaveSnapshotWriteRendererActions.takePending,
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      writeSnapshot: autosaveSnapshotWriteRendererActions.enqueue,
+      waitForQueue: async () => {
+        await autosaveQueueRef.current;
+      },
+      handleWriteError:
+        autosaveSnapshotWriteRendererActions.handleWriteFailure,
+    });
 
-      const assets = [...thumbnailAssets, ...visibleRenditionAssets];
-      const files = projectAssetPayloadsToBinaryFiles(
-        assets,
-        bundle.imageRecords,
-      );
-      const missingThumbnailFileIds = Array.from(
-        new Set(
-          thumbnailAssets
-            .filter((asset) => asset.rendition === "placeholder")
-            .map((asset) => asset.fileId),
-        ),
-      );
-      resetImageRenditionState();
-      if (missingThumbnailFileIds.length) {
-        setThumbnailMaintenance({
-          status: "pending",
-          total: missingThumbnailFileIds.length,
-        });
-      }
-      markImageAssetRenditionsLoaded(assets);
-      const nextInitialData: ExcalidrawInitialDataState = {
-        elements: restored.elements,
-        appState: restored.appState,
-        files,
-      };
-      const nextRenderNonce = projectRenderNonceRef.current + 1;
-      projectRenderNonceRef.current = nextRenderNonce;
-      excalidrawAPIRef.current = null;
-      updateEditorInitializing(true, nextRenderNonce);
-      updateCurrentProject(bundle);
-      setInitialData(nextInitialData);
-      setProjectRenderNonce(nextRenderNonce);
-      latestSceneRef.current = {
-        elements: restored.elements || [],
-        appState: restored.appState as AppState,
-        files,
-      };
-      updateSceneImageFileIds(restored.elements || []);
-      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-      if (bundle.safeMode) {
-        showProjectNotice(copy.projectRepair.safeModeOpened);
-      } else {
-        void rebuildMissingThumbnailAssets(bundle, missingThumbnailFileIds);
-      }
-      updateWorkspaceOverlay(
-        restored.elements || [],
-        restored.appState as AppState,
-      );
-      resetWorkspaceZoomGate();
-      lastCanvasPointerRef.current = null;
-      setSelectedRecord(null);
-      setSelectedTask(null);
-      lastBatchBoundsRef.current = null;
-      pendingGenerationJobsRef.current.clear();
-      generationTaskByElementIdRef.current.clear();
-      setPendingGenerationCount(0);
-      await loadRecentProjectsState();
-    } catch (error: any) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
-        updateEditorInitializing(false);
-      }
-    } finally {
-      if (isCurrentProjectOpen(sequence)) {
-        setLoadingProject(false);
-      }
-    }
-  };
+  const canvasSceneChangeRendererActions =
+    createCanvasSceneChangeRendererActions<
+      readonly ExcalidrawElement[],
+      AppState,
+      BinaryFiles
+    >({
+      getActiveProject: () => currentProjectRef.current,
+      getRemovedSelectionReferenceSignature: () =>
+        removedSelectionReferenceSignatureRef.current,
+      setRemovedSelectionReferenceSignature: (signature) => {
+        removedSelectionReferenceSignatureRef.current = signature;
+      },
+      maybeSnapWorkspaceZoom: workspaceZoomSnapRendererActions.maybeSnap,
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      scheduleAgentBrowserRuntimeStatePublish:
+        agentBrowserRuntimePublishRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      setGenerateRequest,
+      updateSelectedInspector: selectedInspectorRendererActions.update,
+      isEditorInitializing: () => isEditorInitializingRef.current,
+      scheduleAutosave: autosaveRendererActions.schedule,
+      getSavedSceneHash: () => savedSceneHashRef.current,
+    });
 
-  const handleCreateProject = async () => {
-    const sequence = beginProjectOpen();
-    try {
-      await openProjectBundle(await desktopBridge.createProject(), sequence);
-    } catch (error) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.createProjectFailed));
-        setLoadingProject(false);
-        updateEditorInitializing(false);
-      }
-    }
-  };
+  const flushPendingAutosave = autosaveRendererActions.flush;
 
-  const handleOpenProject = async () => {
-    const sequence = beginProjectOpen();
-    try {
-      await openProjectBundle(await desktopBridge.openProject(), sequence);
-    } catch (error) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
-        setLoadingProject(false);
-        updateEditorInitializing(false);
-      }
-    }
-  };
+  const autosaveLifecycleRendererActions =
+    createAutosaveLifecycleRendererActions({
+      addEventListener: (eventName, listener) =>
+        window.addEventListener(eventName, listener),
+      removeEventListener: (eventName, listener) =>
+        window.removeEventListener(eventName, listener),
+      subscribeFlushRequest: bridge?.onFlushAutosaveRequest,
+      flushBeforeUnload: flushPendingAutosave,
+      flushRequest: () => flushPendingAutosave({ strict: true }),
+    });
 
-  const handleOpenRecentProject = async (projectPath: string) => {
-    const sequence = beginProjectOpen();
-    try {
-      await openProjectBundle(
-        await desktopBridge.openRecentProject?.(projectPath),
-        sequence,
-      );
-    } catch (error) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
-        setLoadingProject(false);
-        updateEditorInitializing(false);
-        await loadRecentProjectsState();
-      }
-    }
-  };
+  const currentProjectEntryRendererActions =
+    createCurrentProjectEntryRendererActions({
+      getBridge: () => desktopBridge,
+      getCurrentProject: () => currentProjectRef.current,
+      beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+      openProjectBundle,
+      isCurrentProjectOpen:
+        currentProjectOpenSequenceRendererActions.isCurrent,
+      flushPendingAutosave,
+      clearProjectViewState: projectViewClearRendererActions.clear,
+      loadRecentProjectsState: desktopStartupRendererActions.loadRecentProjects,
+      formatCreateError: formatProjectCreateError,
+      formatOpenError: formatProjectOpenError,
+      formatSaveBeforeOpenError: formatProjectSaveBeforeOpenError,
+      formatRevealError: formatProjectRevealError,
+      setProjectError,
+      setLoadingProject,
+      updateEditorInitializing:
+        currentProjectEditorInitializingRendererActions.update,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+    });
+
+  const agentBrowserAutoOpenProjectRendererActions =
+    createAgentBrowserAutoOpenProjectRendererActions({
+      getIsAgentBrowserRoute: () => isAgentBrowserRoute,
+      getHasInitialProjectToken: () => Boolean(agentBrowserInitialProjectToken),
+      getLoadingProject: () => loadingProject,
+      getBridgeProjectPath: () =>
+        agentBridgeStatus?.currentProject?.projectPath ?? null,
+      getCurrentProjectPath: () => currentProject?.projectPath ?? null,
+      getAutoOpenProjectPath: () => agentBrowserAutoOpenProjectPath,
+      setAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
+      openProject: (projectPath) => {
+        void currentProjectEntryRendererActions.openRecentProject(projectPath);
+      },
+    });
 
   useEffect(() => {
-    const agentBrowserTargetProjectPath =
-      agentBridgeStatus?.currentProject?.projectPath ?? null;
-    if (
-      !isAgentBrowserRoute ||
-      !agentBrowserInitialProjectToken ||
-      loadingProject ||
-      !agentBrowserTargetProjectPath ||
-      currentProject?.projectPath === agentBrowserTargetProjectPath ||
-      agentBrowserAutoOpenProjectPath === agentBrowserTargetProjectPath
-    ) {
-      return;
-    }
-
-    setAgentBrowserAutoOpenProjectPath(agentBrowserTargetProjectPath);
-    void handleOpenRecentProject(agentBrowserTargetProjectPath);
+    agentBrowserAutoOpenProjectRendererActions.maybeOpen();
   }, [
     agentBrowserAutoOpenProjectPath,
     agentBrowserInitialProjectToken,
@@ -3909,2706 +1540,331 @@ const App = () => {
     loadingProject,
   ]);
 
-  const handleProjectRenderError = (
-    error: Error,
-    componentStack: string | null,
-  ) => {
-    console.error("[project-render-error]", {
-      message: error.message,
-      stack: error.stack || null,
-      componentStack,
-      projectPath: currentProjectRef.current?.projectPath || null,
-    });
-    updateEditorInitializing(false);
-  };
-
-  const clearProjectViewState = () => {
-    beginProjectOpen();
-    excalidrawAPIRef.current = null;
-    latestSceneRef.current = null;
-    setSceneImageFileIds([]);
-    updateCurrentProject(null);
-    setInitialData(null);
-    setWorkspaceOverlayState(null);
-    resetWorkspaceZoomGate();
-    updateEditorInitializing(false);
-    setSelectedRecord(null);
-    setSelectedTask(null);
-    lastCanvasPointerRef.current = null;
-    lastBatchBoundsRef.current = null;
-    pendingGenerationJobsRef.current.clear();
-    generationTaskByElementIdRef.current.clear();
-    setPendingGenerationCount(0);
-    resetImageRenditionState();
-  };
-
-  const handleResetProjectView = () => {
-    clearProjectViewState();
-  };
-
-  const handleSwitchProject = async () => {
-    setProjectError(null);
-    clearProjectNotice();
-    try {
-      await flushPendingAutosave({ strict: true });
-    } catch (error) {
-      setProjectError(
-        `${copy.startup.saveBeforeOpenFailed} ${getErrorText(
-          error,
-          copy.startup.saveProjectFailed,
-        )}`,
-      );
-      return;
-    }
-
-    clearProjectViewState();
-    void loadRecentProjectsState();
-  };
-
-  const handleRevealProject = async () => {
-    if (!currentProjectRef.current) {
-      return;
-    }
-    try {
-      await desktopBridge.revealProjectInFinder(
-        currentProjectRef.current.projectPath,
-      );
-    } catch (error) {
-      setProjectError(getErrorText(error, copy.startup.revealProjectFailed));
-    }
-  };
-
-  const assertExpectedAgentProjectActive = (expectedProjectPath?: string) => {
-    if (
-      expectedProjectPath &&
-      currentProjectRef.current?.projectPath !== expectedProjectPath
-    ) {
-      throw createAgentProjectMismatchError();
-    }
-  };
-
-  const insertAssetsIntoScene = async (
-    assets: PersistedImageAssetInput[],
-    nextImageRecords: DesktopProjectBundle["imageRecords"],
-    options: {
-      anchorPoint?: { x: number; y: number } | null;
-      expectedProjectPath?: string;
-      placementViewport?: PlacementViewportContext | null;
-      requireReady?: boolean;
-    } = {},
-  ) => {
-    assertExpectedAgentProjectActive(options.expectedProjectPath);
-    const api = excalidrawAPIRef.current;
-    const project = currentProjectRef.current;
-    if (!api || !project) {
-      if (options.requireReady) {
-        throw new Error("CoreStudio 画板还没有准备好。");
-      }
-      return;
-    }
-
-    const appState = api.getAppState();
-    const elements = api.getSceneElementsIncludingDeleted();
-    const placementViewport = options.placementViewport ?? null;
-    const viewportCenter =
-      placementViewport?.viewportCenter ??
-      getViewportCenterFromAppState(appState);
-    const workspaceBounds = placementViewport
-      ? ENABLE_WORKSPACE_BOUNDS
-        ? getWorkspaceBounds(elements, { viewportCenter })
-        : null
-      : updateWorkspaceOverlay(elements, appState);
-    const anchorPoint = options.anchorPoint ?? null;
-    const placements = placeGeneratedImages({
-      images: assets.map((asset) => ({
-        width: asset.width,
-        height: asset.height,
-      })),
-      anchorPoint,
-      viewportCenter,
-      viewportSize: placementViewport?.viewportSize ?? {
-        width: appState.width,
-        height: appState.height,
-      },
-      zoomValue: placementViewport?.zoomValue ?? appState.zoom.value,
-      previousBatchBounds: anchorPoint ? null : lastBatchBoundsRef.current,
-      workspaceBounds,
-    });
-
-    const filesToAdd: BinaryFileData[] = assets.map((asset) => ({
-      id: asset.fileId as FileId,
-      mimeType: asset.mimeType as BinaryFileData["mimeType"],
-      dataURL: `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
-      created: Date.parse(asset.createdAt) || Date.now(),
-    }));
-
-    const newElements = assets.map((asset, index) =>
-      newImageElement({
-        type: "image",
-        fileId: asset.fileId as FileId,
-        status: "saved",
-        scale: [1, 1],
-        x: placements[index].x,
-        y: placements[index].y,
-        width: placements[index].width,
-        height: placements[index].height,
-      }),
-    );
-
-    const selectedElementIds = Object.fromEntries(
-      newElements.map((element) => [element.id, true as const]),
-    ) as AppState["selectedElementIds"];
-
-    assertExpectedAgentProjectActive(options.expectedProjectPath);
-    const activeApi = excalidrawAPIRef.current;
-    const activeProject = currentProjectRef.current;
-    if (!activeApi || !activeProject) {
-      if (options.requireReady) {
-        throw new Error("CoreStudio 画板还没有准备好。");
-      }
-      return;
-    }
-
-    activeApi.addFiles(filesToAdd);
-    const nextElements = appendElementsWithSyncedIndices(
-      activeApi.getSceneElementsIncludingDeleted(),
-      newElements,
-    );
-    const nextAppState = {
-      ...activeApi.getAppState(),
-      selectedElementIds,
-    };
-    activeApi.updateScene({
-      elements: nextElements,
-      appState: {
-        selectedElementIds,
-      },
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-
-    lastBatchBoundsRef.current = measureBatchBounds(placements);
-    const nextProject = {
-      ...activeProject,
-      imageRecords: nextImageRecords,
-    };
-    updateCurrentProject(nextProject);
-    pendingAutosaveRef.current = {
-      project: nextProject,
-      elements: nextElements,
-      appState: nextAppState,
-      files: activeApi.getFiles(),
-      expectedSceneHash: savedSceneHashRef.current,
-    };
-    await flushPendingAutosave({ strict: Boolean(options.requireReady) });
-  };
-
-  const insertGenerationPlaceholders = (
-    request: GenerationRequest,
-    startedAt: string,
-    options: {
-      expectedProjectPath?: string;
-      placementViewport?: PlacementViewportContext | null;
-      referenceScene?: AppSceneSnapshot | null;
-      requireReady?: boolean;
-    } = {},
-  ) => {
-    assertExpectedAgentProjectActive(options.expectedProjectPath);
-    const api = excalidrawAPIRef.current;
-    const project = currentProjectRef.current;
-    if (!api || !project) {
-      if (options.requireReady) {
-        throw new Error("CoreStudio 画板还没有准备好。");
-      }
-      return null;
-    }
-
-    const appState = api.getAppState();
-    const elements = api.getSceneElementsIncludingDeleted();
-    const placementViewport = options.placementViewport ?? null;
-    const viewportCenter =
-      placementViewport?.viewportCenter ??
-      getViewportCenterFromAppState(appState);
-    const workspaceBounds = placementViewport
-      ? ENABLE_WORKSPACE_BOUNDS
-        ? getWorkspaceBounds(elements, { viewportCenter })
-        : null
-      : updateWorkspaceOverlay(elements, appState);
-    const anchorBounds = getGenerationAnchorBounds(
-      request,
-      options.referenceScene ?? latestSceneRef.current,
-    );
-    const occupiedBounds = getSceneOccupiedBounds(elements);
-    const placements = placeGeneratedImages({
-      images: Array.from({ length: request.imageCount }, () => ({
-        width: request.width,
-        height: request.height,
-      })),
-      anchorBounds,
-      anchorPoint: anchorBounds ? null : lastCanvasPointerRef.current,
-      occupiedBounds,
-      viewportCenter,
-      viewportSize: placementViewport?.viewportSize ?? {
-        width: appState.width,
-        height: appState.height,
-      },
-      zoomValue: placementViewport?.zoomValue ?? appState.zoom.value,
-      workspaceBounds,
-      previousBatchBounds:
-        anchorBounds || lastCanvasPointerRef.current
-          ? null
-          : lastBatchBoundsRef.current,
-    });
-
-    const slots: PendingGenerationSlot[] = [];
-    const placeholderFrames: ExcalidrawElement[] = [];
-    const placeholderElements = placements.flatMap((placement, index) => {
-      const slotGroupId = crypto.randomUUID();
-      const frame = newFrameElement({
-        x: placement.x,
-        y: placement.y,
-        width: placement.width,
-        height: placement.height,
-        groupIds: [slotGroupId],
-        backgroundColor: PENDING_PLACEHOLDER_FILL,
-        strokeColor: PENDING_PLACEHOLDER_STROKE,
-        strokeStyle: "dashed",
-        strokeWidth: 2,
-        roughness: 0,
-        opacity: 80,
-      });
-      const label = newTextElement({
-        x: placement.x + placement.width / 2,
-        y: placement.y + placement.height / 2,
-        text:
-          request.imageCount > 1
-            ? `${PENDING_PLACEHOLDER_LABEL}\n${index + 1}/${request.imageCount}`
-            : PENDING_PLACEHOLDER_LABEL,
-        groupIds: [slotGroupId],
-        frameId: frame.id,
-        fontSize: 24,
-        textAlign: "center",
-        verticalAlign: "middle",
-        autoResize: true,
-        strokeColor: PENDING_PLACEHOLDER_STROKE,
-        backgroundColor: "transparent",
-        roughness: 0,
-      });
-
-      placeholderFrames.push(frame);
-      slots.push({
-        frameId: frame.id,
-        labelId: label.id,
-        fitReturnedImageSize: isAutoAspectRatioRequest(request),
-      });
-
-      return [frame, label];
-    });
-
-    assertExpectedAgentProjectActive(options.expectedProjectPath);
-    const activeApi = excalidrawAPIRef.current;
-    const activeProject = currentProjectRef.current;
-    if (!activeApi || !activeProject) {
-      if (options.requireReady) {
-        throw new Error("CoreStudio 画板还没有准备好。");
-      }
-      return null;
-    }
-
-    const promptHistoryText = getPromptHistoryText(request);
-    for (const slot of slots) {
-      const task: GenerationTaskRecord = {
-        status: "pending",
-        provider: request.provider,
-        model: request.model,
-        prompt: promptHistoryText,
-        negativePrompt: request.negativePrompt,
-        aspectRatio: request.aspectRatio,
-        seed: request.seed,
-        width: request.width,
-        height: request.height,
-        startedAt,
-      };
-      generationTaskByElementIdRef.current.set(slot.frameId, task);
-      generationTaskByElementIdRef.current.set(slot.labelId, task);
-    }
-
-    activeApi.updateScene({
-      elements: appendElementsWithSyncedIndices(
-        activeApi.getSceneElementsIncludingDeleted(),
-        placeholderElements,
-      ),
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-
-    if (placeholderFrames.length > 0) {
-      activeApi.scrollToContent(placeholderFrames, {
-        animate: true,
-        fitToContent: true,
-      });
-    }
-
-    lastBatchBoundsRef.current = measureBatchBounds(placements);
-
-    return {
-      jobId: crypto.randomUUID(),
-      projectPath: activeProject.projectPath,
-      slots,
-    } satisfies PendingGenerationJob;
-  };
-
-  const markPendingGenerationFailed = (
-    job: PendingGenerationJob,
-    errorDetails?: Pick<
-      GenerationErrorDetails,
-      "normalizedMessage" | "rawMessage" | "stack"
-    >,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    const project = currentProjectRef.current;
-    if (!api || project?.projectPath !== job.projectPath) {
-      return;
-    }
-
-    const firstSlot = job.slots[0];
-    for (const slot of job.slots) {
-      const existingTask =
-        generationTaskByElementIdRef.current.get(slot.frameId) ||
-        generationTaskByElementIdRef.current.get(slot.labelId);
-
-      if (!existingTask) {
-        continue;
-      }
-
-      const nextTask: GenerationTaskRecord = {
-        ...existingTask,
-        status: "error",
-        errorMessage:
-          errorDetails?.normalizedMessage || copy.startup.generateFailed,
-        rawError:
-          errorDetails?.rawMessage ||
-          errorDetails?.normalizedMessage ||
-          copy.startup.generateFailed,
-        stack: errorDetails?.stack || null,
-      };
-      generationTaskByElementIdRef.current.set(slot.frameId, nextTask);
-      generationTaskByElementIdRef.current.set(slot.labelId, nextTask);
-    }
-
-    const slotFrameIds = new Set(job.slots.map((slot) => slot.frameId));
-    const slotLabelIds = new Set(job.slots.map((slot) => slot.labelId));
-    const currentElements = api.getSceneElementsIncludingDeleted();
-
-    api.updateScene({
-      elements: currentElements.map((element) => {
-        if (slotFrameIds.has(element.id)) {
-          return newElementWith(element, {
-            strokeColor: PENDING_PLACEHOLDER_ERROR_STROKE,
-            backgroundColor: PENDING_PLACEHOLDER_ERROR_FILL,
-          });
-        }
-
-        if (
-          slotLabelIds.has(element.id) &&
-          element.type === "text"
-        ) {
-          return newElementWith(element, {
-            text: "生成失败",
-            originalText: "生成失败",
-            strokeColor: PENDING_PLACEHOLDER_ERROR_STROKE,
-          });
-        }
-
-        return element;
-      }),
-      appState: firstSlot
-        ? {
-            selectedElementIds: {
-              [firstSlot.frameId]: true,
-            },
-          }
-        : undefined,
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-  };
-
-  const replacePendingGenerationSlot = (
-    slot: PendingGenerationSlot,
-    asset: PersistedImageAssetInput,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return;
-    }
-
-    const currentElements = api.getSceneElementsIncludingDeleted();
-    const frame = currentElements.find(
-      (element) => element.id === slot.frameId && !element.isDeleted,
-    );
-    if (!frame) {
-      return;
-    }
-
-    const appState = api.getAppState();
-    const filesToAdd: BinaryFileData[] = [
-      {
-        id: asset.fileId as FileId,
-        mimeType: asset.mimeType as BinaryFileData["mimeType"],
-        dataURL: `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
-        created: Date.parse(asset.createdAt) || Date.now(),
-      },
-    ];
-    api.addFiles(filesToAdd);
-
-    const returnedImageSize = slot.fitReturnedImageSize
-      ? normalizeGeneratedImageDimensions({
-          width: asset.width,
-          height: asset.height,
-        })
-      : {
-          width: frame.width,
-          height: frame.height,
-        };
-    const frameCenter = {
-      x: frame.x + frame.width / 2,
-      y: frame.y + frame.height / 2,
-    };
-
-    const newImage = newImageElement({
-      type: "image",
-      fileId: asset.fileId as FileId,
-      status: "saved",
-      scale: [1, 1],
-      x: frameCenter.x - returnedImageSize.width / 2,
-      y: frameCenter.y - returnedImageSize.height / 2,
-      width: returnedImageSize.width,
-      height: returnedImageSize.height,
-    });
-
-    const selectedElementIds = { ...appState.selectedElementIds };
-    const shouldSelectNewImage =
-      Boolean(selectedElementIds[slot.frameId]) ||
-      Boolean(selectedElementIds[slot.labelId]);
-    delete selectedElementIds[slot.frameId];
-    delete selectedElementIds[slot.labelId];
-    if (shouldSelectNewImage) {
-      selectedElementIds[newImage.id] = true;
-    }
-
-    api.updateScene({
-      elements: appendElementsWithSyncedIndices(
-        currentElements.map((element) =>
-          element.id === slot.frameId || element.id === slot.labelId
-            ? newElementWith(element, { isDeleted: true })
-            : element,
-        ),
-        [newImage],
-      ),
-      appState: {
-        selectedElementIds,
-      },
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-
-    generationTaskByElementIdRef.current.delete(slot.frameId);
-    generationTaskByElementIdRef.current.delete(slot.labelId);
-  };
-
-  const finishPendingGenerationJob = async (
-    job: PendingGenerationJob,
-    request: GenerationRequest,
-    response: Awaited<ReturnType<typeof desktopBridge.generateImages>>,
-  ) => {
-    const project = currentProjectRef.current;
-    if (!project || project.projectPath !== job.projectPath) {
-      return;
-    }
-
-    const promptHistoryText = getPromptHistoryText(request);
-    const promptReferences = buildImagePromptReferenceRecords(request);
-    const files: PersistedImageAssetInput[] = response.images.map((image) => ({
-      ...image,
-      fileId: crypto.randomUUID(),
-      sourceType: "generated",
-      generationOrigin: "corestudio",
-      provider: response.provider,
-      model: response.model,
-      prompt: promptHistoryText,
-      negativePrompt: request.negativePrompt,
-      seed: response.seed,
-      createdAt: response.createdAt,
-      parentFileId: request.reference?.debug?.fileId ?? null,
-      ...(promptReferences.length ? { promptReferences } : {}),
-    }));
-    const persistedImageRecords = await desktopBridge.persistImageAssets({
-      projectPath: job.projectPath,
-      files,
-    });
-    const nextImageRecords = mergePersistedImageRecords(
-      project.imageRecords,
-      persistedImageRecords,
-    );
-
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath === job.projectPath) {
-      updateCurrentProject({
-        ...activeProject,
-        imageRecords: nextImageRecords,
-      });
-    }
-
-    files.forEach((asset, index) => {
-      const slot = job.slots[index];
-      if (slot) {
-        replacePendingGenerationSlot(slot, asset);
-      }
-    });
-
-    job.slots.slice(files.length).forEach((slot) => {
-      markPendingGenerationFailed({
-        ...job,
-        slots: [slot],
-      }, {
-        normalizedMessage: "模型没有返回这张图。",
-        rawMessage: "模型没有返回这张图。",
-        stack: null,
-      });
-    });
-
-    const activeApi = excalidrawAPIRef.current;
-    const projectAfterReplacement = currentProjectRef.current;
-    if (activeApi && projectAfterReplacement?.projectPath === job.projectPath) {
-      const elements = activeApi.getSceneElementsIncludingDeleted();
-      const appState = activeApi.getAppState();
-      const sceneFiles = activeApi.getFiles();
-      const snapshotProject = {
-        ...projectAfterReplacement,
-        imageRecords: nextImageRecords,
-      };
-      latestSceneRef.current = {
-        elements,
-        appState,
-        files: sceneFiles,
-      };
-      updateSceneImageFileIds(elements);
-      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-      updateWorkspaceOverlay(elements, appState);
-      pendingAutosaveRef.current = {
-        project: snapshotProject,
-        elements,
-        appState,
-        files: sceneFiles,
-        expectedSceneHash: savedSceneHashRef.current,
-      };
-    }
-
-    await flushPendingAutosave({ strict: true });
-  };
-
-  const persistUnknownCanvasImages = async (
-    project: DesktopProjectBundle,
-    elements: readonly ExcalidrawElement[],
-    files: BinaryFiles,
-  ) => {
-    const unknownAssets: PersistedImageAssetInput[] = elements.flatMap((element) => {
-      if (
-        element.isDeleted ||
-        element.type !== "image" ||
-        !element.fileId ||
-        project.imageRecords[element.fileId] ||
-        !files[element.fileId]
-      ) {
-        return [];
-      }
-
-      return [
-        {
-          fileId: element.fileId,
-          dataBase64: extractBase64(files[element.fileId].dataURL),
-          mimeType: files[element.fileId].mimeType,
-          width: element.width,
-          height: element.height,
-          sourceType: "imported",
-          createdAt: new Date(files[element.fileId].created).toISOString(),
-        },
-      ];
-    });
-
-    if (!unknownAssets.length) {
-      return project.imageRecords;
-    }
-
-    const persistedImageRecords = await desktopBridge.persistImageAssets({
-      projectPath: project.projectPath,
-      files: unknownAssets,
-    });
-    const nextImageRecords = mergePersistedImageRecords(
-      project.imageRecords,
-      persistedImageRecords,
-    );
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath === project.projectPath) {
-      updateCurrentProject({
-        ...activeProject,
-        imageRecords: nextImageRecords,
-      });
-    }
-    return nextImageRecords;
-  };
-
-  const writeAutosaveSnapshot = async (snapshot: AutosaveSnapshot) => {
-    const nextImageRecords = await persistUnknownCanvasImages(
-      snapshot.project,
-      snapshot.elements,
-      snapshot.files,
-    );
-    const sceneJson = serializeSceneForProject({
-      elements: snapshot.elements,
-      appState: snapshot.appState,
-    });
-    const nextProjectManifest = await desktopBridge.writeProjectScene({
-      projectPath: snapshot.project.projectPath,
-      sceneJson,
-      expectedSceneHash: snapshot.expectedSceneHash,
-    });
-
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath !== snapshot.project.projectPath) {
-      return;
-    }
-
-    updateCurrentProject({
-      ...activeProject,
-      project: nextProjectManifest || activeProject.project,
-      sceneJson,
-      imageRecords: nextImageRecords,
-    });
-    setSelectedRecord(
-      buildSelectedImageRecord(
-        snapshot.elements,
-        snapshot.appState,
-        nextImageRecords,
-      ),
-    );
-    setSelectedTask(
-      buildSelectedGenerationTask(
-        snapshot.appState,
-        generationTaskByElementIdRef.current,
-      ),
-    );
-  };
-
-  const enqueueAutosaveWrite = (snapshot: AutosaveSnapshot) => {
-    const writePromise = autosaveQueueRef.current
-      .catch(() => undefined)
-      .then(() => {
-        const activeProject = currentProjectRef.current;
-        const expectedSceneHash =
-          activeProject?.projectPath === snapshot.project.projectPath
-            ? savedSceneHashRef.current
-            : snapshot.expectedSceneHash;
-        return writeAutosaveSnapshot({
-          ...snapshot,
-          expectedSceneHash,
-        });
-      });
-    autosaveQueueRef.current = writePromise;
-    return writePromise;
-  };
-
-  const restoreFailedAutosaveSnapshot = (snapshot: AutosaveSnapshot) => {
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath !== snapshot.project.projectPath) {
-      return;
-    }
-
-    if (!pendingAutosaveRef.current) {
-      pendingAutosaveRef.current = snapshot;
-    }
-  };
-
-  const flushPendingAutosave = async ({
-    strict = false,
-  }: {
-    strict?: boolean;
-  } = {}) => {
-    if (autosaveTimerRef.current) {
-      window.clearTimeout(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
-
-    const snapshot = pendingAutosaveRef.current;
-    pendingAutosaveRef.current = null;
-    if (snapshot) {
-      try {
-        await enqueueAutosaveWrite(snapshot);
-      } catch (error) {
-        restoreFailedAutosaveSnapshot(snapshot);
-        if (strict) {
-          throw error;
-        }
-        reportAutosaveError(error);
-      }
-      return;
-    }
-
-    try {
-      await autosaveQueueRef.current;
-    } catch (error) {
-      if (strict) {
-        throw error;
-      }
-    }
-  };
-
-  const scheduleAutosave = (snapshot: AutosaveSnapshot) => {
-    pendingAutosaveRef.current = snapshot;
-
-    if (autosaveTimerRef.current) {
-      window.clearTimeout(autosaveTimerRef.current);
-    }
-
-    autosaveTimerRef.current = window.setTimeout(() => {
-      autosaveTimerRef.current = null;
-      const pendingSnapshot = pendingAutosaveRef.current;
-      pendingAutosaveRef.current = null;
-      if (pendingSnapshot) {
-        void enqueueAutosaveWrite(pendingSnapshot).catch((error) => {
-          restoreFailedAutosaveSnapshot(pendingSnapshot);
-          reportAutosaveError(error);
-        });
-      }
-    }, 700);
-  };
-
-  const handleImportImages = async () => {
-    const project = currentProjectRef.current;
-    if (!project) {
-      return;
-    }
-
-    try {
-      const importedImages = await desktopBridge.importImages();
-      if (!importedImages.length) {
-        return;
-      }
-
-      const files: PersistedImageAssetInput[] = importedImages.map((image) => ({
-        ...image,
-        sourceType: "imported",
-      }));
-      const persistedImageRecords = await desktopBridge.persistImageAssets({
-        projectPath: project.projectPath,
-        files,
-      });
-      const nextImageRecords = mergePersistedImageRecords(
-        currentProjectRef.current?.projectPath === project.projectPath
-          ? currentProjectRef.current.imageRecords
-          : project.imageRecords,
-        persistedImageRecords,
-      );
-      await insertAssetsIntoScene(files, nextImageRecords);
-    } catch (error) {
-      setProjectError(getErrorText(error, copy.startup.importImagesFailed));
-    }
-  };
-
-  const handleDesktopClipboardPaste = async (data: ClipboardData) => {
-    if (!isEmptyClipboardData(data)) {
-      return true;
-    }
-
-    const project = currentProjectRef.current;
-    if (!project || !desktopBridge.readClipboardImage) {
-      return true;
-    }
-
-    try {
-      const clipboardImage = await desktopBridge.readClipboardImage();
-      if (!clipboardImage) {
-        return true;
-      }
-
-      const file: PersistedImageAssetInput = {
-        ...clipboardImage,
-        sourceType: "imported",
-      };
-      const persistedImageRecords = await desktopBridge.persistImageAssets({
-        projectPath: project.projectPath,
-        files: [file],
-      });
-      const nextImageRecords = mergePersistedImageRecords(
-        currentProjectRef.current?.projectPath === project.projectPath
-          ? currentProjectRef.current.imageRecords
-          : project.imageRecords,
-        persistedImageRecords,
-      );
-      await insertAssetsIntoScene([file], nextImageRecords, {
+  const projectImageImportRendererActions =
+    createProjectImageImportRendererActions({
+      getProject: () => currentProjectRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      importImages: desktopBridge.importImages,
+      readClipboardImage: desktopBridge.readClipboardImage,
+      persistImageAssets: desktopBridge.persistImageAssets,
+      setActiveProject: updateCurrentProject,
+      insertAssetsIntoScene:
+        generatedImageSceneInsertRendererActions.insertAssets,
+      getClipboardInsertionOptions: () => ({
         anchorPoint: lastCanvasPointerRef.current,
-      });
-      return false;
-    } catch (error) {
-      setProjectError(getErrorText(error, copy.startup.importImagesFailed));
-      return false;
-    }
-  };
-
-  const handleStartAcpAgentGeneration = async (request: GenerationRequest) => {
-    const project = currentProjectRef.current;
-    if (!project) {
-      return;
-    }
-
-    if (!bridge?.startAcpAgentTask) {
-      throw new Error("当前环境不能直接发起 ACP Agent 任务。");
-    }
-    if (!acpAgentGenerationReady || !selectedAcpAgent) {
-      throw new Error("请先开启 Agent 调用，并在应用设置里配置 ACP Agent。");
-    }
-
-    const threadId = activeAcpThreadIdRef.current ?? createAcpThreadId();
-    const taskRequest = buildAcpTaskRequest({
-      request,
-      project,
-      status: agentBridgeStatus,
-      agentId: selectedAcpAgent.id,
-      threadId,
-    });
-
-    activeAcpTaskIdRef.current = taskRequest.taskId;
-    updateActiveAcpThreadId(threadId);
-    acpRunLogTaskIdRef.current = taskRequest.taskId;
-    acpRunLogSurfaceRef.current = "conversation";
-    setAcpRunLogSurface("conversation");
-    setAgentChatDockOpen(true);
-    setAcpRunLogDetail(null);
-    setAcpRunLogError(null);
-    setAcpRunLogRawOpen(false);
-    setAcpAgentTask({
-      taskId: taskRequest.taskId,
-      status: "connecting",
-      message: "正在连接 ACP Agent",
-      transcript: "",
-      events: [
-        createAcpAgentTimelineItem({
-          title: "正在连接 ACP Agent",
-        }),
-      ],
-      logPath: undefined,
-    });
-
-    await bridge.startAcpAgentTask(taskRequest);
-    setGenerateRequest((current) => ({
-      ...current,
-      prompt: "",
-      promptParts: [],
-      promptReferences: [],
-    }));
-  };
-
-  const handleSubmitAgentConversationMessage = async (message: string) => {
-    const selectionReferenceSignature = getSelectionReferenceSignature(
-      latestSceneRef.current,
-    );
-    const reference =
-      selectionReferenceSignature &&
-      removedSelectionReferenceSignatureRef.current === selectionReferenceSignature
-        ? null
-        : await buildSelectionReference({
-            scene: latestSceneRef.current,
-            includeImage: false,
-            imageRecords: currentProjectRef.current?.imageRecords || null,
-          });
-
-    const nextRequest = normalizeGenerationRequest(
-      {
-        ...generateRequest,
-        generationSource: "agent",
-        prompt: message,
-        promptParts: [],
-        promptReferences: [],
-        reference,
-      },
-      {
-        customModels:
-          providerSettings?.[generateRequest.provider]?.customModels ?? [],
-      },
-    );
-
-    await handleGenerateImages(nextRequest, false, { rejectOnError: true });
-  };
-
-  const handleOpenAcpRunLog = async (
-    taskId: string,
-    options: { openInConversationDock?: boolean } = {},
-  ) => {
-    const shouldUseConversationDock =
-      options.openInConversationDock === true &&
-      Boolean(currentProjectRef.current && initialData);
-    clearAcpRunLogRefreshTimer();
-    acpRunLogTaskIdRef.current = taskId;
-    acpRunLogSurfaceRef.current = shouldUseConversationDock
-      ? "conversation"
-      : "record";
-    setAcpRunLogSurface(shouldUseConversationDock ? "conversation" : "record");
-    setAppSettingsOpen(false);
-    setAcpRunLogDialogOpen(!shouldUseConversationDock);
-    setAgentChatDockOpen(shouldUseConversationDock);
-    setAcpRunLogDetail(null);
-    setAcpRunLogError(null);
-    setAcpRunLogRawOpen(false);
-    await refreshAcpRunLogDetailState(taskId, { showLoading: true });
-  };
-
-  const handleSelectAcpThread = async (threadId: string) => {
-    if (acpAgentTaskRunning) {
-      return;
-    }
-    if (!bridge?.readAcpAgentThread) {
-      setAcpRunLogError("当前环境不能读取 Agent 对话历史。");
-      return;
-    }
-    if (activeAcpThreadIdRef.current === threadId) {
-      setAgentChatDockOpen(true);
-      return;
-    }
-
-    setAcpThreadSummariesLoading(true);
-    setAcpRunLogError(null);
-    try {
-      const detail = await bridge.readAcpAgentThread(threadId);
-      applyAcpThreadDetail(detail);
-      setAgentChatDockOpen(true);
-    } catch (error) {
-      setAcpRunLogError(
-        getErrorText(error, "读取 Agent 对话历史失败。"),
-      );
-    } finally {
-      setAcpThreadSummariesLoading(false);
-    }
-  };
-
-  const handleStartNewAcpThread = () => {
-    if (acpAgentTaskRunning) {
-      return;
-    }
-    updateActiveAcpThreadId(null);
-    activeAcpTaskIdRef.current = null;
-    acpRunLogTaskIdRef.current = null;
-    acpRunLogSurfaceRef.current = "conversation";
-    setAcpRunLogSurface("conversation");
-    setAcpConversationEntries([]);
-    setAcpRunLogDetail(null);
-    setAcpRunLogError(null);
-    setAcpAgentTask(null);
-    setAgentChatDockOpen(true);
-  };
-
-  const handleGenerateImages = async (
-    request: GenerationRequest,
-    _keepOpen: boolean,
-    options: {
-      expectedProjectPath?: string;
-      placementViewport?: PlacementViewportContext | null;
-      referenceScene?: AppSceneSnapshot | null;
-      rejectOnError?: boolean;
-    } = {},
-  ) => {
-    const project = currentProjectRef.current;
-    if (!project) {
-      return;
-    }
-    assertExpectedAgentProjectActive(options.expectedProjectPath);
-
-    clearGenerationErrorState();
-    if (request.generationSource === "agent") {
-      try {
-        await handleStartAcpAgentGeneration(request);
-      } catch (error) {
-        showGenerationError(request, error, "ACP Agent 任务启动失败。");
-        if (options.rejectOnError) {
-          throw error;
-        }
-      }
-      return;
-    }
-
-    try {
-      setGenerationSource("builtin");
-      showDirectGenerationRecords();
-      const requestCustomModels =
-        providerSettings?.[request.provider]?.customModels ?? [];
-      const normalizedRequest = normalizeGenerationRequest(request, {
-        customModels: requestCustomModels,
-      });
-      let preparedRequest = normalizedRequest;
-      if (normalizedRequest.reference?.enabled) {
-        const sceneWithOriginalImageFiles =
-          await buildSceneWithOriginalImageFiles(
-            options.referenceScene ?? latestSceneRef.current,
-          );
-        assertExpectedAgentProjectActive(options.expectedProjectPath);
-        const reference = await buildSelectionReference({
-          scene: sceneWithOriginalImageFiles,
-          includeImage: true,
-          imageRecords: project.imageRecords,
-        });
-        assertExpectedAgentProjectActive(options.expectedProjectPath);
-        if (!reference?.image) {
-          throw new Error("当前没有可用的选区参考，请重新选中元素后再试。");
-        }
-        preparedRequest = {
-          ...normalizedRequest,
-          reference: {
-            ...reference,
-            enabled: true,
-          },
-        };
-      }
-
-      const startedAt = new Date().toISOString();
-      const pendingJob = insertGenerationPlaceholders(
-        preparedRequest,
-        startedAt,
-        {
-          expectedProjectPath: options.expectedProjectPath,
-          placementViewport: options.placementViewport,
-          referenceScene: options.referenceScene,
-          requireReady: Boolean(options.expectedProjectPath),
-        },
-      );
-      if (!pendingJob) {
-        throw new Error(copy.startup.generateFailed);
-      }
-
-      pendingGenerationJobsRef.current.set(pendingJob.jobId, pendingJob);
-      setPendingGenerationCount((count) => count + 1);
-      setGenerateRequest({
-        ...preparedRequest,
-        prompt: "",
-      });
-      void (async () => {
-        try {
-          const response = await desktopBridge.generateImages({
-            projectPath: project.projectPath,
-            request: preparedRequest,
-          });
-          if (!pendingGenerationJobsRef.current.has(pendingJob.jobId)) {
-            return;
-          }
-          await finishPendingGenerationJob(pendingJob, preparedRequest, response);
-        } catch (error: any) {
-          const errorDetails = showGenerationError(preparedRequest, error);
-          if (pendingGenerationJobsRef.current.has(pendingJob.jobId)) {
-            markPendingGenerationFailed(pendingJob, errorDetails);
-          }
-        } finally {
-          pendingGenerationJobsRef.current.delete(pendingJob.jobId);
-          setPendingGenerationCount((count) => Math.max(0, count - 1));
-          await loadProviderState();
-        }
-      })();
-    } catch (error: any) {
-      showGenerationError(
-        normalizeGenerationRequest(request, {
-          customModels: providerSettings?.[request.provider]?.customModels ?? [],
-        }),
-        error,
-      );
-      if (options.rejectOnError) {
-        throw error;
-      }
-    }
-  };
-
-  const handleAgentDesktopBridgeRequest = async (payload: unknown) => {
-    if (
-      !isObjectPayload(payload) ||
-      !isAgentDesktopBridgeMethod(payload.method)
-    ) {
-      throw createAgentBadRequestError("desktop.bridge method 不受支持。");
-    }
-
-    const args = payload.args;
-    if (args !== undefined && !Array.isArray(args)) {
-      throw createAgentBadRequestError("desktop.bridge args 必须是数组。");
-    }
-
-    if (payload.method === "openRecentProject") {
-      const [projectPath] = args ?? [];
-      const project = currentProjectRef.current;
-      if (
-        typeof projectPath === "string" &&
-        project?.projectPath === projectPath
-      ) {
-        const scene = latestSceneRef.current;
-        return {
-          ...project,
-          sceneJson: scene
-            ? serializeSceneForProject({
-                elements: scene.elements,
-                appState: scene.appState,
-              })
-            : project.sceneJson,
-        };
-      }
-    }
-
-    const bridgeMethod = desktopBridge[payload.method];
-    if (typeof bridgeMethod !== "function") {
-      throw createAgentBadRequestError("desktop.bridge method 不可用。");
-    }
-
-    return (bridgeMethod as (...methodArgs: unknown[]) => unknown)(
-      ...(args ?? []),
-    );
-  };
-
-  useEffect(() => {
-    if (!bridge?.onAgentCommandRequest) {
-      return;
-    }
-
-    return bridge.onAgentCommandRequest(async (request) => {
-      if (request.command === "desktop.bridge") {
-        return handleAgentDesktopBridgeRequest(request.payload);
-      }
-
-      if (request.command === "task.complete") {
-        return { completed: true };
-      }
-
-      const project = currentProjectRef.current;
-      if (!project) {
-        throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
-          code: "PROJECT_REQUIRED" as const,
-        });
-      }
-
-      switch (request.command) {
-        case "agent.context": {
-          const scene = latestSceneRef.current;
-          const selectionReference = buildSelectionReferenceSummary(scene);
-          const projectContext = buildAgentProjectContext(
-            project,
-            providerSettings,
-            {
-              generationSource,
-            },
-          );
-          return {
-            ...projectContext,
-            scene: buildAgentSceneSnapshot(scene, project.imageRecords),
-            selection: buildAgentSelectionContext(selectionReference),
-            providers: projectContext.providers,
-          };
-        }
-        case "project.current":
-          return {
-            projectPath: project.projectPath,
-            name: project.project.name,
-            updatedAt: project.project.updatedAt,
-          };
-        case "project.records":
-          return buildAgentProjectRecords({
-            project,
-            scene: latestSceneRef.current,
-          });
-        case "project.health": {
-          if (!desktopBridge.inspectProjectHealth) {
-            throw new Error("当前环境不能检查项目健康度。");
-          }
-          return desktopBridge.inspectProjectHealth({
-            projectPath: project.projectPath,
-          });
-        }
-        case "acp.runs": {
-          if (!desktopBridge.listAcpAgentRunLogs) {
-            throw new Error("当前环境不能读取 ACP Agent 任务记录。");
-          }
-          return desktopBridge.listAcpAgentRunLogs({ limit: 50 });
-        }
-        case "acp.run": {
-          assertAgentProjectPath(request.payload, project.projectPath);
-          if (!desktopBridge.readAcpAgentRunLog) {
-            throw new Error("当前环境不能读取 ACP Agent 任务记录。");
-          }
-          if (
-            !isObjectPayload(request.payload) ||
-            typeof request.payload.taskId !== "string" ||
-            !request.payload.taskId.trim()
-          ) {
-            throw createAgentBadRequestError("acp.run 需要非空 taskId。");
-          }
-          return desktopBridge.readAcpAgentRunLog(request.payload.taskId);
-        }
-        case "acp.threads": {
-          if (!desktopBridge.listAcpAgentThreads) {
-            throw new Error("当前环境不能读取 ACP Agent 对话记录。");
-          }
-          return desktopBridge.listAcpAgentThreads({
-            projectToken: project.project.agentAccess.token,
-            limit: 50,
-          });
-        }
-        case "acp.thread": {
-          assertAgentProjectPath(request.payload, project.projectPath);
-          if (!desktopBridge.readAcpAgentThread) {
-            throw new Error("当前环境不能读取 ACP Agent 对话记录。");
-          }
-          if (
-            !isObjectPayload(request.payload) ||
-            typeof request.payload.threadId !== "string" ||
-            !request.payload.threadId.trim()
-          ) {
-            throw createAgentBadRequestError("acp.thread 需要非空 threadId。");
-          }
-          return desktopBridge.readAcpAgentThread(request.payload.threadId);
-        }
-        case "scene.board": {
-          const scene = latestSceneRef.current;
-          const fileIds = collectAgentImageFileIds(scene?.elements ?? []);
-          const assetPayloads = await readProjectImageAssets(
-            project,
-            fileIds,
-            "preview",
-          );
-          return buildAgentSceneBoard({
-            project,
-            scene,
-            imageRecords: project.imageRecords,
-            assetPayloads,
-            updatedAt: new Date().toISOString(),
-          });
-        }
-        case "scene.snapshot": {
-          const scene = latestSceneRef.current;
-          const sceneJson = scene
-            ? serializeSceneForProject({
-                elements: scene.elements,
-                appState: scene.appState,
-              })
-            : undefined;
-          return buildAgentSceneSnapshot(
-            scene,
-            project.imageRecords,
-            sceneJson,
-          );
-        }
-        case "scene.selection":
-          return buildAgentSelectionContext(
-            buildSelectionReferenceSummary(latestSceneRef.current),
-          );
-        case "scene.imagePaths": {
-          const payload = parseAgentImagePathPayload(request.payload);
-          return buildAgentImagePathList({
-            projectPath: project.projectPath,
-            scene: latestSceneRef.current,
-            imageRecords: project.imageRecords,
-            ...payload,
-          });
-        }
-        case "scene.locate": {
-          assertAgentProjectPath(request.payload, project.projectPath);
-          const api = excalidrawAPIRef.current;
-          if (!api) {
-            throw new Error("CoreStudio 画板还没有准备好。");
-          }
-          const payload = parseAgentLocatePayload(request.payload);
-          const targetElement = api
-            .getSceneElementsIncludingDeleted()
-            .find((element) => {
-              if (element.isDeleted) {
-                return false;
-              }
-              if (payload.elementId && element.id === payload.elementId) {
-                return true;
-              }
-              return (
-                Boolean(payload.fileId) &&
-                element.type === "image" &&
-                element.fileId === payload.fileId
-              );
-            });
-          if (!targetElement) {
-            return {
-              located: false,
-              elementIds: [],
-              fileIds: payload.fileId ? [payload.fileId] : [],
-            };
-          }
-          api.updateScene({
-            appState: {
-              selectedElementIds: {
-                [targetElement.id]: true,
-              },
-              selectedGroupIds: {},
-            },
-            captureUpdate: CaptureUpdateAction.NEVER,
-          });
-          api.scrollToContent(targetElement, {
-            animate: true,
-            duration: 300,
-          });
-          return {
-            located: true,
-            elementIds: [targetElement.id],
-            fileIds:
-              targetElement.type === "image" && targetElement.fileId
-                ? [targetElement.fileId]
-                : [],
-          };
-        }
-        case "scene.select": {
-          assertAgentProjectPath(request.payload, project.projectPath);
-          const api = excalidrawAPIRef.current;
-          if (!api) {
-            throw new Error("CoreStudio 画板还没有准备好。");
-          }
-          const payload = parseAgentSelectPayload(request.payload);
-          const elementIdSet = new Set(payload.elementIds);
-          const fileIdSet = new Set(payload.fileIds);
-          const targetElements = api
-            .getSceneElementsIncludingDeleted()
-            .filter((element) => {
-              if (element.isDeleted) {
-                return false;
-              }
-              if (elementIdSet.has(element.id)) {
-                return true;
-              }
-              return (
-                element.type === "image" &&
-                element.fileId &&
-                fileIdSet.has(element.fileId)
-              );
-            });
-          api.updateScene({
-            appState: {
-              selectedElementIds: Object.fromEntries(
-                targetElements.map((element) => [element.id, true]),
-              ),
-              selectedGroupIds: {},
-            },
-            captureUpdate: CaptureUpdateAction.NEVER,
-          });
-          return {
-            selected: targetElements.length > 0,
-            elementIds: targetElements.map((element) => element.id),
-            fileIds: targetElements
-              .flatMap((element) =>
-                element.type === "image" && element.fileId
-                  ? [element.fileId]
-                  : [],
-              ),
-          };
-        }
-        case "scene.addImage": {
-          assertAgentProjectPath(request.payload, project.projectPath);
-          if (!excalidrawAPIRef.current) {
-            throw new Error("CoreStudio 画板还没有准备好。");
-          }
-          const agentBoardContext = parseAgentBoardCommandContext(
-            request.payload,
-          );
-          const files = getAgentImageAssetsFromPayload(
-            request.payload,
-            agentBoardContext,
-          );
-          const persistedImageRecords = await desktopBridge.persistImageAssets({
-            projectPath: project.projectPath,
-            files,
-          });
-          const nextImageRecords = mergePersistedImageRecords(
-            currentProjectRef.current?.projectPath === project.projectPath
-              ? currentProjectRef.current.imageRecords
-              : project.imageRecords,
-            persistedImageRecords,
-          );
-          await insertAssetsIntoScene(files, nextImageRecords, {
-            expectedProjectPath: project.projectPath,
-            placementViewport:
-              getPlacementViewportFromAgentBoardContext(agentBoardContext),
-            requireReady: true,
-          });
-          return {
-            inserted: true,
-            fileIds: files.map((file) => file.fileId),
-          };
-        }
-        case "scene.addPrompt": {
-          assertAgentProjectPath(request.payload, project.projectPath);
-          if (
-            !isObjectPayload(request.payload) ||
-            typeof request.payload.text !== "string" ||
-            !request.payload.text.trim()
-          ) {
-            throw createAgentBadRequestError("scene.addPrompt 需要非空 text。");
-          }
-
-          const api = excalidrawAPIRef.current;
-          if (!api) {
-            throw new Error("CoreStudio 画板还没有准备好。");
-          }
-
-          const agentBoardContext = parseAgentBoardCommandContext(
-            request.payload,
-          );
-          const placementViewport =
-            getPlacementViewportFromAgentBoardContext(agentBoardContext);
-          const appState = api.getAppState();
-          const anchorPoint = parseAgentAnchorPoint(
-            request.payload.anchorPoint,
-          );
-          const element = createAgentPromptTextElement({
-            text: request.payload.text,
-            anchorPoint,
-            viewportCenter:
-              placementViewport?.viewportCenter ??
-              getViewportCenterFromAppState(appState),
-          });
-
-          api.updateScene({
-            elements: appendElementsWithSyncedIndices(
-              api.getSceneElementsIncludingDeleted(),
-              [element],
-            ),
-            appState: {
-              selectedElementIds: {
-                [element.id]: true,
-              },
-              selectedGroupIds: {},
-            },
-            captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-          });
-          await flushPendingAutosave({ strict: true });
-
-          return {
-            inserted: true,
-            elementIds: [element.id],
-          };
-        }
-        case "generate": {
-          assertAgentProjectPath(request.payload, project.projectPath);
-          if (
-            !isObjectPayload(request.payload) ||
-            typeof request.payload.prompt !== "string" ||
-            !request.payload.prompt.trim()
-          ) {
-            throw createAgentBadRequestError("generate 需要非空 prompt。");
-          }
-
-          const agentBoardContext = parseAgentBoardCommandContext(
-            request.payload,
-          );
-          const agentBoardSelectionScene = buildSceneWithSelectedElementIds(
-            latestSceneRef.current,
-            getAgentBoardSelectedElementIds(agentBoardContext),
-          );
-          const referenceScene =
-            agentBoardSelectionScene ?? latestSceneRef.current;
-          if (
-            request.payload.useSelection === true &&
-            !buildSelectionReferenceSummary(referenceScene)
-          ) {
-            throw createAgentBadRequestError(
-              "当前没有可用的选区参考，请先选中元素后再试。",
-            );
-          }
-
-          const generationRequest = createAgentGenerationRequest({
-            baseRequest: generateRequest,
-            prompt: request.payload.prompt,
-            useSelection: request.payload.useSelection === true,
-            providerSettings,
-          });
-          await handleGenerateImages({
-            ...generationRequest,
-            generationSource: "builtin",
-          }, false, {
-            expectedProjectPath: project.projectPath,
-            placementViewport:
-              getPlacementViewportFromAgentBoardContext(agentBoardContext),
-            referenceScene:
-              request.payload.useSelection === true ? referenceScene : null,
-            rejectOnError: true,
-          });
-          return { accepted: true };
-        }
-        default:
-          throw new Error(`不支持的 Agent command: ${request.command}`);
-      }
-    });
-  }, [
-    bridge,
-    desktopBridge,
-    generateRequest,
-    generationSource,
-    handleGenerateImages,
-    insertAssetsIntoScene,
-    providerSettings,
-  ]);
-
-  const handleCopyGenerationErrorDetails = async () => {
-    if (!generationErrorDetails) {
-      return;
-    }
-
-    const copied = await copyTextToClipboardWithFallback(
-      formatGenerationErrorDebugText(generationErrorDetails),
-    );
-    if (copied) {
-      setGenerationErrorCopied(true);
-    }
-  };
-
-  const openGenerateDialog = async (nextRequest?: Partial<GenerationRequest>) => {
-    const selectionReferenceSignature = getSelectionReferenceSignature(
-      latestSceneRef.current,
-    );
-    if (
-      removedSelectionReferenceSignatureRef.current &&
-      removedSelectionReferenceSignatureRef.current !== selectionReferenceSignature
-    ) {
-      removedSelectionReferenceSignatureRef.current = null;
-    }
-    const reference =
-      selectionReferenceSignature &&
-      removedSelectionReferenceSignatureRef.current === selectionReferenceSignature
-        ? null
-        : await buildSelectionReference({
-            scene: latestSceneRef.current,
-            includeImage: false,
-            imageRecords: currentProjectRef.current?.imageRecords || null,
-          });
-
-    setGenerationError(null);
-    setGenerateRequest((current) => {
-      const mergedRequest = {
-        ...current,
-        ...nextRequest,
-        reference,
-      };
-      return normalizeGenerationRequest(mergedRequest, {
-        customModels: providerSettings?.[mergedRequest.provider]?.customModels ?? [],
-      });
-    });
-    setGenerateFocusToken((current) => current + 1);
-  };
-
-  const handleRemoveGenerateReference = () => {
-    removedSelectionReferenceSignatureRef.current = getSelectionReferenceSignature(
-      latestSceneRef.current,
-    );
-    setGenerateRequest((current) =>
-      normalizeGenerationRequest(
-        {
-          ...current,
-          reference: null,
-        },
-        {
-          customModels: providerSettings?.[current.provider]?.customModels ?? [],
-        },
-      ),
-    );
-  };
-
-  const handleCommitGenerateReference = () =>
-    buildSceneWithOriginalImageFiles(latestSceneRef.current).then((scene) =>
-      buildSelectionReference({
-        scene,
-        includeImage: true,
-        imageRecords: currentProjectRef.current?.imageRecords || null,
       }),
-    );
-
-  const handleSaveProviderSettings = async (
-    input: Parameters<typeof desktopBridge.saveProviderSettings>[0],
-  ) => {
-    setSavingProviders(true);
-    try {
-      const nextSettings = await desktopBridge.saveProviderSettings(input);
-      setProviderSettings(nextSettings);
-    } finally {
-      setSavingProviders(false);
-    }
-  };
-
-  const handleAcpAgentPresetDraftChange = (presetId: AcpAgentPresetId) => {
-    setAcpAgentPresetDraft(presetId);
-    const preset = getAcpAgentPreset(presetId);
-    if (!preset) {
-      return;
-    }
-    setAcpAgentCommandDraft(preset.command);
-    setAcpAgentArgsDraft(formatAcpAgentArgs(preset.args));
-    setAcpAgentCwdDraft(preset.cwd ?? "");
-  };
-
-  const handleSaveAcpAgentSettings = async () => {
-    if (!bridge?.saveAcpAgentSettings) {
-      setProjectError("当前环境不能保存 ACP Agent 设置。");
-      return;
-    }
-
-    const command = acpAgentCommandDraft.trim();
-    const preset = getAcpAgentPreset(acpAgentPresetDraft);
-    const nextSettings: AcpAgentSettings = {
-      enabled: Boolean(acpAgentEnabledDraft && command),
-      defaultAgentId: command ? "default" : null,
-      taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
-        acpTaskInstructionDraft,
-      ),
-      agents: command
-        ? [
-            {
-              id: "default",
-              ...(preset ? { presetId: preset.id } : {}),
-              name: getAcpAgentDraftName(acpAgentPresetDraft),
-              command,
-              args: parseAcpAgentArgs(acpAgentArgsDraft),
-              cwd: acpAgentCwdDraft.trim() || null,
-            },
-          ]
-        : [],
-    };
-
-    setSavingAcpAgentSettings(true);
-    try {
-      const savedSettings = await bridge.saveAcpAgentSettings(nextSettings);
-      setAcpAgentSettings(savedSettings);
-      syncAcpAgentDraftFromSettings(savedSettings);
-    } catch (error) {
-      setProjectError(getErrorText(error, "ACP Agent 设置保存失败。"));
-    } finally {
-      setSavingAcpAgentSettings(false);
-    }
-  };
-
-  const handleSavePrompt = async (input: SavePromptInput) => {
-    setSavedPrompts(await desktopBridge.savePrompt(input));
-  };
-
-  const handleUsePrompt = async (id: string) => {
-    setSavedPrompts(await desktopBridge.markSavedPromptUsed(id));
-  };
-
-  const handleDeletePrompt = async (id: string) => {
-    setSavedPrompts(await desktopBridge.deleteSavedPrompt(id));
-  };
-
-  const handleGenerateRequestChange = (request: GenerationRequest) => {
-    if (request.generationSource) {
-      setGenerationSource(request.generationSource);
-      if (request.generationSource === "builtin") {
-        showDirectGenerationRecords();
-      }
-    }
-    setGenerateRequest(
-      normalizeGenerationRequest(request, {
-        customModels: providerSettings?.[request.provider]?.customModels ?? [],
-      }),
-    );
-  };
-
-  const handleRememberGenerationModelSelection = (
-    selection: GenerationModelSelection,
-  ) => {
-    generationModelSelectionLockedRef.current = true;
-    rememberedGenerationModelSelectionRef.current = selection;
-    rememberGenerationModelSelection(selection);
-  };
-
-  const handleCopyPrompt = async () => {
-    if (!selectedRecord?.prompt) {
-      return;
-    }
-    await copyTextToClipboardWithFallback(selectedRecord.prompt);
-  };
-
-  const handleCopyAgentBoardUrl = async () => {
-    const nextStatus = (await loadAgentBridgeStatus()) ?? agentBridgeStatus;
-    if (!nextStatus?.boardUrl) {
-      setProjectError("Agent Board 链接尚未就绪。");
-      return;
-    }
-
-    if (await copyTextToClipboardWithFallback(nextStatus.boardUrl)) {
-      showProjectNotice("Agent Board 链接已复制。");
-    }
-  };
-
-  const handleSetAgentBridgeEnabled = async (enabled: boolean) => {
-    if (!bridge?.setAgentBridgeEnabled) {
-      setProjectError("请在 CoreStudio 桌面端开启或关闭 Agent 连接。");
-      return;
-    }
-
-    notifyDesktopProjectState(currentProjectRef.current);
-    try {
-      const nextStatus = await bridge.setAgentBridgeEnabled(enabled);
-      setAgentBridgeStatus(nextStatus);
-      if (nextStatus.currentProject && currentProjectRef.current) {
-        updateCurrentProject({
-          ...currentProjectRef.current,
-          project: {
-            ...currentProjectRef.current.project,
-            agentAccess: nextStatus.currentProject.agentAccess,
-          },
-        });
-      }
-    } catch (error) {
-      setProjectError(
-        error instanceof Error ? error.message : "Agent 连接状态切换失败。",
-      );
-    }
-  };
-
-  const handleGenerationSourceChange = (source: GenerationSource) => {
-    setGenerationSource(source);
-    if (source === "builtin") {
-      showDirectGenerationRecords();
-    }
-    setGenerateRequest((current) => ({
-      ...current,
-      generationSource: source,
-    }));
-  };
-
-  const handleCopyTaskError = async () => {
-    if (!selectedTask || selectedTask.status !== "error") {
-      return;
-    }
-
-    await copyTextToClipboardWithFallback(
-      formatGenerationErrorDebugText({
-        provider: selectedTask.provider,
-        model: selectedTask.model,
-        occurredAt: selectedTask.startedAt,
-        normalizedMessage:
-          selectedTask.errorMessage || copy.startup.generateFailed,
-        rawMessage:
-          selectedTask.rawError ||
-          selectedTask.errorMessage ||
-          copy.startup.generateFailed,
-        stack: selectedTask.stack || null,
-        requestPayload: null,
-      }),
-    );
-  };
-
-  const handleLocateImageRecord = (fileId: string) => {
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return;
-    }
-
-    const locateElement = (targetFileId: string) => {
-      const activeApi = excalidrawAPIRef.current;
-      if (!activeApi) {
-        return false;
-      }
-      const targetElement = activeApi
-        .getSceneElementsIncludingDeleted()
-        .find(
-          (element) =>
-            !element.isDeleted &&
-            element.type === "image" &&
-            element.fileId === targetFileId,
-        );
-
-      if (!targetElement) {
-        return false;
-      }
-
-      activeApi.updateScene({
-        appState: {
-          selectedElementIds: {
-            [targetElement.id]: true,
-          },
-          selectedGroupIds: {},
-        },
-        captureUpdate: CaptureUpdateAction.NEVER,
-      });
-      activeApi.scrollToContent(targetElement, {
-        animate: true,
-        duration: 300,
-      });
-      return true;
-    };
-
-    if (locateElement(fileId)) {
-      setProjectError(null);
-      clearProjectNotice();
-      return;
-    }
-
-    const imageRecords = currentProjectRef.current?.imageRecords;
-    const referencingRecord = Object.values(imageRecords ?? {}).find((record) =>
-      record.promptReferences?.some((reference) =>
-        reference.fileIds?.includes(fileId),
-      ),
-    );
-
-    if (referencingRecord && locateElement(referencingRecord.fileId)) {
-      setProjectError(null);
-      showProjectNotice(
-        "这条生成记录是后续结果的参考图，已定位到引用它的画板图片。",
-      );
-      return;
-    }
-
-    setProjectError(null);
-    showProjectNotice(
-      "这条生成记录没有对应的画板图片，可以先运行项目数据修复。",
-    );
-  };
-
-  const handleLocatePromptReference = (
-    reference: ImagePromptReferenceRecord,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return;
-    }
-
-    const elements = api
-      .getSceneElementsIncludingDeleted()
-      .filter((element) => !element.isDeleted);
-    const elementIds = new Set(reference.elementIds || []);
-    const fileIds = new Set(reference.fileIds || []);
-    const targetElements = elements.filter((element) => {
-      if (elementIds.has(element.id)) {
-        return true;
-      }
-
-      return (
-        element.type === "image" &&
-        element.fileId &&
-        fileIds.has(element.fileId)
-      );
+      formatError: formatProjectImportImagesError,
+      setProjectError,
     });
 
-    if (!targetElements.length) {
-      return;
-    }
-
-    api.updateScene({
-      appState: {
-        selectedElementIds: Object.fromEntries(
-          targetElements.map((element) => [element.id, true]),
-        ),
-        selectedGroupIds: {},
-      },
-      captureUpdate: CaptureUpdateAction.NEVER,
-    });
-    api.scrollToContent(targetElements, {
-      animate: true,
-      duration: 300,
-    });
-  };
-
-  const handleEditorReady = (
-    api: ExcalidrawImperativeAPI | null,
-    renderNonce: number,
-  ) => {
-    if (renderNonce !== projectRenderNonceRef.current) {
-      return;
-    }
-
-    if (api) {
-      excalidrawAPIRef.current = api;
-      flushQueuedImageFilesToCanvas();
-      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-    }
-
-    const clearInitializing = () => {
-      updateEditorInitializing(false, renderNonce);
-    };
-
-    if (typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(clearInitializing);
-      return;
-    }
-
-    window.setTimeout(clearInitializing, 0);
-  };
-
-  useDesktopMenuEvents((event) => {
-    switch (event.action) {
-      case "new-project":
-        void handleCreateProject();
-        break;
-      case "open-project":
-        void handleOpenProject();
-        break;
-      case "open-recent-project":
-        if (event.projectPath) {
-          void handleOpenRecentProject(event.projectPath);
-        }
-        break;
-      case "project-opened":
-        if (event.projectBundle) {
-          if (
-            event.openRequestId !== undefined &&
-            event.openRequestId < latestMenuProjectOpenRequestIdRef.current
-          ) {
-            break;
-          }
-          if (event.openRequestId !== undefined) {
-            latestMenuProjectOpenRequestIdRef.current = event.openRequestId;
-          }
-          const sequence = beginProjectOpen();
-          void openProjectBundle(event.projectBundle, sequence);
-        }
-        break;
-      case "project-open-failed":
-        if (
-          event.openRequestId !== undefined &&
-          event.openRequestId < latestMenuProjectOpenRequestIdRef.current
-        ) {
-          break;
-        }
-        if (event.openRequestId !== undefined) {
-          latestMenuProjectOpenRequestIdRef.current = event.openRequestId;
-        }
-        setProjectError(event.errorMessage || copy.startup.openProjectFailed);
-        clearProjectNotice();
-        break;
-      case "repair-project-thumbnails":
-        void handleRepairProjectThumbnails();
-        break;
-      case "inspect-project-health":
-        void handleInspectProjectHealth();
-        break;
-      case "clean-project-cache":
-        void handleCleanProjectCache();
-        break;
-      case "import-images":
-        void handleImportImages();
-        break;
-      case "generate-image":
-        void openGenerateDialog();
-        break;
-      case "provider-settings":
-        setProviderSettingsFocusToken((current) => current + 1);
-        break;
-      case "app-settings":
-        setAppSettingsOpen(true);
-        break;
-      case "set-agent-bridge-enabled":
-        void handleSetAgentBridgeEnabled(event.enabled === true);
-        break;
-      case "reveal-project":
-        void handleRevealProject();
-        break;
-      case "show-about":
-        setAboutOpen(true);
-        break;
-      default:
-        break;
-    }
+  const acpTaskStartRendererActions = createAcpTaskStartRendererActions({
+    getProject: () => currentProjectRef.current,
+    getRuntime: () => agentIntegrationRuntime,
+    getActiveThreadId: getActiveAcpThreadId,
+    getStatus: () => agentBridgeStatus,
+    getPageUrl: () => window.location.href,
+    getBridge: () => bridge,
+    setActiveTaskId: acpActiveTaskIdRendererActions.set,
+    setActiveThreadId: acpActiveThreadIdRendererActions.set,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    setChatDockOpen: setAgentChatDockOpen,
+    setRunLogDetail: setAcpRunLogDetail,
+    setRunLogError: setAcpRunLogError,
+    setRunLogRawOpen: setAcpRunLogRawOpen,
+    setAgentTask: setAcpAgentTask,
+    setGenerateRequest,
   });
 
-  const renderAcpRunLogDialog = () =>
-    acpRunLogDialogOpen ? (
-      <div className="dialog-backdrop">
-        <div
-          className="dialog-card dialog-card--wide acp-run-log-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="acp-run-log-title"
-        >
-          <div className="dialog-card__header">
-            <div>
-              <span className="dialog-card__eyebrow">ACP Agent</span>
-              <h2 id="acp-run-log-title">Agent 任务记录</h2>
-            </div>
-            <DesktopButton
-              type="button"
-              className="dialog-card__close"
-              onClick={closeAcpRunLogDialog}
-            >
-              关闭
-            </DesktopButton>
-          </div>
+  const generationSubmitRendererActions =
+    createGenerationSubmitRendererActions<
+      PlacementViewportContext,
+      AppSceneSnapshot
+    >({
+      getProject: () => currentProjectRef.current,
+      getProviderSettings: () => providerSettings,
+      clearGenerationError: generationErrorRendererActions.clear,
+      assertProjectActive:
+        activeAgentProjectPathRendererActions.assertActiveProject,
+      startAcpAgentGeneration: acpTaskStartRendererActions.start,
+      startBuiltinGeneration: (request, project, options) =>
+        runBuiltinGenerationRendererAction({
+          request,
+          project,
+          providerSettings,
+          sourceScene: options.referenceScene ?? latestSceneRef.current,
+          referenceScene: options.referenceScene ?? null,
+          expectedProjectPath: options.expectedProjectPath,
+          placementViewport: options.placementViewport,
+          startupGenerateFailedMessage: copy.startup.generateFailed,
+          loadOriginalScene: selectionReferenceOriginalSceneActions.load,
+          assertProjectActive: () =>
+            activeAgentProjectPathRendererActions.assertActiveProject(
+              options.expectedProjectPath,
+            ),
+          setGenerationSource,
+          showDirectGenerationRecords:
+            acpRunLogRendererActions.showDirectGenerationRecords,
+          setGenerateRequest,
+          insertPlaceholders: (
+            preparedRequest,
+            startedAt,
+            placeholderOptions,
+          ) =>
+            pendingGenerationCanvasRendererActions.insertPlaceholders(
+              preparedRequest,
+              startedAt,
+              {
+                ...placeholderOptions,
+                referenceScene: placeholderOptions.referenceScene ?? undefined,
+              },
+            ),
+          getGenerationJobs: () => pendingGenerationJobsRef.current,
+          applyRegistryState: (state) =>
+            applyPendingGenerationJobRegistryState({
+              state,
+              setPendingJobs: (pendingJobs) => {
+                pendingGenerationJobsRef.current = pendingJobs;
+              },
+              setPendingCount: setPendingGenerationCount,
+            }),
+          generateImages: desktopBridge.generateImages,
+          finishPendingJob:
+            builtinGenerationJobCompletionRendererActions.finishPendingJob,
+          markPendingGenerationFailed:
+            pendingGenerationCanvasRendererActions.markFailed,
+          showGenerationError: generationErrorRendererActions.display,
+          loadProviderState: desktopStartupRendererActions.loadProvider,
+        }),
+      showGenerationError: generationErrorRendererActions.display,
+    });
 
-          {acpRunLogLoading ? (
-            <div className="dialog-card__notice">正在读取任务记录…</div>
-          ) : null}
+  const acpConversationMessageRendererActions =
+    createAcpConversationMessageRendererActions({
+      getCurrentRequest: () => generateRequest,
+      getProviderSettings: () => providerSettings,
+      getScene: () => latestSceneRef.current,
+      getImageRecords: () => currentProjectRef.current?.imageRecords || null,
+      getRemovedSelectionReferenceSignature: () =>
+        removedSelectionReferenceSignatureRef.current,
+      submitGenerationRequest: async (nextRequest) => {
+        await generationSubmitRendererActions.submit(nextRequest, false, {
+          rejectOnError: true,
+        });
+      },
+    });
 
-          {acpRunLogError ? (
-            <div className="dialog-card__error">{acpRunLogError}</div>
-          ) : null}
+  const desktopMenuEventRendererActions =
+    createDesktopMenuEventRendererActions({
+      getLatestOpenRequestId: () => latestMenuProjectOpenRequestIdRef.current,
+      setLatestOpenRequestId: (requestId) => {
+        latestMenuProjectOpenRequestIdRef.current = requestId;
+      },
+      projectOpenFailedFallbackMessage: copy.startup.openProjectFailed,
+      setProjectError,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+      createProject: currentProjectEntryRendererActions.createProject,
+      openProject: currentProjectEntryRendererActions.openProject,
+      openRecentProject: currentProjectEntryRendererActions.openRecentProject,
+      beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+      openProjectBundle,
+      repairProjectThumbnails: projectMaintenanceRendererActions.repair,
+      inspectProjectHealth: projectMaintenanceRendererActions.inspectHealth,
+      cleanProjectCache: projectMaintenanceRendererActions.cleanCache,
+      importImages: projectImageImportRendererActions.importImages,
+      openGenerateDialog: generateDialogReferenceRendererActions.open,
+      focusProviderSettings: () =>
+        setProviderSettingsFocusToken((current) => current + 1),
+      openAppSettings: () => setAppSettingsOpen(true),
+      setAgentBridgeEnabled: agentBridgeStatusRendererActions.setEnabled,
+      revealProject: currentProjectEntryRendererActions.revealProject,
+      showAbout: () => setAboutOpen(true),
+    });
 
-          {acpRunLogDetail
-            ? (() => {
-                return (
-                  <>
-                    <div className="acp-run-log-dialog__summary">
-                      <div>
-                        <span>任务</span>
-                        <strong>{acpRunLogDetail.summary.taskId}</strong>
-                      </div>
-                      <div>
-                        <span>Agent</span>
-                        <strong>{acpRunLogDetail.summary.agentName}</strong>
-                      </div>
-                      <div>
-                        <span>状态</span>
-                        <strong>
-                          {getAcpRunStatusLabel(acpRunLogDetail.summary.status)}
-                        </strong>
-                      </div>
-                      <div>
-                        <span>项目</span>
-                        <strong>{acpRunLogDetail.summary.projectName}</strong>
-                      </div>
-                    </div>
+  const agentCommandRequestSubscriptionRendererActions =
+    createAgentCommandRequestSubscriptionRendererActions({
+      bridge,
+      desktopBridge,
+      getProject: () => currentProjectRef.current,
+      getScene: () => latestSceneRef.current,
+      serializeScene: serializeSceneForProject,
+      getExcalidrawAPI: () => excalidrawAPIRef.current,
+      providerSettings,
+      generationSource,
+      generateRequest,
+      readProjectImageAssets,
+      insertAssetsIntoScene:
+        generatedImageSceneInsertRendererActions.insertAssets,
+      flushPendingAutosave,
+      generateImages: async (request, keepOpen, options) => {
+        await generationSubmitRendererActions.submit(
+          request,
+          keepOpen,
+          options,
+        );
+      },
+      handleDesktopBridgeRequest: handleAgentDesktopBridgeRequest,
+      handleCommandRequest: handleAgentCommandRequest,
+    });
 
-                    <div className="acp-run-log-dialog__chat-actions">
-                      <DesktopButton
-                        type="button"
-                        onClick={() =>
-                          setAcpRunLogRawOpen((current) => !current)
-                        }
-                        aria-expanded={acpRunLogRawOpen}
-                      >
-                        {acpRunLogRawOpen
-                          ? "隐藏协议 JSON"
-                          : "显示协议 JSON"}
-                      </DesktopButton>
-                    </div>
+  const acpTaskEventSubscriptionRendererActions =
+    createAcpTaskEventSubscriptionRendererActions({
+      bridge,
+      getActiveTaskId: getActiveAcpTaskId,
+      getOpenRunLogTaskId: getAcpRunLogTaskId,
+      getProjectToken: () => getProjectAgentAccessToken(currentProjectRef.current),
+      getAppSettingsOpen: () => appSettingsOpen,
+      getAcpDebugOpen: () => acpDebugOpen,
+      historyRefreshDelay: ACP_RUN_HISTORY_REFRESH_DELAY_MS,
+      updateTaskState: setAcpAgentTask,
+      clearActiveTask: () => acpActiveTaskIdRendererActions.set(null),
+      scheduleTimeout: (callback, delay) => window.setTimeout(callback, delay),
+      refreshThreadSummaries: loadAcpThreadSummariesState,
+      refreshRunSummaries: loadAcpRunSummariesState,
+      refreshOpenRunLog: (taskId, delay = ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS) =>
+        acpRunLogRendererActions.scheduleLiveRefresh(taskId, delay),
+    });
 
-                    <AgentRunChatLog
-                      entries={acpRunLogDetail.entries}
-                      includeRawEntries={acpRunLogRawOpen}
-                    />
-                  </>
-                );
-              })()
-            : null}
-        </div>
-      </div>
-    ) : null;
+  useEffect(() => agentCommandRequestSubscriptionRendererActions.start(), [
+    bridge,
+    desktopBridge,
+    flushPendingAutosave,
+    generateRequest,
+    generationSource,
+    generationSubmitRendererActions.submit,
+    generatedImageSceneInsertRendererActions.insertAssets,
+    providerSettings,
+    readProjectImageAssets,
+  ]);
+  useDesktopMenuEvents(desktopMenuEventRendererActions.handle);
 
-  const renderProjectHealthReportDialog = () => {
-    if (!projectHealthReportOpen || !projectHealthReport) {
-      return null;
-    }
+  const globalDialogs = (
+    <AppGlobalDialogs
+      about={{
+        open: aboutOpen,
+        appInfo,
+        onClose: () => setAboutOpen(false),
+      }}
+      agentSettings={{
+        open: appSettingsOpen,
+        integration: agentIntegration,
+        canToggleIntegration:
+          canSetAgentBridgeEnabled(bridge) && !isAgentBrowserRoute,
+        currentProjectPath: currentProject?.projectPath ?? null,
+        bridgeProjectPath: agentBridgeStatus?.currentProject?.projectPath ?? null,
+        acpAgentDraft: acpAgentSettingsDraft,
+        selectedAcpAgent,
+        acpAgentEditable: acpAgentSettingsEditable,
+        acpAgentSaving: savingAcpAgentSettings,
+        acpDebugOpen,
+        acpRunSummaries,
+        acpRunSummariesLoading,
+        acpRunSummariesError,
+        canReadAcpRunLogs,
+        onClose: agentIntegrationSettingsDialogActions.close,
+        onIntegrationEnabledChange:
+          agentIntegrationSettingsDialogActions.setIntegrationEnabled,
+        onCopyBoardUrl: agentIntegrationSettingsDialogActions.copyBoardUrl,
+        onOpenBoardUrl: agentIntegrationSettingsDialogActions.openBoardUrl,
+        onCopyCliEnvironment:
+          agentIntegrationSettingsDialogActions.copyCliEnvironment,
+        onAcpAgentEnabledChange: setAcpAgentEnabledDraft,
+        onAcpAgentPresetChange: setAcpAgentPresetDraft,
+        onAcpAgentCommandChange: setAcpAgentCommandDraft,
+        onAcpAgentArgsChange: setAcpAgentArgsDraft,
+        onAcpAgentCwdChange: setAcpAgentCwdDraft,
+        onAcpTaskInstructionChange: setAcpTaskInstructionDraft,
+        onSaveAcpAgentSettings:
+          agentIntegrationSettingsDialogActions.saveAcpAgentSettings,
+        onAcpDebugOpenChange:
+          agentIntegrationSettingsDialogActions.setAcpDebugOpen,
+        onRefreshAcpRunSummaries:
+          agentIntegrationSettingsDialogActions.refreshAcpRunSummaries,
+        onOpenAcpRunLog: agentIntegrationSettingsDialogActions.openAcpRunLog,
+      }}
+      acpRunLog={{
+        open: acpRunLogDialogOpen,
+        loading: acpRunLogLoading,
+        error: acpRunLogError,
+        detail: acpRunLogDetail,
+        rawOpen: acpRunLogRawOpen,
+        onRawOpenChange: setAcpRunLogRawOpen,
+        onClose: closeAcpRunLogDialog,
+      }}
+      projectDataReport={{
+        open: projectHealthReportOpen,
+        healthReport: projectHealthReport,
+        repairReport: projectRepairReport,
+        onClose: () => setProjectHealthReportOpen(false),
+      }}
+      generationErrorDetails={{
+        open: generationErrorDetailsOpen,
+        details: generationErrorDetails,
+        copied: generationErrorCopied,
+        onCopyDetails: () => {
+          void generationErrorRendererActions.copyDetails();
+        },
+        onClose: () => setGenerationErrorDetailsOpen(false),
+      }}
+    />
+  );
 
-    const issueGroups = getProjectHealthIssueGroups(projectHealthReport);
-    const infoCount = projectHealthReport.issues.filter(
-      (issue) => issue.severity === "info",
-    ).length;
+  const renderProjectStatusToast = () => (
+    <ProjectStatusToast
+      projectNotice={projectNotice}
+      thumbnailMaintenance={thumbnailMaintenance}
+      projectHealthReport={projectHealthReport}
+      projectRepairReport={projectRepairReport}
+      onOpenDetails={() => setProjectHealthReportOpen(true)}
+    />
+  );
 
+  const agentBoardStartupPlan = agentIntegrationRuntime.boardStartup;
+
+  if (agentBoardStartupPlan.action === "show-startup") {
     return (
-      <div className="dialog-backdrop">
-        <div
-          className="dialog-card dialog-card--wide project-health-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="project-health-title"
-        >
-          <div className="dialog-card__header">
-            <div>
-              <span className="dialog-card__eyebrow">项目健康检查</span>
-              <h2 id="project-health-title">数据检查详情</h2>
-            </div>
-            <DesktopButton
-              type="button"
-              className="dialog-card__close"
-              onClick={() => setProjectHealthReportOpen(false)}
-            >
-              关闭
-            </DesktopButton>
-          </div>
-
-          <div className="project-health-dialog__summary">
-            <div>
-              <span>错误</span>
-              <strong>{projectHealthReport.summary.errorCount}</strong>
-            </div>
-            <div>
-              <span>警告</span>
-              <strong>{projectHealthReport.summary.warningCount}</strong>
-            </div>
-            <div>
-              <span>提示</span>
-              <strong>{infoCount}</strong>
-            </div>
-            <div>
-              <span>可修复项</span>
-              <strong>{projectHealthReport.summary.repairableCount}</strong>
-            </div>
-          </div>
-
-          <p className="project-health-dialog__description">
-            当前项目共有 {projectHealthReport.imageRecordCount} 条图片记录，
-            其中 {projectHealthReport.generatedImageRecordCount} 条生成记录，
-            画板中引用了 {projectHealthReport.sceneImageFileCount} 张图片。
-          </p>
-
-          <div className="project-health-dialog__groups">
-            {issueGroups.length ? (
-              issueGroups.map((group) => (
-                <section
-                  className="project-health-group"
-                  key={group.code}
-                  aria-label={group.meta.title}
-                >
-                  <div className="project-health-group__header">
-                    <div>
-                      <strong>{group.meta.title}</strong>
-                      <p>{group.meta.description}</p>
-                    </div>
-                    <span>
-                      {group.issues.length} 项
-                      {group.repairableCount
-                        ? ` · ${group.repairableCount} 项可通过修复处理`
-                        : ""}
-                    </span>
-                  </div>
-                  <p className="project-health-group__suggestion">
-                    {group.meta.suggestion}
-                  </p>
-                  <div className="project-health-issue-list">
-                    {group.issues.map((issue, index) => (
-                      <article
-                        className="project-health-issue"
-                        key={`${issue.code}:${
-                          issue.fileId ?? issue.elementId ?? issue.path ?? index
-                        }`}
-                      >
-                        <span
-                          className={[
-                            "project-health-issue__severity",
-                            `project-health-issue__severity--${issue.severity}`,
-                          ].join(" ")}
-                        >
-                          {PROJECT_HEALTH_SEVERITY_LABELS[issue.severity]}
-                        </span>
-                        <div className="project-health-issue__body">
-                          <strong>{issue.message}</strong>
-                          <div className="project-health-issue__meta">
-                            {issue.fileId ? (
-                              <span>File ID: {issue.fileId}</span>
-                            ) : null}
-                            {issue.elementId ? (
-                              <span>Element ID: {issue.elementId}</span>
-                            ) : null}
-                            {issue.path ? <span>路径: {issue.path}</span> : null}
-                            <span>
-                              {issue.repairable
-                                ? "可通过项目数据修复处理"
-                                : "需手动确认"}
-                            </span>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              ))
-            ) : (
-              <p className="project-health-dialog__empty">
-                没有发现需要处理的问题。
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderAboutDialog = () =>
-    aboutOpen ? (
-      <div className="dialog-backdrop">
-        <div
-          className="dialog-card dialog-card--about"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="about-dialog-title"
-        >
-          <div className="dialog-card__header">
-            <div>
-              <h2 id="about-dialog-title">{copy.about.title}</h2>
-            </div>
-            <DesktopButton
-              type="button"
-              className="dialog-card__close"
-              aria-label={copy.about.closeLabel}
-              onClick={() => setAboutOpen(false)}
-            >
-              {copy.about.close}
-            </DesktopButton>
-          </div>
-          <p className="about-dialog__description">
-            {copy.about.description}
-          </p>
-          <div className="about-dialog__version">
-            {copy.about.versionLabel}{" "}
-            {appInfo?.version ?? copy.about.versionUnknown}
-          </div>
-        </div>
-      </div>
-    ) : null;
-
-  const renderAppSettingsDialog = () => {
-    const acpAgentDefaultCwd =
-      currentProject?.projectPath ??
-      agentBridgeStatus?.currentProject?.projectPath ??
-      "当前项目目录";
-
-    return appSettingsOpen ? (
-      <div className="dialog-backdrop">
-        <div
-          className="dialog-card dialog-card--settings"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="app-settings-title"
-        >
-          <div className="dialog-card__header">
-            <div>
-              <span className="dialog-card__eyebrow">设置</span>
-              <h2 id="app-settings-title">应用设置</h2>
-            </div>
-            <DesktopButton
-              type="button"
-              className="dialog-card__close"
-              onClick={() => setAppSettingsOpen(false)}
-            >
-              关闭
-            </DesktopButton>
-          </div>
-
-          <section className="app-settings-section">
-            <div className="app-settings-section__copy">
-              <strong>Agent 调用</strong>
-              <p>
-                允许本机 Agent 通过 CLI 或内置浏览器连接 CoreStudio，并使用当前项目的固定 token 读写画板。
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-label="允许 Agent 调用"
-              aria-checked={Boolean(agentBridgeStatus?.enabled)}
-              disabled={!bridge?.setAgentBridgeEnabled || isAgentBrowserRoute}
-              className="app-settings-section__switch"
-              onClick={() => {
-                void handleSetAgentBridgeEnabled(
-                  !Boolean(agentBridgeStatus?.enabled),
-                );
-              }}
-            />
-          </section>
-
-          <section className="app-settings-section app-settings-section--stacked">
-            <div className="app-settings-section__copy">
-              <strong>ACP Agent</strong>
-              <p>
-                配置一个外部 ACP Agent。CoreStudio 只负责发起任务和接收状态；写回画板仍然要求 Agent 使用 CoreStudio CLI / Local Bridge。
-              </p>
-            </div>
-            <div className="app-settings-form">
-              <div className="app-settings-form__header">
-                <span>{acpAgentEnabledDraft ? "已启用" : "未启用"}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-label="启用 ACP Agent"
-                  aria-checked={acpAgentEnabledDraft}
-                  disabled={!bridge?.saveAcpAgentSettings}
-                  className="app-settings-section__switch"
-                  onClick={() =>
-                    setAcpAgentEnabledDraft((current) => !current)
-                  }
-                />
-              </div>
-              <label>
-                Agent 类型
-                <select
-                  value={acpAgentPresetDraft}
-                  disabled={!bridge?.saveAcpAgentSettings}
-                  onChange={(event) =>
-                    handleAcpAgentPresetDraftChange(
-                      event.target.value as AcpAgentPresetId,
-                    )
-                  }
-                >
-                  {ACP_AGENT_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name}
-                    </option>
-                  ))}
-                  <option value={ACP_AGENT_CUSTOM_PRESET_ID}>自定义命令</option>
-                </select>
-              </label>
-              <label>
-                命令
-                <input
-                  value={acpAgentCommandDraft}
-                  placeholder="/usr/local/bin/acp-agent"
-                  disabled={!bridge?.saveAcpAgentSettings}
-                  onChange={(event) => {
-                    setAcpAgentPresetDraft(ACP_AGENT_CUSTOM_PRESET_ID);
-                    setAcpAgentCommandDraft(event.target.value);
-                  }}
-                />
-              </label>
-              <label>
-                参数
-                <input
-                  value={acpAgentArgsDraft}
-                  placeholder="--stdio"
-                  disabled={!bridge?.saveAcpAgentSettings}
-                  onChange={(event) => setAcpAgentArgsDraft(event.target.value)}
-                />
-              </label>
-              <label>
-                工作目录
-                <input
-                  value={acpAgentCwdDraft}
-                  placeholder={`默认：${acpAgentDefaultCwd}`}
-                  title={`默认：${acpAgentDefaultCwd}`}
-                  disabled={!bridge?.saveAcpAgentSettings}
-                  onChange={(event) => setAcpAgentCwdDraft(event.target.value)}
-                />
-              </label>
-              <label className="app-settings-form__wide-field">
-                任务说明模板
-                <textarea
-                  aria-label="任务说明模板"
-                  value={acpTaskInstructionDraft}
-                  rows={7}
-                  placeholder={DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE}
-                  disabled={!bridge?.saveAcpAgentSettings}
-                  onChange={(event) =>
-                    setAcpTaskInstructionDraft(event.target.value)
-                  }
-                />
-                <span>
-                  会作为任务首段文本发送给 Agent；项目、选区、图片 ID、Bridge 地址和写回规则会另附为结构化任务包。
-                </span>
-              </label>
-              <div className="app-settings-form__actions">
-                <span>
-                  {selectedAcpAgent
-                    ? `当前：${selectedAcpAgent.name} · ${selectedAcpAgent.command}`
-                    : "尚未配置 ACP Agent"}
-                </span>
-                <DesktopButton
-                  type="button"
-                  disabled={
-                    savingAcpAgentSettings ||
-                    !bridge?.saveAcpAgentSettings
-                  }
-                  onClick={() => {
-                    void handleSaveAcpAgentSettings();
-                  }}
-                >
-                  {savingAcpAgentSettings ? "保存中..." : "保存"}
-                </DesktopButton>
-              </div>
-            </div>
-            <div className="acp-run-history">
-              <div className="acp-run-history__header">
-                <div>
-                  <strong>最近 Agent 任务</strong>
-                  <span>
-                    查看最近的 ACP Agent 执行记录，方便确认外部 Agent 做了什么。
-                  </span>
-                </div>
-                <DesktopButton
-                  type="button"
-                  disabled={
-                    acpRunSummariesLoading || !bridge?.listAcpAgentRunLogs
-                  }
-                  onClick={() => {
-                    void loadAcpRunSummariesState();
-                  }}
-                >
-                  {acpRunSummariesLoading ? "读取中..." : "刷新"}
-                </DesktopButton>
-              </div>
-              {acpRunSummariesError ? (
-                <div className="dialog-card__error">
-                  {acpRunSummariesError}
-                </div>
-              ) : null}
-              {acpRunSummaries.length > 0 ? (
-                <div className="acp-run-history__list">
-                  {acpRunSummaries.map((summary) => (
-                    <button
-                      key={summary.taskId}
-                      type="button"
-                      className="acp-run-history__item"
-                      aria-label={`查看任务记录：${summary.userPrompt}`}
-                      onClick={() => {
-                        void handleOpenAcpRunLog(summary.taskId);
-                      }}
-                    >
-                      <span className="acp-run-history__item-project">
-                        {summary.projectName}
-                      </span>
-                      <strong>{summary.userPrompt}</strong>
-                      <span className="acp-run-history__item-meta">
-                        <span>{summary.agentName}</span>
-                        <span className="acp-run-history__item-status">
-                          {getAcpRunStatusLabel(summary.status)}
-                        </span>
-                        <span>
-                          {new Date(summary.startedAt).toLocaleString("zh-CN")}
-                        </span>
-                      </span>
-                      {summary.lastMessage || summary.errorMessage ? (
-                        <span className="acp-run-history__item-message">
-                          {summary.errorMessage ?? summary.lastMessage}
-                        </span>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="acp-run-history__empty">
-                  {bridge?.listAcpAgentRunLogs
-                    ? "暂无最近任务记录。"
-                    : "当前环境暂不支持读取任务记录。"}
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
-      </div>
-    ) : null;
-  };
-
-  const renderProjectStatusToast = () => {
-    const message =
-      projectNotice ||
-      (thumbnailMaintenance
-        ? thumbnailMaintenance.message ??
-          (thumbnailMaintenance.status === "pending"
-            ? `正在修复 ${thumbnailMaintenance.total} 个图片资源`
-            : `${thumbnailMaintenance.total} 个图片资源暂时不可用`)
-        : null);
-
-    if (!message) {
-      return null;
-    }
-
-    const hasHealthReportDetails = Boolean(projectHealthReport?.issues.length);
-    const statusClassName = [
-      "image-board-thumbnail-status",
-      projectNotice ? "image-board-thumbnail-status--success" : "",
-      thumbnailMaintenance?.status === "failed"
-        ? "image-board-thumbnail-status--failed"
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    return (
-      <div className={statusClassName} role="status" aria-live="polite">
-        <span
-          className={[
-            "image-board-thumbnail-status__dot",
-            projectNotice ? "image-board-thumbnail-status__dot--success" : "",
-            thumbnailMaintenance?.status === "failed"
-              ? "image-board-thumbnail-status__dot--muted"
-              : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          aria-hidden="true"
-        />
-        <span>{message}</span>
-        {hasHealthReportDetails ? (
-          <button
-            type="button"
-            className="image-board-thumbnail-status__action"
-            onClick={() => setProjectHealthReportOpen(true)}
-          >
-            查看详情
-          </button>
-        ) : null}
-      </div>
-    );
-  };
-
-  if (!bridge) {
-    if (window.location.pathname === "/agent-board") {
-      return (
-        <Suspense
-          fallback={
-            <div className="image-board-app">
-              <div className="welcome-pane">
-                <div className="welcome-pane__card welcome-pane__diagnostic">
-                  <span className="welcome-pane__eyebrow">Agent Board</span>
-                  <h1>正在载入内置画板</h1>
-                  <p>请稍等，CoreStudio 正在准备 Agent Board。</p>
-                </div>
-              </div>
-            </div>
-          }
-        >
-          <LazyAgentBoard />
-        </Suspense>
-      );
-    }
-
-    return (
-      <div className="image-board-app">
-        <div className="welcome-pane">
-          <div className="welcome-pane__card welcome-pane__diagnostic">
-            <span className="welcome-pane__eyebrow">{copy.startup.eyebrow}</span>
-            <h1>{copy.startup.heading}</h1>
-            <p>{copy.startup.description}</p>
-            <div className="dialog-card__error welcome-pane__error">
-              {copy.startup.retryInstruction}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (
-    isAgentBrowserRoute &&
-    (!agentBridgeStatus || !agentBridgeStatus.ready)
-  ) {
-    const heading = !agentBridgeStatus
-      ? "正在连接桌面端"
-      : "桌面端未连接";
-    const description =
-      "请确认 CoreStudio 桌面端仍在运行，然后刷新连接状态。";
-
-    return (
-      <div className="image-board-app">
-        <div className="welcome-pane">
-          <div className="welcome-pane__card welcome-pane__diagnostic">
-            <span className="welcome-pane__eyebrow">Agent Bridge</span>
-            <h1>{heading}</h1>
-            <p>{description}</p>
-            {startupError && (
-              <div className="dialog-card__error welcome-pane__error">
-                {startupError}
-              </div>
-            )}
-            {projectError && (
-              <div className="dialog-card__error welcome-pane__error">
-                {projectError}
-              </div>
-            )}
-            <div className="welcome-pane__actions">
-              <DesktopButton
-                type="button"
-                variant="primary"
-                onClick={refreshAgentBrowserConnectionState}
-              >
-                刷新连接状态
-              </DesktopButton>
-            </div>
-          </div>
-        </div>
-        <AgentStatusDock
-          status={agentBridgeStatus}
-          onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
-          onRefreshStatus={refreshAgentBrowserConnectionState}
-          generationSource={generationSource}
-          acpAgentName={selectedAcpAgent?.name ?? null}
-        />
-      </div>
-    );
-  }
-
-  if (
-    isAgentBrowserRoute &&
-    agentBrowserInitialProjectToken &&
-    agentBridgeStatus?.currentProject &&
-    (!currentProject || !initialData)
-  ) {
-    return (
-      <div className="image-board-app">
-        <div className="welcome-pane">
-          <div className="welcome-pane__card welcome-pane__diagnostic">
-            <span className="welcome-pane__eyebrow">Agent Bridge</span>
-            <h1>正在进入桌面端当前项目</h1>
-            <p>
-              {agentBridgeStatus?.currentProject?.name
-                ? `当前项目：${agentBridgeStatus.currentProject.name}`
-                : "已确认本地桥连接，正在读取桌面端当前项目。"}
-            </p>
-            {startupError && (
-              <div className="dialog-card__error welcome-pane__error">
-                {startupError}
-              </div>
-            )}
-            {projectError && (
-              <div className="dialog-card__error welcome-pane__error">
-                {projectError}
-              </div>
-            )}
-            <div className="welcome-pane__actions">
-              <DesktopButton
-                type="button"
-                variant="primary"
-                onClick={refreshAgentBrowserConnectionState}
-              >
-                重新加载当前画板
-              </DesktopButton>
-            </div>
-          </div>
-        </div>
-        <AgentStatusDock
-          status={agentBridgeStatus}
-          onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
-          onRefreshStatus={refreshAgentBrowserConnectionState}
-          generationSource={generationSource}
-          acpAgentName={selectedAcpAgent?.name ?? null}
-        />
-      </div>
+      <AgentBoardStartupPane
+        heading={agentBoardStartupPlan.viewModel.heading}
+        description={agentBoardStartupPlan.viewModel.description}
+        actionLabel={agentBoardStartupPlan.viewModel.actionLabel}
+        startupError={startupError}
+        projectError={projectError}
+        integration={agentIntegration}
+        onAction={agentStatusDockRendererActions.refreshStatus}
+        onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
+        onCopyCliEnvironment={agentStatusDockRendererActions.copyCliEnvironment}
+        onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+      />
     );
   }
 
   if (!currentProject || !initialData) {
     return (
-      <div className="image-board-app">
-        {startupError && <div className="app-startup-error">{startupError}</div>}
-        {projectError && (
-          <div className="app-canvas-error-toast" role="alert">
-            {projectError}
-          </div>
-        )}
-        <WelcomePane
-          loading={loadingProject}
-          onCreateProject={handleCreateProject}
-          onOpenProject={handleOpenProject}
-          recentProjects={recentProjects}
-          onOpenRecentProject={handleOpenRecentProject}
-          agentAccessEnabled={Boolean(agentBridgeStatus?.enabled)}
-          onAgentAccessToggle={
-            isAgentBrowserRoute ? undefined : handleSetAgentBridgeEnabled
-          }
-          agentAccessToggleDisabled={
-            !bridge?.setAgentBridgeEnabled || isAgentBrowserRoute
-          }
-          manualProjectActionsVisible={!isAgentBrowserRoute}
-        />
-        {isAgentBrowserRoute ? (
-          <AgentStatusDock
-            status={agentBridgeStatus}
-            onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
-            onRefreshStatus={refreshAgentBrowserConnectionState}
-            generationSource={generationSource}
-            acpAgentName={selectedAcpAgent?.name ?? null}
-          />
-        ) : null}
-        {renderAboutDialog()}
-        {renderAppSettingsDialog()}
-        {renderAcpRunLogDialog()}
-        {renderProjectHealthReportDialog()}
-      </div>
+      <AppProjectEntryScreen
+        startupError={startupError}
+        projectError={projectError}
+        loadingProject={loadingProject}
+        recentProjects={recentProjects}
+        onCreateProject={currentProjectEntryRendererActions.createProject}
+        onOpenProject={currentProjectEntryRendererActions.openProject}
+        onOpenRecentProject={currentProjectEntryRendererActions.openRecentProject}
+        agentAccessEnabled={Boolean(agentBridgeStatus?.enabled)}
+        onAgentAccessToggle={
+          isAgentBrowserRoute
+            ? undefined
+            : agentBridgeStatusRendererActions.setEnabled
+        }
+        agentAccessToggleDisabled={
+          !canSetAgentBridgeEnabled(bridge) || isAgentBrowserRoute
+        }
+        manualProjectActionsVisible={!isAgentBrowserRoute}
+        showAgentStatusDock={isAgentBrowserRoute}
+        integration={agentIntegration}
+        onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
+        onCopyCliEnvironment={agentStatusDockRendererActions.copyCliEnvironment}
+        onRefreshStatus={agentStatusDockRendererActions.refreshStatus}
+        onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+        globalDialogs={globalDialogs}
+      />
     );
   }
 
@@ -6622,88 +1878,37 @@ const App = () => {
     .filter(Boolean)
     .join(" ");
 
-  const renderWorkspaceBoundsOverlay = () => {
-    if (!workspaceOverlayState) {
-      return null;
-    }
-
-    const { bounds, scrollX, scrollY, zoomValue } = workspaceOverlayState;
-    const left = (bounds.x + scrollX) * zoomValue;
-    const top = (bounds.y + scrollY) * zoomValue;
-    const width = bounds.width * zoomValue;
-    const height = bounds.height * zoomValue;
-
-    if (
-      !Number.isFinite(left) ||
-      !Number.isFinite(top) ||
-      !Number.isFinite(width) ||
-      !Number.isFinite(height) ||
-      width <= 0 ||
-      height <= 0
-    ) {
-      return null;
-    }
-
-    return (
-      <div
-        aria-hidden="true"
-        className={[
-          "image-board-workspace-bounds",
-          workspaceFitPulse ? "image-board-workspace-bounds--fit-pulse" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        style={{
-          left,
-          top,
-          width,
-          height,
-        }}
-      />
-    );
-  };
-
   return (
     <div className={appClassName}>
-      {startupError && <div className="app-startup-error">{startupError}</div>}
-      {projectError && (
-        <div className="app-canvas-error-toast" role="alert">
-          {projectError}
-        </div>
-      )}
-      {renderAboutDialog()}
-      {renderAppSettingsDialog()}
-      {renderAcpRunLogDialog()}
-      {renderProjectHealthReportDialog()}
+      <AppErrorBanners startupError={startupError} projectError={projectError} />
+      {globalDialogs}
       <ProjectRenderBoundary
         projectKey={projectRenderKey}
-        onError={handleProjectRenderError}
-        onReset={handleResetProjectView}
+        onError={projectRenderBoundaryRendererActions.reportRenderError}
+        onReset={projectRenderBoundaryRendererActions.resetProjectView}
       >
         <div className="image-board-shell">
           <div className="image-board-canvas">
-            {isEditorInitializing && (
-              <div className="image-board-canvas__loading" role="status">
-                <div className="image-board-canvas__loading-card">
-                  <div className="image-board-canvas__loading-spinner" aria-hidden="true" />
-                  <span>{copy.startup.editorLoading}</span>
-                </div>
-              </div>
-            )}
+            {isEditorInitializing ? <EditorLoadingOverlay /> : null}
             {renderProjectStatusToast()}
             <Suspense fallback={null}>
               <LazyExcalidraw
-                key={projectRenderKey}
-                langCode={DESKTOP_LANG_CODE}
-                initialData={initialData}
-                onInitialize={(api) => {
-                  handleEditorReady(api ?? null, projectRenderNonce);
-                }}
+                 key={projectRenderKey}
+                 langCode={DESKTOP_LANG_CODE}
+                 initialData={initialData}
+                 onInitialize={(api) => {
+                   currentProjectEditorReadyRendererActions.ready(
+                     api ?? null,
+                     projectRenderNonce,
+                   );
+                 }}
                 onExcalidrawAPI={(api) => {
                   if (projectRenderNonce === projectRenderNonceRef.current) {
                     excalidrawAPIRef.current = api;
-                    flushQueuedImageFilesToCanvas();
-                    scheduleVisibleImageRenditionLoad(latestSceneRef.current);
+                    queuedExcalidrawBinaryFilesRendererActions.flush();
+                    visibleImageRenditionLoadRendererActions.schedule(
+                      latestSceneRef.current,
+                    );
                   }
                 }}
                 onPointerUpdate={({ pointer }) => {
@@ -6712,73 +1917,9 @@ const App = () => {
                     y: pointer.y,
                   };
                 }}
-                onScrollChange={handleViewportChange}
-                onPaste={handleDesktopClipboardPaste}
-                onChange={(elements, appState, files) => {
-                  const activeProject = currentProjectRef.current;
-                  if (!activeProject) {
-                    return;
-                  }
-                  const nextScene = {
-                    elements,
-                    appState,
-                    files,
-                  };
-                  const selectionReferenceSignature =
-                    getSelectionReferenceSignature(nextScene);
-                  const selectionReferenceSummary =
-                    buildSelectionReferenceSummary({
-                      elements,
-                      appState,
-                      files,
-                    });
-                  if (
-                    removedSelectionReferenceSignatureRef.current &&
-                    removedSelectionReferenceSignatureRef.current !==
-                      selectionReferenceSignature
-                  ) {
-                    removedSelectionReferenceSignatureRef.current = null;
-                  }
-                  if (maybeSnapWorkspaceZoom(elements, appState)) {
-                    return;
-                  }
-                  latestSceneRef.current = nextScene;
-                  updateSceneImageFileIds(elements);
-                  scheduleVisibleImageRenditionLoad(nextScene);
-                  scheduleAgentBrowserRuntimeStatePublish(nextScene);
-                  updateWorkspaceOverlay(elements, appState);
-                  setGenerateRequest((current) =>
-                    syncSelectionReferenceIntoRequest(
-                      current,
-                      removedSelectionReferenceSignatureRef.current ===
-                        selectionReferenceSignature
-                        ? null
-                        : selectionReferenceSummary,
-                    ),
-                  );
-                  setSelectedRecord(
-                    buildSelectedImageRecord(
-                      elements,
-                      appState,
-                      activeProject.imageRecords,
-                    ),
-                  );
-                  setSelectedTask(
-                    buildSelectedGenerationTask(
-                      appState,
-                      generationTaskByElementIdRef.current,
-                    ),
-                  );
-                  if (!isEditorInitializingRef.current) {
-                    scheduleAutosave({
-                      project: activeProject,
-                      elements,
-                      appState,
-                      files,
-                      expectedSceneHash: savedSceneHashRef.current,
-                    });
-                  }
-                }}
+                onScrollChange={viewportChangeRendererActions.changeViewport}
+                onPaste={projectImageImportRendererActions.pasteClipboardImage}
+                onChange={canvasSceneChangeRendererActions.changeScene}
                 UIOptions={{
                   defaultSidebar: false,
                   canvasActions: {
@@ -6803,21 +1944,35 @@ const App = () => {
                       shouldRenderSelectedShapeActions
                     }
                     record={selectedRecord}
-                    parentRecord={parentRecord}
-                    ancestorRecords={ancestorRecords}
-                    descendantRecords={descendantRecords}
+                    parentRecord={selectedImageRelationship.parentRecord}
+                    ancestorRecords={selectedImageRelationship.ancestorRecords}
+                    descendantRecords={
+                      selectedImageRelationship.descendantRecords
+                    }
                     task={selectedTask}
-                    onCopyPrompt={handleCopyPrompt}
-                    onCopyTaskError={handleCopyTaskError}
-                    onLocateImageRecord={handleLocateImageRecord}
-                    onLocatePromptReference={handleLocatePromptReference}
+                    onCopyPrompt={() => {
+                      void generationRecordRendererActions.copyPrompt();
+                    }}
+                    onCopyTaskError={() => {
+                      void generationErrorRendererActions.copyTaskError();
+                    }}
+                    onLocateImageRecord={(fileId) => {
+                      void imageRecordLocatorRendererActions.locateImageRecord(
+                        fileId,
+                      );
+                    }}
+                    onLocatePromptReference={(reference) => {
+                      void imageRecordLocatorRendererActions.locatePromptReference(
+                        reference,
+                      );
+                    }}
                   />
                 )}
               >
                 <LazyProjectMainMenu
                   currentProjectName={currentProject.project.name}
                   onSwitchProject={() => {
-                    void handleSwitchProject();
+                    void currentProjectEntryRendererActions.switchToProjectList();
                   }}
                 />
               </LazyExcalidraw>
@@ -6828,42 +1983,46 @@ const App = () => {
               onOpenChange={setAgentChatDockOpen}
               generationRecords={generationRecordItems}
               agentResultRecords={acpAgentResultRecordItems}
-              onSelectGenerationRecord={handleLocateImageRecord}
+              onSelectGenerationRecord={(fileId) => {
+                void imageRecordLocatorRendererActions.locateImageRecord(fileId);
+              }}
               task={acpAgentTask}
-              runLogDetail={
-                acpRunLogSurface === "conversation" ? acpRunLogDetail : null
-              }
+              runLogDetail={agentConversationSurface.runLogDetail}
               threadEntries={acpConversationEntries}
-              error={
-                acpRunLogSurface === "conversation" ? acpRunLogError : null
-              }
+              error={agentConversationSurface.error}
               threadSummaries={acpThreadSummaries}
               activeThreadId={activeAcpThreadId}
               threadsLoading={acpThreadSummariesLoading}
               threadsError={acpThreadSummariesError}
-              canSubmitMessage={
-                acpAgentGenerationReady && !acpAgentTaskRunning
-              }
+              canSubmitMessage={acpAgentGeneration.canSubmitMessage}
               submitMessageDisabledReason={
-                acpAgentTaskRunning
-                  ? "当前任务处理中"
-                  : selectedAcpAgent && agentBridgeStatus?.enabled
-                    ? "Agent 暂不可用"
-                  : "先在设置里启用 ACP Agent"
+                acpAgentGeneration.submitMessageDisabledReason
               }
               threadActionsDisabled={acpAgentTaskRunning}
-              onSelectThread={handleSelectAcpThread}
-              onStartNewThread={handleStartNewAcpThread}
-              onSubmitMessage={handleSubmitAgentConversationMessage}
+              onSelectThread={
+                acpThreadRendererActions.selectThreadForConversation
+              }
+              onStartNewThread={acpThreadRendererActions.startNewThread}
+              onSubmitMessage={
+                acpConversationMessageRendererActions.submitMessage
+              }
             />
             <AgentStatusDock
-              status={agentBridgeStatus}
-              onCopyAgentBoardUrl={handleCopyAgentBoardUrl}
-              onRefreshStatus={refreshAgentBrowserConnectionState}
-              generationSource={generationSource}
-              acpAgentName={selectedAcpAgent?.name ?? null}
+              integration={agentIntegration}
+              onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
+              onCopyCliEnvironment={
+                agentStatusDockRendererActions.copyCliEnvironment
+              }
+              onRefreshStatus={agentStatusDockRendererActions.refreshStatus}
+              onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+              onOpenAgentConversation={
+                agentStatusDockRendererActions.openConversation
+              }
             />
-            {renderWorkspaceBoundsOverlay()}
+            <WorkspaceBoundsOverlay
+              state={workspaceOverlayState}
+              pulsing={workspaceFitPulse}
+            />
           </div>
         </div>
       </ProjectRenderBoundary>
@@ -6872,25 +2031,7 @@ const App = () => {
         open={true}
         persistent={true}
         focusToken={generateFocusToken}
-        composerConfig={{
-          defaultMode: isAgentBrowserRoute ? "agent" : "direct",
-          showModeSwitch: !isAgentBrowserRoute && Boolean(selectedAcpAgent),
-          modeSwitchVariant: isAgentBrowserRoute
-            ? "agent-operation"
-            : "acp-agent",
-          showModeIndicator: isAgentBrowserRoute,
-          defaultGenerationSource: isAgentBrowserRoute
-            ? "agent"
-            : "builtin",
-          showGenerationSourceSwitch: false,
-          agentGenerationAvailable:
-            acpAgentGenerationReady && !acpAgentTaskRunning,
-          agentGenerationUnavailableMessage:
-            selectedAcpAgent && agentBridgeStatus?.enabled
-              ? "Agent 暂不可用。"
-              : "先在设置里启用 ACP Agent。",
-          agentTaskStatus: acpAgentTask,
-        }}
+        composerConfig={acpAgentGeneration.composerConfig}
         initialRequest={generateRequest}
         providerSettings={providerSettings}
         savingProviderSettings={savingProviders}
@@ -6903,113 +2044,32 @@ const App = () => {
             : undefined
         }
         onClose={() => undefined}
-        onRequestChange={handleGenerateRequestChange}
-        onModelSelectionChange={handleRememberGenerationModelSelection}
-        onReferenceRemove={handleRemoveGenerateReference}
-        onReferenceCommit={handleCommitGenerateReference}
+        onRequestChange={generationRequestRendererActions.changeRequest}
+        onModelSelectionChange={
+          generationModelSelectionRendererActions.rememberSelection
+        }
+        onReferenceRemove={generateDialogReferenceRendererActions.remove}
+        onReferenceCommit={generateDialogReferenceRendererActions.commit}
         onOpenAgentRunLog={(taskId) => {
-          void handleOpenAcpRunLog(taskId, {
+          void acpRunLogRendererActions.open(taskId, {
             openInConversationDock: true,
           });
         }}
         savedPrompts={savedPrompts}
-        onSavePrompt={handleSavePrompt}
-        onUsePrompt={handleUsePrompt}
-        onDeletePrompt={handleDeletePrompt}
-        onSaveProviderSettings={handleSaveProviderSettings}
-        onSubmit={handleGenerateImages}
+        onSavePrompt={(input) => {
+          void savedPromptLibraryRendererActions.savePrompt(input);
+        }}
+        onUsePrompt={(id) => {
+          void savedPromptLibraryRendererActions.usePrompt(id);
+        }}
+        onDeletePrompt={(id) => {
+          void savedPromptLibraryRendererActions.deletePrompt(id);
+        }}
+        onSaveProviderSettings={(settings) =>
+          providerSettingsRendererActions.saveSettings(settings)
+        }
+        onSubmit={generationSubmitRendererActions.submit}
       />
-
-      {generationErrorDetailsOpen && generationErrorDetails && (
-        <div className="dialog-backdrop">
-          <div className="dialog-card dialog-card--wide">
-            <div className="dialog-card__header">
-              <div>
-                <span className="dialog-card__eyebrow">{copy.debugError.eyebrow}</span>
-                <h2>{copy.debugError.title}</h2>
-              </div>
-              <DesktopButton
-                type="button"
-                className="dialog-card__close"
-                onClick={() => setGenerationErrorDetailsOpen(false)}
-              >
-                {copy.debugError.close}
-              </DesktopButton>
-            </div>
-
-            <div className="debug-error-dialog">
-              <div className="debug-error-dialog__meta">
-                <div>
-                  <span>{copy.debugError.provider}</span>
-                  <strong>
-                    {getProviderDefinition(generationErrorDetails.provider).label}
-                  </strong>
-                </div>
-                <div>
-                  <span>{copy.debugError.model}</span>
-                  <strong>{generationErrorDetails.model}</strong>
-                </div>
-                <div>
-                  <span>{copy.debugError.occurredAt}</span>
-                  <strong>
-                    {new Date(generationErrorDetails.occurredAt).toLocaleString(
-                      "zh-CN",
-                    )}
-                  </strong>
-                </div>
-              </div>
-
-              <section className="debug-error-dialog__section">
-                <h3>{copy.debugError.message}</h3>
-                <p>{generationErrorDetails.normalizedMessage}</p>
-              </section>
-
-              <section className="debug-error-dialog__section">
-                <h3>{copy.debugError.raw}</h3>
-                <pre className="debug-error-dialog__pre">
-                  {generationErrorDetails.rawMessage}
-                </pre>
-              </section>
-
-              {generationErrorDetails.requestPayload && (
-                <section className="debug-error-dialog__section">
-                  <h3>{copy.debugError.payload}</h3>
-                  <pre className="debug-error-dialog__pre">
-                    {generationErrorDetails.requestPayload}
-                  </pre>
-                </section>
-              )}
-
-              {generationErrorDetails.stack && (
-                <section className="debug-error-dialog__section">
-                  <h3>{copy.debugError.stack}</h3>
-                  <pre className="debug-error-dialog__pre">
-                    {generationErrorDetails.stack}
-                  </pre>
-                </section>
-              )}
-            </div>
-
-            <div className="dialog-card__footer">
-              <DesktopButton
-                type="button"
-                onClick={() => {
-                  void handleCopyGenerationErrorDetails();
-                }}
-              >
-                {generationErrorCopied ? copy.debugError.copied : copy.debugError.copy}
-              </DesktopButton>
-              <DesktopButton
-                type="button"
-                variant="primary"
-                onClick={() => setGenerationErrorDetailsOpen(false)}
-              >
-                {copy.debugError.close}
-              </DesktopButton>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

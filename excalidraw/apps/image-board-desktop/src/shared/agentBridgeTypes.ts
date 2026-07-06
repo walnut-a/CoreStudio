@@ -145,6 +145,7 @@ export interface AgentRendererCommandResponse {
   data?: unknown;
   errorCode?: AgentErrorCode;
   errorMessage?: string;
+  errorDetails?: unknown;
 }
 
 export const AGENT_ERROR_CODES = [
@@ -153,10 +154,12 @@ export const AGENT_ERROR_CODES = [
   "AUTH_DENIED",
   "BAD_REQUEST",
   "BRIDGE_UNAVAILABLE",
+  "CAPABILITY_UNAVAILABLE",
   "COMMAND_FAILED",
   "FORBIDDEN",
   "PROJECT_MISMATCH",
   "PROJECT_REQUIRED",
+  "STALE_PROJECT_SNAPSHOT",
   "TOKEN_EXPIRED",
   "UNSUPPORTED_COMMAND",
 ] as const;

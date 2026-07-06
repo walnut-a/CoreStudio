@@ -10,6 +10,10 @@ import type {
   ProjectThumbnailReadMode,
 } from "./projectTypes";
 import type {
+  ProjectRecordBoardPresence,
+  ProjectRecordExplanation,
+} from "./projectRecordIntegrity";
+import type {
   GenerationRequest,
   GenerationResponse,
   ProviderId,
@@ -145,13 +149,41 @@ export interface RebuildProjectThumbnailsResult {
   generatedFileIds: string[];
   skippedFileIds: string[];
   failedFileIds: string[];
+  skippedDetails?: ProjectRepairFileDetail[];
+  failedDetails?: ProjectRepairFileDetail[];
   repairedGenerationRecordFileIds: string[];
+  restoredBoardFileIds?: string[];
+  restoredSceneJson?: string;
   repairedAcpOutputFileIds?: string[];
   repairedAcpOutputRecords?: ImageRecordMap;
   backupPath?: string | null;
 }
 
+export type ProjectRepairFileDetailReason =
+  | "record-missing"
+  | "thumbnail-not-needed"
+  | "thumbnail-cache-exists"
+  | "thumbnail-rebuild-failed"
+  | "board-restore-failed"
+  | "acp-output-import-failed";
+
+export interface ProjectRepairFileDetail {
+  fileId: string;
+  reason: ProjectRepairFileDetailReason;
+  message: string;
+  path?: string;
+}
+
 export type ProjectHealthIssueSeverity = "info" | "warning" | "error";
+export type ProjectHealthIssueResolutionStatus =
+  | "repairable"
+  | "manual"
+  | "info";
+
+export interface ProjectHealthIssueResolution {
+  status: ProjectHealthIssueResolutionStatus;
+  summary: string;
+}
 
 export interface ProjectHealthIssue {
   code:
@@ -172,6 +204,8 @@ export interface ProjectHealthIssue {
   path?: string;
   message: string;
   repairable: boolean;
+  boardPresence?: ProjectRecordBoardPresence;
+  resolution?: ProjectHealthIssueResolution;
 }
 
 export interface ProjectHealthReport {
@@ -181,6 +215,7 @@ export interface ProjectHealthReport {
   generatedImageRecordCount: number;
   sceneImageFileCount: number;
   missingImageRecordFileIds: string[];
+  unindexedAssetFileIds?: string[];
   missingAssetFileIds: string[];
   missingThumbnailFileIds: string[];
   missingPreviewFileIds: string[];
@@ -190,6 +225,7 @@ export interface ProjectHealthReport {
   incompleteGenerationRecordFileIds: string[];
   brokenParentFileIds: string[];
   brokenPromptReferenceFileIds: string[];
+  recordExplanations?: Record<string, ProjectRecordExplanation>;
   issues: ProjectHealthIssue[];
   summary: {
     errorCount: number;
@@ -212,6 +248,8 @@ export interface PersistedImageAssetInput extends ProjectAssetPayload {
   prompt?: string;
   negativePrompt?: string;
   seed?: number | null;
+  generationTaskId?: string | null;
+  generationThreadId?: string | null;
   parentFileId?: string | null;
   promptReferences?: ImagePromptReferenceRecord[];
 }

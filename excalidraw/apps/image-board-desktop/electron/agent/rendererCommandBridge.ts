@@ -67,6 +67,9 @@ export const createRendererCommandBridge = (
           response.errorMessage || "CoreStudio renderer command failed",
         ),
         response.errorCode ? { code: response.errorCode } : {},
+        response.errorDetails === undefined
+          ? {}
+          : { details: response.errorDetails },
       ),
     );
   });

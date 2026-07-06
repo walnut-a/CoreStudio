@@ -3,8 +3,11 @@ import { exportToBlob } from "@excalidraw/utils";
 import type { ExcalidrawElement, NonDeleted } from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ImageRecordMap } from "../shared/projectTypes";
+import type { ProjectAssetPayload } from "../shared/desktopBridgeTypes";
 
 import type { GenerationReferencePayload } from "../shared/providerTypes";
+import { buildExcalidrawBinaryFilesFromProjectAssets } from "./canvasImageAssetState";
+import { getElementsSceneBounds } from "./workspaceBounds";
 
 const REFERENCE_EXPORT_PADDING = 24;
 const REFERENCE_ITEM_TEXT_MAX_LENGTH = 16;
@@ -14,6 +17,40 @@ type SceneSnapshot = {
   appState: AppState;
   files: BinaryFiles;
 };
+
+export type SelectionReferenceOriginalImageLoadPlan =
+  | { action: "skip" }
+  | { action: "load"; fileIds: string[] };
+
+export interface LoadSelectionReferenceOriginalSceneInput<
+  TProject extends { imageRecords: ImageRecordMap },
+  TScene extends SceneSnapshot,
+> {
+  scene: TScene | null;
+  project: TProject | null;
+  readOriginalAssets: (
+    project: TProject,
+    fileIds: string[],
+  ) => Promise<readonly ProjectAssetPayload[]>;
+  getTimestamp?: () => number;
+}
+
+export interface CreateSelectionReferenceOriginalSceneRendererActionsInput<
+  TProject extends { imageRecords: ImageRecordMap },
+> {
+  getProject: () => TProject | null;
+  readOriginalAssets: (
+    project: TProject,
+    fileIds: string[],
+  ) => Promise<readonly ProjectAssetPayload[]>;
+  getTimestamp?: () => number;
+}
+
+export interface SelectionReferenceOriginalSceneRendererActions<
+  TScene extends SceneSnapshot,
+> {
+  load: (scene: TScene | null) => Promise<TScene | null>;
+}
 
 const readBlobAsArrayBuffer = (blob: Blob) => {
   if (typeof blob.arrayBuffer === "function") {
@@ -260,6 +297,108 @@ export const getSelectionReferenceSignature = (scene: SceneSnapshot | null) => {
   }
 
   return selectedElements.map((element) => element.id).join("|");
+};
+
+export const getSelectedReferenceImageFileIds = (
+  scene: SceneSnapshot | null,
+) =>
+  unique(
+    getSelectedReferenceElements(scene).flatMap((element) =>
+      element.type === "image" && element.fileId ? [element.fileId] : [],
+    ),
+  );
+
+export const buildSelectionReferenceOriginalImageLoadPlan = (
+  scene: SceneSnapshot | null,
+): SelectionReferenceOriginalImageLoadPlan => {
+  const fileIds = getSelectedReferenceImageFileIds(scene);
+  if (!fileIds.length) {
+    return { action: "skip" };
+  }
+
+  return {
+    action: "load",
+    fileIds,
+  };
+};
+
+export const loadSelectionReferenceOriginalScene = async <
+  TProject extends { imageRecords: ImageRecordMap },
+  TScene extends SceneSnapshot,
+>({
+  scene,
+  project,
+  readOriginalAssets,
+  getTimestamp = Date.now,
+}: LoadSelectionReferenceOriginalSceneInput<
+  TProject,
+  TScene
+>): Promise<TScene | null> => {
+  if (!scene || !project) {
+    return scene;
+  }
+
+  const loadPlan = buildSelectionReferenceOriginalImageLoadPlan(scene);
+  if (loadPlan.action === "skip") {
+    return scene;
+  }
+
+  const assets = await readOriginalAssets(project, loadPlan.fileIds);
+  if (!assets.length) {
+    return scene;
+  }
+
+  return {
+    ...scene,
+    files: {
+      ...scene.files,
+      ...buildExcalidrawBinaryFilesFromProjectAssets({
+        assets,
+        imageRecords: project.imageRecords,
+        fallbackCreatedAt: getTimestamp(),
+      }),
+    },
+  };
+};
+
+export const createSelectionReferenceOriginalSceneRendererActions = <
+  TProject extends { imageRecords: ImageRecordMap },
+>(
+  input: CreateSelectionReferenceOriginalSceneRendererActionsInput<TProject>,
+) => ({
+  load: <TScene extends SceneSnapshot>(scene: TScene | null) =>
+    loadSelectionReferenceOriginalScene({
+      scene,
+      project: input.getProject(),
+      readOriginalAssets: input.readOriginalAssets,
+      getTimestamp: input.getTimestamp,
+    }),
+});
+
+export const getGenerationReferenceAnchorBounds = (
+  request: { reference?: { enabled?: boolean } | null },
+  scene: SceneSnapshot | null,
+) => {
+  if (!request.reference?.enabled) {
+    return null;
+  }
+
+  return getElementsSceneBounds(getSelectedReferenceElements(scene));
+};
+
+export const stripSelectionReferenceThumbnails = (
+  reference: GenerationReferencePayload | null,
+): GenerationReferencePayload | null => {
+  if (!reference?.items?.length) {
+    return reference;
+  }
+
+  return {
+    ...reference,
+    items: reference.items.map(
+      ({ thumbnailDataUrl: _thumbnailDataUrl, ...item }) => item,
+    ),
+  };
 };
 
 export const extractReferenceTextNotes = (

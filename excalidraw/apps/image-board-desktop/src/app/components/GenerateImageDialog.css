@@ -192,6 +192,7 @@
   );
   --generate-composer-editor-min-height: 36px;
   --generate-composer-editor-max-height: min(30vh, 10rem);
+  --generate-composer-control-icon-size: 1.25rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: minmax(var(--generate-composer-editor-min-height), auto);
@@ -1124,10 +1125,10 @@
 
 .excalidraw .excalidraw-button.generate-composer__icon > svg,
 .excalidraw .excalidraw-button.generate-composer__action > svg {
-  width: var(--lg-icon-size);
-  height: var(--lg-icon-size);
-  min-width: var(--lg-icon-size);
-  flex: 0 0 var(--lg-icon-size);
+  width: var(--generate-composer-control-icon-size);
+  height: var(--generate-composer-control-icon-size);
+  min-width: var(--generate-composer-control-icon-size);
+  flex: 0 0 var(--generate-composer-control-icon-size);
 }
 
 .generate-panel__body {

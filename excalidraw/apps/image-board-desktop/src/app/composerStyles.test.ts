@@ -1290,6 +1290,9 @@ describe("generate composer styles", () => {
     expect(composerRule).toContain(
       "--generate-composer-editor-max-height: min(30vh, 10rem)",
     );
+    expect(composerRule).toContain(
+      "--generate-composer-control-icon-size: 1.25rem",
+    );
     expect(composerRule).toContain("box-sizing: border-box");
     expect(composerRule).toContain("padding: 6px 8px 6px 12px");
     expect(appCss).not.toContain("padding: 7px 12px");
@@ -1353,10 +1356,18 @@ describe("generate composer styles", () => {
     expect(composerIconSvgRule).toContain(
       ".excalidraw .excalidraw-button.generate-composer__icon > svg",
     );
-    expect(composerIconSvgRule).toContain("width: var(--lg-icon-size)");
-    expect(composerIconSvgRule).toContain("height: var(--lg-icon-size)");
-    expect(composerIconSvgRule).toContain("min-width: var(--lg-icon-size)");
-    expect(composerIconSvgRule).toContain("flex: 0 0 var(--lg-icon-size)");
+    expect(composerIconSvgRule).toContain(
+      "width: var(--generate-composer-control-icon-size)",
+    );
+    expect(composerIconSvgRule).toContain(
+      "height: var(--generate-composer-control-icon-size)",
+    );
+    expect(composerIconSvgRule).toContain(
+      "min-width: var(--generate-composer-control-icon-size)",
+    );
+    expect(composerIconSvgRule).toContain(
+      "flex: 0 0 var(--generate-composer-control-icon-size)",
+    );
     expect(primaryActionRule).toContain(
       "background: var(--generate-composer-send-bg)",
     );

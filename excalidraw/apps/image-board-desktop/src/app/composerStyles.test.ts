@@ -541,10 +541,14 @@ describe("generate composer styles", () => {
       appCss,
       ".agent-conversation-sidebar__composer",
     );
-    const composerSendIconRule = getRulesContaining(
+    const composerSendRule = getRule(
       appCss,
-      ".agent-conversation-sidebar__send > svg",
-    ).join("\n");
+      ".agent-conversation-sidebar__send",
+    );
+    const composerSendIconRule = getRule(
+      appCss,
+      ".agent-conversation-sidebar__send svg",
+    );
     const composerSendDisabledRule = getRule(
       appCss,
       ".agent-conversation-sidebar__send:disabled",
@@ -667,13 +671,11 @@ describe("generate composer styles", () => {
       "grid-template-columns: minmax(0, 1fr) 34px",
     );
     expect(composerRule).toContain("border-top: 1px solid");
-    expect(composerSendIconRule).toContain(
-      ".excalidraw .excalidraw-button.agent-conversation-sidebar__send > svg",
-    );
+    expect(composerSendRule).not.toContain("--button-width");
+    expect(composerSendRule).not.toContain("--button-height");
     expect(composerSendIconRule).toContain("width: 18px");
     expect(composerSendIconRule).toContain("height: 18px");
-    expect(composerSendIconRule).toContain("min-width: 18px");
-    expect(composerSendIconRule).toContain("flex: 0 0 18px");
+    expect(composerSendIconRule).toContain("flex: 0 0 auto");
     expect(composerSendIconRule).toContain("stroke-width: 1.6");
     expect(composerSendDisabledRule).toContain("color: var(--color-gray-70)");
     expect(sidebarTimelineRule).toContain("grid-template-rows: minmax(0, 1fr)");
@@ -1358,12 +1360,12 @@ describe("generate composer styles", () => {
     expect(promptEditorPlaceholderRule).toContain(
       "content: attr(data-placeholder)",
     );
-    expect(iconRule).toContain("--button-width: var(--lg-button-size)");
-    expect(iconRule).toContain("--button-height: var(--lg-button-size)");
-    expect(iconRule).toContain("min-width: var(--lg-button-size)");
+    expect(iconRule).not.toContain("--button-width");
+    expect(iconRule).not.toContain("--button-height");
     expect(iconRule).toContain("padding: 0");
-    expect(actionRule).toContain("--button-width: var(--lg-button-size)");
-    expect(actionRule).toContain("--button-height: var(--lg-button-size)");
+    expect(actionRule).not.toContain("--button-width");
+    expect(actionRule).not.toContain("--button-height");
+    expect(actionRule).toContain("min-width: var(--lg-button-size)");
     expect(actionRule).toContain("padding: 0");
     expect(iconRule).toContain("background: transparent");
     expect(actionRule).toContain("background: transparent");
@@ -1380,12 +1382,8 @@ describe("generate composer styles", () => {
     expect(composerIconSvgRule).toContain(
       "height: var(--generate-composer-control-icon-size)",
     );
-    expect(composerIconSvgRule).toContain(
-      "min-width: var(--generate-composer-control-icon-size)",
-    );
-    expect(composerIconSvgRule).toContain(
-      "flex: 0 0 var(--generate-composer-control-icon-size)",
-    );
+    expect(composerIconSvgRule).not.toContain("min-width");
+    expect(composerIconSvgRule).not.toContain("flex:");
     expect(primaryActionRule).toContain(
       "background: var(--generate-composer-send-bg)",
     );

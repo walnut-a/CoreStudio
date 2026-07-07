@@ -903,10 +903,7 @@
 }
 
 .image-board-button.generate-composer__icon {
-  --button-width: var(--lg-button-size);
-  --button-height: var(--lg-button-size);
   width: var(--lg-button-size);
-  min-width: var(--lg-button-size);
   height: var(--lg-button-size);
   min-height: var(--lg-button-size);
   padding: 0;
@@ -933,8 +930,6 @@
 }
 
 .image-board-button.generate-composer__action {
-  --button-width: var(--lg-button-size);
-  --button-height: var(--lg-button-size);
   width: var(--lg-button-size);
   min-width: var(--lg-button-size);
   height: var(--lg-button-size);
@@ -1128,8 +1123,6 @@
 .image-board-button.generate-composer__action > svg {
   width: var(--generate-composer-control-icon-size);
   height: var(--generate-composer-control-icon-size);
-  min-width: var(--generate-composer-control-icon-size);
-  flex: 0 0 var(--generate-composer-control-icon-size);
 }
 
 .generate-panel__body {

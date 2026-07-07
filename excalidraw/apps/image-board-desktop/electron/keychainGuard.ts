@@ -13,4 +13,5 @@ export const configureNoSystemKeychainAccess = (
   // CoreStudio stores provider keys in its own local settings file.
   // Do not let Chromium/Electron touch macOS Keychain for profile storage.
   commandLine.appendSwitch("use-mock-keychain");
+  commandLine.appendSwitch("password-store", "basic");
 };

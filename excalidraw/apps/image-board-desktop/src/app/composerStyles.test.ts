@@ -541,10 +541,10 @@ describe("generate composer styles", () => {
       appCss,
       ".agent-conversation-sidebar__composer",
     );
-    const composerSendIconRule = getRule(
+    const composerSendIconRule = getRulesContaining(
       appCss,
-      ".agent-conversation-sidebar__send svg",
-    );
+      ".agent-conversation-sidebar__send > svg",
+    ).join("\n");
     const composerSendDisabledRule = getRule(
       appCss,
       ".agent-conversation-sidebar__send:disabled",
@@ -667,8 +667,13 @@ describe("generate composer styles", () => {
       "grid-template-columns: minmax(0, 1fr) 34px",
     );
     expect(composerRule).toContain("border-top: 1px solid");
+    expect(composerSendIconRule).toContain(
+      ".excalidraw .excalidraw-button.agent-conversation-sidebar__send > svg",
+    );
     expect(composerSendIconRule).toContain("width: 18px");
     expect(composerSendIconRule).toContain("height: 18px");
+    expect(composerSendIconRule).toContain("min-width: 18px");
+    expect(composerSendIconRule).toContain("flex: 0 0 18px");
     expect(composerSendIconRule).toContain("stroke-width: 1.6");
     expect(composerSendDisabledRule).toContain("color: var(--color-gray-70)");
     expect(sidebarTimelineRule).toContain("grid-template-rows: minmax(0, 1fr)");

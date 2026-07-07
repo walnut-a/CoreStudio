@@ -1199,8 +1199,8 @@ describe("generate composer styles", () => {
     const appCss = readAppCss();
     const selectors = [
       ".generate-composer",
-      ".generate-composer__icon",
-      ".generate-composer__action",
+      ".image-board-button.generate-composer__icon",
+      ".image-board-button.generate-composer__action",
     ];
 
     for (const selector of selectors) {
@@ -1267,11 +1267,17 @@ describe("generate composer styles", () => {
       appCss,
       ".generate-composer__prompt-editor--empty::before",
     ).join("\n");
-    const iconRule = getRule(appCss, ".generate-composer__icon");
-    const actionRule = getRule(appCss, ".generate-composer__action");
+    const iconRule = getRule(
+      appCss,
+      ".image-board-button.generate-composer__icon",
+    );
+    const actionRule = getRule(
+      appCss,
+      ".image-board-button.generate-composer__action",
+    );
     const composerIconSvgRule = getRulesContaining(
       appCss,
-      ".generate-composer__icon > svg",
+      ".image-board-button.generate-composer__icon > svg",
     ).join("\n");
     const primaryActionRule = getRule(
       appCss,
@@ -1296,7 +1302,7 @@ describe("generate composer styles", () => {
       "--generate-composer-editor-max-height: min(30vh, 10rem)",
     );
     expect(composerRule).toContain(
-      "--generate-composer-control-icon-size: 1.25rem",
+      "--generate-composer-control-icon-size: 24px",
     );
     expect(composerRule).toContain("box-sizing: border-box");
     expect(composerRule).toContain("padding: 6px 8px 6px 12px");
@@ -1354,13 +1360,20 @@ describe("generate composer styles", () => {
     );
     expect(iconRule).toContain("--button-width: var(--lg-button-size)");
     expect(iconRule).toContain("--button-height: var(--lg-button-size)");
+    expect(iconRule).toContain("min-width: var(--lg-button-size)");
+    expect(iconRule).toContain("padding: 0");
     expect(actionRule).toContain("--button-width: var(--lg-button-size)");
     expect(actionRule).toContain("--button-height: var(--lg-button-size)");
+    expect(actionRule).toContain("padding: 0");
     expect(iconRule).toContain("background: transparent");
     expect(actionRule).toContain("background: transparent");
     expect(composerIconSvgRule).toContain(
-      ".excalidraw .excalidraw-button.generate-composer__icon > svg",
+      ".image-board-button.generate-composer__icon > svg",
     );
+    expect(composerIconSvgRule).toContain(
+      ".image-board-button.generate-composer__action > svg",
+    );
+    expect(composerIconSvgRule).not.toContain(".excalidraw ");
     expect(composerIconSvgRule).toContain(
       "width: var(--generate-composer-control-icon-size)",
     );
@@ -1471,8 +1484,14 @@ describe("generate composer styles", () => {
       ".generate-composer__reference-remove",
     );
     const controlsRule = getRule(appCss, ".generate-composer__controls");
-    const iconRule = getRule(appCss, ".generate-composer__icon");
-    const actionRule = getRule(appCss, ".generate-composer__action");
+    const iconRule = getRule(
+      appCss,
+      ".image-board-button.generate-composer__icon",
+    );
+    const actionRule = getRule(
+      appCss,
+      ".image-board-button.generate-composer__action",
+    );
     const primaryActionRule = getRule(
       appCss,
       ".image-board-button--primary.generate-composer__action",
@@ -1517,7 +1536,10 @@ describe("generate composer styles", () => {
   it("makes send the primary composer action while keeping settings quiet", () => {
     const appCss = readAppCss();
     const composerRule = getRule(appCss, ".generate-composer");
-    const iconRule = getRule(appCss, ".generate-composer__icon");
+    const iconRule = getRule(
+      appCss,
+      ".image-board-button.generate-composer__icon",
+    );
     const iconHoverRule = getRule(appCss, ".generate-composer__icon:hover");
     const primaryActionRule = getRule(
       appCss,

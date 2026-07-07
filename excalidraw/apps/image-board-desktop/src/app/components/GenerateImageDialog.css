@@ -192,7 +192,7 @@
   );
   --generate-composer-editor-min-height: 36px;
   --generate-composer-editor-max-height: min(30vh, 10rem);
-  --generate-composer-control-icon-size: 1.25rem;
+  --generate-composer-control-icon-size: 24px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: minmax(var(--generate-composer-editor-min-height), auto);
@@ -902,10 +902,11 @@
   align-self: end;
 }
 
-.generate-composer__icon {
+.image-board-button.generate-composer__icon {
   --button-width: var(--lg-button-size);
   --button-height: var(--lg-button-size);
   width: var(--lg-button-size);
+  min-width: var(--lg-button-size);
   height: var(--lg-button-size);
   min-height: var(--lg-button-size);
   padding: 0;
@@ -931,7 +932,7 @@
   color: var(--generate-composer-settings-active-color);
 }
 
-.generate-composer__action {
+.image-board-button.generate-composer__action {
   --button-width: var(--lg-button-size);
   --button-height: var(--lg-button-size);
   width: var(--lg-button-size);
@@ -1123,8 +1124,8 @@
   outline-offset: 2px;
 }
 
-.excalidraw .excalidraw-button.generate-composer__icon > svg,
-.excalidraw .excalidraw-button.generate-composer__action > svg {
+.image-board-button.generate-composer__icon > svg,
+.image-board-button.generate-composer__action > svg {
   width: var(--generate-composer-control-icon-size);
   height: var(--generate-composer-control-icon-size);
   min-width: var(--generate-composer-control-icon-size);

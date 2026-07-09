@@ -1,10 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { runBuiltinGenerationRendererAction } from "./builtinGenerationRendererController";
+import {
+  runBuiltinGenerationCancelRendererAction,
+  runBuiltinGenerationRendererAction,
+} from "./builtinGenerationRendererController";
 
-import type { PendingGenerationJobRegistryState } from "./generationJobState";
+import type {
+  PendingGenerationJob,
+  PendingGenerationJobRegistryState,
+} from "./generationJobState";
 import type { GenerationErrorDetails } from "./generationErrorViewModel";
-import type { GenerationRequest, GenerationResponse } from "../shared/providerTypes";
+import type {
+  GenerationRequest,
+  GenerationResponse,
+} from "../shared/providerTypes";
 import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
 
 const createRequest = (): GenerationRequest => ({
@@ -132,6 +141,7 @@ describe("runBuiltinGenerationRendererAction", () => {
     );
     expect(generateImages).toHaveBeenCalledWith({
       projectPath: project.projectPath,
+      generationJobId: job.jobId,
       request: expect.objectContaining({ prompt: request.prompt }),
     });
 
@@ -206,6 +216,92 @@ describe("runBuiltinGenerationRendererAction", () => {
       errorDetails,
     );
     expect(loadProviderState).toHaveBeenCalledTimes(1);
+    expect(pendingJobs.size).toBe(0);
+  });
+
+  it("ignores async generation errors after the pending job was cancelled", async () => {
+    const request = createRequest();
+    const project = createProject();
+    const job = {
+      jobId: "job-1",
+      projectPath: project.projectPath,
+      slots: [],
+    };
+    let pendingJobs = new Map();
+    let rejectGeneration: (error: unknown) => void = () => undefined;
+    const showGenerationError = vi.fn(() => createErrorDetails());
+    const markPendingGenerationFailed = vi.fn();
+
+    const result = await runBuiltinGenerationRendererAction({
+      request,
+      project,
+      providerSettings: null,
+      sourceScene: null,
+      referenceScene: null,
+      expectedProjectPath: project.projectPath,
+      placementViewport: null,
+      startupGenerateFailedMessage: "生成失败",
+      loadOriginalScene: async (scene) => scene,
+      assertProjectActive: vi.fn(),
+      setGenerationSource: vi.fn(),
+      showDirectGenerationRecords: vi.fn(),
+      setGenerateRequest: vi.fn(),
+      insertPlaceholders: vi.fn(() => job),
+      getGenerationJobs: () => pendingJobs,
+      applyRegistryState: (state) => {
+        pendingJobs = state.pendingJobs;
+        return state;
+      },
+      generateImages: vi.fn(
+        () =>
+          new Promise<GenerationResponse>((_resolve, reject) => {
+            rejectGeneration = reject;
+          }),
+      ),
+      finishPendingJob: vi.fn(),
+      markPendingGenerationFailed,
+      showGenerationError,
+      loadProviderState: vi.fn(),
+    });
+
+    pendingJobs = new Map();
+    rejectGeneration(new Error("用户已取消生成任务。"));
+    await result.completion;
+
+    expect(showGenerationError).not.toHaveBeenCalled();
+    expect(markPendingGenerationFailed).not.toHaveBeenCalled();
+  });
+
+  it("cancels active builtin jobs, marks their slots cancelled, and clears the registry", async () => {
+    const job: PendingGenerationJob = {
+      jobId: "job-1",
+      projectPath: "/tmp/corestudio-project",
+      slots: [],
+    };
+    let pendingJobs = new Map<string, PendingGenerationJob>([
+      [job.jobId, job],
+    ]);
+    const markPendingGenerationFailed = vi.fn();
+    const cancelGenerateImages = vi.fn(async () => undefined);
+
+    await expect(
+      runBuiltinGenerationCancelRendererAction({
+        getGenerationJobs: () => pendingJobs,
+        applyRegistryState: (state) => {
+          pendingJobs = state.pendingJobs;
+          return state;
+        },
+        cancelGenerateImages,
+        markPendingGenerationFailed,
+      }),
+    ).resolves.toEqual({ cancelledCount: 1 });
+
+    expect(cancelGenerateImages).toHaveBeenCalledWith(job.jobId);
+    expect(markPendingGenerationFailed).toHaveBeenCalledWith(job, {
+      normalizedMessage: "已取消",
+      rawMessage: "用户已取消生成任务。",
+      stack: null,
+    });
     expect(pendingJobs.size).toBe(0);
   });
 

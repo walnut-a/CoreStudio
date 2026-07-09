@@ -46,6 +46,21 @@ describe("providerCatalog", () => {
       "google/gemini-2.5-flash-image",
     );
     expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "google/gemini-3.1-flash-lite-image",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "google/gemini-omni-flash-preview",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "google/gemini-3.1-flash-image",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "google/gemini-3-pro-image",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "google/gemini-3.1-flash-image-preview",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
       "google/gemini-3-pro-image-preview",
     );
     expect(Object.keys(zenmuxDefinition.models)).toContain(
@@ -54,6 +69,20 @@ describe("providerCatalog", () => {
     expect(Object.keys(zenmuxDefinition.models)).toContain(
       "openai/gpt-image-2",
     );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "qwen/qwen-image-2.0",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "qwen/qwen-image-2.0-pro",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "bytedance/doubao-seedream-5.0-lite",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain("z-ai/glm-image");
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "tencent/hy-image-v3.0",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain("klingai/kling-v2");
     expect(Object.keys(falDefinition.models)).toContain("fal-ai/nano-banana-2");
     expect(Object.keys(jimengDefinition.models)).toContain(
       "doubao-seedream-5-0-lite-260128",
@@ -116,6 +145,24 @@ describe("providerCatalog", () => {
     expect(
       inferCustomModelCapabilityTemplate({
         provider: "zenmux",
+        modelId: "qwen/qwen-image-next",
+      }),
+    ).toBe("image-editing-aspect-ratio");
+    expect(
+      inferCustomModelCapabilityTemplate({
+        provider: "zenmux",
+        modelId: "z-ai/glm-image-next",
+      }),
+    ).toBe("image-editing-aspect-ratio");
+    expect(
+      inferCustomModelCapabilityTemplate({
+        provider: "zenmux",
+        modelId: "bytedance/doubao-seedream-next",
+      }),
+    ).toBe("image-editing-aspect-ratio");
+    expect(
+      inferCustomModelCapabilityTemplate({
+        provider: "zenmux",
         modelId: "fal-ai/flux-pro/v1.1",
       }),
     ).toBe("seeded-exact");
@@ -158,6 +205,48 @@ describe("providerCatalog", () => {
     expect(
       getProviderRequestAdapter({
         provider: "zenmux",
+        model: "qwen/qwen-image-2.0",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      inferProviderRequestAdapter({
+        provider: "zenmux",
+        modelId: "bytedance/doubao-seedream-next",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      inferProviderRequestAdapter({
+        provider: "zenmux",
+        modelId: "z-ai/glm-image-next",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      inferProviderRequestAdapter({
+        provider: "zenmux",
+        modelId: "tencent/hy-image-v4.0",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      inferProviderRequestAdapter({
+        provider: "zenmux",
+        modelId: "klingai/kling-v3",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      inferProviderRequestAdapter({
+        provider: "zenmux",
+        modelId: "qwen/qwen-image-next",
+      }),
+    ).toBe("zenmux-vertex-gpt-image");
+
+    expect(
+      getProviderRequestAdapter({
+        provider: "zenmux",
         model: "vendor/custom-image-model",
         customModels: [
           {
@@ -171,7 +260,59 @@ describe("providerCatalog", () => {
     ).toBe("zenmux-vertex-gpt-image");
   });
 
-  it("uses adapter-specific ratio presets for GPT image models", () => {
+  it("uses adapter-specific ratio presets for Vertex image API models", () => {
+    expect(
+      getAspectRatioOptions({
+        provider: "zenmux",
+        model: "qwen/qwen-image-2.0",
+      }),
+    ).toEqual([
+      {
+        id: "1:1",
+        label: "1:1",
+        width: 1024,
+        height: 1024,
+      },
+      {
+        id: "3:2",
+        label: "3:2",
+        width: 1536,
+        height: 1024,
+      },
+      {
+        id: "2:3",
+        label: "2:3",
+        width: 1024,
+        height: 1536,
+      },
+    ]);
+
+    expect(
+      getAspectRatioOptions({
+        provider: "zenmux",
+        model: "bytedance/doubao-seedream-5.0-lite",
+      }),
+    ).toEqual([
+      {
+        id: "1:1",
+        label: "1:1",
+        width: 1024,
+        height: 1024,
+      },
+      {
+        id: "3:2",
+        label: "3:2",
+        width: 1536,
+        height: 1024,
+      },
+      {
+        id: "2:3",
+        label: "2:3",
+        width: 1024,
+        height: 1536,
+      },
+    ]);
+
     expect(
       getAspectRatioOptions({
         provider: "zenmux",
@@ -194,6 +335,18 @@ describe("providerCatalog", () => {
       label: "16:9",
       width: 2048,
       height: 1152,
+    });
+
+    expect(
+      getAspectRatioOptions({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+      }),
+    ).toContainEqual({
+      id: "16:9-4k",
+      label: "16:9 4K",
+      width: 3840,
+      height: 2160,
     });
 
     expect(
@@ -286,12 +439,25 @@ describe("providerCatalog", () => {
     expect(
       getVisibleGenerationFields({
         provider: "zenmux",
+        model: "bytedance/doubao-seedream-5.0-lite",
+      }),
+    ).toMatchObject({
+      width: false,
+      height: false,
+      aspectRatio: true,
+      imageCount: true,
+    });
+
+    expect(
+      getVisibleGenerationFields({
+        provider: "zenmux",
         model: "openai/gpt-image-2",
       }),
     ).toMatchObject({
       width: false,
       height: false,
       aspectRatio: true,
+      imageCount: true,
     });
   });
 
@@ -365,6 +531,27 @@ describe("providerCatalog", () => {
     expect(
       getProviderCapabilities({
         provider: "zenmux",
+        model: "google/gemini-3.1-flash-lite-image",
+      }).supportsReferenceImages,
+    ).toBe(true);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "qwen/qwen-image-2.0",
+      }).supportsReferenceImages,
+    ).toBe(true);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "z-ai/glm-image",
+      }).supportsReferenceImages,
+    ).toBe(true);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
         model: "openai/gpt-image-2",
       }).supportsReferenceImages,
     ).toBe(true);
@@ -391,6 +578,27 @@ describe("providerCatalog", () => {
         model: "gemini-3.1-flash-image-preview",
       }).maxReferenceImageCount,
     ).toBe(14);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "google/gemini-3.1-flash-lite-image",
+      }).maxReferenceImageCount,
+    ).toBe(14);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "qwen/qwen-image-2.0",
+      }).maxReferenceImageCount,
+    ).toBe(4);
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "z-ai/glm-image",
+      }).maxReferenceImageCount,
+    ).toBe(4);
 
     expect(
       getProviderCapabilities({
@@ -436,6 +644,41 @@ describe("providerCatalog", () => {
   });
 
   it("normalizes unsupported generation controls before submit", () => {
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+      }),
+    ).toMatchObject({
+      supportsImageCount: true,
+      maxImageCount: 10,
+    });
+
+    expect(
+      getProviderCapabilities({
+        provider: "zenmux",
+        model: "bytedance/doubao-seedream-5.0-lite",
+      }),
+    ).toMatchObject({
+      supportsImageCount: true,
+      maxImageCount: 10,
+    });
+
+    expect(
+      normalizeGenerationRequest({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+        prompt: "工业设计方案",
+        width: 1024,
+        height: 1024,
+        seed: 42,
+        imageCount: 12,
+      }),
+    ).toMatchObject({
+      seed: null,
+      imageCount: 10,
+    });
+
     expect(
       normalizeGenerationRequest({
         provider: "zenmux",

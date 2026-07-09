@@ -54,6 +54,8 @@ export interface UseGenerateImageDialogRuntimeInput {
   onReferenceRemove?: () => void;
   onReferenceCommit?: () => Promise<GenerationReferencePayload | null>;
   onOpenAgentRunLog?: (taskId: string) => void;
+  loading: boolean;
+  onCancelGeneration?: () => void;
   savedPrompts?: SavedPrompt[];
   onSavePrompt?: (input: SavePromptInput) => void | Promise<void>;
   onUsePrompt?: (id: string) => void | Promise<void>;
@@ -81,6 +83,8 @@ export const useGenerateImageDialogRuntime = ({
   onReferenceRemove,
   onReferenceCommit,
   onOpenAgentRunLog,
+  loading,
+  onCancelGeneration,
   savedPrompts = [],
   onSavePrompt,
   onUsePrompt,
@@ -312,6 +316,7 @@ export const useGenerateImageDialogRuntime = ({
       promptLibraryOpen,
       advancedOpen,
       canSubmit,
+      loading,
       showGenerationSourceSwitch,
       agentGenerationSelectable,
       effectiveGenerationSource,
@@ -325,6 +330,7 @@ export const useGenerateImageDialogRuntime = ({
       onSelectComposerMode: selectComposerMode,
       onSelectGenerationSource: selectGenerationSource,
       onStopInputEvent: stopInputEventPropagation,
+      onCancelGeneration,
       onCommitPendingReference: commitPendingReference,
       onPromptChange: updatePromptParts,
       onPromptKeyPressCapture: handleInputKeyPhaseCapture,

@@ -6,7 +6,8 @@
 
 ## 当前计划文档
 
-暂无计划文档。
+- [2026-07-07-app-and-test-refactor.md](2026-07-07-app-and-test-refactor.md)：App wiring 与大型测试文件拆分计划。
+- [2026-07-07-runtime-hardening.md](2026-07-07-runtime-hardening.md)：运行时健壮性加固计划。
 
 ## 既有历史计划
 

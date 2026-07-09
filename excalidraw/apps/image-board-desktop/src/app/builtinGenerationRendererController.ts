@@ -62,6 +62,7 @@ export interface RunBuiltinGenerationRendererActionInput<
     state: PendingGenerationJobRegistryState,
   ) => PendingGenerationJobRegistryState;
   generateImages: (input: GenerateImagesInput) => Promise<GenerationResponse>;
+  cancelGenerateImages?: (generationJobId: string) => Promise<void>;
   finishPendingJob: (
     job: PendingGenerationJob,
     request: GenerationRequest,
@@ -80,6 +81,21 @@ export interface RunBuiltinGenerationRendererActionInput<
     fallbackMessage?: string,
   ) => GenerationErrorDetails;
   loadProviderState: () => Promise<unknown> | unknown;
+}
+
+export interface BuiltinGenerationCancelRendererActionInput {
+  getGenerationJobs: () => ReadonlyMap<string, PendingGenerationJob>;
+  applyRegistryState: (
+    state: PendingGenerationJobRegistryState,
+  ) => PendingGenerationJobRegistryState;
+  cancelGenerateImages?: (generationJobId: string) => Promise<void>;
+  markPendingGenerationFailed: (
+    job: PendingGenerationJob,
+    errorDetails?: Pick<
+      GenerationErrorDetails,
+      "normalizedMessage" | "rawMessage" | "stack"
+    >,
+  ) => void;
 }
 
 export interface BuiltinGenerationRendererActionStarted {
@@ -166,6 +182,7 @@ export const runBuiltinGenerationRendererAction = async <
     try {
       const response = await generateImages({
         projectPath: project.projectPath,
+        generationJobId: pendingJob.jobId,
         request: preparedRequest,
       });
       await runPendingGenerationJobSuccessResultAction({
@@ -173,6 +190,9 @@ export const runBuiltinGenerationRendererAction = async <
         finish: () => finishPendingJob(pendingJob, preparedRequest, response),
       });
     } catch (error: unknown) {
+      if (getPendingJobAsyncResultPlan("failure").kind !== "mark-failed") {
+        return;
+      }
       const errorDetails = showGenerationError(preparedRequest, error);
       runPendingGenerationJobFailureResultAction({
         getResultPlan: getPendingJobAsyncResultPlan,
@@ -195,4 +215,35 @@ export const runBuiltinGenerationRendererAction = async <
     preparedRequest,
     completion,
   };
+};
+
+export const runBuiltinGenerationCancelRendererAction = async ({
+  getGenerationJobs,
+  applyRegistryState,
+  cancelGenerateImages,
+  markPendingGenerationFailed,
+}: BuiltinGenerationCancelRendererActionInput) => {
+  const jobs = [...getGenerationJobs().values()];
+  const cancelledDetails = {
+    normalizedMessage: "已取消",
+    rawMessage: "用户已取消生成任务。",
+    stack: null,
+  };
+
+  for (const job of jobs) {
+    markPendingGenerationFailed(job, cancelledDetails);
+  }
+
+  applyRegistryState({
+    pendingJobs: new Map(),
+    pendingCount: 0,
+  });
+
+  await Promise.all(
+    jobs.map(async (job) => {
+      await cancelGenerateImages?.(job.jobId);
+    }),
+  );
+
+  return { cancelledCount: jobs.length };
 };

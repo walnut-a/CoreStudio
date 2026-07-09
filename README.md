@@ -4,22 +4,6 @@ CoreStudio 是一个基于 Excalidraw 的本地优先工业设计图像画板。
 
 当前仓库的主要业务代码在 `excalidraw/apps/image-board-desktop/`。`excalidraw/` 保留上游 Excalidraw monorepo 结构，CoreStudio 桌面端作为其中的 `image-board-desktop` workspace 维护。
 
-## 仓库状态摘要
-
-| 项目 | 当前观察 |
-| --- | --- |
-| 默认分支 | `origin/main`，来自本地 remote HEAD 记录 |
-| 当前分支 | `walnut/corestudio-agent-cli-local-bridge` |
-| 推荐代码阅读基准分支 | `walnut/corestudio-agent-cli-local-bridge` |
-| 开发基准分支 | 未确认；当前分支包含最新 Agent Board、CLI、ACP Agent 和项目修复实现 |
-| 远端 | `origin` -> `git@github.com:walnut-a/CoreStudio.git` |
-| 主要代码目录 | `excalidraw/apps/image-board-desktop/` |
-| 包管理器 | Yarn 1，见 `excalidraw/package.json` 的 `packageManager` |
-
-推荐阅读当前分支的原因：本地提交历史显示当前分支在 `main` 之后持续实现 Agent Board、CLI、ACP Agent、生成记录、项目健康检查和架构收口；`main` 当前更像最近发布基线。
-
-更完整的分支、目录和入口分析见 [docs/doc/repository-analysis.md](docs/doc/repository-analysis.md)。
-
 ## 项目概览
 
 CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工业设计生图和本地 Agent 协作工作流：
@@ -125,6 +109,8 @@ corepack yarn test:typecheck
 corepack yarn check:desktop-secrets --source --package-inputs
 ```
 
+仓库根目录的 `.github/workflows/corestudio-desktop.yml` 会在 GitHub 上运行 `test:typecheck`、`test:desktop --run` 和源码密钥扫描。
+
 打包桌面客户端：
 
 ```sh
@@ -139,6 +125,7 @@ corepack yarn package:desktop
 
 - [docs/README.md](docs/README.md)：仓库文档总入口。
 - [docs/doc/repository-analysis.md](docs/doc/repository-analysis.md)：当前仓库、分支、结构、能力和维护边界分析。
+- [docs/doc/excalidraw-fork-maintenance.md](docs/doc/excalidraw-fork-maintenance.md)：Excalidraw 源码 fork 维护说明。
 - [excalidraw/apps/image-board-desktop/README.md](excalidraw/apps/image-board-desktop/README.md)：CoreStudio CLI / Agent Bridge 说明。
 - [excalidraw/apps/image-board-desktop/PRODUCT.md](excalidraw/apps/image-board-desktop/PRODUCT.md)：产品定位和 Agent 集成原则。
 - [excalidraw/apps/image-board-desktop/DESIGN.md](excalidraw/apps/image-board-desktop/DESIGN.md)：设计系统和界面约束。
@@ -163,15 +150,15 @@ Agent 集成相关细节集中在 `excalidraw/apps/image-board-desktop/docs/`，
 ## 后续 Agent 接手指南
 
 1. 先读本 README，再读 [docs/README.md](docs/README.md)。
-2. 代码阅读基准优先使用 `walnut/corestudio-agent-cli-local-bridge`；如果分支状态变化，先重新确认 `git branch --all` 和默认分支。
+2. 代码阅读基准先用 `git branch --all`、`git remote -v` 和 remote HEAD 重新确认，不根据旧文档假设当前分支。
 3. 需要理解仓库现状时读 [docs/doc/repository-analysis.md](docs/doc/repository-analysis.md)。
 4. 需要理解 Agent Board、CLI、ACP Agent 时，从 `excalidraw/apps/image-board-desktop/docs/` 进入。
 5. 不确定的信息标注“未确认”，不要根据分支名或旧文档直接下结论。
-6. 本仓库的真实业务代码主要在 `excalidraw/apps/image-board-desktop/`；不要误把根目录空壳目录当成主实现。
+6. 本仓库的真实业务代码主要在 `excalidraw/apps/image-board-desktop/`。
 
 ## 安全
 
-CoreStudio 的模型服务 Key 是本地配置，不进入源码仓库，不进入安装包。桌面端提供 `check-secrets` 脚本，用来检查源码、打包输入和 release 输出，拦截常见 API Key、Bearer Token 以及本地配置文件。
+CoreStudio 的模型服务 Key 是本地配置，不进入源码仓库，不进入安装包。当前版本为了避免系统钥匙串授权弹窗，会把 Key 以 `plain:` 前缀保存在本机 appData 下的 `image-board-settings.json`，并在写入时把权限收紧为仅当前用户可读写。桌面端提供 `check-secrets` 脚本，用来检查源码、打包输入和 release 输出，拦截常见 API Key、Bearer Token 以及本地配置文件。
 
 发布前建议至少运行：
 

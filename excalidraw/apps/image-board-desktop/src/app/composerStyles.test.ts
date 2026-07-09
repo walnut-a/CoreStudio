@@ -3,389 +3,57 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const readCssFile = (filePath: string) =>
-  readFileSync(resolve(process.cwd(), filePath), "utf8");
+import * as composerStyleTestSupport from "./composerStyles.testSupport";
 
-const readAppCss = () =>
-  [
-    "apps/image-board-desktop/src/app/styles/designTokens.css",
-    "apps/image-board-desktop/src/app/styles/dialogPrimitives.css",
-    "apps/image-board-desktop/src/app/App.css",
-    "apps/image-board-desktop/src/app/components/AboutDialog.css",
-    "apps/image-board-desktop/src/app/components/AcpRunLogDialog.css",
-    "apps/image-board-desktop/src/app/components/AgentBoard.css",
-    "apps/image-board-desktop/src/app/components/AgentConversation.css",
-    "apps/image-board-desktop/src/app/components/AgentRunChatLog.css",
-    "apps/image-board-desktop/src/app/components/AgentSettings.css",
-    "apps/image-board-desktop/src/app/components/AgentStatusDock.css",
-    "apps/image-board-desktop/src/app/components/DesktopButton.css",
-    "apps/image-board-desktop/src/app/components/GenerateImageDialog.css",
-    "apps/image-board-desktop/src/app/components/GenerationErrorDetailsDialog.css",
-    "apps/image-board-desktop/src/app/components/ImageInspector.css",
-    "apps/image-board-desktop/src/app/components/ProjectDataReportDialog.css",
-    "apps/image-board-desktop/src/app/components/ProjectMainMenu.css",
-    "apps/image-board-desktop/src/app/components/ProjectRenderBoundary.css",
-    "apps/image-board-desktop/src/app/components/ProjectStatusToast.css",
-    "apps/image-board-desktop/src/app/components/SideDock.css",
-    "apps/image-board-desktop/src/app/components/WelcomePane.css",
-    "apps/image-board-desktop/src/app/components/WorkspaceBoundsOverlay.css",
-  ]
-    .map(readCssFile)
-    .join("\n");
-
-const readRootAppCss = () =>
-  readFileSync(
-    resolve(process.cwd(), "apps/image-board-desktop/src/app/App.css"),
-    "utf8",
-  );
-
-const readDialogPrimitivesCss = () =>
-  readCssFile("apps/image-board-desktop/src/app/styles/dialogPrimitives.css");
-
-const readGenerateImageDialog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateImageDialog.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateImageDialogRuntime = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateImageDialogRuntime.ts",
-    ),
-    "utf8",
-  );
-
-const readGenerateImageDialogProviderRuntime = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateImageDialogProviderRuntime.ts",
-    ),
-    "utf8",
-  );
-
-const readImageBoardApp = () =>
-  readFileSync(
-    resolve(process.cwd(), "apps/image-board-desktop/src/app/App.tsx"),
-    "utf8",
-  );
-
-const readGenerateComposerActionBar = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateComposerActionBar.tsx",
-    ),
-    "utf8",
-  );
-
-const readAgentConversationThreadView = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/agent/agentConversationThreadView.ts",
-    ),
-    "utf8",
-  );
-
-const readAgentConversationComposer = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentConversationComposer.tsx",
-    ),
-    "utf8",
-  );
-
-const readAgentConversationHeader = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentConversationHeader.tsx",
-    ),
-    "utf8",
-  );
-
-const readAcpRunLogDialog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AcpRunLogDialog.tsx",
-    ),
-    "utf8",
-  );
-
-const readAboutDialog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AboutDialog.tsx",
-    ),
-    "utf8",
-  );
-
-const readAgentRunChatLog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentRunChatLog.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerationErrorDetailsDialog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerationErrorDetailsDialog.tsx",
-    ),
-    "utf8",
-  );
-
-const readWorkspaceBoundsOverlay = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/WorkspaceBoundsOverlay.tsx",
-    ),
-    "utf8",
-  );
-
-const readProjectRenderBoundary = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/ProjectRenderBoundary.tsx",
-    ),
-    "utf8",
-  );
-
-const readAppBridgeUnavailable = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AppBridgeUnavailable.tsx",
-    ),
-    "utf8",
-  );
-
-const readAppProjectEntryScreen = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AppProjectEntryScreen.tsx",
-    ),
-    "utf8",
-  );
-
-const readAppErrorBanners = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AppErrorBanners.tsx",
-    ),
-    "utf8",
-  );
-
-const readEditorLoadingOverlay = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/EditorLoadingOverlay.tsx",
-    ),
-    "utf8",
-  );
-
-const readAgentBoardStartupPane = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentBoardStartupPane.tsx",
-    ),
-    "utf8",
-  );
-
-const readDesktopButton = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/DesktopButton.tsx",
-    ),
-    "utf8",
-  );
-
-const readSideDock = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/SideDock.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogViewModel = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/generateDialogViewModel.ts",
-    ),
-    "utf8",
-  );
-
-const readGenerateProviderSettingsPanel = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateProviderSettingsPanel.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateAdvancedFieldsPanel = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateAdvancedFieldsPanel.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogAdvancedSettings = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogAdvancedSettings.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogAdvancedSettingsRuntime = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogAdvancedSettingsRuntime.ts",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogPromptLibrarySection = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogPromptLibrarySection.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogPromptLibraryRuntime = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogPromptLibraryRuntime.ts",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogComposerRuntime = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogComposerRuntime.ts",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogComposerActionsSection = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogComposerActionsSection.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogComposerContentSection = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogComposerContentSection.tsx",
-    ),
-    "utf8",
-  );
-
-const readGenerateDialogComposerSection = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogComposerSection.tsx",
-    ),
-    "utf8",
-  );
-
-const readImageInspector = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/ImageInspector.tsx",
-    ),
-    "utf8",
-  );
-
-const readAgentBoard = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentBoard.tsx",
-    ),
-    "utf8",
-  );
-
-const readProjectMainMenu = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/ProjectMainMenu.tsx",
-    ),
-    "utf8",
-  );
-
-const readProjectStatusToast = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/ProjectStatusToast.tsx",
-    ),
-    "utf8",
-  );
-
-const readCoreStudioIcons = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/CoreStudioIcons.tsx",
-    ),
-    "utf8",
-  );
-
-const getRule = (css: string, selector: string) => {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return css.match(
-    new RegExp(`(?:^|\\n)${escapedSelector}\\s*\\{[\\s\\S]*?\\n\\}`),
-  )?.[0];
-};
-
-const getRulesContaining = (css: string, selector: string) => {
-  return (
-    css
-      .match(/(?:^|\n)[^{]+\{[\s\S]*?\n\}/g)
-      ?.filter((rule) => rule.includes(selector)) ?? []
-  );
-};
+const {
+  readCssFile,
+  readAppCss,
+  readRootAppCss,
+  readDialogPrimitivesCss,
+  readGenerateImageDialog,
+  readGenerateImageDialogRuntime,
+  readGenerateImageDialogProviderRuntime,
+  readImageBoardApp,
+  readGenerateComposerActionBar,
+  readAgentConversationThreadView,
+  readAgentConversationComposer,
+  readAgentConversationHeader,
+  readAcpRunLogDialog,
+  readAboutDialog,
+  readAgentRunChatLog,
+  readGenerationErrorDetailsDialog,
+  readWorkspaceBoundsOverlay,
+  readProjectRenderBoundary,
+  readAppBridgeUnavailable,
+  readAppProjectEntryScreen,
+  readAppErrorBanners,
+  readEditorLoadingOverlay,
+  readAgentBoardStartupPane,
+  readDesktopButton,
+  readDesktopStartupWiring,
+  readProjectAutosaveWiring,
+  readAgentBridgeWiring,
+  readAcpAgentWiring,
+  readSideDock,
+  readGenerateDialogViewModel,
+  readGenerateProviderSettingsPanel,
+  readGenerateAdvancedFieldsPanel,
+  readGenerateDialogAdvancedSettings,
+  readGenerateDialogAdvancedSettingsRuntime,
+  readGenerateDialogPromptLibrarySection,
+  readGenerateDialogPromptLibraryRuntime,
+  readGenerateDialogComposerRuntime,
+  readGenerateDialogComposerActionsSection,
+  readGenerateDialogComposerContentSection,
+  readGenerateDialogComposerSection,
+  readImageInspector,
+  readAgentBoard,
+  readProjectMainMenu,
+  readProjectStatusToast,
+  readCoreStudioIcons,
+  getRule,
+  getRulesContaining,
+} = composerStyleTestSupport;
 
 describe("generate composer styles", () => {
   it("keeps the image inspector typography on a compact sidebar scale", () => {
@@ -454,306 +122,6 @@ describe("generate composer styles", () => {
     expect(islandRule).toContain("overflow-y: auto");
   });
 
-  it("keeps welcome screen styles with the WelcomePane component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const welcomeSource = readFileSync(
-      resolve(
-        process.cwd(),
-        "apps/image-board-desktop/src/app/components/WelcomePane.tsx",
-      ),
-      "utf8",
-    );
-    const paneRule = getRule(appCss, ".welcome-pane");
-    const cardRule = getRule(appCss, ".welcome-pane__card");
-    const introRule = getRule(appCss, ".welcome-pane__intro");
-    const mobileRules = getRulesContaining(appCss, ".welcome-pane__intro").join(
-      "\n",
-    );
-
-    expect(welcomeSource).toContain('import "./WelcomePane.css";');
-    expect(paneRule).toContain("justify-items: center");
-    expect(cardRule).toContain("width: min(100%, 720px)");
-    expect(introRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
-    expect(mobileRules).toContain("grid-template-columns: 1fr");
-    expect(rootAppCss).not.toContain(".welcome-pane");
-  });
-
-  it("keeps Agent Board page styles with the AgentBoard component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const agentBoardSource = readAgentBoard();
-    const pageRule = getRule(appCss, ".agent-board-page");
-    const contentRule = getRule(appCss, ".agent-board-content");
-    const canvasRule = getRulesContaining(
-      appCss,
-      ".agent-board-canvas-panel",
-    ).find((rule) => rule.includes("overflow: hidden"));
-    const mobileRules = getRulesContaining(appCss, ".agent-board-content").join(
-      "\n",
-    );
-
-    expect(agentBoardSource).toContain('import "./AgentBoard.css";');
-    expect(pageRule).toContain("min-height: 100%");
-    expect(contentRule).toContain(
-      "grid-template-columns: minmax(0, 1fr) minmax(280px, 320px)",
-    );
-    expect(canvasRule).toContain("overflow: hidden");
-    expect(mobileRules).toContain("grid-template-columns: minmax(0, 1fr)");
-    expect(rootAppCss).not.toContain(".agent-board-page");
-    expect(rootAppCss).not.toContain(".agent-board-content");
-  });
-
-  it("keeps project status toast styles with the ProjectStatusToast component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const toastSource = readProjectStatusToast();
-    const toastRule = getRule(appCss, ".project-status-toast");
-    const actionRule = getRule(appCss, ".project-status-toast__action");
-    const dockAvoidanceRule = getRule(
-      appCss,
-      ".image-board-app--left-dock-open .project-status-toast",
-    );
-
-    expect(toastSource).toContain('import "./ProjectStatusToast.css";');
-    expect(toastSource).not.toContain("image-board-thumbnail-status");
-    expect(toastRule).toContain("position: fixed");
-    expect(actionRule).toContain("pointer-events: auto");
-    expect(dockAvoidanceRule).toContain("--corestudio-left-sidebar-width");
-    expect(rootAppCss).not.toContain("image-board-thumbnail-status");
-    expect(rootAppCss).not.toContain(".project-status-toast");
-  });
-
-  it("keeps the Agent conversation sidebar on the shared chat thread surface", () => {
-    const appCss = readAppCss();
-    const agentSidebarSource = readFileSync(
-      resolve(
-        process.cwd(),
-        "apps/image-board-desktop/src/app/components/AgentConversationSidebar.tsx",
-      ),
-      "utf8",
-    );
-    const agentComposerSource = readAgentConversationComposer();
-    const agentHeaderSource = readAgentConversationHeader();
-    const agentThreadViewSource = readAgentConversationThreadView();
-    const sidebarRule = getRule(appCss, ".agent-conversation-sidebar");
-    const composerRule = getRule(
-      appCss,
-      ".agent-conversation-sidebar__composer",
-    );
-    const composerSendRule = getRule(
-      appCss,
-      ".agent-conversation-sidebar__send",
-    );
-    const composerSendIconRule = getRule(
-      appCss,
-      ".agent-conversation-sidebar__send svg",
-    );
-    const composerSendDisabledRule = getRule(
-      appCss,
-      ".agent-conversation-sidebar__send:disabled",
-    );
-    const sidebarTimelineRule = getRule(
-      appCss,
-      ".agent-conversation-sidebar .agent-thread-timeline",
-    );
-    const sideDockHeaderActionsRule = getRule(
-      appCss,
-      ".side-dock__header-actions",
-    );
-    const sideDockHeaderActionButtonRule = getRule(
-      appCss,
-      ".side-dock__header-actions .image-board-button",
-    );
-    const timelineViewportRule = getRule(
-      appCss,
-      ".agent-thread-timeline__viewport",
-    );
-    const timelineTextRule = getRule(
-      appCss,
-      ".agent-thread-timeline__text,\n.agent-thread-timeline__status-line,\n.agent-thread-timeline__error-line",
-    );
-    const timelineInlineCodeRule = getRule(
-      appCss,
-      ".agent-thread-timeline__inline-code",
-    );
-    const userMessageRule = getRule(
-      appCss,
-      ".agent-thread-timeline__message--user",
-    );
-    const userMessageBodyRule = getRule(
-      appCss,
-      ".agent-thread-timeline__message--user .agent-thread-timeline__message-body",
-    );
-    const toolRule = getRule(appCss, ".agent-thread-timeline__tool");
-    const toolSummaryRule = getRule(
-      appCss,
-      ".agent-thread-timeline__tool summary",
-    );
-    const toolHeadingRule = getRule(
-      appCss,
-      ".agent-thread-timeline__tool-heading",
-    );
-    const toolHeaderSummaryRule = getRule(
-      appCss,
-      ".agent-thread-timeline__tool-summary",
-    );
-    const imageResultRule = getRule(
-      appCss,
-      ".agent-thread-timeline__image-result",
-    );
-    const imagePromptRule = getRule(
-      appCss,
-      ".agent-thread-timeline__image-body .agent-thread-timeline__image-prompt",
-    );
-    const imageReferenceRule = getRule(
-      appCss,
-      ".agent-thread-timeline__image-body .agent-thread-timeline__image-reference",
-    );
-    const threadTitleRule = getRule(
-      appCss,
-      ".agent-conversation-sidebar__thread strong",
-    );
-    const threadMetaRule = getRule(
-      appCss,
-      ".agent-conversation-sidebar__thread span",
-    );
-    const generationTitleRule = getRule(
-      appCss,
-      ".generation-record-sidebar__item strong",
-    );
-    const generationMetaRule = getRule(
-      appCss,
-      ".generation-record-sidebar__item span",
-    );
-
-    expect(agentSidebarSource).toContain("<AgentThreadTimeline");
-    expect(agentSidebarSource).not.toContain(
-      "agent-conversation-sidebar__timeline",
-    );
-    expect(agentSidebarSource).not.toContain(
-      "agent-conversation-sidebar__actions",
-    );
-    expect(agentSidebarSource).not.toContain("showRunLogActions");
-    expect(agentSidebarSource).not.toContain("刷新记录");
-    expect(agentSidebarSource).not.toContain("显示原始事件");
-    expect(agentSidebarSource).not.toContain("隐藏原始事件");
-    expect(agentSidebarSource).not.toContain("显示 JSON");
-    expect(agentSidebarSource).not.toContain("对话记录");
-    expect(agentSidebarSource).not.toContain("还没有 Agent 对话");
-    expect(agentSidebarSource).not.toContain("暂无对话");
-    expect(agentSidebarSource).not.toContain("发起任务后");
-    expect(agentSidebarSource).not.toContain("从底部输入任务");
-    expect(agentSidebarSource).not.toContain("Agent Bridge 尚未就绪");
-    expect(agentSidebarSource).toContain("<AgentConversationComposer");
-    expect(agentSidebarSource).toContain("threadListOpen");
-    expect(agentHeaderSource).toContain("打开 Agent 对话列表");
-    expect(agentSidebarSource).toContain("onSubmitMessage");
-    expect(agentSidebarSource).toContain("threadEntries");
-    expect(agentSidebarSource).toContain("threadSummaries");
-    expect(agentSidebarSource).toContain("onSelectThread");
-    expect(agentSidebarSource).toContain("hasConversationContext");
-    expect(agentSidebarSource).toContain("createAgentConversationThreadView");
-    expect(agentThreadViewSource).toContain("createAgentThreadFromEntries");
-    expect(agentSidebarSource).toContain("headerActions={agentHeaderActions}");
-    expect(agentSidebarSource).not.toContain(
-      "agent-conversation-sidebar__toolbar",
-    );
-    expect(agentComposerSource).toContain("输入任务");
-    expect(agentComposerSource).toContain("继续对话");
-    expect(agentComposerSource).toContain("onSubmitMessage");
-    expect(sidebarRule).toContain(
-      "grid-template-rows: auto minmax(0, 1fr) auto",
-    );
-    expect(sideDockHeaderActionsRule).toContain("display: flex");
-    expect(sideDockHeaderActionButtonRule).toContain("min-height: 30px");
-    expect(composerRule).toContain(
-      "grid-template-columns: minmax(0, 1fr) 34px",
-    );
-    expect(composerRule).toContain("border-top: 1px solid");
-    expect(composerSendRule).not.toContain("--button-width");
-    expect(composerSendRule).not.toContain("--button-height");
-    expect(composerSendIconRule).toContain("width: 18px");
-    expect(composerSendIconRule).toContain("height: 18px");
-    expect(composerSendIconRule).toContain("flex: 0 0 auto");
-    expect(composerSendIconRule).toContain("stroke-width: 1.6");
-    expect(composerSendDisabledRule).toContain("color: var(--color-gray-70)");
-    expect(sidebarTimelineRule).toContain("grid-template-rows: minmax(0, 1fr)");
-    expect(timelineViewportRule).toContain("gap: 12px");
-    expect(timelineTextRule).toContain("line-height: 1.62");
-    expect(timelineInlineCodeRule).toContain("font-family:");
-    expect(appCss).toContain(".agent-thread-timeline__path-block");
-    expect(appCss).toContain(".agent-thread-timeline__code-block");
-    expect(appCss).toContain("max-height: 12rem");
-    expect(userMessageRule).toContain("justify-items: end");
-    expect(userMessageBodyRule).toContain("max-width: 86%");
-    expect(appCss).not.toContain(".agent-run-chat__event-rail");
-    expect(toolRule).toContain("border: 1px solid");
-    expect(toolRule).toContain("background: var(--island-bg-color)");
-    expect(toolSummaryRule).toContain("grid-template-columns");
-    expect(toolSummaryRule).toContain("align-items: start");
-    expect(toolHeadingRule).toContain("display: grid");
-    expect(toolHeaderSummaryRule).toContain(
-      "font-weight: var(--font-weight-regular)",
-    );
-    expect(imageResultRule).toContain(
-      "grid-template-columns: 38px minmax(0, 1fr)",
-    );
-    expect(imagePromptRule).toContain("color: var(--color-gray-70)");
-    expect(imageReferenceRule).toContain("background: var(--color-surface-low)");
-    expect(threadTitleRule).toContain("font-weight: var(--font-weight-medium)");
-    expect(threadMetaRule).toContain("font-weight: var(--font-weight-regular)");
-    expect(generationTitleRule).toContain(
-      "font-weight: var(--font-weight-medium)",
-    );
-    expect(generationMetaRule).toContain(
-      "font-weight: var(--font-weight-regular)",
-    );
-  });
-
-  it("keeps ACP run log dialog and process chat styles with their owner components", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const dialogSource = readAcpRunLogDialog();
-    const chatSource = readAgentRunChatLog();
-    const summaryRule = getRule(appCss, ".acp-run-log-dialog__summary");
-    const chatRule = getRule(appCss, ".agent-run-chat");
-    const viewportRule = getRule(appCss, ".agent-run-chat__viewport");
-    const toolCardRule = getRule(appCss, ".agent-run-chat__tool-card");
-
-    expect(dialogSource).toContain('import "./AcpRunLogDialog.css";');
-    expect(chatSource).toContain('import "./AgentRunChatLog.css";');
-    expect(summaryRule).toContain(
-      "grid-template-columns: repeat(2, minmax(0, 1fr))",
-    );
-    expect(chatRule).toContain("--agent-run-chat-avatar-size: 0.5rem");
-    expect(viewportRule).toContain("max-height: min(58vh, 620px)");
-    expect(toolCardRule).toContain("background: var(--island-bg-color)");
-    expect(rootAppCss).not.toContain(".acp-run-log-dialog__summary");
-    expect(rootAppCss).not.toContain(".agent-run-chat");
-  });
-
-  it("keeps generation error detail styles with the dialog owner component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const dialogSource = readGenerationErrorDetailsDialog();
-    const dialogRule = getRule(appCss, ".debug-error-dialog");
-    const metaRule = getRule(appCss, ".debug-error-dialog__meta");
-    const preRule = getRule(appCss, ".debug-error-dialog__pre");
-
-    expect(dialogSource).toContain(
-      'import "./GenerationErrorDetailsDialog.css";',
-    );
-    expect(dialogRule).toContain("display: grid");
-    expect(dialogRule).toContain("gap: 18px");
-    expect(metaRule).toContain(
-      "grid-template-columns: repeat(3, minmax(0, 1fr))",
-    );
-    expect(preRule).toContain("font: 12px/1.6");
-    expect(preRule).toContain("max-height: 260px");
-    expect(rootAppCss).not.toContain(".debug-error-dialog");
-  });
-
   it("keeps CoreStudio font weights on design-system tokens", () => {
     const appCss = readAppCss();
     const rootAppCss = readRootAppCss();
@@ -799,417 +167,6 @@ describe("generate composer styles", () => {
     expect(composerRule).toContain("box-shadow: var(--shadow-island)");
     expect(focusWithinRule).toContain("var(--shadow-island)");
     expect(focusWithinRule).toContain("var(--generate-composer-focus-ring)");
-  });
-
-  it("keeps canvas-level errors out of the native toolbar area", () => {
-    const appCss = readAppCss();
-    const canvasErrorRule = getRule(appCss, ".app-canvas-error-toast");
-
-    expect(canvasErrorRule).toBeTruthy();
-    expect(canvasErrorRule).toContain("position: fixed");
-    expect(canvasErrorRule).toContain("top: calc(");
-    expect(canvasErrorRule).toContain(
-      "var(--desktop-window-top-inset, 0px) + 96px",
-    );
-    expect(canvasErrorRule).toContain("left: 50%");
-    expect(canvasErrorRule).toContain("transform: translateX(-50%)");
-    expect(canvasErrorRule).toContain(
-      "z-index: var(--canvas-footer-overlay-z-index)",
-    );
-  });
-
-  it("keeps the agent status dock button aligned with canvas help controls", () => {
-    const appCss = readAppCss();
-    const appRule = getRule(appCss, ".image-board-app");
-    const dockRule = getRule(appCss, ".agent-status-dock");
-    const buttonRule = getRule(appCss, ".agent-status-dock__button");
-    const iconRule = getRule(appCss, ".agent-status-dock__button svg");
-    const hoverRule = getRule(appCss, ".agent-status-dock__button:hover");
-    const activeRule = getRule(appCss, ".agent-status-dock__button:active");
-
-    expect(appRule).toContain("--button-hover-bg: var(--color-surface-high)");
-    expect(appRule).toContain("--button-active-bg: var(--color-surface-high)");
-    expect(appRule).toContain(
-      "--canvas-footer-button-size: var(--lg-button-size)",
-    );
-    expect(appRule).toContain("--canvas-footer-icon-size: var(--lg-icon-size)");
-    expect(appRule).toContain("--canvas-footer-button-gap: var(--ui-space-sm)");
-    expect(appRule).toContain("--floating-panel-z-index: 30");
-    expect(appRule).toContain("--ui-text-size-md: 0.8125rem");
-    expect(appRule).toContain("--ui-space-sm: 8px");
-    expect(appRule).toContain("--ui-radius-pill: 999px");
-    expect(appRule).toContain("--agent-status-dock-z-index: 32");
-    expect(appRule).toContain("--side-dock-z-index: 35");
-    expect(appRule).toContain("--canvas-footer-overlay-z-index: 45");
-    expect(dockRule).toContain("var(--canvas-footer-button-size)");
-    expect(dockRule).toContain("var(--canvas-footer-button-gap)");
-    expect(dockRule).toContain("z-index: var(--agent-status-dock-z-index)");
-    expect(dockRule).not.toContain("var(--canvas-footer-overlay-z-index)");
-    expect(buttonRule).toContain("width: var(--canvas-footer-button-size)");
-    expect(buttonRule).toContain("height: var(--canvas-footer-button-size)");
-    expect(iconRule).toContain("width: var(--canvas-footer-icon-size)");
-    expect(iconRule).toContain("height: var(--canvas-footer-icon-size)");
-    expect(buttonRule).toContain("background-color: var(--color-surface-low");
-    expect(hoverRule).toContain("background-color: var(--button-hover-bg");
-    expect(hoverRule).not.toContain("background: var(--island-bg-color)");
-    expect(activeRule).toContain("background-color: var(--button-active-bg");
-    expect(activeRule).toContain("var(--button-active-border");
-  });
-
-  it("keeps the bottom composer inside the canvas when side docks are open", () => {
-    const appCss = readAppCss();
-    const appRule = getRule(appCss, ".image-board-app");
-    const floatingLayerRule = getRule(appCss, ".floating-panel-layer");
-    const rightDockLayerRule = getRule(
-      appCss,
-      ".image-board-app--right-dock-open .floating-panel-layer",
-    );
-    const leftDockLayerRule = getRule(
-      appCss,
-      ".image-board-app--left-dock-open .floating-panel-layer",
-    );
-    const rightDockPanelRule = getRule(
-      appCss,
-      ".image-board-app--right-dock-open .generate-panel",
-    );
-    const panelRule = getRule(appCss, ".generate-panel");
-    const bothDockPanelRules = getRulesContaining(
-      appCss,
-      ".image-board-app--left-dock-open.image-board-app--right-dock-open",
-    ).filter((rule) => rule.includes(".floating-panel-layer"));
-
-    expect(appRule).toContain("--generate-panel-max-width: 760px");
-    expect(appRule).toContain("--lg-button-size: 2.25rem");
-    expect(appRule).toContain("--floating-panel-anchor-gutter: max(");
-    expect(appRule).toContain(
-      "calc((100vw - var(--generate-panel-max-width)) / 2)",
-    );
-    expect(appRule).not.toContain("--bottom-toolbar-clearance");
-    expect(appRule).not.toContain("--floating-panel-left-anchor");
-    expect(floatingLayerRule).toContain(
-      "left: var(--floating-panel-anchor-gutter)",
-    );
-    expect(floatingLayerRule).toContain(
-      "right: var(--floating-panel-anchor-gutter)",
-    );
-    expect(floatingLayerRule).toContain("justify-content: center");
-    expect(rightDockLayerRule).toContain(
-      "right: max(\n    var(--floating-panel-anchor-gutter)",
-    );
-    expect(rightDockLayerRule).toContain(
-      "calc(var(--corestudio-right-sidebar-width) + var(--floating-panel-edge-gap))",
-    );
-    expect(rightDockLayerRule).not.toContain("justify-content:");
-    expect(rightDockLayerRule).not.toContain("left:");
-    expect(leftDockLayerRule).toContain(
-      "left: max(\n    var(--floating-panel-anchor-gutter)",
-    );
-    expect(leftDockLayerRule).toContain(
-      "calc(var(--corestudio-left-sidebar-width) + var(--floating-panel-edge-gap))",
-    );
-    expect(leftDockLayerRule).not.toContain("justify-content:");
-    expect(leftDockLayerRule).not.toContain("right:");
-    expect(panelRule).toContain("width: 100%");
-    expect(bothDockPanelRules).toHaveLength(0);
-    expect(rightDockPanelRule).toBeUndefined();
-  });
-
-  it("keeps side dock controls aligned with the top toolbar", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const sideDockSource = readSideDock();
-    const tokenRule = getRule(
-      readCssFile("apps/image-board-desktop/src/app/styles/designTokens.css"),
-      ".image-board-app",
-    );
-    const layoutRule = getRule(rootAppCss, ".image-board-app");
-    const titlebarRule = getRule(
-      appCss,
-      "html.image-board-desktop-titlebar-hidden",
-    );
-    const dragRegionRule = getRule(appCss, ".image-board-app::before");
-    const projectOpenRule = getRule(appCss, ".image-board-app--project-open");
-    const toggleRule = getRule(appCss, ".side-dock__toggle");
-    const dockRule = getRule(appCss, ".side-dock");
-    const closedMenuRule = getRule(
-      appCss,
-      ".image-board-app .App-menu_top__left",
-    );
-    const mainMenuTriggerRule = getRule(
-      appCss,
-      ".image-board-app .App-menu_top__left .main-menu-trigger",
-    );
-    const mainMenuTriggerHoverRule = getRule(
-      appCss,
-      ".image-board-app .App-menu_top__left .main-menu-trigger:hover",
-    );
-    const openMenuRule = getRule(
-      appCss,
-      ".image-board-app--left-dock-open .App-menu_top__left",
-    );
-
-    expect(tokenRule).toContain("--corestudio-side-panel-width: 300px");
-    expect(tokenRule).toContain(
-      "--corestudio-left-sidebar-width: var(--corestudio-side-panel-width)",
-    );
-    expect(tokenRule).toContain(
-      "--corestudio-right-sidebar-width: var(--corestudio-side-panel-width)",
-    );
-    expect(tokenRule).not.toContain("--side-panel-width");
-    expect(tokenRule).not.toContain("--left-sidebar-width");
-    expect(tokenRule).not.toContain("--right-sidebar-width");
-    expect(layoutRule).toContain(
-      "padding-top: var(--desktop-window-top-inset, 0px)",
-    );
-    expect(titlebarRule).toContain("--desktop-window-top-inset: 28px");
-    expect(dragRegionRule).toContain("-webkit-app-region: drag");
-    expect(dragRegionRule).toContain("left: 0");
-    expect(dragRegionRule).not.toContain("background:");
-    expect(dragRegionRule).toContain(
-      "height: var(--desktop-window-top-inset, 0px)",
-    );
-    expect(projectOpenRule).toContain(
-      "background: var(--color-surface-lowest)",
-    );
-    expect(tokenRule).toContain("--side-dock-z-index: 35");
-    expect(dockRule).toContain("top: var(--desktop-window-top-inset, 0px)");
-    expect(dockRule).toContain("z-index: var(--side-dock-z-index)");
-    expect(toggleRule).toContain("top: calc(");
-    expect(toggleRule).toContain("var(--editor-container-padding, 16px)");
-    expect(toggleRule).toContain("env(safe-area-inset-top, 0px)");
-    expect(mainMenuTriggerRule).toContain(
-      "width: var(--side-dock-toggle-size)",
-    );
-    expect(mainMenuTriggerRule).toContain(
-      "height: var(--side-dock-toggle-size)",
-    );
-    expect(mainMenuTriggerRule).toContain("background: var(--island-bg-color)");
-    expect(mainMenuTriggerHoverRule).toContain("background: #f1f0ff");
-    expect(closedMenuRule).toContain("var(--side-dock-toggle-size)");
-    expect(openMenuRule).toContain("var(--corestudio-left-sidebar-width)");
-    expect(sideDockSource).toContain('import "./SideDock.css";');
-    expect(rootAppCss).not.toContain("\n.side-dock {");
-    expect(rootAppCss).not.toContain("\n.side-dock__toggle {");
-    expect(rootAppCss).not.toContain(
-      "\n.image-board-app .App-menu_top__left {",
-    );
-  });
-
-  it("keeps CoreStudio project entries compact inside the native menu", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const menuSource = readProjectMainMenu();
-    const currentRule = getRule(appCss, ".project-main-menu__current");
-    const nameRule = getRule(appCss, ".project-main-menu__current strong");
-
-    expect(menuSource).toContain('import "./ProjectMainMenu.css";');
-    expect(currentRule).toContain("display: flex");
-    expect(currentRule).toContain("align-items: center");
-    expect(currentRule).toContain("min-height: 2rem");
-    expect(currentRule).toContain("min-width: 0");
-    expect(currentRule).toContain("max-width: 220px");
-    expect(currentRule).toContain("padding: 0 0.5rem");
-    expect(currentRule).toContain("cursor: default");
-    expect(currentRule).toContain("user-select: text");
-    expect(nameRule).toContain("min-width: 0");
-    expect(nameRule).toContain("overflow: hidden");
-    expect(nameRule).toContain("text-overflow: ellipsis");
-    expect(nameRule).toContain("font-size: 0.8125rem");
-    expect(nameRule).toContain("color: var(--color-gray-70)");
-    expect(rootAppCss).not.toContain(".project-main-menu__current");
-  });
-
-  it("keeps the canvas controls usable in narrow embedded browser viewports", () => {
-    const appCss = readAppCss();
-    const narrowAppRule = getRulesContaining(appCss, ".image-board-app").find(
-      (rule) => rule.includes("--canvas-top-control-inline-end-reserve"),
-    );
-    const narrowMenuRule = getRulesContaining(
-      appCss,
-      ".image-board-app .App-menu_top",
-    ).find((rule) => rule.includes("padding-right"));
-    const shapesRule = getRulesContaining(
-      appCss,
-      ".image-board-app .shapes-section",
-    ).find((rule) => rule.includes("min-width: 0"));
-    const toolbarRule = getRulesContaining(
-      appCss,
-      ".image-board-app .App-toolbar",
-    ).find((rule) => rule.includes("overflow-x: auto"));
-    const toolbarScrollbarRule = getRulesContaining(
-      appCss,
-      ".image-board-app .App-toolbar::-webkit-scrollbar",
-    ).find((rule) => rule.includes("display: none"));
-    const toolbarStackRule = getRulesContaining(
-      appCss,
-      ".image-board-app .App-toolbar .Stack_horizontal",
-    ).find((rule) => rule.includes("min-width: max-content"));
-    const keybindingRule = getRulesContaining(
-      appCss,
-      ".image-board-app .App-toolbar .ToolIcon__keybinding",
-    ).find((rule) => rule.includes("display: none"));
-
-    expect(appCss).toContain("@media (max-width: 900px)");
-    expect(narrowAppRule).toContain(
-      "--corestudio-side-panel-width: min(300px, 86vw)",
-    );
-    expect(narrowAppRule).not.toContain(
-      "--corestudio-right-sidebar-width: min(",
-    );
-    expect(narrowAppRule).not.toContain(
-      "--corestudio-left-sidebar-width: min(",
-    );
-    expect(narrowAppRule).toContain("--floating-panel-edge-gap: 16px");
-    expect(narrowAppRule).toContain("--canvas-toolbar-max-inline-size: calc(");
-    expect(narrowMenuRule).toContain(
-      "padding-right: var(--canvas-top-control-inline-end-reserve)",
-    );
-    expect(narrowMenuRule).toContain(
-      "grid-template-columns: auto minmax(0, 1fr) auto",
-    );
-    expect(shapesRule).toContain("min-width: 0");
-    expect(shapesRule).toContain("overflow: hidden");
-    expect(shapesRule).toContain("justify-content: stretch");
-    expect(toolbarRule).toContain("width: 100%");
-    expect(toolbarRule).toContain(
-      "max-width: var(--canvas-toolbar-max-inline-size)",
-    );
-    expect(toolbarRule).toContain(
-      "max-inline-size: var(--canvas-toolbar-max-inline-size)",
-    );
-    expect(toolbarRule).toContain("flex: 1 1 auto");
-    expect(toolbarRule).toContain("min-width: 0");
-    expect(toolbarRule).toContain("overflow-x: auto");
-    expect(toolbarRule).toContain("scrollbar-width: none");
-    expect(toolbarScrollbarRule).toContain("display: none");
-    expect(toolbarStackRule).toContain("min-width: max-content");
-    expect(toolbarStackRule).toContain(
-      "gap: var(--canvas-toolbar-compact-gap)",
-    );
-    expect(keybindingRule).toContain("display: none");
-  });
-
-  it("keeps the extreme narrow embedded browser fallback visually calm", () => {
-    const appCss = readAppCss();
-    const toolbarContentRule = getRulesContaining(
-      appCss,
-      ".image-board-app .App-toolbar-content",
-    ).find((rule) => rule.includes("100vw - 24px"));
-    const topLeftRule = getRulesContaining(
-      appCss,
-      ".image-board-app .excalidraw-ui-top-left",
-    ).find((rule) => rule.includes("100vw - 72px"));
-    const sideDockToggleRule = getRulesContaining(
-      appCss,
-      ".image-board-app .side-dock__toggle",
-    ).find((rule) => rule.includes("display: none"));
-    const composerLayerRule = getRulesContaining(
-      appCss,
-      ".image-board-app .floating-panel-layer",
-    ).find((rule) => rule.includes("display: none"));
-    const agentDockRule = getRulesContaining(
-      appCss,
-      ".image-board-app .agent-status-dock",
-    ).find((rule) => rule.includes("display: none"));
-    const undoRedoRule = getRulesContaining(
-      appCss,
-      ".image-board-app .undo-redo-buttons",
-    ).find((rule) => rule.includes("display: none"));
-    const mobileUndoRule = getRulesContaining(
-      appCss,
-      ".image-board-app .mobile-toolbar-undo",
-    ).find((rule) => rule.includes("display: none"));
-    const compactUndoRule = getRulesContaining(
-      appCss,
-      '[data-testid="button-undo"]',
-    ).find((rule) => rule.includes("display: none"));
-    const compactRedoRule = getRulesContaining(
-      appCss,
-      '[data-testid="button-redo"]',
-    ).find((rule) => rule.includes("display: none"));
-    const scrollBackRule = getRulesContaining(
-      appCss,
-      ".image-board-app .scroll-back-to-content",
-    ).find((rule) => rule.includes("display: none"));
-
-    expect(appCss).toContain("@media (max-width: 420px)");
-    expect(toolbarContentRule).toContain("max-width: calc(100vw - 24px)");
-    expect(toolbarContentRule).toContain("overflow: hidden");
-    expect(topLeftRule).toContain("max-width: calc(100vw - 72px)");
-    expect(topLeftRule).toContain("overflow: hidden");
-    expect(sideDockToggleRule).toContain("display: none");
-    expect(composerLayerRule).toContain("display: none");
-    expect(agentDockRule).toContain("display: none");
-    expect(undoRedoRule).toContain("display: none");
-    expect(mobileUndoRule).toContain("display: none");
-    expect(compactUndoRule).toContain("display: none");
-    expect(compactRedoRule).toContain("display: none");
-    expect(scrollBackRule).toContain("display: none");
-  });
-
-  it("keeps CoreStudio-only icons in the Excalidraw fine-line style", () => {
-    const iconSource = readCoreStudioIcons();
-    const appCss = readAppCss();
-    const sideDockSource = readFileSync(
-      resolve(
-        process.cwd(),
-        "apps/image-board-desktop/src/app/components/SideDock.tsx",
-      ),
-      "utf8",
-    );
-    const toolbarButtonSource = readFileSync(
-      resolve(
-        process.cwd(),
-        "apps/image-board-desktop/src/app/components/GenerateToolbarButton.tsx",
-      ),
-      "utf8",
-    );
-    const generateDialogSource = readFileSync(
-      resolve(
-        process.cwd(),
-        "apps/image-board-desktop/src/app/components/GenerateImageDialog.tsx",
-      ),
-      "utf8",
-    );
-
-    expect(iconSource).toContain("CORE_STUDIO_ICON_STROKE_WIDTH = 1.25");
-    expect(iconSource).toContain('stroke="currentColor"');
-    expect(iconSource).toContain('strokeLinecap="round"');
-    expect(iconSource).toContain('strokeLinejoin="round"');
-    expect(appCss).toContain('stroke-width="1.25"');
-    expect(appCss).toContain(".side-dock__toggle svg");
-    expect(sideDockSource).not.toContain("<svg");
-    expect(toolbarButtonSource).not.toContain("<svg");
-    expect(generateDialogSource).not.toMatch(
-      /strokeWidth="(?:1\.6|1\.7|1\.75|1\.8|2)"/,
-    );
-  });
-
-  it("keeps Excalidraw shape controls readable inside the side dock", () => {
-    const appCss = readAppCss();
-    const shapeActionsRule = getRule(
-      appCss,
-      ".side-dock .selected-shape-actions",
-    );
-
-    expect(shapeActionsRule).toContain("--button-bg: var(--color-surface-mid)");
-    expect(shapeActionsRule).toContain("--color-slider-track");
-    expect(shapeActionsRule).toContain("background: color-mix");
-  });
-
-  it("uses the native Excalidraw radius instead of oversized rounded corners", () => {
-    const appCss = readAppCss();
-    const selectors = [
-      ".generate-composer",
-      ".image-board-button.generate-composer__icon",
-      ".image-board-button.generate-composer__action",
-    ];
-
-    for (const selector of selectors) {
-      expect(getRule(appCss, selector)).toContain(
-        "border-radius: var(--border-radius-lg)",
-      );
-    }
   });
 
   it("matches the single-outline composer layout from the reference mock", () => {
@@ -1662,7 +619,9 @@ describe("generate composer styles", () => {
     expect(appCss).toContain("M3.25 5.4 7 9.15l3.75-3.75");
     expect(appCss).toContain('stroke-width="1.25"');
     expect(appCss).not.toContain("M287 197L159 69");
-    expect(providerSettingsSource).toContain("generate-provider-settings__icon");
+    expect(providerSettingsSource).toContain(
+      "generate-provider-settings__icon",
+    );
     expect(providerSettingsSource).toContain("chevronDownIcon");
     expect(readCoreStudioIcons()).toContain("m7.25 9 4.75 4.75L16.75 9");
     expect(providerSettingsSource).not.toContain("M6 9h6");
@@ -1706,7 +665,9 @@ describe("generate composer styles", () => {
     expect(dialogSource).not.toContain(
       "createGenerateDialogAdvancedSettingsActions",
     );
-    expect(dialogSource).not.toContain("createGenerateDialogAdvancedSettingsProps");
+    expect(dialogSource).not.toContain(
+      "createGenerateDialogAdvancedSettingsProps",
+    );
     expect(dialogSource).not.toContain("createGenerateAdvancedRequestHandlers");
     expect(dialogSource).not.toContain("createGenerateProviderSettingsActions");
     expect(advancedSettingsRuntimeSource).toContain(
@@ -1731,7 +692,9 @@ describe("generate composer styles", () => {
     const dialogRuntimeSource = readGenerateImageDialogRuntime();
     const providerRuntimeSource = readGenerateImageDialogProviderRuntime();
 
-    expect(dialogRuntimeSource).toContain("useGenerateImageDialogProviderRuntime");
+    expect(dialogRuntimeSource).toContain(
+      "useGenerateImageDialogProviderRuntime",
+    );
     expect(dialogRuntimeSource).not.toContain(
       "useGenerateProviderSettingsController",
     );
@@ -1777,14 +740,15 @@ describe("generate composer styles", () => {
       "useGeneratePendingReferenceController",
     );
     expect(dialogRuntimeSource).toContain("buildGenerateDialogViewModel");
-    expect(dialogRuntimeSource).toContain("createGenerateDialogComposerRuntime");
+    expect(dialogRuntimeSource).toContain(
+      "createGenerateDialogComposerRuntime",
+    );
   });
 
   it("keeps prompt library event wiring out of the generate dialog shell", () => {
     const dialogSource = readGenerateImageDialog();
     const dialogRuntimeSource = readGenerateImageDialogRuntime();
-    const promptLibraryRuntimeSource =
-      readGenerateDialogPromptLibraryRuntime();
+    const promptLibraryRuntimeSource = readGenerateDialogPromptLibraryRuntime();
     const promptLibrarySectionSource = readGenerateDialogPromptLibrarySection();
 
     expect(dialogSource).toContain("GenerateDialogPromptLibrarySection");
@@ -1796,7 +760,9 @@ describe("generate composer styles", () => {
     );
     expect(dialogSource).not.toContain("createGeneratePromptLibraryActions");
     expect(dialogSource).not.toContain("<GeneratePromptLibrary");
-    expect(dialogSource).not.toContain("promptLibraryActions.saveCurrentPrompt()");
+    expect(dialogSource).not.toContain(
+      "promptLibraryActions.saveCurrentPrompt()",
+    );
     expect(dialogSource).not.toContain("promptLibraryActions.applySavedPrompt");
     expect(promptLibraryRuntimeSource).toContain(
       "createGeneratePromptLibraryActions",
@@ -1851,9 +817,13 @@ describe("generate composer styles", () => {
 
     expect(source).toContain("createDesktopStartupRendererActions");
     expect(source).toContain("desktopStartupRendererActions.loadAll");
-    expect(source).toContain("desktopStartupRendererActions.refreshAgentBrowser");
+    expect(source).toContain(
+      "desktopStartupRendererActions.refreshAgentBrowser",
+    );
     expect(source).toContain("desktopStartupRendererActions.loadProvider");
-    expect(source).toContain("desktopStartupRendererActions.loadRecentProjects");
+    expect(source).toContain(
+      "desktopStartupRendererActions.loadRecentProjects",
+    );
     expect(source).not.toContain("const loadProviderState");
     expect(source).not.toContain("const loadRecentProjectsState");
     expect(source).not.toContain("const loadAppInfoState");
@@ -1870,9 +840,11 @@ describe("generate composer styles", () => {
 
   it("keeps app startup lifecycle side effects outside the root app", () => {
     const source = readImageBoardApp();
+    const wiring = readDesktopStartupWiring();
 
     expect(source).toContain("createAppStartupLifecycleRendererActions");
-    expect(source).toContain("appStartupLifecycleRendererActions.start()");
+    expect(source).toContain("useDesktopStartupWiring");
+    expect(wiring).toContain("appStartupLifecycleRendererActions.start()");
     expect(source).not.toContain("bridge?.notifyRendererReady?.()");
     expect(source).not.toContain(
       "return agentBrowserBridgeStatusRetryLoopRendererActions.start();",
@@ -1881,9 +853,11 @@ describe("generate composer styles", () => {
 
   it("keeps app unmount timer cleanup outside the root app", () => {
     const source = readImageBoardApp();
+    const wiring = readDesktopStartupWiring();
 
     expect(source).toContain("createAppUnmountCleanupRendererActions");
-    expect(source).toContain("appUnmountCleanupRendererActions.cleanup");
+    expect(source).toContain("useDesktopStartupWiring");
+    expect(wiring).toContain("appUnmountCleanupRendererActions.cleanup");
     expect(source).not.toContain(
       "workspaceFitPulseRendererActions.clearTimer();",
     );
@@ -1961,7 +935,9 @@ describe("generate composer styles", () => {
     expect(source).toContain("createCurrentProjectUpdateRendererActions");
     expect(source).toContain("currentProjectUpdateRendererActions.update");
     expect(source).toContain("createCurrentProjectEntryRendererActions");
-    expect(source).toContain("currentProjectEntryRendererActions.createProject");
+    expect(source).toContain(
+      "currentProjectEntryRendererActions.createProject",
+    );
     expect(source).toContain("currentProjectEntryRendererActions.openProject");
     expect(source).toContain(
       "currentProjectEntryRendererActions.openRecentProject",
@@ -1969,7 +945,9 @@ describe("generate composer styles", () => {
     expect(source).toContain(
       "currentProjectEntryRendererActions.switchToProjectList",
     );
-    expect(source).toContain("currentProjectEntryRendererActions.revealProject");
+    expect(source).toContain(
+      "currentProjectEntryRendererActions.revealProject",
+    );
     expect(source).not.toContain("const handleCreateProject");
     expect(source).not.toContain("const handleOpenProject");
     expect(source).not.toContain("const handleOpenRecentProject");
@@ -2020,18 +998,16 @@ describe("generate composer styles", () => {
     );
     expect(source).not.toContain("buildEditorInitializingUpdatePlan");
     expect(source).not.toContain("shouldHideEditorLoading");
-    expect(source).not.toContain("scheduleEditorInitializingFallbackClearAction");
+    expect(source).not.toContain(
+      "scheduleEditorInitializingFallbackClearAction",
+    );
   });
 
   it("keeps current project open sequence wiring outside the root app", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain(
-      "createCurrentProjectOpenSequenceRendererActions",
-    );
-    expect(source).toContain(
-      "currentProjectOpenSequenceRendererActions.begin",
-    );
+    expect(source).toContain("createCurrentProjectOpenSequenceRendererActions");
+    expect(source).toContain("currentProjectOpenSequenceRendererActions.begin");
     expect(source).toContain(
       "currentProjectOpenSequenceRendererActions.isCurrent",
     );
@@ -2056,7 +1032,9 @@ describe("generate composer styles", () => {
     expect(source).toContain("createCurrentProjectBundleOpenRendererActions");
     expect(source).not.toContain("if (bundle.safeMode)");
     expect(source).not.toContain("runProjectBundleOpenFollowupAction");
-    expect(source).not.toContain("projectThumbnailRebuildRendererActions.rebuildMissing(\n          bundle");
+    expect(source).not.toContain(
+      "projectThumbnailRebuildRendererActions.rebuildMissing(\n          bundle",
+    );
   });
 
   it("keeps project bundle open data preparation outside the root app", () => {
@@ -2064,7 +1042,9 @@ describe("generate composer styles", () => {
 
     expect(source).toContain("createCurrentProjectBundleOpenRendererActions");
     expect(source).not.toContain("prepareProjectBundleOpenData");
-    expect(source).not.toContain("deserializeSceneFromProject(bundle.sceneJson)");
+    expect(source).not.toContain(
+      "deserializeSceneFromProject(bundle.sceneJson)",
+    );
     expect(source).not.toContain("collectAgentImageFileIds(restored.elements");
     expect(source).not.toContain("readInitialProjectImageRenditionAssets({");
     expect(source).not.toContain(
@@ -2080,7 +1060,9 @@ describe("generate composer styles", () => {
 
     expect(source).toContain("currentProjectBundleOpenRendererActions.open");
     expect(source).not.toContain("runCurrentProjectEntryStartAction");
-    expect(source).not.toContain("runCurrentProjectEntryPreflightFailureAction");
+    expect(source).not.toContain(
+      "runCurrentProjectEntryPreflightFailureAction",
+    );
     expect(source).not.toContain("runCurrentProjectEntryFailureAction");
     expect(source).not.toContain("runCurrentProjectEntryCompleteAction");
     expect(source).not.toContain("runProjectBundleOpenSuccessAction");
@@ -2099,8 +1081,13 @@ describe("generate composer styles", () => {
 
   it("keeps project repair scene refresh desktop wiring outside the root app", () => {
     const source = readImageBoardApp();
-    const start = source.indexOf("const projectRepairSceneRefreshRendererActions");
-    const end = source.indexOf("const projectMaintenanceRendererActions", start);
+    const start = source.indexOf(
+      "const projectRepairSceneRefreshRendererActions",
+    );
+    const end = source.indexOf(
+      "const projectMaintenanceRendererActions",
+      start,
+    );
     const repairSceneRefreshBlock = source.slice(start, end);
 
     expect(source).toContain(
@@ -2123,7 +1110,9 @@ describe("generate composer styles", () => {
   it("keeps project asset scene apply desktop wiring outside the root app", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain("createDesktopProjectAssetSceneApplyRendererAction");
+    expect(source).toContain(
+      "createDesktopProjectAssetSceneApplyRendererAction",
+    );
     expect(source).not.toContain("const addProjectAssetPayloadsToCurrentScene");
     expect(source).not.toContain("applyProjectMaintenanceAssetSceneState({");
     expect(source).not.toContain(
@@ -2149,7 +1138,9 @@ describe("generate composer styles", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("createGeneratedImageSceneInsertRendererActions");
-    expect(source).toContain("generatedImageSceneInsertRendererActions.insertAssets");
+    expect(source).toContain(
+      "generatedImageSceneInsertRendererActions.insertAssets",
+    );
     expect(source).not.toContain("const insertAssetsIntoScene");
     expect(source).not.toContain("buildGeneratedImageSceneUpdate({");
     expect(source).not.toContain("placeGeneratedImages({");
@@ -2165,8 +1156,12 @@ describe("generate composer styles", () => {
     expect(source).toContain(
       "pendingGenerationCanvasRendererActions.insertPlaceholders",
     );
-    expect(source).toContain("pendingGenerationCanvasRendererActions.markFailed");
-    expect(source).toContain("pendingGenerationCanvasRendererActions.replaceSlot");
+    expect(source).toContain(
+      "pendingGenerationCanvasRendererActions.markFailed",
+    );
+    expect(source).toContain(
+      "pendingGenerationCanvasRendererActions.replaceSlot",
+    );
     expect(source).not.toContain("const insertGenerationPlaceholders");
     expect(source).not.toContain("const markPendingGenerationFailed");
     expect(source).not.toContain("const replacePendingGenerationSlot");
@@ -2189,8 +1184,12 @@ describe("generate composer styles", () => {
       "updateSelectedInspector: selectedInspectorRendererActions.update",
     );
     expect(source).not.toContain("buildSelectedInspectorState");
-    expect(source).not.toContain("setSelectedRecord(selectedInspectorState.record)");
-    expect(source).not.toContain("setSelectedTask(selectedInspectorState.task)");
+    expect(source).not.toContain(
+      "setSelectedRecord(selectedInspectorState.record)",
+    );
+    expect(source).not.toContain(
+      "setSelectedTask(selectedInspectorState.task)",
+    );
   });
 
   it("keeps autosave write failure wiring outside the root app", () => {
@@ -2199,7 +1198,9 @@ describe("generate composer styles", () => {
     expect(source).toContain(
       "createCurrentProjectAutosaveFailureRendererActions",
     );
-    expect(source).toContain("currentProjectAutosaveFailureRendererActions.report");
+    expect(source).toContain(
+      "currentProjectAutosaveFailureRendererActions.report",
+    );
     expect(source).toContain("createAutosaveRendererActions");
     expect(source).toContain("autosaveRendererActions.schedule");
     expect(source).toContain("autosaveRendererActions.flush");
@@ -2208,7 +1209,9 @@ describe("generate composer styles", () => {
       "autosaveSnapshotWriteRendererActions.handleWriteFailure",
     );
     expect(source).toContain("autosaveSnapshotWriteRendererActions.enqueue");
-    expect(source).toContain("autosaveSnapshotWriteRendererActions.takePending");
+    expect(source).toContain(
+      "autosaveSnapshotWriteRendererActions.takePending",
+    );
     expect(source).not.toContain("const clearAutosaveTimer");
     expect(source).not.toContain("const scheduleAutosave");
     expect(source).not.toContain("const writeAutosaveSnapshot");
@@ -2226,12 +1229,14 @@ describe("generate composer styles", () => {
 
   it("keeps autosave lifecycle subscription wiring outside the root app", () => {
     const source = readImageBoardApp();
+    const wiring = readProjectAutosaveWiring();
 
     expect(source).toContain("createAutosaveLifecycleRendererActions");
-    expect(source).toContain(
+    expect(source).toContain("useProjectAutosaveWiring");
+    expect(wiring).toContain(
       "autosaveLifecycleRendererActions.startBeforeUnloadFlush",
     );
-    expect(source).toContain(
+    expect(wiring).toContain(
       "autosaveLifecycleRendererActions.subscribeFlushRequests",
     );
     expect(source).not.toContain("startAutosaveBeforeUnloadFlushAction");
@@ -2266,9 +1271,7 @@ describe("generate composer styles", () => {
     );
     expect(source).not.toContain("const persistUnknownCanvasImages");
     expect(source).not.toContain("runProjectImageAssetPersistenceAction");
-    expect(source).not.toContain(
-      "runUnknownCanvasImageAssetPersistenceAction",
-    );
+    expect(source).not.toContain("runUnknownCanvasImageAssetPersistenceAction");
   });
 
   it("keeps builtin generation job completion wiring outside the root app", () => {
@@ -2282,9 +1285,7 @@ describe("generate composer styles", () => {
     );
     expect(source).not.toContain("const finishPendingGenerationJob");
     expect(source).not.toContain("runBuiltinGenerationJobCompletionAction");
-    expect(source).not.toContain(
-      "applyProjectImageRecordsSceneAutosaveState",
-    );
+    expect(source).not.toContain("applyProjectImageRecordsSceneAutosaveState");
   });
 
   it("keeps canvas scene change wiring outside the root app", () => {
@@ -2359,7 +1360,9 @@ describe("generate composer styles", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("createVisibleImageRenditionLoadRendererActions");
-    expect(source).toContain("visibleImageRenditionLoadRendererActions.schedule");
+    expect(source).toContain(
+      "visibleImageRenditionLoadRendererActions.schedule",
+    );
     expect(source).toContain(
       "visibleImageRenditionLoadRendererActions.clearTimer",
     );
@@ -2385,10 +1388,18 @@ describe("generate composer styles", () => {
   it("keeps queued canvas binary file wiring outside the root app", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain("createQueuedExcalidrawBinaryFilesRendererActions");
-    expect(source).toContain("queuedExcalidrawBinaryFilesRendererActions.reset");
-    expect(source).toContain("queuedExcalidrawBinaryFilesRendererActions.queue");
-    expect(source).toContain("queuedExcalidrawBinaryFilesRendererActions.flush");
+    expect(source).toContain(
+      "createQueuedExcalidrawBinaryFilesRendererActions",
+    );
+    expect(source).toContain(
+      "queuedExcalidrawBinaryFilesRendererActions.reset",
+    );
+    expect(source).toContain(
+      "queuedExcalidrawBinaryFilesRendererActions.queue",
+    );
+    expect(source).toContain(
+      "queuedExcalidrawBinaryFilesRendererActions.flush",
+    );
     expect(source).not.toContain("const queueImageFilesForReadyCanvas");
     expect(source).not.toContain("const flushQueuedImageFilesToCanvas");
     expect(source).not.toContain("applyEmptyQueuedExcalidrawBinaryFiles");
@@ -2406,7 +1417,9 @@ describe("generate composer styles", () => {
 
   it("keeps selection reference original scene loading outside the root app", () => {
     const source = readImageBoardApp();
-    const start = source.indexOf("const selectionReferenceOriginalSceneActions");
+    const start = source.indexOf(
+      "const selectionReferenceOriginalSceneActions",
+    );
     const end = source.indexOf("const [currentProject", start);
     const selectionReferenceOriginalSceneBlock = source.slice(start, end);
 
@@ -2416,7 +1429,9 @@ describe("generate composer styles", () => {
     expect(source).toContain("selectionReferenceOriginalSceneActions.load");
     expect(source).not.toContain("const buildSceneWithOriginalImageFiles");
     expect(source).not.toContain("const readOriginalImageAssets");
-    expect(source).not.toContain("buildSelectionReferenceOriginalImageLoadPlan");
+    expect(source).not.toContain(
+      "buildSelectionReferenceOriginalImageLoadPlan",
+    );
     expect(source).not.toContain("createOriginalProjectImageAssetReader");
     expect(source).not.toContain("buildProjectMaintenanceSceneFilesUpdate");
     expect(selectionReferenceOriginalSceneBlock).not.toContain("buildFiles:");
@@ -2481,82 +1496,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("image-board-workspace-bounds--fit-pulse");
   });
 
-  it("keeps workspace bounds overlay styles with the overlay owner component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const overlaySource = readWorkspaceBoundsOverlay();
-    const overlayRule = getRule(appCss, ".image-board-workspace-bounds");
-    const pulseRule = getRule(
-      appCss,
-      ".image-board-workspace-bounds--fit-pulse",
-    );
-
-    expect(overlaySource).toContain('import "./WorkspaceBoundsOverlay.css";');
-    expect(overlayRule).toContain("position: absolute");
-    expect(overlayRule).toContain("pointer-events: none");
-    expect(pulseRule).toContain("border-color: rgba(75, 107, 255, 0.72)");
-    expect(pulseRule).toContain("0 0 22px rgba(75, 107, 255, 0.2)");
-    expect(rootAppCss).not.toContain(".image-board-workspace-bounds");
-  });
-
-  it("keeps project render boundary runtime error styles with the boundary owner component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const source = readProjectRenderBoundary();
-    const shellRule = getRule(appCss, ".image-board-runtime-error");
-    const cardRule = getRule(appCss, ".image-board-runtime-error__card");
-    const textRule = getRule(appCss, ".image-board-runtime-error__card p");
-
-    expect(source).toContain('import "./ProjectRenderBoundary.css";');
-    expect(shellRule).toContain("min-height: 100vh");
-    expect(shellRule).toContain("place-items: center");
-    expect(cardRule).toContain("width: min(480px, 100%)");
-    expect(textRule).toContain("word-break: break-word");
-    expect(rootAppCss).not.toContain(".image-board-runtime-error");
-  });
-
-  it("keeps DesktopButton base styles with the shared button owner component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const source = readDesktopButton();
-    const buttonRule = getRule(appCss, ".image-board-button");
-    const primaryRule = getRule(appCss, ".image-board-button--primary");
-    const disabledRule = getRule(appCss, ".image-board-button:disabled");
-
-    expect(source).toContain('import "./DesktopButton.css";');
-    expect(buttonRule).toContain("min-height: 2.5rem");
-    expect(buttonRule).toContain("border-radius: var(--border-radius-lg)");
-    expect(primaryRule).toContain("--button-bg: var(--color-primary)");
-    expect(primaryRule).toContain("color: var(--color-icon-white)");
-    expect(disabledRule).toContain("cursor: not-allowed");
-    expect(rootAppCss).not.toContain("\n.image-board-button {");
-    expect(rootAppCss).not.toContain("\n.image-board-button--primary {");
-    expect(rootAppCss).not.toContain("\n.image-board-button:disabled {");
-  });
-
-  it("keeps shared dialog primitives outside the root app stylesheet", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const source = readDialogPrimitivesCss();
-    const backdropRule = getRule(appCss, ".dialog-backdrop");
-    const cardRule = getRule(appCss, ".dialog-card");
-    const formGridRule = getRule(appCss, ".dialog-form-grid");
-    const providerCardRule = getRule(appCss, ".provider-card");
-
-    expect(rootAppCss).toContain('@import "./styles/dialogPrimitives.css";');
-    expect(source).toContain(".dialog-backdrop");
-    expect(backdropRule).toContain("position: fixed");
-    expect(cardRule).toContain("box-shadow: var(--modal-shadow)");
-    expect(formGridRule).toContain(
-      "grid-template-columns: repeat(2, minmax(0, 1fr))",
-    );
-    expect(providerCardRule).toContain("background: var(--color-surface-mid)");
-    expect(rootAppCss).not.toContain("\n.dialog-backdrop {");
-    expect(rootAppCss).not.toContain("\n.dialog-card {");
-    expect(rootAppCss).not.toContain("\n.dialog-form-grid {");
-    expect(rootAppCss).not.toContain("\n.provider-card {");
-  });
-
   it("keeps workspace zoom snapping wiring outside the root app", () => {
     const source = readImageBoardApp();
 
@@ -2572,7 +1511,9 @@ describe("generate composer styles", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("createAgentBrowserRuntimePublishRendererActions");
-    expect(source).toContain("agentBrowserRuntimePublishRendererActions.schedule");
+    expect(source).toContain(
+      "agentBrowserRuntimePublishRendererActions.schedule",
+    );
     expect(source).toContain(
       "agentBrowserRuntimePublishRendererActions.clearTimer",
     );
@@ -2603,11 +1544,13 @@ describe("generate composer styles", () => {
 
   it("keeps Agent Board auto-open project wiring outside the root app", () => {
     const source = readImageBoardApp();
+    const wiring = readAgentBridgeWiring();
 
     expect(source).toContain(
       "createAgentBrowserAutoOpenProjectRendererActions",
     );
-    expect(source).toContain(
+    expect(source).toContain("useAgentBridgeWiring");
+    expect(wiring).toContain(
       "agentBrowserAutoOpenProjectRendererActions.maybeOpen",
     );
     expect(source).not.toContain("runAgentBrowserAutoOpenProjectAction");
@@ -2625,19 +1568,17 @@ describe("generate composer styles", () => {
     expect(source).not.toContain(
       "const subscription =\n      agentCommandRequestSubscriptionRendererActions.subscribe",
     );
-    expect(source).not.toContain("subscription.status !== \"subscribed\"");
+    expect(source).not.toContain('subscription.status !== "subscribed"');
     expect(source).not.toContain("subscribeAgentCommandRequests");
   });
 
   it("keeps ACP task event subscription wiring outside the root app", () => {
     const source = readImageBoardApp();
+    const wiring = readAcpAgentWiring();
 
-    expect(source).toContain(
-      "createAcpTaskEventSubscriptionRendererActions",
-    );
-    expect(source).toContain(
-      "acpTaskEventSubscriptionRendererActions.start",
-    );
+    expect(source).toContain("createAcpTaskEventSubscriptionRendererActions");
+    expect(source).toContain("useAcpAgentWiring");
+    expect(wiring).toContain("acpTaskEventSubscriptionRendererActions.start");
     expect(source).not.toContain("subscription.unsubscribe ?? undefined");
     expect(source).not.toContain("subscribeAcpTaskEvents");
   });
@@ -2733,23 +1674,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("about-dialog-title");
   });
 
-  it("keeps about dialog styles with the about dialog owner component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const dialogSource = readAboutDialog();
-    const cardRule = getRule(appCss, ".dialog-card--about");
-    const descriptionRule = getRule(appCss, ".about-dialog__description");
-    const versionRule = getRule(appCss, ".about-dialog__version");
-
-    expect(dialogSource).toContain('import "./AboutDialog.css";');
-    expect(cardRule).toContain("width: min(420px, calc(100vw - 48px))");
-    expect(descriptionRule).toContain("line-height: 1.55");
-    expect(versionRule).toContain("font-weight: var(--font-weight-semibold)");
-    expect(rootAppCss).not.toContain(".dialog-card--about");
-    expect(rootAppCss).not.toContain(".about-dialog__description");
-    expect(rootAppCss).not.toContain(".about-dialog__version");
-  });
-
   it("keeps global dialog composition outside the root app", () => {
     const source = readImageBoardApp();
 
@@ -2766,7 +1690,9 @@ describe("generate composer styles", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("createImageRecordLocatorRendererActions");
-    expect(source).toContain("imageRecordLocatorRendererActions.locateImageRecord");
+    expect(source).toContain(
+      "imageRecordLocatorRendererActions.locateImageRecord",
+    );
     expect(source).toContain(
       "imageRecordLocatorRendererActions.locatePromptReference",
     );
@@ -2841,7 +1767,9 @@ describe("generate composer styles", () => {
     expect(source).not.toContain(
       "onRefreshStatus={\n                agentBridgeStatusRendererActions.refreshBrowserConnectionStatus",
     );
-    expect(source).not.toContain("onOpenAgentSettings={() => setAppSettingsOpen");
+    expect(source).not.toContain(
+      "onOpenAgentSettings={() => setAppSettingsOpen",
+    );
     expect(source).not.toContain(
       "onOpenAgentConversation={() => setAgentChatDockOpen",
     );
@@ -2872,7 +1800,9 @@ describe("generate composer styles", () => {
     expect(source).not.toContain(
       "void agentBridgeStatusRendererActions.setEnabled(enabled);",
     );
-    expect(source).not.toContain("window.open(agentIntegration.bridge.boardUrl");
+    expect(source).not.toContain(
+      "window.open(agentIntegration.bridge.boardUrl",
+    );
     expect(source).not.toContain(
       "void acpAgentSettingsRendererActions.save();",
     );
@@ -2935,6 +1865,7 @@ describe("generate composer styles", () => {
 
   it("keeps ACP thread renderer wiring outside the root app", () => {
     const source = readImageBoardApp();
+    const wiring = readAcpAgentWiring();
 
     expect(source).toContain("useAcpInteractionTargetsController");
     expect(source).not.toContain("createAcpActiveTaskIdRendererActions");
@@ -2942,8 +1873,10 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("createAcpActiveThreadIdRendererActions");
     expect(source).toContain("acpActiveThreadIdRendererActions.set");
     expect(source).toContain("createAcpThreadRendererActions");
-    expect(source).toContain("acpThreadRendererActions.startInitialLoad");
-    expect(source).toContain("acpThreadRendererActions.selectThreadForConversation");
+    expect(wiring).toContain("acpThreadRendererActions.startInitialLoad");
+    expect(source).toContain(
+      "acpThreadRendererActions.selectThreadForConversation",
+    );
     expect(source).toContain("acpThreadRendererActions.startNewThread");
     expect(source).not.toContain("void acpThreadRendererActions.loadInitial");
     expect(source).not.toContain("void acpThreadRendererActions.selectThread");
@@ -3007,7 +1940,9 @@ describe("generate composer styles", () => {
     const dialogRuntimeSource = readGenerateImageDialogRuntime();
     const composerRuntimeSource = readGenerateDialogComposerRuntime();
 
-    expect(dialogRuntimeSource).toContain("createGenerateDialogComposerRuntime");
+    expect(dialogRuntimeSource).toContain(
+      "createGenerateDialogComposerRuntime",
+    );
     expect(dialogSource).not.toContain("createGenerateDialogComposerRuntime");
     expect(dialogSource).not.toContain("createGenerationSubmitHandler");
     expect(dialogSource).not.toContain("createGenerateComposerEventHandlers");
@@ -3029,7 +1964,9 @@ describe("generate composer styles", () => {
     const actionsSectionSource = readGenerateDialogComposerActionsSection();
 
     expect(dialogSource).not.toContain("GenerateDialogComposerActionsSection");
-    expect(composerSectionSource).toContain("GenerateDialogComposerActionsSection");
+    expect(composerSectionSource).toContain(
+      "GenerateDialogComposerActionsSection",
+    );
     expect(dialogSource).not.toContain("GenerateComposerActionBar");
     expect(dialogSource).not.toContain("GenerateComposerSourceSelect");
     expect(dialogSource).not.toContain("renderGenerationSourceSelect");
@@ -3047,7 +1984,9 @@ describe("generate composer styles", () => {
     const contentSectionSource = readGenerateDialogComposerContentSection();
 
     expect(dialogSource).not.toContain("GenerateDialogComposerContentSection");
-    expect(composerSectionSource).toContain("GenerateDialogComposerContentSection");
+    expect(composerSectionSource).toContain(
+      "GenerateDialogComposerContentSection",
+    );
     expect(dialogSource).not.toContain("GenerateComposerModeBar");
     expect(dialogSource).not.toContain("GenerateComposerAgentContext");
     expect(dialogSource).not.toContain("GenerateComposerPromptBody");
@@ -3120,39 +2059,6 @@ describe("generate composer styles", () => {
     );
     expect(providerSettingsSource).not.toContain(
       "generate-provider-settings__advanced-row",
-    );
-  });
-
-  it("allows selecting generated image metadata in the sidebar", () => {
-    const appCss = readAppCss();
-    const inspectorRule = getRule(appCss, ".image-inspector");
-    const scrollRule = getRule(appCss, ".image-inspector__scroll");
-    const valueRule = getRule(appCss, ".image-inspector__detail-value");
-    const preRule = getRule(appCss, ".image-inspector__pre");
-
-    expect(inspectorRule).toContain("user-select: text");
-    expect(scrollRule).toContain("user-select: text");
-    expect(valueRule).toContain("user-select: text");
-    expect(preRule).toContain("user-select: text");
-  });
-
-  it("presents the sidebar as an asset detail panel instead of a flat parameter list", () => {
-    const appCss = readAppCss();
-    const inspectorSource = readImageInspector();
-    const heroRule = getRule(appCss, ".image-inspector__hero");
-    const promptRules = getRulesContaining(
-      appCss,
-      ".image-inspector__prompt-card",
-    ).join("\n");
-    const detailGridRule = getRule(appCss, ".image-inspector__detail-grid");
-
-    expect(inspectorSource).toContain("image-inspector__hero");
-    expect(inspectorSource).toContain("image-inspector__prompt-card");
-    expect(inspectorSource).toContain("image-inspector__detail-grid");
-    expect(heroRule).toContain("display: grid");
-    expect(promptRules).toContain("border: 1px solid");
-    expect(detailGridRule).toContain(
-      "grid-template-columns: repeat(auto-fit, minmax(132px, 1fr))",
     );
   });
 });

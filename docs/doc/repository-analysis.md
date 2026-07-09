@@ -130,7 +130,7 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 | `excalidraw/packages/` | Excalidraw workspace packages |
 | `review-packets/` | 本地审核材料，暂未观察到主业务入口 |
 
-观察到 `apps/image-board-desktop/src/app/agent` 和 `apps/image-board-desktop/src/app/components` 是空目录。当前真实代码不在根目录 `apps/` 下，而在 `excalidraw/apps/image-board-desktop/` 下。
+根目录不保留空壳 `apps/` 目录。当前真实代码在 `excalidraw/apps/image-board-desktop/` 下。
 
 ## 核心模块说明
 

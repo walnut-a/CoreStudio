@@ -27,7 +27,7 @@ export const PROVIDER_REQUEST_ADAPTER_LABELS: Record<
 > = {
   "gemini-generate-content": "Gemini 官方接口",
   "zenmux-vertex-generate-content": "ZenMux Vertex：Gemini / Nano Banana",
-  "zenmux-vertex-gpt-image": "ZenMux Vertex：GPT Image",
+  "zenmux-vertex-gpt-image": "ZenMux Vertex：图片 API",
   "fal-image": "fal.ai 生图接口",
   "jimeng-image": "即梦 / Seedream 接口",
   "openai-images": "OpenAI Images 接口",
@@ -135,19 +135,30 @@ const OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES: ProviderCapabilities = {
   sizeControlMode: "aspect-ratio",
 };
 
+const ZENMUX_VERTEX_IMAGE_API_CAPABILITIES: ProviderCapabilities = {
+  supportsNegativePrompt: false,
+  supportsSeed: false,
+  supportsImageCount: true,
+  supportsReferenceImages: true,
+  maxImageCount: 10,
+  maxReferenceImageCount: OPENAI_REFERENCE_IMAGE_COUNT,
+  sizeControlMode: "aspect-ratio",
+};
+
 const createOpenAICompatibleGptImageModels = (
   adapter: ProviderRequestAdapter,
+  capabilities: ProviderCapabilities = OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES,
 ): Record<string, ProviderModelDefinition> => ({
   "openai/gpt-image-1.5": {
     id: "openai/gpt-image-1.5",
     label: "GPT Image 1.5",
-    capabilities: OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES,
+    capabilities,
     adapter,
   },
   "openai/gpt-image-2": {
     id: "openai/gpt-image-2",
     label: "GPT Image 2",
-    capabilities: OPENAI_COMPATIBLE_GPT_IMAGE_CAPABILITIES,
+    capabilities,
     adapter,
   },
 });
@@ -156,6 +167,45 @@ export const isOpenAICompatibleGptImageModel = (model?: string) =>
   /^openai\/(?:gpt-image-|gpt-[\w.-]*image)/.test(
     model?.trim().toLowerCase() ?? "",
   );
+
+const isQwenImageModel = (model?: string) =>
+  /^qwen\/qwen-image/.test(model?.trim().toLowerCase() ?? "");
+
+const isZenMuxNonGoogleVertexImageApiModel = (model?: string) => {
+  const normalizedModel = model?.trim().toLowerCase() ?? "";
+  return (
+    /^bytedance\/doubao-seedream/.test(normalizedModel) ||
+    /^z-ai\/glm-image/.test(normalizedModel) ||
+    /^tencent\/hy-image/.test(normalizedModel) ||
+    /^klingai\/kling/.test(normalizedModel)
+  );
+};
+
+const isZenMuxVertexImageApiModel = (model?: string) =>
+  isOpenAICompatibleGptImageModel(model) ||
+  isQwenImageModel(model) ||
+  isZenMuxNonGoogleVertexImageApiModel(model);
+
+const createZenMuxGeminiImageModel = (
+  id: string,
+  label: string,
+  capabilities: ProviderCapabilities = GEMINI_3_IMAGE_CAPABILITIES,
+): ProviderModelDefinition => ({
+  id,
+  label,
+  capabilities,
+  adapter: "zenmux-vertex-generate-content",
+});
+
+const createZenMuxVertexImageApiModel = (
+  id: string,
+  label: string,
+): ProviderModelDefinition => ({
+  id,
+  label,
+  capabilities: ZENMUX_VERTEX_IMAGE_API_CAPABILITIES,
+  adapter: "zenmux-vertex-gpt-image",
+});
 
 export const CUSTOM_MODEL_CAPABILITY_TEMPLATES: Record<
   CustomModelCapabilityTemplateId,
@@ -168,7 +218,7 @@ export const CUSTOM_MODEL_CAPABILITY_TEMPLATES: Record<
   "image-editing-aspect-ratio": {
     label: "支持参考图和改图",
     description:
-      "会自动引用画板选区，适合 Gemini、Nano Banana、GPT Image 这类模型。",
+      "会自动引用画板选区，适合 Gemini、Nano Banana、GPT Image、Qwen Image、Seedream、GLM Image 这类模型。",
     capabilities: {
       supportsNegativePrompt: false,
       supportsSeed: false,
@@ -261,6 +311,14 @@ const OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
   { id: "3:2", label: "3:2", width: 1536, height: 1024 },
   { id: "2:3", label: "2:3", width: 1024, height: 1536 },
   { id: "21:9", label: "21:9", width: 1792, height: 768 },
+] as const;
+
+const ZENMUX_GPT_IMAGE_2_SIZE_OPTIONS: readonly AspectRatioOption[] = [
+  ...OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS,
+  { id: "16:9-1080p", label: "16:9 1080p", width: 1920, height: 1080 },
+  { id: "9:16-1080p", label: "9:16 1080p", width: 1080, height: 1920 },
+  { id: "16:9-2k", label: "16:9 2K", width: 2560, height: 1440 },
+  { id: "16:9-4k", label: "16:9 4K", width: 3840, height: 2160 },
 ] as const;
 
 const OPENROUTER_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
@@ -384,31 +442,72 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
     label: "ZenMux",
     defaultModel: "google/gemini-2.5-flash-image",
     models: {
-      "google/gemini-2.5-flash-image": {
-        id: "google/gemini-2.5-flash-image",
-        label: "Gemini 2.5 Flash Image",
-        capabilities: GEMINI_2_5_IMAGE_CAPABILITIES,
-        adapter: "zenmux-vertex-generate-content",
-      },
-      "google/gemini-2.5-flash-image-free": {
-        id: "google/gemini-2.5-flash-image-free",
-        label: "Gemini 2.5 Flash Image Free",
-        capabilities: GEMINI_2_5_IMAGE_CAPABILITIES,
-        adapter: "zenmux-vertex-generate-content",
-      },
-      "google/gemini-3-pro-image-preview": {
-        id: "google/gemini-3-pro-image-preview",
-        label: "Gemini 3 Pro Image Preview",
-        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
-        adapter: "zenmux-vertex-generate-content",
-      },
-      "google/gemini-3-pro-image-preview-free": {
-        id: "google/gemini-3-pro-image-preview-free",
-        label: "Gemini 3 Pro Image Preview Free",
-        capabilities: GEMINI_3_IMAGE_CAPABILITIES,
-        adapter: "zenmux-vertex-generate-content",
-      },
-      ...createOpenAICompatibleGptImageModels("zenmux-vertex-gpt-image"),
+      "google/gemini-2.5-flash-image": createZenMuxGeminiImageModel(
+        "google/gemini-2.5-flash-image",
+        "Gemini 2.5 Flash Image",
+        GEMINI_2_5_IMAGE_CAPABILITIES,
+      ),
+      "google/gemini-2.5-flash-image-free": createZenMuxGeminiImageModel(
+        "google/gemini-2.5-flash-image-free",
+        "Gemini 2.5 Flash Image Free",
+        GEMINI_2_5_IMAGE_CAPABILITIES,
+      ),
+      "google/gemini-3.1-flash-lite-image": createZenMuxGeminiImageModel(
+        "google/gemini-3.1-flash-lite-image",
+        "Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite)",
+      ),
+      "google/gemini-omni-flash-preview": createZenMuxGeminiImageModel(
+        "google/gemini-omni-flash-preview",
+        "Gemini Omni Flash Preview",
+      ),
+      "google/gemini-3.1-flash-image": createZenMuxGeminiImageModel(
+        "google/gemini-3.1-flash-image",
+        "Gemini 3.1 Flash Image (Nano Banana 2)",
+      ),
+      "google/gemini-3-pro-image": createZenMuxGeminiImageModel(
+        "google/gemini-3-pro-image",
+        "Gemini 3 Pro Image (Nano Banana Pro)",
+      ),
+      "google/gemini-3.1-flash-image-preview": createZenMuxGeminiImageModel(
+        "google/gemini-3.1-flash-image-preview",
+        "Gemini 3.1 Flash Image Preview",
+      ),
+      "google/gemini-3-pro-image-preview": createZenMuxGeminiImageModel(
+        "google/gemini-3-pro-image-preview",
+        "Gemini 3 Pro Image Preview",
+      ),
+      "google/gemini-3-pro-image-preview-free": createZenMuxGeminiImageModel(
+        "google/gemini-3-pro-image-preview-free",
+        "Gemini 3 Pro Image Preview Free",
+      ),
+      ...createOpenAICompatibleGptImageModels(
+        "zenmux-vertex-gpt-image",
+        ZENMUX_VERTEX_IMAGE_API_CAPABILITIES,
+      ),
+      "qwen/qwen-image-2.0": createZenMuxVertexImageApiModel(
+        "qwen/qwen-image-2.0",
+        "Qwen Image 2.0",
+      ),
+      "qwen/qwen-image-2.0-pro": createZenMuxVertexImageApiModel(
+        "qwen/qwen-image-2.0-pro",
+        "Qwen Image 2.0 Pro",
+      ),
+      "bytedance/doubao-seedream-5.0-lite": createZenMuxVertexImageApiModel(
+        "bytedance/doubao-seedream-5.0-lite",
+        "Doubao Seedream 5.0 Lite",
+      ),
+      "z-ai/glm-image": createZenMuxVertexImageApiModel(
+        "z-ai/glm-image",
+        "GLM Image",
+      ),
+      "tencent/hy-image-v3.0": createZenMuxVertexImageApiModel(
+        "tencent/hy-image-v3.0",
+        "HY Image V3.0",
+      ),
+      "klingai/kling-v2": createZenMuxVertexImageApiModel(
+        "klingai/kling-v2",
+        "Kling v2",
+      ),
     },
   },
   fal: {
@@ -586,7 +685,7 @@ export const inferProviderRequestAdapter = ({
   modelId: string;
 }): ProviderRequestAdapter => {
   if (provider === "zenmux") {
-    return isOpenAICompatibleGptImageModel(modelId)
+    return isZenMuxVertexImageApiModel(modelId)
       ? "zenmux-vertex-gpt-image"
       : "zenmux-vertex-generate-content";
   }
@@ -642,10 +741,18 @@ export const inferCustomModelCapabilityTemplate = ({
   const normalizedModelId = modelId.trim().toLowerCase();
 
   if (
+    provider === "zenmux" &&
+    isZenMuxNonGoogleVertexImageApiModel(normalizedModelId)
+  ) {
+    return "image-editing-aspect-ratio";
+  }
+
+  if (
     normalizedModelId.includes("gemini") ||
     normalizedModelId.includes("nano-banana") ||
     normalizedModelId.includes("image-preview") ||
-    normalizedModelId.includes("gpt-image")
+    normalizedModelId.includes("gpt-image") ||
+    normalizedModelId.includes("qwen-image")
   ) {
     return "image-editing-aspect-ratio";
   }
@@ -823,7 +930,14 @@ export const getAspectRatioOptions = (args: {
   const adapter = getProviderRequestAdapter(args);
 
   if (
-    (adapter === "openai-images" || adapter === "zenmux-vertex-gpt-image") &&
+    adapter === "zenmux-vertex-gpt-image" &&
+    args.model?.includes("gpt-image-2")
+  ) {
+    return ZENMUX_GPT_IMAGE_2_SIZE_OPTIONS;
+  }
+
+  if (
+    adapter === "openai-images" &&
     args.model?.includes("gpt-image-2")
   ) {
     return OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS;

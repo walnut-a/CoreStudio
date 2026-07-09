@@ -1,0 +1,498 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import * as composerStyleTestSupport from "./composerStyles.testSupport";
+
+const {
+  readCssFile,
+  readAppCss,
+  readRootAppCss,
+  readDialogPrimitivesCss,
+  readGenerateImageDialog,
+  readGenerateImageDialogRuntime,
+  readGenerateImageDialogProviderRuntime,
+  readImageBoardApp,
+  readGenerateComposerActionBar,
+  readAgentConversationThreadView,
+  readAgentConversationComposer,
+  readAgentConversationHeader,
+  readAcpRunLogDialog,
+  readAboutDialog,
+  readAgentRunChatLog,
+  readGenerationErrorDetailsDialog,
+  readWorkspaceBoundsOverlay,
+  readProjectRenderBoundary,
+  readAppBridgeUnavailable,
+  readAppProjectEntryScreen,
+  readAppErrorBanners,
+  readEditorLoadingOverlay,
+  readAgentBoardStartupPane,
+  readDesktopButton,
+  readSideDock,
+  readGenerateDialogViewModel,
+  readGenerateProviderSettingsPanel,
+  readGenerateAdvancedFieldsPanel,
+  readGenerateDialogAdvancedSettings,
+  readGenerateDialogAdvancedSettingsRuntime,
+  readGenerateDialogPromptLibrarySection,
+  readGenerateDialogPromptLibraryRuntime,
+  readGenerateDialogComposerRuntime,
+  readGenerateDialogComposerActionsSection,
+  readGenerateDialogComposerContentSection,
+  readGenerateDialogComposerSection,
+  readImageInspector,
+  readAgentBoard,
+  readProjectMainMenu,
+  readProjectStatusToast,
+  readCoreStudioIcons,
+  getRule,
+  getRulesContaining,
+} = composerStyleTestSupport;
+
+describe("CoreStudio shell layout styles", () => {
+  it("keeps canvas-level errors out of the native toolbar area", () => {
+    const appCss = readAppCss();
+    const canvasErrorRule = getRule(appCss, ".app-canvas-error-toast");
+
+    expect(canvasErrorRule).toBeTruthy();
+    expect(canvasErrorRule).toContain("position: fixed");
+    expect(canvasErrorRule).toContain("top: calc(");
+    expect(canvasErrorRule).toContain(
+      "var(--desktop-window-top-inset, 0px) + 96px",
+    );
+    expect(canvasErrorRule).toContain("left: 50%");
+    expect(canvasErrorRule).toContain("transform: translateX(-50%)");
+    expect(canvasErrorRule).toContain(
+      "z-index: var(--canvas-footer-overlay-z-index)",
+    );
+  });
+
+  it("keeps the agent status dock button aligned with canvas help controls", () => {
+    const appCss = readAppCss();
+    const appRule = getRule(appCss, ".image-board-app");
+    const dockRule = getRule(appCss, ".agent-status-dock");
+    const buttonRule = getRule(appCss, ".agent-status-dock__button");
+    const iconRule = getRule(appCss, ".agent-status-dock__button svg");
+    const hoverRule = getRule(appCss, ".agent-status-dock__button:hover");
+    const activeRule = getRule(appCss, ".agent-status-dock__button:active");
+
+    expect(appRule).toContain("--button-hover-bg: var(--color-surface-high)");
+    expect(appRule).toContain("--button-active-bg: var(--color-surface-high)");
+    expect(appRule).toContain(
+      "--canvas-footer-button-size: var(--lg-button-size)",
+    );
+    expect(appRule).toContain("--canvas-footer-icon-size: var(--lg-icon-size)");
+    expect(appRule).toContain("--canvas-footer-button-gap: var(--ui-space-sm)");
+    expect(appRule).toContain("--floating-panel-z-index: 30");
+    expect(appRule).toContain("--ui-text-size-md: 0.8125rem");
+    expect(appRule).toContain("--ui-space-sm: 8px");
+    expect(appRule).toContain("--ui-radius-pill: 999px");
+    expect(appRule).toContain("--agent-status-dock-z-index: 32");
+    expect(appRule).toContain("--side-dock-z-index: 35");
+    expect(appRule).toContain("--canvas-footer-overlay-z-index: 45");
+    expect(dockRule).toContain("var(--canvas-footer-button-size)");
+    expect(dockRule).toContain("var(--canvas-footer-button-gap)");
+    expect(dockRule).toContain("z-index: var(--agent-status-dock-z-index)");
+    expect(dockRule).not.toContain("var(--canvas-footer-overlay-z-index)");
+    expect(buttonRule).toContain("width: var(--canvas-footer-button-size)");
+    expect(buttonRule).toContain("height: var(--canvas-footer-button-size)");
+    expect(iconRule).toContain("width: var(--canvas-footer-icon-size)");
+    expect(iconRule).toContain("height: var(--canvas-footer-icon-size)");
+    expect(buttonRule).toContain("background-color: var(--color-surface-low");
+    expect(hoverRule).toContain("background-color: var(--button-hover-bg");
+    expect(hoverRule).not.toContain("background: var(--island-bg-color)");
+    expect(activeRule).toContain("background-color: var(--button-active-bg");
+    expect(activeRule).toContain("var(--button-active-border");
+  });
+
+  it("keeps the bottom composer inside the canvas when side docks are open", () => {
+    const appCss = readAppCss();
+    const appRule = getRule(appCss, ".image-board-app");
+    const floatingLayerRule = getRule(appCss, ".floating-panel-layer");
+    const rightDockLayerRule = getRule(
+      appCss,
+      ".image-board-app--right-dock-open .floating-panel-layer",
+    );
+    const leftDockLayerRule = getRule(
+      appCss,
+      ".image-board-app--left-dock-open .floating-panel-layer",
+    );
+    const rightDockPanelRule = getRule(
+      appCss,
+      ".image-board-app--right-dock-open .generate-panel",
+    );
+    const panelRule = getRule(appCss, ".generate-panel");
+    const bothDockPanelRules = getRulesContaining(
+      appCss,
+      ".image-board-app--left-dock-open.image-board-app--right-dock-open",
+    ).filter((rule) => rule.includes(".floating-panel-layer"));
+
+    expect(appRule).toContain("--generate-panel-max-width: 760px");
+    expect(appRule).toContain("--lg-button-size: 2.25rem");
+    expect(appRule).toContain("--floating-panel-anchor-gutter: max(");
+    expect(appRule).toContain(
+      "calc((100vw - var(--generate-panel-max-width)) / 2)",
+    );
+    expect(appRule).not.toContain("--bottom-toolbar-clearance");
+    expect(appRule).not.toContain("--floating-panel-left-anchor");
+    expect(floatingLayerRule).toContain(
+      "left: var(--floating-panel-anchor-gutter)",
+    );
+    expect(floatingLayerRule).toContain(
+      "right: var(--floating-panel-anchor-gutter)",
+    );
+    expect(floatingLayerRule).toContain("justify-content: center");
+    expect(rightDockLayerRule).toContain(
+      "right: max(\n    var(--floating-panel-anchor-gutter)",
+    );
+    expect(rightDockLayerRule).toContain(
+      "calc(var(--corestudio-right-sidebar-width) + var(--floating-panel-edge-gap))",
+    );
+    expect(rightDockLayerRule).not.toContain("justify-content:");
+    expect(rightDockLayerRule).not.toContain("left:");
+    expect(leftDockLayerRule).toContain(
+      "left: max(\n    var(--floating-panel-anchor-gutter)",
+    );
+    expect(leftDockLayerRule).toContain(
+      "calc(var(--corestudio-left-sidebar-width) + var(--floating-panel-edge-gap))",
+    );
+    expect(leftDockLayerRule).not.toContain("justify-content:");
+    expect(leftDockLayerRule).not.toContain("right:");
+    expect(panelRule).toContain("width: 100%");
+    expect(bothDockPanelRules).toHaveLength(0);
+    expect(rightDockPanelRule).toBeUndefined();
+  });
+
+  it("keeps side dock controls aligned with the top toolbar", () => {
+    const appCss = readAppCss();
+    const rootAppCss = readRootAppCss();
+    const sideDockSource = readSideDock();
+    const tokenRule = getRule(
+      readCssFile("apps/image-board-desktop/src/app/styles/designTokens.css"),
+      ".image-board-app",
+    );
+    const layoutRule = getRule(rootAppCss, ".image-board-app");
+    const titlebarRule = getRule(
+      appCss,
+      "html.image-board-desktop-titlebar-hidden",
+    );
+    const dragRegionRule = getRule(appCss, ".image-board-app::before");
+    const projectOpenRule = getRule(appCss, ".image-board-app--project-open");
+    const toggleRule = getRule(appCss, ".side-dock__toggle");
+    const dockRule = getRule(appCss, ".side-dock");
+    const closedMenuRule = getRule(
+      appCss,
+      ".image-board-app .App-menu_top__left",
+    );
+    const mainMenuTriggerRule = getRule(
+      appCss,
+      ".image-board-app .App-menu_top__left .main-menu-trigger",
+    );
+    const mainMenuTriggerHoverRule = getRule(
+      appCss,
+      ".image-board-app .App-menu_top__left .main-menu-trigger:hover",
+    );
+    const openMenuRule = getRule(
+      appCss,
+      ".image-board-app--left-dock-open .App-menu_top__left",
+    );
+
+    expect(tokenRule).toContain("--corestudio-side-panel-width: 300px");
+    expect(tokenRule).toContain(
+      "--corestudio-left-sidebar-width: var(--corestudio-side-panel-width)",
+    );
+    expect(tokenRule).toContain(
+      "--corestudio-right-sidebar-width: var(--corestudio-side-panel-width)",
+    );
+    expect(tokenRule).not.toContain("--side-panel-width");
+    expect(tokenRule).not.toContain("--left-sidebar-width");
+    expect(tokenRule).not.toContain("--right-sidebar-width");
+    expect(layoutRule).toContain(
+      "padding-top: var(--desktop-window-top-inset, 0px)",
+    );
+    expect(titlebarRule).toContain("--desktop-window-top-inset: 28px");
+    expect(dragRegionRule).toContain("-webkit-app-region: drag");
+    expect(dragRegionRule).toContain("left: 0");
+    expect(dragRegionRule).not.toContain("background:");
+    expect(dragRegionRule).toContain(
+      "height: var(--desktop-window-top-inset, 0px)",
+    );
+    expect(projectOpenRule).toContain(
+      "background: var(--color-surface-lowest)",
+    );
+    expect(tokenRule).toContain("--side-dock-z-index: 35");
+    expect(dockRule).toContain("top: var(--desktop-window-top-inset, 0px)");
+    expect(dockRule).toContain("z-index: var(--side-dock-z-index)");
+    expect(toggleRule).toContain("top: calc(");
+    expect(toggleRule).toContain("var(--editor-container-padding, 16px)");
+    expect(toggleRule).toContain("env(safe-area-inset-top, 0px)");
+    expect(mainMenuTriggerRule).toContain(
+      "width: var(--side-dock-toggle-size)",
+    );
+    expect(mainMenuTriggerRule).toContain(
+      "height: var(--side-dock-toggle-size)",
+    );
+    expect(mainMenuTriggerRule).toContain("background: var(--island-bg-color)");
+    expect(mainMenuTriggerHoverRule).toContain("background: #f1f0ff");
+    expect(closedMenuRule).toContain("var(--side-dock-toggle-size)");
+    expect(openMenuRule).toContain("var(--corestudio-left-sidebar-width)");
+    expect(sideDockSource).toContain('import "./SideDock.css";');
+    expect(rootAppCss).not.toContain("\n.side-dock {");
+    expect(rootAppCss).not.toContain("\n.side-dock__toggle {");
+    expect(rootAppCss).not.toContain(
+      "\n.image-board-app .App-menu_top__left {",
+    );
+  });
+
+  it("keeps CoreStudio project entries compact inside the native menu", () => {
+    const appCss = readAppCss();
+    const rootAppCss = readRootAppCss();
+    const menuSource = readProjectMainMenu();
+    const currentRule = getRule(appCss, ".project-main-menu__current");
+    const nameRule = getRule(appCss, ".project-main-menu__current strong");
+
+    expect(menuSource).toContain('import "./ProjectMainMenu.css";');
+    expect(currentRule).toContain("display: flex");
+    expect(currentRule).toContain("align-items: center");
+    expect(currentRule).toContain("min-height: 2rem");
+    expect(currentRule).toContain("min-width: 0");
+    expect(currentRule).toContain("max-width: 220px");
+    expect(currentRule).toContain("padding: 0 0.5rem");
+    expect(currentRule).toContain("cursor: default");
+    expect(currentRule).toContain("user-select: text");
+    expect(nameRule).toContain("min-width: 0");
+    expect(nameRule).toContain("overflow: hidden");
+    expect(nameRule).toContain("text-overflow: ellipsis");
+    expect(nameRule).toContain("font-size: 0.8125rem");
+    expect(nameRule).toContain("color: var(--color-gray-70)");
+    expect(rootAppCss).not.toContain(".project-main-menu__current");
+  });
+
+  it("keeps the canvas controls usable in narrow embedded browser viewports", () => {
+    const appCss = readAppCss();
+    const narrowAppRule = getRulesContaining(appCss, ".image-board-app").find(
+      (rule) => rule.includes("--canvas-top-control-inline-end-reserve"),
+    );
+    const narrowMenuRule = getRulesContaining(
+      appCss,
+      ".image-board-app .App-menu_top",
+    ).find((rule) => rule.includes("padding-right"));
+    const shapesRule = getRulesContaining(
+      appCss,
+      ".image-board-app .shapes-section",
+    ).find((rule) => rule.includes("min-width: 0"));
+    const toolbarRule = getRulesContaining(
+      appCss,
+      ".image-board-app .App-toolbar",
+    ).find((rule) => rule.includes("overflow-x: auto"));
+    const toolbarScrollbarRule = getRulesContaining(
+      appCss,
+      ".image-board-app .App-toolbar::-webkit-scrollbar",
+    ).find((rule) => rule.includes("display: none"));
+    const toolbarStackRule = getRulesContaining(
+      appCss,
+      ".image-board-app .App-toolbar .Stack_horizontal",
+    ).find((rule) => rule.includes("min-width: max-content"));
+    const keybindingRule = getRulesContaining(
+      appCss,
+      ".image-board-app .App-toolbar .ToolIcon__keybinding",
+    ).find((rule) => rule.includes("display: none"));
+
+    expect(appCss).toContain("@media (max-width: 900px)");
+    expect(narrowAppRule).toContain(
+      "--corestudio-side-panel-width: min(300px, 86vw)",
+    );
+    expect(narrowAppRule).not.toContain(
+      "--corestudio-right-sidebar-width: min(",
+    );
+    expect(narrowAppRule).not.toContain(
+      "--corestudio-left-sidebar-width: min(",
+    );
+    expect(narrowAppRule).toContain("--floating-panel-edge-gap: 16px");
+    expect(narrowAppRule).toContain("--canvas-toolbar-max-inline-size: calc(");
+    expect(narrowMenuRule).toContain(
+      "padding-right: var(--canvas-top-control-inline-end-reserve)",
+    );
+    expect(narrowMenuRule).toContain(
+      "grid-template-columns: auto minmax(0, 1fr) auto",
+    );
+    expect(shapesRule).toContain("min-width: 0");
+    expect(shapesRule).toContain("overflow: hidden");
+    expect(shapesRule).toContain("justify-content: stretch");
+    expect(toolbarRule).toContain("width: 100%");
+    expect(toolbarRule).toContain(
+      "max-width: var(--canvas-toolbar-max-inline-size)",
+    );
+    expect(toolbarRule).toContain(
+      "max-inline-size: var(--canvas-toolbar-max-inline-size)",
+    );
+    expect(toolbarRule).toContain("flex: 1 1 auto");
+    expect(toolbarRule).toContain("min-width: 0");
+    expect(toolbarRule).toContain("overflow-x: auto");
+    expect(toolbarRule).toContain("scrollbar-width: none");
+    expect(toolbarScrollbarRule).toContain("display: none");
+    expect(toolbarStackRule).toContain("min-width: max-content");
+    expect(toolbarStackRule).toContain(
+      "gap: var(--canvas-toolbar-compact-gap)",
+    );
+    expect(keybindingRule).toContain("display: none");
+  });
+
+  it("keeps the extreme narrow embedded browser fallback visually calm", () => {
+    const appCss = readAppCss();
+    const toolbarContentRule = getRulesContaining(
+      appCss,
+      ".image-board-app .App-toolbar-content",
+    ).find((rule) => rule.includes("100vw - 24px"));
+    const topLeftRule = getRulesContaining(
+      appCss,
+      ".image-board-app .excalidraw-ui-top-left",
+    ).find((rule) => rule.includes("100vw - 72px"));
+    const sideDockToggleRule = getRulesContaining(
+      appCss,
+      ".image-board-app .side-dock__toggle",
+    ).find((rule) => rule.includes("display: none"));
+    const composerLayerRule = getRulesContaining(
+      appCss,
+      ".image-board-app .floating-panel-layer",
+    ).find((rule) => rule.includes("display: none"));
+    const agentDockRule = getRulesContaining(
+      appCss,
+      ".image-board-app .agent-status-dock",
+    ).find((rule) => rule.includes("display: none"));
+    const undoRedoRule = getRulesContaining(
+      appCss,
+      ".image-board-app .undo-redo-buttons",
+    ).find((rule) => rule.includes("display: none"));
+    const mobileUndoRule = getRulesContaining(
+      appCss,
+      ".image-board-app .mobile-toolbar-undo",
+    ).find((rule) => rule.includes("display: none"));
+    const compactUndoRule = getRulesContaining(
+      appCss,
+      '[data-testid="button-undo"]',
+    ).find((rule) => rule.includes("display: none"));
+    const compactRedoRule = getRulesContaining(
+      appCss,
+      '[data-testid="button-redo"]',
+    ).find((rule) => rule.includes("display: none"));
+    const scrollBackRule = getRulesContaining(
+      appCss,
+      ".image-board-app .scroll-back-to-content",
+    ).find((rule) => rule.includes("display: none"));
+
+    expect(appCss).toContain("@media (max-width: 420px)");
+    expect(toolbarContentRule).toContain("max-width: calc(100vw - 24px)");
+    expect(toolbarContentRule).toContain("overflow: hidden");
+    expect(topLeftRule).toContain("max-width: calc(100vw - 72px)");
+    expect(topLeftRule).toContain("overflow: hidden");
+    expect(sideDockToggleRule).toContain("display: none");
+    expect(composerLayerRule).toContain("display: none");
+    expect(agentDockRule).toContain("display: none");
+    expect(undoRedoRule).toContain("display: none");
+    expect(mobileUndoRule).toContain("display: none");
+    expect(compactUndoRule).toContain("display: none");
+    expect(compactRedoRule).toContain("display: none");
+    expect(scrollBackRule).toContain("display: none");
+  });
+
+  it("keeps CoreStudio-only icons in the Excalidraw fine-line style", () => {
+    const iconSource = readCoreStudioIcons();
+    const appCss = readAppCss();
+    const sideDockSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/src/app/components/SideDock.tsx",
+      ),
+      "utf8",
+    );
+    const toolbarButtonSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/src/app/components/GenerateToolbarButton.tsx",
+      ),
+      "utf8",
+    );
+    const generateDialogSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/src/app/components/GenerateImageDialog.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(iconSource).toContain("CORE_STUDIO_ICON_STROKE_WIDTH = 1.25");
+    expect(iconSource).toContain('stroke="currentColor"');
+    expect(iconSource).toContain('strokeLinecap="round"');
+    expect(iconSource).toContain('strokeLinejoin="round"');
+    expect(appCss).toContain('stroke-width="1.25"');
+    expect(appCss).toContain(".side-dock__toggle svg");
+    expect(sideDockSource).not.toContain("<svg");
+    expect(toolbarButtonSource).not.toContain("<svg");
+    expect(generateDialogSource).not.toMatch(
+      /strokeWidth="(?:1\.6|1\.7|1\.75|1\.8|2)"/,
+    );
+  });
+
+  it("keeps Excalidraw shape controls readable inside the side dock", () => {
+    const appCss = readAppCss();
+    const shapeActionsRule = getRule(
+      appCss,
+      ".side-dock .selected-shape-actions",
+    );
+
+    expect(shapeActionsRule).toContain("--button-bg: var(--color-surface-mid)");
+    expect(shapeActionsRule).toContain("--color-slider-track");
+    expect(shapeActionsRule).toContain("background: color-mix");
+  });
+
+  it("uses the native Excalidraw radius instead of oversized rounded corners", () => {
+    const appCss = readAppCss();
+    const selectors = [
+      ".generate-composer",
+      ".image-board-button.generate-composer__icon",
+      ".image-board-button.generate-composer__action",
+    ];
+
+    for (const selector of selectors) {
+      expect(getRule(appCss, selector)).toContain(
+        "border-radius: var(--border-radius-lg)",
+      );
+    }
+  });
+
+  it("allows selecting generated image metadata in the sidebar", () => {
+    const appCss = readAppCss();
+    const inspectorRule = getRule(appCss, ".image-inspector");
+    const scrollRule = getRule(appCss, ".image-inspector__scroll");
+    const valueRule = getRule(appCss, ".image-inspector__detail-value");
+    const preRule = getRule(appCss, ".image-inspector__pre");
+
+    expect(inspectorRule).toContain("user-select: text");
+    expect(scrollRule).toContain("user-select: text");
+    expect(valueRule).toContain("user-select: text");
+    expect(preRule).toContain("user-select: text");
+  });
+
+  it("presents the sidebar as an asset detail panel instead of a flat parameter list", () => {
+    const appCss = readAppCss();
+    const inspectorSource = readImageInspector();
+    const heroRule = getRule(appCss, ".image-inspector__hero");
+    const promptRules = getRulesContaining(
+      appCss,
+      ".image-inspector__prompt-card",
+    ).join("\n");
+    const detailGridRule = getRule(appCss, ".image-inspector__detail-grid");
+
+    expect(inspectorSource).toContain("image-inspector__hero");
+    expect(inspectorSource).toContain("image-inspector__prompt-card");
+    expect(inspectorSource).toContain("image-inspector__detail-grid");
+    expect(heroRule).toContain("display: grid");
+    expect(promptRules).toContain("border: 1px solid");
+    expect(detailGridRule).toContain(
+      "grid-template-columns: repeat(auto-fit, minmax(132px, 1fr))",
+    );
+  });
+});

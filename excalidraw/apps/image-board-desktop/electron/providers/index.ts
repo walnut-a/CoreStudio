@@ -24,8 +24,9 @@ const ZENMUX_API_KEY_PATTERN = /^sk-(ai|ss)-v1-/i;
 export const generateImages = async (input: {
   projectPath?: string | null;
   request: GenerationRequest;
+  signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
-  const { projectPath, request } = input;
+  const { projectPath, request, signal } = input;
   const apiKey = await getProviderApiKey(request.provider);
   const customModels = await getProviderCustomModels(request.provider);
   if (!apiKey) {
@@ -75,6 +76,7 @@ export const generateImages = async (input: {
       request: GenerationRequest;
       projectPath?: string | null;
       customModels?: readonly CustomProviderModel[];
+      signal?: AbortSignal;
     }) => Promise<GenerationResponse>;
 
     const response = await generator({
@@ -82,6 +84,7 @@ export const generateImages = async (input: {
       request,
       projectPath,
       customModels,
+      signal,
     });
     await updateProviderStatus(request.provider, "success");
     return response;

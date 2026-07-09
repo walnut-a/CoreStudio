@@ -20,11 +20,13 @@
     "build": "yarn build:renderer && yarn build:electron",
     "preview": "yarn ensure:electron && yarn build && electron dist-electron/main.js",
     "package:dir": "yarn build && yarn check:secrets --source --package-inputs && electron-builder --dir && yarn check:secrets --release",
+    "smoke:packaged": "node scripts/smoke-packaged.cjs",
     "notarize:release": "node scripts/notarize-release.cjs",
     "package:app": "yarn build && yarn check:secrets --source --package-inputs && electron-builder && yarn notarize:release && yarn check:secrets --release",
     "test": "cd ../.. && vitest apps/image-board-desktop"
   },
   "devDependencies": {
+    "@assistant-ui/react": "0.14.24",
     "@excalidraw/common": "0.18.0",
     "@excalidraw/element": "0.18.0",
     "@excalidraw/excalidraw": "0.18.0",
@@ -83,15 +85,6 @@
           "path": "/Applications"
         }
       ]
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "linux": {
-      "target": "AppImage"
     }
-  },
-  "dependencies": {
-    "@assistant-ui/react": "0.14.24"
   }
 }

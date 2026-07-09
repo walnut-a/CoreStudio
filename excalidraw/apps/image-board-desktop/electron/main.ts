@@ -55,6 +55,7 @@ import {
   chooseOpenProjectDirectory,
 } from "./projectDialogs";
 import { generateImages } from "./providers";
+import { createGenerationRequestController } from "./generationRequestController";
 import { loadProviderSettings, saveProviderSettings } from "./settingsStore";
 import {
   loadAgentAccessSettings,
@@ -74,9 +75,17 @@ import {
 import { DESKTOP_APP_NAME } from "../src/app/copy";
 import { DESKTOP_APP_VERSION } from "./appVersion";
 import { createAppMenuTemplate } from "./menu";
+import {
+  createMainProcessErrorReporter,
+  installMainProcessErrorHandlers,
+} from "./mainProcessErrors";
 import { shouldOpenDevTools } from "./devtools";
 import { createQuitState } from "./windowLifecycle";
 import { disableRendererPageZoom } from "./windowZoomGuard";
+import {
+  createSingleInstanceController,
+  focusExistingWindow,
+} from "./singleInstance";
 import {
   createLocalBridgeServer,
   type LocalBridgeCurrentProject,
@@ -130,6 +139,9 @@ let agentSessionWriteChain: Promise<void> = Promise.resolve();
 const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
+const generationRequestController = createGenerationRequestController({
+  generateImages,
+});
 interface ActiveAcpTask {
   client: AcpSessionClient;
   runLog: AcpRunLogWriter;
@@ -138,6 +150,7 @@ interface ActiveAcpTask {
 const activeAcpTasks = new Map<string, ActiveAcpTask>();
 const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
 const AGENT_BRIDGE_PREFERRED_PORT = 60909;
+const PACKAGED_SMOKE_READY_SIGNAL = "[corestudio:smoke-ready]";
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingAutosaveFlushes = new Map<
   number,
@@ -154,12 +167,35 @@ const isDev = Boolean(rendererUrl);
 configureNoSystemKeychainAccess(app.commandLine);
 app.setName(DESKTOP_APP_NAME);
 
+installMainProcessErrorHandlers(
+  process,
+  createMainProcessErrorReporter({
+    appName: DESKTOP_APP_NAME,
+    getLogPath: () =>
+      path.join(
+        app.getPath("appData"),
+        "Excalidraw Image Board",
+        "logs",
+        "main-process-errors.log",
+      ),
+    showErrorBox: (title, content) => {
+      dialog.showErrorBox(title, content);
+    },
+  }),
+);
+
 const getTargetWindow = (ownerWindow?: BaseWindow | null) => {
   if (ownerWindow instanceof BrowserWindow && !ownerWindow.isDestroyed()) {
     return ownerWindow;
   }
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
 };
+
+const hasSingleInstanceLock = createSingleInstanceController(app).install(
+  () => {
+    focusExistingWindow(getTargetWindow());
+  },
+);
 
 const isClipboardPermission = (permission: string) =>
   permission === "clipboard-read" || permission === "clipboard-sanitized-write";
@@ -1163,7 +1199,15 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(
     IPC_CHANNELS.generateImages,
-    async (_event, input: GenerateImagesInput) => generateImages(input),
+    async (_event, input: GenerateImagesInput) =>
+      generationRequestController.generate(input),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.cancelGenerateImages,
+    async (_event, generationJobId: string) => {
+      generationRequestController.cancel(generationJobId);
+    },
   );
 
   ipcMain.handle(IPC_CHANNELS.readClipboardImage, async () =>
@@ -1243,6 +1287,13 @@ const createWindow = async () => {
   );
   mainWindow.webContents.on("did-start-loading", () => {
     rendererReady = false;
+  });
+  mainWindow.webContents.on("did-finish-load", () => {
+    if (process.env.CORESTUDIO_SMOKE_TEST === "1") {
+      console.log(PACKAGED_SMOKE_READY_SIGNAL);
+      allowWindowClose = true;
+      app.quit();
+    }
   });
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     console.error("[renderer:gone]", details);
@@ -1340,31 +1391,33 @@ const readClipboardImageFromSystem = () => {
   };
 };
 
-app.whenReady().then(async () => {
-  agentAccessEnabled = (await loadAgentAccessSettings()).enabled;
-  currentRecentProjects = await loadRecentProjects();
-  await removeAgentSessionDescriptor(agentSessionPath).catch((error) => {
-    console.error("[agent:session-cleanup-failed]", error);
-  });
-  registerIpcHandlers();
-  await createWindow();
-  if (agentAccessEnabled) {
-    await startLocalBridge().catch((error) => {
-      console.error("[agent:bridge-startup-failed]", error);
+if (hasSingleInstanceLock) {
+  app.whenReady().then(async () => {
+    agentAccessEnabled = (await loadAgentAccessSettings()).enabled;
+    currentRecentProjects = await loadRecentProjects();
+    await removeAgentSessionDescriptor(agentSessionPath).catch((error) => {
+      console.error("[agent:session-cleanup-failed]", error);
     });
-  }
-
-  app.on("activate", async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow();
-      if (agentAccessEnabled) {
-        await startLocalBridge().catch((error) => {
-          console.error("[agent:bridge-startup-failed]", error);
-        });
-      }
+    registerIpcHandlers();
+    await createWindow();
+    if (agentAccessEnabled) {
+      await startLocalBridge().catch((error) => {
+        console.error("[agent:bridge-startup-failed]", error);
+      });
     }
+
+    app.on("activate", async () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        await createWindow();
+        if (agentAccessEnabled) {
+          await startLocalBridge().catch((error) => {
+            console.error("[agent:bridge-startup-failed]", error);
+          });
+        }
+      }
+    });
   });
-});
+}
 
 app.on("before-quit", () => {
   quitState.markQuitRequested();

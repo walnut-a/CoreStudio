@@ -209,8 +209,93 @@ describe("acpRunLogStore", () => {
     ]);
   });
 
+  it("prunes old run log files and removes pruned task ids from thread summaries", async () => {
+    const createFinishedRun = async ({
+      taskId,
+      threadId,
+      prompt,
+      now,
+    }: {
+      taskId: string;
+      threadId: string;
+      prompt: string;
+      now: string;
+    }) => {
+      const writer = await createAcpRunLogWriter(
+        {
+          taskId,
+          threadId,
+          projectToken: "project-token",
+          projectName: "工业设计助手",
+          agentName: "Codex ACP",
+          userPrompt: prompt,
+        },
+        {
+          baseDir: tempDir,
+          maxRuns: 2,
+          now: () => new Date(now),
+        },
+      );
+      await writer.append("agent.message", { text: prompt });
+      await writer.finish("completed", { lastMessage: prompt });
+    };
+
+    await createFinishedRun({
+      taskId: "task-1",
+      threadId: "thread-1",
+      prompt: "第一轮",
+      now: "2026-07-01T08:00:00.000Z",
+    });
+    await createFinishedRun({
+      taskId: "task-2",
+      threadId: "thread-1",
+      prompt: "第二轮",
+      now: "2026-07-01T08:01:00.000Z",
+    });
+    await createFinishedRun({
+      taskId: "task-3",
+      threadId: "thread-2",
+      prompt: "第三轮",
+      now: "2026-07-01T08:02:00.000Z",
+    });
+
+    await expect(
+      fs.access(path.join(tempDir, "task-1.jsonl")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(
+      fs.access(path.join(tempDir, "task-2.jsonl")),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(tempDir, "task-3.jsonl")),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      listAcpRunLogSummaries({ baseDir: tempDir }),
+    ).resolves.toMatchObject([{ taskId: "task-3" }, { taskId: "task-2" }]);
+    await expect(
+      listAcpThreadSummaries({
+        baseDir: tempDir,
+        projectToken: "project-token",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        threadId: "thread-2",
+        taskIds: ["task-3"],
+      }),
+      expect.objectContaining({
+        threadId: "thread-1",
+        taskIds: ["task-2"],
+      }),
+    ]);
+  });
+
   it("mirrors append-only chat logs into project and app directories", async () => {
-    const projectRunsDir = path.join(tempDir, "project", "exports", "agent-runs");
+    const projectRunsDir = path.join(
+      tempDir,
+      "project",
+      "exports",
+      "agent-runs",
+    );
     const appRunsDir = path.join(tempDir, "app", "agent-runs");
 
     const writer = await createAcpRunLogMirrorWriter(

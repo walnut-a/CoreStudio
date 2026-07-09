@@ -264,7 +264,35 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("allows browser CORS preflight requests without bearer auth", async () => {
+  it("requires bearer auth before opening a recent project through the desktop bridge", async () => {
+    const { server, renderer } = await track(startServer());
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.desktopBridge,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          method: "openRecentProject",
+          args: [currentProject.projectPath],
+        }),
+      },
+    );
+
+    expect(result.status).toBe(401);
+    expect(result.body).toMatchObject({
+      ok: false,
+      error: {
+        code: "AUTH_REQUIRED",
+      },
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
+  });
+
+  it("allows browser CORS preflight requests from the Agent Board origin", async () => {
     const { server } = await track(startServer());
 
     const response = await fetch(
@@ -280,10 +308,68 @@ describe("createLocalBridgeServer", () => {
     );
 
     expect(response.status).toBe(204);
-    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-allow-origin")).toBe(
+      "http://127.0.0.1:5174",
+    );
     expect(response.headers.get("access-control-allow-headers")).toContain(
       "Authorization",
     );
+  });
+
+  it("rejects browser CORS preflight requests from unrelated origins", async () => {
+    const { server } = await track(startServer());
+
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.status}`,
+      {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://example.invalid",
+          "Access-Control-Request-Method": "GET",
+          "Access-Control-Request-Headers": "authorization",
+        },
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: {
+        code: "FORBIDDEN",
+      },
+    });
+  });
+
+  it("rejects request bodies that exceed the configured bridge limit", async () => {
+    const { server } = await track(
+      startServer({
+        maxRequestBodyBytes: 32,
+      }),
+    );
+
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneAddPrompt}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${projectToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: "x".repeat(64),
+        }),
+      },
+    );
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: {
+        code: "BAD_REQUEST",
+        message: "Request body is too large",
+      },
+    });
   });
 
   it("returns unsupported command for unknown routes", async () => {

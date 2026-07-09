@@ -179,6 +179,32 @@ describe("settingsStore", () => {
     await expect(getProviderApiKey("openai")).resolves.toBe(apiKey);
   });
 
+  it("writes the local settings file with owner-only permissions", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const previousUmask = process.umask(0o022);
+    try {
+      await saveProviderSettings({
+        provider: "openai",
+        apiKey: "sk-proj-" + "B".repeat(48),
+        defaultModel: "gpt-image-1",
+      });
+    } finally {
+      process.umask(previousUmask);
+    }
+
+    const settingsPath = path.join(
+      mockAppDataPath,
+      "Excalidraw Image Board",
+      "image-board-settings.json",
+    );
+    const settingsMode = (await fs.stat(settingsPath)).mode & 0o777;
+
+    expect(settingsMode).toBe(0o600);
+  });
+
   it("reads existing plaintext API keys without touching system keychain", async () => {
     const apiKey = "legacy-openrouter-key-with-enough-length";
     await fs.mkdir(path.join(mockAppDataPath, "Excalidraw Image Board"), {

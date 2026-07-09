@@ -45,7 +45,10 @@ import {
 import {
   createGenerationRequestRendererActions,
 } from "./generationRequestRendererController";
-import { runBuiltinGenerationRendererAction } from "./builtinGenerationRendererController";
+import {
+  runBuiltinGenerationCancelRendererAction,
+  runBuiltinGenerationRendererAction,
+} from "./builtinGenerationRendererController";
 import { createGenerationSubmitRendererActions } from "./generationSubmitRendererController";
 import {
   type GeneratedImagePlacementViewport,
@@ -127,6 +130,10 @@ import {
   createSelectionReferenceOriginalSceneRendererActions,
 } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
+import { useDesktopStartupWiring } from "./useDesktopStartupWiring";
+import { useProjectAutosaveWiring } from "./useProjectAutosaveWiring";
+import { useAcpAgentWiring } from "./useAcpAgentWiring";
+import { useAgentBridgeWiring } from "./useAgentBridgeWiring";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AgentStatusDock } from "./components/AgentStatusDock";
 import { AgentBoardStartupPane } from "./components/AgentBoardStartupPane";
@@ -1187,29 +1194,11 @@ const App = () => {
         agentBrowserRuntimePublishRendererActions.clearTimer,
     });
 
-  useEffect(() => appStartupLifecycleRendererActions.start(), [bridge]);
-
-  useEffect(() => {
-    acpThreadRendererActions.startInitialLoad();
-  }, [currentProjectAgentAccessToken, bridge, getCurrentProjectAgentAccessToken]);
-
-  useEffect(() => {
-    return autosaveLifecycleRendererActions.startBeforeUnloadFlush();
-  }, []);
-
-  useEffect(() => appUnmountCleanupRendererActions.cleanup, []);
-
-  useEffect(() => {
-    return autosaveLifecycleRendererActions.subscribeFlushRequests();
-  }, [bridge]);
-
-  useEffect(() => acpTaskEventSubscriptionRendererActions.start(), [
-    acpDebugOpen,
-    appSettingsOpen,
+  useDesktopStartupWiring({
     bridge,
-    loadAcpRunSummariesState,
-    loadAcpThreadSummariesState,
-  ]);
+    appStartupLifecycleRendererActions,
+    appUnmountCleanupRendererActions,
+  });
 
   useEffect(() => {
     return currentProjectEditorInitializingRendererActions.startFallbackClear({
@@ -1492,6 +1481,11 @@ const App = () => {
       flushRequest: () => flushPendingAutosave({ strict: true }),
     });
 
+  useProjectAutosaveWiring({
+    bridge,
+    autosaveLifecycleRendererActions,
+  });
+
   const currentProjectEntryRendererActions =
     createCurrentProjectEntryRendererActions({
       getBridge: () => desktopBridge,
@@ -1529,16 +1523,16 @@ const App = () => {
       },
     });
 
-  useEffect(() => {
-    agentBrowserAutoOpenProjectRendererActions.maybeOpen();
-  }, [
+  useAgentBridgeWiring({
+    agentBrowserAutoOpenProjectRendererActions,
     agentBrowserAutoOpenProjectPath,
     agentBrowserInitialProjectToken,
-    agentBridgeStatus?.currentProject?.projectPath,
-    currentProject?.projectPath,
+    agentBridgeCurrentProjectPath:
+      agentBridgeStatus?.currentProject?.projectPath ?? null,
+    currentProjectPath: currentProject?.projectPath ?? null,
     isAgentBrowserRoute,
     loadingProject,
-  ]);
+  });
 
   const projectImageImportRendererActions =
     createProjectImageImportRendererActions({
@@ -1628,6 +1622,7 @@ const App = () => {
               setPendingCount: setPendingGenerationCount,
             }),
           generateImages: desktopBridge.generateImages,
+          cancelGenerateImages: desktopBridge.cancelGenerateImages,
           finishPendingJob:
             builtinGenerationJobCompletionRendererActions.finishPendingJob,
           markPendingGenerationFailed:
@@ -1637,6 +1632,23 @@ const App = () => {
         }),
       showGenerationError: generationErrorRendererActions.display,
     });
+
+  const cancelBuiltinGeneration = () => {
+    void runBuiltinGenerationCancelRendererAction({
+      getGenerationJobs: () => pendingGenerationJobsRef.current,
+      applyRegistryState: (state) =>
+        applyPendingGenerationJobRegistryState({
+          state,
+          setPendingJobs: (pendingJobs) => {
+            pendingGenerationJobsRef.current = pendingJobs;
+          },
+          setPendingCount: setPendingGenerationCount,
+        }),
+      cancelGenerateImages: desktopBridge.cancelGenerateImages,
+      markPendingGenerationFailed:
+        pendingGenerationCanvasRendererActions.markFailed,
+    });
+  };
 
   const acpConversationMessageRendererActions =
     createAcpConversationMessageRendererActions({
@@ -1723,6 +1735,18 @@ const App = () => {
       refreshOpenRunLog: (taskId, delay = ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS) =>
         acpRunLogRendererActions.scheduleLiveRefresh(taskId, delay),
     });
+
+  useAcpAgentWiring({
+    acpThreadRendererActions,
+    acpTaskEventSubscriptionRendererActions,
+    currentProjectAgentAccessToken,
+    bridge,
+    getCurrentProjectAgentAccessToken,
+    acpDebugOpen,
+    appSettingsOpen,
+    loadAcpRunSummariesState,
+    loadAcpThreadSummariesState,
+  });
 
   useEffect(() => agentCommandRequestSubscriptionRendererActions.start(), [
     bridge,
@@ -2043,6 +2067,7 @@ const App = () => {
             ? () => setGenerationErrorDetailsOpen(true)
             : undefined
         }
+        onCancelGeneration={cancelBuiltinGeneration}
         onClose={() => undefined}
         onRequestChange={generationRequestRendererActions.changeRequest}
         onModelSelectionChange={

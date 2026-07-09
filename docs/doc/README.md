@@ -18,6 +18,8 @@
 
 ## 文档索引
 
+- [excalidraw-fork-maintenance.md](excalidraw-fork-maintenance.md)：Excalidraw 源码 fork 的当前基线、已知上游包改动和后续升级流程。
+- [excalidraw-image-board-design.md](excalidraw-image-board-design.md)：2026-04-12 的本地生图画布第一版产品设计草案归档。
 - [repository-analysis.md](repository-analysis.md)：当前仓库、分支、技术栈、代码结构、已实现能力和维护注意事项。
 
 ## 更新规则

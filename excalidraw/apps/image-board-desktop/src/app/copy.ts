@@ -111,6 +111,7 @@ export const copy = {
     referenceTextTitle: "选中文字",
     keepOpen: "生成后保持弹窗打开",
     cancel: "取消",
+    cancelGeneration: "停止生成",
     generating: "生成中...",
     generate: "开始生成",
     generateCompact: "生成",

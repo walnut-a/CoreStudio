@@ -53,6 +53,19 @@ const providerModels: Record<string, ProviderModelDefinition> = {
       sizeControlMode: "aspect-ratio",
     },
   },
+  "zenmux-image-api-model": {
+    id: "zenmux-image-api-model",
+    label: "ZenMux 图片 API 模型",
+    capabilities: {
+      supportsNegativePrompt: false,
+      supportsSeed: false,
+      supportsImageCount: true,
+      supportsReferenceImages: true,
+      maxImageCount: 10,
+      maxReferenceImageCount: 4,
+      sizeControlMode: "aspect-ratio",
+    },
+  },
   "custom-model": {
     id: "custom-model",
     label: "自定义模型",
@@ -185,6 +198,24 @@ describe("GenerateAdvancedFieldsPanel", () => {
     expect(onHeightChange).toHaveBeenCalledWith(1024);
     expect(onSeedChange).toHaveBeenCalledWith(null);
     expect(onImageCountChange).toHaveBeenCalledWith(3);
+  });
+
+  it("uses the selected model image count limit", () => {
+    renderPanel({
+      request: {
+        ...request,
+        model: "zenmux-image-api-model",
+        imageCount: 5,
+      },
+    });
+
+    expect(screen.getByLabelText(copy.generateDialog.imageCount)).toHaveValue(
+      5,
+    );
+    expect(screen.getByLabelText(copy.generateDialog.imageCount)).toHaveAttribute(
+      "max",
+      "10",
+    );
   });
 
   it("hides optional generation fields when they are unavailable", () => {

@@ -229,6 +229,45 @@ describe("taskGrants", () => {
     expect(store.listGrants()).toEqual([grant]);
   });
 
+  it("prunes expired and completed grants before creating a new grant", () => {
+    let currentTime = new Date("2026-06-24T08:00:00.000Z");
+    let id = 0;
+    const store = createTaskGrantStore({
+      now: () => currentTime,
+      randomId: () => {
+        id += 1;
+        return `id-${id}`;
+      },
+    });
+    const expiredGrant = store.createGrant({
+      projectPath: "/Users/alice/project.corestudio",
+      permissions: ["write-board"],
+      ttlSeconds: 1,
+    });
+    const completedGrant = store.createGrant({
+      projectPath: "/Users/alice/project.corestudio",
+      permissions: ["write-board"],
+      ttlSeconds: 60,
+    });
+    store.completeGrant(completedGrant.taskId);
+    currentTime = new Date("2026-06-24T08:00:02.000Z");
+
+    const freshGrant = store.createGrant({
+      projectPath: "/Users/alice/project.corestudio",
+      permissions: ["read-context"],
+      ttlSeconds: 60,
+    });
+
+    expect(store.listGrants()).toEqual([freshGrant]);
+    expect(
+      store.verifyGrant({
+        taskId: expiredGrant.taskId,
+        writeToken: expiredGrant.writeToken,
+        projectPath: "/Users/alice/project.corestudio",
+      }),
+    ).toEqual({ ok: false, code: "AUTH_DENIED" });
+  });
+
   it("normalizes permissions by sorting and deduplicating them", () => {
     const store = createTaskGrantStore({
       now: () => new Date("2026-06-24T08:00:00.000Z"),

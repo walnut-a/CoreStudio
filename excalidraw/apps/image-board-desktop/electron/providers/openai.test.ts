@@ -106,6 +106,37 @@ describe("generateOpenAIImages", () => {
     );
   });
 
+  it("honors an already aborted generation signal before sending a request", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            b64_json: Buffer.from("openai image").toString("base64"),
+          },
+        ],
+      }),
+    });
+    const controller = new AbortController();
+    controller.abort(new Error("user canceled"));
+
+    await expect(
+      generateOpenAIImages({
+        apiKey: "openai-key",
+        signal: controller.signal,
+        request: {
+          provider: "openai",
+          model: "gpt-image-1.5",
+          prompt: "一台极简桌面 CNC 的产品渲染图",
+          width: 1536,
+          height: 1024,
+          imageCount: 1,
+        },
+      }),
+    ).rejects.toThrow("user canceled");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("uses the official OpenAI image edits endpoint when a reference image is provided", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

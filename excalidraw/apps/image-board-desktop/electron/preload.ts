@@ -77,6 +77,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.markSavedPromptUsed, id),
   generateImages: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.generateImages, input),
+  cancelGenerateImages: (generationJobId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.cancelGenerateImages, generationJobId),
   readClipboardImage: () => ipcRenderer.invoke(IPC_CHANNELS.readClipboardImage),
   onMenuAction: (listener) => {
     const handler = (_event: unknown, menuEvent: DesktopMenuEvent) => {

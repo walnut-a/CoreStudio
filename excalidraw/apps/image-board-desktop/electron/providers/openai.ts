@@ -17,6 +17,7 @@ import {
   getEnabledReference,
   getEnabledPromptReferences,
 } from "./promptUtils";
+import { providerFetch } from "./providerFetch";
 
 import type {
   GenerationRequest,
@@ -72,8 +73,12 @@ const imageFromBase64 = (dataBase64: string, index: number) => {
   });
 };
 
-const imageFromUrl = async (url: string, index: number) => {
-  const response = await fetch(url);
+const imageFromUrl = async (
+  url: string,
+  index: number,
+  signal?: AbortSignal,
+) => {
+  const response = await providerFetch(url, { signal });
   if ("ok" in response && !response.ok) {
     throw new Error(`OpenAI 图片下载失败：${response.status}`);
   }
@@ -160,7 +165,10 @@ const buildLoggedMultipartPayload = ({
     2,
   );
 
-const ensureOpenAIImages = async (data: OpenAIImageResponse) => {
+const ensureOpenAIImages = async (
+  data: OpenAIImageResponse,
+  signal?: AbortSignal,
+) => {
   if (data.error) {
     throw new Error(
       `OpenAI 返回错误：${[data.error.code, data.error.message]
@@ -175,7 +183,7 @@ const ensureOpenAIImages = async (data: OpenAIImageResponse) => {
         return imageFromBase64(item.b64_json, index);
       }
       if (item.url) {
-        return imageFromUrl(item.url, index);
+        return imageFromUrl(item.url, index, signal);
       }
       throw new Error("OpenAI 返回了空图片项。");
     }),
@@ -192,10 +200,12 @@ export const generateOpenAIImages = async ({
   apiKey,
   request,
   projectPath,
+  signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
+  signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
@@ -245,8 +255,9 @@ export const generateOpenAIImages = async ({
 
   try {
     const response = uploadReferenceImages.length
-      ? await fetch(OPENAI_IMAGE_EDITS_URL, {
+      ? await providerFetch(OPENAI_IMAGE_EDITS_URL, {
           method: "POST",
+          signal,
           headers: {
             Authorization: `Bearer ${apiKey}`,
           },
@@ -269,8 +280,9 @@ export const generateOpenAIImages = async ({
             return formData;
           })(),
         })
-      : await fetch(OPENAI_IMAGE_GENERATIONS_URL, {
+      : await providerFetch(OPENAI_IMAGE_GENERATIONS_URL, {
           method: "POST",
+          signal,
           headers: {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
@@ -296,6 +308,7 @@ export const generateOpenAIImages = async ({
 
     const images = await ensureOpenAIImages(
       (await response.json()) as OpenAIImageResponse,
+      signal,
     );
 
     const generationResponse: GenerationResponse = {

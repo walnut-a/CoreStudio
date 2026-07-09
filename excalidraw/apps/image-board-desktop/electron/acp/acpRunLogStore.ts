@@ -109,20 +109,30 @@ const readThreadIndex = async (
 };
 
 const writeIndex = async (
+  baseDir: string,
   indexPath: string,
   summary: AcpRunSummary,
   maxRuns: number,
 ) => {
   const index = await readIndex(indexPath);
-  const runs = [
+  const boundedMaxRuns = Math.max(1, maxRuns);
+  const nextRuns = [
     summary,
     ...index.runs.filter((run) => run.taskId !== summary.taskId),
-  ].slice(0, maxRuns);
+  ];
+  const runs = nextRuns.slice(0, boundedMaxRuns);
+  const prunedRuns = nextRuns.slice(boundedMaxRuns);
   await fs.writeFile(
     indexPath,
     JSON.stringify({ version: 1, runs }, null, 2),
     "utf8",
   );
+  await Promise.all(
+    prunedRuns.map((run) =>
+      fs.rm(path.join(baseDir, run.logFile), { force: true }),
+    ),
+  );
+  return prunedRuns;
 };
 
 const getThreadSummaryFromRun = (
@@ -164,6 +174,37 @@ const writeThreadIndex = async (
     nextThread,
     ...index.threads.filter((thread) => thread.threadId !== run.threadId),
   ].slice(0, maxThreads);
+  await fs.writeFile(
+    indexPath,
+    JSON.stringify({ version: 1, threads }, null, 2),
+    "utf8",
+  );
+};
+
+const pruneTaskIdsFromThreadIndex = async (
+  indexPath: string,
+  taskIds: string[],
+) => {
+  if (!taskIds.length) {
+    return;
+  }
+
+  const prunedTaskIds = new Set(taskIds);
+  const index = await readThreadIndex(indexPath);
+  const threads = index.threads
+    .map((thread) => {
+      const retainedTaskIds = thread.taskIds.filter(
+        (taskId) => !prunedTaskIds.has(taskId),
+      );
+      return {
+        ...thread,
+        taskIds: retainedTaskIds,
+        lastTaskId: retainedTaskIds.at(-1) ?? thread.lastTaskId,
+      };
+    })
+    .filter((thread) => thread.taskIds.length > 0);
+
+  await fs.mkdir(path.dirname(indexPath), { recursive: true });
   await fs.writeFile(
     indexPath,
     JSON.stringify({ version: 1, threads }, null, 2),
@@ -264,6 +305,15 @@ export const createAcpRunLogWriter = async (
     return writeChain;
   };
 
+  const writeIndexes = async () => {
+    const prunedRuns = await writeIndex(baseDir, indexPath, summary, maxRuns);
+    await writeThreadIndex(threadIndexPath, summary, DEFAULT_MAX_THREADS);
+    await pruneTaskIdsFromThreadIndex(
+      threadIndexPath,
+      prunedRuns.map((run) => run.taskId),
+    );
+  };
+
   const append = (kind: AcpRunLogKind, payload: unknown) =>
     enqueue(async () => {
       const entry: AcpRunLogEntry = {
@@ -283,8 +333,7 @@ export const createAcpRunLogWriter = async (
     agentName: metadata.agentName,
     userPrompt: metadata.userPrompt,
   });
-  await writeIndex(indexPath, summary, maxRuns);
-  await writeThreadIndex(threadIndexPath, summary, DEFAULT_MAX_THREADS);
+  await writeIndexes();
 
   return {
     taskId: metadata.taskId,
@@ -309,10 +358,7 @@ export const createAcpRunLogWriter = async (
         ...(details.lastMessage ? { lastMessage: details.lastMessage } : {}),
         ...(details.payload !== undefined ? { payload: details.payload } : {}),
       });
-      await enqueue(() => writeIndex(indexPath, summary, maxRuns));
-      await enqueue(() =>
-        writeThreadIndex(threadIndexPath, summary, DEFAULT_MAX_THREADS),
-      );
+      await enqueue(writeIndexes);
     },
   };
 };

@@ -7,7 +7,7 @@ CoreStudio exposes a small localhost Agent Bridge while the desktop app is open.
 
 Agent access is controlled by a software-level switch in the desktop app. When it is enabled, each project still has a stable project token, but the copied Agent Board link is a stable board entry URL rather than a project-specific URL. The embedded board can choose a recent project independently from the desktop window's currently opened project.
 
-Read and write commands use the selected project's token; there is no separate write authorization step.
+Read and write commands use the selected project's token; there is no separate write authorization step. Browser requests to the localhost bridge only receive CORS access from the Agent Board origin. Project-changing desktop bridge calls, including opening a recent project, require the project bearer token.
 
 Run these commands with CoreStudio open and Agent access enabled. In this source package, use `node bin/corestudio.cjs ...`; a packaged desktop install does not install a global `corestudio` command yet.
 

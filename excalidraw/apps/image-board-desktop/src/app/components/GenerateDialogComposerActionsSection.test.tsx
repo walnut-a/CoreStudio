@@ -14,6 +14,7 @@ const renderActionsSection = (
     promptLibraryOpen: false,
     advancedOpen: false,
     canSubmit: true,
+    loading: false,
     showGenerationSourceSwitch: true,
     agentGenerationSelectable: true,
     effectiveGenerationSource: "builtin",

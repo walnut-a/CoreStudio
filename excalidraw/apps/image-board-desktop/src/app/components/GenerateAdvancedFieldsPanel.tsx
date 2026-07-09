@@ -57,6 +57,9 @@ export const GenerateAdvancedFieldsPanel = ({
   onImageCountChange,
   onTextInputKeyDown,
 }: GenerateAdvancedFieldsPanelProps) => {
+  const selectedModel = providerModels[request.model];
+  const maxImageCount = selectedModel?.capabilities.maxImageCount ?? 4;
+
   return (
     <>
       <label>
@@ -167,7 +170,7 @@ export const GenerateAdvancedFieldsPanel = ({
           <input
             type="number"
             min={1}
-            max={4}
+            max={maxImageCount}
             value={request.imageCount}
             onChange={(event) =>
               onImageCountChange(Number(event.target.value))

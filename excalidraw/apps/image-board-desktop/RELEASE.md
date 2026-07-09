@@ -10,11 +10,13 @@
 excalidraw/apps/image-board-desktop/package.json
 ```
 
-当前发布版本：
+当前发布版本以 `package.json` 为准，发布时不要在本文档里写死版本快照。
 
-```text
-1.1.11
-```
+## 平台范围
+
+当前已验证并正式发布的桌面包只有 macOS。`package.json` 的 electron-builder 配置只保留 macOS / DMG 目标；Windows NSIS 和 Linux AppImage 不再作为声明性目标保留。
+
+如果后续要恢复 Windows 或 Linux 包，需要先在对应平台补齐构建、启动冒烟测试和发布说明，再把目标加回配置。
 
 ## 本地打包
 
@@ -53,9 +55,15 @@ excalidraw/apps/image-board-desktop/release/
 
 `release/` 已被 git 忽略。
 
-DMG 安装窗口布局由 `apps/image-board-desktop/package.json` 里的 `build.dmg`
-固定，包括窗口尺寸、背景色、图标尺寸以及 `CoreStudio.app` / `Applications`
-两个图标的位置。调整安装窗口视觉时，需要重新生成 DMG。
+打包后先跑一次最小冒烟：
+
+```sh
+corepack yarn --cwd apps/image-board-desktop smoke:packaged
+```
+
+这个脚本会启动最新的 macOS `.app` 产物，等待 renderer 完成加载后自动退出。也可以用 `CORESTUDIO_APP_PATH=/path/to/CoreStudio.app` 指定待测包。
+
+DMG 安装窗口布局由 `apps/image-board-desktop/package.json` 里的 `build.dmg` 固定，包括窗口尺寸、背景色、图标尺寸以及 `CoreStudio.app` / `Applications` 两个图标的位置。调整安装窗口视觉时，需要重新生成 DMG。
 
 ## 签名
 

@@ -131,6 +131,12 @@ export const sendIcon = (
   </LineIcon>
 );
 
+export const stopIcon = (
+  <LineIcon>
+    <path d="M8.25 8.25h7.5v7.5h-7.5Z" />
+  </LineIcon>
+);
+
 export const chevronDownIcon = (className?: string) => (
   <LineIcon className={className} size={18}>
     <path d="m7.25 9 4.75 4.75L16.75 9" />

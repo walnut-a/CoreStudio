@@ -22,6 +22,8 @@
 ## 重要文档
 
 - [doc/README.md](doc/README.md)：说明类文档入口。
+- [doc/excalidraw-fork-maintenance.md](doc/excalidraw-fork-maintenance.md)：Excalidraw 源码 fork 维护说明。
+- [doc/excalidraw-image-board-design.md](doc/excalidraw-image-board-design.md)：本地生图画布第一版产品设计草案归档。
 - [doc/repository-analysis.md](doc/repository-analysis.md)：仓库现状、分支、结构、能力和维护边界分析。
 - [plan/README.md](plan/README.md)：计划类文档入口。
 - [spec/README.md](spec/README.md)：规范类文档入口。

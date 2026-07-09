@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 
 import {
   type AgentErrorCode,
@@ -44,10 +44,31 @@ export type VerifyGrantResult =
       code: AgentErrorCode;
     };
 
+const isGrantExpired = (grant: AgentTaskGrant, nowDate: Date) =>
+  nowDate.getTime() >= new Date(grant.expiresAt).getTime();
+
+const tokenMatches = (actual: string, expected: string) => {
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+};
+
 export const createTaskGrantStore = (options: TaskGrantStoreOptions = {}) => {
   const now = options.now ?? (() => new Date());
   const randomId = options.randomId ?? randomUUID;
   const grants = new Map<string, AgentTaskGrant>();
+
+  const pruneInactiveGrants = (nowDate: Date) => {
+    for (const [taskId, grant] of grants) {
+      if (grant.completedAt || isGrantExpired(grant, nowDate)) {
+        grants.delete(taskId);
+      }
+    }
+  };
 
   const createGrant = ({
     projectPath,
@@ -55,6 +76,7 @@ export const createTaskGrantStore = (options: TaskGrantStoreOptions = {}) => {
     ttlSeconds,
   }: CreateGrantParams): AgentTaskGrant => {
     const createdAtDate = now();
+    pruneInactiveGrants(createdAtDate);
     const ttlMs = Math.max(1, ttlSeconds) * 1000;
     const grant: AgentTaskGrant = {
       taskId: `task-${randomId()}`,
@@ -75,13 +97,13 @@ export const createTaskGrantStore = (options: TaskGrantStoreOptions = {}) => {
     permission,
   }: VerifyGrantParams): VerifyGrantResult => {
     const grant = grants.get(taskId);
-    if (!grant || grant.writeToken !== writeToken) {
+    if (!grant || !tokenMatches(grant.writeToken, writeToken)) {
       return { ok: false, code: "AUTH_DENIED" };
     }
     if (grant.projectPath !== projectPath) {
       return { ok: false, code: "PROJECT_MISMATCH" };
     }
-    if (now().getTime() >= new Date(grant.expiresAt).getTime()) {
+    if (isGrantExpired(grant, now())) {
       return { ok: false, code: "TOKEN_EXPIRED" };
     }
     if (grant.completedAt) {

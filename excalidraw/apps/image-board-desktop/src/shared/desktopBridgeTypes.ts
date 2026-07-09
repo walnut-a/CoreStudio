@@ -51,6 +51,7 @@ export const IPC_CHANNELS = {
   deleteSavedPrompt: "image-board:delete-saved-prompt",
   markSavedPromptUsed: "image-board:mark-saved-prompt-used",
   generateImages: "image-board:generate-images",
+  cancelGenerateImages: "image-board:cancel-generate-images",
   readClipboardImage: "image-board:read-clipboard-image",
   menuAction: "image-board:menu-action",
   rendererReady: "image-board:renderer-ready",
@@ -290,6 +291,7 @@ export interface SavePromptInput {
 
 export interface GenerateImagesInput {
   projectPath: string;
+  generationJobId?: string;
   request: GenerationRequest;
 }
 
@@ -347,6 +349,7 @@ export interface DesktopBridgeApi {
   deleteSavedPrompt(id: string): Promise<SavedPrompt[]>;
   markSavedPromptUsed(id: string): Promise<SavedPrompt[]>;
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
+  cancelGenerateImages?(generationJobId: string): Promise<void>;
   readClipboardImage?(): Promise<ImportedImagePayload | null>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;

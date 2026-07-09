@@ -30,6 +30,7 @@ export interface LocalBridgeCurrentProject {
 
 export interface LocalBridgeServerOptions {
   preferredPort?: number;
+  maxRequestBodyBytes?: number;
   isAgentAccessEnabled: () => boolean;
   getCurrentProject: () => LocalBridgeCurrentProject | null;
   getProjectByToken?: (
@@ -120,13 +121,57 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   UNSUPPORTED_COMMAND: 404,
 };
 
+const DEFAULT_MAX_REQUEST_BODY_BYTES = 128 * 1024 * 1024;
+const CORS_ALLOW_HEADERS = "Authorization, Content-Type, Accept";
+const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
+
 const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
   "loadRecentProjects",
-  "openRecentProject",
   "loadAppInfo",
   "loadProviderSettings",
   "loadPromptLibrary",
 ]);
+
+class RequestBodyTooLargeError extends Error {
+  constructor(public readonly maxBytes: number) {
+    super("Request body is too large");
+  }
+}
+
+const getRequestOrigin = (request: http.IncomingMessage) => {
+  const origin = request.headers.origin;
+  return Array.isArray(origin) ? origin[0] : origin ?? null;
+};
+
+const getAllowedCorsOrigin = (
+  requestOrigin: string | null,
+  boardUrl: string | null,
+) => {
+  if (!requestOrigin || !boardUrl) {
+    return null;
+  }
+
+  try {
+    const allowedOrigin = new URL(boardUrl).origin;
+    return requestOrigin === allowedOrigin ? requestOrigin : null;
+  } catch {
+    return null;
+  }
+};
+
+const applyCorsHeaders = (
+  response: http.ServerResponse,
+  allowedOrigin: string | null,
+) => {
+  if (!allowedOrigin) {
+    return;
+  }
+
+  response.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  response.setHeader("Access-Control-Allow-Headers", CORS_ALLOW_HEADERS);
+  response.setHeader("Access-Control-Allow-Methods", CORS_ALLOW_METHODS);
+  response.setHeader("Vary", "Origin");
+};
 
 const sendJson = (
   response: http.ServerResponse,
@@ -135,18 +180,12 @@ const sendJson = (
 ) => {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   });
   response.end(JSON.stringify(body));
 };
 
 const sendCorsPreflight = (response: http.ServerResponse) => {
   response.writeHead(204, {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Max-Age": "600",
   });
   response.end();
@@ -328,10 +367,25 @@ const buildAgentBoardCommandContext = (
 
 const readRequestBody = async (
   request: http.IncomingMessage,
+  maxBodyBytes = DEFAULT_MAX_REQUEST_BODY_BYTES,
 ): Promise<JsonBody> => {
+  const contentLengthHeader = request.headers["content-length"];
+  const contentLength = Array.isArray(contentLengthHeader)
+    ? Number(contentLengthHeader[0])
+    : Number(contentLengthHeader);
+  if (Number.isFinite(contentLength) && contentLength > maxBodyBytes) {
+    throw new RequestBodyTooLargeError(maxBodyBytes);
+  }
+
   const chunks: Buffer[] = [];
+  let receivedBytes = 0;
   for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    receivedBytes += buffer.length;
+    if (receivedBytes > maxBodyBytes) {
+      throw new RequestBodyTooLargeError(maxBodyBytes);
+    }
+    chunks.push(buffer);
   }
 
   const rawBody = Buffer.concat(chunks).toString("utf8").trim();
@@ -612,6 +666,18 @@ export const createLocalBridgeServer = async (
   const server = http.createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
+      const requestOrigin = getRequestOrigin(request);
+      const allowedCorsOrigin = getAllowedCorsOrigin(
+        requestOrigin,
+        options.getBoardUrl?.() ?? null,
+      );
+
+      if (requestOrigin && !allowedCorsOrigin) {
+        sendError(response, 403, "FORBIDDEN", "Origin is not allowed");
+        return;
+      }
+
+      applyCorsHeaders(response, allowedCorsOrigin);
 
       if (request.method === "OPTIONS") {
         sendCorsPreflight(response);
@@ -799,8 +865,17 @@ export const createLocalBridgeServer = async (
       let body: JsonBody | null = null;
       if (request.method === "POST") {
         try {
-          body = await readRequestBody(request);
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
         } catch (error) {
+          if (error instanceof RequestBodyTooLargeError) {
+            sendError(response, 413, "BAD_REQUEST", error.message, {
+              maxBytes: error.maxBytes,
+            });
+            return;
+          }
           sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
             message: error instanceof Error ? error.message : String(error),
           });

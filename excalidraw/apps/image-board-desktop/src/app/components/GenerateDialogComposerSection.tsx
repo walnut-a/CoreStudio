@@ -47,6 +47,7 @@ interface GenerateDialogComposerSectionProps {
   promptLibraryOpen: boolean;
   advancedOpen: boolean;
   canSubmit: boolean;
+  loading: boolean;
   showGenerationSourceSwitch: boolean;
   agentGenerationSelectable: boolean;
   effectiveGenerationSource: GenerationSource;
@@ -64,6 +65,7 @@ interface GenerateDialogComposerSectionProps {
     event: SyntheticEvent<HTMLElement>,
   ) => void;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
+  onCancelGeneration?: (event: SyntheticEvent<HTMLElement>) => void;
   onCommitPendingReference: () => void | Promise<unknown>;
   onPromptChange: (parts: GenerationPromptPart[]) => void;
   onPromptKeyPressCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
@@ -93,6 +95,7 @@ export const GenerateDialogComposerSection = ({
   promptLibraryOpen,
   advancedOpen,
   canSubmit,
+  loading,
   showGenerationSourceSwitch,
   agentGenerationSelectable,
   effectiveGenerationSource,
@@ -104,6 +107,7 @@ export const GenerateDialogComposerSection = ({
   onSelectComposerMode,
   onSelectGenerationSource,
   onStopInputEvent,
+  onCancelGeneration,
   onCommitPendingReference,
   onPromptChange,
   onPromptKeyPressCapture,
@@ -143,6 +147,7 @@ export const GenerateDialogComposerSection = ({
       promptLibraryOpen={promptLibraryOpen}
       advancedOpen={advancedOpen}
       canSubmit={canSubmit}
+      loading={loading}
       showGenerationSourceSwitch={showGenerationSourceSwitch}
       agentGenerationSelectable={agentGenerationSelectable}
       effectiveGenerationSource={effectiveGenerationSource}
@@ -151,6 +156,7 @@ export const GenerateDialogComposerSection = ({
       generationSourceResetKey={generationSourceResetKey}
       onSelectGenerationSource={onSelectGenerationSource}
       onStopInputEvent={onStopInputEvent}
+      onCancelGeneration={onCancelGeneration}
       setPromptLibraryOpen={setPromptLibraryOpen}
       setAdvancedOpen={setAdvancedOpen}
     />

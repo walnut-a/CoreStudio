@@ -22,6 +22,8 @@ type StoredProviderSettings = Record<ProviderId, Partial<ProviderSettings>>;
 
 const SETTINGS_FILE_NAME = "image-board-settings.json";
 const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
+const SETTINGS_DIRECTORY_MODE = 0o700;
+const SETTINGS_FILE_MODE = 0o600;
 const KEY_LEGACY_ENCRYPTED_ERROR =
   "之前保存的密钥使用了系统加密存储。当前版本不再读取钥匙串，请重新填写并保存一次。";
 
@@ -44,7 +46,7 @@ const getSettingsPath = () =>
 const getLegacySettingsPath = () =>
   path.join(app.getPath("userData"), SETTINGS_FILE_NAME);
 
-const encodeApiKey = (apiKey: string | undefined) => {
+const serializePlainApiKey = (apiKey: string | undefined) => {
   if (!apiKey) {
     return apiKey;
   }
@@ -217,12 +219,22 @@ const readSettings = async (): Promise<StoredProviderSettings> => {
 };
 
 const writeSettings = async (settings: StoredProviderSettings) => {
-  await fs.mkdir(path.dirname(getSettingsPath()), { recursive: true });
+  const settingsPath = getSettingsPath();
+  await fs.mkdir(path.dirname(settingsPath), {
+    recursive: true,
+    mode: SETTINGS_DIRECTORY_MODE,
+  });
   await fs.writeFile(
-    getSettingsPath(),
+    settingsPath,
     JSON.stringify(settings, null, 2),
-    "utf8",
+    {
+      encoding: "utf8",
+      mode: SETTINGS_FILE_MODE,
+    },
   );
+  if (process.platform !== "win32") {
+    await fs.chmod(settingsPath, SETTINGS_FILE_MODE);
+  }
 };
 
 export const loadProviderSettings = async () => {
@@ -236,7 +248,7 @@ export const saveProviderSettings = async (
   settings[input.provider] = {
     ...settings[input.provider],
     apiKey: input.apiKey
-      ? encodeApiKey(input.apiKey)
+      ? serializePlainApiKey(input.apiKey)
       : settings[input.provider].apiKey,
     defaultModel: input.defaultModel,
     customModels:

@@ -213,8 +213,23 @@ const extensionFromMimeType = (mimeType: string) => {
   }
 };
 
+const writeTextAtomic = async (filePath: string, value: string) => {
+  const tempPath = path.join(
+    path.dirname(filePath),
+    `${path.basename(filePath)}.${randomUUID()}.tmp`,
+  );
+
+  try {
+    await fs.writeFile(tempPath, value, "utf8");
+    await fs.rename(tempPath, filePath);
+  } catch (error) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    throw error;
+  }
+};
+
 const writeJson = async (filePath: string, value: unknown) => {
-  await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
+  await writeTextAtomic(filePath, JSON.stringify(value, null, 2));
 };
 
 const writeJsonExclusive = async (filePath: string, value: unknown) => {
@@ -533,10 +548,9 @@ export const writeProjectScene = async ({
     );
   }
 
-  await fs.writeFile(
+  await writeTextAtomic(
     path.join(projectPath, PROJECT_FILENAMES.scene),
     sceneJson,
-    "utf8",
   );
   const nextProject: ProjectManifest = {
     ...bundle.project,

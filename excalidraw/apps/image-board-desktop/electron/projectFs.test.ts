@@ -147,7 +147,7 @@ const writeAcpRunLog = async ({
               status: "failed",
               rawOutput: {
                 formatted_output:
-                  "{\"ok\":false,\"error\":{\"code\":\"COMMAND_FAILED\",\"message\":\"Renderer command failed\"}}",
+                  '{"ok":false,"error":{"code":"COMMAND_FAILED","message":"Renderer command failed"}}',
                 exit_code: 1,
               },
             },
@@ -175,6 +175,7 @@ const writeAcpRunLog = async ({
 };
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(
     tempDirectories
       .splice(0)
@@ -205,12 +206,76 @@ describe("projectFs", () => {
     expect(bundle.imageRecords).toEqual({});
   });
 
+  it("rewrites core project json files through same-directory temp renames", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(root, "Atomic Writes");
+    const renameSpy = vi.spyOn(fs, "rename");
+
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "CoreStudio",
+        elements: [{ id: "element-1", type: "rectangle" }],
+        appState: {},
+        files: {},
+      }),
+    });
+    await updateProjectAgentAccess(project.projectPath, {
+      token: "project-token-2",
+      enabled: true,
+    });
+    await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-123",
+          dataBase64: Buffer.from("hello world").toString("base64"),
+          mimeType: "image/png",
+          width: 512,
+          height: 512,
+          sourceType: "generated",
+          generationOrigin: "corestudio",
+          prompt: "chair sketch",
+          model: "fal-ai/flux/schnell",
+          provider: "fal",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(renameSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/scene\.excalidraw\.json\.[^.]+\.tmp$/),
+      path.join(project.projectPath, PROJECT_FILENAMES.scene),
+    );
+    expect(renameSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/project\.json\.[^.]+\.tmp$/),
+      path.join(project.projectPath, PROJECT_FILENAMES.project),
+    );
+    expect(renameSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/image-records\.json\.[^.]+\.tmp$/),
+      path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+    );
+    await expect(fs.readdir(project.projectPath)).resolves.not.toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^(project\.json|scene\.excalidraw\.json|image-records\.json)\.[^.]+\.tmp$/,
+        ),
+      ]),
+    );
+  });
+
   it("migrates legacy projects with a stable Agent token", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
 
     const project = await createProjectStructure(root, "Legacy Project");
-    const projectFile = path.join(project.projectPath, PROJECT_FILENAMES.project);
+    const projectFile = path.join(
+      project.projectPath,
+      PROJECT_FILENAMES.project,
+    );
     const legacyProject = {
       ...project.project,
       agentAccess: undefined,
@@ -238,7 +303,10 @@ describe("projectFs", () => {
     tempDirectories.push(root);
 
     const project = await createProjectStructure(root, "Existing Token");
-    const projectFile = path.join(project.projectPath, PROJECT_FILENAMES.project);
+    const projectFile = path.join(
+      project.projectPath,
+      PROJECT_FILENAMES.project,
+    );
     await fs.writeFile(
       projectFile,
       JSON.stringify(
@@ -942,7 +1010,10 @@ describe("projectFs", () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
 
-    const project = await createProjectStructure(root, "Maintenance Backup Test");
+    const project = await createProjectStructure(
+      root,
+      "Maintenance Backup Test",
+    );
     await persistImageAssets({
       projectPath: project.projectPath,
       files: [

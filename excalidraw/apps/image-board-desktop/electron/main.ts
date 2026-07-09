@@ -470,8 +470,9 @@ const startLocalBridge = async () => {
   }
 
   rendererCommandBridge = createMainRendererCommandBridge();
+  let bridge: LocalBridgeServerHandle | null = null;
   try {
-    localBridgeHandle = await createLocalBridgeServer({
+    bridge = await createLocalBridgeServer({
       preferredPort: AGENT_BRIDGE_PREFERRED_PORT,
       isAgentAccessEnabled: () => agentAccessEnabled,
       getCurrentProject,
@@ -491,14 +492,18 @@ const startLocalBridge = async () => {
       },
       grants: taskGrantStore,
     });
+    localBridgeHandle = bridge;
     await writeCurrentAgentSessionDescriptor();
-    console.log("[agent:bridge-started]", localBridgeHandle.baseUrl);
+    if (localBridgeHandle === bridge && !shouldSkipAgentSessionWrite()) {
+      console.log("[agent:bridge-started]", bridge.baseUrl);
+    }
   } catch (error) {
-    const bridge = localBridgeHandle;
     rendererCommandBridge?.dispose();
     rendererCommandBridge = null;
-    localBridgeHandle = null;
-    if (bridge) {
+    if (localBridgeHandle === bridge) {
+      localBridgeHandle = null;
+    }
+    if (bridge && localBridgeHandle !== bridge) {
       await bridge.close().catch((closeError) => {
         console.error("[agent:bridge-close-after-start-failed]", closeError);
       });

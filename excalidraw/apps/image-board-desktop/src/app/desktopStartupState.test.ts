@@ -4,6 +4,7 @@ import {
   createDesktopStartupRendererActions,
   loadAppInfoStateAction,
   loadRecentProjectsStateAction,
+  removeRecentProjectStateAction,
 } from "./desktopStartupState";
 
 import type {
@@ -51,6 +52,30 @@ describe("loadRecentProjectsStateAction", () => {
 
     expect(setRecentProjects).toHaveBeenNthCalledWith(1, []);
     expect(setRecentProjects).toHaveBeenNthCalledWith(2, []);
+  });
+});
+
+describe("removeRecentProjectStateAction", () => {
+  it("removes a project list record through the desktop bridge", async () => {
+    const nextProjects: RecentProjectEntry[] = [
+      {
+        projectPath: "/projects/two",
+        name: "备用项目",
+        lastOpenedAt: "2026-07-04T00:00:00.000Z",
+      },
+    ];
+    const setRecentProjects = vi.fn();
+
+    await removeRecentProjectStateAction({
+      bridge: {
+        removeRecentProject: vi.fn(async () => nextProjects),
+      } as unknown as DesktopBridgeApi,
+      projectPath: "/projects/one",
+      setRecentProjects,
+      setProjectError: vi.fn(),
+    });
+
+    expect(setRecentProjects).toHaveBeenCalledWith(nextProjects);
   });
 });
 

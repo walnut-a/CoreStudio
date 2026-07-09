@@ -160,9 +160,9 @@ describe("Chinese localization", () => {
         "新建一个本地项目，或打开之前的项目。画板、图片、提示词和生成记录都会保存在项目文件夹里。",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("最近打开")).toBeInTheDocument();
+    expect(screen.getByText("项目列表")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /常用项目/ }),
+      screen.getByRole("button", { name: /^常用项目/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("/Users/zhaolixing/Documents/工业设计助手/常用项目"),

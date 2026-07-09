@@ -3,6 +3,7 @@ import type {
   ProjectAssetPayload,
   ProjectHealthReport,
 } from "../shared/desktopBridgeTypes";
+import { unmarkMissingRecentProjectMessage } from "../shared/recentProjectErrors";
 import {
   buildEditorInitializingUpdatePlan,
   buildCurrentProjectUpdateState,
@@ -610,7 +611,10 @@ export const runCurrentProjectEntryMenuFailureAction = ({
   setProjectError: (message: string) => void;
   clearProjectNotice: () => void;
 }) => {
-  setProjectError(errorMessage || fallbackMessage);
+  const normalizedErrorMessage = errorMessage
+    ? unmarkMissingRecentProjectMessage(errorMessage) ?? errorMessage
+    : fallbackMessage;
+  setProjectError(normalizedErrorMessage || fallbackMessage);
   clearProjectNotice();
 };
 

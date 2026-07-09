@@ -2672,7 +2672,7 @@ describe("App startup", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("最近打开")).toBeInTheDocument();
+    expect(await screen.findByText("项目列表")).toBeInTheDocument();
     const continueRecentProjectButton = await screen.findByRole("button", {
       name: "继续最近项目",
     });
@@ -2691,6 +2691,130 @@ describe("App startup", () => {
       );
     });
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+  });
+
+  it("removes a project list record without deleting local data and offers Finder handoff", async () => {
+    const removeRecentProject = vi.fn().mockResolvedValue([
+      {
+        projectPath: "/Users/zhaolixing/Documents/工业设计助手/备用项目",
+        name: "备用项目",
+        lastOpenedAt: "2026-04-15T08:00:00.000Z",
+      },
+    ]);
+    const revealProjectInFinder = vi.fn().mockResolvedValue(undefined);
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadRecentProjects: vi.fn().mockResolvedValue([
+        {
+          projectPath: "/Users/zhaolixing/Documents/工业设计助手/常用项目",
+          name: "常用项目",
+          lastOpenedAt: "2026-04-16T08:00:00.000Z",
+        },
+        {
+          projectPath: "/Users/zhaolixing/Documents/工业设计助手/备用项目",
+          name: "备用项目",
+          lastOpenedAt: "2026-04-15T08:00:00.000Z",
+        },
+      ]),
+      removeRecentProject,
+      revealProjectInFinder,
+    }) as any;
+
+    render(<App />);
+
+    expect(await screen.findByText("项目列表")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "删除项目：常用项目" }),
+    );
+
+    expect(
+      screen.getByText("这只会从项目列表移除记录，不会删除本地项目文件夹。"),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "在文件管理器中显示" }));
+    });
+    expect(revealProjectInFinder).toHaveBeenCalledWith(
+      "/Users/zhaolixing/Documents/工业设计助手/常用项目",
+    );
+    expect(removeRecentProject).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "仅删除记录" }));
+    });
+
+    await waitFor(() => {
+      expect(removeRecentProject).toHaveBeenCalledWith(
+        "/Users/zhaolixing/Documents/工业设计助手/常用项目",
+      );
+    });
+    expect(
+      screen.queryByRole("button", { name: /常用项目/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^备用项目/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("refreshes the project list and explains when a project folder was deleted outside the app", async () => {
+    const missingProjectPath =
+      "/Users/zhaolixing/Documents/工业设计助手/常用项目";
+    const backupProject = {
+      projectPath: "/Users/zhaolixing/Documents/工业设计助手/备用项目",
+      name: "备用项目",
+      lastOpenedAt: "2026-04-15T08:00:00.000Z",
+    };
+    const loadRecentProjects = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          projectPath: missingProjectPath,
+          name: "常用项目",
+          lastOpenedAt: "2026-04-16T08:00:00.000Z",
+        },
+        backupProject,
+      ])
+      .mockResolvedValueOnce([backupProject]);
+    const openRecentProject = vi.fn().mockRejectedValue(
+      new Error(
+        "[CORESTUDIO_MISSING_RECENT_PROJECT]这个项目文件夹已经不存在，可能已被移动或手动删除。CoreStudio 已从项目列表移除这条记录。\n\n如果项目只是换了位置，请点击“打开项目”重新选择新的文件夹。",
+      ),
+    );
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadRecentProjects,
+      openRecentProject,
+    }) as any;
+
+    render(<App />);
+
+    expect(await screen.findByText("项目列表")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^常用项目/ }));
+    });
+
+    await waitFor(() => {
+      expect(openRecentProject).toHaveBeenCalledWith(missingProjectPath);
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /^常用项目/ }),
+      ).not.toBeInTheDocument();
+    });
+    expect(loadRecentProjects).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("button", { name: /^备用项目/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/这个项目文件夹已经不存在/),
+    ).toHaveTextContent("已从项目列表移除这条记录");
+    expect(screen.getByText(/如果项目只是换了位置/)).toHaveTextContent(
+      "打开项目",
+    );
+    expect(
+      screen.queryByText(/\[CORESTUDIO_MISSING_RECENT_PROJECT\]/),
+    ).not.toBeInTheDocument();
   });
 
   it("returns to the project picker from the native canvas menu", async () => {

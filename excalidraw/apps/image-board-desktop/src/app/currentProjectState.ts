@@ -1,4 +1,5 @@
 import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
+import { unmarkMissingRecentProjectMessage } from "../shared/recentProjectErrors";
 import { getSceneContentHash } from "../shared/sceneVersion";
 import { formatUnknownErrorMessage } from "./generationErrorViewModel";
 
@@ -105,8 +106,10 @@ export const formatProjectSaveError = (error: unknown) =>
 export const formatProjectSaveBeforeOpenError = (error: unknown) =>
   `旧项目未能保存，已停止打开新项目。 ${formatProjectSaveError(error)}`;
 
-export const formatProjectOpenError = (error: unknown) =>
-  formatUnknownErrorMessage(error, "打开项目失败。");
+export const formatProjectOpenError = (error: unknown) => {
+  const message = formatUnknownErrorMessage(error, "打开项目失败。");
+  return unmarkMissingRecentProjectMessage(message) ?? message;
+};
 
 export const formatProjectCreateError = (error: unknown) =>
   formatUnknownErrorMessage(error, "新建项目失败。");

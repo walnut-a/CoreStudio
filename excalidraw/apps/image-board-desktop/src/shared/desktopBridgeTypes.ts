@@ -35,6 +35,7 @@ export const IPC_CHANNELS = {
   openProject: "image-board:open-project",
   openRecentProject: "image-board:open-recent-project",
   loadRecentProjects: "image-board:load-recent-projects",
+  removeRecentProject: "image-board:remove-recent-project",
   writeProjectScene: "image-board:write-project-scene",
   readProjectAssetPayloads: "image-board:read-project-asset-payloads",
   inspectProjectHealth: "image-board:inspect-project-health",
@@ -310,6 +311,7 @@ export interface DesktopBridgeApi {
   openProject(): Promise<DesktopProjectBundle | null>;
   openRecentProject(projectPath: string): Promise<DesktopProjectBundle | null>;
   loadRecentProjects(): Promise<RecentProjectEntry[]>;
+  removeRecentProject?(projectPath: string): Promise<RecentProjectEntry[]>;
   writeProjectScene(input: {
     projectPath: string;
     sceneJson: string;

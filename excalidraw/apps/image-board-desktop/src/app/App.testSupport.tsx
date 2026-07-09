@@ -155,6 +155,7 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
   openProject: vi.fn().mockResolvedValue(null),
   openRecentProject: vi.fn().mockResolvedValue(null),
   loadRecentProjects: vi.fn().mockResolvedValue([]),
+  removeRecentProject: vi.fn().mockResolvedValue([]),
   writeProjectScene: vi.fn().mockResolvedValue(undefined),
   readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
   inspectProjectHealth: vi.fn().mockResolvedValue({

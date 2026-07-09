@@ -212,6 +212,18 @@ describe("project action error formatting", () => {
     );
   });
 
+  it("formats missing project-list entries without exposing the internal marker", () => {
+    expect(
+      formatProjectOpenError(
+        new Error(
+          "[CORESTUDIO_MISSING_RECENT_PROJECT]这个项目文件夹已经不存在，可能已被移动或手动删除。CoreStudio 已从项目列表移除这条记录。\n\n如果项目只是换了位置，请点击“打开项目”重新选择新的文件夹。",
+        ),
+      ),
+    ).toBe(
+      "这个项目文件夹已经不存在，可能已被移动或手动删除。CoreStudio 已从项目列表移除这条记录。\n\n如果项目只是换了位置，请点击“打开项目”重新选择新的文件夹。",
+    );
+  });
+
   it("formats save-before-open failures as a single project owner message", () => {
     expect(formatProjectSaveBeforeOpenError(new Error("写入失败"))).toBe(
       "旧项目未能保存，已停止打开新项目。 写入失败",

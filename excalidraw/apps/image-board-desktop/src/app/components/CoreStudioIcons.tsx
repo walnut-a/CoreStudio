@@ -90,6 +90,17 @@ export const revealProjectIcon = (
   </LineIcon>
 );
 
+export const trashProjectIcon = (
+  <LineIcon size={18}>
+    <path d="M8.25 8.25v8" />
+    <path d="M12 8.25v8" />
+    <path d="M15.75 8.25v8" />
+    <path d="M5.75 6.25h12.5" />
+    <path d="M9.25 6.25V4.75h5.5v1.5" />
+    <path d="m6.75 6.25.75 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l.75-12" />
+  </LineIcon>
+);
+
 export const copyLinkIcon = (
   <LineIcon>
     <path d="M9.75 8.75 8.5 10a3 3 0 0 0 4.25 4.25l1.25-1.25" />

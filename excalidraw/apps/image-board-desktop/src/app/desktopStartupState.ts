@@ -34,6 +34,30 @@ export const loadRecentProjectsStateAction = async ({
   }
 };
 
+export const removeRecentProjectStateAction = async ({
+  bridge,
+  projectPath,
+  setRecentProjects,
+  setProjectError,
+}: {
+  bridge: DesktopBridgeApi | null;
+  projectPath: string;
+  setRecentProjects: (projects: RecentProjectEntry[]) => void;
+  setProjectError: (message: string | null) => void;
+}) => {
+  if (!bridge?.removeRecentProject) {
+    await loadRecentProjectsStateAction({ bridge, setRecentProjects });
+    return;
+  }
+
+  try {
+    setRecentProjects(await bridge.removeRecentProject(projectPath));
+    setProjectError(null);
+  } catch {
+    setProjectError("无法从项目列表移除这个项目。");
+  }
+};
+
 export const loadAppInfoStateAction = async ({
   bridge,
   setAppInfo,
@@ -60,6 +84,7 @@ export const createDesktopStartupRendererActions = ({
   setGenerateRequest,
   setStartupError,
   setRecentProjects,
+  setProjectError,
   setAppInfo,
   setSavedPrompts,
   loadAcpAgentSettings,
@@ -70,6 +95,7 @@ export const createDesktopStartupRendererActions = ({
   setGenerateRequest: ProviderSettingsLoadActionInput["setGenerateRequest"];
   setStartupError: ProviderSettingsLoadActionInput["setStartupError"];
   setRecentProjects: (projects: RecentProjectEntry[]) => void;
+  setProjectError?: (message: string | null) => void;
   setAppInfo: (appInfo: DesktopAppInfo | null) => void;
   setSavedPrompts: PromptLibraryLoadActionInput["setSavedPrompts"];
   loadAcpAgentSettings: () => void | Promise<void>;
@@ -88,6 +114,15 @@ export const createDesktopStartupRendererActions = ({
     await loadRecentProjectsStateAction({
       bridge: getBridge(),
       setRecentProjects,
+    });
+  };
+
+  const removeRecentProject = async (projectPath: string) => {
+    await removeRecentProjectStateAction({
+      bridge: getBridge(),
+      projectPath,
+      setRecentProjects,
+      setProjectError: setProjectError ?? (() => undefined),
     });
   };
 
@@ -123,6 +158,7 @@ export const createDesktopStartupRendererActions = ({
   return {
     loadProvider,
     loadRecentProjects,
+    removeRecentProject,
     loadAppInfo,
     loadPromptLibrary,
     loadAll,

@@ -9,7 +9,7 @@ import type { RecentProjectEntry } from "../src/shared/desktopBridgeTypes";
 const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 const RECENT_PROJECTS_FILE_NAME = "recent-projects.json";
 const DEFAULT_PROJECTS_DIRECTORY_NAME = "工业设计助手";
-const MAX_RECENT_PROJECTS = 8;
+const MAX_RECENT_PROJECTS = 20;
 
 const getRecentProjectsPath = () =>
   path.join(
@@ -39,6 +39,21 @@ const writeRecentProjectsFile = async (entries: RecentProjectEntry[]) => {
     "utf8",
   );
 };
+
+const areRecentProjectEntriesEqual = (
+  left: RecentProjectEntry[],
+  right: RecentProjectEntry[],
+) =>
+  left.length === right.length &&
+  left.every((entry, index) => {
+    const other = right[index];
+    return (
+      other &&
+      entry.projectPath === other.projectPath &&
+      entry.name === other.name &&
+      entry.lastOpenedAt === other.lastOpenedAt
+    );
+  });
 
 const isValidProjectDirectory = async (projectPath: string) => {
   try {
@@ -72,11 +87,13 @@ export const loadRecentProjects = async () => {
     right.lastOpenedAt.localeCompare(left.lastOpenedAt),
   );
 
-  if (validEntries.length !== storedEntries.length) {
-    await writeRecentProjectsFile(validEntries);
+  const nextEntries = validEntries.slice(0, MAX_RECENT_PROJECTS);
+
+  if (!areRecentProjectEntriesEqual(nextEntries, storedEntries)) {
+    await writeRecentProjectsFile(nextEntries);
   }
 
-  return validEntries;
+  return nextEntries;
 };
 
 export const rememberRecentProject = async (

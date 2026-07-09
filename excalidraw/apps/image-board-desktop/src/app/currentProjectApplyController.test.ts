@@ -805,6 +805,24 @@ describe("current project command actions", () => {
     expect(clearProjectNotice).toHaveBeenCalledTimes(1);
   });
 
+  it("unwraps missing recent project messages from menu event failures", () => {
+    const setProjectError = vi.fn();
+    const clearProjectNotice = vi.fn();
+
+    runCurrentProjectEntryMenuFailureAction({
+      errorMessage:
+        "[CORESTUDIO_MISSING_RECENT_PROJECT]这个项目文件夹已经不存在，可能已被移动或手动删除。",
+      fallbackMessage: "打开项目失败",
+      setProjectError,
+      clearProjectNotice,
+    });
+
+    expect(setProjectError).toHaveBeenCalledWith(
+      "这个项目文件夹已经不存在，可能已被移动或手动删除。",
+    );
+    expect(clearProjectNotice).toHaveBeenCalledTimes(1);
+  });
+
   it("applies the fallback message when a project entry menu failure has no event message", () => {
     const setProjectError = vi.fn();
     const clearProjectNotice = vi.fn();

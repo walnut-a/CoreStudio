@@ -27,6 +27,12 @@ import {
   type SavePromptInput,
 } from "../src/shared/desktopBridgeTypes";
 import {
+  buildMissingRecentProjectMessage,
+  isMissingProjectFileError,
+  markMissingRecentProjectMessage,
+  unmarkMissingRecentProjectMessage,
+} from "../src/shared/recentProjectErrors";
+import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
   type AgentRendererCommandName,
   type AgentRendererCommandResponse,
@@ -818,7 +824,9 @@ const sendProjectOpenErrorToRenderer = (
   openRequestId: number,
   ownerWindow?: BaseWindow | null,
 ) => {
-  const errorMessage = getErrorMessage(error);
+  const rawErrorMessage = getErrorMessage(error);
+  const errorMessage =
+    unmarkMissingRecentProjectMessage(rawErrorMessage) ?? rawErrorMessage;
   console.error("[project:open-failed]", error);
   sendRendererMenuEvent(
     {
@@ -834,8 +842,15 @@ const openRecentProjectBundle = async (projectPath: string) => {
   try {
     return await buildProjectBundle(projectPath);
   } catch (error) {
-    currentRecentProjects = await removeRecentProject(projectPath);
-    Menu.setApplicationMenu(buildMenu());
+    if (isMissingProjectFileError(error)) {
+      currentRecentProjects = await removeRecentProject(projectPath);
+      Menu.setApplicationMenu(buildMenu());
+      throw new Error(
+        markMissingRecentProjectMessage(
+          buildMissingRecentProjectMessage(projectPath),
+        ),
+      );
+    }
     throw error;
   }
 };
@@ -1124,6 +1139,15 @@ const registerIpcHandlers = () => {
   ipcMain.handle(IPC_CHANNELS.loadRecentProjects, async () => {
     return loadRecentProjects();
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.removeRecentProject,
+    async (_event, projectPath: string) => {
+      currentRecentProjects = await removeRecentProject(projectPath);
+      Menu.setApplicationMenu(buildMenu());
+      return currentRecentProjects;
+    },
+  );
 
   ipcMain.handle(IPC_CHANNELS.writeProjectScene, async (_event, input) => {
     return writeProjectScene(input);

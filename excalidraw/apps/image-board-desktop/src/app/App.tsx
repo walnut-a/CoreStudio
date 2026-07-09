@@ -1015,6 +1015,7 @@ const App = () => {
     setGenerateRequest,
     setStartupError,
     setRecentProjects,
+    setProjectError,
     setAppInfo,
     setSavedPrompts,
     loadAcpAgentSettings: loadAcpAgentSettingsState,
@@ -1508,6 +1509,17 @@ const App = () => {
       clearProjectNotice: projectNoticeRendererActions.clear,
     });
 
+  const revealProjectFromList = useCallback(
+    async (projectPath: string) => {
+      try {
+        await desktopBridge.revealProjectInFinder(projectPath);
+      } catch (error) {
+        setProjectError(formatProjectRevealError(error));
+      }
+    },
+    [desktopBridge],
+  );
+
   const agentBrowserAutoOpenProjectRendererActions =
     createAgentBrowserAutoOpenProjectRendererActions({
       getIsAgentBrowserRoute: () => isAgentBrowserRoute,
@@ -1871,6 +1883,8 @@ const App = () => {
         onCreateProject={currentProjectEntryRendererActions.createProject}
         onOpenProject={currentProjectEntryRendererActions.openProject}
         onOpenRecentProject={currentProjectEntryRendererActions.openRecentProject}
+        onRemoveRecentProject={desktopStartupRendererActions.removeRecentProject}
+        onRevealProject={revealProjectFromList}
         agentAccessEnabled={Boolean(agentBridgeStatus?.enabled)}
         onAgentAccessToggle={
           isAgentBrowserRoute

@@ -49,6 +49,8 @@ const desktopBridge: DesktopBridgeApi = {
   openRecentProject: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.openRecentProject, projectPath),
   loadRecentProjects: () => ipcRenderer.invoke(IPC_CHANNELS.loadRecentProjects),
+  removeRecentProject: (projectPath) =>
+    ipcRenderer.invoke(IPC_CHANNELS.removeRecentProject, projectPath),
   writeProjectScene: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.writeProjectScene, input),
   readProjectAssetPayloads: (input) =>

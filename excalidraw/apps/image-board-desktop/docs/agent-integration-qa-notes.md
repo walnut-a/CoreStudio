@@ -20,6 +20,16 @@ Each item should be verified in the development build before the F-stage screens
 | 项目健康检查报告 | checked | 2026-07-06, Electron CDP + macOS menu on `/tmp/corestudio-agent-qa/project-health-fixture`, `/tmp/corestudio-agent-qa/project-health-report-fixture.png`, `/tmp/corestudio-agent-qa/project-health-report-fixture.txt` | Running-app report grouped one missing file error and one missing board-element warning; it showed repairable/manual counts, File IDs, paths, and suggested next actions instead of only warning totals. |
 | 项目修复结果 | checked | 2026-07-06, Electron CDP + macOS menu on `/tmp/corestudio-agent-qa/project-repair-fixture-fresh`, `/tmp/corestudio-agent-qa/project-repair-report-fresh.png`, `/tmp/corestudio-agent-qa/project-repair-report-fresh.txt` | Toast stayed concise (`项目数据修复完成。`). Details showed `补回画板 1`, skipped/failed detail rows, backup path, and next actions. File evidence confirmed the repaired scene contains `visible-file` and `orphan-generated-file`. |
 
+## Image Writeback Recovery Checklist
+
+这组检查验证项目数据一致性，不以截图代替磁盘证据：
+
+- 全部引用：journal 的所有 `fileId` 都出现在未删除的 image element 中；重新打开项目后应自动 commit，记录、资产和 scene 全部保留，journal 删除。
+- 全部未引用：journal 的所有 `fileId` 都不在 scene 中；重新打开项目后应自动 rollback，只恢复本事务改动的记录并删除本事务资产，journal 删除。
+- 部分引用（mixed）：只出现一部分 `fileId`；重新打开项目应报告 `WRITEBACK_CONFLICT`，journal、记录和资产保持不动，等待人工判断。
+- 后续写入冲突：同一 `fileId` 已指向新的 `assetPath` 时，旧事务 rollback 不得覆盖新记录。
+- 正常链路：Agent 图片插入和内置生成都应在 strict autosave 成功后 commit；插入、slot 替换或 autosave 失败时应恢复 renderer 快照并 rollback。
+
 ## Evidence Rules
 
 - Do not mark an item as checked without a running-app screenshot or browser evidence.

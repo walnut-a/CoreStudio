@@ -125,4 +125,22 @@ describe("agent integration docs", () => {
       expect(qaNotes).toContain(surface);
     }
   });
+
+  it("documents transactional image writeback and crash recovery", () => {
+    const architecture = readDoc(
+      "apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md",
+    );
+    const qaNotes = readDoc(
+      "apps/image-board-desktop/docs/agent-integration-qa-notes.md",
+    );
+
+    expect(architecture).toContain("cache/image-writebacks/");
+    expect(architecture).toContain("begin → scene → strict autosave → commit");
+    expect(architecture).toContain("mixed");
+    expect(architecture).toContain("WRITEBACK_CONFLICT");
+    expect(qaNotes).toContain("## Image Writeback Recovery Checklist");
+    expect(qaNotes).toContain("全部引用");
+    expect(qaNotes).toContain("全部未引用");
+    expect(qaNotes).toContain("部分引用（mixed）");
+  });
 });

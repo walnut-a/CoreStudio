@@ -107,6 +107,23 @@ flowchart TD
 
 这也是为什么项目健康检查和修复不应该再叫“缩略图修复”。它已经是项目数据一致性的守门员。
 
+### 图片写回事务
+
+新增图片不再依赖“先写资产、再尽量保存画布”的松散顺序。Agent `scene.addImage` 和内置生成统一执行：`begin → scene → strict autosave → commit`。
+
+- `begin` 先在 `cache/image-writebacks/` 写轻量 journal，再用同目录临时文件和原子 rename 写资产、`image-records.json` 与项目元数据。journal 只保存记录和相对路径，不保存 base64 图片内容。
+- renderer 在 begin 前保存画布快照。slot 替换、图片插入或 strict autosave 失败时，先恢复画布快照，再 rollback 本事务拥有的记录和资产。
+- strict autosave 成功后才 commit；commit 只删除 journal，不重写已经保存成功的 scene。
+- 同一 `fileId` 有未完成事务，或 rollback 发现记录已被后续写入替换时，返回 `WRITEBACK_CONFLICT`，不覆盖较新的数据。
+
+应用打开项目时会检查遗留 journal，并以磁盘上的正式 scene 为恢复依据：
+
+- scene 引用了事务中的全部 `fileId`：视为 autosave 已完成，自动 commit。
+- scene 完全没有引用事务中的 `fileId`：视为写回未完成，自动 rollback。
+- scene 只引用其中一部分（mixed）：保留 journal 并报 `WRITEBACK_CONFLICT`，不自动猜测。
+
+恢复只发生在打开项目的入口。普通 autosave、健康检查和项目修复读取不会扫描 journal，避免把仍在执行的事务误判成崩溃残留。
+
 ## 入口分工
 
 这轮最大的产品经验是：入口散掉之后，用户会很快失去方向。

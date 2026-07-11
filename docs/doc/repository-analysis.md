@@ -9,9 +9,10 @@
 | 远端默认分支 | `origin/main`，HEAD `7e3c0c2`（CoreStudio 1.1.10） |
 | 当前实现基线 | `walnut/corestudio-agent-cli-local-bridge` |
 | 稳定化候选分支 | `walnut/corestudio-health-stabilization` |
-| 稳定化分支 HEAD | `2011230`（更新本节时） |
-| 相对 `origin/main` | `origin/main` 是稳定化分支祖先；ahead 58、behind 0 |
+| 相对 `origin/main` | `origin/main` 是稳定化分支祖先；候选分支持续演进，不在文档中固化 ahead 数 |
 | 已发布但尚未进入 `main` 的标签 | `v1.1.11`、`v1.1.12`、`v1.1.14`、`v1.1.15` |
+
+需要精确状态时执行 `git fetch --prune origin`，再用 `git rev-list --left-right --count origin/main...HEAD` 获取 live ahead/behind；不要把本文档中的历史数字当作远端现状。
 
 当前分支治理结论：
 

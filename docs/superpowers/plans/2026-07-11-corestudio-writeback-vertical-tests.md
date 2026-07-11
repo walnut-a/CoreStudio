@@ -121,7 +121,7 @@ Expected: 全部退出码 0，worktree clean。
 
 检查：没有修改 Excalidraw 上游核心；没有新增未使用 capability；transaction 错误保留原始 cause；journal 不含 API key 或图片 base64。
 
-- [ ] **Step 3: 推送并观察远端**
+- [x] **Step 3: 推送并观察远端**
 
 ```bash
 git push
@@ -130,7 +130,7 @@ gh run list --repo walnut-a/CoreStudio --branch walnut/corestudio-health-stabili
 
 Expected: remote CI success。
 
-- [ ] **Step 4: 创建中文 PR，但不合并**
+- [x] **Step 4: 创建中文 PR，但不合并**
 
 PR 标题：
 
@@ -139,3 +139,5 @@ PR 标题：
 ```
 
 PR 内容必须列出：CI 根因、transaction 行为、crash recovery、纵向测试、完整验证、尚需用户确认的 main/default branch 动作。
+
+执行证据：`CoreStudio Desktop Checks` run `29149775325` 全绿；已创建中文 PR `#2`，保留人工合并门。

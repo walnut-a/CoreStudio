@@ -182,7 +182,7 @@ git add docs/doc/repository-analysis.md
 git commit -m "记录 CoreStudio 稳定化分支治理基线"
 ```
 
-- [ ] **Step 4: 推送候选分支并观察远端 CI**
+- [x] **Step 4: 推送候选分支并观察远端 CI**
 
 ```bash
 git push -u origin walnut/corestudio-health-stabilization
@@ -191,7 +191,7 @@ gh run list --repo walnut-a/CoreStudio --branch walnut/corestudio-health-stabili
 
 Expected: `CoreStudio Desktop Checks` completed/success。
 
-- [ ] **Step 5: 到达人工授权门**
+- [x] **Step 5: 到达人工授权门**
 
 输出以下三项，不自动执行：
 
@@ -200,3 +200,5 @@ Expected: `CoreStudio Desktop Checks` completed/success。
 2. 是否允许把 GitHub 默认分支改为 main 的新 HEAD。
 3. 是否保留 walnut/corestudio-agent-cli-local-bridge 作为历史分支。
 ```
+
+执行证据：候选分支首次远端门禁 run `29149775325` 全部通过；PR 为 `#2`，未自动合并，也未修改默认分支或删除历史分支。

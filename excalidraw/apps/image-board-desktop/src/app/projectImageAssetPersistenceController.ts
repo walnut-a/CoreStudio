@@ -8,6 +8,12 @@ import type { ImageRecordMap } from "../shared/projectTypes";
 import { buildUnknownCanvasImageAssetInputs } from "./canvasImageAssetState";
 import { applyPersistedProjectImageRecordsState } from "./imageRecordState";
 
+export {
+  beginProjectImageWritebackAction,
+  rollbackProjectImageWritebackAfterFailure,
+} from "./projectImageWritebackController";
+export type { ProjectImageWritebackHandle } from "./projectImageWritebackController";
+
 export const runProjectImageAssetPersistenceAction = async ({
   projectPath,
   projectImageRecords,
@@ -77,14 +83,15 @@ export const runUnknownCanvasImageAssetPersistenceAction = async ({
     return project.imageRecords;
   }
 
-  const persistedImageRecordsState = await runProjectImageAssetPersistenceAction({
-    projectPath: project.projectPath,
-    projectImageRecords: project.imageRecords,
-    activeProject,
-    files: unknownAssets,
-    persistImageAssets,
-    setActiveProject,
-  });
+  const persistedImageRecordsState =
+    await runProjectImageAssetPersistenceAction({
+      projectPath: project.projectPath,
+      projectImageRecords: project.imageRecords,
+      activeProject,
+      files: unknownAssets,
+      persistImageAssets,
+      setActiveProject,
+    });
 
   return persistedImageRecordsState.imageRecords;
 };

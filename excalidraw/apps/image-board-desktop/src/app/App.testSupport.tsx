@@ -168,13 +168,16 @@ const withImageWritebackBridgeMock = (bridge: Record<string, any>) => {
   return bridge;
 };
 
-const render: typeof testingLibraryRender = (...args) => {
+const render = (
+  ui: React.ReactNode,
+  options?: Parameters<typeof testingLibraryRender>[1],
+) => {
   if (window.imageBoardDesktop) {
     withImageWritebackBridgeMock(
       window.imageBoardDesktop as unknown as Record<string, any>,
     );
   }
-  return testingLibraryRender(...args);
+  return testingLibraryRender(ui, options);
 };
 
 const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => {

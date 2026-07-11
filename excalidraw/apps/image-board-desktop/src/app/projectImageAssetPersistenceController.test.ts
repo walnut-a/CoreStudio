@@ -248,49 +248,52 @@ describe("runUnknownCanvasImageAssetPersistenceAction", () => {
 });
 
 describe("createProjectImageAssetPersistenceRendererActions", () => {
-  it("creates a renderer action for generated asset persistence", async () => {
+  it("creates one transaction use case without exposing legacy generated persistence", async () => {
     const project = createProject("/projects/current", {
       "existing-file": createImageRecord("existing-file"),
     });
-    const persistedRecords = {
+    const imageRecords = {
+      ...project.imageRecords,
       "persisted-file": createImageRecord("persisted-file"),
     };
     const files = [createImageAsset("persisted-file")];
-    const persistImageAssets = vi.fn().mockResolvedValue(persistedRecords);
+    const beginImageWriteback = vi.fn().mockResolvedValue({
+      transactionId: "transaction-1",
+      projectPath: project.projectPath,
+      fileIds: ["persisted-file"],
+      imageRecords,
+    });
+    const commitImageWriteback = vi.fn();
+    const rollbackImageWriteback = vi.fn();
     const setActiveProject = vi.fn();
     const actions = createProjectImageAssetPersistenceRendererActions({
       getActiveProject: () => project,
-      persistImageAssets,
+      persistImageAssets: vi.fn(),
+      imageWritebackBridge: {
+        beginImageWriteback,
+        commitImageWriteback,
+        rollbackImageWriteback,
+      },
       setActiveProject,
     });
 
-    await expect(
-      actions.persistProjectImageAssets({
+    const handle = await actions.beginProjectImageWriteback({
         projectPath: project.projectPath,
         projectImageRecords: project.imageRecords,
-        activeProject: project,
         files,
-      }),
-    ).resolves.toEqual({
-      status: "persisted",
-      persistedRecords,
-      imageRecords: {
-        ...project.imageRecords,
-        ...persistedRecords,
-      },
     });
 
-    expect(persistImageAssets).toHaveBeenCalledWith({
+    expect(beginImageWriteback).toHaveBeenCalledWith({
       projectPath: "/projects/current",
       files,
     });
     expect(setActiveProject).toHaveBeenCalledWith({
       ...project,
-      imageRecords: {
-        ...project.imageRecords,
-        ...persistedRecords,
-      },
+      imageRecords,
     });
+    await handle.commit();
+    expect(commitImageWriteback).toHaveBeenCalledTimes(1);
+    expect(actions).not.toHaveProperty("persistProjectImageAssets");
   });
 
   it("creates a renderer action for unknown canvas image persistence using the latest active project", async () => {
@@ -308,6 +311,11 @@ describe("createProjectImageAssetPersistenceRendererActions", () => {
     const actions = createProjectImageAssetPersistenceRendererActions({
       getActiveProject: () => project,
       persistImageAssets,
+      imageWritebackBridge: {
+        beginImageWriteback: vi.fn(),
+        commitImageWriteback: vi.fn(),
+        rollbackImageWriteback: vi.fn(),
+      },
       setActiveProject,
     });
 

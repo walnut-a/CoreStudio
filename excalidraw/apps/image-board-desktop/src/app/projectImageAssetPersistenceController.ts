@@ -1,4 +1,5 @@
 import type {
+  DesktopBridgeApi,
   DesktopProjectBundle,
   PersistedImageAssetInput,
 } from "../shared/desktopBridgeTypes";
@@ -7,9 +8,9 @@ import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ImageRecordMap } from "../shared/projectTypes";
 import { buildUnknownCanvasImageAssetInputs } from "./canvasImageAssetState";
 import { applyPersistedProjectImageRecordsState } from "./imageRecordState";
+import { beginProjectImageWritebackAction } from "./projectImageWritebackController";
 
 export {
-  beginProjectImageWritebackAction,
   rollbackProjectImageWritebackAfterFailure,
 } from "./projectImageWritebackController";
 export type { ProjectImageWritebackHandle } from "./projectImageWritebackController";
@@ -98,6 +99,12 @@ export const runUnknownCanvasImageAssetPersistenceAction = async ({
 
 export interface ProjectImageAssetPersistenceRendererActionsInput {
   getActiveProject: () => DesktopProjectBundle | null;
+  imageWritebackBridge: Pick<
+    DesktopBridgeApi,
+    | "beginImageWriteback"
+    | "commitImageWriteback"
+    | "rollbackImageWriteback"
+  >;
   persistImageAssets: (input: {
     projectPath: string;
     files: PersistedImageAssetInput[];
@@ -107,18 +114,19 @@ export interface ProjectImageAssetPersistenceRendererActionsInput {
 
 export const createProjectImageAssetPersistenceRendererActions = ({
   getActiveProject,
+  imageWritebackBridge,
   persistImageAssets,
   setActiveProject,
 }: ProjectImageAssetPersistenceRendererActionsInput) => ({
-  persistProjectImageAssets: (input: {
+  beginProjectImageWriteback: (input: {
     projectPath: string;
     projectImageRecords: ImageRecordMap;
-    activeProject: DesktopProjectBundle | null;
     files: PersistedImageAssetInput[];
   }) =>
-    runProjectImageAssetPersistenceAction({
+    beginProjectImageWritebackAction({
       ...input,
-      persistImageAssets,
+      getActiveProject,
+      bridge: imageWritebackBridge,
       setActiveProject,
     }),
   persistUnknownCanvasImages: (

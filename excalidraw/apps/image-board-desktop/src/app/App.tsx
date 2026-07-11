@@ -112,7 +112,6 @@ import { appendElementsWithSyncedIndices } from "./sceneOrder";
 import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
 import { buildSelectedImageRelationshipState } from "./imageRecordState";
 import {
-  beginProjectImageWritebackAction,
   createProjectImageAssetPersistenceRendererActions,
 } from "./projectImageAssetPersistenceController";
 import {
@@ -1354,6 +1353,7 @@ const App = () => {
   const projectImageAssetPersistenceRendererActions =
     createProjectImageAssetPersistenceRendererActions({
       getActiveProject: () => currentProjectRef.current,
+      imageWritebackBridge: desktopBridge,
       persistImageAssets: desktopBridge.persistImageAssets,
       setActiveProject: updateCurrentProject,
     });
@@ -1365,19 +1365,8 @@ const App = () => {
       BinaryFiles
     >({
       getActiveProject: () => currentProjectRef.current,
-      beginProjectImageWriteback: ({
-        projectPath,
-        projectImageRecords,
-        files,
-      }) =>
-        beginProjectImageWritebackAction({
-          projectPath,
-          projectImageRecords,
-          getActiveProject: () => currentProjectRef.current,
-          files,
-          bridge: desktopBridge,
-          setActiveProject: updateCurrentProject,
-        }),
+      beginProjectImageWriteback:
+        projectImageAssetPersistenceRendererActions.beginProjectImageWriteback,
       replaceSlot: pendingGenerationCanvasRendererActions.replaceSlot,
       markSlotFailed: pendingGenerationCanvasRendererActions.markFailed,
       getCanvasSnapshot: () => {
@@ -1742,13 +1731,10 @@ const App = () => {
       generateRequest,
       readProjectImageAssets,
       beginImageWriteback: ({ project, files }) =>
-        beginProjectImageWritebackAction({
+        projectImageAssetPersistenceRendererActions.beginProjectImageWriteback({
           projectPath: project.projectPath,
           projectImageRecords: project.imageRecords,
-          getActiveProject: () => currentProjectRef.current,
           files,
-          bridge: desktopBridge,
-          setActiveProject: updateCurrentProject,
         }),
       insertAssetsIntoScene:
         generatedImageSceneInsertRendererActions.insertAssets,

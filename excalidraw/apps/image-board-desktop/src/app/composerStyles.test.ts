@@ -1264,7 +1264,7 @@ describe("generate composer styles", () => {
       "createProjectImageAssetPersistenceRendererActions",
     );
     expect(source).toContain(
-      "projectImageAssetPersistenceRendererActions.persistProjectImageAssets",
+      "projectImageAssetPersistenceRendererActions.beginProjectImageWriteback",
     );
     expect(source).toContain(
       "projectImageAssetPersistenceRendererActions.persistUnknownCanvasImages",

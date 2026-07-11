@@ -1,5 +1,30 @@
 # 仓库分析
 
+## 2026-07-11 稳定化基线
+
+本节是当前治理基线；后文“初始化快照”保留的是仓库早期状态，不再代表当前分支和验证结论。
+
+| 项目 | 当前状态 |
+| --- | --- |
+| 远端默认分支 | `origin/main`，HEAD `7e3c0c2`（CoreStudio 1.1.10） |
+| 当前实现基线 | `walnut/corestudio-agent-cli-local-bridge` |
+| 稳定化候选分支 | `walnut/corestudio-health-stabilization` |
+| 稳定化分支 HEAD | `2011230`（更新本节时） |
+| 相对 `origin/main` | `origin/main` 是稳定化分支祖先；ahead 58、behind 0 |
+| 已发布但尚未进入 `main` 的标签 | `v1.1.11`、`v1.1.12`、`v1.1.14`、`v1.1.15` |
+
+当前分支治理结论：
+
+- `main` 不是当前实现事实基线，不能以“默认分支”推断它包含最新功能。
+- 本轮治理在独立分支完成 CI 修复、图片写回事务和纵向测试，不直接写入 `main`。
+- CoreStudio workflow 覆盖 `main` 和 `walnut/**`，门禁包含 frozen install、typecheck、desktop tests、源码与打包输入安全扫描、desktop production build。
+- 早期 CI 安装失败的根因是工作目录位于 `excalidraw/`，Husky 7 无法在该目录找到外层 `.git`；`prepare` 现从 Git 根目录安装 `excalidraw/.husky`。
+- 图片生成和 Agent 图片写回使用 `begin → scene update → strict autosave → commit` 事务；失败时恢复 renderer 快照并回滚磁盘增量，异常退出后由 project-open recovery 根据 scene 引用决定 commit 或 rollback，混合状态明确报冲突。
+- 在本地完整门禁和远端 CI 都通过前，不将候选分支并入 `main`。
+- 将候选分支并入 `main`、修改 GitHub 默认分支、删除或保留历史实现分支，均需维护者显式确认。
+
+## 初始化快照（历史记录）
+
 ## 一句话结论
 
 当前仓库是一个外层 CoreStudio 仓库，真实活跃业务代码集中在 `excalidraw/apps/image-board-desktop/`；当前分支 `walnut/corestudio-agent-cli-local-bridge` 比默认分支 `origin/main` 包含更多 Agent Board、CLI、ACP Agent 和项目修复实现，因此更适合作为当前代码阅读基准。

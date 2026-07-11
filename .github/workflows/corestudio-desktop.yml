@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: corepack yarn install --frozen-lockfile
 
+      - name: Dependency security
+        run: corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts --run
+
       - name: Typecheck
         run: corepack yarn test:typecheck
 

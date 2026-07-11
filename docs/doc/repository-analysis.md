@@ -1,8 +1,20 @@
 # 仓库分析
 
-## 2026-07-11 稳定化基线
+## 2026-07-12 当前治理基线
 
-本节是当前治理基线；后文“初始化快照”保留的是仓库早期状态，不再代表当前分支和验证结论。
+| 项目 | 当前状态 |
+| --- | --- |
+| GitHub 默认分支 | `main` |
+| 本地与远端 `main` | `688c6d7`，`main...origin/main` 为 `0/0`（依赖安全分支创建时） |
+| 稳定化结果 | PR `#2` 已合并；CI、图片写回事务和纵向测试已进入 `main` |
+| 当前依赖治理分支 | `walnut/corestudio-dependency-security` |
+| 历史分支 | `walnut/corestudio-agent-cli-local-bridge` 与 `walnut/corestudio-health-stabilization` 均保留 |
+
+当前代码阅读和新任务基线恢复为 `main`。依赖安全口径见 [corestudio-dependency-security.md](corestudio-dependency-security.md)。精确分支状态仍以 `git fetch --prune origin` 后的 live Git 结果为准。
+
+## 2026-07-11 稳定化基线（历史记录）
+
+本节记录稳定化分支合并前的治理状态，不再代表当前分支和验证结论。
 
 | 项目 | 当前状态 |
 | --- | --- |

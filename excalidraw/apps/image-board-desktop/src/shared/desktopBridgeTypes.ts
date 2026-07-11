@@ -7,6 +7,7 @@ import type {
   ImageSourceType,
   ProjectManifest,
   ProjectAgentAccess,
+  ProjectImageWritebackTransaction,
   ProjectThumbnailReadMode,
 } from "./projectTypes";
 import type {
@@ -41,6 +42,9 @@ export const IPC_CHANNELS = {
   inspectProjectHealth: "image-board:inspect-project-health",
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
   persistImageAssets: "image-board:persist-image-assets",
+  beginImageWriteback: "image-board:begin-image-writeback",
+  commitImageWriteback: "image-board:commit-image-writeback",
+  rollbackImageWriteback: "image-board:rollback-image-writeback",
   importImages: "image-board:import-images",
   cleanProjectCache: "image-board:clean-project-cache",
   revealProjectInFinder: "image-board:reveal-project-in-finder",
@@ -338,6 +342,18 @@ export interface DesktopBridgeApi {
   persistImageAssets(input: {
     projectPath: string;
     files: PersistedImageAssetInput[];
+  }): Promise<ImageRecordMap>;
+  beginImageWriteback(input: {
+    projectPath: string;
+    files: PersistedImageAssetInput[];
+  }): Promise<ProjectImageWritebackTransaction>;
+  commitImageWriteback(input: {
+    projectPath: string;
+    transactionId: string;
+  }): Promise<void>;
+  rollbackImageWriteback(input: {
+    projectPath: string;
+    transactionId: string;
   }): Promise<ImageRecordMap>;
   importImages(): Promise<ImportedImagePayload[]>;
   revealProjectInFinder(projectPath: string): Promise<void>;

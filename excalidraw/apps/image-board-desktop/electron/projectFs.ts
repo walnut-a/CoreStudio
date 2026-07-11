@@ -47,6 +47,7 @@ import {
 import {
   beginProjectImageWriteback,
   commitProjectImageWriteback,
+  recoverProjectImageWritebacks,
 } from "./project/projectImageWriteback";
 
 const SCENE_BACKUPS_DIR = "scene-backups";
@@ -300,7 +301,7 @@ export const createProjectStructure = async (
   return { projectPath, project };
 };
 
-export const readProjectBundle = async (projectPath: string) => {
+const readProjectBundleFiles = async (projectPath: string) => {
   const [projectJson, sceneJson, imageRecordsJson] = await Promise.all([
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.project), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
@@ -318,6 +319,11 @@ export const readProjectBundle = async (projectPath: string) => {
     sceneJson,
     imageRecords: JSON.parse(imageRecordsJson) as ImageRecordMap,
   };
+};
+
+export const readProjectBundle = async (projectPath: string) => {
+  await recoverProjectImageWritebacks(projectPath);
+  return readProjectBundleFiles(projectPath);
 };
 
 const readProjectImageRecords = (projectPath: string) =>
@@ -355,7 +361,7 @@ export const updateProjectAgentAccess = async (
   projectPath: string,
   agentAccess: ProjectAgentAccess,
 ) => {
-  const bundle = await readProjectBundle(projectPath);
+  const bundle = await readProjectBundleFiles(projectPath);
   const { access } = normalizeProjectAgentAccess(agentAccess);
   const nextProject: ProjectManifest = {
     ...bundle.project,
@@ -457,7 +463,7 @@ export const writeProjectScene = async ({
   sceneJson: string;
   expectedSceneHash?: string | null;
 }) => {
-  const bundle = await readProjectBundle(projectPath);
+  const bundle = await readProjectBundleFiles(projectPath);
   const currentScene = analyzeSceneJson(bundle.sceneJson);
   const nextScene = analyzeSceneJson(sceneJson);
   const currentSceneHash = getSceneContentHash(bundle.sceneJson);
@@ -893,7 +899,7 @@ export const inspectProjectHealth = (input: {
   agentRunsBaseDir?: string;
 }) =>
   inspectProjectHealthWithDeps(input, {
-    readProjectBundle,
+    readProjectBundle: readProjectBundleFiles,
     listProjectAssetPaths: async (projectPath) => {
       const assetFiles = await collectFilesRecursively(
         path.join(projectPath, PROJECT_FILENAMES.assetsDir),
@@ -1022,7 +1028,7 @@ export const rebuildProjectThumbnails = async (
     options,
     {
       createMaintenanceBackup,
-      readProjectBundle,
+      readProjectBundle: readProjectBundleFiles,
       repairLegacyGeneratedImageRecordOrigins,
       writeProjectImageRecords,
       touchProjectManifest,

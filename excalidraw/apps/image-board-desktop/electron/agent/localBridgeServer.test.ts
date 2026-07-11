@@ -756,6 +756,31 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("maps renderer WRITEBACK_CONFLICT errors to conflict responses", async () => {
+    const error = Object.assign(new Error("图片写回事务发生冲突。"), {
+      code: "WRITEBACK_CONFLICT",
+      details: { transactionId: "transaction-1" },
+    });
+    const renderer = {
+      request: vi.fn().mockRejectedValue(error),
+    };
+    const { server } = await track(startServer({ renderer }));
+
+    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.context);
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: {
+        ok: false,
+        error: {
+          code: "WRITEBACK_CONFLICT",
+          message: "图片写回事务发生冲突。",
+          details: { transactionId: "transaction-1" },
+        },
+      },
+    });
+  });
+
   it("maps renderer CAPABILITY_UNAVAILABLE errors to conflict responses", async () => {
     const error = Object.assign(new Error("当前环境不能检查项目健康度。"), {
       code: "CAPABILITY_UNAVAILABLE",

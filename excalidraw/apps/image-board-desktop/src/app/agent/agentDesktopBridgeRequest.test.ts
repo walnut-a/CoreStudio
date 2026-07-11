@@ -88,6 +88,31 @@ describe("handleAgentDesktopBridgeRequest", () => {
     expect(loadProviderSettings).toHaveBeenCalledWith("gemini");
   });
 
+  it("forwards explicit image writeback transactions", async () => {
+    const transaction = {
+      transactionId: "transaction-1",
+      projectPath: "/Users/example/CoreStudio/project",
+      fileIds: ["file-1"],
+      imageRecords: {},
+    };
+    const beginImageWriteback = vi.fn(async () => transaction);
+    const input = {
+      projectPath: transaction.projectPath,
+      files: [],
+    };
+
+    await expect(
+      handleAgentDesktopBridgeRequest({
+        payload: { method: "beginImageWriteback", args: [input] },
+        desktopBridge: { beginImageWriteback },
+        getProject: () => null,
+        getScene: () => null,
+        serializeScene: vi.fn(),
+      }),
+    ).resolves.toEqual(transaction);
+    expect(beginImageWriteback).toHaveBeenCalledWith(input);
+  });
+
   it("returns the live current project snapshot for the already-open recent project", async () => {
     const project = createProject();
     const openRecentProject = vi.fn();

@@ -25,7 +25,10 @@ import type {
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
 import type { AcpAgentSettings } from "../../shared/acpTypes";
-import type { ImageRecordMap } from "../../shared/projectTypes";
+import type {
+  ImageRecordMap,
+  ProjectImageWritebackTransaction,
+} from "../../shared/projectTypes";
 import type { GenerationResponse } from "../../shared/providerTypes";
 
 export interface AgentBrowserBridgeConfig {
@@ -236,6 +239,18 @@ export const maybeCreateAgentBrowserDesktopBridge =
         files: PersistedImageAssetInput[];
       }) =>
         callDesktopBridge<ImageRecordMap>(config, "persistImageAssets", [
+          input,
+        ]),
+      beginImageWriteback: (input) =>
+        callDesktopBridge<ProjectImageWritebackTransaction>(
+          config,
+          "beginImageWriteback",
+          [input],
+        ),
+      commitImageWriteback: (input) =>
+        callDesktopBridge<void>(config, "commitImageWriteback", [input]),
+      rollbackImageWriteback: (input) =>
+        callDesktopBridge<ImageRecordMap>(config, "rollbackImageWriteback", [
           input,
         ]),
       importImages: () =>

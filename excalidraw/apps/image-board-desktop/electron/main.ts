@@ -47,6 +47,11 @@ import {
 } from "../src/shared/acpTypes";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
+  beginProjectImageWriteback,
+  commitProjectImageWriteback,
+  rollbackProjectImageWriteback,
+} from "./project/projectImageWriteback";
+import {
   cleanProjectCache,
   createProjectStructure,
   inspectProjectHealth,
@@ -1183,6 +1188,18 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC_CHANNELS.persistImageAssets, async (_event, input) => {
     return persistImageAssets(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.beginImageWriteback, async (_event, input) => {
+    return beginProjectImageWriteback(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.commitImageWriteback, async (_event, input) => {
+    return commitProjectImageWriteback(input);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.rollbackImageWriteback, async (_event, input) => {
+    return rollbackProjectImageWriteback(input);
   });
 
   ipcMain.handle(IPC_CHANNELS.importImages, async () => importImagesFromDisk());

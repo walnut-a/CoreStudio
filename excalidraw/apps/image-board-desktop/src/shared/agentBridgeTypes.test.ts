@@ -38,6 +38,9 @@ describe("agentBridgeTypes", () => {
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("readAcpAgentRunLog");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("listAcpAgentThreads");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("readAcpAgentThread");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("beginImageWriteback");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("commitImageWriteback");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("rollbackImageWriteback");
     expect(isAgentDesktopBridgeMethod("openProject")).toBe(true);
     expect(isAgentDesktopBridgeMethod("onAgentCommandRequest")).toBe(false);
   });
@@ -98,6 +101,11 @@ describe("agentBridgeTypes", () => {
         },
       },
     });
+  });
+
+  it("exports writeback conflict as a structured Agent error code", () => {
+    expect(AGENT_ERROR_CODES).toContain("WRITEBACK_CONFLICT");
+    expect(isAgentErrorCode("WRITEBACK_CONFLICT")).toBe(true);
   });
 
   it("exports capability unavailable as a structured Agent error code", () => {

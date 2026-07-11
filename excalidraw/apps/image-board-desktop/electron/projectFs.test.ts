@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import { getSceneContentHash } from "../src/shared/sceneVersion";
+import {
+  beginProjectImageWriteback,
+  commitProjectImageWriteback,
+} from "./project/projectImageWriteback";
 
 import {
   cleanProjectCache,
@@ -204,6 +208,70 @@ describe("projectFs", () => {
       enabled: true,
     });
     expect(bundle.imageRecords).toEqual({});
+  });
+
+  it("recovers pending image writebacks before opening a project bundle", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(root, "Recovery On Open");
+    await beginProjectImageWriteback({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-pending",
+          dataBase64: Buffer.from("pending").toString("base64"),
+          mimeType: "image/png",
+          width: 512,
+          height: 512,
+          sourceType: "imported",
+          createdAt: "2026-07-11T03:00:00.000Z",
+        },
+      ],
+    });
+
+    await expect(readProjectBundle(project.projectPath)).resolves.toEqual(
+      expect.objectContaining({ imageRecords: {} }),
+    );
+  });
+
+  it("does not recover an active writeback while its scene is being saved", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(root, "Active Writeback Save");
+    const transaction = await beginProjectImageWriteback({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-active",
+          dataBase64: Buffer.from("active").toString("base64"),
+          mimeType: "image/png",
+          width: 512,
+          height: 512,
+          sourceType: "imported",
+          createdAt: "2026-07-11T03:30:00.000Z",
+        },
+      ],
+    });
+
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "CoreStudio",
+        elements: [
+          { id: "active", type: "image", fileId: "file-active" },
+        ],
+        appState: {},
+        files: {},
+      }),
+    });
+    await expect(
+      commitProjectImageWriteback({
+        projectPath: project.projectPath,
+        transactionId: transaction.transactionId,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("rewrites core project json files through same-directory temp renames", async () => {

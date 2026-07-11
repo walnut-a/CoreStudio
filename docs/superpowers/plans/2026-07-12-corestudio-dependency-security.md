@@ -16,6 +16,8 @@
 - `@excalidraw/mermaid-to-excalidraw` 已是官方 0.18.1 安全回补使用的 `2.2.2`；保持该版本并用 contract 固定，不为了审计版本号把本地 fork 伪装成 `@excalidraw/excalidraw@0.18.1`。
 - 传递依赖安全版本固定为：`protobufjs 7.6.3`、`ws 8.21.0`、`mermaid 11.16.0`、`dompurify 3.4.12`、`lodash-es 4.18.1`。
 - 直接依赖安全版本固定为：`nanoid 3.3.8`、`sass 1.85.1`；Sass 对应解析的 `immutable` 固定为 `5.1.9`。
+- 审计复核发现的 `jsdom → form-data` critical 路径一并修复，`form-data` 固定为 `4.0.6`。
+- `vitest 3.0.6` 的 UI server critical 另列高优治理项：试升级到 3.2.6 后，完整测试证明现有 App 测试把 `vi.mock` 放在普通 helper 文件中的架构不兼容；本计划不夹带该测试体系迁移。
 - Next.js 示例、Firebase web app、minimatch/picomatch 等剩余告警不在本计划内升级，只做归因记录。
 - 所有提交和 PR 使用中文。
 
@@ -109,6 +111,7 @@ Expected: FAIL，指出根 `resolutions` 缺失，以及已安装的 `protobufjs
 ```json
 "resolutions": {
   "dompurify": "3.4.12",
+  "form-data": "4.0.6",
   "immutable": "5.1.9",
   "lodash-es": "4.18.1",
   "mermaid": "11.16.0",
@@ -150,6 +153,10 @@ Expected: 两次安装退出码 0；安全 contract PASS；实际解析版本与
 git add excalidraw/package.json excalidraw/packages/excalidraw/package.json excalidraw/yarn.lock excalidraw/apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts
 git commit -m "修复 CoreStudio 桌面高危依赖链"
 ```
+
+- [x] **Step 5: 修复可安全纳入的仓库级 critical**
+
+全仓 audit 在产品链修复后仍显示 `vitest 3.0.6` 与 `jsdom → form-data 4.0.2` 的 critical 路径。用根 resolution 固定 `form-data 4.0.6` 并加入真实安装图 contract。Vitest 3.2.6 试升级会令 App 测试暴露普通 helper 中 `vi.mock` 不再被提升的架构问题，完整测试失败，因此撤回试验性升级、移除 `@vitest/ui` 与 `test:ui` 入口，并把测试 mock 迁移列为独立高优任务。
 
 ### Task 3: 把桌面依赖安全加入远端门禁
 
@@ -258,7 +265,7 @@ git commit -m "记录 CoreStudio 依赖安全边界"
 - Consumes: Tasks 1-4 的全部提交。
 - Produces: 可审查但不自动合并的依赖安全 PR。
 
-- [ ] **Step 1: 运行完整本地门禁**
+- [x] **Step 1: 运行完整本地门禁**
 
 ```bash
 cd excalidraw
@@ -275,7 +282,7 @@ git status --short --branch
 
 Expected: 全部退出码 0，worktree clean。
 
-- [ ] **Step 2: 复核剩余审计项**
+- [x] **Step 2: 复核剩余审计项**
 
 重新运行全仓 audit 并按唯一包/路径归因；不得把仍存在的 Next.js 示例、Firebase web app、minimatch 或 `nanoid 4.0.2` 告警表述成已修复。
 

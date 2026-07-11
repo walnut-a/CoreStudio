@@ -9,7 +9,9 @@ const readJson = (filePath: string) =>
     name?: string;
     version?: string;
     dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
     resolutions?: Record<string, string>;
+    scripts?: Record<string, string>;
   };
 
 const findPackageManifest = (entryPath: string, packageName: string) => {
@@ -116,5 +118,26 @@ describe("CoreStudio desktop dependency security", () => {
     expect(resolveInstalledPackageVersion("immutable", sassEntry)).toBe(
       "5.1.9",
     );
+  });
+
+  it("keeps multipart tooling above its critical security floor", () => {
+    const rootManifestPath = path.resolve(workspaceRoot, "package.json");
+    const rootPackage = readJson(rootManifestPath);
+
+    expect(rootPackage.resolutions).toMatchObject({
+      "form-data": "4.0.6",
+    });
+
+    const jsdomEntry = resolvePackageEntry("jsdom", rootManifestPath);
+    expect(resolveInstalledPackageVersion("form-data", jsdomEntry)).toBe(
+      "4.0.6",
+    );
+  });
+
+  it("does not expose the vulnerable Vitest UI server", () => {
+    const rootPackage = readJson(path.resolve(workspaceRoot, "package.json"));
+
+    expect(rootPackage.devDependencies).not.toHaveProperty("@vitest/ui");
+    expect(rootPackage.scripts).not.toHaveProperty("test:ui");
   });
 });

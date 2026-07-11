@@ -162,6 +162,7 @@ export const AGENT_ERROR_CODES = [
   "STALE_PROJECT_SNAPSHOT",
   "TOKEN_EXPIRED",
   "UNSUPPORTED_COMMAND",
+  "WRITEBACK_CONFLICT",
 ] as const;
 
 export type AgentErrorCode = typeof AGENT_ERROR_CODES[number];

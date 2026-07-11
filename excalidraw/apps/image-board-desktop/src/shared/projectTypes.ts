@@ -74,3 +74,18 @@ export interface ImageRecord {
 }
 
 export type ImageRecordMap = Record<string, ImageRecord>;
+
+export interface ProjectImageWritebackTransaction {
+  transactionId: string;
+  projectPath: string;
+  fileIds: string[];
+  imageRecords: ImageRecordMap;
+}
+
+export interface ProjectImageWritebackJournal {
+  schemaVersion: 1;
+  transactionId: string;
+  createdAt: string;
+  previousRecords: Record<string, ImageRecord | null>;
+  nextRecords: ImageRecordMap;
+}

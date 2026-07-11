@@ -7,20 +7,18 @@ import {
   PROJECT_FORMAT_VERSION,
   type ImageAssetRendition,
   type ImageAssetRequestRendition,
-  type ImageGenerationOrigin,
-  type ImagePromptReferenceRecord,
   type ImageRecord,
   type ImageRecordMap,
-  type ImageSourceType,
   type ProjectAgentAccess,
   type ProjectManifest,
   type ProjectThumbnailReadMode,
 } from "../src/shared/projectTypes";
 import type { AgentErrorCode } from "../src/shared/agentBridgeTypes";
-import { assertPersistedImageAssetIntegrity } from "../src/shared/projectRecordIntegrity";
-import type { CleanProjectCacheResult } from "../src/shared/desktopBridgeTypes";
+import type {
+  CleanProjectCacheResult,
+  PersistedImageAssetInput,
+} from "../src/shared/desktopBridgeTypes";
 
-import type { ProviderId } from "../src/shared/providerTypes";
 import { getSceneContentHash } from "../src/shared/sceneVersion";
 import {
   readLocalImagePayload,
@@ -42,6 +40,14 @@ import {
   rebuildProjectThumbnails as rebuildProjectThumbnailsWithDeps,
   type RebuildProjectThumbnailsOptions,
 } from "./project/projectRepair";
+import {
+  writeJsonAtomic as writeJson,
+  writeTextAtomic,
+} from "./project/atomicProjectFile";
+import {
+  beginProjectImageWriteback,
+  commitProjectImageWriteback,
+} from "./project/projectImageWriteback";
 
 const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
@@ -142,30 +148,6 @@ const normalizeProjectManifest = (
   };
 };
 
-const assertPersistImageAssetInput = (file: PersistImageAssetInput) => {
-  assertPersistedImageAssetIntegrity(file);
-};
-
-interface PersistImageAssetInput {
-  fileId: string;
-  dataBase64: string;
-  mimeType: string;
-  width: number;
-  height: number;
-  sourceType: ImageSourceType;
-  generationOrigin?: ImageGenerationOrigin;
-  provider?: ProviderId;
-  model?: string;
-  prompt?: string;
-  negativePrompt?: string;
-  seed?: number | null;
-  generationTaskId?: string | null;
-  generationThreadId?: string | null;
-  createdAt: string;
-  parentFileId?: string | null;
-  promptReferences?: ImagePromptReferenceRecord[];
-}
-
 interface ThumbnailPayload {
   data: Buffer;
   mimeType: string;
@@ -196,40 +178,6 @@ const safeAssetFileNameSegment = (value: string) => {
     .replace(/^\.+$/, "");
 
   return safeValue || randomUUID();
-};
-
-const extensionFromMimeType = (mimeType: string) => {
-  switch (mimeType) {
-    case "image/png":
-      return "png";
-    case "image/jpeg":
-      return "jpg";
-    case "image/webp":
-      return "webp";
-    case "image/svg+xml":
-      return "svg";
-    default:
-      return "bin";
-  }
-};
-
-const writeTextAtomic = async (filePath: string, value: string) => {
-  const tempPath = path.join(
-    path.dirname(filePath),
-    `${path.basename(filePath)}.${randomUUID()}.tmp`,
-  );
-
-  try {
-    await fs.writeFile(tempPath, value, "utf8");
-    await fs.rename(tempPath, filePath);
-  } catch (error) {
-    await fs.unlink(tempPath).catch(() => undefined);
-    throw error;
-  }
-};
-
-const writeJson = async (filePath: string, value: unknown) => {
-  await writeTextAtomic(filePath, JSON.stringify(value, null, 2));
 };
 
 const writeJsonExclusive = async (filePath: string, value: unknown) => {
@@ -1095,58 +1043,12 @@ export const persistImageAssets = async ({
   files,
 }: {
   projectPath: string;
-  files: PersistImageAssetInput[];
+  files: PersistedImageAssetInput[];
 }) => {
-  const bundle = await readProjectBundle(projectPath);
-  const nextImageRecords: ImageRecordMap = { ...bundle.imageRecords };
-
-  for (const file of files) {
-    assertPersistImageAssetInput(file);
-    const assetFileName = `${file.createdAt.replace(
-      /[:.]/g,
-      "-",
-    )}_${safeAssetFileNameSegment(file.fileId)}.${extensionFromMimeType(
-      file.mimeType,
-    )}`;
-    const relativeAssetPath = path.posix.join(
-      PROJECT_FILENAMES.assetsDir,
-      assetFileName,
-    );
-    const assetPath = resolveProjectAssetPath(projectPath, relativeAssetPath);
-    await fs.writeFile(assetPath, Buffer.from(file.dataBase64, "base64"));
-
-    const record: ImageRecord = {
-      fileId: file.fileId,
-      assetPath: relativeAssetPath,
-      sourceType: file.sourceType,
-      generationOrigin: file.generationOrigin,
-      provider: file.provider,
-      model: file.model,
-      prompt: file.prompt,
-      negativePrompt: file.negativePrompt,
-      seed: file.seed ?? null,
-      generationTaskId: file.generationTaskId ?? null,
-      generationThreadId: file.generationThreadId ?? null,
-      width: file.width,
-      height: file.height,
-      createdAt: file.createdAt,
-      mimeType: file.mimeType,
-      parentFileId: file.parentFileId ?? null,
-      promptReferences: file.promptReferences,
-    };
-    nextImageRecords[file.fileId] = record;
-  }
-
-  await writeJson(
-    path.join(projectPath, PROJECT_FILENAMES.imageRecords),
-    nextImageRecords,
-  );
-
-  const nextProject: ProjectManifest = {
-    ...bundle.project,
-    updatedAt: new Date().toISOString(),
-  };
-  await writeProjectManifest(projectPath, nextProject);
-
-  return nextImageRecords;
+  const transaction = await beginProjectImageWriteback({ projectPath, files });
+  await commitProjectImageWriteback({
+    projectPath,
+    transactionId: transaction.transactionId,
+  });
+  return transaction.imageRecords;
 };

@@ -29,14 +29,14 @@ export interface ProjectImageWritebackHandle {
 export const beginProjectImageWritebackAction = async ({
   projectPath,
   projectImageRecords,
-  activeProject,
+  getActiveProject,
   files,
   bridge,
   setActiveProject,
 }: {
   projectPath: string;
   projectImageRecords: ImageRecordMap;
-  activeProject: DesktopProjectBundle | null;
+  getActiveProject: () => DesktopProjectBundle | null;
   files: PersistedImageAssetInput[];
   bridge: ProjectImageWritebackBridge;
   setActiveProject: (project: DesktopProjectBundle) => void;
@@ -49,7 +49,7 @@ export const beginProjectImageWritebackAction = async ({
   const { imageRecords } = applyPersistedProjectImageRecordsState({
     projectPath,
     projectImageRecords,
-    activeProject,
+    activeProject: getActiveProject(),
     persistedRecords: transaction.imageRecords,
     setActiveProject,
   });
@@ -86,7 +86,7 @@ export const beginProjectImageWritebackAction = async ({
       });
       const activeProjectUpdate = buildActiveProjectImageRecordsUpdate({
         projectPath,
-        activeProject,
+        activeProject: getActiveProject(),
         nextImageRecords: nextRecords,
       });
       if (activeProjectUpdate) {

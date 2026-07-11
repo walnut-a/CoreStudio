@@ -1288,7 +1288,9 @@ describe("App startup", () => {
     await expect(resultPromise).resolves.toMatchObject({
       code: "PROJECT_MISMATCH",
     });
-    expect(mockExcalidrawAPI?.updateScene).not.toHaveBeenCalled();
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({ captureUpdate: "NEVER" }),
+    );
   });
 
   it("rejects agent generate if the project changes before inserting placeholders", async () => {

@@ -1,11 +1,14 @@
 import React from "react";
 import { afterEach, expect, vi } from "vitest";
-import { cleanup, within } from "@testing-library/react";
+import {
+  cleanup,
+  render as testingLibraryRender,
+  within,
+} from "@testing-library/react";
 
 export {
   act,
   fireEvent,
-  render,
   screen,
   within,
   waitFor,
@@ -150,8 +153,33 @@ const createMockProviderSettings = () => ({
   },
 });
 
-const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
-  createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
+const withImageWritebackBridgeMock = (bridge: Record<string, any>) => {
+  bridge.beginImageWriteback ??= vi.fn(async (input) => {
+    const imageRecords = await bridge.persistImageAssets(input);
+    return {
+      transactionId: `test-transaction-${Date.now()}`,
+      projectPath: input.projectPath,
+      fileIds: input.files.map((file: { fileId: string }) => file.fileId),
+      imageRecords,
+    };
+  });
+  bridge.commitImageWriteback ??= vi.fn().mockResolvedValue(undefined);
+  bridge.rollbackImageWriteback ??= vi.fn().mockResolvedValue({});
+  return bridge;
+};
+
+const render: typeof testingLibraryRender = (...args) => {
+  if (window.imageBoardDesktop) {
+    withImageWritebackBridgeMock(
+      window.imageBoardDesktop as unknown as Record<string, any>,
+    );
+  }
+  return testingLibraryRender(...args);
+};
+
+const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => {
+  const bridge = {
+    createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
   openProject: vi.fn().mockResolvedValue(null),
   openRecentProject: vi.fn().mockResolvedValue(null),
   loadRecentProjects: vi.fn().mockResolvedValue([]),
@@ -201,9 +229,12 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => ({
   loadProviderSettings: vi.fn().mockResolvedValue(createMockProviderSettings()),
   saveProviderSettings: vi.fn(),
   generateImages: vi.fn(),
-  onMenuAction: vi.fn(() => () => undefined),
-  ...overrides,
-});
+    onMenuAction: vi.fn(() => () => undefined),
+    ...overrides,
+  } as Record<string, any>;
+
+  return withImageWritebackBridgeMock(bridge);
+};
 
 const getAcpAgentSettingsControls = (dialog: HTMLElement) => {
   const acpSwitch = within(dialog).getByRole("switch", {
@@ -1010,6 +1041,7 @@ export {
   getAcpAgentSettingsControls,
   hoistedExportToBlob,
   mockExcalidrawAPI,
+  render,
   renderChangeEmissionCount,
   setEmitExcalidrawChangeAfterEveryRender,
   setSkipExcalidrawApiRegistration,
@@ -1020,4 +1052,5 @@ export {
   triggerExcalidrawPaste,
   triggerExcalidrawPointerUpdate,
   triggerExcalidrawScrollChange,
+  withImageWritebackBridgeMock,
 };

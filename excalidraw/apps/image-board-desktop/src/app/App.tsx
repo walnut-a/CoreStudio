@@ -1365,8 +1365,19 @@ const App = () => {
       BinaryFiles
     >({
       getActiveProject: () => currentProjectRef.current,
-      persistProjectImageAssets:
-        projectImageAssetPersistenceRendererActions.persistProjectImageAssets,
+      beginProjectImageWriteback: ({
+        projectPath,
+        projectImageRecords,
+        files,
+      }) =>
+        beginProjectImageWritebackAction({
+          projectPath,
+          projectImageRecords,
+          getActiveProject: () => currentProjectRef.current,
+          files,
+          bridge: desktopBridge,
+          setActiveProject: updateCurrentProject,
+        }),
       replaceSlot: pendingGenerationCanvasRendererActions.replaceSlot,
       markSlotFailed: pendingGenerationCanvasRendererActions.markFailed,
       getCanvasSnapshot: () => {
@@ -1379,6 +1390,18 @@ const App = () => {
           appState: activeApi.getAppState(),
           files: activeApi.getFiles(),
         };
+      },
+      restoreCanvasSnapshot: (snapshot) => {
+        const activeApi = excalidrawAPIRef.current;
+        if (!activeApi) {
+          throw new Error("CoreStudio 画板还没有准备好，无法恢复 placeholder 快照。");
+        }
+        activeApi.updateScene({
+          elements: snapshot.elements,
+          appState: snapshot.appState,
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+        latestSceneRef.current = snapshot;
       },
       getSavedSceneHash: () => savedSceneHashRef.current,
       setScene: (scene) => {
@@ -1722,7 +1745,7 @@ const App = () => {
         beginProjectImageWritebackAction({
           projectPath: project.projectPath,
           projectImageRecords: project.imageRecords,
-          activeProject: currentProjectRef.current,
+          getActiveProject: () => currentProjectRef.current,
           files,
           bridge: desktopBridge,
           setActiveProject: updateCurrentProject,

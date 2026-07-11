@@ -81,7 +81,7 @@ const begin = async ({
   handle: await beginProjectImageWritebackAction({
     projectPath: activeProject.projectPath,
     projectImageRecords: activeProject.imageRecords,
-    activeProject,
+    getActiveProject: () => activeProject,
     files: [
       {
         fileId: "file-new",
@@ -114,6 +114,43 @@ describe("projectImageWritebackController", () => {
     expect(setActiveProject).toHaveBeenCalledWith(
       expect.objectContaining({ imageRecords }),
     );
+  });
+
+  it("does not reactivate a stale project when the project switches during begin", async () => {
+    const currentProject = createProject({ "file-old": createRecord("file-old") });
+    const otherProject = {
+      ...createProject(),
+      projectPath: "/projects/other",
+    };
+    let activeProject = currentProject;
+    let resolveTransaction!: (value: ProjectImageWritebackTransaction) => void;
+    const bridge = {
+      beginImageWriteback: vi.fn(
+        () =>
+          new Promise<ProjectImageWritebackTransaction>((resolve) => {
+            resolveTransaction = resolve;
+          }),
+      ),
+      commitImageWriteback: vi.fn(),
+      rollbackImageWriteback: vi.fn(),
+    };
+    const setActiveProject = vi.fn();
+    const pending = beginProjectImageWritebackAction({
+      projectPath: currentProject.projectPath,
+      projectImageRecords: currentProject.imageRecords,
+      getActiveProject: () => activeProject,
+      files: [],
+      bridge,
+      setActiveProject,
+    });
+
+    activeProject = otherProject;
+    resolveTransaction(
+      createTransaction({ "file-new": createRecord("file-new") }),
+    );
+    await pending;
+
+    expect(setActiveProject).not.toHaveBeenCalled();
   });
 
   it("commits a pending transaction only once", async () => {

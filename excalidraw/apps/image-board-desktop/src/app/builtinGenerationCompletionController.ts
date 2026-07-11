@@ -11,6 +11,10 @@ import {
   type PendingGenerationJobFailureDetails,
 } from "./generationJobState";
 import { buildCoreStudioGeneratedImageAssetInputs } from "./generationResultAssets";
+import {
+  rollbackProjectImageWritebackAfterFailure,
+  type ProjectImageWritebackHandle,
+} from "./projectImageWritebackController";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
@@ -73,10 +77,11 @@ export const runBuiltinGenerationJobCompletionAction = async <
   request,
   response,
   getActiveProject,
-  persistGeneratedAssets,
+  beginGeneratedAssets,
   replaceSlot,
   markSlotFailed,
   getCanvasSnapshot,
+  restoreCanvasSnapshot,
   applySceneAutosave,
   afterSceneCommit,
   flushPendingAutosave,
@@ -85,9 +90,9 @@ export const runBuiltinGenerationJobCompletionAction = async <
   request: GenerationRequest;
   response: GenerationResponse;
   getActiveProject: () => DesktopProjectBundle | null;
-  persistGeneratedAssets: (
+  beginGeneratedAssets: (
     input: PersistBuiltinGenerationAssetsInput,
-  ) => Promise<ImageRecordMap>;
+  ) => Promise<ProjectImageWritebackHandle>;
   replaceSlot: (
     slot: PendingGenerationJob["slots"][number],
     asset: PersistedImageAssetInput,
@@ -101,6 +106,13 @@ export const runBuiltinGenerationJobCompletionAction = async <
     AppStateValue,
     Files
   > | null;
+  restoreCanvasSnapshot: (
+    snapshot: BuiltinGenerationCanvasSnapshot<
+      Elements,
+      AppStateValue,
+      Files
+    >,
+  ) => void;
   applySceneAutosave: (
     input: ApplyBuiltinGenerationSceneAutosaveInput<
       Elements,
@@ -124,40 +136,99 @@ export const runBuiltinGenerationJobCompletionAction = async <
     return { kind: "skipped" };
   }
 
+  const beforeCanvasSnapshot = getCanvasSnapshot();
+  if (!beforeCanvasSnapshot) {
+    throw new Error("生成结果写回缺少可恢复的画板快照。");
+  }
+
   const files = buildCoreStudioGeneratedImageAssetInputs({
     request,
     response,
   });
-  const nextImageRecords = await persistGeneratedAssets({
+  if (files.length === 0) {
+    try {
+      completionPlan.failedSlots.forEach((slot) => {
+        const failure = buildPendingGenerationMissingResultFailure({
+          job,
+          slot,
+          message: "模型没有返回这张图。",
+        });
+        markSlotFailed(failure.job, failure.errorDetails);
+      });
+      const snapshot = getCanvasSnapshot();
+      const sceneCommitPlan = buildPendingGenerationJobSceneCommitPlan({
+        job,
+        project: getActiveProject(),
+        hasCanvasApi: Boolean(snapshot),
+      });
+      if (!snapshot || sceneCommitPlan.kind !== "commit") {
+        throw new Error("生成失败状态写回时画板或当前项目已经发生变化。");
+      }
+      applySceneAutosave({
+        project: sceneCommitPlan.project,
+        imageRecords: sceneCommitPlan.project.imageRecords,
+        elements: snapshot.elements,
+        appState: snapshot.appState,
+        files: snapshot.files,
+      });
+      afterSceneCommit({
+        elements: snapshot.elements,
+        appState: snapshot.appState,
+        files: snapshot.files,
+      });
+      await flushPendingAutosave({ strict: true });
+    } catch (error) {
+      try {
+        restoreCanvasSnapshot(beforeCanvasSnapshot);
+      } catch (restoreError) {
+        throw Object.assign(
+          new Error(
+            `${error instanceof Error ? error.message : String(error)}；placeholder 快照恢复也失败。`,
+          ),
+          { cause: error, restoreError },
+        );
+      }
+      throw error;
+    }
+    return {
+      kind: "completed",
+      replacedCount: 0,
+      failedCount: completionPlan.failedSlots.length,
+      sceneCommitted: true,
+    };
+  }
+  const writeback = await beginGeneratedAssets({
     projectPath: job.projectPath,
     projectImageRecords: completionPlan.project.imageRecords,
     activeProject: getActiveProject(),
     files,
   });
-
-  completionPlan.replacements.forEach(({ slot, assetIndex }) => {
-    replaceSlot(slot, files[assetIndex]);
-  });
-
-  completionPlan.failedSlots.forEach((slot) => {
-    const failure = buildPendingGenerationMissingResultFailure({
-      job,
-      slot,
-      message: "模型没有返回这张图。",
+  try {
+    completionPlan.replacements.forEach(({ slot, assetIndex }) => {
+      replaceSlot(slot, files[assetIndex]);
     });
-    markSlotFailed(failure.job, failure.errorDetails);
-  });
 
-  const snapshot = getCanvasSnapshot();
-  const sceneCommitPlan = buildPendingGenerationJobSceneCommitPlan({
-    job,
-    project: getActiveProject(),
-    hasCanvasApi: Boolean(snapshot),
-  });
-  if (snapshot && sceneCommitPlan.kind === "commit") {
+    completionPlan.failedSlots.forEach((slot) => {
+      const failure = buildPendingGenerationMissingResultFailure({
+        job,
+        slot,
+        message: "模型没有返回这张图。",
+      });
+      markSlotFailed(failure.job, failure.errorDetails);
+    });
+
+    const snapshot = getCanvasSnapshot();
+    const sceneCommitPlan = buildPendingGenerationJobSceneCommitPlan({
+      job,
+      project: getActiveProject(),
+      hasCanvasApi: Boolean(snapshot),
+    });
+    if (!snapshot || sceneCommitPlan.kind !== "commit") {
+      throw new Error("生成结果写回时画板或当前项目已经发生变化。");
+    }
     applySceneAutosave({
       project: sceneCommitPlan.project,
-      imageRecords: nextImageRecords,
+      imageRecords: writeback.imageRecords,
       elements: snapshot.elements,
       appState: snapshot.appState,
       files: snapshot.files,
@@ -167,15 +238,28 @@ export const runBuiltinGenerationJobCompletionAction = async <
       appState: snapshot.appState,
       files: snapshot.files,
     });
+    await flushPendingAutosave({ strict: true });
+  } catch (error) {
+    let failure = error;
+    try {
+      restoreCanvasSnapshot(beforeCanvasSnapshot);
+    } catch (restoreError) {
+      failure = Object.assign(
+        new Error(
+          `${error instanceof Error ? error.message : String(error)}；placeholder 快照恢复也失败。`,
+        ),
+        { cause: error, restoreError },
+      );
+    }
+    await rollbackProjectImageWritebackAfterFailure(writeback, failure);
   }
-
-  await flushPendingAutosave({ strict: true });
+  await writeback.commit();
 
   return {
     kind: "completed",
     replacedCount: completionPlan.replacements.length,
     failedCount: completionPlan.failedSlots.length,
-    sceneCommitted: snapshot !== null && sceneCommitPlan.kind === "commit",
+    sceneCommitted: true,
   };
 };
 
@@ -185,12 +269,12 @@ export interface BuiltinGenerationJobCompletionRendererActionsInput<
   Files extends BinaryFiles,
 > {
   getActiveProject: () => DesktopProjectBundle | null;
-  persistProjectImageAssets: (input: {
+  beginProjectImageWriteback: (input: {
     projectPath: string;
     projectImageRecords: ImageRecordMap;
     activeProject: DesktopProjectBundle | null;
     files: PersistedImageAssetInput[];
-  }) => Promise<{ imageRecords: ImageRecordMap }>;
+  }) => Promise<ProjectImageWritebackHandle>;
   replaceSlot: (
     slot: PendingGenerationJob["slots"][number],
     asset: PersistedImageAssetInput,
@@ -204,6 +288,11 @@ export interface BuiltinGenerationJobCompletionRendererActionsInput<
     appState: AppStateValue;
     files: Files;
   } | null;
+  restoreCanvasSnapshot: (snapshot: {
+    elements: Elements;
+    appState: AppStateValue;
+    files: Files;
+  }) => void;
   getSavedSceneHash: () => string | null;
   setScene: (scene: SceneSnapshot<Elements, AppStateValue, Files>) => void;
   setPendingSnapshot: (
@@ -226,10 +315,11 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
   Files extends BinaryFiles,
 >({
   getActiveProject,
-  persistProjectImageAssets,
+  beginProjectImageWriteback,
   replaceSlot,
   markSlotFailed,
   getCanvasSnapshot,
+  restoreCanvasSnapshot,
   getSavedSceneHash,
   setScene,
   setPendingSnapshot,
@@ -252,23 +342,11 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
       request,
       response,
       getActiveProject,
-      persistGeneratedAssets: async ({
-        projectPath,
-        projectImageRecords,
-        activeProject,
-        files,
-      }) => {
-        const persistedImageRecordsState = await persistProjectImageAssets({
-          projectPath,
-          projectImageRecords,
-          activeProject,
-          files,
-        });
-        return persistedImageRecordsState.imageRecords;
-      },
+      beginGeneratedAssets: beginProjectImageWriteback,
       replaceSlot,
       markSlotFailed,
       getCanvasSnapshot,
+      restoreCanvasSnapshot,
       applySceneAutosave: ({
         project,
         imageRecords,

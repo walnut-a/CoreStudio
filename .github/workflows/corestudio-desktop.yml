@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - walnut/corestudio-agent-cli-local-bridge
+      - "walnut/**"
 
 jobs:
   desktop:
@@ -38,3 +38,6 @@ jobs:
 
       - name: Secret scan
         run: corepack yarn check:desktop-secrets --source
+
+      - name: Build desktop
+        run: corepack yarn build:desktop

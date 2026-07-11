@@ -4,7 +4,7 @@
 
 **Goal:** 恢复 CoreStudio 远端门禁，把当前长期开发分支整理成可验证、可安全并回 `main` 的候选分支。
 
-**Architecture:** GitHub Actions 继续以 `excalidraw/` 为工作目录，但 CI 安装显式关闭 Husky，并把 desktop production build 纳入主门禁。所有修复从当前 `walnut/corestudio-agent-cli-local-bridge` 基线进入独立稳定化分支；是否快进 `main`、修改默认分支或删除旧分支必须由用户单独确认。
+**Architecture:** GitHub Actions 继续以 `excalidraw/` 为工作目录；仓库级 `prepare` 从 Git 根目录安装 `excalidraw/.husky`，从根源修复普通 clone、CI 与 Git worktree 中的依赖安装。workflow 覆盖 `main` 和全部 `walnut/**` 候选分支，并把 desktop production build 纳入主门禁。所有修复从当前 `walnut/corestudio-agent-cli-local-bridge` 基线进入独立稳定化分支；是否快进 `main`、修改默认分支或删除旧分支必须由用户单独确认。
 
 **Tech Stack:** GitHub Actions、Yarn 1.22.22、Node.js 22、Vitest、TypeScript、Vite、Git/GitHub CLI。
 
@@ -22,11 +22,12 @@
 
 **Files:**
 - Create: `excalidraw/apps/image-board-desktop/scripts/corestudioWorkflow.test.ts`
+- Modify: `excalidraw/package.json:88`
 - Modify: `.github/workflows/corestudio-desktop.yml:27-43`
 
 **Interfaces:**
-- Consumes: 根目录 `.github/workflows/corestudio-desktop.yml`。
-- Produces: CI install step 的 `HUSKY: "0"` contract，以及 `Build desktop` 门禁。
+- Consumes: 根目录 `.github/workflows/corestudio-desktop.yml` 与 `excalidraw/package.json`。
+- Produces: 可在嵌套工作目录安装 Git hooks 的 `prepare` contract、`walnut/**` 分支覆盖，以及 `Build desktop` 门禁。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -41,11 +42,18 @@ const workflowPath = path.resolve(
 );
 
 describe("CoreStudio Desktop Checks workflow", () => {
-  it("disables Husky during frozen CI install", () => {
-    const source = fs.readFileSync(workflowPath, "utf8");
-    expect(source).toMatch(
-      /- name: Install dependencies[\s\S]*?env:\s*\n\s*HUSKY: ["']0["'][\s\S]*?corepack yarn install --frozen-lockfile/,
+  it("runs Husky installation from the Git root", () => {
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"),
     );
+    expect(packageJson.scripts.prepare).toBe(
+      "cd .. && husky install excalidraw/.husky",
+    );
+  });
+
+  it("checks every CoreStudio candidate branch", () => {
+    const source = fs.readFileSync(workflowPath, "utf8");
+    expect(source).toContain('- "walnut/**"');
   });
 
   it("builds the desktop application after tests", () => {
@@ -65,16 +73,27 @@ cd excalidraw
 corepack yarn vitest apps/image-board-desktop/scripts/corestudioWorkflow.test.ts --run
 ```
 
-Expected: 2 tests FAIL，分别指出缺少 `HUSKY: "0"` 和 `Build desktop`。
+Expected: 3 tests FAIL，分别指出 `prepare` 的 Git 根目录错误、候选分支未覆盖和缺少 `Build desktop`。
 
 - [ ] **Step 3: 最小修改 workflow**
 
-把 install 与 build 段改成：
+把 `excalidraw/package.json` 的 `prepare` 改成：
+
+```json
+"prepare": "cd .. && husky install excalidraw/.husky"
+```
+
+把 workflow 的 push 分支与 build 段改成：
 
 ```yaml
+  push:
+    branches:
+      - main
+      - "walnut/**"
+
+  # ...
+
       - name: Install dependencies
-        env:
-          HUSKY: "0"
         run: corepack yarn install --frozen-lockfile
 
       - name: Typecheck
@@ -97,15 +116,15 @@ Run:
 ```bash
 cd excalidraw
 corepack yarn vitest apps/image-board-desktop/scripts/corestudioWorkflow.test.ts --run
-HUSKY=0 corepack yarn install --frozen-lockfile
+corepack yarn install --frozen-lockfile
 ```
 
-Expected: 2 tests PASS；install 退出码 0，不出现 `.git can't be found`。
+Expected: 3 tests PASS；install 退出码 0，不出现 `.git can't be found`。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-git add .github/workflows/corestudio-desktop.yml excalidraw/apps/image-board-desktop/scripts/corestudioWorkflow.test.ts
+git add .github/workflows/corestudio-desktop.yml excalidraw/package.json excalidraw/apps/image-board-desktop/scripts/corestudioWorkflow.test.ts docs/superpowers/plans/2026-07-11-corestudio-ci-branch-governance.md
 git commit -m "修复 CoreStudio 远端检查安装门禁"
 ```
 
@@ -174,4 +193,3 @@ Expected: `CoreStudio Desktop Checks` completed/success。
 2. 是否允许把 GitHub 默认分支改为 main 的新 HEAD。
 3. 是否保留 walnut/corestudio-agent-cli-local-bridge 作为历史分支。
 ```
-

@@ -252,7 +252,6 @@ export const beginProjectImageWriteback = async ({
 
     const imageRecords = { ...currentRecords, ...nextRecords };
     await writeJsonAtomic(getImageRecordsPath(projectPath), imageRecords);
-    await touchProjectManifest(projectPath);
 
     return {
       transactionId,
@@ -288,6 +287,7 @@ export const commitProjectImageWriteback = async ({
         },
       );
     }
+    await touchProjectManifest(projectPath);
     await fs.unlink(
       getProjectImageWritebackJournalPath(projectPath, transactionId),
     );
@@ -344,7 +344,6 @@ export const rollbackProjectImageWriteback = async ({
     await fs.unlink(
       getProjectImageWritebackJournalPath(projectPath, transactionId),
     );
-    await touchProjectManifest(projectPath);
     return restoredRecords;
   });
 

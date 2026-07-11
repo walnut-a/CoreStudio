@@ -31,4 +31,12 @@ describe("CoreStudio repository health contracts", () => {
     expect(source).toContain("- name: Build desktop");
     expect(source).toContain("run: corepack yarn build:desktop");
   });
+
+  it("scans both source files and desktop package inputs", () => {
+    const source = fs.readFileSync(workflowPath, "utf8");
+
+    expect(source).toContain(
+      "run: corepack yarn check:desktop-secrets --source --package-inputs",
+    );
+  });
 });

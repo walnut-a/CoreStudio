@@ -1,6 +1,6 @@
 # CoreStudio CI 与分支治理实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 恢复 CoreStudio 远端门禁，把当前长期开发分支整理成可验证、可安全并回 `main` 的候选分支。
 
@@ -13,7 +13,7 @@
 - 当前实现基线固定为 `walnut/corestudio-agent-cli-local-bridge`；执行前重新核对 HEAD 与远端。
 - 不直接 push `main`，不修改 GitHub 默认分支，不删除旧分支。
 - Git commit、PR、Issue 和文档 Note 使用中文。
-- CI 至少执行 frozen install、typecheck、desktop tests、source secret scan、desktop build。
+- CI 至少执行 frozen install、typecheck、desktop tests、source/package-input secret scan、desktop build。
 - 不为了修 CoreStudio CI 修改 `excalidraw/.github/workflows/` 中的上游工作流。
 
 ---
@@ -29,7 +29,7 @@
 - Consumes: 根目录 `.github/workflows/corestudio-desktop.yml` 与 `excalidraw/package.json`。
 - Produces: 可在嵌套工作目录安装 Git hooks 的 `prepare` contract、`walnut/**` 分支覆盖，以及 `Build desktop` 门禁。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import fs from "node:fs";
@@ -61,10 +61,17 @@ describe("CoreStudio Desktop Checks workflow", () => {
     expect(source).toContain("- name: Build desktop");
     expect(source).toContain("run: corepack yarn build:desktop");
   });
+
+  it("scans both source files and desktop package inputs", () => {
+    const source = fs.readFileSync(workflowPath, "utf8");
+    expect(source).toContain(
+      "run: corepack yarn check:desktop-secrets --source --package-inputs",
+    );
+  });
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run:
 
@@ -73,9 +80,9 @@ cd excalidraw
 corepack yarn vitest apps/image-board-desktop/scripts/corestudioWorkflow.test.ts --run
 ```
 
-Expected: 3 tests FAIL，分别指出 `prepare` 的 Git 根目录错误、候选分支未覆盖和缺少 `Build desktop`。
+Expected: 4 tests FAIL，分别指出 `prepare` 的 Git 根目录错误、候选分支未覆盖、缺少 `Build desktop` 和未检查 package inputs。
 
-- [ ] **Step 3: 最小修改 workflow**
+- [x] **Step 3: 最小修改 workflow**
 
 把 `excalidraw/package.json` 的 `prepare` 改成：
 
@@ -103,13 +110,13 @@ Expected: 3 tests FAIL，分别指出 `prepare` 的 Git 根目录错误、候选
         run: corepack yarn test:desktop --run
 
       - name: Secret scan
-        run: corepack yarn check:desktop-secrets --source
+        run: corepack yarn check:desktop-secrets --source --package-inputs
 
       - name: Build desktop
         run: corepack yarn build:desktop
 ```
 
-- [ ] **Step 4: 验证 workflow contract 与本地安装**
+- [x] **Step 4: 验证 workflow contract 与本地安装**
 
 Run:
 
@@ -119,9 +126,9 @@ corepack yarn vitest apps/image-board-desktop/scripts/corestudioWorkflow.test.ts
 corepack yarn install --frozen-lockfile
 ```
 
-Expected: 3 tests PASS；install 退出码 0，不出现 `.git can't be found`。
+Expected: 4 tests PASS；install 退出码 0，不出现 `.git can't be found`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add .github/workflows/corestudio-desktop.yml excalidraw/package.json excalidraw/apps/image-board-desktop/scripts/corestudioWorkflow.test.ts docs/superpowers/plans/2026-07-11-corestudio-ci-branch-governance.md
@@ -137,7 +144,7 @@ git commit -m "修复 CoreStudio 远端检查安装门禁"
 - Consumes: Task 1 的 CI contract；当前 live Git/Release 状态。
 - Produces: 一个明确记录基线、ahead/behind、待用户授权动作的治理说明。
 
-- [ ] **Step 1: 更新仓库状态说明**
+- [x] **Step 1: 更新仓库状态说明**
 
 在 `docs/doc/repository-analysis.md` 增加当前状态段：
 
@@ -152,7 +159,7 @@ git commit -m "修复 CoreStudio 远端检查安装门禁"
 - 快进 `main`、修改默认分支和清理旧分支必须由维护者显式确认。
 ```
 
-- [ ] **Step 2: 运行完整本地门禁**
+- [x] **Step 2: 运行完整本地门禁**
 
 Run:
 
@@ -160,7 +167,7 @@ Run:
 cd excalidraw
 corepack yarn test:typecheck
 corepack yarn test:desktop --run
-corepack yarn check:desktop-secrets --source
+corepack yarn check:desktop-secrets --source --package-inputs
 corepack yarn build:desktop
 cd ..
 git diff --check
@@ -168,7 +175,7 @@ git diff --check
 
 Expected: 所有命令退出码 0。
 
-- [ ] **Step 3: 提交治理说明**
+- [x] **Step 3: 提交治理说明**
 
 ```bash
 git add docs/doc/repository-analysis.md

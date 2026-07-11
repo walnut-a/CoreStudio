@@ -1,6 +1,6 @@
 # CoreStudio 写回纵向测试与代码治理实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 用少量真实 seam 场景证明 CLI/Local Bridge/renderer/project writeback 闭环，并移除本轮触及链路中的浅转发层。
 
@@ -27,7 +27,7 @@
 - Consumes: `startLocalBridgeServer`、`createProjectStructure`、`readProjectBundle`、`handleAgentCommandRequest`。
 - Produces: 可复用的 `createAgentWritebackHarness()`，返回 `baseUrl/token/projectPath/readBundle/close`。
 
-- [ ] **Step 1: 写失败场景**
+- [x] **Step 1: 写失败场景**
 
 ```ts
 it("writes a CLI image through Local Bridge into one consistent project bundle", async () => {});
@@ -35,22 +35,22 @@ it("returns an error and leaves the original bundle unchanged when scene autosav
 it("recovers a pending transaction after a simulated process interruption", async () => {});
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 ```bash
 cd excalidraw
 corepack yarn vitest apps/image-board-desktop/electron/agent/agentWriteback.integration.test.ts --run
 ```
 
-- [ ] **Step 3: 实现 harness**
+- [x] **Step 3: 实现 harness**
 
 Harness 真实启动 localhost server、Bearer token 和临时项目；renderer adapter 调用真实 `handleAgentCommandRequest`，canvas 只实现测试所需的 `getAppState/getSceneElementsIncludingDeleted/addFiles/updateScene/getFiles`。
 
-- [ ] **Step 4: 断言最终 bundle**
+- [x] **Step 4: 断言最终 bundle**
 
 成功必须同时满足：asset 文件存在、image record 存在、scene 引用 fileId、writeback journal 不存在。失败必须满足四项都保持 before snapshot。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/electron/agent/agentWriteback.integration.test.ts
@@ -69,22 +69,22 @@ git commit -m "补齐 Local Bridge 图片写回纵向测试"
 - Consumes: 图片写回事务计划 Task 3 的 deep module。
 - Produces: App 只持有用例级 `beginWriteback`，不再组合 begin/commit/rollback 的 setter/ref 细节。
 
-- [ ] **Step 1: 做 deletion test**
+- [x] **Step 1: 做 deletion test**
 
 对 `projectImageAssetPersistenceController.ts` 做 deletion test，并固定结论：保留 `runUnknownCanvasImageAssetPersistenceAction` 处理普通画布资产补录；删除生成链对 `runProjectImageAssetPersistenceAction` 的依赖。Agent 与内置生成只消费 `projectImageWritebackController.beginWriteback`，App 不直接组合 begin/commit/rollback。本 Task 不处理 `projectImageStateResetRendererActions.ts` 等无关 module。
 
-- [ ] **Step 2: 写调用面测试**
+- [x] **Step 2: 写调用面测试**
 
 测试 App 或 renderer action 只消费 `beginWriteback`；不对源文件字符串或具体 import 数量做断言。
 
-- [ ] **Step 3: 最小收口并运行 focused tests**
+- [x] **Step 3: 最小收口并运行 focused tests**
 
 ```bash
 cd excalidraw
 corepack yarn vitest apps/image-board-desktop/src/app/projectImageWritebackController.test.ts apps/image-board-desktop/src/app/projectImageAssetPersistenceController.test.ts apps/image-board-desktop/src/app/App.test.tsx --run
 ```
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add -A excalidraw/apps/image-board-desktop/src/app
@@ -102,7 +102,7 @@ git commit -m "收口图片写回调用面"
 - Consumes: 两个前置计划的全部提交。
 - Produces: 可推送、可开 PR、但尚未自动并入 main 的候选分支。
 
-- [ ] **Step 1: 完整验证**
+- [x] **Step 1: 完整验证**
 
 ```bash
 cd excalidraw
@@ -117,7 +117,7 @@ git status --short --branch
 
 Expected: 全部退出码 0，worktree clean。
 
-- [ ] **Step 2: 独立审查 diff**
+- [x] **Step 2: 独立审查 diff**
 
 检查：没有修改 Excalidraw 上游核心；没有新增未使用 capability；transaction 错误保留原始 cause；journal 不含 API key 或图片 base64。
 

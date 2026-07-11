@@ -37,7 +37,7 @@ jobs:
         run: corepack yarn test:desktop --run
 
       - name: Secret scan
-        run: corepack yarn check:desktop-secrets --source
+        run: corepack yarn check:desktop-secrets --source --package-inputs
 
       - name: Build desktop
         run: corepack yarn build:desktop

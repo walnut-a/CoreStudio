@@ -286,7 +286,7 @@ Expected: 全部退出码 0，worktree clean。
 
 重新运行全仓 audit 并按唯一包/路径归因；不得把仍存在的 Next.js 示例、Firebase web app、minimatch 或 `nanoid 4.0.2` 告警表述成已修复。
 
-- [ ] **Step 3: 推送并创建中文 PR**
+- [x] **Step 3: 推送并创建中文 PR**
 
 ```bash
 git push -u origin walnut/corestudio-dependency-security
@@ -299,3 +299,5 @@ PR 标题：
 ```
 
 PR 必须列出：旧审计口径缺陷、实际 bundle 链路、升级版本、真实安装图门禁、完整验证、剩余上游/示例风险；不自动合并。
+
+已创建 PR [#3](https://github.com/walnut-a/CoreStudio/pull/3)，保持打开状态供审查，不自动合并。

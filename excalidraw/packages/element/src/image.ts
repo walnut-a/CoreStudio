@@ -18,6 +18,10 @@ import type {
   InitializedExcalidrawImageElement,
 } from "./types";
 
+type ImageCacheValue = NonNullable<
+  ReturnType<AppClassProperties["imageCache"]["get"]>
+>;
+
 export const loadHTMLImageElement = (dataURL: DataURL) => {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -52,25 +56,31 @@ export const updateImageCache = async ({
         updatedFiles.set(fileId, true);
         return promises.concat(
           (async () => {
+            let pendingEntry: ImageCacheValue | null = null;
             try {
-              if (fileData.mimeType === MIME_TYPES.binary) {
+              const mimeType = fileData.mimeType;
+              if (mimeType === MIME_TYPES.binary) {
                 throw new Error("Only images can be added to ImageCache");
               }
 
               const imagePromise = loadHTMLImageElement(fileData.dataURL);
-              const data = {
+              pendingEntry = {
                 image: imagePromise,
-                mimeType: fileData.mimeType,
+                mimeType,
               } as const;
               // store the promise immediately to indicate there's an in-progress
               // initialization
-              imageCache.set(fileId, data);
+              imageCache.set(fileId, pendingEntry);
 
               const image = await imagePromise;
 
-              imageCache.set(fileId, { ...data, image });
+              if (imageCache.get(fileId) === pendingEntry) {
+                imageCache.set(fileId, { ...pendingEntry, image });
+              }
             } catch (error: any) {
-              erroredFiles.set(fileId, true);
+              if (pendingEntry && imageCache.get(fileId) === pendingEntry) {
+                erroredFiles.set(fileId, true);
+              }
             }
           })(),
         );

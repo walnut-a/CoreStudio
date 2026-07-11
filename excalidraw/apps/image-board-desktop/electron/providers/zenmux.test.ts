@@ -168,6 +168,89 @@ describe("generateZenMuxImages", () => {
     expect(response.images).toHaveLength(1);
   });
 
+  it("passes the requested image count to ZenMux Vertex image API models", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        predictions: [
+          {
+            bytesBase64Encoded: Buffer.from("zenmux seedream image").toString(
+              "base64",
+            ),
+            mimeType: "image/png",
+          },
+        ],
+      }),
+    });
+
+    await generateZenMuxImages({
+      apiKey: "sk-ai-v1-test",
+      request: {
+        provider: "zenmux",
+        model: "bytedance/doubao-seedream-5.0-lite",
+        prompt: "一组产品外观探索",
+        width: 1536,
+        height: 1024,
+        imageCount: 7,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://zenmux.ai/api/vertex-ai/v1/publishers/bytedance/models/doubao-seedream-5.0-lite:predict",
+      expect.objectContaining({
+        body: JSON.stringify({
+          instances: [
+            {
+              prompt: "一组产品外观探索",
+            },
+          ],
+          parameters: {
+            sampleCount: 7,
+            sampleImageSize: "1536x1024",
+            outputOptions: {
+              mimeType: "image/png",
+            },
+          },
+        }),
+      }),
+    );
+  });
+
+  it("passes expanded GPT Image 2 size presets to ZenMux Vertex image API models", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        predictions: [
+          {
+            bytesBase64Encoded:
+              Buffer.from("zenmux 4k gpt image").toString("base64"),
+            mimeType: "image/png",
+          },
+        ],
+      }),
+    });
+
+    await generateZenMuxImages({
+      apiKey: "sk-ai-v1-test",
+      request: {
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+        prompt: "一张 4K 产品发布海报",
+        aspectRatio: "16:9-4k",
+        width: 3840,
+        height: 2160,
+        imageCount: 1,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://zenmux.ai/api/vertex-ai/v1/publishers/openai/models/gpt-image-2:predict",
+      expect.objectContaining({
+        body: expect.stringContaining('"sampleImageSize":"3840x2160"'),
+      }),
+    );
+  });
+
   it("omits ZenMux GPT image size controls when ratio is automatic", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

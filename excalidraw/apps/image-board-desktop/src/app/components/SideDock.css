@@ -1,0 +1,299 @@
+.side-dock {
+  position: fixed;
+  top: var(--desktop-window-top-inset, 0px);
+  bottom: 0;
+  z-index: var(--side-dock-z-index);
+  width: 0;
+  pointer-events: none;
+}
+
+.side-dock--left {
+  left: 0;
+}
+
+.side-dock--right {
+  right: 0;
+}
+
+.side-dock[data-open="true"] {
+  width: var(--side-dock-width, 302px);
+}
+
+.side-dock--left[data-open="true"] {
+  --side-dock-width: var(--corestudio-left-sidebar-width);
+}
+
+.side-dock--right[data-open="true"] {
+  --side-dock-width: var(--corestudio-right-sidebar-width);
+}
+
+.side-dock__toggle {
+  position: absolute;
+  top: calc(
+    var(--editor-container-padding, 16px) + env(safe-area-inset-top, 0px)
+  );
+  width: var(--side-dock-toggle-size);
+  height: var(--side-dock-toggle-size);
+  padding: 0;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+  color: var(--text-primary-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.side-dock__toggle:hover {
+  background: #f1f0ff;
+  border-color: #e0dfff;
+  color: var(--color-primary);
+}
+
+.side-dock__toggle svg {
+  width: var(--lg-icon-size);
+  height: var(--lg-icon-size);
+}
+
+.side-dock--left .side-dock__toggle {
+  left: var(--side-dock-edge-gap);
+}
+
+.side-dock--right .side-dock__toggle {
+  right: var(--side-dock-edge-gap);
+}
+
+.side-dock[data-open="true"] .side-dock__toggle {
+  display: none;
+}
+
+.side-dock__panel {
+  width: var(--side-dock-width, 302px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-color: var(--default-border-color);
+  background: var(--island-bg-color);
+  box-shadow: none;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.side-dock--left .side-dock__panel {
+  border-right: 1px solid var(--default-border-color);
+}
+
+.side-dock--right .side-dock__panel {
+  border-left: 1px solid var(--default-border-color);
+}
+
+.side-dock__header {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-sm);
+  padding: 14px 14px 12px 16px;
+  border-bottom: 1px solid var(--default-border-color);
+}
+
+.side-dock__header h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.2;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-dock__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.side-dock__header-actions .image-board-button {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: var(--ui-text-size-sm);
+}
+
+.side-dock__close {
+  width: var(--ui-control-size-md);
+  height: var(--ui-control-size-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--text-secondary-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.side-dock__close:hover {
+  background: #f1f0ff;
+  color: var(--text-primary-color);
+}
+
+.side-dock__close svg {
+  width: var(--lg-icon-size);
+  height: var(--lg-icon-size);
+}
+
+.side-dock__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.side-dock .selected-shape-actions {
+  --button-bg: var(--color-surface-mid);
+  --color-slider-track: color-mix(
+    in srgb,
+    var(--color-primary) 34%,
+    var(--island-bg-color)
+  );
+  height: 100%;
+  padding: 16px;
+  overflow-y: auto;
+  background: color-mix(
+    in srgb,
+    var(--island-bg-color) 96%,
+    var(--color-surface-mid)
+  );
+}
+
+.image-board-app .App-menu_top__left {
+  margin-left: calc(
+    var(--side-dock-edge-gap) + var(--side-dock-toggle-size) +
+      var(--side-dock-button-gap) - var(--editor-container-padding, 16px)
+  );
+  transition: margin-left 0.16s ease;
+}
+
+.image-board-app .App-menu_top__left .main-menu-trigger {
+  width: var(--side-dock-toggle-size);
+  height: var(--side-dock-toggle-size);
+  padding: 0;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+  color: var(--text-primary-color);
+}
+
+.image-board-app .App-menu_top__left .main-menu-trigger:hover {
+  background: #f1f0ff;
+  border-color: #e0dfff;
+  color: var(--color-primary);
+}
+
+.image-board-app .App-menu_top__left .main-menu-trigger:active {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-island);
+}
+
+.image-board-app--left-dock-open .App-menu_top__left {
+  margin-left: calc(
+    var(--corestudio-left-sidebar-width) + var(--side-dock-edge-gap) -
+      var(--editor-container-padding, 16px)
+  );
+}
+
+@media (max-width: 900px) {
+  .image-board-app {
+    --corestudio-side-panel-width: min(300px, 86vw);
+    --floating-panel-edge-gap: 16px;
+    --canvas-top-control-inline-end-reserve: calc(
+      var(--side-dock-toggle-size) + var(--side-dock-button-gap)
+    );
+    --canvas-toolbar-compact-gap: 4px;
+    --canvas-toolbar-inline-start-reserve: calc(
+      var(--editor-container-padding, 16px) + var(--side-dock-edge-gap) +
+        var(--side-dock-toggle-size) + var(--side-dock-button-gap) +
+        var(--side-dock-toggle-size)
+    );
+    --canvas-toolbar-inline-end-reserve: calc(
+      var(--side-dock-edge-gap) + var(--side-dock-toggle-size) +
+        var(--side-dock-button-gap)
+    );
+    --canvas-toolbar-max-inline-size: calc(
+      100vw - var(--canvas-toolbar-inline-start-reserve) -
+        var(--canvas-toolbar-inline-end-reserve)
+    );
+  }
+
+  .image-board-app .App-menu_top {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--ui-space-sm);
+    padding-right: var(--canvas-top-control-inline-end-reserve);
+  }
+
+  .image-board-app .shapes-section {
+    min-width: 0;
+    justify-content: stretch;
+    overflow: hidden;
+  }
+
+  .image-board-app .App-toolbar {
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: var(--canvas-toolbar-max-inline-size);
+    max-inline-size: var(--canvas-toolbar-max-inline-size);
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .image-board-app .App-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .image-board-app .App-toolbar .Stack_horizontal {
+    min-width: max-content;
+    gap: var(--canvas-toolbar-compact-gap);
+  }
+
+  .image-board-app .App-toolbar .ToolIcon__keybinding {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .image-board-app .App-toolbar-content {
+    max-width: calc(100vw - 24px);
+    overflow: hidden;
+  }
+
+  .image-board-app .excalidraw-ui-top-left {
+    max-width: calc(100vw - 72px);
+    overflow: hidden;
+  }
+
+  .image-board-app .side-dock__toggle,
+  .image-board-app .undo-redo-buttons,
+  .image-board-app .mobile-toolbar-undo,
+  .image-board-app
+    .compact-shape-actions
+    .compact-action-item:has([data-testid="button-undo"]),
+  .image-board-app
+    .compact-shape-actions
+    .compact-action-item:has([data-testid="button-redo"]),
+  .image-board-app .scroll-back-to-content {
+    display: none;
+  }
+}

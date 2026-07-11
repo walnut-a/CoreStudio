@@ -1,0 +1,22 @@
+.project-main-menu__current {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 220px;
+  min-height: 2rem;
+  padding: 0 0.5rem;
+  color: var(--color-gray-60);
+  cursor: default;
+  user-select: text;
+}
+
+.project-main-menu__current strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-gray-70);
+  font-size: 0.8125rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

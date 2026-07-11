@@ -25,6 +25,7 @@ import {
   getDefaultProjectsRoot,
   loadRecentProjects,
   rememberRecentProject,
+  removeRecentProject,
 } from "./recentProjectsStore";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 
@@ -68,6 +69,29 @@ describe("recentProjectsStore", () => {
     ]);
   });
 
+  it("keeps up to 20 recent projects for the project list", async () => {
+    for (let index = 1; index <= 21; index += 1) {
+      const projectPath = path.join(mockDocumentsPath, `项目 ${index}`);
+      await fs.mkdir(projectPath, { recursive: true });
+      await fs.writeFile(
+        path.join(projectPath, PROJECT_FILENAMES.project),
+        "{}",
+        "utf8",
+      );
+      await rememberRecentProject(
+        projectPath,
+        `项目 ${index}`,
+        `2026-04-${String(index).padStart(2, "0")}T08:00:00.000Z`,
+      );
+    }
+
+    const projects = await loadRecentProjects();
+
+    expect(projects).toHaveLength(20);
+    expect(projects[0]?.name).toBe("项目 21");
+    expect(projects.at(-1)?.name).toBe("项目 2");
+  });
+
   it("drops missing project folders when loading recent projects", async () => {
     const validProjectPath = path.join(mockDocumentsPath, "项目 B");
     await fs.mkdir(validProjectPath, { recursive: true });
@@ -95,6 +119,24 @@ describe("recentProjectsStore", () => {
         lastOpenedAt: "2026-04-16T02:00:00.000Z",
       },
     ]);
+  });
+
+  it("removes only the project list record and keeps the local project folder", async () => {
+    const projectPath = path.join(mockDocumentsPath, "项目 C");
+    await fs.mkdir(projectPath, { recursive: true });
+    await fs.writeFile(
+      path.join(projectPath, PROJECT_FILENAMES.project),
+      "{}",
+      "utf8",
+    );
+
+    await rememberRecentProject(projectPath, "项目 C", "2026-04-16T03:00:00.000Z");
+
+    await expect(removeRecentProject(projectPath)).resolves.toEqual([]);
+    await expect(fs.access(projectPath)).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(projectPath, PROJECT_FILENAMES.project)),
+    ).resolves.toBeUndefined();
   });
 
   it("uses the user documents folder as the default projects root", () => {

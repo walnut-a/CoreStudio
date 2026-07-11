@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { placeGeneratedImages } from "./imagePlacement";
+import {
+  getGeneratedImagePreviousBatchBounds,
+  placeGeneratedImages,
+  resolveGeneratedImagePlacementViewport,
+} from "./imagePlacement";
 
 const rectanglesOverlap = (
   first: { x: number; y: number; width: number; height: number },
@@ -180,5 +184,81 @@ describe("placeGeneratedImages", () => {
       512,
       512,
     ]);
+  });
+});
+
+describe("getGeneratedImagePreviousBatchBounds", () => {
+  const previousBatchBounds = {
+    x: 100,
+    y: 120,
+    width: 320,
+    height: 240,
+  };
+
+  it("reuses the previous batch bounds when no explicit anchor is available", () => {
+    expect(
+      getGeneratedImagePreviousBatchBounds({
+        previousBatchBounds,
+        anchorPoint: null,
+        anchorBounds: null,
+      }),
+    ).toBe(previousBatchBounds);
+  });
+
+  it("ignores the previous batch bounds when a canvas pointer anchor is available", () => {
+    expect(
+      getGeneratedImagePreviousBatchBounds({
+        previousBatchBounds,
+        anchorPoint: { x: 800, y: 600 },
+        anchorBounds: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("ignores the previous batch bounds when reference element bounds are available", () => {
+    expect(
+      getGeneratedImagePreviousBatchBounds({
+        previousBatchBounds,
+        anchorPoint: null,
+        anchorBounds: {
+          x: 0,
+          y: 0,
+          width: 200,
+          height: 160,
+        },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("resolveGeneratedImagePlacementViewport", () => {
+  const appViewport = {
+    viewportCenter: { x: 400, y: 300 },
+    viewportSize: { width: 1200, height: 800 },
+    zoomValue: 1.25,
+  };
+
+  it("uses an explicit placement viewport when provided", () => {
+    const explicitViewport = {
+      viewportCenter: { x: 900, y: 720 },
+      viewportSize: { width: 1600, height: 900 },
+      zoomValue: 0.75,
+    };
+
+    expect(
+      resolveGeneratedImagePlacementViewport({
+        explicitViewport,
+        appViewport,
+      }),
+    ).toEqual(explicitViewport);
+  });
+
+  it("falls back to the current app viewport when no explicit placement viewport is provided", () => {
+    expect(
+      resolveGeneratedImagePlacementViewport({
+        explicitViewport: null,
+        appViewport,
+      }),
+    ).toEqual(appViewport);
   });
 });

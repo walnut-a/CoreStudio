@@ -12,6 +12,7 @@ import {
   getEnabledReference,
   toDataUri,
 } from "./promptUtils";
+import { providerFetch } from "./providerFetch";
 
 const ARK_IMAGE_GENERATIONS_URL =
   "https://ark.cn-beijing.volces.com/api/v3/images/generations";
@@ -113,8 +114,12 @@ const buildLoggedRequestBody = (
   };
 };
 
-const imageFromUrl = async (url: string, index: number) => {
-  const response = await fetch(url);
+const imageFromUrl = async (
+  url: string,
+  index: number,
+  signal?: AbortSignal,
+) => {
+  const response = await providerFetch(url, { signal });
   if ("ok" in response && !response.ok) {
     throw new Error(`即梦图片下载失败：${response.status}`);
   }
@@ -144,10 +149,12 @@ export const generateJimengImages = async ({
   apiKey,
   request,
   projectPath,
+  signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
+  signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
@@ -188,8 +195,9 @@ export const generateJimengImages = async ({
   );
 
   try {
-    const response = await fetch(ARK_IMAGE_GENERATIONS_URL, {
+    const response = await providerFetch(ARK_IMAGE_GENERATIONS_URL, {
       method: "POST",
+      signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -229,7 +237,7 @@ export const generateJimengImages = async ({
           return imageFromBase64(item.b64_json, index);
         }
         if (item.url) {
-          return imageFromUrl(item.url, index);
+          return imageFromUrl(item.url, index, signal);
         }
         throw new Error("即梦/Seedream 返回了空图片项。");
       }),

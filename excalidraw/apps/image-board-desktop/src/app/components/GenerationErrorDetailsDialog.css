@@ -1,0 +1,70 @@
+.debug-error-dialog {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.debug-error-dialog__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.debug-error-dialog__meta div {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 16px;
+  background: var(--color-surface-mid);
+}
+
+.debug-error-dialog__meta span {
+  font-size: 12px;
+  color: var(--color-gray-60);
+}
+
+.debug-error-dialog__meta strong {
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.debug-error-dialog__section {
+  display: grid;
+  gap: 8px;
+}
+
+.debug-error-dialog__section h3,
+.debug-error-dialog__section p {
+  margin: 0;
+}
+
+.debug-error-dialog__section h3 {
+  font-size: 14px;
+}
+
+.debug-error-dialog__section p {
+  line-height: 1.6;
+}
+
+.debug-error-dialog__pre {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 16px;
+  background: var(--color-surface-mid);
+  color: var(--text-primary-color);
+  font: 12px/1.6 "SFMono-Regular", "Cascadia Code", "Roboto Mono", Consolas,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  max-height: 260px;
+}
+
+@media (max-width: 1080px) {
+  .debug-error-dialog__meta {
+    grid-template-columns: 1fr;
+  }
+}

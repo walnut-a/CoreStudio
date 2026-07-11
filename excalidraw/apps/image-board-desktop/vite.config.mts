@@ -1,6 +1,9 @@
 import path from "path";
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+
+import { getDesktopManualChunk } from "./desktopManualChunks";
 
 const resolveAlias = (target: string) =>
   path.resolve(__dirname, "..", "..", target);
@@ -61,6 +64,11 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    rollupOptions: {
+      output: {
+        manualChunks: getDesktopManualChunk,
+      },
+    },
     sourcemap: shouldBuildSourceMap,
   },
   plugins: [react()],

@@ -18,6 +18,7 @@ import {
   getEnabledPromptReferences,
   toDataUri,
 } from "./promptUtils";
+import { providerFetch } from "./providerFetch";
 
 import type {
   CustomProviderModel,
@@ -104,8 +105,12 @@ const imageFromDataUrl = (dataUrl: string, index: number) => {
   });
 };
 
-const imageFromUrl = async (url: string, index: number) => {
-  const response = await fetch(url);
+const imageFromUrl = async (
+  url: string,
+  index: number,
+  signal?: AbortSignal,
+) => {
+  const response = await providerFetch(url, { signal });
   if ("ok" in response && !response.ok) {
     throw new Error(`OpenRouter 图片下载失败：${response.status}`);
   }
@@ -237,7 +242,10 @@ const buildLoggedRequestPayload = ({
   );
 };
 
-const ensureOpenRouterImages = async (data: OpenRouterImageResponse) => {
+const ensureOpenRouterImages = async (
+  data: OpenRouterImageResponse,
+  signal?: AbortSignal,
+) => {
   if (data.error) {
     throw new Error(
       `OpenRouter 返回错误：${[data.error.code, data.error.message]
@@ -256,7 +264,7 @@ const ensureOpenRouterImages = async (data: OpenRouterImageResponse) => {
     imageUrls.map((url, index) =>
       url.startsWith("data:")
         ? imageFromDataUrl(url, index)
-        : imageFromUrl(url, index),
+        : imageFromUrl(url, index, signal),
     ),
   );
 
@@ -280,11 +288,13 @@ export const generateOpenRouterImages = async ({
   request,
   projectPath,
   customModels = [],
+  signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
   customModels?: readonly CustomProviderModel[];
+  signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const adapter = getProviderRequestAdapter({
     provider: "openrouter",
@@ -349,8 +359,9 @@ export const generateOpenRouterImages = async ({
   });
 
   try {
-    const response = await fetch(OPENROUTER_CHAT_COMPLETIONS_URL, {
+    const response = await providerFetch(OPENROUTER_CHAT_COMPLETIONS_URL, {
       method: "POST",
+      signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -372,6 +383,7 @@ export const generateOpenRouterImages = async ({
 
     const images = await ensureOpenRouterImages(
       (await response.json()) as OpenRouterImageResponse,
+      signal,
     );
 
     const generationResponse: GenerationResponse = {

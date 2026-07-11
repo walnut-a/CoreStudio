@@ -1,5 +1,8 @@
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
-import type { ImageSourceType } from "../shared/projectTypes";
+import type {
+  ImageGenerationOrigin,
+  ImageSourceType,
+} from "../shared/projectTypes";
 import type { ProviderId, ProviderSettings } from "../shared/providerTypes";
 
 export const DESKTOP_APP_NAME = "CoreStudio";
@@ -25,20 +28,23 @@ export const copy = {
     title: "选择项目开始",
     description:
       "新建一个本地项目，或打开之前的项目。画板、图片、提示词和生成记录都会保存在项目文件夹里。",
-    recentTitle: "最近打开",
-    recentEmpty: "还没有最近打开的项目。",
+    recentTitle: "项目列表",
+    recentEmpty: "还没有项目，先新建或打开一个项目。",
     lastOpenedAt: "上次打开",
     continueLastProject: "继续最近项目",
+    deleteProject: "删除项目",
+    deleteProjectRecordOnly: "仅删除记录",
+    revealProjectForManualDelete: "在文件管理器中显示",
+    cancelDeleteProject: "取消",
+    deleteProjectRecordHint: "这只会从项目列表移除记录，不会删除本地项目文件夹。",
+    deleteProjectManualHint:
+      "如果要真实删除数据，请在文件管理器中手动删除项目文件夹。",
     creating: "创建中...",
     newProject: "新建项目",
     opening: "打开中...",
     openProject: "打开项目",
   },
   toolbar: {
-    openProject: "打开项目",
-    importImages: "导入图片",
-    revealProject: "显示文件夹",
-    providers: "模型服务",
     generateImage: "生成图片",
   },
   generateDialog: {
@@ -112,6 +118,7 @@ export const copy = {
     referenceTextTitle: "选中文字",
     keepOpen: "生成后保持弹窗打开",
     cancel: "取消",
+    cancelGeneration: "停止生成",
     generating: "生成中...",
     generate: "开始生成",
     generateCompact: "生成",
@@ -147,6 +154,7 @@ export const copy = {
     taskRawError: "原始报错",
     taskStack: "调用堆栈",
     source: "来源",
+    imageId: "图片 ID",
     parentImage: "来源图片",
     chainTitle: "编辑链",
     currentImage: "当前图片",
@@ -154,9 +162,12 @@ export const copy = {
     locateImage: "定位到图片",
     provider: "模型服务",
     importedProvider: "导入",
+    externalAgentProvider: "外部 Agent",
+    unrecordedProvider: "未记录",
     detailsTitle: "生成参数",
     model: "模型",
     prompt: "提示词",
+    promptReferences: "参考图",
     negativePrompt: "反向提示词",
     seed: "种子",
     size: "尺寸",
@@ -216,12 +227,13 @@ export const copy = {
     file: "文件",
     newProject: "新建项目",
     openProject: "打开项目",
+    switchProject: "切换项目...",
     openProjectSafe: "安全模式打开项目",
     recentProjects: "最近项目",
     version: "版本",
     projectMaintenance: "项目维护",
     inspectProjectHealth: "检查当前项目健康",
-    repairProjectThumbnails: "修复当前项目缩略图",
+    repairProjectThumbnails: "修复当前项目数据",
     cleanProjectCache: "清理当前项目缓存",
     importImages: "导入图片",
     revealProject: "显示项目文件夹",
@@ -229,6 +241,9 @@ export const copy = {
     generateImage: "生成图片",
     providers: "模型服务",
     edit: "编辑",
+    settings: "设置",
+    allowAgentAccess: "启用 Agent 集成",
+    appSettings: "应用设置",
     quit: `退出 ${DESKTOP_APP_NAME}`,
     help: "帮助",
     viewUpdates: "查看更新",
@@ -236,37 +251,42 @@ export const copy = {
   },
   projectRepair: {
     noProject: "请先打开一个项目。",
-    noImages: "当前项目没有图片资源需要修复。",
+    noImages: "当前项目没有需要处理的图片资源。",
     healthCheckFailed: "当前项目健康检查失败。",
-    healthChecking: "正在检查当前项目",
-    healthHealthy: (imageCount: number) =>
-      `项目检查完成：${imageCount} 张图片资源状态正常。`,
+    healthChecking: "正在检查项目数据",
+    healthHealthy: (imageCount: number, generationRecordCount = 0) =>
+      generationRecordCount
+        ? `项目检查完成：${imageCount} 张图片资源、${generationRecordCount} 条生成记录与画板一致。`
+        : `项目检查完成：${imageCount} 张图片资源与画板一致。`,
+    healthHasInfo: (infoCount: number) =>
+      `项目检查完成：没有错误或警告，另有 ${infoCount} 条说明可查看。`,
     healthNeedsRepair: (
       errorCount: number,
       warningCount: number,
       repairableCount: number,
     ) =>
-      `项目检查完成：发现 ${errorCount} 个错误、${warningCount} 个警告，其中 ${repairableCount} 项可修复。`,
-    thumbnailsFailed: "当前项目缩略图修复失败。",
+      `项目检查完成：发现 ${errorCount} 个错误、${warningCount} 个警告，其中 ${repairableCount} 项可通过项目数据修复处理。`,
+    thumbnailsFailed: "项目数据修复未完成。",
     cacheCleanFailed: "当前项目缓存清理失败。",
     cacheCleaned: (removedCount: number, removedBytes: number) =>
       removedCount
-        ? `项目缓存清理完成：删除 ${removedCount} 个缓存文件，释放 ${formatFileSize(removedBytes)}。`
+        ? `项目缓存清理完成：删除 ${removedCount} 个缓存文件，释放 ${formatFileSize(
+            removedBytes,
+          )}。`
         : "项目缓存清理完成：没有需要删除的缓存文件。",
-    safeModeOpened: "已用安全模式打开项目，已跳过缩略图加载和后台修复。",
+    safeModeOpened: "已用安全模式打开项目，已暂停缓存加载和后台数据修复。",
     thumbnailsRepaired: (
-      generatedCount: number,
-      skippedCount: number,
+      _generatedCount: number,
+      _skippedCount: number,
       failedCount: number,
-      backupPath?: string | null,
+      _backupPath?: string | null,
+      _repairedGenerationRecordCount = 0,
+      _restoredImageRecordCount = 0,
+      skippedImageRecordCount = 0,
     ) =>
-      failedCount
-        ? `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张，失败 ${failedCount} 张。${
-            backupPath ? " 已备份项目索引。" : ""
-          }`
-        : `缩略图修复完成：重新生成 ${generatedCount} 张，跳过 ${skippedCount} 张。${
-            backupPath ? " 已备份项目索引。" : ""
-          }`,
+      failedCount || skippedImageRecordCount
+        ? "项目数据修复完成，部分图片需要再确认。"
+        : "项目数据修复完成。",
   },
 } as const;
 
@@ -307,6 +327,12 @@ const imageSourceLabels: Record<ImageSourceType, string> = {
   imported: "导入",
 };
 
+const imageGenerationOriginLabels: Record<ImageGenerationOrigin, string> = {
+  corestudio: "CoreStudio 生成",
+  "agent-board": "内置画板 Agent",
+  "acp-agent": "ACP Agent",
+};
+
 const providerStatusLabels: Record<
   NonNullable<ProviderSettings["lastStatus"]>,
   string
@@ -318,6 +344,10 @@ const providerStatusLabels: Record<
 
 export const getImageSourceLabel = (sourceType: ImageSourceType) =>
   imageSourceLabels[sourceType];
+
+export const getImageGenerationOriginLabel = (
+  origin: ImageGenerationOrigin | undefined,
+) => (origin ? imageGenerationOriginLabels[origin] : null);
 
 export const getProviderStatusLabel = (
   settings: PublicProviderSettings[ProviderId] | undefined,

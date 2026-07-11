@@ -1,0 +1,118 @@
+import { describe, expect, it } from "vitest";
+
+import { getAgentImageAssetsFromPayload } from "./agentCommandImageAssets";
+
+describe("agentCommandImageAssets", () => {
+  it("normalizes ACP generated image provenance and references from the root payload", () => {
+    const assets = getAgentImageAssetsFromPayload({
+      projectPath: "/tmp/corestudio-project",
+      generationOrigin: "acp-agent",
+      generationTaskId: "task-1",
+      generationThreadId: "thread-1",
+      prompt: "优化桌面 CNC",
+      referenceFileIds: ["source-file"],
+      referenceElementIds: ["source-element"],
+      fileId: "input-file",
+      mimeType: "image/png",
+      dataBase64: Buffer.from("image").toString("base64"),
+      width: 512,
+      height: 512,
+    });
+
+    expect(assets).toMatchObject([
+      {
+        fileId: expect.stringMatching(/^agent-/),
+        mimeType: "image/png",
+        dataBase64: Buffer.from("image").toString("base64"),
+        width: 512,
+        height: 512,
+        sourceType: "generated",
+        generationOrigin: "acp-agent",
+        generationTaskId: "task-1",
+        generationThreadId: "thread-1",
+        prompt: "优化桌面 CNC",
+        promptReferences: [
+          {
+            id: "agent-reference-1",
+            index: 1,
+            label: "参考图 1",
+            kind: "image",
+            fileIds: ["source-file"],
+            elementIds: ["source-element"],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("applies root defaults to each file in a files payload", () => {
+    const assets = getAgentImageAssetsFromPayload({
+      generationOrigin: "acp-agent",
+      generationTaskId: "task-1",
+      generationThreadId: "thread-1",
+      prompt: "生成一组方案",
+      files: [
+        {
+          fileId: "input-file-1",
+          mimeType: "image/png",
+          dataBase64: "image-1",
+          width: 512,
+          height: 512,
+        },
+        {
+          fileId: "input-file-2",
+          mimeType: "image/png",
+          dataBase64: "image-2",
+          width: 768,
+          height: 512,
+          prompt: "第二张单独提示词",
+        },
+      ],
+    });
+
+    expect(assets).toHaveLength(2);
+    expect(assets).toEqual([
+      expect.objectContaining({
+        sourceType: "generated",
+        generationOrigin: "acp-agent",
+        generationTaskId: "task-1",
+        generationThreadId: "thread-1",
+        prompt: "生成一组方案",
+      }),
+      expect.objectContaining({
+        sourceType: "generated",
+        generationOrigin: "acp-agent",
+        generationTaskId: "task-1",
+        generationThreadId: "thread-1",
+        prompt: "第二张单独提示词",
+      }),
+    ]);
+  });
+
+  it("rejects invalid generation origin before producing assets", () => {
+    expect(() =>
+      getAgentImageAssetsFromPayload({
+        generationOrigin: "manual",
+        fileId: "input-file",
+        mimeType: "image/png",
+        dataBase64: "image",
+        width: 512,
+        height: 512,
+      }),
+    ).toThrow("图片生成来源格式不正确。");
+  });
+
+  it("rejects empty explicit reference ids", () => {
+    expect(() =>
+      getAgentImageAssetsFromPayload({
+        generationOrigin: "acp-agent",
+        referenceFileIds: " , ",
+        fileId: "input-file",
+        mimeType: "image/png",
+        dataBase64: "image",
+        width: 512,
+        height: 512,
+      }),
+    ).toThrow("referenceFileIds 不能为空。");
+  });
+});

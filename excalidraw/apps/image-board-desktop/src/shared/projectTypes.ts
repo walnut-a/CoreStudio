@@ -11,6 +11,7 @@ export const PROJECT_FILENAMES = {
 } as const;
 
 export type ImageSourceType = "generated" | "imported";
+export type ImageGenerationOrigin = "corestudio" | "agent-board" | "acp-agent";
 export type ImageAssetRendition =
   | "original"
   | "thumbnail"
@@ -43,17 +44,26 @@ export interface ProjectManifest {
   imageRecordsFile: string;
   assetsDir: string;
   exportsDir: string;
+  agentAccess: ProjectAgentAccess;
+}
+
+export interface ProjectAgentAccess {
+  token: string;
+  enabled: boolean;
 }
 
 export interface ImageRecord {
   fileId: string;
   assetPath: string;
   sourceType: ImageSourceType;
+  generationOrigin?: ImageGenerationOrigin;
   provider?: ProviderId;
   model?: string;
   prompt?: string;
   negativePrompt?: string;
   seed?: number | null;
+  generationTaskId?: string | null;
+  generationThreadId?: string | null;
   width: number;
   height: number;
   createdAt: string;
@@ -64,3 +74,18 @@ export interface ImageRecord {
 }
 
 export type ImageRecordMap = Record<string, ImageRecord>;
+
+export interface ProjectImageWritebackTransaction {
+  transactionId: string;
+  projectPath: string;
+  fileIds: string[];
+  imageRecords: ImageRecordMap;
+}
+
+export interface ProjectImageWritebackJournal {
+  schemaVersion: 1;
+  transactionId: string;
+  createdAt: string;
+  previousRecords: Record<string, ImageRecord | null>;
+  nextRecords: ImageRecordMap;
+}

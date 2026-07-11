@@ -1,0 +1,83 @@
+import fs from "fs/promises";
+import path from "path";
+
+import { app } from "electron";
+
+import {
+  getDefaultAcpAgentSettings,
+  isAcpAgentPresetId,
+  normalizeAcpTaskInstructionTemplate,
+  normalizeAcpAgentSettings,
+  type AcpAgentSettings,
+} from "../../src/shared/acpTypes";
+
+const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
+const ACP_AGENT_SETTINGS_FILE_NAME = "acp-agent-settings.json";
+
+const getAcpAgentSettingsPath = () =>
+  path.join(
+    app.getPath("appData"),
+    SETTINGS_DIRECTORY_NAME,
+    ACP_AGENT_SETTINGS_FILE_NAME,
+  );
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const readSettingsShape = (value: unknown): AcpAgentSettings => {
+  if (!isRecord(value)) {
+    return getDefaultAcpAgentSettings();
+  }
+
+  return {
+    enabled: value.enabled === true,
+    defaultAgentId:
+      typeof value.defaultAgentId === "string" ? value.defaultAgentId : null,
+    taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
+      value.taskInstructionTemplate,
+    ),
+    agents: Array.isArray(value.agents)
+      ? value.agents.map((agent) => {
+          const record = isRecord(agent) ? agent : null;
+          return {
+            id: typeof record?.id === "string" ? record.id : "",
+            presetId:
+              typeof record?.presetId === "string" &&
+              isAcpAgentPresetId(record.presetId)
+                ? record.presetId
+                : null,
+            name: typeof record?.name === "string" ? record.name : "",
+            command: typeof record?.command === "string" ? record.command : "",
+            args: Array.isArray(record?.args) ? record.args.map(String) : [],
+            cwd: typeof record?.cwd === "string" ? record.cwd : null,
+          };
+        })
+      : [],
+  };
+};
+
+export const loadAcpAgentSettings = async (): Promise<AcpAgentSettings> => {
+  try {
+    const contents = await fs.readFile(getAcpAgentSettingsPath(), "utf8");
+    return normalizeAcpAgentSettings(readSettingsShape(JSON.parse(contents)));
+  } catch (error: any) {
+    if (error.code === "ENOENT") {
+      return getDefaultAcpAgentSettings();
+    }
+    throw error;
+  }
+};
+
+export const saveAcpAgentSettings = async (
+  settings: AcpAgentSettings,
+): Promise<AcpAgentSettings> => {
+  const normalizedSettings = normalizeAcpAgentSettings(settings);
+  const settingsPath = getAcpAgentSettingsPath();
+  await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+  await fs.writeFile(
+    settingsPath,
+    JSON.stringify(normalizedSettings, null, 2),
+    "utf8",
+  );
+  return normalizedSettings;
+};

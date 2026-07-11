@@ -1,0 +1,82 @@
+import type { AcpThreadSummary } from "../../shared/acpTypes";
+
+interface AgentThreadListProps {
+  summaries: readonly AcpThreadSummary[];
+  activeThreadId: string | null;
+  loading?: boolean;
+  error?: string | null;
+  actionsDisabled?: boolean;
+  onSelectThread: (threadId: string) => Promise<void> | void;
+}
+
+const getThreadStatusLabel = (status: AcpThreadSummary["status"]) => {
+  switch (status) {
+    case "completed":
+      return "已完成";
+    case "failed":
+      return "失败";
+    case "cancelled":
+      return "已取消";
+    case "running":
+    default:
+      return "运行中";
+  }
+};
+
+const getThreadTimeLabel = (updatedAt: string) => {
+  const date = new Date(updatedAt);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+export const AgentThreadList = ({
+  summaries,
+  activeThreadId,
+  loading = false,
+  error = null,
+  actionsDisabled = false,
+  onSelectThread,
+}: AgentThreadListProps) => {
+  if (error) {
+    return <p className="agent-conversation-sidebar__threads-note">{error}</p>;
+  }
+
+  if (loading) {
+    return <p className="agent-conversation-sidebar__threads-note">同步中</p>;
+  }
+
+  if (!summaries.length) {
+    return (
+      <p className="agent-conversation-sidebar__threads-note">暂无历史对话</p>
+    );
+  }
+
+  return (
+    <div className="agent-conversation-sidebar__thread-list">
+      {summaries.map((thread) => {
+        const timeLabel = getThreadTimeLabel(thread.updatedAt);
+        return (
+          <button
+            key={thread.threadId}
+            type="button"
+            className="agent-conversation-sidebar__thread"
+            aria-pressed={thread.threadId === activeThreadId}
+            disabled={actionsDisabled}
+            onClick={() => void onSelectThread(thread.threadId)}
+          >
+            <strong>{thread.title || "未命名对话"}</strong>
+            <span>
+              {getThreadStatusLabel(thread.status)}
+              {timeLabel ? ` · ${timeLabel}` : ""}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};

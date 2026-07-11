@@ -14,6 +14,7 @@ import {
   buildGenerateContentRequestSummary,
   buildImagePayload,
   buildOutputFileName,
+  clampImageCount,
   ensureGenerateContentImages,
   getExplicitAspectRatio,
   prepareReferenceImageForUpload,
@@ -25,6 +26,7 @@ import {
   getEnabledReference,
   getEnabledPromptReferences,
 } from "./promptUtils";
+import { providerFetch } from "./providerFetch";
 
 import type {
   CustomProviderModel,
@@ -178,6 +180,7 @@ const buildZenMuxVertexImageRequestSummary = ({
   aspectRatio,
   size,
   referenceImageCount,
+  imageCount,
 }: {
   request: GenerationRequest;
   prompt: string;
@@ -186,6 +189,7 @@ const buildZenMuxVertexImageRequestSummary = ({
   aspectRatio: string | null;
   size: string | null;
   referenceImageCount: number;
+  imageCount: number;
 }) =>
   [
     "provider=zenmux",
@@ -196,6 +200,7 @@ const buildZenMuxVertexImageRequestSummary = ({
     `尺寸=${request.width}x${request.height}`,
     `aspectRatio=${aspectRatio || "自动"}`,
     `size=${size || "自动"}`,
+    `数量=${imageCount}`,
     `prompt长度=${prompt.length}`,
     `prompt预览=${truncateText(prompt || "空", 80)}`,
     `引用=${referenceImageCount ? "已启用" : "未启用"}`,
@@ -210,6 +215,7 @@ const buildZenMuxVertexImageRequestPayload = ({
   size,
   selectedSize,
   images,
+  imageCount,
 }: {
   request: GenerationRequest;
   prompt: string;
@@ -224,6 +230,7 @@ const buildZenMuxVertexImageRequestPayload = ({
     mimeType: string;
     dataBase64: string;
   }>;
+  imageCount: number;
 }) => {
   return JSON.stringify(
     {
@@ -246,7 +253,7 @@ const buildZenMuxVertexImageRequestPayload = ({
           : null,
       },
       config: {
-        numberOfImages: 1,
+        numberOfImages: imageCount,
         ...(size ? { imageSize: size } : {}),
       },
       reference: images.length
@@ -267,6 +274,7 @@ const buildZenMuxVertexPredictBody = ({
   aspectRatio,
   size,
   images,
+  imageCount,
 }: {
   prompt: string;
   aspectRatio: string | null;
@@ -275,6 +283,7 @@ const buildZenMuxVertexPredictBody = ({
     mimeType: string;
     dataBase64: string;
   }>;
+  imageCount: number;
 }) => ({
   instances: [
     {
@@ -294,7 +303,7 @@ const buildZenMuxVertexPredictBody = ({
     },
   ],
   parameters: {
-    sampleCount: 1,
+    sampleCount: imageCount,
     ...(size ? { sampleImageSize: size } : {}),
     outputOptions: {
       mimeType: "image/png",
@@ -308,12 +317,14 @@ const generateZenMuxOpenAICompatibleImages = async ({
   projectPath,
   adapter,
   customModels = [],
+  signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
   adapter: ProviderRequestAdapter;
   customModels?: readonly CustomProviderModel[];
+  signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
@@ -330,6 +341,7 @@ const generateZenMuxOpenAICompatibleImages = async ({
   const size = selectedSize
     ? `${selectedSize.width}x${selectedSize.height}`
     : null;
+  const imageCount = clampImageCount(request, 10);
   const operation = uploadReferenceImages.length
     ? "editImage"
     : "generateImages";
@@ -341,6 +353,7 @@ const generateZenMuxOpenAICompatibleImages = async ({
     aspectRatio,
     size,
     referenceImageCount: uploadReferenceImages.length,
+    imageCount,
   });
   const requestPayload = buildZenMuxVertexImageRequestPayload({
     request,
@@ -350,6 +363,7 @@ const generateZenMuxOpenAICompatibleImages = async ({
     size,
     selectedSize,
     images: uploadReferenceImages,
+    imageCount,
   });
   const endpoint = getZenMuxVertexPredictEndpoint(request.model);
   const body = buildZenMuxVertexPredictBody({
@@ -357,11 +371,13 @@ const generateZenMuxOpenAICompatibleImages = async ({
     aspectRatio,
     size,
     images: uploadReferenceImages,
+    imageCount,
   });
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await providerFetch(endpoint, {
       method: "POST",
+      signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -421,11 +437,13 @@ export const generateZenMuxImages = async ({
   request,
   projectPath,
   customModels = [],
+  signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
   customModels?: readonly CustomProviderModel[];
+  signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const adapter = getProviderRequestAdapter({
     provider: "zenmux",
@@ -440,6 +458,7 @@ export const generateZenMuxImages = async ({
       projectPath,
       adapter,
       customModels,
+      signal,
     });
   }
 

@@ -31,3 +31,39 @@ export const copyPlainTextToClipboard = async (text: string) => {
 
   return copyWithExecCommand(text);
 };
+
+export const copyPlainTextWithFailureMessage = async ({
+  text,
+  failureMessage,
+  copyText = copyPlainTextToClipboard,
+  onError,
+}: {
+  text: string;
+  failureMessage: string;
+  copyText?: (text: string) => Promise<boolean>;
+  onError: (message: string) => void;
+}) => {
+  const copied = await copyText(text);
+  if (!copied) {
+    onError(failureMessage);
+  }
+  return copied;
+};
+
+export const createPlainTextClipboardRendererActions = ({
+  failureMessage,
+  copyText,
+  onError,
+}: {
+  failureMessage: string;
+  copyText?: (text: string) => Promise<boolean>;
+  onError: (message: string) => void;
+}) => ({
+  copy: (text: string) =>
+    copyPlainTextWithFailureMessage({
+      text,
+      failureMessage,
+      copyText,
+      onError,
+    }),
+});

@@ -89,6 +89,9 @@ if (isDevEnv()) {
 let currentLang: Language = defaultLang;
 let currentLangData = {};
 
+export const normalizeImportedLocaleData = (data: any) =>
+  data && typeof data === "object" && "default" in data ? data.default : data;
+
 export const setLanguage = async (lang: Language) => {
   currentLang = lang;
   document.documentElement.dir = currentLang.rtl ? "rtl" : "ltr";
@@ -98,7 +101,9 @@ export const setLanguage = async (lang: Language) => {
     currentLangData = {};
   } else {
     try {
-      currentLangData = await import(`./locales/${currentLang.code}.json`);
+      currentLangData = normalizeImportedLocaleData(
+        await import(`./locales/${currentLang.code}.json`),
+      );
     } catch (error: any) {
       console.error(`Failed to load language ${lang.code}:`, error.message);
       currentLangData = fallbackLangData;

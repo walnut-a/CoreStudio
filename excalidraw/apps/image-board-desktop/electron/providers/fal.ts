@@ -13,6 +13,7 @@ import {
   getEnabledPromptReferences,
   toDataUri,
 } from "./promptUtils";
+import { providerFetch } from "./providerFetch";
 
 import type {
   GenerationRequest,
@@ -73,10 +74,12 @@ export const generateFalImages = async ({
   apiKey,
   request,
   projectPath,
+  signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
+  signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
@@ -149,8 +152,9 @@ export const generateFalImages = async ({
 
   let response;
   try {
-    response = await fetch(`https://fal.run/${endpoint}`, {
+    response = await providerFetch(`https://fal.run/${endpoint}`, {
       method: "POST",
+      signal,
       headers: {
         Authorization: `Key ${apiKey}`,
         "Content-Type": "application/json",
@@ -178,7 +182,7 @@ export const generateFalImages = async ({
     const data = (await response.json()) as FalImageResponse;
     const images = await Promise.all(
       (data.images || []).map(async (image, index) => {
-        const imageResponse = await fetch(image.url);
+        const imageResponse = await providerFetch(image.url, { signal });
         const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
         return buildImagePayload({
           dataBase64: imageBuffer.toString("base64"),

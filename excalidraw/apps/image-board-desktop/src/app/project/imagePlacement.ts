@@ -12,6 +12,12 @@ export interface SceneBounds {
 
 export interface ImagePlacement extends SceneBounds {}
 
+export interface GeneratedImagePlacementViewport {
+  viewportCenter: { x: number; y: number };
+  viewportSize: { width: number; height: number };
+  zoomValue: number;
+}
+
 interface PlaceGeneratedImagesArgs {
   images: GeneratedImageGeometry[];
   viewportCenter: { x: number; y: number };
@@ -64,6 +70,30 @@ export const measureBatchBounds = (
     width: right - left,
     height: bottom - top,
   };
+};
+
+export const resolveGeneratedImagePlacementViewport = ({
+  explicitViewport,
+  appViewport,
+}: {
+  explicitViewport?: GeneratedImagePlacementViewport | null;
+  appViewport: GeneratedImagePlacementViewport;
+}): GeneratedImagePlacementViewport => explicitViewport ?? appViewport;
+
+export const getGeneratedImagePreviousBatchBounds = ({
+  anchorBounds,
+  anchorPoint,
+  previousBatchBounds,
+}: {
+  anchorBounds?: SceneBounds | null;
+  anchorPoint?: { x: number; y: number } | null;
+  previousBatchBounds?: SceneBounds | null;
+}): SceneBounds | null => {
+  if (anchorBounds || anchorPoint) {
+    return null;
+  }
+
+  return previousBatchBounds ?? null;
 };
 
 const rectanglesOverlap = (

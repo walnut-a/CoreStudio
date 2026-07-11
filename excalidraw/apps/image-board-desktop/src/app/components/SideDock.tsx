@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import "./SideDock.css";
 import { closeIcon, leftDockIcon, rightDockIcon } from "./CoreStudioIcons";
 
 interface SideDockProps {
@@ -7,6 +8,7 @@ interface SideDockProps {
   title: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  headerActions?: ReactNode;
   children: ReactNode;
 }
 
@@ -15,6 +17,7 @@ export const SideDock = ({
   title,
   open,
   onOpenChange,
+  headerActions,
   children,
 }: SideDockProps) => {
   const closeLabel = `关闭${title}`;
@@ -40,6 +43,9 @@ export const SideDock = ({
         <div className="side-dock__panel">
           <header className="side-dock__header">
             <h2>{title}</h2>
+            {headerActions ? (
+              <div className="side-dock__header-actions">{headerActions}</div>
+            ) : null}
             <button
               type="button"
               className="side-dock__close"

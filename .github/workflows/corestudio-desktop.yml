@@ -1,0 +1,43 @@
+name: CoreStudio Desktop Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "walnut/**"
+
+jobs:
+  desktop:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: excalidraw
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: excalidraw/yarn.lock
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: corepack yarn install --frozen-lockfile
+
+      - name: Typecheck
+        run: corepack yarn test:typecheck
+
+      - name: Desktop tests
+        run: corepack yarn test:desktop --run
+
+      - name: Secret scan
+        run: corepack yarn check:desktop-secrets --source --package-inputs
+
+      - name: Build desktop
+        run: corepack yarn build:desktop

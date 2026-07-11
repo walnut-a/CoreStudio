@@ -1,52 +1,16 @@
 import {
-  Component,
-  type ErrorInfo,
-  type ReactNode,
+  Suspense,
+  lazy,
+  useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
-import {
-  CaptureUpdateAction,
-  Excalidraw,
-} from "@excalidraw/excalidraw";
-import {
-  getCommonBounds,
-  newElementWith,
-  newFrameElement,
-  newImageElement,
-  newTextElement,
-} from "@excalidraw/element";
-import type {
-  ExcalidrawElement,
-  FileId,
-} from "@excalidraw/element/types";
+import type { ExcalidrawElement } from "@excalidraw/element/types";
+import { CaptureUpdateAction } from "@excalidraw/element";
 
-import {
-  getProviderDefinition,
-  isAutoAspectRatioRequest,
-  normalizeGenerationRequest,
-} from "../shared/providerCatalog";
-import {
-  buildImagePromptReferenceRecords,
-  buildPromptTextWithInlineReferences,
-} from "../shared/promptReferences";
-import type {
-  DesktopAppInfo,
-  DesktopProjectBundle,
-  PersistedImageAssetInput,
-  ProjectAssetPayload,
-  PublicProviderSettings,
-  RecentProjectEntry,
-  SavedPrompt,
-  SavePromptInput,
-} from "../shared/desktopBridgeTypes";
-import type {
-  ImageAssetRequestRendition,
-  ImagePromptReferenceRecord,
-  ImageRecord,
-} from "../shared/projectTypes";
 import type {
   AppState,
   BinaryFileData,
@@ -55,531 +19,295 @@ import type {
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
-import type { GenerationRequest } from "../shared/providerTypes";
 
-import { maybeGetDesktopBridge } from "./desktopBridge";
-import { syncSelectionReferenceIntoRequest } from "./generationRequestState";
+import { buildAgentBrowserRouteState } from "./agent/agentBrowserBridge";
 import {
-  normalizeGeneratedImageDimensions,
-  placeGeneratedImages,
-  measureBatchBounds,
+  createAutosaveLifecycleRendererActions,
+  createAutosaveRendererActions,
+  type AutosaveSnapshot as ProjectAutosaveSnapshot,
+} from "./autosaveProjectState";
+import {
+  createAutosaveSnapshotWriteRendererActions,
+} from "./autosaveSnapshotWriteController";
+import {
+  createQueuedExcalidrawBinaryFilesRendererActions,
+} from "./canvasImageAssetState";
+import {
+  createCanvasSceneChangeRendererActions,
+} from "./canvasSceneChangeRendererController";
+import { maybeGetDesktopBridge } from "./desktopBridge";
+import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
+import { createDesktopStartupRendererActions } from "./desktopStartupState";
+import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleController";
+import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
+import {
+  createSavedPromptLibraryRendererActions,
+} from "./generatePromptLibraryActions";
+import {
+  createGenerationRequestRendererActions,
+} from "./generationRequestRendererController";
+import {
+  runBuiltinGenerationCancelRendererAction,
+  runBuiltinGenerationRendererAction,
+} from "./builtinGenerationRendererController";
+import { createGenerationSubmitRendererActions } from "./generationSubmitRendererController";
+import {
+  type GeneratedImagePlacementViewport,
+  type SceneBounds,
 } from "./project/imagePlacement";
 import {
-  ENABLE_WORKSPACE_BOUNDS,
-  getWorkspaceFitZoom,
-  getWorkspaceBounds,
-  resolveWorkspaceZoomGate,
+  createWorkspaceFitPulseRendererActions,
+  createWorkspaceOverlayRendererActions,
+  createWorkspaceZoomSnapRendererActions,
+  createWorkspaceZoomGateState,
   type WorkspaceBounds,
+  type WorkspaceOverlayState,
   type WorkspaceZoomGateState,
 } from "./workspaceBounds";
+import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
 import {
-  deserializeSceneFromProject,
   serializeSceneForProject,
 } from "./project/sceneSerialization";
 import {
+  shouldApplyProjectMaintenanceResult,
+  type ProjectRepairReport,
+  type ThumbnailMaintenanceState,
+} from "./project/projectMaintenanceController";
+import { createProjectImageAssetReader } from "./projectImageAssetReader";
+import {
+  createProjectMaintenanceActionStateRendererApplier,
+  createProjectMaintenanceRendererActions,
+  createProjectThumbnailAssetRefreshRendererActions,
+  createProjectThumbnailRebuildRendererActions,
+} from "./project/projectMaintenanceActionsController";
+import { createDesktopProjectRepairSceneRefreshRendererActions } from "./projectRepairSceneRefreshRendererController";
+import { createDesktopProjectAssetSceneApplyRendererAction } from "./projectAssetSceneApplyRendererController";
+import {
+  createGenerationModelSelectionRendererActions,
   readRememberedGenerationModelSelection,
-  rememberGenerationModelSelection,
-  resolvePreferredGenerationModelSelection,
-  type GenerationModelSelection,
 } from "./generationModelSelection";
-import { copyPlainTextToClipboard } from "./clipboardText";
-import { loadProviderSettingsWithRetry } from "./providerSettingsLoader";
+import { createPlainTextClipboardRendererActions } from "./clipboardText";
+import {
+  formatProjectCreateError,
+  formatProjectImportImagesError,
+  formatProjectOpenError,
+  formatProjectRevealError,
+  formatProjectSaveBeforeOpenError,
+  formatProjectSaveError,
+} from "./currentProjectState";
+import {
+  createCurrentProjectAutosaveFailureRendererActions,
+  createCurrentProjectEditorInitializingRendererActions,
+  createCurrentProjectOpenSequenceRendererActions,
+  createCurrentProjectEditorReadyRendererActions,
+  createCurrentProjectRenderBoundaryRendererActions,
+  createCurrentProjectBundleOpenRendererActions,
+  createCurrentProjectEntryRendererActions,
+  createCurrentProjectUpdateRendererActions,
+  createProjectViewClearRendererActions,
+  runCurrentProjectCommandStartAction,
+} from "./currentProjectApplyController";
+import { createProviderSettingsRendererActions } from "./providerSettingsLoader";
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
+import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
+import { buildSelectedImageRelationshipState } from "./imageRecordState";
 import {
-  getImageAncestors,
-  getImageDescendants,
-} from "./imageRelationships";
+  createProjectImageAssetPersistenceRendererActions,
+} from "./projectImageAssetPersistenceController";
 import {
-  getImageRenditionRequestsNearViewport,
-  IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
-} from "./imageRenditions";
+  createProjectImageImportRendererActions,
+} from "./projectImageImportController";
 import {
-  buildSelectedGenerationTask,
-  buildSelectedImageRecord,
-} from "./selectionState";
+  createProjectImageStateResetRendererActions,
+} from "./projectImageStateResetRendererActions";
+import { createImageRecordLocatorRendererActions } from "./imageRecordLocator";
+import { IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS } from "./imageRenditions";
 import {
-  buildSelectionReference,
-  buildSelectionReferenceSummary,
-  getSelectionReferenceSignature,
-  getSelectedReferenceElements,
+  createVisibleImageRenditionLoadRendererActions,
+} from "./imageRenditionLoadPlan";
+import { createViewportChangeRendererActions } from "./viewportChangeRendererController";
+import { createSelectedInspectorRendererActions } from "./selectedInspectorRendererActions";
+import {
+  createSelectionReferenceOriginalSceneRendererActions,
 } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
+import { useDesktopStartupWiring } from "./useDesktopStartupWiring";
+import { useProjectAutosaveWiring } from "./useProjectAutosaveWiring";
+import { useAcpAgentWiring } from "./useAcpAgentWiring";
+import { useAgentBridgeWiring } from "./useAgentBridgeWiring";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
-import { ImageSidebar } from "./components/ImageSidebar";
-import type { GenerationTaskRecord } from "./components/ImageInspector";
-import { SideDock } from "./components/SideDock";
-import { DesktopButton } from "./components/DesktopButton";
-import { TopBar } from "./components/TopBar";
-import { WelcomePane } from "./components/WelcomePane";
+import { AgentStatusDock } from "./components/AgentStatusDock";
+import { AgentBoardStartupPane } from "./components/AgentBoardStartupPane";
+import { AppBridgeUnavailable } from "./components/AppBridgeUnavailable";
+import { AgentConversationSidebar } from "./components/AgentConversationSidebar";
+import { InspectorSidebar } from "./components/InspectorSidebar";
+import { AppErrorBanners } from "./components/AppErrorBanners";
+import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
+import { AppProjectEntryScreen } from "./components/AppProjectEntryScreen";
+import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
+import { ProjectStatusToast } from "./components/ProjectStatusToast";
+import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
+import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
+import {
+  createGenerationTrackingRendererActions,
+  applyPendingGenerationJobRegistryState,
+  type PendingGenerationJob,
+} from "./generationJobState";
+import {
+  type GenerationTaskRecord,
+} from "./generationTaskState";
+import { createBuiltinGenerationJobCompletionRendererActions } from "./builtinGenerationCompletionController";
+import {
+  createPendingGenerationCanvasRendererActions,
+} from "./pendingGenerationCanvasController";
+
+import {
+  buildAgentIntegrationRuntimeViewModel,
+} from "./agent/agentIntegrationViewModel";
+import { createAgentIntegrationCopyShortcutRendererActions } from "./agent/agentIntegrationCopyShortcut";
+import { createAgentIntegrationSettingsDialogRendererActions } from "./agent/agentIntegrationSettingsDialogRendererActions";
+import { createAgentStatusDockRendererActions } from "./agent/agentStatusDockRendererActions";
+import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
+import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
+import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
+import { handleAgentDesktopBridgeRequest } from "./agent/agentDesktopBridgeRequest";
+import { canStartAcpAgentTask } from "./agent/acpTaskStarter";
+import { createAcpTaskStartRendererActions } from "./agent/acpTaskStartController";
+import {
+  getRunningAcpAgentTaskId,
+  isAcpAgentTaskRunning,
+} from "./agent/acpTaskUiState";
+import { createAcpTaskEventSubscriptionRendererActions } from "./agent/acpTaskEventSubscriptionController";
+import {
+  createGenerationErrorStateApplier,
+  createGenerationErrorRendererActions,
+} from "./generationErrorController";
+import {
+  type GenerationErrorDetails,
+} from "./generationErrorViewModel";
+import {
+  buildGenerationSidebarRecordItems,
+  createGenerationRecordRendererActions,
+} from "./generationRecordViewModel";
+import {
+  createTimedNoticeRendererActions,
+} from "./noticeTimerController";
+import { buildDefaultGenerationRequest } from "./generatePromptRequest";
+import {
+  createGenerateDialogReferenceRendererActions,
+} from "./generateDialogReferenceController";
+import {
+  createAcpAgentSettingsRendererActions,
+  useAcpAgentSettingsController,
+} from "./agent/useAcpAgentSettingsController";
+import { useAcpAgentTaskStateController } from "./agent/useAcpAgentTaskStateController";
+import {
+  createAgentBrowserRuntimePublishRendererActions,
+} from "./agent/agentBrowserRuntimePublishController";
+import { createAgentBrowserAutoOpenProjectRendererActions } from "./agent/agentBrowserAutoOpenController";
+import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
+import {
+  canSetAgentBridgeEnabled,
+  getProjectAgentAccessToken,
+  notifyAgentBridgeProjectState,
+} from "./agent/agentBridgeStatus";
+import {
+  applyAgentBridgeStatusCurrentProjectUpdate,
+  createAgentBridgeStatusRendererActions,
+  useAgentBridgeStatusCurrentProjectSyncEffect,
+} from "./agent/agentBridgeStatusController";
+import { useAgentBridgeConnectionStateController } from "./agent/useAgentBridgeConnectionStateController";
+import {
+  buildAgentConversationSurfaceState,
+} from "./agent/agentConversationMode";
+import {
+  createAcpRunLogRendererActions,
+} from "./agent/acpRunLogApplyController";
+import {
+  useAcpRunSummariesAutoLoadEffect,
+  useAcpRunSummariesController,
+} from "./agent/useAcpRunSummariesController";
+import { useAgentRuntimeRefsController } from "./agent/useAgentRuntimeRefsController";
+import { useAgentSurfaceVisibilityController } from "./agent/useAgentSurfaceVisibilityController";
+import {
+  createAcpThreadRendererActions,
+} from "./agent/acpThreadApplyController";
+import { useAcpThreadSummariesController } from "./agent/useAcpThreadSummariesController";
+import {
+  createAcpConversationMessageRendererActions,
+} from "./agent/acpConversationMessageController";
+import { useAcpInteractionTargetsController } from "./agent/useAcpInteractionTargetsController";
+import { useAcpRunLogStateController } from "./agent/useAcpRunLogStateController";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import "./App.css";
 
-const getPromptHistoryText = (request: GenerationRequest) =>
-  buildPromptTextWithInlineReferences(request).trim() || request.prompt;
+import type {
+  GenerationSource,
+} from "../shared/providerTypes";
+import type {
+  ImageAssetRequestRendition,
+  ImagePromptReferenceRecord,
+  ImageRecord,
+} from "../shared/projectTypes";
+import type {
+  DesktopAppInfo,
+  DesktopProjectBundle,
+  PersistedImageAssetInput,
+  ProjectHealthReport,
+  PublicProviderSettings,
+  RecentProjectEntry,
+  SavedPrompt,
+} from "../shared/desktopBridgeTypes";
 
-const createGenerationRequestFromSelection = (
-  selection: GenerationModelSelection,
-  providerSettings: PublicProviderSettings | null,
-): GenerationRequest =>
-  normalizeGenerationRequest(
-    {
-      provider: selection.provider,
-      model: selection.model,
-      prompt: "",
-      negativePrompt: "",
-      aspectRatio: null,
-      width: 1024,
-      height: 1024,
-      seed: null,
-      imageCount: 1,
-      reference: null,
-    },
-    {
-      customModels:
-        providerSettings?.[selection.provider]?.customModels ?? [],
-    },
-  );
+const LazyExcalidraw = lazy(async () => {
+  const { Excalidraw } = await import("@excalidraw/excalidraw");
+  return { default: Excalidraw };
+});
 
-const defaultGenerationRequest = (
-  providerSettings: PublicProviderSettings | null,
-  rememberedSelection: GenerationModelSelection | null,
-): GenerationRequest =>
-  createGenerationRequestFromSelection(
-    resolvePreferredGenerationModelSelection({
-      providerSettings,
-      rememberedSelection,
-    }),
-    providerSettings,
-  );
+const LazyProjectMainMenu = lazy(async () => {
+  const { ProjectMainMenu } = await import("./components/ProjectMainMenu");
+  return { default: ProjectMainMenu };
+});
 
-const extractBase64 = (dataURL: string) => {
-  const [, payload = ""] = dataURL.split(",", 2);
-  return payload;
-};
-
-const hasClipboardFiles = (files: BinaryFiles | undefined) =>
-  Boolean(files && Object.keys(files).length > 0);
-
-const isEmptyClipboardData = (data: ClipboardData) =>
-  !data.elements?.length &&
-  !hasClipboardFiles(data.files) &&
-  !data.mixedContent?.length &&
-  !data.errorMessage &&
-  !(data.text ?? "").trim();
-
-const collectImageFileIds = (elements: readonly ExcalidrawElement[]) => {
-  return elements.reduce((fileIds, element) => {
-    if (
-      !element.isDeleted &&
-      element.type === "image" &&
-      element.fileId
-    ) {
-      fileIds.push(element.fileId);
-    }
-    return fileIds;
-  }, [] as string[]);
-};
-
-const toBinaryFiles = (assets: ProjectAssetPayload[], imageRecords: DesktopProjectBundle["imageRecords"]): BinaryFiles =>
-  assets.reduce((files, asset) => {
-    const fileId = asset.fileId as FileId;
-    files[fileId] = {
-      id: fileId,
-      mimeType: asset.mimeType as BinaryFileData["mimeType"],
-      dataURL: `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
-      created: Date.parse(imageRecords[asset.fileId]?.createdAt || asset.createdAt) || Date.now(),
-    };
-    return files;
-  }, {} as BinaryFiles);
-
-const REMOTE_METHOD_PREFIX = /^Error invoking remote method '[^']+':\s*/;
-const PENDING_PLACEHOLDER_STROKE = "#6d5efc";
-const PENDING_PLACEHOLDER_FILL = "#f4f2ff";
-const PENDING_PLACEHOLDER_ERROR_STROKE = "#d14343";
-const PENDING_PLACEHOLDER_ERROR_FILL = "#fff1f2";
-const PENDING_PLACEHOLDER_LABEL = "生成中";
-
-interface PendingGenerationSlot {
-  frameId: string;
-  labelId: string;
-  fitReturnedImageSize: boolean;
-}
-
-interface PendingGenerationJob {
-  jobId: string;
-  projectPath: string;
-  slots: PendingGenerationSlot[];
-}
-
-interface GenerationErrorDetails {
-  provider: GenerationRequest["provider"];
-  model: string;
-  occurredAt: string;
-  normalizedMessage: string;
-  rawMessage: string;
-  stack: string | null;
-  requestPayload: string | null;
-}
-
-interface AutosaveSnapshot {
-  project: DesktopProjectBundle;
+type AppSceneSnapshot = {
   elements: readonly ExcalidrawElement[];
   appState: AppState;
   files: BinaryFiles;
-}
-
-type ThumbnailMaintenanceState = {
-  status: "pending" | "failed";
-  total: number;
-  message?: string;
 };
 
-interface ProjectRenderBoundaryProps {
-  projectKey: string;
-  children: ReactNode;
-  onError: (error: Error, componentStack: string | null) => void;
-  onReset: () => void;
-}
+type PlacementViewportContext = GeneratedImagePlacementViewport;
 
-interface ProjectRenderBoundaryState {
-  error: Error | null;
-}
+type AutosaveSnapshot = ProjectAutosaveSnapshot<
+  readonly ExcalidrawElement[],
+  AppState,
+  BinaryFiles
+>;
 
-class ProjectRenderBoundary extends Component<
-  ProjectRenderBoundaryProps,
-  ProjectRenderBoundaryState
-> {
-  state: ProjectRenderBoundaryState = {
-    error: null,
-  };
-
-  static getDerivedStateFromError(error: Error): ProjectRenderBoundaryState {
-    return { error };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    this.props.onError(error, info.componentStack || null);
-  }
-
-  componentDidUpdate(prevProps: ProjectRenderBoundaryProps) {
-    if (
-      prevProps.projectKey !== this.props.projectKey &&
-      this.state.error
-    ) {
-      this.setState({ error: null });
-    }
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="image-board-runtime-error" role="alert">
-          <div className="image-board-runtime-error__card">
-            <h2>项目界面加载失败</h2>
-            <p>{this.state.error.message || "发生了未知错误。"}</p>
-            <DesktopButton type="button" onClick={this.props.onReset}>
-              返回项目列表
-            </DesktopButton>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-const REQUEST_PAYLOAD_MARKER = "请求载荷：";
-
-const splitRequestPayload = (message: string) => {
-  const markerIndex = message.indexOf(REQUEST_PAYLOAD_MARKER);
-  if (markerIndex === -1) {
-    return {
-      message: message.trim(),
-      requestPayload: null,
-    };
-  }
-
-  return {
-    message: message.slice(0, markerIndex).trim(),
-    requestPayload: message
-      .slice(markerIndex + REQUEST_PAYLOAD_MARKER.length)
-      .trim(),
-  };
-};
-
-const getElementsSceneBounds = (
-  elements: readonly ExcalidrawElement[],
-) => {
-  if (!elements.length) {
-    return null;
-  }
-
-  const [left, top, right, bottom] = getCommonBounds(elements);
-  return {
-    x: left,
-    y: top,
-    width: right - left,
-    height: bottom - top,
-  };
-};
-
-const getSceneOccupiedBounds = (
-  elements: readonly ExcalidrawElement[],
-) =>
-  elements.flatMap((element) => {
-    if (element.isDeleted) {
-      return [];
-    }
-
-    const bounds = getElementsSceneBounds([element]);
-    return bounds && bounds.width > 0 && bounds.height > 0 ? [bounds] : [];
-  });
-
-interface WorkspaceOverlayState {
-  bounds: WorkspaceBounds;
-  scrollX: number;
-  scrollY: number;
-  zoomValue: number;
-}
-
-const createWorkspaceZoomGateState = (): WorkspaceZoomGateState => ({
-  snappedAtFitZoom: false,
-  releasedBelowFitZoom: false,
-});
-
-const WORKSPACE_OVERLAY_STATE_EPSILON = 0.001;
-
-const getFiniteNumber = (value: unknown, fallback: number) =>
-  typeof value === "number" && Number.isFinite(value) ? value : fallback;
-
-const areNumbersClose = (left: number, right: number) =>
-  Math.abs(left - right) <= WORKSPACE_OVERLAY_STATE_EPSILON;
-
-const areWorkspaceBoundsEqual = (
-  left: WorkspaceBounds,
-  right: WorkspaceBounds,
-) =>
-  areNumbersClose(left.x, right.x) &&
-  areNumbersClose(left.y, right.y) &&
-  areNumbersClose(left.width, right.width) &&
-  areNumbersClose(left.height, right.height);
-
-const areWorkspaceOverlayStatesEqual = (
-  left: WorkspaceOverlayState | null,
-  right: WorkspaceOverlayState | null,
-) => {
-  if (left === right) {
-    return true;
-  }
-
-  if (!left || !right) {
-    return false;
-  }
-
-  return (
-    areWorkspaceBoundsEqual(left.bounds, right.bounds) &&
-    areNumbersClose(left.scrollX, right.scrollX) &&
-    areNumbersClose(left.scrollY, right.scrollY) &&
-    areNumbersClose(left.zoomValue, right.zoomValue)
-  );
-};
-
-const getViewportCenterFromAppState = (
-  appState: Pick<AppState, "width" | "height" | "scrollX" | "scrollY" | "zoom">,
-) => {
-  const width = getFiniteNumber(appState.width, 0);
-  const height = getFiniteNumber(appState.height, 0);
-  const scrollX = getFiniteNumber(appState.scrollX, 0);
-  const scrollY = getFiniteNumber(appState.scrollY, 0);
-  const zoomValue = Math.max(getFiniteNumber(appState.zoom?.value, 1), 0.0001);
-
-  return {
-    x: width / (2 * zoomValue) - scrollX,
-    y: height / (2 * zoomValue) - scrollY,
-  };
-};
-
-const buildWorkspaceOverlayState = (
-  elements: readonly ExcalidrawElement[],
-  appState: AppState,
-): WorkspaceOverlayState | null => {
-  if (!ENABLE_WORKSPACE_BOUNDS) {
-    return null;
-  }
-
-  const bounds = getWorkspaceBounds(elements, {
-    viewportCenter: getViewportCenterFromAppState(appState),
-  });
-
-  return {
-    bounds,
-    scrollX: getFiniteNumber(appState.scrollX, 0),
-    scrollY: getFiniteNumber(appState.scrollY, 0),
-    zoomValue: getFiniteNumber(appState.zoom?.value, 1),
-  };
-};
-
-const getViewportCenteredZoomState = (
-  appState: AppState,
-  nextZoomValue: number,
-) => {
-  const currentZoom = getFiniteNumber(appState.zoom?.value, 1);
-  const nextZoom = getFiniteNumber(nextZoomValue, currentZoom);
-  const appLayerX = getFiniteNumber(appState.width, 0) / 2;
-  const appLayerY = getFiniteNumber(appState.height, 0) / 2;
-  const scrollX = getFiniteNumber(appState.scrollX, 0);
-  const scrollY = getFiniteNumber(appState.scrollY, 0);
-
-  const baseScrollX = scrollX + (appLayerX - appLayerX / currentZoom);
-  const baseScrollY = scrollY + (appLayerY - appLayerY / currentZoom);
-  const zoomOffsetScrollX = -(appLayerX - appLayerX / nextZoom);
-  const zoomOffsetScrollY = -(appLayerY - appLayerY / nextZoom);
-
-  return {
-    scrollX: baseScrollX + zoomOffsetScrollX,
-    scrollY: baseScrollY + zoomOffsetScrollY,
-    zoom: {
-      value: nextZoom as AppState["zoom"]["value"],
-    },
-  };
-};
-
-const stringifyUnknownError = (error: unknown) => {
-  if (error === null || error === undefined) {
-    return "";
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  try {
-    return JSON.stringify(error, null, 2);
-  } catch {
-    return String(error);
-  }
-};
-
-const extractDesktopErrorInfo = (error: unknown) => {
-  const rawMessage =
-    error instanceof Error
-      ? error.message || error.toString()
-      : error && typeof error === "object" && "message" in error
-      ? String((error as { message?: unknown }).message || stringifyUnknownError(error))
-      : stringifyUnknownError(error);
-
-  const stack =
-    error instanceof Error
-      ? error.stack || null
-      : error && typeof error === "object" && "stack" in error
-      ? String((error as { stack?: unknown }).stack || "") || null
-      : null;
-
-  return {
-    rawMessage,
-    message: rawMessage
-      .replace(REMOTE_METHOD_PREFIX, "")
-      .replace(/^Error:\s*/, ""),
-    stack,
-  };
-};
-
-const normalizeDesktopErrorMessage = (
-  provider: GenerationRequest["provider"],
-  error: unknown,
-) => {
-  const { message } = extractDesktopErrorInfo(error);
-  const { message: sanitizedMessage } = splitRequestPayload(message);
-
-  if (
-    /API_KEY_INVALID|API key not valid/i.test(sanitizedMessage) &&
-    /generativelanguage\.googleapis\.com|googleapis\.com/i.test(sanitizedMessage)
-  ) {
-    return "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。";
-  }
-
-  if (/ZenMux API Key/i.test(sanitizedMessage)) {
-    return sanitizedMessage;
-  }
-
-  if (/gemini API key is not configured/i.test(sanitizedMessage)) {
-    return "Gemini API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
-  }
-
-  if (
-    provider === "zenmux" &&
-    /reject_no_credit|Credit required|positive balance is required|\"code\":\"402\"/i.test(
-      sanitizedMessage,
-    )
-  ) {
-    return "ZenMux 余额不足，这个模型需要账户里有正余额。";
-  }
-
-  if (
-    provider === "zenmux" &&
-    /invalid api key|unauthorized|401|forbidden|403|UNAUTHENTICATED/i.test(
-      sanitizedMessage,
-    )
-  ) {
-    return "ZenMux API Key 无效，请检查 ZenMux 后台里的 API Key 和账户状态。";
-  }
-
-  if (/zenmux API key is not configured/i.test(sanitizedMessage)) {
-    return "ZenMux API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
-  }
-
-  if (/fal\.ai request failed: 401/i.test(sanitizedMessage)) {
-    return "fal API Key 无效，请检查后重新保存。";
-  }
-
-  return sanitizedMessage;
-};
-
-const buildGenerationErrorDetails = (
-  request: GenerationRequest,
-  error: unknown,
-  normalizedMessage: string,
-): GenerationErrorDetails => {
-  const { rawMessage, stack } = extractDesktopErrorInfo(error);
-  const { message: sanitizedRawMessage, requestPayload } =
-    splitRequestPayload(rawMessage);
-
-  return {
-    provider: request.provider,
-    model: request.model,
-    occurredAt: new Date().toISOString(),
-    normalizedMessage,
-    rawMessage: sanitizedRawMessage || normalizedMessage,
-    stack,
-    requestPayload,
-  };
-};
-
-const formatGenerationErrorDebugText = (details: GenerationErrorDetails) => {
-  return [
-    `${copy.debugError.provider}：${getProviderDefinition(details.provider).label}`,
-    `${copy.debugError.model}：${details.model}`,
-    `${copy.debugError.occurredAt}：${new Date(details.occurredAt).toLocaleString("zh-CN")}`,
-    "",
-    `${copy.debugError.message}：`,
-    details.normalizedMessage,
-    "",
-    `${copy.debugError.raw}：`,
-    details.rawMessage,
-    ...(details.requestPayload
-      ? ["", `${copy.debugError.payload}：`, details.requestPayload]
-      : []),
-    ...(details.stack
-      ? ["", `${copy.debugError.stack}：`, details.stack]
-      : []),
-  ].join("\n");
-};
+const ACP_RUN_HISTORY_REFRESH_DELAY_MS = 160;
+const ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS = 240;
 
 const App = () => {
+  const {
+    isAgentBrowserRoute,
+    hasInitialProjectToken: agentBrowserInitialProjectToken,
+  } = buildAgentBrowserRouteState({
+    pathname: window.location.pathname,
+    href: window.location.href,
+  });
   const bridge = maybeGetDesktopBridge();
-  const desktopBridge = bridge!;
+  if (!bridge) {
+    return <AppBridgeUnavailable isAgentBrowserRoute={isAgentBrowserRoute} />;
+  }
+
+  const desktopBridge = bridge;
+  const readProjectImageAssets = useMemo(
+    () =>
+      createProjectImageAssetReader((input) =>
+        desktopBridge.readProjectAssetPayloads(input),
+      ),
+    [desktopBridge],
+  );
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
   const pendingAutosaveRef = useRef<AutosaveSnapshot | null>(null);
@@ -588,6 +316,7 @@ const App = () => {
   const initializingRenderNonceRef = useRef<number | null>(null);
   const projectRenderNonceRef = useRef(0);
   const projectOpenSequenceRef = useRef(0);
+  const agentRuntimeRefsController = useAgentRuntimeRefsController();
   const latestMenuProjectOpenRequestIdRef = useRef(0);
   const rememberedGenerationModelSelectionRef = useRef(
     readRememberedGenerationModelSelection(),
@@ -596,13 +325,14 @@ const App = () => {
     Boolean(rememberedGenerationModelSelectionRef.current),
   );
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
+  const savedSceneHashRef = useRef<string | null>(null);
   const latestSceneRef = useRef<{
     elements: readonly ExcalidrawElement[];
     appState: AppState;
     files: BinaryFiles;
   } | null>(null);
   const lastCanvasPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const lastBatchBoundsRef = useRef<ReturnType<typeof measureBatchBounds>>(null);
+  const lastBatchBoundsRef = useRef<SceneBounds | null>(null);
   const pendingGenerationJobsRef = useRef<Map<string, PendingGenerationJob>>(
     new Map(),
   );
@@ -622,2172 +352,1589 @@ const App = () => {
   const loadingOriginalImageFileIdsRef = useRef<Set<string>>(new Set());
   const pendingImageFilesToAddRef = useRef<BinaryFileData[]>([]);
 
+  const selectionReferenceOriginalSceneActions = useMemo(
+    () =>
+      createSelectionReferenceOriginalSceneRendererActions({
+        getProject: () => currentProjectRef.current,
+        readOriginalAssets: (project, fileIds) =>
+          readProjectImageAssets(project, fileIds, "original"),
+      }),
+    [readProjectImageAssets],
+  );
+  const acpInteractionTargets = useAcpInteractionTargetsController();
+  const {
+    activeThreadId: activeAcpThreadId,
+    runLogSurface: acpRunLogSurface,
+  } = acpInteractionTargets.state;
+  const {
+    activeTaskActions: acpActiveTaskIdRendererActions,
+    activeThreadActions: acpActiveThreadIdRendererActions,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    getActiveTaskId: getActiveAcpTaskId,
+    getActiveThreadId: getActiveAcpThreadId,
+    getRunLogTaskId: getAcpRunLogTaskId,
+    getRunLogSurface: getAcpRunLogSurface,
+  } = acpInteractionTargets.actions;
+  const acpRunLogStateController = useAcpRunLogStateController();
+  const {
+    dialogOpen: acpRunLogDialogOpen,
+    loading: acpRunLogLoading,
+    detail: acpRunLogDetail,
+    error: acpRunLogError,
+    rawOpen: acpRunLogRawOpen,
+    conversationEntries: acpConversationEntries,
+  } = acpRunLogStateController.state;
+  const {
+    setDialogOpen: setAcpRunLogDialogOpen,
+    setLoading: setAcpRunLogLoading,
+    setDetail: setAcpRunLogDetail,
+    setError: setAcpRunLogError,
+    setRawOpen: setAcpRunLogRawOpen,
+    setConversationEntries: setAcpConversationEntries,
+  } = acpRunLogStateController.setters;
+  const {
+    getRefreshTimerId: getAcpRunLogRefreshTimerId,
+    setRefreshTimerId: setAcpRunLogRefreshTimerId,
+  } = acpRunLogStateController.actions;
+
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
+  const agentBridgeConnectionStateController =
+    useAgentBridgeConnectionStateController();
+  const {
+    status: agentBridgeStatus,
+    autoOpenProjectPath: agentBrowserAutoOpenProjectPath,
+  } = agentBridgeConnectionStateController.state;
+  const {
+    setStatus: setAgentBridgeStatus,
+    setAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
+  } = agentBridgeConnectionStateController.setters;
+  const acpAgentSettingsController =
+    useAcpAgentSettingsController(bridge);
+  const {
+    settings: acpAgentSettings,
+    selectedAgent: selectedAcpAgent,
+    draft: acpAgentSettingsDraft,
+    saving: savingAcpAgentSettings,
+    editable: acpAgentSettingsEditable,
+    load: loadAcpAgentSettingsState,
+    save: saveAcpAgentSettingsState,
+    setEnabledDraft: setAcpAgentEnabledDraft,
+    setPresetDraft: setAcpAgentPresetDraft,
+    setCommandDraft: setAcpAgentCommandDraft,
+    setArgsDraft: setAcpAgentArgsDraft,
+    setCwdDraft: setAcpAgentCwdDraft,
+    setTaskInstructionDraft: setAcpTaskInstructionDraft,
+  } = acpAgentSettingsController;
+  const acpAgentTaskStateController = useAcpAgentTaskStateController();
+  const { task: acpAgentTask } = acpAgentTaskStateController.state;
+  const { setTask: setAcpAgentTask } = acpAgentTaskStateController.setters;
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
+  const savedPromptLibraryRendererActions = useMemo(
+    () =>
+      createSavedPromptLibraryRendererActions({
+        bridge: desktopBridge,
+        setSavedPrompts,
+      }),
+    [desktopBridge],
+  );
+  const generationModelSelectionRendererActions = useMemo(
+    () =>
+      createGenerationModelSelectionRendererActions({
+        selectionLockedRef: generationModelSelectionLockedRef,
+        rememberedSelectionRef: rememberedGenerationModelSelectionRef,
+      }),
+    [generationModelSelectionLockedRef, rememberedGenerationModelSelectionRef],
+  );
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(null);
   const [selectedTask, setSelectedTask] = useState<GenerationTaskRecord | null>(null);
+  const selectedInspectorRendererActions =
+    createSelectedInspectorRendererActions({
+      getGenerationTasks: () => generationTaskByElementIdRef.current,
+      setSelectedRecord,
+      setSelectedTask,
+    });
+  const [sceneImageFileIds, setSceneImageFileIds] = useState<string[]>([]);
   const [generateRequest, setGenerateRequest] = useState(() =>
-    defaultGenerationRequest(
+    buildDefaultGenerationRequest(
       null,
       rememberedGenerationModelSelectionRef.current,
     ),
   );
+  const [generationSource, setGenerationSource] =
+    useState<GenerationSource>(() =>
+      isAgentBrowserRoute ? "agent" : "builtin",
+    );
   const [loadingProject, setLoadingProject] = useState(false);
   const [savingProviders, setSavingProviders] = useState(false);
+  const providerSettingsRendererActions = useMemo(
+    () =>
+      createProviderSettingsRendererActions({
+        saveProviderSettings: desktopBridge.saveProviderSettings,
+        setProviderSettings,
+        setSavingProviders,
+      }),
+    [
+      desktopBridge.saveProviderSettings,
+      setProviderSettings,
+      setSavingProviders,
+    ],
+  );
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const acpAgentSettingsRendererActions = useMemo(
+    () =>
+      createAcpAgentSettingsRendererActions({
+        saveSettings: saveAcpAgentSettingsState,
+        setProjectError,
+      }),
+    [saveAcpAgentSettingsState, setProjectError],
+  );
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
+  const [projectHealthReport, setProjectHealthReport] =
+    useState<ProjectHealthReport | null>(null);
+  const [projectRepairReport, setProjectRepairReport] =
+    useState<ProjectRepairReport | null>(null);
+  const [projectHealthReportOpen, setProjectHealthReportOpen] =
+    useState(false);
   const projectNoticeTimerRef = useRef<number | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationErrorDetails, setGenerationErrorDetails] =
     useState<GenerationErrorDetails | null>(null);
   const [generationErrorDetailsOpen, setGenerationErrorDetailsOpen] = useState(false);
   const [generationErrorCopied, setGenerationErrorCopied] = useState(false);
+  const clipboardTextRendererActions = useMemo(
+    () =>
+      createPlainTextClipboardRendererActions({
+        failureMessage: copy.clipboard.writeFailed,
+        onError: setProjectError,
+      }),
+    [setProjectError],
+  );
   const [generateFocusToken, setGenerateFocusToken] = useState(0);
   const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const agentSurfaceVisibilityController =
+    useAgentSurfaceVisibilityController();
+  const {
+    acpDebugOpen,
+    chatDockOpen: agentChatDockOpen,
+  } = agentSurfaceVisibilityController.state;
+  const {
+    setAcpDebugOpen,
+    setChatDockOpen: setAgentChatDockOpen,
+  } = agentSurfaceVisibilityController.setters;
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
-  const [elementDockOpen, setElementDockOpen] = useState(false);
-  const [imageDockOpen, setImageDockOpen] = useState(false);
+  const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
   const [workspaceOverlayState, setWorkspaceOverlayState] =
     useState<WorkspaceOverlayState | null>(null);
   const [workspaceFitPulse, setWorkspaceFitPulse] = useState(false);
   const [thumbnailMaintenance, setThumbnailMaintenance] =
     useState<ThumbnailMaintenanceState | null>(null);
-  const parentRecord =
-    selectedRecord?.parentFileId && currentProject
-      ? currentProject.imageRecords[selectedRecord.parentFileId] || null
-      : null;
-  const ancestorRecords =
-    selectedRecord && currentProject
-      ? getImageAncestors(currentProject.imageRecords, selectedRecord)
-      : [];
-  const descendantRecords =
-    selectedRecord && currentProject
-      ? getImageDescendants(currentProject.imageRecords, selectedRecord)
-      : [];
 
-  const updateCurrentProject = (project: DesktopProjectBundle | null) => {
-    currentProjectRef.current = project;
-    setCurrentProject(project);
-  };
-
-  const updateEditorInitializing = (
-    initializing: boolean,
-    renderNonce?: number,
-  ) => {
-    if (
-      !initializing &&
-      renderNonce !== undefined &&
-      initializingRenderNonceRef.current !== renderNonce
-    ) {
-      return false;
-    }
-
-    isEditorInitializingRef.current = initializing;
-    initializingRenderNonceRef.current = initializing
-      ? renderNonce ?? initializingRenderNonceRef.current
-      : null;
-    setIsEditorInitializing(initializing);
-    return true;
-  };
-
-  const hideEditorLoading = (renderNonce: number) => {
-    if (initializingRenderNonceRef.current !== renderNonce) {
-      return;
-    }
-    setIsEditorInitializing(false);
-  };
-
-  const beginProjectOpen = () => {
-    projectOpenSequenceRef.current += 1;
-    return projectOpenSequenceRef.current;
-  };
-
-  const isCurrentProjectOpen = (sequence: number) =>
-    projectOpenSequenceRef.current === sequence;
-
-  const getGenerationAnchorBounds = (request: GenerationRequest) => {
-    if (!request.reference?.enabled) {
-      return null;
-    }
-
-    return getElementsSceneBounds(
-      getSelectedReferenceElements(latestSceneRef.current),
-    );
-  };
-
-  const updateWorkspaceOverlay = (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-  ) => {
-    const overlayState = buildWorkspaceOverlayState(elements, appState);
-    setWorkspaceOverlayState((current) =>
-      areWorkspaceOverlayStatesEqual(current, overlayState)
-        ? current
-        : overlayState,
-    );
-    return overlayState?.bounds ?? null;
-  };
-
-  const resetWorkspaceZoomGate = () => {
-    previousWorkspaceZoomValueRef.current = null;
-    workspaceZoomGateStateRef.current = createWorkspaceZoomGateState();
-    setWorkspaceFitPulse(false);
-  };
-
-  const triggerWorkspaceFitPulse = () => {
-    if (workspaceFitPulseTimerRef.current) {
-      window.clearTimeout(workspaceFitPulseTimerRef.current);
-    }
-
-    setWorkspaceFitPulse(true);
-    workspaceFitPulseTimerRef.current = window.setTimeout(() => {
-      workspaceFitPulseTimerRef.current = null;
-      setWorkspaceFitPulse(false);
-    }, 520);
-  };
-
-  const clearHighResImageLoadTimer = () => {
-    if (highResImageLoadTimerRef.current) {
-      window.clearTimeout(highResImageLoadTimerRef.current);
-      highResImageLoadTimerRef.current = null;
-    }
-  };
-
-  const clearProjectNoticeTimer = () => {
-    if (projectNoticeTimerRef.current) {
-      window.clearTimeout(projectNoticeTimerRef.current);
-      projectNoticeTimerRef.current = null;
-    }
-  };
-
-  const showProjectNotice = (message: string) => {
-    clearProjectNoticeTimer();
-    setProjectNotice(message);
-    projectNoticeTimerRef.current = window.setTimeout(() => {
-      projectNoticeTimerRef.current = null;
-      setProjectNotice(null);
-    }, 4200);
-  };
-
-  const clearProjectNotice = () => {
-    clearProjectNoticeTimer();
-    setProjectNotice(null);
-  };
-
-  const resetImageRenditionState = () => {
-    clearHighResImageLoadTimer();
-    loadedPreviewImageFileIdsRef.current = new Set();
-    loadingPreviewImageFileIdsRef.current = new Set();
-    loadedOriginalImageFileIdsRef.current = new Set();
-    loadingOriginalImageFileIdsRef.current = new Set();
-    pendingImageFilesToAddRef.current = [];
-    setThumbnailMaintenance(null);
-  };
-
-  const readProjectImageAssets = async (
-    project: DesktopProjectBundle,
-    fileIds: string[],
-    rendition: ImageAssetRequestRendition,
-  ) => {
-    if (!fileIds.length) {
-      return [];
-    }
-
-    return desktopBridge.readProjectAssetPayloads({
-      projectPath: project.projectPath,
-      fileIds,
-      rendition,
-    });
-  };
-
-  const readOriginalImageAssets = async (
-    project: DesktopProjectBundle,
-    fileIds: string[],
-  ) => readProjectImageAssets(project, fileIds, "original");
-
-  const queueImageFilesForReadyCanvas = (filesToAdd: BinaryFileData[]) => {
-    const pendingById = new Map(
-      pendingImageFilesToAddRef.current.map((file) => [file.id, file]),
-    );
-    filesToAdd.forEach((file) => pendingById.set(file.id, file));
-    pendingImageFilesToAddRef.current = Array.from(pendingById.values());
-  };
-
-  const flushQueuedImageFilesToCanvas = () => {
-    const api = excalidrawAPIRef.current;
-    const filesToAdd = pendingImageFilesToAddRef.current;
-    if (!api || !filesToAdd.length) {
-      return;
-    }
-
-    pendingImageFilesToAddRef.current = [];
-    api.replaceFiles(filesToAdd);
-  };
-
-  const addProjectAssetPayloadsToCurrentScene = (
-    project: DesktopProjectBundle,
-    assets: ProjectAssetPayload[],
-  ) => {
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath !== project.projectPath || !assets.length) {
-      return false;
-    }
-
-    const files = toBinaryFiles(assets, activeProject.imageRecords);
-    const filesToAdd = Object.values(files);
-    if (!filesToAdd.length) {
-      return false;
-    }
-
-    if (excalidrawAPIRef.current) {
-      excalidrawAPIRef.current.replaceFiles(filesToAdd);
-    } else {
-      queueImageFilesForReadyCanvas(filesToAdd);
-    }
-    latestSceneRef.current = latestSceneRef.current
-      ? {
-          ...latestSceneRef.current,
-          files: {
-            ...latestSceneRef.current.files,
-            ...files,
-          },
-        }
-      : latestSceneRef.current;
-
-    return true;
-  };
-
-  const rebuildMissingThumbnailAssets = async (
-    project: DesktopProjectBundle,
-    fileIds: string[],
-  ) => {
-    const uniqueFileIds = Array.from(new Set(fileIds));
-    const rebuildProjectThumbnails = desktopBridge.rebuildProjectThumbnails;
-    if (!uniqueFileIds.length) {
-      return;
-    }
-
-    if (!rebuildProjectThumbnails) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance({
-          status: "failed",
-          total: uniqueFileIds.length,
-        });
-      }
-      return;
-    }
-
-    try {
-      const result = await rebuildProjectThumbnails({
-        projectPath: project.projectPath,
-        fileIds: uniqueFileIds,
-      });
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance(
-          result.failedFileIds.length
-            ? {
-                status: "failed",
-                total: result.failedFileIds.length,
-              }
-            : null,
-        );
-      }
-      const fileIdsToRefresh = Array.from(
-        new Set([...result.generatedFileIds, ...result.skippedFileIds]),
-      ).filter(
-        (fileId) =>
-          !loadedPreviewImageFileIdsRef.current.has(fileId) &&
-          !loadedOriginalImageFileIdsRef.current.has(fileId),
-      );
-      if (!fileIdsToRefresh.length) {
-        return;
-      }
-
-      const assets = await desktopBridge.readProjectAssetPayloads({
-        projectPath: project.projectPath,
-        fileIds: fileIdsToRefresh,
-        rendition: "thumbnail",
-        thumbnailMode: "cache-only",
-      });
-      const thumbnailAssets = assets.filter(
-        (asset) =>
-          asset.rendition === "thumbnail" &&
-          !loadedPreviewImageFileIdsRef.current.has(asset.fileId) &&
-          !loadedOriginalImageFileIdsRef.current.has(asset.fileId),
-      );
-      addProjectAssetPayloadsToCurrentScene(project, thumbnailAssets);
-    } catch {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance({
-          status: "failed",
-          total: uniqueFileIds.length,
-        });
-      }
-      // 缩略图缓存修复是后台维护动作，失败时继续使用占位图或原图懒加载。
-    }
-  };
-
-  const handleRepairProjectThumbnails = async () => {
-    const project = currentProjectRef.current;
-    const rebuildProjectThumbnails = desktopBridge.rebuildProjectThumbnails;
-    if (!project) {
-      setProjectError(copy.projectRepair.noProject);
-      clearProjectNotice();
-      return;
-    }
-
-    const fileIds = Object.keys(project.imageRecords);
-    if (!fileIds.length) {
-      showProjectNotice(copy.projectRepair.noImages);
-      setProjectError(null);
-      return;
-    }
-
-    if (!rebuildProjectThumbnails) {
-      setProjectError(copy.projectRepair.thumbnailsFailed);
-      clearProjectNotice();
-      return;
-    }
-
-    setProjectError(null);
-    clearProjectNotice();
-    setThumbnailMaintenance({
-      status: "pending",
-      total: fileIds.length,
-    });
-
-    try {
-      const result = await rebuildProjectThumbnails({
-        projectPath: project.projectPath,
-        fileIds,
-        force: true,
-        createBackup: true,
-      });
-      if (currentProjectRef.current?.projectPath !== project.projectPath) {
-        return;
-      }
-
-      const fileIdsToRefresh = result.generatedFileIds.filter(
-        (fileId) =>
-          !loadedPreviewImageFileIdsRef.current.has(fileId) &&
-          !loadedOriginalImageFileIdsRef.current.has(fileId),
-      );
-
-      if (fileIdsToRefresh.length) {
-        const assets = await desktopBridge.readProjectAssetPayloads({
-          projectPath: project.projectPath,
-          fileIds: fileIdsToRefresh,
-          rendition: "thumbnail",
-          thumbnailMode: "cache-only",
-        });
-        const thumbnailAssets = assets.filter(
-          (asset) =>
-            asset.rendition === "thumbnail" &&
-            !loadedPreviewImageFileIdsRef.current.has(asset.fileId) &&
-            !loadedOriginalImageFileIdsRef.current.has(asset.fileId),
-        );
-        addProjectAssetPayloadsToCurrentScene(project, thumbnailAssets);
-      }
-
-      setThumbnailMaintenance(
-        result.failedFileIds.length
-          ? {
-              status: "failed",
-              total: result.failedFileIds.length,
-            }
-          : null,
-      );
-      showProjectNotice(
-        copy.projectRepair.thumbnailsRepaired(
-          result.generatedFileIds.length,
-          result.skippedFileIds.length,
-          result.failedFileIds.length,
-          result.backupPath,
-        ),
-      );
-    } catch (error) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance({
-          status: "failed",
-          total: fileIds.length,
-        });
-        setProjectError(
-          getErrorText(error, copy.projectRepair.thumbnailsFailed),
-        );
-        clearProjectNotice();
-      }
-    }
-  };
-
-  const handleInspectProjectHealth = async () => {
-    const project = currentProjectRef.current;
-    const inspectProjectHealth = desktopBridge.inspectProjectHealth;
-    if (!project) {
-      setProjectError(copy.projectRepair.noProject);
-      clearProjectNotice();
-      return;
-    }
-
-    if (!inspectProjectHealth) {
-      setProjectError(copy.projectRepair.healthCheckFailed);
-      clearProjectNotice();
-      return;
-    }
-
-    setProjectError(null);
-    clearProjectNotice();
-    setThumbnailMaintenance({
-      status: "pending",
-      total: Object.keys(project.imageRecords).length,
-      message: copy.projectRepair.healthChecking,
-    });
-
-    try {
-      const report = await inspectProjectHealth({
-        projectPath: project.projectPath,
-      });
-      if (currentProjectRef.current?.projectPath !== project.projectPath) {
-        return;
-      }
-
-      setThumbnailMaintenance(null);
-      showProjectNotice(
-        report.summary.errorCount || report.summary.warningCount
-          ? copy.projectRepair.healthNeedsRepair(
-              report.summary.errorCount,
-              report.summary.warningCount,
-              report.summary.repairableCount,
-            )
-          : copy.projectRepair.healthHealthy(report.imageRecordCount),
-      );
-    } catch (error) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setThumbnailMaintenance(null);
-        setProjectError(
-          getErrorText(error, copy.projectRepair.healthCheckFailed),
-        );
-        clearProjectNotice();
-      }
-    }
-  };
-
-  const handleCleanProjectCache = async () => {
-    const project = currentProjectRef.current;
-    const cleanProjectCache = desktopBridge.cleanProjectCache;
-    if (!project) {
-      setProjectError(copy.projectRepair.noProject);
-      clearProjectNotice();
-      return;
-    }
-
-    if (!cleanProjectCache) {
-      setProjectError(copy.projectRepair.cacheCleanFailed);
-      clearProjectNotice();
-      return;
-    }
-
-    setProjectError(null);
-    clearProjectNotice();
-
-    try {
-      const result = await cleanProjectCache({
-        projectPath: project.projectPath,
-      });
-      if (currentProjectRef.current?.projectPath !== project.projectPath) {
-        return;
-      }
-      showProjectNotice(
-        copy.projectRepair.cacheCleaned(
-          result.removedFileCount,
-          result.removedBytes,
-        ),
-      );
-    } catch (error) {
-      if (currentProjectRef.current?.projectPath === project.projectPath) {
-        setProjectError(getErrorText(error, copy.projectRepair.cacheCleanFailed));
-        clearProjectNotice();
-      }
-    }
-  };
-
-  const markImageAssetRenditionsLoaded = (assets: ProjectAssetPayload[]) => {
-    assets.forEach((asset) => {
-      if (asset.rendition === "original") {
-        loadedOriginalImageFileIdsRef.current.add(asset.fileId);
-        loadedPreviewImageFileIdsRef.current.add(asset.fileId);
-      } else if (asset.rendition === "preview") {
-        loadedPreviewImageFileIdsRef.current.add(asset.fileId);
-      }
-    });
-  };
-
-  const loadVisibleImageRenditionAssets = async (
-    scene: NonNullable<typeof latestSceneRef.current>,
-  ) => {
-    const project = currentProjectRef.current;
-    const api = excalidrawAPIRef.current;
-    if (!project || !api || project.safeMode) {
-      return;
-    }
-
-    const requests = getImageRenditionRequestsNearViewport({
-      elements: scene.elements,
-      appState: scene.appState,
-      imageRecords: project.imageRecords,
-      loadedPreviewFileIds: loadedPreviewImageFileIdsRef.current,
-      loadingPreviewFileIds: loadingPreviewImageFileIdsRef.current,
-      loadedOriginalFileIds: loadedOriginalImageFileIdsRef.current,
-      loadingOriginalFileIds: loadingOriginalImageFileIdsRef.current,
-      devicePixelRatio: window.devicePixelRatio,
-    });
-
-    if (!requests.length) {
-      return;
-    }
-
-    const fileIdsByRendition = requests.reduce((groups, request) => {
-      const fileIds = groups.get(request.rendition) ?? [];
-      fileIds.push(request.fileId);
-      groups.set(request.rendition, fileIds);
-      return groups;
-    }, new Map<ImageAssetRequestRendition, string[]>());
-
-    requests.forEach((request) => {
-      if (request.rendition === "original") {
-        loadingOriginalImageFileIdsRef.current.add(request.fileId);
-      } else if (request.rendition === "preview") {
-        loadingPreviewImageFileIdsRef.current.add(request.fileId);
-      }
-    });
-
-    try {
-      const assetsByRendition = await Promise.all(
-        Array.from(fileIdsByRendition.entries()).map(
-          ([rendition, fileIds]) =>
-            readProjectImageAssets(project, fileIds, rendition),
-        ),
-      );
-      const assets = assetsByRendition.flat();
-      if (!addProjectAssetPayloadsToCurrentScene(project, assets)) {
-        return;
-      }
-      markImageAssetRenditionsLoaded(assets);
-    } catch {
-      // 显示资源升级是渐进增强，失败时保留当前缩略图继续使用画布。
-    } finally {
-      requests.forEach((request) => {
-        loadingPreviewImageFileIdsRef.current.delete(request.fileId);
-        loadingOriginalImageFileIdsRef.current.delete(request.fileId);
-      });
-    }
-  };
-
-  const scheduleVisibleImageRenditionLoad = (
-    scene: NonNullable<typeof latestSceneRef.current> | null,
-  ) => {
-    if (!scene) {
-      return;
-    }
-
-    clearHighResImageLoadTimer();
-    highResImageLoadTimerRef.current = window.setTimeout(() => {
-      highResImageLoadTimerRef.current = null;
-      void loadVisibleImageRenditionAssets(scene);
-    }, IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS);
-  };
-
-  const handleViewportChange = (
-    scrollX: number,
-    scrollY: number,
-    zoom: AppState["zoom"],
-  ) => {
-    const scene = latestSceneRef.current;
-    if (!scene) {
-      return;
-    }
-
-    const api = excalidrawAPIRef.current;
-    const apiAppState = api?.getAppState?.();
-    const elements = api?.getSceneElementsIncludingDeleted?.() ?? scene.elements;
-    const files = api?.getFiles?.() ?? scene.files;
-    const nextAppState = {
-      ...scene.appState,
-      ...(apiAppState ?? {}),
-      scrollX,
-      scrollY,
-      zoom,
-    } as AppState;
-    const nextScene = {
-      elements,
-      appState: nextAppState,
-      files,
-    };
-    latestSceneRef.current = nextScene;
-    scheduleVisibleImageRenditionLoad(nextScene);
-    updateWorkspaceOverlay(elements, nextAppState);
-  };
-
-  const buildSceneWithOriginalImageFiles = async (
-    scene: typeof latestSceneRef.current,
-  ) => {
-    const project = currentProjectRef.current;
-    if (!scene || !project) {
-      return scene;
-    }
-
-    const selectedImageFileIds = Array.from(
-      new Set(
-        getSelectedReferenceElements(scene).flatMap((element) =>
-          element.type === "image" && element.fileId ? [element.fileId] : [],
-        ),
-      ),
-    );
-
-    if (!selectedImageFileIds.length) {
-      return scene;
-    }
-
-    const assets = await readOriginalImageAssets(project, selectedImageFileIds);
-    if (!assets.length) {
-      return scene;
-    }
-
-    return {
-      ...scene,
-      files: {
-        ...scene.files,
-        ...toBinaryFiles(assets, project.imageRecords),
+  const generationTrackingRendererActions =
+    createGenerationTrackingRendererActions({
+      setPendingJobs: (pendingJobs) => {
+        pendingGenerationJobsRef.current = pendingJobs;
       },
-    };
-  };
-
-  const maybeSnapWorkspaceZoom = (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-  ) => {
-    if (!ENABLE_WORKSPACE_BOUNDS) {
-      return false;
-    }
-
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return false;
-    }
-
-    const bounds = getWorkspaceBounds(elements, {
-      viewportCenter: getViewportCenterFromAppState(appState),
-    });
-    const fitZoomValue = getWorkspaceFitZoom(bounds, appState);
-    const currentZoomValue = getFiniteNumber(appState.zoom?.value, 1);
-    const gate = resolveWorkspaceZoomGate({
-      previousZoomValue: previousWorkspaceZoomValueRef.current,
-      currentZoomValue,
-      fitZoomValue,
-      gateState: workspaceZoomGateStateRef.current,
+      setGenerationTasks: (generationTasks) => {
+        generationTaskByElementIdRef.current = generationTasks;
+      },
+      setPendingCount: setPendingGenerationCount,
     });
 
-    workspaceZoomGateStateRef.current = gate.nextGateState;
+  const acpRunSummariesController = useAcpRunSummariesController({
+    bridge,
+  });
+  const {
+    summaries: acpRunSummaries,
+    loading: acpRunSummariesLoading,
+    error: acpRunSummariesError,
+    canRead: canReadAcpRunLogs,
+    load: loadAcpRunSummariesState,
+  } = acpRunSummariesController;
+  useAcpRunSummariesAutoLoadEffect({
+    settingsOpen: appSettingsOpen,
+    debugOpen: acpDebugOpen,
+    load: loadAcpRunSummariesState,
+  });
 
-    if (!gate.shouldSnap || !fitZoomValue) {
-      previousWorkspaceZoomValueRef.current = currentZoomValue;
-      return false;
-    }
+  const currentProjectAgentAccessToken =
+    getProjectAgentAccessToken(currentProject);
+  const getCurrentProjectAgentAccessToken = useCallback(
+    () => getProjectAgentAccessToken(currentProjectRef.current),
+    [],
+  );
+  useAgentBridgeStatusCurrentProjectSyncEffect({
+    project: currentProject,
+    applyBridgeStatus: setAgentBridgeStatus,
+  });
+  const acpThreadSummariesController = useAcpThreadSummariesController({
+    bridge,
+    getProjectToken: getCurrentProjectAgentAccessToken,
+  });
+  const {
+    summaries: acpThreadSummaries,
+    loading: acpThreadSummariesLoading,
+    error: acpThreadSummariesError,
+    applyState: applyAcpThreadSummariesState,
+    load: loadAcpThreadSummariesState,
+  } = acpThreadSummariesController;
+  const acpAgentTaskRunning = isAcpAgentTaskRunning(acpAgentTask);
+  const acpAgentTaskStartable = canStartAcpAgentTask(bridge);
+  const agentIntegrationRuntime = useMemo(
+    () =>
+      buildAgentIntegrationRuntimeViewModel({
+        bridgeStatus: agentBridgeStatus,
+        acpAgentSettings,
+        agentTaskStatus: acpAgentTask,
+        taskRunning: acpAgentTaskRunning,
+        isAgentBrowserRoute,
+        canStartAcpAgentTask: acpAgentTaskStartable,
+        hasInitialProjectToken: Boolean(agentBrowserInitialProjectToken),
+        hasCurrentProject: Boolean(currentProject),
+        hasInitialData: Boolean(initialData),
+      }),
+    [
+      acpAgentSettings,
+      acpAgentTask,
+      acpAgentTaskRunning,
+      acpAgentTaskStartable,
+      agentBridgeStatus,
+      agentBrowserInitialProjectToken,
+      currentProject,
+      initialData,
+      isAgentBrowserRoute,
+    ],
+  );
+  const agentIntegration = agentIntegrationRuntime.integration;
+  const acpAgentGeneration = agentIntegrationRuntime.acpGeneration;
+  const selectedImageRelationship = useMemo(
+    () =>
+      buildSelectedImageRelationshipState({
+        imageRecords: currentProject?.imageRecords,
+        selectedRecord,
+      }),
+    [currentProject?.imageRecords, selectedRecord],
+  );
+  const agentConversationSurface = useMemo(
+    () =>
+      buildAgentConversationSurfaceState({
+        generationSource,
+        acpRunLogSurface,
+        acpAgentTaskRunning,
+        runLogDetail: acpRunLogDetail,
+        error: acpRunLogError,
+      }),
+    [
+      acpAgentTaskRunning,
+      acpRunLogDetail,
+      acpRunLogError,
+      acpRunLogSurface,
+      generationSource,
+    ],
+  );
+  const generationSidebarRecordItems = useMemo(
+    () =>
+      buildGenerationSidebarRecordItems({
+        project: currentProject,
+        sceneImageFileIds,
+        acpEntries: acpConversationEntries,
+        acpRunLogDetail: agentConversationSurface.runLogDetail,
+        acpTask: acpAgentTask,
+        files: latestSceneRef.current?.files ?? null,
+      }),
+    [
+      acpAgentTask,
+      acpConversationEntries,
+      agentConversationSurface.runLogDetail,
+      currentProject,
+      sceneImageFileIds,
+    ],
+  );
+  const generationRecordItems = generationSidebarRecordItems.generationRecords;
+  const acpAgentResultRecordItems =
+    generationSidebarRecordItems.agentResultRecords;
+  const generationSidebarMode = agentConversationSurface.mode;
 
-    previousWorkspaceZoomValueRef.current = fitZoomValue;
-    triggerWorkspaceFitPulse();
-    api.updateScene({
-      appState: getViewportCenteredZoomState(appState, fitZoomValue),
-      captureUpdate: CaptureUpdateAction.NEVER,
+  const acpThreadRendererActions = createAcpThreadRendererActions({
+    getBridge: () => bridge,
+    nextLoadSequence:
+      agentRuntimeRefsController.actions.nextThreadLoadSequence,
+    isLoadSequenceCurrent:
+      agentRuntimeRefsController.actions.isThreadLoadSequenceCurrent,
+    getCurrentProjectToken: getCurrentProjectAgentAccessToken,
+    getTaskRunning: () => acpAgentTaskRunning,
+    getActiveThreadId: getActiveAcpThreadId,
+    applyThreadSummariesState: applyAcpThreadSummariesState,
+    setActiveThreadId: acpActiveThreadIdRendererActions.set,
+    setActiveTaskId: acpActiveTaskIdRendererActions.set,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    setConversationEntries: setAcpConversationEntries,
+    setRunLogDetail: setAcpRunLogDetail,
+    setRunLogError: setAcpRunLogError,
+    setAgentTask: setAcpAgentTask,
+    setChatDockOpen: setAgentChatDockOpen,
+    onInitialReadError: (error) =>
+      console.error("[acp:thread-load-failed]", error),
+  });
+
+  const sceneImageFileIdsRendererActions =
+    createSceneImageFileIdsRendererActions({
+      setSceneImageFileIds,
     });
-    return true;
-  };
 
-  const loadProviderState = async () => {
-    if (!bridge) {
-      return;
-    }
-
-    try {
-      const nextProviderSettings = await loadProviderSettingsWithRetry(bridge);
-      setProviderSettings(nextProviderSettings);
-      if (!generationModelSelectionLockedRef.current) {
-        const selection = resolvePreferredGenerationModelSelection({
-          providerSettings: nextProviderSettings,
-          rememberedSelection: null,
+  const currentProjectUpdateRendererActions =
+    createCurrentProjectUpdateRendererActions({
+      getPreviousProject: () => currentProjectRef.current,
+      clearAcpRunLogRefreshTimer: () => {
+        acpRunLogRendererActions.clearTimer();
+      },
+      setCurrentProjectRef: (nextProject) => {
+        currentProjectRef.current = nextProject;
+      },
+      setCurrentProject,
+      setSavedSceneHashRef: (savedSceneHash) => {
+        savedSceneHashRef.current = savedSceneHash;
+      },
+      setActiveAcpThreadId: acpActiveThreadIdRendererActions.set,
+      runLogTargetActions: acpRunLogTargetRendererActions,
+      setAcpRunLogDetail,
+      setAcpRunLogError,
+      setAcpConversationEntries,
+      applyAcpThreadSummariesState,
+      setAgentChatDockOpen,
+      setProjectHealthReport,
+      setProjectRepairReport,
+      setProjectHealthReportOpen,
+      notifyProjectState: (nextProject) => {
+        notifyAgentBridgeProjectState({
+          bridge,
+          currentProject: nextProject,
         });
-        setGenerateRequest((current) =>
-          normalizeGenerationRequest(
-            {
-              ...current,
-              provider: selection.provider,
-              model: selection.model,
-            },
-            {
-              customModels:
-                nextProviderSettings[selection.provider]?.customModels ?? [],
-            },
-          ),
-        );
-      }
-      setStartupError(null);
-    } catch (error: any) {
-      setStartupError(error?.message || copy.startup.providerLoadFailed);
-    }
-  };
+      },
+      syncAgentBridgeStatus: (nextProject) => {
+        applyAgentBridgeStatusCurrentProjectUpdate({
+          project: nextProject,
+          applyBridgeStatus: setAgentBridgeStatus,
+        });
+      },
+    });
+  const updateCurrentProject = currentProjectUpdateRendererActions.update;
 
-  const loadRecentProjectsState = async () => {
-    if (!bridge) {
-      return;
-    }
+  const currentProjectEditorInitializingRendererActions =
+    createCurrentProjectEditorInitializingRendererActions({
+      getCurrentRenderNonce: () => initializingRenderNonceRef.current,
+      setCurrentRenderNonceRef: (renderNonce) => {
+        initializingRenderNonceRef.current = renderNonce;
+      },
+      setInitializingRef: (initializing) => {
+        isEditorInitializingRef.current = initializing;
+      },
+      setInitializing: setIsEditorInitializing,
+      getEditorApi: () => excalidrawAPIRef.current,
+      scheduleFallbackTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      clearFallbackTimeout: (timerId) => window.clearTimeout(timerId),
+    });
 
-    try {
-      setRecentProjects((await bridge.loadRecentProjects?.()) ?? []);
-    } catch {
-      setRecentProjects([]);
-    }
-  };
+  const currentProjectOpenSequenceRendererActions =
+    createCurrentProjectOpenSequenceRendererActions({
+      getCurrentSequence: () => projectOpenSequenceRef.current,
+      setCurrentSequenceRef: (sequence) => {
+        projectOpenSequenceRef.current = sequence;
+      },
+    });
 
-  const loadAppInfoState = async () => {
-    if (!bridge?.loadAppInfo) {
-      return;
-    }
-
-    try {
-      setAppInfo(await bridge.loadAppInfo());
-    } catch {
-      setAppInfo(null);
-    }
-  };
-
-  const loadPromptLibraryState = async () => {
-    if (!bridge) {
-      return;
-    }
-
-    try {
-      setSavedPrompts(await bridge.loadPromptLibrary());
-    } catch {
-      setSavedPrompts([]);
-    }
-  };
-
-  const clearGenerationErrorState = () => {
-    setGenerationError(null);
-    setGenerationErrorDetails(null);
-    setGenerationErrorDetailsOpen(false);
-    setGenerationErrorCopied(false);
-  };
-
-  const showGenerationError = (
-    request: GenerationRequest,
-    error: unknown,
-    fallbackMessage = copy.startup.generateFailed,
-  ) => {
-    const normalizedMessage =
-      normalizeDesktopErrorMessage(request.provider, error) || fallbackMessage;
-    setGenerationError(normalizedMessage);
-    const details = buildGenerationErrorDetails(request, error, normalizedMessage);
-    setGenerationErrorDetails(details);
-    setGenerationErrorDetailsOpen(false);
-    setGenerationErrorCopied(false);
-    return details;
-  };
-
-  const getErrorText = (error: unknown, fallbackMessage: string) =>
-    error instanceof Error ? error.message : String(error || fallbackMessage);
-
-  const reportAutosaveError = (error: unknown) => {
-    console.error("[project:autosave-failed]", error);
-    setProjectError(getErrorText(error, copy.startup.saveProjectFailed));
-  };
-
-  const copyTextToClipboardWithFallback = async (text: string) => {
-    const copied = await copyPlainTextToClipboard(text);
-    if (!copied) {
-      setProjectError(copy.clipboard.writeFailed);
-    }
-    return copied;
-  };
-
-  useEffect(() => {
-    bridge?.notifyRendererReady?.();
-    void loadAppInfoState();
-    void loadProviderState();
-    void loadRecentProjectsState();
-    void loadPromptLibraryState();
-  }, [bridge]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      void flushPendingAutosave();
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      void flushPendingAutosave();
-    };
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (workspaceFitPulseTimerRef.current) {
-        window.clearTimeout(workspaceFitPulseTimerRef.current);
-      }
-      clearProjectNoticeTimer();
-      clearHighResImageLoadTimer();
-    },
+  const workspaceOverlayRendererActions = useMemo(
+    () =>
+      createWorkspaceOverlayRendererActions({
+        setWorkspaceOverlayState,
+      }),
     [],
   );
 
-  useEffect(() => {
-    if (!bridge?.onFlushAutosaveRequest) {
-      return;
-    }
-
-    return bridge.onFlushAutosaveRequest(() =>
-      flushPendingAutosave({ strict: true }),
-    );
-  }, [bridge]);
-
-  useEffect(() => {
-    if (!isEditorInitializing) {
-      return;
-    }
-
-    const renderNonce = projectRenderNonce;
-    const fallbackTimer = window.setTimeout(() => {
-      if (
-        renderNonce === projectRenderNonceRef.current &&
-        excalidrawAPIRef.current
-      ) {
-        hideEditorLoading(renderNonce);
-      }
-    }, 3000);
-
-    return () => {
-      window.clearTimeout(fallbackTimer);
-    };
-  }, [isEditorInitializing, projectRenderNonce]);
-
-  const openProjectBundle = async (
-    bundle: DesktopProjectBundle | null,
-    sequence = beginProjectOpen(),
-  ) => {
-    if (!bundle) {
-      if (isCurrentProjectOpen(sequence)) {
-        setLoadingProject(false);
-      }
-      return;
-    }
-
-    setLoadingProject(true);
-    setProjectError(null);
-    clearProjectNotice();
-    try {
-      try {
-        await flushPendingAutosave({ strict: true });
-      } catch (error) {
-        if (isCurrentProjectOpen(sequence)) {
-          setProjectError(
-            `${copy.startup.saveBeforeOpenFailed} ${getErrorText(
-              error,
-              copy.startup.saveProjectFailed,
-            )}`,
-          );
-        }
-        return;
-      }
-
-      if (!isCurrentProjectOpen(sequence)) {
-        return;
-      }
-
-      const restored = await deserializeSceneFromProject(bundle.sceneJson);
-      const fileIds = collectImageFileIds(restored.elements || []);
-      const assets = bundle.safeMode
-        ? []
-        : await desktopBridge.readProjectAssetPayloads({
-            projectPath: bundle.projectPath,
-            fileIds,
-            rendition: "thumbnail",
-            thumbnailMode: "cache-only",
-          });
-      if (!isCurrentProjectOpen(sequence)) {
-        return;
-      }
-
-      const files = toBinaryFiles(assets, bundle.imageRecords);
-      const missingThumbnailFileIds = Array.from(
-        new Set(
-          assets
-            .filter((asset) => asset.rendition === "placeholder")
-            .map((asset) => asset.fileId),
-        ),
-      );
-      resetImageRenditionState();
-      if (missingThumbnailFileIds.length) {
-        setThumbnailMaintenance({
-          status: "pending",
-          total: missingThumbnailFileIds.length,
-        });
-      }
-      markImageAssetRenditionsLoaded(assets);
-      const nextInitialData: ExcalidrawInitialDataState = {
-        elements: restored.elements,
-        appState: restored.appState,
-        files,
-      };
-      const nextRenderNonce = projectRenderNonceRef.current + 1;
-      projectRenderNonceRef.current = nextRenderNonce;
-      excalidrawAPIRef.current = null;
-      updateEditorInitializing(true, nextRenderNonce);
-      updateCurrentProject(bundle);
-      setInitialData(nextInitialData);
-      setProjectRenderNonce(nextRenderNonce);
-      latestSceneRef.current = {
-        elements: restored.elements || [],
-        appState: restored.appState as AppState,
-        files,
-      };
-      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-      if (bundle.safeMode) {
-        showProjectNotice(copy.projectRepair.safeModeOpened);
-      } else {
-        void rebuildMissingThumbnailAssets(bundle, missingThumbnailFileIds);
-      }
-      updateWorkspaceOverlay(
-        restored.elements || [],
-        restored.appState as AppState,
-      );
-      resetWorkspaceZoomGate();
-      lastCanvasPointerRef.current = null;
-      setSelectedRecord(null);
-      setSelectedTask(null);
-      lastBatchBoundsRef.current = null;
-      pendingGenerationJobsRef.current.clear();
-      generationTaskByElementIdRef.current.clear();
-      setPendingGenerationCount(0);
-      await loadRecentProjectsState();
-    } catch (error: any) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
-        updateEditorInitializing(false);
-      }
-    } finally {
-      if (isCurrentProjectOpen(sequence)) {
-        setLoadingProject(false);
-      }
-    }
-  };
-
-  const handleCreateProject = async () => {
-    const sequence = beginProjectOpen();
-    try {
-      await openProjectBundle(await desktopBridge.createProject(), sequence);
-    } catch (error) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.createProjectFailed));
-        setLoadingProject(false);
-        updateEditorInitializing(false);
-      }
-    }
-  };
-
-  const handleOpenProject = async () => {
-    const sequence = beginProjectOpen();
-    try {
-      await openProjectBundle(await desktopBridge.openProject(), sequence);
-    } catch (error) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
-        setLoadingProject(false);
-        updateEditorInitializing(false);
-      }
-    }
-  };
-
-  const handleOpenRecentProject = async (projectPath: string) => {
-    const sequence = beginProjectOpen();
-    try {
-      await openProjectBundle(
-        await desktopBridge.openRecentProject?.(projectPath),
-        sequence,
-      );
-    } catch (error) {
-      if (isCurrentProjectOpen(sequence)) {
-        setProjectError(getErrorText(error, copy.startup.openProjectFailed));
-        setLoadingProject(false);
-        updateEditorInitializing(false);
-        await loadRecentProjectsState();
-      }
-    }
-  };
-
-  const handleProjectRenderError = (
-    error: Error,
-    componentStack: string | null,
-  ) => {
-    console.error("[project-render-error]", {
-      message: error.message,
-      stack: error.stack || null,
-      componentStack,
-      projectPath: currentProjectRef.current?.projectPath || null,
-    });
-    updateEditorInitializing(false);
-  };
-
-  const handleResetProjectView = () => {
-    updateCurrentProject(null);
-    setInitialData(null);
-    setWorkspaceOverlayState(null);
-    resetWorkspaceZoomGate();
-    updateEditorInitializing(false);
-  };
-
-  const handleRevealProject = async () => {
-    if (!currentProjectRef.current) {
-      return;
-    }
-    try {
-      await desktopBridge.revealProjectInFinder(
-        currentProjectRef.current.projectPath,
-      );
-    } catch (error) {
-      setProjectError(getErrorText(error, copy.startup.revealProjectFailed));
-    }
-  };
-
-  const insertAssetsIntoScene = async (
-    assets: PersistedImageAssetInput[],
-    nextImageRecords: DesktopProjectBundle["imageRecords"],
-    options: {
-      anchorPoint?: { x: number; y: number } | null;
-    } = {},
-  ) => {
-    const api = excalidrawAPIRef.current;
-    const project = currentProjectRef.current;
-    if (!api || !project) {
-      return;
-    }
-
-    const appState = api.getAppState();
-    const viewportCenter = getViewportCenterFromAppState(appState);
-    const workspaceBounds = updateWorkspaceOverlay(
-      api.getSceneElementsIncludingDeleted(),
-      appState,
-    );
-    const anchorPoint = options.anchorPoint ?? null;
-    const placements = placeGeneratedImages({
-      images: assets.map((asset) => ({
-        width: asset.width,
-        height: asset.height,
-      })),
-      anchorPoint,
-      viewportCenter,
-      viewportSize: {
-        width: appState.width,
-        height: appState.height,
-      },
-      zoomValue: appState.zoom.value,
-      previousBatchBounds: anchorPoint ? null : lastBatchBoundsRef.current,
-      workspaceBounds,
-    });
-
-    const filesToAdd: BinaryFileData[] = assets.map((asset) => ({
-      id: asset.fileId as FileId,
-      mimeType: asset.mimeType as BinaryFileData["mimeType"],
-      dataURL: `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
-      created: Date.parse(asset.createdAt) || Date.now(),
-    }));
-    api.addFiles(filesToAdd);
-
-    const newElements = assets.map((asset, index) =>
-      newImageElement({
-        type: "image",
-        fileId: asset.fileId as FileId,
-        status: "saved",
-        scale: [1, 1],
-        x: placements[index].x,
-        y: placements[index].y,
-        width: placements[index].width,
-        height: placements[index].height,
-      }),
-    );
-
-    const selectedElementIds = Object.fromEntries(
-      newElements.map((element) => [element.id, true as const]),
-    ) as AppState["selectedElementIds"];
-
-    api.updateScene({
-      elements: appendElementsWithSyncedIndices(
-        api.getSceneElementsIncludingDeleted(),
-        newElements,
-      ),
-      appState: {
-        selectedElementIds,
-      },
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-
-    lastBatchBoundsRef.current = measureBatchBounds(placements);
-    updateCurrentProject({
-      ...project,
-      imageRecords: nextImageRecords,
-    });
-  };
-
-  const insertGenerationPlaceholders = (
-    request: GenerationRequest,
-    startedAt: string,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    const project = currentProjectRef.current;
-    if (!api || !project) {
-      return null;
-    }
-
-    const appState = api.getAppState();
-    const viewportCenter = getViewportCenterFromAppState(appState);
-    const workspaceBounds = updateWorkspaceOverlay(
-      api.getSceneElementsIncludingDeleted(),
-      appState,
-    );
-    const anchorBounds = getGenerationAnchorBounds(request);
-    const occupiedBounds = getSceneOccupiedBounds(
-      api.getSceneElementsIncludingDeleted(),
-    );
-    const placements = placeGeneratedImages({
-      images: Array.from({ length: request.imageCount }, () => ({
-        width: request.width,
-        height: request.height,
-      })),
-      anchorBounds,
-      anchorPoint: anchorBounds ? null : lastCanvasPointerRef.current,
-      occupiedBounds,
-      viewportCenter,
-      viewportSize: {
-        width: appState.width,
-        height: appState.height,
-      },
-      zoomValue: appState.zoom.value,
-      workspaceBounds,
-      previousBatchBounds:
-        anchorBounds || lastCanvasPointerRef.current
-          ? null
-          : lastBatchBoundsRef.current,
-    });
-
-    const slots: PendingGenerationSlot[] = [];
-    const placeholderElements = placements.flatMap((placement, index) => {
-      const slotGroupId = crypto.randomUUID();
-      const frame = newFrameElement({
-        x: placement.x,
-        y: placement.y,
-        width: placement.width,
-        height: placement.height,
-        groupIds: [slotGroupId],
-        backgroundColor: PENDING_PLACEHOLDER_FILL,
-        strokeColor: PENDING_PLACEHOLDER_STROKE,
-        strokeStyle: "dashed",
-        strokeWidth: 2,
-        roughness: 0,
-        opacity: 80,
-      });
-      const label = newTextElement({
-        x: placement.x + placement.width / 2,
-        y: placement.y + placement.height / 2,
-        text:
-          request.imageCount > 1
-            ? `${PENDING_PLACEHOLDER_LABEL}\n${index + 1}/${request.imageCount}`
-            : PENDING_PLACEHOLDER_LABEL,
-        groupIds: [slotGroupId],
-        frameId: frame.id,
-        fontSize: 24,
-        textAlign: "center",
-        verticalAlign: "middle",
-        autoResize: true,
-        strokeColor: PENDING_PLACEHOLDER_STROKE,
-        backgroundColor: "transparent",
-        roughness: 0,
-      });
-
-      slots.push({
-        frameId: frame.id,
-        labelId: label.id,
-        fitReturnedImageSize: isAutoAspectRatioRequest(request),
-      });
-
-      return [frame, label];
-    });
-
-    const promptHistoryText = getPromptHistoryText(request);
-    for (const slot of slots) {
-      const task: GenerationTaskRecord = {
-        status: "pending",
-        provider: request.provider,
-        model: request.model,
-        prompt: promptHistoryText,
-        negativePrompt: request.negativePrompt,
-        aspectRatio: request.aspectRatio,
-        seed: request.seed,
-        width: request.width,
-        height: request.height,
-        startedAt,
-      };
-      generationTaskByElementIdRef.current.set(slot.frameId, task);
-      generationTaskByElementIdRef.current.set(slot.labelId, task);
-    }
-
-    api.updateScene({
-      elements: appendElementsWithSyncedIndices(
-        api.getSceneElementsIncludingDeleted(),
-        placeholderElements,
-      ),
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-
-    lastBatchBoundsRef.current = measureBatchBounds(placements);
-
-    return {
-      jobId: crypto.randomUUID(),
-      projectPath: project.projectPath,
-      slots,
-    } satisfies PendingGenerationJob;
-  };
-
-  const markPendingGenerationFailed = (
-    job: PendingGenerationJob,
-    errorDetails?: Pick<
-      GenerationErrorDetails,
-      "normalizedMessage" | "rawMessage" | "stack"
-    >,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    const project = currentProjectRef.current;
-    if (!api || project?.projectPath !== job.projectPath) {
-      return;
-    }
-
-    const firstSlot = job.slots[0];
-    for (const slot of job.slots) {
-      const existingTask =
-        generationTaskByElementIdRef.current.get(slot.frameId) ||
-        generationTaskByElementIdRef.current.get(slot.labelId);
-
-      if (!existingTask) {
-        continue;
-      }
-
-      const nextTask: GenerationTaskRecord = {
-        ...existingTask,
-        status: "error",
-        errorMessage:
-          errorDetails?.normalizedMessage || copy.startup.generateFailed,
-        rawError:
-          errorDetails?.rawMessage ||
-          errorDetails?.normalizedMessage ||
-          copy.startup.generateFailed,
-        stack: errorDetails?.stack || null,
-      };
-      generationTaskByElementIdRef.current.set(slot.frameId, nextTask);
-      generationTaskByElementIdRef.current.set(slot.labelId, nextTask);
-    }
-
-    const slotFrameIds = new Set(job.slots.map((slot) => slot.frameId));
-    const slotLabelIds = new Set(job.slots.map((slot) => slot.labelId));
-    const currentElements = api.getSceneElementsIncludingDeleted();
-
-    api.updateScene({
-      elements: currentElements.map((element) => {
-        if (slotFrameIds.has(element.id)) {
-          return newElementWith(element, {
-            strokeColor: PENDING_PLACEHOLDER_ERROR_STROKE,
-            backgroundColor: PENDING_PLACEHOLDER_ERROR_FILL,
-          });
-        }
-
-        if (
-          slotLabelIds.has(element.id) &&
-          element.type === "text"
-        ) {
-          return newElementWith(element, {
-            text: "生成失败",
-            originalText: "生成失败",
-            strokeColor: PENDING_PLACEHOLDER_ERROR_STROKE,
-          });
-        }
-
-        return element;
-      }),
-      appState: firstSlot
-        ? {
-            selectedElementIds: {
-              [firstSlot.frameId]: true,
-            },
-          }
-        : undefined,
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-  };
-
-  const replacePendingGenerationSlot = (
-    slot: PendingGenerationSlot,
-    asset: PersistedImageAssetInput,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return;
-    }
-
-    const currentElements = api.getSceneElementsIncludingDeleted();
-    const frame = currentElements.find(
-      (element) => element.id === slot.frameId && !element.isDeleted,
-    );
-    if (!frame) {
-      return;
-    }
-
-    const appState = api.getAppState();
-    const filesToAdd: BinaryFileData[] = [
-      {
-        id: asset.fileId as FileId,
-        mimeType: asset.mimeType as BinaryFileData["mimeType"],
-        dataURL: `data:${asset.mimeType};base64,${asset.dataBase64}` as BinaryFileData["dataURL"],
-        created: Date.parse(asset.createdAt) || Date.now(),
-      },
-    ];
-    api.addFiles(filesToAdd);
-
-    const returnedImageSize = slot.fitReturnedImageSize
-      ? normalizeGeneratedImageDimensions({
-          width: asset.width,
-          height: asset.height,
-        })
-      : {
-          width: frame.width,
-          height: frame.height,
-        };
-    const frameCenter = {
-      x: frame.x + frame.width / 2,
-      y: frame.y + frame.height / 2,
-    };
-
-    const newImage = newImageElement({
-      type: "image",
-      fileId: asset.fileId as FileId,
-      status: "saved",
-      scale: [1, 1],
-      x: frameCenter.x - returnedImageSize.width / 2,
-      y: frameCenter.y - returnedImageSize.height / 2,
-      width: returnedImageSize.width,
-      height: returnedImageSize.height,
-    });
-
-    const selectedElementIds = { ...appState.selectedElementIds };
-    const shouldSelectNewImage =
-      Boolean(selectedElementIds[slot.frameId]) ||
-      Boolean(selectedElementIds[slot.labelId]);
-    delete selectedElementIds[slot.frameId];
-    delete selectedElementIds[slot.labelId];
-    if (shouldSelectNewImage) {
-      selectedElementIds[newImage.id] = true;
-    }
-
-    api.updateScene({
-      elements: appendElementsWithSyncedIndices(
-        currentElements.map((element) =>
-          element.id === slot.frameId || element.id === slot.labelId
-            ? newElementWith(element, { isDeleted: true })
-            : element,
-        ),
-        [newImage],
-      ),
-      appState: {
-        selectedElementIds,
-      },
-      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-    });
-
-    generationTaskByElementIdRef.current.delete(slot.frameId);
-    generationTaskByElementIdRef.current.delete(slot.labelId);
-  };
-
-  const finishPendingGenerationJob = async (
-    job: PendingGenerationJob,
-    request: GenerationRequest,
-    response: Awaited<ReturnType<typeof desktopBridge.generateImages>>,
-  ) => {
-    const project = currentProjectRef.current;
-    if (!project || project.projectPath !== job.projectPath) {
-      return;
-    }
-
-    const promptHistoryText = getPromptHistoryText(request);
-    const promptReferences = buildImagePromptReferenceRecords(request);
-    const files: PersistedImageAssetInput[] = response.images.map((image) => ({
-      ...image,
-      fileId: crypto.randomUUID(),
-      sourceType: "generated",
-      provider: response.provider,
-      model: response.model,
-      prompt: promptHistoryText,
-      negativePrompt: request.negativePrompt,
-      seed: response.seed,
-      createdAt: response.createdAt,
-      parentFileId: request.reference?.debug?.fileId ?? null,
-      ...(promptReferences.length ? { promptReferences } : {}),
-    }));
-    const nextImageRecords = await desktopBridge.persistImageAssets({
-      projectPath: job.projectPath,
-      files,
-    });
-
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath === job.projectPath) {
-      updateCurrentProject({
-        ...activeProject,
-        imageRecords: nextImageRecords,
-      });
-    }
-
-    files.forEach((asset, index) => {
-      const slot = job.slots[index];
-      if (slot) {
-        replacePendingGenerationSlot(slot, asset);
-      }
-    });
-
-    job.slots.slice(files.length).forEach((slot) => {
-      markPendingGenerationFailed({
-        ...job,
-        slots: [slot],
-      }, {
-        normalizedMessage: "模型没有返回这张图。",
-        rawMessage: "模型没有返回这张图。",
-        stack: null,
-      });
-    });
-  };
-
-  const persistUnknownCanvasImages = async (
-    project: DesktopProjectBundle,
-    elements: readonly ExcalidrawElement[],
-    files: BinaryFiles,
-  ) => {
-    const unknownAssets: PersistedImageAssetInput[] = elements.flatMap((element) => {
-      if (
-        element.isDeleted ||
-        element.type !== "image" ||
-        !element.fileId ||
-        project.imageRecords[element.fileId] ||
-        !files[element.fileId]
-      ) {
-        return [];
-      }
-
-      return [
-        {
-          fileId: element.fileId,
-          dataBase64: extractBase64(files[element.fileId].dataURL),
-          mimeType: files[element.fileId].mimeType,
-          width: element.width,
-          height: element.height,
-          sourceType: "imported",
-          createdAt: new Date(files[element.fileId].created).toISOString(),
+  const workspaceFitPulseRendererActions = useMemo(
+    () =>
+      createWorkspaceFitPulseRendererActions({
+        delayMs: 520,
+        getTimerId: () => workspaceFitPulseTimerRef.current,
+        clearTimer: (timerId) => window.clearTimeout(timerId),
+        setTimerId: (timerId) => {
+          workspaceFitPulseTimerRef.current = timerId;
         },
-      ];
+        setPulse: setWorkspaceFitPulse,
+        setPreviousZoomValue: (zoomValue) => {
+          previousWorkspaceZoomValueRef.current = zoomValue;
+        },
+        setZoomGateState: (state) => {
+          workspaceZoomGateStateRef.current = state;
+        },
+        scheduleTimeout: (callback, delayMs) =>
+          window.setTimeout(callback, delayMs),
+      }),
+    [setWorkspaceFitPulse],
+  );
+
+  const workspaceZoomSnapRendererActions = useMemo(
+    () =>
+      createWorkspaceZoomSnapRendererActions({
+        getApi: () => excalidrawAPIRef.current,
+        getPreviousZoomValue: () => previousWorkspaceZoomValueRef.current,
+        setPreviousZoomValue: (zoomValue) => {
+          previousWorkspaceZoomValueRef.current = zoomValue;
+        },
+        getZoomGateState: () => workspaceZoomGateStateRef.current,
+        setZoomGateState: (state) => {
+          workspaceZoomGateStateRef.current = state;
+        },
+        triggerWorkspaceFitPulse: workspaceFitPulseRendererActions.trigger,
+      }),
+    [workspaceFitPulseRendererActions],
+  );
+
+  const projectNoticeRendererActions = useMemo(
+    () =>
+      createTimedNoticeRendererActions({
+        delayMs: 4200,
+        getTimerId: () => projectNoticeTimerRef.current,
+        clearTimer: (timerId) => window.clearTimeout(timerId),
+        setTimerId: (timerId) => {
+          projectNoticeTimerRef.current = timerId;
+        },
+        setNotice: setProjectNotice,
+        scheduleTimeout: (callback, delayMs) =>
+          window.setTimeout(callback, delayMs),
+      }),
+    [setProjectNotice],
+  );
+
+  const agentBrowserRuntimePublishRendererActions = useMemo(
+    () =>
+      createAgentBrowserRuntimePublishRendererActions({
+        delayMs: 120,
+        isEnabled: () => isAgentBrowserRoute,
+        getProjectPath: () => currentProjectRef.current?.projectPath ?? null,
+        getGenerationSource: () => generationSource,
+        getUpdatedAt: () => new Date().toISOString(),
+        getLatestScene: () => latestSceneRef.current,
+        getTimerId:
+          agentRuntimeRefsController.actions.getStatePublishTimerId,
+        clearTimer: (timerId) => window.clearTimeout(timerId),
+        setTimerId:
+          agentRuntimeRefsController.actions.setStatePublishTimerId,
+        scheduleTimeout: (callback, delayMs) =>
+          window.setTimeout(callback, delayMs),
+      }),
+    [agentRuntimeRefsController.actions, generationSource, isAgentBrowserRoute],
+  );
+
+  const queuedExcalidrawBinaryFilesRendererActions = useMemo(
+    () =>
+      createQueuedExcalidrawBinaryFilesRendererActions({
+        getQueuedFiles: () => pendingImageFilesToAddRef.current,
+        setQueuedFiles: (files) => {
+          pendingImageFilesToAddRef.current = files;
+        },
+        getReplaceFiles: () => {
+          const api = excalidrawAPIRef.current;
+          return api ? (files) => api.replaceFiles(files) : null;
+        },
+      }),
+    [],
+  );
+
+  const projectMaintenanceActionStateApplier =
+    createProjectMaintenanceActionStateRendererApplier<DesktopProjectBundle>({
+      setProjectHealthReport,
+      setProjectHealthReportOpen,
+      setProjectRepairReport,
+      setThumbnailMaintenance,
+      updateCurrentProject,
+      setProjectError,
+      showProjectNotice: projectNoticeRendererActions.show,
+      clearProjectNotice: projectNoticeRendererActions.clear,
     });
 
-    if (!unknownAssets.length) {
-      return project.imageRecords;
-    }
-
-    const nextImageRecords = await desktopBridge.persistImageAssets({
-      projectPath: project.projectPath,
-      files: unknownAssets,
-    });
-    const activeProject = currentProjectRef.current;
-    if (activeProject?.projectPath === project.projectPath) {
-      updateCurrentProject({
-        ...activeProject,
-        imageRecords: nextImageRecords,
-      });
-    }
-    return nextImageRecords;
-  };
-
-  const writeAutosaveSnapshot = async (snapshot: AutosaveSnapshot) => {
-    const nextImageRecords = await persistUnknownCanvasImages(
-      snapshot.project,
-      snapshot.elements,
-      snapshot.files,
-    );
-    const sceneJson = serializeSceneForProject({
-      elements: snapshot.elements,
-      appState: snapshot.appState,
-    });
-    await desktopBridge.writeProjectScene({
-      projectPath: snapshot.project.projectPath,
-      sceneJson,
+  const projectAssetSceneApplyRendererAction =
+    createDesktopProjectAssetSceneApplyRendererAction({
+      getActiveProject: () => currentProjectRef.current,
+      getLatestScene: () => latestSceneRef.current,
+      getFallbackCreatedAt: () => Date.now(),
+      getEditorApi: () => excalidrawAPIRef.current,
+      queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
     });
 
-    if (currentProjectRef.current?.projectPath !== snapshot.project.projectPath) {
-      return;
-    }
-
-    setSelectedRecord(
-      buildSelectedImageRecord(
-        snapshot.elements,
-        snapshot.appState,
-        nextImageRecords,
-      ),
-    );
-    setSelectedTask(
-      buildSelectedGenerationTask(
-        snapshot.appState,
-        generationTaskByElementIdRef.current,
-      ),
-    );
-  };
-
-  const enqueueAutosaveWrite = (snapshot: AutosaveSnapshot) => {
-    const writePromise = autosaveQueueRef.current
-      .catch(() => undefined)
-      .then(() => writeAutosaveSnapshot(snapshot));
-    autosaveQueueRef.current = writePromise;
-    return writePromise;
-  };
-
-  const flushPendingAutosave = async ({
-    strict = false,
-  }: {
-    strict?: boolean;
-  } = {}) => {
-    if (autosaveTimerRef.current) {
-      window.clearTimeout(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
-
-    const snapshot = pendingAutosaveRef.current;
-    pendingAutosaveRef.current = null;
-    if (snapshot) {
-      try {
-        await enqueueAutosaveWrite(snapshot);
-      } catch (error) {
-        if (strict) {
-          throw error;
-        }
-        reportAutosaveError(error);
-      }
-      return;
-    }
-
-    try {
-      await autosaveQueueRef.current;
-    } catch (error) {
-      if (strict) {
-        throw error;
-      }
-    }
-  };
-
-  const scheduleAutosave = (snapshot: AutosaveSnapshot) => {
-    pendingAutosaveRef.current = snapshot;
-
-    if (autosaveTimerRef.current) {
-      window.clearTimeout(autosaveTimerRef.current);
-    }
-
-    autosaveTimerRef.current = window.setTimeout(() => {
-      autosaveTimerRef.current = null;
-      const pendingSnapshot = pendingAutosaveRef.current;
-      pendingAutosaveRef.current = null;
-      if (pendingSnapshot) {
-        void enqueueAutosaveWrite(pendingSnapshot).catch(reportAutosaveError);
-      }
-    }, 700);
-  };
-
-  const handleImportImages = async () => {
-    const project = currentProjectRef.current;
-    if (!project) {
-      return;
-    }
-
-    try {
-      const importedImages = await desktopBridge.importImages();
-      if (!importedImages.length) {
-        return;
-      }
-
-      const files: PersistedImageAssetInput[] = importedImages.map((image) => ({
-        ...image,
-        sourceType: "imported",
-      }));
-      const nextImageRecords = await desktopBridge.persistImageAssets({
-        projectPath: project.projectPath,
-        files,
-      });
-      await insertAssetsIntoScene(files, nextImageRecords);
-    } catch (error) {
-      setProjectError(getErrorText(error, copy.startup.importImagesFailed));
-    }
-  };
-
-  const handleDesktopClipboardPaste = async (data: ClipboardData) => {
-    if (!isEmptyClipboardData(data)) {
-      return true;
-    }
-
-    const project = currentProjectRef.current;
-    if (!project || !desktopBridge.readClipboardImage) {
-      return true;
-    }
-
-    try {
-      const clipboardImage = await desktopBridge.readClipboardImage();
-      if (!clipboardImage) {
-        return true;
-      }
-
-      const file: PersistedImageAssetInput = {
-        ...clipboardImage,
-        sourceType: "imported",
-      };
-      const nextImageRecords = await desktopBridge.persistImageAssets({
-        projectPath: project.projectPath,
-        files: [file],
-      });
-      await insertAssetsIntoScene([file], nextImageRecords, {
-        anchorPoint: lastCanvasPointerRef.current,
-      });
-      return false;
-    } catch (error) {
-      setProjectError(getErrorText(error, copy.startup.importImagesFailed));
-      return false;
-    }
-  };
-
-  const handleGenerateImages = async (
-    request: GenerationRequest,
-    _keepOpen: boolean,
-  ) => {
-    const project = currentProjectRef.current;
-    if (!project) {
-      return;
-    }
-
-    clearGenerationErrorState();
-    try {
-      const requestCustomModels =
-        providerSettings?.[request.provider]?.customModels ?? [];
-      const normalizedRequest = normalizeGenerationRequest(request, {
-        customModels: requestCustomModels,
-      });
-      let preparedRequest = normalizedRequest;
-      if (normalizedRequest.reference?.enabled) {
-        const sceneWithOriginalImageFiles =
-          await buildSceneWithOriginalImageFiles(latestSceneRef.current);
-        const reference = await buildSelectionReference({
-          scene: sceneWithOriginalImageFiles,
-          includeImage: true,
-          imageRecords: currentProjectRef.current?.imageRecords || null,
-        });
-        if (!reference?.image) {
-          throw new Error("当前没有可用的选区参考，请重新选中元素后再试。");
-        }
-        preparedRequest = {
-          ...normalizedRequest,
-          reference: {
-            ...reference,
-            enabled: true,
-          },
-        };
-      }
-
-      const startedAt = new Date().toISOString();
-      const pendingJob = insertGenerationPlaceholders(preparedRequest, startedAt);
-      if (!pendingJob) {
-        throw new Error(copy.startup.generateFailed);
-      }
-
-      pendingGenerationJobsRef.current.set(pendingJob.jobId, pendingJob);
-      setPendingGenerationCount((count) => count + 1);
-      setGenerateRequest({
-        ...preparedRequest,
-        prompt: "",
-      });
-      void (async () => {
-        try {
-          const response = await desktopBridge.generateImages({
-            projectPath: project.projectPath,
-            request: preparedRequest,
-          });
-          if (!pendingGenerationJobsRef.current.has(pendingJob.jobId)) {
-            return;
-          }
-          await finishPendingGenerationJob(pendingJob, preparedRequest, response);
-        } catch (error: any) {
-          const errorDetails = showGenerationError(preparedRequest, error);
-          if (pendingGenerationJobsRef.current.has(pendingJob.jobId)) {
-            markPendingGenerationFailed(pendingJob, errorDetails);
-          }
-        } finally {
-          pendingGenerationJobsRef.current.delete(pendingJob.jobId);
-          setPendingGenerationCount((count) => Math.max(0, count - 1));
-          await loadProviderState();
-        }
-      })();
-    } catch (error: any) {
-      showGenerationError(
-        normalizeGenerationRequest(request, {
-          customModels: providerSettings?.[request.provider]?.customModels ?? [],
+  const projectThumbnailAssetRefreshRendererActions =
+    createProjectThumbnailAssetRefreshRendererActions({
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      readThumbnailAssets: ({ project, fileIds }) =>
+        desktopBridge.readProjectAssetPayloads({
+          projectPath: project.projectPath,
+          fileIds,
+          rendition: "thumbnail",
+          thumbnailMode: "cache-only",
         }),
-        error,
-      );
-    }
-  };
-
-  const handleCopyGenerationErrorDetails = async () => {
-    if (!generationErrorDetails) {
-      return;
-    }
-
-    const copied = await copyTextToClipboardWithFallback(
-      formatGenerationErrorDebugText(generationErrorDetails),
-    );
-    if (copied) {
-      setGenerationErrorCopied(true);
-    }
-  };
-
-  const openGenerateDialog = async (nextRequest?: Partial<GenerationRequest>) => {
-    const selectionReferenceSignature = getSelectionReferenceSignature(
-      latestSceneRef.current,
-    );
-    if (
-      removedSelectionReferenceSignatureRef.current &&
-      removedSelectionReferenceSignatureRef.current !== selectionReferenceSignature
-    ) {
-      removedSelectionReferenceSignatureRef.current = null;
-    }
-    const reference =
-      selectionReferenceSignature &&
-      removedSelectionReferenceSignatureRef.current === selectionReferenceSignature
-        ? null
-        : await buildSelectionReference({
-            scene: latestSceneRef.current,
-            includeImage: false,
-            imageRecords: currentProjectRef.current?.imageRecords || null,
-          });
-
-    setGenerationError(null);
-    setGenerateRequest((current) => {
-      const mergedRequest = {
-        ...current,
-        ...nextRequest,
-        reference,
-      };
-      return normalizeGenerationRequest(mergedRequest, {
-        customModels: providerSettings?.[mergedRequest.provider]?.customModels ?? [],
-      });
+      applyThumbnailAssetsToScene: projectAssetSceneApplyRendererAction,
     });
-    setGenerateFocusToken((current) => current + 1);
-  };
 
-  const handleRemoveGenerateReference = () => {
-    removedSelectionReferenceSignatureRef.current = getSelectionReferenceSignature(
-      latestSceneRef.current,
-    );
-    setGenerateRequest((current) =>
-      normalizeGenerationRequest(
-        {
-          ...current,
-          reference: null,
-        },
-        {
-          customModels: providerSettings?.[current.provider]?.customModels ?? [],
-        },
-      ),
-    );
-  };
+  const projectThumbnailRebuildRendererActions =
+    createProjectThumbnailRebuildRendererActions({
+      getActiveProject: () => currentProjectRef.current,
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      rebuildProjectThumbnails: desktopBridge.rebuildProjectThumbnails,
+      readThumbnailAssets: ({ project, fileIds }) =>
+        desktopBridge.readProjectAssetPayloads({
+          projectPath: project.projectPath,
+          fileIds,
+          rendition: "thumbnail",
+          thumbnailMode: "cache-only",
+        }),
+      applyThumbnailAssetsToScene: projectAssetSceneApplyRendererAction,
+      applyThumbnailMaintenance: setThumbnailMaintenance,
+    });
 
-  const handleCommitGenerateReference = () =>
-    buildSceneWithOriginalImageFiles(latestSceneRef.current).then((scene) =>
-      buildSelectionReference({
-        scene,
-        includeImage: true,
-        imageRecords: currentProjectRef.current?.imageRecords || null,
-      }),
-    );
-
-  const handleSaveProviderSettings = async (
-    input: Parameters<typeof desktopBridge.saveProviderSettings>[0],
-  ) => {
-    setSavingProviders(true);
-    try {
-      const nextSettings = await desktopBridge.saveProviderSettings(input);
-      setProviderSettings(nextSettings);
-    } finally {
-      setSavingProviders(false);
-    }
-  };
-
-  const handleSavePrompt = async (input: SavePromptInput) => {
-    setSavedPrompts(await desktopBridge.savePrompt(input));
-  };
-
-  const handleUsePrompt = async (id: string) => {
-    setSavedPrompts(await desktopBridge.markSavedPromptUsed(id));
-  };
-
-  const handleDeletePrompt = async (id: string) => {
-    setSavedPrompts(await desktopBridge.deleteSavedPrompt(id));
-  };
-
-  const handleGenerateRequestChange = (request: GenerationRequest) => {
-    setGenerateRequest(
-      normalizeGenerationRequest(request, {
-        customModels: providerSettings?.[request.provider]?.customModels ?? [],
-      }),
-    );
-  };
-
-  const handleRememberGenerationModelSelection = (
-    selection: GenerationModelSelection,
-  ) => {
-    generationModelSelectionLockedRef.current = true;
-    rememberedGenerationModelSelectionRef.current = selection;
-    rememberGenerationModelSelection(selection);
-  };
-
-  const handleCopyPrompt = async () => {
-    if (!selectedRecord?.prompt) {
-      return;
-    }
-    await copyTextToClipboardWithFallback(selectedRecord.prompt);
-  };
-
-  const handleCopyTaskError = async () => {
-    if (!selectedTask || selectedTask.status !== "error") {
-      return;
-    }
-
-    await copyTextToClipboardWithFallback(
-      formatGenerationErrorDebugText({
-        provider: selectedTask.provider,
-        model: selectedTask.model,
-        occurredAt: selectedTask.startedAt,
-        normalizedMessage:
-          selectedTask.errorMessage || copy.startup.generateFailed,
-        rawMessage:
-          selectedTask.rawError ||
-          selectedTask.errorMessage ||
-          copy.startup.generateFailed,
-        stack: selectedTask.stack || null,
-        requestPayload: null,
-      }),
-    );
-  };
-
-  const handleLocateImageRecord = (fileId: string) => {
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return;
-    }
-
-    const targetElement = api
-      .getSceneElementsIncludingDeleted()
-      .find(
-        (element) =>
-          !element.isDeleted &&
-          element.type === "image" &&
-          element.fileId === fileId,
-      );
-
-    if (!targetElement) {
-      return;
-    }
-
-    api.updateScene({
-      appState: {
-        selectedElementIds: {
-          [targetElement.id]: true,
-        },
-        selectedGroupIds: {},
+  const visibleImageRenditionLoadRendererActions =
+    createVisibleImageRenditionLoadRendererActions({
+      delayMs: IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
+      getProject: () => currentProjectRef.current,
+      getSceneReader: () => excalidrawAPIRef.current,
+      getDevicePixelRatio: () => window.devicePixelRatio,
+      getLatestScene: () => latestSceneRef.current,
+      getTimerId: () => highResImageLoadTimerRef.current,
+      clearTimer: (timerId) => window.clearTimeout(timerId),
+      setTimerId: (timerId) => {
+        highResImageLoadTimerRef.current = timerId;
       },
-      captureUpdate: CaptureUpdateAction.NEVER,
-    });
-    api.scrollToContent(targetElement, {
-      animate: true,
-      duration: 300,
-    });
-  };
-
-  const handleLocatePromptReference = (
-    reference: ImagePromptReferenceRecord,
-  ) => {
-    const api = excalidrawAPIRef.current;
-    if (!api) {
-      return;
-    }
-
-    const elements = api
-      .getSceneElementsIncludingDeleted()
-      .filter((element) => !element.isDeleted);
-    const elementIds = new Set(reference.elementIds || []);
-    const fileIds = new Set(reference.fileIds || []);
-    const targetElements = elements.filter((element) => {
-      if (elementIds.has(element.id)) {
-        return true;
-      }
-
-      return (
-        element.type === "image" &&
-        element.fileId &&
-        fileIds.has(element.fileId)
-      );
-    });
-
-    if (!targetElements.length) {
-      return;
-    }
-
-    api.updateScene({
-      appState: {
-        selectedElementIds: Object.fromEntries(
-          targetElements.map((element) => [element.id, true]),
-        ),
-        selectedGroupIds: {},
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadingPreviewFileIds: () => loadingPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      getLoadingOriginalFileIds: () => loadingOriginalImageFileIdsRef.current,
+      setLoadedPreviewFileIds: (fileIds) => {
+        loadedPreviewImageFileIdsRef.current = fileIds;
       },
-      captureUpdate: CaptureUpdateAction.NEVER,
+      setLoadingPreviewFileIds: (fileIds) => {
+        loadingPreviewImageFileIdsRef.current = fileIds;
+      },
+      setLoadedOriginalFileIds: (fileIds) => {
+        loadedOriginalImageFileIdsRef.current = fileIds;
+      },
+      setLoadingOriginalFileIds: (fileIds) => {
+        loadingOriginalImageFileIdsRef.current = fileIds;
+      },
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      readAssets: ({ project, rendition, fileIds }) =>
+        readProjectImageAssets(project, fileIds, rendition),
+      applyAssetsToScene: projectAssetSceneApplyRendererAction,
     });
-    api.scrollToContent(targetElements, {
-      animate: true,
-      duration: 300,
+
+  const projectRepairSceneRefreshRendererActions =
+    createDesktopProjectRepairSceneRefreshRendererActions({
+      getActiveProject: () => currentProjectRef.current,
+      getCurrentFiles: () =>
+        excalidrawAPIRef.current?.getFiles() ??
+        latestSceneRef.current?.files ??
+        {},
+      getFallbackCreatedAt: () => Date.now(),
+      readProjectAssets: (input) =>
+        desktopBridge.readProjectAssetPayloads(input),
+      getEditorApi: () => excalidrawAPIRef.current,
+      queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      updateCurrentProject,
+      updateSelectedInspector: selectedInspectorRendererActions.update,
     });
-  };
 
-  const handleEditorReady = (
-    api: ExcalidrawImperativeAPI | null,
-    renderNonce: number,
-  ) => {
-    if (renderNonce !== projectRenderNonceRef.current) {
-      return;
-    }
+  const projectMaintenanceRendererActions =
+    createProjectMaintenanceRendererActions({
+      getProject: () => currentProjectRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+      repairProjectThumbnails: desktopBridge.rebuildProjectThumbnails,
+      inspectProjectHealth: desktopBridge.inspectProjectHealth,
+      cleanProjectCache: desktopBridge.cleanProjectCache,
+      messages: copy.projectRepair,
+      refreshThumbnailAssets: async ({ project, fileIds }) => {
+        await projectThumbnailAssetRefreshRendererActions.refresh({
+          project,
+          fileIds,
+        });
+      },
+      refreshSceneFromRepair: projectRepairSceneRefreshRendererActions.refresh,
+      applyState: projectMaintenanceActionStateApplier,
+    });
 
-    if (api) {
-      excalidrawAPIRef.current = api;
-      flushQueuedImageFilesToCanvas();
-      scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-    }
+  const projectImageStateResetRendererActions =
+    createProjectImageStateResetRendererActions({
+      resetImageRenditionTracking:
+        visibleImageRenditionLoadRendererActions.resetTracking,
+      resetQueuedFiles: queuedExcalidrawBinaryFilesRendererActions.reset,
+      resetThumbnailMaintenance:
+        projectMaintenanceRendererActions.resetThumbnailMaintenance,
+    });
 
-    const clearInitializing = () => {
-      updateEditorInitializing(false, renderNonce);
-    };
-
-    if (typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(clearInitializing);
-      return;
-    }
-
-    window.setTimeout(clearInitializing, 0);
-  };
-
-  useDesktopMenuEvents((event) => {
-    switch (event.action) {
-      case "new-project":
-        void handleCreateProject();
-        break;
-      case "open-project":
-        void handleOpenProject();
-        break;
-      case "open-recent-project":
-        if (event.projectPath) {
-          void handleOpenRecentProject(event.projectPath);
-        }
-        break;
-      case "project-opened":
-        if (event.projectBundle) {
-          if (
-            event.openRequestId !== undefined &&
-            event.openRequestId < latestMenuProjectOpenRequestIdRef.current
-          ) {
-            break;
-          }
-          if (event.openRequestId !== undefined) {
-            latestMenuProjectOpenRequestIdRef.current = event.openRequestId;
-          }
-          const sequence = beginProjectOpen();
-          void openProjectBundle(event.projectBundle, sequence);
-        }
-        break;
-      case "project-open-failed":
-        if (
-          event.openRequestId !== undefined &&
-          event.openRequestId < latestMenuProjectOpenRequestIdRef.current
-        ) {
-          break;
-        }
-        if (event.openRequestId !== undefined) {
-          latestMenuProjectOpenRequestIdRef.current = event.openRequestId;
-        }
-        setProjectError(event.errorMessage || copy.startup.openProjectFailed);
-        clearProjectNotice();
-        break;
-      case "repair-project-thumbnails":
-        void handleRepairProjectThumbnails();
-        break;
-      case "inspect-project-health":
-        void handleInspectProjectHealth();
-        break;
-      case "clean-project-cache":
-        void handleCleanProjectCache();
-        break;
-      case "import-images":
-        void handleImportImages();
-        break;
-      case "generate-image":
-        void openGenerateDialog();
-        break;
-      case "provider-settings":
-        setProviderSettingsFocusToken((current) => current + 1);
-        break;
-      case "reveal-project":
-        void handleRevealProject();
-        break;
-      case "show-about":
-        setAboutOpen(true);
-        break;
-      default:
-        break;
-    }
+  const viewportChangeRendererActions = createViewportChangeRendererActions({
+    getScene: () => latestSceneRef.current,
+    getSceneReader: () => excalidrawAPIRef.current ?? {},
+    setLatestScene: (scene) => {
+      latestSceneRef.current = scene;
+    },
+    scheduleVisibleImageRenditionLoad:
+      visibleImageRenditionLoadRendererActions.schedule,
+    scheduleAgentBrowserRuntimeStatePublish:
+      agentBrowserRuntimePublishRendererActions.schedule,
+    updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
   });
 
-  const renderAboutDialog = () =>
-    aboutOpen ? (
-      <div className="dialog-backdrop">
-        <div
-          className="dialog-card dialog-card--about"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="about-dialog-title"
-        >
-          <div className="dialog-card__header">
-            <div>
-              <h2 id="about-dialog-title">{copy.about.title}</h2>
-            </div>
-            <DesktopButton
-              type="button"
-              className="dialog-card__close"
-              aria-label={copy.about.closeLabel}
-              onClick={() => setAboutOpen(false)}
-            >
-              {copy.about.close}
-            </DesktopButton>
-          </div>
-          <p className="about-dialog__description">
-            {copy.about.description}
-          </p>
-          <div className="about-dialog__version">
-            {copy.about.versionLabel}{" "}
-            {appInfo?.version ?? copy.about.versionUnknown}
-          </div>
-        </div>
-      </div>
-    ) : null;
+  const desktopStartupRendererActions = createDesktopStartupRendererActions({
+    getBridge: () => bridge,
+    isGenerationModelSelectionLocked: () =>
+      generationModelSelectionLockedRef.current,
+    setProviderSettings,
+    setGenerateRequest,
+    setStartupError,
+    setRecentProjects,
+    setProjectError,
+    setAppInfo,
+    setSavedPrompts,
+    loadAcpAgentSettings: loadAcpAgentSettingsState,
+  });
 
-  const renderProjectStatusToast = () => {
-    const message =
-      projectNotice ||
-      (thumbnailMaintenance
-        ? thumbnailMaintenance.message ??
-          (thumbnailMaintenance.status === "pending"
-            ? `正在生成 ${thumbnailMaintenance.total} 张缩略图`
-            : `${thumbnailMaintenance.total} 张缩略图暂时不可用`)
-        : null);
+  const agentBridgeStatusRendererActions =
+    createAgentBridgeStatusRendererActions({
+      getBridge: () => bridge,
+      getCurrentProject: () => currentProjectRef.current,
+      getIsAgentBrowserRoute: () => isAgentBrowserRoute,
+      getFallbackBoardUrl: () =>
+        isAgentBrowserRoute ? window.location.href : null,
+      applyBridgeStatus: setAgentBridgeStatus,
+      resetAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
+      refreshDesktopStartupState:
+        desktopStartupRendererActions.refreshAgentBrowser,
+      updateCurrentProject,
+      showError: setProjectError,
+    });
 
-    if (!message) {
-      return null;
-    }
+  const generationErrorRendererActions =
+    createGenerationErrorRendererActions({
+      applyState: createGenerationErrorStateApplier({
+        setError: setGenerationError,
+        setDetails: setGenerationErrorDetails,
+        setDetailsOpen: setGenerationErrorDetailsOpen,
+        setCopied: setGenerationErrorCopied,
+      }),
+      getDetails: () => generationErrorDetails,
+      setDetailsCopied: setGenerationErrorCopied,
+      getTask: () => selectedTask,
+      copyText: clipboardTextRendererActions.copy,
+    });
 
-    const statusClassName = [
-      "image-board-thumbnail-status",
-      projectNotice ? "image-board-thumbnail-status--success" : "",
-      thumbnailMaintenance?.status === "failed"
-        ? "image-board-thumbnail-status--failed"
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
+  const acpRunLogRendererActions = createAcpRunLogRendererActions({
+    getBridge: () => bridge,
+    getCurrentTaskId: getAcpRunLogTaskId,
+    getSurface: getAcpRunLogSurface,
+    hasCurrentProject: () => Boolean(currentProjectRef.current),
+    hasInitialData: () => Boolean(initialData),
+    getRefreshTimerId: getAcpRunLogRefreshTimerId,
+    clearTimer: (timerId) => window.clearTimeout(timerId),
+    setLoading: setAcpRunLogLoading,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    setAppSettingsOpen,
+    setRunLogDialogOpen: setAcpRunLogDialogOpen,
+    setChatDockOpen: setAgentChatDockOpen,
+    setRunLogDetail: setAcpRunLogDetail,
+    setRunLogError: setAcpRunLogError,
+    setRunLogRawOpen: setAcpRunLogRawOpen,
+    updateConversationEntries: (updater) => {
+      setAcpConversationEntries(updater);
+    },
+    scheduleTimeout: (callback, timeoutDelay) =>
+      window.setTimeout(callback, timeoutDelay),
+    setRefreshTimerId: setAcpRunLogRefreshTimerId,
+  });
 
-    return (
-      <div className={statusClassName} role="status" aria-live="polite">
-        <span
-          className={[
-            "image-board-thumbnail-status__dot",
-            projectNotice ? "image-board-thumbnail-status__dot--success" : "",
-            thumbnailMaintenance?.status === "failed"
-              ? "image-board-thumbnail-status__dot--muted"
-              : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          aria-hidden="true"
-        />
-        <span>{message}</span>
-        {!projectNotice &&
-          thumbnailMaintenance?.status === "pending" &&
-          !thumbnailMaintenance.message && (
-            <span className="image-board-thumbnail-status__hint">
-              放大查看时会优先载入原图。
-            </span>
-          )}
-      </div>
-    );
+  const closeAcpRunLogDialog = acpRunLogRendererActions.close;
+
+  const generationRequestRendererActions =
+    createGenerationRequestRendererActions({
+      getProviderSettings: () => providerSettings,
+      getCurrentRequest: () => generateRequest,
+      setGenerationSource,
+      showDirectGenerationRecords:
+        acpRunLogRendererActions.showDirectGenerationRecords,
+      setGenerateRequest,
+      updateGenerateRequest: setGenerateRequest,
+    });
+
+  const generateDialogReferenceRendererActions =
+    createGenerateDialogReferenceRendererActions({
+      getScene: () => latestSceneRef.current,
+      getImageRecords: () => currentProjectRef.current?.imageRecords || null,
+      getRemovedSelectionReferenceSignature: () =>
+        removedSelectionReferenceSignatureRef.current,
+      setRemovedSelectionReferenceSignature: (signature) => {
+        removedSelectionReferenceSignatureRef.current = signature;
+      },
+      getCurrentRequest: () => generateRequest,
+      getProviderSettings: () => providerSettings,
+      clearGenerationError: () => setGenerationError(null),
+      updateGenerateRequest: setGenerateRequest,
+      focusGenerateInput: () => setGenerateFocusToken((current) => current + 1),
+      loadOriginalScene: selectionReferenceOriginalSceneActions.load,
+    });
+
+  const currentProjectAutosaveFailureRendererActions =
+    createCurrentProjectAutosaveFailureRendererActions({
+      formatError: formatProjectSaveError,
+      logError: console.error,
+      setProjectError,
+    });
+
+  const generationRecordRendererActions =
+    createGenerationRecordRendererActions({
+      getSelectedRecord: () => selectedRecord,
+      copyText: clipboardTextRendererActions.copy,
+    });
+
+  const imageRecordLocatorRendererActions =
+    createImageRecordLocatorRendererActions({
+      getApi: () => excalidrawAPIRef.current,
+      getImageRecords: () => currentProjectRef.current?.imageRecords,
+      setProjectError,
+      showProjectNotice: projectNoticeRendererActions.show,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+    });
+
+  const agentIntegrationCopyShortcutRendererActions =
+    createAgentIntegrationCopyShortcutRendererActions({
+      getBridgeStatus: () => agentBridgeStatus,
+      getAcpAgentSettings: () => acpAgentSettings,
+      getRunningTaskId: () => getRunningAcpAgentTaskId(acpAgentTask),
+      refreshBridgeStatus: agentBridgeStatusRendererActions.loadStatus,
+      copyText: clipboardTextRendererActions.copy,
+      onSuccess: projectNoticeRendererActions.show,
+      onError: setProjectError,
+    });
+
+  const agentStatusDockRendererActions =
+    createAgentStatusDockRendererActions({
+      copyBoardUrl: agentIntegrationCopyShortcutRendererActions.copyBoardUrl,
+      copyCliEnvironment:
+        agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
+      refreshStatus:
+        agentBridgeStatusRendererActions.refreshBrowserConnectionStatus,
+      openSettings: () => setAppSettingsOpen(true),
+      openConversation: () => setAgentChatDockOpen(true),
+    });
+
+  const agentIntegrationSettingsDialogActions =
+    createAgentIntegrationSettingsDialogRendererActions({
+      close: () => setAppSettingsOpen(false),
+      setIntegrationEnabled: agentBridgeStatusRendererActions.setEnabled,
+      copyBoardUrl: agentIntegrationCopyShortcutRendererActions.copyBoardUrl,
+      getBoardUrl: () => agentIntegration.bridge.boardUrl,
+      openExternalUrl: (url, target) => window.open(url, target),
+      copyCliEnvironment:
+        agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
+      saveAcpAgentSettings: acpAgentSettingsRendererActions.save,
+      setAcpDebugOpen,
+      refreshAcpRunSummaries: loadAcpRunSummariesState,
+      openAcpRunLog: acpRunLogRendererActions.open,
+    });
+
+  const agentBrowserBridgeStatusRetryLoopRendererActions =
+    createAgentBrowserBridgeStatusRetryLoopRendererActions({
+      refreshConnection: ({ canApply }) =>
+        agentBridgeStatusRendererActions.refreshBrowserConnection({
+          refreshDesktopStartupState: desktopStartupRendererActions.loadAll,
+          canApply,
+        }),
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      clearTimeout: (timerId) => window.clearTimeout(timerId),
+    });
+
+  const appStartupLifecycleRendererActions =
+    createAppStartupLifecycleRendererActions({
+      getNotifyRendererReady: () => bridge?.notifyRendererReady,
+      getIsAgentBrowserRoute: () => isAgentBrowserRoute,
+      loadDesktopStartupState: desktopStartupRendererActions.loadAll,
+      startAgentBrowserBridgeStatusRetryLoop:
+        agentBrowserBridgeStatusRetryLoopRendererActions.start,
+    });
+
+  const appUnmountCleanupRendererActions =
+    createAppUnmountCleanupRendererActions({
+      clearWorkspaceFitPulseTimer: workspaceFitPulseRendererActions.clearTimer,
+      clearProjectNoticeTimer: projectNoticeRendererActions.clearTimer,
+      clearVisibleImageRenditionLoadTimer:
+        visibleImageRenditionLoadRendererActions.clearTimer,
+      clearAcpRunLogRefreshTimer: acpRunLogRendererActions.clearTimer,
+      clearAgentBrowserRuntimePublishTimer:
+        agentBrowserRuntimePublishRendererActions.clearTimer,
+    });
+
+  useDesktopStartupWiring({
+    bridge,
+    appStartupLifecycleRendererActions,
+    appUnmountCleanupRendererActions,
+  });
+
+  useEffect(() => {
+    return currentProjectEditorInitializingRendererActions.startFallbackClear({
+      isEditorInitializing,
+      renderNonce: projectRenderNonce,
+    });
+  }, [isEditorInitializing, projectRenderNonce]);
+
+  const currentProjectBundleOpenRendererActions =
+    createCurrentProjectBundleOpenRendererActions({
+      beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+      isCurrentProjectOpen: currentProjectOpenSequenceRendererActions.isCurrent,
+      flushPendingAutosave: (options) => flushPendingAutosave(options),
+      getDevicePixelRatio: () => window.devicePixelRatio,
+      getFallbackCreatedAt: () => Date.now(),
+      readProjectAssets: (input) =>
+        desktopBridge.readProjectAssetPayloads(input),
+      setLoadingProject,
+      setProjectError,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+      formatSaveBeforeOpenError: formatProjectSaveBeforeOpenError,
+      formatOpenError: formatProjectOpenError,
+      resetImageRenditionState: projectImageStateResetRendererActions.reset,
+      setThumbnailMaintenance,
+      markImageAssetRenditionsLoaded:
+        visibleImageRenditionLoadRendererActions.markLoaded,
+      projectRenderNonceRef,
+      editorApiRef: excalidrawAPIRef,
+      updateEditorInitializing:
+        currentProjectEditorInitializingRendererActions.update,
+      updateCurrentProject,
+      setInitialData,
+      setProjectRenderNonce,
+      latestSceneRef,
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
+      lastCanvasPointerRef,
+      setSelectedRecord,
+      setSelectedTask,
+      lastBatchBoundsRef,
+      resetGenerationTrackingState: generationTrackingRendererActions.reset,
+      safeModeOpenedMessage: copy.projectRepair.safeModeOpened,
+      showProjectNotice: projectNoticeRendererActions.show,
+      rebuildMissingThumbnails:
+        projectThumbnailRebuildRendererActions.rebuildMissing,
+      loadRecentProjectsState: desktopStartupRendererActions.loadRecentProjects,
+    });
+  const openProjectBundle = currentProjectBundleOpenRendererActions.open;
+
+  const projectViewClearRendererActions = createProjectViewClearRendererActions({
+    beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+    editorApiRef: excalidrawAPIRef,
+    latestSceneRef,
+    setSceneImageFileIds,
+    updateCurrentProject,
+    setInitialData,
+    setWorkspaceOverlayState,
+    resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
+    updateEditorInitializing: currentProjectEditorInitializingRendererActions.update,
+    setSelectedRecord,
+    setSelectedTask,
+    lastCanvasPointerRef,
+    lastBatchBoundsRef,
+    resetGenerationTrackingState: generationTrackingRendererActions.reset,
+    resetImageRenditionState: projectImageStateResetRendererActions.reset,
+  });
+
+  const projectRenderBoundaryRendererActions =
+    createCurrentProjectRenderBoundaryRendererActions({
+      getCurrentProject: () => currentProjectRef.current,
+      logError: console.error,
+      updateEditorInitializing:
+        currentProjectEditorInitializingRendererActions.update,
+      clearProjectViewState: projectViewClearRendererActions.clear,
+    });
+
+  const currentProjectEditorReadyRendererActions =
+    createCurrentProjectEditorReadyRendererActions<
+      ExcalidrawImperativeAPI,
+      AppSceneSnapshot,
+      number
+    >({
+      getCurrentRenderNonce: () => projectRenderNonceRef.current,
+      getLatestScene: () => latestSceneRef.current,
+      setEditorApi: (api) => {
+        excalidrawAPIRef.current = api;
+      },
+      flushQueuedImageFilesToCanvas:
+        queuedExcalidrawBinaryFilesRendererActions.flush,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      requestAnimationFrame: window.requestAnimationFrame,
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      clearInitializing: (nextRenderNonce) => {
+        currentProjectEditorInitializingRendererActions.update(
+          false,
+          nextRenderNonce,
+        );
+      },
+    });
+
+  const activeAgentProjectPathRendererActions =
+    createActiveAgentProjectPathRendererActions({
+      getActiveProjectPath: () => currentProjectRef.current?.projectPath,
+    });
+
+  const generatedImageSceneInsertRendererActions =
+    createGeneratedImageSceneInsertRendererActions({
+      getEditorApi: () => excalidrawAPIRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      assertActiveProject:
+        activeAgentProjectPathRendererActions.assertActiveProject,
+      getSavedSceneHash: () => savedSceneHashRef.current,
+      getPreviousBatchBounds: () => lastBatchBoundsRef.current,
+      setPreviousBatchBounds: (bounds) => {
+        lastBatchBoundsRef.current = bounds;
+      },
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      setActiveProject: updateCurrentProject,
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      flushPendingAutosave: (options) => flushPendingAutosave(options),
+      getFallbackCreatedAt: () => Date.now(),
+    });
+
+  const pendingGenerationCanvasRendererActions =
+    createPendingGenerationCanvasRendererActions({
+      getEditorApi: () => excalidrawAPIRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      assertActiveProject:
+        activeAgentProjectPathRendererActions.assertActiveProject,
+      getFallbackReferenceScene: () => latestSceneRef.current,
+      getLastCanvasPointer: () => lastCanvasPointerRef.current,
+      getPreviousBatchBounds: () => lastBatchBoundsRef.current,
+      setPreviousBatchBounds: (bounds) => {
+        lastBatchBoundsRef.current = bounds;
+      },
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      getGenerationTasks: () => generationTaskByElementIdRef.current,
+      setGenerationTasks: (generationTasks) => {
+        generationTaskByElementIdRef.current = generationTasks;
+      },
+    });
+
+  const projectImageAssetPersistenceRendererActions =
+    createProjectImageAssetPersistenceRendererActions({
+      getActiveProject: () => currentProjectRef.current,
+      imageWritebackBridge: desktopBridge,
+      persistImageAssets: desktopBridge.persistImageAssets,
+      setActiveProject: updateCurrentProject,
+    });
+
+  const builtinGenerationJobCompletionRendererActions =
+    createBuiltinGenerationJobCompletionRendererActions<
+      readonly ExcalidrawElement[],
+      AppState,
+      BinaryFiles
+    >({
+      getActiveProject: () => currentProjectRef.current,
+      beginProjectImageWriteback:
+        projectImageAssetPersistenceRendererActions.beginProjectImageWriteback,
+      replaceSlot: pendingGenerationCanvasRendererActions.replaceSlot,
+      markSlotFailed: pendingGenerationCanvasRendererActions.markFailed,
+      getCanvasSnapshot: () => {
+        const activeApi = excalidrawAPIRef.current;
+        if (!activeApi) {
+          return null;
+        }
+        return {
+          elements: activeApi.getSceneElementsIncludingDeleted(),
+          appState: activeApi.getAppState(),
+          files: activeApi.getFiles(),
+        };
+      },
+      restoreCanvasSnapshot: (snapshot) => {
+        const activeApi = excalidrawAPIRef.current;
+        if (!activeApi) {
+          throw new Error("CoreStudio 画板还没有准备好，无法恢复 placeholder 快照。");
+        }
+        activeApi.updateScene({
+          elements: snapshot.elements,
+          appState: snapshot.appState,
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+        latestSceneRef.current = snapshot;
+      },
+      getSavedSceneHash: () => savedSceneHashRef.current,
+      setScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      flushPendingAutosave: (options) => flushPendingAutosave(options),
+    });
+
+  const autosaveSnapshotWriteRendererActions =
+    createAutosaveSnapshotWriteRendererActions<
+      readonly ExcalidrawElement[],
+      AppState,
+      BinaryFiles
+    >({
+      getActiveProject: () => currentProjectRef.current,
+      hasPendingAutosave: () => Boolean(pendingAutosaveRef.current),
+      getPendingSnapshot: () => pendingAutosaveRef.current,
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      getCurrentQueue: () => autosaveQueueRef.current,
+      setQueue: (queue) => {
+        autosaveQueueRef.current = queue;
+      },
+      getSavedSceneHash: () => savedSceneHashRef.current,
+      persistUnknownCanvasImages:
+        projectImageAssetPersistenceRendererActions.persistUnknownCanvasImages,
+      serializeScene: serializeSceneForProject,
+      writeProjectScene: desktopBridge.writeProjectScene,
+      setActiveProject: updateCurrentProject,
+      updateSelectedInspector: selectedInspectorRendererActions.update,
+      reportError: currentProjectAutosaveFailureRendererActions.report,
+    });
+
+  const autosaveRendererActions =
+    createAutosaveRendererActions<AutosaveSnapshot>({
+      delayMs: 700,
+      getTimerId: () => autosaveTimerRef.current,
+      clearTimer: (timerId) => window.clearTimeout(timerId),
+      setTimerId: (timerId) => {
+        autosaveTimerRef.current = timerId;
+      },
+      setPendingSnapshot: (snapshot) => {
+        pendingAutosaveRef.current = snapshot;
+      },
+      takePendingSnapshot: autosaveSnapshotWriteRendererActions.takePending,
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      writeSnapshot: autosaveSnapshotWriteRendererActions.enqueue,
+      waitForQueue: async () => {
+        await autosaveQueueRef.current;
+      },
+      handleWriteError:
+        autosaveSnapshotWriteRendererActions.handleWriteFailure,
+    });
+
+  const canvasSceneChangeRendererActions =
+    createCanvasSceneChangeRendererActions<
+      readonly ExcalidrawElement[],
+      AppState,
+      BinaryFiles
+    >({
+      getActiveProject: () => currentProjectRef.current,
+      getRemovedSelectionReferenceSignature: () =>
+        removedSelectionReferenceSignatureRef.current,
+      setRemovedSelectionReferenceSignature: (signature) => {
+        removedSelectionReferenceSignatureRef.current = signature;
+      },
+      maybeSnapWorkspaceZoom: workspaceZoomSnapRendererActions.maybeSnap,
+      setLatestScene: (scene) => {
+        latestSceneRef.current = scene;
+      },
+      updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
+      scheduleAgentBrowserRuntimeStatePublish:
+        agentBrowserRuntimePublishRendererActions.schedule,
+      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      setGenerateRequest,
+      updateSelectedInspector: selectedInspectorRendererActions.update,
+      isEditorInitializing: () => isEditorInitializingRef.current,
+      scheduleAutosave: autosaveRendererActions.schedule,
+      getSavedSceneHash: () => savedSceneHashRef.current,
+    });
+
+  const flushPendingAutosave = autosaveRendererActions.flush;
+
+  const autosaveLifecycleRendererActions =
+    createAutosaveLifecycleRendererActions({
+      addEventListener: (eventName, listener) =>
+        window.addEventListener(eventName, listener),
+      removeEventListener: (eventName, listener) =>
+        window.removeEventListener(eventName, listener),
+      subscribeFlushRequest: bridge?.onFlushAutosaveRequest,
+      flushBeforeUnload: flushPendingAutosave,
+      flushRequest: () => flushPendingAutosave({ strict: true }),
+    });
+
+  useProjectAutosaveWiring({
+    bridge,
+    autosaveLifecycleRendererActions,
+  });
+
+  const currentProjectEntryRendererActions =
+    createCurrentProjectEntryRendererActions({
+      getBridge: () => desktopBridge,
+      getCurrentProject: () => currentProjectRef.current,
+      beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+      openProjectBundle,
+      isCurrentProjectOpen:
+        currentProjectOpenSequenceRendererActions.isCurrent,
+      flushPendingAutosave,
+      clearProjectViewState: projectViewClearRendererActions.clear,
+      loadRecentProjectsState: desktopStartupRendererActions.loadRecentProjects,
+      formatCreateError: formatProjectCreateError,
+      formatOpenError: formatProjectOpenError,
+      formatSaveBeforeOpenError: formatProjectSaveBeforeOpenError,
+      formatRevealError: formatProjectRevealError,
+      setProjectError,
+      setLoadingProject,
+      updateEditorInitializing:
+        currentProjectEditorInitializingRendererActions.update,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+    });
+
+  const revealProjectFromList = useCallback(
+    async (projectPath: string) => {
+      try {
+        await desktopBridge.revealProjectInFinder(projectPath);
+      } catch (error) {
+        setProjectError(formatProjectRevealError(error));
+      }
+    },
+    [desktopBridge],
+  );
+
+  const agentBrowserAutoOpenProjectRendererActions =
+    createAgentBrowserAutoOpenProjectRendererActions({
+      getIsAgentBrowserRoute: () => isAgentBrowserRoute,
+      getHasInitialProjectToken: () => Boolean(agentBrowserInitialProjectToken),
+      getLoadingProject: () => loadingProject,
+      getBridgeProjectPath: () =>
+        agentBridgeStatus?.currentProject?.projectPath ?? null,
+      getCurrentProjectPath: () => currentProject?.projectPath ?? null,
+      getAutoOpenProjectPath: () => agentBrowserAutoOpenProjectPath,
+      setAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
+      openProject: (projectPath) => {
+        void currentProjectEntryRendererActions.openRecentProject(projectPath);
+      },
+    });
+
+  useAgentBridgeWiring({
+    agentBrowserAutoOpenProjectRendererActions,
+    agentBrowserAutoOpenProjectPath,
+    agentBrowserInitialProjectToken,
+    agentBridgeCurrentProjectPath:
+      agentBridgeStatus?.currentProject?.projectPath ?? null,
+    currentProjectPath: currentProject?.projectPath ?? null,
+    isAgentBrowserRoute,
+    loadingProject,
+  });
+
+  const projectImageImportRendererActions =
+    createProjectImageImportRendererActions({
+      getProject: () => currentProjectRef.current,
+      getActiveProject: () => currentProjectRef.current,
+      importImages: desktopBridge.importImages,
+      readClipboardImage: desktopBridge.readClipboardImage,
+      persistImageAssets: desktopBridge.persistImageAssets,
+      setActiveProject: updateCurrentProject,
+      insertAssetsIntoScene:
+        generatedImageSceneInsertRendererActions.insertAssets,
+      getClipboardInsertionOptions: () => ({
+        anchorPoint: lastCanvasPointerRef.current,
+      }),
+      formatError: formatProjectImportImagesError,
+      setProjectError,
+    });
+
+  const acpTaskStartRendererActions = createAcpTaskStartRendererActions({
+    getProject: () => currentProjectRef.current,
+    getRuntime: () => agentIntegrationRuntime,
+    getActiveThreadId: getActiveAcpThreadId,
+    getStatus: () => agentBridgeStatus,
+    getPageUrl: () => window.location.href,
+    getBridge: () => bridge,
+    setActiveTaskId: acpActiveTaskIdRendererActions.set,
+    setActiveThreadId: acpActiveThreadIdRendererActions.set,
+    runLogTargetActions: acpRunLogTargetRendererActions,
+    setChatDockOpen: setAgentChatDockOpen,
+    setRunLogDetail: setAcpRunLogDetail,
+    setRunLogError: setAcpRunLogError,
+    setRunLogRawOpen: setAcpRunLogRawOpen,
+    setAgentTask: setAcpAgentTask,
+    setGenerateRequest,
+  });
+
+  const generationSubmitRendererActions =
+    createGenerationSubmitRendererActions<
+      PlacementViewportContext,
+      AppSceneSnapshot
+    >({
+      getProject: () => currentProjectRef.current,
+      getProviderSettings: () => providerSettings,
+      clearGenerationError: generationErrorRendererActions.clear,
+      assertProjectActive:
+        activeAgentProjectPathRendererActions.assertActiveProject,
+      startAcpAgentGeneration: acpTaskStartRendererActions.start,
+      startBuiltinGeneration: (request, project, options) =>
+        runBuiltinGenerationRendererAction({
+          request,
+          project,
+          providerSettings,
+          sourceScene: options.referenceScene ?? latestSceneRef.current,
+          referenceScene: options.referenceScene ?? null,
+          expectedProjectPath: options.expectedProjectPath,
+          placementViewport: options.placementViewport,
+          startupGenerateFailedMessage: copy.startup.generateFailed,
+          loadOriginalScene: selectionReferenceOriginalSceneActions.load,
+          assertProjectActive: () =>
+            activeAgentProjectPathRendererActions.assertActiveProject(
+              options.expectedProjectPath,
+            ),
+          setGenerationSource,
+          showDirectGenerationRecords:
+            acpRunLogRendererActions.showDirectGenerationRecords,
+          setGenerateRequest,
+          insertPlaceholders: (
+            preparedRequest,
+            startedAt,
+            placeholderOptions,
+          ) =>
+            pendingGenerationCanvasRendererActions.insertPlaceholders(
+              preparedRequest,
+              startedAt,
+              {
+                ...placeholderOptions,
+                referenceScene: placeholderOptions.referenceScene ?? undefined,
+              },
+            ),
+          getGenerationJobs: () => pendingGenerationJobsRef.current,
+          applyRegistryState: (state) =>
+            applyPendingGenerationJobRegistryState({
+              state,
+              setPendingJobs: (pendingJobs) => {
+                pendingGenerationJobsRef.current = pendingJobs;
+              },
+              setPendingCount: setPendingGenerationCount,
+            }),
+          generateImages: desktopBridge.generateImages,
+          cancelGenerateImages: desktopBridge.cancelGenerateImages,
+          finishPendingJob:
+            builtinGenerationJobCompletionRendererActions.finishPendingJob,
+          markPendingGenerationFailed:
+            pendingGenerationCanvasRendererActions.markFailed,
+          showGenerationError: generationErrorRendererActions.display,
+          loadProviderState: desktopStartupRendererActions.loadProvider,
+        }),
+      showGenerationError: generationErrorRendererActions.display,
+    });
+
+  const cancelBuiltinGeneration = () => {
+    void runBuiltinGenerationCancelRendererAction({
+      getGenerationJobs: () => pendingGenerationJobsRef.current,
+      applyRegistryState: (state) =>
+        applyPendingGenerationJobRegistryState({
+          state,
+          setPendingJobs: (pendingJobs) => {
+            pendingGenerationJobsRef.current = pendingJobs;
+          },
+          setPendingCount: setPendingGenerationCount,
+        }),
+      cancelGenerateImages: desktopBridge.cancelGenerateImages,
+      markPendingGenerationFailed:
+        pendingGenerationCanvasRendererActions.markFailed,
+    });
   };
 
-  if (!bridge) {
+  const acpConversationMessageRendererActions =
+    createAcpConversationMessageRendererActions({
+      getCurrentRequest: () => generateRequest,
+      getProviderSettings: () => providerSettings,
+      getScene: () => latestSceneRef.current,
+      getImageRecords: () => currentProjectRef.current?.imageRecords || null,
+      getRemovedSelectionReferenceSignature: () =>
+        removedSelectionReferenceSignatureRef.current,
+      submitGenerationRequest: async (nextRequest) => {
+        await generationSubmitRendererActions.submit(nextRequest, false, {
+          rejectOnError: true,
+        });
+      },
+    });
+
+  const desktopMenuEventRendererActions =
+    createDesktopMenuEventRendererActions({
+      getLatestOpenRequestId: () => latestMenuProjectOpenRequestIdRef.current,
+      setLatestOpenRequestId: (requestId) => {
+        latestMenuProjectOpenRequestIdRef.current = requestId;
+      },
+      projectOpenFailedFallbackMessage: copy.startup.openProjectFailed,
+      setProjectError,
+      clearProjectNotice: projectNoticeRendererActions.clear,
+      createProject: currentProjectEntryRendererActions.createProject,
+      openProject: currentProjectEntryRendererActions.openProject,
+      openRecentProject: currentProjectEntryRendererActions.openRecentProject,
+      beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+      openProjectBundle,
+      repairProjectThumbnails: projectMaintenanceRendererActions.repair,
+      inspectProjectHealth: projectMaintenanceRendererActions.inspectHealth,
+      cleanProjectCache: projectMaintenanceRendererActions.cleanCache,
+      importImages: projectImageImportRendererActions.importImages,
+      openGenerateDialog: generateDialogReferenceRendererActions.open,
+      focusProviderSettings: () =>
+        setProviderSettingsFocusToken((current) => current + 1),
+      openAppSettings: () => setAppSettingsOpen(true),
+      setAgentBridgeEnabled: agentBridgeStatusRendererActions.setEnabled,
+      revealProject: currentProjectEntryRendererActions.revealProject,
+      showAbout: () => setAboutOpen(true),
+    });
+
+  const agentCommandRequestSubscriptionRendererActions =
+    createAgentCommandRequestSubscriptionRendererActions({
+      bridge,
+      desktopBridge,
+      getProject: () => currentProjectRef.current,
+      getScene: () => latestSceneRef.current,
+      serializeScene: serializeSceneForProject,
+      getExcalidrawAPI: () => excalidrawAPIRef.current,
+      providerSettings,
+      generationSource,
+      generateRequest,
+      readProjectImageAssets,
+      beginImageWriteback: ({ project, files }) =>
+        projectImageAssetPersistenceRendererActions.beginProjectImageWriteback({
+          projectPath: project.projectPath,
+          projectImageRecords: project.imageRecords,
+          files,
+        }),
+      insertAssetsIntoScene:
+        generatedImageSceneInsertRendererActions.insertAssets,
+      restoreScene: (snapshot) => {
+        const api = excalidrawAPIRef.current;
+        if (!api) {
+          throw new Error("CoreStudio 画板还没有准备好，无法恢复写入前快照。");
+        }
+        api.updateScene({
+          elements: snapshot.elements,
+          appState: snapshot.appState,
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+        latestSceneRef.current = snapshot;
+      },
+      flushPendingAutosave,
+      generateImages: async (request, keepOpen, options) => {
+        await generationSubmitRendererActions.submit(
+          request,
+          keepOpen,
+          options,
+        );
+      },
+      handleDesktopBridgeRequest: handleAgentDesktopBridgeRequest,
+      handleCommandRequest: handleAgentCommandRequest,
+    });
+
+  const acpTaskEventSubscriptionRendererActions =
+    createAcpTaskEventSubscriptionRendererActions({
+      bridge,
+      getActiveTaskId: getActiveAcpTaskId,
+      getOpenRunLogTaskId: getAcpRunLogTaskId,
+      getProjectToken: () => getProjectAgentAccessToken(currentProjectRef.current),
+      getAppSettingsOpen: () => appSettingsOpen,
+      getAcpDebugOpen: () => acpDebugOpen,
+      historyRefreshDelay: ACP_RUN_HISTORY_REFRESH_DELAY_MS,
+      updateTaskState: setAcpAgentTask,
+      clearActiveTask: () => acpActiveTaskIdRendererActions.set(null),
+      scheduleTimeout: (callback, delay) => window.setTimeout(callback, delay),
+      refreshThreadSummaries: loadAcpThreadSummariesState,
+      refreshRunSummaries: loadAcpRunSummariesState,
+      refreshOpenRunLog: (taskId, delay = ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS) =>
+        acpRunLogRendererActions.scheduleLiveRefresh(taskId, delay),
+    });
+
+  useAcpAgentWiring({
+    acpThreadRendererActions,
+    acpTaskEventSubscriptionRendererActions,
+    currentProjectAgentAccessToken,
+    bridge,
+    getCurrentProjectAgentAccessToken,
+    acpDebugOpen,
+    appSettingsOpen,
+    loadAcpRunSummariesState,
+    loadAcpThreadSummariesState,
+  });
+
+  useEffect(() => agentCommandRequestSubscriptionRendererActions.start(), [
+    bridge,
+    desktopBridge,
+    flushPendingAutosave,
+    generateRequest,
+    generationSource,
+    generationSubmitRendererActions.submit,
+    generatedImageSceneInsertRendererActions.insertAssets,
+    providerSettings,
+    readProjectImageAssets,
+  ]);
+  useDesktopMenuEvents(desktopMenuEventRendererActions.handle);
+
+  const globalDialogs = (
+    <AppGlobalDialogs
+      about={{
+        open: aboutOpen,
+        appInfo,
+        onClose: () => setAboutOpen(false),
+      }}
+      agentSettings={{
+        open: appSettingsOpen,
+        integration: agentIntegration,
+        canToggleIntegration:
+          canSetAgentBridgeEnabled(bridge) && !isAgentBrowserRoute,
+        currentProjectPath: currentProject?.projectPath ?? null,
+        bridgeProjectPath: agentBridgeStatus?.currentProject?.projectPath ?? null,
+        acpAgentDraft: acpAgentSettingsDraft,
+        selectedAcpAgent,
+        acpAgentEditable: acpAgentSettingsEditable,
+        acpAgentSaving: savingAcpAgentSettings,
+        acpDebugOpen,
+        acpRunSummaries,
+        acpRunSummariesLoading,
+        acpRunSummariesError,
+        canReadAcpRunLogs,
+        onClose: agentIntegrationSettingsDialogActions.close,
+        onIntegrationEnabledChange:
+          agentIntegrationSettingsDialogActions.setIntegrationEnabled,
+        onCopyBoardUrl: agentIntegrationSettingsDialogActions.copyBoardUrl,
+        onOpenBoardUrl: agentIntegrationSettingsDialogActions.openBoardUrl,
+        onCopyCliEnvironment:
+          agentIntegrationSettingsDialogActions.copyCliEnvironment,
+        onAcpAgentEnabledChange: setAcpAgentEnabledDraft,
+        onAcpAgentPresetChange: setAcpAgentPresetDraft,
+        onAcpAgentCommandChange: setAcpAgentCommandDraft,
+        onAcpAgentArgsChange: setAcpAgentArgsDraft,
+        onAcpAgentCwdChange: setAcpAgentCwdDraft,
+        onAcpTaskInstructionChange: setAcpTaskInstructionDraft,
+        onSaveAcpAgentSettings:
+          agentIntegrationSettingsDialogActions.saveAcpAgentSettings,
+        onAcpDebugOpenChange:
+          agentIntegrationSettingsDialogActions.setAcpDebugOpen,
+        onRefreshAcpRunSummaries:
+          agentIntegrationSettingsDialogActions.refreshAcpRunSummaries,
+        onOpenAcpRunLog: agentIntegrationSettingsDialogActions.openAcpRunLog,
+      }}
+      acpRunLog={{
+        open: acpRunLogDialogOpen,
+        loading: acpRunLogLoading,
+        error: acpRunLogError,
+        detail: acpRunLogDetail,
+        rawOpen: acpRunLogRawOpen,
+        onRawOpenChange: setAcpRunLogRawOpen,
+        onClose: closeAcpRunLogDialog,
+      }}
+      projectDataReport={{
+        open: projectHealthReportOpen,
+        healthReport: projectHealthReport,
+        repairReport: projectRepairReport,
+        onClose: () => setProjectHealthReportOpen(false),
+      }}
+      generationErrorDetails={{
+        open: generationErrorDetailsOpen,
+        details: generationErrorDetails,
+        copied: generationErrorCopied,
+        onCopyDetails: () => {
+          void generationErrorRendererActions.copyDetails();
+        },
+        onClose: () => setGenerationErrorDetailsOpen(false),
+      }}
+    />
+  );
+
+  const renderProjectStatusToast = () => (
+    <ProjectStatusToast
+      projectNotice={projectNotice}
+      thumbnailMaintenance={thumbnailMaintenance}
+      projectHealthReport={projectHealthReport}
+      projectRepairReport={projectRepairReport}
+      onOpenDetails={() => setProjectHealthReportOpen(true)}
+    />
+  );
+
+  const agentBoardStartupPlan = agentIntegrationRuntime.boardStartup;
+
+  if (agentBoardStartupPlan.action === "show-startup") {
     return (
-      <div className="image-board-app">
-        <div className="welcome-pane">
-          <div className="welcome-pane__card welcome-pane__diagnostic">
-            <span className="welcome-pane__eyebrow">{copy.startup.eyebrow}</span>
-            <h1>{copy.startup.heading}</h1>
-            <p>{copy.startup.description}</p>
-            <div className="dialog-card__error welcome-pane__error">
-              {copy.startup.retryInstruction}
-            </div>
-          </div>
-        </div>
-      </div>
+      <AgentBoardStartupPane
+        heading={agentBoardStartupPlan.viewModel.heading}
+        description={agentBoardStartupPlan.viewModel.description}
+        actionLabel={agentBoardStartupPlan.viewModel.actionLabel}
+        startupError={startupError}
+        projectError={projectError}
+        integration={agentIntegration}
+        onAction={agentStatusDockRendererActions.refreshStatus}
+        onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
+        onCopyCliEnvironment={agentStatusDockRendererActions.copyCliEnvironment}
+        onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+      />
     );
   }
 
   if (!currentProject || !initialData) {
     return (
-      <div className="image-board-app">
-        {startupError && <div className="app-startup-error">{startupError}</div>}
-        {projectError && <div className="dialog-card__error">{projectError}</div>}
-        <WelcomePane
-          loading={loadingProject}
-          onCreateProject={handleCreateProject}
-          onOpenProject={handleOpenProject}
-          recentProjects={recentProjects}
-          onOpenRecentProject={handleOpenRecentProject}
-        />
-        {renderAboutDialog()}
-      </div>
+      <AppProjectEntryScreen
+        startupError={startupError}
+        projectError={projectError}
+        loadingProject={loadingProject}
+        recentProjects={recentProjects}
+        onCreateProject={currentProjectEntryRendererActions.createProject}
+        onOpenProject={currentProjectEntryRendererActions.openProject}
+        onOpenRecentProject={currentProjectEntryRendererActions.openRecentProject}
+        onRemoveRecentProject={desktopStartupRendererActions.removeRecentProject}
+        onRevealProject={revealProjectFromList}
+        agentAccessEnabled={Boolean(agentBridgeStatus?.enabled)}
+        onAgentAccessToggle={
+          isAgentBrowserRoute
+            ? undefined
+            : agentBridgeStatusRendererActions.setEnabled
+        }
+        agentAccessToggleDisabled={
+          !canSetAgentBridgeEnabled(bridge) || isAgentBrowserRoute
+        }
+        manualProjectActionsVisible={!isAgentBrowserRoute}
+        showAgentStatusDock={isAgentBrowserRoute}
+        integration={agentIntegration}
+        onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
+        onCopyCliEnvironment={agentStatusDockRendererActions.copyCliEnvironment}
+        onRefreshStatus={agentStatusDockRendererActions.refreshStatus}
+        onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+        globalDialogs={globalDialogs}
+      />
     );
   }
 
@@ -2795,206 +1942,157 @@ const App = () => {
   const appClassName = [
     "image-board-app",
     "image-board-app--project-open",
-    elementDockOpen ? "image-board-app--left-dock-open" : "",
-    imageDockOpen ? "image-board-app--right-dock-open" : "",
+    agentChatDockOpen ? "image-board-app--left-dock-open" : "",
+    inspectorDockOpen ? "image-board-app--right-dock-open" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  const renderWorkspaceBoundsOverlay = () => {
-    if (!workspaceOverlayState) {
-      return null;
-    }
-
-    const { bounds, scrollX, scrollY, zoomValue } = workspaceOverlayState;
-    const left = (bounds.x + scrollX) * zoomValue;
-    const top = (bounds.y + scrollY) * zoomValue;
-    const width = bounds.width * zoomValue;
-    const height = bounds.height * zoomValue;
-
-    if (
-      !Number.isFinite(left) ||
-      !Number.isFinite(top) ||
-      !Number.isFinite(width) ||
-      !Number.isFinite(height) ||
-      width <= 0 ||
-      height <= 0
-    ) {
-      return null;
-    }
-
-    return (
-      <div
-        aria-hidden="true"
-        className={[
-          "image-board-workspace-bounds",
-          workspaceFitPulse ? "image-board-workspace-bounds--fit-pulse" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        style={{
-          left,
-          top,
-          width,
-          height,
-        }}
-      />
-    );
-  };
-
   return (
     <div className={appClassName}>
-      {startupError && <div className="app-startup-error">{startupError}</div>}
-      {projectError && <div className="dialog-card__error">{projectError}</div>}
-      {renderAboutDialog()}
+      <AppErrorBanners startupError={startupError} projectError={projectError} />
+      {globalDialogs}
       <ProjectRenderBoundary
         projectKey={projectRenderKey}
-        onError={handleProjectRenderError}
-        onReset={handleResetProjectView}
+        onError={projectRenderBoundaryRendererActions.reportRenderError}
+        onReset={projectRenderBoundaryRendererActions.resetProjectView}
       >
         <div className="image-board-shell">
           <div className="image-board-canvas">
-            {isEditorInitializing && (
-              <div className="image-board-canvas__loading" role="status">
-                <div className="image-board-canvas__loading-card">
-                  <div className="image-board-canvas__loading-spinner" aria-hidden="true" />
-                  <span>{copy.startup.editorLoading}</span>
-                </div>
-              </div>
-            )}
+            {isEditorInitializing ? <EditorLoadingOverlay /> : null}
             {renderProjectStatusToast()}
-            <Excalidraw
-              key={projectRenderKey}
-              langCode={DESKTOP_LANG_CODE}
-              initialData={initialData}
-              onInitialize={(api) => {
-                handleEditorReady(api ?? null, projectRenderNonce);
-              }}
-              onExcalidrawAPI={(api) => {
-                if (projectRenderNonce === projectRenderNonceRef.current) {
-                  excalidrawAPIRef.current = api;
-                  flushQueuedImageFilesToCanvas();
-                  scheduleVisibleImageRenditionLoad(latestSceneRef.current);
-                }
-              }}
-              onPointerUpdate={({ pointer }) => {
-                lastCanvasPointerRef.current = {
-                  x: pointer.x,
-                  y: pointer.y,
-                };
-              }}
-              onScrollChange={handleViewportChange}
-              onPaste={handleDesktopClipboardPaste}
-              onChange={(elements, appState, files) => {
-                const activeProject = currentProjectRef.current;
-                if (!activeProject) {
-                  return;
-                }
-                const nextScene = {
-                  elements,
-                  appState,
-                  files,
-                };
-                const selectionReferenceSignature =
-                  getSelectionReferenceSignature(nextScene);
-                const selectionReferenceSummary = buildSelectionReferenceSummary({
-                  elements,
-                  appState,
-                  files,
-                });
-                if (
-                  removedSelectionReferenceSignatureRef.current &&
-                  removedSelectionReferenceSignatureRef.current !==
-                    selectionReferenceSignature
-                ) {
-                  removedSelectionReferenceSignatureRef.current = null;
-                }
-                if (maybeSnapWorkspaceZoom(elements, appState)) {
-                  return;
-                }
-                latestSceneRef.current = nextScene;
-                scheduleVisibleImageRenditionLoad(nextScene);
-                updateWorkspaceOverlay(elements, appState);
-                setGenerateRequest((current) =>
-                  syncSelectionReferenceIntoRequest(
-                    current,
-                    removedSelectionReferenceSignatureRef.current ===
-                      selectionReferenceSignature
-                      ? null
-                      : selectionReferenceSummary,
-                  ),
-                );
-                setSelectedRecord(
-                  buildSelectedImageRecord(
-                    elements,
-                    appState,
-                    activeProject.imageRecords,
-                  ),
-                );
-                setSelectedTask(
-                  buildSelectedGenerationTask(
-                    appState,
-                    generationTaskByElementIdRef.current,
-                  ),
-                );
-                if (!isEditorInitializingRef.current) {
-                  scheduleAutosave({
-                    project: activeProject,
-                    elements,
-                    appState,
-                    files,
-                  });
-                }
-              }}
-              UIOptions={{
-                defaultSidebar: false,
-                canvasActions: {
-                  loadScene: false,
-                  saveToActiveFile: false,
-                  export: false,
-                  toggleTheme: true,
-                },
-              }}
-              renderTopLeftUI={() => (
-                <TopBar
-                  projectName={currentProject.project.name}
-                  onOpenProject={handleOpenProject}
-                  onImportImages={handleImportImages}
-                  onRevealProject={handleRevealProject}
+            <Suspense fallback={null}>
+              <LazyExcalidraw
+                 key={projectRenderKey}
+                 langCode={DESKTOP_LANG_CODE}
+                 initialData={initialData}
+                 onInitialize={(api) => {
+                   currentProjectEditorReadyRendererActions.ready(
+                     api ?? null,
+                     projectRenderNonce,
+                   );
+                 }}
+                onExcalidrawAPI={(api) => {
+                  if (projectRenderNonce === projectRenderNonceRef.current) {
+                    excalidrawAPIRef.current = api;
+                    queuedExcalidrawBinaryFilesRendererActions.flush();
+                    visibleImageRenditionLoadRendererActions.schedule(
+                      latestSceneRef.current,
+                    );
+                  }
+                }}
+                onPointerUpdate={({ pointer }) => {
+                  lastCanvasPointerRef.current = {
+                    x: pointer.x,
+                    y: pointer.y,
+                  };
+                }}
+                onScrollChange={viewportChangeRendererActions.changeViewport}
+                onPaste={projectImageImportRendererActions.pasteClipboardImage}
+                onChange={canvasSceneChangeRendererActions.changeScene}
+                UIOptions={{
+                  defaultSidebar: false,
+                  canvasActions: {
+                    loadScene: false,
+                    saveToActiveFile: false,
+                    export: false,
+                    toggleTheme: true,
+                  },
+                }}
+                detectScroll={false}
+                handleKeyboardGlobally={true}
+                autoFocus={true}
+                renderSelectedShapeActions={({
+                  selectedShapeActions,
+                  shouldRenderSelectedShapeActions,
+                }) => (
+                  <InspectorSidebar
+                    open={inspectorDockOpen}
+                    onOpenChange={setInspectorDockOpen}
+                    selectedShapeActions={selectedShapeActions}
+                    shouldRenderSelectedShapeActions={
+                      shouldRenderSelectedShapeActions
+                    }
+                    record={selectedRecord}
+                    parentRecord={selectedImageRelationship.parentRecord}
+                    ancestorRecords={selectedImageRelationship.ancestorRecords}
+                    descendantRecords={
+                      selectedImageRelationship.descendantRecords
+                    }
+                    task={selectedTask}
+                    onCopyPrompt={() => {
+                      void generationRecordRendererActions.copyPrompt();
+                    }}
+                    onCopyTaskError={() => {
+                      void generationErrorRendererActions.copyTaskError();
+                    }}
+                    onLocateImageRecord={(fileId) => {
+                      void imageRecordLocatorRendererActions.locateImageRecord(
+                        fileId,
+                      );
+                    }}
+                    onLocatePromptReference={(reference) => {
+                      void imageRecordLocatorRendererActions.locatePromptReference(
+                        reference,
+                      );
+                    }}
+                  />
+                )}
+              >
+                <LazyProjectMainMenu
+                  currentProjectName={currentProject.project.name}
+                  onSwitchProject={() => {
+                    void currentProjectEntryRendererActions.switchToProjectList();
+                  }}
                 />
-              )}
-              detectScroll={false}
-              handleKeyboardGlobally={true}
-              autoFocus={true}
-              renderSelectedShapeActions={({
-                selectedShapeActions,
-                shouldRenderSelectedShapeActions,
-              }) => (
-                <SideDock
-                  side="left"
-                  title={copy.elementActions.title}
-                  open={elementDockOpen}
-                  onOpenChange={setElementDockOpen}
-                >
-                  {shouldRenderSelectedShapeActions ? selectedShapeActions : null}
-                </SideDock>
-              )}
-            >
-              <ImageSidebar
-                open={imageDockOpen}
-                onOpenChange={setImageDockOpen}
-                record={selectedRecord}
-                parentRecord={parentRecord}
-                ancestorRecords={ancestorRecords}
-                descendantRecords={descendantRecords}
-                task={selectedTask}
-                onCopyPrompt={handleCopyPrompt}
-                onCopyTaskError={handleCopyTaskError}
-                onLocateImageRecord={handleLocateImageRecord}
-                onLocatePromptReference={handleLocatePromptReference}
-              />
-            </Excalidraw>
-            {renderWorkspaceBoundsOverlay()}
+              </LazyExcalidraw>
+            </Suspense>
+            <AgentConversationSidebar
+              mode={generationSidebarMode}
+              open={agentChatDockOpen}
+              onOpenChange={setAgentChatDockOpen}
+              generationRecords={generationRecordItems}
+              agentResultRecords={acpAgentResultRecordItems}
+              onSelectGenerationRecord={(fileId) => {
+                void imageRecordLocatorRendererActions.locateImageRecord(fileId);
+              }}
+              task={acpAgentTask}
+              runLogDetail={agentConversationSurface.runLogDetail}
+              threadEntries={acpConversationEntries}
+              error={agentConversationSurface.error}
+              threadSummaries={acpThreadSummaries}
+              activeThreadId={activeAcpThreadId}
+              threadsLoading={acpThreadSummariesLoading}
+              threadsError={acpThreadSummariesError}
+              canSubmitMessage={acpAgentGeneration.canSubmitMessage}
+              submitMessageDisabledReason={
+                acpAgentGeneration.submitMessageDisabledReason
+              }
+              threadActionsDisabled={acpAgentTaskRunning}
+              onSelectThread={
+                acpThreadRendererActions.selectThreadForConversation
+              }
+              onStartNewThread={acpThreadRendererActions.startNewThread}
+              onSubmitMessage={
+                acpConversationMessageRendererActions.submitMessage
+              }
+            />
+            <AgentStatusDock
+              integration={agentIntegration}
+              onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
+              onCopyCliEnvironment={
+                agentStatusDockRendererActions.copyCliEnvironment
+              }
+              onRefreshStatus={agentStatusDockRendererActions.refreshStatus}
+              onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+              onOpenAgentConversation={
+                agentStatusDockRendererActions.openConversation
+              }
+            />
+            <WorkspaceBoundsOverlay
+              state={workspaceOverlayState}
+              pulsing={workspaceFitPulse}
+            />
           </div>
         </div>
       </ProjectRenderBoundary>
@@ -3003,6 +2101,7 @@ const App = () => {
         open={true}
         persistent={true}
         focusToken={generateFocusToken}
+        composerConfig={acpAgentGeneration.composerConfig}
         initialRequest={generateRequest}
         providerSettings={providerSettings}
         savingProviderSettings={savingProviders}
@@ -3014,109 +2113,34 @@ const App = () => {
             ? () => setGenerationErrorDetailsOpen(true)
             : undefined
         }
+        onCancelGeneration={cancelBuiltinGeneration}
         onClose={() => undefined}
-        onRequestChange={handleGenerateRequestChange}
-        onModelSelectionChange={handleRememberGenerationModelSelection}
-        onReferenceRemove={handleRemoveGenerateReference}
-        onReferenceCommit={handleCommitGenerateReference}
+        onRequestChange={generationRequestRendererActions.changeRequest}
+        onModelSelectionChange={
+          generationModelSelectionRendererActions.rememberSelection
+        }
+        onReferenceRemove={generateDialogReferenceRendererActions.remove}
+        onReferenceCommit={generateDialogReferenceRendererActions.commit}
+        onOpenAgentRunLog={(taskId) => {
+          void acpRunLogRendererActions.open(taskId, {
+            openInConversationDock: true,
+          });
+        }}
         savedPrompts={savedPrompts}
-        onSavePrompt={handleSavePrompt}
-        onUsePrompt={handleUsePrompt}
-        onDeletePrompt={handleDeletePrompt}
-        onSaveProviderSettings={handleSaveProviderSettings}
-        onSubmit={handleGenerateImages}
+        onSavePrompt={(input) => {
+          void savedPromptLibraryRendererActions.savePrompt(input);
+        }}
+        onUsePrompt={(id) => {
+          void savedPromptLibraryRendererActions.usePrompt(id);
+        }}
+        onDeletePrompt={(id) => {
+          void savedPromptLibraryRendererActions.deletePrompt(id);
+        }}
+        onSaveProviderSettings={(settings) =>
+          providerSettingsRendererActions.saveSettings(settings)
+        }
+        onSubmit={generationSubmitRendererActions.submit}
       />
-
-      {generationErrorDetailsOpen && generationErrorDetails && (
-        <div className="dialog-backdrop">
-          <div className="dialog-card dialog-card--wide">
-            <div className="dialog-card__header">
-              <div>
-                <span className="dialog-card__eyebrow">{copy.debugError.eyebrow}</span>
-                <h2>{copy.debugError.title}</h2>
-              </div>
-              <DesktopButton
-                type="button"
-                className="dialog-card__close"
-                onClick={() => setGenerationErrorDetailsOpen(false)}
-              >
-                {copy.debugError.close}
-              </DesktopButton>
-            </div>
-
-            <div className="debug-error-dialog">
-              <div className="debug-error-dialog__meta">
-                <div>
-                  <span>{copy.debugError.provider}</span>
-                  <strong>
-                    {getProviderDefinition(generationErrorDetails.provider).label}
-                  </strong>
-                </div>
-                <div>
-                  <span>{copy.debugError.model}</span>
-                  <strong>{generationErrorDetails.model}</strong>
-                </div>
-                <div>
-                  <span>{copy.debugError.occurredAt}</span>
-                  <strong>
-                    {new Date(generationErrorDetails.occurredAt).toLocaleString(
-                      "zh-CN",
-                    )}
-                  </strong>
-                </div>
-              </div>
-
-              <section className="debug-error-dialog__section">
-                <h3>{copy.debugError.message}</h3>
-                <p>{generationErrorDetails.normalizedMessage}</p>
-              </section>
-
-              <section className="debug-error-dialog__section">
-                <h3>{copy.debugError.raw}</h3>
-                <pre className="debug-error-dialog__pre">
-                  {generationErrorDetails.rawMessage}
-                </pre>
-              </section>
-
-              {generationErrorDetails.requestPayload && (
-                <section className="debug-error-dialog__section">
-                  <h3>{copy.debugError.payload}</h3>
-                  <pre className="debug-error-dialog__pre">
-                    {generationErrorDetails.requestPayload}
-                  </pre>
-                </section>
-              )}
-
-              {generationErrorDetails.stack && (
-                <section className="debug-error-dialog__section">
-                  <h3>{copy.debugError.stack}</h3>
-                  <pre className="debug-error-dialog__pre">
-                    {generationErrorDetails.stack}
-                  </pre>
-                </section>
-              )}
-            </div>
-
-            <div className="dialog-card__footer">
-              <DesktopButton
-                type="button"
-                onClick={() => {
-                  void handleCopyGenerationErrorDetails();
-                }}
-              >
-                {generationErrorCopied ? copy.debugError.copied : copy.debugError.copy}
-              </DesktopButton>
-              <DesktopButton
-                type="button"
-                variant="primary"
-                onClick={() => setGenerationErrorDetailsOpen(false)}
-              >
-                {copy.debugError.close}
-              </DesktopButton>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

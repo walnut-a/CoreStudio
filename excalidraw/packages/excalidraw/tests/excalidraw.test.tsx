@@ -479,4 +479,18 @@ describe("<Excalidraw/>", () => {
 
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  it("should localize the default main menu from langCode", async () => {
+    const { container } = await render(<Excalidraw langCode="zh-CN" />);
+
+    toggleMenu(container.querySelector(".excalidraw")!);
+
+    await waitFor(() => {
+      expect(queryByText(document.body, "导出图片...")).not.toBe(null);
+    });
+    expect(queryByText(document.body, "在画布上查找")).not.toBe(null);
+    expect(queryByText(document.body, "重置画布")).not.toBe(null);
+    expect(queryByText(document.body, "深色模式")).not.toBe(null);
+    expect(queryByText(document.body, "Export image...")).toBe(null);
+  });
 });

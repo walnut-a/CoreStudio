@@ -6,6 +6,8 @@ export type ProviderId =
   | "openai"
   | "openrouter";
 
+export type GenerationSource = "builtin" | "agent";
+
 export type GenerationField =
   | "prompt"
   | "negativePrompt"
@@ -73,6 +75,7 @@ export interface CustomProviderModel {
 }
 
 export interface GenerationRequest {
+  generationSource?: GenerationSource;
   provider: ProviderId;
   model: string;
   prompt: string;

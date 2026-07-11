@@ -1,0 +1,238 @@
+.agent-status-dock {
+  position: absolute;
+  right: calc(
+    1rem + var(--canvas-footer-button-size) + var(--canvas-footer-button-gap) +
+      env(safe-area-inset-right, 0px)
+  );
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: var(--agent-status-dock-z-index);
+  pointer-events: auto;
+}
+
+.agent-status-dock__button {
+  position: relative;
+  width: var(--canvas-footer-button-size);
+  height: var(--canvas-footer-button-size);
+  box-sizing: border-box;
+  padding: 0.625rem;
+  border: none;
+  border-radius: var(--border-radius-lg);
+  background-color: var(--color-surface-low, #ececf4);
+  box-shadow: 0 0 0 1px var(--color-surface-lowest, #ffffff);
+  color: var(--color-on-surface, var(--text-primary-color));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ui-font);
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease,
+    color 0.15s ease;
+}
+
+.agent-status-dock__button:hover {
+  background-color: var(--button-hover-bg, var(--island-bg-color));
+  color: var(
+    --button-hover-color,
+    var(--button-color, var(--text-primary-color, inherit))
+  );
+}
+
+.agent-status-dock__button:active {
+  background-color: var(--button-active-bg, var(--island-bg-color));
+  box-shadow: 0 0 0 1px var(--button-active-border, var(--color-brand-active));
+}
+
+.agent-status-dock__button:focus-visible {
+  outline: 2px solid var(--focus-highlight-color, var(--color-primary));
+  outline-offset: 2px;
+}
+
+.agent-status-dock__button svg {
+  width: var(--canvas-footer-icon-size);
+  height: var(--canvas-footer-icon-size);
+}
+
+.agent-status-dock__indicator {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--color-surface-low, #ececf4);
+  border-radius: var(--ui-radius-pill);
+  background: #a5a5a5;
+}
+
+.agent-status-dock__button--connected .agent-status-dock__indicator {
+  background: #26a269;
+}
+
+.agent-status-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: min(300px, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+  color: var(--text-primary-color);
+}
+
+.agent-status-popover__header,
+.agent-status-popover__actions {
+  display: flex;
+  align-items: center;
+}
+
+.agent-status-popover__header {
+  justify-content: space-between;
+  gap: var(--ui-space-lg);
+  margin-bottom: 12px;
+}
+
+.agent-status-popover__header strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.95rem;
+}
+
+.agent-status-popover__eyebrow {
+  color: var(--color-gray-60);
+  font-size: var(--ui-text-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.agent-status-popover__badge {
+  padding: 4px 8px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--ui-radius-pill);
+  background: color-mix(in srgb, var(--color-surface-mid) 72%, white);
+  color: var(--color-gray-70);
+  font-size: var(--ui-text-size-sm);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.agent-status-popover__badge--connected {
+  border-color: color-mix(in srgb, #26a269 30%, var(--default-border-color));
+  background: color-mix(in srgb, #26a269 10%, white);
+  color: #145c37;
+}
+
+.agent-status-popover__source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-lg);
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface-lowest);
+}
+
+.agent-status-popover__source-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-status-popover__source-copy strong {
+  font-size: var(--ui-text-size-lg);
+}
+
+.agent-status-popover__source-copy em {
+  color: var(--color-gray-60);
+  font-size: var(--ui-text-size-sm);
+  font-style: normal;
+  line-height: var(--ui-line-height-normal);
+}
+
+.agent-status-popover__source-value {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-md);
+  background: var(--island-bg-color);
+  color: var(--color-primary);
+  font-size: var(--ui-text-size-sm);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 10%, transparent);
+}
+
+.agent-status-popover__body {
+  display: grid;
+  gap: var(--ui-space-sm);
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--color-surface-mid) 70%, white);
+}
+
+.agent-status-popover__body:first-of-type {
+  margin-top: 0;
+}
+
+.agent-status-popover__body--routes {
+  background: transparent;
+  border: 1px solid var(--default-border-color);
+}
+
+.agent-status-popover__item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agent-status-popover__item strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ui-text-size-lg);
+}
+
+.agent-status-popover__item span {
+  color: var(--color-gray-60);
+  font-size: var(--ui-text-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.agent-status-popover__path {
+  margin: 0;
+  color: var(--color-gray-60);
+  font-size: var(--ui-text-size-sm);
+  line-height: var(--ui-line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.agent-status-popover__actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--ui-space-sm);
+  margin-top: 14px;
+}
+
+.agent-status-popover__actions .image-board-button {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--ui-text-size-md);
+}
+
+.image-board-app .floating-status-stack {
+  bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 420px) {
+  .image-board-app .agent-status-dock {
+    display: none;
+  }
+}

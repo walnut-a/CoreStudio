@@ -7,21 +7,48 @@ import {
   PROJECT_FORMAT_VERSION,
   type ImageAssetRendition,
   type ImageAssetRequestRendition,
-  type ImagePromptReferenceRecord,
   type ImageRecord,
   type ImageRecordMap,
-  type ImageSourceType,
+  type ProjectAgentAccess,
   type ProjectManifest,
   type ProjectThumbnailReadMode,
 } from "../src/shared/projectTypes";
+import type { AgentErrorCode } from "../src/shared/agentBridgeTypes";
 import type {
   CleanProjectCacheResult,
-  ProjectHealthIssue,
-  ProjectHealthReport,
+  PersistedImageAssetInput,
 } from "../src/shared/desktopBridgeTypes";
 
-import type { ProviderId } from "../src/shared/providerTypes";
+import { getSceneContentHash } from "../src/shared/sceneVersion";
+import {
+  readLocalImagePayload,
+  type LocalImagePayloadOptions,
+} from "./agent/localImagePayload";
 import { DESKTOP_APP_VERSION } from "./appVersion";
+import {
+  buildAcpPromptReferences,
+  collectUnwrittenAcpOutputs,
+  type UnwrittenAcpOutput,
+} from "./acp/acpOutputRecovery";
+import { inspectProjectHealth as inspectProjectHealthWithDeps } from "./project/projectHealth";
+import {
+  readProjectImageRecords as readProjectImageRecordsWithDeps,
+  repairLegacyGeneratedImageRecordOrigins,
+  writeProjectImageRecords as writeProjectImageRecordsWithDeps,
+} from "./project/projectImageRecords";
+import {
+  rebuildProjectThumbnails as rebuildProjectThumbnailsWithDeps,
+  type RebuildProjectThumbnailsOptions,
+} from "./project/projectRepair";
+import {
+  writeJsonAtomic as writeJson,
+  writeTextAtomic,
+} from "./project/atomicProjectFile";
+import {
+  beginProjectImageWriteback,
+  commitProjectImageWriteback,
+  recoverProjectImageWritebacks,
+} from "./project/projectImageWriteback";
 
 const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
@@ -45,6 +72,17 @@ const IMAGE_CACHE_RENDITION_CONFIG = {
     maxDimension: number;
   }
 >;
+
+const createProjectAgentError = (
+  code: AgentErrorCode,
+  message: string,
+  details?: unknown,
+) =>
+  Object.assign(new Error(message), {
+    code,
+    ...(details === undefined ? {} : { details }),
+  });
+
 const EMPTY_PROJECT_SCENE = JSON.stringify(
   {
     type: "excalidraw",
@@ -58,22 +96,58 @@ const EMPTY_PROJECT_SCENE = JSON.stringify(
   2,
 );
 
-interface PersistImageAssetInput {
-  fileId: string;
-  dataBase64: string;
-  mimeType: string;
-  width: number;
-  height: number;
-  sourceType: ImageSourceType;
-  provider?: ProviderId;
-  model?: string;
-  prompt?: string;
-  negativePrompt?: string;
-  seed?: number | null;
-  createdAt: string;
-  parentFileId?: string | null;
-  promptReferences?: ImagePromptReferenceRecord[];
-}
+const createProjectAgentAccess = (): ProjectAgentAccess => ({
+  token: randomUUID(),
+  enabled: true,
+});
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const normalizeProjectAgentAccess = (
+  value: unknown,
+): { access: ProjectAgentAccess; changed: boolean } => {
+  if (!isRecord(value)) {
+    return {
+      access: createProjectAgentAccess(),
+      changed: true,
+    };
+  }
+
+  const token =
+    typeof value.token === "string" && value.token.trim()
+      ? value.token
+      : randomUUID();
+  return {
+    access: {
+      token,
+      enabled: true,
+    },
+    changed: token !== value.token || value.enabled !== true,
+  };
+};
+
+const normalizeProjectManifest = (
+  project: ProjectManifest,
+): { project: ProjectManifest; changed: boolean } => {
+  const { access, changed } = normalizeProjectAgentAccess(
+    (project as Partial<ProjectManifest>).agentAccess,
+  );
+  if (!changed) {
+    return {
+      project,
+      changed: false,
+    };
+  }
+
+  return {
+    project: {
+      ...project,
+      agentAccess: access,
+    },
+    changed: true,
+  };
+};
 
 interface ThumbnailPayload {
   data: Buffer;
@@ -94,15 +168,6 @@ interface ReadProjectAssetPayloadsOptions {
   createThumbnail?: CreateThumbnail;
 }
 
-interface RebuildProjectThumbnailsOptions {
-  createThumbnail?: CreateThumbnail;
-}
-
-interface SceneImageReference {
-  fileId: string;
-  elementId?: string;
-}
-
 const safeProjectFolderName = (name: string) =>
   name.trim().replace(/[\\/:*?"<>|]/g, "-");
 
@@ -114,25 +179,6 @@ const safeAssetFileNameSegment = (value: string) => {
     .replace(/^\.+$/, "");
 
   return safeValue || randomUUID();
-};
-
-const extensionFromMimeType = (mimeType: string) => {
-  switch (mimeType) {
-    case "image/png":
-      return "png";
-    case "image/jpeg":
-      return "jpg";
-    case "image/webp":
-      return "webp";
-    case "image/svg+xml":
-      return "svg";
-    default:
-      return "bin";
-  }
-};
-
-const writeJson = async (filePath: string, value: unknown) => {
-  await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
 };
 
 const writeJsonExclusive = async (filePath: string, value: unknown) => {
@@ -211,6 +257,7 @@ const buildProjectManifest = (name: string): ProjectManifest => {
     imageRecordsFile: PROJECT_FILENAMES.imageRecords,
     assetsDir: PROJECT_FILENAMES.assetsDir,
     exportsDir: PROJECT_FILENAMES.exportsDir,
+    agentAccess: createProjectAgentAccess(),
   };
 };
 
@@ -254,33 +301,75 @@ export const createProjectStructure = async (
   return { projectPath, project };
 };
 
-export const readProjectBundle = async (projectPath: string) => {
+const readProjectBundleFiles = async (projectPath: string) => {
   const [projectJson, sceneJson, imageRecordsJson] = await Promise.all([
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.project), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.imageRecords), "utf8"),
   ]);
+  const { project, changed } = normalizeProjectManifest(
+    JSON.parse(projectJson) as ProjectManifest,
+  );
+  if (changed) {
+    await writeProjectManifest(projectPath, project);
+  }
 
   return {
-    project: JSON.parse(projectJson) as ProjectManifest,
+    project,
     sceneJson,
     imageRecords: JSON.parse(imageRecordsJson) as ImageRecordMap,
   };
 };
 
-const readProjectImageRecords = async (projectPath: string) =>
-  JSON.parse(
-    await fs.readFile(
-      path.join(projectPath, PROJECT_FILENAMES.imageRecords),
-      "utf8",
-    ),
-  ) as ImageRecordMap;
+export const readProjectBundle = async (projectPath: string) => {
+  await recoverProjectImageWritebacks(projectPath);
+  return readProjectBundleFiles(projectPath);
+};
+
+const readProjectImageRecords = (projectPath: string) =>
+  readProjectImageRecordsWithDeps(projectPath, {
+    readText: (filePath) => fs.readFile(filePath, "utf8"),
+  });
+
+const writeProjectImageRecords = async (
+  projectPath: string,
+  imageRecords: ImageRecordMap,
+) => {
+  await writeProjectImageRecordsWithDeps(projectPath, imageRecords, {
+    writeJson,
+  });
+};
 
 const writeProjectManifest = async (
   projectPath: string,
   project: ProjectManifest,
 ) => {
   await writeJson(path.join(projectPath, PROJECT_FILENAMES.project), project);
+};
+
+const touchProjectManifest = async (
+  projectPath: string,
+  project: ProjectManifest,
+) => {
+  await writeProjectManifest(projectPath, {
+    ...project,
+    updatedAt: new Date().toISOString(),
+  });
+};
+
+export const updateProjectAgentAccess = async (
+  projectPath: string,
+  agentAccess: ProjectAgentAccess,
+) => {
+  const bundle = await readProjectBundleFiles(projectPath);
+  const { access } = normalizeProjectAgentAccess(agentAccess);
+  const nextProject: ProjectManifest = {
+    ...bundle.project,
+    agentAccess: access,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeProjectManifest(projectPath, nextProject);
+  return nextProject;
 };
 
 const analyzeSceneJson = (sceneJson: string) => {
@@ -294,45 +383,6 @@ const analyzeSceneJson = (sceneJson: string) => {
     return {
       elementCount: 0,
       parseFailed: true,
-    };
-  }
-};
-
-const readSceneImageReferences = (sceneJson: string) => {
-  try {
-    const scene = JSON.parse(sceneJson) as {
-      elements?: Array<{
-        id?: unknown;
-        type?: unknown;
-        fileId?: unknown;
-        isDeleted?: unknown;
-      }>;
-    };
-    const references: SceneImageReference[] = [];
-    for (const element of Array.isArray(scene.elements)
-      ? scene.elements
-      : []) {
-      if (
-        element?.type === "image" &&
-        element.isDeleted !== true &&
-        typeof element.fileId === "string" &&
-        element.fileId
-      ) {
-        references.push({
-          fileId: element.fileId,
-          elementId:
-            typeof element.id === "string" ? element.id : undefined,
-        });
-      }
-    }
-    return {
-      parseFailed: false,
-      references,
-    };
-  } catch {
-    return {
-      parseFailed: true,
-      references: [] as SceneImageReference[],
     };
   }
 };
@@ -407,16 +457,35 @@ const createMaintenanceBackup = async ({
 export const writeProjectScene = async ({
   projectPath,
   sceneJson,
+  expectedSceneHash,
 }: {
   projectPath: string;
   sceneJson: string;
+  expectedSceneHash?: string | null;
 }) => {
-  const bundle = await readProjectBundle(projectPath);
+  const bundle = await readProjectBundleFiles(projectPath);
   const currentScene = analyzeSceneJson(bundle.sceneJson);
   const nextScene = analyzeSceneJson(sceneJson);
+  const currentSceneHash = getSceneContentHash(bundle.sceneJson);
+  const nextSceneHash = getSceneContentHash(sceneJson);
 
   if (nextScene.parseFailed) {
     throw new Error("新的画板数据无法解析，已停止保存。");
+  }
+
+  if (
+    expectedSceneHash &&
+    currentSceneHash !== expectedSceneHash &&
+    currentSceneHash !== nextSceneHash
+  ) {
+    throw createProjectAgentError(
+      "STALE_PROJECT_SNAPSHOT",
+      "画板文件已经被其他会话更新，已停止保存旧快照。请重新打开项目后再继续。",
+      {
+        expectedSceneHash,
+        currentSceneHash,
+      },
+    );
   }
 
   if (currentScene.parseFailed && nextScene.elementCount === 0) {
@@ -433,15 +502,16 @@ export const writeProjectScene = async ({
     );
   }
 
-  await fs.writeFile(
+  await writeTextAtomic(
     path.join(projectPath, PROJECT_FILENAMES.scene),
     sceneJson,
-    "utf8",
   );
-  await writeProjectManifest(projectPath, {
+  const nextProject: ProjectManifest = {
     ...bundle.project,
     updatedAt: new Date().toISOString(),
-  });
+  };
+  await writeProjectManifest(projectPath, nextProject);
+  return nextProject;
 };
 
 type CachedImageAssetRendition = Exclude<ImageAssetRequestRendition, "original">;
@@ -672,6 +742,53 @@ const pathExists = async (targetPath: string) => {
   }
 };
 
+const createNativeImageInspector = async (): Promise<
+  NonNullable<LocalImagePayloadOptions["inspectImage"]>
+> => {
+  const { nativeImage } = await import("electron");
+  return ({ buffer, mimeType }) => {
+    const image = nativeImage.createFromBuffer(buffer);
+    if (image.isEmpty()) {
+      throw new Error("无法读取 ACP 生成图片尺寸。");
+    }
+    const size = image.getSize();
+    return {
+      width: size.width || 1024,
+      height: size.height || 1024,
+      mimeType,
+    };
+  };
+};
+
+const importUnwrittenAcpOutput = async (
+  projectPath: string,
+  output: UnwrittenAcpOutput,
+  options: RebuildProjectThumbnailsOptions,
+) => {
+  const payload = await readLocalImagePayload(output.outputPath, {
+    ...(options.readFile ? { readFile: options.readFile } : {}),
+    inspectImage: options.inspectImage ?? (await createNativeImageInspector()),
+    ...(options.now ? { now: options.now } : {}),
+    randomId: () => output.fileId,
+  });
+  const imageRecords = await persistImageAssets({
+    projectPath,
+    files: [
+      {
+        ...payload,
+        sourceType: "generated",
+        generationOrigin: "acp-agent",
+        generationTaskId: output.taskId,
+        generationThreadId: output.threadId ?? null,
+        prompt: output.prompt,
+        promptReferences: buildAcpPromptReferences(output),
+      },
+    ],
+  });
+
+  return imageRecords[output.fileId];
+};
+
 const cachedRenditionExists = async ({
   projectPath,
   record,
@@ -777,193 +894,25 @@ export const cleanProjectCache = async ({
   };
 };
 
-export const inspectProjectHealth = async ({
-  projectPath,
-}: {
+export const inspectProjectHealth = (input: {
   projectPath: string;
-}): Promise<ProjectHealthReport> => {
-  const bundle = await readProjectBundle(projectPath);
-  const sceneReferences = readSceneImageReferences(bundle.sceneJson);
-  const sceneImageFileIds = Array.from(
-    new Set(sceneReferences.references.map((reference) => reference.fileId)),
-  );
-  const imageRecordFileIds = Object.keys(bundle.imageRecords);
-  const issues: ProjectHealthIssue[] = [];
-
-  if (sceneReferences.parseFailed) {
-    issues.push({
-      code: "scene-parse-failed",
-      severity: "error",
-      message: "画板数据无法解析。",
-      repairable: false,
-    });
-  }
-
-  const addIssue = (issue: ProjectHealthIssue) => {
-    issues.push(issue);
-  };
-
-  const promptReferencedFileIds = new Set<string>();
-  for (const record of Object.values(bundle.imageRecords)) {
-    for (const reference of record.promptReferences ?? []) {
-      for (const fileId of reference.fileIds ?? []) {
-        promptReferencedFileIds.add(fileId);
-      }
-    }
-  }
-
-  const missingImageRecordFileIds: string[] = [];
-  for (const reference of sceneReferences.references) {
-    if (bundle.imageRecords[reference.fileId]) {
-      continue;
-    }
-    if (!missingImageRecordFileIds.includes(reference.fileId)) {
-      missingImageRecordFileIds.push(reference.fileId);
-    }
-    addIssue({
-      code: "missing-image-record",
-      severity: "error",
-      fileId: reference.fileId,
-      elementId: reference.elementId,
-      message: `画板图片缺少索引记录：${reference.fileId}`,
-      repairable: false,
-    });
-  }
-
-  const missingAssetFileIds: string[] = [];
-  const missingThumbnailFileIds: string[] = [];
-  const missingPreviewFileIds: string[] = [];
-  const brokenParentFileIds: string[] = [];
-  const brokenPromptReferenceFileIds: string[] = [];
-
-  await Promise.all(
-    imageRecordFileIds.map(async (fileId) => {
-      const record = bundle.imageRecords[fileId];
-      let assetExists = false;
-      try {
-        assetExists = await pathExists(
-          resolveProjectAssetPath(projectPath, record.assetPath),
-        );
-      } catch {
-        assetExists = false;
-      }
-
-      if (!assetExists) {
-        missingAssetFileIds.push(fileId);
-        addIssue({
-          code: "missing-asset-file",
-          severity: "error",
-          fileId,
-          path: record.assetPath,
-          message: `图片原始文件缺失：${record.assetPath}`,
-          repairable: false,
-        });
-        return;
-      }
-
-      if (
-        !(await cachedRenditionExists({
-          projectPath,
-          record,
-          rendition: "thumbnail",
-        }))
-      ) {
-        missingThumbnailFileIds.push(fileId);
-        addIssue({
-          code: "missing-thumbnail-cache",
-          severity: "warning",
-          fileId,
-          message: `缩略图缓存缺失：${fileId}`,
-          repairable: true,
-        });
-      }
-
-      if (
-        !(await cachedRenditionExists({
-          projectPath,
-          record,
-          rendition: "preview",
-        }))
-      ) {
-        missingPreviewFileIds.push(fileId);
-        addIssue({
-          code: "missing-preview-cache",
-          severity: "info",
-          fileId,
-          message: `预览图缓存尚未生成：${fileId}`,
-          repairable: false,
-        });
-      }
-    }),
-  );
-
-  for (const [fileId, record] of Object.entries(bundle.imageRecords)) {
-    if (record.parentFileId && !bundle.imageRecords[record.parentFileId]) {
-      brokenParentFileIds.push(fileId);
-      addIssue({
-        code: "broken-parent-link",
-        severity: "warning",
-        fileId,
-        message: `图片编辑链前序缺失：${record.parentFileId}`,
-        repairable: false,
-      });
-    }
-
-    for (const reference of record.promptReferences ?? []) {
-      for (const referenceFileId of reference.fileIds ?? []) {
-        if (bundle.imageRecords[referenceFileId]) {
-          continue;
-        }
-        brokenPromptReferenceFileIds.push(referenceFileId);
-        addIssue({
-          code: "broken-prompt-reference",
-          severity: "warning",
-          fileId: referenceFileId,
-          message: `提示词引用图片缺少索引记录：${referenceFileId}`,
-          repairable: false,
-        });
-      }
-    }
-  }
-
-  const sceneImageFileIdSet = new Set(sceneImageFileIds);
-  const orphanImageRecordFileIds = imageRecordFileIds.filter(
-    (fileId) =>
-      !sceneImageFileIdSet.has(fileId) && !promptReferencedFileIds.has(fileId),
-  );
-  for (const fileId of orphanImageRecordFileIds) {
-    addIssue({
-      code: "orphan-image-record",
-      severity: "info",
-      fileId,
-      message: `图片索引没有被当前画板引用：${fileId}`,
-      repairable: false,
-    });
-  }
-
-  return {
-    checkedAt: new Date().toISOString(),
-    projectPath,
-    imageRecordCount: imageRecordFileIds.length,
-    sceneImageFileCount: sceneImageFileIds.length,
-    missingImageRecordFileIds,
-    missingAssetFileIds,
-    missingThumbnailFileIds,
-    missingPreviewFileIds,
-    orphanImageRecordFileIds,
-    brokenParentFileIds,
-    brokenPromptReferenceFileIds: Array.from(
-      new Set(brokenPromptReferenceFileIds),
-    ),
-    issues,
-    summary: {
-      errorCount: issues.filter((issue) => issue.severity === "error").length,
-      warningCount: issues.filter((issue) => issue.severity === "warning")
-        .length,
-      repairableCount: issues.filter((issue) => issue.repairable).length,
+  agentRunsBaseDir?: string;
+}) =>
+  inspectProjectHealthWithDeps(input, {
+    readProjectBundle: readProjectBundleFiles,
+    listProjectAssetPaths: async (projectPath) => {
+      const assetFiles = await collectFilesRecursively(
+        path.join(projectPath, PROJECT_FILENAMES.assetsDir),
+      );
+      return assetFiles.map((assetFile) =>
+        path.relative(projectPath, assetFile).split(path.sep).join(path.posix.sep),
+      );
     },
-  };
-};
+    resolveProjectAssetPath,
+    pathExists,
+    cachedRenditionExists,
+    collectUnwrittenAcpOutputs,
+  });
 
 export const readProjectAssetPayloads = async (
   {
@@ -1009,9 +958,13 @@ export const readProjectAssetPayloads = async (
         }
       }
 
-      const fileBuffer = await fs.readFile(
-        resolveProjectAssetPath(projectPath, record.assetPath),
-      );
+      const assetPath = resolveProjectAssetPath(projectPath, record.assetPath);
+      let fileBuffer: Buffer;
+      try {
+        fileBuffer = await fs.readFile(assetPath);
+      } catch {
+        return null;
+      }
 
       if (rendition !== "original") {
         try {
@@ -1054,135 +1007,54 @@ export const rebuildProjectThumbnails = async (
     fileIds,
     force = false,
     createBackup = false,
+    agentRunsBaseDir,
   }: {
     projectPath: string;
     fileIds: string[];
     force?: boolean;
     createBackup?: boolean;
+    agentRunsBaseDir?: string;
   },
   options: RebuildProjectThumbnailsOptions = {},
-) => {
-  const backupPath = createBackup
-    ? await createMaintenanceBackup({
-        projectPath,
-        reason: "rebuild-project-thumbnails",
-      })
-    : null;
-  const imageRecords = await readProjectImageRecords(projectPath);
-  const generatedFileIds: string[] = [];
-  const skippedFileIds: string[] = [];
-  const failedFileIds: string[] = [];
-
-  for (const fileId of Array.from(new Set(fileIds))) {
-    const record = imageRecords[fileId];
-    if (!record) {
-      failedFileIds.push(fileId);
-      continue;
-    }
-
-    const dimensions = getCachedRenditionDimensions(record, "thumbnail");
-    if (!dimensions.shouldUseThumbnail) {
-      skippedFileIds.push(fileId);
-      continue;
-    }
-
-    try {
-      if (!force) {
-        const cachedThumbnailPayload = await readCachedRenditionPayload({
-          projectPath,
-          fileId,
-          record,
-          rendition: "thumbnail",
-        });
-        if (cachedThumbnailPayload) {
-          skippedFileIds.push(fileId);
-          continue;
-        }
-      }
-
-      const sourceBuffer = await fs.readFile(
-        resolveProjectAssetPath(projectPath, record.assetPath),
-      );
-      const thumbnailPayload = await createCachedRenditionPayload({
-        projectPath,
-        fileId,
-        record,
-        sourceBuffer,
-        rendition: "thumbnail",
-        createThumbnail: options.createThumbnail ?? createNativeImageThumbnail,
-      });
-
-      if (thumbnailPayload) {
-        generatedFileIds.push(fileId);
-      } else {
-        failedFileIds.push(fileId);
-      }
-    } catch {
-      failedFileIds.push(fileId);
-    }
-  }
-
-  return {
-    generatedFileIds,
-    skippedFileIds,
-    failedFileIds,
-    backupPath,
-  };
-};
+) =>
+  rebuildProjectThumbnailsWithDeps(
+    {
+      projectPath,
+      fileIds,
+      force,
+      createBackup,
+      agentRunsBaseDir,
+    },
+    options,
+    {
+      createMaintenanceBackup,
+      readProjectBundle: readProjectBundleFiles,
+      repairLegacyGeneratedImageRecordOrigins,
+      writeProjectImageRecords,
+      touchProjectManifest,
+      writeProjectScene,
+      collectUnwrittenAcpOutputs,
+      importUnwrittenAcpOutput,
+      getCachedRenditionDimensions,
+      readCachedRenditionPayload,
+      readFile: fs.readFile,
+      resolveProjectAssetPath,
+      createCachedRenditionPayload,
+      createNativeImageThumbnail,
+    },
+  );
 
 export const persistImageAssets = async ({
   projectPath,
   files,
 }: {
   projectPath: string;
-  files: PersistImageAssetInput[];
+  files: PersistedImageAssetInput[];
 }) => {
-  const bundle = await readProjectBundle(projectPath);
-  const nextImageRecords: ImageRecordMap = { ...bundle.imageRecords };
-
-  for (const file of files) {
-    const assetFileName = `${file.createdAt.replace(
-      /[:.]/g,
-      "-",
-    )}_${safeAssetFileNameSegment(file.fileId)}.${extensionFromMimeType(
-      file.mimeType,
-    )}`;
-    const relativeAssetPath = path.posix.join(
-      PROJECT_FILENAMES.assetsDir,
-      assetFileName,
-    );
-    const assetPath = resolveProjectAssetPath(projectPath, relativeAssetPath);
-    await fs.writeFile(assetPath, Buffer.from(file.dataBase64, "base64"));
-
-    const record: ImageRecord = {
-      fileId: file.fileId,
-      assetPath: relativeAssetPath,
-      sourceType: file.sourceType,
-      provider: file.provider,
-      model: file.model,
-      prompt: file.prompt,
-      negativePrompt: file.negativePrompt,
-      seed: file.seed ?? null,
-      width: file.width,
-      height: file.height,
-      createdAt: file.createdAt,
-      mimeType: file.mimeType,
-      parentFileId: file.parentFileId ?? null,
-      promptReferences: file.promptReferences,
-    };
-    nextImageRecords[file.fileId] = record;
-  }
-
-  await writeJson(
-    path.join(projectPath, PROJECT_FILENAMES.imageRecords),
-    nextImageRecords,
-  );
-
-  const nextProject: ProjectManifest = {
-    ...bundle.project,
-    updatedAt: new Date().toISOString(),
-  };
-  await writeProjectManifest(projectPath, nextProject);
-
-  return nextImageRecords;
+  const transaction = await beginProjectImageWriteback({ projectPath, files });
+  await commitProjectImageWriteback({
+    projectPath,
+    transactionId: transaction.transactionId,
+  });
+  return transaction.imageRecords;
 };

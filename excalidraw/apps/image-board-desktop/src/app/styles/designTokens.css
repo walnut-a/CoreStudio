@@ -1,0 +1,87 @@
+.image-board-app {
+  --corestudio-side-panel-width: 300px;
+  --corestudio-left-sidebar-width: var(--corestudio-side-panel-width);
+  --corestudio-right-sidebar-width: var(--corestudio-side-panel-width);
+  --side-dock-toggle-size: 40px;
+  --side-dock-edge-gap: var(--ui-space-lg);
+  --side-dock-button-gap: var(--ui-space-sm);
+  --floating-panel-edge-gap: 24px;
+  --generate-panel-min-width: 280px;
+  --generate-panel-max-width: 760px;
+  --floating-panel-anchor-gutter: max(
+    var(--floating-panel-edge-gap),
+    calc((100vw - var(--generate-panel-max-width)) / 2)
+  );
+  --ui-font: "Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --ui-text-size-xs: 0.71875rem;
+  --ui-text-size-sm: 0.75rem;
+  --ui-text-size-md: 0.8125rem;
+  --ui-text-size-lg: 0.875rem;
+  --ui-line-height-tight: 1.25;
+  --ui-line-height-normal: 1.35;
+  --ui-line-height-relaxed: 1.45;
+  --ui-space-xxs: 2px;
+  --ui-space-xs: 4px;
+  --ui-space-sm: 8px;
+  --ui-space-md: 10px;
+  --ui-space-lg: 12px;
+  --ui-space-xl: 14px;
+  --ui-space-2xl: 16px;
+  --ui-control-size-sm: 28px;
+  --ui-control-size-md: 32px;
+  --ui-thumbnail-size-sm: 38px;
+  --ui-radius-pill: 999px;
+  --text-primary-color: #1b1b1f;
+  --island-bg-color: #ffffff;
+  --default-border-color: #f1f0ff;
+  --dialog-border-color: #ebebeb;
+  --input-bg-color: #ffffff;
+  --input-border-color: #d6d6d6;
+  --input-hover-bg-color: #f5f5f5;
+  --button-hover-bg: var(--color-surface-high);
+  --button-active-bg: var(--color-surface-high);
+  --button-active-border: var(--color-brand-active);
+  --shadow-island: 0 0 1px 0 rgba(0, 0, 0, 0.17), 0 0 3px 0 rgba(0, 0, 0, 0.08),
+    0 7px 14px 0 rgba(0, 0, 0, 0.05);
+  --modal-shadow: 0 100px 80px rgba(0, 0, 0, 0.07),
+    0 41.78px 33.42px rgba(0, 0, 0, 0.05), 0 22.34px 17.87px rgba(0, 0, 0, 0.04),
+    0 12.52px 10.02px rgba(0, 0, 0, 0.035), 0 6.65px 5.32px rgba(0, 0, 0, 0.028),
+    0 2.77px 2.21px rgba(0, 0, 0, 0.02);
+  --color-primary: #6965db;
+  --color-primary-hover: #5753d0;
+  --color-primary-darkest: #4a47b1;
+  --color-icon-white: #ffffff;
+  --color-surface-high: #f1f0ff;
+  --color-surface-low: #ececf4;
+  --color-surface-lowest: #ffffff;
+  --color-surface-mid: #f6f6f9;
+  --color-surface-primary-container: #e0dfff;
+  --color-on-surface: #1b1b1f;
+  --color-on-primary-container: #030064;
+  --color-brand-active: #4440bf;
+  --color-gray-60: #7a7a7a;
+  --color-gray-70: #5c5c5c;
+  --color-border-outline-variant: #c5c5d0;
+  --color-danger-background: #fff0f0;
+  --color-danger-darker: #d65550;
+  --color-danger-color: #700000;
+  --color-warning-background: #fceeca;
+  --color-warning-dark: #f5c354;
+  --color-warning-color: #1b1b1f;
+  --border-radius-md: 0.375rem;
+  --border-radius-lg: 0.5rem;
+  --lg-button-size: 2.25rem;
+  --canvas-footer-button-size: var(--lg-button-size);
+  --canvas-footer-icon-size: var(--lg-icon-size);
+  --canvas-footer-button-gap: var(--ui-space-sm);
+  --floating-panel-z-index: 30;
+  --agent-status-dock-z-index: 32;
+  --side-dock-z-index: 35;
+  --canvas-footer-overlay-z-index: 45;
+  --dropdown-icon: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M3.25 5.4 7 9.15l3.75-3.75" fill="none" stroke="%231b1b1f" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+}

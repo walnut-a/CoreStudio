@@ -102,7 +102,7 @@
     "jotai-scope": "0.7.2",
     "lodash.debounce": "4.0.8",
     "lodash.throttle": "4.1.1",
-    "nanoid": "3.3.3",
+    "nanoid": "3.3.8",
     "pako": "2.0.3",
     "perfect-freehand": "1.2.0",
     "pica": "7.1.1",
@@ -113,7 +113,7 @@
     "pwacompat": "2.0.17",
     "radix-ui": "1.4.3",
     "roughjs": "4.6.4",
-    "sass": "1.51.0",
+    "sass": "1.85.1",
     "tunnel-rat": "0.1.2"
   },
   "devDependencies": {

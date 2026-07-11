@@ -87,9 +87,11 @@ const createDeps = (
       reference: { enabled: false, images: [] },
     } as unknown as GenerationRequest,
     readProjectImageAssets: vi.fn(async () => []),
+    beginImageWriteback: vi.fn(),
     insertAssetsIntoScene: vi.fn(
       async (_assets: PersistedImageAssetInput[]) => undefined,
     ),
+    restoreScene: vi.fn(),
     flushPendingAutosave: vi.fn(async () => undefined),
     generateImages: vi.fn(async () => undefined),
     ...patch,
@@ -432,14 +434,15 @@ describe("agentCommandRuntime", () => {
   });
 
   it("persists ACP task and thread provenance on scene.addImage", async () => {
-    const persistImageAssets = vi.fn(
+    const commit = vi.fn(async () => undefined);
+    const beginImageWriteback = vi.fn(
       async ({
         files,
       }: {
-        projectPath: string;
+        project: DesktopProjectBundle;
         files: PersistedImageAssetInput[];
-      }) =>
-        Object.fromEntries(
+      }) => {
+        const imageRecords = Object.fromEntries(
           files.map((file) => [
             file.fileId,
             {
@@ -455,7 +458,19 @@ describe("agentCommandRuntime", () => {
               mimeType: file.mimeType,
             },
           ]),
-        ),
+        );
+        return {
+          transaction: {
+            transactionId: "transaction-1",
+            projectPath: "/tmp/corestudio-project",
+            fileIds: files.map((file) => file.fileId),
+            imageRecords,
+          },
+          imageRecords,
+          commit,
+          rollback: vi.fn(async () => ({})),
+        };
+      },
     );
     const insertAssetsIntoScene = vi.fn(async () => undefined);
 
@@ -476,9 +491,7 @@ describe("agentCommandRuntime", () => {
         },
       },
       createDeps({
-        desktopBridge: {
-          persistImageAssets,
-        } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
+        beginImageWriteback,
         getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
         insertAssetsIntoScene,
       }),
@@ -488,8 +501,10 @@ describe("agentCommandRuntime", () => {
       inserted: true,
       fileIds: [expect.stringMatching(/^agent-/)],
     });
-    expect(persistImageAssets).toHaveBeenCalledWith({
-      projectPath: "/tmp/corestudio-project",
+    expect(beginImageWriteback).toHaveBeenCalledWith({
+      project: expect.objectContaining({
+        projectPath: "/tmp/corestudio-project",
+      }),
       files: [
         expect.objectContaining({
           sourceType: "generated",
@@ -500,6 +515,7 @@ describe("agentCommandRuntime", () => {
       ],
     });
     expect(insertAssetsIntoScene).toHaveBeenCalled();
+    expect(commit).toHaveBeenCalledTimes(1);
   });
 
   it("rejects explicitly invalid image provenance on scene.addImage", async () => {

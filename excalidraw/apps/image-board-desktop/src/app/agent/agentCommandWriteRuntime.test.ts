@@ -16,6 +16,7 @@ import type {
   PersistedImageAssetInput,
 } from "../../shared/desktopBridgeTypes";
 import type { GenerationRequest } from "../../shared/providerTypes";
+import type { ProjectImageWritebackHandle } from "../projectImageWritebackController";
 
 const imageElement = {
   id: "element-1",
@@ -88,22 +89,26 @@ const createDeps = (
     reference: { enabled: false, images: [] },
   } as unknown as GenerationRequest,
   readProjectImageAssets: vi.fn(async () => []),
+  beginImageWriteback: vi.fn(),
   insertAssetsIntoScene: vi.fn(async () => undefined),
+  restoreScene: vi.fn(),
   flushPendingAutosave: vi.fn(async () => undefined),
   generateImages: vi.fn(async () => undefined),
   ...patch,
 });
 
 describe("agentCommandWriteRuntime", () => {
-  it("persists image assets and inserts them into the scene", async () => {
-    const persistImageAssets = vi.fn(
+  it("commits after scene insertion and strict autosave", async () => {
+    const commit = vi.fn(async () => undefined);
+    const rollback = vi.fn(async () => ({}));
+    const beginImageWriteback = vi.fn(
       async ({
         files,
       }: {
-        projectPath: string;
+        project: DesktopProjectBundle;
         files: PersistedImageAssetInput[];
-      }) =>
-        Object.fromEntries(
+      }): Promise<ProjectImageWritebackHandle> => {
+        const imageRecords = Object.fromEntries(
           files.map((file) => [
             file.fileId,
             {
@@ -119,7 +124,19 @@ describe("agentCommandWriteRuntime", () => {
               mimeType: file.mimeType,
             },
           ]),
-        ),
+        );
+        return {
+          transaction: {
+            transactionId: "transaction-1",
+            projectPath: "/tmp/corestudio-project",
+            fileIds: files.map((file) => file.fileId),
+            imageRecords,
+          },
+          imageRecords,
+          commit,
+          rollback,
+        };
+      },
     );
     const insertAssetsIntoScene = vi.fn(async () => undefined);
 
@@ -142,9 +159,7 @@ describe("agentCommandWriteRuntime", () => {
       {
         project: createProject(),
         deps: createDeps({
-          desktopBridge: {
-            persistImageAssets,
-          } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
+          beginImageWriteback,
           getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
           insertAssetsIntoScene,
         }),
@@ -158,8 +173,10 @@ describe("agentCommandWriteRuntime", () => {
         fileIds: [expect.stringMatching(/^agent-/)],
       },
     });
-    expect(persistImageAssets).toHaveBeenCalledWith({
-      projectPath: "/tmp/corestudio-project",
+    expect(beginImageWriteback).toHaveBeenCalledWith({
+      project: expect.objectContaining({
+        projectPath: "/tmp/corestudio-project",
+      }),
       files: [
         expect.objectContaining({
           sourceType: "generated",
@@ -169,7 +186,115 @@ describe("agentCommandWriteRuntime", () => {
         }),
       ],
     });
-    expect(insertAssetsIntoScene).toHaveBeenCalled();
+    expect(insertAssetsIntoScene).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(Object),
+      expect.objectContaining({ requireReady: true }),
+    );
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(rollback).not.toHaveBeenCalled();
+    expect(insertAssetsIntoScene.mock.invocationCallOrder[0]).toBeLessThan(
+      commit.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("rolls back records and renderer snapshot when scene insertion fails", async () => {
+    const before = createScene();
+    const failure = new Error("scene insertion failed");
+    const rollback = vi.fn(async () => createProject().imageRecords);
+    const commit = vi.fn();
+    const restoreScene = vi.fn();
+    const beginImageWriteback = vi.fn(async () => ({
+      transaction: {
+        transactionId: "transaction-1",
+        projectPath: "/tmp/corestudio-project",
+        fileIds: ["file-new"],
+        imageRecords: createProject().imageRecords,
+      },
+      imageRecords: createProject().imageRecords,
+      commit,
+      rollback,
+    }));
+
+    await expect(
+      handleAgentWriteCommand(
+        {
+          requestId: "request-1",
+          command: "scene.addImage",
+          payload: {
+            projectPath: "/tmp/corestudio-project",
+            generationOrigin: "agent-board",
+            fileId: "input-file",
+            dataBase64: Buffer.from("image").toString("base64"),
+            mimeType: "image/png",
+            width: 512,
+            height: 512,
+          },
+        },
+        {
+          project: createProject(),
+          deps: createDeps({
+            getScene: () => before,
+            getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+            beginImageWriteback,
+            insertAssetsIntoScene: vi.fn().mockRejectedValue(failure),
+            restoreScene,
+          }),
+        },
+      ),
+    ).rejects.toBe(failure);
+
+    expect(restoreScene).toHaveBeenCalledWith(before);
+    expect(rollback).toHaveBeenCalledTimes(1);
+    expect(commit).not.toHaveBeenCalled();
+  });
+
+  it("rolls back records and renderer snapshot when strict autosave fails", async () => {
+    const before = createScene();
+    const failure = new Error("strict autosave failed");
+    const rollback = vi.fn(async () => createProject().imageRecords);
+    const restoreScene = vi.fn();
+
+    await expect(
+      handleAgentWriteCommand(
+        {
+          requestId: "request-1",
+          command: "scene.addImage",
+          payload: {
+            projectPath: "/tmp/corestudio-project",
+            generationOrigin: "agent-board",
+            fileId: "input-file",
+            dataBase64: Buffer.from("image").toString("base64"),
+            mimeType: "image/png",
+            width: 512,
+            height: 512,
+          },
+        },
+        {
+          project: createProject(),
+          deps: createDeps({
+            getScene: () => before,
+            getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+            beginImageWriteback: vi.fn(async () => ({
+              transaction: {
+                transactionId: "transaction-1",
+                projectPath: "/tmp/corestudio-project",
+                fileIds: ["file-new"],
+                imageRecords: createProject().imageRecords,
+              },
+              imageRecords: createProject().imageRecords,
+              commit: vi.fn(),
+              rollback,
+            })),
+            insertAssetsIntoScene: vi.fn().mockRejectedValue(failure),
+            restoreScene,
+          }),
+        },
+      ),
+    ).rejects.toBe(failure);
+
+    expect(restoreScene).toHaveBeenCalledWith(before);
+    expect(rollback).toHaveBeenCalledTimes(1);
   });
 
   it("adds prompt text to the scene and flushes autosave", async () => {

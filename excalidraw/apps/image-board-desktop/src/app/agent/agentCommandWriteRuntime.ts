@@ -4,7 +4,7 @@ import type { AppState } from "@excalidraw/excalidraw/types";
 
 import type { AgentRendererCommandRequest } from "../../shared/agentBridgeTypes";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
-import { buildPersistedProjectImageRecordsState } from "../imageRecordState";
+import { rollbackProjectImageWritebackAfterFailure } from "../projectImageWritebackController";
 import { buildSelectionReferenceSummary } from "../selectionReference";
 import { appendElementsWithSyncedIndices } from "../sceneOrder";
 import {
@@ -87,23 +87,36 @@ export const handleAgentWriteCommand = async (
         request.payload,
         agentBoardContext,
       );
-      const persistedImageRecords = await deps.desktopBridge.persistImageAssets({
-        projectPath: project.projectPath,
+      const before = deps.getScene();
+      if (!before) {
+        throw new Error("CoreStudio 画板快照还没有准备好。");
+      }
+      const writeback = await deps.beginImageWriteback({
+        project,
         files,
       });
-      const { imageRecords: nextImageRecords } =
-        buildPersistedProjectImageRecordsState({
-          projectPath: project.projectPath,
-          projectImageRecords: project.imageRecords,
-          activeProject: deps.getProject(),
-          persistedRecords: persistedImageRecords,
+      try {
+        await deps.insertAssetsIntoScene(files, writeback.imageRecords, {
+          expectedProjectPath: project.projectPath,
+          placementViewport:
+            getPlacementViewportFromAgentBoardContext(agentBoardContext),
+          requireReady: true,
         });
-      await deps.insertAssetsIntoScene(files, nextImageRecords, {
-        expectedProjectPath: project.projectPath,
-        placementViewport:
-          getPlacementViewportFromAgentBoardContext(agentBoardContext),
-        requireReady: true,
-      });
+      } catch (error) {
+        let failure = error;
+        try {
+          deps.restoreScene(before);
+        } catch (restoreError) {
+          failure = Object.assign(
+            new Error(
+              `${error instanceof Error ? error.message : String(error)}；画板快照恢复也失败。`,
+            ),
+            { cause: error, restoreError },
+          );
+        }
+        await rollbackProjectImageWritebackAfterFailure(writeback, failure);
+      }
+      await writeback.commit();
       return {
         handled: true,
         value: {

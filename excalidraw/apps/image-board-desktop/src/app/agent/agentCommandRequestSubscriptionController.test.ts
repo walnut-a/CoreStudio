@@ -31,7 +31,9 @@ describe("subscribeAgentCommandRequests", () => {
         generationSource: "builtin",
         generateRequest: {} as any,
         readProjectImageAssets: vi.fn(),
+        beginImageWriteback: vi.fn(),
         insertAssetsIntoScene: vi.fn(),
+        restoreScene: vi.fn(),
         flushPendingAutosave: vi.fn(),
         generateImages: vi.fn(),
         handleDesktopBridgeRequest: vi.fn(),
@@ -73,7 +75,9 @@ describe("subscribeAgentCommandRequests", () => {
       generationSource: "builtin",
       generateRequest: {} as any,
       readProjectImageAssets: vi.fn(),
+      beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
+      restoreScene: vi.fn(),
       flushPendingAutosave: vi.fn(),
       generateImages: vi.fn(),
       handleDesktopBridgeRequest,
@@ -116,7 +120,9 @@ describe("subscribeAgentCommandRequests", () => {
     const getScene = vi.fn();
     const getExcalidrawAPI = vi.fn();
     const readProjectImageAssets = vi.fn();
+    const beginImageWriteback = vi.fn();
     const insertAssetsIntoScene = vi.fn();
+    const restoreScene = vi.fn();
     const flushPendingAutosave = vi.fn();
     const generateImages = vi.fn();
     const providerSettings = { providers: [] } as any;
@@ -141,7 +147,9 @@ describe("subscribeAgentCommandRequests", () => {
       generationSource: "agent",
       generateRequest,
       readProjectImageAssets,
+      beginImageWriteback,
       insertAssetsIntoScene,
+      restoreScene,
       flushPendingAutosave,
       generateImages,
       handleDesktopBridgeRequest: vi.fn(),
@@ -160,7 +168,9 @@ describe("subscribeAgentCommandRequests", () => {
       generationSource: "agent",
       generateRequest,
       readProjectImageAssets,
+      beginImageWriteback,
       insertAssetsIntoScene,
+      restoreScene,
       flushPendingAutosave,
       generateImages,
     });
@@ -192,7 +202,9 @@ describe("createAgentCommandRequestSubscriptionRendererActions", () => {
       generationSource: "builtin",
       generateRequest: { prompt: "make one" } as any,
       readProjectImageAssets: vi.fn(),
+      beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
+      restoreScene: vi.fn(),
       flushPendingAutosave: vi.fn(),
       generateImages: vi.fn(),
       handleDesktopBridgeRequest: vi.fn(),
@@ -227,7 +239,9 @@ describe("createAgentCommandRequestSubscriptionRendererActions", () => {
       generationSource: "builtin",
       generateRequest: { prompt: "make one" } as any,
       readProjectImageAssets: vi.fn(),
+      beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
+      restoreScene: vi.fn(),
       flushPendingAutosave: vi.fn(),
       generateImages: vi.fn(),
       handleDesktopBridgeRequest: vi.fn(),

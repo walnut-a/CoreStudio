@@ -20,6 +20,7 @@ import type {
   GenerationRequest,
   GenerationSource,
 } from "../../shared/providerTypes";
+import type { ProjectImageWritebackHandle } from "../projectImageWritebackController";
 
 export type AgentCommandSceneSnapshot = {
   elements: readonly ExcalidrawElement[];
@@ -46,6 +47,10 @@ export interface AgentCommandRuntimeDeps {
     fileIds: string[],
     rendition: ImageAssetRequestRendition,
   ) => Promise<ProjectAssetPayload[]>;
+  beginImageWriteback: (input: {
+    project: DesktopProjectBundle;
+    files: PersistedImageAssetInput[];
+  }) => Promise<ProjectImageWritebackHandle>;
   insertAssetsIntoScene: (
     assets: PersistedImageAssetInput[],
     nextImageRecords: ImageRecordMap,
@@ -56,6 +61,7 @@ export interface AgentCommandRuntimeDeps {
       requireReady?: boolean;
     },
   ) => Promise<void>;
+  restoreScene: (snapshot: AgentCommandSceneSnapshot) => void;
   flushPendingAutosave: (options?: { strict?: boolean }) => Promise<unknown>;
   generateImages: (
     request: GenerationRequest,

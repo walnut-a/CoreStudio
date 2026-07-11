@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
+import { CaptureUpdateAction } from "@excalidraw/element";
 
 import type {
   AppState,
@@ -111,6 +112,7 @@ import { appendElementsWithSyncedIndices } from "./sceneOrder";
 import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
 import { buildSelectedImageRelationshipState } from "./imageRecordState";
 import {
+  beginProjectImageWritebackAction,
   createProjectImageAssetPersistenceRendererActions,
 } from "./projectImageAssetPersistenceController";
 import {
@@ -1716,8 +1718,29 @@ const App = () => {
       generationSource,
       generateRequest,
       readProjectImageAssets,
+      beginImageWriteback: ({ project, files }) =>
+        beginProjectImageWritebackAction({
+          projectPath: project.projectPath,
+          projectImageRecords: project.imageRecords,
+          activeProject: currentProjectRef.current,
+          files,
+          bridge: desktopBridge,
+          setActiveProject: updateCurrentProject,
+        }),
       insertAssetsIntoScene:
         generatedImageSceneInsertRendererActions.insertAssets,
+      restoreScene: (snapshot) => {
+        const api = excalidrawAPIRef.current;
+        if (!api) {
+          throw new Error("CoreStudio 画板还没有准备好，无法恢复写入前快照。");
+        }
+        api.updateScene({
+          elements: snapshot.elements,
+          appState: snapshot.appState,
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+        latestSceneRef.current = snapshot;
+      },
       flushPendingAutosave,
       generateImages: async (request, keepOpen, options) => {
         await generationSubmitRendererActions.submit(

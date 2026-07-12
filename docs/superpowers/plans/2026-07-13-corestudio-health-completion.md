@@ -141,7 +141,7 @@ Expected: exact published versions and a React plugin peer range containing the 
 
 - [ ] **Step 2: 更新依赖并安装**
 
-Run: `corepack yarn add --dev --exact vite@<latest-7.3.x> @vitejs/plugin-react@<compatible-latest>`
+Run: `corepack yarn add -W --dev --exact vite@<latest-7.3.x> @vitejs/plugin-react@<compatible-latest>`
 Expected: lockfile resolves without peer errors.
 
 - [ ] **Step 3: 运行配置、单测和 production build**

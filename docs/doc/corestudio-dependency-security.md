@@ -57,7 +57,9 @@ GitHub Actions 在 frozen install 后、typecheck 前单独运行该 contract。
 
 根 workspace 现在只包含 `apps/image-board-desktop` 和 `packages/*`。`excalidraw-app/` 与 `examples/` 源码仍保留用于上游对照，但不再参与 CoreStudio 的安装、审计、测试或发布；根脚本也不再暴露这些未维护入口。
 
-对应 contract 位于 `apps/image-board-desktop/scripts/workspaceScope.test.ts`。收口并移除只服务上游 Web 的根工具后，活动安装图从 1529 个依赖降到 1156 个，critical advisory 从 1 降到 0，high 从 78 降到 28，moderate 从 77 降到 35；原来的 `with-nextjs → next`、Firebase、web-only Socket.IO、PWA 和旧 Babel build 链路不再进入 CoreStudio 锁文件。剩余 high/moderate 主要来自工具链和共享包开发依赖，继续由 Vite 升级和依赖裁剪处理。
+对应 contract 位于 `apps/image-board-desktop/scripts/workspaceScope.test.ts`。收口、移除只服务上游 Web 的根工具并升级 Vite 后，活动安装图从 1529 个依赖降到 1110 个，critical advisory 从 1 降到 0，high 从 78 降到 25，moderate 从 77 降到 22；原来的 `with-nextjs → next`、Firebase、web-only Socket.IO、PWA、旧 Babel build、Vite 5 和旧 Rollup 链路不再进入 CoreStudio 锁文件。
+
+桌面构建工具现在固定为 Vite `7.3.6`、`@vitejs/plugin-react 5.2.0` 和直接声明的 esbuild `0.28.1`，Node 下限为 `20.19.0`。TypeScript 使用与 Vite ESM exports 匹配的 `moduleResolution: bundler`。production build 已确认不再出现 Sass legacy JS API 弃用告警。
 
 ## 接受风险与剩余治理面
 

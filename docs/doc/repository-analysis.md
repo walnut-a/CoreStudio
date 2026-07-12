@@ -5,12 +5,14 @@
 | 项目 | 当前状态 |
 | --- | --- |
 | GitHub 默认分支 | `main` |
-| 本地与远端 `main` | `688c6d7`，`main...origin/main` 为 `0/0`（依赖安全分支创建时） |
-| 稳定化结果 | PR `#2` 已合并；CI、图片写回事务和纵向测试已进入 `main` |
-| 当前依赖治理分支 | `walnut/corestudio-dependency-security` |
-| 历史分支 | `walnut/corestudio-agent-cli-local-bridge` 与 `walnut/corestudio-health-stabilization` 均保留 |
+| 本地与远端 `main` | `fdd5181e`（本次复核点），`main...origin/main` 为 `0/0` |
+| 已合并治理 | PR `#2` 稳定 CI 与图片写回事务；PR `#3` 修复桌面依赖安全链；PR `#4` 升级 Vitest 并隔离 App mock |
+| 当前开发与代码阅读基线 | `main` |
+| 本地/远端长期分支 | 仅 `main`；已合并的 `walnut/corestudio-agent-cli-local-bridge`、`walnut/corestudio-health-stabilization`、依赖安全与 Vitest 候选分支已清理 |
+| 最新 Release | `v1.1.15`，桌面 package 版本同为 `1.1.15`，tag 已在 `main` 历史中 |
+| 最新完整门禁 | 2026-07-12：249 个测试文件、1923 项测试，typecheck、secret scan、renderer/Electron build 及两条远端 CI 通过 |
 
-当前代码阅读和新任务基线恢复为 `main`。依赖安全口径见 [corestudio-dependency-security.md](corestudio-dependency-security.md)。精确分支状态仍以 `git fetch --prune origin` 后的 live Git 结果为准。
+当前代码阅读和新任务统一以 `main` 为基线。依赖安全口径见 [corestudio-dependency-security.md](corestudio-dependency-security.md)。精确分支、Release 和 CI 状态仍以 `git fetch --prune origin`、`gh release view`、`gh pr checks` 的 live 结果为准，不把本文的提交号当作永久常量。
 
 ## 2026-07-11 稳定化基线（历史记录）
 
@@ -36,13 +38,11 @@
 - 在本地完整门禁和远端 CI 都通过前，不将候选分支并入 `main`。
 - 将候选分支并入 `main`、修改 GitHub 默认分支、删除或保留历史实现分支，均需维护者显式确认。
 
-## 初始化快照（历史记录）
-
-## 一句话结论
+## 一句话结论（初始化快照）
 
 当前仓库是一个外层 CoreStudio 仓库，真实活跃业务代码集中在 `excalidraw/apps/image-board-desktop/`；当前分支 `walnut/corestudio-agent-cli-local-bridge` 比默认分支 `origin/main` 包含更多 Agent Board、CLI、ACP Agent 和项目修复实现，因此更适合作为当前代码阅读基准。
 
-## Git 状态
+## Git 状态（初始化快照）
 
 本次初始化开始时观察到：
 
@@ -64,7 +64,7 @@
 
 这两处是任务开始前已有文档改动。本次初始化不回滚、不覆盖。
 
-## 分支状态分析
+## 分支状态分析（初始化快照）
 
 本地和远端当前观察到的分支较少：
 
@@ -294,28 +294,28 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 
 ## 维护风险和注意事项
 
-- 根目录 `README.md` 之前包含过期发布版本信息，后续版本变化需要同步更新。
-- 当前真实代码在 `excalidraw/apps/image-board-desktop/`，根目录 `apps/` 下存在空目录，后续读代码时不要误判入口。
-- 当前分支和默认分支差异很大，基于 `main` 阅读会漏掉最新 Agent 能力。
+- 当前真实业务代码在 `excalidraw/apps/image-board-desktop/`，不要把上游 `excalidraw-app/`、`examples/` 或仓库根目录误当成 CoreStudio 桌面入口。
+- `main` 已是开发和代码阅读基线；新实现应从最新 `origin/main` 创建独立短命分支，候选 PR 合并后及时清理 worktree 与本地/远端分支。
 - `excalidraw/apps/image-board-desktop/docs/` 已经有多份 Agent 集成计划、指南和 contract 文档，后续修改 Agent 能力时需要同步更新这些文档。
 - 项目数据安全是高风险区域。修改项目打开、自动保存、外部写回、健康修复、窗口关闭前保存时，应优先补测试。
+- 桌面依赖安全以安装图 contract 为产品门禁；全仓 audit 仍包含 Next.js 示例、Web app 和工具链 backlog，不得用总数代替桌面攻击面分析。
 - 本仓库存在历史 `docs/superpowers/plans` 和 `docs/superpowers/specs`，本次初始化没有迁移或改写这些文档。
 
 ## 测试现状
 
-本次初始化没有运行完整测试。根据 `package.json`，可用检查入口包括：
+2026-07-12 最新治理基线已运行完整桌面门禁，249 个测试文件、1923 项测试通过。可用检查入口包括：
 
 - `corepack yarn test:desktop --run`
 - `corepack yarn test:typecheck`
-- `corepack yarn test:code`
-- `corepack yarn test:other`
+- `corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts --project core --run`
 - `corepack yarn check:desktop-secrets --source --package-inputs`
+- `corepack yarn build:desktop`
 
-本次只执行文档整理所需的 Git 状态和 diff 检查。
+测试数会随代码演进，本文只记录最近一次已确认基线；实际交付必须重新运行门禁。
 
-## 未确认事项
+## 初始化时未确认事项的当前结论
 
-- 当前分支是否已经被维护者确认为后续开发基准：未确认。
-- 是否计划将 `walnut/corestudio-agent-cli-local-bridge` 合并回 `main`：未确认。
-- 根目录空 `apps/` 目录是否应删除：未确认；本次不处理。
-- 当前 release 最新版本是否仍以 `main` 的 `v1.1.10` 为准：未确认；本次只根据本地分支和 package 信息记录。
+- `main` 已确认为后续开发与代码阅读基线。
+- `walnut/corestudio-agent-cli-local-bridge` 的有效内容已进入 `main`，本地与远端历史分支已清理。
+- 当前 checkout 不存在根目录空 `apps/` 目录，无需保留该疑问。
+- 最新 Release 已核对为 `v1.1.15`，tag 与桌面 package 版本一致，并已在 `main` 历史中。

@@ -245,7 +245,7 @@ corepack yarn --cwd apps/image-board-desktop check:bundle-budget
 ```
 Expected: all commands exit 0.
 
-- [ ] **Step 3: 提交、推送并创建 PR**
+- [x] **Step 3: 提交、推送并创建 PR**
 
 ```bash
 git add .github/workflows/corestudio-desktop.yml docs/doc/repository-analysis.md
@@ -254,7 +254,7 @@ git push -u origin walnut/corestudio-health-completion
 gh pr create --base main --head walnut/corestudio-health-completion --title "治理：完成 CoreStudio 健康度收口" --body-file <review-summary-file>
 ```
 
-- [ ] **Step 4: 等待 PR 的 `desktop` 检查并复核 annotations**
+- [x] **Step 4: 等待 PR 的 `desktop` 检查并复核 annotations**
 
 Run: `gh pr checks <number> --watch && gh run view <run-id> --json conclusion,jobs`
 Expected: required check succeeds and has no unresolved failure annotation.
@@ -268,7 +268,7 @@ Expected: required check succeeds and has no unresolved failure annotation.
 - Consumes: verified status context `desktop`.
 - Produces: active default-branch ruleset with admin emergency bypass.
 
-- [ ] **Step 1: 读取现有 rulesets 和仓库角色 ID**
+- [x] **Step 1: 读取现有 rulesets 和仓库角色 ID**
 
 Run:
 ```bash
@@ -277,16 +277,16 @@ gh api repos/{owner}/{repo}/rulesets/rule-suites?ref=refs/heads/main
 ```
 Expected: existing policies are understood before mutation; no duplicate active default-branch ruleset is created.
 
-- [ ] **Step 2: 创建或更新规则集**
+- [x] **Step 2: 创建或更新规则集**
 
 Configure target `branch`, include `~DEFAULT_BRANCH`, active enforcement, deletion protection, non-fast-forward protection, pull requests with zero approvals for a solo repository, required conversation resolution, strict required check `desktop`, and repository-admin bypass.
 
-- [ ] **Step 3: 回读并验证规则**
+- [x] **Step 3: 回读并验证规则**
 
 Run: `gh api repos/{owner}/{repo}/rulesets/<id>`
 Expected: every intended rule is present and enforcement is `active`.
 
-- [ ] **Step 4: 合并 PR 并验证 main**
+- [x] **Step 4: 合并 PR 并验证 main**
 
 Run:
 ```bash
@@ -307,11 +307,11 @@ Expected: PR merged through the protected path; local main can be fast-forwarded
 - Consumes: protected, green `main`.
 - Produces: signed/notarized `v1.1.16` release assets and a passing packaged smoke test.
 
-- [ ] **Step 1: 从最新 main 创建发布分支并改版本**
+- [x] **Step 1: 从最新 main 创建发布分支并改版本**
 
 Set desktop package version to `1.1.16`, regenerate the lockfile, and add a concise Chinese release note covering governance/toolchain changes without claiming product behavior changes.
 
-- [ ] **Step 2: 运行发版前全量验证**
+- [x] **Step 2: 运行发版前全量验证**
 
 Run:
 ```bash
@@ -323,12 +323,12 @@ corepack yarn --cwd apps/image-board-desktop check:bundle-budget
 ```
 Expected: all commands exit 0.
 
-- [ ] **Step 3: 提交、走受保护 PR 并合入**
+- [x] **Step 3: 提交、走受保护 PR 并合入**
 
 Commit message: `发布：准备 CoreStudio 1.1.16`.
 Expected: `desktop` required check passes before merge.
 
-- [ ] **Step 4: 从合入后的 main 构建、签名和公证**
+- [x] **Step 4: 从合入后的 main 构建、签名和公证**
 
 Run:
 ```bash
@@ -337,7 +337,7 @@ corepack yarn --cwd apps/image-board-desktop smoke:packaged
 ```
 Expected: electron-builder reports signing/notarization success and packaged smoke exits 0.
 
-- [ ] **Step 5: 创建并验证 GitHub Release**
+- [x] **Step 5: 创建并验证 GitHub Release**
 
 Upload DMG, ZIP and available blockmaps under tag `v1.1.16`; then run:
 ```bash

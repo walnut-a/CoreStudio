@@ -140,4 +140,35 @@ describe("CoreStudio desktop dependency security", () => {
     expect(rootPackage.devDependencies).not.toHaveProperty("@vitest/ui");
     expect(rootPackage.scripts).not.toHaveProperty("test:ui");
   });
+
+  it("keeps Vitest and App mocks on the supported security boundary", () => {
+    const rootPackage = readJson(path.resolve(workspaceRoot, "package.json"));
+    const appSetupPath = path.resolve(
+      workspaceRoot,
+      "apps/image-board-desktop/src/app/App.testSetup.tsx",
+    );
+    const appSupportPath = path.resolve(
+      workspaceRoot,
+      "apps/image-board-desktop/src/app/App.testSupport.tsx",
+    );
+
+    expect(rootPackage.devDependencies).toMatchObject({
+      "@vitest/coverage-v8": "3.2.6",
+      vitest: "3.2.6",
+    });
+    expect(fs.existsSync(appSetupPath), "App mock setup 必须存在").toBe(true);
+
+    const vitestConfig = fs.readFileSync(
+      path.resolve(workspaceRoot, "vitest.config.mts"),
+      "utf8",
+    );
+    const appSetup = fs.readFileSync(appSetupPath, "utf8");
+    const appSupport = fs.readFileSync(appSupportPath, "utf8");
+
+    expect(vitestConfig).toContain('name: "core"');
+    expect(vitestConfig).toContain('name: "corestudio-app"');
+    expect(vitestConfig).toContain("App.testSetup.tsx");
+    expect(appSetup.match(/vi\.mock\(/g)).toHaveLength(7);
+    expect(appSupport).not.toMatch(/vi\.(?:mock|hoisted)\(/);
+  });
 });

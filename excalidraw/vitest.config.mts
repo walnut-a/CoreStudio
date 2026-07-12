@@ -2,6 +2,8 @@ import path from "path";
 
 import { configDefaults, defineConfig } from "vitest/config";
 
+const appTestPattern = "apps/image-board-desktop/src/app/App*.test.tsx";
+
 export default defineConfig({
   resolve: {
     extensions: [".ts", ".tsx", ".mts", ".js", ".jsx", ".json"],
@@ -50,15 +52,6 @@ export default defineConfig({
   },
   //@ts-ignore
   test: {
-    // Since hooks are running in stack in v2, which means all hooks run serially whereas
-    // we need to run them in parallel
-    sequence: {
-      hooks: "parallel",
-    },
-    exclude: [...configDefaults.exclude, "**/dist-electron/**"],
-    setupFiles: ["./setupTests.ts"],
-    globals: true,
-    environment: "jsdom",
     coverage: {
       reporter: ["text", "json-summary", "json", "html", "lcovonly"],
       // Since v2, it ignores empty lines by default and we need to disable it as it affects the coverage
@@ -71,5 +64,40 @@ export default defineConfig({
         statements: 60,
       },
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "core",
+          environment: "jsdom",
+          globals: true,
+          setupFiles: ["./setupTests.ts"],
+          sequence: {
+            hooks: "parallel",
+          },
+          exclude: [
+            ...configDefaults.exclude,
+            "**/dist-electron/**",
+            appTestPattern,
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "corestudio-app",
+          environment: "jsdom",
+          globals: true,
+          include: [appTestPattern],
+          setupFiles: [
+            "./setupTests.ts",
+            "./apps/image-board-desktop/src/app/App.testSetup.tsx",
+          ],
+          sequence: {
+            hooks: "parallel",
+          },
+        },
+      },
+    ],
   },
 });

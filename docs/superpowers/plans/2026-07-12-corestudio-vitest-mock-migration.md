@@ -29,7 +29,7 @@
 - Consumes: 根 `package.json`、`vitest.config.mts`、App 测试 setup/support 文件。
 - Produces: 可在本地与 CI 中持续检查的 Vitest 版本和 mock 边界契约。
 
-- [ ] **Step 1: 先写失败契约**
+- [x] **Step 1: 先写失败契约**
 
 在现有 contract 中加入以下断言，读取路径继续使用该文件现有的 repo-root helper：
 
@@ -55,7 +55,7 @@ it("keeps Vitest and App mocks on the supported security boundary", () => {
 });
 ```
 
-- [ ] **Step 2: 运行 contract 确认红灯**
+- [x] **Step 2: 运行 contract 确认红灯**
 
 Run:
 
@@ -66,7 +66,7 @@ corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.
 
 Expected: FAIL，首个有效失败是 `App.testSetup.tsx` 尚不存在或 Vitest 版本仍为 `3.0.6`。
 
-- [ ] **Step 3: 提交红灯契约**
+- [x] **Step 3: 提交红灯契约**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts
@@ -88,7 +88,7 @@ git commit -m "锁定 Vitest mock 迁移契约"
 - Consumes: 现有 `App.testSupport.tsx` 中的 7 个 `vi.mock`、`vi.hoisted`、可变 harness 状态、cleanup 和 helper exports。
 - Produces: `App.testSetup.tsx` 作为 Vitest setup 入口；`App.testSupport.tsx` 作为无 mock 调用的测试导入门面。
 
-- [ ] **Step 1: 整体移动现有 harness**
+- [x] **Step 1: 整体移动现有 harness**
 
 ```bash
 git mv \
@@ -113,7 +113,7 @@ export {
 
 其余 mock factory、harness state、Testing Library 重导出、`afterEach` 和 helper exports 原样保留，不重写 mock 行为。
 
-- [ ] **Step 2: 创建无 mock 的 support 门面**
+- [x] **Step 2: 创建无 mock 的 support 门面**
 
 ```ts
 export * from "./App.testSetup";
@@ -131,7 +131,7 @@ export {
 } from "./workspaceBounds";
 ```
 
-- [ ] **Step 3: 用旧 Vitest 先验证行为未变**
+- [x] **Step 3: 用旧 Vitest 先验证行为未变**
 
 Run:
 
@@ -140,9 +140,9 @@ cd excalidraw
 corepack yarn workspace image-board-desktop test --run
 ```
 
-Expected: 在配置尚未加载 setup 时 FAIL，且失败证明新 support 本身不再隐式提升 mock，为 Task 3 的配置分层提供红灯。
+Expected: 旧 Vitest 3.0.6 下 94 项 App 主测试仍然 PASS，证明本步只迁移文件边界，没有改变旧 runner 下的 mock 行为。真正的兼容验证与 Task 3/4 的 3.2.6 projects 配对执行。
 
-- [ ] **Step 4: 提交 setup/support 边界迁移**
+- [x] **Step 4: 提交 setup/support 边界迁移**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/src/app/App.testSetup.tsx \
@@ -161,7 +161,7 @@ git commit -m "迁移 App 测试 mock 边界"
 - Consumes: `App.testSetup.tsx`、根 `setupTests.ts`和现有 resolve alias。
 - Produces: `core` 与 `corestudio-app` 两个互斥测试项目。
 
-- [ ] **Step 1: 把根测试配置分成两个 project**
+- [x] **Step 1: 把根测试配置分成两个 project**
 
 保留现有 `resolve.alias`、coverage 和全局选项，将现有单项目 runner 改为：
 
@@ -214,7 +214,7 @@ export default defineConfig({
 
 不在根 `test` 和内联 project 中同时声明 `setupFiles`，避免 `setupTests.ts` 重复执行。
 
-- [ ] **Step 2: 验证 App 项目绿灯**
+- [x] **Step 2: 验证 App 项目绿灯**
 
 ```bash
 cd excalidraw
@@ -223,7 +223,7 @@ corepack yarn vitest --project corestudio-app --run
 
 Expected: 5 个 App 测试文件全部 PASS。
 
-- [ ] **Step 3: 验证普通项目没有被 App mock 污染**
+- [x] **Step 3: 验证普通项目没有被 App mock 污染**
 
 ```bash
 cd excalidraw
@@ -235,7 +235,7 @@ corepack yarn vitest \
 
 Expected: 两个文件全部 PASS，并且使用各自的局部 mock。
 
-- [ ] **Step 4: 提交项目级测试隔离**
+- [x] **Step 4: 提交项目级测试隔离**
 
 ```bash
 git add excalidraw/vitest.config.mts
@@ -253,7 +253,9 @@ git commit -m "隔离 CoreStudio App 测试 setup"
 - Consumes: Task 2/3 产出的 setup 边界和项目隔离。
 - Produces: 安装图中的 `vitest@3.2.6` 与 `@vitest/coverage-v8@3.2.6`。
 
-- [ ] **Step 1: 精确升级配对依赖**
+**Execution note:** `test.projects` 是 3.2 配置边界，因此 Task 3 的配置与 Task 4 的版本升级作为同一个 green 步骤验证；审阅时仍拆成配置与锁文件两个提交。
+
+- [x] **Step 1: 精确升级配对依赖**
 
 ```bash
 cd excalidraw
@@ -262,7 +264,7 @@ corepack yarn add -D -W --exact vitest@3.2.6 @vitest/coverage-v8@3.2.6
 
 Expected: `package.json` 两个版本均为 `3.2.6`，锁文件不再解析 `vitest@3.0.6`。
 
-- [ ] **Step 2: 运行依赖安全契约**
+- [x] **Step 2: 运行依赖安全契约**
 
 ```bash
 cd excalidraw
@@ -271,7 +273,7 @@ corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.
 
 Expected: PASS，包括 Vitest/mock 新契约和原有安装图契约。
 
-- [ ] **Step 3: 确认已知 critical 路径消失**
+- [x] **Step 3: 确认已知 critical 路径消失**
 
 ```bash
 cd excalidraw
@@ -281,7 +283,7 @@ rg 'vitest|@vitest/ui' /tmp/corestudio-vitest-audit.json
 
 Expected: 不再出现 `vitest <3.2.6` 或 `@vitest/ui` 的 critical advisory 路径；其他 web/example/tooling advisory 仍按现有边界单独处理。
 
-- [ ] **Step 4: 提交 Vitest 安全升级**
+- [x] **Step 4: 提交 Vitest 安全升级**
 
 ```bash
 git add excalidraw/package.json excalidraw/yarn.lock \
@@ -300,7 +302,7 @@ git commit -m "升级 Vitest 并关闭高危入口"
 - Consumes: 已完成的 Vitest 升级、mock 边界与项目级隔离。
 - Produces: 可审阅的验证证据、更新后的剩余安全 backlog 和中文交付记录。
 
-- [ ] **Step 1: 运行冻结安装和全量桌面门禁**
+- [x] **Step 1: 运行冻结安装和全量桌面门禁**
 
 ```bash
 cd excalidraw
@@ -319,7 +321,7 @@ Expected:
 - secret scan PASS；
 - renderer 和 Electron build PASS。
 
-- [ ] **Step 2: 更新治理边界**
+- [x] **Step 2: 更新治理边界**
 
 将 `corestudio-dependency-security.md` 中 Vitest 条目从“高优 backlog”移到“已修复”，明确记录：
 
@@ -329,7 +331,7 @@ Expected:
 - `@vitest/ui` 和 `test:ui` 仍保持移除，不恢复 UI server 入口。
 ```
 
-- [ ] **Step 3: 完成计划勾选和差异卫生检查**
+- [x] **Step 3: 完成计划勾选和差异卫生检查**
 
 ```bash
 git diff --check

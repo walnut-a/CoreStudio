@@ -66,10 +66,17 @@ describe("CoreStudio desktop dependency security", () => {
     const excalidrawPackage = readJson(excalidrawManifestPath);
 
     expect(rootPackage.resolutions).toMatchObject({
+      "@tootallnate/once": "2.0.1",
       dompurify: "3.4.12",
       immutable: "5.1.9",
       "lodash-es": "4.18.1",
       mermaid: "11.16.0",
+      "rimraf/glob": "10.5.0",
+      "**/test-exclude/glob": "10.5.0",
+      "glob/minimatch": "9.0.7",
+      "test-exclude/minimatch": "9.0.7",
+      "**/micromatch/picomatch": "2.3.2",
+      "vitest/picomatch": "4.0.4",
       protobufjs: "7.6.3",
       ws: "8.21.0",
     });

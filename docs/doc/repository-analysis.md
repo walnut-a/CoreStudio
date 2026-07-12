@@ -100,7 +100,7 @@
 | 语言 | TypeScript、JavaScript、CSS、Markdown |
 | 前端 | React 19、Vite 7.3、Excalidraw packages |
 | 桌面端 | Electron 41、electron-builder |
-| 测试 | Vitest、TypeScript typecheck、ESLint、Prettier |
+| 测试 | Vitest、TypeScript typecheck、Prettier |
 | 包管理器 | Yarn 1，`excalidraw/package.json` 声明 `yarn@1.22.22`；Node 要求 `>=20.19.0` |
 | Monorepo | `excalidraw/` 使用 Yarn workspaces；活动范围仅为桌面应用与 `packages/*` |
 | 主要 app | `excalidraw/apps/image-board-desktop/` |
@@ -117,7 +117,6 @@ corepack yarn package:desktop
 corepack yarn test:desktop --run
 corepack yarn test:typecheck
 corepack yarn --cwd apps/image-board-desktop check:bundle-budget
-corepack yarn test:code
 corepack yarn test:other
 corepack yarn check:desktop-secrets --source --package-inputs
 ```

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 type RootManifest = {
   workspaces?: string[];
   scripts?: Record<string, string>;
+  devDependencies?: Record<string, string>;
 };
 
 type RootTsconfig = {
@@ -48,5 +49,16 @@ describe("CoreStudio workspace scope", () => {
     expect(tsconfig.include).toEqual(["packages", "apps"]);
     expect(tsconfig.exclude).toContain("excalidraw-app");
     expect(tsconfig.exclude).toContain("examples");
+  });
+
+  it("does not expose the historical lint command without an ESLint runtime", () => {
+    const rootPackage = readRootManifest();
+
+    expect(rootPackage.scripts).not.toHaveProperty("test:code");
+    expect(rootPackage.scripts).not.toHaveProperty("fix:code");
+    expect(rootPackage.devDependencies).not.toHaveProperty(
+      "eslint-config-react-app",
+    );
+    expect(rootPackage.devDependencies).not.toHaveProperty("lint-staged");
   });
 });

@@ -42,7 +42,7 @@
 - Consumes: upstream tags `v0.18.0` / `v0.18.1` and local import commit `0b6d566`.
 - Produces: a reproducible baseline SHA and a documented list of CoreStudio-owned package patches.
 
-- [ ] **Step 1: 获取只读上游 refs 并比较初始导入树**
+- [x] **Step 1: 获取只读上游 refs 并比较初始导入树**
 
 Run:
 ```bash
@@ -53,16 +53,16 @@ diff -qr "$TMPDIR/corestudio-import" "$TMPDIR/excalidraw-v0.18.0"
 ```
 Expected: either no differences, or a finite difference list that is explicitly explained in the maintenance document.
 
-- [ ] **Step 2: 写入基线、同步命令和补丁边界**
+- [x] **Step 2: 写入基线、同步命令和补丁边界**
 
 Document exact SHAs `817d8c553c3389650f8b4503984a6d4a5d2f0c11` and `a2ec2889babf7d2295469c6d90ebe77fae57df84`, the tree comparison result, and CoreStudio patch commits `98f4609`, `57bc000`, `ffba093`.
 
-- [ ] **Step 3: 验证文档不再含未知基线**
+- [x] **Step 3: 验证文档不再含未知基线**
 
 Run: `rg -n "未知|unknown|待确认" docs/doc/excalidraw-fork-maintenance.md`
 Expected: no unresolved baseline marker.
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add docs/doc/excalidraw-fork-maintenance.md
@@ -82,7 +82,7 @@ git commit -m "文档：固定 Excalidraw 上游基线"
 - Consumes: root `package.json.workspaces`.
 - Produces: active workspaces limited to `apps/image-board-desktop` and `packages/*`.
 
-- [ ] **Step 1: 写失败测试固定工作区边界**
+- [x] **Step 1: 写失败测试固定工作区边界**
 
 The test reads the root manifest and expects exactly:
 ```ts
@@ -94,16 +94,16 @@ expect(rootPackage.scripts).not.toHaveProperty("build:app");
 expect(rootPackage.scripts).not.toHaveProperty("start");
 ```
 
-- [ ] **Step 2: 确认测试先失败**
+- [x] **Step 2: 确认测试先失败**
 
 Run: `corepack yarn vitest run apps/image-board-desktop/scripts/workspaceScope.test.ts`
 Expected: FAIL because `excalidraw-app`, `apps/*`, and `examples/*` are active.
 
-- [ ] **Step 3: 修改 workspace 与仅上游 Web 使用的根脚本/开发依赖**
+- [x] **Step 3: 修改 workspace 与仅上游 Web 使用的根脚本/开发依赖**
 
 Keep the source directories, remove them from `workspaces`, remove root commands that claim the unsupported web app is part of the CoreStudio build, then run `corepack yarn install` to regenerate the lockfile.
 
-- [ ] **Step 4: 验证活动依赖和桌面安全门禁**
+- [x] **Step 4: 验证活动依赖和桌面安全门禁**
 
 Run:
 ```bash
@@ -112,7 +112,7 @@ corepack yarn audit --json
 ```
 Expected: tests PASS; no critical advisory remains in the active install graph.
 
-- [ ] **Step 5: 更新依赖边界文档并提交**
+- [x] **Step 5: 更新依赖边界文档并提交**
 
 ```bash
 git add excalidraw/package.json excalidraw/yarn.lock excalidraw/apps/image-board-desktop/scripts/workspaceScope.test.ts docs/doc/corestudio-dependency-security.md docs/doc/repository-analysis.md
@@ -130,7 +130,7 @@ git commit -m "治理：收紧 CoreStudio 活动工作区"
 - Consumes: Node 22 CI/runtime and existing Vite config.
 - Produces: latest compatible Vite `7.3.x` and matching official React plugin.
 
-- [ ] **Step 1: 查询精确受支持版本和 peer dependency**
+- [x] **Step 1: 查询精确受支持版本和 peer dependency**
 
 Run:
 ```bash
@@ -139,12 +139,12 @@ npm view @vitejs/plugin-react@latest version peerDependencies --json
 ```
 Expected: exact published versions and a React plugin peer range containing the selected Vite version.
 
-- [ ] **Step 2: 更新依赖并安装**
+- [x] **Step 2: 更新依赖并安装**
 
 Run: `corepack yarn add -W --dev --exact vite@<latest-7.3.x> @vitejs/plugin-react@<compatible-latest>`
 Expected: lockfile resolves without peer errors.
 
-- [ ] **Step 3: 运行配置、单测和 production build**
+- [x] **Step 3: 运行配置、单测和 production build**
 
 Run:
 ```bash
@@ -154,7 +154,7 @@ corepack yarn build:desktop
 ```
 Expected: all commands exit 0; output contains no Sass legacy JS API warning and no Vite 5 advisory chain.
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add excalidraw/package.json excalidraw/yarn.lock excalidraw/apps/image-board-desktop/vite.config.mts
@@ -173,16 +173,16 @@ git commit -m "构建：升级桌面 Vite 工具链"
 - Consumes: renderer `dist/assets` 中带稳定前缀的 `.js` 文件及实际字节数。
 - Produces: `check:bundle-budget` with deterministic per-entry/per-group diagnostics.
 
-- [ ] **Step 1: 捕获升级后的 production build 基线**
+- [x] **Step 1: 捕获升级后的 production build 基线**
 
 Run: `corepack yarn build:desktop && find apps/image-board-desktop/dist/assets -name '*.js' -print0 | xargs -0 stat -f '%z %N' | sort -nr`
 Expected: a sorted size list used to set reviewed budgets with 10% headroom.
 
-- [ ] **Step 2: 写失败测试覆盖通过、超限和构建目录缺失**
+- [x] **Step 2: 写失败测试覆盖通过、超限和构建目录缺失**
 
 Use temporary fixture chunks and assert that `evaluateDesktopBundleBudget()` returns structured violations containing chunk name, actual bytes, and allowed bytes.
 
-- [ ] **Step 3: 实现预算解析器与 CLI**
+- [x] **Step 3: 实现预算解析器与 CLI**
 
 Export:
 ```ts
@@ -198,11 +198,11 @@ export const evaluateDesktopBundleBudget = (options: {
 ```
 The CLI exits 1 for missing output or any violation and prints all violations in one run.
 
-- [ ] **Step 4: 用实际 import graph 调整 manual chunks**
+- [x] **Step 4: 用实际 import graph 调整 manual chunks**
 
 Only split a group when consecutive production builds prove that it reduces a main chunk without creating a circular chunk; preserve stable names and add cases to `desktopManualChunks.test.ts`.
 
-- [ ] **Step 5: 运行测试、构建和预算门禁**
+- [x] **Step 5: 运行测试、构建和预算门禁**
 
 Run:
 ```bash
@@ -212,7 +212,7 @@ corepack yarn --cwd apps/image-board-desktop check:bundle-budget
 ```
 Expected: tests and budget gate PASS; production build remains functional.
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.mts excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.test.ts excalidraw/apps/image-board-desktop/scripts/desktopManualChunks.test.ts excalidraw/apps/image-board-desktop/desktopManualChunks.ts excalidraw/apps/image-board-desktop/package.json
@@ -229,11 +229,11 @@ git commit -m "治理：建立桌面包体预算门禁"
 - Consumes: `workspaceScope`, dependency security, full tests, build, bundle budget.
 - Produces: one required GitHub status context named `desktop`.
 
-- [ ] **Step 1: 在 CI 中加入 scope 和 bundle budget 命令**
+- [x] **Step 1: 在 CI 中加入 scope 和 bundle budget 命令**
 
 Place scope/security checks before long tests; run budget immediately after production build.
 
-- [ ] **Step 2: 本地复刻 CI**
+- [x] **Step 2: 本地复刻 CI**
 
 Run:
 ```bash

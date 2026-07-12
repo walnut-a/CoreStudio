@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: corepack yarn install --frozen-lockfile
 
+      - name: Workspace scope
+        run: corepack yarn vitest apps/image-board-desktop/scripts/workspaceScope.test.ts --run
+
       - name: Dependency security
         run: corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts --run
 
@@ -43,3 +46,6 @@ jobs:
 
       - name: Build desktop
         run: corepack yarn build:desktop
+
+      - name: Bundle budget
+        run: corepack yarn --cwd apps/image-board-desktop check:bundle-budget

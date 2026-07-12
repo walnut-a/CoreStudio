@@ -25,15 +25,18 @@ export const getDesktopManualChunk = (id: string) => {
   }
 
   if (
+    normalizedId.includes("/node_modules/@assistant-ui/") ||
+    normalizedId.includes("/node_modules/@radix-ui/")
+  ) {
+    return "vendor-ui";
+  }
+
+  if (
     normalizedId.includes("/node_modules/react/") ||
     normalizedId.includes("/node_modules/react-dom/") ||
     normalizedId.includes("/node_modules/scheduler/")
   ) {
     return "vendor-react";
-  }
-
-  if (normalizedId.includes("/node_modules/@radix-ui/")) {
-    return "vendor-radix";
   }
 
   if (normalizedId.includes("/node_modules/jotai/")) {

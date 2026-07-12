@@ -25,10 +25,10 @@
 - `docs/doc/excalidraw-fork-maintenance.md`：记录精确上游基线、同步方法和本地补丁边界。
 - `excalidraw/package.json`、`excalidraw/yarn.lock`：定义活动 workspace、受支持工具链和可执行脚本。
 - `excalidraw/apps/image-board-desktop/scripts/workspaceScope.test.ts`：固定非桌面 app/example 不进入活动 workspace。
-- `excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.ts`：解析 Vite manifest/构建产物并判断入口与手工 chunk 预算。
+- `excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.mts`：解析 production 构建产物并判断入口与手工 chunk 预算。
 - `excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.test.ts`：固定预算边界、超限信息和缺失产物行为。
 - `excalidraw/apps/image-board-desktop/desktopManualChunks.ts`：只在构建证据表明有效时调整稳定分包策略。
-- `excalidraw/apps/image-board-desktop/vite.config.mts`：生成 manifest，并让构建警告与预算检查各司其职。
+- `excalidraw/apps/image-board-desktop/vite.config.mts`：保持 production 构建和手工分包入口。
 - `.github/workflows/corestudio-desktop.yml`：在唯一桌面 CI 中执行 scope、安全、测试、构建和预算门禁。
 - `docs/doc/corestudio-dependency-security.md`、`docs/doc/repository-analysis.md`：同步新的活动依赖口径和构建入口。
 - `excalidraw/apps/image-board-desktop/package.json`、`RELEASE.md`：更新 `1.1.16` 和发布验证记录。
@@ -164,14 +164,13 @@ git commit -m "构建：升级桌面 Vite 工具链"
 ### Task 4: 建立可执行桌面 bundle 预算
 
 **Files:**
-- Create: `excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.ts`
+- Create: `excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.mts`
 - Create: `excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.test.ts`
 - Modify: `excalidraw/apps/image-board-desktop/desktopManualChunks.ts`
-- Modify: `excalidraw/apps/image-board-desktop/vite.config.mts`
 - Modify: `excalidraw/apps/image-board-desktop/package.json`
 
 **Interfaces:**
-- Consumes: renderer `dist/.vite/manifest.json` and emitted `.js` byte sizes.
+- Consumes: renderer `dist/assets` 中带稳定前缀的 `.js` 文件及实际字节数。
 - Produces: `check:bundle-budget` with deterministic per-entry/per-group diagnostics.
 
 - [ ] **Step 1: 捕获升级后的 production build 基线**
@@ -179,9 +178,9 @@ git commit -m "构建：升级桌面 Vite 工具链"
 Run: `corepack yarn build:desktop && find apps/image-board-desktop/dist/assets -name '*.js' -print0 | xargs -0 stat -f '%z %N' | sort -nr`
 Expected: a sorted size list used to set reviewed budgets with 10% headroom.
 
-- [ ] **Step 2: 写失败测试覆盖通过、超限和 manifest 缺失**
+- [ ] **Step 2: 写失败测试覆盖通过、超限和构建目录缺失**
 
-Use temporary fixture manifests and assert that `evaluateDesktopBundleBudget()` returns structured violations containing chunk name, actual bytes, and allowed bytes.
+Use temporary fixture chunks and assert that `evaluateDesktopBundleBudget()` returns structured violations containing chunk name, actual bytes, and allowed bytes.
 
 - [ ] **Step 3: 实现预算解析器与 CLI**
 
@@ -201,7 +200,7 @@ The CLI exits 1 for missing output or any violation and prints all violations in
 
 - [ ] **Step 4: 用实际 import graph 调整 manual chunks**
 
-Only split a group when the manifest proves that it reduces an eager entry or isolates a lazy capability; preserve stable names and add cases to `desktopManualChunks.test.ts`.
+Only split a group when consecutive production builds prove that it reduces a main chunk without creating a circular chunk; preserve stable names and add cases to `desktopManualChunks.test.ts`.
 
 - [ ] **Step 5: 运行测试、构建和预算门禁**
 
@@ -216,7 +215,7 @@ Expected: tests and budget gate PASS; production build remains functional.
 - [ ] **Step 6: 提交**
 
 ```bash
-git add excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.ts excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.test.ts excalidraw/apps/image-board-desktop/scripts/desktopManualChunks.test.ts excalidraw/apps/image-board-desktop/desktopManualChunks.ts excalidraw/apps/image-board-desktop/vite.config.mts excalidraw/apps/image-board-desktop/package.json
+git add excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.mts excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.test.ts excalidraw/apps/image-board-desktop/scripts/desktopManualChunks.test.ts excalidraw/apps/image-board-desktop/desktopManualChunks.ts excalidraw/apps/image-board-desktop/package.json
 git commit -m "治理：建立桌面包体预算门禁"
 ```
 

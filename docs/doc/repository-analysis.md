@@ -116,6 +116,7 @@ corepack yarn build:desktop
 corepack yarn package:desktop
 corepack yarn test:desktop --run
 corepack yarn test:typecheck
+corepack yarn --cwd apps/image-board-desktop check:bundle-budget
 corepack yarn test:code
 corepack yarn test:other
 corepack yarn check:desktop-secrets --source --package-inputs
@@ -128,6 +129,7 @@ corepack yarn --cwd ./apps/image-board-desktop start
 corepack yarn --cwd ./apps/image-board-desktop build
 corepack yarn --cwd ./apps/image-board-desktop preview
 corepack yarn --cwd ./apps/image-board-desktop package:app
+corepack yarn --cwd ./apps/image-board-desktop check:bundle-budget
 corepack yarn --cwd ./apps/image-board-desktop check:secrets
 ```
 
@@ -299,6 +301,7 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 - 当前真实业务代码在 `excalidraw/apps/image-board-desktop/`；上游 `excalidraw-app/` 和 `examples/` 只保留源码用于对照，已经移出活动 workspace，不是可安装或发布的 CoreStudio 入口。
 - `main` 已是开发和代码阅读基线；新实现应从最新 `origin/main` 创建独立短命分支，候选 PR 合并后及时清理 worktree 与本地/远端分支。
 - 候选分支必须在打开 PR 后以 `pull_request` 事件运行完整桌面门禁；workflow 只对 `main` 保留 push 触发，避免每个候选提交产生两条相同 run。
+- Renderer production build 由 `scripts/desktopBundleBudget.mts` 按实际字节执行预算；当前超大 Mermaid/字体子集 chunk 多数是按需能力，不能只看 Vite 的 500 KB 通用 warning。新增依赖或调整分包后必须运行预算门禁，并检查是否出现 circular chunk。
 - `excalidraw/apps/image-board-desktop/docs/` 已经有多份 Agent 集成计划、指南和 contract 文档，后续修改 Agent 能力时需要同步更新这些文档。
 - 项目数据安全是高风险区域。修改项目打开、自动保存、外部写回、健康修复、窗口关闭前保存时，应优先补测试。
 - 桌面依赖安全以安装图 contract 为产品门禁；活动 workspace audit 仍包含工具链和共享包开发依赖 backlog，不得用总数代替桌面攻击面分析。
@@ -313,6 +316,7 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 - `corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts --project core --run`
 - `corepack yarn check:desktop-secrets --source --package-inputs`
 - `corepack yarn build:desktop`
+- `corepack yarn --cwd apps/image-board-desktop check:bundle-budget`
 
 测试数会随代码演进，本文只记录最近一次已确认基线；实际交付必须重新运行门禁。
 

@@ -14,6 +14,10 @@ export const DESKTOP_RENDERER_BUDGETS: Record<string, number> = {
   "mermaid-to-excalidraw": 795_000,
   cynefin: 760_000,
   "excalidraw-core": 615_000,
+  "codemirror.chunk": 320_000,
+  "vendor-ui": 225_000,
+  "vendor-react": 205_000,
+  "vendor-state": 10_000,
 };
 
 const matchesBudget = (filename: string, budgetName: string) =>

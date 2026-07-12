@@ -27,6 +27,14 @@ describe("CoreStudio repository health contracts", () => {
     expect(source).not.toContain('- "walnut/**"');
   });
 
+  it("uses GitHub actions backed by the Node 24 runtime", () => {
+    const source = fs.readFileSync(workflowPath, "utf8");
+
+    expect(source).toContain("uses: actions/checkout@v6");
+    expect(source).toContain("uses: actions/setup-node@v6");
+    expect(source).not.toMatch(/uses: actions\/(?:checkout|setup-node)@v4/);
+  });
+
   it("builds the desktop application after tests", () => {
     const source = fs.readFileSync(workflowPath, "utf8");
 

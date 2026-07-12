@@ -39,4 +39,13 @@ describe("CoreStudio repository health contracts", () => {
       "run: corepack yarn check:desktop-secrets --source --package-inputs",
     );
   });
+
+  it("checks the installed desktop dependency graph", () => {
+    const source = fs.readFileSync(workflowPath, "utf8");
+
+    expect(source).toContain("- name: Dependency security");
+    expect(source).toContain(
+      "run: corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts --run",
+    );
+  });
 });

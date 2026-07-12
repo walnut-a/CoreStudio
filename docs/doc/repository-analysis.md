@@ -102,7 +102,7 @@
 | 桌面端 | Electron 41、electron-builder |
 | 测试 | Vitest、TypeScript typecheck、ESLint、Prettier |
 | 包管理器 | Yarn 1，`excalidraw/package.json` 声明 `yarn@1.22.22` |
-| Monorepo | `excalidraw/` 使用 Yarn workspaces |
+| Monorepo | `excalidraw/` 使用 Yarn workspaces；活动范围仅为桌面应用与 `packages/*` |
 | 主要 app | `excalidraw/apps/image-board-desktop/` |
 
 ## 构建和测试方式
@@ -162,12 +162,12 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 | `docs/` | 仓库级文档入口 |
 | `docs/superpowers/plans/` | 已存在的历史计划文档 |
 | `docs/superpowers/specs/` | 已存在的历史规格文档 |
-| `excalidraw/` | 上游 Excalidraw monorepo 和 CoreStudio 实际代码工作区 |
+| `excalidraw/` | 上游 Excalidraw 源码和 CoreStudio 实际代码工作区 |
 | `excalidraw/apps/image-board-desktop/` | CoreStudio 桌面端主应用 |
 | `excalidraw/apps/image-board-desktop/electron/` | Electron 主进程、项目读写、provider、Agent Bridge、ACP |
 | `excalidraw/apps/image-board-desktop/src/app/` | React renderer、画布 UI、生成输入框、Agent UI |
 | `excalidraw/apps/image-board-desktop/src/shared/` | Electron / renderer 共享类型、provider catalog、数据完整性逻辑 |
-| `excalidraw/packages/` | Excalidraw workspace packages |
+| `excalidraw/packages/` | 活动 Excalidraw workspace packages |
 | `review-packets/` | 本地审核材料，暂未观察到主业务入口 |
 
 根目录不保留空壳 `apps/` 目录。当前真实代码在 `excalidraw/apps/image-board-desktop/` 下。
@@ -296,12 +296,12 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 
 ## 维护风险和注意事项
 
-- 当前真实业务代码在 `excalidraw/apps/image-board-desktop/`，不要把上游 `excalidraw-app/`、`examples/` 或仓库根目录误当成 CoreStudio 桌面入口。
+- 当前真实业务代码在 `excalidraw/apps/image-board-desktop/`；上游 `excalidraw-app/` 和 `examples/` 只保留源码用于对照，已经移出活动 workspace，不是可安装或发布的 CoreStudio 入口。
 - `main` 已是开发和代码阅读基线；新实现应从最新 `origin/main` 创建独立短命分支，候选 PR 合并后及时清理 worktree 与本地/远端分支。
 - 候选分支必须在打开 PR 后以 `pull_request` 事件运行完整桌面门禁；workflow 只对 `main` 保留 push 触发，避免每个候选提交产生两条相同 run。
 - `excalidraw/apps/image-board-desktop/docs/` 已经有多份 Agent 集成计划、指南和 contract 文档，后续修改 Agent 能力时需要同步更新这些文档。
 - 项目数据安全是高风险区域。修改项目打开、自动保存、外部写回、健康修复、窗口关闭前保存时，应优先补测试。
-- 桌面依赖安全以安装图 contract 为产品门禁；全仓 audit 仍包含 Next.js 示例、Web app 和工具链 backlog，不得用总数代替桌面攻击面分析。
+- 桌面依赖安全以安装图 contract 为产品门禁；活动 workspace audit 仍包含工具链和共享包开发依赖 backlog，不得用总数代替桌面攻击面分析。
 - 本仓库存在历史 `docs/superpowers/plans` 和 `docs/superpowers/specs`，本次初始化没有迁移或改写这些文档。
 
 ## 测试现状

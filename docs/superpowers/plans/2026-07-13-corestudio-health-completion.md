@@ -6,7 +6,7 @@
 
 **Architecture:** 把 `excalidraw/` 明确治理成“保留上游源码、只安装和发布 CoreStudio Desktop 所需工作区”的仓库。所有治理规则先由可执行测试固定，再更新依赖和文档；代码合入后启用 GitHub ruleset，最后从受保护的 `main` 构建、签名、公证并发布桌面版本。
 
-**Tech Stack:** Yarn 4 workspaces、Vite、Vitest、Electron、electron-builder、GitHub Actions、GitHub Repository Rulesets。
+**Tech Stack:** Yarn 1.22 workspaces、Vite、Vitest、Electron、electron-builder、GitHub Actions、GitHub Repository Rulesets。
 
 ## Global Constraints
 
@@ -29,7 +29,7 @@
 - `excalidraw/apps/image-board-desktop/scripts/desktopBundleBudget.test.ts`：固定预算边界、超限信息和缺失产物行为。
 - `excalidraw/apps/image-board-desktop/desktopManualChunks.ts`：只在构建证据表明有效时调整稳定分包策略。
 - `excalidraw/apps/image-board-desktop/vite.config.mts`：生成 manifest，并让构建警告与预算检查各司其职。
-- `.github/workflows/desktop.yml`：在唯一桌面 CI 中执行 scope、安全、测试、构建和预算门禁。
+- `.github/workflows/corestudio-desktop.yml`：在唯一桌面 CI 中执行 scope、安全、测试、构建和预算门禁。
 - `docs/doc/corestudio-dependency-security.md`、`docs/doc/repository-analysis.md`：同步新的活动依赖口径和构建入口。
 - `excalidraw/apps/image-board-desktop/package.json`、`RELEASE.md`：更新 `1.1.16` 和发布验证记录。
 
@@ -108,7 +108,7 @@ Keep the source directories, remove them from `workspaces`, remove root commands
 Run:
 ```bash
 corepack yarn vitest run apps/image-board-desktop/scripts/workspaceScope.test.ts apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts
-corepack yarn npm audit --all --recursive --json
+corepack yarn audit --json
 ```
 Expected: tests PASS; no critical advisory remains in the active install graph.
 
@@ -141,7 +141,7 @@ Expected: exact published versions and a React plugin peer range containing the 
 
 - [ ] **Step 2: 更新依赖并安装**
 
-Run: `corepack yarn up vite@<latest-7.3.x> @vitejs/plugin-react@<compatible-latest>`
+Run: `corepack yarn add --dev --exact vite@<latest-7.3.x> @vitejs/plugin-react@<compatible-latest>`
 Expected: lockfile resolves without peer errors.
 
 - [ ] **Step 3: 运行配置、单测和 production build**
@@ -223,7 +223,7 @@ git commit -m "治理：建立桌面包体预算门禁"
 ### Task 5: 接入唯一桌面 CI 并完成分支审查
 
 **Files:**
-- Modify: `.github/workflows/desktop.yml`
+- Modify: `.github/workflows/corestudio-desktop.yml`
 - Modify: `docs/doc/repository-analysis.md`
 
 **Interfaces:**
@@ -238,7 +238,7 @@ Place scope/security checks before long tests; run budget immediately after prod
 
 Run:
 ```bash
-corepack yarn install --immutable
+corepack yarn install --frozen-lockfile
 corepack yarn typecheck:desktop
 corepack yarn test:desktop
 corepack yarn build:desktop
@@ -249,7 +249,7 @@ Expected: all commands exit 0.
 - [ ] **Step 3: 提交、推送并创建 PR**
 
 ```bash
-git add .github/workflows/desktop.yml docs/doc/repository-analysis.md
+git add .github/workflows/corestudio-desktop.yml docs/doc/repository-analysis.md
 git commit -m "持续集成：纳入工作区和包体门禁"
 git push -u origin walnut/corestudio-health-completion
 gh pr create --base main --head walnut/corestudio-health-completion --title "治理：完成 CoreStudio 健康度收口" --body-file <review-summary-file>
@@ -316,7 +316,7 @@ Set desktop package version to `1.1.16`, regenerate the lockfile, and add a conc
 
 Run:
 ```bash
-corepack yarn install --immutable
+corepack yarn install --frozen-lockfile
 corepack yarn typecheck:desktop
 corepack yarn test:desktop
 corepack yarn build:desktop

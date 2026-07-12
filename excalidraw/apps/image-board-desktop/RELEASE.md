@@ -183,6 +183,37 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
+## 1.1.16 已验证信息
+
+1.1.16 完成仓库健康治理收口，产品的三种发现模式保持不变。本次发布通过了这些检查：
+
+- 活动 workspace 只包含 CoreStudio Desktop 与 `packages/*`
+- Vite `7.3.6`、`@vitejs/plugin-react` `5.2.0`、esbuild `0.28.1`
+- 251 个测试文件、1932 项测试全部通过
+- workspace scope、依赖安全、TypeScript typecheck、source/package-input/release secret scan、production build 和 bundle budget 全部通过
+- PR `#8`、发布 PR `#9` 及两次合并后 `main` CI 全部通过
+- `main` ruleset `18834688` 已启用，要求 PR 和 `desktop` 检查
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `f67d9ef7-d523-4365-a53a-9ef7d6f5282e`
+- App 与 DMG stapler validate、Gatekeeper 校验通过
+- packaged smoke 通过
+
+校验值：
+
+```text
+CoreStudio-1.1.16-arm64.dmg
+sha256: 9d51e5769b5d29bbb543a9fd41263c6036693f65b1af618f5d5afc94e43985fd
+
+CoreStudio-1.1.16-arm64-mac.zip
+sha256: 59bc264f0e4a6ec95110001ffe3ed26dd0dd8e449ad4b8f5ac3804dab9acb8fe
+
+CoreStudio-1.1.16-arm64.dmg.blockmap
+sha256: 3e923ec05931120139bc00eda11ad711e45b0c53ba1508b861306d6a3afc035c
+
+CoreStudio-1.1.16-arm64-mac.zip.blockmap
+sha256: 74e44b58875e167947f3978a97ad3f21f6fdf804875af33302b91f75006257ef
+```
+
 ## 1.1.9 已验证信息
 
 1.1.9 发布时通过了这些检查：

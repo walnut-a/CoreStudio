@@ -1,18 +1,19 @@
 # 仓库分析
 
-## 2026-07-12 当前治理基线
+## 2026-07-13 当前治理基线
 
 | 项目 | 当前状态 |
 | --- | --- |
 | GitHub 默认分支 | `main` |
-| 本地与远端 `main` | `fdd5181e`（本次复核点），`main...origin/main` 为 `0/0` |
-| 已合并治理 | PR `#2` 稳定 CI 与图片写回事务；PR `#3` 修复桌面依赖安全链；PR `#4` 升级 Vitest 并隔离 App mock |
+| 本地与远端 `main` | `3e5b0d06`（`v1.1.16` 发布基线），`main...origin/main` 为 `0/0` |
+| 已合并治理 | PR `#2` 稳定 CI 与图片写回事务；PR `#3` 修复桌面依赖安全链；PR `#4` 升级 Vitest 并隔离 App mock；PR `#8` 完成 workspace、依赖、工具链、包体和上游基线总收口；PR `#9` 发布 `1.1.16` |
 | 当前开发与代码阅读基线 | `main` |
 | 本地/远端长期分支 | 仅 `main`；已合并的 `walnut/corestudio-agent-cli-local-bridge`、`walnut/corestudio-health-stabilization`、依赖安全与 Vitest 候选分支已清理 |
-| 最新 Release | `v1.1.15`，桌面 package 版本同为 `1.1.15`，tag 已在 `main` 历史中 |
-| 最新完整门禁 | 2026-07-12：249 个测试文件、1923 项测试，typecheck、secret scan、renderer/Electron build 及两条远端 CI 通过 |
+| 最新 Release | `v1.1.16`，桌面 package 版本同为 `1.1.16`，tag 指向 `main` 的 `3e5b0d06` |
+| 最新完整门禁 | 2026-07-13：251 个测试文件、1932 项测试，workspace scope、依赖安全、typecheck、secret scan、renderer/Electron build、包体预算及发布前后远端 CI 通过 |
 | CI 触发策略 | 候选分支通过 `pull_request` 运行完整门禁；合并后通过 `main` push 再验证主线，不对同一候选提交重复运行 branch push |
 | GitHub Actions 运行时 | `actions/checkout@v6` 与 `actions/setup-node@v6` 使用 Node 24 action runtime；项目构建测试仍显式使用 Node 22 |
+| `main` 保护 | ruleset `18834688` 已启用：禁止删除和强推，要求 PR、最新分支和 `desktop` 成功；仓库所有者保留紧急绕过能力 |
 
 当前代码阅读和新任务统一以 `main` 为基线。依赖安全口径见 [corestudio-dependency-security.md](corestudio-dependency-security.md)。精确分支、Release 和 CI 状态仍以 `git fetch --prune origin`、`gh release view`、`gh pr checks` 的 live 结果为准，不把本文的提交号当作永久常量。
 
@@ -324,4 +325,4 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 - `main` 已确认为后续开发与代码阅读基线。
 - `walnut/corestudio-agent-cli-local-bridge` 的有效内容已进入 `main`，本地与远端历史分支已清理。
 - 当前 checkout 不存在根目录空 `apps/` 目录，无需保留该疑问。
-- 最新 Release 已核对为 `v1.1.15`，tag 与桌面 package 版本一致，并已在 `main` 历史中。
+- 最新 Release 已核对为 `v1.1.16`，tag 与桌面 package 版本一致，并指向受保护 `main` 的发布提交。

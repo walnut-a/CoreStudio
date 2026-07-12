@@ -19,10 +19,12 @@ describe("CoreStudio repository health contracts", () => {
     );
   });
 
-  it("checks every CoreStudio candidate branch", () => {
+  it("checks candidate pull requests without duplicating branch pushes", () => {
     const source = fs.readFileSync(workflowPath, "utf8");
 
-    expect(source).toContain('- "walnut/**"');
+    expect(source).toContain("pull_request:");
+    expect(source).toMatch(/push:\n\s+branches:\n\s+- main/);
+    expect(source).not.toContain('- "walnut/**"');
   });
 
   it("builds the desktop application after tests", () => {

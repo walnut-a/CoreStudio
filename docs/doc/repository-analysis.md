@@ -11,6 +11,7 @@
 | 本地/远端长期分支 | 仅 `main`；已合并的 `walnut/corestudio-agent-cli-local-bridge`、`walnut/corestudio-health-stabilization`、依赖安全与 Vitest 候选分支已清理 |
 | 最新 Release | `v1.1.15`，桌面 package 版本同为 `1.1.15`，tag 已在 `main` 历史中 |
 | 最新完整门禁 | 2026-07-12：249 个测试文件、1923 项测试，typecheck、secret scan、renderer/Electron build 及两条远端 CI 通过 |
+| CI 触发策略 | 候选分支通过 `pull_request` 运行完整门禁；合并后通过 `main` push 再验证主线，不对同一候选提交重复运行 branch push |
 
 当前代码阅读和新任务统一以 `main` 为基线。依赖安全口径见 [corestudio-dependency-security.md](corestudio-dependency-security.md)。精确分支、Release 和 CI 状态仍以 `git fetch --prune origin`、`gh release view`、`gh pr checks` 的 live 结果为准，不把本文的提交号当作永久常量。
 
@@ -296,6 +297,7 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 
 - 当前真实业务代码在 `excalidraw/apps/image-board-desktop/`，不要把上游 `excalidraw-app/`、`examples/` 或仓库根目录误当成 CoreStudio 桌面入口。
 - `main` 已是开发和代码阅读基线；新实现应从最新 `origin/main` 创建独立短命分支，候选 PR 合并后及时清理 worktree 与本地/远端分支。
+- 候选分支必须在打开 PR 后以 `pull_request` 事件运行完整桌面门禁；workflow 只对 `main` 保留 push 触发，避免每个候选提交产生两条相同 run。
 - `excalidraw/apps/image-board-desktop/docs/` 已经有多份 Agent 集成计划、指南和 contract 文档，后续修改 Agent 能力时需要同步更新这些文档。
 - 项目数据安全是高风险区域。修改项目打开、自动保存、外部写回、健康修复、窗口关闭前保存时，应优先补测试。
 - 桌面依赖安全以安装图 contract 为产品门禁；全仓 audit 仍包含 Next.js 示例、Web app 和工具链 backlog，不得用总数代替桌面攻击面分析。

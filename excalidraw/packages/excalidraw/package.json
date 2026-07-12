@@ -117,7 +117,6 @@
     "tunnel-rat": "0.1.2"
   },
   "devDependencies": {
-    "@size-limit/preset-big-lib": "9.0.0",
     "@testing-library/dom": "10.4.0",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.2.0",
@@ -131,7 +130,6 @@
     "dotenv": "16.0.1",
     "esbuild": "0.19.10",
     "esbuild-sass-plugin": "2.16.0",
-    "eslint-plugin-react": "7.32.2",
     "fake-indexeddb": "3.1.7",
     "fonteditor-core": "2.4.1",
     "harfbuzzjs": "0.3.6",

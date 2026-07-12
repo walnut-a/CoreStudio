@@ -98,11 +98,11 @@
 | 类别 | 观察 |
 | --- | --- |
 | 语言 | TypeScript、JavaScript、CSS、Markdown |
-| 前端 | React 19、Vite、Excalidraw packages |
+| 前端 | React 19、Vite 7.3、Excalidraw packages |
 | 桌面端 | Electron 41、electron-builder |
-| 测试 | Vitest、TypeScript typecheck、ESLint、Prettier |
-| 包管理器 | Yarn 1，`excalidraw/package.json` 声明 `yarn@1.22.22` |
-| Monorepo | `excalidraw/` 使用 Yarn workspaces |
+| 测试 | Vitest、TypeScript typecheck、Prettier |
+| 包管理器 | Yarn 1，`excalidraw/package.json` 声明 `yarn@1.22.22`；Node 要求 `>=20.19.0` |
+| Monorepo | `excalidraw/` 使用 Yarn workspaces；活动范围仅为桌面应用与 `packages/*` |
 | 主要 app | `excalidraw/apps/image-board-desktop/` |
 
 ## 构建和测试方式
@@ -116,7 +116,7 @@ corepack yarn build:desktop
 corepack yarn package:desktop
 corepack yarn test:desktop --run
 corepack yarn test:typecheck
-corepack yarn test:code
+corepack yarn --cwd apps/image-board-desktop check:bundle-budget
 corepack yarn test:other
 corepack yarn check:desktop-secrets --source --package-inputs
 ```
@@ -128,6 +128,7 @@ corepack yarn --cwd ./apps/image-board-desktop start
 corepack yarn --cwd ./apps/image-board-desktop build
 corepack yarn --cwd ./apps/image-board-desktop preview
 corepack yarn --cwd ./apps/image-board-desktop package:app
+corepack yarn --cwd ./apps/image-board-desktop check:bundle-budget
 corepack yarn --cwd ./apps/image-board-desktop check:secrets
 ```
 
@@ -162,12 +163,12 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 | `docs/` | 仓库级文档入口 |
 | `docs/superpowers/plans/` | 已存在的历史计划文档 |
 | `docs/superpowers/specs/` | 已存在的历史规格文档 |
-| `excalidraw/` | 上游 Excalidraw monorepo 和 CoreStudio 实际代码工作区 |
+| `excalidraw/` | 上游 Excalidraw 源码和 CoreStudio 实际代码工作区 |
 | `excalidraw/apps/image-board-desktop/` | CoreStudio 桌面端主应用 |
 | `excalidraw/apps/image-board-desktop/electron/` | Electron 主进程、项目读写、provider、Agent Bridge、ACP |
 | `excalidraw/apps/image-board-desktop/src/app/` | React renderer、画布 UI、生成输入框、Agent UI |
 | `excalidraw/apps/image-board-desktop/src/shared/` | Electron / renderer 共享类型、provider catalog、数据完整性逻辑 |
-| `excalidraw/packages/` | Excalidraw workspace packages |
+| `excalidraw/packages/` | 活动 Excalidraw workspace packages |
 | `review-packets/` | 本地审核材料，暂未观察到主业务入口 |
 
 根目录不保留空壳 `apps/` 目录。当前真实代码在 `excalidraw/apps/image-board-desktop/` 下。
@@ -296,12 +297,13 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 
 ## 维护风险和注意事项
 
-- 当前真实业务代码在 `excalidraw/apps/image-board-desktop/`，不要把上游 `excalidraw-app/`、`examples/` 或仓库根目录误当成 CoreStudio 桌面入口。
+- 当前真实业务代码在 `excalidraw/apps/image-board-desktop/`；上游 `excalidraw-app/` 和 `examples/` 只保留源码用于对照，已经移出活动 workspace，不是可安装或发布的 CoreStudio 入口。
 - `main` 已是开发和代码阅读基线；新实现应从最新 `origin/main` 创建独立短命分支，候选 PR 合并后及时清理 worktree 与本地/远端分支。
 - 候选分支必须在打开 PR 后以 `pull_request` 事件运行完整桌面门禁；workflow 只对 `main` 保留 push 触发，避免每个候选提交产生两条相同 run。
+- Renderer production build 由 `scripts/desktopBundleBudget.mts` 按实际字节执行预算；当前超大 Mermaid/字体子集 chunk 多数是按需能力，不能只看 Vite 的 500 KB 通用 warning。新增依赖或调整分包后必须运行预算门禁，并检查是否出现 circular chunk。
 - `excalidraw/apps/image-board-desktop/docs/` 已经有多份 Agent 集成计划、指南和 contract 文档，后续修改 Agent 能力时需要同步更新这些文档。
 - 项目数据安全是高风险区域。修改项目打开、自动保存、外部写回、健康修复、窗口关闭前保存时，应优先补测试。
-- 桌面依赖安全以安装图 contract 为产品门禁；全仓 audit 仍包含 Next.js 示例、Web app 和工具链 backlog，不得用总数代替桌面攻击面分析。
+- 桌面依赖安全以安装图 contract 为产品门禁；活动 workspace audit 仍包含工具链和共享包开发依赖 backlog，不得用总数代替桌面攻击面分析。
 - 本仓库存在历史 `docs/superpowers/plans` 和 `docs/superpowers/specs`，本次初始化没有迁移或改写这些文档。
 
 ## 测试现状
@@ -313,6 +315,7 @@ corepack yarn --cwd ./apps/image-board-desktop check:secrets
 - `corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts --project core --run`
 - `corepack yarn check:desktop-secrets --source --package-inputs`
 - `corepack yarn build:desktop`
+- `corepack yarn --cwd apps/image-board-desktop check:bundle-budget`
 
 测试数会随代码演进，本文只记录最近一次已确认基线；实际交付必须重新运行门禁。
 

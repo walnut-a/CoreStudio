@@ -4,12 +4,12 @@
 
 CoreStudio 桌面依赖安全不能直接用全仓 `yarn audit --groups dependencies` 的总数判断。
 
-原因是 `excalidraw/apps/image-board-desktop/package.json` 把 renderer 和 Electron 运行依赖放在 `devDependencies`，随后由 Vite 和 esbuild 打入 `dist/`、`dist-electron/`；`--groups dependencies` 会排除这些真正进入桌面产物的依赖。反过来，全量 `yarn audit` 又会混入 `excalidraw-app`、`examples/` 和构建工具的重复路径。
+原因是 `excalidraw/apps/image-board-desktop/package.json` 把 renderer 和 Electron 运行依赖放在 `devDependencies`，随后由 Vite 和 esbuild 打入 `dist/`、`dist-electron/`；`--groups dependencies` 会排除这些真正进入桌面产物的依赖。全量 `yarn audit` 还会混入构建工具和共享包开发依赖，仍不能直接当作桌面 bundle 的攻击面数量。
 
 因此本项目使用两层口径：
 
 1. `desktopDependencySecurity.test.ts` 检查 CoreStudio 实际安装图和固定安全版本，属于产品门禁。
-2. 全仓 `yarn audit` 用来维护上游 web app、示例和工具链 backlog，不把总数伪装成桌面产品结论。
+2. 活动 workspace 的 `yarn audit` 用来维护工具链和共享包开发依赖 backlog，不把总数伪装成桌面产品结论。
 
 ## 2026-07-12 已修复链路
 
@@ -53,6 +53,14 @@ GitHub Actions 在 frozen install 后、typecheck 前单独运行该 contract。
 
 因此全仓 audit 仍可能仅按 `@excalidraw/excalidraw@0.18.0` 版本号报告 moderate；本项目不通过修改 fork 的 package version 假装升级了整份上游源码，而是用真实 adapter 和安装图 contract 证明回补状态。
 
+## 2026-07-13 工作区收口
+
+根 workspace 现在只包含 `apps/image-board-desktop` 和 `packages/*`。`excalidraw-app/` 与 `examples/` 源码仍保留用于上游对照，但不再参与 CoreStudio 的安装、审计、测试或发布；根脚本也不再暴露这些未维护入口。
+
+对应 contract 位于 `apps/image-board-desktop/scripts/workspaceScope.test.ts`。收口、移除只服务上游 Web 的根工具、删除实际不可执行的历史 ESLint/size-limit 链路并升级 Vite 后，活动安装图从 1529 个依赖降到 725 个，critical 从 1 降到 0，high 从 78 降到 0，moderate 从 77 降到 2，low 从 22 降到 0；原来的 `with-nextjs → next`、Firebase、web-only Socket.IO、PWA、旧 Babel build、Vite 5、旧 Rollup、Puppeteer/size-limit 和失效 lint 链路不再进入 CoreStudio 锁文件。
+
+桌面构建工具现在固定为 Vite `7.3.6`、`@vitejs/plugin-react 5.2.0` 和直接声明的 esbuild `0.28.1`，Node 下限为 `20.19.0`。TypeScript 使用与 Vite ESM exports 匹配的 `moduleResolution: bundler`。production build 已确认不再出现 Sass legacy JS API 弃用告警。
+
 ## 接受风险与剩余治理面
 
 ### `nanoid 4.0.2`
@@ -61,12 +69,8 @@ GitHub Actions 在 frozen install 后、typecheck 前单独运行该 contract。
 
 ### 不属于 CoreStudio 桌面产物的告警
 
-以下内容保留为独立 backlog，不计作本轮已修复：
+以下内容保留为独立 backlog，不计作桌面运行时风险：
 
-- `examples/with-nextjs` 的 Next.js critical/high advisory。
-- `excalidraw-app` 的 Firebase、Socket.IO 与 web-only 依赖链。
-- Vite、Rollup、Babel、minimatch/picomatch 等其余开发工具 advisory。
-- 旧示例、测试和 size-limit/Puppeteer 工具链中的重复路径。
 - 安装日志中的 peer-dependency 警告；它们需要单独做工具链兼容治理，不能与安全 advisory 混为一谈。
 
 ## 复核命令
@@ -89,4 +93,4 @@ corepack yarn audit --json
 
 复核时必须展开唯一包、patched version 和 workspace path，不能只引用总数。
 
-2026-07-12 Vitest 治理分支复核时，已不再命中根 `vitest` 或 `@vitest/ui` critical 路径。全仓 critical 仍有 `with-nextjs → next` 上游示例路径；全仓 moderate/high 总数仍不能作为桌面 bundle 的风险数量使用。
+2026-07-13 总收口复核时，活动安装图 audit 为 `critical 0 / high 0 / moderate 2 / low 0`。两个 moderate 分别是本地 fork 的 `@excalidraw/excalidraw@0.18.0` 版本型标记，以及上文已接受的 adapter 内 `nanoid 4.0.2`；实际 Mermaid 安全回补仍由安装图 contract 验证。

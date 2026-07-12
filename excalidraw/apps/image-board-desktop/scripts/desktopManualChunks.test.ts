@@ -15,4 +15,17 @@ describe("getDesktopManualChunk", () => {
       expect(getDesktopManualChunk(packagePath)).toBe("excalidraw-core");
     }
   });
+
+  it("keeps coupled ACP and Radix UI libraries in one UI chunk", () => {
+    expect(
+      getDesktopManualChunk(
+        "/repo/node_modules/@assistant-ui/react/dist/index.js",
+      ),
+    ).toBe("vendor-ui");
+    expect(
+      getDesktopManualChunk(
+        "/repo/node_modules/@radix-ui/react-dialog/dist/index.js",
+      ),
+    ).toBe("vendor-ui");
+  });
 });

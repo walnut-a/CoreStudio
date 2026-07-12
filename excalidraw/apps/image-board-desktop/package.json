@@ -11,6 +11,7 @@
   "scripts": {
     "ensure:electron": "node scripts/ensure-electron.cjs",
     "check:dev-port": "node scripts/ensure-dev-port.cjs",
+    "check:bundle-budget": "node scripts/desktopBundleBudget.mts",
     "check:secrets": "node scripts/check-secrets.cjs",
     "dev:renderer": "vite --config vite.config.mts --host 127.0.0.1 --port 5174",
     "dev:electron": "yarn ensure:electron && wait-on tcp:5174 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_RENDERER_URL=http://127.0.0.1:5174 electron dist-electron/main.js",
@@ -35,6 +36,7 @@
     "concurrently": "9.2.1",
     "electron": "41.2.0",
     "electron-builder": "26.8.1",
+    "esbuild": "0.28.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "wait-on": "9.0.5"

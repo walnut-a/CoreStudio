@@ -12,7 +12,8 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -31,6 +32,6 @@
       "@excalidraw/utils/*": ["./packages/utils/src/*"]
     }
   },
-  "include": ["packages", "excalidraw-app", "apps"],
-  "exclude": ["examples", "dist", "types", "tests"]
+  "include": ["packages", "apps"],
+  "exclude": ["excalidraw-app", "examples", "dist", "types", "tests"]
 }

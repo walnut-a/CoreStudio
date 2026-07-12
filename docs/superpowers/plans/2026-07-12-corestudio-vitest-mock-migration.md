@@ -340,7 +340,7 @@ git status --short
 
 Expected: `git diff --check` 无输出，status 只包含本计划范围内文档。
 
-- [ ] **Step 4: 提交验证与文档**
+- [x] **Step 4: 提交验证与文档**
 
 ```bash
 git add docs/doc/corestudio-dependency-security.md docs/doc/README.md \
@@ -348,7 +348,7 @@ git add docs/doc/corestudio-dependency-security.md docs/doc/README.md \
 git commit -m "记录 Vitest 安全迁移结果"
 ```
 
-- [ ] **Step 5: 推送候选分支并等待远端 CI**
+- [x] **Step 5: 推送候选分支并等待远端 CI**
 
 ```bash
 git push -u origin walnut/corestudio-vitest-mock-migration

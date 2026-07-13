@@ -130,7 +130,6 @@ const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
   "loadRecentProjects",
   "loadAppInfo",
   "loadProviderSettings",
-  "loadPromptLibrary",
 ]);
 
 class RequestBodyTooLargeError extends Error {

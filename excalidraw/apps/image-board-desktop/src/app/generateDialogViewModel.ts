@@ -7,7 +7,6 @@ import {
   getRequestAspectRatioOption,
   getVisibleGenerationFields,
 } from "../shared/providerCatalog";
-import { buildPromptTextWithInlineReferences } from "../shared/promptReferences";
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
 import type {
   CustomProviderModel,
@@ -116,8 +115,6 @@ export const buildGenerateDialogViewModel = ({
     request.reference?.enabled && request.reference.items
       ? request.reference.items
       : [];
-  const promptLibraryCurrentContent =
-    buildPromptTextWithInlineReferences(request).trim();
   const showComposerTaskBar =
     showComposerModeSwitch || showComposerModeIndicator;
   const classNames = [
@@ -150,7 +147,6 @@ export const buildGenerateDialogViewModel = ({
     showBody,
     isAgentOperationMode,
     agentSelectionItems,
-    promptLibraryCurrentContent,
     showComposerTaskBar,
     classNames,
     ...referenceState,

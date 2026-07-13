@@ -307,24 +307,6 @@ export const readGenerateDialogAdvancedSettingsRuntime = () =>
     "utf8",
   );
 
-export const readGenerateDialogPromptLibrarySection = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogPromptLibrarySection.tsx",
-    ),
-    "utf8",
-  );
-
-export const readGenerateDialogPromptLibraryRuntime = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateDialogPromptLibraryRuntime.ts",
-    ),
-    "utf8",
-  );
-
 export const readGenerateDialogComposerRuntime = () =>
   readFileSync(
     resolve(

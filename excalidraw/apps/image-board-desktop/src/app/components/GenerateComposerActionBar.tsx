@@ -2,7 +2,6 @@ import type { ReactNode, SyntheticEvent } from "react";
 
 import { DesktopButton } from "./DesktopButton";
 import {
-  promptLibraryIcon,
   sendIcon,
   settingsSlidersIcon,
   stopIcon,
@@ -11,12 +10,10 @@ import { copy } from "../copy";
 
 interface GenerateComposerActionBarProps {
   showPromptTools: boolean;
-  promptLibraryOpen: boolean;
   advancedOpen: boolean;
   canSubmit: boolean;
   loading?: boolean;
   sourceSelect?: ReactNode;
-  onTogglePromptLibrary: (event: SyntheticEvent<HTMLElement>) => void;
   onToggleAdvanced: (event: SyntheticEvent<HTMLElement>) => void;
   onCancelGeneration?: (event: SyntheticEvent<HTMLElement>) => void;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
@@ -24,12 +21,10 @@ interface GenerateComposerActionBarProps {
 
 export const GenerateComposerActionBar = ({
   showPromptTools,
-  promptLibraryOpen,
   advancedOpen,
   canSubmit,
   loading = false,
   sourceSelect,
-  onTogglePromptLibrary,
   onToggleAdvanced,
   onCancelGeneration,
   onStopInputEvent,
@@ -38,21 +33,6 @@ export const GenerateComposerActionBar = ({
     <div className="generate-composer__controls">
       {showPromptTools ? (
         <>
-          <DesktopButton
-            type="button"
-            className={[
-              "generate-composer__icon",
-              promptLibraryOpen ? "generate-composer__icon--active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            aria-label={copy.generateDialog.promptLibrary}
-            title={copy.generateDialog.promptLibrary}
-            onMouseDown={onStopInputEvent}
-            onClick={onTogglePromptLibrary}
-          >
-            {promptLibraryIcon}
-          </DesktopButton>
           <DesktopButton
             type="button"
             className={[

@@ -41,9 +41,6 @@ import { createDesktopStartupRendererActions } from "./desktopStartupState";
 import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleController";
 import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
 import {
-  createSavedPromptLibraryRendererActions,
-} from "./generatePromptLibraryActions";
-import {
   createGenerationRequestRendererActions,
 } from "./generationRequestRendererController";
 import {
@@ -257,7 +254,6 @@ import type {
   ProjectHealthReport,
   PublicProviderSettings,
   RecentProjectEntry,
-  SavedPrompt,
 } from "../shared/desktopBridgeTypes";
 
 const LazyExcalidraw = lazy(async () => {
@@ -431,15 +427,6 @@ const App = () => {
   const { task: acpAgentTask } = acpAgentTaskStateController.state;
   const { setTask: setAcpAgentTask } = acpAgentTaskStateController.setters;
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
-  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
-  const savedPromptLibraryRendererActions = useMemo(
-    () =>
-      createSavedPromptLibraryRendererActions({
-        bridge: desktopBridge,
-        setSavedPrompts,
-      }),
-    [desktopBridge],
-  );
   const generationModelSelectionRendererActions = useMemo(
     () =>
       createGenerationModelSelectionRendererActions({
@@ -1018,7 +1005,6 @@ const App = () => {
     setRecentProjects,
     setProjectError,
     setAppInfo,
-    setSavedPrompts,
     loadAcpAgentSettings: loadAcpAgentSettingsState,
   });
 
@@ -2126,16 +2112,6 @@ const App = () => {
           void acpRunLogRendererActions.open(taskId, {
             openInConversationDock: true,
           });
-        }}
-        savedPrompts={savedPrompts}
-        onSavePrompt={(input) => {
-          void savedPromptLibraryRendererActions.savePrompt(input);
-        }}
-        onUsePrompt={(id) => {
-          void savedPromptLibraryRendererActions.usePrompt(id);
-        }}
-        onDeletePrompt={(id) => {
-          void savedPromptLibraryRendererActions.deletePrompt(id);
         }}
         onSaveProviderSettings={(settings) =>
           providerSettingsRendererActions.saveSettings(settings)

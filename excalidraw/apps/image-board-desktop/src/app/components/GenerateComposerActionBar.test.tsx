@@ -9,11 +9,9 @@ const renderActionBar = (
 ) => {
   const props: Parameters<typeof GenerateComposerActionBar>[0] = {
     showPromptTools: true,
-    promptLibraryOpen: false,
     advancedOpen: false,
     canSubmit: true,
     sourceSelect: <span>生成方式选择</span>,
-    onTogglePromptLibrary: vi.fn(),
     onToggleAdvanced: vi.fn(),
     onCancelGeneration: vi.fn(),
     onStopInputEvent: vi.fn(),
@@ -27,20 +25,13 @@ const renderActionBar = (
 };
 
 describe("GenerateComposerActionBar", () => {
-  it("renders prompt tools and reports tool toggles", () => {
-    const onTogglePromptLibrary = vi.fn();
+  it("renders active prompt tools and reports settings toggles", () => {
     const onToggleAdvanced = vi.fn();
 
     renderActionBar({
-      onTogglePromptLibrary,
       onToggleAdvanced,
     });
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: copy.generateDialog.promptLibrary,
-      }),
-    );
     fireEvent.click(
       screen.getByRole("button", {
         name: copy.generateDialog.expandSettings,
@@ -48,7 +39,6 @@ describe("GenerateComposerActionBar", () => {
     );
 
     expect(screen.getByText("生成方式选择")).toBeInTheDocument();
-    expect(onTogglePromptLibrary).toHaveBeenCalledWith(expect.any(Object));
     expect(onToggleAdvanced).toHaveBeenCalledWith(expect.any(Object));
   });
 
@@ -65,11 +55,6 @@ describe("GenerateComposerActionBar", () => {
   it("hides prompt tools outside prompt composer mode", () => {
     renderActionBar({ showPromptTools: false });
 
-    expect(
-      screen.queryByRole("button", {
-        name: copy.generateDialog.promptLibrary,
-      }),
-    ).toBeNull();
     expect(screen.queryByText("生成方式选择")).toBeNull();
     expect(
       screen.getByRole("button", { name: copy.generateDialog.generate }),

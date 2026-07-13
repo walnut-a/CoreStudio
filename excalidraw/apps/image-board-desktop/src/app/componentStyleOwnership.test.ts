@@ -36,8 +36,6 @@ const {
   readGenerateAdvancedFieldsPanel,
   readGenerateDialogAdvancedSettings,
   readGenerateDialogAdvancedSettingsRuntime,
-  readGenerateDialogPromptLibrarySection,
-  readGenerateDialogPromptLibraryRuntime,
   readGenerateDialogComposerRuntime,
   readGenerateDialogComposerActionsSection,
   readGenerateDialogComposerContentSection,

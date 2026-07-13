@@ -10,9 +10,6 @@ import {
   useGenerateImageDialogProviderRuntime,
 } from "./GenerateImageDialogProviderRuntime";
 import {
-  createGenerateDialogPromptLibraryRuntime,
-} from "./GenerateDialogPromptLibraryRuntime";
-import {
   useGenerateComposerController,
   type GenerateComposerConfig,
 } from "../agent/useGenerateComposerController";
@@ -24,8 +21,6 @@ import { useGenerateRequestController } from "../useGenerateRequestController";
 
 import type {
   PublicProviderSettings,
-  SavedPrompt,
-  SavePromptInput,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
 import type {
@@ -56,10 +51,6 @@ export interface UseGenerateImageDialogRuntimeInput {
   onOpenAgentRunLog?: (taskId: string) => void;
   loading: boolean;
   onCancelGeneration?: () => void;
-  savedPrompts?: SavedPrompt[];
-  onSavePrompt?: (input: SavePromptInput) => void | Promise<void>;
-  onUsePrompt?: (id: string) => void | Promise<void>;
-  onDeletePrompt?: (id: string) => void | Promise<void>;
   onSaveProviderSettings?: (
     input: SaveProviderSettingsInput,
   ) => Promise<PublicProviderSettings | void>;
@@ -85,10 +76,6 @@ export const useGenerateImageDialogRuntime = ({
   onOpenAgentRunLog,
   loading,
   onCancelGeneration,
-  savedPrompts = [],
-  onSavePrompt,
-  onUsePrompt,
-  onDeletePrompt,
   onSaveProviderSettings,
   onSubmit,
 }: UseGenerateImageDialogRuntimeInput) => {
@@ -101,9 +88,7 @@ export const useGenerateImageDialogRuntime = ({
     getCustomModelsForProvider,
     updateRequest,
     setPromptReferences,
-    updatePrompt,
     updatePromptParts,
-    replacePromptParts,
     clearSubmittedPrompt,
   } = useGenerateRequestController({
     initialRequest,
@@ -146,10 +131,6 @@ export const useGenerateImageDialogRuntime = ({
     setAdvancedOpen,
     apiSettingsOpen,
     setApiSettingsOpen,
-    promptLibraryOpen,
-    setPromptLibraryOpen,
-    promptLibrarySearch,
-    setPromptLibrarySearch,
   } = useGenerateDialogPanelController({
     open,
     persistent,
@@ -177,7 +158,6 @@ export const useGenerateImageDialogRuntime = ({
     canSubmit,
     showBody,
     agentSelectionItems,
-    promptLibraryCurrentContent,
     showComposerTaskBar,
     classNames: generateComposerClassNames,
   } = buildGenerateDialogViewModel({
@@ -275,25 +255,6 @@ export const useGenerateImageDialogRuntime = ({
       handleCustomModelKeyDown,
     });
 
-  const {
-    promptLibrarySectionProps,
-  } = createGenerateDialogPromptLibraryRuntime({
-    effectiveComposerMode,
-    promptLibraryOpen,
-    savedPrompts,
-    promptLibrarySearch,
-    promptLibraryCurrentContent,
-    getCurrentRequest: () => requestRef.current,
-    updatePrompt,
-    replacePromptParts,
-    onSavePrompt,
-    onUsePrompt,
-    onDeletePrompt,
-    setPromptLibrarySearch,
-    handleTextInputKeyDown,
-    stopInputEventPropagation,
-  });
-
   return {
     panelRef,
     handleSubmit,
@@ -313,7 +274,6 @@ export const useGenerateImageDialogRuntime = ({
       pendingReference,
       promptEditorResetKey,
       referenceLimitMessage,
-      promptLibraryOpen,
       advancedOpen,
       canSubmit,
       loading,
@@ -337,10 +297,8 @@ export const useGenerateImageDialogRuntime = ({
       onPromptKeyUpCapture: handleInputKeyPhaseCapture,
       onPromptKeyDown: handleComposerPromptKeyDown,
       onOpenAgentRunLog,
-      setPromptLibraryOpen,
       setAdvancedOpen,
     },
-    promptLibrarySectionProps,
     bodyProps: {
       show: showBody,
       isConfigured: providerContext.isConfigured,

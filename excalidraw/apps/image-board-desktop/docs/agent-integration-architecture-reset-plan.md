@@ -4,6 +4,8 @@
 
 > 2026-07-02 update: 这份文档记录第一轮 Agent 集成架构收口。下一阶段继续按 [agent-integration-v2-cleanup-plan.md](./agent-integration-v2-cleanup-plan.md) 推进，重点从“功能能跑”转向“入口清楚、数据可靠、架构不继续变脏”。
 
+> 2026-07-13 update: 常用提示词库已被判定为不成立的需求，并从 UI、状态、Electron IPC、preload、Local Bridge、存储、类型、样式和测试中整体删除。下文早期阶段记录里与 Prompt Library 有关的条目仅用于解释历史演进，不再是当前架构入口或兼容目标。
+
 **Goal:** 把本地网页画布、CLI、ACP Agent 三条能力从“能跑的开发入口”收敛成一套稳定、可理解、可维护的 CoreStudio Agent 集成。
 
 **Architecture:** CoreStudio 桌面端仍然是项目数据 owner。Local Bridge 是唯一运行底座；Agent Board、CLI、ACP Agent 都只能通过 Bridge / CLI 读写，不能直接改项目文件。UI 只负责展示和发起，业务判断下沉到 view model / renderer service / Electron service / shared integrity modules。
@@ -105,8 +107,8 @@
 - 2026-07-06：Agent / CLI 写回前的当前项目一致性断言继续收口到 `src/app/agent/agentCommandRuntimeShared.ts`。`createActiveAgentProjectPathRendererActions` 统一读取最新 active project path 并复用 `PROJECT_MISMATCH` 错误；`App.tsx` 不再保留 `assertExpectedAgentProjectActive` 本地闭包，也不再直接 import 底层 `assertActiveAgentProjectPath`，当前约 2098 行。
 - 2026-07-06：底部生成输入框的 hook wiring 继续收口到 `src/app/components/GenerateImageDialogRuntime.ts`。`GenerateImageDialog.tsx` 从约 419 行降到约 62 行，只保留 dialog shell、composer section、Prompt Library section 和 advanced body 组合；结构测试固定 request / composer / provider settings / panel / pending reference controller 不再直接由 shell import。
 - 2026-07-06：底部生成输入框的 provider settings / advanced settings wiring 继续收口到 `src/app/components/GenerateImageDialogProviderRuntime.ts`。主 runtime 不再直接 import provider settings controller、高级设置 runtime 或 provider 草稿状态；结构测试固定 provider API key、自定义模型、保存反馈和高级设置 props 只由 provider runtime owner 组合。
-- `GenerateImageDialog.tsx` 已从 2200+ 行降到约 62 行；`GenerateImageDialogRuntime.ts` 约 347 行，`GenerateImageDialogProviderRuntime.ts` 约 167 行，后续如继续膨胀，再按 reference coordination、prompt library 等 owner 继续拆。
-- `App.css` 已从超过 5100 行降到约 151 行，Agent 设置页样式已拆到 `AgentSettings.css`，左侧 Agent 对话 / 生成记录 / timeline 样式已拆到 `AgentConversation.css`，底部生成输入框 / composer / Prompt Library / Provider Settings 样式已拆到 `GenerateImageDialog.css`，右下角状态浮层样式已拆到 `AgentStatusDock.css`，右侧图片详情侧栏样式已拆到 `ImageInspector.css`，欢迎页样式已拆到 `WelcomePane.css`，Agent Board 页面样式已拆到 `AgentBoard.css`，项目状态提示样式已拆到 `ProjectStatusToast.css`，项目主菜单提示样式已拆到 `ProjectMainMenu.css`，ACP run log dialog / chat 样式已拆到 `AcpRunLogDialog.css` 和 `AgentRunChatLog.css`，生成错误详情弹窗样式已拆到 `GenerationErrorDetailsDialog.css`，workspace bounds overlay 样式已拆到 `WorkspaceBoundsOverlay.css`，关于页弹窗样式已拆到 `AboutDialog.css`，项目渲染错误边界样式已拆到 `ProjectRenderBoundary.css`，共享按钮基础样式已拆到 `DesktopButton.css`，左右侧栏样式已拆到 `SideDock.css`，共享 dialog primitives 已拆到 `styles/dialogPrimitives.css`；后续仍需继续把 token、通用面板规则和剩余 feature 样式显式化。
+- `GenerateImageDialog.tsx` 已从 2200+ 行降到约 62 行；`GenerateImageDialogRuntime.ts` 约 347 行，`GenerateImageDialogProviderRuntime.ts` 约 167 行，后续如继续膨胀，只按仍然存在的 reference coordination 等职责继续拆。
+- `App.css` 已从超过 5100 行降到约 151 行，Agent 设置页样式已拆到 `AgentSettings.css`，左侧 Agent 对话 / 生成记录 / timeline 样式已拆到 `AgentConversation.css`，底部生成输入框 / composer / Provider Settings 样式已拆到 `GenerateImageDialog.css`，右下角状态浮层样式已拆到 `AgentStatusDock.css`，右侧图片详情侧栏样式已拆到 `ImageInspector.css`，欢迎页样式已拆到 `WelcomePane.css`，Agent Board 页面样式已拆到 `AgentBoard.css`，项目状态提示样式已拆到 `ProjectStatusToast.css`，项目主菜单提示样式已拆到 `ProjectMainMenu.css`，ACP run log dialog / chat 样式已拆到 `AcpRunLogDialog.css` 和 `AgentRunChatLog.css`，生成错误详情弹窗样式已拆到 `GenerationErrorDetailsDialog.css`，workspace bounds overlay 样式已拆到 `WorkspaceBoundsOverlay.css`，关于页弹窗样式已拆到 `AboutDialog.css`，项目渲染错误边界样式已拆到 `ProjectRenderBoundary.css`，共享按钮基础样式已拆到 `DesktopButton.css`，左右侧栏样式已拆到 `SideDock.css`，共享 dialog primitives 已拆到 `styles/dialogPrimitives.css`；后续仍需继续把 token、通用面板规则和剩余 feature 样式显式化。
 - `agentThreadModel.ts` 已从接近 1000 行降到 324 行，并拆出 `agentThreadTypes.ts`、`agentThreadModelUtils.ts`、`agentThreadToolEvents.ts` 和 `agentThreadTextEvents.ts`；后续可继续把 builder adapter 拆细。
 - 设置页、右下角状态浮层、底部输入框、左侧栏、高级调试之间的职责还需要继续收口。
 
@@ -763,7 +765,7 @@ Progress:
 **Verification:**
 
 ```bash
-corepack yarn vitest apps/image-board-desktop/src/app/useGeneratePendingReferenceController.test.ts apps/image-board-desktop/src/app/useGenerateRequestController.test.tsx apps/image-board-desktop/src/app/useGenerateProviderSettingsController.test.tsx apps/image-board-desktop/src/app/generatePromptRequest.test.ts apps/image-board-desktop/src/app/components/GenerateAdvancedFieldsPanel.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerActionBar.test.tsx apps/image-board-desktop/src/app/components/GeneratePromptLibrary.test.tsx apps/image-board-desktop/src/app/components/GenerateProviderSettingsPanel.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerTaskStatus.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerBody.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerControls.test.tsx apps/image-board-desktop/src/app/agent/useGenerateComposerController.test.ts --run
+corepack yarn vitest apps/image-board-desktop/src/app/useGeneratePendingReferenceController.test.ts apps/image-board-desktop/src/app/useGenerateRequestController.test.tsx apps/image-board-desktop/src/app/useGenerateProviderSettingsController.test.tsx apps/image-board-desktop/src/app/generatePromptRequest.test.ts apps/image-board-desktop/src/app/components/GenerateAdvancedFieldsPanel.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerActionBar.test.tsx apps/image-board-desktop/src/app/components/GenerateProviderSettingsPanel.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerTaskStatus.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerBody.test.tsx apps/image-board-desktop/src/app/components/GenerateComposerControls.test.tsx apps/image-board-desktop/src/app/agent/useGenerateComposerController.test.ts --run
 corepack yarn test:typecheck --pretty false
 ```
 

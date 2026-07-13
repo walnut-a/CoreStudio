@@ -9,7 +9,6 @@ import {
   useGenerateImageDialogRuntime,
   type UseGenerateImageDialogRuntimeInput,
 } from "./GenerateImageDialogRuntime";
-import { GenerateDialogPromptLibrarySection } from "./GenerateDialogPromptLibrarySection";
 
 export interface GenerateImageDialogProps
   extends UseGenerateImageDialogRuntimeInput {
@@ -22,7 +21,6 @@ export const GenerateImageDialog = (props: GenerateImageDialogProps) => {
     panelRef,
     handleSubmit,
     composerSectionProps,
-    promptLibrarySectionProps,
     bodyProps,
     advancedSettingsProps,
   } = useGenerateImageDialogRuntime(props);
@@ -47,7 +45,6 @@ export const GenerateImageDialog = (props: GenerateImageDialogProps) => {
       >
         <form className="generate-panel__form" onSubmit={handleSubmit}>
           <GenerateDialogComposerSection {...composerSectionProps} />
-          <GenerateDialogPromptLibrarySection {...promptLibrarySectionProps} />
         </form>
 
         <GenerateDialogBody

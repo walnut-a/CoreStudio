@@ -63,6 +63,37 @@ GitHub Actions 在 frozen install 后、typecheck 前单独运行该 contract。
 
 ## 接受风险与剩余治理面
 
+### 依赖告警治理规范
+
+本节是后续开发和发布必须遵守的规则，不只是本次审计结论。
+
+#### 阻断门槛
+
+- 活动 workspace 出现 `critical` 或 `high` advisory 时，禁止合并和正式发布；必须修复、移除依赖，或证明告警不在当前安装图中。
+- `moderate` 不能靠统一忽略、隐藏 audit 输出或随意改本地 package version 消除。每一项都必须记录依赖链、实际可达性、现有缓解措施、不立即升级的原因和下次复核期限。
+- `low` 和开发工具告警可以进入 backlog，但仍须保留完整 audit 输出，不能把“非运行时风险”表述成“没有风险”。
+- 禁止仅为消除告警而强制跨 major resolution。任何 resolution 都必须说明兼容边界，并通过 frozen install、依赖安全 contract、typecheck、完整桌面测试和 production build。
+
+#### 复核节奏
+
+- 每次正式发布前必须重新运行安装图 contract 和活动 workspace audit。
+- 活跃开发期间至少每月复核一次；如果一个月内没有开发或发布，可以顺延到下一次开发恢复时，但必须早于下一次正式发布。
+- 依赖声明、`yarn.lock`、workspace 范围、打包入口或 Electron/renderer 边界发生变化时，必须立即复核，不能等到月度检查。
+- GitHub advisory 的等级、受影响版本或利用条件变化，或者上游发布兼容修复时，必须重新判断原有接受结论。
+
+#### 接受风险的有效期
+
+接受风险不是永久豁免。记录至少要包含：
+
+1. advisory 和完整依赖链；
+2. 是否进入 renderer、Electron main/preload 或最终安装包；
+3. CoreStudio 是否向用户、文件、Agent 或外部请求暴露了触发条件；
+4. 当前 contract 或运行时缓解措施；
+5. 不立即修复的兼容性代价；
+6. 复核日期和解除接受的触发条件。
+
+当前两个 moderate 的下次强制复核点为：`2026-08-13` 或下一次正式发布前，以较早者为准。若兼容上游版本提前发布，则立即复核，不等待该日期。
+
 ### `nanoid 4.0.2`
 
 最新 `@excalidraw/mermaid-to-excalidraw 2.2.2` 仍固定 `nanoid 4.0.2`。相关 advisory 针对向长度参数传入非整数值时的可预测结果；CoreStudio 没有把该参数暴露给用户或外部 Agent。本轮不通过 Yarn resolution 强制跨到纯 ESM 的 5.x，避免制造未经上游验证的兼容风险。

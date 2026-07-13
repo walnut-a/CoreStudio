@@ -95,12 +95,20 @@ describe("generate composer styles", () => {
     expect(rootAppCss).not.toContain(".inspector-sidebar");
   });
 
-  it("keeps merged inspector sections from inheriting canvas-height shape actions", () => {
+  it("scrolls the merged inspector sections as one continuous panel", () => {
     const appCss = readAppCss();
     const sidebarRule = getRule(appCss, ".inspector-sidebar");
     const actionsSectionRule = getRule(
       appCss,
       ".inspector-sidebar__section--actions",
+    );
+    const imageSectionRule = getRule(
+      appCss,
+      ".inspector-sidebar__section--image",
+    );
+    const sectionBodyRule = getRule(
+      appCss,
+      ".inspector-sidebar__section-body",
     );
     const shapeActionsRule = getRule(
       appCss,
@@ -110,16 +118,23 @@ describe("generate composer styles", () => {
       appCss,
       ".inspector-sidebar .selected-shape-actions > .Island",
     );
+    const imageInspectorRule = getRule(appCss, ".image-inspector");
+    const imageScrollRule = getRule(appCss, ".image-inspector__scroll");
 
-    expect(sidebarRule).toContain(
-      "grid-template-rows: max-content minmax(0, 1fr)",
-    );
+    expect(sidebarRule).toContain("overflow-y: auto");
+    expect(sidebarRule).toContain("overscroll-behavior: contain");
+    expect(sidebarRule).not.toContain("grid-template-rows");
     expect(actionsSectionRule).toContain("align-content: start");
-    expect(actionsSectionRule).toContain("max-height: min(340px, 36vh)");
+    expect(actionsSectionRule).toContain("overflow: visible");
+    expect(actionsSectionRule).not.toContain("max-height");
+    expect(imageSectionRule).not.toContain("grid-template-rows");
+    expect(sectionBodyRule).toContain("overflow: visible");
     expect(shapeActionsRule).toContain("height: auto");
     expect(shapeActionsRule).toContain("overflow: visible");
-    expect(islandRule).toContain("max-height: min(260px, 30vh) !important");
-    expect(islandRule).toContain("overflow-y: auto");
+    expect(islandRule).toContain("max-height: none !important");
+    expect(islandRule).toContain("overflow: visible");
+    expect(imageInspectorRule).toContain("height: auto");
+    expect(imageScrollRule).toContain("overflow: visible");
   });
 
   it("keeps CoreStudio font weights on design-system tokens", () => {

@@ -31,6 +31,7 @@ export interface SubscribeAcpTaskEventsInput {
   ) => void;
   clearActiveTask: () => void;
   scheduleTimeout: (callback: () => void, delay: number) => number;
+  clearScheduledTimeout: (timerId: number) => void;
   refreshThreadSummaries: (projectToken: string) => void | Promise<unknown>;
   refreshRunSummaries: () => void | Promise<unknown>;
   refreshOpenRunLog: (taskId: string) => void;
@@ -52,6 +53,7 @@ export const subscribeAcpTaskEvents = ({
   updateTaskState,
   clearActiveTask,
   scheduleTimeout,
+  clearScheduledTimeout,
   refreshThreadSummaries,
   refreshRunSummaries,
   refreshOpenRunLog,
@@ -63,7 +65,19 @@ export const subscribeAcpTaskEvents = ({
     };
   }
 
-  const unsubscribe = bridge.onAcpAgentTaskEvent((event) => {
+  const pendingHistoryRefreshes = new Set<number>();
+  const scheduleHistoryRefresh = (callback: () => void, delay: number) => {
+    let timerId: number | null = null;
+    timerId = scheduleTimeout(() => {
+      if (timerId !== null) {
+        pendingHistoryRefreshes.delete(timerId);
+      }
+      callback();
+    }, delay);
+    pendingHistoryRefreshes.add(timerId);
+    return timerId;
+  };
+  const unsubscribeFromBridge = bridge.onAcpAgentTaskEvent((event) => {
     handleAcpTaskEvent({
       event,
       activeTaskId: getActiveTaskId(),
@@ -74,7 +88,7 @@ export const subscribeAcpTaskEvents = ({
       historyRefreshDelay,
       updateTaskState,
       clearActiveTask,
-      scheduleTimeout,
+      scheduleTimeout: scheduleHistoryRefresh,
       refreshThreadSummaries,
       refreshRunSummaries,
       refreshOpenRunLog,
@@ -83,7 +97,13 @@ export const subscribeAcpTaskEvents = ({
 
   return {
     status: "subscribed",
-    unsubscribe,
+    unsubscribe: () => {
+      unsubscribeFromBridge();
+      for (const timerId of pendingHistoryRefreshes) {
+        clearScheduledTimeout(timerId);
+      }
+      pendingHistoryRefreshes.clear();
+    },
   };
 };
 

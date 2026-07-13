@@ -1774,6 +1774,7 @@ const App = () => {
       updateTaskState: setAcpAgentTask,
       clearActiveTask: () => acpActiveTaskIdRendererActions.set(null),
       scheduleTimeout: (callback, delay) => window.setTimeout(callback, delay),
+      clearScheduledTimeout: (timerId) => window.clearTimeout(timerId),
       refreshThreadSummaries: loadAcpThreadSummariesState,
       refreshRunSummaries: loadAcpRunSummariesState,
       refreshOpenRunLog: (taskId, delay = ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS) =>

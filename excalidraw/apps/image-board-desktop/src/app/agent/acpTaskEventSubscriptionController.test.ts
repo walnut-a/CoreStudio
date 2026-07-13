@@ -30,6 +30,7 @@ describe("subscribeAcpTaskEvents", () => {
         updateTaskState: vi.fn(),
         clearActiveTask: vi.fn(),
         scheduleTimeout: vi.fn(),
+        clearScheduledTimeout: vi.fn(),
         refreshThreadSummaries: vi.fn(),
         refreshRunSummaries: vi.fn(),
         refreshOpenRunLog: vi.fn(),
@@ -74,6 +75,7 @@ describe("subscribeAcpTaskEvents", () => {
       updateTaskState,
       clearActiveTask,
       scheduleTimeout,
+      clearScheduledTimeout: vi.fn(),
       refreshThreadSummaries,
       refreshRunSummaries,
       refreshOpenRunLog,
@@ -81,7 +83,7 @@ describe("subscribeAcpTaskEvents", () => {
 
     expect(subscription).toEqual({
       status: "subscribed",
-      unsubscribe,
+      unsubscribe: expect.any(Function),
     });
 
     const capturedListener = listeners[0];
@@ -139,6 +141,7 @@ describe("createAcpTaskEventSubscriptionRendererActions", () => {
       updateTaskState,
       clearActiveTask: vi.fn(),
       scheduleTimeout,
+      clearScheduledTimeout: vi.fn(),
       refreshThreadSummaries,
       refreshRunSummaries,
       refreshOpenRunLog,
@@ -176,6 +179,7 @@ describe("createAcpTaskEventSubscriptionRendererActions", () => {
       updateTaskState: vi.fn(),
       clearActiveTask: vi.fn(),
       scheduleTimeout: vi.fn(),
+      clearScheduledTimeout: vi.fn(),
       refreshThreadSummaries: vi.fn(),
       refreshRunSummaries: vi.fn(),
       refreshOpenRunLog: vi.fn(),
@@ -183,9 +187,46 @@ describe("createAcpTaskEventSubscriptionRendererActions", () => {
 
     const cleanup = actions.start();
 
-    expect(cleanup).toBe(unsubscribe);
+    expect(cleanup).toEqual(expect.any(Function));
     cleanup?.();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears pending history refreshes when the subscription stops", () => {
+    const listeners: Array<(event: AcpTaskEvent) => void> = [];
+    const unsubscribe = vi.fn();
+    const clearScheduledTimeout = vi.fn();
+    let nextTimerId = 40;
+    const actions = createAcpTaskEventSubscriptionRendererActions({
+      bridge: {
+        onAcpAgentTaskEvent: (listener) => {
+          listeners.push(listener);
+          return unsubscribe;
+        },
+      },
+      getActiveTaskId: () => "task-1",
+      getOpenRunLogTaskId: () => null,
+      getProjectToken: () => "project-token",
+      getAppSettingsOpen: () => true,
+      getAcpDebugOpen: () => true,
+      historyRefreshDelay: 160,
+      updateTaskState: vi.fn(),
+      clearActiveTask: vi.fn(),
+      scheduleTimeout: vi.fn(() => nextTimerId++),
+      clearScheduledTimeout,
+      refreshThreadSummaries: vi.fn(),
+      refreshRunSummaries: vi.fn(),
+      refreshOpenRunLog: vi.fn(),
+    });
+
+    const cleanup = actions.start();
+    listeners[0]?.(completedEvent);
+    cleanup?.();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(clearScheduledTimeout).toHaveBeenCalledTimes(2);
+    expect(clearScheduledTimeout).toHaveBeenNthCalledWith(1, 40);
+    expect(clearScheduledTimeout).toHaveBeenNthCalledWith(2, 41);
   });
 });
 

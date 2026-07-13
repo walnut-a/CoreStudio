@@ -81,12 +81,6 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.saveProviderSettings, input),
   deleteProviderSettings: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.deleteProviderSettings, input),
-  loadPromptLibrary: () => ipcRenderer.invoke(IPC_CHANNELS.loadPromptLibrary),
-  savePrompt: (input) => ipcRenderer.invoke(IPC_CHANNELS.savePrompt, input),
-  deleteSavedPrompt: (id) =>
-    ipcRenderer.invoke(IPC_CHANNELS.deleteSavedPrompt, id),
-  markSavedPromptUsed: (id) =>
-    ipcRenderer.invoke(IPC_CHANNELS.markSavedPromptUsed, id),
   generateImages: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.generateImages, input),
   cancelGenerateImages: (generationJobId) =>

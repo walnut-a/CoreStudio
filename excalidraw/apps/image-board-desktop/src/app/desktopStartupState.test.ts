@@ -144,7 +144,6 @@ describe("createDesktopStartupRendererActions", () => {
           customModels: [],
         },
       })),
-      loadPromptLibrary: vi.fn(async () => []),
       loadRecentProjects: vi.fn(async () => [
         {
           projectPath: "/projects/one",
@@ -165,7 +164,6 @@ describe("createDesktopStartupRendererActions", () => {
       setStartupError: vi.fn(),
       setRecentProjects: vi.fn(),
       setAppInfo: vi.fn(),
-      setSavedPrompts: vi.fn(),
       loadAcpAgentSettings,
     });
 
@@ -174,7 +172,6 @@ describe("createDesktopStartupRendererActions", () => {
 
     expect(bridge.loadAppInfo).toHaveBeenCalledTimes(1);
     expect(bridge.loadProviderSettings).toHaveBeenCalledTimes(1);
-    expect(bridge.loadPromptLibrary).toHaveBeenCalledTimes(1);
     expect(bridge.loadRecentProjects).toHaveBeenCalledTimes(1);
     expect(loadAcpAgentSettings).toHaveBeenCalledTimes(1);
 
@@ -195,7 +192,6 @@ describe("createDesktopStartupRendererActions", () => {
       setStartupError: vi.fn(),
       setRecentProjects: vi.fn(),
       setAppInfo: vi.fn(),
-      setSavedPrompts: vi.fn(),
       loadAcpAgentSettings,
     });
 
@@ -203,7 +199,6 @@ describe("createDesktopStartupRendererActions", () => {
 
     expect(bridge.loadAppInfo).toHaveBeenCalledTimes(1);
     expect(bridge.loadProviderSettings).toHaveBeenCalledTimes(1);
-    expect(bridge.loadPromptLibrary).toHaveBeenCalledTimes(1);
     expect(bridge.loadRecentProjects).toHaveBeenCalledTimes(1);
     expect(loadAcpAgentSettings).not.toHaveBeenCalled();
   });

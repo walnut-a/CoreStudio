@@ -99,10 +99,6 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "readAcpAgentRunLog",
   "listAcpAgentThreads",
   "readAcpAgentThread",
-  "loadPromptLibrary",
-  "savePrompt",
-  "deleteSavedPrompt",
-  "markSavedPromptUsed",
   "generateImages",
   "readClipboardImage",
 ] as const;

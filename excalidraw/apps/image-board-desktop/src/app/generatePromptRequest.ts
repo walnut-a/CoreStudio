@@ -22,8 +22,6 @@ import {
   type GenerationModelSelection,
 } from "./generationModelSelection";
 
-const PROMPT_LIBRARY_TITLE_MAX_LENGTH = 24;
-
 export const partsToPlainPrompt = (
   parts: readonly GenerationPromptPart[],
 ) =>
@@ -160,17 +158,6 @@ export const createPromptReferencePayload = (
   thumbnailDataUrl: getPromptReferenceThumbnail(reference),
 });
 
-export const createSavedPromptTitle = (content: string) => {
-  const firstLine = content
-    .split("\n")
-    .map((line) => line.trim())
-    .find(Boolean);
-  const title = firstLine || "未命名 Prompt";
-  return title.length > PROMPT_LIBRARY_TITLE_MAX_LENGTH
-    ? `${title.slice(0, PROMPT_LIBRARY_TITLE_MAX_LENGTH)}...`
-    : title;
-};
-
 export const getGenerateRequestMaxPromptReferenceCount = ({
   request,
   customModels = [],
@@ -187,17 +174,6 @@ export const getGenerateRequestMaxPromptReferenceCount = ({
     ? capabilities.maxReferenceImageCount
     : 0;
 };
-
-export const appendSavedPromptParts = (
-  currentParts: readonly GenerationPromptPart[],
-  content: string,
-): GenerationPromptPart[] => [
-  ...currentParts,
-  {
-    type: "text",
-    text: currentParts.length ? `\n\n${content}` : content,
-  },
-];
 
 export const stripReferenceItemThumbnails = (
   request: GenerationRequest,

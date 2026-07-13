@@ -11,7 +11,6 @@ const renderActionsSection = (
     showAgentSourceSelect: false,
     showPromptComposerActions: true,
     showPromptTools: true,
-    promptLibraryOpen: false,
     advancedOpen: false,
     canSubmit: true,
     loading: false,
@@ -22,7 +21,6 @@ const renderActionsSection = (
     generationSourceResetKey: "direct:open",
     onSelectGenerationSource: vi.fn(),
     onStopInputEvent: vi.fn(),
-    setPromptLibraryOpen: vi.fn(),
     setAdvancedOpen: vi.fn(),
     ...overrides,
   };
@@ -34,12 +32,12 @@ const renderActionsSection = (
 };
 
 describe("GenerateDialogComposerActionsSection", () => {
-  it("places the generation source selector inside the prompt composer action bar", () => {
+  it("keeps only active generation controls in the prompt composer action bar", () => {
     renderActionsSection();
 
     expect(
       screen.getByRole("button", {
-        name: copy.generateDialog.promptLibrary,
+        name: copy.generateDialog.expandSettings,
       }),
     ).toBeInTheDocument();
     expect(
@@ -64,32 +62,23 @@ describe("GenerateDialogComposerActionsSection", () => {
     ).toBeNull();
   });
 
-  it("wraps prompt tool toggles with input event stopping", () => {
+  it("wraps the settings toggle with input event stopping", () => {
     const onStopInputEvent = vi.fn();
-    const setPromptLibraryOpen = vi.fn();
     const setAdvancedOpen = vi.fn();
 
     renderActionsSection({
       onStopInputEvent,
-      setPromptLibraryOpen,
       setAdvancedOpen,
     });
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: copy.generateDialog.promptLibrary,
-      }),
-    );
     fireEvent.click(
       screen.getByRole("button", {
         name: copy.generateDialog.expandSettings,
       }),
     );
 
-    expect(onStopInputEvent).toHaveBeenCalledTimes(2);
-    expect(setPromptLibraryOpen).toHaveBeenCalledWith(expect.any(Function));
+    expect(onStopInputEvent).toHaveBeenCalledTimes(1);
     expect(setAdvancedOpen).toHaveBeenCalledWith(expect.any(Function));
-    expect(setPromptLibraryOpen.mock.calls[0]?.[0](false)).toBe(true);
     expect(setAdvancedOpen.mock.calls[0]?.[0](false)).toBe(true);
   });
 

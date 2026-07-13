@@ -8,6 +8,8 @@
 
 **Tech Stack:** Electron main process, React renderer, Excalidraw canvas, Local Bridge HTTP runtime, CoreStudio CLI, ACP JSON-RPC process integration, Vitest, Playwright or in-app browser screenshot checks.
 
+> 2026-07-13 product decision: 常用提示词库不是成立的用户需求，已从 renderer、Electron IPC、preload、Local Bridge、类型、存储、文案、样式和测试中整体删除。下文旧阶段记录中的相关条目仅保留为历史，不再构成当前能力或兼容要求。
+
 ## Global Constraints
 
 - 不新增 CoreStudio 内置 Agent 调度器。

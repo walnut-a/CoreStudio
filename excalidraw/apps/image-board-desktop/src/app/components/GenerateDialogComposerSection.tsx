@@ -44,7 +44,6 @@ interface GenerateDialogComposerSectionProps {
   pendingReference: GenerationReferencePayload | null;
   promptEditorResetKey: number;
   referenceLimitMessage: string | null;
-  promptLibraryOpen: boolean;
   advancedOpen: boolean;
   canSubmit: boolean;
   loading: boolean;
@@ -72,7 +71,6 @@ interface GenerateDialogComposerSectionProps {
   onPromptKeyUpCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
   onPromptKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onOpenAgentRunLog?: (taskId: string) => void;
-  setPromptLibraryOpen: Dispatch<SetStateAction<boolean>>;
   setAdvancedOpen: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -92,7 +90,6 @@ export const GenerateDialogComposerSection = ({
   pendingReference,
   promptEditorResetKey,
   referenceLimitMessage,
-  promptLibraryOpen,
   advancedOpen,
   canSubmit,
   loading,
@@ -114,7 +111,6 @@ export const GenerateDialogComposerSection = ({
   onPromptKeyUpCapture,
   onPromptKeyDown,
   onOpenAgentRunLog,
-  setPromptLibraryOpen,
   setAdvancedOpen,
 }: GenerateDialogComposerSectionProps) => (
   <div className={classNames.join(" ")}>
@@ -144,7 +140,6 @@ export const GenerateDialogComposerSection = ({
       showAgentSourceSelect={isAgentOperationMode}
       showPromptComposerActions={isPromptComposerMode}
       showPromptTools={effectiveComposerMode === "direct"}
-      promptLibraryOpen={promptLibraryOpen}
       advancedOpen={advancedOpen}
       canSubmit={canSubmit}
       loading={loading}
@@ -157,7 +152,6 @@ export const GenerateDialogComposerSection = ({
       onSelectGenerationSource={onSelectGenerationSource}
       onStopInputEvent={onStopInputEvent}
       onCancelGeneration={onCancelGeneration}
-      setPromptLibraryOpen={setPromptLibraryOpen}
       setAdvancedOpen={setAdvancedOpen}
     />
     <GenerateComposerTaskStatus

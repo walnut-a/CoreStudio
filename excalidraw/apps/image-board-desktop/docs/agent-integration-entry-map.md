@@ -36,6 +36,8 @@ Agent 集成总开关
 
 ## 当前执行口径
 
+> 2026-07-13 产品决策：常用提示词库不是成立的用户需求，已经从 renderer、Electron IPC、preload、Local Bridge、类型、存储、文案、样式和测试中整体删除。旧阶段记录中涉及 Prompt Library 的内容只保留为历史，不代表当前仍有该模块，也不构成兼容要求。
+
 这次整理不应该只做 UI 改名，也不应该直接启动大重构。当前统一采用“先止血数据，再收口入口，再整理对话，最后拆架构”的顺序。这样可以避免 UI 变好看了，但图片资产、生成记录、ACP thread 和画板元素仍然互相解释不了。
 
 总目标分成四条线：
@@ -73,7 +75,7 @@ Agent 集成总开关
 | 文件 | 当前信号 | 后续判断 |
 | --- | --- | --- |
 | `src/app/App.tsx` | 约 2079 行 | 仍然过大，但已不是早期 7000+ 行；后续只允许做应用级 wiring，不继续吸收 Agent 业务逻辑 |
-| `src/app/components/GenerateImageDialog.tsx` | 约 62 行，runtime hook 约 347 行，provider runtime 约 167 行 | dialog shell 只负责挂载底部输入框结构；request / composer / panel / pending reference hook wiring 已收口到 `GenerateImageDialogRuntime.ts`，provider settings / advanced settings wiring 已收口到 `GenerateImageDialogProviderRuntime.ts`。下一步继续判断 runtime 内部是否需要再按 reference coordination / prompt library 拆 owner |
+| `src/app/components/GenerateImageDialog.tsx` | 约 62 行，runtime hook 约 347 行，provider runtime 约 167 行 | dialog shell 只负责挂载底部输入框结构；request / composer / panel / pending reference hook wiring 已收口到 `GenerateImageDialogRuntime.ts`，provider settings / advanced settings wiring 已收口到 `GenerateImageDialogProviderRuntime.ts`。后续只按仍然存在的 reference coordination 等职责继续拆 owner |
 | `src/app/App.css` | 约 151 行 | 已拆出 Agent 设置、对话、输入框、状态浮层、项目状态提示、图片详情侧栏、欢迎页、Agent Board 页面、项目主菜单、ACP run log、生成错误详情弹窗、workspace bounds overlay、关于页弹窗、项目渲染错误边界、共享按钮样式、左右侧栏样式和共享 dialog primitives；继续保持应用壳层职责，不再吸收 feature 样式 |
 | `electron/projectFs.ts` | 约 1138 行 | 已拆出 `projectHealth`、`projectRepair`、`projectImageRecords`；继续保持 public API 门面，不回填业务细节 |
 | `src/app/agentThreadModel.ts` | 约 294 行 | 已拆出 types / utils / text events / tool events / image results；后续优先稳住 thread builder 和 timeline 合同 |

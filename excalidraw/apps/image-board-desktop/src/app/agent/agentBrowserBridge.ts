@@ -21,9 +21,7 @@ import type {
   PublicProviderSettings,
   RebuildProjectThumbnailsResult,
   RecentProjectEntry,
-  SavedPrompt,
   DeleteProviderSettingsInput,
-  SavePromptInput,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
 import type { AcpAgentSettings } from "../../shared/acpTypes";
@@ -284,14 +282,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
         callDesktopBridge<AcpAgentSettings>(config, "saveAcpAgentSettings", [
           settings,
         ]),
-      loadPromptLibrary: () =>
-        callDesktopBridge<SavedPrompt[]>(config, "loadPromptLibrary"),
-      savePrompt: (input: SavePromptInput) =>
-        callDesktopBridge<SavedPrompt[]>(config, "savePrompt", [input]),
-      deleteSavedPrompt: (id) =>
-        callDesktopBridge<SavedPrompt[]>(config, "deleteSavedPrompt", [id]),
-      markSavedPromptUsed: (id) =>
-        callDesktopBridge<SavedPrompt[]>(config, "markSavedPromptUsed", [id]),
       generateImages: (input: GenerateImagesInput) =>
         callDesktopBridge<GenerationResponse>(config, "generateImages", [
           input,

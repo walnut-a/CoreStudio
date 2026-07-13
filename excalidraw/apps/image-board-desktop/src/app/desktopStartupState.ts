@@ -4,15 +4,10 @@ import type {
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
 
-import { loadSavedPromptLibraryStateAction } from "./generatePromptLibraryActions";
 import { runProviderSettingsLoadAction } from "./providerSettingsLoader";
 
 type ProviderSettingsLoadActionInput = Parameters<
   typeof runProviderSettingsLoadAction
->[0];
-
-type PromptLibraryLoadActionInput = Parameters<
-  typeof loadSavedPromptLibraryStateAction
 >[0];
 
 export const loadRecentProjectsStateAction = async ({
@@ -87,7 +82,6 @@ export const createDesktopStartupRendererActions = ({
   setRecentProjects,
   setProjectError,
   setAppInfo,
-  setSavedPrompts,
   loadAcpAgentSettings,
 }: {
   getBridge: () => DesktopBridgeApi | null;
@@ -99,7 +93,6 @@ export const createDesktopStartupRendererActions = ({
   setRecentProjects: (projects: RecentProjectEntry[]) => void;
   setProjectError?: (message: string | null) => void;
   setAppInfo: (appInfo: DesktopAppInfo | null) => void;
-  setSavedPrompts: PromptLibraryLoadActionInput["setSavedPrompts"];
   loadAcpAgentSettings: () => void | Promise<void>;
 }) => {
   const loadProvider = async () => {
@@ -136,25 +129,16 @@ export const createDesktopStartupRendererActions = ({
     });
   };
 
-  const loadPromptLibrary = async () => {
-    await loadSavedPromptLibraryStateAction({
-      bridge: getBridge(),
-      setSavedPrompts,
-    });
-  };
-
   const loadAll = () => {
     void loadAppInfo();
     void loadProvider();
     void loadAcpAgentSettings();
     void loadRecentProjects();
-    void loadPromptLibrary();
   };
 
   const refreshAgentBrowser = async () => {
     void loadAppInfo();
     void loadProvider();
-    void loadPromptLibrary();
     await loadRecentProjects();
   };
 
@@ -163,7 +147,6 @@ export const createDesktopStartupRendererActions = ({
     loadRecentProjects,
     removeRecentProject,
     loadAppInfo,
-    loadPromptLibrary,
     loadAll,
     refreshAgentBrowser,
   };

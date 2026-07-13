@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  appendSavedPromptParts,
   buildGenerateDialogOpenRequest,
   buildGeneratePromptReferenceState,
   buildDefaultGenerationRequest,
@@ -12,7 +11,6 @@ import {
   buildGenerationSubmitPlan,
   clearSubmittedPromptRequest,
   createPromptReferencePayload,
-  createSavedPromptTitle,
   executeGenerationSubmitPlan,
   formatGeneratePromptReferenceLimitMessage,
   filterPromptReferencesForParts,
@@ -235,16 +233,6 @@ describe("generatePromptRequest", () => {
     ).toBe("data:image/jpeg;base64,thumb");
   });
 
-  it("creates compact saved prompt titles", () => {
-    expect(createSavedPromptTitle("\n  做一台桌面 CNC  ")).toBe(
-      "做一台桌面 CNC",
-    );
-    expect(createSavedPromptTitle("")).toBe("未命名 Prompt");
-    expect(createSavedPromptTitle("一二三四五六七八九十一二三四五六七八九十一二三四五六")).toBe(
-      "一二三四五六七八九十一二三四五六七八九十一二三四...",
-    );
-  });
-
   it("derives max prompt reference count from the current model capabilities", () => {
     const customModels: CustomProviderModel[] = [
       {
@@ -284,18 +272,6 @@ describe("generatePromptRequest", () => {
         customModels,
       }),
     ).toBe(0);
-  });
-
-  it("appends saved prompts without losing existing references", () => {
-    expect(
-      appendSavedPromptParts(
-        [{ type: "reference", referenceId: "ref-1" }],
-        "追加 prompt",
-      ),
-    ).toEqual([
-      { type: "reference", referenceId: "ref-1" },
-      { type: "text", text: "\n\n追加 prompt" },
-    ]);
   });
 
   it("removes heavy thumbnails before submitting a request", () => {

@@ -39,8 +39,6 @@ const {
   readGenerateAdvancedFieldsPanel,
   readGenerateDialogAdvancedSettings,
   readGenerateDialogAdvancedSettingsRuntime,
-  readGenerateDialogPromptLibrarySection,
-  readGenerateDialogPromptLibraryRuntime,
   readGenerateDialogComposerRuntime,
   readGenerateDialogComposerActionsSection,
   readGenerateDialogComposerContentSection,
@@ -423,14 +421,6 @@ describe("generate composer styles", () => {
     );
   });
 
-  it("keeps the prompt library panel aligned to the composer width", () => {
-    const promptLibraryRule = getRule(readAppCss(), ".generate-prompt-library");
-
-    expect(promptLibraryRule).toContain("width: 100%");
-    expect(promptLibraryRule).toContain("box-sizing: border-box");
-    expect(promptLibraryRule).not.toContain("34rem");
-  });
-
   it("uses a refined desktop-control finish instead of raw black line art", () => {
     const appCss = readAppCss();
     const composerRule = getRule(appCss, ".generate-composer");
@@ -683,55 +673,6 @@ describe("generate composer styles", () => {
     );
   });
 
-  it("keeps prompt library event wiring out of the generate dialog shell", () => {
-    const dialogSource = readGenerateImageDialog();
-    const dialogRuntimeSource = readGenerateImageDialogRuntime();
-    const promptLibraryRuntimeSource = readGenerateDialogPromptLibraryRuntime();
-    const promptLibrarySectionSource = readGenerateDialogPromptLibrarySection();
-
-    expect(dialogSource).toContain("GenerateDialogPromptLibrarySection");
-    expect(dialogRuntimeSource).toContain(
-      "createGenerateDialogPromptLibraryRuntime",
-    );
-    expect(dialogSource).not.toContain(
-      "createGenerateDialogPromptLibraryRuntime",
-    );
-    expect(dialogSource).not.toContain("createGeneratePromptLibraryActions");
-    expect(dialogSource).not.toContain("<GeneratePromptLibrary");
-    expect(dialogSource).not.toContain(
-      "promptLibraryActions.saveCurrentPrompt()",
-    );
-    expect(dialogSource).not.toContain("promptLibraryActions.applySavedPrompt");
-    expect(promptLibraryRuntimeSource).toContain(
-      "createGeneratePromptLibraryActions",
-    );
-    expect(promptLibraryRuntimeSource).toContain(
-      'effectiveComposerMode === "direct" && promptLibraryOpen',
-    );
-    expect(promptLibrarySectionSource).toContain("<GeneratePromptLibrary");
-    expect(promptLibrarySectionSource).toContain(
-      "promptLibraryActions.saveCurrentPrompt()",
-    );
-    expect(promptLibrarySectionSource).toContain(
-      "promptLibraryActions.applySavedPrompt",
-    );
-  });
-
-  it("keeps prompt library persistence wiring outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("createSavedPromptLibraryRendererActions");
-    expect(source).toContain("savedPromptLibraryRendererActions.savePrompt");
-    expect(source).toContain("savedPromptLibraryRendererActions.usePrompt");
-    expect(source).toContain("savedPromptLibraryRendererActions.deletePrompt");
-    expect(source).not.toContain("const handleSavePrompt");
-    expect(source).not.toContain("const handleUsePrompt");
-    expect(source).not.toContain("const handleDeletePrompt");
-    expect(source).not.toContain("runSavedPromptSaveAction");
-    expect(source).not.toContain("runSavedPromptUseAction");
-    expect(source).not.toContain("runSavedPromptDeleteAction");
-  });
-
   it("keeps ACP Agent settings persistence wiring outside the root app", () => {
     const source = readImageBoardApp();
 
@@ -764,7 +705,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("const loadProviderState");
     expect(source).not.toContain("const loadRecentProjectsState");
     expect(source).not.toContain("const loadAppInfoState");
-    expect(source).not.toContain("const loadPromptLibraryState");
     expect(source).not.toContain("const loadDesktopStartupState");
     expect(source).not.toContain(
       "const refreshAgentBrowserDesktopStartupState",
@@ -772,7 +712,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("runProviderSettingsLoadAction");
     expect(source).not.toContain("loadRecentProjectsStateAction");
     expect(source).not.toContain("loadAppInfoStateAction");
-    expect(source).not.toContain("loadSavedPromptLibraryStateAction");
   });
 
   it("keeps app startup lifecycle side effects outside the root app", () => {
@@ -1849,11 +1788,9 @@ describe("generate composer styles", () => {
     expect(dialogSource).not.toContain("GenerateComposerActionBar");
     expect(dialogSource).not.toContain("GenerateComposerSourceSelect");
     expect(dialogSource).not.toContain("renderGenerationSourceSelect");
-    expect(dialogSource).not.toContain("setPromptLibraryOpen((current)");
     expect(dialogSource).not.toContain("setAdvancedOpen((current)");
     expect(actionsSectionSource).toContain("GenerateComposerActionBar");
     expect(actionsSectionSource).toContain("GenerateComposerSourceSelect");
-    expect(actionsSectionSource).toContain("setPromptLibraryOpen((current)");
     expect(actionsSectionSource).toContain("setAdvancedOpen((current)");
   });
 

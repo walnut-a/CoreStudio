@@ -74,3 +74,41 @@ corepack yarn check:desktop-secrets --source
 ```
 
 6. 如果 `packages/` 新增或删除 CoreStudio 补丁，同步更新本文件的“已知上游包改动”表。
+
+## 上游维护规范
+
+本节定义 CoreStudio 以后如何观察和同步 Excalidraw upstream。
+
+### 检查节奏
+
+- 每次 CoreStudio 正式发布前检查一次 Excalidraw Release、security advisory 和当前 upstream `master` 的相关变更。
+- 活跃开发期间至少每月检查一次；没有开发活动时不要求为了打卡制造同步提交，但恢复开发后必须先补做检查。
+- 遇到画布、导入导出、字体、图片、剪贴板、国际化、浏览器兼容或安全问题时，先查询 upstream 是否已有修复，再决定本地补丁。
+- upstream 发布安全修复，或发布与 CoreStudio 当前问题直接相关的版本时，立即进入评估，不等待月度检查。
+
+检查不等于升级。没有明确收益、没有兼容验证或会扩大产品回归面的 upstream 变化，只记录观察结果，不强行同步。
+
+### 同步单位
+
+- 一次 PR 只处理一组目标明确、能够独立验证的 upstream 变化，例如一条安全修复或同一问题域的一组提交。
+- PR 必须记录目标 upstream commit/tag、选择这些提交的原因、涉及的 CoreStudio 本地补丁、冲突处理和验证结果。
+- 优先 cherry-pick、手工回补或按文件同步经过确认的小范围变化；不把 upstream `master` 整体 merge 作为常规升级方式。
+- package version 只有在对应源码范围确实完成升级后才能修改，不能用版本号替代源码基线和差异证据。
+
+### 禁止事项
+
+- 禁止从 `v0.18.0` 重新推导当前 fork 基线。
+- 禁止未经目录级 diff 就覆盖 `excalidraw/packages/`。
+- 禁止把 CoreStudio 桌面逻辑继续下沉到上游 packages，除非桌面层不存在可维护的窄接入点，并在 PR 中解释原因。
+- 禁止在同一个同步 PR 中顺带处理无关重构、产品功能或依赖大升级。
+- 禁止仅因为 upstream 出现新版本就追求版本号一致。
+
+### 完成标准
+
+一次 upstream 同步只有同时满足以下条件才算完成：
+
+1. 本文件更新了新的源码基线或补丁清单；
+2. workspace scope 和依赖安全 contract 通过；
+3. typecheck、完整桌面测试、secret scan、production build 和 bundle budget 通过；
+4. 涉及最终桌面行为时完成 packaged smoke；
+5. 经受保护 PR 合入，没有直接推送 `main`。

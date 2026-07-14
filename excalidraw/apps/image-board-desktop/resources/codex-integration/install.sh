@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$RESOURCES_DIR" || -z "$APP_VERSION" || -z "$ELECTRON_BIN" ]]; then
-  echo "缺少安装参数，请从 CoreStudio 的 Codex 集成设置重新复制指令。" >&2
+  echo "缺少安装参数，请重新阅读 CoreStudio 自带的 Codex 集成安装指南。" >&2
   exit 2
 fi
 

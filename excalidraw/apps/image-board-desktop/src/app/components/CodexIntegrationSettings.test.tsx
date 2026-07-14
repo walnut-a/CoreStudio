@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { CodexIntegrationStatus } from "../../shared/desktopBridgeTypes";
-import { CodexIntegrationSettings } from "./CodexIntegrationSettings";
+import {
+  CODEX_INSTALL_PROMPT,
+  CodexIntegrationSettings,
+} from "./CodexIntegrationSettings";
 
 const status: CodexIntegrationStatus = {
   state: "install",
@@ -38,7 +41,7 @@ describe("CodexIntegrationSettings", () => {
     expect(inspect).toHaveBeenCalledTimes(1);
   });
 
-  it("复制安装指令和固定的 Codex 使用指令", async () => {
+  it("复制自然语言安装请求和固定的 Codex 使用指令", async () => {
     const copyText = vi.fn(async () => true);
     render(
       <CodexIntegrationSettings
@@ -49,10 +52,12 @@ describe("CodexIntegrationSettings", () => {
     );
 
     await screen.findByText("CoreStudio CLI");
-    fireEvent.click(screen.getByRole("button", { name: "复制指令" }));
+    expect(screen.queryByText(status.command)).not.toBeInTheDocument();
+    expect(screen.getByText(CODEX_INSTALL_PROMPT)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "复制给 Codex" }));
     fireEvent.click(screen.getByRole("button", { name: "复制使用指令" }));
 
-    expect(copyText).toHaveBeenNthCalledWith(1, status.command);
+    expect(copyText).toHaveBeenNthCalledWith(1, CODEX_INSTALL_PROMPT);
     expect(copyText).toHaveBeenNthCalledWith(2, "打开当前 CoreStudio 项目");
     await waitFor(() => expect(screen.getByText("已复制")).toBeInTheDocument());
   });

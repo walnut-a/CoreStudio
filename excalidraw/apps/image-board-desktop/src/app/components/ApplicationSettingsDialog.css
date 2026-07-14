@@ -372,20 +372,20 @@
   grid-row: 1;
 }
 
-.settings-install-card pre {
+.settings-agent-prompt {
   grid-column: 1 / -1;
   grid-row: 2;
-  overflow: auto;
-  margin: 0;
-  max-height: 152px;
   padding: 14px 16px;
+  border: 1px solid var(--default-border-color);
   border-radius: var(--border-radius-lg);
-  background: var(--text-primary-color);
-  color: var(--island-bg-color);
-  font-size: var(--ui-text-size-sm);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-all;
+  background: var(--island-bg-color);
+}
+
+.settings-agent-prompt p {
+  margin: 0;
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-lg);
+  line-height: var(--ui-line-height-relaxed);
 }
 
 .settings-check-list {

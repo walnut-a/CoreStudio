@@ -18,20 +18,27 @@ describe("agent integration docs", () => {
     const codexSettings = readDoc(
       "apps/image-board-desktop/src/app/components/CodexIntegrationSettings.tsx",
     );
+    const installationGuide = readDoc(
+      "apps/image-board-desktop/resources/codex-integration/CODEX_INSTALLATION.md",
+    );
 
     expect(product).toContain("任务发起位置决定调度者");
     expect(userGuide).toContain("在 Codex 中使用 CoreStudio");
     expect(userGuide).toContain("默认使用 Codex 自身的生图能力");
     expect(userGuide).toContain("实验性功能");
     expect(userGuide).toContain("Codex 集成");
-    expect(userGuide).toContain("安装指令");
+    expect(userGuide).toContain("自然语言安装请求");
     expect(userGuide).toContain("CLI、CoreStudio Skill 和会话发现能力");
     expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
     expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
     expect(architecture).toContain("CLI / Local Bridge");
     expect(architecture).toContain("Codex 集成没有启停状态");
-    expect(codexSettings).toContain("终端指令");
+    expect(codexSettings).toContain("交给 Codex");
+    expect(codexSettings).not.toContain("终端指令");
     expect(codexSettings).toContain("打开当前 CoreStudio 项目");
+    expect(installationGuide).toContain("# CoreStudio Codex 集成安装指南");
+    expect(installationGuide).toContain("install.sh");
+    expect(installationGuide).toContain("重新检测");
   });
 
   it("documents the CLI examples needed by Agent workflows", () => {

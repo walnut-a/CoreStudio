@@ -14,12 +14,15 @@ const STATE_COPY: Record<
   CodexIntegrationStatus["state"],
   { title: string; action: string }
 > = {
-  install: { title: "安装 Codex 集成", action: "复制指令" },
-  update: { title: "更新 Codex 集成", action: "复制指令" },
-  repair: { title: "修复 Codex 集成", action: "复制指令" },
-  ready: { title: "环境已准备好", action: "重新安装" },
-  error: { title: "无法完成检测", action: "复制指令" },
+  install: { title: "安装 Codex 集成", action: "复制给 Codex" },
+  update: { title: "更新 Codex 集成", action: "复制给 Codex" },
+  repair: { title: "修复 Codex 集成", action: "复制给 Codex" },
+  ready: { title: "环境已准备好", action: "复制给 Codex" },
+  error: { title: "无法完成检测", action: "复制给 Codex" },
 };
+
+export const CODEX_INSTALL_PROMPT =
+  "请阅读 CoreStudio 应用内的《Codex 集成安装指南》，并按说明帮我完成安装。";
 
 const CHECK_STATUS_LABEL = {
   ready: "正常",
@@ -37,7 +40,7 @@ export const CodexIntegrationSettings = ({
     open,
     inspect,
   });
-  const [copied, setCopied] = useState<"command" | "prompt" | null>(null);
+  const [copied, setCopied] = useState<"install" | "prompt" | null>(null);
 
   return (
     <section className="settings-page settings-codex-page">
@@ -62,24 +65,26 @@ export const CodexIntegrationSettings = ({
         <>
           <section className="settings-install-card">
             <div>
-              <span className="settings-section-label">终端指令</span>
+              <span className="settings-section-label">交给 Codex</span>
               <h4>{STATE_COPY[status.state].title}</h4>
               <p>
                 {status.state === "ready"
-                  ? "当前依赖齐全。需要修复或重新安装时，可以再次执行这条指令。"
-                  : "复制后粘贴到终端执行，完成后回到这里重新检测。"}
+                  ? "当前依赖齐全。需要重装或修复时，把这句话发给 Codex。"
+                  : "复制这句话发给 Codex，它会读取应用内指南并完成后续步骤。"}
               </p>
             </div>
-            <pre><code>{status.command}</code></pre>
+            <div className="settings-agent-prompt">
+              <p>{CODEX_INSTALL_PROMPT}</p>
+            </div>
             <DesktopButton
               type="button"
               variant={status.state === "ready" ? "default" : "primary"}
               onClick={async () => {
-                await copyText(status.command);
-                setCopied("command");
+                await copyText(CODEX_INSTALL_PROMPT);
+                setCopied("install");
               }}
             >
-              {copied === "command" ? "已复制" : STATE_COPY[status.state].action}
+              {copied === "install" ? "已复制" : STATE_COPY[status.state].action}
             </DesktopButton>
           </section>
 

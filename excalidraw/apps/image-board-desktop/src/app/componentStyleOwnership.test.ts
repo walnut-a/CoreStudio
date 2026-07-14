@@ -395,10 +395,17 @@ describe("component style ownership boundaries", () => {
     const buttonRule = getRule(appCss, ".image-board-button");
     const primaryRule = getRule(appCss, ".image-board-button--primary");
     const disabledRule = getRule(appCss, ".image-board-button:disabled");
+    const inheritedFontIndex = buttonRule?.indexOf("font: inherit") ?? -1;
+    const fixedFontSizeIndex =
+      buttonRule?.indexOf("font-size: 0.875rem") ?? -1;
 
     expect(source).toContain('import "./DesktopButton.css";');
     expect(buttonRule).toContain("min-height: 2.5rem");
     expect(buttonRule).toContain("border-radius: var(--border-radius-lg)");
+    expect(buttonRule).toContain("font: inherit");
+    expect(buttonRule).toContain("font-size: 0.875rem");
+    expect(inheritedFontIndex).toBeGreaterThanOrEqual(0);
+    expect(fixedFontSizeIndex).toBeGreaterThan(inheritedFontIndex);
     expect(primaryRule).toContain("--button-bg: var(--color-primary)");
     expect(primaryRule).toContain("color: var(--color-icon-white)");
     expect(disabledRule).toContain("cursor: not-allowed");

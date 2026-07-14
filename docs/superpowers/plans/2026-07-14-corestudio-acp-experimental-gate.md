@@ -48,7 +48,7 @@
 - 产出：当实验性开关或运行时 `enabled` 任意一个为 false 时，`getSelectedAcpAgent(settings)` 返回 `null`。
 - 迁移规则：仅当旧设置中存在有效且已启用的默认 Agent 时，缺失的 `experimentalEnabled` 才迁移为 `true`；显式的 `false` 保持不变。
 
-- [ ] **步骤 1：先写共享合同失败测试**
+- [x] **步骤 1：先写共享合同失败测试**
 
 向 `src/shared/acpTypes.test.ts` 增加：
 
@@ -81,7 +81,7 @@ it("keeps an explicitly disabled experiment unavailable without deleting config"
 });
 ```
 
-- [ ] **步骤 2：运行共享合同测试并确认失败**
+- [x] **步骤 2：运行共享合同测试并确认失败**
 
 ```bash
 cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/shared/acpTypes.test.ts --run
@@ -89,7 +89,7 @@ cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/shared/acpTyp
 
 预期：测试失败，因为新字段和辅助函数尚不存在。
 
-- [ ] **步骤 3：实现标准化与有效运行开关**
+- [x] **步骤 3：实现标准化与有效运行开关**
 
 在 `acpTypes.ts` 中：
 
@@ -123,7 +123,7 @@ export const isAcpExperimentalFeatureEnabled = (
 
 `getSelectedAcpAgent()` 必须同时检查两个已标准化开关。
 
-- [ ] **步骤 4：先写持久化迁移失败测试**
+- [x] **步骤 4：先写持久化迁移失败测试**
 
 在 `acpSettingsStore.test.ts` 中增加：
 
@@ -175,7 +175,7 @@ it("persists an explicitly disabled experiment without deleting ACP config", asy
 });
 ```
 
-- [ ] **步骤 5：读取旧 JSON 时保留“字段缺失”语义**
+- [x] **步骤 5：读取旧 JSON 时保留“字段缺失”语义**
 
 在 `readSettingsShape()` 中：
 
@@ -198,7 +198,7 @@ return {
 
 把当前内联的 Agent 记录映射抽成 `readAcpAgentRecord(value: unknown): AcpAgentConfig`，但不改变 id、preset、command、args 和 cwd 的标准化规则。
 
-- [ ] **步骤 6：运行合同与持久化测试**
+- [x] **步骤 6：运行合同与持久化测试**
 
 ```bash
 cd excalidraw && corepack yarn vitest \
@@ -208,7 +208,7 @@ cd excalidraw && corepack yarn vitest \
 
 预期：两个测试文件全部通过。
 
-- [ ] **步骤 7：提交**
+- [x] **步骤 7：提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/src/shared/acpTypes.ts \
@@ -233,11 +233,11 @@ git commit -m "feat: 增加 ACP 实验性功能开关"
 - 产出：`setExperimentalEnabled(enabled: boolean): Promise<void>`。
 - 产出：渲染进程包装动作 `setAcpExperimentalEnabled(enabled: boolean): void`。
 
-- [ ] **步骤 1：先写控制器失败测试**
+- [x] **步骤 1：先写控制器失败测试**
 
 给 `ControllerProbe` 增加 `experimentalEnabled`。加载已启用的现有配置，调用 `controller.setExperimentalEnabled(false)`，断言 `saveAcpAgentSettings` 收到原设置与 `experimentalEnabled: false`，并确认命令和 Agent 配置保持不变。
 
-- [ ] **步骤 2：运行控制器测试并确认失败**
+- [x] **步骤 2：运行控制器测试并确认失败**
 
 ```bash
 cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/agent/useAcpAgentSettingsController.test.tsx --run
@@ -245,7 +245,7 @@ cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/agent/use
 
 预期：测试失败，因为控制器接口尚不存在。
 
-- [ ] **步骤 3：实现不消费编辑草稿的即时持久化**
+- [x] **步骤 3：实现不消费编辑草稿的即时持久化**
 
 向控制器接口和 Hook 增加：
 
@@ -270,7 +270,7 @@ const setExperimentalEnabled = useCallback(async (enabled: boolean) => {
 
 返回严格布尔值 `experimentalEnabled`。保存 ACP 详细草稿时继续保留同一字段。
 
-- [ ] **步骤 4：增加并测试渲染进程包装动作**
+- [x] **步骤 4：增加并测试渲染进程包装动作**
 
 向两个动作接口增加 `setAcpExperimentalEnabled`，并这样包装异步输入：
 
@@ -282,7 +282,7 @@ setAcpExperimentalEnabled: (enabled) => {
 
 更新动作测试：以 `false` 调用，并断言只转发一次。
 
-- [ ] **步骤 5：运行控制器与动作测试**
+- [x] **步骤 5：运行控制器与动作测试**
 
 ```bash
 cd excalidraw && corepack yarn vitest \
@@ -292,7 +292,7 @@ cd excalidraw && corepack yarn vitest \
 
 预期：测试通过。
 
-- [ ] **步骤 6：提交**
+- [x] **步骤 6：提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/src/app/agent/useAcpAgentSettingsController.ts \
@@ -317,7 +317,7 @@ git commit -m "feat: 支持切换 ACP 实验功能"
 - 产出：`ExperimentalFeaturesSettingsSection({ acpEnabled, disabled, saving, onAcpEnabledChange })`。
 - 界面规则：桌面端设置中始终显示实验性功能区块；开关关闭时不挂载 ACP 配置与调试面板。
 
-- [ ] **步骤 1：先写独立组件失败测试**
+- [x] **步骤 1：先写独立组件失败测试**
 
 ```tsx
 it("explains and toggles the external Agent experiment", () => {
@@ -335,7 +335,7 @@ it("explains and toggles the external Agent experiment", () => {
 });
 ```
 
-- [ ] **步骤 2：使用确定的产品文案创建区块**
+- [x] **步骤 2：使用确定的产品文案创建区块**
 
 复用现有设置与开关样式类，并使用以下文案：
 
@@ -346,11 +346,11 @@ it("explains and toggles the external Agent experiment", () => {
 <span>从 CoreStudio 内部把任务交给兼容 ACP 的 Agent。默认关闭。</span>
 ```
 
-- [ ] **步骤 3：为开关的两种状态增加对话框测试**
+- [x] **步骤 3：为开关的两种状态增加对话框测试**
 
 默认夹具使用 `acpExperimentalEnabled: false`：应出现实验性功能区块，但不出现 `ACP Agent` 标题或 `高级调试`。启用夹具应出现两个面板，并验证开关会转发 `true`。
 
-- [ ] **步骤 4：同时控制两个 ACP 面板**
+- [x] **步骤 4：同时控制两个 ACP 面板**
 
 增加对话框属性：
 
@@ -361,11 +361,11 @@ onAcpExperimentalEnabledChange: (enabled: boolean) => void;
 
 在 `AgentIntegrationSettingsSections` 后渲染新区块，再用同一个 `acpExperimentalEnabled` 条件包住 `AcpAgentSettingsPanel` 与 `AcpDebugSettingsPanel`。
 
-- [ ] **步骤 5：通过 App 连接控制器状态与动作**
+- [x] **步骤 5：通过 App 连接控制器状态与动作**
 
 把控制器的严格布尔值和渲染进程动作传入 `AppGlobalDialogs.agentSettings`。启用状态下保留当前 ACP 表单动作。
 
-- [ ] **步骤 6：运行组件与聚焦 App 测试**
+- [x] **步骤 6：运行组件与聚焦 App 测试**
 
 ```bash
 cd excalidraw && corepack yarn vitest \
@@ -377,7 +377,7 @@ cd excalidraw && corepack yarn vitest \
 
 预期：测试通过；默认设置不会挂载 ACP 详情面板。
 
-- [ ] **步骤 7：提交**
+- [x] **步骤 7：提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/src/app/components/ExperimentalFeaturesSettingsSection.tsx \
@@ -407,7 +407,7 @@ git commit -m "feat: 将 ACP 配置收入实验性功能"
 - 产出： `BuildAgentConversationSurfaceStateInput.acpExperimentalEnabled: boolean`.
 - 规则：实验性功能关闭时，已经保留的 ACP 配置不具备运行时可用性。
 
-- [ ] **步骤 1：先写视图模型失败测试**
+- [x] **步骤 1：先写视图模型失败测试**
 
 使用 `experimentalEnabled: false`、`enabled: true` 和有效 Agent，并断言：
 
@@ -424,7 +424,7 @@ expect(acpGeneration.composerConfig.showModeSwitch).toBe(false);
 
 另保留一个 `experimentalEnabled: true` 夹具，用于确认当前 ACP 就绪行为没有改变。
 
-- [ ] **步骤 2：用共享辅助函数构建运行时就绪状态**
+- [x] **步骤 2：用共享辅助函数构建运行时就绪状态**
 
 向 ACP 视图模型结构增加 `experimentalEnabled` 并计算：
 
@@ -438,7 +438,7 @@ const acpEnabled = Boolean(acpExperimentalEnabled && selectedAgent);
 
 分别返回这三项事实，让设置界面能区分“已保留配置”与“正在生效的运行时”。
 
-- [ ] **步骤 3：实验功能关闭时强制使用直接生成记录模式**
+- [x] **步骤 3：实验功能关闭时强制使用直接生成记录模式**
 
 给 `getGenerationSidebarMode()` 和 `buildAgentConversationSurfaceState()` 增加 `acpExperimentalEnabled`，并让模式函数从以下判断开始：
 
@@ -450,7 +450,7 @@ if (!acpExperimentalEnabled) {
 
 增加测试：即使 Agent 来源、对话界面和运行中任务都存在，实验功能关闭时结果仍为 `direct`。App 调用点传入 `agentIntegration.acp.experimentalEnabled`。
 
-- [ ] **步骤 4：隐藏 ACP 专属状态内容**
+- [x] **步骤 4：隐藏 ACP 专属状态内容**
 
 在 `AgentStatusDock.tsx` 中，只在 `integration.acp.experimentalEnabled` 为 true 时渲染 ACP 来源卡片和 `打开 Agent 对话` 动作。本切片保留项目、Bridge、Board、CLI、设置、复制和刷新信息。
 
@@ -461,7 +461,7 @@ expect(screen.queryByText("ACP Agent")).not.toBeInTheDocument();
 expect(screen.queryByRole("button", { name: "打开 Agent 对话" })).not.toBeInTheDocument();
 ```
 
-- [ ] **步骤 5：运行状态与状态界面测试**
+- [x] **步骤 5：运行状态与状态界面测试**
 
 ```bash
 cd excalidraw && corepack yarn vitest \
@@ -472,7 +472,7 @@ cd excalidraw && corepack yarn vitest \
 
 预期：测试通过。
 
-- [ ] **步骤 6：运行任务启动回归测试**
+- [x] **步骤 6：运行任务启动回归测试**
 
 ```bash
 cd excalidraw && corepack yarn vitest \
@@ -482,7 +482,7 @@ cd excalidraw && corepack yarn vitest \
 
 预期：实验性功能已开启的夹具仍然通过；实验性功能关闭的配置不存在可启动的已选 Agent。
 
-- [ ] **步骤 7：提交**
+- [x] **步骤 7：提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/src/app/agent/agentIntegrationViewModel.ts \
@@ -510,7 +510,7 @@ git commit -m "feat: 在运行时应用 ACP 实验开关"
 - 规则：Agent Board 继续发布画布选区和视口状态，但不挂载 `GenerateImageDialog`、ACP 切换控件、服务商配置或并行任务输入器。
 - 规则：CoreStudio 桌面端仍挂载常驻的直接生成输入器。
 
-- [ ] **步骤 1：先写 Agent Board 集成失败测试**
+- [x] **步骤 1：先写 Agent Board 集成失败测试**
 
 渲染已就绪的 Agent Board 项目，断言现有稳定画布标记仍然存在，同时以下控件不存在：
 
@@ -522,7 +522,7 @@ expect(screen.queryByText("生成设置")).not.toBeInTheDocument();
 
 使用测试中现有的 Excalidraw 模拟选择器确认画布仍然渲染，不要增加仅用于生产代码测试的 id。
 
-- [ ] **步骤 2：运行 Agent Board 测试并确认失败**
+- [x] **步骤 2：运行 Agent Board 测试并确认失败**
 
 ```bash
 cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/App.agent-board.test.tsx --run
@@ -530,7 +530,7 @@ cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/App.agent
 
 预期：针对当前路由，“不存在生成输入器”的断言失败。
 
-- [ ] **步骤 3：只在 CoreStudio 桌面端挂载常驻输入器**
+- [x] **步骤 3：只在 CoreStudio 桌面端挂载常驻输入器**
 
 包裹现有 JSX，不改变桌面端行为：
 
@@ -585,7 +585,7 @@ cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/App.agent
 
 不要在 Agent Board 内增加替代输入框，外层 Codex 对话才是任务入口。
 
-- [ ] **步骤 4：把 Agent Board 输入器状态固定为直接生成，形成防御边界**
+- [x] **步骤 4：把 Agent Board 输入器状态固定为直接生成，形成防御边界**
 
 在 `buildAcpAgentGenerationViewModel()` 中使用：
 
@@ -605,7 +605,7 @@ composerConfig: {
 
 更新视图模型测试，确保 Agent Board 永远不声明 `agent-operation` 模式。
 
-- [ ] **步骤 5：运行 Agent Board 与输入器回归测试**
+- [x] **步骤 5：运行 Agent Board 与输入器回归测试**
 
 ```bash
 cd excalidraw && corepack yarn vitest \
@@ -617,7 +617,7 @@ cd excalidraw && corepack yarn vitest \
 
 预期：Agent Board 不再包含生成输入器；桌面端直接生成行为仍然通过测试。
 
-- [ ] **步骤 6：提交**
+- [x] **步骤 6：提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/src/app/App.tsx \
@@ -643,7 +643,7 @@ git commit -m "feat: 收窄 Codex 内置画布的任务入口"
 - 实验性文档路径：从 CoreStudio 发起、通过 ACP 交给外部 Agent 的任务。
 - 由 Codex 发起的生成默认使用 Codex 自身能力，并通过 CLI / Local Bridge 写回；绝不绕经 ACP 形成回路。
 
-- [ ] **步骤 1：先更新文档合同测试**
+- [x] **步骤 1：先更新文档合同测试**
 
 把要求三条平级路径的断言替换为：
 
@@ -657,7 +657,7 @@ expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
 
 保留 CoreStudio 数据所有权和 CLI / Local Bridge 写回的现有断言。
 
-- [ ] **步骤 2：运行文档测试并确认失败**
+- [x] **步骤 2：运行文档测试并确认失败**
 
 ```bash
 cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/agentIntegrationDocs.test.ts --run
@@ -665,7 +665,7 @@ cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/agentInte
 
 预期：测试失败，直到稳定版文档采用新的产品模型。
 
-- [ ] **步骤 3：更新稳定产品文档**
+- [x] **步骤 3：更新稳定产品文档**
 
 - `PRODUCT.md`：增加“任务发起位置决定调度者”原则，并把 ACP 标记为需要在实验性功能中手动开启。
 - `agent-integration-user-guide.md`：用“CoreStudio 直接生成”“在 Codex 中使用 CoreStudio”替换“三条使用路径”，并单独设置实验性 ACP 章节。
@@ -673,11 +673,11 @@ cd excalidraw && corepack yarn vitest apps/image-board-desktop/src/app/agentInte
 
 不要把后续 Codex 安装器或 CoreStudio 生图 CLI 写成已经交付。
 
-- [ ] **步骤 4：向已确认需求稿增加实施索引**
+- [x] **步骤 4：向已确认需求稿增加实施索引**
 
 在 `## 实施索引` 下链接本计划并标记为第一个交付切片。代码验证通过前，验收复选框保持未勾选。
 
-- [ ] **步骤 5：运行定向回归测试**
+- [x] **步骤 5：运行定向回归测试**
 
 ```bash
 cd excalidraw && corepack yarn vitest \
@@ -694,7 +694,7 @@ cd excalidraw && corepack yarn vitest \
 
 预期：所有定向测试文件全部通过。
 
-- [ ] **步骤 6：运行完整桌面测试、类型检查和差异校验**
+- [x] **步骤 6：运行完整桌面测试、类型检查和差异校验**
 
 ```bash
 cd excalidraw
@@ -706,7 +706,7 @@ git diff --check
 
 预期：桌面端 Vitest 测试套件全部通过，类型检查退出码为 0，`git diff --check` 退出码为 0 且没有输出。
 
-- [ ] **步骤 7：提交**
+- [x] **步骤 7：提交**
 
 ```bash
 git add excalidraw/apps/image-board-desktop/PRODUCT.md \

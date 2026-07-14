@@ -72,29 +72,34 @@ describe("App startup", () => {
       importImages: vi.fn().mockResolvedValue([]),
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings: vi.fn().mockResolvedValue({
-        gemini: {
-          defaultModel: "imagen-4.0-fast-generate-001",
-          isConfigured: true,
-          lastStatus: "success",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        zenmux: {
-          defaultModel: "google/gemini-2.5-flash-image",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        fal: {
-          defaultModel: "fal-ai/flux/schnell",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
+        schemaVersion: 2,
+        defaultProvider: "gemini",
+        providers: {
+          gemini: {
+            defaultModel: "imagen-4.0-fast-generate-001",
+            isConfigured: true,
+            lastStatus: "success",
+            lastCheckedAt: null,
+            lastError: null,
+          },
+          zenmux: {
+            defaultModel: "google/gemini-2.5-flash-image",
+            isConfigured: false,
+            lastStatus: "unknown",
+            lastCheckedAt: null,
+            lastError: null,
+          },
+          fal: {
+            defaultModel: "fal-ai/flux/schnell",
+            isConfigured: false,
+            lastStatus: "unknown",
+            lastCheckedAt: null,
+            lastError: null,
+          },
         },
       }),
       saveProviderSettings: vi.fn(),
+      deleteProviderSettings: vi.fn(),
       generateImages: vi.fn(),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;
@@ -2437,6 +2442,9 @@ describe("App startup", () => {
       importImages: vi.fn().mockResolvedValue([]),
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings: vi.fn().mockResolvedValue({
+        schemaVersion: 2,
+        defaultProvider: "fal",
+        providers: {
         gemini: {
           defaultModel: "gemini-2.5-flash-image",
           isConfigured: false,
@@ -2458,15 +2466,17 @@ describe("App startup", () => {
           lastCheckedAt: null,
           lastError: null,
         },
-        jimeng: {
+          jimeng: {
           defaultModel: "doubao-seedream-5-0-lite-260128",
           isConfigured: true,
           lastStatus: "success",
           lastCheckedAt: null,
           lastError: null,
+          },
         },
       }),
       saveProviderSettings: vi.fn(),
+      deleteProviderSettings: vi.fn(),
       generateImages: vi.fn(),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;
@@ -2521,7 +2531,10 @@ describe("App startup", () => {
       importImages: vi.fn().mockResolvedValue([]),
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
       loadProviderSettings: vi.fn().mockResolvedValue({
-        gemini: {
+        schemaVersion: 2,
+        defaultProvider: "fal",
+        providers: {
+          gemini: {
           defaultModel: "gemini-2.5-flash-image",
           isConfigured: false,
           lastStatus: "unknown",
@@ -2542,15 +2555,17 @@ describe("App startup", () => {
           lastCheckedAt: null,
           lastError: null,
         },
-        openrouter: {
+          openrouter: {
           defaultModel: "google/gemini-3.1-flash-image-preview",
           isConfigured: true,
           lastStatus: "success",
           lastCheckedAt: null,
           lastError: null,
+          },
         },
       }),
       saveProviderSettings: vi.fn(),
+      deleteProviderSettings: vi.fn(),
       generateImages: vi.fn(),
       onMenuAction: vi.fn(() => () => undefined),
     } as any;

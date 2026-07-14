@@ -146,12 +146,12 @@ describe("generatePromptRequest", () => {
   it("builds the default generation request from remembered or configured model selection", () => {
     expect(
       buildDefaultGenerationRequest(providerSettings, {
-        provider: "zenmux",
-        model: "google/gemini-3-pro-image-preview",
+        provider: "fal",
+        model: "fal-ai/nano-banana-2",
       }),
     ).toMatchObject({
-      provider: "zenmux",
-      model: "google/gemini-3-pro-image-preview",
+      provider: "fal",
+      model: "fal-ai/nano-banana-2",
       prompt: "",
       width: 1024,
       height: 1024,

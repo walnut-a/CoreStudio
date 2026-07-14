@@ -1,12 +1,14 @@
 import { normalizeGenerationRequest } from "../shared/providerCatalog";
 import type {
+  DeleteProviderSettingsInput,
   DesktopBridgeApi,
-  PublicProviderSettings,
+  ProviderConfigurationSnapshot,
   SaveProviderSettingsInput,
 } from "../shared/desktopBridgeTypes";
 import type { GenerationRequest } from "../shared/providerTypes";
 import { copy } from "./copy";
 import { resolvePreferredGenerationModelSelection } from "./generationModelSelection";
+import type { GenerationModelSelection } from "./generationModelSelection";
 
 const NO_HANDLER_REGISTERED_FRAGMENT = "No handler registered";
 
@@ -30,7 +32,7 @@ export const loadProviderSettingsWithRetry = async (
     retryCount?: number;
     retryDelayMs?: number;
   } = {},
-): Promise<PublicProviderSettings> => {
+): Promise<ProviderConfigurationSnapshot> => {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < retryCount; attempt += 1) {
@@ -60,6 +62,7 @@ type SetGenerateRequest = (
 export const runProviderSettingsLoadAction = async ({
   bridge,
   isGenerationModelSelectionLocked,
+  getRememberedGenerationModelSelection = () => null,
   setProviderSettings,
   setGenerateRequest,
   setStartupError,
@@ -68,7 +71,8 @@ export const runProviderSettingsLoadAction = async ({
 }: {
   bridge: DesktopBridgeApi | null | undefined;
   isGenerationModelSelectionLocked: () => boolean;
-  setProviderSettings: (settings: PublicProviderSettings) => void;
+  getRememberedGenerationModelSelection?: () => GenerationModelSelection | null;
+  setProviderSettings: (settings: ProviderConfigurationSnapshot) => void;
   setGenerateRequest: SetGenerateRequest;
   setStartupError: (message: string | null) => void;
   retryCount?: number;
@@ -79,36 +83,39 @@ export const runProviderSettingsLoadAction = async ({
   }
 
   try {
-    const nextProviderSettings = await loadProviderSettingsWithRetry(bridge, {
+    const nextProviderConfiguration = await loadProviderSettingsWithRetry(bridge, {
       retryCount,
       retryDelayMs,
     });
-    setProviderSettings(nextProviderSettings);
+    setProviderSettings(nextProviderConfiguration);
 
     if (!isGenerationModelSelectionLocked()) {
       const selection = resolvePreferredGenerationModelSelection({
-        providerSettings: nextProviderSettings,
-        rememberedSelection: null,
+        configuration: nextProviderConfiguration,
+        rememberedSelection: getRememberedGenerationModelSelection(),
       });
-      setGenerateRequest((current) =>
-        normalizeGenerationRequest(
-          {
-            ...current,
-            provider: selection.provider,
-            model: selection.model,
-          },
-          {
-            customModels:
-              nextProviderSettings[selection.provider]?.customModels ?? [],
-          },
-        ),
-      );
+      if (selection) {
+        setGenerateRequest((current) =>
+          normalizeGenerationRequest(
+            {
+              ...current,
+              provider: selection.provider,
+              model: selection.model,
+            },
+            {
+              customModels:
+                nextProviderConfiguration.providers[selection.provider]
+                  ?.customModels ?? [],
+            },
+          ),
+        );
+      }
     }
 
     setStartupError(null);
     return {
       status: "loaded" as const,
-      providerSettings: nextProviderSettings,
+      providerConfiguration: nextProviderConfiguration,
     };
   } catch (error) {
     const errorMessage = formatProviderSettingsLoadError(error);
@@ -128,9 +135,9 @@ export const runProviderSettingsSaveAction = async ({
 }: {
   saveProviderSettings: (
     input: SaveProviderSettingsInput,
-  ) => Promise<PublicProviderSettings>;
+  ) => Promise<ProviderConfigurationSnapshot>;
   input: SaveProviderSettingsInput;
-  setProviderSettings: (settings: PublicProviderSettings) => void;
+  setProviderSettings: (settings: ProviderConfigurationSnapshot) => void;
   setSavingProviders: (saving: boolean) => void;
 }) => {
   setSavingProviders(true);
@@ -139,22 +146,45 @@ export const runProviderSettingsSaveAction = async ({
     setProviderSettings(nextSettings);
     return {
       status: "saved" as const,
-      providerSettings: nextSettings,
+      providerConfiguration: nextSettings,
     };
   } finally {
     setSavingProviders(false);
   }
 };
 
+export const runProviderSettingsDeleteAction = async ({
+  deleteProviderSettings,
+  input,
+  setProviderSettings,
+}: {
+  deleteProviderSettings: (
+    input: DeleteProviderSettingsInput,
+  ) => Promise<ProviderConfigurationSnapshot>;
+  input: DeleteProviderSettingsInput;
+  setProviderSettings: (settings: ProviderConfigurationSnapshot) => void;
+}) => {
+  const nextConfiguration = await deleteProviderSettings(input);
+  setProviderSettings(nextConfiguration);
+  return {
+    status: "deleted" as const,
+    providerConfiguration: nextConfiguration,
+  };
+};
+
 export const createProviderSettingsRendererActions = ({
   saveProviderSettings,
+  deleteProviderSettings,
   setProviderSettings,
   setSavingProviders,
 }: {
   saveProviderSettings: (
     input: SaveProviderSettingsInput,
-  ) => Promise<PublicProviderSettings>;
-  setProviderSettings: (settings: PublicProviderSettings) => void;
+  ) => Promise<ProviderConfigurationSnapshot>;
+  deleteProviderSettings: (
+    input: DeleteProviderSettingsInput,
+  ) => Promise<ProviderConfigurationSnapshot>;
+  setProviderSettings: (settings: ProviderConfigurationSnapshot) => void;
   setSavingProviders: (saving: boolean) => void;
 }) => ({
   saveSettings: async (input: SaveProviderSettingsInput) => {
@@ -165,4 +195,10 @@ export const createProviderSettingsRendererActions = ({
       setSavingProviders,
     });
   },
+  deleteSettings: async (input: DeleteProviderSettingsInput) =>
+    runProviderSettingsDeleteAction({
+      deleteProviderSettings,
+      input,
+      setProviderSettings,
+    }),
 });

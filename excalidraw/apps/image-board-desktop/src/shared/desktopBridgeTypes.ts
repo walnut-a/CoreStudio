@@ -266,10 +266,10 @@ export interface ImportedImagePayload extends ProjectAssetPayload {
   fileName: string;
 }
 
-export type PublicProviderSettings = Record<
+export type PublicProviderSettings = Partial<Record<
   ProviderId,
   Omit<ProviderSettings, "apiKey"> & { isConfigured: boolean }
->;
+>>;
 
 export interface ProviderConfigurationSnapshot {
   schemaVersion: 2;

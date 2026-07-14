@@ -1,9 +1,14 @@
 import { toDataUri } from "../shared/promptReferences";
 import {
+  getConfiguredProviderIds,
+  getDefaultModel,
   getProviderCapabilities,
   normalizeGenerationRequest,
 } from "../shared/providerCatalog";
-import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
+import type {
+  ProviderConfigurationSnapshot,
+  PublicProviderSettings,
+} from "../shared/desktopBridgeTypes";
 import type {
   CustomProviderModel,
   GenerationPromptPart,
@@ -63,16 +68,36 @@ export const buildGenerationRequestFromSelection = (
   );
 
 export const buildDefaultGenerationRequest = (
-  providerSettings: PublicProviderSettings | null,
+  configurationOrSettings:
+    | ProviderConfigurationSnapshot
+    | PublicProviderSettings
+    | null,
   rememberedSelection: GenerationModelSelection | null,
-): GenerationRequest =>
-  buildGenerationRequestFromSelection(
-    resolvePreferredGenerationModelSelection({
-      providerSettings,
-      rememberedSelection,
-    }),
-    providerSettings,
+): GenerationRequest => {
+  const configuration =
+    configurationOrSettings && "providers" in configurationOrSettings
+      ? configurationOrSettings
+      : configurationOrSettings
+        ? {
+            schemaVersion: 2 as const,
+            defaultProvider:
+              getConfiguredProviderIds(configurationOrSettings)[0] ?? null,
+            providers: configurationOrSettings,
+          }
+        : null;
+  const selection = resolvePreferredGenerationModelSelection({
+    configuration,
+    rememberedSelection,
+  }) ?? {
+    provider: "gemini" as const,
+    model: getDefaultModel("gemini"),
+  };
+
+  return buildGenerationRequestFromSelection(
+    selection,
+    configuration?.providers ?? null,
   );
+};
 
 export const getReferencedPromptReferenceIds = (
   parts: readonly GenerationPromptPart[],

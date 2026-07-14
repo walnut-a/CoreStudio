@@ -17,10 +17,12 @@ import type {
   PersistedImageAssetInput,
   ProjectAssetPayload,
   ProjectHealthReport,
+  ProviderConfigurationSnapshot,
   PublicProviderSettings,
   RebuildProjectThumbnailsResult,
   RecentProjectEntry,
   SavedPrompt,
+  DeleteProviderSettingsInput,
   SavePromptInput,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
@@ -260,14 +262,20 @@ export const maybeCreateAgentBrowserDesktopBridge =
       loadAppInfo: () =>
         callDesktopBridge<DesktopAppInfo>(config, "loadAppInfo"),
       loadProviderSettings: () =>
-        callDesktopBridge<PublicProviderSettings>(
+        callDesktopBridge<ProviderConfigurationSnapshot>(
           config,
           "loadProviderSettings",
         ),
       saveProviderSettings: (input: SaveProviderSettingsInput) =>
-        callDesktopBridge<PublicProviderSettings>(
+        callDesktopBridge<ProviderConfigurationSnapshot>(
           config,
           "saveProviderSettings",
+          [input],
+        ),
+      deleteProviderSettings: (input: DeleteProviderSettingsInput) =>
+        callDesktopBridge<ProviderConfigurationSnapshot>(
+          config,
+          "deleteProviderSettings",
           [input],
         ),
       loadAcpAgentSettings: () =>

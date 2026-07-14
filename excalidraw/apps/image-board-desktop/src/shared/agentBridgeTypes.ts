@@ -92,6 +92,7 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "loadAppInfo",
   "loadProviderSettings",
   "saveProviderSettings",
+  "deleteProviderSettings",
   "loadAcpAgentSettings",
   "saveAcpAgentSettings",
   "listAcpAgentRunLogs",

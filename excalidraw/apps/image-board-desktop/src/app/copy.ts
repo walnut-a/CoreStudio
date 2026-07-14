@@ -316,6 +316,7 @@ const customModelPlaceholderByProvider: Record<ProviderId, string> = {
   jimeng: "例如 doubao-seedream-next",
   openai: "例如 gpt-image-next",
   openrouter: "例如 google/gemini-next-image-preview",
+  "openai-compatible": "例如 vendor/image-model",
 };
 
 export const getCustomModelPlaceholder = (provider: ProviderId) =>

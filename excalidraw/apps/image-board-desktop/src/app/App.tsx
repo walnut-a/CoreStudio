@@ -255,8 +255,8 @@ import type {
   DesktopAppInfo,
   DesktopProjectBundle,
   PersistedImageAssetInput,
+  ProviderConfigurationSnapshot,
   ProjectHealthReport,
-  PublicProviderSettings,
   RecentProjectEntry,
   SavedPrompt,
 } from "../shared/desktopBridgeTypes";
@@ -323,7 +323,7 @@ const App = () => {
     readRememberedGenerationModelSelection(),
   );
   const generationModelSelectionLockedRef = useRef(
-    Boolean(rememberedGenerationModelSelectionRef.current),
+    false,
   );
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
   const savedSceneHashRef = useRef<string | null>(null);
@@ -400,7 +400,9 @@ const App = () => {
 
   const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
-  const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
+  const [providerConfiguration, setProviderConfiguration] =
+    useState<ProviderConfigurationSnapshot | null>(null);
+  const providerSettings = providerConfiguration?.providers ?? null;
   const agentBridgeConnectionStateController =
     useAgentBridgeConnectionStateController();
   const {
@@ -476,12 +478,14 @@ const App = () => {
     () =>
       createProviderSettingsRendererActions({
         saveProviderSettings: desktopBridge.saveProviderSettings,
-        setProviderSettings,
+        deleteProviderSettings: desktopBridge.deleteProviderSettings,
+        setProviderSettings: setProviderConfiguration,
         setSavingProviders,
       }),
     [
       desktopBridge.saveProviderSettings,
-      setProviderSettings,
+      desktopBridge.deleteProviderSettings,
+      setProviderConfiguration,
       setSavingProviders,
     ],
   );
@@ -1012,7 +1016,9 @@ const App = () => {
     getBridge: () => bridge,
     isGenerationModelSelectionLocked: () =>
       generationModelSelectionLockedRef.current,
-    setProviderSettings,
+    getRememberedGenerationModelSelection: () =>
+      rememberedGenerationModelSelectionRef.current,
+    setProviderSettings: setProviderConfiguration,
     setGenerateRequest,
     setStartupError,
     setRecentProjects,

@@ -93,6 +93,7 @@ import {
 import { shouldOpenDevTools } from "./devtools";
 import { createQuitState } from "./windowLifecycle";
 import { disableRendererPageZoom } from "./windowZoomGuard";
+import { inspectCodexIntegration } from "./codexIntegrationService";
 import {
   createSingleInstanceController,
   focusExistingWindow,
@@ -1215,6 +1216,15 @@ const registerIpcHandlers = () => {
     name: DESKTOP_APP_NAME,
     version: DESKTOP_APP_VERSION,
   }));
+
+  ipcMain.handle(IPC_CHANNELS.inspectCodexIntegration, async () =>
+    inspectCodexIntegration({
+      homeDir: app.getPath("home"),
+      resourcesPath: process.resourcesPath,
+      appVersion: DESKTOP_APP_VERSION,
+      electronPath: process.execPath,
+    }),
+  );
 
   ipcMain.handle(IPC_CHANNELS.loadProviderSettings, async () =>
     loadProviderSettings(),

@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
-import type { AgentIntegrationViewModel } from "../agent/agentIntegrationViewModel";
 import { AppErrorBanners } from "./AppErrorBanners";
-import { AgentStatusDock } from "./AgentStatusDock";
 import { WelcomePane } from "./WelcomePane";
 
 interface AppProjectEntryScreenProps {
@@ -17,9 +15,6 @@ interface AppProjectEntryScreenProps {
   onRemoveRecentProject: (projectPath: string) => void | Promise<void>;
   onRevealProject: (projectPath: string) => void | Promise<void>;
   manualProjectActionsVisible: boolean;
-  showAgentStatusDock: boolean;
-  integration: AgentIntegrationViewModel;
-  onOpenAgentSettings?: () => void;
   globalDialogs: ReactNode;
 }
 
@@ -34,9 +29,6 @@ export const AppProjectEntryScreen = ({
   onRemoveRecentProject,
   onRevealProject,
   manualProjectActionsVisible,
-  showAgentStatusDock,
-  integration,
-  onOpenAgentSettings,
   globalDialogs,
 }: AppProjectEntryScreenProps) => (
   <div className="image-board-app">
@@ -51,12 +43,6 @@ export const AppProjectEntryScreen = ({
       onRevealProject={onRevealProject}
       manualProjectActionsVisible={manualProjectActionsVisible}
     />
-    {showAgentStatusDock ? (
-      <AgentStatusDock
-        integration={integration}
-        onOpenAgentSettings={onOpenAgentSettings}
-      />
-    ) : null}
     {globalDialogs}
   </div>
 );

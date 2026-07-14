@@ -256,7 +256,7 @@ describe("App startup", () => {
     expect(notifyProjectStateChanged).not.toHaveBeenCalledWith(null);
   });
 
-  it("updates the Agent status dock after accepting an opened project", async () => {
+  it("does not add a Codex status dock after accepting an opened project", async () => {
     let notifiedProject: {
       projectPath: string;
       name: string;
@@ -311,25 +311,9 @@ describe("App startup", () => {
       });
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Codex 协作状态" }),
-    );
-
-    const popover = screen.getByRole("region", { name: "Codex 协作状态" });
-    expect(popover).toHaveTextContent("Codex 协作");
-    expect(popover).toHaveTextContent("已可用");
-    expect(popover).toHaveTextContent("测试项目");
-    expect(popover).not.toHaveTextContent("ACP Agent");
-    expect(popover).not.toHaveTextContent("CLI");
     expect(
-      within(popover).getByRole("button", { name: "打开设置" }),
-    ).toBeInTheDocument();
-    expect(
-      within(popover).queryByRole("button", { name: "CoreStudio" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(popover).queryByRole("button", { name: "Agent" }),
-    ).not.toBeInTheDocument();
+      screen.queryByRole("button", { name: "Codex 协作状态" }),
+    ).toBeNull();
   });
 
   it("handles agent scene.addPrompt requests on the current board", async () => {
@@ -1815,15 +1799,8 @@ describe("App startup", () => {
     ).toBeNull();
   });
 
-  it("opens software settings from the native settings menu and toggles Codex collaboration there", async () => {
+  it("opens the unified settings from the native settings menu", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
-    const setAgentBridgeEnabled = vi.fn(async (enabled: boolean) => ({
-      enabled,
-      ready: enabled,
-      currentProject: null,
-      boardUrl: null,
-    }));
-
     window.imageBoardDesktop = createDesktopBridgeMock({
       getAgentBridgeStatus: vi.fn(async () => ({
         enabled: false,
@@ -1831,7 +1808,6 @@ describe("App startup", () => {
         currentProject: null,
         boardUrl: null,
       })),
-      setAgentBridgeEnabled,
       onMenuAction: vi.fn((listener) => {
         menuActionListener = listener;
         return () => undefined;
@@ -1850,19 +1826,13 @@ describe("App startup", () => {
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText("Codex 协作")).toBeInTheDocument();
-    expect(within(dialog).getAllByText("网页画布").length).toBeGreaterThan(0);
-    expect(within(dialog).getAllByText("CLI").length).toBeGreaterThan(0);
-    expect(within(dialog).getByText("实验性功能")).toBeInTheDocument();
-    expect(within(dialog).queryByText("ACP Agent")).not.toBeInTheDocument();
-
-    fireEvent.click(
-      within(dialog).getByRole("switch", { name: "启用 Codex 协作" }),
+    expect(within(dialog).getByRole("tab", { name: "图像生成" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
-
-    await waitFor(() => {
-      expect(setAgentBridgeEnabled).toHaveBeenCalledWith(true);
-    });
+    expect(within(dialog).getByRole("tab", { name: "Codex 集成" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "实验性功能" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("switch", { name: /Codex/ })).toBeNull();
   });
 
   it("saves a custom ACP Agent command from application settings", async () => {
@@ -1895,11 +1865,9 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpControls = getAcpAgentSettingsControls(dialog);
-
-    fireEvent.click(
-      acpControls.getByRole("switch", { name: "启用 ACP Agent" }),
-    );
+    const acpControls = within(dialog);
+    fireEvent.click(acpControls.getByRole("tab", { name: "实验性功能" }));
+    fireEvent.click(acpControls.getByRole("button", { name: "高级配置" }));
     expect(
       (acpControls.getByLabelText("任务说明模板") as HTMLTextAreaElement).value,
     ).toContain("You are an external ACP Agent working with CoreStudio");
@@ -1966,7 +1934,9 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpControls = getAcpAgentSettingsControls(dialog);
+    const acpControls = within(dialog);
+    fireEvent.click(acpControls.getByRole("tab", { name: "实验性功能" }));
+    fireEvent.click(acpControls.getByRole("button", { name: "高级配置" }));
 
     expect(acpControls.getByLabelText("工作目录")).toHaveAttribute(
       "placeholder",
@@ -2004,15 +1974,11 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpControls = getAcpAgentSettingsControls(dialog);
-
-    fireEvent.click(
-      acpControls.getByRole("switch", { name: "启用 ACP Agent" }),
-    );
+    const acpControls = within(dialog);
+    fireEvent.click(acpControls.getByRole("tab", { name: "实验性功能" }));
     fireEvent.change(acpControls.getByLabelText("Agent 类型"), {
       target: { value: "gemini-cli" },
     });
-    fireEvent.click(acpControls.getByRole("button", { name: "保存" }));
 
     await waitFor(() => {
       expect(saveAcpAgentSettings).toHaveBeenCalledWith({
@@ -2111,6 +2077,8 @@ describe("App startup", () => {
     expect(listAcpAgentRunLogs).not.toHaveBeenCalled();
     expect(within(dialog).queryByText("最近 ACP 任务")).not.toBeInTheDocument();
 
+    fireEvent.click(within(dialog).getByRole("tab", { name: "实验性功能" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "高级配置" }));
     fireEvent.click(within(dialog).getByText("高级调试"));
 
     await waitFor(() => {
@@ -2228,6 +2196,8 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
+    fireEvent.click(within(dialog).getByRole("tab", { name: "实验性功能" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "高级配置" }));
     fireEvent.click(within(dialog).getByText("高级调试"));
 
     await waitFor(() => {
@@ -2295,16 +2265,15 @@ describe("App startup", () => {
     });
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    const acpControls = getAcpAgentSettingsControls(dialog);
+    const acpControls = within(dialog);
+    fireEvent.click(acpControls.getByRole("tab", { name: "实验性功能" }));
     const acpSwitch = acpControls.getByRole("switch", {
-      name: "启用 ACP Agent",
+      name: "启用外部 Agent 实验功能",
     });
 
     expect(acpSwitch).not.toBeDisabled();
-    expect(acpControls.getByLabelText("Agent 类型")).not.toBeDisabled();
 
     fireEvent.click(acpSwitch);
-    fireEvent.click(acpControls.getByRole("button", { name: "保存" }));
 
     await waitFor(() => {
       expect(saveAcpAgentSettings).toHaveBeenCalled();

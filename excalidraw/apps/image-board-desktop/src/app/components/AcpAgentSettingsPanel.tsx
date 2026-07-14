@@ -1,12 +1,9 @@
-import {
-  ACP_AGENT_CUSTOM_PRESET_ID,
-  ACP_AGENT_PRESETS,
-  DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
-  type AcpAgentConfig,
-  type AcpAgentPresetId,
-} from "../../shared/acpTypes";
+import type { ReactNode } from "react";
+
+import { DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE, type AcpAgentConfig } from "../../shared/acpTypes";
 import type { AcpAgentSettingsDraft } from "../agent/useAcpAgentSettingsController";
 import { DesktopButton } from "./DesktopButton";
+import { useApplicationSettingsLeave } from "./ApplicationSettingsDialog";
 import "./AgentSettings.css";
 
 export interface AcpAgentSettingsPanelProps {
@@ -15,13 +12,13 @@ export interface AcpAgentSettingsPanelProps {
   editable: boolean;
   saving: boolean;
   defaultCwd: string;
-  onEnabledChange: (enabled: boolean) => void;
-  onPresetChange: (presetId: AcpAgentPresetId) => void;
+  onBack: () => void;
   onCommandChange: (command: string) => void;
   onArgsChange: (args: string) => void;
   onCwdChange: (cwd: string) => void;
   onTaskInstructionChange: (template: string) => void;
   onSave: () => void;
+  debugContent: ReactNode;
 }
 
 export const AcpAgentSettingsPanel = ({
@@ -30,56 +27,31 @@ export const AcpAgentSettingsPanel = ({
   editable,
   saving,
   defaultCwd,
-  onEnabledChange,
-  onPresetChange,
+  onBack,
   onCommandChange,
   onArgsChange,
   onCwdChange,
   onTaskInstructionChange,
   onSave,
-}: AcpAgentSettingsPanelProps) => (
-  <section className="app-settings-section app-settings-section--stacked">
-    <div className="app-settings-section__copy">
-      <strong>ACP Agent</strong>
-      <p>
-        用于从 CoreStudio 主动发起复杂任务给外部 Agent。它和直接输入不同：
-        直接输入偏向单次生成，ACP Agent 偏向带上下文的连续任务。CoreStudio
-        负责发送任务包和展示过程；结果写回仍要求 Agent 使用 CLI / Local Bridge。
-      </p>
-    </div>
-    <div className="app-settings-form">
-      <div className="app-settings-form__header">
-        <span>{draft.enabled ? "已启用" : "未启用"}</span>
-        <button
-          type="button"
-          role="switch"
-          aria-label="启用 ACP Agent"
-          aria-checked={draft.enabled}
-          disabled={!editable}
-          className="app-settings-section__switch"
-          onClick={() => onEnabledChange(!draft.enabled)}
-        />
+  debugContent,
+}: AcpAgentSettingsPanelProps) => {
+  const requestLeave = useApplicationSettingsLeave();
+
+  return <section className="settings-page settings-acp-detail">
+    <button type="button" className="settings-page__back" onClick={() => requestLeave(onBack)}>
+      ← 返回实验性功能
+    </button>
+    <header className="settings-page__header">
+      <div>
+        <h3>ACP 高级配置</h3>
+        <p>仅在需要自定义启动命令或排查 Agent 任务时修改。</p>
       </div>
+    </header>
+    <div className="settings-form-card">
       <label>
-        Agent 类型
-        <select
-          value={draft.presetId}
-          disabled={!editable}
-          onChange={(event) =>
-            onPresetChange(event.target.value as AcpAgentPresetId)
-          }
-        >
-          {ACP_AGENT_PRESETS.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.name}
-            </option>
-          ))}
-          <option value={ACP_AGENT_CUSTOM_PRESET_ID}>自定义命令</option>
-        </select>
-      </label>
-      <label>
-        命令
+        <span>命令</span>
         <input
+          aria-label="命令"
           value={draft.command}
           placeholder="/usr/local/bin/acp-agent"
           disabled={!editable}
@@ -87,8 +59,9 @@ export const AcpAgentSettingsPanel = ({
         />
       </label>
       <label>
-        参数
+        <span>参数</span>
         <input
+          aria-label="参数"
           value={draft.args}
           placeholder="--stdio"
           disabled={!editable}
@@ -96,8 +69,9 @@ export const AcpAgentSettingsPanel = ({
         />
       </label>
       <label>
-        工作目录
+        <span>工作目录</span>
         <input
+          aria-label="工作目录"
           value={draft.cwd}
           placeholder={`默认：${defaultCwd}`}
           title={`默认：${defaultCwd}`}
@@ -105,29 +79,26 @@ export const AcpAgentSettingsPanel = ({
           onChange={(event) => onCwdChange(event.target.value)}
         />
       </label>
-      <label className="app-settings-form__wide-field">
-        任务说明模板
+      <label>
+        <span>任务说明模板</span>
         <textarea
           aria-label="任务说明模板"
           value={draft.taskInstructionTemplate}
-          rows={7}
+          rows={9}
           placeholder={DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE}
           disabled={!editable}
           onChange={(event) => onTaskInstructionChange(event.target.value)}
         />
-        <span>
-          会作为任务首段文本发送给 Agent；项目、选区、图片 ID、Bridge
-          地址和写回规则会另附为结构化任务包。
-        </span>
       </label>
-      <div className="app-settings-form__actions">
+      <div className="settings-form-card__actions settings-form-card__actions--spread">
         <span>
           {selectedAgent
             ? `当前：${selectedAgent.name} · ${selectedAgent.command}`
-            : "尚未配置 ACP Agent"}
+            : "尚未保存 Agent 配置"}
         </span>
         <DesktopButton
           type="button"
+          variant="primary"
           disabled={saving || !editable}
           onClick={onSave}
         >
@@ -135,5 +106,6 @@ export const AcpAgentSettingsPanel = ({
         </DesktopButton>
       </div>
     </div>
-  </section>
-);
+    {debugContent}
+  </section>;
+};

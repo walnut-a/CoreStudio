@@ -69,14 +69,9 @@ describe("CoreStudio shell layout styles", () => {
     );
   });
 
-  it("keeps the agent status dock button aligned with canvas help controls", () => {
+  it("keeps canvas footer and overlay design tokens stable without a status dock", () => {
     const appCss = readAppCss();
     const appRule = getRule(appCss, ".image-board-app");
-    const dockRule = getRule(appCss, ".agent-status-dock");
-    const buttonRule = getRule(appCss, ".agent-status-dock__button");
-    const iconRule = getRule(appCss, ".agent-status-dock__button svg");
-    const hoverRule = getRule(appCss, ".agent-status-dock__button:hover");
-    const activeRule = getRule(appCss, ".agent-status-dock__button:active");
 
     expect(appRule).toContain("--button-hover-bg: var(--color-surface-high)");
     expect(appRule).toContain("--button-active-bg: var(--color-surface-high)");
@@ -92,19 +87,18 @@ describe("CoreStudio shell layout styles", () => {
     expect(appRule).toContain("--agent-status-dock-z-index: 32");
     expect(appRule).toContain("--side-dock-z-index: 35");
     expect(appRule).toContain("--canvas-footer-overlay-z-index: 45");
-    expect(dockRule).toContain("var(--canvas-footer-button-size)");
-    expect(dockRule).toContain("var(--canvas-footer-button-gap)");
-    expect(dockRule).toContain("z-index: var(--agent-status-dock-z-index)");
-    expect(dockRule).not.toContain("var(--canvas-footer-overlay-z-index)");
-    expect(buttonRule).toContain("width: var(--canvas-footer-button-size)");
-    expect(buttonRule).toContain("height: var(--canvas-footer-button-size)");
-    expect(iconRule).toContain("width: var(--canvas-footer-icon-size)");
-    expect(iconRule).toContain("height: var(--canvas-footer-icon-size)");
-    expect(buttonRule).toContain("background-color: var(--color-surface-low");
-    expect(hoverRule).toContain("background-color: var(--button-hover-bg");
-    expect(hoverRule).not.toContain("background: var(--island-bg-color)");
-    expect(activeRule).toContain("background-color: var(--button-active-bg");
-    expect(activeRule).toContain("var(--button-active-border");
+    expect(appCss).not.toContain(".agent-status-dock");
+  });
+
+  it("keeps the unified settings action typography compact", () => {
+    const appCss = readAppCss();
+    const actionButtonRule = getRule(
+      appCss,
+      ".settings-form-card__actions",
+    );
+
+    expect(actionButtonRule).toBeTruthy();
+    expect(appCss).not.toContain(".agent-status-popover");
   });
 
   it("keeps the bottom composer inside the canvas when side docks are open", () => {
@@ -358,10 +352,6 @@ describe("CoreStudio shell layout styles", () => {
       appCss,
       ".image-board-app .floating-panel-layer",
     ).find((rule) => rule.includes("display: none"));
-    const agentDockRule = getRulesContaining(
-      appCss,
-      ".image-board-app .agent-status-dock",
-    ).find((rule) => rule.includes("display: none"));
     const undoRedoRule = getRulesContaining(
       appCss,
       ".image-board-app .undo-redo-buttons",
@@ -390,7 +380,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(topLeftRule).toContain("overflow: hidden");
     expect(sideDockToggleRule).toContain("display: none");
     expect(composerLayerRule).toContain("display: none");
-    expect(agentDockRule).toContain("display: none");
+    expect(appCss).not.toContain(".agent-status-dock");
     expect(undoRedoRule).toContain("display: none");
     expect(mobileUndoRule).toContain("display: none");
     expect(compactUndoRule).toContain("display: none");

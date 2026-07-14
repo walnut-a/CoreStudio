@@ -10,7 +10,6 @@ interface UseGenerateDialogPanelControllerInput {
   open: boolean;
   persistent: boolean;
   focusToken: number;
-  providerSettingsFocusToken: number;
   effectiveComposerMode: GenerateComposerMode;
   error: string | null;
   isConfigured: boolean;
@@ -24,7 +23,6 @@ export const useGenerateDialogPanelController = ({
   open,
   persistent,
   focusToken,
-  providerSettingsFocusToken,
   effectiveComposerMode,
   error,
   isConfigured,
@@ -59,15 +57,6 @@ export const useGenerateDialogPanelController = ({
 
     promptEditorRef.current?.focus();
   }, [effectiveComposerMode, focusToken, open, promptEditorRef]);
-
-  useEffect(() => {
-    if (!open || providerSettingsFocusToken === 0) {
-      return;
-    }
-
-    setAdvancedOpen(true);
-    setApiSettingsOpen(true);
-  }, [open, providerSettingsFocusToken]);
 
   useEffect(() => {
     if (!apiSettingsOpen) {

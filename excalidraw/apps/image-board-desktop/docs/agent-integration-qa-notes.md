@@ -2,7 +2,7 @@
 
 This file records visual QA for the Agent integration surfaces. It is intentionally separate from the implementation plan: the plan says what to build, while this file records what was actually checked in the running app.
 
-Status: checked
+Status: needs-recheck
 
 ## Screenshot Checklist
 
@@ -10,9 +10,10 @@ Each item should be verified in the development build before the F-stage screens
 
 | Surface | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| 应用设置 Agent 集成首屏 | checked | 2026-07-06, Electron CDP, `/tmp/corestudio-agent-qa/agent-settings-overview-cdp.png`, `/tmp/corestudio-agent-qa/agent-settings-overview.json` | Shows the global Agent switch, Bridge / project / board / CLI / ACP status grid, and the three usage path cards. Advanced debug content is not mounted while collapsed. |
-| 设置高级调试折叠和展开 | checked | 2026-07-06, Electron CDP, `/tmp/corestudio-agent-qa/agent-settings-advanced-expanded-cdp.png`, `/tmp/corestudio-agent-qa/agent-settings-advanced-expanded.json` | Collapsed settings do not mount run history; expanded state mounts ACP debug records and refresh control inside settings only. |
-| 右下角 Agent 状态浮层 | checked | 2026-07-06, Electron CDP, `/tmp/corestudio-agent-qa/status-dock-element.png`, `/tmp/corestudio-agent-qa/status-dock.json` | Popover shows connected state, current project, bridge endpoint, CLI / board availability, ACP status, and shortcut actions. |
+| 应用设置 · 图像生成 | pending | 2026-07-14, implementation tests and production renderer build | 待下次开发版运行时复核服务列表、详情编辑和未保存修改确认。 |
+| 应用设置 · Codex 集成 | pending | 2026-07-14, implementation tests and production renderer build | 待下次开发版运行时复核安装指令、三项依赖检测和打开当前项目引导。 |
+| 应用设置 · 实验性功能 | pending | 2026-07-14, implementation tests and production renderer build | 待下次开发版运行时复核单一 ACP 开关、Agent 类型和高级配置。 |
+| 右下角无 Codex 状态浮层 | pending | 2026-07-14, source and component tests | 待下次开发版运行时确认画布、欢迎页和 Agent Board 均无旧浮层。 |
 | 底部直接输入模式 | checked | 2026-07-06, Electron CDP, `/tmp/corestudio-agent-qa/direct-input-clean-element.png` | Direct input reads as a compact single-run composer and does not expose run-log debug controls. |
 | 底部 ACP Agent 模式 | checked | 2026-07-06, Electron CDP, `/tmp/corestudio-agent-qa/acp-mode-element.png` | ACP mode is visually distinct from direct input and keeps raw protocol/debug controls out of the composer. |
 | 左侧生成记录列表 | checked | 2026-07-06, Electron CDP, `/tmp/corestudio-agent-qa/generation-records-sidebar-after-thumbnail-fix.png` | After fixing direct record thumbnails from loaded canvas files, DOM evidence shows 119 record thumbnails and 0 placeholders in the open project. |

@@ -164,19 +164,13 @@ describe("generate composer styles", () => {
   it("matches the native canvas island treatment", () => {
     const appCss = readAppCss();
     const floatingLayerRule = getRule(appCss, ".floating-panel-layer");
-    const statusStackRule = getRule(
-      appCss,
-      ".image-board-app .floating-status-stack",
-    );
     const composerRule = getRule(appCss, ".generate-composer");
     const focusWithinRule = getRule(appCss, ".generate-composer:focus-within");
 
     expect(floatingLayerRule).toContain(
       "calc(16px + env(safe-area-inset-bottom, 0px))",
     );
-    expect(statusStackRule).toContain(
-      "calc(120px + env(safe-area-inset-bottom, 0px))",
-    );
+    expect(appCss).not.toContain(".floating-status-stack");
     expect(composerRule).toContain("border: 0");
     expect(composerRule).toContain("background: var(--island-bg-color)");
     expect(composerRule).toContain("box-shadow: var(--shadow-island)");
@@ -645,7 +639,7 @@ describe("generate composer styles", () => {
     expect(providerSettingsSource).not.toContain("M3 5l4 4 4-4");
   });
 
-  it("places API key settings after the generation parameter controls", () => {
+  it("keeps API key settings out of the generation parameter controls", () => {
     const dialogSource = readGenerateImageDialog();
     const dialogRuntimeSource = readGenerateImageDialogRuntime();
     const providerRuntimeSource = readGenerateImageDialogProviderRuntime();
@@ -654,14 +648,8 @@ describe("generate composer styles", () => {
       readGenerateDialogAdvancedSettingsRuntime();
     const advancedFieldsSource = readGenerateAdvancedFieldsPanel();
     const providerSettingsSource = readGenerateProviderSettingsPanel();
-    const settingsIndex = advancedSettingsSource.indexOf(
-      "<GenerateProviderSettingsPanel",
-    );
-    const advancedFieldsIndex = advancedSettingsSource.indexOf(
-      "<GenerateAdvancedFieldsPanel",
-    );
-
-    expect(settingsIndex).toBeGreaterThan(advancedFieldsIndex);
+    expect(advancedSettingsSource).toContain("<GenerateAdvancedFieldsPanel");
+    expect(advancedSettingsSource).not.toContain("<GenerateProviderSettingsPanel");
     expect(providerRuntimeSource).toContain(
       "createGenerateDialogAdvancedSettingsRuntime",
     );
@@ -812,8 +800,7 @@ describe("generate composer styles", () => {
   it("keeps ACP Agent settings persistence wiring outside the root app", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain("createAcpAgentSettingsRendererActions");
-    expect(source).toContain("acpAgentSettingsRendererActions.save");
+    expect(source).toContain("saveAcpAgentSettingsState()");
     expect(source).not.toContain("const handleSaveAcpAgentSettings");
     expect(source).not.toContain("runAcpAgentSettingsSaveAction");
   });
@@ -906,8 +893,8 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("<WelcomePane");
     expect(source).not.toContain("showAgentStatusDock ? (");
     expect(entrySource).toContain("<WelcomePane");
-    expect(entrySource).toContain("<AgentStatusDock");
-    expect(entrySource).toContain("showAgentStatusDock ? (");
+    expect(entrySource).not.toContain("<AgentStatusDock");
+    expect(entrySource).not.toContain("showAgentStatusDock ? (");
     expect(entrySource).toContain("manualProjectActionsVisible");
   });
 
@@ -1717,23 +1704,12 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("runPromptReferenceLocateRendererAction");
   });
 
-  it("keeps Agent integration copy shortcut wiring outside the root app", () => {
+  it("uses the Codex integration page instead of legacy copy shortcuts", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain(
-      "createAgentIntegrationCopyShortcutRendererActions",
-    );
-    expect(source).toContain(
-      "agentIntegrationCopyShortcutRendererActions.copyBoardUrl",
-    );
-    expect(source).toContain(
-      "agentIntegrationCopyShortcutRendererActions.copyCliEnvironment",
-    );
-    expect(source).not.toContain("const handleCopyAgentBoardUrl");
-    expect(source).not.toContain("const handleCopyAgentCliEnvironment");
-    expect(source).not.toContain(
-      "runAgentIntegrationCopyShortcutRendererAction",
-    );
+    expect(source).toContain("<CodexIntegrationSettings");
+    expect(source).toContain("inspectCodexIntegration");
+    expect(source).not.toContain("agentIntegrationCopyShortcutRendererActions");
   });
 
   it("keeps Agent Bridge status wiring outside the root app", () => {
@@ -1742,10 +1718,6 @@ describe("generate composer styles", () => {
     expect(source).toContain("useAgentBridgeConnectionStateController");
     expect(source).toContain("useAgentRuntimeRefsController");
     expect(source).toContain("createAgentBridgeStatusRendererActions");
-    expect(source).toContain("agentBridgeStatusRendererActions.loadStatus");
-    expect(source).toContain(
-      "agentBridgeStatusRendererActions.refreshBrowserConnection",
-    );
     expect(source).toContain(
       "agentBridgeStatusRendererActions.refreshBrowserConnectionStatus",
     );
@@ -1761,49 +1733,25 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("acpThreadLoadSequenceRef");
   });
 
-  it("keeps the Agent status dock focused on collaboration status and settings", () => {
+  it("removes the Agent status dock and opens the unified settings from explicit actions", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("useAgentSurfaceVisibilityController");
     expect(source).not.toContain("createAgentStatusDockRendererActions");
-    expect(source).not.toContain("onOpenAgentConversation=");
-    expect(source).toContain("onOpenAgentSettings={() => setAppSettingsOpen(true)}");
+    expect(source).not.toContain("<AgentStatusDock");
+    expect(source).toContain("openAppSettings: () => setAppSettingsOpen(true)");
     expect(source).toContain(
       "onAction={agentBridgeStatusRendererActions.refreshBrowserConnectionStatus}",
     );
   });
 
-  it("keeps Agent integration settings dialog action wiring outside the root app", () => {
+  it("composes the three unified application settings categories", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain(
-      "createAgentIntegrationSettingsDialogRendererActions",
-    );
-    expect(source).toContain("agentIntegrationSettingsDialogActions.close");
-    expect(source).toContain(
-      "agentIntegrationSettingsDialogActions.setIntegrationEnabled",
-    );
-    expect(source).toContain(
-      "agentIntegrationSettingsDialogActions.openBoardUrl",
-    );
-    expect(source).toContain(
-      "agentIntegrationSettingsDialogActions.saveAcpAgentSettings",
-    );
-    expect(source).toContain(
-      "agentIntegrationSettingsDialogActions.refreshAcpRunSummaries",
-    );
-    expect(source).not.toContain("onClose={() => setAppSettingsOpen(false)}");
-    expect(source).not.toContain("const [acpDebugOpen");
-    expect(source).not.toContain(
-      "void agentBridgeStatusRendererActions.setEnabled(enabled);",
-    );
-    expect(source).not.toContain(
-      "window.open(agentIntegration.bridge.boardUrl",
-    );
-    expect(source).not.toContain(
-      "void acpAgentSettingsRendererActions.save();",
-    );
-    expect(source).not.toContain("void loadAcpRunSummariesState();");
+    expect(source).toContain("imageGenerationContent:");
+    expect(source).toContain("codexIntegrationContent:");
+    expect(source).toContain("experimentalContent:");
+    expect(source).not.toContain("AgentIntegrationSettingsDialog");
   });
 
   it("keeps ACP run-log renderer wiring outside the root app", () => {
@@ -1817,7 +1765,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("acpRunLogTargetRendererActions.setTaskId");
     expect(source).not.toContain("acpRunLogTargetRendererActions.setSurface");
     expect(source).toContain("createAcpRunLogRendererActions");
-    expect(source).toContain("getRunningAcpAgentTaskId");
     expect(source).toContain("acpRunLogRendererActions.open");
     expect(source).toContain("acpRunLogRendererActions.close");
     expect(source).toContain("acpRunLogRendererActions.scheduleLiveRefresh");

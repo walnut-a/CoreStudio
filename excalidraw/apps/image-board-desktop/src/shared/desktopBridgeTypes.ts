@@ -49,6 +49,7 @@ export const IPC_CHANNELS = {
   cleanProjectCache: "image-board:clean-project-cache",
   revealProjectInFinder: "image-board:reveal-project-in-finder",
   loadAppInfo: "image-board:load-app-info",
+  inspectCodexIntegration: "image-board:inspect-codex-integration",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
   loadPromptLibrary: "image-board:load-prompt-library",
@@ -276,6 +277,27 @@ export interface SaveProviderSettingsInput {
   customModels?: ProviderSettings["customModels"];
 }
 
+export type CodexIntegrationCheckId = "cli" | "skill" | "compatibility";
+export type CodexIntegrationCheckStatus =
+  | "ready"
+  | "missing"
+  | "outdated"
+  | "broken";
+
+export interface CodexIntegrationCheck {
+  id: CodexIntegrationCheckId;
+  status: CodexIntegrationCheckStatus;
+  label: string;
+  detail: string;
+}
+
+export interface CodexIntegrationStatus {
+  state: "ready" | "install" | "update" | "repair" | "error";
+  command: string;
+  checks: CodexIntegrationCheck[];
+  detectedAt: string;
+}
+
 export interface SavedPrompt {
   id: string;
   title: string;
@@ -358,6 +380,7 @@ export interface DesktopBridgeApi {
   importImages(): Promise<ImportedImagePayload[]>;
   revealProjectInFinder(projectPath: string): Promise<void>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
+  inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;
   loadProviderSettings(): Promise<PublicProviderSettings>;
   saveProviderSettings(
     input: SaveProviderSettingsInput,

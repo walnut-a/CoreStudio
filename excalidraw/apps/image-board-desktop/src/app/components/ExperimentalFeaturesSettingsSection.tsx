@@ -1,17 +1,29 @@
 import "./AgentSettings.css";
+import {
+  ACP_AGENT_CUSTOM_PRESET_ID,
+  ACP_AGENT_PRESETS,
+  type AcpAgentPresetId,
+} from "../../shared/acpTypes";
+import { DesktopButton } from "./DesktopButton";
 
 export interface ExperimentalFeaturesSettingsSectionProps {
   acpEnabled: boolean;
   disabled: boolean;
   saving: boolean;
+  presetId: AcpAgentPresetId;
   onAcpEnabledChange: (enabled: boolean) => void;
+  onPresetChange: (presetId: AcpAgentPresetId) => void;
+  onOpenAdvanced: () => void;
 }
 
 export const ExperimentalFeaturesSettingsSection = ({
   acpEnabled,
   disabled,
   saving,
+  presetId,
   onAcpEnabledChange,
+  onPresetChange,
+  onOpenAdvanced,
 }: ExperimentalFeaturesSettingsSectionProps) => (
   <section className="app-settings-section app-settings-section--stacked">
     <div className="app-settings-section__copy">
@@ -33,5 +45,30 @@ export const ExperimentalFeaturesSettingsSection = ({
         onClick={() => onAcpEnabledChange(!acpEnabled)}
       />
     </div>
+    {acpEnabled ? (
+      <div className="experimental-acp-options">
+        <label>
+          <span>Agent 类型</span>
+          <select
+            aria-label="Agent 类型"
+            value={presetId}
+            disabled={disabled || saving}
+            onChange={(event) =>
+              onPresetChange(event.target.value as AcpAgentPresetId)
+            }
+          >
+            {ACP_AGENT_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name}
+              </option>
+            ))}
+            <option value={ACP_AGENT_CUSTOM_PRESET_ID}>自定义命令</option>
+          </select>
+        </label>
+        <DesktopButton type="button" onClick={onOpenAdvanced}>
+          高级配置
+        </DesktopButton>
+      </div>
+    ) : null}
   </section>
 );

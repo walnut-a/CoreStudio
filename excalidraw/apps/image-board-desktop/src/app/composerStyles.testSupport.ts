@@ -15,7 +15,7 @@ export const readAppCss = () =>
     "apps/image-board-desktop/src/app/components/AgentConversation.css",
     "apps/image-board-desktop/src/app/components/AgentRunChatLog.css",
     "apps/image-board-desktop/src/app/components/AgentSettings.css",
-    "apps/image-board-desktop/src/app/components/AgentStatusDock.css",
+    "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
     "apps/image-board-desktop/src/app/components/DesktopButton.css",
     "apps/image-board-desktop/src/app/components/GenerateImageDialog.css",
     "apps/image-board-desktop/src/app/components/GenerationErrorDetailsDialog.css",

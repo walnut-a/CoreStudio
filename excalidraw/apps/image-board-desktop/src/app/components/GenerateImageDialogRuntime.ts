@@ -42,7 +42,6 @@ export interface UseGenerateImageDialogRuntimeInput {
   initialRequest: GenerationRequest;
   providerSettings: PublicProviderSettings | null;
   savingProviderSettings?: boolean;
-  providerSettingsFocusToken?: number;
   error: string | null;
   onOpenErrorDetails?: () => void;
   onClose: () => void;
@@ -74,7 +73,6 @@ export const useGenerateImageDialogRuntime = ({
   initialRequest,
   providerSettings,
   savingProviderSettings = false,
-  providerSettingsFocusToken = 0,
   error,
   onOpenErrorDetails,
   onClose,
@@ -154,7 +152,6 @@ export const useGenerateImageDialogRuntime = ({
     open,
     persistent,
     focusToken,
-    providerSettingsFocusToken,
     effectiveComposerMode,
     error,
     isConfigured: providerContext.isConfigured,

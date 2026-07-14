@@ -135,8 +135,9 @@ flowchart TD
 
 | 入口 | 应该承担 | 不应该承担 |
 | --- | --- | --- |
-| 应用设置 | Codex 协作唯一开关、总体状态、默认收起的连接详情、实验性功能开关 | 日常任务历史 |
-| 右下角状态浮层 | Codex 协作总体状态、当前项目和设置入口 | 开关、Bridge / Board / CLI 技术详情、复制动作、ACP 和复杂任务列表 |
+| 应用设置 · 图像生成 | 当前服务和模型选择、各服务 API 配置 | Agent 连接状态 |
+| 应用设置 · Codex 集成 | 可复制安装指令、CLI / Skill / 会话发现依赖检测、打开当前项目的轻量引导 | 连接开关和“已连接”状态 |
+| 应用设置 · 实验性功能 | ACP 唯一启停入口；启用后提供 Agent 类型和高级配置 | Codex 默认工作流 |
 | CoreStudio 底部输入框 | 直接生成；实验开启后可发起 ACP Agent 任务 | Codex 中的任务 |
 | 左侧栏 | 默认显示生成记录；实验开启后显示 ACP thread、继续对话、工具调用和图片结果定位 | 应用设置、协议调试 |
 | Codex 内置画布 | 查看、选择、标注和确认写回结果 | 生成输入器、ACP 开关、服务商配置和并行任务调度 |
@@ -146,7 +147,7 @@ flowchart TD
 
 一个入口如果无法用一句话说清楚“它负责什么”，通常就说明它正在吸收不该吸收的功能。
 
-启停状态只有应用设置可以修改。菜单、欢迎页和状态浮窗都不能修改启停状态；它们也不能重新拼装 Bridge、Board 或 CLI 状态来替代统一的 `integration.collaboration` 展示模型。
+Codex 集成没有启停状态。菜单只负责打开应用设置，欢迎页和画布不再展示重复开关或状态浮窗。Codex 集成页面检测的是本机依赖是否完整，不把一次运行时连接包装成长期“已连接”状态。ACP 启停只存在于“实验性功能”。
 
 ## 架构分层
 
@@ -161,7 +162,7 @@ flowchart TD
 | Shared contracts | `src/shared/agentBridgeTypes.ts`、`projectRecordIntegrity.ts` | 跨进程类型、写入完整性规则 |
 | Renderer controllers | `src/app/agent/*Controller.ts`、`project/*Controller.ts` | 状态机、副作用编排、React setter 落点 |
 | View model / state model | `agentIntegrationViewModel.ts`、`generationRecordViewModel.ts` | 把底层状态整理成 UI 可消费的数据 |
-| UI components | `AgentConversationSidebar.tsx`、`GenerateImageDialog.tsx`、`AgentStatusDock.tsx` | 展示和用户交互，不直接解析协议 |
+| UI components | `ApplicationSettingsDialog.tsx`、`CodexIntegrationSettings.tsx`、`AgentConversationSidebar.tsx` | 展示和用户交互，不直接解析协议 |
 | Styles / tokens | `styles/designTokens.css`、feature CSS | 统一视觉语言，避免组件各自发明尺寸和字重 |
 
 `App.tsx` 的目标不是“没有逻辑”，而是只保留应用级 wiring：把 bridge、当前项目、controller、组件挂起来。任何可以单独测试的业务规则，都不应该继续留在 `App.tsx`。
@@ -251,7 +252,7 @@ ACP 初期最容易把 run log 当成用户历史。但用户需要的是：
 
 1. **画布能力尽量完整复用 Excalidraw。** Agent Board 保留画布本身，但不复制 CoreStudio 的生成输入器和任务调度入口。
 2. **侧边栏是历史和继续对话，不是调试面板。**
-3. **状态浮层是监看和快捷入口，不是设置页。**
+3. **不为 Codex 集成制造长期连接状态。** 依赖检测放在设置页，需要操作时给出明确指令。
 4. **项目健康报告要可解释。** 不只显示错误数量，还要说清楚对象、原因、影响和修复策略。
 5. **生成记录必须能定位。** 定位不了就是数据一致性问题，而不是用户自己去找。
 

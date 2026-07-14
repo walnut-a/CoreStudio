@@ -13,7 +13,6 @@ const ControllerProbe = ({
   open = true,
   persistent = false,
   focusToken = 0,
-  providerSettingsFocusToken = 0,
   effectiveComposerMode = "direct",
   error = null,
   isConfigured = true,
@@ -22,7 +21,6 @@ const ControllerProbe = ({
   open?: boolean;
   persistent?: boolean;
   focusToken?: number;
-  providerSettingsFocusToken?: number;
   effectiveComposerMode?: GenerateComposerMode;
   error?: string | null;
   isConfigured?: boolean;
@@ -38,7 +36,6 @@ const ControllerProbe = ({
     open,
     persistent,
     focusToken,
-    providerSettingsFocusToken,
     effectiveComposerMode,
     error,
     isConfigured,
@@ -82,25 +79,6 @@ describe("useGenerateDialogPanelController", () => {
 
     await waitFor(() => {
       expect(getState().advancedOpen).toBe(true);
-    });
-  });
-
-  it("opens provider settings and focuses the API key input from a focus token", async () => {
-    const { rerender } = render(<ControllerProbe />);
-
-    expect(getState()).toMatchObject({
-      advancedOpen: false,
-      apiSettingsOpen: false,
-    });
-
-    rerender(<ControllerProbe providerSettingsFocusToken={1} />);
-
-    await waitFor(() => {
-      expect(getState()).toMatchObject({
-        advancedOpen: true,
-        apiSettingsOpen: true,
-      });
-      expect(document.activeElement).toBe(screen.getByTestId("api-key"));
     });
   });
 

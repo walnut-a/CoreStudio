@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import type { AgentIntegrationViewModel } from "../agent/agentIntegrationViewModel";
-import { AgentStatusDock } from "./AgentStatusDock";
 import { AppErrorBanners } from "./AppErrorBanners";
 import { DesktopButton } from "./DesktopButton";
 
@@ -11,9 +9,7 @@ interface AgentBoardStartupPaneProps {
   actionLabel: string;
   startupError?: string | null;
   projectError?: string | null;
-  integration: AgentIntegrationViewModel;
   onAction: () => void | Promise<unknown>;
-  onOpenAgentSettings?: () => void;
 }
 
 export const AgentBoardStartupPane = ({
@@ -22,9 +18,7 @@ export const AgentBoardStartupPane = ({
   actionLabel,
   startupError = null,
   projectError = null,
-  integration,
   onAction,
-  onOpenAgentSettings,
 }: AgentBoardStartupPaneProps) => (
   <div className="image-board-app">
     <div className="welcome-pane">
@@ -44,9 +38,5 @@ export const AgentBoardStartupPane = ({
         </div>
       </div>
     </div>
-    <AgentStatusDock
-      integration={integration}
-      onOpenAgentSettings={onOpenAgentSettings}
-    />
   </div>
 );

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GenerateDialogAdvancedSettings } from "./GenerateDialogAdvancedSettings";
@@ -134,40 +134,12 @@ const renderAdvancedSettings = (
 };
 
 describe("GenerateDialogAdvancedSettings", () => {
-  it("keeps generation parameters before provider connection settings", () => {
+  it("只保留生成参数，不再内嵌服务连接设置", () => {
     const { container } = renderAdvancedSettings();
 
-    expect(
-      container.textContent?.indexOf(copy.generateDialog.provider),
-    ).toBeLessThan(
-      container.textContent?.indexOf(copy.generateDialog.apiKeySettings) ?? -1,
-    );
+    expect(container).toHaveTextContent(copy.generateDialog.provider);
+    expect(container).not.toHaveTextContent(copy.generateDialog.apiKeySettings);
     expect(screen.getByLabelText(copy.generateDialog.width)).toHaveValue(1024);
-    expect(
-      screen.getByRole("button", {
-        name: new RegExp(copy.generateDialog.apiKeySettings),
-      }),
-    ).toHaveTextContent("Gemini · 未配置");
-  });
-
-  it("forwards provider setting toggle events", () => {
-    const onToggleOpen = vi.fn();
-    const onStopInputEvent = vi.fn();
-    const baseProps = createAdvancedSettingsProps();
-    renderAdvancedSettings({
-      providerSettingsProps: {
-        ...baseProps.providerSettingsProps,
-        onToggleOpen,
-        onStopInputEvent,
-      },
-    });
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: new RegExp(copy.generateDialog.apiKeySettings),
-      }),
-    );
-
-    expect(onToggleOpen).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /连接与自定义模型/ })).toBeNull();
   });
 });

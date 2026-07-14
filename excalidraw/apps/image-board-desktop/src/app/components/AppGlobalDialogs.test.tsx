@@ -1,56 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE } from "../../shared/acpTypes";
-import type { AgentIntegrationViewModel } from "../agent/agentIntegrationViewModel";
 import type { GenerationErrorDetails } from "../generationErrorViewModel";
 import { AppGlobalDialogs } from "./AppGlobalDialogs";
-
-const integration: AgentIntegrationViewModel = {
-  readiness: "connected",
-  statusText: "Agent 已连接",
-  badgeText: "在线",
-  enabled: true,
-  connected: true,
-  collaboration: {
-    status: "ready",
-    statusText: "已可用",
-    description: "Codex 可以访问当前项目。",
-    projectName: "工业设计助手",
-  },
-  bridge: {
-    ready: true,
-    endpoint: "http://127.0.0.1:60909",
-    endpointLabel: "http://127.0.0.1:60909",
-    boardUrl: "http://127.0.0.1:5174/agent-board",
-    boardUrlReady: true,
-  },
-  project: {
-    open: true,
-    name: "工业设计助手",
-    path: "/Users/example/工业设计助手",
-    token: "project-token",
-  },
-  cli: {
-    available: true,
-    envCopyable: true,
-    statusText: "可自动发现当前会话",
-  },
-  board: {
-    available: true,
-    statusText: "可复制 Board 链接",
-  },
-  acp: {
-    experimentalEnabled: true,
-    configured: true,
-    enabled: true,
-    agentId: "codex",
-    agentName: "Codex ACP",
-    runningTaskId: null,
-    running: false,
-    statusText: "Codex ACP",
-  },
-};
 
 const generationErrorDetails: GenerationErrorDetails = {
   provider: "zenmux",
@@ -70,52 +22,16 @@ const createProps = (
     appInfo: { name: "CoreStudio", version: "9.8.7" },
     onClose: vi.fn(),
   },
-  agentSettings: {
+  appSettings: {
     open: false,
-    integration,
-    canToggleIntegration: true,
-    currentProjectPath: "/Users/example/current-project",
-    bridgeProjectPath: "/Users/example/bridge-project",
-    acpAgentDraft: {
-      enabled: true,
-      presetId: "codex-acp",
-      command: "npx",
-      args: "-y @agentclientprotocol/codex-acp",
-      cwd: "",
-      taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
-    },
-    selectedAcpAgent: {
-      id: "agent-1",
-      presetId: "codex-acp",
-      name: "Codex ACP",
-      command: "npx",
-      args: ["-y", "@agentclientprotocol/codex-acp"],
-      cwd: null,
-    },
-    acpAgentEditable: true,
-    acpAgentSaving: false,
-    acpExperimentalEnabled: false,
-    acpDebugOpen: false,
-    acpRunSummaries: [],
-    acpRunSummariesLoading: false,
-    acpRunSummariesError: null,
-    canReadAcpRunLogs: true,
+    activeCategory: "image-generation",
+    dirty: false,
     onClose: vi.fn(),
-    onIntegrationEnabledChange: vi.fn(),
-    onCopyBoardUrl: vi.fn(),
-    onOpenBoardUrl: vi.fn(),
-    onCopyCliEnvironment: vi.fn(),
-    onAcpAgentEnabledChange: vi.fn(),
-    onAcpAgentPresetChange: vi.fn(),
-    onAcpAgentCommandChange: vi.fn(),
-    onAcpAgentArgsChange: vi.fn(),
-    onAcpAgentCwdChange: vi.fn(),
-    onAcpTaskInstructionChange: vi.fn(),
-    onSaveAcpAgentSettings: vi.fn(),
-    onAcpExperimentalEnabledChange: vi.fn(),
-    onAcpDebugOpenChange: vi.fn(),
-    onRefreshAcpRunSummaries: vi.fn(),
-    onOpenAcpRunLog: vi.fn(),
+    onCategoryChange: vi.fn(),
+    onDiscardChanges: vi.fn(),
+    imageGenerationContent: <div>图像生成</div>,
+    codexIntegrationContent: <div>Codex 集成</div>,
+    experimentalContent: <div>实验性功能</div>,
   },
   acpRunLog: {
     open: false,

@@ -961,10 +961,6 @@ vi.mock("./components/ImageInspector", () => ({
     ),
 }));
 
-vi.mock("./components/ProvidersDialog", () => ({
-  ProvidersDialog: () => null,
-}));
-
 vi.mock("./components/ProjectMainMenu", () => ({
   ProjectMainMenu: ({
     currentProjectName,

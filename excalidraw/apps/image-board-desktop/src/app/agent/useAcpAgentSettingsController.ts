@@ -38,6 +38,7 @@ export interface AcpAgentSettingsController {
   setExperimentalEnabled: (enabled: boolean) => Promise<void>;
   setEnabledDraft: (enabled: boolean) => void;
   setPresetDraft: (presetId: AcpAgentPresetId) => void;
+  setPresetAndSave: (presetId: AcpAgentPresetId) => Promise<void>;
   setCommandDraft: (command: string) => void;
   setArgsDraft: (args: string) => void;
   setCwdDraft: (cwd: string) => void;
@@ -87,7 +88,7 @@ const createSettingsFromDraft = (
 
   return {
     experimentalEnabled,
-    enabled: Boolean(draft.enabled && command),
+    enabled: Boolean(experimentalEnabled && command),
     defaultAgentId: command ? "default" : null,
     taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
       draft.taskInstructionTemplate,
@@ -104,6 +105,23 @@ const createSettingsFromDraft = (
           },
         ]
       : [],
+  };
+};
+
+const applyPresetToDraft = (
+  current: AcpAgentSettingsDraft,
+  presetId: AcpAgentPresetId,
+): AcpAgentSettingsDraft => {
+  const preset = getAcpAgentPreset(presetId);
+  if (!preset) {
+    return { ...current, presetId };
+  }
+  return {
+    ...current,
+    presetId,
+    command: preset.command,
+    args: formatAcpAgentArgs(preset.args),
+    cwd: preset.cwd ?? "",
   };
 };
 
@@ -198,6 +216,7 @@ export const useAcpAgentSettingsController = (
           await bridge.saveAcpAgentSettings({
             ...settings,
             experimentalEnabled: enabled,
+            enabled: Boolean(enabled && settings.agents.length > 0),
           }),
         );
       } catch (error) {
@@ -215,24 +234,33 @@ export const useAcpAgentSettingsController = (
   );
 
   const setPresetDraft = useCallback((presetId: AcpAgentPresetId) => {
-    setDraft((current) => {
-      const preset = getAcpAgentPreset(presetId);
-      if (!preset) {
-        return {
-          ...current,
-          presetId,
-        };
-      }
-
-      return {
-        ...current,
-        presetId,
-        command: preset.command,
-        args: formatAcpAgentArgs(preset.args),
-        cwd: preset.cwd ?? "",
-      };
-    });
+    setDraft((current) => applyPresetToDraft(current, presetId));
   }, []);
+
+  const setPresetAndSave = useCallback(
+    async (presetId: AcpAgentPresetId) => {
+      if (!bridge?.saveAcpAgentSettings) {
+        throw new Error("当前环境不能保存 ACP Agent 设置。");
+      }
+      const nextDraft = {
+        ...applyPresetToDraft(draft, presetId),
+        enabled: settings.experimentalEnabled === true,
+      };
+      setDraft(nextDraft);
+      setSaving(true);
+      try {
+        syncDraftFromSettings(
+          await bridge.saveAcpAgentSettings(
+            createSettingsFromDraft(nextDraft, settings.experimentalEnabled === true),
+          ),
+        );
+      } catch (error) {
+        throw new Error(formatAcpAgentSettingsSaveError(error));
+      } finally {
+        setSaving(false);
+      }
+    }, [bridge, draft, settings.experimentalEnabled, syncDraftFromSettings],
+  );
 
   const setCommandDraft = useCallback((command: string) => {
     setDraft((current) => ({
@@ -258,6 +286,7 @@ export const useAcpAgentSettingsController = (
         enabled,
       })),
     setPresetDraft,
+    setPresetAndSave,
     setCommandDraft,
     setArgsDraft: (args) =>
       setDraft((current) => ({

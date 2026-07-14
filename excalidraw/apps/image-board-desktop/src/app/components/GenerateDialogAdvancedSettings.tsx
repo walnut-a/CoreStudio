@@ -10,10 +10,7 @@ interface GenerateDialogAdvancedSettingsProps {
 
 export const GenerateDialogAdvancedSettings = ({
   advancedFieldsProps,
-  providerSettingsProps,
+  providerSettingsProps: _providerSettingsProps,
 }: GenerateDialogAdvancedSettingsProps) => (
-  <>
-    <GenerateAdvancedFieldsPanel {...advancedFieldsProps} />
-    <GenerateProviderSettingsPanel {...providerSettingsProps} />
-  </>
+  <GenerateAdvancedFieldsPanel {...advancedFieldsProps} />
 );

@@ -15,23 +15,23 @@ describe("agent integration docs", () => {
     const architecture = readDoc(
       "apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md",
     );
-    const settingsSections = readDoc(
-      "apps/image-board-desktop/src/app/components/AgentIntegrationSettingsSections.tsx",
+    const codexSettings = readDoc(
+      "apps/image-board-desktop/src/app/components/CodexIntegrationSettings.tsx",
     );
 
     expect(product).toContain("任务发起位置决定调度者");
     expect(userGuide).toContain("在 Codex 中使用 CoreStudio");
     expect(userGuide).toContain("默认使用 Codex 自身的生图能力");
     expect(userGuide).toContain("实验性功能");
-    expect(userGuide).toContain("Codex 协作");
-    expect(userGuide).toContain("连接详情");
-    expect(userGuide).toContain("应用设置是唯一启停入口");
+    expect(userGuide).toContain("Codex 集成");
+    expect(userGuide).toContain("安装指令");
+    expect(userGuide).toContain("CLI、CoreStudio Skill 和会话发现能力");
     expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
     expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
     expect(architecture).toContain("CLI / Local Bridge");
-    expect(architecture).toContain("菜单、欢迎页和状态浮窗都不能修改启停状态");
-    expect(settingsSections).toContain("连接详情");
-    expect(settingsSections).not.toContain("acpExperimentalEnabled");
+    expect(architecture).toContain("Codex 集成没有启停状态");
+    expect(codexSettings).toContain("终端指令");
+    expect(codexSettings).toContain("打开当前 CoreStudio 项目");
   });
 
   it("documents the CLI examples needed by Agent workflows", () => {
@@ -113,9 +113,10 @@ describe("agent integration docs", () => {
       "apps/image-board-desktop/docs/agent-integration-qa-notes.md",
     );
     const screenshotSurfaces = [
-      "应用设置 Agent 集成首屏",
-      "设置高级调试折叠和展开",
-      "右下角 Agent 状态浮层",
+      "应用设置 · 图像生成",
+      "应用设置 · Codex 集成",
+      "应用设置 · 实验性功能",
+      "右下角无 Codex 状态浮层",
       "底部直接输入模式",
       "底部 ACP Agent 模式",
       "左侧生成记录列表",
@@ -126,7 +127,7 @@ describe("agent integration docs", () => {
 
     expect(qaNotes).toContain("# Agent Integration QA Notes");
     expect(qaNotes).toContain("## Screenshot Checklist");
-    expect(qaNotes).toContain("Status: checked");
+    expect(qaNotes).toContain("Status: needs-recheck");
     for (const surface of screenshotSurfaces) {
       expect(qaNotes).toContain(surface);
     }

@@ -153,12 +153,53 @@ describe("useAcpAgentSettingsController", () => {
     expect(saveAcpAgentSettings).toHaveBeenCalledWith({
       ...existingSettings,
       experimentalEnabled: false,
+      enabled: false,
     });
     expect(getState()).toMatchObject({
       experimentalEnabled: false,
       command: "gemini",
       args: "--acp",
       cwd: "/tmp/project",
+    });
+  });
+
+  it("single experimental toggle also controls the ACP runtime", async () => {
+    const existingSettings: AcpAgentSettings = {
+      experimentalEnabled: false,
+      enabled: false,
+      defaultAgentId: "agent-1",
+      agents: [
+        {
+          id: "agent-1",
+          presetId: "codex-acp",
+          name: "Codex ACP",
+          command: "npx",
+          args: ["-y", "@agentclientprotocol/codex-acp"],
+          cwd: null,
+        },
+      ],
+    };
+    const saveAcpAgentSettings = vi.fn(
+      async (settings: AcpAgentSettings) => settings,
+    );
+    const bridge = {
+      loadAcpAgentSettings: vi.fn(async () => existingSettings),
+      saveAcpAgentSettings,
+    } as unknown as DesktopBridgeApi;
+
+    render(<ControllerProbe bridge={bridge} />);
+    await act(async () => controller?.load());
+    await act(async () => controller?.setExperimentalEnabled(true));
+
+    expect(saveAcpAgentSettings).toHaveBeenLastCalledWith(expect.objectContaining({
+      experimentalEnabled: true,
+      enabled: true,
+      defaultAgentId: "agent-1",
+      agents: existingSettings.agents,
+    }));
+    expect(getState()).toMatchObject({
+      experimentalEnabled: true,
+      enabled: true,
     });
   });
 
@@ -202,7 +243,7 @@ describe("useAcpAgentSettingsController", () => {
     await waitFor(() => {
       expect(saveAcpAgentSettings).toHaveBeenCalledWith({
         experimentalEnabled: false,
-        enabled: true,
+        enabled: false,
         defaultAgentId: "default",
         taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
         agents: [

@@ -60,6 +60,12 @@
       "dist-electron/**/*",
       "bin/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "resources/codex-integration",
+        "to": "codex-integration"
+      }
+    ],
     "mac": {
       "category": "public.app-category.graphics-design",
       "identity": "junyan liu (CUP682RD2S)",

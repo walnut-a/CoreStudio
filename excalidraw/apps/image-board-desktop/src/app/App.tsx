@@ -136,13 +136,20 @@ import { useProjectAutosaveWiring } from "./useProjectAutosaveWiring";
 import { useAcpAgentWiring } from "./useAcpAgentWiring";
 import { useAgentBridgeWiring } from "./useAgentBridgeWiring";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
-import { AgentStatusDock } from "./components/AgentStatusDock";
 import { AgentBoardStartupPane } from "./components/AgentBoardStartupPane";
 import { AppBridgeUnavailable } from "./components/AppBridgeUnavailable";
 import { AgentConversationSidebar } from "./components/AgentConversationSidebar";
 import { InspectorSidebar } from "./components/InspectorSidebar";
 import { AppErrorBanners } from "./components/AppErrorBanners";
 import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
+import {
+  type ApplicationSettingsCategory,
+} from "./components/ApplicationSettingsDialog";
+import { ImageGenerationSettings } from "./components/ImageGenerationSettings";
+import { CodexIntegrationSettings } from "./components/CodexIntegrationSettings";
+import { ExperimentalFeaturesSettingsSection } from "./components/ExperimentalFeaturesSettingsSection";
+import { AcpAgentSettingsPanel } from "./components/AcpAgentSettingsPanel";
+import { AcpDebugSettingsPanel } from "./components/AcpDebugSettingsPanel";
 import { AppProjectEntryScreen } from "./components/AppProjectEntryScreen";
 import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
@@ -164,8 +171,6 @@ import {
 import {
   buildAgentIntegrationRuntimeViewModel,
 } from "./agent/agentIntegrationViewModel";
-import { createAgentIntegrationCopyShortcutRendererActions } from "./agent/agentIntegrationCopyShortcut";
-import { createAgentIntegrationSettingsDialogRendererActions } from "./agent/agentIntegrationSettingsDialogRendererActions";
 import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
 import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
 import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
@@ -173,7 +178,6 @@ import { handleAgentDesktopBridgeRequest } from "./agent/agentDesktopBridgeReque
 import { canStartAcpAgentTask } from "./agent/acpTaskStarter";
 import { createAcpTaskStartRendererActions } from "./agent/acpTaskStartController";
 import {
-  getRunningAcpAgentTaskId,
   isAcpAgentTaskRunning,
 } from "./agent/acpTaskUiState";
 import { createAcpTaskEventSubscriptionRendererActions } from "./agent/acpTaskEventSubscriptionController";
@@ -196,7 +200,6 @@ import {
   createGenerateDialogReferenceRendererActions,
 } from "./generateDialogReferenceController";
 import {
-  createAcpAgentSettingsRendererActions,
   useAcpAgentSettingsController,
 } from "./agent/useAcpAgentSettingsController";
 import { useAcpAgentTaskStateController } from "./agent/useAcpAgentTaskStateController";
@@ -206,7 +209,6 @@ import {
 import { createAgentBrowserAutoOpenProjectRendererActions } from "./agent/agentBrowserAutoOpenController";
 import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
 import {
-  canSetAgentBridgeEnabled,
   getProjectAgentAccessToken,
   notifyAgentBridgeProjectState,
 } from "./agent/agentBridgeStatus";
@@ -421,8 +423,7 @@ const App = () => {
     load: loadAcpAgentSettingsState,
     save: saveAcpAgentSettingsState,
     setExperimentalEnabled: setAcpExperimentalEnabled,
-    setEnabledDraft: setAcpAgentEnabledDraft,
-    setPresetDraft: setAcpAgentPresetDraft,
+    setPresetAndSave: setAcpAgentPresetAndSave,
     setCommandDraft: setAcpAgentCommandDraft,
     setArgsDraft: setAcpAgentArgsDraft,
     setCwdDraft: setAcpAgentCwdDraft,
@@ -486,14 +487,6 @@ const App = () => {
   );
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
-  const acpAgentSettingsRendererActions = useMemo(
-    () =>
-      createAcpAgentSettingsRendererActions({
-        saveSettings: saveAcpAgentSettingsState,
-        setProjectError,
-      }),
-    [saveAcpAgentSettingsState, setProjectError],
-  );
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
@@ -516,10 +509,14 @@ const App = () => {
     [setProjectError],
   );
   const [generateFocusToken, setGenerateFocusToken] = useState(0);
-  const [providerSettingsFocusToken, setProviderSettingsFocusToken] = useState(0);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [appSettingsCategory, setAppSettingsCategory] =
+    useState<ApplicationSettingsCategory>("image-generation");
+  const [appSettingsDirty, setAppSettingsDirty] = useState(false);
+  const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
+  const [acpAdvancedSettingsOpen, setAcpAdvancedSettingsOpen] = useState(false);
   const agentSurfaceVisibilityController =
     useAgentSurfaceVisibilityController();
   const {
@@ -1130,33 +1127,6 @@ const App = () => {
       clearProjectNotice: projectNoticeRendererActions.clear,
     });
 
-  const agentIntegrationCopyShortcutRendererActions =
-    createAgentIntegrationCopyShortcutRendererActions({
-      getBridgeStatus: () => agentBridgeStatus,
-      getAcpAgentSettings: () => acpAgentSettings,
-      getRunningTaskId: () => getRunningAcpAgentTaskId(acpAgentTask),
-      refreshBridgeStatus: agentBridgeStatusRendererActions.loadStatus,
-      copyText: clipboardTextRendererActions.copy,
-      onSuccess: projectNoticeRendererActions.show,
-      onError: setProjectError,
-    });
-
-  const agentIntegrationSettingsDialogActions =
-    createAgentIntegrationSettingsDialogRendererActions({
-      close: () => setAppSettingsOpen(false),
-      setIntegrationEnabled: agentBridgeStatusRendererActions.setEnabled,
-      copyBoardUrl: agentIntegrationCopyShortcutRendererActions.copyBoardUrl,
-      getBoardUrl: () => agentIntegration.bridge.boardUrl,
-      openExternalUrl: (url, target) => window.open(url, target),
-      copyCliEnvironment:
-        agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
-      saveAcpAgentSettings: acpAgentSettingsRendererActions.save,
-      setAcpExperimentalEnabled,
-      setAcpDebugOpen,
-      refreshAcpRunSummaries: loadAcpRunSummariesState,
-      openAcpRunLog: acpRunLogRendererActions.open,
-    });
-
   const agentBrowserBridgeStatusRetryLoopRendererActions =
     createAgentBrowserBridgeStatusRetryLoopRendererActions({
       refreshConnection: ({ canApply }) =>
@@ -1703,8 +1673,10 @@ const App = () => {
       cleanProjectCache: projectMaintenanceRendererActions.cleanCache,
       importImages: projectImageImportRendererActions.importImages,
       openGenerateDialog: generateDialogReferenceRendererActions.open,
-      focusProviderSettings: () =>
-        setProviderSettingsFocusToken((current) => current + 1),
+      focusProviderSettings: () => {
+        setAppSettingsCategory("image-generation");
+        setAppSettingsOpen(true);
+      },
       openAppSettings: () => setAppSettingsOpen(true),
       setAgentBridgeEnabled: agentBridgeStatusRendererActions.setEnabled,
       revealProject: currentProjectEntryRendererActions.revealProject,
@@ -1806,45 +1778,129 @@ const App = () => {
         appInfo,
         onClose: () => setAboutOpen(false),
       }}
-      agentSettings={{
+      appSettings={{
         open: appSettingsOpen,
-        integration: agentIntegration,
-        canToggleIntegration:
-          canSetAgentBridgeEnabled(bridge) && !isAgentBrowserRoute,
-        currentProjectPath: currentProject?.projectPath ?? null,
-        bridgeProjectPath: agentBridgeStatus?.currentProject?.projectPath ?? null,
-        acpAgentDraft: acpAgentSettingsDraft,
-        selectedAcpAgent,
-        acpAgentEditable: acpAgentSettingsEditable,
-        acpAgentSaving: savingAcpAgentSettings,
-        acpExperimentalEnabled,
-        acpDebugOpen,
-        acpRunSummaries,
-        acpRunSummariesLoading,
-        acpRunSummariesError,
-        canReadAcpRunLogs,
-        onClose: agentIntegrationSettingsDialogActions.close,
-        onIntegrationEnabledChange:
-          agentIntegrationSettingsDialogActions.setIntegrationEnabled,
-        onCopyBoardUrl: agentIntegrationSettingsDialogActions.copyBoardUrl,
-        onOpenBoardUrl: agentIntegrationSettingsDialogActions.openBoardUrl,
-        onCopyCliEnvironment:
-          agentIntegrationSettingsDialogActions.copyCliEnvironment,
-        onAcpAgentEnabledChange: setAcpAgentEnabledDraft,
-        onAcpAgentPresetChange: setAcpAgentPresetDraft,
-        onAcpAgentCommandChange: setAcpAgentCommandDraft,
-        onAcpAgentArgsChange: setAcpAgentArgsDraft,
-        onAcpAgentCwdChange: setAcpAgentCwdDraft,
-        onAcpTaskInstructionChange: setAcpTaskInstructionDraft,
-        onSaveAcpAgentSettings:
-          agentIntegrationSettingsDialogActions.saveAcpAgentSettings,
-        onAcpExperimentalEnabledChange:
-          agentIntegrationSettingsDialogActions.setAcpExperimentalEnabled,
-        onAcpDebugOpenChange:
-          agentIntegrationSettingsDialogActions.setAcpDebugOpen,
-        onRefreshAcpRunSummaries:
-          agentIntegrationSettingsDialogActions.refreshAcpRunSummaries,
-        onOpenAcpRunLog: agentIntegrationSettingsDialogActions.openAcpRunLog,
+        activeCategory: appSettingsCategory,
+        dirty: appSettingsDirty,
+        onCategoryChange: (category) => {
+          setAcpAdvancedSettingsOpen(false);
+          setAppSettingsCategory(category);
+        },
+        onDiscardChanges: () => {
+          setAppSettingsDirty(false);
+          setAppSettingsDiscardToken((current) => current + 1);
+          void loadAcpAgentSettingsState();
+        },
+        onClose: () => setAppSettingsOpen(false),
+        imageGenerationContent: (
+          <ImageGenerationSettings
+            providerSettings={providerSettings}
+            currentProvider={generateRequest.provider}
+            currentModel={generateRequest.model}
+            saving={savingProviders}
+            discardToken={appSettingsDiscardToken}
+            onCurrentSelectionChange={(provider, model) => {
+              generationModelSelectionRendererActions.rememberSelection({
+                provider,
+                model,
+              });
+              generationRequestRendererActions.changeRequest({
+                ...generateRequest,
+                provider,
+                model,
+              });
+            }}
+            onSave={async (input) => {
+              await providerSettingsRendererActions.saveSettings(input);
+            }}
+            onDirtyChange={setAppSettingsDirty}
+          />
+        ),
+        codexIntegrationContent: (
+          <CodexIntegrationSettings
+            open={appSettingsOpen && appSettingsCategory === "codex-integration"}
+            inspect={() => {
+              if (!desktopBridge.inspectCodexIntegration) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持检测 Codex 集成。"),
+                );
+              }
+              return desktopBridge.inspectCodexIntegration();
+            }}
+            copyText={clipboardTextRendererActions.copy}
+          />
+        ),
+        experimentalContent: acpAdvancedSettingsOpen ? (
+          <AcpAgentSettingsPanel
+            draft={acpAgentSettingsDraft}
+            selectedAgent={selectedAcpAgent}
+            editable={acpAgentSettingsEditable}
+            saving={savingAcpAgentSettings}
+            defaultCwd={
+              currentProject?.projectPath ??
+              agentBridgeStatus?.currentProject?.projectPath ??
+              "当前项目目录"
+            }
+            onBack={() => {
+              setAcpAdvancedSettingsOpen(false);
+            }}
+            onCommandChange={(value) => {
+              setAcpAgentCommandDraft(value);
+              setAppSettingsDirty(true);
+            }}
+            onArgsChange={(value) => {
+              setAcpAgentArgsDraft(value);
+              setAppSettingsDirty(true);
+            }}
+            onCwdChange={(value) => {
+              setAcpAgentCwdDraft(value);
+              setAppSettingsDirty(true);
+            }}
+            onTaskInstructionChange={(value) => {
+              setAcpTaskInstructionDraft(value);
+              setAppSettingsDirty(true);
+            }}
+            onSave={() => {
+              void saveAcpAgentSettingsState()
+                .then(() => setAppSettingsDirty(false))
+                .catch((error) => {
+                  setProjectError(error instanceof Error ? error.message : String(error));
+                });
+            }}
+            debugContent={
+              <AcpDebugSettingsPanel
+                open={acpDebugOpen}
+                summaries={acpRunSummaries}
+                loading={acpRunSummariesLoading}
+                error={acpRunSummariesError}
+                canReadRunLogs={canReadAcpRunLogs}
+                onOpenChange={setAcpDebugOpen}
+                onRefresh={() => void loadAcpRunSummariesState()}
+                onOpenRunLog={(taskId) => {
+                  void acpRunLogRendererActions.open(taskId);
+                }}
+              />
+            }
+          />
+        ) : (
+          <ExperimentalFeaturesSettingsSection
+            acpEnabled={acpExperimentalEnabled}
+            disabled={!acpAgentSettingsEditable}
+            saving={savingAcpAgentSettings}
+            presetId={acpAgentSettingsDraft.presetId}
+            onAcpEnabledChange={(enabled) => {
+              void setAcpExperimentalEnabled(enabled).catch((error) => {
+                setProjectError(error instanceof Error ? error.message : String(error));
+              });
+            }}
+            onPresetChange={(presetId) => {
+              void setAcpAgentPresetAndSave(presetId).catch((error) => {
+                setProjectError(error instanceof Error ? error.message : String(error));
+              });
+            }}
+            onOpenAdvanced={() => setAcpAdvancedSettingsOpen(true)}
+          />
+        ),
       }}
       acpRunLog={{
         open: acpRunLogDialogOpen,
@@ -1893,9 +1949,7 @@ const App = () => {
         actionLabel={agentBoardStartupPlan.viewModel.actionLabel}
         startupError={startupError}
         projectError={projectError}
-        integration={agentIntegration}
         onAction={agentBridgeStatusRendererActions.refreshBrowserConnectionStatus}
-        onOpenAgentSettings={() => setAppSettingsOpen(true)}
       />
     );
   }
@@ -1913,9 +1967,6 @@ const App = () => {
         onRemoveRecentProject={desktopStartupRendererActions.removeRecentProject}
         onRevealProject={revealProjectFromList}
         manualProjectActionsVisible={!isAgentBrowserRoute}
-        showAgentStatusDock={isAgentBrowserRoute}
-        integration={agentIntegration}
-        onOpenAgentSettings={() => setAppSettingsOpen(true)}
         globalDialogs={globalDialogs}
       />
     );
@@ -2060,10 +2111,6 @@ const App = () => {
                 acpConversationMessageRendererActions.submitMessage
               }
             />
-            <AgentStatusDock
-              integration={agentIntegration}
-              onOpenAgentSettings={() => setAppSettingsOpen(true)}
-            />
             <WorkspaceBoundsOverlay
               state={workspaceOverlayState}
               pulsing={workspaceFitPulse}
@@ -2081,7 +2128,6 @@ const App = () => {
           initialRequest={generateRequest}
           providerSettings={providerSettings}
           savingProviderSettings={savingProviders}
-          providerSettingsFocusToken={providerSettingsFocusToken}
           loading={pendingGenerationCount > 0}
           error={generationError}
           onOpenErrorDetails={
@@ -2112,9 +2158,6 @@ const App = () => {
           onDeletePrompt={(id) => {
             void savedPromptLibraryRendererActions.deletePrompt(id);
           }}
-          onSaveProviderSettings={(settings) =>
-            providerSettingsRendererActions.saveSettings(settings)
-          }
           onSubmit={generationSubmitRendererActions.submit}
         />
       ) : null}

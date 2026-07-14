@@ -73,6 +73,8 @@ const desktopBridge: DesktopBridgeApi = {
   revealProjectInFinder: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.revealProjectInFinder, projectPath),
   loadAppInfo: () => ipcRenderer.invoke(IPC_CHANNELS.loadAppInfo),
+  inspectCodexIntegration: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.inspectCodexIntegration),
   loadProviderSettings: () =>
     ipcRenderer.invoke(IPC_CHANNELS.loadProviderSettings),
   saveProviderSettings: (input) =>

@@ -628,6 +628,7 @@ const App = () => {
   const agentConversationSurface = useMemo(
     () =>
       buildAgentConversationSurfaceState({
+        acpExperimentalEnabled: agentIntegration.acp.experimentalEnabled,
         generationSource,
         acpRunLogSurface,
         acpAgentTaskRunning,
@@ -636,6 +637,7 @@ const App = () => {
       }),
     [
       acpAgentTaskRunning,
+      agentIntegration.acp.experimentalEnabled,
       acpRunLogDetail,
       acpRunLogError,
       acpRunLogSurface,

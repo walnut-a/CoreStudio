@@ -35,6 +35,7 @@ const createBridgeStatus = (
 const createAcpSettings = (
   patch: Partial<AcpAgentSettings> = {},
 ): AcpAgentSettings => ({
+  experimentalEnabled: true,
   enabled: true,
   defaultAgentId: "default",
   agents: [
@@ -162,6 +163,35 @@ describe("buildAgentIntegrationViewModel", () => {
     expect(viewModel.acp.running).toBe(true);
     expect(viewModel.acp.runningTaskId).toBe("acp-task-1");
     expect(viewModel.acp.statusText).toBe("任务运行中");
+  });
+
+  it("preserves ACP configuration without exposing runtime readiness while the experiment is off", () => {
+    const integration = buildAgentIntegrationViewModel({
+      bridgeStatus: createBridgeStatus(),
+      acpAgentSettings: createAcpSettings({ experimentalEnabled: false }),
+      runningTaskId: "acp-task-hidden",
+    });
+    const acpGeneration = buildAcpAgentGenerationViewModel({
+      integration,
+      isAgentBrowserRoute: false,
+      canStartAcpAgentTask: true,
+      taskRunning: true,
+      agentTaskStatus: {
+        taskId: "acp-task-hidden",
+        status: "running",
+        message: "任务运行中",
+      },
+    });
+
+    expect(integration.acp).toMatchObject({
+      experimentalEnabled: false,
+      configured: true,
+      enabled: false,
+      runningTaskId: null,
+      running: false,
+    });
+    expect(acpGeneration.ready).toBe(false);
+    expect(acpGeneration.composerConfig.showModeSwitch).toBe(false);
   });
 });
 

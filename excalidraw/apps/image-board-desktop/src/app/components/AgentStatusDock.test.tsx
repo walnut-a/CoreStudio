@@ -28,6 +28,7 @@ const createBridgeStatus = (
 const createAcpSettings = (
   patch: Partial<AcpAgentSettings> = {},
 ): AcpAgentSettings => ({
+  experimentalEnabled: true,
   enabled: true,
   defaultAgentId: "default",
   agents: [
@@ -122,9 +123,33 @@ describe("AgentStatusDock", () => {
     expect(screen.getByText("未启动")).toBeInTheDocument();
     expect(screen.getByText("等待 Board 链接")).toBeInTheDocument();
     expect(screen.getByText("开启连接后可发现")).toBeInTheDocument();
-    expect(screen.getByText("未配置")).toBeInTheDocument();
+    expect(screen.queryByText("ACP Agent")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制 Board 链接" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "复制 CLI 环境变量" })).toBeDisabled();
+  });
+
+  it("hides ACP status and conversation actions while the experiment is disabled", () => {
+    render(
+      <AgentStatusDock
+        integration={buildAgentIntegrationViewModel({
+          bridgeStatus: createBridgeStatus(),
+          acpAgentSettings: createAcpSettings({ experimentalEnabled: false }),
+        })}
+        onCopyAgentBoardUrl={vi.fn()}
+        onCopyCliEnvironment={vi.fn()}
+        onRefreshStatus={vi.fn()}
+        onOpenAgentSettings={vi.fn()}
+        onOpenAgentConversation={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Agent 连接状态" }));
+
+    expect(screen.queryByText("ACP Agent")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "打开 Agent 对话" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开设置" })).toBeInTheDocument();
   });
 
   it("distinguishes a connected bridge from an opened project", () => {

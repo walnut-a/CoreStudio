@@ -1,5 +1,6 @@
 import {
   getSelectedAcpAgent,
+  isAcpExperimentalFeatureEnabled,
   normalizeAcpAgentSettings,
   type AcpAgentSettings,
 } from "../../shared/acpTypes";
@@ -41,6 +42,7 @@ export interface AgentIntegrationViewModel {
     statusText: string;
   };
   acp: {
+    experimentalEnabled: boolean;
     configured: boolean;
     enabled: boolean;
     agentId: string | null;
@@ -246,9 +248,12 @@ export const buildAgentIntegrationViewModel = ({
   const selectedAgent = acpAgentSettings
     ? getSelectedAcpAgent(acpAgentSettings)
     : null;
+  const acpExperimentalEnabled = normalizedAcpSettings
+    ? isAcpExperimentalFeatureEnabled(normalizedAcpSettings)
+    : false;
   const acpConfigured = Boolean(normalizedAcpSettings?.defaultAgentId);
-  const acpEnabled = Boolean(normalizedAcpSettings?.enabled && selectedAgent);
-  const acpRunning = Boolean(runningTaskId);
+  const acpEnabled = Boolean(acpExperimentalEnabled && selectedAgent);
+  const acpRunning = Boolean(acpEnabled && runningTaskId);
 
   return {
     readiness,
@@ -284,11 +289,12 @@ export const buildAgentIntegrationViewModel = ({
         : "等待 Board 链接",
     },
     acp: {
+      experimentalEnabled: acpExperimentalEnabled,
       configured: acpConfigured,
       enabled: acpEnabled,
       agentId: selectedAgent?.id ?? null,
       agentName: selectedAgent?.name ?? null,
-      runningTaskId,
+      runningTaskId: acpRunning ? runningTaskId : null,
       running: acpRunning,
       statusText: getAcpStatusText({
         configured: acpConfigured,

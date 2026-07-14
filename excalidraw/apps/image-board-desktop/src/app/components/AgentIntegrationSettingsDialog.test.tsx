@@ -37,6 +37,7 @@ const integration: AgentIntegrationViewModel = {
     statusText: "可复制 Board 链接",
   },
   acp: {
+    experimentalEnabled: true,
     configured: true,
     enabled: true,
     agentId: "codex",

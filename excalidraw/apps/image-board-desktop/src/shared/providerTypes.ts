@@ -4,7 +4,8 @@ export type ProviderId =
   | "fal"
   | "jimeng"
   | "openai"
-  | "openrouter";
+  | "openrouter"
+  | "openai-compatible";
 
 export type GenerationSource = "builtin" | "agent";
 
@@ -173,6 +174,8 @@ export interface GenerationResponse {
 
 export interface ProviderSettings {
   apiKey: string;
+  displayName?: string;
+  baseUrl?: string;
   defaultModel?: string;
   customModels?: CustomProviderModel[];
   lastStatus?: "unknown" | "success" | "error";

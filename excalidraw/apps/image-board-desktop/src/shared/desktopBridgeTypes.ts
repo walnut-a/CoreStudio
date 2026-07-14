@@ -52,6 +52,7 @@ export const IPC_CHANNELS = {
   inspectCodexIntegration: "image-board:inspect-codex-integration",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
+  deleteProviderSettings: "image-board:delete-provider-settings",
   loadPromptLibrary: "image-board:load-prompt-library",
   savePrompt: "image-board:save-prompt",
   deleteSavedPrompt: "image-board:delete-saved-prompt",
@@ -270,11 +271,23 @@ export type PublicProviderSettings = Record<
   Omit<ProviderSettings, "apiKey"> & { isConfigured: boolean }
 >;
 
+export interface ProviderConfigurationSnapshot {
+  schemaVersion: 2;
+  defaultProvider: ProviderId | null;
+  providers: PublicProviderSettings;
+}
+
 export interface SaveProviderSettingsInput {
   provider: ProviderId;
   apiKey: string;
+  displayName?: string;
+  baseUrl?: string;
   defaultModel?: string;
   customModels?: ProviderSettings["customModels"];
+}
+
+export interface DeleteProviderSettingsInput {
+  provider: ProviderId;
 }
 
 export type CodexIntegrationCheckId = "cli" | "skill" | "compatibility";
@@ -381,10 +394,13 @@ export interface DesktopBridgeApi {
   revealProjectInFinder(projectPath: string): Promise<void>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;
-  loadProviderSettings(): Promise<PublicProviderSettings>;
+  loadProviderSettings(): Promise<ProviderConfigurationSnapshot>;
   saveProviderSettings(
     input: SaveProviderSettingsInput,
-  ): Promise<PublicProviderSettings>;
+  ): Promise<ProviderConfigurationSnapshot>;
+  deleteProviderSettings(
+    input: DeleteProviderSettingsInput,
+  ): Promise<ProviderConfigurationSnapshot>;
   loadPromptLibrary(): Promise<SavedPrompt[]>;
   savePrompt(input: SavePromptInput): Promise<SavedPrompt[]>;
   deleteSavedPrompt(id: string): Promise<SavedPrompt[]>;

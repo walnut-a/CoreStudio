@@ -40,7 +40,7 @@ collaboration: {
 
 设置页和状态浮窗只能消费该字段表达总体结论，不能自行重新判断 Bridge、CLI 或 Board 状态。
 
-- [ ] **步骤 1：先写四种状态的失败测试**
+- [x] **步骤 1：先写四种状态的失败测试**
 
 ```ts
 expect(disabled.collaboration).toEqual({
@@ -72,7 +72,7 @@ expect(unavailable.collaboration).toEqual({
 });
 ```
 
-- [ ] **步骤 2：运行测试确认失败**
+- [x] **步骤 2：运行测试确认失败**
 
 ```bash
 corepack yarn vitest apps/image-board-desktop/src/app/agent/agentIntegrationViewModel.test.ts --run
@@ -80,7 +80,7 @@ corepack yarn vitest apps/image-board-desktop/src/app/agent/agentIntegrationView
 
 预期：FAIL，提示 `collaboration` 不存在。
 
-- [ ] **步骤 3：实现展示模型**
+- [x] **步骤 3：实现展示模型**
 
 ```ts
 const buildCodexCollaborationPresentation = ({
@@ -132,7 +132,7 @@ collaboration: buildCodexCollaborationPresentation({
 }),
 ```
 
-- [ ] **步骤 4：运行测试确认通过并提交**
+- [x] **步骤 4：运行测试确认通过并提交**
 
 运行步骤 2 的命令，预期该测试文件全部 PASS。
 
@@ -161,7 +161,7 @@ git commit -m "重构：统一 Codex 协作状态展示"
 - `WelcomePane` 和 `AppProjectEntryScreen` 删除 `agentAccessEnabled`、`onAgentAccessToggle`、`agentAccessToggleDisabled`。
 - 设置对话框的 `onIntegrationEnabledChange` 保持不变，继续作为唯一写入口。
 
-- [ ] **步骤 1：把测试改成唯一入口规则并确认失败**
+- [x] **步骤 1：把测试改成唯一入口规则并确认失败**
 
 `menu.test.ts` 对 macOS 和非 macOS 都断言：
 
@@ -187,7 +187,7 @@ corepack yarn vitest apps/image-board-desktop/electron/menu.test.ts apps/image-b
 
 预期：FAIL，菜单和欢迎页仍能找到旧开关。
 
-- [ ] **步骤 2：移除菜单写入口**
+- [x] **步骤 2：移除菜单写入口**
 
 ```ts
 const appSettingsItems: MenuItemConstructorOptions[] = [
@@ -201,11 +201,11 @@ const appSettingsItems: MenuItemConstructorOptions[] = [
 
 删除 checkbox、`set-agent-bridge-enabled` 菜单事件构造、`agentAccessEnabled` option，并在 `main.ts` 调用处只传 `platform`。
 
-- [ ] **步骤 3：移除欢迎页写入口**
+- [x] **步骤 3：移除欢迎页写入口**
 
 删除 `WelcomePane` 中的 `.welcome-pane__agent-access` 区块及三个 props；从 `AppProjectEntryScreen` 和 `App.tsx` 向上清理 props。确认无其他引用后删除 `copy.menu.allowAgentAccess`。
 
-- [ ] **步骤 4：运行测试确认通过并提交**
+- [x] **步骤 4：运行测试确认通过并提交**
 
 运行步骤 1 的命令，预期三组测试全部 PASS，设置对话框仍能切换集成。
 
@@ -231,7 +231,7 @@ git commit -m "优化：统一 Codex 协作启停入口"
 - 删除 `acpExperimentalEnabled`；实验性 ACP 继续由 `ExperimentalFeaturesSettingsSection` 独立管理。
 - 主开关 aria-label 改为“启用 Codex 协作”。
 
-- [ ] **步骤 1：用测试锁定简化结构并确认失败**
+- [x] **步骤 1：用测试锁定简化结构并确认失败**
 
 ```ts
 expect(screen.getByRole("heading", { name: "Codex 协作" })).toBeInTheDocument();
@@ -255,7 +255,7 @@ corepack yarn vitest apps/image-board-desktop/src/app/components/AgentIntegratio
 
 预期：FAIL，旧矩阵、路径卡和旧开关名称仍存在。
 
-- [ ] **步骤 2：实现新的默认层**
+- [x] **步骤 2：实现新的默认层**
 
 ```tsx
 <section
@@ -287,11 +287,11 @@ corepack yarn vitest apps/image-board-desktop/src/app/components/AgentIntegratio
 </section>
 ```
 
-- [ ] **步骤 3：把技术信息移入默认收起的连接详情**
+- [x] **步骤 3：把技术信息移入默认收起的连接详情**
 
 使用 `<details className="app-settings-connection-details">`，summary 为“连接详情”，内部只保留当前项目、Bridge、CLI、网页画布状态，以及复制环境变量、复制链接、打开画布动作。删除 `agentUsagePaths`、状态矩阵和独立网页画布/CLI section。
 
-- [ ] **步骤 4：删除失效样式并补齐简化样式**
+- [x] **步骤 4：删除失效样式并补齐简化样式**
 
 删除 `.app-settings-status-grid*`、`.app-settings-use-path*`、`.app-settings-cli-list*`，新增：
 
@@ -315,7 +315,7 @@ corepack yarn vitest apps/image-board-desktop/src/app/components/AgentIntegratio
 }
 ```
 
-- [ ] **步骤 5：运行测试确认通过并提交**
+- [x] **步骤 5：运行测试确认通过并提交**
 
 运行步骤 1 的命令，预期全部 PASS。
 
@@ -348,7 +348,7 @@ interface AgentStatusDockProps {
 }
 ```
 
-- [ ] **步骤 1：写轻量浮窗失败测试**
+- [x] **步骤 1：写轻量浮窗失败测试**
 
 ```ts
 expect(screen.getByRole("region", { name: "Codex 协作状态" })).toBeInTheDocument();
@@ -371,11 +371,11 @@ corepack yarn vitest apps/image-board-desktop/src/app/components/AgentStatusDock
 
 预期：FAIL，旧技术信息和快捷动作仍存在。
 
-- [ ] **步骤 2：收敛浮窗内容和 props**
+- [x] **步骤 2：收敛浮窗内容和 props**
 
 浮窗只渲染 `integration.collaboration.statusText`、description、可选项目名称和“打开设置”。删除 ACP 卡片、路径、Bridge、CLI、Board、复制、刷新和对话按钮。触发器 aria-label 改为“Codex 协作状态”。
 
-- [ ] **步骤 3：删除不再需要的 dock actions 中间层**
+- [x] **步骤 3：删除不再需要的 dock actions 中间层**
 
 删除 `agentStatusDockRendererActions` 及测试。`App.tsx` 中：
 
@@ -384,11 +384,11 @@ corepack yarn vitest apps/image-board-desktop/src/app/components/AgentStatusDock
 - `AppProjectEntryScreen` 和 `AgentBoardStartupPane` 删除复制、刷新 props。
 - 设置页继续保留 `agentIntegrationCopyShortcutRendererActions`，供连接详情使用。
 
-- [ ] **步骤 4：缩小浮窗视觉重量**
+- [x] **步骤 4：缩小浮窗视觉重量**
 
 保留当前画布 footer 锚点，重新定位其产品职责而不是新增第二个画布入口；把 popover 宽度从 `300px` 缩小到 `260px`，删除 source、routes、path 和多按钮样式，只保留一个状态块和一个右对齐动作，避免与 Excalidraw 工具栏产生新的位置冲突。
 
-- [ ] **步骤 5：运行测试确认通过并提交**
+- [x] **步骤 5：运行测试确认通过并提交**
 
 运行步骤 1 的命令，预期全部 PASS。
 
@@ -408,7 +408,7 @@ git commit -m "优化：收敛 Codex 协作状态浮窗"
 - 修改：`excalidraw/apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md`
 - 测试：`excalidraw/apps/image-board-desktop/src/app/agentIntegrationDocs.test.ts`
 
-- [ ] **步骤 1：更新文档回归断言并确认失败**
+- [x] **步骤 1：更新文档回归断言并确认失败**
 
 断言用户指南包含“Codex 协作”“连接详情”“应用设置是唯一启停入口”，且不再把“复制 CLI 环境变量”或“复制 Board 链接”描述为默认动作。
 
@@ -418,14 +418,14 @@ corepack yarn vitest apps/image-board-desktop/src/app/agentIntegrationDocs.test.
 
 预期：FAIL，现有用户指南仍保留旧入口说明。
 
-- [ ] **步骤 2：更新中文文档**
+- [x] **步骤 2：更新中文文档**
 
 - 用户指南：设置页只解释 Codex 协作总体状态，连接详情承载技术诊断。
 - 架构原则：菜单、欢迎页和状态浮窗不能修改启停状态。
 - 待确认清单：把本切片实际完成项更新为“已实现待验收”。
 - README：保持需求文档索引准确。
 
-- [ ] **步骤 3：运行定向与完整验证**
+- [x] **步骤 3：运行定向与完整验证**
 
 ```bash
 corepack yarn vitest apps/image-board-desktop/electron/menu.test.ts apps/image-board-desktop/src/app/agent/agentIntegrationViewModel.test.ts apps/image-board-desktop/src/app/components/WelcomePane.test.tsx apps/image-board-desktop/src/app/components/AgentIntegrationSettingsSections.test.tsx apps/image-board-desktop/src/app/components/AgentIntegrationSettingsDialog.test.tsx apps/image-board-desktop/src/app/components/AgentStatusDock.test.tsx apps/image-board-desktop/src/app/agentIntegrationDocs.test.ts apps/image-board-desktop/src/app/composerStyles.test.ts apps/image-board-desktop/src/app/shellLayoutStyles.test.ts apps/image-board-desktop/src/app/App.test.tsx --run
@@ -436,7 +436,7 @@ git diff --check
 
 预期：全部测试和类型检查通过，`git diff --check` 无输出。
 
-- [ ] **步骤 4：提交文档与最终收口**
+- [x] **步骤 4：提交文档与最终收口**
 
 ```bash
 git add docs/spec/README.md docs/spec/2026-07-14-corestudio-usability-improvement-backlog.md excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md excalidraw/apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md excalidraw/apps/image-board-desktop/src/app/agentIntegrationDocs.test.ts docs/superpowers/plans/2026-07-14-corestudio-usability-simplification.md

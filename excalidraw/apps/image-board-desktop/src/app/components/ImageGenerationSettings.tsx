@@ -31,6 +31,10 @@ const getConfigurationLabel = (
   settings: PublicProviderSettings[ProviderId] | undefined,
 ) => (settings?.isConfigured ? "已配置" : "缺少 API Key");
 
+const getConfigurationStatus = (
+  settings: PublicProviderSettings[ProviderId] | undefined,
+) => (settings?.isConfigured ? "ready" : "missing");
+
 export const ImageGenerationSettings = ({
   providerSettings,
   currentProvider,
@@ -114,7 +118,9 @@ export const ImageGenerationSettings = ({
             <h3>{definition.label}</h3>
             <p>配置该服务使用的凭证和默认模型。</p>
           </div>
-          <span className="settings-status-badge">
+          <span
+            className={`settings-status-badge settings-status-badge--${getConfigurationStatus(detailSettings)}`}
+          >
             {getConfigurationLabel(detailSettings)}
           </span>
         </header>
@@ -267,7 +273,9 @@ export const ImageGenerationSettings = ({
                 <strong>{definition.label}</strong>
                 <small>{settings?.defaultModel || definition.defaultModel}</small>
               </span>
-              <span className="settings-status-badge">
+              <span
+                className={`settings-status-badge settings-status-badge--${getConfigurationStatus(settings)}`}
+              >
                 {getConfigurationLabel(settings)}
               </span>
             </button>

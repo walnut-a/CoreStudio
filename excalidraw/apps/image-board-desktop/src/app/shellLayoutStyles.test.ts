@@ -61,6 +61,15 @@ describe("CoreStudio shell layout styles", () => {
 
     expect(settingsDialogRule).toContain("display: flex");
     expect(settingsDialogRule).toContain("flex-direction: column");
+    expect(settingsDialogRule).toContain("max-width: none");
+
+    const providerControlsRule = getRule(
+      appCss,
+      ".settings-current-provider__controls",
+    );
+    expect(providerControlsRule).toContain(
+      "grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr)",
+    );
   });
 
   it("keeps canvas-level errors out of the native toolbar area", () => {

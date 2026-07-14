@@ -51,8 +51,12 @@ describe("ImageGenerationSettings", () => {
 
     expect(screen.getByText("当前服务")).toBeInTheDocument();
     expect(screen.getAllByText("Gemini").length).toBeGreaterThan(0);
-    expect(screen.getByText("已配置")).toBeInTheDocument();
-    expect(screen.getAllByText("缺少 API Key").length).toBeGreaterThan(0);
+    expect(screen.getByText("已配置")).toHaveClass(
+      "settings-status-badge--ready",
+    );
+    expect(screen.getAllByText("缺少 API Key")[0]).toHaveClass(
+      "settings-status-badge--missing",
+    );
     expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
   });
 

@@ -107,10 +107,7 @@ export const ApplicationSettingsDialog = ({
         aria-labelledby="app-settings-title"
       >
         <header className="app-settings-header">
-          <div>
-            <span className="dialog-card__eyebrow">设置</span>
-            <h2 id="app-settings-title">应用设置</h2>
-          </div>
+          <h2 id="app-settings-title">应用设置</h2>
           <DesktopButton
             type="button"
             className="dialog-card__close"

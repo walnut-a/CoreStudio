@@ -19,6 +19,12 @@ export interface AgentIntegrationViewModel {
   badgeText: string;
   enabled: boolean;
   connected: boolean;
+  collaboration: {
+    status: "disabled" | "ready" | "waiting-project" | "unavailable";
+    statusText: string;
+    description: string;
+    projectName: string | null;
+  };
   bridge: {
     ready: boolean;
     endpoint: string | null;
@@ -174,6 +180,42 @@ const getBadgeText = (readiness: AgentIntegrationReadiness) => {
   }
 };
 
+const getCollaborationPresentation = (
+  readiness: AgentIntegrationReadiness,
+  projectName: string | null,
+): AgentIntegrationViewModel["collaboration"] => {
+  switch (readiness) {
+    case "disabled":
+      return {
+        status: "disabled",
+        statusText: "尚未开启",
+        description: "开启后，可在 Codex 中查看当前画布并安全写回结果。",
+        projectName: null,
+      };
+    case "connected":
+      return {
+        status: "ready",
+        statusText: "已可用",
+        description: "Codex 可以访问当前项目。",
+        projectName,
+      };
+    case "waiting-project":
+      return {
+        status: "waiting-project",
+        statusText: "请先打开项目",
+        description: "连接已经开启，打开项目后即可在 Codex 中使用。",
+        projectName: null,
+      };
+    case "unready":
+      return {
+        status: "unavailable",
+        statusText: "暂不可用",
+        description: "连接尚未就绪，请稍后重试或查看连接详情。",
+        projectName: null,
+      };
+  }
+};
+
 const getBridgeEndpoint = (status?: DesktopAgentBridgeStatus | null) => {
   if (!status?.enabled) {
     return null;
@@ -240,6 +282,7 @@ export const buildAgentIntegrationViewModel = ({
   const readiness = getReadiness(bridgeStatus);
   const enabled = Boolean(bridgeStatus?.enabled);
   const connected = readiness === "connected";
+  const projectName = bridgeStatus?.currentProject?.name ?? null;
   const endpoint = getBridgeEndpoint(bridgeStatus);
   const projectToken = bridgeStatus?.currentProject?.agentAccess?.token ?? null;
   const normalizedAcpSettings = acpAgentSettings
@@ -261,6 +304,7 @@ export const buildAgentIntegrationViewModel = ({
     badgeText: getBadgeText(readiness),
     enabled,
     connected,
+    collaboration: getCollaborationPresentation(readiness, projectName),
     bridge: {
       ready: Boolean(bridgeStatus?.ready),
       endpoint,
@@ -270,7 +314,7 @@ export const buildAgentIntegrationViewModel = ({
     },
     project: {
       open: Boolean(bridgeStatus?.currentProject),
-      name: bridgeStatus?.currentProject?.name ?? null,
+      name: projectName,
       path: bridgeStatus?.currentProject?.projectPath ?? null,
       token: projectToken,
     },

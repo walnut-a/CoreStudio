@@ -1,8 +1,7 @@
 import { getProviderCapabilities } from "../../src/shared/providerCatalog";
 import { getOrderedPromptReferences } from "../../src/shared/promptReferences";
 import {
-  getProviderApiKey,
-  getProviderCustomModels,
+  getProviderRuntimeSettings,
   updateProviderStatus,
 } from "../settingsStore";
 
@@ -27,8 +26,8 @@ export const generateImages = async (input: {
   signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const { projectPath, request, signal } = input;
-  const apiKey = await getProviderApiKey(request.provider);
-  const customModels = await getProviderCustomModels(request.provider);
+  const runtime = await getProviderRuntimeSettings(request.provider);
+  const { apiKey, customModels } = runtime;
   if (!apiKey) {
     throw new Error(`${request.provider} API key is not configured.`);
   }
@@ -62,6 +61,20 @@ export const generateImages = async (input: {
   }
 
   try {
+    if (request.provider === "openai-compatible") {
+      const response = await generateOpenAIImages({
+        apiKey,
+        baseUrl: runtime.baseUrl,
+        providerLabel: runtime.displayName || "OpenAI 兼容服务",
+        responseProvider: "openai-compatible",
+        request,
+        projectPath,
+        signal,
+      });
+      await updateProviderStatus(request.provider, "success");
+      return response;
+    }
+
     const generator = (
       {
         gemini: generateGeminiImages,

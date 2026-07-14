@@ -312,25 +312,18 @@ describe("App startup", () => {
     });
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Agent 连接状态" }),
+      await screen.findByRole("button", { name: "Codex 协作状态" }),
     );
 
-    const popover = screen.getByRole("region", { name: "Agent 状态" });
-    expect(popover).toHaveTextContent("Agent 已连接");
+    const popover = screen.getByRole("region", { name: "Codex 协作状态" });
+    expect(popover).toHaveTextContent("Codex 协作");
+    expect(popover).toHaveTextContent("已可用");
     expect(popover).toHaveTextContent("测试项目");
-    expect(popover).not.toHaveTextContent("未打开项目");
-    expect(popover).not.toHaveTextContent("默认生成方式");
-    expect(popover).toHaveTextContent("ACP Agent");
-    expect(popover).toHaveTextContent("测试 ACP Agent");
-    expect(
-      within(popover).getByRole("button", { name: "打开 Agent 对话" }),
-    ).toBeInTheDocument();
+    expect(popover).not.toHaveTextContent("ACP Agent");
+    expect(popover).not.toHaveTextContent("CLI");
     expect(
       within(popover).getByRole("button", { name: "打开设置" }),
     ).toBeInTheDocument();
-    expect(
-      within(popover).getByRole("button", { name: "复制 CLI 环境变量" }),
-    ).toBeEnabled();
     expect(
       within(popover).queryByRole("button", { name: "CoreStudio" }),
     ).not.toBeInTheDocument();

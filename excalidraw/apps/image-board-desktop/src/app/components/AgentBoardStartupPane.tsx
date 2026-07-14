@@ -13,8 +13,6 @@ interface AgentBoardStartupPaneProps {
   projectError?: string | null;
   integration: AgentIntegrationViewModel;
   onAction: () => void | Promise<unknown>;
-  onCopyAgentBoardUrl: () => void | Promise<void>;
-  onCopyCliEnvironment?: () => void | Promise<void>;
   onOpenAgentSettings?: () => void;
 }
 
@@ -26,8 +24,6 @@ export const AgentBoardStartupPane = ({
   projectError = null,
   integration,
   onAction,
-  onCopyAgentBoardUrl,
-  onCopyCliEnvironment,
   onOpenAgentSettings,
 }: AgentBoardStartupPaneProps) => (
   <div className="image-board-app">
@@ -50,9 +46,6 @@ export const AgentBoardStartupPane = ({
     </div>
     <AgentStatusDock
       integration={integration}
-      onCopyAgentBoardUrl={onCopyAgentBoardUrl}
-      onCopyCliEnvironment={onCopyCliEnvironment}
-      onRefreshStatus={onAction}
       onOpenAgentSettings={onOpenAgentSettings}
     />
   </div>

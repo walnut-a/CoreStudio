@@ -166,7 +166,6 @@ import {
 } from "./agent/agentIntegrationViewModel";
 import { createAgentIntegrationCopyShortcutRendererActions } from "./agent/agentIntegrationCopyShortcut";
 import { createAgentIntegrationSettingsDialogRendererActions } from "./agent/agentIntegrationSettingsDialogRendererActions";
-import { createAgentStatusDockRendererActions } from "./agent/agentStatusDockRendererActions";
 import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
 import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
 import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
@@ -1142,17 +1141,6 @@ const App = () => {
       onError: setProjectError,
     });
 
-  const agentStatusDockRendererActions =
-    createAgentStatusDockRendererActions({
-      copyBoardUrl: agentIntegrationCopyShortcutRendererActions.copyBoardUrl,
-      copyCliEnvironment:
-        agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
-      refreshStatus:
-        agentBridgeStatusRendererActions.refreshBrowserConnectionStatus,
-      openSettings: () => setAppSettingsOpen(true),
-      openConversation: () => setAgentChatDockOpen(true),
-    });
-
   const agentIntegrationSettingsDialogActions =
     createAgentIntegrationSettingsDialogRendererActions({
       close: () => setAppSettingsOpen(false),
@@ -1906,10 +1894,8 @@ const App = () => {
         startupError={startupError}
         projectError={projectError}
         integration={agentIntegration}
-        onAction={agentStatusDockRendererActions.refreshStatus}
-        onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
-        onCopyCliEnvironment={agentStatusDockRendererActions.copyCliEnvironment}
-        onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+        onAction={agentBridgeStatusRendererActions.refreshBrowserConnectionStatus}
+        onOpenAgentSettings={() => setAppSettingsOpen(true)}
       />
     );
   }
@@ -1929,10 +1915,7 @@ const App = () => {
         manualProjectActionsVisible={!isAgentBrowserRoute}
         showAgentStatusDock={isAgentBrowserRoute}
         integration={agentIntegration}
-        onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
-        onCopyCliEnvironment={agentStatusDockRendererActions.copyCliEnvironment}
-        onRefreshStatus={agentStatusDockRendererActions.refreshStatus}
-        onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
+        onOpenAgentSettings={() => setAppSettingsOpen(true)}
         globalDialogs={globalDialogs}
       />
     );
@@ -2079,15 +2062,7 @@ const App = () => {
             />
             <AgentStatusDock
               integration={agentIntegration}
-              onCopyAgentBoardUrl={agentStatusDockRendererActions.copyBoardUrl}
-              onCopyCliEnvironment={
-                agentStatusDockRendererActions.copyCliEnvironment
-              }
-              onRefreshStatus={agentStatusDockRendererActions.refreshStatus}
-              onOpenAgentSettings={agentStatusDockRendererActions.openSettings}
-              onOpenAgentConversation={
-                agentStatusDockRendererActions.openConversation
-              }
+              onOpenAgentSettings={() => setAppSettingsOpen(true)}
             />
             <WorkspaceBoundsOverlay
               state={workspaceOverlayState}

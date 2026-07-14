@@ -19,9 +19,6 @@ interface AppProjectEntryScreenProps {
   manualProjectActionsVisible: boolean;
   showAgentStatusDock: boolean;
   integration: AgentIntegrationViewModel;
-  onCopyAgentBoardUrl: () => void | Promise<void>;
-  onCopyCliEnvironment?: () => void | Promise<void>;
-  onRefreshStatus: () => void | Promise<unknown>;
   onOpenAgentSettings?: () => void;
   globalDialogs: ReactNode;
 }
@@ -39,9 +36,6 @@ export const AppProjectEntryScreen = ({
   manualProjectActionsVisible,
   showAgentStatusDock,
   integration,
-  onCopyAgentBoardUrl,
-  onCopyCliEnvironment,
-  onRefreshStatus,
   onOpenAgentSettings,
   globalDialogs,
 }: AppProjectEntryScreenProps) => (
@@ -60,9 +54,6 @@ export const AppProjectEntryScreen = ({
     {showAgentStatusDock ? (
       <AgentStatusDock
         integration={integration}
-        onCopyAgentBoardUrl={onCopyAgentBoardUrl}
-        onCopyCliEnvironment={onCopyCliEnvironment}
-        onRefreshStatus={onRefreshStatus}
         onOpenAgentSettings={onOpenAgentSettings}
       />
     ) : null}

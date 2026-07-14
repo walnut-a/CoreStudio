@@ -28,6 +28,7 @@ const ControllerProbe = ({
   return (
     <output data-testid="state">
       {JSON.stringify({
+        experimentalEnabled: controller.experimentalEnabled,
         enabled: controller.draft.enabled,
         presetId: controller.draft.presetId,
         command: controller.draft.command,
@@ -44,6 +45,7 @@ const ControllerProbe = ({
 
 const getState = () =>
   JSON.parse(screen.getByTestId("state").textContent ?? "{}") as {
+    experimentalEnabled: boolean;
     enabled: boolean;
     presetId: AcpAgentPresetId;
     command: string;
@@ -78,6 +80,7 @@ describe("useAcpAgentSettingsController", () => {
   it("syncs an existing selected agent into the editable draft", async () => {
     const bridge = {
       loadAcpAgentSettings: vi.fn(async (): Promise<AcpAgentSettings> => ({
+        experimentalEnabled: true,
         enabled: true,
         defaultAgentId: "agent-1",
         taskInstructionTemplate: "请按项目规则写回。",
@@ -102,6 +105,7 @@ describe("useAcpAgentSettingsController", () => {
     });
 
     expect(getState()).toMatchObject({
+      experimentalEnabled: true,
       enabled: true,
       presetId: "gemini-cli",
       command: "gemini",
@@ -110,6 +114,51 @@ describe("useAcpAgentSettingsController", () => {
       taskInstructionTemplate: "请按项目规则写回。",
       selectedAgentName: "Gemini CLI",
       editable: true,
+    });
+  });
+
+  it("persists the experiment toggle without deleting the existing ACP configuration", async () => {
+    const existingSettings: AcpAgentSettings = {
+      experimentalEnabled: true,
+      enabled: true,
+      defaultAgentId: "agent-1",
+      taskInstructionTemplate: "请按项目规则写回。",
+      agents: [
+        {
+          id: "agent-1",
+          presetId: "gemini-cli",
+          name: "Gemini CLI",
+          command: "gemini",
+          args: ["--acp"],
+          cwd: "/tmp/project",
+        },
+      ],
+    };
+    const saveAcpAgentSettings = vi.fn(
+      async (settings: AcpAgentSettings) => settings,
+    );
+    const bridge = {
+      loadAcpAgentSettings: vi.fn(async () => existingSettings),
+      saveAcpAgentSettings,
+    } as unknown as DesktopBridgeApi;
+
+    render(<ControllerProbe bridge={bridge} />);
+    await act(async () => {
+      await controller?.load();
+    });
+    await act(async () => {
+      await controller?.setExperimentalEnabled(false);
+    });
+
+    expect(saveAcpAgentSettings).toHaveBeenCalledWith({
+      ...existingSettings,
+      experimentalEnabled: false,
+    });
+    expect(getState()).toMatchObject({
+      experimentalEnabled: false,
+      command: "gemini",
+      args: "--acp",
+      cwd: "/tmp/project",
     });
   });
 
@@ -152,6 +201,7 @@ describe("useAcpAgentSettingsController", () => {
 
     await waitFor(() => {
       expect(saveAcpAgentSettings).toHaveBeenCalledWith({
+        experimentalEnabled: false,
         enabled: true,
         defaultAgentId: "default",
         taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,

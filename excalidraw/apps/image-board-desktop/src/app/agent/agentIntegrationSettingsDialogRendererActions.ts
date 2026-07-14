@@ -6,6 +6,9 @@ export interface AgentIntegrationSettingsDialogRendererActionsInput {
   openExternalUrl: (url: string, target: string) => unknown;
   copyCliEnvironment: () => unknown | Promise<unknown>;
   saveAcpAgentSettings: () => unknown | Promise<unknown>;
+  setAcpExperimentalEnabled: (
+    enabled: boolean,
+  ) => unknown | Promise<unknown>;
   setAcpDebugOpen: (open: boolean) => void;
   refreshAcpRunSummaries: () => unknown | Promise<unknown>;
   openAcpRunLog: (taskId: string) => unknown | Promise<unknown>;
@@ -18,6 +21,7 @@ export interface AgentIntegrationSettingsDialogRendererActions {
   openBoardUrl: () => void;
   copyCliEnvironment: () => void;
   saveAcpAgentSettings: () => void;
+  setAcpExperimentalEnabled: (enabled: boolean) => void;
   setAcpDebugOpen: (open: boolean) => void;
   refreshAcpRunSummaries: () => void;
   openAcpRunLog: (taskId: string) => void;
@@ -31,6 +35,7 @@ export const createAgentIntegrationSettingsDialogRendererActions = ({
   openExternalUrl,
   copyCliEnvironment,
   saveAcpAgentSettings,
+  setAcpExperimentalEnabled,
   setAcpDebugOpen,
   refreshAcpRunSummaries,
   openAcpRunLog,
@@ -53,6 +58,9 @@ export const createAgentIntegrationSettingsDialogRendererActions = ({
   },
   saveAcpAgentSettings: () => {
     void saveAcpAgentSettings();
+  },
+  setAcpExperimentalEnabled: (enabled) => {
+    void setAcpExperimentalEnabled(enabled);
   },
   setAcpDebugOpen,
   refreshAcpRunSummaries: () => {

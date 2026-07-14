@@ -1822,7 +1822,7 @@ describe("App startup", () => {
     ).toBeNull();
   });
 
-  it("opens software settings from the native settings menu and toggles Agent access there", async () => {
+  it("opens software settings from the native settings menu and toggles Codex collaboration there", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const setAgentBridgeEnabled = vi.fn(async (enabled: boolean) => ({
       enabled,
@@ -1857,14 +1857,14 @@ describe("App startup", () => {
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText("Agent 集成")).toBeInTheDocument();
+    expect(within(dialog).getByText("Codex 协作")).toBeInTheDocument();
     expect(within(dialog).getAllByText("网页画布").length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText("CLI").length).toBeGreaterThan(0);
     expect(within(dialog).getByText("实验性功能")).toBeInTheDocument();
     expect(within(dialog).queryByText("ACP Agent")).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(dialog).getByRole("switch", { name: "启用 Agent 集成" }),
+      within(dialog).getByRole("switch", { name: "启用 Codex 协作" }),
     );
 
     await waitFor(() => {

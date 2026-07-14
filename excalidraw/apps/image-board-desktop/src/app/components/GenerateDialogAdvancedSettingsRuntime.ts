@@ -1,5 +1,4 @@
 import { createGenerateAdvancedRequestHandlers } from "../generateAdvancedRequestHandlers";
-import { createGenerateProviderSettingsActions } from "../generateProviderSettingsActions";
 import { createGenerateDialogAdvancedSettingsProps } from "./GenerateDialogAdvancedSettingsProps";
 
 type AdvancedSettingsPropsInput = Parameters<
@@ -8,15 +7,8 @@ type AdvancedSettingsPropsInput = Parameters<
 type AdvancedRequestHandlersInput = Parameters<
   typeof createGenerateAdvancedRequestHandlers
 >[0];
-type ProviderSettingsActionsInput = Parameters<
-  typeof createGenerateProviderSettingsActions
->[0];
-
 interface CreateGenerateDialogAdvancedSettingsRuntimeInput
-  extends Omit<
-    AdvancedSettingsPropsInput,
-    "advancedRequestHandlers" | "providerSettingsActions"
-  > {
+  extends Omit<AdvancedSettingsPropsInput, "advancedRequestHandlers"> {
   advancedSettingsActions: GenerateDialogAdvancedSettingsActions;
 }
 
@@ -25,8 +17,6 @@ interface CreateGenerateDialogAdvancedSettingsActionsInput {
   aspectRatioOptions: AdvancedRequestHandlersInput["aspectRatioOptions"];
   updateRequest: AdvancedRequestHandlersInput["updateRequest"];
   onModelSelectionChange?: AdvancedRequestHandlersInput["onModelSelectionChange"];
-  addCustomModel: ProviderSettingsActionsInput["addCustomModel"];
-  updateCustomModelCapabilities: ProviderSettingsActionsInput["updateCustomModelCapabilities"];
 }
 
 export const createGenerateDialogAdvancedSettingsActions = ({
@@ -34,8 +24,6 @@ export const createGenerateDialogAdvancedSettingsActions = ({
   aspectRatioOptions,
   updateRequest,
   onModelSelectionChange,
-  addCustomModel,
-  updateCustomModelCapabilities,
 }: CreateGenerateDialogAdvancedSettingsActionsInput) => {
   const advancedRequestHandlers = createGenerateAdvancedRequestHandlers({
     providerSettings,
@@ -44,17 +32,8 @@ export const createGenerateDialogAdvancedSettingsActions = ({
     onModelSelectionChange,
   });
 
-  const providerSettingsActions = createGenerateProviderSettingsActions({
-    addCustomModel,
-    updateRequest,
-    updateCustomModelCapabilities,
-    onModelSelectionChange,
-  });
-
   return {
     advancedRequestHandlers,
-    providerSettingsActions,
-    addCustomModelToRequest: providerSettingsActions.addCustomModelToRequest,
   };
 };
 
@@ -70,8 +49,6 @@ export const createGenerateDialogAdvancedSettingsRuntime = ({
     advancedSettingsProps: createGenerateDialogAdvancedSettingsProps({
       ...propsInput,
       advancedRequestHandlers: advancedSettingsActions.advancedRequestHandlers,
-      providerSettingsActions: advancedSettingsActions.providerSettingsActions,
     }),
-    addCustomModelToRequest: advancedSettingsActions.addCustomModelToRequest,
   };
 };

@@ -30,8 +30,6 @@ const ControllerProbe = ({
   const promptEditorRef = useRef<{ focus: () => void } | null>({
     focus: promptFocus,
   });
-  const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
-
   controller = useGenerateDialogPanelController({
     open,
     persistent,
@@ -41,22 +39,18 @@ const ControllerProbe = ({
     isConfigured,
     panelRef,
     promptEditorRef,
-    apiKeyInputRef,
     onClose,
   });
 
   return (
     <>
-      <section ref={panelRef} data-testid="panel">
-        <input ref={apiKeyInputRef} data-testid="api-key" />
-      </section>
+      <section ref={panelRef} data-testid="panel"></section>
       <button type="button" data-testid="outside">
         outside
       </button>
       <output data-testid="state">
         {JSON.stringify({
           advancedOpen: controller.advancedOpen,
-          apiSettingsOpen: controller.apiSettingsOpen,
           promptLibraryOpen: controller.promptLibraryOpen,
           promptLibrarySearch: controller.promptLibrarySearch,
         })}
@@ -68,7 +62,6 @@ const ControllerProbe = ({
 const getState = () =>
   JSON.parse(screen.getByTestId("state").textContent ?? "{}") as {
     advancedOpen: boolean;
-    apiSettingsOpen: boolean;
     promptLibraryOpen: boolean;
     promptLibrarySearch: string;
   };
@@ -95,14 +88,12 @@ describe("useGenerateDialogPanelController", () => {
 
     act(() => {
       controller?.setAdvancedOpen(true);
-      controller?.setApiSettingsOpen(true);
       controller?.setPromptLibraryOpen(true);
       controller?.setPromptLibrarySearch("参考");
     });
 
     expect(getState()).toMatchObject({
       advancedOpen: true,
-      apiSettingsOpen: true,
       promptLibraryOpen: true,
       promptLibrarySearch: "参考",
     });
@@ -112,7 +103,6 @@ describe("useGenerateDialogPanelController", () => {
     await waitFor(() => {
       expect(getState()).toMatchObject({
         advancedOpen: false,
-        apiSettingsOpen: false,
         promptLibraryOpen: false,
       });
     });

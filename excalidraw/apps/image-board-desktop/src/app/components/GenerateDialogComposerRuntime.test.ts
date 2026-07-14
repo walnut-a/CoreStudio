@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createGenerateDialogComposerRuntime } from "./GenerateDialogComposerRuntime";
 
-import type {
-  FormEvent,
-  KeyboardEvent,
-  SyntheticEvent,
-} from "react";
+import type { FormEvent, SyntheticEvent } from "react";
 import type { GenerationRequest } from "../../shared/providerTypes";
 
 const request: GenerationRequest = {
@@ -44,8 +40,6 @@ const createRuntimeInput = () => {
     commitPendingReference: vi.fn(),
     clearSubmittedPrompt: vi.fn(),
     onSubmit: vi.fn(),
-    saveProviderSettings: vi.fn(),
-    addCustomModelToRequest: vi.fn(),
     modeSwitchVariant: "acp-agent" as const,
     agentGenerationSelectable: true,
     setComposerMode: vi.fn(),
@@ -75,22 +69,16 @@ describe("createGenerateDialogComposerRuntime", () => {
     expect(input.clearSubmittedPrompt).toHaveBeenCalledTimes(1);
   });
 
-  it("wires mode selection and action input shortcuts through shared handlers", () => {
+  it("wires mode selection through shared handlers", () => {
     const input = createRuntimeInput();
     const runtime = createGenerateDialogComposerRuntime(input);
     const modeEvent = createEvent();
-    const keyEvent = {
-      ...createEvent(),
-      key: "Enter",
-    } as unknown as KeyboardEvent<HTMLInputElement>;
-
     runtime.selectComposerMode("acp", modeEvent);
-    runtime.handleApiKeyKeyDown(keyEvent);
 
     expect(modeEvent.stopPropagation).toHaveBeenCalledTimes(1);
-    expect(modeEvent.nativeEvent.stopImmediatePropagation).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      modeEvent.nativeEvent.stopImmediatePropagation,
+    ).toHaveBeenCalledTimes(1);
     expect(input.setComposerMode).toHaveBeenCalledWith("acp");
     expect(input.setGenerationSource).toHaveBeenCalledWith("agent");
     expect(input.updateRequest).toHaveBeenCalledWith(expect.any(Function));
@@ -99,7 +87,5 @@ describe("createGenerateDialogComposerRuntime", () => {
         generationSource: "agent",
       }),
     );
-    expect(keyEvent.preventDefault).toHaveBeenCalledTimes(1);
-    expect(input.saveProviderSettings).toHaveBeenCalledTimes(1);
   });
 });

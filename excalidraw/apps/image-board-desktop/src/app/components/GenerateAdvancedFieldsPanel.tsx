@@ -2,7 +2,6 @@ import type { KeyboardEvent } from "react";
 
 import {
   ASPECT_RATIO_AUTO_ID,
-  PROVIDER_IDS,
   getProviderDefinition,
 } from "../../shared/providerCatalog";
 import { copy } from "../copy";
@@ -30,6 +29,7 @@ interface GenerateAdvancedFieldsPanelProps {
   visibleFields: Record<GenerationField, boolean>;
   selectedAspectRatio: string;
   aspectRatioOptions: readonly AspectRatioOption[];
+  configuredProviders: readonly ProviderId[];
   onProviderChange: (provider: ProviderId) => void;
   onModelChange: (model: string) => void;
   onNegativePromptChange: (negativePrompt: string) => void;
@@ -47,6 +47,7 @@ export const GenerateAdvancedFieldsPanel = ({
   visibleFields,
   selectedAspectRatio,
   aspectRatioOptions,
+  configuredProviders,
   onProviderChange,
   onModelChange,
   onNegativePromptChange,
@@ -57,6 +58,10 @@ export const GenerateAdvancedFieldsPanel = ({
   onImageCountChange,
   onTextInputKeyDown,
 }: GenerateAdvancedFieldsPanelProps) => {
+  if (configuredProviders.length === 0) {
+    return null;
+  }
+
   const selectedModel = providerModels[request.model];
   const maxImageCount = selectedModel?.capabilities.maxImageCount ?? 4;
 
@@ -70,7 +75,7 @@ export const GenerateAdvancedFieldsPanel = ({
             onProviderChange(event.target.value as ProviderId)
           }
         >
-          {PROVIDER_IDS.map((providerId) => (
+          {configuredProviders.map((providerId) => (
             <option key={providerId} value={providerId}>
               {getProviderDefinition(providerId).label}
             </option>
@@ -172,9 +177,7 @@ export const GenerateAdvancedFieldsPanel = ({
             min={1}
             max={maxImageCount}
             value={request.imageCount}
-            onChange={(event) =>
-              onImageCountChange(Number(event.target.value))
-            }
+            onChange={(event) => onImageCountChange(Number(event.target.value))}
           />
         </label>
       ) : null}

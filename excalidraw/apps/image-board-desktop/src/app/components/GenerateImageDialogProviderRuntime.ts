@@ -2,12 +2,7 @@ import {
   createGenerateDialogAdvancedSettingsActions,
   createGenerateDialogAdvancedSettingsRuntime,
 } from "./GenerateDialogAdvancedSettingsRuntime";
-import { useGenerateProviderSettingsController } from "../useGenerateProviderSettingsController";
-
-import type {
-  PublicProviderSettings,
-  SaveProviderSettingsInput,
-} from "../../shared/desktopBridgeTypes";
+import type { PublicProviderSettings } from "../../shared/desktopBridgeTypes";
 import type {
   CustomProviderModel,
   GenerationRequest,
@@ -46,74 +41,33 @@ interface UseGenerateImageDialogProviderRuntimeInput {
   request: GenerationRequest;
   providerSettings: PublicProviderSettings | null;
   providerContext: GenerateImageDialogProviderContext;
-  open: boolean;
   aspectRatioOptions: AdvancedSettingsRuntimeInput["aspectRatioOptions"];
   updateRequest: AdvancedSettingsActionsInput["updateRequest"];
   onModelSelectionChange?: AdvancedSettingsActionsInput["onModelSelectionChange"];
-  onSaveProviderSettings?: (
-    input: SaveProviderSettingsInput,
-  ) => Promise<PublicProviderSettings | void>;
 }
 
 export const useGenerateImageDialogProviderRuntime = ({
   request,
   providerSettings,
   providerContext,
-  open,
   aspectRatioOptions,
   updateRequest,
   onModelSelectionChange,
-  onSaveProviderSettings,
 }: UseGenerateImageDialogProviderRuntimeInput) => {
-  const providerSettingsController = useGenerateProviderSettingsController({
-    provider: request.provider,
-    model: request.model,
-    open,
-    currentProviderSettings: providerContext.currentProviderSettings,
-    currentProviderCustomModels: providerContext.currentProviderCustomModels,
-    onSaveProviderSettings,
-  });
-
   const advancedSettingsActions = createGenerateDialogAdvancedSettingsActions({
     providerSettings,
     aspectRatioOptions,
     updateRequest,
     onModelSelectionChange,
-    addCustomModel: providerSettingsController.addCustomModel,
-    updateCustomModelCapabilities:
-      providerSettingsController.updateCustomModelCapabilities,
   });
 
   return {
-    providerSettingsController,
     advancedSettingsActions,
-    saveProviderSettings: providerSettingsController.saveProviderSettings,
-    addCustomModelToRequest: advancedSettingsActions.addCustomModelToRequest,
   };
 };
 
 interface CreateGenerateImageDialogProviderAdvancedSettingsRuntimeInput
-  extends Omit<
-    AdvancedSettingsRuntimeInput,
-    | "advancedSettingsActions"
-    | "apiKeyDraft"
-    | "canAddCustomModel"
-    | "canSaveProviderSettings"
-    | "customModelAdapter"
-    | "customModelAdvancedOpen"
-    | "customModelCapabilities"
-    | "customModelDraft"
-    | "customModelTemplate"
-    | "customModelUsageDescription"
-    | "providerSaveFeedback"
-    | "saveProviderSettings"
-    | "setCustomModelAdvancedOpen"
-    | "updateApiKeyDraft"
-    | "updateCustomModelAdapter"
-    | "updateCustomModelCapabilities"
-    | "updateCustomModelDraft"
-    | "updateCustomModelTemplate"
-  > {
+  extends Omit<AdvancedSettingsRuntimeInput, "advancedSettingsActions"> {
   providerRuntime: ReturnType<typeof useGenerateImageDialogProviderRuntime>;
 }
 
@@ -121,47 +75,10 @@ export const createGenerateImageDialogProviderAdvancedSettingsRuntime = ({
   providerRuntime,
   ...runtimeInput
 }: CreateGenerateImageDialogProviderAdvancedSettingsRuntimeInput) => {
-  const {
-    providerSettingsController,
-    advancedSettingsActions,
-  } = providerRuntime;
-  const {
-    apiKeyDraft,
-    customModelDraft,
-    customModelTemplate,
-    customModelAdapter,
-    customModelCapabilities,
-    customModelAdvancedOpen,
-    providerSaveFeedback,
-    selectedCustomModelUsage,
-    canSaveProviderSettings,
-    canAddCustomModel,
-    setCustomModelAdvancedOpen,
-    updateApiKeyDraft,
-    updateCustomModelDraft,
-    updateCustomModelTemplate,
-    updateCustomModelAdapter,
-    saveProviderSettings,
-  } = providerSettingsController;
+  const { advancedSettingsActions } = providerRuntime;
 
   return createGenerateDialogAdvancedSettingsRuntime({
     ...runtimeInput,
     advancedSettingsActions,
-    apiKeyDraft,
-    canAddCustomModel,
-    canSaveProviderSettings,
-    customModelAdapter,
-    customModelAdvancedOpen,
-    customModelCapabilities,
-    customModelDraft,
-    customModelTemplate,
-    customModelUsageDescription: selectedCustomModelUsage.description,
-    providerSaveFeedback,
-    saveProviderSettings,
-    setCustomModelAdvancedOpen,
-    updateApiKeyDraft,
-    updateCustomModelAdapter,
-    updateCustomModelDraft,
-    updateCustomModelTemplate,
   });
 };

@@ -14,7 +14,6 @@ import { getDefaultModel } from "../../shared/providerCatalog";
 import { GenerateImageDialog } from "./GenerateImageDialog";
 import { ImageInspector } from "./ImageInspector";
 
-import { ProvidersDialog } from "./ProvidersDialog";
 import { WelcomePane } from "./WelcomePane";
 
 import type { ImageLineageEntry } from "../imageRelationships";
@@ -885,6 +884,7 @@ describe("Chinese localization", () => {
           ...providerSettings,
           gemini: {
             ...providerSettings.gemini,
+            isConfigured: true,
             lastCheckedAt: "2026-04-21T08:00:00.000Z",
           },
         }}
@@ -1884,8 +1884,8 @@ describe("Chinese localization", () => {
     });
   });
 
-  it("keeps API key settings folded inside the generation settings panel", async () => {
-    const onSaveProviderSettings = vi.fn(async () => providerSettings);
+  it("guides users to application settings when no image service is configured", () => {
+    const onOpenProviderSettings = vi.fn();
 
     render(
       <GenerateImageDialog
@@ -1894,199 +1894,22 @@ describe("Chinese localization", () => {
           provider: "gemini",
           model: getDefaultModel("gemini"),
           prompt: "工业设计草图",
-          negativePrompt: "",
           width: 1024,
           height: 1024,
-          seed: null,
           imageCount: 1,
-          reference: null,
         }}
-        providerSettings={providerSettings}
-        savingProviderSettings={false}
+        providerSettings={{}}
         loading={false}
         error={null}
         onClose={() => undefined}
-        onSaveProviderSettings={onSaveProviderSettings}
+        onOpenProviderSettings={onOpenProviderSettings}
         onSubmit={() => undefined}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /设置/ }));
-
-    const apiKeyToggle = screen.getByRole("button", {
-      name: /连接与自定义模型/,
-    });
-    expect(apiKeyToggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("API Key")).toBeNull();
-
-    fireEvent.click(apiKeyToggle);
-
-    expect(apiKeyToggle).toHaveAttribute("aria-expanded", "true");
-    fireEvent.change(screen.getByLabelText("API Key"), {
-      target: { value: "test-api-key" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-
-    await waitFor(() => {
-      expect(onSaveProviderSettings).toHaveBeenCalledWith({
-        provider: "gemini",
-        apiKey: "test-api-key",
-        defaultModel: getDefaultModel("gemini"),
-      });
-    });
-    expect(
-      screen.getByText("已保存到本地，密钥不会回显。"),
-    ).toBeInTheDocument();
-  });
-
-  it("makes custom model setup read as optional after API key setup", () => {
-    render(
-      <GenerateImageDialog
-        open={true}
-        initialRequest={{
-          provider: "jimeng",
-          model: getDefaultModel("jimeng"),
-          prompt: "工业设计草图",
-          negativePrompt: "",
-          width: 1024,
-          height: 1024,
-          seed: null,
-          imageCount: 1,
-          reference: null,
-        }}
-        providerSettings={{
-          ...providerSettings,
-          jimeng: {
-            ...providerSettings.jimeng,
-            isConfigured: true,
-            lastStatus: "success",
-          },
-        }}
-        savingProviderSettings={false}
-        loading={false}
-        error={null}
-        onClose={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /设置/ }));
-    const apiSettingsToggle = screen.getByRole("button", {
-      name: /连接与自定义模型/,
-    });
-    fireEvent.click(apiSettingsToggle);
-
-    const apiSettingsPanel = apiSettingsToggle.closest(
-      ".generate-provider-settings",
-    ) as HTMLElement;
-    expect(apiSettingsPanel).not.toBeNull();
-
-    expect(within(apiSettingsPanel).getByText("连接")).toBeInTheDocument();
-    expect(within(apiSettingsPanel).getByText("当前服务")).toBeInTheDocument();
-    expect(within(apiSettingsPanel).getByText("当前模型")).toBeInTheDocument();
-    expect(
-      within(apiSettingsPanel).getByText("自定义模型（可选）"),
-    ).toBeInTheDocument();
-    expect(
-      within(apiSettingsPanel).getByText(
-        "只填 API Key 就能用预置模型。密钥只保存在本机，保存后不会回显。",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(apiSettingsPanel).getByText(
-        "上方“模型”下拉已包含预置模型。列表里没有的新模型，才在这里添加完整模型 ID。",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(apiSettingsPanel).getByLabelText("新模型 ID"),
-    ).toBeInTheDocument();
-    expect(
-      within(apiSettingsPanel).getByPlaceholderText(
-        "例如 doubao-seedream-next",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(apiSettingsPanel).getByLabelText("模型类型"),
-    ).toBeInTheDocument();
-  });
-
-  it("lets users add a custom provider model from the generation settings panel", async () => {
-    const onSaveProviderSettings = vi.fn(async () => providerSettings);
-
-    render(
-      <GenerateImageDialog
-        open={true}
-        initialRequest={{
-          provider: "zenmux",
-          model: getDefaultModel("zenmux"),
-          prompt: "工业设计草图",
-          negativePrompt: "",
-          width: 1024,
-          height: 1024,
-          seed: null,
-          imageCount: 1,
-          reference: null,
-        }}
-        providerSettings={{
-          ...providerSettings,
-          zenmux: {
-            ...providerSettings.zenmux,
-            isConfigured: true,
-            customModels: [],
-          },
-        }}
-        savingProviderSettings={false}
-        loading={false}
-        error={null}
-        onClose={() => undefined}
-        onSaveProviderSettings={onSaveProviderSettings}
-        onSubmit={() => undefined}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /设置/ }));
-    fireEvent.click(screen.getByRole("button", { name: /连接与自定义模型/ }));
-    expect(screen.queryByLabelText("能力模板")).toBeNull();
-    fireEvent.change(screen.getByLabelText("新模型 ID"), {
-      target: { value: "google/gemini-next-image-preview" },
-    });
-    expect(screen.getByLabelText("模型类型")).toHaveValue(
-      "image-editing-aspect-ratio",
-    );
-    expect(screen.getByText("支持参考图和改图")).toBeInTheDocument();
-    expect(screen.getByText(/会自动引用画板选区/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /高级配置/ })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "添加到模型列表并使用" }),
-    );
-
-    await waitFor(() => {
-      expect(onSaveProviderSettings).toHaveBeenCalledWith({
-        provider: "zenmux",
-        apiKey: "",
-        defaultModel: "google/gemini-next-image-preview",
-        customModels: [
-          {
-            id: "google/gemini-next-image-preview",
-            label: "google/gemini-next-image-preview",
-            capabilityTemplate: "image-editing-aspect-ratio",
-            adapter: "zenmux-vertex-generate-content",
-            capabilities: {
-              supportsNegativePrompt: false,
-              supportsSeed: false,
-              supportsImageCount: false,
-              supportsReferenceImages: true,
-              maxImageCount: 1,
-              maxReferenceImageCount: 8,
-              sizeControlMode: "aspect-ratio",
-            },
-          },
-        ],
-      });
-    });
+    expect(screen.getByText("尚未配置图像生成服务。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "打开应用设置" }));
+    expect(onOpenProviderSettings).toHaveBeenCalledTimes(1);
   });
 
   it("closes the generation island on Escape and outside click", () => {
@@ -2436,29 +2259,6 @@ describe("Chinese localization", () => {
         seed: null,
       }),
       false,
-    );
-  });
-
-  it("renders provider settings in Chinese", () => {
-    render(
-      <ProvidersDialog
-        open={true}
-        providerSettings={providerSettings}
-        saving={false}
-        onClose={() => undefined}
-        onSave={vi.fn(async () => undefined)}
-      />,
-    );
-
-    expect(screen.getByText("模型服务")).toBeInTheDocument();
-    expect(screen.getByText("自行填写 API Key")).toBeInTheDocument();
-    expect(screen.getByLabelText("当前服务")).toBeInTheDocument();
-    expect(screen.getByText("状态：已连接")).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText("留空则保留当前密钥"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存" })).toSatisfy(
-      (button: HTMLElement) => button.classList.contains("excalidraw-button"),
     );
   });
 });

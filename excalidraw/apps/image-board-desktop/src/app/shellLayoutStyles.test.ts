@@ -32,7 +32,6 @@ const {
   readDesktopButton,
   readSideDock,
   readGenerateDialogViewModel,
-  readGenerateProviderSettingsPanel,
   readGenerateAdvancedFieldsPanel,
   readGenerateDialogAdvancedSettings,
   readGenerateDialogAdvancedSettingsRuntime,
@@ -112,10 +111,7 @@ describe("CoreStudio shell layout styles", () => {
 
   it("keeps the unified settings action typography compact", () => {
     const appCss = readAppCss();
-    const actionButtonRule = getRule(
-      appCss,
-      ".settings-form-card__actions",
-    );
+    const actionButtonRule = getRule(appCss, ".settings-form-card__actions");
 
     expect(actionButtonRule).toBeTruthy();
     expect(appCss).not.toContain(".agent-status-popover");

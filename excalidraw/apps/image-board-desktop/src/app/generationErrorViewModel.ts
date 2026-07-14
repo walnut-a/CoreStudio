@@ -80,14 +80,18 @@ const stringifyUnknownError = (error: unknown) => {
 export const formatUnknownErrorMessage = (
   error: unknown,
   fallbackMessage: string,
-) => (error instanceof Error ? error.message : String(error || fallbackMessage));
+) =>
+  error instanceof Error ? error.message : String(error || fallbackMessage);
 
 const extractDesktopErrorInfo = (error: unknown) => {
   const rawMessage =
     error instanceof Error
       ? error.message || error.toString()
       : error && typeof error === "object" && "message" in error
-      ? String((error as { message?: unknown }).message || stringifyUnknownError(error))
+      ? String(
+          (error as { message?: unknown }).message ||
+            stringifyUnknownError(error),
+        )
       : stringifyUnknownError(error);
 
   const stack =
@@ -115,7 +119,9 @@ export const normalizeDesktopErrorMessage = (
 
   if (
     /API_KEY_INVALID|API key not valid/i.test(sanitizedMessage) &&
-    /generativelanguage\.googleapis\.com|googleapis\.com/i.test(sanitizedMessage)
+    /generativelanguage\.googleapis\.com|googleapis\.com/i.test(
+      sanitizedMessage,
+    )
   ) {
     return "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。";
   }
@@ -125,7 +131,7 @@ export const normalizeDesktopErrorMessage = (
   }
 
   if (/gemini API key is not configured/i.test(sanitizedMessage)) {
-    return "Gemini API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
+    return "Gemini API Key 还没配置，请在应用设置中完成配置。";
   }
 
   if (
@@ -147,11 +153,43 @@ export const normalizeDesktopErrorMessage = (
   }
 
   if (/zenmux API key is not configured/i.test(sanitizedMessage)) {
-    return "ZenMux API Key 还没配置，请在底部设置里的“连接与自定义模型”保存。";
+    return "ZenMux API Key 还没配置，请在应用设置中完成配置。";
   }
 
   if (/fal\.ai request failed: 401/i.test(sanitizedMessage)) {
     return "fal API Key 无效，请检查后重新保存。";
+  }
+
+  const providerLabel = getProviderDefinition(provider).label;
+
+  if (
+    /\b(?:401|403)\b|unauthorized|forbidden|invalid api key/i.test(
+      sanitizedMessage,
+    )
+  ) {
+    return `${providerLabel} API Key 无效，请在应用设置中检查后重新保存。`;
+  }
+
+  if (
+    /fetch failed|failed to fetch|ECONNREFUSED|ENOTFOUND|network error/i.test(
+      sanitizedMessage,
+    )
+  ) {
+    return `无法连接到 ${providerLabel}，请检查服务地址和网络。`;
+  }
+
+  if (
+    /\b404\b|model[_ -]?not[_ -]?found|unknown model/i.test(sanitizedMessage)
+  ) {
+    return `${providerLabel} 找不到当前模型，请在应用设置中检查模型 ID。`;
+  }
+
+  if (
+    /\b400\b.*(?:unsupported|invalid).*(?:parameter|argument)|unsupported parameter/i.test(
+      sanitizedMessage,
+    )
+  ) {
+    return "当前模型不支持这些生成参数，请调整尺寸、数量或参考图后重试。";
   }
 
   return sanitizedMessage;
@@ -230,9 +268,13 @@ export const formatGenerationErrorDebugText = (
   details: GenerationErrorDetails,
 ) => {
   return [
-    `${copy.debugError.provider}：${getProviderDefinition(details.provider).label}`,
+    `${copy.debugError.provider}：${
+      getProviderDefinition(details.provider).label
+    }`,
     `${copy.debugError.model}：${details.model}`,
-    `${copy.debugError.occurredAt}：${new Date(details.occurredAt).toLocaleString("zh-CN")}`,
+    `${copy.debugError.occurredAt}：${new Date(
+      details.occurredAt,
+    ).toLocaleString("zh-CN")}`,
     "",
     `${copy.debugError.message}：`,
     details.normalizedMessage,
@@ -242,8 +284,6 @@ export const formatGenerationErrorDebugText = (
     ...(details.requestPayload
       ? ["", `${copy.debugError.payload}：`, details.requestPayload]
       : []),
-    ...(details.stack
-      ? ["", `${copy.debugError.stack}：`, details.stack]
-      : []),
+    ...(details.stack ? ["", `${copy.debugError.stack}：`, details.stack] : []),
   ].join("\n");
 };

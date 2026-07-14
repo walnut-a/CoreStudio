@@ -31,7 +31,7 @@ const createBaseKeyboardEvent = <T extends HTMLElement>(patch: {
     currentTarget: patch.currentTarget,
     preventDefault: vi.fn(),
     stopPropagation: vi.fn(),
-  }) as any;
+  } as any);
 
 describe("generateComposerEvents", () => {
   it("stops React and native event propagation", () => {
@@ -173,32 +173,15 @@ describe("generateComposerEvents", () => {
     expect(action).toHaveBeenCalledTimes(1);
   });
 
-  it("creates composer event handlers wired to submit and provider actions", () => {
+  it("creates composer event handlers wired to submit", () => {
     const submit = vi.fn();
-    const saveProviderSettings = vi.fn();
-    const addCustomModel = vi.fn();
     const handlers = createGenerateComposerEventHandlers({
       submit,
-      saveProviderSettings,
-      addCustomModel,
     });
 
     const prompt = document.createElement("div");
     handlers.handleComposerPromptKeyDown(
       createBaseKeyboardEvent({ currentTarget: prompt, key: "Enter" }),
-    );
-
-    const apiKeyInput = document.createElement("input");
-    handlers.handleApiKeyKeyDown(
-      createBaseKeyboardEvent({ currentTarget: apiKeyInput, key: "Enter" }),
-    );
-
-    const customModelInput = document.createElement("input");
-    handlers.handleCustomModelKeyDown(
-      createBaseKeyboardEvent({
-        currentTarget: customModelInput,
-        key: "Enter",
-      }),
     );
 
     const formSubmitEvent = {
@@ -207,8 +190,6 @@ describe("generateComposerEvents", () => {
     handlers.handleSubmit(formSubmitEvent);
 
     expect(submit).toHaveBeenCalledTimes(2);
-    expect(saveProviderSettings).toHaveBeenCalledTimes(1);
-    expect(addCustomModel).toHaveBeenCalledTimes(1);
     expect(formSubmitEvent.preventDefault).toHaveBeenCalledTimes(1);
   });
 });

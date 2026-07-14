@@ -15,7 +15,7 @@ const renderBody = (
     advancedContent: (
       <>
         <div>高级参数</div>
-        <div>接口设置</div>
+        <div>模型参数</div>
       </>
     ),
     ...overrides,
@@ -36,17 +36,24 @@ describe("GenerateDialogBody", () => {
 
   it("renders provider warnings, errors, and advanced panels", () => {
     const onOpenErrorDetails = vi.fn();
+    const onOpenProviderSettings = vi.fn();
 
     renderBody({
       isConfigured: false,
       error: "生成失败",
       onOpenErrorDetails,
+      onOpenProviderSettings,
     });
 
-    expect(screen.getByText(copy.generateDialog.providerWarning)).toBeInTheDocument();
+    expect(
+      screen.getByText(copy.generateDialog.providerWarning),
+    ).toBeInTheDocument();
     expect(screen.getByText("生成失败")).toBeInTheDocument();
     expect(screen.getByText("高级参数")).toBeInTheDocument();
-    expect(screen.getByText("接口设置")).toBeInTheDocument();
+    expect(screen.getByText("模型参数")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "打开应用设置" }));
+    expect(onOpenProviderSettings).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: copy.debugError.view }));
 
@@ -57,6 +64,6 @@ describe("GenerateDialogBody", () => {
     renderBody({ advancedOpen: false });
 
     expect(screen.queryByText("高级参数")).toBeNull();
-    expect(screen.queryByText("接口设置")).toBeNull();
+    expect(screen.queryByText("模型参数")).toBeNull();
   });
 });

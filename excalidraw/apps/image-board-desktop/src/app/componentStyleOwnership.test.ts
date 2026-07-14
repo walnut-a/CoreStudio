@@ -32,7 +32,6 @@ const {
   readDesktopButton,
   readSideDock,
   readGenerateDialogViewModel,
-  readGenerateProviderSettingsPanel,
   readGenerateAdvancedFieldsPanel,
   readGenerateDialogAdvancedSettings,
   readGenerateDialogAdvancedSettingsRuntime,
@@ -396,8 +395,7 @@ describe("component style ownership boundaries", () => {
     const primaryRule = getRule(appCss, ".image-board-button--primary");
     const disabledRule = getRule(appCss, ".image-board-button:disabled");
     const inheritedFontIndex = buttonRule?.indexOf("font: inherit") ?? -1;
-    const fixedFontSizeIndex =
-      buttonRule?.indexOf("font-size: 0.875rem") ?? -1;
+    const fixedFontSizeIndex = buttonRule?.indexOf("font-size: 0.875rem") ?? -1;
 
     expect(source).toContain('import "./DesktopButton.css";');
     expect(buttonRule).toContain("min-height: 2.5rem");

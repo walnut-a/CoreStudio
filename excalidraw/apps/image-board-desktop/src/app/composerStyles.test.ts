@@ -36,7 +36,6 @@ const {
   readAcpAgentWiring,
   readSideDock,
   readGenerateDialogViewModel,
-  readGenerateProviderSettingsPanel,
   readGenerateAdvancedFieldsPanel,
   readGenerateDialogAdvancedSettings,
   readGenerateDialogAdvancedSettingsRuntime,
@@ -106,10 +105,7 @@ describe("generate composer styles", () => {
       appCss,
       ".inspector-sidebar__section--image",
     );
-    const sectionBodyRule = getRule(
-      appCss,
-      ".inspector-sidebar__section-body",
-    );
+    const sectionBodyRule = getRule(appCss, ".inspector-sidebar__section-body");
     const shapeActionsRule = getRule(
       appCss,
       ".inspector-sidebar .selected-shape-actions",
@@ -557,57 +553,16 @@ describe("generate composer styles", () => {
   it("keeps the expanded settings surface in the same native control family", () => {
     const appCss = readAppCss();
     const bodyRule = getRule(appCss, ".generate-panel__body");
-    const providerSettingsRule = getRule(appCss, ".generate-provider-settings");
-    const providerToggleRule = getRule(
-      appCss,
-      ".generate-provider-settings__toggle",
-    );
     const panelGridRule = getRule(
       appCss,
       ".generate-panel__body .dialog-form-grid",
-    );
-    const connectionRowRule = getRule(
-      appCss,
-      ".generate-provider-settings__connection-row",
-    );
-    const customModelRule = getRule(
-      appCss,
-      ".generate-provider-settings__custom-model",
-    );
-    const advancedFieldsRule = getRule(
-      appCss,
-      ".generate-provider-settings__advanced-group--fields",
-    );
-    const summaryRule = getRule(
-      appCss,
-      ".generate-provider-settings__summary-grid",
     );
 
     expect(bodyRule).toContain("border: 1px solid var(--input-border-color)");
     expect(bodyRule).toContain("border-radius: var(--border-radius-lg)");
     expect(bodyRule).toContain("background: var(--island-bg-color)");
     expect(bodyRule).toContain("backdrop-filter: none");
-    expect(bodyRule).not.toContain("blur(18px)");
-    expect(bodyRule).not.toContain("border-radius: 24px");
-    expect(bodyRule).not.toContain("0 30px 56px");
-    expect(providerSettingsRule).toContain("border: 1px solid");
-    expect(providerSettingsRule).toContain(
-      "var(--color-border-outline-variant)",
-    );
-    expect(providerSettingsRule).toContain(
-      "border-radius: var(--border-radius-lg)",
-    );
-    expect(providerToggleRule).toContain("background: transparent");
     expect(panelGridRule).toContain("gap: 14px");
-    expect(connectionRowRule).toContain("gap: 10px");
-    expect(customModelRule).toContain("gap: 10px");
-    expect(advancedFieldsRule).toContain("column-gap: 10px");
-    expect(summaryRule).toContain(
-      "grid-template-columns: repeat(auto-fit, minmax(160px, 1fr))",
-    );
-    expect(readGenerateProviderSettingsPanel()).toContain(
-      "generate-provider-settings",
-    );
   });
 
   it("keeps custom select arrows visible when select controls are hovered", () => {
@@ -621,24 +576,6 @@ describe("generate composer styles", () => {
     expect(selectHoverRules.join("\n")).not.toMatch(/background\s*:/);
   });
 
-  it("uses a downward select chevron and a compact expand icon for API settings", () => {
-    const appCss = readAppCss();
-    const providerSettingsSource = readGenerateProviderSettingsPanel();
-
-    expect(appCss).toContain("M3.25 5.4 7 9.15l3.75-3.75");
-    expect(appCss).toContain('stroke-width="1.25"');
-    expect(appCss).not.toContain("M287 197L159 69");
-    expect(providerSettingsSource).toContain(
-      "generate-provider-settings__icon",
-    );
-    expect(providerSettingsSource).toContain("chevronDownIcon");
-    expect(readCoreStudioIcons()).toContain("m7.25 9 4.75 4.75L16.75 9");
-    expect(providerSettingsSource).not.toContain("M6 9h6");
-    expect(providerSettingsSource).not.toContain("M9 6v6");
-    expect(providerSettingsSource).not.toContain("M3 8l4-4 4 4");
-    expect(providerSettingsSource).not.toContain("M3 5l4 4 4-4");
-  });
-
   it("keeps API key settings out of the generation parameter controls", () => {
     const dialogSource = readGenerateImageDialog();
     const dialogRuntimeSource = readGenerateImageDialogRuntime();
@@ -647,9 +584,10 @@ describe("generate composer styles", () => {
     const advancedSettingsRuntimeSource =
       readGenerateDialogAdvancedSettingsRuntime();
     const advancedFieldsSource = readGenerateAdvancedFieldsPanel();
-    const providerSettingsSource = readGenerateProviderSettingsPanel();
     expect(advancedSettingsSource).toContain("<GenerateAdvancedFieldsPanel");
-    expect(advancedSettingsSource).not.toContain("<GenerateProviderSettingsPanel");
+    expect(advancedSettingsSource).not.toContain(
+      "<GenerateProviderSettingsPanel",
+    );
     expect(providerRuntimeSource).toContain(
       "createGenerateDialogAdvancedSettingsRuntime",
     );
@@ -679,16 +617,15 @@ describe("generate composer styles", () => {
     expect(advancedSettingsRuntimeSource).toContain(
       "createGenerateAdvancedRequestHandlers",
     );
-    expect(advancedSettingsRuntimeSource).toContain(
+    expect(advancedSettingsRuntimeSource).not.toContain(
       "createGenerateProviderSettingsActions",
     );
     expect(dialogSource).not.toContain("advancedFieldsProps={{");
     expect(dialogSource).not.toContain("providerSettingsProps={{");
     expect(advancedFieldsSource).toContain("copy.generateDialog.aspectRatio");
     expect(advancedFieldsSource).toContain("copy.generateDialog.imageCount");
-    expect(providerSettingsSource).toContain(
-      'className="dialog-form-grid__full generate-provider-settings"',
-    );
+    expect(providerRuntimeSource).not.toContain("apiKeyDraft");
+    expect(providerRuntimeSource).not.toContain("customModelDraft");
   });
 
   it("keeps provider settings and advanced props wiring in the provider runtime", () => {
@@ -705,7 +642,7 @@ describe("generate composer styles", () => {
     expect(dialogRuntimeSource).not.toContain("customModelDraft");
     expect(dialogRuntimeSource).not.toContain("providerSaveFeedback");
     expect(dialogRuntimeSource).not.toContain("selectedCustomModelUsage");
-    expect(providerRuntimeSource).toContain(
+    expect(providerRuntimeSource).not.toContain(
       "useGenerateProviderSettingsController",
     );
     expect(providerRuntimeSource).toContain(
@@ -714,10 +651,8 @@ describe("generate composer styles", () => {
     expect(providerRuntimeSource).toContain(
       "createGenerateDialogAdvancedSettingsActions",
     );
-    expect(providerRuntimeSource).toContain("apiKeyDraft");
-    expect(providerRuntimeSource).toContain("customModelDraft");
-    expect(providerRuntimeSource).toContain("providerSaveFeedback");
-    expect(providerRuntimeSource).toContain("selectedCustomModelUsage");
+    expect(providerRuntimeSource).not.toContain("apiKeyDraft");
+    expect(providerRuntimeSource).not.toContain("customModelDraft");
   });
 
   it("keeps generate dialog hook wiring inside the dialog runtime hook", () => {
@@ -735,7 +670,7 @@ describe("generate composer styles", () => {
     expect(dialogSource).not.toContain("createGenerateDialogComposerRuntime");
     expect(dialogRuntimeSource).toContain("useGenerateRequestController");
     expect(dialogRuntimeSource).toContain("useGenerateComposerController");
-    expect(providerRuntimeSource).toContain(
+    expect(providerRuntimeSource).not.toContain(
       "useGenerateProviderSettingsController",
     );
     expect(dialogRuntimeSource).toContain("useGenerateDialogPanelController");
@@ -1741,7 +1676,7 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("<AgentStatusDock");
     expect(source).toContain("openAppSettings: () => setAppSettingsOpen(true)");
     expect(source).toContain(
-      "onAction={agentBridgeStatusRendererActions.refreshBrowserConnectionStatus}",
+      "agentBridgeStatusRendererActions.refreshBrowserConnectionStatus",
     );
   });
 
@@ -1956,53 +1891,5 @@ describe("generate composer styles", () => {
       "GenerateDialogComposerActionsSection",
     );
     expect(composerSectionSource).toContain("GenerateComposerTaskStatus");
-  });
-
-  it("separates advanced model capabilities from parameter controls", () => {
-    const appCss = readAppCss();
-    const advancedBodyRule = getRule(
-      appCss,
-      ".generate-provider-settings__advanced-body",
-    );
-    const advancedGroupRule = getRule(
-      appCss,
-      ".generate-provider-settings__advanced-group",
-    );
-    const advancedFieldsRule = getRule(
-      appCss,
-      ".generate-provider-settings__advanced-group--fields",
-    );
-    const switchRule = getRulesContaining(
-      appCss,
-      ".generate-provider-settings__advanced-switch",
-    ).join("\n");
-    const switchInputRule = getRulesContaining(
-      appCss,
-      ".generate-provider-settings__advanced-switch",
-    )
-      .filter((rule) => rule.includes("input"))
-      .join("\n");
-    const providerSettingsSource = readGenerateProviderSettingsPanel();
-
-    expect(advancedBodyRule).not.toContain("repeat(2, minmax(0, 1fr))");
-    expect(advancedGroupRule).toContain("display: grid");
-    expect(advancedFieldsRule).toContain(
-      "grid-template-columns: repeat(2, minmax(0, 1fr))",
-    );
-    expect(advancedFieldsRule).toContain("column-gap: 10px");
-    expect(switchRule).toContain("display: flex");
-    expect(switchRule).toContain("align-items: center");
-    expect(switchInputRule).toContain("flex: 0 0 auto");
-    expect(switchInputRule).toContain("width: auto");
-    expect(switchInputRule).toContain("margin: 0");
-    expect(providerSettingsSource).toContain(
-      "generate-provider-settings__advanced-group",
-    );
-    expect(providerSettingsSource).toContain(
-      "generate-provider-settings__advanced-switch",
-    );
-    expect(providerSettingsSource).not.toContain(
-      "generate-provider-settings__advanced-row",
-    );
   });
 });

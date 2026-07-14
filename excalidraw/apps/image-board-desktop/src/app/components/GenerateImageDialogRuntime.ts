@@ -1,17 +1,14 @@
 import { useRef } from "react";
+import { getConfiguredProviderIds } from "../../shared/providerCatalog";
 
 import { type InlinePromptEditorHandle } from "./InlinePromptEditor";
-import {
-  createGenerateDialogComposerRuntime,
-} from "./GenerateDialogComposerRuntime";
+import { createGenerateDialogComposerRuntime } from "./GenerateDialogComposerRuntime";
 import {
   createGenerateImageDialogProviderAdvancedSettingsRuntime,
   getGenerateImageDialogProviderContext,
   useGenerateImageDialogProviderRuntime,
 } from "./GenerateImageDialogProviderRuntime";
-import {
-  createGenerateDialogPromptLibraryRuntime,
-} from "./GenerateDialogPromptLibraryRuntime";
+import { createGenerateDialogPromptLibraryRuntime } from "./GenerateDialogPromptLibraryRuntime";
 import {
   useGenerateComposerController,
   type GenerateComposerConfig,
@@ -26,7 +23,6 @@ import type {
   PublicProviderSettings,
   SavedPrompt,
   SavePromptInput,
-  SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
 import type {
   GenerationReferencePayload,
@@ -41,7 +37,6 @@ export interface UseGenerateImageDialogRuntimeInput {
   composerConfig?: GenerateComposerConfig;
   initialRequest: GenerationRequest;
   providerSettings: PublicProviderSettings | null;
-  savingProviderSettings?: boolean;
   error: string | null;
   onOpenErrorDetails?: () => void;
   onClose: () => void;
@@ -59,9 +54,7 @@ export interface UseGenerateImageDialogRuntimeInput {
   onSavePrompt?: (input: SavePromptInput) => void | Promise<void>;
   onUsePrompt?: (id: string) => void | Promise<void>;
   onDeletePrompt?: (id: string) => void | Promise<void>;
-  onSaveProviderSettings?: (
-    input: SaveProviderSettingsInput,
-  ) => Promise<PublicProviderSettings | void>;
+  onOpenProviderSettings?: () => void;
   onSubmit: (request: GenerationRequest, keepOpen: boolean) => void;
 }
 
@@ -72,7 +65,6 @@ export const useGenerateImageDialogRuntime = ({
   composerConfig,
   initialRequest,
   providerSettings,
-  savingProviderSettings = false,
   error,
   onOpenErrorDetails,
   onClose,
@@ -87,7 +79,7 @@ export const useGenerateImageDialogRuntime = ({
   onSavePrompt,
   onUsePrompt,
   onDeletePrompt,
-  onSaveProviderSettings,
+  onOpenProviderSettings,
   onSubmit,
 }: UseGenerateImageDialogRuntimeInput) => {
   const {
@@ -111,7 +103,6 @@ export const useGenerateImageDialogRuntime = ({
   });
   const panelRef = useRef<HTMLElement | null>(null);
   const promptEditorRef = useRef<InlinePromptEditorHandle | null>(null);
-  const apiKeyInputRef = useRef<HTMLInputElement | null>(null);
   const {
     showComposerModeSwitch,
     modeSwitchVariant,
@@ -142,8 +133,6 @@ export const useGenerateImageDialogRuntime = ({
   const {
     advancedOpen,
     setAdvancedOpen,
-    apiSettingsOpen,
-    setApiSettingsOpen,
     promptLibraryOpen,
     setPromptLibraryOpen,
     promptLibrarySearch,
@@ -157,15 +146,11 @@ export const useGenerateImageDialogRuntime = ({
     isConfigured: providerContext.isConfigured,
     panelRef,
     promptEditorRef,
-    apiKeyInputRef,
     onClose,
   });
 
   const {
-    providerDefinition,
     providerModels,
-    currentModelLabel,
-    currentProviderStatus,
     visibleFields,
     aspectRatioOptions,
     selectedAspectRatio,
@@ -214,11 +199,9 @@ export const useGenerateImageDialogRuntime = ({
     request,
     providerSettings,
     providerContext,
-    open,
     aspectRatioOptions,
     updateRequest,
     onModelSelectionChange,
-    onSaveProviderSettings,
   });
 
   const {
@@ -226,8 +209,6 @@ export const useGenerateImageDialogRuntime = ({
     handleInputKeyPhaseCapture,
     handleComposerPromptKeyDown,
     handleTextInputKeyDown,
-    handleApiKeyKeyDown,
-    handleCustomModelKeyDown,
     handleSubmit,
     selectComposerMode,
     selectGenerationSource,
@@ -241,8 +222,6 @@ export const useGenerateImageDialogRuntime = ({
     commitPendingReference,
     clearSubmittedPrompt,
     onSubmit,
-    saveProviderSettings: providerRuntime.saveProviderSettings,
-    addCustomModelToRequest: providerRuntime.addCustomModelToRequest,
     modeSwitchVariant,
     agentGenerationSelectable,
     setComposerMode,
@@ -258,38 +237,27 @@ export const useGenerateImageDialogRuntime = ({
       visibleFields,
       selectedAspectRatio,
       aspectRatioOptions,
+      configuredProviders: getConfiguredProviderIds(providerSettings ?? {}),
       handleTextInputKeyDown,
-      apiSettingsOpen,
-      providerLabel: providerDefinition.label,
-      currentProviderStatus,
-      currentModelLabel,
-      isProviderConfigured: providerContext.isConfigured,
-      apiKeyInputRef,
-      savingProviderSettings,
-      stopInputEventPropagation,
-      setApiSettingsOpen,
-      handleApiKeyKeyDown,
-      handleCustomModelKeyDown,
     });
 
-  const {
-    promptLibrarySectionProps,
-  } = createGenerateDialogPromptLibraryRuntime({
-    effectiveComposerMode,
-    promptLibraryOpen,
-    savedPrompts,
-    promptLibrarySearch,
-    promptLibraryCurrentContent,
-    getCurrentRequest: () => requestRef.current,
-    updatePrompt,
-    replacePromptParts,
-    onSavePrompt,
-    onUsePrompt,
-    onDeletePrompt,
-    setPromptLibrarySearch,
-    handleTextInputKeyDown,
-    stopInputEventPropagation,
-  });
+  const { promptLibrarySectionProps } =
+    createGenerateDialogPromptLibraryRuntime({
+      effectiveComposerMode,
+      promptLibraryOpen,
+      savedPrompts,
+      promptLibrarySearch,
+      promptLibraryCurrentContent,
+      getCurrentRequest: () => requestRef.current,
+      updatePrompt,
+      replacePromptParts,
+      onSavePrompt,
+      onUsePrompt,
+      onDeletePrompt,
+      setPromptLibrarySearch,
+      handleTextInputKeyDown,
+      stopInputEventPropagation,
+    });
 
   return {
     panelRef,
@@ -343,6 +311,7 @@ export const useGenerateImageDialogRuntime = ({
       isConfigured: providerContext.isConfigured,
       error,
       onOpenErrorDetails,
+      onOpenProviderSettings,
       advancedOpen,
     },
     advancedSettingsProps,

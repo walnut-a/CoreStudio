@@ -2124,7 +2124,6 @@ const App = () => {
           composerConfig={acpAgentGeneration.composerConfig}
           initialRequest={generateRequest}
           providerSettings={providerSettings}
-          savingProviderSettings={savingProviders}
           loading={pendingGenerationCount > 0}
           error={generationError}
           onOpenErrorDetails={
@@ -2132,6 +2131,10 @@ const App = () => {
               ? () => setGenerationErrorDetailsOpen(true)
               : undefined
           }
+          onOpenProviderSettings={() => {
+            setAppSettingsCategory("image-generation");
+            setAppSettingsOpen(true);
+          }}
           onCancelGeneration={cancelBuiltinGeneration}
           onClose={() => undefined}
           onRequestChange={generationRequestRendererActions.changeRequest}

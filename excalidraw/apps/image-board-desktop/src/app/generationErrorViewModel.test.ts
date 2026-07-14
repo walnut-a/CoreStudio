@@ -33,11 +33,11 @@ describe("splitRequestPayload", () => {
   it("splits a user-facing message from the attached request payload", () => {
     expect(
       splitRequestPayload(
-        "Renderer command failed\n请求载荷：{\"model\":\"gemini\"}",
+        'Renderer command failed\n请求载荷：{"model":"gemini"}',
       ),
     ).toEqual({
       message: "Renderer command failed",
-      requestPayload: "{\"model\":\"gemini\"}",
+      requestPayload: '{"model":"gemini"}',
     });
   });
 
@@ -68,6 +68,22 @@ describe("normalizeDesktopErrorMessage", () => {
       ),
     ).toBe("ZenMux 余额不足，这个模型需要账户里有正余额。");
   });
+
+  it.each([
+    ["401 Unauthorized", "OpenAI API Key 无效，请在应用设置中检查后重新保存。"],
+    ["403 Forbidden", "OpenAI API Key 无效，请在应用设置中检查后重新保存。"],
+    ["fetch failed: ECONNREFUSED", "无法连接到 OpenAI，请检查服务地址和网络。"],
+    [
+      "404 model_not_found",
+      "OpenAI 找不到当前模型，请在应用设置中检查模型 ID。",
+    ],
+    [
+      "400 unsupported parameter: seed",
+      "当前模型不支持这些生成参数，请调整尺寸、数量或参考图后重试。",
+    ],
+  ])("classifies common provider failures: %s", (raw, expected) => {
+    expect(normalizeDesktopErrorMessage("openai", raw)).toBe(expected);
+  });
 });
 
 describe("formatUnknownErrorMessage", () => {
@@ -89,7 +105,7 @@ describe("generation error details", () => {
     const details = buildGenerationErrorDetails(
       createGenerationRequest(),
       new Error(
-        "Error invoking remote method 'image-board:generate-image': Error: COMMAND_FAILED\n请求载荷：{\"model\":\"gemini\"}",
+        'Error invoking remote method \'image-board:generate-image\': Error: COMMAND_FAILED\n请求载荷：{"model":"gemini"}',
       ),
       "生成失败",
     );
@@ -100,7 +116,7 @@ describe("generation error details", () => {
       normalizedMessage: "生成失败",
       rawMessage:
         "Error invoking remote method 'image-board:generate-image': Error: COMMAND_FAILED",
-      requestPayload: "{\"model\":\"gemini\"}",
+      requestPayload: '{"model":"gemini"}',
     });
     expect(new Date(details.occurredAt).getTime()).not.toBeNaN();
   });
@@ -151,23 +167,23 @@ describe("generation error details", () => {
       occurredAt: "2026-07-03T08:00:00.000Z",
       normalizedMessage: "生成失败",
       rawMessage: "COMMAND_FAILED",
-      requestPayload: "{\"model\":\"gemini\"}",
+      requestPayload: '{"model":"gemini"}',
       stack: "stack line",
     });
 
     expect(debugText).toContain("模型服务：Gemini");
-    expect(debugText).toContain(
-      "模型：google/gemini-3-pro-image-preview",
-    );
+    expect(debugText).toContain("模型：google/gemini-3-pro-image-preview");
     expect(debugText).toContain("当前提示：\n生成失败");
-    expect(debugText).toContain("请求载荷：\n{\"model\":\"gemini\"}");
+    expect(debugText).toContain('请求载荷：\n{"model":"gemini"}');
     expect(debugText).toContain("调用堆栈：\nstack line");
   });
 });
 
 describe("generation error UI state", () => {
   it("builds a closed and uncopied error state from a failed request", () => {
-    const error = new Error("ZenMux request failed: positive balance is required");
+    const error = new Error(
+      "ZenMux request failed: positive balance is required",
+    );
 
     expect(
       buildGenerationErrorUiState({

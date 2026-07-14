@@ -62,6 +62,11 @@ describe("CoreStudio shell layout styles", () => {
     expect(settingsDialogRule).toContain("flex-direction: column");
     expect(settingsDialogRule).toContain("max-width: none");
 
+    const settingsContentRule = getRule(appCss, ".app-settings-content");
+    expect(settingsContentRule).toContain("min-height: 0");
+    expect(settingsContentRule).toContain("overflow: auto");
+    expect(settingsContentRule).toContain("padding: 24px 32px 32px");
+
     const providerControlsRule = getRule(
       appCss,
       ".settings-current-provider__controls",

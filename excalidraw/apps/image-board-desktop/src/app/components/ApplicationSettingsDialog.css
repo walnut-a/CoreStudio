@@ -78,15 +78,17 @@
 
 .app-settings-content {
   min-width: 0;
+  min-height: 0;
   overflow: auto;
-  padding: 32px 40px 40px;
+  scrollbar-gutter: stable;
+  padding: 24px 32px 32px;
   background: var(--island-bg-color);
 }
 
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   max-width: 720px;
   margin: 0 auto;
   color: var(--text-primary-color);

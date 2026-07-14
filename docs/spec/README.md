@@ -7,6 +7,7 @@
 ## 当前规范文档
 
 - [2026-07-14-corestudio-codex-collaboration-usability.md](2026-07-14-corestudio-codex-collaboration-usability.md)：CoreStudio 与 Codex 协作易用性需求整理，固定 Codex 主路径、CoreStudio 生图调用边界和 ACP 实验性定位。
+- [2026-07-14-corestudio-usability-improvement-backlog.md](2026-07-14-corestudio-usability-improvement-backlog.md)：易用性优化待确认清单，汇总当前入口、安装、状态、Codex 主路径、CoreStudio 生图能力和实验性 ACP 的后续问题；用户明确授权前不得进入开发。
 
 ## 既有历史规格
 

@@ -2106,50 +2106,52 @@ const App = () => {
         </div>
       </ProjectRenderBoundary>
 
-      <GenerateImageDialog
-        open={true}
-        persistent={true}
-        focusToken={generateFocusToken}
-        composerConfig={acpAgentGeneration.composerConfig}
-        initialRequest={generateRequest}
-        providerSettings={providerSettings}
-        savingProviderSettings={savingProviders}
-        providerSettingsFocusToken={providerSettingsFocusToken}
-        loading={pendingGenerationCount > 0}
-        error={generationError}
-        onOpenErrorDetails={
-          generationErrorDetails
-            ? () => setGenerationErrorDetailsOpen(true)
-            : undefined
-        }
-        onCancelGeneration={cancelBuiltinGeneration}
-        onClose={() => undefined}
-        onRequestChange={generationRequestRendererActions.changeRequest}
-        onModelSelectionChange={
-          generationModelSelectionRendererActions.rememberSelection
-        }
-        onReferenceRemove={generateDialogReferenceRendererActions.remove}
-        onReferenceCommit={generateDialogReferenceRendererActions.commit}
-        onOpenAgentRunLog={(taskId) => {
-          void acpRunLogRendererActions.open(taskId, {
-            openInConversationDock: true,
-          });
-        }}
-        savedPrompts={savedPrompts}
-        onSavePrompt={(input) => {
-          void savedPromptLibraryRendererActions.savePrompt(input);
-        }}
-        onUsePrompt={(id) => {
-          void savedPromptLibraryRendererActions.usePrompt(id);
-        }}
-        onDeletePrompt={(id) => {
-          void savedPromptLibraryRendererActions.deletePrompt(id);
-        }}
-        onSaveProviderSettings={(settings) =>
-          providerSettingsRendererActions.saveSettings(settings)
-        }
-        onSubmit={generationSubmitRendererActions.submit}
-      />
+      {!isAgentBrowserRoute ? (
+        <GenerateImageDialog
+          open={true}
+          persistent={true}
+          focusToken={generateFocusToken}
+          composerConfig={acpAgentGeneration.composerConfig}
+          initialRequest={generateRequest}
+          providerSettings={providerSettings}
+          savingProviderSettings={savingProviders}
+          providerSettingsFocusToken={providerSettingsFocusToken}
+          loading={pendingGenerationCount > 0}
+          error={generationError}
+          onOpenErrorDetails={
+            generationErrorDetails
+              ? () => setGenerationErrorDetailsOpen(true)
+              : undefined
+          }
+          onCancelGeneration={cancelBuiltinGeneration}
+          onClose={() => undefined}
+          onRequestChange={generationRequestRendererActions.changeRequest}
+          onModelSelectionChange={
+            generationModelSelectionRendererActions.rememberSelection
+          }
+          onReferenceRemove={generateDialogReferenceRendererActions.remove}
+          onReferenceCommit={generateDialogReferenceRendererActions.commit}
+          onOpenAgentRunLog={(taskId) => {
+            void acpRunLogRendererActions.open(taskId, {
+              openInConversationDock: true,
+            });
+          }}
+          savedPrompts={savedPrompts}
+          onSavePrompt={(input) => {
+            void savedPromptLibraryRendererActions.savePrompt(input);
+          }}
+          onUsePrompt={(id) => {
+            void savedPromptLibraryRendererActions.usePrompt(id);
+          }}
+          onDeletePrompt={(id) => {
+            void savedPromptLibraryRendererActions.deletePrompt(id);
+          }}
+          onSaveProviderSettings={(settings) =>
+            providerSettingsRendererActions.saveSettings(settings)
+          }
+          onSubmit={generationSubmitRendererActions.submit}
+        />
+      ) : null}
     </div>
   );
 };

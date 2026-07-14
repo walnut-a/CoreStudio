@@ -463,13 +463,11 @@ export const buildAcpAgentGenerationViewModel = ({
       ? "当前任务处理中"
       : unavailableMessage,
     composerConfig: {
-      defaultMode: isAgentBrowserRoute ? "agent" : "direct",
+      defaultMode: "direct",
       showModeSwitch: !isAgentBrowserRoute && integration.acp.enabled,
-      modeSwitchVariant: isAgentBrowserRoute
-        ? "agent-operation"
-        : "acp-agent",
-      showModeIndicator: isAgentBrowserRoute,
-      defaultGenerationSource: isAgentBrowserRoute ? "agent" : "builtin",
+      modeSwitchVariant: "acp-agent",
+      showModeIndicator: false,
+      defaultGenerationSource: "builtin",
       showGenerationSourceSwitch: false,
       agentGenerationAvailable: canSubmitMessage,
       agentGenerationUnavailableMessage: `${unavailableMessage}。`,

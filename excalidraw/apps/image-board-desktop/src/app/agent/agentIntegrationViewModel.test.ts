@@ -468,7 +468,7 @@ describe("buildAcpAgentGenerationViewModel", () => {
     });
   });
 
-  it("builds Agent Board composer defaults without showing the desktop ACP switch", () => {
+  it("keeps Agent Board composer state on the defensive direct-generation boundary", () => {
     const integration = buildAgentIntegrationViewModel({
       bridgeStatus: createBridgeStatus(),
       acpAgentSettings: createAcpSettings(),
@@ -491,11 +491,11 @@ describe("buildAcpAgentGenerationViewModel", () => {
     expect(viewModel.canSubmitMessage).toBe(false);
     expect(viewModel.submitMessageDisabledReason).toBe("当前任务处理中");
     expect(viewModel.composerConfig).toMatchObject({
-      defaultMode: "agent",
+      defaultMode: "direct",
       showModeSwitch: false,
-      modeSwitchVariant: "agent-operation",
-      showModeIndicator: true,
-      defaultGenerationSource: "agent",
+      modeSwitchVariant: "acp-agent",
+      showModeIndicator: false,
+      defaultGenerationSource: "builtin",
       showGenerationSourceSwitch: false,
       agentGenerationAvailable: false,
       agentTaskStatus: {

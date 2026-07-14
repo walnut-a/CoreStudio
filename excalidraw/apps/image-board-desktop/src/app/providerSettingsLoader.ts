@@ -19,7 +19,11 @@ const delay = (ms: number) =>
 
 const shouldRetryProviderSettingsLoad = (error: unknown) => {
   const message =
-    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+      ? error
+      : "";
   return message.includes(NO_HANDLER_REGISTERED_FRAGMENT);
 };
 
@@ -40,7 +44,10 @@ export const loadProviderSettingsWithRetry = async (
       return await bridge.loadProviderSettings();
     } catch (error) {
       lastError = error;
-      if (!shouldRetryProviderSettingsLoad(error) || attempt === retryCount - 1) {
+      if (
+        !shouldRetryProviderSettingsLoad(error) ||
+        attempt === retryCount - 1
+      ) {
         throw error;
       }
       await delay(retryDelayMs);
@@ -83,10 +90,13 @@ export const runProviderSettingsLoadAction = async ({
   }
 
   try {
-    const nextProviderConfiguration = await loadProviderSettingsWithRetry(bridge, {
-      retryCount,
-      retryDelayMs,
-    });
+    const nextProviderConfiguration = await loadProviderSettingsWithRetry(
+      bridge,
+      {
+        retryCount,
+        retryDelayMs,
+      },
+    );
     setProviderSettings(nextProviderConfiguration);
 
     if (!isGenerationModelSelectionLocked()) {
@@ -188,7 +198,7 @@ export const createProviderSettingsRendererActions = ({
   setSavingProviders: (saving: boolean) => void;
 }) => ({
   saveSettings: async (input: SaveProviderSettingsInput) => {
-    await runProviderSettingsSaveAction({
+    return runProviderSettingsSaveAction({
       saveProviderSettings,
       input,
       setProviderSettings,

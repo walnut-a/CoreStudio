@@ -290,7 +290,10 @@ describe("createProviderSettingsRendererActions", () => {
       setSavingProviders,
     });
 
-    await expect(actions.saveSettings(input)).resolves.toBeUndefined();
+    await expect(actions.saveSettings(input)).resolves.toEqual({
+      status: "saved",
+      providerConfiguration: providerConfigurationFixture,
+    });
 
     expect(saveProviderSettings).toHaveBeenCalledWith(input);
     expect(setSavingProviders).toHaveBeenNthCalledWith(1, true);

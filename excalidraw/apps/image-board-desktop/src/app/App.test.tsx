@@ -316,9 +316,7 @@ describe("App startup", () => {
       });
     });
 
-    expect(
-      screen.queryByRole("button", { name: "Codex 协作状态" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Codex 协作状态" })).toBeNull();
   });
 
   it("handles agent scene.addPrompt requests on the current board", async () => {
@@ -1831,12 +1829,15 @@ describe("App startup", () => {
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByRole("tab", { name: "图像生成" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(within(dialog).getByRole("tab", { name: "Codex 集成" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("tab", { name: "实验性功能" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("tab", { name: "图像生成" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(dialog).getByRole("tab", { name: "Codex 集成" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("tab", { name: "实验性功能" }),
+    ).toBeInTheDocument();
     expect(within(dialog).queryByRole("switch", { name: /Codex/ })).toBeNull();
   });
 
@@ -2308,7 +2309,9 @@ describe("App startup", () => {
     const welcomePane = await screen.findByRole("region", {
       name: "选择项目开始",
     });
-    expect(within(welcomePane).queryByText("Agent 集成")).not.toBeInTheDocument();
+    expect(
+      within(welcomePane).queryByText("Agent 集成"),
+    ).not.toBeInTheDocument();
     expect(within(welcomePane).queryByRole("switch")).not.toBeInTheDocument();
     expect(setAgentBridgeEnabled).not.toHaveBeenCalled();
   });
@@ -2445,33 +2448,33 @@ describe("App startup", () => {
         schemaVersion: 2,
         defaultProvider: "fal",
         providers: {
-        gemini: {
-          defaultModel: "gemini-2.5-flash-image",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        zenmux: {
-          defaultModel: "google/gemini-2.5-flash-image",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        fal: {
-          defaultModel: "fal-ai/nano-banana-2",
-          isConfigured: true,
-          lastStatus: "success",
-          lastCheckedAt: null,
-          lastError: null,
-        },
+          gemini: {
+            defaultModel: "gemini-2.5-flash-image",
+            isConfigured: false,
+            lastStatus: "unknown",
+            lastCheckedAt: null,
+            lastError: null,
+          },
+          zenmux: {
+            defaultModel: "google/gemini-2.5-flash-image",
+            isConfigured: false,
+            lastStatus: "unknown",
+            lastCheckedAt: null,
+            lastError: null,
+          },
+          fal: {
+            defaultModel: "fal-ai/nano-banana-2",
+            isConfigured: true,
+            lastStatus: "success",
+            lastCheckedAt: null,
+            lastError: null,
+          },
           jimeng: {
-          defaultModel: "doubao-seedream-5-0-lite-260128",
-          isConfigured: true,
-          lastStatus: "success",
-          lastCheckedAt: null,
-          lastError: null,
+            defaultModel: "doubao-seedream-5-0-lite-260128",
+            isConfigured: true,
+            lastStatus: "success",
+            lastCheckedAt: null,
+            lastError: null,
           },
         },
       }),
@@ -2535,32 +2538,32 @@ describe("App startup", () => {
         defaultProvider: "fal",
         providers: {
           gemini: {
-          defaultModel: "gemini-2.5-flash-image",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        zenmux: {
-          defaultModel: "google/gemini-2.5-flash-image",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        fal: {
-          defaultModel: "fal-ai/nano-banana-2",
-          isConfigured: true,
-          lastStatus: "success",
-          lastCheckedAt: null,
-          lastError: null,
-        },
+            defaultModel: "gemini-2.5-flash-image",
+            isConfigured: false,
+            lastStatus: "unknown",
+            lastCheckedAt: null,
+            lastError: null,
+          },
+          zenmux: {
+            defaultModel: "google/gemini-2.5-flash-image",
+            isConfigured: false,
+            lastStatus: "unknown",
+            lastCheckedAt: null,
+            lastError: null,
+          },
+          fal: {
+            defaultModel: "fal-ai/nano-banana-2",
+            isConfigured: true,
+            lastStatus: "success",
+            lastCheckedAt: null,
+            lastError: null,
+          },
           openrouter: {
-          defaultModel: "google/gemini-3.1-flash-image-preview",
-          isConfigured: true,
-          lastStatus: "success",
-          lastCheckedAt: null,
-          lastError: null,
+            defaultModel: "google/gemini-3.1-flash-image-preview",
+            isConfigured: true,
+            lastStatus: "success",
+            lastCheckedAt: null,
+            lastError: null,
           },
         },
       }),
@@ -2703,16 +2706,16 @@ describe("App startup", () => {
     render(<App />);
 
     expect(await screen.findByText("项目列表")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "删除项目：常用项目" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "删除项目：常用项目" }));
 
     expect(
       screen.getByText("这只会从项目列表移除记录，不会删除本地项目文件夹。"),
     ).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "在文件管理器中显示" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "在文件管理器中显示" }),
+      );
     });
     expect(revealProjectInFinder).toHaveBeenCalledWith(
       "/Users/zhaolixing/Documents/工业设计助手/常用项目",
@@ -2755,11 +2758,13 @@ describe("App startup", () => {
         backupProject,
       ])
       .mockResolvedValueOnce([backupProject]);
-    const openRecentProject = vi.fn().mockRejectedValue(
-      new Error(
-        "[CORESTUDIO_MISSING_RECENT_PROJECT]这个项目文件夹已经不存在，可能已被移动或手动删除。CoreStudio 已从项目列表移除这条记录。\n\n如果项目只是换了位置，请点击“打开项目”重新选择新的文件夹。",
-      ),
-    );
+    const openRecentProject = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          "[CORESTUDIO_MISSING_RECENT_PROJECT]这个项目文件夹已经不存在，可能已被移动或手动删除。CoreStudio 已从项目列表移除这条记录。\n\n如果项目只是换了位置，请点击“打开项目”重新选择新的文件夹。",
+        ),
+      );
 
     window.imageBoardDesktop = createDesktopBridgeMock({
       loadRecentProjects,
@@ -2786,9 +2791,9 @@ describe("App startup", () => {
     expect(
       screen.getByRole("button", { name: /^备用项目/ }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/这个项目文件夹已经不存在/),
-    ).toHaveTextContent("已从项目列表移除这条记录");
+    expect(screen.getByText(/这个项目文件夹已经不存在/)).toHaveTextContent(
+      "已从项目列表移除这条记录",
+    );
     expect(screen.getByText(/如果项目只是换了位置/)).toHaveTextContent(
       "打开项目",
     );

@@ -16,15 +16,9 @@ interface AppProjectEntryScreenProps {
   onOpenRecentProject: (projectPath: string) => void;
   onRemoveRecentProject: (projectPath: string) => void | Promise<void>;
   onRevealProject: (projectPath: string) => void | Promise<void>;
-  agentAccessEnabled: boolean;
-  onAgentAccessToggle?: (enabled: boolean) => void;
-  agentAccessToggleDisabled: boolean;
   manualProjectActionsVisible: boolean;
   showAgentStatusDock: boolean;
   integration: AgentIntegrationViewModel;
-  onCopyAgentBoardUrl: () => void | Promise<void>;
-  onCopyCliEnvironment?: () => void | Promise<void>;
-  onRefreshStatus: () => void | Promise<unknown>;
   onOpenAgentSettings?: () => void;
   globalDialogs: ReactNode;
 }
@@ -39,15 +33,9 @@ export const AppProjectEntryScreen = ({
   onOpenRecentProject,
   onRemoveRecentProject,
   onRevealProject,
-  agentAccessEnabled,
-  onAgentAccessToggle,
-  agentAccessToggleDisabled,
   manualProjectActionsVisible,
   showAgentStatusDock,
   integration,
-  onCopyAgentBoardUrl,
-  onCopyCliEnvironment,
-  onRefreshStatus,
   onOpenAgentSettings,
   globalDialogs,
 }: AppProjectEntryScreenProps) => (
@@ -61,17 +49,11 @@ export const AppProjectEntryScreen = ({
       onOpenRecentProject={onOpenRecentProject}
       onRemoveRecentProject={onRemoveRecentProject}
       onRevealProject={onRevealProject}
-      agentAccessEnabled={agentAccessEnabled}
-      onAgentAccessToggle={onAgentAccessToggle}
-      agentAccessToggleDisabled={agentAccessToggleDisabled}
       manualProjectActionsVisible={manualProjectActionsVisible}
     />
     {showAgentStatusDock ? (
       <AgentStatusDock
         integration={integration}
-        onCopyAgentBoardUrl={onCopyAgentBoardUrl}
-        onCopyCliEnvironment={onCopyCliEnvironment}
-        onRefreshStatus={onRefreshStatus}
         onOpenAgentSettings={onOpenAgentSettings}
       />
     ) : null}

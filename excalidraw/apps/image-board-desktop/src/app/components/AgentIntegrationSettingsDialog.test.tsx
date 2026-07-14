@@ -14,6 +14,12 @@ const integration: AgentIntegrationViewModel = {
   badgeText: "在线",
   enabled: true,
   connected: true,
+  collaboration: {
+    status: "ready",
+    statusText: "已可用",
+    description: "Codex 可以访问当前项目。",
+    projectName: "工业设计助手",
+  },
   bridge: {
     ready: true,
     endpoint: "http://127.0.0.1:60909",
@@ -131,7 +137,7 @@ describe("AgentIntegrationSettingsDialog", () => {
     renderDialog();
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
-    expect(within(dialog).getByText("Agent 集成")).toBeInTheDocument();
+    expect(within(dialog).getByText("Codex 协作")).toBeInTheDocument();
     expect(within(dialog).getAllByText("网页画布").length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText("CLI").length).toBeGreaterThan(0);
     expect(within(dialog).getByText("实验性功能")).toBeInTheDocument();
@@ -208,7 +214,7 @@ describe("AgentIntegrationSettingsDialog", () => {
       acpExperimentalEnabled: true,
     });
 
-    fireEvent.click(screen.getByRole("switch", { name: "启用 Agent 集成" }));
+    fireEvent.click(screen.getByRole("switch", { name: "启用 Codex 协作" }));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     fireEvent.click(
       screen.getByRole("switch", { name: "启用外部 Agent 实验功能" }),

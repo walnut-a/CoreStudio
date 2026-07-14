@@ -37,8 +37,6 @@ const renderPane = (
       bridgeStatus: createBridgeStatus(),
     }),
     onAction: vi.fn(),
-    onCopyAgentBoardUrl: vi.fn(),
-    onCopyCliEnvironment: vi.fn(),
     onOpenAgentSettings: vi.fn(),
     ...overrides,
   };
@@ -74,32 +72,23 @@ describe("AgentBoardStartupPane", () => {
 
     expect(onAction).toHaveBeenCalledTimes(1);
     expect(
-      screen.getByRole("button", { name: "Agent 连接状态" }),
+      screen.getByRole("button", { name: "Codex 协作状态" }),
     ).toBeInTheDocument();
   });
 
-  it("wires the status dock shortcuts to the same Agent Board actions", () => {
-    const onCopyAgentBoardUrl = vi.fn();
-    const onCopyCliEnvironment = vi.fn();
+  it("opens settings from the simplified collaboration status dock", () => {
     const onOpenAgentSettings = vi.fn();
     const onAction = vi.fn();
 
     renderPane({
-      onCopyAgentBoardUrl,
-      onCopyCliEnvironment,
       onOpenAgentSettings,
       onAction,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Agent 连接状态" }));
+    fireEvent.click(screen.getByRole("button", { name: "Codex 协作状态" }));
     fireEvent.click(screen.getByRole("button", { name: "打开设置" }));
-    fireEvent.click(screen.getByRole("button", { name: "复制 CLI 环境变量" }));
-    fireEvent.click(screen.getByRole("button", { name: "复制 Board 链接" }));
-    fireEvent.click(screen.getByRole("button", { name: "刷新状态" }));
 
     expect(onOpenAgentSettings).toHaveBeenCalledTimes(1);
-    expect(onCopyCliEnvironment).toHaveBeenCalledTimes(1);
-    expect(onCopyAgentBoardUrl).toHaveBeenCalledTimes(1);
-    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(onAction).not.toHaveBeenCalled();
   });
 });

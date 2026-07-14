@@ -23,9 +23,15 @@ describe("agent integration docs", () => {
     expect(userGuide).toContain("在 Codex 中使用 CoreStudio");
     expect(userGuide).toContain("默认使用 Codex 自身的生图能力");
     expect(userGuide).toContain("实验性功能");
+    expect(userGuide).toContain("Codex 协作");
+    expect(userGuide).toContain("连接详情");
+    expect(userGuide).toContain("应用设置是唯一启停入口");
+    expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
     expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
     expect(architecture).toContain("CLI / Local Bridge");
-    expect(settingsSections).toContain("acpExperimentalEnabled");
+    expect(architecture).toContain("菜单、欢迎页和状态浮窗都不能修改启停状态");
+    expect(settingsSections).toContain("连接详情");
+    expect(settingsSections).not.toContain("acpExperimentalEnabled");
   });
 
   it("documents the CLI examples needed by Agent workflows", () => {

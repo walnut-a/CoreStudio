@@ -312,25 +312,18 @@ describe("App startup", () => {
     });
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Agent 连接状态" }),
+      await screen.findByRole("button", { name: "Codex 协作状态" }),
     );
 
-    const popover = screen.getByRole("region", { name: "Agent 状态" });
-    expect(popover).toHaveTextContent("Agent 已连接");
+    const popover = screen.getByRole("region", { name: "Codex 协作状态" });
+    expect(popover).toHaveTextContent("Codex 协作");
+    expect(popover).toHaveTextContent("已可用");
     expect(popover).toHaveTextContent("测试项目");
-    expect(popover).not.toHaveTextContent("未打开项目");
-    expect(popover).not.toHaveTextContent("默认生成方式");
-    expect(popover).toHaveTextContent("ACP Agent");
-    expect(popover).toHaveTextContent("测试 ACP Agent");
-    expect(
-      within(popover).getByRole("button", { name: "打开 Agent 对话" }),
-    ).toBeInTheDocument();
+    expect(popover).not.toHaveTextContent("ACP Agent");
+    expect(popover).not.toHaveTextContent("CLI");
     expect(
       within(popover).getByRole("button", { name: "打开设置" }),
     ).toBeInTheDocument();
-    expect(
-      within(popover).getByRole("button", { name: "复制 CLI 环境变量" }),
-    ).toBeEnabled();
     expect(
       within(popover).queryByRole("button", { name: "CoreStudio" }),
     ).not.toBeInTheDocument();
@@ -1822,7 +1815,7 @@ describe("App startup", () => {
     ).toBeNull();
   });
 
-  it("opens software settings from the native settings menu and toggles Agent access there", async () => {
+  it("opens software settings from the native settings menu and toggles Codex collaboration there", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const setAgentBridgeEnabled = vi.fn(async (enabled: boolean) => ({
       enabled,
@@ -1857,14 +1850,14 @@ describe("App startup", () => {
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText("Agent 集成")).toBeInTheDocument();
+    expect(within(dialog).getByText("Codex 协作")).toBeInTheDocument();
     expect(within(dialog).getAllByText("网页画布").length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText("CLI").length).toBeGreaterThan(0);
     expect(within(dialog).getByText("实验性功能")).toBeInTheDocument();
     expect(within(dialog).queryByText("ACP Agent")).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(dialog).getByRole("switch", { name: "启用 Agent 集成" }),
+      within(dialog).getByRole("switch", { name: "启用 Codex 协作" }),
     );
 
     await waitFor(() => {
@@ -2318,7 +2311,7 @@ describe("App startup", () => {
     });
   });
 
-  it("toggles Agent access from the initial project selection screen", async () => {
+  it("keeps Agent collaboration controls out of the initial project selection screen", async () => {
     const setAgentBridgeEnabled = vi.fn(async (enabled: boolean) => ({
       enabled,
       ready: enabled,
@@ -2341,15 +2334,9 @@ describe("App startup", () => {
     const welcomePane = await screen.findByRole("region", {
       name: "选择项目开始",
     });
-    expect(within(welcomePane).getByText("Agent 集成")).toBeInTheDocument();
-
-    fireEvent.click(
-      within(welcomePane).getByRole("switch", { name: "启用 Agent 集成" }),
-    );
-
-    await waitFor(() => {
-      expect(setAgentBridgeEnabled).toHaveBeenCalledWith(true);
-    });
+    expect(within(welcomePane).queryByText("Agent 集成")).not.toBeInTheDocument();
+    expect(within(welcomePane).queryByRole("switch")).not.toBeInTheDocument();
+    expect(setAgentBridgeEnabled).not.toHaveBeenCalled();
   });
 
   it("flushes pending autosave when the desktop shell requests it", async () => {

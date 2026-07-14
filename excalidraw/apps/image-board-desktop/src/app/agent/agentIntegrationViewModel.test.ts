@@ -62,6 +62,12 @@ describe("buildAgentIntegrationViewModel", () => {
     });
 
     expect(viewModel.readiness).toBe("disabled");
+    expect(viewModel.collaboration).toEqual({
+      status: "disabled",
+      statusText: "尚未开启",
+      description: "开启后，可在 Codex 中查看当前画布并安全写回结果。",
+      projectName: null,
+    });
     expect(viewModel.statusText).toBe("Agent 集成已关闭");
     expect(viewModel.badgeText).toBe("关闭");
     expect(viewModel.connected).toBe(false);
@@ -80,6 +86,12 @@ describe("buildAgentIntegrationViewModel", () => {
     });
 
     expect(viewModel.readiness).toBe("connected");
+    expect(viewModel.collaboration).toEqual({
+      status: "ready",
+      statusText: "已可用",
+      description: "Codex 可以访问当前项目。",
+      projectName: "测试项目",
+    });
     expect(viewModel.statusText).toBe("Agent 已连接");
     expect(viewModel.badgeText).toBe("在线");
     expect(viewModel.connected).toBe(true);
@@ -125,6 +137,12 @@ describe("buildAgentIntegrationViewModel", () => {
     });
 
     expect(viewModel.readiness).toBe("waiting-project");
+    expect(viewModel.collaboration).toEqual({
+      status: "waiting-project",
+      statusText: "请先打开项目",
+      description: "连接已经开启，打开项目后即可在 Codex 中使用。",
+      projectName: null,
+    });
     expect(viewModel.statusText).toBe("Agent 集成已开启");
     expect(viewModel.badgeText).toBe("等待项目");
     expect(viewModel.connected).toBe(false);
@@ -132,6 +150,23 @@ describe("buildAgentIntegrationViewModel", () => {
     expect(viewModel.cli.available).toBe(true);
     expect(viewModel.cli.envCopyable).toBe(false);
     expect(viewModel.board.available).toBe(true);
+  });
+
+  it("explains when Codex collaboration is temporarily unavailable", () => {
+    const viewModel = buildAgentIntegrationViewModel({
+      bridgeStatus: createBridgeStatus({
+        ready: false,
+        currentProject: null,
+        boardUrl: null,
+      }),
+    });
+
+    expect(viewModel.collaboration).toEqual({
+      status: "unavailable",
+      statusText: "暂不可用",
+      description: "连接尚未就绪，请稍后重试或查看连接详情。",
+      projectName: null,
+    });
   });
 
   it("surfaces ACP configuration without requiring UI components to inspect settings", () => {

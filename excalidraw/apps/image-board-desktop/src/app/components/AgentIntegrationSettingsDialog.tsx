@@ -119,7 +119,6 @@ export const AgentIntegrationSettingsDialog = ({
 
         <AgentIntegrationSettingsSections
           integration={integration}
-          acpExperimentalEnabled={acpExperimentalEnabled}
           canToggleIntegration={canToggleIntegration}
           onIntegrationEnabledChange={onIntegrationEnabledChange}
           onCopyBoardUrl={onCopyBoardUrl}

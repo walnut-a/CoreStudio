@@ -12,6 +12,12 @@ const integration: AgentIntegrationViewModel = {
   badgeText: "在线",
   enabled: true,
   connected: true,
+  collaboration: {
+    status: "ready",
+    statusText: "已可用",
+    description: "Codex 可以访问当前项目。",
+    projectName: "工业设计助手",
+  },
   bridge: {
     ready: true,
     endpoint: "http://127.0.0.1:60909",

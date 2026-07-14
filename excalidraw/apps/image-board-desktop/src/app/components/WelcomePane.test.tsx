@@ -12,23 +12,17 @@ const recentProjects = [
 ];
 
 describe("WelcomePane", () => {
-  it("keeps the Agent integration switch as a lightweight global entry", () => {
-    const onAgentAccessToggle = vi.fn();
-
+  it("keeps Agent collaboration controls out of the welcome page", () => {
     render(
       <WelcomePane
         loading={false}
         onCreateProject={vi.fn()}
         onOpenProject={vi.fn()}
-        agentAccessEnabled={false}
-        onAgentAccessToggle={onAgentAccessToggle}
       />,
     );
 
-    expect(screen.getByText("Agent 集成")).toBeInTheDocument();
-    expect(
-      screen.getByText("允许本机 Agent 通过网页画布和 CLI 连接本地项目。"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Agent 集成")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByText("当前项目")).not.toBeInTheDocument();
     expect(screen.queryByText("ACP Agent")).not.toBeInTheDocument();
     expect(screen.queryByText("任务说明模板")).not.toBeInTheDocument();
@@ -36,9 +30,6 @@ describe("WelcomePane", () => {
     expect(screen.queryByLabelText("参数")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "复制 Board 链接" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("switch", { name: "启用 Agent 集成" }));
-
-    expect(onAgentAccessToggle).toHaveBeenCalledWith(true);
   });
 
   it("separates deleting a project record from deleting local project data", () => {

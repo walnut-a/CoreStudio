@@ -109,36 +109,16 @@ describe("createAppMenuTemplate", () => {
     );
   });
 
-  it("shows a checked Agent access switch in the settings menu", () => {
-    const sendMenuAction = vi.fn();
+  it("keeps Agent collaboration controls out of the application menu", () => {
     const template = createAppMenuTemplate(
-      sendMenuAction,
+      vi.fn(),
       [],
       "1.1.9",
       undefined,
-      { agentAccessEnabled: true, platform: "linux" },
-    );
-    const settingsMenu = template.find((item) => item.label === "设置");
-    const agentAccessItem = getMenuItem(settingsMenu?.submenu, "启用 Agent 集成");
-
-    expect(agentAccessItem).toMatchObject({
-      type: "checkbox",
-      checked: true,
-    });
-
-    agentAccessItem?.click?.(
-      { ...agentAccessItem, checked: false } as any,
-      undefined,
-      undefined as any,
+      { platform: "linux" },
     );
 
-    expect(sendMenuAction).toHaveBeenCalledWith(
-      {
-        action: "set-agent-bridge-enabled",
-        enabled: false,
-      },
-      undefined,
-    );
+    expect(getAllMenuLabels(template)).not.toContain("启用 Agent 集成");
   });
 
   it("puts app-level settings inside the macOS application menu", () => {
@@ -148,7 +128,7 @@ describe("createAppMenuTemplate", () => {
       [],
       "1.1.9",
       undefined,
-      { agentAccessEnabled: true, platform: "darwin" },
+      { platform: "darwin" },
     );
 
     expect(template.map((item) => item.label)).toEqual([
@@ -156,38 +136,19 @@ describe("createAppMenuTemplate", () => {
       "编辑",
       "帮助",
     ]);
-    expect(getSubmenuLabels(template[0].submenu)).toContain("启用 Agent 集成");
+    expect(getSubmenuLabels(template[0].submenu)).not.toContain("启用 Agent 集成");
     expect(getSubmenuLabels(template[0].submenu)).toContain("应用设置");
     expect(template.map((item) => item.label)).not.toContain("设置");
 
     const appSettingsItem = getMenuItem(template[0].submenu, "应用设置");
-    const agentAccessItem = getMenuItem(template[0].submenu, "启用 Agent 集成");
-
-    expect(agentAccessItem).toMatchObject({
-      type: "checkbox",
-      checked: true,
-    });
 
     appSettingsItem?.click?.(
       appSettingsItem as any,
       undefined,
       undefined as any,
     );
-    agentAccessItem?.click?.(
-      { ...agentAccessItem, checked: false } as any,
-      undefined,
-      undefined as any,
-    );
-
     expect(sendMenuAction).toHaveBeenCalledWith(
       { action: "app-settings" },
-      undefined,
-    );
-    expect(sendMenuAction).toHaveBeenCalledWith(
-      {
-        action: "set-agent-bridge-enabled",
-        enabled: false,
-      },
       undefined,
     );
   });

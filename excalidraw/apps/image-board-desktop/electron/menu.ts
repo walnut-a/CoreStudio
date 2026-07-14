@@ -10,7 +10,6 @@ export const CORESTUDIO_RELEASES_URL =
   "https://github.com/walnut-a/CoreStudio/releases";
 
 interface AppMenuOptions {
-  agentAccessEnabled?: boolean;
   platform?: NodeJS.Platform;
 }
 
@@ -25,21 +24,7 @@ export const createAppMenuTemplate = (
   options: AppMenuOptions = {},
 ): MenuItemConstructorOptions[] => {
   const isMac = options.platform === "darwin";
-  const agentSettingsItems: MenuItemConstructorOptions[] = [
-    {
-      label: copy.menu.allowAgentAccess,
-      type: "checkbox",
-      checked: Boolean(options.agentAccessEnabled),
-      click: (item, ownerWindow) =>
-        sendMenuAction(
-          {
-            action: "set-agent-bridge-enabled",
-            enabled: Boolean(item.checked),
-          },
-          ownerWindow,
-        ),
-    },
-    { type: "separator" },
+  const settingsItems: MenuItemConstructorOptions[] = [
     {
       label: copy.menu.appSettings,
       click: (_item, ownerWindow) =>
@@ -60,7 +45,7 @@ export const createAppMenuTemplate = (
               { type: "separator" as const },
             ]
           : []),
-        ...(isMac ? [...agentSettingsItems, { type: "separator" as const }] : []),
+        ...(isMac ? [...settingsItems, { type: "separator" as const }] : []),
         {
           label: copy.menu.newProject,
           click: (_item, ownerWindow) =>
@@ -148,7 +133,7 @@ export const createAppMenuTemplate = (
       ? [
           {
             label: copy.menu.settings,
-            submenu: agentSettingsItems,
+            submenu: settingsItems,
           },
         ]
       : []),

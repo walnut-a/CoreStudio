@@ -1761,34 +1761,16 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("acpThreadLoadSequenceRef");
   });
 
-  it("keeps Agent status dock shortcut wiring outside the root app", () => {
+  it("keeps the Agent status dock focused on collaboration status and settings", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain("createAgentStatusDockRendererActions");
     expect(source).toContain("useAgentSurfaceVisibilityController");
-    expect(source).toContain("agentStatusDockRendererActions.copyBoardUrl");
+    expect(source).not.toContain("createAgentStatusDockRendererActions");
+    expect(source).not.toContain("onOpenAgentConversation=");
+    expect(source).toContain("onOpenAgentSettings={() => setAppSettingsOpen(true)}");
     expect(source).toContain(
-      "agentStatusDockRendererActions.copyCliEnvironment",
+      "onAction={agentBridgeStatusRendererActions.refreshBrowserConnectionStatus}",
     );
-    expect(source).toContain("agentStatusDockRendererActions.refreshStatus");
-    expect(source).toContain("agentStatusDockRendererActions.openSettings");
-    expect(source).toContain("agentStatusDockRendererActions.openConversation");
-    expect(source).not.toContain(
-      "void agentIntegrationCopyShortcutRendererActions.copyBoardUrl();",
-    );
-    expect(source).not.toContain(
-      "void agentIntegrationCopyShortcutRendererActions.copyCliEnvironment();",
-    );
-    expect(source).not.toContain(
-      "onRefreshStatus={\n                agentBridgeStatusRendererActions.refreshBrowserConnectionStatus",
-    );
-    expect(source).not.toContain(
-      "onOpenAgentSettings={() => setAppSettingsOpen",
-    );
-    expect(source).not.toContain(
-      "onOpenAgentConversation={() => setAgentChatDockOpen",
-    );
-    expect(source).not.toContain("const [agentChatDockOpen");
   });
 
   it("keeps Agent integration settings dialog action wiring outside the root app", () => {

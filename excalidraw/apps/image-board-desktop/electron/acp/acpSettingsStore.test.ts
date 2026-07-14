@@ -36,10 +36,64 @@ describe("acpSettingsStore", () => {
 
   it("defaults ACP Agent settings to disabled", async () => {
     await expect(loadAcpAgentSettings()).resolves.toEqual({
+      experimentalEnabled: false,
       enabled: false,
       agents: [],
       defaultAgentId: null,
       taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
+    });
+  });
+
+  it("migrates an enabled legacy settings file into the ACP experiment", async () => {
+    const settingsPath = path.join(
+      mockAppDataPath,
+      "Excalidraw Image Board",
+      "acp-agent-settings.json",
+    );
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({
+        enabled: true,
+        defaultAgentId: "default",
+        agents: [
+          {
+            id: "default",
+            name: "Codex ACP",
+            command: "npx",
+            args: [],
+            cwd: null,
+          },
+        ],
+      }),
+    );
+
+    await expect(loadAcpAgentSettings()).resolves.toMatchObject({
+      experimentalEnabled: true,
+      enabled: true,
+    });
+  });
+
+  it("persists an explicitly disabled experiment without deleting ACP config", async () => {
+    await saveAcpAgentSettings({
+      experimentalEnabled: false,
+      enabled: true,
+      defaultAgentId: "default",
+      agents: [
+        {
+          id: "default",
+          name: "Codex ACP",
+          command: "npx",
+          args: [],
+          cwd: null,
+        },
+      ],
+    });
+
+    await expect(loadAcpAgentSettings()).resolves.toMatchObject({
+      experimentalEnabled: false,
+      enabled: true,
+      agents: [{ id: "default" }],
     });
   });
 
@@ -60,6 +114,7 @@ describe("acpSettingsStore", () => {
     });
 
     await expect(loadAcpAgentSettings()).resolves.toEqual({
+      experimentalEnabled: true,
       enabled: true,
       defaultAgentId: "custom",
       taskInstructionTemplate: "请严格按照 CoreStudio 任务包操作。",
@@ -130,6 +185,7 @@ describe("acpSettingsStore", () => {
     expect(rawSettings).not.toContain("apiKey");
     expect(rawSettings).not.toContain("token");
     await expect(loadAcpAgentSettings()).resolves.toEqual({
+      experimentalEnabled: true,
       enabled: true,
       defaultAgentId: "custom",
       taskInstructionTemplate: "只保存公开任务说明。",

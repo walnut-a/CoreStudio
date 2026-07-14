@@ -7,10 +7,56 @@ import {
   getDefaultAcpAgentSettings,
   getAcpAgentPreset,
   getSelectedAcpAgent,
+  isAcpExperimentalFeatureEnabled,
   normalizeAcpAgentSettings,
 } from "./acpTypes";
 
 describe("acpTypes", () => {
+  it("defaults the ACP experiment to off for new users", () => {
+    expect(getDefaultAcpAgentSettings().experimentalEnabled).toBe(false);
+  });
+
+  it("migrates an enabled legacy ACP configuration into the experiment", () => {
+    const normalized = normalizeAcpAgentSettings({
+      enabled: true,
+      defaultAgentId: "default",
+      agents: [
+        {
+          id: "default",
+          name: "Codex ACP",
+          command: "npx",
+          args: [],
+          cwd: null,
+        },
+      ],
+    });
+
+    expect(normalized.experimentalEnabled).toBe(true);
+    expect(isAcpExperimentalFeatureEnabled(normalized)).toBe(true);
+    expect(getSelectedAcpAgent(normalized)?.id).toBe("default");
+  });
+
+  it("keeps an explicitly disabled experiment unavailable without deleting config", () => {
+    const normalized = normalizeAcpAgentSettings({
+      experimentalEnabled: false,
+      enabled: true,
+      defaultAgentId: "default",
+      agents: [
+        {
+          id: "default",
+          name: "Codex ACP",
+          command: "npx",
+          args: [],
+          cwd: null,
+        },
+      ],
+    });
+
+    expect(normalized.agents).toHaveLength(1);
+    expect(normalized.enabled).toBe(true);
+    expect(getSelectedAcpAgent(normalized)).toBeNull();
+  });
+
   it("uses ACP v1 and normalizes disabled empty settings", () => {
     expect(ACP_PROTOCOL_VERSION).toBe(1);
     expect(
@@ -21,6 +67,7 @@ describe("acpTypes", () => {
         taskInstructionTemplate: "",
       }),
     ).toEqual({
+      experimentalEnabled: false,
       enabled: false,
       agents: [],
       defaultAgentId: null,
@@ -72,6 +119,7 @@ describe("acpTypes", () => {
         ],
       }),
     ).toEqual({
+      experimentalEnabled: true,
       enabled: true,
       defaultAgentId: "custom",
       taskInstructionTemplate: "只允许通过 CoreStudio CLI 写回。",
@@ -118,6 +166,7 @@ describe("acpTypes", () => {
         ],
       }),
     ).toEqual({
+      experimentalEnabled: true,
       enabled: true,
       defaultAgentId: "default",
       taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,
@@ -157,6 +206,7 @@ describe("acpTypes", () => {
         ],
       }),
     ).toEqual({
+      experimentalEnabled: true,
       enabled: true,
       defaultAgentId: "custom",
       taskInstructionTemplate: DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE,

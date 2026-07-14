@@ -52,6 +52,17 @@ const {
 } = composerStyleTestSupport;
 
 describe("CoreStudio shell layout styles", () => {
+  it("keeps the application settings header above its navigation and content", () => {
+    const appCss = readAppCss();
+    const settingsDialogRule = getRule(
+      appCss,
+      ".dialog-card--application-settings",
+    );
+
+    expect(settingsDialogRule).toContain("display: flex");
+    expect(settingsDialogRule).toContain("flex-direction: column");
+  });
+
   it("keeps canvas-level errors out of the native toolbar area", () => {
     const appCss = readAppCss();
     const canvasErrorRule = getRule(appCss, ".app-canvas-error-toast");

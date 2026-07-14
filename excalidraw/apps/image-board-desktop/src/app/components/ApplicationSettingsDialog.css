@@ -5,6 +5,7 @@
 .dialog-card--application-settings {
   position: relative;
   display: flex;
+  flex-direction: column;
   width: min(960px, calc(100vw - 64px));
   height: min(720px, calc(100vh - 64px));
   max-height: none;

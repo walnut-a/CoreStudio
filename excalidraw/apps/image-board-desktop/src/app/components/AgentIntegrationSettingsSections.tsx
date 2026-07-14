@@ -4,6 +4,7 @@ import "./AgentSettings.css";
 
 export interface AgentIntegrationSettingsSectionsProps {
   integration: AgentIntegrationViewModel;
+  acpExperimentalEnabled: boolean;
   canToggleIntegration: boolean;
   onIntegrationEnabledChange: (enabled: boolean) => void;
   onCopyBoardUrl: () => void;
@@ -37,6 +38,7 @@ const agentUsagePaths = [
 
 export const AgentIntegrationSettingsSections = ({
   integration,
+  acpExperimentalEnabled,
   canToggleIntegration,
   onIntegrationEnabledChange,
   onCopyBoardUrl,
@@ -82,22 +84,28 @@ export const AgentIntegrationSettingsSections = ({
           <span>CLI</span>
           <strong>{integration.cli.statusText}</strong>
         </div>
-        <div className="app-settings-status-grid__item">
-          <span>ACP</span>
-          <strong>{integration.acp.statusText}</strong>
-        </div>
+        {acpExperimentalEnabled ? (
+          <div className="app-settings-status-grid__item">
+            <span>ACP</span>
+            <strong>{integration.acp.statusText}</strong>
+          </div>
+        ) : null}
       </div>
 
       <div className="app-settings-use-paths" aria-label="Agent 使用路径">
-        {agentUsagePaths.map((path) => (
-          <article className="app-settings-use-path" key={path.title}>
-            <strong>{path.title}</strong>
-            <p>{path.when}</p>
-            <span>{path.requires}</span>
-            <span>{path.result}</span>
-            <span>{path.writeBack}</span>
-          </article>
-        ))}
+        {agentUsagePaths
+          .filter(
+            (path) => acpExperimentalEnabled || path.title !== "ACP Agent",
+          )
+          .map((path) => (
+            <article className="app-settings-use-path" key={path.title}>
+              <strong>{path.title}</strong>
+              <p>{path.when}</p>
+              <span>{path.requires}</span>
+              <span>{path.result}</span>
+              <span>{path.writeBack}</span>
+            </article>
+          ))}
       </div>
     </section>
 

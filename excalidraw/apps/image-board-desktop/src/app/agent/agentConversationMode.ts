@@ -9,24 +9,32 @@ export const getConversationRunLogDetail = <T>(
 ): T | null => (surface === "conversation" ? detail : null);
 
 export const getGenerationSidebarMode = ({
+  acpExperimentalEnabled,
   generationSource,
   acpRunLogSurface,
   acpAgentTaskRunning,
 }: {
+  acpExperimentalEnabled: boolean;
   generationSource: GenerationSource;
   acpRunLogSurface: AcpRunLogSurface | null;
   acpAgentTaskRunning: boolean;
-}): GenerationSidebarMode =>
-  generationSource === "agent" ||
-  acpRunLogSurface === "conversation" ||
-  acpAgentTaskRunning
+}): GenerationSidebarMode => {
+  if (!acpExperimentalEnabled) {
+    return "direct";
+  }
+
+  return generationSource === "agent" ||
+    acpRunLogSurface === "conversation" ||
+    acpAgentTaskRunning
     ? "agent"
     : "direct";
+};
 
 export interface BuildAgentConversationSurfaceStateInput<
   RunLogDetail,
   ErrorValue,
 > {
+  acpExperimentalEnabled: boolean;
   generationSource: GenerationSource;
   acpRunLogSurface: AcpRunLogSurface | null;
   acpAgentTaskRunning: boolean;
@@ -49,6 +57,7 @@ export const buildAgentConversationSurfaceState = <
   RunLogDetail,
   ErrorValue,
 >({
+  acpExperimentalEnabled,
   generationSource,
   acpRunLogSurface,
   acpAgentTaskRunning,
@@ -59,6 +68,7 @@ export const buildAgentConversationSurfaceState = <
   ErrorValue
 >): AgentConversationSurfaceState<RunLogDetail, ErrorValue> => ({
   mode: getGenerationSidebarMode({
+    acpExperimentalEnabled,
     generationSource,
     acpRunLogSurface,
     acpAgentTaskRunning,

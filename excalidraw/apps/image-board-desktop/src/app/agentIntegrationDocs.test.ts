@@ -7,25 +7,25 @@ const readDoc = (filePath: string) =>
   readFileSync(resolve(process.cwd(), filePath), "utf8");
 
 describe("agent integration docs", () => {
-  it("keeps the user guide and settings overview aligned on usage paths", () => {
+  it("documents the orchestrator boundary and the experimental ACP path", () => {
+    const product = readDoc("apps/image-board-desktop/PRODUCT.md");
     const userGuide = readDoc(
       "apps/image-board-desktop/docs/agent-integration-user-guide.md",
+    );
+    const architecture = readDoc(
+      "apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md",
     );
     const settingsSections = readDoc(
       "apps/image-board-desktop/src/app/components/AgentIntegrationSettingsSections.tsx",
     );
-    const usagePathResults = [
-      ["网页画布", "画布、生成记录、右下角状态浮层"],
-      ["CLI", "画布、生成记录、项目健康报告"],
-      ["ACP Agent", "左侧 Agent 对话、画布、生成记录"],
-    ] as const;
 
-    for (const [title, result] of usagePathResults) {
-      expect(userGuide).toContain(title);
-      expect(userGuide).toContain(result);
-      expect(settingsSections).toContain(`title: "${title}"`);
-      expect(settingsSections).toContain(`result: "结果：${result}"`);
-    }
+    expect(product).toContain("任务发起位置决定调度者");
+    expect(userGuide).toContain("在 Codex 中使用 CoreStudio");
+    expect(userGuide).toContain("默认使用 Codex 自身的生图能力");
+    expect(userGuide).toContain("实验性功能");
+    expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
+    expect(architecture).toContain("CLI / Local Bridge");
+    expect(settingsSections).toContain("acpExperimentalEnabled");
   });
 
   it("documents the CLI examples needed by Agent workflows", () => {

@@ -118,16 +118,16 @@ describe("App Agent Board route", () => {
     fireEvent.click(recentProjectButton!);
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
-    const agentBoardComposerConfig = JSON.parse(
-      screen.getByTestId("generate-dialog-composer-config").textContent ?? "{}",
-    ) as Record<string, unknown>;
-    expect(agentBoardComposerConfig).toMatchObject({
-      defaultMode: "agent",
-      showModeSwitch: false,
-      showModeIndicator: true,
-      defaultGenerationSource: "agent",
-      showGenerationSourceSwitch: false,
-    });
+    expect(
+      screen.queryByTestId("generate-dialog-composer-config"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "切换 ACP Agent 模式" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "提交 ACP Agent 生成" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("生成设置")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(desktopBridgeCalls).toEqual(
         expect.arrayContaining([

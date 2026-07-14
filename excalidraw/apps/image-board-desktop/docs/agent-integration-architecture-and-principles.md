@@ -1,18 +1,18 @@
 # Agent 集成架构与迭代原则
 
-> 本文档沉淀本地网页画布、CLI 调用、ACP Agent 模式这一轮集成后的架构设计和经验。它不是执行计划；执行计划仍然看 [agent-integration-entry-map.md](./agent-integration-entry-map.md) 和 [agent-integration-v2-cleanup-plan.md](./agent-integration-v2-cleanup-plan.md)。
+> 本文档沉淀 CoreStudio、Codex、CLI / Local Bridge 与实验性 ACP 的协作边界。它不是执行计划；执行计划仍然看 [agent-integration-entry-map.md](./agent-integration-entry-map.md) 和 [agent-integration-v2-cleanup-plan.md](./agent-integration-v2-cleanup-plan.md)。
 
 ## 背景
 
 最近几个版本把 CoreStudio 从一个本地 Excalidraw 画板，推进成一个可以和外部 Agent 协作的本地创作空间。
 
-这轮新增了三条能力：
+这轮先后新增了三项技术能力：
 
 1. **本地网页画布。** 在 Codex、Cursor 或其他 Agent 内置浏览器里打开当前项目画板。
 2. **CLI / Local Bridge 调用。** 让 Agent 读取项目、选区、图片原始路径、生成记录和健康报告，并通过受控命令写回。
-3. **ACP Agent 模式。** 从 CoreStudio 内主动把复杂任务交给外部 Agent，并把过程、工具调用和结果带回项目。
+3. **ACP Agent 模式。** 从 CoreStudio 内主动把复杂任务交给外部 Agent，并把过程、工具调用和结果带回项目；该能力现在归入实验性功能。
 
-这些能力不是三个互相独立的小功能，而是同一套本地 Agent 集成能力的三个入口。如果按入口各做一套状态、数据写入和 UI，就会很快出现下面这些问题：
+这些能力不是三条平级的用户路径。产品边界应由任务发起位置决定：CoreStudio 发起的直接生成由 CoreStudio 调度，Codex 发起的任务由 Codex 调度；CLI / Local Bridge 是两者之间的数据通道，ACP 只是从 CoreStudio 发起外部 Agent 任务时可选的控制通道。如果把技术组件都做成入口，就会很快出现下面这些问题：
 
 - 右下角显示已连接，但网页画布显示未连接。
 - 图片文件已经生成，但画板没有元素，生成记录也无法定位。
@@ -20,25 +20,29 @@
 - 设置页、底部输入框、左侧栏、菜单、状态浮层都塞了类似但不一致的功能。
 - `App.tsx`、`GenerateImageDialog.tsx`、`App.css` 变成新的业务堆积点。
 
-所以这轮收口的核心不是“多做几个按钮”，而是重新确认架构边界：**CoreStudio 是数据 owner，Agent 是外部协作者，Local Bridge / CLI 是唯一受控写回路径。**
+所以这轮收口的核心不是“多做几个按钮”，而是重新确认架构边界：**任务发起位置决定调度者；CoreStudio 是数据 owner；CLI / Local Bridge 是唯一受控写回路径。**
 
 ## 总体架构
 
 ```mermaid
 flowchart LR
   User["用户"]
+  Codex["Codex"]
   Desktop["CoreStudio 桌面端"]
   Bridge["Local Bridge"]
   Project["本地项目数据"]
   Board["Agent Board 网页画布"]
   CLI["CoreStudio CLI"]
-  ACP["ACP Agent"]
+  ACP["实验性 ACP"]
   External["外部 Agent"]
 
   User --> Desktop
+  User --> Codex
   Desktop --> Bridge
   Desktop --> Project
   Board --> Bridge
+  Codex --> Board
+  Codex --> CLI
   CLI --> Bridge
   ACP --> External
   External --> CLI
@@ -53,22 +57,21 @@ flowchart LR
 | CoreStudio 桌面端 | 项目数据 owner；维护画板、图片资产、生成记录、ACP thread、项目健康检查 | 不把自己变成内置 Agent 平台 |
 | Local Bridge | 本机运行时底座；暴露项目 token、状态、读写命令入口 | 不绕开桌面端直接改项目文件 |
 | CLI | 给 Agent 的稳定自动化接口；读状态、读图片路径、写图片结果、触发有限编辑动作 | 不保留一堆临时命令和隐藏捷径 |
-| Agent Board | 在 Agent 内置浏览器里复用完整画板体验 | 不做脱离桌面端的独立 Web 应用 |
-| ACP Agent | 从 CoreStudio 主动发任务给外部 Agent，并保存 thread / run log / 结果 | 不负责最终数据写回；写回仍走 CLI / Bridge |
+| Agent Board | 在 Codex 内置浏览器里复用画板，提供查看、选择、标注和结果确认 | 不做脱离桌面端的独立 Web 应用；不挂载生成输入器或 ACP 调度器 |
+| ACP Agent | 实验性控制通道；从 CoreStudio 主动发任务给外部 Agent，并保存 thread / run log / 结果 | 不负责最终数据写回；不作为 Codex 协作的默认路径 |
 | 项目健康检查 | 发现和修复资产、记录、画布、thread 之间的不一致 | 不只做缩略图修复 |
 
-## 四条用户路径
+## 调度者与数据通道
 
-目前产品心智应该分成四条路径，而不是只说“Agent 生成”。
+产品心智按“在哪里发起任务”组织，而不是按技术组件组织。
 
-| 路径 | 使用场景 | 是否连续上下文 | 主要结果 |
+| 发起位置 | 调度者 | 默认生成能力 | 数据通道 |
 | --- | --- | --- | --- |
-| 直接输入 | 单次 prompt 生图 | 否 | 生成记录、画布图片 |
-| 网页画布 | 在 Agent 内置浏览器里看图、选图、标注、协作 | 取决于外部 Agent | 画布变化、生成记录 |
-| CLI 调用 | Agent 自动读取项目和写回结果 | 由调用方管理 | 项目数据变化、结构化返回 |
-| ACP Agent | CoreStudio 主动发起复杂任务给外部 Agent | 是，按 thread 管理 | Agent 对话、工具调用、图片结果、生成记录 |
+| CoreStudio | CoreStudio | CoreStudio 已配置的模型 API | CoreStudio 内部数据层 |
+| Codex | Codex | Codex 自身的生图能力 | CLI / Local Bridge |
+| CoreStudio（实验性） | 外部 Agent | Agent 自身能力 | ACP 发起，CLI / Local Bridge 写回 |
 
-这四条路径不能混在一个开关或一个“生成来源”里解释。直接输入是单次任务；ACP Agent 是连续任务；网页画布是远程可视化工作区；CLI 是机器可读写接口。
+CLI 是数据通道，不是第三个调度者；ACP 是从 CoreStudio 发起外部任务时可选的控制通道。由 Codex 发起的任务不会经过 ACP，也不会形成 `Codex → CoreStudio → ACP → Codex` 回路。
 
 ## 数据写回设计
 
@@ -132,10 +135,11 @@ flowchart TD
 
 | 入口 | 应该承担 | 不应该承担 |
 | --- | --- | --- |
-| 应用设置 | Agent 总开关、ACP 配置、网页画布和 CLI 使用说明、高级调试入口 | 日常任务历史 |
-| 右下角状态浮层 | 当前 Bridge / 项目 / Board / CLI / ACP 状态，以及复制快捷信息 | 配置表单、复杂任务列表 |
-| 底部输入框 | 快速发起直接输入或 ACP Agent 任务 | 完整历史、原始 JSON、调试按钮 |
-| 左侧栏 | 生成记录、ACP thread、继续对话、工具调用、图片结果定位 | 应用设置、协议调试 |
+| 应用设置 | Agent 集成状态、网页画布和 CLI 使用说明、实验性功能开关 | 日常任务历史 |
+| 右下角状态浮层 | 当前 Bridge / 项目 / Board / CLI 状态，以及复制快捷信息；实验开启时才显示 ACP | 配置表单、复杂任务列表 |
+| CoreStudio 底部输入框 | 直接生成；实验开启后可发起 ACP Agent 任务 | Codex 中的任务 |
+| 左侧栏 | 默认显示生成记录；实验开启后显示 ACP thread、继续对话、工具调用和图片结果定位 | 应用设置、协议调试 |
+| Codex 内置画布 | 查看、选择、标注和确认写回结果 | 生成输入器、ACP 开关、服务商配置和并行任务调度 |
 | 画布主菜单 | 当前项目、切换项目、Excalidraw 原生动作 | 项目维护、ACP 调试记录 |
 | 桌面菜单 | 新建/打开/最近项目、项目维护、应用设置 | 画布内过程记录 |
 | 高级调试 | ACP run log、任务包、协议 JSON、错误详情 | 默认暴露给普通用户 |
@@ -228,8 +232,9 @@ ACP 初期最容易把 run log 当成用户历史。但用户需要的是：
 1. **客户端优先。** CoreStudio 是本地客户端，Agent 集成不把它变成云端 Web 应用。
 2. **Agent 是协作者，不是数据 owner。** Agent 可以看、读、请求写回，但最终写回由 CoreStudio 控制。
 3. **入口少而清楚。** 能放进已有入口的，不新增入口；不能一句话说明职责的入口先不做。
-4. **直接输入和 ACP Agent 要清楚区分。** 一个是单次生成，一个是连续任务。
-5. **调试功能默认收起来。** 普通用户看结果和过程，高级调试看协议和 JSON。
+4. **任务发起位置决定调度者。** Codex 中的任务由 Codex 调度，CoreStudio 中的任务由 CoreStudio 调度。
+5. **ACP 默认收进实验性功能。** 关闭时不进入运行时，但保留配置、thread 和日志。
+6. **调试功能默认收起来。** 普通用户看结果和过程，高级调试看协议和 JSON。
 
 ### 架构原则
 
@@ -242,7 +247,7 @@ ACP 初期最容易把 run log 当成用户历史。但用户需要的是：
 
 ### 体验原则
 
-1. **画布能力尽量完整复用 Excalidraw。** Agent Board 不做功能收窄版画布，只收窄危险壳层和写回路径。
+1. **画布能力尽量完整复用 Excalidraw。** Agent Board 保留画布本身，但不复制 CoreStudio 的生成输入器和任务调度入口。
 2. **侧边栏是历史和继续对话，不是调试面板。**
 3. **状态浮层是监看和快捷入口，不是设置页。**
 4. **项目健康报告要可解释。** 不只显示错误数量，还要说清楚对象、原因、影响和修复策略。

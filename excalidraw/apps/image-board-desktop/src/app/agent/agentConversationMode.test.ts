@@ -11,6 +11,7 @@ describe("getGenerationSidebarMode", () => {
   it("keeps direct generation records visible for builtin generation without conversation context", () => {
     expect(
       getGenerationSidebarMode({
+        acpExperimentalEnabled: true,
         generationSource: "builtin",
         acpRunLogSurface: null,
         acpAgentTaskRunning: false,
@@ -21,6 +22,7 @@ describe("getGenerationSidebarMode", () => {
   it("shows the Agent thread when ACP Agent generation mode is active", () => {
     expect(
       getGenerationSidebarMode({
+        acpExperimentalEnabled: true,
         generationSource: "agent",
         acpRunLogSurface: null,
         acpAgentTaskRunning: false,
@@ -31,6 +33,7 @@ describe("getGenerationSidebarMode", () => {
   it("shows the Agent thread while an ACP Agent task is running", () => {
     expect(
       getGenerationSidebarMode({
+        acpExperimentalEnabled: true,
         generationSource: "builtin",
         acpRunLogSurface: null,
         acpAgentTaskRunning: true,
@@ -41,6 +44,7 @@ describe("getGenerationSidebarMode", () => {
   it("treats conversation run logs as Agent thread context", () => {
     expect(
       getGenerationSidebarMode({
+        acpExperimentalEnabled: true,
         generationSource: "builtin",
         acpRunLogSurface: "conversation",
         acpAgentTaskRunning: false,
@@ -51,9 +55,21 @@ describe("getGenerationSidebarMode", () => {
   it("does not treat debug record logs as conversation context", () => {
     expect(
       getGenerationSidebarMode({
+        acpExperimentalEnabled: true,
         generationSource: "builtin",
         acpRunLogSurface: "record",
         acpAgentTaskRunning: false,
+      }),
+    ).toBe("direct");
+  });
+
+  it("forces direct mode while the ACP experiment is disabled", () => {
+    expect(
+      getGenerationSidebarMode({
+        acpExperimentalEnabled: false,
+        generationSource: "agent",
+        acpRunLogSurface: "conversation",
+        acpAgentTaskRunning: true,
       }),
     ).toBe("direct");
   });
@@ -76,6 +92,7 @@ describe("buildAgentConversationSurfaceState", () => {
 
     expect(
       buildAgentConversationSurfaceState({
+        acpExperimentalEnabled: true,
         generationSource: "builtin",
         acpRunLogSurface: "record",
         acpAgentTaskRunning: false,
@@ -95,6 +112,7 @@ describe("buildAgentConversationSurfaceState", () => {
 
     expect(
       buildAgentConversationSurfaceState({
+        acpExperimentalEnabled: true,
         generationSource: "builtin",
         acpRunLogSurface: "conversation",
         acpAgentTaskRunning: false,
@@ -111,6 +129,7 @@ describe("buildAgentConversationSurfaceState", () => {
   it("returns agent mode while an ACP task is running even before run log detail is loaded", () => {
     expect(
       buildAgentConversationSurfaceState({
+        acpExperimentalEnabled: true,
         generationSource: "builtin",
         acpRunLogSurface: null,
         acpAgentTaskRunning: true,

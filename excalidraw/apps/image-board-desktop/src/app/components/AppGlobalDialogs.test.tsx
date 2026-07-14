@@ -35,6 +35,7 @@ const integration: AgentIntegrationViewModel = {
     statusText: "可复制 Board 链接",
   },
   acp: {
+    experimentalEnabled: true,
     configured: true,
     enabled: true,
     agentId: "codex",
@@ -87,6 +88,7 @@ const createProps = (
     },
     acpAgentEditable: true,
     acpAgentSaving: false,
+    acpExperimentalEnabled: false,
     acpDebugOpen: false,
     acpRunSummaries: [],
     acpRunSummariesLoading: false,
@@ -104,6 +106,7 @@ const createProps = (
     onAcpAgentCwdChange: vi.fn(),
     onAcpTaskInstructionChange: vi.fn(),
     onSaveAcpAgentSettings: vi.fn(),
+    onAcpExperimentalEnabledChange: vi.fn(),
     onAcpDebugOpenChange: vi.fn(),
     onRefreshAcpRunSummaries: vi.fn(),
     onOpenAcpRunLog: vi.fn(),

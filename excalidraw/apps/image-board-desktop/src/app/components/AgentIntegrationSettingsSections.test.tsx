@@ -33,6 +33,7 @@ const baseIntegration: AgentIntegrationViewModel = {
     statusText: "可复制 Board 链接",
   },
   acp: {
+    experimentalEnabled: true,
     configured: true,
     enabled: true,
     agentId: "codex",
@@ -48,6 +49,7 @@ const renderSections = (
 ) => {
   const props: Parameters<typeof AgentIntegrationSettingsSections>[0] = {
     integration: baseIntegration,
+    acpExperimentalEnabled: false,
     canToggleIntegration: true,
     onIntegrationEnabledChange: vi.fn(),
     onCopyBoardUrl: vi.fn(),
@@ -64,7 +66,7 @@ const renderSections = (
 
 describe("AgentIntegrationSettingsSections", () => {
   it("renders integration, board, CLI, and ACP status from the view model", () => {
-    renderSections();
+    renderSections({ acpExperimentalEnabled: true });
 
     const statusGrid = screen.getByLabelText("Agent 集成状态");
     expect(within(statusGrid).getByText("Bridge")).toBeInTheDocument();
@@ -76,7 +78,7 @@ describe("AgentIntegrationSettingsSections", () => {
   });
 
   it("explains the three Agent usage paths with prerequisites and write-back rules", () => {
-    renderSections();
+    renderSections({ acpExperimentalEnabled: true });
 
     const usagePaths = screen.getByLabelText("Agent 使用路径");
 
@@ -107,6 +109,16 @@ describe("AgentIntegrationSettingsSections", () => {
     expect(
       within(usagePaths).getByText("结果：左侧 Agent 对话、画布、生成记录"),
     ).toBeInTheDocument();
+  });
+
+  it("hides ACP status and usage paths while the experiment is disabled", () => {
+    renderSections();
+
+    const statusGrid = screen.getByLabelText("Agent 集成状态");
+    const usagePaths = screen.getByLabelText("Agent 使用路径");
+    expect(within(statusGrid).queryByText("ACP")).not.toBeInTheDocument();
+    expect(within(statusGrid).queryByText("Codex ACP")).not.toBeInTheDocument();
+    expect(within(usagePaths).queryByText("ACP Agent")).not.toBeInTheDocument();
   });
 
   it("does not render record, conversation, or debug responsibilities", () => {

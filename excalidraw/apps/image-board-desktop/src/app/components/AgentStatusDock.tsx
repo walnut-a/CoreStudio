@@ -83,19 +83,21 @@ export const AgentStatusDock = ({
             </span>
           </header>
 
-          <div
-            className="agent-status-popover__source"
-            role="status"
-            aria-label="ACP Agent"
-          >
-            <span className="agent-status-popover__source-copy">
-              <strong>ACP Agent</strong>
-              <em>用于从客户端发起 Agent 任务</em>
-            </span>
-            <span className="agent-status-popover__source-value">
-              {integration.acp.statusText}
-            </span>
-          </div>
+          {integration.acp.experimentalEnabled ? (
+            <div
+              className="agent-status-popover__source"
+              role="status"
+              aria-label="ACP Agent"
+            >
+              <span className="agent-status-popover__source-copy">
+                <strong>ACP Agent</strong>
+                <em>用于从客户端发起 Agent 任务</em>
+              </span>
+              <span className="agent-status-popover__source-value">
+                {integration.acp.statusText}
+              </span>
+            </div>
+          ) : null}
 
           <div className="agent-status-popover__body">
             <div className="agent-status-popover__item">
@@ -125,7 +127,7 @@ export const AgentStatusDock = ({
           </div>
 
           <div className="agent-status-popover__actions">
-            {onOpenAgentConversation ? (
+            {integration.acp.experimentalEnabled && onOpenAgentConversation ? (
               <DesktopButton type="button" onClick={onOpenAgentConversation}>
                 打开 Agent 对话
               </DesktopButton>

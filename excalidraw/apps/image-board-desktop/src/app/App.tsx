@@ -414,12 +414,14 @@ const App = () => {
     useAcpAgentSettingsController(bridge);
   const {
     settings: acpAgentSettings,
+    experimentalEnabled: acpExperimentalEnabled,
     selectedAgent: selectedAcpAgent,
     draft: acpAgentSettingsDraft,
     saving: savingAcpAgentSettings,
     editable: acpAgentSettingsEditable,
     load: loadAcpAgentSettingsState,
     save: saveAcpAgentSettingsState,
+    setExperimentalEnabled: setAcpExperimentalEnabled,
     setEnabledDraft: setAcpAgentEnabledDraft,
     setPresetDraft: setAcpAgentPresetDraft,
     setCommandDraft: setAcpAgentCommandDraft,
@@ -626,6 +628,7 @@ const App = () => {
   const agentConversationSurface = useMemo(
     () =>
       buildAgentConversationSurfaceState({
+        acpExperimentalEnabled: agentIntegration.acp.experimentalEnabled,
         generationSource,
         acpRunLogSurface,
         acpAgentTaskRunning,
@@ -634,6 +637,7 @@ const App = () => {
       }),
     [
       acpAgentTaskRunning,
+      agentIntegration.acp.experimentalEnabled,
       acpRunLogDetail,
       acpRunLogError,
       acpRunLogSurface,
@@ -1159,6 +1163,7 @@ const App = () => {
       copyCliEnvironment:
         agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
       saveAcpAgentSettings: acpAgentSettingsRendererActions.save,
+      setAcpExperimentalEnabled,
       setAcpDebugOpen,
       refreshAcpRunSummaries: loadAcpRunSummariesState,
       openAcpRunLog: acpRunLogRendererActions.open,
@@ -1824,6 +1829,7 @@ const App = () => {
         selectedAcpAgent,
         acpAgentEditable: acpAgentSettingsEditable,
         acpAgentSaving: savingAcpAgentSettings,
+        acpExperimentalEnabled,
         acpDebugOpen,
         acpRunSummaries,
         acpRunSummariesLoading,
@@ -1844,6 +1850,8 @@ const App = () => {
         onAcpTaskInstructionChange: setAcpTaskInstructionDraft,
         onSaveAcpAgentSettings:
           agentIntegrationSettingsDialogActions.saveAcpAgentSettings,
+        onAcpExperimentalEnabledChange:
+          agentIntegrationSettingsDialogActions.setAcpExperimentalEnabled,
         onAcpDebugOpenChange:
           agentIntegrationSettingsDialogActions.setAcpDebugOpen,
         onRefreshAcpRunSummaries:
@@ -2098,50 +2106,52 @@ const App = () => {
         </div>
       </ProjectRenderBoundary>
 
-      <GenerateImageDialog
-        open={true}
-        persistent={true}
-        focusToken={generateFocusToken}
-        composerConfig={acpAgentGeneration.composerConfig}
-        initialRequest={generateRequest}
-        providerSettings={providerSettings}
-        savingProviderSettings={savingProviders}
-        providerSettingsFocusToken={providerSettingsFocusToken}
-        loading={pendingGenerationCount > 0}
-        error={generationError}
-        onOpenErrorDetails={
-          generationErrorDetails
-            ? () => setGenerationErrorDetailsOpen(true)
-            : undefined
-        }
-        onCancelGeneration={cancelBuiltinGeneration}
-        onClose={() => undefined}
-        onRequestChange={generationRequestRendererActions.changeRequest}
-        onModelSelectionChange={
-          generationModelSelectionRendererActions.rememberSelection
-        }
-        onReferenceRemove={generateDialogReferenceRendererActions.remove}
-        onReferenceCommit={generateDialogReferenceRendererActions.commit}
-        onOpenAgentRunLog={(taskId) => {
-          void acpRunLogRendererActions.open(taskId, {
-            openInConversationDock: true,
-          });
-        }}
-        savedPrompts={savedPrompts}
-        onSavePrompt={(input) => {
-          void savedPromptLibraryRendererActions.savePrompt(input);
-        }}
-        onUsePrompt={(id) => {
-          void savedPromptLibraryRendererActions.usePrompt(id);
-        }}
-        onDeletePrompt={(id) => {
-          void savedPromptLibraryRendererActions.deletePrompt(id);
-        }}
-        onSaveProviderSettings={(settings) =>
-          providerSettingsRendererActions.saveSettings(settings)
-        }
-        onSubmit={generationSubmitRendererActions.submit}
-      />
+      {!isAgentBrowserRoute ? (
+        <GenerateImageDialog
+          open={true}
+          persistent={true}
+          focusToken={generateFocusToken}
+          composerConfig={acpAgentGeneration.composerConfig}
+          initialRequest={generateRequest}
+          providerSettings={providerSettings}
+          savingProviderSettings={savingProviders}
+          providerSettingsFocusToken={providerSettingsFocusToken}
+          loading={pendingGenerationCount > 0}
+          error={generationError}
+          onOpenErrorDetails={
+            generationErrorDetails
+              ? () => setGenerationErrorDetailsOpen(true)
+              : undefined
+          }
+          onCancelGeneration={cancelBuiltinGeneration}
+          onClose={() => undefined}
+          onRequestChange={generationRequestRendererActions.changeRequest}
+          onModelSelectionChange={
+            generationModelSelectionRendererActions.rememberSelection
+          }
+          onReferenceRemove={generateDialogReferenceRendererActions.remove}
+          onReferenceCommit={generateDialogReferenceRendererActions.commit}
+          onOpenAgentRunLog={(taskId) => {
+            void acpRunLogRendererActions.open(taskId, {
+              openInConversationDock: true,
+            });
+          }}
+          savedPrompts={savedPrompts}
+          onSavePrompt={(input) => {
+            void savedPromptLibraryRendererActions.savePrompt(input);
+          }}
+          onUsePrompt={(id) => {
+            void savedPromptLibraryRendererActions.usePrompt(id);
+          }}
+          onDeletePrompt={(id) => {
+            void savedPromptLibraryRendererActions.deletePrompt(id);
+          }}
+          onSaveProviderSettings={(settings) =>
+            providerSettingsRendererActions.saveSettings(settings)
+          }
+          onSubmit={generationSubmitRendererActions.submit}
+        />
+      ) : null}
     </div>
   );
 };

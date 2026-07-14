@@ -11,6 +11,7 @@ describe("createAgentIntegrationSettingsDialogRendererActions", () => {
     const getBoardUrl = vi.fn(() => "http://127.0.0.1:5174/agent-board");
     const openExternalUrl = vi.fn();
     const saveAcpAgentSettings = vi.fn().mockResolvedValue("saved");
+    const setAcpExperimentalEnabled = vi.fn().mockResolvedValue("disabled");
     const setAcpDebugOpen = vi.fn();
     const refreshAcpRunSummaries = vi.fn().mockResolvedValue("summaries");
     const openAcpRunLog = vi.fn().mockResolvedValue("run-log");
@@ -23,6 +24,7 @@ describe("createAgentIntegrationSettingsDialogRendererActions", () => {
       openExternalUrl,
       copyCliEnvironment,
       saveAcpAgentSettings,
+      setAcpExperimentalEnabled,
       setAcpDebugOpen,
       refreshAcpRunSummaries,
       openAcpRunLog,
@@ -34,6 +36,7 @@ describe("createAgentIntegrationSettingsDialogRendererActions", () => {
     expect(actions.setIntegrationEnabled(true)).toBeUndefined();
     actions.openBoardUrl();
     expect(actions.saveAcpAgentSettings()).toBeUndefined();
+    expect(actions.setAcpExperimentalEnabled(false)).toBeUndefined();
     actions.setAcpDebugOpen(true);
     expect(actions.refreshAcpRunSummaries()).toBeUndefined();
     expect(actions.openAcpRunLog("task-1")).toBeUndefined();
@@ -48,6 +51,8 @@ describe("createAgentIntegrationSettingsDialogRendererActions", () => {
       "_blank",
     );
     expect(saveAcpAgentSettings).toHaveBeenCalledTimes(1);
+    expect(setAcpExperimentalEnabled).toHaveBeenCalledTimes(1);
+    expect(setAcpExperimentalEnabled).toHaveBeenCalledWith(false);
     expect(setAcpDebugOpen).toHaveBeenCalledWith(true);
     expect(refreshAcpRunSummaries).toHaveBeenCalledTimes(1);
     expect(openAcpRunLog).toHaveBeenCalledWith("task-1");
@@ -63,6 +68,7 @@ describe("createAgentIntegrationSettingsDialogRendererActions", () => {
       openExternalUrl,
       copyCliEnvironment: vi.fn(),
       saveAcpAgentSettings: vi.fn(),
+      setAcpExperimentalEnabled: vi.fn(),
       setAcpDebugOpen: vi.fn(),
       refreshAcpRunSummaries: vi.fn(),
       openAcpRunLog: vi.fn(),

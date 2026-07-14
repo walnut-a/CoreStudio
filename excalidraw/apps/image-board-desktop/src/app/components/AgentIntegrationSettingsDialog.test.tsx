@@ -37,6 +37,7 @@ const integration: AgentIntegrationViewModel = {
     statusText: "可复制 Board 链接",
   },
   acp: {
+    experimentalEnabled: true,
     configured: true,
     enabled: true,
     agentId: "codex",
@@ -88,6 +89,7 @@ const renderDialog = (
     },
     acpAgentEditable: true,
     acpAgentSaving: false,
+    acpExperimentalEnabled: false,
     acpDebugOpen: true,
     acpRunSummaries: [runSummary],
     acpRunSummariesLoading: false,
@@ -105,6 +107,7 @@ const renderDialog = (
     onAcpAgentCwdChange: vi.fn(),
     onAcpTaskInstructionChange: vi.fn(),
     onSaveAcpAgentSettings: vi.fn(),
+    onAcpExperimentalEnabledChange: vi.fn(),
     onAcpDebugOpenChange: vi.fn(),
     onRefreshAcpRunSummaries: vi.fn(),
     onOpenAcpRunLog: vi.fn(),
@@ -124,13 +127,23 @@ describe("AgentIntegrationSettingsDialog", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("renders the app settings shell and Agent integration sections", () => {
+  it("renders the experiment switch without mounting ACP details by default", () => {
     renderDialog();
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(within(dialog).getByText("Agent 集成")).toBeInTheDocument();
     expect(within(dialog).getAllByText("网页画布").length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText("CLI").length).toBeGreaterThan(0);
+    expect(within(dialog).getByText("实验性功能")).toBeInTheDocument();
+    expect(within(dialog).getByText("外部 Agent（ACP）")).toBeInTheDocument();
+    expect(within(dialog).queryByText("ACP Agent")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("高级调试")).not.toBeInTheDocument();
+  });
+
+  it("mounts ACP settings and debug panels after the experiment is enabled", () => {
+    renderDialog({ acpExperimentalEnabled: true });
+
+    const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(within(dialog).getAllByText("ACP Agent").length).toBeGreaterThan(0);
     expect(within(dialog).getByText("高级调试")).toBeInTheDocument();
   });
@@ -145,7 +158,7 @@ describe("AgentIntegrationSettingsDialog", () => {
   });
 
   it("uses the current project path as the ACP default working directory", () => {
-    renderDialog();
+    renderDialog({ acpExperimentalEnabled: true });
 
     expect(screen.getByLabelText("工作目录")).toHaveAttribute(
       "placeholder",
@@ -155,6 +168,7 @@ describe("AgentIntegrationSettingsDialog", () => {
 
   it("falls back to bridge project path and then a generic directory label", () => {
     const { rerender, props } = renderDialog({
+      acpExperimentalEnabled: true,
       currentProjectPath: null,
       bridgeProjectPath: "/Users/example/from-bridge",
     });
@@ -181,18 +195,24 @@ describe("AgentIntegrationSettingsDialog", () => {
   it("forwards integration, ACP settings, and debug actions", () => {
     const onIntegrationEnabledChange = vi.fn();
     const onSaveAcpAgentSettings = vi.fn();
+    const onAcpExperimentalEnabledChange = vi.fn();
     const onRefreshAcpRunSummaries = vi.fn();
     const onOpenAcpRunLog = vi.fn();
 
     renderDialog({
       onIntegrationEnabledChange,
       onSaveAcpAgentSettings,
+      onAcpExperimentalEnabledChange,
       onRefreshAcpRunSummaries,
       onOpenAcpRunLog,
+      acpExperimentalEnabled: true,
     });
 
     fireEvent.click(screen.getByRole("switch", { name: "启用 Agent 集成" }));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(
+      screen.getByRole("switch", { name: "启用外部 Agent 实验功能" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "刷新记录" }));
     fireEvent.click(
       screen.getByRole("button", {
@@ -202,6 +222,7 @@ describe("AgentIntegrationSettingsDialog", () => {
 
     expect(onIntegrationEnabledChange).toHaveBeenCalledWith(false);
     expect(onSaveAcpAgentSettings).toHaveBeenCalled();
+    expect(onAcpExperimentalEnabledChange).toHaveBeenCalledWith(false);
     expect(onRefreshAcpRunSummaries).toHaveBeenCalled();
     expect(onOpenAcpRunLog).toHaveBeenCalledWith("task-1");
   });

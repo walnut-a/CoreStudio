@@ -65,6 +65,7 @@ export interface AcpAgentConfig {
 }
 
 export interface AcpAgentSettings {
+  experimentalEnabled?: boolean;
   enabled: boolean;
   defaultAgentId: string | null;
   agents: AcpAgentConfig[];
@@ -242,6 +243,7 @@ export interface AcpJsonRpcResponse {
 }
 
 export const getDefaultAcpAgentSettings = (): AcpAgentSettings => ({
+  experimentalEnabled: false,
   enabled: false,
   agents: [],
   defaultAgentId: null,
@@ -318,9 +320,15 @@ export const normalizeAcpAgentSettings = (
   )
     ? settings.defaultAgentId
     : agents[0]?.id ?? null;
+  const enabled = Boolean(settings.enabled && defaultAgentId);
+  const experimentalEnabled =
+    settings.experimentalEnabled === undefined
+      ? enabled
+      : settings.experimentalEnabled === true;
 
   return {
-    enabled: Boolean(settings.enabled && defaultAgentId),
+    experimentalEnabled,
+    enabled,
     agents,
     defaultAgentId,
     taskInstructionTemplate: normalizeAcpTaskInstructionTemplate(
@@ -329,11 +337,19 @@ export const normalizeAcpAgentSettings = (
   };
 };
 
+export const isAcpExperimentalFeatureEnabled = (
+  settings: AcpAgentSettings,
+): boolean => normalizeAcpAgentSettings(settings).experimentalEnabled === true;
+
 export const getSelectedAcpAgent = (
   settings: AcpAgentSettings,
 ): AcpAgentConfig | null => {
   const normalized = normalizeAcpAgentSettings(settings);
-  if (!normalized.enabled || !normalized.defaultAgentId) {
+  if (
+    !normalized.experimentalEnabled ||
+    !normalized.enabled ||
+    !normalized.defaultAgentId
+  ) {
     return null;
   }
   return (

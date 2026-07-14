@@ -1860,7 +1860,8 @@ describe("App startup", () => {
     expect(within(dialog).getByText("Agent 集成")).toBeInTheDocument();
     expect(within(dialog).getAllByText("网页画布").length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText("CLI").length).toBeGreaterThan(0);
-    expect(within(dialog).getAllByText("ACP Agent").length).toBeGreaterThan(0);
+    expect(within(dialog).getByText("实验性功能")).toBeInTheDocument();
+    expect(within(dialog).queryByText("ACP Agent")).not.toBeInTheDocument();
 
     fireEvent.click(
       within(dialog).getByRole("switch", { name: "启用 Agent 集成" }),
@@ -1874,6 +1875,7 @@ describe("App startup", () => {
   it("saves a custom ACP Agent command from application settings", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const loadAcpAgentSettings = vi.fn(async () => ({
+      experimentalEnabled: true,
       enabled: false,
       defaultAgentId: null,
       agents: [],
@@ -1924,6 +1926,7 @@ describe("App startup", () => {
 
     await waitFor(() => {
       expect(saveAcpAgentSettings).toHaveBeenCalledWith({
+        experimentalEnabled: true,
         enabled: true,
         defaultAgentId: "default",
         taskInstructionTemplate: "请严格按照 CoreStudio 任务包操作。",
@@ -1943,6 +1946,7 @@ describe("App startup", () => {
   it("shows the concrete default ACP Agent working directory in application settings", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const loadAcpAgentSettings = vi.fn(async () => ({
+      experimentalEnabled: true,
       enabled: false,
       defaultAgentId: null,
       agents: [],
@@ -1980,6 +1984,7 @@ describe("App startup", () => {
   it("applies an ACP Agent preset from application settings", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const loadAcpAgentSettings = vi.fn(async () => ({
+      experimentalEnabled: true,
       enabled: false,
       defaultAgentId: null,
       agents: [],
@@ -2018,6 +2023,7 @@ describe("App startup", () => {
 
     await waitFor(() => {
       expect(saveAcpAgentSettings).toHaveBeenCalledWith({
+        experimentalEnabled: true,
         enabled: true,
         defaultAgentId: "default",
         taskInstructionTemplate: expect.stringContaining(
@@ -2273,6 +2279,7 @@ describe("App startup", () => {
         boardUrl: window.location.href,
       })),
       loadAcpAgentSettings: vi.fn(async () => ({
+        experimentalEnabled: true,
         enabled: false,
         defaultAgentId: null,
         agents: [],

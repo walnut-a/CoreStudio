@@ -24,12 +24,31 @@ const getAcpAgentSettingsPath = () =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const readAcpAgentRecord = (value: unknown) => {
+  const record = isRecord(value) ? value : null;
+  return {
+    id: typeof record?.id === "string" ? record.id : "",
+    presetId:
+      typeof record?.presetId === "string" &&
+      isAcpAgentPresetId(record.presetId)
+        ? record.presetId
+        : null,
+    name: typeof record?.name === "string" ? record.name : "",
+    command: typeof record?.command === "string" ? record.command : "",
+    args: Array.isArray(record?.args) ? record.args.map(String) : [],
+    cwd: typeof record?.cwd === "string" ? record.cwd : null,
+  };
+};
+
 const readSettingsShape = (value: unknown): AcpAgentSettings => {
   if (!isRecord(value)) {
     return getDefaultAcpAgentSettings();
   }
 
   return {
+    ...(typeof value.experimentalEnabled === "boolean"
+      ? { experimentalEnabled: value.experimentalEnabled }
+      : {}),
     enabled: value.enabled === true,
     defaultAgentId:
       typeof value.defaultAgentId === "string" ? value.defaultAgentId : null,
@@ -37,21 +56,7 @@ const readSettingsShape = (value: unknown): AcpAgentSettings => {
       value.taskInstructionTemplate,
     ),
     agents: Array.isArray(value.agents)
-      ? value.agents.map((agent) => {
-          const record = isRecord(agent) ? agent : null;
-          return {
-            id: typeof record?.id === "string" ? record.id : "",
-            presetId:
-              typeof record?.presetId === "string" &&
-              isAcpAgentPresetId(record.presetId)
-                ? record.presetId
-                : null,
-            name: typeof record?.name === "string" ? record.name : "",
-            command: typeof record?.command === "string" ? record.command : "",
-            args: Array.isArray(record?.args) ? record.args.map(String) : [],
-            cwd: typeof record?.cwd === "string" ? record.cwd : null,
-          };
-        })
+      ? value.agents.map(readAcpAgentRecord)
       : [],
   };
 };

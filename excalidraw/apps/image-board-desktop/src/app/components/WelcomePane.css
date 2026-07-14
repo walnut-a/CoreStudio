@@ -68,33 +68,6 @@
   min-width: 168px;
 }
 
-.welcome-pane__agent-access {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 28px;
-  border-top: 1px solid
-    color-mix(in srgb, var(--default-border-color) 72%, white);
-  background: color-mix(in srgb, var(--color-surface-lowest) 52%, transparent);
-}
-
-.welcome-pane__agent-access-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.welcome-pane__agent-access-copy strong {
-  font-size: 0.95rem;
-}
-
-.welcome-pane__agent-access-copy span {
-  color: var(--color-gray-60);
-  font-size: 0.875rem;
-  line-height: 1.45;
-}
-
 .welcome-pane__recent {
   padding: 18px 28px 24px;
   border-top: 1px solid
@@ -252,11 +225,6 @@
 
   .welcome-pane__actions {
     grid-template-columns: 1fr;
-  }
-
-  .welcome-pane__agent-access {
-    align-items: flex-start;
-    padding: 14px 22px;
   }
 
   .welcome-pane__recent {

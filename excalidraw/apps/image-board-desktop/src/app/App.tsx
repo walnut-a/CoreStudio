@@ -1926,15 +1926,6 @@ const App = () => {
         onOpenRecentProject={currentProjectEntryRendererActions.openRecentProject}
         onRemoveRecentProject={desktopStartupRendererActions.removeRecentProject}
         onRevealProject={revealProjectFromList}
-        agentAccessEnabled={Boolean(agentBridgeStatus?.enabled)}
-        onAgentAccessToggle={
-          isAgentBrowserRoute
-            ? undefined
-            : agentBridgeStatusRendererActions.setEnabled
-        }
-        agentAccessToggleDisabled={
-          !canSetAgentBridgeEnabled(bridge) || isAgentBrowserRoute
-        }
         manualProjectActionsVisible={!isAgentBrowserRoute}
         showAgentStatusDock={isAgentBrowserRoute}
         integration={agentIntegration}

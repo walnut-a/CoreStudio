@@ -14,9 +14,6 @@ interface WelcomePaneProps {
   onOpenRecentProject?: (projectPath: string) => void;
   onRemoveRecentProject?: (projectPath: string) => void | Promise<void>;
   onRevealProject?: (projectPath: string) => void | Promise<void>;
-  agentAccessEnabled?: boolean;
-  onAgentAccessToggle?: (enabled: boolean) => void;
-  agentAccessToggleDisabled?: boolean;
   manualProjectActionsVisible?: boolean;
 }
 
@@ -28,9 +25,6 @@ export const WelcomePane = ({
   onOpenRecentProject,
   onRemoveRecentProject,
   onRevealProject,
-  agentAccessEnabled = false,
-  onAgentAccessToggle,
-  agentAccessToggleDisabled = false,
   manualProjectActionsVisible = true,
 }: WelcomePaneProps) => {
   const latestProject = recentProjects[0] ?? null;
@@ -79,23 +73,6 @@ export const WelcomePane = ({
             </div>
           ) : null}
         </div>
-        {onAgentAccessToggle ? (
-          <div className="welcome-pane__agent-access">
-            <div className="welcome-pane__agent-access-copy">
-              <strong>Agent 集成</strong>
-              <span>允许本机 Agent 通过网页画布和 CLI 连接本地项目。</span>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-label="启用 Agent 集成"
-              aria-checked={agentAccessEnabled}
-              disabled={agentAccessToggleDisabled}
-              className="app-settings-section__switch"
-              onClick={() => onAgentAccessToggle(!agentAccessEnabled)}
-            />
-          </div>
-        ) : null}
         <div className="welcome-pane__recent">
           <div className="welcome-pane__recent-header">
             <h2>{copy.welcome.recentTitle}</h2>

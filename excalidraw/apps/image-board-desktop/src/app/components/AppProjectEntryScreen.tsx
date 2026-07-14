@@ -16,9 +16,6 @@ interface AppProjectEntryScreenProps {
   onOpenRecentProject: (projectPath: string) => void;
   onRemoveRecentProject: (projectPath: string) => void | Promise<void>;
   onRevealProject: (projectPath: string) => void | Promise<void>;
-  agentAccessEnabled: boolean;
-  onAgentAccessToggle?: (enabled: boolean) => void;
-  agentAccessToggleDisabled: boolean;
   manualProjectActionsVisible: boolean;
   showAgentStatusDock: boolean;
   integration: AgentIntegrationViewModel;
@@ -39,9 +36,6 @@ export const AppProjectEntryScreen = ({
   onOpenRecentProject,
   onRemoveRecentProject,
   onRevealProject,
-  agentAccessEnabled,
-  onAgentAccessToggle,
-  agentAccessToggleDisabled,
   manualProjectActionsVisible,
   showAgentStatusDock,
   integration,
@@ -61,9 +55,6 @@ export const AppProjectEntryScreen = ({
       onOpenRecentProject={onOpenRecentProject}
       onRemoveRecentProject={onRemoveRecentProject}
       onRevealProject={onRevealProject}
-      agentAccessEnabled={agentAccessEnabled}
-      onAgentAccessToggle={onAgentAccessToggle}
-      agentAccessToggleDisabled={agentAccessToggleDisabled}
       manualProjectActionsVisible={manualProjectActionsVisible}
     />
     {showAgentStatusDock ? (

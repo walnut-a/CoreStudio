@@ -2318,7 +2318,7 @@ describe("App startup", () => {
     });
   });
 
-  it("toggles Agent access from the initial project selection screen", async () => {
+  it("keeps Agent collaboration controls out of the initial project selection screen", async () => {
     const setAgentBridgeEnabled = vi.fn(async (enabled: boolean) => ({
       enabled,
       ready: enabled,
@@ -2341,15 +2341,9 @@ describe("App startup", () => {
     const welcomePane = await screen.findByRole("region", {
       name: "选择项目开始",
     });
-    expect(within(welcomePane).getByText("Agent 集成")).toBeInTheDocument();
-
-    fireEvent.click(
-      within(welcomePane).getByRole("switch", { name: "启用 Agent 集成" }),
-    );
-
-    await waitFor(() => {
-      expect(setAgentBridgeEnabled).toHaveBeenCalledWith(true);
-    });
+    expect(within(welcomePane).queryByText("Agent 集成")).not.toBeInTheDocument();
+    expect(within(welcomePane).queryByRole("switch")).not.toBeInTheDocument();
+    expect(setAgentBridgeEnabled).not.toHaveBeenCalled();
   });
 
   it("flushes pending autosave when the desktop shell requests it", async () => {

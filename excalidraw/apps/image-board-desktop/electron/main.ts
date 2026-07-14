@@ -1271,7 +1271,6 @@ const buildMenu = () =>
         void shell.openExternal(url);
       },
       {
-        agentAccessEnabled,
         platform: process.platform,
       },
     ),

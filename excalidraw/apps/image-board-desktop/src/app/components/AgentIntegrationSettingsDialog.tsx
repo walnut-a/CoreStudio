@@ -9,6 +9,7 @@ import { AcpAgentSettingsPanel } from "./AcpAgentSettingsPanel";
 import { AcpDebugSettingsPanel } from "./AcpDebugSettingsPanel";
 import { AgentIntegrationSettingsSections } from "./AgentIntegrationSettingsSections";
 import { DesktopButton } from "./DesktopButton";
+import { ExperimentalFeaturesSettingsSection } from "./ExperimentalFeaturesSettingsSection";
 
 export interface AgentIntegrationSettingsDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ export interface AgentIntegrationSettingsDialogProps {
   selectedAcpAgent: AcpAgentConfig | null;
   acpAgentEditable: boolean;
   acpAgentSaving: boolean;
+  acpExperimentalEnabled: boolean;
   acpDebugOpen: boolean;
   acpRunSummaries: readonly AcpRunSummary[];
   acpRunSummariesLoading: boolean;
@@ -37,6 +39,7 @@ export interface AgentIntegrationSettingsDialogProps {
   onAcpAgentCwdChange: (cwd: string) => void;
   onAcpTaskInstructionChange: (template: string) => void;
   onSaveAcpAgentSettings: () => void;
+  onAcpExperimentalEnabledChange: (enabled: boolean) => void;
   onAcpDebugOpenChange: (open: boolean) => void;
   onRefreshAcpRunSummaries: () => void;
   onOpenAcpRunLog: (taskId: string) => void;
@@ -60,6 +63,7 @@ export const AgentIntegrationSettingsDialog = ({
   selectedAcpAgent,
   acpAgentEditable,
   acpAgentSaving,
+  acpExperimentalEnabled,
   acpDebugOpen,
   acpRunSummaries,
   acpRunSummariesLoading,
@@ -77,6 +81,7 @@ export const AgentIntegrationSettingsDialog = ({
   onAcpAgentCwdChange,
   onAcpTaskInstructionChange,
   onSaveAcpAgentSettings,
+  onAcpExperimentalEnabledChange,
   onAcpDebugOpenChange,
   onRefreshAcpRunSummaries,
   onOpenAcpRunLog,
@@ -114,6 +119,7 @@ export const AgentIntegrationSettingsDialog = ({
 
         <AgentIntegrationSettingsSections
           integration={integration}
+          acpExperimentalEnabled={acpExperimentalEnabled}
           canToggleIntegration={canToggleIntegration}
           onIntegrationEnabledChange={onIntegrationEnabledChange}
           onCopyBoardUrl={onCopyBoardUrl}
@@ -121,31 +127,42 @@ export const AgentIntegrationSettingsDialog = ({
           onCopyCliEnvironment={onCopyCliEnvironment}
         />
 
-        <AcpAgentSettingsPanel
-          draft={acpAgentDraft}
-          selectedAgent={selectedAcpAgent}
-          editable={acpAgentEditable}
+        <ExperimentalFeaturesSettingsSection
+          acpEnabled={acpExperimentalEnabled}
+          disabled={!acpAgentEditable}
           saving={acpAgentSaving}
-          defaultCwd={acpAgentDefaultCwd}
-          onEnabledChange={onAcpAgentEnabledChange}
-          onPresetChange={onAcpAgentPresetChange}
-          onCommandChange={onAcpAgentCommandChange}
-          onArgsChange={onAcpAgentArgsChange}
-          onCwdChange={onAcpAgentCwdChange}
-          onTaskInstructionChange={onAcpTaskInstructionChange}
-          onSave={onSaveAcpAgentSettings}
+          onAcpEnabledChange={onAcpExperimentalEnabledChange}
         />
 
-        <AcpDebugSettingsPanel
-          open={acpDebugOpen}
-          summaries={acpRunSummaries}
-          loading={acpRunSummariesLoading}
-          error={acpRunSummariesError}
-          canReadRunLogs={canReadAcpRunLogs}
-          onOpenChange={onAcpDebugOpenChange}
-          onRefresh={onRefreshAcpRunSummaries}
-          onOpenRunLog={onOpenAcpRunLog}
-        />
+        {acpExperimentalEnabled ? (
+          <>
+            <AcpAgentSettingsPanel
+              draft={acpAgentDraft}
+              selectedAgent={selectedAcpAgent}
+              editable={acpAgentEditable}
+              saving={acpAgentSaving}
+              defaultCwd={acpAgentDefaultCwd}
+              onEnabledChange={onAcpAgentEnabledChange}
+              onPresetChange={onAcpAgentPresetChange}
+              onCommandChange={onAcpAgentCommandChange}
+              onArgsChange={onAcpAgentArgsChange}
+              onCwdChange={onAcpAgentCwdChange}
+              onTaskInstructionChange={onAcpTaskInstructionChange}
+              onSave={onSaveAcpAgentSettings}
+            />
+
+            <AcpDebugSettingsPanel
+              open={acpDebugOpen}
+              summaries={acpRunSummaries}
+              loading={acpRunSummariesLoading}
+              error={acpRunSummariesError}
+              canReadRunLogs={canReadAcpRunLogs}
+              onOpenChange={onAcpDebugOpenChange}
+              onRefresh={onRefreshAcpRunSummaries}
+              onOpenRunLog={onOpenAcpRunLog}
+            />
+          </>
+        ) : null}
       </div>
     </div>
   );

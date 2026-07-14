@@ -414,12 +414,14 @@ const App = () => {
     useAcpAgentSettingsController(bridge);
   const {
     settings: acpAgentSettings,
+    experimentalEnabled: acpExperimentalEnabled,
     selectedAgent: selectedAcpAgent,
     draft: acpAgentSettingsDraft,
     saving: savingAcpAgentSettings,
     editable: acpAgentSettingsEditable,
     load: loadAcpAgentSettingsState,
     save: saveAcpAgentSettingsState,
+    setExperimentalEnabled: setAcpExperimentalEnabled,
     setEnabledDraft: setAcpAgentEnabledDraft,
     setPresetDraft: setAcpAgentPresetDraft,
     setCommandDraft: setAcpAgentCommandDraft,
@@ -1159,6 +1161,7 @@ const App = () => {
       copyCliEnvironment:
         agentIntegrationCopyShortcutRendererActions.copyCliEnvironment,
       saveAcpAgentSettings: acpAgentSettingsRendererActions.save,
+      setAcpExperimentalEnabled,
       setAcpDebugOpen,
       refreshAcpRunSummaries: loadAcpRunSummariesState,
       openAcpRunLog: acpRunLogRendererActions.open,
@@ -1824,6 +1827,7 @@ const App = () => {
         selectedAcpAgent,
         acpAgentEditable: acpAgentSettingsEditable,
         acpAgentSaving: savingAcpAgentSettings,
+        acpExperimentalEnabled,
         acpDebugOpen,
         acpRunSummaries,
         acpRunSummariesLoading,
@@ -1844,6 +1848,8 @@ const App = () => {
         onAcpTaskInstructionChange: setAcpTaskInstructionDraft,
         onSaveAcpAgentSettings:
           agentIntegrationSettingsDialogActions.saveAcpAgentSettings,
+        onAcpExperimentalEnabledChange:
+          agentIntegrationSettingsDialogActions.setAcpExperimentalEnabled,
         onAcpDebugOpenChange:
           agentIntegrationSettingsDialogActions.setAcpDebugOpen,
         onRefreshAcpRunSummaries:

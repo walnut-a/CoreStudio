@@ -9,16 +9,32 @@ import {
 } from "../src/shared/providerCatalog";
 
 import type {
+  DeleteProviderSettingsInput,
+  ProviderConfigurationSnapshot,
   PublicProviderSettings,
   SaveProviderSettingsInput,
 } from "../src/shared/desktopBridgeTypes";
 import type {
+  CustomProviderModel,
   ProviderCapabilities,
   ProviderId,
   ProviderSettings,
 } from "../src/shared/providerTypes";
 
 type StoredProviderSettings = Record<ProviderId, Partial<ProviderSettings>>;
+
+interface StoredProviderConfigurationV2 {
+  schemaVersion: 2;
+  defaultProvider: ProviderId | null;
+  providers: StoredProviderSettings;
+}
+
+export interface ProviderRuntimeSettings {
+  apiKey: string;
+  displayName?: string;
+  baseUrl?: string;
+  customModels: CustomProviderModel[];
+}
 
 const SETTINGS_FILE_NAME = "image-board-settings.json";
 const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
@@ -27,7 +43,7 @@ const SETTINGS_FILE_MODE = 0o600;
 const KEY_LEGACY_ENCRYPTED_ERROR =
   "之前保存的密钥使用了系统加密存储。当前版本不再读取钥匙串，请重新填写并保存一次。";
 
-const defaultSettings = (): StoredProviderSettings =>
+const defaultProviders = (): StoredProviderSettings =>
   PROVIDER_IDS.reduce(
     (settings, provider) => ({
       ...settings,
@@ -35,6 +51,12 @@ const defaultSettings = (): StoredProviderSettings =>
     }),
     {} as StoredProviderSettings,
   );
+
+const defaultConfiguration = (): StoredProviderConfigurationV2 => ({
+  schemaVersion: 2,
+  defaultProvider: null,
+  providers: defaultProviders(),
+});
 
 const getSettingsPath = () =>
   path.join(
@@ -170,6 +192,8 @@ const toPublicSettings = (
     return {
       ...publicSettings,
       [provider]: {
+        displayName: providerSettings.displayName,
+        baseUrl: providerSettings.baseUrl,
         defaultModel: providerSettings.defaultModel,
         ...(customModels.length ? { customModels } : {}),
         isConfigured: apiKey.isConfigured,
@@ -183,14 +207,67 @@ const toPublicSettings = (
   }, {} as PublicProviderSettings);
 };
 
-const readSettings = async (): Promise<StoredProviderSettings> => {
+const getConfiguredProviders = (settings: StoredProviderSettings) =>
+  PROVIDER_IDS.filter(
+    (provider) => getPublicApiKeyState(settings[provider]?.apiKey).isConfigured,
+  );
+
+const normalizeDefaultProvider = (
+  settings: StoredProviderSettings,
+  defaultProvider: ProviderId | null | undefined,
+) => {
+  const configuredProviders = getConfiguredProviders(settings);
+  return defaultProvider && configuredProviders.includes(defaultProvider)
+    ? defaultProvider
+    : configuredProviders[0] ?? null;
+};
+
+const normalizeConfiguration = (
+  parsed: unknown,
+): { configuration: StoredProviderConfigurationV2; migrated: boolean } => {
+  const candidate = parsed as Partial<StoredProviderConfigurationV2> | null;
+  const isV2 =
+    candidate?.schemaVersion === 2 &&
+    Boolean(candidate.providers) &&
+    typeof candidate.providers === "object";
+  const providers = {
+    ...defaultProviders(),
+    ...((isV2 ? candidate?.providers : parsed) as Partial<StoredProviderSettings>),
+  };
+  const defaultProvider = normalizeDefaultProvider(
+    providers,
+    isV2 ? candidate?.defaultProvider : null,
+  );
+
+  return {
+    configuration: {
+      schemaVersion: 2,
+      defaultProvider,
+      providers,
+    },
+    migrated: !isV2,
+  };
+};
+
+const toPublicConfiguration = (
+  configuration: StoredProviderConfigurationV2,
+): ProviderConfigurationSnapshot => ({
+  schemaVersion: 2,
+  defaultProvider: normalizeDefaultProvider(
+    configuration.providers,
+    configuration.defaultProvider,
+  ),
+  providers: toPublicSettings(configuration.providers),
+});
+
+const readSettings = async (): Promise<StoredProviderConfigurationV2> => {
   try {
     const contents = await fs.readFile(getSettingsPath(), "utf8");
-    const parsed = JSON.parse(contents) as StoredProviderSettings;
-    return {
-      ...defaultSettings(),
-      ...parsed,
-    };
+    const normalized = normalizeConfiguration(JSON.parse(contents));
+    if (normalized.migrated) {
+      await writeSettings(normalized.configuration);
+    }
+    return normalized.configuration;
   } catch (error: any) {
     if (error.code === "ENOENT") {
       const legacyPath = getLegacySettingsPath();
@@ -198,13 +275,9 @@ const readSettings = async (): Promise<StoredProviderSettings> => {
       if (legacyPath !== getSettingsPath()) {
         try {
           const contents = await fs.readFile(legacyPath, "utf8");
-          const parsed = JSON.parse(contents) as StoredProviderSettings;
-          const migratedSettings = {
-            ...defaultSettings(),
-            ...parsed,
-          };
-          await writeSettings(migratedSettings);
-          return migratedSettings;
+          const normalized = normalizeConfiguration(JSON.parse(contents));
+          await writeSettings(normalized.configuration);
+          return normalized.configuration;
         } catch (legacyError: any) {
           if (legacyError.code !== "ENOENT") {
             throw legacyError;
@@ -212,13 +285,13 @@ const readSettings = async (): Promise<StoredProviderSettings> => {
         }
       }
 
-      return defaultSettings();
+      return defaultConfiguration();
     }
     throw error;
   }
 };
 
-const writeSettings = async (settings: StoredProviderSettings) => {
+const writeSettings = async (settings: StoredProviderConfigurationV2) => {
   const settingsPath = getSettingsPath();
   await fs.mkdir(path.dirname(settingsPath), {
     recursive: true,
@@ -238,34 +311,85 @@ const writeSettings = async (settings: StoredProviderSettings) => {
 };
 
 export const loadProviderSettings = async () => {
-  return toPublicSettings(await readSettings());
+  return toPublicConfiguration(await readSettings());
+};
+
+const normalizeBaseUrl = (baseUrl: string | undefined) =>
+  baseUrl?.trim().replace(/\/+$/, "") || undefined;
+
+const assertValidProviderInput = (
+  input: SaveProviderSettingsInput,
+  existing: Partial<ProviderSettings>,
+) => {
+  if (!input.apiKey.trim() && !existing.apiKey) {
+    throw new Error("请填写 API Key。");
+  }
+  if (!input.defaultModel?.trim()) {
+    throw new Error("请选择或填写默认模型。");
+  }
+  if (input.provider !== "openai-compatible") {
+    return;
+  }
+  if (!input.displayName?.trim()) {
+    throw new Error("请填写服务名称。");
+  }
+  let url: URL;
+  try {
+    url = new URL(input.baseUrl?.trim() || "");
+  } catch {
+    throw new Error("请填写有效的 Base URL。");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Base URL 必须使用 HTTP 或 HTTPS。");
+  }
 };
 
 export const saveProviderSettings = async (
   input: SaveProviderSettingsInput,
 ) => {
-  const settings = await readSettings();
-  settings[input.provider] = {
-    ...settings[input.provider],
+  const configuration = await readSettings();
+  const existing = configuration.providers[input.provider] ?? {};
+  assertValidProviderInput(input, existing);
+  configuration.providers[input.provider] = {
+    ...existing,
     apiKey: input.apiKey
       ? serializePlainApiKey(input.apiKey)
-      : settings[input.provider].apiKey,
-    defaultModel: input.defaultModel,
+      : existing.apiKey,
+    displayName: input.displayName?.trim() || undefined,
+    baseUrl: normalizeBaseUrl(input.baseUrl),
+    defaultModel: input.defaultModel?.trim(),
     customModels:
       input.customModels === undefined
-        ? settings[input.provider].customModels
+        ? existing.customModels
         : normalizeCustomModels(input.customModels),
     lastStatus: "unknown",
     lastCheckedAt: null,
     lastError: null,
   };
-  await writeSettings(settings);
-  return toPublicSettings(settings);
+  configuration.defaultProvider = normalizeDefaultProvider(
+    configuration.providers,
+    configuration.defaultProvider,
+  );
+  await writeSettings(configuration);
+  return toPublicConfiguration(configuration);
+};
+
+export const deleteProviderSettings = async (
+  input: DeleteProviderSettingsInput,
+) => {
+  const configuration = await readSettings();
+  configuration.providers[input.provider] = {};
+  configuration.defaultProvider = normalizeDefaultProvider(
+    configuration.providers,
+    configuration.defaultProvider,
+  );
+  await writeSettings(configuration);
+  return toPublicConfiguration(configuration);
 };
 
 export const getProviderApiKey = async (provider: ProviderId) => {
   const settings = await readSettings();
-  const storedApiKey = settings[provider].apiKey;
+  const storedApiKey = settings.providers[provider].apiKey;
   const apiKeyState = normalizeStoredApiKey(storedApiKey);
   if (apiKeyState.formatError) {
     throw new Error(apiKeyState.formatError);
@@ -275,7 +399,24 @@ export const getProviderApiKey = async (provider: ProviderId) => {
 
 export const getProviderCustomModels = async (provider: ProviderId) => {
   const settings = await readSettings();
-  return normalizeCustomModels(settings[provider].customModels);
+  return normalizeCustomModels(settings.providers[provider].customModels);
+};
+
+export const getProviderRuntimeSettings = async (
+  provider: ProviderId,
+): Promise<ProviderRuntimeSettings> => {
+  const configuration = await readSettings();
+  const settings = configuration.providers[provider] ?? {};
+  const apiKeyState = normalizeStoredApiKey(settings.apiKey);
+  if (apiKeyState.formatError) {
+    throw new Error(apiKeyState.formatError);
+  }
+  return {
+    apiKey: apiKeyState.apiKey,
+    displayName: settings.displayName,
+    baseUrl: normalizeBaseUrl(settings.baseUrl),
+    customModels: normalizeCustomModels(settings.customModels),
+  };
 };
 
 export const updateProviderStatus = async (
@@ -284,8 +425,8 @@ export const updateProviderStatus = async (
   errorMessage?: string,
 ) => {
   const settings = await readSettings();
-  settings[provider] = {
-    ...settings[provider],
+  settings.providers[provider] = {
+    ...settings.providers[provider],
     lastStatus: status,
     lastCheckedAt: new Date().toISOString(),
     lastError: errorMessage ?? null,

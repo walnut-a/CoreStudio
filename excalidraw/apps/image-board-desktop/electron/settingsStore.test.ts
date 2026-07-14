@@ -44,7 +44,9 @@ vi.mock("electron", () => ({
 }));
 
 import {
+  deleteProviderSettings,
   getProviderApiKey,
+  getProviderRuntimeSettings,
   loadProviderSettings,
   saveProviderSettings,
   updateProviderStatus,
@@ -86,48 +88,23 @@ describe("settingsStore", () => {
       defaultModel: "gemini-2.5-flash-image",
     });
 
-    await expect(loadProviderSettings()).resolves.toEqual({
-      gemini: {
+    await expect(loadProviderSettings()).resolves.toMatchObject({
+      schemaVersion: 2,
+      defaultProvider: "gemini",
+      providers: {
+        gemini: {
         defaultModel: "gemini-2.5-flash-image",
         isConfigured: true,
         lastStatus: "unknown",
         lastCheckedAt: null,
         lastError: null,
       },
-      zenmux: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      fal: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      jimeng: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      openai: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      openrouter: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
+        zenmux: { isConfigured: false },
+        fal: { isConfigured: false },
+        jimeng: { isConfigured: false },
+        openai: { isConfigured: false },
+        openrouter: { isConfigured: false },
+        "openai-compatible": { isConfigured: false },
       },
     });
   });
@@ -240,9 +217,15 @@ describe("settingsStore", () => {
       ),
       "utf8",
     );
-    expect(contents).toContain(
-      '"apiKey":"legacy-openrouter-key-with-enough-length"',
-    );
+    expect(JSON.parse(contents)).toMatchObject({
+      schemaVersion: 2,
+      defaultProvider: "openrouter",
+      providers: {
+        openrouter: {
+          apiKey: "legacy-openrouter-key-with-enough-length",
+        },
+      },
+    });
     expect(safeStorageMock.encryptString).not.toHaveBeenCalled();
     expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
   });
@@ -263,17 +246,19 @@ describe("settingsStore", () => {
     });
 
     await expect(loadProviderSettings()).resolves.toMatchObject({
-      zenmux: {
-        defaultModel: "google/gemini-next-image-preview",
-        isConfigured: true,
-        customModels: [
-          {
-            id: "google/gemini-next-image-preview",
-            label: "google/gemini-next-image-preview",
-            capabilityTemplate: "image-editing-aspect-ratio",
-            adapter: "zenmux-vertex-generate-content",
-          },
-        ],
+      providers: {
+        zenmux: {
+          defaultModel: "google/gemini-next-image-preview",
+          isConfigured: true,
+          customModels: [
+            {
+              id: "google/gemini-next-image-preview",
+              label: "google/gemini-next-image-preview",
+              capabilityTemplate: "image-editing-aspect-ratio",
+              adapter: "zenmux-vertex-generate-content",
+            },
+          ],
+        },
       },
     });
 
@@ -310,48 +295,15 @@ describe("settingsStore", () => {
       "utf8",
     );
 
-    await expect(loadProviderSettings()).resolves.toEqual({
-      gemini: {
-        defaultModel: "gemini-3.1-flash-image-preview",
-        isConfigured: true,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      zenmux: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      fal: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      jimeng: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      openai: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      openrouter: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
+    await expect(loadProviderSettings()).resolves.toMatchObject({
+      schemaVersion: 2,
+      defaultProvider: "gemini",
+      providers: {
+        gemini: {
+          defaultModel: "gemini-3.1-flash-image-preview",
+          isConfigured: true,
+        },
+        zenmux: { isConfigured: false },
       },
     });
 
@@ -396,49 +348,18 @@ describe("settingsStore", () => {
       "utf8",
     );
 
-    await expect(loadProviderSettings()).resolves.toEqual({
-      gemini: {
-        defaultModel: "gemini-2.5-flash-image",
-        isConfigured: false,
-        lastStatus: "error",
-        lastCheckedAt: "2026-04-16T00:00:00.000Z",
-        lastError:
-          "之前保存的密钥使用了系统加密存储。当前版本不再读取钥匙串，请重新填写并保存一次。",
-      },
-      zenmux: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      fal: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      jimeng: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      openai: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
-      openrouter: {
-        defaultModel: undefined,
-        isConfigured: false,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
+    await expect(loadProviderSettings()).resolves.toMatchObject({
+      schemaVersion: 2,
+      defaultProvider: null,
+      providers: {
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: false,
+          lastStatus: "error",
+          lastCheckedAt: "2026-04-16T00:00:00.000Z",
+          lastError:
+            "之前保存的密钥使用了系统加密存储。当前版本不再读取钥匙串，请重新填写并保存一次。",
+        },
       },
     });
     expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
@@ -489,5 +410,70 @@ describe("settingsStore", () => {
       '"defaultModel": "gemini-3.1-flash-image-preview"',
     );
     expect(safeStorageMock.decryptString).not.toHaveBeenCalled();
+  });
+
+  it("删除默认服务后回退到第一项已配置服务", async () => {
+    await saveProviderSettings({
+      provider: "gemini",
+      apiKey: "gemini-key",
+      defaultModel: "gemini-2.5-flash-image",
+    });
+    await saveProviderSettings({
+      provider: "zenmux",
+      apiKey: "zenmux-key",
+      defaultModel: "google/gemini-2.5-flash-image",
+    });
+
+    await expect(
+      deleteProviderSettings({ provider: "gemini" }),
+    ).resolves.toMatchObject({
+      defaultProvider: "zenmux",
+      providers: {
+        gemini: { isConfigured: false },
+        zenmux: { isConfigured: true },
+      },
+    });
+  });
+
+  it("删除最后一个服务后进入未配置状态", async () => {
+    await saveProviderSettings({
+      provider: "openai",
+      apiKey: "openai-key",
+      defaultModel: "gpt-image-1.5",
+    });
+
+    await expect(
+      deleteProviderSettings({ provider: "openai" }),
+    ).resolves.toMatchObject({
+      defaultProvider: null,
+      providers: { openai: { isConfigured: false } },
+    });
+  });
+
+  it("公开配置不暴露密钥，运行时配置保留兼容服务字段", async () => {
+    const snapshot = await saveProviderSettings({
+      provider: "openai-compatible",
+      displayName: "内部网关",
+      baseUrl: "https://images.example.com/v1/",
+      apiKey: "never-expose-me",
+      defaultModel: "vendor/image-model",
+      customModels: [
+        {
+          id: "vendor/image-model",
+          capabilityTemplate: "image-editing-aspect-ratio",
+          adapter: "openai-images",
+        },
+      ],
+    });
+
+    expect(JSON.stringify(snapshot)).not.toContain("never-expose-me");
+    await expect(
+      getProviderRuntimeSettings("openai-compatible"),
+    ).resolves.toMatchObject({
+      apiKey: "never-expose-me",
+      displayName: "内部网关",
+      baseUrl: "https://images.example.com/v1",
+      customModels: [{ id: "vendor/image-model" }],
+    });
   });
 });

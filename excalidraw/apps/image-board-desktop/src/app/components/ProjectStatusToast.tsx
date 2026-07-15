@@ -1,4 +1,5 @@
 import type { ProjectHealthReport } from "../../shared/desktopBridgeTypes";
+import { copy } from "../copy";
 import {
   buildProjectStatusToastViewModel,
   type ProjectRepairReport,
@@ -42,9 +43,7 @@ export const ProjectStatusToast = ({
     .join(" ");
   const dotClassName = [
     "project-status-toast__dot",
-    toast.tone === "success"
-      ? "project-status-toast__dot--success"
-      : "",
+    toast.tone === "success" ? "project-status-toast__dot--success" : "",
     toast.tone === "failed" ? "project-status-toast__dot--muted" : "",
   ]
     .filter(Boolean)
@@ -60,7 +59,7 @@ export const ProjectStatusToast = ({
           className="project-status-toast__action"
           onClick={onOpenDetails}
         >
-          查看详情
+          {copy.projectRepair.viewDetails}
         </button>
       ) : null}
     </div>

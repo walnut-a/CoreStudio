@@ -6,6 +6,7 @@ import type {
   RebuildProjectThumbnailsResult,
 } from "../../shared/desktopBridgeTypes";
 import type { ImageRecordMap } from "../../shared/projectTypes";
+import { copy } from "../copy";
 
 export type ThumbnailMaintenanceState = {
   status: "pending" | "failed";
@@ -1416,8 +1417,8 @@ export const buildProjectStatusToastViewModel = ({
     (thumbnailMaintenance
       ? thumbnailMaintenance.message ??
         (thumbnailMaintenance.status === "pending"
-          ? `正在修复 ${thumbnailMaintenance.total} 个图片资源`
-          : `${thumbnailMaintenance.total} 个图片资源暂时不可用`)
+          ? copy.projectRepair.thumbnailRepairing(thumbnailMaintenance.total)
+          : copy.projectRepair.thumbnailUnavailable(thumbnailMaintenance.total))
       : null);
 
   if (!message) {

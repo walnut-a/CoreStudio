@@ -424,6 +424,15 @@ export const enCopy: DesktopCopy = {
       progress: "Progress",
     },
     runLog: {
+      dialogTitle: "Agent task log",
+      close: "Close",
+      loading: "Loading task log...",
+      task: "Task",
+      agent: "Agent",
+      status: "Status",
+      project: "Project",
+      showProtocolJson: "Show protocol JSON",
+      hideProtocolJson: "Hide protocol JSON",
       initializing: "Initializing",
       toolPending: "Waiting",
       toolRunning: "Running",
@@ -716,6 +725,13 @@ export const enCopy: DesktopCopy = {
     },
   },
   projectRepair: {
+    viewDetails: "View details",
+    thumbnailRepairing: (count: number) =>
+      `Repairing ${count} image ${count === 1 ? "asset" : "assets"}`,
+    thumbnailUnavailable: (count: number) =>
+      `${count} image ${
+        count === 1 ? "asset is" : "assets are"
+      } temporarily unavailable`,
     noProject: "Open a project first.",
     noImages: "This project has no image assets to process.",
     healthCheckFailed: "The project health check failed.",
@@ -754,5 +770,10 @@ export const enCopy: DesktopCopy = {
       failedCount || skippedImageRecordCount
         ? "Project data repair complete. Some images still need review."
         : "Project data repair complete.",
+  },
+  projectRenderBoundary: {
+    title: "Project interface failed to load",
+    unknownError: "An unknown error occurred.",
+    backToProjectList: "Back to project list",
   },
 };

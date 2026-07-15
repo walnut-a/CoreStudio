@@ -1,4 +1,5 @@
 import type { AcpRunLogDetail } from "../../shared/acpTypes";
+import { copy } from "../copy";
 import { AgentRunChatLog } from "./AgentRunChatLog";
 import { getAcpRunStatusLabel } from "./AcpDebugSettingsPanel";
 import { DesktopButton } from "./DesktopButton";
@@ -39,19 +40,21 @@ export const AcpRunLogDialog = ({
         <div className="dialog-card__header">
           <div>
             <span className="dialog-card__eyebrow">ACP Agent</span>
-            <h2 id="acp-run-log-title">Agent 任务记录</h2>
+            <h2 id="acp-run-log-title">{copy.agentUi.runLog.dialogTitle}</h2>
           </div>
           <DesktopButton
             type="button"
             className="dialog-card__close"
             onClick={onClose}
           >
-            关闭
+            {copy.agentUi.runLog.close}
           </DesktopButton>
         </div>
 
         {loading ? (
-          <div className="dialog-card__notice">正在读取任务记录…</div>
+          <div className="dialog-card__notice">
+            {copy.agentUi.runLog.loading}
+          </div>
         ) : null}
 
         {error ? <div className="dialog-card__error">{error}</div> : null}
@@ -60,19 +63,19 @@ export const AcpRunLogDialog = ({
           <>
             <div className="acp-run-log-dialog__summary">
               <div>
-                <span>任务</span>
+                <span>{copy.agentUi.runLog.task}</span>
                 <strong>{detail.summary.taskId}</strong>
               </div>
               <div>
-                <span>Agent</span>
+                <span>{copy.agentUi.runLog.agent}</span>
                 <strong>{detail.summary.agentName}</strong>
               </div>
               <div>
-                <span>状态</span>
+                <span>{copy.agentUi.runLog.status}</span>
                 <strong>{getAcpRunStatusLabel(detail.summary.status)}</strong>
               </div>
               <div>
-                <span>项目</span>
+                <span>{copy.agentUi.runLog.project}</span>
                 <strong>{detail.summary.projectName}</strong>
               </div>
             </div>
@@ -83,7 +86,9 @@ export const AcpRunLogDialog = ({
                 onClick={() => onRawOpenChange(!rawOpen)}
                 aria-expanded={rawOpen}
               >
-                {rawOpen ? "隐藏协议 JSON" : "显示协议 JSON"}
+                {rawOpen
+                  ? copy.agentUi.runLog.hideProtocolJson
+                  : copy.agentUi.runLog.showProtocolJson}
               </DesktopButton>
             </div>
 

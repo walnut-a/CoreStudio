@@ -420,6 +420,15 @@ const zhCnCopy = {
       progress: "过程",
     },
     runLog: {
+      dialogTitle: "Agent 任务记录",
+      close: "关闭",
+      loading: "正在读取任务记录…",
+      task: "任务",
+      agent: "Agent",
+      status: "状态",
+      project: "项目",
+      showProtocolJson: "显示协议 JSON",
+      hideProtocolJson: "隐藏协议 JSON",
       initializing: "初始化中",
       toolPending: "等待调用",
       toolRunning: "调用中",
@@ -685,6 +694,9 @@ const zhCnCopy = {
     },
   },
   projectRepair: {
+    viewDetails: "查看详情",
+    thumbnailRepairing: (count: number) => `正在修复 ${count} 个图片资源`,
+    thumbnailUnavailable: (count: number) => `${count} 个图片资源暂时不可用`,
     noProject: "请先打开一个项目。",
     noImages: "当前项目没有需要处理的图片资源。",
     healthCheckFailed: "当前项目健康检查失败。",
@@ -722,6 +734,11 @@ const zhCnCopy = {
       failedCount || skippedImageRecordCount
         ? "项目数据修复完成，部分图片需要再确认。"
         : "项目数据修复完成。",
+  },
+  projectRenderBoundary: {
+    title: "项目界面加载失败",
+    unknownError: "发生了未知错误。",
+    backToProjectList: "返回项目列表",
   },
 } as const;
 

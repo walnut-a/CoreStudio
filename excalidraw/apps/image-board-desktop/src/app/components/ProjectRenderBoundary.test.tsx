@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setActiveDesktopLocale } from "../copy";
 import { ProjectRenderBoundary } from "./ProjectRenderBoundary";
 
 const BrokenChild = ({ message }: { message: string }) => {
@@ -8,6 +9,10 @@ const BrokenChild = ({ message }: { message: string }) => {
 };
 
 describe("ProjectRenderBoundary", () => {
+  afterEach(() => {
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("renders a project load error and reset action when a child crashes", () => {
     const onError = vi.fn();
     const onReset = vi.fn();
@@ -75,6 +80,35 @@ describe("ProjectRenderBoundary", () => {
     expect(
       screen.queryByRole("heading", { name: "项目界面加载失败" }),
     ).not.toBeInTheDocument();
+
+    consoleError.mockRestore();
+  });
+
+  it("localizes the recovery UI without rewriting the captured error", () => {
+    setActiveDesktopLocale("en");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    render(
+      <ProjectRenderBoundary
+        projectKey="/tmp/corestudio-project"
+        onError={vi.fn()}
+        onReset={vi.fn()}
+      >
+        <BrokenChild message="旧项目场景渲染失败" />
+      </ProjectRenderBoundary>,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Project interface failed to load",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("旧项目场景渲染失败")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Back to project list" }),
+    ).toBeInTheDocument();
 
     consoleError.mockRestore();
   });

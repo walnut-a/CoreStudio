@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 import "./ProjectRenderBoundary.css";
 
@@ -31,10 +32,7 @@ export class ProjectRenderBoundary extends Component<
   }
 
   componentDidUpdate(prevProps: ProjectRenderBoundaryProps) {
-    if (
-      prevProps.projectKey !== this.props.projectKey &&
-      this.state.error
-    ) {
+    if (prevProps.projectKey !== this.props.projectKey && this.state.error) {
       this.setState({ error: null });
     }
   }
@@ -44,10 +42,13 @@ export class ProjectRenderBoundary extends Component<
       return (
         <div className="image-board-runtime-error" role="alert">
           <div className="image-board-runtime-error__card">
-            <h2>项目界面加载失败</h2>
-            <p>{this.state.error.message || "发生了未知错误。"}</p>
+            <h2>{copy.projectRenderBoundary.title}</h2>
+            <p>
+              {this.state.error.message ||
+                copy.projectRenderBoundary.unknownError}
+            </p>
             <DesktopButton type="button" onClick={this.props.onReset}>
-              返回项目列表
+              {copy.projectRenderBoundary.backToProjectList}
             </DesktopButton>
           </div>
         </div>

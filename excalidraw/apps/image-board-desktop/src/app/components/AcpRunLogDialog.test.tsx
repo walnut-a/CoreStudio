@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AcpRunLogDetail } from "../../shared/acpTypes";
+import { setActiveDesktopLocale } from "../copy";
 import { AcpRunLogDialog } from "./AcpRunLogDialog";
 
 const runLogDetail: AcpRunLogDetail = {
@@ -51,6 +52,10 @@ const renderDialog = (
 };
 
 describe("AcpRunLogDialog", () => {
+  afterEach(() => {
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("does not render while closed", () => {
     renderDialog({ open: false });
 
@@ -106,5 +111,25 @@ describe("AcpRunLogDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("localizes dialog controls without rewriting run content", () => {
+    setActiveDesktopLocale("en");
+
+    renderDialog();
+
+    expect(
+      screen.getByRole("dialog", { name: "Agent task log" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Task")).toBeInTheDocument();
+    expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("Project")).toBeInTheDocument();
+    expect(screen.getByText("Completed")).toBeInTheDocument();
+    expect(screen.getByText("工业设计助手")).toBeInTheDocument();
+    expect(screen.getByText("我会先读取当前项目状态。")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show protocol JSON" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 });

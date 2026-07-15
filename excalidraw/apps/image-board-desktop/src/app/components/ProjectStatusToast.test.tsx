@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setActiveDesktopLocale } from "../copy";
 import type {
   ProjectRepairReport,
   ThumbnailMaintenanceState,
@@ -24,6 +25,10 @@ const renderToast = (
 };
 
 describe("ProjectStatusToast", () => {
+  afterEach(() => {
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("does not render without a toast view model", () => {
     renderToast();
 
@@ -100,5 +105,34 @@ describe("ProjectStatusToast", () => {
     fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
 
     expect(onOpenDetails).toHaveBeenCalled();
+  });
+
+  it("localizes the details action", () => {
+    setActiveDesktopLocale("en");
+
+    renderToast({
+      thumbnailMaintenance: {
+        status: "failed",
+        total: 1,
+      },
+      projectRepairReport: {
+        generatedCount: 0,
+        skippedCount: 0,
+        failedCount: 1,
+        repairedGenerationRecordCount: 0,
+        repairedAcpOutputCount: 0,
+        restoredImageRecordCount: 0,
+        skippedImageRecordCount: 0,
+        skippedDetails: [],
+        failedDetails: [],
+      },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "View details" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "1 image asset is temporarily unavailable",
+    );
   });
 });

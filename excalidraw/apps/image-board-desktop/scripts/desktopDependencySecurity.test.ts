@@ -175,7 +175,7 @@ describe("CoreStudio desktop dependency security", () => {
     expect(vitestConfig).toContain('name: "core"');
     expect(vitestConfig).toContain('name: "corestudio-app"');
     expect(vitestConfig).toContain("App.testSetup.tsx");
-    expect(appSetup.match(/vi\.mock\(/g)).toHaveLength(7);
+    expect(appSetup.match(/vi\.mock\(/g)).toHaveLength(6);
     expect(appSupport).not.toMatch(/vi\.(?:mock|hoisted)\(/);
   });
 });

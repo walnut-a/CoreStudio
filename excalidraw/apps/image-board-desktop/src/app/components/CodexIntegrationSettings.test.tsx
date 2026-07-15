@@ -10,6 +10,9 @@ import {
 const status: CodexIntegrationStatus = {
   state: "install",
   command: "/bin/bash '/Applications/CoreStudio.app/install.sh'",
+  appVersion: "1.1.17",
+  guideUrl:
+    "https://github.com/walnut-a/CoreStudio/blob/v1.1.17/docs/codex-integration.md",
   detectedAt: "2026-07-14T00:00:00.000Z",
   checks: [
     { id: "cli", label: "CoreStudio CLI", status: "missing", detail: "未找到" },
@@ -61,7 +64,12 @@ describe("CodexIntegrationSettings", () => {
 
     await screen.findByText("CoreStudio CLI");
     expect(screen.queryByText(status.command)).not.toBeInTheDocument();
-    expect(screen.getByText(CODEX_INSTALL_PROMPT)).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) =>
+        element?.tagName === "P" &&
+        element.textContent === CODEX_INSTALL_PROMPT(status),
+      ),
+    ).toBeInTheDocument();
     const copyInstallButton = screen.getByRole("button", {
       name: "复制给 Codex",
     });
@@ -73,7 +81,7 @@ describe("CodexIntegrationSettings", () => {
     fireEvent.click(copyInstallButton);
     fireEvent.click(copyUsageButton);
 
-    expect(copyText).toHaveBeenNthCalledWith(1, CODEX_INSTALL_PROMPT);
+    expect(copyText).toHaveBeenNthCalledWith(1, CODEX_INSTALL_PROMPT(status));
     expect(copyText).toHaveBeenNthCalledWith(2, "打开当前 CoreStudio 项目");
     await waitFor(() => expect(screen.getByText("已复制")).toBeInTheDocument());
   });

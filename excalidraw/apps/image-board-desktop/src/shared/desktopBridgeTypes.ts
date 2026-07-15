@@ -303,6 +303,8 @@ export interface CodexIntegrationCheck {
 export interface CodexIntegrationStatus {
   state: "ready" | "install" | "update" | "repair" | "error";
   command: string;
+  appVersion: string;
+  guideUrl: string;
   checks: CodexIntegrationCheck[];
   detectedAt: string;
 }

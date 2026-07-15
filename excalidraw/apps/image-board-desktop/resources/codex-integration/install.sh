@@ -2,37 +2,17 @@
 
 set -euo pipefail
 
-RESOURCES_DIR=""
-APP_VERSION=""
-ELECTRON_BIN=""
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --resources-dir)
-      RESOURCES_DIR="$2"
-      shift 2
-      ;;
-    --app-version)
-      APP_VERSION="$2"
-      shift 2
-      ;;
-    --electron-bin)
-      ELECTRON_BIN="$2"
-      shift 2
-      ;;
-    *)
-      echo "未知参数：$1" >&2
-      exit 2
-      ;;
-  esac
-done
-
-if [[ -z "$RESOURCES_DIR" || -z "$APP_VERSION" || -z "$ELECTRON_BIN" ]]; then
-  echo "缺少安装参数，请重新阅读 CoreStudio 自带的 Codex 集成安装指南。" >&2
+if [[ $# -ne 0 ]]; then
+  echo "CoreStudio Codex 集成安装器不需要参数。" >&2
   exit 2
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RESOURCES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONTENTS_DIR="$(cd "$RESOURCES_DIR/.." && pwd)"
+INFO_PLIST="$CONTENTS_DIR/Info.plist"
 SOURCE_SKILL="$RESOURCES_DIR/codex-integration/corestudio-skill/SKILL.md"
+APP_ASAR="$RESOURCES_DIR/app.asar"
 CLI_RUNTIME="$RESOURCES_DIR/app.asar/bin/corestudio.cjs"
 CLI_DIR="$HOME/.local/bin"
 CLI_PATH="$CLI_DIR/corestudio"
@@ -40,8 +20,29 @@ SKILL_DIR="$HOME/.codex/skills/corestudio"
 SKILL_PATH="$SKILL_DIR/SKILL.md"
 MANIFEST_PATH="$HOME/.codex/corestudio-integration.json"
 
-if [[ ! -f "$SOURCE_SKILL" || ! -f "$CLI_RUNTIME" || ! -x "$ELECTRON_BIN" ]]; then
-  echo "CoreStudio 安装资源不完整，请重新安装 CoreStudio 后再试。" >&2
+if [[ ! -f "$SOURCE_SKILL" ]]; then
+  echo "CoreStudio Skill 安装源缺失：$SOURCE_SKILL" >&2
+  exit 1
+fi
+if [[ ! -f "$APP_ASAR" ]]; then
+  echo "CoreStudio 应用资源缺失：$APP_ASAR" >&2
+  exit 1
+fi
+if [[ ! -f "$INFO_PLIST" ]]; then
+  echo "CoreStudio 应用信息缺失：$INFO_PLIST" >&2
+  exit 1
+fi
+
+APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
+APP_EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST")"
+ELECTRON_BIN="$CONTENTS_DIR/MacOS/$APP_EXECUTABLE"
+
+if [[ -z "$APP_VERSION" ]]; then
+  echo "无法读取 CoreStudio 版本。" >&2
+  exit 1
+fi
+if [[ ! -x "$ELECTRON_BIN" ]]; then
+  echo "CoreStudio 可执行文件缺失：$ELECTRON_BIN" >&2
   exit 1
 fi
 
@@ -68,6 +69,14 @@ cat > "$MANIFEST_PATH" <<EOF
 }
 EOF
 chmod 644 "$MANIFEST_PATH"
+
+set +e
+CLI_CHECK_OUTPUT="$("$CLI_PATH" read context --json 2>&1)"
+set -e
+if [[ "$CLI_CHECK_OUTPUT" != \{\"ok\":* ]]; then
+  echo "CoreStudio CLI 验证失败：$CLI_CHECK_OUTPUT" >&2
+  exit 1
+fi
 
 echo "CoreStudio Codex 集成已准备好。"
 echo "CLI：$CLI_PATH"

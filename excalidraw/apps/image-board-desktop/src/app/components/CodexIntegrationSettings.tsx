@@ -21,8 +21,11 @@ const STATE_COPY: Record<
   error: { title: "无法完成检测", action: "复制给 Codex" },
 };
 
-export const CODEX_INSTALL_PROMPT =
-  "请阅读 CoreStudio 应用内的《Codex 集成安装指南》，并按说明帮我完成安装。";
+export const CODEX_INSTALL_PROMPT = ({
+  appVersion,
+  guideUrl,
+}: Pick<CodexIntegrationStatus, "appVersion" | "guideUrl">) =>
+  `请按照 CoreStudio ${appVersion} 的 Codex 集成安装指南帮我完成安装：${guideUrl}\n请使用本机已安装的正式 CoreStudio，完成后验证 CLI、Skill 和版本记录。`;
 
 const CHECK_STATUS_LABEL = {
   ready: "正常",
@@ -41,6 +44,7 @@ export const CodexIntegrationSettings = ({
     inspect,
   });
   const [copied, setCopied] = useState<"install" | "prompt" | null>(null);
+  const installPrompt = status ? CODEX_INSTALL_PROMPT(status) : "";
 
   return (
     <section className="settings-page settings-codex-page">
@@ -75,18 +79,18 @@ export const CodexIntegrationSettings = ({
               <p>
                 {status.state === "ready"
                   ? "当前依赖齐全。需要重装或修复时，把这句话发给 Codex。"
-                  : "复制这句话发给 Codex，它会读取应用内指南并完成后续步骤。"}
+                  : "复制这句话发给 Codex，它会读取当前版本的安装指南并完成后续步骤。"}
               </p>
             </div>
             <div className="settings-agent-prompt">
-              <p>{CODEX_INSTALL_PROMPT}</p>
+              <p>{installPrompt}</p>
             </div>
             <DesktopButton
               type="button"
               size="small"
               variant={status.state === "ready" ? "default" : "primary"}
               onClick={async () => {
-                await copyText(CODEX_INSTALL_PROMPT);
+                await copyText(installPrompt);
                 setCopied("install");
               }}
             >

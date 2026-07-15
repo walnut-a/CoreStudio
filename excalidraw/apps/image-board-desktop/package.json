@@ -64,6 +64,10 @@
       {
         "from": "resources/codex-integration",
         "to": "codex-integration"
+      },
+      {
+        "from": "../../../docs/codex-integration.md",
+        "to": "codex-integration/CODEX_INSTALLATION.md"
       }
     ],
     "mac": {

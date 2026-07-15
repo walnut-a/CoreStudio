@@ -18,7 +18,6 @@ export interface InspectCodexIntegrationOptions {
   homeDir: string;
   resourcesPath: string;
   appVersion: string;
-  electronPath: string;
   access?: (path: string, mode: number) => Promise<void>;
   readFile?: (path: string, encoding: "utf8") => Promise<string>;
 }
@@ -55,7 +54,6 @@ export const inspectCodexIntegration = async ({
   homeDir,
   resourcesPath,
   appVersion,
-  electronPath,
   access = fsAccess,
   readFile = fsReadFile,
 }: InspectCodexIntegrationOptions): Promise<CodexIntegrationStatus> => {
@@ -77,16 +75,8 @@ export const inspectCodexIntegration = async ({
     "codex-integration",
     "install.sh",
   );
-  const command = [
-    "/bin/bash",
-    shellQuote(installerPath),
-    "--resources-dir",
-    shellQuote(resourcesPath),
-    "--app-version",
-    shellQuote(appVersion),
-    "--electron-bin",
-    shellQuote(electronPath),
-  ].join(" ");
+  const command = ["/bin/bash", shellQuote(installerPath)].join(" ");
+  const guideUrl = `https://github.com/walnut-a/CoreStudio/blob/v${appVersion}/docs/codex-integration.md`;
 
   const [cliReady, skillReady, manifestReadable] = await Promise.all([
     canAccess(access, cliPath, constants.X_OK),
@@ -162,6 +152,8 @@ export const inspectCodexIntegration = async ({
   return {
     state,
     command,
+    appVersion,
+    guideUrl,
     checks,
     detectedAt: new Date().toISOString(),
   };

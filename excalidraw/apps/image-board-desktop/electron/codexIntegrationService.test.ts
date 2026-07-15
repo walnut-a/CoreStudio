@@ -21,7 +21,6 @@ const inspectWith = ({
     homeDir: HOME,
     resourcesPath: RESOURCES,
     appVersion: "1.1.16",
-    electronPath: "/Applications/CoreStudio.app/Contents/MacOS/CoreStudio",
     access: vi.fn(async (path: string, mode?: number) => {
       expect(mode).toBe(path === CLI ? constants.X_OK : constants.R_OK);
       if (!existingPaths.has(path)) {
@@ -47,8 +46,13 @@ describe("inspectCodexIntegration", () => {
       "missing",
       "missing",
     ]);
-    expect(result.command).toContain("codex-integration/install.sh");
-    expect(result.command).toContain("--app-version '1.1.16'");
+    expect(result.command).toBe(
+      "/bin/bash '/Applications/CoreStudio.app/Contents/Resources/codex-integration/install.sh'",
+    );
+    expect(result.appVersion).toBe("1.1.16");
+    expect(result.guideUrl).toBe(
+      "https://github.com/walnut-a/CoreStudio/blob/v1.1.16/docs/codex-integration.md",
+    );
   });
 
   it("依赖齐全且版本匹配时返回 ready", async () => {

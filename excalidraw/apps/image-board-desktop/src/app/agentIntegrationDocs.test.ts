@@ -19,8 +19,13 @@ describe("agent integration docs", () => {
       "apps/image-board-desktop/src/app/components/CodexIntegrationSettings.tsx",
     );
     const installationGuide = readDoc(
-      "apps/image-board-desktop/resources/codex-integration/CODEX_INSTALLATION.md",
+      "../docs/codex-integration.md",
     );
+    const desktopPackage = JSON.parse(
+      readDoc("apps/image-board-desktop/package.json"),
+    ) as {
+      build?: { extraResources?: Array<{ from?: string; to?: string }> };
+    };
 
     expect(product).toContain("任务发起位置决定调度者");
     expect(userGuide).toContain("在 Codex 中使用 CoreStudio");
@@ -39,6 +44,11 @@ describe("agent integration docs", () => {
     expect(installationGuide).toContain("# CoreStudio Codex 集成安装指南");
     expect(installationGuide).toContain("install.sh");
     expect(installationGuide).toContain("重新检测");
+    expect(installationGuide).toContain("当前 CoreStudio 版本对应的 Git Tag");
+    expect(desktopPackage.build?.extraResources).toContainEqual({
+      from: "../../../docs/codex-integration.md",
+      to: "codex-integration/CODEX_INSTALLATION.md",
+    });
   });
 
   it("documents the CLI examples needed by Agent workflows", () => {

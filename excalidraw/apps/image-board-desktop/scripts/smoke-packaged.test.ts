@@ -39,6 +39,21 @@ const loadModule = () =>
       stdout?: { write: (text: string) => void };
       stderr?: { write: (text: string) => void };
     }) => Promise<void>;
+    runCodexIntegrationSmoke: (options: {
+      executablePath: string;
+      existsSync: (filePath: string) => boolean;
+      mkdtempSync: (prefix: string) => string;
+      readFileSync: (filePath: string, encoding: "utf8") => string;
+      rmSync: (filePath: string, options: { recursive: true; force: true }) => void;
+      spawnSync: (
+        command: string,
+        args: string[],
+        options: Record<string, unknown>,
+      ) => { status: number | null; stdout: string; stderr: string };
+      tmpdir: () => string;
+      env: NodeJS.ProcessEnv;
+      stdout?: { write: (text: string) => void };
+    }) => void;
   };
 
 describe("smoke-packaged", () => {
@@ -100,5 +115,58 @@ describe("smoke-packaged", () => {
       }),
     );
     expect(child.kill).toHaveBeenCalled();
+  });
+
+  it("installs and executes the Codex integration from the packaged app", () => {
+    const { runCodexIntegrationSmoke } = loadModule();
+    const spawnSync = vi
+      .fn()
+      .mockReturnValueOnce({ status: 0, stdout: "installed\n", stderr: "" })
+      .mockReturnValueOnce({
+        status: 1,
+        stdout:
+          '{"ok":false,"error":{"code":"BRIDGE_UNAVAILABLE","message":"test"}}\n',
+        stderr: "",
+      });
+    const rmSync = vi.fn();
+
+    runCodexIntegrationSmoke({
+      executablePath:
+        "/release/mac-arm64/CoreStudio.app/Contents/MacOS/CoreStudio",
+      existsSync: () => true,
+      mkdtempSync: () => "/tmp/corestudio-smoke-home",
+      readFileSync: (filePath) =>
+        filePath.endsWith("CODEX_INSTALLATION.md")
+          ? "# CoreStudio Codex 集成安装指南"
+          : '{"version":"1.1.17"}',
+      rmSync,
+      spawnSync,
+      tmpdir: () => "/tmp",
+      env: { HOME: "/Users/alice" },
+      stdout: { write: vi.fn() },
+    });
+
+    expect(spawnSync).toHaveBeenNthCalledWith(
+      1,
+      "/bin/bash",
+      [
+        "/release/mac-arm64/CoreStudio.app/Contents/Resources/codex-integration/install.sh",
+      ],
+      expect.objectContaining({
+        env: expect.objectContaining({ HOME: "/tmp/corestudio-smoke-home" }),
+      }),
+    );
+    expect(spawnSync).toHaveBeenNthCalledWith(
+      2,
+      "/tmp/corestudio-smoke-home/.local/bin/corestudio",
+      ["read", "context", "--json"],
+      expect.objectContaining({
+        env: expect.objectContaining({ HOME: "/tmp/corestudio-smoke-home" }),
+      }),
+    );
+    expect(rmSync).toHaveBeenCalledWith("/tmp/corestudio-smoke-home", {
+      recursive: true,
+      force: true,
+    });
   });
 });

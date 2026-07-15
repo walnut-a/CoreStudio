@@ -2,6 +2,7 @@
 
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const appRoot = path.resolve(__dirname, "..");
@@ -139,8 +140,109 @@ const runPackagedSmoke = ({
     });
   });
 
+const runCodexIntegrationSmoke = ({
+  executablePath,
+  existsSync = fs.existsSync,
+  mkdtempSync = fs.mkdtempSync,
+  readFileSync = fs.readFileSync,
+  rmSync = fs.rmSync,
+  spawnSync = childProcess.spawnSync,
+  tmpdir = os.tmpdir,
+  env = process.env,
+  stdout = process.stdout,
+} = {}) => {
+  if (!executablePath) {
+    throw new Error("Packaged app executable is required.");
+  }
+
+  const appPath = path.resolve(path.dirname(executablePath), "..", "..");
+  const integrationDir = path.join(
+    appPath,
+    "Contents",
+    "Resources",
+    "codex-integration",
+  );
+  const installerPath = path.join(integrationDir, "install.sh");
+  const guidePath = path.join(integrationDir, "CODEX_INSTALLATION.md");
+  const temporaryHome = mkdtempSync(
+    path.join(tmpdir(), "corestudio-codex-smoke-"),
+  );
+  const smokeEnv = { ...env, HOME: temporaryHome };
+
+  try {
+    if (!existsSync(installerPath)) {
+      throw new Error(`Codex integration installer is missing: ${installerPath}`);
+    }
+    if (!existsSync(guidePath)) {
+      throw new Error(`Codex installation guide is missing: ${guidePath}`);
+    }
+    if (
+      !readFileSync(guidePath, "utf8").includes(
+        "# CoreStudio Codex 集成安装指南",
+      )
+    ) {
+      throw new Error("Packaged Codex installation guide is invalid.");
+    }
+
+    const installResult = spawnSync("/bin/bash", [installerPath], {
+      env: smokeEnv,
+      encoding: "utf8",
+    });
+    if (installResult.status !== 0) {
+      throw new Error(
+        `Packaged Codex integration install failed: ${installResult.stderr || installResult.stdout}`,
+      );
+    }
+
+    const cliPath = path.join(temporaryHome, ".local", "bin", "corestudio");
+    const skillPath = path.join(
+      temporaryHome,
+      ".codex",
+      "skills",
+      "corestudio",
+      "SKILL.md",
+    );
+    const manifestPath = path.join(
+      temporaryHome,
+      ".codex",
+      "corestudio-integration.json",
+    );
+    for (const installedPath of [cliPath, skillPath, manifestPath]) {
+      if (!existsSync(installedPath)) {
+        throw new Error(`Codex integration output is missing: ${installedPath}`);
+      }
+    }
+    JSON.parse(readFileSync(manifestPath, "utf8"));
+
+    const cliResult = spawnSync(
+      cliPath,
+      ["read", "context", "--json"],
+      {
+        env: smokeEnv,
+        encoding: "utf8",
+      },
+    );
+    let cliEnvelope;
+    try {
+      cliEnvelope = JSON.parse(cliResult.stdout.trim());
+    } catch {
+      throw new Error(
+        `Installed CoreStudio CLI did not return JSON: ${cliResult.stderr || cliResult.stdout}`,
+      );
+    }
+    if (!cliEnvelope || typeof cliEnvelope.ok !== "boolean") {
+      throw new Error("Installed CoreStudio CLI returned an invalid envelope.");
+    }
+
+    stdout.write("Packaged Codex integration smoke passed.\n");
+  } finally {
+    rmSync(temporaryHome, { recursive: true, force: true });
+  }
+};
+
 const main = async () => {
   const executablePath = findPackagedAppExecutable();
+  runCodexIntegrationSmoke({ executablePath });
   console.log(`Running packaged smoke: ${executablePath}`);
   await runPackagedSmoke({ executablePath });
   console.log("Packaged smoke passed.");
@@ -156,5 +258,6 @@ if (require.main === module) {
 module.exports = {
   SMOKE_READY_SIGNAL,
   findPackagedAppExecutable,
+  runCodexIntegrationSmoke,
   runPackagedSmoke,
 };

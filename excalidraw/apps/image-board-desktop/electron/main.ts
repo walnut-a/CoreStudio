@@ -1220,7 +1220,6 @@ const registerIpcHandlers = () => {
       homeDir: app.getPath("home"),
       resourcesPath: process.resourcesPath,
       appVersion: DESKTOP_APP_VERSION,
-      electronPath: process.execPath,
     }),
   );
 

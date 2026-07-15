@@ -57,8 +57,6 @@ const ControllerProbe = ({
         {JSON.stringify({
           advancedOpen: controller.advancedOpen,
           apiSettingsOpen: controller.apiSettingsOpen,
-          promptLibraryOpen: controller.promptLibraryOpen,
-          promptLibrarySearch: controller.promptLibrarySearch,
         })}
       </output>
     </>
@@ -69,8 +67,6 @@ const getState = () =>
   JSON.parse(screen.getByTestId("state").textContent ?? "{}") as {
     advancedOpen: boolean;
     apiSettingsOpen: boolean;
-    promptLibraryOpen: boolean;
-    promptLibrarySearch: string;
   };
 
 describe("useGenerateDialogPanelController", () => {
@@ -96,15 +92,11 @@ describe("useGenerateDialogPanelController", () => {
     act(() => {
       controller?.setAdvancedOpen(true);
       controller?.setApiSettingsOpen(true);
-      controller?.setPromptLibraryOpen(true);
-      controller?.setPromptLibrarySearch("参考");
     });
 
     expect(getState()).toMatchObject({
       advancedOpen: true,
       apiSettingsOpen: true,
-      promptLibraryOpen: true,
-      promptLibrarySearch: "参考",
     });
 
     rerender(<ControllerProbe effectiveComposerMode="acp" />);
@@ -113,7 +105,6 @@ describe("useGenerateDialogPanelController", () => {
       expect(getState()).toMatchObject({
         advancedOpen: false,
         apiSettingsOpen: false,
-        promptLibraryOpen: false,
       });
     });
   });

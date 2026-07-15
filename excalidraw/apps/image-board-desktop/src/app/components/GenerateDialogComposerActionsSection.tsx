@@ -9,7 +9,6 @@ interface GenerateDialogComposerActionsSectionProps {
   showAgentSourceSelect: boolean;
   showPromptComposerActions: boolean;
   showPromptTools: boolean;
-  promptLibraryOpen: boolean;
   advancedOpen: boolean;
   canSubmit: boolean;
   loading: boolean;
@@ -25,7 +24,6 @@ interface GenerateDialogComposerActionsSectionProps {
   ) => void;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
   onCancelGeneration?: (event: SyntheticEvent<HTMLElement>) => void;
-  setPromptLibraryOpen: Dispatch<SetStateAction<boolean>>;
   setAdvancedOpen: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -33,7 +31,6 @@ export const GenerateDialogComposerActionsSection = ({
   showAgentSourceSelect,
   showPromptComposerActions,
   showPromptTools,
-  promptLibraryOpen,
   advancedOpen,
   canSubmit,
   loading,
@@ -46,7 +43,6 @@ export const GenerateDialogComposerActionsSection = ({
   onSelectGenerationSource,
   onStopInputEvent,
   onCancelGeneration,
-  setPromptLibraryOpen,
   setAdvancedOpen,
 }: GenerateDialogComposerActionsSectionProps) => {
   const sourceSelect = (
@@ -68,15 +64,10 @@ export const GenerateDialogComposerActionsSection = ({
       {showPromptComposerActions ? (
         <GenerateComposerActionBar
           showPromptTools={showPromptTools}
-          promptLibraryOpen={promptLibraryOpen}
           advancedOpen={advancedOpen}
           canSubmit={canSubmit}
           loading={loading}
           sourceSelect={sourceSelect}
-          onTogglePromptLibrary={(event) => {
-            onStopInputEvent(event);
-            setPromptLibraryOpen((current) => !current);
-          }}
           onToggleAdvanced={(event) => {
             onStopInputEvent(event);
             setAdvancedOpen((current) => !current);

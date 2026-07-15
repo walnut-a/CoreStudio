@@ -33,8 +33,6 @@ export const useGenerateDialogPanelController = ({
 }: UseGenerateDialogPanelControllerInput) => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
-  const [promptLibraryOpen, setPromptLibraryOpen] = useState(false);
-  const [promptLibrarySearch, setPromptLibrarySearch] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -73,7 +71,6 @@ export const useGenerateDialogPanelController = ({
 
     setAdvancedOpen(false);
     setApiSettingsOpen(false);
-    setPromptLibraryOpen(false);
   }, [effectiveComposerMode]);
 
   useEffect(() => {
@@ -127,9 +124,5 @@ export const useGenerateDialogPanelController = ({
     setAdvancedOpen,
     apiSettingsOpen,
     setApiSettingsOpen,
-    promptLibraryOpen,
-    setPromptLibraryOpen,
-    promptLibrarySearch,
-    setPromptLibrarySearch,
   };
 };

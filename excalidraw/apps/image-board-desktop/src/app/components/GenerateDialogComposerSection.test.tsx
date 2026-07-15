@@ -26,7 +26,6 @@ const renderComposerSection = (
     pendingReference: null,
     promptEditorResetKey: 0,
     referenceLimitMessage: null,
-    promptLibraryOpen: false,
     advancedOpen: false,
     canSubmit: true,
     loading: false,
@@ -46,7 +45,6 @@ const renderComposerSection = (
     onPromptKeyUpCapture: vi.fn(),
     onPromptKeyDown: vi.fn(),
     onOpenAgentRunLog: vi.fn(),
-    setPromptLibraryOpen: vi.fn(),
     setAdvancedOpen: vi.fn(),
     ...overrides,
   };

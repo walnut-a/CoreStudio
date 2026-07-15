@@ -72,7 +72,6 @@ describe("App Agent Board route", () => {
             lastOpenedAt: "2026-06-26T08:00:00.000Z",
           },
         ],
-        loadPromptLibrary: [],
         openRecentProject: createMockProjectBundle({
           projectPath: currentProject.projectPath,
           project: {
@@ -213,7 +212,6 @@ describe("App Agent Board route", () => {
           version: "0.0.0-test",
         },
         loadProviderSettings: createMockProviderSettings(),
-        loadPromptLibrary: [],
         openRecentProject: createMockProjectBundle({
           projectPath: currentProject.projectPath,
           project: {
@@ -379,7 +377,6 @@ describe("App Agent Board route", () => {
           agents: [],
         },
         loadRecentProjects: [],
-        loadPromptLibrary: [],
       };
       return new Response(
         JSON.stringify({
@@ -413,14 +410,13 @@ describe("App Agent Board route", () => {
       };
       return requestBody.method;
     });
-    expect(desktopBridgeMethods).toHaveLength(5);
+    expect(desktopBridgeMethods).toHaveLength(4);
     expect(desktopBridgeMethods).toEqual(
       expect.arrayContaining([
         "loadAppInfo",
         "loadProviderSettings",
         "loadAcpAgentSettings",
         "loadRecentProjects",
-        "loadPromptLibrary",
       ]),
     );
     expect(screen.queryByRole("button", { name: "新建项目" })).toBeNull();
@@ -493,7 +489,6 @@ describe("App Agent Board route", () => {
           version: "0.0.0-test",
         },
         loadProviderSettings: createMockProviderSettings(),
-        loadPromptLibrary: [],
         openRecentProject: null,
       };
       return new Response(

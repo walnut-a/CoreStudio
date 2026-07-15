@@ -402,11 +402,16 @@
 }
 
 .experimental-acp-options select {
+  appearance: none;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 40px 0 12px;
   border: 1px solid var(--input-border-color);
   border-radius: var(--border-radius-lg);
-  background: var(--input-bg-color);
+  background-color: var(--input-bg-color);
+  background-image: var(--dropdown-icon);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 14px) 50%;
+  background-size: 12px;
   font: inherit;
   font-size: var(--ui-text-size-lg);
 }

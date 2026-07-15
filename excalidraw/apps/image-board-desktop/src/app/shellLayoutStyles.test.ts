@@ -122,6 +122,15 @@ describe("CoreStudio shell layout styles", () => {
     expect(appCss).not.toContain(".agent-status-popover");
   });
 
+  it("uses the shared centered dropdown arrow in experimental settings", () => {
+    const appCss = readAppCss();
+    const selectRule = getRule(appCss, ".experimental-acp-options select");
+
+    expect(selectRule).toContain("appearance: none");
+    expect(selectRule).toContain("background-image: var(--dropdown-icon)");
+    expect(selectRule).toContain("background-position: calc(100% - 14px) 50%");
+  });
+
   it("keeps the bottom composer inside the canvas when side docks are open", () => {
     const appCss = readAppCss();
     const appRule = getRule(appCss, ".image-board-app");

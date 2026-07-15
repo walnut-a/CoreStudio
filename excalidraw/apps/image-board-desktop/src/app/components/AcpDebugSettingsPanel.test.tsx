@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AcpRunSummary } from "../../shared/acpTypes";
+import { setActiveDesktopLocale } from "../copy";
 import {
   AcpDebugSettingsPanel,
   getAcpRunStatusLabel,
@@ -44,6 +45,10 @@ const renderPanel = (
   };
 };
 
+afterEach(() => {
+  setActiveDesktopLocale("zh-CN");
+});
+
 describe("AcpDebugSettingsPanel", () => {
   it("keeps run summaries out of the normal settings surface while collapsed", () => {
     renderPanel({
@@ -53,10 +58,10 @@ describe("AcpDebugSettingsPanel", () => {
     expect(screen.getByText("高级调试")).toBeInTheDocument();
     expect(screen.queryByText("ACP 调试记录")).not.toBeInTheDocument();
     expect(screen.queryByText("工业设计助手")).not.toBeInTheDocument();
+    expect(screen.queryByText("优化桌面 CNC 机器外观")).not.toBeInTheDocument();
     expect(
-      screen.queryByText("优化桌面 CNC 机器外观"),
+      screen.queryByRole("button", { name: "刷新记录" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "刷新记录" })).not.toBeInTheDocument();
   });
 
   it("renders ACP run summaries and opens a selected run log", () => {
@@ -65,7 +70,9 @@ describe("AcpDebugSettingsPanel", () => {
       onOpenRunLog,
     });
 
-    const history = screen.getByText("ACP 调试记录").closest(".acp-run-history");
+    const history = screen
+      .getByText("ACP 调试记录")
+      .closest(".acp-run-history");
     expect(history).not.toBeNull();
     const controls = within(history as HTMLElement);
 
@@ -138,5 +145,17 @@ describe("AcpDebugSettingsPanel", () => {
     expect(getAcpRunStatusLabel("completed")).toBe("已完成");
     expect(getAcpRunStatusLabel("failed")).toBe("失败");
     expect(getAcpRunStatusLabel("cancelled")).toBe("已取消");
+  });
+
+  it("renders debug controls and statuses from the English catalog", () => {
+    setActiveDesktopLocale("en");
+    renderPanel();
+
+    expect(screen.getByText("Advanced Debugging")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Refresh Logs" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.queryByText("高级调试")).not.toBeInTheDocument();
   });
 });

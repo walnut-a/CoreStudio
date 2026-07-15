@@ -4,6 +4,7 @@ import {
   ACP_AGENT_PRESETS,
   type AcpAgentPresetId,
 } from "../../shared/acpTypes";
+import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 
 export interface ExperimentalFeaturesSettingsSectionProps {
@@ -28,21 +29,25 @@ export const ExperimentalFeaturesSettingsSection = ({
   <section className="settings-page">
     <header className="settings-page__header">
       <div>
-        <h3>实验性功能</h3>
-        <p>实验性功能需要手动开启，行为和配置可能继续调整。</p>
+        <h3>{copy.applicationSettings.experimental}</h3>
+        <p>{copy.applicationSettings.experimentalPage.description}</p>
       </div>
     </header>
 
     <div className="app-settings-section app-settings-section--stacked">
       <div className="app-settings-section__top">
         <div className="app-settings-section__copy">
-          <span>外部 Agent（ACP）</span>
-          <p>从 CoreStudio 内部把任务交给兼容 ACP 的 Agent。默认关闭。</p>
+          <span>{copy.applicationSettings.experimentalPage.externalAgent}</span>
+          <p>
+            {copy.applicationSettings.experimentalPage.externalAgentDescription}
+          </p>
         </div>
         <button
           type="button"
           role="switch"
-          aria-label="启用外部 Agent 实验功能"
+          aria-label={
+            copy.applicationSettings.experimentalPage.enableExternalAgent
+          }
           aria-checked={acpEnabled}
           disabled={disabled || saving}
           className="app-settings-section__switch"
@@ -52,9 +57,9 @@ export const ExperimentalFeaturesSettingsSection = ({
       {acpEnabled ? (
         <div className="experimental-acp-options">
           <label>
-            <span>Agent 类型</span>
+            <span>{copy.applicationSettings.experimentalPage.agentType}</span>
             <select
-              aria-label="Agent 类型"
+              aria-label={copy.applicationSettings.experimentalPage.agentType}
               value={presetId}
               disabled={disabled || saving}
               onChange={(event) =>
@@ -66,11 +71,13 @@ export const ExperimentalFeaturesSettingsSection = ({
                   {preset.name}
                 </option>
               ))}
-              <option value={ACP_AGENT_CUSTOM_PRESET_ID}>自定义命令</option>
+              <option value={ACP_AGENT_CUSTOM_PRESET_ID}>
+                {copy.applicationSettings.experimentalPage.customCommand}
+              </option>
             </select>
           </label>
           <DesktopButton type="button" size="small" onClick={onOpenAdvanced}>
-            高级配置
+            {copy.applicationSettings.experimentalPage.advancedSettings}
           </DesktopButton>
         </div>
       ) : null}

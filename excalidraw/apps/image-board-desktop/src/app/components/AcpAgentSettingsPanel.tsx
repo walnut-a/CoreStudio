@@ -5,6 +5,7 @@ import {
   type AcpAgentConfig,
 } from "../../shared/acpTypes";
 import type { AcpAgentSettingsDraft } from "../agent/useAcpAgentSettingsController";
+import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 import { useApplicationSettingsLeave } from "./ApplicationSettingsDialog";
 import "./AgentSettings.css";
@@ -47,19 +48,19 @@ export const AcpAgentSettingsPanel = ({
         className="settings-page__back"
         onClick={() => requestLeave(onBack)}
       >
-        ← 返回实验性功能
+        {copy.applicationSettings.acpAdvancedPage.back}
       </button>
       <header className="settings-page__header">
         <div>
-          <h3>ACP 高级配置</h3>
-          <p>仅在需要自定义启动命令或排查 Agent 任务时修改。</p>
+          <h3>{copy.applicationSettings.acpAdvancedPage.title}</h3>
+          <p>{copy.applicationSettings.acpAdvancedPage.description}</p>
         </div>
       </header>
       <div className="settings-form-card">
         <label>
-          <span>命令</span>
+          <span>{copy.applicationSettings.acpAdvancedPage.command}</span>
           <input
-            aria-label="命令"
+            aria-label={copy.applicationSettings.acpAdvancedPage.command}
             value={draft.command}
             placeholder="/usr/local/bin/acp-agent"
             disabled={!editable}
@@ -67,9 +68,9 @@ export const AcpAgentSettingsPanel = ({
           />
         </label>
         <label>
-          <span>参数</span>
+          <span>{copy.applicationSettings.acpAdvancedPage.arguments}</span>
           <input
-            aria-label="参数"
+            aria-label={copy.applicationSettings.acpAdvancedPage.arguments}
             value={draft.args}
             placeholder="--stdio"
             disabled={!editable}
@@ -77,21 +78,33 @@ export const AcpAgentSettingsPanel = ({
           />
         </label>
         <label>
-          <span>工作目录</span>
+          <span>
+            {copy.applicationSettings.acpAdvancedPage.workingDirectory}
+          </span>
           <input
-            aria-label="工作目录"
+            aria-label={
+              copy.applicationSettings.acpAdvancedPage.workingDirectory
+            }
             value={draft.cwd}
-            placeholder={`默认：${defaultCwd}`}
-            title={`默认：${defaultCwd}`}
+            placeholder={copy.applicationSettings.acpAdvancedPage.defaultWorkingDirectory(
+              defaultCwd,
+            )}
+            title={copy.applicationSettings.acpAdvancedPage.defaultWorkingDirectory(
+              defaultCwd,
+            )}
             disabled={!editable}
             onChange={(event) => onCwdChange(event.target.value)}
           />
         </label>
         <label>
-          <span>任务说明模板</span>
+          <span>
+            {copy.applicationSettings.acpAdvancedPage.taskInstructionTemplate}
+          </span>
           <textarea
             className="settings-form-card__long-text"
-            aria-label="任务说明模板"
+            aria-label={
+              copy.applicationSettings.acpAdvancedPage.taskInstructionTemplate
+            }
             value={draft.taskInstructionTemplate}
             rows={9}
             placeholder={DEFAULT_ACP_TASK_INSTRUCTION_TEMPLATE}
@@ -102,8 +115,11 @@ export const AcpAgentSettingsPanel = ({
         <div className="settings-form-card__actions settings-form-card__actions--spread">
           <span>
             {selectedAgent
-              ? `当前：${selectedAgent.name} · ${selectedAgent.command}`
-              : "尚未保存 Agent 配置"}
+              ? copy.applicationSettings.acpAdvancedPage.currentAgent(
+                  selectedAgent.name,
+                  selectedAgent.command,
+                )
+              : copy.applicationSettings.acpAdvancedPage.unsavedAgent}
           </span>
           <DesktopButton
             type="button"
@@ -112,7 +128,9 @@ export const AcpAgentSettingsPanel = ({
             disabled={saving || !editable}
             onClick={onSave}
           >
-            {saving ? "保存中..." : "保存"}
+            {saving
+              ? copy.applicationSettings.acpAdvancedPage.saving
+              : copy.applicationSettings.acpAdvancedPage.save}
           </DesktopButton>
         </div>
       </div>

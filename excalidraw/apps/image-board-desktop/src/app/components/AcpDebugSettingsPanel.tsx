@@ -1,19 +1,10 @@
 import type { AcpRunSummary } from "../../shared/acpTypes";
-import { DESKTOP_LANG_CODE } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 import "./AgentSettings.css";
 
 export const getAcpRunStatusLabel = (status: AcpRunSummary["status"]) => {
-  switch (status) {
-    case "running":
-      return "运行中";
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-    case "cancelled":
-      return "已取消";
-  }
+  return copy.applicationSettings.acpDebugPage.status[status];
 };
 
 export interface AcpDebugSettingsPanelProps {
@@ -46,8 +37,8 @@ export const AcpDebugSettingsPanel = ({
   >
     <summary>
       <span>
-        <strong>高级调试</strong>
-        <em>排障时查看 ACP 调试记录、协议 JSON 和任务包。</em>
+        <strong>{copy.applicationSettings.acpDebugPage.title}</strong>
+        <em>{copy.applicationSettings.acpDebugPage.summary}</em>
       </span>
     </summary>
 
@@ -55,10 +46,11 @@ export const AcpDebugSettingsPanel = ({
       <div className="acp-run-history">
         <div className="acp-run-history__header">
           <div>
-            <strong>ACP 调试记录</strong>
+            <strong>
+              {copy.applicationSettings.acpDebugPage.historyTitle}
+            </strong>
             <span>
-              用于排查外部 Agent 连接、协议消息或写回失败。日常任务过程请在左侧
-              Agent 对话中查看。
+              {copy.applicationSettings.acpDebugPage.historyDescription}
             </span>
           </div>
           <DesktopButton
@@ -67,7 +59,9 @@ export const AcpDebugSettingsPanel = ({
             disabled={loading || !canReadRunLogs}
             onClick={onRefresh}
           >
-            {loading ? "读取中..." : "刷新记录"}
+            {loading
+              ? copy.applicationSettings.acpDebugPage.loading
+              : copy.applicationSettings.acpDebugPage.refresh}
           </DesktopButton>
         </div>
         {error ? <div className="dialog-card__error">{error}</div> : null}
@@ -78,7 +72,9 @@ export const AcpDebugSettingsPanel = ({
                 key={summary.taskId}
                 type="button"
                 className="acp-run-history__item"
-                aria-label={`查看调试记录：${summary.userPrompt}`}
+                aria-label={copy.applicationSettings.acpDebugPage.openRecord(
+                  summary.userPrompt,
+                )}
                 onClick={() => onOpenRunLog(summary.taskId)}
               >
                 <span className="acp-run-history__item-project">
@@ -107,8 +103,8 @@ export const AcpDebugSettingsPanel = ({
         ) : (
           <p className="acp-run-history__empty">
             {canReadRunLogs
-              ? "暂无 ACP 调试记录。"
-              : "当前环境暂不支持读取 ACP 调试记录。"}
+              ? copy.applicationSettings.acpDebugPage.empty
+              : copy.applicationSettings.acpDebugPage.unsupported}
           </p>
         )}
       </div>

@@ -7,7 +7,6 @@ import {
   getProviderModels,
   inferCustomModelCapabilityTemplate,
   inferProviderRequestAdapter,
-  PROVIDER_REQUEST_ADAPTER_LABELS,
   PROVIDER_REQUEST_ADAPTER_OPTIONS,
 } from "../../shared/providerCatalog";
 import type {
@@ -21,6 +20,7 @@ import type {
   ProviderId,
   ProviderRequestAdapter,
 } from "../../shared/providerTypes";
+import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 
 export interface ProviderServiceEditorProps {
@@ -149,10 +149,14 @@ export const ProviderServiceEditor = ({
             }),
       });
       setApiKey("");
-      setFeedback("已保存");
+      setFeedback(copy.applicationSettings.providerEditor.saved);
       onDirtyChange(false);
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "保存失败");
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : copy.applicationSettings.providerEditor.saveFailed,
+      );
     }
   };
 
@@ -166,12 +170,12 @@ export const ProviderServiceEditor = ({
   return (
     <section className="settings-page settings-provider-detail">
       <button type="button" className="settings-page__back" onClick={onBack}>
-        ← 返回图像生成
+        {copy.applicationSettings.imageGenerationPage.back}
       </button>
       <header className="settings-page__header">
         <div>
           <h3>{settings?.displayName || definition.label}</h3>
-          <p>配置凭证和画布中可以使用的模型。</p>
+          <p>{copy.applicationSettings.providerEditor.description}</p>
         </div>
       </header>
 
@@ -179,7 +183,7 @@ export const ProviderServiceEditor = ({
         {compatible ? (
           <>
             <label>
-              <span>服务名称</span>
+              <span>{copy.applicationSettings.providerEditor.serviceName}</span>
               <input
                 value={displayName}
                 onChange={(event) => {
@@ -208,7 +212,9 @@ export const ProviderServiceEditor = ({
             type="password"
             value={apiKey}
             placeholder={
-              settings?.isConfigured ? "留空以保留当前 Key" : "粘贴 API Key"
+              settings?.isConfigured
+                ? copy.applicationSettings.providerEditor.keepCurrentKey
+                : copy.applicationSettings.providerEditor.pasteApiKey
             }
             onChange={(event) => {
               setApiKey(event.target.value);
@@ -220,7 +226,7 @@ export const ProviderServiceEditor = ({
         {compatible ? (
           <>
             <label>
-              <span>模型 ID</span>
+              <span>{copy.applicationSettings.providerEditor.modelId}</span>
               <input
                 value={customModelId}
                 placeholder="vendor/image-model"
@@ -238,7 +244,9 @@ export const ProviderServiceEditor = ({
               />
             </label>
             <label>
-              <span>模型能力</span>
+              <span>
+                {copy.applicationSettings.providerEditor.modelCapability}
+              </span>
               <select
                 value={customTemplate}
                 onChange={(event) => {
@@ -248,20 +256,25 @@ export const ProviderServiceEditor = ({
                   markDirty();
                 }}
               >
-                {Object.entries(CUSTOM_MODEL_USAGE_PRESETS).map(
-                  ([id, preset]) => (
-                    <option key={id} value={id}>
-                      {preset.label}
-                    </option>
-                  ),
-                )}
+                {Object.entries(CUSTOM_MODEL_USAGE_PRESETS).map(([id]) => (
+                  <option key={id} value={id}>
+                    {
+                      copy.applicationSettings.providerEditor
+                        .capabilityTemplates[
+                        id as CustomModelCapabilityTemplateId
+                      ]
+                    }
+                  </option>
+                ))}
               </select>
             </label>
           </>
         ) : (
           <>
             <label>
-              <span>默认模型</span>
+              <span>
+                {copy.applicationSettings.providerEditor.defaultModel}
+              </span>
               <select
                 value={defaultModel}
                 onChange={(event) => {
@@ -277,8 +290,11 @@ export const ProviderServiceEditor = ({
               </select>
             </label>
 
-            <section className="settings-model-editor" aria-label="自定义模型">
-              <h4>自定义模型</h4>
+            <section
+              className="settings-model-editor"
+              aria-label={copy.applicationSettings.providerEditor.customModels}
+            >
+              <h4>{copy.applicationSettings.providerEditor.customModels}</h4>
               {customModels.map((model) => (
                 <div className="settings-model-row" key={model.id}>
                   <span>{model.label || model.id}</span>
@@ -295,13 +311,13 @@ export const ProviderServiceEditor = ({
                       markDirty();
                     }}
                   >
-                    移除
+                    {copy.applicationSettings.providerEditor.remove}
                   </button>
                 </div>
               ))}
               <div className="settings-model-fields">
                 <label>
-                  <span>模型 ID</span>
+                  <span>{copy.applicationSettings.providerEditor.modelId}</span>
                   <input
                     value={customModelId}
                     onChange={(event) => {
@@ -324,7 +340,9 @@ export const ProviderServiceEditor = ({
                   />
                 </label>
                 <label>
-                  <span>显示名称</span>
+                  <span>
+                    {copy.applicationSettings.providerEditor.displayName}
+                  </span>
                   <input
                     value={customModelLabel}
                     onChange={(event) => {
@@ -334,7 +352,9 @@ export const ProviderServiceEditor = ({
                   />
                 </label>
                 <label>
-                  <span>模型能力</span>
+                  <span>
+                    {copy.applicationSettings.providerEditor.modelCapability}
+                  </span>
                   <select
                     value={customTemplate}
                     onChange={(event) => {
@@ -344,17 +364,22 @@ export const ProviderServiceEditor = ({
                       markDirty();
                     }}
                   >
-                    {Object.entries(CUSTOM_MODEL_USAGE_PRESETS).map(
-                      ([id, preset]) => (
-                        <option key={id} value={id}>
-                          {preset.label}
-                        </option>
-                      ),
-                    )}
+                    {Object.entries(CUSTOM_MODEL_USAGE_PRESETS).map(([id]) => (
+                      <option key={id} value={id}>
+                        {
+                          copy.applicationSettings.providerEditor
+                            .capabilityTemplates[
+                            id as CustomModelCapabilityTemplateId
+                          ]
+                        }
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>
-                  <span>接口类型</span>
+                  <span>
+                    {copy.applicationSettings.providerEditor.adapterType}
+                  </span>
                   <select
                     value={customAdapter}
                     onChange={(event) => {
@@ -367,7 +392,11 @@ export const ProviderServiceEditor = ({
                     {PROVIDER_REQUEST_ADAPTER_OPTIONS[provider].map(
                       (adapter) => (
                         <option key={adapter} value={adapter}>
-                          {PROVIDER_REQUEST_ADAPTER_LABELS[adapter]}
+                          {
+                            copy.applicationSettings.providerEditor.adapters[
+                              adapter
+                            ]
+                          }
                         </option>
                       ),
                     )}
@@ -379,7 +408,7 @@ export const ProviderServiceEditor = ({
                 disabled={!customModelId.trim()}
                 onClick={addCustomModel}
               >
-                添加自定义模型
+                {copy.applicationSettings.providerEditor.addCustomModel}
               </DesktopButton>
             </section>
           </>
@@ -395,7 +424,9 @@ export const ProviderServiceEditor = ({
                 const name = settings.displayName || definition.label;
                 if (
                   window.confirm(
-                    `删除 ${name} 配置？删除后，它将不再出现在画布的服务商列表中。`,
+                    copy.applicationSettings.providerEditor.deleteConfirmation(
+                      name,
+                    ),
                   )
                 ) {
                   await onDelete({ provider });
@@ -403,13 +434,15 @@ export const ProviderServiceEditor = ({
                 }
               }}
             >
-              删除服务
+              {copy.applicationSettings.providerEditor.deleteService}
             </DesktopButton>
           ) : (
             <span />
           )}
           <DesktopButton variant="primary" disabled={!canSave} onClick={save}>
-            {saving ? "保存中..." : "保存"}
+            {saving
+              ? copy.applicationSettings.providerEditor.saving
+              : copy.applicationSettings.providerEditor.save}
           </DesktopButton>
         </div>
       </div>

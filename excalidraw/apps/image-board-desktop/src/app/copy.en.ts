@@ -226,6 +226,144 @@ export const enCopy: DesktopCopy = {
     discardDescription: "Changes on this page have not been saved.",
     continueEditing: "Continue editing",
     discardChanges: "Discard changes",
+    experimentalPage: {
+      description:
+        "Experimental features must be enabled manually and may continue to change.",
+      externalAgent: "External Agent (ACP)",
+      externalAgentDescription:
+        "Hand tasks from CoreStudio to an ACP-compatible Agent. Off by default.",
+      enableExternalAgent: "Enable the external Agent experiment",
+      agentType: "Agent Type",
+      customCommand: "Custom command",
+      advancedSettings: "Advanced Settings",
+    },
+    imageGenerationPage: {
+      description:
+        "Manage the image generation services available on the board.",
+      addService: "Add Service",
+      back: "← Back to Image Generation",
+      selectProvider: "Choose a Provider",
+      selectProviderDescription:
+        "Choose a provider, then enter the settings it requires.",
+      addProvider: (label: string) => `Add ${label}`,
+      compatibleProviderDescription:
+        "Connect a service compatible with OpenAI Images",
+      builtInProviderDescription: "Use CoreStudio's built-in integration",
+      editProvider: (label: string) => `Edit ${label}`,
+      defaultStatus: "Default",
+      configuredStatus: "Configured",
+      emptyTitle: "No image generation service configured",
+      emptyDescription:
+        "Add a service to generate images directly from the board.",
+    },
+    providerEditor: {
+      description:
+        "Configure credentials and the models available on the board.",
+      serviceName: "Service Name",
+      keepCurrentKey: "Leave blank to keep the current key",
+      pasteApiKey: "Paste API Key",
+      modelId: "Model ID",
+      modelCapability: "Model Capability",
+      defaultModel: "Default Model",
+      customModels: "Custom Models",
+      remove: "Remove",
+      displayName: "Display Name",
+      adapterType: "API Type",
+      addCustomModel: "Add Custom Model",
+      saved: "Saved",
+      saveFailed: "Save failed",
+      deleteConfirmation: (name: string) =>
+        `Delete the ${name} configuration? It will no longer appear in the board's provider list.`,
+      deleteService: "Delete Service",
+      saving: "Saving...",
+      save: "Save",
+      capabilityTemplates: {
+        "image-editing-aspect-ratio": "Reference images and editing",
+        "text-to-image-aspect-ratio": "Text to image with aspect ratio",
+        "text-to-image-exact": "Text to image with exact dimensions",
+        "seeded-exact": "Advanced image generation",
+      },
+      adapters: {
+        "gemini-generate-content": "Gemini official API",
+        "zenmux-vertex-generate-content": "ZenMux Vertex: Gemini / Nano Banana",
+        "zenmux-vertex-gpt-image": "ZenMux Vertex: Image API",
+        "fal-image": "fal.ai image API",
+        "jimeng-image": "Jimeng / Seedream API",
+        "openai-images": "OpenAI Images API",
+        "openrouter-chat-image": "OpenRouter Chat image API",
+      },
+    },
+    acpAdvancedPage: {
+      back: "← Back to Experimental Features",
+      title: "ACP Advanced Settings",
+      description:
+        "Change these only when customizing the launch command or troubleshooting Agent tasks.",
+      command: "Command",
+      arguments: "Arguments",
+      workingDirectory: "Working Directory",
+      defaultWorkingDirectory: (cwd: string) => `Default: ${cwd}`,
+      taskInstructionTemplate: "Task Instruction Template",
+      currentAgent: (name: string, command: string) =>
+        `Current: ${name} · ${command}`,
+      unsavedAgent: "Agent configuration has not been saved",
+      saving: "Saving...",
+      save: "Save",
+    },
+    acpDebugPage: {
+      status: {
+        running: "Running",
+        completed: "Completed",
+        failed: "Failed",
+        cancelled: "Cancelled",
+      },
+      title: "Advanced Debugging",
+      summary:
+        "Inspect ACP logs, protocol JSON, and task packages when troubleshooting.",
+      historyTitle: "ACP Debug Logs",
+      historyDescription:
+        "Use these logs to troubleshoot external Agent connections, protocol messages, or write-back failures. Follow normal task progress in the Agent conversation on the left.",
+      loading: "Loading...",
+      refresh: "Refresh Logs",
+      openRecord: (prompt: string) => `View debug log: ${prompt}`,
+      empty: "No ACP debug logs yet.",
+      unsupported: "This environment cannot read ACP debug logs.",
+    },
+    codexPage: {
+      description:
+        "Install once so Codex can discover and work with local CoreStudio projects.",
+      refresh: "Check Again",
+      loading: "Checking Codex integration...",
+      detectionFailed: "Unable to complete the check",
+      handToCodex: "Hand off to Codex",
+      stateTitle: {
+        install: "Install Codex Integration",
+        update: "Update Codex Integration",
+        repair: "Repair Codex Integration",
+        ready: "Environment ready",
+        error: "Unable to complete the check",
+      },
+      copyToCodex: "Copy for Codex",
+      readyDescription:
+        "All dependencies are available. Send this instruction to Codex if you need to reinstall or repair them.",
+      actionDescription:
+        "Send this instruction to Codex so it can read the guide for the current version and complete the remaining steps.",
+      copied: "Copied",
+      environmentChecks: "Environment Checks",
+      environmentChecksDescription:
+        "Each check is shown separately so missing dependencies are easy to identify.",
+      checkStatus: {
+        ready: "Ready",
+        missing: "Missing",
+        outdated: "Update needed",
+        broken: "Repair needed",
+      },
+      startInCodex: "Start in Codex",
+      openCurrentProject: "Open the current CoreStudio project",
+      startDescription: "Copy this instruction into any Codex conversation.",
+      copyInstructions: "Copy Instructions",
+      installPrompt: (appVersion: string, guideUrl: string) =>
+        `Help me install the Codex integration for CoreStudio ${appVersion} by following this guide: ${guideUrl}\nUse the installed production version of CoreStudio on this Mac, then verify the CLI, Skill, and recorded version.`,
+    },
   },
   helpers: {
     referenceSummary: (elementCount: number, textCount: number) =>

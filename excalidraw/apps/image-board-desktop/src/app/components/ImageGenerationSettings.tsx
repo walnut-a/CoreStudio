@@ -11,6 +11,7 @@ import type {
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
 import type { ProviderId } from "../../shared/providerTypes";
+import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 import { ProviderServiceEditor } from "./ProviderServiceEditor";
 import { useApplicationSettingsLeave } from "./ApplicationSettingsDialog";
@@ -74,12 +75,19 @@ export const ImageGenerationSettings = ({
           className="settings-page__back"
           onClick={() => navigate({ name: "list" })}
         >
-          ← 返回图像生成
+          {copy.applicationSettings.imageGenerationPage.back}
         </button>
         <header className="settings-page__header">
           <div>
-            <h3>选择服务商</h3>
-            <p>选择后填写该服务需要的参数。</p>
+            <h3>
+              {copy.applicationSettings.imageGenerationPage.selectProvider}
+            </h3>
+            <p>
+              {
+                copy.applicationSettings.imageGenerationPage
+                  .selectProviderDescription
+              }
+            </p>
           </div>
         </header>
         <div className="settings-provider-picker">
@@ -90,14 +98,18 @@ export const ImageGenerationSettings = ({
                 key={provider}
                 type="button"
                 className="settings-provider-option"
-                aria-label={`添加 ${definition.label}`}
+                aria-label={copy.applicationSettings.imageGenerationPage.addProvider(
+                  definition.label,
+                )}
                 onClick={() => setRoute({ name: "editor", provider })}
               >
                 <strong>{definition.label}</strong>
                 <small>
                   {provider === "openai-compatible"
-                    ? "连接兼容 OpenAI Images 的服务"
-                    : "使用 CoreStudio 内置适配"}
+                    ? copy.applicationSettings.imageGenerationPage
+                        .compatibleProviderDescription
+                    : copy.applicationSettings.imageGenerationPage
+                        .builtInProviderDescription}
                 </small>
               </button>
             );
@@ -111,15 +123,15 @@ export const ImageGenerationSettings = ({
     <section className="settings-page">
       <header className="settings-page__header">
         <div>
-          <h3>图像生成</h3>
-          <p>管理画布中可以使用的图像生成服务。</p>
+          <h3>{copy.applicationSettings.imageGeneration}</h3>
+          <p>{copy.applicationSettings.imageGenerationPage.description}</p>
         </div>
         {configuredProviders.length ? (
           <DesktopButton
             size="small"
             onClick={() => setRoute({ name: "picker" })}
           >
-            添加服务
+            {copy.applicationSettings.imageGenerationPage.addService}
           </DesktopButton>
         ) : null}
       </header>
@@ -135,7 +147,9 @@ export const ImageGenerationSettings = ({
                 key={provider}
                 type="button"
                 className="settings-service-row"
-                aria-label={`编辑 ${label}`}
+                aria-label={copy.applicationSettings.imageGenerationPage.editProvider(
+                  label,
+                )}
                 onClick={() => setRoute({ name: "editor", provider })}
               >
                 <span>
@@ -144,8 +158,9 @@ export const ImageGenerationSettings = ({
                 </span>
                 <span className="settings-status-badge settings-status-badge--ready">
                   {configuration.defaultProvider === provider
-                    ? "默认"
-                    : "已配置"}
+                    ? copy.applicationSettings.imageGenerationPage.defaultStatus
+                    : copy.applicationSettings.imageGenerationPage
+                        .configuredStatus}
                 </span>
               </button>
             );
@@ -154,14 +169,18 @@ export const ImageGenerationSettings = ({
       ) : (
         <div className="settings-service-empty">
           <div>
-            <strong>尚未配置图像生成服务</strong>
-            <p>添加一个服务后，就可以从画布直接生成图片。</p>
+            <strong>
+              {copy.applicationSettings.imageGenerationPage.emptyTitle}
+            </strong>
+            <p>
+              {copy.applicationSettings.imageGenerationPage.emptyDescription}
+            </p>
           </div>
           <DesktopButton
             variant="primary"
             onClick={() => setRoute({ name: "picker" })}
           >
-            添加服务
+            {copy.applicationSettings.imageGenerationPage.addService}
           </DesktopButton>
         </div>
       )}

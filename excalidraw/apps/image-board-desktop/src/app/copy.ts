@@ -47,6 +47,7 @@ const zhCnCopy = {
     newProject: "新建项目",
     opening: "打开中...",
     openProject: "打开项目",
+    removeProjectFailed: "无法从项目列表移除这个项目。",
   },
   toolbar: {
     generateImage: "生成图片",
@@ -143,6 +144,10 @@ const zhCnCopy = {
     descendantImages: "后续版本",
     locateImage: "定位到图片",
     locateReference: (label: string) => `定位${label}`,
+    locatedReferencingResult:
+      "这张图片是后续结果的参考图，已定位到引用它的画板图片。",
+    missingBoardElement:
+      "这张图片记录没有对应画板元素，可以运行项目数据修复补回画布。",
     provider: "模型服务",
     importedProvider: "导入",
     externalAgentProvider: "外部 Agent",
@@ -197,6 +202,27 @@ const zhCnCopy = {
     raw: "原始报错",
     payload: "请求载荷",
     stack: "调用堆栈",
+  },
+  generationError: {
+    canvasNotReady: "CoreStudio 画板还没有准备好。",
+    missingSelectionReference: "当前没有可用的选区参考，请重新选中元素后再试。",
+    acpTaskStartFailed: "ACP Agent 任务启动失败。",
+    geminiInvalidKey:
+      "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。",
+    geminiNotConfigured: "Gemini API Key 还没配置，请在应用设置中完成配置。",
+    zenmuxInsufficientBalance: "ZenMux 余额不足，这个模型需要账户里有正余额。",
+    zenmuxInvalidKey:
+      "ZenMux API Key 无效，请检查 ZenMux 后台里的 API Key 和账户状态。",
+    zenmuxNotConfigured: "ZenMux API Key 还没配置，请在应用设置中完成配置。",
+    falInvalidKey: "fal API Key 无效，请检查后重新保存。",
+    providerInvalidKey: (provider: string) =>
+      `${provider} API Key 无效，请在应用设置中检查后重新保存。`,
+    providerNetwork: (provider: string) =>
+      `无法连接到 ${provider}，请检查服务地址和网络。`,
+    modelNotFound: (provider: string) =>
+      `${provider} 找不到当前模型，请在应用设置中检查模型 ID。`,
+    unsupportedParameters:
+      "当前模型不支持这些生成参数，请调整尺寸、数量或参考图后重试。",
   },
   about: {
     title: `关于 ${DESKTOP_APP_NAME}`,
@@ -351,6 +377,7 @@ const zhCnCopy = {
       refresh: "重新检测",
       loading: "正在检测 Codex 集成...",
       detectionFailed: "无法完成检测",
+      readStatusFailed: "无法读取本机集成状态",
       handToCodex: "交给 Codex",
       stateTitle: {
         install: "安装 Codex 集成",
@@ -382,11 +409,13 @@ const zhCnCopy = {
   },
   agentUi: {
     conversationTitle: "Agent 对话",
+    currentConversation: "当前对话",
     generationRecordsTitle: "生成记录",
     generationRecordsList: "生成任务列表",
     generationRecord: {
       untitled: "未命名生成",
       referenceChainIntermediate: "引用链中间图",
+      onBoard: "已在画板",
       notOnBoard: "未在画板",
     },
     integration: {

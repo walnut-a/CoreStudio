@@ -1,3 +1,5 @@
+import { copy } from "./copy";
+
 export type GenerationCanvasReadiness<TApi, TProject> =
   | {
       status: "ready";
@@ -8,8 +10,8 @@ export type GenerationCanvasReadiness<TApi, TProject> =
       status: "skip";
     };
 
-export const GENERATION_CANVAS_NOT_READY_MESSAGE =
-  "CoreStudio 画板还没有准备好。";
+export const getGenerationCanvasNotReadyMessage = () =>
+  copy.generationError.canvasNotReady;
 
 export const resolveGenerationCanvasReadiness = <TApi, TProject>({
   api,
@@ -29,7 +31,7 @@ export const resolveGenerationCanvasReadiness = <TApi, TProject>({
   }
 
   if (requireReady) {
-    throw new Error(GENERATION_CANVAS_NOT_READY_MESSAGE);
+    throw new Error(getGenerationCanvasNotReadyMessage());
   }
 
   return { status: "skip" };

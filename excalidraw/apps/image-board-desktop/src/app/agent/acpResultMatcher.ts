@@ -3,7 +3,7 @@ import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 
 import type { AcpRunLogDetail, AcpRunLogEntry } from "../../shared/acpTypes";
 import type { ImageRecord, ImageRecordMap } from "../../shared/projectTypes";
-import { DESKTOP_LANG_CODE } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 
 export interface AcpAgentTaskContextInput {
   taskId: string;
@@ -58,7 +58,7 @@ const parseDateMs = (value: string | undefined | null) => {
 const getGenerationRecordTitle = (record: ImageRecord) => {
   const prompt = record.prompt?.trim();
   if (!prompt) {
-    return "未命名生成";
+    return copy.agentUi.generationRecord.untitled;
   }
   return prompt.length > 36 ? `${prompt.slice(0, 36)}...` : prompt;
 };
@@ -236,8 +236,8 @@ export const buildAcpAgentResultRecordItems = ({
         model: record.model?.trim() || undefined,
         sizeLabel,
         statusLabel: sceneImageFileIdSet.has(record.fileId)
-          ? "已在画板"
-          : "未在画板",
+          ? copy.agentUi.generationRecord.onBoard
+          : copy.agentUi.generationRecord.notOnBoard,
         referenceCount: getPromptReferenceCount(record) || undefined,
         thumbnailDataUrl,
         createdAt: record.createdAt,

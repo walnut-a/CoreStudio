@@ -2,6 +2,7 @@ import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
 import { unmarkMissingRecentProjectMessage } from "../shared/recentProjectErrors";
 import { getSceneContentHash } from "../shared/sceneVersion";
 import { formatUnknownErrorMessage } from "./generationErrorViewModel";
+import { copy } from "./copy";
 
 export interface CurrentProjectLifecycleState {
   previousProjectPath: string | null;
@@ -26,7 +27,8 @@ export interface CurrentProjectChangedResetState {
   projectHealthReportOpen: false;
 }
 
-export interface CurrentProjectUpdateState extends CurrentProjectLifecycleState {
+export interface CurrentProjectUpdateState
+  extends CurrentProjectLifecycleState {
   project: DesktopProjectBundle | null;
   resetState: CurrentProjectChangedResetState | null;
 }
@@ -101,24 +103,27 @@ export const isProjectOpenSequenceCurrent = ({
 }) => currentSequence === sequence;
 
 export const formatProjectSaveError = (error: unknown) =>
-  formatUnknownErrorMessage(error, "项目保存失败。");
+  formatUnknownErrorMessage(error, copy.startup.saveProjectFailed);
 
 export const formatProjectSaveBeforeOpenError = (error: unknown) =>
-  `旧项目未能保存，已停止打开新项目。 ${formatProjectSaveError(error)}`;
+  `${copy.startup.saveBeforeOpenFailed} ${formatProjectSaveError(error)}`;
 
 export const formatProjectOpenError = (error: unknown) => {
-  const message = formatUnknownErrorMessage(error, "打开项目失败。");
+  const message = formatUnknownErrorMessage(
+    error,
+    copy.startup.openProjectFailed,
+  );
   return unmarkMissingRecentProjectMessage(message) ?? message;
 };
 
 export const formatProjectCreateError = (error: unknown) =>
-  formatUnknownErrorMessage(error, "新建项目失败。");
+  formatUnknownErrorMessage(error, copy.startup.createProjectFailed);
 
 export const formatProjectImportImagesError = (error: unknown) =>
-  formatUnknownErrorMessage(error, "导入图片失败。");
+  formatUnknownErrorMessage(error, copy.startup.importImagesFailed);
 
 export const formatProjectRevealError = (error: unknown) =>
-  formatUnknownErrorMessage(error, "无法显示项目文件夹。");
+  formatUnknownErrorMessage(error, copy.startup.revealProjectFailed);
 
 export interface EditorInitializingUpdatePlan {
   shouldApply: boolean;
@@ -150,9 +155,7 @@ export const buildEditorInitializingUpdatePlan = ({
   return {
     shouldApply: true,
     nextInitializing: initializing,
-    nextRenderNonce: initializing
-      ? renderNonce ?? currentRenderNonce
-      : null,
+    nextRenderNonce: initializing ? renderNonce ?? currentRenderNonce : null,
   };
 };
 

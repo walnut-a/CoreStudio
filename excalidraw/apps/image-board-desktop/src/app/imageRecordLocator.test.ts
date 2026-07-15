@@ -14,6 +14,7 @@ import {
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ImageRecord } from "../shared/projectTypes";
+import { setActiveDesktopLocale } from "./copy";
 
 type LocateTestApi = Pick<
   ExcalidrawImperativeAPI,
@@ -143,6 +144,34 @@ describe("resolveImageRecordLocateTarget", () => {
 });
 
 describe("buildImageRecordLocateFeedback", () => {
+  it("localizes generated locate notices", () => {
+    setActiveDesktopLocale("en");
+    const referencingRecord = createRecord({ fileId: "file-result" });
+
+    expect(
+      buildImageRecordLocateFeedback({
+        kind: "referenced-by-result",
+        element: createImageElement({
+          id: "element-result",
+          fileId: "file-result",
+        }),
+        fileId: "file-source",
+        referencingRecord,
+      }).noticeMessage,
+    ).toBe(
+      "This image is a reference for a later result. Located the board image that uses it.",
+    );
+    expect(
+      buildImageRecordLocateFeedback({
+        kind: "missing",
+        fileId: "file-missing",
+      }).noticeMessage,
+    ).toBe(
+      "This image record has no matching board element. Run project data repair to restore it to the canvas.",
+    );
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("clears existing notices when a record is located directly", () => {
     expect(
       buildImageRecordLocateFeedback({
@@ -188,7 +217,8 @@ describe("buildImageRecordLocateFeedback", () => {
       }),
     ).toEqual({
       shouldLocateElement: false,
-      noticeMessage: "这张图片记录没有对应画板元素，可以运行项目数据修复补回画布。",
+      noticeMessage:
+        "这张图片记录没有对应画板元素，可以运行项目数据修复补回画布。",
       clearExistingNotice: false,
     });
   });

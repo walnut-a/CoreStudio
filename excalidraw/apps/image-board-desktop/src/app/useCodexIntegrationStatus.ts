@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { CodexIntegrationStatus } from "../shared/desktopBridgeTypes";
+import { copy } from "./copy";
 
 export const useCodexIntegrationStatus = ({
   open,
@@ -31,7 +32,7 @@ export const useCodexIntegrationStatus = ({
         setError(
           nextError instanceof Error && nextError.message
             ? nextError.message
-            : "无法读取本机集成状态",
+            : copy.applicationSettings.codexPage.readStatusFailed,
         );
       }
     } finally {

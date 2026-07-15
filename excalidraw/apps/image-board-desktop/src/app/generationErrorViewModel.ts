@@ -123,7 +123,7 @@ export const normalizeDesktopErrorMessage = (
       sanitizedMessage,
     )
   ) {
-    return "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。";
+    return copy.generationError.geminiInvalidKey;
   }
 
   if (/ZenMux API Key/i.test(sanitizedMessage)) {
@@ -131,7 +131,7 @@ export const normalizeDesktopErrorMessage = (
   }
 
   if (/gemini API key is not configured/i.test(sanitizedMessage)) {
-    return "Gemini API Key 还没配置，请在应用设置中完成配置。";
+    return copy.generationError.geminiNotConfigured;
   }
 
   if (
@@ -140,7 +140,7 @@ export const normalizeDesktopErrorMessage = (
       sanitizedMessage,
     )
   ) {
-    return "ZenMux 余额不足，这个模型需要账户里有正余额。";
+    return copy.generationError.zenmuxInsufficientBalance;
   }
 
   if (
@@ -149,15 +149,15 @@ export const normalizeDesktopErrorMessage = (
       sanitizedMessage,
     )
   ) {
-    return "ZenMux API Key 无效，请检查 ZenMux 后台里的 API Key 和账户状态。";
+    return copy.generationError.zenmuxInvalidKey;
   }
 
   if (/zenmux API key is not configured/i.test(sanitizedMessage)) {
-    return "ZenMux API Key 还没配置，请在应用设置中完成配置。";
+    return copy.generationError.zenmuxNotConfigured;
   }
 
   if (/fal\.ai request failed: 401/i.test(sanitizedMessage)) {
-    return "fal API Key 无效，请检查后重新保存。";
+    return copy.generationError.falInvalidKey;
   }
 
   const providerLabel = getProviderDefinition(provider).label;
@@ -167,7 +167,7 @@ export const normalizeDesktopErrorMessage = (
       sanitizedMessage,
     )
   ) {
-    return `${providerLabel} API Key 无效，请在应用设置中检查后重新保存。`;
+    return copy.generationError.providerInvalidKey(providerLabel);
   }
 
   if (
@@ -175,13 +175,13 @@ export const normalizeDesktopErrorMessage = (
       sanitizedMessage,
     )
   ) {
-    return `无法连接到 ${providerLabel}，请检查服务地址和网络。`;
+    return copy.generationError.providerNetwork(providerLabel);
   }
 
   if (
     /\b404\b|model[_ -]?not[_ -]?found|unknown model/i.test(sanitizedMessage)
   ) {
-    return `${providerLabel} 找不到当前模型，请在应用设置中检查模型 ID。`;
+    return copy.generationError.modelNotFound(providerLabel);
   }
 
   if (
@@ -189,7 +189,7 @@ export const normalizeDesktopErrorMessage = (
       sanitizedMessage,
     )
   ) {
-    return "当前模型不支持这些生成参数，请调整尺寸、数量或参考图后重试。";
+    return copy.generationError.unsupportedParameters;
   }
 
   return sanitizedMessage;

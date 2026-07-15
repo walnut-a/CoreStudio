@@ -12,6 +12,7 @@ import {
 } from "./generationErrorViewModel";
 
 import type { GenerationRequest } from "../shared/providerTypes";
+import { setActiveDesktopLocale } from "./copy";
 
 const createGenerationRequest = (
   patch: Partial<GenerationRequest> = {},
@@ -50,6 +51,27 @@ describe("splitRequestPayload", () => {
 });
 
 describe("normalizeDesktopErrorMessage", () => {
+  it("localizes application-generated guidance while preserving raw details", () => {
+    setActiveDesktopLocale("en");
+    const raw =
+      'ZenMux request failed: positive balance is required\n请求载荷：{"model":"flux"}';
+
+    expect(normalizeDesktopErrorMessage("zenmux", raw)).toBe(
+      "Your ZenMux balance is too low. This model requires a positive account balance.",
+    );
+    const details = buildGenerationErrorDetails(
+      createGenerationRequest({ provider: "zenmux" }),
+      new Error(raw),
+      "Your ZenMux balance is too low.",
+    );
+    expect(details).toMatchObject({
+      normalizedMessage: "Your ZenMux balance is too low.",
+      rawMessage: "ZenMux request failed: positive balance is required",
+      requestPayload: '{"model":"flux"}',
+    });
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("normalizes Gemini invalid key errors even when Electron prefixes the message", () => {
     const error = new Error(
       "Error invoking remote method 'image-board:generate-image': Error: API_KEY_INVALID: API key not valid for generativelanguage.googleapis.com",

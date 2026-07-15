@@ -5,6 +5,7 @@ import type {
 import type { GenerationRequest } from "../shared/providerTypes";
 import { buildGenerationExecutionPlan } from "./generationRequestState";
 import { buildGenerationErrorDisplayRendererRequest } from "./generationRequestRendererController";
+import { copy } from "./copy";
 
 export type GenerationSubmitRendererActionResult =
   | { status: "skipped-no-project" }
@@ -85,7 +86,11 @@ export const runGenerationSubmitRendererAction = async ({
       await startAcpAgentGeneration(request);
       return { status: "acp-agent-started" };
     } catch (error) {
-      showGenerationError(request, error, "ACP Agent 任务启动失败。");
+      showGenerationError(
+        request,
+        error,
+        copy.generationError.acpTaskStartFailed,
+      );
       if (rejectOnError) {
         throw error;
       }

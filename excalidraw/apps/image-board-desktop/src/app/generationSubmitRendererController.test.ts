@@ -9,6 +9,7 @@ import type {
   DesktopProjectBundle,
   PublicProviderSettings,
 } from "../shared/desktopBridgeTypes";
+import { setActiveDesktopLocale } from "./copy";
 import type { GenerationRequest } from "../shared/providerTypes";
 
 const createRequest = (
@@ -193,6 +194,35 @@ describe("runGenerationSubmitRendererAction", () => {
     );
   });
 
+  it("localizes the ACP startup fallback while preserving the thrown error", async () => {
+    setActiveDesktopLocale("en");
+    const request = createRequest({ generationSource: "agent" });
+    const error = new Error("原始 Agent 错误");
+    const showGenerationError = vi.fn();
+
+    await expect(
+      runGenerationSubmitRendererAction({
+        request,
+        project: createProject(),
+        providerSettings: null,
+        rejectOnError: true,
+        clearGenerationError: vi.fn(),
+        assertProjectActive: vi.fn(),
+        startAcpAgentGeneration: vi.fn(async () => {
+          throw error;
+        }),
+        startBuiltinGeneration: vi.fn(),
+        showGenerationError,
+      }),
+    ).rejects.toBe(error);
+    expect(showGenerationError).toHaveBeenCalledWith(
+      request,
+      error,
+      "Could not start the ACP Agent task.",
+    );
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("normalizes builtin error display requests with provider settings", async () => {
     const request = createRequest({
       provider: "zenmux",
@@ -273,9 +303,7 @@ describe("createGenerationSubmitRendererActions", () => {
     ).resolves.toEqual({ status: "builtin-started" });
 
     expect(clearGenerationError).toHaveBeenCalledTimes(1);
-    expect(assertProjectActive).toHaveBeenCalledWith(
-      "/tmp/corestudio-project",
-    );
+    expect(assertProjectActive).toHaveBeenCalledWith("/tmp/corestudio-project");
     expect(startBuiltinGeneration).toHaveBeenCalledWith(
       request,
       project,

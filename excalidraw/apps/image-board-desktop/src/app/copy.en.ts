@@ -36,6 +36,7 @@ export const enCopy: DesktopCopy = {
     newProject: "New project",
     opening: "Opening...",
     openProject: "Open project",
+    removeProjectFailed: "Could not remove this project from the project list.",
   },
   toolbar: {
     generateImage: "Generate image",
@@ -132,6 +133,10 @@ export const enCopy: DesktopCopy = {
     descendantImages: "Later versions",
     locateImage: "Locate image",
     locateReference: (label: string) => `Locate ${label}`,
+    locatedReferencingResult:
+      "This image is a reference for a later result. Located the board image that uses it.",
+    missingBoardElement:
+      "This image record has no matching board element. Run project data repair to restore it to the canvas.",
     provider: "Model service",
     importedProvider: "Imported",
     externalAgentProvider: "External Agent",
@@ -188,6 +193,31 @@ export const enCopy: DesktopCopy = {
     raw: "Raw error",
     payload: "Request payload",
     stack: "Call stack",
+  },
+  generationError: {
+    canvasNotReady: "The CoreStudio board is not ready yet.",
+    missingSelectionReference:
+      "No usable selection reference is available. Select the elements again and retry.",
+    acpTaskStartFailed: "Could not start the ACP Agent task.",
+    geminiInvalidKey:
+      "The Gemini API Key is invalid. Generate a new key in Google AI Studio and save it.",
+    geminiNotConfigured:
+      "The Gemini API Key is not configured. Complete the setup in Application Settings.",
+    zenmuxInsufficientBalance:
+      "Your ZenMux balance is too low. This model requires a positive account balance.",
+    zenmuxInvalidKey:
+      "The ZenMux API Key is invalid. Check the API Key and account status in ZenMux.",
+    zenmuxNotConfigured:
+      "The ZenMux API Key is not configured. Complete the setup in Application Settings.",
+    falInvalidKey: "The fal API Key is invalid. Check it and save again.",
+    providerInvalidKey: (provider: string) =>
+      `The ${provider} API Key is invalid. Check it in Application Settings and save again.`,
+    providerNetwork: (provider: string) =>
+      `Could not connect to ${provider}. Check the service URL and network connection.`,
+    modelNotFound: (provider: string) =>
+      `${provider} could not find the current model. Check the model ID in Application Settings.`,
+    unsupportedParameters:
+      "The current model does not support these generation parameters. Adjust the size, count, or reference images and try again.",
   },
   about: {
     title: "About CoreStudio",
@@ -352,6 +382,7 @@ export const enCopy: DesktopCopy = {
       refresh: "Check Again",
       loading: "Checking Codex integration...",
       detectionFailed: "Unable to complete the check",
+      readStatusFailed: "Could not read the local integration status.",
       handToCodex: "Hand off to Codex",
       stateTitle: {
         install: "Install Codex Integration",
@@ -385,11 +416,13 @@ export const enCopy: DesktopCopy = {
   },
   agentUi: {
     conversationTitle: "Agent Conversation",
+    currentConversation: "Current conversation",
     generationRecordsTitle: "Generation History",
     generationRecordsList: "Generation tasks",
     generationRecord: {
       untitled: "Untitled generation",
       referenceChainIntermediate: "Reference-chain intermediate",
+      onBoard: "On board",
       notOnBoard: "Not on board",
     },
     integration: {

@@ -2,8 +2,25 @@ import { describe, expect, it } from "vitest";
 
 import type { AcpRunLogEntry } from "../../shared/acpTypes";
 import { createAgentConversationThreadView } from "./agentConversationThreadView";
+import { setActiveDesktopLocale } from "../copy";
 
 describe("createAgentConversationThreadView", () => {
+  it("localizes the empty current-conversation title", () => {
+    setActiveDesktopLocale("en");
+
+    expect(
+      createAgentConversationThreadView({
+        activeThreadId: null,
+        runLogDetail: null,
+        threadEntries: [],
+        error: null,
+        agentResultRecords: [],
+        task: null,
+      }).title,
+    ).toBe("Current conversation");
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("builds a thread from the active task without requiring React state", () => {
     const view = createAgentConversationThreadView({
       activeThreadId: null,

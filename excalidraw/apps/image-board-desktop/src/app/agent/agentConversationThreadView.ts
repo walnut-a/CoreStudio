@@ -10,6 +10,7 @@ import type {
   AgentThread,
   AgentThreadStatus,
 } from "../agentThreadTypes";
+import { copy } from "../copy";
 
 export interface AgentConversationEventItem {
   id: string;
@@ -158,7 +159,7 @@ const getThreadTitle = (
 ) => {
   const prompt = runLogDetail?.summary.userPrompt ?? task?.message;
   if (!prompt) {
-    return "当前对话";
+    return copy.agentUi.currentConversation;
   }
   return prompt;
 };
@@ -241,8 +242,10 @@ export const createAgentConversationThreadView = ({
       "agent-thread",
     title,
     status: getAgentThreadStatus(status),
-    createdAt: runLogDetail?.summary.startedAt ?? chatEntries[0]?.timestamp ?? now,
-    updatedAt: runLogDetail?.summary.endedAt ?? chatEntries.at(-1)?.timestamp ?? now,
+    createdAt:
+      runLogDetail?.summary.startedAt ?? chatEntries[0]?.timestamp ?? now,
+    updatedAt:
+      runLogDetail?.summary.endedAt ?? chatEntries.at(-1)?.timestamp ?? now,
     fallbackUserPrompt: runLogDetail?.summary.userPrompt ?? task?.message,
     imageResults,
   });

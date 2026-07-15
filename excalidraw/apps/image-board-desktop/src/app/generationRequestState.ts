@@ -1,4 +1,5 @@
 import { normalizeGenerationRequest } from "../shared/providerCatalog";
+import { copy } from "./copy";
 
 import type {
   CustomProviderModel,
@@ -183,10 +184,7 @@ export const applyBuiltinGenerationExecutionPlanState = ({
   setGenerationSource,
   showDirectGenerationRecords,
 }: {
-  plan: Extract<
-    GenerationExecutionPlan,
-    { kind: "start-builtin-generation" }
-  >;
+  plan: Extract<GenerationExecutionPlan, { kind: "start-builtin-generation" }>;
   setGenerationSource: (source: Extract<GenerationSource, "builtin">) => void;
   showDirectGenerationRecords: () => void;
 }) => {
@@ -220,8 +218,8 @@ export const applyBuiltinGenerationSubmittedRequestState = ({
   return submittedRequest;
 };
 
-export const MISSING_SELECTION_REFERENCE_IMAGE_ERROR_MESSAGE =
-  "当前没有可用的选区参考，请重新选中元素后再试。";
+export const getMissingSelectionReferenceImageErrorMessage = () =>
+  copy.generationError.missingSelectionReference;
 
 export type BuiltinGenerationReferencePlan =
   | {
@@ -265,7 +263,7 @@ export const buildBuiltinGenerationPreparedRequest = ({
   }
 
   if (!selectionReference?.image) {
-    throw new Error(MISSING_SELECTION_REFERENCE_IMAGE_ERROR_MESSAGE);
+    throw new Error(getMissingSelectionReferenceImageErrorMessage());
   }
 
   return {
@@ -303,7 +301,9 @@ export const prepareBuiltinGenerationRequestAction = async <Scene>({
   if (referencePlan.kind === "load-selection-reference") {
     const sceneWithOriginalImageFiles = await loadOriginalScene(sourceScene);
     assertProjectActive();
-    selectionReference = await readSelectionReference(sceneWithOriginalImageFiles);
+    selectionReference = await readSelectionReference(
+      sceneWithOriginalImageFiles,
+    );
     assertProjectActive();
   }
 

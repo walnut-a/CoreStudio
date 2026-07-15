@@ -21,10 +21,9 @@ import {
   resolvePreferredGenerationModelSelection,
   type GenerationModelSelection,
 } from "./generationModelSelection";
+import { copy } from "./copy";
 
-export const partsToPlainPrompt = (
-  parts: readonly GenerationPromptPart[],
-) =>
+export const partsToPlainPrompt = (parts: readonly GenerationPromptPart[]) =>
   parts
     .filter(
       (part): part is Extract<GenerationPromptPart, { type: "text" }> =>
@@ -60,8 +59,7 @@ export const buildGenerationRequestFromSelection = (
       reference: null,
     },
     {
-      customModels:
-        providerSettings?.[selection.provider]?.customModels ?? [],
+      customModels: providerSettings?.[selection.provider]?.customModels ?? [],
     },
   );
 
@@ -76,13 +74,13 @@ export const buildDefaultGenerationRequest = (
     configurationOrSettings && "providers" in configurationOrSettings
       ? configurationOrSettings
       : configurationOrSettings
-        ? {
-            schemaVersion: 2 as const,
-            defaultProvider:
-              getConfiguredProviderIds(configurationOrSettings)[0] ?? null,
-            providers: configurationOrSettings,
-          }
-        : null;
+      ? {
+          schemaVersion: 2 as const,
+          defaultProvider:
+            getConfiguredProviderIds(configurationOrSettings)[0] ?? null,
+          providers: configurationOrSettings,
+        }
+      : null;
   const selection = resolvePreferredGenerationModelSelection({
     configuration,
     rememberedSelection,
@@ -125,14 +123,12 @@ export const getPromptReferenceLabel = (
 ) => {
   const items = reference.items || [];
   if (items.length === 1 && items[0]?.kind === "image") {
-    return "图片";
+    return copy.generateDialog.pendingImage;
   }
-  return "标注图";
+  return copy.generateDialog.pendingAnnotatedImage;
 };
 
-const getSingleImageItemThumbnail = (
-  reference: GenerationReferencePayload,
-) => {
+const getSingleImageItemThumbnail = (reference: GenerationReferencePayload) => {
   const items = reference.items || [];
   if (items.length !== 1 || items[0]?.kind !== "image") {
     return undefined;
@@ -323,7 +319,9 @@ export const runGenerateDialogOpenAction = async ({
     removedSelectionReferenceSignature:
       effectiveRemovedSelectionReferenceSignature,
   });
-  const reference = shouldBuildReference ? await readSelectionReference() : null;
+  const reference = shouldBuildReference
+    ? await readSelectionReference()
+    : null;
 
   clearGenerationError();
   updateGenerateRequest((current) => {
@@ -566,8 +564,7 @@ export const buildGeneratePromptReferenceState = ({
   const hasPendingReference = Boolean(request.reference?.enabled);
   const hasUsablePendingReference =
     hasPendingReference && maxPromptReferenceCount > 0;
-  const referenceLimitExceeded =
-    promptReferenceCount > maxPromptReferenceCount;
+  const referenceLimitExceeded = promptReferenceCount > maxPromptReferenceCount;
   const referenceLimitReached =
     hasUsablePendingReference &&
     promptReferenceCount >= maxPromptReferenceCount;
@@ -575,14 +572,14 @@ export const buildGeneratePromptReferenceState = ({
     generationSource !== "builtin"
       ? null
       : referenceLimitExceeded
-        ? maxPromptReferenceCount > 0
-          ? "exceeded"
-          : "unsupported-with-inline-references"
-        : hasPendingReference && !hasUsablePendingReference
-          ? "unsupported"
-          : referenceLimitReached
-            ? "reached"
-            : null;
+      ? maxPromptReferenceCount > 0
+        ? "exceeded"
+        : "unsupported-with-inline-references"
+      : hasPendingReference && !hasUsablePendingReference
+      ? "unsupported"
+      : referenceLimitReached
+      ? "reached"
+      : null;
   const pendingReference =
     hasUsablePendingReference && !referenceLimitReached
       ? request.reference ?? null

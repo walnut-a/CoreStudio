@@ -12,6 +12,7 @@ import type {
   DesktopBridgeApi,
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
+import { setActiveDesktopLocale } from "./copy";
 
 describe("loadRecentProjectsStateAction", () => {
   it("loads recent projects through the desktop bridge", async () => {
@@ -56,6 +57,27 @@ describe("loadRecentProjectsStateAction", () => {
 });
 
 describe("removeRecentProjectStateAction", () => {
+  it("localizes the UI fallback when removal fails", async () => {
+    setActiveDesktopLocale("en");
+    const setProjectError = vi.fn();
+
+    await removeRecentProjectStateAction({
+      bridge: {
+        removeRecentProject: vi.fn(async () => {
+          throw new Error("底层错误不对外替换界面兜底");
+        }),
+      } as unknown as DesktopBridgeApi,
+      projectPath: "/projects/one",
+      setRecentProjects: vi.fn(),
+      setProjectError,
+    });
+
+    expect(setProjectError).toHaveBeenCalledWith(
+      "Could not remove this project from the project list.",
+    );
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("removes a project list record through the desktop bridge", async () => {
     const nextProjects: RecentProjectEntry[] = [
       {
@@ -151,7 +173,7 @@ describe("createDesktopStartupRendererActions", () => {
           lastOpenedAt: "2026-07-05T00:00:00.000Z",
         },
       ]),
-    }) as unknown as DesktopBridgeApi;
+    } as unknown as DesktopBridgeApi);
 
   it("loads desktop startup state from the current bridge", async () => {
     let bridge = createBridge();

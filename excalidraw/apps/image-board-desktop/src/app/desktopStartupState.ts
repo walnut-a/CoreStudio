@@ -5,6 +5,7 @@ import type {
 } from "../shared/desktopBridgeTypes";
 
 import { runProviderSettingsLoadAction } from "./providerSettingsLoader";
+import { copy } from "./copy";
 
 type ProviderSettingsLoadActionInput = Parameters<
   typeof runProviderSettingsLoadAction
@@ -49,7 +50,7 @@ export const removeRecentProjectStateAction = async ({
     setRecentProjects(await bridge.removeRecentProject(projectPath));
     setProjectError(null);
   } catch {
-    setProjectError("无法从项目列表移除这个项目。");
+    setProjectError(copy.welcome.removeProjectFailed);
   }
 };
 

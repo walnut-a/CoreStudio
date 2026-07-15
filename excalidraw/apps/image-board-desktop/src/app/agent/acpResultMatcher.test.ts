@@ -5,6 +5,7 @@ import { buildAcpAgentResultRecordItems } from "./acpResultMatcher";
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { AcpRunLogDetail, AcpRunLogEntry } from "../../shared/acpTypes";
 import type { ImageRecord, ImageRecordMap } from "../../shared/projectTypes";
+import { setActiveDesktopLocale } from "../copy";
 
 const createImageRecord = (patch: Partial<ImageRecord> = {}): ImageRecord => ({
   fileId: "file-acp-1",
@@ -56,6 +57,31 @@ const createRunLogEntry = (
 });
 
 describe("buildAcpAgentResultRecordItems", () => {
+  it("localizes generated result labels while preserving the prompt", () => {
+    setActiveDesktopLocale("en");
+    const items = buildAcpAgentResultRecordItems({
+      imageRecords: {
+        "file-acp-1": createImageRecord({
+          prompt: "",
+          generationTaskId: "task-1",
+        }),
+      },
+      sceneImageFileIds: [],
+      entries: [],
+      runLogDetail: createRunLogDetail(),
+      task: null,
+      files: null,
+    });
+
+    expect(items).toMatchObject([
+      {
+        title: "Untitled generation",
+        statusLabel: "Not on board",
+      },
+    ]);
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("builds locatable ACP result records from run log context", () => {
     const imageRecords: ImageRecordMap = {
       "file-acp-1": createImageRecord(),

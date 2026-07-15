@@ -16,6 +16,7 @@ import {
   filterPromptReferencesForParts,
   getInitialPromptParts,
   getGenerateRequestMaxPromptReferenceCount,
+  getPromptReferenceLabel,
   getPromptReferenceThumbnail,
   partsToPlainPrompt,
   prepareGenerationSubmitRequest,
@@ -33,6 +34,7 @@ import type {
   GenerationRequest,
   ProviderCapabilities,
 } from "../shared/providerTypes";
+import { setActiveDesktopLocale } from "./copy";
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
 
 const createRequest = (
@@ -60,7 +62,7 @@ const createCapabilities = (
   ...patch,
 });
 
-const providerSettings = {
+const providerSettings: PublicProviderSettings = {
   gemini: {
     defaultModel: "gemini-2.5-flash-image",
     isConfigured: false,
@@ -103,7 +105,7 @@ const providerSettings = {
     lastCheckedAt: null,
     lastError: null,
   },
-} satisfies PublicProviderSettings;
+};
 
 describe("generatePromptRequest", () => {
   it("derives initial prompt parts from existing parts or plain prompt", () => {
@@ -116,9 +118,9 @@ describe("generatePromptRequest", () => {
       ),
     ).toEqual([{ type: "text", text: "existing" }]);
 
-    expect(getInitialPromptParts(createRequest({ prompt: "fallback" }))).toEqual(
-      [{ type: "text", text: "fallback" }],
-    );
+    expect(
+      getInitialPromptParts(createRequest({ prompt: "fallback" })),
+    ).toEqual([{ type: "text", text: "fallback" }]);
   });
 
   it("builds a normalized empty generation request from a selected provider model", () => {
@@ -231,6 +233,28 @@ describe("generatePromptRequest", () => {
         ],
       }),
     ).toBe("data:image/jpeg;base64,thumb");
+  });
+
+  it("localizes generated prompt reference labels", () => {
+    setActiveDesktopLocale("en");
+
+    expect(
+      getPromptReferenceLabel({
+        enabled: true,
+        elementCount: 1,
+        textCount: 0,
+        items: [{ id: "image-1", index: 1, kind: "image", label: "原始标签" }],
+      }),
+    ).toBe("Image");
+    expect(
+      getPromptReferenceLabel({
+        enabled: true,
+        elementCount: 2,
+        textCount: 1,
+        items: [],
+      }),
+    ).toBe("Annotated image");
+    setActiveDesktopLocale("zh-CN");
   });
 
   it("derives max prompt reference count from the current model capabilities", () => {
@@ -637,11 +661,13 @@ describe("generatePromptRequest", () => {
       expect(scene).toBe(sourceScene);
       return originalScene;
     });
-    const readSelectionReference = vi.fn(async (scene: typeof originalScene) => {
-      calls.push("read-reference");
-      expect(scene).toBe(originalScene);
-      return reference;
-    });
+    const readSelectionReference = vi.fn(
+      async (scene: typeof originalScene) => {
+        calls.push("read-reference");
+        expect(scene).toBe(originalScene);
+        return reference;
+      },
+    );
 
     await expect(
       runGenerateReferenceCommitAction({

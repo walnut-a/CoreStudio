@@ -12,6 +12,7 @@ import {
   syncSelectionReferenceIntoRequest,
 } from "./generationRequestState";
 import type { GenerationRequest } from "../shared/providerTypes";
+import { setActiveDesktopLocale } from "./copy";
 
 const createRequest = (): GenerationRequest => ({
   provider: "zenmux",
@@ -23,17 +24,17 @@ const createRequest = (): GenerationRequest => ({
   seed: null,
   reference: {
     enabled: true,
-      elementCount: 1,
-      textCount: 0,
-      items: [
-        {
-          id: "image-1",
-          index: 1,
-          kind: "image",
-          label: "图片",
-        },
-      ],
-    },
+    elementCount: 1,
+    textCount: 0,
+    items: [
+      {
+        id: "image-1",
+        index: 1,
+        kind: "image",
+        label: "图片",
+      },
+    ],
+  },
 });
 
 describe("generationRequestState", () => {
@@ -296,6 +297,25 @@ describe("generationRequestState", () => {
     ).toThrow("当前没有可用的选区参考，请重新选中元素后再试。");
   });
 
+  it("localizes the missing selection reference error", () => {
+    setActiveDesktopLocale("en");
+
+    expect(() =>
+      buildBuiltinGenerationPreparedRequest({
+        request: createRequest(),
+        selectionReference: {
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+          items: [],
+        },
+      }),
+    ).toThrow(
+      "No usable selection reference is available. Select the elements again and retry.",
+    );
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("merges the live image reference into the normalized builtin generation request", () => {
     const selectionReference = {
       enabled: false,
@@ -410,11 +430,13 @@ describe("generationRequestState", () => {
       expect(scene).toBe(sourceScene);
       return originalScene;
     });
-    const readSelectionReference = vi.fn(async (scene: typeof originalScene) => {
-      calls.push("read-reference");
-      expect(scene).toBe(originalScene);
-      return selectionReference;
-    });
+    const readSelectionReference = vi.fn(
+      async (scene: typeof originalScene) => {
+        calls.push("read-reference");
+        expect(scene).toBe(originalScene);
+        return selectionReference;
+      },
+    );
     const assertProjectActive = vi.fn(() => {
       calls.push("assert-active");
     });

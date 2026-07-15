@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
 import type { ProjectManifest } from "../shared/projectTypes";
 import { getSceneContentHash } from "../shared/sceneVersion";
+import { setActiveDesktopLocale } from "./copy";
 import {
   buildCurrentProjectChangedResetState,
   buildCurrentProjectLifecycleState,
@@ -195,6 +196,26 @@ describe("project open sequence helpers", () => {
 });
 
 describe("project action error formatting", () => {
+  it("localizes owner fallbacks and preserves the reported failure reason", () => {
+    setActiveDesktopLocale("en");
+
+    expect(formatProjectSaveError(null)).toBe("Could not save the project.");
+    expect(formatProjectOpenError(null)).toBe("Could not open the project.");
+    expect(formatProjectCreateError(null)).toBe(
+      "Could not create the project.",
+    );
+    expect(formatProjectImportImagesError(null)).toBe(
+      "Could not import images.",
+    );
+    expect(formatProjectRevealError(null)).toBe(
+      "Could not show the project folder.",
+    );
+    expect(formatProjectSaveBeforeOpenError(new Error("写入失败"))).toBe(
+      "The previous project could not be saved, so opening the new project was stopped. 写入失败",
+    );
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("formats project action failures with owner fallback messages", () => {
     expect(formatProjectSaveError(null)).toBe("项目保存失败。");
     expect(formatProjectOpenError(null)).toBe("打开项目失败。");

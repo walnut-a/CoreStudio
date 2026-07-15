@@ -6,11 +6,11 @@ import type {
   ImageRecord,
   ImageRecordMap,
 } from "../shared/projectTypes";
+import { copy } from "./copy";
 import { buildElementSelectionSceneUpdate } from "./selectionState";
 
 type LocateElementsUpdateScene = ExcalidrawImperativeAPI["updateScene"];
-type LocateElementsScrollToContent =
-  ExcalidrawImperativeAPI["scrollToContent"];
+type LocateElementsScrollToContent = ExcalidrawImperativeAPI["scrollToContent"];
 type LocateElementsExcalidrawApi = Pick<
   ExcalidrawImperativeAPI,
   "getSceneElementsIncludingDeleted" | "updateScene" | "scrollToContent"
@@ -68,9 +68,7 @@ const isLiveImageElementForFile = (
   element: ExcalidrawElement,
   fileId: string,
 ) =>
-  !element.isDeleted &&
-  element.type === "image" &&
-  element.fileId === fileId;
+  !element.isDeleted && element.type === "image" && element.fileId === fileId;
 
 const findLiveImageElement = (
   elements: readonly ExcalidrawElement[],
@@ -137,15 +135,13 @@ export const buildImageRecordLocateFeedback = (
     case "referenced-by-result":
       return {
         shouldLocateElement: true,
-        noticeMessage:
-          "这张图片是后续结果的参考图，已定位到引用它的画板图片。",
+        noticeMessage: copy.inspector.locatedReferencingResult,
         clearExistingNotice: false,
       };
     case "missing":
       return {
         shouldLocateElement: false,
-        noticeMessage:
-          "这张图片记录没有对应画板元素，可以运行项目数据修复补回画布。",
+        noticeMessage: copy.inspector.missingBoardElement,
         clearExistingNotice: false,
       };
   }

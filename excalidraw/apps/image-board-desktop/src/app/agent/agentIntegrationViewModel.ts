@@ -5,6 +5,7 @@ import {
   type AcpAgentSettings,
 } from "../../shared/acpTypes";
 import type { DesktopAgentBridgeStatus } from "../../shared/desktopBridgeTypes";
+import { copy } from "../copy";
 import type { GenerateComposerConfig } from "./useGenerateComposerController";
 
 export type AgentIntegrationReadiness =
@@ -155,28 +156,30 @@ const getReadiness = (
 };
 
 const getStatusText = (readiness: AgentIntegrationReadiness) => {
+  const status = copy.agentUi.integration.status;
   switch (readiness) {
     case "disabled":
-      return "Agent 集成已关闭";
+      return status.disabled;
     case "connected":
-      return "Agent 已连接";
+      return status.connected;
     case "waiting-project":
-      return "Agent 集成已开启";
+      return status.waitingProject;
     case "unready":
-      return "Agent 未就绪";
+      return status.unready;
   }
 };
 
 const getBadgeText = (readiness: AgentIntegrationReadiness) => {
+  const badge = copy.agentUi.integration.badge;
   switch (readiness) {
     case "disabled":
-      return "关闭";
+      return badge.disabled;
     case "connected":
-      return "在线";
+      return badge.connected;
     case "waiting-project":
-      return "等待项目";
+      return badge.waitingProject;
     case "unready":
-      return "未连接";
+      return badge.unready;
   }
 };
 
@@ -184,33 +187,34 @@ const getCollaborationPresentation = (
   readiness: AgentIntegrationReadiness,
   projectName: string | null,
 ): AgentIntegrationViewModel["collaboration"] => {
+  const collaboration = copy.agentUi.integration.collaboration;
   switch (readiness) {
     case "disabled":
       return {
         status: "disabled",
-        statusText: "尚未开启",
-        description: "开启后，可在 Codex 中查看当前画布并安全写回结果。",
+        statusText: collaboration.disabledStatus,
+        description: collaboration.disabledDescription,
         projectName: null,
       };
     case "connected":
       return {
         status: "ready",
-        statusText: "已可用",
-        description: "Codex 可以访问当前项目。",
+        statusText: collaboration.readyStatus,
+        description: collaboration.readyDescription,
         projectName,
       };
     case "waiting-project":
       return {
         status: "waiting-project",
-        statusText: "请先打开项目",
-        description: "连接已经开启，打开项目后即可在 Codex 中使用。",
+        statusText: collaboration.waitingProjectStatus,
+        description: collaboration.waitingProjectDescription,
         projectName: null,
       };
     case "unready":
       return {
         status: "unavailable",
-        statusText: "暂不可用",
-        description: "连接尚未就绪，请稍后重试或查看连接详情。",
+        statusText: collaboration.unavailableStatus,
+        description: collaboration.unavailableDescription,
         projectName: null,
       };
   }
@@ -238,14 +242,16 @@ const getBridgeEndpointLabel = (
   endpoint: string | null,
 ) => {
   if (!status?.enabled) {
-    return "未启动";
+    return copy.agentUi.integration.bridgeNotStarted;
   }
 
   if (endpoint) {
     return endpoint;
   }
 
-  return status.ready ? "本地桥已启动" : "未启动";
+  return status.ready
+    ? copy.agentUi.integration.bridgeStarted
+    : copy.agentUi.integration.bridgeNotStarted;
 };
 
 const getAcpStatusText = ({
@@ -260,7 +266,7 @@ const getAcpStatusText = ({
   agentName: string | null;
 }) => {
   if (running) {
-    return "任务运行中";
+    return copy.agentUi.integration.acpTaskRunning;
   }
 
   if (enabled && agentName) {
@@ -268,10 +274,10 @@ const getAcpStatusText = ({
   }
 
   if (configured) {
-    return "已配置，未启用";
+    return copy.agentUi.integration.acpConfiguredDisabled;
   }
 
-  return "未配置";
+  return copy.agentUi.integration.acpNotConfigured;
 };
 
 export const buildAgentIntegrationViewModel = ({
@@ -323,14 +329,14 @@ export const buildAgentIntegrationViewModel = ({
       envCopyable: enabled && Boolean(bridgeStatus?.ready && projectToken),
       statusText:
         enabled && bridgeStatus?.ready
-          ? "可自动发现当前会话"
-          : "开启连接后可发现",
+          ? copy.agentUi.integration.cliDiscoverable
+          : copy.agentUi.integration.cliEnableToDiscover,
     },
     board: {
       available: Boolean(bridgeStatus?.boardUrl),
       statusText: bridgeStatus?.boardUrl
-        ? "可复制 Board 链接"
-        : "等待 Board 链接",
+        ? copy.agentUi.integration.boardLinkReady
+        : copy.agentUi.integration.boardLinkWaiting,
     },
     acp: {
       experimentalEnabled: acpExperimentalEnabled,
@@ -381,13 +387,13 @@ export const buildAgentBoardCopyAction = (
     return {
       text: null,
       successMessage: null,
-      errorMessage: "Agent Board 链接尚未就绪。",
+      errorMessage: copy.agentUi.integration.boardLinkNotReady,
     };
   }
 
   return {
     text: integration.bridge.boardUrl,
-    successMessage: "Agent Board 链接已复制。",
+    successMessage: copy.agentUi.integration.boardLinkCopied,
     errorMessage: null,
   };
 };
@@ -401,13 +407,13 @@ export const buildAgentCliEnvironmentCopyAction = (
     return {
       text: null,
       successMessage: null,
-      errorMessage: "CLI 环境变量尚未就绪，请先开启 Agent 集成并打开项目。",
+      errorMessage: copy.agentUi.integration.cliEnvironmentNotReady,
     };
   }
 
   return {
     text: environmentLines.join("\n"),
-    successMessage: "CLI 环境变量已复制。",
+    successMessage: copy.agentUi.integration.cliEnvironmentCopied,
     errorMessage: null,
   };
 };
@@ -419,20 +425,21 @@ export const buildAgentBoardStartupViewModel = ({
   phase: AgentBoardStartupPhase;
   bridgeStatus: DesktopAgentBridgeStatus | null | undefined;
 }): AgentBoardStartupViewModel => {
+  const startup = copy.agentUi.integration.startup;
   if (phase === "bridge-connection") {
     return {
-      heading: bridgeStatus ? "桌面端未连接" : "正在连接桌面端",
-      description: "请确认 CoreStudio 桌面端仍在运行，然后刷新连接状态。",
-      actionLabel: "刷新连接状态",
+      heading: bridgeStatus ? startup.disconnected : startup.connecting,
+      description: startup.connectionDescription,
+      actionLabel: startup.refresh,
     };
   }
 
   return {
-    heading: "正在进入桌面端当前项目",
+    heading: startup.openingProject,
     description: bridgeStatus?.currentProject?.name
-      ? `当前项目：${bridgeStatus.currentProject.name}`
-      : "已确认本地桥连接，正在读取桌面端当前项目。",
-    actionLabel: "重新加载当前画板",
+      ? startup.currentProject(bridgeStatus.currentProject.name)
+      : startup.loadingProject,
+    actionLabel: startup.reloadBoard,
   };
 };
 
@@ -495,16 +502,17 @@ export const buildAcpAgentGenerationViewModel = ({
   );
   const canSubmitMessage = ready && !taskRunning;
   const hasSelectedAgent = Boolean(integration.acp.agentName);
+  const composer = copy.agentUi.integration.composer;
   const unavailableMessage =
     hasSelectedAgent && integration.enabled
-      ? "Agent 暂不可用"
-      : "先在设置里启用 ACP Agent";
+      ? composer.unavailable
+      : composer.enableFirst;
 
   return {
     ready,
     canSubmitMessage,
     submitMessageDisabledReason: taskRunning
-      ? "当前任务处理中"
+      ? composer.taskRunning
       : unavailableMessage,
     composerConfig: {
       defaultMode: "direct",
@@ -514,7 +522,10 @@ export const buildAcpAgentGenerationViewModel = ({
       defaultGenerationSource: "builtin",
       showGenerationSourceSwitch: false,
       agentGenerationAvailable: canSubmitMessage,
-      agentGenerationUnavailableMessage: `${unavailableMessage}。`,
+      agentGenerationUnavailableMessage:
+        hasSelectedAgent && integration.enabled
+          ? composer.unavailableSentence
+          : composer.enableFirstSentence,
       agentTaskStatus,
     },
   };

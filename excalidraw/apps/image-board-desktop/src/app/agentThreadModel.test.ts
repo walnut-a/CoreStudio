@@ -12,6 +12,7 @@ import type {
   AcpThreadDetail,
   AcpThreadSummary,
 } from "../shared/acpTypes";
+import { setActiveDesktopLocale } from "./copy";
 
 const createSummary = (
   overrides: Partial<AcpRunSummary> = {},
@@ -70,6 +71,30 @@ const createRunLog = (
 });
 
 describe("agentThreadModel", () => {
+  it("localizes generated fallback labels without changing logged content", () => {
+    setActiveDesktopLocale("en");
+    const thread = createAgentThreadFromRunLog(
+      createRunLog(
+        [
+          createEntry(1, "task.created", {}),
+          createEntry(2, "status", { status: "initializing" }),
+          createEntry(3, "error", {}),
+          createEntry(4, "task.package", {}),
+        ],
+        createSummary({ userPrompt: "" }),
+      ),
+      { includeRawEntries: true },
+    );
+
+    expect(JSON.stringify(thread.messages)).toContain("Agent task");
+    expect(JSON.stringify(thread.messages)).toContain("Initializing");
+    expect(JSON.stringify(thread.messages)).toContain("Task error");
+    expect(JSON.stringify(thread.messages)).toContain(
+      "CoreStudio task package",
+    );
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("builds a user-facing thread with interleaved text, tools, and image results", () => {
     const thread = createAgentThreadFromRunLog(
       createRunLog([
@@ -255,8 +280,7 @@ describe("agentThreadModel", () => {
         tool: {
           title: "读取文件 · SKILL.md",
           status: "completed",
-          summary:
-            "路径：/Users/zhaolixing/.codex/skills/corestudio/SKILL.md",
+          summary: "路径：/Users/zhaolixing/.codex/skills/corestudio/SKILL.md",
           args: {
             path: "/Users/zhaolixing/.codex/skills/corestudio/SKILL.md",
           },

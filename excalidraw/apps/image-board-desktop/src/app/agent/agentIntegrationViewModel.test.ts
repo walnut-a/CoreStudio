@@ -13,6 +13,7 @@ import {
 
 import type { AcpAgentSettings } from "../../shared/acpTypes";
 import type { DesktopAgentBridgeStatus } from "../../shared/desktopBridgeTypes";
+import { setActiveDesktopLocale } from "../copy";
 
 const createBridgeStatus = (
   patch: Partial<DesktopAgentBridgeStatus> = {},
@@ -51,6 +52,40 @@ const createAcpSettings = (
 });
 
 describe("buildAgentIntegrationViewModel", () => {
+  it("localizes integration chrome while preserving project and Agent names", () => {
+    setActiveDesktopLocale("en");
+    const viewModel = buildAgentIntegrationViewModel({
+      bridgeStatus: createBridgeStatus(),
+      acpAgentSettings: createAcpSettings(),
+      runningTaskId: "task-1",
+    });
+
+    expect(viewModel).toMatchObject({
+      statusText: "Agent connected",
+      badgeText: "Online",
+      collaboration: {
+        statusText: "Available",
+        description: "Codex can access the current project.",
+        projectName: "测试项目",
+      },
+      project: {
+        name: "测试项目",
+        path: "/tmp/corestudio-project",
+      },
+      cli: {
+        statusText: "Can auto-discover the current session",
+      },
+      board: {
+        statusText: "Copy Board link",
+      },
+      acp: {
+        agentName: "测试 ACP Agent",
+        statusText: "Task running",
+      },
+    });
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("represents a disabled bridge as unavailable across dependent surfaces", () => {
     const viewModel = buildAgentIntegrationViewModel({
       bridgeStatus: createBridgeStatus({
@@ -266,6 +301,31 @@ describe("buildAgentCliEnvironmentExports", () => {
 });
 
 describe("buildAgentBoardStartupViewModel", () => {
+  it("localizes startup chrome while preserving the current project name", () => {
+    setActiveDesktopLocale("en");
+
+    expect(
+      buildAgentBoardStartupViewModel({
+        phase: "project-loading",
+        bridgeStatus: createBridgeStatus({
+          currentProject: {
+            projectPath: "/tmp/corestudio-project",
+            name: "工业设计助手",
+            agentAccess: {
+              enabled: true,
+              token: "project-token",
+            },
+          },
+        }),
+      }),
+    ).toEqual({
+      heading: "Opening the current desktop project",
+      description: "Current project: 工业设计助手",
+      actionLabel: "Reload current board",
+    });
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("explains the initial desktop connection wait state", () => {
     expect(
       buildAgentBoardStartupViewModel({
@@ -331,6 +391,23 @@ describe("buildAgentBoardStartupViewModel", () => {
 });
 
 describe("Agent integration copy actions", () => {
+  it("localizes copy feedback without changing copied environment data", () => {
+    setActiveDesktopLocale("en");
+    const integration = buildAgentIntegrationViewModel({
+      bridgeStatus: createBridgeStatus(),
+    });
+
+    expect(buildAgentBoardCopyAction(integration)).toMatchObject({
+      text: integration.bridge.boardUrl,
+      successMessage: "Agent Board link copied.",
+    });
+    expect(buildAgentCliEnvironmentCopyAction(integration)).toMatchObject({
+      text: expect.stringContaining("CORESTUDIO_AGENT_PROJECT_TOKEN"),
+      successMessage: "CLI environment variables copied.",
+    });
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("builds the Board link copy action from the integration state", () => {
     const readyIntegration = buildAgentIntegrationViewModel({
       bridgeStatus: createBridgeStatus(),
@@ -473,6 +550,29 @@ describe("buildAgentBoardStartupRenderPlan", () => {
 });
 
 describe("buildAcpAgentGenerationViewModel", () => {
+  it("localizes ACP composer availability messages", () => {
+    setActiveDesktopLocale("en");
+    const integration = buildAgentIntegrationViewModel({
+      bridgeStatus: createBridgeStatus(),
+      acpAgentSettings: createAcpSettings({ enabled: false }),
+    });
+    const viewModel = buildAcpAgentGenerationViewModel({
+      integration,
+      isAgentBrowserRoute: false,
+      canStartAcpAgentTask: false,
+      taskRunning: false,
+      agentTaskStatus: null,
+    });
+
+    expect(viewModel.submitMessageDisabledReason).toBe(
+      "Enable ACP Agent in Settings first",
+    );
+    expect(viewModel.composerConfig.agentGenerationUnavailableMessage).toBe(
+      "Enable ACP Agent in Settings first.",
+    );
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("builds desktop ACP generation composer and conversation availability", () => {
     const integration = buildAgentIntegrationViewModel({
       bridgeStatus: createBridgeStatus(),

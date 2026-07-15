@@ -10,6 +10,7 @@ import {
 } from "./acpTaskUiState";
 
 import type { AcpRunLogEntry, AcpTaskEvent } from "../../shared/acpTypes";
+import { setActiveDesktopLocale } from "../copy";
 
 const createRunLogEntry = (
   patch: Partial<AcpRunLogEntry> = {},
@@ -101,6 +102,56 @@ describe("appendAcpAgentTimelineItem", () => {
 });
 
 describe("applyAcpTaskEventToUiState", () => {
+  it("localizes timeline chrome while preserving Agent, tool, and error content", () => {
+    setActiveDesktopLocale("en");
+    const createId = createIdFactory();
+    const afterMessage = applyAcpTaskEventToUiState(
+      null,
+      {
+        taskId: "task-1",
+        type: "agent-message",
+        messageId: "message-1",
+        text: "保留中文回复",
+      },
+      { createId },
+    );
+    const afterTool = applyAcpTaskEventToUiState(
+      afterMessage,
+      {
+        taskId: "task-1",
+        type: "tool",
+        title: "读取文件",
+        status: "failed",
+      },
+      { createId },
+    );
+    const afterError = applyAcpTaskEventToUiState(
+      afterTool,
+      {
+        taskId: "task-1",
+        type: "error",
+        code: "COMMAND_FAILED",
+        message: "原始错误内容",
+      },
+      { createId },
+    );
+
+    expect(afterMessage).toMatchObject({
+      message: "Agent is working",
+      transcript: "保留中文回复",
+      events: [{ title: "Agent reply", detail: "保留中文回复" }],
+    });
+    expect(afterTool.events[1]).toMatchObject({
+      title: "读取文件",
+      detail: "Failed",
+    });
+    expect(afterError.events[2]).toMatchObject({
+      title: "Task failed",
+      detail: "原始错误内容",
+    });
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("creates status timeline items and maps terminal status tones", () => {
     const event: AcpTaskEvent = {
       taskId: "task-1",
@@ -219,6 +270,22 @@ describe("applyAcpTaskEventToUiState", () => {
 });
 
 describe("buildAcpTaskStartUiState", () => {
+  it("localizes the initial task connection state", () => {
+    setActiveDesktopLocale("en");
+
+    expect(
+      buildAcpTaskStartUiState({
+        taskId: "task-1",
+        threadId: "thread-1",
+        createId: createIdFactory(),
+      }).agentTask,
+    ).toMatchObject({
+      message: "Connecting to ACP Agent",
+      events: [{ title: "Connecting to ACP Agent" }],
+    });
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("builds the active conversation state for a newly started ACP task", () => {
     expect(
       buildAcpTaskStartUiState({

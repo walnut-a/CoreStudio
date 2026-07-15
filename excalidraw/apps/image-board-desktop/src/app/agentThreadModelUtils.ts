@@ -8,6 +8,7 @@ import type {
   AgentThreadStatus,
   AgentToolStatus,
 } from "./agentThreadTypes";
+import { copy } from "./copy";
 
 export const RAW_ACP_RUN_LOG_KINDS = new Set<AcpRunLogKind>([
   "acp.request",
@@ -76,19 +77,19 @@ export const normalizeToolStatus = (status: unknown): AgentToolStatus => {
 export const getStatusLabel = (status: string) => {
   switch (status) {
     case "running":
-      return "运行中";
+      return copy.agentUi.status.running;
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
     case "cancelled":
-      return "已取消";
+      return copy.agentUi.status.cancelled;
     case "connecting":
-      return "连接中";
+      return copy.agentUi.status.connecting;
     case "initializing":
-      return "初始化中";
+      return copy.agentUi.runLog.initializing;
     case "creating-session":
-      return "创建会话";
+      return copy.agentUi.status.creatingSession;
     default:
       return status;
   }
@@ -97,19 +98,17 @@ export const getStatusLabel = (status: string) => {
 export const getToolStatusLabel = (status: AgentToolStatus) => {
   switch (status) {
     case "pending":
-      return "等待调用";
+      return copy.agentUi.runLog.toolPending;
     case "running":
-      return "调用中";
+      return copy.agentUi.runLog.toolRunning;
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
   }
 };
 
-export const createRawEntryRef = (
-  entry: AcpRunLogEntry,
-): AgentRawEntryRef => ({
+export const createRawEntryRef = (entry: AcpRunLogEntry): AgentRawEntryRef => ({
   taskId: entry.taskId,
   seq: entry.seq,
   kind: entry.kind,
@@ -236,8 +235,12 @@ const extractToolSubject = (title: string, input: unknown) => {
   return null;
 };
 
+const isGenericAgentToolTitle = (title: string) =>
+  title === "Agent 工具" || title === "Agent tool";
+
 const getToolActionLabel = (name: string, title: string, input: unknown) => {
-  if (/[\u4e00-\u9fff]/.test(title) && title !== "Agent 工具") {
+  const labels = copy.agentUi.toolDisplay;
+  if (/^[\u4e00-\u9fff]/.test(title) && !isGenericAgentToolTitle(title)) {
     return title;
   }
 
@@ -246,16 +249,16 @@ const getToolActionLabel = (name: string, title: string, input: unknown) => {
     .toLocaleLowerCase();
 
   if (normalized.includes("corestudio write")) {
-    return "写入画板";
+    return labels.writeBoard;
   }
   if (normalized.includes("corestudio read")) {
-    return "读取项目";
+    return labels.readProject;
   }
   if (normalized.includes("corestudio edit")) {
-    return "操作画板";
+    return labels.operateBoard;
   }
   if (normalized.includes("read file") || /\bread\b/.test(normalized)) {
-    return "读取文件";
+    return labels.readFile;
   }
   if (
     normalized.includes("search for") ||
@@ -263,19 +266,19 @@ const getToolActionLabel = (name: string, title: string, input: unknown) => {
     normalized.includes("rg ") ||
     normalized.includes("grep ")
   ) {
-    return "搜索内容";
+    return labels.searchContent;
   }
   if (
     normalized.includes("bash") ||
     normalized.includes("shell") ||
     normalized.includes("command")
   ) {
-    return "执行命令";
+    return labels.runCommand;
   }
-  if (title && title !== "Agent 工具") {
+  if (title && !isGenericAgentToolTitle(title)) {
     return title;
   }
-  return "Agent 工具";
+  return labels.agentTool;
 };
 
 export const createToolDisplay = (
@@ -290,12 +293,12 @@ export const createToolDisplay = (
     : action;
   const summary =
     subject?.kind === "path"
-      ? `路径：${subject.detail}`
+      ? copy.agentUi.toolDisplay.path(subject.detail)
       : subject?.kind === "query"
-        ? `关键词：${subject.detail}`
-        : subject?.kind === "command"
-          ? `命令：${subject.detail}`
-          : subject?.detail;
+      ? copy.agentUi.toolDisplay.query(subject.detail)
+      : subject?.kind === "command"
+      ? copy.agentUi.toolDisplay.command(subject.detail)
+      : subject?.detail;
 
   return { title, summary };
 };
@@ -304,13 +307,19 @@ export const getRawProtocolLabel = (entry: AcpRunLogEntry) => {
   const record = getPayloadRecord(entry.payload);
   switch (entry.kind) {
     case "acp.request":
-      return `ACP 请求${typeof record?.method === "string" ? ` · ${record.method}` : ""}`;
+      return copy.agentUi.runLog.acpRequest(
+        typeof record?.method === "string" ? record.method : "",
+      );
     case "acp.response":
-      return "ACP 响应";
+      return copy.agentUi.runLog.acpResponse;
     case "acp.notification":
-      return `ACP 通知${typeof record?.method === "string" ? ` · ${record.method}` : ""}`;
+      return copy.agentUi.runLog.acpNotification(
+        typeof record?.method === "string" ? record.method : "",
+      );
     case "stderr":
-      return getPayloadText(entry.payload, ["line", "message"]) ?? "Agent stderr";
+      return (
+        getPayloadText(entry.payload, ["line", "message"]) ?? "Agent stderr"
+      );
     default:
       return null;
   }

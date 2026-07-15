@@ -35,6 +35,7 @@ import {
   getStatusLabel,
   normalizeThreadStatus,
 } from "./agentThreadModelUtils";
+import { copy } from "./copy";
 
 export type {
   AgentErrorPart,
@@ -158,8 +159,8 @@ const handleEntry = (
     case "task.created": {
       const text =
         getPayloadText(entry.payload, ["userPrompt", "prompt"]) ??
-        options.fallbackUserPrompt ??
-        "Agent 任务";
+        (options.fallbackUserPrompt?.trim() ||
+          copy.agentUi.threadModel.agentTask);
       pushMessage(state, "user", entry, [
         createAgentTextPart(state, entry, text),
       ]);
@@ -184,13 +185,14 @@ const handleEntry = (
         getPayloadText(entry.payload, ["message"]) ??
         (typeof record?.status === "string"
           ? getStatusLabel(record.status)
-          : "状态更新");
+          : copy.agentUi.threadModel.statusUpdate);
       appendSystemStatus(state, entry, text);
       return;
     }
     case "error": {
       const message =
-        getPayloadText(entry.payload, ["message", "error"]) ?? "任务错误";
+        getPayloadText(entry.payload, ["message", "error"]) ??
+        copy.agentUi.threadModel.taskError;
       appendSystemError(state, entry, message);
       return;
     }
@@ -203,14 +205,14 @@ const handleEntry = (
           state,
           entry,
           getPayloadText(entry.payload, ["errorMessage", "message", "error"]) ??
-            "任务失败",
+            copy.agentUi.threadModel.taskFailed,
         );
       }
       return;
     }
     case "task.package":
       if (options.includeRawEntries) {
-        appendSystemStatus(state, entry, "CoreStudio 任务包");
+        appendSystemStatus(state, entry, copy.agentUi.threadModel.taskPackage);
       }
       return;
   }

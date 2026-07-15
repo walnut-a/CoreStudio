@@ -3,6 +3,7 @@ import type {
   AcpTaskEvent,
   AcpTaskStatus,
 } from "../../shared/acpTypes";
+import { copy } from "../copy";
 
 export const MAX_ACP_AGENT_TIMELINE_ITEMS = 24;
 
@@ -115,12 +116,12 @@ export const buildAcpTaskStartUiState = ({
   agentTask: {
     taskId,
     status: "connecting",
-    message: "正在连接 ACP Agent",
+    message: copy.agentUi.acpTask.connecting,
     transcript: "",
     events: [
       createAcpAgentTimelineItem(
         {
-          title: "正在连接 ACP Agent",
+          title: copy.agentUi.acpTask.connecting,
         },
         createId,
       ),
@@ -159,10 +160,9 @@ export const appendAcpAgentTimelineItem = ({
       });
     }
   }
-  return [
-    ...currentEvents,
-    createAcpAgentTimelineItem(item, createId),
-  ].slice(-MAX_ACP_AGENT_TIMELINE_ITEMS);
+  return [...currentEvents, createAcpAgentTimelineItem(item, createId)].slice(
+    -MAX_ACP_AGENT_TIMELINE_ITEMS,
+  );
 };
 
 export const getAcpToolStatusLabel = (
@@ -170,13 +170,13 @@ export const getAcpToolStatusLabel = (
 ) => {
   switch (status) {
     case "pending":
-      return "等待调用";
+      return copy.agentUi.runLog.toolPending;
     case "in_progress":
-      return "调用中";
+      return copy.agentUi.runLog.toolRunning;
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
   }
 };
 
@@ -213,15 +213,17 @@ export const applyAcpTaskEventToUiState = (
       taskId: event.taskId,
       status: current?.taskId === event.taskId ? current.status : "running",
       message:
-        current?.taskId === event.taskId ? current.message : "Agent 正在处理",
-      transcript: `${current?.taskId === event.taskId ? current.transcript : ""}${
-        event.text
-      }`.trim(),
+        current?.taskId === event.taskId
+          ? current.message
+          : copy.agentUi.acpTask.agentWorking,
+      transcript: `${
+        current?.taskId === event.taskId ? current.transcript : ""
+      }${event.text}`.trim(),
       events: appendAcpAgentTimelineItem({
         current,
         taskId: event.taskId,
         item: {
-          title: "Agent 回复",
+          title: copy.agentUi.acpTask.agentReply,
           detail: event.text,
           mergeKey: `agent-message:${event.messageId ?? event.taskId}`,
         },
@@ -260,7 +262,7 @@ export const applyAcpTaskEventToUiState = (
       current,
       taskId: event.taskId,
       item: {
-        title: "任务失败",
+        title: copy.agentUi.acpTask.taskFailed,
         detail: event.message,
         tone: "danger",
       },

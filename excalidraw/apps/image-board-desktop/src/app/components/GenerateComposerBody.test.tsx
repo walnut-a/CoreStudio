@@ -1,13 +1,16 @@
 import { createRef } from "react";
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setActiveDesktopLocale } from "../copy";
 import {
   GenerateComposerAgentContext,
   GenerateComposerPromptBody,
 } from "./GenerateComposerBody";
 import type { InlinePromptEditorHandle } from "./InlinePromptEditor";
+
+afterEach(() => setActiveDesktopLocale("zh-CN"));
 
 describe("GenerateComposerAgentContext", () => {
   it("renders an empty selection state", () => {
@@ -16,9 +19,7 @@ describe("GenerateComposerAgentContext", () => {
     expect(
       screen.getByRole("region", { name: "Agent 上下文" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("当前选区")).toHaveTextContent(
-      "暂无选中元素",
-    );
+    expect(screen.getByLabelText("当前选区")).toHaveTextContent("暂无选中元素");
   });
 
   it("renders selected image items with thumbnails", () => {
@@ -43,9 +44,11 @@ describe("GenerateComposerAgentContext", () => {
     );
 
     const selection = screen.getByLabelText("当前选区");
-    expect(within(selection).getByRole("img", {
-      name: "图片 1 缩略图",
-    })).toHaveAttribute("src", "data:image/png;base64,abc");
+    expect(
+      within(selection).getByRole("img", {
+        name: "图片 1 缩略图",
+      }),
+    ).toHaveAttribute("src", "data:image/png;base64,abc");
     expect(within(selection).getByText("1")).toBeInTheDocument();
     expect(within(selection).getByText("图片")).toBeInTheDocument();
     expect(within(selection).getByText("2")).toBeInTheDocument();
@@ -115,5 +118,62 @@ describe("GenerateComposerPromptBody", () => {
     expect(screen.getByRole("textbox", { name: "提示词" })).toHaveTextContent(
       "一台桌面 CNC",
     );
+  });
+
+  it("localizes inline reference accessibility labels", () => {
+    setActiveDesktopLocale("en");
+
+    render(
+      <GenerateComposerPromptBody
+        promptEditorRef={createRef<InlinePromptEditorHandle>()}
+        ariaLabel="Prompt"
+        placeholder="Describe what you want to generate"
+        parts={[{ type: "reference", referenceId: "reference-1" }]}
+        references={[
+          {
+            id: "reference-1",
+            label: "参考图",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            thumbnailDataUrl: "data:image/png;base64,abc",
+          },
+        ]}
+        pendingReference={{
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+          items: [
+            {
+              id: "pending-image",
+              index: 1,
+              kind: "image",
+              label: "图片",
+              thumbnailDataUrl: "data:image/png;base64,def",
+            },
+          ],
+        }}
+        resetKey={0}
+        referenceLimitMessage={null}
+        onChange={vi.fn()}
+        onFocusIntent={vi.fn()}
+        onMouseDown={vi.fn()}
+        onKeyPressCapture={vi.fn()}
+        onKeyUpCapture={vi.fn()}
+        onKeyDown={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", { name: "1 参考图 thumbnail" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("2 Image, pending confirmation"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "2 Image pending confirmation thumbnail",
+      }),
+    ).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setActiveDesktopLocale } from "../copy";
 import {
   GenerationRecordSidebar,
   type GenerationRecordListItem,
@@ -24,6 +25,8 @@ const records: GenerationRecordListItem[] = [
 ];
 
 describe("GenerationRecordSidebar", () => {
+  afterEach(() => setActiveDesktopLocale("zh-CN"));
+
   it("renders generation records with thumbnails and metadata", () => {
     const { container } = render(<GenerationRecordSidebar records={records} />);
 
@@ -63,5 +66,15 @@ describe("GenerationRecordSidebar", () => {
     render(<GenerationRecordSidebar records={[]} />);
 
     expect(screen.queryByLabelText("生成任务列表")).toBeNull();
+  });
+
+  it("localizes the list label without rewriting record content", () => {
+    setActiveDesktopLocale("en");
+
+    render(<GenerationRecordSidebar records={records} />);
+
+    const list = screen.getByLabelText("Generation tasks");
+    expect(within(list).getByText("苹果风 CNC")).toBeInTheDocument();
+    expect(within(list).getByText(/已上画板/)).toBeInTheDocument();
   });
 });

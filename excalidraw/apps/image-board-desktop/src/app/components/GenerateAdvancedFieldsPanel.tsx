@@ -91,7 +91,9 @@ export const GenerateAdvancedFieldsPanel = ({
         >
           {Object.values(providerModels).map((model) => (
             <option key={model.id} value={model.id}>
-              {model.custom ? `自定义：${model.label}` : model.label}
+              {model.custom
+                ? copy.generateDialog.customModel(model.label)
+                : model.label}
             </option>
           ))}
         </select>

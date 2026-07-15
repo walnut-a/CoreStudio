@@ -24,8 +24,8 @@ export const AppBridgeUnavailable = ({
             <div className="welcome-pane">
               <div className="welcome-pane__card welcome-pane__diagnostic">
                 <span className="welcome-pane__eyebrow">Agent Board</span>
-                <h1>正在载入内置画板</h1>
-                <p>请稍等，CoreStudio 正在准备 Agent Board。</p>
+                <h1>{copy.agentBoard.loadingBuiltInTitle}</h1>
+                <p>{copy.agentBoard.loadingBuiltInDescription}</p>
               </div>
             </div>
           </div>

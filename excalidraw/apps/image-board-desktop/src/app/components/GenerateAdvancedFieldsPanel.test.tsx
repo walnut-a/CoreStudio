@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GenerateAdvancedFieldsPanel } from "./GenerateAdvancedFieldsPanel";
-import { copy } from "../copy";
+import { copy, setActiveDesktopLocale } from "../copy";
 
 import type {
   GenerationField,
@@ -118,6 +118,8 @@ const renderPanel = (
 };
 
 describe("GenerateAdvancedFieldsPanel", () => {
+  afterEach(() => setActiveDesktopLocale("zh-CN"));
+
   it("only lists providers already configured in application settings", () => {
     renderPanel({ configuredProviders: ["gemini", "zenmux"] });
 
@@ -128,6 +130,14 @@ describe("GenerateAdvancedFieldsPanel", () => {
       "gemini",
       "zenmux",
     ]);
+  });
+
+  it("localizes the custom model prefix without rewriting its label", () => {
+    setActiveDesktopLocale("en");
+
+    renderPanel();
+
+    expect(screen.getByText("Custom: 自定义模型")).toBeInTheDocument();
   });
 
   it("hides provider and model controls when nothing is configured", () => {

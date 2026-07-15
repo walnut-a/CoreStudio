@@ -45,7 +45,7 @@ export const InspectorSidebar = ({
   return (
     <SideDock
       side="right"
-      title="详情"
+      title={copy.inspector.sidebarTitle}
       open={open}
       onOpenChange={onOpenChange}
     >
@@ -59,7 +59,7 @@ export const InspectorSidebar = ({
               selectedShapeActions
             ) : (
               <p className="inspector-sidebar__empty">
-                选中元素后可在这里调整样式。
+                {copy.inspector.selectElementHint}
               </p>
             )}
           </div>

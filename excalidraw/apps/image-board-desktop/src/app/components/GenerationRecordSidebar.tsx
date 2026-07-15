@@ -1,3 +1,5 @@
+import { copy } from "../copy";
+
 export interface GenerationRecordListItem {
   id: string;
   fileId: string;
@@ -21,7 +23,7 @@ export const GenerationRecordSidebar = ({
       {records.length > 0 ? (
         <div
           className="generation-record-sidebar__list"
-          aria-label="生成任务列表"
+          aria-label={copy.agentUi.generationRecordsList}
         >
           {records.map((record) => (
             <button
@@ -42,7 +44,9 @@ export const GenerationRecordSidebar = ({
               <span className="generation-record-sidebar__item-body">
                 <strong>{record.title}</strong>
                 <span>
-                  {[record.meta, record.statusLabel].filter(Boolean).join(" · ")}
+                  {[record.meta, record.statusLabel]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </span>
             </button>

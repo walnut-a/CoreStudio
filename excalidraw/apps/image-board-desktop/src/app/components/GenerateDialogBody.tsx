@@ -34,7 +34,7 @@ export const GenerateDialogBody = ({
           <span>{copy.generateDialog.providerWarning}</span>
           {onOpenProviderSettings ? (
             <DesktopButton type="button" onClick={onOpenProviderSettings}>
-              打开应用设置
+              {copy.generateDialog.openApplicationSettings}
             </DesktopButton>
           ) : null}
         </div>

@@ -15,10 +15,10 @@ export const ProjectMainMenu = ({
   onSwitchProject,
 }: ProjectMainMenuProps) => (
   <MainMenu>
-    <MainMenu.Group title="CoreStudio 项目">
+    <MainMenu.Group title={copy.menu.projectGroup}>
       <MainMenu.ItemCustom
         className="project-main-menu__current"
-        aria-label={`当前项目：${currentProjectName}`}
+        aria-label={copy.menu.currentProject(currentProjectName)}
       >
         <strong>{currentProjectName}</strong>
       </MainMenu.ItemCustom>

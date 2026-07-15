@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setActiveDesktopLocale } from "../copy";
 import { WelcomePane } from "./WelcomePane";
 
 const recentProjects = [
@@ -12,6 +13,8 @@ const recentProjects = [
 ];
 
 describe("WelcomePane", () => {
+  afterEach(() => setActiveDesktopLocale("zh-CN"));
+
   it("keeps Agent collaboration controls out of the welcome page", () => {
     render(
       <WelcomePane
@@ -28,8 +31,9 @@ describe("WelcomePane", () => {
     expect(screen.queryByText("任务说明模板")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("命令")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("参数")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "复制 Board 链接" })).not.toBeInTheDocument();
-
+    expect(
+      screen.queryByRole("button", { name: "复制 Board 链接" }),
+    ).not.toBeInTheDocument();
   });
 
   it("separates deleting a project record from deleting local project data", () => {
@@ -48,9 +52,7 @@ describe("WelcomePane", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "删除项目：常用项目" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "删除项目：常用项目" }));
 
     expect(
       screen.getByRole("dialog", { name: "删除项目" }),
@@ -74,5 +76,33 @@ describe("WelcomePane", () => {
     expect(onRemoveRecentProject).toHaveBeenCalledWith(
       "/Users/zhaolixing/Documents/工业设计助手/常用项目",
     );
+  });
+
+  it("localizes the delete dialog chrome without rewriting project data", () => {
+    setActiveDesktopLocale("en");
+
+    render(
+      <WelcomePane
+        loading={false}
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        recentProjects={recentProjects}
+        onOpenRecentProject={vi.fn()}
+        onRemoveRecentProject={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove project：常用项目" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Remove project" });
+    expect(within(dialog).getByText("Projects")).toBeInTheDocument();
+    expect(within(dialog).getByText("常用项目")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "/Users/zhaolixing/Documents/工业设计助手/常用项目",
+      ),
+    ).toBeInTheDocument();
   });
 });

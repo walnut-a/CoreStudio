@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GenerateDialogBody } from "./GenerateDialogBody";
-import { copy } from "../copy";
+import { copy, setActiveDesktopLocale } from "../copy";
 
 const renderBody = (
   overrides: Partial<Parameters<typeof GenerateDialogBody>[0]> = {},
@@ -28,6 +28,8 @@ const renderBody = (
 };
 
 describe("GenerateDialogBody", () => {
+  afterEach(() => setActiveDesktopLocale("zh-CN"));
+
   it("renders nothing when the composer body is collapsed", () => {
     const { container } = renderBody({ show: false });
 
@@ -65,5 +67,18 @@ describe("GenerateDialogBody", () => {
 
     expect(screen.queryByText("高级参数")).toBeNull();
     expect(screen.queryByText("模型参数")).toBeNull();
+  });
+
+  it("localizes the application settings action", () => {
+    setActiveDesktopLocale("en");
+
+    renderBody({
+      isConfigured: false,
+      onOpenProviderSettings: vi.fn(),
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Open Application Settings" }),
+    ).toBeInTheDocument();
   });
 });

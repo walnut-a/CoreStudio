@@ -63,6 +63,7 @@ const zhCnCopy = {
     expandSettings: "展开设置",
     collapseSettings: "收起设置",
     providerWarning: "尚未配置图像生成服务。",
+    openApplicationSettings: "打开应用设置",
     provider: "模型服务",
     model: "模型",
     prompt: "提示词",
@@ -73,6 +74,14 @@ const zhCnCopy = {
     height: "高度",
     seed: "种子",
     imageCount: "出图数量",
+    customModel: (label: string) => `自定义：${label}`,
+    referenceThumbnail: (label: string) => `${label} 缩略图`,
+    pendingReference: (index: number, label: string) =>
+      `${index} ${label}，待确认`,
+    pendingReferenceThumbnail: (index: number, label: string) =>
+      `${index} ${label}待确认缩略图`,
+    pendingImage: "图片",
+    pendingAnnotatedImage: "标注图",
     referenceTitle: "参考信息",
     referenceToggle: "使用当前选区作为参考",
     referenceRemove: "移除引用",
@@ -109,6 +118,8 @@ const zhCnCopy = {
   },
   inspector: {
     title: "图片信息",
+    sidebarTitle: "详情",
+    selectElementHint: "选中元素后可在这里调整样式。",
     sidebarToggle: "侧边栏",
     empty:
       "选中一张 AI 生成图片，或一个生成任务占位框，查看提示词、模型、尺寸和任务状态。",
@@ -129,6 +140,7 @@ const zhCnCopy = {
     currentImage: "当前图片",
     descendantImages: "后续版本",
     locateImage: "定位到图片",
+    locateReference: (label: string) => `定位${label}`,
     provider: "模型服务",
     importedProvider: "导入",
     externalAgentProvider: "外部 Agent",
@@ -140,6 +152,7 @@ const zhCnCopy = {
     negativePrompt: "反向提示词",
     seed: "种子",
     size: "尺寸",
+    autoAspectRatio: "自动比例",
     createdAt: "创建时间",
     emptyValue: "无",
     copyPrompt: "复制提示词",
@@ -193,6 +206,8 @@ const zhCnCopy = {
       "本地优先的工业设计 AI 画板，用来整理参考、生成方案和沉淀设计过程。",
   },
   menu: {
+    projectGroup: "CoreStudio 项目",
+    currentProject: (name: string) => `当前项目：${name}`,
     file: "文件",
     newProject: "新建项目",
     openProject: "打开项目",
@@ -303,6 +318,7 @@ const zhCnCopy = {
       arguments: "参数",
       workingDirectory: "工作目录",
       defaultWorkingDirectory: (cwd: string) => `默认：${cwd}`,
+      currentProjectDirectory: "当前项目目录",
       taskInstructionTemplate: "任务说明模板",
       currentAgent: (name: string, command: string) =>
         `当前：${name} · ${command}`,
@@ -365,6 +381,7 @@ const zhCnCopy = {
   agentUi: {
     conversationTitle: "Agent 对话",
     generationRecordsTitle: "生成记录",
+    generationRecordsList: "生成任务列表",
     historyLabel: "Agent 历史对话",
     status: {
       completed: "已完成",
@@ -482,6 +499,8 @@ const zhCnCopy = {
     defaultTitle: "CoreStudio Agent Board",
     description:
       "在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回使用本地项目 token 完成。",
+    loadingBuiltInTitle: "正在载入内置画板",
+    loadingBuiltInDescription: "请稍等，CoreStudio 正在准备 Agent Board。",
     refreshing: "刷新中",
     refresh: "刷新",
     loadingBoard: "正在载入画板",

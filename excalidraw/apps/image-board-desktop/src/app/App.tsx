@@ -1832,7 +1832,7 @@ const App = ({
             defaultCwd={
               currentProject?.projectPath ??
               agentBridgeStatus?.currentProject?.projectPath ??
-              "当前项目目录"
+              copy.applicationSettings.acpAdvancedPage.currentProjectDirectory
             }
             onBack={() => {
               setAcpAdvancedSettingsOpen(false);

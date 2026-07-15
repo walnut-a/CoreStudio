@@ -52,6 +52,7 @@ export const enCopy: DesktopCopy = {
     expandSettings: "Expand settings",
     collapseSettings: "Collapse settings",
     providerWarning: "No image generation service is configured.",
+    openApplicationSettings: "Open Application Settings",
     provider: "Model service",
     model: "Model",
     prompt: "Prompt",
@@ -62,6 +63,14 @@ export const enCopy: DesktopCopy = {
     height: "Height",
     seed: "Seed",
     imageCount: "Image count",
+    customModel: (label: string) => `Custom: ${label}`,
+    referenceThumbnail: (label: string) => `${label} thumbnail`,
+    pendingReference: (index: number, label: string) =>
+      `${index} ${label}, pending confirmation`,
+    pendingReferenceThumbnail: (index: number, label: string) =>
+      `${index} ${label} pending confirmation thumbnail`,
+    pendingImage: "Image",
+    pendingAnnotatedImage: "Annotated image",
     referenceTitle: "References",
     referenceToggle: "Use the current selection as a reference",
     referenceRemove: "Remove reference",
@@ -98,6 +107,8 @@ export const enCopy: DesktopCopy = {
   },
   inspector: {
     title: "Image details",
+    sidebarTitle: "Details",
+    selectElementHint: "Select an element to adjust its style here.",
     sidebarToggle: "Sidebar",
     empty:
       "Select an AI-generated image or generation placeholder to inspect its prompt, model, size, and task status.",
@@ -118,6 +129,7 @@ export const enCopy: DesktopCopy = {
     currentImage: "Current image",
     descendantImages: "Later versions",
     locateImage: "Locate image",
+    locateReference: (label: string) => `Locate ${label}`,
     provider: "Model service",
     importedProvider: "Imported",
     externalAgentProvider: "External Agent",
@@ -129,6 +141,7 @@ export const enCopy: DesktopCopy = {
     negativePrompt: "Negative prompt",
     seed: "Seed",
     size: "Size",
+    autoAspectRatio: "Auto aspect ratio",
     createdAt: "Created",
     emptyValue: "None",
     copyPrompt: "Copy prompt",
@@ -184,6 +197,8 @@ export const enCopy: DesktopCopy = {
       "A local-first AI board for industrial design, built to organize references, generate concepts, and preserve the design process.",
   },
   menu: {
+    projectGroup: "CoreStudio Project",
+    currentProject: (name: string) => `Current project: ${name}`,
     file: "File",
     newProject: "New Project",
     openProject: "Open Project",
@@ -302,6 +317,7 @@ export const enCopy: DesktopCopy = {
       arguments: "Arguments",
       workingDirectory: "Working Directory",
       defaultWorkingDirectory: (cwd: string) => `Default: ${cwd}`,
+      currentProjectDirectory: "Current project directory",
       taskInstructionTemplate: "Task Instruction Template",
       currentAgent: (name: string, command: string) =>
         `Current: ${name} · ${command}`,
@@ -368,6 +384,7 @@ export const enCopy: DesktopCopy = {
   agentUi: {
     conversationTitle: "Agent Conversation",
     generationRecordsTitle: "Generation History",
+    generationRecordsList: "Generation tasks",
     historyLabel: "Agent conversation history",
     status: {
       completed: "Completed",
@@ -487,6 +504,9 @@ export const enCopy: DesktopCopy = {
     defaultTitle: "CoreStudio Agent Board",
     description:
       "View the current CoreStudio board in Codex's built-in browser. Write-back uses the local project token.",
+    loadingBuiltInTitle: "Loading built-in board",
+    loadingBuiltInDescription:
+      "Please wait while CoreStudio prepares Agent Board.",
     refreshing: "Refreshing",
     refresh: "Refresh",
     loadingBoard: "Loading board",

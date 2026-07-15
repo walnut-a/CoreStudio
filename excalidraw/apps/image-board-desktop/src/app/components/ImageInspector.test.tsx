@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ImageRecord } from "../../shared/projectTypes";
 import type { ImagePromptReferenceRecord } from "../../shared/projectTypes";
+import { setActiveDesktopLocale } from "../copy";
 import { ImageInspector } from "./ImageInspector";
 
 const generatedRecord: ImageRecord = {
@@ -64,6 +65,7 @@ const renderInspector = (
   );
 
 afterEach(() => {
+  setActiveDesktopLocale("zh-CN");
   window.getSelection()?.removeAllRanges();
 });
 
@@ -169,6 +171,32 @@ describe("ImageInspector", () => {
     fireEvent.click(screen.getByRole("button", { name: "定位参考图 1" }));
 
     expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);
+  });
+
+  it("localizes locate actions without rewriting reference labels", () => {
+    setActiveDesktopLocale("en");
+    const promptReference: ImagePromptReferenceRecord = {
+      id: "reference-style",
+      index: 1,
+      label: "参考图 1",
+      kind: "image",
+      fileIds: ["file-style"],
+      elementIds: ["element-style"],
+    };
+
+    renderInspector({
+      record: {
+        ...generatedRecord,
+        prompt: "风格参考这个：参考图 1。",
+        promptReferences: [promptReference],
+      },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Locate 参考图 1" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/风格参考这个/)).toHaveLength(2);
+    expect(screen.getByText(/4\/12\/2026.*风格参考这个/)).toBeInTheDocument();
   });
 
   it("shows ACP Agent provenance and prompt references for externally generated images", () => {

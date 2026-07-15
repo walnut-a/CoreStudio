@@ -39,7 +39,7 @@ const getImageRecordSummary = (record: ImageRecord) => {
     : record.fileId;
 
   return `${new Date(record.createdAt).toLocaleString(
-    "zh-CN",
+    DESKTOP_LANG_CODE,
   )} · ${promptSummary}`;
 };
 
@@ -63,7 +63,9 @@ const formatDateTime = (value: string) =>
 
 const formatSize = (width: number, height: number) => `${width} × ${height}`;
 const formatTaskSize = (task: GenerationTaskRecord) =>
-  task.aspectRatio === null ? "自动比例" : formatSize(task.width, task.height);
+  task.aspectRatio === null
+    ? copy.inspector.autoAspectRatio
+    : formatSize(task.width, task.height);
 
 const getProviderLabel = (record: ImageRecord) => {
   if (record.provider) {
@@ -119,7 +121,7 @@ const renderPromptTextWithReferences = (
         key={reference.id}
         type="button"
         className="image-inspector__prompt-reference"
-        aria-label={`定位${placeholder}`}
+        aria-label={copy.inspector.locateReference(placeholder)}
         title={copy.inspector.locateImage}
         onClick={() => onLocatePromptReference(reference)}
       >
@@ -357,7 +359,7 @@ export const ImageInspector = ({
                   key={reference.id}
                   type="button"
                   className="image-inspector__prompt-reference-chip"
-                  aria-label={`定位${reference.label}`}
+                  aria-label={copy.inspector.locateReference(reference.label)}
                   title={copy.inspector.locateImage}
                   onClick={() => onLocatePromptReference(reference)}
                 >

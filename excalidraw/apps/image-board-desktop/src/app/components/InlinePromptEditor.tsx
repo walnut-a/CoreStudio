@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { toDataUri } from "../../shared/promptReferences";
+import { copy } from "../copy";
 
 import type {
   GenerationPromptPart,
@@ -71,7 +72,9 @@ const createReferenceChipNode = (
     thumbnailNode.className = "generate-composer__reference-chip-thumbnail";
     const image = document.createElement("img");
     image.src = thumbnail;
-    image.alt = `${getReferenceLabel(reference, index)} 缩略图`;
+    image.alt = copy.generateDialog.referenceThumbnail(
+      getReferenceLabel(reference, index),
+    );
     image.draggable = false;
     thumbnailNode.append(image);
     chip.append(thumbnailNode);
@@ -106,15 +109,18 @@ const createPendingReferenceChipNode = (
     .join(" ");
   chip.contentEditable = "false";
   chip.dataset.pendingReference = "true";
-  chip.title = `${index + 1} ${label}，待确认`;
-  chip.setAttribute("aria-label", `${index + 1} ${label}，待确认`);
+  chip.title = copy.generateDialog.pendingReference(index + 1, label);
+  chip.setAttribute(
+    "aria-label",
+    copy.generateDialog.pendingReference(index + 1, label),
+  );
 
   const thumbnailNode = document.createElement("span");
   thumbnailNode.className = "generate-composer__reference-chip-thumbnail";
   if (thumbnail) {
     const image = document.createElement("img");
     image.src = thumbnail;
-    image.alt = `${index + 1} ${label}待确认缩略图`;
+    image.alt = copy.generateDialog.pendingReferenceThumbnail(index + 1, label);
     image.draggable = false;
     thumbnailNode.append(image);
   }
@@ -459,9 +465,9 @@ const getReferenceLabel = (
 const getPendingReferenceLabel = (reference: GenerationReferencePayload) => {
   const items = reference.items || [];
   if (items.length === 1 && items[0]?.kind === "image") {
-    return "图片";
+    return copy.generateDialog.pendingImage;
   }
-  return "标注图";
+  return copy.generateDialog.pendingAnnotatedImage;
 };
 
 const getPendingThumbnail = (reference: GenerationReferencePayload | null) => {

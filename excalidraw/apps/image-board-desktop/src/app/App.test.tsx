@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { BinaryFileData, FileId } from "./App.testSupport";
+import { setActiveDesktopLocale } from "./copy";
 
 import {
   App,
@@ -1966,6 +1967,50 @@ describe("App startup", () => {
       "placeholder",
       "默认：/tmp/mock-project",
     );
+  });
+
+  it("localizes the fallback ACP Agent working directory without translating project data", async () => {
+    setActiveDesktopLocale("en");
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const loadAcpAgentSettings = vi.fn(async () => ({
+      experimentalEnabled: true,
+      enabled: false,
+      defaultAgentId: null,
+      agents: [],
+    }));
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAcpAgentSettings,
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App localePreference="en" />);
+
+    await waitFor(() => {
+      expect(loadAcpAgentSettings).toHaveBeenCalled();
+    });
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "Application Settings" });
+    const acpControls = within(dialog);
+    fireEvent.click(
+      acpControls.getByRole("tab", { name: "Experimental Features" }),
+    );
+    fireEvent.click(
+      acpControls.getByRole("button", { name: "Advanced Settings" }),
+    );
+
+    expect(acpControls.getByLabelText("Working Directory")).toHaveAttribute(
+      "placeholder",
+      "Default: Current project directory",
+    );
+    setActiveDesktopLocale("zh-CN");
   });
 
   it("applies an ACP Agent preset from application settings", async () => {

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { copy } from "../copy";
 
 import "./SideDock.css";
 import { closeIcon, leftDockIcon, rightDockIcon } from "./CoreStudioIcons";
@@ -20,7 +21,7 @@ export const SideDock = ({
   headerActions,
   children,
 }: SideDockProps) => {
-  const closeLabel = `关闭${title}`;
+  const closeLabel = copy.sideDock.close(title);
 
   return (
     <section

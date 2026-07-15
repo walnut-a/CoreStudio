@@ -1,4 +1,5 @@
 import type { AcpRunStatus, AcpTaskStatus } from "../../shared/acpTypes";
+import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 
 type AgentConversationStatus = AcpTaskStatus | AcpRunStatus;
@@ -6,22 +7,22 @@ type AgentConversationStatus = AcpTaskStatus | AcpRunStatus;
 const getStatusLabel = (status: AgentConversationStatus) => {
   switch (status) {
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
     case "cancelled":
-      return "已取消";
+      return copy.agentUi.status.cancelled;
     case "running":
-      return "运行中";
+      return copy.agentUi.status.running;
     case "connecting":
-      return "连接中";
+      return copy.agentUi.status.connecting;
     case "initializing":
-      return "初始化";
+      return copy.agentUi.status.initializing;
     case "creating-session":
-      return "创建会话";
+      return copy.agentUi.status.creatingSession;
     case "idle":
     default:
-      return "空闲";
+      return copy.agentUi.status.idle;
   }
 };
 
@@ -42,18 +43,22 @@ export const AgentConversationHeaderActions = ({
     <DesktopButton
       type="button"
       disabled={disabled}
-      aria-label={threadListOpen ? "返回当前 Agent 对话" : "打开 Agent 对话列表"}
+      aria-label={
+        threadListOpen
+          ? copy.agentUi.header.backToConversation
+          : copy.agentUi.header.openList
+      }
       onClick={onToggleThreadList}
     >
-      {threadListOpen ? "返回" : "列表"}
+      {threadListOpen ? copy.agentUi.header.back : copy.agentUi.header.list}
     </DesktopButton>
     <DesktopButton
       type="button"
       disabled={disabled}
-      aria-label="开始新的 Agent 对话"
+      aria-label={copy.agentUi.header.startNew}
       onClick={onStartNewThread}
     >
-      新建
+      {copy.agentUi.header.new}
     </DesktopButton>
   </>
 );

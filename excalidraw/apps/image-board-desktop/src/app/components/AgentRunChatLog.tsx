@@ -12,7 +12,7 @@ import "./AgentRunChatLog.css";
 
 import type { AcpRunLogEntry } from "../../shared/acpTypes";
 import type { ExternalThreadMessage } from "@assistant-ui/react";
-import { DESKTOP_LANG_CODE } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 
 type AgentRunChatRole = "user" | "assistant" | "tool" | "system";
 type AgentRunChatTone = "neutral" | "success" | "danger";
@@ -73,19 +73,19 @@ const getPayloadText = (
 const getStatusLabel = (status: string) => {
   switch (status) {
     case "running":
-      return "运行中";
+      return copy.agentUi.status.running;
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
     case "cancelled":
-      return "已取消";
+      return copy.agentUi.status.cancelled;
     case "connecting":
-      return "连接中";
+      return copy.agentUi.status.connecting;
     case "initializing":
-      return "初始化中";
+      return copy.agentUi.runLog.initializing;
     case "creating-session":
-      return "创建会话";
+      return copy.agentUi.status.creatingSession;
     default:
       return status;
   }
@@ -94,13 +94,13 @@ const getStatusLabel = (status: string) => {
 const getToolStatusLabel = (status: string) => {
   switch (status) {
     case "pending":
-      return "等待调用";
+      return copy.agentUi.runLog.toolPending;
     case "in_progress":
-      return "调用中";
+      return copy.agentUi.runLog.toolRunning;
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
     default:
       return status;
   }
@@ -124,32 +124,38 @@ const getEntryTitle = (entry: AcpRunLogEntry) => {
   const record = getPayloadRecord(entry.payload);
   switch (entry.kind) {
     case "task.created":
-      return "用户任务";
+      return copy.agentUi.runLog.userTask;
     case "task.package":
-      return "CoreStudio 任务包";
+      return copy.agentUi.runLog.taskPackage;
     case "status":
-      return getPayloadText(entry.payload, ["message"]) ?? "状态更新";
+      return (
+        getPayloadText(entry.payload, ["message"]) ??
+        copy.agentUi.runLog.statusUpdate
+      );
     case "agent.message":
       return "Agent";
     case "agent.thought":
-      return "Agent 思考";
+      return copy.agentUi.runLog.agentThought;
     case "tool.call":
     case "tool.update":
-      return getPayloadText(entry.payload, ["title", "name"]) ?? "工具调用";
+      return (
+        getPayloadText(entry.payload, ["title", "name"]) ??
+        copy.agentUi.runLog.toolCall
+      );
     case "error":
-      return "任务错误";
+      return copy.agentUi.runLog.taskError;
     case "task.finished":
-      return "任务结束";
+      return copy.agentUi.runLog.taskFinished;
     case "acp.request":
-      return `ACP 请求${
-        typeof record?.method === "string" ? ` · ${record.method}` : ""
-      }`;
+      return copy.agentUi.runLog.acpRequest(
+        typeof record?.method === "string" ? record.method : "",
+      );
     case "acp.response":
-      return "ACP 响应";
+      return copy.agentUi.runLog.acpResponse;
     case "acp.notification":
-      return `ACP 通知${
-        typeof record?.method === "string" ? ` · ${record.method}` : ""
-      }`;
+      return copy.agentUi.runLog.acpNotification(
+        typeof record?.method === "string" ? record.method : "",
+      );
     case "stderr":
       return "Agent stderr";
   }
@@ -437,11 +443,11 @@ const getRoleBadge = (role: AgentRunChatRole) => {
     case "assistant":
       return "AI";
     case "user":
-      return "我";
+      return copy.agentUi.runLog.roleBadge.user;
     case "tool":
-      return "工";
+      return copy.agentUi.runLog.roleBadge.tool;
     case "system":
-      return "态";
+      return copy.agentUi.runLog.roleBadge.system;
   }
 };
 
@@ -453,15 +459,15 @@ const getTimeLabel = (timestamp: string) =>
 
 const getInlineCallLabel = (item: AgentRunChatItem) => {
   if (item.role === "tool") {
-    return "工具调用";
+    return copy.agentUi.runLog.toolCall;
   }
   if (item.tone === "danger") {
-    return "错误";
+    return copy.agentUi.runLog.inlineError;
   }
   if (item.title.startsWith("ACP")) {
     return "ACP";
   }
-  return "状态";
+  return copy.agentUi.runLog.inlineStatus;
 };
 
 const AgentRunJsonList: FC<{ item: AgentRunChatItem }> = ({ item }) => (
@@ -575,7 +581,7 @@ export const AgentRunChatLog = ({
       <ThreadPrimitive.Root
         className="agent-run-chat"
         role="log"
-        aria-label="Agent 任务过程"
+        aria-label={copy.agentUi.runLog.label}
       >
         {messages.length > 0 ? (
           <ThreadPrimitive.Viewport
@@ -590,7 +596,7 @@ export const AgentRunChatLog = ({
             />
           </ThreadPrimitive.Viewport>
         ) : (
-          <p className="agent-run-chat__empty">暂无可读过程记录。</p>
+          <p className="agent-run-chat__empty">{copy.agentUi.runLog.empty}</p>
         )}
       </ThreadPrimitive.Root>
     </AgentRunThreadProvider>

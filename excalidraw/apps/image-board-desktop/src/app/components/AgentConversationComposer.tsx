@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
+import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 import { sendIcon } from "./CoreStudioIcons";
 
@@ -26,9 +27,9 @@ export const AgentConversationComposer = ({
     Boolean(trimmedDraftMessage) && canSubmitMessage && !submittingMessage;
   const messagePlaceholder = canSubmitMessage
     ? hasConversationContext || hasConversationEntries
-      ? "继续对话"
-      : "输入任务"
-    : disabledReason ?? "Agent 暂不可用";
+      ? copy.agentUi.composer.continueConversation
+      : copy.agentUi.composer.enterTask
+    : disabledReason ?? copy.agentUi.composer.unavailable;
 
   const submitDraftMessage = async () => {
     if (!canSendMessage) {
@@ -48,9 +49,7 @@ export const AgentConversationComposer = ({
     void submitDraftMessage();
   };
 
-  const handleComposerKeyDown = (
-    event: KeyboardEvent<HTMLTextAreaElement>,
-  ) => {
+  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== "Enter" || event.shiftKey) {
       return;
     }
@@ -68,7 +67,7 @@ export const AgentConversationComposer = ({
         rows={2}
         disabled={messageInputDisabled}
         placeholder={messagePlaceholder}
-        aria-label="继续 Agent 对话"
+        aria-label={copy.agentUi.composer.label}
         onChange={(event) => setDraftMessage(event.target.value)}
         onKeyDown={handleComposerKeyDown}
       />
@@ -77,8 +76,16 @@ export const AgentConversationComposer = ({
         variant="primary"
         className="agent-conversation-sidebar__send"
         disabled={!canSendMessage}
-        aria-label={submittingMessage ? "发送中" : "发送给 Agent"}
-        title={submittingMessage ? "发送中" : "发送给 Agent"}
+        aria-label={
+          submittingMessage
+            ? copy.agentUi.composer.sending
+            : copy.agentUi.composer.send
+        }
+        title={
+          submittingMessage
+            ? copy.agentUi.composer.sending
+            : copy.agentUi.composer.send
+        }
       >
         {sendIcon}
       </DesktopButton>

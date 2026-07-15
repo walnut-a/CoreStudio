@@ -1,4 +1,5 @@
 import type { AgentThread } from "../agentThreadTypes";
+import { copy } from "../copy";
 import { AgentThreadMessage } from "./AgentThreadMessage";
 
 interface AgentThreadTimelineProps {
@@ -14,7 +15,7 @@ export const AgentThreadTimeline = ({
     return (
       <div
         className="agent-thread-timeline agent-thread-timeline--empty"
-        aria-label="Agent 对话为空"
+        aria-label={copy.agentUi.timeline.empty}
       />
     );
   }
@@ -23,7 +24,7 @@ export const AgentThreadTimeline = ({
     <div
       className="agent-thread-timeline"
       role="log"
-      aria-label="Agent 对话时间线"
+      aria-label={copy.agentUi.timeline.label}
     >
       <div className="agent-thread-timeline__viewport">
         {thread.messages.map((message) => (

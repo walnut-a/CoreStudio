@@ -7,12 +7,10 @@ import {
 
 import { chevronDownIcon } from "./CoreStudioIcons";
 import {
-  AGENT_GENERATION_LABEL,
-  BUILTIN_GENERATION_LABEL,
-  GENERATION_MODE_LABEL,
   getComposerModeLabel,
   type GenerateComposerMode,
 } from "../agent/useGenerateComposerController";
+import { copy } from "../copy";
 
 import type { GenerationSource } from "../../shared/providerTypes";
 
@@ -58,14 +56,14 @@ export const GenerateComposerModeBar = ({
     <div
       className="generate-composer__taskbar"
       role="toolbar"
-      aria-label="生成任务状态"
+      aria-label={copy.agentUi.generation.toolbarLabel}
       onMouseDown={onStopInputEvent}
     >
       {showModeSwitch ? (
         <div
           className="generate-composer__mode-switch"
           role="tablist"
-          aria-label="输入模式"
+          aria-label={copy.agentUi.generation.inputMode}
         >
           {composerModeOptions.map((mode) => (
             <button
@@ -125,10 +123,10 @@ export const GenerateComposerSourceSelect = ({
       <span className="generate-composer__source-field">
         <span
           className="generate-composer__source-status"
-          aria-label={GENERATION_MODE_LABEL}
+          aria-label={copy.agentUi.generation.method}
           title={unavailableMessage}
         >
-          {BUILTIN_GENERATION_LABEL}
+          {copy.agentUi.generation.directGeneration}
         </span>
       </span>
     );
@@ -144,7 +142,7 @@ export const GenerateComposerSourceSelect = ({
         ]
           .filter(Boolean)
           .join(" ")}
-        aria-label={GENERATION_MODE_LABEL}
+        aria-label={copy.agentUi.generation.method}
         aria-haspopup="listbox"
         aria-expanded={open}
         onMouseDown={onStopInputEvent}
@@ -162,7 +160,7 @@ export const GenerateComposerSourceSelect = ({
         <div
           className="generate-composer__source-menu"
           role="listbox"
-          aria-label={GENERATION_MODE_LABEL}
+          aria-label={copy.agentUi.generation.method}
           onMouseDown={onStopInputEvent}
           onKeyDown={handleKeyDown}
         >
@@ -177,7 +175,7 @@ export const GenerateComposerSourceSelect = ({
               setOpen(false);
             }}
           >
-            {BUILTIN_GENERATION_LABEL}
+            {copy.agentUi.generation.directGeneration}
           </button>
           <button
             type="button"
@@ -191,7 +189,7 @@ export const GenerateComposerSourceSelect = ({
               setOpen(false);
             }}
           >
-            {AGENT_GENERATION_LABEL}
+            {copy.agentUi.generation.acpAgent}
           </button>
         </div>
       ) : null}

@@ -1,5 +1,5 @@
 import type { AcpThreadSummary } from "../../shared/acpTypes";
-import { DESKTOP_LANG_CODE } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 
 interface AgentThreadListProps {
   summaries: readonly AcpThreadSummary[];
@@ -13,14 +13,14 @@ interface AgentThreadListProps {
 const getThreadStatusLabel = (status: AcpThreadSummary["status"]) => {
   switch (status) {
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
     case "cancelled":
-      return "已取消";
+      return copy.agentUi.status.cancelled;
     case "running":
     default:
-      return "运行中";
+      return copy.agentUi.status.running;
   }
 };
 
@@ -48,12 +48,18 @@ export const AgentThreadList = ({
   }
 
   if (loading) {
-    return <p className="agent-conversation-sidebar__threads-note">同步中</p>;
+    return (
+      <p className="agent-conversation-sidebar__threads-note">
+        {copy.agentUi.threadList.syncing}
+      </p>
+    );
   }
 
   if (!summaries.length) {
     return (
-      <p className="agent-conversation-sidebar__threads-note">暂无历史对话</p>
+      <p className="agent-conversation-sidebar__threads-note">
+        {copy.agentUi.threadList.empty}
+      </p>
     );
   }
 
@@ -70,7 +76,7 @@ export const AgentThreadList = ({
             disabled={actionsDisabled}
             onClick={() => void onSelectThread(thread.threadId)}
           >
-            <strong>{thread.title || "未命名对话"}</strong>
+            <strong>{thread.title || copy.agentUi.threadList.untitled}</strong>
             <span>
               {getThreadStatusLabel(thread.status)}
               {timeLabel ? ` · ${timeLabel}` : ""}

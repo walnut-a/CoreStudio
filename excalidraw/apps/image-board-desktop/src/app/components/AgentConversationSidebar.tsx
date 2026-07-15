@@ -12,6 +12,7 @@ import {
   type AgentConversationEventItem,
   type AgentConversationTaskState,
 } from "../agent/agentConversationThreadView";
+import { copy } from "../copy";
 import {
   AgentConversationHeaderActions,
   AgentConversationSummary,
@@ -92,15 +93,12 @@ export const AgentConversationSidebar = ({
       threadEntries,
     ],
   );
-  const {
-    agentThread,
-    chatEntries,
-    hasConversationContext,
-    status,
-    title,
-  } = conversationView;
+  const { agentThread, chatEntries, hasConversationContext, status, title } =
+    conversationView;
   const isAgentMode = mode === "agent";
-  const dockTitle = isAgentMode ? "Agent 对话" : "生成记录";
+  const dockTitle = isAgentMode
+    ? copy.agentUi.conversationTitle
+    : copy.agentUi.generationRecordsTitle;
   const handleSelectThread = async (threadId: string) => {
     await onSelectThread(threadId);
     setThreadListOpen(false);
@@ -145,7 +143,7 @@ export const AgentConversationSidebar = ({
             {threadListOpen ? (
               <section
                 className="agent-conversation-sidebar__threads"
-                aria-label="Agent 历史对话"
+                aria-label={copy.agentUi.historyLabel}
               >
                 <AgentThreadList
                   summaries={threadSummaries}

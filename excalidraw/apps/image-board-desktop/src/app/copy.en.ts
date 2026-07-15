@@ -365,6 +365,110 @@ export const enCopy: DesktopCopy = {
         `Help me install the Codex integration for CoreStudio ${appVersion} by following this guide: ${guideUrl}\nUse the installed production version of CoreStudio on this Mac, then verify the CLI, Skill, and recorded version.`,
     },
   },
+  agentUi: {
+    conversationTitle: "Agent Conversation",
+    generationRecordsTitle: "Generation History",
+    historyLabel: "Agent conversation history",
+    status: {
+      completed: "Completed",
+      failed: "Failed",
+      cancelled: "Cancelled",
+      running: "Running",
+      connecting: "Connecting",
+      initializing: "Initializing",
+      creatingSession: "Creating session",
+      idle: "Idle",
+      pending: "Pending",
+    },
+    header: {
+      backToConversation: "Back to the current Agent conversation",
+      openList: "Open Agent conversation list",
+      back: "Back",
+      list: "List",
+      startNew: "Start a new Agent conversation",
+      new: "New",
+    },
+    composer: {
+      continueConversation: "Continue conversation",
+      enterTask: "Enter a task",
+      unavailable: "Agent unavailable",
+      label: "Continue Agent conversation",
+      sending: "Sending",
+      send: "Send to Agent",
+    },
+    threadList: {
+      syncing: "Syncing",
+      empty: "No conversation history",
+      untitled: "Untitled conversation",
+    },
+    timeline: {
+      empty: "Empty Agent conversation",
+      label: "Agent conversation timeline",
+    },
+    tool: {
+      running: "Running",
+      input: "Input",
+      output: "Output",
+    },
+    imageResult: {
+      unknownSource: "Unknown source",
+      prompt: (prompt: string) => `Prompt: ${prompt}`,
+      references: (count: number) =>
+        `${count} reference image${count === 1 ? "" : "s"}`,
+    },
+    taskStatus: {
+      logSaved: "Log saved",
+      viewSavedLog: "View saved log",
+      log: "Log",
+      viewProgress: "View task progress",
+      progress: "Progress",
+    },
+    runLog: {
+      initializing: "Initializing",
+      toolPending: "Waiting",
+      toolRunning: "Running",
+      userTask: "User task",
+      taskPackage: "CoreStudio task package",
+      statusUpdate: "Status update",
+      agentThought: "Agent thought",
+      toolCall: "Tool call",
+      taskError: "Task error",
+      taskFinished: "Task finished",
+      acpRequest: (method: string) =>
+        `ACP request${method ? ` · ${method}` : ""}`,
+      acpResponse: "ACP response",
+      acpNotification: (method: string) =>
+        `ACP notification${method ? ` · ${method}` : ""}`,
+      roleBadge: {
+        user: "U",
+        tool: "T",
+        system: "S",
+      },
+      inlineError: "Error",
+      inlineStatus: "Status",
+      label: "Agent task progress",
+      empty: "No readable progress yet.",
+    },
+    generation: {
+      toolbarLabel: "Generation task status",
+      inputMode: "Input mode",
+      directInput: "Direct input",
+      agentOperation: "Agent operation",
+      method: "Generation method",
+      directGeneration: "Direct generation",
+      acpAgent: "ACP Agent",
+    },
+    context: {
+      label: "Agent context",
+      currentSelection: "Current selection",
+      thumbnailAlt: (label: string, index: number) =>
+        `${label} ${index} thumbnail`,
+      empty: "No selected elements",
+    },
+  },
+  sideDock: {
+    close: (title: string) => `Close ${title}`,
+  },
   helpers: {
     referenceSummary: (elementCount: number, textCount: number) =>
       textCount

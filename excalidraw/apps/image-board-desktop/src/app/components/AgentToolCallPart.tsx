@@ -1,16 +1,17 @@
 import type { AgentToolCall, AgentToolPart } from "../agentThreadTypes";
+import { copy } from "../copy";
 
 const getToolStatusLabel = (status: AgentToolCall["status"]) => {
   switch (status) {
     case "completed":
-      return "已完成";
+      return copy.agentUi.status.completed;
     case "failed":
-      return "失败";
+      return copy.agentUi.status.failed;
     case "running":
-      return "调用中";
+      return copy.agentUi.tool.running;
     case "pending":
     default:
-      return "等待";
+      return copy.agentUi.status.pending;
   }
 };
 
@@ -83,8 +84,8 @@ export const AgentToolCallPart = ({ part }: { part: AgentToolPart }) => {
       </summary>
       {hasDetails ? (
         <div className="agent-thread-timeline__tool-body">
-          {renderToolDetail("输入参数", tool.args)}
-          {renderToolDetail("执行结果", tool.result)}
+          {renderToolDetail(copy.agentUi.tool.input, tool.args)}
+          {renderToolDetail(copy.agentUi.tool.output, tool.result)}
           {tool.errorMessage ? (
             <p className="agent-thread-timeline__tool-error">
               {tool.errorMessage}

@@ -1,6 +1,7 @@
 import type { SyntheticEvent } from "react";
 
 import type { GenerateComposerConfig } from "../agent/useGenerateComposerController";
+import { copy } from "../copy";
 
 type GenerateComposerAgentTaskStatus = NonNullable<
   GenerateComposerConfig["agentTaskStatus"]
@@ -49,28 +50,28 @@ export const GenerateComposerTaskStatus = ({
         <strong>{status.message}</strong>
         {status.transcript ? <span>{status.transcript}</span> : null}
         {status.logPath ? (
-          <span title={status.logPath}>日志已保存</span>
+          <span title={status.logPath}>{copy.agentUi.taskStatus.logSaved}</span>
         ) : null}
         {status.logPath && canOpenTaskLog ? (
           <button
             type="button"
             className="generate-composer__agent-task-toggle"
-            aria-label="查看保存日志"
+            aria-label={copy.agentUi.taskStatus.viewSavedLog}
             onMouseDown={onStopInputEvent}
             onClick={openTaskLog}
           >
-            日志
+            {copy.agentUi.taskStatus.log}
           </button>
         ) : null}
         {events.length && canOpenTaskLog ? (
           <button
             type="button"
             className="generate-composer__agent-task-toggle"
-            aria-label="查看任务过程"
+            aria-label={copy.agentUi.taskStatus.viewProgress}
             onMouseDown={onStopInputEvent}
             onClick={openTaskLog}
           >
-            过程
+            {copy.agentUi.taskStatus.progress}
           </button>
         ) : null}
       </div>

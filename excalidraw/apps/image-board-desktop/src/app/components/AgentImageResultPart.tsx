@@ -2,6 +2,7 @@ import type {
   AgentImageResult,
   AgentImageResultPart as AgentImageResultPartModel,
 } from "../agentThreadTypes";
+import { copy } from "../copy";
 
 const getImageSourceLabel = (source: AgentImageResult["source"]) => {
   switch (source) {
@@ -11,7 +12,7 @@ const getImageSourceLabel = (source: AgentImageResult["source"]) => {
       return "CoreStudio";
     case "unknown":
     default:
-      return "未知来源";
+      return copy.agentUi.imageResult.unknownSource;
   }
 };
 
@@ -55,7 +56,7 @@ const getReferenceLabel = (referenceCount?: number) => {
   if (!referenceCount) {
     return "";
   }
-  return `参考图 ${referenceCount}`;
+  return copy.agentUi.imageResult.references(referenceCount);
 };
 
 export const AgentImageResultPart = ({
@@ -94,7 +95,7 @@ export const AgentImageResultPart = ({
         ) : null}
         {prompt ? (
           <span className="agent-thread-timeline__image-prompt">
-            提示词：{prompt}
+            {copy.agentUi.imageResult.prompt(prompt)}
           </span>
         ) : null}
         {referenceLabel ? (

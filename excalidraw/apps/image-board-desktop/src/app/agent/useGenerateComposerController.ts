@@ -2,12 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { AcpTaskStatus } from "../../shared/acpTypes";
 import type { GenerationSource } from "../../shared/providerTypes";
-
-export const GENERATION_MODE_LABEL = "生成方式";
-export const DIRECT_INPUT_LABEL = "直接输入";
-export const AGENT_OPERATION_LABEL = "Agent 操作";
-export const BUILTIN_GENERATION_LABEL = "直接生成";
-export const AGENT_GENERATION_LABEL = "ACP Agent";
+import { copy } from "../copy";
 
 export type GenerateComposerMode = "direct" | "agent" | "acp";
 export type GenerateComposerModeSwitchVariant = "agent-operation" | "acp-agent";
@@ -100,12 +95,12 @@ export const normalizeComposerMode = (
 
 export const getComposerModeLabel = (mode: GenerateComposerMode) => {
   if (mode === "agent") {
-    return AGENT_OPERATION_LABEL;
+    return copy.agentUi.generation.agentOperation;
   }
   if (mode === "acp") {
-    return AGENT_GENERATION_LABEL;
+    return copy.agentUi.generation.acpAgent;
   }
-  return DIRECT_INPUT_LABEL;
+  return copy.agentUi.generation.directInput;
 };
 
 export const normalizeGenerationSource = (
@@ -187,8 +182,8 @@ export const buildGenerateComposerViewModel = ({
   const effectiveGenerationSource = isAcpAgentMode
     ? "agent"
     : selectedGenerationSource === "agent" && !agentGenerationSelectable
-      ? "builtin"
-      : selectedGenerationSource;
+    ? "builtin"
+    : selectedGenerationSource;
 
   return {
     ...defaults,
@@ -208,8 +203,8 @@ export const buildGenerateComposerViewModel = ({
     effectiveGenerationSource,
     generationSourceLabel:
       effectiveGenerationSource === "agent"
-        ? AGENT_GENERATION_LABEL
-        : BUILTIN_GENERATION_LABEL,
+        ? copy.agentUi.generation.acpAgent
+        : copy.agentUi.generation.directGeneration,
   };
 };
 

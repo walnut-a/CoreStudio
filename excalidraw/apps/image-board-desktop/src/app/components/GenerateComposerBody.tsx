@@ -1,8 +1,4 @@
-import type {
-  KeyboardEvent,
-  MouseEvent,
-  Ref,
-} from "react";
+import type { KeyboardEvent, MouseEvent, Ref } from "react";
 
 import {
   InlinePromptEditor,
@@ -15,6 +11,7 @@ import type {
   GenerationReferenceItemPayload,
   GenerationReferencePayload,
 } from "../../shared/providerTypes";
+import { copy } from "../copy";
 
 interface GenerateComposerAgentContextProps {
   items: readonly GenerationReferenceItemPayload[];
@@ -43,12 +40,12 @@ export const GenerateComposerAgentContext = ({
   <section
     className="generate-composer__agent-context"
     role="region"
-    aria-label="Agent 上下文"
+    aria-label={copy.agentUi.context.label}
   >
     <div className="generate-composer__agent-summary">
       <div
         className="generate-composer__agent-items"
-        aria-label="当前选区"
+        aria-label={copy.agentUi.context.currentSelection}
         aria-live="polite"
       >
         {items.length ? (
@@ -65,7 +62,10 @@ export const GenerateComposerAgentContext = ({
                 <span className="generate-composer__agent-thumbnail">
                   <img
                     src={item.thumbnailDataUrl}
-                    alt={`${item.label} ${item.index} 缩略图`}
+                    alt={copy.agentUi.context.thumbnailAlt(
+                      item.label,
+                      item.index,
+                    )}
                     draggable={false}
                   />
                 </span>
@@ -80,7 +80,7 @@ export const GenerateComposerAgentContext = ({
           ))
         ) : (
           <span className="generate-composer__agent-empty">
-            暂无选中元素
+            {copy.agentUi.context.empty}
           </span>
         )}
       </div>

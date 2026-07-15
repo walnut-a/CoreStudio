@@ -7,9 +7,11 @@ import {
 } from "react";
 
 import { DesktopButton } from "./DesktopButton";
+import { copy } from "../copy";
 import "./ApplicationSettingsDialog.css";
 
 export type ApplicationSettingsCategory =
+  | "general"
   | "image-generation"
   | "codex-integration"
   | "experimental";
@@ -21,19 +23,11 @@ export interface ApplicationSettingsDialogProps {
   onCategoryChange: (category: ApplicationSettingsCategory) => void;
   onDiscardChanges: () => void;
   onClose: () => void;
+  generalContent: ReactNode;
   imageGenerationContent: ReactNode;
   codexIntegrationContent: ReactNode;
   experimentalContent: ReactNode;
 }
-
-const SETTINGS_NAV_ITEMS: readonly {
-  id: ApplicationSettingsCategory;
-  label: string;
-}[] = [
-  { id: "image-generation", label: "图像生成" },
-  { id: "codex-integration", label: "Codex 集成" },
-  { id: "experimental", label: "实验性功能" },
-];
 
 const ApplicationSettingsLeaveContext = createContext<
   (action: () => void) => void
@@ -49,6 +43,7 @@ export const ApplicationSettingsDialog = ({
   onCategoryChange,
   onDiscardChanges,
   onClose,
+  generalContent,
   imageGenerationContent,
   codexIntegrationContent,
   experimentalContent,
@@ -91,8 +86,26 @@ export const ApplicationSettingsDialog = ({
     action();
   };
 
+  const settingsNavItems: readonly {
+    id: ApplicationSettingsCategory;
+    label: string;
+  }[] = [
+    { id: "general", label: copy.applicationSettings.general },
+    {
+      id: "image-generation",
+      label: copy.applicationSettings.imageGeneration,
+    },
+    {
+      id: "codex-integration",
+      label: copy.applicationSettings.codexIntegration,
+    },
+    { id: "experimental", label: copy.applicationSettings.experimental },
+  ];
+
   const content =
-    activeCategory === "image-generation"
+    activeCategory === "general"
+      ? generalContent
+      : activeCategory === "image-generation"
       ? imageGenerationContent
       : activeCategory === "codex-integration"
       ? codexIntegrationContent
@@ -107,14 +120,14 @@ export const ApplicationSettingsDialog = ({
         aria-labelledby="app-settings-title"
       >
         <header className="app-settings-header">
-          <h2 id="app-settings-title">应用设置</h2>
+          <h2 id="app-settings-title">{copy.applicationSettings.title}</h2>
           <DesktopButton
             type="button"
             size="small"
             className="dialog-card__close"
             onClick={() => requestAction(onClose)}
           >
-            关闭
+            {copy.applicationSettings.close}
           </DesktopButton>
         </header>
 
@@ -122,9 +135,9 @@ export const ApplicationSettingsDialog = ({
           <nav
             className="app-settings-nav"
             role="tablist"
-            aria-label="设置分类"
+            aria-label={copy.applicationSettings.categoriesLabel}
           >
-            {SETTINGS_NAV_ITEMS.map((item) => (
+            {settingsNavItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -156,14 +169,16 @@ export const ApplicationSettingsDialog = ({
               aria-modal="true"
               aria-labelledby="app-settings-discard-title"
             >
-              <h3 id="app-settings-discard-title">放弃未保存的修改？</h3>
-              <p>当前页面的修改还没有保存。</p>
+              <h3 id="app-settings-discard-title">
+                {copy.applicationSettings.discardTitle}
+              </h3>
+              <p>{copy.applicationSettings.discardDescription}</p>
               <div className="app-settings-confirm__actions">
                 <DesktopButton
                   type="button"
                   onClick={() => setPendingAction(null)}
                 >
-                  继续编辑
+                  {copy.applicationSettings.continueEditing}
                 </DesktopButton>
                 <DesktopButton
                   type="button"
@@ -175,7 +190,7 @@ export const ApplicationSettingsDialog = ({
                     action();
                   }}
                 >
-                  放弃修改
+                  {copy.applicationSettings.discardChanges}
                 </DesktopButton>
               </div>
             </section>

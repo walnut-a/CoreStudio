@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { copy } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
 import { DesktopButton } from "./DesktopButton";
 import { trashProjectIcon } from "./CoreStudioIcons";
@@ -39,7 +39,9 @@ export const WelcomePane = ({
       <section className="welcome-pane__card" aria-labelledby="welcome-title">
         <div className="welcome-pane__intro">
           <div className="welcome-pane__copy">
-            <span className="welcome-pane__eyebrow">{copy.welcome.eyebrow}</span>
+            <span className="welcome-pane__eyebrow">
+              {copy.welcome.eyebrow}
+            </span>
             <h1 id="welcome-title">{copy.welcome.title}</h1>
             <p>{copy.welcome.description}</p>
           </div>
@@ -64,7 +66,9 @@ export const WelcomePane = ({
               {latestProject ? (
                 <DesktopButton
                   type="button"
-                  onClick={() => onOpenRecentProject?.(latestProject.projectPath)}
+                  onClick={() =>
+                    onOpenRecentProject?.(latestProject.projectPath)
+                  }
                   disabled={loading}
                 >
                   {copy.welcome.continueLastProject}
@@ -98,7 +102,9 @@ export const WelcomePane = ({
                     </span>
                     <span className="welcome-pane__recent-time">
                       {copy.welcome.lastOpenedAt}{" "}
-                      {new Date(project.lastOpenedAt).toLocaleString("zh-CN")}
+                      {new Date(project.lastOpenedAt).toLocaleString(
+                        DESKTOP_LANG_CODE,
+                      )}
                     </span>
                   </button>
                   <button
@@ -115,7 +121,9 @@ export const WelcomePane = ({
               ))}
             </div>
           ) : (
-            <p className="welcome-pane__recent-empty">{copy.welcome.recentEmpty}</p>
+            <p className="welcome-pane__recent-empty">
+              {copy.welcome.recentEmpty}
+            </p>
           )}
         </div>
       </section>

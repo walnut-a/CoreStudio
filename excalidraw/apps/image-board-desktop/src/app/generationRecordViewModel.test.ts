@@ -4,8 +4,10 @@ import {
   buildDirectGenerationRecordItems,
   buildGenerationSidebarRecordItems,
   createGenerationRecordRendererActions,
+  getGenerationRecordTimeLabel,
   runGenerationRecordPromptCopyAction,
 } from "./generationRecordViewModel";
+import { setActiveDesktopLocale } from "./copy";
 
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { AcpRunLogDetail } from "../shared/acpTypes";
@@ -24,6 +26,28 @@ const createImageRecord = (patch: Partial<ImageRecord> = {}): ImageRecord => ({
   createdAt: "2026-07-02T08:05:00.000Z",
   mimeType: "image/png",
   ...patch,
+});
+
+describe("generation record localization", () => {
+  it("formats dates with the active application locale", () => {
+    const formatter = vi
+      .spyOn(Date.prototype, "toLocaleString")
+      .mockReturnValue("localized");
+    setActiveDesktopLocale("en");
+
+    expect(getGenerationRecordTimeLabel("2026-07-02T08:05:00.000Z")).toBe(
+      "localized",
+    );
+    expect(formatter).toHaveBeenCalledWith("en", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    formatter.mockRestore();
+    setActiveDesktopLocale("zh-CN");
+  });
 });
 
 describe("buildDirectGenerationRecordItems", () => {

@@ -9,13 +9,13 @@
 
 ## 目录职责
 
-| 路径 | 职责 |
-| --- | --- |
-| `docs/doc/` | 稳定说明类文档，例如仓库分析、架构说明、接口说明、运行说明、交接说明 |
-| `docs/plan/` | 后续由用户或维护者主导补充的计划类文档入口 |
-| `docs/spec/` | 后续由用户或维护者主导补充的规范类文档入口 |
-| `docs/superpowers/plans/` | 已存在的历史计划文档目录，当前保留原位置 |
-| `docs/superpowers/specs/` | 已存在的历史规格文档目录，当前保留原位置 |
+| 路径                      | 职责                                                                 |
+| ------------------------- | -------------------------------------------------------------------- |
+| `docs/doc/`               | 稳定说明类文档，例如仓库分析、架构说明、接口说明、运行说明、交接说明 |
+| `docs/plan/`              | 后续由用户或维护者主导补充的计划类文档入口                           |
+| `docs/spec/`              | 后续由用户或维护者主导补充的规范类文档入口                           |
+| `docs/superpowers/plans/` | 已存在的历史计划文档目录，当前保留原位置                             |
+| `docs/superpowers/specs/` | 已存在的历史规格文档目录，当前保留原位置                             |
 
 `docs/plan/` 和 `docs/spec/` 是新的通用入口。现有 `docs/superpowers/` 不迁移、不删除、不改写；它们作为历史计划和规格文档继续被索引。
 
@@ -33,6 +33,7 @@
 - [../excalidraw/apps/image-board-desktop/README.md](../excalidraw/apps/image-board-desktop/README.md)：CoreStudio CLI / Agent Bridge 说明。
 - [../excalidraw/apps/image-board-desktop/PRODUCT.md](../excalidraw/apps/image-board-desktop/PRODUCT.md)：产品定位和 Agent 集成原则。
 - [../excalidraw/apps/image-board-desktop/DESIGN.md](../excalidraw/apps/image-board-desktop/DESIGN.md)：设计系统和界面约束。
+- [../excalidraw/apps/image-board-desktop/docs/localization.md](../excalidraw/apps/image-board-desktop/docs/localization.md)：新增 CoreStudio 功能时的多语言底座与文案约定。
 - [../excalidraw/apps/image-board-desktop/docs/agent-integration-entry-map.md](../excalidraw/apps/image-board-desktop/docs/agent-integration-entry-map.md)：Agent 集成入口地图。
 - [../excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md](../excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md)：CoreStudio CLI contract。
 

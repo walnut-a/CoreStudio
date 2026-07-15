@@ -30,6 +30,10 @@ import type {
   AcpTaskEvent,
   AcpTaskRequest,
 } from "./acpTypes";
+import type {
+  DesktopLocalePreference,
+  DesktopLocaleSettings,
+} from "./desktopLocale";
 
 export const IPC_CHANNELS = {
   createProject: "image-board:create-project",
@@ -56,6 +60,8 @@ export const IPC_CHANNELS = {
   generateImages: "image-board:generate-images",
   cancelGenerateImages: "image-board:cancel-generate-images",
   readClipboardImage: "image-board:read-clipboard-image",
+  loadLocaleSettings: "image-board:load-locale-settings",
+  saveLocalePreference: "image-board:save-locale-preference",
   menuAction: "image-board:menu-action",
   rendererReady: "image-board:renderer-ready",
   projectStateChanged: "image-board:project-state-changed",
@@ -383,6 +389,10 @@ export interface DesktopBridgeApi {
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
   cancelGenerateImages?(generationJobId: string): Promise<void>;
   readClipboardImage?(): Promise<ImportedImagePayload | null>;
+  loadLocaleSettings?(): Promise<DesktopLocaleSettings>;
+  saveLocalePreference?(
+    preference: DesktopLocalePreference,
+  ): Promise<DesktopLocaleSettings>;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;
   notifyProjectStateChanged?(

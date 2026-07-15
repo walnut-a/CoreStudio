@@ -1,4 +1,5 @@
 import type { AcpRunSummary } from "../../shared/acpTypes";
+import { DESKTOP_LANG_CODE } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 import "./AgentSettings.css";
 
@@ -90,7 +91,9 @@ export const AcpDebugSettingsPanel = ({
                     {getAcpRunStatusLabel(summary.status)}
                   </span>
                   <span>
-                    {new Date(summary.startedAt).toLocaleString("zh-CN")}
+                    {new Date(summary.startedAt).toLocaleString(
+                      DESKTOP_LANG_CODE,
+                    )}
                   </span>
                 </span>
                 {summary.lastMessage || summary.errorMessage ? (

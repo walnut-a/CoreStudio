@@ -26,6 +26,7 @@ import {
   type GenerateImagesInput,
   type SaveProviderSettingsInput,
 } from "../src/shared/desktopBridgeTypes";
+import type { DesktopLocalePreference } from "../src/shared/desktopLocale";
 import {
   buildMissingRecentProjectMessage,
   isMissingProjectFileError,
@@ -81,7 +82,11 @@ import {
   rememberRecentProject,
   removeRecentProject,
 } from "./recentProjectsStore";
-import { DESKTOP_APP_NAME } from "../src/app/copy";
+import {
+  DESKTOP_APP_NAME,
+  DESKTOP_LANG_CODE,
+  setActiveDesktopLocale,
+} from "../src/app/copy";
 import { DESKTOP_APP_VERSION } from "./appVersion";
 import { createAppMenuTemplate } from "./menu";
 import {
@@ -115,6 +120,8 @@ import {
   saveAcpAgentSettings,
 } from "./acp/acpSettingsStore";
 import { startAcpAgentProcess } from "./acp/acpAgentProcess";
+import { createLocaleSettingsStore } from "./localeSettingsStore";
+import { createLocaleSettingsController } from "./localeSettingsController";
 import {
   createAcpSessionClient,
   type AcpSessionClient,
@@ -146,6 +153,9 @@ let agentAccessEnabled = false;
 let localBridgeCleanupStarted = false;
 let localBridgeCleanupFinished = false;
 let agentSessionWriteChain: Promise<void> = Promise.resolve();
+let localeSettingsController: ReturnType<
+  typeof createLocaleSettingsController
+> | null = null;
 const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
@@ -1254,6 +1264,18 @@ const registerIpcHandlers = () => {
   ipcMain.handle(IPC_CHANNELS.readClipboardImage, async () =>
     readClipboardImageFromSystem(),
   );
+  ipcMain.handle(IPC_CHANNELS.loadLocaleSettings, async () =>
+    localeSettingsController?.getSettings(),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.saveLocalePreference,
+    async (_event, preference: DesktopLocalePreference) => {
+      if (!localeSettingsController) {
+        throw new Error("Locale settings are not ready.");
+      }
+      return localeSettingsController.savePreference(preference);
+    },
+  );
 };
 
 const buildMenu = () =>
@@ -1267,6 +1289,7 @@ const buildMenu = () =>
       },
       {
         platform: process.platform,
+        locale: DESKTOP_LANG_CODE,
       },
     ),
   );
@@ -1433,6 +1456,22 @@ const readClipboardImageFromSystem = () => {
 
 if (hasSingleInstanceLock) {
   app.whenReady().then(async () => {
+    localeSettingsController = createLocaleSettingsController({
+      store: createLocaleSettingsStore({
+        settingsPath: path.join(
+          app.getPath("userData"),
+          "locale-settings.json",
+        ),
+        getSystemLocales: () => app.getPreferredSystemLanguages(),
+      }),
+      onLocaleChanged: (locale) => {
+        setActiveDesktopLocale(locale);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          Menu.setApplicationMenu(buildMenu());
+        }
+      },
+    });
+    await localeSettingsController.initialize();
     agentAccessEnabled = (await loadAgentAccessSettings()).enabled;
     currentRecentProjects = await loadRecentProjects();
     await removeAgentSessionDescriptor(agentSessionPath).catch((error) => {

@@ -1,4 +1,5 @@
 import type { AcpThreadSummary } from "../../shared/acpTypes";
+import { DESKTOP_LANG_CODE } from "../copy";
 
 interface AgentThreadListProps {
   summaries: readonly AcpThreadSummary[];
@@ -28,7 +29,7 @@ const getThreadTimeLabel = (updatedAt: string) => {
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return date.toLocaleTimeString("zh-CN", {
+  return date.toLocaleTimeString(DESKTOP_LANG_CODE, {
     hour: "2-digit",
     minute: "2-digit",
   });

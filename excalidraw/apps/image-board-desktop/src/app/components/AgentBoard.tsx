@@ -180,8 +180,8 @@ export const AgentBoard = () => {
             <span className="welcome-pane__eyebrow">Agent Board</span>
             <h1>{board?.project.name ?? "CoreStudio Agent Board"}</h1>
             <p>
-              在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回使用
-              本地项目 token 完成。
+              在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回使用 本地项目
+              token 完成。
             </p>
           </div>
           <div className="agent-board-header__actions">
@@ -214,9 +214,7 @@ export const AgentBoard = () => {
             <section className="agent-board-card">
               <div>
                 <span className="agent-board-label">当前项目</span>
-                <strong>
-                  {status?.currentProject?.name ?? "未打开项目"}
-                </strong>
+                <strong>{status?.currentProject?.name ?? "未打开项目"}</strong>
               </div>
               {status?.currentProject?.projectPath && (
                 <p>{status.currentProject.projectPath}</p>
@@ -224,7 +222,9 @@ export const AgentBoard = () => {
               {board?.updatedAt && (
                 <p>
                   Board 同步于{" "}
-                  {new Date(board.updatedAt).toLocaleTimeString("zh-CN")}
+                  {new Date(board.updatedAt).toLocaleTimeString(
+                    DESKTOP_LANG_CODE,
+                  )}
                 </p>
               )}
             </section>
@@ -259,7 +259,6 @@ export const AgentBoard = () => {
                 <p>可刷新状态，或在桌面端确认项目资源是否完整。</p>
               </section>
             ) : null}
-
           </aside>
         </section>
       </main>

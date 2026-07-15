@@ -9,6 +9,7 @@ import type { ImageLineageEntry } from "../imageRelationships";
 import type { GenerationTaskRecord } from "../generationTaskState";
 import {
   copy,
+  DESKTOP_LANG_CODE,
   getImageGenerationOriginLabel,
   getImageSourceLabel,
   getOptionalText,
@@ -58,7 +59,7 @@ const getParentImageSummary = (
 };
 
 const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString("zh-CN");
+  new Date(value).toLocaleString(DESKTOP_LANG_CODE);
 
 const formatSize = (width: number, height: number) => `${width} × ${height}`;
 const formatTaskSize = (task: GenerationTaskRecord) =>

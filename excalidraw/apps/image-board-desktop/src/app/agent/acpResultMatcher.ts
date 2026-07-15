@@ -1,11 +1,9 @@
 import type { FileId } from "@excalidraw/element/types";
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 
-import type {
-  AcpRunLogDetail,
-  AcpRunLogEntry,
-} from "../../shared/acpTypes";
+import type { AcpRunLogDetail, AcpRunLogEntry } from "../../shared/acpTypes";
 import type { ImageRecord, ImageRecordMap } from "../../shared/projectTypes";
+import { DESKTOP_LANG_CODE } from "../copy";
 
 export interface AcpAgentTaskContextInput {
   taskId: string;
@@ -70,7 +68,7 @@ const getGenerationRecordTimeLabel = (createdAt: string) => {
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(DESKTOP_LANG_CODE, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -227,7 +225,8 @@ export const buildAcpAgentResultRecordItems = ({
     .map((record) => {
       const timeLabel = getGenerationRecordTimeLabel(record.createdAt);
       const sizeLabel = `${record.width} × ${record.height}`;
-      const thumbnailDataUrl = files?.[record.fileId as FileId]?.dataURL ?? null;
+      const thumbnailDataUrl =
+        files?.[record.fileId as FileId]?.dataURL ?? null;
       return {
         id: record.fileId,
         fileId: record.fileId,

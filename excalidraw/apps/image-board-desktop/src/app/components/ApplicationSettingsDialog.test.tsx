@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { setActiveDesktopLocale } from "../copy";
 
 import {
   ApplicationSettingsDialog,
@@ -24,6 +26,7 @@ describe("ApplicationSettingsDialog", () => {
         onCategoryChange={onCategoryChange}
         onDiscardChanges={vi.fn()}
         onClose={onClose}
+        generalContent={<div>通用内容</div>}
         imageGenerationContent={<div>图像生成内容</div>}
         codexIntegrationContent={<div>Codex 集成内容</div>}
         experimentalContent={<div>实验性功能内容</div>}
@@ -33,9 +36,10 @@ describe("ApplicationSettingsDialog", () => {
     return { onCategoryChange, onClose };
   };
 
-  it("显示三个一级分类和当前分类内容", () => {
+  it("显示四个一级分类和当前分类内容", () => {
     renderDialog();
 
+    expect(screen.getByRole("tab", { name: "通用" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "图像生成" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -85,6 +89,7 @@ describe("ApplicationSettingsDialog", () => {
         onCategoryChange={vi.fn()}
         onDiscardChanges={vi.fn()}
         onClose={vi.fn()}
+        generalContent={null}
         imageGenerationContent={<DetailBackProbe onBack={onBack} />}
         codexIntegrationContent={null}
         experimentalContent={null}
@@ -96,4 +101,18 @@ describe("ApplicationSettingsDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "放弃修改" }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
+
+  it("从同一个英文词典渲染设置框架", () => {
+    setActiveDesktopLocale("en");
+    renderDialog();
+
+    expect(
+      screen.getByRole("dialog", { name: "Application Settings" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
+  });
+});
+
+afterEach(() => {
+  setActiveDesktopLocale("zh-CN");
 });

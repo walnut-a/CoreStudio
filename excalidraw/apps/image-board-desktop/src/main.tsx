@@ -2,6 +2,21 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import App from "./app/App";
+import {
+  DesktopLocaleProvider,
+  useDesktopLocale,
+} from "./app/localization/DesktopLocaleProvider";
+
+const LocalizedApp = () => {
+  const { locale, preference, setPreference } = useDesktopLocale();
+  return (
+    <App
+      locale={locale}
+      localePreference={preference}
+      onLocalePreferenceChange={setPreference}
+    />
+  );
+};
 
 const rootElement = document.getElementById("root");
 
@@ -11,6 +26,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <DesktopLocaleProvider>
+      <LocalizedApp />
+    </DesktopLocaleProvider>
   </StrictMode>,
 );

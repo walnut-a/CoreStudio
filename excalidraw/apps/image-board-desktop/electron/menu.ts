@@ -4,13 +4,15 @@ import type {
   DesktopMenuEvent,
   RecentProjectEntry,
 } from "../src/shared/desktopBridgeTypes";
-import { copy } from "../src/app/copy";
+import type { DesktopLocale } from "../src/shared/desktopLocale";
+import { getDesktopCopy } from "../src/app/copy";
 
 export const CORESTUDIO_RELEASES_URL =
   "https://github.com/walnut-a/CoreStudio/releases";
 
 interface AppMenuOptions {
   platform?: NodeJS.Platform;
+  locale?: DesktopLocale;
 }
 
 export const createAppMenuTemplate = (
@@ -24,6 +26,7 @@ export const createAppMenuTemplate = (
   options: AppMenuOptions = {},
 ): MenuItemConstructorOptions[] => {
   const isMac = options.platform === "darwin";
+  const copy = getDesktopCopy(options.locale ?? "zh-CN");
   const settingsItems: MenuItemConstructorOptions[] = [
     {
       label: copy.menu.appSettings,

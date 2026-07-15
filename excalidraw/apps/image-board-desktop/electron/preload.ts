@@ -86,6 +86,9 @@ const desktopBridge: DesktopBridgeApi = {
   cancelGenerateImages: (generationJobId) =>
     ipcRenderer.invoke(IPC_CHANNELS.cancelGenerateImages, generationJobId),
   readClipboardImage: () => ipcRenderer.invoke(IPC_CHANNELS.readClipboardImage),
+  loadLocaleSettings: () => ipcRenderer.invoke(IPC_CHANNELS.loadLocaleSettings),
+  saveLocalePreference: (preference) =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveLocalePreference, preference),
   onMenuAction: (listener) => {
     const handler = (_event: unknown, menuEvent: DesktopMenuEvent) => {
       listener(menuEvent);

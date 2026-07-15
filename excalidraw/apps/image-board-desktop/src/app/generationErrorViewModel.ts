@@ -1,5 +1,5 @@
 import { getProviderDefinition } from "../shared/providerCatalog";
-import { copy } from "./copy";
+import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import type { GenerationRequest } from "../shared/providerTypes";
 
@@ -274,7 +274,7 @@ export const formatGenerationErrorDebugText = (
     `${copy.debugError.model}：${details.model}`,
     `${copy.debugError.occurredAt}：${new Date(
       details.occurredAt,
-    ).toLocaleString("zh-CN")}`,
+    ).toLocaleString(DESKTOP_LANG_CODE)}`,
     "",
     `${copy.debugError.message}：`,
     details.normalizedMessage,

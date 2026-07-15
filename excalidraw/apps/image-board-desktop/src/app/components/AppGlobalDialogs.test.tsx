@@ -29,6 +29,7 @@ const createProps = (
     onClose: vi.fn(),
     onCategoryChange: vi.fn(),
     onDiscardChanges: vi.fn(),
+    generalContent: <div>通用</div>,
     imageGenerationContent: <div>图像生成</div>,
     codexIntegrationContent: <div>Codex 集成</div>,
     experimentalContent: <div>实验性功能</div>,
@@ -79,7 +80,9 @@ describe("AppGlobalDialogs", () => {
       />,
     );
 
-    expect(screen.getByRole("dialog", { name: "关于 CoreStudio" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "关于 CoreStudio" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "关闭关于页面" }));
 

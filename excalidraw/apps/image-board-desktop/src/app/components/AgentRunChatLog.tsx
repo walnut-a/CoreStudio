@@ -12,6 +12,7 @@ import "./AgentRunChatLog.css";
 
 import type { AcpRunLogEntry } from "../../shared/acpTypes";
 import type { ExternalThreadMessage } from "@assistant-ui/react";
+import { DESKTOP_LANG_CODE } from "../copy";
 
 type AgentRunChatRole = "user" | "assistant" | "tool" | "system";
 type AgentRunChatTone = "neutral" | "success" | "danger";
@@ -140,11 +141,15 @@ const getEntryTitle = (entry: AcpRunLogEntry) => {
     case "task.finished":
       return "任务结束";
     case "acp.request":
-      return `ACP 请求${typeof record?.method === "string" ? ` · ${record.method}` : ""}`;
+      return `ACP 请求${
+        typeof record?.method === "string" ? ` · ${record.method}` : ""
+      }`;
     case "acp.response":
       return "ACP 响应";
     case "acp.notification":
-      return `ACP 通知${typeof record?.method === "string" ? ` · ${record.method}` : ""}`;
+      return `ACP 通知${
+        typeof record?.method === "string" ? ` · ${record.method}` : ""
+      }`;
     case "stderr":
       return "Agent stderr";
   }
@@ -170,10 +175,7 @@ const getEntryDetail = (entry: AcpRunLogEntry) => {
         typeof record?.status === "string"
           ? getToolStatusLabel(record.status)
           : null;
-      return (
-        getPayloadText(entry.payload, ["message", "detail"]) ??
-        status
-      );
+      return getPayloadText(entry.payload, ["message", "detail"]) ?? status;
     }
     case "error":
       return getPayloadText(entry.payload, ["message", "error"]);
@@ -280,8 +282,7 @@ export const createAgentRunChatItems = (
     if (entry.kind === "agent.message") {
       const messageId = getAgentMessageId(entry);
       if (messageId) {
-        const existingMessageItem =
-          agentMessageItemsByMessageId.get(messageId);
+        const existingMessageItem = agentMessageItemsByMessageId.get(messageId);
         if (existingMessageItem) {
           appendAgentMessageChunk(existingMessageItem, entry, detail);
           continue;
@@ -445,7 +446,7 @@ const getRoleBadge = (role: AgentRunChatRole) => {
 };
 
 const getTimeLabel = (timestamp: string) =>
-  new Date(timestamp).toLocaleTimeString("zh-CN", {
+  new Date(timestamp).toLocaleTimeString(DESKTOP_LANG_CODE, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -480,11 +481,9 @@ const AgentRunJsonList: FC<{ item: AgentRunChatItem }> = ({ item }) => (
 const AgentRunMessage: FC = () => {
   const custom = useAuiState(
     (state) =>
-      (
-        state.message.metadata.custom as unknown as
-          | AgentRunThreadMessageCustom
-          | undefined
-      ),
+      state.message.metadata.custom as unknown as
+        | AgentRunThreadMessageCustom
+        | undefined,
   );
   const item = custom?.agentRunItem;
   const showJsonPayloads = Boolean(custom?.showJsonPayloads);

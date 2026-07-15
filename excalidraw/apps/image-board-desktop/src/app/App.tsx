@@ -122,6 +122,7 @@ import { AppErrorBanners } from "./components/AppErrorBanners";
 import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
 import { type ApplicationSettingsCategory } from "./components/ApplicationSettingsDialog";
 import { ImageGenerationSettings } from "./components/ImageGenerationSettings";
+import { GeneralSettingsSection } from "./components/GeneralSettingsSection";
 import { CodexIntegrationSettings } from "./components/CodexIntegrationSettings";
 import { ExperimentalFeaturesSettingsSection } from "./components/ExperimentalFeaturesSettingsSection";
 import { AcpAgentSettingsPanel } from "./components/AcpAgentSettingsPanel";
@@ -190,6 +191,10 @@ import { createAcpConversationMessageRendererActions } from "./agent/acpConversa
 import { useAcpInteractionTargetsController } from "./agent/useAcpInteractionTargetsController";
 import { useAcpRunLogStateController } from "./agent/useAcpRunLogStateController";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
+import type {
+  DesktopLocale,
+  DesktopLocalePreference,
+} from "../shared/desktopLocale";
 
 import "./App.css";
 
@@ -235,7 +240,19 @@ type AutosaveSnapshot = ProjectAutosaveSnapshot<
 const ACP_RUN_HISTORY_REFRESH_DELAY_MS = 160;
 const ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS = 240;
 
-const App = () => {
+interface AppProps {
+  locale?: DesktopLocale;
+  localePreference?: DesktopLocalePreference;
+  onLocalePreferenceChange?: (
+    preference: DesktopLocalePreference,
+  ) => void | Promise<void>;
+}
+
+const App = ({
+  locale = DESKTOP_LANG_CODE,
+  localePreference = "system",
+  onLocalePreferenceChange = () => undefined,
+}: AppProps) => {
   const {
     isAgentBrowserRoute,
     hasInitialProjectToken: agentBrowserInitialProjectToken,
@@ -1733,6 +1750,14 @@ const App = () => {
           void loadAcpAgentSettingsState();
         },
         onClose: () => setAppSettingsOpen(false),
+        generalContent: (
+          <GeneralSettingsSection
+            preference={localePreference}
+            onPreferenceChange={(preference) => {
+              void onLocalePreferenceChange(preference);
+            }}
+          />
+        ),
         imageGenerationContent: (
           <ImageGenerationSettings
             configuration={
@@ -1981,7 +2006,7 @@ const App = () => {
             <Suspense fallback={null}>
               <LazyExcalidraw
                 key={projectRenderKey}
-                langCode={DESKTOP_LANG_CODE}
+                langCode={locale}
                 initialData={initialData}
                 onInitialize={(api) => {
                   currentProjectEditorReadyRendererActions.ready(

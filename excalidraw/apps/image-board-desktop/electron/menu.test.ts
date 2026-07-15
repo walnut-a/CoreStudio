@@ -14,17 +14,13 @@ const getMenuItem = (
   label: string,
 ) => getSubmenuItems(submenu).find((item) => item.label === label);
 
-const getProjectMaintenanceMenu = (
-  template: MenuItemConstructorOptions[],
-) => {
+const getProjectMaintenanceMenu = (template: MenuItemConstructorOptions[]) => {
   const fileMenu = template.find((item) => item.label === "文件");
   const maintenanceMenu = getMenuItem(fileMenu?.submenu, "项目维护");
   return getSubmenuItems(maintenanceMenu?.submenu);
 };
 
-const getAllMenuLabels = (
-  items: MenuItemConstructorOptions[],
-): string[] =>
+const getAllMenuLabels = (items: MenuItemConstructorOptions[]): string[] =>
   items.flatMap((item) => [
     ...(typeof item.label === "string" ? [item.label] : []),
     ...getAllMenuLabels(getSubmenuItems(item.submenu)),
@@ -53,30 +49,18 @@ describe("createAppMenuTemplate", () => {
       "帮助",
     ]);
 
-    expect(
-      getSubmenuLabels(template[0].submenu),
-    ).toContain("版本 1.1.9");
-    expect(
-      getSubmenuLabels(template[0].submenu),
-    ).toContain("新建项目");
-    expect(
-      getSubmenuLabels(template[0].submenu),
-    ).toContain("最近项目");
-    expect(
-      getSubmenuLabels(template[0].submenu),
-    ).toContain("项目维护");
-    expect(
-      getSubmenuLabels(template[0].submenu),
-    ).not.toContain("安全模式打开项目");
-    expect(
-      getSubmenuLabels(template[0].submenu),
-    ).not.toContain("检查当前项目健康");
-    expect(
-      getSubmenuLabels(template[0].submenu),
-    ).toContain("退出 CoreStudio");
-    expect(
-      template.map((item) => item.label),
-    ).not.toContain("生成");
+    expect(getSubmenuLabels(template[0].submenu)).toContain("版本 1.1.9");
+    expect(getSubmenuLabels(template[0].submenu)).toContain("新建项目");
+    expect(getSubmenuLabels(template[0].submenu)).toContain("最近项目");
+    expect(getSubmenuLabels(template[0].submenu)).toContain("项目维护");
+    expect(getSubmenuLabels(template[0].submenu)).not.toContain(
+      "安全模式打开项目",
+    );
+    expect(getSubmenuLabels(template[0].submenu)).not.toContain(
+      "检查当前项目健康",
+    );
+    expect(getSubmenuLabels(template[0].submenu)).toContain("退出 CoreStudio");
+    expect(template.map((item) => item.label)).not.toContain("生成");
     expect(getAllMenuLabels(template)).not.toContain("复制 Agent Board 链接");
     expect(getAllMenuLabels(template)).not.toContain("ACP 调试记录");
     expect(getAllMenuLabels(template)).not.toContain("最近 Agent 任务");
@@ -91,11 +75,34 @@ describe("createAppMenuTemplate", () => {
     expect(maintenanceLabels).toContain("清理当前项目缓存");
   });
 
+  it("builds the same application menu from the English catalog", () => {
+    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", undefined, {
+      platform: "linux",
+      locale: "en",
+    });
+
+    expect(template.map((item) => item.label)).toEqual([
+      "File",
+      "Edit",
+      "Settings",
+      "Help",
+    ]);
+    expect(getSubmenuLabels(template[0].submenu)).toContain("New Project");
+    expect(getSubmenuLabels(template[0].submenu)).toContain("Recent Projects");
+    expect(getSubmenuLabels(template[0].submenu)).toContain("Quit CoreStudio");
+  });
+
   it("opens application settings from the settings menu", () => {
     const sendMenuAction = vi.fn();
-    const template = createAppMenuTemplate(sendMenuAction, [], undefined, undefined, {
-      platform: "linux",
-    });
+    const template = createAppMenuTemplate(
+      sendMenuAction,
+      [],
+      undefined,
+      undefined,
+      {
+        platform: "linux",
+      },
+    );
     const settingsMenu = template.find((item) => item.label === "设置");
     const settingsItem = getMenuItem(settingsMenu?.submenu, "应用设置");
 
@@ -110,13 +117,9 @@ describe("createAppMenuTemplate", () => {
   });
 
   it("keeps Agent collaboration controls out of the application menu", () => {
-    const template = createAppMenuTemplate(
-      vi.fn(),
-      [],
-      "1.1.9",
-      undefined,
-      { platform: "linux" },
-    );
+    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", undefined, {
+      platform: "linux",
+    });
 
     expect(getAllMenuLabels(template)).not.toContain("启用 Agent 集成");
   });
@@ -136,7 +139,9 @@ describe("createAppMenuTemplate", () => {
       "编辑",
       "帮助",
     ]);
-    expect(getSubmenuLabels(template[0].submenu)).not.toContain("启用 Agent 集成");
+    expect(getSubmenuLabels(template[0].submenu)).not.toContain(
+      "启用 Agent 集成",
+    );
     expect(getSubmenuLabels(template[0].submenu)).toContain("应用设置");
     expect(template.map((item) => item.label)).not.toContain("设置");
 
@@ -173,12 +178,7 @@ describe("createAppMenuTemplate", () => {
 
   it("opens the GitHub releases page from the help menu", () => {
     const openExternal = vi.fn();
-    const template = createAppMenuTemplate(
-      vi.fn(),
-      [],
-      "1.1.9",
-      openExternal,
-    );
+    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", openExternal);
     const helpMenu = template.find((item) => item.label === "帮助");
     const updateItem = getMenuItem(helpMenu?.submenu, "查看更新");
 

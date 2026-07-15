@@ -1,0 +1,304 @@
+import type { DesktopCopy } from "./copy";
+
+const formatFileSize = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) {
+    return `${kilobytes.toFixed(1)} KB`;
+  }
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
+};
+
+export const enCopy: DesktopCopy = {
+  welcome: {
+    eyebrow: "Local projects",
+    title: "Choose a project to begin",
+    description:
+      "Create a local project or open an existing one. Boards, images, prompts, and generation history stay in the project folder.",
+    recentTitle: "Projects",
+    recentEmpty: "No projects yet. Create or open one to get started.",
+    lastOpenedAt: "Last opened",
+    continueLastProject: "Continue recent project",
+    deleteProject: "Remove project",
+    deleteProjectRecordOnly: "Remove from list",
+    revealProjectForManualDelete: "Show in file manager",
+    cancelDeleteProject: "Cancel",
+    deleteProjectRecordHint:
+      "This only removes the project from the list. It does not delete the local project folder.",
+    deleteProjectManualHint:
+      "To delete the data itself, remove the project folder manually in the file manager.",
+    creating: "Creating...",
+    newProject: "New project",
+    opening: "Opening...",
+    openProject: "Open project",
+  },
+  toolbar: {
+    generateImage: "Generate image",
+  },
+  generateDialog: {
+    eyebrow: "Generate image",
+    title: "Generate directly onto the board",
+    close: "Close",
+    promptPlaceholder: "Describe what you want to generate",
+    expandedPromptLabel: "Expand prompt input",
+    promptInputHint: "Enter to send, Shift+Enter for a new line",
+    expandPrompt: "Expand input",
+    collapsePrompt: "Collapse input",
+    expandSettings: "Expand settings",
+    collapseSettings: "Collapse settings",
+    providerWarning: "No image generation service is configured.",
+    provider: "Model service",
+    model: "Model",
+    prompt: "Prompt",
+    negativePrompt: "Negative prompt",
+    aspectRatio: "Aspect ratio",
+    aspectRatioAuto: "Auto (not specified)",
+    width: "Width",
+    height: "Height",
+    seed: "Seed",
+    imageCount: "Image count",
+    referenceTitle: "References",
+    referenceToggle: "Use the current selection as a reference",
+    referenceRemove: "Remove reference",
+    referenceLimitReached: "This model accepts up to {count} reference images.",
+    referenceLimitExceeded:
+      "This model supports up to {count} reference images. Remove the extras first.",
+    referenceUnsupportedWithInlineReferences:
+      "This model does not support reference images. Remove the inserted references first.",
+    referenceAutoStatus: "Current selection added automatically",
+    referenceEmpty: "Nothing is currently selected.",
+    referenceUnsupported: "This model does not support reference images yet.",
+    referenceTextTitle: "Selected text",
+    keepOpen: "Keep this dialog open after generation",
+    cancel: "Cancel",
+    cancelGeneration: "Stop generation",
+    generating: "Generating...",
+    generate: "Generate",
+    generateCompact: "Generate",
+  },
+  providersDialog: {
+    eyebrow: "Model services",
+    title: "Configure your API key",
+    close: "Close",
+    currentProvider: "Current service",
+    status: "Status",
+    apiKey: "API Key",
+    keepCurrentKey: "Leave blank to keep the current key",
+    pasteApiKey: "Paste API Key",
+    defaultModel: "Default model",
+    saving: "Saving...",
+    save: "Save",
+    saved: "Saved locally. The key will not be displayed again.",
+    saveFailed: "Save failed",
+  },
+  inspector: {
+    title: "Image details",
+    sidebarToggle: "Sidebar",
+    empty:
+      "Select an AI-generated image or generation placeholder to inspect its prompt, model, size, and task status.",
+    generatedImageTitle: "AI-generated image",
+    importedImageTitle: "Imported image",
+    taskTitle: "Generation task",
+    taskPending: "Generating",
+    taskFailed: "Generation failed",
+    taskStatus: "Status",
+    taskStartedAt: "Started",
+    taskMessage: "Current message",
+    taskRawError: "Raw error",
+    taskStack: "Call stack",
+    source: "Source",
+    imageId: "Image ID",
+    parentImage: "Source image",
+    chainTitle: "Edit chain",
+    currentImage: "Current image",
+    descendantImages: "Later versions",
+    locateImage: "Locate image",
+    provider: "Model service",
+    importedProvider: "Imported",
+    externalAgentProvider: "External Agent",
+    unrecordedProvider: "Not recorded",
+    detailsTitle: "Generation parameters",
+    model: "Model",
+    prompt: "Prompt",
+    promptReferences: "Reference images",
+    negativePrompt: "Negative prompt",
+    seed: "Seed",
+    size: "Size",
+    createdAt: "Created",
+    emptyValue: "None",
+    copyPrompt: "Copy prompt",
+    copyTaskError: "Copy error details",
+  },
+  elementActions: {
+    title: "Element editing",
+  },
+  clipboard: {
+    writeFailed: "Copy failed. Check the system clipboard permission.",
+  },
+  startup: {
+    eyebrow: "Startup diagnostics",
+    heading: "Desktop app not connected",
+    description:
+      "This page is not connected to the local desktop capabilities, so it cannot create or open projects. Launch it from the CoreStudio desktop app.",
+    retryInstruction:
+      "In development, run `corepack yarn start:desktop`. For a packaged app, quit and reopen CoreStudio.",
+    editorLoading: "Loading board...",
+    providerLoadFailed:
+      "The desktop connection is unavailable, so model service settings could not be loaded.",
+    createProjectFailed: "Could not create the project.",
+    openProjectFailed: "Could not open the project.",
+    importImagesFailed: "Could not import images.",
+    revealProjectFailed: "Could not show the project folder.",
+    saveProjectFailed: "Could not save the project.",
+    saveBeforeOpenFailed:
+      "The previous project could not be saved, so opening the new project was stopped.",
+    generateFailed: "Image generation failed.",
+  },
+  debugError: {
+    eyebrow: "Debug information",
+    title: "Error details",
+    view: "View error details",
+    close: "Close",
+    copy: "Copy error details",
+    copied: "Copied",
+    provider: "Model service",
+    model: "Model",
+    occurredAt: "Occurred at",
+    message: "Current message",
+    raw: "Raw error",
+    payload: "Request payload",
+    stack: "Call stack",
+  },
+  about: {
+    title: "About CoreStudio",
+    close: "Close",
+    closeLabel: "Close About",
+    versionLabel: "Version",
+    versionUnknown: "Unknown",
+    description:
+      "A local-first AI board for industrial design, built to organize references, generate concepts, and preserve the design process.",
+  },
+  menu: {
+    file: "File",
+    newProject: "New Project",
+    openProject: "Open Project",
+    switchProject: "Switch Project...",
+    openProjectSafe: "Open Project in Safe Mode",
+    recentProjects: "Recent Projects",
+    version: "Version",
+    projectMaintenance: "Project Maintenance",
+    inspectProjectHealth: "Check Current Project Health",
+    repairProjectThumbnails: "Repair Current Project Data",
+    cleanProjectCache: "Clean Current Project Cache",
+    importImages: "Import Images",
+    revealProject: "Show Project Folder",
+    generate: "Generate",
+    generateImage: "Generate Image",
+    providers: "Model Services",
+    edit: "Edit",
+    settings: "Settings",
+    appSettings: "Application Settings",
+    quit: "Quit CoreStudio",
+    help: "Help",
+    viewUpdates: "View Updates",
+    about: "About CoreStudio",
+  },
+  applicationSettings: {
+    title: "Application Settings",
+    close: "Close",
+    categoriesLabel: "Settings categories",
+    general: "General",
+    imageGeneration: "Image Generation",
+    codexIntegration: "Codex Integration",
+    experimental: "Experimental Features",
+    language: "Language",
+    languageDescription:
+      "Choose the language used by CoreStudio and the board interface.",
+    languageSystem: "Use system language",
+    languageChinese: "简体中文",
+    languageEnglish: "English",
+    discardTitle: "Discard unsaved changes?",
+    discardDescription: "Changes on this page have not been saved.",
+    continueEditing: "Continue editing",
+    discardChanges: "Discard changes",
+  },
+  helpers: {
+    referenceSummary: (elementCount: number, textCount: number) =>
+      textCount
+        ? `${elementCount} elements selected, including ${textCount} text element${
+            textCount === 1 ? "" : "s"
+          }.`
+        : `${elementCount} elements selected.`,
+    referenceInlineStatus: (enabled: boolean, elementCount: number) =>
+      enabled ? `Referenced: ${elementCount}` : `Selected: ${elementCount}`,
+    customModelPlaceholder: {
+      gemini: "For example, gemini-next-image-preview",
+      zenmux: "For example, google/gemini-next-image-preview",
+      fal: "For example, fal-ai/flux-pro-next",
+      jimeng: "For example, doubao-seedream-next",
+      openai: "For example, gpt-image-next",
+      openrouter: "For example, google/gemini-next-image-preview",
+      "openai-compatible": "For example, vendor/image-model",
+    },
+    imageSource: {
+      generated: "AI-generated",
+      imported: "Imported",
+    },
+    imageGenerationOrigin: {
+      corestudio: "Generated by CoreStudio",
+      "agent-board": "Built-in Board Agent",
+      "acp-agent": "ACP Agent",
+    },
+    providerStatus: {
+      success: "Connected",
+      error: "Connection failed",
+      unknown: "Saved, awaiting validation",
+      notConfigured: "Not configured",
+    },
+  },
+  projectRepair: {
+    noProject: "Open a project first.",
+    noImages: "This project has no image assets to process.",
+    healthCheckFailed: "The project health check failed.",
+    healthChecking: "Checking project data",
+    healthHealthy: (imageCount: number, generationRecordCount = 0) =>
+      generationRecordCount
+        ? `Project check complete: ${imageCount} image assets and ${generationRecordCount} generation records match the board.`
+        : `Project check complete: ${imageCount} image assets match the board.`,
+    healthHasInfo: (infoCount: number) =>
+      `Project check complete with no errors or warnings. ${infoCount} informational items are available.`,
+    healthNeedsRepair: (
+      errorCount: number,
+      warningCount: number,
+      repairableCount: number,
+    ) =>
+      `Project check complete: ${errorCount} errors and ${warningCount} warnings found; ${repairableCount} can be handled by project data repair.`,
+    thumbnailsFailed: "Project data repair did not complete.",
+    cacheCleanFailed: "The project cache could not be cleaned.",
+    cacheCleaned: (removedCount: number, removedBytes: number) =>
+      removedCount
+        ? `Project cache cleaned: removed ${removedCount} cache files and freed ${formatFileSize(
+            removedBytes,
+          )}.`
+        : "Project cache cleaned. There were no cache files to remove.",
+    safeModeOpened:
+      "Project opened in safe mode. Cache loading and background data repair are paused.",
+    thumbnailsRepaired: (
+      _generatedCount: number,
+      _skippedCount: number,
+      failedCount: number,
+      _backupPath?: string | null,
+      _repairedGenerationRecordCount = 0,
+      _restoredImageRecordCount = 0,
+      skippedImageRecordCount = 0,
+    ) =>
+      failedCount || skippedImageRecordCount
+        ? "Project data repair complete. Some images still need review."
+        : "Project data repair complete.",
+  },
+};

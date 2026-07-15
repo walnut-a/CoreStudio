@@ -3,10 +3,13 @@ import type {
   ImageGenerationOrigin,
   ImageSourceType,
 } from "../shared/projectTypes";
-import type { ProviderId, ProviderSettings } from "../shared/providerTypes";
+import type { ProviderId } from "../shared/providerTypes";
+import type { DesktopLocale } from "../shared/desktopLocale";
+
+import { enCopy } from "./copy.en";
 
 export const DESKTOP_APP_NAME = "CoreStudio";
-export const DESKTOP_LANG_CODE = "zh-CN" as const;
+export let DESKTOP_LANG_CODE: DesktopLocale = "zh-CN";
 
 const formatFileSize = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -22,7 +25,7 @@ const formatFileSize = (bytes: number) => {
   return `${(kilobytes / 1024).toFixed(1)} MB`;
 };
 
-export const copy = {
+const zhCnCopy = {
   welcome: {
     eyebrow: "本地项目",
     title: "选择项目开始",
@@ -214,6 +217,56 @@ export const copy = {
     viewUpdates: "查看更新",
     about: `关于 ${DESKTOP_APP_NAME}`,
   },
+  applicationSettings: {
+    title: "应用设置",
+    close: "关闭",
+    categoriesLabel: "设置分类",
+    general: "通用",
+    imageGeneration: "图像生成",
+    codexIntegration: "Codex 集成",
+    experimental: "实验性功能",
+    language: "语言",
+    languageDescription: "设置 CoreStudio 和画板界面使用的语言。",
+    languageSystem: "跟随系统",
+    languageChinese: "简体中文",
+    languageEnglish: "English",
+    discardTitle: "放弃未保存的修改？",
+    discardDescription: "当前页面的修改还没有保存。",
+    continueEditing: "继续编辑",
+    discardChanges: "放弃修改",
+  },
+  helpers: {
+    referenceSummary: (elementCount: number, textCount: number) =>
+      textCount
+        ? `当前已选 ${elementCount} 个元素，包含 ${textCount} 段文字。`
+        : `当前已选 ${elementCount} 个元素。`,
+    referenceInlineStatus: (enabled: boolean, elementCount: number) =>
+      enabled ? `已引用：${elementCount}` : `已选择：${elementCount}`,
+    customModelPlaceholder: {
+      gemini: "例如 gemini-next-image-preview",
+      zenmux: "例如 google/gemini-next-image-preview",
+      fal: "例如 fal-ai/flux-pro-next",
+      jimeng: "例如 doubao-seedream-next",
+      openai: "例如 gpt-image-next",
+      openrouter: "例如 google/gemini-next-image-preview",
+      "openai-compatible": "例如 vendor/image-model",
+    },
+    imageSource: {
+      generated: "AI 生成",
+      imported: "导入",
+    },
+    imageGenerationOrigin: {
+      corestudio: "CoreStudio 生成",
+      "agent-board": "内置画板 Agent",
+      "acp-agent": "ACP Agent",
+    },
+    providerStatus: {
+      success: "已连接",
+      error: "连接失败",
+      unknown: "已保存，待验证",
+      notConfigured: "未配置",
+    },
+  },
   projectRepair: {
     noProject: "请先打开一个项目。",
     noImages: "当前项目没有需要处理的图片资源。",
@@ -255,74 +308,59 @@ export const copy = {
   },
 } as const;
 
+type WidenCopy<T> = T extends (...args: infer Args) => unknown
+  ? (...args: Args) => string
+  : T extends string
+  ? string
+  : T extends object
+  ? { readonly [Key in keyof T]: WidenCopy<T[Key]> }
+  : T;
+
+export type DesktopCopy = WidenCopy<typeof zhCnCopy>;
+
+const desktopCopies: Record<DesktopLocale, DesktopCopy> = {
+  "zh-CN": zhCnCopy,
+  en: enCopy,
+};
+
+export let copy: DesktopCopy = zhCnCopy;
+
+export const getDesktopCopy = (locale: DesktopLocale): DesktopCopy =>
+  desktopCopies[locale];
+
+export const setActiveDesktopLocale = (locale: DesktopLocale) => {
+  DESKTOP_LANG_CODE = locale;
+  copy = getDesktopCopy(locale);
+};
+
 export const getReferenceSummaryText = (
   elementCount: number,
   textCount: number,
-) => {
-  if (!textCount) {
-    return `当前已选 ${elementCount} 个元素。`;
-  }
-  return `当前已选 ${elementCount} 个元素，包含 ${textCount} 段文字。`;
-};
+) => copy.helpers.referenceSummary(elementCount, textCount);
 
 export const getReferenceInlineStatusText = (
   enabled: boolean,
   elementCount: number,
-) => {
-  if (enabled) {
-    return `已引用：${elementCount}`;
-  }
-  return `已选择：${elementCount}`;
-};
-
-const customModelPlaceholderByProvider: Record<ProviderId, string> = {
-  gemini: "例如 gemini-next-image-preview",
-  zenmux: "例如 google/gemini-next-image-preview",
-  fal: "例如 fal-ai/flux-pro-next",
-  jimeng: "例如 doubao-seedream-next",
-  openai: "例如 gpt-image-next",
-  openrouter: "例如 google/gemini-next-image-preview",
-  "openai-compatible": "例如 vendor/image-model",
-};
+) => copy.helpers.referenceInlineStatus(enabled, elementCount);
 
 export const getCustomModelPlaceholder = (provider: ProviderId) =>
-  customModelPlaceholderByProvider[provider];
-
-const imageSourceLabels: Record<ImageSourceType, string> = {
-  generated: "AI 生成",
-  imported: "导入",
-};
-
-const imageGenerationOriginLabels: Record<ImageGenerationOrigin, string> = {
-  corestudio: "CoreStudio 生成",
-  "agent-board": "内置画板 Agent",
-  "acp-agent": "ACP Agent",
-};
-
-const providerStatusLabels: Record<
-  NonNullable<ProviderSettings["lastStatus"]>,
-  string
-> = {
-  success: "已连接",
-  error: "连接失败",
-  unknown: "已保存，待验证",
-};
+  copy.helpers.customModelPlaceholder[provider];
 
 export const getImageSourceLabel = (sourceType: ImageSourceType) =>
-  imageSourceLabels[sourceType];
+  copy.helpers.imageSource[sourceType];
 
 export const getImageGenerationOriginLabel = (
   origin: ImageGenerationOrigin | undefined,
-) => (origin ? imageGenerationOriginLabels[origin] : null);
+) => (origin ? copy.helpers.imageGenerationOrigin[origin] : null);
 
 export const getProviderStatusLabel = (
   settings: PublicProviderSettings[ProviderId] | undefined,
 ) => {
   if (!settings?.isConfigured) {
-    return "未配置";
+    return copy.helpers.providerStatus.notConfigured;
   }
 
-  return providerStatusLabels[settings.lastStatus || "unknown"];
+  return copy.helpers.providerStatus[settings.lastStatus || "unknown"];
 };
 
 export const getOptionalText = (value?: string | number | null) => {

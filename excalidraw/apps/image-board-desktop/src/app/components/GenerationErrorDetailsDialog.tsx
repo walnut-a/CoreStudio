@@ -1,5 +1,5 @@
 import { getProviderDefinition } from "../../shared/providerCatalog";
-import { copy } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 import type { GenerationErrorDetails } from "../generationErrorViewModel";
 import { DesktopButton } from "./DesktopButton";
 import "./GenerationErrorDetailsDialog.css";
@@ -60,7 +60,7 @@ export const GenerationErrorDetailsDialog = ({
             <div>
               <span>{copy.debugError.occurredAt}</span>
               <strong>
-                {new Date(details.occurredAt).toLocaleString("zh-CN")}
+                {new Date(details.occurredAt).toLocaleString(DESKTOP_LANG_CODE)}
               </strong>
             </div>
           </div>

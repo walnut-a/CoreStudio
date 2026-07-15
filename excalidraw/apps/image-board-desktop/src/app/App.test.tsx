@@ -47,79 +47,85 @@ describe("App startup", () => {
     expect(container.querySelector(".welcome-pane__diagnostic")).toBeTruthy();
   });
 
-  it("boots Excalidraw with Simplified Chinese by default", async () => {
-    window.imageBoardDesktop = {
-      createProject: vi.fn().mockResolvedValue({
-        projectPath: "/tmp/mock-project",
-        project: {
-          formatVersion: 1,
-          appVersion: "0.0.0-test",
-          name: "测试项目",
-          createdAt: "2026-04-12T08:00:00.000Z",
-          updatedAt: "2026-04-12T08:00:00.000Z",
-          sceneFile: "scene.excalidraw.json",
-          imageRecordsFile: "image-records.json",
-          assetsDir: "assets",
-          exportsDir: "exports",
-        },
-        sceneJson: "{}",
-        imageRecords: {},
-      }),
-      openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
-      readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
-      persistImageAssets: vi.fn().mockResolvedValue({}),
-      importImages: vi.fn().mockResolvedValue([]),
-      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
-      loadProviderSettings: vi.fn().mockResolvedValue({
-        schemaVersion: 2,
-        defaultProvider: "gemini",
-        providers: {
-          gemini: {
-            defaultModel: "imagen-4.0-fast-generate-001",
-            isConfigured: true,
-            lastStatus: "success",
-            lastCheckedAt: null,
-            lastError: null,
+  it.each([
+    { locale: undefined, expectedLocale: "zh-CN" },
+    { locale: "en" as const, expectedLocale: "en" },
+  ])(
+    "boots Excalidraw with the shared $expectedLocale locale",
+    async ({ locale, expectedLocale }) => {
+      window.imageBoardDesktop = {
+        createProject: vi.fn().mockResolvedValue({
+          projectPath: "/tmp/mock-project",
+          project: {
+            formatVersion: 1,
+            appVersion: "0.0.0-test",
+            name: "测试项目",
+            createdAt: "2026-04-12T08:00:00.000Z",
+            updatedAt: "2026-04-12T08:00:00.000Z",
+            sceneFile: "scene.excalidraw.json",
+            imageRecordsFile: "image-records.json",
+            assetsDir: "assets",
+            exportsDir: "exports",
           },
-          zenmux: {
-            defaultModel: "google/gemini-2.5-flash-image",
-            isConfigured: false,
-            lastStatus: "unknown",
-            lastCheckedAt: null,
-            lastError: null,
+          sceneJson: "{}",
+          imageRecords: {},
+        }),
+        openProject: vi.fn().mockResolvedValue(null),
+        writeProjectScene: vi.fn().mockResolvedValue(undefined),
+        readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+        persistImageAssets: vi.fn().mockResolvedValue({}),
+        importImages: vi.fn().mockResolvedValue([]),
+        revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+        loadProviderSettings: vi.fn().mockResolvedValue({
+          schemaVersion: 2,
+          defaultProvider: "gemini",
+          providers: {
+            gemini: {
+              defaultModel: "imagen-4.0-fast-generate-001",
+              isConfigured: true,
+              lastStatus: "success",
+              lastCheckedAt: null,
+              lastError: null,
+            },
+            zenmux: {
+              defaultModel: "google/gemini-2.5-flash-image",
+              isConfigured: false,
+              lastStatus: "unknown",
+              lastCheckedAt: null,
+              lastError: null,
+            },
+            fal: {
+              defaultModel: "fal-ai/flux/schnell",
+              isConfigured: false,
+              lastStatus: "unknown",
+              lastCheckedAt: null,
+              lastError: null,
+            },
           },
-          fal: {
-            defaultModel: "fal-ai/flux/schnell",
-            isConfigured: false,
-            lastStatus: "unknown",
-            lastCheckedAt: null,
-            lastError: null,
-          },
-        },
-      }),
-      saveProviderSettings: vi.fn(),
-      deleteProviderSettings: vi.fn(),
-      generateImages: vi.fn(),
-      onMenuAction: vi.fn(() => () => undefined),
-    } as any;
+        }),
+        saveProviderSettings: vi.fn(),
+        deleteProviderSettings: vi.fn(),
+        generateImages: vi.fn(),
+        onMenuAction: vi.fn(() => () => undefined),
+      } as any;
 
-    render(<App />);
+      render(<App locale={locale} />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+      });
+      act(() => {
+        triggerExcalidrawInitialize?.();
+      });
 
-    await waitFor(() => {
-      expect(screen.getByTestId("excalidraw-canvas")).toHaveAttribute(
-        "data-lang-code",
-        "zh-CN",
-      );
-    });
-  });
+      await waitFor(() => {
+        expect(screen.getByTestId("excalidraw-canvas")).toHaveAttribute(
+          "data-lang-code",
+          expectedLocale,
+        );
+      });
+    },
+  );
 
   it("shows a Chinese loading mask while Excalidraw is still initializing", async () => {
     window.imageBoardDesktop = {
@@ -1804,6 +1810,7 @@ describe("App startup", () => {
 
   it("opens the unified settings from the native settings menu", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
+    const onLocalePreferenceChange = vi.fn();
     window.imageBoardDesktop = createDesktopBridgeMock({
       getAgentBridgeStatus: vi.fn(async () => ({
         enabled: false,
@@ -1817,7 +1824,12 @@ describe("App startup", () => {
       }),
     }) as any;
 
-    render(<App />);
+    render(
+      <App
+        localePreference="system"
+        onLocalePreferenceChange={onLocalePreferenceChange}
+      />,
+    );
 
     await waitFor(() => {
       expect(menuActionListener).not.toBeNull();
@@ -1829,6 +1841,12 @@ describe("App startup", () => {
 
     const dialog = screen.getByRole("dialog", { name: "应用设置" });
     expect(dialog).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("tab", { name: "通用" }));
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "语言" }), {
+      target: { value: "en" },
+    });
+    expect(onLocalePreferenceChange).toHaveBeenCalledWith("en");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "图像生成" }));
     expect(
       within(dialog).getByRole("tab", { name: "图像生成" }),
     ).toHaveAttribute("aria-selected", "true");

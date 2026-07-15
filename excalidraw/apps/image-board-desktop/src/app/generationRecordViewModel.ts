@@ -9,6 +9,7 @@ import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
 import type { AcpRunLogDetail, AcpRunLogEntry } from "../shared/acpTypes";
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
+import { DESKTOP_LANG_CODE } from "./copy";
 
 export interface DirectGenerationRecordListItem {
   id: string;
@@ -32,7 +33,7 @@ export const getGenerationRecordTimeLabel = (createdAt: string) => {
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(DESKTOP_LANG_CODE, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -80,8 +81,8 @@ export const buildDirectGenerationRecordItems = (
       const statusLabel = sceneImageFileIdSet.has(record.fileId)
         ? undefined
         : livePromptReferencedFileIds.has(record.fileId)
-          ? "引用链中间图"
-          : "未在画板";
+        ? "引用链中间图"
+        : "未在画板";
       const thumbnailDataUrl = files?.[record.fileId as FileId]?.dataURL;
       return {
         id: record.fileId,

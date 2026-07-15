@@ -183,7 +183,7 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
-## 1.1.17 发布内容
+## 1.1.17 已验证信息
 
 1.1.17 聚焦 CoreStudio 的易用性和设置体验：
 
@@ -192,6 +192,31 @@ gh release create v1.1.0 \
 - 图像服务统一由设置页配置，画布输入区只读取已经配置好的服务
 - 支持 OpenAI 兼容图像服务，并彻底移除已退役的常用提示词功能
 - 统一设置弹窗的排版、按钮尺寸、导航层级和 Excalidraw 视觉语言
+
+本次发布通过了这些检查：
+
+- `main` 远端 CI：245 个测试文件、1906 项测试全部通过
+- workspace scope、依赖安全、TypeScript typecheck、source/package-input/release secret scan、production build 和 bundle budget 全部通过
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `93819ad9-8d06-40f1-b45f-294ec248603a`，状态 `Accepted`
+- App、DMG 和 ZIP 内 App 的 stapler validate、Gatekeeper 与 codesign 校验通过
+- DMG `hdiutil verify` 与 packaged smoke 通过
+
+校验值：
+
+```text
+CoreStudio-1.1.17-arm64.dmg
+sha256: 399fb4a60f7a9993bca952475e51a09b2b463cc71bbc1c68da876259361e8e99
+
+CoreStudio-1.1.17-arm64-mac.zip
+sha256: e2d2f86317df58ac9ac5767efedf65723e0fdab05bd2f80d1e284705e6be70aa
+
+CoreStudio-1.1.17-arm64.dmg.blockmap
+sha256: 90a136b935c7774969cc8d5ee46cd81538d75df721f0429d0bd8bd68639ed554
+
+CoreStudio-1.1.17-arm64-mac.zip.blockmap
+sha256: 690b7160981f3b347404e077e6630b5c456e5ca277be358d9dc860231bf4588d
+```
 
 ## 1.1.16 已验证信息
 

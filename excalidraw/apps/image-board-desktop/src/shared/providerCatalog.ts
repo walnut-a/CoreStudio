@@ -44,6 +44,7 @@ export const PROVIDER_REQUEST_ADAPTER_OPTIONS: Record<
   jimeng: ["jimeng-image"],
   openai: ["openai-images"],
   openrouter: ["openrouter-chat-image"],
+  "openai-compatible": ["openai-images"],
 };
 
 export const ASPECT_RATIO_AUTO_ID = "auto";
@@ -386,7 +387,19 @@ export const PROVIDER_IDS = [
   "jimeng",
   "openai",
   "openrouter",
+  "openai-compatible",
 ] as const;
+
+type ProviderConfigurationState = Partial<
+  Record<ProviderId, { isConfigured: boolean }>
+>;
+
+export const getConfiguredProviderIds = (
+  settings: ProviderConfigurationState | null,
+): ProviderId[] =>
+  settings
+    ? PROVIDER_IDS.filter((provider) => settings[provider]?.isConfigured)
+    : [];
 
 export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
   gemini: {
@@ -649,6 +662,12 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
       },
     },
   },
+  "openai-compatible": {
+    id: "openai-compatible",
+    label: "OpenAI 兼容服务",
+    defaultModel: "",
+    models: {},
+  },
 };
 
 const fieldVisibilityFromCapabilities = (
@@ -695,6 +714,10 @@ export const inferProviderRequestAdapter = ({
   }
 
   if (provider === "openai") {
+    return "openai-images";
+  }
+
+  if (provider === "openai-compatible") {
     return "openai-images";
   }
 

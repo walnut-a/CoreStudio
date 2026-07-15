@@ -1,9 +1,13 @@
 import {
   getDefaultModel,
+  getConfiguredProviderIds,
   getProviderModels,
   PROVIDER_IDS,
 } from "../shared/providerCatalog";
-import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
+import type {
+  ProviderConfigurationSnapshot,
+  PublicProviderSettings,
+} from "../shared/desktopBridgeTypes";
 import type { ProviderId } from "../shared/providerTypes";
 
 const STORAGE_KEY = "corestudio.generation-model-selection.v1";
@@ -136,29 +140,35 @@ export const createGenerationModelSelectionRendererActions = ({
 });
 
 export const resolvePreferredGenerationModelSelection = ({
-  providerSettings,
+  configuration,
   rememberedSelection,
 }: {
-  providerSettings: PublicProviderSettings | null;
+  configuration: ProviderConfigurationSnapshot | null;
   rememberedSelection: GenerationModelSelection | null;
-}): GenerationModelSelection => {
-  if (rememberedSelection?.provider) {
-    return {
-      provider: rememberedSelection.provider,
-      model: getKnownModelForProvider(
-        rememberedSelection.provider,
-        rememberedSelection.model,
-        providerSettings,
-      ),
-    };
+}): GenerationModelSelection | null => {
+  const providerSettings = configuration?.providers ?? null;
+  const configuredProviders = getConfiguredProviderIds(providerSettings);
+  if (!configuredProviders.length) {
+    return null;
   }
 
   const configuredProvider =
-    PROVIDER_IDS.find((provider) => providerSettings?.[provider]?.isConfigured) ??
-    PROVIDER_IDS[0];
+    rememberedSelection &&
+    configuredProviders.includes(rememberedSelection.provider)
+      ? rememberedSelection.provider
+      : configuration?.defaultProvider &&
+          configuredProviders.includes(configuration.defaultProvider)
+        ? configuration.defaultProvider
+        : configuredProviders[0];
 
   return {
     provider: configuredProvider,
-    model: getDefaultModelForProvider(configuredProvider, providerSettings),
+    model: getKnownModelForProvider(
+      configuredProvider,
+      rememberedSelection?.provider === configuredProvider
+        ? rememberedSelection.model
+        : undefined,
+      providerSettings,
+    ),
   };
 };

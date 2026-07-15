@@ -271,15 +271,6 @@ export const readGenerateDialogViewModel = () =>
     "utf8",
   );
 
-export const readGenerateProviderSettingsPanel = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/GenerateProviderSettingsPanel.tsx",
-    ),
-    "utf8",
-  );
-
 export const readGenerateAdvancedFieldsPanel = () =>
   readFileSync(
     resolve(

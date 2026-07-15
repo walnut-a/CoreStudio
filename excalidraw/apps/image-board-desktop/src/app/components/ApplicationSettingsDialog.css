@@ -78,15 +78,17 @@
 
 .app-settings-content {
   min-width: 0;
+  min-height: 0;
   overflow: auto;
-  padding: 32px 40px 40px;
+  scrollbar-gutter: stable;
+  padding: 24px 32px 32px;
   background: var(--island-bg-color);
 }
 
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   max-width: 720px;
   margin: 0 auto;
   color: var(--text-primary-color);
@@ -189,6 +191,92 @@
   border: 1px solid var(--default-border-color);
   border-radius: var(--border-radius-lg);
   background: var(--island-bg-color);
+}
+
+.settings-service-empty {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+  border: 1px dashed var(--default-border-color);
+  border-radius: 14px;
+  background: var(--color-surface-mid);
+}
+
+.settings-service-empty strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.settings-service-empty p {
+  margin: 0;
+  color: var(--text-secondary-color);
+}
+
+.settings-provider-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-provider-option {
+  display: grid;
+  gap: 5px;
+  min-height: 88px;
+  padding: 16px;
+  text-align: left;
+  color: var(--text-primary-color);
+  border: 1px solid var(--default-border-color);
+  border-radius: 12px;
+  background: var(--island-bg-color);
+  cursor: pointer;
+}
+
+.settings-provider-option:hover,
+.settings-provider-option:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.settings-provider-option small {
+  color: var(--text-secondary-color);
+}
+
+.settings-model-editor {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.settings-model-editor h4 {
+  margin: 0;
+}
+
+.settings-model-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 10px;
+}
+
+.settings-model-row button {
+  padding: 4px 8px;
+  font: inherit;
+  color: var(--text-secondary-color);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .settings-service-row {
@@ -314,11 +402,16 @@
 }
 
 .experimental-acp-options select {
+  appearance: none;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 40px 0 12px;
   border: 1px solid var(--input-border-color);
   border-radius: var(--border-radius-lg);
-  background: var(--input-bg-color);
+  background-color: var(--input-bg-color);
+  background-image: var(--dropdown-icon);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 14px) 50%;
+  background-size: 12px;
   font: inherit;
   font-size: var(--ui-text-size-lg);
 }

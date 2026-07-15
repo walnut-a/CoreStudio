@@ -15,7 +15,6 @@ interface UseGenerateDialogPanelControllerInput {
   isConfigured: boolean;
   panelRef: RefObject<HTMLElement | null>;
   promptEditorRef: RefObject<FocusableHandle | null>;
-  apiKeyInputRef: RefObject<HTMLInputElement | null>;
   onClose: () => void;
 }
 
@@ -28,11 +27,9 @@ export const useGenerateDialogPanelController = ({
   isConfigured,
   panelRef,
   promptEditorRef,
-  apiKeyInputRef,
   onClose,
 }: UseGenerateDialogPanelControllerInput) => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -57,20 +54,11 @@ export const useGenerateDialogPanelController = ({
   }, [effectiveComposerMode, focusToken, open, promptEditorRef]);
 
   useEffect(() => {
-    if (!apiSettingsOpen) {
-      return;
-    }
-
-    apiKeyInputRef.current?.focus();
-  }, [apiKeyInputRef, apiSettingsOpen]);
-
-  useEffect(() => {
     if (effectiveComposerMode === "direct") {
       return;
     }
 
     setAdvancedOpen(false);
-    setApiSettingsOpen(false);
   }, [effectiveComposerMode]);
 
   useEffect(() => {
@@ -122,7 +110,5 @@ export const useGenerateDialogPanelController = ({
   return {
     advancedOpen,
     setAdvancedOpen,
-    apiSettingsOpen,
-    setApiSettingsOpen,
   };
 };

@@ -4,6 +4,7 @@ import {
   inferCustomModelCapabilityTemplate,
   inferProviderRequestAdapter,
   getAspectRatioOptions,
+  getConfiguredProviderIds,
   getDefaultModel,
   getProviderModels,
   getProviderCapabilities,
@@ -11,9 +12,37 @@ import {
   getProviderRequestAdapter,
   getVisibleGenerationFields,
   normalizeGenerationRequest,
+  PROVIDER_CATALOG,
+  PROVIDER_REQUEST_ADAPTER_OPTIONS,
 } from "./providerCatalog";
 
 describe("providerCatalog", () => {
+  it("只返回完成配置的服务，并保持目录顺序", () => {
+    expect(
+      getConfiguredProviderIds({
+        gemini: { isConfigured: false },
+        zenmux: { isConfigured: true },
+        fal: { isConfigured: false },
+        jimeng: { isConfigured: false },
+        openai: { isConfigured: true },
+        openrouter: { isConfigured: false },
+        "openai-compatible": { isConfigured: false },
+      }),
+    ).toEqual(["zenmux", "openai"]);
+  });
+
+  it("把 OpenAI 兼容服务登记为单例空模型目录", () => {
+    expect(PROVIDER_CATALOG["openai-compatible"]).toMatchObject({
+      id: "openai-compatible",
+      label: "OpenAI 兼容服务",
+      defaultModel: "",
+      models: {},
+    });
+    expect(PROVIDER_REQUEST_ADAPTER_OPTIONS["openai-compatible"]).toEqual([
+      "openai-images",
+    ]);
+  });
+
   it("returns the documented default models", () => {
     expect(getDefaultModel("gemini")).toBe("gemini-2.5-flash-image");
     expect(getDefaultModel("zenmux")).toBe("google/gemini-2.5-flash-image");

@@ -1,15 +1,11 @@
 import type { SyntheticEvent } from "react";
 
-import {
-  createGenerateComposerModeSelectionHandlers,
-} from "../agent/generateComposerModeActions";
+import { createGenerateComposerModeSelectionHandlers } from "../agent/generateComposerModeActions";
 import type {
   GenerateComposerMode,
   GenerateComposerModeSwitchVariant,
 } from "../agent/useGenerateComposerController";
-import {
-  createGenerateComposerEventHandlers,
-} from "../generateComposerEvents";
+import { createGenerateComposerEventHandlers } from "../generateComposerEvents";
 import { createGenerationSubmitHandler } from "../generateSubmitController";
 
 import type {
@@ -28,8 +24,6 @@ interface CreateGenerateDialogComposerRuntimeInput {
   commitPendingReference: () => Promise<unknown> | unknown;
   clearSubmittedPrompt: () => void;
   onSubmit: (request: GenerationRequest, keepOpen: boolean) => void;
-  saveProviderSettings: () => unknown;
-  addCustomModelToRequest: () => unknown;
   modeSwitchVariant: GenerateComposerModeSwitchVariant;
   agentGenerationSelectable: boolean;
   setComposerMode: (mode: GenerateComposerMode) => void;
@@ -49,8 +43,6 @@ export const createGenerateDialogComposerRuntime = ({
   commitPendingReference,
   clearSubmittedPrompt,
   onSubmit,
-  saveProviderSettings,
-  addCustomModelToRequest,
   modeSwitchVariant,
   agentGenerationSelectable,
   setComposerMode,
@@ -73,19 +65,18 @@ export const createGenerateDialogComposerRuntime = ({
 
   const eventHandlers = createGenerateComposerEventHandlers({
     submit: submitRequest,
-    saveProviderSettings,
-    addCustomModel: addCustomModelToRequest,
   });
 
-  const modeSelectionHandlers =
-    createGenerateComposerModeSelectionHandlers<SyntheticEvent<HTMLElement>>({
-      modeSwitchVariant,
-      agentGenerationSelectable,
-      stopInputEventPropagation: eventHandlers.stopInputEventPropagation,
-      setComposerMode,
-      setGenerationSource,
-      updateRequest,
-    });
+  const modeSelectionHandlers = createGenerateComposerModeSelectionHandlers<
+    SyntheticEvent<HTMLElement>
+  >({
+    modeSwitchVariant,
+    agentGenerationSelectable,
+    stopInputEventPropagation: eventHandlers.stopInputEventPropagation,
+    setComposerMode,
+    setGenerationSource,
+    updateRequest,
+  });
 
   return {
     ...eventHandlers,

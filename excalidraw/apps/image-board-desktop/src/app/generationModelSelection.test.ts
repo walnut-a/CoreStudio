@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
+import type {
+  ProviderConfigurationSnapshot,
+  PublicProviderSettings,
+} from "../shared/desktopBridgeTypes";
 import {
   createGenerationModelSelectionRendererActions,
   readRememberedGenerationModelSelection,
@@ -52,7 +55,19 @@ const providerSettings = {
     lastCheckedAt: null,
     lastError: null,
   },
+  "openai-compatible": {
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
 } satisfies PublicProviderSettings;
+
+const configuration: ProviderConfigurationSnapshot = {
+  schemaVersion: 2,
+  defaultProvider: "jimeng",
+  providers: providerSettings,
+};
 
 afterEach(() => {
   window.localStorage.clear();
@@ -121,25 +136,13 @@ describe("generationModelSelection", () => {
     expect(rememberSelection).toHaveBeenCalledWith(selection);
   });
 
-  it("prefers remembered selection over configured providers", () => {
+  it("prefers a configured remembered selection over the default provider", () => {
     const selection = resolvePreferredGenerationModelSelection({
-      providerSettings,
+      configuration,
       rememberedSelection: {
-        provider: "zenmux",
-        model: "google/gemini-3-pro-image-preview",
+        provider: "fal",
+        model: "fal-ai/nano-banana-2",
       },
-    });
-
-    expect(selection).toEqual({
-      provider: "zenmux",
-      model: "google/gemini-3-pro-image-preview",
-    });
-  });
-
-  it("uses the first configured provider when no local memory exists", () => {
-    const selection = resolvePreferredGenerationModelSelection({
-      providerSettings,
-      rememberedSelection: null,
     });
 
     expect(selection).toEqual({
@@ -148,21 +151,45 @@ describe("generationModelSelection", () => {
     });
   });
 
-  it("falls back to the first provider when nothing is configured", () => {
+  it("uses the configured default provider when no local memory exists", () => {
     const selection = resolvePreferredGenerationModelSelection({
-      providerSettings: null,
+      configuration,
       rememberedSelection: null,
     });
 
     expect(selection).toEqual({
-      provider: "gemini",
-      model: "gemini-2.5-flash-image",
+      provider: "jimeng",
+      model: "doubao-seedream-5-0-lite-260128",
+    });
+  });
+
+  it("returns null when nothing is configured", () => {
+    const selection = resolvePreferredGenerationModelSelection({
+      configuration: null,
+      rememberedSelection: null,
+    });
+
+    expect(selection).toBeNull();
+  });
+
+  it("ignores an unconfigured remembered provider", () => {
+    const selection = resolvePreferredGenerationModelSelection({
+      configuration,
+      rememberedSelection: {
+        provider: "zenmux",
+        model: "google/gemini-3-pro-image-preview",
+      },
+    });
+
+    expect(selection).toEqual({
+      provider: "jimeng",
+      model: "doubao-seedream-5-0-lite-260128",
     });
   });
 
   it("falls back to the provider default when remembered model is no longer listed", () => {
     const selection = resolvePreferredGenerationModelSelection({
-      providerSettings,
+      configuration,
       rememberedSelection: {
         provider: "fal",
         model: "removed-model-id",

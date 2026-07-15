@@ -52,6 +52,7 @@ export const IPC_CHANNELS = {
   inspectCodexIntegration: "image-board:inspect-codex-integration",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
+  deleteProviderSettings: "image-board:delete-provider-settings",
   generateImages: "image-board:generate-images",
   cancelGenerateImages: "image-board:cancel-generate-images",
   readClipboardImage: "image-board:read-clipboard-image",
@@ -261,16 +262,28 @@ export interface ImportedImagePayload extends ProjectAssetPayload {
   fileName: string;
 }
 
-export type PublicProviderSettings = Record<
+export type PublicProviderSettings = Partial<Record<
   ProviderId,
   Omit<ProviderSettings, "apiKey"> & { isConfigured: boolean }
->;
+>>;
+
+export interface ProviderConfigurationSnapshot {
+  schemaVersion: 2;
+  defaultProvider: ProviderId | null;
+  providers: PublicProviderSettings;
+}
 
 export interface SaveProviderSettingsInput {
   provider: ProviderId;
   apiKey: string;
+  displayName?: string;
+  baseUrl?: string;
   defaultModel?: string;
   customModels?: ProviderSettings["customModels"];
+}
+
+export interface DeleteProviderSettingsInput {
+  provider: ProviderId;
 }
 
 export type CodexIntegrationCheckId = "cli" | "skill" | "compatibility";
@@ -358,10 +371,13 @@ export interface DesktopBridgeApi {
   revealProjectInFinder(projectPath: string): Promise<void>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;
-  loadProviderSettings(): Promise<PublicProviderSettings>;
+  loadProviderSettings(): Promise<ProviderConfigurationSnapshot>;
   saveProviderSettings(
     input: SaveProviderSettingsInput,
-  ): Promise<PublicProviderSettings>;
+  ): Promise<ProviderConfigurationSnapshot>;
+  deleteProviderSettings(
+    input: DeleteProviderSettingsInput,
+  ): Promise<ProviderConfigurationSnapshot>;
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
   cancelGenerateImages?(generationJobId: string): Promise<void>;
   readClipboardImage?(): Promise<ImportedImagePayload | null>;

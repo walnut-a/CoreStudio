@@ -26,23 +26,15 @@ import {
   createAutosaveRendererActions,
   type AutosaveSnapshot as ProjectAutosaveSnapshot,
 } from "./autosaveProjectState";
-import {
-  createAutosaveSnapshotWriteRendererActions,
-} from "./autosaveSnapshotWriteController";
-import {
-  createQueuedExcalidrawBinaryFilesRendererActions,
-} from "./canvasImageAssetState";
-import {
-  createCanvasSceneChangeRendererActions,
-} from "./canvasSceneChangeRendererController";
+import { createAutosaveSnapshotWriteRendererActions } from "./autosaveSnapshotWriteController";
+import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
+import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
 import { createDesktopStartupRendererActions } from "./desktopStartupState";
 import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleController";
 import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
-import {
-  createGenerationRequestRendererActions,
-} from "./generationRequestRendererController";
+import { createGenerationRequestRendererActions } from "./generationRequestRendererController";
 import {
   runBuiltinGenerationCancelRendererAction,
   runBuiltinGenerationRendererAction,
@@ -62,9 +54,7 @@ import {
   type WorkspaceZoomGateState,
 } from "./workspaceBounds";
 import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
-import {
-  serializeSceneForProject,
-} from "./project/sceneSerialization";
+import { serializeSceneForProject } from "./project/sceneSerialization";
 import {
   shouldApplyProjectMaintenanceResult,
   type ProjectRepairReport,
@@ -82,6 +72,7 @@ import { createDesktopProjectAssetSceneApplyRendererAction } from "./projectAsse
 import {
   createGenerationModelSelectionRendererActions,
   readRememberedGenerationModelSelection,
+  resolvePreferredGenerationModelSelection,
 } from "./generationModelSelection";
 import { createPlainTextClipboardRendererActions } from "./clipboardText";
 import {
@@ -108,25 +99,15 @@ import { createProviderSettingsRendererActions } from "./providerSettingsLoader"
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
 import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
 import { buildSelectedImageRelationshipState } from "./imageRecordState";
-import {
-  createProjectImageAssetPersistenceRendererActions,
-} from "./projectImageAssetPersistenceController";
-import {
-  createProjectImageImportRendererActions,
-} from "./projectImageImportController";
-import {
-  createProjectImageStateResetRendererActions,
-} from "./projectImageStateResetRendererActions";
+import { createProjectImageAssetPersistenceRendererActions } from "./projectImageAssetPersistenceController";
+import { createProjectImageImportRendererActions } from "./projectImageImportController";
+import { createProjectImageStateResetRendererActions } from "./projectImageStateResetRendererActions";
 import { createImageRecordLocatorRendererActions } from "./imageRecordLocator";
 import { IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS } from "./imageRenditions";
-import {
-  createVisibleImageRenditionLoadRendererActions,
-} from "./imageRenditionLoadPlan";
+import { createVisibleImageRenditionLoadRendererActions } from "./imageRenditionLoadPlan";
 import { createViewportChangeRendererActions } from "./viewportChangeRendererController";
 import { createSelectedInspectorRendererActions } from "./selectedInspectorRendererActions";
-import {
-  createSelectionReferenceOriginalSceneRendererActions,
-} from "./selectionReference";
+import { createSelectionReferenceOriginalSceneRendererActions } from "./selectionReference";
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { useDesktopStartupWiring } from "./useDesktopStartupWiring";
 import { useProjectAutosaveWiring } from "./useProjectAutosaveWiring";
@@ -139,9 +120,7 @@ import { AgentConversationSidebar } from "./components/AgentConversationSidebar"
 import { InspectorSidebar } from "./components/InspectorSidebar";
 import { AppErrorBanners } from "./components/AppErrorBanners";
 import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
-import {
-  type ApplicationSettingsCategory,
-} from "./components/ApplicationSettingsDialog";
+import { type ApplicationSettingsCategory } from "./components/ApplicationSettingsDialog";
 import { ImageGenerationSettings } from "./components/ImageGenerationSettings";
 import { CodexIntegrationSettings } from "./components/CodexIntegrationSettings";
 import { ExperimentalFeaturesSettingsSection } from "./components/ExperimentalFeaturesSettingsSection";
@@ -157,52 +136,34 @@ import {
   applyPendingGenerationJobRegistryState,
   type PendingGenerationJob,
 } from "./generationJobState";
-import {
-  type GenerationTaskRecord,
-} from "./generationTaskState";
+import { type GenerationTaskRecord } from "./generationTaskState";
 import { createBuiltinGenerationJobCompletionRendererActions } from "./builtinGenerationCompletionController";
-import {
-  createPendingGenerationCanvasRendererActions,
-} from "./pendingGenerationCanvasController";
+import { createPendingGenerationCanvasRendererActions } from "./pendingGenerationCanvasController";
 
-import {
-  buildAgentIntegrationRuntimeViewModel,
-} from "./agent/agentIntegrationViewModel";
+import { buildAgentIntegrationRuntimeViewModel } from "./agent/agentIntegrationViewModel";
 import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
 import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
 import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
 import { handleAgentDesktopBridgeRequest } from "./agent/agentDesktopBridgeRequest";
 import { canStartAcpAgentTask } from "./agent/acpTaskStarter";
 import { createAcpTaskStartRendererActions } from "./agent/acpTaskStartController";
-import {
-  isAcpAgentTaskRunning,
-} from "./agent/acpTaskUiState";
+import { isAcpAgentTaskRunning } from "./agent/acpTaskUiState";
 import { createAcpTaskEventSubscriptionRendererActions } from "./agent/acpTaskEventSubscriptionController";
 import {
   createGenerationErrorStateApplier,
   createGenerationErrorRendererActions,
 } from "./generationErrorController";
-import {
-  type GenerationErrorDetails,
-} from "./generationErrorViewModel";
+import { type GenerationErrorDetails } from "./generationErrorViewModel";
 import {
   buildGenerationSidebarRecordItems,
   createGenerationRecordRendererActions,
 } from "./generationRecordViewModel";
-import {
-  createTimedNoticeRendererActions,
-} from "./noticeTimerController";
+import { createTimedNoticeRendererActions } from "./noticeTimerController";
 import { buildDefaultGenerationRequest } from "./generatePromptRequest";
-import {
-  createGenerateDialogReferenceRendererActions,
-} from "./generateDialogReferenceController";
-import {
-  useAcpAgentSettingsController,
-} from "./agent/useAcpAgentSettingsController";
+import { createGenerateDialogReferenceRendererActions } from "./generateDialogReferenceController";
+import { useAcpAgentSettingsController } from "./agent/useAcpAgentSettingsController";
 import { useAcpAgentTaskStateController } from "./agent/useAcpAgentTaskStateController";
-import {
-  createAgentBrowserRuntimePublishRendererActions,
-} from "./agent/agentBrowserRuntimePublishController";
+import { createAgentBrowserRuntimePublishRendererActions } from "./agent/agentBrowserRuntimePublishController";
 import { createAgentBrowserAutoOpenProjectRendererActions } from "./agent/agentBrowserAutoOpenController";
 import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
 import {
@@ -215,34 +176,24 @@ import {
   useAgentBridgeStatusCurrentProjectSyncEffect,
 } from "./agent/agentBridgeStatusController";
 import { useAgentBridgeConnectionStateController } from "./agent/useAgentBridgeConnectionStateController";
-import {
-  buildAgentConversationSurfaceState,
-} from "./agent/agentConversationMode";
-import {
-  createAcpRunLogRendererActions,
-} from "./agent/acpRunLogApplyController";
+import { buildAgentConversationSurfaceState } from "./agent/agentConversationMode";
+import { createAcpRunLogRendererActions } from "./agent/acpRunLogApplyController";
 import {
   useAcpRunSummariesAutoLoadEffect,
   useAcpRunSummariesController,
 } from "./agent/useAcpRunSummariesController";
 import { useAgentRuntimeRefsController } from "./agent/useAgentRuntimeRefsController";
 import { useAgentSurfaceVisibilityController } from "./agent/useAgentSurfaceVisibilityController";
-import {
-  createAcpThreadRendererActions,
-} from "./agent/acpThreadApplyController";
+import { createAcpThreadRendererActions } from "./agent/acpThreadApplyController";
 import { useAcpThreadSummariesController } from "./agent/useAcpThreadSummariesController";
-import {
-  createAcpConversationMessageRendererActions,
-} from "./agent/acpConversationMessageController";
+import { createAcpConversationMessageRendererActions } from "./agent/acpConversationMessageController";
 import { useAcpInteractionTargetsController } from "./agent/useAcpInteractionTargetsController";
 import { useAcpRunLogStateController } from "./agent/useAcpRunLogStateController";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 import "./App.css";
 
-import type {
-  GenerationSource,
-} from "../shared/providerTypes";
+import type { GenerationSource } from "../shared/providerTypes";
 import type {
   ImageAssetRequestRendition,
   ImagePromptReferenceRecord,
@@ -252,8 +203,8 @@ import type {
   DesktopAppInfo,
   DesktopProjectBundle,
   PersistedImageAssetInput,
+  ProviderConfigurationSnapshot,
   ProjectHealthReport,
-  PublicProviderSettings,
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
 
@@ -318,9 +269,7 @@ const App = () => {
   const rememberedGenerationModelSelectionRef = useRef(
     readRememberedGenerationModelSelection(),
   );
-  const generationModelSelectionLockedRef = useRef(
-    Boolean(rememberedGenerationModelSelectionRef.current),
-  );
+  const generationModelSelectionLockedRef = useRef(false);
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
   const savedSceneHashRef = useRef<string | null>(null);
   const latestSceneRef = useRef<{
@@ -334,9 +283,9 @@ const App = () => {
     new Map(),
   );
   const removedSelectionReferenceSignatureRef = useRef<string | null>(null);
-  const generationTaskByElementIdRef = useRef<Map<string, GenerationTaskRecord>>(
-    new Map(),
-  );
+  const generationTaskByElementIdRef = useRef<
+    Map<string, GenerationTaskRecord>
+  >(new Map());
   const previousWorkspaceZoomValueRef = useRef<number | null>(null);
   const workspaceZoomGateStateRef = useRef<WorkspaceZoomGateState>(
     createWorkspaceZoomGateState(),
@@ -359,10 +308,8 @@ const App = () => {
     [readProjectImageAssets],
   );
   const acpInteractionTargets = useAcpInteractionTargetsController();
-  const {
-    activeThreadId: activeAcpThreadId,
-    runLogSurface: acpRunLogSurface,
-  } = acpInteractionTargets.state;
+  const { activeThreadId: activeAcpThreadId, runLogSurface: acpRunLogSurface } =
+    acpInteractionTargets.state;
   const {
     activeTaskActions: acpActiveTaskIdRendererActions,
     activeThreadActions: acpActiveThreadIdRendererActions,
@@ -394,9 +341,13 @@ const App = () => {
     setRefreshTimerId: setAcpRunLogRefreshTimerId,
   } = acpRunLogStateController.actions;
 
-  const [currentProject, setCurrentProject] = useState<DesktopProjectBundle | null>(null);
-  const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
-  const [providerSettings, setProviderSettings] = useState<PublicProviderSettings | null>(null);
+  const [currentProject, setCurrentProject] =
+    useState<DesktopProjectBundle | null>(null);
+  const [initialData, setInitialData] =
+    useState<ExcalidrawInitialDataState | null>(null);
+  const [providerConfiguration, setProviderConfiguration] =
+    useState<ProviderConfigurationSnapshot | null>(null);
+  const providerSettings = providerConfiguration?.providers ?? null;
   const agentBridgeConnectionStateController =
     useAgentBridgeConnectionStateController();
   const {
@@ -407,8 +358,7 @@ const App = () => {
     setStatus: setAgentBridgeStatus,
     setAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
   } = agentBridgeConnectionStateController.setters;
-  const acpAgentSettingsController =
-    useAcpAgentSettingsController(bridge);
+  const acpAgentSettingsController = useAcpAgentSettingsController(bridge);
   const {
     settings: acpAgentSettings,
     experimentalEnabled: acpExperimentalEnabled,
@@ -437,9 +387,15 @@ const App = () => {
       }),
     [generationModelSelectionLockedRef, rememberedGenerationModelSelectionRef],
   );
-  const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>([]);
-  const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(null);
-  const [selectedTask, setSelectedTask] = useState<GenerationTaskRecord | null>(null);
+  const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>(
+    [],
+  );
+  const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(
+    null,
+  );
+  const [selectedTask, setSelectedTask] = useState<GenerationTaskRecord | null>(
+    null,
+  );
   const selectedInspectorRendererActions =
     createSelectedInspectorRendererActions({
       getGenerationTasks: () => generationTaskByElementIdRef.current,
@@ -453,22 +409,23 @@ const App = () => {
       rememberedGenerationModelSelectionRef.current,
     ),
   );
-  const [generationSource, setGenerationSource] =
-    useState<GenerationSource>(() =>
-      isAgentBrowserRoute ? "agent" : "builtin",
-    );
+  const [generationSource, setGenerationSource] = useState<GenerationSource>(
+    () => (isAgentBrowserRoute ? "agent" : "builtin"),
+  );
   const [loadingProject, setLoadingProject] = useState(false);
   const [savingProviders, setSavingProviders] = useState(false);
   const providerSettingsRendererActions = useMemo(
     () =>
       createProviderSettingsRendererActions({
         saveProviderSettings: desktopBridge.saveProviderSettings,
-        setProviderSettings,
+        deleteProviderSettings: desktopBridge.deleteProviderSettings,
+        setProviderSettings: setProviderConfiguration,
         setSavingProviders,
       }),
     [
       desktopBridge.saveProviderSettings,
-      setProviderSettings,
+      desktopBridge.deleteProviderSettings,
+      setProviderConfiguration,
       setSavingProviders,
     ],
   );
@@ -479,13 +436,13 @@ const App = () => {
     useState<ProjectHealthReport | null>(null);
   const [projectRepairReport, setProjectRepairReport] =
     useState<ProjectRepairReport | null>(null);
-  const [projectHealthReportOpen, setProjectHealthReportOpen] =
-    useState(false);
+  const [projectHealthReportOpen, setProjectHealthReportOpen] = useState(false);
   const projectNoticeTimerRef = useRef<number | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationErrorDetails, setGenerationErrorDetails] =
     useState<GenerationErrorDetails | null>(null);
-  const [generationErrorDetailsOpen, setGenerationErrorDetailsOpen] = useState(false);
+  const [generationErrorDetailsOpen, setGenerationErrorDetailsOpen] =
+    useState(false);
   const [generationErrorCopied, setGenerationErrorCopied] = useState(false);
   const clipboardTextRendererActions = useMemo(
     () =>
@@ -506,14 +463,10 @@ const App = () => {
   const [acpAdvancedSettingsOpen, setAcpAdvancedSettingsOpen] = useState(false);
   const agentSurfaceVisibilityController =
     useAgentSurfaceVisibilityController();
-  const {
-    acpDebugOpen,
-    chatDockOpen: agentChatDockOpen,
-  } = agentSurfaceVisibilityController.state;
-  const {
-    setAcpDebugOpen,
-    setChatDockOpen: setAgentChatDockOpen,
-  } = agentSurfaceVisibilityController.setters;
+  const { acpDebugOpen, chatDockOpen: agentChatDockOpen } =
+    agentSurfaceVisibilityController.state;
+  const { setAcpDebugOpen, setChatDockOpen: setAgentChatDockOpen } =
+    agentSurfaceVisibilityController.setters;
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
@@ -652,8 +605,7 @@ const App = () => {
 
   const acpThreadRendererActions = createAcpThreadRendererActions({
     getBridge: () => bridge,
-    nextLoadSequence:
-      agentRuntimeRefsController.actions.nextThreadLoadSequence,
+    nextLoadSequence: agentRuntimeRefsController.actions.nextThreadLoadSequence,
     isLoadSequenceCurrent:
       agentRuntimeRefsController.actions.isThreadLoadSequenceCurrent,
     getCurrentProjectToken: getCurrentProjectAgentAccessToken,
@@ -811,11 +763,9 @@ const App = () => {
         getGenerationSource: () => generationSource,
         getUpdatedAt: () => new Date().toISOString(),
         getLatestScene: () => latestSceneRef.current,
-        getTimerId:
-          agentRuntimeRefsController.actions.getStatePublishTimerId,
+        getTimerId: agentRuntimeRefsController.actions.getStatePublishTimerId,
         clearTimer: (timerId) => window.clearTimeout(timerId),
-        setTimerId:
-          agentRuntimeRefsController.actions.setStatePublishTimerId,
+        setTimerId: agentRuntimeRefsController.actions.setStatePublishTimerId,
         scheduleTimeout: (callback, delayMs) =>
           window.setTimeout(callback, delayMs),
       }),
@@ -999,7 +949,9 @@ const App = () => {
     getBridge: () => bridge,
     isGenerationModelSelectionLocked: () =>
       generationModelSelectionLockedRef.current,
-    setProviderSettings,
+    getRememberedGenerationModelSelection: () =>
+      rememberedGenerationModelSelectionRef.current,
+    setProviderSettings: setProviderConfiguration,
     setGenerateRequest,
     setStartupError,
     setRecentProjects,
@@ -1023,19 +975,18 @@ const App = () => {
       showError: setProjectError,
     });
 
-  const generationErrorRendererActions =
-    createGenerationErrorRendererActions({
-      applyState: createGenerationErrorStateApplier({
-        setError: setGenerationError,
-        setDetails: setGenerationErrorDetails,
-        setDetailsOpen: setGenerationErrorDetailsOpen,
-        setCopied: setGenerationErrorCopied,
-      }),
-      getDetails: () => generationErrorDetails,
-      setDetailsCopied: setGenerationErrorCopied,
-      getTask: () => selectedTask,
-      copyText: clipboardTextRendererActions.copy,
-    });
+  const generationErrorRendererActions = createGenerationErrorRendererActions({
+    applyState: createGenerationErrorStateApplier({
+      setError: setGenerationError,
+      setDetails: setGenerationErrorDetails,
+      setDetailsOpen: setGenerationErrorDetailsOpen,
+      setCopied: setGenerationErrorCopied,
+    }),
+    getDetails: () => generationErrorDetails,
+    setDetailsCopied: setGenerationErrorCopied,
+    getTask: () => selectedTask,
+    copyText: clipboardTextRendererActions.copy,
+  });
 
   const acpRunLogRendererActions = createAcpRunLogRendererActions({
     getBridge: () => bridge,
@@ -1098,11 +1049,12 @@ const App = () => {
       setProjectError,
     });
 
-  const generationRecordRendererActions =
-    createGenerationRecordRendererActions({
+  const generationRecordRendererActions = createGenerationRecordRendererActions(
+    {
       getSelectedRecord: () => selectedRecord,
       copyText: clipboardTextRendererActions.copy,
-    });
+    },
+  );
 
   const imageRecordLocatorRendererActions =
     createImageRecordLocatorRendererActions({
@@ -1202,23 +1154,26 @@ const App = () => {
     });
   const openProjectBundle = currentProjectBundleOpenRendererActions.open;
 
-  const projectViewClearRendererActions = createProjectViewClearRendererActions({
-    beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
-    editorApiRef: excalidrawAPIRef,
-    latestSceneRef,
-    setSceneImageFileIds,
-    updateCurrentProject,
-    setInitialData,
-    setWorkspaceOverlayState,
-    resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
-    updateEditorInitializing: currentProjectEditorInitializingRendererActions.update,
-    setSelectedRecord,
-    setSelectedTask,
-    lastCanvasPointerRef,
-    lastBatchBoundsRef,
-    resetGenerationTrackingState: generationTrackingRendererActions.reset,
-    resetImageRenditionState: projectImageStateResetRendererActions.reset,
-  });
+  const projectViewClearRendererActions = createProjectViewClearRendererActions(
+    {
+      beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
+      editorApiRef: excalidrawAPIRef,
+      latestSceneRef,
+      setSceneImageFileIds,
+      updateCurrentProject,
+      setInitialData,
+      setWorkspaceOverlayState,
+      resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
+      updateEditorInitializing:
+        currentProjectEditorInitializingRendererActions.update,
+      setSelectedRecord,
+      setSelectedTask,
+      lastCanvasPointerRef,
+      lastBatchBoundsRef,
+      resetGenerationTrackingState: generationTrackingRendererActions.reset,
+      resetImageRenditionState: projectImageStateResetRendererActions.reset,
+    },
+  );
 
   const projectRenderBoundaryRendererActions =
     createCurrentProjectRenderBoundaryRendererActions({
@@ -1332,7 +1287,9 @@ const App = () => {
       restoreCanvasSnapshot: (snapshot) => {
         const activeApi = excalidrawAPIRef.current;
         if (!activeApi) {
-          throw new Error("CoreStudio 画板还没有准备好，无法恢复 placeholder 快照。");
+          throw new Error(
+            "CoreStudio 画板还没有准备好，无法恢复 placeholder 快照。",
+          );
         }
         activeApi.updateScene({
           elements: snapshot.elements,
@@ -1399,8 +1356,7 @@ const App = () => {
       waitForQueue: async () => {
         await autosaveQueueRef.current;
       },
-      handleWriteError:
-        autosaveSnapshotWriteRendererActions.handleWriteFailure,
+      handleWriteError: autosaveSnapshotWriteRendererActions.handleWriteFailure,
     });
 
   const canvasSceneChangeRendererActions =
@@ -1456,8 +1412,7 @@ const App = () => {
       getCurrentProject: () => currentProjectRef.current,
       beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
       openProjectBundle,
-      isCurrentProjectOpen:
-        currentProjectOpenSequenceRendererActions.isCurrent,
+      isCurrentProjectOpen: currentProjectOpenSequenceRendererActions.isCurrent,
       flushPendingAutosave,
       clearProjectViewState: projectViewClearRendererActions.clear,
       loadRecentProjectsState: desktopStartupRendererActions.loadRecentProjects,
@@ -1544,69 +1499,64 @@ const App = () => {
     setGenerateRequest,
   });
 
-  const generationSubmitRendererActions =
-    createGenerationSubmitRendererActions<
-      PlacementViewportContext,
-      AppSceneSnapshot
-    >({
-      getProject: () => currentProjectRef.current,
-      getProviderSettings: () => providerSettings,
-      clearGenerationError: generationErrorRendererActions.clear,
-      assertProjectActive:
-        activeAgentProjectPathRendererActions.assertActiveProject,
-      startAcpAgentGeneration: acpTaskStartRendererActions.start,
-      startBuiltinGeneration: (request, project, options) =>
-        runBuiltinGenerationRendererAction({
-          request,
-          project,
-          providerSettings,
-          sourceScene: options.referenceScene ?? latestSceneRef.current,
-          referenceScene: options.referenceScene ?? null,
-          expectedProjectPath: options.expectedProjectPath,
-          placementViewport: options.placementViewport,
-          startupGenerateFailedMessage: copy.startup.generateFailed,
-          loadOriginalScene: selectionReferenceOriginalSceneActions.load,
-          assertProjectActive: () =>
-            activeAgentProjectPathRendererActions.assertActiveProject(
-              options.expectedProjectPath,
-            ),
-          setGenerationSource,
-          showDirectGenerationRecords:
-            acpRunLogRendererActions.showDirectGenerationRecords,
-          setGenerateRequest,
-          insertPlaceholders: (
+  const generationSubmitRendererActions = createGenerationSubmitRendererActions<
+    PlacementViewportContext,
+    AppSceneSnapshot
+  >({
+    getProject: () => currentProjectRef.current,
+    getProviderSettings: () => providerSettings,
+    clearGenerationError: generationErrorRendererActions.clear,
+    assertProjectActive:
+      activeAgentProjectPathRendererActions.assertActiveProject,
+    startAcpAgentGeneration: acpTaskStartRendererActions.start,
+    startBuiltinGeneration: (request, project, options) =>
+      runBuiltinGenerationRendererAction({
+        request,
+        project,
+        providerSettings,
+        sourceScene: options.referenceScene ?? latestSceneRef.current,
+        referenceScene: options.referenceScene ?? null,
+        expectedProjectPath: options.expectedProjectPath,
+        placementViewport: options.placementViewport,
+        startupGenerateFailedMessage: copy.startup.generateFailed,
+        loadOriginalScene: selectionReferenceOriginalSceneActions.load,
+        assertProjectActive: () =>
+          activeAgentProjectPathRendererActions.assertActiveProject(
+            options.expectedProjectPath,
+          ),
+        setGenerationSource,
+        showDirectGenerationRecords:
+          acpRunLogRendererActions.showDirectGenerationRecords,
+        setGenerateRequest,
+        insertPlaceholders: (preparedRequest, startedAt, placeholderOptions) =>
+          pendingGenerationCanvasRendererActions.insertPlaceholders(
             preparedRequest,
             startedAt,
-            placeholderOptions,
-          ) =>
-            pendingGenerationCanvasRendererActions.insertPlaceholders(
-              preparedRequest,
-              startedAt,
-              {
-                ...placeholderOptions,
-                referenceScene: placeholderOptions.referenceScene ?? undefined,
-              },
-            ),
-          getGenerationJobs: () => pendingGenerationJobsRef.current,
-          applyRegistryState: (state) =>
-            applyPendingGenerationJobRegistryState({
-              state,
-              setPendingJobs: (pendingJobs) => {
-                pendingGenerationJobsRef.current = pendingJobs;
-              },
-              setPendingCount: setPendingGenerationCount,
-            }),
-          generateImages: desktopBridge.generateImages,
-          cancelGenerateImages: desktopBridge.cancelGenerateImages,
-          finishPendingJob:
-            builtinGenerationJobCompletionRendererActions.finishPendingJob,
-          markPendingGenerationFailed:
-            pendingGenerationCanvasRendererActions.markFailed,
-          showGenerationError: generationErrorRendererActions.display,
-          loadProviderState: desktopStartupRendererActions.loadProvider,
-        }),
-      showGenerationError: generationErrorRendererActions.display,
-    });
+            {
+              ...placeholderOptions,
+              referenceScene: placeholderOptions.referenceScene ?? undefined,
+            },
+          ),
+        getGenerationJobs: () => pendingGenerationJobsRef.current,
+        applyRegistryState: (state) =>
+          applyPendingGenerationJobRegistryState({
+            state,
+            setPendingJobs: (pendingJobs) => {
+              pendingGenerationJobsRef.current = pendingJobs;
+            },
+            setPendingCount: setPendingGenerationCount,
+          }),
+        generateImages: desktopBridge.generateImages,
+        cancelGenerateImages: desktopBridge.cancelGenerateImages,
+        finishPendingJob:
+          builtinGenerationJobCompletionRendererActions.finishPendingJob,
+        markPendingGenerationFailed:
+          pendingGenerationCanvasRendererActions.markFailed,
+        showGenerationError: generationErrorRendererActions.display,
+        loadProviderState: desktopStartupRendererActions.loadProvider,
+      }),
+    showGenerationError: generationErrorRendererActions.display,
+  });
 
   const cancelBuiltinGeneration = () => {
     void runBuiltinGenerationCancelRendererAction({
@@ -1640,8 +1590,8 @@ const App = () => {
       },
     });
 
-  const desktopMenuEventRendererActions =
-    createDesktopMenuEventRendererActions({
+  const desktopMenuEventRendererActions = createDesktopMenuEventRendererActions(
+    {
       getLatestOpenRequestId: () => latestMenuProjectOpenRequestIdRef.current,
       setLatestOpenRequestId: (requestId) => {
         latestMenuProjectOpenRequestIdRef.current = requestId;
@@ -1667,7 +1617,8 @@ const App = () => {
       setAgentBridgeEnabled: agentBridgeStatusRendererActions.setEnabled,
       revealProject: currentProjectEntryRendererActions.revealProject,
       showAbout: () => setAboutOpen(true),
-    });
+    },
+  );
 
   const agentCommandRequestSubscriptionRendererActions =
     createAgentCommandRequestSubscriptionRendererActions({
@@ -1718,7 +1669,8 @@ const App = () => {
       bridge,
       getActiveTaskId: getActiveAcpTaskId,
       getOpenRunLogTaskId: getAcpRunLogTaskId,
-      getProjectToken: () => getProjectAgentAccessToken(currentProjectRef.current),
+      getProjectToken: () =>
+        getProjectAgentAccessToken(currentProjectRef.current),
       getAppSettingsOpen: () => appSettingsOpen,
       getAcpDebugOpen: () => acpDebugOpen,
       historyRefreshDelay: ACP_RUN_HISTORY_REFRESH_DELAY_MS,
@@ -1744,17 +1696,20 @@ const App = () => {
     loadAcpThreadSummariesState,
   });
 
-  useEffect(() => agentCommandRequestSubscriptionRendererActions.start(), [
-    bridge,
-    desktopBridge,
-    flushPendingAutosave,
-    generateRequest,
-    generationSource,
-    generationSubmitRendererActions.submit,
-    generatedImageSceneInsertRendererActions.insertAssets,
-    providerSettings,
-    readProjectImageAssets,
-  ]);
+  useEffect(
+    () => agentCommandRequestSubscriptionRendererActions.start(),
+    [
+      bridge,
+      desktopBridge,
+      flushPendingAutosave,
+      generateRequest,
+      generationSource,
+      generationSubmitRendererActions.submit,
+      generatedImageSceneInsertRendererActions.insertAssets,
+      providerSettings,
+      readProjectImageAssets,
+    ],
+  );
   useDesktopMenuEvents(desktopMenuEventRendererActions.handle);
 
   const globalDialogs = (
@@ -1780,31 +1735,58 @@ const App = () => {
         onClose: () => setAppSettingsOpen(false),
         imageGenerationContent: (
           <ImageGenerationSettings
-            providerSettings={providerSettings}
-            currentProvider={generateRequest.provider}
-            currentModel={generateRequest.model}
+            configuration={
+              providerConfiguration ?? {
+                schemaVersion: 2,
+                defaultProvider: null,
+                providers: {},
+              }
+            }
             saving={savingProviders}
             discardToken={appSettingsDiscardToken}
-            onCurrentSelectionChange={(provider, model) => {
-              generationModelSelectionRendererActions.rememberSelection({
-                provider,
-                model,
-              });
-              generationRequestRendererActions.changeRequest({
-                ...generateRequest,
-                provider,
-                model,
-              });
-            }}
             onSave={async (input) => {
-              await providerSettingsRendererActions.saveSettings(input);
+              const result = await providerSettingsRendererActions.saveSettings(
+                input,
+              );
+              const selection = resolvePreferredGenerationModelSelection({
+                configuration: result.providerConfiguration,
+                rememberedSelection: {
+                  provider: generateRequest.provider,
+                  model: generateRequest.model,
+                },
+              });
+              if (selection) {
+                generationRequestRendererActions.changeRequest({
+                  ...generateRequest,
+                  ...selection,
+                });
+              }
+            }}
+            onDelete={async (input) => {
+              const result =
+                await providerSettingsRendererActions.deleteSettings(input);
+              const selection = resolvePreferredGenerationModelSelection({
+                configuration: result.providerConfiguration,
+                rememberedSelection: {
+                  provider: generateRequest.provider,
+                  model: generateRequest.model,
+                },
+              });
+              if (selection) {
+                generationRequestRendererActions.changeRequest({
+                  ...generateRequest,
+                  ...selection,
+                });
+              }
             }}
             onDirtyChange={setAppSettingsDirty}
           />
         ),
         codexIntegrationContent: (
           <CodexIntegrationSettings
-            open={appSettingsOpen && appSettingsCategory === "codex-integration"}
+            open={
+              appSettingsOpen && appSettingsCategory === "codex-integration"
+            }
             inspect={() => {
               if (!desktopBridge.inspectCodexIntegration) {
                 return Promise.reject(
@@ -1850,7 +1832,9 @@ const App = () => {
               void saveAcpAgentSettingsState()
                 .then(() => setAppSettingsDirty(false))
                 .catch((error) => {
-                  setProjectError(error instanceof Error ? error.message : String(error));
+                  setProjectError(
+                    error instanceof Error ? error.message : String(error),
+                  );
                 });
             }}
             debugContent={
@@ -1876,12 +1860,16 @@ const App = () => {
             presetId={acpAgentSettingsDraft.presetId}
             onAcpEnabledChange={(enabled) => {
               void setAcpExperimentalEnabled(enabled).catch((error) => {
-                setProjectError(error instanceof Error ? error.message : String(error));
+                setProjectError(
+                  error instanceof Error ? error.message : String(error),
+                );
               });
             }}
             onPresetChange={(presetId) => {
               void setAcpAgentPresetAndSave(presetId).catch((error) => {
-                setProjectError(error instanceof Error ? error.message : String(error));
+                setProjectError(
+                  error instanceof Error ? error.message : String(error),
+                );
               });
             }}
             onOpenAdvanced={() => setAcpAdvancedSettingsOpen(true)}
@@ -1935,7 +1923,9 @@ const App = () => {
         actionLabel={agentBoardStartupPlan.viewModel.actionLabel}
         startupError={startupError}
         projectError={projectError}
-        onAction={agentBridgeStatusRendererActions.refreshBrowserConnectionStatus}
+        onAction={
+          agentBridgeStatusRendererActions.refreshBrowserConnectionStatus
+        }
       />
     );
   }
@@ -1949,8 +1939,12 @@ const App = () => {
         recentProjects={recentProjects}
         onCreateProject={currentProjectEntryRendererActions.createProject}
         onOpenProject={currentProjectEntryRendererActions.openProject}
-        onOpenRecentProject={currentProjectEntryRendererActions.openRecentProject}
-        onRemoveRecentProject={desktopStartupRendererActions.removeRecentProject}
+        onOpenRecentProject={
+          currentProjectEntryRendererActions.openRecentProject
+        }
+        onRemoveRecentProject={
+          desktopStartupRendererActions.removeRecentProject
+        }
         onRevealProject={revealProjectFromList}
         manualProjectActionsVisible={!isAgentBrowserRoute}
         globalDialogs={globalDialogs}
@@ -1970,7 +1964,10 @@ const App = () => {
 
   return (
     <div className={appClassName}>
-      <AppErrorBanners startupError={startupError} projectError={projectError} />
+      <AppErrorBanners
+        startupError={startupError}
+        projectError={projectError}
+      />
       {globalDialogs}
       <ProjectRenderBoundary
         projectKey={projectRenderKey}
@@ -1983,15 +1980,15 @@ const App = () => {
             {renderProjectStatusToast()}
             <Suspense fallback={null}>
               <LazyExcalidraw
-                 key={projectRenderKey}
-                 langCode={DESKTOP_LANG_CODE}
-                 initialData={initialData}
-                 onInitialize={(api) => {
-                   currentProjectEditorReadyRendererActions.ready(
-                     api ?? null,
-                     projectRenderNonce,
-                   );
-                 }}
+                key={projectRenderKey}
+                langCode={DESKTOP_LANG_CODE}
+                initialData={initialData}
+                onInitialize={(api) => {
+                  currentProjectEditorReadyRendererActions.ready(
+                    api ?? null,
+                    projectRenderNonce,
+                  );
+                }}
                 onExcalidrawAPI={(api) => {
                   if (projectRenderNonce === projectRenderNonceRef.current) {
                     excalidrawAPIRef.current = api;
@@ -2074,7 +2071,9 @@ const App = () => {
               generationRecords={generationRecordItems}
               agentResultRecords={acpAgentResultRecordItems}
               onSelectGenerationRecord={(fileId) => {
-                void imageRecordLocatorRendererActions.locateImageRecord(fileId);
+                void imageRecordLocatorRendererActions.locateImageRecord(
+                  fileId,
+                );
               }}
               task={acpAgentTask}
               runLogDetail={agentConversationSurface.runLogDetail}
@@ -2113,7 +2112,6 @@ const App = () => {
           composerConfig={acpAgentGeneration.composerConfig}
           initialRequest={generateRequest}
           providerSettings={providerSettings}
-          savingProviderSettings={savingProviders}
           loading={pendingGenerationCount > 0}
           error={generationError}
           onOpenErrorDetails={
@@ -2121,6 +2119,10 @@ const App = () => {
               ? () => setGenerationErrorDetailsOpen(true)
               : undefined
           }
+          onOpenProviderSettings={() => {
+            setAppSettingsCategory("image-generation");
+            setAppSettingsOpen(true);
+          }}
           onCancelGeneration={cancelBuiltinGeneration}
           onClose={() => undefined}
           onRequestChange={generationRequestRendererActions.changeRequest}

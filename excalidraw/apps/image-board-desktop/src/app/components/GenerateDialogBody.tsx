@@ -9,6 +9,7 @@ interface GenerateDialogBodyProps {
   isConfigured: boolean;
   error: string | null;
   onOpenErrorDetails?: () => void;
+  onOpenProviderSettings?: () => void;
   advancedOpen: boolean;
   advancedContent: ReactNode;
 }
@@ -18,6 +19,7 @@ export const GenerateDialogBody = ({
   isConfigured,
   error,
   onOpenErrorDetails,
+  onOpenProviderSettings,
   advancedOpen,
   advancedContent,
 }: GenerateDialogBodyProps) => {
@@ -29,7 +31,12 @@ export const GenerateDialogBody = ({
     <div className="generate-panel__body">
       {!isConfigured && (
         <div className="dialog-card__warning">
-          {copy.generateDialog.providerWarning}
+          <span>{copy.generateDialog.providerWarning}</span>
+          {onOpenProviderSettings ? (
+            <DesktopButton type="button" onClick={onOpenProviderSettings}>
+              打开应用设置
+            </DesktopButton>
+          ) : null}
         </div>
       )}
 
@@ -56,9 +63,7 @@ export const GenerateDialogBody = ({
       )}
 
       {advancedOpen && (
-        <div className="dialog-form-grid">
-          {advancedContent}
-        </div>
+        <div className="dialog-form-grid">{advancedContent}</div>
       )}
     </div>
   );

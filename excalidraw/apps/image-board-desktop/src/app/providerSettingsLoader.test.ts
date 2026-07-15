@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type {
+  DeleteProviderSettingsInput,
   DesktopBridgeApi,
+  ProviderConfigurationSnapshot,
   PublicProviderSettings,
   SaveProviderSettingsInput,
 } from "../shared/desktopBridgeTypes";
@@ -11,6 +13,7 @@ import {
   createProviderSettingsRendererActions,
   loadProviderSettingsWithRetry,
   runProviderSettingsLoadAction,
+  runProviderSettingsDeleteAction,
   runProviderSettingsSaveAction,
 } from "./providerSettingsLoader";
 
@@ -64,6 +67,18 @@ const providerSettingsFixture: PublicProviderSettings = {
     lastCheckedAt: null,
     lastError: null,
   },
+  "openai-compatible": {
+    isConfigured: false,
+    lastStatus: "unknown",
+    lastCheckedAt: null,
+    lastError: null,
+  },
+};
+
+const providerConfigurationFixture: ProviderConfigurationSnapshot = {
+  schemaVersion: 2,
+  defaultProvider: "gemini",
+  providers: providerSettingsFixture,
 };
 
 const createRequest = (
@@ -91,14 +106,14 @@ describe("loadProviderSettingsWithRetry", () => {
           "Error invoking remote method 'image-board:load-provider-settings': Error: No handler registered for 'image-board:load-provider-settings'",
         ),
       )
-      .mockResolvedValueOnce(providerSettingsFixture);
+      .mockResolvedValueOnce(providerConfigurationFixture);
 
     await expect(
       loadProviderSettingsWithRetry(createBridge(loadProviderSettings), {
         retryCount: 2,
         retryDelayMs: 0,
       }),
-    ).resolves.toEqual(providerSettingsFixture);
+    ).resolves.toEqual(providerConfigurationFixture);
 
     expect(loadProviderSettings).toHaveBeenCalledTimes(2);
   });
@@ -121,7 +136,9 @@ describe("loadProviderSettingsWithRetry", () => {
 
 describe("runProviderSettingsLoadAction", () => {
   it("loads settings and updates the preferred generation model when selection is not locked", async () => {
-    const bridge = createBridge(vi.fn().mockResolvedValue(providerSettingsFixture));
+    const bridge = createBridge(
+      vi.fn().mockResolvedValue(providerConfigurationFixture),
+    );
     const setProviderSettings = vi.fn();
     const setStartupError = vi.fn();
     const setGenerateRequest = vi.fn();
@@ -137,10 +154,12 @@ describe("runProviderSettingsLoadAction", () => {
       }),
     ).resolves.toEqual({
       status: "loaded",
-      providerSettings: providerSettingsFixture,
+      providerConfiguration: providerConfigurationFixture,
     });
 
-    expect(setProviderSettings).toHaveBeenCalledWith(providerSettingsFixture);
+    expect(setProviderSettings).toHaveBeenCalledWith(
+      providerConfigurationFixture,
+    );
     expect(setStartupError).toHaveBeenCalledWith(null);
     expect(setGenerateRequest).toHaveBeenCalledTimes(1);
 
@@ -154,7 +173,9 @@ describe("runProviderSettingsLoadAction", () => {
   });
 
   it("keeps the current generation request when model selection is locked", async () => {
-    const bridge = createBridge(vi.fn().mockResolvedValue(providerSettingsFixture));
+    const bridge = createBridge(
+      vi.fn().mockResolvedValue(providerConfigurationFixture),
+    );
     const setGenerateRequest = vi.fn();
 
     await runProviderSettingsLoadAction({
@@ -201,7 +222,9 @@ describe("runProviderSettingsSaveAction", () => {
   };
 
   it("saves settings and applies the returned provider settings", async () => {
-    const saveProviderSettings = vi.fn().mockResolvedValue(providerSettingsFixture);
+    const saveProviderSettings = vi
+      .fn()
+      .mockResolvedValue(providerConfigurationFixture);
     const setSavingProviders = vi.fn();
     const setProviderSettings = vi.fn();
 
@@ -214,12 +237,14 @@ describe("runProviderSettingsSaveAction", () => {
       }),
     ).resolves.toEqual({
       status: "saved",
-      providerSettings: providerSettingsFixture,
+      providerConfiguration: providerConfigurationFixture,
     });
 
     expect(saveProviderSettings).toHaveBeenCalledWith(input);
     expect(setSavingProviders).toHaveBeenNthCalledWith(1, true);
-    expect(setProviderSettings).toHaveBeenCalledWith(providerSettingsFixture);
+    expect(setProviderSettings).toHaveBeenCalledWith(
+      providerConfigurationFixture,
+    );
     expect(setSavingProviders).toHaveBeenLastCalledWith(false);
   });
 
@@ -253,20 +278,57 @@ describe("createProviderSettingsRendererActions", () => {
   };
 
   it("creates a save handler for provider settings persistence", async () => {
-    const saveProviderSettings = vi.fn().mockResolvedValue(providerSettingsFixture);
+    const saveProviderSettings = vi
+      .fn()
+      .mockResolvedValue(providerConfigurationFixture);
     const setSavingProviders = vi.fn();
     const setProviderSettings = vi.fn();
     const actions = createProviderSettingsRendererActions({
       saveProviderSettings,
+      deleteProviderSettings: vi.fn(),
       setProviderSettings,
       setSavingProviders,
     });
 
-    await expect(actions.saveSettings(input)).resolves.toBeUndefined();
+    await expect(actions.saveSettings(input)).resolves.toEqual({
+      status: "saved",
+      providerConfiguration: providerConfigurationFixture,
+    });
 
     expect(saveProviderSettings).toHaveBeenCalledWith(input);
     expect(setSavingProviders).toHaveBeenNthCalledWith(1, true);
-    expect(setProviderSettings).toHaveBeenCalledWith(providerSettingsFixture);
+    expect(setProviderSettings).toHaveBeenCalledWith(
+      providerConfigurationFixture,
+    );
     expect(setSavingProviders).toHaveBeenLastCalledWith(false);
+  });
+
+  it("creates a delete handler and applies the returned configuration", async () => {
+    const input: DeleteProviderSettingsInput = { provider: "gemini" };
+    const nextConfiguration = {
+      ...providerConfigurationFixture,
+      defaultProvider: null,
+      providers: {
+        ...providerSettingsFixture,
+        gemini: {
+          ...providerSettingsFixture.gemini,
+          isConfigured: false,
+        },
+      },
+    } satisfies ProviderConfigurationSnapshot;
+    const deleteProviderSettings = vi.fn().mockResolvedValue(nextConfiguration);
+    const setProviderSettings = vi.fn();
+
+    await expect(
+      runProviderSettingsDeleteAction({
+        deleteProviderSettings,
+        input,
+        setProviderSettings,
+      }),
+    ).resolves.toEqual({
+      status: "deleted",
+      providerConfiguration: nextConfiguration,
+    });
+    expect(setProviderSettings).toHaveBeenCalledWith(nextConfiguration);
   });
 });

@@ -32,7 +32,6 @@ const {
   readDesktopButton,
   readSideDock,
   readGenerateDialogViewModel,
-  readGenerateProviderSettingsPanel,
   readGenerateAdvancedFieldsPanel,
   readGenerateDialogAdvancedSettings,
   readGenerateDialogAdvancedSettingsRuntime,
@@ -60,6 +59,11 @@ describe("CoreStudio shell layout styles", () => {
     expect(settingsDialogRule).toContain("display: flex");
     expect(settingsDialogRule).toContain("flex-direction: column");
     expect(settingsDialogRule).toContain("max-width: none");
+
+    const settingsContentRule = getRule(appCss, ".app-settings-content");
+    expect(settingsContentRule).toContain("min-height: 0");
+    expect(settingsContentRule).toContain("overflow: auto");
+    expect(settingsContentRule).toContain("padding: 24px 32px 32px");
 
     const providerControlsRule = getRule(
       appCss,
@@ -110,13 +114,19 @@ describe("CoreStudio shell layout styles", () => {
 
   it("keeps the unified settings action typography compact", () => {
     const appCss = readAppCss();
-    const actionButtonRule = getRule(
-      appCss,
-      ".settings-form-card__actions",
-    );
+    const actionButtonRule = getRule(appCss, ".settings-form-card__actions");
 
     expect(actionButtonRule).toBeTruthy();
     expect(appCss).not.toContain(".agent-status-popover");
+  });
+
+  it("uses the shared centered dropdown arrow in experimental settings", () => {
+    const appCss = readAppCss();
+    const selectRule = getRule(appCss, ".experimental-acp-options select");
+
+    expect(selectRule).toContain("appearance: none");
+    expect(selectRule).toContain("background-image: var(--dropdown-icon)");
+    expect(selectRule).toContain("background-position: calc(100% - 14px) 50%");
   });
 
   it("keeps the bottom composer inside the canvas when side docks are open", () => {

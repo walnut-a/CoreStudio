@@ -94,6 +94,7 @@ const renderPanel = (
       { id: "1:1", label: "1:1", width: 1024, height: 1024 },
       { id: "4:3", label: "4:3", width: 1024, height: 768 },
     ],
+    configuredProviders: ["gemini", "zenmux"],
     onProviderChange: vi.fn(),
     onModelChange: vi.fn(),
     onNegativePromptChange: vi.fn(),
@@ -117,6 +118,25 @@ const renderPanel = (
 };
 
 describe("GenerateAdvancedFieldsPanel", () => {
+  it("only lists providers already configured in application settings", () => {
+    renderPanel({ configuredProviders: ["gemini", "zenmux"] });
+
+    const options = screen
+      .getByLabelText(copy.generateDialog.provider)
+      .querySelectorAll("option");
+    expect(Array.from(options, (option) => option.value)).toEqual([
+      "gemini",
+      "zenmux",
+    ]);
+  });
+
+  it("hides provider and model controls when nothing is configured", () => {
+    renderPanel({ configuredProviders: [] });
+
+    expect(screen.queryByLabelText(copy.generateDialog.provider)).toBeNull();
+    expect(screen.queryByLabelText(copy.generateDialog.model)).toBeNull();
+  });
+
   it("renders provider model and generation fields", () => {
     renderPanel();
 
@@ -212,10 +232,9 @@ describe("GenerateAdvancedFieldsPanel", () => {
     expect(screen.getByLabelText(copy.generateDialog.imageCount)).toHaveValue(
       5,
     );
-    expect(screen.getByLabelText(copy.generateDialog.imageCount)).toHaveAttribute(
-      "max",
-      "10",
-    );
+    expect(
+      screen.getByLabelText(copy.generateDialog.imageCount),
+    ).toHaveAttribute("max", "10");
   });
 
   it("hides optional generation fields when they are unavailable", () => {

@@ -75,6 +75,7 @@ export const loadAppInfoStateAction = async ({
 export const createDesktopStartupRendererActions = ({
   getBridge,
   isGenerationModelSelectionLocked,
+  getRememberedGenerationModelSelection,
   setProviderSettings,
   setGenerateRequest,
   setStartupError,
@@ -85,6 +86,7 @@ export const createDesktopStartupRendererActions = ({
 }: {
   getBridge: () => DesktopBridgeApi | null;
   isGenerationModelSelectionLocked: ProviderSettingsLoadActionInput["isGenerationModelSelectionLocked"];
+  getRememberedGenerationModelSelection?: ProviderSettingsLoadActionInput["getRememberedGenerationModelSelection"];
   setProviderSettings: ProviderSettingsLoadActionInput["setProviderSettings"];
   setGenerateRequest: ProviderSettingsLoadActionInput["setGenerateRequest"];
   setStartupError: ProviderSettingsLoadActionInput["setStartupError"];
@@ -97,6 +99,7 @@ export const createDesktopStartupRendererActions = ({
     await runProviderSettingsLoadAction({
       bridge: getBridge(),
       isGenerationModelSelectionLocked,
+      getRememberedGenerationModelSelection,
       setProviderSettings,
       setGenerateRequest,
       setStartupError,

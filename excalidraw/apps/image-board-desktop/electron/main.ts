@@ -22,6 +22,7 @@ import {
   type DesktopProjectStateChangedPayload,
   type DesktopProjectBundle,
   type RecentProjectEntry,
+  type DeleteProviderSettingsInput,
   type GenerateImagesInput,
   type SaveProviderSettingsInput,
 } from "../src/shared/desktopBridgeTypes";
@@ -66,7 +67,11 @@ import {
 } from "./projectDialogs";
 import { generateImages } from "./providers";
 import { createGenerationRequestController } from "./generationRequestController";
-import { loadProviderSettings, saveProviderSettings } from "./settingsStore";
+import {
+  deleteProviderSettings,
+  loadProviderSettings,
+  saveProviderSettings,
+} from "./settingsStore";
 import {
   loadAgentAccessSettings,
   saveAgentAccessSettings,
@@ -1229,6 +1234,11 @@ const registerIpcHandlers = () => {
       saveProviderSettings(input),
   );
 
+  ipcMain.handle(
+    IPC_CHANNELS.deleteProviderSettings,
+    async (_event, input: DeleteProviderSettingsInput) =>
+      deleteProviderSettings(input),
+  );
   ipcMain.handle(
     IPC_CHANNELS.generateImages,
     async (_event, input: GenerateImagesInput) =>

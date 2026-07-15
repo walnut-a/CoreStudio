@@ -1,8 +1,4 @@
-import type {
-  FormEvent,
-  KeyboardEvent,
-  SyntheticEvent,
-} from "react";
+import type { FormEvent, KeyboardEvent, SyntheticEvent } from "react";
 
 import { getGenerateComposerKeyboardAction } from "./generateComposerKeyboard";
 
@@ -109,12 +105,8 @@ export const handleGenerateComposerFormSubmit = (
 
 export const createGenerateComposerEventHandlers = ({
   submit,
-  saveProviderSettings,
-  addCustomModel,
 }: {
   submit: () => void;
-  saveProviderSettings: () => unknown;
-  addCustomModel: () => unknown;
 }) => ({
   stopInputEventPropagation: stopGenerateInputEventPropagation,
   handleInputKeyPhaseCapture: (
@@ -133,16 +125,6 @@ export const createGenerateComposerEventHandlers = ({
     event: KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
   ) => {
     handleGenerateTextInputKeyDown(event, submit);
-  },
-  handleApiKeyKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
-    handleGenerateActionInputKeyDown(event, () => {
-      void saveProviderSettings();
-    });
-  },
-  handleCustomModelKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
-    handleGenerateActionInputKeyDown(event, () => {
-      void addCustomModel();
-    });
   },
   handleSubmit: (event: FormEvent<HTMLFormElement>) => {
     handleGenerateComposerFormSubmit(event, submit);

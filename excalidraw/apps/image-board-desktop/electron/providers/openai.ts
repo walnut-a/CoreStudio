@@ -24,9 +24,15 @@ import type {
   GenerationResponse,
 } from "../../src/shared/providerTypes";
 
-const OPENAI_IMAGE_GENERATIONS_URL =
-  "https://api.openai.com/v1/images/generations";
-const OPENAI_IMAGE_EDITS_URL = "https://api.openai.com/v1/images/edits";
+const OPENAI_BASE_URL = "https://api.openai.com/v1";
+
+const getOpenAIImageEndpoints = (baseUrl = OPENAI_BASE_URL) => {
+  const root = baseUrl.trim().replace(/\/+$/, "");
+  return {
+    generations: `${root}/images/generations`,
+    edits: `${root}/images/edits`,
+  };
+};
 
 type OpenAIImageResponse = {
   data?: Array<{
@@ -107,15 +113,17 @@ const buildRequestSummary = ({
   prompt,
   size,
   referenceImageCount,
+  providerLabel,
 }: {
   endpoint: string;
   request: GenerationRequest;
   prompt: string;
   size: string;
   referenceImageCount: number;
+  providerLabel: string;
 }) =>
   [
-    "provider=openai",
+    `provider=${providerLabel}`,
     `model=${request.model}`,
     `endpoint=${endpoint}`,
     `尺寸=${size}`,
@@ -199,15 +207,22 @@ const ensureOpenAIImages = async (
 export const generateOpenAIImages = async ({
   apiKey,
   request,
+  baseUrl,
+  responseProvider = "openai",
+  providerLabel = "OpenAI",
   projectPath,
   signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
+  baseUrl?: string;
+  responseProvider?: "openai" | "openai-compatible";
+  providerLabel?: string;
   projectPath?: string | null;
   signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
   const createdAt = new Date().toISOString();
+  const endpoints = getOpenAIImageEndpoints(baseUrl);
   const prompt = buildPromptWithReferenceNotes(request);
   const promptReferences = getEnabledPromptReferences(request);
   const uploadReferenceImages = promptReferences.length
@@ -220,14 +235,15 @@ export const generateOpenAIImages = async ({
   const size = toOpenAIImageSize(request);
   const imageCount = clampImageCount(request, 4);
   const endpoint = uploadReferenceImages.length
-    ? OPENAI_IMAGE_EDITS_URL
-    : OPENAI_IMAGE_GENERATIONS_URL;
+    ? endpoints.edits
+    : endpoints.generations;
   const requestSummary = buildRequestSummary({
     endpoint,
     request,
     prompt,
     size,
     referenceImageCount: uploadReferenceImages.length,
+    providerLabel,
   });
 
   const requestPayload = uploadReferenceImages.length
@@ -255,7 +271,7 @@ export const generateOpenAIImages = async ({
 
   try {
     const response = uploadReferenceImages.length
-      ? await providerFetch(OPENAI_IMAGE_EDITS_URL, {
+      ? await providerFetch(endpoints.edits, {
           method: "POST",
           signal,
           headers: {
@@ -280,7 +296,7 @@ export const generateOpenAIImages = async ({
             return formData;
           })(),
         })
-      : await providerFetch(OPENAI_IMAGE_GENERATIONS_URL, {
+      : await providerFetch(endpoints.generations, {
           method: "POST",
           signal,
           headers: {
@@ -300,7 +316,7 @@ export const generateOpenAIImages = async ({
       const errorText =
         typeof response.text === "function" ? await response.text() : "";
       throw new Error(
-        `OpenAI 请求失败：${response.status}${
+        `${providerLabel} 请求失败：${response.status}${
           errorText ? ` ${truncateText(errorText)}` : ""
         }`,
       );
@@ -312,7 +328,7 @@ export const generateOpenAIImages = async ({
     );
 
     const generationResponse: GenerationResponse = {
-      provider: "openai",
+      provider: responseProvider,
       model: request.model,
       seed: null,
       createdAt,

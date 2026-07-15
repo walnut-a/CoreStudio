@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 
 import { AGENT_HTTP_ROUTES } from "../../shared/agentBridgeTypes";
-import { DESKTOP_LANG_CODE } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 
 import "./AgentBoard.css";
@@ -79,7 +79,7 @@ export const AgentBoard = () => {
     init: RequestInit = {},
   ): Promise<T> => {
     if (!config) {
-      throw new Error("Agent Board 链接缺少 bridge 或 projectToken。");
+      throw new Error(copy.agentBoard.errors.missingConfig);
     }
 
     const response = await fetch(`${config.bridge}${route}`, {
@@ -93,7 +93,7 @@ export const AgentBoard = () => {
     });
     const json = (await response.json()) as unknown;
     if (!isEnvelope<T>(json)) {
-      throw new Error("Agent Bridge 返回了无法识别的数据。");
+      throw new Error(copy.agentBoard.errors.unrecognizedBridgeData);
     }
     if (!json.ok) {
       throw new Error(json.error.message);
@@ -129,7 +129,7 @@ export const AgentBoard = () => {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "Agent Board 刷新失败。",
+          : copy.agentBoard.errors.refreshFailed,
       );
     } finally {
       setLoading(false);
@@ -162,11 +162,8 @@ export const AgentBoard = () => {
       <div className="agent-board-page">
         <main className="agent-board-shell">
           <span className="welcome-pane__eyebrow">Agent Board</span>
-          <h1>缺少连接信息</h1>
-          <p>
-            请从 CoreStudio 桌面端复制 Agent Board 链接，再在 Codex
-            内置浏览器中打开。
-          </p>
+          <h1>{copy.agentBoard.missingConnectionTitle}</h1>
+          <p>{copy.agentBoard.missingConnectionDescription}</p>
         </main>
       </div>
     );
@@ -178,15 +175,12 @@ export const AgentBoard = () => {
         <header className="agent-board-header">
           <div>
             <span className="welcome-pane__eyebrow">Agent Board</span>
-            <h1>{board?.project.name ?? "CoreStudio Agent Board"}</h1>
-            <p>
-              在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回使用 本地项目
-              token 完成。
-            </p>
+            <h1>{board?.project.name ?? copy.agentBoard.defaultTitle}</h1>
+            <p>{copy.agentBoard.description}</p>
           </div>
           <div className="agent-board-header__actions">
             <DesktopButton type="button" onClick={refresh} disabled={loading}>
-              {loading ? "刷新中" : "刷新"}
+              {loading ? copy.agentBoard.refreshing : copy.agentBoard.refresh}
             </DesktopButton>
           </div>
         </header>
@@ -205,58 +199,77 @@ export const AgentBoard = () => {
               />
             ) : (
               <div className="agent-board-empty" role="status">
-                {loading ? "正在载入画板" : "等待当前项目画板"}
+                {loading
+                  ? copy.agentBoard.loadingBoard
+                  : copy.agentBoard.waitingForBoard}
               </div>
             )}
           </div>
 
-          <aside className="agent-board-side" aria-label="画板状态">
+          <aside
+            className="agent-board-side"
+            aria-label={copy.agentBoard.boardStatus}
+          >
             <section className="agent-board-card">
               <div>
-                <span className="agent-board-label">当前项目</span>
-                <strong>{status?.currentProject?.name ?? "未打开项目"}</strong>
+                <span className="agent-board-label">
+                  {copy.agentBoard.currentProject}
+                </span>
+                <strong>
+                  {status?.currentProject?.name ?? copy.agentBoard.noProject}
+                </strong>
               </div>
               {status?.currentProject?.projectPath && (
                 <p>{status.currentProject.projectPath}</p>
               )}
               {board?.updatedAt && (
                 <p>
-                  Board 同步于{" "}
-                  {new Date(board.updatedAt).toLocaleTimeString(
-                    DESKTOP_LANG_CODE,
+                  {copy.agentBoard.boardSyncedAt(
+                    new Date(board.updatedAt).toLocaleTimeString(
+                      DESKTOP_LANG_CODE,
+                    ),
                   )}
                 </p>
               )}
             </section>
 
-            <section className="agent-board-grid" aria-label="画板摘要">
+            <section
+              className="agent-board-grid"
+              aria-label={copy.agentBoard.boardSummary}
+            >
               <div className="agent-board-metric">
-                <span>元素</span>
+                <span>{copy.agentBoard.elements}</span>
                 <strong>{board?.metrics.elementCount ?? "-"}</strong>
               </div>
               <div className="agent-board-metric">
-                <span>图片</span>
+                <span>{copy.agentBoard.images}</span>
                 <strong>{board?.metrics.imageElementCount ?? "-"}</strong>
               </div>
               <div className="agent-board-metric">
-                <span>文字</span>
+                <span>{copy.agentBoard.text}</span>
                 <strong>{board?.metrics.textElementCount ?? "-"}</strong>
               </div>
               <div className="agent-board-metric">
-                <span>选区</span>
+                <span>{copy.agentBoard.selection}</span>
                 <strong>
                   {selection?.selected
-                    ? `${board?.metrics.selectedElementIds?.length ?? 0} 个`
-                    : "无"}
+                    ? copy.agentBoard.selectedCount(
+                        board?.metrics.selectedElementIds?.length ?? 0,
+                      )
+                    : copy.agentBoard.noSelection}
                 </strong>
               </div>
             </section>
 
             {board?.missingFileIds.length ? (
               <section className="agent-board-card agent-board-card--warning">
-                <span className="agent-board-label">图片加载</span>
-                <strong>{board.missingFileIds.length} 张图片未载入</strong>
-                <p>可刷新状态，或在桌面端确认项目资源是否完整。</p>
+                <span className="agent-board-label">
+                  {copy.agentBoard.imageLoading}
+                </span>
+                <strong>
+                  {copy.agentBoard.missingImages(board.missingFileIds.length)}
+                </strong>
+                <p>{copy.agentBoard.missingImagesDescription}</p>
               </section>
             ) : null}
           </aside>

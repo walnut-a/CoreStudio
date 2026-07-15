@@ -475,6 +475,39 @@ export const enCopy: DesktopCopy = {
       empty: "No selected elements",
     },
   },
+  agentBoard: {
+    errors: {
+      missingConfig: "The Agent Board link is missing bridge or projectToken.",
+      unrecognizedBridgeData: "Agent Bridge returned unrecognized data.",
+      refreshFailed: "Could not refresh Agent Board.",
+    },
+    missingConnectionTitle: "Connection information missing",
+    missingConnectionDescription:
+      "Copy the Agent Board link from the CoreStudio desktop app, then open it in Codex's built-in browser.",
+    defaultTitle: "CoreStudio Agent Board",
+    description:
+      "View the current CoreStudio board in Codex's built-in browser. Write-back uses the local project token.",
+    refreshing: "Refreshing",
+    refresh: "Refresh",
+    loadingBoard: "Loading board",
+    waitingForBoard: "Waiting for the current project board",
+    boardStatus: "Board status",
+    currentProject: "Current project",
+    noProject: "No project open",
+    boardSyncedAt: (time: string) => `Board synced at ${time}`,
+    boardSummary: "Board summary",
+    elements: "Elements",
+    images: "Images",
+    text: "Text",
+    selection: "Selection",
+    selectedCount: (count: number) => `${count} selected`,
+    noSelection: "None",
+    imageLoading: "Image loading",
+    missingImages: (count: number) =>
+      `${count} ${count === 1 ? "image" : "images"} failed to load`,
+    missingImagesDescription:
+      "Refresh the status, or check the project assets in the desktop app.",
+  },
   sideDock: {
     close: (title: string) => `Close ${title}`,
   },

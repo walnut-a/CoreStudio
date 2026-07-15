@@ -17,6 +17,7 @@ vi.mock("@excalidraw/excalidraw", () => ({
 }));
 
 import { AGENT_HTTP_ROUTES } from "../../shared/agentBridgeTypes";
+import { setActiveDesktopLocale } from "../copy";
 import { AgentBoard } from "./AgentBoard";
 
 const bridgeUrl = "http://127.0.0.1:60909";
@@ -27,7 +28,7 @@ const envelope = <T,>(data: T) => ({
   data,
 });
 
-const createFetch = () =>
+const createFetch = (missingFileIds: string[] = []) =>
   vi.fn(async (url: string, init?: RequestInit) => {
     const route = new URL(url).pathname;
 
@@ -92,7 +93,7 @@ const createFetch = () =>
               imageRecordCount: 1,
               selectedElementIds: ["rect-1"],
             },
-            missingFileIds: [],
+            missingFileIds,
           }),
       };
     }
@@ -134,6 +135,7 @@ describe("AgentBoard", () => {
   });
 
   afterEach(() => {
+    setActiveDesktopLocale("zh-CN");
     vi.restoreAllMocks();
   });
 
@@ -209,5 +211,91 @@ describe("AgentBoard", () => {
       screen.getByRole("heading", { name: "缺少连接信息" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/复制 Agent Board 链接/)).toBeInTheDocument();
+  });
+
+  it("localizes board chrome while preserving project data", async () => {
+    setActiveDesktopLocale("en");
+    vi.stubGlobal("fetch", createFetch(["missing-file"]));
+
+    render(<AgentBoard />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Shell concept" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "View the current CoreStudio board in Codex's built-in browser. Write-back uses the local project token.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Board status")).toBeInTheDocument();
+    expect(screen.getByText("Current project")).toBeInTheDocument();
+    expect(screen.getByLabelText("Board summary")).toBeInTheDocument();
+    expect(screen.getByText("Elements")).toBeInTheDocument();
+    expect(screen.getByText("Images")).toBeInTheDocument();
+    expect(screen.getByText("Text")).toBeInTheDocument();
+    expect(screen.getByText("Selection")).toBeInTheDocument();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    expect(screen.getByText("Image loading")).toBeInTheDocument();
+    expect(screen.getByText("1 image failed to load")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Refresh the status, or check the project assets in the desktop app.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("localizes incomplete-link guidance", () => {
+    setActiveDesktopLocale("en");
+    window.history.pushState({}, "", "/agent-board");
+
+    render(<AgentBoard />);
+
+    expect(
+      screen.getByRole("heading", { name: "Connection information missing" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Copy the Agent Board link from the CoreStudio desktop app, then open it in Codex's built-in browser.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("localizes CoreStudio errors for unrecognized bridge data", async () => {
+    setActiveDesktopLocale("en");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        json: async () => ({ unexpected: true }),
+      })),
+    );
+
+    render(<AgentBoard />);
+
+    expect(
+      await screen.findByText("Agent Bridge returned unrecognized data."),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves bridge error messages in their original language", async () => {
+    setActiveDesktopLocale("en");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        json: async () => ({
+          ok: false,
+          error: {
+            code: "PROJECT_UNAVAILABLE",
+            message: "当前项目暂时无法读取。",
+          },
+        }),
+      })),
+    );
+
+    render(<AgentBoard />);
+
+    expect(
+      await screen.findByText("当前项目暂时无法读取。"),
+    ).toBeInTheDocument();
   });
 });

@@ -35,9 +35,9 @@ const SETTINGS_NAV_ITEMS: readonly {
   { id: "experimental", label: "实验性功能" },
 ];
 
-const ApplicationSettingsLeaveContext = createContext<(action: () => void) => void>(
-  (action) => action(),
-);
+const ApplicationSettingsLeaveContext = createContext<
+  (action: () => void) => void
+>((action) => action());
 
 export const useApplicationSettingsLeave = () =>
   useContext(ApplicationSettingsLeaveContext);
@@ -95,8 +95,8 @@ export const ApplicationSettingsDialog = ({
     activeCategory === "image-generation"
       ? imageGenerationContent
       : activeCategory === "codex-integration"
-        ? codexIntegrationContent
-        : experimentalContent;
+      ? codexIntegrationContent
+      : experimentalContent;
 
   return (
     <div className="dialog-backdrop app-settings-backdrop">
@@ -110,6 +110,7 @@ export const ApplicationSettingsDialog = ({
           <h2 id="app-settings-title">应用设置</h2>
           <DesktopButton
             type="button"
+            size="small"
             className="dialog-card__close"
             onClick={() => requestAction(onClose)}
           >
@@ -118,7 +119,11 @@ export const ApplicationSettingsDialog = ({
         </header>
 
         <div className="app-settings-layout">
-          <nav className="app-settings-nav" role="tablist" aria-label="设置分类">
+          <nav
+            className="app-settings-nav"
+            role="tablist"
+            aria-label="设置分类"
+          >
             {SETTINGS_NAV_ITEMS.map((item) => (
               <button
                 key={item.id}
@@ -154,7 +159,10 @@ export const ApplicationSettingsDialog = ({
               <h3 id="app-settings-discard-title">放弃未保存的修改？</h3>
               <p>当前页面的修改还没有保存。</p>
               <div className="app-settings-confirm__actions">
-                <DesktopButton type="button" onClick={() => setPendingAction(null)}>
+                <DesktopButton
+                  type="button"
+                  onClick={() => setPendingAction(null)}
+                >
                   继续编辑
                 </DesktopButton>
                 <DesktopButton

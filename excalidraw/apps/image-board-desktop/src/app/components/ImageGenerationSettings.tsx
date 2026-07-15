@@ -115,7 +115,10 @@ export const ImageGenerationSettings = ({
           <p>管理画布中可以使用的图像生成服务。</p>
         </div>
         {configuredProviders.length ? (
-          <DesktopButton onClick={() => setRoute({ name: "picker" })}>
+          <DesktopButton
+            size="small"
+            onClick={() => setRoute({ name: "picker" })}
+          >
             添加服务
           </DesktopButton>
         ) : null}

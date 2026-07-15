@@ -375,6 +375,7 @@ export const ProviderServiceEditor = ({
                 </label>
               </div>
               <DesktopButton
+                size="small"
                 disabled={!customModelId.trim()}
                 onClick={addCustomModel}
               >

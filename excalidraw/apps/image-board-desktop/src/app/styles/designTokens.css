@@ -22,6 +22,9 @@
   --ui-text-size-sm: 0.75rem;
   --ui-text-size-md: 0.8125rem;
   --ui-text-size-lg: 0.875rem;
+  --ui-text-size-title: 1rem;
+  --ui-text-size-page-title: 1.25rem;
+  --ui-text-size-dialog-title: 1.5rem;
   --ui-line-height-tight: 1.25;
   --ui-line-height-normal: 1.35;
   --ui-line-height-relaxed: 1.45;
@@ -34,6 +37,10 @@
   --ui-space-2xl: 16px;
   --ui-control-size-sm: 28px;
   --ui-control-size-md: 32px;
+  --ui-button-height-sm: 32px;
+  --ui-button-height-md: 40px;
+  --ui-button-padding-inline-sm: 12px;
+  --ui-button-padding-inline-md: 14px;
   --ui-thumbnail-size-sm: 38px;
   --ui-radius-pill: 999px;
   --text-primary-color: #1b1b1f;
@@ -48,6 +55,7 @@
   --button-active-border: var(--color-brand-active);
   --shadow-island: 0 0 1px 0 rgba(0, 0, 0, 0.17), 0 0 3px 0 rgba(0, 0, 0, 0.08),
     0 7px 14px 0 rgba(0, 0, 0, 0.05);
+  --shadow-control-knob: 0 1px 3px rgb(15 23 42 / 22%);
   --modal-shadow: 0 100px 80px rgba(0, 0, 0, 0.07),
     0 41.78px 33.42px rgba(0, 0, 0, 0.05), 0 22.34px 17.87px rgba(0, 0, 0, 0.04),
     0 12.52px 10.02px rgba(0, 0, 0, 0.035), 0 6.65px 5.32px rgba(0, 0, 0, 0.028),
@@ -70,9 +78,12 @@
   --color-danger-background: #fff0f0;
   --color-danger-darker: #d65550;
   --color-danger-color: #700000;
+  --color-success-background: #e8f6ef;
+  --color-success-text: #206b49;
   --color-warning-background: #fceeca;
   --color-warning-dark: #f5c354;
   --color-warning-color: #1b1b1f;
+  --color-modal-scrim: rgb(20 20 28 / 36%);
   --border-radius-md: 0.375rem;
   --border-radius-lg: 0.5rem;
   --lg-button-size: 2.25rem;

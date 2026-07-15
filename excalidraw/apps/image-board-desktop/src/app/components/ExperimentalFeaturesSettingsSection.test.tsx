@@ -17,6 +17,12 @@ describe("ExperimentalFeaturesSettingsSection", () => {
       />,
     );
 
+    expect(
+      screen.getByRole("heading", { level: 3, name: "实验性功能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("实验性功能需要手动开启，行为和配置可能继续调整。"),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole("switch")).toHaveLength(1);
     expect(screen.queryByLabelText("Agent 类型")).toBeNull();
     expect(screen.queryByRole("button", { name: "高级配置" })).toBeNull();

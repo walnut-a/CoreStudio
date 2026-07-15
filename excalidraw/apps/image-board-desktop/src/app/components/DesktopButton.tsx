@@ -5,12 +5,14 @@ import "./DesktopButton.css";
 interface DesktopButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   children: ReactNode;
+  size?: "small" | "medium";
   variant?: "default" | "primary";
 }
 
 export const DesktopButton = ({
   children,
   className,
+  size = "medium",
   type = "button",
   variant = "default",
   ...rest
@@ -18,6 +20,7 @@ export const DesktopButton = ({
   const classes = [
     "excalidraw-button",
     "image-board-button",
+    size !== "medium" ? `image-board-button--${size}` : "",
     variant !== "default" ? `image-board-button--${variant}` : "",
     className || "",
   ]

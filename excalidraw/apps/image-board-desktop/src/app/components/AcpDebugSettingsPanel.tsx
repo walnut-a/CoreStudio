@@ -56,12 +56,13 @@ export const AcpDebugSettingsPanel = ({
           <div>
             <strong>ACP 调试记录</strong>
             <span>
-              用于排查外部 Agent
-              连接、协议消息或写回失败。日常任务过程请在左侧 Agent 对话中查看。
+              用于排查外部 Agent 连接、协议消息或写回失败。日常任务过程请在左侧
+              Agent 对话中查看。
             </span>
           </div>
           <DesktopButton
             type="button"
+            size="small"
             disabled={loading || !canReadRunLogs}
             onClick={onRefresh}
           >

@@ -120,6 +120,236 @@ describe("CoreStudio shell layout styles", () => {
     expect(appCss).not.toContain(".agent-status-popover");
   });
 
+  it("uses only the shared typography scale in application settings", () => {
+    const settingsCss = [
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
+      ),
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/AgentSettings.css",
+      ),
+    ].join("\n");
+    const allowedFontSizes = new Set([
+      "var(--ui-text-size-xs)",
+      "var(--ui-text-size-sm)",
+      "var(--ui-text-size-md)",
+      "var(--ui-text-size-lg)",
+      "var(--ui-text-size-title)",
+      "var(--ui-text-size-page-title)",
+      "var(--ui-text-size-dialog-title)",
+    ]);
+    const unsupportedFontSizes = Array.from(
+      settingsCss.matchAll(/font-size:\s*([^;]+);/g),
+      (match) => match[1].trim(),
+    ).filter((fontSize) => !allowedFontSizes.has(fontSize));
+
+    expect(unsupportedFontSizes).toEqual([]);
+  });
+
+  it("defines every settings typography role in the shared design tokens", () => {
+    const tokens = readCssFile(
+      "apps/image-board-desktop/src/app/styles/designTokens.css",
+    );
+
+    expect(tokens).toContain("--ui-text-size-title: 1rem");
+    expect(tokens).toContain("--ui-text-size-page-title: 1.25rem");
+    expect(tokens).toContain("--ui-text-size-dialog-title: 1.5rem");
+  });
+
+  it("defines fixed shared geometry for text button sizes", () => {
+    const tokens = readCssFile(
+      "apps/image-board-desktop/src/app/styles/designTokens.css",
+    );
+
+    expect(tokens).toContain("--ui-button-height-sm: 32px");
+    expect(tokens).toContain("--ui-button-height-md: 40px");
+    expect(tokens).toContain("--ui-button-padding-inline-sm: 12px");
+    expect(tokens).toContain("--ui-button-padding-inline-md: 14px");
+  });
+
+  it("keeps unstyled settings copy and native controls on the shared body size", () => {
+    const appCss = readAppCss();
+    const contentRule = getRule(appCss, ".app-settings-content");
+    const providerOptionRule = getRule(appCss, ".settings-provider-option");
+    const providerCaptionRule = getRule(
+      appCss,
+      ".settings-provider-option small",
+    );
+    const serviceRowRule = getRule(appCss, ".settings-service-row");
+
+    expect(contentRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(providerOptionRule).toContain("font: inherit");
+    expect(providerOptionRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(providerCaptionRule).toContain("font-size: var(--ui-text-size-sm)");
+    expect(serviceRowRule).toContain("font: inherit");
+  });
+
+  it("assigns shared typography sizes by settings text role", () => {
+    const appCss = readAppCss();
+    const providerLabelRule = getRule(
+      appCss,
+      ".settings-current-provider label,\n.settings-form-card label",
+    );
+    const acpLabelRule = getRule(
+      appCss,
+      ".settings-current-provider label,\n.settings-form-card label",
+    );
+    const acpFieldRule = getRule(
+      appCss,
+      ".settings-current-provider select,\n.settings-form-card :is(input, select, textarea)",
+    );
+    const acpControlRule = getRule(
+      appCss,
+      ".settings-current-provider select,\n.settings-form-card input,\n.settings-form-card select",
+    );
+    const acpTextareaRule = getRule(appCss, ".settings-form-card__long-text");
+    const experimentalLabelRule = getRule(
+      appCss,
+      ".experimental-acp-options label",
+    );
+    const experimentalFeatureTitleRule = getRule(
+      appCss,
+      ".app-settings-section__copy > span",
+    );
+    const settingsPageSectionRule = getRule(
+      appCss,
+      ".settings-page > .app-settings-section",
+    );
+    const installDescriptionRule = getRule(
+      appCss,
+      ".settings-install-card > div:first-child > p",
+    );
+    const installPromptRule = getRule(appCss, ".settings-agent-prompt p");
+    const settingsListTitleRule = getRulesContaining(
+      appCss,
+      ".settings-list-header h4",
+    ).at(-1);
+    const settingsCardTitleRule = getRule(
+      appCss,
+      ".settings-callout h4,\n.settings-install-card h4,\n.settings-start-card h4",
+    );
+    const advancedTitleRule = getRule(
+      appCss,
+      ".app-settings-advanced summary strong",
+    );
+
+    expect(providerLabelRule).toContain("font-size: var(--ui-text-size-sm)");
+    expect(acpLabelRule).toContain("font-size: var(--ui-text-size-sm)");
+    expect(acpControlRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(acpFieldRule).toContain("font: inherit");
+    expect(acpTextareaRule).toContain("font-size: var(--ui-text-size-md)");
+    expect(acpTextareaRule).toContain(
+      "line-height: var(--ui-line-height-relaxed)",
+    );
+    expect(experimentalLabelRule).toContain(
+      "font-size: var(--ui-text-size-sm)",
+    );
+    expect(experimentalFeatureTitleRule).toContain(
+      "font-weight: var(--font-weight-semibold)",
+    );
+    expect(settingsPageSectionRule).toContain("margin-top: 0");
+    expect(installDescriptionRule).toContain(
+      "font-size: var(--ui-text-size-md)",
+    );
+    expect(installPromptRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(settingsListTitleRule).toContain(
+      "font-size: var(--ui-text-size-lg)",
+    );
+    expect(settingsListTitleRule).toContain(
+      "font-weight: var(--font-weight-semibold)",
+    );
+    expect(settingsCardTitleRule).toContain(
+      "font-size: var(--ui-text-size-lg)",
+    );
+    expect(settingsCardTitleRule).toContain(
+      "font-weight: var(--font-weight-semibold)",
+    );
+    expect(advancedTitleRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(advancedTitleRule).toContain(
+      "font-weight: var(--font-weight-semibold)",
+    );
+  });
+
+  it("removes retired settings form and connection style branches", () => {
+    const agentSettingsCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/AgentSettings.css",
+    );
+
+    expect(agentSettingsCss).not.toContain(".app-settings-form");
+    expect(agentSettingsCss).not.toContain(
+      ".app-settings-collaboration-status",
+    );
+    expect(agentSettingsCss).not.toContain(".app-settings-connection-details");
+  });
+
+  it("keeps settings secondary copy on the accessible text token", () => {
+    const settingsCss = [
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
+      ),
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/AgentSettings.css",
+      ),
+    ].join("\n");
+
+    expect(settingsCss).not.toContain("color: var(--color-gray-60)");
+  });
+
+  it("gives every raw settings control a visible keyboard focus state", () => {
+    const appCss = readAppCss();
+    const switchFocusRule = getRule(
+      appCss,
+      ".app-settings-section__switch:focus-visible",
+    );
+    const quietActionFocusRule = getRule(
+      appCss,
+      ".settings-page__back:focus-visible,\n.settings-model-row button:focus-visible",
+    );
+
+    expect(switchFocusRule).toContain("outline: 2px solid");
+    expect(quietActionFocusRule).toContain("outline: 2px solid");
+  });
+
+  it("stacks settings navigation above content in narrow windows", () => {
+    const appCss = readAppCss();
+    const narrowLayoutRule = getRulesContaining(
+      appCss,
+      ".app-settings-layout",
+    ).at(-1);
+    const narrowNavRule = getRulesContaining(appCss, ".app-settings-nav").at(
+      -1,
+    );
+
+    expect(narrowLayoutRule).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(narrowNavRule).toContain("flex-direction: row");
+    expect(narrowNavRule).toContain("overflow-x: auto");
+  });
+
+  it("keeps settings navigation on an inset rounded surface", () => {
+    const appCss = readAppCss();
+    const navRule = getRule(appCss, ".app-settings-nav");
+    const navItemRule = getRule(appCss, ".app-settings-nav__item");
+
+    expect(navRule).toContain("margin: 12px 0 12px 12px");
+    expect(navRule).toContain("border-radius: var(--border-radius-lg)");
+    expect(navRule).not.toContain("border-right");
+    expect(navItemRule).toContain("border-radius: var(--border-radius-lg)");
+  });
+
+  it("keeps settings state colors behind shared design tokens", () => {
+    const settingsCss = [
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
+      ),
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/AgentSettings.css",
+      ),
+    ].join("\n");
+
+    expect(settingsCss).not.toMatch(/#[0-9a-f]{3,8}/i);
+    expect(settingsCss).not.toMatch(/rgba?\(/i);
+  });
+
   it("uses the shared centered dropdown arrow in experimental settings", () => {
     const appCss = readAppCss();
     const selectRule = getRule(appCss, ".experimental-acp-options select");

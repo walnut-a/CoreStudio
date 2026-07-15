@@ -390,16 +390,31 @@ describe("component style ownership boundaries", () => {
     const rootAppCss = readRootAppCss();
     const source = readDesktopButton();
     const buttonRule = getRule(appCss, ".image-board-button");
+    const smallRule = getRule(appCss, ".image-board-button--small");
     const primaryRule = getRule(appCss, ".image-board-button--primary");
     const disabledRule = getRule(appCss, ".image-board-button:disabled");
     const inheritedFontIndex = buttonRule?.indexOf("font: inherit") ?? -1;
-    const fixedFontSizeIndex = buttonRule?.indexOf("font-size: 0.875rem") ?? -1;
+    const fixedFontSizeIndex =
+      buttonRule?.indexOf("font-size: var(--ui-text-size-lg)") ?? -1;
 
     expect(source).toContain('import "./DesktopButton.css";');
-    expect(buttonRule).toContain("min-height: 2.5rem");
+    expect(buttonRule).toContain("--button-height: var(--ui-button-height-md)");
+    expect(buttonRule).toContain("height: var(--ui-button-height-md)");
+    expect(buttonRule).toContain("min-height: var(--ui-button-height-md)");
+    expect(buttonRule).toContain(
+      "padding: 0 var(--ui-button-padding-inline-md)",
+    );
     expect(buttonRule).toContain("border-radius: var(--border-radius-lg)");
     expect(buttonRule).toContain("font: inherit");
-    expect(buttonRule).toContain("font-size: 0.875rem");
+    expect(buttonRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(smallRule).toContain("--button-height: var(--ui-button-height-sm)");
+    expect(smallRule).toContain("height: var(--ui-button-height-sm)");
+    expect(smallRule).toContain("min-height: var(--ui-button-height-sm)");
+    expect(smallRule).toContain(
+      "padding: 0 var(--ui-button-padding-inline-sm)",
+    );
+    expect(smallRule).toContain("font-size: var(--ui-text-size-md)");
+    expect(appCss).not.toContain(".image-board-button--compact");
     expect(inheritedFontIndex).toBeGreaterThanOrEqual(0);
     expect(fixedFontSizeIndex).toBeGreaterThan(inheritedFontIndex);
     expect(primaryRule).toContain("--button-bg: var(--color-primary)");

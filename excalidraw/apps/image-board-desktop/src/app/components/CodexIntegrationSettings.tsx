@@ -49,7 +49,12 @@ export const CodexIntegrationSettings = ({
           <h3>Codex 集成</h3>
           <p>安装一次后，Codex 就能发现并操作本机 CoreStudio 项目。</p>
         </div>
-        <DesktopButton type="button" disabled={loading} onClick={() => void refresh()}>
+        <DesktopButton
+          type="button"
+          size="small"
+          disabled={loading}
+          onClick={() => void refresh()}
+        >
           重新检测
         </DesktopButton>
       </header>
@@ -78,13 +83,16 @@ export const CodexIntegrationSettings = ({
             </div>
             <DesktopButton
               type="button"
+              size="small"
               variant={status.state === "ready" ? "default" : "primary"}
               onClick={async () => {
                 await copyText(CODEX_INSTALL_PROMPT);
                 setCopied("install");
               }}
             >
-              {copied === "install" ? "已复制" : STATE_COPY[status.state].action}
+              {copied === "install"
+                ? "已复制"
+                : STATE_COPY[status.state].action}
             </DesktopButton>
           </section>
 
@@ -124,6 +132,7 @@ export const CodexIntegrationSettings = ({
         </div>
         <DesktopButton
           type="button"
+          size="small"
           onClick={async () => {
             await copyText("打开当前 CoreStudio 项目");
             setCopied("prompt");

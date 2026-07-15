@@ -45,10 +45,20 @@ describe("AcpAgentSettingsPanel", () => {
     );
   });
 
+  it("任务说明模板使用设置模块的长文本字段样式", () => {
+    renderPanel();
+
+    expect(screen.getByLabelText("任务说明模板")).toHaveClass(
+      "settings-form-card__long-text",
+    );
+  });
+
   it("保留显式保存和调试记录", () => {
     const { onSave } = renderPanel();
+    const saveButton = screen.getByRole("button", { name: "保存" });
 
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(saveButton).toHaveClass("image-board-button--small");
+    fireEvent.click(saveButton);
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(screen.getByText("调试记录内容")).toBeInTheDocument();
   });

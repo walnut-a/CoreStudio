@@ -26,7 +26,7 @@
 .app-settings-header h2 {
   margin: 0;
   color: var(--text-primary-color);
-  font-size: 1.5rem;
+  font-size: var(--ui-text-size-dialog-title);
   line-height: 1.2;
   text-wrap: balance;
 }
@@ -42,9 +42,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-xs);
-  padding: 20px 14px;
+  margin: 12px 0 12px 12px;
+  padding: 8px;
+  border-radius: var(--border-radius-lg);
   background: var(--color-surface-mid);
-  border-right: 1px solid var(--default-border-color);
 }
 
 .app-settings-nav__item {
@@ -83,6 +84,7 @@
   scrollbar-gutter: stable;
   padding: 24px 32px 32px;
   background: var(--island-bg-color);
+  font-size: var(--ui-text-size-lg);
 }
 
 .settings-page {
@@ -105,13 +107,14 @@
 .settings-page__header h3,
 .settings-list-header h4 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--ui-text-size-page-title);
   line-height: 1.3;
   text-wrap: balance;
 }
 
 .settings-list-header h4 {
-  font-size: 1rem;
+  font-size: var(--ui-text-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .settings-page__header p,
@@ -151,13 +154,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-sm);
-  font-size: var(--ui-text-size-lg);
+  font-size: var(--ui-text-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .settings-current-provider select,
-.settings-form-card input,
-.settings-form-card select {
+.settings-form-card :is(input, select, textarea) {
   width: 100%;
   min-height: 40px;
   padding: 0 12px;
@@ -166,6 +168,12 @@
   background: var(--input-bg-color);
   color: var(--text-primary-color);
   font: inherit;
+  font-weight: var(--font-weight-regular);
+}
+
+.settings-current-provider select,
+.settings-form-card input,
+.settings-form-card select {
   font-size: var(--ui-text-size-lg);
 }
 
@@ -226,6 +234,8 @@
   gap: 5px;
   min-height: 88px;
   padding: 16px;
+  font: inherit;
+  font-size: var(--ui-text-size-lg);
   text-align: left;
   color: var(--text-primary-color);
   border: 1px solid var(--default-border-color);
@@ -242,6 +252,7 @@
 
 .settings-provider-option small {
   color: var(--text-secondary-color);
+  font-size: var(--ui-text-size-sm);
 }
 
 .settings-model-editor {
@@ -290,6 +301,7 @@
   border-bottom: 1px solid var(--default-border-color);
   background: var(--island-bg-color);
   color: inherit;
+  font: inherit;
   text-align: left;
   cursor: pointer;
   transition: background-color 160ms ease-out;
@@ -323,7 +335,7 @@
 
 .settings-service-row small {
   overflow: hidden;
-  color: var(--color-gray-60);
+  color: var(--color-gray-70);
   font-size: var(--ui-text-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -338,8 +350,8 @@
 }
 
 .settings-status-badge--ready {
-  background: color-mix(in srgb, #35a56f 12%, var(--island-bg-color));
-  color: #206b49;
+  background: var(--color-success-background);
+  color: var(--color-success-text);
 }
 
 .settings-status-badge--missing {
@@ -356,6 +368,13 @@
   font: inherit;
   font-size: var(--ui-text-size-lg);
   cursor: pointer;
+}
+
+.settings-page__back:focus-visible,
+.settings-model-row button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 64%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--border-radius-md);
 }
 
 .settings-form-card {
@@ -377,10 +396,19 @@
   font-size: var(--ui-text-size-sm);
 }
 
-.settings-form-card textarea {
+.settings-form-card__long-text {
   min-height: 170px;
   padding: 10px 11px;
+  font-size: var(--ui-text-size-md);
+  line-height: var(--ui-line-height-relaxed);
   resize: vertical;
+}
+
+.settings-form-card input:disabled,
+.settings-form-card select:disabled,
+.settings-form-card textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .experimental-acp-options {
@@ -397,7 +425,7 @@
   min-width: 220px;
   flex-direction: column;
   gap: var(--ui-space-sm);
-  font-size: var(--ui-text-size-lg);
+  font-size: var(--ui-text-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -437,7 +465,8 @@
 .settings-install-card h4,
 .settings-start-card h4 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--ui-text-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .settings-callout p,
@@ -463,6 +492,10 @@
 .settings-install-card > .image-board-button {
   grid-column: 2;
   grid-row: 1;
+}
+
+.settings-install-card > div:first-child > p {
+  font-size: var(--ui-text-size-md);
 }
 
 .settings-agent-prompt {
@@ -514,7 +547,7 @@
 
 .settings-check-row small,
 .settings-check-row em {
-  color: var(--color-gray-60);
+  color: var(--color-gray-70);
   font-size: var(--ui-text-size-sm);
   font-style: normal;
 }
@@ -532,8 +565,8 @@
 }
 
 .settings-check-row__icon--ready {
-  background: color-mix(in srgb, #35a56f 12%, var(--island-bg-color));
-  color: #206b49;
+  background: var(--color-success-background);
+  color: var(--color-success-text);
 }
 
 .settings-start-card {
@@ -550,7 +583,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(20 20 28 / 36%);
+  background: var(--color-modal-scrim);
   z-index: 2;
 }
 
@@ -564,19 +597,26 @@
 
 .app-settings-confirm h3 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--ui-text-size-title);
 }
 
 .app-settings-confirm p {
   margin: 8px 0 20px;
   color: var(--color-gray-70);
-  font-size: 14px;
+  font-size: var(--ui-text-size-lg);
 }
 
 .app-settings-confirm__actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-settings-nav__item,
+  .settings-service-row {
+    transition: none;
+  }
 }
 
 @media (max-width: 720px) {
@@ -590,17 +630,23 @@
   }
 
   .app-settings-layout {
-    grid-template-columns: 152px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .app-settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    margin: 8px 12px 0;
+    padding: 8px;
+  }
+
+  .app-settings-nav__item {
+    flex: 0 0 auto;
+    min-height: 36px;
   }
 
   .app-settings-content {
     padding: 24px 20px 32px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-settings-nav__item,
-  .settings-service-row {
-    transition: none;
   }
 }

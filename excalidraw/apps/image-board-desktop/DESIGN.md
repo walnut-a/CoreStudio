@@ -20,17 +20,17 @@ colors:
   warning-bg: "#fceeca"
 typography:
   body:
-    fontFamily: "\"Assistant\", \"Noto Sans SC\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontFamily: '"Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.55
   title:
-    fontFamily: "\"Assistant\", \"Noto Sans SC\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontFamily: '"Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "1rem"
     fontWeight: 700
     lineHeight: 1.3
   label:
-    fontFamily: "\"Assistant\", \"Noto Sans SC\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontFamily: '"Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "0.75rem"
     fontWeight: 650
     lineHeight: 1.2
@@ -49,14 +49,18 @@ components:
     backgroundColor: "{colors.island}"
     textColor: "{colors.ink}"
     rounded: "{rounded.lg}"
-    padding: "0.625rem 0.875rem"
-    height: "2.5rem"
+    padding: "0 14px"
+    height: "40px"
   button-primary:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.island}"
     rounded: "{rounded.lg}"
-    padding: "0.625rem 0.875rem"
-    height: "2.5rem"
+    padding: "0 14px"
+    height: "40px"
+  button-small:
+    rounded: "{rounded.lg}"
+    padding: "0 12px"
+    height: "32px"
   footer-icon-button:
     backgroundColor: "{colors.surface-low}"
     textColor: "{colors.ink}"
@@ -160,9 +164,13 @@ CoreStudio 使用 Excalidraw 的 island shadow 作为唯一常规浮层深度。
 ### Buttons
 
 - **Shape:** 小半径桌面按钮，默认 `--border-radius-lg` (0.5rem)。只有 badge、switch knob、状态点允许 pill。
+- **Small:** 固定 32px 高、13px 字号、左右 12px padding，用于设置页卡片内、标题旁和行内的轻量操作。
+- **Medium:** 固定 40px 高、14px 字号、左右 14px padding，用于对话框、表单提交和需要更强权重的动作。
 - **Default:** 白色 island 背景、细边框、深色文字，hover 进入 `--color-surface-high`。
 - **Primary:** `--color-primary` 背景、白色文字，hover / active 使用已有 primary hover / darkest。
-- **Icon buttons:** 尺寸必须跟 Excalidraw footer/help 按钮一致；右下角固定按钮使用 2.5rem 盒子和 1.25rem 图标。
+- **Icon buttons:** 只使用 32px 或 40px 固定方形盒子；右下角固定按钮使用 40px 盒子和 20px 图标。
+
+**The Button Geometry Rule.** `Default` 和 `Primary` 只决定颜色，不决定尺寸。按钮宽度默认随文案自适应，同一操作区必须使用同一尺寸；只有明确的按钮组才统一宽度。禁止用 `compact` 这类含义不清的尺寸名，也禁止通过内容 padding 让按钮高度漂移。
 
 ### Chips
 

@@ -7,6 +7,7 @@ import type { ProjectAssetPayload } from "../shared/desktopBridgeTypes";
 
 import type { GenerationReferencePayload } from "../shared/providerTypes";
 import { buildExcalidrawBinaryFilesFromProjectAssets } from "./canvasImageAssetState";
+import { copy } from "./copy";
 import { getElementsSceneBounds } from "./workspaceBounds";
 
 const REFERENCE_EXPORT_PADDING = 24;
@@ -59,7 +60,8 @@ const readBlobAsArrayBuffer = (blob: Blob) => {
 
   return new Promise<ArrayBuffer>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(reader.error || new Error("读取参考图片失败。"));
+    reader.onerror = () =>
+      reject(reader.error || new Error("读取参考图片失败。"));
     reader.onload = () => resolve(reader.result as ArrayBuffer);
     reader.readAsArrayBuffer(blob);
   });
@@ -144,7 +146,7 @@ const truncateReferenceItemText = (text: string) =>
 
 const getTextReferenceItemLabel = (element: ExcalidrawElement) => {
   if (element.type !== "text") {
-    return "文本";
+    return copy.selectionReference.text;
   }
 
   const firstLine = element.text
@@ -152,7 +154,9 @@ const getTextReferenceItemLabel = (element: ExcalidrawElement) => {
     .map((line) => line.trim())
     .find(Boolean);
 
-  return firstLine ? `文本：${truncateReferenceItemText(firstLine)}` : "文本";
+  return firstLine
+    ? copy.selectionReference.textLabel(truncateReferenceItemText(firstLine))
+    : copy.selectionReference.text;
 };
 
 const getImageReferenceItemThumbnail = (
@@ -166,17 +170,21 @@ const getImageReferenceItemThumbnail = (
   return files[element.fileId]?.dataURL ?? null;
 };
 
-const shapeLabels: Partial<Record<ExcalidrawElement["type"], string>> = {
-  rectangle: "矩形",
-  diamond: "菱形",
-  ellipse: "椭圆",
-  arrow: "箭头",
-  line: "线条",
-  freedraw: "手绘",
-  frame: "画框",
-  magicframe: "画框",
-  embeddable: "嵌入",
-  iframe: "嵌入",
+const getShapeLabel = (type: ExcalidrawElement["type"]) => {
+  const shapes = copy.selectionReference.shapes;
+  const shapeLabels: Partial<Record<ExcalidrawElement["type"], string>> = {
+    rectangle: shapes.rectangle,
+    diamond: shapes.diamond,
+    ellipse: shapes.ellipse,
+    arrow: shapes.arrow,
+    line: shapes.line,
+    freedraw: shapes.freedraw,
+    frame: shapes.frame,
+    magicframe: shapes.frame,
+    embeddable: shapes.embeddable,
+    iframe: shapes.embeddable,
+  };
+  return shapeLabels[type] ?? copy.selectionReference.element;
 };
 
 const buildReferenceItems = (
@@ -190,7 +198,7 @@ const buildReferenceItems = (
         id: element.id,
         index: itemIndex + 1,
         kind: "image" as const,
-        label: "图片",
+        label: copy.selectionReference.image,
         ...(element.fileId ? { fileId: element.fileId } : {}),
         ...(thumbnailDataUrl ? { thumbnailDataUrl } : {}),
       };
@@ -209,11 +217,11 @@ const buildReferenceItems = (
       id: element.id,
       index: itemIndex + 1,
       kind: "shape" as const,
-      label: shapeLabels[element.type] ?? "元素",
+      label: getShapeLabel(element.type),
     };
   });
 
-const unique = <T,>(values: readonly T[]) => Array.from(new Set(values));
+const unique = <T>(values: readonly T[]) => Array.from(new Set(values));
 
 const buildReferenceSource = (
   selectedElements: readonly NonDeleted<ExcalidrawElement>[],
@@ -258,8 +266,7 @@ export const getSelectedReferenceElements = (
   }
 
   const selectableElements = scene.elements.filter(
-    (element): element is NonDeleted<ExcalidrawElement> =>
-      !element.isDeleted,
+    (element): element is NonDeleted<ExcalidrawElement> => !element.isDeleted,
   );
   const elementsById = new Map(
     selectableElements.map((element) => [element.id, element]),
@@ -299,9 +306,7 @@ export const getSelectionReferenceSignature = (scene: SceneSnapshot | null) => {
   return selectedElements.map((element) => element.id).join("|");
 };
 
-export const getSelectedReferenceImageFileIds = (
-  scene: SceneSnapshot | null,
-) =>
+export const getSelectedReferenceImageFileIds = (scene: SceneSnapshot | null) =>
   unique(
     getSelectedReferenceElements(scene).flatMap((element) =>
       element.type === "image" && element.fileId ? [element.fileId] : [],

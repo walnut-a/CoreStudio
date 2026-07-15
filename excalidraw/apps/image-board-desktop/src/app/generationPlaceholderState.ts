@@ -4,23 +4,19 @@ import {
   newImageElement,
   newTextElement,
 } from "@excalidraw/element";
-import type {
-  ExcalidrawElement,
-  FileId,
-} from "@excalidraw/element/types";
+import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
 import { isAutoAspectRatioRequest } from "../shared/providerCatalog";
 import type { GenerationRequest } from "../shared/providerTypes";
 import type { ImagePlacement } from "./project/imagePlacement";
 import { normalizeGeneratedImageDimensions } from "./project/imagePlacement";
+import { copy } from "./copy";
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
 
 const PENDING_PLACEHOLDER_STROKE = "#6d5efc";
 const PENDING_PLACEHOLDER_FILL = "#f4f2ff";
-const PENDING_PLACEHOLDER_LABEL = "生成中";
 const PENDING_PLACEHOLDER_ERROR_STROKE = "#d14343";
 const PENDING_PLACEHOLDER_ERROR_FILL = "#fff1f2";
-const PENDING_PLACEHOLDER_ERROR_LABEL = "生成失败";
 
 export interface PendingGenerationSlot {
   frameId: string;
@@ -63,8 +59,10 @@ export const buildPendingGenerationPlaceholders = ({
       y: placement.y + placement.height / 2,
       text:
         request.imageCount > 1
-          ? `${PENDING_PLACEHOLDER_LABEL}\n${index + 1}/${request.imageCount}`
-          : PENDING_PLACEHOLDER_LABEL,
+          ? `${copy.generateDialog.pendingCanvasLabel}\n${index + 1}/${
+              request.imageCount
+            }`
+          : copy.generateDialog.pendingCanvasLabel,
       groupIds: [slotGroupId],
       frameId: frame.id,
       fontSize: 24,
@@ -125,8 +123,8 @@ export const buildPendingGenerationFailureSceneUpdate = ({
 
       if (slotLabelIds.has(element.id) && element.type === "text") {
         return newElementWith(element, {
-          text: PENDING_PLACEHOLDER_ERROR_LABEL,
-          originalText: PENDING_PLACEHOLDER_ERROR_LABEL,
+          text: copy.generateDialog.failedCanvasLabel,
+          originalText: copy.generateDialog.failedCanvasLabel,
           strokeColor: PENDING_PLACEHOLDER_ERROR_STROKE,
         });
       }

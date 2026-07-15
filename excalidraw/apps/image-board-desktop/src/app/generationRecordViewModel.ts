@@ -9,7 +9,7 @@ import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
 import type { AcpRunLogDetail, AcpRunLogEntry } from "../shared/acpTypes";
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
-import { DESKTOP_LANG_CODE } from "./copy";
+import { copy, DESKTOP_LANG_CODE } from "./copy";
 
 export interface DirectGenerationRecordListItem {
   id: string;
@@ -23,7 +23,7 @@ export interface DirectGenerationRecordListItem {
 export const getGenerationRecordTitle = (record: ImageRecord) => {
   const prompt = record.prompt?.trim();
   if (!prompt) {
-    return "未命名生成";
+    return copy.agentUi.generationRecord.untitled;
   }
   return prompt.length > 36 ? `${prompt.slice(0, 36)}...` : prompt;
 };
@@ -81,8 +81,8 @@ export const buildDirectGenerationRecordItems = (
       const statusLabel = sceneImageFileIdSet.has(record.fileId)
         ? undefined
         : livePromptReferencedFileIds.has(record.fileId)
-        ? "引用链中间图"
-        : "未在画板";
+        ? copy.agentUi.generationRecord.referenceChainIntermediate
+        : copy.agentUi.generationRecord.notOnBoard;
       const thumbnailDataUrl = files?.[record.fileId as FileId]?.dataURL;
       return {
         id: record.fileId,

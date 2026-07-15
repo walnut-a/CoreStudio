@@ -71,6 +71,8 @@ export const enCopy: DesktopCopy = {
       `${index} ${label} pending confirmation thumbnail`,
     pendingImage: "Image",
     pendingAnnotatedImage: "Annotated image",
+    pendingCanvasLabel: "Generating",
+    failedCanvasLabel: "Generation failed",
     referenceTitle: "References",
     referenceToggle: "Use the current selection as a reference",
     referenceRemove: "Remove reference",
@@ -385,6 +387,11 @@ export const enCopy: DesktopCopy = {
     conversationTitle: "Agent Conversation",
     generationRecordsTitle: "Generation History",
     generationRecordsList: "Generation tasks",
+    generationRecord: {
+      untitled: "Untitled generation",
+      referenceChainIntermediate: "Reference-chain intermediate",
+      notOnBoard: "Not on board",
+    },
     historyLabel: "Agent conversation history",
     status: {
       completed: "Completed",
@@ -530,6 +537,22 @@ export const enCopy: DesktopCopy = {
   },
   sideDock: {
     close: (title: string) => `Close ${title}`,
+  },
+  selectionReference: {
+    text: "Text",
+    textLabel: (text: string) => `Text: ${text}`,
+    image: "Image",
+    element: "Element",
+    shapes: {
+      rectangle: "Rectangle",
+      diamond: "Diamond",
+      ellipse: "Ellipse",
+      arrow: "Arrow",
+      line: "Line",
+      freedraw: "Drawing",
+      frame: "Frame",
+      embeddable: "Embed",
+    },
   },
   helpers: {
     referenceSummary: (elementCount: number, textCount: number) =>

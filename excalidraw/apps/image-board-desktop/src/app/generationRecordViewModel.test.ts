@@ -48,6 +48,25 @@ describe("generation record localization", () => {
     formatter.mockRestore();
     setActiveDesktopLocale("zh-CN");
   });
+
+  it("localizes generated fallback titles and board status labels", () => {
+    setActiveDesktopLocale("en");
+    const records: ImageRecordMap = {
+      "file-missing-1": createImageRecord({
+        fileId: "file-missing-1",
+        assetPath: "assets/file-missing-1.png",
+        prompt: "",
+      }),
+    };
+
+    expect(buildDirectGenerationRecordItems(records, [])).toMatchObject([
+      {
+        title: "Untitled generation",
+        statusLabel: "Not on board",
+      },
+    ]);
+    setActiveDesktopLocale("zh-CN");
+  });
 });
 
 describe("buildDirectGenerationRecordItems", () => {

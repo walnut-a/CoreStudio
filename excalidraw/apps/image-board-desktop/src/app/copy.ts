@@ -82,6 +82,8 @@ const zhCnCopy = {
       `${index} ${label}待确认缩略图`,
     pendingImage: "图片",
     pendingAnnotatedImage: "标注图",
+    pendingCanvasLabel: "生成中",
+    failedCanvasLabel: "生成失败",
     referenceTitle: "参考信息",
     referenceToggle: "使用当前选区作为参考",
     referenceRemove: "移除引用",
@@ -382,6 +384,11 @@ const zhCnCopy = {
     conversationTitle: "Agent 对话",
     generationRecordsTitle: "生成记录",
     generationRecordsList: "生成任务列表",
+    generationRecord: {
+      untitled: "未命名生成",
+      referenceChainIntermediate: "引用链中间图",
+      notOnBoard: "未在画板",
+    },
     historyLabel: "Agent 历史对话",
     status: {
       completed: "已完成",
@@ -522,6 +529,22 @@ const zhCnCopy = {
   },
   sideDock: {
     close: (title: string) => `关闭${title}`,
+  },
+  selectionReference: {
+    text: "文本",
+    textLabel: (text: string) => `文本：${text}`,
+    image: "图片",
+    element: "元素",
+    shapes: {
+      rectangle: "矩形",
+      diamond: "菱形",
+      ellipse: "椭圆",
+      arrow: "箭头",
+      line: "线条",
+      freedraw: "手绘",
+      frame: "画框",
+      embeddable: "嵌入",
+    },
   },
   helpers: {
     referenceSummary: (elementCount: number, textCount: number) =>

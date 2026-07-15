@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { newFrameElement } from "@excalidraw/element";
 
 import type { GenerationRequest } from "../shared/providerTypes";
+import { setActiveDesktopLocale } from "./copy";
 import {
   buildPendingGenerationFailureSceneUpdate,
   buildPendingGenerationPlaceholderSceneUpdate,
@@ -27,6 +28,29 @@ const createRequest = (
 });
 
 describe("buildPendingGenerationPlaceholders", () => {
+  it("localizes placeholder canvas labels", () => {
+    setActiveDesktopLocale("en");
+    const plan = buildPendingGenerationPlaceholders({
+      request: createRequest(),
+      placements: [{ x: 0, y: 0, width: 64, height: 64 }],
+      createGroupId: () => "slot-1",
+    });
+
+    expect(plan.placeholderElements[1]).toMatchObject({
+      type: "text",
+      text: "Generating",
+    });
+    const failed = buildPendingGenerationFailureSceneUpdate({
+      elements: plan.placeholderElements,
+      slots: plan.slots,
+    });
+    expect(failed.elements[1]).toMatchObject({
+      type: "text",
+      text: "Generation failed",
+    });
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("builds dashed frame and centered labels for multiple pending images", () => {
     const plan = buildPendingGenerationPlaceholders({
       request: createRequest({ imageCount: 2 }),

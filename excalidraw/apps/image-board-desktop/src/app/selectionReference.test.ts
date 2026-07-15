@@ -11,6 +11,7 @@ vi.mock("@excalidraw/utils", () => ({
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ProjectAssetPayload } from "../shared/desktopBridgeTypes";
 import type { ImageRecordMap } from "../shared/projectTypes";
+import { setActiveDesktopLocale } from "./copy";
 
 import {
   buildSelectionReferenceOriginalImageLoadPlan,
@@ -353,6 +354,50 @@ describe("selectionReference", () => {
       elementIds: ["image-right", "text-left", "shape-bottom"],
       fileIds: ["file-right"],
     });
+  });
+
+  it("localizes generated reference labels without translating selected text", () => {
+    setActiveDesktopLocale("en");
+    const reference = buildSelectionReferenceSummary({
+      elements: [
+        {
+          id: "image-1",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+          fileId: "file-1",
+        },
+        {
+          id: "text-1",
+          type: "text",
+          isDeleted: false,
+          groupIds: [],
+          text: "保留中文标注",
+        },
+        {
+          id: "shape-1",
+          type: "rectangle",
+          isDeleted: false,
+          groupIds: [],
+        },
+      ] as any,
+      appState: {
+        ...baseAppState,
+        selectedElementIds: {
+          "image-1": true,
+          "text-1": true,
+          "shape-1": true,
+        },
+      },
+      files: {},
+    });
+
+    expect(reference?.items?.map((item) => item.label)).toEqual([
+      "Image",
+      "Text: 保留中文标注",
+      "Rectangle",
+    ]);
+    setActiveDesktopLocale("zh-CN");
   });
 
   it("strips thumbnail data from reference items before persisting request state", () => {

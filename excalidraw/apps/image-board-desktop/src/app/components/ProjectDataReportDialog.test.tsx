@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setActiveDesktopLocale } from "../copy";
 import { ProjectDataReportDialog } from "./ProjectDataReportDialog";
 
 import type { ProjectHealthReport } from "../../shared/desktopBridgeTypes";
@@ -85,6 +86,10 @@ const createRepairReport = (
 });
 
 describe("ProjectDataReportDialog", () => {
+  afterEach(() => {
+    setActiveDesktopLocale("zh-CN");
+  });
+
   it("summarizes image record explanations before listing individual issues", () => {
     render(
       <ProjectDataReportDialog
@@ -102,12 +107,12 @@ describe("ProjectDataReportDialog", () => {
       within(statusSummary).getByText("可通过修复处理"),
     ).toBeInTheDocument();
     expect(within(statusSummary).getByText("2")).toBeInTheDocument();
-    expect(
-      within(statusSummary).getByText("需要手动确认"),
-    ).toBeInTheDocument();
+    expect(within(statusSummary).getByText("需要手动确认")).toBeInTheDocument();
     expect(within(statusSummary).getAllByText("1")).toHaveLength(2);
     expect(
-      screen.getByText("图片状态按项目资产、画板元素和生成记录之间的关系计算。"),
+      screen.getByText(
+        "图片状态按项目资产、画板元素和生成记录之间的关系计算。",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -182,7 +187,9 @@ describe("ProjectDataReportDialog", () => {
     );
 
     const boardGroup = screen.getByLabelText("画板缺少图片元素");
-    expect(within(boardGroup).getByText("2 项 · 2 项可修复")).toBeInTheDocument();
+    expect(
+      within(boardGroup).getByText("2 项 · 2 项可修复"),
+    ).toBeInTheDocument();
     expect(
       within(boardGroup).getByText("生成图未显示在画板：generated-off-board"),
     ).toBeInTheDocument();
@@ -207,14 +214,70 @@ describe("ProjectDataReportDialog", () => {
 
     const skippedGroup = screen.getByLabelText("跳过说明");
 
-    expect(within(skippedGroup).getByText("File ID: small-image")).toBeInTheDocument();
+    expect(
+      within(skippedGroup).getByText("File ID: small-image"),
+    ).toBeInTheDocument();
     expect(
       within(skippedGroup).getByText("路径: assets/small-image.png"),
     ).toBeInTheDocument();
-    expect(within(skippedGroup).getByText("原因: 无需处理")).toBeInTheDocument();
+    expect(
+      within(skippedGroup).getByText("原因: 无需处理"),
+    ).toBeInTheDocument();
     expect(
       within(skippedGroup).getByText(
         "下一步: 不用处理这张图片；它不需要额外显示缓存。",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("localizes report chrome without rewriting diagnostic content", () => {
+    setActiveDesktopLocale("en");
+
+    render(
+      <ProjectDataReportDialog
+        open
+        healthReport={createHealthReport({
+          issues: [
+            {
+              code: "missing-asset-file",
+              severity: "error",
+              fileId: "missing-asset",
+              path: "assets/missing.png",
+              message: "图片原始文件缺失：assets/missing.png",
+              repairable: false,
+              resolution: {
+                status: "manual",
+                summary: "需要从备份恢复原始图片，或清理对应图片记录。",
+              },
+            },
+          ],
+        })}
+        repairReport={null}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Data check details" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+
+    const missingFileGroup = screen.getByLabelText("Missing image files");
+    expect(within(missingFileGroup).getByText("Error")).toBeInTheDocument();
+    expect(
+      within(missingFileGroup).getByText("Type: Missing original image file"),
+    ).toBeInTheDocument();
+    expect(
+      within(missingFileGroup).getByText("Path: assets/missing.png"),
+    ).toBeInTheDocument();
+    expect(
+      within(missingFileGroup).getByText(
+        "图片原始文件缺失：assets/missing.png",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(missingFileGroup).getByText(
+        "Manual action: 需要从备份恢复原始图片，或清理对应图片记录。",
       ),
     ).toBeInTheDocument();
   });

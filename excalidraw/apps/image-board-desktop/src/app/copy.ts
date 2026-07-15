@@ -496,6 +496,194 @@ const zhCnCopy = {
       notConfigured: "未配置",
     },
   },
+  projectDataReport: {
+    eyebrow: "项目数据",
+    title: {
+      checkAndRepair: "数据检查与修复详情",
+      repair: "数据修复详情",
+      check: "数据检查详情",
+    },
+    close: "关闭",
+    severity: {
+      error: "错误",
+      warning: "警告",
+      info: "提示",
+    },
+    resolution: {
+      repairable: "可修复",
+      manual: "需手动",
+      info: "说明",
+    },
+    summary: {
+      repairable: "可修复项",
+      projectCounts: (
+        imageRecordCount: number,
+        generatedImageRecordCount: number,
+        sceneImageFileCount: number,
+      ) =>
+        `当前项目共有 ${imageRecordCount} 条图片记录，其中 ${generatedImageRecordCount} 条生成记录，画板中引用了 ${sceneImageFileCount} 张图片。`,
+    },
+    recordState: {
+      title: "图片状态",
+      description: "图片状态按项目资产、画板元素和生成记录之间的关系计算。",
+      onBoard: "已在画板",
+      repairable: "可通过修复处理",
+      manual: "需要手动确认",
+    },
+    repairResult: {
+      title: "上次修复结果",
+      description: "修复过程只在详情中展示具体原因，完成提示保持简洁。",
+      rebuiltCache: "重建缓存",
+      skipped: "跳过",
+      failed: "失败",
+      restoredToBoard: "补回画板",
+      repairedSources: (count: number) => `补全来源：${count} 条`,
+      importedAcpOutputs: (count: number) => `补入 ACP 输出：${count} 张`,
+      notRestoredToBoard: (count: number) => `未补回画板：${count} 张`,
+      backup: (path: string) => `备份：${path}`,
+      failedDetails: "修复失败",
+      skippedDetails: "跳过说明",
+      detailDescription: "这里列出项目数据修复过程中需要关注的图片。",
+    },
+    count: {
+      items: (count: number) => `${count} 项`,
+      repairable: (count: number) => `${count} 项可修复`,
+      manual: (count: number) => `${count} 项需手动`,
+      info: (count: number) => `${count} 条说明`,
+    },
+    fields: {
+      type: (value: string) => `类型: ${value}`,
+      path: (value: string) => `路径: ${value}`,
+      reason: (value: string) => `原因: ${value}`,
+      nextStep: (value: string) => `下一步: ${value}`,
+      resolution: (label: string, summary: string) => `${label}：${summary}`,
+    },
+    fallbackResolution: {
+      repairable: "可修复：项目数据修复会尝试处理。",
+      manual: "需手动：请根据上方建议确认。",
+    },
+    healthy: "没有发现需要处理的问题。",
+    issueMeta: {
+      "scene-parse-failed": {
+        title: "画板文件无法解析",
+        description: "scene.excalidraw.json 不是有效的画板数据。",
+        suggestion: "需要从备份或历史版本恢复画板文件。",
+      },
+      "missing-image-record": {
+        title: "画板图片缺少索引记录",
+        description:
+          "画布上有图片元素，但 image-records.json 里找不到对应记录。",
+        suggestion: "需要补索引或重新导入这张图片。",
+      },
+      "missing-asset-file": {
+        title: "图片原始文件缺失",
+        description: "索引记录还在，但 assets 里的原始图片文件已经找不到。",
+        suggestion: "需要从备份恢复原始图片，或删除对应记录。",
+      },
+      "missing-thumbnail-cache": {
+        title: "图片缓存待重建",
+        description: "原始图片存在，但用于快速打开项目的显示缓存不完整。",
+        suggestion: "运行项目数据修复会重建这部分缓存。",
+      },
+      "missing-preview-cache": {
+        title: "预览缓存尚未生成",
+        description: "高清预览缓存还没有生成，不影响项目数据完整性。",
+        suggestion: "通常无需手动处理。",
+      },
+      "orphan-image-record": {
+        title: "项目图片未显示在画板",
+        description: "图片记录和资产文件存在，但当前画板没有对应图片元素。",
+        suggestion: "运行项目数据修复会把可读取的图片放回画板。",
+      },
+      "orphan-generated-record": {
+        title: "生成图未显示在画板",
+        description:
+          "生成图的资产和记录存在，但当前画板没有对应图片元素，所以从生成记录列表点击时可能无法定位。",
+        suggestion: "运行项目数据修复会把可读取的生成图放回画板。",
+      },
+      "unwritten-acp-output": {
+        title: "ACP 生成结果未写入项目",
+        description:
+          "ACP Agent 已经在本地生成图片，但写回 CoreStudio 项目时中断或失败。",
+        suggestion: "运行项目数据修复会把这张本地生成图补进项目资产和画板。",
+      },
+      "incomplete-generation-record": {
+        title: "生成记录元数据不完整",
+        description:
+          "生成图缺少来源字段。提示词允许为空，但来源不能为空，否则后续无法判断它来自 CoreStudio、内置画板还是 ACP Agent。",
+        suggestion:
+          "旧项目修复会把这类记录补为 CoreStudio 来源；新写入会在保存前直接校验并拒绝不完整数据。",
+      },
+      "broken-parent-link": {
+        title: "图片编辑链前序缺失",
+        description: "一张图片记录指向了不存在的父图片。",
+        suggestion: "需要恢复父图片记录，或清理这条链路关系。",
+      },
+      "broken-prompt-reference": {
+        title: "提示词引用缺少索引记录",
+        description:
+          "生成记录里引用的参考图片，在 image-records.json 中不存在。",
+        suggestion: "需要恢复参考图片索引，或清理这条引用。",
+      },
+    },
+    groups: {
+      "project-file": {
+        title: "项目画板文件异常",
+        description:
+          "项目画板文件本身无法被正常解析，画布内容可能无法完整读取。",
+        suggestion: "需要从备份或历史版本恢复画板文件，再重新检查项目数据。",
+      },
+      "missing-file": {
+        title: "图片文件缺失",
+        description: "项目记录仍然存在，但本地图片文件已经找不到。",
+        suggestion: "需要从备份恢复原始图片，或确认后清理对应记录。",
+      },
+      "missing-board-element": {
+        title: "画板缺少图片元素",
+        description:
+          "图片资产和记录存在，但当前画板没有对应图片元素，所以列表点击时可能无法定位。",
+        suggestion: "运行项目数据修复会把可读取的图片补回画板。",
+      },
+      "record-metadata": {
+        title: "记录元数据不完整",
+        description:
+          "图片记录、生成记录或引用关系缺少必要信息，后续可能无法判断来源或上下文。",
+        suggestion:
+          "能自动补齐的旧记录会通过项目数据修复处理；无法确认的关系需要手动检查。",
+      },
+      "acp-output": {
+        title: "ACP 结果未写入项目",
+        description:
+          "ACP Agent 已经在本地生成图片，但写回 CoreStudio 项目时中断或失败。",
+        suggestion: "运行项目数据修复会把可读取的 ACP 输出补进项目资产和画板。",
+      },
+      "display-cache": {
+        title: "显示缓存需要处理",
+        description: "原始图片仍在，但缩略图或预览缓存不完整。",
+        suggestion: "运行项目数据修复会重建可恢复的显示缓存。",
+      },
+    },
+    repairReasons: {
+      "record-missing": "缺少图片记录",
+      "thumbnail-not-needed": "无需处理",
+      "thumbnail-cache-exists": "缓存已存在",
+      "thumbnail-rebuild-failed": "缓存重建失败",
+      "board-restore-failed": "画板补回失败",
+      "acp-output-import-failed": "ACP 输出导入失败",
+    },
+    repairNextActions: {
+      "record-missing":
+        "这张图片缺少项目索引记录；请确认原始文件是否仍需要保留，必要时重新导入。",
+      "thumbnail-not-needed": "不用处理这张图片；它不需要额外显示缓存。",
+      "thumbnail-cache-exists": "不用处理这张图片；显示缓存已经存在。",
+      "thumbnail-rebuild-failed":
+        "请确认原始图片文件可读取，再重新运行项目数据修复。",
+      "board-restore-failed":
+        "请确认原始图片文件仍在项目 assets 中；恢复文件后再重新运行项目数据修复。",
+      "acp-output-import-failed":
+        "请确认 ACP 输出文件仍存在且可读取，再重新运行项目数据修复。",
+    },
+  },
   projectRepair: {
     noProject: "请先打开一个项目。",
     noImages: "当前项目没有需要处理的图片资源。",

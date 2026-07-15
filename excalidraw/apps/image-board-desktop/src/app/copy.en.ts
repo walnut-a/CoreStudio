@@ -503,6 +503,218 @@ export const enCopy: DesktopCopy = {
       notConfigured: "Not configured",
     },
   },
+  projectDataReport: {
+    eyebrow: "Project data",
+    title: {
+      checkAndRepair: "Data check and repair details",
+      repair: "Data repair details",
+      check: "Data check details",
+    },
+    close: "Close",
+    severity: {
+      error: "Error",
+      warning: "Warning",
+      info: "Info",
+    },
+    resolution: {
+      repairable: "Repairable",
+      manual: "Manual action",
+      info: "Information",
+    },
+    summary: {
+      repairable: "Repairable items",
+      projectCounts: (
+        imageRecordCount: number,
+        generatedImageRecordCount: number,
+        sceneImageFileCount: number,
+      ) =>
+        `This project has ${imageRecordCount} image records, including ${generatedImageRecordCount} generation records, with ${sceneImageFileCount} images referenced on the board.`,
+    },
+    recordState: {
+      title: "Image status",
+      description:
+        "Image status is based on the relationship between project assets, board elements, and generation records.",
+      onBoard: "On board",
+      repairable: "Repairable",
+      manual: "Needs manual review",
+    },
+    repairResult: {
+      title: "Last repair result",
+      description:
+        "Specific reasons appear only in the details so the completion message stays concise.",
+      rebuiltCache: "Rebuilt cache",
+      skipped: "Skipped",
+      failed: "Failed",
+      restoredToBoard: "Restored to board",
+      repairedSources: (count: number) => `Restored sources: ${count}`,
+      importedAcpOutputs: (count: number) => `Imported ACP outputs: ${count}`,
+      notRestoredToBoard: (count: number) => `Not restored to board: ${count}`,
+      backup: (path: string) => `Backup: ${path}`,
+      failedDetails: "Repair failures",
+      skippedDetails: "Skipped items",
+      detailDescription:
+        "Images that need attention during project data repair are listed here.",
+    },
+    count: {
+      items: (count: number) => `${count} ${count === 1 ? "item" : "items"}`,
+      repairable: (count: number) => `${count} repairable`,
+      manual: (count: number) => `${count} manual`,
+      info: (count: number) => `${count} informational`,
+    },
+    fields: {
+      type: (value: string) => `Type: ${value}`,
+      path: (value: string) => `Path: ${value}`,
+      reason: (value: string) => `Reason: ${value}`,
+      nextStep: (value: string) => `Next step: ${value}`,
+      resolution: (label: string, summary: string) => `${label}: ${summary}`,
+    },
+    fallbackResolution: {
+      repairable: "Repairable: Project data repair will attempt to fix this.",
+      manual: "Manual action: Review the suggestion above.",
+    },
+    healthy: "No issues need attention.",
+    issueMeta: {
+      "scene-parse-failed": {
+        title: "Board file cannot be parsed",
+        description: "scene.excalidraw.json does not contain valid board data.",
+        suggestion:
+          "Restore the board file from a backup or an earlier version.",
+      },
+      "missing-image-record": {
+        title: "Board image is missing an index record",
+        description:
+          "The board contains an image element with no matching entry in image-records.json.",
+        suggestion: "Recreate the index entry or import the image again.",
+      },
+      "missing-asset-file": {
+        title: "Missing original image file",
+        description:
+          "The index entry still exists, but the original image file is missing from assets.",
+        suggestion:
+          "Restore the original image from a backup or remove its record.",
+      },
+      "missing-thumbnail-cache": {
+        title: "Image cache needs rebuilding",
+        description:
+          "The original image exists, but the display cache used to open the project quickly is incomplete.",
+        suggestion: "Run project data repair to rebuild this cache.",
+      },
+      "missing-preview-cache": {
+        title: "Preview cache has not been generated",
+        description:
+          "The high-resolution preview cache has not been generated. Project data is still intact.",
+        suggestion: "No manual action is usually needed.",
+      },
+      "orphan-image-record": {
+        title: "Project image is not on the board",
+        description:
+          "The image record and asset file exist, but the current board has no matching image element.",
+        suggestion:
+          "Run project data repair to restore readable images to the board.",
+      },
+      "orphan-generated-record": {
+        title: "Generated image is not on the board",
+        description:
+          "The generated asset and record exist, but the current board has no matching image element, so the generation list may not be able to locate it.",
+        suggestion:
+          "Run project data repair to restore readable generated images to the board.",
+      },
+      "unwritten-acp-output": {
+        title: "ACP result was not written to the project",
+        description:
+          "The ACP Agent generated an image locally, but writing it back to the CoreStudio project was interrupted or failed.",
+        suggestion:
+          "Run project data repair to add the local image to project assets and the board.",
+      },
+      "incomplete-generation-record": {
+        title: "Incomplete generation record metadata",
+        description:
+          "The generated image is missing its origin. Prompts may be empty, but the origin is required to distinguish CoreStudio, the built-in Board Agent, and the ACP Agent.",
+        suggestion:
+          "Repair assigns legacy records a CoreStudio origin. New writes are validated and rejected when required data is missing.",
+      },
+      "broken-parent-link": {
+        title: "Previous image in edit chain is missing",
+        description:
+          "An image record points to a parent image that does not exist.",
+        suggestion:
+          "Restore the parent image record or remove the broken link.",
+      },
+      "broken-prompt-reference": {
+        title: "Prompt reference is missing an index record",
+        description:
+          "A reference image used by a generation record does not exist in image-records.json.",
+        suggestion:
+          "Restore the reference image index or remove the reference.",
+      },
+    },
+    groups: {
+      "project-file": {
+        title: "Project board file issue",
+        description:
+          "The project board file cannot be parsed correctly, so some board content may be unreadable.",
+        suggestion:
+          "Restore the board file from a backup or earlier version, then check the project data again.",
+      },
+      "missing-file": {
+        title: "Missing image files",
+        description:
+          "Project records still exist, but the local image files cannot be found.",
+        suggestion:
+          "Restore the original images from a backup or remove the records after confirming they are no longer needed.",
+      },
+      "missing-board-element": {
+        title: "Missing board image elements",
+        description:
+          "Image assets and records exist, but the current board has no matching image elements, so list items may not be locatable.",
+        suggestion:
+          "Run project data repair to restore readable images to the board.",
+      },
+      "record-metadata": {
+        title: "Incomplete record metadata",
+        description:
+          "Image records, generation records, or references are missing required information, which can obscure their origin or context.",
+        suggestion:
+          "Project data repair handles legacy records that can be completed automatically. Unclear relationships need manual review.",
+      },
+      "acp-output": {
+        title: "ACP results not written to the project",
+        description:
+          "The ACP Agent generated images locally, but writing them back to the CoreStudio project was interrupted or failed.",
+        suggestion:
+          "Run project data repair to add readable ACP outputs to project assets and the board.",
+      },
+      "display-cache": {
+        title: "Display cache needs attention",
+        description:
+          "The original images still exist, but thumbnail or preview caches are incomplete.",
+        suggestion:
+          "Run project data repair to rebuild recoverable display caches.",
+      },
+    },
+    repairReasons: {
+      "record-missing": "Missing image record",
+      "thumbnail-not-needed": "No action needed",
+      "thumbnail-cache-exists": "Cache already exists",
+      "thumbnail-rebuild-failed": "Cache rebuild failed",
+      "board-restore-failed": "Board restore failed",
+      "acp-output-import-failed": "ACP output import failed",
+    },
+    repairNextActions: {
+      "record-missing":
+        "This image has no project index record. Confirm whether the original file should be kept and import it again if needed.",
+      "thumbnail-not-needed":
+        "No action is needed because this image does not require an additional display cache.",
+      "thumbnail-cache-exists":
+        "No action is needed because the display cache already exists.",
+      "thumbnail-rebuild-failed":
+        "Confirm that the original image file can be read, then run project data repair again.",
+      "board-restore-failed":
+        "Confirm that the original image is still in the project's assets folder, restore it if needed, then run project data repair again.",
+      "acp-output-import-failed":
+        "Confirm that the ACP output file still exists and can be read, then run project data repair again.",
+    },
+  },
   projectRepair: {
     noProject: "Open a project first.",
     noImages: "This project has no image assets to process.",

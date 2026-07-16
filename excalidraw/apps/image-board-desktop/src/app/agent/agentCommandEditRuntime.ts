@@ -135,9 +135,12 @@ export const handleAgentEditCommand = async (
         },
         captureUpdate: CaptureUpdateAction.NEVER,
       });
-      api.scrollToContent(targetElement, {
-        animate: true,
-        duration: 300,
+      api.setViewport({
+        target: targetElement,
+        fit: "none",
+        animation: {
+          duration: 300,
+        },
       });
       return {
         handled: true,

@@ -5880,15 +5880,16 @@ describe("App startup", () => {
         captureUpdate: "NEVER",
       }),
     );
-    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockExcalidrawAPI?.setViewport).toHaveBeenCalledWith({
+      target: expect.objectContaining({
         id: "image-2",
         fileId: "file-2",
       }),
-      expect.objectContaining({
-        animate: true,
-      }),
-    );
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
+    });
   });
 
   it("locates a prompt reference image from the inspector prompt", async () => {
@@ -6003,12 +6004,15 @@ describe("App startup", () => {
         captureUpdate: "NEVER",
       }),
     );
-    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
-      [expect.objectContaining({ id: "image-source", fileId: "file-1" })],
-      expect.objectContaining({
-        animate: true,
-      }),
-    );
+    expect(mockExcalidrawAPI?.setViewport).toHaveBeenCalledWith({
+      target: [
+        expect.objectContaining({ id: "image-source", fileId: "file-1" }),
+      ],
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
+    });
   });
 
   it("reopens the image info side dock after it is manually closed", async () => {
@@ -7306,13 +7310,11 @@ describe("App startup", () => {
       ) ?? [];
 
     expect(pendingFrames).toHaveLength(1);
-    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
-      pendingFrames,
-      expect.objectContaining({
-        animate: true,
-        fitToContent: true,
-      }),
-    );
+    expect(mockExcalidrawAPI?.setViewport).toHaveBeenCalledWith({
+      target: pendingFrames,
+      fit: "scale-down",
+      animation: true,
+    });
   });
 
   it("starts an ACP Agent task instead of built-in generation when ACP Agent mode is selected", async () => {
@@ -7931,16 +7933,16 @@ describe("App startup", () => {
       fireEvent.click(imageResult);
     });
 
-    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockExcalidrawAPI?.setViewport).toHaveBeenCalledWith({
+      target: expect.objectContaining({
         id: "acp-result-element",
         fileId: "acp-result-image",
       }),
-      {
-        animate: true,
+      fit: "none",
+      animation: {
         duration: 300,
       },
-    );
+    });
 
     await act(async () => {
       fireEvent.click(missingImageResult);

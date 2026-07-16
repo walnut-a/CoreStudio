@@ -142,13 +142,13 @@ describe("runPendingGenerationPlaceholderInsertCanvasAction", () => {
     const request = createRequest();
     const setGenerationTasks = vi.fn();
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
 
     const result = runPendingGenerationPlaceholderInsertCanvasAction({
       api: {
         getSceneElementsIncludingDeleted: () => [],
         updateScene,
-        scrollToContent,
+        setViewport,
       },
       project: { projectPath: "/tmp/corestudio-project" },
       request,
@@ -197,13 +197,11 @@ describe("runPendingGenerationPlaceholderInsertCanvasAction", () => {
       ]),
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     });
-    expect(scrollToContent).toHaveBeenCalledWith(
-      [expect.objectContaining({ id: result.job.slots[0].frameId })],
-      {
-        animate: true,
-        fitToContent: true,
-      },
-    );
+    expect(setViewport).toHaveBeenCalledWith({
+      target: [expect.objectContaining({ id: result.job.slots[0].frameId })],
+      fit: "scale-down",
+      animation: true,
+    });
   });
 
   it("skips placeholder insertion when the active project is unavailable", () => {
@@ -214,7 +212,7 @@ describe("runPendingGenerationPlaceholderInsertCanvasAction", () => {
       api: {
         getSceneElementsIncludingDeleted: () => [],
         updateScene,
-        scrollToContent: vi.fn(),
+        setViewport: vi.fn(),
       },
       project: null,
       request: createRequest(),
@@ -244,7 +242,7 @@ describe("createPendingGenerationCanvasRendererActions", () => {
     const generationTasks = new Map<string, GenerationTaskRecord>();
     const setGenerationTasks = vi.fn();
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
     const assertActiveProject = vi.fn();
     const setPreviousBatchBounds = vi.fn();
     const updateWorkspaceOverlay = vi.fn(() => null);
@@ -253,7 +251,7 @@ describe("createPendingGenerationCanvasRendererActions", () => {
       getSceneElementsIncludingDeleted: () => [],
       addFiles: vi.fn(),
       updateScene,
-      scrollToContent,
+      setViewport,
     };
 
     const actions = createPendingGenerationCanvasRendererActions({
@@ -295,7 +293,7 @@ describe("createPendingGenerationCanvasRendererActions", () => {
     );
     expect(setGenerationTasks).toHaveBeenCalledWith(expect.any(Map));
     expect(updateScene).toHaveBeenCalled();
-    expect(scrollToContent).toHaveBeenCalled();
+    expect(setViewport).toHaveBeenCalled();
   });
 
   it("creates a failure action that reads current canvas and task state from the renderer", () => {
@@ -311,7 +309,7 @@ describe("createPendingGenerationCanvasRendererActions", () => {
         updateScene,
         getAppState: () => ({ selectedElementIds: {} }) as AppState,
         addFiles: vi.fn(),
-        scrollToContent: vi.fn(),
+        setViewport: vi.fn(),
       }),
       getActiveProject: () => ({ projectPath: "/tmp/corestudio-project" }),
       assertActiveProject: vi.fn(),
@@ -363,7 +361,7 @@ describe("createPendingGenerationCanvasRendererActions", () => {
         }) as AppState,
         addFiles,
         updateScene,
-        scrollToContent: vi.fn(),
+        setViewport: vi.fn(),
       }),
       getActiveProject: () => ({ projectPath: "/tmp/corestudio-project" }),
       assertActiveProject: vi.fn(),

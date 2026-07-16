@@ -65,13 +65,11 @@ export interface PendingGenerationSlotReplacementCanvasApi
 
 export interface PendingGenerationPlaceholderInsertCanvasApi
   extends PendingGenerationFailureCanvasApi {
-  scrollToContent: (
-    elements: readonly ExcalidrawElement[],
-    opts: {
-      animate: boolean;
-      fitToContent: boolean;
-    },
-  ) => void;
+  setViewport: (opts: {
+    target: readonly ExcalidrawElement[];
+    fit: "scale-down";
+    animation: boolean;
+  }) => void;
 }
 
 export type PendingGenerationCanvasRendererApi =
@@ -328,9 +326,10 @@ export const runPendingGenerationPlaceholderInsertCanvasAction = <
   });
 
   if (placeholderSceneUpdate.focusElements.length > 0) {
-    api.scrollToContent(placeholderSceneUpdate.focusElements, {
-      animate: true,
-      fitToContent: true,
+    api.setViewport({
+      target: placeholderSceneUpdate.focusElements,
+      fit: "scale-down",
+      animation: true,
     });
   }
 

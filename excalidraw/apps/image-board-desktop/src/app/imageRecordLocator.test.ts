@@ -18,7 +18,7 @@ import { setActiveDesktopLocale } from "./copy";
 
 type LocateTestApi = Pick<
   ExcalidrawImperativeAPI,
-  "getSceneElementsIncludingDeleted" | "updateScene" | "scrollToContent"
+  "getSceneElementsIncludingDeleted" | "updateScene" | "setViewport"
 >;
 
 const createImageElement = (
@@ -233,7 +233,7 @@ describe("runImageRecordLocateFeedbackAction", () => {
     const getElements = vi.fn(() => [element]);
     const getImageRecords = vi.fn(() => null);
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
     const setProjectError = vi.fn();
     const showProjectNotice = vi.fn();
     const clearProjectNotice = vi.fn();
@@ -243,7 +243,7 @@ describe("runImageRecordLocateFeedbackAction", () => {
       getElements,
       getImageRecords,
       updateScene,
-      scrollToContent,
+      setViewport,
       setProjectError,
       showProjectNotice,
       clearProjectNotice,
@@ -261,9 +261,12 @@ describe("runImageRecordLocateFeedbackAction", () => {
         },
       }),
     );
-    expect(scrollToContent).toHaveBeenCalledWith(element, {
-      animate: true,
-      duration: 300,
+    expect(setViewport).toHaveBeenCalledWith({
+      target: element,
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
     });
     expect(setProjectError).toHaveBeenCalledWith(null);
     expect(showProjectNotice).not.toHaveBeenCalled();
@@ -292,7 +295,7 @@ describe("runImageRecordLocateFeedbackAction", () => {
       },
     }));
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
     const setProjectError = vi.fn();
     const showProjectNotice = vi.fn();
     const clearProjectNotice = vi.fn();
@@ -302,7 +305,7 @@ describe("runImageRecordLocateFeedbackAction", () => {
       getElements,
       getImageRecords,
       updateScene,
-      scrollToContent,
+      setViewport,
       setProjectError,
       showProjectNotice,
       clearProjectNotice,
@@ -320,9 +323,12 @@ describe("runImageRecordLocateFeedbackAction", () => {
         },
       }),
     );
-    expect(scrollToContent).toHaveBeenCalledWith(element, {
-      animate: true,
-      duration: 300,
+    expect(setViewport).toHaveBeenCalledWith({
+      target: element,
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
     });
     expect(setProjectError).toHaveBeenCalledWith(null);
     expect(showProjectNotice).toHaveBeenCalledWith(
@@ -364,7 +370,7 @@ describe("runImageRecordLocateRendererAction", () => {
     const api = {
       getSceneElementsIncludingDeleted: vi.fn(() => [element]),
       updateScene: vi.fn(),
-      scrollToContent: vi.fn(),
+      setViewport: vi.fn(),
     } as unknown as LocateTestApi;
     const setProjectError = vi.fn();
     const showProjectNotice = vi.fn();
@@ -392,9 +398,12 @@ describe("runImageRecordLocateRendererAction", () => {
         },
       }),
     );
-    expect(api.scrollToContent).toHaveBeenCalledWith(element, {
-      animate: true,
-      duration: 300,
+    expect(api.setViewport).toHaveBeenCalledWith({
+      target: element,
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
     });
     expect(setProjectError).toHaveBeenCalledWith(null);
   });
@@ -483,7 +492,7 @@ describe("runPromptReferenceLocateAction", () => {
     });
     const getElements = vi.fn(() => [shapeElement, imageElement]);
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
 
     runPromptReferenceLocateAction({
       reference: {
@@ -496,7 +505,7 @@ describe("runPromptReferenceLocateAction", () => {
       },
       getElements,
       updateScene,
-      scrollToContent,
+      setViewport,
     });
 
     expect(getElements).toHaveBeenCalledTimes(1);
@@ -511,16 +520,19 @@ describe("runPromptReferenceLocateAction", () => {
         },
       }),
     );
-    expect(scrollToContent).toHaveBeenCalledWith([shapeElement, imageElement], {
-      animate: true,
-      duration: 300,
+    expect(setViewport).toHaveBeenCalledWith({
+      target: [shapeElement, imageElement],
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
     });
   });
 
   it("skips location when the prompt reference has no live targets", () => {
     const getElements = vi.fn(() => []);
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
 
     runPromptReferenceLocateAction({
       reference: {
@@ -532,12 +544,12 @@ describe("runPromptReferenceLocateAction", () => {
       },
       getElements,
       updateScene,
-      scrollToContent,
+      setViewport,
     });
 
     expect(getElements).toHaveBeenCalledTimes(1);
     expect(updateScene).not.toHaveBeenCalled();
-    expect(scrollToContent).not.toHaveBeenCalled();
+    expect(setViewport).not.toHaveBeenCalled();
   });
 });
 
@@ -565,7 +577,7 @@ describe("runPromptReferenceLocateRendererAction", () => {
     const api = {
       getSceneElementsIncludingDeleted: vi.fn(() => [imageElement]),
       updateScene: vi.fn(),
-      scrollToContent: vi.fn(),
+      setViewport: vi.fn(),
     } as unknown as LocateTestApi;
 
     expect(
@@ -592,9 +604,12 @@ describe("runPromptReferenceLocateRendererAction", () => {
         },
       }),
     );
-    expect(api.scrollToContent).toHaveBeenCalledWith([imageElement], {
-      animate: true,
-      duration: 300,
+    expect(api.setViewport).toHaveBeenCalledWith({
+      target: [imageElement],
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
     });
   });
 });
@@ -608,7 +623,7 @@ describe("createImageRecordLocatorRendererActions", () => {
     const api = {
       getSceneElementsIncludingDeleted: vi.fn(() => [imageElement]),
       updateScene: vi.fn(),
-      scrollToContent: vi.fn(),
+      setViewport: vi.fn(),
     } as unknown as LocateTestApi;
     const getApi = vi.fn(() => api);
     const getImageRecords = vi.fn(() => null);
@@ -638,6 +653,6 @@ describe("createImageRecordLocatorRendererActions", () => {
     expect(getApi).toHaveBeenCalledTimes(2);
     expect(getImageRecords).toHaveBeenCalledTimes(1);
     expect(setProjectError).toHaveBeenCalledWith(null);
-    expect(api.scrollToContent).toHaveBeenCalledTimes(2);
+    expect(api.setViewport).toHaveBeenCalledTimes(2);
   });
 });

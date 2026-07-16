@@ -158,13 +158,16 @@ describe("AgentBoard", () => {
 
     await waitFor(() => expect(excalidrawSpy).toHaveBeenCalled());
     const props = excalidrawSpy.mock.calls.at(-1)?.[0];
-    expect(props.viewModeEnabled).toBe(true);
-    expect(props.zenModeEnabled).toBe(true);
+    expect(props.interaction).toEqual({
+      enabled: {
+        navigation: true,
+      },
+    });
+    expect(props.ui).toBe(false);
+    expect(props.viewModeEnabled).toBeUndefined();
+    expect(props.zenModeEnabled).toBeUndefined();
     expect(props.initialData).toMatchObject({
-      scrollToContent: true,
       appState: {
-        viewModeEnabled: true,
-        zenModeEnabled: true,
         selectedElementIds: {
           "rect-1": true,
         },
@@ -173,6 +176,12 @@ describe("AgentBoard", () => {
         "file-1": {
           dataURL: "data:image/png;base64,ZmFrZQ==",
         },
+      },
+    });
+    expect(props.initialState).toEqual({
+      viewport: {
+        target: props.initialData.elements,
+        fit: "scale-down",
       },
     });
     expect(

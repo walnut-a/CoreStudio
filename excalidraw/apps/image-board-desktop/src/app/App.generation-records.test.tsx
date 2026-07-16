@@ -230,16 +230,16 @@ describe("App generation records", () => {
       );
     });
 
-    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockExcalidrawAPI?.setViewport).toHaveBeenCalledWith({
+      target: expect.objectContaining({
         id: "corestudio-element",
         fileId: "corestudio-image",
       }),
-      {
-        animate: true,
+      fit: "none",
+      animation: {
         duration: 300,
       },
-    );
+    });
 
     await act(async () => {
       fireEvent.click(
@@ -249,16 +249,16 @@ describe("App generation records", () => {
       );
     });
 
-    expect(mockExcalidrawAPI?.scrollToContent).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockExcalidrawAPI?.setViewport).toHaveBeenCalledWith({
+      target: expect.objectContaining({
         id: "referencing-result-element",
         fileId: "referencing-result-image",
       }),
-      {
-        animate: true,
+      fit: "none",
+      animation: {
         duration: 300,
       },
-    );
+    });
     expect(
       screen.getByText(
         "这张图片是后续结果的参考图，已定位到引用它的画板图片。",

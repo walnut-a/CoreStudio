@@ -10,21 +10,21 @@ import { copy } from "./copy";
 import { buildElementSelectionSceneUpdate } from "./selectionState";
 
 type LocateElementsUpdateScene = ExcalidrawImperativeAPI["updateScene"];
-type LocateElementsScrollToContent = ExcalidrawImperativeAPI["scrollToContent"];
+type LocateElementsSetViewport = ExcalidrawImperativeAPI["setViewport"];
 type LocateElementsExcalidrawApi = Pick<
   ExcalidrawImperativeAPI,
-  "getSceneElementsIncludingDeleted" | "updateScene" | "scrollToContent"
+  "getSceneElementsIncludingDeleted" | "updateScene" | "setViewport"
 >;
 
 export const runCanvasElementsLocateAction = ({
   elements,
   updateScene,
-  scrollToContent,
+  setViewport,
   scrollTarget = "auto",
 }: {
   elements: readonly ExcalidrawElement[];
   updateScene: LocateElementsUpdateScene;
-  scrollToContent: LocateElementsScrollToContent;
+  setViewport: LocateElementsSetViewport;
   scrollTarget?: "auto" | "elements";
 }) => {
   if (!elements.length) {
@@ -32,13 +32,16 @@ export const runCanvasElementsLocateAction = ({
   }
 
   updateScene(buildElementSelectionSceneUpdate(elements));
-  scrollToContent(
-    scrollTarget === "elements" || elements.length > 1 ? elements : elements[0],
-    {
-      animate: true,
+  setViewport({
+    target:
+      scrollTarget === "elements" || elements.length > 1
+        ? elements
+        : elements[0],
+    fit: "none",
+    animation: {
       duration: 300,
     },
-  );
+  });
 };
 
 export type ImageRecordLocateResult =
@@ -152,7 +155,7 @@ export const runImageRecordLocateFeedbackAction = ({
   getElements,
   getImageRecords,
   updateScene,
-  scrollToContent,
+  setViewport,
   setProjectError,
   showProjectNotice,
   clearProjectNotice,
@@ -161,7 +164,7 @@ export const runImageRecordLocateFeedbackAction = ({
   getElements: () => readonly ExcalidrawElement[];
   getImageRecords: () => ImageRecordMap | null | undefined;
   updateScene: LocateElementsUpdateScene;
-  scrollToContent: LocateElementsScrollToContent;
+  setViewport: LocateElementsSetViewport;
   setProjectError: (message: null) => void;
   showProjectNotice: (message: string) => void;
   clearProjectNotice: () => void;
@@ -177,7 +180,7 @@ export const runImageRecordLocateFeedbackAction = ({
     runCanvasElementsLocateAction({
       elements: [result.element],
       updateScene,
-      scrollToContent,
+      setViewport,
     });
   }
 
@@ -217,7 +220,7 @@ export const runImageRecordLocateRendererAction = ({
     getElements: () => api.getSceneElementsIncludingDeleted(),
     getImageRecords,
     updateScene: api.updateScene,
-    scrollToContent: api.scrollToContent,
+    setViewport: api.setViewport,
     setProjectError,
     showProjectNotice,
     clearProjectNotice,
@@ -256,12 +259,12 @@ export const runPromptReferenceLocateAction = ({
   reference,
   getElements,
   updateScene,
-  scrollToContent,
+  setViewport,
 }: {
   reference: ImagePromptReferenceRecord;
   getElements: () => readonly ExcalidrawElement[];
   updateScene: LocateElementsUpdateScene;
-  scrollToContent: LocateElementsScrollToContent;
+  setViewport: LocateElementsSetViewport;
 }) => {
   const targetElements = resolvePromptReferenceLocateTargets({
     reference,
@@ -275,7 +278,7 @@ export const runPromptReferenceLocateAction = ({
   runCanvasElementsLocateAction({
     elements: targetElements,
     updateScene,
-    scrollToContent,
+    setViewport,
     scrollTarget: "elements",
   });
 };
@@ -296,7 +299,7 @@ export const runPromptReferenceLocateRendererAction = ({
     reference,
     getElements: () => api.getSceneElementsIncludingDeleted(),
     updateScene: api.updateScene,
-    scrollToContent: api.scrollToContent,
+    setViewport: api.setViewport,
   });
   return true;
 };

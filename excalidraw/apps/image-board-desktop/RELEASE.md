@@ -198,6 +198,32 @@ gh release create v1.1.0 \
 
 本次客户端升级不会要求重新安装已经兼容的 Codex 集成；Codex 集成版本继续保持独立的 `1.1.0`。
 
+本次发布通过了这些检查：
+
+- 263 个测试文件、2010 项测试全部通过
+- TypeScript typecheck、source/package-input/release secret scan 和 production build 全部通过
+- 包内 Codex 安装器与 CLI 版本契约 smoke 通过
+- 使用隔离 `--user-data-dir` 的安装态 renderer smoke 通过，未干扰正在运行的 CoreStudio
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `2f8343ca-5c1d-4114-962a-7ffde563948b`，状态 `Accepted`
+- App 与 DMG 的 stapler validate、Gatekeeper 和 codesign 校验通过
+
+校验值：
+
+```text
+CoreStudio-1.1.20-arm64.dmg
+sha256: fbca184addfe32809ff5e5129acee01e11b1a675fa298d253fbccba12c64c3a4
+
+CoreStudio-1.1.20-arm64-mac.zip
+sha256: dfdc7bd40e15ef04b8536bce518eb0685b261c7929818c4e6cc0fc9970d9e8bd
+
+CoreStudio-1.1.20-arm64.dmg.blockmap
+sha256: 834604604d3ebcb5e83a1c8c5e84dd29566bb9b7a98c49675c8c63a15e64d01b
+
+CoreStudio-1.1.20-arm64-mac.zip.blockmap
+sha256: d13c620aad701b3a75c9dd6ec1b20da51ccb3b19fc37ec1aa5f90078d208d9e6
+```
+
 ## 1.1.19 发布说明
 
 1.1.19 升级 Excalidraw 上游基线，并收口 CoreStudio 的长期兼容边界：

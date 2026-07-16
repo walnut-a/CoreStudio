@@ -9,29 +9,32 @@ import { isBoundToContainer } from "./typeChecks";
 import type { Scene } from "./Scene";
 
 import type { BoundingBox } from "./bounds";
-import type { ElementsMap, ExcalidrawElement } from "./types";
+import type {
+  NonDeletedExcalidrawElement,
+  NonDeletedSceneElementsMap,
+} from "./types";
 
 const DEFAULT_ARRANGE_GAP = 24;
 
 type ArrangementUnit = {
-  elements: ExcalidrawElement[];
+  elements: NonDeletedExcalidrawElement[];
   bounds: BoundingBox;
   originalIndex: number;
 };
 
 export const getSelectedElementsByArrangementUnit = (
-  selectedElements: ExcalidrawElement[],
-  elementsMap: ElementsMap,
+  selectedElements: NonDeletedExcalidrawElement[],
+  elementsMap: NonDeletedSceneElementsMap,
   appState: Readonly<AppState>,
-): ExcalidrawElement[][] => {
+): NonDeletedExcalidrawElement[][] => {
   const selectedGroupIds = new Set(getSelectedGroupIds(appState));
-  const groupedUnits = new Map<string, ExcalidrawElement[]>();
-  const singleElementUnits = new Map<string, ExcalidrawElement[]>();
+  const groupedUnits = new Map<string, NonDeletedExcalidrawElement[]>();
+  const singleElementUnits = new Map<string, NonDeletedExcalidrawElement[]>();
 
   const addElementWithBoundText = (
-    units: Map<string, ExcalidrawElement[]>,
+    units: Map<string, NonDeletedExcalidrawElement[]>,
     unitId: string,
-    element: ExcalidrawElement,
+    element: NonDeletedExcalidrawElement,
   ) => {
     const currentMembers = units.get(unitId) || [];
     const boundTextElement = getBoundTextElement(element, elementsMap);
@@ -64,14 +67,14 @@ export const getSelectedElementsByArrangementUnit = (
 };
 
 export const arrangeElementsIntoColumnGrid = (
-  selectedElements: ExcalidrawElement[],
-  elementsMap: ElementsMap,
+  selectedElements: NonDeletedExcalidrawElement[],
+  elementsMap: NonDeletedSceneElementsMap,
   appState: Readonly<AppState>,
   scene: Scene,
   options?: {
     gap?: number;
   },
-): ExcalidrawElement[] => {
+): NonDeletedExcalidrawElement[] => {
   const units = getSelectedElementsByArrangementUnit(
     selectedElements,
     elementsMap,

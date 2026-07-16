@@ -1,0 +1,89 @@
+{
+  "repository": "https://github.com/excalidraw/excalidraw.git",
+  "managedRoot": "excalidraw",
+  "currentSha": "5ca083436d44a51a0705d43ea22d323839d5fe8e",
+  "targetSha": "5ca083436d44a51a0705d43ea22d323839d5fe8e",
+  "ownedPaths": ["apps/image-board-desktop"],
+  "patchGroups": [
+    {
+      "id": "file-replacement",
+      "purpose": "Replace existing image files and invalidate image caches without duplicating records.",
+      "corePaths": [
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/types.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
+        "apps/image-board-desktop/src/app/canvasImageAssetState.test.ts"
+      ]
+    },
+    {
+      "id": "inspector-integration",
+      "purpose": "Render selected shape actions in the CoreStudio inspector and suppress the default sidebar.",
+      "corePaths": [
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/components/LayerUI.tsx",
+        "packages/excalidraw/index.tsx",
+        "packages/excalidraw/types.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
+        "apps/image-board-desktop/src/app/App.test.tsx"
+      ]
+    },
+    {
+      "id": "viewport-policy",
+      "purpose": "Keep one-percent minimum zoom and CoreStudio wheel zoom behavior.",
+      "corePaths": [
+        "packages/common/src/constants.ts",
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/scene/zoom.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/fitToContent.test.tsx",
+        "packages/excalidraw/tests/zoom.test.ts"
+      ]
+    },
+    {
+      "id": "arrange-grid",
+      "purpose": "Arrange selected elements into a column-first grid.",
+      "corePaths": [
+        "packages/element/src/arrange.ts",
+        "packages/element/src/index.ts",
+        "packages/excalidraw/actions/actionArrange.tsx",
+        "packages/excalidraw/actions/index.ts",
+        "packages/excalidraw/actions/types.ts",
+        "packages/excalidraw/components/Actions.tsx"
+      ],
+      "contractTests": ["packages/element/src/__tests__/arrange.test.ts"]
+    },
+    {
+      "id": "clipboard-and-images",
+      "purpose": "Preserve CoreStudio clipboard failure handling and image replacement behavior.",
+      "corePaths": [
+        "packages/element/src/image.ts",
+        "packages/excalidraw/actions/actionClipboard.tsx"
+      ],
+      "contractTests": [
+        "packages/element/tests/image.test.ts",
+        "packages/excalidraw/actions/actionClipboard.test.tsx",
+        "apps/image-board-desktop/src/app/projectImageImportController.test.ts"
+      ]
+    },
+    {
+      "id": "build-and-test-integration",
+      "purpose": "Keep the CoreStudio desktop workspace, test projects, TypeScript settings, and dependency resolutions.",
+      "corePaths": [
+        "package.json",
+        "setupTests.ts",
+        "tsconfig.json",
+        "vitest.config.mts",
+        "yarn.lock"
+      ],
+      "contractTests": []
+    }
+  ],
+  "generatedArtifactPolicy": {
+    "dropAddedJavaScriptWithTypeScriptSibling": true
+  }
+}

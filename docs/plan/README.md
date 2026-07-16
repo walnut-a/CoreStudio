@@ -6,6 +6,7 @@
 
 ## 当前计划文档
 
+- [2026-07-16-excalidraw-baseline-upgrade.md](2026-07-16-excalidraw-baseline-upgrade.md)：保留 CoreStudio 定制、升级 Excalidraw 上游基线并建立可重复同步机制的执行计划。
 - [2026-07-07-app-and-test-refactor.md](2026-07-07-app-and-test-refactor.md)：App wiring 与大型测试文件拆分计划。
 - [2026-07-07-runtime-hardening.md](2026-07-07-runtime-hardening.md)：运行时健壮性加固计划。
 

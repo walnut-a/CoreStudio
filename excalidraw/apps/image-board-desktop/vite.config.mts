@@ -45,6 +45,22 @@ export default defineConfig({
         replacement: resolveAlias("packages/excalidraw/$1"),
       },
       {
+        find: /^@excalidraw\/fractional-indexing$/,
+        replacement: resolveAlias("packages/fractional-indexing/src/index.ts"),
+      },
+      {
+        find: /^@excalidraw\/fractional-indexing\/(.*?)/,
+        replacement: resolveAlias("packages/fractional-indexing/src/$1"),
+      },
+      {
+        find: /^@excalidraw\/laser-pointer$/,
+        replacement: resolveAlias("packages/laser-pointer/src/index.ts"),
+      },
+      {
+        find: /^@excalidraw\/laser-pointer\/(.*?)/,
+        replacement: resolveAlias("packages/laser-pointer/src/$1"),
+      },
+      {
         find: /^@excalidraw\/math$/,
         replacement: resolveAlias("packages/math/src/index.ts"),
       },

@@ -2,17 +2,41 @@ import { constants } from "node:fs";
 import { access as fsAccess, readFile as fsReadFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { AGENT_BRIDGE_PROTOCOL_VERSION } from "../src/shared/agentBridgeTypes";
+import {
+  CODEX_INTEGRATION_CLI_WRAPPER_VERSION,
+  CODEX_INTEGRATION_MANIFEST_SCHEMA_VERSION,
+  CODEX_INTEGRATION_SKILL_VERSION,
+  CODEX_INTEGRATION_VERSION,
+  CODEX_LEGACY_INTEGRATION_VERSION,
+} from "../src/shared/codexIntegrationContract";
 import type {
   CodexIntegrationCheck,
   CodexIntegrationStatus,
 } from "../src/shared/desktopBridgeTypes";
 
-interface CodexIntegrationManifest {
+interface CurrentCodexIntegrationManifest {
+  schemaVersion: number;
+  integrationVersion: string;
+  installedFromAppVersion: string;
+  bridgeProtocolVersion: number;
+  skillVersion: number;
+  cliWrapperVersion: number;
+  cliPath: string;
+  skillPath: string;
+  supportsSessionDiscovery: boolean;
+}
+
+interface LegacyCodexIntegrationManifest {
   version: string;
   cliPath: string;
   skillPath: string;
   supportsSessionDiscovery: boolean;
 }
+
+type CodexIntegrationManifest =
+  | CurrentCodexIntegrationManifest
+  | LegacyCodexIntegrationManifest;
 
 export interface InspectCodexIntegrationOptions {
   homeDir: string;
@@ -37,11 +61,33 @@ const canAccess = async (
   }
 };
 
-const isManifest = (value: unknown): value is CodexIntegrationManifest => {
+const isCurrentManifest = (
+  value: unknown,
+): value is CurrentCodexIntegrationManifest => {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const manifest = value as Partial<CodexIntegrationManifest>;
+  const manifest = value as Partial<CurrentCodexIntegrationManifest>;
+  return (
+    typeof manifest.schemaVersion === "number" &&
+    typeof manifest.integrationVersion === "string" &&
+    typeof manifest.installedFromAppVersion === "string" &&
+    typeof manifest.bridgeProtocolVersion === "number" &&
+    typeof manifest.skillVersion === "number" &&
+    typeof manifest.cliWrapperVersion === "number" &&
+    typeof manifest.cliPath === "string" &&
+    typeof manifest.skillPath === "string" &&
+    typeof manifest.supportsSessionDiscovery === "boolean"
+  );
+};
+
+const isLegacyManifest = (
+  value: unknown,
+): value is LegacyCodexIntegrationManifest => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const manifest = value as Partial<LegacyCodexIntegrationManifest>;
   return (
     typeof manifest.version === "string" &&
     typeof manifest.cliPath === "string" &&
@@ -49,6 +95,9 @@ const isManifest = (value: unknown): value is CodexIntegrationManifest => {
     typeof manifest.supportsSessionDiscovery === "boolean"
   );
 };
+
+const isManifest = (value: unknown): value is CodexIntegrationManifest =>
+  isCurrentManifest(value) || isLegacyManifest(value);
 
 export const inspectCodexIntegration = async ({
   homeDir,
@@ -85,17 +134,33 @@ export const inspectCodexIntegration = async ({
     }
   }
 
+  const pathsAndDiscoveryReady =
+    manifest?.cliPath === cliPath &&
+    manifest.skillPath === skillPath &&
+    manifest.supportsSessionDiscovery;
+  const contractReady =
+    manifest &&
+    !isLegacyManifest(manifest) &&
+    manifest.schemaVersion ===
+      CODEX_INTEGRATION_MANIFEST_SCHEMA_VERSION &&
+    manifest.integrationVersion === CODEX_INTEGRATION_VERSION &&
+    manifest.bridgeProtocolVersion === AGENT_BRIDGE_PROTOCOL_VERSION &&
+    manifest.skillVersion === CODEX_INTEGRATION_SKILL_VERSION &&
+    manifest.cliWrapperVersion === CODEX_INTEGRATION_CLI_WRAPPER_VERSION;
   const compatibilityStatus: CodexIntegrationCheck["status"] = manifestBroken
     ? "broken"
     : !manifest
     ? "missing"
-    : manifest.version !== appVersion
-    ? "outdated"
-    : manifest.cliPath !== cliPath ||
-      manifest.skillPath !== skillPath ||
-      !manifest.supportsSessionDiscovery
+    : !pathsAndDiscoveryReady
     ? "broken"
-    : "ready";
+    : contractReady
+    ? "ready"
+    : "outdated";
+  const installedIntegrationVersion = manifest
+    ? isCurrentManifest(manifest)
+      ? manifest.integrationVersion
+      : CODEX_LEGACY_INTEGRATION_VERSION
+    : null;
 
   const checks: CodexIntegrationCheck[] = [
     {
@@ -110,7 +175,7 @@ export const inspectCodexIntegration = async ({
     {
       id: "compatibility",
       status: compatibilityStatus,
-      installedVersion: manifest?.version ?? null,
+      installedIntegrationVersion,
     },
   ];
 
@@ -128,6 +193,7 @@ export const inspectCodexIntegration = async ({
     state,
     command,
     appVersion,
+    integrationVersion: CODEX_INTEGRATION_VERSION,
     guideUrl,
     checks,
     detectedAt: new Date().toISOString(),

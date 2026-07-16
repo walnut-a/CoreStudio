@@ -12,6 +12,7 @@ const status: CodexIntegrationStatus = {
   state: "install",
   command: "/bin/bash '/Applications/CoreStudio.app/install.sh'",
   appVersion: "1.1.17",
+  integrationVersion: "1.0.1",
   guideUrl:
     "https://github.com/walnut-a/CoreStudio/blob/v1.1.17/docs/codex-integration.md",
   detectedAt: "2026-07-14T00:00:00.000Z",
@@ -28,7 +29,7 @@ const status: CodexIntegrationStatus = {
     {
       id: "compatibility",
       status: "outdated",
-      installedVersion: "1.1.16",
+      installedIntegrationVersion: "0.9.0",
     },
   ],
 };
@@ -52,7 +53,7 @@ describe("CodexIntegrationSettings", () => {
         {
           id: "compatibility",
           status: "ready",
-          installedVersion: "1.1.17",
+          installedIntegrationVersion: "1.0.1",
         },
       ],
     };
@@ -66,7 +67,7 @@ describe("CodexIntegrationSettings", () => {
     );
 
     expect(
-      await screen.findByText("Version and session discovery"),
+      await screen.findByText("Integration compatibility"),
     ).toBeVisible();
     expect(
       screen.getByText("Executable: /Users/tester/.local/bin/corestudio"),
@@ -76,7 +77,7 @@ describe("CodexIntegrationSettings", () => {
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Version 1.1.17; local CoreStudio session discovery is available.",
+        "Integration 1.0.1; local CoreStudio session discovery is available.",
       ),
     ).toBeVisible();
     expect(screen.queryByText(/版本|可执行：|可以发现/)).toBeNull();
@@ -95,7 +96,7 @@ describe("CodexIntegrationSettings", () => {
     expect(screen.getByText("正在检测 Codex 集成...")).toBeInTheDocument();
     expect(await screen.findByText("CoreStudio CLI")).toBeInTheDocument();
     expect(screen.getByText("CoreStudio Skill")).toBeInTheDocument();
-    expect(screen.getByText("版本与会话发现")).toBeInTheDocument();
+    expect(screen.getByText("集成兼容性")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重新检测" })).toHaveClass(
       "image-board-button--small",
     );

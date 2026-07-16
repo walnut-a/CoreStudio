@@ -30,13 +30,14 @@ describe("ApplicationSettingsDialog", () => {
         imageGenerationContent={<div>图像生成内容</div>}
         codexIntegrationContent={<div>Codex 集成内容</div>}
         experimentalContent={<div>实验性功能内容</div>}
+        aboutContent={<div>关于内容</div>}
       />,
     );
 
     return { onCategoryChange, onClose };
   };
 
-  it("显示四个一级分类和当前分类内容", () => {
+  it("显示五个一级分类和当前分类内容", () => {
     renderDialog();
 
     expect(screen.getByRole("tab", { name: "通用" })).toBeInTheDocument();
@@ -46,7 +47,16 @@ describe("ApplicationSettingsDialog", () => {
     );
     expect(screen.getByRole("tab", { name: "Codex 集成" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "实验性功能" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "关于" })).toBeInTheDocument();
     expect(screen.getByText("图像生成内容")).toBeInTheDocument();
+  });
+
+  it("切换到关于分类", () => {
+    const { onCategoryChange } = renderDialog();
+
+    fireEvent.click(screen.getByRole("tab", { name: "关于" }));
+
+    expect(onCategoryChange).toHaveBeenCalledWith("about");
   });
 
   it("没有未保存修改时直接切换分类", () => {
@@ -93,6 +103,7 @@ describe("ApplicationSettingsDialog", () => {
         imageGenerationContent={<DetailBackProbe onBack={onBack} />}
         codexIntegrationContent={null}
         experimentalContent={null}
+        aboutContent={null}
       />,
     );
 

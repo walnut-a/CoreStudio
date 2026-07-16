@@ -77,6 +77,7 @@ import {
   loadAgentAccessSettings,
   saveAgentAccessSettings,
 } from "./agent/agentAccessStore";
+import { buildAgentBoardUrl } from "./agent/agentBoardUrl";
 import {
   loadRecentProjects,
   rememberRecentProject,
@@ -311,13 +312,11 @@ const getAgentProjectByToken = async (
 };
 
 const getAgentBoardUrl = () => {
-  if (!localBridgeHandle || !rendererUrl || !agentAccessEnabled) {
-    return null;
-  }
-
-  const url = new URL("/agent-board", rendererUrl);
-  url.searchParams.set("bridge", localBridgeHandle.baseUrl);
-  return url.toString();
+  return buildAgentBoardUrl({
+    agentAccessEnabled,
+    bridgeBaseUrl: localBridgeHandle?.baseUrl ?? null,
+    rendererUrl,
+  });
 };
 
 const getAgentBridgeStatus = (): DesktopAgentBridgeStatus => ({
@@ -494,6 +493,9 @@ const startLocalBridge = async () => {
   try {
     bridge = await createLocalBridgeServer({
       preferredPort: AGENT_BRIDGE_PREFERRED_PORT,
+      agentBoardAssetsDir: rendererUrl
+        ? undefined
+        : path.join(__dirname, "..", "dist"),
       isAgentAccessEnabled: () => agentAccessEnabled,
       getCurrentProject,
       getProjectByToken: getAgentProjectByToken,
@@ -1224,6 +1226,19 @@ const registerIpcHandlers = () => {
     name: DESKTOP_APP_NAME,
     version: DESKTOP_APP_VERSION,
   }));
+
+  ipcMain.handle(IPC_CHANNELS.openExternal, async (_event, value: unknown) => {
+    if (typeof value !== "string") {
+      throw new Error("External URL must be a string.");
+    }
+
+    const url = new URL(value);
+    if (url.protocol !== "https:") {
+      throw new Error("Only HTTPS external URLs are allowed.");
+    }
+
+    await shell.openExternal(url.toString());
+  });
 
   ipcMain.handle(IPC_CHANNELS.inspectCodexIntegration, async () =>
     inspectCodexIntegration({

@@ -12,9 +12,11 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 用户说“打开当前 CoreStudio 项目”时：
 
 1. 运行 `corestudio read context --json` 发现当前 CoreStudio 会话和项目。
-2. 需要画布数据时运行 `corestudio read board --json`。
-3. 需要选区、图片记录或健康状态时，分别使用 `corestudio read context --json`、`corestudio read records --json`、`corestudio read health --json`。
-4. 如果 CLI 报告 CoreStudio 未运行或没有可发现会话，直接请用户打开 CoreStudio 和目标项目，不要猜测路径。
+2. 如果错误详情包含 `sessionDiscovered: true`，说明会话已经找到，但当前执行环境无法连接本机 Local Bridge。若运行在 Codex 中，立即申请在网络沙箱外重试同一条命令；完成重试前，不要误报 CoreStudio 未运行或 Bridge 未启用。
+3. 上下文读取成功后，运行 `corestudio read board-url --json`，并使用 Codex 内置浏览器打开返回的 `boardUrl`。该地址已包含当前项目 token，可直接加载当前项目。
+4. 需要画布数据时运行 `corestudio read board --json`。
+5. 需要选区、图片记录或健康状态时，分别使用 `corestudio read context --json`、`corestudio read records --json`、`corestudio read health --json`。
+6. 只有在没有发现会话，或沙箱外重试仍失败时，才请用户检查 CoreStudio、目标项目和 Agent Bridge 状态。保留 CLI 的原始错误码、消息和详情。
 
 ## 写回
 

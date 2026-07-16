@@ -263,6 +263,7 @@ export const enCopy: DesktopCopy = {
     imageGeneration: "Image Generation",
     codexIntegration: "Codex Integration",
     experimental: "Experimental Features",
+    about: "About",
     language: "Language",
     languageDescription:
       "Choose the language used by CoreStudio and the board interface.",
@@ -273,6 +274,13 @@ export const enCopy: DesktopCopy = {
     discardDescription: "Changes on this page have not been saved.",
     continueEditing: "Continue editing",
     discardChanges: "Discard changes",
+    aboutPage: {
+      version: "Version",
+      repository: "Repository",
+      dependencies: "Key Open Source Dependencies",
+      dependenciesDescription:
+        "These versions come from the current build configuration and update with the application.",
+    },
     experimentalPage: {
       description:
         "Experimental features must be enabled manually and may continue to change.",
@@ -409,7 +417,7 @@ export const enCopy: DesktopCopy = {
       checkLabel: {
         cli: "CoreStudio CLI",
         skill: "CoreStudio Skill",
-        compatibility: "Version and session discovery",
+        compatibility: "Integration compatibility",
       },
       checkDetail: {
         cliReady: (executablePath: string) => `Executable: ${executablePath}`,
@@ -417,10 +425,13 @@ export const enCopy: DesktopCopy = {
           `Executable not found: ${executablePath}`,
         skillReady: "Codex can discover the CoreStudio usage guide.",
         skillMissing: "The CoreStudio Skill is not installed for Codex.",
-        compatibilityReady: (appVersion: string) =>
-          `Version ${appVersion}; local CoreStudio session discovery is available.`,
-        compatibilityOutdated: (installedVersion: string, appVersion: string) =>
-          `Installed version ${installedVersion}; version ${appVersion} is required.`,
+        compatibilityReady: (integrationVersion: string) =>
+          `Integration ${integrationVersion}; local CoreStudio session discovery is available.`,
+        compatibilityOutdated: (
+          installedVersion: string,
+          integrationVersion: string,
+        ) =>
+          `Integration ${installedVersion} is installed; ${integrationVersion} is required.`,
         compatibilityBroken:
           "The integration record is incomplete or could not be read.",
         compatibilityMissing: "No integration installation record was found.",
@@ -431,7 +442,7 @@ export const enCopy: DesktopCopy = {
       startDescription: "Copy this instruction into any Codex conversation.",
       copyInstructions: "Copy Instructions",
       installPrompt: (appVersion: string, guideUrl: string) =>
-        `Help me install the Codex integration for CoreStudio ${appVersion} by following this guide: ${guideUrl}\nUse the installed production version of CoreStudio on this Mac, then verify the CLI, Skill, and recorded version.`,
+        `Help me install the Codex integration for CoreStudio ${appVersion} by following this guide: ${guideUrl}\nUse the installed production version of CoreStudio on this Mac, then verify the CLI, Skill, and integration compatibility record.`,
     },
   },
   agentUi: {

@@ -1,4 +1,6 @@
 import http from "node:http";
+import { readFile as fsReadFile } from "node:fs/promises";
+import path from "node:path";
 
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
@@ -31,6 +33,7 @@ export interface LocalBridgeCurrentProject {
 export interface LocalBridgeServerOptions {
   preferredPort?: number;
   maxRequestBodyBytes?: number;
+  agentBoardAssetsDir?: string;
   isAgentAccessEnabled: () => boolean;
   getCurrentProject: () => LocalBridgeCurrentProject | null;
   getProjectByToken?: (
@@ -125,6 +128,22 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
 const DEFAULT_MAX_REQUEST_BODY_BYTES = 128 * 1024 * 1024;
 const CORS_ALLOW_HEADERS = "Authorization, Content-Type, Accept";
 const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
+const AGENT_BOARD_ROUTE = "/agent-board";
+const AGENT_BOARD_ASSET_ROUTE_PREFIX = "/assets/";
+const STATIC_CONTENT_TYPES: Record<string, string> = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".map": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+};
 
 const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
   "loadRecentProjects",
@@ -189,6 +208,51 @@ const sendCorsPreflight = (response: http.ServerResponse) => {
     "Access-Control-Max-Age": "600",
   });
   response.end();
+};
+
+const serveAgentBoardAsset = async (
+  response: http.ServerResponse,
+  pathname: string,
+  assetsDir: string | undefined,
+) => {
+  if (
+    !assetsDir ||
+    (pathname !== AGENT_BOARD_ROUTE &&
+      pathname !== `${AGENT_BOARD_ROUTE}/` &&
+      !pathname.startsWith(AGENT_BOARD_ASSET_ROUTE_PREFIX))
+  ) {
+    return false;
+  }
+
+  const relativePath =
+    pathname === AGENT_BOARD_ROUTE || pathname === `${AGENT_BOARD_ROUTE}/`
+      ? "index.html"
+      : pathname.slice(1);
+  const root = path.resolve(assetsDir);
+  const filePath = path.resolve(root, relativePath);
+  if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
+    response.writeHead(404);
+    response.end();
+    return true;
+  }
+
+  try {
+    const contents = await fsReadFile(filePath);
+    response.writeHead(200, {
+      "Content-Type":
+        STATIC_CONTENT_TYPES[path.extname(filePath).toLowerCase()] ??
+        "application/octet-stream",
+      "Cache-Control":
+        relativePath === "index.html"
+          ? "no-cache"
+          : "public, max-age=31536000, immutable",
+    });
+    response.end(contents);
+  } catch {
+    response.writeHead(404);
+    response.end();
+  }
+  return true;
 };
 
 const sendError = (
@@ -666,6 +730,16 @@ export const createLocalBridgeServer = async (
   const server = http.createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
+      if (
+        request.method === "GET" &&
+        (await serveAgentBoardAsset(
+          response,
+          url.pathname,
+          options.agentBoardAssetsDir,
+        ))
+      ) {
+        return;
+      }
       const requestOrigin = getRequestOrigin(request);
       const allowedCorsOrigin = getAllowedCorsOrigin(
         requestOrigin,

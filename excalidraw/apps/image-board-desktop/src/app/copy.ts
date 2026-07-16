@@ -268,6 +268,7 @@ const zhCnCopy = {
     imageGeneration: "图像生成",
     codexIntegration: "Codex 集成",
     experimental: "实验性功能",
+    about: "关于",
     language: "语言",
     languageDescription: "设置 CoreStudio 和画板界面使用的语言。",
     languageSystem: "跟随系统",
@@ -277,6 +278,12 @@ const zhCnCopy = {
     discardDescription: "当前页面的修改还没有保存。",
     continueEditing: "继续编辑",
     discardChanges: "放弃修改",
+    aboutPage: {
+      version: "版本",
+      repository: "代码仓库",
+      dependencies: "主要开源依赖",
+      dependenciesDescription: "以下版本来自当前构建配置，随应用升级同步更新。",
+    },
     experimentalPage: {
       description: "实验性功能需要手动开启，行为和配置可能继续调整。",
       externalAgent: "外部 Agent（ACP）",
@@ -402,7 +409,7 @@ const zhCnCopy = {
       checkLabel: {
         cli: "CoreStudio CLI",
         skill: "CoreStudio Skill",
-        compatibility: "版本与会话发现",
+        compatibility: "集成兼容性",
       },
       checkDetail: {
         cliReady: (executablePath: string) => `可执行：${executablePath}`,
@@ -410,10 +417,12 @@ const zhCnCopy = {
           `未找到可执行文件：${executablePath}`,
         skillReady: "Codex 可以发现 CoreStudio 使用说明",
         skillMissing: "Codex Skill 尚未安装",
-        compatibilityReady: (appVersion: string) =>
-          `版本 ${appVersion}，支持发现本机 CoreStudio 会话`,
-        compatibilityOutdated: (installedVersion: string, appVersion: string) =>
-          `已安装 ${installedVersion}，当前需要 ${appVersion}`,
+        compatibilityReady: (integrationVersion: string) =>
+          `集成 ${integrationVersion}，支持发现本机 CoreStudio 会话`,
+        compatibilityOutdated: (
+          installedVersion: string,
+          integrationVersion: string,
+        ) => `已安装集成 ${installedVersion}，当前需要 ${integrationVersion}`,
         compatibilityBroken: "安装记录不完整或无法读取",
         compatibilityMissing: "尚未找到集成安装记录",
         unknownVersion: "未知版本",
@@ -423,7 +432,7 @@ const zhCnCopy = {
       startDescription: "复制这句话，粘贴到任意 Codex 对话中。",
       copyInstructions: "复制使用指令",
       installPrompt: (appVersion: string, guideUrl: string) =>
-        `请按照 CoreStudio ${appVersion} 的 Codex 集成安装指南帮我完成安装：${guideUrl}\n请使用本机已安装的正式 CoreStudio，完成后验证 CLI、Skill 和版本记录。`,
+        `请按照 CoreStudio ${appVersion} 的 Codex 集成安装指南帮我完成安装：${guideUrl}\n请使用本机已安装的正式 CoreStudio，完成后验证 CLI、Skill 和集成兼容性记录。`,
     },
   },
   agentUi: {

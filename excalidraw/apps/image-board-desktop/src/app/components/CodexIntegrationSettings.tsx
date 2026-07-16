@@ -22,7 +22,7 @@ export const CODEX_INSTALL_PROMPT = ({
 
 const getCheckPresentation = (
   check: CodexIntegrationCheck,
-  appVersion: string,
+  integrationVersion: string,
 ) => {
   const { checkDetail, checkLabel } = copy.applicationSettings.codexPage;
 
@@ -49,11 +49,13 @@ const getCheckPresentation = (
 
   const detail =
     check.status === "ready"
-      ? checkDetail.compatibilityReady(appVersion)
+      ? checkDetail.compatibilityReady(
+          check.installedIntegrationVersion ?? integrationVersion,
+        )
       : check.status === "outdated"
       ? checkDetail.compatibilityOutdated(
-          check.installedVersion ?? checkDetail.unknownVersion,
-          appVersion,
+          check.installedIntegrationVersion ?? checkDetail.unknownVersion,
+          integrationVersion,
         )
       : check.status === "broken"
       ? checkDetail.compatibilityBroken
@@ -153,7 +155,7 @@ export const CodexIntegrationSettings = ({
               {status.checks.map((check) => {
                 const presentation = getCheckPresentation(
                   check,
-                  status.appVersion,
+                  status.integrationVersion,
                 );
                 return (
                   <div className="settings-check-row" key={check.id}>

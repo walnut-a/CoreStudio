@@ -67,6 +67,10 @@ html.image-board-desktop-titlebar-hidden {
   height: 100%;
 }
 
+.image-board-canvas--editor-initializing .LoadingMessage {
+  display: none;
+}
+
 .image-board-canvas__loading {
   position: absolute;
   inset: 0;

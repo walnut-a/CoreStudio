@@ -19,6 +19,11 @@ CLI_PATH="$CLI_DIR/corestudio"
 SKILL_DIR="$HOME/.codex/skills/corestudio"
 SKILL_PATH="$SKILL_DIR/SKILL.md"
 MANIFEST_PATH="$HOME/.codex/corestudio-integration.json"
+INTEGRATION_VERSION="1.0.1"
+MANIFEST_SCHEMA_VERSION=1
+BRIDGE_PROTOCOL_VERSION=1
+SKILL_VERSION=2
+CLI_WRAPPER_VERSION=1
 
 if [[ ! -f "$SOURCE_SKILL" ]]; then
   echo "CoreStudio Skill 安装源缺失：$SOURCE_SKILL" >&2
@@ -62,7 +67,12 @@ json_escape() {
 
 cat > "$MANIFEST_PATH" <<EOF
 {
-  "version": "$(json_escape "$APP_VERSION")",
+  "schemaVersion": $MANIFEST_SCHEMA_VERSION,
+  "integrationVersion": "$INTEGRATION_VERSION",
+  "installedFromAppVersion": "$(json_escape "$APP_VERSION")",
+  "bridgeProtocolVersion": $BRIDGE_PROTOCOL_VERSION,
+  "skillVersion": $SKILL_VERSION,
+  "cliWrapperVersion": $CLI_WRAPPER_VERSION,
   "cliPath": "$(json_escape "$CLI_PATH")",
   "skillPath": "$(json_escape "$SKILL_PATH")",
   "supportsSessionDiscovery": true

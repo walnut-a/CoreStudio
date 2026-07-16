@@ -52,7 +52,7 @@ let mockExcalidrawAPI: {
   updateScene: ReturnType<typeof vi.fn>;
   addFiles: ReturnType<typeof vi.fn>;
   replaceFiles: ReturnType<typeof vi.fn>;
-  scrollToContent: ReturnType<typeof vi.fn>;
+  setViewport: ReturnType<typeof vi.fn>;
   getSceneElementsIncludingDeleted: () => any[];
   getAppState: () => Record<string, any>;
   getFiles: () => Record<string, any>;
@@ -479,7 +479,7 @@ vi.mock("@excalidraw/excalidraw", () => {
             getSceneElementsIncludingDeleted: () => sceneRef.current.elements,
             getAppState: () => sceneRef.current.appState,
             getFiles: () => sceneRef.current.files,
-            scrollToContent: vi.fn(),
+            setViewport: vi.fn(),
           };
         }
 

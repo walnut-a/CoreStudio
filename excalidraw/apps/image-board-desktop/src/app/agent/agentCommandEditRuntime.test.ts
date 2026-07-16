@@ -96,7 +96,7 @@ const createDeps = (
 describe("agentCommandEditRuntime", () => {
   it("locates an image element by file id", async () => {
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
 
     const result = await handleAgentEditCommand(
       {
@@ -114,7 +114,7 @@ describe("agentCommandEditRuntime", () => {
             ({
               getSceneElementsIncludingDeleted: () => [imageElement],
               updateScene,
-              scrollToContent,
+              setViewport,
             }) as unknown as ReturnType<
               AgentCommandRuntimeDeps["getExcalidrawAPI"]
             >,
@@ -139,10 +139,13 @@ describe("agentCommandEditRuntime", () => {
         }),
       }),
     );
-    expect(scrollToContent).toHaveBeenCalledWith(
-      imageElement,
-      expect.objectContaining({ animate: true }),
-    );
+    expect(setViewport).toHaveBeenCalledWith({
+      target: imageElement,
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
+    });
   });
 
   it("selects elements by element id or file id", async () => {

@@ -276,7 +276,7 @@ describe("agentCommandRuntime", () => {
 
   it("locates an image element by file id", async () => {
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
     const result = await handleAgentCommandRequest(
       {
         requestId: "request-1",
@@ -291,7 +291,7 @@ describe("agentCommandRuntime", () => {
           ({
             getSceneElementsIncludingDeleted: () => [imageElement],
             updateScene,
-            scrollToContent,
+            setViewport,
           }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
             : never,
@@ -312,17 +312,18 @@ describe("agentCommandRuntime", () => {
         }),
       }),
     );
-    expect(scrollToContent).toHaveBeenCalledWith(
-      imageElement,
-      expect.objectContaining({
-        animate: true,
-      }),
-    );
+    expect(setViewport).toHaveBeenCalledWith({
+      target: imageElement,
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
+    });
   });
 
   it("locates the result image that references an off-board source file", async () => {
     const updateScene = vi.fn();
-    const scrollToContent = vi.fn();
+    const setViewport = vi.fn();
     const project = createProject();
     project.imageRecords = {
       "source-file": {
@@ -382,7 +383,7 @@ describe("agentCommandRuntime", () => {
           ({
             getSceneElementsIncludingDeleted: () => [resultElement],
             updateScene,
-            scrollToContent,
+            setViewport,
           }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
             : never,
@@ -396,10 +397,13 @@ describe("agentCommandRuntime", () => {
       fileIds: ["result-file"],
       requestedFileIds: ["source-file"],
     });
-    expect(scrollToContent).toHaveBeenCalledWith(
-      resultElement,
-      expect.objectContaining({ animate: true }),
-    );
+    expect(setViewport).toHaveBeenCalledWith({
+      target: resultElement,
+      fit: "none",
+      animation: {
+        duration: 300,
+      },
+    });
   });
 
   it("reports a repairable locate miss when a file has no board element", async () => {
@@ -417,7 +421,7 @@ describe("agentCommandRuntime", () => {
           ({
             getSceneElementsIncludingDeleted: () => [],
             updateScene: vi.fn(),
-            scrollToContent: vi.fn(),
+            setViewport: vi.fn(),
           }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
             : never,

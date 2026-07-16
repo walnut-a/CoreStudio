@@ -147,13 +147,8 @@ export const AgentBoard = () => {
 
     return {
       elements: board.elements,
-      appState: {
-        ...board.appState,
-        viewModeEnabled: true,
-        zenModeEnabled: true,
-      },
+      appState: board.appState,
       files: board.files,
-      scrollToContent: true,
     };
   }, [board]);
 
@@ -194,8 +189,18 @@ export const AgentBoard = () => {
                 key={board.updatedAt}
                 langCode={DESKTOP_LANG_CODE}
                 initialData={boardInitialData}
-                viewModeEnabled={true}
-                zenModeEnabled={true}
+                initialState={{
+                  viewport: {
+                    target: boardInitialData.elements ?? [],
+                    fit: "scale-down",
+                  },
+                }}
+                interaction={{
+                  enabled: {
+                    navigation: true,
+                  },
+                }}
+                ui={false}
               />
             ) : (
               <div className="agent-board-empty" role="status">

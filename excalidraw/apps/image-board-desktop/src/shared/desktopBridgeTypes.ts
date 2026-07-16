@@ -268,10 +268,12 @@ export interface ImportedImagePayload extends ProjectAssetPayload {
   fileName: string;
 }
 
-export type PublicProviderSettings = Partial<Record<
-  ProviderId,
-  Omit<ProviderSettings, "apiKey"> & { isConfigured: boolean }
->>;
+export type PublicProviderSettings = Partial<
+  Record<
+    ProviderId,
+    Omit<ProviderSettings, "apiKey"> & { isConfigured: boolean }
+  >
+>;
 
 export interface ProviderConfigurationSnapshot {
   schemaVersion: 2;
@@ -302,8 +304,8 @@ export type CodexIntegrationCheckStatus =
 export interface CodexIntegrationCheck {
   id: CodexIntegrationCheckId;
   status: CodexIntegrationCheckStatus;
-  label: string;
-  detail: string;
+  executablePath?: string;
+  installedVersion?: string | null;
 }
 
 export interface CodexIntegrationStatus {

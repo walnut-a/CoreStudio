@@ -58,23 +58,9 @@ export const inspectCodexIntegration = async ({
   readFile = fsReadFile,
 }: InspectCodexIntegrationOptions): Promise<CodexIntegrationStatus> => {
   const cliPath = join(homeDir, ".local", "bin", "corestudio");
-  const skillPath = join(
-    homeDir,
-    ".codex",
-    "skills",
-    "corestudio",
-    "SKILL.md",
-  );
-  const manifestPath = join(
-    homeDir,
-    ".codex",
-    "corestudio-integration.json",
-  );
-  const installerPath = join(
-    resourcesPath,
-    "codex-integration",
-    "install.sh",
-  );
+  const skillPath = join(homeDir, ".codex", "skills", "corestudio", "SKILL.md");
+  const manifestPath = join(homeDir, ".codex", "corestudio-integration.json");
+  const installerPath = join(resourcesPath, "codex-integration", "install.sh");
   const command = ["/bin/bash", shellQuote(installerPath)].join(" ");
   const guideUrl = `https://github.com/walnut-a/CoreStudio/blob/v${appVersion}/docs/codex-integration.md`;
 
@@ -102,40 +88,29 @@ export const inspectCodexIntegration = async ({
   const compatibilityStatus: CodexIntegrationCheck["status"] = manifestBroken
     ? "broken"
     : !manifest
-      ? "missing"
-      : manifest.version !== appVersion
-        ? "outdated"
-        : manifest.cliPath !== cliPath ||
-            manifest.skillPath !== skillPath ||
-            !manifest.supportsSessionDiscovery
-          ? "broken"
-          : "ready";
+    ? "missing"
+    : manifest.version !== appVersion
+    ? "outdated"
+    : manifest.cliPath !== cliPath ||
+      manifest.skillPath !== skillPath ||
+      !manifest.supportsSessionDiscovery
+    ? "broken"
+    : "ready";
 
   const checks: CodexIntegrationCheck[] = [
     {
       id: "cli",
-      label: "CoreStudio CLI",
       status: cliReady ? "ready" : "missing",
-      detail: cliReady ? `可执行：${cliPath}` : `未找到可执行文件：${cliPath}`,
+      executablePath: cliPath,
     },
     {
       id: "skill",
-      label: "CoreStudio Skill",
       status: skillReady ? "ready" : "missing",
-      detail: skillReady ? "Codex 可以发现 CoreStudio 使用说明" : "Codex Skill 尚未安装",
     },
     {
       id: "compatibility",
-      label: "版本与会话发现",
       status: compatibilityStatus,
-      detail:
-        compatibilityStatus === "ready"
-          ? `版本 ${appVersion}，支持发现本机 CoreStudio 会话`
-          : compatibilityStatus === "outdated"
-            ? `已安装 ${manifest?.version ?? "未知版本"}，当前需要 ${appVersion}`
-            : compatibilityStatus === "broken"
-              ? "安装记录不完整或无法读取"
-              : "尚未找到集成安装记录",
+      installedVersion: manifest?.version ?? null,
     },
   ];
 
@@ -144,10 +119,10 @@ export const inspectCodexIntegration = async ({
   )
     ? "ready"
     : compatibilityStatus === "outdated" && cliReady && skillReady
-      ? "update"
-      : !cliReady && !skillReady && !manifestReadable
-        ? "install"
-        : "repair";
+    ? "update"
+    : !cliReady && !skillReady && !manifestReadable
+    ? "install"
+    : "repair";
 
   return {
     state,

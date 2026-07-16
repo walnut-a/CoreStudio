@@ -67,7 +67,15 @@ describe("inspectCodexIntegration", () => {
     });
 
     expect(result.state).toBe("ready");
-    expect(result.checks.every((check) => check.status === "ready")).toBe(true);
+    expect(result.checks).toEqual([
+      { id: "cli", status: "ready", executablePath: CLI },
+      { id: "skill", status: "ready" },
+      {
+        id: "compatibility",
+        status: "ready",
+        installedVersion: "1.1.16",
+      },
+    ]);
   });
 
   it("安装版本落后时返回 update", async () => {

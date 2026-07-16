@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CodexIntegrationStatus } from "../../shared/desktopBridgeTypes";
+import { setActiveDesktopLocale } from "../copy";
 import {
   CODEX_INSTALL_PROMPT,
   CodexIntegrationSettings,
@@ -15,23 +16,72 @@ const status: CodexIntegrationStatus = {
     "https://github.com/walnut-a/CoreStudio/blob/v1.1.17/docs/codex-integration.md",
   detectedAt: "2026-07-14T00:00:00.000Z",
   checks: [
-    { id: "cli", label: "CoreStudio CLI", status: "missing", detail: "未找到" },
+    {
+      id: "cli",
+      status: "missing",
+      executablePath: "/Users/tester/.local/bin/corestudio",
+    },
     {
       id: "skill",
-      label: "CoreStudio Skill",
       status: "ready",
-      detail: "已安装",
     },
     {
       id: "compatibility",
-      label: "版本与会话发现",
       status: "outdated",
-      detail: "需要更新",
+      installedVersion: "1.1.16",
     },
   ],
 };
 
 describe("CodexIntegrationSettings", () => {
+  it("用当前界面语言展示环境检测名称和说明", async () => {
+    setActiveDesktopLocale("en");
+    const readyStatus: CodexIntegrationStatus = {
+      ...status,
+      state: "ready",
+      checks: [
+        {
+          id: "cli",
+          status: "ready",
+          executablePath: "/Users/tester/.local/bin/corestudio",
+        },
+        {
+          id: "skill",
+          status: "ready",
+        },
+        {
+          id: "compatibility",
+          status: "ready",
+          installedVersion: "1.1.17",
+        },
+      ],
+    };
+
+    render(
+      <CodexIntegrationSettings
+        open
+        inspect={vi.fn(async () => readyStatus)}
+        copyText={vi.fn(async () => true)}
+      />,
+    );
+
+    expect(
+      await screen.findByText("Version and session discovery"),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Executable: /Users/tester/.local/bin/corestudio"),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Codex can discover the CoreStudio usage guide."),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Version 1.1.17; local CoreStudio session discovery is available.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/版本|可执行：|可以发现/)).toBeNull();
+  });
+
   it("打开时检测并直接列出三项结果", async () => {
     const inspect = vi.fn(async () => status);
     render(
@@ -65,9 +115,10 @@ describe("CodexIntegrationSettings", () => {
     await screen.findByText("CoreStudio CLI");
     expect(screen.queryByText(status.command)).not.toBeInTheDocument();
     expect(
-      screen.getByText((_, element) =>
-        element?.tagName === "P" &&
-        element.textContent === CODEX_INSTALL_PROMPT(status),
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "P" &&
+          element.textContent === CODEX_INSTALL_PROMPT(status),
       ),
     ).toBeInTheDocument();
     const copyInstallButton = screen.getByRole("button", {
@@ -105,4 +156,8 @@ describe("CodexIntegrationSettings", () => {
     await waitFor(() => expect(inspect).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("CoreStudio CLI")).toBeInTheDocument();
   });
+});
+
+afterEach(() => {
+  setActiveDesktopLocale("zh-CN");
 });

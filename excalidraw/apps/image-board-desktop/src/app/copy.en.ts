@@ -406,6 +406,26 @@ export const enCopy: DesktopCopy = {
         outdated: "Update needed",
         broken: "Repair needed",
       },
+      checkLabel: {
+        cli: "CoreStudio CLI",
+        skill: "CoreStudio Skill",
+        compatibility: "Version and session discovery",
+      },
+      checkDetail: {
+        cliReady: (executablePath: string) => `Executable: ${executablePath}`,
+        cliMissing: (executablePath: string) =>
+          `Executable not found: ${executablePath}`,
+        skillReady: "Codex can discover the CoreStudio usage guide.",
+        skillMissing: "The CoreStudio Skill is not installed for Codex.",
+        compatibilityReady: (appVersion: string) =>
+          `Version ${appVersion}; local CoreStudio session discovery is available.`,
+        compatibilityOutdated: (installedVersion: string, appVersion: string) =>
+          `Installed version ${installedVersion}; version ${appVersion} is required.`,
+        compatibilityBroken:
+          "The integration record is incomplete or could not be read.",
+        compatibilityMissing: "No integration installation record was found.",
+        unknownVersion: "unknown version",
+      },
       startInCodex: "Start in Codex",
       openCurrentProject: "Open the current CoreStudio project",
       startDescription: "Copy this instruction into any Codex conversation.",

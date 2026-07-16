@@ -399,6 +399,25 @@ const zhCnCopy = {
         outdated: "需要更新",
         broken: "需要修复",
       },
+      checkLabel: {
+        cli: "CoreStudio CLI",
+        skill: "CoreStudio Skill",
+        compatibility: "版本与会话发现",
+      },
+      checkDetail: {
+        cliReady: (executablePath: string) => `可执行：${executablePath}`,
+        cliMissing: (executablePath: string) =>
+          `未找到可执行文件：${executablePath}`,
+        skillReady: "Codex 可以发现 CoreStudio 使用说明",
+        skillMissing: "Codex Skill 尚未安装",
+        compatibilityReady: (appVersion: string) =>
+          `版本 ${appVersion}，支持发现本机 CoreStudio 会话`,
+        compatibilityOutdated: (installedVersion: string, appVersion: string) =>
+          `已安装 ${installedVersion}，当前需要 ${appVersion}`,
+        compatibilityBroken: "安装记录不完整或无法读取",
+        compatibilityMissing: "尚未找到集成安装记录",
+        unknownVersion: "未知版本",
+      },
       startInCodex: "在 Codex 中开始",
       openCurrentProject: "打开当前 CoreStudio 项目",
       startDescription: "复制这句话，粘贴到任意 Codex 对话中。",

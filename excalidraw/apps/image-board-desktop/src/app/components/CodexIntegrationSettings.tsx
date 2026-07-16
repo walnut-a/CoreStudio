@@ -1,6 +1,9 @@
 import { useState } from "react";
 
-import type { CodexIntegrationStatus } from "../../shared/desktopBridgeTypes";
+import type {
+  CodexIntegrationCheck,
+  CodexIntegrationStatus,
+} from "../../shared/desktopBridgeTypes";
 import { copy } from "../copy";
 import { useCodexIntegrationStatus } from "../useCodexIntegrationStatus";
 import { DesktopButton } from "./DesktopButton";
@@ -16,6 +19,51 @@ export const CODEX_INSTALL_PROMPT = ({
   guideUrl,
 }: Pick<CodexIntegrationStatus, "appVersion" | "guideUrl">) =>
   copy.applicationSettings.codexPage.installPrompt(appVersion, guideUrl);
+
+const getCheckPresentation = (
+  check: CodexIntegrationCheck,
+  appVersion: string,
+) => {
+  const { checkDetail, checkLabel } = copy.applicationSettings.codexPage;
+
+  if (check.id === "cli") {
+    const executablePath = check.executablePath ?? "corestudio";
+    return {
+      label: checkLabel.cli,
+      detail:
+        check.status === "ready"
+          ? checkDetail.cliReady(executablePath)
+          : checkDetail.cliMissing(executablePath),
+    };
+  }
+
+  if (check.id === "skill") {
+    return {
+      label: checkLabel.skill,
+      detail:
+        check.status === "ready"
+          ? checkDetail.skillReady
+          : checkDetail.skillMissing,
+    };
+  }
+
+  const detail =
+    check.status === "ready"
+      ? checkDetail.compatibilityReady(appVersion)
+      : check.status === "outdated"
+      ? checkDetail.compatibilityOutdated(
+          check.installedVersion ?? checkDetail.unknownVersion,
+          appVersion,
+        )
+      : check.status === "broken"
+      ? checkDetail.compatibilityBroken
+      : checkDetail.compatibilityMissing;
+
+  return {
+    label: checkLabel.compatibility,
+    detail,
+  };
+};
 
 export const CodexIntegrationSettings = ({
   open,
@@ -102,27 +150,33 @@ export const CodexIntegrationSettings = ({
               </div>
             </div>
             <div className="settings-check-list">
-              {status.checks.map((check) => (
-                <div className="settings-check-row" key={check.id}>
-                  <span
-                    className={`settings-check-row__icon settings-check-row__icon--${check.status}`}
-                    aria-hidden="true"
-                  >
-                    {check.status === "ready" ? "✓" : "!"}
-                  </span>
-                  <span>
-                    <strong>{check.label}</strong>
-                    <small>{check.detail}</small>
-                  </span>
-                  <em>
-                    {
-                      copy.applicationSettings.codexPage.checkStatus[
-                        check.status
-                      ]
-                    }
-                  </em>
-                </div>
-              ))}
+              {status.checks.map((check) => {
+                const presentation = getCheckPresentation(
+                  check,
+                  status.appVersion,
+                );
+                return (
+                  <div className="settings-check-row" key={check.id}>
+                    <span
+                      className={`settings-check-row__icon settings-check-row__icon--${check.status}`}
+                      aria-hidden="true"
+                    >
+                      {check.status === "ready" ? "✓" : "!"}
+                    </span>
+                    <span>
+                      <strong>{presentation.label}</strong>
+                      <small>{presentation.detail}</small>
+                    </span>
+                    <em>
+                      {
+                        copy.applicationSettings.codexPage.checkStatus[
+                          check.status
+                        ]
+                      }
+                    </em>
+                  </div>
+                );
+              })}
             </div>
           </section>
         </>

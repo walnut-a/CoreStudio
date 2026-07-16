@@ -26,6 +26,7 @@ export const GeneralSettingsSection = ({
           <p>{copy.applicationSettings.languageDescription}</p>
         </div>
         <select
+          className="app-settings-section__select"
           aria-label={copy.applicationSettings.language}
           value={preference}
           onChange={(event) =>

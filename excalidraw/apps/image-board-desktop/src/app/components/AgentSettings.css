@@ -44,6 +44,36 @@
   line-height: 1.5;
 }
 
+.app-settings-section__select {
+  appearance: none;
+  min-width: 164px;
+  min-height: 40px;
+  flex: 0 0 auto;
+  padding: 0 40px 0 12px;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius-lg);
+  background-color: var(--input-bg-color);
+  background-image: var(--dropdown-icon);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 14px) 50%;
+  background-size: 12px;
+  color: var(--text-primary-color);
+  font: inherit;
+  font-size: var(--ui-text-size-lg);
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.app-settings-section__select:hover {
+  background-color: var(--input-hover-bg-color);
+}
+
+.app-settings-section__select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
 .app-settings-section__switch {
   position: relative;
   flex: 0 0 auto;
@@ -243,5 +273,9 @@
   .app-settings-section__top {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .app-settings-section__select {
+    width: 100%;
   }
 }

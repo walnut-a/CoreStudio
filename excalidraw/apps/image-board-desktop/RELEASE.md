@@ -29,8 +29,10 @@ cd excalidraw
 正式打包：
 
 ```sh
-CSC_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" corepack yarn package:desktop
+CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" corepack yarn package:desktop
 ```
+
+正式发布不要在这个命令前额外运行 `build:desktop`；`package:desktop` 已经包含唯一一次生产构建。
 
 这个命令会执行：
 
@@ -38,12 +40,12 @@ CSC_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" corepack yarn package:d
 - Electron main / preload build
 - 源码密钥扫描
 - 打包输入密钥扫描
-- electron-builder 打包
+- electron-builder 生成签名 App 与 DMG（不预生成 ZIP）
 - DMG 签名
 - Apple 公证
 - DMG / App 写入公证票据
 - Gatekeeper 校验
-- ZIP 重新压缩
+- App 写入公证票据后单次生成最终 ZIP
 - DMG / ZIP blockmap 重新生成
 - release 输出密钥扫描
 
@@ -131,7 +133,7 @@ source=Notarized Developer ID
 
 ## ZIP 处理
 
-`notarize:release` 会在 `CoreStudio.app` 写入票据后重新压缩 ZIP，并重新生成 `.blockmap`。发布 ZIP 前可以再抽检一次：
+`electron-builder` 不生成公证前的 ZIP；`notarize:release` 会在 `CoreStudio.app` 写入票据后单次压缩最终 ZIP，并重新生成 `.blockmap`。发布 ZIP 前可以再抽检一次：
 
 ```sh
 cd excalidraw

@@ -14,7 +14,8 @@ export type ApplicationSettingsCategory =
   | "general"
   | "image-generation"
   | "codex-integration"
-  | "experimental";
+  | "experimental"
+  | "about";
 
 export interface ApplicationSettingsDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export interface ApplicationSettingsDialogProps {
   imageGenerationContent: ReactNode;
   codexIntegrationContent: ReactNode;
   experimentalContent: ReactNode;
+  aboutContent: ReactNode;
 }
 
 const ApplicationSettingsLeaveContext = createContext<
@@ -47,6 +49,7 @@ export const ApplicationSettingsDialog = ({
   imageGenerationContent,
   codexIntegrationContent,
   experimentalContent,
+  aboutContent,
 }: ApplicationSettingsDialogProps) => {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
@@ -100,6 +103,7 @@ export const ApplicationSettingsDialog = ({
       label: copy.applicationSettings.codexIntegration,
     },
     { id: "experimental", label: copy.applicationSettings.experimental },
+    { id: "about", label: copy.applicationSettings.about },
   ];
 
   const content =
@@ -109,7 +113,9 @@ export const ApplicationSettingsDialog = ({
       ? imageGenerationContent
       : activeCategory === "codex-integration"
       ? codexIntegrationContent
-      : experimentalContent;
+      : activeCategory === "experimental"
+      ? experimentalContent
+      : aboutContent;
 
   return (
     <div className="dialog-backdrop app-settings-backdrop">

@@ -807,6 +807,22 @@ describe("generate composer styles", () => {
     expect(overlaySource).toContain("copy.startup.editorLoading");
   });
 
+  it("hides the Excalidraw loading message behind the CoreStudio editor loading overlay", () => {
+    const source = readImageBoardApp();
+    const appCss = readRootAppCss();
+
+    expect(source).toContain("image-board-canvas--editor-initializing");
+    expect(appCss).toContain(
+      ".image-board-canvas--editor-initializing .LoadingMessage",
+    );
+    expect(
+      getRule(
+        appCss,
+        ".image-board-canvas--editor-initializing .LoadingMessage",
+      ),
+    ).toContain("display: none");
+  });
+
   it("keeps current project entry actions outside the root app", () => {
     const source = readImageBoardApp();
 

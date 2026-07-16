@@ -10,7 +10,9 @@
 
 - `~/.local/bin/corestudio`：CoreStudio CLI 入口。
 - `~/.codex/skills/corestudio/SKILL.md`：CoreStudio Skill。
-- `~/.codex/corestudio-integration.json`：版本与会话发现记录。
+- `~/.codex/corestudio-integration.json`：独立的集成版本与兼容性记录。
+
+Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。CoreStudio 1.1.19 内置的当前集成版本为 `1.0.1`，其中 Skill 会识别 Codex 网络沙箱限制，并通过安装版 Local Bridge 打开 Agent Board。
 
 不要直接修改 CoreStudio 项目文件，不要从网络下载或执行其他安装脚本。安装代码必须来自本机已签名的 CoreStudio 应用包。
 
@@ -51,6 +53,24 @@ test -r "$HOME/.codex/skills/corestudio/SKILL.md"
 test -r "$HOME/.codex/corestudio-integration.json"
 ```
 
-读取 `~/.codex/corestudio-integration.json`，确认其中版本与当前 CoreStudio 一致。随后请用户回到“应用设置 → Codex 集成”点击“重新检测”。
+读取 `~/.codex/corestudio-integration.json`，确认其中包含：
+
+- `integrationVersion`：独立的 Codex 集成版本。
+- `installedFromAppVersion`：执行安装时的 CoreStudio 客户端版本，仅用于追踪来源，不参与兼容判断。
+- `bridgeProtocolVersion`、`skillVersion`、`cliWrapperVersion`：实际参与兼容判断的契约版本。
+
+随后请用户回到“应用设置 → Codex 集成”点击“重新检测”。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.0.1` Skill 契约下会提示执行一次更新。
+
+## Codex 沙箱与打开当前项目
+
+CoreStudio CLI 先通过本机会话文件发现 Local Bridge。若 JSON 错误详情包含 `sessionDiscovered: true`，表示 CoreStudio 和项目会话已经找到，只是当前 Codex 命令运行环境无法访问 `127.0.0.1`。此时应在网络沙箱外重试原命令，不要把它误判为 Bridge 未启用。
+
+读取上下文成功后，执行：
+
+```bash
+corestudio read board-url --json
+```
+
+CLI 会在安装版 CoreStudio 提供的 Agent Board 地址上补入当前项目 token。随后使用 Codex 内置浏览器打开 `boardUrl`，即可加载当前项目。
 
 如果检测仍未通过，报告具体缺失项，不要反复盲目执行安装器。

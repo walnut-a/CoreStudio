@@ -25,6 +25,19 @@ const unavailableEnvelope = {
     message: "CoreStudio is not running or Agent Bridge is not enabled.",
   },
 };
+const discoveredButUnreachableEnvelope = {
+  ok: false,
+  error: {
+    code: "BRIDGE_UNAVAILABLE",
+    message:
+      "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If this command is running in Codex, allow it to run outside the network sandbox so it can access localhost.",
+    details: {
+      baseUrl,
+      sessionDiscovered: true,
+      cause: "connect ECONNREFUSED",
+    },
+  },
+};
 const invalidJsonEnvelope = {
   ok: false,
   error: {
@@ -466,7 +479,7 @@ describe("runCli", () => {
       `${JSON.stringify({
         ok: true,
         data: {
-          boardUrl,
+          boardUrl: `${boardUrl}&projectToken=${projectToken}`,
         },
       })}\n`,
     );
@@ -491,7 +504,7 @@ describe("runCli", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe(`${boardUrl}\n`);
+    expect(result.stdout).toBe(`${boardUrl}&projectToken=${projectToken}\n`);
   });
 
   it("returns a command failure when the bridge has no Agent Board URL", async () => {
@@ -936,7 +949,9 @@ describe("runCli", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe(`${JSON.stringify(unavailableEnvelope)}\n`);
+    expect(result.stdout).toBe(
+      `${JSON.stringify(discoveredButUnreachableEnvelope)}\n`,
+    );
   });
 
   it.each([

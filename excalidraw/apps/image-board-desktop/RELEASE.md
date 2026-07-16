@@ -183,6 +183,43 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
+## 1.1.19 发布说明
+
+1.1.19 升级 Excalidraw 上游基线，并收口 CoreStudio 的长期兼容边界：
+
+- 在保留 CoreStudio 项目、图片生成、Agent、检查器和桌面工作流的基础上升级 Excalidraw 基线
+- 增加“应用设置 → 关于”，展示 CoreStudio 版本、代码仓库和主要开源依赖版本
+- 修复打开项目时 CoreStudio 加载动画底部短暂闪现 Excalidraw 英文加载提示的问题
+- 将 Codex 集成版本从客户端版本中解耦，当前独立集成版本为 `1.0.1`
+- Codex 集成兼容性改为检查 Local Bridge 协议、Skill 和 CLI 包装器版本，普通客户端升级不再要求重装
+- 修复 Codex 网络沙箱阻断 localhost 时被误报为 CoreStudio 或 Bridge 未启动的问题
+- 安装版通过 Local Bridge 托管 Agent Board，并由 CLI 安全补入当前项目 token，使“打开当前 CoreStudio 项目”可以真正打开画布
+- 旧格式和 `1.0.0` 集成需要执行一次更新以获得新版 Skill；后续普通客户端升级仍不要求重装
+
+本次发布通过了这些检查：
+
+- 262 个测试文件、1996 项测试全部通过
+- TypeScript typecheck、source/package-input/release secret scan 和 production build 全部通过
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `7ea4db43-c709-4496-82a4-df084824cff0`，状态 `Accepted`
+- App 与 DMG 的 stapler validate、Gatekeeper、codesign 和 DMG 完整性校验通过
+
+校验值：
+
+```text
+CoreStudio-1.1.19-arm64.dmg
+sha256: e462f5356ca7b8d0dd1d595375740f719501426122fe750224f2d9401b60c84e
+
+CoreStudio-1.1.19-arm64-mac.zip
+sha256: 0439f4623c53183e44a3ef19faf1c186c9f05a7c8c67188084797d38d4b5b517
+
+CoreStudio-1.1.19-arm64.dmg.blockmap
+sha256: 5486e403a495e12499d1edbd096aaf2ff3f4f03976974d9f7c56dbc3f1179057
+
+CoreStudio-1.1.19-arm64-mac.zip.blockmap
+sha256: 852ca7ead26469e7e7dacfa4c43ca86a4a45fe76ba6664a70e2cbdb858fd70bb
+```
+
 ## 1.1.18 发布说明
 
 1.1.18 增加 CoreStudio 桌面界面的多语言支持：

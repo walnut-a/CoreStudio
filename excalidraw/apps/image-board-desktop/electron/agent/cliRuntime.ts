@@ -64,6 +64,7 @@ interface CliCommand {
   ) => AgentEnvelope<unknown>;
   transformEnvelope?: (
     envelope: AgentEnvelope<unknown>,
+    bridge: BridgeSession,
   ) => AgentEnvelope<unknown>;
   formatHuman?: (data: unknown) => string;
 }
@@ -78,6 +79,20 @@ const bridgeUnavailableEnvelope = () =>
   createAgentError(
     "BRIDGE_UNAVAILABLE",
     "CoreStudio is not running or Agent Bridge is not enabled.",
+  );
+
+const discoveredBridgeUnavailableEnvelope = (
+  bridge: BridgeSession,
+  error: unknown,
+) =>
+  createAgentError(
+    "BRIDGE_UNAVAILABLE",
+    "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If this command is running in Codex, allow it to run outside the network sandbox so it can access localhost.",
+    {
+      baseUrl: bridge.baseUrl,
+      sessionDiscovered: true,
+      cause: getErrorMessage(error),
+    },
   );
 
 const badRequestEnvelope = (message: string) =>
@@ -344,7 +359,7 @@ const parseCommand = (
     if (target === "board-url") {
       return {
         ...route,
-        transformEnvelope: (envelope) => {
+        transformEnvelope: (envelope, bridge) => {
           if (!envelope.ok) {
             return envelope;
           }
@@ -354,10 +369,12 @@ const parseCommand = (
               "Agent Bridge did not return a Board URL.",
             );
           }
+          const boardUrl = new URL(data.boardUrl);
+          boardUrl.searchParams.set("projectToken", bridge.projectToken);
           return {
             ok: true,
             data: {
-              boardUrl: data.boardUrl,
+              boardUrl: boardUrl.toString(),
             },
           };
         },
@@ -1180,7 +1197,7 @@ export const runCli = async (
   try {
     const envelope = await requestBridge(command, bridge, fetchImpl, body);
     const nextEnvelope = command.transformEnvelope
-      ? command.transformEnvelope(envelope)
+      ? command.transformEnvelope(envelope, bridge)
       : envelope;
     return finishWithEnvelope(
       nextEnvelope,
@@ -1189,9 +1206,9 @@ export const runCli = async (
       options.stderr,
       command.formatHuman,
     );
-  } catch {
+  } catch (error) {
     return finishWithEnvelope(
-      bridgeUnavailableEnvelope(),
+      discoveredBridgeUnavailableEnvelope(bridge, error),
       mode,
       options.stdout,
       options.stderr,

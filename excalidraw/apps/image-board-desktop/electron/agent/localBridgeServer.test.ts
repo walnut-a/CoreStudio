@@ -1,3 +1,7 @@
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -82,9 +86,15 @@ const startServer = async (
 
 describe("createLocalBridgeServer", () => {
   const handles: Awaited<ReturnType<typeof startServer>>["server"][] = [];
+  const temporaryDirectories: string[] = [];
 
   afterEach(async () => {
     await Promise.all(handles.splice(0).map((handle) => handle.close()));
+    await Promise.all(
+      temporaryDirectories
+        .splice(0)
+        .map((directory) => rm(directory, { recursive: true, force: true })),
+    );
     vi.restoreAllMocks();
   });
 
@@ -93,6 +103,41 @@ describe("createLocalBridgeServer", () => {
     handles.push(serverContext.server);
     return serverContext;
   };
+
+  it("serves the packaged Agent Board and its built assets", async () => {
+    const assetsDir = await mkdtemp(
+      path.join(os.tmpdir(), "corestudio-agent-board-"),
+    );
+    temporaryDirectories.push(assetsDir);
+    await mkdir(path.join(assetsDir, "assets"));
+    await writeFile(
+      path.join(assetsDir, "index.html"),
+      '<script type="module" src="./assets/index.js"></script>',
+    );
+    await writeFile(
+      path.join(assetsDir, "assets", "index.js"),
+      'console.log("agent-board")',
+    );
+    const { server } = await track(
+      startServer({
+        agentBoardAssetsDir: assetsDir,
+      }),
+    );
+
+    const boardResponse = await fetch(`${server.baseUrl}/agent-board`);
+    expect(boardResponse.status).toBe(200);
+    expect(boardResponse.headers.get("content-type")).toBe(
+      "text/html; charset=utf-8",
+    );
+    await expect(boardResponse.text()).resolves.toContain("./assets/index.js");
+
+    const assetResponse = await fetch(`${server.baseUrl}/assets/index.js`);
+    expect(assetResponse.status).toBe(200);
+    expect(assetResponse.headers.get("content-type")).toBe(
+      "text/javascript; charset=utf-8",
+    );
+    await expect(assetResponse.text()).resolves.toContain("agent-board");
+  });
 
   it("returns status with the current project when authenticated", async () => {
     const { server } = await track(startServer());

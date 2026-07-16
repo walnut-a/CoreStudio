@@ -14,6 +14,14 @@ import { dirname, join, resolve } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { AGENT_BRIDGE_PROTOCOL_VERSION } from "../src/shared/agentBridgeTypes";
+import {
+  CODEX_INTEGRATION_CLI_WRAPPER_VERSION,
+  CODEX_INTEGRATION_MANIFEST_SCHEMA_VERSION,
+  CODEX_INTEGRATION_SKILL_VERSION,
+  CODEX_INTEGRATION_VERSION,
+} from "../src/shared/codexIntegrationContract";
+
 const sourceRoot = resolve(
   process.cwd(),
   "apps/image-board-desktop/resources/codex-integration",
@@ -41,6 +49,21 @@ describe("CoreStudio Codex integration installer", () => {
     expect(source).toContain('[[ ! -f "$APP_ASAR"');
     expect(source).not.toContain('[[ ! -f "$CLI_RUNTIME"');
     expect(source).not.toContain("--resources-dir");
+    expect(source).toContain(
+      `INTEGRATION_VERSION="${CODEX_INTEGRATION_VERSION}"`,
+    );
+    expect(source).toContain(
+      `MANIFEST_SCHEMA_VERSION=${CODEX_INTEGRATION_MANIFEST_SCHEMA_VERSION}`,
+    );
+    expect(source).toContain(
+      `BRIDGE_PROTOCOL_VERSION=${AGENT_BRIDGE_PROTOCOL_VERSION}`,
+    );
+    expect(source).toContain(
+      `SKILL_VERSION=${CODEX_INTEGRATION_SKILL_VERSION}`,
+    );
+    expect(source).toContain(
+      `CLI_WRAPPER_VERSION=${CODEX_INTEGRATION_CLI_WRAPPER_VERSION}`,
+    );
   });
 
   it.runIf(process.platform === "darwin")(
@@ -89,7 +112,12 @@ describe("CoreStudio Codex integration installer", () => {
       expect(existsSync(cli)).toBe(true);
       expect(existsSync(skill)).toBe(true);
       expect(JSON.parse(readFileSync(manifestPath, "utf8"))).toMatchObject({
-        version: "9.8.7",
+        schemaVersion: CODEX_INTEGRATION_MANIFEST_SCHEMA_VERSION,
+        integrationVersion: CODEX_INTEGRATION_VERSION,
+        installedFromAppVersion: "9.8.7",
+        bridgeProtocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
+        skillVersion: CODEX_INTEGRATION_SKILL_VERSION,
+        cliWrapperVersion: CODEX_INTEGRATION_CLI_WRAPPER_VERSION,
         cliPath: cli,
         skillPath: skill,
         supportsSessionDiscovery: true,

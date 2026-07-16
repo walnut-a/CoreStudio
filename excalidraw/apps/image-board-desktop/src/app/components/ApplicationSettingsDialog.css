@@ -201,6 +201,69 @@
   background: var(--island-bg-color);
 }
 
+.settings-about-summary,
+.settings-about-dependency-list {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+}
+
+.settings-about-summary > div,
+.settings-about-dependency-list > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 0.65fr);
+  align-items: baseline;
+  gap: 20px;
+  padding: 14px 16px;
+}
+
+.settings-about-summary > div + div,
+.settings-about-dependency-list > div + div {
+  border-top: 1px solid var(--default-border-color);
+}
+
+.settings-about-summary dt,
+.settings-about-dependency-list dt {
+  color: var(--color-gray-70);
+  font-size: var(--ui-text-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.settings-about-summary dd,
+.settings-about-dependency-list dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary-color);
+  overflow-wrap: anywhere;
+}
+
+.settings-about-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-about-link:hover {
+  text-decoration: underline;
+}
+
+.settings-about-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  outline-offset: 3px;
+  border-radius: var(--border-radius-md);
+}
+
+.settings-about-dependencies {
+  display: grid;
+  gap: 12px;
+}
+
 .settings-service-empty {
   display: grid;
   min-height: 220px;

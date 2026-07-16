@@ -123,6 +123,7 @@ import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
 import { type ApplicationSettingsCategory } from "./components/ApplicationSettingsDialog";
 import { ImageGenerationSettings } from "./components/ImageGenerationSettings";
 import { GeneralSettingsSection } from "./components/GeneralSettingsSection";
+import { AboutSettingsSection } from "./components/AboutSettingsSection";
 import { CodexIntegrationSettings } from "./components/CodexIntegrationSettings";
 import { ExperimentalFeaturesSettingsSection } from "./components/ExperimentalFeaturesSettingsSection";
 import { AcpAgentSettingsPanel } from "./components/AcpAgentSettingsPanel";
@@ -132,6 +133,10 @@ import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
+import {
+  CORESTUDIO_OPEN_SOURCE_DEPENDENCIES,
+  CORESTUDIO_REPOSITORY_URL,
+} from "./aboutMetadata";
 import {
   createGenerationTrackingRendererActions,
   applyPendingGenerationJobRegistryState,
@@ -1900,6 +1905,16 @@ const App = ({
             onOpenAdvanced={() => setAcpAdvancedSettingsOpen(true)}
           />
         ),
+        aboutContent: (
+          <AboutSettingsSection
+            appInfo={appInfo}
+            repositoryUrl={CORESTUDIO_REPOSITORY_URL}
+            dependencies={CORESTUDIO_OPEN_SOURCE_DEPENDENCIES}
+            onOpenExternal={(url) => {
+              void desktopBridge.openExternal?.(url);
+            }}
+          />
+        ),
       }}
       acpRunLog={{
         open: acpRunLogDialogOpen,
@@ -1986,6 +2001,12 @@ const App = ({
   ]
     .filter(Boolean)
     .join(" ");
+  const canvasClassName = [
+    "image-board-canvas",
+    isEditorInitializing ? "image-board-canvas--editor-initializing" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={appClassName}>
@@ -2000,7 +2021,7 @@ const App = ({
         onReset={projectRenderBoundaryRendererActions.resetProjectView}
       >
         <div className="image-board-shell">
-          <div className="image-board-canvas">
+          <div className={canvasClassName}>
             {isEditorInitializing ? <EditorLoadingOverlay /> : null}
             {renderProjectStatusToast()}
             <Suspense fallback={null}>

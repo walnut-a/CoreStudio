@@ -33,6 +33,7 @@ const createProps = (
     imageGenerationContent: <div>图像生成</div>,
     codexIntegrationContent: <div>Codex 集成</div>,
     experimentalContent: <div>实验性功能</div>,
+    aboutContent: <div>关于</div>,
   },
   acpRunLog: {
     open: false,

@@ -52,6 +52,8 @@
     "test:coverage": "vitest --coverage",
     "test:coverage:watch": "vitest --coverage --watch",
     "test:desktop": "vitest apps/image-board-desktop",
+    "upstream:check": "node scripts/syncUpstream.mjs",
+    "upstream:apply": "node scripts/syncUpstream.mjs --apply",
     "fix:other": "yarn prettier --write",
     "fix": "yarn fix:other",
     "locales-coverage": "node scripts/build-locales-coverage.js",

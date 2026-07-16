@@ -242,7 +242,7 @@ describe("component style ownership boundaries", () => {
     expect(agentSidebarSource).not.toContain("Agent Bridge 尚未就绪");
     expect(agentSidebarSource).toContain("<AgentConversationComposer");
     expect(agentSidebarSource).toContain("threadListOpen");
-    expect(agentHeaderSource).toContain("打开 Agent 对话列表");
+    expect(agentHeaderSource).toContain("copy.agentUi.header.list");
     expect(agentSidebarSource).toContain("onSubmitMessage");
     expect(agentSidebarSource).toContain("threadEntries");
     expect(agentSidebarSource).toContain("threadSummaries");
@@ -254,8 +254,10 @@ describe("component style ownership boundaries", () => {
     expect(agentSidebarSource).not.toContain(
       "agent-conversation-sidebar__toolbar",
     );
-    expect(agentComposerSource).toContain("输入任务");
-    expect(agentComposerSource).toContain("继续对话");
+    expect(agentComposerSource).toContain("copy.agentUi.composer.enterTask");
+    expect(agentComposerSource).toContain(
+      "copy.agentUi.composer.continueConversation",
+    );
     expect(agentComposerSource).toContain("onSubmitMessage");
     expect(sidebarRule).toContain(
       "grid-template-rows: auto minmax(0, 1fr) auto",

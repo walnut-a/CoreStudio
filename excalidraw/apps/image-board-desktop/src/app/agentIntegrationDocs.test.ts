@@ -18,9 +18,7 @@ describe("agent integration docs", () => {
     const codexSettings = readDoc(
       "apps/image-board-desktop/src/app/components/CodexIntegrationSettings.tsx",
     );
-    const installationGuide = readDoc(
-      "../docs/codex-integration.md",
-    );
+    const installationGuide = readDoc("../docs/codex-integration.md");
     const desktopPackage = JSON.parse(
       readDoc("apps/image-board-desktop/package.json"),
     ) as {
@@ -38,9 +36,13 @@ describe("agent integration docs", () => {
     expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
     expect(architecture).toContain("CLI / Local Bridge");
     expect(architecture).toContain("Codex 集成没有启停状态");
-    expect(codexSettings).toContain("交给 Codex");
+    expect(codexSettings).toContain(
+      "copy.applicationSettings.codexPage.handToCodex",
+    );
     expect(codexSettings).not.toContain("终端指令");
-    expect(codexSettings).toContain("打开当前 CoreStudio 项目");
+    expect(codexSettings).toContain(
+      "copy.applicationSettings.codexPage.openCurrentProject",
+    );
     expect(installationGuide).toContain("# CoreStudio Codex 集成安装指南");
     expect(installationGuide).toContain("install.sh");
     expect(installationGuide).toContain("重新检测");
@@ -80,9 +82,7 @@ describe("agent integration docs", () => {
     );
 
     expect(cliContract).toContain("## ACP Task Package Example");
-    expect(cliContract).toContain(
-      '"schemaVersion": "corestudio.acpTask.v1"',
-    );
+    expect(cliContract).toContain('"schemaVersion": "corestudio.acpTask.v1"');
     expect(cliContract).toContain('"userPrompt"');
     expect(cliContract).toContain('"selectedElements"');
     expect(cliContract).toContain('"references"');

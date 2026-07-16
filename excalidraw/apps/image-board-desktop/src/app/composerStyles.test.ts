@@ -83,7 +83,9 @@ describe("generate composer styles", () => {
       "font-size: var(--image-inspector-body-size)",
     );
     expect(inspectorSidebarSource).toContain('side="right"');
-    expect(inspectorSidebarSource).toContain('title="详情"');
+    expect(inspectorSidebarSource).toContain(
+      "title={copy.inspector.sidebarTitle}",
+    );
     expect(inspectorSidebarSource).toContain("copy.elementActions.title");
     expect(inspectorSidebarSource).toContain("copy.inspector.title");
     expect(inspectorSidebarSource).toContain('import "./ImageInspector.css";');
@@ -755,7 +757,7 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("正在载入内置画板");
     expect(source).not.toContain("copy.startup.retryInstruction");
     expect(gateSource).toContain("const LazyAgentBoard");
-    expect(gateSource).toContain("正在载入内置画板");
+    expect(gateSource).toContain("copy.agentBoard.loadingBuiltInTitle");
     expect(gateSource).toContain("copy.startup.retryInstruction");
   });
 

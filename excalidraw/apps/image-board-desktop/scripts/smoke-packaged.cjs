@@ -212,11 +212,11 @@ const runCodexIntegrationSmoke = ({
         throw new Error(`Codex integration output is missing: ${installedPath}`);
       }
     }
-    JSON.parse(readFileSync(manifestPath, "utf8"));
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
     const cliResult = spawnSync(
       cliPath,
-      ["read", "context", "--json"],
+      ["--version", "--json"],
       {
         env: smokeEnv,
         encoding: "utf8",
@@ -230,8 +230,18 @@ const runCodexIntegrationSmoke = ({
         `Installed CoreStudio CLI did not return JSON: ${cliResult.stderr || cliResult.stdout}`,
       );
     }
-    if (!cliEnvelope || typeof cliEnvelope.ok !== "boolean") {
-      throw new Error("Installed CoreStudio CLI returned an invalid envelope.");
+    if (
+      cliResult.status !== 0 ||
+      !cliEnvelope ||
+      cliEnvelope.ok !== true ||
+      !cliEnvelope.data ||
+      cliEnvelope.data.appVersion !== manifest.installedFromAppVersion ||
+      cliEnvelope.data.integrationVersion !== manifest.integrationVersion ||
+      cliEnvelope.data.bridgeProtocolVersion !== manifest.bridgeProtocolVersion
+    ) {
+      throw new Error(
+        "Installed CoreStudio CLI version contract does not match the integration manifest.",
+      );
     }
 
     stdout.write("Packaged Codex integration smoke passed.\n");

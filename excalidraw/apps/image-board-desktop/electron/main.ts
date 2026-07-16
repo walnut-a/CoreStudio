@@ -97,7 +97,10 @@ import {
 import { shouldOpenDevTools } from "./devtools";
 import { createQuitState } from "./windowLifecycle";
 import { disableRendererPageZoom } from "./windowZoomGuard";
-import { inspectCodexIntegration } from "./codexIntegrationService";
+import {
+  inspectCodexIntegration,
+  installCodexIntegration,
+} from "./codexIntegrationService";
 import {
   createSingleInstanceController,
   focusExistingWindow,
@@ -1246,6 +1249,20 @@ const registerIpcHandlers = () => {
       resourcesPath: process.resourcesPath,
       appVersion: DESKTOP_APP_VERSION,
     }),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.installCodexIntegration,
+    async (_event, ...args) => {
+      if (args.length > 0) {
+        throw new Error(
+          "Codex integration installer does not accept arguments.",
+        );
+      }
+      return installCodexIntegration({
+        resourcesPath: process.resourcesPath,
+      });
+    },
   );
 
   ipcMain.handle(IPC_CHANNELS.loadProviderSettings, async () =>

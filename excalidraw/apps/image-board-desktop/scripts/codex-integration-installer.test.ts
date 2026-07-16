@@ -96,7 +96,16 @@ describe("CoreStudio Codex integration installer", () => {
       );
       writeFileSync(
         executable,
-        '#!/bin/sh\nprintf \'%s\\n\' \'{"ok":false,"error":{"code":"BRIDGE_UNAVAILABLE","message":"test"}}\'\n',
+        `#!/bin/sh
+case "$*" in
+  *--version*)
+    printf '%s\\n' '{"ok":true,"data":{"appVersion":"9.8.7","integrationVersion":"${CODEX_INTEGRATION_VERSION}","bridgeProtocolVersion":${AGENT_BRIDGE_PROTOCOL_VERSION}}}'
+    ;;
+  *)
+    printf '%s\\n' '{"ok":false,"error":{"code":"BRIDGE_UNAVAILABLE","message":"test"}}'
+    ;;
+esac
+`,
       );
       chmodSync(executable, 0o755);
 
@@ -123,10 +132,10 @@ describe("CoreStudio Codex integration installer", () => {
         supportsSessionDiscovery: true,
       });
       expect(
-        execFileSync(cli, ["read", "context", "--json"], {
+        execFileSync(cli, ["--version", "--json"], {
           encoding: "utf8",
         }),
-      ).toContain('"code":"BRIDGE_UNAVAILABLE"');
+      ).toContain(`"integrationVersion":"${CODEX_INTEGRATION_VERSION}"`);
     },
   );
 });

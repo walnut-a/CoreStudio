@@ -55,6 +55,7 @@ export const IPC_CHANNELS = {
   loadAppInfo: "image-board:load-app-info",
   openExternal: "image-board:open-external",
   inspectCodexIntegration: "image-board:inspect-codex-integration",
+  installCodexIntegration: "image-board:install-codex-integration",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
   deleteProviderSettings: "image-board:delete-provider-settings",
@@ -318,6 +319,18 @@ export interface CodexIntegrationStatus {
   checks: CodexIntegrationCheck[];
   detectedAt: string;
 }
+
+export type CodexIntegrationInstallResult =
+  | {
+      ok: true;
+      output: string;
+      warning: string | null;
+    }
+  | {
+      ok: false;
+      error: string;
+      details: string;
+    };
 export interface GenerateImagesInput {
   projectPath: string;
   generationJobId?: string;
@@ -384,6 +397,7 @@ export interface DesktopBridgeApi {
   loadAppInfo?(): Promise<DesktopAppInfo>;
   openExternal?(url: string): Promise<void>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;
+  installCodexIntegration?(): Promise<CodexIntegrationInstallResult>;
   loadProviderSettings(): Promise<ProviderConfigurationSnapshot>;
   saveProviderSettings(
     input: SaveProviderSettingsInput,

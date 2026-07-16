@@ -547,23 +547,21 @@
 
 .settings-install-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px 20px;
+  gap: 16px;
   align-items: start;
-}
-
-.settings-install-card > .image-board-button {
-  grid-column: 2;
-  grid-row: 1;
 }
 
 .settings-install-card > div:first-child > p {
   font-size: var(--ui-text-size-md);
 }
 
+.settings-install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .settings-agent-prompt {
-  grid-column: 1 / -1;
-  grid-row: 2;
   padding: 14px 16px;
   border: 1px solid var(--default-border-color);
   border-radius: var(--border-radius-lg);

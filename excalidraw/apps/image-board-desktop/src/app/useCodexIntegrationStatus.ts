@@ -48,5 +48,27 @@ export const useCodexIntegrationStatus = ({
     }
   }, [open, refresh]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handleFocus = () => {
+      void refresh();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [open, refresh]);
+
   return { status, loading, error, refresh };
 };

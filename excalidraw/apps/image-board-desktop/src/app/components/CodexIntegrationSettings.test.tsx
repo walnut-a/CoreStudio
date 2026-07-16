@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CodexIntegrationStatus } from "../../shared/desktopBridgeTypes";
@@ -12,7 +18,7 @@ const status: CodexIntegrationStatus = {
   state: "install",
   command: "/bin/bash '/Applications/CoreStudio.app/install.sh'",
   appVersion: "1.1.17",
-  integrationVersion: "1.0.1",
+  integrationVersion: "1.1.0",
   guideUrl:
     "https://github.com/walnut-a/CoreStudio/blob/v1.1.17/docs/codex-integration.md",
   detectedAt: "2026-07-14T00:00:00.000Z",
@@ -53,7 +59,7 @@ describe("CodexIntegrationSettings", () => {
         {
           id: "compatibility",
           status: "ready",
-          installedIntegrationVersion: "1.0.1",
+          installedIntegrationVersion: "1.1.0",
         },
       ],
     };
@@ -62,13 +68,16 @@ describe("CodexIntegrationSettings", () => {
       <CodexIntegrationSettings
         open
         inspect={vi.fn(async () => readyStatus)}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
         copyText={vi.fn(async () => true)}
       />,
     );
 
-    expect(
-      await screen.findByText("Integration compatibility"),
-    ).toBeVisible();
+    expect(await screen.findByText("Integration compatibility")).toBeVisible();
     expect(
       screen.getByText("Executable: /Users/tester/.local/bin/corestudio"),
     ).toBeVisible();
@@ -77,7 +86,7 @@ describe("CodexIntegrationSettings", () => {
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Integration 1.0.1; local CoreStudio session discovery is available.",
+        "Integration 1.1.0; local CoreStudio session discovery is available.",
       ),
     ).toBeVisible();
     expect(screen.queryByText(/版本|可执行：|可以发现/)).toBeNull();
@@ -89,6 +98,11 @@ describe("CodexIntegrationSettings", () => {
       <CodexIntegrationSettings
         open
         inspect={inspect}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
         copyText={vi.fn(async () => true)}
       />,
     );
@@ -103,12 +117,19 @@ describe("CodexIntegrationSettings", () => {
     expect(inspect).toHaveBeenCalledTimes(1);
   });
 
-  it("复制自然语言安装请求和固定的 Codex 使用指令", async () => {
+  it("直接安装后重新检测，并保留复制给 Codex 的修复兜底", async () => {
     const copyText = vi.fn(async () => true);
+    const inspect = vi.fn(async () => status);
+    const install = vi.fn(async () => ({
+      ok: true as const,
+      output: "CoreStudio Codex 集成已准备好。",
+      warning: null,
+    }));
     render(
       <CodexIntegrationSettings
         open
-        inspect={vi.fn(async () => status)}
+        inspect={inspect}
+        install={install}
         copyText={copyText}
       />,
     );
@@ -122,20 +143,50 @@ describe("CodexIntegrationSettings", () => {
           element.textContent === CODEX_INSTALL_PROMPT(status),
       ),
     ).toBeInTheDocument();
-    const copyInstallButton = screen.getByRole("button", {
+    const installButton = screen.getByRole("button", {
+      name: "安装 Codex 集成",
+    });
+    const copyRepairButton = screen.getByRole("button", {
       name: "复制给 Codex",
     });
     const copyUsageButton = screen.getByRole("button", {
       name: "复制使用指令",
     });
-    expect(copyInstallButton).toHaveClass("image-board-button--small");
+    expect(installButton).toHaveClass("image-board-button--small");
+    expect(copyRepairButton).toHaveClass("image-board-button--small");
     expect(copyUsageButton).toHaveClass("image-board-button--small");
-    fireEvent.click(copyInstallButton);
+    fireEvent.click(installButton);
+    await waitFor(() => expect(install).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(inspect).toHaveBeenCalledTimes(2));
+    fireEvent.click(copyRepairButton);
     fireEvent.click(copyUsageButton);
 
     expect(copyText).toHaveBeenNthCalledWith(1, CODEX_INSTALL_PROMPT(status));
     expect(copyText).toHaveBeenNthCalledWith(2, "打开当前 CoreStudio 项目");
     await waitFor(() => expect(screen.getByText("已复制")).toBeInTheDocument());
+  });
+
+  it("窗口重新获得焦点时自动重新检测", async () => {
+    const inspect = vi.fn(async () => status);
+    render(
+      <CodexIntegrationSettings
+        open
+        inspect={inspect}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
+        copyText={vi.fn(async () => true)}
+      />,
+    );
+
+    await screen.findByText("CoreStudio CLI");
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    await waitFor(() => expect(inspect).toHaveBeenCalledTimes(2));
   });
 
   it("检测失败时不伪造已准备好，并允许重新检测", async () => {
@@ -147,6 +198,11 @@ describe("CodexIntegrationSettings", () => {
       <CodexIntegrationSettings
         open
         inspect={inspect}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
         copyText={vi.fn(async () => true)}
       />,
     );

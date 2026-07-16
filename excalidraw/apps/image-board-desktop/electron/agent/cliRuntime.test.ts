@@ -206,7 +206,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.19 (Codex integration 1.0.1, bridge protocol 1)\n",
+          "CoreStudio 1.1.19 (Codex integration 1.1.0, bridge protocol 1)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -224,10 +224,33 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.19",
-        integrationVersion: "1.0.1",
+        integrationVersion: "1.1.0",
         bridgeProtocolVersion: 1,
       },
     });
+  });
+
+  it("keeps read status compact and free of project records", async () => {
+    const statusEnvelope = {
+      ok: true as const,
+      data: {
+        ready: true,
+        currentProject: {
+          projectPath: "/tmp/project",
+          name: "Current Project",
+        },
+        boardUrl: "http://127.0.0.1:49321/agent-board",
+      },
+    };
+    const result = await runCommand(["read", "status", "--json"], {
+      fetch: createFetch(statusEnvelope),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.length).toBeLessThan(1024);
+    expect(result.stdout).not.toContain("imageRecords");
+    expect(result.stdout).not.toContain("providers");
+    expect(JSON.parse(result.stdout)).toEqual(statusEnvelope);
   });
 
   it.each(["--help", "-h"])(

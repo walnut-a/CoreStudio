@@ -76,6 +76,8 @@ const desktopBridge: DesktopBridgeApi = {
   openExternal: (url) => ipcRenderer.invoke(IPC_CHANNELS.openExternal, url),
   inspectCodexIntegration: () =>
     ipcRenderer.invoke(IPC_CHANNELS.inspectCodexIntegration),
+  installCodexIntegration: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.installCodexIntegration),
   loadProviderSettings: () =>
     ipcRenderer.invoke(IPC_CHANNELS.loadProviderSettings),
   saveProviderSettings: (input) =>

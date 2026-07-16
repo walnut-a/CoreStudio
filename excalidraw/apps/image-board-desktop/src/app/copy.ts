@@ -385,7 +385,8 @@ const zhCnCopy = {
       loading: "正在检测 Codex 集成...",
       detectionFailed: "无法完成检测",
       readStatusFailed: "无法读取本机集成状态",
-      handToCodex: "交给 Codex",
+      installOnDevice: "在本机安装",
+      repairWithCodex: "遇到问题时交给 Codex",
       stateTitle: {
         install: "安装 Codex 集成",
         update: "更新 Codex 集成",
@@ -394,9 +395,17 @@ const zhCnCopy = {
         error: "无法完成检测",
       },
       copyToCodex: "复制给 Codex",
-      readyDescription: "当前依赖齐全。需要重装或修复时，把这句话发给 Codex。",
-      actionDescription:
-        "复制这句话发给 Codex，它会读取当前版本的安装指南并完成后续步骤。",
+      installAction: {
+        install: "安装 Codex 集成",
+        update: "更新 Codex 集成",
+        repair: "修复 Codex 集成",
+        ready: "重新安装",
+        error: "重新安装",
+      },
+      installing: "正在安装...",
+      installFailed: "Codex 集成安装失败",
+      readyDescription: "当前依赖齐全。需要时可以从当前应用包重新安装。",
+      actionDescription: "CoreStudio 将使用当前应用包内的固定安装器完成操作。",
       copied: "已复制",
       environmentChecks: "环境检测",
       environmentChecksDescription: "三项检查互不遮盖，便于直接看出缺少什么。",
@@ -432,7 +441,7 @@ const zhCnCopy = {
       startDescription: "复制这句话，粘贴到任意 Codex 对话中。",
       copyInstructions: "复制使用指令",
       installPrompt: (appVersion: string, guideUrl: string) =>
-        `请按照 CoreStudio ${appVersion} 的 Codex 集成安装指南帮我完成安装：${guideUrl}\n请使用本机已安装的正式 CoreStudio，完成后验证 CLI、Skill 和集成兼容性记录。`,
+        `请使用本机正式 CoreStudio ${appVersion} 应用包内的零参数安装器修复 Codex 集成，不要从网络下载或重写安装脚本。完成后只验证 CLI、Skill 和集成兼容性记录；安装说明可参考：${guideUrl}`,
     },
   },
   agentUi: {

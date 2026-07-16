@@ -391,7 +391,8 @@ export const enCopy: DesktopCopy = {
       loading: "Checking Codex integration...",
       detectionFailed: "Unable to complete the check",
       readStatusFailed: "Could not read the local integration status.",
-      handToCodex: "Hand off to Codex",
+      installOnDevice: "Install on this Mac",
+      repairWithCodex: "Hand off to Codex if needed",
       stateTitle: {
         install: "Install Codex Integration",
         update: "Update Codex Integration",
@@ -400,10 +401,19 @@ export const enCopy: DesktopCopy = {
         error: "Unable to complete the check",
       },
       copyToCodex: "Copy for Codex",
+      installAction: {
+        install: "Install Codex Integration",
+        update: "Update Codex Integration",
+        repair: "Repair Codex Integration",
+        ready: "Reinstall",
+        error: "Reinstall",
+      },
+      installing: "Installing...",
+      installFailed: "Codex integration installation failed",
       readyDescription:
-        "All dependencies are available. Send this instruction to Codex if you need to reinstall or repair them.",
+        "All dependencies are available. You can reinstall from the current app bundle if needed.",
       actionDescription:
-        "Send this instruction to Codex so it can read the guide for the current version and complete the remaining steps.",
+        "CoreStudio will run the fixed installer included in the current app bundle.",
       copied: "Copied",
       environmentChecks: "Environment Checks",
       environmentChecksDescription:
@@ -442,7 +452,7 @@ export const enCopy: DesktopCopy = {
       startDescription: "Copy this instruction into any Codex conversation.",
       copyInstructions: "Copy Instructions",
       installPrompt: (appVersion: string, guideUrl: string) =>
-        `Help me install the Codex integration for CoreStudio ${appVersion} by following this guide: ${guideUrl}\nUse the installed production version of CoreStudio on this Mac, then verify the CLI, Skill, and integration compatibility record.`,
+        `Repair the Codex integration using the zero-argument installer bundled with the installed production CoreStudio ${appVersion}. Do not download or rewrite an installer. Then verify only the CLI, Skill, and compatibility record. Reference guide: ${guideUrl}`,
     },
   },
   agentUi: {

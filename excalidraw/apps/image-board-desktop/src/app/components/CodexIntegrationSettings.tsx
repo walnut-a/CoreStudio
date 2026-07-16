@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type {
   CodexIntegrationCheck,
+  CodexIntegrationInstallResult,
   CodexIntegrationStatus,
 } from "../../shared/desktopBridgeTypes";
 import { copy } from "../copy";
@@ -11,6 +12,7 @@ import { DesktopButton } from "./DesktopButton";
 export interface CodexIntegrationSettingsProps {
   open: boolean;
   inspect: () => Promise<CodexIntegrationStatus>;
+  install: () => Promise<CodexIntegrationInstallResult>;
   copyText: (text: string) => Promise<boolean | void>;
 }
 
@@ -70,6 +72,7 @@ const getCheckPresentation = (
 export const CodexIntegrationSettings = ({
   open,
   inspect,
+  install,
   copyText,
 }: CodexIntegrationSettingsProps) => {
   const { status, loading, error, refresh } = useCodexIntegrationStatus({
@@ -77,6 +80,8 @@ export const CodexIntegrationSettings = ({
     inspect,
   });
   const [copied, setCopied] = useState<"install" | "prompt" | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
   const installPrompt = status ? CODEX_INSTALL_PROMPT(status) : "";
 
   return (
@@ -110,7 +115,7 @@ export const CodexIntegrationSettings = ({
           <section className="settings-install-card">
             <div>
               <span className="settings-section-label">
-                {copy.applicationSettings.codexPage.handToCodex}
+                {copy.applicationSettings.codexPage.installOnDevice}
               </span>
               <h4>
                 {copy.applicationSettings.codexPage.stateTitle[status.state]}
@@ -121,22 +126,66 @@ export const CodexIntegrationSettings = ({
                   : copy.applicationSettings.codexPage.actionDescription}
               </p>
             </div>
+            {installError ? (
+              <section className="settings-callout settings-callout--error">
+                <strong>
+                  {copy.applicationSettings.codexPage.installFailed}
+                </strong>
+                <p>{installError}</p>
+              </section>
+            ) : null}
+            <div className="settings-install-actions">
+              <DesktopButton
+                type="button"
+                size="small"
+                variant={status.state === "ready" ? "default" : "primary"}
+                disabled={installing}
+                onClick={async () => {
+                  setInstalling(true);
+                  setInstallError(null);
+                  try {
+                    const result = await install();
+                    if (!result.ok) {
+                      setInstallError(result.details || result.error);
+                      return;
+                    }
+                    await refresh();
+                  } catch (nextError) {
+                    setInstallError(
+                      nextError instanceof Error
+                        ? nextError.message
+                        : copy.applicationSettings.codexPage.installFailed,
+                    );
+                  } finally {
+                    setInstalling(false);
+                  }
+                }}
+              >
+                {installing
+                  ? copy.applicationSettings.codexPage.installing
+                  : copy.applicationSettings.codexPage.installAction[
+                      status.state
+                    ]}
+              </DesktopButton>
+              <DesktopButton
+                type="button"
+                size="small"
+                onClick={async () => {
+                  await copyText(installPrompt);
+                  setCopied("install");
+                }}
+              >
+                {copied === "install"
+                  ? copy.applicationSettings.codexPage.copied
+                  : copy.applicationSettings.codexPage.copyToCodex}
+              </DesktopButton>
+            </div>
             <div className="settings-agent-prompt">
+              <span className="settings-section-label">
+                {copy.applicationSettings.codexPage.repairWithCodex}
+              </span>
               <p>{installPrompt}</p>
             </div>
-            <DesktopButton
-              type="button"
-              size="small"
-              variant={status.state === "ready" ? "default" : "primary"}
-              onClick={async () => {
-                await copyText(installPrompt);
-                setCopied("install");
-              }}
-            >
-              {copied === "install"
-                ? copy.applicationSettings.codexPage.copied
-                : copy.applicationSettings.codexPage.copyToCodex}
-            </DesktopButton>
           </section>
 
           <section>

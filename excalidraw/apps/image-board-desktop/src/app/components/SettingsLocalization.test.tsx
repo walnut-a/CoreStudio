@@ -137,7 +137,7 @@ describe("application settings localization", () => {
       state: "ready",
       command: "corestudio",
       appVersion: "1.0.0",
-      integrationVersion: "1.0.1",
+      integrationVersion: "1.1.0",
       guideUrl: "https://example.com/guide",
       detectedAt: "2026-07-15T00:00:00.000Z",
       checks: [],
@@ -147,6 +147,11 @@ describe("application settings localization", () => {
       <CodexIntegrationSettings
         open
         inspect={vi.fn(async () => status)}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
         copyText={vi.fn(async () => true)}
       />,
     );

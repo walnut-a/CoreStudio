@@ -193,6 +193,31 @@ gh release create v1.1.0 \
 - 环境检测改为返回结构化状态，由 UI 按当前语言展示 CLI、Skill、版本与会话发现结果
 - 统一语言选择器与设置页其他控件的视觉样式
 
+本次发布通过了这些检查：
+
+- 258 个测试文件、1985 项测试全部通过
+- TypeScript typecheck、source/package-input/release secret scan 和 production build 全部通过
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `08ca6d58-47c5-4a1b-af7b-0cda0b05a159`，状态 `Accepted`
+- App 与 DMG 的 stapler validate、Gatekeeper 和 codesign 校验通过
+- DMG `hdiutil verify` 与独立用户目录下的 packaged smoke 通过
+
+校验值：
+
+```text
+CoreStudio-1.1.18-arm64.dmg
+sha256: 2303d768e1719b75ebe2c4686323bd09a9181c86404d14314640fa5d2de7dab1
+
+CoreStudio-1.1.18-arm64-mac.zip
+sha256: dddb74fbe601c2670eedb458736cbcf3a8d71e0749af18e701dd50bbc6466ce2
+
+CoreStudio-1.1.18-arm64.dmg.blockmap
+sha256: 17e28fb3531b6abc69975370a09ac691bb623e8041b37b8cb702878d7c788370
+
+CoreStudio-1.1.18-arm64-mac.zip.blockmap
+sha256: b77b12a6ba7c21dd1318d7e29cc64197295a36db283f5c03a90abcaa8f33d522
+```
+
 ## 1.1.17 已验证信息
 
 1.1.17 聚焦 CoreStudio 的易用性和设置体验：

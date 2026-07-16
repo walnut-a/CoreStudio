@@ -183,7 +183,9 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
-## 待发布：Codex 集成可靠性
+## 1.1.20 发布说明
+
+1.1.20 集中修复 Codex 集成安装、Agent Board 持久化边界和项目并发恢复：
 
 - Codex 集成版本提升至 `1.1.0`，Skill contract version 提升至 `3`
 - CoreStudio 设置页可以直接执行当前应用包内的固定安装器，并在完成后自动重新检测
@@ -193,6 +195,8 @@ gh release create v1.1.0 \
 - Agent Board 只同步选择、视口和运行态画布，不再自动保存项目场景，也不再暴露 `writeProjectScene`
 - 桌面端遇到旧项目快照时会停止重复排队和自动保存，改为显示“加载最新版本”恢复操作
 - 旧快照冲突不再直接显示 Electron IPC 原始错误文案
+
+本次客户端升级不会要求重新安装已经兼容的 Codex 集成；Codex 集成版本继续保持独立的 `1.1.0`。
 
 ## 1.1.19 发布说明
 

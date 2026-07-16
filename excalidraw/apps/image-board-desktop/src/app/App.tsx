@@ -453,6 +453,10 @@ const App = ({
   );
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [autosaveConflictProjectPath, setAutosaveConflictProjectPath] =
+    useState<string | null>(null);
+  const [loadingLatestProject, setLoadingLatestProject] = useState(false);
+  const autosaveConflictProjectPathRef = useRef<string | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
@@ -1358,6 +1362,16 @@ const App = ({
       setActiveProject: updateCurrentProject,
       updateSelectedInspector: selectedInspectorRendererActions.update,
       reportError: currentProjectAutosaveFailureRendererActions.report,
+      handleStaleSnapshot: ({ projectPath }) => {
+        if (autosaveTimerRef.current !== null) {
+          window.clearTimeout(autosaveTimerRef.current);
+          autosaveTimerRef.current = null;
+        }
+        pendingAutosaveRef.current = null;
+        autosaveConflictProjectPathRef.current = projectPath;
+        setAutosaveConflictProjectPath(projectPath);
+        setProjectError(null);
+      },
     });
 
   const autosaveRendererActions =
@@ -1406,6 +1420,18 @@ const App = ({
       setGenerateRequest,
       updateSelectedInspector: selectedInspectorRendererActions.update,
       isEditorInitializing: () => isEditorInitializingRef.current,
+      getPersistencePolicy: () => {
+        if (isAgentBrowserRoute) {
+          return "runtime-only";
+        }
+        if (
+          autosaveConflictProjectPathRef.current ===
+          currentProjectRef.current?.projectPath
+        ) {
+          return "paused-conflict";
+        }
+        return "project-autosave";
+      },
       scheduleAutosave: autosaveRendererActions.schedule,
       getSavedSceneHash: () => savedSceneHashRef.current,
     });
@@ -2000,6 +2026,30 @@ const App = ({
     );
   }
 
+  const activeAutosaveConflict =
+    autosaveConflictProjectPath === currentProject.projectPath;
+  const reloadLatestProject = async () => {
+    if (!activeAutosaveConflict || loadingLatestProject) {
+      return;
+    }
+
+    setLoadingLatestProject(true);
+    pendingAutosaveRef.current = null;
+    try {
+      const result =
+        await currentProjectEntryRendererActions.openRecentProject(
+          currentProject.projectPath,
+        );
+      if (result.status === "opened") {
+        autosaveConflictProjectPathRef.current = null;
+        setAutosaveConflictProjectPath(null);
+        setProjectError(null);
+      }
+    } finally {
+      setLoadingLatestProject(false);
+    }
+  };
+
   const projectRenderKey = `${currentProject.projectPath}:${projectRenderNonce}`;
   const appClassName = [
     "image-board-app",
@@ -2020,7 +2070,20 @@ const App = ({
     <div className={appClassName}>
       <AppErrorBanners
         startupError={startupError}
-        projectError={projectError}
+        projectError={activeAutosaveConflict ? null : projectError}
+        projectRecovery={
+          activeAutosaveConflict
+            ? {
+                message: copy.startup.staleProjectSnapshot,
+                actionLabel: copy.startup.loadLatestProject,
+                actionPendingLabel: copy.startup.loadingLatestProject,
+                pending: loadingLatestProject,
+                onAction: () => {
+                  void reloadLatestProject();
+                },
+              }
+            : null
+        }
       />
       {globalDialogs}
       <ProjectRenderBoundary

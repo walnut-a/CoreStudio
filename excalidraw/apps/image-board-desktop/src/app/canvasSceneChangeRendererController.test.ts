@@ -128,6 +128,7 @@ describe("runCanvasSceneChangeRendererAction", () => {
       setGenerateRequest,
       updateSelectedInspector,
       isEditorInitializing: false,
+      persistencePolicy: "project-autosave",
       scheduleAutosave,
       savedSceneHash: "scene-hash",
     });
@@ -160,6 +161,44 @@ describe("runCanvasSceneChangeRendererAction", () => {
     });
   });
 
+  it("keeps Agent Board scene state live without scheduling project autosave", () => {
+    const project = createProject();
+    const { elements, appState, files } = createScene();
+    const setLatestScene = vi.fn();
+    const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
+    const scheduleAutosave = vi.fn();
+
+    const result = runCanvasSceneChangeRendererAction({
+      elements,
+      appState,
+      files,
+      activeProject: project,
+      removedSelectionReferenceSignature: null,
+      setRemovedSelectionReferenceSignature: vi.fn(),
+      maybeSnapWorkspaceZoom: vi.fn(() => false),
+      setLatestScene,
+      updateSceneImageFileIds: vi.fn(),
+      scheduleVisibleImageRenditionLoad: vi.fn(),
+      scheduleAgentBrowserRuntimeStatePublish,
+      updateWorkspaceOverlay: vi.fn(),
+      setGenerateRequest: vi.fn(),
+      updateSelectedInspector: vi.fn(),
+      isEditorInitializing: false,
+      persistencePolicy: "runtime-only",
+      scheduleAutosave,
+      savedSceneHash: "scene-hash",
+    });
+
+    expect(result).toEqual({ status: "updated" });
+    expect(setLatestScene).toHaveBeenCalledWith({ elements, appState, files });
+    expect(scheduleAgentBrowserRuntimeStatePublish).toHaveBeenCalledWith({
+      elements,
+      appState,
+      files,
+    });
+    expect(scheduleAutosave).not.toHaveBeenCalled();
+  });
+
   it("keeps the removed selection reference while the same selection remains", () => {
     const project = createProject();
     const { elements, appState, files } = createScene();
@@ -183,6 +222,7 @@ describe("runCanvasSceneChangeRendererAction", () => {
       },
       updateSelectedInspector: vi.fn(),
       isEditorInitializing: false,
+      persistencePolicy: "project-autosave",
       scheduleAutosave: vi.fn(),
       savedSceneHash: null,
     });
@@ -213,6 +253,7 @@ describe("runCanvasSceneChangeRendererAction", () => {
       setGenerateRequest: vi.fn(),
       updateSelectedInspector: vi.fn(),
       isEditorInitializing: false,
+      persistencePolicy: "project-autosave",
       scheduleAutosave,
       savedSceneHash: "scene-hash",
     });
@@ -243,6 +284,7 @@ describe("runCanvasSceneChangeRendererAction", () => {
       setGenerateRequest: vi.fn(),
       updateSelectedInspector: vi.fn(),
       isEditorInitializing: false,
+      persistencePolicy: "project-autosave",
       scheduleAutosave: vi.fn(),
       savedSceneHash: null,
     });
@@ -272,6 +314,7 @@ describe("createCanvasSceneChangeRendererActions", () => {
       setGenerateRequest: vi.fn(),
       updateSelectedInspector: vi.fn(),
       isEditorInitializing: () => true,
+      getPersistencePolicy: () => "project-autosave",
       scheduleAutosave,
       getSavedSceneHash: () => "scene-hash",
     });

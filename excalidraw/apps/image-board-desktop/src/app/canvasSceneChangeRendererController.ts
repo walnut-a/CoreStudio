@@ -19,6 +19,11 @@ export type CanvasSceneChangeRendererActionResult =
   | { status: "skipped"; reason: "missing-project" }
   | { status: "skipped"; reason: "workspace-snap" };
 
+export type CanvasScenePersistencePolicy =
+  | "project-autosave"
+  | "runtime-only"
+  | "paused-conflict";
+
 export interface CanvasSceneChangeRendererActionsInput<
   Elements extends readonly ExcalidrawElement[],
   AppStateValue extends AppState,
@@ -52,6 +57,7 @@ export interface CanvasSceneChangeRendererActionsInput<
     imageRecords: ImageRecordMap;
   }) => void;
   isEditorInitializing: () => boolean;
+  getPersistencePolicy: () => CanvasScenePersistencePolicy;
   scheduleAutosave: (
     snapshot: AutosaveSnapshot<Elements, AppStateValue, Files>,
   ) => void;
@@ -78,6 +84,7 @@ export const runCanvasSceneChangeRendererAction = <
   setGenerateRequest,
   updateSelectedInspector,
   isEditorInitializing,
+  persistencePolicy,
   scheduleAutosave,
   savedSceneHash,
 }: {
@@ -112,6 +119,7 @@ export const runCanvasSceneChangeRendererAction = <
     imageRecords: ImageRecordMap;
   }) => void;
   isEditorInitializing: boolean;
+  persistencePolicy: CanvasScenePersistencePolicy;
   scheduleAutosave: (
     snapshot: AutosaveSnapshot<Elements, AppStateValue, Files>,
   ) => void;
@@ -160,7 +168,10 @@ export const runCanvasSceneChangeRendererAction = <
     imageRecords: activeProject.imageRecords,
   });
 
-  if (!isEditorInitializing) {
+  if (
+    !isEditorInitializing &&
+    persistencePolicy === "project-autosave"
+  ) {
     scheduleAutosave({
       project: activeProject,
       elements,
@@ -190,6 +201,7 @@ export const createCanvasSceneChangeRendererActions = <
   setGenerateRequest,
   updateSelectedInspector,
   isEditorInitializing,
+  getPersistencePolicy,
   scheduleAutosave,
   getSavedSceneHash,
 }: CanvasSceneChangeRendererActionsInput<Elements, AppStateValue, Files>) => ({
@@ -215,6 +227,7 @@ export const createCanvasSceneChangeRendererActions = <
       setGenerateRequest,
       updateSelectedInspector,
       isEditorInitializing: isEditorInitializing(),
+      persistencePolicy: getPersistencePolicy(),
       scheduleAutosave,
       savedSceneHash: getSavedSceneHash(),
     }),

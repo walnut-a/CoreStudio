@@ -148,6 +148,31 @@ html.image-board-desktop-titlebar-hidden {
   pointer-events: none;
 }
 
+.app-canvas-error-toast--actionable {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.app-canvas-error-toast__action {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid currentColor;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.app-canvas-error-toast__action:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
 @media (max-width: 1080px) {
   .image-board-shell {
     grid-template-columns: 1fr;

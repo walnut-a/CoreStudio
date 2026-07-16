@@ -57,7 +57,7 @@ flowchart LR
 | CoreStudio 桌面端 | 项目数据 owner；维护画板、图片资产、生成记录、ACP thread、项目健康检查 | 不把自己变成内置 Agent 平台 |
 | Local Bridge | 本机运行时底座；暴露项目 token、状态、读写命令入口 | 不绕开桌面端直接改项目文件 |
 | CLI | 给 Agent 的稳定自动化接口；读状态、读图片路径、写图片结果、触发有限编辑动作 | 不保留一堆临时命令和隐藏捷径 |
-| Agent Board | 在 Codex 内置浏览器里复用画板，提供查看、选择、标注和结果确认 | 不做脱离桌面端的独立 Web 应用；不挂载生成输入器或 ACP 调度器 |
+| Agent Board | 在 Codex 内置浏览器里复用画板，提供查看、选择、标注和结果确认；只发布选择、视口等运行态 | 不做脱离桌面端的独立 Web 应用；不直接持久化项目场景；不挂载生成输入器或 ACP 调度器 |
 | ACP Agent | 实验性控制通道；从 CoreStudio 主动发任务给外部 Agent，并保存 thread / run log / 结果 | 不负责最终数据写回；不作为 Codex 协作的默认路径 |
 | 项目健康检查 | 发现和修复资产、记录、画布、thread 之间的不一致 | 不只做缩略图修复 |
 
@@ -72,6 +72,16 @@ flowchart LR
 | CoreStudio（实验性） | 外部 Agent | Agent 自身能力 | ACP 发起，CLI / Local Bridge 写回 |
 
 CLI 是数据通道，不是第三个调度者；ACP 是从 CoreStudio 发起外部任务时可选的控制通道。由 Codex 发起的任务不会经过 ACP，也不会形成 `Codex → CoreStudio → ACP → Codex` 回路。
+
+### Agent Board 持久化边界
+
+Agent Board 与桌面编辑器可以复用 Excalidraw 渲染和交互能力，但不能复用同一套场景 autosave 策略：
+
+- Agent Board 的 `onChange` 只更新本地画布、选择引用、视口和 `browser-state`，不调度 `writeProjectScene`。
+- Agent Board 浏览器 Bridge 不暴露 `writeProjectScene`。Codex 的正式写回继续走 CLI / Local Bridge 命令，由 CoreStudio 桌面 renderer 执行并校验。
+- 桌面编辑器、内置生成和 CLI 写回仍使用项目 autosave 与图片写回事务。
+- 如果桌面 autosave 检测到 `STALE_PROJECT_SNAPSHOT`，立即丢弃旧待保存快照并暂停当前项目 autosave；用户加载磁盘上的最新版本后才恢复。
+- 冲突提示只展示产品语义和恢复操作，不把 Electron IPC 的原始异常前缀直接暴露给用户。
 
 ## 数据写回设计
 
@@ -254,7 +264,7 @@ ACP 初期最容易把 run log 当成用户历史。但用户需要的是：
 
 ### 体验原则
 
-1. **画布能力尽量完整复用 Excalidraw。** Agent Board 保留画布本身，但不复制 CoreStudio 的生成输入器和任务调度入口。
+1. **画布能力尽量完整复用 Excalidraw。** Agent Board 保留画布本身，但不复制 CoreStudio 的生成输入器、任务调度入口或项目 autosave。
 2. **侧边栏是历史和继续对话，不是调试面板。**
 3. **不为 Codex 集成制造长期连接状态。** 依赖检测放在设置页，需要操作时给出明确指令。
 4. **项目健康报告要可解释。** 不只显示错误数量，还要说清楚对象、原因、影响和修复策略。

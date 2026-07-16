@@ -8178,6 +8178,81 @@ describe("App startup", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("磁盘不可写");
   });
 
+  it("pauses autosave and reloads the latest project after a stale snapshot conflict", async () => {
+    const generateImages = vi.fn().mockResolvedValue({
+      provider: "gemini",
+      model: "gemini-2.5-flash-image",
+      seed: null,
+      createdAt: "2026-04-15T08:00:00.000Z",
+      images: [
+        {
+          dataBase64: "Z2VuZXJhdGVkLWltYWdl",
+          mimeType: "image/png",
+          width: 1024,
+          height: 1024,
+        },
+      ],
+    });
+    const project = createMockProjectBundle({
+      imageRecords: {},
+    });
+    const latestProject = createMockProjectBundle({
+      sceneJson: '{"elements":[{"id":"latest-element","type":"rectangle"}]}',
+      imageRecords: {},
+    });
+    const openRecentProject = vi.fn().mockResolvedValue(latestProject);
+    const writeProjectScene = vi.fn().mockRejectedValue(
+      new Error(
+        "Error invoking remote method 'image-board:write-project-scene': Error: 画板文件已经被其他会话更新，已停止保存旧快照。请重新打开项目后再继续。",
+      ),
+    );
+
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(project),
+      openRecentProject,
+      generateImages,
+      persistImageAssets: vi.fn().mockResolvedValue({}),
+      writeProjectScene,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await screen.findByText("生成图片弹窗");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交固定比例生成" }));
+    });
+
+    const recoveryAction = await screen.findByRole("button", {
+      name: "加载最新版本",
+    });
+    expect(
+      screen
+        .getByText(
+          "项目内容已在其他会话中更新。自动保存已暂停，请加载最新版本后继续。",
+        )
+        .closest('[role="alert"]'),
+    ).toHaveTextContent("项目内容已在其他会话中更新。自动保存已暂停");
+    expect(screen.queryByText(/Error invoking remote method/)).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(recoveryAction);
+    });
+
+    expect(openRecentProject).toHaveBeenCalledWith(project.projectPath);
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "加载最新版本" }),
+      ).toBeNull();
+    });
+  });
+
   it("fits auto-ratio generated images to the returned image dimensions", async () => {
     const firstJob = createDeferred<{
       provider: "gemini";

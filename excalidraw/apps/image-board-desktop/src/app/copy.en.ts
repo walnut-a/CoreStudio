@@ -177,6 +177,10 @@ export const enCopy: DesktopCopy = {
     saveProjectFailed: "Could not save the project.",
     saveBeforeOpenFailed:
       "The previous project could not be saved, so opening the new project was stopped.",
+    staleProjectSnapshot:
+      "This project was updated in another session. Autosave is paused until you load the latest version.",
+    loadLatestProject: "Load latest version",
+    loadingLatestProject: "Loading...",
     generateFailed: "Image generation failed.",
   },
   debugError: {

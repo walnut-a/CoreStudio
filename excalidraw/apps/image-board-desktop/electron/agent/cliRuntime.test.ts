@@ -189,6 +189,75 @@ const parseRequestBody = (records: RequestRecord[]) =>
   JSON.parse(records[0].body ?? "") as Record<string, unknown>;
 
 describe("runCli", () => {
+  it.each(["--version", "-v"])(
+    "prints CLI and integration versions for %s without discovering the bridge",
+    async (flag) => {
+      const fetch = createFetch();
+      const readFile = vi.fn(async () => {
+        throw new Error("should not discover session");
+      });
+
+      const result = await runCommand([flag], {
+        env: {},
+        fetch,
+        readFile,
+      });
+
+      expect(result).toEqual({
+        exitCode: 0,
+        stdout:
+          "CoreStudio 1.1.19 (Codex integration 1.0.1, bridge protocol 1)\n",
+        stderr: "",
+      });
+      expect(fetch).not.toHaveBeenCalled();
+      expect(readFile).not.toHaveBeenCalled();
+    },
+  );
+
+  it("prints machine-readable version information", async () => {
+    const result = await runCommand(["--version", "--json"], {
+      env: {},
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      ok: true,
+      data: {
+        appVersion: "1.1.19",
+        integrationVersion: "1.0.1",
+        bridgeProtocolVersion: 1,
+      },
+    });
+  });
+
+  it.each(["--help", "-h"])(
+    "prints top-level help for %s without discovering the bridge",
+    async (flag) => {
+      const fetch = createFetch();
+      const readFile = vi.fn(async () => {
+        throw new Error("should not discover session");
+      });
+
+      const result = await runCommand([flag], {
+        env: {},
+        fetch,
+        readFile,
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain("Usage: corestudio <tool> <command>");
+      expect(result.stdout).toContain("read    Read project and bridge state");
+      expect(result.stdout).toContain("write   Write images and prompts");
+      expect(result.stdout).toContain("edit    Locate or select scene content");
+      expect(result.stdout).toContain("bash    Print shell integration helpers");
+      expect(result.stdout).toContain("-v, --version");
+      expect(result.stdout).toContain("-h, --help");
+      expect(fetch).not.toHaveBeenCalled();
+      expect(readFile).not.toHaveBeenCalled();
+    },
+  );
+
   it.each([
     {
       name: "read status",

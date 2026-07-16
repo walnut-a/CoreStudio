@@ -1,11 +1,15 @@
 import { readFile as fsReadFile } from "node:fs/promises";
 
 import {
+  AGENT_BRIDGE_PROTOCOL_VERSION,
   AGENT_HTTP_ROUTES,
   createAgentError,
+  createAgentOk,
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
+import { CODEX_INTEGRATION_VERSION } from "../../src/shared/codexIntegrationContract";
 import { getPersistedImageAssetIntegrityError } from "../../src/shared/projectRecordIntegrity";
+import { DESKTOP_APP_VERSION } from "../appVersion";
 import { readLocalImagePayload } from "./localImagePayload";
 import { getAgentSessionPath } from "./sessionPaths";
 
@@ -144,6 +148,38 @@ const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
+
+const CLI_HELP_TEXT = `CoreStudio CLI
+
+Usage: corestudio <tool> <command> [options]
+
+Tools:
+  read    Read project and bridge state
+  write   Write images and prompts
+  edit    Locate or select scene content
+  bash    Print shell integration helpers
+
+Global options:
+  -v, --version   Print CoreStudio and integration versions
+  -h, --help      Print this help
+  --json          Print a JSON envelope
+  --jsonl         Print a JSON Lines envelope
+
+Examples:
+  corestudio read context --json
+  corestudio read board-url --json
+  corestudio write image ./result.png --origin codex --json
+  corestudio edit locate --file-id <file-id> --json
+`;
+
+const getVersionData = () => ({
+  appVersion: DESKTOP_APP_VERSION,
+  integrationVersion: CODEX_INTEGRATION_VERSION,
+  bridgeProtocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
+});
+
+const formatVersionHuman = () =>
+  `CoreStudio ${DESKTOP_APP_VERSION} (Codex integration ${CODEX_INTEGRATION_VERSION}, bridge protocol ${AGENT_BRIDGE_PROTOCOL_VERSION})`;
 
 const parseArgs = (
   tokens: readonly string[],
@@ -1143,6 +1179,27 @@ export const runCli = async (
   options: CliRuntimeOptions,
 ): Promise<number> => {
   const mode = getOutputMode(argv);
+  const [firstArg, ...remainingArgs] = argv;
+  if (
+    (firstArg === "--version" || firstArg === "-v") &&
+    remainingArgs.every((arg) => arg === "--json" || arg === "--jsonl")
+  ) {
+    return finishWithEnvelope(
+      createAgentOk(getVersionData()),
+      mode,
+      options.stdout,
+      options.stderr,
+      formatVersionHuman,
+    );
+  }
+  if (
+    (firstArg === "--help" || firstArg === "-h") &&
+    remainingArgs.length === 0
+  ) {
+    options.stdout.write(`${CLI_HELP_TEXT}\n`);
+    return 0;
+  }
+
   const command = parseCommand(argv);
   if (isEnvelope(command)) {
     return finishWithEnvelope(command, mode, options.stdout, options.stderr);

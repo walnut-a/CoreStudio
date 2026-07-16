@@ -23,7 +23,7 @@
     "package:dir": "yarn build && yarn check:secrets --source --package-inputs && electron-builder --dir && yarn check:secrets --release",
     "smoke:packaged": "node scripts/smoke-packaged.cjs",
     "notarize:release": "node scripts/notarize-release.cjs",
-    "package:app": "yarn build && yarn check:secrets --source --package-inputs && electron-builder && yarn notarize:release && yarn check:secrets --release",
+    "package:app": "yarn build && yarn check:secrets --source --package-inputs && electron-builder --mac dmg && yarn notarize:release && yarn check:secrets --release",
     "test": "cd ../.. && vitest apps/image-board-desktop"
   },
   "devDependencies": {

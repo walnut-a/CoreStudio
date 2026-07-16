@@ -1,10 +1,4 @@
 import { arrayToMap, isShallowEqual, type Bounds } from "@excalidraw/common";
-import {
-  lineSegment,
-  pointFrom,
-  pointRotateRads,
-  type GlobalPoint,
-} from "@excalidraw/math";
 
 import type {
   AppState,
@@ -12,34 +6,20 @@ import type {
   InteractiveCanvasAppState,
 } from "@excalidraw/excalidraw/types";
 
-import {
-  boundsContainBounds,
-  doBoundsIntersect,
-  elementCenterPoint,
-  getElementAbsoluteCoords,
-  getElementBounds,
-  pointInsideBounds,
-} from "./bounds";
-import { intersectElementWithLineSegment } from "./collision";
+import { elementsOverlappingBBox, getElementAbsoluteCoords } from "./bounds";
 import { isElementInViewport } from "./sizeHelpers";
 import {
-  isArrowElement,
   isBoundToContainer,
   isFrameLikeElement,
-  isFreeDrawElement,
   isLinearElement,
   isTextElement,
 } from "./typeChecks";
-import {
-  elementOverlapsWithFrame,
-  getContainingFrame,
-  getFrameChildren,
-  isElementIntersectingFrame,
-} from "./frame";
+import { getFrameChildren } from "./frame";
 
 import { LinearElementEditor } from "./linearElementEditor";
 import { selectGroupsForSelectedElements } from "./groups";
-import { getBoundTextElement } from "./textElement";
+
+import { isNonDeletedElement } from ".";
 
 import type {
   ElementsMap,
@@ -50,9 +30,8 @@ import type {
   NonDeletedExcalidrawElement,
 } from "./types";
 
-const shouldIgnoreElementFromSelection = (
-  element: NonDeletedExcalidrawElement,
-) => element.locked || isBoundToContainer(element);
+const shouldIgnoreElementFromSelection = (element: ExcalidrawElement) =>
+  element.locked || isBoundToContainer(element);
 
 const excludeElementsFromFrames = <T extends ExcalidrawElement>(
   selectedElements: readonly T[],
@@ -88,14 +67,14 @@ export const excludeElementsInFramesFromSelection = <
   return excludeElementsFromFrames(selectedElements, framesInSelection);
 };
 
-export const getElementsWithinSelection = (
-  elements: readonly NonDeletedExcalidrawElement[],
-  selection: NonDeletedExcalidrawElement,
+export const getElementsWithinSelection = <T extends ExcalidrawElement>(
+  elements: readonly T[],
+  selection: ExcalidrawElement,
   elementsMap: ElementsMap,
   // TODO remove (this flag is effectively unused AFAIK)
   excludeElementsInFrames: boolean = true,
   boxSelectionMode: BoxSelectionMode = "contain",
-): NonDeletedExcalidrawElement[] => {
+): T[] => {
   const [selectionStartX, selectionStartY, selectionEndX, selectionEndY] =
     getElementAbsoluteCoords(selection, elementsMap);
   const selectionX1 = Math.min(selectionStartX, selectionEndX);
@@ -108,238 +87,22 @@ export const getElementsWithinSelection = (
     selectionX2,
     selectionY2,
   ] as Bounds;
-  const selectionEdges = [
-    lineSegment<GlobalPoint>(
-      pointFrom(selectionX1, selectionY1),
-      pointFrom(selectionX2, selectionY1),
-    ),
-    lineSegment<GlobalPoint>(
-      pointFrom(selectionX2, selectionY1),
-      pointFrom(selectionX2, selectionY2),
-    ),
-    lineSegment<GlobalPoint>(
-      pointFrom(selectionX2, selectionY2),
-      pointFrom(selectionX1, selectionY2),
-    ),
-    lineSegment<GlobalPoint>(
-      pointFrom(selectionX1, selectionY2),
-      pointFrom(selectionX1, selectionY1),
-    ),
-  ];
 
-  const framesInSelection = excludeElementsInFrames
-    ? new Set<NonDeletedExcalidrawElement["id"]>()
-    : null;
-  let elementsInSelection: NonDeletedExcalidrawElement[] = [];
-
-  for (const element of elements) {
-    if (shouldIgnoreElementFromSelection(element)) {
-      continue;
-    }
-
-    const strokeWidth = element.strokeWidth;
-    let labelAABB: Bounds | null = null;
-    let elementAABB = getElementBounds(element, elementsMap);
-
-    elementAABB = [
-      elementAABB[0] - strokeWidth / 2,
-      elementAABB[1] - strokeWidth / 2,
-      elementAABB[2] + strokeWidth / 2,
-      elementAABB[3] + strokeWidth / 2,
-    ] as Bounds;
-
-    // Whether the element bounds should include the bound text element bounds
-    const boundTextElement =
-      isArrowElement(element) && getBoundTextElement(element, elementsMap);
-    if (boundTextElement) {
-      const { x, y } = LinearElementEditor.getBoundTextElementPosition(
-        element,
-        boundTextElement,
-        elementsMap,
-      );
-      labelAABB = [
-        x,
-        y,
-        x + boundTextElement.width,
-        y + boundTextElement.height,
-      ] as Bounds;
-    }
-
-    // Clip element bounds by its containing frame (if any), since only the
-    // visible (frame-clipped) portion of the element is relevant for selection.
-    const associatedFrame = getContainingFrame(element, elementsMap);
-    if (
-      associatedFrame &&
-      isElementIntersectingFrame(element, associatedFrame, elementsMap)
-    ) {
-      const frameAABB = getElementBounds(associatedFrame, elementsMap);
-      elementAABB = [
-        Math.max(elementAABB[0], frameAABB[0]),
-        Math.max(elementAABB[1], frameAABB[1]),
-        Math.min(elementAABB[2], frameAABB[2]),
-        Math.min(elementAABB[3], frameAABB[3]),
-      ] as Bounds;
-
-      labelAABB = labelAABB
-        ? ([
-            Math.max(labelAABB[0], frameAABB[0]),
-            Math.max(labelAABB[1], frameAABB[1]),
-            Math.min(labelAABB[2], frameAABB[2]),
-            Math.min(labelAABB[3], frameAABB[3]),
-          ] as Bounds)
-        : null;
-    }
-
-    const commonAABB = labelAABB
-      ? ([
-          Math.min(labelAABB[0], elementAABB[0]),
-          Math.min(labelAABB[1], elementAABB[1]),
-          Math.max(labelAABB[2], elementAABB[2]),
-          Math.max(labelAABB[3], elementAABB[3]),
-        ] as Bounds)
-      : elementAABB;
-
-    // ============== Evaluation ==============
-
-    // 1. If the selection box WRAPs the element's AABB, then add it to the
-    //    selection and move on, regardless of the selection mode.
-    //
-    //    PERF: This trick only works with axis-aligned box selection and the
-    //          current convex element shapes!
-    if (boundsContainBounds(selectionBounds, commonAABB)) {
-      if (framesInSelection && isFrameLikeElement(element)) {
-        framesInSelection.add(element.id);
-      } else {
-        elementsInSelection.push(element);
-        continue;
-      }
-    }
-
-    // 2. Handle the case where the label is overlapped by the selection box
-    if (
-      boxSelectionMode === "overlap" &&
-      labelAABB &&
-      doBoundsIntersect(selectionBounds, labelAABB)
-    ) {
-      elementsInSelection.push(element);
-      continue;
-    }
-
-    // 3. Handle the case where the selection is not wrapping the element, but
-    //    it does intersect the element's outline (non-AABB).
-    if (
-      boxSelectionMode === "overlap" &&
-      doBoundsIntersect(selectionBounds, elementAABB)
-    ) {
-      let hasIntersection = false;
-
-      // Preliminary check potential intersection imprecision
-      if (isLinearElement(element) || isFreeDrawElement(element)) {
-        const center = elementCenterPoint(element, elementsMap);
-        hasIntersection = element.points.some((point) => {
-          const rotatedPoint = pointRotateRads(
-            pointFrom<GlobalPoint>(element.x + point[0], element.y + point[1]),
-            center,
-            element.angle,
-          );
-
-          return pointInsideBounds(rotatedPoint, selectionBounds);
-        });
-      } else {
-        const nonRotatedElementBounds = getElementBounds(
-          element,
-          elementsMap,
-          true,
-        );
-        const center = elementCenterPoint(element, elementsMap);
-        hasIntersection = [
-          pointRotateRads(
-            pointFrom<GlobalPoint>(
-              (nonRotatedElementBounds[0] + nonRotatedElementBounds[2]) / 2,
-              nonRotatedElementBounds[1],
-            ),
-            center,
-            element.angle,
-          ),
-          pointRotateRads(
-            pointFrom<GlobalPoint>(
-              nonRotatedElementBounds[2],
-              (nonRotatedElementBounds[1] + nonRotatedElementBounds[3]) / 2,
-            ),
-            center,
-            element.angle,
-          ),
-          pointRotateRads(
-            pointFrom<GlobalPoint>(
-              (nonRotatedElementBounds[0] + nonRotatedElementBounds[2]) / 2,
-              nonRotatedElementBounds[3],
-            ),
-            center,
-            element.angle,
-          ),
-          pointRotateRads(
-            pointFrom<GlobalPoint>(
-              nonRotatedElementBounds[0],
-              (nonRotatedElementBounds[1] + nonRotatedElementBounds[3]) / 2,
-            ),
-            center,
-            element.angle,
-          ),
-        ].some((point) => {
-          return pointInsideBounds(
-            pointRotateRads(point, center, element.angle),
-            selectionBounds,
-          );
-        });
-      }
-
-      if (!hasIntersection) {
-        hasIntersection = selectionEdges.some(
-          (selectionEdge) =>
-            intersectElementWithLineSegment(
-              element,
-              elementsMap,
-              selectionEdge,
-              strokeWidth / 2,
-              true, // Stop at first hit for better performance
-            ).length > 0,
-        );
-      }
-
-      if (hasIntersection) {
-        if (framesInSelection && isFrameLikeElement(element)) {
-          framesInSelection.add(element.id);
-        }
-
-        elementsInSelection.push(element);
-        continue;
-      }
-    }
-
-    // 4. We don't need to handle when the selection is inside the element
-    //    as it is separately handled in App.
-  }
-
-  elementsInSelection = framesInSelection
-    ? excludeElementsFromFrames(elementsInSelection, framesInSelection)
-    : elementsInSelection;
-
-  elementsInSelection = elementsInSelection.filter((element) => {
-    const containingFrame = getContainingFrame(element, elementsMap);
-
-    if (containingFrame) {
-      return elementOverlapsWithFrame(element, containingFrame, elementsMap);
-    }
-
-    return true;
+  return elementsOverlappingBBox({
+    elements,
+    bounds: selectionBounds,
+    elementsMap,
+    type: boxSelectionMode,
+    shouldIgnoreElementFromSelection,
+    excludeElementsInFrames,
   });
-
-  return elementsInSelection;
 };
 
-export const getVisibleAndNonSelectedElements = (
-  elements: readonly NonDeletedExcalidrawElement[],
-  selectedElements: readonly NonDeletedExcalidrawElement[],
+export const getVisibleAndNonSelectedElements = <
+  T extends NonDeletedExcalidrawElement,
+>(
+  elements: readonly T[],
+  selectedElements: readonly ExcalidrawElement[],
   appState: AppState,
   elementsMap: ElementsMap,
 ) => {
@@ -404,30 +167,40 @@ export const getSelectedElements = (
   },
 ) => {
   const addedElements = new Set<ExcalidrawElement["id"]>();
-  const selectedElements: ExcalidrawElement[] = [];
+  // selection can only contain non-deleted elements
+  const selectedElements: NonDeletedExcalidrawElement[] = [];
   for (const element of elements.values()) {
     if (appState.selectedElementIds[element.id]) {
-      selectedElements.push(element);
-      addedElements.add(element.id);
+      if (isNonDeletedElement(element)) {
+        selectedElements.push(element as NonDeletedExcalidrawElement);
+        addedElements.add(element.id);
+      } else {
+        console.error(
+          "[NONDELETED][INVARIANT] getSelectedElements skipping deleted selected element which should not be in the selection",
+        );
+      }
       continue;
     }
     if (
       opts?.includeBoundTextElement &&
       isBoundToContainer(element) &&
+      isNonDeletedElement(element) &&
       appState.selectedElementIds[element?.containerId]
     ) {
-      selectedElements.push(element);
+      selectedElements.push(element as NonDeletedExcalidrawElement);
       addedElements.add(element.id);
       continue;
     }
   }
 
   if (opts?.includeElementsInFrames) {
-    const elementsToInclude: ExcalidrawElement[] = [];
+    const elementsToInclude: NonDeletedExcalidrawElement[] = [];
     selectedElements.forEach((element) => {
       if (isFrameLikeElement(element)) {
         getFrameChildren(elements, element.id).forEach(
-          (e) => !addedElements.has(e.id) && elementsToInclude.push(e),
+          (e) =>
+            !addedElements.has(e.id) &&
+            elementsToInclude.push(e as NonDeletedExcalidrawElement),
         );
       }
       elementsToInclude.push(element);
@@ -470,7 +243,7 @@ export const makeNextSelectedElementIds = (
 };
 
 const _getLinearElementEditor = (
-  targetElements: readonly ExcalidrawElement[],
+  targetElements: readonly NonDeletedExcalidrawElement[],
   allElements: readonly NonDeletedExcalidrawElement[],
 ) => {
   const linears = targetElements.filter(isLinearElement);
@@ -490,7 +263,7 @@ const _getLinearElementEditor = (
 };
 
 export const getSelectionStateForElements = (
-  targetElements: readonly ExcalidrawElement[],
+  targetElements: readonly NonDeletedExcalidrawElement[],
   allElements: readonly NonDeletedExcalidrawElement[],
   appState: AppState,
 ) => {

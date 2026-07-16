@@ -38,6 +38,6 @@ export const ProjectMainMenu = ({
     <MainMenu.DefaultItems.Help />
     <MainMenu.DefaultItems.ClearCanvas />
     <MainMenu.Separator />
-    <MainMenu.DefaultItems.ToggleTheme />
+    <MainMenu.DefaultItems.ToggleTheme allowSystemTheme={false} />
   </MainMenu>
 );

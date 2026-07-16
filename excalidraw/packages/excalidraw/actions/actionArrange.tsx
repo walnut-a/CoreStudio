@@ -14,7 +14,7 @@ import { getSelectedElementsByArrangementUnit } from "@excalidraw/element";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
-import { ToolButton } from "../components/ToolButton";
+import { IconButton } from "../components/IconButton";
 import { gridIcon } from "../components/icons";
 
 import { t } from "../i18n";
@@ -85,7 +85,7 @@ export const actionArrangeIntoGrid = register({
     event.altKey &&
     event.key.toLowerCase() === KEYS.G,
   PanelComponent: ({ elements, appState, updateData, app }) => (
-    <ToolButton
+    <IconButton
       hidden={!arrangeActionsPredicate(appState, app)}
       type="button"
       icon={gridIcon}

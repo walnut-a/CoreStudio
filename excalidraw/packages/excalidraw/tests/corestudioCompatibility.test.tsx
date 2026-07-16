@@ -77,4 +77,23 @@ describe("CoreStudio Excalidraw compatibility", () => {
 
     expect(h.app.api.getFiles()[fileId]).toEqual(replacementFile);
   });
+
+  it("keeps scrollToContent available through the imperative API", async () => {
+    await render(<Excalidraw />);
+
+    h.state.width = 10;
+    h.state.height = 10;
+
+    const largeElement = API.createElement({
+      type: "rectangle",
+      width: 1000,
+      height: 1000,
+    });
+
+    act(() => {
+      h.app.api.scrollToContent(largeElement, { fitToContent: true });
+    });
+
+    expect(h.state.zoom.value).toBeCloseTo(0.01);
+  });
 });

@@ -1,7 +1,7 @@
 # Excalidraw 上游基线升级计划
 
 **日期：** 2026-07-16  
-**状态：** Planned
+**状态：** 已完成
 
 ## 背景
 
@@ -206,6 +206,47 @@ corepack yarn build:desktop
 - 自动化与人工验证结果；
 - 下一次升级的标准操作；
 - 尚未解决但已明确边界的风险。
+
+## 执行结果
+
+本轮已在 `walnut/update-excalidraw-baseline` 分支完成升级，最终目标固定为上游 `5ca083436d44a51a0705d43ea22d323839d5fe8e`。基线从 `1caec99b290c75cda05385e637138998807a65ae` 前进 60 个上游提交，三方重放实际产生 8 个冲突文件，与执行前预判一致。
+
+升级过程完成了以下收敛：
+
+1. 合入新的上游源码、workspace 构建脚本和依赖，并保留 CoreStudio 桌面应用工作区。
+2. 删除 409 个带 TypeScript 同名源文件的历史编译 `.js` 产物，减少后续无效差异。
+3. 保留 `replaceFiles`、Inspector 选中工具栏、默认 Sidebar 控制、1% 最小缩放、CoreStudio 滚轮缩放、Arrange Into Grid、剪贴板与图片处理等定制。
+4. 为上游移除的 `scrollToContent` 补充兼容适配层，由新 `setViewport` 能力承接旧调用契约。
+5. 恢复 CoreStudio 工具栏 tunnel，并为新的 `fractional-indexing`、`laser-pointer` workspace package 补齐桌面 Vite alias。
+6. 调整 Vitest 3.2 hook 顺序，并将未纳入 CoreStudio workspace 的 `excalidraw-app` 从 Core 项目测试范围中排除。
+7. 修复编辑器卸载时视口动画未取消的问题，避免测试环境和实际生命周期中的卸载后更新。
+
+Arrange Into Grid 本轮没有外移到 CoreStudio 产品层。它依赖 Excalidraw Action Manager、历史记录捕获、绑定元素和 Frame 归属处理；现在外移会暴露更多内部接口并扩大升级面，因此继续作为单一、独立、有测试覆盖的内核补丁保留。
+
+最终仍按基线记录中的 6 个补丁分组维护：图片替换、Inspector 集成、视口策略、网格排列、剪贴板与图片、构建和测试集成。
+
+## 验证结果
+
+以下验证均在目标基线上通过：
+
+- 定制能力与受影响模块目标测试：7 个文件、88 项测试通过；后续新增卸载契约后，完整测试中一并验证。
+- TypeScript：`corepack yarn test:typecheck` 通过。
+- CoreStudio 桌面测试：258 个测试文件、1,985 项测试通过。
+- Excalidraw/CoreStudio 完整测试：371 个测试文件、3,578 项通过、47 项跳过、1 项 todo，无未处理异步异常。
+- Desktop renderer 与 Electron 构建：`corepack yarn build:desktop` 通过。
+
+本轮没有额外启动 Electron 开发实例。旧项目、图片恢复、Inspector、Agent/CLI/Local Bridge、保存重开等关键路径已有桌面自动化覆盖；1% 缩放、`scrollToContent`、Arrange Into Grid 和编辑器卸载行为已有专项契约测试。
+
+## 后续升级标准操作
+
+1. 将 `upstream-baseline.json` 的 `targetSha` 更新为已审核的固定上游提交。
+2. 执行 `corepack yarn upstream:check`，检查提交跨度、变更文件、预计冲突和补丁分组命中情况。
+3. 确认 CoreStudio 自有路径和无关工作区修改不会被覆盖。
+4. 执行 `corepack yarn upstream:apply`，只处理工具报告的冲突。
+5. 按 6 个补丁分组运行契约测试，再依次执行类型检查、桌面测试、完整测试和桌面构建。
+6. 验证通过后将 `currentSha` 更新为目标 SHA，并在本节追加本轮差异和风险记录。
+
+后续主要风险仍集中在上游对 `App.tsx`、`LayerUI.tsx`、Action 系统和 viewport API 的重构。同步工具能够提前报告交叉修改和冲突，但语义兼容仍需由对应契约测试确认。
 
 ## 工作量预估
 

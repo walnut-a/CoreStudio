@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/excalidraw/excalidraw.git",
   "managedRoot": "excalidraw",
-  "currentSha": "1caec99b290c75cda05385e637138998807a65ae",
+  "currentSha": "5ca083436d44a51a0705d43ea22d323839d5fe8e",
   "targetSha": "5ca083436d44a51a0705d43ea22d323839d5fe8e",
   "ownedPaths": ["apps/image-board-desktop"],
   "patchGroups": [

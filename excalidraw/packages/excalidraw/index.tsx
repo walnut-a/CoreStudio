@@ -6,7 +6,13 @@ import React, {
   useState,
 } from "react";
 
-import { DEFAULT_UI_OPTIONS, isShallowEqual } from "@excalidraw/common";
+import {
+  applyDarkModeFilter,
+  DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_UI_OPTIONS,
+  getStrokeWidthByKey,
+  isShallowEqual,
+} from "@excalidraw/common";
 
 import App, {
   ExcalidrawAPIContext,
@@ -62,8 +68,10 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
   const {
     onExport,
     onChange,
+    onThemeChange,
     onIncrement,
     initialData,
+    initialState,
     onExcalidrawAPI,
     onMount,
     onUnmount,
@@ -75,6 +83,9 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     renderSelectedShapeActions,
     langCode = defaultLang.code,
     viewModeEnabled,
+    interaction,
+    ui,
+    activeTool,
     zenModeEnabled,
     gridModeEnabled,
     libraryReturnUrl,
@@ -99,6 +110,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     aiEnabled,
     showDeprecatedFonts,
     renderScrollbars,
+    imageOptions,
   } = props;
 
   const canvasActions = props.UIOptions?.canvasActions;
@@ -124,10 +136,17 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
 
   if (
     UIOptions.canvasActions.toggleTheme === null &&
-    typeof theme === "undefined"
+    (theme == null || onThemeChange)
   ) {
     UIOptions.canvasActions.toggleTheme = true;
   }
+
+  const normalizedImageOptions: AppProps["imageOptions"] = {
+    maxFileSizeBytes:
+      imageOptions?.maxFileSizeBytes ?? DEFAULT_IMAGE_OPTIONS.maxFileSizeBytes,
+    maxWidthOrHeight:
+      imageOptions?.maxWidthOrHeight ?? DEFAULT_IMAGE_OPTIONS.maxWidthOrHeight,
+  };
 
   const setExcalidrawAPI = useContext(ExcalidrawAPISetContext);
 
@@ -142,6 +161,15 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     [setExcalidrawAPI],
   );
 
+  // whether the browser's own zoom is kept available while the editor is
+  // non-interactive (with navigation allowed, pinch is consumed by the
+  // editor instead, which relies on the pinch prevention below)
+  const browserZoomAllowed =
+    typeof interaction === "object" &&
+    interaction !== null &&
+    interaction.enabled?.browserZoom === true &&
+    interaction.enabled?.navigation !== true;
+
   useEffect(() => {
     const importPolyfill = async () => {
       //@ts-ignore
@@ -149,6 +177,10 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     };
 
     importPolyfill();
+
+    if (browserZoomAllowed) {
+      return;
+    }
 
     // Block pinch-zooming on iOS outside of the content area
     const handleTouchMove = (event: TouchEvent) => {
@@ -165,7 +197,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     return () => {
       document.removeEventListener("touchmove", handleTouchMove);
     };
-  }, []);
+  }, [browserZoomAllowed]);
 
   return (
     <EditorJotaiProvider store={editorJotaiStore}>
@@ -173,8 +205,10 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
         <App
           onExport={onExport}
           onChange={onChange}
+          onThemeChange={onThemeChange}
           onIncrement={onIncrement}
           initialData={initialData}
+          initialState={initialState}
           onExcalidrawAPI={handleExcalidrawAPI}
           onMount={onMount}
           onUnmount={onUnmount}
@@ -186,6 +220,9 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           renderSelectedShapeActions={renderSelectedShapeActions}
           langCode={langCode}
           viewModeEnabled={viewModeEnabled}
+          interaction={interaction}
+          ui={ui}
+          activeTool={activeTool}
           zenModeEnabled={zenModeEnabled}
           gridModeEnabled={gridModeEnabled}
           libraryReturnUrl={libraryReturnUrl}
@@ -210,6 +247,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           aiEnabled={aiEnabled !== false}
           showDeprecatedFonts={showDeprecatedFonts}
           renderScrollbars={renderScrollbars}
+          imageOptions={normalizedImageOptions}
         >
           {children}
         </App>
@@ -227,13 +265,57 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
   const {
     initialData: prevInitialData,
     UIOptions: prevUIOptions = {},
+    imageOptions: prevImageOptions,
+    interaction: prevInteraction,
+    activeTool: prevActiveTool,
     ...prev
   } = prevProps;
   const {
     initialData: nextInitialData,
     UIOptions: nextUIOptions = {},
+    imageOptions: nextImageOptions,
+    interaction: nextInteraction,
+    activeTool: nextActiveTool,
     ...next
   } = nextProps;
+
+  // compare `activeTool` semantically so that hosts inlining the object
+  // (`activeTool={{ type: "laser" }}`) don't bust the memo every render
+  const isActiveToolSame =
+    prevActiveTool === nextActiveTool ||
+    (prevActiveTool?.type === nextActiveTool?.type &&
+      (prevActiveTool?.type === "custom" ? prevActiveTool.customType : null) ===
+        (nextActiveTool?.type === "custom" ? nextActiveTool.customType : null));
+
+  if (!isActiveToolSame) {
+    return false;
+  }
+
+  // compare `interaction` semantically so that hosts inlining the config
+  // object (`interaction={{ enabled: { links: true } }}`) don't bust the
+  // memo every render
+  const isInteractionSame =
+    prevInteraction === nextInteraction ||
+    (typeof prevInteraction === "object" &&
+      prevInteraction !== null &&
+      typeof nextInteraction === "object" &&
+      nextInteraction !== null &&
+      !!prevInteraction.enabled?.links === !!nextInteraction.enabled?.links &&
+      !!prevInteraction.enabled?.embeds === !!nextInteraction.enabled?.embeds &&
+      !!prevInteraction.enabled?.interactiveContent ===
+        !!nextInteraction.enabled?.interactiveContent &&
+      !!prevInteraction.enabled?.navigation ===
+        !!nextInteraction.enabled?.navigation &&
+      !!prevInteraction.enabled?.browserZoom ===
+        !!nextInteraction.enabled?.browserZoom &&
+      !!prevInteraction.enabled?.tools?.laser ===
+        !!nextInteraction.enabled?.tools?.laser &&
+      !!prevInteraction.enabled?.tools?.custom ===
+        !!nextInteraction.enabled?.tools?.custom);
+
+  if (!isInteractionSame) {
+    return false;
+  }
 
   // comparing UIOptions
   const prevUIOptionsKeys = Object.keys(prevUIOptions) as (keyof Partial<
@@ -275,7 +357,17 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
     return prevUIOptions[key] === nextUIOptions[key];
   });
 
-  return isUIOptionsSame && isShallowEqual(prev, next);
+  const isImageOptionsSame =
+    (prevImageOptions?.maxWidthOrHeight ??
+      DEFAULT_IMAGE_OPTIONS.maxWidthOrHeight) ===
+      (nextImageOptions?.maxWidthOrHeight ??
+        DEFAULT_IMAGE_OPTIONS.maxWidthOrHeight) &&
+    (prevImageOptions?.maxFileSizeBytes ??
+      DEFAULT_IMAGE_OPTIONS.maxFileSizeBytes) ===
+      (nextImageOptions?.maxFileSizeBytes ??
+        DEFAULT_IMAGE_OPTIONS.maxFileSizeBytes);
+
+  return isUIOptionsSame && isImageOptionsSame && isShallowEqual(prev, next);
 };
 
 export const Excalidraw = React.memo(ExcalidrawBase, areEqual);
@@ -368,18 +460,15 @@ export type {
   SavedChats,
 } from "./components/TTDDialog/types";
 
-export { zoomToFitBounds } from "./actions/actionCanvas";
+export { zoomToFitBounds, DEFAULT_OVERSCROLL } from "./viewport";
+
 export {
   getCommonBounds,
   getVisibleSceneBounds,
   convertToExcalidrawElements,
 } from "@excalidraw/element";
 
-export {
-  elementsOverlappingBBox,
-  isElementInsideBBox,
-  elementPartiallyOverlapsWithOrContainsBBox,
-} from "@excalidraw/utils/withinBounds";
+export { elementsOverlappingBBox } from "@excalidraw/element";
 
 export { DiagramToCodePlugin } from "./components/DiagramToCodePlugin/DiagramToCodePlugin";
 export { getDataURL } from "./data/blob";
@@ -428,3 +517,5 @@ export function useExcalidrawStateValue(
 // -----------------------------------------------------------------------------
 
 export { _useOnAppStateChange as useOnExcalidrawStateChange };
+
+export { applyDarkModeFilter, getStrokeWidthByKey };

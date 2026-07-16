@@ -1,6 +1,8 @@
+import clsx from "clsx";
+
 import { useTunnels } from "../context/tunnels";
 
-import { ToolButton } from "./ToolButton";
+import { IconButton } from "./IconButton";
 
 import type { JSX, MouseEvent } from "react";
 
@@ -25,13 +27,14 @@ export const ToolbarButton = ({
 
   return (
     <ToolbarToolsTunnel.In>
-      <ToolButton
-        className="Shape"
+      <IconButton
+        className={clsx("Shape", {
+          "ToolIcon_type_toggle ToolIcon--checked": selected,
+        })}
         type="button"
         icon={icon}
         title={title ?? ariaLabel}
         aria-label={ariaLabel}
-        selected={selected}
         data-testid={dataTestId}
         onClick={onClick}
       />

@@ -19,6 +19,9 @@ describe("agent integration docs", () => {
       "apps/image-board-desktop/src/app/components/CodexIntegrationSettings.tsx",
     );
     const installationGuide = readDoc("../docs/codex-integration.md");
+    const corestudioSkill = readDoc(
+      "apps/image-board-desktop/resources/codex-integration/corestudio-skill/SKILL.md",
+    );
     const desktopPackage = JSON.parse(
       readDoc("apps/image-board-desktop/package.json"),
     ) as {
@@ -30,14 +33,14 @@ describe("agent integration docs", () => {
     expect(userGuide).toContain("默认使用 Codex 自身的生图能力");
     expect(userGuide).toContain("实验性功能");
     expect(userGuide).toContain("Codex 集成");
-    expect(userGuide).toContain("自然语言安装请求");
+    expect(userGuide).toContain("应用内安装");
     expect(userGuide).toContain("CLI、CoreStudio Skill 和会话发现能力");
     expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
     expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
     expect(architecture).toContain("CLI / Local Bridge");
     expect(architecture).toContain("Codex 集成没有启停状态");
     expect(codexSettings).toContain(
-      "copy.applicationSettings.codexPage.handToCodex",
+      "copy.applicationSettings.codexPage.installOnDevice",
     );
     expect(codexSettings).not.toContain("终端指令");
     expect(codexSettings).toContain(
@@ -45,8 +48,15 @@ describe("agent integration docs", () => {
     );
     expect(installationGuide).toContain("# CoreStudio Codex 集成安装指南");
     expect(installationGuide).toContain("install.sh");
-    expect(installationGuide).toContain("重新检测");
-    expect(installationGuide).toContain("当前 CoreStudio 版本对应的 Git Tag");
+    expect(installationGuide).toContain("corestudio --version --json");
+    expect(installationGuide).not.toContain("corestudio read context --json");
+    expect(corestudioSkill).toContain("corestudio read status --json");
+    expect(corestudioSkill).toContain("只重试一次");
+    expect(corestudioSkill).toContain("一键链接");
+    expect(corestudioSkill).toContain("不要擅自改用 Chrome 或系统默认浏览器");
+    expect(corestudioSkill).not.toContain(
+      "运行 `corestudio read context --json` 发现当前 CoreStudio 会话和项目",
+    );
     expect(desktopPackage.build?.extraResources).toContainEqual({
       from: "../../../docs/codex-integration.md",
       to: "codex-integration/CODEX_INSTALLATION.md",

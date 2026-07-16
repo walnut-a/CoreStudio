@@ -183,6 +183,14 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
+## 待发布：Codex 集成可靠性
+
+- Codex 集成版本提升至 `1.1.0`，Skill contract version 提升至 `3`
+- CoreStudio 设置页可以直接执行当前应用包内的固定安装器，并在完成后自动重新检测
+- 安装器改用 `corestudio --version --json` 做离线自检，不再依赖当前项目、Local Bridge 或 Codex 网络沙箱
+- “打开当前 CoreStudio 项目”改用轻量 `read status`，避免读取完整项目记录
+- 当前 Codex 任务缺少浏览器控制能力时，明确降级为一键链接，不再误报 CoreStudio 或 Bridge 故障
+
 ## 1.1.19 发布说明
 
 1.1.19 升级 Excalidraw 上游基线，并收口 CoreStudio 的长期兼容边界：

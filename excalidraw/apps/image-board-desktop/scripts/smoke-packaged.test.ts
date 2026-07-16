@@ -123,9 +123,9 @@ describe("smoke-packaged", () => {
       .fn()
       .mockReturnValueOnce({ status: 0, stdout: "installed\n", stderr: "" })
       .mockReturnValueOnce({
-        status: 1,
+        status: 0,
         stdout:
-          '{"ok":false,"error":{"code":"BRIDGE_UNAVAILABLE","message":"test"}}\n',
+          '{"ok":true,"data":{"appVersion":"1.1.19","integrationVersion":"1.1.0","bridgeProtocolVersion":1}}\n',
         stderr: "",
       });
     const rmSync = vi.fn();
@@ -138,7 +138,9 @@ describe("smoke-packaged", () => {
       readFileSync: (filePath) =>
         filePath.endsWith("CODEX_INSTALLATION.md")
           ? "# CoreStudio Codex 集成安装指南"
-          : '{"version":"1.1.17"}',
+          : filePath.endsWith("corestudio-integration.json")
+            ? '{"installedFromAppVersion":"1.1.19","integrationVersion":"1.1.0","bridgeProtocolVersion":1}'
+            : '{"version":"1.1.19"}',
       rmSync,
       spawnSync,
       tmpdir: () => "/tmp",
@@ -159,7 +161,7 @@ describe("smoke-packaged", () => {
     expect(spawnSync).toHaveBeenNthCalledWith(
       2,
       "/tmp/corestudio-smoke-home/.local/bin/corestudio",
-      ["read", "context", "--json"],
+      ["--version", "--json"],
       expect.objectContaining({
         env: expect.objectContaining({ HOME: "/tmp/corestudio-smoke-home" }),
       }),

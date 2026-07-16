@@ -1,7 +1,10 @@
 import { constants } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
-import { inspectCodexIntegration } from "./codexIntegrationService";
+import {
+  inspectCodexIntegration,
+  installCodexIntegration,
+} from "./codexIntegrationService";
 
 const HOME = "/Users/tester";
 const RESOURCES = "/Applications/CoreStudio.app/Contents/Resources";
@@ -60,10 +63,10 @@ describe("inspectCodexIntegration", () => {
       existing: [CLI, SKILL, MANIFEST],
       manifest: {
         schemaVersion: 1,
-        integrationVersion: "1.0.1",
+        integrationVersion: "1.1.0",
         installedFromAppVersion: "1.1.15",
         bridgeProtocolVersion: 1,
-        skillVersion: 2,
+        skillVersion: 3,
         cliWrapperVersion: 1,
         cliPath: CLI,
         skillPath: SKILL,
@@ -78,7 +81,7 @@ describe("inspectCodexIntegration", () => {
       {
         id: "compatibility",
         status: "ready",
-        installedIntegrationVersion: "1.0.1",
+        installedIntegrationVersion: "1.1.0",
       },
     ]);
   });
@@ -131,10 +134,10 @@ describe("inspectCodexIntegration", () => {
       existing: [CLI, MANIFEST],
       manifest: {
         schemaVersion: 1,
-        integrationVersion: "1.0.1",
+        integrationVersion: "1.1.0",
         installedFromAppVersion: "1.1.16",
         bridgeProtocolVersion: 1,
-        skillVersion: 2,
+        skillVersion: 3,
         cliWrapperVersion: 1,
         cliPath: CLI,
         skillPath: SKILL,
@@ -144,5 +147,68 @@ describe("inspectCodexIntegration", () => {
 
     expect(result.state).toBe("repair");
     expect(result.checks[1]?.status).toBe("missing");
+  });
+});
+
+describe("installCodexIntegration", () => {
+  it("只执行当前应用资源中的固定零参数安装器", async () => {
+    const runFile = vi.fn(async () => ({
+      stdout: "CoreStudio Codex 集成已准备好。\n",
+      stderr: "",
+    }));
+
+    await expect(
+      installCodexIntegration({
+        resourcesPath: RESOURCES,
+        runFile,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      output: "CoreStudio Codex 集成已准备好。",
+      warning: null,
+    });
+
+    expect(runFile).toHaveBeenCalledWith(
+      "/bin/bash",
+      [
+        "/Applications/CoreStudio.app/Contents/Resources/codex-integration/install.sh",
+      ],
+      {
+        timeout: 30_000,
+        encoding: "utf8",
+      },
+    );
+  });
+
+  it("安装器失败时返回结构化错误并限制输出长度", async () => {
+    const runFile = vi.fn(async () => {
+      const error = new Error("Command failed") as Error & {
+        stdout?: string;
+        stderr?: string;
+      };
+      error.stdout = "x".repeat(10_000);
+      error.stderr = "安装器失败";
+      throw error;
+    });
+
+    await expect(
+      installCodexIntegration({
+        resourcesPath: RESOURCES,
+        runFile,
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: "Codex 集成安装器执行失败。",
+      details: expect.stringContaining("安装器失败"),
+    });
+
+    const result = await installCodexIntegration({
+      resourcesPath: RESOURCES,
+      runFile,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.details.length).toBeLessThanOrEqual(4096);
+    }
   });
 });

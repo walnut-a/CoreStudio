@@ -1825,6 +1825,14 @@ const App = ({
               }
               return desktopBridge.inspectCodexIntegration();
             }}
+            install={() => {
+              if (!desktopBridge.installCodexIntegration) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持安装 Codex 集成。"),
+                );
+              }
+              return desktopBridge.installCodexIntegration();
+            }}
             copyText={clipboardTextRendererActions.copy}
           />
         ),

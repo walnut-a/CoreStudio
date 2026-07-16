@@ -19,10 +19,10 @@ CLI_PATH="$CLI_DIR/corestudio"
 SKILL_DIR="$HOME/.codex/skills/corestudio"
 SKILL_PATH="$SKILL_DIR/SKILL.md"
 MANIFEST_PATH="$HOME/.codex/corestudio-integration.json"
-INTEGRATION_VERSION="1.0.1"
+INTEGRATION_VERSION="1.1.0"
 MANIFEST_SCHEMA_VERSION=1
 BRIDGE_PROTOCOL_VERSION=1
-SKILL_VERSION=2
+SKILL_VERSION=3
 CLI_WRAPPER_VERSION=1
 
 if [[ ! -f "$SOURCE_SKILL" ]]; then
@@ -81,13 +81,20 @@ EOF
 chmod 644 "$MANIFEST_PATH"
 
 set +e
-CLI_CHECK_OUTPUT="$("$CLI_PATH" read context --json 2>&1)"
+CLI_CHECK_STDERR="$(mktemp)"
+CLI_CHECK_OUTPUT="$("$CLI_PATH" --version --json 2>"$CLI_CHECK_STDERR")"
+CLI_CHECK_STATUS=$?
 set -e
-if [[ "$CLI_CHECK_OUTPUT" != \{\"ok\":* ]]; then
-  echo "CoreStudio CLI 验证失败：$CLI_CHECK_OUTPUT" >&2
+CLI_CHECK_ERROR="$(cat "$CLI_CHECK_STDERR")"
+rm -f "$CLI_CHECK_STDERR"
+EXPECTED_CLI_OUTPUT="{\"ok\":true,\"data\":{\"appVersion\":\"$(json_escape "$APP_VERSION")\",\"integrationVersion\":\"$INTEGRATION_VERSION\",\"bridgeProtocolVersion\":$BRIDGE_PROTOCOL_VERSION}}"
+if [[ $CLI_CHECK_STATUS -ne 0 || "$CLI_CHECK_OUTPUT" != "$EXPECTED_CLI_OUTPUT" ]]; then
+  echo "CoreStudio CLI 验证失败：${CLI_CHECK_ERROR:-$CLI_CHECK_OUTPUT}" >&2
   exit 1
 fi
 
 echo "CoreStudio Codex 集成已准备好。"
+echo "CoreStudio：$APP_VERSION"
+echo "集成：$INTEGRATION_VERSION"
 echo "CLI：$CLI_PATH"
 echo "Skill：$SKILL_PATH"

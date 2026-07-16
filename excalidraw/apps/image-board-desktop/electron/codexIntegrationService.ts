@@ -1,6 +1,8 @@
+import { execFile as childExecFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access as fsAccess, readFile as fsReadFile } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { AGENT_BRIDGE_PROTOCOL_VERSION } from "../src/shared/agentBridgeTypes";
 import {
@@ -12,8 +14,57 @@ import {
 } from "../src/shared/codexIntegrationContract";
 import type {
   CodexIntegrationCheck,
+  CodexIntegrationInstallResult,
   CodexIntegrationStatus,
 } from "../src/shared/desktopBridgeTypes";
+
+const execFile = promisify(childExecFile);
+const INSTALL_OUTPUT_LIMIT = 4096;
+
+type RunFile = (
+  file: string,
+  args: readonly string[],
+  options: { timeout: number; encoding: "utf8" },
+) => Promise<{ stdout: string; stderr: string }>;
+
+const truncateInstallOutput = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .slice(0, INSTALL_OUTPUT_LIMIT);
+
+export const installCodexIntegration = async ({
+  resourcesPath,
+  runFile = execFile as RunFile,
+}: {
+  resourcesPath: string;
+  runFile?: RunFile;
+}): Promise<CodexIntegrationInstallResult> => {
+  const installerPath = join(resourcesPath, "codex-integration", "install.sh");
+
+  try {
+    const result = await runFile("/bin/bash", [installerPath], {
+      timeout: 30_000,
+      encoding: "utf8",
+    });
+    return {
+      ok: true,
+      output: truncateInstallOutput(result.stdout),
+      warning: truncateInstallOutput(result.stderr) || null,
+    };
+  } catch (error) {
+    const processError = error as Error & {
+      stdout?: string;
+      stderr?: string;
+    };
+    return {
+      ok: false,
+      error: "Codex 集成安装器执行失败。",
+      details: truncateInstallOutput(
+        processError.stderr || processError.stdout || processError.message,
+      ),
+    };
+  }
+};
 
 interface CurrentCodexIntegrationManifest {
   schemaVersion: number;
@@ -141,8 +192,7 @@ export const inspectCodexIntegration = async ({
   const contractReady =
     manifest &&
     !isLegacyManifest(manifest) &&
-    manifest.schemaVersion ===
-      CODEX_INTEGRATION_MANIFEST_SCHEMA_VERSION &&
+    manifest.schemaVersion === CODEX_INTEGRATION_MANIFEST_SCHEMA_VERSION &&
     manifest.integrationVersion === CODEX_INTEGRATION_VERSION &&
     manifest.bridgeProtocolVersion === AGENT_BRIDGE_PROTOCOL_VERSION &&
     manifest.skillVersion === CODEX_INTEGRATION_SKILL_VERSION &&

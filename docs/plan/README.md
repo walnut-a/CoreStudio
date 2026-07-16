@@ -6,6 +6,7 @@
 
 ## 当前计划文档
 
+- [2026-07-16-corestudio-codex-integration-reliability.md](2026-07-16-corestudio-codex-integration-reliability.md)：一次性修复 Codex 集成安装、打开当前项目、Agent Board 错误保存和旧快照恢复问题。
 - [2026-07-16-excalidraw-host-api-adoption.md](2026-07-16-excalidraw-host-api-adoption.md)：在新基线上接入 Excalidraw 的宿主交互、UI、视口和本地字体资产能力。
 - [2026-07-16-excalidraw-baseline-upgrade.md](2026-07-16-excalidraw-baseline-upgrade.md)：保留 CoreStudio 定制、升级 Excalidraw 上游基线并建立可重复同步机制的执行计划。
 - [2026-07-07-app-and-test-refactor.md](2026-07-07-app-and-test-refactor.md)：App wiring 与大型测试文件拆分计划。

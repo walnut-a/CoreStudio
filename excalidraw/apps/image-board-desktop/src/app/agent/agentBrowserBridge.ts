@@ -210,8 +210,11 @@ export const maybeCreateAgentBrowserDesktopBridge =
       },
       loadRecentProjects: () =>
         callDesktopBridge<RecentProjectEntry[]>(config, "loadRecentProjects"),
-      writeProjectScene: (input) =>
-        callDesktopBridge<void>(config, "writeProjectScene", [input]),
+      writeProjectScene: async () => {
+        throw new Error(
+          "Agent Board 只同步运行态画布，不允许直接保存项目场景。",
+        );
+      },
       readProjectAssetPayloads: (input) =>
         callDesktopBridge<ProjectAssetPayload[]>(
           config,

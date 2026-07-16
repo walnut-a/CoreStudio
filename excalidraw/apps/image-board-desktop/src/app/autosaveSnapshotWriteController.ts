@@ -17,6 +17,24 @@ type WriteProjectScene = (input: {
   expectedSceneHash: string | null;
 }) => Promise<ProjectManifest | null | undefined | void>;
 
+export const isStaleProjectSnapshotError = (error: unknown) => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "STALE_PROJECT_SNAPSHOT"
+  ) {
+    return true;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("STALE_PROJECT_SNAPSHOT") ||
+    message.includes("已经被其他会话更新") ||
+    message.includes("已停止保存旧快照")
+  );
+};
+
 export type AutosaveSnapshotWriteActionResult =
   | {
       status: "written";
@@ -81,6 +99,7 @@ export const runAutosaveSnapshotWriteFailureAction = <Snapshot extends {
   hasPendingAutosave,
   setPendingSnapshot,
   reportError,
+  handleStaleSnapshot,
 }: {
   snapshot: Snapshot;
   error: unknown;
@@ -89,7 +108,19 @@ export const runAutosaveSnapshotWriteFailureAction = <Snapshot extends {
   hasPendingAutosave: boolean;
   setPendingSnapshot: (snapshot: Snapshot) => void;
   reportError: (error: unknown) => void;
+  handleStaleSnapshot?: (input: {
+    error: unknown;
+    projectPath: string;
+  }) => void;
 }) => {
+  if (isStaleProjectSnapshotError(error)) {
+    handleStaleSnapshot?.({
+      error,
+      projectPath: snapshot.project.projectPath,
+    });
+    return;
+  }
+
   if (
     shouldRestoreFailedAutosaveSnapshot({
       activeProject,
@@ -136,6 +167,10 @@ export interface AutosaveSnapshotWriteRendererActionsInput<
     imageRecords: ImageRecordMap;
   }) => void;
   reportError: (error: unknown) => void;
+  handleStaleSnapshot?: (input: {
+    error: unknown;
+    projectPath: string;
+  }) => void;
 }
 
 export const createAutosaveSnapshotWriteRendererActions = <
@@ -156,6 +191,7 @@ export const createAutosaveSnapshotWriteRendererActions = <
   setActiveProject,
   updateSelectedInspector,
   reportError,
+  handleStaleSnapshot,
 }: AutosaveSnapshotWriteRendererActionsInput<
   Elements,
   AppStateValue,
@@ -206,6 +242,7 @@ export const createAutosaveSnapshotWriteRendererActions = <
           setPendingSnapshot(nextSnapshot);
         },
         reportError,
+        handleStaleSnapshot,
       }),
   };
 };

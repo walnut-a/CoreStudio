@@ -30,7 +30,7 @@ describe("agentBridgeTypes", () => {
 
   it("exports the Agent browser desktop bridge method allowlist", () => {
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("openRecentProject");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("writeProjectScene");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("writeProjectScene");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("generateImages");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("loadAcpAgentSettings");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("saveAcpAgentSettings");

@@ -292,6 +292,44 @@ describe("runAutosaveSnapshotWriteFailureAction", () => {
     expect(setPendingSnapshot).not.toHaveBeenCalled();
     expect(reportError).not.toHaveBeenCalled();
   });
+
+  it("pauses autosave for a stale project snapshot without requeueing it", () => {
+    const project = createProject("/projects/current");
+    const snapshot = {
+      project,
+      elements: [],
+      appState: createAppState("element-1"),
+      files: {},
+      expectedSceneHash: "scene-hash",
+    };
+    const error = Object.assign(
+      new Error(
+        "Error invoking remote method 'image-board:write-project-scene': Error: 画板文件已经被其他会话更新，已停止保存旧快照。",
+      ),
+      { code: "STALE_PROJECT_SNAPSHOT" },
+    );
+    const setPendingSnapshot = vi.fn();
+    const reportError = vi.fn();
+    const handleStaleSnapshot = vi.fn();
+
+    runAutosaveSnapshotWriteFailureAction({
+      snapshot,
+      error,
+      strict: false,
+      activeProject: project,
+      hasPendingAutosave: false,
+      setPendingSnapshot,
+      reportError,
+      handleStaleSnapshot,
+    });
+
+    expect(setPendingSnapshot).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
+    expect(handleStaleSnapshot).toHaveBeenCalledWith({
+      error,
+      projectPath: "/projects/current",
+    });
+  });
 });
 
 describe("createAutosaveSnapshotWriteRendererActions", () => {

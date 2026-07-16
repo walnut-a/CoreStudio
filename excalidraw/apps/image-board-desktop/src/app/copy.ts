@@ -186,6 +186,10 @@ const zhCnCopy = {
     revealProjectFailed: "无法显示项目文件夹。",
     saveProjectFailed: "项目保存失败。",
     saveBeforeOpenFailed: "旧项目未能保存，已停止打开新项目。",
+    staleProjectSnapshot:
+      "项目内容已在其他会话中更新。自动保存已暂停，请加载最新版本后继续。",
+    loadLatestProject: "加载最新版本",
+    loadingLatestProject: "正在加载…",
     generateFailed: "生成图片失败。",
   },
   debugError: {

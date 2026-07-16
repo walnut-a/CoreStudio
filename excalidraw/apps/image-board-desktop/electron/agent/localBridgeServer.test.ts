@@ -892,7 +892,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("rejects unsupported desktop bridge methods", async () => {
+  it("rejects direct project scene writes from the Agent Board desktop bridge", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJson(
@@ -901,8 +901,14 @@ describe("createLocalBridgeServer", () => {
       {
         method: "POST",
         body: JSON.stringify({
-          method: "onAgentCommandRequest",
-          args: [],
+          method: "writeProjectScene",
+          args: [
+            {
+              projectPath: currentProject.projectPath,
+              sceneJson: "{}",
+              expectedSceneHash: "stale-hash",
+            },
+          ],
         }),
       },
     );

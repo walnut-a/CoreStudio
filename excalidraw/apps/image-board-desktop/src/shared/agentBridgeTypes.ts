@@ -78,7 +78,6 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "openProject",
   "openRecentProject",
   "loadRecentProjects",
-  "writeProjectScene",
   "readProjectAssetPayloads",
   "inspectProjectHealth",
   "rebuildProjectThumbnails",

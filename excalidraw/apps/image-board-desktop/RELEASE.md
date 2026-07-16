@@ -194,30 +194,31 @@ gh release create v1.1.0 \
 - Codex 集成兼容性改为检查 Local Bridge 协议、Skill 和 CLI 包装器版本，普通客户端升级不再要求重装
 - 修复 Codex 网络沙箱阻断 localhost 时被误报为 CoreStudio 或 Bridge 未启动的问题
 - 安装版通过 Local Bridge 托管 Agent Board，并由 CLI 安全补入当前项目 token，使“打开当前 CoreStudio 项目”可以真正打开画布
+- CLI 增加 `--version` / `-v` 和 `--help` / `-h`，版本输出同时支持 `--json` 与 `--jsonl`
 - 旧格式和 `1.0.0` 集成需要执行一次更新以获得新版 Skill；后续普通客户端升级仍不要求重装
 
 本次发布通过了这些检查：
 
-- 262 个测试文件、1996 项测试全部通过
+- 262 个测试文件、2001 项测试全部通过
 - TypeScript typecheck、source/package-input/release secret scan 和 production build 全部通过
 - Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
-- Apple notarization：submission `7ea4db43-c709-4496-82a4-df084824cff0`，状态 `Accepted`
+- Apple notarization：submission `5dee160a-bc84-45ac-8d1f-6d797335c500`，状态 `Accepted`
 - App 与 DMG 的 stapler validate、Gatekeeper、codesign 和 DMG 完整性校验通过
 
 校验值：
 
 ```text
 CoreStudio-1.1.19-arm64.dmg
-sha256: e462f5356ca7b8d0dd1d595375740f719501426122fe750224f2d9401b60c84e
+sha256: c992390f0a98df30e813a04688c069ca26785b6942179129bab36f8436e8d67a
 
 CoreStudio-1.1.19-arm64-mac.zip
-sha256: 0439f4623c53183e44a3ef19faf1c186c9f05a7c8c67188084797d38d4b5b517
+sha256: 4c0ee980350dd660a2434cddd6e8677b38a7b4b4e445ee04483e19f297687c3e
 
 CoreStudio-1.1.19-arm64.dmg.blockmap
-sha256: 5486e403a495e12499d1edbd096aaf2ff3f4f03976974d9f7c56dbc3f1179057
+sha256: 3e6b2f413567e92a2108ef398926546ff28ba8e9eb8a96b896ade47db1888ba6
 
 CoreStudio-1.1.19-arm64-mac.zip.blockmap
-sha256: 852ca7ead26469e7e7dacfa4c43ca86a4a45fe76ba6664a70e2cbdb858fd70bb
+sha256: 5fee8df9fc3b4660d88ac06c3afd44b2913c463d0481991e7b7ff04ce13fa8d7
 ```
 
 ## 1.1.18 发布说明

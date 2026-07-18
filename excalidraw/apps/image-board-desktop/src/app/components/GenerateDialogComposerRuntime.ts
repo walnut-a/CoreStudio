@@ -20,8 +20,6 @@ interface CreateGenerateDialogComposerRuntimeInput {
   effectiveGenerationSource: GenerationSource;
   requestRef: { current: GenerationRequest };
   currentProviderCustomModels: readonly CustomProviderModel[];
-  canCommitPendingReference: boolean;
-  commitPendingReference: () => Promise<unknown> | unknown;
   clearSubmittedPrompt: () => void;
   onSubmit: (request: GenerationRequest, keepOpen: boolean) => void;
   modeSwitchVariant: GenerateComposerModeSwitchVariant;
@@ -39,8 +37,6 @@ export const createGenerateDialogComposerRuntime = ({
   effectiveGenerationSource,
   requestRef,
   currentProviderCustomModels,
-  canCommitPendingReference,
-  commitPendingReference,
   clearSubmittedPrompt,
   onSubmit,
   modeSwitchVariant,
@@ -55,10 +51,6 @@ export const createGenerateDialogComposerRuntime = ({
     generationSource: effectiveGenerationSource,
     requestRef,
     customModels: currentProviderCustomModels,
-    canCommitPendingReference,
-    commitPendingReference: async () => {
-      await commitPendingReference();
-    },
     clearSubmittedPrompt,
     onSubmit,
   });

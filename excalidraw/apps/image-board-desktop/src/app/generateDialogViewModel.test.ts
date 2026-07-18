@@ -23,6 +23,38 @@ const referenceLimitMessages = {
 };
 
 describe("buildGenerateDialogViewModel", () => {
+  it("requires built-in references to be confirmed in the input before submit", () => {
+    const viewModel = buildGenerateDialogViewModel({
+      request: createRequest({
+        prompt: "基于选中对象继续优化",
+        reference: {
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+        },
+      }),
+      providerSettings: {
+        gemini: {
+          isConfigured: true,
+          customModels: [],
+        },
+      } as never,
+      currentProviderCustomModels: [],
+      effectiveComposerMode: "direct",
+      effectiveGenerationSource: "builtin",
+      showComposerModeSwitch: true,
+      showComposerModeIndicator: false,
+      showGenerationSourceSwitch: true,
+      agentGenerationAvailable: false,
+      agentTaskStatus: null,
+      referenceLimitMessages,
+    });
+
+    expect(viewModel.hasSubmitContent).toBe(true);
+    expect(viewModel.pendingReference).not.toBeNull();
+    expect(viewModel.canSubmit).toBe(false);
+  });
+
   it("blocks built-in generation when inline references exceed the selected model limit", () => {
     const viewModel = buildGenerateDialogViewModel({
       request: createRequest({
@@ -61,10 +93,10 @@ describe("buildGenerateDialogViewModel", () => {
     expect(viewModel.showBody).toBe(false);
   });
 
-  it("allows ACP Agent submission without built-in provider configuration", () => {
+  it("allows ACP Agent instructions without built-in provider configuration", () => {
     const viewModel = buildGenerateDialogViewModel({
       request: createRequest({
-        prompt: "",
+        prompt: "基于选中对象继续优化",
         reference: {
           enabled: true,
           elementCount: 1,
@@ -80,8 +112,8 @@ describe("buildGenerateDialogViewModel", () => {
       showGenerationSourceSwitch: false,
       agentGenerationAvailable: true,
       agentTaskStatus: {
-        status: "running",
-        message: "执行中",
+        status: "completed",
+        message: "上一轮已完成",
       },
       referenceLimitMessages,
     });

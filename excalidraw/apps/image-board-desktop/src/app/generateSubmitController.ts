@@ -17,19 +17,9 @@ interface SubmitGenerationRequestInput {
     current: GenerationRequest;
   };
   customModels: readonly CustomProviderModel[];
-  canCommitPendingReference: boolean;
-  commitPendingReference: () => Promise<void> | void;
   clearSubmittedPrompt: () => void;
   onSubmit: (request: GenerationRequest, keepOpen: boolean) => void;
 }
-
-export const shouldCommitGenerationPendingReference = ({
-  request,
-  canCommitPendingReference,
-}: {
-  request: GenerationRequest;
-  canCommitPendingReference: boolean;
-}) => Boolean(canCommitPendingReference && request.reference?.enabled);
 
 export const submitGenerationRequest = async (
   input: SubmitGenerationRequestInput,
@@ -39,14 +29,10 @@ export const submitGenerationRequest = async (
       isPromptComposerMode: input.isPromptComposerMode,
       canSubmit: input.canSubmit,
       generationSource: input.generationSource,
-      hasPendingReferenceToCommit: shouldCommitGenerationPendingReference({
-        request: input.requestRef.current,
-        canCommitPendingReference: input.canCommitPendingReference,
-      }),
+      hasPendingReferenceToCommit: Boolean(
+        input.requestRef.current.reference?.enabled,
+      ),
     }),
-    commitPendingReference: async () => {
-      await input.commitPendingReference();
-    },
     submitPreparedRequest: () => {
       input.onSubmit(
         prepareGenerationSubmitRequest({
@@ -56,7 +42,9 @@ export const submitGenerationRequest = async (
         }),
         false,
       );
-      input.clearSubmittedPrompt();
+      if (input.generationSource === "builtin") {
+        input.clearSubmittedPrompt();
+      }
     },
   });
 

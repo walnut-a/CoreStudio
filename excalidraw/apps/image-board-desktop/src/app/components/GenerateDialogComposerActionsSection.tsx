@@ -11,7 +11,6 @@ interface GenerateDialogComposerActionsSectionProps {
   showPromptTools: boolean;
   advancedOpen: boolean;
   canSubmit: boolean;
-  loading: boolean;
   showGenerationSourceSwitch: boolean;
   agentGenerationSelectable: boolean;
   effectiveGenerationSource: GenerationSource;
@@ -23,7 +22,6 @@ interface GenerateDialogComposerActionsSectionProps {
     event: SyntheticEvent<HTMLElement>,
   ) => void;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
-  onCancelGeneration?: (event: SyntheticEvent<HTMLElement>) => void;
   setAdvancedOpen: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -33,7 +31,6 @@ export const GenerateDialogComposerActionsSection = ({
   showPromptTools,
   advancedOpen,
   canSubmit,
-  loading,
   showGenerationSourceSwitch,
   agentGenerationSelectable,
   effectiveGenerationSource,
@@ -42,7 +39,6 @@ export const GenerateDialogComposerActionsSection = ({
   generationSourceResetKey,
   onSelectGenerationSource,
   onStopInputEvent,
-  onCancelGeneration,
   setAdvancedOpen,
 }: GenerateDialogComposerActionsSectionProps) => {
   const sourceSelect = (
@@ -66,20 +62,11 @@ export const GenerateDialogComposerActionsSection = ({
           showPromptTools={showPromptTools}
           advancedOpen={advancedOpen}
           canSubmit={canSubmit}
-          loading={loading}
           sourceSelect={sourceSelect}
           onToggleAdvanced={(event) => {
             onStopInputEvent(event);
             setAdvancedOpen((current) => !current);
           }}
-          onCancelGeneration={
-            onCancelGeneration
-              ? (event) => {
-                  onStopInputEvent(event);
-                  onCancelGeneration(event);
-                }
-              : undefined
-          }
           onStopInputEvent={onStopInputEvent}
         />
       ) : null}

@@ -4,7 +4,6 @@ import { DesktopButton } from "./DesktopButton";
 import {
   sendIcon,
   settingsSlidersIcon,
-  stopIcon,
 } from "./CoreStudioIcons";
 import { copy } from "../copy";
 
@@ -12,10 +11,8 @@ interface GenerateComposerActionBarProps {
   showPromptTools: boolean;
   advancedOpen: boolean;
   canSubmit: boolean;
-  loading?: boolean;
   sourceSelect?: ReactNode;
   onToggleAdvanced: (event: SyntheticEvent<HTMLElement>) => void;
-  onCancelGeneration?: (event: SyntheticEvent<HTMLElement>) => void;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
 }
 
@@ -23,10 +20,8 @@ export const GenerateComposerActionBar = ({
   showPromptTools,
   advancedOpen,
   canSubmit,
-  loading = false,
   sourceSelect,
   onToggleAdvanced,
-  onCancelGeneration,
   onStopInputEvent,
 }: GenerateComposerActionBarProps) => {
   return (
@@ -59,32 +54,18 @@ export const GenerateComposerActionBar = ({
           {sourceSelect}
         </>
       ) : null}
-      {loading && onCancelGeneration ? (
-        <DesktopButton
-          type="button"
-          variant="primary"
-          className="generate-composer__action"
-          aria-label={copy.generateDialog.cancelGeneration}
-          title={copy.generateDialog.cancelGeneration}
-          onMouseDown={onStopInputEvent}
-          onClick={onCancelGeneration}
-        >
-          {stopIcon}
-        </DesktopButton>
-      ) : (
-        <DesktopButton
-          type="submit"
-          variant="primary"
-          className="generate-composer__action"
-          aria-label={copy.generateDialog.generate}
-          title={copy.generateDialog.generate}
-          disabled={!canSubmit}
-          onMouseDown={onStopInputEvent}
-          onClick={onStopInputEvent}
-        >
-          {sendIcon}
-        </DesktopButton>
-      )}
+      <DesktopButton
+        type="submit"
+        variant="primary"
+        className="generate-composer__action"
+        aria-label={copy.generateDialog.generate}
+        title={copy.generateDialog.generate}
+        disabled={!canSubmit}
+        onMouseDown={onStopInputEvent}
+        onClick={onStopInputEvent}
+      >
+        {sendIcon}
+      </DesktopButton>
     </div>
   );
 };

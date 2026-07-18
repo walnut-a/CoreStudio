@@ -13,7 +13,6 @@ const renderActionsSection = (
     showPromptTools: true,
     advancedOpen: false,
     canSubmit: true,
-    loading: false,
     showGenerationSourceSwitch: true,
     agentGenerationSelectable: true,
     effectiveGenerationSource: "builtin",

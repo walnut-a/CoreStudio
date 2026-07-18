@@ -229,6 +229,8 @@ describe("generationRequestState", () => {
     expect(next).toEqual({
       ...request,
       prompt: "",
+      promptParts: [],
+      promptReferences: [],
     });
   });
 
@@ -254,6 +256,8 @@ describe("generationRequestState", () => {
     expect(state).toEqual({
       ...request,
       prompt: "",
+      promptParts: [],
+      promptReferences: [],
     });
     expect(setGenerateRequest).toHaveBeenCalledWith(state);
   });

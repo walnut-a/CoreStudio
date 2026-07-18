@@ -889,7 +889,7 @@ describe("generatePromptRequest", () => {
       referenceLimitReason: null,
       pendingReference,
       hasInlineReferenceVisuals: true,
-      hasSubmitContent: true,
+      hasSubmitContent: false,
     });
 
     expect(
@@ -919,7 +919,7 @@ describe("generatePromptRequest", () => {
       referenceLimitExceeded: true,
       referenceLimitReason: "exceeded",
       pendingReference: null,
-      hasSubmitContent: true,
+      hasSubmitContent: false,
     });
 
     expect(
@@ -938,7 +938,7 @@ describe("generatePromptRequest", () => {
     });
   });
 
-  it("lets ACP Agent submit pending visual references without built-in reference capability", () => {
+  it("does not treat a pending visual reference as an ACP instruction", () => {
     const pendingReference = {
       enabled: true,
       elementCount: 1,
@@ -960,7 +960,7 @@ describe("generatePromptRequest", () => {
       referenceLimitReason: null,
       pendingReference: null,
       hasInlineReferenceVisuals: false,
-      hasSubmitContent: true,
+      hasSubmitContent: false,
     });
   });
 
@@ -1054,37 +1054,33 @@ describe("generatePromptRequest", () => {
         generationSource: "builtin",
         hasPendingReferenceToCommit: true,
       }),
-    ).toEqual({ kind: "commit-reference-and-submit" });
+    ).toEqual({
+      kind: "blocked",
+      reason: "pending-reference-unconfirmed",
+    });
   });
 
-  it("executes submit plans in the same order as the dialog submit flow", async () => {
-    const calls: string[] = [];
-    const commitPendingReference = vi.fn(async () => {
-      calls.push("commit");
-    });
+  it("executes only accepted submit plans", async () => {
     const submitPreparedRequest = vi.fn(() => {
-      calls.push("submit");
+      return undefined;
     });
 
     await expect(
       executeGenerationSubmitPlan({
-        plan: { kind: "commit-reference-and-submit" },
-        commitPendingReference,
+        plan: { kind: "submit" },
         submitPreparedRequest,
       }),
     ).resolves.toBe(true);
 
-    expect(calls).toEqual(["commit", "submit"]);
+    expect(submitPreparedRequest).toHaveBeenCalledTimes(1);
 
     await expect(
       executeGenerationSubmitPlan({
         plan: { kind: "blocked", reason: "cannot-submit" },
-        commitPendingReference,
         submitPreparedRequest,
       }),
     ).resolves.toBe(false);
 
-    expect(commitPendingReference).toHaveBeenCalledTimes(1);
     expect(submitPreparedRequest).toHaveBeenCalledTimes(1);
   });
 });

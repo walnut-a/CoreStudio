@@ -36,8 +36,6 @@ const createRuntimeInput = () => {
     effectiveGenerationSource: "builtin" as const,
     requestRef: { current: request },
     currentProviderCustomModels: [],
-    canCommitPendingReference: false,
-    commitPendingReference: vi.fn(),
     clearSubmittedPrompt: vi.fn(),
     onSubmit: vi.fn(),
     modeSwitchVariant: "acp-agent" as const,

@@ -393,37 +393,8 @@ describe("Chinese localization", () => {
       "excalidraw-button",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reference: expect.objectContaining({
-          enabled: true,
-        }),
-      }),
-      false,
-    );
-    const submittedRequest = onSubmit.mock.calls[0]?.[0];
-    expect(submittedRequest?.reference?.items).toEqual([
-      {
-        id: "image-1",
-        index: 1,
-        kind: "image",
-        label: "图片",
-      },
-      {
-        id: "image-2",
-        index: 2,
-        kind: "image",
-        label: "图片",
-      },
-      {
-        id: "text-1",
-        index: 3,
-        kind: "text",
-        label: "文本：保留把手比例",
-      },
-    ]);
+    expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("shows selected elements in Agent operation mode when configured", () => {
@@ -902,7 +873,7 @@ describe("Chinese localization", () => {
     );
   });
 
-  it("renders selected references as a pending inline chip", () => {
+  it("keeps a selected reference pending until the input confirms it", () => {
     const onSubmit = vi.fn();
     render(
       <GenerateImageDialog
@@ -941,17 +912,8 @@ describe("Chinese localization", () => {
     expect(screen.queryByText("已引用：2")).toBeNull();
     expect(screen.queryByRole("button", { name: "移除引用" })).toBeNull();
     expect(document.querySelector("[data-pending-reference]")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
-
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reference: expect.objectContaining({
-          enabled: true,
-          textNotes: ["保留把手比例"],
-        }),
-      }),
-      false,
-    );
+    expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("confirms a pending reference into the inline prompt on focus", async () => {
@@ -1994,7 +1956,7 @@ describe("Chinese localization", () => {
     expect(screen.queryByRole("button", { name: "展开输入框" })).toBeNull();
   });
 
-  it("automatically submits enabled reference input on supported image editing models", () => {
+  it("does not submit an unconfirmed selection on supported image editing models", () => {
     const onSubmit = vi.fn();
 
     render(
@@ -2025,17 +1987,8 @@ describe("Chinese localization", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /设置/ }));
-    fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
-
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reference: expect.objectContaining({
-          enabled: true,
-          textNotes: ["把圈出的区域再收一点"],
-        }),
-      }),
-      false,
-    );
+    expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("resets hidden multi-image state when switching to a single-image model", () => {

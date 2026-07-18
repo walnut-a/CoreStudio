@@ -797,7 +797,6 @@ class App extends React.Component<AppProps, AppState> {
       history: {
         clear: this.resetHistory,
       },
-      scrollToContent: this.scrollToContent,
       setViewport: this.setViewport,
       getViewportOffsets: this.getViewportOffsets,
       getSceneElements: this.getSceneElements,

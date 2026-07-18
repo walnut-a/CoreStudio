@@ -53,7 +53,11 @@
         "packages/excalidraw/actions/actionArrange.tsx",
         "packages/excalidraw/actions/index.ts",
         "packages/excalidraw/actions/types.ts",
-        "packages/excalidraw/components/Actions.tsx"
+        "packages/excalidraw/components/Actions.tsx",
+        "packages/excalidraw/components/CommandPalette/CommandPalette.tsx",
+        "packages/excalidraw/components/HelpDialog.tsx",
+        "packages/excalidraw/locales/en.json",
+        "packages/excalidraw/locales/zh-CN.json"
       ],
       "contractTests": ["packages/element/src/__tests__/arrange.test.ts"]
     },

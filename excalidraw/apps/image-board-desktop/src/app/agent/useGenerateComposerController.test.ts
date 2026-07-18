@@ -87,8 +87,9 @@ describe("getGenerateComposerCanSubmit", () => {
         effectiveGenerationSource: "agent",
         hasSubmitContent: true,
         agentGenerationAvailable: false,
+        agentTaskRunning: false,
         builtInGenerationConfigured: true,
-        referenceLimitExceeded: false,
+        referenceSubmissionBlocked: false,
       }),
     ).toBe(false);
 
@@ -97,10 +98,22 @@ describe("getGenerateComposerCanSubmit", () => {
         effectiveGenerationSource: "agent",
         hasSubmitContent: true,
         agentGenerationAvailable: true,
+        agentTaskRunning: false,
         builtInGenerationConfigured: false,
-        referenceLimitExceeded: true,
+        referenceSubmissionBlocked: false,
       }),
     ).toBe(true);
+
+    expect(
+      getGenerateComposerCanSubmit({
+        effectiveGenerationSource: "agent",
+        hasSubmitContent: true,
+        agentGenerationAvailable: true,
+        agentTaskRunning: true,
+        builtInGenerationConfigured: true,
+        referenceSubmissionBlocked: false,
+      }),
+    ).toBe(false);
   });
 
   it("requires provider configuration and valid references for built-in submit", () => {
@@ -109,8 +122,9 @@ describe("getGenerateComposerCanSubmit", () => {
         effectiveGenerationSource: "builtin",
         hasSubmitContent: true,
         agentGenerationAvailable: false,
+        agentTaskRunning: false,
         builtInGenerationConfigured: true,
-        referenceLimitExceeded: false,
+        referenceSubmissionBlocked: false,
       }),
     ).toBe(true);
 
@@ -119,8 +133,9 @@ describe("getGenerateComposerCanSubmit", () => {
         effectiveGenerationSource: "builtin",
         hasSubmitContent: true,
         agentGenerationAvailable: true,
+        agentTaskRunning: false,
         builtInGenerationConfigured: false,
-        referenceLimitExceeded: false,
+        referenceSubmissionBlocked: false,
       }),
     ).toBe(false);
   });

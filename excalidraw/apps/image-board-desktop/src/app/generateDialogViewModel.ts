@@ -106,8 +106,16 @@ export const buildGenerateDialogViewModel = ({
     effectiveGenerationSource,
     hasSubmitContent: referenceState.hasSubmitContent,
     agentGenerationAvailable,
+    agentTaskRunning: Boolean(
+      agentTaskStatus &&
+        !["idle", "completed", "failed", "cancelled"].includes(
+          agentTaskStatus.status,
+        ),
+    ),
     builtInGenerationConfigured: isConfigured,
-    referenceLimitExceeded: referenceState.referenceLimitExceeded,
+    referenceSubmissionBlocked: Boolean(
+      referenceState.pendingReference || referenceState.referenceLimitReason,
+    ),
   });
   const showBody = effectiveComposerMode === "direct" && advancedOpen;
   const isAgentOperationMode = effectiveComposerMode === "agent";

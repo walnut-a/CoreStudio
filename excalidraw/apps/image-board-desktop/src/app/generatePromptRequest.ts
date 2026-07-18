@@ -586,13 +586,7 @@ export const buildGeneratePromptReferenceState = ({
       : null;
   const hasInlineReferenceVisuals =
     Boolean(pendingReference) || promptReferenceCount > 0;
-  const hasSubmitContent = Boolean(
-    request.prompt.trim() ||
-      promptReferenceCount ||
-      (generationSource === "agent"
-        ? hasPendingReference
-        : hasUsablePendingReference),
-  );
+  const hasSubmitContent = Boolean(request.prompt.trim());
 
   return {
     promptReferenceCount,
@@ -610,13 +604,13 @@ export const buildGeneratePromptReferenceState = ({
 export type GenerationSubmitPlan =
   | {
       kind: "blocked";
-      reason: "non-prompt-composer" | "cannot-submit";
+      reason:
+        | "non-prompt-composer"
+        | "cannot-submit"
+        | "pending-reference-unconfirmed";
     }
   | {
       kind: "submit";
-    }
-  | {
-      kind: "commit-reference-and-submit";
     };
 
 export const buildGenerationSubmitPlan = ({
@@ -637,6 +631,13 @@ export const buildGenerationSubmitPlan = ({
     };
   }
 
+  if (generationSource === "builtin" && hasPendingReferenceToCommit) {
+    return {
+      kind: "blocked",
+      reason: "pending-reference-unconfirmed",
+    };
+  }
+
   if (!canSubmit) {
     return {
       kind: "blocked",
@@ -644,28 +645,18 @@ export const buildGenerationSubmitPlan = ({
     };
   }
 
-  if (generationSource === "agent" || !hasPendingReferenceToCommit) {
-    return { kind: "submit" };
-  }
-
-  return { kind: "commit-reference-and-submit" };
+  return { kind: "submit" };
 };
 
 export const executeGenerationSubmitPlan = async ({
   plan,
-  commitPendingReference,
   submitPreparedRequest,
 }: {
   plan: GenerationSubmitPlan;
-  commitPendingReference: () => Promise<void>;
   submitPreparedRequest: () => void;
 }) => {
   if (plan.kind === "blocked") {
     return false;
-  }
-
-  if (plan.kind === "commit-reference-and-submit") {
-    await commitPendingReference();
   }
 
   submitPreparedRequest();

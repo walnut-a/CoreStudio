@@ -165,6 +165,30 @@ describe("runAcpTaskStart", () => {
     );
     expect(clearSubmittedPrompt).toHaveBeenCalledTimes(1);
   });
+
+  it("preserves the ACP draft when the bridge cannot start the task", async () => {
+    const clearSubmittedPrompt = vi.fn();
+
+    await expect(
+      runAcpTaskStart({
+        request: createRequest(),
+        project: createProject(),
+        runtime: createRuntime(),
+        activeThreadId: null,
+        status: createStatus(),
+        pageUrl: "http://127.0.0.1:5174/",
+        bridge: {
+          startAcpAgentTask: vi.fn().mockRejectedValue(new Error("连接失败")),
+        },
+        createThreadId: () => "thread-1",
+        createTaskId: () => "task-1",
+        applyStartState: vi.fn(),
+        clearSubmittedPrompt,
+      }),
+    ).rejects.toThrow("连接失败");
+
+    expect(clearSubmittedPrompt).not.toHaveBeenCalled();
+  });
 });
 
 describe("runAcpTaskStartRendererAction", () => {

@@ -78,8 +78,9 @@ interface GetGenerateComposerCanSubmitInput {
   effectiveGenerationSource: GenerationSource;
   hasSubmitContent: boolean;
   agentGenerationAvailable: boolean;
+  agentTaskRunning: boolean;
   builtInGenerationConfigured: boolean;
-  referenceLimitExceeded: boolean;
+  referenceSubmissionBlocked: boolean;
 }
 
 interface UseGenerateComposerControllerInput {
@@ -212,15 +213,16 @@ export const getGenerateComposerCanSubmit = ({
   effectiveGenerationSource,
   hasSubmitContent,
   agentGenerationAvailable,
+  agentTaskRunning,
   builtInGenerationConfigured,
-  referenceLimitExceeded,
+  referenceSubmissionBlocked,
 }: GetGenerateComposerCanSubmitInput) =>
   Boolean(
     effectiveGenerationSource === "agent"
-      ? hasSubmitContent && agentGenerationAvailable
+      ? hasSubmitContent && agentGenerationAvailable && !agentTaskRunning
       : hasSubmitContent &&
           builtInGenerationConfigured &&
-          !referenceLimitExceeded,
+          !referenceSubmissionBlocked,
   );
 
 export const useGenerateComposerController = ({

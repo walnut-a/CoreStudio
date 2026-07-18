@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createGenerationSubmitHandler,
-  shouldCommitGenerationPendingReference,
   submitGenerationRequest,
 } from "./generateSubmitController";
 import type { GenerationRequest } from "../shared/providerTypes";
@@ -20,48 +19,7 @@ const createRequest = (
 });
 
 describe("submitGenerationRequest", () => {
-  it("only commits pending references when a commit handler is available", () => {
-    expect(
-      shouldCommitGenerationPendingReference({
-        request: createRequest({
-          reference: {
-            enabled: true,
-            elementCount: 1,
-            textCount: 0,
-          },
-        }),
-        canCommitPendingReference: true,
-      }),
-    ).toBe(true);
-
-    expect(
-      shouldCommitGenerationPendingReference({
-        request: createRequest({
-          reference: {
-            enabled: true,
-            elementCount: 1,
-            textCount: 0,
-          },
-        }),
-        canCommitPendingReference: false,
-      }),
-    ).toBe(false);
-
-    expect(
-      shouldCommitGenerationPendingReference({
-        request: createRequest({
-          reference: {
-            enabled: false,
-            elementCount: 1,
-            textCount: 0,
-          },
-        }),
-        canCommitPendingReference: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("commits pending references before submitting the latest built-in request", async () => {
+  it("blocks built-in submission until the pending reference is confirmed in the input", async () => {
     const requestRef = {
       current: createRequest({
         prompt: "原始提示词",
@@ -72,33 +30,8 @@ describe("submitGenerationRequest", () => {
         },
       }),
     };
-    const calls: string[] = [];
-    const onSubmit = vi.fn(() => {
-      calls.push("submit");
-    });
-    const clearSubmittedPrompt = vi.fn(() => {
-      calls.push("clear");
-    });
-    const commitPendingReference = vi.fn(async () => {
-      calls.push("commit");
-      requestRef.current = createRequest({
-        prompt: "提交前已写入 inline reference",
-        promptParts: [
-          { type: "text", text: "提交前已写入 inline reference" },
-          { type: "reference", referenceId: "ref-1" },
-        ],
-        promptReferences: [
-          {
-            id: "ref-1",
-            label: "图片",
-            enabled: true,
-            elementCount: 1,
-            textCount: 0,
-          },
-        ],
-        reference: null,
-      });
-    });
+    const onSubmit = vi.fn();
+    const clearSubmittedPrompt = vi.fn();
 
     await expect(
       submitGenerationRequest({
@@ -107,27 +40,13 @@ describe("submitGenerationRequest", () => {
         generationSource: "builtin",
         requestRef,
         customModels: [],
-        canCommitPendingReference: true,
-        commitPendingReference,
         clearSubmittedPrompt,
         onSubmit,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
 
-    expect(calls).toEqual(["commit", "submit", "clear"]);
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        generationSource: "builtin",
-        prompt: "提交前已写入 inline reference",
-        reference: null,
-        promptReferences: [
-          expect.objectContaining({
-            id: "ref-1",
-          }),
-        ],
-      }),
-      false,
-    );
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(clearSubmittedPrompt).not.toHaveBeenCalled();
   });
 
   it("submits ACP Agent requests without committing pending visual references", async () => {
@@ -141,7 +60,6 @@ describe("submitGenerationRequest", () => {
         },
       }),
     };
-    const commitPendingReference = vi.fn();
     const onSubmit = vi.fn();
     const clearSubmittedPrompt = vi.fn();
 
@@ -152,14 +70,11 @@ describe("submitGenerationRequest", () => {
         generationSource: "agent",
         requestRef,
         customModels: [],
-        canCommitPendingReference: true,
-        commitPendingReference,
         clearSubmittedPrompt,
         onSubmit,
       }),
     ).resolves.toBe(true);
 
-    expect(commitPendingReference).not.toHaveBeenCalled();
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         generationSource: "agent",
@@ -167,7 +82,7 @@ describe("submitGenerationRequest", () => {
       }),
       false,
     );
-    expect(clearSubmittedPrompt).toHaveBeenCalledTimes(1);
+    expect(clearSubmittedPrompt).not.toHaveBeenCalled();
   });
 
   it("does not submit when the composer cannot submit", async () => {
@@ -181,8 +96,6 @@ describe("submitGenerationRequest", () => {
         generationSource: "builtin",
         requestRef: { current: createRequest({ prompt: "不可提交" }) },
         customModels: [],
-        canCommitPendingReference: true,
-        commitPendingReference: vi.fn(),
         clearSubmittedPrompt,
         onSubmit,
       }),
@@ -198,15 +111,12 @@ describe("submitGenerationRequest", () => {
     };
     const onSubmit = vi.fn();
     const clearSubmittedPrompt = vi.fn();
-    const commitPendingReference = vi.fn();
     const submit = createGenerationSubmitHandler({
       isPromptComposerMode: true,
       canSubmit: true,
       generationSource: "builtin",
       requestRef,
       customModels: [],
-      canCommitPendingReference: false,
-      commitPendingReference,
       clearSubmittedPrompt,
       onSubmit,
     });
@@ -222,6 +132,5 @@ describe("submitGenerationRequest", () => {
       false,
     );
     expect(clearSubmittedPrompt).toHaveBeenCalledTimes(1);
-    expect(commitPendingReference).not.toHaveBeenCalled();
   });
 });

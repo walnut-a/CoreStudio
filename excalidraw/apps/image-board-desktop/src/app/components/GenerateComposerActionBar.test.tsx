@@ -13,7 +13,6 @@ const renderActionBar = (
     canSubmit: true,
     sourceSelect: <span>生成方式选择</span>,
     onToggleAdvanced: vi.fn(),
-    onCancelGeneration: vi.fn(),
     onStopInputEvent: vi.fn(),
     ...overrides,
   };
@@ -69,22 +68,4 @@ describe("GenerateComposerActionBar", () => {
     ).toBeDisabled();
   });
 
-  it("shows a stop action while generation is running", () => {
-    const onCancelGeneration = vi.fn();
-    renderActionBar({
-      loading: true,
-      onCancelGeneration,
-    });
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: copy.generateDialog.cancelGeneration,
-      }),
-    );
-
-    expect(onCancelGeneration).toHaveBeenCalledWith(expect.any(Object));
-    expect(
-      screen.queryByRole("button", { name: copy.generateDialog.generate }),
-    ).toBeNull();
-  });
 });

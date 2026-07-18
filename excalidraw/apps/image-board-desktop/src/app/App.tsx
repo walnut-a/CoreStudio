@@ -36,7 +36,6 @@ import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleC
 import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
 import { createGenerationRequestRendererActions } from "./generationRequestRendererController";
 import {
-  runBuiltinGenerationCancelRendererAction,
   runBuiltinGenerationRendererAction,
 } from "./builtinGenerationRendererController";
 import { createGenerationSubmitRendererActions } from "./generationSubmitRendererController";
@@ -1606,23 +1605,6 @@ const App = ({
     showGenerationError: generationErrorRendererActions.display,
   });
 
-  const cancelBuiltinGeneration = () => {
-    void runBuiltinGenerationCancelRendererAction({
-      getGenerationJobs: () => pendingGenerationJobsRef.current,
-      applyRegistryState: (state) =>
-        applyPendingGenerationJobRegistryState({
-          state,
-          setPendingJobs: (pendingJobs) => {
-            pendingGenerationJobsRef.current = pendingJobs;
-          },
-          setPendingCount: setPendingGenerationCount,
-        }),
-      cancelGenerateImages: desktopBridge.cancelGenerateImages,
-      markPendingGenerationFailed:
-        pendingGenerationCanvasRendererActions.markFailed,
-    });
-  };
-
   const acpConversationMessageRendererActions =
     createAcpConversationMessageRendererActions({
       getCurrentRequest: () => generateRequest,
@@ -2240,7 +2222,6 @@ const App = ({
             setAppSettingsCategory("image-generation");
             setAppSettingsOpen(true);
           }}
-          onCancelGeneration={cancelBuiltinGeneration}
           onClose={() => undefined}
           onRequestChange={generationRequestRendererActions.changeRequest}
           onModelSelectionChange={

@@ -1,5 +1,6 @@
 import { normalizeGenerationRequest } from "../shared/providerCatalog";
 import { copy } from "./copy";
+import { clearSubmittedPromptRequest } from "./generatePromptRequest";
 
 import type {
   CustomProviderModel,
@@ -201,10 +202,7 @@ export const applyBuiltinGenerationExecutionPlanState = ({
 
 export const buildBuiltinGenerationSubmittedRequest = (
   request: GenerationRequest,
-): GenerationRequest => ({
-  ...request,
-  prompt: "",
-});
+): GenerationRequest => clearSubmittedPromptRequest(request);
 
 export const applyBuiltinGenerationSubmittedRequestState = ({
   request,

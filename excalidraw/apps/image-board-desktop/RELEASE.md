@@ -197,6 +197,32 @@ gh release create v1.1.0 \
 
 本次客户端升级不会要求重新安装 Codex 集成；Codex 集成版本继续保持独立的 `1.1.0`。
 
+本次发布通过了这些检查：
+
+- 264 个测试文件通过，2012 项测试通过、1 项跳过
+- TypeScript typecheck、source/package-input/release secret scan 和 production build 全部通过
+- 包内 Codex 安装器与 CLI 版本契约 smoke 通过
+- 使用隔离用户数据目录的安装态 renderer smoke 通过，未干扰正在运行的 CoreStudio
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `3f267988-3548-4ebe-94fc-74585258b35c`，状态 `Accepted`
+- App 与 DMG 的 stapler validate、Gatekeeper 和 codesign 校验通过
+
+校验值：
+
+```text
+CoreStudio-1.1.21-arm64.dmg
+sha256: 6633ef5fc4fb5373517c707e7d5431e4477e7e9f0774b077f8378ad23cb93dec
+
+CoreStudio-1.1.21-arm64-mac.zip
+sha256: 98a68ccf20450c6f267db2fc3d653e81c57460fcd0ceeb7e09274a2ef714246b
+
+CoreStudio-1.1.21-arm64.dmg.blockmap
+sha256: fdfb1886fb581104d10ae67f87b2e628c6c45db87e3a0e14959ed9d5007a939c
+
+CoreStudio-1.1.21-arm64-mac.zip.blockmap
+sha256: f0bd062592cb704982dad94e49670c2cd9d1a0461d3635aa1d2d645aa0a147ca
+```
+
 ## 1.1.20 发布说明
 
 1.1.20 集中修复 Codex 集成安装、Agent Board 持久化边界和项目并发恢复：

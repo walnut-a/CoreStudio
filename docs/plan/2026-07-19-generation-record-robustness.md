@@ -1,8 +1,16 @@
 # CoreStudio 图片来源与生成记录健壮性修复计划
 
-> 状态：PR 1 已合入；PR 2 已完成本地实现与验证，待合入
+> 状态：已完成。PR [#35](https://github.com/walnut-a/CoreStudio/pull/35) 与 PR [#36](https://github.com/walnut-a/CoreStudio/pull/36) 均已合入 `main`。
 > 依据：[图片来源与生成记录健壮性审计](../doc/generation-record-robustness-audit.md)  
 > 实施原则：兼容读取旧项目，严格约束所有新写入；保留图片资产，不用删除历史数据解决模型问题。
+
+## 实施结果
+
+- PR #35 完成来源契约、旧项目兼容读取、结构化诊断、安全修复和统一来源展示。
+- PR #36 完成共享引用链定位、健康检查一致性与显式生成记录 reveal。
+- 合入前通过 195 个测试文件、1560 个测试，桌面端类型检查与 Electron 生产构建。
+- 两条 PR 的远端桌面 CI 均通过，并按计划顺序合入。
+- 本轮未提升项目格式、客户端版本或 Codex 集成版本，也未重复打安装包。
 
 ## 背景
 

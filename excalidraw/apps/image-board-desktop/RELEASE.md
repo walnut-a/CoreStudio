@@ -197,6 +197,31 @@ gh release create v1.1.0 \
 
 本次客户端升级不会要求重新安装 Codex 集成；Codex 集成版本继续保持独立的 `1.1.0`。
 
+本次发布通过了这些检查：
+
+- 195 个测试文件、1545 项测试全部通过
+- TypeScript typecheck、source/package-input/release secret scan 和 production build 全部通过
+- 包内 Codex 安装器、CLI 版本契约与隔离 renderer smoke 通过
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `40323cce-7b21-458f-a8ba-53be74147bfc`，状态 `Accepted`
+- App 与 DMG 的 stapler validate、Gatekeeper 和 codesign 校验通过
+
+校验值：
+
+```text
+CoreStudio-1.1.22-arm64.dmg
+sha256: 682ea8c639f3d9e1e09b397b992c156ecf7fa88d578266bb067fc0ca9e3a33f0
+
+CoreStudio-1.1.22-arm64-mac.zip
+sha256: 131331eab09c62a58d436af6e9e76029268666047002e225ad64bbfb3c90a8d8
+
+CoreStudio-1.1.22-arm64.dmg.blockmap
+sha256: 48d742d7a5843d11d0762f7052e12bb74056a0fa0f47a39e34d561898a664795
+
+CoreStudio-1.1.22-arm64-mac.zip.blockmap
+sha256: 37c6ea189eabc159649f36d4601f39a7bcbf81869d750d1d543a16af55e9b5c6
+```
+
 ## 1.1.21 发布说明
 
 1.1.21 修复生成输入状态和任务并发行为：

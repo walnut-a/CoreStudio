@@ -65,6 +65,9 @@ const runPackagedSmoke = ({
   spawn = childProcess.spawn,
   setTimeout: setTimer = setTimeout,
   clearTimeout: clearTimer = clearTimeout,
+  mkdtempSync = fs.mkdtempSync,
+  rmSync = fs.rmSync,
+  tmpdir = os.tmpdir,
   env = process.env,
   timeoutMs = 30_000,
   stdout = process.stdout,
@@ -76,15 +79,29 @@ const runPackagedSmoke = ({
       return;
     }
 
+    const temporaryUserDataDir = mkdtempSync(
+      path.join(tmpdir(), "corestudio-app-smoke-"),
+    );
     let settled = false;
     let stderr = "";
-    const child = spawn(executablePath, [], {
-      env: {
-        ...env,
-        CORESTUDIO_SMOKE_TEST: "1",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    let child;
+    try {
+      child = spawn(
+        executablePath,
+        [`--user-data-dir=${temporaryUserDataDir}`],
+        {
+          env: {
+            ...env,
+            CORESTUDIO_SMOKE_TEST: "1",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+    } catch (error) {
+      rmSync(temporaryUserDataDir, { recursive: true, force: true });
+      reject(error);
+      return;
+    }
     const timeout = setTimer(() => {
       rejectOnce(
         new Error(
@@ -96,6 +113,7 @@ const runPackagedSmoke = ({
     const cleanup = () => {
       clearTimer(timeout);
       child.kill();
+      rmSync(temporaryUserDataDir, { recursive: true, force: true });
     };
     const resolveOnce = () => {
       if (settled) {

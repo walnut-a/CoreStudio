@@ -23,7 +23,7 @@ describe("CoreStudio repository health contracts", () => {
     const source = fs.readFileSync(workflowPath, "utf8");
 
     expect(source).toContain("pull_request:");
-    expect(source).toMatch(/push:\n\s+branches:\n\s+- main/);
+    expect(source).not.toMatch(/^\s*push:/m);
     expect(source).not.toContain('- "walnut/**"');
   });
 

@@ -3,12 +3,10 @@ import { describe, expect, it } from "vitest";
 import { getAgentImageAssetsFromPayload } from "./agentCommandImageAssets";
 
 describe("agentCommandImageAssets", () => {
-  it("normalizes ACP generated image provenance and references from the root payload", () => {
+  it("normalizes Agent Board image provenance and references from the root payload", () => {
     const assets = getAgentImageAssetsFromPayload({
       projectPath: "/tmp/corestudio-project",
-      generationOrigin: "acp-agent",
-      generationTaskId: "task-1",
-      generationThreadId: "thread-1",
+      generationOrigin: "agent-board",
       prompt: "优化桌面 CNC",
       referenceFileIds: ["source-file"],
       referenceElementIds: ["source-element"],
@@ -27,9 +25,7 @@ describe("agentCommandImageAssets", () => {
         width: 512,
         height: 512,
         sourceType: "generated",
-        generationOrigin: "acp-agent",
-        generationTaskId: "task-1",
-        generationThreadId: "thread-1",
+        generationOrigin: "agent-board",
         prompt: "优化桌面 CNC",
         promptReferences: [
           {
@@ -47,9 +43,7 @@ describe("agentCommandImageAssets", () => {
 
   it("applies root defaults to each file in a files payload", () => {
     const assets = getAgentImageAssetsFromPayload({
-      generationOrigin: "acp-agent",
-      generationTaskId: "task-1",
-      generationThreadId: "thread-1",
+      generationOrigin: "agent-board",
       prompt: "生成一组方案",
       files: [
         {
@@ -74,16 +68,12 @@ describe("agentCommandImageAssets", () => {
     expect(assets).toEqual([
       expect.objectContaining({
         sourceType: "generated",
-        generationOrigin: "acp-agent",
-        generationTaskId: "task-1",
-        generationThreadId: "thread-1",
+        generationOrigin: "agent-board",
         prompt: "生成一组方案",
       }),
       expect.objectContaining({
         sourceType: "generated",
-        generationOrigin: "acp-agent",
-        generationTaskId: "task-1",
-        generationThreadId: "thread-1",
+        generationOrigin: "agent-board",
         prompt: "第二张单独提示词",
       }),
     ]);
@@ -105,7 +95,7 @@ describe("agentCommandImageAssets", () => {
   it("rejects empty explicit reference ids", () => {
     expect(() =>
       getAgentImageAssetsFromPayload({
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
         referenceFileIds: " , ",
         fileId: "input-file",
         mimeType: "image/png",

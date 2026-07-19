@@ -116,8 +116,6 @@ describe("agentCommandWriteRuntime", () => {
               assetPath: `assets/${file.fileId}.png`,
               sourceType: file.sourceType,
               generationOrigin: file.generationOrigin,
-              generationTaskId: file.generationTaskId,
-              generationThreadId: file.generationThreadId,
               width: file.width,
               height: file.height,
               createdAt: file.createdAt,
@@ -146,9 +144,7 @@ describe("agentCommandWriteRuntime", () => {
         command: "scene.addImage",
         payload: {
           projectPath: "/tmp/corestudio-project",
-          generationOrigin: "acp-agent",
-          generationTaskId: "task-1",
-          generationThreadId: "thread-1",
+          generationOrigin: "agent-board",
           fileId: "input-file",
           mimeType: "image/png",
           dataBase64: Buffer.from("image").toString("base64"),
@@ -180,9 +176,7 @@ describe("agentCommandWriteRuntime", () => {
       files: [
         expect.objectContaining({
           sourceType: "generated",
-          generationOrigin: "acp-agent",
-          generationTaskId: "task-1",
-          generationThreadId: "thread-1",
+          generationOrigin: "agent-board",
         }),
       ],
     });

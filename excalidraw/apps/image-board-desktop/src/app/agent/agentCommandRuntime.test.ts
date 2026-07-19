@@ -187,7 +187,7 @@ describe("agentCommandRuntime", () => {
         fileId: "result-file",
         assetPath: "assets/result-file.png",
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
         prompt: "参考源图生成结果",
         width: 1024,
         height: 1024,
@@ -339,7 +339,7 @@ describe("agentCommandRuntime", () => {
         fileId: "result-file",
         assetPath: "assets/result-file.png",
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
         prompt: "参考源图生成结果",
         width: 1024,
         height: 1024,
@@ -437,7 +437,7 @@ describe("agentCommandRuntime", () => {
     });
   });
 
-  it("persists ACP task and thread provenance on scene.addImage", async () => {
+  it("persists Agent Board image provenance on scene.addImage", async () => {
     const commit = vi.fn(async () => undefined);
     const beginImageWriteback = vi.fn(
       async ({
@@ -454,8 +454,6 @@ describe("agentCommandRuntime", () => {
               assetPath: `assets/${file.fileId}.png`,
               sourceType: file.sourceType,
               generationOrigin: file.generationOrigin,
-              generationTaskId: file.generationTaskId,
-              generationThreadId: file.generationThreadId,
               width: file.width,
               height: file.height,
               createdAt: file.createdAt,
@@ -484,9 +482,7 @@ describe("agentCommandRuntime", () => {
         command: "scene.addImage",
         payload: {
           projectPath: "/tmp/corestudio-project",
-          generationOrigin: "acp-agent",
-          generationTaskId: "task-1",
-          generationThreadId: "thread-1",
+          generationOrigin: "agent-board",
           fileId: "input-file",
           mimeType: "image/png",
           dataBase64: Buffer.from("image").toString("base64"),
@@ -512,9 +508,7 @@ describe("agentCommandRuntime", () => {
       files: [
         expect.objectContaining({
           sourceType: "generated",
-          generationOrigin: "acp-agent",
-          generationTaskId: "task-1",
-          generationThreadId: "thread-1",
+          generationOrigin: "agent-board",
         }),
       ],
     });
@@ -593,7 +587,7 @@ describe("agentCommandRuntime", () => {
           command: "scene.addImage",
           payload: {
             projectPath: "/tmp/corestudio-project",
-            generationOrigin: "acp-agent",
+            generationOrigin: "agent-board",
             referenceFileIds: " , ",
             fileId: "input-file",
             mimeType: "image/png",
@@ -625,7 +619,7 @@ describe("agentCommandRuntime", () => {
           command: "scene.addImage",
           payload: {
             projectPath: "/tmp/corestudio-project",
-            generationOrigin: "acp-agent",
+            generationOrigin: "agent-board",
             promptReferences: [
               {
                 id: "reference-empty",

@@ -139,7 +139,7 @@ export const enCopy: DesktopCopy = {
       "This image record has no matching board element. Run project data repair to restore it to the canvas.",
     provider: "Model service",
     importedProvider: "Imported",
-    externalAgentProvider: "External Agent",
+    agentProvider: "Agent",
     unrecordedProvider: "Not recorded",
     detailsTitle: "Generation parameters",
     model: "Model",
@@ -202,7 +202,6 @@ export const enCopy: DesktopCopy = {
     canvasNotReady: "The CoreStudio board is not ready yet.",
     missingSelectionReference:
       "No usable selection reference is available. Select the elements again and retry.",
-    acpTaskStartFailed: "Could not start the ACP Agent task.",
     geminiInvalidKey:
       "The Gemini API Key is invalid. Generate a new key in Google AI Studio and save it.",
     geminiNotConfigured:
@@ -285,17 +284,6 @@ export const enCopy: DesktopCopy = {
       dependenciesDescription:
         "These versions come from the current build configuration and update with the application.",
     },
-    experimentalPage: {
-      description:
-        "Experimental features must be enabled manually and may continue to change.",
-      externalAgent: "External Agent (ACP)",
-      externalAgentDescription:
-        "Hand tasks from CoreStudio to an ACP-compatible Agent. Off by default.",
-      enableExternalAgent: "Enable the external Agent experiment",
-      agentType: "Agent Type",
-      customCommand: "Custom command",
-      advancedSettings: "Advanced Settings",
-    },
     imageGenerationPage: {
       description:
         "Manage the image generation services available on the board.",
@@ -351,42 +339,6 @@ export const enCopy: DesktopCopy = {
         "openai-images": "OpenAI Images API",
         "openrouter-chat-image": "OpenRouter Chat image API",
       },
-    },
-    acpAdvancedPage: {
-      back: "← Back to Experimental Features",
-      title: "ACP Advanced Settings",
-      description:
-        "Change these only when customizing the launch command or troubleshooting Agent tasks.",
-      command: "Command",
-      arguments: "Arguments",
-      workingDirectory: "Working Directory",
-      defaultWorkingDirectory: (cwd: string) => `Default: ${cwd}`,
-      currentProjectDirectory: "Current project directory",
-      taskInstructionTemplate: "Task Instruction Template",
-      currentAgent: (name: string, command: string) =>
-        `Current: ${name} · ${command}`,
-      unsavedAgent: "Agent configuration has not been saved",
-      saving: "Saving...",
-      save: "Save",
-    },
-    acpDebugPage: {
-      status: {
-        running: "Running",
-        completed: "Completed",
-        failed: "Failed",
-        cancelled: "Cancelled",
-      },
-      title: "Advanced Debugging",
-      summary:
-        "Inspect ACP logs, protocol JSON, and task packages when troubleshooting.",
-      historyTitle: "ACP Debug Logs",
-      historyDescription:
-        "Use these logs to troubleshoot external Agent connections, protocol messages, or write-back failures. Follow normal task progress in the Agent conversation on the left.",
-      loading: "Loading...",
-      refresh: "Refresh Logs",
-      openRecord: (prompt: string) => `View debug log: ${prompt}`,
-      empty: "No ACP debug logs yet.",
-      unsupported: "This environment cannot read ACP debug logs.",
     },
     codexPage: {
       description:
@@ -502,9 +454,6 @@ export const enCopy: DesktopCopy = {
       cliEnableToDiscover: "Enable the connection for discovery",
       boardLinkReady: "Copy Board link",
       boardLinkWaiting: "Waiting for Board link",
-      acpTaskRunning: "Task running",
-      acpConfiguredDisabled: "Configured, not enabled",
-      acpNotConfigured: "Not configured",
       boardLinkNotReady: "Agent Board link is not ready.",
       boardLinkCopied: "Agent Board link copied.",
       cliEnvironmentNotReady:
@@ -524,142 +473,11 @@ export const enCopy: DesktopCopy = {
       },
       composer: {
         unavailable: "Agent unavailable",
-        enableFirst: "Enable ACP Agent in Settings first",
+        enableFirst: "Agent unavailable",
         taskRunning: "Current task is in progress",
         unavailableSentence: "Agent unavailable.",
-        enableFirstSentence: "Enable ACP Agent in Settings first.",
+        enableFirstSentence: "Agent unavailable.",
       },
-    },
-    acpTask: {
-      connecting: "Connecting to ACP Agent",
-      agentWorking: "Agent is working",
-      agentReply: "Agent reply",
-      taskFailed: "Task failed",
-    },
-    threadModel: {
-      agentTask: "Agent task",
-      statusUpdate: "Status update",
-      taskError: "Task error",
-      taskFailed: "Task failed",
-      taskPackage: "CoreStudio task package",
-    },
-    toolDisplay: {
-      agentTool: "Agent tool",
-      writeBoard: "Write to board",
-      readProject: "Read project",
-      operateBoard: "Operate board",
-      readFile: "Read file",
-      searchContent: "Search content",
-      runCommand: "Run command",
-      path: (value: string) => `Path: ${value}`,
-      query: (value: string) => `Query: ${value}`,
-      command: (value: string) => `Command: ${value}`,
-    },
-    historyLabel: "Agent conversation history",
-    status: {
-      completed: "Completed",
-      failed: "Failed",
-      cancelled: "Cancelled",
-      running: "Running",
-      connecting: "Connecting",
-      initializing: "Initializing",
-      creatingSession: "Creating session",
-      idle: "Idle",
-      pending: "Pending",
-    },
-    header: {
-      backToConversation: "Back to the current Agent conversation",
-      openList: "Open Agent conversation list",
-      back: "Back",
-      list: "List",
-      startNew: "Start a new Agent conversation",
-      new: "New",
-    },
-    composer: {
-      continueConversation: "Continue conversation",
-      enterTask: "Enter a task",
-      unavailable: "Agent unavailable",
-      label: "Continue Agent conversation",
-      sending: "Sending",
-      send: "Send to Agent",
-    },
-    threadList: {
-      syncing: "Syncing",
-      empty: "No conversation history",
-      untitled: "Untitled conversation",
-    },
-    timeline: {
-      empty: "Empty Agent conversation",
-      label: "Agent conversation timeline",
-    },
-    tool: {
-      running: "Running",
-      input: "Input",
-      output: "Output",
-    },
-    imageResult: {
-      unknownSource: "Unknown source",
-      prompt: (prompt: string) => `Prompt: ${prompt}`,
-      references: (count: number) =>
-        `${count} reference image${count === 1 ? "" : "s"}`,
-    },
-    taskStatus: {
-      logSaved: "Log saved",
-      viewSavedLog: "View saved log",
-      log: "Log",
-      viewProgress: "View task progress",
-      progress: "Progress",
-    },
-    runLog: {
-      dialogTitle: "Agent task log",
-      close: "Close",
-      loading: "Loading task log...",
-      task: "Task",
-      agent: "Agent",
-      status: "Status",
-      project: "Project",
-      showProtocolJson: "Show protocol JSON",
-      hideProtocolJson: "Hide protocol JSON",
-      initializing: "Initializing",
-      toolPending: "Waiting",
-      toolRunning: "Running",
-      userTask: "User task",
-      taskPackage: "CoreStudio task package",
-      statusUpdate: "Status update",
-      agentThought: "Agent thought",
-      toolCall: "Tool call",
-      taskError: "Task error",
-      taskFinished: "Task finished",
-      acpRequest: (method: string) =>
-        `ACP request${method ? ` · ${method}` : ""}`,
-      acpResponse: "ACP response",
-      acpNotification: (method: string) =>
-        `ACP notification${method ? ` · ${method}` : ""}`,
-      roleBadge: {
-        user: "U",
-        tool: "T",
-        system: "S",
-      },
-      inlineError: "Error",
-      inlineStatus: "Status",
-      label: "Agent task progress",
-      empty: "No readable progress yet.",
-    },
-    generation: {
-      toolbarLabel: "Generation task status",
-      inputMode: "Input mode",
-      directInput: "Direct input",
-      agentOperation: "Agent operation",
-      method: "Generation method",
-      directGeneration: "Direct generation",
-      acpAgent: "ACP Agent",
-    },
-    context: {
-      label: "Agent context",
-      currentSelection: "Current selection",
-      thumbnailAlt: (label: string, index: number) =>
-        `${label} ${index} thumbnail`,
-      empty: "No selected elements",
     },
   },
   agentBoard: {
@@ -742,7 +560,6 @@ export const enCopy: DesktopCopy = {
     imageGenerationOrigin: {
       corestudio: "Generated by CoreStudio",
       "agent-board": "Built-in Board Agent",
-      "acp-agent": "ACP Agent",
     },
     providerStatus: {
       success: "Connected",
@@ -795,7 +612,6 @@ export const enCopy: DesktopCopy = {
       failed: "Failed",
       restoredToBoard: "Restored to board",
       repairedSources: (count: number) => `Restored sources: ${count}`,
-      importedAcpOutputs: (count: number) => `Imported ACP outputs: ${count}`,
       notRestoredToBoard: (count: number) => `Not restored to board: ${count}`,
       backup: (path: string) => `Backup: ${path}`,
       failedDetails: "Repair failures",
@@ -867,17 +683,10 @@ export const enCopy: DesktopCopy = {
         suggestion:
           "Run project data repair to restore readable generated images to the board.",
       },
-      "unwritten-acp-output": {
-        title: "ACP result was not written to the project",
-        description:
-          "The ACP Agent generated an image locally, but writing it back to the CoreStudio project was interrupted or failed.",
-        suggestion:
-          "Run project data repair to add the local image to project assets and the board.",
-      },
       "incomplete-generation-record": {
         title: "Incomplete generation record metadata",
         description:
-          "The generated image is missing its origin. Prompts may be empty, but the origin is required to distinguish CoreStudio, the built-in Board Agent, and the ACP Agent.",
+          "The generated image is missing its origin. Prompts may be empty, but the origin is required to distinguish CoreStudio from Agent output.",
         suggestion:
           "Repair assigns legacy records a CoreStudio origin. New writes are validated and rejected when required data is missing.",
       },
@@ -925,13 +734,6 @@ export const enCopy: DesktopCopy = {
         suggestion:
           "Project data repair handles legacy records that can be completed automatically. Unclear relationships need manual review.",
       },
-      "acp-output": {
-        title: "ACP results not written to the project",
-        description:
-          "The ACP Agent generated images locally, but writing them back to the CoreStudio project was interrupted or failed.",
-        suggestion:
-          "Run project data repair to add readable ACP outputs to project assets and the board.",
-      },
       "display-cache": {
         title: "Display cache needs attention",
         description:
@@ -946,7 +748,6 @@ export const enCopy: DesktopCopy = {
       "thumbnail-cache-exists": "Cache already exists",
       "thumbnail-rebuild-failed": "Cache rebuild failed",
       "board-restore-failed": "Board restore failed",
-      "acp-output-import-failed": "ACP output import failed",
     },
     repairNextActions: {
       "record-missing":
@@ -959,8 +760,6 @@ export const enCopy: DesktopCopy = {
         "Confirm that the original image file can be read, then run project data repair again.",
       "board-restore-failed":
         "Confirm that the original image is still in the project's assets folder, restore it if needed, then run project data repair again.",
-      "acp-output-import-failed":
-        "Confirm that the ACP output file still exists and can be read, then run project data repair again.",
     },
   },
   projectRepair: {

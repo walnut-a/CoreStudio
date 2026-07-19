@@ -226,15 +226,6 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => {
   return withImageWritebackBridgeMock(bridge);
 };
 
-const getAcpAgentSettingsControls = (dialog: HTMLElement) => {
-  const acpSwitch = within(dialog).getByRole("switch", {
-    name: "启用 ACP Agent",
-  });
-  const acpSection = acpSwitch.closest("section");
-  expect(acpSection).not.toBeNull();
-  return within(acpSection as HTMLElement);
-};
-
 vi.mock("@excalidraw/utils", () => ({
   exportToBlob: hoistedExportToBlob,
 }));
@@ -647,10 +638,8 @@ vi.mock("./components/GenerateImageDialog", () => ({
   GenerateImageDialog: ({
     open,
     initialRequest,
-    composerConfig,
     error,
     onOpenErrorDetails,
-    onOpenAgentRunLog,
     onRequestChange,
     onSubmit,
   }: {
@@ -676,22 +665,8 @@ vi.mock("./components/GenerateImageDialog", () => ({
         textCount: number;
       } | null;
     };
-    composerConfig?: {
-      defaultMode?: "direct" | "agent" | "acp";
-      showModeSwitch?: boolean;
-      modeSwitchVariant?: "agent-operation" | "acp-agent";
-      showModeIndicator?: boolean;
-      defaultGenerationSource?: "builtin" | "agent";
-      showGenerationSourceSwitch?: boolean;
-      agentGenerationAvailable?: boolean;
-      agentTaskStatus?: {
-        taskId?: string;
-        logPath?: string;
-      } | null;
-    };
     error: string | null;
     onOpenErrorDetails?: () => void;
-    onOpenAgentRunLog?: (taskId: string) => void;
     onRequestChange?: (request: {
       provider:
         | "gemini"
@@ -746,24 +721,8 @@ vi.mock("./components/GenerateImageDialog", () => ({
           {initialRequest.provider}
         </div>
         <div data-testid="generate-dialog-model">{initialRequest.model}</div>
-        <pre data-testid="generate-dialog-composer-config">
-          {JSON.stringify(composerConfig ?? {})}
-        </pre>
         {initialRequest.reference ? (
           <div>{`参考元素: ${initialRequest.reference.elementCount}`}</div>
-        ) : null}
-        {composerConfig?.showModeSwitch ? (
-          <button
-            type="button"
-            onClick={() =>
-              onRequestChange?.({
-                ...initialRequest,
-                generationSource: "agent",
-              })
-            }
-          >
-            切换 ACP Agent 模式
-          </button>
         ) : null}
         {error ? (
           <div role="alert">
@@ -774,18 +733,6 @@ vi.mock("./components/GenerateImageDialog", () => ({
               </button>
             ) : null}
           </div>
-        ) : null}
-        {composerConfig?.agentTaskStatus?.taskId &&
-        composerConfig.agentTaskStatus.logPath &&
-        onOpenAgentRunLog ? (
-          <button
-            type="button"
-            onClick={() =>
-              onOpenAgentRunLog(composerConfig.agentTaskStatus!.taskId!)
-            }
-          >
-            查看保存日志
-          </button>
         ) : null}
         <button type="button" onClick={() => onSubmit(initialRequest, false)}>
           提交生成
@@ -804,20 +751,6 @@ vi.mock("./components/GenerateImageDialog", () => ({
           }
         >
           提交内置生成
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            onSubmit(
-              {
-                ...initialRequest,
-                generationSource: "agent",
-              },
-              false,
-            )
-          }
-        >
-          提交 ACP Agent 生成
         </button>
         <button
           type="button"
@@ -1024,7 +957,6 @@ export {
   createDesktopBridgeMock,
   createMockProjectBundle,
   createMockProviderSettings,
-  getAcpAgentSettingsControls,
   hoistedExportToBlob,
   mockExcalidrawAPI,
   render,

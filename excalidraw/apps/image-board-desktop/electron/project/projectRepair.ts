@@ -12,7 +12,6 @@ import type {
   ProjectRepairFileDetail,
   RebuildProjectThumbnailsResult,
 } from "../../src/shared/desktopBridgeTypes";
-import type { UnwrittenAcpOutput } from "../acp/acpOutputRecovery";
 import type { LocalImagePayloadOptions } from "../agent/localImagePayload";
 
 type CachedImageAssetRendition = Exclude<
@@ -73,16 +72,6 @@ interface ProjectRepairDependencies {
     sceneJson: string;
     expectedSceneHash?: string | null;
   }) => Promise<ProjectManifest | void>;
-  collectUnwrittenAcpOutputs: (input: {
-    projectToken: string;
-    imageRecords: ImageRecordMap;
-    agentRunsBaseDir?: string;
-  }) => Promise<UnwrittenAcpOutput[]>;
-  importUnwrittenAcpOutput: (
-    projectPath: string,
-    output: UnwrittenAcpOutput,
-    options: RebuildProjectThumbnailsOptions,
-  ) => Promise<ImageRecord | undefined>;
   getCachedRenditionDimensions: (
     record: ImageRecord,
     rendition: CachedImageAssetRendition,
@@ -379,13 +368,11 @@ export const rebuildProjectThumbnails = async (
     fileIds,
     force = false,
     createBackup = false,
-    agentRunsBaseDir,
   }: {
     projectPath: string;
     fileIds: string[];
     force?: boolean;
     createBackup?: boolean;
-    agentRunsBaseDir?: string;
   },
   options: RebuildProjectThumbnailsOptions = {},
   deps: ProjectRepairDependencies,
@@ -399,8 +386,6 @@ export const rebuildProjectThumbnails = async (
   const bundle = await deps.readProjectBundle(projectPath);
   let imageRecords = bundle.imageRecords;
   const repairedGenerationRecordFileIds: string[] = [];
-  const repairedAcpOutputFileIds: string[] = [];
-  const repairedAcpOutputRecords: ImageRecordMap = {};
   const restoredBoardFileIds: string[] = [];
   let restoredSceneJson: string | null = null;
   const generatedFileIds: string[] = [];
@@ -416,38 +401,6 @@ export const rebuildProjectThumbnails = async (
       repairedGenerationRecordFileIds.push(...repairResult.repairedFileIds);
       await deps.writeProjectImageRecords(projectPath, imageRecords);
       await deps.touchProjectManifest(projectPath, bundle.project);
-    }
-
-    const unwrittenAcpOutputs = await deps.collectUnwrittenAcpOutputs({
-      projectToken: bundle.project.agentAccess.token,
-      imageRecords,
-      agentRunsBaseDir,
-    });
-    for (const output of unwrittenAcpOutputs) {
-      try {
-        const record = await deps.importUnwrittenAcpOutput(
-          projectPath,
-          output,
-          options,
-        );
-        if (!record) {
-          continue;
-        }
-        imageRecords = {
-          ...imageRecords,
-          [record.fileId]: record,
-        };
-        repairedAcpOutputFileIds.push(record.fileId);
-        repairedAcpOutputRecords[record.fileId] = record;
-      } catch {
-        failedFileIds.push(output.fileId);
-        failedDetails.push({
-          fileId: output.fileId,
-          reason: "acp-output-import-failed",
-          path: output.outputPath,
-          message: "ACP 生成结果导入失败，请检查原始输出文件是否仍可读取。",
-        });
-      }
     }
 
     try {
@@ -586,14 +539,6 @@ export const rebuildProjectThumbnails = async (
 
   if (failedDetails.length) {
     result.failedDetails = failedDetails;
-  }
-
-  if (repairedAcpOutputFileIds.length) {
-    return {
-      ...result,
-      repairedAcpOutputFileIds,
-      repairedAcpOutputRecords,
-    };
   }
 
   return result;

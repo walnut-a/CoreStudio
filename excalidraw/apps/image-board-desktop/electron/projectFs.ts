@@ -20,16 +20,7 @@ import type {
 } from "../src/shared/desktopBridgeTypes";
 
 import { getSceneContentHash } from "../src/shared/sceneVersion";
-import {
-  readLocalImagePayload,
-  type LocalImagePayloadOptions,
-} from "./agent/localImagePayload";
 import { DESKTOP_APP_VERSION } from "./appVersion";
-import {
-  buildAcpPromptReferences,
-  collectUnwrittenAcpOutputs,
-  type UnwrittenAcpOutput,
-} from "./acp/acpOutputRecovery";
 import { inspectProjectHealth as inspectProjectHealthWithDeps } from "./project/projectHealth";
 import {
   readProjectImageRecords as readProjectImageRecordsWithDeps,
@@ -742,53 +733,6 @@ const pathExists = async (targetPath: string) => {
   }
 };
 
-const createNativeImageInspector = async (): Promise<
-  NonNullable<LocalImagePayloadOptions["inspectImage"]>
-> => {
-  const { nativeImage } = await import("electron");
-  return ({ buffer, mimeType }) => {
-    const image = nativeImage.createFromBuffer(buffer);
-    if (image.isEmpty()) {
-      throw new Error("无法读取 ACP 生成图片尺寸。");
-    }
-    const size = image.getSize();
-    return {
-      width: size.width || 1024,
-      height: size.height || 1024,
-      mimeType,
-    };
-  };
-};
-
-const importUnwrittenAcpOutput = async (
-  projectPath: string,
-  output: UnwrittenAcpOutput,
-  options: RebuildProjectThumbnailsOptions,
-) => {
-  const payload = await readLocalImagePayload(output.outputPath, {
-    ...(options.readFile ? { readFile: options.readFile } : {}),
-    inspectImage: options.inspectImage ?? (await createNativeImageInspector()),
-    ...(options.now ? { now: options.now } : {}),
-    randomId: () => output.fileId,
-  });
-  const imageRecords = await persistImageAssets({
-    projectPath,
-    files: [
-      {
-        ...payload,
-        sourceType: "generated",
-        generationOrigin: "acp-agent",
-        generationTaskId: output.taskId,
-        generationThreadId: output.threadId ?? null,
-        prompt: output.prompt,
-        promptReferences: buildAcpPromptReferences(output),
-      },
-    ],
-  });
-
-  return imageRecords[output.fileId];
-};
-
 const cachedRenditionExists = async ({
   projectPath,
   record,
@@ -894,10 +838,7 @@ export const cleanProjectCache = async ({
   };
 };
 
-export const inspectProjectHealth = (input: {
-  projectPath: string;
-  agentRunsBaseDir?: string;
-}) =>
+export const inspectProjectHealth = (input: { projectPath: string }) =>
   inspectProjectHealthWithDeps(input, {
     readProjectBundle: readProjectBundleFiles,
     listProjectAssetPaths: async (projectPath) => {
@@ -911,7 +852,6 @@ export const inspectProjectHealth = (input: {
     resolveProjectAssetPath,
     pathExists,
     cachedRenditionExists,
-    collectUnwrittenAcpOutputs,
   });
 
 export const readProjectAssetPayloads = async (
@@ -1007,13 +947,11 @@ export const rebuildProjectThumbnails = async (
     fileIds,
     force = false,
     createBackup = false,
-    agentRunsBaseDir,
   }: {
     projectPath: string;
     fileIds: string[];
     force?: boolean;
     createBackup?: boolean;
-    agentRunsBaseDir?: string;
   },
   options: RebuildProjectThumbnailsOptions = {},
 ) =>
@@ -1023,7 +961,6 @@ export const rebuildProjectThumbnails = async (
       fileIds,
       force,
       createBackup,
-      agentRunsBaseDir,
     },
     options,
     {
@@ -1033,8 +970,6 @@ export const rebuildProjectThumbnails = async (
       writeProjectImageRecords,
       touchProjectManifest,
       writeProjectScene,
-      collectUnwrittenAcpOutputs,
-      importUnwrittenAcpOutput,
       getCachedRenditionDimensions,
       readCachedRenditionPayload,
       readFile: fs.readFile,

@@ -25,7 +25,7 @@ Excluded from this slice:
 - Direct browser editing/persistence.
 - API key management or project open/create flows in Agent Board.
 - Replacing CLI write-back rules.
-- ACP task launch flow.
+- Embedded Agent task launch flow.
 
 ## Tasks
 

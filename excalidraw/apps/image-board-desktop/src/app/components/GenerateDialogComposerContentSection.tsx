@@ -1,44 +1,22 @@
-import type {
-  KeyboardEvent,
-  MouseEvent,
-  Ref,
-  SyntheticEvent,
-} from "react";
+import type { KeyboardEvent, MouseEvent, Ref, SyntheticEvent } from "react";
 
-import {
-  GenerateComposerAgentContext,
-  GenerateComposerPromptBody,
-} from "./GenerateComposerBody";
-import { GenerateComposerModeBar } from "./GenerateComposerControls";
+import { GenerateComposerPromptBody } from "./GenerateComposerBody";
 import type { InlinePromptEditorHandle } from "./InlinePromptEditor";
 import { copy } from "../copy";
 
-import type { GenerateComposerMode } from "../agent/useGenerateComposerController";
 import type {
   GenerationPromptPart,
   GenerationPromptReferencePayload,
-  GenerationReferenceItemPayload,
   GenerationReferencePayload,
 } from "../../shared/providerTypes";
 
 interface GenerateDialogComposerContentSectionProps {
-  showComposerTaskBar: boolean;
-  showComposerModeSwitch: boolean;
-  showComposerModeIndicator: boolean;
-  composerModeOptions: readonly GenerateComposerMode[];
-  effectiveComposerMode: GenerateComposerMode;
-  isAgentOperationMode: boolean;
-  agentSelectionItems: readonly GenerationReferenceItemPayload[];
   promptEditorRef: Ref<InlinePromptEditorHandle>;
   promptEditorParts: GenerationPromptPart[];
   promptReferences: GenerationPromptReferencePayload[];
   pendingReference: GenerationReferencePayload | null;
   promptEditorResetKey: number;
   referenceLimitMessage: string | null;
-  onSelectComposerMode: (
-    mode: GenerateComposerMode,
-    event: SyntheticEvent<HTMLElement>,
-  ) => void;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
   onCommitPendingReference: () => void | Promise<unknown>;
   onPromptChange: (parts: GenerationPromptPart[]) => void;
@@ -48,20 +26,12 @@ interface GenerateDialogComposerContentSectionProps {
 }
 
 export const GenerateDialogComposerContentSection = ({
-  showComposerTaskBar,
-  showComposerModeSwitch,
-  showComposerModeIndicator,
-  composerModeOptions,
-  effectiveComposerMode,
-  isAgentOperationMode,
-  agentSelectionItems,
   promptEditorRef,
   promptEditorParts,
   promptReferences,
   pendingReference,
   promptEditorResetKey,
   referenceLimitMessage,
-  onSelectComposerMode,
   onStopInputEvent,
   onCommitPendingReference,
   onPromptChange,
@@ -79,37 +49,21 @@ export const GenerateDialogComposerContentSection = ({
   };
 
   return (
-    <>
-      {showComposerTaskBar ? (
-        <GenerateComposerModeBar
-          showModeSwitch={showComposerModeSwitch}
-          showModeIndicator={showComposerModeIndicator}
-          composerModeOptions={composerModeOptions}
-          effectiveComposerMode={effectiveComposerMode}
-          onSelectMode={onSelectComposerMode}
-          onStopInputEvent={onStopInputEvent}
-        />
-      ) : null}
-      {isAgentOperationMode ? (
-        <GenerateComposerAgentContext items={agentSelectionItems} />
-      ) : (
-        <GenerateComposerPromptBody
-          promptEditorRef={promptEditorRef}
-          ariaLabel={copy.generateDialog.prompt}
-          placeholder={copy.generateDialog.promptPlaceholder}
-          parts={promptEditorParts}
-          references={promptReferences}
-          pendingReference={pendingReference}
-          resetKey={promptEditorResetKey}
-          referenceLimitMessage={referenceLimitMessage}
-          onChange={onPromptChange}
-          onFocusIntent={commitPendingReference}
-          onMouseDown={handlePromptMouseDown}
-          onKeyPressCapture={onPromptKeyPressCapture}
-          onKeyUpCapture={onPromptKeyUpCapture}
-          onKeyDown={onPromptKeyDown}
-        />
-      )}
-    </>
+    <GenerateComposerPromptBody
+      promptEditorRef={promptEditorRef}
+      ariaLabel={copy.generateDialog.prompt}
+      placeholder={copy.generateDialog.promptPlaceholder}
+      parts={promptEditorParts}
+      references={promptReferences}
+      pendingReference={pendingReference}
+      resetKey={promptEditorResetKey}
+      referenceLimitMessage={referenceLimitMessage}
+      onChange={onPromptChange}
+      onFocusIntent={commitPendingReference}
+      onMouseDown={handlePromptMouseDown}
+      onKeyPressCapture={onPromptKeyPressCapture}
+      onKeyUpCapture={onPromptKeyUpCapture}
+      onKeyDown={onPromptKeyDown}
+    />
   );
 };

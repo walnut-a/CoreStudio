@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  applyBuiltinGenerationExecutionPlanState,
   applyBuiltinGenerationSubmittedRequestState,
   buildBuiltinGenerationPreparedRequest,
   buildBuiltinGenerationReferencePlan,
@@ -146,18 +145,16 @@ describe("generationRequestState", () => {
     expect(next.reference?.elementCount).toBe(3);
   });
 
-  it("routes ACP Agent requests to the external agent task path", () => {
+  it("routes every local request to CoreStudio built-in generation", () => {
     expect(
       buildGenerationExecutionPlan({
         ...createRequest(),
         generationSource: "agent",
       }),
     ).toEqual({
-      kind: "start-acp-agent-task",
+      kind: "start-builtin-generation",
+      generationSource: "builtin",
     });
-  });
-
-  it("routes builtin and legacy requests to CoreStudio generation records", () => {
     expect(
       buildGenerationExecutionPlan({
         ...createRequest(),
@@ -166,35 +163,12 @@ describe("generationRequestState", () => {
     ).toEqual({
       kind: "start-builtin-generation",
       generationSource: "builtin",
-      showDirectGenerationRecords: true,
     });
 
     expect(buildGenerationExecutionPlan(createRequest())).toEqual({
       kind: "start-builtin-generation",
       generationSource: "builtin",
-      showDirectGenerationRecords: true,
     });
-  });
-
-  it("applies builtin generation execution state through the owner action", () => {
-    const setGenerationSource = vi.fn();
-    const showDirectGenerationRecords = vi.fn();
-    const state = applyBuiltinGenerationExecutionPlanState({
-      plan: {
-        kind: "start-builtin-generation",
-        generationSource: "builtin",
-        showDirectGenerationRecords: true,
-      },
-      setGenerationSource,
-      showDirectGenerationRecords,
-    });
-
-    expect(state).toEqual({
-      generationSource: "builtin",
-      showDirectGenerationRecords: true,
-    });
-    expect(setGenerationSource).toHaveBeenCalledWith("builtin");
-    expect(showDirectGenerationRecords).toHaveBeenCalledTimes(1);
   });
 
   it("clears the submitted prompt after starting a builtin generation while preserving request context", () => {

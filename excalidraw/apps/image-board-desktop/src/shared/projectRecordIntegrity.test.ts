@@ -32,7 +32,7 @@ describe("projectRecordIntegrity", () => {
 
     expect(isImageGenerationOrigin("corestudio")).toBe(true);
     expect(isImageGenerationOrigin("agent-board")).toBe(true);
-    expect(isImageGenerationOrigin("acp-agent")).toBe(true);
+    expect(isImageGenerationOrigin("retired-agent-runtime")).toBe(false);
     expect(isImageGenerationOrigin("unknown")).toBe(false);
   });
 
@@ -40,7 +40,7 @@ describe("projectRecordIntegrity", () => {
     expect(
       getGeneratedImageRecordMissingFields({
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
       }),
     ).toEqual([]);
 
@@ -96,7 +96,7 @@ describe("projectRecordIntegrity", () => {
       "result-file": createImageRecord({
         fileId: "result-file",
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
         promptReferences: [
           {
             id: "reference-1",
@@ -171,7 +171,7 @@ describe("projectRecordIntegrity", () => {
       "result-file": createImageRecord({
         fileId: "result-file",
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
         createdAt: "2026-07-02T00:05:00.000Z",
         promptReferences: [
           {
@@ -291,7 +291,7 @@ describe("projectRecordIntegrity", () => {
         "result-file": createImageRecord({
           fileId: "result-file",
           sourceType: "generated",
-          generationOrigin: "acp-agent",
+          generationOrigin: "agent-board",
           promptReferences: [
             {
               id: "reference-1",
@@ -367,34 +367,6 @@ describe("projectRecordIntegrity", () => {
     );
   });
 
-  it("reports ACP outputs that are not written back to the project", () => {
-    const report = inspectProjectRecordIntegrity({
-      imageRecords: {
-        "file-on-board": createImageRecord({ fileId: "file-on-board" }),
-      },
-      sceneImageFileIds: ["file-on-board"],
-      unwrittenAcpOutputs: [
-        {
-          fileId: "acp-output-file",
-          outputPath: "/tmp/corestudio-runs/output.png",
-        },
-      ],
-    });
-
-    expect(report.unwrittenAcpOutputFileIds).toEqual(["acp-output-file"]);
-    expect(report.issues).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          code: "unwritten-acp-output",
-          fileId: "acp-output-file",
-          path: "/tmp/corestudio-runs/output.png",
-          message: "ACP 生成结果未写入项目：output.png",
-          repairable: true,
-        }),
-      ]),
-    );
-  });
-
   it("classifies every project image record by the strongest current explanation", () => {
     const imageRecords: ImageRecordMap = {
       "file-on-board": createImageRecord({
@@ -406,7 +378,7 @@ describe("projectRecordIntegrity", () => {
       "result-file": createImageRecord({
         fileId: "result-file",
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
         promptReferences: [
           {
             id: "reference-1",

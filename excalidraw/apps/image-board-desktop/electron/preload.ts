@@ -13,7 +13,6 @@ import type {
   AgentRendererCommandRequest,
   AgentRendererCommandResponse,
 } from "../src/shared/agentBridgeTypes";
-import type { AcpTaskEvent } from "../src/shared/acpTypes";
 
 const getAgentErrorCode = (error: unknown) =>
   error &&
@@ -113,31 +112,6 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.getAgentBridgeStatus),
   setAgentBridgeEnabled: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setAgentBridgeEnabled, enabled),
-  loadAcpAgentSettings: () =>
-    ipcRenderer.invoke(IPC_CHANNELS.loadAcpAgentSettings),
-  saveAcpAgentSettings: (settings) =>
-    ipcRenderer.invoke(IPC_CHANNELS.saveAcpAgentSettings, settings),
-  startAcpAgentTask: (request) =>
-    ipcRenderer.invoke(IPC_CHANNELS.startAcpAgentTask, request),
-  cancelAcpAgentTask: (taskId) =>
-    ipcRenderer.invoke(IPC_CHANNELS.cancelAcpAgentTask, taskId),
-  listAcpAgentRunLogs: (input) =>
-    ipcRenderer.invoke(IPC_CHANNELS.listAcpAgentRunLogs, input),
-  readAcpAgentRunLog: (taskId) =>
-    ipcRenderer.invoke(IPC_CHANNELS.readAcpAgentRunLog, taskId),
-  listAcpAgentThreads: (input) =>
-    ipcRenderer.invoke(IPC_CHANNELS.listAcpAgentThreads, input),
-  readAcpAgentThread: (threadId) =>
-    ipcRenderer.invoke(IPC_CHANNELS.readAcpAgentThread, threadId),
-  onAcpAgentTaskEvent: (listener) => {
-    const handler = (_event: unknown, taskEvent: AcpTaskEvent) => {
-      listener(taskEvent);
-    };
-    ipcRenderer.on(IPC_CHANNELS.acpAgentTaskEvent, handler);
-    return () => {
-      ipcRenderer.removeListener(IPC_CHANNELS.acpAgentTaskEvent, handler);
-    };
-  },
   onFlushAutosaveRequest: (listener) => {
     const handler = async (
       _event: unknown,

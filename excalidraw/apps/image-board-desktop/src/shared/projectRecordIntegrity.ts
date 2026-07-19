@@ -9,7 +9,6 @@ const IMAGE_SOURCE_TYPES = new Set<ImageSourceType>(["generated", "imported"]);
 const IMAGE_GENERATION_ORIGINS = new Set<ImageGenerationOrigin>([
   "corestudio",
   "agent-board",
-  "acp-agent",
 ]);
 
 export const isImageSourceType = (value: unknown): value is ImageSourceType =>
@@ -74,8 +73,7 @@ export type ProjectRecordIntegrityIssueCode =
   | "broken-parent-link"
   | "broken-prompt-reference"
   | "orphan-image-record"
-  | "orphan-generated-record"
-  | "unwritten-acp-output";
+  | "orphan-generated-record";
 
 export interface ProjectRecordIntegrityIssue {
   code: ProjectRecordIntegrityIssueCode;
@@ -113,18 +111,12 @@ export interface ProjectRecordExplanation {
   missingGenerationFields?: string[];
 }
 
-export interface ProjectRecordIntegrityUnwrittenAcpOutput {
-  fileId: string;
-  outputPath: string;
-}
-
 export interface ProjectRecordIntegrityReport {
   incompleteGenerationRecordFileIds: string[];
   brokenParentFileIds: string[];
   brokenPromptReferenceFileIds: string[];
   orphanImageRecordFileIds: string[];
   orphanGeneratedImageRecordFileIds: string[];
-  unwrittenAcpOutputFileIds: string[];
   recordExplanations: Record<string, ProjectRecordExplanation>;
   issues: ProjectRecordIntegrityIssue[];
 }
@@ -142,9 +134,6 @@ export interface ProjectRecordBoardPresence {
   fallbackFileId: string | null;
   needsBoardRepair: boolean;
 }
-
-const getPathBaseName = (value: string) =>
-  value.split(/[\\/]/).filter(Boolean).pop() ?? value;
 
 export const buildProjectRecordBoardPresenceMap = ({
   imageRecords,
@@ -329,20 +318,15 @@ export const inspectProjectRecordIntegrity = ({
   imageRecords,
   sceneImageFileIds,
   missingAssetFileIds = [],
-  unwrittenAcpOutputs = [],
 }: {
   imageRecords: ImageRecordMap;
   sceneImageFileIds: readonly string[];
   missingAssetFileIds?: readonly string[];
-  unwrittenAcpOutputs?: readonly ProjectRecordIntegrityUnwrittenAcpOutput[];
 }): ProjectRecordIntegrityReport => {
   const issues: ProjectRecordIntegrityIssue[] = [];
   const incompleteGenerationRecordFileIds: string[] = [];
   const brokenParentFileIds: string[] = [];
   const brokenPromptReferenceFileIds: string[] = [];
-  const unwrittenAcpOutputFileIds = unwrittenAcpOutputs.map(
-    (output) => output.fileId,
-  );
 
   for (const [fileId, record] of Object.entries(imageRecords)) {
     const missingGenerationFields =
@@ -453,23 +437,6 @@ export const inspectProjectRecordIntegrity = ({
     });
   }
 
-  for (const output of unwrittenAcpOutputs) {
-    issues.push({
-      code: "unwritten-acp-output",
-      severity: "warning",
-      fileId: output.fileId,
-      path: output.outputPath,
-      message: `ACP 生成结果未写入项目：${getPathBaseName(
-        output.outputPath,
-      )}`,
-      repairable: true,
-      resolution: {
-        status: "repairable",
-        summary: "项目数据修复会把这张本地生成图补进项目资产和画板。",
-      },
-    });
-  }
-
   return {
     incompleteGenerationRecordFileIds,
     brokenParentFileIds,
@@ -478,7 +445,6 @@ export const inspectProjectRecordIntegrity = ({
     ),
     orphanImageRecordFileIds,
     orphanGeneratedImageRecordFileIds,
-    unwrittenAcpOutputFileIds,
     recordExplanations,
     issues,
   };

@@ -85,8 +85,6 @@ describe("runBuiltinGenerationRendererAction", () => {
     };
     let pendingJobs = new Map();
     const appliedRegistryStates: PendingGenerationJobRegistryState[] = [];
-    const setGenerationSource = vi.fn();
-    const showDirectGenerationRecords = vi.fn();
     const setGenerateRequest = vi.fn();
     const insertPlaceholders = vi.fn(() => job);
     const generateImages = vi.fn(async () => createResponse());
@@ -106,8 +104,6 @@ describe("runBuiltinGenerationRendererAction", () => {
       startupGenerateFailedMessage: "生成失败",
       loadOriginalScene: async (scene) => scene,
       assertProjectActive: vi.fn(),
-      setGenerationSource,
-      showDirectGenerationRecords,
       setGenerateRequest,
       insertPlaceholders,
       getGenerationJobs: () => pendingJobs,
@@ -124,8 +120,6 @@ describe("runBuiltinGenerationRendererAction", () => {
     });
 
     expect(result.kind).toBe("started");
-    expect(setGenerationSource).toHaveBeenCalledWith("builtin");
-    expect(showDirectGenerationRecords).toHaveBeenCalledTimes(1);
     expect(insertPlaceholders).toHaveBeenCalledWith(
       expect.objectContaining({ prompt: request.prompt }),
       expect.any(String),
@@ -187,8 +181,6 @@ describe("runBuiltinGenerationRendererAction", () => {
       startupGenerateFailedMessage: "生成失败",
       loadOriginalScene: async (scene) => scene,
       assertProjectActive: vi.fn(),
-      setGenerationSource: vi.fn(),
-      showDirectGenerationRecords: vi.fn(),
       setGenerateRequest: vi.fn(),
       insertPlaceholders,
       getGenerationJobs: () => pendingJobs,
@@ -243,8 +235,6 @@ describe("runBuiltinGenerationRendererAction", () => {
       startupGenerateFailedMessage: "生成失败",
       loadOriginalScene: async (scene) => scene,
       assertProjectActive: vi.fn(),
-      setGenerationSource: vi.fn(),
-      showDirectGenerationRecords: vi.fn(),
       setGenerateRequest: vi.fn(),
       insertPlaceholders: vi.fn(() => job),
       getGenerationJobs: () => pendingJobs,
@@ -324,8 +314,6 @@ describe("runBuiltinGenerationRendererAction", () => {
         startupGenerateFailedMessage: "生成失败",
         loadOriginalScene: async (scene) => scene,
         assertProjectActive: vi.fn(),
-        setGenerationSource: vi.fn(),
-        showDirectGenerationRecords: vi.fn(),
         setGenerateRequest: vi.fn(),
         insertPlaceholders: vi.fn(() => null),
         getGenerationJobs: () => new Map(),

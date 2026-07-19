@@ -8,10 +8,6 @@ import {
   getGenerateImageDialogProviderContext,
   useGenerateImageDialogProviderRuntime,
 } from "./GenerateImageDialogProviderRuntime";
-import {
-  useGenerateComposerController,
-  type GenerateComposerConfig,
-} from "../agent/useGenerateComposerController";
 import { copy } from "../copy";
 import { buildGenerateDialogViewModel } from "../generateDialogViewModel";
 import { useGenerateDialogPanelController } from "../useGenerateDialogPanelController";
@@ -29,7 +25,6 @@ export interface UseGenerateImageDialogRuntimeInput {
   open: boolean;
   persistent?: boolean;
   focusToken?: number;
-  composerConfig?: GenerateComposerConfig;
   initialRequest: GenerationRequest;
   providerSettings: PublicProviderSettings | null;
   error: string | null;
@@ -42,7 +37,6 @@ export interface UseGenerateImageDialogRuntimeInput {
   }) => void;
   onReferenceRemove?: () => void;
   onReferenceCommit?: () => Promise<GenerationReferencePayload | null>;
-  onOpenAgentRunLog?: (taskId: string) => void;
   onOpenProviderSettings?: () => void;
   onSubmit: (request: GenerationRequest, keepOpen: boolean) => void;
 }
@@ -51,7 +45,6 @@ export const useGenerateImageDialogRuntime = ({
   open,
   persistent = false,
   focusToken = 0,
-  composerConfig,
   initialRequest,
   providerSettings,
   error,
@@ -61,7 +54,6 @@ export const useGenerateImageDialogRuntime = ({
   onModelSelectionChange,
   onReferenceRemove,
   onReferenceCommit,
-  onOpenAgentRunLog,
   onOpenProviderSettings,
   onSubmit,
 }: UseGenerateImageDialogRuntimeInput) => {
@@ -84,29 +76,6 @@ export const useGenerateImageDialogRuntime = ({
   });
   const panelRef = useRef<HTMLElement | null>(null);
   const promptEditorRef = useRef<InlinePromptEditorHandle | null>(null);
-  const {
-    showComposerModeSwitch,
-    modeSwitchVariant,
-    composerModeOptions,
-    showComposerModeIndicator,
-    effectiveComposerMode,
-    showGenerationSourceSwitch,
-    setGenerationSource,
-    isAgentOperationMode,
-    isPromptComposerMode,
-    agentGenerationAvailable,
-    agentGenerationUnavailableMessage,
-    agentTaskStatus,
-    agentTaskEvents,
-    agentGenerationSelectable,
-    effectiveGenerationSource,
-    generationSourceLabel,
-    setComposerMode,
-  } = useGenerateComposerController({
-    composerConfig,
-    initialGenerationSource: initialRequest.generationSource,
-    open,
-  });
   const providerContext = getGenerateImageDialogProviderContext({
     provider: request.provider,
     providerSettings,
@@ -118,7 +87,6 @@ export const useGenerateImageDialogRuntime = ({
     open,
     persistent,
     focusToken,
-    effectiveComposerMode,
     error,
     isConfigured: providerContext.isConfigured,
     panelRef,
@@ -135,20 +103,11 @@ export const useGenerateImageDialogRuntime = ({
     referenceLimitMessage,
     canSubmit,
     showBody,
-    agentSelectionItems,
-    showComposerTaskBar,
     classNames: generateComposerClassNames,
   } = buildGenerateDialogViewModel({
     request,
     providerSettings,
     currentProviderCustomModels: providerContext.currentProviderCustomModels,
-    effectiveComposerMode,
-    effectiveGenerationSource,
-    showComposerModeSwitch,
-    showComposerModeIndicator,
-    showGenerationSourceSwitch,
-    agentGenerationAvailable,
-    agentTaskStatus,
     advancedOpen,
     referenceLimitMessages: {
       exceeded: copy.generateDialog.referenceLimitExceeded,
@@ -186,21 +145,12 @@ export const useGenerateImageDialogRuntime = ({
     handleComposerPromptKeyDown,
     handleTextInputKeyDown,
     handleSubmit,
-    selectComposerMode,
-    selectGenerationSource,
   } = createGenerateDialogComposerRuntime({
-    isPromptComposerMode,
     canSubmit,
-    effectiveGenerationSource,
     requestRef,
     currentProviderCustomModels: providerContext.currentProviderCustomModels,
     clearSubmittedPrompt,
     onSubmit,
-    modeSwitchVariant,
-    agentGenerationSelectable,
-    setComposerMode,
-    setGenerationSource,
-    updateRequest,
   });
 
   const { advancedSettingsProps } =
@@ -220,14 +170,6 @@ export const useGenerateImageDialogRuntime = ({
     handleSubmit,
     composerSectionProps: {
       classNames: generateComposerClassNames,
-      showComposerTaskBar,
-      showComposerModeSwitch,
-      showComposerModeIndicator,
-      composerModeOptions,
-      effectiveComposerMode,
-      isAgentOperationMode,
-      isPromptComposerMode,
-      agentSelectionItems,
       promptEditorRef,
       promptEditorParts,
       promptReferences: request.promptReferences || [],
@@ -236,25 +178,12 @@ export const useGenerateImageDialogRuntime = ({
       referenceLimitMessage,
       advancedOpen,
       canSubmit,
-      showGenerationSourceSwitch,
-      agentGenerationSelectable,
-      effectiveGenerationSource,
-      generationSourceLabel,
-      agentGenerationUnavailableMessage,
-      generationSourceResetKey: `${effectiveComposerMode}:${
-        open ? "open" : "closed"
-      }`,
-      agentTaskStatus,
-      agentTaskEvents,
-      onSelectComposerMode: selectComposerMode,
-      onSelectGenerationSource: selectGenerationSource,
       onStopInputEvent: stopInputEventPropagation,
       onCommitPendingReference: commitPendingReference,
       onPromptChange: updatePromptParts,
       onPromptKeyPressCapture: handleInputKeyPhaseCapture,
       onPromptKeyUpCapture: handleInputKeyPhaseCapture,
       onPromptKeyDown: handleComposerPromptKeyDown,
-      onOpenAgentRunLog,
       setAdvancedOpen,
     },
     bodyProps: {

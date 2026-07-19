@@ -62,7 +62,6 @@ describe("createAppMenuTemplate", () => {
     expect(getSubmenuLabels(template[0].submenu)).toContain("退出 CoreStudio");
     expect(template.map((item) => item.label)).not.toContain("生成");
     expect(getAllMenuLabels(template)).not.toContain("复制 Agent Board 链接");
-    expect(getAllMenuLabels(template)).not.toContain("ACP 调试记录");
     expect(getAllMenuLabels(template)).not.toContain("最近 Agent 任务");
     expect(getAllMenuLabels(template)).not.toContain("默认生成方式");
 

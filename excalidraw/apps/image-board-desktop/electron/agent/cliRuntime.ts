@@ -285,35 +285,6 @@ const parseCommand = (
   const [tool, target] = argv;
 
   if (tool === "read") {
-    if (target === "acp-run" || target === "acp-thread") {
-      const idFlag = target === "acp-run" ? "--task-id" : "--thread-id";
-      const parsed = parseArgs(argv.slice(2), {
-        valueFlags: [idFlag],
-      });
-      if (isEnvelope(parsed)) {
-        return parsed;
-      }
-      const positionalsError = expectNoPositionals(`read ${target}`, parsed);
-      if (positionalsError) {
-        return positionalsError;
-      }
-      const id = requiredString(
-        parsed.flags[idFlag],
-        `read ${target} requires ${idFlag}.`,
-      );
-      if (typeof id !== "string") {
-        return id;
-      }
-      return {
-        route:
-          target === "acp-run"
-            ? AGENT_HTTP_ROUTES.acpRun
-            : AGENT_HTTP_ROUTES.acpThread,
-        method: "POST",
-        body: target === "acp-run" ? { taskId: id } : { threadId: id },
-      };
-    }
-
     if (target === "image-paths") {
       const parsed = parseArgs(argv.slice(2), {
         valueFlags: ["--file-ids"],
@@ -360,8 +331,6 @@ const parseCommand = (
       project: { route: AGENT_HTTP_ROUTES.projectCurrent, method: "GET" },
       records: { route: AGENT_HTTP_ROUTES.projectRecords, method: "GET" },
       health: { route: AGENT_HTTP_ROUTES.projectHealth, method: "GET" },
-      "acp-runs": { route: AGENT_HTTP_ROUTES.acpRuns, method: "GET" },
-      "acp-threads": { route: AGENT_HTTP_ROUTES.acpThreads, method: "GET" },
       "browser-state": {
         route: AGENT_HTTP_ROUTES.browserState,
         method: "GET",
@@ -381,7 +350,7 @@ const parseCommand = (
     const route = target ? readRoutes[target] : null;
     if (!route) {
       return badRequestEnvelope(
-        "read requires one of: status, capabilities, context, project, records, health, board, scene, selection, image-paths, board-url, browser-state, acp-runs, acp-run, acp-threads, acp-thread.",
+        "read requires one of: status, capabilities, context, project, records, health, board, scene, selection, image-paths, board-url, browser-state.",
       );
     }
     const parsed = parseArgs(argv.slice(2));
@@ -645,7 +614,7 @@ const parseCommand = (
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,
-          `${envPrefix} ${executable} write image /absolute/path/to/image.png --origin acp-agent --json`,
+          `${envPrefix} ${executable} write image /absolute/path/to/image.png --origin agent-board --json`,
           `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
           `${envPrefix} ${executable} write prompt --text "..." --json`,
         ];
@@ -900,27 +869,7 @@ const getAddImageMetadataDefaults = (
     return {};
   }
 
-  const env = options.env ?? process.env;
-  return {
-    ...(env.CORESTUDIO_AGENT_TASK_ID
-      ? {
-          generationOrigin: "acp-agent",
-          generationTaskId: env.CORESTUDIO_AGENT_TASK_ID,
-        }
-      : {}),
-    ...(env.CORESTUDIO_AGENT_THREAD_ID
-      ? { generationThreadId: env.CORESTUDIO_AGENT_THREAD_ID }
-      : {}),
-    ...(env.CORESTUDIO_AGENT_USER_PROMPT
-      ? { prompt: env.CORESTUDIO_AGENT_USER_PROMPT }
-      : {}),
-    ...(env.CORESTUDIO_AGENT_REFERENCE_FILE_IDS
-      ? { referenceFileIds: env.CORESTUDIO_AGENT_REFERENCE_FILE_IDS }
-      : {}),
-    ...(env.CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS
-      ? { referenceElementIds: env.CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS }
-      : {}),
-  };
+  return {};
 };
 
 const normalizeAddImageReferenceIds = (
@@ -1001,7 +950,7 @@ const getPreparedAddImageBodyError = (
   }
 
   if (body?.sourceType === "generated" && !body.generationOrigin) {
-    return "write image requires --origin unless an ACP task environment provides one.";
+    return "write image requires --origin.";
   }
 
   return error;

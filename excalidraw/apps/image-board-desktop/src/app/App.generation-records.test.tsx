@@ -17,7 +17,7 @@ import {
 } from "./App.testSupport";
 
 describe("App generation records", () => {
-  it("shows direct generation records without mixing ACP Agent threads", async () => {
+  it("shows CoreStudio and Agent Board generated image records", async () => {
     const extraDirectRecords = Object.fromEntries(
       Array.from({ length: 25 }, (_, index) => {
         const recordIndex = index + 1;
@@ -62,14 +62,14 @@ describe("App generation records", () => {
               createdAt: "2026-06-29T08:00:00.000Z",
               mimeType: "image/png",
             },
-            "acp-image": {
-              fileId: "acp-image",
-              assetPath: "assets/acp-image.png",
+            "agent-board-image": {
+              fileId: "agent-board-image",
+              assetPath: "assets/agent-board-image.png",
               sourceType: "generated",
-              generationOrigin: "acp-agent",
+              generationOrigin: "agent-board",
               provider: "gemini",
               model: "imagen-4.0-fast-generate-001",
-              prompt: "ACP Agent 连续对话记录",
+              prompt: "Agent Board 生成图片",
               negativePrompt: "",
               seed: null,
               width: 1024,
@@ -213,13 +213,13 @@ describe("App generation records", () => {
       generationDock.getByText("CoreStudio 单次生成记录"),
     ).toBeInTheDocument();
     expect(
-      generationDock.queryByText("ACP Agent 连续对话记录"),
-    ).not.toBeInTheDocument();
+      generationDock.getByText("Agent Board 生成图片"),
+    ).toBeInTheDocument();
     expect(
       generationDock.getByText("已经不在画布上的旧生成记录"),
     ).toBeInTheDocument();
     expect(generationDock.getByText(/引用链中间图/)).toBeInTheDocument();
-    expect(generationDock.getByText(/未在画板/)).toBeInTheDocument();
+    expect(generationDock.getAllByText(/未在画板/).length).toBeGreaterThan(0);
     expect(generationDock.getByText("第 01 条生成记录")).toBeInTheDocument();
 
     await act(async () => {
@@ -275,139 +275,6 @@ describe("App generation records", () => {
             element.fileId === "orphan-generated-image",
         ),
     ).toBe(false);
-  });
-
-  it("returns to generation records after a builtin image is generated from an ACP conversation context", async () => {
-    let acpTaskListener:
-      | ((event: {
-          taskId: string;
-          type: "status";
-          status: "completed";
-          message: string;
-        }) => void)
-      | null = null;
-    const startAcpAgentTask = vi.fn().mockResolvedValue({ taskId: "task-1" });
-    const generatedAt = "2026-06-30T03:40:00.000Z";
-    const generateImages = vi.fn().mockResolvedValue({
-      provider: "gemini",
-      model: "imagen-4.0-fast-generate-001",
-      seed: null,
-      createdAt: generatedAt,
-      images: [
-        {
-          fileName: "generated.png",
-          mimeType: "image/png",
-          dataBase64: "iVBORw0KGgo=",
-          width: 1024,
-          height: 1024,
-        },
-      ],
-    });
-    const persistImageAssets = vi.fn(async ({ files }: { files: any[] }) =>
-      Object.fromEntries(
-        files.map((file: any) => [
-          file.fileId,
-          {
-            fileId: file.fileId,
-            assetPath: `assets/${file.fileId}.png`,
-            sourceType: file.sourceType,
-            provider: file.provider,
-            model: file.model,
-            prompt: file.prompt,
-            negativePrompt: file.negativePrompt ?? "",
-            seed: file.seed ?? null,
-            width: file.width,
-            height: file.height,
-            createdAt: file.createdAt,
-            mimeType: file.mimeType,
-          },
-        ]),
-      ),
-    );
-
-    window.imageBoardDesktop = createDesktopBridgeMock({
-      getAgentBridgeStatus: vi.fn(async () => ({
-        enabled: true,
-        ready: true,
-        currentProject: null,
-        boardUrl:
-          "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
-      })),
-      loadAcpAgentSettings: vi.fn(async () => ({
-        enabled: true,
-        defaultAgentId: "default",
-        agents: [
-          {
-            id: "default",
-            name: "测试 Agent",
-            command: "/usr/local/bin/acp-agent",
-            args: ["--stdio"],
-            cwd: null,
-          },
-        ],
-      })),
-      startAcpAgentTask,
-      onAcpAgentTaskEvent: vi.fn((listener) => {
-        acpTaskListener = listener as typeof acpTaskListener;
-        return () => undefined;
-      }),
-      generateImages,
-      persistImageAssets,
-    }) as any;
-
-    render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "切换 ACP Agent 模式" }),
-      );
-    });
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "提交 ACP Agent 生成" }),
-      );
-    });
-
-    await waitFor(() => {
-      expect(startAcpAgentTask).toHaveBeenCalled();
-    });
-    const taskId = startAcpAgentTask.mock.calls[0][0].taskId;
-    act(() => {
-      acpTaskListener?.({
-        taskId,
-        type: "status",
-        status: "completed",
-        message: "Agent 已完成",
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("side-dock-left")).toHaveTextContent(
-        "Agent 对话",
-      );
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "提交内置生成" }));
-    });
-
-    await waitFor(() => {
-      expect(generateImages).toHaveBeenCalled();
-    });
-    const generationDock = within(screen.getByTestId("side-dock-left"));
-    await waitFor(() => {
-      expect(generationDock.getByText("生成记录")).toBeInTheDocument();
-      expect(generationDock.getByText("内置生成测试记录")).toBeInTheDocument();
-    });
-    expect(generationDock.queryByText("Agent 对话")).not.toBeInTheDocument();
   });
 
   it("keeps existing generation records when asset persistence returns only new records", async () => {

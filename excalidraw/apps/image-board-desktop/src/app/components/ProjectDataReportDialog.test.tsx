@@ -21,7 +21,6 @@ const createHealthReport = (
   missingPreviewFileIds: [],
   orphanImageRecordFileIds: ["referenced-source", "imported-off-board"],
   orphanGeneratedImageRecordFileIds: [],
-  unwrittenAcpOutputFileIds: [],
   incompleteGenerationRecordFileIds: [],
   brokenParentFileIds: [],
   brokenPromptReferenceFileIds: [],
@@ -69,7 +68,6 @@ const createRepairReport = (
   skippedCount: 1,
   failedCount: 0,
   repairedGenerationRecordCount: 0,
-  repairedAcpOutputCount: 0,
   restoredImageRecordCount: 0,
   skippedImageRecordCount: 1,
   backupPath: null,
@@ -167,18 +165,6 @@ describe("ProjectDataReportDialog", () => {
                 summary: "项目数据修复会按历史 CoreStudio 生成记录补齐来源。",
               },
             },
-            {
-              code: "unwritten-acp-output",
-              severity: "warning",
-              fileId: "acp-output",
-              path: "/tmp/output.png",
-              message: "ACP 生成结果未写入项目：output.png",
-              repairable: true,
-              resolution: {
-                status: "repairable",
-                summary: "项目数据修复会把这张本地生成图补进项目资产和画板。",
-              },
-            },
           ],
         })}
         repairReport={null}
@@ -199,7 +185,6 @@ describe("ProjectDataReportDialog", () => {
 
     expect(screen.getByLabelText("图片文件缺失")).toBeInTheDocument();
     expect(screen.getByLabelText("记录元数据不完整")).toBeInTheDocument();
-    expect(screen.getByLabelText("ACP 结果未写入项目")).toBeInTheDocument();
   });
 
   it("explains skipped repair items with reason and next action", () => {

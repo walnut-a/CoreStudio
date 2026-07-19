@@ -29,7 +29,7 @@ describe("desktop maintenance guardrails", () => {
     expect(packageJson.dependencies ?? {}).not.toHaveProperty(
       "@assistant-ui/react",
     );
-    expect(packageJson.devDependencies ?? {}).toHaveProperty(
+    expect(packageJson.devDependencies ?? {}).not.toHaveProperty(
       "@assistant-ui/react",
     );
   });

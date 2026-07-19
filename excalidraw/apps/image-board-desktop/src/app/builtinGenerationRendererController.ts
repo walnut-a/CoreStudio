@@ -1,7 +1,5 @@
 import {
-  applyBuiltinGenerationExecutionPlanState,
   applyBuiltinGenerationSubmittedRequestState,
-  buildGenerationExecutionPlan,
 } from "./generationRequestState";
 import { prepareBuiltinGenerationRequestRendererAction } from "./generationRequestRendererController";
 import {
@@ -19,11 +17,7 @@ import type {
   GenerateImagesInput,
   DesktopProjectBundle,
 } from "../shared/desktopBridgeTypes";
-import type {
-  GenerationRequest,
-  GenerationResponse,
-  GenerationSource,
-} from "../shared/providerTypes";
+import type { GenerationRequest, GenerationResponse } from "../shared/providerTypes";
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
 
 type PrepareBuiltinGenerationInput = Parameters<
@@ -44,8 +38,6 @@ export interface RunBuiltinGenerationRendererActionInput<
   startupGenerateFailedMessage: string;
   loadOriginalScene: PrepareBuiltinGenerationInput["loadOriginalScene"];
   assertProjectActive: () => void;
-  setGenerationSource: (source: Extract<GenerationSource, "builtin">) => void;
-  showDirectGenerationRecords: () => void;
   setGenerateRequest: (request: GenerationRequest) => void;
   insertPlaceholders: (
     request: GenerationRequest,
@@ -118,8 +110,6 @@ export const runBuiltinGenerationRendererAction = async <
   startupGenerateFailedMessage,
   loadOriginalScene,
   assertProjectActive,
-  setGenerationSource,
-  showDirectGenerationRecords,
   setGenerateRequest,
   insertPlaceholders,
   getGenerationJobs,
@@ -130,17 +120,6 @@ export const runBuiltinGenerationRendererAction = async <
   showGenerationError,
   loadProviderState,
 }: RunBuiltinGenerationRendererActionInput<TPlacementViewport>): Promise<BuiltinGenerationRendererActionStarted> => {
-  const executionPlan = buildGenerationExecutionPlan(request);
-  if (executionPlan.kind !== "start-builtin-generation") {
-    throw new Error("当前请求不是 CoreStudio 生成。");
-  }
-
-  applyBuiltinGenerationExecutionPlanState({
-    plan: executionPlan,
-    setGenerationSource,
-    showDirectGenerationRecords,
-  });
-
   const preparedRequest = await prepareBuiltinGenerationRequestRendererAction({
     request,
     providerSettings,

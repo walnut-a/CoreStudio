@@ -42,11 +42,9 @@ CoreStudio 是一个基于 Excalidraw 底座的本地优先图像画板。它把
 
 **任务发起位置决定调度者。** 在 CoreStudio 发起的直接生成由 CoreStudio 调度，并使用 CoreStudio 已配置的模型 API；在 Codex 发起的任务由 Codex 调度，默认使用 Codex 自身的生图能力。Codex 通过 CLI / Local Bridge 读取和写回 CoreStudio 数据，内置画布只承担查看、选择、标注和结果确认。
 
-CoreStudio 可以通过 ACP 向外部 Agent 发起任务，但 ACP 属于需要手动开启的实验性功能。CoreStudio 不做内置 Agent runtime，也不做多 Agent 调度平台；ACP 只负责任务发起、上下文传递和过程状态展示。
+CoreStudio 不内置 Agent runtime，也不承担多 Agent 调度。应用内输入框只负责单次生成；需要分析、连续迭代或并行工作的任务从 Codex 发起，由 Codex 调度。
 
-项目写回必须继续走 CoreStudio CLI / Local Bridge。ACP 返回的文本、计划、工具状态或结果描述只能作为过程信息展示，不能绕过本地数据层直接修改项目。这样可以保证桌面客户端、CLI 和 Agent Board 共享同一套项目格式和校验规则。
-
-Codex 内置画布不通过 ACP 把任务再次交回 Codex，不形成 `Codex → CoreStudio → ACP → Codex` 回路。Agent 场景需要特殊体验时，应先明确调度者和写回边界，再决定由画布、CLI 或实验性 ACP 承担。
+所有外部项目写回都必须经过 CoreStudio CLI / Local Bridge，不能绕过本地数据层直接修改项目。这样可以保证桌面客户端、CLI 和 Agent Board 共享同一套项目格式、事务和校验规则。
 
 ## Accessibility & Inclusion
 

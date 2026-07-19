@@ -179,16 +179,14 @@
 
 .settings-current-provider select:hover,
 .settings-form-card input:hover,
-.settings-form-card select:hover,
-.experimental-acp-options select:hover {
+.settings-form-card select:hover {
   background-color: var(--input-hover-bg-color);
 }
 
 .settings-current-provider select:focus-visible,
 .settings-form-card input:focus-visible,
 .settings-form-card select:focus-visible,
-.settings-form-card textarea:focus-visible,
-.experimental-acp-options select:focus-visible {
+.settings-form-card textarea:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
   outline-offset: 1px;
   border-color: var(--color-primary);
@@ -472,39 +470,6 @@
 .settings-form-card textarea:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.experimental-acp-options {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--default-border-color);
-}
-
-.experimental-acp-options label {
-  display: flex;
-  min-width: 220px;
-  flex-direction: column;
-  gap: var(--ui-space-sm);
-  font-size: var(--ui-text-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.experimental-acp-options select {
-  appearance: none;
-  min-height: 40px;
-  padding: 0 40px 0 12px;
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius-lg);
-  background-color: var(--input-bg-color);
-  background-image: var(--dropdown-icon);
-  background-repeat: no-repeat;
-  background-position: calc(100% - 14px) 50%;
-  background-size: 12px;
-  font: inherit;
-  font-size: var(--ui-text-size-lg);
 }
 
 .settings-form-card__feedback {

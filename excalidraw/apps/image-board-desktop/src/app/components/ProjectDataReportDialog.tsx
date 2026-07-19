@@ -14,7 +14,6 @@ type ProjectHealthIssueGroupKey =
   | "missing-file"
   | "record-metadata"
   | "missing-board-element"
-  | "acp-output"
   | "display-cache";
 
 const PROJECT_HEALTH_ISSUE_GROUP_ORDER: Record<
@@ -25,8 +24,7 @@ const PROJECT_HEALTH_ISSUE_GROUP_ORDER: Record<
   "missing-file": 1,
   "missing-board-element": 2,
   "record-metadata": 3,
-  "acp-output": 4,
-  "display-cache": 5,
+  "display-cache": 4,
 };
 
 const PROJECT_HEALTH_ISSUE_GROUP_BY_CODE: Record<
@@ -40,7 +38,6 @@ const PROJECT_HEALTH_ISSUE_GROUP_BY_CODE: Record<
   "missing-preview-cache": "display-cache",
   "orphan-image-record": "missing-board-element",
   "orphan-generated-record": "missing-board-element",
-  "unwritten-acp-output": "acp-output",
   "incomplete-generation-record": "record-metadata",
   "broken-parent-link": "record-metadata",
   "broken-prompt-reference": "record-metadata",
@@ -310,7 +307,6 @@ export function ProjectDataReportDialog({
               </div>
             </div>
             {repairReport.repairedGenerationRecordCount ||
-            repairReport.repairedAcpOutputCount ||
             repairReport.skippedImageRecordCount ||
             repairReport.backupPath ? (
               <div className="project-health-issue__meta">
@@ -318,13 +314,6 @@ export function ProjectDataReportDialog({
                   <span>
                     {copy.projectDataReport.repairResult.repairedSources(
                       repairReport.repairedGenerationRecordCount,
-                    )}
-                  </span>
-                ) : null}
-                {repairReport.repairedAcpOutputCount ? (
-                  <span>
-                    {copy.projectDataReport.repairResult.importedAcpOutputs(
-                      repairReport.repairedAcpOutputCount,
                     )}
                   </span>
                 ) : null}

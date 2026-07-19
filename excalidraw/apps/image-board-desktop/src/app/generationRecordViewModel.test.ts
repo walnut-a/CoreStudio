@@ -10,7 +10,6 @@ import {
 import { setActiveDesktopLocale } from "./copy";
 
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
-import type { AcpRunLogDetail } from "../shared/acpTypes";
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
 
 const createImageRecord = (patch: Partial<ImageRecord> = {}): ImageRecord => ({
@@ -70,14 +69,14 @@ describe("generation record localization", () => {
 });
 
 describe("buildDirectGenerationRecordItems", () => {
-  it("builds direct generation records without ACP Agent results", () => {
+  it("builds generation records including Agent Board results", () => {
     const records: ImageRecordMap = {
       "file-generated-1": createImageRecord(),
-      "file-acp-1": createImageRecord({
-        fileId: "file-acp-1",
-        assetPath: "assets/file-acp-1.png",
-        generationOrigin: "acp-agent",
-        prompt: "ACP 生成结果",
+      "file-agent-board-1": createImageRecord({
+        fileId: "file-agent-board-1",
+        assetPath: "assets/file-agent-board-1.png",
+        generationOrigin: "agent-board",
+        prompt: "Agent Board 生成结果",
       }),
       "file-imported-1": createImageRecord({
         fileId: "file-imported-1",
@@ -96,6 +95,13 @@ describe("buildDirectGenerationRecordItems", () => {
         title: "做一台桌面级五轴 CNC 机器",
         meta: expect.stringContaining("ZenMux · 1536 × 1024"),
         statusLabel: undefined,
+      },
+      {
+        id: "file-agent-board-1",
+        fileId: "file-agent-board-1",
+        title: "Agent Board 生成结果",
+        meta: expect.stringContaining("ZenMux · 1536 × 1024"),
+        statusLabel: "未在画板",
       },
     ]);
   });
@@ -236,58 +242,33 @@ describe("createGenerationRecordRendererActions", () => {
   });
 });
 
-const createRunLogDetail = (
-  patch: Partial<AcpRunLogDetail["summary"]> = {},
-): AcpRunLogDetail => ({
-  summary: {
-    mode: "acp-agent",
-    taskId: "task-1",
-    threadId: "thread-1",
-    projectToken: "project-token",
-    projectName: "工业设计助手",
-    agentName: "Codex ACP",
-    userPrompt: "ACP 生成结果",
-    status: "completed",
-    startedAt: "2026-07-02T08:00:00.000Z",
-    endedAt: "2026-07-02T08:10:00.000Z",
-    logFile: "/tmp/task-1.jsonl",
-    ...patch,
-  },
-  entries: [],
-});
-
 describe("buildGenerationSidebarRecordItems", () => {
   it("returns empty sidebar record groups when there is no project", () => {
     expect(
       buildGenerationSidebarRecordItems({
         project: null,
         sceneImageFileIds: ["file-generated-1"],
-        acpEntries: [],
-        acpRunLogDetail: createRunLogDetail(),
-        acpTask: null,
         files: null,
       }),
     ).toEqual({
       generationRecords: [],
-      agentResultRecords: [],
     });
   });
 
-  it("builds direct records and ACP result records from the active project", () => {
+  it("keeps Agent Board images in the ordinary generation history", () => {
     const imageRecords: ImageRecordMap = {
       "file-generated-1": createImageRecord(),
-      "file-acp-1": createImageRecord({
-        fileId: "file-acp-1",
-        assetPath: "assets/file-acp-1.png",
-        generationOrigin: "acp-agent",
-        prompt: "ACP 生成结果",
-        generationTaskId: "task-1",
+      "file-agent-board-1": createImageRecord({
+        fileId: "file-agent-board-1",
+        assetPath: "assets/file-agent-board-1.png",
+        generationOrigin: "agent-board",
+        prompt: "Agent Board 生成结果",
         createdAt: "2026-07-02T08:06:00.000Z",
       }),
     };
     const files = {
-      "file-acp-1": {
-        id: "file-acp-1",
+      "file-agent-board-1": {
+        id: "file-agent-board-1",
         mimeType: "image/png",
         dataURL: "data:image/png;base64,thumb",
         created: 1,
@@ -297,25 +278,19 @@ describe("buildGenerationSidebarRecordItems", () => {
     expect(
       buildGenerationSidebarRecordItems({
         project: { imageRecords },
-        sceneImageFileIds: ["file-generated-1", "file-acp-1"],
-        acpEntries: [],
-        acpRunLogDetail: createRunLogDetail(),
-        acpTask: null,
+        sceneImageFileIds: ["file-generated-1", "file-agent-board-1"],
         files,
       }),
     ).toEqual({
       generationRecords: [
         expect.objectContaining({
+          fileId: "file-agent-board-1",
+          title: "Agent Board 生成结果",
+          thumbnailDataUrl: "data:image/png;base64,thumb",
+        }),
+        expect.objectContaining({
           fileId: "file-generated-1",
           title: "做一台桌面级五轴 CNC 机器",
-        }),
-      ],
-      agentResultRecords: [
-        expect.objectContaining({
-          fileId: "file-acp-1",
-          title: "ACP 生成结果",
-          thumbnailDataUrl: "data:image/png;base64,thumb",
-          statusLabel: "已在画板",
         }),
       ],
     });

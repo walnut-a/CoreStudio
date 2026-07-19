@@ -22,15 +22,6 @@ import type {
 } from "./providerTypes";
 import type { AgentRendererCommandRequest } from "./agentBridgeTypes";
 import type {
-  AcpAgentSettings,
-  AcpRunLogDetail,
-  AcpRunSummary,
-  AcpThreadDetail,
-  AcpThreadSummary,
-  AcpTaskEvent,
-  AcpTaskRequest,
-} from "./acpTypes";
-import type {
   DesktopLocalePreference,
   DesktopLocaleSettings,
 } from "./desktopLocale";
@@ -73,15 +64,6 @@ export const IPC_CHANNELS = {
   agentCommandResponse: "image-board:agent-command-response",
   getAgentBridgeStatus: "image-board:get-agent-bridge-status",
   setAgentBridgeEnabled: "image-board:set-agent-bridge-enabled",
-  loadAcpAgentSettings: "image-board:load-acp-agent-settings",
-  saveAcpAgentSettings: "image-board:save-acp-agent-settings",
-  startAcpAgentTask: "image-board:start-acp-agent-task",
-  cancelAcpAgentTask: "image-board:cancel-acp-agent-task",
-  listAcpAgentRunLogs: "image-board:list-acp-agent-run-logs",
-  readAcpAgentRunLog: "image-board:read-acp-agent-run-log",
-  listAcpAgentThreads: "image-board:list-acp-agent-threads",
-  readAcpAgentThread: "image-board:read-acp-agent-thread",
-  acpAgentTaskEvent: "image-board:acp-agent-task-event",
 } as const;
 
 export type DesktopMenuAction =
@@ -166,8 +148,6 @@ export interface RebuildProjectThumbnailsResult {
   repairedGenerationRecordFileIds: string[];
   restoredBoardFileIds?: string[];
   restoredSceneJson?: string;
-  repairedAcpOutputFileIds?: string[];
-  repairedAcpOutputRecords?: ImageRecordMap;
   backupPath?: string | null;
 }
 
@@ -176,8 +156,7 @@ export type ProjectRepairFileDetailReason =
   | "thumbnail-not-needed"
   | "thumbnail-cache-exists"
   | "thumbnail-rebuild-failed"
-  | "board-restore-failed"
-  | "acp-output-import-failed";
+  | "board-restore-failed";
 
 export interface ProjectRepairFileDetail {
   fileId: string;
@@ -206,7 +185,6 @@ export interface ProjectHealthIssue {
     | "missing-preview-cache"
     | "orphan-image-record"
     | "orphan-generated-record"
-    | "unwritten-acp-output"
     | "incomplete-generation-record"
     | "broken-parent-link"
     | "broken-prompt-reference";
@@ -233,7 +211,6 @@ export interface ProjectHealthReport {
   missingPreviewFileIds: string[];
   orphanImageRecordFileIds: string[];
   orphanGeneratedImageRecordFileIds: string[];
-  unwrittenAcpOutputFileIds?: string[];
   incompleteGenerationRecordFileIds: string[];
   brokenParentFileIds: string[];
   brokenPromptReferenceFileIds: string[];
@@ -260,8 +237,6 @@ export interface PersistedImageAssetInput extends ProjectAssetPayload {
   prompt?: string;
   negativePrompt?: string;
   seed?: number | null;
-  generationTaskId?: string | null;
-  generationThreadId?: string | null;
   parentFileId?: string | null;
   promptReferences?: ImagePromptReferenceRecord[];
 }
@@ -419,20 +394,6 @@ export interface DesktopBridgeApi {
   ): void;
   getAgentBridgeStatus?(): Promise<DesktopAgentBridgeStatus>;
   setAgentBridgeEnabled?(enabled: boolean): Promise<DesktopAgentBridgeStatus>;
-  loadAcpAgentSettings?(): Promise<AcpAgentSettings>;
-  saveAcpAgentSettings?(settings: AcpAgentSettings): Promise<AcpAgentSettings>;
-  startAcpAgentTask?(
-    request: AcpTaskRequest,
-  ): Promise<{ taskId: string; threadId?: string }>;
-  cancelAcpAgentTask?(taskId: string): Promise<void>;
-  listAcpAgentRunLogs?(input?: { limit?: number }): Promise<AcpRunSummary[]>;
-  readAcpAgentRunLog?(taskId: string): Promise<AcpRunLogDetail>;
-  listAcpAgentThreads?(input?: {
-    projectToken?: string;
-    limit?: number;
-  }): Promise<AcpThreadSummary[]>;
-  readAcpAgentThread?(threadId: string): Promise<AcpThreadDetail>;
-  onAcpAgentTaskEvent?(listener: (event: AcpTaskEvent) => void): () => void;
   onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(
     listener: (

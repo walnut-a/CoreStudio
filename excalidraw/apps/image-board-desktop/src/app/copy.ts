@@ -150,7 +150,7 @@ const zhCnCopy = {
       "这张图片记录没有对应画板元素，可以运行项目数据修复补回画布。",
     provider: "模型服务",
     importedProvider: "导入",
-    externalAgentProvider: "外部 Agent",
+    agentProvider: "Agent",
     unrecordedProvider: "未记录",
     detailsTitle: "生成参数",
     model: "模型",
@@ -210,7 +210,6 @@ const zhCnCopy = {
   generationError: {
     canvasNotReady: "CoreStudio 画板还没有准备好。",
     missingSelectionReference: "当前没有可用的选区参考，请重新选中元素后再试。",
-    acpTaskStartFailed: "ACP Agent 任务启动失败。",
     geminiInvalidKey:
       "Gemini API Key 无效，请在 Google AI Studio 重新生成并保存。",
     geminiNotConfigured: "Gemini API Key 还没配置，请在应用设置中完成配置。",
@@ -288,16 +287,6 @@ const zhCnCopy = {
       dependencies: "主要开源依赖",
       dependenciesDescription: "以下版本来自当前构建配置，随应用升级同步更新。",
     },
-    experimentalPage: {
-      description: "实验性功能需要手动开启，行为和配置可能继续调整。",
-      externalAgent: "外部 Agent（ACP）",
-      externalAgentDescription:
-        "从 CoreStudio 内部把任务交给兼容 ACP 的 Agent。默认关闭。",
-      enableExternalAgent: "启用外部 Agent 实验功能",
-      agentType: "Agent 类型",
-      customCommand: "自定义命令",
-      advancedSettings: "高级配置",
-    },
     imageGenerationPage: {
       description: "管理画布中可以使用的图像生成服务。",
       addService: "添加服务",
@@ -348,40 +337,6 @@ const zhCnCopy = {
         "openai-images": "OpenAI Images 接口",
         "openrouter-chat-image": "OpenRouter Chat 图像接口",
       },
-    },
-    acpAdvancedPage: {
-      back: "← 返回实验性功能",
-      title: "ACP 高级配置",
-      description: "仅在需要自定义启动命令或排查 Agent 任务时修改。",
-      command: "命令",
-      arguments: "参数",
-      workingDirectory: "工作目录",
-      defaultWorkingDirectory: (cwd: string) => `默认：${cwd}`,
-      currentProjectDirectory: "当前项目目录",
-      taskInstructionTemplate: "任务说明模板",
-      currentAgent: (name: string, command: string) =>
-        `当前：${name} · ${command}`,
-      unsavedAgent: "尚未保存 Agent 配置",
-      saving: "保存中...",
-      save: "保存",
-    },
-    acpDebugPage: {
-      status: {
-        running: "运行中",
-        completed: "已完成",
-        failed: "失败",
-        cancelled: "已取消",
-      },
-      title: "高级调试",
-      summary: "排障时查看 ACP 调试记录、协议 JSON 和任务包。",
-      historyTitle: "ACP 调试记录",
-      historyDescription:
-        "用于排查外部 Agent 连接、协议消息或写回失败。日常任务过程请在左侧 Agent 对话中查看。",
-      loading: "读取中...",
-      refresh: "刷新记录",
-      openRecord: (prompt: string) => `查看调试记录：${prompt}`,
-      empty: "暂无 ACP 调试记录。",
-      unsupported: "当前环境暂不支持读取 ACP 调试记录。",
     },
     codexPage: {
       description: "安装一次后，Codex 就能发现并操作本机 CoreStudio 项目。",
@@ -490,9 +445,6 @@ const zhCnCopy = {
       cliEnableToDiscover: "开启连接后可发现",
       boardLinkReady: "可复制 Board 链接",
       boardLinkWaiting: "等待 Board 链接",
-      acpTaskRunning: "任务运行中",
-      acpConfiguredDisabled: "已配置，未启用",
-      acpNotConfigured: "未配置",
       boardLinkNotReady: "Agent Board 链接尚未就绪。",
       boardLinkCopied: "Agent Board 链接已复制。",
       cliEnvironmentNotReady:
@@ -511,140 +463,11 @@ const zhCnCopy = {
       },
       composer: {
         unavailable: "Agent 暂不可用",
-        enableFirst: "先在设置里启用 ACP Agent",
+        enableFirst: "Agent 暂不可用",
         taskRunning: "当前任务处理中",
         unavailableSentence: "Agent 暂不可用。",
-        enableFirstSentence: "先在设置里启用 ACP Agent。",
+        enableFirstSentence: "Agent 暂不可用。",
       },
-    },
-    acpTask: {
-      connecting: "正在连接 ACP Agent",
-      agentWorking: "Agent 正在处理",
-      agentReply: "Agent 回复",
-      taskFailed: "任务失败",
-    },
-    threadModel: {
-      agentTask: "Agent 任务",
-      statusUpdate: "状态更新",
-      taskError: "任务错误",
-      taskFailed: "任务失败",
-      taskPackage: "CoreStudio 任务包",
-    },
-    toolDisplay: {
-      agentTool: "Agent 工具",
-      writeBoard: "写入画板",
-      readProject: "读取项目",
-      operateBoard: "操作画板",
-      readFile: "读取文件",
-      searchContent: "搜索内容",
-      runCommand: "执行命令",
-      path: (value: string) => `路径：${value}`,
-      query: (value: string) => `关键词：${value}`,
-      command: (value: string) => `命令：${value}`,
-    },
-    historyLabel: "Agent 历史对话",
-    status: {
-      completed: "已完成",
-      failed: "失败",
-      cancelled: "已取消",
-      running: "运行中",
-      connecting: "连接中",
-      initializing: "初始化",
-      creatingSession: "创建会话",
-      idle: "空闲",
-      pending: "等待",
-    },
-    header: {
-      backToConversation: "返回当前 Agent 对话",
-      openList: "打开 Agent 对话列表",
-      back: "返回",
-      list: "列表",
-      startNew: "开始新的 Agent 对话",
-      new: "新建",
-    },
-    composer: {
-      continueConversation: "继续对话",
-      enterTask: "输入任务",
-      unavailable: "Agent 暂不可用",
-      label: "继续 Agent 对话",
-      sending: "发送中",
-      send: "发送给 Agent",
-    },
-    threadList: {
-      syncing: "同步中",
-      empty: "暂无历史对话",
-      untitled: "未命名对话",
-    },
-    timeline: {
-      empty: "Agent 对话为空",
-      label: "Agent 对话时间线",
-    },
-    tool: {
-      running: "调用中",
-      input: "输入参数",
-      output: "执行结果",
-    },
-    imageResult: {
-      unknownSource: "未知来源",
-      prompt: (prompt: string) => `提示词：${prompt}`,
-      references: (count: number) => `参考图 ${count}`,
-    },
-    taskStatus: {
-      logSaved: "日志已保存",
-      viewSavedLog: "查看保存日志",
-      log: "日志",
-      viewProgress: "查看任务过程",
-      progress: "过程",
-    },
-    runLog: {
-      dialogTitle: "Agent 任务记录",
-      close: "关闭",
-      loading: "正在读取任务记录…",
-      task: "任务",
-      agent: "Agent",
-      status: "状态",
-      project: "项目",
-      showProtocolJson: "显示协议 JSON",
-      hideProtocolJson: "隐藏协议 JSON",
-      initializing: "初始化中",
-      toolPending: "等待调用",
-      toolRunning: "调用中",
-      userTask: "用户任务",
-      taskPackage: "CoreStudio 任务包",
-      statusUpdate: "状态更新",
-      agentThought: "Agent 思考",
-      toolCall: "工具调用",
-      taskError: "任务错误",
-      taskFinished: "任务结束",
-      acpRequest: (method: string) => `ACP 请求${method ? ` · ${method}` : ""}`,
-      acpResponse: "ACP 响应",
-      acpNotification: (method: string) =>
-        `ACP 通知${method ? ` · ${method}` : ""}`,
-      roleBadge: {
-        user: "我",
-        tool: "工",
-        system: "态",
-      },
-      inlineError: "错误",
-      inlineStatus: "状态",
-      label: "Agent 任务过程",
-      empty: "暂无可读过程记录。",
-    },
-    generation: {
-      toolbarLabel: "生成任务状态",
-      inputMode: "输入模式",
-      directInput: "直接输入",
-      agentOperation: "Agent 操作",
-      method: "生成方式",
-      directGeneration: "直接生成",
-      acpAgent: "ACP Agent",
-    },
-    context: {
-      label: "Agent 上下文",
-      currentSelection: "当前选区",
-      thumbnailAlt: (label: string, index: number) =>
-        `${label} ${index} 缩略图`,
-      empty: "暂无选中元素",
     },
   },
   agentBoard: {
@@ -722,7 +545,6 @@ const zhCnCopy = {
     imageGenerationOrigin: {
       corestudio: "CoreStudio 生成",
       "agent-board": "内置画板 Agent",
-      "acp-agent": "ACP Agent",
     },
     providerStatus: {
       success: "已连接",
@@ -773,7 +595,6 @@ const zhCnCopy = {
       failed: "失败",
       restoredToBoard: "补回画板",
       repairedSources: (count: number) => `补全来源：${count} 条`,
-      importedAcpOutputs: (count: number) => `补入 ACP 输出：${count} 张`,
       notRestoredToBoard: (count: number) => `未补回画板：${count} 张`,
       backup: (path: string) => `备份：${path}`,
       failedDetails: "修复失败",
@@ -836,16 +657,10 @@ const zhCnCopy = {
           "生成图的资产和记录存在，但当前画板没有对应图片元素，所以从生成记录列表点击时可能无法定位。",
         suggestion: "运行项目数据修复会把可读取的生成图放回画板。",
       },
-      "unwritten-acp-output": {
-        title: "ACP 生成结果未写入项目",
-        description:
-          "ACP Agent 已经在本地生成图片，但写回 CoreStudio 项目时中断或失败。",
-        suggestion: "运行项目数据修复会把这张本地生成图补进项目资产和画板。",
-      },
       "incomplete-generation-record": {
         title: "生成记录元数据不完整",
         description:
-          "生成图缺少来源字段。提示词允许为空，但来源不能为空，否则后续无法判断它来自 CoreStudio、内置画板还是 ACP Agent。",
+          "生成图缺少来源字段。提示词允许为空，但来源不能为空，否则后续无法判断它来自 CoreStudio 还是 Agent。",
         suggestion:
           "旧项目修复会把这类记录补为 CoreStudio 来源；新写入会在保存前直接校验并拒绝不完整数据。",
       },
@@ -886,12 +701,6 @@ const zhCnCopy = {
         suggestion:
           "能自动补齐的旧记录会通过项目数据修复处理；无法确认的关系需要手动检查。",
       },
-      "acp-output": {
-        title: "ACP 结果未写入项目",
-        description:
-          "ACP Agent 已经在本地生成图片，但写回 CoreStudio 项目时中断或失败。",
-        suggestion: "运行项目数据修复会把可读取的 ACP 输出补进项目资产和画板。",
-      },
       "display-cache": {
         title: "显示缓存需要处理",
         description: "原始图片仍在，但缩略图或预览缓存不完整。",
@@ -904,7 +713,6 @@ const zhCnCopy = {
       "thumbnail-cache-exists": "缓存已存在",
       "thumbnail-rebuild-failed": "缓存重建失败",
       "board-restore-failed": "画板补回失败",
-      "acp-output-import-failed": "ACP 输出导入失败",
     },
     repairNextActions: {
       "record-missing":
@@ -915,8 +723,6 @@ const zhCnCopy = {
         "请确认原始图片文件可读取，再重新运行项目数据修复。",
       "board-restore-failed":
         "请确认原始图片文件仍在项目 assets 中；恢复文件后再重新运行项目数据修复。",
-      "acp-output-import-failed":
-        "请确认 ACP 输出文件仍存在且可读取，再重新运行项目数据修复。",
     },
   },
   projectRepair: {

@@ -10,15 +10,13 @@ export const readAppCss = () =>
     "apps/image-board-desktop/src/app/styles/dialogPrimitives.css",
     "apps/image-board-desktop/src/app/App.css",
     "apps/image-board-desktop/src/app/components/AboutDialog.css",
-    "apps/image-board-desktop/src/app/components/AcpRunLogDialog.css",
     "apps/image-board-desktop/src/app/components/AgentBoard.css",
-    "apps/image-board-desktop/src/app/components/AgentConversation.css",
-    "apps/image-board-desktop/src/app/components/AgentRunChatLog.css",
     "apps/image-board-desktop/src/app/components/AgentSettings.css",
     "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
     "apps/image-board-desktop/src/app/components/DesktopButton.css",
     "apps/image-board-desktop/src/app/components/GenerateImageDialog.css",
     "apps/image-board-desktop/src/app/components/GenerationErrorDetailsDialog.css",
+    "apps/image-board-desktop/src/app/components/GenerationHistorySidebar.css",
     "apps/image-board-desktop/src/app/components/ImageInspector.css",
     "apps/image-board-desktop/src/app/components/ProjectDataReportDialog.css",
     "apps/image-board-desktop/src/app/components/ProjectMainMenu.css",
@@ -82,56 +80,11 @@ export const readGenerateComposerActionBar = () =>
     "utf8",
   );
 
-export const readAgentConversationThreadView = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/agent/agentConversationThreadView.ts",
-    ),
-    "utf8",
-  );
-
-export const readAgentConversationComposer = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentConversationComposer.tsx",
-    ),
-    "utf8",
-  );
-
-export const readAgentConversationHeader = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentConversationHeader.tsx",
-    ),
-    "utf8",
-  );
-
-export const readAcpRunLogDialog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AcpRunLogDialog.tsx",
-    ),
-    "utf8",
-  );
-
 export const readAboutDialog = () =>
   readFileSync(
     resolve(
       process.cwd(),
       "apps/image-board-desktop/src/app/components/AboutDialog.tsx",
-    ),
-    "utf8",
-  );
-
-export const readAgentRunChatLog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentRunChatLog.tsx",
     ),
     "utf8",
   );
@@ -240,15 +193,6 @@ export const readAgentBridgeWiring = () =>
     resolve(
       process.cwd(),
       "apps/image-board-desktop/src/app/useAgentBridgeWiring.ts",
-    ),
-    "utf8",
-  );
-
-export const readAcpAgentWiring = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/useAcpAgentWiring.ts",
     ),
     "utf8",
   );

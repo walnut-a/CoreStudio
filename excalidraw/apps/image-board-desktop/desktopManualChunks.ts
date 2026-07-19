@@ -24,10 +24,7 @@ export const getDesktopManualChunk = (id: string) => {
     return "codemirror.chunk";
   }
 
-  if (
-    normalizedId.includes("/node_modules/@assistant-ui/") ||
-    normalizedId.includes("/node_modules/@radix-ui/")
-  ) {
+  if (normalizedId.includes("/node_modules/@radix-ui/")) {
     return "vendor-ui";
   }
 

@@ -154,51 +154,17 @@ export const syncSelectionReferenceIntoRequest = (
   return isSameGenerationRequest(current, next) ? current : next;
 };
 
-export type GenerationExecutionPlan =
-  | {
-      kind: "start-acp-agent-task";
-    }
-  | {
-      kind: "start-builtin-generation";
-      generationSource: Extract<GenerationSource, "builtin">;
-      showDirectGenerationRecords: true;
-    };
+export type GenerationExecutionPlan = {
+  kind: "start-builtin-generation";
+  generationSource: Extract<GenerationSource, "builtin">;
+};
 
 export const buildGenerationExecutionPlan = (
-  request: GenerationRequest,
-): GenerationExecutionPlan => {
-  if (request.generationSource === "agent") {
-    return {
-      kind: "start-acp-agent-task",
-    };
-  }
-
-  return {
+  _request: GenerationRequest,
+): GenerationExecutionPlan => ({
     kind: "start-builtin-generation",
     generationSource: "builtin",
-    showDirectGenerationRecords: true,
-  };
-};
-
-export const applyBuiltinGenerationExecutionPlanState = ({
-  plan,
-  setGenerationSource,
-  showDirectGenerationRecords,
-}: {
-  plan: Extract<GenerationExecutionPlan, { kind: "start-builtin-generation" }>;
-  setGenerationSource: (source: Extract<GenerationSource, "builtin">) => void;
-  showDirectGenerationRecords: () => void;
-}) => {
-  setGenerationSource(plan.generationSource);
-  if (plan.showDirectGenerationRecords) {
-    showDirectGenerationRecords();
-  }
-
-  return {
-    generationSource: plan.generationSource,
-    showDirectGenerationRecords: plan.showDirectGenerationRecords,
-  };
-};
+  });
 
 export const buildBuiltinGenerationSubmittedRequest = (
   request: GenerationRequest,

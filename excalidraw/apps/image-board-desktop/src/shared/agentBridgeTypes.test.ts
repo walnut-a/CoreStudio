@@ -32,12 +32,6 @@ describe("agentBridgeTypes", () => {
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("openRecentProject");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("writeProjectScene");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("generateImages");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("loadAcpAgentSettings");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("saveAcpAgentSettings");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("listAcpAgentRunLogs");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("readAcpAgentRunLog");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("listAcpAgentThreads");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("readAcpAgentThread");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("beginImageWriteback");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("commitImageWriteback");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("rollbackImageWriteback");

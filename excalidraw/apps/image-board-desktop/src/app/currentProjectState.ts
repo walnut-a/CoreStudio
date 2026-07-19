@@ -12,16 +12,6 @@ export interface CurrentProjectLifecycleState {
 }
 
 export interface CurrentProjectChangedResetState {
-  activeAcpThreadId: null;
-  acpRunLogTaskId: null;
-  acpRunLogSurface: null;
-  acpRunLogDetail: null;
-  acpRunLogError: null;
-  acpConversationEntries: [];
-  acpThreadSummaries: [];
-  acpThreadSummariesError: null;
-  acpThreadSummariesLoading: false;
-  agentChatDockOpen: false;
   projectHealthReport: null;
   projectRepairReport: null;
   projectHealthReportOpen: false;
@@ -55,16 +45,6 @@ export const buildCurrentProjectLifecycleState = ({
 
 export const buildCurrentProjectChangedResetState =
   (): CurrentProjectChangedResetState => ({
-    activeAcpThreadId: null,
-    acpRunLogTaskId: null,
-    acpRunLogSurface: null,
-    acpRunLogDetail: null,
-    acpRunLogError: null,
-    acpConversationEntries: [],
-    acpThreadSummaries: [],
-    acpThreadSummariesError: null,
-    acpThreadSummariesLoading: false,
-    agentChatDockOpen: false,
     projectHealthReport: null,
     projectRepairReport: null,
     projectHealthReportOpen: false,

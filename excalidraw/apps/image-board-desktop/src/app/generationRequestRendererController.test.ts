@@ -7,7 +7,6 @@ import {
   createGenerationRequestRendererActions,
   prepareBuiltinGenerationRequestRendererAction,
   runGenerateRequestChangeRendererAction,
-  runGenerationSourceChangeRendererAction,
 } from "./generationRequestRendererController";
 
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
@@ -64,15 +63,11 @@ describe("prepareBuiltinGenerationRequestRendererAction", () => {
         ],
       },
     } as unknown as PublicProviderSettings;
-    const setGenerationSource = vi.fn();
-    const showDirectGenerationRecords = vi.fn();
     const setGenerateRequest = vi.fn();
 
     const state = runGenerateRequestChangeRendererAction({
       request,
       providerSettings,
-      setGenerationSource,
-      showDirectGenerationRecords,
       setGenerateRequest,
     });
 
@@ -85,8 +80,6 @@ describe("prepareBuiltinGenerationRequestRendererAction", () => {
         seed: 42,
       },
     });
-    expect(setGenerationSource).toHaveBeenCalledWith("builtin");
-    expect(showDirectGenerationRecords).toHaveBeenCalledTimes(1);
     expect(setGenerateRequest).toHaveBeenCalledWith(state.request);
   });
 
@@ -122,47 +115,7 @@ describe("prepareBuiltinGenerationRequestRendererAction", () => {
     });
   });
 
-  it("applies generation source changes through a request updater", () => {
-    const setGenerationSource = vi.fn();
-    const showDirectGenerationRecords = vi.fn();
-    const updateGenerateRequest = vi.fn();
-
-    const state = runGenerationSourceChangeRendererAction({
-      source: "agent",
-      currentRequest: {
-        ...createRequest(),
-        generationSource: "builtin",
-        prompt: "闭包里的旧提示词",
-      },
-      setGenerationSource,
-      showDirectGenerationRecords,
-      updateGenerateRequest,
-    });
-
-    expect(state).toMatchObject({
-      generationSource: "agent",
-      showDirectGenerationRecords: false,
-    });
-    expect(setGenerationSource).toHaveBeenCalledWith("agent");
-    expect(showDirectGenerationRecords).not.toHaveBeenCalled();
-    expect(updateGenerateRequest).toHaveBeenCalledTimes(1);
-
-    const updater = updateGenerateRequest.mock.calls[0]?.[0] as (
-      current: GenerationRequest,
-    ) => GenerationRequest;
-    expect(
-      updater({
-        ...createRequest(),
-        generationSource: "builtin",
-        prompt: "最新 state 里的提示词",
-      }),
-    ).toMatchObject({
-      generationSource: "agent",
-      prompt: "最新 state 里的提示词",
-    });
-  });
-
-  it("creates renderer actions for request and source changes", () => {
+  it("creates renderer actions for request changes", () => {
     const providerSettings = {
       zenmux: {
         isConfigured: true,
@@ -183,22 +136,13 @@ describe("prepareBuiltinGenerationRequestRendererAction", () => {
       seed: 42,
     };
     const getProviderSettings = vi.fn(() => providerSettings);
-    const getCurrentRequest = vi.fn(() => request);
-    const setGenerationSource = vi.fn();
-    const showDirectGenerationRecords = vi.fn();
     const setGenerateRequest = vi.fn();
-    const updateGenerateRequest = vi.fn();
     const actions = createGenerationRequestRendererActions({
       getProviderSettings,
-      getCurrentRequest,
-      setGenerationSource,
-      showDirectGenerationRecords,
       setGenerateRequest,
-      updateGenerateRequest,
     });
 
     const requestState = actions.changeRequest(request);
-    const sourceState = actions.changeSource("agent");
 
     expect(requestState).toMatchObject({
       generationSource: "builtin",
@@ -207,13 +151,8 @@ describe("prepareBuiltinGenerationRequestRendererAction", () => {
         seed: 42,
       },
     });
-    expect(sourceState).toMatchObject({
-      generationSource: "agent",
-    });
     expect(getProviderSettings).toHaveBeenCalledTimes(1);
-    expect(getCurrentRequest).toHaveBeenCalledTimes(1);
     expect(setGenerateRequest).toHaveBeenCalledWith(requestState.request);
-    expect(updateGenerateRequest).toHaveBeenCalledTimes(1);
   });
 
   it("loads original scene images and reads selection references with project image records", async () => {

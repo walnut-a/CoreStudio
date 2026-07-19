@@ -27,7 +27,6 @@ describe("WelcomePane", () => {
     expect(screen.queryByText("Agent 集成")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByText("当前项目")).not.toBeInTheDocument();
-    expect(screen.queryByText("ACP Agent")).not.toBeInTheDocument();
     expect(screen.queryByText("任务说明模板")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("命令")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("参数")).not.toBeInTheDocument();

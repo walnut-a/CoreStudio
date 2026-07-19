@@ -10,21 +10,18 @@ describe("runAppUnmountCleanupAction", () => {
     const clearWorkspaceFitPulseTimer = vi.fn();
     const clearProjectNoticeTimer = vi.fn();
     const clearVisibleImageRenditionLoadTimer = vi.fn();
-    const clearAcpRunLogRefreshTimer = vi.fn();
     const clearAgentBrowserRuntimePublishTimer = vi.fn();
 
     runAppUnmountCleanupAction({
       clearWorkspaceFitPulseTimer,
       clearProjectNoticeTimer,
       clearVisibleImageRenditionLoadTimer,
-      clearAcpRunLogRefreshTimer,
       clearAgentBrowserRuntimePublishTimer,
     });
 
     expect(clearWorkspaceFitPulseTimer).toHaveBeenCalledTimes(1);
     expect(clearProjectNoticeTimer).toHaveBeenCalledTimes(1);
     expect(clearVisibleImageRenditionLoadTimer).toHaveBeenCalledTimes(1);
-    expect(clearAcpRunLogRefreshTimer).toHaveBeenCalledTimes(1);
     expect(clearAgentBrowserRuntimePublishTimer).toHaveBeenCalledTimes(1);
   });
 });
@@ -36,7 +33,6 @@ describe("createAppUnmountCleanupRendererActions", () => {
       clearWorkspaceFitPulseTimer,
       clearProjectNoticeTimer: vi.fn(),
       clearVisibleImageRenditionLoadTimer: vi.fn(),
-      clearAcpRunLogRefreshTimer: vi.fn(),
       clearAgentBrowserRuntimePublishTimer: vi.fn(),
     });
 

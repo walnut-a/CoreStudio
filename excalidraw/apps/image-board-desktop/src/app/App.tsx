@@ -110,12 +110,11 @@ import { createSelectionReferenceOriginalSceneRendererActions } from "./selectio
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { useDesktopStartupWiring } from "./useDesktopStartupWiring";
 import { useProjectAutosaveWiring } from "./useProjectAutosaveWiring";
-import { useAcpAgentWiring } from "./useAcpAgentWiring";
 import { useAgentBridgeWiring } from "./useAgentBridgeWiring";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AgentBoardStartupPane } from "./components/AgentBoardStartupPane";
 import { AppBridgeUnavailable } from "./components/AppBridgeUnavailable";
-import { AgentConversationSidebar } from "./components/AgentConversationSidebar";
+import { GenerationHistorySidebar } from "./components/GenerationHistorySidebar";
 import { InspectorSidebar } from "./components/InspectorSidebar";
 import { AppErrorBanners } from "./components/AppErrorBanners";
 import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
@@ -124,9 +123,6 @@ import { ImageGenerationSettings } from "./components/ImageGenerationSettings";
 import { GeneralSettingsSection } from "./components/GeneralSettingsSection";
 import { AboutSettingsSection } from "./components/AboutSettingsSection";
 import { CodexIntegrationSettings } from "./components/CodexIntegrationSettings";
-import { ExperimentalFeaturesSettingsSection } from "./components/ExperimentalFeaturesSettingsSection";
-import { AcpAgentSettingsPanel } from "./components/AcpAgentSettingsPanel";
-import { AcpDebugSettingsPanel } from "./components/AcpDebugSettingsPanel";
 import { AppProjectEntryScreen } from "./components/AppProjectEntryScreen";
 import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
@@ -150,10 +146,6 @@ import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
 import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
 import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
 import { handleAgentDesktopBridgeRequest } from "./agent/agentDesktopBridgeRequest";
-import { canStartAcpAgentTask } from "./agent/acpTaskStarter";
-import { createAcpTaskStartRendererActions } from "./agent/acpTaskStartController";
-import { isAcpAgentTaskRunning } from "./agent/acpTaskUiState";
-import { createAcpTaskEventSubscriptionRendererActions } from "./agent/acpTaskEventSubscriptionController";
 import {
   createGenerationErrorStateApplier,
   createGenerationErrorRendererActions,
@@ -166,13 +158,10 @@ import {
 import { createTimedNoticeRendererActions } from "./noticeTimerController";
 import { buildDefaultGenerationRequest } from "./generatePromptRequest";
 import { createGenerateDialogReferenceRendererActions } from "./generateDialogReferenceController";
-import { useAcpAgentSettingsController } from "./agent/useAcpAgentSettingsController";
-import { useAcpAgentTaskStateController } from "./agent/useAcpAgentTaskStateController";
 import { createAgentBrowserRuntimePublishRendererActions } from "./agent/agentBrowserRuntimePublishController";
 import { createAgentBrowserAutoOpenProjectRendererActions } from "./agent/agentBrowserAutoOpenController";
 import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
 import {
-  getProjectAgentAccessToken,
   notifyAgentBridgeProjectState,
 } from "./agent/agentBridgeStatus";
 import {
@@ -181,19 +170,7 @@ import {
   useAgentBridgeStatusCurrentProjectSyncEffect,
 } from "./agent/agentBridgeStatusController";
 import { useAgentBridgeConnectionStateController } from "./agent/useAgentBridgeConnectionStateController";
-import { buildAgentConversationSurfaceState } from "./agent/agentConversationMode";
-import { createAcpRunLogRendererActions } from "./agent/acpRunLogApplyController";
-import {
-  useAcpRunSummariesAutoLoadEffect,
-  useAcpRunSummariesController,
-} from "./agent/useAcpRunSummariesController";
 import { useAgentRuntimeRefsController } from "./agent/useAgentRuntimeRefsController";
-import { useAgentSurfaceVisibilityController } from "./agent/useAgentSurfaceVisibilityController";
-import { createAcpThreadRendererActions } from "./agent/acpThreadApplyController";
-import { useAcpThreadSummariesController } from "./agent/useAcpThreadSummariesController";
-import { createAcpConversationMessageRendererActions } from "./agent/acpConversationMessageController";
-import { useAcpInteractionTargetsController } from "./agent/useAcpInteractionTargetsController";
-import { useAcpRunLogStateController } from "./agent/useAcpRunLogStateController";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 import type {
   DesktopLocale,
@@ -202,7 +179,6 @@ import type {
 
 import "./App.css";
 
-import type { GenerationSource } from "../shared/providerTypes";
 import type {
   ImageAssetRequestRendition,
   ImagePromptReferenceRecord,
@@ -241,8 +217,6 @@ type AutosaveSnapshot = ProjectAutosaveSnapshot<
   BinaryFiles
 >;
 
-const ACP_RUN_HISTORY_REFRESH_DELAY_MS = 160;
-const ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS = 240;
 
 interface AppProps {
   locale?: DesktopLocale;
@@ -328,40 +302,6 @@ const App = ({
       }),
     [readProjectImageAssets],
   );
-  const acpInteractionTargets = useAcpInteractionTargetsController();
-  const { activeThreadId: activeAcpThreadId, runLogSurface: acpRunLogSurface } =
-    acpInteractionTargets.state;
-  const {
-    activeTaskActions: acpActiveTaskIdRendererActions,
-    activeThreadActions: acpActiveThreadIdRendererActions,
-    runLogTargetActions: acpRunLogTargetRendererActions,
-    getActiveTaskId: getActiveAcpTaskId,
-    getActiveThreadId: getActiveAcpThreadId,
-    getRunLogTaskId: getAcpRunLogTaskId,
-    getRunLogSurface: getAcpRunLogSurface,
-  } = acpInteractionTargets.actions;
-  const acpRunLogStateController = useAcpRunLogStateController();
-  const {
-    dialogOpen: acpRunLogDialogOpen,
-    loading: acpRunLogLoading,
-    detail: acpRunLogDetail,
-    error: acpRunLogError,
-    rawOpen: acpRunLogRawOpen,
-    conversationEntries: acpConversationEntries,
-  } = acpRunLogStateController.state;
-  const {
-    setDialogOpen: setAcpRunLogDialogOpen,
-    setLoading: setAcpRunLogLoading,
-    setDetail: setAcpRunLogDetail,
-    setError: setAcpRunLogError,
-    setRawOpen: setAcpRunLogRawOpen,
-    setConversationEntries: setAcpConversationEntries,
-  } = acpRunLogStateController.setters;
-  const {
-    getRefreshTimerId: getAcpRunLogRefreshTimerId,
-    setRefreshTimerId: setAcpRunLogRefreshTimerId,
-  } = acpRunLogStateController.actions;
-
   const [currentProject, setCurrentProject] =
     useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] =
@@ -379,26 +319,6 @@ const App = ({
     setStatus: setAgentBridgeStatus,
     setAutoOpenProjectPath: setAgentBrowserAutoOpenProjectPath,
   } = agentBridgeConnectionStateController.setters;
-  const acpAgentSettingsController = useAcpAgentSettingsController(bridge);
-  const {
-    settings: acpAgentSettings,
-    experimentalEnabled: acpExperimentalEnabled,
-    selectedAgent: selectedAcpAgent,
-    draft: acpAgentSettingsDraft,
-    saving: savingAcpAgentSettings,
-    editable: acpAgentSettingsEditable,
-    load: loadAcpAgentSettingsState,
-    save: saveAcpAgentSettingsState,
-    setExperimentalEnabled: setAcpExperimentalEnabled,
-    setPresetAndSave: setAcpAgentPresetAndSave,
-    setCommandDraft: setAcpAgentCommandDraft,
-    setArgsDraft: setAcpAgentArgsDraft,
-    setCwdDraft: setAcpAgentCwdDraft,
-    setTaskInstructionDraft: setAcpTaskInstructionDraft,
-  } = acpAgentSettingsController;
-  const acpAgentTaskStateController = useAcpAgentTaskStateController();
-  const { task: acpAgentTask } = acpAgentTaskStateController.state;
-  const { setTask: setAcpAgentTask } = acpAgentTaskStateController.setters;
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
   const generationModelSelectionRendererActions = useMemo(
     () =>
@@ -429,9 +349,6 @@ const App = ({
       null,
       rememberedGenerationModelSelectionRef.current,
     ),
-  );
-  const [generationSource, setGenerationSource] = useState<GenerationSource>(
-    () => (isAgentBrowserRoute ? "agent" : "builtin"),
   );
   const [loadingProject, setLoadingProject] = useState(false);
   const [savingProviders, setSavingProviders] = useState(false);
@@ -485,13 +402,7 @@ const App = ({
     useState<ApplicationSettingsCategory>("image-generation");
   const [appSettingsDirty, setAppSettingsDirty] = useState(false);
   const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
-  const [acpAdvancedSettingsOpen, setAcpAdvancedSettingsOpen] = useState(false);
-  const agentSurfaceVisibilityController =
-    useAgentSurfaceVisibilityController();
-  const { acpDebugOpen, chatDockOpen: agentChatDockOpen } =
-    agentSurfaceVisibilityController.state;
-  const { setAcpDebugOpen, setChatDockOpen: setAgentChatDockOpen } =
-    agentSurfaceVisibilityController.setters;
+  const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
@@ -512,63 +423,20 @@ const App = ({
       setPendingCount: setPendingGenerationCount,
     });
 
-  const acpRunSummariesController = useAcpRunSummariesController({
-    bridge,
-  });
-  const {
-    summaries: acpRunSummaries,
-    loading: acpRunSummariesLoading,
-    error: acpRunSummariesError,
-    canRead: canReadAcpRunLogs,
-    load: loadAcpRunSummariesState,
-  } = acpRunSummariesController;
-  useAcpRunSummariesAutoLoadEffect({
-    settingsOpen: appSettingsOpen,
-    debugOpen: acpDebugOpen,
-    load: loadAcpRunSummariesState,
-  });
-
-  const currentProjectAgentAccessToken =
-    getProjectAgentAccessToken(currentProject);
-  const getCurrentProjectAgentAccessToken = useCallback(
-    () => getProjectAgentAccessToken(currentProjectRef.current),
-    [],
-  );
   useAgentBridgeStatusCurrentProjectSyncEffect({
     project: currentProject,
     applyBridgeStatus: setAgentBridgeStatus,
   });
-  const acpThreadSummariesController = useAcpThreadSummariesController({
-    bridge,
-    getProjectToken: getCurrentProjectAgentAccessToken,
-  });
-  const {
-    summaries: acpThreadSummaries,
-    loading: acpThreadSummariesLoading,
-    error: acpThreadSummariesError,
-    applyState: applyAcpThreadSummariesState,
-    load: loadAcpThreadSummariesState,
-  } = acpThreadSummariesController;
-  const acpAgentTaskRunning = isAcpAgentTaskRunning(acpAgentTask);
-  const acpAgentTaskStartable = canStartAcpAgentTask(bridge);
   const agentIntegrationRuntime = useMemo(
     () =>
       buildAgentIntegrationRuntimeViewModel({
         bridgeStatus: agentBridgeStatus,
-        acpAgentSettings,
-        agentTaskStatus: acpAgentTask,
-        taskRunning: acpAgentTaskRunning,
         isAgentBrowserRoute,
-        canStartAcpAgentTask: acpAgentTaskStartable,
         hasInitialProjectToken: Boolean(agentBrowserInitialProjectToken),
         hasCurrentProject: Boolean(currentProject),
         hasInitialData: Boolean(initialData),
       }),
     [
-      acpAgentSettings,
-      acpAgentTask,
-      acpAgentTaskRunning,
-      acpAgentTaskStartable,
       agentBridgeStatus,
       agentBrowserInitialProjectToken,
       currentProject,
@@ -576,8 +444,6 @@ const App = ({
       isAgentBrowserRoute,
     ],
   );
-  const agentIntegration = agentIntegrationRuntime.integration;
-  const acpAgentGeneration = agentIntegrationRuntime.acpGeneration;
   const selectedImageRelationship = useMemo(
     () =>
       buildSelectedImageRelationshipState({
@@ -586,68 +452,18 @@ const App = ({
       }),
     [currentProject?.imageRecords, selectedRecord],
   );
-  const agentConversationSurface = useMemo(
-    () =>
-      buildAgentConversationSurfaceState({
-        acpExperimentalEnabled: agentIntegration.acp.experimentalEnabled,
-        generationSource,
-        acpRunLogSurface,
-        acpAgentTaskRunning,
-        runLogDetail: acpRunLogDetail,
-        error: acpRunLogError,
-      }),
-    [
-      acpAgentTaskRunning,
-      agentIntegration.acp.experimentalEnabled,
-      acpRunLogDetail,
-      acpRunLogError,
-      acpRunLogSurface,
-      generationSource,
-    ],
-  );
-  const generationSidebarRecordItems = useMemo(
+  const generationRecordItems = useMemo(
     () =>
       buildGenerationSidebarRecordItems({
         project: currentProject,
         sceneImageFileIds,
-        acpEntries: acpConversationEntries,
-        acpRunLogDetail: agentConversationSurface.runLogDetail,
-        acpTask: acpAgentTask,
         files: latestSceneRef.current?.files ?? null,
-      }),
+      }).generationRecords,
     [
-      acpAgentTask,
-      acpConversationEntries,
-      agentConversationSurface.runLogDetail,
       currentProject,
       sceneImageFileIds,
     ],
   );
-  const generationRecordItems = generationSidebarRecordItems.generationRecords;
-  const acpAgentResultRecordItems =
-    generationSidebarRecordItems.agentResultRecords;
-  const generationSidebarMode = agentConversationSurface.mode;
-
-  const acpThreadRendererActions = createAcpThreadRendererActions({
-    getBridge: () => bridge,
-    nextLoadSequence: agentRuntimeRefsController.actions.nextThreadLoadSequence,
-    isLoadSequenceCurrent:
-      agentRuntimeRefsController.actions.isThreadLoadSequenceCurrent,
-    getCurrentProjectToken: getCurrentProjectAgentAccessToken,
-    getTaskRunning: () => acpAgentTaskRunning,
-    getActiveThreadId: getActiveAcpThreadId,
-    applyThreadSummariesState: applyAcpThreadSummariesState,
-    setActiveThreadId: acpActiveThreadIdRendererActions.set,
-    setActiveTaskId: acpActiveTaskIdRendererActions.set,
-    runLogTargetActions: acpRunLogTargetRendererActions,
-    setConversationEntries: setAcpConversationEntries,
-    setRunLogDetail: setAcpRunLogDetail,
-    setRunLogError: setAcpRunLogError,
-    setAgentTask: setAcpAgentTask,
-    setChatDockOpen: setAgentChatDockOpen,
-    onInitialReadError: (error) =>
-      console.error("[acp:thread-load-failed]", error),
-  });
 
   const sceneImageFileIdsRendererActions =
     createSceneImageFileIdsRendererActions({
@@ -657,9 +473,6 @@ const App = ({
   const currentProjectUpdateRendererActions =
     createCurrentProjectUpdateRendererActions({
       getPreviousProject: () => currentProjectRef.current,
-      clearAcpRunLogRefreshTimer: () => {
-        acpRunLogRendererActions.clearTimer();
-      },
       setCurrentProjectRef: (nextProject) => {
         currentProjectRef.current = nextProject;
       },
@@ -667,13 +480,6 @@ const App = ({
       setSavedSceneHashRef: (savedSceneHash) => {
         savedSceneHashRef.current = savedSceneHash;
       },
-      setActiveAcpThreadId: acpActiveThreadIdRendererActions.set,
-      runLogTargetActions: acpRunLogTargetRendererActions,
-      setAcpRunLogDetail,
-      setAcpRunLogError,
-      setAcpConversationEntries,
-      applyAcpThreadSummariesState,
-      setAgentChatDockOpen,
       setProjectHealthReport,
       setProjectRepairReport,
       setProjectHealthReportOpen,
@@ -785,7 +591,8 @@ const App = ({
         delayMs: 120,
         isEnabled: () => isAgentBrowserRoute,
         getProjectPath: () => currentProjectRef.current?.projectPath ?? null,
-        getGenerationSource: () => generationSource,
+        getGenerationSource: () =>
+          isAgentBrowserRoute ? "agent" : "builtin",
         getUpdatedAt: () => new Date().toISOString(),
         getLatestScene: () => latestSceneRef.current,
         getTimerId: agentRuntimeRefsController.actions.getStatePublishTimerId,
@@ -794,7 +601,7 @@ const App = ({
         scheduleTimeout: (callback, delayMs) =>
           window.setTimeout(callback, delayMs),
       }),
-    [agentRuntimeRefsController.actions, generationSource, isAgentBrowserRoute],
+    [agentRuntimeRefsController.actions, isAgentBrowserRoute],
   );
 
   const queuedExcalidrawBinaryFilesRendererActions = useMemo(
@@ -982,7 +789,6 @@ const App = ({
     setRecentProjects,
     setProjectError,
     setAppInfo,
-    loadAcpAgentSettings: loadAcpAgentSettingsState,
   });
 
   const agentBridgeStatusRendererActions =
@@ -1013,41 +819,10 @@ const App = ({
     copyText: clipboardTextRendererActions.copy,
   });
 
-  const acpRunLogRendererActions = createAcpRunLogRendererActions({
-    getBridge: () => bridge,
-    getCurrentTaskId: getAcpRunLogTaskId,
-    getSurface: getAcpRunLogSurface,
-    hasCurrentProject: () => Boolean(currentProjectRef.current),
-    hasInitialData: () => Boolean(initialData),
-    getRefreshTimerId: getAcpRunLogRefreshTimerId,
-    clearTimer: (timerId) => window.clearTimeout(timerId),
-    setLoading: setAcpRunLogLoading,
-    runLogTargetActions: acpRunLogTargetRendererActions,
-    setAppSettingsOpen,
-    setRunLogDialogOpen: setAcpRunLogDialogOpen,
-    setChatDockOpen: setAgentChatDockOpen,
-    setRunLogDetail: setAcpRunLogDetail,
-    setRunLogError: setAcpRunLogError,
-    setRunLogRawOpen: setAcpRunLogRawOpen,
-    updateConversationEntries: (updater) => {
-      setAcpConversationEntries(updater);
-    },
-    scheduleTimeout: (callback, timeoutDelay) =>
-      window.setTimeout(callback, timeoutDelay),
-    setRefreshTimerId: setAcpRunLogRefreshTimerId,
-  });
-
-  const closeAcpRunLogDialog = acpRunLogRendererActions.close;
-
   const generationRequestRendererActions =
     createGenerationRequestRendererActions({
       getProviderSettings: () => providerSettings,
-      getCurrentRequest: () => generateRequest,
-      setGenerationSource,
-      showDirectGenerationRecords:
-        acpRunLogRendererActions.showDirectGenerationRecords,
       setGenerateRequest,
-      updateGenerateRequest: setGenerateRequest,
     });
 
   const generateDialogReferenceRendererActions =
@@ -1117,7 +892,6 @@ const App = ({
       clearProjectNoticeTimer: projectNoticeRendererActions.clearTimer,
       clearVisibleImageRenditionLoadTimer:
         visibleImageRenditionLoadRendererActions.clearTimer,
-      clearAcpRunLogRefreshTimer: acpRunLogRendererActions.clearTimer,
       clearAgentBrowserRuntimePublishTimer:
         agentBrowserRuntimePublishRendererActions.clearTimer,
     });
@@ -1528,24 +1302,6 @@ const App = ({
       setProjectError,
     });
 
-  const acpTaskStartRendererActions = createAcpTaskStartRendererActions({
-    getProject: () => currentProjectRef.current,
-    getRuntime: () => agentIntegrationRuntime,
-    getActiveThreadId: getActiveAcpThreadId,
-    getStatus: () => agentBridgeStatus,
-    getPageUrl: () => window.location.href,
-    getBridge: () => bridge,
-    setActiveTaskId: acpActiveTaskIdRendererActions.set,
-    setActiveThreadId: acpActiveThreadIdRendererActions.set,
-    runLogTargetActions: acpRunLogTargetRendererActions,
-    setChatDockOpen: setAgentChatDockOpen,
-    setRunLogDetail: setAcpRunLogDetail,
-    setRunLogError: setAcpRunLogError,
-    setRunLogRawOpen: setAcpRunLogRawOpen,
-    setAgentTask: setAcpAgentTask,
-    setGenerateRequest,
-  });
-
   const generationSubmitRendererActions = createGenerationSubmitRendererActions<
     PlacementViewportContext,
     AppSceneSnapshot
@@ -1555,7 +1311,6 @@ const App = ({
     clearGenerationError: generationErrorRendererActions.clear,
     assertProjectActive:
       activeAgentProjectPathRendererActions.assertActiveProject,
-    startAcpAgentGeneration: acpTaskStartRendererActions.start,
     startBuiltinGeneration: (request, project, options) =>
       runBuiltinGenerationRendererAction({
         request,
@@ -1571,9 +1326,6 @@ const App = ({
           activeAgentProjectPathRendererActions.assertActiveProject(
             options.expectedProjectPath,
           ),
-        setGenerationSource,
-        showDirectGenerationRecords:
-          acpRunLogRendererActions.showDirectGenerationRecords,
         setGenerateRequest,
         insertPlaceholders: (preparedRequest, startedAt, placeholderOptions) =>
           pendingGenerationCanvasRendererActions.insertPlaceholders(
@@ -1604,21 +1356,6 @@ const App = ({
       }),
     showGenerationError: generationErrorRendererActions.display,
   });
-
-  const acpConversationMessageRendererActions =
-    createAcpConversationMessageRendererActions({
-      getCurrentRequest: () => generateRequest,
-      getProviderSettings: () => providerSettings,
-      getScene: () => latestSceneRef.current,
-      getImageRecords: () => currentProjectRef.current?.imageRecords || null,
-      getRemovedSelectionReferenceSignature: () =>
-        removedSelectionReferenceSignatureRef.current,
-      submitGenerationRequest: async (nextRequest) => {
-        await generationSubmitRendererActions.submit(nextRequest, false, {
-          rejectOnError: true,
-        });
-      },
-    });
 
   const desktopMenuEventRendererActions = createDesktopMenuEventRendererActions(
     {
@@ -1659,7 +1396,7 @@ const App = ({
       serializeScene: serializeSceneForProject,
       getExcalidrawAPI: () => excalidrawAPIRef.current,
       providerSettings,
-      generationSource,
+      generationSource: "builtin",
       generateRequest,
       readProjectImageAssets,
       beginImageWriteback: ({ project, files }) =>
@@ -1694,38 +1431,6 @@ const App = ({
       handleCommandRequest: handleAgentCommandRequest,
     });
 
-  const acpTaskEventSubscriptionRendererActions =
-    createAcpTaskEventSubscriptionRendererActions({
-      bridge,
-      getActiveTaskId: getActiveAcpTaskId,
-      getOpenRunLogTaskId: getAcpRunLogTaskId,
-      getProjectToken: () =>
-        getProjectAgentAccessToken(currentProjectRef.current),
-      getAppSettingsOpen: () => appSettingsOpen,
-      getAcpDebugOpen: () => acpDebugOpen,
-      historyRefreshDelay: ACP_RUN_HISTORY_REFRESH_DELAY_MS,
-      updateTaskState: setAcpAgentTask,
-      clearActiveTask: () => acpActiveTaskIdRendererActions.set(null),
-      scheduleTimeout: (callback, delay) => window.setTimeout(callback, delay),
-      clearScheduledTimeout: (timerId) => window.clearTimeout(timerId),
-      refreshThreadSummaries: loadAcpThreadSummariesState,
-      refreshRunSummaries: loadAcpRunSummariesState,
-      refreshOpenRunLog: (taskId, delay = ACP_RUN_LOG_LIVE_REFRESH_DELAY_MS) =>
-        acpRunLogRendererActions.scheduleLiveRefresh(taskId, delay),
-    });
-
-  useAcpAgentWiring({
-    acpThreadRendererActions,
-    acpTaskEventSubscriptionRendererActions,
-    currentProjectAgentAccessToken,
-    bridge,
-    getCurrentProjectAgentAccessToken,
-    acpDebugOpen,
-    appSettingsOpen,
-    loadAcpRunSummariesState,
-    loadAcpThreadSummariesState,
-  });
-
   useEffect(
     () => agentCommandRequestSubscriptionRendererActions.start(),
     [
@@ -1733,7 +1438,6 @@ const App = ({
       desktopBridge,
       flushPendingAutosave,
       generateRequest,
-      generationSource,
       generationSubmitRendererActions.submit,
       generatedImageSceneInsertRendererActions.insertAssets,
       providerSettings,
@@ -1754,13 +1458,11 @@ const App = ({
         activeCategory: appSettingsCategory,
         dirty: appSettingsDirty,
         onCategoryChange: (category) => {
-          setAcpAdvancedSettingsOpen(false);
           setAppSettingsCategory(category);
         },
         onDiscardChanges: () => {
           setAppSettingsDirty(false);
           setAppSettingsDiscardToken((current) => current + 1);
-          void loadAcpAgentSettingsState();
         },
         onClose: () => setAppSettingsOpen(false),
         generalContent: (
@@ -1844,83 +1546,6 @@ const App = ({
             copyText={clipboardTextRendererActions.copy}
           />
         ),
-        experimentalContent: acpAdvancedSettingsOpen ? (
-          <AcpAgentSettingsPanel
-            draft={acpAgentSettingsDraft}
-            selectedAgent={selectedAcpAgent}
-            editable={acpAgentSettingsEditable}
-            saving={savingAcpAgentSettings}
-            defaultCwd={
-              currentProject?.projectPath ??
-              agentBridgeStatus?.currentProject?.projectPath ??
-              copy.applicationSettings.acpAdvancedPage.currentProjectDirectory
-            }
-            onBack={() => {
-              setAcpAdvancedSettingsOpen(false);
-            }}
-            onCommandChange={(value) => {
-              setAcpAgentCommandDraft(value);
-              setAppSettingsDirty(true);
-            }}
-            onArgsChange={(value) => {
-              setAcpAgentArgsDraft(value);
-              setAppSettingsDirty(true);
-            }}
-            onCwdChange={(value) => {
-              setAcpAgentCwdDraft(value);
-              setAppSettingsDirty(true);
-            }}
-            onTaskInstructionChange={(value) => {
-              setAcpTaskInstructionDraft(value);
-              setAppSettingsDirty(true);
-            }}
-            onSave={() => {
-              void saveAcpAgentSettingsState()
-                .then(() => setAppSettingsDirty(false))
-                .catch((error) => {
-                  setProjectError(
-                    error instanceof Error ? error.message : String(error),
-                  );
-                });
-            }}
-            debugContent={
-              <AcpDebugSettingsPanel
-                open={acpDebugOpen}
-                summaries={acpRunSummaries}
-                loading={acpRunSummariesLoading}
-                error={acpRunSummariesError}
-                canReadRunLogs={canReadAcpRunLogs}
-                onOpenChange={setAcpDebugOpen}
-                onRefresh={() => void loadAcpRunSummariesState()}
-                onOpenRunLog={(taskId) => {
-                  void acpRunLogRendererActions.open(taskId);
-                }}
-              />
-            }
-          />
-        ) : (
-          <ExperimentalFeaturesSettingsSection
-            acpEnabled={acpExperimentalEnabled}
-            disabled={!acpAgentSettingsEditable}
-            saving={savingAcpAgentSettings}
-            presetId={acpAgentSettingsDraft.presetId}
-            onAcpEnabledChange={(enabled) => {
-              void setAcpExperimentalEnabled(enabled).catch((error) => {
-                setProjectError(
-                  error instanceof Error ? error.message : String(error),
-                );
-              });
-            }}
-            onPresetChange={(presetId) => {
-              void setAcpAgentPresetAndSave(presetId).catch((error) => {
-                setProjectError(
-                  error instanceof Error ? error.message : String(error),
-                );
-              });
-            }}
-            onOpenAdvanced={() => setAcpAdvancedSettingsOpen(true)}
-          />
-        ),
         aboutContent: (
           <AboutSettingsSection
             appInfo={appInfo}
@@ -1931,15 +1556,6 @@ const App = ({
             }}
           />
         ),
-      }}
-      acpRunLog={{
-        open: acpRunLogDialogOpen,
-        loading: acpRunLogLoading,
-        error: acpRunLogError,
-        detail: acpRunLogDetail,
-        rawOpen: acpRunLogRawOpen,
-        onRawOpenChange: setAcpRunLogRawOpen,
-        onClose: closeAcpRunLogDialog,
       }}
       projectDataReport={{
         open: projectHealthReportOpen,
@@ -2036,7 +1652,7 @@ const App = ({
   const appClassName = [
     "image-board-app",
     "image-board-app--project-open",
-    agentChatDockOpen ? "image-board-app--left-dock-open" : "",
+    generationHistoryOpen ? "image-board-app--left-dock-open" : "",
     inspectorDockOpen ? "image-board-app--right-dock-open" : "",
   ]
     .filter(Boolean)
@@ -2163,37 +1779,15 @@ const App = ({
                 />
               </LazyExcalidraw>
             </Suspense>
-            <AgentConversationSidebar
-              mode={generationSidebarMode}
-              open={agentChatDockOpen}
-              onOpenChange={setAgentChatDockOpen}
-              generationRecords={generationRecordItems}
-              agentResultRecords={acpAgentResultRecordItems}
-              onSelectGenerationRecord={(fileId) => {
+            <GenerationHistorySidebar
+              open={generationHistoryOpen}
+              onOpenChange={setGenerationHistoryOpen}
+              records={generationRecordItems}
+              onSelectRecord={(fileId) => {
                 void imageRecordLocatorRendererActions.locateImageRecord(
                   fileId,
                 );
               }}
-              task={acpAgentTask}
-              runLogDetail={agentConversationSurface.runLogDetail}
-              threadEntries={acpConversationEntries}
-              error={agentConversationSurface.error}
-              threadSummaries={acpThreadSummaries}
-              activeThreadId={activeAcpThreadId}
-              threadsLoading={acpThreadSummariesLoading}
-              threadsError={acpThreadSummariesError}
-              canSubmitMessage={acpAgentGeneration.canSubmitMessage}
-              submitMessageDisabledReason={
-                acpAgentGeneration.submitMessageDisabledReason
-              }
-              threadActionsDisabled={acpAgentTaskRunning}
-              onSelectThread={
-                acpThreadRendererActions.selectThreadForConversation
-              }
-              onStartNewThread={acpThreadRendererActions.startNewThread}
-              onSubmitMessage={
-                acpConversationMessageRendererActions.submitMessage
-              }
             />
             <WorkspaceBoundsOverlay
               state={workspaceOverlayState}
@@ -2208,7 +1802,6 @@ const App = ({
           open={true}
           persistent={true}
           focusToken={generateFocusToken}
-          composerConfig={acpAgentGeneration.composerConfig}
           initialRequest={generateRequest}
           providerSettings={providerSettings}
           loading={pendingGenerationCount > 0}
@@ -2229,11 +1822,6 @@ const App = ({
           }
           onReferenceRemove={generateDialogReferenceRendererActions.remove}
           onReferenceCommit={generateDialogReferenceRendererActions.commit}
-          onOpenAgentRunLog={(taskId) => {
-            void acpRunLogRendererActions.open(taskId, {
-              openInConversationDock: true,
-            });
-          }}
           onSubmit={generationSubmitRendererActions.submit}
         />
       ) : null}

@@ -14,7 +14,6 @@ export type ApplicationSettingsCategory =
   | "general"
   | "image-generation"
   | "codex-integration"
-  | "experimental"
   | "about";
 
 export interface ApplicationSettingsDialogProps {
@@ -27,7 +26,6 @@ export interface ApplicationSettingsDialogProps {
   generalContent: ReactNode;
   imageGenerationContent: ReactNode;
   codexIntegrationContent: ReactNode;
-  experimentalContent: ReactNode;
   aboutContent: ReactNode;
 }
 
@@ -48,7 +46,6 @@ export const ApplicationSettingsDialog = ({
   generalContent,
   imageGenerationContent,
   codexIntegrationContent,
-  experimentalContent,
   aboutContent,
 }: ApplicationSettingsDialogProps) => {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -102,7 +99,6 @@ export const ApplicationSettingsDialog = ({
       id: "codex-integration",
       label: copy.applicationSettings.codexIntegration,
     },
-    { id: "experimental", label: copy.applicationSettings.experimental },
     { id: "about", label: copy.applicationSettings.about },
   ];
 
@@ -113,8 +109,6 @@ export const ApplicationSettingsDialog = ({
       ? imageGenerationContent
       : activeCategory === "codex-integration"
       ? codexIntegrationContent
-      : activeCategory === "experimental"
-      ? experimentalContent
       : aboutContent;
 
   return (

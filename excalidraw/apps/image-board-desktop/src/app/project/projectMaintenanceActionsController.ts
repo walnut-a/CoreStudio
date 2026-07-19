@@ -568,8 +568,7 @@ export const runProjectRepairAction = async <
       loadedPreviewFileIds,
       loadedOriginalFileIds,
     });
-    const { repairedAcpOutputRecords, metadataUpdate, fileIdsToRefresh } =
-      repairResultState;
+    const { metadataUpdate, fileIdsToRefresh } = repairResultState;
     const { metadataRepair, project: projectAfterMetadataRepair } =
       metadataUpdate;
 
@@ -602,7 +601,6 @@ export const runProjectRepairAction = async <
       projectPath: readyProject.projectPath,
       result,
       metadataRepair,
-      repairedAcpOutputRecords,
       restoredCount: imageRecordRestoreResult.restoredCount,
       skippedRestoreCount: imageRecordRestoreResult.skippedCount,
       messages: {

@@ -114,16 +114,6 @@ describe("buildCurrentProjectLifecycleState", () => {
 describe("buildCurrentProjectChangedResetState", () => {
   it("builds the UI reset state applied when the active project path changes", () => {
     expect(buildCurrentProjectChangedResetState()).toEqual({
-      activeAcpThreadId: null,
-      acpRunLogTaskId: null,
-      acpRunLogSurface: null,
-      acpRunLogDetail: null,
-      acpRunLogError: null,
-      acpConversationEntries: [],
-      acpThreadSummaries: [],
-      acpThreadSummariesError: null,
-      acpThreadSummariesLoading: false,
-      agentChatDockOpen: false,
       projectHealthReport: null,
       projectRepairReport: null,
       projectHealthReportOpen: false,

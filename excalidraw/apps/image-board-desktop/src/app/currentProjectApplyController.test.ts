@@ -61,17 +61,8 @@ const createProject = (path: string): DesktopProjectBundle => ({
 });
 
 const createCallbacks = () => ({
-  clearAcpRunLogRefreshTimer: vi.fn(),
   setCurrentProject: vi.fn(),
   setSavedSceneHash: vi.fn(),
-  setActiveAcpThreadId: vi.fn(),
-  setAcpRunLogTaskId: vi.fn(),
-  setAcpRunLogSurface: vi.fn(),
-  setAcpRunLogDetail: vi.fn(),
-  setAcpRunLogError: vi.fn(),
-  setAcpConversationEntries: vi.fn(),
-  applyAcpThreadSummariesState: vi.fn(),
-  setAgentChatDockOpen: vi.fn(),
   setProjectHealthReport: vi.fn(),
   setProjectRepairReport: vi.fn(),
   setProjectHealthReportOpen: vi.fn(),
@@ -147,9 +138,6 @@ describe("applyCurrentProjectUpdateState", () => {
 
     expect(callbacks.setCurrentProject).toHaveBeenCalledWith(project);
     expect(callbacks.setSavedSceneHash).toHaveBeenCalledWith("hash-current");
-    expect(callbacks.clearAcpRunLogRefreshTimer).not.toHaveBeenCalled();
-    expect(callbacks.setActiveAcpThreadId).not.toHaveBeenCalled();
-    expect(callbacks.applyAcpThreadSummariesState).not.toHaveBeenCalled();
   });
 
   it("applies the project changed reset state when switching projects", () => {
@@ -171,19 +159,6 @@ describe("applyCurrentProjectUpdateState", () => {
 
     expect(callbacks.setCurrentProject).toHaveBeenCalledWith(project);
     expect(callbacks.setSavedSceneHash).toHaveBeenCalledWith("hash-next");
-    expect(callbacks.clearAcpRunLogRefreshTimer).toHaveBeenCalledTimes(1);
-    expect(callbacks.setActiveAcpThreadId).toHaveBeenCalledWith(null);
-    expect(callbacks.setAcpRunLogTaskId).toHaveBeenCalledWith(null);
-    expect(callbacks.setAcpRunLogSurface).toHaveBeenCalledWith(null);
-    expect(callbacks.setAcpRunLogDetail).toHaveBeenCalledWith(null);
-    expect(callbacks.setAcpRunLogError).toHaveBeenCalledWith(null);
-    expect(callbacks.setAcpConversationEntries).toHaveBeenCalledWith([]);
-    expect(callbacks.applyAcpThreadSummariesState).toHaveBeenCalledWith({
-      summaries: [],
-      error: null,
-      loading: false,
-    });
-    expect(callbacks.setAgentChatDockOpen).toHaveBeenCalledWith(false);
     expect(callbacks.setProjectHealthReport).toHaveBeenCalledWith(null);
     expect(callbacks.setProjectRepairReport).toHaveBeenCalledWith(null);
     expect(callbacks.setProjectHealthReportOpen).toHaveBeenCalledWith(false);
@@ -209,7 +184,6 @@ describe("runCurrentProjectUpdateAction", () => {
       project: nextProject,
     });
     expect(callbacks.setCurrentProject).toHaveBeenCalledWith(nextProject);
-    expect(callbacks.clearAcpRunLogRefreshTimer).toHaveBeenCalledTimes(1);
     expect(callbacks.notifyProjectState).toHaveBeenCalledWith(nextProject);
     expect(callbacks.syncAgentBridgeStatus).toHaveBeenCalledWith(nextProject);
   });
@@ -247,17 +221,6 @@ describe("createCurrentProjectUpdateRendererActions", () => {
       setSavedSceneHashRef: (hash) => {
         savedSceneHashRef = hash;
       },
-      clearAcpRunLogRefreshTimer: callbacks.clearAcpRunLogRefreshTimer,
-      setActiveAcpThreadId: callbacks.setActiveAcpThreadId,
-      runLogTargetActions: {
-        setTaskId: callbacks.setAcpRunLogTaskId,
-        setSurface: callbacks.setAcpRunLogSurface,
-      },
-      setAcpRunLogDetail: callbacks.setAcpRunLogDetail,
-      setAcpRunLogError: callbacks.setAcpRunLogError,
-      setAcpConversationEntries: callbacks.setAcpConversationEntries,
-      applyAcpThreadSummariesState: callbacks.applyAcpThreadSummariesState,
-      setAgentChatDockOpen: callbacks.setAgentChatDockOpen,
       setProjectHealthReport: callbacks.setProjectHealthReport,
       setProjectRepairReport: callbacks.setProjectRepairReport,
       setProjectHealthReportOpen: callbacks.setProjectHealthReportOpen,
@@ -276,7 +239,6 @@ describe("createCurrentProjectUpdateRendererActions", () => {
     expect(currentProjectRef).toBe(nextProject);
     expect(callbacks.setCurrentProject).toHaveBeenCalledWith(nextProject);
     expect(savedSceneHashRef).toBe(state.savedSceneHash);
-    expect(callbacks.clearAcpRunLogRefreshTimer).toHaveBeenCalledTimes(1);
     expect(callbacks.notifyProjectState).toHaveBeenCalledWith(nextProject);
     expect(callbacks.syncAgentBridgeStatus).toHaveBeenCalledWith(nextProject);
 

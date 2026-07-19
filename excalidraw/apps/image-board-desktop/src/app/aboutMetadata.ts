@@ -30,10 +30,6 @@ export const CORESTUDIO_OPEN_SOURCE_DEPENDENCIES: readonly OpenSourceDependency[
       version: dependencyVersion("react-dom"),
     },
     {
-      name: "Assistant UI",
-      version: dependencyVersion("@assistant-ui/react"),
-    },
-    {
       name: "Google Gen AI SDK",
       version: dependencyVersion("@google/genai"),
     },

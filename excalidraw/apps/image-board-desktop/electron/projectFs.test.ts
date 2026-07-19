@@ -213,6 +213,135 @@ describe("projectFs", () => {
     );
   });
 
+  it("normalizes deterministic legacy manifest fields without touching assets", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const created = await createProjectStructure(root, "Legacy Manifest");
+    const projectFile = path.join(
+      created.projectPath,
+      PROJECT_FILENAMES.project,
+    );
+    const assetPath = path.join(
+      created.projectPath,
+      PROJECT_FILENAMES.assetsDir,
+      "keep-me.png",
+    );
+    await fs.writeFile(assetPath, "asset-data");
+    await fs.writeFile(
+      projectFile,
+      JSON.stringify({
+        name: "Legacy Manifest",
+        createdAt: "2026-04-16T01:00:00.000Z",
+        updatedAt: "2026-04-16T02:00:00.000Z",
+        sceneFile: "../outside.json",
+        assetsDir: "../outside-assets",
+      }),
+    );
+
+    const bundle = await readProjectBundle(created.projectPath);
+    const persisted = JSON.parse(await fs.readFile(projectFile, "utf8"));
+
+    expect(bundle.project).toEqual(
+      expect.objectContaining({
+        formatVersion: 1,
+        appVersion: expect.any(String),
+        name: "Legacy Manifest",
+        sceneFile: PROJECT_FILENAMES.scene,
+        imageRecordsFile: PROJECT_FILENAMES.imageRecords,
+        assetsDir: PROJECT_FILENAMES.assetsDir,
+        exportsDir: PROJECT_FILENAMES.exportsDir,
+      }),
+    );
+    expect(persisted).toEqual(bundle.project);
+    await expect(fs.readFile(assetPath, "utf8")).resolves.toBe("asset-data");
+  });
+
+  it("rejects a non-object project manifest without overwriting it", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const created = await createProjectStructure(root, "Broken Manifest");
+    const projectFile = path.join(
+      created.projectPath,
+      PROJECT_FILENAMES.project,
+    );
+    await fs.writeFile(projectFile, "null", "utf8");
+
+    await expect(readProjectBundle(created.projectPath)).rejects.toMatchObject({
+      code: "PROJECT_MANIFEST_INVALID",
+    });
+    await expect(fs.readFile(projectFile, "utf8")).resolves.toBe("null");
+  });
+
+  it("rejects unsupported future project formats without rewriting them", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const created = await createProjectStructure(root, "Future Manifest");
+    const projectFile = path.join(
+      created.projectPath,
+      PROJECT_FILENAMES.project,
+    );
+    const futureManifest = JSON.stringify({
+      ...created.project,
+      formatVersion: 99,
+    });
+    await fs.writeFile(projectFile, futureManifest, "utf8");
+
+    await expect(readProjectBundle(created.projectPath)).rejects.toMatchObject({
+      code: "PROJECT_FORMAT_UNSUPPORTED",
+    });
+    await expect(fs.readFile(projectFile, "utf8")).resolves.toBe(
+      futureManifest,
+    );
+  });
+
+  it("rejects malformed scene JSON before recovery and preserves the source", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const created = await createProjectStructure(root, "Broken Scene");
+    const sceneFile = path.join(
+      created.projectPath,
+      PROJECT_FILENAMES.scene,
+    );
+    const malformedScene = '{"type":"excalidraw","elements":[';
+    await fs.writeFile(sceneFile, malformedScene, "utf8");
+
+    await expect(readProjectBundle(created.projectPath)).rejects.toMatchObject({
+      code: "PROJECT_SCENE_INVALID",
+    });
+    await expect(fs.readFile(sceneFile, "utf8")).resolves.toBe(malformedScene);
+  });
+
+  it("does not migrate the manifest when image-records JSON cannot be read", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const created = await createProjectStructure(root, "Broken Records");
+    const projectFile = path.join(
+      created.projectPath,
+      PROJECT_FILENAMES.project,
+    );
+    const imageRecordsFile = path.join(
+      created.projectPath,
+      PROJECT_FILENAMES.imageRecords,
+    );
+    const legacyManifest = JSON.stringify({
+      name: "Broken Records",
+      createdAt: created.project.createdAt,
+      updatedAt: created.project.updatedAt,
+    });
+    await fs.writeFile(projectFile, legacyManifest, "utf8");
+    await fs.writeFile(imageRecordsFile, "{broken", "utf8");
+
+    await expect(readProjectBundle(created.projectPath)).rejects.toMatchObject({
+      code: "IMAGE_RECORDS_INVALID",
+    });
+    await expect(fs.readFile(projectFile, "utf8")).resolves.toBe(
+      legacyManifest,
+    );
+    await expect(fs.readFile(imageRecordsFile, "utf8")).resolves.toBe(
+      "{broken",
+    );
+  });
+
   it("keeps an existing Agent token when opening a project", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);

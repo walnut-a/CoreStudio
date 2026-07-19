@@ -8,6 +8,7 @@ import type {
   ProjectManifest,
   ProjectAgentAccess,
   ProjectImageWritebackTransaction,
+  ProjectImageWritebackJournalReadIssue,
   ProjectImageRecordReadIssue,
   ProjectThumbnailReadMode,
 } from "./projectTypes";
@@ -100,6 +101,7 @@ export interface DesktopProjectBundle {
   sceneJson: string;
   imageRecords: ImageRecordMap;
   imageRecordReadIssues?: ProjectImageRecordReadIssue[];
+  writebackJournalReadIssues?: ProjectImageWritebackJournalReadIssue[];
   safeMode?: boolean;
 }
 
@@ -193,7 +195,8 @@ export interface ProjectHealthIssue {
     | "inconsistent-provenance"
     | "record-key-mismatch"
     | "invalid-record-field"
-    | "invalid-provider-metadata";
+    | "invalid-provider-metadata"
+    | "invalid-writeback-journal";
   severity: ProjectHealthIssueSeverity;
   fileId?: string;
   elementId?: string;

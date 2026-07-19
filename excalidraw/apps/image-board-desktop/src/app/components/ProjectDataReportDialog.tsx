@@ -45,6 +45,7 @@ const PROJECT_HEALTH_ISSUE_GROUP_BY_CODE: Record<
   "record-key-mismatch": "record-metadata",
   "invalid-record-field": "record-metadata",
   "invalid-provider-metadata": "record-metadata",
+  "invalid-writeback-journal": "project-file",
 };
 
 const getProjectHealthIssueGroups = (report: ProjectHealthReport) => {

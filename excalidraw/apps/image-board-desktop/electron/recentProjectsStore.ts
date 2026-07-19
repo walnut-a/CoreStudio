@@ -18,14 +18,45 @@ const getRecentProjectsPath = () =>
     RECENT_PROJECTS_FILE_NAME,
   );
 
-const readRecentProjectsFile = async (): Promise<RecentProjectEntry[]> => {
+const isRecentProjectEntry = (value: unknown): value is RecentProjectEntry =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof (value as RecentProjectEntry).projectPath === "string" &&
+  (value as RecentProjectEntry).projectPath.trim().length > 0 &&
+  typeof (value as RecentProjectEntry).name === "string" &&
+  (value as RecentProjectEntry).name.trim().length > 0 &&
+  typeof (value as RecentProjectEntry).lastOpenedAt === "string" &&
+  Number.isFinite(Date.parse((value as RecentProjectEntry).lastOpenedAt));
+
+const readRecentProjectsFile = async (): Promise<{
+  entries: RecentProjectEntry[];
+  canRewrite: boolean;
+  needsRewrite: boolean;
+}> => {
   try {
     const contents = await fs.readFile(getRecentProjectsPath(), "utf8");
-    const parsed = JSON.parse(contents) as RecentProjectEntry[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error: any) {
-    if (error.code === "ENOENT") {
-      return [];
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(contents);
+    } catch {
+      return { entries: [], canRewrite: false, needsRewrite: false };
+    }
+    if (!Array.isArray(parsed)) {
+      return { entries: [], canRewrite: false, needsRewrite: false };
+    }
+    const entries = parsed.filter(isRecentProjectEntry);
+    return {
+      entries,
+      canRewrite: true,
+      needsRewrite: entries.length !== parsed.length,
+    };
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return { entries: [], canRewrite: true, needsRewrite: false };
     }
     throw error;
   }
@@ -74,7 +105,8 @@ export const ensureDefaultProjectsRoot = async () => {
 };
 
 export const loadRecentProjects = async () => {
-  const storedEntries = await readRecentProjectsFile();
+  const { entries: storedEntries, canRewrite, needsRewrite } =
+    await readRecentProjectsFile();
   const validEntries: RecentProjectEntry[] = [];
 
   for (const entry of storedEntries) {
@@ -87,9 +119,22 @@ export const loadRecentProjects = async () => {
     right.lastOpenedAt.localeCompare(left.lastOpenedAt),
   );
 
-  const nextEntries = validEntries.slice(0, MAX_RECENT_PROJECTS);
+  const seenProjectPaths = new Set<string>();
+  const nextEntries = validEntries
+    .filter((entry) => {
+      if (seenProjectPaths.has(entry.projectPath)) {
+        return false;
+      }
+      seenProjectPaths.add(entry.projectPath);
+      return true;
+    })
+    .slice(0, MAX_RECENT_PROJECTS);
 
-  if (!areRecentProjectEntriesEqual(nextEntries, storedEntries)) {
+  if (
+    canRewrite &&
+    (needsRewrite ||
+      !areRecentProjectEntriesEqual(nextEntries, storedEntries))
+  ) {
     await writeRecentProjectsFile(nextEntries);
   }
 

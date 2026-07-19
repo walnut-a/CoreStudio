@@ -67,4 +67,36 @@ describe("projectHealth", () => {
     );
     expect(report.summary.errorCount).toBe(1);
   });
+
+  it("includes invalid writeback journals as manual project health issues", async () => {
+    const report = await inspectProjectHealth(
+      { projectPath: "/tmp/project" },
+      {
+        readProjectBundle: async () => ({
+          project: {} as never,
+          sceneJson: JSON.stringify({ type: "excalidraw", elements: [] }),
+          imageRecords: {},
+          writebackJournalReadIssues: [
+            {
+              transactionId: "broken-transaction",
+              code: "WRITEBACK_JOURNAL_INVALID",
+              message: "图片写回事务日志 JSON 已损坏，已保留原文件。",
+            },
+          ],
+        }),
+        resolveProjectAssetPath: (_projectPath, assetPath) => assetPath,
+        pathExists: async () => true,
+        cachedRenditionExists: async () => true,
+      },
+    );
+
+    expect(report.issues).toContainEqual(
+      expect.objectContaining({
+        code: "invalid-writeback-journal",
+        severity: "error",
+        repairable: false,
+        message: expect.stringContaining("broken-transaction"),
+      }),
+    );
+  });
 });

@@ -84,12 +84,11 @@ describe("GenerationRecordSidebar", () => {
     ).not.toHaveAttribute("aria-current");
   });
 
-  it("reveals the selected record when its sidebar becomes visible", () => {
+  it("reveals only when a new explicit request arrives", () => {
     const { rerender } = render(
       <GenerationRecordSidebar
         records={records}
         selectedFileId="file-2"
-        revealSelected={false}
         onSelectRecord={vi.fn()}
       />,
     );
@@ -100,7 +99,7 @@ describe("GenerationRecordSidebar", () => {
       <GenerationRecordSidebar
         records={records}
         selectedFileId="file-2"
-        revealSelected
+        revealRequest={{ fileId: "file-2", requestId: 1 }}
         onSelectRecord={vi.fn()}
       />,
     );
@@ -109,6 +108,27 @@ describe("GenerationRecordSidebar", () => {
       block: "nearest",
       inline: "nearest",
     });
+
+    scrollIntoView.mockClear();
+    rerender(
+      <GenerationRecordSidebar
+        records={[...records]}
+        selectedFileId="file-2"
+        revealRequest={{ fileId: "file-2", requestId: 1 }}
+        onSelectRecord={vi.fn()}
+      />,
+    );
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    rerender(
+      <GenerationRecordSidebar
+        records={records}
+        selectedFileId="file-2"
+        revealRequest={{ fileId: "file-2", requestId: 2 }}
+        onSelectRecord={vi.fn()}
+      />,
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
   });
 
   it("disables records when no locate callback is available", () => {

@@ -14,20 +14,21 @@ export interface GenerationRecordListItem {
 interface GenerationRecordSidebarProps {
   records: readonly GenerationRecordListItem[];
   selectedFileId?: string | null;
-  revealSelected?: boolean;
+  revealRequest?: { fileId: string; requestId: number } | null;
   onSelectRecord?: (fileId: string) => void;
 }
 
 export const GenerationRecordSidebar = ({
   records,
   selectedFileId,
-  revealSelected = false,
+  revealRequest,
   onSelectRecord,
 }: GenerationRecordSidebarProps) => {
   const selectedItemRef = useRef<HTMLButtonElement | null>(null);
+  const revealRequestId = revealRequest?.requestId;
 
   useEffect(() => {
-    if (!revealSelected || !selectedFileId) {
+    if (revealRequestId === undefined) {
       return;
     }
 
@@ -38,7 +39,7 @@ export const GenerationRecordSidebar = ({
         inline: "nearest",
       });
     }
-  }, [records, revealSelected, selectedFileId]);
+  }, [revealRequestId]);
 
   return (
     <div className="generation-record-sidebar">
@@ -60,7 +61,9 @@ export const GenerationRecordSidebar = ({
                 record.fileId === selectedFileId ? "true" : undefined
               }
               ref={
-                record.fileId === selectedFileId ? selectedItemRef : undefined
+                record.fileId === revealRequest?.fileId
+                  ? selectedItemRef
+                  : undefined
               }
               disabled={!onSelectRecord}
               onClick={() => onSelectRecord?.(record.fileId)}

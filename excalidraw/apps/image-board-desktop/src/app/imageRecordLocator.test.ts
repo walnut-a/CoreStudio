@@ -110,6 +110,98 @@ describe("resolveImageRecordLocateTarget", () => {
     });
   });
 
+  it("skips off-board referencing records and locates a later live result", () => {
+    const liveElement = createImageElement({
+      id: "element-live-result",
+      fileId: "file-live-result",
+    });
+    const offBoardRecord = createRecord({
+      fileId: "file-off-board-result",
+      createdAt: "2026-07-19T10:00:00.000Z",
+      promptReferences: [
+        {
+          id: "reference-off-board",
+          index: 1,
+          label: "参考图 1",
+          kind: "image",
+          fileIds: ["file-source"],
+        },
+      ],
+    });
+    const liveRecord = createRecord({
+      fileId: "file-live-result",
+      createdAt: "2026-07-19T09:00:00.000Z",
+      promptReferences: [
+        {
+          id: "reference-live",
+          index: 1,
+          label: "参考图 1",
+          kind: "image",
+          fileIds: ["file-source"],
+        },
+      ],
+    });
+
+    expect(
+      resolveImageRecordLocateTarget({
+        fileId: "file-source",
+        elements: [liveElement],
+        imageRecords: {
+          "file-off-board-result": offBoardRecord,
+          "file-live-result": liveRecord,
+        },
+      }),
+    ).toEqual({
+      kind: "referenced-by-result",
+      element: liveElement,
+      fileId: "file-source",
+      referencingRecord: liveRecord,
+    });
+  });
+
+  it("selects the newest live referencing result regardless of record order", () => {
+    const olderElement = createImageElement({
+      id: "element-older",
+      fileId: "file-older",
+    });
+    const newerElement = createImageElement({
+      id: "element-newer",
+      fileId: "file-newer",
+    });
+    const reference = {
+      id: "reference",
+      index: 1,
+      label: "参考图 1",
+      kind: "image" as const,
+      fileIds: ["file-source"],
+    };
+    const olderRecord = createRecord({
+      fileId: "file-older",
+      createdAt: "2026-07-19T09:00:00.000Z",
+      promptReferences: [reference],
+    });
+    const newerRecord = createRecord({
+      fileId: "file-newer",
+      createdAt: "2026-07-19T10:00:00.000Z",
+      promptReferences: [reference],
+    });
+
+    expect(
+      resolveImageRecordLocateTarget({
+        fileId: "file-source",
+        elements: [olderElement, newerElement],
+        imageRecords: {
+          "file-older": olderRecord,
+          "file-newer": newerRecord,
+        },
+      }),
+    ).toMatchObject({
+      kind: "referenced-by-result",
+      element: newerElement,
+      referencingRecord: newerRecord,
+    });
+  });
+
   it("returns missing when neither the record nor a referencing result is on board", () => {
     expect(
       resolveImageRecordLocateTarget({

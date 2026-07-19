@@ -12,6 +12,7 @@ interface GenerationHistorySidebarProps {
   onOpenChange: (open: boolean) => void;
   records: readonly GenerationRecordListItem[];
   selectedFileId?: string | null;
+  revealRequest?: { fileId: string; requestId: number } | null;
   onSelectRecord?: (fileId: string) => void;
 }
 
@@ -20,6 +21,7 @@ export const GenerationHistorySidebar = ({
   onOpenChange,
   records,
   selectedFileId,
+  revealRequest,
   onSelectRecord,
 }: GenerationHistorySidebarProps) => (
   <SideDock
@@ -32,7 +34,7 @@ export const GenerationHistorySidebar = ({
       <GenerationRecordSidebar
         records={records}
         selectedFileId={selectedFileId}
-        revealSelected={open}
+        revealRequest={revealRequest}
         onSelectRecord={onSelectRecord}
       />
     </div>

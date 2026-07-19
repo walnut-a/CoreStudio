@@ -545,7 +545,7 @@ const zhCnCopy = {
     },
     imageGenerationOrigin: {
       corestudio: "CoreStudio 生成",
-      "agent-board": "内置画板 Agent",
+      "agent-board": "Codex",
     },
     providerStatus: {
       success: "已连接",

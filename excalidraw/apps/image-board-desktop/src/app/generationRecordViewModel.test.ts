@@ -76,6 +76,7 @@ describe("buildDirectGenerationRecordItems", () => {
         fileId: "file-agent-board-1",
         assetPath: "assets/file-agent-board-1.png",
         generationOrigin: "agent-board",
+        provider: undefined,
         prompt: "Agent Board 生成结果",
       }),
       "file-imported-1": createImageRecord({
@@ -100,7 +101,7 @@ describe("buildDirectGenerationRecordItems", () => {
         id: "file-agent-board-1",
         fileId: "file-agent-board-1",
         title: "Agent Board 生成结果",
-        meta: expect.stringContaining("ZenMux · 1536 × 1024"),
+        meta: expect.stringContaining("Codex · 1536 × 1024"),
         statusLabel: "未在画板",
       },
     ]);

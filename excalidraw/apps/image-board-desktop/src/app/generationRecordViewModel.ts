@@ -2,7 +2,11 @@ import { getProviderDefinition } from "../shared/providerCatalog";
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
-import { copy, DESKTOP_LANG_CODE } from "./copy";
+import {
+  copy,
+  DESKTOP_LANG_CODE,
+  getImageGenerationOriginLabel,
+} from "./copy";
 
 export interface DirectGenerationRecordListItem {
   id: string;
@@ -65,7 +69,9 @@ export const buildDirectGenerationRecordItems = (
       const timeLabel = getGenerationRecordTimeLabel(record.createdAt);
       const providerLabel = record.provider
         ? getProviderDefinition(record.provider).label
-        : "CoreStudio";
+        : record.generationOrigin === "agent-board"
+          ? getImageGenerationOriginLabel(record.generationOrigin)
+          : "CoreStudio";
       const sizeLabel = `${record.width} × ${record.height}`;
       const statusLabel = sceneImageFileIdSet.has(record.fileId)
         ? undefined

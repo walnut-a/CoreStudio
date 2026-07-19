@@ -149,6 +149,21 @@ describe("ImageInspector", () => {
     expect(onLocateGenerationRecord).toHaveBeenCalledWith("file-1");
   });
 
+  it("does not offer a generation-record action for imported images", () => {
+    renderInspector({
+      record: {
+        ...generatedRecord,
+        sourceType: "imported",
+        generationOrigin: undefined,
+        provider: undefined,
+      },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "在生成记录中显示" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("lets lineage entries request locating their canvas image", () => {
     const onLocateImageRecord = vi.fn();
     renderInspector({ onLocateImageRecord });
@@ -239,7 +254,7 @@ describe("ImageInspector", () => {
     const detailGrid = screen.getByText("生成参数").closest("section");
     expect(detailGrid).not.toBeNull();
     expect(
-      within(detailGrid as HTMLElement).getByText("内置画板 Agent"),
+      within(detailGrid as HTMLElement).getByText("Codex"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "定位参考图 1" }));
 

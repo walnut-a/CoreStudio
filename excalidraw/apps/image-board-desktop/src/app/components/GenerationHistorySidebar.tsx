@@ -32,6 +32,7 @@ export const GenerationHistorySidebar = ({
       <GenerationRecordSidebar
         records={records}
         selectedFileId={selectedFileId}
+        revealSelected={open}
         onSelectRecord={onSelectRecord}
       />
     </div>

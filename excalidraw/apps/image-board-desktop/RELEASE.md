@@ -185,6 +185,18 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
+## 1.1.23 发布说明
+
+1.1.23 明确分离 CoreStudio 本地生成与 Codex 外部 Agent 能力，并轻量联动现有的图片信息：
+
+- CoreStudio 本地继续保留单次生成模式和内置模型配置
+- Codex、CLI、Local Bridge 和 Agent Board 不再暴露或调用 CoreStudio 内置生成模型
+- Codex 生成的图片和搜索导入的图片使用不同来源类型写回项目
+- 画布选中图片时，左侧生成记录会高亮对应项；右侧详情可直接打开生成记录
+- 移除退役的外部生成路由、命令、权限、上下文和无用测试
+
+本次内置的 Codex 集成版本从 `1.1.0` 升级为 `1.2.0`，Bridge 协议升级为 2，Skill 契约升级为 4。安装 CoreStudio 1.1.23 后需在设置中执行一次 Codex 集成更新。
+
 ## 1.1.22 发布说明
 
 1.1.22 移除 CoreStudio 内置的 ACP / Agent runtime，收敛产品交互和数据流：

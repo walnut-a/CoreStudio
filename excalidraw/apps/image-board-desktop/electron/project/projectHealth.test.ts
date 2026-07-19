@@ -33,4 +33,38 @@ describe("projectHealth", () => {
     expect(report.issues).toEqual([]);
     expect(report.imageRecordCount).toBe(0);
   });
+
+  it("includes image-record parser diagnostics in the project health report", async () => {
+    const report = await inspectProjectHealth(
+      { projectPath: "/tmp/project" },
+      {
+        readProjectBundle: async () => ({
+          project: {} as never,
+          sceneJson: JSON.stringify({ elements: [] }),
+          imageRecords: {},
+          imageRecordReadIssues: [
+            {
+              code: "record-key-mismatch",
+              fileId: "record-key",
+              message: "图片记录键与 fileId 不一致，已隔离该记录。",
+              repairable: false,
+            },
+          ],
+        }),
+        resolveProjectAssetPath: (_projectPath, assetPath) => assetPath,
+        pathExists: async () => true,
+        cachedRenditionExists: async () => true,
+      },
+    );
+
+    expect(report.issues).toContainEqual(
+      expect.objectContaining({
+        code: "record-key-mismatch",
+        fileId: "record-key",
+        severity: "error",
+        repairable: false,
+      }),
+    );
+    expect(report.summary.errorCount).toBe(1);
+  });
 });

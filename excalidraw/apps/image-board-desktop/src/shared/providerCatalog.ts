@@ -690,6 +690,11 @@ export const getDefaultModel = (provider: ProviderId) =>
 export const getProviderDefinition = (provider: ProviderId) =>
   PROVIDER_CATALOG[provider];
 
+export const getOptionalProviderDefinition = (provider: string | undefined) =>
+  provider && Object.prototype.hasOwnProperty.call(PROVIDER_CATALOG, provider)
+    ? PROVIDER_CATALOG[provider as ProviderId]
+    : null;
+
 export const isProviderRequestAdapter = (
   value: unknown,
 ): value is ProviderRequestAdapter =>

@@ -162,6 +162,7 @@ const zhCnCopy = {
     size: "尺寸",
     autoAspectRatio: "自动比例",
     createdAt: "创建时间",
+    unknownTime: "时间未知",
     emptyValue: "无",
     copyPrompt: "复制提示词",
     copyTaskError: "复制详细报错",
@@ -675,6 +676,26 @@ const zhCnCopy = {
         description:
           "生成记录里引用的参考图片，在 image-records.json 中不存在。",
         suggestion: "需要恢复参考图片索引，或清理这条引用。",
+      },
+      "inconsistent-provenance": {
+        title: "图片来源记录不一致",
+        description: "图片类型与生成来源字段相互矛盾。",
+        suggestion: "可确定的旧数据会在项目修复时规范化，其余记录需要手动检查。",
+      },
+      "record-key-mismatch": {
+        title: "图片记录 ID 不一致",
+        description: "image-records.json 的记录键与记录内 fileId 不一致。",
+        suggestion: "记录已被隔离，请核对原始记录后手动修复。",
+      },
+      "invalid-record-field": {
+        title: "图片记录字段无效",
+        description: "图片记录包含无法安全用于界面的字段。",
+        suggestion: "原始记录和资产仍然保留，请核对健康报告中的具体原因。",
+      },
+      "invalid-provider-metadata": {
+        title: "模型服务字段无效",
+        description: "图片记录的 provider 不是有效的非空字符串。",
+        suggestion: "运行时已忽略该字段；需要时可手动修正原始记录。",
       },
     },
     groups: {

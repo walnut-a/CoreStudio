@@ -866,6 +866,7 @@ describe("App startup", () => {
           dataBase64: "ZmFrZQ==",
           width: 100,
           height: 100,
+          sourceType: "generated",
           generationOrigin: "agent-board",
           prompt: "优化这台 CNC",
           referenceFileIds: "file-source",
@@ -987,6 +988,7 @@ describe("App startup", () => {
           dataBase64: "ZmFrZQ==",
           width: 100,
           height: 100,
+          sourceType: "imported",
         },
       }),
     ).catch((error) => error);

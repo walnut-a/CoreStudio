@@ -1,12 +1,8 @@
-import { getProviderDefinition } from "../shared/providerCatalog";
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
-import {
-  copy,
-  DESKTOP_LANG_CODE,
-  getImageGenerationOriginLabel,
-} from "./copy";
+import { copy, DESKTOP_LANG_CODE } from "./copy";
+import { buildImageProvenanceViewModel } from "./imageProvenance";
 
 export interface DirectGenerationRecordListItem {
   id: string;
@@ -67,11 +63,8 @@ export const buildDirectGenerationRecordItems = (
     )
     .map((record) => {
       const timeLabel = getGenerationRecordTimeLabel(record.createdAt);
-      const providerLabel = record.provider
-        ? getProviderDefinition(record.provider).label
-        : record.generationOrigin === "agent-board"
-          ? getImageGenerationOriginLabel(record.generationOrigin)
-          : "CoreStudio";
+      const { sourceLabel, providerLabel } =
+        buildImageProvenanceViewModel(record);
       const sizeLabel = `${record.width} × ${record.height}`;
       const statusLabel = sceneImageFileIdSet.has(record.fileId)
         ? undefined
@@ -83,7 +76,9 @@ export const buildDirectGenerationRecordItems = (
         id: record.fileId,
         fileId: record.fileId,
         title: getGenerationRecordTitle(record),
-        meta: [timeLabel, providerLabel, sizeLabel].filter(Boolean).join(" · "),
+        meta: [timeLabel, sourceLabel, providerLabel, sizeLabel]
+          .filter(Boolean)
+          .join(" · "),
         statusLabel,
         ...(thumbnailDataUrl ? { thumbnailDataUrl } : {}),
       };

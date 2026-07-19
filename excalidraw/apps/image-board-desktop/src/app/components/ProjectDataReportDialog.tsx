@@ -41,6 +41,10 @@ const PROJECT_HEALTH_ISSUE_GROUP_BY_CODE: Record<
   "incomplete-generation-record": "record-metadata",
   "broken-parent-link": "record-metadata",
   "broken-prompt-reference": "record-metadata",
+  "inconsistent-provenance": "record-metadata",
+  "record-key-mismatch": "record-metadata",
+  "invalid-record-field": "record-metadata",
+  "invalid-provider-metadata": "record-metadata",
 };
 
 const getProjectHealthIssueGroups = (report: ProjectHealthReport) => {

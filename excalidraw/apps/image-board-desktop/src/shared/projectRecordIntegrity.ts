@@ -49,10 +49,9 @@ export const getPersistedImageAssetIntegrityError = (file: {
 
   if (
     file.sourceType === "imported" &&
-    file.generationOrigin !== undefined &&
-    !isImageGenerationOrigin(file.generationOrigin)
+    file.generationOrigin !== undefined
   ) {
-    return "图片生成来源格式不正确。";
+    return "导入图片不能记录生成来源。";
   }
 
   return null;

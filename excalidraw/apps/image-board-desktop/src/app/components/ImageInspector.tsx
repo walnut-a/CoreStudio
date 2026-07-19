@@ -10,10 +10,9 @@ import type { GenerationTaskRecord } from "../generationTaskState";
 import {
   copy,
   DESKTOP_LANG_CODE,
-  getImageGenerationOriginLabel,
-  getImageSourceLabel,
   getOptionalText,
 } from "../copy";
+import { buildImageProvenanceViewModel } from "../imageProvenance";
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
 import { DesktopButton } from "./DesktopButton";
@@ -59,8 +58,12 @@ const getParentImageSummary = (
   return getImageRecordSummary(parentRecord);
 };
 
-const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString(DESKTOP_LANG_CODE);
+const formatDateTime = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? copy.inspector.unknownTime
+    : date.toLocaleString(DESKTOP_LANG_CODE);
+};
 
 const formatSize = (width: number, height: number) => `${width} × ${height}`;
 const formatTaskSize = (task: GenerationTaskRecord) =>
@@ -69,8 +72,9 @@ const formatTaskSize = (task: GenerationTaskRecord) =>
     : formatSize(task.width, task.height);
 
 const getProviderLabel = (record: ImageRecord) => {
-  if (record.provider) {
-    return getProviderDefinition(record.provider).label;
+  const { providerLabel } = buildImageProvenanceViewModel(record);
+  if (providerLabel) {
+    return providerLabel;
   }
   if (record.generationOrigin === "agent-board") {
     return copy.inspector.agentProvider;
@@ -288,9 +292,7 @@ export const ImageInspector = ({
     );
   }
 
-  const sourceLabel =
-    getImageGenerationOriginLabel(record.generationOrigin) ??
-    getImageSourceLabel(record.sourceType);
+  const { sourceLabel } = buildImageProvenanceViewModel(record);
   const imageTitle = getImageRecordTitle(record);
   const modelText = getOptionalText(record.model);
   const parentSummary = getParentImageSummary(record, parentRecord);

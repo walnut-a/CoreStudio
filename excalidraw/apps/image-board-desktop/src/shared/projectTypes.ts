@@ -1,5 +1,3 @@
-import type { ProviderId } from "./providerTypes";
-
 export const PROJECT_FORMAT_VERSION = 1;
 export const PROJECT_FILENAMES = {
   project: "project.json",
@@ -57,7 +55,11 @@ export interface ImageRecord {
   assetPath: string;
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
-  provider?: ProviderId;
+  /**
+   * Provider identifiers from CoreStudio use ProviderId, while images written
+   * by an external agent may carry an identifier unknown to this client.
+   */
+  provider?: string;
   model?: string;
   prompt?: string;
   negativePrompt?: string;
@@ -72,6 +74,20 @@ export interface ImageRecord {
 }
 
 export type ImageRecordMap = Record<string, ImageRecord>;
+
+export type ProjectImageRecordReadIssueCode =
+  | "inconsistent-provenance"
+  | "record-key-mismatch"
+  | "invalid-record-field"
+  | "invalid-provider-metadata";
+
+export interface ProjectImageRecordReadIssue {
+  code: ProjectImageRecordReadIssueCode;
+  fileId: string;
+  message: string;
+  repairable: boolean;
+  normalization?: "add-corestudio-origin" | "remove-imported-origin";
+}
 
 export interface ProjectImageWritebackTransaction {
   transactionId: string;

@@ -76,7 +76,7 @@ describe("buildDirectGenerationRecordItems", () => {
         fileId: "file-agent-board-1",
         assetPath: "assets/file-agent-board-1.png",
         generationOrigin: "agent-board",
-        provider: undefined,
+        provider: "gemini",
         prompt: "Agent Board 生成结果",
       }),
       "file-imported-1": createImageRecord({
@@ -101,9 +101,27 @@ describe("buildDirectGenerationRecordItems", () => {
         id: "file-agent-board-1",
         fileId: "file-agent-board-1",
         title: "Agent Board 生成结果",
-        meta: expect.stringContaining("Codex · 1536 × 1024"),
+        meta: expect.stringContaining("Codex · Gemini · 1536 × 1024"),
         statusLabel: "未在画板",
       },
+    ]);
+  });
+
+  it("keeps external Codex provider names without crashing", () => {
+    const records: ImageRecordMap = {
+      "file-external-provider": createImageRecord({
+        fileId: "file-external-provider",
+        generationOrigin: "agent-board",
+        provider: "external-image-service",
+      }),
+    };
+
+    expect(buildDirectGenerationRecordItems(records, [])).toEqual([
+      expect.objectContaining({
+        meta: expect.stringContaining(
+          "Codex · external-image-service · 1536 × 1024",
+        ),
+      }),
     ]);
   });
 

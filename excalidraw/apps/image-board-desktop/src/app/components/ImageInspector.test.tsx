@@ -261,6 +261,34 @@ describe("ImageInspector", () => {
     expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);
   });
 
+  it("shows an external Codex provider without requiring a catalog entry", () => {
+    renderInspector({
+      record: {
+        ...generatedRecord,
+        generationOrigin: "agent-board",
+        provider: "external-image-service",
+      },
+    });
+
+    const detailGrid = screen.getByText("生成参数").closest("section");
+    expect(detailGrid).not.toBeNull();
+    expect(within(detailGrid as HTMLElement).getByText("Codex")).toBeInTheDocument();
+    expect(
+      within(detailGrid as HTMLElement).getByText("external-image-service"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an unknown-time label for invalid legacy timestamps", () => {
+    renderInspector({
+      record: {
+        ...generatedRecord,
+        createdAt: "not-a-date",
+      },
+    });
+
+    expect(screen.getByText("时间未知")).toBeInTheDocument();
+  });
+
   it("copies only the selected visible text from the sidebar", () => {
     const { container } = renderInspector();
     const promptText = container.querySelector(

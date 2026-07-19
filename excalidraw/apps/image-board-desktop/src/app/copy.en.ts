@@ -151,6 +151,7 @@ export const enCopy: DesktopCopy = {
     size: "Size",
     autoAspectRatio: "Auto aspect ratio",
     createdAt: "Created",
+    unknownTime: "Unknown time",
     emptyValue: "None",
     copyPrompt: "Copy prompt",
     copyTaskError: "Copy error details",
@@ -704,6 +705,32 @@ export const enCopy: DesktopCopy = {
           "A reference image used by a generation record does not exist in image-records.json.",
         suggestion:
           "Restore the reference image index or remove the reference.",
+      },
+      "inconsistent-provenance": {
+        title: "Inconsistent image provenance",
+        description: "The image type conflicts with its generation origin.",
+        suggestion:
+          "Project repair normalizes deterministic legacy data; review other records manually.",
+      },
+      "record-key-mismatch": {
+        title: "Image record ID mismatch",
+        description:
+          "An image-records.json key does not match the fileId stored in its record.",
+        suggestion: "The record is quarantined until it is reviewed manually.",
+      },
+      "invalid-record-field": {
+        title: "Invalid image record field",
+        description:
+          "An image record contains data that cannot be used safely by the interface.",
+        suggestion:
+          "The original record and asset remain intact. Review the reported reason.",
+      },
+      "invalid-provider-metadata": {
+        title: "Invalid provider metadata",
+        description:
+          "The image provider is not stored as a non-empty string.",
+        suggestion:
+          "The field is ignored at runtime and can be corrected manually if needed.",
       },
     },
     groups: {

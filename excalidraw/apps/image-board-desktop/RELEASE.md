@@ -197,6 +197,32 @@ gh release create v1.1.0 \
 
 本次内置的 Codex 集成版本从 `1.1.0` 升级为 `1.2.0`，Bridge 协议升级为 2，Skill 契约升级为 4。安装 CoreStudio 1.1.23 后需在设置中执行一次 Codex 集成更新。
 
+本次发布通过了这些检查：
+
+- 195 个测试文件、1542 项测试全部通过
+- TypeScript typecheck、source/package-input/release secret scan 和 production build 全部通过
+- 包内 Codex 安装器、CLI 版本契约与独立用户数据目录的 renderer smoke 通过
+- Developer ID signature：`Developer ID Application: junyan liu (CUP682RD2S)`
+- Apple notarization：submission `2ad22069-4243-4af8-afd9-6819e16c0448`，状态 `Accepted`
+- App 与 DMG 的 stapler validate、Gatekeeper 和 codesign 校验通过
+- GitHub Release 为公开非预发布，四个远程资产校验值与本地一致
+
+校验值：
+
+```text
+CoreStudio-1.1.23-arm64.dmg
+sha256: 644a79cf07e3e1c5062032cf6416b4b89a22e737a99befaae30c774f98495576
+
+CoreStudio-1.1.23-arm64-mac.zip
+sha256: 0d504a22126261499795611715cd37d8f4a18896e2aa8f97977058b23e3fa9eb
+
+CoreStudio-1.1.23-arm64.dmg.blockmap
+sha256: 9a266de465d18df9df0fa824f4d082de81b1d15109d6a75fe4340600f2cf8b53
+
+CoreStudio-1.1.23-arm64-mac.zip.blockmap
+sha256: a551bda1dbeff530a75563c8e85a49f675b4b345d00a951cd6cf99480d30dd09
+```
+
 ## 1.1.22 发布说明
 
 1.1.22 移除 CoreStudio 内置的 ACP / Agent runtime，收敛产品交互和数据流：

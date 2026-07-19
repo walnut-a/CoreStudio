@@ -24,8 +24,18 @@ const records: GenerationRecordListItem[] = [
   },
 ];
 
+const scrollIntoView = vi.fn();
+
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+  configurable: true,
+  value: scrollIntoView,
+});
+
 describe("GenerationRecordSidebar", () => {
-  afterEach(() => setActiveDesktopLocale("zh-CN"));
+  afterEach(() => {
+    setActiveDesktopLocale("zh-CN");
+    scrollIntoView.mockClear();
+  });
 
   it("renders generation records with thumbnails and metadata", () => {
     const { container } = render(<GenerationRecordSidebar records={records} />);
@@ -72,6 +82,33 @@ describe("GenerationRecordSidebar", () => {
     expect(
       screen.getByRole("button", { name: /苹果风 CNC/ }),
     ).not.toHaveAttribute("aria-current");
+  });
+
+  it("reveals the selected record when its sidebar becomes visible", () => {
+    const { rerender } = render(
+      <GenerationRecordSidebar
+        records={records}
+        selectedFileId="file-2"
+        revealSelected={false}
+        onSelectRecord={vi.fn()}
+      />,
+    );
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    rerender(
+      <GenerationRecordSidebar
+        records={records}
+        selectedFileId="file-2"
+        revealSelected
+        onSelectRecord={vi.fn()}
+      />,
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      block: "nearest",
+      inline: "nearest",
+    });
   });
 
   it("disables records when no locate callback is available", () => {

@@ -461,12 +461,14 @@ export const ImageInspector = ({
           </section>
         )}
         <div className="image-inspector__actions">
-          <DesktopButton
-            type="button"
-            onClick={() => onLocateGenerationRecord(record.fileId)}
-          >
-            {copy.inspector.locateGenerationRecord}
-          </DesktopButton>
+          {record.sourceType === "generated" && (
+            <DesktopButton
+              type="button"
+              onClick={() => onLocateGenerationRecord(record.fileId)}
+            >
+              {copy.inspector.locateGenerationRecord}
+            </DesktopButton>
+          )}
           <DesktopButton
             type="button"
             onClick={onCopyPrompt}

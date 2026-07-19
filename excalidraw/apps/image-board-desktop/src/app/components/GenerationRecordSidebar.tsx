@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { copy } from "../copy";
 
 export interface GenerationRecordListItem {
@@ -12,14 +14,32 @@ export interface GenerationRecordListItem {
 interface GenerationRecordSidebarProps {
   records: readonly GenerationRecordListItem[];
   selectedFileId?: string | null;
+  revealSelected?: boolean;
   onSelectRecord?: (fileId: string) => void;
 }
 
 export const GenerationRecordSidebar = ({
   records,
   selectedFileId,
+  revealSelected = false,
   onSelectRecord,
 }: GenerationRecordSidebarProps) => {
+  const selectedItemRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!revealSelected || !selectedFileId) {
+      return;
+    }
+
+    const selectedItem = selectedItemRef.current;
+    if (typeof selectedItem?.scrollIntoView === "function") {
+      selectedItem.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  }, [records, revealSelected, selectedFileId]);
+
   return (
     <div className="generation-record-sidebar">
       {records.length > 0 ? (
@@ -38,6 +58,9 @@ export const GenerationRecordSidebar = ({
               }`}
               aria-current={
                 record.fileId === selectedFileId ? "true" : undefined
+              }
+              ref={
+                record.fileId === selectedFileId ? selectedItemRef : undefined
               }
               disabled={!onSelectRecord}
               onClick={() => onSelectRecord?.(record.fileId)}

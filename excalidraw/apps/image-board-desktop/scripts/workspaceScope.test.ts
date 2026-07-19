@@ -14,12 +14,39 @@ type RootTsconfig = {
   exclude?: string[];
 };
 
+type UpstreamBaseline = {
+  currentSha: string;
+};
+
 const readRootManifest = () =>
   JSON.parse(
     fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"),
   ) as RootManifest;
 
 describe("CoreStudio workspace scope", () => {
+  it("keeps the documented current upstream SHA aligned with the baseline record", () => {
+    const baseline = JSON.parse(
+      fs.readFileSync(
+        path.resolve(process.cwd(), "upstream-baseline.json"),
+        "utf8",
+      ),
+    ) as UpstreamBaseline;
+    const maintenanceDoc = fs.readFileSync(
+      path.resolve(
+        process.cwd(),
+        "..",
+        "docs",
+        "doc",
+        "excalidraw-fork-maintenance.md",
+      ),
+      "utf8",
+    );
+
+    expect(maintenanceDoc).toContain(
+      `| Excalidraw upstream 当前源码基线 | \`${baseline.currentSha}\` |`,
+    );
+  });
+
   it("installs only the desktop application and shared Excalidraw packages", () => {
     const rootPackage = readRootManifest();
 

@@ -1,18 +1,19 @@
 # Excalidraw Fork 维护说明
 
-**日期：** 2026-07-13
+**日期：** 2026-07-20
 **状态：** Current
 
 ## 当前基线
 
 本仓库把 Excalidraw monorepo 作为源码目录保存在 `excalidraw/`，CoreStudio 桌面端实现集中在 `excalidraw/apps/image-board-desktop/`。
 
-当前已经通过 Git 历史和目录树复核出上游源码基线：
+当前基线以 `excalidraw/upstream-baseline.json` 为机器可读的唯一事实来源。本表同时保留初始导入依据，不能把两者混用：
 
 | 项目 | 当前记录 |
 | --- | --- |
 | CoreStudio 初始导入提交 | `0b6d56623aa6b9b2fb4c66a40921d4fffb134daf`（2026-04-17） |
-| Excalidraw upstream 源码基线 | `1caec99b290c75cda05385e637138998807a65ae`（2026-04-13，`docs: change twitter label by X (#11158)`） |
+| Excalidraw upstream 初始导入基线 | `1caec99b290c75cda05385e637138998807a65ae`（2026-04-13，`docs: change twitter label by X (#11158)`） |
+| Excalidraw upstream 当前源码基线 | `5ca083436d44a51a0705d43ea22d323839d5fe8e` |
 | Excalidraw `v0.18.0` tag | `817d8c553c3389650f8b4503984a6d4a5d2f0c11`（2025-03-11，仅作版本历史参照） |
 | Excalidraw `v0.18.1` tag | `a2ec2889babf7d2295469c6d90ebe77fae57df84`（2026-04-20，包含 Mermaid XSS backport） |
 | `@excalidraw/excalidraw` | `0.18.0` |
@@ -21,9 +22,9 @@
 | `@excalidraw/math` | `0.18.0` |
 | `@excalidraw/utils` | `0.1.2` |
 
-这里必须区分“源码基线”和“npm package version”：初始导入时，本地包仍标为 `0.18.0`，但源码已经来自 2026-04-13 的 upstream `master`，并不是 2025-03-11 的 `v0.18.0` tag。直接拿初始导入和 `v0.18.0` 比较会出现 993 个路径差异，不能把 tag 当成 fork 基线。
+这里必须区分“初始导入基线”“当前源码基线”和“npm package version”：初始导入时，本地包仍标为 `0.18.0`，但源码已经来自 2026-04-13 的 upstream `master`，并不是 2025-03-11 的 `v0.18.0` tag；2026-07-16 完成升级后，当前源码基线已经推进到 `5ca0834`。直接拿初始导入和 `v0.18.0` 比较会出现 993 个路径差异，不能把 tag 当成 fork 基线，也不能再从初始导入 SHA 开始计算下一次升级。
 
-### 基线复核证据
+### 初始导入基线复核证据
 
 把 `0b6d566:excalidraw` 与 upstream `1caec99` 展开后做 `diff -qr`：
 
@@ -46,22 +47,25 @@ git archive 1caec99b290c75cda05385e637138998807a65ae | \
 diff -qr "$TMPDIR/corestudio-import" "$TMPDIR/excalidraw-upstream"
 ```
 
-## 已知上游包改动
+## 当前补丁边界
 
-截至 2026-07-07，`excalidraw/packages/` 下可从提交历史确认的 CoreStudio 侧改动包括：
+当前 CoreStudio 对上游源码的定制按 `excalidraw/upstream-baseline.json` 中的 `patchGroups` 管理。该文件记录每组补丁的目的、核心路径和合同测试，本文件不再复制容易漂移的逐文件清单。
 
-| 提交 | 触及路径 | 目的 |
-| --- | --- | --- |
-| `98f4609 优化桌面端发布体积与剪贴板体验` | `packages/excalidraw/actions/actionClipboard.tsx`、`packages/excalidraw/components/App.tsx`、`packages/excalidraw/components/Toast.tsx` 及相关测试 | 桌面端发布体积和剪贴板体验 |
-| `57bc000 完善 Agent 内置画板与图片缓存升级` | `packages/element/src/image.ts` 及相关测试 | Agent Board 图片缓存兼容 |
-| `ffba093 修复桌面端日志断管与语言回退` | `packages/excalidraw/i18n.ts` / `i18n.js` 及相关测试 | 桌面端语言回退 |
+当前 6 组补丁为：
 
-除上述记录外，不要默认假设 `packages/` 与 Excalidraw upstream 完全一致。升级前应重新跑一次目录级 diff。
+- `file-replacement`：图片文件替换和缓存失效；
+- `inspector-integration`：CoreStudio Inspector 接入；
+- `viewport-policy`：最小缩放和滚轮策略；
+- `arrange-grid`：选中元素网格排列；
+- `clipboard-and-images`：剪贴板异常处理和图片替换；
+- `build-and-test-integration`：桌面工作区、构建与测试接入。
+
+不要默认假设 `packages/` 与 Excalidraw upstream 完全一致。升级前必须运行 upstream 检查工具，并按补丁组复核目录级差异。
 
 ## 后续升级流程
 
-1. 从 `1caec99b290c75cda05385e637138998807a65ae` 起计算 upstream 变更，不从 `v0.18.0` tag 起算。
-2. 确认目标 Excalidraw upstream commit 和 package version，并记录在本文件。
+1. 从 `excalidraw/upstream-baseline.json` 的 `currentSha` 起计算 upstream 变更，不从初始导入 SHA 或 `v0.18.0` tag 起算。
+2. 确认目标 Excalidraw upstream commit 和 package version，将固定提交写入 `targetSha`。
 3. 对比 `excalidraw/packages/` 和 upstream 的差异，先列出 CoreStudio 必须保留的初始接入改动及后续补丁。
 4. 优先把 CoreStudio 逻辑留在 `excalidraw/apps/image-board-desktop/`，只有没有窄接入点时才修改 `packages/`。
 5. 升级后至少运行：
@@ -73,7 +77,7 @@ corepack yarn test:desktop --run
 corepack yarn check:desktop-secrets --source
 ```
 
-6. 如果 `packages/` 新增或删除 CoreStudio 补丁，同步更新本文件的“已知上游包改动”表。
+6. 验证通过后把 `currentSha` 更新为目标 SHA；如果新增或删除 CoreStudio 补丁，同步更新 `patchGroups` 和对应合同测试。
 
 ## 上游维护规范
 

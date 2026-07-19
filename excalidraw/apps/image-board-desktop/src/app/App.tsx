@@ -403,6 +403,8 @@ const App = ({
   const [appSettingsDirty, setAppSettingsDirty] = useState(false);
   const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
   const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
+  const [generationRecordRevealRequest, setGenerationRecordRevealRequest] =
+    useState<{ fileId: string; requestId: number } | null>(null);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
@@ -1749,6 +1751,12 @@ const App = ({
                       );
                     }}
                     onLocateGenerationRecord={() => {
+                      if (selectedRecord) {
+                        setGenerationRecordRevealRequest((current) => ({
+                          fileId: selectedRecord.fileId,
+                          requestId: (current?.requestId ?? 0) + 1,
+                        }));
+                      }
                       setGenerationHistoryOpen(true);
                     }}
                     onLocatePromptReference={(reference) => {
@@ -1772,6 +1780,7 @@ const App = ({
               onOpenChange={setGenerationHistoryOpen}
               records={generationRecordItems}
               selectedFileId={selectedRecord?.fileId}
+              revealRequest={generationRecordRevealRequest}
               onSelectRecord={(fileId) => {
                 void imageRecordLocatorRendererActions.locateImageRecord(
                   fileId,

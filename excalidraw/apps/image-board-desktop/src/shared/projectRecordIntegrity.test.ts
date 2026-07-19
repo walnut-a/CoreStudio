@@ -149,6 +149,71 @@ describe("projectRecordIntegrity", () => {
     });
   });
 
+  it("deduplicates references and selects the newest live fallback deterministically", () => {
+    const reference = {
+      id: "reference",
+      index: 1,
+      label: "参考图 1",
+      kind: "image" as const,
+      fileIds: ["source-file", "source-file"],
+    };
+    const imageRecords: ImageRecordMap = {
+      "source-file": createImageRecord({ fileId: "source-file" }),
+      older: createImageRecord({
+        fileId: "older",
+        createdAt: "2026-07-19T09:00:00.000Z",
+        promptReferences: [reference],
+      }),
+      newer: createImageRecord({
+        fileId: "newer",
+        createdAt: "2026-07-19T10:00:00.000Z",
+        promptReferences: [reference],
+      }),
+    };
+
+    expect(
+      buildProjectRecordBoardPresenceMap({
+        imageRecords,
+        sceneImageFileIds: ["older", "newer"],
+      })["source-file"],
+    ).toMatchObject({
+      referencedByFileIds: ["newer", "older"],
+      fallbackFileId: "newer",
+    });
+  });
+
+  it("uses file ids as a stable fallback when reference timestamps are invalid", () => {
+    const createReferencingRecord = (fileId: string) =>
+      createImageRecord({
+        fileId,
+        createdAt: "not-a-date",
+        promptReferences: [
+          {
+            id: `reference-${fileId}`,
+            index: 1,
+            label: "参考图 1",
+            kind: "image",
+            fileIds: ["source-file"],
+          },
+        ],
+      });
+    const imageRecords: ImageRecordMap = {
+      "source-file": createImageRecord({ fileId: "source-file" }),
+      zebra: createReferencingRecord("zebra"),
+      alpha: createReferencingRecord("alpha"),
+    };
+
+    expect(
+      buildProjectRecordBoardPresenceMap({
+        imageRecords,
+        sceneImageFileIds: ["zebra", "alpha"],
+      })["source-file"],
+    ).toMatchObject({
+      referencedByFileIds: ["alpha", "zebra"],
+      fallbackFileId: "alpha",
+    });
+  });
+
   it("returns board repair candidates from the same board presence facts", () => {
     const imageRecords: ImageRecordMap = {
       "direct-file": createImageRecord({

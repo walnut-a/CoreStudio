@@ -6,6 +6,7 @@ import type {
   ImageRecord,
   ImageRecordMap,
 } from "../shared/projectTypes";
+import { buildProjectRecordBoardPresenceMap } from "../shared/projectRecordIntegrity";
 import { copy } from "./copy";
 import { buildElementSelectionSceneUpdate } from "./selectionState";
 
@@ -78,16 +79,6 @@ const findLiveImageElement = (
   fileId: string,
 ) => elements.find((element) => isLiveImageElementForFile(element, fileId));
 
-const findRecordReferencingFile = (
-  imageRecords: ImageRecordMap | null | undefined,
-  fileId: string,
-) =>
-  Object.values(imageRecords ?? {}).find((record) =>
-    record.promptReferences?.some((reference) =>
-      reference.fileIds?.includes(fileId),
-    ),
-  );
-
 export const resolveImageRecordLocateTarget = ({
   fileId,
   elements,
@@ -106,9 +97,19 @@ export const resolveImageRecordLocateTarget = ({
     };
   }
 
-  const referencingRecord = findRecordReferencingFile(imageRecords, fileId);
-  const referencingElement = referencingRecord
-    ? findLiveImageElement(elements, referencingRecord.fileId)
+  const records = imageRecords ?? {};
+  const liveImageFileIds = elements.flatMap((element) =>
+    !element.isDeleted && element.type === "image" && element.fileId
+      ? [element.fileId]
+      : [],
+  );
+  const fallbackFileId = buildProjectRecordBoardPresenceMap({
+    imageRecords: records,
+    sceneImageFileIds: liveImageFileIds,
+  })[fileId]?.fallbackFileId;
+  const referencingRecord = fallbackFileId ? records[fallbackFileId] : null;
+  const referencingElement = fallbackFileId
+    ? findLiveImageElement(elements, fallbackFileId)
     : null;
   if (referencingRecord && referencingElement) {
     return {

@@ -134,6 +134,23 @@ export interface ProjectRecordBoardPresence {
   needsBoardRepair: boolean;
 }
 
+const compareImageRecordNewestFirst = (
+  left: ImageRecord,
+  right: ImageRecord,
+) => {
+  const leftTime = new Date(left.createdAt).getTime();
+  const rightTime = new Date(right.createdAt).getTime();
+  const leftHasTime = Number.isFinite(leftTime);
+  const rightHasTime = Number.isFinite(rightTime);
+  if (leftHasTime && rightHasTime && leftTime !== rightTime) {
+    return rightTime - leftTime;
+  }
+  if (leftHasTime !== rightHasTime) {
+    return leftHasTime ? -1 : 1;
+  }
+  return left.fileId.localeCompare(right.fileId);
+};
+
 export const buildProjectRecordBoardPresenceMap = ({
   imageRecords,
   sceneImageFileIds,
@@ -142,21 +159,34 @@ export const buildProjectRecordBoardPresenceMap = ({
   sceneImageFileIds: readonly string[];
 }): Record<string, ProjectRecordBoardPresence> => {
   const sceneImageFileIdSet = new Set(sceneImageFileIds);
-  const referencedByFileIds = new Map<string, string[]>();
+  const referencedByFileIds = new Map<string, Set<string>>();
   for (const record of Object.values(imageRecords)) {
     for (const reference of record.promptReferences ?? []) {
       for (const fileId of reference.fileIds ?? []) {
-        const current = referencedByFileIds.get(fileId) ?? [];
-        current.push(record.fileId);
+        const current = referencedByFileIds.get(fileId) ?? new Set<string>();
+        current.add(record.fileId);
         referencedByFileIds.set(fileId, current);
       }
     }
   }
 
+  const indexedFileIds = new Set([
+    ...Object.keys(imageRecords),
+    ...referencedByFileIds.keys(),
+  ]);
+
   return Object.fromEntries(
-    Object.keys(imageRecords).map((fileId) => {
+    Array.from(indexedFileIds).map((fileId) => {
       const onBoard = sceneImageFileIdSet.has(fileId);
-      const referencingFileIds = referencedByFileIds.get(fileId) ?? [];
+      const referencingFileIds = Array.from(
+        referencedByFileIds.get(fileId) ?? [],
+      ).sort((leftFileId, rightFileId) => {
+        const leftRecord = imageRecords[leftFileId];
+        const rightRecord = imageRecords[rightFileId];
+        return leftRecord && rightRecord
+          ? compareImageRecordNewestFirst(leftRecord, rightRecord)
+          : leftFileId.localeCompare(rightFileId);
+      });
       const fallbackFileId =
         referencingFileIds.find((candidateFileId) =>
           sceneImageFileIdSet.has(candidateFileId),

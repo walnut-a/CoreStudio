@@ -8,6 +8,7 @@ import type {
   ProjectManifest,
   ProjectAgentAccess,
   ProjectImageWritebackTransaction,
+  ProjectImageRecordReadIssue,
   ProjectThumbnailReadMode,
 } from "./projectTypes";
 import type {
@@ -98,6 +99,7 @@ export interface DesktopProjectBundle {
   project: ProjectManifest;
   sceneJson: string;
   imageRecords: ImageRecordMap;
+  imageRecordReadIssues?: ProjectImageRecordReadIssue[];
   safeMode?: boolean;
 }
 
@@ -187,7 +189,11 @@ export interface ProjectHealthIssue {
     | "orphan-generated-record"
     | "incomplete-generation-record"
     | "broken-parent-link"
-    | "broken-prompt-reference";
+    | "broken-prompt-reference"
+    | "inconsistent-provenance"
+    | "record-key-mismatch"
+    | "invalid-record-field"
+    | "invalid-provider-metadata";
   severity: ProjectHealthIssueSeverity;
   fileId?: string;
   elementId?: string;
@@ -232,7 +238,7 @@ export interface CleanProjectCacheResult {
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
-  provider?: ProviderId;
+  provider?: string;
   model?: string;
   prompt?: string;
   negativePrompt?: string;

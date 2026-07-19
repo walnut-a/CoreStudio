@@ -6,6 +6,7 @@ describe("agentCommandImageAssets", () => {
   it("normalizes Agent Board image provenance and references from the root payload", () => {
     const assets = getAgentImageAssetsFromPayload({
       projectPath: "/tmp/corestudio-project",
+      sourceType: "generated",
       generationOrigin: "agent-board",
       prompt: "优化桌面 CNC",
       referenceFileIds: ["source-file"],
@@ -43,6 +44,7 @@ describe("agentCommandImageAssets", () => {
 
   it("applies root defaults to each file in a files payload", () => {
     const assets = getAgentImageAssetsFromPayload({
+      sourceType: "generated",
       generationOrigin: "agent-board",
       prompt: "生成一组方案",
       files: [
@@ -92,9 +94,51 @@ describe("agentCommandImageAssets", () => {
     ).toThrow("图片生成来源格式不正确。");
   });
 
+  it("requires Codex writeback to declare the image source type", () => {
+    expect(() =>
+      getAgentImageAssetsFromPayload({
+        generationOrigin: "agent-board",
+        fileId: "input-file",
+        mimeType: "image/png",
+        dataBase64: "image",
+        width: 512,
+        height: 512,
+      }),
+    ).toThrow("Codex 写入图片必须明确记录来源类型。");
+  });
+
+  it("does not allow Codex writeback to claim CoreStudio generation", () => {
+    expect(() =>
+      getAgentImageAssetsFromPayload({
+        sourceType: "generated",
+        generationOrigin: "corestudio",
+        fileId: "input-file",
+        mimeType: "image/png",
+        dataBase64: "image",
+        width: 512,
+        height: 512,
+      }),
+    ).toThrow("Codex 生成图片必须记录为 Codex 来源。");
+  });
+
+  it("does not allow imported Codex images to keep a generation origin", () => {
+    expect(() =>
+      getAgentImageAssetsFromPayload({
+        sourceType: "imported",
+        generationOrigin: "agent-board",
+        fileId: "input-file",
+        mimeType: "image/png",
+        dataBase64: "image",
+        width: 512,
+        height: 512,
+      }),
+    ).toThrow("导入图片不能记录生成来源。");
+  });
+
   it("rejects empty explicit reference ids", () => {
     expect(() =>
       getAgentImageAssetsFromPayload({
+        sourceType: "generated",
         generationOrigin: "agent-board",
         referenceFileIds: " , ",
         fileId: "input-file",

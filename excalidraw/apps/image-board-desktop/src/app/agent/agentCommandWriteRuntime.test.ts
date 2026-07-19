@@ -132,6 +132,7 @@ describe("agentCommandWriteRuntime", () => {
         command: "scene.addImage",
         payload: {
           projectPath: "/tmp/corestudio-project",
+          sourceType: "generated",
           generationOrigin: "agent-board",
           fileId: "input-file",
           mimeType: "image/png",
@@ -205,6 +206,7 @@ describe("agentCommandWriteRuntime", () => {
           command: "scene.addImage",
           payload: {
             projectPath: "/tmp/corestudio-project",
+            sourceType: "generated",
             generationOrigin: "agent-board",
             fileId: "input-file",
             dataBase64: Buffer.from("image").toString("base64"),
@@ -244,6 +246,7 @@ describe("agentCommandWriteRuntime", () => {
           command: "scene.addImage",
           payload: {
             projectPath: "/tmp/corestudio-project",
+            sourceType: "generated",
             generationOrigin: "agent-board",
             fileId: "input-file",
             dataBase64: Buffer.from("image").toString("base64"),

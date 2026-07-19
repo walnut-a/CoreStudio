@@ -470,6 +470,7 @@ describe("agentCommandRuntime", () => {
         command: "scene.addImage",
         payload: {
           projectPath: "/tmp/corestudio-project",
+          sourceType: "generated",
           generationOrigin: "agent-board",
           fileId: "input-file",
           mimeType: "image/png",
@@ -513,6 +514,7 @@ describe("agentCommandRuntime", () => {
           command: "scene.addImage",
           payload: {
             projectPath: "/tmp/corestudio-project",
+            sourceType: "generated",
             generationOrigin: "manual",
             fileId: "input-file",
             mimeType: "image/png",
@@ -575,6 +577,7 @@ describe("agentCommandRuntime", () => {
           command: "scene.addImage",
           payload: {
             projectPath: "/tmp/corestudio-project",
+            sourceType: "generated",
             generationOrigin: "agent-board",
             referenceFileIds: " , ",
             fileId: "input-file",
@@ -607,6 +610,7 @@ describe("agentCommandRuntime", () => {
           command: "scene.addImage",
           payload: {
             projectPath: "/tmp/corestudio-project",
+            sourceType: "generated",
             generationOrigin: "agent-board",
             promptReferences: [
               {

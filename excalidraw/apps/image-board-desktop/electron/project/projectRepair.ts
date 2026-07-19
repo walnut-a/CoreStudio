@@ -53,11 +53,13 @@ interface ProjectRepairDependencies {
     reason: string;
   }) => Promise<string>;
   readProjectBundle: (projectPath: string) => Promise<ProjectRepairBundle>;
+  readRawProjectImageRecords?: (projectPath: string) => Promise<ImageRecordMap>;
   repairLegacyGeneratedImageRecordOrigins: (
     imageRecords: ImageRecordMap,
   ) => {
     imageRecords: ImageRecordMap;
     repairedFileIds: string[];
+    repairedProvenanceFileIds?: string[];
   };
   writeProjectImageRecords: (
     projectPath: string,
@@ -394,12 +396,22 @@ export const rebuildProjectThumbnails = async (
   const skippedDetails: ProjectRepairFileDetail[] = [];
   const failedDetails: ProjectRepairFileDetail[] = [];
   if (createBackup) {
+    const persistedImageRecords = deps.readRawProjectImageRecords
+      ? await deps.readRawProjectImageRecords(projectPath)
+      : imageRecords;
     const repairResult =
-      deps.repairLegacyGeneratedImageRecordOrigins(imageRecords);
-    if (repairResult.repairedFileIds.length) {
-      imageRecords = repairResult.imageRecords;
+      deps.repairLegacyGeneratedImageRecordOrigins(persistedImageRecords);
+    const repairedProvenanceFileIds =
+      repairResult.repairedProvenanceFileIds ?? repairResult.repairedFileIds;
+    if (repairedProvenanceFileIds.length) {
+      if (!deps.readRawProjectImageRecords) {
+        imageRecords = repairResult.imageRecords;
+      }
       repairedGenerationRecordFileIds.push(...repairResult.repairedFileIds);
-      await deps.writeProjectImageRecords(projectPath, imageRecords);
+      await deps.writeProjectImageRecords(
+        projectPath,
+        repairResult.imageRecords,
+      );
       await deps.touchProjectManifest(projectPath, bundle.project);
     }
 

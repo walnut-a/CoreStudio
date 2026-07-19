@@ -226,6 +226,11 @@ const toAgentImageAsset = (
     parseOptionalImageSourceType(payload.sourceType) ??
     defaults.sourceType ??
     (generationOrigin ? "generated" : "imported");
+  if (sourceType === "generated" && generationOrigin === "corestudio") {
+    throw createAgentBadRequestError(
+      "Codex 生成图片必须记录为 Codex 来源。",
+    );
+  }
   const provenanceError = getPersistedImageAssetIntegrityError({
     sourceType,
     generationOrigin,
@@ -246,8 +251,8 @@ const toAgentImageAsset = (
       typeof payload.createdAt === "string" ? payload.createdAt : createdAt,
     sourceType,
     ...(generationOrigin ? { generationOrigin } : {}),
-    ...(typeof payload.provider === "string"
-      ? { provider: payload.provider as PersistedImageAssetInput["provider"] }
+    ...(parseOptionalNonEmptyString(payload.provider)
+      ? { provider: parseOptionalNonEmptyString(payload.provider) }
       : defaults.provider
         ? { provider: defaults.provider }
         : {}),
@@ -277,16 +282,17 @@ export const getAgentImageAssetsFromPayload = (
     rootPayload.generationOrigin,
   );
   const sourceType = parseOptionalImageSourceType(rootPayload.sourceType);
+  if (!sourceType) {
+    throw createAgentBadRequestError(
+      "Codex 写入图片必须明确记录来源类型。",
+    );
+  }
   const promptReferences = buildPromptReferencesFromIds(
     rootPayload,
     agentBoardContext,
   );
   const defaults: Partial<PersistedImageAssetInput> = {
-    ...(sourceType
-      ? { sourceType }
-      : generationOrigin
-        ? { sourceType: "generated" }
-        : {}),
+    sourceType,
     ...(generationOrigin ? { generationOrigin } : {}),
     ...(typeof rootPayload.prompt === "string" && rootPayload.prompt.trim()
       ? { prompt: rootPayload.prompt }

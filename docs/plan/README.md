@@ -6,6 +6,7 @@
 
 ## 当前计划文档
 
+- [2026-07-19-generation-record-robustness.md](2026-07-19-generation-record-robustness.md)：收紧图片来源与记录读取边界，并修复引用链定位和生成记录 reveal。
 - [2026-07-19-agent-runtime-removal.md](2026-07-19-agent-runtime-removal.md)：移除 CoreStudio 内置 Agent runtime，保留单次生成与 Codex Agent 两条清晰路径。
 - [2026-07-16-corestudio-codex-integration-reliability.md](2026-07-16-corestudio-codex-integration-reliability.md)：一次性修复 Codex 集成安装、打开当前项目、Agent Board 错误保存和旧快照恢复问题。
 - [2026-07-16-excalidraw-host-api-adoption.md](2026-07-16-excalidraw-host-api-adoption.md)：在新基线上接入 Excalidraw 的宿主交互、UI、视口和本地字体资产能力。

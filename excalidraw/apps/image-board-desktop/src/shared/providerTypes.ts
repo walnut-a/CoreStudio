@@ -103,7 +103,7 @@ export interface GenerationReferenceImagePayload {
 export interface GenerationReferenceDebugPayload {
   fileId?: string;
   sourceType?: "generated" | "imported";
-  sourceProvider?: ProviderId;
+  sourceProvider?: string;
   sourceModel?: string;
   parentFileId?: string | null;
 }

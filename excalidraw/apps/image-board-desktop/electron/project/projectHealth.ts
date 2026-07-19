@@ -3,6 +3,7 @@ import type {
   ImageAssetRequestRendition,
   ImageRecord,
   ImageRecordMap,
+  ProjectImageRecordReadIssue,
   ProjectManifest,
 } from "../../src/shared/projectTypes";
 import type {
@@ -19,6 +20,7 @@ interface ProjectHealthBundle {
   project: ProjectManifest;
   sceneJson: string;
   imageRecords: ImageRecordMap;
+  imageRecordReadIssues?: ProjectImageRecordReadIssue[];
 }
 
 interface SceneImageReference {
@@ -126,6 +128,28 @@ export const inspectProjectHealth = async (
     (fileId) => bundle.imageRecords[fileId]?.sourceType === "generated",
   );
   const issues: ProjectHealthIssue[] = [];
+
+  for (const issue of bundle.imageRecordReadIssues ?? []) {
+    const isLegacyGeneratedRecord =
+      issue.normalization === "add-corestudio-origin";
+    issues.push({
+      ...issue,
+      code: isLegacyGeneratedRecord
+        ? "incomplete-generation-record"
+        : issue.code,
+      severity: isLegacyGeneratedRecord
+        ? "error"
+        : issue.repairable
+          ? "warning"
+          : "error",
+      resolution: {
+        status: issue.repairable ? "repairable" : "manual",
+        summary: issue.repairable
+          ? "项目数据修复可应用确定性的兼容变换。"
+          : "原始记录和图片资产已保留，请检查记录后手动处理。",
+      },
+    });
+  }
 
   if (sceneReferences.parseFailed) {
     issues.push({
@@ -280,6 +304,9 @@ export const inspectProjectHealth = async (
     missingAssetFileIds,
   });
   recordIntegrityReport.issues.forEach(addIssue);
+  const legacyGeneratedRecordFileIds = (bundle.imageRecordReadIssues ?? [])
+    .filter((issue) => issue.normalization === "add-corestudio-origin")
+    .map((issue) => issue.fileId);
 
   return {
     checkedAt: new Date().toISOString(),
@@ -297,7 +324,12 @@ export const inspectProjectHealth = async (
     orphanGeneratedImageRecordFileIds:
       recordIntegrityReport.orphanGeneratedImageRecordFileIds,
     incompleteGenerationRecordFileIds:
-      recordIntegrityReport.incompleteGenerationRecordFileIds,
+      Array.from(
+        new Set([
+          ...recordIntegrityReport.incompleteGenerationRecordFileIds,
+          ...legacyGeneratedRecordFileIds,
+        ]),
+      ),
     brokenParentFileIds: recordIntegrityReport.brokenParentFileIds,
     brokenPromptReferenceFileIds:
       recordIntegrityReport.brokenPromptReferenceFileIds,

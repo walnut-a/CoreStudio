@@ -77,7 +77,13 @@ describe("projectRecordIntegrity", () => {
         sourceType: "imported",
         generationOrigin: "manual",
       }),
-    ).toBe("图片生成来源格式不正确。");
+    ).toBe("导入图片不能记录生成来源。");
+    expect(
+      getPersistedImageAssetIntegrityError({
+        sourceType: "imported",
+        generationOrigin: "agent-board",
+      }),
+    ).toBe("导入图片不能记录生成来源。");
   });
 
   it("throws a user-facing error when persisted image provenance is incomplete", () => {

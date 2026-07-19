@@ -155,6 +155,7 @@ const createAgentWritebackHarness = async ({
         dataBase64: Buffer.from("integration-image").toString("base64"),
         width: 640,
         height: 480,
+        sourceType: "generated",
         generationOrigin: "agent-board",
         createdAt: "2026-07-11T05:00:00.000Z",
       }),

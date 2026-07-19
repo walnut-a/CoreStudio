@@ -24,6 +24,7 @@ import { DESKTOP_APP_VERSION } from "./appVersion";
 import { inspectProjectHealth as inspectProjectHealthWithDeps } from "./project/projectHealth";
 import {
   readProjectImageRecords as readProjectImageRecordsWithDeps,
+  parseProjectImageRecords,
   repairLegacyGeneratedImageRecordOrigins,
   writeProjectImageRecords as writeProjectImageRecordsWithDeps,
 } from "./project/projectImageRecords";
@@ -305,10 +306,16 @@ const readProjectBundleFiles = async (projectPath: string) => {
     await writeProjectManifest(projectPath, project);
   }
 
+  const parsedImageRecords = parseProjectImageRecords(
+    JSON.parse(imageRecordsJson),
+  );
   return {
     project,
     sceneJson,
-    imageRecords: JSON.parse(imageRecordsJson) as ImageRecordMap,
+    imageRecords: parsedImageRecords.imageRecords,
+    ...(parsedImageRecords.issues.length
+      ? { imageRecordReadIssues: parsedImageRecords.issues }
+      : {}),
   };
 };
 
@@ -321,6 +328,14 @@ const readProjectImageRecords = (projectPath: string) =>
   readProjectImageRecordsWithDeps(projectPath, {
     readText: (filePath) => fs.readFile(filePath, "utf8"),
   });
+
+const readRawProjectImageRecords = async (projectPath: string) =>
+  JSON.parse(
+    await fs.readFile(
+      path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      "utf8",
+    ),
+  ) as ImageRecordMap;
 
 const writeProjectImageRecords = async (
   projectPath: string,
@@ -966,6 +981,7 @@ export const rebuildProjectThumbnails = async (
     {
       createMaintenanceBackup,
       readProjectBundle: readProjectBundleFiles,
+      readRawProjectImageRecords,
       repairLegacyGeneratedImageRecordOrigins,
       writeProjectImageRecords,
       touchProjectManifest,

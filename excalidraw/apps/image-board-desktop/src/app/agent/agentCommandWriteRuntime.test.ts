@@ -15,7 +15,6 @@ import type {
   DesktopProjectBundle,
   PersistedImageAssetInput,
 } from "../../shared/desktopBridgeTypes";
-import type { GenerationRequest } from "../../shared/providerTypes";
 import type { ProjectImageWritebackHandle } from "../projectImageWritebackController";
 
 const imageElement = {
@@ -78,22 +77,11 @@ const createDeps = (
   getProject: () => createProject(),
   getScene: createScene,
   getExcalidrawAPI: () => null,
-  providerSettings: null,
-  generationSource: "builtin",
-  generateRequest: {
-    provider: "zenmux",
-    model: "mock-model",
-    prompt: "",
-    images: 1,
-    aspectRatio: "1:1",
-    reference: { enabled: false, images: [] },
-  } as unknown as GenerationRequest,
   readProjectImageAssets: vi.fn(async () => []),
   beginImageWriteback: vi.fn(),
   insertAssetsIntoScene: vi.fn(async () => undefined),
   restoreScene: vi.fn(),
   flushPendingAutosave: vi.fn(async () => undefined),
-  generateImages: vi.fn(async () => undefined),
   ...patch,
 });
 
@@ -340,42 +328,6 @@ describe("agentCommandWriteRuntime", () => {
       }),
     );
     expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
-  });
-
-  it("delegates generate requests to the configured generator", async () => {
-    const generateImages = vi.fn(async () => undefined);
-
-    const result = await handleAgentWriteCommand(
-      {
-        requestId: "request-1",
-        command: "generate",
-        payload: {
-          projectPath: "/tmp/corestudio-project",
-          prompt: "生成一台更苹果风的 CNC",
-        },
-      },
-      {
-        project: createProject(),
-        deps: createDeps({ generateImages }),
-      },
-    );
-
-    expect(result).toEqual({
-      handled: true,
-      value: { accepted: true },
-    });
-    expect(generateImages).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: "生成一台更苹果风的 CNC",
-        generationSource: "builtin",
-      }),
-      false,
-      expect.objectContaining({
-        expectedProjectPath: "/tmp/corestudio-project",
-        referenceScene: null,
-        rejectOnError: true,
-      }),
-    );
   });
 
   it("does not handle edit commands", async () => {

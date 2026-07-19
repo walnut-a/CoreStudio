@@ -56,6 +56,24 @@ describe("GenerationRecordSidebar", () => {
     expect(onSelectRecord).toHaveBeenCalledWith("file-2");
   });
 
+  it("marks the record that matches the selected canvas image", () => {
+    render(
+      <GenerationRecordSidebar
+        records={records}
+        selectedFileId="file-2"
+        onSelectRecord={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /科技纹理/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: /苹果风 CNC/ }),
+    ).not.toHaveAttribute("aria-current");
+  });
+
   it("disables records when no locate callback is available", () => {
     render(<GenerationRecordSidebar records={records} />);
 

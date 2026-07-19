@@ -75,14 +75,14 @@ describe("createRendererCommandBridge", () => {
       isAvailable: () => true,
     });
 
-    const resultPromise = bridge.request("generate");
+    const resultPromise = bridge.request("scene.addImage");
     responseListener?.({
       requestId: "request-1",
       ok: false,
-      errorMessage: "Generation failed",
+      errorMessage: "Image writeback failed",
     });
 
-    await expect(resultPromise).rejects.toThrow("Generation failed");
+    await expect(resultPromise).rejects.toThrow("Image writeback failed");
   });
 
   it("preserves renderer error codes on rejected errors", async () => {

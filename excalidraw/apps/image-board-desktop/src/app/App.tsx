@@ -591,8 +591,6 @@ const App = ({
         delayMs: 120,
         isEnabled: () => isAgentBrowserRoute,
         getProjectPath: () => currentProjectRef.current?.projectPath ?? null,
-        getGenerationSource: () =>
-          isAgentBrowserRoute ? "agent" : "builtin",
         getUpdatedAt: () => new Date().toISOString(),
         getLatestScene: () => latestSceneRef.current,
         getTimerId: agentRuntimeRefsController.actions.getStatePublishTimerId,
@@ -1395,9 +1393,6 @@ const App = ({
       getScene: () => latestSceneRef.current,
       serializeScene: serializeSceneForProject,
       getExcalidrawAPI: () => excalidrawAPIRef.current,
-      providerSettings,
-      generationSource: "builtin",
-      generateRequest,
       readProjectImageAssets,
       beginImageWriteback: ({ project, files }) =>
         projectImageAssetPersistenceRendererActions.beginProjectImageWriteback({
@@ -1420,13 +1415,6 @@ const App = ({
         latestSceneRef.current = snapshot;
       },
       flushPendingAutosave,
-      generateImages: async (request, keepOpen, options) => {
-        await generationSubmitRendererActions.submit(
-          request,
-          keepOpen,
-          options,
-        );
-      },
       handleDesktopBridgeRequest: handleAgentDesktopBridgeRequest,
       handleCommandRequest: handleAgentCommandRequest,
     });
@@ -1437,10 +1425,7 @@ const App = ({
       bridge,
       desktopBridge,
       flushPendingAutosave,
-      generateRequest,
-      generationSubmitRendererActions.submit,
       generatedImageSceneInsertRendererActions.insertAssets,
-      providerSettings,
       readProjectImageAssets,
     ],
   );
@@ -1763,6 +1748,9 @@ const App = ({
                         fileId,
                       );
                     }}
+                    onLocateGenerationRecord={() => {
+                      setGenerationHistoryOpen(true);
+                    }}
                     onLocatePromptReference={(reference) => {
                       void imageRecordLocatorRendererActions.locatePromptReference(
                         reference,
@@ -1783,6 +1771,7 @@ const App = ({
               open={generationHistoryOpen}
               onOpenChange={setGenerationHistoryOpen}
               records={generationRecordItems}
+              selectedFileId={selectedRecord?.fileId}
               onSelectRecord={(fileId) => {
                 void imageRecordLocatorRendererActions.locateImageRecord(
                   fileId,

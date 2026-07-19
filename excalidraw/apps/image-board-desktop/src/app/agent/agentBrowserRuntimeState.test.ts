@@ -64,7 +64,7 @@ describe("buildAgentBrowserRuntimeViewport", () => {
 });
 
 describe("buildAgentBrowserRuntimeState", () => {
-  it("builds the Agent Board runtime payload from project, selection, scene and generation state", () => {
+  it("builds the Agent Board runtime payload from project, selection, and scene state", () => {
     expect(
       buildAgentBrowserRuntimeState({
         projectPath: "/Users/example/CoreStudio/工业设计助手",
@@ -83,7 +83,6 @@ describe("buildAgentBrowserRuntimeState", () => {
           width: 1280,
           height: 720,
         },
-        generationSource: "agent",
       }),
     ).toEqual({
       source: "agent-board",
@@ -101,9 +100,6 @@ describe("buildAgentBrowserRuntimeState", () => {
           width: 1280,
           height: 720,
         },
-      },
-      generation: {
-        source: "agent",
       },
     });
   });
@@ -132,7 +128,6 @@ describe("buildAgentBrowserRuntimePublishPlan", () => {
           width: 1024,
           height: 768,
         },
-        generationSource: "builtin",
       }),
     ).toEqual({
       action: "publish",
@@ -156,9 +151,6 @@ describe("buildAgentBrowserRuntimePublishPlan", () => {
             height: 768,
           },
         },
-        generation: {
-          source: "builtin",
-        },
       },
     });
   });
@@ -168,7 +160,6 @@ describe("buildAgentBrowserRuntimePublishPlan", () => {
       updatedAt: "2026-07-04T06:00:00.000Z",
       selection: { selected: false },
       appState: {},
-      generationSource: "agent" as const,
     };
 
     expect(

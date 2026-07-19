@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export interface AgentSessionDescriptor {
-  protocolVersion: 1;
+  protocolVersion: 2;
   appName: string;
   appVersion: string;
   bridge: {

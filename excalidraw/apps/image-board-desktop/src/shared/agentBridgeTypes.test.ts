@@ -14,8 +14,14 @@ import {
 } from "./agentBridgeTypes";
 
 describe("agentBridgeTypes", () => {
+  it("keeps the external Agent contract limited to image writeback", () => {
+    expect(AGENT_HTTP_ROUTES).not.toHaveProperty("generate");
+    expect(AGENT_PERMISSIONS).toEqual(["read-context", "write-board"]);
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("generateImages");
+  });
+
   it("exports the Agent Bridge protocol version", () => {
-    expect(AGENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
+    expect(AGENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
   });
 
   it("exports the documented HTTP routes", () => {
@@ -31,7 +37,7 @@ describe("agentBridgeTypes", () => {
   it("exports the Agent browser desktop bridge method allowlist", () => {
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("openRecentProject");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("writeProjectScene");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("generateImages");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("generateImages");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("beginImageWriteback");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("commitImageWriteback");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("rollbackImageWriteback");
@@ -42,12 +48,11 @@ describe("agentBridgeTypes", () => {
   it("normalizes permissions into the documented order without duplicates", () => {
     expect(
       normalizeAgentPermissions([
-        "generate-image",
         "write-board",
         "read-context",
         "write-board",
       ]),
-    ).toEqual(["read-context", "write-board", "generate-image"]);
+    ).toEqual(["read-context", "write-board"]);
   });
 
   it("rejects unsupported permissions", () => {
@@ -124,10 +129,6 @@ describe("agentBridgeTypes", () => {
   });
 
   it("exports the documented Agent permissions", () => {
-    expect(AGENT_PERMISSIONS).toEqual([
-      "read-context",
-      "write-board",
-      "generate-image",
-    ]);
+    expect(AGENT_PERMISSIONS).toEqual(["read-context", "write-board"]);
   });
 });

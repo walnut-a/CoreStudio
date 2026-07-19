@@ -1,4 +1,4 @@
-export const AGENT_BRIDGE_PROTOCOL_VERSION = 1;
+export const AGENT_BRIDGE_PROTOCOL_VERSION = 2;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
@@ -21,7 +21,6 @@ export const AGENT_HTTP_ROUTES = {
   sceneSelect: "/v1/scene/select",
   sceneAddImage: "/v1/scene/add-image",
   sceneAddPrompt: "/v1/scene/add-prompt",
-  generate: "/v1/generate",
   taskComplete: "/v1/task/complete",
 } as const;
 
@@ -38,17 +37,12 @@ export interface AgentBrowserRuntimeSceneState {
   viewport?: AgentBrowserRuntimeViewport;
 }
 
-export interface AgentBrowserRuntimeGenerationState {
-  source?: "builtin" | "agent";
-}
-
 export interface AgentBrowserRuntimeState {
   source: "agent-board";
   projectPath: string;
   updatedAt: string;
   selection?: unknown;
   scene?: AgentBrowserRuntimeSceneState;
-  generation?: AgentBrowserRuntimeGenerationState;
 }
 
 export interface AgentBoardCommandContext {
@@ -64,7 +58,6 @@ export interface AgentBoardCommandContext {
 export const AGENT_PERMISSIONS = [
   "read-context",
   "write-board",
-  "generate-image",
 ] as const;
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
@@ -88,7 +81,6 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "loadProviderSettings",
   "saveProviderSettings",
   "deleteProviderSettings",
-  "generateImages",
   "readClipboardImage",
 ] as const;
 
@@ -115,7 +107,6 @@ export type AgentRendererCommandName =
   | "scene.select"
   | "scene.addImage"
   | "scene.addPrompt"
-  | "generate"
   | "task.complete";
 
 export interface AgentRendererCommandRequest {

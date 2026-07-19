@@ -82,9 +82,6 @@ const createAgentWritebackHarness = async ({
           getProject: () => activeProject,
           getScene: () => scene,
           getExcalidrawAPI: () => ({}) as any,
-          providerSettings: null,
-          generationSource: "builtin",
-          generateRequest: {} as any,
           readProjectImageAssets: async () => [],
           beginImageWriteback: ({ project, files }) =>
             beginProjectImageWritebackAction({
@@ -130,7 +127,6 @@ const createAgentWritebackHarness = async ({
             scene = snapshot;
           },
           flushPendingAutosave: async () => undefined,
-          generateImages: async () => undefined,
         },
       ),
   };

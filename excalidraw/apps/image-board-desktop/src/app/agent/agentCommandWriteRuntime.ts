@@ -5,16 +5,12 @@ import type { AppState } from "@excalidraw/excalidraw/types";
 import type { AgentRendererCommandRequest } from "../../shared/agentBridgeTypes";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
 import { rollbackProjectImageWritebackAfterFailure } from "../projectImageWritebackController";
-import { buildSelectionReferenceSummary } from "../selectionReference";
 import { appendElementsWithSyncedIndices } from "../sceneOrder";
 import {
-  createAgentGenerationRequest,
   createAgentPromptTextElement,
 } from "./agentCommandHandlers";
 import { getAgentImageAssetsFromPayload } from "./agentCommandImageAssets";
 import {
-  buildSceneWithSelectedElementIds,
-  getAgentBoardSelectedElementIds,
   getPlacementViewportFromAgentBoardContext,
   parseAgentBoardCommandContext,
 } from "./agentCommandBoardContext";
@@ -175,54 +171,6 @@ export const handleAgentWriteCommand = async (
           elementIds: [element.id],
         },
       };
-    }
-    case "generate": {
-      assertAgentProjectPath(request.payload, project.projectPath);
-      if (
-        !isObjectPayload(request.payload) ||
-        typeof request.payload.prompt !== "string" ||
-        !request.payload.prompt.trim()
-      ) {
-        throw createAgentBadRequestError("generate 需要非空 prompt。");
-      }
-
-      const agentBoardContext = parseAgentBoardCommandContext(request.payload);
-      const agentBoardSelectionScene = buildSceneWithSelectedElementIds(
-        deps.getScene(),
-        getAgentBoardSelectedElementIds(agentBoardContext),
-      );
-      const referenceScene = agentBoardSelectionScene ?? deps.getScene();
-      if (
-        request.payload.useSelection === true &&
-        !buildSelectionReferenceSummary(referenceScene)
-      ) {
-        throw createAgentBadRequestError(
-          "当前没有可用的选区参考，请先选中元素后再试。",
-        );
-      }
-
-      const generationRequest = createAgentGenerationRequest({
-        baseRequest: deps.generateRequest,
-        prompt: request.payload.prompt,
-        useSelection: request.payload.useSelection === true,
-        providerSettings: deps.providerSettings,
-      });
-      await deps.generateImages(
-        {
-          ...generationRequest,
-          generationSource: "builtin",
-        },
-        false,
-        {
-          expectedProjectPath: project.projectPath,
-          placementViewport:
-            getPlacementViewportFromAgentBoardContext(agentBoardContext),
-          referenceScene:
-            request.payload.useSelection === true ? referenceScene : null,
-          rejectOnError: true,
-        },
-      );
-      return { handled: true, value: { accepted: true } };
     }
     default:
       return { handled: false };

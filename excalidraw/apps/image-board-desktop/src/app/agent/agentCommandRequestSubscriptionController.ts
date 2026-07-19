@@ -57,15 +57,11 @@ export const subscribeAgentCommandRequests = ({
   getScene,
   serializeScene,
   getExcalidrawAPI,
-  providerSettings,
-  generationSource,
-  generateRequest,
   readProjectImageAssets,
   beginImageWriteback,
   insertAssetsIntoScene,
   restoreScene,
   flushPendingAutosave,
-  generateImages,
   handleDesktopBridgeRequest,
   handleCommandRequest,
 }: SubscribeAgentCommandRequestsInput): AgentCommandRequestSubscriptionResult => {
@@ -81,15 +77,11 @@ export const subscribeAgentCommandRequests = ({
     getProject,
     getScene,
     getExcalidrawAPI,
-    providerSettings,
-    generationSource,
-    generateRequest,
     readProjectImageAssets,
     beginImageWriteback,
     insertAssetsIntoScene,
     restoreScene,
     flushPendingAutosave,
-    generateImages,
   };
 
   const unsubscribe = bridge.onAgentCommandRequest(async (request) => {

@@ -11,11 +11,13 @@ export interface GenerationRecordListItem {
 
 interface GenerationRecordSidebarProps {
   records: readonly GenerationRecordListItem[];
+  selectedFileId?: string | null;
   onSelectRecord?: (fileId: string) => void;
 }
 
 export const GenerationRecordSidebar = ({
   records,
+  selectedFileId,
   onSelectRecord,
 }: GenerationRecordSidebarProps) => {
   return (
@@ -29,7 +31,14 @@ export const GenerationRecordSidebar = ({
             <button
               key={record.id}
               type="button"
-              className="generation-record-sidebar__item"
+              className={`generation-record-sidebar__item${
+                record.fileId === selectedFileId
+                  ? " generation-record-sidebar__item--selected"
+                  : ""
+              }`}
+              aria-current={
+                record.fileId === selectedFileId ? "true" : undefined
+              }
               disabled={!onSelectRecord}
               onClick={() => onSelectRecord?.(record.fileId)}
             >

@@ -11,66 +11,11 @@ import {
   buildAgentSelectionContext,
   buildAgentImagePathList,
   collectAgentImageFileIds,
-  createAgentGenerationRequest,
   createAgentPromptTextElement,
 } from "./agentCommandHandlers";
 
-import type { PublicProviderSettings } from "../../shared/desktopBridgeTypes";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
 import type { ImageRecordMap } from "../../shared/projectTypes";
-import type { GenerationRequest } from "../../shared/providerTypes";
-
-const providerSettings: PublicProviderSettings = {
-  gemini: {
-    isConfigured: true,
-    defaultModel: "gemini-2.5-flash-image-preview",
-    customModels: [],
-    lastStatus: "success",
-    lastCheckedAt: "2026-06-24T10:00:00.000Z",
-    lastError: null,
-  },
-  zenmux: {
-    isConfigured: false,
-    defaultModel: "google/gemini-3-pro-image-preview",
-    customModels: [
-      {
-        id: "custom-aspect",
-        capabilityTemplate: "image-editing-aspect-ratio",
-      },
-    ],
-    lastStatus: "unknown",
-    lastCheckedAt: null,
-    lastError: null,
-  },
-  fal: {
-    isConfigured: false,
-    defaultModel: "fal-ai/flux/schnell",
-    lastStatus: "unknown",
-    lastCheckedAt: null,
-    lastError: null,
-  },
-  jimeng: {
-    isConfigured: false,
-    defaultModel: "jimeng-3.0",
-    lastStatus: "unknown",
-    lastCheckedAt: null,
-    lastError: null,
-  },
-  openai: {
-    isConfigured: false,
-    defaultModel: "gpt-image-1",
-    lastStatus: "unknown",
-    lastCheckedAt: null,
-    lastError: null,
-  },
-  openrouter: {
-    isConfigured: false,
-    defaultModel: "google/gemini-2.5-flash-image-preview",
-    lastStatus: "unknown",
-    lastCheckedAt: null,
-    lastError: null,
-  },
-};
 
 const imageRecords: ImageRecordMap = {
   "file-1": {
@@ -90,7 +35,7 @@ const imageRecords: ImageRecordMap = {
 };
 
 describe("agentCommandHandlers", () => {
-  it("builds public project context without provider api keys", () => {
+  it("builds public project context without exposing built-in generation", () => {
     const context = buildAgentProjectContext(
       {
         projectPath: "/tmp/corestudio-project",
@@ -111,15 +56,6 @@ describe("agentCommandHandlers", () => {
         },
         sceneJson: "{}",
         imageRecords,
-      },
-      {
-        gemini: {
-          ...providerSettings.gemini,
-          apiKey: "must-not-leak",
-        } as any,
-      } as PublicProviderSettings,
-      {
-        generationSource: "agent",
       },
     );
 
@@ -145,15 +81,10 @@ describe("agentCommandHandlers", () => {
         parentFileId: "parent-1",
       },
     ]);
-    expect(JSON.stringify(context.providers)).not.toContain("must-not-leak");
     expect(context.availableCommands).toContain("scene.addPrompt");
-    expect(context.generation).toEqual({
-      source: "agent",
-      sources: ["builtin", "agent"],
-      builtin: {
-        configured: true,
-      },
-    });
+    expect(context.availableCommands).not.toContain("generate");
+    expect(context).not.toHaveProperty("providers");
+    expect(context).not.toHaveProperty("generation");
   });
 
   it("builds scene snapshots with element, file, image, text, and selection counts", () => {
@@ -402,69 +333,4 @@ describe("agentCommandHandlers", () => {
     expect(element.y).toBe(240);
   });
 
-  it("creates a normalized generation request with the agent prompt", () => {
-    const baseRequest: GenerationRequest = {
-      provider: "zenmux",
-      model: "custom-aspect",
-      prompt: "old prompt",
-      width: 1280,
-      height: 720,
-      aspectRatio: null,
-      imageCount: 4,
-      seed: 22,
-      reference: {
-        enabled: false,
-        elementCount: 0,
-        textCount: 0,
-      },
-    };
-
-    const request = createAgentGenerationRequest({
-      baseRequest,
-      prompt: "new prompt",
-      useSelection: true,
-      providerSettings,
-    });
-
-    expect(request.prompt).toBe("new prompt");
-    expect(request.reference?.enabled).toBe(true);
-    expect(request.imageCount).toBe(1);
-    expect(request.model).toBe("custom-aspect");
-  });
-
-  it("clears UI selection references when the agent does not request selection", () => {
-    const baseRequest: GenerationRequest = {
-      provider: "zenmux",
-      model: "custom-aspect",
-      prompt: "old prompt",
-      width: 1280,
-      height: 720,
-      aspectRatio: null,
-      imageCount: 1,
-      seed: null,
-      reference: {
-        enabled: true,
-        elementCount: 1,
-        textCount: 0,
-        items: [
-          {
-            id: "image-1",
-            index: 1,
-            kind: "image",
-            label: "图片",
-          },
-        ],
-      },
-    };
-
-    const request = createAgentGenerationRequest({
-      baseRequest,
-      prompt: "agent prompt",
-      useSelection: false,
-      providerSettings,
-    });
-
-    expect(request.prompt).toBe("agent prompt");
-    expect(request.reference).toBeNull();
-  });
 });

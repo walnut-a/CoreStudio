@@ -3,19 +3,11 @@ import { newTextElement } from "@excalidraw/element";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 
-import { normalizeGenerationRequest } from "../../shared/providerCatalog";
-
 import type {
   DesktopProjectBundle,
   ProjectAssetPayload,
-  PublicProviderSettings,
 } from "../../shared/desktopBridgeTypes";
 import type { ImageRecordMap } from "../../shared/projectTypes";
-import type {
-  GenerationReferencePayload,
-  GenerationRequest,
-  GenerationSource,
-} from "../../shared/providerTypes";
 import { buildExcalidrawBinaryFilesFromProjectAssets } from "../canvasImageAssetState";
 
 type SceneLike = {
@@ -38,29 +30,11 @@ const AGENT_AVAILABLE_COMMANDS = [
   "scene.imagePaths",
   "scene.addImage",
   "scene.addPrompt",
-  "generate",
   "task.complete",
 ] as const;
 
-const stripProviderApiKeys = (
-  providerSettings: PublicProviderSettings | null,
-) =>
-  Object.fromEntries(
-    Object.entries(providerSettings ?? {}).map(([provider, settings]) => {
-      const { apiKey: _apiKey, ...publicSettings } =
-        settings as typeof settings & {
-          apiKey?: string;
-        };
-      return [provider, publicSettings];
-    }),
-  );
-
 export const buildAgentProjectContext = (
   projectBundle: DesktopProjectBundle,
-  providerSettings: PublicProviderSettings | null,
-  options: {
-    generationSource?: GenerationSource;
-  } = {},
 ) => ({
   project: {
     projectPath: projectBundle.projectPath,
@@ -82,16 +56,6 @@ export const buildAgentProjectContext = (
     createdAt: record.createdAt,
     parentFileId: record.parentFileId,
   })),
-  providers: stripProviderApiKeys(providerSettings),
-  generation: {
-    source: options.generationSource ?? "builtin",
-    sources: ["builtin", "agent"] as const,
-    builtin: {
-      configured: Object.values(providerSettings ?? {}).some(
-        (settings) => settings.isConfigured,
-      ),
-    },
-  },
   availableCommands: [...AGENT_AVAILABLE_COMMANDS],
 });
 
@@ -302,38 +266,4 @@ export const createAgentPromptTextElement = ({
     verticalAlign: "top",
     autoResize: true,
   });
-};
-
-export const createAgentGenerationRequest = ({
-  baseRequest,
-  prompt,
-  useSelection,
-  providerSettings,
-}: {
-  baseRequest: GenerationRequest;
-  prompt: string;
-  useSelection?: boolean;
-  providerSettings: PublicProviderSettings | null;
-}) => {
-  const reference: GenerationReferencePayload | null = useSelection
-    ? {
-        ...(baseRequest.reference ?? {
-          elementCount: 0,
-          textCount: 0,
-        }),
-        enabled: true,
-      }
-    : null;
-
-  return normalizeGenerationRequest(
-    {
-      ...baseRequest,
-      prompt,
-      reference,
-    },
-    {
-      customModels:
-        providerSettings?.[baseRequest.provider]?.customModels ?? [],
-    },
-  );
 };

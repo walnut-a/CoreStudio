@@ -22,7 +22,8 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 
 ## 写回
 
-- 生成图片后使用 `corestudio write image` 写回，并保留 prompt、reference file ids、reference element ids 和 origin。
+- Codex 生成图片后使用 `corestudio write image <path> --source-type generated --origin agent-board` 写回，并保留 prompt、reference file ids 和 reference element ids。CoreStudio 内置模型不属于 Codex 工作流，禁止通过 CLI、Local Bridge 或 Agent Board 调用。
+- Codex 搜索或下载得到的图片使用 `corestudio write image <path> --source-type imported` 写回；图片必须先由 Codex 保存到本地，CoreStudio 不负责联网获取。
 - 定位和选择已有元素使用 `corestudio edit locate` / `corestudio edit select`。
 - 每次写回都向用户报告 CLI 返回的 imageId、elementId、frameId 或 prompt id。
 - CLI 失败时保留原始错误码和消息，不绕过 Local Bridge 手工改文件。

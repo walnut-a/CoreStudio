@@ -2,7 +2,6 @@ import type {
   AgentBrowserRuntimeState,
   AgentBrowserRuntimeViewport,
 } from "../../shared/agentBridgeTypes";
-import type { GenerationSource } from "../../shared/providerTypes";
 
 export interface AgentBrowserRuntimeSelectionInput {
   selectedElementIds?: Record<string, boolean | undefined> | null;
@@ -54,13 +53,11 @@ export const buildAgentBrowserRuntimeState = ({
   updatedAt,
   selection,
   appState,
-  generationSource,
 }: {
   projectPath: string;
   updatedAt: string;
   selection?: unknown;
   appState: AgentBrowserRuntimeAppStateInput;
-  generationSource: GenerationSource;
 }): AgentBrowserRuntimeState => ({
   source: "agent-board",
   projectPath,
@@ -70,9 +67,6 @@ export const buildAgentBrowserRuntimeState = ({
     selectedElementIds: getRuntimeSelectedElementIds(appState),
     viewport: buildAgentBrowserRuntimeViewport(appState),
   },
-  generation: {
-    source: generationSource,
-  },
 });
 
 export const buildAgentBrowserRuntimePublishPlan = ({
@@ -81,14 +75,12 @@ export const buildAgentBrowserRuntimePublishPlan = ({
   updatedAt,
   selection,
   appState,
-  generationSource,
 }: {
   enabled: boolean;
   projectPath: string | null | undefined;
   updatedAt: string;
   selection?: unknown;
   appState: AgentBrowserRuntimeAppStateInput;
-  generationSource: GenerationSource;
 }): AgentBrowserRuntimePublishPlan => {
   if (!enabled || !projectPath) {
     return { action: "skip" };
@@ -101,7 +93,6 @@ export const buildAgentBrowserRuntimePublishPlan = ({
       updatedAt,
       selection,
       appState,
-      generationSource,
     }),
   };
 };

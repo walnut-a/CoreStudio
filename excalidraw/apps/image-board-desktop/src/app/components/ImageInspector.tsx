@@ -27,6 +27,7 @@ interface ImageInspectorProps {
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
+  onLocateGenerationRecord: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }
 
@@ -154,6 +155,7 @@ export const ImageInspector = ({
   onCopyPrompt,
   onCopyTaskError,
   onLocateImageRecord,
+  onLocateGenerationRecord,
   onLocatePromptReference,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -459,6 +461,12 @@ export const ImageInspector = ({
           </section>
         )}
         <div className="image-inspector__actions">
+          <DesktopButton
+            type="button"
+            onClick={() => onLocateGenerationRecord(record.fileId)}
+          >
+            {copy.inspector.locateGenerationRecord}
+          </DesktopButton>
           <DesktopButton
             type="button"
             onClick={onCopyPrompt}

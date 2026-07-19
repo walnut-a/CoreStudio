@@ -206,7 +206,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.22 (Codex integration 1.1.0, bridge protocol 1)\n",
+          "CoreStudio 1.1.22 (Codex integration 1.2.0, bridge protocol 2)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -224,8 +224,8 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.22",
-        integrationVersion: "1.1.0",
-        bridgeProtocolVersion: 1,
+        integrationVersion: "1.2.0",
+        bridgeProtocolVersion: 2,
       },
     });
   });
@@ -391,17 +391,6 @@ describe("runCli", () => {
       },
     },
     {
-      name: "write generation jsonl",
-      argv: ["write", "generation", "--prompt", "prompt", "--use-selection", "--jsonl"],
-      route: AGENT_HTTP_ROUTES.generate,
-      method: "POST",
-      body: {
-        prompt: "prompt",
-        useSelection: true,
-      },
-      jsonl: true,
-    },
-    {
       name: "edit locate image",
       argv: ["edit", "locate", "--file-id", "file-1", "--json"],
       route: "/v1/scene/locate",
@@ -430,7 +419,7 @@ describe("runCli", () => {
     },
   ])(
     "sends $name to the bridge with the expected HTTP request",
-    async ({ argv, route, method, body, jsonl }) => {
+    async ({ argv, route, method, body }) => {
       const records: RequestRecord[] = [];
       const fetch = createFetch(okEnvelope, records);
       const readFile = vi.fn(async () => {
@@ -467,14 +456,7 @@ describe("runCli", () => {
       } else {
         expect(records[0].body).toBeUndefined();
       }
-      if (jsonl) {
-        expect(result.stdout.endsWith("\n")).toBe(true);
-        const lines = result.stdout.trimEnd().split("\n");
-        expect(lines).toHaveLength(1);
-        expect(JSON.parse(lines[0])).toEqual(okEnvelope);
-      } else {
-        expect(result.stdout).toBe(`${JSON.stringify(okEnvelope)}\n`);
-      }
+      expect(result.stdout).toBe(`${JSON.stringify(okEnvelope)}\n`);
     },
   );
 
@@ -629,7 +611,12 @@ describe("runCli", () => {
           expect.stringContaining("read context --json"),
           expect.stringContaining("read board --json"),
           expect.stringContaining("read browser-state --json"),
-          expect.stringContaining("write image /absolute/path/to/image.png"),
+          expect.stringContaining(
+            "write image /absolute/path/to/generated.png --source-type generated --origin agent-board",
+          ),
+          expect.stringContaining(
+            "write image /absolute/path/to/searched.png --source-type imported",
+          ),
         ]),
       },
     });
@@ -822,6 +809,31 @@ describe("runCli", () => {
     });
   });
 
+  it("writes externally searched images as imported assets without a generation origin", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+    const readImagePayload = vi.fn(async () => imagePayload);
+
+    const result = await runCommand(
+      [
+        "write",
+        "image",
+        "/tmp/searched.png",
+        "--source-type",
+        "imported",
+        "--json",
+      ],
+      { fetch, readImagePayload },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseRequestBody(records)).toMatchObject({
+      ...imagePayload,
+      sourceType: "imported",
+    });
+    expect(parseRequestBody(records)).not.toHaveProperty("generationOrigin");
+  });
+
   it("returns command failed when the default svg inspector cannot find dimensions", async () => {
     const fetch = createFetch();
     const readImageFile = vi.fn(async () =>
@@ -867,7 +879,6 @@ describe("runCli", () => {
     ["read image-paths", ["read", "image-paths", "--selection", "--json"]],
     ["write image", ["write", "image", "/tmp/a.png", "--origin", "agent-board", "--json"]],
     ["write prompt", ["write", "prompt", "--text", "prompt", "--json"]],
-    ["write generation", ["write", "generation", "--prompt", "prompt", "--jsonl"]],
     ["edit locate", ["edit", "locate", "--file-id", "file-1", "--json"]],
     ["edit select", ["edit", "select", "--element-ids", "element-1", "--json"]],
   ])("returns exit 1 when %s returns ok false", async (_name, argv) => {
@@ -1003,6 +1014,11 @@ describe("runCli", () => {
       argv: ["write", "image", "/tmp/a.png", "--json"],
       message:
         "write image requires --origin.",
+    },
+    {
+      name: "retired built-in generation command",
+      argv: ["write", "generation", "--prompt", "prompt", "--json"],
+      message: "write requires one of: image, prompt.",
     },
     {
       name: "write image with empty reference file ids",

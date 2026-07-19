@@ -11,7 +11,7 @@ import {
 } from "./sessionStore";
 
 const descriptor: AgentSessionDescriptor = {
-  protocolVersion: 1,
+  protocolVersion: 2,
   appName: "CoreStudio",
   appVersion: "1.1.10",
   bridge: {
@@ -54,7 +54,7 @@ describe("sessionStore", () => {
 
     const contents = await fs.readFile(sessionPath, "utf8");
     expect(JSON.parse(contents)).toEqual({
-      protocolVersion: 1,
+      protocolVersion: 2,
       appName: "CoreStudio",
       appVersion: "1.1.10",
       bridge: {

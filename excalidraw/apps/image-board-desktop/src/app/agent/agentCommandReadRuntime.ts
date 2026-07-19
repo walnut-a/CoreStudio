@@ -136,20 +136,13 @@ export const handleAgentReadCommand = async (
     case "agent.context": {
       const scene = deps.getScene();
       const selectionReference = buildSelectionReferenceSummary(scene);
-      const projectContext = buildAgentProjectContext(
-        project,
-        deps.providerSettings,
-        {
-          generationSource: deps.generationSource,
-        },
-      );
+      const projectContext = buildAgentProjectContext(project);
       return {
         handled: true,
         value: {
           ...projectContext,
           scene: buildAgentSceneSnapshot(scene, project.imageRecords),
           selection: buildAgentSelectionContext(selectionReference),
-          providers: projectContext.providers,
         },
       };
     }

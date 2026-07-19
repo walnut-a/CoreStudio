@@ -4,6 +4,7 @@ import type {
   ImageRecord,
   ImageRecordMap,
   ProjectImageRecordReadIssue,
+  ProjectImageWritebackJournalReadIssue,
   ProjectManifest,
 } from "../../src/shared/projectTypes";
 import type {
@@ -21,6 +22,7 @@ interface ProjectHealthBundle {
   sceneJson: string;
   imageRecords: ImageRecordMap;
   imageRecordReadIssues?: ProjectImageRecordReadIssue[];
+  writebackJournalReadIssues?: ProjectImageWritebackJournalReadIssue[];
 }
 
 interface SceneImageReference {
@@ -147,6 +149,19 @@ export const inspectProjectHealth = async (
         summary: issue.repairable
           ? "项目数据修复可应用确定性的兼容变换。"
           : "原始记录和图片资产已保留，请检查记录后手动处理。",
+      },
+    });
+  }
+
+  for (const issue of bundle.writebackJournalReadIssues ?? []) {
+    issues.push({
+      code: "invalid-writeback-journal",
+      severity: "error",
+      message: `图片写回事务日志 ${issue.transactionId} 无法解析：${issue.message}`,
+      repairable: false,
+      resolution: {
+        status: "manual",
+        summary: "原事务日志和图片资产已保留，请检查日志后手动处理。",
       },
     });
   }

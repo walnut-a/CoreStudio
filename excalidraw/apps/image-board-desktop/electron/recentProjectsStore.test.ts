@@ -30,6 +30,13 @@ import {
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 
 describe("recentProjectsStore", () => {
+  const getRecentProjectsFile = () =>
+    path.join(
+      mockAppDataPath,
+      "Excalidraw Image Board",
+      "recent-projects.json",
+    );
+
   beforeEach(async () => {
     mockAppDataPath = await fs.mkdtemp(
       path.join(os.tmpdir(), "image-board-app-data-"),
@@ -119,6 +126,95 @@ describe("recentProjectsStore", () => {
         lastOpenedAt: "2026-04-16T02:00:00.000Z",
       },
     ]);
+  });
+
+  it("isolates malformed entries while preserving valid recent projects", async () => {
+    const projectPath = path.join(mockDocumentsPath, "项目 D");
+    await fs.mkdir(projectPath, { recursive: true });
+    await fs.writeFile(
+      path.join(projectPath, PROJECT_FILENAMES.project),
+      "{}",
+      "utf8",
+    );
+    const recentProjectsFile = getRecentProjectsFile();
+    await fs.mkdir(path.dirname(recentProjectsFile), { recursive: true });
+    await fs.writeFile(
+      recentProjectsFile,
+      JSON.stringify([
+        null,
+        { projectPath: 42, name: "坏记录", lastOpenedAt: "not-a-date" },
+        {
+          projectPath,
+          name: "项目 D",
+          lastOpenedAt: "2026-04-16T04:00:00.000Z",
+        },
+      ]),
+      "utf8",
+    );
+
+    await expect(loadRecentProjects()).resolves.toEqual([
+      {
+        projectPath,
+        name: "项目 D",
+        lastOpenedAt: "2026-04-16T04:00:00.000Z",
+      },
+    ]);
+    await expect(
+      fs.readFile(recentProjectsFile, "utf8").then(JSON.parse),
+    ).resolves.toEqual([
+      {
+        projectPath,
+        name: "项目 D",
+        lastOpenedAt: "2026-04-16T04:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("deduplicates records already present in the recent-projects file", async () => {
+    const projectPath = path.join(mockDocumentsPath, "项目 E");
+    await fs.mkdir(projectPath, { recursive: true });
+    await fs.writeFile(
+      path.join(projectPath, PROJECT_FILENAMES.project),
+      "{}",
+      "utf8",
+    );
+    const recentProjectsFile = getRecentProjectsFile();
+    await fs.mkdir(path.dirname(recentProjectsFile), { recursive: true });
+    await fs.writeFile(
+      recentProjectsFile,
+      JSON.stringify([
+        {
+          projectPath,
+          name: "项目 E（旧）",
+          lastOpenedAt: "2026-04-16T03:00:00.000Z",
+        },
+        {
+          projectPath,
+          name: "项目 E",
+          lastOpenedAt: "2026-04-16T05:00:00.000Z",
+        },
+      ]),
+      "utf8",
+    );
+
+    await expect(loadRecentProjects()).resolves.toEqual([
+      {
+        projectPath,
+        name: "项目 E",
+        lastOpenedAt: "2026-04-16T05:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("starts with an empty list but preserves a wholly corrupted recent-projects file", async () => {
+    const recentProjectsFile = getRecentProjectsFile();
+    await fs.mkdir(path.dirname(recentProjectsFile), { recursive: true });
+    await fs.writeFile(recentProjectsFile, "{broken", "utf8");
+
+    await expect(loadRecentProjects()).resolves.toEqual([]);
+    await expect(fs.readFile(recentProjectsFile, "utf8")).resolves.toBe(
+      "{broken",
+    );
   });
 
   it("removes only the project list record and keeps the local project folder", async () => {

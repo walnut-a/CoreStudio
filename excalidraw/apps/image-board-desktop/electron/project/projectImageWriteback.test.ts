@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   beginProjectImageWriteback,
+  commitProjectImageWriteback,
   getProjectImageWritebackJournalPath,
   recoverProjectImageWritebacks,
   rollbackProjectImageWriteback,
@@ -153,6 +154,143 @@ describe("projectImageWriteback", () => {
         "utf8",
       ),
     ).resolves.toBe("asset:file-new");
+  });
+
+  it("isolates a malformed journal while recovering other transactions", async () => {
+    const projectPath = await createProjectFixture();
+    const transaction = await beginProjectImageWriteback({
+      projectPath,
+      files: [createAssetInput("file-valid-pending")],
+    });
+    const malformedJournalPath = getProjectImageWritebackJournalPath(
+      projectPath,
+      "malformed-journal",
+    );
+    await writeJson(malformedJournalPath, {
+      schemaVersion: 1,
+      transactionId: "different-id",
+      nextRecords: {},
+    });
+
+    await expect(recoverProjectImageWritebacks(projectPath)).resolves.toEqual({
+      committed: [],
+      rolledBack: [transaction.transactionId],
+      invalidJournals: [
+        expect.objectContaining({
+          transactionId: "malformed-journal",
+          code: "WRITEBACK_JOURNAL_INVALID",
+        }),
+      ],
+    });
+    await expect(fs.readFile(malformedJournalPath, "utf8")).resolves.toContain(
+      '"different-id"',
+    );
+  });
+
+  it("blocks a new writeback while an invalid journal is unresolved", async () => {
+    const projectPath = await createProjectFixture();
+    const malformedJournalPath = getProjectImageWritebackJournalPath(
+      projectPath,
+      "malformed-journal",
+    );
+    await fs.mkdir(path.dirname(malformedJournalPath), { recursive: true });
+    await fs.writeFile(malformedJournalPath, "{broken", "utf8");
+
+    await expect(
+      beginProjectImageWriteback({
+        projectPath,
+        files: [createAssetInput("file-new")],
+      }),
+    ).rejects.toMatchObject({ code: "WRITEBACK_JOURNAL_INVALID" });
+    await expect(fs.readFile(malformedJournalPath, "utf8")).resolves.toBe(
+      "{broken",
+    );
+  });
+
+  it("reports an unsafe journal filename without resolving paths from its contents", async () => {
+    const projectPath = await createProjectFixture();
+    const journalDirectory = path.join(
+      projectPath,
+      PROJECT_FILENAMES.cacheDir,
+      "image-writebacks",
+    );
+    await fs.mkdir(journalDirectory, { recursive: true });
+    const unsafeJournalPath = path.join(journalDirectory, "bad.name.json");
+    await fs.writeFile(unsafeJournalPath, "{}", "utf8");
+
+    await expect(recoverProjectImageWritebacks(projectPath)).resolves.toEqual({
+      committed: [],
+      rolledBack: [],
+      invalidJournals: [
+        expect.objectContaining({
+          transactionId: "bad.name",
+          code: "WRITEBACK_JOURNAL_INVALID",
+        }),
+      ],
+    });
+    await expect(fs.readFile(unsafeJournalPath, "utf8")).resolves.toBe("{}");
+  });
+
+  it("does not start a writeback from invalid image-records data", async () => {
+    const projectPath = await createProjectFixture();
+    const imageRecordsPath = path.join(
+      projectPath,
+      PROJECT_FILENAMES.imageRecords,
+    );
+    await fs.writeFile(imageRecordsPath, "null", "utf8");
+
+    await expect(
+      beginProjectImageWriteback({
+        projectPath,
+        files: [createAssetInput("file-new")],
+      }),
+    ).rejects.toMatchObject({ code: "IMAGE_RECORDS_INVALID" });
+    await expect(fs.readFile(imageRecordsPath, "utf8")).resolves.toBe("null");
+  });
+
+  it("normalizes repairable legacy records while starting a new writeback", async () => {
+    const legacyGeneratedRecord = createRecord("file-legacy", {
+      sourceType: "generated",
+      prompt: "legacy prompt",
+    });
+    const projectPath = await createProjectFixture({
+      "file-legacy": legacyGeneratedRecord,
+    });
+
+    const transaction = await beginProjectImageWriteback({
+      projectPath,
+      files: [createAssetInput("file-new")],
+    });
+
+    expect(transaction.imageRecords["file-legacy"]).toEqual(
+      expect.objectContaining({ generationOrigin: "corestudio" }),
+    );
+  });
+
+  it("preserves a journal when the project manifest becomes invalid before commit", async () => {
+    const projectPath = await createProjectFixture();
+    const transaction = await beginProjectImageWriteback({
+      projectPath,
+      files: [createAssetInput("file-new")],
+    });
+    const manifestPath = path.join(projectPath, PROJECT_FILENAMES.project);
+    await fs.writeFile(manifestPath, "null", "utf8");
+
+    await expect(
+      commitProjectImageWriteback({
+        projectPath,
+        transactionId: transaction.transactionId,
+      }),
+    ).rejects.toMatchObject({ code: "PROJECT_MANIFEST_INVALID" });
+    await expect(fs.readFile(manifestPath, "utf8")).resolves.toBe("null");
+    await expect(
+      fs.access(
+        getProjectImageWritebackJournalPath(
+          projectPath,
+          transaction.transactionId,
+        ),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("rolls back only records and assets owned by the transaction", async () => {

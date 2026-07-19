@@ -8,11 +8,17 @@ import {
   type ImageRecord,
   type ImageRecordMap,
   type ProjectImageWritebackJournal,
+  type ProjectImageWritebackJournalReadIssue,
   type ProjectImageWritebackTransaction,
-  type ProjectManifest,
 } from "../../src/shared/projectTypes";
 import { assertPersistedImageAssetIntegrity } from "../../src/shared/projectRecordIntegrity";
+import { DESKTOP_APP_VERSION } from "../appVersion";
 import { writeBufferAtomic, writeJsonAtomic } from "./atomicProjectFile";
+import { parseProjectImageRecords } from "./projectImageRecords";
+import {
+  parseProjectManifest,
+  parseProjectScene,
+} from "./projectReadIntegrity";
 
 const WRITEBACK_DIRECTORY = "image-writebacks";
 const projectWritebackLocks = new Map<string, Promise<void>>();
@@ -52,6 +58,109 @@ const isNodeError = (error: unknown): error is NodeJS.ErrnoException =>
 
 const readJson = async <T>(filePath: string): Promise<T> =>
   JSON.parse(await fs.readFile(filePath, "utf8")) as T;
+
+const readStrictImageRecords = async (filePath: string) => {
+  let value: unknown;
+  try {
+    value = JSON.parse(await fs.readFile(filePath, "utf8"));
+  } catch (error) {
+    throw Object.assign(
+      new Error("图片索引 JSON 已损坏，已停止图片写回。"),
+      {
+        code: "IMAGE_RECORDS_INVALID" as const,
+        details: error instanceof Error ? error.message : String(error),
+      },
+    );
+  }
+  const parsed = parseProjectImageRecords(value);
+  if (
+    !isRecord(value) ||
+    parsed.issues.some((issue) => !issue.repairable) ||
+    Object.keys(parsed.imageRecords).length !== Object.keys(value).length
+  ) {
+    throw Object.assign(
+      new Error("图片索引包含无效记录，已停止图片写回。"),
+      {
+        code: "IMAGE_RECORDS_INVALID" as const,
+        details: parsed.issues,
+      },
+    );
+  }
+  return parsed.imageRecords;
+};
+
+const createInvalidJournalError = (
+  transactionId: string,
+  message: string,
+) =>
+  Object.assign(new Error(message), {
+    code: "WRITEBACK_JOURNAL_INVALID" as const,
+    details: { transactionId },
+  });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseJournal = (
+  value: unknown,
+  expectedTransactionId: string,
+): ProjectImageWritebackJournal => {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 1 ||
+    value.transactionId !== expectedTransactionId ||
+    typeof value.createdAt !== "string" ||
+    !isRecord(value.previousRecords) ||
+    !isRecord(value.nextRecords) ||
+    Object.keys(value.nextRecords).length === 0
+  ) {
+    throw createInvalidJournalError(
+      expectedTransactionId,
+      "图片写回事务日志结构不正确，已保留原文件。",
+    );
+  }
+
+  const previousRecords: Record<string, ImageRecord | null> = {};
+  for (const [fileId, record] of Object.entries(value.previousRecords)) {
+    if (record === null) {
+      previousRecords[fileId] = null;
+      continue;
+    }
+    const parsed = parseProjectImageRecords({ [fileId]: record });
+    if (
+      parsed.issues.some((issue) => !issue.repairable) ||
+      !parsed.imageRecords[fileId]
+    ) {
+      throw createInvalidJournalError(
+        expectedTransactionId,
+        "图片写回事务日志包含无效的旧图片记录，已保留原文件。",
+      );
+    }
+    previousRecords[fileId] = parsed.imageRecords[fileId];
+  }
+  const next = parseProjectImageRecords(value.nextRecords);
+  const previousFileIds = Object.keys(value.previousRecords).sort();
+  const nextFileIds = Object.keys(value.nextRecords).sort();
+  if (
+    next.issues.some((issue) => !issue.repairable) ||
+    Object.keys(next.imageRecords).length !== nextFileIds.length ||
+    previousFileIds.length !== nextFileIds.length ||
+    previousFileIds.some((fileId, index) => fileId !== nextFileIds[index])
+  ) {
+    throw createInvalidJournalError(
+      expectedTransactionId,
+      "图片写回事务日志包含无效的新图片记录，已保留原文件。",
+    );
+  }
+
+  return {
+    schemaVersion: 1,
+    transactionId: expectedTransactionId,
+    createdAt: value.createdAt,
+    previousRecords,
+    nextRecords: next.imageRecords,
+  };
+};
 
 const getWritebackDirectoryPath = (projectPath: string) =>
   path.join(projectPath, PROJECT_FILENAMES.cacheDir, WRITEBACK_DIRECTORY);
@@ -142,10 +251,26 @@ const createImageRecord = (
   };
 };
 
-const readJournal = (projectPath: string, transactionId: string) =>
-  readJson<ProjectImageWritebackJournal>(
-    getProjectImageWritebackJournalPath(projectPath, transactionId),
-  );
+const readJournal = async (projectPath: string, transactionId: string) => {
+  let value: unknown;
+  try {
+    value = JSON.parse(
+      await fs.readFile(
+        getProjectImageWritebackJournalPath(projectPath, transactionId),
+        "utf8",
+      ),
+    );
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      throw error;
+    }
+    throw createInvalidJournalError(
+      transactionId,
+      "图片写回事务日志 JSON 已损坏，已保留原文件。",
+    );
+  }
+  return parseJournal(value, transactionId);
+};
 
 const listJournals = async (projectPath: string) => {
   const directory = getWritebackDirectoryPath(projectPath);
@@ -154,18 +279,39 @@ const listJournals = async (projectPath: string) => {
     entries = await fs.readdir(directory);
   } catch (error) {
     if (isNodeError(error) && error.code === "ENOENT") {
-      return [];
+      return { journals: [], invalidJournals: [] };
     }
     throw error;
   }
 
-  return Promise.all(
-    entries
-      .filter((entry) => entry.endsWith(".json"))
-      .sort()
-      .map((entry) => readJournal(projectPath, entry.slice(0, -5))),
-  );
+  const journals: ProjectImageWritebackJournal[] = [];
+  const invalidJournals: ProjectImageWritebackJournalReadIssue[] = [];
+  for (const entry of entries.filter((item) => item.endsWith(".json")).sort()) {
+    const transactionId = entry.slice(0, -5);
+    try {
+      journals.push(await readJournal(projectPath, transactionId));
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "WRITEBACK_JOURNAL_INVALID"
+      ) {
+        invalidJournals.push({
+          transactionId,
+          code: "WRITEBACK_JOURNAL_INVALID",
+          message: error.message,
+        });
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { journals, invalidJournals };
 };
+
+export const inspectProjectImageWritebackJournals = async (
+  projectPath: string,
+) => (await listJournals(projectPath)).invalidJournals;
 
 const recordsMatch = (
   current: ImageRecord | undefined,
@@ -176,9 +322,24 @@ const recordsMatch = (
     : current?.assetPath === expected.assetPath;
 
 const touchProjectManifest = async (projectPath: string) => {
-  const manifest = await readJson<ProjectManifest>(
-    getProjectManifestPath(projectPath),
-  );
+  let manifestValue: unknown;
+  try {
+    manifestValue = await readJson<unknown>(getProjectManifestPath(projectPath));
+  } catch (error) {
+    throw Object.assign(
+      new Error("项目清单 JSON 已损坏，已保留事务日志。"),
+      {
+        code: "PROJECT_MANIFEST_INVALID" as const,
+        details: error instanceof Error ? error.message : String(error),
+      },
+    );
+  }
+  const manifest = parseProjectManifest({
+    value: manifestValue,
+    projectPath,
+    appVersion: DESKTOP_APP_VERSION,
+    createAgentAccess: () => ({ token: randomUUID(), enabled: true }),
+  }).project;
   await writeJsonAtomic(getProjectManifestPath(projectPath), {
     ...manifest,
     updatedAt: new Date().toISOString(),
@@ -203,8 +364,12 @@ export const beginProjectImageWriteback = async ({
     }
     files.forEach(assertPersistedImageAssetIntegrity);
 
-    const pendingJournals = await listJournals(projectPath);
-    const conflictingTransaction = pendingJournals.find((journal) =>
+    const pending = await listJournals(projectPath);
+    if (pending.invalidJournals.length > 0) {
+      const invalid = pending.invalidJournals[0];
+      throw createInvalidJournalError(invalid.transactionId, invalid.message);
+    }
+    const conflictingTransaction = pending.journals.find((journal) =>
       Object.keys(journal.nextRecords).some((fileId) =>
         fileIds.includes(fileId),
       ),
@@ -216,7 +381,7 @@ export const beginProjectImageWriteback = async ({
       });
     }
 
-    const currentRecords = await readJson<ImageRecordMap>(
+    const currentRecords = await readStrictImageRecords(
       getImageRecordsPath(projectPath),
     );
     const transactionId = randomUUID();
@@ -268,7 +433,7 @@ export const commitProjectImageWriteback = async ({
 }) =>
   withProjectWritebackLock(projectPath, async () => {
     const journal = await readJournal(projectPath, transactionId);
-    const currentRecords = await readJson<ImageRecordMap>(
+    const currentRecords = await readStrictImageRecords(
       getImageRecordsPath(projectPath),
     );
     const conflictingFileIds = Object.entries(journal.nextRecords)
@@ -300,7 +465,7 @@ export const rollbackProjectImageWriteback = async ({
 }): Promise<ImageRecordMap> =>
   withProjectWritebackLock(projectPath, async () => {
     const journal = await readJournal(projectPath, transactionId);
-    const currentRecords = await readJson<ImageRecordMap>(
+    const currentRecords = await readStrictImageRecords(
       getImageRecordsPath(projectPath),
     );
     const conflictingFileIds = Object.keys(journal.nextRecords).filter(
@@ -346,7 +511,7 @@ export const rollbackProjectImageWriteback = async ({
   });
 
 const collectSceneImageFileIds = (sceneJson: string) => {
-  const scene = JSON.parse(sceneJson) as { elements?: unknown[] };
+  const scene = parseProjectScene(sceneJson) as { elements?: unknown[] };
   const fileIds = new Set<string>();
   for (const element of scene.elements ?? []) {
     if (
@@ -363,9 +528,13 @@ const collectSceneImageFileIds = (sceneJson: string) => {
 };
 
 export const recoverProjectImageWritebacks = async (projectPath: string) => {
-  const journals = await listJournals(projectPath);
+  const { journals, invalidJournals } = await listJournals(projectPath);
   if (journals.length === 0) {
-    return { committed: [], rolledBack: [] };
+    return {
+      committed: [],
+      rolledBack: [],
+      ...(invalidJournals.length ? { invalidJournals } : {}),
+    };
   }
 
   const sceneFileIds = collectSceneImageFileIds(
@@ -401,5 +570,9 @@ export const recoverProjectImageWritebacks = async (projectPath: string) => {
     );
   }
 
-  return { committed, rolledBack };
+  return {
+    committed,
+    rolledBack,
+    ...(invalidJournals.length ? { invalidJournals } : {}),
+  };
 };

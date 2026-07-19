@@ -103,3 +103,9 @@ export interface ProjectImageWritebackJournal {
   previousRecords: Record<string, ImageRecord | null>;
   nextRecords: ImageRecordMap;
 }
+
+export interface ProjectImageWritebackJournalReadIssue {
+  transactionId: string;
+  code: "WRITEBACK_JOURNAL_INVALID";
+  message: string;
+}

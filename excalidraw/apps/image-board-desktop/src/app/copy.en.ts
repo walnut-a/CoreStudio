@@ -732,6 +732,13 @@ export const enCopy: DesktopCopy = {
         suggestion:
           "The field is ignored at runtime and can be corrected manually if needed.",
       },
+      "invalid-writeback-journal": {
+        title: "Damaged image writeback journal",
+        description:
+          "An unfinished image writeback journal cannot be parsed safely.",
+        suggestion:
+          "The journal and image assets remain intact. Review the journal before writing to this project again.",
+      },
     },
     groups: {
       "project-file": {

@@ -697,6 +697,12 @@ const zhCnCopy = {
         description: "图片记录的 provider 不是有效的非空字符串。",
         suggestion: "运行时已忽略该字段；需要时可手动修正原始记录。",
       },
+      "invalid-writeback-journal": {
+        title: "图片写回事务日志损坏",
+        description: "未完成的图片写回事务日志无法安全解析。",
+        suggestion:
+          "原日志和图片资产已保留。检查日志并确认事务状态前，不要继续写入同一项目。",
+      },
     },
     groups: {
       "project-file": {

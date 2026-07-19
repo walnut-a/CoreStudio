@@ -53,7 +53,7 @@ describe("projectImageRecords", () => {
       "modern-generated": createImageRecord({
         fileId: "modern-generated",
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
       }),
       "imported-file": createImageRecord({
         fileId: "imported-file",

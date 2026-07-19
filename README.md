@@ -14,7 +14,7 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 - 本地项目文件夹保存画布、图片资源和生成记录。
 - Agent Board 可以在 Codex、Cursor 等 Agent 内置浏览器里打开本地画板。
 - CoreStudio CLI / Local Bridge 允许外部 Agent 读取项目上下文并受控写回。
-- ACP Agent 模式允许 CoreStudio 主动把复杂任务交给外部 Agent，并把对话、工具调用和结果带回项目。
+- 复杂、连续或并行任务由 Codex 调度，并通过 CLI / Local Bridge 安全写回。
 
 上游 Excalidraw 使用 MIT License，本仓库也使用 MIT License。见 [LICENSE](LICENSE) 和 [excalidraw/LICENSE](excalidraw/LICENSE)。
 
@@ -47,8 +47,8 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 | `docs/superpowers/` | 已存在的历史计划和规格文档目录，当前保留原位置 |
 | `excalidraw/` | 上游 Excalidraw monorepo 和 CoreStudio 实际代码工作区 |
 | `excalidraw/apps/image-board-desktop/` | CoreStudio 桌面端主应用 |
-| `excalidraw/apps/image-board-desktop/electron/` | Electron 主进程、项目文件、Local Bridge、ACP、provider 适配 |
-| `excalidraw/apps/image-board-desktop/src/app/` | React renderer、画布 UI、生成输入框、Agent 对话和项目状态 |
+| `excalidraw/apps/image-board-desktop/electron/` | Electron 主进程、项目文件、Local Bridge、provider 适配 |
+| `excalidraw/apps/image-board-desktop/src/app/` | React renderer、画布 UI、生成输入框、生成记录和项目状态 |
 | `excalidraw/apps/image-board-desktop/src/shared/` | renderer / Electron 共享类型和数据完整性逻辑 |
 | `excalidraw/packages/` | Excalidraw workspace packages |
 | `review-packets/` | 本地审核材料；当前没有作为主代码入口 |
@@ -65,8 +65,8 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 - Agent Board 本地网页画布入口。
 - CoreStudio CLI，入口为 `excalidraw/apps/image-board-desktop/bin/corestudio.cjs`。
 - Local Bridge，给 Agent Board 和 CLI 提供本地项目读写能力。
-- ACP Agent 客户端能力，包含任务发起、thread、run log、工具调用和结果写回链路。
-- 项目健康检查和修复，覆盖资产、画板元素、生成记录和 ACP 输出一致性。
+- Codex Agent 工作流，包含画布读取、选区上下文、受控写回和结果定位。
+- 项目健康检查和修复，覆盖资产、画板元素和生成记录一致性。
 - macOS 打包、公证、release 安全扫描流程。
 
 ## 对外入口
@@ -133,7 +133,6 @@ corepack yarn package:desktop
 
 Agent 集成相关细节集中在 `excalidraw/apps/image-board-desktop/docs/`，其中：
 
-- `agent-integration-entry-map.md`：Agent 集成入口地图。
 - `agent-integration-user-guide.md`：用户侧使用说明。
 - `agent-cli-contract.md`：CLI contract 和示例。
 - `agent-integration-architecture-and-principles.md`：架构和迭代原则。
@@ -152,7 +151,7 @@ Agent 集成相关细节集中在 `excalidraw/apps/image-board-desktop/docs/`，
 1. 先读本 README，再读 [docs/README.md](docs/README.md)。
 2. 代码阅读基准先用 `git branch --all`、`git remote -v` 和 remote HEAD 重新确认，不根据旧文档假设当前分支。
 3. 需要理解仓库现状时读 [docs/doc/repository-analysis.md](docs/doc/repository-analysis.md)。
-4. 需要理解 Agent Board、CLI、ACP Agent 时，从 `excalidraw/apps/image-board-desktop/docs/` 进入。
+4. 需要理解 Agent Board、CLI 和 Codex 集成时，从 `excalidraw/apps/image-board-desktop/docs/` 进入。
 5. 不确定的信息标注“未确认”，不要根据分支名或旧文档直接下结论。
 6. 本仓库的真实业务代码主要在 `excalidraw/apps/image-board-desktop/`。
 

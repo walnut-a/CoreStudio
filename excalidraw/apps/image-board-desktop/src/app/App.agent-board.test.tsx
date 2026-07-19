@@ -60,11 +60,6 @@ describe("App Agent Board route", () => {
           version: "0.0.0-test",
         },
         loadProviderSettings: createMockProviderSettings(),
-        loadAcpAgentSettings: {
-          enabled: false,
-          defaultAgentId: null,
-          agents: [],
-        },
         loadRecentProjects: [
           {
             projectPath: currentProject.projectPath,
@@ -120,12 +115,6 @@ describe("App Agent Board route", () => {
     expect(
       screen.queryByTestId("generate-dialog-composer-config"),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "切换 ACP Agent 模式" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "提交 ACP Agent 生成" }),
-    ).not.toBeInTheDocument();
     expect(screen.queryByText("生成设置")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(desktopBridgeCalls).toEqual(
@@ -141,16 +130,6 @@ describe("App Agent Board route", () => {
       screen.queryByText("CoreStudio Agent Board"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("桌面应用未连接")).not.toBeInTheDocument();
-    await waitFor(() => {
-      expect(desktopBridgeCalls).toEqual(
-        expect.arrayContaining([
-          {
-            method: "loadAcpAgentSettings",
-            args: [],
-          },
-        ]),
-      );
-    });
   });
 
   it("publishes the browser Agent Board runtime selection to the local bridge", async () => {
@@ -371,11 +350,6 @@ describe("App Agent Board route", () => {
           version: "0.0.0-test",
         },
         loadProviderSettings: createMockProviderSettings(),
-        loadAcpAgentSettings: {
-          enabled: false,
-          defaultAgentId: null,
-          agents: [],
-        },
         loadRecentProjects: [],
       };
       return new Response(
@@ -410,12 +384,11 @@ describe("App Agent Board route", () => {
       };
       return requestBody.method;
     });
-    expect(desktopBridgeMethods).toHaveLength(4);
+    expect(desktopBridgeMethods).toHaveLength(3);
     expect(desktopBridgeMethods).toEqual(
       expect.arrayContaining([
         "loadAppInfo",
         "loadProviderSettings",
-        "loadAcpAgentSettings",
         "loadRecentProjects",
       ]),
     );

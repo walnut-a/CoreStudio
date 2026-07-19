@@ -15,8 +15,6 @@ import {
   type CurrentProjectUpdateState,
 } from "./currentProjectState";
 import type { ProjectRepairReport } from "./project/projectMaintenanceController";
-import type { AcpThreadSummariesLoadState } from "./agent/acpThreadState";
-import type { AcpRunLogTargetRendererActions } from "./agent/acpRunLogApplyController";
 import {
   prepareProjectBundleOpenData,
   type ProjectBundleOpenAssetReadInput,
@@ -35,17 +33,8 @@ interface CurrentProjectMutableRef<T> {
 
 export interface ApplyCurrentProjectUpdateStateInput {
   state: CurrentProjectUpdateState;
-  clearAcpRunLogRefreshTimer: () => void;
   setCurrentProject: (project: DesktopProjectBundle | null) => void;
   setSavedSceneHash: (hash: string | null) => void;
-  setActiveAcpThreadId: (threadId: null) => void;
-  setAcpRunLogTaskId: (taskId: null) => void;
-  setAcpRunLogSurface: (surface: null) => void;
-  setAcpRunLogDetail: (detail: null) => void;
-  setAcpRunLogError: (error: null) => void;
-  setAcpConversationEntries: (entries: []) => void;
-  applyAcpThreadSummariesState: (state: AcpThreadSummariesLoadState) => void;
-  setAgentChatDockOpen: (open: false) => void;
   setProjectHealthReport: (report: ProjectHealthReport | null) => void;
   setProjectRepairReport: (report: ProjectRepairReport | null) => void;
   setProjectHealthReportOpen: (open: false) => void;
@@ -61,17 +50,8 @@ export interface RunCurrentProjectUpdateActionInput
 
 export const applyCurrentProjectUpdateState = ({
   state,
-  clearAcpRunLogRefreshTimer,
   setCurrentProject,
   setSavedSceneHash,
-  setActiveAcpThreadId,
-  setAcpRunLogTaskId,
-  setAcpRunLogSurface,
-  setAcpRunLogDetail,
-  setAcpRunLogError,
-  setAcpConversationEntries,
-  applyAcpThreadSummariesState,
-  setAgentChatDockOpen,
   setProjectHealthReport,
   setProjectRepairReport,
   setProjectHealthReportOpen,
@@ -84,19 +64,6 @@ export const applyCurrentProjectUpdateState = ({
   }
 
   const { resetState } = state;
-  clearAcpRunLogRefreshTimer();
-  setActiveAcpThreadId(resetState.activeAcpThreadId);
-  setAcpRunLogTaskId(resetState.acpRunLogTaskId);
-  setAcpRunLogSurface(resetState.acpRunLogSurface);
-  setAcpRunLogDetail(resetState.acpRunLogDetail);
-  setAcpRunLogError(resetState.acpRunLogError);
-  setAcpConversationEntries(resetState.acpConversationEntries);
-  applyAcpThreadSummariesState({
-    summaries: resetState.acpThreadSummaries,
-    error: resetState.acpThreadSummariesError,
-    loading: resetState.acpThreadSummariesLoading,
-  });
-  setAgentChatDockOpen(resetState.agentChatDockOpen);
   setProjectHealthReport(resetState.projectHealthReport);
   setProjectRepairReport(resetState.projectRepairReport);
   setProjectHealthReportOpen(resetState.projectHealthReportOpen);
@@ -133,14 +100,11 @@ export interface CurrentProjectUpdateRendererActionsInput
     | "nextProject"
     | "setCurrentProject"
     | "setSavedSceneHash"
-    | "setAcpRunLogTaskId"
-    | "setAcpRunLogSurface"
   > {
   getPreviousProject: () => DesktopProjectBundle | null;
   setCurrentProjectRef: (project: DesktopProjectBundle | null) => void;
   setCurrentProject: (project: DesktopProjectBundle | null) => void;
   setSavedSceneHashRef: (hash: string | null) => void;
-  runLogTargetActions: AcpRunLogTargetRendererActions;
 }
 
 export interface CurrentProjectUpdateRendererActions {
@@ -152,7 +116,6 @@ export const createCurrentProjectUpdateRendererActions = ({
   setCurrentProjectRef,
   setCurrentProject,
   setSavedSceneHashRef,
-  runLogTargetActions,
   ...input
 }: CurrentProjectUpdateRendererActionsInput): CurrentProjectUpdateRendererActions => {
   return {
@@ -166,8 +129,6 @@ export const createCurrentProjectUpdateRendererActions = ({
           setCurrentProject(nextProject);
         },
         setSavedSceneHash: setSavedSceneHashRef,
-        setAcpRunLogTaskId: runLogTargetActions.setTaskId,
-        setAcpRunLogSurface: runLogTargetActions.setSurface,
       }),
   };
 };

@@ -1,7 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
 
-import type { GenerateComposerMode } from "./agent/useGenerateComposerController";
-
 interface FocusableHandle {
   focus: () => void;
 }
@@ -10,7 +8,6 @@ interface UseGenerateDialogPanelControllerInput {
   open: boolean;
   persistent: boolean;
   focusToken: number;
-  effectiveComposerMode: GenerateComposerMode;
   error: string | null;
   isConfigured: boolean;
   panelRef: RefObject<HTMLElement | null>;
@@ -22,7 +19,6 @@ export const useGenerateDialogPanelController = ({
   open,
   persistent,
   focusToken,
-  effectiveComposerMode,
   error,
   isConfigured,
   panelRef,
@@ -36,30 +32,18 @@ export const useGenerateDialogPanelController = ({
       return;
     }
 
-    if (effectiveComposerMode !== "direct") {
-      return;
-    }
-
     if (error || !isConfigured) {
       setAdvancedOpen(true);
     }
-  }, [effectiveComposerMode, error, isConfigured, open]);
+  }, [error, isConfigured, open]);
 
   useEffect(() => {
-    if (!open || focusToken === 0 || effectiveComposerMode !== "direct") {
+    if (!open || focusToken === 0) {
       return;
     }
 
     promptEditorRef.current?.focus();
-  }, [effectiveComposerMode, focusToken, open, promptEditorRef]);
-
-  useEffect(() => {
-    if (effectiveComposerMode === "direct") {
-      return;
-    }
-
-    setAdvancedOpen(false);
-  }, [effectiveComposerMode]);
+  }, [focusToken, open, promptEditorRef]);
 
   useEffect(() => {
     if (!open) {

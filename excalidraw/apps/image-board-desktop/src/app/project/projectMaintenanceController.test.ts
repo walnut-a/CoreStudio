@@ -98,7 +98,6 @@ const createRepairResult = (
   skippedFileIds: ["skipped-1"],
   failedFileIds: ["failed-1"],
   repairedGenerationRecordFileIds: ["legacy-generated"],
-  repairedAcpOutputFileIds: ["acp-output"],
   restoredBoardFileIds: ["restored-1", "restored-2"],
   skippedDetails: [
     {
@@ -157,7 +156,6 @@ const createRepairReport = (
   skippedCount: 0,
   failedCount: 0,
   repairedGenerationRecordCount: 0,
-  repairedAcpOutputCount: 0,
   restoredImageRecordCount: 0,
   skippedImageRecordCount: 0,
   skippedDetails: [],
@@ -178,7 +176,6 @@ describe("buildProjectRepairReport", () => {
       skippedCount: 1,
       failedCount: 1,
       repairedGenerationRecordCount: 1,
-      repairedAcpOutputCount: 1,
       restoredImageRecordCount: 2,
       skippedImageRecordCount: 3,
       skippedDetails: [
@@ -217,7 +214,7 @@ describe("buildProjectRepairCompletionViewModel", () => {
         metadataRepair: {
           repairedGenerationRecordFileIds: [
             "legacy-from-controller",
-            "legacy-from-acp",
+            "legacy-from-agent",
           ],
         },
         restoredCount: 1,
@@ -229,7 +226,6 @@ describe("buildProjectRepairCompletionViewModel", () => {
         skippedCount: 2,
         failedCount: 1,
         repairedGenerationRecordCount: 1,
-        repairedAcpOutputCount: 1,
         restoredImageRecordCount: 2,
         skippedImageRecordCount: 4,
         skippedDetails: result.skippedDetails,
@@ -262,10 +258,6 @@ describe("buildProjectRepairCompletionState", () => {
         legacy: createImageRecord("legacy"),
       },
     };
-    const recoveredAcpRecord = createImageRecord("acp-output", {
-      generationOrigin: "acp-agent",
-    });
-
     expect(
       buildProjectRepairCompletionState({
         activeProject,
@@ -274,15 +266,9 @@ describe("buildProjectRepairCompletionState", () => {
           generatedFileIds: ["generated-a"],
           skippedFileIds: ["skipped-a"],
           failedFileIds: [],
-          repairedAcpOutputRecords: {
-            "acp-output": recoveredAcpRecord,
-          },
         }),
         metadataRepair: {
           repairedGenerationRecordFileIds: ["legacy"],
-        },
-        repairedAcpOutputRecords: {
-          "acp-output": recoveredAcpRecord,
         },
         restoredCount: 2,
         skippedRestoreCount: 1,
@@ -295,7 +281,6 @@ describe("buildProjectRepairCompletionState", () => {
             ...activeProject.imageRecords.legacy,
             generationOrigin: "corestudio",
           },
-          "acp-output": recoveredAcpRecord,
         },
       },
       repairReport: {
@@ -338,7 +323,6 @@ describe("buildProjectRepairCompletionState", () => {
         metadataRepair: {
           repairedGenerationRecordFileIds: ["legacy"],
         },
-        repairedAcpOutputRecords: {},
         restoredCount: 3,
         skippedRestoreCount: 4,
         messages: {
@@ -403,7 +387,6 @@ describe("buildProjectRepairCompletionState", () => {
       metadataRepair: {
         repairedGenerationRecordFileIds: ["legacy"],
       },
-      repairedAcpOutputRecords: {},
       restoredCount: 0,
       skippedRestoreCount: 0,
     });
@@ -1482,27 +1465,19 @@ describe("buildProjectHealthInspectionResultState", () => {
 });
 
 describe("applyProjectRepairImageRecordUpdates", () => {
-  it("repairs legacy generated origins and merges recovered ACP output records", () => {
+  it("repairs legacy generated origins without changing valid records", () => {
     const imageRecords: ImageRecordMap = {
       legacy: createImageRecord("legacy"),
       imported: createImageRecord("imported", {
         sourceType: "imported",
       }),
       existing: createImageRecord("existing", {
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
       }),
     };
-    const recoveredAcpRecord = createImageRecord("acp-output", {
-      generationOrigin: "acp-agent",
-      generationTaskId: "task-1",
-    });
-
     const result = applyProjectRepairImageRecordUpdates({
       imageRecords,
       repairedGenerationRecordFileIds: ["legacy", "missing", "existing"],
-      repairedAcpOutputRecords: {
-        "acp-output": recoveredAcpRecord,
-      },
     });
 
     expect(result.changed).toBe(true);
@@ -1514,11 +1489,7 @@ describe("applyProjectRepairImageRecordUpdates", () => {
         sourceType: "imported",
       },
       existing: {
-        generationOrigin: "acp-agent",
-      },
-      "acp-output": {
-        generationOrigin: "acp-agent",
-        generationTaskId: "task-1",
+        generationOrigin: "agent-board",
       },
     });
     expect(result.repairedGenerationRecordFileIds).toEqual([
@@ -1526,7 +1497,6 @@ describe("applyProjectRepairImageRecordUpdates", () => {
       "missing",
       "existing",
     ]);
-    expect(result.repairedAcpOutputFileIds).toEqual(["acp-output"]);
     expect(result.imageRecords.imported.generationOrigin).toBeUndefined();
   });
 
@@ -1540,7 +1510,6 @@ describe("applyProjectRepairImageRecordUpdates", () => {
     const result = applyProjectRepairImageRecordUpdates({
       imageRecords,
       repairedGenerationRecordFileIds: ["existing", "missing"],
-      repairedAcpOutputRecords: {},
     });
 
     expect(result.changed).toBe(false);
@@ -1556,22 +1525,14 @@ describe("buildProjectRepairMetadataUpdate", () => {
         legacy: createImageRecord("legacy"),
       },
     };
-    const recoveredAcpRecord = createImageRecord("acp-output", {
-      generationOrigin: "acp-agent",
-    });
-
     const result = buildProjectRepairMetadataUpdate({
       project,
       repairedGenerationRecordFileIds: ["legacy"],
-      repairedAcpOutputRecords: {
-        "acp-output": recoveredAcpRecord,
-      },
     });
 
     expect(result.metadataRepair).toMatchObject({
       changed: true,
       repairedGenerationRecordFileIds: ["legacy"],
-      repairedAcpOutputFileIds: ["acp-output"],
     });
     expect(result.project).toEqual({
       ...project,
@@ -1580,7 +1541,6 @@ describe("buildProjectRepairMetadataUpdate", () => {
           ...project.imageRecords.legacy,
           generationOrigin: "corestudio",
         },
-        "acp-output": recoveredAcpRecord,
       },
     });
   });
@@ -1598,7 +1558,6 @@ describe("buildProjectRepairMetadataUpdate", () => {
     const result = buildProjectRepairMetadataUpdate({
       project,
       repairedGenerationRecordFileIds: ["existing"],
-      repairedAcpOutputRecords: {},
     });
 
     expect(result.metadataRepair.changed).toBe(false);
@@ -1614,34 +1573,23 @@ describe("buildProjectRepairResultState", () => {
         legacy: createImageRecord("legacy"),
       },
     };
-    const recoveredAcpRecord = createImageRecord("acp-output", {
-      generationOrigin: "acp-agent",
-    });
-
     const result = buildProjectRepairResultState({
       project,
       result: createRepairResult({
         generatedFileIds: ["new-a", "loaded-preview", "loaded-original"],
         repairedGenerationRecordFileIds: ["legacy"],
-        repairedAcpOutputRecords: {
-          "acp-output": recoveredAcpRecord,
-        },
       }),
       loadedPreviewFileIds: new Set(["loaded-preview"]),
       loadedOriginalFileIds: new Set(["loaded-original"]),
     });
 
     expect(result.fileIdsToRefresh).toEqual(["new-a"]);
-    expect(result.repairedAcpOutputRecords).toEqual({
-      "acp-output": recoveredAcpRecord,
-    });
     expect(result.metadataUpdate.metadataRepair.changed).toBe(true);
     expect(result.metadataUpdate.project.imageRecords).toEqual({
       legacy: {
         ...project.imageRecords.legacy,
         generationOrigin: "corestudio",
       },
-      "acp-output": recoveredAcpRecord,
     });
   });
 
@@ -1659,14 +1607,12 @@ describe("buildProjectRepairResultState", () => {
       result: createRepairResult({
         generatedFileIds: [],
         repairedGenerationRecordFileIds: undefined,
-        repairedAcpOutputRecords: undefined,
       }),
       loadedPreviewFileIds: new Set(),
       loadedOriginalFileIds: new Set(),
     });
 
     expect(result.fileIdsToRefresh).toEqual([]);
-    expect(result.repairedAcpOutputRecords).toEqual({});
     expect(result.metadataUpdate.metadataRepair.changed).toBe(false);
     expect(result.metadataUpdate.project).toBe(project);
   });
@@ -1681,18 +1627,11 @@ describe("buildProjectRepairActiveProjectUpdate", () => {
         legacy: createImageRecord("legacy"),
       },
     };
-    const recoveredAcpRecord = createImageRecord("acp-output", {
-      generationOrigin: "acp-agent",
-    });
-
     expect(
       buildProjectRepairActiveProjectUpdate({
         activeProject,
         projectPath: "/tmp/project",
         repairedGenerationRecordFileIds: ["legacy"],
-        repairedAcpOutputRecords: {
-          "acp-output": recoveredAcpRecord,
-        },
       }),
     ).toEqual({
       ...activeProject,
@@ -1701,7 +1640,6 @@ describe("buildProjectRepairActiveProjectUpdate", () => {
           ...activeProject.imageRecords.legacy,
           generationOrigin: "corestudio",
         },
-        "acp-output": recoveredAcpRecord,
       },
     });
   });
@@ -1721,7 +1659,6 @@ describe("buildProjectRepairActiveProjectUpdate", () => {
         activeProject,
         projectPath: "/tmp/other-project",
         repairedGenerationRecordFileIds: ["existing"],
-        repairedAcpOutputRecords: {},
       }),
     ).toBeNull();
 
@@ -1730,7 +1667,6 @@ describe("buildProjectRepairActiveProjectUpdate", () => {
         activeProject,
         projectPath: "/tmp/project",
         repairedGenerationRecordFileIds: ["existing"],
-        repairedAcpOutputRecords: {},
       }),
     ).toBeNull();
   });

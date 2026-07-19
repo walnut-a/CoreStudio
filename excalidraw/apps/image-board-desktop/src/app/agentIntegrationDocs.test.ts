@@ -7,7 +7,7 @@ const readDoc = (filePath: string) =>
   readFileSync(resolve(process.cwd(), filePath), "utf8");
 
 describe("agent integration docs", () => {
-  it("documents the orchestrator boundary and the experimental ACP path", () => {
+  it("documents the CoreStudio one-shot and Codex Agent boundary", () => {
     const product = readDoc("apps/image-board-desktop/PRODUCT.md");
     const userGuide = readDoc(
       "apps/image-board-desktop/docs/agent-integration-user-guide.md",
@@ -30,15 +30,17 @@ describe("agent integration docs", () => {
 
     expect(product).toContain("任务发起位置决定调度者");
     expect(userGuide).toContain("在 Codex 中使用 CoreStudio");
-    expect(userGuide).toContain("默认使用 Codex 自身的生图能力");
-    expect(userGuide).toContain("实验性功能");
+    expect(userGuide).toContain("CoreStudio 单次生成");
+    expect(userGuide).toContain("Codex 是 Agent 工作流的唯一调度者");
     expect(userGuide).toContain("Codex 集成");
-    expect(userGuide).toContain("应用内安装");
-    expect(userGuide).toContain("CLI、CoreStudio Skill 和会话发现能力");
+    expect(userGuide).toContain("点击安装、更新或修复");
+    expect(userGuide).toContain("CLI / Local Bridge");
     expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
-    expect(architecture).toContain("Codex → CoreStudio → ACP → Codex");
+    expect(architecture).toContain("CoreStudio 内只做本地单次生成");
     expect(architecture).toContain("CLI / Local Bridge");
-    expect(architecture).toContain("Codex 集成没有启停状态");
+    expect(architecture).toContain(
+      'Codex 写回图片使用 `generationOrigin: "agent-board"`',
+    );
     expect(codexSettings).toContain(
       "copy.applicationSettings.codexPage.installOnDevice",
     );
@@ -75,9 +77,9 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain(
       "corestudio read image-paths --selection --json",
     );
-    expect(cliContract).toContain("### Write An ACP Image Result");
+    expect(cliContract).toContain("### Write An Agent Image Result");
     expect(cliContract).toContain(
-      "corestudio write image /absolute/path/to/result.png --origin acp-agent",
+      "--origin agent-board",
     );
     expect(cliContract).toContain("--reference-file-ids");
     expect(cliContract).toContain("### Locate A Written Result");
@@ -86,68 +88,24 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain("corestudio read health --json");
   });
 
-  it("documents a complete ACP task package example for external Agents", () => {
+  it("does not publish removed embedded Agent commands as current CLI capabilities", () => {
     const cliContract = readDoc(
       "apps/image-board-desktop/docs/agent-cli-contract.md",
     );
 
-    expect(cliContract).toContain("## ACP Task Package Example");
-    expect(cliContract).toContain('"schemaVersion": "corestudio.acpTask.v1"');
-    expect(cliContract).toContain('"userPrompt"');
-    expect(cliContract).toContain('"selectedElements"');
-    expect(cliContract).toContain('"references"');
-    expect(cliContract).toContain('"imagePaths"');
-    expect(cliContract).toContain('"outputExpectation"');
-    expect(cliContract).toContain('"writeImage"');
-    expect(cliContract).toContain('"failureHandling"');
+    expect(cliContract).not.toContain("CORESTUDIO_AGENT_TASK_ID");
   });
 
-  it("documents design-system rules for Agent integration surfaces", () => {
-    const sidebarReference = readDoc(
-      "apps/image-board-desktop/docs/agent-conversation-sidebar-reference.md",
-    );
-    const designTokens = readDoc(
-      "apps/image-board-desktop/src/app/styles/designTokens.css",
-    );
-    const requiredNotes = [
-      "### Sidebar width",
-      "### Type scale",
-      "### Font weights",
-      "### Tool call row",
-      "### Image result card",
-      "### Status dock",
-      "### Composer",
-    ] as const;
-
-    expect(sidebarReference).toContain(
-      "## Agent Integration Design System Notes",
-    );
-    for (const note of requiredNotes) {
-      expect(sidebarReference).toContain(note);
-    }
-    expect(sidebarReference).toContain("--corestudio-side-panel-width");
-    expect(sidebarReference).toContain("300px");
-    expect(sidebarReference).toContain("--font-weight-regular");
-    expect(sidebarReference).toContain("--font-weight-medium");
-    expect(sidebarReference).toContain("--font-weight-semibold");
-    expect(sidebarReference).toContain("assistant-ui");
-    expect(sidebarReference).toContain("Vercel AI Elements");
-    expect(designTokens).toContain("--corestudio-side-panel-width: 300px");
-  });
-
-  it("keeps a screenshot QA checklist for repeatedly flagged Agent surfaces", () => {
+  it("keeps a regression checklist for the simplified product paths", () => {
     const qaNotes = readDoc(
       "apps/image-board-desktop/docs/agent-integration-qa-notes.md",
     );
     const screenshotSurfaces = [
       "应用设置 · 图像生成",
       "应用设置 · Codex 集成",
-      "应用设置 · 实验性功能",
-      "右下角无 Codex 状态浮层",
-      "底部直接输入模式",
-      "底部 ACP Agent 模式",
-      "左侧生成记录列表",
-      "左侧 ACP thread",
+      "底部单次生成",
+      "左侧生成记录",
+      "Agent Board",
       "项目健康检查报告",
       "项目修复结果",
     ] as const;
@@ -158,6 +116,7 @@ describe("agent integration docs", () => {
     for (const surface of screenshotSurfaces) {
       expect(qaNotes).toContain(surface);
     }
+    expect(qaNotes).toContain("Codex 写回只使用 `agent-board` 来源");
   });
 
   it("documents transactional image writeback and crash recovery", () => {

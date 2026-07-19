@@ -177,7 +177,6 @@ describe("createDesktopStartupRendererActions", () => {
 
   it("loads desktop startup state from the current bridge", async () => {
     let bridge = createBridge();
-    const loadAcpAgentSettings = vi.fn(async () => {});
     const actions = createDesktopStartupRendererActions({
       getBridge: () => bridge,
       isGenerationModelSelectionLocked: () => true,
@@ -186,7 +185,6 @@ describe("createDesktopStartupRendererActions", () => {
       setStartupError: vi.fn(),
       setRecentProjects: vi.fn(),
       setAppInfo: vi.fn(),
-      loadAcpAgentSettings,
     });
 
     actions.loadAll();
@@ -195,7 +193,6 @@ describe("createDesktopStartupRendererActions", () => {
     expect(bridge.loadAppInfo).toHaveBeenCalledTimes(1);
     expect(bridge.loadProviderSettings).toHaveBeenCalledTimes(1);
     expect(bridge.loadRecentProjects).toHaveBeenCalledTimes(1);
-    expect(loadAcpAgentSettings).toHaveBeenCalledTimes(1);
 
     bridge = createBridge();
     await actions.loadRecentProjects();
@@ -203,9 +200,8 @@ describe("createDesktopStartupRendererActions", () => {
     expect(bridge.loadRecentProjects).toHaveBeenCalledTimes(1);
   });
 
-  it("refreshes Agent Browser desktop state without reloading ACP settings", async () => {
+  it("refreshes Agent Browser desktop state without reloading recent projects", async () => {
     const bridge = createBridge();
-    const loadAcpAgentSettings = vi.fn(async () => {});
     const actions = createDesktopStartupRendererActions({
       getBridge: () => bridge,
       isGenerationModelSelectionLocked: () => true,
@@ -214,7 +210,6 @@ describe("createDesktopStartupRendererActions", () => {
       setStartupError: vi.fn(),
       setRecentProjects: vi.fn(),
       setAppInfo: vi.fn(),
-      loadAcpAgentSettings,
     });
 
     await actions.refreshAgentBrowser();
@@ -222,6 +217,5 @@ describe("createDesktopStartupRendererActions", () => {
     expect(bridge.loadAppInfo).toHaveBeenCalledTimes(1);
     expect(bridge.loadProviderSettings).toHaveBeenCalledTimes(1);
     expect(bridge.loadRecentProjects).toHaveBeenCalledTimes(1);
-    expect(loadAcpAgentSettings).not.toHaveBeenCalled();
   });
 });

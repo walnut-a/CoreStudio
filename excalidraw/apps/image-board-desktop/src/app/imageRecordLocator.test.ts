@@ -47,7 +47,7 @@ const createRecord = (
     fileId,
     assetPath: `assets/${fileId}.png`,
     sourceType: "generated",
-    generationOrigin: "acp-agent",
+    generationOrigin: "agent-board",
     width: 1024,
     height: 1024,
     createdAt: "2026-07-02T08:00:00.000Z",

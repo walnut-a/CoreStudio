@@ -13,10 +13,6 @@ export const AGENT_HTTP_ROUTES = {
   projectCurrent: "/v1/project/current",
   projectRecords: "/v1/project/records",
   projectHealth: "/v1/project/health",
-  acpRuns: "/v1/acp/runs",
-  acpRun: "/v1/acp/run",
-  acpThreads: "/v1/acp/threads",
-  acpThread: "/v1/acp/thread",
   sceneBoard: "/v1/scene/board",
   sceneSnapshot: "/v1/scene/snapshot",
   sceneSelection: "/v1/scene/selection",
@@ -92,12 +88,6 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "loadProviderSettings",
   "saveProviderSettings",
   "deleteProviderSettings",
-  "loadAcpAgentSettings",
-  "saveAcpAgentSettings",
-  "listAcpAgentRunLogs",
-  "readAcpAgentRunLog",
-  "listAcpAgentThreads",
-  "readAcpAgentThread",
   "generateImages",
   "readClipboardImage",
 ] as const;
@@ -117,10 +107,6 @@ export type AgentRendererCommandName =
   | "project.current"
   | "project.records"
   | "project.health"
-  | "acp.runs"
-  | "acp.run"
-  | "acp.threads"
-  | "acp.thread"
   | "scene.board"
   | "scene.snapshot"
   | "scene.selection"

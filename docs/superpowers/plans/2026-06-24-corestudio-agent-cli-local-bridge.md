@@ -27,7 +27,7 @@ Included:
 
 Excluded from this plan:
 
-- ACP client.
+- Embedded Agent client.
 - MCP server or shim.
 - Agent Board browser entry.
 - Internal Agent runtime.
@@ -1601,7 +1601,7 @@ Spec coverage:
 - Generate: Task 6, Task 7, and Task 9.
 - Task complete: Task 3, Task 6, Task 7, and Task 9.
 - Basic permission and token: Task 3, Task 6, Task 8, and Task 9.
-- No ACP/MCP/internal Agent runtime/cloud runtime: explicit scope exclusion.
+- No embedded or cloud Agent runtime: explicit scope exclusion.
 
 Design checks:
 

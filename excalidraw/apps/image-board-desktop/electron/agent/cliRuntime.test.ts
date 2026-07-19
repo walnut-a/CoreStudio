@@ -343,36 +343,6 @@ describe("runCli", () => {
       method: "GET",
     },
     {
-      name: "read ACP runs",
-      argv: ["read", "acp-runs", "--json"],
-      route: "/v1/acp/runs",
-      method: "GET",
-    },
-    {
-      name: "read ACP threads",
-      argv: ["read", "acp-threads", "--json"],
-      route: "/v1/acp/threads",
-      method: "GET",
-    },
-    {
-      name: "read ACP run",
-      argv: ["read", "acp-run", "--task-id", "task-1", "--json"],
-      route: "/v1/acp/run",
-      method: "POST",
-      body: {
-        taskId: "task-1",
-      },
-    },
-    {
-      name: "read ACP thread",
-      argv: ["read", "acp-thread", "--thread-id", "thread-1", "--json"],
-      route: "/v1/acp/thread",
-      method: "POST",
-      body: {
-        threadId: "thread-1",
-      },
-    },
-    {
       name: "read image-paths for selected images",
       argv: ["read", "image-paths", "--selection", "--json"],
       route: "/v1/scene/image-paths",
@@ -401,13 +371,13 @@ describe("runCli", () => {
     },
     {
       name: "write image",
-      argv: ["write", "image", "/tmp/a.png", "--origin", "acp-agent", "--json"],
+      argv: ["write", "image", "/tmp/a.png", "--origin", "agent-board", "--json"],
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
       body: {
         ...imagePayload,
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
       },
     },
     {
@@ -789,7 +759,7 @@ describe("runCli", () => {
       const readImageFile = vi.fn(async () => buffer);
 
       const result = await runCommand(
-        ["write", "image", filePath, "--origin", "acp-agent", "--json"],
+        ["write", "image", filePath, "--origin", "agent-board", "--json"],
         {
           fetch,
           readImageFile,
@@ -809,12 +779,12 @@ describe("runCli", () => {
         height,
         createdAt: "2026-06-24T08:00:00.000Z",
         sourceType: "generated",
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
       });
     },
   );
 
-  it("adds ACP provenance metadata to add-image payloads from CLI flags", async () => {
+  it("adds Agent Board provenance metadata to image payloads from CLI flags", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(okEnvelope, records);
     const readImagePayload = vi.fn(async () => imagePayload);
@@ -825,7 +795,7 @@ describe("runCli", () => {
         "image",
         "/tmp/source.png",
         "--origin",
-        "acp-agent",
+        "agent-board",
         "--prompt",
         "优化这台 CNC",
         "--reference-file-ids",
@@ -845,42 +815,7 @@ describe("runCli", () => {
     expect(parseRequestBody(records)).toMatchObject({
       ...imagePayload,
       sourceType: "generated",
-      generationOrigin: "acp-agent",
-      prompt: "优化这台 CNC",
-      referenceFileIds: ["file-source"],
-      referenceElementIds: ["element-source"],
-    });
-  });
-
-  it("adds ACP provenance metadata to add-image payloads from task environment", async () => {
-    const records: RequestRecord[] = [];
-    const fetch = createFetch(okEnvelope, records);
-    const readImagePayload = vi.fn(async () => imagePayload);
-
-    const result = await runCommand(
-      ["write", "image", "/tmp/source.png", "--json"],
-      {
-        env: {
-          CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
-          CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
-          CORESTUDIO_AGENT_TASK_ID: "task-1",
-          CORESTUDIO_AGENT_THREAD_ID: "thread-1",
-          CORESTUDIO_AGENT_USER_PROMPT: "优化这台 CNC",
-          CORESTUDIO_AGENT_REFERENCE_FILE_IDS: "file-source",
-          CORESTUDIO_AGENT_REFERENCE_ELEMENT_IDS: "element-source",
-        },
-        fetch,
-        readImagePayload,
-      },
-    );
-
-    expect(result.exitCode).toBe(0);
-    expect(parseRequestBody(records)).toMatchObject({
-      ...imagePayload,
-      sourceType: "generated",
-      generationOrigin: "acp-agent",
-      generationTaskId: "task-1",
-      generationThreadId: "thread-1",
+      generationOrigin: "agent-board",
       prompt: "优化这台 CNC",
       referenceFileIds: ["file-source"],
       referenceElementIds: ["element-source"],
@@ -894,7 +829,7 @@ describe("runCli", () => {
     );
 
     const result = await runCommand(
-      ["write", "image", "/tmp/source.svg", "--origin", "acp-agent", "--json"],
+      ["write", "image", "/tmp/source.svg", "--origin", "agent-board", "--json"],
       {
         fetch,
         readImageFile,
@@ -929,12 +864,8 @@ describe("runCli", () => {
     ["read selection", ["read", "selection", "--json"]],
     ["read records", ["read", "records", "--json"]],
     ["read health", ["read", "health", "--json"]],
-    ["read acp-runs", ["read", "acp-runs", "--json"]],
-    ["read acp-threads", ["read", "acp-threads", "--json"]],
-    ["read acp-run", ["read", "acp-run", "--task-id", "task-1", "--json"]],
-    ["read acp-thread", ["read", "acp-thread", "--thread-id", "thread-1", "--json"]],
     ["read image-paths", ["read", "image-paths", "--selection", "--json"]],
-    ["write image", ["write", "image", "/tmp/a.png", "--origin", "acp-agent", "--json"]],
+    ["write image", ["write", "image", "/tmp/a.png", "--origin", "agent-board", "--json"]],
     ["write prompt", ["write", "prompt", "--text", "prompt", "--json"]],
     ["write generation", ["write", "generation", "--prompt", "prompt", "--jsonl"]],
     ["edit locate", ["edit", "locate", "--file-id", "file-1", "--json"]],
@@ -1068,20 +999,10 @@ describe("runCli", () => {
       message: "read image-paths requires --selection, --file-ids, or --all.",
     },
     {
-      name: "ACP run without task id",
-      argv: ["read", "acp-run", "--json"],
-      message: "read acp-run requires --task-id.",
-    },
-    {
-      name: "ACP thread without thread id",
-      argv: ["read", "acp-thread", "--json"],
-      message: "read acp-thread requires --thread-id.",
-    },
-    {
       name: "write image without generation origin",
       argv: ["write", "image", "/tmp/a.png", "--json"],
       message:
-        "write image requires --origin unless an ACP task environment provides one.",
+        "write image requires --origin.",
     },
     {
       name: "write image with empty reference file ids",
@@ -1090,7 +1011,7 @@ describe("runCli", () => {
         "image",
         "/tmp/a.png",
         "--origin",
-        "acp-agent",
+        "agent-board",
         "--reference-file-ids",
         " , ",
         "--json",

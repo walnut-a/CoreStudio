@@ -8,14 +8,8 @@ import {
 import type {
   GenerationPromptPart,
   GenerationPromptReferencePayload,
-  GenerationReferenceItemPayload,
   GenerationReferencePayload,
 } from "../../shared/providerTypes";
-import { copy } from "../copy";
-
-interface GenerateComposerAgentContextProps {
-  items: readonly GenerationReferenceItemPayload[];
-}
 
 interface GenerateComposerPromptBodyProps {
   promptEditorRef: Ref<InlinePromptEditorHandle>;
@@ -33,60 +27,6 @@ interface GenerateComposerPromptBodyProps {
   onKeyUpCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 }
-
-export const GenerateComposerAgentContext = ({
-  items,
-}: GenerateComposerAgentContextProps) => (
-  <section
-    className="generate-composer__agent-context"
-    role="region"
-    aria-label={copy.agentUi.context.label}
-  >
-    <div className="generate-composer__agent-summary">
-      <div
-        className="generate-composer__agent-items"
-        aria-label={copy.agentUi.context.currentSelection}
-        aria-live="polite"
-      >
-        {items.length ? (
-          items.map((item) => (
-            <span
-              key={item.id}
-              className={[
-                "generate-composer__agent-item",
-                `generate-composer__agent-item--${item.kind}`,
-              ].join(" ")}
-              title={item.label}
-            >
-              {item.kind === "image" && item.thumbnailDataUrl ? (
-                <span className="generate-composer__agent-thumbnail">
-                  <img
-                    src={item.thumbnailDataUrl}
-                    alt={copy.agentUi.context.thumbnailAlt(
-                      item.label,
-                      item.index,
-                    )}
-                    draggable={false}
-                  />
-                </span>
-              ) : null}
-              <span className="generate-composer__agent-index">
-                {item.index}
-              </span>
-              <span className="generate-composer__agent-label">
-                {item.label}
-              </span>
-            </span>
-          ))
-        ) : (
-          <span className="generate-composer__agent-empty">
-            {copy.agentUi.context.empty}
-          </span>
-        )}
-      </div>
-    </div>
-  </section>
-);
 
 export const GenerateComposerPromptBody = ({
   promptEditorRef,

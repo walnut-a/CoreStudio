@@ -83,7 +83,6 @@ export const createDesktopStartupRendererActions = ({
   setRecentProjects,
   setProjectError,
   setAppInfo,
-  loadAcpAgentSettings,
 }: {
   getBridge: () => DesktopBridgeApi | null;
   isGenerationModelSelectionLocked: ProviderSettingsLoadActionInput["isGenerationModelSelectionLocked"];
@@ -94,7 +93,6 @@ export const createDesktopStartupRendererActions = ({
   setRecentProjects: (projects: RecentProjectEntry[]) => void;
   setProjectError?: (message: string | null) => void;
   setAppInfo: (appInfo: DesktopAppInfo | null) => void;
-  loadAcpAgentSettings: () => void | Promise<void>;
 }) => {
   const loadProvider = async () => {
     await runProviderSettingsLoadAction({
@@ -133,7 +131,6 @@ export const createDesktopStartupRendererActions = ({
   const loadAll = () => {
     void loadAppInfo();
     void loadProvider();
-    void loadAcpAgentSettings();
     void loadRecentProjects();
   };
 

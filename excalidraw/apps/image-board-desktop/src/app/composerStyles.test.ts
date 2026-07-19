@@ -15,12 +15,7 @@ const {
   readGenerateImageDialogProviderRuntime,
   readImageBoardApp,
   readGenerateComposerActionBar,
-  readAgentConversationThreadView,
-  readAgentConversationComposer,
-  readAgentConversationHeader,
-  readAcpRunLogDialog,
   readAboutDialog,
-  readAgentRunChatLog,
   readGenerationErrorDetailsDialog,
   readWorkspaceBoundsOverlay,
   readProjectRenderBoundary,
@@ -33,7 +28,6 @@ const {
   readDesktopStartupWiring,
   readProjectAutosaveWiring,
   readAgentBridgeWiring,
-  readAcpAgentWiring,
   readSideDock,
   readGenerateDialogViewModel,
   readGenerateAdvancedFieldsPanel,
@@ -207,10 +201,6 @@ describe("generate composer styles", () => {
       appCss,
       ".generate-composer--with-reference .generate-composer__controls",
     );
-    const taskbarComposerRule = getRule(
-      appCss,
-      ".generate-composer--with-taskbar",
-    );
     const promptEditorRule = getRule(
       appCss,
       ".generate-composer__prompt-editor",
@@ -273,10 +263,6 @@ describe("generate composer styles", () => {
     expect(appCss).not.toContain("padding: 7px 12px");
     expect(composerRule).not.toContain("justify-content: center");
     expect(composerRule).not.toMatch(/\n\s+min-height:/);
-    expect(taskbarComposerRule).toContain(
-      "grid-template-rows:\n    auto minmax(var(--generate-composer-editor-min-height), auto)",
-    );
-    expect(taskbarComposerRule).not.toContain("var(--lg-button-size)");
     expect(controlsRule).toContain("display: flex");
     expect(controlsRule).toContain("justify-content: flex-start");
     expect(controlsRule).toContain("align-self: end");
@@ -352,75 +338,6 @@ describe("generate composer styles", () => {
     expect(dialogRuntimeSource).toContain("InlinePromptEditor");
     expect(viewModelSource).toContain("generate-composer--with-reference");
     expect(actionBarSource).toContain("generate-composer__controls");
-  });
-
-  it("keeps Agent selection image chips the same size as direct prompt reference chips", () => {
-    const appCss = readAppCss();
-    const agentContextRule = getRule(
-      appCss,
-      ".generate-composer__agent-context",
-    );
-    const agentItemRule = getRule(appCss, ".generate-composer__agent-item");
-    const agentThumbnailRule = getRule(
-      appCss,
-      ".generate-composer__agent-thumbnail",
-    );
-    const agentIndexRule = getRule(appCss, ".generate-composer__agent-index");
-
-    expect(agentContextRule).toContain("background: transparent");
-    expect(agentContextRule).not.toContain("var(--text-primary-color) 3%");
-    expect(agentItemRule).toContain("max-width: 9rem");
-    expect(agentItemRule).toContain("gap: 4px");
-    expect(agentItemRule).toContain("min-height: 25px");
-    expect(agentItemRule).toContain("padding: 2px 7px 2px 2px");
-    expect(agentThumbnailRule).toContain("width: 21px");
-    expect(agentThumbnailRule).toContain("height: 21px");
-    expect(agentThumbnailRule).toContain("flex: 0 0 21px");
-    expect(agentIndexRule).toContain("width: 15px");
-    expect(agentIndexRule).toContain("height: 15px");
-    expect(agentIndexRule).toContain("font-size: 0.625rem");
-  });
-
-  it("keeps the generation mode control styled as a neutral footer control", () => {
-    const appCss = readAppCss();
-    const sourceSharedRule = getRulesContaining(
-      appCss,
-      ".generate-composer__source-trigger",
-    ).find((rule) => rule.includes(".generate-composer__source-status"));
-    const sourceTriggerRule = getRule(
-      appCss,
-      ".generate-composer__source-trigger",
-    );
-    const sourceStatusRule = getRulesContaining(
-      appCss,
-      ".generate-composer__source-status",
-    ).find((rule) => rule.includes("color: color-mix"));
-    const sourceMenuRule = getRule(appCss, ".generate-composer__source-menu");
-    const sourceMenuItemRule = getRule(
-      appCss,
-      ".generate-composer__source-menu-item",
-    );
-
-    expect(sourceSharedRule).toContain("min-height: 32px");
-    expect(sourceSharedRule).toContain("max-width: 9.75rem");
-    expect(sourceSharedRule).toContain("color: var(--text-primary-color)");
-    expect(sourceSharedRule).toContain("background-color: transparent");
-    expect(sourceTriggerRule).toContain(
-      "border: 1px solid var(--default-border-color)",
-    );
-    expect(sourceStatusRule).toContain("color: color-mix");
-    expect(sourceStatusRule).not.toContain("cursor: pointer");
-    expect(sourceTriggerRule).not.toContain("var(--color-primary)");
-    expect(sourceTriggerRule).not.toContain(
-      "var(--generate-composer-reference-color)",
-    );
-    expect(sourceMenuRule).toContain("background: var(--island-bg-color)");
-    expect(sourceMenuRule).toContain("box-shadow: var(--shadow-island)");
-    expect(sourceMenuItemRule).toContain("color: var(--text-primary-color)");
-    expect(sourceMenuItemRule).not.toContain("var(--color-primary)");
-    expect(sourceMenuItemRule).not.toContain(
-      "var(--generate-composer-reference-color)",
-    );
   });
 
   it("uses a refined desktop-control finish instead of raw black line art", () => {
@@ -661,7 +578,6 @@ describe("generate composer styles", () => {
     expect(dialogSource).not.toContain("buildGenerateDialogViewModel");
     expect(dialogSource).not.toContain("createGenerateDialogComposerRuntime");
     expect(dialogRuntimeSource).toContain("useGenerateRequestController");
-    expect(dialogRuntimeSource).toContain("useGenerateComposerController");
     expect(providerRuntimeSource).not.toContain(
       "useGenerateProviderSettingsController",
     );
@@ -673,14 +589,6 @@ describe("generate composer styles", () => {
     expect(dialogRuntimeSource).toContain(
       "createGenerateDialogComposerRuntime",
     );
-  });
-
-  it("keeps ACP Agent settings persistence wiring outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("saveAcpAgentSettingsState()");
-    expect(source).not.toContain("const handleSaveAcpAgentSettings");
-    expect(source).not.toContain("runAcpAgentSettingsSaveAction");
   });
 
   it("keeps provider settings persistence wiring outside the root app", () => {
@@ -1193,21 +1101,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("onChange={(elements, appState, files)");
   });
 
-  it("keeps ACP generation and follow-up submit wiring outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("createAcpTaskStartRendererActions");
-    expect(source).toContain("acpTaskStartRendererActions.start");
-    expect(source).toContain("createAcpConversationMessageRendererActions");
-    expect(source).toContain(
-      "acpConversationMessageRendererActions.submitMessage",
-    );
-    expect(source).not.toContain("const handleStartAcpAgentGeneration");
-    expect(source).not.toContain("const handleSubmitAgentConversationMessage");
-    expect(source).not.toContain("runAcpTaskStartRendererAction");
-    expect(source).not.toContain("runAcpConversationMessageRendererAction");
-  });
-
   it("keeps generation submit routing outside the root app", () => {
     const source = readImageBoardApp();
 
@@ -1466,17 +1359,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("subscribeAgentCommandRequests");
   });
 
-  it("keeps ACP task event subscription wiring outside the root app", () => {
-    const source = readImageBoardApp();
-    const wiring = readAcpAgentWiring();
-
-    expect(source).toContain("createAcpTaskEventSubscriptionRendererActions");
-    expect(source).toContain("useAcpAgentWiring");
-    expect(wiring).toContain("acpTaskEventSubscriptionRendererActions.start");
-    expect(source).not.toContain("subscription.unsubscribe ?? undefined");
-    expect(source).not.toContain("subscribeAcpTaskEvents");
-  });
-
   it("keeps generation model selection persistence wiring outside the root app", () => {
     const source = readImageBoardApp();
 
@@ -1572,7 +1454,6 @@ describe("generate composer styles", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("AppGlobalDialogs");
-    expect(source).not.toContain("const renderAcpRunLogDialog");
     expect(source).not.toContain("const renderProjectHealthReportDialog");
     expect(source).not.toContain("const renderAboutDialog");
     expect(source).not.toContain("const renderAppSettingsDialog");
@@ -1622,13 +1503,11 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("useState<DesktopAgentBridgeStatus | null>");
     expect(source).not.toContain("setAgentBrowserAutoOpenProjectPath,\n  ]");
     expect(source).not.toContain("agentBrowserStatePublishTimerRef");
-    expect(source).not.toContain("acpThreadLoadSequenceRef");
   });
 
   it("removes the Agent status dock and opens the unified settings from explicit actions", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain("useAgentSurfaceVisibilityController");
     expect(source).not.toContain("createAgentStatusDockRendererActions");
     expect(source).not.toContain("<AgentStatusDock");
     expect(source).toContain("openAppSettings: () => setAppSettingsOpen(true)");
@@ -1637,100 +1516,14 @@ describe("generate composer styles", () => {
     );
   });
 
-  it("composes the three unified application settings categories", () => {
+  it("composes the unified application settings categories", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("imageGenerationContent:");
     expect(source).toContain("codexIntegrationContent:");
-    expect(source).toContain("experimentalContent:");
+    expect(source).toContain("aboutContent:");
+    expect(source).not.toContain("experimentalContent:");
     expect(source).not.toContain("AgentIntegrationSettingsDialog");
-  });
-
-  it("keeps ACP run-log renderer wiring outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("useAcpInteractionTargetsController");
-    expect(source).toContain("useAcpAgentTaskStateController");
-    expect(source).toContain("useAcpRunLogStateController");
-    expect(source).toContain("acpRunLogTargetRendererActions");
-    expect(source).not.toContain("createAcpRunLogTargetRendererActions");
-    expect(source).not.toContain("acpRunLogTargetRendererActions.setTaskId");
-    expect(source).not.toContain("acpRunLogTargetRendererActions.setSurface");
-    expect(source).toContain("createAcpRunLogRendererActions");
-    expect(source).toContain("acpRunLogRendererActions.open");
-    expect(source).toContain("acpRunLogRendererActions.close");
-    expect(source).toContain("acpRunLogRendererActions.scheduleLiveRefresh");
-    expect(source).toContain("acpRunLogRendererActions.clearTimer");
-    expect(source).toContain(
-      "acpRunLogRendererActions.showDirectGenerationRecords",
-    );
-    expect(source).not.toContain("const handleOpenAcpRunLog");
-    expect(source).not.toContain("const getAcpAgentRunningTaskId");
-    expect(source).not.toContain("const showDirectGenerationRecords");
-    expect(source).not.toContain("const clearAcpRunLogRefreshTimer");
-    expect(source).not.toContain("const [acpRunLogDialogOpen");
-    expect(source).not.toContain("const [acpRunLogLoading");
-    expect(source).not.toContain("const [acpRunLogDetail");
-    expect(source).not.toContain("const [acpRunLogError");
-    expect(source).not.toContain("const [acpRunLogRawOpen");
-    expect(source).not.toContain("const [acpConversationEntries");
-    expect(source).not.toContain("useState<AcpAgentTaskUiState | null>");
-    expect(source).not.toContain("type AcpAgentTaskUiState");
-    expect(source).not.toContain("const acpRunLogRefreshTimerRef = useRef");
-    expect(source).not.toContain("activeAcpTaskIdRef");
-    expect(source).not.toContain("activeAcpThreadIdRef");
-    expect(source).not.toContain("acpRunLogTaskIdRef");
-    expect(source).not.toContain("acpRunLogSurfaceRef");
-    expect(source).not.toContain("acpRunLogRefreshTimerRef");
-    expect(source).not.toContain(
-      "setRunLogTaskId: (taskId) => {\n      acpRunLogTaskIdRef.current = taskId;\n    }",
-    );
-    expect(source).not.toContain(
-      "setRunLogSurface: (surface) => {\n      acpRunLogSurfaceRef.current = surface;\n      setAcpRunLogSurface(surface);\n    }",
-    );
-    expect(source).not.toContain("clearTimerRefAction");
-    expect(source).not.toContain("scheduleAcpRunLogLiveRefresh");
-    expect(source).not.toContain("runAcpRunLogOpen");
-    expect(source).not.toContain("runAcpRunLogClose");
-    expect(source).not.toContain("runAcpRunLogDetailRefresh");
-    expect(source).not.toContain("applyOpenAcpRunLogControllerState");
-    expect(source).not.toContain("applyCloseAcpRunLogControllerState");
-    expect(source).not.toContain("applyAcpRunLogDetailLoadSuccessState");
-    expect(source).not.toContain("applyAcpRunLogDetailLoadFailureState");
-  });
-
-  it("keeps ACP thread renderer wiring outside the root app", () => {
-    const source = readImageBoardApp();
-    const wiring = readAcpAgentWiring();
-
-    expect(source).toContain("useAcpInteractionTargetsController");
-    expect(source).not.toContain("createAcpActiveTaskIdRendererActions");
-    expect(source).toContain("acpActiveTaskIdRendererActions.set");
-    expect(source).not.toContain("createAcpActiveThreadIdRendererActions");
-    expect(source).toContain("acpActiveThreadIdRendererActions.set");
-    expect(source).toContain("createAcpThreadRendererActions");
-    expect(wiring).toContain("acpThreadRendererActions.startInitialLoad");
-    expect(source).toContain(
-      "acpThreadRendererActions.selectThreadForConversation",
-    );
-    expect(source).toContain("acpThreadRendererActions.startNewThread");
-    expect(source).not.toContain("void acpThreadRendererActions.loadInitial");
-    expect(source).not.toContain("void acpThreadRendererActions.selectThread");
-    expect(source).not.toContain(
-      "setActiveTaskId: (taskId) => {\n      activeAcpTaskIdRef.current = taskId;\n    }",
-    );
-    expect(source).not.toContain(
-      "clearActiveTask: () => {\n        activeAcpTaskIdRef.current = null;\n      }",
-    );
-    expect(source).not.toContain("const updateActiveAcpThreadId");
-    expect(source).not.toContain("const handleSelectAcpThread");
-    expect(source).not.toContain("const handleStartNewAcpThread");
-    expect(source).not.toContain("startAcpInitialThreadLoadAction");
-    expect(source).not.toContain("runAcpThreadSelection");
-    expect(source).not.toContain("runAcpNewThread");
-    expect(source).not.toContain("applyAcpThreadDetailState");
-    expect(source).not.toContain("applyNewAcpThreadControllerState");
-    expect(source).not.toContain("applyAcpInitialThreadResetControllerState");
   });
 
   it("keeps project maintenance user actions owned outside App", () => {
@@ -1771,7 +1564,7 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("buildProjectRepairSceneApplyState");
   });
 
-  it("keeps composer submit and mode wiring in the composer runtime", () => {
+  it("keeps composer submit wiring in the composer runtime", () => {
     const dialogSource = readGenerateImageDialog();
     const dialogRuntimeSource = readGenerateImageDialogRuntime();
     const composerRuntimeSource = readGenerateDialogComposerRuntime();
@@ -1782,15 +1575,9 @@ describe("generate composer styles", () => {
     expect(dialogSource).not.toContain("createGenerateDialogComposerRuntime");
     expect(dialogSource).not.toContain("createGenerationSubmitHandler");
     expect(dialogSource).not.toContain("createGenerateComposerEventHandlers");
-    expect(dialogSource).not.toContain(
-      "createGenerateComposerModeSelectionHandlers",
-    );
     expect(composerRuntimeSource).toContain("createGenerationSubmitHandler");
     expect(composerRuntimeSource).toContain(
       "createGenerateComposerEventHandlers",
-    );
-    expect(composerRuntimeSource).toContain(
-      "createGenerateComposerModeSelectionHandlers",
     );
   });
 
@@ -1804,11 +1591,8 @@ describe("generate composer styles", () => {
       "GenerateDialogComposerActionsSection",
     );
     expect(dialogSource).not.toContain("GenerateComposerActionBar");
-    expect(dialogSource).not.toContain("GenerateComposerSourceSelect");
-    expect(dialogSource).not.toContain("renderGenerationSourceSelect");
     expect(dialogSource).not.toContain("setAdvancedOpen((current)");
     expect(actionsSectionSource).toContain("GenerateComposerActionBar");
-    expect(actionsSectionSource).toContain("GenerateComposerSourceSelect");
     expect(actionsSectionSource).toContain("setAdvancedOpen((current)");
   });
 
@@ -1821,12 +1605,8 @@ describe("generate composer styles", () => {
     expect(composerSectionSource).toContain(
       "GenerateDialogComposerContentSection",
     );
-    expect(dialogSource).not.toContain("GenerateComposerModeBar");
-    expect(dialogSource).not.toContain("GenerateComposerAgentContext");
     expect(dialogSource).not.toContain("GenerateComposerPromptBody");
     expect(dialogSource).not.toContain("void commitPendingReference()");
-    expect(contentSectionSource).toContain("GenerateComposerModeBar");
-    expect(contentSectionSource).toContain("GenerateComposerAgentContext");
     expect(contentSectionSource).toContain("GenerateComposerPromptBody");
     expect(contentSectionSource).toContain("void onCommitPendingReference()");
   });
@@ -1845,6 +1625,6 @@ describe("generate composer styles", () => {
     expect(composerSectionSource).toContain(
       "GenerateDialogComposerActionsSection",
     );
-    expect(composerSectionSource).toContain("GenerateComposerTaskStatus");
+    expect(composerSectionSource).not.toContain("GenerateComposerTaskStatus");
   });
 });

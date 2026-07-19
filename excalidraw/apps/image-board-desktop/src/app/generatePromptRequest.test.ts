@@ -7,7 +7,6 @@ import {
   buildGenerationRequestFromSelection,
   buildGenerateRequestChangeState,
   buildGenerateReferenceRemovalRequest,
-  buildGenerationSourceChangeState,
   buildGenerationSubmitPlan,
   clearSubmittedPromptRequest,
   createPromptReferencePayload,
@@ -24,7 +23,6 @@ import {
   runGenerateReferenceCommitAction,
   runGenerateReferenceRemovalAction,
   runGenerateRequestChangeAction,
-  runGenerationSourceChangeAction,
   shouldBuildGenerateDialogSelectionReference,
   stripReferenceItemThumbnails,
 } from "./generatePromptRequest";
@@ -714,45 +712,7 @@ describe("generatePromptRequest", () => {
     });
   });
 
-  it("builds state updates for generation source changes", () => {
-    expect(
-      buildGenerationSourceChangeState({
-        source: "builtin",
-        currentRequest: createRequest({
-          generationSource: "agent",
-          prompt: "保留提示词",
-        }),
-      }),
-    ).toMatchObject({
-      generationSource: "builtin",
-      showDirectGenerationRecords: true,
-      request: {
-        generationSource: "builtin",
-        prompt: "保留提示词",
-      },
-    });
-
-    expect(
-      buildGenerationSourceChangeState({
-        source: "agent",
-        currentRequest: createRequest({
-          generationSource: "builtin",
-          prompt: "保留提示词",
-        }),
-      }),
-    ).toMatchObject({
-      generationSource: "agent",
-      showDirectGenerationRecords: false,
-      request: {
-        generationSource: "agent",
-        prompt: "保留提示词",
-      },
-    });
-  });
-
   it("applies generation request changes through the owner action", () => {
-    const setGenerationSource = vi.fn();
-    const showDirectGenerationRecords = vi.fn();
     const setGenerateRequest = vi.fn();
 
     const state = runGenerateRequestChangeAction({
@@ -761,8 +721,6 @@ describe("generatePromptRequest", () => {
         prompt: "切回直接输入",
       }),
       customModels: [],
-      setGenerationSource,
-      showDirectGenerationRecords,
       setGenerateRequest,
     });
 
@@ -774,49 +732,7 @@ describe("generatePromptRequest", () => {
         prompt: "切回直接输入",
       },
     });
-    expect(setGenerationSource).toHaveBeenCalledWith("builtin");
-    expect(showDirectGenerationRecords).toHaveBeenCalledTimes(1);
     expect(setGenerateRequest).toHaveBeenCalledWith(state.request);
-  });
-
-  it("applies generation source changes with a request updater", () => {
-    const setGenerationSource = vi.fn();
-    const showDirectGenerationRecords = vi.fn();
-    const updateGenerateRequest = vi.fn();
-
-    const state = runGenerationSourceChangeAction({
-      source: "agent",
-      currentRequest: createRequest({
-        generationSource: "builtin",
-        prompt: "当前闭包里的提示词",
-      }),
-      setGenerationSource,
-      showDirectGenerationRecords,
-      updateGenerateRequest,
-    });
-
-    expect(state).toMatchObject({
-      generationSource: "agent",
-      showDirectGenerationRecords: false,
-    });
-    expect(setGenerationSource).toHaveBeenCalledWith("agent");
-    expect(showDirectGenerationRecords).not.toHaveBeenCalled();
-    expect(updateGenerateRequest).toHaveBeenCalledTimes(1);
-
-    const updater = updateGenerateRequest.mock.calls[0]?.[0] as (
-      current: GenerationRequest,
-    ) => GenerationRequest;
-    expect(
-      updater(
-        createRequest({
-          generationSource: "builtin",
-          prompt: "最新 state 里的提示词",
-        }),
-      ),
-    ).toMatchObject({
-      generationSource: "agent",
-      prompt: "最新 state 里的提示词",
-    });
   });
 
   it("clears prompt fields after submit without changing the selected reference", () => {
@@ -877,7 +793,6 @@ describe("generatePromptRequest", () => {
             },
           ],
         }),
-        generationSource: "builtin",
         maxPromptReferenceCount: 2,
       }),
     ).toMatchObject({
@@ -912,7 +827,6 @@ describe("generatePromptRequest", () => {
             },
           ],
         }),
-        generationSource: "builtin",
         maxPromptReferenceCount: 1,
       }),
     ).toMatchObject({
@@ -927,39 +841,12 @@ describe("generatePromptRequest", () => {
         request: createRequest({
           reference: pendingReference,
         }),
-        generationSource: "builtin",
         maxPromptReferenceCount: 0,
       }),
     ).toMatchObject({
       hasUsablePendingReference: false,
       referenceLimitReason: "unsupported",
       pendingReference: null,
-      hasSubmitContent: false,
-    });
-  });
-
-  it("does not treat a pending visual reference as an ACP instruction", () => {
-    const pendingReference = {
-      enabled: true,
-      elementCount: 1,
-      textCount: 0,
-    };
-
-    expect(
-      buildGeneratePromptReferenceState({
-        request: createRequest({
-          prompt: "",
-          reference: pendingReference,
-        }),
-        generationSource: "agent",
-        maxPromptReferenceCount: 0,
-      }),
-    ).toMatchObject({
-      hasPendingReference: true,
-      hasUsablePendingReference: false,
-      referenceLimitReason: null,
-      pendingReference: null,
-      hasInlineReferenceVisuals: false,
       hasSubmitContent: false,
     });
   });
@@ -1013,24 +900,10 @@ describe("generatePromptRequest", () => {
     ).toBeNull();
   });
 
-  it("builds submit plans for prompt composer modes without leaking UI branching", () => {
+  it("builds submit plans for the built-in prompt composer", () => {
     expect(
       buildGenerationSubmitPlan({
-        isPromptComposerMode: false,
-        canSubmit: true,
-        generationSource: "builtin",
-        hasPendingReferenceToCommit: false,
-      }),
-    ).toEqual({
-      kind: "blocked",
-      reason: "non-prompt-composer",
-    });
-
-    expect(
-      buildGenerationSubmitPlan({
-        isPromptComposerMode: true,
         canSubmit: false,
-        generationSource: "builtin",
         hasPendingReferenceToCommit: false,
       }),
     ).toEqual({
@@ -1040,18 +913,7 @@ describe("generatePromptRequest", () => {
 
     expect(
       buildGenerationSubmitPlan({
-        isPromptComposerMode: true,
         canSubmit: true,
-        generationSource: "agent",
-        hasPendingReferenceToCommit: true,
-      }),
-    ).toEqual({ kind: "submit" });
-
-    expect(
-      buildGenerationSubmitPlan({
-        isPromptComposerMode: true,
-        canSubmit: true,
-        generationSource: "builtin",
         hasPendingReferenceToCommit: true,
       }),
     ).toEqual({

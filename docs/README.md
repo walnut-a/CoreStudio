@@ -34,8 +34,8 @@
 - [../excalidraw/apps/image-board-desktop/PRODUCT.md](../excalidraw/apps/image-board-desktop/PRODUCT.md)：产品定位和 Agent 集成原则。
 - [../excalidraw/apps/image-board-desktop/DESIGN.md](../excalidraw/apps/image-board-desktop/DESIGN.md)：设计系统和界面约束。
 - [../excalidraw/apps/image-board-desktop/docs/localization.md](../excalidraw/apps/image-board-desktop/docs/localization.md)：新增 CoreStudio 功能时的多语言底座与文案约定。
-- [../excalidraw/apps/image-board-desktop/docs/agent-integration-entry-map.md](../excalidraw/apps/image-board-desktop/docs/agent-integration-entry-map.md)：Agent 集成入口地图。
 - [../excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md](../excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md)：CoreStudio CLI contract。
+- [../excalidraw/apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md](../excalidraw/apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md)：当前 Agent 集成架构边界。
 
 ## 更新规则
 

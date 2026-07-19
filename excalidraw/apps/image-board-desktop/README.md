@@ -1,93 +1,47 @@
-# CoreStudio Agent CLI
+# CoreStudio Desktop
 
-CoreStudio exposes a small localhost Agent Bridge while the desktop app is open. Agents can use it in two ways:
+CoreStudio 是基于 Excalidraw 的本地优先图像画板。本目录包含 Electron 桌面端、renderer、Local Bridge、CLI 和 Codex 集成资源。
 
-1. Use the `corestudio` CLI. The CLI discovers the current local session and is only a thin client for the bridge: it does not read or write project files directly.
-2. Copy the Agent Board link from the desktop app and open it in an Agent's built-in browser.
+## 产品路径
 
-Agent access is controlled by a software-level switch in the desktop app. When it is enabled, each project still has a stable project token, but the copied Agent Board link is a stable board entry URL rather than a project-specific URL. The embedded board can choose a recent project independently from the desktop window's currently opened project.
+- CoreStudio 内使用底部输入框进行单次生成。
+- Codex 负责复杂、连续或并行的 Agent 工作流。
+- Agent Board 提供画布查看、选择、标注和结果确认。
+- CLI / Local Bridge 负责受控读取和写回，不直接修改项目文件。
 
-Read and write commands use the selected project's token; there is no separate write authorization step. Browser requests to the localhost bridge only receive CORS access from the Agent Board origin. Project-changing desktop bridge calls, including opening a recent project, require the project bearer token.
+## CLI
 
-Run these commands with CoreStudio open and Agent access enabled. In this source package, use `node bin/corestudio.cjs ...`; a packaged desktop install does not install a global `corestudio` command yet.
+CLI 分为四组：
 
-The CLI is intentionally small. Its public surface is organized as four tools:
+- `read`：状态、项目、记录、健康报告、场景、选区、图片路径和 Board URL。
+- `write`：图片、prompt 和 CoreStudio 生成请求。
+- `edit`：定位和选择现有画布元素。
+- `bash`：当前会话环境和示例。
 
-- `read`: inspect the bridge, project, image records, project health, scene, selection, ACP logs, board URL, and local image paths.
-- `write`: add generated images, prompts, or start a CoreStudio generation.
-- `edit`: select or locate existing board elements without changing project assets.
-- `bash`: print shell environment and examples for Agents that need copyable commands.
+源码运行示例：
 
 ```sh
 node bin/corestudio.cjs read status --json
-node bin/corestudio.cjs read capabilities --json
-node bin/corestudio.cjs read context --json
-node bin/corestudio.cjs read project --json
-node bin/corestudio.cjs read records --json
-node bin/corestudio.cjs read health --json
-node bin/corestudio.cjs read scene --json
 node bin/corestudio.cjs read selection --json
 node bin/corestudio.cjs read image-paths --selection --json
-node bin/corestudio.cjs read image-paths --file-ids <fileId>[,<fileId>] --json
-node bin/corestudio.cjs read image-paths --all --json
-node bin/corestudio.cjs read board-url --json
-node bin/corestudio.cjs read acp-runs --json
-node bin/corestudio.cjs read acp-run --task-id <taskId> --json
-node bin/corestudio.cjs read acp-threads --json
-node bin/corestudio.cjs read acp-thread --thread-id <threadId> --json
+node bin/corestudio.cjs write image ./result.png --origin agent-board --json
 node bin/corestudio.cjs edit locate --file-id <fileId> --json
-node bin/corestudio.cjs edit select --element-ids <elementId>[,<elementId>] --json
-node bin/corestudio.cjs bash examples --json
 ```
 
-Use `read image-paths` when an Agent needs local reference files. It returns the original image paths from the current project instead of streaming image bytes through the CLI. Prefer `--selection` or `--file-ids`; `--all` is explicit because large projects can contain many images.
+CLI 是 Local Bridge 的薄客户端。所有项目写入由 CoreStudio 校验并通过事务保存。
 
-Use `read records` before reasoning about generated outputs or missing board items. It returns project image records from the local data layer plus whether each record is currently present on the board. Use `read health` when the project appears inconsistent; it reports missing assets, stale caches, incomplete generation metadata, orphan records, and repairable issues.
+## 开发
 
-Use `edit locate` when an Agent needs CoreStudio to focus a referenced image or element for the user. It selects the target and scrolls the board to it. Use `edit select` when the Agent only needs to update selection state.
-
-Generation mode is an explicit user preference. `read context --json` returns `generation.source`:
-
-- `agent`: the Agent should use its own image-generation ability when available, then write results back with CoreStudio CLI. The UI labels this as `Agent 生成`.
-- `builtin`: the Agent should call CoreStudio's configured generation provider through the bridge. The UI labels this as `CoreStudio 生成`.
-
-The desktop client defaults to `builtin`. Agent Board defaults to `agent`, shows the per-request generation-mode switch in the generation composer, and only shows the current default mode as read-only status in the Agent settings popover.
-
-## ACP Agent tasks
-
-CoreStudio can also act as an ACP Client. This is separate from the CLI bridge: CoreStudio starts a user-configured ACP Agent process, sends the current task and canvas context through ACP, and displays the Agent task status in the generation composer.
-
-Configure it from **应用设置 -> ACP Agent**:
-
-- Enable Agent access with the global `Agent 调用` switch.
-- Choose an Agent preset (`Codex ACP` or `Gemini CLI`) to fill the default command template, or use `自定义命令` for another ACP-compatible adapter.
-- Adjust the command, optional args, and optional working directory when the preset does not match the local installation.
-- Enable and save the ACP Agent configuration.
-
-The presets only describe how CoreStudio should start the local ACP process. Agent installation, login, model choice, and provider credentials still belong to the external Agent.
-
-When `Agent 生成` is selected in the composer, CoreStudio sends an ACP `session/prompt` task instead of calling the built-in image provider. The task context includes the project token, bridge URL, board URL, generation source, and selected element IDs / file IDs. It does not stream original image bytes; Agents should call `read image-paths` when they need local reference files.
-
-ACP text output is display-only. Project mutations must still go through the CoreStudio CLI / Local Bridge, for example `write image`, `write prompt`, or `write generation`. This keeps CoreStudio's local project format as the single source of truth.
-
-Write commands mutate the token-selected project through the bridge:
+从仓库 `excalidraw/` 目录运行：
 
 ```sh
-node bin/corestudio.cjs write prompt \
-  --text "户外储能产品外观方向" \
-  --json
-
-node bin/corestudio.cjs write image ./reference.png \
-  --json
-
-node bin/corestudio.cjs write generation \
-  --prompt "基于当前选区生成 3 个产品渲染方向" \
-  --use-selection \
-  --json
+corepack yarn start:desktop
+corepack yarn test:desktop --run
+corepack yarn build:desktop
 ```
 
-When the Agent Board is open, it publishes its current selection and viewport to the bridge. CLI write commands then use that runtime context for reference selection and placement, so `write generation --use-selection` targets the embedded board state rather than the desktop window's local selection.
+详细契约见：
 
-Use `--dry-run` with `write prompt` or `write image` to validate a write payload without mutating the board. Dry-run responses summarize image payloads without echoing `dataBase64`.
-
-If this package is later linked or published as a CLI package, the same examples can use `corestudio ...` in place of `node bin/corestudio.cjs ...`.
+- [Agent CLI Contract](docs/agent-cli-contract.md)
+- [Codex 集成使用说明](docs/agent-integration-user-guide.md)
+- [Agent 集成架构与迭代原则](docs/agent-integration-architecture-and-principles.md)

@@ -29,7 +29,6 @@ describe("ApplicationSettingsDialog", () => {
         generalContent={<div>通用内容</div>}
         imageGenerationContent={<div>图像生成内容</div>}
         codexIntegrationContent={<div>Codex 集成内容</div>}
-        experimentalContent={<div>实验性功能内容</div>}
         aboutContent={<div>关于内容</div>}
       />,
     );
@@ -37,7 +36,7 @@ describe("ApplicationSettingsDialog", () => {
     return { onCategoryChange, onClose };
   };
 
-  it("显示五个一级分类和当前分类内容", () => {
+  it("显示四个一级分类和当前分类内容", () => {
     renderDialog();
 
     expect(screen.getByRole("tab", { name: "通用" })).toBeInTheDocument();
@@ -46,7 +45,6 @@ describe("ApplicationSettingsDialog", () => {
       "true",
     );
     expect(screen.getByRole("tab", { name: "Codex 集成" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "实验性功能" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "关于" })).toBeInTheDocument();
     expect(screen.getByText("图像生成内容")).toBeInTheDocument();
   });
@@ -102,7 +100,6 @@ describe("ApplicationSettingsDialog", () => {
         generalContent={null}
         imageGenerationContent={<DetailBackProbe onBack={onBack} />}
         codexIntegrationContent={null}
-        experimentalContent={null}
         aboutContent={null}
       />,
     );

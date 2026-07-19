@@ -32,17 +32,7 @@ const createProps = (
     generalContent: <div>通用</div>,
     imageGenerationContent: <div>图像生成</div>,
     codexIntegrationContent: <div>Codex 集成</div>,
-    experimentalContent: <div>实验性功能</div>,
     aboutContent: <div>关于</div>,
-  },
-  acpRunLog: {
-    open: false,
-    loading: false,
-    error: null,
-    detail: null,
-    rawOpen: false,
-    onRawOpenChange: vi.fn(),
-    onClose: vi.fn(),
   },
   projectDataReport: {
     open: false,

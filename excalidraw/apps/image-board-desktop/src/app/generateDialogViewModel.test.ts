@@ -40,13 +40,6 @@ describe("buildGenerateDialogViewModel", () => {
         },
       } as never,
       currentProviderCustomModels: [],
-      effectiveComposerMode: "direct",
-      effectiveGenerationSource: "builtin",
-      showComposerModeSwitch: true,
-      showComposerModeIndicator: false,
-      showGenerationSourceSwitch: true,
-      agentGenerationAvailable: false,
-      agentTaskStatus: null,
       referenceLimitMessages,
     });
 
@@ -74,13 +67,6 @@ describe("buildGenerateDialogViewModel", () => {
         },
       } as never,
       currentProviderCustomModels: [],
-      effectiveComposerMode: "direct",
-      effectiveGenerationSource: "builtin",
-      showComposerModeSwitch: true,
-      showComposerModeIndicator: false,
-      showGenerationSourceSwitch: true,
-      agentGenerationAvailable: false,
-      agentTaskStatus: null,
       referenceLimitMessages,
     });
 
@@ -93,7 +79,7 @@ describe("buildGenerateDialogViewModel", () => {
     expect(viewModel.showBody).toBe(false);
   });
 
-  it("allows ACP Agent instructions without built-in provider configuration", () => {
+  it("requires built-in provider configuration", () => {
     const viewModel = buildGenerateDialogViewModel({
       request: createRequest({
         prompt: "基于选中对象继续优化",
@@ -105,31 +91,13 @@ describe("buildGenerateDialogViewModel", () => {
       }),
       providerSettings: null,
       currentProviderCustomModels: [],
-      effectiveComposerMode: "acp",
-      effectiveGenerationSource: "agent",
-      showComposerModeSwitch: true,
-      showComposerModeIndicator: false,
-      showGenerationSourceSwitch: false,
-      agentGenerationAvailable: true,
-      agentTaskStatus: {
-        status: "completed",
-        message: "上一轮已完成",
-      },
       referenceLimitMessages,
     });
 
     expect(viewModel.isConfigured).toBe(false);
     expect(viewModel.hasSubmitContent).toBe(true);
-    expect(viewModel.canSubmit).toBe(true);
+    expect(viewModel.canSubmit).toBe(false);
     expect(viewModel.showBody).toBe(false);
-    expect(viewModel.showComposerTaskBar).toBe(true);
-    expect(viewModel.classNames).toEqual(
-      expect.arrayContaining([
-        "generate-composer",
-        "generate-composer--with-mode-switch",
-        "generate-composer--with-taskbar",
-        "generate-composer--with-agent-task",
-      ]),
-    );
+    expect(viewModel.classNames).toContain("generate-composer");
   });
 });

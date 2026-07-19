@@ -11,14 +11,8 @@ import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
 import type {
   CustomProviderModel,
   GenerationRequest,
-  GenerationSource,
 } from "../shared/providerTypes";
 import { getProviderStatusLabel } from "./copy";
-import type {
-  GenerateComposerConfig,
-  GenerateComposerMode,
-} from "./agent/useGenerateComposerController";
-import { getGenerateComposerCanSubmit } from "./agent/useGenerateComposerController";
 import {
   buildGeneratePromptReferenceState,
   formatGeneratePromptReferenceLimitMessage,
@@ -35,13 +29,6 @@ interface BuildGenerateDialogViewModelInput {
   request: GenerationRequest;
   providerSettings: PublicProviderSettings | null;
   currentProviderCustomModels: readonly CustomProviderModel[];
-  effectiveComposerMode: GenerateComposerMode;
-  effectiveGenerationSource: GenerationSource;
-  showComposerModeSwitch: boolean;
-  showComposerModeIndicator: boolean;
-  showGenerationSourceSwitch: boolean;
-  agentGenerationAvailable: boolean;
-  agentTaskStatus: GenerateComposerConfig["agentTaskStatus"];
   referenceLimitMessages: GenerateDialogReferenceLimitMessages;
   advancedOpen?: boolean;
 }
@@ -50,13 +37,6 @@ export const buildGenerateDialogViewModel = ({
   request,
   providerSettings,
   currentProviderCustomModels,
-  effectiveComposerMode,
-  effectiveGenerationSource,
-  showComposerModeSwitch,
-  showComposerModeIndicator,
-  showGenerationSourceSwitch,
-  agentGenerationAvailable,
-  agentTaskStatus,
   referenceLimitMessages,
   advancedOpen = false,
 }: BuildGenerateDialogViewModelInput) => {
@@ -94,7 +74,6 @@ export const buildGenerateDialogViewModel = ({
         ASPECT_RATIO_AUTO_ID;
   const referenceState = buildGeneratePromptReferenceState({
     request,
-    generationSource: effectiveGenerationSource,
     maxPromptReferenceCount,
   });
   const referenceLimitMessage = formatGeneratePromptReferenceLimitMessage({
@@ -102,41 +81,18 @@ export const buildGenerateDialogViewModel = ({
     maxPromptReferenceCount,
     messages: referenceLimitMessages,
   });
-  const canSubmit = getGenerateComposerCanSubmit({
-    effectiveGenerationSource,
-    hasSubmitContent: referenceState.hasSubmitContent,
-    agentGenerationAvailable,
-    agentTaskRunning: Boolean(
-      agentTaskStatus &&
-        !["idle", "completed", "failed", "cancelled"].includes(
-          agentTaskStatus.status,
-        ),
-    ),
-    builtInGenerationConfigured: isConfigured,
-    referenceSubmissionBlocked: Boolean(
-      referenceState.pendingReference || referenceState.referenceLimitReason,
-    ),
-  });
-  const showBody = effectiveComposerMode === "direct" && advancedOpen;
-  const isAgentOperationMode = effectiveComposerMode === "agent";
-  const agentSelectionItems =
-    request.reference?.enabled && request.reference.items
-      ? request.reference.items
-      : [];
-  const showComposerTaskBar =
-    showComposerModeSwitch || showComposerModeIndicator;
+  const canSubmit = Boolean(
+    referenceState.hasSubmitContent &&
+      isConfigured &&
+      !referenceState.pendingReference &&
+      !referenceState.referenceLimitReason,
+  );
+  const showBody = advancedOpen;
   const classNames = [
     "generate-composer",
     referenceState.hasInlineReferenceVisuals
       ? "generate-composer--with-reference"
       : "",
-    showComposerModeSwitch ? "generate-composer--with-mode-switch" : "",
-    showGenerationSourceSwitch
-      ? "generate-composer--with-source-switch"
-      : "",
-    showComposerTaskBar ? "generate-composer--with-taskbar" : "",
-    agentTaskStatus ? "generate-composer--with-agent-task" : "",
-    isAgentOperationMode ? "generate-composer--agent-mode" : "",
   ].filter(Boolean);
 
   return {
@@ -153,9 +109,6 @@ export const buildGenerateDialogViewModel = ({
     referenceLimitMessage,
     canSubmit,
     showBody,
-    isAgentOperationMode,
-    agentSelectionItems,
-    showComposerTaskBar,
     classNames,
     ...referenceState,
   };

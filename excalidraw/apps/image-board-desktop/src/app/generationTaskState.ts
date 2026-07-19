@@ -3,7 +3,7 @@ import type {
   ProviderId,
 } from "../shared/providerTypes";
 
-import { getAcpTaskPromptText } from "./agent/acpTaskRequestBuilder";
+import { buildPromptTextWithInlineReferences } from "../shared/promptReferences";
 import { copy } from "./copy";
 
 export interface GenerationTaskRecord {
@@ -46,7 +46,7 @@ export const buildPendingGenerationTaskRecord = ({
   status: "pending",
   provider: request.provider,
   model: request.model,
-  prompt: getAcpTaskPromptText(request),
+  prompt: buildPromptTextWithInlineReferences(request).trim() || request.prompt,
   negativePrompt: request.negativePrompt,
   aspectRatio: request.aspectRatio,
   seed: request.seed,

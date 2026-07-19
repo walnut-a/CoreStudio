@@ -3,14 +3,10 @@ import type {
   PublicProviderSettings,
 } from "../shared/desktopBridgeTypes";
 import type { GenerationRequest } from "../shared/providerTypes";
-import { buildGenerationExecutionPlan } from "./generationRequestState";
 import { buildGenerationErrorDisplayRendererRequest } from "./generationRequestRendererController";
-import { copy } from "./copy";
 
 export type GenerationSubmitRendererActionResult =
   | { status: "skipped-no-project" }
-  | { status: "acp-agent-started" }
-  | { status: "acp-agent-failed" }
   | { status: "builtin-started" }
   | { status: "builtin-failed" };
 
@@ -32,7 +28,6 @@ export type GenerationSubmitRendererActionsInput<
   getProviderSettings: () => PublicProviderSettings | null;
   clearGenerationError: () => void;
   assertProjectActive: (expectedProjectPath?: string) => void;
-  startAcpAgentGeneration: (request: GenerationRequest) => Promise<unknown>;
   startBuiltinGeneration: (
     request: GenerationRequest,
     project: DesktopProjectBundle,
@@ -52,7 +47,6 @@ export const runGenerationSubmitRendererAction = async ({
   rejectOnError,
   clearGenerationError,
   assertProjectActive,
-  startAcpAgentGeneration,
   startBuiltinGeneration,
   showGenerationError,
 }: {
@@ -62,7 +56,6 @@ export const runGenerationSubmitRendererAction = async ({
   rejectOnError: boolean;
   clearGenerationError: () => void;
   assertProjectActive: () => void;
-  startAcpAgentGeneration: (request: GenerationRequest) => Promise<unknown>;
   startBuiltinGeneration: (
     request: GenerationRequest,
     project: DesktopProjectBundle,
@@ -80,32 +73,19 @@ export const runGenerationSubmitRendererAction = async ({
   assertProjectActive();
   clearGenerationError();
 
-  const executionPlan = buildGenerationExecutionPlan(request);
-  if (executionPlan.kind === "start-acp-agent-task") {
-    try {
-      await startAcpAgentGeneration(request);
-      return { status: "acp-agent-started" };
-    } catch (error) {
-      showGenerationError(
-        request,
-        error,
-        copy.generationError.acpTaskStartFailed,
-      );
-      if (rejectOnError) {
-        throw error;
-      }
-      return { status: "acp-agent-failed" };
-    }
-  }
+  const builtinRequest: GenerationRequest = {
+    ...request,
+    generationSource: "builtin",
+  };
 
   try {
-    const result = await startBuiltinGeneration(request, project);
+    const result = await startBuiltinGeneration(builtinRequest, project);
     void result.completion;
     return { status: "builtin-started" };
   } catch (error) {
     showGenerationError(
       buildGenerationErrorDisplayRendererRequest({
-        request,
+        request: builtinRequest,
         providerSettings,
       }),
       error,
@@ -125,7 +105,6 @@ export const createGenerationSubmitRendererActions = <
   getProviderSettings,
   clearGenerationError,
   assertProjectActive,
-  startAcpAgentGeneration,
   startBuiltinGeneration,
   showGenerationError,
 }: GenerationSubmitRendererActionsInput<PlacementViewport, Scene>) => {
@@ -147,7 +126,6 @@ export const createGenerationSubmitRendererActions = <
       clearGenerationError,
       assertProjectActive: () =>
         assertProjectActive(normalizedOptions.expectedProjectPath),
-      startAcpAgentGeneration,
       startBuiltinGeneration: (request, project) =>
         startBuiltinGeneration(request, project, normalizedOptions),
       showGenerationError,

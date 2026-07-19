@@ -3,7 +3,6 @@ import { useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useGenerateDialogPanelController } from "./useGenerateDialogPanelController";
-import type { GenerateComposerMode } from "./agent/useGenerateComposerController";
 
 let controller: ReturnType<typeof useGenerateDialogPanelController> | null =
   null;
@@ -13,7 +12,6 @@ const ControllerProbe = ({
   open = true,
   persistent = false,
   focusToken = 0,
-  effectiveComposerMode = "direct",
   error = null,
   isConfigured = true,
   onClose = vi.fn(),
@@ -21,7 +19,6 @@ const ControllerProbe = ({
   open?: boolean;
   persistent?: boolean;
   focusToken?: number;
-  effectiveComposerMode?: GenerateComposerMode;
   error?: string | null;
   isConfigured?: boolean;
   onClose?: () => void;
@@ -34,7 +31,6 @@ const ControllerProbe = ({
     open,
     persistent,
     focusToken,
-    effectiveComposerMode,
     error,
     isConfigured,
     panelRef,
@@ -77,26 +73,6 @@ describe("useGenerateDialogPanelController", () => {
     render(<ControllerProbe focusToken={1} />);
 
     expect(promptFocus).toHaveBeenCalledTimes(1);
-  });
-
-  it("closes direct-mode panels when switching to another composer mode", async () => {
-    const { rerender } = render(<ControllerProbe />);
-
-    act(() => {
-      controller?.setAdvancedOpen(true);
-    });
-
-    expect(getState()).toMatchObject({
-      advancedOpen: true,
-    });
-
-    rerender(<ControllerProbe effectiveComposerMode="acp" />);
-
-    await waitFor(() => {
-      expect(getState()).toMatchObject({
-        advancedOpen: false,
-      });
-    });
   });
 
   it("collapses advanced settings on Escape for persistent panels", async () => {

@@ -222,12 +222,6 @@ const toAgentImageAsset = (
   const generationOrigin =
     parseOptionalImageGenerationOrigin(payload.generationOrigin) ??
     defaults.generationOrigin;
-  const generationTaskId =
-    parseOptionalNonEmptyString(payload.generationTaskId) ??
-    parseOptionalNonEmptyString(defaults.generationTaskId);
-  const generationThreadId =
-    parseOptionalNonEmptyString(payload.generationThreadId) ??
-    parseOptionalNonEmptyString(defaults.generationThreadId);
   const sourceType =
     parseOptionalImageSourceType(payload.sourceType) ??
     defaults.sourceType ??
@@ -269,8 +263,6 @@ const toAgentImageAsset = (
       : defaults.seed !== undefined
         ? { seed: defaults.seed }
         : {}),
-    ...(generationTaskId ? { generationTaskId } : {}),
-    ...(generationThreadId ? { generationThreadId } : {}),
     ...(parentFileId ? { parentFileId } : {}),
     ...(promptReferences ? { promptReferences } : {}),
   };
@@ -289,12 +281,6 @@ export const getAgentImageAssetsFromPayload = (
     rootPayload,
     agentBoardContext,
   );
-  const generationTaskId = parseOptionalNonEmptyString(
-    rootPayload.generationTaskId,
-  );
-  const generationThreadId = parseOptionalNonEmptyString(
-    rootPayload.generationThreadId,
-  );
   const defaults: Partial<PersistedImageAssetInput> = {
     ...(sourceType
       ? { sourceType }
@@ -308,8 +294,6 @@ export const getAgentImageAssetsFromPayload = (
     ...(typeof rootPayload.negativePrompt === "string"
       ? { negativePrompt: rootPayload.negativePrompt }
       : {}),
-    ...(generationTaskId ? { generationTaskId } : {}),
-    ...(generationThreadId ? { generationThreadId } : {}),
     ...(typeof rootPayload.parentFileId === "string" &&
     rootPayload.parentFileId.trim()
       ? { parentFileId: rootPayload.parentFileId.trim() }

@@ -6,20 +6,16 @@
 
 ## 当前规范文档
 
-- [2026-07-14-corestudio-application-settings-redesign.md](2026-07-14-corestudio-application-settings-redesign.md)：CoreStudio 统一应用设置重构设计，固定图像生成、Codex 集成和实验性功能的分类结构、保存规则与画布入口边界。
-- [2026-07-14-corestudio-codex-collaboration-usability.md](2026-07-14-corestudio-codex-collaboration-usability.md)：CoreStudio 与 Codex 协作易用性需求整理，固定 Codex 主路径、CoreStudio 生图调用边界和 ACP 实验性定位。
-- [2026-07-14-corestudio-usability-improvement-backlog.md](2026-07-14-corestudio-usability-improvement-backlog.md)：易用性优化清单，汇总当前入口、安装、状态、Codex 主路径、CoreStudio 生图能力和实验性 ACP；首轮入口与状态简化已实现待验收，其余条目继续按确认状态推进。
+- [2026-07-14-corestudio-application-settings-redesign.md](2026-07-14-corestudio-application-settings-redesign.md)：CoreStudio 统一应用设置重构设计。
+- [2026-07-14-corestudio-codex-collaboration-usability.md](2026-07-14-corestudio-codex-collaboration-usability.md)：CoreStudio 与 Codex 当前协作边界。
+- [2026-07-14-corestudio-usability-improvement-backlog.md](2026-07-14-corestudio-usability-improvement-backlog.md)：易用性优化清单。
 
 ## 既有历史规格
 
 仓库已有历史规格文档保留在 `docs/superpowers/specs/`：
 
 - `docs/superpowers/specs/2026-04-24-corestudio-modification-boundary.md`
-- `docs/superpowers/specs/2026-06-24-corestudio-agent-collaboration-design.md`
 - `docs/superpowers/specs/2026-06-26-corestudio-project-agent-token-design.md`
-- `docs/superpowers/specs/2026-06-27-corestudio-acp-client-integration.md`
-- `docs/superpowers/specs/2026-06-28-corestudio-acp-task-package.md`
-- `docs/superpowers/specs/2026-06-29-corestudio-acp-agent-run-log-design.md`
 
 这些文档不在本次初始化中迁移或改写。
 

@@ -9,7 +9,6 @@ import type {
   ProjectHealthIssue,
   ProjectHealthReport,
 } from "../../src/shared/desktopBridgeTypes";
-import type { UnwrittenAcpOutput } from "../acp/acpOutputRecovery";
 
 type CachedImageAssetRendition = Exclude<
   ImageAssetRequestRendition,
@@ -37,11 +36,6 @@ interface InspectProjectHealthDependencies {
     record: ImageRecord;
     rendition: CachedImageAssetRendition;
   }) => Promise<boolean>;
-  collectUnwrittenAcpOutputs: (input: {
-    projectToken: string;
-    imageRecords: ImageRecordMap;
-    agentRunsBaseDir?: string;
-  }) => Promise<UnwrittenAcpOutput[]>;
 }
 
 const readSceneImageReferences = (sceneJson: string) => {
@@ -119,13 +113,7 @@ const getProjectAssetFileIdFromPath = (assetPath: string) => {
 };
 
 export const inspectProjectHealth = async (
-  {
-    projectPath,
-    agentRunsBaseDir,
-  }: {
-    projectPath: string;
-    agentRunsBaseDir?: string;
-  },
+  { projectPath }: { projectPath: string },
   deps: InspectProjectHealthDependencies,
 ): Promise<ProjectHealthReport> => {
   const bundle = await deps.readProjectBundle(projectPath);
@@ -213,12 +201,6 @@ export const inspectProjectHealth = async (
   const missingAssetFileIds: string[] = [];
   const missingThumbnailFileIds: string[] = [];
   const missingPreviewFileIds: string[] = [];
-  const unwrittenAcpOutputs = await deps.collectUnwrittenAcpOutputs({
-    projectToken: bundle.project.agentAccess.token,
-    imageRecords: bundle.imageRecords,
-    agentRunsBaseDir,
-  });
-
   await Promise.all(
     imageRecordFileIds.map(async (fileId) => {
       const record = bundle.imageRecords[fileId];
@@ -296,7 +278,6 @@ export const inspectProjectHealth = async (
     imageRecords: bundle.imageRecords,
     sceneImageFileIds,
     missingAssetFileIds,
-    unwrittenAcpOutputs,
   });
   recordIntegrityReport.issues.forEach(addIssue);
 
@@ -315,8 +296,6 @@ export const inspectProjectHealth = async (
       recordIntegrityReport.orphanImageRecordFileIds,
     orphanGeneratedImageRecordFileIds:
       recordIntegrityReport.orphanGeneratedImageRecordFileIds,
-    unwrittenAcpOutputFileIds:
-      recordIntegrityReport.unwrittenAcpOutputFileIds,
     incompleteGenerationRecordFileIds:
       recordIntegrityReport.incompleteGenerationRecordFileIds,
     brokenParentFileIds: recordIntegrityReport.brokenParentFileIds,

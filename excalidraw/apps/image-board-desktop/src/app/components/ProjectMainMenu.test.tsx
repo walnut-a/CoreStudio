@@ -104,9 +104,6 @@ describe("ProjectMainMenu", () => {
     expect(
       within(projectGroup).queryByRole("button", { name: "项目维护" }),
     ).not.toBeInTheDocument();
-    expect(
-      within(projectGroup).queryByRole("button", { name: "ACP 调试记录" }),
-    ).not.toBeInTheDocument();
 
     expect(
       screen.getByRole("button", { name: "导出图片" }),

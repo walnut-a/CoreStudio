@@ -486,8 +486,6 @@ describe("createLocalBridgeServer", () => {
     [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
     [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
     [AGENT_HTTP_ROUTES.sceneSelection, "scene.selection"],
-    ["/v1/acp/runs", "acp.runs"],
-    ["/v1/acp/threads", "acp.threads"],
   ] as const)("forwards %s to %s", async (route, command) => {
     const { server, renderer } = await track(startServer());
 
@@ -504,16 +502,6 @@ describe("createLocalBridgeServer", () => {
   });
 
   it.each([
-    {
-      route: "/v1/acp/run",
-      command: "acp.run",
-      body: { taskId: "task-1" },
-    },
-    {
-      route: "/v1/acp/thread",
-      command: "acp.thread",
-      body: { threadId: "thread-1" },
-    },
     {
       route: "/v1/scene/locate",
       command: "scene.locate",

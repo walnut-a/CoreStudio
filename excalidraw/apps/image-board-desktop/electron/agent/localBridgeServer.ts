@@ -97,14 +97,6 @@ const WRITE_ROUTES: WriteRouteConfig[] = [
 
 const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
   {
-    route: AGENT_HTTP_ROUTES.acpRun,
-    command: "acp.run",
-  },
-  {
-    route: AGENT_HTTP_ROUTES.acpThread,
-    command: "acp.thread",
-  },
-  {
     route: AGENT_HTTP_ROUTES.sceneLocate,
     command: "scene.locate",
   },
@@ -888,8 +880,6 @@ export const createLocalBridgeServer = async (
         [AGENT_HTTP_ROUTES.projectCurrent, "project.current"],
         [AGENT_HTTP_ROUTES.projectRecords, "project.records"],
         [AGENT_HTTP_ROUTES.projectHealth, "project.health"],
-        [AGENT_HTTP_ROUTES.acpRuns, "acp.runs"],
-        [AGENT_HTTP_ROUTES.acpThreads, "acp.threads"],
         [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
         [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
       ]);

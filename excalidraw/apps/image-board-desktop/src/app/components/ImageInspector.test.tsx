@@ -199,9 +199,9 @@ describe("ImageInspector", () => {
     expect(screen.getByText(/4\/12\/2026.*风格参考这个/)).toBeInTheDocument();
   });
 
-  it("shows ACP Agent provenance and prompt references for externally generated images", () => {
+  it("shows Agent Board provenance and prompt references for externally generated images", () => {
     const promptReference: ImagePromptReferenceRecord = {
-      id: "reference-acp",
+      id: "reference-agent-board",
       index: 1,
       label: "参考图 1",
       kind: "image",
@@ -214,7 +214,7 @@ describe("ImageInspector", () => {
       record: {
         ...generatedRecord,
         provider: undefined,
-        generationOrigin: "acp-agent",
+        generationOrigin: "agent-board",
         prompt: "改成更简约优雅的桌面 CNC。",
         promptReferences: [promptReference],
       },
@@ -224,12 +224,8 @@ describe("ImageInspector", () => {
     const detailGrid = screen.getByText("生成参数").closest("section");
     expect(detailGrid).not.toBeNull();
     expect(
-      within(detailGrid as HTMLElement).getByText("ACP Agent"),
+      within(detailGrid as HTMLElement).getByText("内置画板 Agent"),
     ).toBeInTheDocument();
-    expect(
-      within(detailGrid as HTMLElement).getByText("外部 Agent"),
-    ).toBeInTheDocument();
-
     fireEvent.click(screen.getByRole("button", { name: "定位参考图 1" }));
 
     expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);

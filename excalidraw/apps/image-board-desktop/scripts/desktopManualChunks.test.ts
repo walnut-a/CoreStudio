@@ -16,12 +16,7 @@ describe("getDesktopManualChunk", () => {
     }
   });
 
-  it("keeps coupled ACP and Radix UI libraries in one UI chunk", () => {
-    expect(
-      getDesktopManualChunk(
-        "/repo/node_modules/@assistant-ui/react/dist/index.js",
-      ),
-    ).toBe("vendor-ui");
+  it("keeps Radix UI libraries in one UI chunk", () => {
     expect(
       getDesktopManualChunk(
         "/repo/node_modules/@radix-ui/react-dialog/dist/index.js",

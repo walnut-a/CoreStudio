@@ -6,38 +6,18 @@ import type {
   SyntheticEvent,
 } from "react";
 
-import { GenerateComposerTaskStatus } from "./GenerateComposerTaskStatus";
 import { GenerateDialogComposerActionsSection } from "./GenerateDialogComposerActionsSection";
 import { GenerateDialogComposerContentSection } from "./GenerateDialogComposerContentSection";
 import type { InlinePromptEditorHandle } from "./InlinePromptEditor";
 
 import type {
-  GenerateComposerConfig,
-  GenerateComposerMode,
-} from "../agent/useGenerateComposerController";
-import type {
   GenerationPromptPart,
   GenerationPromptReferencePayload,
-  GenerationReferenceItemPayload,
   GenerationReferencePayload,
-  GenerationSource,
 } from "../../shared/providerTypes";
-
-type GenerateComposerAgentTaskStatus = GenerateComposerConfig["agentTaskStatus"];
-type GenerateComposerAgentTaskEvent = NonNullable<
-  NonNullable<GenerateComposerAgentTaskStatus>["events"]
->[number];
 
 interface GenerateDialogComposerSectionProps {
   classNames: readonly string[];
-  showComposerTaskBar: boolean;
-  showComposerModeSwitch: boolean;
-  showComposerModeIndicator: boolean;
-  composerModeOptions: readonly GenerateComposerMode[];
-  effectiveComposerMode: GenerateComposerMode;
-  isAgentOperationMode: boolean;
-  isPromptComposerMode: boolean;
-  agentSelectionItems: readonly GenerationReferenceItemPayload[];
   promptEditorRef: Ref<InlinePromptEditorHandle>;
   promptEditorParts: GenerationPromptPart[];
   promptReferences: GenerationPromptReferencePayload[];
@@ -46,42 +26,17 @@ interface GenerateDialogComposerSectionProps {
   referenceLimitMessage: string | null;
   advancedOpen: boolean;
   canSubmit: boolean;
-  showGenerationSourceSwitch: boolean;
-  agentGenerationSelectable: boolean;
-  effectiveGenerationSource: GenerationSource;
-  generationSourceLabel: string;
-  agentGenerationUnavailableMessage?: string;
-  generationSourceResetKey: string | number;
-  agentTaskStatus: GenerateComposerAgentTaskStatus;
-  agentTaskEvents: readonly GenerateComposerAgentTaskEvent[];
-  onSelectComposerMode: (
-    mode: GenerateComposerMode,
-    event: SyntheticEvent<HTMLElement>,
-  ) => void;
-  onSelectGenerationSource: (
-    source: GenerationSource,
-    event: SyntheticEvent<HTMLElement>,
-  ) => void;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
   onCommitPendingReference: () => void | Promise<unknown>;
   onPromptChange: (parts: GenerationPromptPart[]) => void;
   onPromptKeyPressCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
   onPromptKeyUpCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
   onPromptKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-  onOpenAgentRunLog?: (taskId: string) => void;
   setAdvancedOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const GenerateDialogComposerSection = ({
   classNames,
-  showComposerTaskBar,
-  showComposerModeSwitch,
-  showComposerModeIndicator,
-  composerModeOptions,
-  effectiveComposerMode,
-  isAgentOperationMode,
-  isPromptComposerMode,
-  agentSelectionItems,
   promptEditorRef,
   promptEditorParts,
   promptReferences,
@@ -90,41 +45,22 @@ export const GenerateDialogComposerSection = ({
   referenceLimitMessage,
   advancedOpen,
   canSubmit,
-  showGenerationSourceSwitch,
-  agentGenerationSelectable,
-  effectiveGenerationSource,
-  generationSourceLabel,
-  agentGenerationUnavailableMessage,
-  generationSourceResetKey,
-  agentTaskStatus,
-  agentTaskEvents,
-  onSelectComposerMode,
-  onSelectGenerationSource,
   onStopInputEvent,
   onCommitPendingReference,
   onPromptChange,
   onPromptKeyPressCapture,
   onPromptKeyUpCapture,
   onPromptKeyDown,
-  onOpenAgentRunLog,
   setAdvancedOpen,
 }: GenerateDialogComposerSectionProps) => (
   <div className={classNames.join(" ")}>
     <GenerateDialogComposerContentSection
-      showComposerTaskBar={showComposerTaskBar}
-      showComposerModeSwitch={showComposerModeSwitch}
-      showComposerModeIndicator={showComposerModeIndicator}
-      composerModeOptions={composerModeOptions}
-      effectiveComposerMode={effectiveComposerMode}
-      isAgentOperationMode={isAgentOperationMode}
-      agentSelectionItems={agentSelectionItems}
       promptEditorRef={promptEditorRef}
       promptEditorParts={promptEditorParts}
       promptReferences={promptReferences}
       pendingReference={pendingReference}
       promptEditorResetKey={promptEditorResetKey}
       referenceLimitMessage={referenceLimitMessage}
-      onSelectComposerMode={onSelectComposerMode}
       onStopInputEvent={onStopInputEvent}
       onCommitPendingReference={onCommitPendingReference}
       onPromptChange={onPromptChange}
@@ -133,26 +69,10 @@ export const GenerateDialogComposerSection = ({
       onPromptKeyDown={onPromptKeyDown}
     />
     <GenerateDialogComposerActionsSection
-      showAgentSourceSelect={isAgentOperationMode}
-      showPromptComposerActions={isPromptComposerMode}
-      showPromptTools={effectiveComposerMode === "direct"}
       advancedOpen={advancedOpen}
       canSubmit={canSubmit}
-      showGenerationSourceSwitch={showGenerationSourceSwitch}
-      agentGenerationSelectable={agentGenerationSelectable}
-      effectiveGenerationSource={effectiveGenerationSource}
-      generationSourceLabel={generationSourceLabel}
-      agentGenerationUnavailableMessage={agentGenerationUnavailableMessage}
-      generationSourceResetKey={generationSourceResetKey}
-      onSelectGenerationSource={onSelectGenerationSource}
       onStopInputEvent={onStopInputEvent}
       setAdvancedOpen={setAdvancedOpen}
-    />
-    <GenerateComposerTaskStatus
-      status={agentTaskStatus}
-      events={agentTaskEvents}
-      onOpenAgentRunLog={onOpenAgentRunLog}
-      onStopInputEvent={onStopInputEvent}
     />
   </div>
 );

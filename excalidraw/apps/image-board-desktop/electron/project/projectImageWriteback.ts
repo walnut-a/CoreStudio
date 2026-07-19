@@ -133,8 +133,6 @@ const createImageRecord = (
     prompt: file.prompt,
     negativePrompt: file.negativePrompt,
     seed: file.seed ?? null,
-    generationTaskId: file.generationTaskId ?? null,
-    generationThreadId: file.generationThreadId ?? null,
     width: file.width,
     height: file.height,
     createdAt: file.createdAt,

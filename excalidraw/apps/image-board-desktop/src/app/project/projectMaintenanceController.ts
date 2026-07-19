@@ -19,7 +19,6 @@ export interface ProjectRepairReport {
   skippedCount: number;
   failedCount: number;
   repairedGenerationRecordCount: number;
-  repairedAcpOutputCount: number;
   restoredImageRecordCount: number;
   skippedImageRecordCount: number;
   backupPath?: string | null;
@@ -58,7 +57,6 @@ export interface BuildProjectRepairCompletionStateInput<
 > extends BuildProjectRepairCompletionViewModelInput {
   activeProject: TProject | null | undefined;
   projectPath: string;
-  repairedAcpOutputRecords?: ImageRecordMap | null;
 }
 
 export interface ProjectRepairCompletionMessages {
@@ -105,7 +103,6 @@ export interface ProjectRepairCompletionResultState<
 export interface ApplyProjectRepairImageRecordUpdatesInput {
   imageRecords: ImageRecordMap;
   repairedGenerationRecordFileIds: readonly string[];
-  repairedAcpOutputRecords?: ImageRecordMap | null;
 }
 
 export interface BuildProjectRepairActiveProjectUpdateInput<
@@ -114,7 +111,6 @@ export interface BuildProjectRepairActiveProjectUpdateInput<
   activeProject: TProject | null | undefined;
   projectPath: string;
   repairedGenerationRecordFileIds: readonly string[];
-  repairedAcpOutputRecords?: ImageRecordMap | null;
 }
 
 export interface BuildProjectRepairMetadataUpdateInput<
@@ -122,7 +118,6 @@ export interface BuildProjectRepairMetadataUpdateInput<
 > {
   project: TProject;
   repairedGenerationRecordFileIds: readonly string[];
-  repairedAcpOutputRecords?: ImageRecordMap | null;
 }
 
 export interface BuildProjectRepairResultStateInput<
@@ -144,7 +139,6 @@ export interface ProjectRepairMetadataUpdate<
 export interface ProjectRepairResultState<
   TProject extends { imageRecords: ImageRecordMap },
 > {
-  repairedAcpOutputRecords: ImageRecordMap;
   metadataUpdate: ProjectRepairMetadataUpdate<TProject>;
   fileIdsToRefresh: string[];
 }
@@ -153,7 +147,6 @@ export interface ApplyProjectRepairImageRecordUpdatesResult {
   imageRecords: ImageRecordMap;
   changed: boolean;
   repairedGenerationRecordFileIds: readonly string[];
-  repairedAcpOutputFileIds: string[];
 }
 
 export type ProjectRepairSceneRefreshPlan<TProject> =
@@ -611,9 +604,6 @@ export const buildProjectRepairReport = ({
   restoredCount,
   skippedRestoreCount,
 }: BuildProjectRepairReportInput): ProjectRepairReport => {
-  const repairedAcpOutputCount =
-    result.repairedAcpOutputFileIds?.length ??
-    Object.keys(result.repairedAcpOutputRecords ?? {}).length;
   const restoredBoardFileCount = result.restoredBoardFileIds?.length ?? 0;
   const report: ProjectRepairReport = {
     generatedCount: result.generatedFileIds.length,
@@ -621,7 +611,6 @@ export const buildProjectRepairReport = ({
     failedCount: result.failedFileIds.length,
     repairedGenerationRecordCount:
       result.repairedGenerationRecordFileIds.length,
-    repairedAcpOutputCount,
     restoredImageRecordCount: Math.max(restoredCount, restoredBoardFileCount),
     skippedImageRecordCount: skippedRestoreCount,
     skippedDetails: result.skippedDetails ?? [],
@@ -674,7 +663,6 @@ export const buildProjectRepairCompletionState = <
 >({
   activeProject,
   projectPath,
-  repairedAcpOutputRecords,
   ...viewModelInput
 }: BuildProjectRepairCompletionStateInput<TProject>): ProjectRepairCompletionState<TProject> => {
   const viewModel = buildProjectRepairCompletionViewModel(viewModelInput);
@@ -685,7 +673,6 @@ export const buildProjectRepairCompletionState = <
       projectPath,
       repairedGenerationRecordFileIds:
         viewModelInput.metadataRepair.repairedGenerationRecordFileIds,
-      repairedAcpOutputRecords,
     }),
   };
 };
@@ -727,10 +714,7 @@ export const buildProjectRepairCompletionResultState = <
 export const applyProjectRepairImageRecordUpdates = ({
   imageRecords,
   repairedGenerationRecordFileIds,
-  repairedAcpOutputRecords = {},
 }: ApplyProjectRepairImageRecordUpdatesInput): ApplyProjectRepairImageRecordUpdatesResult => {
-  const acpOutputRecords = repairedAcpOutputRecords ?? {};
-  const repairedAcpOutputFileIds = Object.keys(acpOutputRecords);
   let nextImageRecords: ImageRecordMap | null = null;
 
   repairedGenerationRecordFileIds.forEach((fileId) => {
@@ -746,18 +730,10 @@ export const applyProjectRepairImageRecordUpdates = ({
     };
   });
 
-  if (repairedAcpOutputFileIds.length) {
-    nextImageRecords = {
-      ...(nextImageRecords ?? imageRecords),
-      ...acpOutputRecords,
-    };
-  }
-
   return {
     imageRecords: nextImageRecords ?? imageRecords,
     changed: Boolean(nextImageRecords),
     repairedGenerationRecordFileIds,
-    repairedAcpOutputFileIds,
   };
 };
 
@@ -767,7 +743,6 @@ export const buildProjectRepairActiveProjectUpdate = <
   activeProject,
   projectPath,
   repairedGenerationRecordFileIds,
-  repairedAcpOutputRecords,
 }: BuildProjectRepairActiveProjectUpdateInput<TProject>): TProject | null => {
   if (!activeProject || activeProject.projectPath !== projectPath) {
     return null;
@@ -776,7 +751,6 @@ export const buildProjectRepairActiveProjectUpdate = <
   const metadataUpdate = buildProjectRepairMetadataUpdate({
     project: activeProject,
     repairedGenerationRecordFileIds,
-    repairedAcpOutputRecords,
   });
 
   return metadataUpdate.metadataRepair.changed ? metadataUpdate.project : null;
@@ -787,12 +761,10 @@ export const buildProjectRepairMetadataUpdate = <
 >({
   project,
   repairedGenerationRecordFileIds,
-  repairedAcpOutputRecords,
 }: BuildProjectRepairMetadataUpdateInput<TProject>): ProjectRepairMetadataUpdate<TProject> => {
   const metadataRepair = applyProjectRepairImageRecordUpdates({
     imageRecords: project.imageRecords,
     repairedGenerationRecordFileIds,
-    repairedAcpOutputRecords,
   });
 
   return {
@@ -814,14 +786,11 @@ export const buildProjectRepairResultState = <
   loadedPreviewFileIds,
   loadedOriginalFileIds,
 }: BuildProjectRepairResultStateInput<TProject>): ProjectRepairResultState<TProject> => {
-  const repairedAcpOutputRecords = result.repairedAcpOutputRecords ?? {};
   return {
-    repairedAcpOutputRecords,
     metadataUpdate: buildProjectRepairMetadataUpdate({
       project,
       repairedGenerationRecordFileIds:
         result.repairedGenerationRecordFileIds ?? [],
-      repairedAcpOutputRecords,
     }),
     fileIdsToRefresh: buildProjectThumbnailRefreshFileIds({
       generatedFileIds: result.generatedFileIds,

@@ -35,9 +35,7 @@ describe("submitGenerationRequest", () => {
 
     await expect(
       submitGenerationRequest({
-        isPromptComposerMode: true,
         canSubmit: true,
-        generationSource: "builtin",
         requestRef,
         customModels: [],
         clearSubmittedPrompt,
@@ -49,51 +47,13 @@ describe("submitGenerationRequest", () => {
     expect(clearSubmittedPrompt).not.toHaveBeenCalled();
   });
 
-  it("submits ACP Agent requests without committing pending visual references", async () => {
-    const requestRef = {
-      current: createRequest({
-        prompt: "交给 ACP Agent",
-        reference: {
-          enabled: true,
-          elementCount: 1,
-          textCount: 0,
-        },
-      }),
-    };
-    const onSubmit = vi.fn();
-    const clearSubmittedPrompt = vi.fn();
-
-    await expect(
-      submitGenerationRequest({
-        isPromptComposerMode: true,
-        canSubmit: true,
-        generationSource: "agent",
-        requestRef,
-        customModels: [],
-        clearSubmittedPrompt,
-        onSubmit,
-      }),
-    ).resolves.toBe(true);
-
-    expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        generationSource: "agent",
-        prompt: "交给 ACP Agent",
-      }),
-      false,
-    );
-    expect(clearSubmittedPrompt).not.toHaveBeenCalled();
-  });
-
   it("does not submit when the composer cannot submit", async () => {
     const onSubmit = vi.fn();
     const clearSubmittedPrompt = vi.fn();
 
     await expect(
       submitGenerationRequest({
-        isPromptComposerMode: true,
         canSubmit: false,
-        generationSource: "builtin",
         requestRef: { current: createRequest({ prompt: "不可提交" }) },
         customModels: [],
         clearSubmittedPrompt,
@@ -112,9 +72,7 @@ describe("submitGenerationRequest", () => {
     const onSubmit = vi.fn();
     const clearSubmittedPrompt = vi.fn();
     const submit = createGenerationSubmitHandler({
-      isPromptComposerMode: true,
       canSubmit: true,
-      generationSource: "builtin",
       requestRef,
       customModels: [],
       clearSubmittedPrompt,

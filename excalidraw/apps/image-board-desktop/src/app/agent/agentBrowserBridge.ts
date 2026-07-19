@@ -24,7 +24,6 @@ import type {
   DeleteProviderSettingsInput,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
-import type { AcpAgentSettings } from "../../shared/acpTypes";
 import type {
   ImageRecordMap,
   ProjectImageWritebackTransaction,
@@ -279,12 +278,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
           "deleteProviderSettings",
           [input],
         ),
-      loadAcpAgentSettings: () =>
-        callDesktopBridge<AcpAgentSettings>(config, "loadAcpAgentSettings"),
-      saveAcpAgentSettings: (settings: AcpAgentSettings) =>
-        callDesktopBridge<AcpAgentSettings>(config, "saveAcpAgentSettings", [
-          settings,
-        ]),
       generateImages: (input: GenerateImagesInput) =>
         callDesktopBridge<GenerationResponse>(config, "generateImages", [
           input,

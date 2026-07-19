@@ -1,13 +1,6 @@
 import { getProviderDefinition } from "../shared/providerCatalog";
-import {
-  buildAcpAgentResultRecordItems,
-  type AcpAgentResultRecordItem,
-  type AcpAgentTaskContextInput,
-} from "./agent/acpResultMatcher";
-
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
-import type { AcpRunLogDetail, AcpRunLogEntry } from "../shared/acpTypes";
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 
@@ -62,11 +55,7 @@ export const buildDirectGenerationRecordItems = (
   });
 
   return Object.values(imageRecords ?? {})
-    .filter(
-      (record) =>
-        record.sourceType === "generated" &&
-        record.generationOrigin !== "acp-agent",
-    )
+    .filter((record) => record.sourceType === "generated")
     .sort(
       (left, right) =>
         new Date(right.createdAt).getTime() -
@@ -102,29 +91,21 @@ interface GenerationSidebarProject {
 export interface BuildGenerationSidebarRecordItemsInput {
   project: GenerationSidebarProject | null | undefined;
   sceneImageFileIds: readonly string[];
-  acpEntries: readonly AcpRunLogEntry[];
-  acpRunLogDetail: AcpRunLogDetail | null;
-  acpTask: AcpAgentTaskContextInput | null;
   files: BinaryFiles | null | undefined;
 }
 
 export interface GenerationSidebarRecordItems {
   generationRecords: DirectGenerationRecordListItem[];
-  agentResultRecords: AcpAgentResultRecordItem[];
 }
 
 export const buildGenerationSidebarRecordItems = ({
   project,
   sceneImageFileIds,
-  acpEntries,
-  acpRunLogDetail,
-  acpTask,
   files,
 }: BuildGenerationSidebarRecordItemsInput): GenerationSidebarRecordItems => {
   if (!project) {
     return {
       generationRecords: [],
-      agentResultRecords: [],
     };
   }
 
@@ -134,14 +115,6 @@ export const buildGenerationSidebarRecordItems = ({
       sceneImageFileIds,
       files,
     ),
-    agentResultRecords: buildAcpAgentResultRecordItems({
-      imageRecords: project.imageRecords,
-      sceneImageFileIds,
-      entries: acpEntries,
-      runLogDetail: acpRunLogDetail,
-      task: acpTask,
-      files,
-    }),
   };
 };
 

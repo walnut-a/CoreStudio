@@ -27,7 +27,6 @@
     "test": "cd ../.. && vitest apps/image-board-desktop"
   },
   "devDependencies": {
-    "@assistant-ui/react": "0.14.24",
     "@excalidraw/common": "0.18.0",
     "@excalidraw/element": "0.18.0",
     "@excalidraw/excalidraw": "0.18.0",

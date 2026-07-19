@@ -96,36 +96,6 @@ describe("agentCommandReadRuntime", () => {
       capability: "inspectProjectHealth",
       message: "当前环境不能检查项目健康度。",
     },
-    {
-      command: "acp.runs" as const,
-      payload: undefined,
-      capability: "listAcpAgentRunLogs",
-      message: "当前环境不能读取 ACP Agent 任务记录。",
-    },
-    {
-      command: "acp.run" as const,
-      payload: {
-        projectPath: "/tmp/corestudio-project",
-        taskId: "task-1",
-      },
-      capability: "readAcpAgentRunLog",
-      message: "当前环境不能读取 ACP Agent 任务记录。",
-    },
-    {
-      command: "acp.threads" as const,
-      payload: undefined,
-      capability: "listAcpAgentThreads",
-      message: "当前环境不能读取 ACP Agent 对话记录。",
-    },
-    {
-      command: "acp.thread" as const,
-      payload: {
-        projectPath: "/tmp/corestudio-project",
-        threadId: "thread-1",
-      },
-      capability: "readAcpAgentThread",
-      message: "当前环境不能读取 ACP Agent 对话记录。",
-    },
   ])(
     "throws structured capability errors for $command",
     async ({ command, payload, capability, message }) => {

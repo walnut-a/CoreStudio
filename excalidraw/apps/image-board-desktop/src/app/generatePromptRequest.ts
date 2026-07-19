@@ -427,14 +427,10 @@ export const buildGenerateRequestChangeState = ({
 export const runGenerateRequestChangeAction = ({
   request,
   customModels,
-  setGenerationSource,
-  showDirectGenerationRecords,
   setGenerateRequest,
 }: {
   request: GenerationRequest;
   customModels: readonly CustomProviderModel[];
-  setGenerationSource: (source: GenerationSource) => void;
-  showDirectGenerationRecords: () => void;
   setGenerateRequest: (request: GenerationRequest) => void;
 }) => {
   const state = buildGenerateRequestChangeState({
@@ -442,67 +438,7 @@ export const runGenerateRequestChangeAction = ({
     customModels,
   });
 
-  if (state.generationSource) {
-    setGenerationSource(state.generationSource);
-    if (state.showDirectGenerationRecords) {
-      showDirectGenerationRecords();
-    }
-  }
   setGenerateRequest(state.request);
-
-  return state;
-};
-
-export const buildGenerationSourceChangeState = ({
-  source,
-  currentRequest,
-}: {
-  source: GenerationSource;
-  currentRequest: GenerationRequest;
-}): {
-  generationSource: GenerationSource;
-  showDirectGenerationRecords: boolean;
-  request: GenerationRequest;
-} => ({
-  generationSource: source,
-  showDirectGenerationRecords: source === "builtin",
-  request: {
-    ...currentRequest,
-    generationSource: source,
-  },
-});
-
-export const runGenerationSourceChangeAction = ({
-  source,
-  currentRequest,
-  setGenerationSource,
-  showDirectGenerationRecords,
-  updateGenerateRequest,
-}: {
-  source: GenerationSource;
-  currentRequest: GenerationRequest;
-  setGenerationSource: (source: GenerationSource) => void;
-  showDirectGenerationRecords: () => void;
-  updateGenerateRequest: (
-    updater: (current: GenerationRequest) => GenerationRequest,
-  ) => void;
-}) => {
-  const state = buildGenerationSourceChangeState({
-    source,
-    currentRequest,
-  });
-
-  setGenerationSource(state.generationSource);
-  if (state.showDirectGenerationRecords) {
-    showDirectGenerationRecords();
-  }
-  updateGenerateRequest(
-    (current) =>
-      buildGenerationSourceChangeState({
-        source,
-        currentRequest: current,
-      }).request,
-  );
 
   return state;
 };
@@ -553,11 +489,9 @@ export const formatGeneratePromptReferenceLimitMessage = ({
 
 export const buildGeneratePromptReferenceState = ({
   request,
-  generationSource,
   maxPromptReferenceCount,
 }: {
   request: GenerationRequest;
-  generationSource: GenerationSource;
   maxPromptReferenceCount: number;
 }) => {
   const promptReferenceCount = request.promptReferences?.length ?? 0;
@@ -569,9 +503,7 @@ export const buildGeneratePromptReferenceState = ({
     hasUsablePendingReference &&
     promptReferenceCount >= maxPromptReferenceCount;
   const referenceLimitReason: GeneratePromptReferenceLimitReason | null =
-    generationSource !== "builtin"
-      ? null
-      : referenceLimitExceeded
+    referenceLimitExceeded
       ? maxPromptReferenceCount > 0
         ? "exceeded"
         : "unsupported-with-inline-references"
@@ -605,7 +537,6 @@ export type GenerationSubmitPlan =
   | {
       kind: "blocked";
       reason:
-        | "non-prompt-composer"
         | "cannot-submit"
         | "pending-reference-unconfirmed";
     }
@@ -614,24 +545,13 @@ export type GenerationSubmitPlan =
     };
 
 export const buildGenerationSubmitPlan = ({
-  isPromptComposerMode,
   canSubmit,
-  generationSource,
   hasPendingReferenceToCommit,
 }: {
-  isPromptComposerMode: boolean;
   canSubmit: boolean;
-  generationSource: GenerationSource;
   hasPendingReferenceToCommit: boolean;
 }): GenerationSubmitPlan => {
-  if (!isPromptComposerMode) {
-    return {
-      kind: "blocked",
-      reason: "non-prompt-composer",
-    };
-  }
-
-  if (generationSource === "builtin" && hasPendingReferenceToCommit) {
+  if (hasPendingReferenceToCommit) {
     return {
       kind: "blocked",
       reason: "pending-reference-unconfirmed",

@@ -1,12 +1,5 @@
-import {
-  getSelectedAcpAgent,
-  isAcpExperimentalFeatureEnabled,
-  normalizeAcpAgentSettings,
-  type AcpAgentSettings,
-} from "../../shared/acpTypes";
 import type { DesktopAgentBridgeStatus } from "../../shared/desktopBridgeTypes";
 import { copy } from "../copy";
-import type { GenerateComposerConfig } from "./useGenerateComposerController";
 
 export type AgentIntegrationReadiness =
   | "disabled"
@@ -48,29 +41,10 @@ export interface AgentIntegrationViewModel {
     available: boolean;
     statusText: string;
   };
-  acp: {
-    experimentalEnabled: boolean;
-    configured: boolean;
-    enabled: boolean;
-    agentId: string | null;
-    agentName: string | null;
-    runningTaskId: string | null;
-    running: boolean;
-    statusText: string;
-  };
 }
 
 export interface BuildAgentIntegrationViewModelInput {
   bridgeStatus?: DesktopAgentBridgeStatus | null;
-  acpAgentSettings?: AcpAgentSettings | null;
-  runningTaskId?: string | null;
-}
-
-export interface AcpAgentGenerationViewModel {
-  ready: boolean;
-  canSubmitMessage: boolean;
-  submitMessageDisabledReason: string;
-  composerConfig: GenerateComposerConfig;
 }
 
 export interface AgentBoardStartupViewModel {
@@ -109,20 +83,8 @@ export type AgentIntegrationCopyAction =
       errorMessage: string;
     };
 
-export interface BuildAcpAgentGenerationViewModelInput {
-  integration: AgentIntegrationViewModel;
-  isAgentBrowserRoute: boolean;
-  canStartAcpAgentTask: boolean;
-  taskRunning: boolean;
-  agentTaskStatus: GenerateComposerConfig["agentTaskStatus"];
-}
-
 export interface BuildAgentIntegrationRuntimeViewModelInput {
   bridgeStatus?: DesktopAgentBridgeStatus | null;
-  acpAgentSettings?: AcpAgentSettings | null;
-  agentTaskStatus: GenerateComposerConfig["agentTaskStatus"];
-  taskRunning: boolean;
-  canStartAcpAgentTask: boolean;
   isAgentBrowserRoute: boolean;
   hasInitialProjectToken: boolean;
   hasCurrentProject: boolean;
@@ -131,7 +93,6 @@ export interface BuildAgentIntegrationRuntimeViewModelInput {
 
 export interface AgentIntegrationRuntimeViewModel {
   integration: AgentIntegrationViewModel;
-  acpGeneration: AcpAgentGenerationViewModel;
   boardStartup: AgentBoardStartupRenderPlan;
 }
 
@@ -254,36 +215,8 @@ const getBridgeEndpointLabel = (
     : copy.agentUi.integration.bridgeNotStarted;
 };
 
-const getAcpStatusText = ({
-  configured,
-  enabled,
-  running,
-  agentName,
-}: {
-  configured: boolean;
-  enabled: boolean;
-  running: boolean;
-  agentName: string | null;
-}) => {
-  if (running) {
-    return copy.agentUi.integration.acpTaskRunning;
-  }
-
-  if (enabled && agentName) {
-    return agentName;
-  }
-
-  if (configured) {
-    return copy.agentUi.integration.acpConfiguredDisabled;
-  }
-
-  return copy.agentUi.integration.acpNotConfigured;
-};
-
 export const buildAgentIntegrationViewModel = ({
   bridgeStatus = null,
-  acpAgentSettings = null,
-  runningTaskId = null,
 }: BuildAgentIntegrationViewModelInput): AgentIntegrationViewModel => {
   const readiness = getReadiness(bridgeStatus);
   const enabled = Boolean(bridgeStatus?.enabled);
@@ -291,18 +224,6 @@ export const buildAgentIntegrationViewModel = ({
   const projectName = bridgeStatus?.currentProject?.name ?? null;
   const endpoint = getBridgeEndpoint(bridgeStatus);
   const projectToken = bridgeStatus?.currentProject?.agentAccess?.token ?? null;
-  const normalizedAcpSettings = acpAgentSettings
-    ? normalizeAcpAgentSettings(acpAgentSettings)
-    : null;
-  const selectedAgent = acpAgentSettings
-    ? getSelectedAcpAgent(acpAgentSettings)
-    : null;
-  const acpExperimentalEnabled = normalizedAcpSettings
-    ? isAcpExperimentalFeatureEnabled(normalizedAcpSettings)
-    : false;
-  const acpConfigured = Boolean(normalizedAcpSettings?.defaultAgentId);
-  const acpEnabled = Boolean(acpExperimentalEnabled && selectedAgent);
-  const acpRunning = Boolean(acpEnabled && runningTaskId);
 
   return {
     readiness,
@@ -337,21 +258,6 @@ export const buildAgentIntegrationViewModel = ({
       statusText: bridgeStatus?.boardUrl
         ? copy.agentUi.integration.boardLinkReady
         : copy.agentUi.integration.boardLinkWaiting,
-    },
-    acp: {
-      experimentalEnabled: acpExperimentalEnabled,
-      configured: acpConfigured,
-      enabled: acpEnabled,
-      agentId: selectedAgent?.id ?? null,
-      agentName: selectedAgent?.name ?? null,
-      runningTaskId: acpRunning ? runningTaskId : null,
-      running: acpRunning,
-      statusText: getAcpStatusText({
-        configured: acpConfigured,
-        enabled: acpEnabled,
-        running: acpRunning,
-        agentName: selectedAgent?.name ?? null,
-      }),
     },
   };
 };
@@ -487,56 +393,8 @@ export const buildAgentBoardStartupRenderPlan = ({
   return { action: "none" };
 };
 
-export const buildAcpAgentGenerationViewModel = ({
-  integration,
-  isAgentBrowserRoute,
-  canStartAcpAgentTask,
-  taskRunning,
-  agentTaskStatus,
-}: BuildAcpAgentGenerationViewModelInput): AcpAgentGenerationViewModel => {
-  const ready = Boolean(
-    integration.enabled &&
-      integration.bridge.ready &&
-      integration.acp.enabled &&
-      canStartAcpAgentTask,
-  );
-  const canSubmitMessage = ready && !taskRunning;
-  const hasSelectedAgent = Boolean(integration.acp.agentName);
-  const composer = copy.agentUi.integration.composer;
-  const unavailableMessage =
-    hasSelectedAgent && integration.enabled
-      ? composer.unavailable
-      : composer.enableFirst;
-
-  return {
-    ready,
-    canSubmitMessage,
-    submitMessageDisabledReason: taskRunning
-      ? composer.taskRunning
-      : unavailableMessage,
-    composerConfig: {
-      defaultMode: "direct",
-      showModeSwitch: !isAgentBrowserRoute && integration.acp.enabled,
-      modeSwitchVariant: "acp-agent",
-      showModeIndicator: false,
-      defaultGenerationSource: "builtin",
-      showGenerationSourceSwitch: false,
-      agentGenerationAvailable: canSubmitMessage,
-      agentGenerationUnavailableMessage:
-        hasSelectedAgent && integration.enabled
-          ? composer.unavailableSentence
-          : composer.enableFirstSentence,
-      agentTaskStatus,
-    },
-  };
-};
-
 export const buildAgentIntegrationRuntimeViewModel = ({
   bridgeStatus = null,
-  acpAgentSettings = null,
-  agentTaskStatus,
-  taskRunning,
-  canStartAcpAgentTask,
   isAgentBrowserRoute,
   hasInitialProjectToken,
   hasCurrentProject,
@@ -544,19 +402,10 @@ export const buildAgentIntegrationRuntimeViewModel = ({
 }: BuildAgentIntegrationRuntimeViewModelInput): AgentIntegrationRuntimeViewModel => {
   const integration = buildAgentIntegrationViewModel({
     bridgeStatus,
-    acpAgentSettings,
-    runningTaskId: taskRunning ? agentTaskStatus?.taskId ?? null : null,
   });
 
   return {
     integration,
-    acpGeneration: buildAcpAgentGenerationViewModel({
-      integration,
-      isAgentBrowserRoute,
-      canStartAcpAgentTask,
-      taskRunning,
-      agentTaskStatus,
-    }),
     boardStartup: buildAgentBoardStartupRenderPlan({
       isAgentBrowserRoute,
       hasInitialProjectToken,

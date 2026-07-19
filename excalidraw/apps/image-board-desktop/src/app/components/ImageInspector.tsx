@@ -71,8 +71,8 @@ const getProviderLabel = (record: ImageRecord) => {
   if (record.provider) {
     return getProviderDefinition(record.provider).label;
   }
-  if (record.generationOrigin === "acp-agent") {
-    return copy.inspector.externalAgentProvider;
+  if (record.generationOrigin === "agent-board") {
+    return copy.inspector.agentProvider;
   }
   return record.sourceType === "generated"
     ? copy.inspector.unrecordedProvider

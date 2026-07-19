@@ -15,12 +15,7 @@ const {
   readGenerateImageDialogProviderRuntime,
   readImageBoardApp,
   readGenerateComposerActionBar,
-  readAgentConversationThreadView,
-  readAgentConversationComposer,
-  readAgentConversationHeader,
-  readAcpRunLogDialog,
   readAboutDialog,
-  readAgentRunChatLog,
   readGenerationErrorDetailsDialog,
   readWorkspaceBoundsOverlay,
   readProjectRenderBoundary,
@@ -190,23 +185,19 @@ describe("CoreStudio shell layout styles", () => {
       appCss,
       ".settings-current-provider label,\n.settings-form-card label",
     );
-    const acpLabelRule = getRule(
+    const formLabelRule = getRule(
       appCss,
       ".settings-current-provider label,\n.settings-form-card label",
     );
-    const acpFieldRule = getRule(
+    const formFieldRule = getRule(
       appCss,
       ".settings-current-provider select,\n.settings-form-card :is(input, select, textarea)",
     );
-    const acpControlRule = getRule(
+    const formControlRule = getRule(
       appCss,
       ".settings-current-provider select,\n.settings-form-card input,\n.settings-form-card select",
     );
-    const acpTextareaRule = getRule(appCss, ".settings-form-card__long-text");
-    const experimentalLabelRule = getRule(
-      appCss,
-      ".experimental-acp-options label",
-    );
+    const longTextRule = getRule(appCss, ".settings-form-card__long-text");
     const experimentalFeatureTitleRule = getRule(
       appCss,
       ".app-settings-section__copy > span",
@@ -234,15 +225,12 @@ describe("CoreStudio shell layout styles", () => {
     );
 
     expect(providerLabelRule).toContain("font-size: var(--ui-text-size-sm)");
-    expect(acpLabelRule).toContain("font-size: var(--ui-text-size-sm)");
-    expect(acpControlRule).toContain("font-size: var(--ui-text-size-lg)");
-    expect(acpFieldRule).toContain("font: inherit");
-    expect(acpTextareaRule).toContain("font-size: var(--ui-text-size-md)");
-    expect(acpTextareaRule).toContain(
+    expect(formLabelRule).toContain("font-size: var(--ui-text-size-sm)");
+    expect(formControlRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(formFieldRule).toContain("font: inherit");
+    expect(longTextRule).toContain("font-size: var(--ui-text-size-md)");
+    expect(longTextRule).toContain(
       "line-height: var(--ui-line-height-relaxed)",
-    );
-    expect(experimentalLabelRule).toContain(
-      "font-size: var(--ui-text-size-sm)",
     );
     expect(experimentalFeatureTitleRule).toContain(
       "font-weight: var(--font-weight-semibold)",
@@ -348,15 +336,6 @@ describe("CoreStudio shell layout styles", () => {
 
     expect(settingsCss).not.toMatch(/#[0-9a-f]{3,8}/i);
     expect(settingsCss).not.toMatch(/rgba?\(/i);
-  });
-
-  it("uses the shared centered dropdown arrow in experimental settings", () => {
-    const appCss = readAppCss();
-    const selectRule = getRule(appCss, ".experimental-acp-options select");
-
-    expect(selectRule).toContain("appearance: none");
-    expect(selectRule).toContain("background-image: var(--dropdown-icon)");
-    expect(selectRule).toContain("background-position: calc(100% - 14px) 50%");
   });
 
   it("keeps the bottom composer inside the canvas when side docks are open", () => {

@@ -10,16 +10,11 @@ import type {
   DesktopProjectBundle,
   PersistedImageAssetInput,
   ProjectAssetPayload,
-  PublicProviderSettings,
 } from "../../shared/desktopBridgeTypes";
 import type {
   ImageAssetRequestRendition,
   ImageRecordMap,
 } from "../../shared/projectTypes";
-import type {
-  GenerationRequest,
-  GenerationSource,
-} from "../../shared/providerTypes";
 import type { ProjectImageWritebackHandle } from "../projectImageWritebackController";
 
 export type AgentCommandSceneSnapshot = {
@@ -39,9 +34,6 @@ export interface AgentCommandRuntimeDeps {
   getProject: () => DesktopProjectBundle | null;
   getScene: () => AgentCommandSceneSnapshot | null;
   getExcalidrawAPI: () => ExcalidrawImperativeAPI | null;
-  providerSettings: PublicProviderSettings | null;
-  generationSource: GenerationSource;
-  generateRequest: GenerationRequest;
   readProjectImageAssets: (
     project: DesktopProjectBundle,
     fileIds: string[],
@@ -63,14 +55,4 @@ export interface AgentCommandRuntimeDeps {
   ) => Promise<void>;
   restoreScene: (snapshot: AgentCommandSceneSnapshot) => void;
   flushPendingAutosave: (options?: { strict?: boolean }) => Promise<unknown>;
-  generateImages: (
-    request: GenerationRequest,
-    keepOpen: boolean,
-    options?: {
-      expectedProjectPath?: string;
-      placementViewport?: AgentCommandPlacementViewport | null;
-      referenceScene?: AgentCommandSceneSnapshot | null;
-      rejectOnError?: boolean;
-    },
-  ) => Promise<void>;
 }

@@ -5,7 +5,6 @@ import type {
 } from "@excalidraw/excalidraw/types";
 
 import type { AgentBrowserRuntimeState } from "../../shared/agentBridgeTypes";
-import type { GenerationSource } from "../../shared/providerTypes";
 import {
   buildSelectionReferenceSummary,
   stripSelectionReferenceThumbnails,
@@ -52,7 +51,6 @@ export interface RunAgentBrowserRuntimePublishActionInput {
   enabled: boolean;
   projectPath: string | null | undefined;
   scene: AgentBrowserRuntimePublishScene | null;
-  generationSource: GenerationSource;
   updatedAt: string;
   publishRuntimeState?: (state: AgentBrowserRuntimeState) => Promise<unknown>;
   onError?: (error: unknown) => void;
@@ -75,7 +73,6 @@ export interface CreateAgentBrowserRuntimePublishRendererActionsInput<
   delayMs: number;
   isEnabled: () => boolean;
   getProjectPath: () => string | null | undefined;
-  getGenerationSource: () => GenerationSource;
   getUpdatedAt: () => string;
   getLatestScene: () => TScene | null;
   getTimerId: () => number | null;
@@ -128,7 +125,6 @@ export const createAgentBrowserRuntimePublishRendererActions = <
   delayMs,
   isEnabled,
   getProjectPath,
-  getGenerationSource,
   getUpdatedAt,
   getLatestScene,
   getTimerId,
@@ -149,7 +145,6 @@ export const createAgentBrowserRuntimePublishRendererActions = <
       enabled: isEnabled(),
       projectPath: getProjectPath(),
       scene,
-      generationSource: getGenerationSource(),
       updatedAt: getUpdatedAt(),
       publishRuntimeState,
       onError,
@@ -178,7 +173,6 @@ export const runAgentBrowserRuntimePublishAction = async ({
   enabled,
   projectPath,
   scene,
-  generationSource,
   updatedAt,
   publishRuntimeState = publishAgentBrowserRuntimeState,
   onError,
@@ -211,7 +205,6 @@ export const runAgentBrowserRuntimePublishAction = async ({
     updatedAt,
     selection: buildAgentSelectionContext(selectionReference),
     appState: scene.appState,
-    generationSource,
   });
 
   if (publishPlan.action === "skip") {

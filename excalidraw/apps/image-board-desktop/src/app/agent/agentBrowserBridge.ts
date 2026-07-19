@@ -28,7 +28,6 @@ import type {
   ImageRecordMap,
   ProjectImageWritebackTransaction,
 } from "../../shared/projectTypes";
-import type { GenerationResponse } from "../../shared/providerTypes";
 
 export interface AgentBrowserBridgeConfig {
   bridge: string;
@@ -278,10 +277,11 @@ export const maybeCreateAgentBrowserDesktopBridge =
           "deleteProviderSettings",
           [input],
         ),
-      generateImages: (input: GenerateImagesInput) =>
-        callDesktopBridge<GenerationResponse>(config, "generateImages", [
-          input,
-        ]),
+      generateImages: async (_input: GenerateImagesInput) => {
+        throw new Error(
+          "Agent Board 不能调用 CoreStudio 内置生成模型，请写回外部生成的图片。",
+        );
+      },
       readClipboardImage: () =>
         callDesktopBridge<ImportedImagePayload | null>(
           config,

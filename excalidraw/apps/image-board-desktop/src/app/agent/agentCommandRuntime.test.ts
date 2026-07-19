@@ -12,7 +12,6 @@ import type {
   DesktopProjectBundle,
   PersistedImageAssetInput,
 } from "../../shared/desktopBridgeTypes";
-import type { GenerationRequest } from "../../shared/providerTypes";
 
 const createProject = (): DesktopProjectBundle => ({
   projectPath: "/tmp/corestudio-project",
@@ -76,16 +75,6 @@ const createDeps = (
       files: {},
     }),
     getExcalidrawAPI: () => null,
-    providerSettings: null,
-    generationSource: "builtin",
-    generateRequest: {
-      provider: "zenmux",
-      model: "mock-model",
-      prompt: "",
-      images: 1,
-      aspectRatio: "1:1",
-      reference: { enabled: false, images: [] },
-    } as unknown as GenerationRequest,
     readProjectImageAssets: vi.fn(async () => []),
     beginImageWriteback: vi.fn(),
     insertAssetsIntoScene: vi.fn(
@@ -93,7 +82,6 @@ const createDeps = (
     ),
     restoreScene: vi.fn(),
     flushPendingAutosave: vi.fn(async () => undefined),
-    generateImages: vi.fn(async () => undefined),
     ...patch,
   };
 };

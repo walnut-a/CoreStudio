@@ -610,7 +610,7 @@ describe("createLocalBridgeServer", () => {
     expect(renderer.request).not.toHaveBeenCalledWith("scene.selection");
   });
 
-  it("attaches browser board runtime context to generate write requests", async () => {
+  it("does not expose the retired built-in generation route", async () => {
     const { server, renderer } = await track(startServer());
     const selection = {
       selected: true,
@@ -656,7 +656,7 @@ describe("createLocalBridgeServer", () => {
     });
     renderer.request.mockClear();
 
-    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.generate, {
+    const result = await requestJson(server.baseUrl, "/v1/generate", {
       method: "POST",
       body: JSON.stringify({
         prompt: "优化这台桌面 CNC",
@@ -664,25 +664,11 @@ describe("createLocalBridgeServer", () => {
       }),
     });
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("generate", {
-      projectPath: currentProject.projectPath,
-      prompt: "优化这台桌面 CNC",
-      useSelection: true,
-      dryRun: false,
-      agentBoardContext: {
-        selection,
-        scene,
-        browserRuntime: {
-          source: "agent-board",
-          updatedAt: "2026-06-24T08:01:00.000Z",
-          receivedAt: expect.any(String),
-        },
-      },
-    });
+    expect(result.status).toBe(404);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("falls back to browser runtime generation context when the desktop renderer has no project", async () => {
+  it("falls back to browser runtime context when the desktop renderer has no project", async () => {
     const renderer = {
       request: vi.fn(async () => {
         throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
@@ -704,9 +690,6 @@ describe("createLocalBridgeServer", () => {
         scene: {
           selectedElementIds: [],
         },
-        generation: {
-          source: "agent",
-        },
       }),
     });
 
@@ -718,10 +701,6 @@ describe("createLocalBridgeServer", () => {
       ok: true,
       data: {
         project: currentProject,
-        generation: {
-          source: "agent",
-          sources: ["builtin", "agent"],
-        },
         selection: {
           selected: false,
         },
@@ -1207,7 +1186,7 @@ describe("createLocalBridgeServer", () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
       projectPath: currentProject.projectPath,
-      permissions: ["write-board", "generate-image"],
+      permissions: ["write-board"],
       ttlSeconds: 60,
     });
 

@@ -143,6 +143,7 @@ const zhCnCopy = {
     currentImage: "当前图片",
     descendantImages: "后续版本",
     locateImage: "定位到图片",
+    locateGenerationRecord: "在生成记录中显示",
     locateReference: (label: string) => `定位${label}`,
     locatedReferencingResult:
       "这张图片是后续结果的参考图，已定位到引用它的画板图片。",

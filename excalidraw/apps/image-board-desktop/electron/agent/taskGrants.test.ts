@@ -11,7 +11,7 @@ describe("taskGrants", () => {
 
     const grant = store.createGrant({
       projectPath: "/Users/alice/project.corestudio",
-      permissions: ["generate-image", "read-context", "read-context"],
+      permissions: ["write-board", "read-context", "read-context"],
       ttlSeconds: 60,
     });
 
@@ -19,7 +19,7 @@ describe("taskGrants", () => {
       taskId: "task-id-1",
       writeToken: "write-id-1",
       projectPath: "/Users/alice/project.corestudio",
-      permissions: ["read-context", "generate-image"],
+      permissions: ["read-context", "write-board"],
       createdAt: "2026-06-24T08:00:00.000Z",
       expiresAt: "2026-06-24T08:01:00.000Z",
     });
@@ -277,7 +277,6 @@ describe("taskGrants", () => {
     const grant = store.createGrant({
       projectPath: "/Users/alice/project.corestudio",
       permissions: [
-        "generate-image",
         "read-context",
         "read-context",
         "write-board",
@@ -288,7 +287,6 @@ describe("taskGrants", () => {
     expect(grant.permissions).toEqual([
       "read-context",
       "write-board",
-      "generate-image",
     ]);
     expect(grant.expiresAt).toBe("2026-06-24T08:00:01.000Z");
   });

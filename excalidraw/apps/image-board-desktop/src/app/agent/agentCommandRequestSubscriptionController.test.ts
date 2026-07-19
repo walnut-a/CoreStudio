@@ -27,15 +27,11 @@ describe("subscribeAgentCommandRequests", () => {
         getScene: vi.fn(),
         serializeScene: vi.fn(),
         getExcalidrawAPI: vi.fn(),
-        providerSettings: null,
-        generationSource: "builtin",
-        generateRequest: {} as any,
         readProjectImageAssets: vi.fn(),
         beginImageWriteback: vi.fn(),
         insertAssetsIntoScene: vi.fn(),
         restoreScene: vi.fn(),
         flushPendingAutosave: vi.fn(),
-        generateImages: vi.fn(),
         handleDesktopBridgeRequest: vi.fn(),
         handleCommandRequest: vi.fn(),
       }),
@@ -71,15 +67,11 @@ describe("subscribeAgentCommandRequests", () => {
       getScene,
       serializeScene,
       getExcalidrawAPI: vi.fn(),
-      providerSettings: null,
-      generationSource: "builtin",
-      generateRequest: {} as any,
       readProjectImageAssets: vi.fn(),
       beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
       restoreScene: vi.fn(),
       flushPendingAutosave: vi.fn(),
-      generateImages: vi.fn(),
       handleDesktopBridgeRequest,
       handleCommandRequest,
     });
@@ -124,9 +116,6 @@ describe("subscribeAgentCommandRequests", () => {
     const insertAssetsIntoScene = vi.fn();
     const restoreScene = vi.fn();
     const flushPendingAutosave = vi.fn();
-    const generateImages = vi.fn();
-    const providerSettings = { providers: [] } as any;
-    const generateRequest = { prompt: "make one" } as any;
     const handleCommandRequest = vi.fn().mockResolvedValue({
       scene: "snapshot",
     });
@@ -143,15 +132,11 @@ describe("subscribeAgentCommandRequests", () => {
       getScene,
       serializeScene: vi.fn(),
       getExcalidrawAPI,
-      providerSettings,
-      generationSource: "agent",
-      generateRequest,
       readProjectImageAssets,
       beginImageWriteback,
       insertAssetsIntoScene,
       restoreScene,
       flushPendingAutosave,
-      generateImages,
       handleDesktopBridgeRequest: vi.fn(),
       handleCommandRequest,
     });
@@ -164,15 +149,11 @@ describe("subscribeAgentCommandRequests", () => {
       getProject,
       getScene,
       getExcalidrawAPI,
-      providerSettings,
-      generationSource: "agent",
-      generateRequest,
       readProjectImageAssets,
       beginImageWriteback,
       insertAssetsIntoScene,
       restoreScene,
       flushPendingAutosave,
-      generateImages,
     });
   });
 });
@@ -198,15 +179,11 @@ describe("createAgentCommandRequestSubscriptionRendererActions", () => {
       getScene: vi.fn(),
       serializeScene: vi.fn(),
       getExcalidrawAPI: vi.fn(),
-      providerSettings: null,
-      generationSource: "builtin",
-      generateRequest: { prompt: "make one" } as any,
       readProjectImageAssets: vi.fn(),
       beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
       restoreScene: vi.fn(),
       flushPendingAutosave: vi.fn(),
-      generateImages: vi.fn(),
       handleDesktopBridgeRequest: vi.fn(),
       handleCommandRequest,
     });
@@ -235,15 +212,11 @@ describe("createAgentCommandRequestSubscriptionRendererActions", () => {
       getScene: vi.fn(),
       serializeScene: vi.fn(),
       getExcalidrawAPI: vi.fn(),
-      providerSettings: null,
-      generationSource: "builtin",
-      generateRequest: { prompt: "make one" } as any,
       readProjectImageAssets: vi.fn(),
       beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
       restoreScene: vi.fn(),
       flushPendingAutosave: vi.fn(),
-      generateImages: vi.fn(),
       handleDesktopBridgeRequest: vi.fn(),
       handleCommandRequest: vi.fn(),
     });

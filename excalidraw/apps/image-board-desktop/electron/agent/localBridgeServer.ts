@@ -62,8 +62,6 @@ type StoredAgentBrowserRuntimeState = AgentBrowserRuntimeState & {
   receivedAt: string;
 };
 
-const AGENT_GENERATION_SOURCES = ["builtin", "agent"] as const;
-
 interface WriteRouteConfig {
   route: string;
   command: AgentRendererCommandName;
@@ -83,10 +81,6 @@ const WRITE_ROUTES: WriteRouteConfig[] = [
   {
     route: AGENT_HTTP_ROUTES.sceneAddPrompt,
     command: "scene.addPrompt",
-  },
-  {
-    route: AGENT_HTTP_ROUTES.generate,
-    command: "generate",
   },
   {
     route: AGENT_HTTP_ROUTES.taskComplete,
@@ -380,22 +374,11 @@ const resolveOptionalProjectRequest = async (
   return project;
 };
 
-const getBrowserRuntimeGenerationSource = (
-  runtimeState: StoredAgentBrowserRuntimeState,
-) => (runtimeState.generation?.source === "builtin" ? "builtin" : "agent");
-
 const buildBrowserRuntimeAgentContext = (
   currentProject: LocalBridgeCurrentProject,
   runtimeState: StoredAgentBrowserRuntimeState,
 ) => ({
   project: currentProject,
-  generation: {
-    source: getBrowserRuntimeGenerationSource(runtimeState),
-    sources: AGENT_GENERATION_SOURCES,
-    builtin: {
-      configured: null,
-    },
-  },
   selection: runtimeState.selection ?? {
     selected: false,
   },
@@ -1001,9 +984,6 @@ export const createLocalBridgeServer = async (
             ? {}
             : { selection: body.selection }),
           ...(body.scene === undefined ? {} : { scene: body.scene }),
-          ...(body.generation === undefined
-            ? {}
-            : { generation: body.generation }),
           receivedAt: new Date().toISOString(),
         };
         sendJson(

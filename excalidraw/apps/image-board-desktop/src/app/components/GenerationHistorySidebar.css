@@ -44,6 +44,11 @@
   background: var(--button-hover-bg);
 }
 
+.generation-record-sidebar__item--selected {
+  background: var(--button-hover-bg);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
 .generation-record-sidebar__item:disabled {
   cursor: not-allowed;
   opacity: 0.62;

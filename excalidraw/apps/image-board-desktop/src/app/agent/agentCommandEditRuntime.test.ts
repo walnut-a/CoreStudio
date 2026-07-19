@@ -9,7 +9,6 @@ import type {
   AgentCommandSceneSnapshot,
 } from "./agentCommandRuntimeTypes";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
-import type { GenerationRequest } from "../../shared/providerTypes";
 
 const imageElement = {
   id: "element-1",
@@ -74,22 +73,11 @@ const createDeps = (
   getProject: () => createProject(),
   getScene: createScene,
   getExcalidrawAPI: () => null,
-  providerSettings: null,
-  generationSource: "builtin",
-  generateRequest: {
-    provider: "zenmux",
-    model: "mock-model",
-    prompt: "",
-    images: 1,
-    aspectRatio: "1:1",
-    reference: { enabled: false, images: [] },
-  } as unknown as GenerationRequest,
   readProjectImageAssets: vi.fn(async () => []),
   beginImageWriteback: vi.fn(),
   insertAssetsIntoScene: vi.fn(async () => undefined),
   restoreScene: vi.fn(),
   flushPendingAutosave: vi.fn(async () => undefined),
-  generateImages: vi.fn(async () => undefined),
   ...patch,
 });
 

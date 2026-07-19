@@ -26,11 +26,13 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 
 ## Write Commands
 
-- `write image <path> --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`
+- `write image <path> --source-type generated --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`
+- `write image <path> --source-type imported --json`
 - `write prompt --text <text> --json`
-- `write generation --prompt <prompt> --use-selection --json`
 
-`write image` 必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。Agent 图片统一使用 `agent-board`。
+Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜索或下载的外部图片使用 `--source-type imported`。生成图必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。
+
+CLI 和 Local Bridge 只负责把已存在的本地图片写入项目，不暴露 CoreStudio 内置生成模型。
 
 引用元数据必须是非空有效 id。`--reference-file-ids` 和 `--reference-element-ids` 接受逗号分隔列表；空列表或无效值在读取图片和调用 Bridge 前被拒绝。
 
@@ -101,6 +103,7 @@ corestudio read image-paths --file-ids image-file-1,image-file-2 --json
 
 ```bash
 corestudio write image /absolute/path/to/result.png \
+  --source-type generated \
   --origin agent-board \
   --prompt "Make the selected desktop CNC more minimal and Apple-like." \
   --reference-file-ids image-file-1 \
@@ -109,6 +112,14 @@ corestudio write image /absolute/path/to/result.png \
 ```
 
 CoreStudio 会复制图片、创建图片与生成记录、插入画布元素，并返回可定位的 id。
+
+搜索或下载的外部图片需要先保存到本地，再按导入资产写回：
+
+```bash
+corestudio write image /absolute/path/to/searched.png \
+  --source-type imported \
+  --json
+```
 
 ### Locate A Written Result
 

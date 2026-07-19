@@ -168,7 +168,8 @@ Global options:
 Examples:
   corestudio read context --json
   corestudio read board-url --json
-  corestudio write image ./result.png --origin codex --json
+  corestudio write image ./generated.png --source-type generated --origin agent-board --json
+  corestudio write image ./searched.png --source-type imported --json
   corestudio edit locate --file-id <file-id> --json
 `;
 
@@ -392,6 +393,7 @@ const parseCommand = (
     const parsed = parseArgs(argv.slice(2), {
       valueFlags: [
         "--origin",
+        "--source-type",
         "--prompt",
         "--parent-file-id",
         "--reference-file-ids",
@@ -431,7 +433,7 @@ const parseCommand = (
       method: "POST",
       imagePath,
       body: {
-        sourceType: "generated",
+        sourceType: parsed.flags["--source-type"] ?? "generated",
         ...(parsed.flags["--origin"]
           ? { generationOrigin: parsed.flags["--origin"] }
           : {}),
@@ -477,39 +479,8 @@ const parseCommand = (
     };
   }
 
-  if (tool === "write" && target === "generation") {
-    const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--prompt"],
-      boolFlags: ["--use-selection"],
-    });
-    if (isEnvelope(parsed)) {
-      return parsed;
-    }
-    const positionalsError = expectNoPositionals("write generation", parsed);
-    if (positionalsError) {
-      return positionalsError;
-    }
-    const prompt = requiredString(
-      parsed.flags["--prompt"],
-      "write generation requires --prompt.",
-    );
-    if (typeof prompt !== "string") {
-      return prompt;
-    }
-    return {
-      route: AGENT_HTTP_ROUTES.generate,
-      method: "POST",
-      body: {
-        prompt,
-        useSelection: parsed.boolFlags.has("--use-selection"),
-      },
-    };
-  }
-
   if (tool === "write") {
-    return badRequestEnvelope(
-      "write requires one of: image, prompt, generation.",
-    );
+    return badRequestEnvelope("write requires one of: image, prompt.");
   }
 
   if (tool === "edit") {
@@ -614,7 +585,8 @@ const parseCommand = (
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,
-          `${envPrefix} ${executable} write image /absolute/path/to/image.png --origin agent-board --json`,
+          `${envPrefix} ${executable} write image /absolute/path/to/generated.png --source-type generated --origin agent-board --json`,
+          `${envPrefix} ${executable} write image /absolute/path/to/searched.png --source-type imported --json`,
           `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
           `${envPrefix} ${executable} write prompt --text "..." --json`,
         ];

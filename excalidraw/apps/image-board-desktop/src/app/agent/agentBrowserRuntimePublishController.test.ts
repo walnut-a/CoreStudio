@@ -61,7 +61,6 @@ describe("runAgentBrowserRuntimePublishAction", () => {
         enabled: false,
         projectPath: "/Users/example/CoreStudio/工业设计助手",
         scene: createScene(),
-        generationSource: "agent",
         updatedAt: "2026-07-04T12:00:00.000Z",
         publishRuntimeState,
       }),
@@ -81,7 +80,6 @@ describe("runAgentBrowserRuntimePublishAction", () => {
         enabled: true,
         projectPath: "/Users/example/CoreStudio/工业设计助手",
         scene: createScene(),
-        generationSource: "builtin",
         updatedAt: "2026-07-04T12:00:00.000Z",
         publishRuntimeState,
       }),
@@ -131,9 +129,6 @@ describe("runAgentBrowserRuntimePublishAction", () => {
           height: 800,
         },
       },
-      generation: {
-        source: "builtin",
-      },
     });
   });
 
@@ -146,7 +141,6 @@ describe("runAgentBrowserRuntimePublishAction", () => {
         enabled: true,
         projectPath: "/Users/example/CoreStudio/工业设计助手",
         scene: createScene(),
-        generationSource: "agent",
         updatedAt: "2026-07-04T12:00:00.000Z",
         publishRuntimeState: vi.fn(async () => {
           throw error;
@@ -290,7 +284,6 @@ describe("scheduleAgentBrowserRuntimePublishAction", () => {
 describe("createAgentBrowserRuntimePublishRendererActions", () => {
   it("creates reusable renderer actions for publishing, scheduling, and clearing runtime state", async () => {
     let timerId: number | null = 41;
-    let generationSource: "builtin" | "agent" = "builtin";
     const queuedScene = createScene();
     const latestScene = createScene();
     latestScene.appState = {
@@ -314,7 +307,6 @@ describe("createAgentBrowserRuntimePublishRendererActions", () => {
       delayMs: 120,
       isEnabled: () => true,
       getProjectPath: () => "/Users/example/CoreStudio/工业设计助手",
-      getGenerationSource: () => generationSource,
       getUpdatedAt: () => "2026-07-05T12:00:00.000Z",
       getLatestScene: () => latestScene,
       getTimerId: () => timerId,
@@ -337,24 +329,18 @@ describe("createAgentBrowserRuntimePublishRendererActions", () => {
       expect.objectContaining({
         projectPath: "/Users/example/CoreStudio/工业设计助手",
         updatedAt: "2026-07-05T12:00:00.000Z",
-        generation: {
-          source: "builtin",
-        },
         scene: expect.objectContaining({
           selectedElementIds: ["text-1"],
         }),
       }),
     );
 
-    generationSource = "agent";
     await expect(actions.publish(queuedScene)).resolves.toMatchObject({
       status: "published",
     });
     expect(publishRuntimeState).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        generation: {
-          source: "agent",
-        },
+        projectPath: "/Users/example/CoreStudio/工业设计助手",
       }),
     );
 

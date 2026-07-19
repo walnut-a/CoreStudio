@@ -132,6 +132,7 @@ export const enCopy: DesktopCopy = {
     currentImage: "Current image",
     descendantImages: "Later versions",
     locateImage: "Locate image",
+    locateGenerationRecord: "Show in generation history",
     locateReference: (label: string) => `Locate ${label}`,
     locatedReferencingResult:
       "This image is a reference for a later result. Located the board image that uses it.",

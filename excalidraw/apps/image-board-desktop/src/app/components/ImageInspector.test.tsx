@@ -37,6 +37,7 @@ const renderInspector = (
   overrides: Partial<{
     record: ImageRecord;
     onLocateImageRecord: (fileId: string) => void;
+    onLocateGenerationRecord: (fileId: string) => void;
     onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
   }> = {},
 ) =>
@@ -60,6 +61,9 @@ const renderInspector = (
       onCopyPrompt={vi.fn()}
       onCopyTaskError={vi.fn()}
       onLocateImageRecord={overrides.onLocateImageRecord ?? vi.fn()}
+      onLocateGenerationRecord={
+        overrides.onLocateGenerationRecord ?? vi.fn()
+      }
       onLocatePromptReference={overrides.onLocatePromptReference ?? vi.fn()}
     />,
   );
@@ -132,6 +136,17 @@ describe("ImageInspector", () => {
     expect(
       screen.queryByRole("button", { name: "复用参数" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens the matching generation record from image details", () => {
+    const onLocateGenerationRecord = vi.fn();
+    renderInspector({ onLocateGenerationRecord });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "在生成记录中显示" }),
+    );
+
+    expect(onLocateGenerationRecord).toHaveBeenCalledWith("file-1");
   });
 
   it("lets lineage entries request locating their canvas image", () => {

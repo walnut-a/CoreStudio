@@ -125,7 +125,7 @@ describe("smoke-packaged", () => {
       .mockReturnValueOnce({
         status: 0,
         stdout:
-          '{"ok":true,"data":{"appVersion":"1.1.22","integrationVersion":"1.1.0","bridgeProtocolVersion":1}}\n',
+          '{"ok":true,"data":{"appVersion":"1.1.22","integrationVersion":"1.2.0","bridgeProtocolVersion":2}}\n',
         stderr: "",
       });
     const rmSync = vi.fn();
@@ -139,7 +139,7 @@ describe("smoke-packaged", () => {
         filePath.endsWith("CODEX_INSTALLATION.md")
           ? "# CoreStudio Codex 集成安装指南"
           : filePath.endsWith("corestudio-integration.json")
-            ? '{"installedFromAppVersion":"1.1.22","integrationVersion":"1.1.0","bridgeProtocolVersion":1}'
+            ? '{"installedFromAppVersion":"1.1.22","integrationVersion":"1.2.0","bridgeProtocolVersion":2}'
             : '{"version":"1.1.22"}',
       rmSync,
       spawnSync,

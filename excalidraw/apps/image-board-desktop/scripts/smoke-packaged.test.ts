@@ -34,6 +34,9 @@ const loadModule = () =>
       };
       setTimeout: (callback: () => void, timeoutMs: number) => unknown;
       clearTimeout: (timer: unknown) => void;
+      mkdtempSync: (prefix: string) => string;
+      rmSync: (filePath: string, options: { recursive: true; force: true }) => void;
+      tmpdir: () => string;
       env: NodeJS.ProcessEnv;
       timeoutMs: number;
       stdout?: { write: (text: string) => void };
@@ -91,12 +94,17 @@ describe("smoke-packaged", () => {
       kill: vi.fn(),
     });
     const spawn = vi.fn(() => child);
+    const mkdtempSync = vi.fn(() => "/tmp/corestudio-app-smoke-profile");
+    const rmSync = vi.fn();
 
     const smoke = runPackagedSmoke({
       executablePath: "/Applications/CoreStudio.app/Contents/MacOS/CoreStudio",
       spawn,
       setTimeout: vi.fn(),
       clearTimeout: vi.fn(),
+      mkdtempSync,
+      rmSync,
+      tmpdir: () => "/tmp",
       env: { HOME: "/Users/alice" },
       timeoutMs: 1000,
       stdout: { write: vi.fn() },
@@ -107,7 +115,7 @@ describe("smoke-packaged", () => {
     await expect(smoke).resolves.toBeUndefined();
     expect(spawn).toHaveBeenCalledWith(
       "/Applications/CoreStudio.app/Contents/MacOS/CoreStudio",
-      [],
+      ["--user-data-dir=/tmp/corestudio-app-smoke-profile"],
       expect.objectContaining({
         env: expect.objectContaining({
           CORESTUDIO_SMOKE_TEST: "1",
@@ -115,6 +123,11 @@ describe("smoke-packaged", () => {
       }),
     );
     expect(child.kill).toHaveBeenCalled();
+    expect(mkdtempSync).toHaveBeenCalledWith("/tmp/corestudio-app-smoke-");
+    expect(rmSync).toHaveBeenCalledWith(
+      "/tmp/corestudio-app-smoke-profile",
+      { recursive: true, force: true },
+    );
   });
 
   it("installs and executes the Codex integration from the packaged app", () => {

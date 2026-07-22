@@ -20,7 +20,10 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 
-import { buildAgentBrowserRouteState } from "./agent/agentBrowserBridge";
+import {
+  buildAgentBrowserRouteState,
+  readAgentBrowserProjectVersion,
+} from "./agent/agentBrowserBridge";
 import {
   createAutosaveLifecycleRendererActions,
   createAutosaveRendererActions,
@@ -35,9 +38,7 @@ import { createDesktopStartupRendererActions } from "./desktopStartupState";
 import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleController";
 import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
 import { createGenerationRequestRendererActions } from "./generationRequestRendererController";
-import {
-  runBuiltinGenerationRendererAction,
-} from "./builtinGenerationRendererController";
+import { runBuiltinGenerationRendererAction } from "./builtinGenerationRendererController";
 import { createGenerationSubmitRendererActions } from "./generationSubmitRendererController";
 import {
   type GeneratedImagePlacementViewport,
@@ -53,7 +54,10 @@ import {
   type WorkspaceZoomGateState,
 } from "./workspaceBounds";
 import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
-import { serializeSceneForProject } from "./project/sceneSerialization";
+import {
+  deserializeSceneFromProject,
+  serializeSceneForProject,
+} from "./project/sceneSerialization";
 import {
   shouldApplyProjectMaintenanceResult,
   type ProjectRepairReport,
@@ -143,6 +147,8 @@ import { createPendingGenerationCanvasRendererActions } from "./pendingGeneratio
 
 import { buildAgentIntegrationRuntimeViewModel } from "./agent/agentIntegrationViewModel";
 import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
+import { collectAgentImageFileIds } from "./agent/agentCommandHandlers";
+import { runAgentBrowserProjectSyncAction } from "./agent/agentBrowserProjectSyncController";
 import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
 import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
 import { handleAgentDesktopBridgeRequest } from "./agent/agentDesktopBridgeRequest";
@@ -161,9 +167,7 @@ import { createGenerateDialogReferenceRendererActions } from "./generateDialogRe
 import { createAgentBrowserRuntimePublishRendererActions } from "./agent/agentBrowserRuntimePublishController";
 import { createAgentBrowserAutoOpenProjectRendererActions } from "./agent/agentBrowserAutoOpenController";
 import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
-import {
-  notifyAgentBridgeProjectState,
-} from "./agent/agentBridgeStatus";
+import { notifyAgentBridgeProjectState } from "./agent/agentBridgeStatus";
 import {
   applyAgentBridgeStatusCurrentProjectUpdate,
   createAgentBridgeStatusRendererActions,
@@ -217,6 +221,7 @@ type AutosaveSnapshot = ProjectAutosaveSnapshot<
   BinaryFiles
 >;
 
+const AGENT_BROWSER_PROJECT_SYNC_INTERVAL_MS = 750;
 
 interface AppProps {
   locale?: DesktopLocale;
@@ -244,6 +249,8 @@ const App = ({
   }
 
   const desktopBridge = bridge;
+  const desktopBridgeRef = useRef(desktopBridge);
+  desktopBridgeRef.current = desktopBridge;
   const readProjectImageAssets = useMemo(
     () =>
       createProjectImageAssetReader((input) =>
@@ -461,10 +468,7 @@ const App = ({
         sceneImageFileIds,
         files: latestSceneRef.current?.files ?? null,
       }).generationRecords,
-    [
-      currentProject,
-      sceneImageFileIds,
-    ],
+    [currentProject, sceneImageFileIds],
   );
 
   const sceneImageFileIdsRendererActions =
@@ -734,6 +738,63 @@ const App = ({
       updateCurrentProject,
       updateSelectedInspector: selectedInspectorRendererActions.update,
     });
+
+  useEffect(() => {
+    if (!isAgentBrowserRoute || !currentProject?.projectPath) {
+      return;
+    }
+
+    let stopped = false;
+    let syncing = false;
+    const syncProject = async () => {
+      if (stopped || syncing) {
+        return;
+      }
+      const activeProject = currentProjectRef.current;
+      if (!activeProject) {
+        return;
+      }
+
+      syncing = true;
+      try {
+        await runAgentBrowserProjectSyncAction({
+          currentProject: activeProject,
+          readProjectVersion: readAgentBrowserProjectVersion,
+          readProjectBundle: (projectPath) =>
+            desktopBridgeRef.current.openRecentProject(projectPath),
+          applyProjectMetadata: updateCurrentProject,
+          applyProjectBundle: async (nextProject) => {
+            const restored = await deserializeSceneFromProject(
+              nextProject.sceneJson,
+            );
+            await projectRepairSceneRefreshRendererActions.refresh({
+              project: nextProject,
+              imageRecords: nextProject.imageRecords,
+              restoredSceneJson: nextProject.sceneJson,
+              restoredBoardFileIds: collectAgentImageFileIds(
+                restored.elements ?? [],
+              ),
+              forceRefresh: true,
+            });
+            updateCurrentProject(nextProject);
+          },
+        });
+      } catch (error) {
+        console.error("[agent-board:project-sync-failed]", error);
+      } finally {
+        syncing = false;
+      }
+    };
+
+    const timerId = window.setInterval(
+      () => void syncProject(),
+      AGENT_BROWSER_PROJECT_SYNC_INTERVAL_MS,
+    );
+    return () => {
+      stopped = true;
+      window.clearInterval(timerId);
+    };
+  }, [currentProject?.projectPath, isAgentBrowserRoute]);
 
   const projectMaintenanceRendererActions =
     createProjectMaintenanceRendererActions({
@@ -1417,7 +1478,24 @@ const App = ({
         latestSceneRef.current = snapshot;
       },
       flushPendingAutosave,
-      handleDesktopBridgeRequest: handleAgentDesktopBridgeRequest,
+      handleDesktopBridgeRequest: (input) =>
+        handleAgentDesktopBridgeRequest({
+          ...input,
+          openRecentProject: async (projectPath) => {
+            const result =
+              await currentProjectEntryRendererActions.openRecentProject(
+                projectPath,
+              );
+            const openedProject = currentProjectRef.current;
+            if (
+              result.status !== "opened" ||
+              openedProject?.projectPath !== projectPath
+            ) {
+              return null;
+            }
+            return openedProject;
+          },
+        }),
       handleCommandRequest: handleAgentCommandRequest,
     });
 
@@ -1621,10 +1699,9 @@ const App = ({
     setLoadingLatestProject(true);
     pendingAutosaveRef.current = null;
     try {
-      const result =
-        await currentProjectEntryRendererActions.openRecentProject(
-          currentProject.projectPath,
-        );
+      const result = await currentProjectEntryRendererActions.openRecentProject(
+        currentProject.projectPath,
+      );
       if (result.status === "opened") {
         autosaveConflictProjectPathRef.current = null;
         setAutosaveConflictProjectPath(null);

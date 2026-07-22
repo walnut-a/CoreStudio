@@ -1,11 +1,17 @@
 ---
 name: corestudio
-description: 当用户要打开、读取或修改本机 CoreStudio 项目时使用。通过 CoreStudio CLI 发现当前会话并安全读写项目，不直接修改项目文件。
+description: 当用户要打开、读取或修改本机 CoreStudio 项目，或任务明确涉及当前画布、选区、参考图和结果写回时使用。通过 CoreStudio CLI 发现当前会话并安全读写项目，不直接修改项目文件。
 ---
 
 # CoreStudio
 
 CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写都必须通过 `corestudio` CLI / Local Bridge 完成，不要直接编辑 `project.json`、`scene.excalidraw.json` 或图片记录文件。
+
+## 主动使用时机
+
+- 用户的任务明确指向当前 CoreStudio 项目、画布、选区、画布中的参考图或“把结果放进来”时，主动读取当前画布和选区，不等用户再次点名 CoreStudio。
+- 需要分析画布内容时，先读 `board` 和 `selection`；需要使用原图时，再读 `image-paths`。不用缩略图代替原始资产。
+- 搜索、下载或生成的图片属于当前画布任务时，默认写回当前项目。普通的独立图片任务不得因 CoreStudio 正在运行就擅自写回。
 
 ## 开始
 
@@ -26,4 +32,5 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 - Codex 搜索或下载得到的图片使用 `corestudio write image <path> --source-type imported` 写回；图片必须先由 Codex 保存到本地，CoreStudio 不负责联网获取。
 - 定位和选择已有元素使用 `corestudio edit locate` / `corestudio edit select`。
 - 每次写回都向用户报告 CLI 返回的 imageId、elementId、frameId 或 prompt id。
+- 写回后验证项目已更新：重新读取画布或定位返回的元素 ID，确认新元素已在画布上可见。不要把 CLI 返回成功等同于用户已经看到结果。
 - CLI 失败时保留原始错误码和消息，不绕过 Local Bridge 手工改文件。

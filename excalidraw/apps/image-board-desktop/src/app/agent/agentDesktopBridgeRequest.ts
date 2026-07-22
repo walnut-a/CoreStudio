@@ -19,6 +19,7 @@ export const handleAgentDesktopBridgeRequest = async ({
   getProject,
   getScene,
   serializeScene,
+  openRecentProject,
 }: {
   payload: unknown;
   desktopBridge: AgentDesktopBridgeRequestHandlerBridge;
@@ -27,6 +28,9 @@ export const handleAgentDesktopBridgeRequest = async ({
   serializeScene: (
     scene: Pick<AgentCommandSceneSnapshot, "elements" | "appState">,
   ) => string;
+  openRecentProject?: (
+    projectPath: string,
+  ) => Promise<DesktopProjectBundle | null>;
 }): Promise<unknown> => {
   if (!isObjectPayload(payload) || !isAgentDesktopBridgeMethod(payload.method)) {
     throw createAgentBadRequestError("desktop.bridge method 不受支持。");
@@ -51,6 +55,9 @@ export const handleAgentDesktopBridgeRequest = async ({
             })
           : project.sceneJson,
       };
+    }
+    if (typeof projectPath === "string" && openRecentProject) {
+      return openRecentProject(projectPath);
     }
   }
 

@@ -8,12 +8,14 @@ import {
   createMockProjectBundle,
   createMockProviderSettings,
   fireEvent,
+  mockExcalidrawAPI,
   newImageElement,
   render,
   screen,
   triggerExcalidrawChange,
   waitFor,
 } from "./App.testSupport";
+import { API } from "@excalidraw/excalidraw/tests/helpers/api";
 
 describe("App Agent Board route", () => {
   it("boots the browser Agent Board route through the desktop bridge adapter", async () => {
@@ -312,6 +314,137 @@ describe("App Agent Board route", () => {
     });
     expect(runtimeState.selection.reference.items[0]).not.toHaveProperty(
       "thumbnailDataUrl",
+    );
+  });
+
+  it("refreshes the open Agent Board canvas after the project version changes", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567",
+    );
+    const currentProject = {
+      projectPath: "/tmp/corestudio-project",
+      name: "测试项目",
+    };
+    const initialUpdatedAt = "2026-07-22T01:00:00.000Z";
+    const nextUpdatedAt = "2026-07-22T01:00:01.000Z";
+    let reportedUpdatedAt = initialUpdatedAt;
+    let openRecentProjectCallCount = 0;
+    const syncedElement = API.createElement({
+      type: "rectangle",
+      x: 120,
+      y: 160,
+      width: 240,
+      height: 180,
+    });
+    const initialBundle = createMockProjectBundle({
+      projectPath: currentProject.projectPath,
+      project: {
+        ...createMockProjectBundle().project,
+        name: currentProject.name,
+        updatedAt: initialUpdatedAt,
+      },
+    });
+    const nextBundle = createMockProjectBundle({
+      projectPath: currentProject.projectPath,
+      project: {
+        ...createMockProjectBundle().project,
+        name: currentProject.name,
+        updatedAt: nextUpdatedAt,
+      },
+      sceneJson: JSON.stringify({
+        elements: [syncedElement],
+        appState: {},
+      }),
+    });
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const path = new URL(String(url)).pathname;
+      if (path === "/v1/status") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: { ready: true, currentProject: null },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (path === "/v1/project/current") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              projectPath: currentProject.projectPath,
+              updatedAt: reportedUpdatedAt,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      let data: unknown = null;
+      switch (requestBody.method) {
+        case "loadAppInfo":
+          data = { name: "CoreStudio", version: "0.0.0-test" };
+          break;
+        case "loadProviderSettings":
+          data = createMockProviderSettings();
+          break;
+        case "loadRecentProjects":
+          data = [
+            {
+              projectPath: currentProject.projectPath,
+              name: currentProject.name,
+              lastOpenedAt: initialUpdatedAt,
+            },
+          ];
+          break;
+        case "openRecentProject":
+          data =
+            openRecentProjectCallCount++ === 0 ? initialBundle : nextBundle;
+          break;
+        case "readProjectAssetPayloads":
+          data = [];
+          break;
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(await screen.findByText(currentProject.name));
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(openRecentProjectCallCount).toBe(1);
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    reportedUpdatedAt = nextUpdatedAt;
+
+    await waitFor(() => expect(openRecentProjectCallCount).toBe(2), {
+      timeout: 2500,
+    });
+    await waitFor(
+      () => {
+        expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+          expect.objectContaining({
+            elements: expect.arrayContaining([
+              expect.objectContaining({
+                id: syncedElement.id,
+                type: "rectangle",
+              }),
+            ]),
+          }),
+        );
+      },
+      { timeout: 2500 },
     );
   });
 

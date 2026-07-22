@@ -309,7 +309,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("requires bearer auth before opening a recent project through the desktop bridge", async () => {
+  it("allows the connected Agent Board to open a recent project before it has a project token", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJsonWithoutAuth(
@@ -327,14 +327,11 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(401);
-    expect(result.body).toMatchObject({
-      ok: false,
-      error: {
-        code: "AUTH_REQUIRED",
-      },
+    expect(result.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
+      method: "openRecentProject",
+      args: [currentProject.projectPath],
     });
-    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("allows browser CORS preflight requests from the Agent Board origin", async () => {
@@ -512,30 +509,33 @@ describe("createLocalBridgeServer", () => {
       command: "scene.select",
       body: { elementIds: ["element-1"], fileIds: ["file-1"] },
     },
-  ])("forwards $route to $command with payload", async ({ route, command, body }) => {
-    const { server, renderer } = await track(startServer());
+  ])(
+    "forwards $route to $command with payload",
+    async ({ route, command, body }) => {
+      const { server, renderer } = await track(startServer());
 
-    const result = await requestJson(server.baseUrl, route, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
+      const result = await requestJson(server.baseUrl, route, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith(command, {
-      projectPath: currentProject.projectPath,
-      ...body,
-    });
-    expect(result.body).toEqual({
-      ok: true,
-      data: {
-        command,
-        payload: {
-          projectPath: currentProject.projectPath,
-          ...body,
+      expect(result.status).toBe(200);
+      expect(renderer.request).toHaveBeenCalledWith(command, {
+        projectPath: currentProject.projectPath,
+        ...body,
+      });
+      expect(result.body).toEqual({
+        ok: true,
+        data: {
+          command,
+          payload: {
+            projectPath: currentProject.projectPath,
+            ...body,
+          },
         },
-      },
-    });
-  });
+      });
+    },
+  );
 
   it("returns browser board runtime selection before asking the desktop renderer", async () => {
     const { server, renderer } = await track(startServer());
@@ -947,16 +947,12 @@ describe("createLocalBridgeServer", () => {
   it("forwards image path queries with only the local bridge token", async () => {
     const { server, renderer } = await track(startServer());
 
-    const result = await requestJson(
-      server.baseUrl,
-      "/v1/scene/image-paths",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          fileIds: ["file-1", "file-2"],
-        }),
-      },
-    );
+    const result = await requestJson(server.baseUrl, "/v1/scene/image-paths", {
+      method: "POST",
+      body: JSON.stringify({
+        fileIds: ["file-1", "file-2"],
+      }),
+    });
 
     expect(result.status).toBe(200);
     expect(renderer.request).toHaveBeenCalledWith("scene.imagePaths", {

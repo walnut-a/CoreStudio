@@ -362,6 +362,7 @@ interface ProjectRepairSceneRefreshInput<
   imageRecords: ImageRecordMap;
   restoredSceneJson?: string | null;
   restoredBoardFileIds: readonly string[];
+  forceRefresh?: boolean;
 }
 
 interface CreateProjectRepairSceneRefreshRendererActionsInput<
@@ -402,10 +403,7 @@ interface CreateProjectRepairSceneRefreshRendererActionsInput<
     appState: TAppState;
     files: TFiles;
   }) => void;
-  updateWorkspaceOverlay: (
-    elements: TElements,
-    appState: TAppState,
-  ) => void;
+  updateWorkspaceOverlay: (elements: TElements, appState: TAppState) => void;
   updateCurrentProject: (project: TProject) => void;
   updateSelectedInspector: (input: {
     elements: TElements;
@@ -819,6 +817,7 @@ export const runProjectRepairSceneRefreshRendererAction = async <
   imageRecords,
   restoredSceneJson,
   restoredBoardFileIds,
+  forceRefresh,
   activeProject,
   currentFiles,
   fallbackCreatedAt,
@@ -850,6 +849,7 @@ export const runProjectRepairSceneRefreshRendererAction = async <
     activeProject,
     restoredSceneJson,
     restoredBoardFileIds,
+    forceRefresh,
   });
   if (sceneRefreshPlan.action === "skip") {
     return {

@@ -39,6 +39,11 @@ export interface AgentBrowserRouteState {
   hasInitialProjectToken: boolean;
 }
 
+export interface AgentBrowserProjectVersion {
+  projectPath: string;
+  updatedAt: string;
+}
+
 interface AgentBridgeStatusResponse {
   ready: boolean;
   currentProject: DesktopCurrentProject | null;
@@ -169,6 +174,18 @@ export const publishAgentBrowserRuntimeState = async (
     },
   );
   return true;
+};
+
+export const readAgentBrowserProjectVersion = async () => {
+  const config = getAgentBrowserBridgeConfig();
+  if (!config?.token) {
+    return null;
+  }
+
+  return requestAgentBridge<AgentBrowserProjectVersion>(
+    config,
+    AGENT_HTTP_ROUTES.projectCurrent,
+  );
 };
 
 export const maybeCreateAgentBrowserDesktopBridge =

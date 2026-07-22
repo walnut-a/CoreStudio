@@ -170,55 +170,57 @@ const render = (
 const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => {
   const bridge = {
     createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
-  openProject: vi.fn().mockResolvedValue(null),
-  openRecentProject: vi.fn().mockResolvedValue(null),
-  loadRecentProjects: vi.fn().mockResolvedValue([]),
-  removeRecentProject: vi.fn().mockResolvedValue([]),
-  writeProjectScene: vi.fn().mockResolvedValue(undefined),
-  readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
-  inspectProjectHealth: vi.fn().mockResolvedValue({
-    checkedAt: "2026-04-12T08:00:00.000Z",
-    projectPath: "/tmp/mock-project",
-    imageRecordCount: 0,
-    generatedImageRecordCount: 0,
-    sceneImageFileCount: 0,
-    missingImageRecordFileIds: [],
-    missingAssetFileIds: [],
-    missingThumbnailFileIds: [],
-    missingPreviewFileIds: [],
-    orphanImageRecordFileIds: [],
-    orphanGeneratedImageRecordFileIds: [],
-    incompleteGenerationRecordFileIds: [],
-    brokenParentFileIds: [],
-    brokenPromptReferenceFileIds: [],
-    issues: [],
-    summary: {
-      errorCount: 0,
-      warningCount: 0,
-      repairableCount: 0,
-    },
-  }),
-  rebuildProjectThumbnails: vi.fn().mockResolvedValue({
-    generatedFileIds: [],
-    skippedFileIds: [],
-    failedFileIds: [],
-  }),
-  cleanProjectCache: vi.fn().mockResolvedValue({
-    removedFileCount: 0,
-    removedBytes: 0,
-    skippedFileCount: 0,
-  }),
-  persistImageAssets: vi.fn().mockResolvedValue({}),
-  importImages: vi.fn().mockResolvedValue([]),
-  readClipboardImage: vi.fn().mockResolvedValue(null),
-  revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
-  loadAppInfo: vi.fn().mockResolvedValue({
-    name: "CoreStudio",
-    version: "0.0.0-test",
-  }),
-  loadProviderSettings: vi.fn().mockResolvedValue(createMockProviderSettings()),
-  saveProviderSettings: vi.fn(),
-  generateImages: vi.fn(),
+    openProject: vi.fn().mockResolvedValue(null),
+    openRecentProject: vi.fn().mockResolvedValue(null),
+    loadRecentProjects: vi.fn().mockResolvedValue([]),
+    removeRecentProject: vi.fn().mockResolvedValue([]),
+    writeProjectScene: vi.fn().mockResolvedValue(undefined),
+    readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
+    inspectProjectHealth: vi.fn().mockResolvedValue({
+      checkedAt: "2026-04-12T08:00:00.000Z",
+      projectPath: "/tmp/mock-project",
+      imageRecordCount: 0,
+      generatedImageRecordCount: 0,
+      sceneImageFileCount: 0,
+      missingImageRecordFileIds: [],
+      missingAssetFileIds: [],
+      missingThumbnailFileIds: [],
+      missingPreviewFileIds: [],
+      orphanImageRecordFileIds: [],
+      orphanGeneratedImageRecordFileIds: [],
+      incompleteGenerationRecordFileIds: [],
+      brokenParentFileIds: [],
+      brokenPromptReferenceFileIds: [],
+      issues: [],
+      summary: {
+        errorCount: 0,
+        warningCount: 0,
+        repairableCount: 0,
+      },
+    }),
+    rebuildProjectThumbnails: vi.fn().mockResolvedValue({
+      generatedFileIds: [],
+      skippedFileIds: [],
+      failedFileIds: [],
+    }),
+    cleanProjectCache: vi.fn().mockResolvedValue({
+      removedFileCount: 0,
+      removedBytes: 0,
+      skippedFileCount: 0,
+    }),
+    persistImageAssets: vi.fn().mockResolvedValue({}),
+    importImages: vi.fn().mockResolvedValue([]),
+    readClipboardImage: vi.fn().mockResolvedValue(null),
+    revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
+    loadAppInfo: vi.fn().mockResolvedValue({
+      name: "CoreStudio",
+      version: "0.0.0-test",
+    }),
+    loadProviderSettings: vi
+      .fn()
+      .mockResolvedValue(createMockProviderSettings()),
+    saveProviderSettings: vi.fn(),
+    generateImages: vi.fn(),
     onMenuAction: vi.fn(() => () => undefined),
     ...overrides,
   } as Record<string, any>;
@@ -912,17 +914,24 @@ vi.mock("./components/ProjectMainMenu", () => ({
 }));
 
 vi.mock("./project/sceneSerialization", () => ({
-  deserializeSceneFromProject: vi.fn(async () => ({
-    elements: [],
-    appState: {
-      width: 1440,
-      height: 900,
-      scrollX: 0,
-      scrollY: 0,
-      zoom: { value: 1 },
-      selectedElementIds: {},
-    },
-  })),
+  deserializeSceneFromProject: vi.fn(async (sceneJson: string) => {
+    const scene = JSON.parse(sceneJson || "{}") as {
+      elements?: unknown[];
+      appState?: Record<string, unknown>;
+    };
+    return {
+      elements: scene.elements ?? [],
+      appState: {
+        width: 1440,
+        height: 900,
+        scrollX: 0,
+        scrollY: 0,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        ...scene.appState,
+      },
+    };
+  }),
   serializeSceneForProject: vi.fn(() => "{}"),
 }));
 

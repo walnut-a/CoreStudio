@@ -59,40 +59,74 @@ const isNodeError = (error: unknown): error is NodeJS.ErrnoException =>
 const readJson = async <T>(filePath: string): Promise<T> =>
   JSON.parse(await fs.readFile(filePath, "utf8")) as T;
 
-const readStrictImageRecords = async (filePath: string) => {
+interface ProjectImageRecordsWritebackSnapshot {
+  rawRecords: Record<string, unknown>;
+  imageRecords: ImageRecordMap;
+  unsafeFileIds: Set<string>;
+}
+
+const readImageRecordsWritebackSnapshot = async (
+  filePath: string,
+): Promise<ProjectImageRecordsWritebackSnapshot> => {
   let value: unknown;
   try {
     value = JSON.parse(await fs.readFile(filePath, "utf8"));
   } catch (error) {
-    throw Object.assign(
-      new Error("图片索引 JSON 已损坏，已停止图片写回。"),
-      {
-        code: "IMAGE_RECORDS_INVALID" as const,
-        details: error instanceof Error ? error.message : String(error),
-      },
-    );
+    throw Object.assign(new Error("图片索引 JSON 已损坏，已停止图片写回。"), {
+      code: "IMAGE_RECORDS_INVALID" as const,
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
   const parsed = parseProjectImageRecords(value);
-  if (
-    !isRecord(value) ||
-    parsed.issues.some((issue) => !issue.repairable) ||
-    Object.keys(parsed.imageRecords).length !== Object.keys(value).length
-  ) {
-    throw Object.assign(
-      new Error("图片索引包含无效记录，已停止图片写回。"),
-      {
-        code: "IMAGE_RECORDS_INVALID" as const,
-        details: parsed.issues,
-      },
-    );
+  if (!isRecord(value)) {
+    throw Object.assign(new Error("图片索引包含无效记录，已停止图片写回。"), {
+      code: "IMAGE_RECORDS_INVALID" as const,
+      details: parsed.issues,
+    });
   }
-  return parsed.imageRecords;
+
+  return {
+    rawRecords: value,
+    imageRecords: parsed.imageRecords,
+    unsafeFileIds: new Set(
+      parsed.issues
+        .filter((issue) => !issue.repairable)
+        .map((issue) => issue.fileId),
+    ),
+  };
 };
 
-const createInvalidJournalError = (
-  transactionId: string,
-  message: string,
-) =>
+const buildPersistedImageRecords = ({
+  snapshot,
+  updates = {},
+}: {
+  snapshot: ProjectImageRecordsWritebackSnapshot;
+  updates?: ImageRecordMap;
+}) => {
+  const normalizedSafeRecords = Object.fromEntries(
+    Object.entries(snapshot.imageRecords).filter(
+      ([fileId]) => !snapshot.unsafeFileIds.has(fileId),
+    ),
+  );
+
+  return {
+    ...snapshot.rawRecords,
+    ...normalizedSafeRecords,
+    ...updates,
+  };
+};
+
+const createAvailableWritebackTransactionId = (
+  reservedTransactionIds: ReadonlySet<string>,
+) => {
+  let transactionId = randomUUID();
+  while (reservedTransactionIds.has(transactionId)) {
+    transactionId = randomUUID();
+  }
+  return transactionId;
+};
+
+const createInvalidJournalError = (transactionId: string, message: string) =>
   Object.assign(new Error(message), {
     code: "WRITEBACK_JOURNAL_INVALID" as const,
     details: { transactionId },
@@ -324,15 +358,14 @@ const recordsMatch = (
 const touchProjectManifest = async (projectPath: string) => {
   let manifestValue: unknown;
   try {
-    manifestValue = await readJson<unknown>(getProjectManifestPath(projectPath));
-  } catch (error) {
-    throw Object.assign(
-      new Error("项目清单 JSON 已损坏，已保留事务日志。"),
-      {
-        code: "PROJECT_MANIFEST_INVALID" as const,
-        details: error instanceof Error ? error.message : String(error),
-      },
+    manifestValue = await readJson<unknown>(
+      getProjectManifestPath(projectPath),
     );
+  } catch (error) {
+    throw Object.assign(new Error("项目清单 JSON 已损坏，已保留事务日志。"), {
+      code: "PROJECT_MANIFEST_INVALID" as const,
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
   const manifest = parseProjectManifest({
     value: manifestValue,
@@ -365,10 +398,6 @@ export const beginProjectImageWriteback = async ({
     files.forEach(assertPersistedImageAssetIntegrity);
 
     const pending = await listJournals(projectPath);
-    if (pending.invalidJournals.length > 0) {
-      const invalid = pending.invalidJournals[0];
-      throw createInvalidJournalError(invalid.transactionId, invalid.message);
-    }
     const conflictingTransaction = pending.journals.find((journal) =>
       Object.keys(journal.nextRecords).some((fileId) =>
         fileIds.includes(fileId),
@@ -381,10 +410,32 @@ export const beginProjectImageWriteback = async ({
       });
     }
 
-    const currentRecords = await readStrictImageRecords(
+    const currentSnapshot = await readImageRecordsWritebackSnapshot(
       getImageRecordsPath(projectPath),
     );
-    const transactionId = randomUUID();
+    const unsafeConflictingFileIds = fileIds.filter(
+      (fileId) =>
+        Object.prototype.hasOwnProperty.call(
+          currentSnapshot.rawRecords,
+          fileId,
+        ) && currentSnapshot.unsafeFileIds.has(fileId),
+    );
+    if (unsafeConflictingFileIds.length > 0) {
+      throw Object.assign(
+        new Error("待写入图片与无法安全读取的旧图片记录冲突。"),
+        {
+          code: "IMAGE_RECORDS_INVALID" as const,
+          details: { fileIds: unsafeConflictingFileIds },
+        },
+      );
+    }
+    const currentRecords = currentSnapshot.imageRecords;
+    const transactionId = createAvailableWritebackTransactionId(
+      new Set([
+        ...pending.journals.map((journal) => journal.transactionId),
+        ...pending.invalidJournals.map((journal) => journal.transactionId),
+      ]),
+    );
     const previousRecords: Record<string, ImageRecord | null> = {};
     const nextRecords: ImageRecordMap = {};
 
@@ -414,7 +465,13 @@ export const beginProjectImageWriteback = async ({
     }
 
     const imageRecords = { ...currentRecords, ...nextRecords };
-    await writeJsonAtomic(getImageRecordsPath(projectPath), imageRecords);
+    await writeJsonAtomic(
+      getImageRecordsPath(projectPath),
+      buildPersistedImageRecords({
+        snapshot: currentSnapshot,
+        updates: nextRecords,
+      }),
+    );
 
     return {
       transactionId,
@@ -433,9 +490,9 @@ export const commitProjectImageWriteback = async ({
 }) =>
   withProjectWritebackLock(projectPath, async () => {
     const journal = await readJournal(projectPath, transactionId);
-    const currentRecords = await readStrictImageRecords(
-      getImageRecordsPath(projectPath),
-    );
+    const currentRecords = (
+      await readImageRecordsWritebackSnapshot(getImageRecordsPath(projectPath))
+    ).imageRecords;
     const conflictingFileIds = Object.entries(journal.nextRecords)
       .filter(
         ([fileId, expected]) => !recordsMatch(currentRecords[fileId], expected),
@@ -465,9 +522,10 @@ export const rollbackProjectImageWriteback = async ({
 }): Promise<ImageRecordMap> =>
   withProjectWritebackLock(projectPath, async () => {
     const journal = await readJournal(projectPath, transactionId);
-    const currentRecords = await readStrictImageRecords(
+    const currentSnapshot = await readImageRecordsWritebackSnapshot(
       getImageRecordsPath(projectPath),
     );
+    const currentRecords = currentSnapshot.imageRecords;
     const conflictingFileIds = Object.keys(journal.nextRecords).filter(
       (fileId) => {
         const current = currentRecords[fileId];
@@ -484,16 +542,21 @@ export const rollbackProjectImageWriteback = async ({
       );
     }
 
-    const restoredRecords = { ...currentRecords };
+    const restoredPersistedRecords = buildPersistedImageRecords({
+      snapshot: currentSnapshot,
+    });
     for (const fileId of Object.keys(journal.nextRecords)) {
       const previous = journal.previousRecords[fileId] ?? null;
       if (previous) {
-        restoredRecords[fileId] = previous;
+        restoredPersistedRecords[fileId] = previous;
       } else {
-        delete restoredRecords[fileId];
+        delete restoredPersistedRecords[fileId];
       }
     }
-    await writeJsonAtomic(getImageRecordsPath(projectPath), restoredRecords);
+    await writeJsonAtomic(
+      getImageRecordsPath(projectPath),
+      restoredPersistedRecords,
+    );
 
     for (const record of Object.values(journal.nextRecords)) {
       await fs
@@ -507,7 +570,7 @@ export const rollbackProjectImageWriteback = async ({
     await fs.unlink(
       getProjectImageWritebackJournalPath(projectPath, transactionId),
     );
-    return restoredRecords;
+    return parseProjectImageRecords(restoredPersistedRecords).imageRecords;
   });
 
 const collectSceneImageFileIds = (sceneJson: string) => {

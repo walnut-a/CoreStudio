@@ -56,6 +56,9 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain("只重试一次");
     expect(corestudioSkill).toContain("一键链接");
     expect(corestudioSkill).toContain("不要擅自改用 Chrome 或系统默认浏览器");
+    expect(corestudioSkill).toContain("主动读取当前画布和选区");
+    expect(corestudioSkill).toContain("默认写回当前项目");
+    expect(corestudioSkill).toContain("写回后验证");
     expect(corestudioSkill).not.toContain(
       "运行 `corestudio read context --json` 发现当前 CoreStudio 会话和项目",
     );
@@ -78,9 +81,7 @@ describe("agent integration docs", () => {
       "corestudio read image-paths --selection --json",
     );
     expect(cliContract).toContain("### Write An Agent Image Result");
-    expect(cliContract).toContain(
-      "--origin agent-board",
-    );
+    expect(cliContract).toContain("--origin agent-board");
     expect(cliContract).toContain("--reference-file-ids");
     expect(cliContract).toContain("### Locate A Written Result");
     expect(cliContract).toContain("corestudio edit locate --file-id");

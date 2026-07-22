@@ -1,4 +1,5 @@
 import { CaptureUpdateAction } from "@excalidraw/element";
+import { API } from "@excalidraw/excalidraw/tests/helpers/api";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
@@ -40,9 +41,7 @@ const createProject = (
   imageRecords,
 });
 
-const createAsset = (
-  fileId = "generated-file",
-): PersistedImageAssetInput => ({
+const createAsset = (fileId = "generated-file"): PersistedImageAssetInput => ({
   fileId,
   dataBase64: `${fileId}-base64`,
   mimeType: "image/png",
@@ -61,7 +60,7 @@ const createAppState = (): AppState =>
     },
     scrollX: 0,
     scrollY: 0,
-  }) as AppState;
+  } as AppState);
 
 describe("createGeneratedImageSceneInsertRendererActions", () => {
   it("skips asset insertion when the canvas is not ready and ready is not required", async () => {
@@ -180,5 +179,59 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
       }),
     );
     expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+  });
+
+  it("places Agent images outside the bounds occupied by existing canvas elements", async () => {
+    const project = createProject();
+    const blockingElement = API.createElement({
+      type: "rectangle",
+      x: 280,
+      y: 144,
+      width: 640,
+      height: 512,
+    });
+    const updateScene = vi.fn();
+    const api = {
+      getAppState: vi.fn(createAppState),
+      getSceneElementsIncludingDeleted: vi.fn(() => [blockingElement]),
+      addFiles: vi.fn(),
+      updateScene,
+      getFiles: vi.fn(() => ({})),
+    };
+    const actions = createGeneratedImageSceneInsertRendererActions({
+      getEditorApi: () => api as unknown as GeneratedImageSceneInsertEditorApi,
+      getActiveProject: () => project,
+      assertActiveProject: vi.fn(),
+      getSavedSceneHash: () => "scene-hash",
+      getPreviousBatchBounds: () => null,
+      setPreviousBatchBounds: vi.fn(),
+      updateWorkspaceOverlay: vi.fn(() => null),
+      setActiveProject: vi.fn(),
+      setPendingSnapshot: vi.fn(),
+      flushPendingAutosave: vi.fn(async () => ({ status: "flushed" })),
+      getFallbackCreatedAt: () => Date.parse("2026-07-06T00:02:00.000Z"),
+    });
+
+    await actions.insertAssets(
+      [createAsset()],
+      {},
+      {
+        expectedProjectPath: project.projectPath,
+        requireReady: true,
+      },
+    );
+
+    const insertedElements = updateScene.mock.calls[0]?.[0]
+      .elements as ExcalidrawElement[];
+    const insertedImage = insertedElements.find(
+      (element) => element.type === "image",
+    );
+    expect(insertedImage).toBeDefined();
+    expect(
+      insertedImage!.x < blockingElement.x + blockingElement.width &&
+        insertedImage!.x + insertedImage!.width > blockingElement.x &&
+        insertedImage!.y < blockingElement.y + blockingElement.height &&
+        insertedImage!.y + insertedImage!.height > blockingElement.y,
+    ).toBe(false);
   });
 });

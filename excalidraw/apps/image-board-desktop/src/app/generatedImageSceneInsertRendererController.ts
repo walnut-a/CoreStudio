@@ -26,6 +26,7 @@ import {
 } from "./project/imagePlacement";
 import {
   ENABLE_WORKSPACE_BOUNDS,
+  getSceneOccupiedBounds,
   getViewportCenterFromAppState,
   getWorkspaceBounds,
 } from "./workspaceBounds";
@@ -135,6 +136,7 @@ export const runGeneratedImageSceneInsertRendererAction = async ({
       anchorPoint,
       previousBatchBounds: getPreviousBatchBounds(),
     }),
+    occupiedBounds: getSceneOccupiedBounds(elements),
     workspaceBounds,
   });
 

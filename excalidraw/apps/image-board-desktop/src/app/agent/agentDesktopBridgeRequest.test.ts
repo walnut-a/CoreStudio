@@ -143,4 +143,26 @@ describe("handleAgentDesktopBridgeRequest", () => {
       appState: { zoom: { value: 1 } },
     });
   });
+
+  it("applies a newly selected Agent Board project to the desktop renderer", async () => {
+    const nextProject = createProject();
+    const openRecentProject = vi.fn(async () => nextProject);
+    const rawOpenRecentProject = vi.fn();
+
+    await expect(
+      handleAgentDesktopBridgeRequest({
+        payload: {
+          method: "openRecentProject",
+          args: [nextProject.projectPath],
+        },
+        desktopBridge: { openRecentProject: rawOpenRecentProject },
+        getProject: () => null,
+        getScene: () => null,
+        serializeScene: vi.fn(),
+        openRecentProject,
+      }),
+    ).resolves.toEqual(nextProject);
+    expect(openRecentProject).toHaveBeenCalledWith(nextProject.projectPath);
+    expect(rawOpenRecentProject).not.toHaveBeenCalled();
+  });
 });

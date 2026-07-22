@@ -168,6 +168,7 @@ export interface BuildProjectRepairSceneRefreshPlanInput<TProject> {
   activeProject: TProject | null | undefined;
   restoredSceneJson?: string | null;
   restoredBoardFileIds: readonly string[];
+  forceRefresh?: boolean;
 }
 
 export interface BuildProjectRepairSceneRefreshResultInput {
@@ -222,7 +223,8 @@ export interface FilterProjectThumbnailRefreshAssetsInput {
   loadedOriginalFileIds: ReadonlySet<string>;
 }
 
-export type ProjectThumbnailMaintenanceResult = ThumbnailMaintenanceState | null;
+export type ProjectThumbnailMaintenanceResult =
+  ThumbnailMaintenanceState | null;
 
 export interface BuildProjectThumbnailRebuildResultStateInput {
   result: RebuildProjectThumbnailsResult;
@@ -306,8 +308,7 @@ export interface ProjectRepairStartState {
   thumbnailMaintenance: ThumbnailMaintenanceState;
 }
 
-export interface ProjectRepairStartResultState
-  extends ProjectRepairStartState {
+export interface ProjectRepairStartResultState extends ProjectRepairStartState {
   uiState: ProjectMaintenanceUiState;
 }
 
@@ -651,9 +652,8 @@ export const buildProjectRepairCompletionViewModel = ({
 
   return {
     repairReport,
-    thumbnailMaintenance: buildProjectThumbnailMaintenanceFromRepairResult(
-      result,
-    ),
+    thumbnailMaintenance:
+      buildProjectThumbnailMaintenanceFromRepairResult(result),
     notice,
   };
 };
@@ -699,9 +699,8 @@ export const buildProjectRepairCompletionResultState = <
   messages,
   ...completionStateInput
 }: BuildProjectRepairCompletionResultStateInput<TProject>): ProjectRepairCompletionResultState<TProject> => {
-  const completionState = buildProjectRepairCompletionState(
-    completionStateInput,
-  );
+  const completionState =
+    buildProjectRepairCompletionState(completionStateInput);
   return {
     ...completionState,
     uiState: buildProjectRepairCompletionUiState({
@@ -719,7 +718,11 @@ export const applyProjectRepairImageRecordUpdates = ({
 
   repairedGenerationRecordFileIds.forEach((fileId) => {
     const record = (nextImageRecords ?? imageRecords)[fileId];
-    if (!record || record.sourceType !== "generated" || record.generationOrigin) {
+    if (
+      !record ||
+      record.sourceType !== "generated" ||
+      record.generationOrigin
+    ) {
       return;
     }
 
@@ -807,8 +810,9 @@ export const buildProjectRepairSceneRefreshPlan = <
   activeProject,
   restoredSceneJson,
   restoredBoardFileIds,
+  forceRefresh = false,
 }: BuildProjectRepairSceneRefreshPlanInput<TProject>): ProjectRepairSceneRefreshPlan<TProject> => {
-  if (!restoredSceneJson || !restoredBoardFileIds.length) {
+  if (!restoredSceneJson || (!forceRefresh && !restoredBoardFileIds.length)) {
     return {
       action: "skip",
       reason: "no-restored-scene",
@@ -944,7 +948,10 @@ export const buildProjectMaintenanceSceneFilesUpdate = <
 >({
   scene,
   files,
-}: BuildProjectMaintenanceSceneFilesUpdateInput<TScene, TFiles>): TScene | null => {
+}: BuildProjectMaintenanceSceneFilesUpdateInput<
+  TScene,
+  TFiles
+>): TScene | null => {
   if (!scene) {
     return scene;
   }
@@ -1018,7 +1025,8 @@ export const buildProjectThumbnailRebuildResultState = ({
   loadedPreviewFileIds,
   loadedOriginalFileIds,
 }: BuildProjectThumbnailRebuildResultStateInput): ProjectThumbnailRebuildResultState => ({
-  thumbnailMaintenance: buildProjectThumbnailMaintenanceFromRepairResult(result),
+  thumbnailMaintenance:
+    buildProjectThumbnailMaintenanceFromRepairResult(result),
   fileIdsToRefresh: buildProjectThumbnailRefreshFileIds({
     generatedFileIds: result.generatedFileIds,
     skippedFileIds: result.skippedFileIds,
@@ -1150,17 +1158,16 @@ export const buildProjectRepairBlockedUiState = ({
 
   return {
     projectError:
-      reason === "no-project"
-        ? messages.noProject
-        : messages.thumbnailsFailed,
+      reason === "no-project" ? messages.noProject : messages.thumbnailsFailed,
     projectNotice: null,
   };
 };
 
-export const buildProjectMaintenanceStartUiState = (): ProjectMaintenanceUiState => ({
-  projectError: null,
-  projectNotice: null,
-});
+export const buildProjectMaintenanceStartUiState =
+  (): ProjectMaintenanceUiState => ({
+    projectError: null,
+    projectNotice: null,
+  });
 
 export const buildProjectMaintenanceFailureUiState = (
   errorMessage: string,
@@ -1236,9 +1243,7 @@ export const buildProjectHealthInspectionBlockedUiState = ({
   messages,
 }: BuildProjectHealthInspectionBlockedUiStateInput): ProjectMaintenanceUiState => ({
   projectError:
-    reason === "no-project"
-      ? messages.noProject
-      : messages.healthCheckFailed,
+    reason === "no-project" ? messages.noProject : messages.healthCheckFailed,
   projectNotice: null,
 });
 
@@ -1350,12 +1355,13 @@ export const buildProjectRepairFailureResultState = (
   uiState: buildProjectMaintenanceFailureUiState(errorMessage),
 });
 
-export const buildProjectHealthInspectionFailureState = (): ProjectHealthInspectionFailureState => ({
-  projectHealthReport: null,
-  projectHealthReportOpen: false,
-  projectRepairReport: null,
-  thumbnailMaintenance: null,
-});
+export const buildProjectHealthInspectionFailureState =
+  (): ProjectHealthInspectionFailureState => ({
+    projectHealthReport: null,
+    projectHealthReportOpen: false,
+    projectRepairReport: null,
+    thumbnailMaintenance: null,
+  });
 
 export const buildProjectHealthInspectionFailureResultState = (
   errorMessage: string,
@@ -1399,8 +1405,8 @@ export const buildProjectStatusToastViewModel = ({
     tone: projectNotice
       ? "success"
       : thumbnailMaintenance?.status === "failed"
-        ? "failed"
-        : "pending",
+      ? "failed"
+      : "pending",
     hasDetails: Boolean(
       projectHealthReport?.issues.length ||
         projectRepairReportHasDetails(projectRepairReport),
@@ -1423,15 +1429,15 @@ export const buildProjectHealthInspectionSuccess = (
           repairableCount: report.summary.repairableCount,
         }
       : infoCount
-        ? {
-            kind: "has-info",
-            infoCount,
-          }
-        : {
-            kind: "healthy",
-            imageRecordCount: report.imageRecordCount,
-            generatedImageRecordCount: report.generatedImageRecordCount,
-          };
+      ? {
+          kind: "has-info",
+          infoCount,
+        }
+      : {
+          kind: "healthy",
+          imageRecordCount: report.imageRecordCount,
+          generatedImageRecordCount: report.generatedImageRecordCount,
+        };
 
   return {
     projectHealthReport: report,

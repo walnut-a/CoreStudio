@@ -89,6 +89,14 @@ describe("createDesktopProjectRepairSceneRefreshRendererActions", () => {
     const readProjectAssets = vi.fn(async () => [createThumbnailAsset()]);
     const replaceFiles = vi.fn();
     const updateScene = vi.fn();
+    const getAppState = vi.fn(() => ({
+      ...getDefaultAppState(),
+      scrollX: 345,
+      scrollY: -120,
+      zoom: { value: 0.75 },
+      width: 1280,
+      height: 720,
+    }) as AppState);
     const queueFiles = vi.fn();
     const setLatestScene = vi.fn();
     const updateSceneImageFileIds = vi.fn();
@@ -105,6 +113,7 @@ describe("createDesktopProjectRepairSceneRefreshRendererActions", () => {
       getEditorApi: () => ({
         replaceFiles,
         updateScene,
+        getAppState,
       }),
       queueFiles,
       setLatestScene,
@@ -148,6 +157,11 @@ describe("createDesktopProjectRepairSceneRefreshRendererActions", () => {
       ]),
       appState: expect.objectContaining({
         theme: "light",
+        scrollX: 345,
+        scrollY: -120,
+        zoom: { value: 0.75 },
+        width: 1280,
+        height: 720,
       }),
       captureUpdate: CaptureUpdateAction.NEVER,
     });

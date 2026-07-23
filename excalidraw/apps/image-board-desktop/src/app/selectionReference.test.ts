@@ -502,6 +502,96 @@ describe("selectionReference", () => {
     ).toBe("image-right|image-left");
   });
 
+  it("changes the reference signature when a selected image asset changes", () => {
+    const buildScene = ({
+      fileId,
+      dataURL,
+    }: {
+      fileId: string;
+      dataURL: string;
+    }) =>
+      ({
+        elements: [
+          {
+            id: "image-1",
+            type: "image",
+            isDeleted: false,
+            groupIds: [],
+            fileId,
+            version: 1,
+          },
+        ],
+        appState: {
+          ...baseAppState,
+          selectedElementIds: {
+            "image-1": true,
+          },
+        },
+        files: {
+          [fileId]: {
+            id: fileId,
+            mimeType: "image/png",
+            dataURL,
+            created: 1,
+          },
+        },
+      } as any);
+
+    const initialSignature = getSelectionReferenceSignature(
+      buildScene({
+        fileId: "file-before",
+        dataURL: "data:image/png;base64,YmVmb3Jl",
+      }),
+    );
+    const replacedFileSignature = getSelectionReferenceSignature(
+      buildScene({
+        fileId: "file-after",
+        dataURL: "data:image/png;base64,YWZ0ZXI=",
+      }),
+    );
+    const refreshedAssetSignature = getSelectionReferenceSignature(
+      buildScene({
+        fileId: "file-before",
+        dataURL: "data:image/png;base64,cmVmcmVzaGVk",
+      }),
+    );
+
+    expect(replacedFileSignature).not.toBe(initialSignature);
+    expect(refreshedAssetSignature).not.toBe(initialSignature);
+  });
+
+  it("distinguishes same-length image payloads with identical endings", () => {
+    const file = {
+      id: "file-1",
+      mimeType: "image/png",
+      dataURL:
+        "data:image/png;base64,AAAA-this-suffix-is-longer-than-twenty-four",
+      created: 1,
+    };
+    const scene = {
+      elements: [
+        {
+          id: "image-1",
+          type: "image",
+          isDeleted: false,
+          groupIds: [],
+          fileId: "file-1",
+          version: 1,
+        },
+      ],
+      appState: {
+        ...baseAppState,
+        selectedElementIds: { "image-1": true },
+      },
+      files: { "file-1": file },
+    } as any;
+    const initialSignature = getSelectionReferenceSignature(scene);
+    file.dataURL =
+      "data:image/png;base64,BBBB-this-suffix-is-longer-than-twenty-four";
+
+    expect(getSelectionReferenceSignature(scene)).not.toBe(initialSignature);
+  });
+
   it("returns selected bounds only when generation reference is enabled", () => {
     const scene = {
       elements: [

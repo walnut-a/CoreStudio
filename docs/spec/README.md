@@ -9,6 +9,7 @@
 - [2026-07-14-corestudio-application-settings-redesign.md](2026-07-14-corestudio-application-settings-redesign.md)：CoreStudio 统一应用设置重构设计。
 - [2026-07-14-corestudio-codex-collaboration-usability.md](2026-07-14-corestudio-codex-collaboration-usability.md)：CoreStudio 与 Codex 当前协作边界。
 - [2026-07-14-corestudio-usability-improvement-backlog.md](2026-07-14-corestudio-usability-improvement-backlog.md)：易用性优化清单。
+- [2026-07-23-corestudio-canvas-selection-context-and-codex-reference.md](2026-07-23-corestudio-canvas-selection-context-and-codex-reference.md)：画布选区状态、复制引用与 Codex 主动读取规则。
 
 ## 既有历史规格
 

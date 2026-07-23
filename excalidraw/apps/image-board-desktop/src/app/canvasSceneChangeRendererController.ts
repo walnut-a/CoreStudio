@@ -2,12 +2,12 @@ import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 
 import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
-import type { GenerationRequest } from "../shared/providerTypes";
-import type { ImageRecordMap } from "../shared/projectTypes";
 import type {
-  AutosaveSnapshot,
-  SceneSnapshot,
-} from "./autosaveProjectState";
+  GenerationReferencePayload,
+  GenerationRequest,
+} from "../shared/providerTypes";
+import type { ImageRecordMap } from "../shared/projectTypes";
+import type { AutosaveSnapshot, SceneSnapshot } from "./autosaveProjectState";
 import { syncSelectionReferenceIntoRequest } from "./generationRequestState";
 import {
   buildSelectionReferenceSummary,
@@ -36,7 +36,9 @@ export interface CanvasSceneChangeRendererActionsInput<
     elements: Elements,
     appState: AppStateValue,
   ) => boolean;
-  setLatestScene: (scene: SceneSnapshot<Elements, AppStateValue, Files>) => void;
+  setLatestScene: (
+    scene: SceneSnapshot<Elements, AppStateValue, Files>,
+  ) => void;
   updateSceneImageFileIds: (elements: Elements) => void;
   scheduleVisibleImageRenditionLoad: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
@@ -44,10 +46,11 @@ export interface CanvasSceneChangeRendererActionsInput<
   scheduleAgentBrowserRuntimeStatePublish: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
-  updateWorkspaceOverlay: (
-    elements: Elements,
-    appState: AppStateValue,
-  ) => void;
+  updateWorkspaceOverlay: (elements: Elements, appState: AppStateValue) => void;
+  updateSelectionReference?: (input: {
+    signature: string | null;
+    getReference: () => GenerationReferencePayload | null;
+  }) => void;
   setGenerateRequest: (
     updater: (current: GenerationRequest) => GenerationRequest,
   ) => void;
@@ -81,6 +84,7 @@ export const runCanvasSceneChangeRendererAction = <
   scheduleVisibleImageRenditionLoad,
   scheduleAgentBrowserRuntimeStatePublish,
   updateWorkspaceOverlay,
+  updateSelectionReference,
   setGenerateRequest,
   updateSelectedInspector,
   isEditorInitializing,
@@ -98,7 +102,9 @@ export const runCanvasSceneChangeRendererAction = <
     elements: Elements,
     appState: AppStateValue,
   ) => boolean;
-  setLatestScene: (scene: SceneSnapshot<Elements, AppStateValue, Files>) => void;
+  setLatestScene: (
+    scene: SceneSnapshot<Elements, AppStateValue, Files>,
+  ) => void;
   updateSceneImageFileIds: (elements: Elements) => void;
   scheduleVisibleImageRenditionLoad: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
@@ -106,10 +112,11 @@ export const runCanvasSceneChangeRendererAction = <
   scheduleAgentBrowserRuntimeStatePublish: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
-  updateWorkspaceOverlay: (
-    elements: Elements,
-    appState: AppStateValue,
-  ) => void;
+  updateWorkspaceOverlay: (elements: Elements, appState: AppStateValue) => void;
+  updateSelectionReference?: (input: {
+    signature: string | null;
+    getReference: () => GenerationReferencePayload | null;
+  }) => void;
   setGenerateRequest: (
     updater: (current: GenerationRequest) => GenerationRequest,
   ) => void;
@@ -134,9 +141,18 @@ export const runCanvasSceneChangeRendererAction = <
     appState,
     files,
   };
-  const selectionReferenceSignature =
-    getSelectionReferenceSignature(nextScene);
-  const selectionReferenceSummary = buildSelectionReferenceSummary(nextScene);
+  const selectionReferenceSignature = getSelectionReferenceSignature(nextScene);
+  let selectionReferenceSummary: GenerationReferencePayload | null | undefined;
+  const getSelectionReferenceSummary = () => {
+    if (selectionReferenceSummary === undefined) {
+      selectionReferenceSummary = buildSelectionReferenceSummary(nextScene);
+    }
+    return selectionReferenceSummary;
+  };
+  updateSelectionReference?.({
+    signature: selectionReferenceSignature,
+    getReference: getSelectionReferenceSummary,
+  });
 
   if (
     removedSelectionReferenceSignature &&
@@ -154,24 +170,23 @@ export const runCanvasSceneChangeRendererAction = <
   scheduleVisibleImageRenditionLoad(nextScene);
   scheduleAgentBrowserRuntimeStatePublish(nextScene);
   updateWorkspaceOverlay(elements, appState);
-  setGenerateRequest((current) =>
-    syncSelectionReferenceIntoRequest(
-      current,
-      removedSelectionReferenceSignature === selectionReferenceSignature
-        ? null
-        : selectionReferenceSummary,
-    ),
-  );
+  if (persistencePolicy !== "runtime-only") {
+    setGenerateRequest((current) =>
+      syncSelectionReferenceIntoRequest(
+        current,
+        removedSelectionReferenceSignature === selectionReferenceSignature
+          ? null
+          : getSelectionReferenceSummary(),
+      ),
+    );
+  }
   updateSelectedInspector({
     elements,
     appState,
     imageRecords: activeProject.imageRecords,
   });
 
-  if (
-    !isEditorInitializing &&
-    persistencePolicy === "project-autosave"
-  ) {
+  if (!isEditorInitializing && persistencePolicy === "project-autosave") {
     scheduleAutosave({
       project: activeProject,
       elements,
@@ -198,6 +213,7 @@ export const createCanvasSceneChangeRendererActions = <
   scheduleVisibleImageRenditionLoad,
   scheduleAgentBrowserRuntimeStatePublish,
   updateWorkspaceOverlay,
+  updateSelectionReference,
   setGenerateRequest,
   updateSelectedInspector,
   isEditorInitializing,
@@ -205,11 +221,7 @@ export const createCanvasSceneChangeRendererActions = <
   scheduleAutosave,
   getSavedSceneHash,
 }: CanvasSceneChangeRendererActionsInput<Elements, AppStateValue, Files>) => ({
-  changeScene: (
-    elements: Elements,
-    appState: AppStateValue,
-    files: Files,
-  ) =>
+  changeScene: (elements: Elements, appState: AppStateValue, files: Files) =>
     runCanvasSceneChangeRendererAction({
       elements,
       appState,
@@ -224,6 +236,7 @@ export const createCanvasSceneChangeRendererActions = <
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
       updateWorkspaceOverlay,
+      updateSelectionReference,
       setGenerateRequest,
       updateSelectedInspector,
       isEditorInitializing: isEditorInitializing(),

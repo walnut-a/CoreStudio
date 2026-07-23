@@ -517,6 +517,48 @@ export const enCopy: DesktopCopy = {
       `${count} ${count === 1 ? "image" : "images"} failed to load`,
     missingImagesDescription:
       "Refresh the status, or check the project assets in the desktop app.",
+    selectionContext: {
+      label: "Current canvas selection",
+      empty: "No canvas elements selected",
+      previews: "Selected element previews",
+      imagePreview: (index: number) => `Image ${index}`,
+      imagePlaceholder: "Image",
+      textIndicator: (count: number) =>
+        `${count} text ${count === 1 ? "element" : "elements"}`,
+      shapeIndicator: (count: number) =>
+        `${count} ${count === 1 ? "shape" : "shapes"}`,
+      snapshotInstruction:
+        "Use the CoreStudio Skill to process the following fixed canvas selection reference.",
+      copyReference: "Copy reference",
+      clearSelection: "Clear selection",
+      copySucceeded: "Copied. Paste into the Codex composer to use it.",
+      copyFailed: "Copy failed. Try again.",
+      imageSummary: (count: number) =>
+        `${count} ${count === 1 ? "image" : "images"}`,
+      textSummary: (count: number) =>
+        `${count} text ${count === 1 ? "element" : "elements"}`,
+      shapeSummary: (count: number) =>
+        `${count} ${count === 1 ? "shape" : "shapes"}`,
+      mixedSummary: ({
+        elements,
+        images,
+        text,
+        shapes,
+      }: {
+        elements: number;
+        images: number;
+        text: number;
+        shapes: number;
+      }) =>
+        [
+          `${elements} elements`,
+          images ? `${images} ${images === 1 ? "image" : "images"}` : null,
+          text ? `${text} text` : null,
+          shapes ? `${shapes} ${shapes === 1 ? "shape" : "shapes"}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+    },
   },
   sideDock: {
     close: (title: string) => `Close ${title}`,
@@ -727,8 +769,7 @@ export const enCopy: DesktopCopy = {
       },
       "invalid-provider-metadata": {
         title: "Invalid provider metadata",
-        description:
-          "The image provider is not stored as a non-empty string.",
+        description: "The image provider is not stored as a non-empty string.",
         suggestion:
           "The field is ignored at runtime and can be corrected manually if needed.",
       },

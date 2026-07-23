@@ -272,6 +272,10 @@ describe("App Agent Board route", () => {
         ),
       ).toBe(true);
     });
+    expect(screen.getByText("1 张图片")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "复制引用" }),
+    ).toBeInTheDocument();
     const runtimeState = browserRuntimeStates.find(
       (state) =>
         (state as { selection?: { selected?: boolean } }).selection?.selected,
@@ -315,6 +319,17 @@ describe("App Agent Board route", () => {
     expect(runtimeState.selection.reference.items[0]).not.toHaveProperty(
       "thumbnailDataUrl",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "清除选择" }));
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appState: {
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+      }),
+    );
+    expect(await screen.findByText("未选择画布元素")).toBeInTheDocument();
   });
 
   it("refreshes the open Agent Board canvas after the project version changes", async () => {

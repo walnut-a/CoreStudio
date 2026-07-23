@@ -9,6 +9,7 @@ import {
 
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
 import type { GenerationRequest } from "../shared/providerTypes";
+import { getSelectionReferenceSignature } from "./selectionReference";
 
 type GenerateDialogReferenceSceneSnapshot = NonNullable<
   ReturnType<
@@ -62,7 +63,7 @@ const createScene = () =>
         dataURL: "data:image/png;base64,abc",
       },
     },
-  }) as unknown as GenerateDialogReferenceSceneSnapshot;
+  } as unknown as GenerateDialogReferenceSceneSnapshot);
 
 const createImageRecords = () => ({
   "image-file": {
@@ -131,6 +132,9 @@ describe("generate dialog reference renderer controller", () => {
     const setRemovedSelectionReferenceSignature = vi.fn();
     const updateGenerateRequest = vi.fn();
     const getScene = vi.fn(() => createScene());
+    const selectionReferenceSignature = getSelectionReferenceSignature(
+      createScene(),
+    );
 
     const result = runGenerateReferenceRemovalRendererAction({
       getScene,
@@ -147,11 +151,11 @@ describe("generate dialog reference renderer controller", () => {
     });
 
     expect(result).toEqual({
-      removedSelectionReferenceSignature: "image-element",
+      removedSelectionReferenceSignature: selectionReferenceSignature,
     });
     expect(getScene).toHaveBeenCalledTimes(1);
     expect(setRemovedSelectionReferenceSignature).toHaveBeenCalledWith(
-      "image-element",
+      selectionReferenceSignature,
     );
 
     const updater = updateGenerateRequest.mock.calls[0]?.[0] as (
@@ -228,6 +232,8 @@ describe("generate dialog reference renderer controller", () => {
     const updateGenerateRequest = vi.fn();
     const focusGenerateInput = vi.fn();
     const loadOriginalScene = vi.fn(async () => originalScene);
+    const selectionReferenceSignature =
+      getSelectionReferenceSignature(sourceScene);
     const actions = createGenerateDialogReferenceRendererActions({
       getScene,
       getImageRecords,
@@ -245,7 +251,7 @@ describe("generate dialog reference renderer controller", () => {
       shouldBuildReference: true,
     });
     expect(actions.remove()).toEqual({
-      removedSelectionReferenceSignature: "image-element",
+      removedSelectionReferenceSignature: selectionReferenceSignature,
     });
     await expect(actions.commit()).resolves.toMatchObject({
       debug: {

@@ -8,6 +8,7 @@ import {
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
 import type { GenerationRequest } from "../shared/providerTypes";
+import { getSelectionReferenceSignature } from "./selectionReference";
 
 const createProject = (): DesktopProjectBundle => ({
   projectPath: "/tmp/corestudio-project",
@@ -103,6 +104,7 @@ describe("runCanvasSceneChangeRendererAction", () => {
     const scheduleVisibleImageRenditionLoad = vi.fn();
     const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
     const updateWorkspaceOverlay = vi.fn();
+    const updateSelectionReference = vi.fn();
     const updateSelectedInspector = vi.fn();
     const scheduleAutosave = vi.fn();
     let nextRequest = createRequest();
@@ -125,6 +127,7 @@ describe("runCanvasSceneChangeRendererAction", () => {
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
       updateWorkspaceOverlay,
+      updateSelectionReference,
       setGenerateRequest,
       updateSelectedInspector,
       isEditorInitializing: false,
@@ -134,6 +137,8 @@ describe("runCanvasSceneChangeRendererAction", () => {
     });
 
     const nextScene = { elements, appState, files };
+    const selectionReferenceSignature =
+      getSelectionReferenceSignature(nextScene);
     expect(result).toEqual({ status: "updated" });
     expect(setRemovedSelectionReferenceSignature).toHaveBeenCalledWith(null);
     expect(setLatestScene).toHaveBeenCalledWith(nextScene);
@@ -143,6 +148,22 @@ describe("runCanvasSceneChangeRendererAction", () => {
       nextScene,
     );
     expect(updateWorkspaceOverlay).toHaveBeenCalledWith(elements, appState);
+    expect(updateSelectionReference).toHaveBeenCalledWith({
+      signature: selectionReferenceSignature,
+      getReference: expect.any(Function),
+    });
+    const getUpdatedReference =
+      updateSelectionReference.mock.calls[0]?.[0]?.getReference;
+    expect(getUpdatedReference()).toEqual(
+      expect.objectContaining({
+        elementCount: 2,
+        textCount: 1,
+        source: {
+          elementIds: ["image-right", "text-left"],
+          fileIds: ["file-right"],
+        },
+      }),
+    );
     expect(nextRequest?.reference?.source).toEqual({
       elementIds: ["image-right", "text-left"],
       fileIds: ["file-right"],
@@ -167,6 +188,8 @@ describe("runCanvasSceneChangeRendererAction", () => {
     const setLatestScene = vi.fn();
     const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
     const scheduleAutosave = vi.fn();
+    const setGenerateRequest = vi.fn();
+    const updateSelectionReference = vi.fn();
 
     const result = runCanvasSceneChangeRendererAction({
       elements,
@@ -181,7 +204,8 @@ describe("runCanvasSceneChangeRendererAction", () => {
       scheduleVisibleImageRenditionLoad: vi.fn(),
       scheduleAgentBrowserRuntimeStatePublish,
       updateWorkspaceOverlay: vi.fn(),
-      setGenerateRequest: vi.fn(),
+      updateSelectionReference,
+      setGenerateRequest,
       updateSelectedInspector: vi.fn(),
       isEditorInitializing: false,
       persistencePolicy: "runtime-only",
@@ -196,6 +220,11 @@ describe("runCanvasSceneChangeRendererAction", () => {
       appState,
       files,
     });
+    expect(updateSelectionReference).toHaveBeenCalledWith({
+      signature: getSelectionReferenceSignature({ elements, appState, files }),
+      getReference: expect.any(Function),
+    });
+    expect(setGenerateRequest).not.toHaveBeenCalled();
     expect(scheduleAutosave).not.toHaveBeenCalled();
   });
 
@@ -203,13 +232,18 @@ describe("runCanvasSceneChangeRendererAction", () => {
     const project = createProject();
     const { elements, appState, files } = createScene();
     let nextRequest = createRequest();
+    const selectionReferenceSignature = getSelectionReferenceSignature({
+      elements,
+      appState,
+      files,
+    });
 
     runCanvasSceneChangeRendererAction({
       elements,
       appState,
       files,
       activeProject: project,
-      removedSelectionReferenceSignature: "image-right|text-left",
+      removedSelectionReferenceSignature: selectionReferenceSignature,
       setRemovedSelectionReferenceSignature: vi.fn(),
       maybeSnapWorkspaceZoom: vi.fn(() => false),
       setLatestScene: vi.fn(),

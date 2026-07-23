@@ -8,11 +8,7 @@ interface LineIconProps {
   size?: number;
 }
 
-export const LineIcon = ({
-  children,
-  className,
-  size = 24,
-}: LineIconProps) => (
+export const LineIcon = ({ children, className, size = 24 }: LineIconProps) => (
   <svg
     aria-hidden="true"
     focusable="false"
@@ -106,6 +102,23 @@ export const copyLinkIcon = (
     <path d="M9.75 8.75 8.5 10a3 3 0 0 0 4.25 4.25l1.25-1.25" />
     <path d="m14.25 15.25 1.25-1.25A3 3 0 0 0 11.25 9.75L10 11" />
     <path d="M8.25 18.25h-1.5a2 2 0 0 1-2-2v-9.5a2 2 0 0 1 2-2h9.5a2 2 0 0 1 2 2v1.5" />
+  </LineIcon>
+);
+
+export const checkIcon = (
+  <LineIcon size={18}>
+    <path d="m6.5 12 3.25 3.25 7.75-7.75" />
+  </LineIcon>
+);
+
+export const clearSelectionIcon = (
+  <LineIcon size={18}>
+    <path d="M8 5.5H5.5V8" />
+    <path d="M16 5.5h2.5V8" />
+    <path d="M8 18.5H5.5V16" />
+    <path d="M16 18.5h2.5V16" />
+    <path d="m9 9 6 6" />
+    <path d="m15 9-6 6" />
   </LineIcon>
 );
 

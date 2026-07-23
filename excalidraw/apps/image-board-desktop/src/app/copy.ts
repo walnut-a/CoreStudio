@@ -504,6 +504,42 @@ const zhCnCopy = {
     imageLoading: "图片加载",
     missingImages: (count: number) => `${count} 张图片未载入`,
     missingImagesDescription: "可刷新状态，或在桌面端确认项目资源是否完整。",
+    selectionContext: {
+      label: "当前画布选区",
+      empty: "未选择画布元素",
+      previews: "选中元素预览",
+      imagePreview: (index: number) => `图片 ${index}`,
+      imagePlaceholder: "图",
+      textIndicator: (count: number) => `${count} 段文字`,
+      shapeIndicator: (count: number) => `${count} 个图形`,
+      snapshotInstruction: "请使用 CoreStudio Skill 处理以下固定画布选区引用。",
+      copyReference: "复制引用",
+      clearSelection: "清除选择",
+      copySucceeded: "已复制，粘贴到 Codex 输入框即可使用",
+      copyFailed: "复制失败，请重试",
+      imageSummary: (count: number) => `${count} 张图片`,
+      textSummary: (count: number) => `${count} 段文字`,
+      shapeSummary: (count: number) => `${count} 个图形`,
+      mixedSummary: ({
+        elements,
+        images,
+        text,
+        shapes,
+      }: {
+        elements: number;
+        images: number;
+        text: number;
+        shapes: number;
+      }) =>
+        [
+          `${elements} 个元素`,
+          images ? `${images} 图片` : null,
+          text ? `${text} 文字` : null,
+          shapes ? `${shapes} 图形` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+    },
   },
   sideDock: {
     close: (title: string) => `关闭${title}`,
@@ -680,7 +716,8 @@ const zhCnCopy = {
       "inconsistent-provenance": {
         title: "图片来源记录不一致",
         description: "图片类型与生成来源字段相互矛盾。",
-        suggestion: "可确定的旧数据会在项目修复时规范化，其余记录需要手动检查。",
+        suggestion:
+          "可确定的旧数据会在项目修复时规范化，其余记录需要手动检查。",
       },
       "record-key-mismatch": {
         title: "图片记录 ID 不一致",

@@ -372,6 +372,7 @@ const touchProjectManifest = async (projectPath: string) => {
     projectPath,
     appVersion: DESKTOP_APP_VERSION,
     createAgentAccess: () => ({ token: randomUUID(), enabled: true }),
+    createProjectId: randomUUID,
   }).project;
   await writeJsonAtomic(getProjectManifestPath(projectPath), {
     ...manifest,

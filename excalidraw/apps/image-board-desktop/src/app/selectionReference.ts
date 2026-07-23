@@ -12,11 +12,61 @@ import { getElementsSceneBounds } from "./workspaceBounds";
 
 const REFERENCE_EXPORT_PADDING = 24;
 const REFERENCE_ITEM_TEXT_MAX_LENGTH = 16;
+const binaryFileRevisions = new WeakMap<
+  object,
+  {
+    dataURL: string;
+    created: number;
+    mimeType: string;
+    revision: string;
+  }
+>();
 
 type SceneSnapshot = {
   elements: readonly ExcalidrawElement[];
   appState: AppState;
   files: BinaryFiles;
+};
+
+const getDataUrlFingerprint = (value: string) => {
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first = Math.imul(first ^ code, 0x01000193);
+    second = Math.imul(second ^ code, 0x85ebca6b);
+    second ^= second >>> 13;
+  }
+  return `${value.length}:${(first >>> 0).toString(16)}:${(
+    second >>> 0
+  ).toString(16)}`;
+};
+
+const getBinaryFileRevision = (file: BinaryFiles[string]) => {
+  const dataURL = file.dataURL ?? "";
+  const mimeType = file.mimeType ?? "";
+  const cached = binaryFileRevisions.get(file);
+  if (
+    cached &&
+    cached.dataURL === dataURL &&
+    cached.created === file.created &&
+    cached.mimeType === mimeType
+  ) {
+    return cached.revision;
+  }
+
+  const revision = [
+    file.created,
+    mimeType,
+    getDataUrlFingerprint(dataURL),
+  ].join(":");
+  binaryFileRevisions.set(file, {
+    dataURL,
+    created: file.created,
+    mimeType,
+    revision,
+  });
+  return revision;
 };
 
 export type SelectionReferenceOriginalImageLoadPlan =
@@ -303,7 +353,27 @@ export const getSelectionReferenceSignature = (scene: SceneSnapshot | null) => {
     return null;
   }
 
-  return selectedElements.map((element) => element.id).join("|");
+  return selectedElements
+    .map((element) => {
+      const elementVersion =
+        typeof element.version === "number" ? `@${element.version}` : "";
+      if (element.type !== "image") {
+        return `${element.id}${elementVersion}`;
+      }
+
+      const fileId = element.fileId ?? "";
+      if (!fileId) {
+        return `${element.id}${elementVersion}`;
+      }
+      const file = fileId ? scene?.files[fileId] : null;
+      if (!file) {
+        return `${element.id}${elementVersion}#${fileId}#missing`;
+      }
+
+      const assetRevision = getBinaryFileRevision(file);
+      return `${element.id}${elementVersion}#${fileId}#${assetRevision}`;
+    })
+    .join("|");
 };
 
 export const getSelectedReferenceImageFileIds = (scene: SceneSnapshot | null) =>

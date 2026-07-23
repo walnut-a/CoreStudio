@@ -50,6 +50,7 @@ describe("projectFs", () => {
 
     const bundle = await readProjectBundle(project.projectPath);
     expect(bundle.project.name).toBe("My Prompt Board");
+    expect(bundle.project.projectId).toEqual(expect.any(String));
     expect(bundle.project.agentAccess).toEqual({
       token: expect.any(String),
       enabled: true,
@@ -106,9 +107,7 @@ describe("projectFs", () => {
         type: "excalidraw",
         version: 2,
         source: "CoreStudio",
-        elements: [
-          { id: "active", type: "image", fileId: "file-active" },
-        ],
+        elements: [{ id: "active", type: "image", fileId: "file-active" }],
         appState: {},
         files: {},
       }),
@@ -253,7 +252,18 @@ describe("projectFs", () => {
       }),
     );
     expect(persisted).toEqual(bundle.project);
+    expect(bundle.project.projectId).toEqual(expect.any(String));
     await expect(fs.readFile(assetPath, "utf8")).resolves.toBe("asset-data");
+  });
+
+  it("keeps the persistent project id when reopening a project", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const created = await createProjectStructure(root, "Stable Project Id");
+
+    const reopened = await readProjectBundle(created.projectPath);
+
+    expect(reopened.project.projectId).toBe(created.project.projectId);
   });
 
   it("rejects a non-object project manifest without overwriting it", async () => {
@@ -298,10 +308,7 @@ describe("projectFs", () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
     const created = await createProjectStructure(root, "Broken Scene");
-    const sceneFile = path.join(
-      created.projectPath,
-      PROJECT_FILENAMES.scene,
-    );
+    const sceneFile = path.join(created.projectPath, PROJECT_FILENAMES.scene);
     const malformedScene = '{"type":"excalidraw","elements":[';
     await fs.writeFile(sceneFile, malformedScene, "utf8");
 

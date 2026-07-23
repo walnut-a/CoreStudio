@@ -132,6 +132,7 @@ import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
+import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
 import {
   CORESTUDIO_OPEN_SOURCE_DEPENDENCIES,
   CORESTUDIO_REPOSITORY_URL,
@@ -180,6 +181,7 @@ import type {
   DesktopLocale,
   DesktopLocalePreference,
 } from "../shared/desktopLocale";
+import type { GenerationReferencePayload } from "../shared/providerTypes";
 
 import "./App.css";
 
@@ -285,6 +287,7 @@ const App = ({
     new Map(),
   );
   const removedSelectionReferenceSignatureRef = useRef<string | null>(null);
+  const agentBoardSelectionSignatureRef = useRef<string | null>(null);
   const generationTaskByElementIdRef = useRef<
     Map<string, GenerationTaskRecord>
   >(new Map());
@@ -313,6 +316,8 @@ const App = ({
     useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] =
     useState<ExcalidrawInitialDataState | null>(null);
+  const [agentBoardSelectionReference, setAgentBoardSelectionReference] =
+    useState<GenerationReferencePayload | null>(null);
   const [providerConfiguration, setProviderConfiguration] =
     useState<ProviderConfigurationSnapshot | null>(null);
   const providerSettings = providerConfiguration?.providers ?? null;
@@ -1251,6 +1256,16 @@ const App = ({
       scheduleAgentBrowserRuntimeStatePublish:
         agentBrowserRuntimePublishRendererActions.schedule,
       updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      updateSelectionReference: ({ signature, getReference }) => {
+        if (
+          !isAgentBrowserRoute ||
+          signature === agentBoardSelectionSignatureRef.current
+        ) {
+          return;
+        }
+        agentBoardSelectionSignatureRef.current = signature;
+        setAgentBoardSelectionReference(getReference());
+      },
       setGenerateRequest,
       updateSelectedInspector: selectedInspectorRendererActions.update,
       isEditorInitializing: () => isEditorInitializingRef.current,
@@ -1269,6 +1284,28 @@ const App = ({
       scheduleAutosave: autosaveRendererActions.schedule,
       getSavedSceneHash: () => savedSceneHashRef.current,
     });
+
+  useEffect(() => {
+    if (!isAgentBrowserRoute) {
+      return;
+    }
+    agentBoardSelectionSignatureRef.current = null;
+    setAgentBoardSelectionReference(null);
+  }, [currentProject?.projectPath, isAgentBrowserRoute]);
+
+  const clearAgentBoardSelection = () => {
+    const api = excalidrawAPIRef.current;
+    if (!api) {
+      return;
+    }
+    api.updateScene({
+      appState: {
+        selectedElementIds: {},
+        selectedGroupIds: {},
+      },
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+  };
 
   const flushPendingAutosave = autosaveRendererActions.flush;
 
@@ -1852,6 +1889,14 @@ const App = ({
                 />
               </LazyExcalidraw>
             </Suspense>
+            {isAgentBrowserRoute ? (
+              <AgentBoardSelectionBar
+                projectName={currentProject.project.name}
+                projectId={currentProject.project.projectId ?? ""}
+                reference={agentBoardSelectionReference}
+                onClearSelection={clearAgentBoardSelection}
+              />
+            ) : null}
             <GenerationHistorySidebar
               open={generationHistoryOpen}
               onOpenChange={setGenerationHistoryOpen}

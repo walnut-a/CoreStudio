@@ -63,10 +63,10 @@ describe("inspectCodexIntegration", () => {
       existing: [CLI, SKILL, MANIFEST],
       manifest: {
         schemaVersion: 1,
-        integrationVersion: "1.3.0",
+        integrationVersion: "1.5.0",
         installedFromAppVersion: "1.1.15",
         bridgeProtocolVersion: 2,
-        skillVersion: 5,
+        skillVersion: 7,
         cliWrapperVersion: 1,
         cliPath: CLI,
         skillPath: SKILL,
@@ -81,7 +81,7 @@ describe("inspectCodexIntegration", () => {
       {
         id: "compatibility",
         status: "ready",
-        installedIntegrationVersion: "1.3.0",
+        installedIntegrationVersion: "1.5.0",
       },
     ]);
   });
@@ -129,15 +129,39 @@ describe("inspectCodexIntegration", () => {
     });
   });
 
+  it("上一版固定选区 Skill 安装记录会提示 update", async () => {
+    const result = await inspectWith({
+      existing: [CLI, SKILL, MANIFEST],
+      manifest: {
+        schemaVersion: 1,
+        integrationVersion: "1.4.0",
+        installedFromAppVersion: "1.1.25",
+        bridgeProtocolVersion: 2,
+        skillVersion: 6,
+        cliWrapperVersion: 1,
+        cliPath: CLI,
+        skillPath: SKILL,
+        supportsSessionDiscovery: true,
+      },
+    });
+
+    expect(result.state).toBe("update");
+    expect(result.checks[2]).toEqual({
+      id: "compatibility",
+      status: "outdated",
+      installedIntegrationVersion: "1.4.0",
+    });
+  });
+
   it("manifest 存在但 Skill 丢失时返回 repair", async () => {
     const result = await inspectWith({
       existing: [CLI, MANIFEST],
       manifest: {
         schemaVersion: 1,
-        integrationVersion: "1.3.0",
+        integrationVersion: "1.5.0",
         installedFromAppVersion: "1.1.16",
         bridgeProtocolVersion: 2,
-        skillVersion: 5,
+        skillVersion: 7,
         cliWrapperVersion: 1,
         cliPath: CLI,
         skillPath: SKILL,

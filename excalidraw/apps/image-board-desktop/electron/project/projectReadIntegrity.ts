@@ -24,12 +24,14 @@ export const parseProjectManifest = ({
   projectPath,
   appVersion,
   createAgentAccess,
+  createProjectId,
   now = new Date().toISOString(),
 }: {
   value: unknown;
   projectPath: string;
   appVersion: string;
   createAgentAccess: () => ProjectAgentAccess;
+  createProjectId: () => string;
   now?: string;
 }): { project: ProjectManifest; changed: boolean } => {
   if (!isRecord(value)) {
@@ -67,6 +69,9 @@ export const parseProjectManifest = ({
     existingAccess && isNonEmptyString(existingAccess.token)
       ? { token: existingAccess.token, enabled: true }
       : createAgentAccess();
+  const projectId = isNonEmptyString(value.projectId)
+    ? value.projectId
+    : createProjectId();
   const createdAt = isNonEmptyString(value.createdAt) ? value.createdAt : now;
   const updatedAt = isNonEmptyString(value.updatedAt)
     ? value.updatedAt
@@ -77,6 +82,7 @@ export const parseProjectManifest = ({
     appVersion: isNonEmptyString(value.appVersion)
       ? value.appVersion
       : appVersion,
+    projectId,
     name: isNonEmptyString(value.name)
       ? value.name
       : path.basename(path.resolve(projectPath)),

@@ -225,6 +225,7 @@ const buildProjectManifest = (name: string): ProjectManifest => {
   return {
     formatVersion: PROJECT_FORMAT_VERSION,
     appVersion: DESKTOP_APP_VERSION,
+    projectId: randomUUID(),
     name,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -302,6 +303,7 @@ const readProjectBundleFiles = async (
     projectPath,
     appVersion: DESKTOP_APP_VERSION,
     createAgentAccess: createProjectAgentAccess,
+    createProjectId: randomUUID,
   });
   if (options.validateScene !== false) {
     parseProjectScene(sceneJson);

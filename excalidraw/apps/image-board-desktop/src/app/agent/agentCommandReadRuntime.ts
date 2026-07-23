@@ -1,12 +1,8 @@
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
-import type {
-  AgentRendererCommandRequest,
-} from "../../shared/agentBridgeTypes";
+import type { AgentRendererCommandRequest } from "../../shared/agentBridgeTypes";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
-import {
-  buildProjectRecordBoardPresenceMap,
-} from "../../shared/projectRecordIntegrity";
+import { buildProjectRecordBoardPresenceMap } from "../../shared/projectRecordIntegrity";
 import { serializeSceneForProject } from "../project/sceneSerialization";
 import { buildSelectionReferenceSummary } from "../selectionReference";
 import {
@@ -66,7 +62,9 @@ const parseAgentImagePathPayload = (payload: unknown) => {
   };
 };
 
-const getGenerationRecordTitle = (record: DesktopProjectBundle["imageRecords"][string]) => {
+const getGenerationRecordTitle = (
+  record: DesktopProjectBundle["imageRecords"][string],
+) => {
   const prompt = record.prompt?.trim();
   if (!prompt) {
     return "未命名生成";
@@ -151,7 +149,9 @@ export const handleAgentReadCommand = async (
         handled: true,
         value: {
           projectPath: project.projectPath,
+          projectId: project.project.projectId,
           name: project.project.name,
+          createdAt: project.project.createdAt,
           updatedAt: project.project.updatedAt,
         },
       };

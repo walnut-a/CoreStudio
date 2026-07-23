@@ -885,6 +885,12 @@ export const enCopy: DesktopCopy = {
         ? "Project data repair complete. Some images still need review."
         : "Project data repair complete.",
   },
+  agentBoardSave: {
+    saving: "Saving canvas changes…",
+    saved: "Canvas changes saved",
+    conflict: "Canvas changes conflict with a newer version. Load the latest project.",
+    error: "Canvas changes could not be saved",
+  },
   projectRenderBoundary: {
     title: "Project interface failed to load",
     unknownError: "An unknown error occurred.",

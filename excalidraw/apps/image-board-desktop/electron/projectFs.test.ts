@@ -12,6 +12,7 @@ import {
 } from "./project/projectImageWriteback";
 
 import {
+  applyProjectSceneElementPatches,
   cleanProjectCache,
   createProjectStructure,
   inspectProjectHealth,
@@ -35,6 +36,216 @@ afterEach(async () => {
 });
 
 describe("projectFs", () => {
+  it("merges element patches against the latest scene without overwriting unrelated elements", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(root, "Element Patch Merge");
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "CoreStudio",
+        elements: [
+          {
+            id: "element-a",
+            type: "rectangle",
+            x: 0,
+            version: 1,
+            versionNonce: 11,
+          },
+          {
+            id: "element-b",
+            type: "rectangle",
+            x: 100,
+            version: 2,
+            versionNonce: 22,
+          },
+        ],
+        appState: { theme: "light" },
+        files: {},
+      }),
+    });
+
+    const result = await applyProjectSceneElementPatches({
+      projectPath: project.projectPath,
+      operationId: "move-element-a",
+      patches: [
+        {
+          expectedVersion: 1,
+          expectedVersionNonce: 11,
+          element: {
+            id: "element-a",
+            type: "rectangle",
+            x: 48,
+            version: 2,
+            versionNonce: 33,
+          },
+        },
+      ],
+    });
+
+    const scene = JSON.parse(result.sceneJson);
+    expect(scene.elements).toEqual([
+      expect.objectContaining({ id: "element-a", x: 48, version: 2 }),
+      expect.objectContaining({ id: "element-b", x: 100, version: 2 }),
+    ]);
+    expect(scene.appState).toEqual({ theme: "light" });
+    expect(result.appliedElementIds).toEqual(["element-a"]);
+  });
+
+  it("rejects a stale patch for the same element while allowing an idempotent retry", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(
+      root,
+      "Element Patch Conflict",
+    );
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "CoreStudio",
+        elements: [
+          {
+            id: "element-a",
+            type: "rectangle",
+            x: 0,
+            version: 2,
+            versionNonce: 22,
+          },
+        ],
+        appState: {},
+        files: {},
+      }),
+    });
+    const input = {
+      projectPath: project.projectPath,
+      operationId: "move-element-a",
+      patches: [
+        {
+          expectedVersion: 2,
+          expectedVersionNonce: 22,
+          element: {
+            id: "element-a",
+            type: "rectangle",
+            x: 48,
+            version: 3,
+            versionNonce: 33,
+          },
+        },
+      ],
+    };
+
+    await expect(applyProjectSceneElementPatches(input)).resolves.toEqual(
+      expect.objectContaining({ appliedElementIds: ["element-a"] }),
+    );
+    await expect(applyProjectSceneElementPatches(input)).resolves.toEqual(
+      expect.objectContaining({ appliedElementIds: ["element-a"] }),
+    );
+    await expect(
+      applyProjectSceneElementPatches({
+        ...input,
+        operationId: "stale-move",
+        patches: [
+          {
+            ...input.patches[0],
+            element: {
+              ...input.patches[0].element,
+              x: 96,
+              versionNonce: 44,
+            },
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      code: "WRITEBACK_CONFLICT",
+      details: {
+        conflictingElementIds: ["element-a"],
+      },
+    });
+  });
+
+  it("serializes concurrent patches so edits to different elements both survive", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(
+      root,
+      "Concurrent Element Patches",
+    );
+    await writeProjectScene({
+      projectPath: project.projectPath,
+      sceneJson: JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "CoreStudio",
+        elements: [
+          {
+            id: "element-a",
+            type: "rectangle",
+            x: 0,
+            version: 1,
+            versionNonce: 11,
+          },
+          {
+            id: "element-b",
+            type: "rectangle",
+            x: 100,
+            version: 1,
+            versionNonce: 22,
+          },
+        ],
+        appState: {},
+        files: {},
+      }),
+    });
+
+    await Promise.all([
+      applyProjectSceneElementPatches({
+        projectPath: project.projectPath,
+        operationId: "move-a",
+        patches: [
+          {
+            expectedVersion: 1,
+            expectedVersionNonce: 11,
+            element: {
+              id: "element-a",
+              type: "rectangle",
+              x: 40,
+              version: 2,
+              versionNonce: 33,
+            },
+          },
+        ],
+      }),
+      applyProjectSceneElementPatches({
+        projectPath: project.projectPath,
+        operationId: "move-b",
+        patches: [
+          {
+            expectedVersion: 1,
+            expectedVersionNonce: 22,
+            element: {
+              id: "element-b",
+              type: "rectangle",
+              x: 140,
+              version: 2,
+              versionNonce: 44,
+            },
+          },
+        ],
+      }),
+    ]);
+
+    const scene = JSON.parse(
+      (await readProjectBundle(project.projectPath)).sceneJson,
+    );
+    expect(scene.elements).toEqual([
+      expect.objectContaining({ id: "element-a", x: 40 }),
+      expect.objectContaining({ id: "element-b", x: 140 }),
+    ]);
+  });
   it("creates the expected project folder structure", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);

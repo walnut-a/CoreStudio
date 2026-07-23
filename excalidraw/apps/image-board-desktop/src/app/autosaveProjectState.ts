@@ -208,6 +208,14 @@ export const createAutosaveRendererActions = <Snapshot>({
 
   return {
     clearTimer: clearTimerRef,
+    cancel: () => {
+      clearTimerRef();
+      const pendingSnapshot = takePendingSnapshot();
+      return {
+        status: "cancelled" as const,
+        hadPendingSnapshot: pendingSnapshot !== null,
+      };
+    },
     schedule: (snapshot: Snapshot) =>
       scheduleAutosaveSnapshotAction({
         snapshot,

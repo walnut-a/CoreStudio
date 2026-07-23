@@ -35,6 +35,8 @@ export const IPC_CHANNELS = {
   loadRecentProjects: "image-board:load-recent-projects",
   removeRecentProject: "image-board:remove-recent-project",
   writeProjectScene: "image-board:write-project-scene",
+  applyProjectSceneElementPatches:
+    "image-board:apply-project-scene-element-patches",
   readProjectAssetPayloads: "image-board:read-project-asset-payloads",
   inspectProjectHealth: "image-board:inspect-project-health",
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
@@ -103,6 +105,25 @@ export interface DesktopProjectBundle {
   imageRecordReadIssues?: ProjectImageRecordReadIssue[];
   writebackJournalReadIssues?: ProjectImageWritebackJournalReadIssue[];
   safeMode?: boolean;
+}
+
+export interface ProjectSceneElementPatch {
+  element: Record<string, unknown>;
+  expectedVersion: number | null;
+  expectedVersionNonce: number | null;
+}
+
+export interface ApplyProjectSceneElementPatchesInput {
+  projectPath: string;
+  operationId: string;
+  patches: ProjectSceneElementPatch[];
+}
+
+export interface ApplyProjectSceneElementPatchesResult {
+  project: ProjectManifest;
+  sceneJson: string;
+  sceneHash: string;
+  appliedElementIds: string[];
 }
 
 export interface DesktopCurrentProject {
@@ -342,6 +363,9 @@ export interface DesktopBridgeApi {
     sceneJson: string;
     expectedSceneHash?: string | null;
   }): Promise<ProjectManifest | void>;
+  applyProjectSceneElementPatches?(
+    input: ApplyProjectSceneElementPatchesInput,
+  ): Promise<ApplyProjectSceneElementPatchesResult>;
   readProjectAssetPayloads(input: {
     projectPath: string;
     fileIds: string[];

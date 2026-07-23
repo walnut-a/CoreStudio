@@ -47,10 +47,7 @@ export const getPersistedImageAssetIntegrityError = (file: {
     return "生成图片必须记录生成来源。";
   }
 
-  if (
-    file.sourceType === "imported" &&
-    file.generationOrigin !== undefined
-  ) {
+  if (file.sourceType === "imported" && file.generationOrigin !== undefined) {
     return "导入图片不能记录生成来源。";
   }
 
@@ -90,15 +87,13 @@ export interface ProjectRecordIntegrityIssue {
 
 export type ProjectRecordExplanationCode =
   | "board-element"
+  | "removed-from-board"
   | "referenced-by-result"
   | "missing-board-element"
   | "missing-asset-file"
   | "incomplete-generation-record";
 
-export type ProjectRecordExplanationStatus =
-  | "ok"
-  | "repairable"
-  | "manual";
+export type ProjectRecordExplanationStatus = "ok" | "repairable" | "manual";
 
 export interface ProjectRecordExplanation {
   fileId: string;
@@ -122,11 +117,13 @@ export interface ProjectRecordIntegrityReport {
 
 export type ProjectRecordBoardLocateKind =
   | "direct"
+  | "removed-from-board"
   | "referenced-by-result"
   | "missing-board-element";
 
 export interface ProjectRecordBoardPresence {
   onBoard: boolean;
+  removedFromBoard: boolean;
   locatable: boolean;
   locateKind: ProjectRecordBoardLocateKind;
   referencedByFileIds: string[];
@@ -154,11 +151,14 @@ const compareImageRecordNewestFirst = (
 export const buildProjectRecordBoardPresenceMap = ({
   imageRecords,
   sceneImageFileIds,
+  deletedSceneImageFileIds = [],
 }: {
   imageRecords: ImageRecordMap;
   sceneImageFileIds: readonly string[];
+  deletedSceneImageFileIds?: readonly string[];
 }): Record<string, ProjectRecordBoardPresence> => {
   const sceneImageFileIdSet = new Set(sceneImageFileIds);
+  const deletedSceneImageFileIdSet = new Set(deletedSceneImageFileIds);
   const referencedByFileIds = new Map<string, Set<string>>();
   for (const record of Object.values(imageRecords)) {
     for (const reference of record.promptReferences ?? []) {
@@ -178,6 +178,8 @@ export const buildProjectRecordBoardPresenceMap = ({
   return Object.fromEntries(
     Array.from(indexedFileIds).map((fileId) => {
       const onBoard = sceneImageFileIdSet.has(fileId);
+      const removedFromBoard =
+        !onBoard && deletedSceneImageFileIdSet.has(fileId);
       const referencingFileIds = Array.from(
         referencedByFileIds.get(fileId) ?? [],
       ).sort((leftFileId, rightFileId) => {
@@ -193,19 +195,22 @@ export const buildProjectRecordBoardPresenceMap = ({
         ) ?? null;
       const locateKind: ProjectRecordBoardLocateKind = onBoard
         ? "direct"
+        : removedFromBoard
+        ? "removed-from-board"
         : fallbackFileId
-          ? "referenced-by-result"
-          : "missing-board-element";
+        ? "referenced-by-result"
+        : "missing-board-element";
 
       return [
         fileId,
         {
           onBoard,
-          locatable: onBoard || Boolean(fallbackFileId),
+          removedFromBoard,
+          locatable: onBoard || (!removedFromBoard && Boolean(fallbackFileId)),
           locateKind,
           referencedByFileIds: referencingFileIds,
           fallbackFileId,
-          needsBoardRepair: !onBoard,
+          needsBoardRepair: !onBoard && !removedFromBoard,
         },
       ];
     }),
@@ -220,15 +225,18 @@ const canRestoreImageRecordToBoard = (record: ImageRecord) =>
 export const buildProjectRecordExplanations = ({
   imageRecords,
   sceneImageFileIds,
+  deletedSceneImageFileIds = [],
   missingAssetFileIds = [],
 }: {
   imageRecords: ImageRecordMap;
   sceneImageFileIds: readonly string[];
+  deletedSceneImageFileIds?: readonly string[];
   missingAssetFileIds?: readonly string[];
 }): Record<string, ProjectRecordExplanation> => {
   const boardPresenceByFileId = buildProjectRecordBoardPresenceMap({
     imageRecords,
     sceneImageFileIds,
+    deletedSceneImageFileIds,
   });
   const missingAssetFileIdSet = new Set(missingAssetFileIds);
 
@@ -278,6 +286,19 @@ export const buildProjectRecordExplanations = ({
         ];
       }
 
+      if (boardPresence?.removedFromBoard) {
+        return [
+          fileId,
+          {
+            fileId,
+            code: "removed-from-board",
+            status: "ok",
+            summary: "图片已从画板移除，项目资产和记录继续保留。",
+            boardPresence,
+          },
+        ];
+      }
+
       if (boardPresence?.locateKind === "referenced-by-result") {
         return [
           fileId,
@@ -314,15 +335,18 @@ export const buildProjectRecordExplanations = ({
 export const getProjectImageRecordBoardRepairFileIds = ({
   imageRecords,
   sceneImageFileIds,
+  deletedSceneImageFileIds = [],
   missingAssetFileIds = [],
 }: {
   imageRecords: ImageRecordMap;
   sceneImageFileIds: readonly string[];
+  deletedSceneImageFileIds?: readonly string[];
   missingAssetFileIds?: readonly string[];
 }) => {
   const boardPresenceByFileId = buildProjectRecordBoardPresenceMap({
     imageRecords,
     sceneImageFileIds,
+    deletedSceneImageFileIds,
   });
   const missingAssetFileIdSet = new Set(missingAssetFileIds);
 
@@ -346,10 +370,12 @@ export const getProjectImageRecordBoardRepairFileIds = ({
 export const inspectProjectRecordIntegrity = ({
   imageRecords,
   sceneImageFileIds,
+  deletedSceneImageFileIds = [],
   missingAssetFileIds = [],
 }: {
   imageRecords: ImageRecordMap;
   sceneImageFileIds: readonly string[];
+  deletedSceneImageFileIds?: readonly string[];
   missingAssetFileIds?: readonly string[];
 }): ProjectRecordIntegrityReport => {
   const issues: ProjectRecordIntegrityIssue[] = [];
@@ -416,19 +442,24 @@ export const inspectProjectRecordIntegrity = ({
   }
 
   const sceneImageFileIdSet = new Set(sceneImageFileIds);
+  const deletedSceneImageFileIdSet = new Set(deletedSceneImageFileIds);
   const boardPresenceByFileId = buildProjectRecordBoardPresenceMap({
     imageRecords,
     sceneImageFileIds,
+    deletedSceneImageFileIds,
   });
   const recordExplanations = buildProjectRecordExplanations({
     imageRecords,
     sceneImageFileIds,
+    deletedSceneImageFileIds,
     missingAssetFileIds,
   });
   const missingAssetFileIdSet = new Set(missingAssetFileIds);
   const orphanImageRecordFileIds = Object.keys(imageRecords).filter(
     (fileId) =>
-      !sceneImageFileIdSet.has(fileId) && !missingAssetFileIdSet.has(fileId),
+      !sceneImageFileIdSet.has(fileId) &&
+      !deletedSceneImageFileIdSet.has(fileId) &&
+      !missingAssetFileIdSet.has(fileId),
   );
   const orphanGeneratedImageRecordFileIds = orphanImageRecordFileIds.filter(
     (fileId) => imageRecords[fileId]?.sourceType === "generated",
@@ -451,8 +482,8 @@ export const inspectProjectRecordIntegrity = ({
           ? `生成图未直接显示在画板，但可通过后续结果定位：${fileId}`
           : `项目图片未直接显示在画板，但可通过后续结果定位：${fileId}`
         : isGeneratedRecord
-          ? `生成图未显示在画板：${fileId}`
-          : `项目图片未显示在画板：${fileId}`,
+        ? `生成图未显示在画板：${fileId}`
+        : `项目图片未显示在画板：${fileId}`,
       repairable: true,
       boardPresence,
       resolution: {
@@ -460,8 +491,8 @@ export const inspectProjectRecordIntegrity = ({
         summary: isLocatableViaResult
           ? "项目数据修复会把这张图片作为独立画板元素补回；当前也可以定位到引用它的结果图。"
           : isGeneratedRecord
-            ? "项目数据修复会把可读取的生成图放回画板。"
-            : "项目数据修复会把可读取的项目图片放回画板。",
+          ? "项目数据修复会把可读取的生成图放回画板。"
+          : "项目数据修复会把可读取的项目图片放回画板。",
       },
     });
   }

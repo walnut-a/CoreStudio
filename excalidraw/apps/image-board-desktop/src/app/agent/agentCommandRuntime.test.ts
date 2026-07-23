@@ -239,6 +239,7 @@ describe("agentCommandRuntime", () => {
           onBoard: false,
           boardPresence: {
             onBoard: false,
+            removedFromBoard: false,
             locatable: true,
             locateKind: "referenced-by-result",
             referencedByFileIds: ["result-file"],
@@ -251,6 +252,7 @@ describe("agentCommandRuntime", () => {
           onBoard: false,
           boardPresence: {
             onBoard: false,
+            removedFromBoard: false,
             locatable: false,
             locateKind: "missing-board-element",
             referencedByFileIds: [],

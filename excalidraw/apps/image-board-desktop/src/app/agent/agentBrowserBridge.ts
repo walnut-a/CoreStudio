@@ -139,7 +139,10 @@ const requestAgentBridge = async <T>(
     throw new Error("Agent Bridge 返回了无法识别的数据。");
   }
   if (!json.ok) {
-    throw new Error(json.error.message);
+    throw Object.assign(new Error(json.error.message), {
+      code: json.error.code,
+      details: json.error.details,
+    });
   }
   return json.data;
 };
@@ -230,6 +233,8 @@ export const maybeCreateAgentBrowserDesktopBridge =
           "Agent Board 只同步运行态画布，不允许直接保存项目场景。",
         );
       },
+      applyProjectSceneElementPatches: (input) =>
+        callDesktopBridge(config, "applyProjectSceneElementPatches", [input]),
       readProjectAssetPayloads: (input) =>
         callDesktopBridge<ProjectAssetPayload[]>(
           config,

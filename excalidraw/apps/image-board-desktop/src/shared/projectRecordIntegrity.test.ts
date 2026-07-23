@@ -265,6 +265,74 @@ describe("projectRecordIntegrity", () => {
     ).toEqual(["referenced-source", "generated-valid"]);
   });
 
+  it("treats soft-deleted images as intentional removals instead of repair candidates", () => {
+    const imageRecords: ImageRecordMap = {
+      "removed-file": createImageRecord({
+        fileId: "removed-file",
+      }),
+    };
+
+    const report = inspectProjectRecordIntegrity({
+      imageRecords,
+      sceneImageFileIds: [],
+      deletedSceneImageFileIds: ["removed-file"],
+    });
+
+    expect(
+      buildProjectRecordBoardPresenceMap({
+        imageRecords,
+        sceneImageFileIds: [],
+        deletedSceneImageFileIds: ["removed-file"],
+      }),
+    ).toMatchObject({
+      "removed-file": {
+        onBoard: false,
+        removedFromBoard: true,
+        locatable: false,
+        locateKind: "removed-from-board",
+        referencedByFileIds: [],
+        fallbackFileId: null,
+        needsBoardRepair: false,
+      },
+    });
+    expect(
+      getProjectImageRecordBoardRepairFileIds({
+        imageRecords,
+        sceneImageFileIds: [],
+        deletedSceneImageFileIds: ["removed-file"],
+      }),
+    ).toEqual([]);
+    expect(report.orphanImageRecordFileIds).toEqual([]);
+    expect(report.orphanGeneratedImageRecordFileIds).toEqual([]);
+    expect(report.recordExplanations["removed-file"]).toMatchObject({
+      code: "removed-from-board",
+      status: "ok",
+      summary: "图片已从画板移除，项目资产和记录继续保留。",
+    });
+    expect(report.issues).toEqual([]);
+  });
+
+  it("prefers a live board element when the same asset also has deleted history", () => {
+    const imageRecords: ImageRecordMap = {
+      "live-file": createImageRecord({
+        fileId: "live-file",
+      }),
+    };
+
+    expect(
+      buildProjectRecordBoardPresenceMap({
+        imageRecords,
+        sceneImageFileIds: ["live-file"],
+        deletedSceneImageFileIds: ["live-file"],
+      })["live-file"],
+    ).toMatchObject({
+      onBoard: true,
+      removedFromBoard: false,
+      locateKind: "direct",
+      needsBoardRepair: false,
+    });
+  });
+
   it("builds a project record integrity report from record relationships", () => {
     const imageRecords: ImageRecordMap = {
       "file-on-board": createImageRecord({
@@ -348,9 +416,7 @@ describe("projectRecordIntegrity", () => {
         }),
       ]),
     );
-    expect(report.orphanImageRecordFileIds).not.toContain(
-      "file-missing-asset",
-    );
+    expect(report.orphanImageRecordFileIds).not.toContain("file-missing-asset");
   });
 
   it("explains off-board records that can still be located through a result image", () => {
@@ -387,6 +453,7 @@ describe("projectRecordIntegrity", () => {
           repairable: true,
           boardPresence: {
             onBoard: false,
+            removedFromBoard: false,
             locatable: true,
             locateKind: "referenced-by-result",
             referencedByFileIds: ["result-file"],

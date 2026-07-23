@@ -21,6 +21,7 @@ export type CanvasSceneChangeRendererActionResult =
 
 export type CanvasScenePersistencePolicy =
   | "project-autosave"
+  | "element-patch"
   | "runtime-only"
   | "paused-conflict";
 
@@ -64,6 +65,10 @@ export interface CanvasSceneChangeRendererActionsInput<
   scheduleAutosave: (
     snapshot: AutosaveSnapshot<Elements, AppStateValue, Files>,
   ) => void;
+  scheduleAgentBoardElementPatch?: (snapshot: {
+    project: DesktopProjectBundle;
+    elements: Elements;
+  }) => void;
   getSavedSceneHash: () => string | null;
 }
 
@@ -90,6 +95,7 @@ export const runCanvasSceneChangeRendererAction = <
   isEditorInitializing,
   persistencePolicy,
   scheduleAutosave,
+  scheduleAgentBoardElementPatch,
   savedSceneHash,
 }: {
   elements: Elements;
@@ -130,6 +136,10 @@ export const runCanvasSceneChangeRendererAction = <
   scheduleAutosave: (
     snapshot: AutosaveSnapshot<Elements, AppStateValue, Files>,
   ) => void;
+  scheduleAgentBoardElementPatch?: (snapshot: {
+    project: DesktopProjectBundle;
+    elements: Elements;
+  }) => void;
   savedSceneHash: string | null;
 }): CanvasSceneChangeRendererActionResult => {
   if (!activeProject) {
@@ -195,6 +205,12 @@ export const runCanvasSceneChangeRendererAction = <
       expectedSceneHash: savedSceneHash,
     });
   }
+  if (!isEditorInitializing && persistencePolicy === "element-patch") {
+    scheduleAgentBoardElementPatch?.({
+      project: activeProject,
+      elements,
+    });
+  }
 
   return { status: "updated" };
 };
@@ -219,6 +235,7 @@ export const createCanvasSceneChangeRendererActions = <
   isEditorInitializing,
   getPersistencePolicy,
   scheduleAutosave,
+  scheduleAgentBoardElementPatch,
   getSavedSceneHash,
 }: CanvasSceneChangeRendererActionsInput<Elements, AppStateValue, Files>) => ({
   changeScene: (elements: Elements, appState: AppStateValue, files: Files) =>
@@ -242,6 +259,7 @@ export const createCanvasSceneChangeRendererActions = <
       isEditorInitializing: isEditorInitializing(),
       persistencePolicy: getPersistencePolicy(),
       scheduleAutosave,
+      scheduleAgentBoardElementPatch,
       savedSceneHash: getSavedSceneHash(),
     }),
 });

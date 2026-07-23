@@ -15,6 +15,8 @@ import {
 } from "../src/shared/projectTypes";
 import type { AgentErrorCode } from "../src/shared/agentBridgeTypes";
 import type {
+  ApplyProjectSceneElementPatchesInput,
+  ApplyProjectSceneElementPatchesResult,
   CleanProjectCacheResult,
   PersistedImageAssetInput,
 } from "../src/shared/desktopBridgeTypes";
@@ -489,7 +491,32 @@ const createMaintenanceBackup = async ({
   return backupPath;
 };
 
-export const writeProjectScene = async ({
+const projectSceneMutationQueues = new Map<string, Promise<void>>();
+
+const runProjectSceneMutation = async <T>(
+  projectPath: string,
+  mutate: () => Promise<T>,
+): Promise<T> => {
+  const previous =
+    projectSceneMutationQueues.get(projectPath) ?? Promise.resolve();
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => gate);
+  projectSceneMutationQueues.set(projectPath, queued);
+  await previous.catch(() => undefined);
+  try {
+    return await mutate();
+  } finally {
+    release();
+    if (projectSceneMutationQueues.get(projectPath) === queued) {
+      projectSceneMutationQueues.delete(projectPath);
+    }
+  }
+};
+
+const writeProjectSceneUnlocked = async ({
   projectPath,
   sceneJson,
   expectedSceneHash,
@@ -550,6 +577,196 @@ export const writeProjectScene = async ({
   await writeProjectManifest(projectPath, nextProject);
   return nextProject;
 };
+
+export const writeProjectScene = async (
+  input: Parameters<typeof writeProjectSceneUnlocked>[0],
+) =>
+  runProjectSceneMutation(input.projectPath, () =>
+    writeProjectSceneUnlocked(input),
+  );
+
+const readSceneElementIdentity = (element: Record<string, unknown>) => {
+  const id = typeof element.id === "string" ? element.id : null;
+  const version =
+    typeof element.version === "number" && Number.isFinite(element.version)
+      ? element.version
+      : null;
+  const versionNonce =
+    typeof element.versionNonce === "number" &&
+    Number.isFinite(element.versionNonce)
+      ? element.versionNonce
+      : null;
+  return { id, version, versionNonce };
+};
+
+const isSameSceneElement = (
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+) => JSON.stringify(left) === JSON.stringify(right);
+
+const applyProjectSceneElementPatchesUnlocked = async (
+  {
+    projectPath,
+    operationId,
+    patches,
+  }: ApplyProjectSceneElementPatchesInput,
+): Promise<ApplyProjectSceneElementPatchesResult> => {
+  if (!operationId.trim()) {
+    throw createProjectAgentError(
+      "BAD_REQUEST",
+      "元素写回缺少 operationId。",
+    );
+  }
+  if (!patches.length) {
+    throw createProjectAgentError("BAD_REQUEST", "元素写回没有包含任何变更。");
+  }
+
+  const bundle = await readProjectBundleFiles(projectPath, {
+    validateScene: false,
+  });
+  let scene: {
+    elements?: unknown;
+    [key: string]: unknown;
+  };
+  try {
+    scene = JSON.parse(bundle.sceneJson) as typeof scene;
+  } catch {
+    throw createProjectAgentError(
+      "COMMAND_FAILED",
+      "当前画板数据无法解析，已停止元素写回。",
+    );
+  }
+  if (!scene || typeof scene !== "object" || !Array.isArray(scene.elements)) {
+    throw createProjectAgentError(
+      "COMMAND_FAILED",
+      "当前画板数据缺少有效元素列表，已停止元素写回。",
+    );
+  }
+
+  const nextElements = [...scene.elements] as Record<string, unknown>[];
+  const elementIndexById = new Map<string, number>();
+  nextElements.forEach((element, index) => {
+    if (!element || typeof element !== "object" || Array.isArray(element)) {
+      return;
+    }
+    const { id } = readSceneElementIdentity(element);
+    if (id) {
+      elementIndexById.set(id, index);
+    }
+  });
+
+  const conflictingElementIds: string[] = [];
+  const appliedElementIds: string[] = [];
+  let changed = false;
+  for (const patch of patches) {
+    const nextElement = patch.element;
+    if (
+      !nextElement ||
+      typeof nextElement !== "object" ||
+      Array.isArray(nextElement)
+    ) {
+      throw createProjectAgentError(
+        "BAD_REQUEST",
+        "元素写回包含无效的元素数据。",
+      );
+    }
+    const nextIdentity = readSceneElementIdentity(nextElement);
+    if (
+      !nextIdentity.id ||
+      nextIdentity.version === null ||
+      nextIdentity.versionNonce === null
+    ) {
+      throw createProjectAgentError(
+        "BAD_REQUEST",
+        "元素写回必须包含有效的 id、version 和 versionNonce。",
+      );
+    }
+
+    const currentIndex = elementIndexById.get(nextIdentity.id);
+    const currentElement =
+      currentIndex === undefined ? null : nextElements[currentIndex];
+    if (!currentElement) {
+      if (
+        patch.expectedVersion !== null ||
+        patch.expectedVersionNonce !== null
+      ) {
+        conflictingElementIds.push(nextIdentity.id);
+        continue;
+      }
+      elementIndexById.set(nextIdentity.id, nextElements.length);
+      nextElements.push(nextElement);
+      appliedElementIds.push(nextIdentity.id);
+      changed = true;
+      continue;
+    }
+
+    if (isSameSceneElement(currentElement, nextElement)) {
+      appliedElementIds.push(nextIdentity.id);
+      continue;
+    }
+
+    const currentIdentity = readSceneElementIdentity(currentElement);
+    if (
+      currentIdentity.version !== patch.expectedVersion ||
+      currentIdentity.versionNonce !== patch.expectedVersionNonce ||
+      nextIdentity.version <= (currentIdentity.version ?? -1)
+    ) {
+      conflictingElementIds.push(nextIdentity.id);
+      continue;
+    }
+
+    nextElements[currentIndex as number] = nextElement;
+    appliedElementIds.push(nextIdentity.id);
+    changed = true;
+  }
+
+  if (conflictingElementIds.length) {
+    throw createProjectAgentError(
+      "WRITEBACK_CONFLICT",
+      "部分画布元素已被其他会话修改，请加载最新项目后重试。",
+      {
+        operationId,
+        conflictingElementIds: Array.from(new Set(conflictingElementIds)),
+      },
+    );
+  }
+
+  if (!changed) {
+    return {
+      project: bundle.project,
+      sceneJson: bundle.sceneJson,
+      sceneHash: getSceneContentHash(bundle.sceneJson),
+      appliedElementIds,
+    };
+  }
+
+  const nextSceneJson = JSON.stringify(
+    {
+      ...scene,
+      elements: nextElements,
+    },
+    null,
+    2,
+  );
+  const project = await writeProjectSceneUnlocked({
+    projectPath,
+    sceneJson: nextSceneJson,
+    expectedSceneHash: getSceneContentHash(bundle.sceneJson),
+  });
+  return {
+    project,
+    sceneJson: nextSceneJson,
+    sceneHash: getSceneContentHash(nextSceneJson),
+    appliedElementIds,
+  };
+};
+
+export const applyProjectSceneElementPatches = async (
+  input: ApplyProjectSceneElementPatchesInput,
+) =>
+  runProjectSceneMutation(input.projectPath, () =>
+    applyProjectSceneElementPatchesUnlocked(input),
+  );
 
 type CachedImageAssetRendition = Exclude<ImageAssetRequestRendition, "original">;
 

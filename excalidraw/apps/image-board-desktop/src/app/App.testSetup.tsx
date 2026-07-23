@@ -175,6 +175,29 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => {
     loadRecentProjects: vi.fn().mockResolvedValue([]),
     removeRecentProject: vi.fn().mockResolvedValue([]),
     writeProjectScene: vi.fn().mockResolvedValue(undefined),
+    applyProjectSceneElementPatches: vi
+      .fn()
+      .mockImplementation(
+        async (input: {
+          patches: Array<{ element: Record<string, unknown> }>;
+        }) => {
+          const project = createMockProjectBundle();
+          const sceneJson = JSON.stringify({
+            type: "excalidraw",
+            version: 2,
+            source: "CoreStudio",
+            elements: input.patches.map((patch) => patch.element),
+            appState: {},
+            files: {},
+          });
+          return {
+            project: project.project,
+            sceneJson,
+            sceneHash: "agent-board-scene-hash",
+            appliedElementIds: input.patches.map((patch) => patch.element.id),
+          };
+        },
+      ),
     readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
     inspectProjectHealth: vi.fn().mockResolvedValue({
       checkedAt: "2026-04-12T08:00:00.000Z",
@@ -370,6 +393,7 @@ vi.mock("@excalidraw/excalidraw", () => {
       ) => Promise<boolean> | boolean;
       renderSelectedShapeActions?: (args: {
         selectedShapeActions: React.ReactNode;
+        fullSelectedShapeActions: React.ReactNode;
         shouldRenderSelectedShapeActions: boolean;
       }) => React.ReactNode;
       renderTopLeftUI?: () => React.ReactNode;
@@ -571,6 +595,11 @@ vi.mock("@excalidraw/excalidraw", () => {
               >
                 {renderSelectedShapeActions?.({
                   selectedShapeActions: (
+                    <div data-testid="mock-selected-shape-actions">
+                      元素编辑动作
+                    </div>
+                  ),
+                  fullSelectedShapeActions: (
                     <div data-testid="mock-selected-shape-actions">
                       元素编辑动作
                     </div>
@@ -900,11 +929,16 @@ vi.mock("./components/ProjectMainMenu", () => ({
   ProjectMainMenu: ({
     currentProjectName,
     onSwitchProject,
+    canvasUtilityActionsVisible,
   }: {
     currentProjectName: string;
     onSwitchProject: () => void;
+    canvasUtilityActionsVisible: boolean;
   }) => (
-    <div data-testid="project-main-menu">
+    <div
+      data-testid="project-main-menu"
+      data-canvas-utility-actions-visible={String(canvasUtilityActionsVisible)}
+    >
       <span>{`菜单当前项目: ${currentProjectName}`}</span>
       <button type="button" onClick={onSwitchProject}>
         切换项目...

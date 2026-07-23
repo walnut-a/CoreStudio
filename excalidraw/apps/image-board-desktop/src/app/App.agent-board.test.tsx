@@ -13,6 +13,7 @@ import {
   render,
   screen,
   triggerExcalidrawChange,
+  triggerExcalidrawInitialize,
   waitFor,
 } from "./App.testSupport";
 import { API } from "@excalidraw/excalidraw/tests/helpers/api";
@@ -114,6 +115,10 @@ describe("App Agent Board route", () => {
     fireEvent.click(recentProjectButton!);
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(screen.getByTestId("project-main-menu")).toHaveAttribute(
+      "data-canvas-utility-actions-visible",
+      "false",
+    );
     expect(
       screen.queryByTestId("generate-dialog-composer-config"),
     ).not.toBeInTheDocument();
@@ -145,6 +150,7 @@ describe("App Agent Board route", () => {
       name: "测试项目",
     };
     const browserRuntimeStates: unknown[] = [];
+    const desktopBridgeCalls: Array<{ method?: string; args?: unknown[] }> = [];
     const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
       const path = new URL(String(url)).pathname;
       if (path === "/v1/status") {
@@ -187,6 +193,33 @@ describe("App Agent Board route", () => {
         method?: string;
         args?: unknown[];
       };
+      desktopBridgeCalls.push(requestBody);
+      if (requestBody.method === "applyProjectSceneElementPatches") {
+        const patchInput = requestBody.args?.[0] as {
+          patches?: Array<{ element: Record<string, unknown> }>;
+        };
+        const persistedElements =
+          patchInput.patches?.map((patch) => patch.element) ?? [];
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              project: createMockProjectBundle().project,
+              sceneJson: JSON.stringify({
+                elements: persistedElements,
+                appState: {},
+                files: {},
+              }),
+              sceneHash: "saved-agent-board-scene",
+              appliedElementIds: persistedElements.map((element) => element.id),
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
       const dataByMethod: Record<string, unknown> = {
         loadAppInfo: {
           name: "CoreStudio",
@@ -223,6 +256,12 @@ describe("App Agent Board route", () => {
     render(<App />);
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
 
     const fileId = "file-1" as FileId;
     const image = newImageElement({
@@ -319,6 +358,16 @@ describe("App Agent Board route", () => {
     expect(runtimeState.selection.reference.items[0]).not.toHaveProperty(
       "thumbnailDataUrl",
     );
+    await waitFor(() => {
+      expect(desktopBridgeCalls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            method: "applyProjectSceneElementPatches",
+          }),
+        ]),
+      );
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("画布修改已保存");
 
     fireEvent.click(screen.getByRole("button", { name: "清除选择" }));
     expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(

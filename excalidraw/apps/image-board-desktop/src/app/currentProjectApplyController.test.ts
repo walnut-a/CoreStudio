@@ -1343,4 +1343,19 @@ describe("runCurrentProjectBundleOpenRendererAction", () => {
     expect(input.beginProjectOpen).toHaveBeenCalledTimes(1);
     expect(input.setLoadingProject).toHaveBeenCalledWith(false);
   });
+
+  it("applies an already-persisted external snapshot without flushing the stale local snapshot again", async () => {
+    const project = createProject("/projects/current");
+    const input = createBundleOpenInput();
+    const actions = createCurrentProjectBundleOpenRendererActions(input);
+
+    await expect(actions.applyExternalSnapshot(project)).resolves.toEqual({
+      status: "opened",
+      sequence: 13,
+      followupStatus: "opened",
+    });
+
+    expect(input.flushPendingAutosave).not.toHaveBeenCalled();
+    expect(input.updateCurrentProject).toHaveBeenCalledWith(project);
+  });
 });

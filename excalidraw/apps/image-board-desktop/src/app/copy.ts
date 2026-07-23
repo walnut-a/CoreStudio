@@ -832,6 +832,12 @@ const zhCnCopy = {
         ? "项目数据修复完成，部分图片需要再确认。"
         : "项目数据修复完成。",
   },
+  agentBoardSave: {
+    saving: "正在保存画布修改…",
+    saved: "画布修改已保存",
+    conflict: "画布修改发生冲突，请加载最新项目",
+    error: "画布修改保存失败",
+  },
   projectRenderBoundary: {
     title: "项目界面加载失败",
     unknownError: "发生了未知错误。",

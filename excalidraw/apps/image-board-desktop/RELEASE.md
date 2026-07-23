@@ -34,6 +34,15 @@ CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" corepack yarn package
 
 正式发布不要在这个命令前额外运行 `build:desktop`；`package:desktop` 已经包含唯一一次生产构建。
 
+同一版本、同一平台和同一份源码已经成功生成完整 App、DMG 与 ZIP 时，再次执行该命令会直接复用现有产物，不会重复构建、公证。确实需要重新生成时，显式使用：
+
+```sh
+CORESTUDIO_FORCE_PACKAGE=1 CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" \
+  corepack yarn package:desktop
+```
+
+目录包不属于常规发布流程，原来的 `package:dir` 入口已移除。只有明确排查安装态问题时才使用 `package:dir:diagnostic`，不要在正式打包前把它当作默认验证步骤。
+
 这个命令会执行：
 
 - renderer build

@@ -51,6 +51,29 @@ describe("ProjectStatusToast", () => {
     expect(screen.queryByRole("button", { name: "查看详情" })).toBeNull();
   });
 
+  it("renders Agent Board element save progress", () => {
+    const { rerender } = renderToast({
+      agentBoardSaveStatus: "saving",
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent("正在保存画布修改");
+
+    rerender(
+      <ProjectStatusToast
+        projectNotice={null}
+        thumbnailMaintenance={null}
+        projectHealthReport={null}
+        projectRepairReport={null}
+        agentBoardSaveStatus="saved"
+        onOpenDetails={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("画布修改已保存");
+    expect(screen.getByRole("status")).toHaveClass(
+      "project-status-toast--success",
+    );
+  });
+
   it("renders success status with a stable success dot", () => {
     renderToast({
       projectNotice: "项目数据修复完成。",
@@ -131,6 +154,18 @@ describe("ProjectStatusToast", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
       "1 image asset is temporarily unavailable",
+    );
+  });
+
+  it("localizes Agent Board save status", () => {
+    setActiveDesktopLocale("en");
+
+    renderToast({
+      agentBoardSaveStatus: "saved",
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Canvas changes saved",
     );
   });
 });

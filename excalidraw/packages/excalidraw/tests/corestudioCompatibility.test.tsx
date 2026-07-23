@@ -28,12 +28,14 @@ describe("CoreStudio Excalidraw compatibility", () => {
     const { container } = await render(
       <Excalidraw
         renderSelectedShapeActions={({
+          fullSelectedShapeActions,
           selectedShapeActions,
           shouldRenderSelectedShapeActions,
         }) => (
           <div data-testid="selected-shape-actions-host">
             {shouldRenderSelectedShapeActions ? "selected" : "idle"}
             {selectedShapeActions ? "-actions" : "-empty"}
+            {fullSelectedShapeActions ? "-full" : "-no-full"}
           </div>
         )}
       />,
@@ -50,7 +52,7 @@ describe("CoreStudio Excalidraw compatibility", () => {
     await waitFor(() => {
       expect(
         queryByTestId(container, "selected-shape-actions-host"),
-      ).toHaveTextContent("selected-actions");
+      ).toHaveTextContent("selected-actions-full");
     });
   });
 

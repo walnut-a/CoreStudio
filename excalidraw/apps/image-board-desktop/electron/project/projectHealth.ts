@@ -53,30 +53,34 @@ const readSceneImageReferences = (sceneJson: string) => {
       }>;
     };
     const references: SceneImageReference[] = [];
-    for (const element of Array.isArray(scene.elements)
-      ? scene.elements
-      : []) {
+    const deletedReferences: SceneImageReference[] = [];
+    for (const element of Array.isArray(scene.elements) ? scene.elements : []) {
       if (
         element?.type === "image" &&
-        element.isDeleted !== true &&
         typeof element.fileId === "string" &&
         element.fileId
       ) {
-        references.push({
+        const reference = {
           fileId: element.fileId,
-          elementId:
-            typeof element.id === "string" ? element.id : undefined,
-        });
+          elementId: typeof element.id === "string" ? element.id : undefined,
+        };
+        if (element.isDeleted === true) {
+          deletedReferences.push(reference);
+        } else {
+          references.push(reference);
+        }
       }
     }
     return {
       parseFailed: false,
       references,
+      deletedReferences,
     };
   } catch {
     return {
       parseFailed: true,
       references: [] as SceneImageReference[],
+      deletedReferences: [] as SceneImageReference[],
     };
   }
 };
@@ -125,6 +129,11 @@ export const inspectProjectHealth = async (
   const sceneImageFileIds = Array.from(
     new Set(sceneReferences.references.map((reference) => reference.fileId)),
   );
+  const deletedSceneImageFileIds = Array.from(
+    new Set(
+      sceneReferences.deletedReferences.map((reference) => reference.fileId),
+    ),
+  );
   const imageRecordFileIds = Object.keys(bundle.imageRecords);
   const generatedImageRecordFileIds = imageRecordFileIds.filter(
     (fileId) => bundle.imageRecords[fileId]?.sourceType === "generated",
@@ -142,8 +151,8 @@ export const inspectProjectHealth = async (
       severity: isLegacyGeneratedRecord
         ? "error"
         : issue.repairable
-          ? "warning"
-          : "error",
+        ? "warning"
+        : "error",
       resolution: {
         status: issue.repairable ? "repairable" : "manual",
         summary: issue.repairable
@@ -316,6 +325,7 @@ export const inspectProjectHealth = async (
   const recordIntegrityReport = inspectProjectRecordIntegrity({
     imageRecords: bundle.imageRecords,
     sceneImageFileIds,
+    deletedSceneImageFileIds,
     missingAssetFileIds,
   });
   recordIntegrityReport.issues.forEach(addIssue);
@@ -334,17 +344,15 @@ export const inspectProjectHealth = async (
     missingAssetFileIds,
     missingThumbnailFileIds,
     missingPreviewFileIds,
-    orphanImageRecordFileIds:
-      recordIntegrityReport.orphanImageRecordFileIds,
+    orphanImageRecordFileIds: recordIntegrityReport.orphanImageRecordFileIds,
     orphanGeneratedImageRecordFileIds:
       recordIntegrityReport.orphanGeneratedImageRecordFileIds,
-    incompleteGenerationRecordFileIds:
-      Array.from(
-        new Set([
-          ...recordIntegrityReport.incompleteGenerationRecordFileIds,
-          ...legacyGeneratedRecordFileIds,
-        ]),
-      ),
+    incompleteGenerationRecordFileIds: Array.from(
+      new Set([
+        ...recordIntegrityReport.incompleteGenerationRecordFileIds,
+        ...legacyGeneratedRecordFileIds,
+      ]),
+    ),
     brokenParentFileIds: recordIntegrityReport.brokenParentFileIds,
     brokenPromptReferenceFileIds:
       recordIntegrityReport.brokenPromptReferenceFileIds,

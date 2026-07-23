@@ -1049,6 +1049,7 @@ export interface CurrentProjectBundleOpenRendererActionsInput {
 export const runCurrentProjectBundleOpenRendererAction = async ({
   bundle,
   sequence,
+  skipPendingAutosaveFlush = false,
   beginProjectOpen,
   isCurrentProjectOpen,
   flushPendingAutosave,
@@ -1086,6 +1087,7 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
 }: CurrentProjectBundleOpenRendererActionsInput & {
   bundle: DesktopProjectBundle | null;
   sequence?: number;
+  skipPendingAutosaveFlush?: boolean;
 }): Promise<
   | { status: "cancelled"; sequence: number }
   | { status: "preflight-failed"; sequence: number; applied: boolean }
@@ -1118,21 +1120,23 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
   });
 
   try {
-    try {
-      await flushPendingAutosave({ strict: true });
-    } catch (error) {
-      const applied = runCurrentProjectEntryPreflightFailureAction({
-        sequence: openSequence,
-        isCurrentProjectOpen,
-        error,
-        formatError: formatSaveBeforeOpenError,
-        setProjectError,
-      });
-      return {
-        status: "preflight-failed",
-        sequence: openSequence,
-        applied,
-      };
+    if (!skipPendingAutosaveFlush) {
+      try {
+        await flushPendingAutosave({ strict: true });
+      } catch (error) {
+        const applied = runCurrentProjectEntryPreflightFailureAction({
+          sequence: openSequence,
+          isCurrentProjectOpen,
+          error,
+          formatError: formatSaveBeforeOpenError,
+          setProjectError,
+        });
+        return {
+          status: "preflight-failed",
+          sequence: openSequence,
+          applied,
+        };
+      }
     }
 
     if (!isCurrentProjectOpen(openSequence)) {
@@ -1230,5 +1234,15 @@ export const createCurrentProjectBundleOpenRendererActions = (
       ...input,
       bundle,
       sequence,
+    }),
+  applyExternalSnapshot: (
+    bundle: DesktopProjectBundle | null,
+    sequence?: number,
+  ) =>
+    runCurrentProjectBundleOpenRendererAction({
+      ...input,
+      bundle,
+      sequence,
+      skipPendingAutosaveFlush: true,
     }),
 });

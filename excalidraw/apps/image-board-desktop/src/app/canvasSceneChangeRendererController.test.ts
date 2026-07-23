@@ -359,4 +359,35 @@ describe("createCanvasSceneChangeRendererActions", () => {
     expect(setLatestScene).toHaveBeenCalledWith({ elements, appState, files });
     expect(scheduleAutosave).not.toHaveBeenCalled();
   });
+
+  it("schedules element-level persistence for Agent Board scenes", () => {
+    const project = createProject();
+    const { elements, appState, files } = createScene();
+    const scheduleAgentBoardElementPatch = vi.fn();
+    const actions = createCanvasSceneChangeRendererActions({
+      getActiveProject: () => project,
+      getRemovedSelectionReferenceSignature: () => null,
+      setRemovedSelectionReferenceSignature: vi.fn(),
+      maybeSnapWorkspaceZoom: vi.fn(() => false),
+      setLatestScene: vi.fn(),
+      updateSceneImageFileIds: vi.fn(),
+      scheduleVisibleImageRenditionLoad: vi.fn(),
+      scheduleAgentBrowserRuntimeStatePublish: vi.fn(),
+      updateWorkspaceOverlay: vi.fn(),
+      setGenerateRequest: vi.fn(),
+      updateSelectedInspector: vi.fn(),
+      isEditorInitializing: () => false,
+      getPersistencePolicy: () => "element-patch",
+      scheduleAutosave: vi.fn(),
+      scheduleAgentBoardElementPatch,
+      getSavedSceneHash: () => "scene-hash",
+    });
+
+    actions.changeScene(elements, appState, files);
+
+    expect(scheduleAgentBoardElementPatch).toHaveBeenCalledWith({
+      project,
+      elements,
+    });
+  });
 });

@@ -30,6 +30,12 @@ import {
   type AutosaveSnapshot as ProjectAutosaveSnapshot,
 } from "./autosaveProjectState";
 import { createAutosaveSnapshotWriteRendererActions } from "./autosaveSnapshotWriteController";
+import {
+  applyAgentBoardExternalProjectSnapshot,
+  readAgentBoardSceneElements,
+  runAgentBoardElementPatchScheduleAction,
+  writeAgentBoardElementPatchSnapshot,
+} from "./agentBoardElementPatchController";
 import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
 import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
 import { maybeGetDesktopBridge } from "./desktopBridge";
@@ -222,6 +228,10 @@ type AutosaveSnapshot = ProjectAutosaveSnapshot<
   AppState,
   BinaryFiles
 >;
+type AgentBoardElementPatchSnapshot = {
+  project: DesktopProjectBundle;
+  elements: readonly ExcalidrawElement[];
+};
 
 const AGENT_BROWSER_PROJECT_SYNC_INTERVAL_MS = 750;
 
@@ -264,6 +274,11 @@ const App = ({
   const autosaveTimerRef = useRef<number | null>(null);
   const pendingAutosaveRef = useRef<AutosaveSnapshot | null>(null);
   const autosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const agentBoardPatchTimerRef = useRef<number | null>(null);
+  const pendingAgentBoardPatchRef =
+    useRef<AgentBoardElementPatchSnapshot | null>(null);
+  const agentBoardPatchQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const agentBoardBaselineElementsRef = useRef<Record<string, unknown>[]>([]);
   const isEditorInitializingRef = useRef(false);
   const initializingRenderNonceRef = useRef<number | null>(null);
   const projectRenderNonceRef = useRef(0);
@@ -386,6 +401,9 @@ const App = ({
   const [loadingLatestProject, setLoadingLatestProject] = useState(false);
   const autosaveConflictProjectPathRef = useRef<string | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
+  const [agentBoardSaveStatus, setAgentBoardSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "conflict" | "error"
+  >("idle");
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
   const [projectRepairReport, setProjectRepairReport] =
@@ -508,6 +526,21 @@ const App = ({
       },
     });
   const updateCurrentProject = currentProjectUpdateRendererActions.update;
+
+  useEffect(() => {
+    if (!isAgentBrowserRoute || !currentProject) {
+      agentBoardBaselineElementsRef.current = [];
+      setAgentBoardSaveStatus("idle");
+      return;
+    }
+    agentBoardBaselineElementsRef.current = readAgentBoardSceneElements(
+      currentProject.sceneJson,
+    );
+  }, [
+    currentProject?.projectPath,
+    currentProject?.sceneJson,
+    isAgentBrowserRoute,
+  ]);
 
   const currentProjectEditorInitializingRendererActions =
     createCurrentProjectEditorInitializingRendererActions({
@@ -772,16 +805,26 @@ const App = ({
             const restored = await deserializeSceneFromProject(
               nextProject.sceneJson,
             );
-            await projectRepairSceneRefreshRendererActions.refresh({
-              project: nextProject,
-              imageRecords: nextProject.imageRecords,
-              restoredSceneJson: nextProject.sceneJson,
-              restoredBoardFileIds: collectAgentImageFileIds(
-                restored.elements ?? [],
-              ),
-              forceRefresh: true,
+            await applyAgentBoardExternalProjectSnapshot({
+              sceneJson: nextProject.sceneJson,
+              getBaselineElements: () =>
+                agentBoardBaselineElementsRef.current,
+              setBaselineElements: (elements) => {
+                agentBoardBaselineElementsRef.current = elements;
+              },
+              applyProjectSnapshot: async () => {
+                await projectRepairSceneRefreshRendererActions.refresh({
+                  project: nextProject,
+                  imageRecords: nextProject.imageRecords,
+                  restoredSceneJson: nextProject.sceneJson,
+                  restoredBoardFileIds: collectAgentImageFileIds(
+                    restored.elements ?? [],
+                  ),
+                  forceRefresh: true,
+                });
+                updateCurrentProject(nextProject);
+              },
             });
-            updateCurrentProject(nextProject);
           },
         });
       } catch (error) {
@@ -1234,6 +1277,84 @@ const App = ({
       handleWriteError: autosaveSnapshotWriteRendererActions.handleWriteFailure,
     });
 
+  const enqueueAgentBoardElementPatch = (
+    snapshot: AgentBoardElementPatchSnapshot,
+  ) => {
+    const nextWrite = agentBoardPatchQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const applyProjectSceneElementPatches =
+          desktopBridge.applyProjectSceneElementPatches;
+        if (!applyProjectSceneElementPatches) {
+          throw new Error("当前集成环境不支持画布元素写回，请更新后重试。");
+        }
+        setAgentBoardSaveStatus("saving");
+        await writeAgentBoardElementPatchSnapshot({
+          snapshot: {
+            project: snapshot.project,
+            elements: snapshot.elements as unknown as Record<string, unknown>[],
+          },
+          baselineElements: agentBoardBaselineElementsRef.current,
+          applyProjectSceneElementPatches,
+          setBaselineElements: (elements) => {
+            agentBoardBaselineElementsRef.current = elements;
+          },
+          setSavedSceneHash: (sceneHash) => {
+            savedSceneHashRef.current = sceneHash;
+          },
+          updateProject: (nextProject) => {
+            if (
+              currentProjectRef.current?.projectPath === nextProject.projectPath
+            ) {
+              updateCurrentProject(nextProject);
+            }
+          },
+        });
+        setAgentBoardSaveStatus("saved");
+      });
+    agentBoardPatchQueueRef.current = nextWrite;
+    return nextWrite;
+  };
+
+  const agentBoardElementPatchRendererActions =
+    createAutosaveRendererActions<AgentBoardElementPatchSnapshot>({
+      delayMs: 500,
+      getTimerId: () => agentBoardPatchTimerRef.current,
+      clearTimer: (timerId) => window.clearTimeout(timerId),
+      setTimerId: (timerId) => {
+        agentBoardPatchTimerRef.current = timerId;
+      },
+      setPendingSnapshot: (snapshot) => {
+        pendingAgentBoardPatchRef.current = snapshot;
+      },
+      takePendingSnapshot: () => {
+        const snapshot = pendingAgentBoardPatchRef.current;
+        pendingAgentBoardPatchRef.current = null;
+        return snapshot;
+      },
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      writeSnapshot: enqueueAgentBoardElementPatch,
+      waitForQueue: async () => {
+        await agentBoardPatchQueueRef.current;
+      },
+      handleWriteError: ({ snapshot, error }) => {
+        const isConflict =
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "WRITEBACK_CONFLICT";
+        if (isConflict) {
+          autosaveConflictProjectPathRef.current = snapshot.project.projectPath;
+          setAutosaveConflictProjectPath(snapshot.project.projectPath);
+          setAgentBoardSaveStatus("conflict");
+          return;
+        }
+        setAgentBoardSaveStatus("error");
+        setProjectError(formatProjectSaveError(error));
+      },
+    });
+
   const canvasSceneChangeRendererActions =
     createCanvasSceneChangeRendererActions<
       readonly ExcalidrawElement[],
@@ -1271,7 +1392,10 @@ const App = ({
       isEditorInitializing: () => isEditorInitializingRef.current,
       getPersistencePolicy: () => {
         if (isAgentBrowserRoute) {
-          return "runtime-only";
+          return autosaveConflictProjectPathRef.current ===
+            currentProjectRef.current?.projectPath
+            ? "paused-conflict"
+            : "element-patch";
         }
         if (
           autosaveConflictProjectPathRef.current ===
@@ -1282,6 +1406,15 @@ const App = ({
         return "project-autosave";
       },
       scheduleAutosave: autosaveRendererActions.schedule,
+      scheduleAgentBoardElementPatch: (snapshot) => {
+        runAgentBoardElementPatchScheduleAction({
+          baselineElements: agentBoardBaselineElementsRef.current,
+          snapshot,
+          cancelPending: agentBoardElementPatchRendererActions.cancel,
+          schedule: agentBoardElementPatchRendererActions.schedule,
+          setSaveStatus: setAgentBoardSaveStatus,
+        });
+      },
       getSavedSceneHash: () => savedSceneHashRef.current,
     });
 
@@ -1307,7 +1440,10 @@ const App = ({
     });
   };
 
-  const flushPendingAutosave = autosaveRendererActions.flush;
+  const flushPendingAutosave = (options: { strict?: boolean } = {}) =>
+    isAgentBrowserRoute
+      ? agentBoardElementPatchRendererActions.flush(options)
+      : autosaveRendererActions.flush(options);
 
   const autosaveLifecycleRendererActions =
     createAutosaveLifecycleRendererActions({
@@ -1518,6 +1654,11 @@ const App = ({
       handleDesktopBridgeRequest: (input) =>
         handleAgentDesktopBridgeRequest({
           ...input,
+          flushPendingAutosave,
+          applyExternalProjectSnapshot: (project) =>
+            currentProjectBundleOpenRendererActions.applyExternalSnapshot(
+              project,
+            ),
           openRecentProject: async (projectPath) => {
             const result =
               await currentProjectEntryRendererActions.openRecentProject(
@@ -1683,6 +1824,7 @@ const App = ({
       thumbnailMaintenance={thumbnailMaintenance}
       projectHealthReport={projectHealthReport}
       projectRepairReport={projectRepairReport}
+      agentBoardSaveStatus={isAgentBrowserRoute ? agentBoardSaveStatus : "idle"}
       onOpenDetails={() => setProjectHealthReportOpen(true)}
     />
   );
@@ -1836,13 +1978,13 @@ const App = ({
                 handleKeyboardGlobally={true}
                 autoFocus={true}
                 renderSelectedShapeActions={({
-                  selectedShapeActions,
+                  fullSelectedShapeActions,
                   shouldRenderSelectedShapeActions,
                 }) => (
                   <InspectorSidebar
                     open={inspectorDockOpen}
                     onOpenChange={setInspectorDockOpen}
-                    selectedShapeActions={selectedShapeActions}
+                    selectedShapeActions={fullSelectedShapeActions}
                     shouldRenderSelectedShapeActions={
                       shouldRenderSelectedShapeActions
                     }
@@ -1883,6 +2025,7 @@ const App = ({
               >
                 <LazyProjectMainMenu
                   currentProjectName={currentProject.project.name}
+                  canvasUtilityActionsVisible={!isAgentBrowserRoute}
                   onSwitchProject={() => {
                     void currentProjectEntryRendererActions.switchToProjectList();
                   }}

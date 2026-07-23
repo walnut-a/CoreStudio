@@ -787,6 +787,7 @@ export interface ExcalidrawProps {
   ) => JSX.Element | null;
   renderSelectedShapeActions?: (args: {
     selectedShapeActions: React.ReactNode;
+    fullSelectedShapeActions: React.ReactNode;
     shouldRenderSelectedShapeActions: boolean;
   }) => JSX.Element | null;
   langCode?: Language["code"];

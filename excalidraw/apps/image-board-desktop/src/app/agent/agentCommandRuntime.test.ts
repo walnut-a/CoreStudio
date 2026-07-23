@@ -66,12 +66,12 @@ const createDeps = (
     getProject: () => project,
     getScene: () => ({
       elements: [imageElement],
-      appState: ({
+      appState: {
         selectedElementIds: {
           "element-1": true,
         },
         selectedGroupIds: {},
-      } as unknown) as AppState,
+      } as unknown as AppState,
       files: {},
     }),
     getExcalidrawAPI: () => null,
@@ -81,7 +81,7 @@ const createDeps = (
       async (_assets: PersistedImageAssetInput[]) => undefined,
     ),
     restoreScene: vi.fn(),
-    flushPendingAutosave: vi.fn(async () => undefined),
+    flushProjectRoom: vi.fn(async () => undefined),
     ...patch,
   };
 };
@@ -219,7 +219,10 @@ describe("agentCommandRuntime", () => {
         getProject: () => project,
         getScene: () => ({
           elements: [resultElement],
-          appState: ({ selectedElementIds: {}, selectedGroupIds: {} } as unknown) as AppState,
+          appState: {
+            selectedElementIds: {},
+            selectedGroupIds: {},
+          } as unknown as AppState,
           files: {},
         }),
       }),
@@ -282,9 +285,9 @@ describe("agentCommandRuntime", () => {
             getSceneElementsIncludingDeleted: () => [imageElement],
             updateScene,
             setViewport,
-          }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
+          } as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
-            : never,
+            : never),
       }),
     );
 
@@ -366,7 +369,10 @@ describe("agentCommandRuntime", () => {
         getProject: () => project,
         getScene: () => ({
           elements: [resultElement],
-          appState: ({ selectedElementIds: {}, selectedGroupIds: {} } as unknown) as AppState,
+          appState: {
+            selectedElementIds: {},
+            selectedGroupIds: {},
+          } as unknown as AppState,
           files: {},
         }),
         getExcalidrawAPI: () =>
@@ -374,9 +380,9 @@ describe("agentCommandRuntime", () => {
             getSceneElementsIncludingDeleted: () => [resultElement],
             updateScene,
             setViewport,
-          }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
+          } as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
-            : never,
+            : never),
       }),
     );
 
@@ -412,9 +418,9 @@ describe("agentCommandRuntime", () => {
             getSceneElementsIncludingDeleted: () => [],
             updateScene: vi.fn(),
             setViewport: vi.fn(),
-          }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
+          } as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
-            : never,
+            : never),
       }),
     );
 
@@ -483,7 +489,7 @@ describe("agentCommandRuntime", () => {
       },
       createDeps({
         beginImageWriteback,
-        getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+        getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         insertAssetsIntoScene,
       }),
     );
@@ -529,7 +535,7 @@ describe("agentCommandRuntime", () => {
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({
@@ -560,7 +566,7 @@ describe("agentCommandRuntime", () => {
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({
@@ -593,7 +599,7 @@ describe("agentCommandRuntime", () => {
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({
@@ -631,7 +637,7 @@ describe("agentCommandRuntime", () => {
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({

@@ -13,9 +13,7 @@ import { DESKTOP_APP_VERSION } from "../appVersion";
 import { readLocalImagePayload } from "./localImagePayload";
 import { getAgentSessionPath } from "./sessionPaths";
 
-import type {
-  AgentEnvelope,
-} from "../../src/shared/agentBridgeTypes";
+import type { AgentEnvelope } from "../../src/shared/agentBridgeTypes";
 import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
 import type { LocalImagePayloadOptions } from "./localImagePayload";
 
@@ -55,6 +53,7 @@ export interface CliRuntimeOptions {
 interface BridgeSession {
   baseUrl: string;
   projectToken: string;
+  participantIssuerToken?: string;
 }
 
 interface CliCommand {
@@ -277,8 +276,7 @@ const parseFileIdsFlag = (
 const parseReferenceIdsFlag = (
   value: string | undefined,
   flagName: "--reference-file-ids" | "--reference-element-ids",
-): string[] | undefined | AgentEnvelope<never> =>
-  parseCsvFlag(value, flagName);
+): string[] | undefined | AgentEnvelope<never> => parseCsvFlag(value, flagName);
 
 const parseCommand = (
   argv: readonly string[],
@@ -316,7 +314,9 @@ const parseCommand = (
         method: "POST",
         body: {
           ...(fileIds ? { fileIds } : {}),
-          ...(parsed.boolFlags.has("--selection") ? { selectionOnly: true } : {}),
+          ...(parsed.boolFlags.has("--selection")
+            ? { selectionOnly: true }
+            : {}),
           ...(parsed.boolFlags.has("--all") ? { all: true } : {}),
         },
       };
@@ -324,7 +324,11 @@ const parseCommand = (
 
     const readRoutes: Record<
       string,
-      { route: string; method: "GET"; formatHuman?: CliCommand["formatHuman"] }
+      {
+        route: string;
+        method: "GET" | "POST";
+        formatHuman?: CliCommand["formatHuman"];
+      }
     > = {
       status: { route: AGENT_HTTP_ROUTES.status, method: "GET" },
       capabilities: { route: AGENT_HTTP_ROUTES.capabilities, method: "GET" },
@@ -340,8 +344,8 @@ const parseCommand = (
       scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
       selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
       "board-url": {
-        route: AGENT_HTTP_ROUTES.status,
-        method: "GET",
+        route: AGENT_HTTP_ROUTES.roomTicket,
+        method: "POST",
         formatHuman: (data) =>
           isObject(data) && typeof data.boardUrl === "string"
             ? data.boardUrl
@@ -370,13 +374,19 @@ const parseCommand = (
             return envelope;
           }
           const data = envelope.data;
-          if (!isObject(data) || typeof data.boardUrl !== "string") {
+          if (
+            !isObject(data) ||
+            typeof data.boardUrl !== "string" ||
+            typeof data.launchTicket !== "string"
+          ) {
             return commandFailedEnvelope(
-              "Agent Bridge did not return a Board URL.",
+              "Agent Bridge did not return a Board launch ticket.",
             );
           }
           const boardUrl = new URL(data.boardUrl);
-          boardUrl.searchParams.set("projectToken", bridge.projectToken);
+          boardUrl.searchParams.delete("projectToken");
+          boardUrl.searchParams.delete("token");
+          boardUrl.searchParams.set("launchTicket", data.launchTicket);
           return {
             ok: true,
             data: {
@@ -548,9 +558,7 @@ const parseCommand = (
         },
       };
     }
-    return badRequestEnvelope(
-      "edit requires one of: locate, select.",
-    );
+    return badRequestEnvelope("edit requires one of: locate, select.");
   }
 
   if (tool === "bash") {
@@ -855,8 +863,8 @@ const normalizeAddImageReferenceIds = (
   const values = Array.isArray(value)
     ? value
     : typeof value === "string"
-      ? value.split(",")
-      : null;
+    ? value.split(",")
+    : null;
 
   if (!values) {
     return badRequestEnvelope(`${fieldName} must be a comma list or array.`);
@@ -937,8 +945,8 @@ const prepareRequestBody = async (
   const commandBody = command.body
     ? { ...metadataDefaults, ...command.body }
     : hasMetadataDefaults
-      ? metadataDefaults
-      : undefined;
+    ? metadataDefaults
+    : undefined;
   const normalizedCommandBody = normalizeAddImageBody(command, commandBody);
   if (isEnvelope(normalizedCommandBody)) {
     return normalizedCommandBody;
@@ -965,14 +973,11 @@ const prepareRequestBody = async (
     };
   } catch (error) {
     const cause = getErrorMessage(error);
-    return commandFailedEnvelope(
-      `Failed to read image payload: ${cause}`,
-      {
-        stage: "read-image-payload",
-        imagePath: command.imagePath,
-        cause,
-      },
-    );
+    return commandFailedEnvelope(`Failed to read image payload: ${cause}`, {
+      stage: "read-image-payload",
+      imagePath: command.imagePath,
+      cause,
+    });
   }
 };
 
@@ -995,6 +1000,7 @@ const readSessionDescriptor = async (
     const descriptor = JSON.parse(contents) as {
       bridge?: { baseUrl?: unknown };
       projectToken?: unknown;
+      participantIssuerToken?: unknown;
     };
     if (
       typeof descriptor.bridge?.baseUrl !== "string" ||
@@ -1005,6 +1011,9 @@ const readSessionDescriptor = async (
     return {
       baseUrl: normalizeBaseUrl(descriptor.bridge.baseUrl),
       projectToken: descriptor.projectToken,
+      ...(typeof descriptor.participantIssuerToken === "string"
+        ? { participantIssuerToken: descriptor.participantIssuerToken }
+        : {}),
     };
   } catch {
     return null;
@@ -1017,10 +1026,15 @@ const discoverBridge = async (
   const env = options.env ?? process.env;
   const envBaseUrl = env.CORESTUDIO_AGENT_BRIDGE_URL;
   const envProjectToken = env.CORESTUDIO_AGENT_PROJECT_TOKEN;
+  const envParticipantIssuerToken =
+    env.CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN;
   if (envBaseUrl && envProjectToken) {
     return {
       baseUrl: normalizeBaseUrl(envBaseUrl),
       projectToken: envProjectToken,
+      ...(envParticipantIssuerToken
+        ? { participantIssuerToken: envParticipantIssuerToken }
+        : {}),
     };
   }
 
@@ -1032,6 +1046,10 @@ const requestBridge = async (
   bridge: BridgeSession,
   fetchImpl: CliFetch,
   body: Record<string, unknown> | undefined,
+  participant?: {
+    threadId: string;
+    displayLabel: string;
+  },
 ): Promise<AgentEnvelope<unknown>> => {
   const init: CliFetchInit = {
     method: command.method,
@@ -1047,6 +1065,16 @@ const requestBridge = async (
       "Content-Type": "application/json",
     };
     init.body = JSON.stringify(body);
+  }
+  if (bridge.participantIssuerToken && participant) {
+    init.headers = {
+      ...init.headers,
+      "X-CoreStudio-Participant-Issuer": bridge.participantIssuerToken,
+      "X-CoreStudio-Participant-Thread": participant.threadId,
+      "X-CoreStudio-Participant-Label": encodeURIComponent(
+        participant.displayLabel,
+      ),
+    };
   }
 
   const response = await fetchImpl(`${bridge.baseUrl}${command.route}`, init);
@@ -1167,13 +1195,45 @@ export const runCli = async (
     );
   }
 
-  const body = await prepareRequestBody(command, options);
+  let body = await prepareRequestBody(command, options);
   if (isAgentEnvelope(body)) {
     return finishWithEnvelope(body, mode, options.stdout, options.stderr);
   }
+  const env = options.env ?? process.env;
+  const threadId = env.CODEX_THREAD_ID?.trim();
+  const participant =
+    threadId && bridge.participantIssuerToken
+      ? {
+          threadId,
+          displayLabel:
+            env.CODEX_TASK_TITLE?.trim() || `Codex ${threadId.slice(0, 8)}`,
+        }
+      : undefined;
+  if (command.route === AGENT_HTTP_ROUTES.roomTicket) {
+    if (!threadId || !bridge.participantIssuerToken) {
+      return finishWithEnvelope(
+        badRequestEnvelope(
+          "read board-url requires Codex thread identity and a trusted participant issuer.",
+        ),
+        mode,
+        options.stdout,
+        options.stderr,
+      );
+    }
+    body = {
+      threadId,
+      displayLabel: participant?.displayLabel,
+    };
+  }
 
   try {
-    const envelope = await requestBridge(command, bridge, fetchImpl, body);
+    const envelope = await requestBridge(
+      command,
+      bridge,
+      fetchImpl,
+      body,
+      participant,
+    );
     const nextEnvelope = command.transformEnvelope
       ? command.transformEnvelope(envelope, bridge)
       : envelope;

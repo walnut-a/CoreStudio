@@ -152,15 +152,6 @@ export const readEditorLoadingOverlay = () =>
     "utf8",
   );
 
-export const readAgentBoardStartupPane = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentBoardStartupPane.tsx",
-    ),
-    "utf8",
-  );
-
 export const readDesktopButton = () =>
   readFileSync(
     resolve(
@@ -179,20 +170,11 @@ export const readDesktopStartupWiring = () =>
     "utf8",
   );
 
-export const readProjectAutosaveWiring = () =>
+export const readProjectRoomFlushWiring = () =>
   readFileSync(
     resolve(
       process.cwd(),
-      "apps/image-board-desktop/src/app/useProjectAutosaveWiring.ts",
-    ),
-    "utf8",
-  );
-
-export const readAgentBridgeWiring = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/useAgentBridgeWiring.ts",
+      "apps/image-board-desktop/src/app/useProjectRoomFlushWiring.ts",
     ),
     "utf8",
   );

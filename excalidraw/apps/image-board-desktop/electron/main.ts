@@ -16,7 +16,7 @@ import {
 
 import {
   IPC_CHANNELS,
-  type DesktopAutosaveFlushResponse,
+  type DesktopProjectRoomFlushResponse,
   type DesktopMenuEvent,
   type DesktopAgentBridgeStatus,
   type DesktopProjectStateChangedPayload,
@@ -27,6 +27,11 @@ import {
   type SaveProviderSettingsInput,
 } from "../src/shared/desktopBridgeTypes";
 import type { DesktopLocalePreference } from "../src/shared/desktopLocale";
+import type {
+  DesktopProjectRoomEventEnvelope,
+  DesktopProjectRoomJoinInput,
+  ProjectRoomSceneOperation,
+} from "../src/shared/projectRoomProtocol";
 import {
   buildMissingRecentProjectMessage,
   isMissingProjectFileError,
@@ -45,7 +50,6 @@ import {
   rollbackProjectImageWriteback,
 } from "./project/projectImageWriteback";
 import {
-  applyProjectSceneElementPatches,
   cleanProjectCache,
   createProjectStructure,
   inspectProjectHealth,
@@ -81,6 +85,7 @@ import {
   DESKTOP_LANG_CODE,
   setActiveDesktopLocale,
 } from "../src/app/copy";
+import { selectProjectRoomAgentPresence } from "../src/app/projectRoomPresence";
 import { DESKTOP_APP_VERSION } from "./appVersion";
 import { createAppMenuTemplate } from "./menu";
 import {
@@ -114,6 +119,14 @@ import { configureNoSystemKeychainAccess } from "./keychainGuard";
 import { installBrokenPipeConsoleGuard } from "./safeProcessLogging";
 import { createLocaleSettingsStore } from "./localeSettingsStore";
 import { createLocaleSettingsController } from "./localeSettingsController";
+import { createProjectRoomService } from "./room/projectRoomService";
+import { createProjectRoomIpcController } from "./room/projectRoomIpcController";
+import { createProjectRoomTicketStore } from "./room/projectRoomTicketStore";
+import { ProjectRoomError } from "./room/projectRoom";
+import {
+  collectProjectRoomAgentImageFileIds,
+  readProjectRoomAgentScene,
+} from "./room/projectRoomAgentRead";
 
 installBrokenPipeConsoleGuard();
 
@@ -121,7 +134,7 @@ let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];
 let currentProject: LocalBridgeCurrentProject | null = null;
 let latestProjectOpenRequestId = 0;
-let latestAutosaveFlushRequestId = 0;
+let latestProjectRoomFlushRequestId = 0;
 let rendererReady = false;
 let allowWindowClose = false;
 let localBridgeHandle: LocalBridgeServerHandle | null = null;
@@ -138,6 +151,15 @@ let localeSettingsController: ReturnType<
 const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
+const participantIssuerToken = randomUUID();
+const projectRoomTicketStore = createProjectRoomTicketStore();
+const projectRoomService = createProjectRoomService({
+  readProjectBundle,
+  writeProjectScene,
+});
+const projectRoomIpcController = createProjectRoomIpcController({
+  openProject: (projectPath) => projectRoomService.openProject(projectPath),
+});
 const generationRequestController = createGenerationRequestController({
   generateImages,
 });
@@ -145,7 +167,7 @@ const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
 const AGENT_BRIDGE_PREFERRED_PORT = 60909;
 const PACKAGED_SMOKE_READY_SIGNAL = "[corestudio:smoke-ready]";
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
-const pendingAutosaveFlushes = new Map<
+const pendingProjectRoomFlushes = new Map<
   number,
   {
     resolve: () => void;
@@ -318,6 +340,7 @@ const writeCurrentAgentSessionDescriptor = async () => {
       baseUrl: bridge.baseUrl,
     },
     projectToken,
+    participantIssuerToken,
     readToken: projectToken,
     boardUrl: getAgentBoardUrl(),
     currentProject: getCurrentProject(),
@@ -420,6 +443,166 @@ const startLocalBridge = async () => {
         },
       },
       grants: taskGrantStore,
+      participantIssuerToken,
+      issueProjectRoomTicket: async ({ project, threadId, displayLabel }) => {
+        const room = await projectRoomService.openProject(project.projectPath);
+        return {
+          launchTicket: projectRoomTicketStore.issueLaunchTicket({
+            identity: room.identity,
+            actorId: `codex:${threadId}`,
+            displayLabel,
+          }),
+        };
+      },
+      authenticateProjectRoomWebSocket: async (input) => {
+        const identity = projectRoomTicketStore.getGrantedIdentity(input);
+        const room = projectRoomService.manager.get(identity.projectId);
+        if (!room) {
+          throw new ProjectRoomError(
+            "ROOM_CLOSED",
+            "The project room is no longer active.",
+          );
+        }
+        const exchange = input.launchTicket
+          ? projectRoomTicketStore.consumeLaunchTicket(
+              input.launchTicket,
+              room.identity,
+            )
+          : projectRoomTicketStore.resume(
+              input.resumeToken ?? "",
+              room.identity,
+            );
+        const bundle = await readProjectBundle(
+          room.identity.canonicalProjectPath,
+        );
+        return {
+          room,
+          exchange,
+          bootstrap: {
+            projectPath: room.identity.canonicalProjectPath,
+            project: bundle.project,
+            imageRecords: bundle.imageRecords,
+          },
+        };
+      },
+      readProjectRoomAssets: async ({ resumeToken, fileIds, rendition }) => {
+        const grantedIdentity = projectRoomTicketStore.getGrantedIdentity({
+          launchTicket: null,
+          resumeToken,
+        });
+        const room = projectRoomService.manager.get(grantedIdentity.projectId);
+        if (!room) {
+          throw new ProjectRoomError(
+            "ROOM_CLOSED",
+            "The project room is no longer active.",
+          );
+        }
+        projectRoomTicketStore.authorizeResumeToken(resumeToken, room.identity);
+        const payloads = await readProjectAssetPayloads({
+          projectPath: room.identity.canonicalProjectPath,
+          fileIds,
+          rendition,
+        });
+        return payloads.filter(
+          (payload): payload is NonNullable<typeof payloads[number]> =>
+            payload !== null,
+        );
+      },
+      getProjectRoomStatus: async (projectPath) => {
+        const room = await projectRoomService.findOpenRoom(projectPath);
+        if (!room) {
+          return null;
+        }
+        const snapshot = room.getSnapshot();
+        return {
+          sceneWriteMode: "room",
+          roomId: room.identity.roomId,
+          sessionEpoch: room.identity.sessionEpoch,
+          roomSequence: snapshot.sequence,
+          persistedSequence: snapshot.persistedSequence,
+          lifecycle: room.lifecycle,
+        };
+      },
+      readProjectRoomScene: async ({ project, command }) => {
+        const room = await projectRoomService.openProject(project.projectPath);
+        const snapshot = room.getSnapshot();
+        const bundle = await readProjectBundle(
+          room.identity.canonicalProjectPath,
+        );
+        const projectBundle = {
+          ...bundle,
+          projectPath: room.identity.canonicalProjectPath,
+        };
+
+        if (command === "scene.board") {
+          const assetPayloads = await readProjectAssetPayloads({
+            projectPath: room.identity.canonicalProjectPath,
+            fileIds: collectProjectRoomAgentImageFileIds(snapshot),
+            rendition: "preview",
+          });
+          return readProjectRoomAgentScene({
+            command,
+            project: projectBundle,
+            snapshot,
+            assetPayloads: assetPayloads.filter(
+              (payload): payload is NonNullable<typeof assetPayloads[number]> =>
+                payload !== null,
+            ),
+          });
+        }
+
+        return readProjectRoomAgentScene({
+          command,
+          project: projectBundle,
+          snapshot,
+        });
+      },
+      persistProjectRoomAssets: async ({ resumeToken, files }) => {
+        const grantedIdentity = projectRoomTicketStore.getGrantedIdentity({
+          launchTicket: null,
+          resumeToken,
+        });
+        const room = projectRoomService.manager.get(grantedIdentity.projectId);
+        if (!room) {
+          throw new ProjectRoomError(
+            "ROOM_CLOSED",
+            "The project room is no longer active.",
+          );
+        }
+        projectRoomTicketStore.authorizeResumeToken(resumeToken, room.identity);
+        return persistImageAssets({
+          projectPath: room.identity.canonicalProjectPath,
+          files,
+        });
+      },
+      withAgentWriterCommand: async (
+        { project, threadId, displayLabel },
+        run,
+      ) => {
+        const room = await projectRoomService.openProject(project.projectPath);
+        const sessionId = randomUUID();
+        room.join({
+          actorId: `codex:${threadId}`,
+          sessionId,
+          transport: "command",
+          role: "agent-writer",
+          displayLabel,
+        });
+        try {
+          return await run({
+            sessionId,
+            identity: room.identity,
+          });
+        } finally {
+          room.leave(sessionId);
+        }
+      },
+      getProjectRoomParticipantState: async ({ project, threadId }) => {
+        const room = await projectRoomService.findOpenRoom(project.projectPath);
+        return (
+          room?.getParticipantSelectionByActor(`codex:${threadId}`) ?? null
+        );
+      },
     });
     localBridgeHandle = bridge;
     await writeCurrentAgentSessionDescriptor();
@@ -588,7 +771,7 @@ const openRecentProjectBundle = async (projectPath: string) => {
   }
 };
 
-const requestRendererAutosaveFlush = (
+const requestRendererProjectRoomFlush = (
   targetWindow: BrowserWindow,
   timeoutMs = 5000,
 ) =>
@@ -598,13 +781,13 @@ const requestRendererAutosaveFlush = (
       return;
     }
 
-    const requestId = ++latestAutosaveFlushRequestId;
+    const requestId = ++latestProjectRoomFlushRequestId;
     const timeout = setTimeout(() => {
-      pendingAutosaveFlushes.delete(requestId);
+      pendingProjectRoomFlushes.delete(requestId);
       reject(new Error("等待项目保存超时。"));
     }, timeoutMs);
 
-    pendingAutosaveFlushes.set(requestId, {
+    pendingProjectRoomFlushes.set(requestId, {
       resolve: () => {
         clearTimeout(timeout);
         resolve();
@@ -616,7 +799,7 @@ const requestRendererAutosaveFlush = (
       timeout,
     });
 
-    targetWindow.webContents.send(IPC_CHANNELS.flushAutosaveRequest, {
+    targetWindow.webContents.send(IPC_CHANNELS.flushProjectRoomRequest, {
       requestId,
     });
   });
@@ -639,9 +822,88 @@ const showCloseAfterSaveFailedDialog = async (
   return result.response === 0;
 };
 
-const closeWindowAfterAutosave = async (targetWindow: BrowserWindow) => {
+const confirmDisconnectProjectParticipants = async (
+  targetWindow: BrowserWindow,
+  participants: Array<{ displayLabel: string }>,
+) => {
+  const result = await dialog.showMessageBox(targetWindow, {
+    type: "warning",
+    buttons: ["关闭项目", "取消"],
+    defaultId: 1,
+    cancelId: 1,
+    message: "仍有 Agent 正在这个画布中工作",
+    detail: `关闭项目后，以下协作会立即断开：\n${participants
+      .map((participant) => `• ${participant.displayLabel}`)
+      .join("\n")}`,
+  });
+  return result.response === 0;
+};
+
+const closeWindowAfterProjectRoomFlush = async (
+  targetWindow: BrowserWindow,
+) => {
+  const activeProjectPath = currentProject?.projectPath;
+  if (activeProjectPath) {
+    const closeState = await projectRoomService
+      .getCloseState(activeProjectPath)
+      .catch(() => null);
+    const collaborators = selectProjectRoomAgentPresence(
+      closeState?.otherParticipants ?? [],
+    );
+    if (
+      collaborators.length > 0 &&
+      !(await confirmDisconnectProjectParticipants(targetWindow, collaborators))
+    ) {
+      quitState.clearQuitRequest();
+      return;
+    }
+    if (closeState) {
+      const room = await projectRoomService.findOpenRoom(activeProjectPath);
+      try {
+        await projectRoomService.closeProjectPath(activeProjectPath, {
+          expectedRoomId: closeState.roomId,
+          acknowledgedParticipantSessionIds: closeState.otherParticipants.map(
+            (participant) => participant.sessionId,
+          ),
+        });
+        if (room) {
+          projectRoomTicketStore.revokeRoom(room.identity);
+        }
+        allowWindowClose = true;
+        targetWindow.close();
+        return;
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "PARTICIPANTS_CHANGED"
+        ) {
+          return closeWindowAfterProjectRoomFlush(targetWindow);
+        }
+        console.error("[project-room:close-persist-failed]", error);
+        const shouldForceClose = await showCloseAfterSaveFailedDialog(
+          targetWindow,
+          error,
+        );
+        if (shouldForceClose) {
+          await projectRoomService.closeProjectPath(activeProjectPath, {
+            force: true,
+          });
+          if (room) {
+            projectRoomTicketStore.revokeRoom(room.identity);
+          }
+          allowWindowClose = true;
+          targetWindow.close();
+        } else {
+          quitState.clearQuitRequest();
+        }
+        return;
+      }
+    }
+  }
   try {
-    await requestRendererAutosaveFlush(targetWindow);
+    await requestRendererProjectRoomFlush(targetWindow);
     allowWindowClose = true;
     targetWindow.close();
   } catch (error) {
@@ -753,15 +1015,114 @@ const registerIpcHandlers = () => {
     },
   );
 
+  ipcMain.handle(
+    IPC_CHANNELS.projectRoomJoin,
+    async (event, input: DesktopProjectRoomJoinInput) => {
+      const sender = event.sender;
+      return projectRoomIpcController.join(input, (roomEvent) => {
+        if (sender.isDestroyed()) {
+          return;
+        }
+        const envelope: DesktopProjectRoomEventEnvelope = {
+          sessionId: input.sessionId,
+          event: roomEvent,
+        };
+        sender.send(IPC_CHANNELS.projectRoomEvent, envelope);
+      });
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.projectRoomOperation,
+    async (
+      _event,
+      input: {
+        sessionId: string;
+        operation: ProjectRoomSceneOperation;
+      },
+    ) =>
+      projectRoomIpcController.applySceneOperation(
+        input.sessionId,
+        input.operation,
+      ),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.projectRoomAgentWriterOperation,
+    async (
+      _event,
+      input: {
+        sessionId: string;
+        operation: ProjectRoomSceneOperation;
+      },
+    ) => {
+      const room = projectRoomService.manager.get(input.operation.projectId);
+      if (!room) {
+        throw new ProjectRoomError(
+          "ROOM_CLOSED",
+          "The project room is no longer active.",
+        );
+      }
+      return room.applyAgentCommandOperation(input.sessionId, input.operation);
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.projectRoomLeave,
+    async (_event, sessionId: string) =>
+      projectRoomIpcController.leave(sessionId),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.projectRoomCloseState,
+    async (_event, input: { projectPath: string; sessionId: string }) => {
+      const state = await projectRoomService.getCloseState(
+        input.projectPath,
+        input.sessionId,
+      );
+      return state
+        ? {
+            roomId: state.roomId,
+            otherParticipants: state.otherParticipants,
+          }
+        : null;
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.projectRoomClose,
+    async (
+      _event,
+      input: {
+        projectPath: string;
+        force?: boolean;
+        expectedRoomId?: string;
+        requestingSessionId?: string;
+        acknowledgedParticipantSessionIds?: string[];
+      },
+    ) => {
+      const room = await projectRoomService.findOpenRoom(input.projectPath);
+      const closed = await projectRoomService.closeProjectPath(
+        input.projectPath,
+        {
+          force: input.force,
+          expectedRoomId: input.expectedRoomId,
+          requestingSessionId: input.requestingSessionId,
+          acknowledgedParticipantSessionIds:
+            input.acknowledgedParticipantSessionIds,
+        },
+      );
+      if (closed && room) {
+        projectRoomTicketStore.revokeRoom(room.identity);
+      }
+      return closed;
+    },
+  );
+
   ipcMain.on(
-    IPC_CHANNELS.flushAutosaveResponse,
-    (_event, response: DesktopAutosaveFlushResponse) => {
-      const pendingFlush = pendingAutosaveFlushes.get(response.requestId);
+    IPC_CHANNELS.flushProjectRoomResponse,
+    (_event, response: DesktopProjectRoomFlushResponse) => {
+      const pendingFlush = pendingProjectRoomFlushes.get(response.requestId);
       if (!pendingFlush) {
         return;
       }
 
-      pendingAutosaveFlushes.delete(response.requestId);
+      pendingProjectRoomFlushes.delete(response.requestId);
       if (response.ok) {
         pendingFlush.resolve();
         return;
@@ -808,16 +1169,6 @@ const registerIpcHandlers = () => {
       currentRecentProjects = await removeRecentProject(projectPath);
       Menu.setApplicationMenu(buildMenu());
       return currentRecentProjects;
-    },
-  );
-
-  ipcMain.handle(IPC_CHANNELS.writeProjectScene, async (_event, input) => {
-    return writeProjectScene(input);
-  });
-  ipcMain.handle(
-    IPC_CHANNELS.applyProjectSceneElementPatches,
-    async (_event, input) => {
-      return applyProjectSceneElementPatches(input);
     },
   );
 
@@ -1001,7 +1352,7 @@ const createWindow = async () => {
     }
 
     event.preventDefault();
-    void closeWindowAfterAutosave(targetWindow);
+    void closeWindowAfterProjectRoomFlush(targetWindow);
   });
 
   mainWindow.on("closed", () => {

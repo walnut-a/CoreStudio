@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   buildAgentBrowserBridgeConfig,
   buildAgentBrowserProjectTokenHref,
   buildAgentBrowserRouteState,
+  maybeCreateAgentBrowserDesktopBridge,
 } from "./agentBrowserBridge";
 
 describe("buildAgentBrowserRouteState", () => {
@@ -111,5 +112,49 @@ describe("buildAgentBrowserProjectTokenHref", () => {
     expect(url.searchParams.get("bridge")).toBe("http://127.0.0.1:60909");
     expect(url.searchParams.get("projectToken")).toBe("new-token");
     expect(url.searchParams.get("view")).toBe("compact");
+  });
+});
+
+describe("room-scoped Agent Browser assets", () => {
+  it("persists assets through the room route without a project token", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&resumeToken=resume-token",
+    );
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ok: true, data: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    await bridge?.persistImageAssets({
+      projectPath: "/projects/project-1",
+      files: [
+        {
+          fileId: "image-1",
+          mimeType: "image/png",
+          dataBase64: "cG5n",
+          width: 40,
+          height: 20,
+          createdAt: "2026-07-23T08:00:00.000Z",
+          sourceType: "imported",
+        },
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:60909/v1/room/assets/persist",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer resume-token",
+        }),
+      }),
+    );
   });
 });

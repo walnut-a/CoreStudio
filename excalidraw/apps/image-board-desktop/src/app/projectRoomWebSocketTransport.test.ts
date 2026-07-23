@@ -1,0 +1,298 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { ProjectRoomSceneOperation } from "../shared/projectRoomProtocol";
+import { createProjectRoomWebSocketTransport } from "./projectRoomWebSocketTransport";
+
+class FakeWebSocket {
+  static instances: FakeWebSocket[] = [];
+  static OPEN = 1;
+  readyState = 0;
+  readonly sent: string[] = [];
+  private readonly listeners = new Map<string, Set<(event: any) => void>>();
+
+  constructor(public readonly url: string) {
+    FakeWebSocket.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: (event: any) => void) {
+    const listeners = this.listeners.get(type) ?? new Set();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  send(data: string) {
+    this.sent.push(data);
+  }
+
+  close() {
+    this.emit("close", {});
+  }
+
+  open() {
+    this.readyState = FakeWebSocket.OPEN;
+    this.emit("open", {});
+  }
+
+  receive(value: unknown) {
+    this.emit("message", { data: JSON.stringify(value) });
+  }
+
+  private emit(type: string, event: any) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event);
+    }
+  }
+}
+
+const snapshot = {
+  type: "room.snapshot" as const,
+  identity: {
+    projectId: "project-1",
+    canonicalProjectPath: "/projects/project-1",
+    roomId: "room-1",
+    sessionEpoch: 1,
+  },
+  sequence: 0,
+  persistedSequence: 0,
+  projectRevision: "revision-1",
+  scene: {
+    elements: [],
+    sharedSceneConfig: {},
+  },
+  participants: [],
+};
+
+describe("createProjectRoomWebSocketTransport", () => {
+  it("exchanges a launch ticket for a session and resume token", async () => {
+    FakeWebSocket.instances = [];
+    const replaceResumeToken = vi.fn();
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      launchTicket: "launch-ticket",
+      WebSocketImpl: FakeWebSocket as any,
+      replaceResumeToken,
+    });
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored-browser-session",
+    });
+    const socket = FakeWebSocket.instances[0];
+
+    expect(socket.url).toBe(
+      "ws://127.0.0.1:60909/v1/room?launchTicket=launch-ticket",
+    );
+    expect(socket.url).not.toContain("projectToken");
+    socket.open();
+    socket.receive({
+      type: "room.joined",
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+
+    await expect(joinedPromise).resolves.toEqual({
+      snapshot,
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+    });
+    expect(replaceResumeToken).toHaveBeenCalledWith("resume-token");
+  });
+
+  it("forwards room events and resolves operation results", async () => {
+    FakeWebSocket.instances = [];
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      resumeToken: "resume-token",
+      WebSocketImpl: FakeWebSocket as any,
+    });
+    const listener = vi.fn();
+    transport.subscribe(listener);
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({
+      type: "room.joined",
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    const selection = {
+      source: "agent-board" as const,
+      projectPath: "/projects/project-1",
+      updatedAt: "2026-07-23T00:00:00.000Z",
+      selection: { selected: true },
+      scene: { selectedElementIds: ["element-1"] },
+    };
+    await transport.updateSelection?.(selection);
+    expect(JSON.parse(socket.sent[0])).toEqual({
+      type: "selection.update",
+      selection,
+    });
+
+    const operation: ProjectRoomSceneOperation = {
+      ...snapshot.identity,
+      operationId: "operation-1",
+      baseSequence: 0,
+      elements: [],
+      final: true,
+    };
+    const resultPromise = transport.submitOperation(operation);
+    expect(JSON.parse(socket.sent[1])).toEqual({
+      type: "scene.operation",
+      operation,
+    });
+    const event = {
+      type: "scene.persisted" as const,
+      identity: snapshot.identity,
+      sequence: 1,
+      projectRevision: "revision-2",
+    };
+    socket.receive({ type: "room.event", event });
+    socket.receive({
+      type: "operation.result",
+      result: {
+        type: "operation.accepted",
+        operationId: "operation-1",
+        sequence: 1,
+        acceptedElementIds: [],
+        supersededElementIds: [],
+      },
+    });
+
+    expect(listener).toHaveBeenCalledWith(event);
+    await expect(resultPromise).resolves.toMatchObject({
+      operationId: "operation-1",
+      sequence: 1,
+    });
+  });
+
+  it("reconnects with the resume token and publishes the new snapshot", async () => {
+    FakeWebSocket.instances = [];
+    const scheduled: Array<() => void> = [];
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      launchTicket: "launch-ticket",
+      WebSocketImpl: FakeWebSocket as any,
+      scheduleReconnect: (callback) => {
+        scheduled.push(callback);
+        return 1;
+      },
+    });
+    const snapshotListener = vi.fn();
+    transport.subscribeSnapshot?.(snapshotListener);
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const firstSocket = FakeWebSocket.instances[0];
+    firstSocket.open();
+    firstSocket.receive({
+      type: "room.joined",
+      sessionId: "board-session-1",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    firstSocket.close();
+    expect(scheduled).toHaveLength(1);
+    scheduled[0]();
+    const secondSocket = FakeWebSocket.instances[1];
+    expect(secondSocket.url).toBe(
+      "ws://127.0.0.1:60909/v1/room?resumeToken=resume-token",
+    );
+    secondSocket.open();
+    const nextSnapshot = { ...snapshot, sequence: 2 };
+    secondSocket.receive({
+      type: "room.joined",
+      sessionId: "board-session-2",
+      resumeToken: "resume-token",
+      snapshot: nextSnapshot,
+    });
+
+    expect(snapshotListener).toHaveBeenCalledWith({
+      snapshot: nextSnapshot,
+      sessionId: "board-session-2",
+      resumeToken: "resume-token",
+    });
+  });
+
+  it("forwards an explicit resync snapshot", async () => {
+    FakeWebSocket.instances = [];
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      resumeToken: "resume-token",
+      WebSocketImpl: FakeWebSocket as any,
+    });
+    const snapshotListener = vi.fn();
+    transport.subscribeSnapshot?.(snapshotListener);
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({
+      type: "room.joined",
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    transport.requestResync?.();
+    expect(JSON.parse(socket.sent[0])).toEqual({ type: "room.resync" });
+    const nextSnapshot = { ...snapshot, sequence: 4 };
+    socket.receive({ type: "room.snapshot", snapshot: nextSnapshot });
+
+    expect(snapshotListener).toHaveBeenCalledWith({
+      snapshot: nextSnapshot,
+      sessionId: "board-session",
+    });
+  });
+
+  it("does not reconnect after the room is explicitly closed", async () => {
+    FakeWebSocket.instances = [];
+    const scheduled: Array<() => void> = [];
+    const listener = vi.fn();
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      resumeToken: "resume-token",
+      WebSocketImpl: FakeWebSocket as any,
+      scheduleReconnect: (callback) => {
+        scheduled.push(callback);
+        return 1;
+      },
+    });
+    transport.subscribe(listener);
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({
+      type: "room.joined",
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    const closedEvent = {
+      type: "room.closed" as const,
+      identity: snapshot.identity,
+      reason: "project-closed" as const,
+    };
+    socket.receive({ type: "room.event", event: closedEvent });
+    socket.close();
+
+    expect(listener).toHaveBeenCalledWith(closedEvent);
+    expect(scheduled).toHaveLength(0);
+  });
+});

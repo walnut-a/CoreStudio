@@ -118,9 +118,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
     );
     const replaceSlot = vi.fn();
     const markSlotFailed = vi.fn();
-    const applySceneAutosave = vi.fn();
+    const applySceneRoomUpdate = vi.fn();
     const afterSceneCommit = vi.fn();
-    const flushPendingAutosave = vi.fn(async () => undefined);
+    const flushProjectRoom = vi.fn(async () => undefined);
     const elements = [{ id: "frame-1" }] as any;
     const appState = { zoom: { value: 1 } } as any;
     const files = { "file-1": { id: "file-1" } } as any;
@@ -135,9 +135,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
       markSlotFailed,
       getCanvasSnapshot: () => ({ elements, appState, files }),
       restoreCanvasSnapshot: vi.fn(),
-      applySceneAutosave,
+      applySceneRoomUpdate,
       afterSceneCommit,
-      flushPendingAutosave,
+      flushProjectRoom,
     });
 
     expect(result).toEqual({
@@ -160,7 +160,7 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
       expect.objectContaining({ slots: [job.slots[1]] }),
       expect.objectContaining({ normalizedMessage: "模型没有返回这张图。" }),
     );
-    expect(applySceneAutosave).toHaveBeenCalledWith({
+    expect(applySceneRoomUpdate).toHaveBeenCalledWith({
       project,
       imageRecords,
       elements,
@@ -168,7 +168,7 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
       files,
     });
     expect(afterSceneCommit).toHaveBeenCalledWith({ elements, appState, files });
-    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(flushProjectRoom).toHaveBeenCalledWith({ strict: true });
     expect(commit).toHaveBeenCalledTimes(1);
     expect(rollback).not.toHaveBeenCalled();
   });
@@ -185,9 +185,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
       markSlotFailed: vi.fn(),
       getCanvasSnapshot: vi.fn(),
       restoreCanvasSnapshot: vi.fn(),
-      applySceneAutosave: vi.fn(),
+      applySceneRoomUpdate: vi.fn(),
       afterSceneCommit: vi.fn(),
-      flushPendingAutosave: vi.fn(),
+      flushProjectRoom: vi.fn(),
     });
 
     expect(result).toEqual({ kind: "skipped" });
@@ -196,9 +196,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
   it("fails before persisting when no restorable canvas snapshot is available", async () => {
     const project = createProject();
     const replaceSlot = vi.fn();
-    const applySceneAutosave = vi.fn();
+    const applySceneRoomUpdate = vi.fn();
     const afterSceneCommit = vi.fn();
-    const flushPendingAutosave = vi.fn(async () => undefined);
+    const flushProjectRoom = vi.fn(async () => undefined);
 
     const beginGeneratedAssets = vi.fn();
     await expect(
@@ -212,17 +212,17 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
         markSlotFailed: vi.fn(),
         getCanvasSnapshot: () => null,
         restoreCanvasSnapshot: vi.fn(),
-        applySceneAutosave,
+        applySceneRoomUpdate,
         afterSceneCommit,
-        flushPendingAutosave,
+        flushProjectRoom,
       }),
     ).rejects.toThrow("缺少可恢复的画板快照");
 
     expect(beginGeneratedAssets).not.toHaveBeenCalled();
     expect(replaceSlot).not.toHaveBeenCalled();
-    expect(applySceneAutosave).not.toHaveBeenCalled();
+    expect(applySceneRoomUpdate).not.toHaveBeenCalled();
     expect(afterSceneCommit).not.toHaveBeenCalled();
-    expect(flushPendingAutosave).not.toHaveBeenCalled();
+    expect(flushProjectRoom).not.toHaveBeenCalled();
   });
 
   it("marks every slot failed without opening an empty asset transaction", async () => {
@@ -234,8 +234,8 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
     };
     const beginGeneratedAssets = vi.fn();
     const markSlotFailed = vi.fn();
-    const applySceneAutosave = vi.fn();
-    const flushPendingAutosave = vi.fn();
+    const applySceneRoomUpdate = vi.fn();
+    const flushProjectRoom = vi.fn();
 
     await expect(
       runBuiltinGenerationJobCompletionAction({
@@ -248,9 +248,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
         markSlotFailed,
         getCanvasSnapshot: () => before,
         restoreCanvasSnapshot: vi.fn(),
-        applySceneAutosave,
+        applySceneRoomUpdate,
         afterSceneCommit: vi.fn(),
-        flushPendingAutosave,
+        flushProjectRoom,
       }),
     ).resolves.toMatchObject({
       kind: "completed",
@@ -261,10 +261,10 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
 
     expect(beginGeneratedAssets).not.toHaveBeenCalled();
     expect(markSlotFailed).toHaveBeenCalledTimes(2);
-    expect(applySceneAutosave).toHaveBeenCalledWith(
+    expect(applySceneRoomUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ imageRecords: project.imageRecords }),
     );
-    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(flushProjectRoom).toHaveBeenCalledWith({ strict: true });
   });
 
   it("restores placeholders and rolls back when slot replacement fails", async () => {
@@ -302,9 +302,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
         markSlotFailed: vi.fn(),
         getCanvasSnapshot: () => before,
         restoreCanvasSnapshot,
-        applySceneAutosave: vi.fn(),
+        applySceneRoomUpdate: vi.fn(),
         afterSceneCommit: vi.fn(),
-        flushPendingAutosave: vi.fn(),
+        flushProjectRoom: vi.fn(),
       }),
     ).rejects.toBe(failure);
 
@@ -353,9 +353,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
         markSlotFailed: vi.fn(),
         getCanvasSnapshot: () => snapshot,
         restoreCanvasSnapshot,
-        applySceneAutosave: vi.fn(),
+        applySceneRoomUpdate: vi.fn(),
         afterSceneCommit: vi.fn(),
-        flushPendingAutosave: vi.fn().mockRejectedValue(failure),
+        flushProjectRoom: vi.fn().mockRejectedValue(failure),
       }),
     ).rejects.toBe(failure);
 
@@ -399,11 +399,10 @@ describe("createBuiltinGenerationJobCompletionRendererActions", () => {
     const replaceSlot = vi.fn();
     const markSlotFailed = vi.fn();
     const setScene = vi.fn();
-    const setPendingSnapshot = vi.fn();
     const updateSceneImageFileIds = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
     const updateWorkspaceOverlay = vi.fn();
-    const flushPendingAutosave = vi.fn(async () => undefined);
+    const flushProjectRoom = vi.fn(async () => undefined);
 
     const actions = createBuiltinGenerationJobCompletionRendererActions({
       getActiveProject: () => project,
@@ -412,13 +411,11 @@ describe("createBuiltinGenerationJobCompletionRendererActions", () => {
       markSlotFailed,
       getCanvasSnapshot: () => ({ elements, appState, files }),
       restoreCanvasSnapshot: vi.fn(),
-      getSavedSceneHash: () => "scene-hash",
       setScene,
-      setPendingSnapshot,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
       updateWorkspaceOverlay,
-      flushPendingAutosave,
+      flushProjectRoom,
     });
 
     const result = await actions.finishPendingJob(job, request, response);
@@ -448,18 +445,6 @@ describe("createBuiltinGenerationJobCompletionRendererActions", () => {
       appState,
       files,
     });
-    expect(setPendingSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        project: expect.objectContaining({
-          projectPath: project.projectPath,
-          imageRecords,
-        }),
-        elements,
-        appState,
-        files,
-        expectedSceneHash: "scene-hash",
-      }),
-    );
     expect(updateSceneImageFileIds).toHaveBeenCalledWith(elements);
     expect(scheduleVisibleImageRenditionLoad).toHaveBeenCalledWith({
       elements,
@@ -467,7 +452,7 @@ describe("createBuiltinGenerationJobCompletionRendererActions", () => {
       files,
     });
     expect(updateWorkspaceOverlay).toHaveBeenCalledWith(elements, appState);
-    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(flushProjectRoom).toHaveBeenCalledWith({ strict: true });
     expect(commit).toHaveBeenCalledTimes(1);
   });
 });

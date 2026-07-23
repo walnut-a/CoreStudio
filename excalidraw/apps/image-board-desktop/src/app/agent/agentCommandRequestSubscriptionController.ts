@@ -1,8 +1,6 @@
 import type { AgentRendererCommandRequest } from "../../shared/agentBridgeTypes";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
-import type {
-  AgentDesktopBridgeRequestHandlerBridge,
-} from "./agentDesktopBridgeRequest";
+import type { AgentDesktopBridgeRequestHandlerBridge } from "./agentDesktopBridgeRequest";
 import type {
   AgentCommandRuntimeDeps,
   AgentCommandSceneSnapshot,
@@ -61,7 +59,7 @@ export const subscribeAgentCommandRequests = ({
   beginImageWriteback,
   insertAssetsIntoScene,
   restoreScene,
-  flushPendingAutosave,
+  flushProjectRoom,
   handleDesktopBridgeRequest,
   handleCommandRequest,
 }: SubscribeAgentCommandRequestsInput): AgentCommandRequestSubscriptionResult => {
@@ -81,7 +79,7 @@ export const subscribeAgentCommandRequests = ({
     beginImageWriteback,
     insertAssetsIntoScene,
     restoreScene,
-    flushPendingAutosave,
+    flushProjectRoom,
   };
 
   const unsubscribe = bridge.onAgentCommandRequest(async (request) => {

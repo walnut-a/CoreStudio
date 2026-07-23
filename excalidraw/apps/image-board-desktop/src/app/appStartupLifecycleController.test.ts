@@ -25,6 +25,24 @@ describe("runAppStartupLifecycleAction", () => {
     expect(result).toBe(cleanup);
   });
 
+  it("does not start the legacy bridge lifecycle for a room-backed Agent Board", () => {
+    const notifyRendererReady = vi.fn();
+    const loadDesktopStartupState = vi.fn();
+    const startAgentBrowserBridgeStatusRetryLoop = vi.fn();
+
+    runAppStartupLifecycleAction({
+      notifyRendererReady,
+      isAgentBrowserRoute: true,
+      isProjectRoomRoute: true,
+      loadDesktopStartupState,
+      startAgentBrowserBridgeStatusRetryLoop,
+    });
+
+    expect(notifyRendererReady).toHaveBeenCalledOnce();
+    expect(loadDesktopStartupState).not.toHaveBeenCalled();
+    expect(startAgentBrowserBridgeStatusRetryLoop).not.toHaveBeenCalled();
+  });
+
   it("skips desktop startup loading in Agent Browser routes", () => {
     const notifyRendererReady = vi.fn();
     const loadDesktopStartupState = vi.fn();

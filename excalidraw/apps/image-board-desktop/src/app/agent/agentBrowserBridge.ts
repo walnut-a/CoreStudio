@@ -228,19 +228,33 @@ export const maybeCreateAgentBrowserDesktopBridge =
       },
       loadRecentProjects: () =>
         callDesktopBridge<RecentProjectEntry[]>(config, "loadRecentProjects"),
-      writeProjectScene: async () => {
-        throw new Error(
-          "Agent Board 只同步运行态画布，不允许直接保存项目场景。",
-        );
-      },
-      applyProjectSceneElementPatches: (input) =>
-        callDesktopBridge(config, "applyProjectSceneElementPatches", [input]),
       readProjectAssetPayloads: (input) =>
-        callDesktopBridge<ProjectAssetPayload[]>(
-          config,
-          "readProjectAssetPayloads",
-          [input],
-        ),
+        (() => {
+          const resumeToken = new URL(window.location.href).searchParams.get(
+            "resumeToken",
+          );
+          if (!config.token && resumeToken) {
+            return requestAgentBridge<ProjectAssetPayload[]>(
+              {
+                bridge: config.bridge,
+                token: resumeToken,
+              },
+              AGENT_HTTP_ROUTES.roomAssets,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  fileIds: input.fileIds,
+                  rendition: input.rendition ?? "original",
+                }),
+              },
+            );
+          }
+          return callDesktopBridge<ProjectAssetPayload[]>(
+            config,
+            "readProjectAssetPayloads",
+            [input],
+          );
+        })(),
       inspectProjectHealth: (input) =>
         callDesktopBridge<ProjectHealthReport>(config, "inspectProjectHealth", [
           input,
@@ -260,10 +274,27 @@ export const maybeCreateAgentBrowserDesktopBridge =
       persistImageAssets: (input: {
         projectPath: string;
         files: PersistedImageAssetInput[];
-      }) =>
-        callDesktopBridge<ImageRecordMap>(config, "persistImageAssets", [
+      }) => {
+        const resumeToken = new URL(window.location.href).searchParams.get(
+          "resumeToken",
+        );
+        if (!config.token && resumeToken) {
+          return requestAgentBridge<ImageRecordMap>(
+            {
+              bridge: config.bridge,
+              token: resumeToken,
+            },
+            AGENT_HTTP_ROUTES.roomPersistAssets,
+            {
+              method: "POST",
+              body: JSON.stringify({ files: input.files }),
+            },
+          );
+        }
+        return callDesktopBridge<ImageRecordMap>(config, "persistImageAssets", [
           input,
-        ]),
+        ]);
+      },
       beginImageWriteback: (input) =>
         callDesktopBridge<ProjectImageWritebackTransaction>(
           config,
@@ -321,7 +352,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
           boardUrl: window.location.href,
         };
       },
-      onFlushAutosaveRequest: () => () => undefined,
+      onFlushProjectRoomRequest: () => () => undefined,
       onAgentCommandRequest: () => () => undefined,
     };
 

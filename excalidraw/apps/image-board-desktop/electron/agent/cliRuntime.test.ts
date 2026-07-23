@@ -134,6 +134,9 @@ const runCommand = async (
     env: options.env ?? {
       CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
       CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+      CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+      CODEX_THREAD_ID: "thread-b",
+      CODEX_TASK_TITLE: "任务 B",
     },
     executablePath: options.executablePath,
     fetch: options.fetch,
@@ -515,9 +518,8 @@ describe("runCli", () => {
       {
         ok: true,
         data: {
-          ready: true,
-          currentProject: null,
           boardUrl,
+          launchTicket: "launch-ticket",
         },
       },
       records,
@@ -532,13 +534,16 @@ describe("runCli", () => {
       `${JSON.stringify({
         ok: true,
         data: {
-          boardUrl: `${boardUrl}&projectToken=${projectToken}`,
+          boardUrl: `${boardUrl}&launchTicket=launch-ticket`,
         },
       })}\n`,
     );
     expect(records[0]).toMatchObject({
-      url: `${baseUrl}${AGENT_HTTP_ROUTES.status}`,
-      method: "GET",
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.roomTicket}`,
+      method: "POST",
+      headers: {
+        "X-CoreStudio-Participant-Issuer": "issuer-secret",
+      },
     });
   });
 
@@ -546,9 +551,8 @@ describe("runCli", () => {
     const fetch = createFetch({
       ok: true,
       data: {
-        ready: true,
-        currentProject: null,
         boardUrl,
+        launchTicket: "launch-ticket",
       },
     });
 
@@ -557,16 +561,35 @@ describe("runCli", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe(`${boardUrl}&projectToken=${projectToken}\n`);
+    expect(result.stdout).toBe(`${boardUrl}&launchTicket=launch-ticket\n`);
+  });
+
+  it("passes trusted Codex participant identity on write commands", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+
+    const result = await runCommand(
+      ["write", "prompt", "--text", "prompt", "--json"],
+      { fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0]).toMatchObject({
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.sceneAddPrompt}`,
+      headers: {
+        "X-CoreStudio-Participant-Issuer": "issuer-secret",
+        "X-CoreStudio-Participant-Thread": "thread-b",
+        "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+      },
+    });
   });
 
   it("returns a command failure when the bridge has no Agent Board URL", async () => {
     const fetch = createFetch({
       ok: true,
       data: {
-        ready: true,
-        currentProject: null,
         boardUrl: null,
+        launchTicket: "launch-ticket",
       },
     });
 
@@ -580,7 +603,7 @@ describe("runCli", () => {
         ok: false,
         error: {
           code: "COMMAND_FAILED",
-          message: "Agent Bridge did not return a Board URL.",
+          message: "Agent Bridge did not return a Board launch ticket.",
         },
       })}\n`,
     );

@@ -2,13 +2,14 @@ import { CaptureUpdateAction } from "@excalidraw/element";
 
 import type { AppState } from "@excalidraw/excalidraw/types";
 
-import type { AgentRendererCommandRequest } from "../../shared/agentBridgeTypes";
+import type {
+  AgentRendererCommandRequest,
+  AgentWriterCommandContext,
+} from "../../shared/agentBridgeTypes";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
 import { rollbackProjectImageWritebackAfterFailure } from "../projectImageWritebackController";
 import { appendElementsWithSyncedIndices } from "../sceneOrder";
-import {
-  createAgentPromptTextElement,
-} from "./agentCommandHandlers";
+import { createAgentPromptTextElement } from "./agentCommandHandlers";
 import { getAgentImageAssetsFromPayload } from "./agentCommandImageAssets";
 import {
   getPlacementViewportFromAgentBoardContext,
@@ -68,10 +69,66 @@ const getViewportCenterFromAppState = (
   };
 };
 
+const getRoomWriteMetadata = (value: unknown) => {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("roomId" in value) ||
+    typeof value.roomId !== "string" ||
+    !("roomSequence" in value) ||
+    typeof value.roomSequence !== "number" ||
+    !("persistedSequence" in value) ||
+    typeof value.persistedSequence !== "number" ||
+    !("persisted" in value) ||
+    typeof value.persisted !== "boolean"
+  ) {
+    return {};
+  }
+  return {
+    ...("operationId" in value && typeof value.operationId === "string"
+      ? { operationId: value.operationId }
+      : {}),
+    roomId: value.roomId,
+    roomSequence: value.roomSequence,
+    persistedSequence: value.persistedSequence,
+    persisted: value.persisted,
+  };
+};
+
+const getAgentWriterCommandContext = (
+  payload: unknown,
+): AgentWriterCommandContext | undefined => {
+  if (
+    !isObjectPayload(payload) ||
+    !isObjectPayload(payload.projectRoomAgentWriter)
+  ) {
+    return undefined;
+  }
+  const context = payload.projectRoomAgentWriter;
+  if (
+    typeof context.sessionId !== "string" ||
+    !context.sessionId ||
+    !isObjectPayload(context.identity)
+  ) {
+    return undefined;
+  }
+  const identity = context.identity;
+  if (
+    typeof identity.projectId !== "string" ||
+    typeof identity.canonicalProjectPath !== "string" ||
+    typeof identity.roomId !== "string" ||
+    typeof identity.sessionEpoch !== "number"
+  ) {
+    return undefined;
+  }
+  return context as unknown as AgentWriterCommandContext;
+};
+
 export const handleAgentWriteCommand = async (
   request: AgentRendererCommandRequest,
   { project, deps }: AgentWriteCommandRuntimeInput,
 ): Promise<AgentWriteCommandResult> => {
+  const projectRoomAgentWriter = getAgentWriterCommandContext(request.payload);
   switch (request.command) {
     case "scene.addImage": {
       assertAgentProjectPath(request.payload, project.projectPath);
@@ -97,6 +154,7 @@ export const handleAgentWriteCommand = async (
           placementViewport:
             getPlacementViewportFromAgentBoardContext(agentBoardContext),
           requireReady: true,
+          deferPersistence: true,
         });
       } catch (error) {
         let failure = error;
@@ -105,7 +163,9 @@ export const handleAgentWriteCommand = async (
         } catch (restoreError) {
           failure = Object.assign(
             new Error(
-              `${error instanceof Error ? error.message : String(error)}；画板快照恢复也失败。`,
+              `${
+                error instanceof Error ? error.message : String(error)
+              }；画板快照恢复也失败。`,
             ),
             { cause: error, restoreError },
           );
@@ -113,11 +173,16 @@ export const handleAgentWriteCommand = async (
         await rollbackProjectImageWritebackAfterFailure(writeback, failure);
       }
       await writeback.commit();
+      const roomWrite = await deps.flushProjectRoom({
+        strict: true,
+        ...(projectRoomAgentWriter ? { projectRoomAgentWriter } : {}),
+      });
       return {
         handled: true,
         value: {
           inserted: true,
           fileIds: files.map((file) => file.fileId),
+          ...getRoomWriteMetadata(roomWrite),
         },
       };
     }
@@ -162,13 +227,17 @@ export const handleAgentWriteCommand = async (
         },
         captureUpdate: CaptureUpdateAction.IMMEDIATELY,
       });
-      await deps.flushPendingAutosave({ strict: true });
+      const roomWrite = await deps.flushProjectRoom({
+        strict: true,
+        ...(projectRoomAgentWriter ? { projectRoomAgentWriter } : {}),
+      });
 
       return {
         handled: true,
         value: {
           inserted: true,
           elementIds: [element.id],
+          ...getRoomWriteMetadata(roomWrite),
         },
       };
     }

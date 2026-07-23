@@ -71,7 +71,6 @@ describe("App startup", () => {
           imageRecords: {},
         }),
         openProject: vi.fn().mockResolvedValue(null),
-        writeProjectScene: vi.fn().mockResolvedValue(undefined),
         readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
         persistImageAssets: vi.fn().mockResolvedValue({}),
         importImages: vi.fn().mockResolvedValue([]),
@@ -146,7 +145,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -355,10 +353,14 @@ describe("App startup", () => {
       });
     });
 
-    expect(result).toEqual({
-      inserted: true,
-      elementIds: [expect.any(String)],
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        inserted: true,
+        elementIds: [expect.any(String)],
+        roomId: "room:/tmp/mock-project",
+        roomSequence: 0,
+      }),
+    );
     expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
       expect.objectContaining({
         elements: expect.arrayContaining([
@@ -822,14 +824,22 @@ describe("App startup", () => {
         mimeType: "image/png",
       },
     });
-    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+    const submitProjectRoomOperation = vi.fn(async (input) => ({
+      operationId: input.operation.operationId,
+      sequence: 0,
+      persistedSequence: 0,
+      changedElementIds: input.operation.elements.map(
+        (element: { id: string }) => element.id,
+      ),
+      ignoredElementIds: [],
+    }));
 
     vi.spyOn(crypto, "randomUUID").mockReturnValue(
       "generated-file" as `${string}-${string}-${string}-${string}-${string}`,
     );
     window.imageBoardDesktop = createDesktopBridgeMock({
       persistImageAssets,
-      writeProjectScene,
+      submitProjectRoomOperation,
       onAgentCommandRequest: vi.fn((listener) => {
         agentCommandListener = listener;
         return () => {
@@ -913,11 +923,16 @@ describe("App startup", () => {
         ]),
       }),
     );
-    expect(writeProjectScene).toHaveBeenCalledWith(
+    expect(submitProjectRoomOperation).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectPath: "/tmp/mock-project",
-        sceneJson: "{}",
-        expectedSceneHash: expect.any(String),
+        operation: expect.objectContaining({
+          elements: expect.arrayContaining([
+            expect.objectContaining({
+              type: "image",
+              fileId: "agent-generated-file",
+            }),
+          ]),
+        }),
       }),
     );
   });
@@ -1025,8 +1040,8 @@ describe("App startup", () => {
     );
   });
 
-  it("does not autosave canvas changes while Excalidraw is still initializing", async () => {
-    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+  it("does not submit room changes while Excalidraw is still initializing", async () => {
+    const submitProjectRoomOperation = vi.fn();
 
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({
@@ -1059,7 +1074,7 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene,
+      submitProjectRoomOperation,
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -1116,12 +1131,12 @@ describe("App startup", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 850));
     });
 
-    expect(writeProjectScene).not.toHaveBeenCalled();
+    expect(submitProjectRoomOperation).not.toHaveBeenCalled();
   });
 
-  it("keeps autosave blocked after the loading fallback hides before editor init", async () => {
+  it("keeps room submission blocked after the loading fallback hides before editor init", async () => {
     vi.useFakeTimers();
-    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+    const submitProjectRoomOperation = vi.fn();
 
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({
@@ -1154,7 +1169,7 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene,
+      submitProjectRoomOperation,
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -1217,13 +1232,15 @@ describe("App startup", () => {
       vi.advanceTimersByTime(800);
     });
 
-    expect(writeProjectScene).not.toHaveBeenCalled();
+    expect(submitProjectRoomOperation).not.toHaveBeenCalled();
   });
 
-  it("stops project switching when the pending autosave fails", async () => {
-    const writeProjectScene = vi
+  it("can force project switching after the current room fails to persist", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const closeProjectRoom = vi
       .fn()
-      .mockRejectedValue(new Error("磁盘不可写"));
+      .mockRejectedValueOnce(new Error("磁盘不可写"))
+      .mockResolvedValueOnce(true);
     const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
     let menuActionListener:
       | ((event: {
@@ -1267,7 +1284,7 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(projectBBundle),
-      writeProjectScene,
+      closeProjectRoom,
       readProjectAssetPayloads,
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -1347,15 +1364,16 @@ describe("App startup", () => {
       });
     });
 
-    expect(writeProjectScene).toHaveBeenCalledWith(
+    expect(closeProjectRoom).toHaveBeenCalledWith(
       expect.objectContaining({
         projectPath: "/tmp/project-a",
-        sceneJson: "{}",
-        expectedSceneHash: expect.any(String),
       }),
     );
-    expect(readProjectAssetPayloads).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/旧项目未能保存/)).toBeInTheDocument();
+    expect(closeProjectRoom).toHaveBeenLastCalledWith({
+      projectPath: "/tmp/project-a",
+      force: true,
+    });
+    expect(readProjectAssetPayloads).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
   });
 
@@ -1442,7 +1460,9 @@ describe("App startup", () => {
     expect(
       within(dialog).getByRole("tab", { name: "Codex 集成" }),
     ).toBeInTheDocument();
-    expect(within(dialog).getByRole("tab", { name: "关于" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("tab", { name: "关于" }),
+    ).toBeInTheDocument();
     expect(within(dialog).queryByRole("switch", { name: /Codex/ })).toBeNull();
   });
 
@@ -1476,8 +1496,14 @@ describe("App startup", () => {
     expect(setAgentBridgeEnabled).not.toHaveBeenCalled();
   });
 
-  it("flushes pending autosave when the desktop shell requests it", async () => {
-    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+  it("flushes pending room changes when the desktop shell requests it", async () => {
+    const submitProjectRoomOperation = vi.fn(async (input) => ({
+      operationId: input.operation.operationId,
+      sequence: 0,
+      persistedSequence: 0,
+      changedElementIds: ["rect-a"],
+      ignoredElementIds: [],
+    }));
     let flushListener: (() => Promise<void> | void) | null = null;
 
     window.imageBoardDesktop = {
@@ -1498,7 +1524,7 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene,
+      submitProjectRoomOperation,
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -1529,7 +1555,7 @@ describe("App startup", () => {
       saveProviderSettings: vi.fn(),
       generateImages: vi.fn(),
       onMenuAction: vi.fn(() => () => undefined),
-      onFlushAutosaveRequest: vi.fn((listener) => {
+      onFlushProjectRoomRequest: vi.fn((listener) => {
         flushListener = listener;
         return () => undefined;
       }),
@@ -1571,11 +1597,13 @@ describe("App startup", () => {
       await flushListener?.();
     });
 
-    expect(writeProjectScene).toHaveBeenCalledWith(
+    expect(submitProjectRoomOperation).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectPath: "/tmp/mock-project",
-        sceneJson: "{}",
-        expectedSceneHash: expect.any(String),
+        operation: expect.objectContaining({
+          elements: expect.arrayContaining([
+            expect.objectContaining({ id: "rect-a" }),
+          ]),
+        }),
       }),
     );
   });
@@ -1599,7 +1627,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -1688,7 +1715,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -1780,7 +1806,6 @@ describe("App startup", () => {
           lastOpenedAt: "2026-04-16T08:00:00.000Z",
         },
       ]),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -2058,7 +2083,6 @@ describe("App startup", () => {
       openProject: vi.fn().mockResolvedValue(null),
       openRecentProject,
       loadRecentProjects: vi.fn().mockResolvedValue([]),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -2607,7 +2631,6 @@ describe("App startup", () => {
       openProject,
       openRecentProject: vi.fn().mockResolvedValue(null),
       loadRecentProjects: vi.fn().mockResolvedValue([]),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads,
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -2672,6 +2695,9 @@ describe("App startup", () => {
     });
     act(() => {
       triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -2876,6 +2902,9 @@ describe("App startup", () => {
     });
     act(() => {
       triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -3959,6 +3988,9 @@ describe("App startup", () => {
     act(() => {
       triggerExcalidrawInitialize?.();
     });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
     act(() => {
       triggerExcalidrawScrollChange?.({
         scrollX: -50,
@@ -3999,7 +4031,6 @@ describe("App startup", () => {
       openProject: vi.fn().mockResolvedValue(null),
       openRecentProject: vi.fn().mockResolvedValue(null),
       loadRecentProjects: vi.fn().mockResolvedValue([]),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads,
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -4246,7 +4277,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -4312,7 +4342,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -4734,7 +4763,6 @@ describe("App startup", () => {
         },
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5088,7 +5116,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5179,7 +5206,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5307,7 +5333,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5334,6 +5359,9 @@ describe("App startup", () => {
     });
 
     await screen.findByText("生成图片弹窗");
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "提交生成" }));
@@ -5419,7 +5447,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5511,7 +5538,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5631,7 +5657,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5745,7 +5770,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5813,7 +5837,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -5981,7 +6004,6 @@ describe("App startup", () => {
         },
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets,
       importImages: vi.fn().mockResolvedValue([]),
@@ -6246,7 +6268,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -6297,7 +6318,15 @@ describe("App startup", () => {
     expect(generateImages).toHaveBeenCalledTimes(1);
     expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalled();
 
-    const firstUpdate = mockExcalidrawAPI?.updateScene.mock.calls[0]?.[0];
+    const firstUpdate = mockExcalidrawAPI?.updateScene.mock.calls.find(
+      ([update]) =>
+        update?.elements?.some(
+          (element: any) =>
+            !element.isDeleted &&
+            element.type === "frame" &&
+            element.strokeStyle === "dashed",
+        ),
+    )?.[0];
     const pendingFrames =
       firstUpdate?.elements?.filter(
         (element: any) => !element.isDeleted && element.type === "frame",
@@ -6340,6 +6369,9 @@ describe("App startup", () => {
     });
     act(() => {
       triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
     });
 
     await act(async () => {
@@ -6386,7 +6418,15 @@ describe("App startup", () => {
       }>;
     }>();
     const generateImages = vi.fn().mockImplementation(() => firstJob.promise);
-    const writeProjectScene = vi.fn().mockResolvedValue(undefined);
+    const submitProjectRoomOperation = vi.fn(async (input) => ({
+      operationId: input.operation.operationId,
+      sequence: 0,
+      persistedSequence: 0,
+      changedElementIds: input.operation.elements.map(
+        (element: { id: string }) => element.id,
+      ),
+      ignoredElementIds: [],
+    }));
 
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({
@@ -6406,7 +6446,7 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene,
+      submitProjectRoomOperation,
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -6507,16 +6547,19 @@ describe("App startup", () => {
       });
     });
     await waitFor(() => {
-      expect(writeProjectScene).toHaveBeenCalledWith(
+      expect(submitProjectRoomOperation).toHaveBeenCalledWith(
         expect.objectContaining({
-          projectPath: "/tmp/mock-project",
-          expectedSceneHash: expect.any(String),
+          operation: expect.objectContaining({
+            elements: expect.arrayContaining([
+              expect.objectContaining({ type: "image" }),
+            ]),
+          }),
         }),
       );
     });
   });
 
-  it("reports a failed scene save after a generated image is inserted", async () => {
+  it("reports a failed room submission after a generated image is inserted", async () => {
     const generateImages = vi.fn().mockResolvedValue({
       provider: "gemini",
       model: "gemini-2.5-flash-image",
@@ -6546,7 +6589,7 @@ describe("App startup", () => {
         mimeType: "image/png",
       },
     });
-    const writeProjectScene = vi
+    const submitProjectRoomOperation = vi
       .fn()
       .mockRejectedValue(new Error("磁盘不可写"));
 
@@ -6558,7 +6601,7 @@ describe("App startup", () => {
       ),
       generateImages,
       persistImageAssets,
-      writeProjectScene,
+      submitProjectRoomOperation,
     }) as any;
 
     render(<App />);
@@ -6576,84 +6619,13 @@ describe("App startup", () => {
     });
 
     await waitFor(() => {
-      expect(writeProjectScene).toHaveBeenCalled();
-    });
-    expect(await screen.findByRole("alert")).toHaveTextContent("磁盘不可写");
-  });
-
-  it("pauses autosave and reloads the latest project after a stale snapshot conflict", async () => {
-    const generateImages = vi.fn().mockResolvedValue({
-      provider: "gemini",
-      model: "gemini-2.5-flash-image",
-      seed: null,
-      createdAt: "2026-04-15T08:00:00.000Z",
-      images: [
-        {
-          dataBase64: "Z2VuZXJhdGVkLWltYWdl",
-          mimeType: "image/png",
-          width: 1024,
-          height: 1024,
-        },
-      ],
-    });
-    const project = createMockProjectBundle({
-      imageRecords: {},
-    });
-    const latestProject = createMockProjectBundle({
-      sceneJson: '{"elements":[{"id":"latest-element","type":"rectangle"}]}',
-      imageRecords: {},
-    });
-    const openRecentProject = vi.fn().mockResolvedValue(latestProject);
-    const writeProjectScene = vi.fn().mockRejectedValue(
-      new Error(
-        "Error invoking remote method 'image-board:write-project-scene': Error: 画板文件已经被其他会话更新，已停止保存旧快照。请重新打开项目后再继续。",
-      ),
-    );
-
-    window.imageBoardDesktop = createDesktopBridgeMock({
-      createProject: vi.fn().mockResolvedValue(project),
-      openRecentProject,
-      generateImages,
-      persistImageAssets: vi.fn().mockResolvedValue({}),
-      writeProjectScene,
-    }) as any;
-
-    render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
-    await screen.findByText("生成图片弹窗");
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "提交固定比例生成" }));
-    });
-
-    const recoveryAction = await screen.findByRole("button", {
-      name: "加载最新版本",
+      expect(submitProjectRoomOperation).toHaveBeenCalled();
     });
     expect(
-      screen
-        .getByText(
-          "项目内容已在其他会话中更新。自动保存已暂停，请加载最新版本后继续。",
-        )
-        .closest('[role="alert"]'),
-    ).toHaveTextContent("项目内容已在其他会话中更新。自动保存已暂停");
-    expect(screen.queryByText(/Error invoking remote method/)).toBeNull();
-
-    await act(async () => {
-      fireEvent.click(recoveryAction);
-    });
-
-    expect(openRecentProject).toHaveBeenCalledWith(project.projectPath);
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("button", { name: "加载最新版本" }),
-      ).toBeNull();
-    });
+      (await screen.findAllByRole("alert")).some((alert) =>
+        alert.textContent?.includes("磁盘不可写"),
+      ),
+    ).toBe(true);
   });
 
   it("fits auto-ratio generated images to the returned image dimensions", async () => {
@@ -6689,7 +6661,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -6813,7 +6784,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -6853,6 +6823,9 @@ describe("App startup", () => {
     });
     act(() => {
       triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
     });
 
     await act(async () => {
@@ -6910,7 +6883,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -7109,7 +7081,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),
@@ -7248,7 +7219,6 @@ describe("App startup", () => {
         imageRecords: {},
       }),
       openProject: vi.fn().mockResolvedValue(null),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets,
       importImages: vi.fn().mockResolvedValue([]),
@@ -7300,7 +7270,17 @@ describe("App startup", () => {
 
     expect(generateImages).toHaveBeenCalledTimes(2);
 
-    const secondUpdate = mockExcalidrawAPI?.updateScene.mock.calls[1]?.[0];
+    const secondUpdate = mockExcalidrawAPI?.updateScene.mock.calls
+      .map(([update]) => update)
+      .findLast(
+        (update) =>
+          update?.elements?.filter(
+            (element: any) =>
+              !element.isDeleted &&
+              element.type === "frame" &&
+              element.strokeStyle === "dashed",
+          ).length === 2,
+      );
     const queuedFrames =
       secondUpdate?.elements?.filter(
         (element: any) => !element.isDeleted && element.type === "frame",

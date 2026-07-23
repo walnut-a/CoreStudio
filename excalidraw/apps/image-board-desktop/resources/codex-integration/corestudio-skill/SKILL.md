@@ -34,20 +34,21 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 
 用户说“打开当前 CoreStudio 项目”时：
 
-1. 运行 `corestudio read status --json`，用轻量状态发现当前 CoreStudio 会话、项目和 Agent Board 基址。不要用完整 `read context` 作为打开项目的前置检查。
+1. 运行 `corestudio read status --json`，用轻量状态发现当前 CoreStudio 会话、项目和项目房间。房间模式下同时确认 `projectRoom.sceneWriteMode = "room"`、`roomId`、`sessionEpoch` 和连接状态；不要用完整 `read context` 作为打开项目的前置检查。
 2. 如果错误详情包含 `sessionDiscovered: true`，说明会话已经找到，但当前执行环境无法连接本机 Local Bridge。若运行在 Codex 中，立即申请在网络沙箱外重试同一条命令，并且只重试一次；完成重试前，不要误报 CoreStudio 未运行或 Bridge 未启用。
-3. 状态读取成功后运行 `corestudio read board-url --json`，取得包含当前项目 token 的最终 `boardUrl`。
+3. 状态读取成功后运行 `corestudio read capabilities --json`，确认存在 `roomProtocolVersion`、`roomCapabilityVersion` 和 `scene-operations` capability。再运行 `corestudio read board-url --json`，取得只包含短期 launch ticket 的 `boardUrl`。不要把项目 token、Codex thread id 或任务标题手工拼进 URL。
 4. 如果当前 Codex 任务具备内置浏览器控制能力，直接在内置浏览器打开 `boardUrl`。
 5. 如果当前任务没有实际浏览器控制工具，向用户提供语义清楚的一键链接，并说明限制来自当前 Codex 任务能力，不是 CoreStudio 或 Bridge 故障。不要在正文中重复展示项目 token。
 6. 不要擅自改用 Chrome 或系统默认浏览器。只有用户明确允许时，才使用其他浏览器。
 7. 需要完整画布、选区、图片记录或健康状态时，再分别使用 `corestudio read board --json`、`corestudio read selection --json`、`corestudio read records --json`、`corestudio read health --json`。
-8. 只有在没有发现会话，或沙箱外单次重试仍失败时，才请用户检查 CoreStudio、目标项目和 Agent Bridge 状态。保留 CLI 的原始错误码、消息和详情。
+8. 只有在没有发现会话，或沙箱外单次重试仍失败时，才请用户检查 CoreStudio、目标项目和 Agent Bridge 状态。保留 CLI 的原始错误码、消息和详情。遇到 `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED` 或 `PROJECT_MISMATCH` 时不要重试旧房间写入；请用户重新打开或重新绑定目标项目。
 
 ## 写回
 
 - Codex 生成图片后使用 `corestudio write image <path> --source-type generated --origin agent-board` 写回，并保留 prompt、reference file ids 和 reference element ids。CoreStudio 内置模型不属于 Codex 工作流，禁止通过 CLI、Local Bridge 或 Agent Board 调用。
 - Codex 搜索或下载得到的图片使用 `corestudio write image <path> --source-type imported` 写回；图片必须先由 Codex 保存到本地，CoreStudio 不负责联网获取。
 - 定位和选择已有元素使用 `corestudio edit locate` / `corestudio edit select`。
-- 每次写回都向用户报告 CLI 返回的 imageId、elementId、frameId 或 prompt id。
+- 每次写回都向用户报告 CLI 返回的 imageId、elementId、frameId 或 prompt id；房间模式下同时检查 `operationId`、`roomId`、`roomSequence`、`persistedSequence` 和 `persisted`。
+- `persisted: true` 才表示这次写入已经进入项目文件。只有 `roomSequence` 而没有对应 `persistedSequence` 时，按“已同步但尚未保存”处理，不能向用户报告完成。
 - 写回后验证项目已更新：重新读取画布或定位返回的元素 ID，确认新元素已在画布上可见。不要把 CLI 返回成功等同于用户已经看到结果。
-- CLI 失败时保留原始错误码和消息，不绕过 Local Bridge 手工改文件。
+- CLI 失败时保留原始错误码、消息和 details，不绕过 Local Bridge 手工改文件。`PERSISTENCE_FAILED` 只按保存失败报告，不自行创建恢复副本。

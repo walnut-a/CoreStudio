@@ -113,53 +113,6 @@ describe("handleAgentDesktopBridgeRequest", () => {
     expect(beginImageWriteback).toHaveBeenCalledWith(input);
   });
 
-  it("flushes desktop edits once before applying Agent Board patches and applies the returned snapshot without reopening", async () => {
-    const project = createProject();
-    const result = {
-      project: project.project,
-      sceneJson: JSON.stringify({ elements: [] }),
-      sceneHash: "scene-hash",
-      appliedElementIds: ["element-1"],
-    };
-    const flushPendingAutosave = vi.fn(async () => undefined);
-    const applyProjectSceneElementPatches = vi.fn(async () => result);
-    const openRecentProject = vi.fn(async () => project);
-    const applyExternalProjectSnapshot = vi.fn(async () => undefined);
-    const input = {
-      projectPath: project.projectPath,
-      operationId: "operation-1",
-      patches: [],
-    };
-
-    await expect(
-      handleAgentDesktopBridgeRequest({
-        payload: {
-          method: "applyProjectSceneElementPatches",
-          args: [input],
-        },
-        desktopBridge: { applyProjectSceneElementPatches },
-        getProject: () => project,
-        getScene: () => null,
-        serializeScene: vi.fn(),
-        flushPendingAutosave,
-        openRecentProject,
-        applyExternalProjectSnapshot,
-      }),
-    ).resolves.toEqual(result);
-    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
-    expect(flushPendingAutosave).toHaveBeenCalledTimes(1);
-    expect(applyProjectSceneElementPatches).toHaveBeenCalledWith(input);
-    expect(applyExternalProjectSnapshot).toHaveBeenCalledWith({
-      ...project,
-      project: result.project,
-      sceneJson: result.sceneJson,
-    });
-    expect(openRecentProject).not.toHaveBeenCalled();
-    expect(flushPendingAutosave.mock.invocationCallOrder[0]).toBeLessThan(
-      applyProjectSceneElementPatches.mock.invocationCallOrder[0],
-    );
-  });
-
   it("returns the live current project snapshot for the already-open recent project", async () => {
     const project = createProject();
     const openRecentProject = vi.fn();

@@ -23,7 +23,6 @@ const {
   readAppProjectEntryScreen,
   readAppErrorBanners,
   readEditorLoadingOverlay,
-  readAgentBoardStartupPane,
   readDesktopButton,
   readSideDock,
   readGenerateDialogViewModel,

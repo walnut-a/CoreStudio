@@ -179,10 +179,6 @@ export const enCopy: DesktopCopy = {
     saveProjectFailed: "Could not save the project.",
     saveBeforeOpenFailed:
       "The previous project could not be saved, so opening the new project was stopped.",
-    staleProjectSnapshot:
-      "This project was updated in another session. Autosave is paused until you load the latest version.",
-    loadLatestProject: "Load latest version",
-    loadingLatestProject: "Loading...",
     generateFailed: "Image generation failed.",
   },
   debugError: {
@@ -886,9 +882,9 @@ export const enCopy: DesktopCopy = {
         : "Project data repair complete.",
   },
   agentBoardSave: {
-    saving: "Saving canvas changes…",
+    syncing: "Syncing canvas changes…",
+    pending: "Synced, writing project…",
     saved: "Canvas changes saved",
-    conflict: "Canvas changes conflict with a newer version. Load the latest project.",
     error: "Canvas changes could not be saved",
   },
   projectRenderBoundary: {

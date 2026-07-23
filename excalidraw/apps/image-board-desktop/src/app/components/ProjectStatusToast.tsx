@@ -14,7 +14,7 @@ export interface ProjectStatusToastProps {
   projectHealthReport: ProjectHealthReport | null;
   projectRepairReport: ProjectRepairReport | null;
   onOpenDetails: () => void;
-  agentBoardSaveStatus?: "idle" | "saving" | "saved" | "conflict" | "error";
+  agentBoardSaveStatus?: "idle" | "syncing" | "pending" | "saved" | "error";
 }
 
 export const ProjectStatusToast = ({
@@ -36,18 +36,17 @@ export const ProjectStatusToast = ({
       ? null
       : {
           message:
-            agentBoardSaveStatus === "saving"
-              ? copy.agentBoardSave.saving
+            agentBoardSaveStatus === "syncing"
+              ? copy.agentBoardSave.syncing
+              : agentBoardSaveStatus === "pending"
+              ? copy.agentBoardSave.pending
               : agentBoardSaveStatus === "saved"
-                ? copy.agentBoardSave.saved
-                : agentBoardSaveStatus === "conflict"
-                  ? copy.agentBoardSave.conflict
-                  : copy.agentBoardSave.error,
+              ? copy.agentBoardSave.saved
+              : copy.agentBoardSave.error,
           tone:
             agentBoardSaveStatus === "saved"
               ? ("success" as const)
-              : agentBoardSaveStatus === "conflict" ||
-                agentBoardSaveStatus === "error"
+              : agentBoardSaveStatus === "error"
               ? ("failed" as const)
               : ("pending" as const),
           hasDetails: false,

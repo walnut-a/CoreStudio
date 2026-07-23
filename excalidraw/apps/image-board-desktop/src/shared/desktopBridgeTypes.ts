@@ -27,6 +27,14 @@ import type {
   DesktopLocalePreference,
   DesktopLocaleSettings,
 } from "./desktopLocale";
+import type {
+  DesktopProjectRoomJoinInput,
+  ProjectRoomEvent,
+  ProjectRoomOperationResult,
+  ProjectRoomParticipant,
+  ProjectRoomSceneOperation,
+  ProjectRoomSnapshot,
+} from "./projectRoomProtocol";
 
 export const IPC_CHANNELS = {
   createProject: "image-board:create-project",
@@ -34,9 +42,6 @@ export const IPC_CHANNELS = {
   openRecentProject: "image-board:open-recent-project",
   loadRecentProjects: "image-board:load-recent-projects",
   removeRecentProject: "image-board:remove-recent-project",
-  writeProjectScene: "image-board:write-project-scene",
-  applyProjectSceneElementPatches:
-    "image-board:apply-project-scene-element-patches",
   readProjectAssetPayloads: "image-board:read-project-asset-payloads",
   inspectProjectHealth: "image-board:inspect-project-health",
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
@@ -62,12 +67,20 @@ export const IPC_CHANNELS = {
   menuAction: "image-board:menu-action",
   rendererReady: "image-board:renderer-ready",
   projectStateChanged: "image-board:project-state-changed",
-  flushAutosaveRequest: "image-board:flush-autosave-request",
-  flushAutosaveResponse: "image-board:flush-autosave-response",
+  flushProjectRoomRequest: "image-board:flush-project-room-request",
+  flushProjectRoomResponse: "image-board:flush-project-room-response",
   agentCommandRequest: "image-board:agent-command-request",
   agentCommandResponse: "image-board:agent-command-response",
   getAgentBridgeStatus: "image-board:get-agent-bridge-status",
   setAgentBridgeEnabled: "image-board:set-agent-bridge-enabled",
+  projectRoomJoin: "image-board:project-room-join",
+  projectRoomOperation: "image-board:project-room-operation",
+  projectRoomAgentWriterOperation:
+    "image-board:project-room-agent-writer-operation",
+  projectRoomLeave: "image-board:project-room-leave",
+  projectRoomCloseState: "image-board:project-room-close-state",
+  projectRoomClose: "image-board:project-room-close",
+  projectRoomEvent: "image-board:project-room-event",
 } as const;
 
 export type DesktopMenuAction =
@@ -105,25 +118,6 @@ export interface DesktopProjectBundle {
   imageRecordReadIssues?: ProjectImageRecordReadIssue[];
   writebackJournalReadIssues?: ProjectImageWritebackJournalReadIssue[];
   safeMode?: boolean;
-}
-
-export interface ProjectSceneElementPatch {
-  element: Record<string, unknown>;
-  expectedVersion: number | null;
-  expectedVersionNonce: number | null;
-}
-
-export interface ApplyProjectSceneElementPatchesInput {
-  projectPath: string;
-  operationId: string;
-  patches: ProjectSceneElementPatch[];
-}
-
-export interface ApplyProjectSceneElementPatchesResult {
-  project: ProjectManifest;
-  sceneJson: string;
-  sceneHash: string;
-  appliedElementIds: string[];
 }
 
 export interface DesktopCurrentProject {
@@ -342,11 +336,11 @@ export interface GenerateImagesInput {
   request: GenerationRequest;
 }
 
-export interface DesktopAutosaveFlushRequest {
+export interface DesktopProjectRoomFlushRequest {
   requestId: number;
 }
 
-export interface DesktopAutosaveFlushResponse {
+export interface DesktopProjectRoomFlushResponse {
   requestId: number;
   ok: boolean;
   errorMessage?: string | null;
@@ -358,14 +352,6 @@ export interface DesktopBridgeApi {
   openRecentProject(projectPath: string): Promise<DesktopProjectBundle | null>;
   loadRecentProjects(): Promise<RecentProjectEntry[]>;
   removeRecentProject?(projectPath: string): Promise<RecentProjectEntry[]>;
-  writeProjectScene(input: {
-    projectPath: string;
-    sceneJson: string;
-    expectedSceneHash?: string | null;
-  }): Promise<ProjectManifest | void>;
-  applyProjectSceneElementPatches?(
-    input: ApplyProjectSceneElementPatchesInput,
-  ): Promise<ApplyProjectSceneElementPatchesResult>;
   readProjectAssetPayloads(input: {
     projectPath: string;
     fileIds: string[];
@@ -427,7 +413,36 @@ export interface DesktopBridgeApi {
   ): void;
   getAgentBridgeStatus?(): Promise<DesktopAgentBridgeStatus>;
   setAgentBridgeEnabled?(enabled: boolean): Promise<DesktopAgentBridgeStatus>;
-  onFlushAutosaveRequest?(listener: () => Promise<void> | void): () => void;
+  joinProjectRoom?(
+    input: DesktopProjectRoomJoinInput,
+  ): Promise<ProjectRoomSnapshot>;
+  submitProjectRoomOperation?(input: {
+    sessionId: string;
+    operation: ProjectRoomSceneOperation;
+  }): Promise<ProjectRoomOperationResult>;
+  submitAgentWriterProjectRoomOperation?(input: {
+    sessionId: string;
+    operation: ProjectRoomSceneOperation;
+  }): Promise<ProjectRoomOperationResult>;
+  leaveProjectRoom?(sessionId: string): Promise<boolean>;
+  getProjectRoomCloseState?(input: {
+    projectPath: string;
+    sessionId: string;
+  }): Promise<{
+    roomId: string;
+    otherParticipants: ProjectRoomParticipant[];
+  } | null>;
+  closeProjectRoom?(input: {
+    projectPath: string;
+    force?: boolean;
+    expectedRoomId?: string;
+    requestingSessionId?: string;
+    acknowledgedParticipantSessionIds?: string[];
+  }): Promise<boolean>;
+  onProjectRoomEvent?(
+    listener: (sessionId: string, event: ProjectRoomEvent) => void,
+  ): () => void;
+  onFlushProjectRoomRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(
     listener: (
       request: AgentRendererCommandRequest,

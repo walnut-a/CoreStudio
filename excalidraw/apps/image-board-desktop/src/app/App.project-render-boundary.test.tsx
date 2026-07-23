@@ -44,7 +44,6 @@ describe("App project render boundary", () => {
           lastOpenedAt: "2026-04-16T08:00:00.000Z",
         },
       ]),
-      writeProjectScene: vi.fn().mockResolvedValue(undefined),
       readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
       persistImageAssets: vi.fn().mockResolvedValue({}),
       importImages: vi.fn().mockResolvedValue([]),

@@ -5,7 +5,6 @@ import {
   createCurrentProjectEditorInitializingRendererActions,
   createCurrentProjectOpenSequenceRendererActions,
   createCurrentProjectUpdateRendererActions,
-  createCurrentProjectAutosaveFailureRendererActions,
   createCurrentProjectEditorReadyRendererActions,
   createCurrentProjectRenderBoundaryRendererActions,
   createCurrentProjectBundleOpenRendererActions,
@@ -16,7 +15,6 @@ import {
   runCurrentProjectCommandFailureAction,
   runCurrentProjectCommandStartAction,
   runCurrentProjectRevealAction,
-  runCurrentProjectAutosaveFailureAction,
   runCurrentProjectEntryCompleteAction,
   runCurrentProjectEntryFailureAction,
   runCurrentProjectEntryMenuFailureAction,
@@ -62,7 +60,6 @@ const createProject = (path: string): DesktopProjectBundle => ({
 
 const createCallbacks = () => ({
   setCurrentProject: vi.fn(),
-  setSavedSceneHash: vi.fn(),
   setProjectHealthReport: vi.fn(),
   setProjectRepairReport: vi.fn(),
   setProjectHealthReportOpen: vi.fn(),
@@ -78,12 +75,12 @@ const createBundleOpenInput = (patch: Record<string, unknown> = {}) => {
       currentSequence += 1;
       return currentSequence;
     }),
-    isCurrentProjectOpen: vi.fn((sequence: number) => sequence === currentSequence),
-    flushPendingAutosave: vi.fn().mockResolvedValue(undefined),
-    getDevicePixelRatio: vi.fn(() => 1),
-    getFallbackCreatedAt: vi.fn(() =>
-      Date.parse("2026-07-06T00:00:00.000Z"),
+    isCurrentProjectOpen: vi.fn(
+      (sequence: number) => sequence === currentSequence,
     ),
+    flushProjectRoom: vi.fn().mockResolvedValue(undefined),
+    getDevicePixelRatio: vi.fn(() => 1),
+    getFallbackCreatedAt: vi.fn(() => Date.parse("2026-07-06T00:00:00.000Z")),
     readProjectAssets: vi.fn(async () => []),
     setLoadingProject: vi.fn(),
     setProjectError: vi.fn(),
@@ -120,7 +117,7 @@ const createBundleOpenInput = (patch: Record<string, unknown> = {}) => {
 };
 
 describe("applyCurrentProjectUpdateState", () => {
-  it("applies the project and saved hash without resetting project-scoped UI when the project path is unchanged", () => {
+  it("applies the project without resetting project-scoped UI when the project path is unchanged", () => {
     const project = createProject("/projects/current");
     const callbacks = createCallbacks();
 
@@ -129,7 +126,6 @@ describe("applyCurrentProjectUpdateState", () => {
         previousProjectPath: "/projects/current",
         nextProjectPath: "/projects/current",
         projectChanged: false,
-        savedSceneHash: "hash-current",
         project,
         resetState: null,
       },
@@ -137,7 +133,6 @@ describe("applyCurrentProjectUpdateState", () => {
     });
 
     expect(callbacks.setCurrentProject).toHaveBeenCalledWith(project);
-    expect(callbacks.setSavedSceneHash).toHaveBeenCalledWith("hash-current");
   });
 
   it("applies the project changed reset state when switching projects", () => {
@@ -150,7 +145,6 @@ describe("applyCurrentProjectUpdateState", () => {
         previousProjectPath: "/projects/previous",
         nextProjectPath: "/projects/next",
         projectChanged: true,
-        savedSceneHash: "hash-next",
         project,
         resetState,
       },
@@ -158,7 +152,6 @@ describe("applyCurrentProjectUpdateState", () => {
     });
 
     expect(callbacks.setCurrentProject).toHaveBeenCalledWith(project);
-    expect(callbacks.setSavedSceneHash).toHaveBeenCalledWith("hash-next");
     expect(callbacks.setProjectHealthReport).toHaveBeenCalledWith(null);
     expect(callbacks.setProjectRepairReport).toHaveBeenCalledWith(null);
     expect(callbacks.setProjectHealthReportOpen).toHaveBeenCalledWith(false);
@@ -209,7 +202,6 @@ describe("createCurrentProjectUpdateRendererActions", () => {
     const previousProject = createProject("/projects/previous");
     const nextProject = createProject("/projects/next");
     let currentProjectRef: DesktopProjectBundle | null = previousProject;
-    let savedSceneHashRef: string | null = null;
     const callbacks = createCallbacks();
 
     const actions = createCurrentProjectUpdateRendererActions({
@@ -218,9 +210,6 @@ describe("createCurrentProjectUpdateRendererActions", () => {
         currentProjectRef = project;
       },
       setCurrentProject: callbacks.setCurrentProject,
-      setSavedSceneHashRef: (hash) => {
-        savedSceneHashRef = hash;
-      },
       setProjectHealthReport: callbacks.setProjectHealthReport,
       setProjectRepairReport: callbacks.setProjectRepairReport,
       setProjectHealthReportOpen: callbacks.setProjectHealthReportOpen,
@@ -238,7 +227,6 @@ describe("createCurrentProjectUpdateRendererActions", () => {
     });
     expect(currentProjectRef).toBe(nextProject);
     expect(callbacks.setCurrentProject).toHaveBeenCalledWith(nextProject);
-    expect(savedSceneHashRef).toBe(state.savedSceneHash);
     expect(callbacks.notifyProjectState).toHaveBeenCalledWith(nextProject);
     expect(callbacks.syncAgentBridgeStatus).toHaveBeenCalledWith(nextProject);
 
@@ -246,7 +234,6 @@ describe("createCurrentProjectUpdateRendererActions", () => {
 
     expect(currentProjectRef).toBe(null);
     expect(callbacks.setCurrentProject).toHaveBeenLastCalledWith(null);
-    expect(savedSceneHashRef).toBe(null);
     expect(callbacks.notifyProjectState).toHaveBeenLastCalledWith(null);
     expect(callbacks.syncAgentBridgeStatus).toHaveBeenLastCalledWith(null);
   });
@@ -571,9 +558,7 @@ describe("createCurrentProjectEditorReadyRendererActions", () => {
 
     expect(setEditorApi).toHaveBeenCalledWith(editorApi);
     expect(flushQueuedImageFilesToCanvas).toHaveBeenCalledTimes(1);
-    expect(scheduleVisibleImageRenditionLoad).toHaveBeenCalledWith(
-      latestScene,
-    );
+    expect(scheduleVisibleImageRenditionLoad).toHaveBeenCalledWith(latestScene);
     expect(clearInitializing).not.toHaveBeenCalled();
 
     callbacks[0]?.(0);
@@ -661,9 +646,7 @@ describe("current project command actions", () => {
       setProjectError,
     });
 
-    expect(setProjectError).toHaveBeenCalledWith(
-      "格式化：显示项目文件夹失败",
-    );
+    expect(setProjectError).toHaveBeenCalledWith("格式化：显示项目文件夹失败");
   });
 
   it("skips revealing a project folder when no project is open", async () => {
@@ -717,41 +700,6 @@ describe("current project command actions", () => {
     expect(setProjectError).toHaveBeenCalledWith("格式化：Finder 打开失败");
   });
 
-  it("reports autosave failures with owner logging and save error formatting", () => {
-    const setProjectError = vi.fn();
-    const logError = vi.fn();
-    const error = new Error("保存项目失败");
-
-    runCurrentProjectAutosaveFailureAction({
-      error,
-      formatError: (value) =>
-        value instanceof Error ? `格式化：${value.message}` : "格式化失败",
-      logError,
-      setProjectError,
-    });
-
-    expect(logError).toHaveBeenCalledWith("[project:autosave-failed]", error);
-    expect(setProjectError).toHaveBeenCalledWith("格式化：保存项目失败");
-  });
-
-  it("creates a reusable autosave failure reporter for renderer controllers", () => {
-    const setProjectError = vi.fn();
-    const logError = vi.fn();
-    const error = new Error("自动保存失败");
-
-    const actions = createCurrentProjectAutosaveFailureRendererActions({
-      formatError: (value) =>
-        value instanceof Error ? `格式化：${value.message}` : "格式化失败",
-      logError,
-      setProjectError,
-    });
-
-    actions.report(error);
-
-    expect(logError).toHaveBeenCalledWith("[project:autosave-failed]", error);
-    expect(setProjectError).toHaveBeenCalledWith("格式化：自动保存失败");
-  });
-
   it("applies a project entry menu failure from the menu event message", () => {
     const setProjectError = vi.fn();
     const clearProjectNotice = vi.fn();
@@ -803,7 +751,7 @@ describe("current project command actions", () => {
 
 describe("runCurrentProjectSwitchToListAction", () => {
   it("flushes the current project before clearing the project view and refreshing recent projects", async () => {
-    const flushPendingAutosave = vi.fn().mockResolvedValue(undefined);
+    const flushProjectRoom = vi.fn().mockResolvedValue(undefined);
     const clearProjectViewState = vi.fn();
     const loadRecentProjectsState = vi.fn().mockResolvedValue(undefined);
     const setProjectError = vi.fn();
@@ -811,7 +759,7 @@ describe("runCurrentProjectSwitchToListAction", () => {
 
     await expect(
       runCurrentProjectSwitchToListAction({
-        flushPendingAutosave,
+        flushProjectRoom,
         clearProjectViewState,
         loadRecentProjectsState,
         formatError: () => "不应调用",
@@ -822,7 +770,7 @@ describe("runCurrentProjectSwitchToListAction", () => {
 
     expect(setProjectError).toHaveBeenCalledWith(null);
     expect(clearProjectNotice).toHaveBeenCalledTimes(1);
-    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(flushProjectRoom).toHaveBeenCalledWith({ strict: true });
     expect(clearProjectViewState).toHaveBeenCalledTimes(1);
     expect(loadRecentProjectsState).toHaveBeenCalledTimes(1);
   });
@@ -835,7 +783,7 @@ describe("runCurrentProjectSwitchToListAction", () => {
 
     await expect(
       runCurrentProjectSwitchToListAction({
-        flushPendingAutosave: vi.fn().mockRejectedValue(error),
+        flushProjectRoom: vi.fn().mockRejectedValue(error),
         clearProjectViewState,
         loadRecentProjectsState,
         formatError: (value) =>
@@ -849,6 +797,32 @@ describe("runCurrentProjectSwitchToListAction", () => {
     });
 
     expect(setProjectError).toHaveBeenCalledWith("格式化：保存旧项目失败");
+    expect(clearProjectViewState).not.toHaveBeenCalled();
+    expect(loadRecentProjectsState).not.toHaveBeenCalled();
+  });
+
+  it("keeps the current project open without reporting a save failure when the user cancels closing", async () => {
+    const error = Object.assign(new Error("已取消关闭项目。"), {
+      code: "PROJECT_CLOSE_CANCELLED",
+    });
+    const clearProjectViewState = vi.fn();
+    const loadRecentProjectsState = vi.fn();
+    const setProjectError = vi.fn();
+
+    await expect(
+      runCurrentProjectSwitchToListAction({
+        flushProjectRoom: vi.fn().mockRejectedValue(error),
+        clearProjectViewState,
+        loadRecentProjectsState,
+        formatError: () => "不应显示为保存失败",
+        setProjectError,
+        clearProjectNotice: vi.fn(),
+      }),
+    ).resolves.toEqual({
+      status: "cancelled",
+    });
+
+    expect(setProjectError).toHaveBeenLastCalledWith(null);
     expect(clearProjectViewState).not.toHaveBeenCalled();
     expect(loadRecentProjectsState).not.toHaveBeenCalled();
   });
@@ -1073,10 +1047,10 @@ describe("createCurrentProjectEntryRendererActions", () => {
       openRecentProject: vi.fn().mockResolvedValue(recentProject),
       revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
     };
-    let currentProject: DesktopProjectBundle | null = createProject(
-      "/projects/current",
-    );
-    const beginProjectOpen = vi.fn()
+    let currentProject: DesktopProjectBundle | null =
+      createProject("/projects/current");
+    const beginProjectOpen = vi
+      .fn()
       .mockReturnValueOnce(21)
       .mockReturnValueOnce(22)
       .mockReturnValueOnce(23);
@@ -1090,7 +1064,7 @@ describe("createCurrentProjectEntryRendererActions", () => {
       beginProjectOpen,
       openProjectBundle,
       isCurrentProjectOpen: () => true,
-      flushPendingAutosave: vi.fn().mockResolvedValue(undefined),
+      flushProjectRoom: vi.fn().mockResolvedValue(undefined),
       clearProjectViewState,
       loadRecentProjectsState,
       formatCreateError: () => "创建失败",
@@ -1290,7 +1264,7 @@ describe("runCurrentProjectBundleOpenRendererAction", () => {
       followupStatus: "opened",
     });
 
-    expect(input.flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(input.flushProjectRoom).toHaveBeenCalledWith({ strict: true });
     expect(input.setLoadingProject).toHaveBeenNthCalledWith(1, true);
     expect(input.setLoadingProject).toHaveBeenLastCalledWith(false);
     expect(input.setProjectError).toHaveBeenCalledWith(null);
@@ -1308,7 +1282,7 @@ describe("runCurrentProjectBundleOpenRendererAction", () => {
     const error = new Error("旧项目保存失败");
     const input = createBundleOpenInput({
       isCurrentProjectOpen: vi.fn((sequence: number) => sequence === 12),
-      flushPendingAutosave: vi.fn().mockRejectedValue(error),
+      flushProjectRoom: vi.fn().mockRejectedValue(error),
     });
 
     await expect(
@@ -1355,7 +1329,7 @@ describe("runCurrentProjectBundleOpenRendererAction", () => {
       followupStatus: "opened",
     });
 
-    expect(input.flushPendingAutosave).not.toHaveBeenCalled();
+    expect(input.flushProjectRoom).not.toHaveBeenCalled();
     expect(input.updateCurrentProject).toHaveBeenCalledWith(project);
   });
 });

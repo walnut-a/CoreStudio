@@ -51,12 +51,14 @@ describe("ProjectStatusToast", () => {
     expect(screen.queryByRole("button", { name: "查看详情" })).toBeNull();
   });
 
-  it("renders Agent Board element save progress", () => {
+  it("renders project room persistence progress", () => {
     const { rerender } = renderToast({
-      agentBoardSaveStatus: "saving",
+      agentBoardSaveStatus: "pending",
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent("正在保存画布修改");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "已同步，正在写入项目",
+    );
 
     rerender(
       <ProjectStatusToast

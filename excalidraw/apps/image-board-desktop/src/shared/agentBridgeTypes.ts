@@ -1,3 +1,5 @@
+import type { ProjectRoomIdentity } from "./projectRoomProtocol";
+
 export const AGENT_BRIDGE_PROTOCOL_VERSION = 2;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
@@ -7,6 +9,9 @@ export const AGENT_HTTP_ROUTES = {
   status: "/v1/status",
   capabilities: "/v1/agent/capabilities",
   authorize: "/v1/agent/authorize",
+  roomTicket: "/v1/room/ticket",
+  roomAssets: "/v1/room/assets",
+  roomPersistAssets: "/v1/room/assets/persist",
   browserState: "/v1/agent/browser-state",
   desktopBridge: "/v1/desktop-bridge",
   context: "/v1/agent/context",
@@ -55,6 +60,11 @@ export interface AgentBoardCommandContext {
   };
 }
 
+export interface AgentWriterCommandContext {
+  sessionId: string;
+  identity: ProjectRoomIdentity;
+}
+
 export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
@@ -64,7 +74,6 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "openProject",
   "openRecentProject",
   "loadRecentProjects",
-  "applyProjectSceneElementPatches",
   "readProjectAssetPayloads",
   "inspectProjectHealth",
   "rebuildProjectThumbnails",
@@ -133,6 +142,13 @@ export const AGENT_ERROR_CODES = [
   "FORBIDDEN",
   "PROJECT_MISMATCH",
   "PROJECT_REQUIRED",
+  "ROOM_CLOSED",
+  "ROOM_CLOSING",
+  "ROOM_MISMATCH",
+  "SESSION_EPOCH_EXPIRED",
+  "SESSION_NOT_FOUND",
+  "PERSISTENCE_FAILED",
+  "PARTICIPANTS_CHANGED",
   "STALE_PROJECT_SNAPSHOT",
   "TOKEN_EXPIRED",
   "UNSUPPORTED_COMMAND",

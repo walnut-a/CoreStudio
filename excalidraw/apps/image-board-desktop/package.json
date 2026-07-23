@@ -27,6 +27,9 @@
     "package:app:raw": "yarn build && yarn check:secrets --source --package-inputs && electron-builder --mac dmg && yarn notarize:release && yarn check:secrets --release",
     "test": "cd ../.. && vitest apps/image-board-desktop"
   },
+  "dependencies": {
+    "ws": "8.21.0"
+  },
   "devDependencies": {
     "@excalidraw/common": "0.18.0",
     "@excalidraw/element": "0.18.0",

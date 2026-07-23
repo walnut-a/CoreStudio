@@ -61,10 +61,10 @@ const createProject = (): DesktopProjectBundle => ({
 
 const createScene = (): AgentCommandSceneSnapshot => ({
   elements: [imageElement],
-  appState: ({
+  appState: {
     selectedElementIds: { "element-1": true },
     selectedGroupIds: {},
-  } as unknown) as AppState,
+  } as unknown as AppState,
   files: {},
 });
 
@@ -81,7 +81,7 @@ const createDeps = (
   beginImageWriteback: vi.fn(),
   insertAssetsIntoScene: vi.fn(async () => undefined),
   restoreScene: vi.fn(),
-  flushPendingAutosave: vi.fn(async () => undefined),
+  flushProjectRoom: vi.fn(async () => undefined),
   ...patch,
 });
 
@@ -145,7 +145,7 @@ describe("agentCommandWriteRuntime", () => {
         project: createProject(),
         deps: createDeps({
           beginImageWriteback,
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
           insertAssetsIntoScene,
         }),
       },
@@ -219,7 +219,7 @@ describe("agentCommandWriteRuntime", () => {
           project: createProject(),
           deps: createDeps({
             getScene: () => before,
-            getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+            getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
             beginImageWriteback,
             insertAssetsIntoScene: vi.fn().mockRejectedValue(failure),
             restoreScene,
@@ -259,7 +259,7 @@ describe("agentCommandWriteRuntime", () => {
           project: createProject(),
           deps: createDeps({
             getScene: () => before,
-            getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+            getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
             beginImageWriteback: vi.fn(async () => ({
               transaction: {
                 transactionId: "transaction-1",
@@ -284,7 +284,13 @@ describe("agentCommandWriteRuntime", () => {
 
   it("adds prompt text to the scene and flushes autosave", async () => {
     const updateScene = vi.fn();
-    const flushPendingAutosave = vi.fn(async () => undefined);
+    const flushProjectRoom = vi.fn(async () => ({
+      operationId: "operation-1",
+      roomId: "room-1",
+      roomSequence: 4,
+      persistedSequence: 4,
+      persisted: true,
+    }));
 
     const result = await handleAgentWriteCommand(
       {
@@ -294,6 +300,15 @@ describe("agentCommandWriteRuntime", () => {
           projectPath: "/tmp/corestudio-project",
           text: "做一台更简洁的桌面 CNC",
           anchorPoint: { x: 120, y: 240 },
+          projectRoomAgentWriter: {
+            sessionId: "agent-writer-session",
+            identity: {
+              projectId: "project-1",
+              canonicalProjectPath: "/tmp/corestudio-project",
+              roomId: "room-1",
+              sessionEpoch: 2,
+            },
+          },
         },
       },
       {
@@ -310,8 +325,8 @@ describe("agentCommandWriteRuntime", () => {
               }),
               getSceneElementsIncludingDeleted: () => [],
               updateScene,
-            }) as unknown as ExcalidrawImperativeAPI,
-          flushPendingAutosave,
+            } as unknown as ExcalidrawImperativeAPI),
+          flushProjectRoom,
         }),
       },
     );
@@ -321,6 +336,11 @@ describe("agentCommandWriteRuntime", () => {
       value: {
         inserted: true,
         elementIds: [expect.any(String)],
+        operationId: "operation-1",
+        roomId: "room-1",
+        roomSequence: 4,
+        persistedSequence: 4,
+        persisted: true,
       },
     });
     expect(updateScene).toHaveBeenCalledWith(
@@ -330,7 +350,18 @@ describe("agentCommandWriteRuntime", () => {
         }),
       }),
     );
-    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(flushProjectRoom).toHaveBeenCalledWith({
+      strict: true,
+      projectRoomAgentWriter: {
+        sessionId: "agent-writer-session",
+        identity: {
+          projectId: "project-1",
+          canonicalProjectPath: "/tmp/corestudio-project",
+          roomId: "room-1",
+          sessionEpoch: 2,
+        },
+      },
+    });
   });
 
   it("does not handle edit commands", async () => {

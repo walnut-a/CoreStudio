@@ -71,6 +71,57 @@ html.image-board-desktop-titlebar-hidden {
   display: none;
 }
 
+.project-room-presence {
+  position: absolute;
+  top: 12px;
+  right: 58px;
+  z-index: 4;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  pointer-events: none;
+  gap: 6px;
+}
+
+.project-room-presence__agent {
+  display: flex;
+  min-width: 0;
+  max-width: 154px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 3px;
+  border: 1px solid var(--default-border-color);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--island-bg-color) 92%, transparent);
+  color: var(--text-primary-color);
+  box-shadow: 0 1px 4px rgba(30, 30, 40, 0.08);
+}
+
+.project-room-presence__avatar {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: white;
+}
+
+.project-room-presence__avatar svg {
+  width: 14px;
+  height: 14px;
+}
+
+.project-room-presence__label {
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .image-board-canvas__loading {
   position: absolute;
   inset: 0;

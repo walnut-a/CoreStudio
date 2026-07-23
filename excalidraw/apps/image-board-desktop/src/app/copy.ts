@@ -188,10 +188,6 @@ const zhCnCopy = {
     revealProjectFailed: "无法显示项目文件夹。",
     saveProjectFailed: "项目保存失败。",
     saveBeforeOpenFailed: "旧项目未能保存，已停止打开新项目。",
-    staleProjectSnapshot:
-      "项目内容已在其他会话中更新。自动保存已暂停，请加载最新版本后继续。",
-    loadLatestProject: "加载最新版本",
-    loadingLatestProject: "正在加载…",
     generateFailed: "生成图片失败。",
   },
   debugError: {
@@ -833,9 +829,9 @@ const zhCnCopy = {
         : "项目数据修复完成。",
   },
   agentBoardSave: {
-    saving: "正在保存画布修改…",
+    syncing: "正在同步画布修改…",
+    pending: "已同步，正在写入项目…",
     saved: "画布修改已保存",
-    conflict: "画布修改发生冲突，请加载最新项目",
     error: "画布修改保存失败",
   },
   projectRenderBoundary: {

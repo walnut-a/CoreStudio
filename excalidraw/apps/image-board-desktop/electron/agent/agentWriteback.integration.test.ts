@@ -23,14 +23,16 @@ import { createLocalBridgeServer } from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
 
 const tempDirectories: string[] = [];
-const bridgeHandles: Array<Awaited<ReturnType<typeof createLocalBridgeServer>>> = [];
+const bridgeHandles: Array<
+  Awaited<ReturnType<typeof createLocalBridgeServer>>
+> = [];
 
 afterEach(async () => {
   await Promise.all(bridgeHandles.splice(0).map((handle) => handle.close()));
   await Promise.all(
-    tempDirectories.splice(0).map((directory) =>
-      fs.rm(directory, { recursive: true, force: true }),
-    ),
+    tempDirectories
+      .splice(0)
+      .map((directory) => fs.rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -40,9 +42,7 @@ const listFiles = async (directory: string): Promise<string[]> => {
     const nested = await Promise.all(
       entries.map(async (entry) => {
         const entryPath = path.join(directory, entry.name);
-        return entry.isDirectory()
-          ? listFiles(entryPath)
-          : [entryPath];
+        return entry.isDirectory() ? listFiles(entryPath) : [entryPath];
       }),
     );
     return nested.flat().sort();
@@ -59,7 +59,9 @@ const createAgentWritebackHarness = async ({
 }: {
   failAutosave?: boolean;
 } = {}) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "corestudio-agent-e2e-"));
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), "corestudio-agent-e2e-"),
+  );
   tempDirectories.push(root);
   const created = await createProjectStructure(root, "Agent Writeback");
   let activeProject: DesktopProjectBundle = {
@@ -74,14 +76,17 @@ const createAgentWritebackHarness = async ({
   };
 
   const renderer = {
-    request: async (command: Parameters<typeof handleAgentCommandRequest>[0]["command"], payload?: unknown) =>
+    request: async (
+      command: Parameters<typeof handleAgentCommandRequest>[0]["command"],
+      payload?: unknown,
+    ) =>
       handleAgentCommandRequest(
         { requestId: `integration-${command}`, command, payload },
         {
           desktopBridge: transactionBridge as any,
           getProject: () => activeProject,
           getScene: () => scene,
-          getExcalidrawAPI: () => ({}) as any,
+          getExcalidrawAPI: () => ({} as any),
           readProjectImageAssets: async () => [],
           beginImageWriteback: ({ project, files }) =>
             beginProjectImageWritebackAction({
@@ -126,7 +131,7 @@ const createAgentWritebackHarness = async ({
           restoreScene: (snapshot) => {
             scene = snapshot;
           },
-          flushPendingAutosave: async () => undefined,
+          flushProjectRoom: async () => undefined,
         },
       ),
   };
@@ -143,24 +148,27 @@ const createAgentWritebackHarness = async ({
   bridgeHandles.push(server);
 
   const requestImageWriteback = async () => {
-    const response = await fetch(`${server.baseUrl}${AGENT_HTTP_ROUTES.sceneAddImage}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${activeProject.project.agentAccess.token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneAddImage}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${activeProject.project.agentAccess.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileId: "cli-input",
+          mimeType: "image/png",
+          dataBase64: Buffer.from("integration-image").toString("base64"),
+          width: 640,
+          height: 480,
+          sourceType: "generated",
+          generationOrigin: "agent-board",
+          createdAt: "2026-07-11T05:00:00.000Z",
+        }),
       },
-      body: JSON.stringify({
-        fileId: "cli-input",
-        mimeType: "image/png",
-        dataBase64: Buffer.from("integration-image").toString("base64"),
-        width: 640,
-        height: 480,
-        sourceType: "generated",
-        generationOrigin: "agent-board",
-        createdAt: "2026-07-11T05:00:00.000Z",
-      }),
-    });
-    return { status: response.status, body: await response.json() as any };
+    );
+    return { status: response.status, body: (await response.json()) as any };
   };
 
   return {
@@ -184,20 +192,27 @@ describe("Agent image writeback integration", () => {
     const record = bundle.imageRecords[fileId];
 
     expect(record).toBeDefined();
-    await expect(fs.readFile(path.join(harness.projectPath, record.assetPath), "utf8"))
-      .resolves.toBe("integration-image");
+    await expect(
+      fs.readFile(path.join(harness.projectPath, record.assetPath), "utf8"),
+    ).resolves.toBe("integration-image");
     expect(JSON.parse(bundle.sceneJson).elements).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: "image", fileId })]),
+      expect.arrayContaining([
+        expect.objectContaining({ type: "image", fileId }),
+      ]),
     );
     expect(
-      await listFiles(path.join(harness.projectPath, "cache", "image-writebacks")),
+      await listFiles(
+        path.join(harness.projectPath, "cache", "image-writebacks"),
+      ),
     ).toEqual([]);
   });
 
   it("returns an error and leaves the original bundle unchanged when scene autosave fails", async () => {
     const harness = await createAgentWritebackHarness({ failAutosave: true });
     const before = await harness.readBundle();
-    const beforeAssets = await listFiles(path.join(harness.projectPath, "assets"));
+    const beforeAssets = await listFiles(
+      path.join(harness.projectPath, "assets"),
+    );
 
     const response = await harness.requestImageWriteback();
 
@@ -213,7 +228,9 @@ describe("Agent image writeback integration", () => {
       beforeAssets,
     );
     expect(
-      await listFiles(path.join(harness.projectPath, "cache", "image-writebacks")),
+      await listFiles(
+        path.join(harness.projectPath, "cache", "image-writebacks"),
+      ),
     ).toEqual([]);
   });
 
@@ -250,7 +267,9 @@ describe("Agent image writeback integration", () => {
     const recovered = await harness.readBundle();
     expect(recovered.imageRecords["recovered-file"]).toBeDefined();
     expect(
-      await listFiles(path.join(harness.projectPath, "cache", "image-writebacks")),
+      await listFiles(
+        path.join(harness.projectPath, "cache", "image-writebacks"),
+      ),
     ).toEqual([]);
     expect(transaction.transactionId).toEqual(expect.any(String));
   });

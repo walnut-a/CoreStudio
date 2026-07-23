@@ -206,7 +206,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.24 (Codex integration 1.2.0, bridge protocol 2)\n",
+          "CoreStudio 1.1.26 (Codex integration 1.5.0, bridge protocol 2)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -223,8 +223,8 @@ describe("runCli", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       ok: true,
       data: {
-        appVersion: "1.1.24",
-        integrationVersion: "1.2.0",
+        appVersion: "1.1.26",
+        integrationVersion: "1.5.0",
         bridgeProtocolVersion: 2,
       },
     });
@@ -273,7 +273,9 @@ describe("runCli", () => {
       expect(result.stdout).toContain("read    Read project and bridge state");
       expect(result.stdout).toContain("write   Write images and prompts");
       expect(result.stdout).toContain("edit    Locate or select scene content");
-      expect(result.stdout).toContain("bash    Print shell integration helpers");
+      expect(result.stdout).toContain(
+        "bash    Print shell integration helpers",
+      );
       expect(result.stdout).toContain("-v, --version");
       expect(result.stdout).toContain("-h, --help");
       expect(fetch).not.toHaveBeenCalled();
@@ -371,7 +373,14 @@ describe("runCli", () => {
     },
     {
       name: "write image",
-      argv: ["write", "image", "/tmp/a.png", "--origin", "agent-board", "--json"],
+      argv: [
+        "write",
+        "image",
+        "/tmp/a.png",
+        "--origin",
+        "agent-board",
+        "--json",
+      ],
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
       body: {
@@ -841,7 +850,14 @@ describe("runCli", () => {
     );
 
     const result = await runCommand(
-      ["write", "image", "/tmp/source.svg", "--origin", "agent-board", "--json"],
+      [
+        "write",
+        "image",
+        "/tmp/source.svg",
+        "--origin",
+        "agent-board",
+        "--json",
+      ],
       {
         fetch,
         readImageFile,
@@ -877,7 +893,10 @@ describe("runCli", () => {
     ["read records", ["read", "records", "--json"]],
     ["read health", ["read", "health", "--json"]],
     ["read image-paths", ["read", "image-paths", "--selection", "--json"]],
-    ["write image", ["write", "image", "/tmp/a.png", "--origin", "agent-board", "--json"]],
+    [
+      "write image",
+      ["write", "image", "/tmp/a.png", "--origin", "agent-board", "--json"],
+    ],
     ["write prompt", ["write", "prompt", "--text", "prompt", "--json"]],
     ["edit locate", ["edit", "locate", "--file-id", "file-1", "--json"]],
     ["edit select", ["edit", "select", "--element-ids", "element-1", "--json"]],
@@ -1012,8 +1031,7 @@ describe("runCli", () => {
     {
       name: "write image without generation origin",
       argv: ["write", "image", "/tmp/a.png", "--json"],
-      message:
-        "write image requires --origin.",
+      message: "write image requires --origin.",
     },
     {
       name: "retired built-in generation command",

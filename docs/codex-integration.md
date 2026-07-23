@@ -12,7 +12,7 @@
 - `~/.codex/skills/corestudio/SKILL.md`：CoreStudio Skill。
 - `~/.codex/corestudio-integration.json`：独立的集成版本与兼容性记录。
 
-Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。CoreStudio 1.1.23 及后续版本内置的集成版本为 `1.2.0`，其中 Skill 会使用轻量状态发现项目、识别 Codex 网络沙箱限制，并根据实际浏览器控制能力打开或链接到 Agent Board。
+Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。当前开发版内置的集成版本为 `1.5.0`，其中 Skill 会优先识别 Agent Board 复制的固定选区引用，按其中的元素和图片 ID 解析任务快照；没有固定引用时才读取实时选区，并在写回后验证画布结果。
 
 不要直接修改 CoreStudio 项目文件，不要从网络下载或执行其他安装脚本。安装代码必须来自本机已签名的 CoreStudio 应用包。
 
@@ -65,7 +65,7 @@ test -r "$HOME/.codex/corestudio-integration.json"
 - `installedFromAppVersion`：执行安装时的 CoreStudio 客户端版本，仅用于追踪来源，不参与兼容判断。
 - `bridgeProtocolVersion`、`skillVersion`、`cliWrapperVersion`：实际参与兼容判断的契约版本。
 
-如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.2.0` Skill 契约下会提示执行一次更新。
+如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.5.0` Skill 契约下会提示执行一次更新。
 
 ## 图片生成与写回边界
 

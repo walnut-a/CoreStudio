@@ -22,6 +22,7 @@ const createProject = (): DesktopProjectBundle => ({
   project: {
     formatVersion: 1,
     appVersion: "test",
+    projectId: "project-id-1",
     name: "测试项目",
     createdAt: "2026-07-02T00:00:00.000Z",
     updatedAt: "2026-07-02T00:00:00.000Z",
@@ -54,10 +55,10 @@ const createProject = (): DesktopProjectBundle => ({
 
 const createScene = (): AgentCommandSceneSnapshot => ({
   elements: [imageElement],
-  appState: ({
+  appState: {
     selectedElementIds: { "element-1": true },
     selectedGroupIds: {},
-  } as unknown) as AppState,
+  } as unknown as AppState,
   files: {},
 });
 
@@ -77,6 +78,30 @@ const createDeps = (
 });
 
 describe("agentCommandReadRuntime", () => {
+  it("returns the stable project identity needed by fixed references", async () => {
+    const result = await handleAgentReadCommand(
+      {
+        requestId: "request-1",
+        command: "project.current",
+      },
+      {
+        project: createProject(),
+        deps: createDeps(),
+      },
+    );
+
+    expect(result).toEqual({
+      handled: true,
+      value: {
+        projectPath: "/tmp/corestudio-project",
+        projectId: "project-id-1",
+        name: "测试项目",
+        createdAt: "2026-07-02T00:00:00.000Z",
+        updatedAt: "2026-07-02T00:00:00.000Z",
+      },
+    });
+  });
+
   it.each([
     {
       command: "project.health" as const,

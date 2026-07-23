@@ -34,6 +34,15 @@ CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" corepack yarn package
 
 正式发布不要在这个命令前额外运行 `build:desktop`；`package:desktop` 已经包含唯一一次生产构建。
 
+同一版本、同一平台和同一份源码已经成功生成完整 App、DMG 与 ZIP 时，再次执行该命令会直接复用现有产物，不会重复构建、公证。确实需要重新生成时，显式使用：
+
+```sh
+CORESTUDIO_FORCE_PACKAGE=1 CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" \
+  corepack yarn package:desktop
+```
+
+目录包不属于常规发布流程，原来的 `package:dir` 入口已移除。只有明确排查安装态问题时才使用 `package:dir:diagnostic`，不要在正式打包前把它当作默认验证步骤。
+
 这个命令会执行：
 
 - renderer build
@@ -184,6 +193,26 @@ gh release create v1.1.0 \
 ```
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
+
+## 1.1.26 发布说明
+
+1.1.26 进一步压缩 Agent Board 选区状态条，并把复制引用升级为稳定快照：
+
+- 图片预览上限从 4 张降为 2 张，操作按钮改为带提示的图标
+- 复制成功后图标短暂变为完成状态，反馈不再撑高状态条
+- 复制内容包含固定协议标记、项目名、元素 ID、图片 ID 和分类摘要
+- Codex 优先使用固定快照解析原图和元素，不再被后续实时选区变化干扰
+- Codex 集成升级到 1.5.0、Skill 契约升级到 7；安装后需要在设置中更新集成环境
+
+## 1.1.25 发布说明
+
+1.1.25 完成 Agent Board 画布选区上下文的首版闭环：
+
+- 画布底部显示实时选区状态、有限图片预览以及文字和图形类型
+- 支持复制人可读的 CoreStudio 选区引用，并在剪贴板失败时保留选区
+- 支持仅清除临时画布选择，不删除元素、不触发 Agent Board 项目自动保存
+- Codex Skill 在画布任务中优先读取选区，并固定任务开始时的元素和图片引用
+- Codex 集成升级到 1.4.0、Skill 契约升级到 6；安装后需要在设置中更新集成环境
 
 ## 1.1.24 发布说明
 

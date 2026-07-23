@@ -99,4 +99,48 @@ describe("projectHealth", () => {
       }),
     );
   });
+
+  it("reports soft-deleted board images as intentional removals", async () => {
+    const report = await inspectProjectHealth(
+      { projectPath: "/tmp/project" },
+      {
+        readProjectBundle: async () => ({
+          project: {} as never,
+          sceneJson: JSON.stringify({
+            type: "excalidraw",
+            elements: [
+              {
+                id: "deleted-element",
+                type: "image",
+                fileId: "removed-file",
+                isDeleted: true,
+              },
+            ],
+          }),
+          imageRecords: {
+            "removed-file": {
+              fileId: "removed-file",
+              assetPath: "assets/removed-file.png",
+              sourceType: "imported",
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-07-23T00:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+        resolveProjectAssetPath: (_projectPath, assetPath) => assetPath,
+        pathExists: async () => true,
+        cachedRenditionExists: async () => true,
+      },
+    );
+
+    expect(report.orphanImageRecordFileIds).toEqual([]);
+    expect(report.orphanGeneratedImageRecordFileIds).toEqual([]);
+    expect(report.recordExplanations?.["removed-file"]).toMatchObject({
+      code: "removed-from-board",
+      status: "ok",
+    });
+    expect(report.issues).toEqual([]);
+  });
 });

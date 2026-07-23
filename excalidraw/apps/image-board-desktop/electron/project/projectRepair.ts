@@ -54,9 +54,7 @@ interface ProjectRepairDependencies {
   }) => Promise<string>;
   readProjectBundle: (projectPath: string) => Promise<ProjectRepairBundle>;
   readRawProjectImageRecords?: (projectPath: string) => Promise<ImageRecordMap>;
-  repairLegacyGeneratedImageRecordOrigins: (
-    imageRecords: ImageRecordMap,
-  ) => {
+  repairLegacyGeneratedImageRecordOrigins: (imageRecords: ImageRecordMap) => {
     imageRecords: ImageRecordMap;
     repairedFileIds: string[];
     repairedProvenanceFileIds?: string[];
@@ -132,12 +130,30 @@ const parseProjectScene = (sceneJson: string) => {
   }
 };
 
-const collectSceneImageFileIds = (elements: readonly ProjectRepairSceneElement[]) =>
+const collectSceneImageFileIds = (
+  elements: readonly ProjectRepairSceneElement[],
+) =>
   Array.from(
     new Set(
       elements.flatMap((element) =>
         element.type === "image" &&
         element.isDeleted !== true &&
+        typeof element.fileId === "string" &&
+        element.fileId
+          ? [element.fileId]
+          : [],
+      ),
+    ),
+  );
+
+const collectDeletedSceneImageFileIds = (
+  elements: readonly ProjectRepairSceneElement[],
+) =>
+  Array.from(
+    new Set(
+      elements.flatMap((element) =>
+        element.type === "image" &&
+        element.isDeleted === true &&
         typeof element.fileId === "string" &&
         element.fileId
           ? [element.fileId]
@@ -295,16 +311,22 @@ const restoreImageRecordsToScene = async ({
   }
 
   const sceneImageFileIds = collectSceneImageFileIds(parsed.elements);
+  const deletedSceneImageFileIds = collectDeletedSceneImageFileIds(
+    parsed.elements,
+  );
   const candidateFileIds = getProjectImageRecordBoardRepairFileIds({
     imageRecords,
     sceneImageFileIds,
+    deletedSceneImageFileIds,
   });
-  const { existingFileIds, missingFileIds } = await resolveExistingAssetFileIds({
-    projectPath,
-    imageRecords,
-    fileIds: candidateFileIds,
-    deps,
-  });
+  const { existingFileIds, missingFileIds } = await resolveExistingAssetFileIds(
+    {
+      projectPath,
+      imageRecords,
+      fileIds: candidateFileIds,
+      deps,
+    },
+  );
 
   if (!existingFileIds.length) {
     return {
@@ -330,10 +352,14 @@ const restoreImageRecordsToScene = async ({
   });
   const nextScene = {
     ...parsed.scene,
-    type: typeof parsed.scene.type === "string" ? parsed.scene.type : "excalidraw",
-    version: typeof parsed.scene.version === "number" ? parsed.scene.version : 2,
+    type:
+      typeof parsed.scene.type === "string" ? parsed.scene.type : "excalidraw",
+    version:
+      typeof parsed.scene.version === "number" ? parsed.scene.version : 2,
     source:
-      typeof parsed.scene.source === "string" ? parsed.scene.source : "CoreStudio",
+      typeof parsed.scene.source === "string"
+        ? parsed.scene.source
+        : "CoreStudio",
     elements: [...parsed.elements, ...restoredElements],
     appState:
       parsed.scene.appState &&
@@ -399,8 +425,9 @@ export const rebuildProjectThumbnails = async (
     const persistedImageRecords = deps.readRawProjectImageRecords
       ? await deps.readRawProjectImageRecords(projectPath)
       : imageRecords;
-    const repairResult =
-      deps.repairLegacyGeneratedImageRecordOrigins(persistedImageRecords);
+    const repairResult = deps.repairLegacyGeneratedImageRecordOrigins(
+      persistedImageRecords,
+    );
     const repairedProvenanceFileIds =
       repairResult.repairedProvenanceFileIds ?? repairResult.repairedFileIds;
     if (repairedProvenanceFileIds.length) {
@@ -441,9 +468,13 @@ export const rebuildProjectThumbnails = async (
       const sceneImageFileIds = parsed.parseFailed
         ? []
         : collectSceneImageFileIds(parsed.elements);
+      const deletedSceneImageFileIds = parsed.parseFailed
+        ? []
+        : collectDeletedSceneImageFileIds(parsed.elements);
       const candidateFileIds = getProjectImageRecordBoardRepairFileIds({
         imageRecords,
         sceneImageFileIds,
+        deletedSceneImageFileIds,
       });
       for (const fileId of candidateFileIds) {
         failedDetails.push({

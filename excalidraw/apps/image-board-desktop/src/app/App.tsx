@@ -20,13 +20,22 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 
-import { buildAgentBrowserRouteState } from "./agent/agentBrowserBridge";
+import {
+  buildAgentBrowserRouteState,
+  readAgentBrowserProjectVersion,
+} from "./agent/agentBrowserBridge";
 import {
   createAutosaveLifecycleRendererActions,
   createAutosaveRendererActions,
   type AutosaveSnapshot as ProjectAutosaveSnapshot,
 } from "./autosaveProjectState";
 import { createAutosaveSnapshotWriteRendererActions } from "./autosaveSnapshotWriteController";
+import {
+  applyAgentBoardExternalProjectSnapshot,
+  readAgentBoardSceneElements,
+  runAgentBoardElementPatchScheduleAction,
+  writeAgentBoardElementPatchSnapshot,
+} from "./agentBoardElementPatchController";
 import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
 import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
 import { maybeGetDesktopBridge } from "./desktopBridge";
@@ -35,9 +44,7 @@ import { createDesktopStartupRendererActions } from "./desktopStartupState";
 import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleController";
 import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
 import { createGenerationRequestRendererActions } from "./generationRequestRendererController";
-import {
-  runBuiltinGenerationRendererAction,
-} from "./builtinGenerationRendererController";
+import { runBuiltinGenerationRendererAction } from "./builtinGenerationRendererController";
 import { createGenerationSubmitRendererActions } from "./generationSubmitRendererController";
 import {
   type GeneratedImagePlacementViewport,
@@ -53,7 +60,10 @@ import {
   type WorkspaceZoomGateState,
 } from "./workspaceBounds";
 import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
-import { serializeSceneForProject } from "./project/sceneSerialization";
+import {
+  deserializeSceneFromProject,
+  serializeSceneForProject,
+} from "./project/sceneSerialization";
 import {
   shouldApplyProjectMaintenanceResult,
   type ProjectRepairReport,
@@ -128,6 +138,7 @@ import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
+import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
 import {
   CORESTUDIO_OPEN_SOURCE_DEPENDENCIES,
   CORESTUDIO_REPOSITORY_URL,
@@ -143,6 +154,8 @@ import { createPendingGenerationCanvasRendererActions } from "./pendingGeneratio
 
 import { buildAgentIntegrationRuntimeViewModel } from "./agent/agentIntegrationViewModel";
 import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
+import { collectAgentImageFileIds } from "./agent/agentCommandHandlers";
+import { runAgentBrowserProjectSyncAction } from "./agent/agentBrowserProjectSyncController";
 import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
 import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
 import { handleAgentDesktopBridgeRequest } from "./agent/agentDesktopBridgeRequest";
@@ -161,9 +174,7 @@ import { createGenerateDialogReferenceRendererActions } from "./generateDialogRe
 import { createAgentBrowserRuntimePublishRendererActions } from "./agent/agentBrowserRuntimePublishController";
 import { createAgentBrowserAutoOpenProjectRendererActions } from "./agent/agentBrowserAutoOpenController";
 import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
-import {
-  notifyAgentBridgeProjectState,
-} from "./agent/agentBridgeStatus";
+import { notifyAgentBridgeProjectState } from "./agent/agentBridgeStatus";
 import {
   applyAgentBridgeStatusCurrentProjectUpdate,
   createAgentBridgeStatusRendererActions,
@@ -176,6 +187,7 @@ import type {
   DesktopLocale,
   DesktopLocalePreference,
 } from "../shared/desktopLocale";
+import type { GenerationReferencePayload } from "../shared/providerTypes";
 
 import "./App.css";
 
@@ -216,7 +228,12 @@ type AutosaveSnapshot = ProjectAutosaveSnapshot<
   AppState,
   BinaryFiles
 >;
+type AgentBoardElementPatchSnapshot = {
+  project: DesktopProjectBundle;
+  elements: readonly ExcalidrawElement[];
+};
 
+const AGENT_BROWSER_PROJECT_SYNC_INTERVAL_MS = 750;
 
 interface AppProps {
   locale?: DesktopLocale;
@@ -244,6 +261,8 @@ const App = ({
   }
 
   const desktopBridge = bridge;
+  const desktopBridgeRef = useRef(desktopBridge);
+  desktopBridgeRef.current = desktopBridge;
   const readProjectImageAssets = useMemo(
     () =>
       createProjectImageAssetReader((input) =>
@@ -255,6 +274,11 @@ const App = ({
   const autosaveTimerRef = useRef<number | null>(null);
   const pendingAutosaveRef = useRef<AutosaveSnapshot | null>(null);
   const autosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const agentBoardPatchTimerRef = useRef<number | null>(null);
+  const pendingAgentBoardPatchRef =
+    useRef<AgentBoardElementPatchSnapshot | null>(null);
+  const agentBoardPatchQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const agentBoardBaselineElementsRef = useRef<Record<string, unknown>[]>([]);
   const isEditorInitializingRef = useRef(false);
   const initializingRenderNonceRef = useRef<number | null>(null);
   const projectRenderNonceRef = useRef(0);
@@ -278,6 +302,7 @@ const App = ({
     new Map(),
   );
   const removedSelectionReferenceSignatureRef = useRef<string | null>(null);
+  const agentBoardSelectionSignatureRef = useRef<string | null>(null);
   const generationTaskByElementIdRef = useRef<
     Map<string, GenerationTaskRecord>
   >(new Map());
@@ -306,6 +331,8 @@ const App = ({
     useState<DesktopProjectBundle | null>(null);
   const [initialData, setInitialData] =
     useState<ExcalidrawInitialDataState | null>(null);
+  const [agentBoardSelectionReference, setAgentBoardSelectionReference] =
+    useState<GenerationReferencePayload | null>(null);
   const [providerConfiguration, setProviderConfiguration] =
     useState<ProviderConfigurationSnapshot | null>(null);
   const providerSettings = providerConfiguration?.providers ?? null;
@@ -374,6 +401,9 @@ const App = ({
   const [loadingLatestProject, setLoadingLatestProject] = useState(false);
   const autosaveConflictProjectPathRef = useRef<string | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
+  const [agentBoardSaveStatus, setAgentBoardSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "conflict" | "error"
+  >("idle");
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
   const [projectRepairReport, setProjectRepairReport] =
@@ -461,10 +491,7 @@ const App = ({
         sceneImageFileIds,
         files: latestSceneRef.current?.files ?? null,
       }).generationRecords,
-    [
-      currentProject,
-      sceneImageFileIds,
-    ],
+    [currentProject, sceneImageFileIds],
   );
 
   const sceneImageFileIdsRendererActions =
@@ -499,6 +526,21 @@ const App = ({
       },
     });
   const updateCurrentProject = currentProjectUpdateRendererActions.update;
+
+  useEffect(() => {
+    if (!isAgentBrowserRoute || !currentProject) {
+      agentBoardBaselineElementsRef.current = [];
+      setAgentBoardSaveStatus("idle");
+      return;
+    }
+    agentBoardBaselineElementsRef.current = readAgentBoardSceneElements(
+      currentProject.sceneJson,
+    );
+  }, [
+    currentProject?.projectPath,
+    currentProject?.sceneJson,
+    isAgentBrowserRoute,
+  ]);
 
   const currentProjectEditorInitializingRendererActions =
     createCurrentProjectEditorInitializingRendererActions({
@@ -734,6 +776,73 @@ const App = ({
       updateCurrentProject,
       updateSelectedInspector: selectedInspectorRendererActions.update,
     });
+
+  useEffect(() => {
+    if (!isAgentBrowserRoute || !currentProject?.projectPath) {
+      return;
+    }
+
+    let stopped = false;
+    let syncing = false;
+    const syncProject = async () => {
+      if (stopped || syncing) {
+        return;
+      }
+      const activeProject = currentProjectRef.current;
+      if (!activeProject) {
+        return;
+      }
+
+      syncing = true;
+      try {
+        await runAgentBrowserProjectSyncAction({
+          currentProject: activeProject,
+          readProjectVersion: readAgentBrowserProjectVersion,
+          readProjectBundle: (projectPath) =>
+            desktopBridgeRef.current.openRecentProject(projectPath),
+          applyProjectMetadata: updateCurrentProject,
+          applyProjectBundle: async (nextProject) => {
+            const restored = await deserializeSceneFromProject(
+              nextProject.sceneJson,
+            );
+            await applyAgentBoardExternalProjectSnapshot({
+              sceneJson: nextProject.sceneJson,
+              getBaselineElements: () =>
+                agentBoardBaselineElementsRef.current,
+              setBaselineElements: (elements) => {
+                agentBoardBaselineElementsRef.current = elements;
+              },
+              applyProjectSnapshot: async () => {
+                await projectRepairSceneRefreshRendererActions.refresh({
+                  project: nextProject,
+                  imageRecords: nextProject.imageRecords,
+                  restoredSceneJson: nextProject.sceneJson,
+                  restoredBoardFileIds: collectAgentImageFileIds(
+                    restored.elements ?? [],
+                  ),
+                  forceRefresh: true,
+                });
+                updateCurrentProject(nextProject);
+              },
+            });
+          },
+        });
+      } catch (error) {
+        console.error("[agent-board:project-sync-failed]", error);
+      } finally {
+        syncing = false;
+      }
+    };
+
+    const timerId = window.setInterval(
+      () => void syncProject(),
+      AGENT_BROWSER_PROJECT_SYNC_INTERVAL_MS,
+    );
+    return () => {
+      stopped = true;
+      window.clearInterval(timerId);
+    };
+  }, [currentProject?.projectPath, isAgentBrowserRoute]);
 
   const projectMaintenanceRendererActions =
     createProjectMaintenanceRendererActions({
@@ -1168,6 +1277,84 @@ const App = ({
       handleWriteError: autosaveSnapshotWriteRendererActions.handleWriteFailure,
     });
 
+  const enqueueAgentBoardElementPatch = (
+    snapshot: AgentBoardElementPatchSnapshot,
+  ) => {
+    const nextWrite = agentBoardPatchQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const applyProjectSceneElementPatches =
+          desktopBridge.applyProjectSceneElementPatches;
+        if (!applyProjectSceneElementPatches) {
+          throw new Error("当前集成环境不支持画布元素写回，请更新后重试。");
+        }
+        setAgentBoardSaveStatus("saving");
+        await writeAgentBoardElementPatchSnapshot({
+          snapshot: {
+            project: snapshot.project,
+            elements: snapshot.elements as unknown as Record<string, unknown>[],
+          },
+          baselineElements: agentBoardBaselineElementsRef.current,
+          applyProjectSceneElementPatches,
+          setBaselineElements: (elements) => {
+            agentBoardBaselineElementsRef.current = elements;
+          },
+          setSavedSceneHash: (sceneHash) => {
+            savedSceneHashRef.current = sceneHash;
+          },
+          updateProject: (nextProject) => {
+            if (
+              currentProjectRef.current?.projectPath === nextProject.projectPath
+            ) {
+              updateCurrentProject(nextProject);
+            }
+          },
+        });
+        setAgentBoardSaveStatus("saved");
+      });
+    agentBoardPatchQueueRef.current = nextWrite;
+    return nextWrite;
+  };
+
+  const agentBoardElementPatchRendererActions =
+    createAutosaveRendererActions<AgentBoardElementPatchSnapshot>({
+      delayMs: 500,
+      getTimerId: () => agentBoardPatchTimerRef.current,
+      clearTimer: (timerId) => window.clearTimeout(timerId),
+      setTimerId: (timerId) => {
+        agentBoardPatchTimerRef.current = timerId;
+      },
+      setPendingSnapshot: (snapshot) => {
+        pendingAgentBoardPatchRef.current = snapshot;
+      },
+      takePendingSnapshot: () => {
+        const snapshot = pendingAgentBoardPatchRef.current;
+        pendingAgentBoardPatchRef.current = null;
+        return snapshot;
+      },
+      scheduleTimeout: (callback, delayMs) =>
+        window.setTimeout(callback, delayMs),
+      writeSnapshot: enqueueAgentBoardElementPatch,
+      waitForQueue: async () => {
+        await agentBoardPatchQueueRef.current;
+      },
+      handleWriteError: ({ snapshot, error }) => {
+        const isConflict =
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "WRITEBACK_CONFLICT";
+        if (isConflict) {
+          autosaveConflictProjectPathRef.current = snapshot.project.projectPath;
+          setAutosaveConflictProjectPath(snapshot.project.projectPath);
+          setAgentBoardSaveStatus("conflict");
+          return;
+        }
+        setAgentBoardSaveStatus("error");
+        setProjectError(formatProjectSaveError(error));
+      },
+    });
+
   const canvasSceneChangeRendererActions =
     createCanvasSceneChangeRendererActions<
       readonly ExcalidrawElement[],
@@ -1190,12 +1377,25 @@ const App = ({
       scheduleAgentBrowserRuntimeStatePublish:
         agentBrowserRuntimePublishRendererActions.schedule,
       updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
+      updateSelectionReference: ({ signature, getReference }) => {
+        if (
+          !isAgentBrowserRoute ||
+          signature === agentBoardSelectionSignatureRef.current
+        ) {
+          return;
+        }
+        agentBoardSelectionSignatureRef.current = signature;
+        setAgentBoardSelectionReference(getReference());
+      },
       setGenerateRequest,
       updateSelectedInspector: selectedInspectorRendererActions.update,
       isEditorInitializing: () => isEditorInitializingRef.current,
       getPersistencePolicy: () => {
         if (isAgentBrowserRoute) {
-          return "runtime-only";
+          return autosaveConflictProjectPathRef.current ===
+            currentProjectRef.current?.projectPath
+            ? "paused-conflict"
+            : "element-patch";
         }
         if (
           autosaveConflictProjectPathRef.current ===
@@ -1206,10 +1406,44 @@ const App = ({
         return "project-autosave";
       },
       scheduleAutosave: autosaveRendererActions.schedule,
+      scheduleAgentBoardElementPatch: (snapshot) => {
+        runAgentBoardElementPatchScheduleAction({
+          baselineElements: agentBoardBaselineElementsRef.current,
+          snapshot,
+          cancelPending: agentBoardElementPatchRendererActions.cancel,
+          schedule: agentBoardElementPatchRendererActions.schedule,
+          setSaveStatus: setAgentBoardSaveStatus,
+        });
+      },
       getSavedSceneHash: () => savedSceneHashRef.current,
     });
 
-  const flushPendingAutosave = autosaveRendererActions.flush;
+  useEffect(() => {
+    if (!isAgentBrowserRoute) {
+      return;
+    }
+    agentBoardSelectionSignatureRef.current = null;
+    setAgentBoardSelectionReference(null);
+  }, [currentProject?.projectPath, isAgentBrowserRoute]);
+
+  const clearAgentBoardSelection = () => {
+    const api = excalidrawAPIRef.current;
+    if (!api) {
+      return;
+    }
+    api.updateScene({
+      appState: {
+        selectedElementIds: {},
+        selectedGroupIds: {},
+      },
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+  };
+
+  const flushPendingAutosave = (options: { strict?: boolean } = {}) =>
+    isAgentBrowserRoute
+      ? agentBoardElementPatchRendererActions.flush(options)
+      : autosaveRendererActions.flush(options);
 
   const autosaveLifecycleRendererActions =
     createAutosaveLifecycleRendererActions({
@@ -1417,7 +1651,29 @@ const App = ({
         latestSceneRef.current = snapshot;
       },
       flushPendingAutosave,
-      handleDesktopBridgeRequest: handleAgentDesktopBridgeRequest,
+      handleDesktopBridgeRequest: (input) =>
+        handleAgentDesktopBridgeRequest({
+          ...input,
+          flushPendingAutosave,
+          applyExternalProjectSnapshot: (project) =>
+            currentProjectBundleOpenRendererActions.applyExternalSnapshot(
+              project,
+            ),
+          openRecentProject: async (projectPath) => {
+            const result =
+              await currentProjectEntryRendererActions.openRecentProject(
+                projectPath,
+              );
+            const openedProject = currentProjectRef.current;
+            if (
+              result.status !== "opened" ||
+              openedProject?.projectPath !== projectPath
+            ) {
+              return null;
+            }
+            return openedProject;
+          },
+        }),
       handleCommandRequest: handleAgentCommandRequest,
     });
 
@@ -1568,6 +1824,7 @@ const App = ({
       thumbnailMaintenance={thumbnailMaintenance}
       projectHealthReport={projectHealthReport}
       projectRepairReport={projectRepairReport}
+      agentBoardSaveStatus={isAgentBrowserRoute ? agentBoardSaveStatus : "idle"}
       onOpenDetails={() => setProjectHealthReportOpen(true)}
     />
   );
@@ -1621,10 +1878,9 @@ const App = ({
     setLoadingLatestProject(true);
     pendingAutosaveRef.current = null;
     try {
-      const result =
-        await currentProjectEntryRendererActions.openRecentProject(
-          currentProject.projectPath,
-        );
+      const result = await currentProjectEntryRendererActions.openRecentProject(
+        currentProject.projectPath,
+      );
       if (result.status === "opened") {
         autosaveConflictProjectPathRef.current = null;
         setAutosaveConflictProjectPath(null);
@@ -1722,13 +1978,13 @@ const App = ({
                 handleKeyboardGlobally={true}
                 autoFocus={true}
                 renderSelectedShapeActions={({
-                  selectedShapeActions,
+                  fullSelectedShapeActions,
                   shouldRenderSelectedShapeActions,
                 }) => (
                   <InspectorSidebar
                     open={inspectorDockOpen}
                     onOpenChange={setInspectorDockOpen}
-                    selectedShapeActions={selectedShapeActions}
+                    selectedShapeActions={fullSelectedShapeActions}
                     shouldRenderSelectedShapeActions={
                       shouldRenderSelectedShapeActions
                     }
@@ -1769,12 +2025,21 @@ const App = ({
               >
                 <LazyProjectMainMenu
                   currentProjectName={currentProject.project.name}
+                  canvasUtilityActionsVisible={!isAgentBrowserRoute}
                   onSwitchProject={() => {
                     void currentProjectEntryRendererActions.switchToProjectList();
                   }}
                 />
               </LazyExcalidraw>
             </Suspense>
+            {isAgentBrowserRoute ? (
+              <AgentBoardSelectionBar
+                projectName={currentProject.project.name}
+                projectId={currentProject.project.projectId ?? ""}
+                reference={agentBoardSelectionReference}
+                onClearSelection={clearAgentBoardSelection}
+              />
+            ) : null}
             <GenerationHistorySidebar
               open={generationHistoryOpen}
               onOpenChange={setGenerationHistoryOpen}

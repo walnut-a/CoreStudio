@@ -35,6 +35,11 @@ export interface ImagePromptReferenceRecord {
 export interface ProjectManifest {
   formatVersion: number;
   appVersion: string;
+  /**
+   * Stable, non-secret project identity. Legacy manifests are normalized with
+   * an id before they are exposed to the renderer.
+   */
+  projectId?: string;
   name: string;
   createdAt: string;
   updatedAt: string;

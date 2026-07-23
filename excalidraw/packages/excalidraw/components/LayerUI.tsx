@@ -253,6 +253,15 @@ const LayerUI = ({
     );
   };
 
+  const renderFullSelectedShapeActionsContent = () => (
+    <SelectedShapeActions
+      appState={appState}
+      elementsMap={app.scene.getNonDeletedElementsMap()}
+      renderAction={actionManager.renderAction}
+      app={app}
+    />
+  );
+
   const renderSelectedShapeActions = () => {
     return (
       <Section
@@ -627,6 +636,9 @@ const LayerUI = ({
             {renderSelectedShapeActionsHost?.({
               selectedShapeActions: canRenderSelectedShapeActions()
                 ? renderSelectedShapeActionsContent()
+                : null,
+              fullSelectedShapeActions: canRenderSelectedShapeActions()
+                ? renderFullSelectedShapeActionsContent()
                 : null,
               shouldRenderSelectedShapeActions: canRenderSelectedShapeActions(),
             })}

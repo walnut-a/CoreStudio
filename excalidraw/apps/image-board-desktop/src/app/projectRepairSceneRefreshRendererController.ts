@@ -58,7 +58,10 @@ export const createDesktopProjectRepairSceneRefreshRendererActions = ({
     input: DesktopProjectRepairSceneRefreshAssetReadInput,
   ) => Promise<ProjectAssetPayload[]>;
   getEditorApi: () =>
-    | Pick<ExcalidrawImperativeAPI, "replaceFiles" | "updateScene">
+    | Pick<
+        ExcalidrawImperativeAPI,
+        "getAppState" | "replaceFiles" | "updateScene"
+      >
     | null
     | undefined;
   queueFiles: (files: BinaryFileData[]) => void;
@@ -91,9 +94,22 @@ export const createDesktopProjectRepairSceneRefreshRendererActions = ({
     getFallbackCreatedAt,
     deserializeScene: async (sceneJson) => {
       const restored = await deserializeSceneFromProject(sceneJson);
+      const currentAppState = getEditorApi()?.getAppState();
+      const restoredAppState = restored.appState as AppState;
       return {
         elements: restored.elements || [],
-        appState: restored.appState as AppState,
+        appState: currentAppState
+          ? {
+              ...restoredAppState,
+              scrollX: currentAppState.scrollX,
+              scrollY: currentAppState.scrollY,
+              zoom: currentAppState.zoom,
+              width: currentAppState.width,
+              height: currentAppState.height,
+              offsetTop: currentAppState.offsetTop,
+              offsetLeft: currentAppState.offsetLeft,
+            }
+          : restoredAppState,
       };
     },
     readThumbnailAssets: ({ project, fileIds }) =>

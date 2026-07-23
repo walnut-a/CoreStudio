@@ -133,6 +133,7 @@ const STATIC_CONTENT_TYPES: Record<string, string> = {
 
 const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
   "loadRecentProjects",
+  "openRecentProject",
   "loadAppInfo",
   "loadProviderSettings",
 ]);
@@ -519,10 +520,7 @@ const createDryRunPayload = (body: JsonBody) => {
     if (!isObjectBody(payload)) {
       return payload;
     }
-    const {
-      dataBase64: nestedDataBase64,
-      ...nestedRest
-    } = payload;
+    const { dataBase64: nestedDataBase64, ...nestedRest } = payload;
     return {
       ...nestedRest,
       ...(typeof nestedDataBase64 === "string"
@@ -543,10 +541,7 @@ const createDryRunPayload = (body: JsonBody) => {
 };
 
 const createProjectCommandPayload = (body: JsonBody, projectPath: string) => {
-  const {
-    projectPath: _projectPath,
-    ...rest
-  } = body;
+  const { projectPath: _projectPath, ...rest } = body;
   return {
     ...rest,
     projectPath,
@@ -596,7 +591,11 @@ const handleDesktopBridgeCommand = async (
   }
 
   if (hasToken) {
-    const project = await authenticateProjectRequest(request, response, options);
+    const project = await authenticateProjectRequest(
+      request,
+      response,
+      options,
+    );
     if (!project) {
       return;
     }
@@ -693,10 +692,7 @@ export const createLocalBridgeServer = async (
   let browserRuntimeState: StoredAgentBrowserRuntimeState | null = null;
 
   const getCurrentBrowserRuntimeState = (projectPath: string) => {
-    if (
-      !projectPath ||
-      browserRuntimeState?.projectPath !== projectPath
-    ) {
+    if (!projectPath || browserRuntimeState?.projectPath !== projectPath) {
       return null;
     }
     return browserRuntimeState;
@@ -791,7 +787,9 @@ export const createLocalBridgeServer = async (
         sendJson(
           response,
           200,
-          createAgentOk(getCurrentBrowserRuntimeState(currentProject.projectPath)),
+          createAgentOk(
+            getCurrentBrowserRuntimeState(currentProject.projectPath),
+          ),
         );
         return;
       }

@@ -37,6 +37,9 @@ describe("agentBridgeTypes", () => {
   it("exports the Agent browser desktop bridge method allowlist", () => {
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("openRecentProject");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("writeProjectScene");
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain(
+      "applyProjectSceneElementPatches",
+    );
     expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("generateImages");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("beginImageWriteback");
     expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("commitImageWriteback");
@@ -47,11 +50,7 @@ describe("agentBridgeTypes", () => {
 
   it("normalizes permissions into the documented order without duplicates", () => {
     expect(
-      normalizeAgentPermissions([
-        "write-board",
-        "read-context",
-        "write-board",
-      ]),
+      normalizeAgentPermissions(["write-board", "read-context", "write-board"]),
     ).toEqual(["read-context", "write-board"]);
   });
 

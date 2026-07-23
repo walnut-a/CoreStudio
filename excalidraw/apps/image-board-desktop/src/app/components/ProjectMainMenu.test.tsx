@@ -140,4 +140,33 @@ describe("ProjectMainMenu", () => {
       within(projectGroup).getByRole("button", { name: "Switch Project..." }),
     ).toBeInTheDocument();
   });
+
+  it("hides non-persistent canvas actions in Agent Board", () => {
+    render(
+      <ProjectMainMenu
+        currentProjectName="当前项目"
+        onSwitchProject={vi.fn()}
+        canvasUtilityActionsVisible={false}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "导出图片" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "查找画布" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "帮助" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "重置画布" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "切换项目..." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "深色模式" }),
+    ).toBeInTheDocument();
+  });
 });

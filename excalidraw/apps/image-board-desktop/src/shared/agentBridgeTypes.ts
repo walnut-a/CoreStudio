@@ -55,10 +55,7 @@ export interface AgentBoardCommandContext {
   };
 }
 
-export const AGENT_PERMISSIONS = [
-  "read-context",
-  "write-board",
-] as const;
+export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
 
@@ -67,6 +64,7 @@ export const AGENT_DESKTOP_BRIDGE_METHODS = [
   "openProject",
   "openRecentProject",
   "loadRecentProjects",
+  "applyProjectSceneElementPatches",
   "readProjectAssetPayloads",
   "inspectProjectHealth",
   "rebuildProjectThumbnails",

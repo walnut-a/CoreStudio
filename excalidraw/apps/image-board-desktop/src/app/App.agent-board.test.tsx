@@ -8,12 +8,15 @@ import {
   createMockProjectBundle,
   createMockProviderSettings,
   fireEvent,
+  mockExcalidrawAPI,
   newImageElement,
   render,
   screen,
   triggerExcalidrawChange,
+  triggerExcalidrawInitialize,
   waitFor,
 } from "./App.testSupport";
+import { API } from "@excalidraw/excalidraw/tests/helpers/api";
 
 describe("App Agent Board route", () => {
   it("boots the browser Agent Board route through the desktop bridge adapter", async () => {
@@ -112,6 +115,10 @@ describe("App Agent Board route", () => {
     fireEvent.click(recentProjectButton!);
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(screen.getByTestId("project-main-menu")).toHaveAttribute(
+      "data-canvas-utility-actions-visible",
+      "false",
+    );
     expect(
       screen.queryByTestId("generate-dialog-composer-config"),
     ).not.toBeInTheDocument();
@@ -143,6 +150,7 @@ describe("App Agent Board route", () => {
       name: "测试项目",
     };
     const browserRuntimeStates: unknown[] = [];
+    const desktopBridgeCalls: Array<{ method?: string; args?: unknown[] }> = [];
     const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
       const path = new URL(String(url)).pathname;
       if (path === "/v1/status") {
@@ -185,6 +193,33 @@ describe("App Agent Board route", () => {
         method?: string;
         args?: unknown[];
       };
+      desktopBridgeCalls.push(requestBody);
+      if (requestBody.method === "applyProjectSceneElementPatches") {
+        const patchInput = requestBody.args?.[0] as {
+          patches?: Array<{ element: Record<string, unknown> }>;
+        };
+        const persistedElements =
+          patchInput.patches?.map((patch) => patch.element) ?? [];
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              project: createMockProjectBundle().project,
+              sceneJson: JSON.stringify({
+                elements: persistedElements,
+                appState: {},
+                files: {},
+              }),
+              sceneHash: "saved-agent-board-scene",
+              appliedElementIds: persistedElements.map((element) => element.id),
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
       const dataByMethod: Record<string, unknown> = {
         loadAppInfo: {
           name: "CoreStudio",
@@ -221,6 +256,12 @@ describe("App Agent Board route", () => {
     render(<App />);
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
 
     const fileId = "file-1" as FileId;
     const image = newImageElement({
@@ -270,6 +311,10 @@ describe("App Agent Board route", () => {
         ),
       ).toBe(true);
     });
+    expect(screen.getByText("1 张图片")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "复制引用" }),
+    ).toBeInTheDocument();
     const runtimeState = browserRuntimeStates.find(
       (state) =>
         (state as { selection?: { selected?: boolean } }).selection?.selected,
@@ -312,6 +357,158 @@ describe("App Agent Board route", () => {
     });
     expect(runtimeState.selection.reference.items[0]).not.toHaveProperty(
       "thumbnailDataUrl",
+    );
+    await waitFor(() => {
+      expect(desktopBridgeCalls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            method: "applyProjectSceneElementPatches",
+          }),
+        ]),
+      );
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("画布修改已保存");
+
+    fireEvent.click(screen.getByRole("button", { name: "清除选择" }));
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appState: {
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+      }),
+    );
+    expect(await screen.findByText("未选择画布元素")).toBeInTheDocument();
+  });
+
+  it("refreshes the open Agent Board canvas after the project version changes", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A4567",
+    );
+    const currentProject = {
+      projectPath: "/tmp/corestudio-project",
+      name: "测试项目",
+    };
+    const initialUpdatedAt = "2026-07-22T01:00:00.000Z";
+    const nextUpdatedAt = "2026-07-22T01:00:01.000Z";
+    let reportedUpdatedAt = initialUpdatedAt;
+    let openRecentProjectCallCount = 0;
+    const syncedElement = API.createElement({
+      type: "rectangle",
+      x: 120,
+      y: 160,
+      width: 240,
+      height: 180,
+    });
+    const initialBundle = createMockProjectBundle({
+      projectPath: currentProject.projectPath,
+      project: {
+        ...createMockProjectBundle().project,
+        name: currentProject.name,
+        updatedAt: initialUpdatedAt,
+      },
+    });
+    const nextBundle = createMockProjectBundle({
+      projectPath: currentProject.projectPath,
+      project: {
+        ...createMockProjectBundle().project,
+        name: currentProject.name,
+        updatedAt: nextUpdatedAt,
+      },
+      sceneJson: JSON.stringify({
+        elements: [syncedElement],
+        appState: {},
+      }),
+    });
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const path = new URL(String(url)).pathname;
+      if (path === "/v1/status") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: { ready: true, currentProject: null },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (path === "/v1/project/current") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              projectPath: currentProject.projectPath,
+              updatedAt: reportedUpdatedAt,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      const requestBody = JSON.parse(String(init?.body ?? "{}")) as {
+        method?: string;
+      };
+      let data: unknown = null;
+      switch (requestBody.method) {
+        case "loadAppInfo":
+          data = { name: "CoreStudio", version: "0.0.0-test" };
+          break;
+        case "loadProviderSettings":
+          data = createMockProviderSettings();
+          break;
+        case "loadRecentProjects":
+          data = [
+            {
+              projectPath: currentProject.projectPath,
+              name: currentProject.name,
+              lastOpenedAt: initialUpdatedAt,
+            },
+          ];
+          break;
+        case "openRecentProject":
+          data =
+            openRecentProjectCallCount++ === 0 ? initialBundle : nextBundle;
+          break;
+        case "readProjectAssetPayloads":
+          data = [];
+          break;
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(await screen.findByText(currentProject.name));
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(openRecentProjectCallCount).toBe(1);
+    mockExcalidrawAPI?.updateScene.mockClear();
+
+    reportedUpdatedAt = nextUpdatedAt;
+
+    await waitFor(() => expect(openRecentProjectCallCount).toBe(2), {
+      timeout: 2500,
+    });
+    await waitFor(
+      () => {
+        expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+          expect.objectContaining({
+            elements: expect.arrayContaining([
+              expect.objectContaining({
+                id: syncedElement.id,
+                type: "rectangle",
+              }),
+            ]),
+          }),
+        );
+      },
+      { timeout: 2500 },
     );
   });
 

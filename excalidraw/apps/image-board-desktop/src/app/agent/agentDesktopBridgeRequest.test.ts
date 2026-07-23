@@ -23,7 +23,7 @@ const createProject = (): DesktopProjectBundle => ({
       token: "project-token",
     },
   },
-  sceneJson: "{\"type\":\"excalidraw\"}",
+  sceneJson: '{"type":"excalidraw"}',
   imageRecords: {},
 });
 
@@ -113,10 +113,57 @@ describe("handleAgentDesktopBridgeRequest", () => {
     expect(beginImageWriteback).toHaveBeenCalledWith(input);
   });
 
+  it("flushes desktop edits once before applying Agent Board patches and applies the returned snapshot without reopening", async () => {
+    const project = createProject();
+    const result = {
+      project: project.project,
+      sceneJson: JSON.stringify({ elements: [] }),
+      sceneHash: "scene-hash",
+      appliedElementIds: ["element-1"],
+    };
+    const flushPendingAutosave = vi.fn(async () => undefined);
+    const applyProjectSceneElementPatches = vi.fn(async () => result);
+    const openRecentProject = vi.fn(async () => project);
+    const applyExternalProjectSnapshot = vi.fn(async () => undefined);
+    const input = {
+      projectPath: project.projectPath,
+      operationId: "operation-1",
+      patches: [],
+    };
+
+    await expect(
+      handleAgentDesktopBridgeRequest({
+        payload: {
+          method: "applyProjectSceneElementPatches",
+          args: [input],
+        },
+        desktopBridge: { applyProjectSceneElementPatches },
+        getProject: () => project,
+        getScene: () => null,
+        serializeScene: vi.fn(),
+        flushPendingAutosave,
+        openRecentProject,
+        applyExternalProjectSnapshot,
+      }),
+    ).resolves.toEqual(result);
+    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(flushPendingAutosave).toHaveBeenCalledTimes(1);
+    expect(applyProjectSceneElementPatches).toHaveBeenCalledWith(input);
+    expect(applyExternalProjectSnapshot).toHaveBeenCalledWith({
+      ...project,
+      project: result.project,
+      sceneJson: result.sceneJson,
+    });
+    expect(openRecentProject).not.toHaveBeenCalled();
+    expect(flushPendingAutosave.mock.invocationCallOrder[0]).toBeLessThan(
+      applyProjectSceneElementPatches.mock.invocationCallOrder[0],
+    );
+  });
+
   it("returns the live current project snapshot for the already-open recent project", async () => {
     const project = createProject();
     const openRecentProject = vi.fn();
-    const serializeScene = vi.fn(() => "{\"scene\":\"live\"}");
+    const serializeScene = vi.fn(() => '{"scene":"live"}');
 
     await expect(
       handleAgentDesktopBridgeRequest({
@@ -135,12 +182,34 @@ describe("handleAgentDesktopBridgeRequest", () => {
       }),
     ).resolves.toEqual({
       ...project,
-      sceneJson: "{\"scene\":\"live\"}",
+      sceneJson: '{"scene":"live"}',
     });
     expect(openRecentProject).not.toHaveBeenCalled();
     expect(serializeScene).toHaveBeenCalledWith({
       elements: [{ id: "element-1" }],
       appState: { zoom: { value: 1 } },
     });
+  });
+
+  it("applies a newly selected Agent Board project to the desktop renderer", async () => {
+    const nextProject = createProject();
+    const openRecentProject = vi.fn(async () => nextProject);
+    const rawOpenRecentProject = vi.fn();
+
+    await expect(
+      handleAgentDesktopBridgeRequest({
+        payload: {
+          method: "openRecentProject",
+          args: [nextProject.projectPath],
+        },
+        desktopBridge: { openRecentProject: rawOpenRecentProject },
+        getProject: () => null,
+        getScene: () => null,
+        serializeScene: vi.fn(),
+        openRecentProject,
+      }),
+    ).resolves.toEqual(nextProject);
+    expect(openRecentProject).toHaveBeenCalledWith(nextProject.projectPath);
+    expect(rawOpenRecentProject).not.toHaveBeenCalled();
   });
 });

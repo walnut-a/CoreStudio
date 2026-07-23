@@ -1,5 +1,6 @@
 import { isAgentDesktopBridgeMethod } from "../../shared/agentBridgeTypes";
 import type {
+  ApplyProjectSceneElementPatchesResult,
   DesktopBridgeApi,
   DesktopProjectBundle,
 } from "../../shared/desktopBridgeTypes";
@@ -19,6 +20,9 @@ export const handleAgentDesktopBridgeRequest = async ({
   getProject,
   getScene,
   serializeScene,
+  openRecentProject,
+  flushPendingAutosave,
+  applyExternalProjectSnapshot,
 }: {
   payload: unknown;
   desktopBridge: AgentDesktopBridgeRequestHandlerBridge;
@@ -27,8 +31,18 @@ export const handleAgentDesktopBridgeRequest = async ({
   serializeScene: (
     scene: Pick<AgentCommandSceneSnapshot, "elements" | "appState">,
   ) => string;
+  openRecentProject?: (
+    projectPath: string,
+  ) => Promise<DesktopProjectBundle | null>;
+  flushPendingAutosave?: (options: { strict?: boolean }) => Promise<unknown>;
+  applyExternalProjectSnapshot?: (
+    project: DesktopProjectBundle,
+  ) => Promise<unknown>;
 }): Promise<unknown> => {
-  if (!isObjectPayload(payload) || !isAgentDesktopBridgeMethod(payload.method)) {
+  if (
+    !isObjectPayload(payload) ||
+    !isAgentDesktopBridgeMethod(payload.method)
+  ) {
     throw createAgentBadRequestError("desktop.bridge method 不受支持。");
   }
 
@@ -40,7 +54,10 @@ export const handleAgentDesktopBridgeRequest = async ({
   if (payload.method === "openRecentProject") {
     const [projectPath] = args ?? [];
     const project = getProject();
-    if (typeof projectPath === "string" && project?.projectPath === projectPath) {
+    if (
+      typeof projectPath === "string" &&
+      project?.projectPath === projectPath
+    ) {
       const scene = getScene();
       return {
         ...project,
@@ -52,6 +69,9 @@ export const handleAgentDesktopBridgeRequest = async ({
           : project.sceneJson,
       };
     }
+    if (typeof projectPath === "string" && openRecentProject) {
+      return openRecentProject(projectPath);
+    }
   }
 
   const bridgeMethod = desktopBridge[payload.method];
@@ -59,7 +79,29 @@ export const handleAgentDesktopBridgeRequest = async ({
     throw createAgentBadRequestError("desktop.bridge method 不可用。");
   }
 
-  return (bridgeMethod as (...methodArgs: unknown[]) => unknown)(
+  if (payload.method === "applyProjectSceneElementPatches") {
+    await flushPendingAutosave?.({ strict: true });
+  }
+
+  const result = await (bridgeMethod as (...methodArgs: unknown[]) => unknown)(
     ...(args ?? []),
   );
+  if (payload.method === "applyProjectSceneElementPatches") {
+    const [input] = args ?? [];
+    const project = getProject();
+    if (
+      isObjectPayload(input) &&
+      typeof input.projectPath === "string" &&
+      project?.projectPath === input.projectPath &&
+      applyExternalProjectSnapshot
+    ) {
+      const patchResult = result as ApplyProjectSceneElementPatchesResult;
+      await applyExternalProjectSnapshot({
+        ...project,
+        project: patchResult.project,
+        sceneJson: patchResult.sceneJson,
+      });
+    }
+  }
+  return result;
 };

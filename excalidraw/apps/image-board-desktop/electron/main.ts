@@ -45,6 +45,7 @@ import {
   rollbackProjectImageWriteback,
 } from "./project/projectImageWriteback";
 import {
+  applyProjectSceneElementPatches,
   cleanProjectCache,
   createProjectStructure,
   inspectProjectHealth,
@@ -813,6 +814,12 @@ const registerIpcHandlers = () => {
   ipcMain.handle(IPC_CHANNELS.writeProjectScene, async (_event, input) => {
     return writeProjectScene(input);
   });
+  ipcMain.handle(
+    IPC_CHANNELS.applyProjectSceneElementPatches,
+    async (_event, input) => {
+      return applyProjectSceneElementPatches(input);
+    },
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.readProjectAssetPayloads,

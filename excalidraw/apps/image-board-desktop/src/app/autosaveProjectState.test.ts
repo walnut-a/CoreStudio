@@ -593,6 +593,16 @@ describe("createAutosaveRendererActions", () => {
     });
     expect(clearedTimerIds).toEqual([41, 43, 44]);
     expect(timerId).toBeNull();
+
+    pendingSnapshot = snapshot;
+    timerId = 45;
+    expect(actions.cancel()).toEqual({
+      status: "cancelled",
+      hadPendingSnapshot: true,
+    });
+    expect(clearedTimerIds).toEqual([41, 43, 44, 45]);
+    expect(timerId).toBeNull();
+    expect(pendingSnapshot).toBeNull();
   });
 });
 

@@ -187,7 +187,7 @@ describe("projectImageWriteback", () => {
     );
   });
 
-  it("blocks a new writeback while an invalid journal is unresolved", async () => {
+  it("preserves an invalid journal while allowing a new writeback", async () => {
     const projectPath = await createProjectFixture();
     const malformedJournalPath = getProjectImageWritebackJournalPath(
       projectPath,
@@ -196,12 +196,16 @@ describe("projectImageWriteback", () => {
     await fs.mkdir(path.dirname(malformedJournalPath), { recursive: true });
     await fs.writeFile(malformedJournalPath, "{broken", "utf8");
 
-    await expect(
-      beginProjectImageWriteback({
-        projectPath,
-        files: [createAssetInput("file-new")],
-      }),
-    ).rejects.toMatchObject({ code: "WRITEBACK_JOURNAL_INVALID" });
+    const transaction = await beginProjectImageWriteback({
+      projectPath,
+      files: [createAssetInput("file-new")],
+    });
+    await commitProjectImageWriteback({
+      projectPath,
+      transactionId: transaction.transactionId,
+    });
+
+    expect(transaction.imageRecords["file-new"]).toBeDefined();
     await expect(fs.readFile(malformedJournalPath, "utf8")).resolves.toBe(
       "{broken",
     );
@@ -246,6 +250,101 @@ describe("projectImageWriteback", () => {
       }),
     ).rejects.toMatchObject({ code: "IMAGE_RECORDS_INVALID" });
     await expect(fs.readFile(imageRecordsPath, "utf8")).resolves.toBe("null");
+  });
+
+  it("preserves an unrelated quarantined record while writing a new image", async () => {
+    const quarantinedRecord = {
+      ...createRecord("file-quarantined", {
+        sourceType: "generated",
+      }),
+      generationOrigin: "manual",
+      prompt: "保留这条无法识别来源的原始记录",
+    };
+    const projectPath = await createProjectFixture({
+      "file-quarantined": quarantinedRecord,
+    } as unknown as ImageRecordMap);
+
+    const transaction = await beginProjectImageWriteback({
+      projectPath,
+      files: [createAssetInput("file-new")],
+    });
+    await commitProjectImageWriteback({
+      projectPath,
+      transactionId: transaction.transactionId,
+    });
+
+    expect(transaction.imageRecords).not.toHaveProperty("file-quarantined");
+    expect(transaction.imageRecords["file-new"]).toBeDefined();
+    await expect(
+      readJson<Record<string, unknown>>(
+        path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        "file-quarantined": quarantinedRecord,
+        "file-new": expect.objectContaining({ fileId: "file-new" }),
+      }),
+    );
+  });
+
+  it("preserves an unrelated quarantined record while rolling back a new image", async () => {
+    const quarantinedRecord = {
+      ...createRecord("file-quarantined", {
+        sourceType: "generated",
+      }),
+      generationOrigin: "manual",
+    };
+    const projectPath = await createProjectFixture({
+      "file-quarantined": quarantinedRecord,
+    } as unknown as ImageRecordMap);
+
+    const transaction = await beginProjectImageWriteback({
+      projectPath,
+      files: [createAssetInput("file-new")],
+    });
+    const restored = await rollbackProjectImageWriteback({
+      projectPath,
+      transactionId: transaction.transactionId,
+    });
+
+    expect(restored).not.toHaveProperty("file-quarantined");
+    expect(restored).not.toHaveProperty("file-new");
+    await expect(
+      readJson<Record<string, unknown>>(
+        path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      ),
+    ).resolves.toEqual({
+      "file-quarantined": quarantinedRecord,
+    });
+  });
+
+  it("does not overwrite a quarantined record with the same file id", async () => {
+    const quarantinedRecord = {
+      ...createRecord("file-conflict", {
+        sourceType: "generated",
+      }),
+      generationOrigin: "manual",
+    };
+    const projectPath = await createProjectFixture({
+      "file-conflict": quarantinedRecord,
+    } as unknown as ImageRecordMap);
+
+    await expect(
+      beginProjectImageWriteback({
+        projectPath,
+        files: [createAssetInput("file-conflict")],
+      }),
+    ).rejects.toMatchObject({
+      code: "IMAGE_RECORDS_INVALID",
+      details: { fileIds: ["file-conflict"] },
+    });
+    await expect(
+      readJson<Record<string, unknown>>(
+        path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      ),
+    ).resolves.toEqual({
+      "file-conflict": quarantinedRecord,
+    });
   });
 
   it("normalizes repairable legacy records while starting a new writeback", async () => {

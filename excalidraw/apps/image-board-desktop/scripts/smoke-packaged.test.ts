@@ -35,7 +35,10 @@ const loadModule = () =>
       setTimeout: (callback: () => void, timeoutMs: number) => unknown;
       clearTimeout: (timer: unknown) => void;
       mkdtempSync: (prefix: string) => string;
-      rmSync: (filePath: string, options: { recursive: true; force: true }) => void;
+      rmSync: (
+        filePath: string,
+        options: { recursive: true; force: true },
+      ) => void;
       tmpdir: () => string;
       env: NodeJS.ProcessEnv;
       timeoutMs: number;
@@ -47,7 +50,10 @@ const loadModule = () =>
       existsSync: (filePath: string) => boolean;
       mkdtempSync: (prefix: string) => string;
       readFileSync: (filePath: string, encoding: "utf8") => string;
-      rmSync: (filePath: string, options: { recursive: true; force: true }) => void;
+      rmSync: (
+        filePath: string,
+        options: { recursive: true; force: true },
+      ) => void;
       spawnSync: (
         command: string,
         args: string[],
@@ -62,9 +68,10 @@ const loadModule = () =>
 describe("smoke-packaged", () => {
   it("finds the newest macOS packaged app executable", () => {
     const { findPackagedAppExecutable } = loadModule();
-    const existsSync = vi.fn((filePath: string) =>
-      filePath.endsWith("CoreStudio.app") ||
-      filePath.endsWith("Contents/MacOS/CoreStudio"),
+    const existsSync = vi.fn(
+      (filePath: string) =>
+        filePath.endsWith("CoreStudio.app") ||
+        filePath.endsWith("Contents/MacOS/CoreStudio"),
     );
 
     expect(
@@ -124,10 +131,10 @@ describe("smoke-packaged", () => {
     );
     expect(child.kill).toHaveBeenCalled();
     expect(mkdtempSync).toHaveBeenCalledWith("/tmp/corestudio-app-smoke-");
-    expect(rmSync).toHaveBeenCalledWith(
-      "/tmp/corestudio-app-smoke-profile",
-      { recursive: true, force: true },
-    );
+    expect(rmSync).toHaveBeenCalledWith("/tmp/corestudio-app-smoke-profile", {
+      recursive: true,
+      force: true,
+    });
   });
 
   it("installs and executes the Codex integration from the packaged app", () => {
@@ -138,7 +145,7 @@ describe("smoke-packaged", () => {
       .mockReturnValueOnce({
         status: 0,
         stdout:
-          '{"ok":true,"data":{"appVersion":"1.1.24","integrationVersion":"1.2.0","bridgeProtocolVersion":2}}\n',
+          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"1.5.0","bridgeProtocolVersion":2}}\n',
         stderr: "",
       });
     const rmSync = vi.fn();
@@ -152,8 +159,8 @@ describe("smoke-packaged", () => {
         filePath.endsWith("CODEX_INSTALLATION.md")
           ? "# CoreStudio Codex 集成安装指南"
           : filePath.endsWith("corestudio-integration.json")
-            ? '{"installedFromAppVersion":"1.1.24","integrationVersion":"1.2.0","bridgeProtocolVersion":2}'
-            : '{"version":"1.1.24"}',
+          ? '{"installedFromAppVersion":"1.1.26","integrationVersion":"1.5.0","bridgeProtocolVersion":2}'
+          : '{"version":"1.1.26"}',
       rmSync,
       spawnSync,
       tmpdir: () => "/tmp",

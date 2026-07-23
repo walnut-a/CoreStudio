@@ -8,11 +8,13 @@ import "./ProjectMainMenu.css";
 interface ProjectMainMenuProps {
   currentProjectName: string;
   onSwitchProject: () => void;
+  canvasUtilityActionsVisible?: boolean;
 }
 
 export const ProjectMainMenu = ({
   currentProjectName,
   onSwitchProject,
+  canvasUtilityActionsVisible = true,
 }: ProjectMainMenuProps) => (
   <MainMenu>
     <MainMenu.Group title={copy.menu.projectGroup}>
@@ -32,11 +34,15 @@ export const ProjectMainMenu = ({
       </MainMenu.Item>
     </MainMenu.Group>
 
-    <MainMenu.Separator />
-    <MainMenu.DefaultItems.SaveAsImage />
-    <MainMenu.DefaultItems.SearchMenu />
-    <MainMenu.DefaultItems.Help />
-    <MainMenu.DefaultItems.ClearCanvas />
+    {canvasUtilityActionsVisible ? (
+      <>
+        <MainMenu.Separator />
+        <MainMenu.DefaultItems.SaveAsImage />
+        <MainMenu.DefaultItems.SearchMenu />
+        <MainMenu.DefaultItems.Help />
+        <MainMenu.DefaultItems.ClearCanvas />
+      </>
+    ) : null}
     <MainMenu.Separator />
     <MainMenu.DefaultItems.ToggleTheme allowSystemTheme={false} />
   </MainMenu>

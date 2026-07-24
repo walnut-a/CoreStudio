@@ -24,6 +24,7 @@ export interface ProjectRoomClientTransport {
     listener: (joined: ProjectRoomJoinResult) => void,
   ): () => void;
   requestResync?(): void;
+  requestPersistence?(): Promise<void>;
   updateSelection?(selection: ProjectRoomParticipantSelection): Promise<void>;
 }
 
@@ -54,6 +55,25 @@ export interface CreateProjectRoomClientControllerInput {
   randomId?: () => string;
 }
 
+interface LocalSceneChangeOptions {
+  submitOperation?: (
+    operation: ProjectRoomSceneOperation,
+  ) => Promise<ProjectRoomOperationResult>;
+  interactionId?: string;
+  final?: boolean;
+}
+
+interface PendingLocalSceneChange {
+  nextElements: readonly ProjectRoomSceneElement[];
+  files: Record<string, unknown>;
+  nextSharedSceneConfig?: Record<string, unknown>;
+  options: LocalSceneChangeOptions;
+  waiters: Array<{
+    resolve: (result: ProjectRoomOperationResult | null) => void;
+    reject: (error: unknown) => void;
+  }>;
+}
+
 const orderElements = (elements: ProjectRoomSceneElement[]) =>
   [...elements].sort((left, right) => {
     if (typeof left.index !== "string" || typeof right.index !== "string") {
@@ -81,7 +101,6 @@ export class ProjectRoomClientController {
   private activeSessionId: string | null = null;
   private elements: ProjectRoomSceneElement[] = [];
   private sharedSceneConfig: Record<string, unknown> = {};
-  private imageRecords: ImageRecordMap = {};
   private readonly pendingOperations = new Set<string>();
   private unsubscribe: (() => void) | null = null;
   private unsubscribeSnapshot: (() => void) | null = null;
@@ -90,8 +109,11 @@ export class ProjectRoomClientController {
   private awaitingResync = false;
   private latestOperationId: string | null = null;
   private latestSubmittedSequence = 0;
+  private nextClientSequence = 1;
   private lifecycleGeneration = 0;
   private localChangeQueue: Promise<void> = Promise.resolve();
+  private pendingLocalSceneChange: PendingLocalSceneChange | null = null;
+  private processingLocalSceneChanges = false;
   private lastSubmissionError: Error | null = null;
   private lastPersistenceError: Error | null = null;
   private readonly eventsReceivedBeforeJoin: ProjectRoomEvent[] = [];
@@ -189,36 +211,67 @@ export class ProjectRoomClientController {
     nextElements: readonly ProjectRoomSceneElement[],
     files: Record<string, unknown> = {},
     nextSharedSceneConfig?: Record<string, unknown>,
-    options: {
-      submitOperation?: (
-        operation: ProjectRoomSceneOperation,
-      ) => Promise<ProjectRoomOperationResult>;
-    } = {},
+    options: LocalSceneChangeOptions = {},
   ) {
-    const task = this.localChangeQueue.then(() =>
-      this.processLocalSceneChange(
-        nextElements,
-        files,
-        nextSharedSceneConfig,
-        options,
-      ),
+    const result = new Promise<ProjectRoomOperationResult | null>(
+      (resolve, reject) => {
+        if (this.pendingLocalSceneChange) {
+          this.pendingLocalSceneChange.nextElements = nextElements;
+          this.pendingLocalSceneChange.files = files;
+          this.pendingLocalSceneChange.nextSharedSceneConfig =
+            nextSharedSceneConfig;
+          this.pendingLocalSceneChange.options = options;
+          this.pendingLocalSceneChange.waiters.push({ resolve, reject });
+          return;
+        }
+        this.pendingLocalSceneChange = {
+          nextElements,
+          files,
+          nextSharedSceneConfig,
+          options,
+          waiters: [{ resolve, reject }],
+        };
+      },
     );
-    this.localChangeQueue = task.then(
-      () => undefined,
-      () => undefined,
-    );
-    return task;
+    if (!this.processingLocalSceneChanges) {
+      const drain = this.processPendingLocalSceneChanges();
+      this.localChangeQueue = drain.catch(() => undefined);
+    }
+    return result;
+  }
+
+  private async processPendingLocalSceneChanges() {
+    this.processingLocalSceneChanges = true;
+    try {
+      while (this.pendingLocalSceneChange) {
+        const pending = this.pendingLocalSceneChange;
+        this.pendingLocalSceneChange = null;
+        try {
+          const result = await this.processLocalSceneChange(
+            pending.nextElements,
+            pending.files,
+            pending.nextSharedSceneConfig,
+            pending.options,
+          );
+          for (const waiter of pending.waiters) {
+            waiter.resolve(result);
+          }
+        } catch (error) {
+          for (const waiter of pending.waiters) {
+            waiter.reject(error);
+          }
+        }
+      }
+    } finally {
+      this.processingLocalSceneChanges = false;
+    }
   }
 
   private async processLocalSceneChange(
     nextElements: readonly ProjectRoomSceneElement[],
     files: Record<string, unknown>,
     nextSharedSceneConfig: Record<string, unknown> | undefined,
-    options: {
-      submitOperation?: (
-        operation: ProjectRoomSceneOperation,
-      ) => Promise<ProjectRoomOperationResult>;
-    },
+    options: LocalSceneChangeOptions,
   ) {
     if (this.applyingAuthoritativeScene || !this.identity) {
       return null;
@@ -238,17 +291,9 @@ export class ProjectRoomClientController {
       return null;
     }
 
-    const persistedImageRecords =
-      changedElements.length > 0
-        ? await this.input.ensureAssetsForElements?.(changedElements, files)
-        : undefined;
-    const newImageRecords = persistedImageRecords
-      ? Object.fromEntries(
-          Object.entries(persistedImageRecords).filter(
-            ([fileId]) => !(fileId in this.imageRecords),
-          ),
-        )
-      : {};
+    if (changedElements.length > 0) {
+      await this.input.ensureAssetsForElements?.(changedElements, files);
+    }
     if (this.identity !== operationIdentity) {
       return null;
     }
@@ -258,15 +303,16 @@ export class ProjectRoomClientController {
     const operation: ProjectRoomSceneOperation = {
       ...operationIdentity,
       operationId,
+      clientSequence: this.nextClientSequence++,
       baseSequence: this.confirmedSequence,
       elements: structuredClone(changedElements),
       ...(sharedSceneConfigChanged
         ? { sharedSceneConfig: structuredClone(nextSharedSceneConfig) }
         : {}),
-      ...(Object.keys(newImageRecords).length > 0
-        ? { imageRecords: structuredClone(newImageRecords) }
+      ...(options.interactionId
+        ? { interactionId: options.interactionId }
         : {}),
-      final: true,
+      final: options.final ?? true,
     };
     this.latestOperationId = operationId;
     this.pendingOperations.add(operationId);
@@ -289,12 +335,6 @@ export class ProjectRoomClientController {
       if (sharedSceneConfigChanged) {
         this.sharedSceneConfig = structuredClone(nextSharedSceneConfig);
       }
-      if (Object.keys(newImageRecords).length > 0) {
-        this.imageRecords = {
-          ...this.imageRecords,
-          ...structuredClone(newImageRecords),
-        };
-      }
       this.lastSubmissionError = null;
       this.latestSubmittedSequence = Math.max(
         this.latestSubmittedSequence,
@@ -316,12 +356,10 @@ export class ProjectRoomClientController {
   }
 
   public async waitForPersistence(timeoutMs = 10_000) {
+    const persistenceErrorAtCall = this.lastPersistenceError;
     await this.localChangeQueue;
     if (this.lastSubmissionError) {
       throw this.lastSubmissionError;
-    }
-    if (this.lastPersistenceError) {
-      throw this.lastPersistenceError;
     }
     const targetSequence = Math.max(
       this.latestSubmittedSequence,
@@ -329,6 +367,27 @@ export class ProjectRoomClientController {
     );
     if (targetSequence === 0 || this.persistedSequence >= targetSequence) {
       return this.getWriteStatus();
+    }
+    if (this.lastPersistenceError) {
+      if (!persistenceErrorAtCall) {
+        throw this.lastPersistenceError;
+      }
+      if (!this.input.transport.requestPersistence) {
+        throw this.lastPersistenceError;
+      }
+      this.lastPersistenceError = null;
+      this.input.onSyncStateChange?.("pending-persistence");
+      try {
+        await this.input.transport.requestPersistence();
+      } catch (error) {
+        this.lastPersistenceError =
+          error instanceof Error ? error : new Error(String(error));
+        this.input.onSyncStateChange?.("error", this.lastPersistenceError);
+        throw this.lastPersistenceError;
+      }
+      if (this.persistedSequence >= targetSequence) {
+        return this.getWriteStatus();
+      }
     }
     await new Promise<void>((resolve, reject) => {
       const waiter = {
@@ -367,6 +426,10 @@ export class ProjectRoomClientController {
     }
     if (event.type === "participants.changed") {
       this.input.applyParticipants?.(structuredClone(event.participants));
+      return;
+    }
+    if (event.type === "assets.updated") {
+      this.input.applyImageRecords?.(structuredClone(event.imageRecords));
       return;
     }
     if (event.type === "room.closed") {
@@ -415,13 +478,6 @@ export class ProjectRoomClientController {
     if (event.sharedSceneConfig !== undefined) {
       this.sharedSceneConfig = structuredClone(event.sharedSceneConfig);
     }
-    if (event.imageRecords !== undefined) {
-      this.imageRecords = {
-        ...this.imageRecords,
-        ...structuredClone(event.imageRecords),
-      };
-      this.input.applyImageRecords?.(structuredClone(this.imageRecords));
-    }
     this.elements = orderElements([...elementsById.values()]);
     this.confirmedSequence = event.sequence;
     const wasPending = this.pendingOperations.delete(event.operationId);
@@ -445,9 +501,6 @@ export class ProjectRoomClientController {
     this.persistedSequence = snapshot.persistedSequence;
     this.elements = structuredClone(snapshot.scene.elements);
     this.sharedSceneConfig = structuredClone(snapshot.scene.sharedSceneConfig);
-    this.imageRecords = structuredClone(
-      snapshot.imageRecords ?? joined.bootstrap?.imageRecords ?? {},
-    );
     this.pendingOperations.clear();
     this.awaitingResync = false;
     this.lastSubmissionError = null;
@@ -457,7 +510,11 @@ export class ProjectRoomClientController {
       snapshot.sequence,
     );
     this.input.applyParticipants?.(structuredClone(snapshot.participants));
-    this.input.applyImageRecords?.(structuredClone(this.imageRecords));
+    if (joined.bootstrap?.imageRecords) {
+      this.input.applyImageRecords?.(
+        structuredClone(joined.bootstrap.imageRecords),
+      );
+    }
     this.applyScene("snapshot");
   }
 

@@ -96,6 +96,7 @@ const createHarness = (
       },
     ),
     requestResync: vi.fn(),
+    requestPersistence: vi.fn(async () => undefined),
   };
   const applyAuthoritativeScene = vi.fn();
   const applyParticipants = vi.fn();
@@ -191,6 +192,7 @@ describe("ProjectRoomClientController", () => {
     expect(harness.transport.submitOperation).toHaveBeenCalledWith({
       ...identity,
       operationId: "operation-1",
+      clientSequence: 1,
       baseSequence: 0,
       elements: [
         expect.objectContaining({
@@ -239,6 +241,99 @@ describe("ProjectRoomClientController", () => {
     );
   });
 
+  it("keeps only the latest queued scene while an operation is in flight", async () => {
+    let finishFirst!: () => void;
+    const firstSubmission = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const harness = createHarness({
+      randomId: vi
+        .fn()
+        .mockReturnValueOnce("operation-1")
+        .mockReturnValueOnce("operation-2"),
+    });
+    harness.transport.submitOperation
+      .mockImplementationOnce(async (operation) => {
+        await firstSubmission;
+        return {
+          type: "operation.accepted" as const,
+          operationId: operation.operationId,
+          sequence: 1,
+          acceptedElementIds: ["element-a"],
+          supersededElementIds: [],
+        };
+      })
+      .mockImplementationOnce(async (operation) => ({
+        type: "operation.accepted" as const,
+        operationId: operation.operationId,
+        sequence: 2,
+        acceptedElementIds: ["element-a"],
+        supersededElementIds: [],
+      }));
+    await harness.controller.start();
+
+    const first = harness.controller.handleLocalSceneChange([
+      { ...initialElements[0], version: 2, x: 10 },
+      initialElements[1],
+    ]);
+    const second = harness.controller.handleLocalSceneChange([
+      { ...initialElements[0], version: 3, x: 20 },
+      initialElements[1],
+    ]);
+    const third = harness.controller.handleLocalSceneChange([
+      { ...initialElements[0], version: 4, x: 30 },
+      initialElements[1],
+    ]);
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(harness.transport.submitOperation).toHaveBeenCalledTimes(1);
+    finishFirst();
+    await Promise.all([first, second, third]);
+
+    expect(harness.transport.submitOperation).toHaveBeenCalledTimes(2);
+    expect(harness.transport.submitOperation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operationId: "operation-2",
+        elements: [expect.objectContaining({ version: 4, x: 30 })],
+      }),
+    );
+  });
+
+  it("explicitly retries persistence after a prior storage failure", async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    await harness.controller.handleLocalSceneChange([
+      { ...initialElements[0], version: 2, x: 100 },
+      initialElements[1],
+    ]);
+    harness.emit({
+      type: "scene.persistence-failed",
+      identity,
+      sequence: 1,
+      error: {
+        code: "PERSISTENCE_FAILED",
+        message: "disk unavailable",
+      },
+    });
+    harness.transport.requestPersistence.mockImplementationOnce(async () => {
+      harness.emit({
+        type: "scene.persisted",
+        identity,
+        sequence: 1,
+        projectRevision: "revision-2",
+      });
+    });
+
+    await expect(
+      harness.controller.waitForPersistence(),
+    ).resolves.toMatchObject({
+      persisted: true,
+      persistedSequence: 1,
+    });
+    expect(harness.transport.requestPersistence).toHaveBeenCalledOnce();
+  });
+
   it("waits for in-flight local asset preparation before persistence", async () => {
     let finishAssetPreparation!: () => void;
     const assetPreparation = new Promise<void>((resolve) => {
@@ -268,7 +363,7 @@ describe("ProjectRoomClientController", () => {
     expect(harness.transport.submitOperation).toHaveBeenCalledTimes(1);
   });
 
-  it("publishes newly persisted image records and applies remote records", async () => {
+  it("persists new image assets before submit and applies project asset notifications", async () => {
     const imageRecord = {
       fileId: "file-new",
       assetPath: "assets/file-new.png",
@@ -300,34 +395,20 @@ describe("ProjectRoomClientController", () => {
     ]);
 
     expect(harness.transport.submitOperation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        imageRecords: { "file-new": imageRecord },
-      }),
+      expect.not.objectContaining({ imageRecords: expect.anything() }),
     );
 
     harness.emit({
-      type: "scene.update",
+      type: "assets.updated",
       identity,
-      sequence: 1,
-      originSessionId: "board-session",
-      originActorId: "codex:thread-b",
-      operationId: "operation-board",
-      baseSequence: 0,
-      elements: [],
       imageRecords: {
         "file-remote": { ...imageRecord, fileId: "file-remote" },
       },
-      acceptedElementIds: [],
-      supersededElementIds: [],
-      final: true,
     });
 
-    expect(applyImageRecords).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        "file-new": imageRecord,
-        "file-remote": expect.objectContaining({ fileId: "file-remote" }),
-      }),
-    );
+    expect(applyImageRecords).toHaveBeenLastCalledWith({
+      "file-remote": expect.objectContaining({ fileId: "file-remote" }),
+    });
   });
 
   it("can submit a renderer-produced semantic result through the agent-writer adapter", async () => {
@@ -353,6 +434,7 @@ describe("ProjectRoomClientController", () => {
     expect(submitAgentWriterOperation).toHaveBeenCalledWith({
       ...identity,
       operationId: "operation-1",
+      clientSequence: 1,
       baseSequence: 0,
       elements: [
         expect.objectContaining({
@@ -434,6 +516,7 @@ describe("ProjectRoomClientController", () => {
     expect(harness.transport.submitOperation).toHaveBeenCalledWith({
       ...identity,
       operationId: "operation-1",
+      clientSequence: 1,
       baseSequence: 0,
       elements: [],
       sharedSceneConfig: {

@@ -122,7 +122,7 @@ import { createLocaleSettingsController } from "./localeSettingsController";
 import { createProjectRoomService } from "./room/projectRoomService";
 import { createProjectRoomIpcController } from "./room/projectRoomIpcController";
 import { createProjectRoomTicketStore } from "./room/projectRoomTicketStore";
-import { ProjectRoomError } from "./room/projectRoom";
+import { ProjectRoomError, type ProjectRoom } from "./room/projectRoom";
 import {
   collectProjectRoomAgentImageFileIds,
   readProjectRoomAgentScene,
@@ -157,9 +157,96 @@ const projectRoomService = createProjectRoomService({
   readProjectBundle,
   writeProjectScene,
 });
+const verifiedProjectRoomAssetFileIds = new WeakMap<ProjectRoom, Set<string>>();
+const validateProjectRoomOperationAssets = async (
+  room: ProjectRoom,
+  operation: ProjectRoomSceneOperation,
+) => {
+  const referencedFileIds = [
+    ...new Set(
+      operation.elements.flatMap((element) =>
+        element.type === "image" &&
+        element.isDeleted !== true &&
+        typeof element.fileId === "string"
+          ? [element.fileId]
+          : [],
+      ),
+    ),
+  ];
+  if (referencedFileIds.length === 0) {
+    return;
+  }
+  let verifiedAssetFileIds = verifiedProjectRoomAssetFileIds.get(room);
+  if (!verifiedAssetFileIds) {
+    const bundle = await readProjectBundle(room.identity.canonicalProjectPath);
+    verifiedAssetFileIds = new Set(
+      room
+        .getSnapshot()
+        .scene.elements.flatMap((element) =>
+          element.type === "image" &&
+          typeof element.fileId === "string" &&
+          bundle.imageRecords[element.fileId]
+            ? [element.fileId]
+            : [],
+        ),
+    );
+    verifiedProjectRoomAssetFileIds.set(room, verifiedAssetFileIds);
+  }
+  const unknownFileIds = referencedFileIds.filter(
+    (fileId) => !verifiedAssetFileIds.has(fileId),
+  );
+  if (unknownFileIds.length === 0) {
+    return;
+  }
+  const currentBundle = await readProjectBundle(
+    room.identity.canonicalProjectPath,
+  );
+  const missingRecordFileIds = unknownFileIds.filter(
+    (fileId) => !currentBundle.imageRecords[fileId],
+  );
+  if (missingRecordFileIds.length > 0) {
+    throw new ProjectRoomError(
+      "PERSISTENCE_FAILED",
+      "Image assets must be persisted before publishing their canvas elements.",
+      { missingFileIds: missingRecordFileIds },
+    );
+  }
+  const payloads = await readProjectAssetPayloads({
+    projectPath: room.identity.canonicalProjectPath,
+    fileIds: unknownFileIds,
+    rendition: "original",
+  });
+  const missingAssetFileIds = unknownFileIds.filter(
+    (_fileId, index) => payloads[index] === null,
+  );
+  if (missingAssetFileIds.length > 0) {
+    throw new ProjectRoomError(
+      "PERSISTENCE_FAILED",
+      "Image asset files must exist before publishing their canvas elements.",
+      { missingFileIds: missingAssetFileIds },
+    );
+  }
+  for (const fileId of unknownFileIds) {
+    verifiedAssetFileIds.add(fileId);
+  }
+};
 const projectRoomIpcController = createProjectRoomIpcController({
   openProject: (projectPath) => projectRoomService.openProject(projectPath),
+  validateOperationAssets: validateProjectRoomOperationAssets,
 });
+const persistAndPublishProjectRoomAssets = async (
+  input: Parameters<typeof persistImageAssets>[0],
+) => {
+  const imageRecords = await persistImageAssets(input);
+  const room = await projectRoomService.findOpenRoom(input.projectPath);
+  if (
+    room &&
+    (room.lifecycle === "active" || room.lifecycle === "storage-error")
+  ) {
+    room.publishAssetRecords(imageRecords);
+  }
+  return imageRecords;
+};
 const generationRequestController = createGenerationRequestController({
   generateImages,
 });
@@ -478,6 +565,8 @@ const startLocalBridge = async () => {
         return {
           room,
           exchange,
+          validateOperationAssets: (operation) =>
+            validateProjectRoomOperationAssets(room, operation),
           bootstrap: {
             projectPath: room.identity.canonicalProjectPath,
             project: bundle.project,
@@ -570,7 +659,7 @@ const startLocalBridge = async () => {
           );
         }
         projectRoomTicketStore.authorizeResumeToken(resumeToken, room.identity);
-        return persistImageAssets({
+        return persistAndPublishProjectRoomAssets({
           projectPath: room.identity.canonicalProjectPath,
           files,
         });
@@ -1047,6 +1136,11 @@ const registerIpcHandlers = () => {
       ),
   );
   ipcMain.handle(
+    IPC_CHANNELS.projectRoomFlushPersistence,
+    async (_event, sessionId: string) =>
+      projectRoomIpcController.flushPersistence(sessionId),
+  );
+  ipcMain.handle(
     IPC_CHANNELS.projectRoomAgentWriterOperation,
     async (
       _event,
@@ -1193,10 +1287,20 @@ const registerIpcHandlers = () => {
       if (activeRoom) {
         await activeRoom.flushPersistence();
       }
-      return rebuildProjectThumbnails(input, {
+      const result = await rebuildProjectThumbnails(input, {
         writeProjectScene: (sceneInput) =>
           projectRoomService.writeMaintenanceScene(sceneInput),
       });
+      if (activeRoom) {
+        const bundle = await readProjectBundle(input.projectPath);
+        if (
+          activeRoom.lifecycle === "active" ||
+          activeRoom.lifecycle === "storage-error"
+        ) {
+          activeRoom.publishAssetRecords(bundle.imageRecords);
+        }
+      }
+      return result;
     },
   );
 
@@ -1205,7 +1309,7 @@ const registerIpcHandlers = () => {
   });
 
   ipcMain.handle(IPC_CHANNELS.persistImageAssets, async (_event, input) => {
-    return persistImageAssets(input);
+    return persistAndPublishProjectRoomAssets(input);
   });
 
   ipcMain.handle(IPC_CHANNELS.beginImageWriteback, async (_event, input) => {
@@ -1213,7 +1317,15 @@ const registerIpcHandlers = () => {
   });
 
   ipcMain.handle(IPC_CHANNELS.commitImageWriteback, async (_event, input) => {
-    return commitProjectImageWriteback(input);
+    const result = await commitProjectImageWriteback(input);
+    const room = await projectRoomService.findOpenRoom(input.projectPath);
+    if (room) {
+      const bundle = await readProjectBundle(input.projectPath);
+      if (room.lifecycle === "active" || room.lifecycle === "storage-error") {
+        room.publishAssetRecords(bundle.imageRecords);
+      }
+    }
+    return result;
   });
 
   ipcMain.handle(IPC_CHANNELS.rollbackImageWriteback, async (_event, input) => {

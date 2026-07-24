@@ -169,6 +169,18 @@ describe("createProjectRoomWebSocketTransport", () => {
       operationId: "operation-1",
       sequence: 1,
     });
+
+    const persistence = transport.requestPersistence?.();
+    const persistenceRequest = JSON.parse(socket.sent[2]);
+    expect(persistenceRequest).toMatchObject({
+      type: "room.flush-persistence",
+      requestId: expect.any(String),
+    });
+    socket.receive({
+      type: "room.persistence-flushed",
+      requestId: persistenceRequest.requestId,
+    });
+    await expect(persistence).resolves.toBeUndefined();
   });
 
   it("reconnects with the resume token and publishes the new snapshot", async () => {
@@ -293,6 +305,52 @@ describe("createProjectRoomWebSocketTransport", () => {
     socket.close();
 
     expect(listener).toHaveBeenCalledWith(closedEvent);
+    expect(scheduled).toHaveLength(0);
+  });
+
+  it("stops reconnecting after a terminal resume error", async () => {
+    FakeWebSocket.instances = [];
+    const scheduled: Array<() => void> = [];
+    const onTerminalError = vi.fn();
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      resumeToken: "resume-token",
+      WebSocketImpl: FakeWebSocket as any,
+      onTerminalError,
+      scheduleReconnect: (callback) => {
+        scheduled.push(callback);
+        return 1;
+      },
+    });
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({
+      type: "room.joined",
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    socket.receive({
+      type: "room.error",
+      error: {
+        code: "SESSION_EPOCH_EXPIRED",
+        message: "project session expired",
+        details: { expectedSessionEpoch: 2 },
+      },
+    });
+
+    expect(onTerminalError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "SESSION_EPOCH_EXPIRED",
+        details: { expectedSessionEpoch: 2 },
+      }),
+    );
     expect(scheduled).toHaveLength(0);
   });
 });

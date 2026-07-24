@@ -75,6 +75,7 @@ export const IPC_CHANNELS = {
   setAgentBridgeEnabled: "image-board:set-agent-bridge-enabled",
   projectRoomJoin: "image-board:project-room-join",
   projectRoomOperation: "image-board:project-room-operation",
+  projectRoomFlushPersistence: "image-board:project-room-flush-persistence",
   projectRoomAgentWriterOperation:
     "image-board:project-room-agent-writer-operation",
   projectRoomLeave: "image-board:project-room-leave",
@@ -420,6 +421,7 @@ export interface DesktopBridgeApi {
     sessionId: string;
     operation: ProjectRoomSceneOperation;
   }): Promise<ProjectRoomOperationResult>;
+  flushProjectRoomPersistence?(sessionId: string): Promise<void>;
   submitAgentWriterProjectRoomOperation?(input: {
     sessionId: string;
     operation: ProjectRoomSceneOperation;

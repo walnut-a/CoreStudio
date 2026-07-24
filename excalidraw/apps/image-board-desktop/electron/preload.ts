@@ -115,6 +115,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomJoin, input),
   submitProjectRoomOperation: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomOperation, input),
+  flushProjectRoomPersistence: (sessionId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomFlushPersistence, sessionId),
   submitAgentWriterProjectRoomOperation: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomAgentWriterOperation, input),
   leaveProjectRoom: (sessionId) =>

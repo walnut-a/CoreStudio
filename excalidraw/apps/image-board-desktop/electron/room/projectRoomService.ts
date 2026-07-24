@@ -217,7 +217,6 @@ export class ProjectRoomService {
         sessionEpoch,
       },
       initialScene: persistence.initialScene,
-      initialImageRecords: bundle.imageRecords,
       persistedSequence: 0,
       projectRevision: persistence.initialProjectRevision,
       persistence: {

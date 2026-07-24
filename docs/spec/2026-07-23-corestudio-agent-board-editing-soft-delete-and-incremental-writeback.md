@@ -1154,3 +1154,22 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 仍待最终收口：
 
 1. 最终安装包真实双画布验收。该项需要打包和安装权限，本轮不会绕过用户“不得擅自打包、安装”的明确限制。
+
+## 22. 第二轮可靠性审阅与修复计划
+
+在首轮房间实现完成后，第二轮只读审阅确认了七类需要继续收口的问题。修复顺序按“先避免数据丢失，再控制实时负载，最后收连接生命周期”执行：
+
+1. 保存失败后必须存在显式重试通道；项目切换和关闭中的保存错误统一进入“重试或仍然关闭”路径。
+2. renderer 不能为拖拽的每一帧建立一个无界 Promise 队列。每个参与者最多保留一个在途 operation 和一个最新尾部 scene，中间状态可以合并。
+3. 连续指针交互携带稳定 `interactionId` 和 `final` 信息；元素是否胜出仍完全依据 Excalidraw 的 `version` / `versionNonce` 协调规则。
+4. 房间不保存第二份 `imageRecords` 权威状态。图片二进制和记录先由项目资产层持久化，WebSocket 服务端再次检查新 `fileId` 已经可读，然后才允许 scene operation 进入房间。
+5. WebSocket 在认证开始前就注册关闭清理；旧 epoch、失效 token、已关闭房间等终止错误停止自动重连并向页面保留结构化错误。
+6. 每个客户端 operation 增加单调 `clientSequence`。即使旧 `operationId` 已从有界结果缓存淘汰，迟到重放也不能重新覆盖共享场景设置。
+7. 所有异步 WebSocket 消息仍按单连接串行处理，资产校验不得改变消息到达顺序。
+
+与开源底座的复用边界保持不变：
+
+- 变化元素筛选、版本胜负、软删除和远端 `CaptureUpdateAction.NEVER` 继续使用 Excalidraw 已有语义；
+- 参考官方 Collab 的“变化元素即时同步、周期性/最终权威状态补齐”原则，在 CoreStudio adapter 中做尾部合并，不复制 socket.io、Firebase 或 Portal 应用层；
+- 参考官方图片协作边界，scene 只携带 `fileId`，资产可用性和 `imageRecords` 由 CoreStudio 项目层负责；
+- 本轮没有修改项目文件格式，不产生数据迁移。

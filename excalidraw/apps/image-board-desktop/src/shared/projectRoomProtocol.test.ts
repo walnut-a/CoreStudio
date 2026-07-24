@@ -53,6 +53,10 @@ describe("project room protocol", () => {
     ["empty operation id", { ...operation, operationId: "" }],
     ["forged actor id", { ...operation, actorId: "codex:forged" }],
     ["forged session id", { ...operation, sessionId: "forged-session" }],
+    [
+      "renderer-supplied image records",
+      { ...operation, imageRecords: { forged: {} } },
+    ],
   ])("rejects %s", (_caseName, value) => {
     expect(isProjectRoomSceneOperation(value)).toBe(false);
   });

@@ -73,6 +73,7 @@ describe("attachProjectRoomWebSocketServer", () => {
 
   it("joins with an authenticated ticket and exchanges room operations", async () => {
     const room = createRoom();
+    const validateOperationAssets = vi.fn(async () => undefined);
     const server = http.createServer();
     const attached = attachProjectRoomWebSocketServer({
       server,
@@ -89,6 +90,7 @@ describe("attachProjectRoomWebSocketServer", () => {
             displayLabel: "任务 B",
           },
         },
+        validateOperationAssets,
       })),
     });
     const port = await listen(server);
@@ -173,6 +175,9 @@ describe("attachProjectRoomWebSocketServer", () => {
         operationId: "operation-board",
       },
     });
+    expect(validateOperationAssets).toHaveBeenCalledWith(
+      expect.objectContaining({ operationId: "operation-board" }),
+    );
     socket.close();
   });
 
@@ -224,5 +229,80 @@ describe("attachProjectRoomWebSocketServer", () => {
       },
     });
     socket.close();
+  });
+
+  it("does not leave a participant behind when the socket closes during authentication", async () => {
+    const room = createRoom();
+    let finishAuthentication!: (value: {
+      room: ReturnType<typeof createRoom>;
+      exchange: {
+        sessionId: string;
+        resumeToken: string;
+        participant: {
+          actorId: string;
+          sessionId: string;
+          transport: "websocket";
+          role: "board-editor";
+          displayLabel: string;
+        };
+      };
+    }) => void;
+    const authentication = new Promise<{
+      room: ReturnType<typeof createRoom>;
+      exchange: {
+        sessionId: string;
+        resumeToken: string;
+        participant: {
+          actorId: string;
+          sessionId: string;
+          transport: "websocket";
+          role: "board-editor";
+          displayLabel: string;
+        };
+      };
+    }>((resolve) => {
+      finishAuthentication = resolve;
+    });
+    const server = http.createServer();
+    const attached = attachProjectRoomWebSocketServer({
+      server,
+      authenticate: vi.fn(() => authentication),
+    });
+    const port = await listen(server);
+    cleanups.push(async () => {
+      await attached.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${port}/v1/room?launchTicket=launch-ticket`,
+    );
+    await new Promise<void>((resolve, reject) => {
+      socket.once("open", () => resolve());
+      socket.once("error", reject);
+    });
+    const closed = new Promise<void>((resolve) =>
+      socket.once("close", () => resolve()),
+    );
+    socket.close();
+    await closed;
+
+    finishAuthentication({
+      room,
+      exchange: {
+        sessionId: "board-session",
+        resumeToken: "resume-token",
+        participant: {
+          actorId: "codex:thread-b",
+          sessionId: "board-session",
+          transport: "websocket",
+          role: "board-editor",
+          displayLabel: "任务 B",
+        },
+      },
+    });
+    await authentication;
+    await Promise.resolve();
+
+    expect(room.getSnapshot().participants).toEqual([]);
   });
 });

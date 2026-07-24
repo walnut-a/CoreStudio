@@ -43,7 +43,7 @@ describe("ProjectRoomIpcController", () => {
       },
       onEvent,
     );
-    const result = controller.applySceneOperation("desktop-session", {
+    const result = await controller.applySceneOperation("desktop-session", {
       ...room.identity,
       operationId: "operation-1",
       baseSequence: snapshot.sequence,
@@ -78,12 +78,12 @@ describe("ProjectRoomIpcController", () => {
     );
   });
 
-  it("does not accept operations before a desktop session joins", () => {
+  it("does not accept operations before a desktop session joins", async () => {
     const controller = createProjectRoomIpcController({
       openProject: vi.fn(),
     });
 
-    expect(() =>
+    await expect(
       controller.applySceneOperation("missing-session", {
         projectId: "project-1",
         canonicalProjectPath: "/projects/project-1",
@@ -94,7 +94,7 @@ describe("ProjectRoomIpcController", () => {
         elements: [],
         final: true,
       }),
-    ).toThrowError(expect.objectContaining({ code: "SESSION_NOT_FOUND" }));
+    ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
 
   it("leaves the bound room and stops delivering events", async () => {
@@ -112,7 +112,7 @@ describe("ProjectRoomIpcController", () => {
     );
 
     expect(controller.leave("desktop-session")).toBe(true);
-    expect(() =>
+    await expect(
       controller.applySceneOperation("desktop-session", {
         ...room.identity,
         operationId: "operation-after-leave",
@@ -120,6 +120,48 @@ describe("ProjectRoomIpcController", () => {
         elements: [],
         final: true,
       }),
-    ).toThrowError(expect.objectContaining({ code: "SESSION_NOT_FOUND" }));
+    ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+  });
+
+  it("validates image assets before allowing the desktop operation into the room", async () => {
+    const room = createRoom();
+    const validateOperationAssets = vi.fn().mockRejectedValue(
+      Object.assign(new Error("missing image asset"), {
+        code: "PERSISTENCE_FAILED",
+      }),
+    );
+    const controller = createProjectRoomIpcController({
+      openProject: vi.fn(async () => room),
+      validateOperationAssets,
+    });
+    await controller.join(
+      {
+        projectPath: "/projects/project-1",
+        sessionId: "desktop-session",
+      },
+      vi.fn(),
+    );
+    const operation = {
+      ...room.identity,
+      operationId: "operation-image",
+      baseSequence: 0,
+      elements: [
+        {
+          id: "image-1",
+          type: "image",
+          fileId: "file-missing",
+          version: 1,
+          versionNonce: 20,
+          isDeleted: false,
+        },
+      ],
+      final: true,
+    };
+
+    await expect(
+      controller.applySceneOperation("desktop-session", operation),
+    ).rejects.toMatchObject({ code: "PERSISTENCE_FAILED" });
+    expect(validateOperationAssets).toHaveBeenCalledWith(room, operation);
+    expect(room.sequence).toBe(0);
   });
 });

@@ -77,7 +77,6 @@ describe("ProjectRoom", () => {
         elements: initialElements,
         sharedSceneConfig: { viewBackgroundColor: "#ffffff" },
       },
-      imageRecords: {},
       participants: [desktopParticipant],
     });
     expect(joined.scene.elements).not.toBe(initialElements);
@@ -130,6 +129,30 @@ describe("ProjectRoom", () => {
         participants: [desktopParticipant],
       }),
     ]);
+  });
+
+  it("broadcasts project asset record updates without storing a second copy", () => {
+    const room = createRoom();
+    const listener = vi.fn();
+    room.subscribe(listener);
+    const imageRecord = {
+      fileId: "file-1",
+      assetPath: "assets/file-1.png",
+      sourceType: "imported" as const,
+      width: 640,
+      height: 480,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      mimeType: "image/png",
+    };
+
+    room.publishAssetRecords({ "file-1": imageRecord });
+
+    expect(listener).toHaveBeenCalledWith({
+      type: "assets.updated",
+      identity: room.identity,
+      imageRecords: { "file-1": imageRecord },
+    });
+    expect(room.getSnapshot()).not.toHaveProperty("imageRecords");
   });
 
   it("keeps participant selection as ephemeral actor state", () => {
@@ -360,6 +383,58 @@ describe("ProjectRoom", () => {
         final: true,
       }),
     ).not.toThrow();
+  });
+
+  it("does not replay an evicted client operation", () => {
+    const room = createProjectRoom({
+      identity: {
+        projectId: "project-1",
+        canonicalProjectPath: "/projects/project-1",
+        roomId: "room-1",
+        sessionEpoch: 7,
+      },
+      initialScene: {
+        elements: initialElements,
+        sharedSceneConfig: { viewBackgroundColor: "#ffffff" },
+      },
+      persistedSequence: 0,
+      projectRevision: "revision-1",
+      operationHistoryLimit: 1,
+    });
+    room.join(desktopParticipant);
+    const firstOperation = {
+      ...room.identity,
+      operationId: "operation-1",
+      clientSequence: 1,
+      baseSequence: 0,
+      elements: [],
+      sharedSceneConfig: { viewBackgroundColor: "#111111" },
+      final: true,
+    };
+    room.applySceneOperation(desktopParticipant.sessionId, firstOperation);
+    room.applySceneOperation(desktopParticipant.sessionId, {
+      ...room.identity,
+      operationId: "operation-2",
+      clientSequence: 2,
+      baseSequence: 1,
+      elements: [],
+      sharedSceneConfig: { viewBackgroundColor: "#222222" },
+      final: true,
+    });
+
+    const replay = room.applySceneOperation(
+      desktopParticipant.sessionId,
+      firstOperation,
+    );
+
+    expect(replay).toMatchObject({
+      type: "operation.superseded",
+      operationId: "operation-1",
+      sequence: 2,
+    });
+    expect(room.getSnapshot().scene.sharedSceneConfig).toEqual({
+      viewBackgroundColor: "#222222",
+    });
   });
 
   it("broadcasts an operation back to its origin session as confirmation", () => {

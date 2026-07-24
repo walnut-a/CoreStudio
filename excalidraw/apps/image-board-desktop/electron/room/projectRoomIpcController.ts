@@ -9,6 +9,10 @@ import { ProjectRoomError, type ProjectRoom } from "./projectRoom";
 
 export interface ProjectRoomIpcControllerInput {
   openProject: (projectPath: string) => Promise<ProjectRoom>;
+  validateOperationAssets?: (
+    room: ProjectRoom,
+    operation: ProjectRoomSceneOperation,
+  ) => Promise<void>;
 }
 
 type ProjectRoomEventListener = (event: ProjectRoomEvent) => void;
@@ -42,11 +46,12 @@ export class ProjectRoomIpcController {
     return snapshot;
   }
 
-  public applySceneOperation(
+  public async applySceneOperation(
     sessionId: string,
     operation: ProjectRoomSceneOperation,
   ) {
     const room = this.requireRoom(sessionId);
+    await this.input.validateOperationAssets?.(room, operation);
     return room.applySceneOperation(sessionId, operation);
   }
 
@@ -57,6 +62,10 @@ export class ProjectRoomIpcController {
     }
     this.roomsBySessionId.delete(sessionId);
     return room.leave(sessionId);
+  }
+
+  public flushPersistence(sessionId: string) {
+    return this.requireRoom(sessionId).flushPersistence();
   }
 
   private requireRoom(sessionId: string) {

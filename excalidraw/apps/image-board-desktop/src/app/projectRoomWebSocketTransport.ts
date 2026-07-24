@@ -31,7 +31,17 @@ export interface CreateProjectRoomWebSocketTransportInput {
   replaceResumeToken?: (resumeToken: string) => void;
   scheduleReconnect?: (callback: () => void, delayMs: number) => unknown;
   reconnectDelayMs?: number;
+  onTerminalError?: (error: Error) => void;
 }
+
+const TERMINAL_ROOM_ERROR_CODES = new Set([
+  "AUTH_REQUIRED",
+  "TOKEN_EXPIRED",
+  "PROJECT_MISMATCH",
+  "ROOM_MISMATCH",
+  "SESSION_EPOCH_EXPIRED",
+  "ROOM_CLOSED",
+]);
 
 const createRoomSocketUrl = ({
   bridgeBaseUrl,
@@ -86,6 +96,13 @@ export const createProjectRoomWebSocketTransport = (
       reject: (error: Error) => void;
     }
   >();
+  const pendingPersistenceRequests = new Map<
+    string,
+    {
+      resolve: () => void;
+      reject: (error: Error) => void;
+    }
+  >();
   let socket: WebSocketLike | null = null;
   let activeSessionId: string | null = null;
   let joinPromise: Promise<ProjectRoomJoinResult> | null = null;
@@ -102,6 +119,10 @@ export const createProjectRoomWebSocketTransport = (
       pending.reject(error);
     }
     pendingOperations.clear();
+    for (const pending of pendingPersistenceRequests.values()) {
+      pending.reject(error);
+    }
+    pendingPersistenceRequests.clear();
   };
 
   const scheduleReconnect =
@@ -189,6 +210,14 @@ export const createProjectRoomWebSocketTransport = (
         }
         return;
       }
+      if (message.type === "room.persistence-flushed") {
+        const pending = pendingPersistenceRequests.get(message.requestId);
+        if (pending) {
+          pendingPersistenceRequests.delete(message.requestId);
+          pending.resolve();
+        }
+        return;
+      }
       if (message.type === "room.error") {
         const error = toError(message);
         rejectInitialJoin?.(error);
@@ -196,6 +225,23 @@ export const createProjectRoomWebSocketTransport = (
           const pending = pendingOperations.get(message.operationId);
           pendingOperations.delete(message.operationId);
           pending?.reject(error);
+        }
+        if (message.requestId) {
+          const pending = pendingPersistenceRequests.get(message.requestId);
+          pendingPersistenceRequests.delete(message.requestId);
+          pending?.reject(error);
+        }
+        const code =
+          "code" in error && typeof error.code === "string" ? error.code : "";
+        if (
+          !message.operationId &&
+          !message.requestId &&
+          TERMINAL_ROOM_ERROR_CODES.has(code)
+        ) {
+          stopped = true;
+          rejectPending(error);
+          input.onTerminalError?.(error);
+          nextSocket.close(1008, "terminal room error");
         }
       }
     });
@@ -297,6 +343,24 @@ export const createProjectRoomWebSocketTransport = (
       if (socket?.readyState === WebSocketImpl.OPEN) {
         socket.send(JSON.stringify({ type: "room.resync" }));
       }
+    },
+    requestPersistence: () => {
+      if (!socket || socket.readyState !== WebSocketImpl.OPEN) {
+        return Promise.reject(
+          new Error("Project room WebSocket is not connected."),
+        );
+      }
+      const requestId = crypto.randomUUID();
+      const result = new Promise<void>((resolve, reject) => {
+        pendingPersistenceRequests.set(requestId, { resolve, reject });
+      });
+      socket.send(
+        JSON.stringify({
+          type: "room.flush-persistence",
+          requestId,
+        }),
+      );
+      return result;
     },
   };
 };

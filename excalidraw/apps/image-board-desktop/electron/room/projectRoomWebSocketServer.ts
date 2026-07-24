@@ -7,6 +7,7 @@ import {
   isProjectRoomParticipantSelection,
   type ProjectRoomEvent,
   type ProjectRoomBootstrap,
+  type ProjectRoomSceneOperation,
 } from "../../src/shared/projectRoomProtocol";
 
 import type { ProjectRoom } from "./projectRoom";
@@ -21,6 +22,9 @@ export interface AuthenticatedProjectRoomWebSocket {
   room: ProjectRoom;
   exchange: ProjectRoomTicketExchange;
   bootstrap?: ProjectRoomBootstrap;
+  validateOperationAssets?: (
+    operation: ProjectRoomSceneOperation,
+  ) => Promise<void>;
 }
 
 export interface AttachProjectRoomWebSocketServerInput {
@@ -31,9 +35,14 @@ export interface AttachProjectRoomWebSocketServerInput {
   ) => Promise<AuthenticatedProjectRoomWebSocket>;
 }
 
-const getErrorEnvelope = (error: unknown, operationId?: string) => ({
+const getErrorEnvelope = (
+  error: unknown,
+  operationId?: string,
+  requestId?: string,
+) => ({
   type: "room.error" as const,
   ...(operationId ? { operationId } : {}),
+  ...(requestId ? { requestId } : {}),
   error: {
     code:
       error && typeof error === "object" && "code" in error
@@ -71,14 +80,28 @@ export const attachProjectRoomWebSocketServer = ({
     }
     webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
       sockets.add(webSocket);
+      let room: ProjectRoom | null = null;
+      let sessionId: string | null = null;
+      let socketClosed = false;
+      webSocket.on("close", () => {
+        socketClosed = true;
+        sockets.delete(webSocket);
+        if (room && sessionId) {
+          room.leave(sessionId);
+        }
+      });
+      webSocket.on("error", () => {
+        // Close handling removes the participant.
+      });
       void (async () => {
-        let room: ProjectRoom | null = null;
-        let sessionId: string | null = null;
         try {
           const authenticated = await authenticate({
             launchTicket: url.searchParams.get("launchTicket"),
             resumeToken: url.searchParams.get("resumeToken"),
           });
+          if (socketClosed) {
+            return;
+          }
           room = authenticated.room;
           sessionId = authenticated.exchange.sessionId;
           const bufferedEvents: ProjectRoomEvent[] = [];
@@ -110,97 +133,114 @@ export const attachProjectRoomWebSocketServer = ({
             sendJson(webSocket, { type: "room.event", event });
           }
 
+          let messageQueue: Promise<void> = Promise.resolve();
           webSocket.on("message", (data: unknown) => {
             let operationId: string | undefined;
-            try {
-              const message = JSON.parse(String(data)) as unknown;
-              if (
-                !message ||
-                typeof message !== "object" ||
-                !("type" in message)
-              ) {
-                throw Object.assign(new Error("Invalid room message."), {
+            let requestId: string | undefined;
+            messageQueue = messageQueue.then(async () => {
+              try {
+                const message = JSON.parse(String(data)) as unknown;
+                if (
+                  !message ||
+                  typeof message !== "object" ||
+                  !("type" in message)
+                ) {
+                  throw Object.assign(new Error("Invalid room message."), {
+                    code: "BAD_REQUEST",
+                  });
+                }
+                if (message.type === "scene.operation") {
+                  const operation =
+                    "operation" in message ? message.operation : undefined;
+                  if (
+                    operation &&
+                    typeof operation === "object" &&
+                    "operationId" in operation &&
+                    typeof operation.operationId === "string"
+                  ) {
+                    operationId = operation.operationId;
+                  }
+                  if (!isProjectRoomSceneOperation(operation)) {
+                    throw Object.assign(
+                      new Error("Invalid project room scene operation."),
+                      { code: "BAD_REQUEST" },
+                    );
+                  }
+                  await authenticated.validateOperationAssets?.(operation);
+                  const result = room?.applySceneOperation(
+                    sessionId as string,
+                    operation,
+                  );
+                  sendJson(webSocket, {
+                    type: "operation.result",
+                    result,
+                  });
+                  return;
+                }
+                if (message.type === "room.resync") {
+                  sendJson(webSocket, {
+                    type: "room.snapshot",
+                    snapshot: room?.getSnapshot(),
+                  });
+                  return;
+                }
+                if (message.type === "room.flush-persistence") {
+                  requestId =
+                    "requestId" in message &&
+                    typeof message.requestId === "string"
+                      ? message.requestId
+                      : undefined;
+                  if (!requestId) {
+                    throw Object.assign(
+                      new Error("Persistence request id is required."),
+                      { code: "BAD_REQUEST" },
+                    );
+                  }
+                  await room?.flushPersistence();
+                  sendJson(webSocket, {
+                    type: "room.persistence-flushed",
+                    requestId,
+                  });
+                  return;
+                }
+                if (message.type === "selection.update") {
+                  const selection =
+                    "selection" in message ? message.selection : undefined;
+                  if (!isProjectRoomParticipantSelection(selection)) {
+                    throw Object.assign(
+                      new Error("Invalid project room participant selection."),
+                      { code: "BAD_REQUEST" },
+                    );
+                  }
+                  room?.updateParticipantSelection(
+                    sessionId as string,
+                    selection,
+                  );
+                  sendJson(webSocket, {
+                    type: "selection.updated",
+                    updatedAt: selection.updatedAt,
+                  });
+                  return;
+                }
+                if (message.type === "room.leave") {
+                  webSocket.close(1000, "room leave");
+                  return;
+                }
+                throw Object.assign(new Error("Unsupported room message."), {
                   code: "BAD_REQUEST",
                 });
-              }
-              if (message.type === "scene.operation") {
-                const operation =
-                  "operation" in message ? message.operation : undefined;
-                if (
-                  operation &&
-                  typeof operation === "object" &&
-                  "operationId" in operation &&
-                  typeof operation.operationId === "string"
-                ) {
-                  operationId = operation.operationId;
-                }
-                if (!isProjectRoomSceneOperation(operation)) {
-                  throw Object.assign(
-                    new Error("Invalid project room scene operation."),
-                    { code: "BAD_REQUEST" },
-                  );
-                }
-                const result = room?.applySceneOperation(
-                  sessionId as string,
-                  operation,
+              } catch (error) {
+                sendJson(
+                  webSocket,
+                  getErrorEnvelope(error, operationId, requestId),
                 );
-                sendJson(webSocket, {
-                  type: "operation.result",
-                  result,
-                });
-                return;
               }
-              if (message.type === "room.resync") {
-                sendJson(webSocket, {
-                  type: "room.snapshot",
-                  snapshot: room?.getSnapshot(),
-                });
-                return;
-              }
-              if (message.type === "selection.update") {
-                const selection =
-                  "selection" in message ? message.selection : undefined;
-                if (!isProjectRoomParticipantSelection(selection)) {
-                  throw Object.assign(
-                    new Error("Invalid project room participant selection."),
-                    { code: "BAD_REQUEST" },
-                  );
-                }
-                room?.updateParticipantSelection(
-                  sessionId as string,
-                  selection,
-                );
-                sendJson(webSocket, {
-                  type: "selection.updated",
-                  updatedAt: selection.updatedAt,
-                });
-                return;
-              }
-              if (message.type === "room.leave") {
-                webSocket.close(1000, "room leave");
-                return;
-              }
-              throw Object.assign(new Error("Unsupported room message."), {
-                code: "BAD_REQUEST",
-              });
-            } catch (error) {
-              sendJson(webSocket, getErrorEnvelope(error, operationId));
-            }
+            });
           });
         } catch (error) {
           sendJson(webSocket, getErrorEnvelope(error));
           webSocket.close(1008, "room authentication failed");
         }
-
-        webSocket.on("close", () => {
-          sockets.delete(webSocket);
-          if (room && sessionId) {
-            room.leave(sessionId);
-          }
-        });
-        webSocket.on("error", () => {
-          // Close handling removes the participant.
-        });
       })();
     });
   };

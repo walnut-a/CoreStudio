@@ -272,6 +272,8 @@ const App = ({
     files: BinaryFiles;
   } | null>(null);
   const lastCanvasPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const canvasPointerDownRef = useRef(false);
+  const canvasInteractionIdRef = useRef<string | null>(null);
   const lastBatchBoundsRef = useRef<SceneBounds | null>(null);
   const pendingGenerationJobsRef = useRef<Map<string, PendingGenerationJob>>(
     new Map(),
@@ -898,7 +900,6 @@ const App = ({
     ) {
       return;
     }
-    await projectRoomClientRef.current?.waitForPersistence();
     const closeState = await desktopBridge.getProjectRoomCloseState({
       projectPath: activeProject.projectPath,
       sessionId: projectRoomSessionIdRef.current,
@@ -919,6 +920,7 @@ const App = ({
       });
     }
     try {
+      await projectRoomClientRef.current?.waitForPersistence();
       await desktopBridge.closeProjectRoom({
         projectPath: activeProject.projectPath,
         expectedRoomId: closeState?.roomId,
@@ -1383,6 +1385,12 @@ const App = ({
       bridgeBaseUrl,
       launchTicket,
       resumeToken,
+      onTerminalError: (error) => {
+        if (!disposed) {
+          setProjectRoomReady(false);
+          setProjectError(formatProjectSaveError(error));
+        }
+      },
       replaceResumeToken: (nextResumeToken) => {
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.delete("launchTicket");
@@ -1514,7 +1522,12 @@ const App = ({
             }),
           ).appState as Record<string, unknown>);
       void projectRoomClientRef.current
-        ?.handleLocalSceneChange(elements, files, sharedSceneConfig)
+        ?.handleLocalSceneChange(elements, files, sharedSceneConfig, {
+          ...(canvasInteractionIdRef.current
+            ? { interactionId: canvasInteractionIdRef.current }
+            : {}),
+          final: !canvasPointerDownRef.current,
+        })
         .catch((error) => {
           setProjectError(formatProjectSaveError(error));
         });
@@ -2081,11 +2094,27 @@ const App = ({
                     );
                   }
                 }}
-                onPointerUpdate={({ pointer }) => {
+                onPointerUpdate={({ pointer, button }) => {
                   lastCanvasPointerRef.current = {
                     x: pointer.x,
                     y: pointer.y,
                   };
+                  if (button === "down") {
+                    canvasPointerDownRef.current = true;
+                    canvasInteractionIdRef.current ??= crypto.randomUUID();
+                  } else {
+                    canvasPointerDownRef.current = false;
+                    const completedInteractionId =
+                      canvasInteractionIdRef.current;
+                    window.setTimeout(() => {
+                      if (
+                        canvasInteractionIdRef.current ===
+                        completedInteractionId
+                      ) {
+                        canvasInteractionIdRef.current = null;
+                      }
+                    }, 0);
+                  }
                 }}
                 onScrollChange={viewportChangeRendererActions.changeViewport}
                 onPaste={projectImageImportRendererActions.pasteClipboardImage}

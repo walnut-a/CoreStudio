@@ -39,7 +39,6 @@ export type {
 export interface CreateProjectRoomInput {
   identity: ProjectRoomIdentity;
   initialScene: ProjectRoomScene;
-  initialImageRecords?: ImageRecordMap;
   persistedSequence: number;
   projectRevision: string;
   persistence?: ProjectRoomPersistenceOptions;
@@ -99,7 +98,6 @@ export class ProjectRoom {
 
   private elements: RoomSceneElement[];
   private sharedSceneConfig: Record<string, unknown>;
-  private imageRecords: ImageRecordMap;
   private readonly participants = new Map<string, ProjectRoomParticipant>();
   private readonly participantListeners = new Map<
     string,
@@ -110,6 +108,10 @@ export class ProjectRoom {
     ProjectRoomParticipantSelection
   >();
   private readonly operations = new Map<string, StoredOperation>();
+  private readonly latestClientOperationBySession = new Map<
+    string,
+    { clientSequence: number; operationId: string }
+  >();
   private readonly listeners = new Set<ProjectRoomListener>();
   private readonly persistence?: ProjectRoomPersistenceOptions;
   private readonly operationHistoryLimit: number;
@@ -121,7 +123,6 @@ export class ProjectRoom {
     this.identity = clone(input.identity);
     this.elements = clone(input.initialScene.elements);
     this.sharedSceneConfig = clone(input.initialScene.sharedSceneConfig);
-    this.imageRecords = clone(input.initialImageRecords ?? {});
     this.persistedSequence = input.persistedSequence;
     this.projectRevision = input.projectRevision;
     this.persistence = input.persistence;
@@ -201,6 +202,18 @@ export class ProjectRoom {
     };
   }
 
+  public publishAssetRecords(imageRecords: ImageRecordMap) {
+    this.assertActive();
+    if (Object.keys(imageRecords).length === 0) {
+      return;
+    }
+    this.broadcast({
+      type: "assets.updated",
+      identity: clone(this.identity),
+      imageRecords: clone(imageRecords),
+    });
+  }
+
   public getSnapshot(): ProjectRoomSnapshot {
     return {
       type: "room.snapshot",
@@ -212,7 +225,6 @@ export class ProjectRoom {
         elements: clone(this.elements),
         sharedSceneConfig: clone(this.sharedSceneConfig),
       },
-      imageRecords: clone(this.imageRecords),
       participants: [...this.participants.values()].map(clone),
     };
   }
@@ -313,6 +325,36 @@ export class ProjectRoom {
       }
       return clone(storedOperation.result);
     }
+    const latestClientOperation = this.latestClientOperationBySession.get(
+      participant.sessionId,
+    );
+    if (
+      operation.clientSequence !== undefined &&
+      latestClientOperation &&
+      operation.clientSequence <= latestClientOperation.clientSequence
+    ) {
+      if (
+        operation.clientSequence === latestClientOperation.clientSequence &&
+        operation.operationId !== latestClientOperation.operationId
+      ) {
+        throw new ProjectRoomError(
+          "OPERATION_ID_CONFLICT",
+          "The client operation sequence is already owned by another operation.",
+          {
+            clientSequence: operation.clientSequence,
+            operationId: operation.operationId,
+            existingOperationId: latestClientOperation.operationId,
+          },
+        );
+      }
+      return {
+        type: "operation.superseded",
+        operationId: operation.operationId,
+        sequence: this.sequence,
+        acceptedElementIds: [],
+        supersededElementIds: operation.elements.map((element) => element.id),
+      };
+    }
 
     const elementsById = new Map(
       this.elements.map((element) => [element.id, element]),
@@ -340,12 +382,6 @@ export class ProjectRoom {
     if (operation.sharedSceneConfig !== undefined) {
       this.sharedSceneConfig = clone(operation.sharedSceneConfig);
     }
-    if (operation.imageRecords !== undefined) {
-      this.imageRecords = {
-        ...this.imageRecords,
-        ...clone(operation.imageRecords),
-      };
-    }
     this.sequence += 1;
     const result: ProjectRoomOperationResult = {
       type:
@@ -362,6 +398,12 @@ export class ProjectRoom {
       sessionId: participant.sessionId,
       result: clone(result),
     });
+    if (operation.clientSequence !== undefined) {
+      this.latestClientOperationBySession.set(participant.sessionId, {
+        clientSequence: operation.clientSequence,
+        operationId: operation.operationId,
+      });
+    }
     while (this.operations.size > this.operationHistoryLimit) {
       const oldestOperationId = this.operations.keys().next().value;
       if (typeof oldestOperationId !== "string") {
@@ -384,9 +426,6 @@ export class ProjectRoom {
       elements: clone(authoritativeOperationElements),
       ...(operation.sharedSceneConfig !== undefined
         ? { sharedSceneConfig: clone(operation.sharedSceneConfig) }
-        : {}),
-      ...(operation.imageRecords !== undefined
-        ? { imageRecords: clone(operation.imageRecords) }
         : {}),
       acceptedElementIds: [...acceptedElementIds],
       supersededElementIds: [...supersededElementIds],
@@ -493,6 +532,7 @@ export class ProjectRoom {
     });
     this.participants.clear();
     this.participantSelections.clear();
+    this.latestClientOperationBySession.clear();
     this.participantListeners.clear();
     this.listeners.clear();
     this.lifecycle = "closed";

@@ -70,11 +70,11 @@ export interface ProjectRoomScene {
 
 export interface ProjectRoomSceneOperation extends ProjectRoomIdentity {
   operationId: string;
+  clientSequence?: number;
   interactionId?: string;
   baseSequence: number;
   elements: ProjectRoomSceneElement[];
   sharedSceneConfig?: Record<string, unknown>;
-  imageRecords?: ImageRecordMap;
   final: boolean;
 }
 
@@ -101,7 +101,6 @@ export interface ProjectRoomSnapshot {
   persistedSequence: number;
   projectRevision: string;
   scene: ProjectRoomScene;
-  imageRecords?: ImageRecordMap;
   participants: ProjectRoomParticipant[];
 }
 
@@ -137,7 +136,6 @@ export interface ProjectRoomSceneUpdate {
   baseSequence: number;
   elements: ProjectRoomSceneElement[];
   sharedSceneConfig?: Record<string, unknown>;
-  imageRecords?: ImageRecordMap;
   acceptedElementIds: string[];
   supersededElementIds: string[];
   final: boolean;
@@ -167,6 +165,12 @@ export interface ProjectRoomParticipantsChanged {
   participants: ProjectRoomParticipant[];
 }
 
+export interface ProjectRoomAssetsUpdated {
+  type: "assets.updated";
+  identity: ProjectRoomIdentity;
+  imageRecords: ImageRecordMap;
+}
+
 export interface ProjectRoomClosed {
   type: "room.closed";
   identity: ProjectRoomIdentity;
@@ -182,6 +186,7 @@ export type ProjectRoomEvent =
   | ProjectRoomSceneUpdate
   | ProjectRoomPersisted
   | ProjectRoomPersistenceFailed
+  | ProjectRoomAssetsUpdated
   | ProjectRoomParticipantsChanged
   | ProjectRoomClosing
   | ProjectRoomClosed;
@@ -199,23 +204,6 @@ const isNonEmptyString = (value: unknown): value is string =>
 
 const isNonNegativeInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= 0;
-
-const isProjectRoomImageRecordMap = (
-  value: unknown,
-): value is ImageRecordMap =>
-  isObject(value) &&
-  Object.entries(value).every(
-    ([fileId, record]) =>
-      isNonEmptyString(fileId) &&
-      isObject(record) &&
-      record.fileId === fileId &&
-      isNonEmptyString(record.assetPath) &&
-      (record.sourceType === "generated" || record.sourceType === "imported") &&
-      isNonNegativeInteger(record.width) &&
-      isNonNegativeInteger(record.height) &&
-      isNonEmptyString(record.createdAt) &&
-      isNonEmptyString(record.mimeType),
-  );
 
 export const isProjectRoomSceneElement = (
   value: unknown,
@@ -251,14 +239,15 @@ export const isProjectRoomSceneOperation = (
     !isNonNegativeInteger(value.sessionEpoch) ||
     !isNonEmptyString(value.roomId) ||
     !isNonEmptyString(value.operationId) ||
+    (value.clientSequence !== undefined &&
+      !isNonNegativeInteger(value.clientSequence)) ||
     (value.interactionId !== undefined &&
       !isNonEmptyString(value.interactionId)) ||
     !isNonNegativeInteger(value.baseSequence) ||
     !Array.isArray(value.elements) ||
     (value.sharedSceneConfig !== undefined &&
       !isObject(value.sharedSceneConfig)) ||
-    (value.imageRecords !== undefined &&
-      !isProjectRoomImageRecordMap(value.imageRecords)) ||
+    "imageRecords" in value ||
     typeof value.final !== "boolean"
   ) {
     return false;

@@ -48,6 +48,12 @@ export const createDesktopProjectRoomTransport = ({
         operation,
       });
     },
+    requestPersistence: () => {
+      if (!bridge.flushProjectRoomPersistence) {
+        return Promise.reject(unavailable());
+      }
+      return bridge.flushProjectRoomPersistence(sessionId);
+    },
     leave: (requestedSessionId) => {
       if (!bridge.leaveProjectRoom) {
         return Promise.reject(unavailable());

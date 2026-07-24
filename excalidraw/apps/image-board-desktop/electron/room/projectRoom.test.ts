@@ -77,6 +77,7 @@ describe("ProjectRoom", () => {
         elements: initialElements,
         sharedSceneConfig: { viewBackgroundColor: "#ffffff" },
       },
+      imageRecords: {},
       participants: [desktopParticipant],
     });
     expect(joined.scene.elements).not.toBe(initialElements);
@@ -302,6 +303,63 @@ describe("ProjectRoom", () => {
 
     expect(retry).toEqual(first);
     expect(room.sequence).toBe(1);
+  });
+
+  it("bounds retained operation ids for long-lived rooms", () => {
+    const room = createProjectRoom({
+      identity: {
+        projectId: "project-1",
+        canonicalProjectPath: "/projects/project-1",
+        roomId: "room-1",
+        sessionEpoch: 7,
+      },
+      initialScene: {
+        elements: initialElements,
+        sharedSceneConfig: {},
+      },
+      persistedSequence: 0,
+      projectRevision: "revision-1",
+      operationHistoryLimit: 2,
+    });
+    room.join(desktopParticipant);
+    room.join(boardParticipant);
+    for (const [index, operationId] of [
+      "operation-1",
+      "operation-2",
+      "operation-3",
+    ].entries()) {
+      room.applySceneOperation(desktopParticipant.sessionId, {
+        ...room.identity,
+        operationId,
+        baseSequence: index,
+        elements: [
+          {
+            ...initialElements[0],
+            version: index + 2,
+            versionNonce: 200 + index,
+            x: index + 1,
+          },
+        ],
+        final: true,
+      });
+    }
+
+    expect(() =>
+      room.applySceneOperation(boardParticipant.sessionId, {
+        ...room.identity,
+        operationId: "operation-1",
+        baseSequence: 3,
+        elements: [
+          {
+            ...initialElements[1],
+            version: 2,
+            versionNonce: 300,
+            x: 100,
+          },
+        ],
+        final: true,
+      }),
+    ).not.toThrow();
   });
 
   it("broadcasts an operation back to its origin session as confirmation", () => {

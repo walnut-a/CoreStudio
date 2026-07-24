@@ -131,6 +131,129 @@ describe("ProjectRoomService", () => {
     });
   });
 
+  it("restores an active room when close persistence fails", async () => {
+    const writeProjectScene = vi.fn(async () => {
+      throw new Error("disk unavailable");
+    });
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle("project-1", projectPath),
+      ),
+      writeProjectScene,
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      randomId: vi.fn(() => "room-id-1"),
+      persistenceDebounceMs: 10_000,
+    });
+    const room = await service.openProject("/projects/project-1");
+    room.join({
+      actorId: "corestudio:desktop",
+      sessionId: "desktop-session",
+      transport: "ipc",
+      role: "desktop-editor",
+      displayLabel: "CoreStudio",
+    });
+    room.applySceneOperation("desktop-session", {
+      ...room.identity,
+      operationId: "operation-1",
+      baseSequence: 0,
+      elements: [
+        {
+          ...room.getSnapshot().scene.elements[0],
+          version: 2,
+          x: 100,
+        },
+      ],
+      final: true,
+    });
+
+    await expect(service.closeProject("project-1")).rejects.toThrow(
+      "disk unavailable",
+    );
+
+    expect(room.lifecycle).toBe("storage-error");
+    expect(service.manager.get("project-1")).toBe(room);
+    expect(() =>
+      room.applySceneOperation("desktop-session", {
+        ...room.identity,
+        operationId: "operation-2",
+        baseSequence: 1,
+        elements: [
+          {
+            ...room.getSnapshot().scene.elements[0],
+            version: 3,
+            x: 200,
+          },
+        ],
+        final: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it("routes maintenance scene writes through an active room", async () => {
+    const writeProjectScene = vi.fn(async () => ({}));
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle("project-1", projectPath),
+      ),
+      writeProjectScene,
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      randomId: vi
+        .fn()
+        .mockReturnValueOnce("room-id-1")
+        .mockReturnValueOnce("maintenance-operation-1"),
+      persistenceDebounceMs: 10_000,
+    });
+    const room = await service.openProject("/projects/project-1");
+    const listener = vi.fn();
+    room.join(
+      {
+        actorId: "corestudio:desktop",
+        sessionId: "desktop-session",
+        transport: "ipc",
+        role: "desktop-editor",
+        displayLabel: "CoreStudio",
+      },
+      listener,
+    );
+    const repairedSceneJson = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "local",
+      elements: [
+        ...JSON.parse(sceneJson).elements,
+        {
+          id: "restored-image",
+          type: "image",
+          fileId: "file-restored",
+          version: 1,
+          versionNonce: 20,
+          index: "a1",
+          isDeleted: false,
+        },
+      ],
+      appState: { viewBackgroundColor: "#ffffff" },
+      files: {},
+    });
+
+    await service.writeMaintenanceScene({
+      projectPath: "/projects/project-1",
+      sceneJson: repairedSceneJson,
+    });
+
+    expect(room.getSnapshot().scene.elements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "restored-image" }),
+      ]),
+    );
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "scene.update",
+        originActorId: "corestudio:maintenance",
+      }),
+    );
+    expect(writeProjectScene).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps simultaneous project services isolated", async () => {
     const service = createProjectRoomService({
       readProjectBundle: vi.fn(async (projectPath: string) =>

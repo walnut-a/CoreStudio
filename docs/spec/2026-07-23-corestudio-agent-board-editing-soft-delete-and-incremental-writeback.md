@@ -533,7 +533,7 @@ Excalidraw 元素协作不自动解决以下数据：
 1. 通过现有项目事务写入并验证图片资产。
 2. 提交图片记录和必要关系。
 3. 将 `fileId` 标记为房间可读取。
-4. 再接受并广播引用该 `fileId` 的 scene operation。
+4. 再接受并广播引用该 `fileId` 的 scene operation，同时附带新增的 `imageRecords` 元数据。
 5. 其他参与者通过项目资产读取接口获取图片，不通过 WebSocket 传输二进制。
 
 如果资产事务失败，图片元素不能进入权威 scene。
@@ -650,6 +650,7 @@ CoreStudio 必须显示二次确认，至少包含：
 如果 flush 保存失败或等待超时，CoreStudio 不能无限阻止用户关闭，也不能静默丢弃改动。此时显示：
 
 - `重试保存`：保持房间处于关闭流程，再次尝试 flush；
+- `取消关闭`：把房间恢复为 `active` 或 `storage-error`，项目保持打开并允许用户继续编辑、排查或再次保存；
 - `仍然关闭`：明确提示未保存修改可能丢失，并会断开当前 Agent 协作；用户再次确认后关闭连接、结束房间并更新 epoch。
 
 首版不增加恢复副本流程，但必须保留这个明确的退出通道。
@@ -864,6 +865,15 @@ Agent Board 页面资源由当前 CoreStudio 提供，但已经打开的旧页�
 4. 移除房间模式开关，使项目只走房间路径。
 5. 物理删除旧 patch autosave、renderer 场景 autosave、项目版本轮询、自动打开控制器和通过项目重载同步画布的实现及测试。
 6. 安装包 UI 验收仍作为发布前最后一道人工验证，不再作为保留旧代码的理由。
+
+当前可靠性收口还明确执行以下约束：
+
+- desktop IPC 与 WebSocket 一样，在初次 snapshot 可用前缓存已经到达的增量事件，再按 sequence 重放；
+- renderer 在资产准备和 operation 提交成功前不推进本地权威基线，提交失败后同一修改可以重新提交；
+- 项目关闭和切换先排空 renderer 内正在进行的资产准备及 operation，再让房间进入 `closing`；
+- 项目修复需要改变 scene 时，通过活动房间提交维护 operation；不能直接改磁盘后等待房间重新加载；
+- 远端元素进入 renderer 前复用 Excalidraw `restoreElements`、`reconcileElements` 和 `bumpElementVersions`，保护正在编辑文字、缩放或创建的本地元素；
+- operation 去重结果使用有界历史，避免长时间打开项目导致内存无限增长。
 
 因为项目文件格式保持兼容，完成房间 flush 并正常关闭后，版本回退不需要转换 scene 或资产。但运行中的房间不能被旧版本应用接管，回退前必须先结束所有房间会话。
 

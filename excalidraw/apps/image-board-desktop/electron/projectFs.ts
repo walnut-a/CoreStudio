@@ -1059,7 +1059,7 @@ export const rebuildProjectThumbnails = async (
       repairLegacyGeneratedImageRecordOrigins,
       writeProjectImageRecords,
       touchProjectManifest,
-      writeProjectScene,
+      writeProjectScene: options.writeProjectScene ?? writeProjectScene,
       getCachedRenditionDimensions,
       readCachedRenditionPayload,
       readFile: fs.readFile,

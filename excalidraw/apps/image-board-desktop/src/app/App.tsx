@@ -32,6 +32,7 @@ import {
 } from "./projectRoomClientController";
 import { createProjectRoomWebSocketTransport } from "./projectRoomWebSocketTransport";
 import { selectProjectRoomAgentPresence } from "./projectRoomPresence";
+import { reconcileProjectRoomScene } from "./projectRoomSceneReconciliation";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
 import { createDesktopStartupRendererActions } from "./desktopStartupState";
@@ -191,6 +192,7 @@ import type {
   ImageAssetRequestRendition,
   ImagePromptReferenceRecord,
   ImageRecord,
+  ImageRecordMap,
 } from "../shared/projectTypes";
 import type {
   DesktopAppInfo,
@@ -896,6 +898,7 @@ const App = ({
     ) {
       return;
     }
+    await projectRoomClientRef.current?.waitForPersistence();
     const closeState = await desktopBridge.getProjectRoomCloseState({
       projectPath: activeProject.projectPath,
       sessionId: projectRoomSessionIdRef.current,
@@ -1238,11 +1241,31 @@ const App = ({
     if (!project) {
       return;
     }
-    await projectImageAssetPersistenceRendererActions.persistUnknownCanvasImages(
+    return projectImageAssetPersistenceRendererActions.persistUnknownCanvasImages(
       project,
       elements as ExcalidrawElement[],
       files as BinaryFiles,
     );
+  };
+
+  const applyProjectRoomImageRecords = (imageRecords: ImageRecordMap) => {
+    const project = currentProjectRef.current;
+    if (!project) {
+      return;
+    }
+    const hasChanges = Object.entries(imageRecords).some(
+      ([fileId, record]) => project.imageRecords[fileId] !== record,
+    );
+    if (!hasChanges) {
+      return;
+    }
+    updateCurrentProject({
+      ...project,
+      imageRecords: {
+        ...project.imageRecords,
+        ...imageRecords,
+      },
+    });
   };
 
   useEffect(() => {
@@ -1267,6 +1290,7 @@ const App = ({
       sessionId,
       transport,
       applyParticipants: setProjectRoomParticipants,
+      applyImageRecords: applyProjectRoomImageRecords,
       ensureAssetsForElements: ensureProjectRoomAssetsForElements,
       onSyncStateChange: (state, error) => {
         setAgentBoardSaveStatus(
@@ -1286,15 +1310,22 @@ const App = ({
         setProjectRoomReady(false);
         setProjectError("项目已关闭，画布协作已断开。");
       },
-      applyAuthoritativeScene: ({ elements, sharedSceneConfig }) => {
+      applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
         const api = excalidrawAPIRef.current;
         if (!api) {
           return;
         }
+        const appState = api.getAppState();
+        const reconciledElements = reconcileProjectRoomScene({
+          localElements: api.getSceneElementsIncludingDeleted(),
+          remoteElements: elements as ExcalidrawElement[],
+          appState,
+          snapshot: origin === "snapshot",
+        });
         api.updateScene({
-          elements: elements as ExcalidrawElement[],
+          elements: reconciledElements,
           appState: {
-            ...api.getAppState(),
+            ...appState,
             ...sharedSceneConfig,
           } as AppState,
           captureUpdate: CaptureUpdateAction.NEVER,
@@ -1366,6 +1397,7 @@ const App = ({
       sessionId: crypto.randomUUID(),
       transport,
       applyParticipants: setProjectRoomParticipants,
+      applyImageRecords: applyProjectRoomImageRecords,
       ensureAssetsForElements: ensureProjectRoomAssetsForElements,
       onSyncStateChange: (state, error) => {
         setAgentBoardSaveStatus(
@@ -1385,15 +1417,22 @@ const App = ({
         setProjectRoomReady(false);
         setProjectError("项目已关闭，画布协作已断开。");
       },
-      applyAuthoritativeScene: ({ elements, sharedSceneConfig }) => {
+      applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
         const api = excalidrawAPIRef.current;
         if (!api) {
           return;
         }
+        const appState = api.getAppState();
+        const reconciledElements = reconcileProjectRoomScene({
+          localElements: api.getSceneElementsIncludingDeleted(),
+          remoteElements: elements as ExcalidrawElement[],
+          appState,
+          snapshot: origin === "snapshot",
+        });
         api.updateScene({
-          elements: elements as ExcalidrawElement[],
+          elements: reconciledElements,
           appState: {
-            ...api.getAppState(),
+            ...appState,
             ...sharedSceneConfig,
           } as AppState,
           captureUpdate: CaptureUpdateAction.NEVER,

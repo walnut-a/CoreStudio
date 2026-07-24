@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 
 import type { DesktopProjectBundle } from "../../src/shared/desktopBridgeTypes";
+import { isProjectRoomSceneElement } from "../../src/shared/projectRoomProtocol";
 
 import {
   createProjectRoomManager,
@@ -81,7 +82,12 @@ export class ProjectRoomService {
     }
     room.beginClosing();
     if (!options.force) {
-      await room.flushPersistence();
+      try {
+        await room.flushPersistence();
+      } catch (error) {
+        room.cancelClosing();
+        throw error;
+      }
     }
     const canonicalProjectPath = room.identity.canonicalProjectPath;
     const closed = this.manager.close(projectId);
@@ -164,6 +170,36 @@ export class ProjectRoomService {
     return projectId ? this.manager.get(projectId) : null;
   }
 
+  public async writeMaintenanceScene(
+    input: ProjectSceneWriteInput,
+  ): Promise<void> {
+    const room = await this.findOpenRoom(input.projectPath);
+    if (!room) {
+      await this.input.writeProjectScene(input);
+      return;
+    }
+    const parsed = JSON.parse(input.sceneJson) as {
+      elements?: unknown;
+    };
+    if (
+      !Array.isArray(parsed.elements) ||
+      !parsed.elements.every(isProjectRoomSceneElement)
+    ) {
+      throw new ProjectRoomError(
+        "PERSISTENCE_FAILED",
+        "Maintenance produced an invalid project scene.",
+      );
+    }
+    room.applyMaintenanceOperation({
+      ...room.identity,
+      operationId: (this.input.randomId ?? randomUUID)(),
+      baseSequence: room.sequence,
+      elements: parsed.elements,
+      final: true,
+    });
+    await room.flushPersistence();
+  }
+
   private async openCanonicalProject(canonicalProjectPath: string) {
     const bundle = await this.input.readProjectBundle(canonicalProjectPath);
     const projectId = bundle.project.projectId ?? canonicalProjectPath;
@@ -181,6 +217,7 @@ export class ProjectRoomService {
         sessionEpoch,
       },
       initialScene: persistence.initialScene,
+      initialImageRecords: bundle.imageRecords,
       persistedSequence: 0,
       projectRevision: persistence.initialProjectRevision,
       persistence: {

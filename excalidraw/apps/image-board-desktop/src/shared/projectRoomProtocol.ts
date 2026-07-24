@@ -74,6 +74,7 @@ export interface ProjectRoomSceneOperation extends ProjectRoomIdentity {
   baseSequence: number;
   elements: ProjectRoomSceneElement[];
   sharedSceneConfig?: Record<string, unknown>;
+  imageRecords?: ImageRecordMap;
   final: boolean;
 }
 
@@ -100,6 +101,7 @@ export interface ProjectRoomSnapshot {
   persistedSequence: number;
   projectRevision: string;
   scene: ProjectRoomScene;
+  imageRecords?: ImageRecordMap;
   participants: ProjectRoomParticipant[];
 }
 
@@ -135,6 +137,7 @@ export interface ProjectRoomSceneUpdate {
   baseSequence: number;
   elements: ProjectRoomSceneElement[];
   sharedSceneConfig?: Record<string, unknown>;
+  imageRecords?: ImageRecordMap;
   acceptedElementIds: string[];
   supersededElementIds: string[];
   final: boolean;
@@ -197,6 +200,23 @@ const isNonEmptyString = (value: unknown): value is string =>
 const isNonNegativeInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= 0;
 
+const isProjectRoomImageRecordMap = (
+  value: unknown,
+): value is ImageRecordMap =>
+  isObject(value) &&
+  Object.entries(value).every(
+    ([fileId, record]) =>
+      isNonEmptyString(fileId) &&
+      isObject(record) &&
+      record.fileId === fileId &&
+      isNonEmptyString(record.assetPath) &&
+      (record.sourceType === "generated" || record.sourceType === "imported") &&
+      isNonNegativeInteger(record.width) &&
+      isNonNegativeInteger(record.height) &&
+      isNonEmptyString(record.createdAt) &&
+      isNonEmptyString(record.mimeType),
+  );
+
 export const isProjectRoomSceneElement = (
   value: unknown,
 ): value is ProjectRoomSceneElement =>
@@ -237,6 +257,8 @@ export const isProjectRoomSceneOperation = (
     !Array.isArray(value.elements) ||
     (value.sharedSceneConfig !== undefined &&
       !isObject(value.sharedSceneConfig)) ||
+    (value.imageRecords !== undefined &&
+      !isProjectRoomImageRecordMap(value.imageRecords)) ||
     typeof value.final !== "boolean"
   ) {
     return false;

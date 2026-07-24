@@ -18,6 +18,7 @@ import type {
   ProjectRoomSceneUpdate,
   ProjectRoomSnapshot,
 } from "../../src/shared/projectRoomProtocol";
+import type { ImageRecordMap } from "../../src/shared/projectTypes";
 
 export type {
   ProjectRoomErrorCode,
@@ -38,9 +39,11 @@ export type {
 export interface CreateProjectRoomInput {
   identity: ProjectRoomIdentity;
   initialScene: ProjectRoomScene;
+  initialImageRecords?: ImageRecordMap;
   persistedSequence: number;
   projectRevision: string;
   persistence?: ProjectRoomPersistenceOptions;
+  operationHistoryLimit?: number;
 }
 
 export interface PersistProjectRoomInput {
@@ -96,6 +99,7 @@ export class ProjectRoom {
 
   private elements: RoomSceneElement[];
   private sharedSceneConfig: Record<string, unknown>;
+  private imageRecords: ImageRecordMap;
   private readonly participants = new Map<string, ProjectRoomParticipant>();
   private readonly participantListeners = new Map<
     string,
@@ -108,6 +112,7 @@ export class ProjectRoom {
   private readonly operations = new Map<string, StoredOperation>();
   private readonly listeners = new Set<ProjectRoomListener>();
   private readonly persistence?: ProjectRoomPersistenceOptions;
+  private readonly operationHistoryLimit: number;
   private persistenceTimer: ReturnType<typeof setTimeout> | null = null;
   private persistenceQueue: Promise<void> = Promise.resolve();
   public lastPersistenceError: unknown = null;
@@ -116,9 +121,14 @@ export class ProjectRoom {
     this.identity = clone(input.identity);
     this.elements = clone(input.initialScene.elements);
     this.sharedSceneConfig = clone(input.initialScene.sharedSceneConfig);
+    this.imageRecords = clone(input.initialImageRecords ?? {});
     this.persistedSequence = input.persistedSequence;
     this.projectRevision = input.projectRevision;
     this.persistence = input.persistence;
+    this.operationHistoryLimit = Math.max(
+      1,
+      input.operationHistoryLimit ?? 10_000,
+    );
     this.lifecycle = "active";
   }
 
@@ -202,6 +212,7 @@ export class ProjectRoom {
         elements: clone(this.elements),
         sharedSceneConfig: clone(this.sharedSceneConfig),
       },
+      imageRecords: clone(this.imageRecords),
       participants: [...this.participants.values()].map(clone),
     };
   }
@@ -269,6 +280,22 @@ export class ProjectRoom {
     return this.applyAuthorizedOperation(participant, operation);
   }
 
+  public applyMaintenanceOperation(
+    operation: ProjectRoomSceneOperation,
+  ): ProjectRoomOperationResult {
+    this.assertActive();
+    return this.applyAuthorizedOperation(
+      {
+        actorId: "corestudio:maintenance",
+        sessionId: "corestudio:maintenance",
+        transport: "command",
+        role: "agent-writer",
+        displayLabel: "CoreStudio Maintenance",
+      },
+      operation,
+    );
+  }
+
   private applyAuthorizedOperation(
     participant: ProjectRoomParticipant,
     operation: ProjectRoomSceneOperation,
@@ -313,6 +340,12 @@ export class ProjectRoom {
     if (operation.sharedSceneConfig !== undefined) {
       this.sharedSceneConfig = clone(operation.sharedSceneConfig);
     }
+    if (operation.imageRecords !== undefined) {
+      this.imageRecords = {
+        ...this.imageRecords,
+        ...clone(operation.imageRecords),
+      };
+    }
     this.sequence += 1;
     const result: ProjectRoomOperationResult = {
       type:
@@ -329,6 +362,13 @@ export class ProjectRoom {
       sessionId: participant.sessionId,
       result: clone(result),
     });
+    while (this.operations.size > this.operationHistoryLimit) {
+      const oldestOperationId = this.operations.keys().next().value;
+      if (typeof oldestOperationId !== "string") {
+        break;
+      }
+      this.operations.delete(oldestOperationId);
+    }
 
     const update: ProjectRoomSceneUpdate = {
       type: "scene.update",
@@ -344,6 +384,9 @@ export class ProjectRoom {
       elements: clone(authoritativeOperationElements),
       ...(operation.sharedSceneConfig !== undefined
         ? { sharedSceneConfig: clone(operation.sharedSceneConfig) }
+        : {}),
+      ...(operation.imageRecords !== undefined
+        ? { imageRecords: clone(operation.imageRecords) }
         : {}),
       acceptedElementIds: [...acceptedElementIds],
       supersededElementIds: [...supersededElementIds],
@@ -429,6 +472,13 @@ export class ProjectRoom {
       type: "room.closing",
       identity: clone(this.identity),
     });
+  }
+
+  public cancelClosing() {
+    if (this.lifecycle !== "closing") {
+      return;
+    }
+    this.lifecycle = this.lastPersistenceError ? "storage-error" : "active";
   }
 
   public close() {

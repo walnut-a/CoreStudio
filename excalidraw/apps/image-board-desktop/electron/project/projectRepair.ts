@@ -39,6 +39,7 @@ export interface RebuildProjectThumbnailsOptions {
   inspectImage?: LocalImagePayloadOptions["inspectImage"];
   readFile?: LocalImagePayloadOptions["readFile"];
   now?: LocalImagePayloadOptions["now"];
+  writeProjectScene?: ProjectRepairDependencies["writeProjectScene"];
 }
 
 interface ProjectRepairBundle {

@@ -860,6 +860,7 @@ const closeWindowAfterProjectRoomFlush = async (
     if (closeState) {
       const room = await projectRoomService.findOpenRoom(activeProjectPath);
       try {
+        await requestRendererProjectRoomFlush(targetWindow);
         await projectRoomService.closeProjectPath(activeProjectPath, {
           expectedRoomId: closeState.roomId,
           acknowledgedParticipantSessionIds: closeState.otherParticipants.map(
@@ -1186,7 +1187,16 @@ const registerIpcHandlers = () => {
   ipcMain.handle(
     IPC_CHANNELS.rebuildProjectThumbnails,
     async (_event, input) => {
-      return rebuildProjectThumbnails(input);
+      const activeRoom = await projectRoomService.findOpenRoom(
+        input.projectPath,
+      );
+      if (activeRoom) {
+        await activeRoom.flushPersistence();
+      }
+      return rebuildProjectThumbnails(input, {
+        writeProjectScene: (sceneInput) =>
+          projectRoomService.writeMaintenanceScene(sceneInput),
+      });
     },
   );
 

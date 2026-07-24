@@ -10,13 +10,12 @@ export const readAppCss = () =>
     "apps/image-board-desktop/src/app/styles/dialogPrimitives.css",
     "apps/image-board-desktop/src/app/App.css",
     "apps/image-board-desktop/src/app/components/AboutDialog.css",
-    "apps/image-board-desktop/src/app/components/AgentBoard.css",
     "apps/image-board-desktop/src/app/components/AgentSettings.css",
     "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
     "apps/image-board-desktop/src/app/components/DesktopButton.css",
     "apps/image-board-desktop/src/app/components/GenerateImageDialog.css",
     "apps/image-board-desktop/src/app/components/GenerationErrorDetailsDialog.css",
-    "apps/image-board-desktop/src/app/components/GenerationHistorySidebar.css",
+    "apps/image-board-desktop/src/app/components/ImageAssetSidebar.css",
     "apps/image-board-desktop/src/app/components/ImageInspector.css",
     "apps/image-board-desktop/src/app/components/ProjectDataReportDialog.css",
     "apps/image-board-desktop/src/app/components/ProjectMainMenu.css",
@@ -265,15 +264,6 @@ export const readImageInspector = () =>
     resolve(
       process.cwd(),
       "apps/image-board-desktop/src/app/components/ImageInspector.tsx",
-    ),
-    "utf8",
-  );
-
-export const readAgentBoard = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentBoard.tsx",
     ),
     "utf8",
   );

@@ -24,7 +24,7 @@ describe("InspectorSidebar", () => {
         onCopyPrompt={vi.fn()}
         onCopyTaskError={vi.fn()}
         onLocateImageRecord={vi.fn()}
-        onLocateGenerationRecord={vi.fn()}
+        onLocateImageAsset={vi.fn()}
         onLocatePromptReference={vi.fn()}
       />,
     );

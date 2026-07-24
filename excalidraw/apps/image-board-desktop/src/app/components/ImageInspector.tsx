@@ -7,11 +7,7 @@ import type {
 import { referencePlaceholderText } from "../../shared/promptReferences";
 import type { ImageLineageEntry } from "../imageRelationships";
 import type { GenerationTaskRecord } from "../generationTaskState";
-import {
-  copy,
-  DESKTOP_LANG_CODE,
-  getOptionalText,
-} from "../copy";
+import { copy, DESKTOP_LANG_CODE, getOptionalText } from "../copy";
 import { buildImageProvenanceViewModel } from "../imageProvenance";
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
@@ -26,7 +22,7 @@ interface ImageInspectorProps {
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
-  onLocateGenerationRecord: (fileId: string) => void;
+  onLocateImageAsset: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }
 
@@ -159,7 +155,7 @@ export const ImageInspector = ({
   onCopyPrompt,
   onCopyTaskError,
   onLocateImageRecord,
-  onLocateGenerationRecord,
+  onLocateImageAsset,
   onLocatePromptReference,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -466,9 +462,9 @@ export const ImageInspector = ({
           {record.sourceType === "generated" && (
             <DesktopButton
               type="button"
-              onClick={() => onLocateGenerationRecord(record.fileId)}
+              onClick={() => onLocateImageAsset(record.fileId)}
             >
-              {copy.inspector.locateGenerationRecord}
+              {copy.inspector.locateImageAsset}
             </DesktopButton>
           )}
           <DesktopButton

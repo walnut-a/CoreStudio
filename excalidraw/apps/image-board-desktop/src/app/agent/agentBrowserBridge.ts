@@ -36,7 +36,6 @@ export interface AgentBrowserBridgeConfig {
 
 export interface AgentBrowserRouteState {
   isAgentBrowserRoute: boolean;
-  hasInitialProjectToken: boolean;
 }
 
 export interface AgentBrowserProjectVersion {
@@ -60,16 +59,11 @@ export const buildAgentBrowserRouteState = ({
   if (!isAgentBrowserRoute) {
     return {
       isAgentBrowserRoute: false,
-      hasInitialProjectToken: false,
     };
   }
 
-  const url = new URL(href);
   return {
     isAgentBrowserRoute,
-    hasInitialProjectToken: Boolean(
-      url.searchParams.get("projectToken") ?? url.searchParams.get("token"),
-    ),
   };
 };
 
@@ -86,28 +80,13 @@ export const buildAgentBrowserBridgeConfig = ({
 
   const url = new URL(href);
   const bridge = url.searchParams.get("bridge");
-  const token =
-    url.searchParams.get("projectToken") ?? url.searchParams.get("token");
   if (!bridge) {
     return null;
   }
 
   return {
     bridge: bridge.replace(/\/+$/, ""),
-    ...(token ? { token } : {}),
   };
-};
-
-export const buildAgentBrowserProjectTokenHref = ({
-  href,
-  token,
-}: {
-  href: string;
-  token: string;
-}) => {
-  const url = new URL(href);
-  url.searchParams.set("projectToken", token);
-  return url.toString();
 };
 
 const getAgentBrowserBridgeConfig = (): AgentBrowserBridgeConfig | null => {
@@ -160,6 +139,14 @@ const callDesktopBridge = <T>(
     }),
   });
 
+const rejectUnavailableAgentBoardCapability = (capability: string) =>
+  Promise.reject(
+    Object.assign(
+      new Error(`Agent Board 不提供 ${capability} 能力。`),
+      { code: "CAPABILITY_UNAVAILABLE" },
+    ),
+  );
+
 export const publishAgentBrowserRuntimeState = async (
   state: AgentBrowserRuntimeState,
 ) => {
@@ -179,18 +166,6 @@ export const publishAgentBrowserRuntimeState = async (
   return true;
 };
 
-export const readAgentBrowserProjectVersion = async () => {
-  const config = getAgentBrowserBridgeConfig();
-  if (!config?.token) {
-    return null;
-  }
-
-  return requestAgentBridge<AgentBrowserProjectVersion>(
-    config,
-    AGENT_HTTP_ROUTES.projectCurrent,
-  );
-};
-
 export const maybeCreateAgentBrowserDesktopBridge =
   (): DesktopBridgeApi | null => {
     const config = getAgentBrowserBridgeConfig();
@@ -207,27 +182,8 @@ export const maybeCreateAgentBrowserDesktopBridge =
     const bridge: DesktopBridgeApi = {
       createProject: async () => null,
       openProject: async () => null,
-      openRecentProject: async (projectPath) => {
-        const bundle = await callDesktopBridge<DesktopProjectBundle | null>(
-          config,
-          "openRecentProject",
-          [projectPath],
-        );
-        if (bundle?.project.agentAccess.token) {
-          config.token = bundle.project.agentAccess.token;
-          window.history.replaceState(
-            null,
-            "",
-            buildAgentBrowserProjectTokenHref({
-              href: window.location.href,
-              token: config.token,
-            }),
-          );
-        }
-        return bundle;
-      },
-      loadRecentProjects: () =>
-        callDesktopBridge<RecentProjectEntry[]>(config, "loadRecentProjects"),
+      openRecentProject: async () => null,
+      loadRecentProjects: async () => [],
       readProjectAssetPayloads: (input) =>
         (() => {
           const resumeToken = new URL(window.location.href).searchParams.get(
@@ -249,28 +205,14 @@ export const maybeCreateAgentBrowserDesktopBridge =
               },
             );
           }
-          return callDesktopBridge<ProjectAssetPayload[]>(
-            config,
-            "readProjectAssetPayloads",
-            [input],
-          );
+          return rejectUnavailableAgentBoardCapability("项目资产直读");
         })(),
-      inspectProjectHealth: (input) =>
-        callDesktopBridge<ProjectHealthReport>(config, "inspectProjectHealth", [
-          input,
-        ]),
-      rebuildProjectThumbnails: (input) =>
-        callDesktopBridge<RebuildProjectThumbnailsResult>(
-          config,
-          "rebuildProjectThumbnails",
-          [input],
-        ),
-      cleanProjectCache: (input) =>
-        callDesktopBridge<CleanProjectCacheResult>(
-          config,
-          "cleanProjectCache",
-          [input],
-        ),
+      inspectProjectHealth: () =>
+        rejectUnavailableAgentBoardCapability("项目健康检查"),
+      rebuildProjectThumbnails: () =>
+        rejectUnavailableAgentBoardCapability("项目修复"),
+      cleanProjectCache: () =>
+        rejectUnavailableAgentBoardCapability("项目缓存清理"),
       persistImageAssets: (input: {
         projectPath: string;
         files: PersistedImageAssetInput[];
@@ -291,55 +233,33 @@ export const maybeCreateAgentBrowserDesktopBridge =
             },
           );
         }
-        return callDesktopBridge<ImageRecordMap>(config, "persistImageAssets", [
-          input,
-        ]);
+        return rejectUnavailableAgentBoardCapability("项目资产写入");
       },
-      beginImageWriteback: (input) =>
-        callDesktopBridge<ProjectImageWritebackTransaction>(
-          config,
-          "beginImageWriteback",
-          [input],
-        ),
-      commitImageWriteback: (input) =>
-        callDesktopBridge<void>(config, "commitImageWriteback", [input]),
-      rollbackImageWriteback: (input) =>
-        callDesktopBridge<ImageRecordMap>(config, "rollbackImageWriteback", [
-          input,
-        ]),
+      beginImageWriteback: () =>
+        rejectUnavailableAgentBoardCapability("旧图片写回事务"),
+      commitImageWriteback: () =>
+        rejectUnavailableAgentBoardCapability("旧图片写回事务"),
+      rollbackImageWriteback: () =>
+        rejectUnavailableAgentBoardCapability("旧图片写回事务"),
       importImages: () =>
-        callDesktopBridge<ImportedImagePayload[]>(config, "importImages"),
-      revealProjectInFinder: (projectPath) =>
-        callDesktopBridge<void>(config, "revealProjectInFinder", [projectPath]),
+        rejectUnavailableAgentBoardCapability("系统图片导入"),
+      revealProjectInFinder: () =>
+        rejectUnavailableAgentBoardCapability("访达定位"),
       loadAppInfo: () =>
         callDesktopBridge<DesktopAppInfo>(config, "loadAppInfo"),
       loadProviderSettings: () =>
-        callDesktopBridge<ProviderConfigurationSnapshot>(
-          config,
-          "loadProviderSettings",
-        ),
-      saveProviderSettings: (input: SaveProviderSettingsInput) =>
-        callDesktopBridge<ProviderConfigurationSnapshot>(
-          config,
-          "saveProviderSettings",
-          [input],
-        ),
-      deleteProviderSettings: (input: DeleteProviderSettingsInput) =>
-        callDesktopBridge<ProviderConfigurationSnapshot>(
-          config,
-          "deleteProviderSettings",
-          [input],
-        ),
+        rejectUnavailableAgentBoardCapability("模型供应商设置"),
+      saveProviderSettings: () =>
+        rejectUnavailableAgentBoardCapability("模型供应商设置"),
+      deleteProviderSettings: () =>
+        rejectUnavailableAgentBoardCapability("模型供应商设置"),
       generateImages: async (_input: GenerateImagesInput) => {
         throw new Error(
           "Agent Board 不能调用 CoreStudio 内置生成模型，请写回外部生成的图片。",
         );
       },
       readClipboardImage: () =>
-        callDesktopBridge<ImportedImagePayload | null>(
-          config,
-          "readClipboardImage",
-        ),
+        rejectUnavailableAgentBoardCapability("系统剪贴板读取"),
       onMenuAction: () => () => undefined,
       notifyRendererReady: () => undefined,
       notifyProjectStateChanged: () => undefined,

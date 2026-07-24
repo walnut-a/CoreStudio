@@ -23,7 +23,10 @@ Status: needs-recheck
 - 全部未引用：所有 `fileId` 都不在 scene 中；重启后 rollback，仅恢复本事务改动并删除本事务资产。
 - 部分引用（mixed）：返回 `WRITEBACK_CONFLICT`，journal、记录和资产保持不动。
 - 后续写入冲突：同一 `fileId` 已指向新 `assetPath` 时，旧事务不得覆盖新记录。
-- 正常链路：Agent 图片和内置生成都必须在 strict autosave 成功后 commit；失败时恢复 renderer 快照并 rollback。
+- 提交前失败：未进入房间的写入可以按 journal 回滚本事务新增资产。
+- 房间已接受：双方已看到的 scene 和资产必须保留；持久化失败只进入可重试的存储错误状态，不恢复旧 renderer 快照。
+- 磁盘分叉：返回 `PROJECT_STORAGE_DIVERGED`，房间停止继续覆盖磁盘，并保留结构化 details 供定位外部写入来源。
+- 重连：未确认操作用原 `operationId` 重发；先接收权威 snapshot，再处理后续增量。
 
 ## Data Integrity Checklist
 

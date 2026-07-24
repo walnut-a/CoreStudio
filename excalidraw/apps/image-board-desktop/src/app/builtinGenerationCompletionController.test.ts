@@ -313,7 +313,7 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
     expect(commit).not.toHaveBeenCalled();
   });
 
-  it("restores placeholders and rolls back when strict autosave fails", async () => {
+  it("preserves the submitted room state and assets when persistence fails", async () => {
     const project = createProject();
     const before = {
       elements: [{ id: "placeholder" }] as any,
@@ -328,6 +328,7 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
     let snapshot = before;
     const failure = new Error("strict autosave failed");
     const rollback = vi.fn(async () => project.imageRecords);
+    const commit = vi.fn(async () => undefined);
     const restoreCanvasSnapshot = vi.fn();
 
     await expect(
@@ -344,7 +345,7 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
             imageRecords: {},
           },
           imageRecords: {},
-          commit: vi.fn(),
+          commit,
           rollback,
         })),
         replaceSlot: vi.fn(() => {
@@ -359,8 +360,9 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
       }),
     ).rejects.toBe(failure);
 
-    expect(restoreCanvasSnapshot).toHaveBeenCalledWith(before);
-    expect(rollback).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(restoreCanvasSnapshot).not.toHaveBeenCalled();
+    expect(rollback).not.toHaveBeenCalled();
   });
 });
 

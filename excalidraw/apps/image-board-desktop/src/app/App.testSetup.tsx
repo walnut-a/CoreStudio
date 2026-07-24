@@ -227,13 +227,6 @@ const withImageWritebackBridgeMock = (bridge: Record<string, any>) => {
     changedElementIds: [],
     ignoredElementIds: [],
   }));
-  bridge.submitAgentWriterProjectRoomOperation ??= vi.fn(async (input) => ({
-    operationId: input.operation.operationId,
-    sequence: 0,
-    persistedSequence: 0,
-    changedElementIds: [],
-    ignoredElementIds: [],
-  }));
   bridge.leaveProjectRoom ??= vi.fn().mockResolvedValue(true);
   bridge.getProjectRoomCloseState ??= vi.fn().mockResolvedValue(null);
   bridge.closeProjectRoom ??= vi.fn().mockResolvedValue(true);
@@ -645,6 +638,9 @@ vi.mock("@excalidraw/excalidraw", () => {
               data-testid="excalidraw-canvas"
               data-lang-code={langCode}
               data-has-top-left-ui={renderTopLeftUI ? "true" : "false"}
+              data-has-custom-selected-shape-actions={
+                renderSelectedShapeActions ? "true" : "false"
+              }
             >
               <sidebarTabsContext.Provider
                 value={{

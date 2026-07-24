@@ -5,6 +5,7 @@ import { AGENT_HTTP_ROUTES } from "../shared/agentBridgeTypes";
 import {
   App,
   createMockProjectBundle,
+  mockExcalidrawAPI,
   render,
   screen,
   waitFor,
@@ -74,7 +75,15 @@ describe("App Agent Board room route", () => {
                   elements: [],
                   sharedSceneConfig: {},
                 },
-                participants: [],
+                participants: [
+                  {
+                    actorId: "codex:thread-1",
+                    sessionId: "board-session",
+                    transport: "websocket",
+                    role: "board-editor",
+                    displayLabel: "工业设计探索",
+                  },
+                ],
               },
               bootstrap: {
                 projectPath: project.projectPath,
@@ -129,6 +138,10 @@ describe("App Agent Board room route", () => {
     );
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(screen.getByTestId("excalidraw-canvas")).toHaveAttribute(
+      "data-has-custom-selected-shape-actions",
+      "false",
+    );
     await waitFor(() => {
       expect(
         new URL(window.location.href).searchParams.get("resumeToken"),
@@ -151,5 +164,13 @@ describe("App Agent Board room route", () => {
       ]),
     );
     expect(socketCount).toBe(1);
+    expect(
+      screen.queryByLabelText("正在画布中工作的 Agent"),
+    ).not.toBeInTheDocument();
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collaborators: expect.any(Map),
+      }),
+    );
   });
 });

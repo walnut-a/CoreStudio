@@ -102,6 +102,9 @@ const readState = () => {
   }
 };
 
+const isLegacyZipArtifact = (artifact) =>
+  artifact.endsWith("-mac.zip") || artifact.endsWith("-mac.zip.blockmap");
+
 const hasReusablePackage = ({
   state,
   fingerprint,
@@ -109,26 +112,43 @@ const hasReusablePackage = ({
   platform,
   arch,
   releaseDir: expectedReleaseDir,
-}) =>
-  Boolean(
+}) => {
+  const requiredArtifacts = Array.isArray(state?.artifacts)
+    ? state.artifacts.filter((artifact) => !isLegacyZipArtifact(artifact))
+    : [];
+
+  return Boolean(
     state &&
       state.fingerprint === fingerprint &&
       state.version === expectedVersion &&
       state.platform === platform &&
       state.arch === arch &&
-      Array.isArray(state.artifacts) &&
-      state.artifacts.length > 0 &&
-      state.artifacts.every((artifact) =>
+      requiredArtifacts.length > 0 &&
+      requiredArtifacts.every((artifact) =>
         fs.existsSync(path.join(expectedReleaseDir, artifact)),
       ),
   );
+};
+
+const removeLegacyZipArtifacts = ({
+  releaseDir: targetReleaseDir,
+  productName: targetProductName,
+  version: targetVersion,
+  arch,
+}) => {
+  const zipPath = path.join(
+    targetReleaseDir,
+    `${targetProductName}-${targetVersion}-${arch}-mac.zip`,
+  );
+
+  for (const artifactPath of [zipPath, `${zipPath}.blockmap`]) {
+    fs.rmSync(artifactPath, { force: true });
+  }
+};
 
 const collectReleaseArtifacts = () => {
   const artifactPrefix = `${productName}-${version}-${process.arch}`;
-  const artifacts = [
-    `${artifactPrefix}.dmg`,
-    `${artifactPrefix}-mac.zip`,
-  ];
+  const artifacts = [`${artifactPrefix}.dmg`];
   const appDirectory = fs
     .readdirSync(releaseDir, { withFileTypes: true })
     .find(
@@ -211,6 +231,13 @@ const main = () => {
   const fingerprint = getSourceFingerprint();
   const forcePackage = process.env.CORESTUDIO_FORCE_PACKAGE === "1";
 
+  removeLegacyZipArtifacts({
+    releaseDir,
+    productName,
+    version,
+    arch: process.arch,
+  });
+
   if (
     !forcePackage &&
     hasReusablePackage({
@@ -223,7 +250,7 @@ const main = () => {
     })
   ) {
     console.log(
-      `CoreStudio ${version} already has a complete package for the current source. Reusing release artifacts.`,
+      `CoreStudio ${version} already has a complete DMG package for the current source. Reusing release artifacts.`,
     );
     return;
   }
@@ -254,6 +281,7 @@ const main = () => {
 
 module.exports = {
   hasReusablePackage,
+  removeLegacyZipArtifacts,
 };
 
 if (require.main === module) {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildAgentBrowserAutoOpenProjectPlan,
   buildAgentBrowserBridgeStatusRetryPlan,
   buildAgentBrowserConnectionRefreshPlan,
 } from "./agentBrowserConnectionState";
@@ -128,105 +127,6 @@ describe("buildAgentBrowserBridgeStatusRetryPlan", () => {
     ).toEqual({
       scheduleRetry: false,
       delayMs: 500,
-    });
-  });
-});
-
-describe("buildAgentBrowserAutoOpenProjectPlan", () => {
-  const openProjectPath = "/Users/example/CoreStudio/工业设计助手";
-  const currentProjectPath = "/Users/example/CoreStudio/EDC设计助手";
-
-  it("does nothing outside the Agent Board route", () => {
-    expect(
-      buildAgentBrowserAutoOpenProjectPlan({
-        isAgentBrowserRoute: false,
-        hasInitialProjectToken: true,
-        loadingProject: false,
-        bridgeProjectPath: openProjectPath,
-        currentProjectPath,
-        autoOpenProjectPath: null,
-      }),
-    ).toEqual({ action: "none" });
-  });
-
-  it("does nothing before the Agent Board URL carries a project token", () => {
-    expect(
-      buildAgentBrowserAutoOpenProjectPlan({
-        isAgentBrowserRoute: true,
-        hasInitialProjectToken: false,
-        loadingProject: false,
-        bridgeProjectPath: openProjectPath,
-        currentProjectPath,
-        autoOpenProjectPath: null,
-      }),
-    ).toEqual({ action: "none" });
-  });
-
-  it("does nothing while a project is already loading", () => {
-    expect(
-      buildAgentBrowserAutoOpenProjectPlan({
-        isAgentBrowserRoute: true,
-        hasInitialProjectToken: true,
-        loadingProject: true,
-        bridgeProjectPath: openProjectPath,
-        currentProjectPath,
-        autoOpenProjectPath: null,
-      }),
-    ).toEqual({ action: "none" });
-  });
-
-  it("does nothing when the bridge has no current project path yet", () => {
-    expect(
-      buildAgentBrowserAutoOpenProjectPlan({
-        isAgentBrowserRoute: true,
-        hasInitialProjectToken: true,
-        loadingProject: false,
-        bridgeProjectPath: null,
-        currentProjectPath,
-        autoOpenProjectPath: null,
-      }),
-    ).toEqual({ action: "none" });
-  });
-
-  it("does nothing when the Agent Board already opened the bridge project", () => {
-    expect(
-      buildAgentBrowserAutoOpenProjectPlan({
-        isAgentBrowserRoute: true,
-        hasInitialProjectToken: true,
-        loadingProject: false,
-        bridgeProjectPath: openProjectPath,
-        currentProjectPath: openProjectPath,
-        autoOpenProjectPath: null,
-      }),
-    ).toEqual({ action: "none" });
-  });
-
-  it("does nothing when the same project auto-open has already been scheduled", () => {
-    expect(
-      buildAgentBrowserAutoOpenProjectPlan({
-        isAgentBrowserRoute: true,
-        hasInitialProjectToken: true,
-        loadingProject: false,
-        bridgeProjectPath: openProjectPath,
-        currentProjectPath,
-        autoOpenProjectPath: openProjectPath,
-      }),
-    ).toEqual({ action: "none" });
-  });
-
-  it("opens the bridge project when Agent Board connects to a different project", () => {
-    expect(
-      buildAgentBrowserAutoOpenProjectPlan({
-        isAgentBrowserRoute: true,
-        hasInitialProjectToken: true,
-        loadingProject: false,
-        bridgeProjectPath: openProjectPath,
-        currentProjectPath,
-        autoOpenProjectPath: null,
-      }),
-    ).toEqual({
-      action: "open-project",
-      projectPath: openProjectPath,
     });
   });
 });

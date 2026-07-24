@@ -363,6 +363,32 @@ describe("ProjectRoom", () => {
     expect(room.sequence).toBe(1);
   });
 
+  it("returns the original result when the same actor retries after reconnect", () => {
+    const room = createRoom();
+    room.join(boardParticipant);
+    const operation = {
+      ...room.identity,
+      operationId: "operation-reconnected",
+      baseSequence: 0,
+      elements: [{ ...initialElements[0], version: 2, x: 40 }],
+    };
+    const firstResult = room.applySceneOperation(
+      boardParticipant.sessionId,
+      operation,
+    );
+    room.leave(boardParticipant.sessionId);
+    const reconnectedParticipant = {
+      ...boardParticipant,
+      sessionId: "board-session-reconnected",
+    };
+    room.join(reconnectedParticipant);
+
+    expect(
+      room.applySceneOperation(reconnectedParticipant.sessionId, operation),
+    ).toEqual(firstResult);
+    expect(room.sequence).toBe(1);
+  });
+
   it("bounds retained operation ids for long-lived rooms", () => {
     const room = createProjectRoom({
       identity: {
@@ -817,5 +843,55 @@ describe("ProjectRoom", () => {
     await expect(room.flushPersistence()).resolves.toBeUndefined();
     expect(room.lifecycle).toBe("active");
     expect(room.persistedSequence).toBe(1);
+  });
+
+  it("preserves a structured storage divergence error in room events", async () => {
+    const persist = vi.fn().mockRejectedValue(
+      Object.assign(new Error("storage diverged"), {
+        code: "PROJECT_STORAGE_DIVERGED",
+        details: { expectedSceneHash: "old", currentSceneHash: "external" },
+      }),
+    );
+    const room = createProjectRoom({
+      identity: {
+        projectId: "project-1",
+        canonicalProjectPath: "/projects/project-1",
+        roomId: "room-1",
+        sessionEpoch: 7,
+      },
+      initialScene: {
+        elements: initialElements,
+        sharedSceneConfig: {},
+      },
+      persistedSequence: 0,
+      projectRevision: "revision-0",
+      persistence: { debounceMs: 10_000, persist },
+    });
+    const listener = vi.fn();
+    room.subscribe(listener);
+    room.join(desktopParticipant);
+    room.applySceneOperation(desktopParticipant.sessionId, {
+      ...room.identity,
+      operationId: "operation-diverged",
+      baseSequence: 0,
+      elements: [{ ...initialElements[0], version: 2, x: 40 }],
+    });
+
+    await expect(room.flushPersistence()).rejects.toMatchObject({
+      code: "PROJECT_STORAGE_DIVERGED",
+    });
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "scene.persistence-failed",
+        error: {
+          code: "PROJECT_STORAGE_DIVERGED",
+          message: "storage diverged",
+          details: {
+            expectedSceneHash: "old",
+            currentSceneHash: "external",
+          },
+        },
+      }),
+    );
   });
 });

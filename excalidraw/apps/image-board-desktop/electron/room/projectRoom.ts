@@ -77,7 +77,7 @@ export class ProjectRoomError extends Error {
 type ProjectRoomListener = (event: ProjectRoomEvent) => void;
 
 interface StoredOperation {
-  sessionId: string;
+  actorId: string;
   result: ProjectRoomOperationResult;
 }
 
@@ -316,10 +316,10 @@ export class ProjectRoom {
 
     const storedOperation = this.operations.get(operation.operationId);
     if (storedOperation) {
-      if (storedOperation.sessionId !== participant.sessionId) {
+      if (storedOperation.actorId !== participant.actorId) {
         throw new ProjectRoomError(
           "OPERATION_ID_CONFLICT",
-          "The operation id is already owned by another session.",
+          "The operation id is already owned by another actor.",
           { operationId: operation.operationId },
         );
       }
@@ -420,7 +420,7 @@ export class ProjectRoom {
       supersededElementIds,
     };
     this.operations.set(operation.operationId, {
-      sessionId: participant.sessionId,
+      actorId: participant.actorId,
       result: clone(result),
     });
     if (operation.clientSequence !== undefined) {
@@ -485,12 +485,19 @@ export class ProjectRoom {
           this.lifecycle = "storage-error";
         }
         this.lastPersistenceError = error;
+        const errorCode =
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "PROJECT_STORAGE_DIVERGED"
+            ? "PROJECT_STORAGE_DIVERGED"
+            : "PERSISTENCE_FAILED";
         this.broadcast({
           type: "scene.persistence-failed",
           identity: clone(this.identity),
           sequence: targetSequence,
           error: {
-            code: "PERSISTENCE_FAILED",
+            code: errorCode,
             message:
               error instanceof Error
                 ? error.message

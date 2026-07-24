@@ -35,16 +35,8 @@ describe("agentBridgeTypes", () => {
   });
 
   it("exports the Agent browser desktop bridge method allowlist", () => {
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("openRecentProject");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("writeProjectScene");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain(
-      "applyProjectSceneElementPatches",
-    );
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("generateImages");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("beginImageWriteback");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("commitImageWriteback");
-    expect(AGENT_DESKTOP_BRIDGE_METHODS).toContain("rollbackImageWriteback");
-    expect(isAgentDesktopBridgeMethod("openProject")).toBe(true);
+    expect(AGENT_DESKTOP_BRIDGE_METHODS).toEqual(["loadAppInfo"]);
+    expect(isAgentDesktopBridgeMethod("openProject")).toBe(false);
     expect(isAgentDesktopBridgeMethod("onAgentCommandRequest")).toBe(false);
   });
 
@@ -80,19 +72,19 @@ describe("agentBridgeTypes", () => {
     });
   });
 
-  it("exports stale snapshot as a structured Agent error code", () => {
-    expect(AGENT_ERROR_CODES).toContain("STALE_PROJECT_SNAPSHOT");
-    expect(isAgentErrorCode("STALE_PROJECT_SNAPSHOT")).toBe(true);
+  it("exports storage divergence as a structured Agent error code", () => {
+    expect(AGENT_ERROR_CODES).toContain("PROJECT_STORAGE_DIVERGED");
+    expect(isAgentErrorCode("PROJECT_STORAGE_DIVERGED")).toBe(true);
     expect(
-      createAgentError("STALE_PROJECT_SNAPSHOT", "Stale scene", {
+      createAgentError("PROJECT_STORAGE_DIVERGED", "Storage diverged", {
         expectedSceneHash: "old",
         currentSceneHash: "new",
       }),
     ).toEqual({
       ok: false,
       error: {
-        code: "STALE_PROJECT_SNAPSHOT",
-        message: "Stale scene",
+        code: "PROJECT_STORAGE_DIVERGED",
+        message: "Storage diverged",
         details: {
           expectedSceneHash: "old",
           currentSceneHash: "new",

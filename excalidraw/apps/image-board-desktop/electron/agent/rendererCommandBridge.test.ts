@@ -131,8 +131,8 @@ describe("createRendererCommandBridge", () => {
     responseListener?.({
       requestId: "request-1",
       ok: false,
-      errorCode: "STALE_PROJECT_SNAPSHOT",
-      errorMessage: "画板文件已经被其他会话更新。",
+      errorCode: "PROJECT_STORAGE_DIVERGED",
+      errorMessage: "磁盘内容与当前项目房间不一致。",
       errorDetails: {
         expectedSceneHash: "old",
         currentSceneHash: "new",
@@ -140,8 +140,8 @@ describe("createRendererCommandBridge", () => {
     });
 
     await expect(resultPromise).rejects.toMatchObject({
-      code: "STALE_PROJECT_SNAPSHOT",
-      message: "画板文件已经被其他会话更新。",
+      code: "PROJECT_STORAGE_DIVERGED",
+      message: "磁盘内容与当前项目房间不一致。",
       details: {
         expectedSceneHash: "old",
         currentSceneHash: "new",

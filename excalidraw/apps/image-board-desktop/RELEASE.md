@@ -34,7 +34,7 @@ CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" corepack yarn package
 
 正式发布不要在这个命令前额外运行 `build:desktop`；`package:desktop` 已经包含唯一一次生产构建。
 
-同一版本、同一平台和同一份源码已经成功生成完整 App、DMG 与 ZIP 时，再次执行该命令会直接复用现有产物，不会重复构建、公证。确实需要重新生成时，显式使用：
+同一版本、同一平台和同一份源码已经成功生成完整 App 与 DMG 时，再次执行该命令会直接复用现有产物，不会重复构建、公证。确实需要重新生成时，显式使用：
 
 ```sh
 CORESTUDIO_FORCE_PACKAGE=1 CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" \
@@ -49,14 +49,15 @@ CORESTUDIO_FORCE_PACKAGE=1 CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychai
 - Electron main / preload build
 - 源码密钥扫描
 - 打包输入密钥扫描
-- electron-builder 生成签名 App 与 DMG（不预生成 ZIP）
+- electron-builder 生成签名 App 与 DMG
 - DMG 签名
 - Apple 公证
 - DMG / App 写入公证票据
 - Gatekeeper 校验
-- App 写入公证票据后单次生成最终 ZIP
-- DMG / ZIP blockmap 重新生成
+- DMG blockmap 重新生成
 - release 输出密钥扫描
+
+唯一发布安装包是公证后的 DMG。`release/` 中的 `.app` 目录用于本地验证，`.blockmap` 是更新元数据，都不作为第二个安装包发布。
 
 生成文件位于：
 
@@ -140,20 +141,7 @@ accepted
 source=Notarized Developer ID
 ```
 
-## ZIP 处理
-
-`electron-builder` 不生成公证前的 ZIP；`notarize:release` 会在 `CoreStudio.app` 写入票据后单次压缩最终 ZIP，并重新生成 `.blockmap`。发布 ZIP 前可以再抽检一次：
-
-```sh
-cd excalidraw
-TMP_DIR="$(mktemp -d /tmp/corestudio-zip-check.XXXXXX)"
-unzip -q apps/image-board-desktop/release/CoreStudio-1.1.0-arm64-mac.zip -d "$TMP_DIR"
-xcrun stapler validate "$TMP_DIR/CoreStudio.app"
-spctl -a -vvv -t exec "$TMP_DIR/CoreStudio.app"
-codesign --verify --deep --strict --verbose=2 "$TMP_DIR/CoreStudio.app"
-```
-
-也可以直接校验发布目录里的 app：
+可以直接校验发布目录里的 app：
 
 ```sh
 xcrun stapler validate apps/image-board-desktop/release/mac-arm64/CoreStudio.app
@@ -178,7 +166,6 @@ corepack yarn check:desktop-secrets --source --package-inputs --release
 
 ```text
 excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64.dmg
-excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64-mac.zip
 ```
 
 示例：
@@ -186,7 +173,6 @@ excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64-mac.zip
 ```sh
 gh release create v1.1.0 \
   excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64.dmg \
-  excalidraw/apps/image-board-desktop/release/CoreStudio-1.1.0-arm64-mac.zip \
   --title "CoreStudio 1.1.0" \
   --notes-file release-notes.md \
   --repo OWNER/REPO

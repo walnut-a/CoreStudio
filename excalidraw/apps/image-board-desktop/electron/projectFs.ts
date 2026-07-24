@@ -541,8 +541,8 @@ const writeProjectSceneUnlocked = async ({
     currentSceneHash !== nextSceneHash
   ) {
     throw createProjectAgentError(
-      "STALE_PROJECT_SNAPSHOT",
-      "画板文件已经被其他会话更新，已停止保存旧快照。请重新打开项目后再继续。",
+      "PROJECT_STORAGE_DIVERGED",
+      "磁盘内容与当前项目房间不一致，已停止持久化。请检查项目文件的外部修改。",
       {
         expectedSceneHash,
         currentSceneHash,

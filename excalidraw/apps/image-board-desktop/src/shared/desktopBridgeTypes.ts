@@ -76,8 +76,6 @@ export const IPC_CHANNELS = {
   projectRoomJoin: "image-board:project-room-join",
   projectRoomOperation: "image-board:project-room-operation",
   projectRoomFlushPersistence: "image-board:project-room-flush-persistence",
-  projectRoomAgentWriterOperation:
-    "image-board:project-room-agent-writer-operation",
   projectRoomLeave: "image-board:project-room-leave",
   projectRoomCloseState: "image-board:project-room-close-state",
   projectRoomClose: "image-board:project-room-close",
@@ -422,10 +420,6 @@ export interface DesktopBridgeApi {
     operation: ProjectRoomSceneOperation;
   }): Promise<ProjectRoomOperationResult>;
   flushProjectRoomPersistence?(sessionId: string): Promise<void>;
-  submitAgentWriterProjectRoomOperation?(input: {
-    sessionId: string;
-    operation: ProjectRoomSceneOperation;
-  }): Promise<ProjectRoomOperationResult>;
   leaveProjectRoom?(sessionId: string): Promise<boolean>;
   getProjectRoomCloseState?(input: {
     projectPath: string;

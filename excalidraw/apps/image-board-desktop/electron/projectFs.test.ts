@@ -1749,8 +1749,8 @@ describe("projectFs", () => {
         expectedSceneHash: baseHash,
       }),
     ).rejects.toMatchObject({
-      code: "STALE_PROJECT_SNAPSHOT",
-      message: expect.stringContaining("画板文件已经被其他会话更新"),
+      code: "PROJECT_STORAGE_DIVERGED",
+      message: expect.stringContaining("磁盘内容与当前项目房间不一致"),
       details: {
         expectedSceneHash: baseHash,
         currentSceneHash: getSceneContentHash(nextScene),

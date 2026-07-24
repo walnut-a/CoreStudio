@@ -102,7 +102,8 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain(
       "corestudio read image-paths --selection --json",
     );
-    expect(cliContract).toContain("### Write An Agent Image Result");
+    expect(cliContract).toContain("### Write An Agent Image Batch");
+    expect(cliContract).toContain("files[]");
     expect(cliContract).toContain("--origin agent-board");
     expect(cliContract).toContain("--reference-file-ids");
     expect(cliContract).toContain("### Locate A Written Result");
@@ -151,7 +152,8 @@ describe("agent integration docs", () => {
     );
 
     expect(architecture).toContain("cache/image-writebacks/");
-    expect(architecture).toContain("begin → scene → strict autosave → commit");
+    expect(architecture).toContain("项目房间是当前 scene 的权威状态");
+    expect(architecture).toContain("PROJECT_STORAGE_DIVERGED");
     expect(architecture).toContain("mixed");
     expect(architecture).toContain("WRITEBACK_CONFLICT");
     expect(qaNotes).toContain("## Image Writeback Recovery Checklist");

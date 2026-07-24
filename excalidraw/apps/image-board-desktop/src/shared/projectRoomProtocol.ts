@@ -87,6 +87,7 @@ export type ProjectRoomErrorCode =
   | "ROOM_CLOSING"
   | "ROOM_WRITE_MODE_ACTIVE"
   | "PERSISTENCE_FAILED"
+  | "PROJECT_STORAGE_DIVERGED"
   | "PARTICIPANTS_CHANGED"
   | "FORBIDDEN"
   | "PROJECT_ROOM_ALREADY_OPEN"
@@ -149,7 +150,7 @@ export interface ProjectRoomPersistenceFailed {
   identity: ProjectRoomIdentity;
   sequence: number;
   error: {
-    code: "PERSISTENCE_FAILED";
+    code: "PERSISTENCE_FAILED" | "PROJECT_STORAGE_DIVERGED";
     message: string;
     details?: unknown;
   };

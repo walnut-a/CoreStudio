@@ -1,4 +1,9 @@
-import type { ProjectRoomIdentity } from "./projectRoomProtocol";
+import type { PersistedImageAssetInput } from "./desktopBridgeTypes";
+import type {
+  ProjectRoomIdentity,
+  ProjectRoomScene,
+  ProjectRoomSceneElement,
+} from "./projectRoomProtocol";
 
 export const AGENT_BRIDGE_PROTOCOL_VERSION = 2;
 
@@ -63,6 +68,14 @@ export interface AgentBoardCommandContext {
 export interface AgentWriterCommandContext {
   sessionId: string;
   identity: ProjectRoomIdentity;
+  roomSequence: number;
+  scene: ProjectRoomScene;
+}
+
+export interface PreparedAgentWriterCommand {
+  type: "agent-writer.prepared";
+  elements: ProjectRoomSceneElement[];
+  files?: PersistedImageAssetInput[];
 }
 
 export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
@@ -70,25 +83,7 @@ export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
 
 export const AGENT_DESKTOP_BRIDGE_METHODS = [
-  "createProject",
-  "openProject",
-  "openRecentProject",
-  "loadRecentProjects",
-  "readProjectAssetPayloads",
-  "inspectProjectHealth",
-  "rebuildProjectThumbnails",
-  "cleanProjectCache",
-  "persistImageAssets",
-  "beginImageWriteback",
-  "commitImageWriteback",
-  "rollbackImageWriteback",
-  "importImages",
-  "revealProjectInFinder",
   "loadAppInfo",
-  "loadProviderSettings",
-  "saveProviderSettings",
-  "deleteProviderSettings",
-  "readClipboardImage",
 ] as const;
 
 export type AgentDesktopBridgeMethod =
@@ -149,7 +144,7 @@ export const AGENT_ERROR_CODES = [
   "SESSION_NOT_FOUND",
   "PERSISTENCE_FAILED",
   "PARTICIPANTS_CHANGED",
-  "STALE_PROJECT_SNAPSHOT",
+  "PROJECT_STORAGE_DIVERGED",
   "TOKEN_EXPIRED",
   "UNSUPPORTED_COMMAND",
   "WRITEBACK_CONFLICT",

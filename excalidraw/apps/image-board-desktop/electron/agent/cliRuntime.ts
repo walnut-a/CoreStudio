@@ -60,7 +60,7 @@ interface CliCommand {
   route?: string;
   method?: "GET" | "POST";
   body?: Record<string, unknown>;
-  imagePath?: string;
+  imagePaths?: string[];
   local?: (
     bridge: BridgeSession,
     options: CliRuntimeOptions,
@@ -167,7 +167,7 @@ Global options:
 Examples:
   corestudio read context --json
   corestudio read board-url --json
-  corestudio write image ./generated.png --source-type generated --origin agent-board --json
+  corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
   corestudio write image ./searched.png --source-type imported --json
   corestudio edit locate --file-id <file-id> --json
 `;
@@ -414,15 +414,19 @@ const parseCommand = (
     if (isEnvelope(parsed)) {
       return parsed;
     }
-    if (parsed.positionals.length !== 1) {
-      return badRequestEnvelope("write image accepts exactly one image path.");
+    if (!parsed.positionals.length) {
+      return badRequestEnvelope(
+        "write image requires at least one image path.",
+      );
     }
-    const imagePath = requiredString(
-      parsed.positionals[0],
-      "write image requires an image path.",
+    const imagePaths = parsed.positionals.map((value) =>
+      requiredString(value, "write image requires an image path."),
     );
-    if (typeof imagePath !== "string") {
-      return imagePath;
+    const invalidImagePath = imagePaths.find(
+      (value): value is AgentEnvelope<never> => typeof value !== "string",
+    );
+    if (invalidImagePath) {
+      return invalidImagePath;
     }
     const referenceFileIds = parseReferenceIdsFlag(
       parsed.flags["--reference-file-ids"],
@@ -441,7 +445,7 @@ const parseCommand = (
     return {
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
-      imagePath,
+      imagePaths: imagePaths as string[],
       body: {
         sourceType: parsed.flags["--source-type"] ?? "generated",
         ...(parsed.flags["--origin"]
@@ -593,7 +597,7 @@ const parseCommand = (
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,
-          `${envPrefix} ${executable} write image /absolute/path/to/generated.png --source-type generated --origin agent-board --json`,
+          `${envPrefix} ${executable} write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/searched.png --source-type imported --json`,
           `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
           `${envPrefix} ${executable} write prompt --text "..." --json`,
@@ -959,26 +963,38 @@ const prepareRequestBody = async (
     return badRequestEnvelope(preparedAddImageBodyError);
   }
 
-  if (!command.imagePath) {
+  if (!command.imagePaths?.length) {
     return normalizedCommandBody;
   }
 
   const readImagePayload =
     options.readImagePayload ??
     ((filePath: string) => defaultReadImagePayload(filePath, options));
-  try {
+  const imagePayloads: ImportedImagePayload[] = [];
+  for (const imagePath of command.imagePaths) {
+    try {
+      imagePayloads.push(await readImagePayload(imagePath));
+    } catch (error) {
+      const cause = getErrorMessage(error);
+      return commandFailedEnvelope(`Failed to read image payload: ${cause}`, {
+        stage: "read-image-payload",
+        imagePath,
+        cause,
+      });
+    }
+  }
+
+  if (imagePayloads.length === 1) {
     return {
-      ...(await readImagePayload(command.imagePath)),
+      ...imagePayloads[0],
       ...(normalizedCommandBody ?? {}),
     };
-  } catch (error) {
-    const cause = getErrorMessage(error);
-    return commandFailedEnvelope(`Failed to read image payload: ${cause}`, {
-      stage: "read-image-payload",
-      imagePath: command.imagePath,
-      cause,
-    });
   }
+
+  return {
+    ...(normalizedCommandBody ?? {}),
+    files: imagePayloads,
+  };
 };
 
 const readSessionDescriptor = async (

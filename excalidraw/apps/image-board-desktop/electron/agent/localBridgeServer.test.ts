@@ -458,7 +458,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("allows recent project discovery through the desktop bridge without bearer auth", async () => {
+  it("does not expose recent project discovery through the desktop bridge", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJsonWithoutAuth(
@@ -476,14 +476,11 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
-      method: "loadRecentProjects",
-      args: [],
-    });
+    expect(result.status).toBe(400);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("allows the connected Agent Board to open a recent project before it has a project token", async () => {
+  it("does not let Agent Board switch projects through the desktop bridge", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJsonWithoutAuth(
@@ -501,11 +498,8 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
-      method: "openRecentProject",
-      args: [currentProject.projectPath],
-    });
+    expect(result.status).toBe(400);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("allows browser CORS preflight requests from the Agent Board origin", async () => {
@@ -992,11 +986,11 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("maps renderer STALE_PROJECT_SNAPSHOT errors to conflict responses", async () => {
+  it("maps storage divergence errors to conflict responses", async () => {
     const error = Object.assign(
-      new Error("画板文件已经被其他会话更新，已停止保存旧快照。"),
+      new Error("磁盘内容与当前项目房间不一致。"),
       {
-        code: "STALE_PROJECT_SNAPSHOT",
+        code: "PROJECT_STORAGE_DIVERGED",
         details: {
           expectedSceneHash: "old",
           currentSceneHash: "new",
@@ -1015,8 +1009,8 @@ describe("createLocalBridgeServer", () => {
       body: {
         ok: false,
         error: {
-          code: "STALE_PROJECT_SNAPSHOT",
-          message: "画板文件已经被其他会话更新，已停止保存旧快照。",
+          code: "PROJECT_STORAGE_DIVERGED",
+          message: "磁盘内容与当前项目房间不一致。",
           details: {
             expectedSceneHash: "old",
             currentSceneHash: "new",
@@ -1085,7 +1079,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("forwards allowed desktop bridge methods without task grants", async () => {
+  it("forwards only the informational desktop bridge method", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJson(
@@ -1094,24 +1088,24 @@ describe("createLocalBridgeServer", () => {
       {
         method: "POST",
         body: JSON.stringify({
-          method: "openRecentProject",
-          args: [currentProject.projectPath],
+          method: "loadAppInfo",
+          args: [],
         }),
       },
     );
 
     expect(result.status).toBe(200);
     expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
-      method: "openRecentProject",
-      args: [currentProject.projectPath],
+      method: "loadAppInfo",
+      args: [],
     });
     expect(result.body).toEqual({
       ok: true,
       data: {
         command: "desktop.bridge",
         payload: {
-          method: "openRecentProject",
-          args: [currentProject.projectPath],
+          method: "loadAppInfo",
+          args: [],
         },
       },
     });
@@ -1150,7 +1144,7 @@ describe("createLocalBridgeServer", () => {
     expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("forwards add-prompt with a valid write-board grant", async () => {
+  it("does not treat legacy write-board grants as room identity", async () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
       projectPath: currentProject.projectPath,
@@ -1172,15 +1166,11 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
-      projectPath: currentProject.projectPath,
-      text: "make this softer",
-      dryRun: false,
-    });
+    expect(result.status).toBe(401);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("forwards add-prompt with only the local bridge token", async () => {
+  it("requires trusted participant identity for add-prompt", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJson(
@@ -1194,12 +1184,8 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
-      projectPath: currentProject.projectPath,
-      text: "make this softer",
-      dryRun: false,
-    });
+    expect(result.status).toBe(401);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("runs room write commands as the trusted Codex agent-writer identity", async () => {
@@ -1218,6 +1204,11 @@ describe("createLocalBridgeServer", () => {
             roomId: string;
             sessionEpoch: number;
           };
+          roomSequence: number;
+          scene: {
+            elements: [];
+            sharedSceneConfig: {};
+          };
         }) => Promise<unknown>,
       ) =>
         run({
@@ -1227,6 +1218,11 @@ describe("createLocalBridgeServer", () => {
             canonicalProjectPath: currentProject.projectPath,
             roomId: "room-1",
             sessionEpoch: 2,
+          },
+          roomSequence: 0,
+          scene: {
+            elements: [],
+            sharedSceneConfig: {},
           },
         }),
     );
@@ -1273,6 +1269,11 @@ describe("createLocalBridgeServer", () => {
           canonicalProjectPath: currentProject.projectPath,
           roomId: "room-1",
           sessionEpoch: 2,
+        },
+        roomSequence: 0,
+        scene: {
+          elements: [],
+          sharedSceneConfig: {},
         },
       },
     });
@@ -1372,7 +1373,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("ignores legacy write grant permissions on local-token write routes", async () => {
+  it("rejects legacy grant permissions on room write routes", async () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
       projectPath: currentProject.projectPath,
@@ -1393,12 +1394,8 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
-      projectPath: currentProject.projectPath,
-      text: "not allowed",
-      dryRun: false,
-    });
+    expect(result.status).toBe(401);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("requires a known project token for write routes", async () => {

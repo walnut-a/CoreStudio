@@ -1,7 +1,4 @@
-import type {
-  AgentDesktopBridgeMethod,
-  AgentRendererCommandName,
-} from "../../shared/agentBridgeTypes";
+import type { AgentRendererCommandName } from "../../shared/agentBridgeTypes";
 
 export const createAgentBadRequestError = (message: string) =>
   Object.assign(new Error(message), {
@@ -15,7 +12,7 @@ export const createAgentCapabilityUnavailableError = ({
 }: {
   message: string;
   command: AgentRendererCommandName;
-  capability: AgentDesktopBridgeMethod;
+  capability: string;
 }) =>
   Object.assign(new Error(message), {
     code: "CAPABILITY_UNAVAILABLE" as const,

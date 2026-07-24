@@ -2,13 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   buildAgentBrowserBridgeConfig,
-  buildAgentBrowserProjectTokenHref,
   buildAgentBrowserRouteState,
   maybeCreateAgentBrowserDesktopBridge,
 } from "./agentBrowserBridge";
 
 describe("buildAgentBrowserRouteState", () => {
-  it("detects the Agent Board route and project token", () => {
+  it("detects the Agent Board route without reading legacy project tokens", () => {
     expect(
       buildAgentBrowserRouteState({
         pathname: "/agent-board",
@@ -16,19 +15,6 @@ describe("buildAgentBrowserRouteState", () => {
       }),
     ).toEqual({
       isAgentBrowserRoute: true,
-      hasInitialProjectToken: true,
-    });
-  });
-
-  it("keeps the legacy token query parameter supported", () => {
-    expect(
-      buildAgentBrowserRouteState({
-        pathname: "/agent-board",
-        href: "http://127.0.0.1:5174/agent-board?token=legacy-token",
-      }),
-    ).toEqual({
-      isAgentBrowserRoute: true,
-      hasInitialProjectToken: true,
     });
   });
 
@@ -40,13 +26,12 @@ describe("buildAgentBrowserRouteState", () => {
       }),
     ).toEqual({
       isAgentBrowserRoute: false,
-      hasInitialProjectToken: false,
     });
   });
 });
 
 describe("buildAgentBrowserBridgeConfig", () => {
-  it("normalizes the Agent Bridge URL and keeps the project token", () => {
+  it("normalizes the Agent Bridge URL and ignores project tokens", () => {
     expect(
       buildAgentBrowserBridgeConfig({
         pathname: "/agent-board",
@@ -54,19 +39,6 @@ describe("buildAgentBrowserBridgeConfig", () => {
       }),
     ).toEqual({
       bridge: "http://127.0.0.1:60909",
-      token: "project-token",
-    });
-  });
-
-  it("keeps the legacy token query parameter supported", () => {
-    expect(
-      buildAgentBrowserBridgeConfig({
-        pathname: "/agent-board",
-        href: "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&token=legacy-token",
-      }),
-    ).toEqual({
-      bridge: "http://127.0.0.1:60909",
-      token: "legacy-token",
     });
   });
 
@@ -86,32 +58,6 @@ describe("buildAgentBrowserBridgeConfig", () => {
         href: "http://127.0.0.1:5174/agent-board?projectToken=project-token",
       }),
     ).toBeNull();
-  });
-});
-
-describe("buildAgentBrowserProjectTokenHref", () => {
-  it("writes the project token into the current Agent Board URL", () => {
-    const href = buildAgentBrowserProjectTokenHref({
-      href: "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909",
-      token: "project-token",
-    });
-
-    const url = new URL(href);
-    expect(url.pathname).toBe("/agent-board");
-    expect(url.searchParams.get("bridge")).toBe("http://127.0.0.1:60909");
-    expect(url.searchParams.get("projectToken")).toBe("project-token");
-  });
-
-  it("replaces an existing project token without dropping other query parameters", () => {
-    const href = buildAgentBrowserProjectTokenHref({
-      href: "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectToken=old-token&view=compact",
-      token: "new-token",
-    });
-
-    const url = new URL(href);
-    expect(url.searchParams.get("bridge")).toBe("http://127.0.0.1:60909");
-    expect(url.searchParams.get("projectToken")).toBe("new-token");
-    expect(url.searchParams.get("view")).toBe("compact");
   });
 });
 

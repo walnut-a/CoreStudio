@@ -34,7 +34,6 @@ const {
   readGenerateDialogComposerContentSection,
   readGenerateDialogComposerSection,
   readImageInspector,
-  readAgentBoard,
   readProjectMainMenu,
   readProjectStatusToast,
   readCoreStudioIcons,
@@ -507,27 +506,27 @@ describe("CoreStudio shell layout styles", () => {
     );
     const narrowMenuRule = getRulesContaining(
       appCss,
-      ".image-board-app .App-menu_top",
+      ".image-board-app:not(.image-board-app--agent-board) .App-menu_top",
     ).find((rule) => rule.includes("padding-right"));
     const shapesRule = getRulesContaining(
       appCss,
-      ".image-board-app .shapes-section",
+      ".image-board-app:not(.image-board-app--agent-board) .shapes-section",
     ).find((rule) => rule.includes("min-width: 0"));
     const toolbarRule = getRulesContaining(
       appCss,
-      ".image-board-app .App-toolbar",
+      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar",
     ).find((rule) => rule.includes("overflow-x: auto"));
     const toolbarScrollbarRule = getRulesContaining(
       appCss,
-      ".image-board-app .App-toolbar::-webkit-scrollbar",
+      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar::-webkit-scrollbar",
     ).find((rule) => rule.includes("display: none"));
     const toolbarStackRule = getRulesContaining(
       appCss,
-      ".image-board-app .App-toolbar .Stack_horizontal",
+      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar .Stack_horizontal",
     ).find((rule) => rule.includes("min-width: max-content"));
     const keybindingRule = getRulesContaining(
       appCss,
-      ".image-board-app .App-toolbar .ToolIcon__keybinding",
+      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar .ToolIcon__keybinding",
     ).find((rule) => rule.includes("display: none"));
 
     expect(appCss).toContain("@media (max-width: 900px)");
@@ -570,19 +569,53 @@ describe("CoreStudio shell layout styles", () => {
     expect(keybindingRule).toContain("display: none");
   });
 
+  it("does not inject CoreStudio toolbar layout rules into Agent Board", () => {
+    const appCss = readAppCss();
+    const appSource = readImageBoardApp();
+
+    expect(appSource).toContain('"image-board-app--agent-board"');
+    expect(appCss).toContain(
+      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar",
+    );
+    expect(
+      getRulesContaining(appCss, ".image-board-app .App-toolbar"),
+    ).toHaveLength(0);
+  });
+
+  it("keeps the necessary Agent Board selection extension on native tokens", () => {
+    const selectionCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/AgentBoardSelectionBar.css",
+    );
+    const selectionRule = getRule(selectionCss, ".agent-board-selection-bar");
+    const actionRule = getRule(
+      selectionCss,
+      ".agent-board-selection-bar__icon-button",
+    );
+
+    expect(selectionRule).toContain(
+      "border-radius: var(--border-radius-lg)",
+    );
+    expect(selectionRule).toContain("background: var(--island-bg-color)");
+    expect(selectionRule).toContain("box-shadow: var(--shadow-island)");
+    expect(selectionRule).not.toContain("color-mix");
+    expect(selectionRule).not.toContain("backdrop-filter");
+    expect(actionRule).toContain("width: var(--lg-button-size)");
+    expect(actionRule).toContain("height: var(--lg-button-size)");
+  });
+
   it("keeps the extreme narrow embedded browser fallback visually calm", () => {
     const appCss = readAppCss();
     const toolbarContentRule = getRulesContaining(
       appCss,
-      ".image-board-app .App-toolbar-content",
+      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar-content",
     ).find((rule) => rule.includes("100vw - 24px"));
     const topLeftRule = getRulesContaining(
       appCss,
-      ".image-board-app .excalidraw-ui-top-left",
+      ".image-board-app:not(.image-board-app--agent-board) .excalidraw-ui-top-left",
     ).find((rule) => rule.includes("100vw - 72px"));
     const sideDockToggleRule = getRulesContaining(
       appCss,
-      ".image-board-app .side-dock__toggle",
+      ".image-board-app:not(.image-board-app--agent-board) .side-dock__toggle",
     ).find((rule) => rule.includes("display: none"));
     const composerLayerRule = getRulesContaining(
       appCss,
@@ -590,11 +623,11 @@ describe("CoreStudio shell layout styles", () => {
     ).find((rule) => rule.includes("display: none"));
     const undoRedoRule = getRulesContaining(
       appCss,
-      ".image-board-app .undo-redo-buttons",
+      ".image-board-app:not(.image-board-app--agent-board) .undo-redo-buttons",
     ).find((rule) => rule.includes("display: none"));
     const mobileUndoRule = getRulesContaining(
       appCss,
-      ".image-board-app .mobile-toolbar-undo",
+      ".image-board-app:not(.image-board-app--agent-board) .mobile-toolbar-undo",
     ).find((rule) => rule.includes("display: none"));
     const compactUndoRule = getRulesContaining(
       appCss,
@@ -606,7 +639,7 @@ describe("CoreStudio shell layout styles", () => {
     ).find((rule) => rule.includes("display: none"));
     const scrollBackRule = getRulesContaining(
       appCss,
-      ".image-board-app .scroll-back-to-content",
+      ".image-board-app:not(.image-board-app--agent-board) .scroll-back-to-content",
     ).find((rule) => rule.includes("display: none"));
 
     expect(appCss).toContain("@media (max-width: 420px)");

@@ -5,7 +5,6 @@ import type {
   ExcalidrawImperativeAPI,
 } from "@excalidraw/excalidraw/types";
 
-import type { AgentWriterCommandContext } from "../../shared/agentBridgeTypes";
 import type {
   DesktopBridgeApi,
   DesktopProjectBundle,
@@ -56,8 +55,5 @@ export interface AgentCommandRuntimeDeps {
     },
   ) => Promise<void>;
   restoreScene: (snapshot: AgentCommandSceneSnapshot) => void;
-  flushProjectRoom: (options?: {
-    strict?: boolean;
-    projectRoomAgentWriter?: AgentWriterCommandContext;
-  }) => Promise<unknown>;
+  flushProjectRoom: (options?: { strict?: boolean }) => Promise<unknown>;
 }

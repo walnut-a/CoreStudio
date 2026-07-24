@@ -233,6 +233,70 @@ describe("createProjectRoomWebSocketTransport", () => {
     });
   });
 
+  it("retries an unacknowledged operation with the same id after reconnect", async () => {
+    FakeWebSocket.instances = [];
+    const scheduled: Array<() => void> = [];
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      launchTicket: "launch-ticket",
+      WebSocketImpl: FakeWebSocket as any,
+      scheduleReconnect: (callback) => {
+        scheduled.push(callback);
+        return 1;
+      },
+    });
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const firstSocket = FakeWebSocket.instances[0];
+    firstSocket.open();
+    firstSocket.receive({
+      type: "room.joined",
+      sessionId: "board-session-1",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    const operation: ProjectRoomSceneOperation = {
+      ...snapshot.identity,
+      operationId: "operation-retry",
+      baseSequence: 0,
+      elements: [],
+    };
+    const resultPromise = transport.submitOperation(operation);
+    firstSocket.close();
+
+    scheduled[0]();
+    const secondSocket = FakeWebSocket.instances[1];
+    secondSocket.open();
+    secondSocket.receive({
+      type: "room.joined",
+      sessionId: "board-session-2",
+      resumeToken: "resume-token",
+      snapshot: { ...snapshot, sequence: 1 },
+    });
+
+    expect(JSON.parse(secondSocket.sent[0])).toEqual({
+      type: "scene.operation",
+      operation,
+    });
+    secondSocket.receive({
+      type: "operation.result",
+      result: {
+        type: "operation.accepted",
+        operationId: operation.operationId,
+        sequence: 1,
+        acceptedElementIds: [],
+        supersededElementIds: [],
+      },
+    });
+    await expect(resultPromise).resolves.toMatchObject({
+      operationId: operation.operationId,
+    });
+  });
+
   it("forwards an explicit resync snapshot", async () => {
     FakeWebSocket.instances = [];
     const transport = createProjectRoomWebSocketTransport({
@@ -294,6 +358,12 @@ describe("createProjectRoomWebSocketTransport", () => {
       snapshot,
     });
     await joinedPromise;
+    const pendingOperation = transport.submitOperation({
+      ...snapshot.identity,
+      operationId: "pending-before-room-close",
+      baseSequence: snapshot.sequence,
+      elements: [],
+    });
 
     const closedEvent = {
       type: "room.closed" as const,
@@ -304,7 +374,52 @@ describe("createProjectRoomWebSocketTransport", () => {
     socket.close();
 
     expect(listener).toHaveBeenCalledWith(closedEvent);
+    await expect(pendingOperation).rejects.toMatchObject({
+      code: "ROOM_CLOSED",
+    });
     expect(scheduled).toHaveLength(0);
+  });
+
+  it("rejects pending work when the participant explicitly leaves", async () => {
+    FakeWebSocket.instances = [];
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      resumeToken: "resume-token",
+      WebSocketImpl: FakeWebSocket as any,
+    });
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({
+      type: "room.joined",
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    const pendingOperation = transport.submitOperation({
+      ...snapshot.identity,
+      operationId: "pending-before-leave",
+      baseSequence: snapshot.sequence,
+      elements: [],
+    });
+    const pendingPersistence = transport.requestPersistence?.();
+
+    await transport.leave("board-session");
+
+    await expect(pendingOperation).rejects.toMatchObject({
+      code: "ROOM_CLOSED",
+    });
+    await expect(pendingPersistence).rejects.toMatchObject({
+      code: "ROOM_CLOSED",
+    });
+    expect(socket.sent.map((message) => JSON.parse(message))).toContainEqual({
+      type: "room.leave",
+    });
   });
 
   it("stops reconnecting after a terminal resume error", async () => {

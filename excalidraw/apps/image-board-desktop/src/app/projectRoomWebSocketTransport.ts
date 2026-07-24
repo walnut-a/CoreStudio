@@ -92,6 +92,7 @@ export const createProjectRoomWebSocketTransport = (
   const pendingOperations = new Map<
     string,
     {
+      operation: ProjectRoomSceneOperation;
       resolve: (result: ProjectRoomOperationResult) => void;
       reject: (error: Error) => void;
     }
@@ -114,7 +115,7 @@ export const createProjectRoomWebSocketTransport = (
   let stopped = false;
   let reconnectScheduled = false;
 
-  const rejectPending = (error: Error) => {
+  const rejectAllPending = (error: Error) => {
     for (const pending of pendingOperations.values()) {
       pending.reject(error);
     }
@@ -123,6 +124,25 @@ export const createProjectRoomWebSocketTransport = (
       pending.reject(error);
     }
     pendingPersistenceRequests.clear();
+  };
+
+  const rejectPendingPersistence = (error: Error) => {
+    for (const pending of pendingPersistenceRequests.values()) {
+      pending.reject(error);
+    }
+    pendingPersistenceRequests.clear();
+  };
+
+  const sendOperation = (
+    targetSocket: WebSocketLike,
+    operation: ProjectRoomSceneOperation,
+  ) => {
+    targetSocket.send(
+      JSON.stringify({
+        type: "scene.operation",
+        operation,
+      }),
+    );
   };
 
   const scheduleReconnect =
@@ -176,6 +196,9 @@ export const createProjectRoomWebSocketTransport = (
           for (const listener of snapshotListeners) {
             listener(joined);
           }
+          for (const pending of pendingOperations.values()) {
+            sendOperation(nextSocket, pending.operation);
+          }
         }
         return;
       }
@@ -195,6 +218,11 @@ export const createProjectRoomWebSocketTransport = (
       if (message.type === "room.event") {
         if (message.event?.type === "room.closed") {
           stopped = true;
+          rejectAllPending(
+            Object.assign(new Error("Project room was closed."), {
+              code: "ROOM_CLOSED",
+            }),
+          );
         }
         for (const listener of listeners) {
           listener(message.event);
@@ -239,7 +267,7 @@ export const createProjectRoomWebSocketTransport = (
           TERMINAL_ROOM_ERROR_CODES.has(code)
         ) {
           stopped = true;
-          rejectPending(error);
+          rejectAllPending(error);
           input.onTerminalError?.(error);
           nextSocket.close(1008, "terminal room error");
         }
@@ -248,12 +276,12 @@ export const createProjectRoomWebSocketTransport = (
     nextSocket.addEventListener("error", () => {
       const error = new Error("Project room WebSocket failed.");
       rejectInitialJoin?.(error);
-      rejectPending(error);
+      rejectPendingPersistence(error);
     });
     nextSocket.addEventListener("close", () => {
       const error = new Error("Project room WebSocket disconnected.");
       rejectInitialJoin?.(error);
-      rejectPending(error);
+      rejectPendingPersistence(error);
       if (socket === nextSocket) {
         socket = null;
       }
@@ -290,17 +318,13 @@ export const createProjectRoomWebSocketTransport = (
       const result = new Promise<ProjectRoomOperationResult>(
         (resolve, reject) => {
           pendingOperations.set(operation.operationId, {
+            operation,
             resolve,
             reject,
           });
         },
       );
-      socket.send(
-        JSON.stringify({
-          type: "scene.operation",
-          operation,
-        }),
-      );
+      sendOperation(socket, operation);
       return result;
     },
     updateSelection: async (selection: ProjectRoomParticipantSelection) => {
@@ -319,6 +343,11 @@ export const createProjectRoomWebSocketTransport = (
     },
     leave: async (sessionId) => {
       stopped = true;
+      rejectAllPending(
+        Object.assign(new Error("Project room connection closed."), {
+          code: "ROOM_CLOSED",
+        }),
+      );
       if (socket && (!activeSessionId || activeSessionId === sessionId)) {
         if (socket.readyState === WebSocketImpl.OPEN) {
           socket.send(JSON.stringify({ type: "room.leave" }));

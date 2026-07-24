@@ -14,7 +14,6 @@ export interface ProjectStatusToastProps {
   projectHealthReport: ProjectHealthReport | null;
   projectRepairReport: ProjectRepairReport | null;
   onOpenDetails: () => void;
-  agentBoardSaveStatus?: "idle" | "syncing" | "pending" | "saved" | "error";
 }
 
 export const ProjectStatusToast = ({
@@ -23,7 +22,6 @@ export const ProjectStatusToast = ({
   projectHealthReport,
   projectRepairReport,
   onOpenDetails,
-  agentBoardSaveStatus = "idle",
 }: ProjectStatusToastProps) => {
   const projectToast = buildProjectStatusToastViewModel({
     projectNotice,
@@ -31,27 +29,7 @@ export const ProjectStatusToast = ({
     projectHealthReport,
     projectRepairReport,
   });
-  const agentBoardToast =
-    agentBoardSaveStatus === "idle"
-      ? null
-      : {
-          message:
-            agentBoardSaveStatus === "syncing"
-              ? copy.agentBoardSave.syncing
-              : agentBoardSaveStatus === "pending"
-              ? copy.agentBoardSave.pending
-              : agentBoardSaveStatus === "saved"
-              ? copy.agentBoardSave.saved
-              : copy.agentBoardSave.error,
-          tone:
-            agentBoardSaveStatus === "saved"
-              ? ("success" as const)
-              : agentBoardSaveStatus === "error"
-              ? ("failed" as const)
-              : ("pending" as const),
-          hasDetails: false,
-        };
-  const toast = projectToast ?? agentBoardToast;
+  const toast = projectToast;
 
   if (!toast) {
     return null;

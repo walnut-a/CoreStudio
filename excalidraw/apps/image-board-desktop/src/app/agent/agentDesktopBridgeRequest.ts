@@ -1,9 +1,5 @@
 import { isAgentDesktopBridgeMethod } from "../../shared/agentBridgeTypes";
-import type {
-  DesktopBridgeApi,
-  DesktopProjectBundle,
-} from "../../shared/desktopBridgeTypes";
-import type { AgentCommandSceneSnapshot } from "./agentCommandRuntimeTypes";
+import type { DesktopBridgeApi } from "../../shared/desktopBridgeTypes";
 import {
   createAgentBadRequestError,
   isObjectPayload,
@@ -16,21 +12,9 @@ export type AgentDesktopBridgeRequestHandlerBridge = Partial<
 export const handleAgentDesktopBridgeRequest = async ({
   payload,
   desktopBridge,
-  getProject,
-  getScene,
-  serializeScene,
-  openRecentProject,
 }: {
   payload: unknown;
   desktopBridge: AgentDesktopBridgeRequestHandlerBridge;
-  getProject: () => DesktopProjectBundle | null;
-  getScene: () => AgentCommandSceneSnapshot | null;
-  serializeScene: (
-    scene: Pick<AgentCommandSceneSnapshot, "elements" | "appState">,
-  ) => string;
-  openRecentProject?: (
-    projectPath: string,
-  ) => Promise<DesktopProjectBundle | null>;
 }): Promise<unknown> => {
   if (
     !isObjectPayload(payload) ||
@@ -42,29 +26,6 @@ export const handleAgentDesktopBridgeRequest = async ({
   const args = payload.args;
   if (args !== undefined && !Array.isArray(args)) {
     throw createAgentBadRequestError("desktop.bridge args 必须是数组。");
-  }
-
-  if (payload.method === "openRecentProject") {
-    const [projectPath] = args ?? [];
-    const project = getProject();
-    if (
-      typeof projectPath === "string" &&
-      project?.projectPath === projectPath
-    ) {
-      const scene = getScene();
-      return {
-        ...project,
-        sceneJson: scene
-          ? serializeScene({
-              elements: scene.elements,
-              appState: scene.appState,
-            })
-          : project.sceneJson,
-      };
-    }
-    if (typeof projectPath === "string" && openRecentProject) {
-      return openRecentProject(projectPath);
-    }
   }
 
   const bridgeMethod = desktopBridge[payload.method];

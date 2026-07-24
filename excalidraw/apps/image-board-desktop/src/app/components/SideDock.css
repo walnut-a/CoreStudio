@@ -235,19 +235,19 @@
     );
   }
 
-  .image-board-app .App-menu_top {
+  .image-board-app:not(.image-board-app--agent-board) .App-menu_top {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: var(--ui-space-sm);
     padding-right: var(--canvas-top-control-inline-end-reserve);
   }
 
-  .image-board-app .shapes-section {
+  .image-board-app:not(.image-board-app--agent-board) .shapes-section {
     min-width: 0;
     justify-content: stretch;
     overflow: hidden;
   }
 
-  .image-board-app .App-toolbar {
+  .image-board-app:not(.image-board-app--agent-board) .App-toolbar {
     width: 100%;
     flex: 1 1 auto;
     min-width: 0;
@@ -259,41 +259,41 @@
     scrollbar-width: none;
   }
 
-  .image-board-app .App-toolbar::-webkit-scrollbar {
+  .image-board-app:not(.image-board-app--agent-board) .App-toolbar::-webkit-scrollbar {
     display: none;
   }
 
-  .image-board-app .App-toolbar .Stack_horizontal {
+  .image-board-app:not(.image-board-app--agent-board) .App-toolbar .Stack_horizontal {
     min-width: max-content;
     gap: var(--canvas-toolbar-compact-gap);
   }
 
-  .image-board-app .App-toolbar .ToolIcon__keybinding {
+  .image-board-app:not(.image-board-app--agent-board) .App-toolbar .ToolIcon__keybinding {
     display: none;
   }
 }
 
 @media (max-width: 420px) {
-  .image-board-app .App-toolbar-content {
+  .image-board-app:not(.image-board-app--agent-board) .App-toolbar-content {
     max-width: calc(100vw - 24px);
     overflow: hidden;
   }
 
-  .image-board-app .excalidraw-ui-top-left {
+  .image-board-app:not(.image-board-app--agent-board) .excalidraw-ui-top-left {
     max-width: calc(100vw - 72px);
     overflow: hidden;
   }
 
-  .image-board-app .side-dock__toggle,
-  .image-board-app .undo-redo-buttons,
-  .image-board-app .mobile-toolbar-undo,
-  .image-board-app
+  .image-board-app:not(.image-board-app--agent-board) .side-dock__toggle,
+  .image-board-app:not(.image-board-app--agent-board) .undo-redo-buttons,
+  .image-board-app:not(.image-board-app--agent-board) .mobile-toolbar-undo,
+  .image-board-app:not(.image-board-app--agent-board)
     .compact-shape-actions
     .compact-action-item:has([data-testid="button-undo"]),
-  .image-board-app
+  .image-board-app:not(.image-board-app--agent-board)
     .compact-shape-actions
     .compact-action-item:has([data-testid="button-redo"]),
-  .image-board-app .scroll-back-to-content {
+  .image-board-app:not(.image-board-app--agent-board) .scroll-back-to-content {
     display: none;
   }
 }

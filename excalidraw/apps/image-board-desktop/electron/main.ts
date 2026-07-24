@@ -120,6 +120,7 @@ import { installBrokenPipeConsoleGuard } from "./safeProcessLogging";
 import { createLocaleSettingsStore } from "./localeSettingsStore";
 import { createLocaleSettingsController } from "./localeSettingsController";
 import { createProjectRoomService } from "./room/projectRoomService";
+import { executeProjectRoomAgentWriterCommand } from "./room/projectRoomAgentWriter";
 import { createProjectRoomIpcController } from "./room/projectRoomIpcController";
 import { createProjectRoomTicketStore } from "./room/projectRoomTicketStore";
 import { ProjectRoomError, type ProjectRoom } from "./room/projectRoom";
@@ -669,22 +670,19 @@ const startLocalBridge = async () => {
         run,
       ) => {
         const room = await projectRoomService.openProject(project.projectPath);
-        const sessionId = randomUUID();
-        room.join({
+        return executeProjectRoomAgentWriterCommand({
+          room,
           actorId: `codex:${threadId}`,
-          sessionId,
-          transport: "command",
-          role: "agent-writer",
           displayLabel,
+          prepare: run,
+          persistAssets: (files) =>
+            persistAndPublishProjectRoomAssets({
+              projectPath: room.identity.canonicalProjectPath,
+              files,
+            }),
+          validateOperation: (operation) =>
+            validateProjectRoomOperationAssets(room, operation),
         });
-        try {
-          return await run({
-            sessionId,
-            identity: room.identity,
-          });
-        } finally {
-          room.leave(sessionId);
-        }
       },
       getProjectRoomParticipantState: async ({ project, threadId }) => {
         const room = await projectRoomService.findOpenRoom(project.projectPath);
@@ -1141,25 +1139,6 @@ const registerIpcHandlers = () => {
       projectRoomIpcController.flushPersistence(sessionId),
   );
   ipcMain.handle(
-    IPC_CHANNELS.projectRoomAgentWriterOperation,
-    async (
-      _event,
-      input: {
-        sessionId: string;
-        operation: ProjectRoomSceneOperation;
-      },
-    ) => {
-      const room = projectRoomService.manager.get(input.operation.projectId);
-      if (!room) {
-        throw new ProjectRoomError(
-          "ROOM_CLOSED",
-          "The project room is no longer active.",
-        );
-      }
-      return room.applyAgentCommandOperation(input.sessionId, input.operation);
-    },
-  );
-  ipcMain.handle(
     IPC_CHANNELS.projectRoomLeave,
     async (_event, sessionId: string) =>
       projectRoomIpcController.leave(sessionId),
@@ -1300,7 +1279,14 @@ const registerIpcHandlers = () => {
           activeRoom.publishAssetRecords(bundle.imageRecords);
         }
       }
-      return result;
+      return activeRoom
+        ? {
+            ...result,
+            // The repaired scene was already published as one authoritative
+            // maintenance operation. Renderer assets refresh independently.
+            restoredSceneJson: null,
+          }
+        : result;
     },
   );
 

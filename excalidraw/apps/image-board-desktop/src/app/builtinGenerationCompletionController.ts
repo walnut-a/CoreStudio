@@ -168,7 +168,6 @@ export const runBuiltinGenerationJobCompletionAction = async <
         appState: snapshot.appState,
         files: snapshot.files,
       });
-      await flushProjectRoom({ strict: true });
     } catch (error) {
       try {
         restoreCanvasSnapshot(beforeCanvasSnapshot);
@@ -184,6 +183,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
       }
       throw error;
     }
+    await flushProjectRoom({ strict: true });
     return {
       kind: "completed",
       replacedCount: 0,
@@ -232,7 +232,6 @@ export const runBuiltinGenerationJobCompletionAction = async <
       appState: snapshot.appState,
       files: snapshot.files,
     });
-    await flushProjectRoom({ strict: true });
   } catch (error) {
     let failure = error;
     try {
@@ -250,6 +249,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
     await rollbackProjectImageWritebackAfterFailure(writeback, failure);
   }
   await writeback.commit();
+  await flushProjectRoom({ strict: true });
 
   return {
     kind: "completed",

@@ -77,28 +77,19 @@ const findDmgFiles = () => {
     .readdirSync(releaseDir, { withFileTypes: true })
     .filter(
       (entry) =>
-        entry.isFile() && entry.name.startsWith(prefix) && entry.name.endsWith(".dmg"),
+        entry.isFile() &&
+        entry.name.startsWith(prefix) &&
+        entry.name.endsWith(".dmg"),
     )
     .map((entry) => path.join(releaseDir, entry.name));
 
   if (candidates.length === 0) {
-    throw new Error(`No ${productName} ${version} DMG found under ${releaseDir}`);
+    throw new Error(
+      `No ${productName} ${version} DMG found under ${releaseDir}`,
+    );
   }
 
   return sortNewestFirst(candidates);
-};
-
-const getZipPathForDmg = (dmgPath) => {
-  const basename = path.basename(dmgPath);
-  const prefix = `${productName}-${version}-`;
-  const suffix = ".dmg";
-
-  if (basename.startsWith(prefix) && basename.endsWith(suffix)) {
-    const arch = basename.slice(prefix.length, -suffix.length);
-    return path.join(releaseDir, `${productName}-${version}-${arch}-mac.zip`);
-  }
-
-  return path.join(releaseDir, basename.replace(/\.dmg$/i, "-mac.zip"));
 };
 
 const regenerateBlockMap = (filePath) => {
@@ -184,30 +175,6 @@ const main = () => {
   runCommand("xcrun", ["stapler", "staple", appPath]);
   runCommand("xcrun", ["stapler", "validate", appPath]);
   runCommand("spctl", ["-a", "-vvv", "-t", "exec", appPath]);
-
-  for (const dmgPath of dmgFiles) {
-    const zipPath = getZipPathForDmg(dmgPath);
-    if (fs.existsSync(zipPath)) {
-      fs.rmSync(zipPath);
-    }
-    if (fs.existsSync(`${zipPath}.blockmap`)) {
-      fs.rmSync(`${zipPath}.blockmap`);
-    }
-
-    runCommand(
-      "ditto",
-      [
-        "-c",
-        "-k",
-        "--sequesterRsrc",
-        "--keepParent",
-        path.basename(appPath),
-        zipPath,
-      ],
-      { cwd: path.dirname(appPath) },
-    );
-    regenerateBlockMap(zipPath);
-  }
 };
 
 if (require.main === module) {
@@ -222,5 +189,4 @@ if (require.main === module) {
 module.exports = {
   findAppBundle,
   findDmgFiles,
-  getZipPathForDmg,
 };

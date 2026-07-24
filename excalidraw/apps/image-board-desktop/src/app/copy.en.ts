@@ -132,7 +132,7 @@ export const enCopy: DesktopCopy = {
     currentImage: "Current image",
     descendantImages: "Later versions",
     locateImage: "Locate image",
-    locateGenerationRecord: "Show in generation history",
+    locateImageAsset: "Show in image assets",
     locateReference: (label: string) => `Locate ${label}`,
     locatedReferencingResult:
       "This image is a reference for a later result. Located the board image that uses it.",
@@ -412,13 +412,14 @@ export const enCopy: DesktopCopy = {
   agentUi: {
     conversationTitle: "Agent Conversation",
     currentConversation: "Current conversation",
-    generationRecordsTitle: "Generation History",
-    generationRecordsList: "Generation tasks",
-    generationRecord: {
-      untitled: "Untitled generation",
-      referenceChainIntermediate: "Reference-chain intermediate",
-      onBoard: "On board",
-      notOnBoard: "Not on board",
+    imageAssetsTitle: "Image Assets",
+    imageAssetsList: "Image assets",
+    imageAssetFilterGeneratedOnly: "Generated only",
+    imageAsset: {
+      imported: "Imported image",
+      untitledGenerated: "Untitled generation",
+      onBoard: "On canvas",
+      reference: "Reference",
     },
     integration: {
       status: {

@@ -37,7 +37,7 @@ const renderInspector = (
   overrides: Partial<{
     record: ImageRecord;
     onLocateImageRecord: (fileId: string) => void;
-    onLocateGenerationRecord: (fileId: string) => void;
+    onLocateImageAsset: (fileId: string) => void;
     onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
   }> = {},
 ) =>
@@ -61,9 +61,7 @@ const renderInspector = (
       onCopyPrompt={vi.fn()}
       onCopyTaskError={vi.fn()}
       onLocateImageRecord={overrides.onLocateImageRecord ?? vi.fn()}
-      onLocateGenerationRecord={
-        overrides.onLocateGenerationRecord ?? vi.fn()
-      }
+      onLocateImageAsset={overrides.onLocateImageAsset ?? vi.fn()}
       onLocatePromptReference={overrides.onLocatePromptReference ?? vi.fn()}
     />,
   );
@@ -138,15 +136,13 @@ describe("ImageInspector", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens the matching generation record from image details", () => {
-    const onLocateGenerationRecord = vi.fn();
-    renderInspector({ onLocateGenerationRecord });
+  it("opens the matching image asset from image details", () => {
+    const onLocateImageAsset = vi.fn();
+    renderInspector({ onLocateImageAsset });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "在生成记录中显示" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "在图片资产中显示" }));
 
-    expect(onLocateGenerationRecord).toHaveBeenCalledWith("file-1");
+    expect(onLocateImageAsset).toHaveBeenCalledWith("file-1");
   });
 
   it("does not offer a generation-record action for imported images", () => {
@@ -160,7 +156,7 @@ describe("ImageInspector", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: "在生成记录中显示" }),
+      screen.queryByRole("button", { name: "在图片资产中显示" }),
     ).not.toBeInTheDocument();
   });
 
@@ -272,7 +268,9 @@ describe("ImageInspector", () => {
 
     const detailGrid = screen.getByText("生成参数").closest("section");
     expect(detailGrid).not.toBeNull();
-    expect(within(detailGrid as HTMLElement).getByText("Codex")).toBeInTheDocument();
+    expect(
+      within(detailGrid as HTMLElement).getByText("Codex"),
+    ).toBeInTheDocument();
     expect(
       within(detailGrid as HTMLElement).getByText("external-image-service"),
     ).toBeInTheDocument();

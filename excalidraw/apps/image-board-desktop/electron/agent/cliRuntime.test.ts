@@ -209,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.26 (Codex integration 1.5.0, bridge protocol 2)\n",
+          "CoreStudio 1.1.26 (Codex integration 1.6.0, bridge protocol 2)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -227,7 +227,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.26",
-        integrationVersion: "1.5.0",
+        integrationVersion: "1.6.0",
         bridgeProtocolVersion: 2,
       },
     });
@@ -644,7 +644,7 @@ describe("runCli", () => {
           expect.stringContaining("read board --json"),
           expect.stringContaining("read browser-state --json"),
           expect.stringContaining(
-            "write image /absolute/path/to/generated.png --source-type generated --origin agent-board",
+            "write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board",
           ),
           expect.stringContaining(
             "write image /absolute/path/to/searched.png --source-type imported",
@@ -838,6 +838,47 @@ describe("runCli", () => {
       prompt: "优化这台 CNC",
       referenceFileIds: ["file-source"],
       referenceElementIds: ["element-source"],
+    });
+  });
+
+  it("writes multiple generated images as one scene.addImage batch", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+    const readImagePayload = vi.fn(async (filePath: string) => ({
+      ...imagePayload,
+      fileId: filePath.endsWith("a.png") ? "file-a" : "file-b",
+      fileName: filePath.split("/").at(-1) ?? "image.png",
+    }));
+
+    const result = await runCommand(
+      [
+        "write",
+        "image",
+        "/tmp/a.png",
+        "/tmp/b.png",
+        "--origin",
+        "agent-board",
+        "--prompt",
+        "同一轮生成",
+        "--reference-element-ids",
+        "reference-1,reference-2",
+        "--json",
+      ],
+      { fetch, readImagePayload },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(readImagePayload).toHaveBeenCalledTimes(2);
+    expect(records).toHaveLength(1);
+    expect(parseRequestBody(records)).toMatchObject({
+      sourceType: "generated",
+      generationOrigin: "agent-board",
+      prompt: "同一轮生成",
+      referenceElementIds: ["reference-1", "reference-2"],
+      files: [
+        expect.objectContaining({ fileId: "file-a", fileName: "a.png" }),
+        expect.objectContaining({ fileId: "file-b", fileName: "b.png" }),
+      ],
     });
   });
 
@@ -1035,11 +1076,6 @@ describe("runCli", () => {
       name: "unknown flag",
       argv: ["read", "status", "--bogus", "--json"],
       message: "Unknown flag: --bogus",
-    },
-    {
-      name: "multiple write image positionals",
-      argv: ["write", "image", "/tmp/a.png", "/tmp/b.png", "--json"],
-      message: "write image accepts exactly one image path.",
     },
     {
       name: "extra read positional",

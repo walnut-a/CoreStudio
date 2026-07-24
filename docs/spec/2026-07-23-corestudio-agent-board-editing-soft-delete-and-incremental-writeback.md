@@ -1,7 +1,7 @@
 # CoreStudio 本地协作房间、双画布同步与多项目演进方案
 
 > 所属项目：CoreStudio
-> 文档状态：源码实现与开发版验收已完成，等待后续安装包验收
+> 文档状态：协作主链路已实现；图片实时加载与“图片资产”侧栏仍待修复和验收
 > 当前交付范围：维持 Agent Board 现有编辑能力，重构双画布同步和持久化架构
 > 架构预留：多标签、多项目房间、多个 Codex 线程
 > 日期：2026-07-23
@@ -170,6 +170,8 @@ Codex thread 身份不能由浏览器任意声明。稳定 `actorId` 和展示�
 ### 4.2 低调的 Agent presence
 
 CoreStudio 主画布和 Agent Board 都提供一个低调的头像区，展示当前连接到这个项目房间的 Agent。两端使用同一份房间权威在线列表。它的作用是让用户理解“现在有哪些 Agent 正在这个画布中工作”，不是引入完整的多人协作社交界面。
+
+头像区直接使用 Excalidraw 原生 `collaborators` / `UserList` 展示能力，不额外叠加 CoreStudio 自定义胶囊、阴影或尺寸体系。Codex 图标作为 collaborator avatar 数据提供，任务名称使用上游 tooltip 和列表交互展示。
 
 首版至少展示：
 
@@ -535,6 +537,12 @@ Excalidraw 元素协作不自动解决以下数据：
 
 如果资产事务失败，图片元素不能进入权威 scene。
 
+资产已经可以读取不等于 renderer 已经加载图片。参与者收到新增
+`imageRecords` 或引用新 `fileId` 的权威 scene 后，必须复用现有项目资产读取
+和 Excalidraw 文件加载能力，把对应二进制补进本地 `files`。这个过程不得通过
+重新打开项目、刷新页面或再次读取整份 scene 完成，也不能依赖后续本地
+`onChange` 偶然触发。
+
 ### 11.2 删除
 
 - 画布删除设置 `isDeleted`。
@@ -556,6 +564,65 @@ Excalidraw 元素协作不自动解决以下数据：
 | `missing-board-element` | 没有有效元素或删除痕迹，可能是异常。 |
 
 健康检查和修复不得把 `removed-from-board` 自动补回画布。
+
+### 11.4 图片资产侧栏
+
+左侧“生成记录”升级为“图片资产”。它不是项目目录中所有历史图片文件的
+浏览器，只展示仍与当前画布有关的两个集合：
+
+1. **当前画布图片**：存在至少一个 `isDeleted !== true` 的 image 元素，
+   其 `fileId` 进入目录。
+2. **参考图**：仍被项目图片记录的 `promptReferences.fileIds` 引用，
+   即使参考图自身当前不在画布上，也进入目录。
+
+两个集合按 `fileId` 去重。同一文件既在画布上又是参考图时只显示一次，可以
+同时保留两个关系状态。以下资产不显示：
+
+- 只剩软删除墓碑、且没有被用作参考图的图片；
+- 已经离开画布和有效引用链的历史生成图片；
+- 项目资产目录中没有对应有效图片记录的孤立文件；
+- 缓存、缩略图和预览图等派生文件。
+
+侧栏默认展示上述全部图片，不区分生成和导入。提供“仅查看生成内容”筛选：
+
+- 关闭：展示当前画布图片和参考图中的全部合法记录；
+- 开启：在同一候选集合上继续筛选 `sourceType === "generated"`；
+- 筛选只影响显示，不修改 scene、`imageRecords` 或资产文件；
+- 普通导入图片如果正在画布上或作为参考图使用，默认可见；开启筛选后隐藏。
+
+目录项继续复用现有图片记录、缩略图读取、来源展示和画布定位能力，不创建
+第二份资产索引。点击当前画布图片定位对应的未删除元素；点击仅作为参考图
+存在的图片时，沿现有引用关系定位使用它的画布结果。无法定位时显示明确状态，
+不得自动把图片补回画布。
+
+### 11.5 内置生成与 Codex 生成的统一放置规则
+
+CoreStudio 内置生成和 Codex 生成是两个不同的生成入口，但不能拥有两套结果
+布局规则。两者统一复用现有 `placeGeneratedImages` 批量布局能力，并遵守：
+
+1. 先根据当前选择计算所有参考元素的整体边界。
+2. 在参考边界附近为这一轮全部结果寻找一个完整的空余区域。
+3. 整批结果在同一区域中按稳定网格排列，不覆盖参考图和现有画布内容。
+4. 避让发生在整批结果区域层面，不能让每张图片分别向上、下、左、右寻找
+   空位。
+5. 同一轮结果无论来自哪个入口，都具有相同间距、尺寸归一化、占用检测和
+   工作区边界规则。
+
+两个入口只在生成过程上有差异：
+
+| 入口                | 生成和写入过程                                                                 | 放置过程                     |
+| ------------------- | ------------------------------------------------------------------------------ | ---------------------------- |
+| CoreStudio 内置生成 | 提交时已知 `imageCount`，先按批量布局创建占位框；图片返回后替换对应占位框。     | 使用共享批量布局器。         |
+| Codex 生成          | Codex 在当前任务中完成这一轮图片生成，收集本轮成功结果后通过一次批量写入提交。 | 使用同一个共享批量布局器。   |
+
+Codex 当前一张一张调用 `scene.addImage` 会让每次单图写入从同一锚点重新执行
+最近空位搜索；前一张又会立即成为占用区域，最终结果向上下左右散开。正式行为不
+再把这种逐张流式写入作为同一轮多图生成的标准路径。
+
+“一轮生成”只作为一次语义写入和布局批次，不新增持久化结果组、画布分组或
+项目格式字段。CoreStudio 内置生成继续使用现有 job 和占位框；Codex 批量写入
+使用一个房间 operation。若某些图片生成失败，只提交这一轮已经成功的图片，
+不为失败项保留永久空位。
 
 ## 12. 多项目和未来多标签
 
@@ -885,7 +952,7 @@ Agent Board 页面资源由当前 CoreStudio 提供，但已经打开的旧页�
 | `read project` / `read records` / `read health` | 继续读取 CoreStudio 项目服务，但必须绑定明确项目。                         |
 | `read selection`                                | 读取调用方所绑定参与者的临时选区，不能使用全局唯一 selection。             |
 | `read image-paths --selection`                  | 使用调用方参与者选区解析图片，避免读取另一个标签页或 Codex thread 的选区。 |
-| `write image`                                   | 先完成资产事务，再提交房间 scene operation，并默认等待对应序号持久化成功。 |
+| `write image`                                   | 支持一次提交同一轮的多张图片；先完成整批资产事务，再通过一个房间 operation 按共享布局写入，并默认等待对应序号持久化成功。 |
 | `write prompt`                                  | 通过房间新增元素，不再调用 renderer `updateScene` 后 strict flush。        |
 | `edit locate` / `edit select`                   | 作用于明确的参与者 session，只改变该参与者的视口或选区。                   |
 | `read board-url`                                | 返回明确项目房间的 Agent Board URL，不能依赖全局 `currentProject`。        |
@@ -929,10 +996,11 @@ CoreStudio skill 当前假设“本机只有一个当前项目和一个当前选
 2. 从 Codex host context 取得当前任务标题，交给 CLI 身份适配层；用户不需要手工填写 actor id 或任务名称。
 3. 多个项目同时存在时，使用 Codex thread 绑定的 session context；缺少绑定时不能猜测目标项目。
 4. `read board` 读取房间权威 scene；`read selection` 读取当前 thread 对应参与者的选区。
-5. `write image` 和 `write prompt` 成功后检查 `persistedSequence`，再读取权威画布验证元素。
-6. `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED`、`PROJECT_MISMATCH` 和 `PERSISTENCE_FAILED` 保留原始 code 与 details。
-7. 项目被 CoreStudio 关闭后，skill 不重试旧 room 写入；提示重新打开项目并获取新的 session。
-8. 继续坚持所有项目数据通过 CLI / Local Bridge 操作，不直接编辑项目文件。
+5. 同一轮生成多张图片时，先收集成功结果，再通过一次批量 `write image` 写回；不能每生成一张就独立写入。
+6. `write image` 和 `write prompt` 成功后检查 `persistedSequence`，再读取权威画布验证元素。
+7. `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED`、`PROJECT_MISMATCH` 和 `PERSISTENCE_FAILED` 保留原始 code 与 details。
+8. 项目被 CoreStudio 关闭后，skill 不重试旧 room 写入；提示重新打开项目并获取新的 session。
+9. 继续坚持所有项目数据通过 CLI / Local Bridge 操作，不直接编辑项目文件。
 
 skill 不能提前发布。正确顺序是：
 
@@ -980,11 +1048,12 @@ skill 不能提前发布。正确顺序是：
 ### Phase 3：资产、重连和房间关闭
 
 1. 新图片 `fileId` 资产可用性屏障。
-2. Agent Board 刷新和断线重连。
-3. renderer 重新挂载。
-4. 项目切换和旧 epoch 拒绝。
-5. 保存失败状态、重试与“仍然关闭”退路。
-6. 参与者 presence 和项目关闭二次确认。
+2. 参与者收到资产记录和 scene 更新后主动加载新图片二进制，不刷新项目。
+3. Agent Board 刷新和断线重连。
+4. renderer 重新挂载。
+5. 项目切换和旧 epoch 拒绝。
+6. 保存失败状态、重试与“仍然关闭”退路。
+7. 参与者 presence 和项目关闭二次确认。
 
 ### Phase 4：完整元素能力
 
@@ -1032,7 +1101,8 @@ skill 不能提前发布。正确顺序是：
 
 - [x] CoreStudio 主画布移动元素，Agent Board 实时更新。
 - [x] Agent Board 移动元素，CoreStudio 主画布实时更新。
-- [x] Codex CLI 写入图片或 prompt，CoreStudio 主画布和 Agent Board 实时更新。
+- [ ] Codex CLI 写入图片或 prompt 后，CoreStudio 主画布和 Agent Board
+      都主动加载对应图片，不刷新页面或重新打开项目。
 - [x] 主画布和 Agent Board 不重新打开项目或要求用户刷新。
 - [x] 不出现合法协作导致的 `STALE_PROJECT_SNAPSHOT`。
 - [x] 错误保留 code、message 和 details。
@@ -1040,6 +1110,8 @@ skill 不能提前发布。正确顺序是：
 - [x] 同一元素并发编辑按确定性规则收敛，并能识别被 supersede 的操作。
 - [x] 主画布、Agent Board 或 Codex 命令软删除元素后，两个画布显示一致，原始资产仍然存在。
 - [x] 新图片元素广播前，其他参与者已经能够读取对应资产。
+- [x] 其他参与者收到新增图片后，明确触发现有资产加载能力并把二进制加入
+      Excalidraw `files`，不依赖手动刷新。
 - [x] 关闭重开项目后，最终场景正确。
 - [x] Agent Board 刷新后从权威 snapshot 恢复，并继续接收后续事件。
 - [x] 旧 session、旧 epoch 和错误项目身份不能写入。
@@ -1052,6 +1124,14 @@ skill 不能提前发布。正确顺序是：
 - [x] 关闭项目时，其他参与者会触发明确二次确认并收到关闭通知。
 - [x] 关闭前保存失败或超时不会把用户永久锁在项目中；用户可以重试或明确承担风险后仍然关闭。
 - [x] 测试、typecheck 和 desktop build 通过。
+- [x] 左侧“图片资产”默认只展示当前画布图片和参考图，按 `fileId` 去重。
+- [x] “仅查看生成内容”只筛选上述候选集合，不修改或删除项目数据。
+- [x] 普通导入图片在画布上或作为参考图使用时可从“图片资产”中找到。
+- [x] CoreStudio 内置生成和 Codex 批量写回使用同一个图片放置算法。
+- [x] Codex 同一轮生成的多张图片通过一次批量请求和一个房间 operation
+      写入，在参考图附近形成稳定网格，不向上下左右分散。
+- [x] Codex Skill 收集同一轮成功结果后再调用批量写入；CLI 对应支持多图片
+      输入并返回整批 elementId、fileId、operationId 和持久化状态。
 - [ ] 最终安装包完成真实双画布 UI 验收。
 
 ## 19. Agent Board 产品边界
@@ -1133,10 +1213,12 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 11. **开发运行稳定性**：Agent Board 在 React StrictMode 的探测挂载中不会提前消费一次性 ticket；连接仍在建立时卸载也会关闭 transport，并忽略迟到的 join 结果。
 12. **关闭交互语义**：同一 Codex actor 的多个连接在 presence 和关闭确认中只展示一次；用户取消关闭只保持当前项目，不再被包装成“旧项目未能保存”。
 13. **CLI 权威读取**：`read board` 和 `read scene` 直接读取主进程房间 scene，并按项目资产层补齐图片；不再依赖主画布 renderer 是否已经应用到同一帧。
+14. **图片实时加载与目录**：房间收到 `assets.updated` 或权威 scene 后都会按当前 scene 调度既有 rendition loader；左侧“图片资产”只展示未删除画布图片和 prompt reference，支持不改数据的“仅查看生成内容”筛选。
+15. **统一批量布局**：CLI 支持多个图片路径组成一个 `files[]` 请求，Agent writer 从参考 element IDs 计算整体锚点并复用 `placeGeneratedImages`；内置 Skill 1.6.0 / Skill 8 要求同一轮成功结果一次性写回。
 
 当前验证证据：
 
-- Desktop 全量测试：209 个测试文件、1668 个测试通过；数量减少来自旧 patch、renderer autosave、自动打开控制器及其测试被物理删除；
+- Desktop 全量测试：210 个测试文件、1664 个测试通过；数量变化来自旧生成记录侧栏测试被新的图片资产 view model、组件和房间资产刷新测试替换；
 - 全仓 TypeScript typecheck 通过；
 - desktop renderer 与 Electron 主进程构建通过；只有既有的大 chunk 提示，没有构建错误；
 - 源代码开发版已完成主画布到 Agent Board、Agent Board 到主画布的双向移动验收，过程中不重新打开项目；
@@ -1145,6 +1227,7 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 - 开发版已验证关闭项目会列出在线 Agent 并二次确认，取消后两个画布继续工作且不误报保存失败；
 - 当前 CLI 已使用 `CODEX_THREAD_ID` 和可信 issuer 读取对应 actor 的房间选区；现场只读返回 `{"selected":false}`；
 - CLI prompt/image 写入、agent-writer 身份、房间广播和持久化完成语义由自动化回归覆盖。为避免在用户现有项目留下测试元素，本轮没有强行执行真实项目的 CLI 写入；
+- 多路径 CLI 只发送一个 `scene.addImage` 请求；参考图锚点、整批稳定网格、图片资产候选集合、生成筛选、房间资产事件重试和内置 Skill/安装器版本一致性均有自动化回归；
 - 旧 session/epoch、资产顺序、持久化失败、关闭退路、双项目隔离、全元素结构和 CLI agent-writer 身份均有自动化回归；
 - 当前没有提交、打包、安装或发布。
 
@@ -1184,3 +1267,92 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 - `interactionId` 和 `final` 不再作为房间协议字段，避免暴露没有实际语义的自定义能力；
 - 房间协议版本升至 2，旧页面若仍提交已移除字段会收到结构化 `BAD_REQUEST`，刷新后使用同安装版本的 Agent Board 重新加入；
 - 仍然保留 CoreStudio 必需的 IPC/WebSocket adapter、身份验证、项目资产层和唯一持久化所有权。
+
+## 24. 机制切换后的完整适配收口
+
+2026-07-24 的只读审计确认，旧 patch、renderer autosave 和项目轮询虽已删除，但部分后来增加的功能仍保留“renderer 快照是事务边界”或“Agent Board 通过通用 Desktop Bridge 操作当前项目”的假设。本轮按以下不可回退约束完成收口：
+
+1. 房间接受并广播 operation 后，renderer 和资产层不得再用旧快照回滚已经公开的场景状态。提交前失败可以放弃事务；提交后持久化失败只能保留房间权威状态并进入明确的存储错误。
+2. `agent-writer` 直接针对项目房间创建元素并提交 operation。CLI/Codex 写入不依赖当前可见 Excalidraw API，不进入桌面用户的 undo 栈，也不借用 `currentProjectRef` 选择目标项目。
+3. CoreStudio 内置生成仍由桌面 renderer 负责交互和元素构造，但提交房间后不再恢复已过期的 renderer 快照或回滚已被场景引用的资产。
+4. 项目修复的场景变化只通过 maintenance operation 广播。renderer 只补充图片二进制和项目记录，不再重新加载或直接覆盖整份 scene。
+5. WebSocket 暂时断线时保留尚未确认的 operation，并在同 actor、同项目、同 room、同 epoch 恢复后使用原 `operationId` 重试。终止性身份错误不重试。
+6. 进程外磁盘变化使用独立的 `STORAGE_DIVERGED` 状态和错误码，不再描述为正常协作参与者造成的“其他会话更新”，也不折叠成无差别的 `PERSISTENCE_FAILED`。
+7. Agent Board 只使用 launch ticket、resume token 和房间资产接口。删除浏览器侧 project token 回退、公开 `openRecentProject` 和通用 Desktop Bridge 能力旁路；未来跨项目选择必须显式换取目标项目 ticket，不能切换主客户端全局项目。
+8. 正常实时同步和后台持久化不显示常驻成功提示。保存失败使用独立错误状态，恢复成功后自动清除，不与通用项目错误重复。
+9. 删除未进入生产调用图的旧 Agent Board HTTP 刷新页面、启动 ViewModel、项目版本轮询和对应测试，不保留第二套兼容路径。
+
+实施顺序按数据一致性、身份边界、界面清理推进。每项行为变化先用失败测试固定目标，再完成最小实现。复用 Excalidraw 的元素创建、版本、fractional index、restore、reconcile 和 `CaptureUpdateAction`；CoreStudio 自有代码只负责房间协议、身份、项目资产和持久化。
+
+## 25. 2026-07-24 图片实时加载、图片资产目录与连续生成布局修复计划
+
+安装态测试确认：Codex 写入新图片后，房间中的元素可以出现，但图片二进制
+没有被另一端主动加载，必须手动刷新；普通导入图片也不会进入左侧“生成记录”。
+
+当前实现的两个直接原因是：
+
+1. `assets.updated` 只合并新的 `imageRecords`，没有触发项目资产读取和
+   Excalidraw `files` 更新；权威 `scene.update` 也没有以新增 `fileId` 为依据
+   明确安排加载。
+2. 生成记录 view model 明确只保留 `sourceType === "generated"`，因此它
+   天然不是当前画布的完整图片目录。
+3. CoreStudio 内置生成会一次计算整批占位框，而 Codex 通常逐张调用
+   `scene.addImage`。Agent 写入虽然保存了参考元素和图片 ID，却没有把它们
+   转换成布局锚点；每张图都从同一视口中心重新搜索最近空位，因而依次分散到
+   上下左右。
+
+实施保持既有架构边界：
+
+1. 先用失败测试固定“资产事件先到、scene 更新后到”和“scene 更新先观察到
+   缺失文件”的顺序，确保两种顺序最终都只加载一次。
+2. 复用 `readProjectAssetPayloads`、现有 rendition load plan 和 Excalidraw
+   文件注入接口；不增加第二条刷新项目或整场景重载链路。
+3. 把资产记录合并与“为当前权威 scene 补齐缺失文件”组成一个明确 renderer
+   action。读取失败只报告该资产加载失败，不回滚已经接受的房间元素。
+4. 将生成记录 view model 收敛为图片资产 view model，候选集合只由未删除
+   image 元素和有效 `promptReferences.fileIds` 组成。
+5. 复用现有 `ImageRecord`、来源展示、缩略图和定位逻辑；不迁移项目格式，
+   不新增资产数据库，也不复制 Excalidraw 文件缓存。
+6. 侧栏标题和无障碍文案改为“图片资产”，增加“仅查看生成内容”筛选，并
+   使用现有 CoreStudio/Excalidraw 视觉变量，不另造控件样式体系。
+7. 扩展现有 CLI 批量图片输入，使同一轮图片通过一个 `files[]` 语义请求进入
+   现有 `scene.addImage` 和房间 operation，不复制图片布局实现。
+8. 更新 CoreStudio Skill：同一轮生成完成后收集成功图片并批量写回，不逐张
+   流式插入。CLI、Skill 和 Bridge 随安装版本使用一致能力契约。
+9. Agent 批量写入从参考 element IDs 计算整体 `anchorBounds`，与内置生成
+   一样调用 `placeGeneratedImages`；不新增持久化结果组或长期布局状态。
+
+TDD 和验收顺序：
+
+1. controller/renderer 单元测试：收到新 `imageRecords` 和权威图片元素后，
+   读取缺失 `fileId` 并加入 `files`。
+2. 顺序与去重测试：资产事件和 scene 事件无论先后都能收敛；相同 `fileId`
+   不重复并发读取。
+3. view model 测试：画布导入图、画布生成图、仅作为参考图的导入图进入目录；
+   无关历史图片和普通软删除图片不进入目录。
+4. 筛选与定位组件测试：“仅查看生成内容”不隐藏合法生成参考图，也不改变
+   项目数据；普通导入图片在筛选关闭时可定位。
+5. 双画布集成测试：Codex 写入图片后两个 renderer 不刷新项目即可显示图片。
+6. 布局契约测试：相同参考选择下，内置生成和 Codex 批量写入得到一致的整批
+   网格；整批避开参考图和现有元素，不按单图向四周搜索。
+7. CLI/Skill 契约测试：多图片输入只形成一个房间 operation，失败图片不占
+   永久空位，返回所有成功结果的身份和持久化状态。
+8. 完成 desktop tests、typecheck、build 后，再进行开发版和安装包真实 UI
+   验收。
+
+实施结果（2026-07-24）：
+
+- 已完成房间图片主动加载 action，资产记录和权威 scene 无论先后到达，都会
+  针对最新 scene 调度既有 rendition loader；不刷新或重开项目。
+- 已删除旧“生成记录”侧栏和 view model，替换为“图片资产”。候选集合严格是
+  当前未删除画布图片与 `promptReferences.fileIds` 的并集，并按 `fileId`
+  去重；生成筛选只作用于该集合。
+- CLI 已支持多图片路径，并把同轮图片作为一个 `files[]` 请求发送；Agent
+  writer 从参考 element IDs 计算 `anchorBounds`，继续调用既有
+  `placeGeneratedImages`，没有新增结果组或第二套布局实现。
+- 内置 CoreStudio Skill 已升级到集成 1.6.0 / Skill 8，明确同轮成功结果
+  收齐后一次写回；安装器、CLI 版本输出和公开安装说明保持一致。
+- 当前验证：Desktop 210 个测试文件、1664 个测试全部通过；全仓 TypeScript
+  typecheck 通过；desktop renderer 与 Electron build 通过。构建只有既有的
+  chunk size 提示。
+- 尚未进行安装包真实双画布 UI 验收；本轮未打包、安装或提交。

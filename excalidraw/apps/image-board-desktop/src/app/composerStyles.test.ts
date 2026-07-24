@@ -36,7 +36,6 @@ const {
   readGenerateDialogComposerContentSection,
   readGenerateDialogComposerSection,
   readImageInspector,
-  readAgentBoard,
   readProjectMainMenu,
   readProjectStatusToast,
   readCoreStudioIcons,
@@ -662,7 +661,7 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("LazyAgentBoard");
     expect(source).not.toContain("正在载入内置画板");
     expect(source).not.toContain("copy.startup.retryInstruction");
-    expect(gateSource).toContain("const LazyAgentBoard");
+    expect(gateSource).not.toContain("LazyAgentBoard");
     expect(gateSource).toContain("copy.agentBoard.loadingBuiltInTitle");
     expect(gateSource).toContain("copy.startup.retryInstruction");
   });
@@ -1369,13 +1368,13 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("runGenerateReferenceCommitRendererAction");
   });
 
-  it("keeps generation record prompt copy wiring outside the root app", () => {
+  it("keeps image asset prompt copy wiring outside the root app", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain("createGenerationRecordRendererActions");
-    expect(source).toContain("generationRecordRendererActions.copyPrompt");
+    expect(source).toContain("createImageAssetRendererActions");
+    expect(source).toContain("imageAssetRendererActions.copyPrompt");
     expect(source).not.toContain("const handleCopyPrompt");
-    expect(source).not.toContain("runGenerationRecordPromptCopyAction");
+    expect(source).not.toContain("runImageAssetPromptCopyAction");
   });
 
   it("keeps generation error renderer wiring outside the root app", () => {

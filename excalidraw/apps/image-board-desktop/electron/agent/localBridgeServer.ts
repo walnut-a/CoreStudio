@@ -103,6 +103,8 @@ export interface LocalBridgeServerOptions {
     run: (context: {
       sessionId: string;
       identity: import("../../src/shared/projectRoomProtocol").ProjectRoomIdentity;
+      roomSequence: number;
+      scene: import("../../src/shared/projectRoomProtocol").ProjectRoomScene;
     }) => Promise<unknown>,
   ) => Promise<unknown>;
   getProjectRoomParticipantState?: (input: {
@@ -163,6 +165,7 @@ const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
 ];
 
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
+  AUTH_REQUIRED: 401,
   BAD_REQUEST: 400,
   CAPABILITY_UNAVAILABLE: 409,
   FORBIDDEN: 403,
@@ -174,8 +177,8 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   SESSION_EPOCH_EXPIRED: 409,
   SESSION_NOT_FOUND: 409,
   PERSISTENCE_FAILED: 500,
+  PROJECT_STORAGE_DIVERGED: 409,
   PARTICIPANTS_CHANGED: 409,
-  STALE_PROJECT_SNAPSHOT: 409,
   WRITEBACK_CONFLICT: 409,
   UNSUPPORTED_COMMAND: 404,
 };
@@ -204,10 +207,7 @@ const STATIC_CONTENT_TYPES: Record<string, string> = {
 };
 
 const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
-  "loadRecentProjects",
-  "openRecentProject",
   "loadAppInfo",
-  "loadProviderSettings",
 ]);
 
 class RequestBodyTooLargeError extends Error {
@@ -788,31 +788,39 @@ const handleWriteCommand = async (
       request,
       options.participantIssuerToken,
     );
-    const result =
-      options.withAgentWriterCommand &&
-      (config.command === "scene.addImage" ||
-        config.command === "scene.addPrompt")
-        ? trustedParticipant
-          ? await options.withAgentWriterCommand(
-              {
-                project: currentProject,
-                ...trustedParticipant,
-              },
-              (context) =>
-                options.renderer.request(config.command, {
-                  ...payload,
-                  projectRoomAgentWriter: context,
-                }),
-            )
-          : (() => {
-              throw Object.assign(
-                new Error(
-                  "A trusted Codex participant identity is required for project room writes.",
-                ),
-                { code: "AUTH_REQUIRED" },
-              );
-            })()
-        : await options.renderer.request(config.command, payload);
+    const isRoomWrite =
+      config.command === "scene.addImage" ||
+      config.command === "scene.addPrompt";
+    let result: unknown;
+    if (isRoomWrite) {
+      if (!trustedParticipant) {
+        throw Object.assign(
+          new Error(
+            "A trusted Codex participant identity is required for project room writes.",
+          ),
+          { code: "AUTH_REQUIRED" },
+        );
+      }
+      if (!options.withAgentWriterCommand) {
+        throw Object.assign(
+          new Error("The project room command writer is unavailable."),
+          { code: "CAPABILITY_UNAVAILABLE" },
+        );
+      }
+      result = await options.withAgentWriterCommand(
+        {
+          project: currentProject,
+          ...trustedParticipant,
+        },
+        (context) =>
+          options.renderer.request(config.command, {
+            ...payload,
+            projectRoomAgentWriter: context,
+          }),
+      );
+    } else {
+      result = await options.renderer.request(config.command, payload);
+    }
     sendJson(response, 200, createAgentOk(result));
   } catch (error) {
     sendRendererError(response, error);

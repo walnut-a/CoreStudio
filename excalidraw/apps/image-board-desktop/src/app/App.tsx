@@ -10,7 +10,6 @@ import {
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import { CaptureUpdateAction } from "@excalidraw/element";
-import { OpenAIIcon } from "@excalidraw/excalidraw/components/icons";
 
 import type {
   AppState,
@@ -30,8 +29,12 @@ import {
   createProjectRoomClientController,
   type ProjectRoomClientController,
 } from "./projectRoomClientController";
+import { createProjectRoomAssetRefreshRendererActions } from "./projectRoomAssetRefreshController";
 import { createProjectRoomWebSocketTransport } from "./projectRoomWebSocketTransport";
-import { selectProjectRoomAgentPresence } from "./projectRoomPresence";
+import {
+  createProjectRoomCollaborators,
+  selectProjectRoomAgentPresence,
+} from "./projectRoomPresence";
 import { reconcileProjectRoomScene } from "./projectRoomSceneReconciliation";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
@@ -116,7 +119,7 @@ import { useDesktopStartupWiring } from "./useDesktopStartupWiring";
 import { useProjectRoomFlushWiring } from "./useProjectRoomFlushWiring";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AppBridgeUnavailable } from "./components/AppBridgeUnavailable";
-import { GenerationHistorySidebar } from "./components/GenerationHistorySidebar";
+import { ImageAssetSidebar } from "./components/ImageAssetSidebar";
 import { InspectorSidebar } from "./components/InspectorSidebar";
 import { AppErrorBanners } from "./components/AppErrorBanners";
 import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
@@ -155,9 +158,9 @@ import {
 } from "./generationErrorController";
 import { type GenerationErrorDetails } from "./generationErrorViewModel";
 import {
-  buildGenerationSidebarRecordItems,
-  createGenerationRecordRendererActions,
-} from "./generationRecordViewModel";
+  buildImageAssetItems,
+  createImageAssetRendererActions,
+} from "./imageAssetViewModel";
 import { createTimedNoticeRendererActions } from "./noticeTimerController";
 import { buildDefaultGenerationRequest } from "./generatePromptRequest";
 import { createGenerateDialogReferenceRendererActions } from "./generateDialogReferenceController";
@@ -181,10 +184,7 @@ import type {
   ProjectRoomParticipant,
   ProjectRoomSceneElement,
 } from "../shared/projectRoomProtocol";
-import type {
-  AgentRendererCommandRequest,
-  AgentWriterCommandContext,
-} from "../shared/agentBridgeTypes";
+import type { AgentRendererCommandRequest } from "../shared/agentBridgeTypes";
 
 import "./App.css";
 
@@ -192,7 +192,6 @@ import type {
   ImageAssetRequestRendition,
   ImagePromptReferenceRecord,
   ImageRecord,
-  ImageRecordMap,
 } from "../shared/projectTypes";
 import type {
   DesktopAppInfo,
@@ -353,10 +352,39 @@ const App = ({
   const [projectRoomParticipants, setProjectRoomParticipants] = useState<
     ProjectRoomParticipant[]
   >([]);
-  const projectRoomAgentPresence = useMemo(
-    () => selectProjectRoomAgentPresence(projectRoomParticipants),
+  const projectRoomCollaborators = useMemo(
+    () => createProjectRoomCollaborators(projectRoomParticipants),
     [projectRoomParticipants],
   );
+  const projectRoomCollaboratorSignature = useMemo(
+    () =>
+      [...projectRoomCollaborators.entries()]
+        .map(
+          ([socketId, collaborator]) =>
+            `${socketId}\u0000${collaborator.id ?? ""}\u0000${
+              collaborator.username ?? ""
+            }`,
+        )
+        .join("\n"),
+    [projectRoomCollaborators],
+  );
+  const appliedProjectRoomCollaboratorSignatureRef = useRef("");
+  useEffect(() => {
+    const api = excalidrawAPIRef.current;
+    if (
+      !api ||
+      projectRoomCollaboratorSignature ===
+        appliedProjectRoomCollaboratorSignatureRef.current
+    ) {
+      return;
+    }
+    api.updateScene({
+      collaborators: projectRoomCollaborators,
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+    appliedProjectRoomCollaboratorSignatureRef.current =
+      projectRoomCollaboratorSignature;
+  }, [projectRoomCollaborators, projectRoomCollaboratorSignature]);
   const [savingProviders, setSavingProviders] = useState(false);
   const providerSettingsRendererActions = useMemo(
     () =>
@@ -375,10 +403,8 @@ const App = ({
   );
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [projectRoomError, setProjectRoomError] = useState<string | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
-  const [agentBoardSaveStatus, setAgentBoardSaveStatus] = useState<
-    "idle" | "syncing" | "pending" | "saved" | "error"
-  >("idle");
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
   const [projectRepairReport, setProjectRepairReport] =
@@ -407,9 +433,12 @@ const App = ({
     useState<ApplicationSettingsCategory>("image-generation");
   const [appSettingsDirty, setAppSettingsDirty] = useState(false);
   const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
-  const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
-  const [generationRecordRevealRequest, setGenerationRecordRevealRequest] =
-    useState<{ fileId: string; requestId: number } | null>(null);
+  const [imageAssetSidebarOpen, setImageAssetSidebarOpen] = useState(false);
+  const [imageAssetGeneratedOnly, setImageAssetGeneratedOnly] = useState(false);
+  const [imageAssetRevealRequest, setImageAssetRevealRequest] = useState<{
+    fileId: string;
+    requestId: number;
+  } | null>(null);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
@@ -442,14 +471,15 @@ const App = ({
       }),
     [currentProject?.imageRecords, selectedRecord],
   );
-  const generationRecordItems = useMemo(
+  const imageAssetItems = useMemo(
     () =>
-      buildGenerationSidebarRecordItems({
-        project: currentProject,
+      buildImageAssetItems({
+        imageRecords: currentProject?.imageRecords,
         sceneImageFileIds,
         files: latestSceneRef.current?.files ?? null,
-      }).generationRecords,
-    [currentProject, sceneImageFileIds],
+        generatedOnly: imageAssetGeneratedOnly,
+      }),
+    [currentProject, imageAssetGeneratedOnly, sceneImageFileIds],
   );
 
   const sceneImageFileIdsRendererActions =
@@ -827,12 +857,10 @@ const App = ({
       loadOriginalScene: selectionReferenceOriginalSceneActions.load,
     });
 
-  const generationRecordRendererActions = createGenerationRecordRendererActions(
-    {
-      getSelectedRecord: () => selectedRecord,
-      copyText: clipboardTextRendererActions.copy,
-    },
-  );
+  const imageAssetRendererActions = createImageAssetRendererActions({
+    getSelectedRecord: () => selectedRecord,
+    copyText: clipboardTextRendererActions.copy,
+  });
 
   const imageRecordLocatorRendererActions =
     createImageRecordLocatorRendererActions({
@@ -1248,25 +1276,14 @@ const App = ({
     );
   };
 
-  const applyProjectRoomImageRecords = (imageRecords: ImageRecordMap) => {
-    const project = currentProjectRef.current;
-    if (!project) {
-      return;
-    }
-    const hasChanges = Object.entries(imageRecords).some(
-      ([fileId, record]) => project.imageRecords[fileId] !== record,
-    );
-    if (!hasChanges) {
-      return;
-    }
-    updateCurrentProject({
-      ...project,
-      imageRecords: {
-        ...project.imageRecords,
-        ...imageRecords,
-      },
+  const projectRoomAssetRefreshRendererActions =
+    createProjectRoomAssetRefreshRendererActions({
+      getProject: () => currentProjectRef.current,
+      getLatestScene: () => latestSceneRef.current,
+      updateProject: updateCurrentProject,
+      scheduleVisibleImageRenditionLoad:
+        visibleImageRenditionLoadRendererActions.schedule,
     });
-  };
 
   useEffect(() => {
     if (!currentProject) {
@@ -1290,25 +1307,19 @@ const App = ({
       sessionId,
       transport,
       applyParticipants: setProjectRoomParticipants,
-      applyImageRecords: applyProjectRoomImageRecords,
+      applyImageRecords:
+        projectRoomAssetRefreshRendererActions.applyImageRecords,
       ensureAssetsForElements: ensureProjectRoomAssetsForElements,
       onSyncStateChange: (state, error) => {
-        setAgentBoardSaveStatus(
-          state === "syncing"
-            ? "syncing"
-            : state === "pending-persistence"
-            ? "pending"
-            : state === "saved"
-            ? "saved"
-            : "error",
-        );
         if (error) {
-          setProjectError(formatProjectSaveError(error));
+          setProjectRoomError(formatProjectSaveError(error));
+        } else if (state === "saved") {
+          setProjectRoomError(null);
         }
       },
       onRoomClosed: () => {
         setProjectRoomReady(false);
-        setProjectError("项目已关闭，画布协作已断开。");
+        setProjectRoomError("项目已关闭，画布协作已断开。");
       },
       applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
         const api = excalidrawAPIRef.current;
@@ -1330,11 +1341,15 @@ const App = ({
           } as AppState,
           captureUpdate: CaptureUpdateAction.NEVER,
         });
-        latestSceneRef.current = {
+        const latestScene = {
           elements: api.getSceneElementsIncludingDeleted(),
           appState: api.getAppState(),
           files: api.getFiles(),
         };
+        latestSceneRef.current = latestScene;
+        projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
+          latestScene,
+        );
       },
     });
     projectRoomClientRef.current = controller;
@@ -1344,13 +1359,13 @@ const App = ({
       .then(() => {
         if (!disposed) {
           setProjectRoomReady(true);
-          setAgentBoardSaveStatus("saved");
+          setProjectRoomError(null);
         }
       })
       .catch((error) => {
         if (!disposed) {
           console.error("[project-room:desktop-join-failed]", error);
-          setProjectError(formatProjectSaveError(error));
+          setProjectRoomError(formatProjectSaveError(error));
         }
       });
 
@@ -1374,7 +1389,7 @@ const App = ({
     const bridgeBaseUrl =
       url.searchParams.get("bridge") ?? window.location.origin;
     if (!launchTicket && !resumeToken) {
-      setProjectError("Agent Board 缺少有效的房间连接凭证。");
+      setProjectRoomError("Agent Board 缺少有效的房间连接凭证。");
       return;
     }
 
@@ -1386,7 +1401,7 @@ const App = ({
       onTerminalError: (error) => {
         if (!disposed) {
           setProjectRoomReady(false);
-          setProjectError(formatProjectSaveError(error));
+          setProjectRoomError(formatProjectSaveError(error));
         }
       },
       replaceResumeToken: (nextResumeToken) => {
@@ -1403,25 +1418,19 @@ const App = ({
       sessionId: crypto.randomUUID(),
       transport,
       applyParticipants: setProjectRoomParticipants,
-      applyImageRecords: applyProjectRoomImageRecords,
+      applyImageRecords:
+        projectRoomAssetRefreshRendererActions.applyImageRecords,
       ensureAssetsForElements: ensureProjectRoomAssetsForElements,
       onSyncStateChange: (state, error) => {
-        setAgentBoardSaveStatus(
-          state === "syncing"
-            ? "syncing"
-            : state === "pending-persistence"
-            ? "pending"
-            : state === "saved"
-            ? "saved"
-            : "error",
-        );
         if (error) {
-          setProjectError(formatProjectSaveError(error));
+          setProjectRoomError(formatProjectSaveError(error));
+        } else if (state === "saved") {
+          setProjectRoomError(null);
         }
       },
       onRoomClosed: () => {
         setProjectRoomReady(false);
-        setProjectError("项目已关闭，画布协作已断开。");
+        setProjectRoomError("项目已关闭，画布协作已断开。");
       },
       applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
         const api = excalidrawAPIRef.current;
@@ -1443,11 +1452,15 @@ const App = ({
           } as AppState,
           captureUpdate: CaptureUpdateAction.NEVER,
         });
-        latestSceneRef.current = {
+        const latestScene = {
           elements: api.getSceneElementsIncludingDeleted(),
           appState: api.getAppState(),
           files: api.getFiles(),
         };
+        latestSceneRef.current = latestScene;
+        projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
+          latestScene,
+        );
       },
     });
     projectRoomClientRef.current = controller;
@@ -1473,14 +1486,13 @@ const App = ({
           });
           if (!disposed) {
             setProjectRoomReady(true);
-            setAgentBoardSaveStatus("saved");
+            setProjectRoomError(null);
           }
         })
         .catch((error) => {
           if (!disposed) {
             console.error("[project-room:agent-board-join-failed]", error);
-            setProjectError(formatProjectSaveError(error));
-            setAgentBoardSaveStatus("error");
+            setProjectRoomError(formatProjectSaveError(error));
           }
         });
     }, 0);
@@ -1522,7 +1534,7 @@ const App = ({
       void projectRoomClientRef.current
         ?.handleLocalSceneChange(elements, files, sharedSceneConfig)
         .catch((error) => {
-          setProjectError(formatProjectSaveError(error));
+          setProjectRoomError(formatProjectSaveError(error));
         });
     }
     return result;
@@ -1553,14 +1565,9 @@ const App = ({
   const flushProjectRoom = async (
     options: {
       strict?: boolean;
-      projectRoomAgentWriter?: AgentWriterCommandContext;
     } = {},
   ) => {
-    if (
-      projectRoomAssetTransactionDepthRef.current > 0 &&
-      !options.projectRoomAgentWriter &&
-      !options.strict
-    ) {
+    if (projectRoomAssetTransactionDepthRef.current > 0 && !options.strict) {
       return undefined;
     }
     const controller = projectRoomClientRef.current;
@@ -1570,36 +1577,18 @@ const App = ({
     }
     const elements = api.getSceneElementsIncludingDeleted();
     const appState = api.getAppState();
-    const sharedSceneConfig =
-      isAgentBrowserRoute || options.projectRoomAgentWriter
-        ? undefined
-        : (JSON.parse(
-            serializeSceneForProject({
-              elements,
-              appState,
-            }),
-          ).appState as Record<string, unknown>);
+    const sharedSceneConfig = isAgentBrowserRoute
+      ? undefined
+      : (JSON.parse(
+          serializeSceneForProject({
+            elements,
+            appState,
+          }),
+        ).appState as Record<string, unknown>);
     await controller.handleLocalSceneChange(
       elements,
       api.getFiles(),
       sharedSceneConfig,
-      options.projectRoomAgentWriter
-        ? {
-            submitOperation: (operation) => {
-              if (!desktopBridge.submitAgentWriterProjectRoomOperation) {
-                return Promise.reject(
-                  new Error(
-                    "CoreStudio agent-writer room adapter is unavailable.",
-                  ),
-                );
-              }
-              return desktopBridge.submitAgentWriterProjectRoomOperation({
-                sessionId: options.projectRoomAgentWriter!.sessionId,
-                operation,
-              });
-            },
-          }
-        : {},
     );
     return controller.waitForPersistence();
   };
@@ -1792,49 +1781,11 @@ const App = ({
       },
       flushProjectRoom,
       handleDesktopBridgeRequest: (input) =>
-        handleAgentDesktopBridgeRequest({
-          ...input,
-          openRecentProject: async (projectPath) => {
-            const result =
-              await currentProjectEntryRendererActions.openRecentProject(
-                projectPath,
-              );
-            const openedProject = currentProjectRef.current;
-            if (
-              result.status !== "opened" ||
-              openedProject?.projectPath !== projectPath
-            ) {
-              return null;
-            }
-            return openedProject;
-          },
-        }),
+        handleAgentDesktopBridgeRequest(input),
       handleCommandRequest: async (
         request: AgentRendererCommandRequest,
         deps,
-      ) => {
-        const projectRoomAgentWriter =
-          request.payload &&
-          typeof request.payload === "object" &&
-          "projectRoomAgentWriter" in request.payload
-            ? (request.payload.projectRoomAgentWriter as
-                | AgentWriterCommandContext
-                | undefined)
-            : undefined;
-        if (projectRoomAgentWriter) {
-          projectRoomAssetTransactionDepthRef.current += 1;
-        }
-        try {
-          return await handleAgentCommandRequest(request, deps);
-        } finally {
-          if (projectRoomAgentWriter) {
-            projectRoomAssetTransactionDepthRef.current = Math.max(
-              0,
-              projectRoomAssetTransactionDepthRef.current - 1,
-            );
-          }
-        }
-      },
+      ) => handleAgentCommandRequest(request, deps),
     });
 
   useEffect(
@@ -1984,7 +1935,6 @@ const App = ({
       thumbnailMaintenance={thumbnailMaintenance}
       projectHealthReport={projectHealthReport}
       projectRepairReport={projectRepairReport}
-      agentBoardSaveStatus={agentBoardSaveStatus}
       onOpenDetails={() => setProjectHealthReportOpen(true)}
     />
   );
@@ -1992,6 +1942,7 @@ const App = ({
   if (
     isAgentBrowserRoute &&
     !projectError &&
+    !projectRoomError &&
     (!currentProject || !initialData)
   ) {
     return (
@@ -2015,7 +1966,7 @@ const App = ({
     return (
       <AppProjectEntryScreen
         startupError={startupError}
-        projectError={projectError}
+        projectError={projectError ?? projectRoomError}
         loadingProject={loadingProject}
         recentProjects={recentProjects}
         onCreateProject={currentProjectEntryRendererActions.createProject}
@@ -2037,7 +1988,8 @@ const App = ({
   const appClassName = [
     "image-board-app",
     "image-board-app--project-open",
-    generationHistoryOpen ? "image-board-app--left-dock-open" : "",
+    isAgentBrowserRoute ? "image-board-app--agent-board" : "",
+    imageAssetSidebarOpen ? "image-board-app--left-dock-open" : "",
     inspectorDockOpen ? "image-board-app--right-dock-open" : "",
   ]
     .filter(Boolean)
@@ -2053,7 +2005,7 @@ const App = ({
     <div className={appClassName}>
       <AppErrorBanners
         startupError={startupError}
-        projectError={projectError}
+        projectError={projectError ?? projectRoomError}
       />
       {globalDialogs}
       <ProjectRenderBoundary
@@ -2085,6 +2037,14 @@ const App = ({
                     visibleImageRenditionLoadRendererActions.schedule(
                       latestSceneRef.current,
                     );
+                    if (api && projectRoomCollaborators.size > 0) {
+                      api.updateScene({
+                        collaborators: projectRoomCollaborators,
+                        captureUpdate: CaptureUpdateAction.NEVER,
+                      });
+                      appliedProjectRoomCollaboratorSignatureRef.current =
+                        projectRoomCollaboratorSignature;
+                    }
                   }
                 }}
                 onPointerUpdate={({ pointer }) => {
@@ -2108,51 +2068,57 @@ const App = ({
                 detectScroll={false}
                 handleKeyboardGlobally={true}
                 autoFocus={true}
-                renderSelectedShapeActions={({
-                  fullSelectedShapeActions,
-                  shouldRenderSelectedShapeActions,
-                }) => (
-                  <InspectorSidebar
-                    open={inspectorDockOpen}
-                    onOpenChange={setInspectorDockOpen}
-                    selectedShapeActions={fullSelectedShapeActions}
-                    shouldRenderSelectedShapeActions={
-                      shouldRenderSelectedShapeActions
-                    }
-                    record={selectedRecord}
-                    parentRecord={selectedImageRelationship.parentRecord}
-                    ancestorRecords={selectedImageRelationship.ancestorRecords}
-                    descendantRecords={
-                      selectedImageRelationship.descendantRecords
-                    }
-                    task={selectedTask}
-                    onCopyPrompt={() => {
-                      void generationRecordRendererActions.copyPrompt();
-                    }}
-                    onCopyTaskError={() => {
-                      void generationErrorRendererActions.copyTaskError();
-                    }}
-                    onLocateImageRecord={(fileId) => {
-                      void imageRecordLocatorRendererActions.locateImageRecord(
-                        fileId,
-                      );
-                    }}
-                    onLocateGenerationRecord={() => {
-                      if (selectedRecord) {
-                        setGenerationRecordRevealRequest((current) => ({
-                          fileId: selectedRecord.fileId,
-                          requestId: (current?.requestId ?? 0) + 1,
-                        }));
-                      }
-                      setGenerationHistoryOpen(true);
-                    }}
-                    onLocatePromptReference={(reference) => {
-                      void imageRecordLocatorRendererActions.locatePromptReference(
-                        reference,
-                      );
-                    }}
-                  />
-                )}
+                renderSelectedShapeActions={
+                  isAgentBrowserRoute
+                    ? undefined
+                    : ({
+                        fullSelectedShapeActions,
+                        shouldRenderSelectedShapeActions,
+                      }) => (
+                        <InspectorSidebar
+                          open={inspectorDockOpen}
+                          onOpenChange={setInspectorDockOpen}
+                          selectedShapeActions={fullSelectedShapeActions}
+                          shouldRenderSelectedShapeActions={
+                            shouldRenderSelectedShapeActions
+                          }
+                          record={selectedRecord}
+                          parentRecord={selectedImageRelationship.parentRecord}
+                          ancestorRecords={
+                            selectedImageRelationship.ancestorRecords
+                          }
+                          descendantRecords={
+                            selectedImageRelationship.descendantRecords
+                          }
+                          task={selectedTask}
+                          onCopyPrompt={() => {
+                            void imageAssetRendererActions.copyPrompt();
+                          }}
+                          onCopyTaskError={() => {
+                            void generationErrorRendererActions.copyTaskError();
+                          }}
+                          onLocateImageRecord={(fileId) => {
+                            void imageRecordLocatorRendererActions.locateImageRecord(
+                              fileId,
+                            );
+                          }}
+                          onLocateImageAsset={() => {
+                            if (selectedRecord) {
+                              setImageAssetRevealRequest((current) => ({
+                                fileId: selectedRecord.fileId,
+                                requestId: (current?.requestId ?? 0) + 1,
+                              }));
+                            }
+                            setImageAssetSidebarOpen(true);
+                          }}
+                          onLocatePromptReference={(reference) => {
+                            void imageRecordLocatorRendererActions.locatePromptReference(
+                              reference,
+                            );
+                          }}
+                        />
+                      )
+                }
               >
                 <LazyProjectMainMenu
                   currentProjectName={currentProject.project.name}
@@ -2163,30 +2129,6 @@ const App = ({
                 />
               </LazyExcalidraw>
             </Suspense>
-            {projectRoomAgentPresence.length > 0 ? (
-              <div
-                className="project-room-presence"
-                aria-label="正在画布中工作的 Agent"
-              >
-                {projectRoomAgentPresence.map((participant) => (
-                  <span
-                    key={participant.sessionId}
-                    className="project-room-presence__agent"
-                    title={`${participant.displayLabel} 正在此画布中工作`}
-                  >
-                    <span
-                      className="project-room-presence__avatar"
-                      aria-hidden="true"
-                    >
-                      {OpenAIIcon}
-                    </span>
-                    <span className="project-room-presence__label">
-                      {participant.displayLabel}
-                    </span>
-                  </span>
-                ))}
-              </div>
-            ) : null}
             {isAgentBrowserRoute ? (
               <AgentBoardSelectionBar
                 projectName={currentProject.project.name}
@@ -2195,18 +2137,22 @@ const App = ({
                 onClearSelection={clearAgentBoardSelection}
               />
             ) : null}
-            <GenerationHistorySidebar
-              open={generationHistoryOpen}
-              onOpenChange={setGenerationHistoryOpen}
-              records={generationRecordItems}
-              selectedFileId={selectedRecord?.fileId}
-              revealRequest={generationRecordRevealRequest}
-              onSelectRecord={(fileId) => {
-                void imageRecordLocatorRendererActions.locateImageRecord(
-                  fileId,
-                );
-              }}
-            />
+            {!isAgentBrowserRoute ? (
+              <ImageAssetSidebar
+                open={imageAssetSidebarOpen}
+                onOpenChange={setImageAssetSidebarOpen}
+                records={imageAssetItems}
+                generatedOnly={imageAssetGeneratedOnly}
+                onGeneratedOnlyChange={setImageAssetGeneratedOnly}
+                selectedFileId={selectedRecord?.fileId}
+                revealRequest={imageAssetRevealRequest}
+                onSelectRecord={(fileId) => {
+                  void imageRecordLocatorRendererActions.locateImageRecord(
+                    fileId,
+                  );
+                }}
+              />
+            ) : null}
             <WorkspaceBoundsOverlay
               state={workspaceOverlayState}
               pulsing={workspaceFitPulse}

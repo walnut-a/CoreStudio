@@ -163,7 +163,6 @@ describe("ProjectRoomClientController", () => {
       elements: [{ ...initialElements[1], version: 2, x: 200 }],
       acceptedElementIds: ["element-b"],
       supersededElementIds: [],
-      final: true,
     });
     resolveJoin({ snapshot, sessionId: "desktop-session" });
     await joining;
@@ -201,7 +200,6 @@ describe("ProjectRoomClientController", () => {
           x: 100,
         }),
       ],
-      final: true,
     });
   });
 
@@ -442,7 +440,6 @@ describe("ProjectRoomClientController", () => {
           version: 2,
         }),
       ],
-      final: true,
     });
     expect(harness.transport.submitOperation).not.toHaveBeenCalled();
     harness.emit({
@@ -456,7 +453,6 @@ describe("ProjectRoomClientController", () => {
       elements: [{ ...initialElements[0], version: 2, x: 100 }],
       acceptedElementIds: ["element-a"],
       supersededElementIds: [],
-      final: true,
     });
     expect(harness.controller.pendingOperationCount).toBe(0);
   });
@@ -523,7 +519,6 @@ describe("ProjectRoomClientController", () => {
         viewBackgroundColor: "#f5f5f5",
         gridSize: 20,
       },
-      final: true,
     });
   });
 
@@ -621,7 +616,6 @@ describe("ProjectRoomClientController", () => {
       elements: [{ ...initialElements[1], version: 2, x: 200 }],
       acceptedElementIds: ["element-b"],
       supersededElementIds: [],
-      final: true,
     });
 
     expect(harness.applyAuthoritativeScene).toHaveBeenCalledWith({
@@ -655,7 +649,6 @@ describe("ProjectRoomClientController", () => {
       elements: [{ ...initialElements[0], version: 2, x: 100 }],
       acceptedElementIds: ["element-a"],
       supersededElementIds: [],
-      final: true,
     });
 
     expect(harness.controller.confirmedSequence).toBe(1);
@@ -714,7 +707,6 @@ describe("ProjectRoomClientController", () => {
       elements: [{ ...initialElements[1], version: 2, x: 200 }],
       acceptedElementIds: ["element-b"],
       supersededElementIds: [],
-      final: true,
     });
 
     expect(harness.transport.requestResync).toHaveBeenCalledOnce();

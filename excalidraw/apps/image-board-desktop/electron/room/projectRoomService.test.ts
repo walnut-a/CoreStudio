@@ -117,7 +117,6 @@ describe("ProjectRoomService", () => {
           x: 100,
         },
       ],
-      final: true,
     });
 
     await service.closeProject("project-1");
@@ -163,7 +162,6 @@ describe("ProjectRoomService", () => {
           x: 100,
         },
       ],
-      final: true,
     });
 
     await expect(service.closeProject("project-1")).rejects.toThrow(
@@ -184,7 +182,6 @@ describe("ProjectRoomService", () => {
             x: 200,
           },
         ],
-        final: true,
       }),
     ).not.toThrow();
   });

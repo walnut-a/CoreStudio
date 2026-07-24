@@ -1,6 +1,6 @@
 import type { ImageRecordMap, ProjectManifest } from "./projectTypes";
 
-export const PROJECT_ROOM_PROTOCOL_VERSION = 1;
+export const PROJECT_ROOM_PROTOCOL_VERSION = 2;
 export const PROJECT_ROOM_CAPABILITY_VERSION = 1;
 
 export type ProjectRoomLifecycle =
@@ -71,11 +71,9 @@ export interface ProjectRoomScene {
 export interface ProjectRoomSceneOperation extends ProjectRoomIdentity {
   operationId: string;
   clientSequence?: number;
-  interactionId?: string;
   baseSequence: number;
   elements: ProjectRoomSceneElement[];
   sharedSceneConfig?: Record<string, unknown>;
-  final: boolean;
 }
 
 export type ProjectRoomErrorCode =
@@ -132,13 +130,11 @@ export interface ProjectRoomSceneUpdate {
   originSessionId: string;
   originActorId: string;
   operationId: string;
-  interactionId?: string;
   baseSequence: number;
   elements: ProjectRoomSceneElement[];
   sharedSceneConfig?: Record<string, unknown>;
   acceptedElementIds: string[];
   supersededElementIds: string[];
-  final: boolean;
 }
 
 export interface ProjectRoomPersisted {
@@ -241,14 +237,13 @@ export const isProjectRoomSceneOperation = (
     !isNonEmptyString(value.operationId) ||
     (value.clientSequence !== undefined &&
       !isNonNegativeInteger(value.clientSequence)) ||
-    (value.interactionId !== undefined &&
-      !isNonEmptyString(value.interactionId)) ||
+    "interactionId" in value ||
+    "final" in value ||
     !isNonNegativeInteger(value.baseSequence) ||
     !Array.isArray(value.elements) ||
     (value.sharedSceneConfig !== undefined &&
       !isObject(value.sharedSceneConfig)) ||
-    "imageRecords" in value ||
-    typeof value.final !== "boolean"
+    "imageRecords" in value
   ) {
     return false;
   }

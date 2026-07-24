@@ -195,7 +195,6 @@ export class ProjectRoomService {
       operationId: (this.input.randomId ?? randomUUID)(),
       baseSequence: room.sequence,
       elements: parsed.elements,
-      final: true,
     });
     await room.flushPersistence();
   }

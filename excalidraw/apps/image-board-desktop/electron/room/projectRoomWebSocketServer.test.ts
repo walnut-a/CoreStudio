@@ -154,7 +154,6 @@ describe("attachProjectRoomWebSocketServer", () => {
               x: 100,
             },
           ],
-          final: true,
         },
       }),
     );

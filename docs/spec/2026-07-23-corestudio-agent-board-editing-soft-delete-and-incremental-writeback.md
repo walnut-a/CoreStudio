@@ -121,7 +121,6 @@ CoreStudio 1.1.26 中已经观察到：
 | `sessionId`         | 一次页面挂载、标签页或连接的身份；刷新和重新挂载后重新生成。                           |
 | `roomId`            | 一次项目房间生命周期的身份；关闭项目后失效。                                           |
 | `sessionEpoch`      | 房间会话代际，用于拒绝旧页面、旧 token 上下文和迟到操作。                              |
-| `interactionId`     | 一次连续用户交互的身份，例如一次拖动或一段自由绘制。                                   |
 | `operationId`       | 一次提交批次的唯一 ID，用于确认、去重和重试。                                          |
 | `roomSequence`      | 房间接受操作后的单调递增消息序号。                                                     |
 | `persistedSequence` | 已经写入项目文件的最高房间序号。                                                       |
@@ -320,13 +319,11 @@ Agent Board 可以提交当前已经开放的元素编辑和临时 selection con
 - `roomId`；
 - `sessionEpoch`；
 - 主进程根据已认证 participant 写入的 `actorId`、`sessionId`、`originSessionId`；
-- 可选 `interactionId`，用于关联一次连续交互中的多个实时批次；
 - `operationId`；
 - 客户端看到的 `baseSequence`；
 - 所有变化元素的完整 Excalidraw 元素状态；
 - 每个元素的 `id`、`version`、`versionNonce`；
 - 必要的 `fileId` 资产依赖；
-- 是否为一次交互的最终稳定状态。
 
 `baseSequence` 用于诊断缺口和恢复，不作为不同元素能否合并的整场景冲突锁。
 
@@ -410,7 +407,7 @@ Agent Board 可以提交当前已经开放的元素编辑和临时 selection con
 
 desktop-editor、board-editor 和 agent-writer command handler 需要比较操作前后的元素版本，把所有 version 发生变化的元素作为一个操作批次提交。
 
-实时广播可以节流，但项目持久化不能跟随每一帧拖动。一次连续交互可以使用同一个 `interactionId` 提交多个具有独立 `operationId` 的实时批次，交互结束时必须提交带最终标记的稳定状态。
+实时广播可以节流，但项目持久化不能跟随每一帧拖动。renderer adapter 只保留一个在途 operation 和一个最新尾部 scene，房间使用统一防抖持久化，不另外建立一套指针交互协议。
 
 两个 renderer adapter 都必须区分本地操作和正在应用的房间更新：
 
@@ -1161,7 +1158,7 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 
 1. 保存失败后必须存在显式重试通道；项目切换和关闭中的保存错误统一进入“重试或仍然关闭”路径。
 2. renderer 不能为拖拽的每一帧建立一个无界 Promise 队列。每个参与者最多保留一个在途 operation 和一个最新尾部 scene，中间状态可以合并。
-3. 连续指针交互携带稳定 `interactionId` 和 `final` 信息；元素是否胜出仍完全依据 Excalidraw 的 `version` / `versionNonce` 协调规则。
+3. 连续指针交互最初增加了 `interactionId` 和 `final`，后续审阅确认两者没有参与协调、尾部合并或持久化决策，因此删除这组空透传字段。元素是否胜出只依据 Excalidraw 的 `version` / `versionNonce`，连续变化由有界尾部 scene 合并。
 4. 房间不保存第二份 `imageRecords` 权威状态。图片二进制和记录先由项目资产层持久化，WebSocket 服务端再次检查新 `fileId` 已经可读，然后才允许 scene operation 进入房间。
 5. WebSocket 在认证开始前就注册关闭清理；旧 epoch、失效 token、已关闭房间等终止错误停止自动重连并向页面保留结构化错误。
 6. 每个客户端 operation 增加单调 `clientSequence`。即使旧 `operationId` 已从有界结果缓存淘汰，迟到重放也不能重新覆盖共享场景设置。
@@ -1173,3 +1170,17 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 - 参考官方 Collab 的“变化元素即时同步、周期性/最终权威状态补齐”原则，在 CoreStudio adapter 中做尾部合并，不复制 socket.io、Firebase 或 Portal 应用层；
 - 参考官方图片协作边界，scene 只携带 `fileId`，资产可用性和 `imageRecords` 由 CoreStudio 项目层负责；
 - 本轮没有修改项目文件格式，不产生数据迁移。
+
+## 23. 开源底座差异复核后的收口
+
+第三轮复核确认主进程权威房间不能只实现 `version` / `versionNonce` 比较。Excalidraw 官方 `reconcileElements` 还会按 fractional index 排序并调用 `syncInvalidIndices`，否则并发插入、复制或层级调整可能在权威 scene 中留下重复或非法 index。
+
+收口原则：
+
+- 主进程复用 Excalidraw 底层 `@excalidraw/fractional-indexing` 的 `validateOrderKey` 和 `generateNKeysBetween`，并用契约测试逐组比对上层 `orderByFractionalIndex` / `syncInvalidIndices` 的结果；
+- 不从 Electron CommonJS 主进程直接引入浏览器侧 `@excalidraw/element` 顶层入口，避免把无关渲染模块和 `import.meta` 依赖打入主进程 bundle；
+- 房间在合并操作后统一规范化元素顺序，不继续维护原有的简单字符串排序；
+- index 校正导致版本变化时，将所有受影响元素随当前 `scene.update` 一起广播，避免 renderer 与权威房间再次分叉；
+- `interactionId` 和 `final` 不再作为房间协议字段，避免暴露没有实际语义的自定义能力；
+- 房间协议版本升至 2，旧页面若仍提交已移除字段会收到结构化 `BAD_REQUEST`，刷新后使用同安装版本的 Agent Board 重新加入；
+- 仍然保留 CoreStudio 必需的 IPC/WebSocket adapter、身份验证、项目资产层和唯一持久化所有权。

@@ -139,7 +139,6 @@ describe("createProjectRoomWebSocketTransport", () => {
       operationId: "operation-1",
       baseSequence: 0,
       elements: [],
-      final: true,
     };
     const resultPromise = transport.submitOperation(operation);
     expect(JSON.parse(socket.sent[1])).toEqual({

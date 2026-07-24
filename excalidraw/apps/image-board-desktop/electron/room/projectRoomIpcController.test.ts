@@ -54,7 +54,6 @@ describe("ProjectRoomIpcController", () => {
           x: 100,
         },
       ],
-      final: true,
     });
 
     expect(snapshot.participants).toEqual([
@@ -92,7 +91,6 @@ describe("ProjectRoomIpcController", () => {
         operationId: "operation-1",
         baseSequence: 0,
         elements: [],
-        final: true,
       }),
     ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
@@ -118,7 +116,6 @@ describe("ProjectRoomIpcController", () => {
         operationId: "operation-after-leave",
         baseSequence: 0,
         elements: [],
-        final: true,
       }),
     ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
@@ -155,7 +152,6 @@ describe("ProjectRoomIpcController", () => {
           isDeleted: false,
         },
       ],
-      final: true,
     };
 
     await expect(

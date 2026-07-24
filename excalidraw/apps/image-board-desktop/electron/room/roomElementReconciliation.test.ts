@@ -1,8 +1,13 @@
+import {
+  orderByFractionalIndex,
+  syncInvalidIndices,
+} from "@excalidraw/element";
 import { shouldDiscardRemoteElement } from "@excalidraw/excalidraw/data/reconcile";
 import { describe, expect, it } from "vitest";
 
 import {
   chooseAuthoritativeRoomElement,
+  orderRoomSceneElements,
   type RoomSceneElement,
 } from "./roomElementReconciliation";
 
@@ -98,5 +103,52 @@ describe("chooseAuthoritativeRoomElement", () => {
     };
 
     expect(chooseAuthoritativeRoomElement(deleted, restored)).toBe(restored);
+  });
+});
+
+describe("orderRoomSceneElements", () => {
+  it.each([
+    [
+      "duplicate indices",
+      [
+        { id: "A", index: "a1" },
+        { id: "B", index: "a1" },
+        { id: "C", index: "a2" },
+      ],
+    ],
+    [
+      "missing indices",
+      [
+        { id: "A", index: "a1" },
+        { id: "B", index: null },
+        { id: "C", index: "a2" },
+      ],
+    ],
+    [
+      "malformed indices",
+      [
+        { id: "A", index: "a1" },
+        { id: "B", index: "not-an-order-key" },
+        { id: "C", index: "a2" },
+      ],
+    ],
+  ])("matches Excalidraw ordering for %s", (_label, values) => {
+    const sceneElements = values.map((value, index) => ({
+      ...element(value.id, 1, 100 + index),
+      index: value.index,
+    }));
+    const upstreamElements = sceneElements.map((value) => ({
+      ...structuredClone(value),
+      type: "rectangle",
+    })) as any[];
+    const expected = syncInvalidIndices(
+      orderByFractionalIndex(upstreamElements),
+    );
+
+    const actual = orderRoomSceneElements(sceneElements);
+
+    expect(actual.map(({ id, index }) => ({ id, index }))).toEqual(
+      expected.map(({ id, index }) => ({ id, index })),
+    );
   });
 });

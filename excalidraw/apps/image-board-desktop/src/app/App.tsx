@@ -272,8 +272,6 @@ const App = ({
     files: BinaryFiles;
   } | null>(null);
   const lastCanvasPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const canvasPointerDownRef = useRef(false);
-  const canvasInteractionIdRef = useRef<string | null>(null);
   const lastBatchBoundsRef = useRef<SceneBounds | null>(null);
   const pendingGenerationJobsRef = useRef<Map<string, PendingGenerationJob>>(
     new Map(),
@@ -1522,12 +1520,7 @@ const App = ({
             }),
           ).appState as Record<string, unknown>);
       void projectRoomClientRef.current
-        ?.handleLocalSceneChange(elements, files, sharedSceneConfig, {
-          ...(canvasInteractionIdRef.current
-            ? { interactionId: canvasInteractionIdRef.current }
-            : {}),
-          final: !canvasPointerDownRef.current,
-        })
+        ?.handleLocalSceneChange(elements, files, sharedSceneConfig)
         .catch((error) => {
           setProjectError(formatProjectSaveError(error));
         });
@@ -2094,27 +2087,11 @@ const App = ({
                     );
                   }
                 }}
-                onPointerUpdate={({ pointer, button }) => {
+                onPointerUpdate={({ pointer }) => {
                   lastCanvasPointerRef.current = {
                     x: pointer.x,
                     y: pointer.y,
                   };
-                  if (button === "down") {
-                    canvasPointerDownRef.current = true;
-                    canvasInteractionIdRef.current ??= crypto.randomUUID();
-                  } else {
-                    canvasPointerDownRef.current = false;
-                    const completedInteractionId =
-                      canvasInteractionIdRef.current;
-                    window.setTimeout(() => {
-                      if (
-                        canvasInteractionIdRef.current ===
-                        completedInteractionId
-                      ) {
-                        canvasInteractionIdRef.current = null;
-                      }
-                    }, 0);
-                  }
                 }}
                 onScrollChange={viewportChangeRendererActions.changeViewport}
                 onPaste={projectImageImportRendererActions.pasteClipboardImage}

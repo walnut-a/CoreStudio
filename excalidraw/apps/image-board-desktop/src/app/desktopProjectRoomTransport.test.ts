@@ -35,7 +35,6 @@ describe("createDesktopProjectRoomTransport", () => {
       operationId: "operation-1",
       baseSequence: 0,
       elements: [],
-      final: true,
     });
     eventListener?.("another-session", { type: "scene.persisted" });
     eventListener?.("desktop-session", { type: "scene.persisted" });

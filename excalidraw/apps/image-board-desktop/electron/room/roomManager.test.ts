@@ -57,7 +57,6 @@ describe("ProjectRoomManager", () => {
           x: 100,
         },
       ],
-      final: true,
     });
 
     expect(manager.size).toBe(2);

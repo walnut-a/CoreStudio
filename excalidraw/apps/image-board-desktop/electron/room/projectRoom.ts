@@ -121,7 +121,7 @@ export class ProjectRoom {
 
   constructor(input: CreateProjectRoomInput) {
     this.identity = clone(input.identity);
-    this.elements = clone(input.initialScene.elements);
+    this.elements = orderRoomSceneElements(input.initialScene.elements);
     this.sharedSceneConfig = clone(input.initialScene.sharedSceneConfig);
     this.persistedSequence = input.persistedSequence;
     this.projectRevision = input.projectRevision;
@@ -361,7 +361,6 @@ export class ProjectRoom {
     );
     const acceptedElementIds: string[] = [];
     const supersededElementIds: string[] = [];
-    const authoritativeOperationElements: RoomSceneElement[] = [];
 
     for (const incomingElement of operation.elements) {
       const currentElement = elementsById.get(incomingElement.id);
@@ -370,7 +369,6 @@ export class ProjectRoom {
         incomingElement,
       );
       elementsById.set(authoritativeElement.id, authoritativeElement);
-      authoritativeOperationElements.push(authoritativeElement);
       if (authoritativeElement === incomingElement) {
         acceptedElementIds.push(incomingElement.id);
       } else {
@@ -378,7 +376,34 @@ export class ProjectRoom {
       }
     }
 
+    const elementIdentitiesBeforeOrdering = new Map(
+      [...elementsById.values()].map((element) => [
+        element.id,
+        {
+          index: element.index,
+          version: element.version,
+          versionNonce: element.versionNonce,
+        },
+      ]),
+    );
     this.elements = orderRoomSceneElements([...elementsById.values()]);
+    const broadcastElementIds = new Set(
+      operation.elements.map((element) => element.id),
+    );
+    for (const element of this.elements) {
+      const previous = elementIdentitiesBeforeOrdering.get(element.id);
+      if (
+        previous &&
+        (previous.index !== element.index ||
+          previous.version !== element.version ||
+          previous.versionNonce !== element.versionNonce)
+      ) {
+        broadcastElementIds.add(element.id);
+      }
+    }
+    const authoritativeOperationElements = this.elements.filter((element) =>
+      broadcastElementIds.has(element.id),
+    );
     if (operation.sharedSceneConfig !== undefined) {
       this.sharedSceneConfig = clone(operation.sharedSceneConfig);
     }
@@ -419,9 +444,6 @@ export class ProjectRoom {
       originSessionId: participant.sessionId,
       originActorId: participant.actorId,
       operationId: operation.operationId,
-      ...(operation.interactionId
-        ? { interactionId: operation.interactionId }
-        : {}),
       baseSequence: operation.baseSequence,
       elements: clone(authoritativeOperationElements),
       ...(operation.sharedSceneConfig !== undefined
@@ -429,7 +451,6 @@ export class ProjectRoom {
         : {}),
       acceptedElementIds: [...acceptedElementIds],
       supersededElementIds: [...supersededElementIds],
-      final: operation.final,
     };
     this.broadcast(update);
     this.schedulePersistence();

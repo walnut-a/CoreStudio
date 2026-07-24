@@ -95,7 +95,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-after-board-join",
       baseSequence: snapshot.sequence,
       elements: [{ ...initialElements[0], version: 2, x: 40 }],
-      final: true,
     });
 
     expect(boardEvents).toHaveLength(1);
@@ -104,6 +103,49 @@ describe("ProjectRoom", () => {
       sequence: snapshot.sequence + 1,
       operationId: "operation-after-board-join",
     });
+  });
+
+  it("normalizes duplicate fractional indices and broadcasts every repaired element", () => {
+    const room = createRoom();
+    room.join(desktopParticipant);
+    const boardEvents: any[] = [];
+    room.join(boardParticipant, (event) => {
+      boardEvents.push(event);
+    });
+
+    room.applySceneOperation(desktopParticipant.sessionId, {
+      ...room.identity,
+      operationId: "operation-duplicate-index",
+      baseSequence: 0,
+      elements: [
+        {
+          id: "0-new-element",
+          version: 1,
+          versionNonce: 103,
+          index: "a0",
+          isDeleted: false,
+          x: 20,
+        },
+      ],
+    });
+
+    const snapshot = room.getSnapshot();
+    expect(
+      new Set(snapshot.scene.elements.map((element) => element.index)).size,
+    ).toBe(snapshot.scene.elements.length);
+    expect(snapshot.scene.elements.map((element) => element.id)).toEqual([
+      "0-new-element",
+      "element-a",
+      "element-b",
+    ]);
+    expect(boardEvents).toHaveLength(1);
+    expect(boardEvents[0]).toMatchObject({
+      type: "scene.update",
+      operationId: "operation-duplicate-index",
+    });
+    expect(
+      boardEvents[0].elements.map((element: { id: string }) => element.id),
+    ).toEqual(["0-new-element", "element-a"]);
   });
 
   it("broadcasts the current participant list when participants join and leave", () => {
@@ -193,10 +235,8 @@ describe("ProjectRoom", () => {
         roomId: "room-1",
         sessionEpoch: 7,
         operationId: "operation-desktop",
-        interactionId: "drag-a",
         baseSequence: 0,
         elements: [{ ...initialElements[0], version: 2, x: 40 }],
-        final: true,
       },
     );
     const boardResult = room.applySceneOperation(boardParticipant.sessionId, {
@@ -205,10 +245,8 @@ describe("ProjectRoom", () => {
       roomId: "room-1",
       sessionEpoch: 7,
       operationId: "operation-board",
-      interactionId: "drag-b",
       baseSequence: 0,
       elements: [{ ...initialElements[1], version: 2, x: 80 }],
-      final: true,
     });
 
     expect(desktopResult).toMatchObject({
@@ -251,7 +289,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-agent-writer",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 2, x: 120 }],
-      final: true,
     };
 
     expect(() =>
@@ -290,7 +327,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-spoofed-agent-writer",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 2, x: 120 }],
-      final: true,
     };
 
     expect(() =>
@@ -312,7 +348,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-1",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 2, x: 40 }],
-      final: true,
     };
 
     const first = room.applySceneOperation(
@@ -363,7 +398,6 @@ describe("ProjectRoom", () => {
             x: index + 1,
           },
         ],
-        final: true,
       });
     }
 
@@ -380,7 +414,6 @@ describe("ProjectRoom", () => {
             x: 100,
           },
         ],
-        final: true,
       }),
     ).not.toThrow();
   });
@@ -409,7 +442,6 @@ describe("ProjectRoom", () => {
       baseSequence: 0,
       elements: [],
       sharedSceneConfig: { viewBackgroundColor: "#111111" },
-      final: true,
     };
     room.applySceneOperation(desktopParticipant.sessionId, firstOperation);
     room.applySceneOperation(desktopParticipant.sessionId, {
@@ -419,7 +451,6 @@ describe("ProjectRoom", () => {
       baseSequence: 1,
       elements: [],
       sharedSceneConfig: { viewBackgroundColor: "#222222" },
-      final: true,
     });
 
     const replay = room.applySceneOperation(
@@ -447,7 +478,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-self-confirmation",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 2, x: 40 }],
-      final: true,
     });
 
     expect(originEvents).toEqual([
@@ -474,7 +504,6 @@ describe("ProjectRoom", () => {
         viewBackgroundColor: "#f5f5f5",
         gridSize: 20,
       },
-      final: true,
     });
 
     expect(room.getSnapshot().scene.sharedSceneConfig).toEqual({
@@ -488,7 +517,6 @@ describe("ProjectRoom", () => {
         baseSequence: 1,
         elements: [],
         sharedSceneConfig: { viewBackgroundColor: "#000000" },
-        final: true,
       }),
     ).toThrowError(expect.objectContaining({ code: "FORBIDDEN" }));
   });
@@ -510,7 +538,6 @@ describe("ProjectRoom", () => {
         operationId: "arbitrary-agent-operation",
         baseSequence: 0,
         elements: [{ ...initialElements[0], version: 2, x: 40 }],
-        final: true,
       }),
     ).toThrowError(expect.objectContaining({ code: "FORBIDDEN" }));
   });
@@ -527,7 +554,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-older",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 1, versionNonce: 999 }],
-      final: true,
     });
 
     expect(result).toMatchObject({
@@ -559,7 +585,6 @@ describe("ProjectRoom", () => {
           operationId: `operation-${field}`,
           baseSequence: 0,
           elements: [],
-          final: true,
           [field]: value,
         }),
       ).toThrowError(expect.objectContaining({ code: expectedCode }));
@@ -580,7 +605,6 @@ describe("ProjectRoom", () => {
         operationId: "operation-after-leave",
         baseSequence: 0,
         elements: [],
-        final: true,
       }),
     ).toThrowError(expect.objectContaining({ code: "SESSION_NOT_FOUND" }));
 
@@ -596,7 +620,6 @@ describe("ProjectRoom", () => {
         operationId: "operation-after-close",
         baseSequence: 0,
         elements: [],
-        final: true,
       }),
     ).toThrowError(expect.objectContaining({ code: "ROOM_CLOSED" }));
   });
@@ -620,7 +643,6 @@ describe("ProjectRoom", () => {
         operationId: "operation-during-close",
         baseSequence: 0,
         elements: [],
-        final: true,
       }),
     ).toThrowError(expect.objectContaining({ code: "ROOM_CLOSING" }));
   });
@@ -655,14 +677,12 @@ describe("ProjectRoom", () => {
       operationId: "operation-1",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 2, x: 40 }],
-      final: false,
     });
     room.applySceneOperation(desktopParticipant.sessionId, {
       ...room.identity,
       operationId: "operation-2",
       baseSequence: 1,
       elements: [{ ...initialElements[0], version: 3, x: 80 }],
-      final: true,
     });
 
     expect(persist).not.toHaveBeenCalled();
@@ -718,7 +738,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-1",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 2, x: 40 }],
-      final: true,
     });
     const firstFlush = room.flushPersistence();
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
@@ -727,7 +746,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-2",
       baseSequence: 1,
       elements: [{ ...initialElements[1], version: 2, x: 80 }],
-      final: true,
     });
     const secondFlush = room.flushPersistence();
 
@@ -781,7 +799,6 @@ describe("ProjectRoom", () => {
       operationId: "operation-1",
       baseSequence: 0,
       elements: [{ ...initialElements[0], version: 2, x: 40 }],
-      final: true,
     });
 
     await expect(room.flushPersistence()).rejects.toThrow("disk unavailable");

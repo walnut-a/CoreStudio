@@ -12,7 +12,6 @@ const operation = {
   roomId: "room-1",
   sessionEpoch: 1,
   operationId: "operation-1",
-  interactionId: "drag-1",
   baseSequence: 0,
   elements: [
     {
@@ -24,18 +23,29 @@ const operation = {
       x: 100,
     },
   ],
-  final: true,
 };
 
 describe("project room protocol", () => {
   it("uses independent room and capability versions", () => {
-    expect(PROJECT_ROOM_PROTOCOL_VERSION).toBe(1);
+    expect(PROJECT_ROOM_PROTOCOL_VERSION).toBe(2);
     expect(PROJECT_ROOM_CAPABILITY_VERSION).toBe(1);
   });
 
   it("accepts a complete scene operation including soft-delete tombstones", () => {
     expect(isProjectRoomSceneOperation(operation)).toBe(true);
   });
+
+  it.each(["interactionId", "final"])(
+    "rejects retired %s interaction metadata",
+    (field) => {
+      expect(
+        isProjectRoomSceneOperation({
+          ...operation,
+          [field]: field === "final" ? true : "drag-1",
+        }),
+      ).toBe(false);
+    },
+  );
 
   it.each([
     [

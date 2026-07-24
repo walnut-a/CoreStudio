@@ -59,8 +59,6 @@ interface LocalSceneChangeOptions {
   submitOperation?: (
     operation: ProjectRoomSceneOperation,
   ) => Promise<ProjectRoomOperationResult>;
-  interactionId?: string;
-  final?: boolean;
 }
 
 interface PendingLocalSceneChange {
@@ -309,10 +307,6 @@ export class ProjectRoomClientController {
       ...(sharedSceneConfigChanged
         ? { sharedSceneConfig: structuredClone(nextSharedSceneConfig) }
         : {}),
-      ...(options.interactionId
-        ? { interactionId: options.interactionId }
-        : {}),
-      final: options.final ?? true,
     };
     this.latestOperationId = operationId;
     this.pendingOperations.add(operationId);

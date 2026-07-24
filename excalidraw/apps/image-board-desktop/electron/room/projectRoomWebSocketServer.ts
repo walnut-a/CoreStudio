@@ -99,7 +99,7 @@ export const attachProjectRoomWebSocketServer = ({
             launchTicket: url.searchParams.get("launchTicket"),
             resumeToken: url.searchParams.get("resumeToken"),
           });
-          if (socketClosed) {
+          if (socketClosed || webSocket.readyState !== WebSocket.OPEN) {
             return;
           }
           room = authenticated.room;

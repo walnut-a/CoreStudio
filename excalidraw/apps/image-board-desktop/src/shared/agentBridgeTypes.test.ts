@@ -21,7 +21,7 @@ describe("agentBridgeTypes", () => {
   });
 
   it("exports the Agent Bridge protocol version", () => {
-    expect(AGENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
+    expect(AGENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
   });
 
   it("exports the documented HTTP routes", () => {

@@ -20,7 +20,17 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 
-import { buildAgentBrowserRouteState } from "./agent/agentBrowserBridge";
+import {
+  buildAgentBrowserRouteState,
+  exchangeStableAgentBoardSession,
+  inspectStableAgentBoardIntegration,
+  repairStableAgentBoardIntegration,
+} from "./agent/agentBrowserBridge";
+import {
+  getOrCreateStableBoardPageNonce,
+  setAgentBrowserRoomResumeToken,
+  setStableBoardActorResumeToken,
+} from "./agent/agentBrowserRoomCredentials";
 import { createProjectRoomFlushLifecycleActions } from "./projectRoomFlushLifecycle";
 import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
 import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
@@ -135,6 +145,24 @@ import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
 import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
+import { DesktopButton } from "./components/DesktopButton";
+import { DesktopProjectTabs } from "./components/DesktopProjectTabs";
+import {
+  activateProjectTab,
+  closeProjectTab,
+  createProjectTabsState,
+  openProjectTab,
+  showProjectHome,
+  type ProjectTabsState,
+  updateProjectTabViewState,
+  updateProjectTabBundle,
+} from "./projectTabsState";
+import {
+  createDesktopProjectTabRuntime,
+  type DesktopProjectTabRuntime,
+  type DesktopProjectTabScene,
+} from "./desktopProjectTabRuntime";
+import { createDesktopProjectCanvasChangeRendererActions } from "./desktopProjectCanvasChangeController";
 import {
   CORESTUDIO_OPEN_SOURCE_DEPENDENCIES,
   CORESTUDIO_REPOSITORY_URL,
@@ -185,6 +213,7 @@ import type {
   ProjectRoomParticipant,
   ProjectRoomSceneElement,
 } from "../shared/projectRoomProtocol";
+import type { StableBoardIntegrationStatus } from "../shared/agentBridgeTypes";
 import type { AgentRendererCommandRequest } from "../shared/agentBridgeTypes";
 
 import "./App.css";
@@ -239,6 +268,11 @@ const shouldReopenAgentBoard = (error: unknown) =>
       AGENT_BOARD_REOPEN_ERROR_CODES.has(error.code),
   );
 
+const isTransientAgentBoardConnectionError = (error: unknown) =>
+  error instanceof TypeError ||
+  (error instanceof Error &&
+    /fetch|network|websocket|disconnected/i.test(error.message));
+
 interface AppProps {
   locale?: DesktopLocale;
   localePreference?: DesktopLocalePreference;
@@ -252,13 +286,33 @@ const App = ({
   localePreference = "system",
   onLocalePreferenceChange = () => undefined,
 }: AppProps) => {
-  const { isAgentBrowserRoute } = buildAgentBrowserRouteState({
-    pathname: window.location.pathname,
-    href: window.location.href,
-  });
+  const { isAgentBrowserRoute, stableBoardId, legacyUrlExpired } =
+    buildAgentBrowserRouteState({
+      pathname: window.location.pathname,
+      href: window.location.href,
+    });
   const isAgentProjectSelectionRoute =
     isAgentBrowserRoute &&
     new URL(window.location.href).searchParams.has("projectSelectionToken");
+  if (legacyUrlExpired) {
+    return (
+      <div className="image-board-app">
+        <div className="welcome-pane">
+          <div
+            className="welcome-pane__card welcome-pane__diagnostic"
+            role="alert"
+            aria-labelledby="agent-board-expired-title"
+          >
+            <span className="welcome-pane__eyebrow">Agent Board</span>
+            <h1 id="agent-board-expired-title">
+              {copy.agentBoard.expiredConnectionTitle}
+            </h1>
+            <p>{copy.agentBoard.expiredConnectionDescription}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const bridge = maybeGetDesktopBridge();
   if (!bridge) {
     return <AppBridgeUnavailable isAgentBrowserRoute={isAgentBrowserRoute} />;
@@ -284,8 +338,23 @@ const App = ({
   );
   const generationModelSelectionLockedRef = useRef(false);
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
+  const projectTabsStateRef = useRef<ProjectTabsState>(
+    createProjectTabsState(),
+  );
   const projectRoomClientRef = useRef<ProjectRoomClientController | null>(null);
-  const projectRoomSessionIdRef = useRef(crypto.randomUUID());
+  const desktopProjectTabRuntimesRef = useRef<
+    Map<string, DesktopProjectTabRuntime>
+  >(new Map());
+  const desktopProjectTabScenesRef = useRef<
+    Map<string, DesktopProjectTabScene>
+  >(new Map());
+  const desktopProjectTabParticipantsRef = useRef<
+    Map<string, ProjectRoomParticipant[]>
+  >(new Map());
+  const desktopProjectTabReadyRef = useRef<Map<string, boolean>>(new Map());
+  const desktopProjectTabEditorReadyRef = useRef<Map<string, boolean>>(
+    new Map(),
+  );
   const projectRoomAssetTransactionDepthRef = useRef(0);
   const latestSceneRef = useRef<{
     elements: readonly ExcalidrawElement[];
@@ -325,8 +394,15 @@ const App = ({
   );
   const [currentProject, setCurrentProject] =
     useState<DesktopProjectBundle | null>(null);
+  const [projectTabsState, setProjectTabsState] = useState<ProjectTabsState>(
+    createProjectTabsState,
+  );
   const [initialData, setInitialData] =
     useState<ExcalidrawInitialDataState | null>(null);
+  const [desktopProjectInitialData, setDesktopProjectInitialData] = useState<
+    Record<string, ExcalidrawInitialDataState>
+  >({});
+  const [, setDesktopProjectRuntimeRevision] = useState(0);
   const [agentBoardSelectionReference, setAgentBoardSelectionReference] =
     useState<GenerationReferencePayload | null>(null);
   const [providerConfiguration, setProviderConfiguration] =
@@ -414,6 +490,15 @@ const App = ({
   const [projectRoomError, setProjectRoomError] = useState<string | null>(null);
   const [agentBoardConnectionExpired, setAgentBoardConnectionExpired] =
     useState(false);
+  const [agentBoardReconnectGeneration, setAgentBoardReconnectGeneration] =
+    useState(0);
+  const [stableBoardIntegrationStatus, setStableBoardIntegrationStatus] =
+    useState<StableBoardIntegrationStatus | null>(null);
+  const [repairingStableBoardIntegration, setRepairingStableBoardIntegration] =
+    useState(false);
+  const stableBoardPageNonceRef = useRef<string | null>(
+    stableBoardId ? getOrCreateStableBoardPageNonce(stableBoardId) : null,
+  );
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
@@ -503,7 +588,16 @@ const App = ({
       setCurrentProjectRef: (nextProject) => {
         currentProjectRef.current = nextProject;
       },
-      setCurrentProject,
+      setCurrentProject: (nextProject) => {
+        setCurrentProject(nextProject);
+        setProjectTabsState((previousState) => {
+          const nextState = nextProject
+            ? openProjectTab(previousState, nextProject)
+            : showProjectHome(previousState);
+          projectTabsStateRef.current = nextState;
+          return nextState;
+        });
+      },
       setProjectHealthReport,
       setProjectRepairReport,
       setProjectHealthReportOpen,
@@ -927,19 +1021,24 @@ const App = ({
     });
   }, [isEditorInitializing, projectRenderNonce]);
 
-  const closeCurrentProjectRoomForTransition = async (attempt = 1) => {
-    const activeProject = currentProjectRef.current;
+  const closeProjectRoomForTab = async (
+    targetProject: DesktopProjectBundle,
+    attempt = 1,
+  ) => {
+    const targetRuntime = desktopProjectTabRuntimesRef.current.get(
+      targetProject.projectPath,
+    );
+    const targetSessionId = targetRuntime?.getSessionId() ?? "";
     if (
       isAgentBrowserRoute ||
-      !activeProject ||
       !desktopBridge.getProjectRoomCloseState ||
       !desktopBridge.closeProjectRoom
     ) {
       return;
     }
     const closeState = await desktopBridge.getProjectRoomCloseState({
-      projectPath: activeProject.projectPath,
-      sessionId: projectRoomSessionIdRef.current,
+      projectPath: targetProject.projectPath,
+      sessionId: targetSessionId,
     });
     const activeAgents = selectProjectRoomAgentPresence(
       closeState?.otherParticipants ?? [],
@@ -947,7 +1046,7 @@ const App = ({
     if (
       activeAgents.length > 0 &&
       !window.confirm(
-        `仍有 Agent 正在这个画布中工作：\n${activeAgents
+        `仍有 Agent 正在“${targetProject.project.name}”中工作：\n${activeAgents
           .map((participant) => `• ${participant.displayLabel}`)
           .join("\n")}\n\n关闭项目后，这些协作会立即断开。`,
       )
@@ -957,11 +1056,11 @@ const App = ({
       });
     }
     try {
-      await projectRoomClientRef.current?.waitForPersistence();
+      await targetRuntime?.waitForPersistence();
       await desktopBridge.closeProjectRoom({
-        projectPath: activeProject.projectPath,
+        projectPath: targetProject.projectPath,
         expectedRoomId: closeState?.roomId,
-        requestingSessionId: projectRoomSessionIdRef.current,
+        requestingSessionId: targetSessionId || undefined,
         acknowledgedParticipantSessionIds: closeState?.otherParticipants.map(
           (participant) => participant.sessionId,
         ),
@@ -974,7 +1073,7 @@ const App = ({
         error.code === "PARTICIPANTS_CHANGED"
       ) {
         if (attempt < 3) {
-          return closeCurrentProjectRoomForTransition(attempt + 1);
+          return closeProjectRoomForTab(targetProject, attempt + 1);
         }
         if (
           !window.confirm(
@@ -986,7 +1085,7 @@ const App = ({
           });
         }
         await desktopBridge.closeProjectRoom({
-          projectPath: activeProject.projectPath,
+          projectPath: targetProject.projectPath,
           force: true,
         });
         return;
@@ -1001,17 +1100,37 @@ const App = ({
         throw error;
       }
       await desktopBridge.closeProjectRoom({
-        projectPath: activeProject.projectPath,
+        projectPath: targetProject.projectPath,
         force: true,
       });
     }
+  };
+
+  const waitForCurrentProjectSubmission = async () => {
+    const activeProjectPath = currentProjectRef.current?.projectPath;
+    const appState = excalidrawAPIRef.current?.getAppState();
+    if (activeProjectPath && appState) {
+      const nextState = updateProjectTabViewState(
+        projectTabsStateRef.current,
+        activeProjectPath,
+        {
+          scrollX: appState.scrollX,
+          scrollY: appState.scrollY,
+          zoom: appState.zoom,
+          selectedElementIds: appState.selectedElementIds,
+        },
+      );
+      projectTabsStateRef.current = nextState;
+      setProjectTabsState(nextState);
+    }
+    await projectRoomClientRef.current?.waitForSubmission();
   };
 
   const currentProjectBundleOpenRendererActions =
     createCurrentProjectBundleOpenRendererActions({
       beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
       isCurrentProjectOpen: currentProjectOpenSequenceRendererActions.isCurrent,
-      flushProjectRoom: (options) => flushProjectRoom(options),
+      flushProjectRoom: waitForCurrentProjectSubmission,
       getDevicePixelRatio: () => window.devicePixelRatio,
       getFallbackCreatedAt: () => Date.now(),
       readProjectAssets: (input) =>
@@ -1030,7 +1149,30 @@ const App = ({
       updateEditorInitializing:
         currentProjectEditorInitializingRendererActions.update,
       updateCurrentProject,
-      setInitialData,
+      setInitialData: (nextInitialData) => {
+        const projectPath = currentProjectRef.current?.projectPath;
+        const viewState = projectPath
+          ? projectTabsStateRef.current.tabs.find(
+              (tab) => tab.projectPath === projectPath,
+            )?.viewState
+          : null;
+        const restoredInitialData = viewState
+          ? {
+              ...nextInitialData,
+              appState: {
+                ...nextInitialData.appState,
+                ...viewState,
+              },
+            }
+          : nextInitialData;
+        setInitialData(restoredInitialData);
+        if (projectPath) {
+          setDesktopProjectInitialData((current) => ({
+            ...current,
+            [projectPath]: restoredInitialData,
+          }));
+        }
+      },
       setProjectRenderNonce,
       latestSceneRef,
       updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
@@ -1054,11 +1196,20 @@ const App = ({
     sequence?: number,
   ) => {
     if (
+      !isAgentBrowserRoute &&
       bundle &&
-      currentProjectRef.current &&
-      bundle.projectPath !== currentProjectRef.current.projectPath
+      projectTabsStateRef.current.tabs.some(
+        (tab) => tab.projectPath === bundle.projectPath,
+      ) &&
+      desktopProjectInitialData[bundle.projectPath]
     ) {
-      await closeCurrentProjectRoomForTransition();
+      const nextState = activateProjectTab(
+        projectTabsStateRef.current,
+        bundle.projectPath,
+      );
+      projectTabsStateRef.current = nextState;
+      setProjectTabsState(nextState);
+      return;
     }
     return currentProjectBundleOpenRendererActions.open(bundle, sequence);
   };
@@ -1136,7 +1287,7 @@ const App = ({
       },
       updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
       setActiveProject: updateCurrentProject,
-      flushProjectRoom: (options) => flushProjectRoom(options),
+      flushProjectRoom: waitForCurrentProjectSubmission,
       getFallbackCreatedAt: () => Date.now(),
     });
 
@@ -1312,100 +1463,213 @@ const App = ({
         visibleImageRenditionLoadRendererActions.schedule,
     });
 
-  useEffect(() => {
-    if (!currentProject) {
-      if (!isAgentBrowserRoute) {
-        setProjectRoomReady(false);
+  const updateDesktopProjectTabImageRecords = (
+    projectPath: string,
+    imageRecords: ImageRecordMap,
+  ) => {
+    const nextTabsState = updateProjectTabBundle(
+      projectTabsStateRef.current,
+      projectPath,
+      (project) => ({
+        ...project,
+        imageRecords: {
+          ...project.imageRecords,
+          ...imageRecords,
+        },
+      }),
+    );
+    projectTabsStateRef.current = nextTabsState;
+    setProjectTabsState(nextTabsState);
+    if (currentProjectRef.current?.projectPath === projectPath) {
+      const nextProject = nextTabsState.tabs.find(
+        (tab) => tab.projectPath === projectPath,
+      )?.project;
+      if (nextProject) {
+        currentProjectRef.current = nextProject;
+        setCurrentProject(nextProject);
       }
-      return;
     }
-    if (isAgentBrowserRoute) {
-      return;
-    }
+  };
 
-    let disposed = false;
-    const sessionId = projectRoomSessionIdRef.current;
-    const transport = createDesktopProjectRoomTransport({
-      bridge: desktopBridge,
+  const getOrCreateDesktopProjectTabRuntime = (
+    projectPath: string,
+  ): DesktopProjectTabRuntime | null => {
+    const existing = desktopProjectTabRuntimesRef.current.get(projectPath);
+    if (existing) {
+      return existing;
+    }
+    const project = projectTabsStateRef.current.tabs.find(
+      (tab) => tab.projectPath === projectPath,
+    )?.project;
+    if (!project) {
+      return null;
+    }
+    const sessionId = crypto.randomUUID();
+    const runtime = createDesktopProjectTabRuntime({
+      projectPath,
       sessionId,
-    });
-    const controller = createProjectRoomClientController({
-      projectPath: currentProject.projectPath,
-      sessionId,
-      transport,
-      applyParticipants: setProjectRoomParticipants,
-      applyImageRecords:
-        projectRoomAssetRefreshRendererActions.applyImageRecords,
-      ensureAssetsForElements: ensureProjectRoomAssetsForElements,
-      onSyncStateChange: (state, error) => {
-        if (error) {
-          setProjectRoomError(formatProjectSaveError(error));
-        } else if (state === "saved") {
-          setProjectRoomError(null);
+      transport: createDesktopProjectRoomTransport({
+        bridge: desktopBridge,
+        sessionId,
+      }),
+      ensureAssetsForElements: (elements, files) => {
+        const activeProject = currentProjectRef.current;
+        const latestProject =
+          (activeProject?.projectPath === projectPath
+            ? activeProject
+            : projectTabsStateRef.current.tabs.find(
+                (tab) => tab.projectPath === projectPath,
+              )?.project) ?? project;
+        return projectImageAssetPersistenceRendererActions.persistUnknownCanvasImages(
+          latestProject,
+          elements as ExcalidrawElement[],
+          files as BinaryFiles,
+        );
+      },
+      onParticipants: (participants) => {
+        desktopProjectTabParticipantsRef.current.set(projectPath, participants);
+        const runtimeApi = desktopProjectTabRuntimesRef.current
+          .get(projectPath)
+          ?.getApi();
+        runtimeApi?.updateScene({
+          collaborators: createProjectRoomCollaborators(participants),
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+        if (currentProjectRef.current?.projectPath === projectPath) {
+          setProjectRoomParticipants(participants);
+        }
+      },
+      onImageRecords: (imageRecords) => {
+        updateDesktopProjectTabImageRecords(projectPath, imageRecords);
+      },
+      onScene: (scene) => {
+        desktopProjectTabScenesRef.current.set(projectPath, scene);
+        if (currentProjectRef.current?.projectPath === projectPath) {
+          latestSceneRef.current = scene;
+          projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(scene);
+        }
+      },
+      onReadyChange: (ready) => {
+        desktopProjectTabReadyRef.current.set(projectPath, ready);
+        if (currentProjectRef.current?.projectPath === projectPath) {
+          setProjectRoomReady(ready);
+        }
+      },
+      onError: (error) => {
+        if (currentProjectRef.current?.projectPath === projectPath) {
+          setProjectRoomError(error ? formatProjectSaveError(error) : null);
         }
       },
       onRoomClosed: () => {
-        setProjectRoomReady(false);
-        setProjectRoomError("项目已关闭，画布协作已断开。");
-      },
-      applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
-        const api = excalidrawAPIRef.current;
-        if (!api) {
-          return;
+        if (currentProjectRef.current?.projectPath === projectPath) {
+          setProjectRoomReady(false);
+          setProjectRoomError("项目已关闭，画布协作已断开。");
         }
-        const appState = api.getAppState();
-        const reconciledElements = reconcileProjectRoomScene({
-          localElements: api.getSceneElementsIncludingDeleted(),
-          remoteElements: elements as ExcalidrawElement[],
-          appState,
-          snapshot: origin === "snapshot",
-        });
-        api.updateScene({
-          elements: reconciledElements,
-          appState: {
-            ...appState,
-            ...sharedSceneConfig,
-          } as AppState,
-          captureUpdate: CaptureUpdateAction.NEVER,
-        });
-        const latestScene = {
-          elements: api.getSceneElementsIncludingDeleted(),
-          appState: api.getAppState(),
-          files: api.getFiles(),
-        };
-        latestSceneRef.current = latestScene;
-        projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
-          latestScene,
-        );
-        return reconciledElements as readonly ProjectRoomSceneElement[];
       },
     });
-    projectRoomClientRef.current = controller;
-    setProjectRoomReady(false);
-    void controller
-      .start()
-      .then(() => {
-        if (!disposed) {
-          setProjectRoomReady(true);
-          setProjectRoomError(null);
-        }
-      })
-      .catch((error) => {
-        if (!disposed) {
-          console.error("[project-room:desktop-join-failed]", error);
-          setProjectRoomError(formatProjectSaveError(error));
-        }
-      });
+    desktopProjectTabRuntimesRef.current.set(projectPath, runtime);
+    setDesktopProjectRuntimeRevision((current) => current + 1);
+    return runtime;
+  };
 
-    return () => {
-      disposed = true;
+  const bindDesktopProjectTab = (projectPath: string | null) => {
+    if (!projectPath) {
+      excalidrawAPIRef.current = null;
+      projectRoomClientRef.current = null;
+      latestSceneRef.current = null;
+      setCurrentProject(null);
+      setInitialData(null);
       setProjectRoomParticipants([]);
-      if (projectRoomClientRef.current === controller) {
-        projectRoomClientRef.current = null;
+      setProjectRoomReady(false);
+      return;
+    }
+    const tab = projectTabsStateRef.current.tabs.find(
+      (candidate) => candidate.projectPath === projectPath,
+    );
+    if (!tab) {
+      return;
+    }
+    const runtime = getOrCreateDesktopProjectTabRuntime(projectPath);
+    const api = runtime?.getApi() ?? null;
+    currentProjectRef.current = tab.project;
+    setCurrentProject(tab.project);
+    setInitialData(desktopProjectInitialData[projectPath] ?? null);
+    excalidrawAPIRef.current = api;
+    projectRoomClientRef.current = runtime?.getController() ?? null;
+    latestSceneRef.current =
+      desktopProjectTabScenesRef.current.get(projectPath) ?? null;
+    setProjectRoomParticipants(
+      desktopProjectTabParticipantsRef.current.get(projectPath) ?? [],
+    );
+    setProjectRoomReady(
+      desktopProjectTabReadyRef.current.get(projectPath) ?? false,
+    );
+    if (api) {
+      queuedExcalidrawBinaryFilesRendererActions.flush();
+      visibleImageRenditionLoadRendererActions.schedule(
+        desktopProjectTabScenesRef.current.get(projectPath) ?? null,
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (isAgentBrowserRoute || !projectTabsState.activeProjectPath) {
+      return;
+    }
+    bindDesktopProjectTab(projectTabsState.activeProjectPath);
+  }, [
+    desktopProjectInitialData,
+    isAgentBrowserRoute,
+    projectTabsState.activeProjectPath,
+  ]);
+
+  useEffect(() => {
+    if (isAgentBrowserRoute) {
+      return;
+    }
+    for (const tab of projectTabsState.tabs) {
+      if (!desktopProjectInitialData[tab.projectPath]) {
+        continue;
       }
-      void controller.stop();
-    };
-  }, [currentProject?.projectPath, desktopBridge, isAgentBrowserRoute]);
+      void getOrCreateDesktopProjectTabRuntime(tab.projectPath)
+        ?.start()
+        .catch(() => undefined);
+    }
+  }, [desktopProjectInitialData, isAgentBrowserRoute, projectTabsState.tabs]);
+
+  useEffect(() => {
+    if (isAgentBrowserRoute) {
+      return;
+    }
+    const openProjectPaths = new Set(
+      projectTabsState.tabs.map((tab) => tab.projectPath),
+    );
+    for (const [projectPath, runtime] of desktopProjectTabRuntimesRef.current) {
+      if (openProjectPaths.has(projectPath)) {
+        continue;
+      }
+      desktopProjectTabRuntimesRef.current.delete(projectPath);
+      desktopProjectTabScenesRef.current.delete(projectPath);
+      desktopProjectTabParticipantsRef.current.delete(projectPath);
+      desktopProjectTabReadyRef.current.delete(projectPath);
+      desktopProjectTabEditorReadyRef.current.delete(projectPath);
+      void runtime.stop();
+    }
+  }, [isAgentBrowserRoute, projectTabsState.tabs]);
+
+  useEffect(
+    () => () => {
+      for (const runtime of desktopProjectTabRuntimesRef.current.values()) {
+        void runtime.stop();
+      }
+      desktopProjectTabRuntimesRef.current.clear();
+      desktopProjectTabScenesRef.current.clear();
+      desktopProjectTabParticipantsRef.current.clear();
+      desktopProjectTabReadyRef.current.clear();
+      desktopProjectTabEditorReadyRef.current.clear();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!isAgentBrowserRoute) {
@@ -1413,144 +1677,228 @@ const App = ({
     }
     setAgentBoardConnectionExpired(false);
     const url = new URL(window.location.href);
-    const launchTicket = url.searchParams.get("launchTicket");
-    const resumeToken = url.searchParams.get("resumeToken");
+    const legacyLaunchTicket = url.searchParams.get("launchTicket");
+    const legacyResumeToken = url.searchParams.get("resumeToken");
     const projectSelectionToken = url.searchParams.get("projectSelectionToken");
     const bridgeBaseUrl =
       url.searchParams.get("bridge") ?? window.location.origin;
-    if (projectSelectionToken && !launchTicket && !resumeToken) {
+    if (
+      projectSelectionToken &&
+      !stableBoardId &&
+      !legacyLaunchTicket &&
+      !legacyResumeToken
+    ) {
       setProjectRoomReady(false);
       setProjectRoomError(null);
       return;
     }
-    if (!launchTicket && !resumeToken) {
+    if (!stableBoardId && !legacyLaunchTicket && !legacyResumeToken) {
       setProjectRoomError("Agent Board 缺少有效的房间连接凭证。");
       return;
     }
 
     let disposed = false;
+    let reconnectTimer: number | null = null;
+    const scheduleStableReconnect = (delayMs: number) => {
+      if (reconnectTimer !== null) {
+        return;
+      }
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        if (!disposed) {
+          setAgentBoardReconnectGeneration((current) => current + 1);
+        }
+      }, delayMs);
+    };
     const reportConnectionError = (error: unknown) => {
       if (disposed) {
         return;
       }
       setProjectRoomReady(false);
-      if (shouldReopenAgentBoard(error)) {
+      if (stableBoardId && shouldReopenAgentBoard(error)) {
+        setProjectRoomError(null);
+        scheduleStableReconnect(0);
+      } else if (stableBoardId && isTransientAgentBoardConnectionError(error)) {
+        setProjectRoomError(
+          "正在等待 CoreStudio 恢复连接，画布地址无需重新获取。",
+        );
+        scheduleStableReconnect(1_000);
+      } else if (shouldReopenAgentBoard(error)) {
         setAgentBoardConnectionExpired(true);
         setProjectRoomError(null);
       } else {
         setProjectRoomError(formatProjectSaveError(error));
       }
     };
-    const transport = createProjectRoomWebSocketTransport({
-      bridgeBaseUrl,
-      launchTicket,
-      resumeToken,
-      onTerminalError: reportConnectionError,
-      replaceResumeToken: (nextResumeToken) => {
-        const nextUrl = new URL(window.location.href);
-        nextUrl.searchParams.delete("launchTicket");
-        nextUrl.searchParams.delete("projectToken");
-        nextUrl.searchParams.delete("token");
-        nextUrl.searchParams.set("resumeToken", nextResumeToken);
-        window.history.replaceState(null, "", nextUrl.toString());
-      },
-    });
-    const controller = createProjectRoomClientController({
-      projectPath: "",
-      sessionId: crypto.randomUUID(),
-      transport,
-      applyParticipants: setProjectRoomParticipants,
-      applyImageRecords:
-        projectRoomAssetRefreshRendererActions.applyImageRecords,
-      ensureAssetsForElements: ensureProjectRoomAssetsForElements,
-      onSyncStateChange: (state, error) => {
-        if (error) {
-          setProjectRoomError(formatProjectSaveError(error));
-        } else if (state === "saved") {
-          setProjectRoomError(null);
-        }
-      },
-      onRoomClosed: () => {
-        setProjectRoomReady(false);
-        setAgentBoardConnectionExpired(true);
-        setProjectRoomError(null);
-      },
-      applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
-        const api = excalidrawAPIRef.current;
-        if (!api) {
+    let controller: ProjectRoomClientController | null = null;
+    setProjectRoomReady(false);
+    const pageNonce = stableBoardId ? stableBoardPageNonceRef.current : null;
+    if (stableBoardId && pageNonce) {
+      document.documentElement.dataset.corestudioStableBoardId = stableBoardId;
+      document.documentElement.dataset.corestudioPageNonce = pageNonce;
+    }
+    const waitForActorClaim = () =>
+      new Promise<void>((resolve) => window.setTimeout(resolve, 1_000));
+    const connect = async () => {
+      let launchTicket = legacyLaunchTicket;
+      if (stableBoardId && pageNonce) {
+        const integrationStatus = await inspectStableAgentBoardIntegration({
+          bridge: bridgeBaseUrl,
+          stableBoardId,
+          pageNonce,
+        });
+        if (disposed) {
           return;
         }
-        const appState = api.getAppState();
-        const reconciledElements = reconcileProjectRoomScene({
-          localElements: api.getSceneElementsIncludingDeleted(),
-          remoteElements: elements as ExcalidrawElement[],
-          appState,
-          snapshot: origin === "snapshot",
-        });
-        api.updateScene({
-          elements: reconciledElements,
-          appState: {
-            ...appState,
-            ...sharedSceneConfig,
-          } as AppState,
-          captureUpdate: CaptureUpdateAction.NEVER,
-        });
-        const latestScene = {
-          elements: api.getSceneElementsIncludingDeleted(),
-          appState: api.getAppState(),
-          files: api.getFiles(),
-        };
-        latestSceneRef.current = latestScene;
-        projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
-          latestScene,
-        );
-        return reconciledElements as readonly ProjectRoomSceneElement[];
-      },
-    });
-    projectRoomClientRef.current = controller;
-    setProjectRoomReady(false);
-    const startTimer = window.setTimeout(() => {
-      void controller
-        .start()
-        .then(async (joined) => {
-          if (!joined.bootstrap) {
-            throw new Error("Agent Board 房间缺少项目初始化数据。");
+        setStableBoardIntegrationStatus(integrationStatus);
+        if (integrationStatus.state !== "ready") {
+          return;
+        }
+        while (!disposed && !launchTicket) {
+          try {
+            const exchangedSession = await exchangeStableAgentBoardSession({
+              bridge: bridgeBaseUrl,
+              stableBoardId,
+              pageNonce,
+            });
+            launchTicket = exchangedSession.launchTicket;
+            setStableBoardActorResumeToken(
+              stableBoardId,
+              exchangedSession.actorResumeToken,
+            );
+          } catch (error) {
+            if (
+              error &&
+              typeof error === "object" &&
+              "code" in error &&
+              error.code === "ACTOR_CLAIM_REQUIRED"
+            ) {
+              await waitForActorClaim();
+              continue;
+            }
+            throw error;
           }
-          const sceneJson = JSON.stringify({
-            type: "excalidraw",
-            version: 2,
-            source: "local",
-            elements: joined.snapshot.scene.elements,
-            appState: joined.snapshot.scene.sharedSceneConfig,
-            files: {},
-          });
-          await currentProjectBundleOpenRendererActions.applyExternalSnapshot({
-            ...joined.bootstrap,
-            sceneJson,
-          });
-          if (!disposed) {
-            setProjectRoomReady(true);
+        }
+      }
+      if (disposed || (!launchTicket && !legacyResumeToken)) {
+        return;
+      }
+      const transport = createProjectRoomWebSocketTransport({
+        bridgeBaseUrl,
+        launchTicket,
+        resumeToken: legacyResumeToken,
+        onTerminalError: reportConnectionError,
+        replaceResumeToken: (nextResumeToken) => {
+          setAgentBrowserRoomResumeToken(nextResumeToken);
+        },
+      });
+      controller = createProjectRoomClientController({
+        projectPath: "",
+        sessionId: crypto.randomUUID(),
+        transport,
+        applyParticipants: setProjectRoomParticipants,
+        applyImageRecords:
+          projectRoomAssetRefreshRendererActions.applyImageRecords,
+        ensureAssetsForElements: ensureProjectRoomAssetsForElements,
+        onSyncStateChange: (state, error) => {
+          if (error) {
+            setProjectRoomError(formatProjectSaveError(error));
+          } else if (state === "saved") {
             setProjectRoomError(null);
           }
-        })
-        .catch((error) => {
-          if (!disposed) {
-            console.error("[project-room:agent-board-join-failed]", error);
-            reportConnectionError(error);
+        },
+        onRoomClosed: (event) => {
+          setProjectRoomReady(false);
+          if (stableBoardId && event.reason === "app-closed") {
+            setProjectRoomError(
+              "CoreStudio 正在关闭，重新启动后会自动恢复这个画布。",
+            );
+            scheduleStableReconnect(1_000);
+          } else if (stableBoardId) {
+            setProjectRoomError(
+              "CoreStudio 已关闭这个项目，协作连接已断开。重新打开项目后可继续使用同一画布地址。",
+            );
+          } else {
+            setAgentBoardConnectionExpired(true);
+            setProjectRoomError(null);
           }
-        });
-    }, 0);
+        },
+        applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
+          const api = excalidrawAPIRef.current;
+          if (!api) {
+            return;
+          }
+          const appState = api.getAppState();
+          const reconciledElements = reconcileProjectRoomScene({
+            localElements: api.getSceneElementsIncludingDeleted(),
+            remoteElements: elements as ExcalidrawElement[],
+            appState,
+            snapshot: origin === "snapshot",
+          });
+          api.updateScene({
+            elements: reconciledElements,
+            appState: {
+              ...appState,
+              ...sharedSceneConfig,
+            } as AppState,
+            captureUpdate: CaptureUpdateAction.NEVER,
+          });
+          const latestScene = {
+            elements: api.getSceneElementsIncludingDeleted(),
+            appState: api.getAppState(),
+            files: api.getFiles(),
+          };
+          latestSceneRef.current = latestScene;
+          projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
+            latestScene,
+          );
+          return reconciledElements as readonly ProjectRoomSceneElement[];
+        },
+      });
+      projectRoomClientRef.current = controller;
+      const joined = await controller.start();
+      if (!joined.bootstrap) {
+        throw new Error("Agent Board 房间缺少项目初始化数据。");
+      }
+      const sceneJson = JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "local",
+        elements: joined.snapshot.scene.elements,
+        appState: joined.snapshot.scene.sharedSceneConfig,
+        files: {},
+      });
+      await currentProjectBundleOpenRendererActions.applyExternalSnapshot({
+        ...joined.bootstrap,
+        sceneJson,
+      });
+      if (!disposed) {
+        setProjectRoomReady(true);
+        setProjectRoomError(null);
+      }
+    };
+    void connect().catch((error) => {
+      if (!disposed) {
+        console.error("[project-room:agent-board-join-failed]", error);
+        reportConnectionError(error);
+      }
+    });
 
     return () => {
       disposed = true;
-      window.clearTimeout(startTimer);
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+      }
+      setAgentBrowserRoomResumeToken(null);
+      delete document.documentElement.dataset.corestudioStableBoardId;
+      delete document.documentElement.dataset.corestudioPageNonce;
       setProjectRoomParticipants([]);
       if (projectRoomClientRef.current === controller) {
         projectRoomClientRef.current = null;
       }
-      void controller.stop();
+      void controller?.stop();
     };
-  }, [isAgentBrowserRoute]);
+  }, [agentBoardReconnectGeneration, isAgentBrowserRoute, stableBoardId]);
 
   const handleCanvasSceneChange = (
     elements: readonly ExcalidrawElement[],
@@ -1578,6 +1926,28 @@ const App = ({
     }
     return result;
   };
+
+  const desktopProjectCanvasChangeRendererActions =
+    createDesktopProjectCanvasChangeRendererActions({
+      isAgentBrowserRoute,
+      handleAgentBrowserSceneChange: handleCanvasSceneChange,
+      changeActiveScene: (elements, appState, files) => {
+        canvasSceneChangeRendererActions.changeScene(elements, appState, files);
+      },
+      setBackgroundScene: (projectPath, scene) => {
+        desktopProjectTabScenesRef.current.set(projectPath, scene);
+      },
+      isRoomReady: (projectPath) =>
+        Boolean(desktopProjectTabReadyRef.current.get(projectPath)),
+      isEditorReady: (projectPath) =>
+        Boolean(desktopProjectTabEditorReadyRef.current.get(projectPath)),
+      isAssetTransactionActive: () =>
+        projectRoomAssetTransactionDepthRef.current > 0,
+      extractSharedSceneConfig,
+      reportActiveError: (error) => {
+        setProjectRoomError(formatProjectSaveError(error));
+      },
+    });
 
   useEffect(() => {
     if (!isAgentBrowserRoute) {
@@ -1654,10 +2024,7 @@ const App = ({
       beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
       openProjectBundle,
       isCurrentProjectOpen: currentProjectOpenSequenceRendererActions.isCurrent,
-      flushProjectRoom: (options) =>
-        !isAgentBrowserRoute
-          ? closeCurrentProjectRoomForTransition()
-          : flushProjectRoom(options),
+      flushProjectRoom: (options) => flushProjectRoom(options),
       clearProjectViewState: projectViewClearRendererActions.clear,
       loadRecentProjectsState: desktopStartupRendererActions.loadRecentProjects,
       formatCreateError: formatProjectCreateError,
@@ -1670,6 +2037,71 @@ const App = ({
         currentProjectEditorInitializingRendererActions.update,
       clearProjectNotice: projectNoticeRendererActions.clear,
     });
+
+  const showProjectHomeFromTabs = () => {
+    const nextState = showProjectHome(projectTabsStateRef.current);
+    projectTabsStateRef.current = nextState;
+    setProjectTabsState(nextState);
+  };
+
+  const activateProjectFromTabs = (projectPath: string) => {
+    if (projectTabsStateRef.current.activeProjectPath === projectPath) {
+      return;
+    }
+    void waitForCurrentProjectSubmission().catch((error) => {
+      setProjectError(formatProjectSaveError(error));
+    });
+    const nextState = activateProjectTab(
+      projectTabsStateRef.current,
+      projectPath,
+    );
+    projectTabsStateRef.current = nextState;
+    setProjectTabsState(nextState);
+    bindDesktopProjectTab(projectPath);
+  };
+
+  const closeProjectFromTabs = async (projectPath: string) => {
+    const previousState = projectTabsStateRef.current;
+    const tab = previousState.tabs.find(
+      (candidate) => candidate.projectPath === projectPath,
+    );
+    if (!tab) {
+      return;
+    }
+    try {
+      await closeProjectRoomForTab(tab.project);
+    } catch (error) {
+      if (
+        !(
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === "PROJECT_CLOSE_CANCELLED"
+        )
+      ) {
+        setProjectError(formatProjectSaveError(error));
+      }
+      return;
+    }
+
+    const nextState = closeProjectTab(previousState, projectPath);
+    projectTabsStateRef.current = nextState;
+    setProjectTabsState(nextState);
+    setDesktopProjectInitialData((current) => {
+      const next = { ...current };
+      delete next[projectPath];
+      return next;
+    });
+    if (previousState.activeProjectPath !== projectPath) {
+      return;
+    }
+
+    if (nextState.activeProjectPath) {
+      bindDesktopProjectTab(nextState.activeProjectPath);
+    } else {
+      bindDesktopProjectTab(null);
+    }
+  };
 
   const revealProjectFromList = useCallback(
     async (projectPath: string) => {
@@ -1995,6 +2427,73 @@ const App = ({
 
   if (
     isAgentBrowserRoute &&
+    stableBoardId &&
+    stableBoardIntegrationStatus &&
+    stableBoardIntegrationStatus.state !== "ready"
+  ) {
+    const repairAction = stableBoardIntegrationStatus.repairActions[0] ?? null;
+    return (
+      <div className="image-board-app">
+        <div className="welcome-pane">
+          <div
+            className="welcome-pane__card welcome-pane__diagnostic"
+            role="alert"
+            aria-labelledby="agent-board-integration-title"
+          >
+            <span className="welcome-pane__eyebrow">Agent Board</span>
+            <h1 id="agent-board-integration-title">
+              {stableBoardIntegrationStatus.state === "repair-required"
+                ? "需要更新 CoreStudio 集成"
+                : "暂时无法打开这个项目"}
+            </h1>
+            {stableBoardIntegrationStatus.issues.map((issue) => (
+              <p key={issue.code}>{issue.message}</p>
+            ))}
+            {projectRoomError ? (
+              <p className="welcome-pane__error">{projectRoomError}</p>
+            ) : null}
+            {repairAction ? (
+              <div className="welcome-pane__actions">
+                <DesktopButton
+                  variant="primary"
+                  disabled={repairingStableBoardIntegration}
+                  onClick={() => {
+                    setRepairingStableBoardIntegration(true);
+                    void repairStableAgentBoardIntegration({
+                      bridge:
+                        new URL(window.location.href).searchParams.get(
+                          "bridge",
+                        ) ?? window.location.origin,
+                      action: repairAction.type,
+                    })
+                      .then(() => {
+                        setStableBoardIntegrationStatus(null);
+                        setAgentBoardReconnectGeneration(
+                          (current) => current + 1,
+                        );
+                      })
+                      .catch((error) => {
+                        setProjectRoomError(formatProjectSaveError(error));
+                      })
+                      .finally(() => {
+                        setRepairingStableBoardIntegration(false);
+                      });
+                  }}
+                >
+                  {repairingStableBoardIntegration
+                    ? "正在更新…"
+                    : repairAction.label}
+                </DesktopButton>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    isAgentBrowserRoute &&
     !isAgentProjectSelectionRoute &&
     !projectError &&
     !projectRoomError &&
@@ -2017,32 +2516,62 @@ const App = ({
     );
   }
 
+  const desktopProjectTabs = !isAgentBrowserRoute ? (
+    <DesktopProjectTabs
+      tabs={projectTabsState.tabs.map((tab) => ({
+        projectPath: tab.projectPath,
+        name: tab.project.project.name,
+      }))}
+      activeProjectPath={projectTabsState.activeProjectPath}
+      onShowHome={showProjectHomeFromTabs}
+      onActivateProject={activateProjectFromTabs}
+      onCloseProject={(projectPath) => {
+        void closeProjectFromTabs(projectPath);
+      }}
+    />
+  ) : null;
+
   if (!currentProject || !initialData) {
     return (
-      <AppProjectEntryScreen
-        startupError={startupError}
-        projectError={projectError ?? projectRoomError}
-        loadingProject={loadingProject}
-        recentProjects={recentProjects}
-        onCreateProject={currentProjectEntryRendererActions.createProject}
-        onOpenProject={currentProjectEntryRendererActions.openProject}
-        onOpenRecentProject={
-          currentProjectEntryRendererActions.openRecentProject
-        }
-        onRemoveRecentProject={
-          desktopStartupRendererActions.removeRecentProject
-        }
-        onRevealProject={revealProjectFromList}
-        manualProjectActionsVisible={!isAgentBrowserRoute}
-        globalDialogs={globalDialogs}
-      />
+      <>
+        {desktopProjectTabs}
+        <AppProjectEntryScreen
+          startupError={startupError}
+          projectError={projectError ?? projectRoomError}
+          loadingProject={loadingProject}
+          recentProjects={recentProjects}
+          onCreateProject={currentProjectEntryRendererActions.createProject}
+          onOpenProject={currentProjectEntryRendererActions.openProject}
+          onOpenRecentProject={async (projectPath) => {
+            if (
+              projectTabsStateRef.current.tabs.some(
+                (tab) => tab.projectPath === projectPath,
+              )
+            ) {
+              activateProjectFromTabs(projectPath);
+              return;
+            }
+            await currentProjectEntryRendererActions.openRecentProject(
+              projectPath,
+            );
+          }}
+          onRemoveRecentProject={
+            desktopStartupRendererActions.removeRecentProject
+          }
+          onRevealProject={revealProjectFromList}
+          manualProjectActionsVisible={!isAgentBrowserRoute}
+          globalDialogs={globalDialogs}
+        />
+      </>
     );
   }
 
   const projectRenderKey = `${currentProject.projectPath}:${projectRenderNonce}`;
+  const showingDesktopHome =
+    !isAgentBrowserRoute && projectTabsState.activeProjectPath === null;
   const appClassName = [
     "image-board-app",
-    "image-board-app--project-open",
+    !showingDesktopHome ? "image-board-app--project-open" : "",
     isAgentBrowserRoute ? "image-board-app--agent-board" : "",
     imageAssetSidebarOpen ? "image-board-app--left-dock-open" : "",
     inspectorDockOpen ? "image-board-app--right-dock-open" : "",
@@ -2052,12 +2581,14 @@ const App = ({
   const canvasClassName = [
     "image-board-canvas",
     isEditorInitializing ? "image-board-canvas--editor-initializing" : "",
+    showingDesktopHome ? "image-board-canvas--project-home" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
     <div className={appClassName}>
+      {desktopProjectTabs}
       <AppErrorBanners
         startupError={startupError}
         projectError={projectError ?? projectRoomError}
@@ -2070,106 +2601,243 @@ const App = ({
       >
         <div className="image-board-shell">
           <div className={canvasClassName}>
-            {isEditorInitializing || !projectRoomReady ? (
+            {!showingDesktopHome &&
+            (isEditorInitializing || !projectRoomReady) ? (
               <EditorLoadingOverlay />
             ) : null}
-            {renderProjectStatusToast()}
+            {!showingDesktopHome ? renderProjectStatusToast() : null}
             <Suspense fallback={null}>
-              <LazyExcalidraw
-                key={projectRenderKey}
-                langCode={locale}
-                initialData={initialData}
-                onInitialize={(api) => {
-                  applyProjectRoomCollaborators(api ?? null);
-                  currentProjectEditorReadyRendererActions.ready(
-                    api ?? null,
-                    projectRenderNonce,
-                  );
-                }}
-                onExcalidrawAPI={(api) => {
-                  if (projectRenderNonce === projectRenderNonceRef.current) {
-                    excalidrawAPIRef.current = api;
-                    queuedExcalidrawBinaryFilesRendererActions.flush();
-                    visibleImageRenditionLoadRendererActions.schedule(
-                      latestSceneRef.current,
+              {(isAgentBrowserRoute
+                ? [
+                    {
+                      projectPath: currentProject.projectPath,
+                      initialData,
+                      active: true,
+                      runtime: null,
+                    },
+                  ]
+                : projectTabsState.tabs.flatMap((tab) => {
+                    const tabInitialData =
+                      desktopProjectInitialData[tab.projectPath];
+                    const runtime = desktopProjectTabRuntimesRef.current.get(
+                      tab.projectPath,
                     );
-                  }
-                }}
-                onPointerUpdate={({ pointer }) => {
-                  lastCanvasPointerRef.current = {
-                    x: pointer.x,
-                    y: pointer.y,
-                  };
-                }}
-                onScrollChange={viewportChangeRendererActions.changeViewport}
-                onPaste={projectImageImportRendererActions.pasteClipboardImage}
-                onChange={handleCanvasSceneChange}
-                UIOptions={{
-                  defaultSidebar: false,
-                  canvasActions: {
-                    loadScene: false,
-                    saveToActiveFile: false,
-                    export: false,
-                    toggleTheme: true,
-                  },
-                }}
-                detectScroll={false}
-                handleKeyboardGlobally={true}
-                autoFocus={true}
-                renderSelectedShapeActions={({
-                  fullSelectedShapeActions,
-                  shouldRenderSelectedShapeActions,
-                }) => (
-                  <InspectorSidebar
-                    open={inspectorDockOpen}
-                    onOpenChange={setInspectorDockOpen}
-                    selectedShapeActions={fullSelectedShapeActions}
-                    shouldRenderSelectedShapeActions={
-                      shouldRenderSelectedShapeActions
+                    if (!tabInitialData || !runtime) {
+                      return [];
                     }
-                    record={selectedRecord}
-                    parentRecord={selectedImageRelationship.parentRecord}
-                    ancestorRecords={selectedImageRelationship.ancestorRecords}
-                    descendantRecords={
-                      selectedImageRelationship.descendantRecords
-                    }
-                    task={selectedTask}
-                    onCopyPrompt={() => {
-                      void imageAssetRendererActions.copyPrompt();
-                    }}
-                    onCopyTaskError={() => {
-                      void generationErrorRendererActions.copyTaskError();
-                    }}
-                    onLocateImageRecord={(fileId) => {
-                      void imageRecordLocatorRendererActions.locateImageRecord(
-                        fileId,
-                      );
-                    }}
-                    onLocateImageAsset={() => {
-                      if (selectedRecord) {
-                        setImageAssetRevealRequest((current) => ({
-                          fileId: selectedRecord.fileId,
-                          requestId: (current?.requestId ?? 0) + 1,
-                        }));
+                    return [
+                      {
+                        projectPath: tab.projectPath,
+                        initialData: tabInitialData,
+                        active:
+                          projectTabsState.activeProjectPath ===
+                          tab.projectPath,
+                        runtime,
+                      },
+                    ];
+                  })
+              ).map((canvas) => (
+                <div
+                  key={canvas.projectPath}
+                  className={[
+                    "image-board-canvas__project-runtime",
+                    canvas.active
+                      ? "image-board-canvas__project-runtime--active"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-hidden={!canvas.active}
+                >
+                  <LazyExcalidraw
+                    langCode={locale}
+                    initialData={canvas.initialData}
+                    onInitialize={(api) => {
+                      if (isAgentBrowserRoute) {
+                        applyProjectRoomCollaborators(api ?? null);
+                        currentProjectEditorReadyRendererActions.ready(
+                          api ?? null,
+                          projectRenderNonce,
+                        );
+                        return;
                       }
-                      setImageAssetSidebarOpen(true);
-                    }}
-                    onLocatePromptReference={(reference) => {
-                      void imageRecordLocatorRendererActions.locatePromptReference(
-                        reference,
+                      if (!api || !canvas.runtime) {
+                        return;
+                      }
+                      canvas.runtime.attachApi(api);
+                      api.updateScene({
+                        collaborators: createProjectRoomCollaborators(
+                          desktopProjectTabParticipantsRef.current.get(
+                            canvas.projectPath,
+                          ) ?? [],
+                        ),
+                        captureUpdate: CaptureUpdateAction.NEVER,
+                      });
+                      desktopProjectTabEditorReadyRef.current.set(
+                        canvas.projectPath,
+                        true,
                       );
+                      if (canvas.active) {
+                        excalidrawAPIRef.current = api;
+                        projectRoomClientRef.current =
+                          canvas.runtime.getController();
+                        currentProjectEditorReadyRendererActions.ready(
+                          api,
+                          projectRenderNonce,
+                        );
+                      }
+                      void canvas.runtime.start().catch(() => undefined);
                     }}
-                  />
-                )}
-              >
-                <LazyProjectMainMenu
-                  currentProjectName={currentProject.project.name}
-                  canvasUtilityActionsVisible={!isAgentBrowserRoute}
-                  onSwitchProject={() => {
-                    void currentProjectEntryRendererActions.switchToProjectList();
-                  }}
-                />
-              </LazyExcalidraw>
+                    onExcalidrawAPI={(api) => {
+                      if (isAgentBrowserRoute) {
+                        if (
+                          projectRenderNonce === projectRenderNonceRef.current
+                        ) {
+                          excalidrawAPIRef.current = api;
+                          queuedExcalidrawBinaryFilesRendererActions.flush();
+                          visibleImageRenditionLoadRendererActions.schedule(
+                            latestSceneRef.current,
+                          );
+                        }
+                        return;
+                      }
+                      if (!canvas.runtime) {
+                        return;
+                      }
+                      canvas.runtime.attachApi(api);
+                      if (canvas.active) {
+                        excalidrawAPIRef.current = api;
+                        projectRoomClientRef.current =
+                          canvas.runtime.getController();
+                        queuedExcalidrawBinaryFilesRendererActions.flush();
+                        visibleImageRenditionLoadRendererActions.schedule(
+                          desktopProjectTabScenesRef.current.get(
+                            canvas.projectPath,
+                          ) ?? null,
+                        );
+                      }
+                    }}
+                    onPointerUpdate={({ pointer }) => {
+                      if (canvas.active) {
+                        lastCanvasPointerRef.current = {
+                          x: pointer.x,
+                          y: pointer.y,
+                        };
+                      }
+                    }}
+                    onScrollChange={
+                      canvas.active
+                        ? viewportChangeRendererActions.changeViewport
+                        : undefined
+                    }
+                    onPaste={
+                      canvas.active
+                        ? projectImageImportRendererActions.pasteClipboardImage
+                        : undefined
+                    }
+                    onChange={desktopProjectCanvasChangeRendererActions.createHandler(
+                      canvas,
+                    )}
+                    UIOptions={{
+                      defaultSidebar: false,
+                      canvasActions: {
+                        loadScene: false,
+                        saveToActiveFile: false,
+                        export: false,
+                        toggleTheme: true,
+                      },
+                    }}
+                    detectScroll={false}
+                    handleKeyboardGlobally={canvas.active}
+                    autoFocus={canvas.active}
+                    renderSelectedShapeActions={
+                      canvas.active
+                        ? ({
+                            fullSelectedShapeActions,
+                            shouldRenderSelectedShapeActions,
+                          }) => (
+                            <InspectorSidebar
+                              open={inspectorDockOpen}
+                              onOpenChange={setInspectorDockOpen}
+                              selectedShapeActions={fullSelectedShapeActions}
+                              shouldRenderSelectedShapeActions={
+                                shouldRenderSelectedShapeActions
+                              }
+                              record={selectedRecord}
+                              parentRecord={
+                                selectedImageRelationship.parentRecord
+                              }
+                              ancestorRecords={
+                                selectedImageRelationship.ancestorRecords
+                              }
+                              descendantRecords={
+                                selectedImageRelationship.descendantRecords
+                              }
+                              task={selectedTask}
+                              onCopyPrompt={() => {
+                                void imageAssetRendererActions.copyPrompt();
+                              }}
+                              onCopyTaskError={() => {
+                                void generationErrorRendererActions.copyTaskError();
+                              }}
+                              onLocateImageRecord={(fileId) => {
+                                void imageRecordLocatorRendererActions.locateImageRecord(
+                                  fileId,
+                                );
+                              }}
+                              onLocateImageAsset={() => {
+                                if (selectedRecord) {
+                                  setImageAssetRevealRequest((current) => ({
+                                    fileId: selectedRecord.fileId,
+                                    requestId: (current?.requestId ?? 0) + 1,
+                                  }));
+                                }
+                                setImageAssetSidebarOpen(true);
+                              }}
+                              onLocatePromptReference={(reference) => {
+                                void imageRecordLocatorRendererActions.locatePromptReference(
+                                  reference,
+                                );
+                              }}
+                            />
+                          )
+                        : undefined
+                    }
+                  >
+                    {canvas.active ? (
+                      <LazyProjectMainMenu
+                        currentProjectName={currentProject.project.name}
+                        canvasUtilityActionsVisible={!isAgentBrowserRoute}
+                        onCopyBoardAddress={() => {
+                          void (async () => {
+                            const boardUrl =
+                              await desktopBridge.getStableAgentBoardUrl?.(
+                                currentProject.projectPath,
+                              );
+                            if (!boardUrl) {
+                              projectNoticeRendererActions.show(
+                                copy.menu.boardAddressUnavailable,
+                              );
+                              return;
+                            }
+                            await clipboardTextRendererActions.copy(boardUrl);
+                            projectNoticeRendererActions.show(
+                              copy.menu.boardAddressCopied,
+                            );
+                          })().catch((error) => {
+                            projectNoticeRendererActions.show(
+                              formatProjectSaveError(error),
+                            );
+                          });
+                        }}
+                        onSwitchProject={() => {
+                          showProjectHomeFromTabs();
+                        }}
+                      />
+                    ) : null}
+                  </LazyExcalidraw>
+                </div>
+              ))}
             </Suspense>
             {isAgentBrowserRoute ? (
               <AgentBoardSelectionBar
@@ -2180,7 +2848,7 @@ const App = ({
               />
             ) : null}
             <ImageAssetSidebar
-              open={imageAssetSidebarOpen}
+              open={!showingDesktopHome && imageAssetSidebarOpen}
               onOpenChange={setImageAssetSidebarOpen}
               records={imageAssetItems}
               generatedOnly={imageAssetGeneratedOnly}
@@ -2201,7 +2869,37 @@ const App = ({
         </div>
       </ProjectRenderBoundary>
 
-      {!isAgentBrowserRoute ? (
+      {showingDesktopHome ? (
+        <AppProjectEntryScreen
+          startupError={startupError}
+          projectError={projectError ?? projectRoomError}
+          loadingProject={loadingProject}
+          recentProjects={recentProjects}
+          onCreateProject={currentProjectEntryRendererActions.createProject}
+          onOpenProject={currentProjectEntryRendererActions.openProject}
+          onOpenRecentProject={async (projectPath) => {
+            if (
+              projectTabsStateRef.current.tabs.some(
+                (tab) => tab.projectPath === projectPath,
+              )
+            ) {
+              activateProjectFromTabs(projectPath);
+              return;
+            }
+            await currentProjectEntryRendererActions.openRecentProject(
+              projectPath,
+            );
+          }}
+          onRemoveRecentProject={
+            desktopStartupRendererActions.removeRecentProject
+          }
+          onRevealProject={revealProjectFromList}
+          manualProjectActionsVisible={true}
+          globalDialogs={null}
+        />
+      ) : null}
+
+      {!isAgentBrowserRoute && !showingDesktopHome ? (
         <GenerateImageDialog
           open={true}
           persistent={true}

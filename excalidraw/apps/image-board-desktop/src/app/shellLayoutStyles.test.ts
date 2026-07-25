@@ -47,6 +47,17 @@ describe("CoreStudio shell layout styles", () => {
       "apps/image-board-desktop/src/app/components/SideDock.css",
     );
 
+    const collaboratorSlotRule = getRule(
+      sideDockCss,
+      ".image-board-app .layer-ui__wrapper__top-right",
+    );
+
+    expect(collaboratorSlotRule).toContain(
+      "min-height: var(--side-dock-toggle-size)",
+    );
+    expect(collaboratorSlotRule).toContain("display: flex");
+    expect(collaboratorSlotRule).toContain("align-items: center");
+    expect(collaboratorSlotRule).toContain("justify-content: flex-end");
     expect(sideDockCss).toMatch(
       /\.image-board-app:not\(\.image-board-app--right-dock-open\)\s+\.layer-ui__wrapper__top-right/,
     );
@@ -451,7 +462,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(layoutRule).toContain(
       "padding-top: var(--desktop-window-top-inset, 0px)",
     );
-    expect(titlebarRule).toContain("--desktop-window-top-inset: 28px");
+    expect(titlebarRule).toContain("--desktop-window-top-inset: 36px");
     expect(dragRegionRule).toContain("-webkit-app-region: drag");
     expect(dragRegionRule).toContain("left: 0");
     expect(dragRegionRule).not.toContain("background:");
@@ -528,16 +539,26 @@ describe("CoreStudio shell layout styles", () => {
     ).find((rule) => rule.includes("overflow-x: auto"));
     const toolbarScrollbarRule = getRulesContaining(
       appCss,
-      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar::-webkit-scrollbar",
-    ).find((rule) => rule.includes("display: none"));
+      ".App-toolbar::-webkit-scrollbar",
+    ).find(
+      (rule) =>
+        rule.includes(".image-board-app--agent-board") &&
+        rule.includes("display: none"),
+    );
     const toolbarStackRule = getRulesContaining(
       appCss,
-      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar .Stack_horizontal",
-    ).find((rule) => rule.includes("min-width: max-content"));
+      ".Stack_horizontal",
+    ).find(
+      (rule) =>
+        rule.includes(".App-toolbar") &&
+        rule.includes("min-width: max-content"),
+    );
     const keybindingRule = getRulesContaining(
       appCss,
-      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar .ToolIcon__keybinding",
-    ).find((rule) => rule.includes("display: none"));
+      ".ToolIcon__keybinding",
+    ).find(
+      (rule) => rule.includes(".App-toolbar") && rule.includes("display: none"),
+    );
 
     expect(appCss).toContain("@media (max-width: 900px)");
     expect(narrowAppRule).toContain(
@@ -602,15 +623,15 @@ describe("CoreStudio shell layout styles", () => {
       ".agent-board-selection-bar__icon-button",
     );
 
-    expect(selectionRule).toContain(
-      "border-radius: var(--border-radius-lg)",
-    );
+    expect(selectionRule).toContain("border-radius: var(--border-radius-lg)");
     expect(selectionRule).toContain("background: var(--island-bg-color)");
     expect(selectionRule).toContain("box-shadow: var(--shadow-island)");
     expect(selectionRule).not.toContain("color-mix");
     expect(selectionRule).not.toContain("backdrop-filter");
     expect(actionRule).toContain("width: var(--lg-button-size)");
     expect(actionRule).toContain("height: var(--lg-button-size)");
+    expect(actionRule).toContain("border: 0");
+    expect(actionRule).toContain("background: transparent");
   });
 
   it("keeps the extreme narrow embedded browser fallback visually calm", () => {

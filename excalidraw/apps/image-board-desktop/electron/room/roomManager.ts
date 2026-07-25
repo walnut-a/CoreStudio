@@ -1,3 +1,5 @@
+import type { ProjectRoomClosed } from "../../src/shared/projectRoomProtocol";
+
 import {
   createProjectRoom,
   isSameProjectRoomIdentity,
@@ -54,12 +56,19 @@ export class ProjectRoomManager {
     return this.rooms.get(projectId) ?? null;
   }
 
-  public close(projectId: string) {
+  public list() {
+    return [...this.rooms.values()];
+  }
+
+  public close(
+    projectId: string,
+    reason: ProjectRoomClosed["reason"] = "project-closed",
+  ) {
     const room = this.rooms.get(projectId);
     if (!room) {
       return false;
     }
-    room.close();
+    room.close(reason);
     this.rooms.delete(projectId);
     return true;
   }

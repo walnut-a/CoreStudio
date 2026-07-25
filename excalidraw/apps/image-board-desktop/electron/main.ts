@@ -43,6 +43,7 @@ import {
   type AgentRendererCommandName,
   type AgentRendererCommandResponse,
 } from "../src/shared/agentBridgeTypes";
+import { CODEX_INTEGRATION_VERSION } from "../src/shared/codexIntegrationContract";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
   beginProjectImageWriteback,
@@ -52,6 +53,7 @@ import {
 import {
   cleanProjectCache,
   createProjectStructure,
+  ensureProjectStableBoardId,
   inspectProjectHealth,
   persistImageAssets,
   readProjectAssetPayloads,
@@ -124,6 +126,12 @@ import { createProjectRoomService } from "./room/projectRoomService";
 import { executeProjectRoomAgentWriterCommand } from "./room/projectRoomAgentWriter";
 import { createProjectRoomIpcController } from "./room/projectRoomIpcController";
 import { createProjectRoomTicketStore } from "./room/projectRoomTicketStore";
+import { createStableBoardSessionClaimStore } from "./room/stableBoardSessionClaimStore";
+import {
+  createStableBoardActorResumeTokenService,
+  loadOrCreateStableBoardActorTokenSecret,
+  type StableBoardActorResumeTokenService,
+} from "./room/stableBoardActorResumeToken";
 import { ProjectRoomError, type ProjectRoom } from "./room/projectRoom";
 import {
   collectProjectRoomAgentImageFileIds,
@@ -155,6 +163,9 @@ const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
 const participantIssuerToken = randomUUID();
 const projectRoomTicketStore = createProjectRoomTicketStore();
+const stableBoardSessionClaimStore = createStableBoardSessionClaimStore();
+let stableBoardActorResumeTokenService: StableBoardActorResumeTokenService | null =
+  null;
 const boardProjectSelectionStore = createBoardProjectSelectionStore();
 const projectRoomService = createProjectRoomService({
   readProjectBundle,
@@ -395,6 +406,40 @@ const getAgentProjectByToken = async (
   return null;
 };
 
+const getAgentProjectByStableBoardId = async (
+  stableBoardId: string,
+): Promise<LocalBridgeCurrentProject | null> => {
+  const projectPaths = [
+    ...(currentProject ? [currentProject.projectPath] : []),
+    ...(await loadRecentProjects()).map((project) => project.projectPath),
+  ];
+  for (const projectPath of new Set(projectPaths)) {
+    try {
+      const bundle = await readProjectBundle(projectPath);
+      if (bundle.project.stableBoardId === stableBoardId) {
+        return {
+          projectPath,
+          name: bundle.project.name,
+          agentAccess: bundle.project.agentAccess,
+        };
+      }
+    } catch {
+      // Stale recent entries are ignored; the normal project picker can repair them.
+    }
+  }
+  return null;
+};
+
+const getStableAgentBoardUrl = async (projectPath: string) => {
+  const { stableBoardId } = await ensureProjectStableBoardId(projectPath);
+  return buildAgentBoardUrl({
+    agentAccessEnabled,
+    bridgeBaseUrl: localBridgeHandle?.baseUrl ?? null,
+    rendererUrl,
+    stableBoardId,
+  });
+};
+
 const getAgentBoardUrl = () => {
   return buildAgentBoardUrl({
     agentAccessEnabled,
@@ -513,6 +558,7 @@ const startLocalBridge = async () => {
   try {
     bridge = await createLocalBridgeServer({
       preferredPort: AGENT_BRIDGE_PREFERRED_PORT,
+      allowDynamicPortFallback: false,
       agentBoardAssetsDir: rendererUrl
         ? undefined
         : path.join(__dirname, "..", "dist"),
@@ -520,6 +566,8 @@ const startLocalBridge = async () => {
       getCurrentProject,
       getProjectByToken: getAgentProjectByToken,
       getBoardUrl: getAgentBoardUrl,
+      getStableBoardUrl: (project) =>
+        getStableAgentBoardUrl(project.projectPath),
       renderer: {
         request: (command: AgentRendererCommandName, payload?: unknown) => {
           if (!rendererCommandBridge) {
@@ -544,6 +592,158 @@ const startLocalBridge = async () => {
           }),
         };
       },
+      claimStableBoardSession: async ({
+        stableBoardId,
+        pageNonce,
+        threadId,
+        displayLabel,
+      }) => {
+        if (!(await getAgentProjectByStableBoardId(stableBoardId))) {
+          throw Object.assign(
+            new Error("The stable Agent Board project could not be found."),
+            { code: "PROJECT_REQUIRED", details: { stableBoardId } },
+          );
+        }
+        stableBoardSessionClaimStore.claim({
+          stableBoardId,
+          pageNonce,
+          actorId: `codex:${threadId}`,
+          displayLabel,
+        });
+      },
+      exchangeStableBoardSession: async ({
+        stableBoardId,
+        pageNonce,
+        actorResumeToken,
+      }) => {
+        if (!stableBoardActorResumeTokenService) {
+          throw Object.assign(
+            new Error("Stable Board actor recovery is not ready."),
+            { code: "APP_NOT_READY" },
+          );
+        }
+        stableBoardSessionClaimStore.register({ stableBoardId, pageNonce });
+        if (
+          actorResumeToken &&
+          !stableBoardSessionClaimStore.hasClaim({
+            stableBoardId,
+            pageNonce,
+          })
+        ) {
+          stableBoardSessionClaimStore.claim({
+            stableBoardId,
+            pageNonce,
+            ...stableBoardActorResumeTokenService.verify({
+              token: actorResumeToken,
+              stableBoardId,
+              pageNonce,
+            }),
+          });
+        }
+        const project = await getAgentProjectByStableBoardId(stableBoardId);
+        if (!project) {
+          throw Object.assign(
+            new Error("The stable Agent Board project could not be found."),
+            { code: "PROJECT_REQUIRED", details: { stableBoardId } },
+          );
+        }
+        const actor = stableBoardSessionClaimStore.consume({
+          stableBoardId,
+          pageNonce,
+        });
+        const room = await projectRoomService.openProject(project.projectPath);
+        return {
+          launchTicket: projectRoomTicketStore.issueLaunchTicket({
+            identity: room.identity,
+            ...actor,
+          }),
+          actorResumeToken: stableBoardActorResumeTokenService.issue({
+            stableBoardId,
+            pageNonce,
+            ...actor,
+          }),
+        };
+      },
+      inspectStableBoardIntegration: async ({ stableBoardId, pageNonce }) => {
+        stableBoardSessionClaimStore.register({ stableBoardId, pageNonce });
+        const [project, integration] = await Promise.all([
+          getAgentProjectByStableBoardId(stableBoardId),
+          inspectCodexIntegration({
+            homeDir: app.getPath("home"),
+            resourcesPath: process.resourcesPath,
+            appVersion: DESKTOP_APP_VERSION,
+          }),
+        ]);
+        const issues: Array<{
+          code:
+            | "CODEX_INTEGRATION_MISSING"
+            | "CODEX_INTEGRATION_OUTDATED"
+            | "PROJECT_NOT_FOUND";
+          message: string;
+        }> = [];
+        if (!project) {
+          issues.push({
+            code: "PROJECT_NOT_FOUND",
+            message:
+              "CoreStudio 找不到这个画布对应的本地项目。项目可能已经移动或删除。",
+          });
+        }
+        if (integration.state !== "ready") {
+          issues.push({
+            code:
+              integration.state === "install"
+                ? "CODEX_INTEGRATION_MISSING"
+                : "CODEX_INTEGRATION_OUTDATED",
+            message:
+              integration.state === "install"
+                ? "当前 Codex 集成尚未安装完整。"
+                : "当前 Codex 集成与 CoreStudio 版本不匹配。",
+          });
+        }
+        const projectUnavailable = issues.some(
+          (issue) => issue.code === "PROJECT_NOT_FOUND",
+        );
+        const repairRequired = issues.some(
+          (issue) =>
+            issue.code === "CODEX_INTEGRATION_MISSING" ||
+            issue.code === "CODEX_INTEGRATION_OUTDATED",
+        );
+        return {
+          state: projectUnavailable
+            ? ("project-unavailable" as const)
+            : repairRequired
+            ? ("repair-required" as const)
+            : ("ready" as const),
+          appVersion: DESKTOP_APP_VERSION,
+          integrationVersion: CODEX_INTEGRATION_VERSION,
+          bridgeProtocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
+          actorClaimed: stableBoardSessionClaimStore.hasClaim({
+            stableBoardId,
+            pageNonce,
+          }),
+          issues,
+          repairActions: repairRequired
+            ? [
+                {
+                  type: "install-codex-integration" as const,
+                  label: "更新 Codex 集成",
+                },
+              ]
+            : [],
+        };
+      },
+      repairStableBoardIntegration: async () => {
+        const result = await installCodexIntegration({
+          resourcesPath: process.resourcesPath,
+        });
+        if (!result.ok) {
+          throw Object.assign(new Error(result.error), {
+            code: "COMMAND_FAILED",
+            details: result.details,
+          });
+        }
+        return result;
+      },
       issueBoardProjectSelection: async ({ threadId, displayLabel }) => ({
         selectionToken: boardProjectSelectionStore.issue({
           actorId: `codex:${threadId}`,
@@ -555,7 +755,7 @@ const startLocalBridge = async () => {
         return loadRecentProjects();
       },
       openBoardProjectCandidate: async ({ selectionToken, projectPath }) => {
-        const grant = boardProjectSelectionStore.authorize(selectionToken);
+        boardProjectSelectionStore.authorize(selectionToken);
         const candidates = await loadRecentProjects();
         if (
           !candidates.some((candidate) => candidate.projectPath === projectPath)
@@ -569,14 +769,16 @@ const startLocalBridge = async () => {
           );
         }
         const bundle = await readProjectBundle(projectPath);
-        const room = await projectRoomService.openProject(projectPath);
         boardProjectSelectionStore.consume(selectionToken);
+        const boardUrl = await getStableAgentBoardUrl(projectPath);
+        if (!boardUrl) {
+          throw Object.assign(
+            new Error("Stable Agent Board access is unavailable."),
+            { code: "CAPABILITY_UNAVAILABLE" },
+          );
+        }
         return {
-          launchTicket: projectRoomTicketStore.issueLaunchTicket({
-            identity: room.identity,
-            actorId: grant.actorId,
-            displayLabel: grant.displayLabel,
-          }),
+          boardUrl,
           project: {
             projectPath,
             name: bundle.project.name,
@@ -835,14 +1037,15 @@ const buildProjectBundle = async (
   projectPath: string,
   options: { safeMode?: boolean } = {},
 ) => {
-  const bundle = await readProjectBundle(projectPath);
+  const canonicalProjectPath = await fs.realpath(projectPath);
+  const bundle = await readProjectBundle(canonicalProjectPath);
   currentRecentProjects = await rememberRecentProject(
-    projectPath,
+    canonicalProjectPath,
     bundle.project.name,
   );
   Menu.setApplicationMenu(buildMenu());
   return {
-    projectPath,
+    projectPath: canonicalProjectPath,
     safeMode: options.safeMode || undefined,
     ...bundle,
   };
@@ -952,6 +1155,7 @@ const showCloseAfterSaveFailedDialog = async (
 
 const confirmDisconnectProjectParticipants = async (
   targetWindow: BrowserWindow,
+  projectName: string,
   participants: Array<{ displayLabel: string }>,
 ) => {
   const result = await dialog.showMessageBox(targetWindow, {
@@ -959,7 +1163,7 @@ const confirmDisconnectProjectParticipants = async (
     buttons: ["关闭项目", "取消"],
     defaultId: 1,
     cancelId: 1,
-    message: "仍有 Agent 正在这个画布中工作",
+    message: `仍有 Agent 正在“${projectName}”中工作`,
     detail: `关闭项目后，以下协作会立即断开：\n${participants
       .map((participant) => `• ${participant.displayLabel}`)
       .join("\n")}`,
@@ -986,73 +1190,73 @@ const closeWindowAfterProjectRoomFlush = async (
   targetWindow: BrowserWindow,
   attempt = 1,
 ) => {
-  const activeProjectPath = currentProject?.projectPath;
-  if (activeProjectPath) {
+  const openRooms = projectRoomService.manager.list();
+  for (const room of openRooms) {
     const closeState = await projectRoomService
-      .getCloseState(activeProjectPath)
+      .getCloseState(room.identity.canonicalProjectPath)
       .catch(() => null);
     const collaborators = selectProjectRoomAgentPresence(
       closeState?.otherParticipants ?? [],
     );
     if (
       collaborators.length > 0 &&
-      !(await confirmDisconnectProjectParticipants(targetWindow, collaborators))
+      !(await confirmDisconnectProjectParticipants(
+        targetWindow,
+        path.basename(room.identity.canonicalProjectPath),
+        collaborators,
+      ))
     ) {
       quitState.clearQuitRequest();
       return;
     }
-    if (closeState) {
-      const room = await projectRoomService.findOpenRoom(activeProjectPath);
-      try {
-        await requestRendererProjectRoomFlush(targetWindow);
-        await projectRoomService.closeProjectPath(activeProjectPath, {
-          expectedRoomId: closeState.roomId,
-          acknowledgedParticipantSessionIds: closeState.otherParticipants.map(
-            (participant) => participant.sessionId,
-          ),
-        });
-        if (room) {
-          projectRoomTicketStore.revokeRoom(room.identity);
+  }
+  if (openRooms.length > 0) {
+    try {
+      await requestRendererProjectRoomFlush(targetWindow);
+      for (const room of openRooms) {
+        const closeState = await projectRoomService.getCloseState(
+          room.identity.canonicalProjectPath,
+        );
+        if (!closeState) {
+          continue;
         }
-        allowWindowClose = true;
-        targetWindow.close();
-        return;
-      } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "code" in error &&
-          error.code === "PARTICIPANTS_CHANGED"
-        ) {
-          if (attempt < 3) {
-            return closeWindowAfterProjectRoomFlush(targetWindow, attempt + 1);
-          }
-          const shouldForceClose =
-            await confirmForceCloseAfterParticipantChanges(targetWindow);
-          if (shouldForceClose) {
-            await projectRoomService.closeProjectPath(activeProjectPath, {
-              force: true,
-            });
-            if (room) {
-              projectRoomTicketStore.revokeRoom(room.identity);
-            }
-            allowWindowClose = true;
-            targetWindow.close();
-          } else {
-            quitState.clearQuitRequest();
-          }
-          return;
+        await projectRoomService.closeProjectPath(
+          room.identity.canonicalProjectPath,
+          {
+            reason: "app-closed",
+            expectedRoomId: closeState.roomId,
+            acknowledgedParticipantSessionIds: closeState.otherParticipants.map(
+              (participant) => participant.sessionId,
+            ),
+          },
+        );
+        projectRoomTicketStore.revokeRoom(room.identity);
+      }
+      allowWindowClose = true;
+      targetWindow.close();
+      return;
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "PARTICIPANTS_CHANGED"
+      ) {
+        if (attempt < 3) {
+          return closeWindowAfterProjectRoomFlush(targetWindow, attempt + 1);
         }
-        console.error("[project-room:close-persist-failed]", error);
-        const shouldForceClose = await showCloseAfterSaveFailedDialog(
+        const shouldForceClose = await confirmForceCloseAfterParticipantChanges(
           targetWindow,
-          error,
         );
         if (shouldForceClose) {
-          await projectRoomService.closeProjectPath(activeProjectPath, {
-            force: true,
-          });
-          if (room) {
+          for (const room of projectRoomService.manager.list()) {
+            await projectRoomService.closeProjectPath(
+              room.identity.canonicalProjectPath,
+              {
+                force: true,
+                reason: "app-closed",
+              },
+            );
             projectRoomTicketStore.revokeRoom(room.identity);
           }
           allowWindowClose = true;
@@ -1062,6 +1266,28 @@ const closeWindowAfterProjectRoomFlush = async (
         }
         return;
       }
+      console.error("[project-room:close-persist-failed]", error);
+      const shouldForceClose = await showCloseAfterSaveFailedDialog(
+        targetWindow,
+        error,
+      );
+      if (shouldForceClose) {
+        for (const room of projectRoomService.manager.list()) {
+          await projectRoomService.closeProjectPath(
+            room.identity.canonicalProjectPath,
+            {
+              force: true,
+              reason: "app-closed",
+            },
+          );
+          projectRoomTicketStore.revokeRoom(room.identity);
+        }
+        allowWindowClose = true;
+        targetWindow.close();
+      } else {
+        quitState.clearQuitRequest();
+      }
+      return;
     }
   }
   try {
@@ -1164,6 +1390,18 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC_CHANNELS.getAgentBridgeStatus, async () =>
     getAgentBridgeStatus(),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.getStableAgentBoardUrl,
+    async (_event, projectPath: unknown) => {
+      if (typeof projectPath !== "string" || projectPath.length === 0) {
+        throw Object.assign(
+          new Error("Stable Board URL requires a project path."),
+          { code: "PROJECT_MISMATCH" },
+        );
+      }
+      return getStableAgentBoardUrl(projectPath);
+    },
   );
 
   ipcMain.handle(
@@ -1689,6 +1927,12 @@ if (hasSingleInstanceLock) {
       },
     });
     await localeSettingsController.initialize();
+    stableBoardActorResumeTokenService =
+      createStableBoardActorResumeTokenService({
+        secret: await loadOrCreateStableBoardActorTokenSecret(
+          path.join(app.getPath("userData"), "stable-board-actor-token-secret"),
+        ),
+      });
     agentAccessEnabled = (await loadAgentAccessSettings()).enabled;
     currentRecentProjects = await loadRecentProjects();
     await removeAgentSessionDescriptor(agentSessionPath).catch((error) => {

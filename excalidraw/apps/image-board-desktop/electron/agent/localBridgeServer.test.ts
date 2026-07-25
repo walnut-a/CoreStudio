@@ -20,6 +20,8 @@ import { createTaskGrantStore } from "./taskGrants";
 const projectToken = "project-token-1";
 const boardUrl =
   "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909";
+const stableBoardUrl =
+  "http://127.0.0.1:5174/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A60909";
 const currentProject = {
   projectPath: "/Users/alice/CoreStudio/project-1",
   name: "Project 1",
@@ -76,6 +78,7 @@ const startServer = async (
     isAgentAccessEnabled: () => true,
     getCurrentProject: () => currentProject,
     getBoardUrl: () => boardUrl,
+    getStableBoardUrl: async () => stableBoardUrl,
     renderer,
     grants,
     ...overrides,
@@ -134,6 +137,15 @@ describe("createLocalBridgeServer", () => {
       "text/html; charset=utf-8",
     );
     await expect(boardResponse.text()).resolves.toContain("./assets/index.js");
+
+    const stableBoardResponse = await fetch(
+      `${server.baseUrl}/agent-board/stable-board-id`,
+    );
+    expect(stableBoardResponse.status).toBe(200);
+    expect(stableBoardResponse.headers.get("cache-control")).toBe("no-cache");
+    await expect(stableBoardResponse.text()).resolves.toContain(
+      "./assets/index.js",
+    );
 
     const assetResponse = await fetch(`${server.baseUrl}/assets/index.js`);
     expect(assetResponse.status).toBe(200);
@@ -459,7 +471,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("lists candidates and exchanges a scoped selection token for a room ticket", async () => {
+  it("lists candidates and opens their stable Board address", async () => {
     const candidates = [
       {
         projectPath: "/projects/a",
@@ -469,7 +481,11 @@ describe("createLocalBridgeServer", () => {
     ];
     const listBoardProjectCandidates = vi.fn(async () => candidates);
     const openBoardProjectCandidate = vi.fn(async () => ({
-      launchTicket: "launch-ticket-a",
+      boardUrl: stableBoardUrl,
+      project: {
+        projectPath: "/projects/a",
+        name: "项目 A",
+      },
     }));
     const { server } = await track(
       startServer({
@@ -508,14 +524,173 @@ describe("createLocalBridgeServer", () => {
       body: {
         ok: true,
         data: {
-          boardUrl,
-          launchTicket: "launch-ticket-a",
+          boardUrl: stableBoardUrl,
+          project: {
+            projectPath: "/projects/a",
+            name: "项目 A",
+          },
         },
       },
     });
     expect(openBoardProjectCandidate).toHaveBeenCalledWith({
       selectionToken: "selection-token",
       projectPath: "/projects/a",
+    });
+  });
+
+  it("keeps stable Board actor claim and session exchange separate", async () => {
+    const claimStableBoardSession = vi.fn(async () => undefined);
+    const exchangeStableBoardSession = vi.fn(async () => ({
+      launchTicket: "short-lived-ticket",
+      actorResumeToken: "actor-resume-token",
+    }));
+    const { server } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        claimStableBoardSession,
+        exchangeStableBoardSession,
+      }),
+    );
+
+    const claim = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.stableBoardSessionClaim,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          stableBoardId: "stable-board-id",
+          pageNonce: "page-nonce",
+        }),
+      },
+    );
+    expect(claim).toEqual({
+      status: 200,
+      body: { ok: true, data: { claimed: true } },
+    });
+    expect(claimStableBoardSession).toHaveBeenCalledWith({
+      stableBoardId: "stable-board-id",
+      pageNonce: "page-nonce",
+      threadId: "thread-b",
+      displayLabel: "任务 B",
+    });
+
+    const exchange = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.stableBoardSessionExchange,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stableBoardId: "stable-board-id",
+          pageNonce: "page-nonce",
+          actorResumeToken: "previous-actor-resume-token",
+        }),
+      },
+    );
+    expect(exchange).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          launchTicket: "short-lived-ticket",
+          actorResumeToken: "actor-resume-token",
+        },
+      },
+    });
+    expect(exchangeStableBoardSession).toHaveBeenCalledWith({
+      stableBoardId: "stable-board-id",
+      pageNonce: "page-nonce",
+      actorResumeToken: "previous-actor-resume-token",
+    });
+  });
+
+  it("returns stable Board diagnostics and executes only a typed repair action", async () => {
+    const inspectStableBoardIntegration = vi.fn(async () => ({
+      state: "repair-required" as const,
+      appVersion: "1.1.26",
+      integrationVersion: "1.8.0",
+      bridgeProtocolVersion: 3,
+      actorClaimed: false,
+      issues: [
+        {
+          code: "CODEX_INTEGRATION_OUTDATED" as const,
+          message: "需要更新集成。",
+        },
+      ],
+      repairActions: [
+        {
+          type: "install-codex-integration" as const,
+          label: "更新 Codex 集成",
+        },
+      ],
+    }));
+    const repairStableBoardIntegration = vi.fn(async () => ({ ok: true }));
+    const { server } = await track(
+      startServer({
+        inspectStableBoardIntegration,
+        repairStableBoardIntegration,
+      }),
+    );
+    const identity = {
+      stableBoardId: "stable-board-id",
+      pageNonce: "page-nonce",
+    };
+
+    const status = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.stableBoardIntegrationStatus,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(identity),
+      },
+    );
+    expect(status).toMatchObject({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          state: "repair-required",
+          repairActions: [{ type: "install-codex-integration" }],
+        },
+      },
+    });
+
+    const repair = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.stableBoardIntegrationRepair,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "install-codex-integration" }),
+      },
+    );
+    expect(repair).toEqual({
+      status: 200,
+      body: { ok: true, data: { ok: true } },
+    });
+    expect(repairStableBoardIntegration).toHaveBeenCalledWith({
+      action: "install-codex-integration",
+    });
+
+    const rejected = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.stableBoardIntegrationRepair,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "run-shell" }),
+      },
+    );
+    expect(rejected).toMatchObject({
+      status: 400,
+      body: { error: { code: "BAD_REQUEST" } },
     });
   });
 
@@ -1449,6 +1624,17 @@ describe("createLocalBridgeServer", () => {
     expect(second.server.baseUrl).toBe(
       `http://127.0.0.1:${second.server.port}`,
     );
+  });
+
+  it("keeps a stable bridge address by rejecting an occupied preferred port", async () => {
+    const first = await track(startServer());
+
+    await expect(
+      startServer({
+        preferredPort: first.server.port,
+        allowDynamicPortFallback: false,
+      }),
+    ).rejects.toMatchObject({ code: "EADDRINUSE" });
   });
 
   it("completes task grants before forwarding task.complete", async () => {

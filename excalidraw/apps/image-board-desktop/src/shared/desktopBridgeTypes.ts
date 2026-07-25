@@ -52,6 +52,7 @@ export const IPC_CHANNELS = {
   importImages: "image-board:import-images",
   cleanProjectCache: "image-board:clean-project-cache",
   revealProjectInFinder: "image-board:reveal-project-in-finder",
+  getStableAgentBoardUrl: "image-board:get-stable-agent-board-url",
   loadAppInfo: "image-board:load-app-info",
   openExternal: "image-board:open-external",
   inspectCodexIntegration: "image-board:inspect-codex-integration",
@@ -388,6 +389,7 @@ export interface DesktopBridgeApi {
   }): Promise<ImageRecordMap>;
   importImages(): Promise<ImportedImagePayload[]>;
   revealProjectInFinder(projectPath: string): Promise<void>;
+  getStableAgentBoardUrl?(projectPath: string): Promise<string | null>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
   openExternal?(url: string): Promise<void>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;

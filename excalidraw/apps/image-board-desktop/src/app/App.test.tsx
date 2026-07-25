@@ -883,12 +883,8 @@ describe("App startup", () => {
     expect(submitProjectRoomOperation).not.toHaveBeenCalled();
   });
 
-  it("can force project switching after the current room fails to persist", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    const closeProjectRoom = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("磁盘不可写"))
-      .mockResolvedValueOnce(true);
+  it("keeps both project editors mounted and switches tabs without reopening either project", async () => {
+    const closeProjectRoom = vi.fn().mockResolvedValue(true);
     const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
     let menuActionListener:
       | ((event: {
@@ -1012,17 +1008,32 @@ describe("App startup", () => {
       });
     });
 
-    expect(closeProjectRoom).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectPath: "/tmp/project-a",
-      }),
+    expect(closeProjectRoom).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: "项目 A" })).toHaveAttribute(
+      "aria-selected",
+      "false",
     );
-    expect(closeProjectRoom).toHaveBeenLastCalledWith({
-      projectPath: "/tmp/project-a",
-      force: true,
+    expect(screen.getByRole("tab", { name: "项目 B" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(readProjectAssetPayloads).toHaveBeenCalledTimes(2);
+    expect(screen.getAllByTestId("excalidraw-canvas")).toHaveLength(2);
+    expect(
+      document.querySelectorAll(".image-board-canvas__project-runtime--active"),
+    ).toHaveLength(1);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("tab", { name: "项目 A" }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "项目 A" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
     });
     expect(readProjectAssetPayloads).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
   });
 
   it("opens an about dialog from the native help menu", async () => {
@@ -1644,8 +1655,10 @@ describe("App startup", () => {
       },
     });
 
+    const closeProjectRoom = vi.fn().mockResolvedValue(true);
     window.imageBoardDesktop = createDesktopBridgeMock({
       createProject: vi.fn().mockResolvedValue(currentProject),
+      closeProjectRoom,
       loadRecentProjects: vi.fn().mockResolvedValue([
         {
           projectPath: "/Users/zhaolixing/Documents/工业设计助手/当前项目",
@@ -1684,6 +1697,61 @@ describe("App startup", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "继续最近项目" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "当前项目" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(
+      document.querySelector(".image-board-canvas__project-runtime--active"),
+    ).toBeNull();
+    expect(closeProjectRoom).not.toHaveBeenCalled();
+  });
+
+  it("closes only when the project tab close button is used", async () => {
+    const currentProject = createMockProjectBundle({
+      projectPath: "/Users/zhaolixing/Documents/工业设计助手/待关闭项目",
+      project: {
+        ...createMockProjectBundle().project,
+        name: "待关闭项目",
+      },
+    });
+    const closeProjectRoom = vi.fn().mockResolvedValue(true);
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(currentProject),
+      getProjectRoomCloseState: vi.fn().mockResolvedValue(null),
+      closeProjectRoom,
+    }) as any;
+
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole("button", {
+          name: "关闭项目 待关闭项目",
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(closeProjectRoom).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectPath: "/Users/zhaolixing/Documents/工业设计助手/待关闭项目",
+        }),
+      );
+    });
+    expect(
+      screen.queryByRole("tab", { name: "待关闭项目" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "新建项目" }),
     ).toBeInTheDocument();
   });
 
@@ -6237,9 +6305,22 @@ describe("App startup", () => {
         mimeType: "image/png",
       },
     });
-    const submitProjectRoomOperation = vi
-      .fn()
-      .mockRejectedValue(new Error("磁盘不可写"));
+    let submissionCount = 0;
+    const submitProjectRoomOperation = vi.fn(async (input) => {
+      submissionCount += 1;
+      if (submissionCount === 2) {
+        throw new Error("磁盘不可写");
+      }
+      return {
+        operationId: input.operation.operationId,
+        sequence: submissionCount,
+        persistedSequence: 0,
+        changedElementIds: input.operation.elements.map(
+          (element: { id: string }) => element.id,
+        ),
+        ignoredElementIds: [],
+      };
+    });
 
     window.imageBoardDesktop = createDesktopBridgeMock({
       createProject: vi.fn().mockResolvedValue(
@@ -6481,11 +6562,15 @@ describe("App startup", () => {
     });
 
     expect(generateImages).toHaveBeenCalledTimes(1);
-    const firstElementUpdate = mockExcalidrawAPI?.updateScene.mock.calls
+    const pendingFrameUpdate = mockExcalidrawAPI?.updateScene.mock.calls
       .map(([update]) => update)
-      .find((update) => Array.isArray(update.elements));
+      .find((update) =>
+        update.elements?.some(
+          (element: any) => !element.isDeleted && element.type === "frame",
+        ),
+      );
     const pendingFrames =
-      firstElementUpdate?.elements?.filter(
+      pendingFrameUpdate?.elements?.filter(
         (element: any) => !element.isDeleted && element.type === "frame",
       ) ?? [];
     expect(pendingFrames).toHaveLength(1);

@@ -547,6 +547,51 @@ describe("ProjectRoom", () => {
     ).toThrowError(expect.objectContaining({ code: "FORBIDDEN" }));
   });
 
+  it("does not advance or broadcast a semantically unchanged shared scene config", () => {
+    const room = createProjectRoom({
+      identity: {
+        projectId: "project-1",
+        canonicalProjectPath: "/projects/project-1",
+        roomId: "room-1",
+        sessionEpoch: 7,
+      },
+      initialScene: {
+        elements: initialElements,
+        sharedSceneConfig: {
+          viewBackgroundColor: "#ffffff",
+          lockedMultiSelections: {},
+        },
+      },
+      persistedSequence: 0,
+      projectRevision: "revision-1",
+    });
+    const listener = vi.fn();
+    room.join(desktopParticipant);
+    room.subscribe(listener);
+
+    const result = room.applySceneOperation(desktopParticipant.sessionId, {
+      ...room.identity,
+      operationId: "desktop-config-no-op",
+      clientSequence: 1,
+      baseSequence: 0,
+      elements: [],
+      sharedSceneConfig: {
+        viewBackgroundColor: "#ffffff",
+        lockedMultiSelections: {},
+      },
+    });
+
+    expect(result).toMatchObject({
+      type: "operation.superseded",
+      operationId: "desktop-config-no-op",
+      sequence: 0,
+      acceptedElementIds: [],
+      supersededElementIds: [],
+    });
+    expect(room.sequence).toBe(0);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it("rejects arbitrary scene operations from agent-writer participants", () => {
     const room = createRoom();
     const agentParticipant: ProjectRoomParticipant = {
@@ -635,8 +680,16 @@ describe("ProjectRoom", () => {
     ).toThrowError(expect.objectContaining({ code: "SESSION_NOT_FOUND" }));
 
     room.join(desktopParticipant);
-    room.close();
+    const listener = vi.fn();
+    room.subscribe(listener);
+    room.close("app-closed");
     expect(room.lifecycle).toBe("closed");
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "room.closed",
+        reason: "app-closed",
+      }),
+    );
     expect(() =>
       room.applySceneOperation(desktopParticipant.sessionId, {
         projectId: "project-1",

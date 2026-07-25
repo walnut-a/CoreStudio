@@ -171,7 +171,7 @@ export interface ProjectRoomAssetsUpdated {
 export interface ProjectRoomClosed {
   type: "room.closed";
   identity: ProjectRoomIdentity;
-  reason: "project-closed";
+  reason: "project-closed" | "app-closed";
 }
 
 export interface ProjectRoomClosing {

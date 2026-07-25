@@ -1,19 +1,21 @@
 import { MainMenu } from "@excalidraw/excalidraw/index";
 
 import { copy } from "../copy";
-import { projectFolderIcon } from "./CoreStudioIcons";
+import { copyIcon, projectFolderIcon } from "./CoreStudioIcons";
 
 import "./ProjectMainMenu.css";
 
 interface ProjectMainMenuProps {
   currentProjectName: string;
   onSwitchProject: () => void;
+  onCopyBoardAddress?: () => void;
   canvasUtilityActionsVisible?: boolean;
 }
 
 export const ProjectMainMenu = ({
   currentProjectName,
   onSwitchProject,
+  onCopyBoardAddress,
   canvasUtilityActionsVisible = true,
 }: ProjectMainMenuProps) => (
   <MainMenu>
@@ -32,6 +34,15 @@ export const ProjectMainMenu = ({
       >
         {copy.menu.switchProject}
       </MainMenu.Item>
+      {canvasUtilityActionsVisible && onCopyBoardAddress ? (
+        <MainMenu.Item
+          icon={copyIcon}
+          onSelect={onCopyBoardAddress}
+          aria-label={copy.menu.copyBoardAddress}
+        >
+          {copy.menu.copyBoardAddress}
+        </MainMenu.Item>
+      ) : null}
     </MainMenu.Group>
 
     {canvasUtilityActionsVisible ? (

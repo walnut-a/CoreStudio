@@ -70,6 +70,8 @@ const desktopBridge: DesktopBridgeApi = {
   importImages: () => ipcRenderer.invoke(IPC_CHANNELS.importImages),
   revealProjectInFinder: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.revealProjectInFinder, projectPath),
+  getStableAgentBoardUrl: (projectPath) =>
+    ipcRenderer.invoke(IPC_CHANNELS.getStableAgentBoardUrl, projectPath),
   loadAppInfo: () => ipcRenderer.invoke(IPC_CHANNELS.loadAppInfo),
   openExternal: (url) => ipcRenderer.invoke(IPC_CHANNELS.openExternal, url),
   inspectCodexIntegration: () =>

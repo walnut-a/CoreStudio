@@ -82,11 +82,41 @@ describe("selectProjectRoomAgentPresence", () => {
         expect.objectContaining({
           id: "codex:thread-b",
           socketId: "board-1",
-          username: "结构探索",
+          username: "Codex · 结构探索",
           avatarUrl: expect.stringMatching(/^data:image\/svg\+xml,/),
           canFollow: false,
         }),
       ],
+    ]);
+  });
+
+  it("keeps each distinct Agent visible and gives fallback identities a clear label", () => {
+    const collaborators = createProjectRoomCollaborators([
+      {
+        actorId: "codex:thread-b",
+        sessionId: "board-b",
+        transport: "websocket",
+        role: "board-editor",
+        displayLabel: "结构探索",
+      },
+      {
+        actorId: "codex:thread-c",
+        sessionId: "board-c",
+        transport: "websocket",
+        role: "board-editor",
+        displayLabel: "Codex 019f89ff",
+      },
+    ]);
+
+    expect([...collaborators.values()]).toEqual([
+      expect.objectContaining({
+        id: "codex:thread-b",
+        username: "Codex · 结构探索",
+      }),
+      expect.objectContaining({
+        id: "codex:thread-c",
+        username: "Codex Agent · 019f89ff",
+      }),
     ]);
   });
 });

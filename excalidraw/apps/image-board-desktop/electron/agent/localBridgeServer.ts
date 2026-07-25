@@ -18,6 +18,7 @@ import type {
   AgentDesktopBridgeMethod,
   AgentErrorCode,
   AgentRendererCommandName,
+  StableBoardIntegrationStatus,
 } from "../../src/shared/agentBridgeTypes";
 import type {
   PersistedImageAssetInput,
@@ -50,6 +51,7 @@ export interface LocalBridgeCurrentProject {
 
 export interface LocalBridgeServerOptions {
   preferredPort?: number;
+  allowDynamicPortFallback?: boolean;
   maxRequestBodyBytes?: number;
   agentBoardAssetsDir?: string;
   isAgentAccessEnabled: () => boolean;
@@ -58,6 +60,9 @@ export interface LocalBridgeServerOptions {
     token: string,
   ) => Promise<LocalBridgeCurrentProject | null>;
   getBoardUrl?: () => string | null;
+  getStableBoardUrl?: (
+    project: LocalBridgeCurrentProject,
+  ) => Promise<string | null>;
   getProjectRoomStatus?: (projectPath: string) => Promise<{
     sceneWriteMode: "room";
     roomId: string;
@@ -83,6 +88,27 @@ export interface LocalBridgeServerOptions {
     threadId: string;
     displayLabel: string;
   }) => Promise<{ launchTicket: string }>;
+  claimStableBoardSession?: (input: {
+    stableBoardId: string;
+    pageNonce: string;
+    threadId: string;
+    displayLabel: string;
+  }) => Promise<void>;
+  exchangeStableBoardSession?: (input: {
+    stableBoardId: string;
+    pageNonce: string;
+    actorResumeToken?: string;
+  }) => Promise<{
+    launchTicket: string;
+    actorResumeToken: string;
+  }>;
+  inspectStableBoardIntegration?: (input: {
+    stableBoardId: string;
+    pageNonce: string;
+  }) => Promise<StableBoardIntegrationStatus>;
+  repairStableBoardIntegration?: (input: {
+    action: "install-codex-integration";
+  }) => Promise<unknown>;
   issueBoardProjectSelection?: (input: {
     threadId: string;
     displayLabel: string;
@@ -93,7 +119,10 @@ export interface LocalBridgeServerOptions {
   openBoardProjectCandidate?: (input: {
     selectionToken: string;
     projectPath: string;
-  }) => Promise<{ launchTicket: string }>;
+  }) => Promise<{
+    boardUrl: string;
+    project: { projectPath: string; name: string };
+  }>;
   authenticateProjectRoomWebSocket?: (
     input: AuthenticateProjectRoomWebSocketInput,
   ) => Promise<AuthenticatedProjectRoomWebSocket>;
@@ -173,6 +202,7 @@ const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
 ];
 
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
+  ACTOR_CLAIM_REQUIRED: 409,
   AUTH_REQUIRED: 401,
   BAD_REQUEST: 400,
   CAPABILITY_UNAVAILABLE: 409,
@@ -287,13 +317,16 @@ const serveAgentBoardAsset = async (
     !assetsDir ||
     (pathname !== AGENT_BOARD_ROUTE &&
       pathname !== `${AGENT_BOARD_ROUTE}/` &&
+      !pathname.startsWith(`${AGENT_BOARD_ROUTE}/`) &&
       !pathname.startsWith(AGENT_BOARD_ASSET_ROUTE_PREFIX))
   ) {
     return false;
   }
 
   const relativePath =
-    pathname === AGENT_BOARD_ROUTE || pathname === `${AGENT_BOARD_ROUTE}/`
+    pathname === AGENT_BOARD_ROUTE ||
+    pathname === `${AGENT_BOARD_ROUTE}/` ||
+    pathname.startsWith(`${AGENT_BOARD_ROUTE}/`)
       ? "index.html"
       : pathname.slice(1);
   const root = path.resolve(assetsDir);
@@ -533,6 +566,7 @@ const readRequestBody = async (
 const listenLocalBridgeServer = async (
   server: http.Server,
   preferredPort = 0,
+  allowDynamicPortFallback = true,
 ) => {
   const listen = (port: number) =>
     new Promise<void>((resolve, reject) => {
@@ -554,6 +588,7 @@ const listenLocalBridgeServer = async (
   } catch (error) {
     if (
       preferredPort === 0 ||
+      !allowDynamicPortFallback ||
       !(error instanceof Error) ||
       (error as NodeJS.ErrnoException).code !== "EADDRINUSE"
     ) {
@@ -985,29 +1020,17 @@ export const createLocalBridgeServer = async (
               selectionToken: selection.selectionToken,
               projectPath: body.projectPath,
             });
-            sendJson(
-              response,
-              200,
-              createAgentOk({
-                ...ticket,
-                boardUrl: options.getBoardUrl?.() ?? null,
-              }),
-            );
+            sendJson(response, 200, createAgentOk(ticket));
             return;
           }
 
           const currentProject = options.getCurrentProject();
-          if (currentProject && options.issueProjectRoomTicket) {
-            const ticket = await options.issueProjectRoomTicket({
-              project: currentProject,
-              ...trustedParticipant,
-            });
+          if (currentProject && options.getStableBoardUrl) {
             sendJson(
               response,
               200,
               createAgentOk({
-                ...ticket,
-                boardUrl: options.getBoardUrl?.() ?? null,
+                boardUrl: await options.getStableBoardUrl(currentProject),
               }),
             );
             return;
@@ -1026,6 +1049,184 @@ export const createLocalBridgeServer = async (
               ...(await options.issueBoardProjectSelection(trustedParticipant)),
               boardUrl: options.getBoardUrl?.() ?? null,
             }),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.stableBoardSessionClaim
+      ) {
+        const trustedParticipant = getTrustedParticipantIdentity(
+          request,
+          options.participantIssuerToken,
+        );
+        if (!trustedParticipant || !options.claimStableBoardSession) {
+          sendError(
+            response,
+            403,
+            "FORBIDDEN",
+            "Stable Board actor claim issuer is not authorized.",
+          );
+          return;
+        }
+        try {
+          const body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+          if (
+            typeof body.stableBoardId !== "string" ||
+            !body.stableBoardId.trim() ||
+            typeof body.pageNonce !== "string" ||
+            !body.pageNonce.trim()
+          ) {
+            throw Object.assign(
+              new Error("Stable board id and page nonce are required."),
+              { code: "BAD_REQUEST" },
+            );
+          }
+          await options.claimStableBoardSession({
+            stableBoardId: body.stableBoardId,
+            pageNonce: body.pageNonce,
+            ...trustedParticipant,
+          });
+          sendJson(response, 200, createAgentOk({ claimed: true }));
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.stableBoardSessionExchange
+      ) {
+        if (!options.exchangeStableBoardSession) {
+          sendError(
+            response,
+            409,
+            "CAPABILITY_UNAVAILABLE",
+            "Stable Board session exchange is unavailable.",
+          );
+          return;
+        }
+        try {
+          const body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+          if (
+            typeof body.stableBoardId !== "string" ||
+            !body.stableBoardId.trim() ||
+            typeof body.pageNonce !== "string" ||
+            !body.pageNonce.trim()
+          ) {
+            throw Object.assign(
+              new Error("Stable board id and page nonce are required."),
+              { code: "BAD_REQUEST" },
+            );
+          }
+          sendJson(
+            response,
+            200,
+            createAgentOk(
+              await options.exchangeStableBoardSession({
+                stableBoardId: body.stableBoardId,
+                pageNonce: body.pageNonce,
+                ...(typeof body.actorResumeToken === "string" &&
+                body.actorResumeToken
+                  ? { actorResumeToken: body.actorResumeToken }
+                  : {}),
+              }),
+            ),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
+      ) {
+        if (!options.inspectStableBoardIntegration) {
+          sendError(
+            response,
+            409,
+            "CAPABILITY_UNAVAILABLE",
+            "Stable Board integration diagnostics are unavailable.",
+          );
+          return;
+        }
+        try {
+          const body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+          if (
+            typeof body.stableBoardId !== "string" ||
+            !body.stableBoardId.trim() ||
+            typeof body.pageNonce !== "string" ||
+            !body.pageNonce.trim()
+          ) {
+            throw Object.assign(
+              new Error("Stable board id and page nonce are required."),
+              { code: "BAD_REQUEST" },
+            );
+          }
+          sendJson(
+            response,
+            200,
+            createAgentOk(
+              await options.inspectStableBoardIntegration({
+                stableBoardId: body.stableBoardId,
+                pageNonce: body.pageNonce,
+              }),
+            ),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.stableBoardIntegrationRepair
+      ) {
+        if (!options.repairStableBoardIntegration) {
+          sendError(
+            response,
+            409,
+            "CAPABILITY_UNAVAILABLE",
+            "Stable Board integration repair is unavailable.",
+          );
+          return;
+        }
+        try {
+          const body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+          if (body.action !== "install-codex-integration") {
+            throw Object.assign(
+              new Error("Unsupported stable Board repair action."),
+              { code: "BAD_REQUEST" },
+            );
+          }
+          sendJson(
+            response,
+            200,
+            createAgentOk(
+              await options.repairStableBoardIntegration({
+                action: body.action,
+              }),
+            ),
           );
         } catch (error) {
           sendRendererError(response, error);
@@ -1100,13 +1301,12 @@ export const createLocalBridgeServer = async (
           sendJson(
             response,
             200,
-            createAgentOk({
-              ...(await options.openBoardProjectCandidate({
+            createAgentOk(
+              await options.openBoardProjectCandidate({
                 selectionToken,
                 projectPath: body.projectPath,
-              })),
-              boardUrl: options.getBoardUrl?.() ?? null,
-            }),
+              }),
+            ),
           );
         } catch (error) {
           sendRendererError(response, error);
@@ -1587,7 +1787,11 @@ export const createLocalBridgeServer = async (
       })
     : null;
 
-  await listenLocalBridgeServer(server, options.preferredPort ?? 0);
+  await listenLocalBridgeServer(
+    server,
+    options.preferredPort ?? 0,
+    options.allowDynamicPortFallback,
+  );
 
   const address = server.address();
   if (!address || typeof address === "string") {

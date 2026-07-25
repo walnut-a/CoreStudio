@@ -12,6 +12,8 @@ const baseUrl = "http://127.0.0.1:49152";
 const projectToken = "project-token-1";
 const boardUrl =
   "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152";
+const stableBoardUrl =
+  "http://127.0.0.1:5174/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A49152";
 const okEnvelope = {
   ok: true,
   data: {
@@ -209,7 +211,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.26 (Codex integration 1.7.0, bridge protocol 2)\n",
+          "CoreStudio 1.1.26 (Codex integration 1.8.0, bridge protocol 3)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -227,8 +229,8 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.26",
-        integrationVersion: "1.7.0",
-        bridgeProtocolVersion: 2,
+        integrationVersion: "1.8.0",
+        bridgeProtocolVersion: 3,
       },
     });
   });
@@ -512,8 +514,7 @@ describe("runCli", () => {
       {
         ok: true,
         data: {
-          boardUrl,
-          launchTicket: "launch-ticket",
+          boardUrl: stableBoardUrl,
         },
       },
       records,
@@ -528,7 +529,7 @@ describe("runCli", () => {
       `${JSON.stringify({
         ok: true,
         data: {
-          boardUrl: `${boardUrl}&launchTicket=launch-ticket`,
+          boardUrl: stableBoardUrl,
         },
       })}\n`,
     );
@@ -601,8 +602,7 @@ describe("runCli", () => {
       {
         ok: true,
         data: {
-          boardUrl,
-          launchTicket: "launch-ticket-a",
+          boardUrl: stableBoardUrl,
         },
       },
       records,
@@ -624,8 +624,7 @@ describe("runCli", () => {
     const fetch = createFetch({
       ok: true,
       data: {
-        boardUrl,
-        launchTicket: "launch-ticket",
+        boardUrl: stableBoardUrl,
       },
     });
 
@@ -634,7 +633,42 @@ describe("runCli", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe(`${boardUrl}&launchTicket=launch-ticket\n`);
+    expect(result.stdout).toBe(`${stableBoardUrl}\n`);
+  });
+
+  it("claims a stable Board page for the current Codex task", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(
+      { ok: true, data: { claimed: true } },
+      records,
+    );
+
+    const result = await runCommand(
+      [
+        "board",
+        "claim",
+        "--stable-board-id",
+        "stable-board-id",
+        "--page-nonce",
+        "page-nonce",
+        "--json",
+      ],
+      { fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0]).toMatchObject({
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.stableBoardSessionClaim}`,
+      method: "POST",
+      headers: {
+        "X-CoreStudio-Participant-Issuer": "issuer-secret",
+        "X-CoreStudio-Participant-Thread": "thread-b",
+      },
+    });
+    expect(JSON.parse(records[0].body ?? "{}")).toMatchObject({
+      stableBoardId: "stable-board-id",
+      pageNonce: "page-nonce",
+    });
   });
 
   it("passes trusted Codex participant identity on write commands", async () => {
@@ -652,7 +686,34 @@ describe("runCli", () => {
       headers: {
         "X-CoreStudio-Participant-Issuer": "issuer-secret",
         "X-CoreStudio-Participant-Thread": "thread-b",
-        "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        "X-CoreStudio-Participant-Label": encodeURIComponent("Codex · 任务 B"),
+      },
+    });
+  });
+
+  it("uses an explicit Agent label when the Codex task has no title", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+
+    const result = await runCommand(
+      ["write", "prompt", "--text", "prompt", "--json"],
+      {
+        fetch,
+        env: {
+          CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+          CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+          CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+          CODEX_THREAD_ID: "019f89ff-1234-5678",
+        },
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0]).toMatchObject({
+      headers: {
+        "X-CoreStudio-Participant-Label": encodeURIComponent(
+          "Codex Agent · 019f89ff",
+        ),
       },
     });
   });
@@ -677,7 +738,7 @@ describe("runCli", () => {
         error: {
           code: "COMMAND_FAILED",
           message:
-            "Agent Bridge did not return a Board launch or project-selection ticket.",
+            "Agent Bridge did not return a stable Board URL or project-selection session.",
         },
       })}\n`,
     );

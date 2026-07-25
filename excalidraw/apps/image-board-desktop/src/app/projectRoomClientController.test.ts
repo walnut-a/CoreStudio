@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type {
+  ProjectRoomClosed,
   ProjectRoomEvent,
   ProjectRoomSceneElement,
   ProjectRoomSnapshot,
@@ -55,6 +56,7 @@ const createHarness = (
     ) => Promise<ImageRecordMap | void>;
     randomId?: () => string;
     applyImageRecords?: (imageRecords: ImageRecordMap) => void;
+    onRoomClosed?: (event: ProjectRoomClosed) => void;
   } = {},
 ) => {
   let listener: ((event: ProjectRoomEvent) => void) | null = null;
@@ -136,6 +138,24 @@ describe("ProjectRoomClientController", () => {
       sharedSceneConfig: {},
       sequence: 0,
       origin: "snapshot",
+    });
+  });
+
+  it("preserves the room close reason for reconnect policy", async () => {
+    const onRoomClosed = vi.fn();
+    const harness = createHarness({ onRoomClosed });
+    await harness.controller.start();
+
+    harness.emit({
+      type: "room.closed",
+      identity,
+      reason: "app-closed",
+    });
+
+    expect(onRoomClosed).toHaveBeenCalledWith({
+      type: "room.closed",
+      identity,
+      reason: "app-closed",
     });
   });
 
@@ -454,6 +474,31 @@ describe("ProjectRoomClientController", () => {
     expect(harness.transport.submitOperation).toHaveBeenCalledTimes(1);
   });
 
+  it("waits for room submission without forcing disk persistence during tab switching", async () => {
+    let finishAssetPreparation!: () => void;
+    const harness = createHarness({
+      ensureAssetsForElements: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishAssetPreparation = resolve;
+          }),
+      ),
+    });
+    await harness.controller.start();
+    void harness.controller.handleLocalSceneChange([
+      { ...initialElements[0], version: 2, x: 100 },
+      initialElements[1],
+    ]);
+
+    const submitted = harness.controller.waitForSubmission();
+    expect(harness.transport.submitOperation).not.toHaveBeenCalled();
+    finishAssetPreparation();
+    await submitted;
+
+    expect(harness.transport.submitOperation).toHaveBeenCalledOnce();
+    expect(harness.transport.requestPersistence).not.toHaveBeenCalled();
+  });
+
   it("persists new image assets before submit and applies project asset notifications", async () => {
     const imageRecord = {
       fileId: "file-new",
@@ -613,6 +658,39 @@ describe("ProjectRoomClientController", () => {
         gridSize: 20,
       },
     });
+  });
+
+  it("does not echo semantically unchanged nested shared scene config", async () => {
+    const nestedSnapshot: ProjectRoomSnapshot = {
+      ...snapshot,
+      scene: {
+        ...snapshot.scene,
+        sharedSceneConfig: {
+          viewBackgroundColor: "#ffffff",
+          lockedMultiSelections: {},
+          editingGroupId: null,
+        },
+      },
+    };
+    const harness = createHarness();
+    harness.transport.join.mockResolvedValue({
+      snapshot: nestedSnapshot,
+      sessionId: "desktop-session",
+    });
+    await harness.controller.start();
+
+    const result = await harness.controller.handleLocalSceneChange(
+      initialElements,
+      {},
+      {
+        viewBackgroundColor: "#ffffff",
+        lockedMultiSelections: {},
+        editingGroupId: null,
+      },
+    );
+
+    expect(result).toBeNull();
+    expect(harness.transport.submitOperation).not.toHaveBeenCalled();
   });
 
   it("waits for the submitted room sequence to be persisted", async () => {

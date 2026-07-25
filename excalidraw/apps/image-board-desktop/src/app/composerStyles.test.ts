@@ -737,7 +737,8 @@ describe("generate composer styles", () => {
     expect(source).toContain(
       "currentProjectEntryRendererActions.openRecentProject",
     );
-    expect(source).toContain(
+    expect(source).toContain("showProjectHomeFromTabs");
+    expect(source).not.toContain(
       "currentProjectEntryRendererActions.switchToProjectList",
     );
     expect(source).toContain(
@@ -1070,6 +1071,10 @@ describe("generate composer styles", () => {
 
     expect(source).toContain("createCanvasSceneChangeRendererActions");
     expect(source).toContain("canvasSceneChangeRendererActions.changeScene");
+    expect(source).toContain("createDesktopProjectCanvasChangeRendererActions");
+    expect(source).toContain(
+      "desktopProjectCanvasChangeRendererActions.createHandler",
+    );
     expect(source).not.toContain("syncSelectionReferenceIntoRequest");
     expect(source).not.toContain("buildSelectionReferenceSummary");
     expect(source).not.toContain("getSelectionReferenceSignature");

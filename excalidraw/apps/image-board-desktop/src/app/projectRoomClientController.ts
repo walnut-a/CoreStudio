@@ -1,5 +1,6 @@
 import type {
   DesktopProjectRoomJoinInput,
+  ProjectRoomClosed,
   ProjectRoomEvent,
   ProjectRoomIdentity,
   ProjectRoomJoinResult,
@@ -12,6 +13,7 @@ import type {
   ProjectRoomSnapshot,
 } from "../shared/projectRoomProtocol";
 import type { ImageRecordMap } from "../shared/projectTypes";
+import { areJsonValuesEqual } from "../shared/jsonValueEquality";
 
 export interface ProjectRoomClientTransport {
   join(input: DesktopProjectRoomJoinInput): Promise<ProjectRoomJoinResult>;
@@ -43,7 +45,7 @@ export interface CreateProjectRoomClientControllerInput {
   ) => readonly ProjectRoomSceneElement[] | void;
   applyParticipants?: (participants: ProjectRoomParticipant[]) => void;
   applyImageRecords?: (imageRecords: ImageRecordMap) => void;
-  onRoomClosed?: () => void;
+  onRoomClosed?: (event: ProjectRoomClosed) => void;
   onSyncStateChange?: (
     state: "syncing" | "pending-persistence" | "saved" | "error",
     error?: Error,
@@ -90,22 +92,6 @@ const hasVersionIdentityChanged = (
   !current ||
   current.version !== next.version ||
   current.versionNonce !== next.versionNonce;
-
-const haveSameSharedSceneConfig = (
-  left: Record<string, unknown>,
-  right: Record<string, unknown>,
-) => {
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  return (
-    leftKeys.length === rightKeys.length &&
-    leftKeys.every(
-      (key) =>
-        Object.prototype.hasOwnProperty.call(right, key) &&
-        Object.is(left[key], right[key]),
-    )
-  );
-};
 
 export class ProjectRoomClientController {
   public confirmedSequence = 0;
@@ -260,6 +246,12 @@ export class ProjectRoomClientController {
       const drain = this.processPendingLocalSceneChanges();
       this.localChangeQueue = drain.catch(() => undefined);
     }
+    // Scene changes can originate from render callbacks that cannot await the
+    // submission. Keep the returned promise rejectable for explicit callers,
+    // while ensuring a fire-and-forget waiter cannot surface as an unhandled
+    // rejection. The controller still exposes the failure through sync state
+    // and waitForSubmission().
+    void result.catch(() => undefined);
     return result;
   }
 
@@ -316,10 +308,7 @@ export class ProjectRoomClientController {
     });
     const sharedSceneConfigChanged =
       nextSharedSceneConfig !== undefined &&
-      !haveSameSharedSceneConfig(
-        nextSharedSceneConfig,
-        this.sharedSceneConfig,
-      );
+      !areJsonValuesEqual(nextSharedSceneConfig, this.sharedSceneConfig);
     if (changedElements.length === 0 && !sharedSceneConfigChanged) {
       return null;
     }
@@ -428,6 +417,13 @@ export class ProjectRoomClientController {
     return this.getWriteStatus();
   }
 
+  public async waitForSubmission() {
+    await this.localChangeQueue;
+    if (this.lastSubmissionError) {
+      throw this.lastSubmissionError;
+    }
+  }
+
   private handleRoomEvent(event: ProjectRoomEvent) {
     if (!this.identity) {
       this.eventsReceivedBeforeJoin.push(structuredClone(event));
@@ -449,7 +445,7 @@ export class ProjectRoomClientController {
       return;
     }
     if (event.type === "room.closed") {
-      this.input.onRoomClosed?.();
+      this.input.onRoomClosed?.(structuredClone(event));
       return;
     }
     if (event.type === "room.closing") {

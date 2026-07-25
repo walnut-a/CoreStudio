@@ -236,6 +236,11 @@ export const enCopy: DesktopCopy = {
     newProject: "New Project",
     openProject: "Open Project",
     switchProject: "Switch Project...",
+    copyBoardAddress: "Copy Board Address",
+    boardAddressCopied:
+      "Board address copied. Paste it into Codex to open the canvas.",
+    boardAddressUnavailable:
+      "The Board address is unavailable. Make sure Agent Bridge is enabled.",
     openProjectSafe: "Open Project in Safe Mode",
     recentProjects: "Recent Projects",
     version: "Version",

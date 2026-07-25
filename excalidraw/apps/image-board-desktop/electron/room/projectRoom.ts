@@ -4,6 +4,7 @@ import {
   type RoomSceneElement,
 } from "./roomElementReconciliation";
 import type {
+  ProjectRoomClosed,
   ProjectRoomErrorCode,
   ProjectRoomEvent,
   ProjectRoomIdentity,
@@ -19,6 +20,7 @@ import type {
   ProjectRoomSnapshot,
 } from "../../src/shared/projectRoomProtocol";
 import type { ImageRecordMap } from "../../src/shared/projectTypes";
+import { areJsonValuesEqual } from "../../src/shared/jsonValueEquality";
 
 export type {
   ProjectRoomErrorCode,
@@ -356,6 +358,21 @@ export class ProjectRoom {
       };
     }
 
+    const sharedSceneConfigChanged =
+      operation.sharedSceneConfig !== undefined &&
+      !areJsonValuesEqual(operation.sharedSceneConfig, this.sharedSceneConfig);
+    if (operation.elements.length === 0 && !sharedSceneConfigChanged) {
+      const result: ProjectRoomOperationResult = {
+        type: "operation.superseded",
+        operationId: operation.operationId,
+        sequence: this.sequence,
+        acceptedElementIds: [],
+        supersededElementIds: [],
+      };
+      this.rememberOperation(participant, operation, result);
+      return clone(result);
+    }
+
     const elementsById = new Map(
       this.elements.map((element) => [element.id, element]),
     );
@@ -404,14 +421,13 @@ export class ProjectRoom {
     const authoritativeOperationElements = this.elements.filter((element) =>
       broadcastElementIds.has(element.id),
     );
-    if (operation.sharedSceneConfig !== undefined) {
+    if (sharedSceneConfigChanged && operation.sharedSceneConfig !== undefined) {
       this.sharedSceneConfig = clone(operation.sharedSceneConfig);
     }
     this.sequence += 1;
     const result: ProjectRoomOperationResult = {
       type:
-        acceptedElementIds.length > 0 ||
-        operation.sharedSceneConfig !== undefined
+        acceptedElementIds.length > 0 || sharedSceneConfigChanged
           ? "operation.accepted"
           : "operation.superseded",
       operationId: operation.operationId,
@@ -419,6 +435,34 @@ export class ProjectRoom {
       acceptedElementIds,
       supersededElementIds,
     };
+    this.rememberOperation(participant, operation, result);
+
+    const update: ProjectRoomSceneUpdate = {
+      type: "scene.update",
+      identity: clone(this.identity),
+      sequence: this.sequence,
+      originSessionId: participant.sessionId,
+      originActorId: participant.actorId,
+      operationId: operation.operationId,
+      baseSequence: operation.baseSequence,
+      elements: clone(authoritativeOperationElements),
+      ...(sharedSceneConfigChanged
+        ? { sharedSceneConfig: clone(operation.sharedSceneConfig) }
+        : {}),
+      acceptedElementIds: [...acceptedElementIds],
+      supersededElementIds: [...supersededElementIds],
+    };
+    this.broadcast(update);
+    this.schedulePersistence();
+
+    return clone(result);
+  }
+
+  private rememberOperation(
+    participant: ProjectRoomParticipant,
+    operation: ProjectRoomSceneOperation,
+    result: ProjectRoomOperationResult,
+  ) {
     this.operations.set(operation.operationId, {
       actorId: participant.actorId,
       result: clone(result),
@@ -436,26 +480,6 @@ export class ProjectRoom {
       }
       this.operations.delete(oldestOperationId);
     }
-
-    const update: ProjectRoomSceneUpdate = {
-      type: "scene.update",
-      identity: clone(this.identity),
-      sequence: this.sequence,
-      originSessionId: participant.sessionId,
-      originActorId: participant.actorId,
-      operationId: operation.operationId,
-      baseSequence: operation.baseSequence,
-      elements: clone(authoritativeOperationElements),
-      ...(operation.sharedSceneConfig !== undefined
-        ? { sharedSceneConfig: clone(operation.sharedSceneConfig) }
-        : {}),
-      acceptedElementIds: [...acceptedElementIds],
-      supersededElementIds: [...supersededElementIds],
-    };
-    this.broadcast(update);
-    this.schedulePersistence();
-
-    return clone(result);
   }
 
   public flushPersistence(): Promise<void> {
@@ -548,7 +572,7 @@ export class ProjectRoom {
     this.lifecycle = this.lastPersistenceError ? "storage-error" : "active";
   }
 
-  public close() {
+  public close(reason: ProjectRoomClosed["reason"] = "project-closed") {
     if (this.lifecycle === "closed") {
       return;
     }
@@ -556,7 +580,7 @@ export class ProjectRoom {
     this.broadcast({
       type: "room.closed",
       identity: clone(this.identity),
-      reason: "project-closed",
+      reason,
     });
     this.participants.clear();
     this.participantSelections.clear();

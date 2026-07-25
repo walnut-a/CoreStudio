@@ -47,6 +47,14 @@ export const closeIcon = (
   </LineIcon>
 );
 
+export const homeIcon = (
+  <LineIcon size={18}>
+    <path d="m5.25 10.25 6.75-5.5 6.75 5.5" />
+    <path d="M7.25 9.25v9h9.5v-9" />
+    <path d="M10 18.25v-5.5h4v5.5" />
+  </LineIcon>
+);
+
 export const generateImageIcon = (
   <LineIcon>
     <path d="M6.25 18.25h11.5a1.5 1.5 0 0 0 1.5-1.5v-7.5a1.5 1.5 0 0 0-1.5-1.5H6.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5Z" />
@@ -97,28 +105,16 @@ export const trashProjectIcon = (
   </LineIcon>
 );
 
-export const copyLinkIcon = (
+export const copyIcon = (
   <LineIcon>
-    <path d="M9.75 8.75 8.5 10a3 3 0 0 0 4.25 4.25l1.25-1.25" />
-    <path d="m14.25 15.25 1.25-1.25A3 3 0 0 0 11.25 9.75L10 11" />
-    <path d="M8.25 18.25h-1.5a2 2 0 0 1-2-2v-9.5a2 2 0 0 1 2-2h9.5a2 2 0 0 1 2 2v1.5" />
+    <rect x="8.25" y="8.25" width="10.5" height="10.5" rx="1.75" />
+    <path d="M15.75 8.25v-1.5A1.5 1.5 0 0 0 14.25 5.25h-7.5a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
   </LineIcon>
 );
 
 export const checkIcon = (
   <LineIcon size={18}>
     <path d="m6.5 12 3.25 3.25 7.75-7.75" />
-  </LineIcon>
-);
-
-export const clearSelectionIcon = (
-  <LineIcon size={18}>
-    <path d="M8 5.5H5.5V8" />
-    <path d="M16 5.5h2.5V8" />
-    <path d="M8 18.5H5.5V16" />
-    <path d="M16 18.5h2.5V16" />
-    <path d="m9 9 6 6" />
-    <path d="m15 9-6 6" />
   </LineIcon>
 );
 

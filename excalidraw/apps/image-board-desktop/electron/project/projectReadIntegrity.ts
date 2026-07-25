@@ -72,6 +72,9 @@ export const parseProjectManifest = ({
   const projectId = isNonEmptyString(value.projectId)
     ? value.projectId
     : createProjectId();
+  const stableBoardId = isNonEmptyString(value.stableBoardId)
+    ? value.stableBoardId
+    : undefined;
   const createdAt = isNonEmptyString(value.createdAt) ? value.createdAt : now;
   const updatedAt = isNonEmptyString(value.updatedAt)
     ? value.updatedAt
@@ -83,6 +86,7 @@ export const parseProjectManifest = ({
       ? value.appVersion
       : appVersion,
     projectId,
+    stableBoardId,
     name: isNonEmptyString(value.name)
       ? value.name
       : path.basename(path.resolve(projectPath)),
@@ -94,6 +98,9 @@ export const parseProjectManifest = ({
     exportsDir: PROJECT_FILENAMES.exportsDir,
     agentAccess,
   };
+  if (!stableBoardId) {
+    delete project.stableBoardId;
+  }
 
   const changed =
     Object.keys(value).length !== Object.keys(project).length ||

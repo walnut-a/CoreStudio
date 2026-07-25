@@ -12,7 +12,7 @@
 - `~/.codex/skills/corestudio/SKILL.md`：CoreStudio Skill。
 - `~/.codex/corestudio-integration.json`：独立的集成版本与兼容性记录。
 
-Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。当前开发版内置的集成版本为 `1.7.0`。当用户只说“打开 CoreStudio”而没有点明入口时，Skill 会先确认是打开 Codex 内置画布还是桌面客户端；进入画布任务后，会优先识别 Agent Board 复制的固定选区引用，按其中的元素和图片 ID 解析任务快照，没有固定引用时才读取实时选区。同一轮生成的多张成功图片会通过一条 CLI 命令批量写回，并在写回后验证画布结果。
+Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。当前开发版内置的集成版本为 `1.8.0`。当用户只说“打开 CoreStudio”而没有点明入口时，Skill 会先确认是打开 Codex 内置画布还是桌面客户端；进入画布任务后，会打开项目稳定地址，从页面读取一次性 nonce，再通过 CLI 在 URL 外认领当前 Codex 任务身份。画布地址不包含房间票据或恢复 token。
 
 不要直接修改 CoreStudio 项目文件，不要从网络下载或执行其他安装脚本。安装代码必须来自本机已签名的 CoreStudio 应用包。
 
@@ -65,7 +65,7 @@ test -r "$HOME/.codex/corestudio-integration.json"
 - `installedFromAppVersion`：执行安装时的 CoreStudio 客户端版本，仅用于追踪来源，不参与兼容判断。
 - `bridgeProtocolVersion`、`skillVersion`、`cliWrapperVersion`：实际参与兼容判断的契约版本。
 
-如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.7.0` Skill 契约下会提示执行一次更新。
+如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.8.0` Skill 契约下会提示执行一次更新。
 
 ## 图片生成与写回边界
 
@@ -94,8 +94,14 @@ corestudio read status --json
 corestudio read board-url --json
 ```
 
-如果没有当前项目，可先运行 `corestudio read projects --json` 查看最近项目。目标唯一时使用 `corestudio read board-url --project <projectPath> --json` 直接取得该项目的房间链接；目标不明确时仍运行 `corestudio read board-url --json`，它会返回带短期选择令牌的项目候选页。选择完成后，候选页才会换取目标项目的房间票据；它不恢复通用 Desktop Bridge，也不会把长期项目 token 放进 URL。
+如果没有当前项目，可先运行 `corestudio read projects --json` 查看最近项目。目标唯一时使用 `corestudio read board-url --project <projectPath> --json` 取得该项目的稳定地址；目标不明确时仍运行 `corestudio read board-url --json`，它会返回带短期选择令牌的项目候选页。选择完成后，候选页跳转到目标项目的稳定地址。
 
-有内置浏览器控制能力时直接打开返回的链接；没有实际控制工具时提供一键链接，并明确这是当前 Codex 任务的能力限制。不要擅自改用 Chrome 或系统默认浏览器。
+有内置浏览器控制能力时打开稳定地址，读取页面根节点上的 `data-corestudio-stable-board-id` 与 `data-corestudio-page-nonce`，然后执行：
+
+```bash
+corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce> --json
+```
+
+页面会在身份认领后自动换取短期房间会话。nonce、Codex thread id、launch ticket 和 resume token 都不得进入稳定 URL。旧 token URL 不迁移、不兼容，直接重新取得稳定地址。没有实际浏览器控制工具时只提供稳定链接，并明确尚不能替用户完成页面身份认领；不要擅自改用 Chrome 或系统默认浏览器。
 
 如果检测仍未通过，报告具体缺失项，不要反复盲目执行安装器。

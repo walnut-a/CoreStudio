@@ -27,6 +27,19 @@ describe("buildAgentBoardUrl", () => {
     );
   });
 
+  it("builds a stable project address without runtime room credentials", () => {
+    expect(
+      buildAgentBoardUrl({
+        agentAccessEnabled: true,
+        bridgeBaseUrl: "http://127.0.0.1:60909",
+        rendererUrl: null,
+        stableBoardId: "stable/board id",
+      }),
+    ).toBe(
+      "http://127.0.0.1:60909/agent-board/stable%2Fboard%20id",
+    );
+  });
+
   it("does not expose a board URL while Agent access is disabled", () => {
     expect(
       buildAgentBoardUrl({

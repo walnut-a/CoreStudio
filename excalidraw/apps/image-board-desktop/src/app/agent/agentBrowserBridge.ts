@@ -2,6 +2,7 @@ import {
   AGENT_HTTP_ROUTES,
   type AgentDesktopBridgeMethod,
   type AgentEnvelope,
+  type StableBoardIntegrationStatus,
 } from "../../shared/agentBridgeTypes";
 
 import type {
@@ -27,15 +28,22 @@ import type {
   ImageRecordMap,
   ProjectImageWritebackTransaction,
 } from "../../shared/projectTypes";
+import {
+  getAgentBrowserRoomResumeToken,
+  getStableBoardActorResumeToken,
+} from "./agentBrowserRoomCredentials";
 
 export interface AgentBrowserBridgeConfig {
   bridge: string;
   token?: string;
   projectSelectionToken?: string;
+  stableBoardId?: string;
 }
 
 export interface AgentBrowserRouteState {
   isAgentBrowserRoute: boolean;
+  stableBoardId?: string;
+  legacyUrlExpired?: boolean;
 }
 
 export interface AgentBrowserProjectVersion {
@@ -55,15 +63,30 @@ export const buildAgentBrowserRouteState = ({
   pathname: string;
   href: string;
 }): AgentBrowserRouteState => {
-  const isAgentBrowserRoute = pathname === "/agent-board";
+  const stableBoardId =
+    pathname.startsWith("/agent-board/") &&
+    pathname.slice("/agent-board/".length).length > 0
+      ? decodeURIComponent(pathname.slice("/agent-board/".length))
+      : undefined;
+  const isAgentBrowserRoute =
+    pathname === "/agent-board" || stableBoardId !== undefined;
   if (!isAgentBrowserRoute) {
     return {
       isAgentBrowserRoute: false,
     };
   }
 
+  const url = new URL(href);
+  const legacyUrlExpired = [
+    "launchTicket",
+    "resumeToken",
+    "projectToken",
+    "token",
+  ].some((key) => url.searchParams.has(key));
   return {
     isAgentBrowserRoute,
+    ...(stableBoardId ? { stableBoardId } : {}),
+    ...(legacyUrlExpired ? { legacyUrlExpired: true } : {}),
   };
 };
 
@@ -74,18 +97,24 @@ export const buildAgentBrowserBridgeConfig = ({
   pathname: string;
   href: string;
 }): AgentBrowserBridgeConfig | null => {
-  if (pathname !== "/agent-board") {
+  const routeState = buildAgentBrowserRouteState({ pathname, href });
+  if (!routeState.isAgentBrowserRoute || routeState.legacyUrlExpired) {
     return null;
   }
 
   const url = new URL(href);
-  const bridge = url.searchParams.get("bridge");
+  const bridge =
+    url.searchParams.get("bridge") ??
+    (routeState.stableBoardId ? url.origin : null);
   if (!bridge) {
     return null;
   }
 
   return {
     bridge: bridge.replace(/\/+$/, ""),
+    ...(routeState.stableBoardId
+      ? { stableBoardId: routeState.stableBoardId }
+      : {}),
     ...(url.searchParams.get("projectSelectionToken")
       ? {
           projectSelectionToken:
@@ -132,6 +161,63 @@ const requestAgentBridge = async <T>(
   return json.data;
 };
 
+export const exchangeStableAgentBoardSession = ({
+  bridge,
+  stableBoardId,
+  pageNonce,
+  actorResumeToken = getStableBoardActorResumeToken(stableBoardId),
+}: {
+  bridge: string;
+  stableBoardId: string;
+  pageNonce: string;
+  actorResumeToken?: string | null;
+}) =>
+  requestAgentBridge<{
+    launchTicket: string;
+    actorResumeToken: string;
+  }>({ bridge }, AGENT_HTTP_ROUTES.stableBoardSessionExchange, {
+    method: "POST",
+    body: JSON.stringify({
+      stableBoardId,
+      pageNonce,
+      ...(actorResumeToken ? { actorResumeToken } : {}),
+    }),
+  });
+
+export const inspectStableAgentBoardIntegration = ({
+  bridge,
+  stableBoardId,
+  pageNonce,
+}: {
+  bridge: string;
+  stableBoardId: string;
+  pageNonce: string;
+}) =>
+  requestAgentBridge<StableBoardIntegrationStatus>(
+    { bridge },
+    AGENT_HTTP_ROUTES.stableBoardIntegrationStatus,
+    {
+      method: "POST",
+      body: JSON.stringify({ stableBoardId, pageNonce }),
+    },
+  );
+
+export const repairStableAgentBoardIntegration = ({
+  bridge,
+  action,
+}: {
+  bridge: string;
+  action: "install-codex-integration";
+}) =>
+  requestAgentBridge<unknown>(
+    { bridge },
+    AGENT_HTTP_ROUTES.stableBoardIntegrationRepair,
+    {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    },
+  );
+
 const callDesktopBridge = <T>(
   config: AgentBrowserBridgeConfig,
   method: AgentDesktopBridgeMethod,
@@ -174,7 +260,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
         }
         const result = await requestAgentBridge<{
           boardUrl: string;
-          launchTicket: string;
         }>(
           {
             bridge: config.bridge,
@@ -187,7 +272,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
           },
         );
         const nextUrl = new URL(result.boardUrl);
-        nextUrl.searchParams.set("launchTicket", result.launchTicket);
         nextUrl.searchParams.delete("projectSelectionToken");
         window.history.replaceState(null, "", nextUrl.toString());
         window.location.reload();
@@ -207,9 +291,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
       },
       readProjectAssetPayloads: (input) =>
         (() => {
-          const resumeToken = new URL(window.location.href).searchParams.get(
-            "resumeToken",
-          );
+          const resumeToken = getAgentBrowserRoomResumeToken();
           if (!config.token && resumeToken) {
             return requestAgentBridge<ProjectAssetPayload[]>(
               {
@@ -238,9 +320,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
         projectPath: string;
         files: PersistedImageAssetInput[];
       }) => {
-        const resumeToken = new URL(window.location.href).searchParams.get(
-          "resumeToken",
-        );
+        const resumeToken = getAgentBrowserRoomResumeToken();
         if (!config.token && resumeToken) {
           return requestAgentBridge<ImageRecordMap>(
             {

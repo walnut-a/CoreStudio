@@ -66,11 +66,13 @@ describe("ProjectMainMenu", () => {
 
   it("adds a lightweight CoreStudio project entry to the native Excalidraw menu", () => {
     const onSwitchProject = vi.fn();
+    const onCopyBoardAddress = vi.fn();
 
     render(
       <ProjectMainMenu
         currentProjectName="当前项目"
         onSwitchProject={onSwitchProject}
+        onCopyBoardAddress={onCopyBoardAddress}
       />,
     );
 
@@ -93,11 +95,12 @@ describe("ProjectMainMenu", () => {
     expect(
       within(projectGroup).queryByRole("button", { name: "显示项目文件夹" }),
     ).not.toBeInTheDocument();
-    expect(
-      within(projectGroup).queryByRole("button", {
-        name: "复制 Agent Board 链接",
+    fireEvent.click(
+      within(projectGroup).getByRole("button", {
+        name: "复制画布地址",
       }),
-    ).not.toBeInTheDocument();
+    );
+    expect(onCopyBoardAddress).toHaveBeenCalledOnce();
     expect(
       within(projectGroup).queryByRole("button", { name: "最近项目" }),
     ).not.toBeInTheDocument();

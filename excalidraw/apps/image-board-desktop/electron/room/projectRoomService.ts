@@ -3,7 +3,10 @@ import fs from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 
 import type { DesktopProjectBundle } from "../../src/shared/desktopBridgeTypes";
-import { isProjectRoomSceneElement } from "../../src/shared/projectRoomProtocol";
+import {
+  isProjectRoomSceneElement,
+  type ProjectRoomClosed,
+} from "../../src/shared/projectRoomProtocol";
 
 import {
   createProjectRoomManager,
@@ -93,7 +96,10 @@ export class ProjectRoomService {
 
   public async closeProject(
     projectId: string,
-    options: { force?: boolean } = {},
+    options: {
+      force?: boolean;
+      reason?: ProjectRoomClosed["reason"];
+    } = {},
   ) {
     const room = this.manager.get(projectId);
     if (!room) {
@@ -109,7 +115,7 @@ export class ProjectRoomService {
       }
     }
     const canonicalProjectPath = room.identity.canonicalProjectPath;
-    const closed = this.manager.close(projectId);
+    const closed = this.manager.close(projectId, options.reason);
     if (closed) {
       this.projectIdByPath.delete(canonicalProjectPath);
     }
@@ -140,6 +146,7 @@ export class ProjectRoomService {
     projectPath: string,
     options: {
       force?: boolean;
+      reason?: ProjectRoomClosed["reason"];
       expectedRoomId?: string;
       requestingSessionId?: string;
       acknowledgedParticipantSessionIds?: string[];

@@ -47,6 +47,29 @@ describe("App image assets", () => {
     window.imageBoardDesktop = createDesktopBridgeMock({
       createProject: vi.fn().mockResolvedValue(
         createMockProjectBundle({
+          sceneJson: JSON.stringify({
+            elements: [
+              {
+                id: "old-generated-element",
+                type: "image",
+                fileId: "old-generated-file",
+                isDeleted: false,
+                groupIds: [],
+                x: 80,
+                y: 120,
+                width: 320,
+                height: 240,
+              },
+            ],
+            appState: {
+              width: 1440,
+              height: 900,
+              scrollX: 0,
+              scrollY: 0,
+              zoom: { value: 1 },
+              selectedElementIds: {},
+            },
+          }),
           imageRecords: {
             "corestudio-image": {
               fileId: "corestudio-image",

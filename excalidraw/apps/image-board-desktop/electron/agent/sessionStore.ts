@@ -1,8 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { AGENT_BRIDGE_PROTOCOL_VERSION } from "../../src/shared/agentBridgeTypes";
+
 export interface AgentSessionDescriptor {
-  protocolVersion: 2;
+  protocolVersion: typeof AGENT_BRIDGE_PROTOCOL_VERSION;
   appName: string;
   appVersion: string;
   bridge: {

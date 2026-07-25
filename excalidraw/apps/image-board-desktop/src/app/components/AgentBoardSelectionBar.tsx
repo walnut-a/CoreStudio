@@ -5,7 +5,7 @@ import type { GenerationReferencePayload } from "../../shared/providerTypes";
 import { buildAgentBoardSelectionContextViewModel } from "../agentBoardSelectionContext";
 import { copyPlainTextToClipboard } from "../clipboardText";
 import { copy } from "../copy";
-import { checkIcon, clearSelectionIcon, copyLinkIcon } from "./CoreStudioIcons";
+import { checkIcon, closeIcon, copyIcon } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 
 import "./AgentBoardSelectionBar.css";
@@ -187,7 +187,7 @@ export const AgentBoardSelectionBar = ({
           >
             {feedback === copy.agentBoard.selectionContext.copySucceeded
               ? checkIcon
-              : copyLinkIcon}
+              : copyIcon}
           </DesktopButton>
           <DesktopButton
             size="small"
@@ -197,7 +197,7 @@ export const AgentBoardSelectionBar = ({
             aria-label={copy.agentBoard.selectionContext.clearSelection}
             title={copy.agentBoard.selectionContext.clearSelection}
           >
-            {clearSelectionIcon}
+            {closeIcon}
           </DesktopButton>
         </div>
       ) : null}

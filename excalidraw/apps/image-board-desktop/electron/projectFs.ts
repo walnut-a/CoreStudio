@@ -407,6 +407,30 @@ export const updateProjectAgentAccess = async (
   return nextProject;
 };
 
+export const ensureProjectStableBoardId = async (
+  projectPath: string,
+  createStableBoardId: () => string = randomUUID,
+) => {
+  const bundle = await readProjectBundleFiles(projectPath);
+  if (bundle.project.stableBoardId) {
+    return {
+      project: bundle.project,
+      stableBoardId: bundle.project.stableBoardId,
+    };
+  }
+  const stableBoardId = createStableBoardId();
+  if (!stableBoardId.trim()) {
+    throw new Error("Stable Agent Board id must not be empty.");
+  }
+  const project: ProjectManifest = {
+    ...bundle.project,
+    stableBoardId,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeProjectManifest(projectPath, project);
+  return { project, stableBoardId };
+};
+
 const analyzeSceneJson = (sceneJson: string) => {
   try {
     const scene = JSON.parse(sceneJson) as { elements?: unknown[] };

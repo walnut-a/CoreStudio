@@ -1,0 +1,110 @@
+.desktop-project-tabs {
+  position: fixed;
+  z-index: 61;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--desktop-window-top-inset, 0px);
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+  padding: 0 var(--ui-space-sm) 0 76px;
+  overflow: hidden;
+  -webkit-app-region: drag;
+}
+
+.desktop-project-tabs__home,
+.desktop-project-tabs__tab,
+.desktop-project-tabs__close {
+  border: 0;
+  color: var(--color-gray-70);
+  background: transparent;
+  font: inherit;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-project-tabs__home {
+  width: var(--ui-control-size-sm);
+  height: var(--ui-control-size-sm);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--border-radius-md);
+}
+
+.desktop-project-tabs__home:hover,
+.desktop-project-tabs__home:focus-visible,
+.desktop-project-tabs__home[aria-current="page"] {
+  color: var(--color-on-surface);
+  background: var(--button-hover-bg);
+}
+
+.desktop-project-tabs__list {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.desktop-project-tabs__list::-webkit-scrollbar {
+  display: none;
+}
+
+.desktop-project-tabs__tab-shell {
+  min-width: 112px;
+  max-width: 220px;
+  height: var(--ui-control-size-sm);
+  display: flex;
+  align-items: center;
+  border-radius: var(--border-radius-md);
+  color: var(--color-gray-70);
+  -webkit-app-region: no-drag;
+}
+
+.desktop-project-tabs__tab-shell:hover,
+.desktop-project-tabs__tab-shell--active {
+  color: var(--color-on-surface);
+  background: var(--button-hover-bg);
+}
+
+.desktop-project-tabs__tab {
+  min-width: 0;
+  flex: 1 1 auto;
+  height: 100%;
+  padding: 0 var(--ui-space-xs) 0 var(--ui-space-sm);
+  text-align: left;
+  cursor: default;
+}
+
+.desktop-project-tabs__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ui-text-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.desktop-project-tabs__close {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--border-radius-md);
+  opacity: 0;
+}
+
+.desktop-project-tabs__tab-shell:hover .desktop-project-tabs__close,
+.desktop-project-tabs__tab-shell--active .desktop-project-tabs__close,
+.desktop-project-tabs__close:focus-visible {
+  opacity: 1;
+}
+
+.desktop-project-tabs__close:hover {
+  background: var(--color-surface-low);
+}

@@ -5,7 +5,7 @@ import type {
   ProjectRoomSceneElement,
 } from "./projectRoomProtocol";
 
-export const AGENT_BRIDGE_PROTOCOL_VERSION = 2;
+export const AGENT_BRIDGE_PROTOCOL_VERSION = 3;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
@@ -15,6 +15,10 @@ export const AGENT_HTTP_ROUTES = {
   capabilities: "/v1/agent/capabilities",
   authorize: "/v1/agent/authorize",
   boardSession: "/v1/board/session",
+  stableBoardSessionClaim: "/v1/agent-board/session/claim",
+  stableBoardSessionExchange: "/v1/agent-board/session/exchange",
+  stableBoardIntegrationStatus: "/v1/agent-board/integration/status",
+  stableBoardIntegrationRepair: "/v1/agent-board/integration/repair",
   boardProjects: "/v1/board/projects",
   boardProjectOpen: "/v1/board/projects/open",
   roomTicket: "/v1/room/ticket",
@@ -35,6 +39,27 @@ export const AGENT_HTTP_ROUTES = {
   sceneAddPrompt: "/v1/scene/add-prompt",
   taskComplete: "/v1/task/complete",
 } as const;
+
+export interface StableBoardIntegrationIssue {
+  code:
+    | "CODEX_INTEGRATION_MISSING"
+    | "CODEX_INTEGRATION_OUTDATED"
+    | "PROJECT_NOT_FOUND";
+  message: string;
+}
+
+export interface StableBoardIntegrationStatus {
+  state: "ready" | "repair-required" | "project-unavailable";
+  appVersion: string;
+  integrationVersion: string;
+  bridgeProtocolVersion: number;
+  actorClaimed: boolean;
+  issues: StableBoardIntegrationIssue[];
+  repairActions: Array<{
+    type: "install-codex-integration";
+    label: string;
+  }>;
+}
 
 export interface AgentBrowserRuntimeViewport {
   scrollX?: number;
@@ -128,6 +153,7 @@ export interface AgentRendererCommandResponse {
 
 export const AGENT_ERROR_CODES = [
   "APP_NOT_READY",
+  "ACTOR_CLAIM_REQUIRED",
   "AUTH_REQUIRED",
   "AUTH_DENIED",
   "BAD_REQUEST",

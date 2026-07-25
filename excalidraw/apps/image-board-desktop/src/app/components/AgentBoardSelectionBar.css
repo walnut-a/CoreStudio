@@ -115,6 +115,9 @@
   min-width: var(--lg-button-size);
   height: var(--lg-button-size);
   padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .agent-board-selection-bar__icon-button svg {

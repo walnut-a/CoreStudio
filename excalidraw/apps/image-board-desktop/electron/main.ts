@@ -967,8 +967,24 @@ const confirmDisconnectProjectParticipants = async (
   return result.response === 0;
 };
 
+const confirmForceCloseAfterParticipantChanges = async (
+  targetWindow: BrowserWindow,
+) => {
+  const result = await dialog.showMessageBox(targetWindow, {
+    type: "warning",
+    buttons: ["强制关闭", "取消"],
+    defaultId: 1,
+    cancelId: 1,
+    message: "协作成员持续变化",
+    detail:
+      "无法安全确认当前关闭状态。强制关闭后，仍在工作的 Agent 会立即断开。",
+  });
+  return result.response === 0;
+};
+
 const closeWindowAfterProjectRoomFlush = async (
   targetWindow: BrowserWindow,
+  attempt = 1,
 ) => {
   const activeProjectPath = currentProject?.projectPath;
   if (activeProjectPath) {
@@ -1008,7 +1024,24 @@ const closeWindowAfterProjectRoomFlush = async (
           "code" in error &&
           error.code === "PARTICIPANTS_CHANGED"
         ) {
-          return closeWindowAfterProjectRoomFlush(targetWindow);
+          if (attempt < 3) {
+            return closeWindowAfterProjectRoomFlush(targetWindow, attempt + 1);
+          }
+          const shouldForceClose =
+            await confirmForceCloseAfterParticipantChanges(targetWindow);
+          if (shouldForceClose) {
+            await projectRoomService.closeProjectPath(activeProjectPath, {
+              force: true,
+            });
+            if (room) {
+              projectRoomTicketStore.revokeRoom(room.identity);
+            }
+            allowWindowClose = true;
+            targetWindow.close();
+          } else {
+            quitState.clearQuitRequest();
+          }
+          return;
         }
         console.error("[project-room:close-persist-failed]", error);
         const shouldForceClose = await showCloseAfterSaveFailedDialog(
@@ -1148,8 +1181,9 @@ const registerIpcHandlers = () => {
     IPC_CHANNELS.projectRoomJoin,
     async (event, input: DesktopProjectRoomJoinInput) => {
       const sender = event.sender;
-      return projectRoomIpcController.join(input, (roomEvent) => {
+      const snapshot = projectRoomIpcController.join(input, (roomEvent) => {
         if (sender.isDestroyed()) {
+          projectRoomIpcController.leave(input.sessionId);
           return;
         }
         const envelope: DesktopProjectRoomEventEnvelope = {
@@ -1158,7 +1192,16 @@ const registerIpcHandlers = () => {
         };
         sender.send(IPC_CHANNELS.projectRoomEvent, envelope);
       });
+      sender.once("destroyed", () => {
+        projectRoomIpcController.leave(input.sessionId);
+      });
+      return snapshot;
     },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.projectRoomResync,
+    async (_event, sessionId: string) =>
+      projectRoomIpcController.resync(sessionId),
   );
   ipcMain.handle(
     IPC_CHANNELS.projectRoomOperation,

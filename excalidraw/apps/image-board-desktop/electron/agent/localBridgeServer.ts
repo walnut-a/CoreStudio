@@ -134,10 +134,6 @@ export interface LocalBridgeServerHandle {
 
 type JsonBody = Record<string, unknown>;
 
-type StoredAgentBrowserRuntimeState = AgentBrowserRuntimeState & {
-  receivedAt: string;
-};
-
 interface WriteRouteConfig {
   route: string;
   command: AgentRendererCommandName;
@@ -340,13 +336,6 @@ const sendError = (
 const isObjectBody = (body: unknown): body is JsonBody =>
   typeof body === "object" && body !== null && !Array.isArray(body);
 
-const isAgentBrowserRuntimeState = (
-  body: JsonBody,
-): body is JsonBody & AgentBrowserRuntimeState =>
-  body.source === "agent-board" &&
-  typeof body.projectPath === "string" &&
-  typeof body.updatedAt === "string";
-
 const getErrorCode = (error: unknown) =>
   error &&
   typeof error === "object" &&
@@ -491,22 +480,6 @@ const resolveOptionalProjectRequest = async (
 
   return project;
 };
-
-const buildBrowserRuntimeAgentContext = (
-  currentProject: LocalBridgeCurrentProject,
-  runtimeState: StoredAgentBrowserRuntimeState,
-) => ({
-  project: currentProject,
-  selection: runtimeState.selection ?? {
-    selected: false,
-  },
-  scene: runtimeState.scene ?? null,
-  browserRuntime: {
-    source: runtimeState.source,
-    updatedAt: runtimeState.updatedAt,
-    receivedAt: runtimeState.receivedAt,
-  },
-});
 
 const buildAgentBoardCommandContext = (
   runtimeState: AgentBrowserRuntimeState & { receivedAt?: string },
@@ -843,15 +816,6 @@ const handleWriteCommand = async (
 export const createLocalBridgeServer = async (
   options: LocalBridgeServerOptions,
 ): Promise<LocalBridgeServerHandle> => {
-  let browserRuntimeState: StoredAgentBrowserRuntimeState | null = null;
-
-  const getCurrentBrowserRuntimeState = (projectPath: string) => {
-    if (!projectPath || browserRuntimeState?.projectPath !== projectPath) {
-      return null;
-    }
-    return browserRuntimeState;
-  };
-
   const server = http.createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -1331,27 +1295,6 @@ export const createLocalBridgeServer = async (
         return;
       }
 
-      const isBrowserStateRoute =
-        url.pathname === AGENT_HTTP_ROUTES.browserState;
-      if (request.method === "GET" && isBrowserStateRoute) {
-        const currentProject = await authenticateProjectRequest(
-          request,
-          response,
-          options,
-        );
-        if (!currentProject) {
-          return;
-        }
-        sendJson(
-          response,
-          200,
-          createAgentOk(
-            getCurrentBrowserRuntimeState(currentProject.projectPath),
-          ),
-        );
-        return;
-      }
-
       if (
         request.method === "GET" &&
         url.pathname === AGENT_HTTP_ROUTES.sceneSelection
@@ -1379,14 +1322,6 @@ export const createLocalBridgeServer = async (
           sendJson(response, 200, createAgentOk(roomRuntimeState.selection));
           return;
         }
-        const runtimeState = getCurrentBrowserRuntimeState(
-          currentProject.projectPath,
-        );
-        if (runtimeState?.selection !== undefined) {
-          sendJson(response, 200, createAgentOk(runtimeState.selection));
-          return;
-        }
-
         await handleReadCommand(response, options.renderer, "scene.selection");
         return;
       }
@@ -1407,24 +1342,6 @@ export const createLocalBridgeServer = async (
           const result = await options.renderer.request("agent.context");
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
-          const runtimeState = getCurrentBrowserRuntimeState(
-            currentProject.projectPath,
-          );
-          if (
-            getErrorCode(error) === "PROJECT_REQUIRED" &&
-            runtimeState &&
-            currentProject
-          ) {
-            sendJson(
-              response,
-              200,
-              createAgentOk(
-                buildBrowserRuntimeAgentContext(currentProject, runtimeState),
-              ),
-            );
-            return;
-          }
-
           sendRendererError(response, error);
         }
         return;
@@ -1488,8 +1405,7 @@ export const createLocalBridgeServer = async (
         !isSceneImagePathsRoute &&
         !writeRoute &&
         !projectCommandRoute &&
-        !isDesktopBridgeRoute &&
-        !isBrowserStateRoute
+        !isDesktopBridgeRoute
       ) {
         sendError(
           response,
@@ -1543,45 +1459,6 @@ export const createLocalBridgeServer = async (
             ...(typeof authorizeBody.reason === "string"
               ? { reason: authorizeBody.reason }
               : {}),
-          }),
-        );
-        return;
-      }
-
-      if (request.method === "POST" && isBrowserStateRoute && body) {
-        const currentProject = await authenticateProjectRequest(
-          request,
-          response,
-          options,
-        );
-        if (!currentProject) {
-          return;
-        }
-        if (!isAgentBrowserRuntimeState(body)) {
-          sendError(
-            response,
-            400,
-            "BAD_REQUEST",
-            "browser-state body 必须包含 source、projectPath 和 updatedAt。",
-          );
-          return;
-        }
-
-        browserRuntimeState = {
-          source: body.source,
-          projectPath: body.projectPath,
-          updatedAt: body.updatedAt,
-          ...(body.selection === undefined
-            ? {}
-            : { selection: body.selection }),
-          ...(body.scene === undefined ? {} : { scene: body.scene }),
-          receivedAt: new Date().toISOString(),
-        };
-        sendJson(
-          response,
-          200,
-          createAgentOk({
-            accepted: true,
           }),
         );
         return;
@@ -1685,8 +1562,7 @@ export const createLocalBridgeServer = async (
           currentProject,
           writeRoute,
           body,
-          roomRuntimeState ??
-            getCurrentBrowserRuntimeState(currentProject.projectPath),
+          roomRuntimeState,
         );
         return;
       }

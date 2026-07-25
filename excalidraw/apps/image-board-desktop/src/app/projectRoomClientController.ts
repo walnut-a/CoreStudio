@@ -20,10 +20,10 @@ export interface ProjectRoomClientTransport {
   ): Promise<ProjectRoomOperationResult>;
   leave(sessionId: string): Promise<boolean>;
   subscribe(listener: (event: ProjectRoomEvent) => void): () => void;
-  subscribeSnapshot?(
+  subscribeSnapshot(
     listener: (joined: ProjectRoomJoinResult) => void,
   ): () => void;
-  requestResync?(): void;
+  requestResync(): Promise<void> | void;
   requestPersistence?(): Promise<void>;
   updateSelection?(selection: ProjectRoomParticipantSelection): Promise<void>;
 }
@@ -40,7 +40,7 @@ export interface CreateProjectRoomClientControllerInput {
   transport: ProjectRoomClientTransport;
   applyAuthoritativeScene: (
     input: ApplyAuthoritativeProjectRoomSceneInput,
-  ) => void;
+  ) => readonly ProjectRoomSceneElement[] | void;
   applyParticipants?: (participants: ProjectRoomParticipant[]) => void;
   applyImageRecords?: (imageRecords: ImageRecordMap) => void;
   onRoomClosed?: () => void;
@@ -91,6 +91,22 @@ const hasVersionIdentityChanged = (
   current.version !== next.version ||
   current.versionNonce !== next.versionNonce;
 
+const haveSameSharedSceneConfig = (
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+) => {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(right, key) &&
+        Object.is(left[key], right[key]),
+    )
+  );
+};
+
 export class ProjectRoomClientController {
   public confirmedSequence = 0;
   public persistedSequence = 0;
@@ -114,6 +130,10 @@ export class ProjectRoomClientController {
   private processingLocalSceneChanges = false;
   private lastSubmissionError: Error | null = null;
   private lastPersistenceError: Error | null = null;
+  private lastAppliedAuthoritativeVersions = new Map<
+    string,
+    { version: number; versionNonce: number }
+  >();
   private readonly eventsReceivedBeforeJoin: ProjectRoomEvent[] = [];
   private readonly persistenceWaiters = new Set<{
     targetSequence: number;
@@ -150,10 +170,15 @@ export class ProjectRoomClientController {
     this.unsubscribe = this.input.transport.subscribe((event) => {
       this.handleRoomEvent(event);
     });
-    this.unsubscribeSnapshot =
-      this.input.transport.subscribeSnapshot?.((joined) => {
-        this.applySnapshot(joined);
-      }) ?? null;
+    this.unsubscribeSnapshot = this.input.transport.subscribeSnapshot(
+      (joined) => {
+        try {
+          this.applySnapshot(joined);
+        } catch (error) {
+          this.handleSceneApplicationFailure(error);
+        }
+      },
+    );
     try {
       const joined = await this.input.transport.join({
         projectPath: this.input.projectPath,
@@ -278,13 +303,23 @@ export class ProjectRoomClientController {
     const currentById = new Map(
       this.elements.map((element) => [element.id, element]),
     );
-    const changedElements = nextElements.filter((element) =>
-      hasVersionIdentityChanged(currentById.get(element.id), element),
-    );
+    const changedElements = nextElements.filter((element) => {
+      if (!hasVersionIdentityChanged(currentById.get(element.id), element)) {
+        return false;
+      }
+      const lastApplied = this.lastAppliedAuthoritativeVersions.get(element.id);
+      return (
+        !lastApplied ||
+        lastApplied.version !== element.version ||
+        lastApplied.versionNonce !== element.versionNonce
+      );
+    });
     const sharedSceneConfigChanged =
       nextSharedSceneConfig !== undefined &&
-      JSON.stringify(nextSharedSceneConfig) !==
-        JSON.stringify(this.sharedSceneConfig);
+      !haveSameSharedSceneConfig(
+        nextSharedSceneConfig,
+        this.sharedSceneConfig,
+      );
     if (changedElements.length === 0 && !sharedSceneConfigChanged) {
       return null;
     }
@@ -316,19 +351,6 @@ export class ProjectRoomClientController {
         options.submitOperation ??
         this.input.transport.submitOperation.bind(this.input.transport)
       )(operation);
-      const acceptedElementIds = new Set(result.acceptedElementIds);
-      const elementsById = new Map(
-        this.elements.map((element) => [element.id, element]),
-      );
-      for (const element of changedElements) {
-        if (acceptedElementIds.has(element.id)) {
-          elementsById.set(element.id, structuredClone(element));
-        }
-      }
-      this.elements = orderElements([...elementsById.values()]);
-      if (sharedSceneConfigChanged) {
-        this.sharedSceneConfig = structuredClone(nextSharedSceneConfig);
-      }
       this.lastSubmissionError = null;
       this.latestSubmittedSequence = Math.max(
         this.latestSubmittedSequence,
@@ -456,13 +478,13 @@ export class ProjectRoomClientController {
       return;
     }
     if (event.sequence > this.confirmedSequence + 1) {
-      if (!this.awaitingResync) {
-        this.awaitingResync = true;
-        this.input.transport.requestResync?.();
-      }
+      this.requestResync();
       return;
     }
 
+    const previousElements = this.elements;
+    const previousSharedSceneConfig = this.sharedSceneConfig;
+    const previousConfirmedSequence = this.confirmedSequence;
     const elementsById = new Map(
       this.elements.map((element) => [element.id, element]),
     );
@@ -477,7 +499,14 @@ export class ProjectRoomClientController {
     const wasPending = this.pendingOperations.delete(event.operationId);
     const confirmation =
       event.originSessionId === this.activeSessionId && wasPending;
-    this.applyScene(confirmation ? "confirmation" : "remote");
+    try {
+      this.applyScene(confirmation ? "confirmation" : "remote");
+    } catch (error) {
+      this.elements = previousElements;
+      this.sharedSceneConfig = previousSharedSceneConfig;
+      this.confirmedSequence = previousConfirmedSequence;
+      this.handleSceneApplicationFailure(error);
+    }
   }
 
   private replayEventsReceivedBeforeJoin() {
@@ -510,6 +539,46 @@ export class ProjectRoomClientController {
       );
     }
     this.applyScene("snapshot");
+    this.input.onSyncStateChange?.(
+      this.persistedSequence >= this.confirmedSequence
+        ? "saved"
+        : "pending-persistence",
+    );
+  }
+
+  private requestResync(error?: Error) {
+    if (error) {
+      this.input.onSyncStateChange?.("error", error);
+    }
+    if (this.awaitingResync) {
+      return;
+    }
+    this.awaitingResync = true;
+    try {
+      void Promise.resolve(this.input.transport.requestResync()).catch(
+        (requestError) => {
+          this.input.onSyncStateChange?.(
+            "error",
+            requestError instanceof Error
+              ? requestError
+              : new Error(String(requestError)),
+          );
+        },
+      );
+    } catch (requestError) {
+      this.input.onSyncStateChange?.(
+        "error",
+        requestError instanceof Error
+          ? requestError
+          : new Error(String(requestError)),
+      );
+    }
+  }
+
+  private handleSceneApplicationFailure(error: unknown) {
+    this.requestResync(
+      error instanceof Error ? error : new Error(String(error)),
+    );
   }
 
   private applyScene(
@@ -517,12 +586,21 @@ export class ProjectRoomClientController {
   ) {
     this.applyingAuthoritativeScene = true;
     try {
-      this.input.applyAuthoritativeScene({
+      const appliedElements = this.input.applyAuthoritativeScene({
         elements: structuredClone(this.elements),
         sharedSceneConfig: structuredClone(this.sharedSceneConfig),
         sequence: this.confirmedSequence,
         origin,
       });
+      this.lastAppliedAuthoritativeVersions = new Map(
+        (appliedElements ?? this.elements).map((element) => [
+          element.id,
+          {
+            version: element.version,
+            versionNonce: element.versionNonce,
+          },
+        ]),
+      );
     } finally {
       this.applyingAuthoritativeScene = false;
     }

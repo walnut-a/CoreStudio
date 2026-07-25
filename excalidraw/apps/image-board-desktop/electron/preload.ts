@@ -113,6 +113,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.setAgentBridgeEnabled, enabled),
   joinProjectRoom: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomJoin, input),
+  resyncProjectRoom: (sessionId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomResync, sessionId),
   submitProjectRoomOperation: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomOperation, input),
   flushProjectRoomPersistence: (sessionId) =>

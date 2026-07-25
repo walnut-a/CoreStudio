@@ -1,6 +1,5 @@
 import {
   AGENT_HTTP_ROUTES,
-  type AgentBrowserRuntimeState,
   type AgentDesktopBridgeMethod,
   type AgentEnvelope,
 } from "../../shared/agentBridgeTypes";
@@ -152,25 +151,6 @@ const rejectUnavailableAgentBoardCapability = (capability: string) =>
       code: "CAPABILITY_UNAVAILABLE",
     }),
   );
-
-export const publishAgentBrowserRuntimeState = async (
-  state: AgentBrowserRuntimeState,
-) => {
-  const config = getAgentBrowserBridgeConfig();
-  if (!config) {
-    return false;
-  }
-
-  await requestAgentBridge<{ accepted: true }>(
-    config,
-    AGENT_HTTP_ROUTES.browserState,
-    {
-      method: "POST",
-      body: JSON.stringify(state),
-    },
-  );
-  return true;
-};
 
 export const maybeCreateAgentBrowserDesktopBridge =
   (): DesktopBridgeApi | null => {

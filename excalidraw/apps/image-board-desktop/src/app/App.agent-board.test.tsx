@@ -293,7 +293,6 @@ describe("App Agent Board room route", () => {
     ).toEqual(
       expect.not.arrayContaining([
         AGENT_HTTP_ROUTES.status,
-        AGENT_HTTP_ROUTES.browserState,
         AGENT_HTTP_ROUTES.desktopBridge,
       ]),
     );

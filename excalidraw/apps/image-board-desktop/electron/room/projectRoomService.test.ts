@@ -251,6 +251,40 @@ describe("ProjectRoomService", () => {
     expect(writeProjectScene).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects maintenance changes outside scene elements while a room is active", async () => {
+    const writeProjectScene = vi.fn(async () => ({}));
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle("project-1", projectPath),
+      ),
+      writeProjectScene,
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      randomId: vi.fn(() => "room-id-1"),
+    });
+    await service.openProject("/projects/project-1");
+    const changedFilesSceneJson = JSON.stringify({
+      ...JSON.parse(sceneJson),
+      files: {
+        "file-new": {
+          mimeType: "image/png",
+        },
+      },
+    });
+
+    await expect(
+      service.writeMaintenanceScene({
+        projectPath: "/projects/project-1",
+        sceneJson: changedFilesSceneJson,
+      }),
+    ).rejects.toMatchObject({
+      code: "PERSISTENCE_FAILED",
+      details: {
+        reason: "UNSUPPORTED_MAINTENANCE_SCENE_FIELDS",
+      },
+    });
+    expect(writeProjectScene).not.toHaveBeenCalled();
+  });
+
   it("keeps simultaneous project services isolated", async () => {
     const service = createProjectRoomService({
       readProjectBundle: vi.fn(async (projectPath: string) =>

@@ -55,6 +55,10 @@ export class ProjectRoomIpcController {
     return room.applySceneOperation(sessionId, operation);
   }
 
+  public resync(sessionId: string) {
+    return this.requireRoom(sessionId).getSnapshot();
+  }
+
   public leave(sessionId: string) {
     const room = this.roomsBySessionId.get(sessionId);
     if (!room) {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 
 import type { DesktopProjectBundle } from "../../src/shared/desktopBridgeTypes";
 import { isProjectRoomSceneElement } from "../../src/shared/projectRoomProtocol";
@@ -16,6 +17,24 @@ interface ProjectSceneWriteInput {
   sceneJson: string;
   expectedSceneHash?: string | null;
 }
+
+const parseProjectSceneDocument = (
+  sceneJson: string,
+): Record<string, unknown> => {
+  const parsed = JSON.parse(sceneJson) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ProjectRoomError(
+      "PERSISTENCE_FAILED",
+      "Maintenance produced an invalid project scene.",
+    );
+  }
+  return parsed as Record<string, unknown>;
+};
+
+const omitSceneElements = ({
+  elements: _elements,
+  ...document
+}: Record<string, unknown>) => document;
 
 export interface CreateProjectRoomServiceInput {
   readProjectBundle: (
@@ -178,9 +197,7 @@ export class ProjectRoomService {
       await this.input.writeProjectScene(input);
       return;
     }
-    const parsed = JSON.parse(input.sceneJson) as {
-      elements?: unknown;
-    };
+    const parsed = parseProjectSceneDocument(input.sceneJson);
     if (
       !Array.isArray(parsed.elements) ||
       !parsed.elements.every(isProjectRoomSceneElement)
@@ -188,6 +205,24 @@ export class ProjectRoomService {
       throw new ProjectRoomError(
         "PERSISTENCE_FAILED",
         "Maintenance produced an invalid project scene.",
+      );
+    }
+    const currentBundle = await this.input.readProjectBundle(
+      room.identity.canonicalProjectPath,
+    );
+    const currentDocument = parseProjectSceneDocument(currentBundle.sceneJson);
+    if (
+      !isDeepStrictEqual(
+        omitSceneElements(parsed),
+        omitSceneElements(currentDocument),
+      )
+    ) {
+      throw new ProjectRoomError(
+        "PERSISTENCE_FAILED",
+        "Maintenance can only change scene elements while a project room is active.",
+        {
+          reason: "UNSUPPORTED_MAINTENANCE_SCENE_FIELDS",
+        },
       );
     }
     room.applyMaintenanceOperation({

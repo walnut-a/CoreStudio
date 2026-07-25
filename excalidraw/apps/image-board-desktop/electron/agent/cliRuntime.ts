@@ -338,10 +338,6 @@ const parseCommand = (
       project: { route: AGENT_HTTP_ROUTES.projectCurrent, method: "GET" },
       records: { route: AGENT_HTTP_ROUTES.projectRecords, method: "GET" },
       health: { route: AGENT_HTTP_ROUTES.projectHealth, method: "GET" },
-      "browser-state": {
-        route: AGENT_HTTP_ROUTES.browserState,
-        method: "GET",
-      },
       board: { route: AGENT_HTTP_ROUTES.sceneBoard, method: "GET" },
       scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
       selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
@@ -361,7 +357,7 @@ const parseCommand = (
     const route = target ? readRoutes[target] : null;
     if (!route) {
       return badRequestEnvelope(
-        "read requires one of: status, capabilities, context, project, projects, records, health, board, scene, selection, image-paths, board-url, browser-state.",
+        "read requires one of: status, capabilities, context, project, projects, records, health, board, scene, selection, image-paths, board-url.",
       );
     }
     const parsed = parseArgs(argv.slice(2), {
@@ -618,7 +614,6 @@ const parseCommand = (
           `${envPrefix} ${executable} read context --json`,
           `${envPrefix} ${executable} read selection --json`,
           `${envPrefix} ${executable} read board --json`,
-          `${envPrefix} ${executable} read browser-state --json`,
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,

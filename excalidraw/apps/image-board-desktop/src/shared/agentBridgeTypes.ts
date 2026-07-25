@@ -20,7 +20,6 @@ export const AGENT_HTTP_ROUTES = {
   roomTicket: "/v1/room/ticket",
   roomAssets: "/v1/room/assets",
   roomPersistAssets: "/v1/room/assets/persist",
-  browserState: "/v1/agent/browser-state",
   desktopBridge: "/v1/desktop-bridge",
   context: "/v1/agent/context",
   projectCurrent: "/v1/project/current",

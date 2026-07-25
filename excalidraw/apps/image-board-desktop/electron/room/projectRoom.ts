@@ -567,7 +567,7 @@ export class ProjectRoom {
   }
 
   private schedulePersistence() {
-    if (!this.persistence) {
+    if (!this.persistence || this.lifecycle === "storage-error") {
       return;
     }
     this.clearPersistenceTimer();

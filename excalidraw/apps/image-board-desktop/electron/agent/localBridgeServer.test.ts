@@ -845,79 +845,6 @@ describe("createLocalBridgeServer", () => {
     },
   );
 
-  it("returns browser board runtime selection before asking the desktop renderer", async () => {
-    const { server, renderer } = await track(startServer());
-    const selection = {
-      selected: true,
-      reference: {
-        enabled: true,
-        elementCount: 1,
-        textCount: 0,
-        items: [
-          {
-            id: "image-1",
-            index: 1,
-            kind: "image",
-            label: "图片",
-            fileId: "file-1",
-          },
-        ],
-        source: {
-          elementIds: ["image-1"],
-          fileIds: ["file-1"],
-        },
-      },
-    };
-
-    const publishResult = await requestJson(
-      server.baseUrl,
-      "/v1/agent/browser-state",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          source: "agent-board",
-          projectPath: currentProject.projectPath,
-          updatedAt: "2026-06-24T08:01:00.000Z",
-          selection,
-          scene: {
-            selectedElementIds: ["image-1"],
-            viewport: {
-              scrollX: 120,
-              scrollY: -80,
-              zoom: 0.75,
-              width: 1440,
-              height: 900,
-            },
-          },
-        }),
-      },
-    );
-
-    expect(publishResult).toEqual({
-      status: 200,
-      body: {
-        ok: true,
-        data: {
-          accepted: true,
-        },
-      },
-    });
-
-    const result = await requestJson(
-      server.baseUrl,
-      AGENT_HTTP_ROUTES.sceneSelection,
-    );
-
-    expect(result).toEqual({
-      status: 200,
-      body: {
-        ok: true,
-        data: selection,
-      },
-    });
-    expect(renderer.request).not.toHaveBeenCalledWith("scene.selection");
-  });
-
   it("returns the calling Codex actor room selection in room mode", async () => {
     const roomSelection = {
       source: "agent-board" as const,
@@ -968,49 +895,6 @@ describe("createLocalBridgeServer", () => {
 
   it("does not expose the retired built-in generation route", async () => {
     const { server, renderer } = await track(startServer());
-    const selection = {
-      selected: true,
-      reference: {
-        enabled: true,
-        elementCount: 1,
-        textCount: 0,
-        items: [
-          {
-            id: "image-1",
-            index: 1,
-            kind: "image",
-            label: "图片",
-            fileId: "file-1",
-          },
-        ],
-        source: {
-          elementIds: ["image-1"],
-          fileIds: ["file-1"],
-        },
-      },
-    };
-    const scene = {
-      selectedElementIds: ["image-1"],
-      viewport: {
-        scrollX: -1200,
-        scrollY: -640,
-        zoom: 2,
-        width: 900,
-        height: 700,
-      },
-    };
-
-    await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.browserState, {
-      method: "POST",
-      body: JSON.stringify({
-        source: "agent-board",
-        projectPath: currentProject.projectPath,
-        updatedAt: "2026-06-24T08:01:00.000Z",
-        selection,
-        scene,
-      }),
-    });
-    renderer.request.mockClear();
 
     const result = await requestJson(server.baseUrl, "/v1/generate", {
       method: "POST",
@@ -1022,49 +906,6 @@ describe("createLocalBridgeServer", () => {
 
     expect(result.status).toBe(404);
     expect(renderer.request).not.toHaveBeenCalled();
-  });
-
-  it("falls back to browser runtime context when the desktop renderer has no project", async () => {
-    const renderer = {
-      request: vi.fn(async () => {
-        throw Object.assign(new Error("当前没有打开 CoreStudio 项目。"), {
-          code: "PROJECT_REQUIRED",
-        });
-      }),
-    };
-    const { server } = await track(startServer({ renderer }));
-
-    await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.browserState, {
-      method: "POST",
-      body: JSON.stringify({
-        source: "agent-board",
-        projectPath: currentProject.projectPath,
-        updatedAt: "2026-06-25T08:00:00.000Z",
-        selection: {
-          selected: false,
-        },
-        scene: {
-          selectedElementIds: [],
-        },
-      }),
-    });
-
-    const result = await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.context);
-
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("agent.context");
-    expect(result.body).toMatchObject({
-      ok: true,
-      data: {
-        project: currentProject,
-        selection: {
-          selected: false,
-        },
-        scene: {
-          selectedElementIds: [],
-        },
-      },
-    });
   });
 
   it("maps renderer PROJECT_REQUIRED errors on read routes to conflict responses", async () => {

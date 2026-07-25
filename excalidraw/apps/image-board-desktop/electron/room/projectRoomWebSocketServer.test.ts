@@ -71,6 +71,45 @@ describe("attachProjectRoomWebSocketServer", () => {
     await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
   });
 
+  it("rejects browser websocket upgrades from unrelated origins", async () => {
+    const authenticate = vi.fn();
+    const server = http.createServer();
+    const attached = attachProjectRoomWebSocketServer({
+      server,
+      authenticate,
+    });
+    const port = await listen(server);
+    cleanups.push(async () => {
+      await attached.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+    const socket = new (WebSocket as any)(
+      `ws://127.0.0.1:${port}/v1/room?launchTicket=launch-ticket`,
+      {
+        headers: {
+          Origin: "http://unrelated.example",
+        },
+      },
+    ) as WebSocket;
+
+    const statusCode = await new Promise<number>((resolve, reject) => {
+      (socket as any).once("unexpected-response", (_request: unknown, response: {
+        statusCode?: number;
+      }) => {
+        resolve(response.statusCode ?? 0);
+      });
+      socket.once("open", () =>
+        reject(new Error("Unexpected websocket connection.")),
+      );
+      socket.once("error", () => {
+        // The status response is the expected assertion signal.
+      });
+    });
+
+    expect(statusCode).toBe(403);
+    expect(authenticate).not.toHaveBeenCalled();
+  });
+
   it("joins with an authenticated ticket and exchanges room operations", async () => {
     const room = createRoom();
     const validateOperationAssets = vi.fn(async () => undefined);

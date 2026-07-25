@@ -30,7 +30,6 @@ describe("agentBridgeTypes", () => {
     expect(AGENT_HTTP_ROUTES.boardSession).toBe("/v1/board/session");
     expect(AGENT_HTTP_ROUTES.boardProjects).toBe("/v1/board/projects");
     expect(AGENT_HTTP_ROUTES.boardProjectOpen).toBe("/v1/board/projects/open");
-    expect(AGENT_HTTP_ROUTES.browserState).toBe("/v1/agent/browser-state");
     expect(AGENT_HTTP_ROUTES.desktopBridge).toBe("/v1/desktop-bridge");
     expect(AGENT_HTTP_ROUTES.sceneBoard).toBe("/v1/scene/board");
     expect(AGENT_HTTP_ROUTES.sceneImagePaths).toBe("/v1/scene/image-paths");

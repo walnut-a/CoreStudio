@@ -107,20 +107,31 @@ describe("chooseAuthoritativeRoomElement", () => {
 });
 
 describe("orderRoomSceneElements", () => {
+  it("orders valid indices first and invalid indices deterministically", () => {
+    const actual = orderRoomSceneElements([
+      { ...element("missing-b", 1, 101), index: null },
+      { ...element("valid-b", 1, 102), index: "a2" },
+      { ...element("invalid-a", 1, 103), index: "not-an-order-key" },
+      { ...element("valid-a", 1, 104), index: "a1" },
+      { ...element("missing-a", 1, 105), index: null },
+    ]);
+
+    expect(actual.map(({ id }) => id)).toEqual([
+      "valid-a",
+      "valid-b",
+      "invalid-a",
+      "missing-a",
+      "missing-b",
+    ]);
+    expect(actual.every(({ index }) => typeof index === "string")).toBe(true);
+  });
+
   it.each([
     [
       "duplicate indices",
       [
         { id: "A", index: "a1" },
         { id: "B", index: "a1" },
-        { id: "C", index: "a2" },
-      ],
-    ],
-    [
-      "missing indices",
-      [
-        { id: "A", index: "a1" },
-        { id: "B", index: null },
         { id: "C", index: "a2" },
       ],
     ],

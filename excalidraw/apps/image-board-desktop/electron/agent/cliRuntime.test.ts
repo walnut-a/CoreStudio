@@ -342,12 +342,6 @@ describe("runCli", () => {
       method: "GET",
     },
     {
-      name: "read browser state",
-      argv: ["read", "browser-state", "--json"],
-      route: AGENT_HTTP_ROUTES.browserState,
-      method: "GET",
-    },
-    {
       name: "read image-paths for selected images",
       argv: ["read", "image-paths", "--selection", "--json"],
       route: "/v1/scene/image-paths",
@@ -722,7 +716,6 @@ describe("runCli", () => {
         examples: expect.arrayContaining([
           expect.stringContaining("read context --json"),
           expect.stringContaining("read board --json"),
-          expect.stringContaining("read browser-state --json"),
           expect.stringContaining(
             "write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board",
           ),
@@ -1031,7 +1024,6 @@ describe("runCli", () => {
     ["read context", ["read", "context", "--json"]],
     ["read project", ["read", "project", "--json"]],
     ["read board", ["read", "board", "--json"]],
-    ["read browser-state", ["read", "browser-state", "--json"]],
     ["read scene", ["read", "scene", "--json"]],
     ["read selection", ["read", "selection", "--json"]],
     ["read records", ["read", "records", "--json"]],

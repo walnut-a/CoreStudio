@@ -840,9 +840,17 @@ describe("ProjectRoom", () => {
       },
     });
 
+    room.applySceneOperation(desktopParticipant.sessionId, {
+      ...room.identity,
+      operationId: "operation-2",
+      baseSequence: 1,
+      elements: [{ ...initialElements[0], version: 3, x: 80 }],
+    });
+    expect(persist).toHaveBeenCalledTimes(1);
+
     await expect(room.flushPersistence()).resolves.toBeUndefined();
     expect(room.lifecycle).toBe("active");
-    expect(room.persistedSequence).toBe(1);
+    expect(room.persistedSequence).toBe(2);
   });
 
   it("preserves a structured storage divergence error in room events", async () => {

@@ -203,6 +203,99 @@ describe("ProjectRoomClientController", () => {
     });
   });
 
+  it("does not echo an authoritative scene version applied by reconciliation", async () => {
+    const reconciledElement = {
+      ...initialElements[0],
+      version: 3,
+      versionNonce: 30,
+      x: 200,
+    };
+    const harness = createHarness();
+    harness.applyAuthoritativeScene.mockImplementation(({ origin }) =>
+      origin === "remote" ? [reconciledElement, initialElements[1]] : undefined,
+    );
+    await harness.controller.start();
+
+    harness.emit({
+      type: "scene.update",
+      identity,
+      sequence: 1,
+      originSessionId: "board-session",
+      originActorId: "codex:thread-b",
+      operationId: "remote-operation",
+      baseSequence: 0,
+      elements: [{ ...initialElements[0], version: 2, x: 200 }],
+      acceptedElementIds: ["element-a"],
+      supersededElementIds: [],
+    });
+
+    await harness.controller.handleLocalSceneChange([
+      reconciledElement,
+      initialElements[1],
+    ]);
+
+    expect(harness.transport.submitOperation).not.toHaveBeenCalled();
+  });
+
+  it("keeps the mirror authoritative when the room normalizes an accepted element", async () => {
+    const harness = createHarness();
+    harness.transport.submitOperation.mockImplementationOnce(
+      async (operation) => {
+        harness.emit({
+          type: "scene.update",
+          identity,
+          sequence: 1,
+          originSessionId: "desktop-session",
+          originActorId: "corestudio:desktop",
+          operationId: operation.operationId,
+          baseSequence: 0,
+          elements: [
+            {
+              ...initialElements[0],
+              version: 3,
+              versionNonce: 30,
+              index: "a0V",
+              x: 100,
+            },
+          ],
+          acceptedElementIds: ["element-a"],
+          supersededElementIds: [],
+        });
+        return {
+          type: "operation.accepted",
+          operationId: operation.operationId,
+          sequence: 1,
+          acceptedElementIds: ["element-a"],
+          supersededElementIds: [],
+        };
+      },
+    );
+    await harness.controller.start();
+
+    await harness.controller.handleLocalSceneChange([
+      {
+        ...initialElements[0],
+        version: 2,
+        versionNonce: 20,
+        index: "invalid",
+        x: 100,
+      },
+      initialElements[1],
+    ]);
+    await harness.controller.handleLocalSceneChange([
+      {
+        ...initialElements[0],
+        version: 3,
+        versionNonce: 30,
+        index: "a0V",
+        x: 100,
+      },
+      initialElements[1],
+    ]);
+
+    expect(harness.transport.submitOperation).toHaveBeenCalledTimes(1);
+  });
+
   it("retries the same local scene after a transport submission failure", async () => {
     const harness = createHarness({
       randomId: vi
@@ -712,6 +805,43 @@ describe("ProjectRoomClientController", () => {
     expect(harness.transport.requestResync).toHaveBeenCalledOnce();
     expect(harness.applyAuthoritativeScene).not.toHaveBeenCalled();
     expect(harness.controller.confirmedSequence).toBe(0);
+  });
+
+  it("rolls back a failed scene application and requests resync", async () => {
+    const onSyncStateChange = vi.fn();
+    const harness = createHarness();
+    const controller = createProjectRoomClientController({
+      projectPath: "/projects/project-1",
+      sessionId: "desktop-session",
+      transport: harness.transport,
+      applyAuthoritativeScene: harness.applyAuthoritativeScene,
+      onSyncStateChange,
+    });
+    await controller.start();
+    harness.applyAuthoritativeScene.mockClear();
+    harness.applyAuthoritativeScene.mockImplementationOnce(() => {
+      throw new Error("scene restore failed");
+    });
+
+    harness.emit({
+      type: "scene.update",
+      identity,
+      sequence: 1,
+      originSessionId: "board-session",
+      originActorId: "codex:thread-b",
+      operationId: "operation-board",
+      baseSequence: 0,
+      elements: [{ ...initialElements[1], version: 2, x: 200 }],
+      acceptedElementIds: ["element-b"],
+      supersededElementIds: [],
+    });
+
+    expect(controller.confirmedSequence).toBe(0);
+    expect(harness.transport.requestResync).toHaveBeenCalledOnce();
+    expect(onSyncStateChange).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ message: "scene restore failed" }),
+    );
   });
 
   it("replaces local state and session from a reconnect snapshot", async () => {

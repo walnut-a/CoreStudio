@@ -60,6 +60,7 @@ import {
 import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
 import {
   deserializeSceneFromProject,
+  extractSharedSceneConfig,
   serializeSceneForProject,
 } from "./project/sceneSerialization";
 import {
@@ -926,7 +927,7 @@ const App = ({
     });
   }, [isEditorInitializing, projectRenderNonce]);
 
-  const closeCurrentProjectRoomForTransition = async () => {
+  const closeCurrentProjectRoomForTransition = async (attempt = 1) => {
     const activeProject = currentProjectRef.current;
     if (
       isAgentBrowserRoute ||
@@ -972,7 +973,23 @@ const App = ({
         "code" in error &&
         error.code === "PARTICIPANTS_CHANGED"
       ) {
-        return closeCurrentProjectRoomForTransition();
+        if (attempt < 3) {
+          return closeCurrentProjectRoomForTransition(attempt + 1);
+        }
+        if (
+          !window.confirm(
+            "协作成员持续变化，无法安全确认当前关闭状态。\n\n是否强制关闭项目？仍在工作的 Agent 会立即断开。",
+          )
+        ) {
+          throw Object.assign(new Error("已取消关闭项目。"), {
+            code: "PROJECT_CLOSE_CANCELLED",
+          });
+        }
+        await desktopBridge.closeProjectRoom({
+          projectPath: activeProject.projectPath,
+          force: true,
+        });
+        return;
       }
       if (
         !window.confirm(
@@ -1360,6 +1377,7 @@ const App = ({
         projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
           latestScene,
         );
+        return reconciledElements as readonly ProjectRoomSceneElement[];
       },
     });
     projectRoomClientRef.current = controller;
@@ -1486,6 +1504,7 @@ const App = ({
         projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
           latestScene,
         );
+        return reconciledElements as readonly ProjectRoomSceneElement[];
       },
     });
     projectRoomClientRef.current = controller;
@@ -1550,12 +1569,7 @@ const App = ({
     ) {
       const sharedSceneConfig = isAgentBrowserRoute
         ? undefined
-        : (JSON.parse(
-            serializeSceneForProject({
-              elements,
-              appState,
-            }),
-          ).appState as Record<string, unknown>);
+        : extractSharedSceneConfig(appState);
       void projectRoomClientRef.current
         ?.handleLocalSceneChange(elements, files, sharedSceneConfig)
         .catch((error) => {
@@ -1604,12 +1618,7 @@ const App = ({
     const appState = api.getAppState();
     const sharedSceneConfig = isAgentBrowserRoute
       ? undefined
-      : (JSON.parse(
-          serializeSceneForProject({
-            elements,
-            appState,
-          }),
-        ).appState as Record<string, unknown>);
+      : extractSharedSceneConfig(appState);
     await controller.handleLocalSceneChange(
       elements,
       api.getFiles(),

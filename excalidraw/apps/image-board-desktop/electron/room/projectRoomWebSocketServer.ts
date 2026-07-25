@@ -61,6 +61,18 @@ const sendJson = (socket: WebSocket, value: unknown) => {
   }
 };
 
+const hasAllowedOrigin = (request: http.IncomingMessage) => {
+  const origin = request.headers.origin;
+  if (!origin) {
+    return true;
+  }
+  const host = request.headers.host;
+  if (!host) {
+    return false;
+  }
+  return origin === `http://${host}` || origin === `https://${host}`;
+};
+
 export const attachProjectRoomWebSocketServer = ({
   server,
   path = "/v1/room",
@@ -76,6 +88,11 @@ export const attachProjectRoomWebSocketServer = ({
   ) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (url.pathname !== path) {
+      return;
+    }
+    if (!hasAllowedOrigin(request)) {
+      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+      socket.destroy();
       return;
     }
     webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {

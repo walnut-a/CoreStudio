@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
 import type { ProjectManifest } from "../shared/projectTypes";
-import { getSceneContentHash } from "../shared/sceneVersion";
 import { setActiveDesktopLocale } from "./copy";
 import {
   buildCurrentProjectChangedResetState,
@@ -73,7 +72,6 @@ describe("buildCurrentProjectLifecycleState", () => {
       previousProjectPath: "/projects/previous",
       nextProjectPath: "/projects/next",
       projectChanged: true,
-      savedSceneHash: getSceneContentHash(nextProject.sceneJson),
     });
   });
 
@@ -92,7 +90,6 @@ describe("buildCurrentProjectLifecycleState", () => {
       previousProjectPath: "/projects/current",
       nextProjectPath: "/projects/current",
       projectChanged: false,
-      savedSceneHash: getSceneContentHash(nextProject.sceneJson),
     });
   });
 
@@ -106,7 +103,6 @@ describe("buildCurrentProjectLifecycleState", () => {
       previousProjectPath: "/projects/current",
       nextProjectPath: null,
       projectChanged: true,
-      savedSceneHash: null,
     });
   });
 });
@@ -138,7 +134,6 @@ describe("buildCurrentProjectUpdateState", () => {
       previousProjectPath: "/projects/previous",
       nextProjectPath: "/projects/next",
       projectChanged: true,
-      savedSceneHash: getSceneContentHash(nextProject.sceneJson),
       resetState: buildCurrentProjectChangedResetState(),
     });
   });
@@ -159,7 +154,6 @@ describe("buildCurrentProjectUpdateState", () => {
       previousProjectPath: "/projects/current",
       nextProjectPath: "/projects/current",
       projectChanged: false,
-      savedSceneHash: getSceneContentHash(nextProject.sceneJson),
       resetState: null,
     });
   });

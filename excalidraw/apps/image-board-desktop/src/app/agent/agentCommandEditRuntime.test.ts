@@ -59,10 +59,10 @@ const createProject = (): DesktopProjectBundle => ({
 
 const createScene = (): AgentCommandSceneSnapshot => ({
   elements: [imageElement],
-  appState: ({
+  appState: {
     selectedElementIds: { "element-1": true },
     selectedGroupIds: {},
-  } as unknown) as AppState,
+  } as unknown as AppState,
   files: {},
 });
 
@@ -77,7 +77,7 @@ const createDeps = (
   beginImageWriteback: vi.fn(),
   insertAssetsIntoScene: vi.fn(async () => undefined),
   restoreScene: vi.fn(),
-  flushPendingAutosave: vi.fn(async () => undefined),
+  flushProjectRoom: vi.fn(async () => undefined),
   ...patch,
 });
 
@@ -103,9 +103,9 @@ describe("agentCommandEditRuntime", () => {
               getSceneElementsIncludingDeleted: () => [imageElement],
               updateScene,
               setViewport,
-            }) as unknown as ReturnType<
+            } as unknown as ReturnType<
               AgentCommandRuntimeDeps["getExcalidrawAPI"]
-            >,
+            >),
         }),
       },
     );
@@ -159,9 +159,9 @@ describe("agentCommandEditRuntime", () => {
                 otherImageElement,
               ],
               updateScene,
-            }) as unknown as ReturnType<
+            } as unknown as ReturnType<
               AgentCommandRuntimeDeps["getExcalidrawAPI"]
-            >,
+            >),
         }),
       },
     );

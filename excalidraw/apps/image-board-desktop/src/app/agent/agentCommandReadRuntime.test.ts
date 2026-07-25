@@ -73,7 +73,7 @@ const createDeps = (
   beginImageWriteback: vi.fn(),
   insertAssetsIntoScene: vi.fn(async () => undefined),
   restoreScene: vi.fn(),
-  flushPendingAutosave: vi.fn(async () => undefined),
+  flushProjectRoom: vi.fn(async () => undefined),
   ...patch,
 });
 

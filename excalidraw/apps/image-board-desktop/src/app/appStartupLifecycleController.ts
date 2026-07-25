@@ -3,16 +3,21 @@ type AppStartupLifecycleCleanup = (() => void) | void;
 export const runAppStartupLifecycleAction = ({
   notifyRendererReady,
   isAgentBrowserRoute,
+  isProjectRoomRoute = false,
   loadDesktopStartupState,
   startAgentBrowserBridgeStatusRetryLoop,
 }: {
   notifyRendererReady?: () => void;
   isAgentBrowserRoute: boolean;
+  isProjectRoomRoute?: boolean;
   loadDesktopStartupState: () => void;
   startAgentBrowserBridgeStatusRetryLoop: () => AppStartupLifecycleCleanup;
 }) => {
   notifyRendererReady?.();
-  if (!isAgentBrowserRoute) {
+  if (isProjectRoomRoute) {
+    return;
+  }
+  if (!isAgentBrowserRoute || !isProjectRoomRoute) {
     loadDesktopStartupState();
   }
 
@@ -22,11 +27,13 @@ export const runAppStartupLifecycleAction = ({
 export const createAppStartupLifecycleRendererActions = ({
   getNotifyRendererReady,
   getIsAgentBrowserRoute,
+  getIsProjectRoomRoute = () => false,
   loadDesktopStartupState,
   startAgentBrowserBridgeStatusRetryLoop,
 }: {
   getNotifyRendererReady: () => (() => void) | undefined;
   getIsAgentBrowserRoute: () => boolean;
+  getIsProjectRoomRoute?: () => boolean;
   loadDesktopStartupState: () => void;
   startAgentBrowserBridgeStatusRetryLoop: () => AppStartupLifecycleCleanup;
 }) => ({
@@ -34,6 +41,7 @@ export const createAppStartupLifecycleRendererActions = ({
     runAppStartupLifecycleAction({
       notifyRendererReady: getNotifyRendererReady(),
       isAgentBrowserRoute: getIsAgentBrowserRoute(),
+      isProjectRoomRoute: getIsProjectRoomRoute(),
       loadDesktopStartupState,
       startAgentBrowserBridgeStatusRetryLoop,
     }),

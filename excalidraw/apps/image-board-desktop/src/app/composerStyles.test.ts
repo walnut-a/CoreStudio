@@ -23,11 +23,9 @@ const {
   readAppProjectEntryScreen,
   readAppErrorBanners,
   readEditorLoadingOverlay,
-  readAgentBoardStartupPane,
   readDesktopButton,
   readDesktopStartupWiring,
-  readProjectAutosaveWiring,
-  readAgentBridgeWiring,
+  readProjectRoomFlushWiring,
   readSideDock,
   readGenerateDialogViewModel,
   readGenerateAdvancedFieldsPanel,
@@ -38,7 +36,6 @@ const {
   readGenerateDialogComposerContentSection,
   readGenerateDialogComposerSection,
   readImageInspector,
-  readAgentBoard,
   readProjectMainMenu,
   readProjectStatusToast,
   readCoreStudioIcons,
@@ -664,7 +661,7 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("LazyAgentBoard");
     expect(source).not.toContain("正在载入内置画板");
     expect(source).not.toContain("copy.startup.retryInstruction");
-    expect(gateSource).toContain("const LazyAgentBoard");
+    expect(gateSource).not.toContain("LazyAgentBoard");
     expect(gateSource).toContain("copy.agentBoard.loadingBuiltInTitle");
     expect(gateSource).toContain("copy.startup.retryInstruction");
   });
@@ -685,7 +682,6 @@ describe("generate composer styles", () => {
   it("keeps app error banners owned outside the root app", () => {
     const source = readImageBoardApp();
     const entrySource = readAppProjectEntryScreen();
-    const boardStartupSource = readAgentBoardStartupPane();
     const bannersSource = readAppErrorBanners();
 
     expect(source).toContain("<AppErrorBanners");
@@ -694,9 +690,6 @@ describe("generate composer styles", () => {
     expect(entrySource).toContain("<AppErrorBanners");
     expect(entrySource).not.toContain("app-startup-error");
     expect(entrySource).not.toContain("app-canvas-error-toast");
-    expect(boardStartupSource).toContain("<AppErrorBanners");
-    expect(boardStartupSource).not.toContain("dialog-card__error");
-    expect(boardStartupSource).not.toContain("welcome-pane__error");
     expect(bannersSource).toContain("app-startup-error");
     expect(bannersSource).toContain("app-canvas-error-toast");
     expect(bannersSource).toContain("dialog-card__error welcome-pane__error");
@@ -994,33 +987,21 @@ describe("generate composer styles", () => {
     );
   });
 
-  it("keeps autosave write failure wiring outside the root app", () => {
+  it("does not retain renderer snapshot autosave controllers", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain(
+    expect(source).not.toContain(
       "createCurrentProjectAutosaveFailureRendererActions",
     );
-    expect(source).toContain(
-      "currentProjectAutosaveFailureRendererActions.report",
-    );
-    expect(source).toContain("createAutosaveRendererActions");
-    expect(source).toContain("autosaveRendererActions.schedule");
-    expect(source).toContain("autosaveRendererActions.flush");
-    expect(source).toContain("createAutosaveSnapshotWriteRendererActions");
-    expect(source).toContain(
-      "autosaveSnapshotWriteRendererActions.handleWriteFailure",
-    );
-    expect(source).toContain("autosaveSnapshotWriteRendererActions.enqueue");
-    expect(source).toContain(
-      "autosaveSnapshotWriteRendererActions.takePending",
-    );
+    expect(source).not.toContain("createAutosaveRendererActions");
+    expect(source).not.toContain("createAutosaveSnapshotWriteRendererActions");
     expect(source).not.toContain("const clearAutosaveTimer");
     expect(source).not.toContain("const scheduleAutosave");
     expect(source).not.toContain("const writeAutosaveSnapshot");
     expect(source).not.toContain("const enqueueAutosaveWrite");
     expect(source).not.toContain("const takePendingAutosaveSnapshot");
     expect(source).not.toContain("scheduleAutosaveSnapshotAction");
-    expect(source).not.toContain("flushPendingAutosaveAction");
+    expect(source).not.toContain("flushProjectRoomAction");
     expect(source).not.toContain("const reportAutosaveError");
     expect(source).not.toContain("const handleAutosaveWriteFailure");
     expect(source).not.toContain("runAutosaveSnapshotWriteAction");
@@ -1029,20 +1010,14 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("runAutosaveSnapshotWriteFailureAction");
   });
 
-  it("keeps autosave lifecycle subscription wiring outside the root app", () => {
+  it("keeps room persistence flush wiring outside the root app", () => {
     const source = readImageBoardApp();
-    const wiring = readProjectAutosaveWiring();
+    const wiring = readProjectRoomFlushWiring();
 
-    expect(source).toContain("createAutosaveLifecycleRendererActions");
-    expect(source).toContain("useProjectAutosaveWiring");
-    expect(wiring).toContain(
-      "autosaveLifecycleRendererActions.startBeforeUnloadFlush",
-    );
-    expect(wiring).toContain(
-      "autosaveLifecycleRendererActions.subscribeFlushRequests",
-    );
-    expect(source).not.toContain("startAutosaveBeforeUnloadFlushAction");
-    expect(source).not.toContain("startAutosaveFlushRequestSubscriptionAction");
+    expect(source).toContain("createProjectRoomFlushLifecycleActions");
+    expect(source).toContain("useProjectRoomFlushWiring");
+    expect(wiring).toContain("actions.startBeforeUnloadFlush");
+    expect(wiring).toContain("actions.subscribeFlushRequests");
   });
 
   it("keeps project image import wiring outside the root app", () => {
@@ -1329,18 +1304,13 @@ describe("generate composer styles", () => {
     );
   });
 
-  it("keeps Agent Board auto-open project wiring outside the root app", () => {
+  it("does not retain the legacy Agent Board auto-open controller", () => {
     const source = readImageBoardApp();
-    const wiring = readAgentBridgeWiring();
 
-    expect(source).toContain(
+    expect(source).not.toContain(
       "createAgentBrowserAutoOpenProjectRendererActions",
     );
-    expect(source).toContain("useAgentBridgeWiring");
-    expect(wiring).toContain(
-      "agentBrowserAutoOpenProjectRendererActions.maybeOpen",
-    );
-    expect(source).not.toContain("runAgentBrowserAutoOpenProjectAction");
+    expect(source).not.toContain("useAgentBridgeWiring");
   });
 
   it("keeps Agent command request subscription wiring outside the root app", () => {
@@ -1398,13 +1368,13 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("runGenerateReferenceCommitRendererAction");
   });
 
-  it("keeps generation record prompt copy wiring outside the root app", () => {
+  it("keeps image asset prompt copy wiring outside the root app", () => {
     const source = readImageBoardApp();
 
-    expect(source).toContain("createGenerationRecordRendererActions");
-    expect(source).toContain("generationRecordRendererActions.copyPrompt");
+    expect(source).toContain("createImageAssetRendererActions");
+    expect(source).toContain("imageAssetRendererActions.copyPrompt");
     expect(source).not.toContain("const handleCopyPrompt");
-    expect(source).not.toContain("runGenerationRecordPromptCopyAction");
+    expect(source).not.toContain("runImageAssetPromptCopyAction");
   });
 
   it("keeps generation error renderer wiring outside the root app", () => {
@@ -1492,7 +1462,7 @@ describe("generate composer styles", () => {
     expect(source).toContain("useAgentRuntimeRefsController");
     expect(source).toContain("createAgentBridgeStatusRendererActions");
     expect(source).toContain(
-      "agentBridgeStatusRendererActions.refreshBrowserConnectionStatus",
+      "agentBridgeStatusRendererActions.refreshBrowserConnection",
     );
     expect(source).toContain("agentBridgeStatusRendererActions.setEnabled");
     expect(source).not.toContain("const refreshAgentBrowserConnectionState");
@@ -1512,7 +1482,7 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("<AgentStatusDock");
     expect(source).toContain("openAppSettings: () => setAppSettingsOpen(true)");
     expect(source).toContain(
-      "agentBridgeStatusRendererActions.refreshBrowserConnectionStatus",
+      "agentBridgeStatusRendererActions.refreshBrowserConnection",
     );
   });
 

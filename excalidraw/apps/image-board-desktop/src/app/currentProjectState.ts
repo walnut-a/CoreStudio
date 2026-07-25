@@ -1,6 +1,5 @@
 import type { DesktopProjectBundle } from "../shared/desktopBridgeTypes";
 import { unmarkMissingRecentProjectMessage } from "../shared/recentProjectErrors";
-import { getSceneContentHash } from "../shared/sceneVersion";
 import { formatUnknownErrorMessage } from "./generationErrorViewModel";
 import { copy } from "./copy";
 
@@ -8,7 +7,6 @@ export interface CurrentProjectLifecycleState {
   previousProjectPath: string | null;
   nextProjectPath: string | null;
   projectChanged: boolean;
-  savedSceneHash: string | null;
 }
 
 export interface CurrentProjectChangedResetState {
@@ -37,9 +35,6 @@ export const buildCurrentProjectLifecycleState = ({
     previousProjectPath,
     nextProjectPath,
     projectChanged: previousProjectPath !== nextProjectPath,
-    savedSceneHash: nextProject
-      ? getSceneContentHash(nextProject.sceneJson)
-      : null,
   };
 };
 

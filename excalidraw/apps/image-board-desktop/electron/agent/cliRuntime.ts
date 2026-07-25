@@ -13,9 +13,7 @@ import { DESKTOP_APP_VERSION } from "../appVersion";
 import { readLocalImagePayload } from "./localImagePayload";
 import { getAgentSessionPath } from "./sessionPaths";
 
-import type {
-  AgentEnvelope,
-} from "../../src/shared/agentBridgeTypes";
+import type { AgentEnvelope } from "../../src/shared/agentBridgeTypes";
 import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
 import type { LocalImagePayloadOptions } from "./localImagePayload";
 
@@ -55,13 +53,14 @@ export interface CliRuntimeOptions {
 interface BridgeSession {
   baseUrl: string;
   projectToken: string;
+  participantIssuerToken?: string;
 }
 
 interface CliCommand {
   route?: string;
   method?: "GET" | "POST";
   body?: Record<string, unknown>;
-  imagePath?: string;
+  imagePaths?: string[];
   local?: (
     bridge: BridgeSession,
     options: CliRuntimeOptions,
@@ -167,8 +166,10 @@ Global options:
 
 Examples:
   corestudio read context --json
+  corestudio read projects --json
   corestudio read board-url --json
-  corestudio write image ./generated.png --source-type generated --origin agent-board --json
+  corestudio read board-url --project /path/to/project --json
+  corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
   corestudio write image ./searched.png --source-type imported --json
   corestudio edit locate --file-id <file-id> --json
 `;
@@ -277,8 +278,7 @@ const parseFileIdsFlag = (
 const parseReferenceIdsFlag = (
   value: string | undefined,
   flagName: "--reference-file-ids" | "--reference-element-ids",
-): string[] | undefined | AgentEnvelope<never> =>
-  parseCsvFlag(value, flagName);
+): string[] | undefined | AgentEnvelope<never> => parseCsvFlag(value, flagName);
 
 const parseCommand = (
   argv: readonly string[],
@@ -316,7 +316,9 @@ const parseCommand = (
         method: "POST",
         body: {
           ...(fileIds ? { fileIds } : {}),
-          ...(parsed.boolFlags.has("--selection") ? { selectionOnly: true } : {}),
+          ...(parsed.boolFlags.has("--selection")
+            ? { selectionOnly: true }
+            : {}),
           ...(parsed.boolFlags.has("--all") ? { all: true } : {}),
         },
       };
@@ -324,7 +326,11 @@ const parseCommand = (
 
     const readRoutes: Record<
       string,
-      { route: string; method: "GET"; formatHuman?: CliCommand["formatHuman"] }
+      {
+        route: string;
+        method: "GET" | "POST";
+        formatHuman?: CliCommand["formatHuman"];
+      }
     > = {
       status: { route: AGENT_HTTP_ROUTES.status, method: "GET" },
       capabilities: { route: AGENT_HTTP_ROUTES.capabilities, method: "GET" },
@@ -339,9 +345,13 @@ const parseCommand = (
       board: { route: AGENT_HTTP_ROUTES.sceneBoard, method: "GET" },
       scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
       selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
+      projects: {
+        route: AGENT_HTTP_ROUTES.boardSession,
+        method: "POST",
+      },
       "board-url": {
-        route: AGENT_HTTP_ROUTES.status,
-        method: "GET",
+        route: AGENT_HTTP_ROUTES.boardSession,
+        method: "POST",
         formatHuman: (data) =>
           isObject(data) && typeof data.boardUrl === "string"
             ? data.boardUrl
@@ -351,10 +361,12 @@ const parseCommand = (
     const route = target ? readRoutes[target] : null;
     if (!route) {
       return badRequestEnvelope(
-        "read requires one of: status, capabilities, context, project, records, health, board, scene, selection, image-paths, board-url, browser-state.",
+        "read requires one of: status, capabilities, context, project, projects, records, health, board, scene, selection, image-paths, board-url, browser-state.",
       );
     }
-    const parsed = parseArgs(argv.slice(2));
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: target === "board-url" ? ["--project"] : [],
+    });
     if (isEnvelope(parsed)) {
       return parsed;
     }
@@ -365,18 +377,35 @@ const parseCommand = (
     if (target === "board-url") {
       return {
         ...route,
+        body: parsed.flags["--project"]
+          ? { projectPath: parsed.flags["--project"] }
+          : undefined,
         transformEnvelope: (envelope, bridge) => {
           if (!envelope.ok) {
             return envelope;
           }
           const data = envelope.data;
-          if (!isObject(data) || typeof data.boardUrl !== "string") {
+          if (
+            !isObject(data) ||
+            typeof data.boardUrl !== "string" ||
+            (typeof data.launchTicket !== "string" &&
+              typeof data.selectionToken !== "string")
+          ) {
             return commandFailedEnvelope(
-              "Agent Bridge did not return a Board URL.",
+              "Agent Bridge did not return a Board launch or project-selection ticket.",
             );
           }
           const boardUrl = new URL(data.boardUrl);
-          boardUrl.searchParams.set("projectToken", bridge.projectToken);
+          boardUrl.searchParams.delete("projectToken");
+          boardUrl.searchParams.delete("token");
+          if (typeof data.launchTicket === "string") {
+            boardUrl.searchParams.set("launchTicket", data.launchTicket);
+          } else {
+            boardUrl.searchParams.set(
+              "projectSelectionToken",
+              data.selectionToken as string,
+            );
+          }
           return {
             ok: true,
             data: {
@@ -384,6 +413,12 @@ const parseCommand = (
             },
           };
         },
+      };
+    }
+    if (target === "projects") {
+      return {
+        ...route,
+        body: { listProjects: true },
       };
     }
     return route;
@@ -404,15 +439,19 @@ const parseCommand = (
     if (isEnvelope(parsed)) {
       return parsed;
     }
-    if (parsed.positionals.length !== 1) {
-      return badRequestEnvelope("write image accepts exactly one image path.");
+    if (!parsed.positionals.length) {
+      return badRequestEnvelope(
+        "write image requires at least one image path.",
+      );
     }
-    const imagePath = requiredString(
-      parsed.positionals[0],
-      "write image requires an image path.",
+    const imagePaths = parsed.positionals.map((value) =>
+      requiredString(value, "write image requires an image path."),
     );
-    if (typeof imagePath !== "string") {
-      return imagePath;
+    const invalidImagePath = imagePaths.find(
+      (value): value is AgentEnvelope<never> => typeof value !== "string",
+    );
+    if (invalidImagePath) {
+      return invalidImagePath;
     }
     const referenceFileIds = parseReferenceIdsFlag(
       parsed.flags["--reference-file-ids"],
@@ -431,7 +470,7 @@ const parseCommand = (
     return {
       route: AGENT_HTTP_ROUTES.sceneAddImage,
       method: "POST",
-      imagePath,
+      imagePaths: imagePaths as string[],
       body: {
         sourceType: parsed.flags["--source-type"] ?? "generated",
         ...(parsed.flags["--origin"]
@@ -548,9 +587,7 @@ const parseCommand = (
         },
       };
     }
-    return badRequestEnvelope(
-      "edit requires one of: locate, select.",
-    );
+    return badRequestEnvelope("edit requires one of: locate, select.");
   }
 
   if (tool === "bash") {
@@ -585,7 +622,7 @@ const parseCommand = (
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,
-          `${envPrefix} ${executable} write image /absolute/path/to/generated.png --source-type generated --origin agent-board --json`,
+          `${envPrefix} ${executable} write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/searched.png --source-type imported --json`,
           `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
           `${envPrefix} ${executable} write prompt --text "..." --json`,
@@ -855,8 +892,8 @@ const normalizeAddImageReferenceIds = (
   const values = Array.isArray(value)
     ? value
     : typeof value === "string"
-      ? value.split(",")
-      : null;
+    ? value.split(",")
+    : null;
 
   if (!values) {
     return badRequestEnvelope(`${fieldName} must be a comma list or array.`);
@@ -937,8 +974,8 @@ const prepareRequestBody = async (
   const commandBody = command.body
     ? { ...metadataDefaults, ...command.body }
     : hasMetadataDefaults
-      ? metadataDefaults
-      : undefined;
+    ? metadataDefaults
+    : undefined;
   const normalizedCommandBody = normalizeAddImageBody(command, commandBody);
   if (isEnvelope(normalizedCommandBody)) {
     return normalizedCommandBody;
@@ -951,29 +988,38 @@ const prepareRequestBody = async (
     return badRequestEnvelope(preparedAddImageBodyError);
   }
 
-  if (!command.imagePath) {
+  if (!command.imagePaths?.length) {
     return normalizedCommandBody;
   }
 
   const readImagePayload =
     options.readImagePayload ??
     ((filePath: string) => defaultReadImagePayload(filePath, options));
-  try {
+  const imagePayloads: ImportedImagePayload[] = [];
+  for (const imagePath of command.imagePaths) {
+    try {
+      imagePayloads.push(await readImagePayload(imagePath));
+    } catch (error) {
+      const cause = getErrorMessage(error);
+      return commandFailedEnvelope(`Failed to read image payload: ${cause}`, {
+        stage: "read-image-payload",
+        imagePath,
+        cause,
+      });
+    }
+  }
+
+  if (imagePayloads.length === 1) {
     return {
-      ...(await readImagePayload(command.imagePath)),
+      ...imagePayloads[0],
       ...(normalizedCommandBody ?? {}),
     };
-  } catch (error) {
-    const cause = getErrorMessage(error);
-    return commandFailedEnvelope(
-      `Failed to read image payload: ${cause}`,
-      {
-        stage: "read-image-payload",
-        imagePath: command.imagePath,
-        cause,
-      },
-    );
   }
+
+  return {
+    ...(normalizedCommandBody ?? {}),
+    files: imagePayloads,
+  };
 };
 
 const readSessionDescriptor = async (
@@ -995,6 +1041,7 @@ const readSessionDescriptor = async (
     const descriptor = JSON.parse(contents) as {
       bridge?: { baseUrl?: unknown };
       projectToken?: unknown;
+      participantIssuerToken?: unknown;
     };
     if (
       typeof descriptor.bridge?.baseUrl !== "string" ||
@@ -1005,6 +1052,9 @@ const readSessionDescriptor = async (
     return {
       baseUrl: normalizeBaseUrl(descriptor.bridge.baseUrl),
       projectToken: descriptor.projectToken,
+      ...(typeof descriptor.participantIssuerToken === "string"
+        ? { participantIssuerToken: descriptor.participantIssuerToken }
+        : {}),
     };
   } catch {
     return null;
@@ -1017,10 +1067,18 @@ const discoverBridge = async (
   const env = options.env ?? process.env;
   const envBaseUrl = env.CORESTUDIO_AGENT_BRIDGE_URL;
   const envProjectToken = env.CORESTUDIO_AGENT_PROJECT_TOKEN;
-  if (envBaseUrl && envProjectToken) {
+  const envParticipantIssuerToken =
+    env.CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN;
+  if (
+    envBaseUrl &&
+    (envProjectToken !== undefined || envParticipantIssuerToken)
+  ) {
     return {
       baseUrl: normalizeBaseUrl(envBaseUrl),
-      projectToken: envProjectToken,
+      projectToken: envProjectToken ?? "",
+      ...(envParticipantIssuerToken
+        ? { participantIssuerToken: envParticipantIssuerToken }
+        : {}),
     };
   }
 
@@ -1032,6 +1090,10 @@ const requestBridge = async (
   bridge: BridgeSession,
   fetchImpl: CliFetch,
   body: Record<string, unknown> | undefined,
+  participant?: {
+    threadId: string;
+    displayLabel: string;
+  },
 ): Promise<AgentEnvelope<unknown>> => {
   const init: CliFetchInit = {
     method: command.method,
@@ -1047,6 +1109,16 @@ const requestBridge = async (
       "Content-Type": "application/json",
     };
     init.body = JSON.stringify(body);
+  }
+  if (bridge.participantIssuerToken && participant) {
+    init.headers = {
+      ...init.headers,
+      "X-CoreStudio-Participant-Issuer": bridge.participantIssuerToken,
+      "X-CoreStudio-Participant-Thread": participant.threadId,
+      "X-CoreStudio-Participant-Label": encodeURIComponent(
+        participant.displayLabel,
+      ),
+    };
   }
 
   const response = await fetchImpl(`${bridge.baseUrl}${command.route}`, init);
@@ -1167,13 +1239,46 @@ export const runCli = async (
     );
   }
 
-  const body = await prepareRequestBody(command, options);
+  let body = await prepareRequestBody(command, options);
   if (isAgentEnvelope(body)) {
     return finishWithEnvelope(body, mode, options.stdout, options.stderr);
   }
+  const env = options.env ?? process.env;
+  const threadId = env.CODEX_THREAD_ID?.trim();
+  const participant =
+    threadId && bridge.participantIssuerToken
+      ? {
+          threadId,
+          displayLabel:
+            env.CODEX_TASK_TITLE?.trim() || `Codex ${threadId.slice(0, 8)}`,
+        }
+      : undefined;
+  if (command.route === AGENT_HTTP_ROUTES.boardSession) {
+    if (!threadId || !bridge.participantIssuerToken) {
+      return finishWithEnvelope(
+        badRequestEnvelope(
+          "read board-url requires Codex thread identity and a trusted participant issuer.",
+        ),
+        mode,
+        options.stdout,
+        options.stderr,
+      );
+    }
+    body = {
+      ...(body ?? {}),
+      threadId,
+      displayLabel: participant?.displayLabel,
+    };
+  }
 
   try {
-    const envelope = await requestBridge(command, bridge, fetchImpl, body);
+    const envelope = await requestBridge(
+      command,
+      bridge,
+      fetchImpl,
+      body,
+      participant,
+    );
     const nextEnvelope = command.transformEnvelope
       ? command.transformEnvelope(envelope, bridge)
       : envelope;

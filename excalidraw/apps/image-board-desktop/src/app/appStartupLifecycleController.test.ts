@@ -25,7 +25,25 @@ describe("runAppStartupLifecycleAction", () => {
     expect(result).toBe(cleanup);
   });
 
-  it("skips desktop startup loading in Agent Browser routes", () => {
+  it("does not start the legacy bridge lifecycle for a room-backed Agent Board", () => {
+    const notifyRendererReady = vi.fn();
+    const loadDesktopStartupState = vi.fn();
+    const startAgentBrowserBridgeStatusRetryLoop = vi.fn();
+
+    runAppStartupLifecycleAction({
+      notifyRendererReady,
+      isAgentBrowserRoute: true,
+      isProjectRoomRoute: true,
+      loadDesktopStartupState,
+      startAgentBrowserBridgeStatusRetryLoop,
+    });
+
+    expect(notifyRendererReady).toHaveBeenCalledOnce();
+    expect(loadDesktopStartupState).not.toHaveBeenCalled();
+    expect(startAgentBrowserBridgeStatusRetryLoop).not.toHaveBeenCalled();
+  });
+
+  it("loads project candidates in Agent Browser routes that are not joined to a room", () => {
     const notifyRendererReady = vi.fn();
     const loadDesktopStartupState = vi.fn();
     const startAgentBrowserBridgeStatusRetryLoop = vi.fn();
@@ -38,7 +56,7 @@ describe("runAppStartupLifecycleAction", () => {
     });
 
     expect(notifyRendererReady).toHaveBeenCalledTimes(1);
-    expect(loadDesktopStartupState).not.toHaveBeenCalled();
+    expect(loadDesktopStartupState).toHaveBeenCalledTimes(1);
     expect(startAgentBrowserBridgeStatusRetryLoop).toHaveBeenCalledTimes(1);
   });
 });
@@ -61,7 +79,7 @@ describe("createAppStartupLifecycleRendererActions", () => {
     notifyRendererReady = undefined;
     actions.start();
 
-    expect(loadDesktopStartupState).toHaveBeenCalledTimes(1);
+    expect(loadDesktopStartupState).toHaveBeenCalledTimes(2);
     expect(startAgentBrowserBridgeStatusRetryLoop).toHaveBeenCalledTimes(2);
   });
 });

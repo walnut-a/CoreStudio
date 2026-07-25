@@ -36,7 +36,7 @@ describe("AgentBoardSelectionBar", () => {
     setActiveDesktopLocale("zh-CN");
   });
 
-  it("shows a quiet non-input empty state", () => {
+  it("does not add a custom canvas island when nothing is selected", () => {
     render(
       <AgentBoardSelectionBar
         projectName="测试项目"
@@ -46,11 +46,8 @@ describe("AgentBoardSelectionBar", () => {
       />,
     );
 
-    expect(screen.getByText("未选择画布元素")).toBeInTheDocument();
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "复制引用" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("未选择画布元素")).not.toBeInTheDocument();
+    expect(document.querySelector(".agent-board-selection-bar")).toBeNull();
   });
 
   it("copies the readable reference without clearing the selection", async () => {

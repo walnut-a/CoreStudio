@@ -19,7 +19,25 @@ import type {
   AgentErrorCode,
   AgentRendererCommandName,
 } from "../../src/shared/agentBridgeTypes";
+import type {
+  PersistedImageAssetInput,
+  ProjectAssetPayload,
+  RecentProjectEntry,
+} from "../../src/shared/desktopBridgeTypes";
+import type {
+  ImageAssetRequestRendition,
+  ImageRecordMap,
+} from "../../src/shared/projectTypes";
+import {
+  PROJECT_ROOM_CAPABILITY_VERSION,
+  PROJECT_ROOM_PROTOCOL_VERSION,
+} from "../../src/shared/projectRoomProtocol";
 import type { TaskGrantStore } from "./taskGrants";
+import {
+  attachProjectRoomWebSocketServer,
+  type AuthenticateProjectRoomWebSocketInput,
+  type AuthenticatedProjectRoomWebSocket,
+} from "../room/projectRoomWebSocketServer";
 
 export interface LocalBridgeCurrentProject {
   projectPath: string;
@@ -40,6 +58,18 @@ export interface LocalBridgeServerOptions {
     token: string,
   ) => Promise<LocalBridgeCurrentProject | null>;
   getBoardUrl?: () => string | null;
+  getProjectRoomStatus?: (projectPath: string) => Promise<{
+    sceneWriteMode: "room";
+    roomId: string;
+    sessionEpoch: number;
+    roomSequence: number;
+    persistedSequence: number;
+    lifecycle: string;
+  } | null>;
+  readProjectRoomScene?: (input: {
+    project: LocalBridgeCurrentProject;
+    command: "scene.board" | "scene.snapshot";
+  }) => Promise<unknown>;
   renderer: {
     request: (
       command: AgentRendererCommandName,
@@ -47,6 +77,52 @@ export interface LocalBridgeServerOptions {
     ) => Promise<unknown>;
   };
   grants: TaskGrantStore;
+  participantIssuerToken?: string;
+  issueProjectRoomTicket?: (input: {
+    project: LocalBridgeCurrentProject;
+    threadId: string;
+    displayLabel: string;
+  }) => Promise<{ launchTicket: string }>;
+  issueBoardProjectSelection?: (input: {
+    threadId: string;
+    displayLabel: string;
+  }) => Promise<{ selectionToken: string }>;
+  listBoardProjectCandidates?: (
+    selectionToken: string,
+  ) => Promise<RecentProjectEntry[]>;
+  openBoardProjectCandidate?: (input: {
+    selectionToken: string;
+    projectPath: string;
+  }) => Promise<{ launchTicket: string }>;
+  authenticateProjectRoomWebSocket?: (
+    input: AuthenticateProjectRoomWebSocketInput,
+  ) => Promise<AuthenticatedProjectRoomWebSocket>;
+  readProjectRoomAssets?: (input: {
+    resumeToken: string;
+    fileIds: string[];
+    rendition: ImageAssetRequestRendition;
+  }) => Promise<ProjectAssetPayload[]>;
+  persistProjectRoomAssets?: (input: {
+    resumeToken: string;
+    files: PersistedImageAssetInput[];
+  }) => Promise<ImageRecordMap>;
+  withAgentWriterCommand?: (
+    input: {
+      project: LocalBridgeCurrentProject;
+      threadId: string;
+      displayLabel: string;
+    },
+    run: (context: {
+      sessionId: string;
+      identity: import("../../src/shared/projectRoomProtocol").ProjectRoomIdentity;
+      roomSequence: number;
+      scene: import("../../src/shared/projectRoomProtocol").ProjectRoomScene;
+    }) => Promise<unknown>,
+  ) => Promise<unknown>;
+  getProjectRoomParticipantState?: (input: {
+    project: LocalBridgeCurrentProject;
+    threadId: string;
+  }) => Promise<AgentBrowserRuntimeState | null>;
 }
 
 export interface LocalBridgeServerHandle {
@@ -101,12 +177,21 @@ const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
 ];
 
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
+  AUTH_REQUIRED: 401,
   BAD_REQUEST: 400,
   CAPABILITY_UNAVAILABLE: 409,
   FORBIDDEN: 403,
   PROJECT_MISMATCH: 409,
   PROJECT_REQUIRED: 409,
-  STALE_PROJECT_SNAPSHOT: 409,
+  ROOM_CLOSED: 409,
+  ROOM_CLOSING: 409,
+  ROOM_MISMATCH: 409,
+  SESSION_EPOCH_EXPIRED: 409,
+  SESSION_NOT_FOUND: 409,
+  TOKEN_EXPIRED: 401,
+  PERSISTENCE_FAILED: 500,
+  PROJECT_STORAGE_DIVERGED: 409,
+  PARTICIPANTS_CHANGED: 409,
   WRITEBACK_CONFLICT: 409,
   UNSUPPORTED_COMMAND: 404,
 };
@@ -114,6 +199,9 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
 const DEFAULT_MAX_REQUEST_BODY_BYTES = 128 * 1024 * 1024;
 const CORS_ALLOW_HEADERS = "Authorization, Content-Type, Accept";
 const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
+const PARTICIPANT_ISSUER_HEADER = "x-corestudio-participant-issuer";
+const PARTICIPANT_THREAD_HEADER = "x-corestudio-participant-thread";
+const PARTICIPANT_LABEL_HEADER = "x-corestudio-participant-label";
 const AGENT_BOARD_ROUTE = "/agent-board";
 const AGENT_BOARD_ASSET_ROUTE_PREFIX = "/assets/";
 const STATIC_CONTENT_TYPES: Record<string, string> = {
@@ -132,10 +220,7 @@ const STATIC_CONTENT_TYPES: Record<string, string> = {
 };
 
 const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
-  "loadRecentProjects",
-  "openRecentProject",
   "loadAppInfo",
-  "loadProviderSettings",
 ]);
 
 class RequestBodyTooLargeError extends Error {
@@ -305,6 +390,38 @@ const getBearerToken = (request: http.IncomingMessage) => {
   return token || null;
 };
 
+const getSingleHeader = (request: http.IncomingMessage, name: string) => {
+  const value = request.headers[name];
+  return Array.isArray(value) ? value[0] : value;
+};
+
+const getTrustedParticipantIdentity = (
+  request: http.IncomingMessage,
+  participantIssuerToken: string | undefined,
+) => {
+  if (
+    !participantIssuerToken ||
+    getSingleHeader(request, PARTICIPANT_ISSUER_HEADER) !==
+      participantIssuerToken
+  ) {
+    return null;
+  }
+  const threadId = getSingleHeader(request, PARTICIPANT_THREAD_HEADER)?.trim();
+  const encodedLabel = getSingleHeader(
+    request,
+    PARTICIPANT_LABEL_HEADER,
+  )?.trim();
+  if (!threadId || !encodedLabel) {
+    return null;
+  }
+  try {
+    const displayLabel = decodeURIComponent(encodedLabel).trim();
+    return displayLabel ? { threadId, displayLabel } : null;
+  } catch {
+    return null;
+  }
+};
+
 const resolveProjectByToken = async (
   token: string,
   options: Pick<
@@ -392,7 +509,7 @@ const buildBrowserRuntimeAgentContext = (
 });
 
 const buildAgentBoardCommandContext = (
-  runtimeState: StoredAgentBrowserRuntimeState,
+  runtimeState: AgentBrowserRuntimeState & { receivedAt?: string },
 ): AgentBoardCommandContext => ({
   ...(runtimeState.selection === undefined
     ? {}
@@ -625,11 +742,12 @@ const handleDesktopBridgeCommand = async (
 
 const handleWriteCommand = async (
   response: http.ServerResponse,
+  request: http.IncomingMessage,
   options: LocalBridgeServerOptions,
   currentProject: LocalBridgeCurrentProject,
   config: WriteRouteConfig,
   body: JsonBody,
-  runtimeState?: StoredAgentBrowserRuntimeState | null,
+  runtimeState?: (AgentBrowserRuntimeState & { receivedAt?: string }) | null,
 ) => {
   const payload = createRendererPayload(
     body,
@@ -679,7 +797,43 @@ const handleWriteCommand = async (
       return;
     }
 
-    const result = await options.renderer.request(config.command, payload);
+    const trustedParticipant = getTrustedParticipantIdentity(
+      request,
+      options.participantIssuerToken,
+    );
+    const isRoomWrite =
+      config.command === "scene.addImage" ||
+      config.command === "scene.addPrompt";
+    let result: unknown;
+    if (isRoomWrite) {
+      if (!trustedParticipant) {
+        throw Object.assign(
+          new Error(
+            "A trusted Codex participant identity is required for project room writes.",
+          ),
+          { code: "AUTH_REQUIRED" },
+        );
+      }
+      if (!options.withAgentWriterCommand) {
+        throw Object.assign(
+          new Error("The project room command writer is unavailable."),
+          { code: "CAPABILITY_UNAVAILABLE" },
+        );
+      }
+      result = await options.withAgentWriterCommand(
+        {
+          project: currentProject,
+          ...trustedParticipant,
+        },
+        (context) =>
+          options.renderer.request(config.command, {
+            ...payload,
+            projectRoomAgentWriter: context,
+          }),
+      );
+    } else {
+      result = await options.renderer.request(config.command, payload);
+    }
     sendJson(response, 200, createAgentOk(result));
   } catch (error) {
     sendRendererError(response, error);
@@ -711,6 +865,66 @@ export const createLocalBridgeServer = async (
       ) {
         return;
       }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.roomTicket
+      ) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
+        const issuerToken = request.headers[PARTICIPANT_ISSUER_HEADER];
+        if (
+          !options.participantIssuerToken ||
+          issuerToken !== options.participantIssuerToken ||
+          !options.issueProjectRoomTicket
+        ) {
+          sendError(
+            response,
+            403,
+            "FORBIDDEN",
+            "Project room ticket issuer is not authorized.",
+          );
+          return;
+        }
+        const body = await readRequestBody(
+          request,
+          options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+        );
+        if (
+          typeof body.threadId !== "string" ||
+          !body.threadId.trim() ||
+          typeof body.displayLabel !== "string" ||
+          !body.displayLabel.trim()
+        ) {
+          sendError(
+            response,
+            400,
+            "BAD_REQUEST",
+            "Project room ticket requires threadId and displayLabel.",
+          );
+          return;
+        }
+        const ticket = await options.issueProjectRoomTicket({
+          project: currentProject,
+          threadId: body.threadId,
+          displayLabel: body.displayLabel,
+        });
+        sendJson(
+          response,
+          200,
+          createAgentOk({
+            ...ticket,
+            boardUrl: options.getBoardUrl?.() ?? null,
+          }),
+        );
+        return;
+      }
       const requestOrigin = getRequestOrigin(request);
       const allowedCorsOrigin = getAllowedCorsOrigin(
         requestOrigin,
@@ -726,6 +940,333 @@ export const createLocalBridgeServer = async (
 
       if (request.method === "OPTIONS") {
         sendCorsPreflight(response);
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.boardSession
+      ) {
+        if (!options.isAgentAccessEnabled()) {
+          sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
+          return;
+        }
+        const trustedParticipant = getTrustedParticipantIdentity(
+          request,
+          options.participantIssuerToken,
+        );
+        if (!trustedParticipant) {
+          sendError(
+            response,
+            403,
+            "FORBIDDEN",
+            "Board session issuer is not authorized.",
+          );
+          return;
+        }
+        let body: JsonBody;
+        try {
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+        } catch (error) {
+          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
+            message: getErrorMessage(error),
+          });
+          return;
+        }
+        try {
+          if (body.listProjects === true) {
+            if (
+              !options.issueBoardProjectSelection ||
+              !options.listBoardProjectCandidates
+            ) {
+              throw Object.assign(
+                new Error("Board project selection is unavailable."),
+                { code: "CAPABILITY_UNAVAILABLE" },
+              );
+            }
+            const selection = await options.issueBoardProjectSelection(
+              trustedParticipant,
+            );
+            sendJson(
+              response,
+              200,
+              createAgentOk({
+                projects: await options.listBoardProjectCandidates(
+                  selection.selectionToken,
+                ),
+              }),
+            );
+            return;
+          }
+          if (typeof body.projectPath === "string" && body.projectPath.trim()) {
+            if (!options.openBoardProjectCandidate) {
+              throw Object.assign(
+                new Error("Board project selection is unavailable."),
+                { code: "CAPABILITY_UNAVAILABLE" },
+              );
+            }
+            const selection = await options.issueBoardProjectSelection?.(
+              trustedParticipant,
+            );
+            if (!selection) {
+              throw Object.assign(
+                new Error("Board project selection is unavailable."),
+                { code: "CAPABILITY_UNAVAILABLE" },
+              );
+            }
+            const ticket = await options.openBoardProjectCandidate({
+              selectionToken: selection.selectionToken,
+              projectPath: body.projectPath,
+            });
+            sendJson(
+              response,
+              200,
+              createAgentOk({
+                ...ticket,
+                boardUrl: options.getBoardUrl?.() ?? null,
+              }),
+            );
+            return;
+          }
+
+          const currentProject = options.getCurrentProject();
+          if (currentProject && options.issueProjectRoomTicket) {
+            const ticket = await options.issueProjectRoomTicket({
+              project: currentProject,
+              ...trustedParticipant,
+            });
+            sendJson(
+              response,
+              200,
+              createAgentOk({
+                ...ticket,
+                boardUrl: options.getBoardUrl?.() ?? null,
+              }),
+            );
+            return;
+          }
+
+          if (!options.issueBoardProjectSelection) {
+            throw Object.assign(
+              new Error("Board project selection is unavailable."),
+              { code: "CAPABILITY_UNAVAILABLE" },
+            );
+          }
+          sendJson(
+            response,
+            200,
+            createAgentOk({
+              ...(await options.issueBoardProjectSelection(trustedParticipant)),
+              boardUrl: options.getBoardUrl?.() ?? null,
+            }),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === AGENT_HTTP_ROUTES.boardProjects
+      ) {
+        const selectionToken = getBearerToken(request);
+        if (!selectionToken || !options.listBoardProjectCandidates) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A valid project selection token is required.",
+          );
+          return;
+        }
+        try {
+          sendJson(
+            response,
+            200,
+            createAgentOk(
+              await options.listBoardProjectCandidates(selectionToken),
+            ),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.boardProjectOpen
+      ) {
+        const selectionToken = getBearerToken(request);
+        if (!selectionToken || !options.openBoardProjectCandidate) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A valid project selection token is required.",
+          );
+          return;
+        }
+        let body: JsonBody;
+        try {
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+        } catch (error) {
+          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
+            message: getErrorMessage(error),
+          });
+          return;
+        }
+        if (typeof body.projectPath !== "string" || !body.projectPath.trim()) {
+          sendError(
+            response,
+            400,
+            "BAD_REQUEST",
+            "Board project selection requires projectPath.",
+          );
+          return;
+        }
+        try {
+          sendJson(
+            response,
+            200,
+            createAgentOk({
+              ...(await options.openBoardProjectCandidate({
+                selectionToken,
+                projectPath: body.projectPath,
+              })),
+              boardUrl: options.getBoardUrl?.() ?? null,
+            }),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.roomAssets
+      ) {
+        const resumeToken = getBearerToken(request);
+        if (!resumeToken || !options.readProjectRoomAssets) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A valid project room resume token is required.",
+          );
+          return;
+        }
+        let body: JsonBody;
+        try {
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+        } catch (error) {
+          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
+            message: getErrorMessage(error),
+          });
+          return;
+        }
+        const rendition =
+          body.rendition === "preview" || body.rendition === "thumbnail"
+            ? body.rendition
+            : "original";
+        if (
+          !Array.isArray(body.fileIds) ||
+          body.fileIds.some(
+            (fileId) => typeof fileId !== "string" || !fileId.trim(),
+          )
+        ) {
+          sendError(
+            response,
+            400,
+            "BAD_REQUEST",
+            "Room asset request requires string fileIds.",
+          );
+          return;
+        }
+        try {
+          const payloads = await options.readProjectRoomAssets({
+            resumeToken,
+            fileIds: body.fileIds as string[],
+            rendition,
+          });
+          sendJson(response, 200, createAgentOk(payloads));
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.roomPersistAssets
+      ) {
+        const resumeToken = getBearerToken(request);
+        if (!resumeToken || !options.persistProjectRoomAssets) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A valid project room resume token is required.",
+          );
+          return;
+        }
+        let body: JsonBody;
+        try {
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+        } catch (error) {
+          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
+            message: getErrorMessage(error),
+          });
+          return;
+        }
+        if (
+          !Array.isArray(body.files) ||
+          body.files.length === 0 ||
+          body.files.some(
+            (file) =>
+              !file ||
+              typeof file !== "object" ||
+              typeof file.fileId !== "string" ||
+              !file.fileId.trim() ||
+              typeof file.mimeType !== "string" ||
+              typeof file.dataBase64 !== "string" ||
+              typeof file.width !== "number" ||
+              typeof file.height !== "number" ||
+              typeof file.createdAt !== "string" ||
+              file.sourceType !== "imported",
+          )
+        ) {
+          sendError(
+            response,
+            400,
+            "BAD_REQUEST",
+            "Room asset persistence requires imported image payloads.",
+          );
+          return;
+        }
+        try {
+          const imageRecords = await options.persistProjectRoomAssets({
+            resumeToken,
+            files: body.files as unknown as PersistedImageAssetInput[],
+          });
+          sendJson(response, 200, createAgentOk(imageRecords));
+        } catch (error) {
+          sendRendererError(response, error);
+        }
         return;
       }
 
@@ -748,6 +1289,15 @@ export const createLocalBridgeServer = async (
             ready: true,
             currentProject,
             boardUrl: options.getBoardUrl?.() ?? null,
+            ...(options.getProjectRoomStatus
+              ? {
+                  projectRoom: currentProject
+                    ? await options.getProjectRoomStatus(
+                        currentProject.projectPath,
+                      )
+                    : null,
+                }
+              : {}),
           }),
         );
         return;
@@ -766,6 +1316,14 @@ export const createLocalBridgeServer = async (
           200,
           createAgentOk({
             protocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
+            roomProtocolVersion: PROJECT_ROOM_PROTOCOL_VERSION,
+            roomCapabilityVersion: PROJECT_ROOM_CAPABILITY_VERSION,
+            roomCapabilities: [
+              "scene-operations",
+              "room-assets",
+              "presence",
+              "persistence-confirmation",
+            ],
             routes: AGENT_HTTP_ROUTES,
             permissions: AGENT_PERMISSIONS,
           }),
@@ -804,6 +1362,21 @@ export const createLocalBridgeServer = async (
           options,
         );
         if (!currentProject) {
+          return;
+        }
+        const trustedParticipant = getTrustedParticipantIdentity(
+          request,
+          options.participantIssuerToken,
+        );
+        const roomRuntimeState =
+          trustedParticipant && options.getProjectRoomParticipantState
+            ? await options.getProjectRoomParticipantState({
+                project: currentProject,
+                threadId: trustedParticipant.threadId,
+              })
+            : null;
+        if (roomRuntimeState?.selection !== undefined) {
+          sendJson(response, 200, createAgentOk(roomRuntimeState.selection));
           return;
         }
         const runtimeState = getCurrentBrowserRuntimeState(
@@ -872,6 +1445,26 @@ export const createLocalBridgeServer = async (
           options,
         );
         if (!currentProject) {
+          return;
+        }
+        if (
+          options.readProjectRoomScene &&
+          (readCommand === "scene.board" || readCommand === "scene.snapshot")
+        ) {
+          try {
+            sendJson(
+              response,
+              200,
+              createAgentOk(
+                await options.readProjectRoomScene({
+                  project: currentProject,
+                  command: readCommand,
+                }),
+              ),
+            );
+          } catch (error) {
+            sendRendererError(response, error);
+          }
           return;
         }
         await handleReadCommand(response, options.renderer, readCommand);
@@ -1004,9 +1597,27 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
+          const trustedParticipant = getTrustedParticipantIdentity(
+            request,
+            options.participantIssuerToken,
+          );
+          const roomRuntimeState =
+            trustedParticipant && options.getProjectRoomParticipantState
+              ? await options.getProjectRoomParticipantState({
+                  project: currentProject,
+                  threadId: trustedParticipant.threadId,
+                })
+              : null;
           const result = await options.renderer.request(
             "scene.imagePaths",
-            body,
+            roomRuntimeState
+              ? createRendererPayload(
+                  body,
+                  currentProject.projectPath,
+                  false,
+                  buildAgentBoardCommandContext(roomRuntimeState),
+                )
+              : body,
           );
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
@@ -1056,13 +1667,26 @@ export const createLocalBridgeServer = async (
         if (!currentProject) {
           return;
         }
+        const trustedParticipant = getTrustedParticipantIdentity(
+          request,
+          options.participantIssuerToken,
+        );
+        const roomRuntimeState =
+          trustedParticipant && options.getProjectRoomParticipantState
+            ? await options.getProjectRoomParticipantState({
+                project: currentProject,
+                threadId: trustedParticipant.threadId,
+              })
+            : null;
         await handleWriteCommand(
           response,
+          request,
           options,
           currentProject,
           writeRoute,
           body,
-          getCurrentBrowserRuntimeState(currentProject.projectPath),
+          roomRuntimeState ??
+            getCurrentBrowserRuntimeState(currentProject.projectPath),
         );
         return;
       }
@@ -1080,6 +1704,13 @@ export const createLocalBridgeServer = async (
     });
   });
 
+  const projectRoomWebSocket = options.authenticateProjectRoomWebSocket
+    ? attachProjectRoomWebSocketServer({
+        server,
+        authenticate: options.authenticateProjectRoomWebSocket,
+      })
+    : null;
+
   await listenLocalBridgeServer(server, options.preferredPort ?? 0);
 
   const address = server.address();
@@ -1096,19 +1727,22 @@ export const createLocalBridgeServer = async (
     baseUrl: `http://127.0.0.1:${address.port}`,
     close: () => {
       if (!closePromise) {
-        closePromise = new Promise<void>((resolve, reject) => {
-          if (!server.listening) {
-            resolve();
-            return;
-          }
-          server.close((error) => {
-            if (error) {
-              reject(error);
+        closePromise = (async () => {
+          await projectRoomWebSocket?.close();
+          await new Promise<void>((resolve, reject) => {
+            if (!server.listening) {
+              resolve();
               return;
             }
-            resolve();
+            server.close((error) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+              resolve();
+            });
           });
-        });
+        })();
       }
       return closePromise;
     },

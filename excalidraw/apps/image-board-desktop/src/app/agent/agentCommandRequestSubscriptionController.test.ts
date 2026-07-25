@@ -31,7 +31,7 @@ describe("subscribeAgentCommandRequests", () => {
         beginImageWriteback: vi.fn(),
         insertAssetsIntoScene: vi.fn(),
         restoreScene: vi.fn(),
-        flushPendingAutosave: vi.fn(),
+        flushProjectRoom: vi.fn(),
         handleDesktopBridgeRequest: vi.fn(),
         handleCommandRequest: vi.fn(),
       }),
@@ -71,7 +71,7 @@ describe("subscribeAgentCommandRequests", () => {
       beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
       restoreScene: vi.fn(),
-      flushPendingAutosave: vi.fn(),
+      flushProjectRoom: vi.fn(),
       handleDesktopBridgeRequest,
       handleCommandRequest,
     });
@@ -115,7 +115,7 @@ describe("subscribeAgentCommandRequests", () => {
     const beginImageWriteback = vi.fn();
     const insertAssetsIntoScene = vi.fn();
     const restoreScene = vi.fn();
-    const flushPendingAutosave = vi.fn();
+    const flushProjectRoom = vi.fn();
     const handleCommandRequest = vi.fn().mockResolvedValue({
       scene: "snapshot",
     });
@@ -136,7 +136,7 @@ describe("subscribeAgentCommandRequests", () => {
       beginImageWriteback,
       insertAssetsIntoScene,
       restoreScene,
-      flushPendingAutosave,
+      flushProjectRoom,
       handleDesktopBridgeRequest: vi.fn(),
       handleCommandRequest,
     });
@@ -153,7 +153,7 @@ describe("subscribeAgentCommandRequests", () => {
       beginImageWriteback,
       insertAssetsIntoScene,
       restoreScene,
-      flushPendingAutosave,
+      flushProjectRoom,
     });
   });
 });
@@ -183,7 +183,7 @@ describe("createAgentCommandRequestSubscriptionRendererActions", () => {
       beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
       restoreScene: vi.fn(),
-      flushPendingAutosave: vi.fn(),
+      flushProjectRoom: vi.fn(),
       handleDesktopBridgeRequest: vi.fn(),
       handleCommandRequest,
     });
@@ -216,7 +216,7 @@ describe("createAgentCommandRequestSubscriptionRendererActions", () => {
       beginImageWriteback: vi.fn(),
       insertAssetsIntoScene: vi.fn(),
       restoreScene: vi.fn(),
-      flushPendingAutosave: vi.fn(),
+      flushProjectRoom: vi.fn(),
       handleDesktopBridgeRequest: vi.fn(),
       handleCommandRequest: vi.fn(),
     });

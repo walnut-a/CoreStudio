@@ -143,7 +143,7 @@ const zhCnCopy = {
     currentImage: "当前图片",
     descendantImages: "后续版本",
     locateImage: "定位到图片",
-    locateGenerationRecord: "在生成记录中显示",
+    locateImageAsset: "在图片资产中显示",
     locateReference: (label: string) => `定位${label}`,
     locatedReferencingResult:
       "这张图片是后续结果的参考图，已定位到引用它的画板图片。",
@@ -188,10 +188,6 @@ const zhCnCopy = {
     revealProjectFailed: "无法显示项目文件夹。",
     saveProjectFailed: "项目保存失败。",
     saveBeforeOpenFailed: "旧项目未能保存，已停止打开新项目。",
-    staleProjectSnapshot:
-      "项目内容已在其他会话中更新。自动保存已暂停，请加载最新版本后继续。",
-    loadLatestProject: "加载最新版本",
-    loadingLatestProject: "正在加载…",
     generateFailed: "生成图片失败。",
   },
   debugError: {
@@ -408,13 +404,14 @@ const zhCnCopy = {
   agentUi: {
     conversationTitle: "Agent 对话",
     currentConversation: "当前对话",
-    generationRecordsTitle: "生成记录",
-    generationRecordsList: "生成任务列表",
-    generationRecord: {
-      untitled: "未命名生成",
-      referenceChainIntermediate: "引用链中间图",
-      onBoard: "已在画板",
-      notOnBoard: "未在画板",
+    imageAssetsTitle: "图片资产",
+    imageAssetsList: "图片资产列表",
+    imageAssetFilterGeneratedOnly: "仅查看生成内容",
+    imageAsset: {
+      imported: "导入图片",
+      untitledGenerated: "未命名生成",
+      onBoard: "画布中",
+      reference: "参考图",
     },
     integration: {
       status: {
@@ -478,6 +475,9 @@ const zhCnCopy = {
       unrecognizedBridgeData: "Agent Bridge 返回了无法识别的数据。",
       refreshFailed: "Agent Board 刷新失败。",
     },
+    expiredConnectionTitle: "这个内置画布连接已失效",
+    expiredConnectionDescription:
+      "CoreStudio 重新启动或切换项目后，之前的画布链接不能继续使用。请回到当前 Codex 对话，重新打开 CoreStudio 内置画布。",
     missingConnectionTitle: "缺少连接信息",
     missingConnectionDescription:
       "请从 CoreStudio 桌面端复制 Agent Board 链接，再在 Codex 内置浏览器中打开。",
@@ -833,9 +833,9 @@ const zhCnCopy = {
         : "项目数据修复完成。",
   },
   agentBoardSave: {
-    saving: "正在保存画布修改…",
+    syncing: "正在同步画布修改…",
+    pending: "已同步，正在写入项目…",
     saved: "画布修改已保存",
-    conflict: "画布修改发生冲突，请加载最新项目",
     error: "画布修改保存失败",
   },
   projectRenderBoundary: {

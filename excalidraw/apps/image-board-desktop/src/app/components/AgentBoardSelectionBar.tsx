@@ -80,11 +80,13 @@ export const AgentBoardSelectionBar = ({
     }
   };
 
+  if (!viewModel.selected) {
+    return null;
+  }
+
   return (
     <section
-      className={`agent-board-selection-bar${
-        viewModel.selected ? " agent-board-selection-bar--selected" : ""
-      }`}
+      className="agent-board-selection-bar"
       aria-label={copy.agentBoard.selectionContext.label}
       onPointerDown={(event) => event.stopPropagation()}
     >

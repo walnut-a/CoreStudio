@@ -1,0 +1,97 @@
+.image-asset-sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  padding: 8px 10px;
+  background: var(--island-bg-color);
+}
+
+.image-asset-sidebar__filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--lg-button-size);
+  padding: 0 5px 8px;
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-sm);
+  cursor: pointer;
+}
+
+.image-asset-sidebar__list {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.image-asset-sidebar__item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.image-asset-sidebar__item:hover,
+.image-asset-sidebar__item--selected {
+  background: var(--button-hover-bg);
+}
+
+.image-asset-sidebar__item--selected {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.image-asset-sidebar__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.image-asset-sidebar__item img,
+.image-asset-sidebar__thumbnail {
+  display: block;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface-low);
+  object-fit: cover;
+}
+
+.image-asset-sidebar__item-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.image-asset-sidebar__item strong,
+.image-asset-sidebar__item span {
+  overflow: hidden;
+  line-height: var(--ui-line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-asset-sidebar__item strong {
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.image-asset-sidebar__item span {
+  color: var(--color-gray-60);
+  font-size: var(--ui-text-size-xs);
+  font-weight: var(--font-weight-regular);
+}

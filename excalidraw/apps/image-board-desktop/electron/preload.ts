@@ -3,10 +3,11 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   IPC_CHANNELS,
   type DesktopBridgeApi,
-  type DesktopAutosaveFlushRequest,
+  type DesktopProjectRoomFlushRequest,
   type DesktopCurrentProject,
   type DesktopMenuEvent,
 } from "../src/shared/desktopBridgeTypes";
+import type { DesktopProjectRoomEventEnvelope } from "../src/shared/projectRoomProtocol";
 import { isAgentErrorCode } from "../src/shared/agentBridgeTypes";
 
 import type {
@@ -50,10 +51,6 @@ const desktopBridge: DesktopBridgeApi = {
   loadRecentProjects: () => ipcRenderer.invoke(IPC_CHANNELS.loadRecentProjects),
   removeRecentProject: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.removeRecentProject, projectPath),
-  writeProjectScene: (input) =>
-    ipcRenderer.invoke(IPC_CHANNELS.writeProjectScene, input),
-  applyProjectSceneElementPatches: (input) =>
-    ipcRenderer.invoke(IPC_CHANNELS.applyProjectSceneElementPatches, input),
   readProjectAssetPayloads: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.readProjectAssetPayloads, input),
   inspectProjectHealth: (input) =>
@@ -114,19 +111,43 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.getAgentBridgeStatus),
   setAgentBridgeEnabled: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setAgentBridgeEnabled, enabled),
-  onFlushAutosaveRequest: (listener) => {
+  joinProjectRoom: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomJoin, input),
+  submitProjectRoomOperation: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomOperation, input),
+  flushProjectRoomPersistence: (sessionId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomFlushPersistence, sessionId),
+  leaveProjectRoom: (sessionId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomLeave, sessionId),
+  getProjectRoomCloseState: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomCloseState, input),
+  closeProjectRoom: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomClose, input),
+  onProjectRoomEvent: (listener) => {
+    const handler = (
+      _event: unknown,
+      envelope: DesktopProjectRoomEventEnvelope,
+    ) => {
+      listener(envelope.sessionId, envelope.event);
+    };
+    ipcRenderer.on(IPC_CHANNELS.projectRoomEvent, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.projectRoomEvent, handler);
+    };
+  },
+  onFlushProjectRoomRequest: (listener) => {
     const handler = async (
       _event: unknown,
-      request: DesktopAutosaveFlushRequest,
+      request: DesktopProjectRoomFlushRequest,
     ) => {
       try {
         await listener();
-        ipcRenderer.send(IPC_CHANNELS.flushAutosaveResponse, {
+        ipcRenderer.send(IPC_CHANNELS.flushProjectRoomResponse, {
           requestId: request.requestId,
           ok: true,
         });
       } catch (error) {
-        ipcRenderer.send(IPC_CHANNELS.flushAutosaveResponse, {
+        ipcRenderer.send(IPC_CHANNELS.flushProjectRoomResponse, {
           requestId: request.requestId,
           ok: false,
           errorMessage:
@@ -134,9 +155,9 @@ const desktopBridge: DesktopBridgeApi = {
         });
       }
     };
-    ipcRenderer.on(IPC_CHANNELS.flushAutosaveRequest, handler);
+    ipcRenderer.on(IPC_CHANNELS.flushProjectRoomRequest, handler);
     return () => {
-      ipcRenderer.removeListener(IPC_CHANNELS.flushAutosaveRequest, handler);
+      ipcRenderer.removeListener(IPC_CHANNELS.flushProjectRoomRequest, handler);
     };
   },
   onAgentCommandRequest: (listener) => {

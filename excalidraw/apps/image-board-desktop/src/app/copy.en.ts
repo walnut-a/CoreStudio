@@ -132,7 +132,7 @@ export const enCopy: DesktopCopy = {
     currentImage: "Current image",
     descendantImages: "Later versions",
     locateImage: "Locate image",
-    locateGenerationRecord: "Show in generation history",
+    locateImageAsset: "Show in image assets",
     locateReference: (label: string) => `Locate ${label}`,
     locatedReferencingResult:
       "This image is a reference for a later result. Located the board image that uses it.",
@@ -179,10 +179,6 @@ export const enCopy: DesktopCopy = {
     saveProjectFailed: "Could not save the project.",
     saveBeforeOpenFailed:
       "The previous project could not be saved, so opening the new project was stopped.",
-    staleProjectSnapshot:
-      "This project was updated in another session. Autosave is paused until you load the latest version.",
-    loadLatestProject: "Load latest version",
-    loadingLatestProject: "Loading...",
     generateFailed: "Image generation failed.",
   },
   debugError: {
@@ -416,13 +412,14 @@ export const enCopy: DesktopCopy = {
   agentUi: {
     conversationTitle: "Agent Conversation",
     currentConversation: "Current conversation",
-    generationRecordsTitle: "Generation History",
-    generationRecordsList: "Generation tasks",
-    generationRecord: {
-      untitled: "Untitled generation",
-      referenceChainIntermediate: "Reference-chain intermediate",
-      onBoard: "On board",
-      notOnBoard: "Not on board",
+    imageAssetsTitle: "Image Assets",
+    imageAssetsList: "Image assets",
+    imageAssetFilterGeneratedOnly: "Generated only",
+    imageAsset: {
+      imported: "Imported image",
+      untitledGenerated: "Untitled generation",
+      onBoard: "On canvas",
+      reference: "Reference",
     },
     integration: {
       status: {
@@ -488,6 +485,9 @@ export const enCopy: DesktopCopy = {
       unrecognizedBridgeData: "Agent Bridge returned unrecognized data.",
       refreshFailed: "Could not refresh Agent Board.",
     },
+    expiredConnectionTitle: "This built-in board connection has expired",
+    expiredConnectionDescription:
+      "Previous board links stop working after CoreStudio restarts or switches projects. Return to the current Codex conversation and reopen the CoreStudio built-in board.",
     missingConnectionTitle: "Connection information missing",
     missingConnectionDescription:
       "Copy the Agent Board link from the CoreStudio desktop app, then open it in Codex's built-in browser.",
@@ -886,9 +886,9 @@ export const enCopy: DesktopCopy = {
         : "Project data repair complete.",
   },
   agentBoardSave: {
-    saving: "Saving canvas changes…",
+    syncing: "Syncing canvas changes…",
+    pending: "Synced, writing project…",
     saved: "Canvas changes saved",
-    conflict: "Canvas changes conflict with a newer version. Load the latest project.",
     error: "Canvas changes could not be saved",
   },
   projectRenderBoundary: {

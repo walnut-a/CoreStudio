@@ -22,17 +22,21 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `read selection --json`
 - `read image-paths --selection|--file-ids <ids>|--all --json`
 - `read board-url --json`
+- `read projects --json`
+- `read board-url --project <projectPath> --json`
 - `read browser-state --json`
 
 `read project --json` 返回当前项目的 `projectId`、名称、创建时间、更新时间和本地路径。`projectId` 是固定选区引用使用的非敏感稳定身份；不得用项目名或创建时间代替它进行项目匹配。
 
 ## Write Commands
 
-- `write image <path> --source-type generated --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`
+- `write image <path...> --source-type generated --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`
 - `write image <path> --source-type imported --json`
 - `write prompt --text <text> --json`
 
 Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜索或下载的外部图片使用 `--source-type imported`。生成图必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。
+
+同一轮生成得到多张成功图片时，在同一条命令中依次提供全部路径。CLI 会读取全部图片并以一个 `files[]` 请求提交，CoreStudio 使用同一组参考元素和现有批量布局算法创建一个房间操作；不要逐张调用命令。
 
 CLI 和 Local Bridge 只负责把已存在的本地图片写入项目，不暴露 CoreStudio 内置生成模型。
 
@@ -74,7 +78,7 @@ Agent 应根据 `error.code` 分支，不解析本地化 `message`：
 - `CAPABILITY_UNAVAILABLE`：当前运行时缺少对应能力。
 - `BAD_REQUEST`：参数无效。
 - `BRIDGE_UNAVAILABLE`：CoreStudio 未运行或会话不可达。
-- `STALE_PROJECT_SNAPSHOT`：写入前场景已被其他会话更新，需要重新读取上下文。
+- `PROJECT_STORAGE_DIVERGED`：磁盘项目与房间持有的持久化基线不一致；本次持久化已停止，需要检查项目文件为何被房间之外的写入者修改。
 
 ## Bash Commands
 
@@ -101,10 +105,12 @@ corestudio read image-paths --selection --json
 corestudio read image-paths --file-ids image-file-1,image-file-2 --json
 ```
 
-### Write An Agent Image Result
+### Write An Agent Image Batch
 
 ```bash
-corestudio write image /absolute/path/to/result.png \
+corestudio write image \
+  /absolute/path/to/result-1.png \
+  /absolute/path/to/result-2.png \
   --source-type generated \
   --origin agent-board \
   --prompt "Make the selected desktop CNC more minimal and Apple-like." \
@@ -113,7 +119,7 @@ corestudio write image /absolute/path/to/result.png \
   --json
 ```
 
-CoreStudio 会复制图片、创建图片与生成记录、插入画布元素，并返回可定位的 id。
+CoreStudio 会复制图片、创建图片与生成记录，并把整批结果有序放到参考图附近，随后返回可定位的 id。
 
 搜索或下载的外部图片需要先保存到本地，再按导入资产写回：
 
@@ -139,4 +145,6 @@ corestudio read health --json
 
 ## Writeback Consistency
 
-图片写回由 CoreStudio 执行事务：`begin → scene → strict autosave → commit`。发生 `STALE_PROJECT_SNAPSHOT` 或 `WRITEBACK_CONFLICT` 时，Agent 必须重新读取项目状态，不能盲目重试或直接修改项目文件。
+图片写回仍由 CoreStudio 复制和登记资产，但画布元素只通过当前项目房间提交。主进程先准备资产，再把一个带 `operationId` 的场景操作应用到房间；房间立即协调并广播元素，磁盘持久化由主进程统一完成。
+
+房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。Agent 应根据结构化错误处理：普通持久化失败可以稍后重试；`PROJECT_STORAGE_DIVERGED` 表示房间之外出现了磁盘写入，必须先查明来源，不能绕过 CoreStudio 直接修改项目文件。

@@ -34,7 +34,6 @@ interface CurrentProjectMutableRef<T> {
 export interface ApplyCurrentProjectUpdateStateInput {
   state: CurrentProjectUpdateState;
   setCurrentProject: (project: DesktopProjectBundle | null) => void;
-  setSavedSceneHash: (hash: string | null) => void;
   setProjectHealthReport: (report: ProjectHealthReport | null) => void;
   setProjectRepairReport: (report: ProjectRepairReport | null) => void;
   setProjectHealthReportOpen: (open: false) => void;
@@ -51,13 +50,11 @@ export interface RunCurrentProjectUpdateActionInput
 export const applyCurrentProjectUpdateState = ({
   state,
   setCurrentProject,
-  setSavedSceneHash,
   setProjectHealthReport,
   setProjectRepairReport,
   setProjectHealthReportOpen,
 }: ApplyCurrentProjectUpdateStateInput): CurrentProjectUpdateState => {
   setCurrentProject(state.project);
-  setSavedSceneHash(state.savedSceneHash);
 
   if (!state.resetState) {
     return state;
@@ -96,15 +93,11 @@ export const runCurrentProjectUpdateAction = ({
 export interface CurrentProjectUpdateRendererActionsInput
   extends Omit<
     RunCurrentProjectUpdateActionInput,
-    | "previousProject"
-    | "nextProject"
-    | "setCurrentProject"
-    | "setSavedSceneHash"
+    "previousProject" | "nextProject" | "setCurrentProject"
   > {
   getPreviousProject: () => DesktopProjectBundle | null;
   setCurrentProjectRef: (project: DesktopProjectBundle | null) => void;
   setCurrentProject: (project: DesktopProjectBundle | null) => void;
-  setSavedSceneHashRef: (hash: string | null) => void;
 }
 
 export interface CurrentProjectUpdateRendererActions {
@@ -115,7 +108,6 @@ export const createCurrentProjectUpdateRendererActions = ({
   getPreviousProject,
   setCurrentProjectRef,
   setCurrentProject,
-  setSavedSceneHashRef,
   ...input
 }: CurrentProjectUpdateRendererActionsInput): CurrentProjectUpdateRendererActions => {
   return {
@@ -128,7 +120,6 @@ export const createCurrentProjectUpdateRendererActions = ({
           setCurrentProjectRef(nextProject);
           setCurrentProject(nextProject);
         },
-        setSavedSceneHash: setSavedSceneHashRef,
       }),
   };
 };
@@ -526,41 +517,6 @@ export const runCurrentProjectRevealAction = async ({
   }
 };
 
-export const runCurrentProjectAutosaveFailureAction = ({
-  error,
-  formatError,
-  logError,
-  setProjectError,
-}: {
-  error: unknown;
-  formatError: (error: unknown) => string;
-  logError: (message: string, error: unknown) => void;
-  setProjectError: (message: string) => void;
-}) => {
-  logError("[project:autosave-failed]", error);
-  setProjectError(formatError(error));
-};
-
-export interface CurrentProjectAutosaveFailureRendererActionsInput {
-  formatError: (error: unknown) => string;
-  logError: (message: string, error: unknown) => void;
-  setProjectError: (message: string) => void;
-}
-
-export const createCurrentProjectAutosaveFailureRendererActions = ({
-  formatError,
-  logError,
-  setProjectError,
-}: CurrentProjectAutosaveFailureRendererActionsInput) => ({
-  report: (error: unknown) =>
-    runCurrentProjectAutosaveFailureAction({
-      error,
-      formatError,
-      logError,
-      setProjectError,
-    }),
-});
-
 export const runCurrentProjectEntryMenuFailureAction = ({
   errorMessage,
   fallbackMessage,
@@ -580,14 +536,14 @@ export const runCurrentProjectEntryMenuFailureAction = ({
 };
 
 export const runCurrentProjectSwitchToListAction = async ({
-  flushPendingAutosave,
+  flushProjectRoom,
   clearProjectViewState,
   loadRecentProjectsState,
   formatError,
   setProjectError,
   clearProjectNotice,
 }: {
-  flushPendingAutosave: (options: { strict: true }) => Promise<unknown>;
+  flushProjectRoom: (options: { strict: true }) => Promise<unknown>;
   clearProjectViewState: () => void;
   loadRecentProjectsState: () => void | Promise<void>;
   formatError: (error: unknown) => string;
@@ -595,6 +551,7 @@ export const runCurrentProjectSwitchToListAction = async ({
   clearProjectNotice: () => void;
 }): Promise<
   | { status: "switched" }
+  | { status: "cancelled" }
   | {
       status: "failed";
       error: unknown;
@@ -606,8 +563,18 @@ export const runCurrentProjectSwitchToListAction = async ({
   });
 
   try {
-    await flushPendingAutosave({ strict: true });
+    await flushProjectRoom({ strict: true });
   } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "PROJECT_CLOSE_CANCELLED"
+    ) {
+      return {
+        status: "cancelled",
+      };
+    }
     runCurrentProjectCommandFailureAction({
       error,
       formatError,
@@ -781,7 +748,7 @@ export interface CurrentProjectEntryRendererActionsInput {
     sequence: number,
   ) => Promise<unknown>;
   isCurrentProjectOpen: (sequence: number) => boolean;
-  flushPendingAutosave: (options: { strict: true }) => Promise<unknown>;
+  flushProjectRoom: (options: { strict: true }) => Promise<unknown>;
   clearProjectViewState: () => void;
   loadRecentProjectsState: () => void | Promise<void>;
   formatCreateError: (error: unknown) => string;
@@ -800,7 +767,7 @@ export const createCurrentProjectEntryRendererActions = ({
   beginProjectOpen,
   openProjectBundle,
   isCurrentProjectOpen,
-  flushPendingAutosave,
+  flushProjectRoom,
   clearProjectViewState,
   loadRecentProjectsState,
   formatCreateError,
@@ -849,7 +816,7 @@ export const createCurrentProjectEntryRendererActions = ({
     }),
   switchToProjectList: () =>
     runCurrentProjectSwitchToListAction({
-      flushPendingAutosave,
+      flushProjectRoom,
       clearProjectViewState,
       loadRecentProjectsState,
       formatError: formatSaveBeforeOpenError,
@@ -995,7 +962,7 @@ export const runProjectBundleOpenFollowupAction = async ({
 export interface CurrentProjectBundleOpenRendererActionsInput {
   beginProjectOpen: () => number;
   isCurrentProjectOpen: (sequence: number) => boolean;
-  flushPendingAutosave: (options: { strict: true }) => Promise<unknown>;
+  flushProjectRoom: (options: { strict: true }) => Promise<unknown>;
   getDevicePixelRatio: () => number;
   getFallbackCreatedAt: () => number;
   readProjectAssets: (
@@ -1049,10 +1016,10 @@ export interface CurrentProjectBundleOpenRendererActionsInput {
 export const runCurrentProjectBundleOpenRendererAction = async ({
   bundle,
   sequence,
-  skipPendingAutosaveFlush = false,
+  skipProjectRoomFlush = false,
   beginProjectOpen,
   isCurrentProjectOpen,
-  flushPendingAutosave,
+  flushProjectRoom,
   getDevicePixelRatio,
   getFallbackCreatedAt,
   readProjectAssets,
@@ -1087,7 +1054,7 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
 }: CurrentProjectBundleOpenRendererActionsInput & {
   bundle: DesktopProjectBundle | null;
   sequence?: number;
-  skipPendingAutosaveFlush?: boolean;
+  skipProjectRoomFlush?: boolean;
 }): Promise<
   | { status: "cancelled"; sequence: number }
   | { status: "preflight-failed"; sequence: number; applied: boolean }
@@ -1120,9 +1087,9 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
   });
 
   try {
-    if (!skipPendingAutosaveFlush) {
+    if (!skipProjectRoomFlush) {
       try {
-        await flushPendingAutosave({ strict: true });
+        await flushProjectRoom({ strict: true });
       } catch (error) {
         const applied = runCurrentProjectEntryPreflightFailureAction({
           sequence: openSequence,
@@ -1243,6 +1210,6 @@ export const createCurrentProjectBundleOpenRendererActions = (
       ...input,
       bundle,
       sequence,
-      skipPendingAutosaveFlush: true,
+      skipProjectRoomFlush: true,
     }),
 });

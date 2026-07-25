@@ -141,6 +141,26 @@ const createMockProviderSettings = () => ({
 });
 
 const withImageWritebackBridgeMock = (bridge: Record<string, any>) => {
+  if (!bridge.__projectRoomOpenTrackingInstalled) {
+    bridge.__projectRoomOpenTrackingInstalled = true;
+    for (const methodName of [
+      "createProject",
+      "openProject",
+      "openRecentProject",
+    ]) {
+      const original = bridge[methodName];
+      if (typeof original !== "function") {
+        continue;
+      }
+      bridge[methodName] = vi.fn(async (...args: unknown[]) => {
+        const project = await original(...args);
+        if (project?.projectPath) {
+          bridge.__projectRoomCurrentProject = project;
+        }
+        return project;
+      });
+    }
+  }
   bridge.beginImageWriteback ??= vi.fn(async (input) => {
     const imageRecords = await bridge.persistImageAssets(input);
     return {
@@ -152,6 +172,65 @@ const withImageWritebackBridgeMock = (bridge: Record<string, any>) => {
   });
   bridge.commitImageWriteback ??= vi.fn().mockResolvedValue(undefined);
   bridge.rollbackImageWriteback ??= vi.fn().mockResolvedValue({});
+  bridge.joinProjectRoom ??= vi.fn(
+    async (input: { projectPath: string; sessionId: string }) => {
+      await Promise.resolve();
+      const currentProject = bridge.__projectRoomCurrentProject;
+      let scene: {
+        elements?: unknown[];
+        appState?: Record<string, unknown>;
+      } = {};
+      try {
+        scene = currentProject?.sceneJson
+          ? JSON.parse(currentProject.sceneJson)
+          : {};
+      } catch {
+        scene = {};
+      }
+      if (mockExcalidrawAPI) {
+        scene = {
+          elements: mockExcalidrawAPI.getSceneElementsIncludingDeleted(),
+          appState: mockExcalidrawAPI.getAppState(),
+        };
+      }
+      return {
+        type: "room.snapshot",
+        identity: {
+          projectId: "test-project",
+          canonicalProjectPath: input.projectPath,
+          roomId: `room:${input.projectPath}`,
+          sessionEpoch: 1,
+        },
+        sequence: 0,
+        persistedSequence: 0,
+        projectRevision: "test-revision",
+        scene: {
+          elements: scene.elements ?? [],
+          sharedSceneConfig: scene.appState ?? {},
+        },
+        participants: [
+          {
+            actorId: "corestudio:desktop",
+            sessionId: input.sessionId,
+            transport: "ipc",
+            role: "desktop-editor",
+            displayLabel: "CoreStudio",
+          },
+        ],
+      };
+    },
+  );
+  bridge.submitProjectRoomOperation ??= vi.fn(async (input) => ({
+    operationId: input.operation.operationId,
+    sequence: 0,
+    persistedSequence: 0,
+    changedElementIds: [],
+    ignoredElementIds: [],
+  }));
+  bridge.leaveProjectRoom ??= vi.fn().mockResolvedValue(true);
+  bridge.getProjectRoomCloseState ??= vi.fn().mockResolvedValue(null);
+  bridge.closeProjectRoom ??= vi.fn().mockResolvedValue(true);
+  bridge.onProjectRoomEvent ??= vi.fn(() => () => undefined);
   return bridge;
 };
 
@@ -174,30 +253,6 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => {
     openRecentProject: vi.fn().mockResolvedValue(null),
     loadRecentProjects: vi.fn().mockResolvedValue([]),
     removeRecentProject: vi.fn().mockResolvedValue([]),
-    writeProjectScene: vi.fn().mockResolvedValue(undefined),
-    applyProjectSceneElementPatches: vi
-      .fn()
-      .mockImplementation(
-        async (input: {
-          patches: Array<{ element: Record<string, unknown> }>;
-        }) => {
-          const project = createMockProjectBundle();
-          const sceneJson = JSON.stringify({
-            type: "excalidraw",
-            version: 2,
-            source: "CoreStudio",
-            elements: input.patches.map((patch) => patch.element),
-            appState: {},
-            files: {},
-          });
-          return {
-            project: project.project,
-            sceneJson,
-            sceneHash: "agent-board-scene-hash",
-            appliedElementIds: input.patches.map((patch) => patch.element.id),
-          };
-        },
-      ),
     readProjectAssetPayloads: vi.fn().mockResolvedValue([]),
     inspectProjectHealth: vi.fn().mockResolvedValue({
       checkedAt: "2026-04-12T08:00:00.000Z",
@@ -435,11 +490,14 @@ vi.mock("@excalidraw/excalidraw", () => {
             zoom: { value: 1 },
             selectedElementIds: {},
             selectedGroupIds: {},
+            collaborators: new Map(),
             ...(initialData?.appState ?? {}),
           },
           files: initialData?.files ?? {},
         });
         const apiRef = React.useRef<any>(null);
+        const onExcalidrawAPIRef = React.useRef(onExcalidrawAPI);
+        onExcalidrawAPIRef.current = onExcalidrawAPI;
 
         if (!apiRef.current) {
           apiRef.current = {
@@ -448,16 +506,19 @@ vi.mock("@excalidraw/excalidraw", () => {
                 elements,
                 appState,
                 files,
+                collaborators,
               }: {
                 elements?: any[];
                 appState?: Record<string, any>;
                 files?: Record<string, any>;
+                collaborators?: Map<string, unknown>;
               }) => {
                 sceneRef.current = {
                   elements: elements ?? sceneRef.current.elements,
                   appState: {
                     ...sceneRef.current.appState,
                     ...(appState ?? {}),
+                    ...(collaborators ? { collaborators } : {}),
                   },
                   files: files ?? sceneRef.current.files,
                 };
@@ -503,9 +564,9 @@ vi.mock("@excalidraw/excalidraw", () => {
         React.useEffect(() => {
           mockExcalidrawAPI = apiRef.current;
           if (!skipExcalidrawApiRegistration) {
-            onExcalidrawAPI?.(apiRef.current);
+            onExcalidrawAPIRef.current?.(apiRef.current);
           }
-        }, [onExcalidrawAPI]);
+        }, []);
 
         React.useEffect(() => {
           if (!emitExcalidrawChangeAfterEveryRender) {
@@ -524,7 +585,16 @@ vi.mock("@excalidraw/excalidraw", () => {
           );
         });
 
-        triggerExcalidrawInitialize = () => onInitialize?.(apiRef.current);
+        triggerExcalidrawInitialize = () => {
+          sceneRef.current = {
+            ...sceneRef.current,
+            appState: {
+              ...sceneRef.current.appState,
+              collaborators: new Map(),
+            },
+          };
+          onInitialize?.(apiRef.current);
+        };
         triggerExcalidrawPointerUpdate = (payload) =>
           onPointerUpdate?.(payload);
         triggerExcalidrawScrollChange = ({
@@ -583,6 +653,9 @@ vi.mock("@excalidraw/excalidraw", () => {
               data-testid="excalidraw-canvas"
               data-lang-code={langCode}
               data-has-top-left-ui={renderTopLeftUI ? "true" : "false"}
+              data-has-custom-selected-shape-actions={
+                renderSelectedShapeActions ? "true" : "false"
+              }
             >
               <sidebarTabsContext.Provider
                 value={{

@@ -32,11 +32,11 @@ import type {
 export interface AgentBrowserBridgeConfig {
   bridge: string;
   token?: string;
+  projectSelectionToken?: string;
 }
 
 export interface AgentBrowserRouteState {
   isAgentBrowserRoute: boolean;
-  hasInitialProjectToken: boolean;
 }
 
 export interface AgentBrowserProjectVersion {
@@ -60,16 +60,11 @@ export const buildAgentBrowserRouteState = ({
   if (!isAgentBrowserRoute) {
     return {
       isAgentBrowserRoute: false,
-      hasInitialProjectToken: false,
     };
   }
 
-  const url = new URL(href);
   return {
     isAgentBrowserRoute,
-    hasInitialProjectToken: Boolean(
-      url.searchParams.get("projectToken") ?? url.searchParams.get("token"),
-    ),
   };
 };
 
@@ -86,28 +81,19 @@ export const buildAgentBrowserBridgeConfig = ({
 
   const url = new URL(href);
   const bridge = url.searchParams.get("bridge");
-  const token =
-    url.searchParams.get("projectToken") ?? url.searchParams.get("token");
   if (!bridge) {
     return null;
   }
 
   return {
     bridge: bridge.replace(/\/+$/, ""),
-    ...(token ? { token } : {}),
+    ...(url.searchParams.get("projectSelectionToken")
+      ? {
+          projectSelectionToken:
+            url.searchParams.get("projectSelectionToken") ?? undefined,
+        }
+      : {}),
   };
-};
-
-export const buildAgentBrowserProjectTokenHref = ({
-  href,
-  token,
-}: {
-  href: string;
-  token: string;
-}) => {
-  const url = new URL(href);
-  url.searchParams.set("projectToken", token);
-  return url.toString();
 };
 
 const getAgentBrowserBridgeConfig = (): AgentBrowserBridgeConfig | null => {
@@ -160,6 +146,13 @@ const callDesktopBridge = <T>(
     }),
   });
 
+const rejectUnavailableAgentBoardCapability = (capability: string) =>
+  Promise.reject(
+    Object.assign(new Error(`Agent Board 不提供 ${capability} 能力。`), {
+      code: "CAPABILITY_UNAVAILABLE",
+    }),
+  );
+
 export const publishAgentBrowserRuntimeState = async (
   state: AgentBrowserRuntimeState,
 ) => {
@@ -179,18 +172,6 @@ export const publishAgentBrowserRuntimeState = async (
   return true;
 };
 
-export const readAgentBrowserProjectVersion = async () => {
-  const config = getAgentBrowserBridgeConfig();
-  if (!config?.token) {
-    return null;
-  }
-
-  return requestAgentBridge<AgentBrowserProjectVersion>(
-    config,
-    AGENT_HTTP_ROUTES.projectCurrent,
-  );
-};
-
 export const maybeCreateAgentBrowserDesktopBridge =
   (): DesktopBridgeApi | null => {
     const config = getAgentBrowserBridgeConfig();
@@ -208,107 +189,117 @@ export const maybeCreateAgentBrowserDesktopBridge =
       createProject: async () => null,
       openProject: async () => null,
       openRecentProject: async (projectPath) => {
-        const bundle = await callDesktopBridge<DesktopProjectBundle | null>(
-          config,
-          "openRecentProject",
-          [projectPath],
-        );
-        if (bundle?.project.agentAccess.token) {
-          config.token = bundle.project.agentAccess.token;
-          window.history.replaceState(
-            null,
-            "",
-            buildAgentBrowserProjectTokenHref({
-              href: window.location.href,
-              token: config.token,
-            }),
-          );
+        if (!config.projectSelectionToken) {
+          return null;
         }
-        return bundle;
+        const result = await requestAgentBridge<{
+          boardUrl: string;
+          launchTicket: string;
+        }>(
+          {
+            bridge: config.bridge,
+            token: config.projectSelectionToken,
+          },
+          AGENT_HTTP_ROUTES.boardProjectOpen,
+          {
+            method: "POST",
+            body: JSON.stringify({ projectPath }),
+          },
+        );
+        const nextUrl = new URL(result.boardUrl);
+        nextUrl.searchParams.set("launchTicket", result.launchTicket);
+        nextUrl.searchParams.delete("projectSelectionToken");
+        window.history.replaceState(null, "", nextUrl.toString());
+        window.location.reload();
+        return null;
       },
-      loadRecentProjects: () =>
-        callDesktopBridge<RecentProjectEntry[]>(config, "loadRecentProjects"),
-      writeProjectScene: async () => {
-        throw new Error(
-          "Agent Board 只同步运行态画布，不允许直接保存项目场景。",
+      loadRecentProjects: async () => {
+        if (!config.projectSelectionToken) {
+          return [];
+        }
+        return requestAgentBridge<RecentProjectEntry[]>(
+          {
+            bridge: config.bridge,
+            token: config.projectSelectionToken,
+          },
+          AGENT_HTTP_ROUTES.boardProjects,
         );
       },
-      applyProjectSceneElementPatches: (input) =>
-        callDesktopBridge(config, "applyProjectSceneElementPatches", [input]),
       readProjectAssetPayloads: (input) =>
-        callDesktopBridge<ProjectAssetPayload[]>(
-          config,
-          "readProjectAssetPayloads",
-          [input],
-        ),
-      inspectProjectHealth: (input) =>
-        callDesktopBridge<ProjectHealthReport>(config, "inspectProjectHealth", [
-          input,
-        ]),
-      rebuildProjectThumbnails: (input) =>
-        callDesktopBridge<RebuildProjectThumbnailsResult>(
-          config,
-          "rebuildProjectThumbnails",
-          [input],
-        ),
-      cleanProjectCache: (input) =>
-        callDesktopBridge<CleanProjectCacheResult>(
-          config,
-          "cleanProjectCache",
-          [input],
-        ),
+        (() => {
+          const resumeToken = new URL(window.location.href).searchParams.get(
+            "resumeToken",
+          );
+          if (!config.token && resumeToken) {
+            return requestAgentBridge<ProjectAssetPayload[]>(
+              {
+                bridge: config.bridge,
+                token: resumeToken,
+              },
+              AGENT_HTTP_ROUTES.roomAssets,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  fileIds: input.fileIds,
+                  rendition: input.rendition ?? "original",
+                }),
+              },
+            );
+          }
+          return rejectUnavailableAgentBoardCapability("项目资产直读");
+        })(),
+      inspectProjectHealth: () =>
+        rejectUnavailableAgentBoardCapability("项目健康检查"),
+      rebuildProjectThumbnails: () =>
+        rejectUnavailableAgentBoardCapability("项目修复"),
+      cleanProjectCache: () =>
+        rejectUnavailableAgentBoardCapability("项目缓存清理"),
       persistImageAssets: (input: {
         projectPath: string;
         files: PersistedImageAssetInput[];
-      }) =>
-        callDesktopBridge<ImageRecordMap>(config, "persistImageAssets", [
-          input,
-        ]),
-      beginImageWriteback: (input) =>
-        callDesktopBridge<ProjectImageWritebackTransaction>(
-          config,
-          "beginImageWriteback",
-          [input],
-        ),
-      commitImageWriteback: (input) =>
-        callDesktopBridge<void>(config, "commitImageWriteback", [input]),
-      rollbackImageWriteback: (input) =>
-        callDesktopBridge<ImageRecordMap>(config, "rollbackImageWriteback", [
-          input,
-        ]),
-      importImages: () =>
-        callDesktopBridge<ImportedImagePayload[]>(config, "importImages"),
-      revealProjectInFinder: (projectPath) =>
-        callDesktopBridge<void>(config, "revealProjectInFinder", [projectPath]),
+      }) => {
+        const resumeToken = new URL(window.location.href).searchParams.get(
+          "resumeToken",
+        );
+        if (!config.token && resumeToken) {
+          return requestAgentBridge<ImageRecordMap>(
+            {
+              bridge: config.bridge,
+              token: resumeToken,
+            },
+            AGENT_HTTP_ROUTES.roomPersistAssets,
+            {
+              method: "POST",
+              body: JSON.stringify({ files: input.files }),
+            },
+          );
+        }
+        return rejectUnavailableAgentBoardCapability("项目资产写入");
+      },
+      beginImageWriteback: () =>
+        rejectUnavailableAgentBoardCapability("旧图片写回事务"),
+      commitImageWriteback: () =>
+        rejectUnavailableAgentBoardCapability("旧图片写回事务"),
+      rollbackImageWriteback: () =>
+        rejectUnavailableAgentBoardCapability("旧图片写回事务"),
+      importImages: () => rejectUnavailableAgentBoardCapability("系统图片导入"),
+      revealProjectInFinder: () =>
+        rejectUnavailableAgentBoardCapability("访达定位"),
       loadAppInfo: () =>
         callDesktopBridge<DesktopAppInfo>(config, "loadAppInfo"),
       loadProviderSettings: () =>
-        callDesktopBridge<ProviderConfigurationSnapshot>(
-          config,
-          "loadProviderSettings",
-        ),
-      saveProviderSettings: (input: SaveProviderSettingsInput) =>
-        callDesktopBridge<ProviderConfigurationSnapshot>(
-          config,
-          "saveProviderSettings",
-          [input],
-        ),
-      deleteProviderSettings: (input: DeleteProviderSettingsInput) =>
-        callDesktopBridge<ProviderConfigurationSnapshot>(
-          config,
-          "deleteProviderSettings",
-          [input],
-        ),
+        rejectUnavailableAgentBoardCapability("模型供应商设置"),
+      saveProviderSettings: () =>
+        rejectUnavailableAgentBoardCapability("模型供应商设置"),
+      deleteProviderSettings: () =>
+        rejectUnavailableAgentBoardCapability("模型供应商设置"),
       generateImages: async (_input: GenerateImagesInput) => {
         throw new Error(
           "Agent Board 不能调用 CoreStudio 内置生成模型，请写回外部生成的图片。",
         );
       },
       readClipboardImage: () =>
-        callDesktopBridge<ImportedImagePayload | null>(
-          config,
-          "readClipboardImage",
-        ),
+        rejectUnavailableAgentBoardCapability("系统剪贴板读取"),
       onMenuAction: () => () => undefined,
       notifyRendererReady: () => undefined,
       notifyProjectStateChanged: () => undefined,
@@ -321,7 +312,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
           boardUrl: window.location.href,
         };
       },
-      onFlushAutosaveRequest: () => () => undefined,
+      onFlushProjectRoomRequest: () => () => undefined,
       onAgentCommandRequest: () => () => undefined,
     };
 

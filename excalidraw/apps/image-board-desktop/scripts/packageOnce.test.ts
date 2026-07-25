@@ -6,22 +6,29 @@ import { createRequire } from "node:module";
 import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { hasReusablePackage } = require("./package-once.cjs") as {
-  hasReusablePackage: (options: {
-    state: {
+const { hasReusablePackage, removeLegacyZipArtifacts } =
+  require("./package-once.cjs") as {
+    hasReusablePackage: (options: {
+      state: {
+        fingerprint: string;
+        version: string;
+        platform: string;
+        arch: string;
+        artifacts: string[];
+      } | null;
       fingerprint: string;
       version: string;
       platform: string;
       arch: string;
-      artifacts: string[];
-    } | null;
-    fingerprint: string;
-    version: string;
-    platform: string;
-    arch: string;
-    releaseDir: string;
-  }) => boolean;
-};
+      releaseDir: string;
+    }) => boolean;
+    removeLegacyZipArtifacts: (options: {
+      releaseDir: string;
+      productName: string;
+      version: string;
+      arch: string;
+    }) => void;
+  };
 
 const tempDirs: string[] = [];
 
@@ -43,7 +50,6 @@ describe("CoreStudio package-once guard", () => {
   it("reuses a completed package for the same source fingerprint", () => {
     const releaseDir = createTempDir();
     fs.writeFileSync(path.join(releaseDir, "CoreStudio.dmg"), "dmg");
-    fs.writeFileSync(path.join(releaseDir, "CoreStudio.zip"), "zip");
 
     expect(
       hasReusablePackage({
@@ -52,7 +58,36 @@ describe("CoreStudio package-once guard", () => {
           version: "1.2.3",
           platform: "darwin",
           arch: "arm64",
-          artifacts: ["CoreStudio.dmg", "CoreStudio.zip"],
+          artifacts: ["CoreStudio.dmg"],
+        },
+        fingerprint: "same-source",
+        version: "1.2.3",
+        platform: "darwin",
+        arch: "arm64",
+        releaseDir,
+      }),
+    ).toBe(true);
+  });
+
+  it("ignores legacy ZIP entries when reusing an existing DMG package", () => {
+    const releaseDir = createTempDir();
+    fs.writeFileSync(path.join(releaseDir, "CoreStudio.dmg"), "dmg");
+    fs.mkdirSync(path.join(releaseDir, "mac-arm64", "CoreStudio.app"), {
+      recursive: true,
+    });
+
+    expect(
+      hasReusablePackage({
+        state: {
+          fingerprint: "same-source",
+          version: "1.2.3",
+          platform: "darwin",
+          arch: "arm64",
+          artifacts: [
+            "CoreStudio.dmg",
+            "CoreStudio-1.2.3-arm64-mac.zip",
+            "mac-arm64/CoreStudio.app",
+          ],
         },
         fingerprint: "same-source",
         version: "1.2.3",
@@ -71,7 +106,7 @@ describe("CoreStudio package-once guard", () => {
       version: "1.2.3",
       platform: "darwin",
       arch: "arm64",
-      artifacts: ["CoreStudio.dmg", "CoreStudio.zip"],
+      artifacts: ["CoreStudio.dmg", "CoreStudio.app"],
     };
 
     expect(
@@ -94,5 +129,31 @@ describe("CoreStudio package-once guard", () => {
         releaseDir,
       }),
     ).toBe(false);
+  });
+
+  it("removes legacy ZIP artifacts for the packaged version", () => {
+    const releaseDir = createTempDir();
+    const zipName = "CoreStudio-1.2.3-arm64-mac.zip";
+    fs.writeFileSync(path.join(releaseDir, zipName), "zip");
+    fs.writeFileSync(path.join(releaseDir, `${zipName}.blockmap`), "blockmap");
+    fs.writeFileSync(
+      path.join(releaseDir, "CoreStudio-1.2.2-arm64-mac.zip"),
+      "older",
+    );
+
+    removeLegacyZipArtifacts({
+      releaseDir,
+      productName: "CoreStudio",
+      version: "1.2.3",
+      arch: "arm64",
+    });
+
+    expect(fs.existsSync(path.join(releaseDir, zipName))).toBe(false);
+    expect(fs.existsSync(path.join(releaseDir, `${zipName}.blockmap`))).toBe(
+      false,
+    );
+    expect(
+      fs.existsSync(path.join(releaseDir, "CoreStudio-1.2.2-arm64-mac.zip")),
+    ).toBe(true);
   });
 });

@@ -188,7 +188,7 @@ describe("Chinese localization", () => {
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
-        onLocateGenerationRecord={() => undefined}
+        onLocateImageAsset={() => undefined}
         onLocatePromptReference={() => undefined}
       />,
     );
@@ -229,7 +229,7 @@ describe("Chinese localization", () => {
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
-        onLocateGenerationRecord={() => undefined}
+        onLocateImageAsset={() => undefined}
         onLocatePromptReference={() => undefined}
       />,
     );
@@ -256,7 +256,7 @@ describe("Chinese localization", () => {
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
-        onLocateGenerationRecord={() => undefined}
+        onLocateImageAsset={() => undefined}
         onLocatePromptReference={() => undefined}
       />,
     );

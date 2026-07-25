@@ -1,3 +1,10 @@
+import type { PersistedImageAssetInput } from "./desktopBridgeTypes";
+import type {
+  ProjectRoomIdentity,
+  ProjectRoomScene,
+  ProjectRoomSceneElement,
+} from "./projectRoomProtocol";
+
 export const AGENT_BRIDGE_PROTOCOL_VERSION = 2;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
@@ -7,6 +14,12 @@ export const AGENT_HTTP_ROUTES = {
   status: "/v1/status",
   capabilities: "/v1/agent/capabilities",
   authorize: "/v1/agent/authorize",
+  boardSession: "/v1/board/session",
+  boardProjects: "/v1/board/projects",
+  boardProjectOpen: "/v1/board/projects/open",
+  roomTicket: "/v1/room/ticket",
+  roomAssets: "/v1/room/assets",
+  roomPersistAssets: "/v1/room/assets/persist",
   browserState: "/v1/agent/browser-state",
   desktopBridge: "/v1/desktop-bridge",
   context: "/v1/agent/context",
@@ -55,32 +68,24 @@ export interface AgentBoardCommandContext {
   };
 }
 
+export interface AgentWriterCommandContext {
+  sessionId: string;
+  identity: ProjectRoomIdentity;
+  roomSequence: number;
+  scene: ProjectRoomScene;
+}
+
+export interface PreparedAgentWriterCommand {
+  type: "agent-writer.prepared";
+  elements: ProjectRoomSceneElement[];
+  files?: PersistedImageAssetInput[];
+}
+
 export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
 
-export const AGENT_DESKTOP_BRIDGE_METHODS = [
-  "createProject",
-  "openProject",
-  "openRecentProject",
-  "loadRecentProjects",
-  "applyProjectSceneElementPatches",
-  "readProjectAssetPayloads",
-  "inspectProjectHealth",
-  "rebuildProjectThumbnails",
-  "cleanProjectCache",
-  "persistImageAssets",
-  "beginImageWriteback",
-  "commitImageWriteback",
-  "rollbackImageWriteback",
-  "importImages",
-  "revealProjectInFinder",
-  "loadAppInfo",
-  "loadProviderSettings",
-  "saveProviderSettings",
-  "deleteProviderSettings",
-  "readClipboardImage",
-] as const;
+export const AGENT_DESKTOP_BRIDGE_METHODS = ["loadAppInfo"] as const;
 
 export type AgentDesktopBridgeMethod =
   typeof AGENT_DESKTOP_BRIDGE_METHODS[number];
@@ -133,7 +138,14 @@ export const AGENT_ERROR_CODES = [
   "FORBIDDEN",
   "PROJECT_MISMATCH",
   "PROJECT_REQUIRED",
-  "STALE_PROJECT_SNAPSHOT",
+  "ROOM_CLOSED",
+  "ROOM_CLOSING",
+  "ROOM_MISMATCH",
+  "SESSION_EPOCH_EXPIRED",
+  "SESSION_NOT_FOUND",
+  "PERSISTENCE_FAILED",
+  "PARTICIPANTS_CHANGED",
+  "PROJECT_STORAGE_DIVERGED",
   "TOKEN_EXPIRED",
   "UNSUPPORTED_COMMAND",
   "WRITEBACK_CONFLICT",

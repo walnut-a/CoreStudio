@@ -1,13 +1,6 @@
-import { Suspense, lazy } from "react";
-
 import { copy } from "../copy";
 
 import "./WelcomePane.css";
-
-const LazyAgentBoard = lazy(async () => {
-  const { AgentBoard } = await import("./AgentBoard");
-  return { default: AgentBoard };
-});
 
 interface AppBridgeUnavailableProps {
   isAgentBrowserRoute: boolean;
@@ -18,21 +11,15 @@ export const AppBridgeUnavailable = ({
 }: AppBridgeUnavailableProps) => {
   if (isAgentBrowserRoute) {
     return (
-      <Suspense
-        fallback={
-          <div className="image-board-app">
-            <div className="welcome-pane">
-              <div className="welcome-pane__card welcome-pane__diagnostic">
-                <span className="welcome-pane__eyebrow">Agent Board</span>
-                <h1>{copy.agentBoard.loadingBuiltInTitle}</h1>
-                <p>{copy.agentBoard.loadingBuiltInDescription}</p>
-              </div>
-            </div>
+      <div className="image-board-app">
+        <div className="welcome-pane">
+          <div className="welcome-pane__card welcome-pane__diagnostic">
+            <span className="welcome-pane__eyebrow">Agent Board</span>
+            <h1>{copy.agentBoard.loadingBuiltInTitle}</h1>
+            <p>{copy.agentBoard.loadingBuiltInDescription}</p>
           </div>
-        }
-      >
-        <LazyAgentBoard />
-      </Suspense>
+        </div>
+      </div>
     );
   }
 

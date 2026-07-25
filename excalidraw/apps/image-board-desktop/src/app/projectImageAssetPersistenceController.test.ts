@@ -81,19 +81,16 @@ const createImageElement = (
     width: 320,
     height: 240,
     ...patch,
-  }) as ExcalidrawElement;
+  } as ExcalidrawElement);
 
-const createBinaryFile = (
-  id: string,
-  patch: Partial<BinaryFileData> = {},
-) =>
+const createBinaryFile = (id: string, patch: Partial<BinaryFileData> = {}) =>
   ({
     id,
     mimeType: "image/png",
     dataURL: `data:image/png;base64,payload-${id}` as BinaryFileData["dataURL"],
     created: Date.parse("2026-07-05T01:02:03.000Z"),
     ...patch,
-  }) as BinaryFileData;
+  } as BinaryFileData);
 
 describe("runProjectImageAssetPersistenceAction", () => {
   it("persists image assets and merges the returned records into the active project", async () => {
@@ -222,7 +219,7 @@ describe("runUnknownCanvasImageAssetPersistenceAction", () => {
     });
   });
 
-  it("returns the existing image records when the canvas has no unknown image files", async () => {
+  it("returns no asset update when the canvas has no unknown image files", async () => {
     const project = createProject("/projects/current", {
       "file-1": createImageRecord("file-1"),
     });
@@ -240,7 +237,7 @@ describe("runUnknownCanvasImageAssetPersistenceAction", () => {
         persistImageAssets,
         setActiveProject,
       }),
-    ).resolves.toBe(project.imageRecords);
+    ).resolves.toEqual({});
 
     expect(persistImageAssets).not.toHaveBeenCalled();
     expect(setActiveProject).not.toHaveBeenCalled();
@@ -278,9 +275,9 @@ describe("createProjectImageAssetPersistenceRendererActions", () => {
     });
 
     const handle = await actions.beginProjectImageWriteback({
-        projectPath: project.projectPath,
-        projectImageRecords: project.imageRecords,
-        files,
+      projectPath: project.projectPath,
+      projectImageRecords: project.imageRecords,
+      files,
     });
 
     expect(beginImageWriteback).toHaveBeenCalledWith({

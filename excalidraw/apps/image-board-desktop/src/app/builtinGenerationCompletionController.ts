@@ -1,8 +1,4 @@
-import {
-  applyProjectImageRecordsSceneAutosaveState,
-  type AutosaveSnapshot,
-  type SceneSnapshot,
-} from "./autosaveProjectState";
+import type { SceneSnapshot } from "./sceneSnapshot";
 import {
   buildPendingGenerationJobCompletionPlan,
   buildPendingGenerationJobSceneCommitPlan,
@@ -56,7 +52,7 @@ export interface PersistBuiltinGenerationAssetsInput {
   files: PersistedImageAssetInput[];
 }
 
-export interface ApplyBuiltinGenerationSceneAutosaveInput<
+export interface ApplyBuiltinGenerationSceneRoomUpdateInput<
   Elements extends readonly ExcalidrawElement[] = readonly ExcalidrawElement[],
   AppStateValue extends AppState = AppState,
   Files extends BinaryFiles = BinaryFiles,
@@ -82,9 +78,9 @@ export const runBuiltinGenerationJobCompletionAction = async <
   markSlotFailed,
   getCanvasSnapshot,
   restoreCanvasSnapshot,
-  applySceneAutosave,
+  applySceneRoomUpdate,
   afterSceneCommit,
-  flushPendingAutosave,
+  flushProjectRoom,
 }: {
   job: PendingGenerationJob;
   request: GenerationRequest;
@@ -107,14 +103,10 @@ export const runBuiltinGenerationJobCompletionAction = async <
     Files
   > | null;
   restoreCanvasSnapshot: (
-    snapshot: BuiltinGenerationCanvasSnapshot<
-      Elements,
-      AppStateValue,
-      Files
-    >,
+    snapshot: BuiltinGenerationCanvasSnapshot<Elements, AppStateValue, Files>,
   ) => void;
-  applySceneAutosave: (
-    input: ApplyBuiltinGenerationSceneAutosaveInput<
+  applySceneRoomUpdate: (
+    input: ApplyBuiltinGenerationSceneRoomUpdateInput<
       Elements,
       AppStateValue,
       Files
@@ -125,7 +117,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
     appState: AppStateValue;
     files: Files;
   }) => void;
-  flushPendingAutosave: (options: { strict: true }) => Promise<unknown> | unknown;
+  flushProjectRoom: (options: { strict: true }) => Promise<unknown> | unknown;
 }): Promise<BuiltinGenerationJobCompletionResult> => {
   const completionPlan = buildPendingGenerationJobCompletionPlan({
     job,
@@ -164,7 +156,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
       if (!snapshot || sceneCommitPlan.kind !== "commit") {
         throw new Error("生成失败状态写回时画板或当前项目已经发生变化。");
       }
-      applySceneAutosave({
+      applySceneRoomUpdate({
         project: sceneCommitPlan.project,
         imageRecords: sceneCommitPlan.project.imageRecords,
         elements: snapshot.elements,
@@ -176,20 +168,22 @@ export const runBuiltinGenerationJobCompletionAction = async <
         appState: snapshot.appState,
         files: snapshot.files,
       });
-      await flushPendingAutosave({ strict: true });
     } catch (error) {
       try {
         restoreCanvasSnapshot(beforeCanvasSnapshot);
       } catch (restoreError) {
         throw Object.assign(
           new Error(
-            `${error instanceof Error ? error.message : String(error)}；placeholder 快照恢复也失败。`,
+            `${
+              error instanceof Error ? error.message : String(error)
+            }；placeholder 快照恢复也失败。`,
           ),
           { cause: error, restoreError },
         );
       }
       throw error;
     }
+    await flushProjectRoom({ strict: true });
     return {
       kind: "completed",
       replacedCount: 0,
@@ -226,7 +220,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
     if (!snapshot || sceneCommitPlan.kind !== "commit") {
       throw new Error("生成结果写回时画板或当前项目已经发生变化。");
     }
-    applySceneAutosave({
+    applySceneRoomUpdate({
       project: sceneCommitPlan.project,
       imageRecords: writeback.imageRecords,
       elements: snapshot.elements,
@@ -238,7 +232,6 @@ export const runBuiltinGenerationJobCompletionAction = async <
       appState: snapshot.appState,
       files: snapshot.files,
     });
-    await flushPendingAutosave({ strict: true });
   } catch (error) {
     let failure = error;
     try {
@@ -246,7 +239,9 @@ export const runBuiltinGenerationJobCompletionAction = async <
     } catch (restoreError) {
       failure = Object.assign(
         new Error(
-          `${error instanceof Error ? error.message : String(error)}；placeholder 快照恢复也失败。`,
+          `${
+            error instanceof Error ? error.message : String(error)
+          }；placeholder 快照恢复也失败。`,
         ),
         { cause: error, restoreError },
       );
@@ -254,6 +249,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
     await rollbackProjectImageWritebackAfterFailure(writeback, failure);
   }
   await writeback.commit();
+  await flushProjectRoom({ strict: true });
 
   return {
     kind: "completed",
@@ -293,20 +289,13 @@ export interface BuiltinGenerationJobCompletionRendererActionsInput<
     appState: AppStateValue;
     files: Files;
   }) => void;
-  getSavedSceneHash: () => string | null;
   setScene: (scene: SceneSnapshot<Elements, AppStateValue, Files>) => void;
-  setPendingSnapshot: (
-    snapshot: AutosaveSnapshot<Elements, AppStateValue, Files>,
-  ) => void;
   updateSceneImageFileIds: (elements: Elements) => void;
   scheduleVisibleImageRenditionLoad: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
-  updateWorkspaceOverlay: (
-    elements: Elements,
-    appState: AppStateValue,
-  ) => void;
-  flushPendingAutosave: (options: { strict: true }) => Promise<unknown> | unknown;
+  updateWorkspaceOverlay: (elements: Elements, appState: AppStateValue) => void;
+  flushProjectRoom: (options: { strict: true }) => Promise<unknown> | unknown;
 }
 
 export const createBuiltinGenerationJobCompletionRendererActions = <
@@ -320,13 +309,11 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
   markSlotFailed,
   getCanvasSnapshot,
   restoreCanvasSnapshot,
-  getSavedSceneHash,
   setScene,
-  setPendingSnapshot,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
   updateWorkspaceOverlay,
-  flushPendingAutosave,
+  flushProjectRoom,
 }: BuiltinGenerationJobCompletionRendererActionsInput<
   Elements,
   AppStateValue,
@@ -347,22 +334,11 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
       markSlotFailed,
       getCanvasSnapshot,
       restoreCanvasSnapshot,
-      applySceneAutosave: ({
-        project,
-        imageRecords,
-        elements,
-        appState,
-        files,
-      }) =>
-        applyProjectImageRecordsSceneAutosaveState({
-          project,
-          imageRecords,
+      applySceneRoomUpdate: ({ elements, appState, files }) =>
+        setScene({
           elements,
           appState,
           files,
-          expectedSceneHash: getSavedSceneHash(),
-          setScene,
-          setPendingSnapshot,
         }),
       afterSceneCommit: ({ elements, appState, files }) => {
         updateSceneImageFileIds(elements);
@@ -374,6 +350,6 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
         scheduleVisibleImageRenditionLoad(latestScene);
         updateWorkspaceOverlay(elements, appState);
       },
-      flushPendingAutosave,
+      flushProjectRoom,
     }),
 });

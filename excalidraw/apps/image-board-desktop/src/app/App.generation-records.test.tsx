@@ -16,8 +16,8 @@ import {
   within,
 } from "./App.testSupport";
 
-describe("App generation records", () => {
-  it("shows CoreStudio and Agent Board generated image records", async () => {
+describe("App image assets", () => {
+  it("shows only current canvas images and prompt references", async () => {
     const extraDirectRecords = Object.fromEntries(
       Array.from({ length: 25 }, (_, index) => {
         const recordIndex = index + 1;
@@ -77,6 +77,15 @@ describe("App generation records", () => {
               createdAt: "2026-06-29T08:01:00.000Z",
               mimeType: "image/png",
             },
+            "imported-reference-image": {
+              fileId: "imported-reference-image",
+              assetPath: "assets/imported-reference-image.png",
+              sourceType: "imported",
+              width: 1024,
+              height: 1024,
+              createdAt: "2026-06-29T07:59:00.000Z",
+              mimeType: "image/png",
+            },
             "orphan-generated-image": {
               fileId: "orphan-generated-image",
               assetPath: "assets/orphan-generated-image.png",
@@ -129,6 +138,13 @@ describe("App generation records", () => {
                   kind: "image",
                   fileIds: ["reference-step-image"],
                 },
+                {
+                  id: "imported-reference",
+                  index: 2,
+                  label: "参考图 2",
+                  kind: "image",
+                  fileIds: ["imported-reference-image"],
+                },
               ],
             },
             ...extraDirectRecords,
@@ -172,6 +188,17 @@ describe("App generation records", () => {
             };
           }),
           {
+            id: "agent-board-element",
+            type: "image",
+            fileId: "agent-board-image",
+            isDeleted: false,
+            groupIds: [],
+            x: 790,
+            y: 160,
+            width: 320,
+            height: 240,
+          },
+          {
             id: "referencing-result-element",
             type: "image",
             fileId: "referencing-result-image",
@@ -204,27 +231,27 @@ describe("App generation records", () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "生成记录" }));
+      fireEvent.click(screen.getByRole("button", { name: "图片资产" }));
     });
 
-    const generationDock = within(screen.getByTestId("side-dock-left"));
-    expect(generationDock.getByText("生成记录")).toBeInTheDocument();
+    const imageAssetDock = within(screen.getByTestId("side-dock-left"));
+    expect(imageAssetDock.getByText("图片资产")).toBeInTheDocument();
     expect(
-      generationDock.getByText("CoreStudio 单次生成记录"),
+      imageAssetDock.getByText("CoreStudio 单次生成记录"),
     ).toBeInTheDocument();
     expect(
-      generationDock.getByText("Agent Board 生成图片"),
+      imageAssetDock.getByText("Agent Board 生成图片"),
     ).toBeInTheDocument();
     expect(
-      generationDock.getByText("已经不在画布上的旧生成记录"),
-    ).toBeInTheDocument();
-    expect(generationDock.getByText(/引用链中间图/)).toBeInTheDocument();
-    expect(generationDock.getAllByText(/未在画板/).length).toBeGreaterThan(0);
-    expect(generationDock.getByText("第 01 条生成记录")).toBeInTheDocument();
+      imageAssetDock.queryByText("已经不在画布上的旧生成记录"),
+    ).not.toBeInTheDocument();
+    expect(imageAssetDock.getAllByText(/参考图/).length).toBeGreaterThan(0);
+    expect(imageAssetDock.getByText("导入图片")).toBeInTheDocument();
+    expect(imageAssetDock.getByText("第 01 条生成记录")).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(
-        generationDock.getByRole("button", {
+        imageAssetDock.getByRole("button", {
           name: /CoreStudio 单次生成记录/,
         }),
       );
@@ -243,7 +270,7 @@ describe("App generation records", () => {
 
     await act(async () => {
       fireEvent.click(
-        generationDock.getByRole("button", {
+        imageAssetDock.getByRole("button", {
           name: /参考图 1去掉右侧刀库/,
         }),
       );
@@ -277,7 +304,7 @@ describe("App generation records", () => {
     ).toBe(false);
   });
 
-  it("keeps existing generation records when asset persistence returns only new records", async () => {
+  it("keeps existing canvas image assets when persistence returns only new records", async () => {
     vi.spyOn(crypto, "randomUUID").mockReturnValue(
       "new-generated-file" as `${string}-${string}-${string}-${string}-${string}`,
     );
@@ -378,12 +405,12 @@ describe("App generation records", () => {
       expect(generateImages).toHaveBeenCalled();
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "生成记录" }));
+      fireEvent.click(screen.getByRole("button", { name: "图片资产" }));
     });
-    const generationDock = within(screen.getByTestId("side-dock-left"));
+    const imageAssetDock = within(screen.getByTestId("side-dock-left"));
     await waitFor(() => {
-      expect(generationDock.getByText("内置生成测试记录")).toBeInTheDocument();
-      expect(generationDock.getByText("旧科技纹理图")).toBeInTheDocument();
+      expect(imageAssetDock.getByText("内置生成测试记录")).toBeInTheDocument();
+      expect(imageAssetDock.getByText("旧科技纹理图")).toBeInTheDocument();
     });
   });
 });

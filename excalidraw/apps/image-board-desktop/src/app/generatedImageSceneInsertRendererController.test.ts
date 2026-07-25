@@ -65,28 +65,26 @@ const createAppState = (): AppState =>
 describe("createGeneratedImageSceneInsertRendererActions", () => {
   it("skips asset insertion when the canvas is not ready and ready is not required", async () => {
     const assertActiveProject = vi.fn();
-    const flushPendingAutosave = vi.fn();
+    const flushProjectRoom = vi.fn();
     const actions = createGeneratedImageSceneInsertRendererActions({
       getEditorApi: () => null,
       getActiveProject: () => null,
       assertActiveProject,
-      getSavedSceneHash: () => null,
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds: vi.fn(),
       updateWorkspaceOverlay: vi.fn(),
       setActiveProject: vi.fn(),
-      setPendingSnapshot: vi.fn(),
-      flushPendingAutosave,
+      flushProjectRoom,
       getFallbackCreatedAt: () => Date.parse("2026-07-06T00:02:00.000Z"),
     });
 
     await actions.insertAssets([createAsset()], {});
 
     expect(assertActiveProject).toHaveBeenCalledTimes(1);
-    expect(flushPendingAutosave).not.toHaveBeenCalled();
+    expect(flushProjectRoom).not.toHaveBeenCalled();
   });
 
-  it("inserts generated assets into the canvas and writes the autosave snapshot", async () => {
+  it("inserts generated assets into the canvas and flushes the room", async () => {
     const project = createProject();
     const nextImageRecords: ImageRecordMap = {
       "generated-file": {
@@ -112,23 +110,20 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
       getFiles: vi.fn(() => files),
     };
     const setActiveProject = vi.fn();
-    const setPendingSnapshot = vi.fn();
     const setPreviousBatchBounds = vi.fn();
     const updateWorkspaceOverlay = vi.fn(() => null);
-    const flushPendingAutosave = vi.fn(async () => ({ status: "flushed" }));
+    const flushProjectRoom = vi.fn(async () => ({ status: "flushed" }));
     const assertActiveProject = vi.fn();
 
     const actions = createGeneratedImageSceneInsertRendererActions({
       getEditorApi: () => api as unknown as GeneratedImageSceneInsertEditorApi,
       getActiveProject: () => project,
       assertActiveProject,
-      getSavedSceneHash: () => "scene-hash",
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds,
       updateWorkspaceOverlay,
       setActiveProject,
-      setPendingSnapshot,
-      flushPendingAutosave,
+      flushProjectRoom,
       getFallbackCreatedAt: () => Date.parse("2026-07-06T00:02:00.000Z"),
     });
 
@@ -170,15 +165,7 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
         imageRecords: nextImageRecords,
       }),
     );
-    expect(setPendingSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        project: expect.objectContaining({
-          projectPath: project.projectPath,
-        }),
-        expectedSceneHash: "scene-hash",
-      }),
-    );
-    expect(flushPendingAutosave).toHaveBeenCalledWith({ strict: true });
+    expect(flushProjectRoom).toHaveBeenCalledWith({ strict: true });
   });
 
   it("places Agent images outside the bounds occupied by existing canvas elements", async () => {
@@ -202,13 +189,11 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
       getEditorApi: () => api as unknown as GeneratedImageSceneInsertEditorApi,
       getActiveProject: () => project,
       assertActiveProject: vi.fn(),
-      getSavedSceneHash: () => "scene-hash",
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds: vi.fn(),
       updateWorkspaceOverlay: vi.fn(() => null),
       setActiveProject: vi.fn(),
-      setPendingSnapshot: vi.fn(),
-      flushPendingAutosave: vi.fn(async () => ({ status: "flushed" })),
+      flushProjectRoom: vi.fn(async () => ({ status: "flushed" })),
       getFallbackCreatedAt: () => Date.parse("2026-07-06T00:02:00.000Z"),
     });
 

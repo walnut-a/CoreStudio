@@ -3,19 +3,13 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const appRoot = path.resolve(
-  process.cwd(),
-  "apps/image-board-desktop",
-);
+const appRoot = path.resolve(process.cwd(), "apps/image-board-desktop");
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(appRoot, "package.json"), "utf8"),
 ) as {
   scripts: Record<string, string>;
 };
-const releaseGuide = fs.readFileSync(
-  path.join(appRoot, "RELEASE.md"),
-  "utf8",
-);
+const releaseGuide = fs.readFileSync(path.join(appRoot, "RELEASE.md"), "utf8");
 const notarizeScript = fs.readFileSync(
   path.join(appRoot, "scripts/notarize-release.cjs"),
   "utf8",
@@ -49,15 +43,12 @@ describe("CoreStudio desktop packaging workflow", () => {
     );
   });
 
-  it("creates the final ZIP once, after stapling the app", () => {
-    const appStaple = notarizeScript.indexOf(
-      'runCommand("xcrun", ["stapler", "staple", appPath])',
-    );
-    const zipCompression = notarizeScript.indexOf('"ditto"');
-
-    expect(notarizeScript.match(/"ditto"/g)).toHaveLength(1);
-    expect(appStaple).toBeGreaterThan(-1);
-    expect(zipCompression).toBeGreaterThan(appStaple);
+  it("publishes only the notarized DMG", () => {
+    expect(notarizeScript).not.toContain('"ditto"');
+    expect(notarizeScript).not.toContain("-mac.zip");
+    expect(packageOnceScript).not.toContain("`${artifactPrefix}-mac.zip`");
+    expect(releaseGuide).toContain("唯一发布安装包是公证后的 DMG");
+    expect(releaseGuide).not.toContain("## ZIP 处理");
   });
 
   it("documents one release packaging command without a pre-build step", () => {

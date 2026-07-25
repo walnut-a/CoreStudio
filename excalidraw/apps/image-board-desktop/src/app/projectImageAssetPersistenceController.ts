@@ -10,9 +10,7 @@ import { buildUnknownCanvasImageAssetInputs } from "./canvasImageAssetState";
 import { applyPersistedProjectImageRecordsState } from "./imageRecordState";
 import { beginProjectImageWritebackAction } from "./projectImageWritebackController";
 
-export {
-  rollbackProjectImageWritebackAfterFailure,
-} from "./projectImageWritebackController";
+export { rollbackProjectImageWritebackAfterFailure } from "./projectImageWritebackController";
 export type { ProjectImageWritebackHandle } from "./projectImageWritebackController";
 
 export const runProjectImageAssetPersistenceAction = async ({
@@ -81,7 +79,7 @@ export const runUnknownCanvasImageAssetPersistenceAction = async ({
   });
 
   if (!unknownAssets.length) {
-    return project.imageRecords;
+    return {};
   }
 
   const persistedImageRecordsState =
@@ -94,16 +92,14 @@ export const runUnknownCanvasImageAssetPersistenceAction = async ({
       setActiveProject,
     });
 
-  return persistedImageRecordsState.imageRecords;
+  return persistedImageRecordsState.persistedRecords;
 };
 
 export interface ProjectImageAssetPersistenceRendererActionsInput {
   getActiveProject: () => DesktopProjectBundle | null;
   imageWritebackBridge: Pick<
     DesktopBridgeApi,
-    | "beginImageWriteback"
-    | "commitImageWriteback"
-    | "rollbackImageWriteback"
+    "beginImageWriteback" | "commitImageWriteback" | "rollbackImageWriteback"
   >;
   persistImageAssets: (input: {
     projectPath: string;

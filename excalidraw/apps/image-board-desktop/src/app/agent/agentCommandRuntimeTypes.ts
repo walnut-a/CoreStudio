@@ -51,8 +51,9 @@ export interface AgentCommandRuntimeDeps {
       expectedProjectPath?: string;
       placementViewport?: AgentCommandPlacementViewport | null;
       requireReady?: boolean;
+      deferPersistence?: boolean;
     },
   ) => Promise<void>;
   restoreScene: (snapshot: AgentCommandSceneSnapshot) => void;
-  flushPendingAutosave: (options?: { strict?: boolean }) => Promise<unknown>;
+  flushProjectRoom: (options?: { strict?: boolean }) => Promise<unknown>;
 }

@@ -11,6 +11,7 @@ export interface AgentSessionDescriptor {
     baseUrl: string;
   };
   projectToken?: string;
+  participantIssuerToken?: string;
   readToken: string;
   boardUrl?: string | null;
   currentProject: {

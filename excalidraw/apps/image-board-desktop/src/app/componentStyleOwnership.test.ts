@@ -23,7 +23,6 @@ const {
   readAppProjectEntryScreen,
   readAppErrorBanners,
   readEditorLoadingOverlay,
-  readAgentBoardStartupPane,
   readDesktopButton,
   readSideDock,
   readGenerateDialogViewModel,
@@ -35,7 +34,6 @@ const {
   readGenerateDialogComposerContentSection,
   readGenerateDialogComposerSection,
   readImageInspector,
-  readAgentBoard,
   readProjectMainMenu,
   readProjectStatusToast,
   readCoreStudioIcons,
@@ -67,31 +65,6 @@ describe("component style ownership boundaries", () => {
     expect(introRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
     expect(mobileRules).toContain("grid-template-columns: 1fr");
     expect(rootAppCss).not.toContain(".welcome-pane");
-  });
-
-  it("keeps Agent Board page styles with the AgentBoard component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const agentBoardSource = readAgentBoard();
-    const pageRule = getRule(appCss, ".agent-board-page");
-    const contentRule = getRule(appCss, ".agent-board-content");
-    const canvasRule = getRulesContaining(
-      appCss,
-      ".agent-board-canvas-panel",
-    ).find((rule) => rule.includes("overflow: hidden"));
-    const mobileRules = getRulesContaining(appCss, ".agent-board-content").join(
-      "\n",
-    );
-
-    expect(agentBoardSource).toContain('import "./AgentBoard.css";');
-    expect(pageRule).toContain("min-height: 100%");
-    expect(contentRule).toContain(
-      "grid-template-columns: minmax(0, 1fr) minmax(280px, 320px)",
-    );
-    expect(canvasRule).toContain("overflow: hidden");
-    expect(mobileRules).toContain("grid-template-columns: minmax(0, 1fr)");
-    expect(rootAppCss).not.toContain(".agent-board-page");
-    expect(rootAppCss).not.toContain(".agent-board-content");
   });
 
   it("keeps project status toast styles with the ProjectStatusToast component", () => {

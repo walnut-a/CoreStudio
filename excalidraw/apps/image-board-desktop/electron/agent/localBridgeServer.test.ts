@@ -9,6 +9,10 @@ import {
   AGENT_HTTP_ROUTES,
   AGENT_PERMISSIONS,
 } from "../../src/shared/agentBridgeTypes";
+import {
+  PROJECT_ROOM_CAPABILITY_VERSION,
+  PROJECT_ROOM_PROTOCOL_VERSION,
+} from "../../src/shared/projectRoomProtocol";
 
 import { createLocalBridgeServer } from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
@@ -178,6 +182,108 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("reads room assets with only a scoped resume token", async () => {
+    const readProjectRoomAssets = vi.fn(async () => [
+      {
+        fileId: "image-1",
+        mimeType: "image/png",
+        dataBase64: "cG5n",
+        width: 40,
+        height: 20,
+        createdAt: "2026-07-23T08:00:00.000Z",
+        rendition: "preview" as const,
+      },
+    ]);
+    const { server, renderer } = await track(
+      startServer({ readProjectRoomAssets }),
+    );
+
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.roomAssets}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer resume-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileIds: ["image-1"],
+          rendition: "preview",
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      data: [
+        expect.objectContaining({
+          fileId: "image-1",
+          dataBase64: "cG5n",
+        }),
+      ],
+    });
+    expect(readProjectRoomAssets).toHaveBeenCalledWith({
+      resumeToken: "resume-token",
+      fileIds: ["image-1"],
+      rendition: "preview",
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
+  });
+
+  it("persists imported room assets with only a scoped resume token", async () => {
+    const persistProjectRoomAssets = vi.fn(async () => ({
+      "image-1": {
+        fileId: "image-1",
+        assetPath: "assets/image-1.png",
+        sourceType: "imported" as const,
+        mimeType: "image/png",
+        width: 40,
+        height: 20,
+        createdAt: "2026-07-23T08:00:00.000Z",
+      },
+    }));
+    const { server, renderer } = await track(
+      startServer({ persistProjectRoomAssets }),
+    );
+    const file = {
+      fileId: "image-1",
+      mimeType: "image/png",
+      dataBase64: "cG5n",
+      width: 40,
+      height: 20,
+      createdAt: "2026-07-23T08:00:00.000Z",
+      sourceType: "imported",
+    };
+
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.roomPersistAssets}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer resume-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ files: [file] }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      data: {
+        "image-1": {
+          assetPath: "assets/image-1.png",
+        },
+      },
+    });
+    expect(persistProjectRoomAssets).toHaveBeenCalledWith({
+      resumeToken: "resume-token",
+      files: [file],
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
+  });
+
   it("requires a known project before accepting project token requests", async () => {
     const { server } = await track(
       startServer({
@@ -249,6 +355,170 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("issues room launch tickets only to the trusted participant issuer", async () => {
+    const issueProjectRoomTicket = vi.fn(async () => ({
+      launchTicket: "launch-ticket",
+    }));
+    const { server } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        issueProjectRoomTicket,
+      }),
+    );
+
+    const denied = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.roomTicket,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: "thread-b",
+          displayLabel: "任务 B",
+        }),
+      },
+    );
+    expect(denied).toMatchObject({
+      status: 403,
+      body: { error: { code: "FORBIDDEN" } },
+    });
+
+    const issued = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.roomTicket,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          threadId: "thread-b",
+          displayLabel: "任务 B",
+        }),
+      },
+    );
+    expect(issued).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          launchTicket: "launch-ticket",
+          boardUrl,
+        },
+      },
+    });
+    expect(issueProjectRoomTicket).toHaveBeenCalledWith({
+      project: currentProject,
+      threadId: "thread-b",
+      displayLabel: "任务 B",
+    });
+  });
+
+  it("issues a scoped project-selection session when there is no current project", async () => {
+    const issueBoardProjectSelection = vi.fn(async () => ({
+      selectionToken: "selection-token",
+    }));
+    const { server } = await track(
+      startServer({
+        getCurrentProject: () => null,
+        participantIssuerToken: "issuer-secret",
+        issueBoardProjectSelection,
+      }),
+    );
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardSession,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          threadId: "thread-b",
+          displayLabel: "任务 B",
+        }),
+      },
+    );
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          boardUrl,
+          selectionToken: "selection-token",
+        },
+      },
+    });
+  });
+
+  it("lists candidates and exchanges a scoped selection token for a room ticket", async () => {
+    const candidates = [
+      {
+        projectPath: "/projects/a",
+        name: "项目 A",
+        lastOpenedAt: "2026-07-24T08:00:00.000Z",
+      },
+    ];
+    const listBoardProjectCandidates = vi.fn(async () => candidates);
+    const openBoardProjectCandidate = vi.fn(async () => ({
+      launchTicket: "launch-ticket-a",
+    }));
+    const { server } = await track(
+      startServer({
+        listBoardProjectCandidates,
+        openBoardProjectCandidate,
+      }),
+    );
+
+    const listed = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardProjects,
+      {
+        headers: { Authorization: "Bearer selection-token" },
+      },
+    );
+    expect(listed).toEqual({
+      status: 200,
+      body: { ok: true, data: candidates },
+    });
+    expect(listBoardProjectCandidates).toHaveBeenCalledWith("selection-token");
+
+    const opened = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardProjectOpen,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer selection-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ projectPath: "/projects/a" }),
+      },
+    );
+    expect(opened).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          boardUrl,
+          launchTicket: "launch-ticket-a",
+        },
+      },
+    });
+    expect(openBoardProjectCandidate).toHaveBeenCalledWith({
+      selectionToken: "selection-token",
+      projectPath: "/projects/a",
+    });
+  });
+
   it("returns capabilities with routes, permissions, and protocol version", async () => {
     const { server } = await track(startServer());
 
@@ -262,6 +532,14 @@ describe("createLocalBridgeServer", () => {
       ok: true,
       data: {
         protocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
+        roomProtocolVersion: PROJECT_ROOM_PROTOCOL_VERSION,
+        roomCapabilityVersion: PROJECT_ROOM_CAPABILITY_VERSION,
+        roomCapabilities: [
+          "scene-operations",
+          "room-assets",
+          "presence",
+          "persistence-confirmation",
+        ],
         routes: AGENT_HTTP_ROUTES,
         permissions: AGENT_PERMISSIONS,
       },
@@ -284,7 +562,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("allows recent project discovery through the desktop bridge without bearer auth", async () => {
+  it("does not expose recent project discovery through the desktop bridge", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJsonWithoutAuth(
@@ -302,14 +580,11 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
-      method: "loadRecentProjects",
-      args: [],
-    });
+    expect(result.status).toBe(400);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("allows the connected Agent Board to open a recent project before it has a project token", async () => {
+  it("does not let Agent Board switch projects through the desktop bridge", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJsonWithoutAuth(
@@ -327,11 +602,8 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
-      method: "openRecentProject",
-      args: [currentProject.projectPath],
-    });
+    expect(result.status).toBe(400);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("allows browser CORS preflight requests from the Agent Board origin", async () => {
@@ -499,6 +771,42 @@ describe("createLocalBridgeServer", () => {
   });
 
   it.each([
+    [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
+    [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
+  ] as const)(
+    "reads %s from the authoritative project room instead of the renderer snapshot",
+    async (route, command) => {
+      const readProjectRoomScene = vi.fn(async () => ({
+        source: "project-room",
+        command,
+      }));
+      const { server, renderer } = await track(
+        startServer({
+          readProjectRoomScene,
+        }),
+      );
+
+      const result = await requestJson(server.baseUrl, route);
+
+      expect(result).toEqual({
+        status: 200,
+        body: {
+          ok: true,
+          data: {
+            source: "project-room",
+            command,
+          },
+        },
+      });
+      expect(readProjectRoomScene).toHaveBeenCalledWith({
+        project: currentProject,
+        command,
+      });
+      expect(renderer.request).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
     {
       route: "/v1/scene/locate",
       command: "scene.locate",
@@ -608,6 +916,54 @@ describe("createLocalBridgeServer", () => {
       },
     });
     expect(renderer.request).not.toHaveBeenCalledWith("scene.selection");
+  });
+
+  it("returns the calling Codex actor room selection in room mode", async () => {
+    const roomSelection = {
+      source: "agent-board" as const,
+      projectPath: currentProject.projectPath,
+      updatedAt: "2026-07-23T00:00:00.000Z",
+      selection: {
+        selected: true,
+        kind: "image",
+        fileIds: ["file-room"],
+      },
+      scene: {
+        selectedElementIds: ["element-room"],
+      },
+    };
+    const getProjectRoomParticipantState = vi.fn(async () => roomSelection);
+    const { server, renderer } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        getProjectRoomParticipantState,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneSelection,
+      {
+        headers: {
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+      },
+    );
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: roomSelection.selection,
+      },
+    });
+    expect(getProjectRoomParticipantState).toHaveBeenCalledWith({
+      project: currentProject,
+      threadId: "thread-b",
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("does not expose the retired built-in generation route", async () => {
@@ -734,17 +1090,14 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("maps renderer STALE_PROJECT_SNAPSHOT errors to conflict responses", async () => {
-    const error = Object.assign(
-      new Error("画板文件已经被其他会话更新，已停止保存旧快照。"),
-      {
-        code: "STALE_PROJECT_SNAPSHOT",
-        details: {
-          expectedSceneHash: "old",
-          currentSceneHash: "new",
-        },
+  it("maps storage divergence errors to conflict responses", async () => {
+    const error = Object.assign(new Error("磁盘内容与当前项目房间不一致。"), {
+      code: "PROJECT_STORAGE_DIVERGED",
+      details: {
+        expectedSceneHash: "old",
+        currentSceneHash: "new",
       },
-    );
+    });
     const renderer = {
       request: vi.fn().mockRejectedValue(error),
     };
@@ -757,8 +1110,8 @@ describe("createLocalBridgeServer", () => {
       body: {
         ok: false,
         error: {
-          code: "STALE_PROJECT_SNAPSHOT",
-          message: "画板文件已经被其他会话更新，已停止保存旧快照。",
+          code: "PROJECT_STORAGE_DIVERGED",
+          message: "磁盘内容与当前项目房间不一致。",
           details: {
             expectedSceneHash: "old",
             currentSceneHash: "new",
@@ -827,7 +1180,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("forwards allowed desktop bridge methods without task grants", async () => {
+  it("forwards only the informational desktop bridge method", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJson(
@@ -836,24 +1189,24 @@ describe("createLocalBridgeServer", () => {
       {
         method: "POST",
         body: JSON.stringify({
-          method: "openRecentProject",
-          args: [currentProject.projectPath],
+          method: "loadAppInfo",
+          args: [],
         }),
       },
     );
 
     expect(result.status).toBe(200);
     expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
-      method: "openRecentProject",
-      args: [currentProject.projectPath],
+      method: "loadAppInfo",
+      args: [],
     });
     expect(result.body).toEqual({
       ok: true,
       data: {
         command: "desktop.bridge",
         payload: {
-          method: "openRecentProject",
-          args: [currentProject.projectPath],
+          method: "loadAppInfo",
+          args: [],
         },
       },
     });
@@ -892,7 +1245,7 @@ describe("createLocalBridgeServer", () => {
     expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("forwards add-prompt with a valid write-board grant", async () => {
+  it("does not treat legacy write-board grants as room identity", async () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
       projectPath: currentProject.projectPath,
@@ -914,15 +1267,11 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
-      projectPath: currentProject.projectPath,
-      text: "make this softer",
-      dryRun: false,
-    });
+    expect(result.status).toBe(401);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("forwards add-prompt with only the local bridge token", async () => {
+  it("requires trusted participant identity for add-prompt", async () => {
     const { server, renderer } = await track(startServer());
 
     const result = await requestJson(
@@ -936,11 +1285,98 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
+    expect(result.status).toBe(401);
+    expect(renderer.request).not.toHaveBeenCalled();
+  });
+
+  it("runs room write commands as the trusted Codex agent-writer identity", async () => {
+    const withAgentWriterCommand = vi.fn(
+      async (
+        input: {
+          threadId: string;
+          displayLabel: string;
+          project: typeof currentProject;
+        },
+        run: (context: {
+          sessionId: string;
+          identity: {
+            projectId: string;
+            canonicalProjectPath: string;
+            roomId: string;
+            sessionEpoch: number;
+          };
+          roomSequence: number;
+          scene: {
+            elements: [];
+            sharedSceneConfig: {};
+          };
+        }) => Promise<unknown>,
+      ) =>
+        run({
+          sessionId: "agent-writer-session",
+          identity: {
+            projectId: "project-1",
+            canonicalProjectPath: currentProject.projectPath,
+            roomId: "room-1",
+            sessionEpoch: 2,
+          },
+          roomSequence: 0,
+          scene: {
+            elements: [],
+            sharedSceneConfig: {},
+          },
+        }),
+    );
+    const { server, renderer } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        withAgentWriterCommand,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      {
+        method: "POST",
+        headers: {
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          text: "make this softer",
+        }),
+      },
+    );
+
     expect(result.status).toBe(200);
+    expect(withAgentWriterCommand).toHaveBeenCalledWith(
+      {
+        project: currentProject,
+        threadId: "thread-b",
+        displayLabel: "任务 B",
+      },
+      expect.any(Function),
+    );
     expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
       projectPath: currentProject.projectPath,
       text: "make this softer",
       dryRun: false,
+      projectRoomAgentWriter: {
+        sessionId: "agent-writer-session",
+        identity: {
+          projectId: "project-1",
+          canonicalProjectPath: currentProject.projectPath,
+          roomId: "room-1",
+          sessionEpoch: 2,
+        },
+        roomSequence: 0,
+        scene: {
+          elements: [],
+          sharedSceneConfig: {},
+        },
+      },
     });
   });
 
@@ -1038,7 +1474,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("ignores legacy write grant permissions on local-token write routes", async () => {
+  it("rejects legacy grant permissions on room write routes", async () => {
     const { server, renderer, grants } = await track(startServer());
     const grant = grants.createGrant({
       projectPath: currentProject.projectPath,
@@ -1059,12 +1495,8 @@ describe("createLocalBridgeServer", () => {
       },
     );
 
-    expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith("scene.addPrompt", {
-      projectPath: currentProject.projectPath,
-      text: "not allowed",
-      dryRun: false,
-    });
+    expect(result.status).toBe(401);
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("requires a known project token for write routes", async () => {

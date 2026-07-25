@@ -24,7 +24,7 @@ interface InspectorSidebarProps {
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
-  onLocateGenerationRecord: (fileId: string) => void;
+  onLocateImageAsset: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }
 
@@ -41,7 +41,7 @@ export const InspectorSidebar = ({
   onCopyPrompt,
   onCopyTaskError,
   onLocateImageRecord,
-  onLocateGenerationRecord,
+  onLocateImageAsset,
   onLocatePromptReference,
 }: InspectorSidebarProps) => {
   return (
@@ -80,7 +80,7 @@ export const InspectorSidebar = ({
             onCopyPrompt={onCopyPrompt}
             onCopyTaskError={onCopyTaskError}
             onLocateImageRecord={onLocateImageRecord}
-            onLocateGenerationRecord={onLocateGenerationRecord}
+            onLocateImageAsset={onLocateImageAsset}
             onLocatePromptReference={onLocatePromptReference}
           />
         </section>

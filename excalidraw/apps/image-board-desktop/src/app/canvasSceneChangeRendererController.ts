@@ -7,7 +7,7 @@ import type {
   GenerationRequest,
 } from "../shared/providerTypes";
 import type { ImageRecordMap } from "../shared/projectTypes";
-import type { AutosaveSnapshot, SceneSnapshot } from "./autosaveProjectState";
+import type { SceneSnapshot } from "./sceneSnapshot";
 import { syncSelectionReferenceIntoRequest } from "./generationRequestState";
 import {
   buildSelectionReferenceSummary,
@@ -18,12 +18,6 @@ export type CanvasSceneChangeRendererActionResult =
   | { status: "updated" }
   | { status: "skipped"; reason: "missing-project" }
   | { status: "skipped"; reason: "workspace-snap" };
-
-export type CanvasScenePersistencePolicy =
-  | "project-autosave"
-  | "element-patch"
-  | "runtime-only"
-  | "paused-conflict";
 
 export interface CanvasSceneChangeRendererActionsInput<
   Elements extends readonly ExcalidrawElement[],
@@ -60,16 +54,6 @@ export interface CanvasSceneChangeRendererActionsInput<
     appState: AppStateValue;
     imageRecords: ImageRecordMap;
   }) => void;
-  isEditorInitializing: () => boolean;
-  getPersistencePolicy: () => CanvasScenePersistencePolicy;
-  scheduleAutosave: (
-    snapshot: AutosaveSnapshot<Elements, AppStateValue, Files>,
-  ) => void;
-  scheduleAgentBoardElementPatch?: (snapshot: {
-    project: DesktopProjectBundle;
-    elements: Elements;
-  }) => void;
-  getSavedSceneHash: () => string | null;
 }
 
 export const runCanvasSceneChangeRendererAction = <
@@ -92,11 +76,6 @@ export const runCanvasSceneChangeRendererAction = <
   updateSelectionReference,
   setGenerateRequest,
   updateSelectedInspector,
-  isEditorInitializing,
-  persistencePolicy,
-  scheduleAutosave,
-  scheduleAgentBoardElementPatch,
-  savedSceneHash,
 }: {
   elements: Elements;
   appState: AppStateValue;
@@ -131,16 +110,6 @@ export const runCanvasSceneChangeRendererAction = <
     appState: AppStateValue;
     imageRecords: ImageRecordMap;
   }) => void;
-  isEditorInitializing: boolean;
-  persistencePolicy: CanvasScenePersistencePolicy;
-  scheduleAutosave: (
-    snapshot: AutosaveSnapshot<Elements, AppStateValue, Files>,
-  ) => void;
-  scheduleAgentBoardElementPatch?: (snapshot: {
-    project: DesktopProjectBundle;
-    elements: Elements;
-  }) => void;
-  savedSceneHash: string | null;
 }): CanvasSceneChangeRendererActionResult => {
   if (!activeProject) {
     return { status: "skipped", reason: "missing-project" };
@@ -180,37 +149,19 @@ export const runCanvasSceneChangeRendererAction = <
   scheduleVisibleImageRenditionLoad(nextScene);
   scheduleAgentBrowserRuntimeStatePublish(nextScene);
   updateWorkspaceOverlay(elements, appState);
-  if (persistencePolicy !== "runtime-only") {
-    setGenerateRequest((current) =>
-      syncSelectionReferenceIntoRequest(
-        current,
-        removedSelectionReferenceSignature === selectionReferenceSignature
-          ? null
-          : getSelectionReferenceSummary(),
-      ),
-    );
-  }
+  setGenerateRequest((current) =>
+    syncSelectionReferenceIntoRequest(
+      current,
+      removedSelectionReferenceSignature === selectionReferenceSignature
+        ? null
+        : getSelectionReferenceSummary(),
+    ),
+  );
   updateSelectedInspector({
     elements,
     appState,
     imageRecords: activeProject.imageRecords,
   });
-
-  if (!isEditorInitializing && persistencePolicy === "project-autosave") {
-    scheduleAutosave({
-      project: activeProject,
-      elements,
-      appState,
-      files,
-      expectedSceneHash: savedSceneHash,
-    });
-  }
-  if (!isEditorInitializing && persistencePolicy === "element-patch") {
-    scheduleAgentBoardElementPatch?.({
-      project: activeProject,
-      elements,
-    });
-  }
 
   return { status: "updated" };
 };
@@ -232,11 +183,6 @@ export const createCanvasSceneChangeRendererActions = <
   updateSelectionReference,
   setGenerateRequest,
   updateSelectedInspector,
-  isEditorInitializing,
-  getPersistencePolicy,
-  scheduleAutosave,
-  scheduleAgentBoardElementPatch,
-  getSavedSceneHash,
 }: CanvasSceneChangeRendererActionsInput<Elements, AppStateValue, Files>) => ({
   changeScene: (elements: Elements, appState: AppStateValue, files: Files) =>
     runCanvasSceneChangeRendererAction({
@@ -256,10 +202,5 @@ export const createCanvasSceneChangeRendererActions = <
       updateSelectionReference,
       setGenerateRequest,
       updateSelectedInspector,
-      isEditorInitializing: isEditorInitializing(),
-      persistencePolicy: getPersistencePolicy(),
-      scheduleAutosave,
-      scheduleAgentBoardElementPatch,
-      savedSceneHash: getSavedSceneHash(),
     }),
 });

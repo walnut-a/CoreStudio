@@ -55,6 +55,21 @@ const imageElement = {
   fileId: "file-1",
 } as ExcalidrawElement;
 
+const projectRoomAgentWriter = {
+  sessionId: "agent-writer-session",
+  identity: {
+    projectId: "project-1",
+    canonicalProjectPath: "/tmp/corestudio-project",
+    roomId: "room-1",
+    sessionEpoch: 1,
+  },
+  roomSequence: 0,
+  scene: {
+    elements: [],
+    sharedSceneConfig: {},
+  },
+};
+
 const createDeps = (
   patch: Partial<AgentCommandRuntimeDeps> = {},
 ): AgentCommandRuntimeDeps => {
@@ -66,12 +81,12 @@ const createDeps = (
     getProject: () => project,
     getScene: () => ({
       elements: [imageElement],
-      appState: ({
+      appState: {
         selectedElementIds: {
           "element-1": true,
         },
         selectedGroupIds: {},
-      } as unknown) as AppState,
+      } as unknown as AppState,
       files: {},
     }),
     getExcalidrawAPI: () => null,
@@ -81,7 +96,7 @@ const createDeps = (
       async (_assets: PersistedImageAssetInput[]) => undefined,
     ),
     restoreScene: vi.fn(),
-    flushPendingAutosave: vi.fn(async () => undefined),
+    flushProjectRoom: vi.fn(async () => undefined),
     ...patch,
   };
 };
@@ -219,7 +234,10 @@ describe("agentCommandRuntime", () => {
         getProject: () => project,
         getScene: () => ({
           elements: [resultElement],
-          appState: ({ selectedElementIds: {}, selectedGroupIds: {} } as unknown) as AppState,
+          appState: {
+            selectedElementIds: {},
+            selectedGroupIds: {},
+          } as unknown as AppState,
           files: {},
         }),
       }),
@@ -282,9 +300,9 @@ describe("agentCommandRuntime", () => {
             getSceneElementsIncludingDeleted: () => [imageElement],
             updateScene,
             setViewport,
-          }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
+          } as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
-            : never,
+            : never),
       }),
     );
 
@@ -366,7 +384,10 @@ describe("agentCommandRuntime", () => {
         getProject: () => project,
         getScene: () => ({
           elements: [resultElement],
-          appState: ({ selectedElementIds: {}, selectedGroupIds: {} } as unknown) as AppState,
+          appState: {
+            selectedElementIds: {},
+            selectedGroupIds: {},
+          } as unknown as AppState,
           files: {},
         }),
         getExcalidrawAPI: () =>
@@ -374,9 +395,9 @@ describe("agentCommandRuntime", () => {
             getSceneElementsIncludingDeleted: () => [resultElement],
             updateScene,
             setViewport,
-          }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
+          } as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
-            : never,
+            : never),
       }),
     );
 
@@ -412,9 +433,9 @@ describe("agentCommandRuntime", () => {
             getSceneElementsIncludingDeleted: () => [],
             updateScene: vi.fn(),
             setViewport: vi.fn(),
-          }) as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
+          } as unknown as AgentCommandRuntimeDeps["getExcalidrawAPI"] extends () => infer T
             ? T
-            : never,
+            : never),
       }),
     );
 
@@ -427,45 +448,7 @@ describe("agentCommandRuntime", () => {
     });
   });
 
-  it("persists Agent Board image provenance on scene.addImage", async () => {
-    const commit = vi.fn(async () => undefined);
-    const beginImageWriteback = vi.fn(
-      async ({
-        files,
-      }: {
-        project: DesktopProjectBundle;
-        files: PersistedImageAssetInput[];
-      }) => {
-        const imageRecords = Object.fromEntries(
-          files.map((file) => [
-            file.fileId,
-            {
-              fileId: file.fileId,
-              assetPath: `assets/${file.fileId}.png`,
-              sourceType: file.sourceType,
-              generationOrigin: file.generationOrigin,
-              width: file.width,
-              height: file.height,
-              createdAt: file.createdAt,
-              mimeType: file.mimeType,
-            },
-          ]),
-        );
-        return {
-          transaction: {
-            transactionId: "transaction-1",
-            projectPath: "/tmp/corestudio-project",
-            fileIds: files.map((file) => file.fileId),
-            imageRecords,
-          },
-          imageRecords,
-          commit,
-          rollback: vi.fn(async () => ({})),
-        };
-      },
-    );
-    const insertAssetsIntoScene = vi.fn(async () => undefined);
-
+  it("prepares Agent Board image provenance for the room writer", async () => {
     const result = await handleAgentCommandRequest(
       {
         requestId: "request-1",
@@ -479,32 +462,23 @@ describe("agentCommandRuntime", () => {
           dataBase64: Buffer.from("image").toString("base64"),
           width: 512,
           height: 512,
+          projectRoomAgentWriter,
         },
       },
-      createDeps({
-        beginImageWriteback,
-        getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
-        insertAssetsIntoScene,
-      }),
+      createDeps(),
     );
 
     expect(result).toMatchObject({
-      inserted: true,
-      fileIds: [expect.stringMatching(/^agent-/)],
-    });
-    expect(beginImageWriteback).toHaveBeenCalledWith({
-      project: expect.objectContaining({
-        projectPath: "/tmp/corestudio-project",
-      }),
+      type: "agent-writer.prepared",
+      elements: [{ type: "image" }],
       files: [
         expect.objectContaining({
+          fileId: expect.stringMatching(/^agent-/),
           sourceType: "generated",
           generationOrigin: "agent-board",
         }),
       ],
     });
-    expect(insertAssetsIntoScene).toHaveBeenCalled();
-    expect(commit).toHaveBeenCalledTimes(1);
   });
 
   it("rejects explicitly invalid image provenance on scene.addImage", async () => {
@@ -523,13 +497,14 @@ describe("agentCommandRuntime", () => {
             dataBase64: Buffer.from("image").toString("base64"),
             width: 512,
             height: 512,
+            projectRoomAgentWriter,
           },
         },
         createDeps({
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({
@@ -554,13 +529,14 @@ describe("agentCommandRuntime", () => {
             dataBase64: Buffer.from("image").toString("base64"),
             width: 512,
             height: 512,
+            projectRoomAgentWriter,
           },
         },
         createDeps({
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({
@@ -587,13 +563,14 @@ describe("agentCommandRuntime", () => {
             dataBase64: Buffer.from("image").toString("base64"),
             width: 512,
             height: 512,
+            projectRoomAgentWriter,
           },
         },
         createDeps({
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({
@@ -625,13 +602,14 @@ describe("agentCommandRuntime", () => {
             dataBase64: Buffer.from("image").toString("base64"),
             width: 512,
             height: 512,
+            projectRoomAgentWriter,
           },
         },
         createDeps({
           desktopBridge: {
             persistImageAssets,
           } as unknown as AgentCommandRuntimeDeps["desktopBridge"],
-          getExcalidrawAPI: () => ({}) as ExcalidrawImperativeAPI,
+          getExcalidrawAPI: () => ({} as ExcalidrawImperativeAPI),
         }),
       ),
     ).rejects.toMatchObject({

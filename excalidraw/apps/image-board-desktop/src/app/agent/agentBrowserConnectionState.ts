@@ -10,15 +10,6 @@ export interface AgentBrowserBridgeStatusRetryPlan {
   delayMs: number;
 }
 
-export type AgentBrowserAutoOpenProjectPlan =
-  | {
-      action: "none";
-    }
-  | {
-      action: "open-project";
-      projectPath: string;
-    };
-
 export const buildAgentBrowserConnectionRefreshPlan = ({
   isAgentBrowserRoute,
   bridgeStatus,
@@ -58,35 +49,3 @@ export const buildAgentBrowserBridgeStatusRetryPlan = ({
   scheduleRetry: !bridgeStatus?.boardUrl && attempts < maxAttempts,
   delayMs,
 });
-
-export const buildAgentBrowserAutoOpenProjectPlan = ({
-  isAgentBrowserRoute,
-  hasInitialProjectToken,
-  loadingProject,
-  bridgeProjectPath,
-  currentProjectPath,
-  autoOpenProjectPath,
-}: {
-  isAgentBrowserRoute: boolean;
-  hasInitialProjectToken: boolean;
-  loadingProject: boolean;
-  bridgeProjectPath: string | null;
-  currentProjectPath: string | null;
-  autoOpenProjectPath: string | null;
-}): AgentBrowserAutoOpenProjectPlan => {
-  if (
-    !isAgentBrowserRoute ||
-    !hasInitialProjectToken ||
-    loadingProject ||
-    !bridgeProjectPath ||
-    currentProjectPath === bridgeProjectPath ||
-    autoOpenProjectPath === bridgeProjectPath
-  ) {
-    return { action: "none" };
-  }
-
-  return {
-    action: "open-project",
-    projectPath: bridgeProjectPath,
-  };
-};

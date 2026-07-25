@@ -3,7 +3,6 @@ import { CaptureUpdateAction } from "@excalidraw/element";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type {
   AppState,
-  BinaryFiles,
   ExcalidrawImperativeAPI,
 } from "@excalidraw/excalidraw/types";
 
@@ -12,7 +11,6 @@ import type {
   PersistedImageAssetInput,
 } from "../shared/desktopBridgeTypes";
 import type { ImageRecordMap } from "../shared/projectTypes";
-import { applyProjectImageRecordsAutosaveSnapshotState } from "./autosaveProjectState";
 import { buildExcalidrawBinaryFilesFromImageAssets } from "./canvasImageAssetState";
 import { resolveGenerationCanvasReadiness } from "./generationCanvasReadiness";
 import { buildGeneratedImageSceneUpdate } from "./generationSceneElements";
@@ -36,6 +34,7 @@ export interface GeneratedImageSceneInsertOptions {
   expectedProjectPath?: string;
   placementViewport?: GeneratedImagePlacementViewport | null;
   requireReady?: boolean;
+  deferPersistence?: boolean;
 }
 
 export type GeneratedImageSceneInsertEditorApi = Pick<
@@ -51,7 +50,6 @@ export interface GeneratedImageSceneInsertRendererActionsInput {
   getEditorApi: () => GeneratedImageSceneInsertEditorApi | null | undefined;
   getActiveProject: () => DesktopProjectBundle | null | undefined;
   assertActiveProject: (expectedProjectPath?: string) => void;
-  getSavedSceneHash: () => string | null;
   getPreviousBatchBounds: () => SceneBounds | null;
   setPreviousBatchBounds: (bounds: SceneBounds | null) => void;
   updateWorkspaceOverlay: (
@@ -59,14 +57,7 @@ export interface GeneratedImageSceneInsertRendererActionsInput {
     appState: AppState,
   ) => SceneBounds | null;
   setActiveProject: (project: DesktopProjectBundle) => void;
-  setPendingSnapshot: (snapshot: {
-    project: DesktopProjectBundle;
-    elements: readonly ExcalidrawElement[];
-    appState: AppState;
-    files: BinaryFiles;
-    expectedSceneHash: string | null;
-  }) => void;
-  flushPendingAutosave: (options?: { strict?: boolean }) => Promise<unknown>;
+  flushProjectRoom: (options?: { strict?: boolean }) => Promise<unknown>;
   getFallbackCreatedAt: () => number;
 }
 
@@ -77,13 +68,11 @@ export const runGeneratedImageSceneInsertRendererAction = async ({
   getEditorApi,
   getActiveProject,
   assertActiveProject,
-  getSavedSceneHash,
   getPreviousBatchBounds,
   setPreviousBatchBounds,
   updateWorkspaceOverlay,
   setActiveProject,
-  setPendingSnapshot,
-  flushPendingAutosave,
+  flushProjectRoom,
   getFallbackCreatedAt,
 }: GeneratedImageSceneInsertRendererActionsInput & {
   assets: readonly PersistedImageAssetInput[];
@@ -172,17 +161,13 @@ export const runGeneratedImageSceneInsertRendererAction = async ({
   });
 
   setPreviousBatchBounds(measureBatchBounds(placements));
-  applyProjectImageRecordsAutosaveSnapshotState({
-    project: activeProject,
+  setActiveProject({
+    ...activeProject,
     imageRecords,
-    elements: sceneUpdate.elements,
-    appState: sceneUpdate.appState,
-    files: activeApi.getFiles(),
-    expectedSceneHash: getSavedSceneHash(),
-    setProject: setActiveProject,
-    setPendingSnapshot,
   });
-  await flushPendingAutosave({ strict: Boolean(options.requireReady) });
+  if (!options.deferPersistence) {
+    await flushProjectRoom({ strict: Boolean(options.requireReady) });
+  }
 };
 
 export const createGeneratedImageSceneInsertRendererActions = (

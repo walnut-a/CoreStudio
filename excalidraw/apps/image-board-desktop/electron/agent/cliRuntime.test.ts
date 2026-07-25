@@ -134,6 +134,9 @@ const runCommand = async (
     env: options.env ?? {
       CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
       CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+      CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+      CODEX_THREAD_ID: "thread-b",
+      CODEX_TASK_TITLE: "任务 B",
     },
     executablePath: options.executablePath,
     fetch: options.fetch,
@@ -206,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.26 (Codex integration 1.5.0, bridge protocol 2)\n",
+          "CoreStudio 1.1.26 (Codex integration 1.7.0, bridge protocol 2)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -224,7 +227,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.26",
-        integrationVersion: "1.5.0",
+        integrationVersion: "1.7.0",
         bridgeProtocolVersion: 2,
       },
     });
@@ -515,9 +518,8 @@ describe("runCli", () => {
       {
         ok: true,
         data: {
-          ready: true,
-          currentProject: null,
           boardUrl,
+          launchTicket: "launch-ticket",
         },
       },
       records,
@@ -532,13 +534,95 @@ describe("runCli", () => {
       `${JSON.stringify({
         ok: true,
         data: {
-          boardUrl: `${boardUrl}&projectToken=${projectToken}`,
+          boardUrl: `${boardUrl}&launchTicket=launch-ticket`,
         },
       })}\n`,
     );
     expect(records[0]).toMatchObject({
-      url: `${baseUrl}${AGENT_HTTP_ROUTES.status}`,
-      method: "GET",
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.boardSession}`,
+      method: "POST",
+      headers: {
+        "X-CoreStudio-Participant-Issuer": "issuer-secret",
+      },
+    });
+  });
+
+  it("opens the project candidate page when no project is active", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(
+      {
+        ok: true,
+        data: {
+          boardUrl,
+          selectionToken: "selection-token",
+        },
+      },
+      records,
+    );
+
+    const result = await runCommand(["read", "board-url", "--json"], {
+      env: {
+        CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+        CORESTUDIO_AGENT_PROJECT_TOKEN: "",
+        CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+        CODEX_THREAD_ID: "thread-b",
+        CODEX_TASK_TITLE: "任务 B",
+      },
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("projectSelectionToken=selection-token");
+    expect(records[0].url).toBe(`${baseUrl}${AGENT_HTTP_ROUTES.boardSession}`);
+  });
+
+  it("lists recent project candidates through the trusted Board session", async () => {
+    const records: RequestRecord[] = [];
+    const projects = [
+      {
+        projectPath: "/projects/a",
+        name: "项目 A",
+        lastOpenedAt: "2026-07-24T08:00:00.000Z",
+      },
+    ];
+    const fetch = createFetch({ ok: true, data: { projects } }, records);
+
+    const result = await runCommand(["read", "projects", "--json"], {
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      `${JSON.stringify({ ok: true, data: { projects } })}\n`,
+    );
+    expect(JSON.parse(records[0].body ?? "{}")).toMatchObject({
+      listProjects: true,
+      threadId: "thread-b",
+    });
+  });
+
+  it("requests a direct Board URL for an explicit recent project", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(
+      {
+        ok: true,
+        data: {
+          boardUrl,
+          launchTicket: "launch-ticket-a",
+        },
+      },
+      records,
+    );
+
+    const result = await runCommand(
+      ["read", "board-url", "--project", "/projects/a", "--json"],
+      { fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(records[0].body ?? "{}")).toMatchObject({
+      projectPath: "/projects/a",
+      threadId: "thread-b",
     });
   });
 
@@ -546,9 +630,8 @@ describe("runCli", () => {
     const fetch = createFetch({
       ok: true,
       data: {
-        ready: true,
-        currentProject: null,
         boardUrl,
+        launchTicket: "launch-ticket",
       },
     });
 
@@ -557,16 +640,35 @@ describe("runCli", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe(`${boardUrl}&projectToken=${projectToken}\n`);
+    expect(result.stdout).toBe(`${boardUrl}&launchTicket=launch-ticket\n`);
+  });
+
+  it("passes trusted Codex participant identity on write commands", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+
+    const result = await runCommand(
+      ["write", "prompt", "--text", "prompt", "--json"],
+      { fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0]).toMatchObject({
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.sceneAddPrompt}`,
+      headers: {
+        "X-CoreStudio-Participant-Issuer": "issuer-secret",
+        "X-CoreStudio-Participant-Thread": "thread-b",
+        "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+      },
+    });
   });
 
   it("returns a command failure when the bridge has no Agent Board URL", async () => {
     const fetch = createFetch({
       ok: true,
       data: {
-        ready: true,
-        currentProject: null,
         boardUrl: null,
+        launchTicket: "launch-ticket",
       },
     });
 
@@ -580,7 +682,8 @@ describe("runCli", () => {
         ok: false,
         error: {
           code: "COMMAND_FAILED",
-          message: "Agent Bridge did not return a Board URL.",
+          message:
+            "Agent Bridge did not return a Board launch or project-selection ticket.",
         },
       })}\n`,
     );
@@ -621,7 +724,7 @@ describe("runCli", () => {
           expect.stringContaining("read board --json"),
           expect.stringContaining("read browser-state --json"),
           expect.stringContaining(
-            "write image /absolute/path/to/generated.png --source-type generated --origin agent-board",
+            "write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board",
           ),
           expect.stringContaining(
             "write image /absolute/path/to/searched.png --source-type imported",
@@ -815,6 +918,47 @@ describe("runCli", () => {
       prompt: "优化这台 CNC",
       referenceFileIds: ["file-source"],
       referenceElementIds: ["element-source"],
+    });
+  });
+
+  it("writes multiple generated images as one scene.addImage batch", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+    const readImagePayload = vi.fn(async (filePath: string) => ({
+      ...imagePayload,
+      fileId: filePath.endsWith("a.png") ? "file-a" : "file-b",
+      fileName: filePath.split("/").at(-1) ?? "image.png",
+    }));
+
+    const result = await runCommand(
+      [
+        "write",
+        "image",
+        "/tmp/a.png",
+        "/tmp/b.png",
+        "--origin",
+        "agent-board",
+        "--prompt",
+        "同一轮生成",
+        "--reference-element-ids",
+        "reference-1,reference-2",
+        "--json",
+      ],
+      { fetch, readImagePayload },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(readImagePayload).toHaveBeenCalledTimes(2);
+    expect(records).toHaveLength(1);
+    expect(parseRequestBody(records)).toMatchObject({
+      sourceType: "generated",
+      generationOrigin: "agent-board",
+      prompt: "同一轮生成",
+      referenceElementIds: ["reference-1", "reference-2"],
+      files: [
+        expect.objectContaining({ fileId: "file-a", fileName: "a.png" }),
+        expect.objectContaining({ fileId: "file-b", fileName: "b.png" }),
+      ],
     });
   });
 
@@ -1012,11 +1156,6 @@ describe("runCli", () => {
       name: "unknown flag",
       argv: ["read", "status", "--bogus", "--json"],
       message: "Unknown flag: --bogus",
-    },
-    {
-      name: "multiple write image positionals",
-      argv: ["write", "image", "/tmp/a.png", "/tmp/b.png", "--json"],
-      message: "write image accepts exactly one image path.",
     },
     {
       name: "extra read positional",

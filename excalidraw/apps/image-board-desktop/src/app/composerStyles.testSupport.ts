@@ -10,13 +10,12 @@ export const readAppCss = () =>
     "apps/image-board-desktop/src/app/styles/dialogPrimitives.css",
     "apps/image-board-desktop/src/app/App.css",
     "apps/image-board-desktop/src/app/components/AboutDialog.css",
-    "apps/image-board-desktop/src/app/components/AgentBoard.css",
     "apps/image-board-desktop/src/app/components/AgentSettings.css",
     "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
     "apps/image-board-desktop/src/app/components/DesktopButton.css",
     "apps/image-board-desktop/src/app/components/GenerateImageDialog.css",
     "apps/image-board-desktop/src/app/components/GenerationErrorDetailsDialog.css",
-    "apps/image-board-desktop/src/app/components/GenerationHistorySidebar.css",
+    "apps/image-board-desktop/src/app/components/ImageAssetSidebar.css",
     "apps/image-board-desktop/src/app/components/ImageInspector.css",
     "apps/image-board-desktop/src/app/components/ProjectDataReportDialog.css",
     "apps/image-board-desktop/src/app/components/ProjectMainMenu.css",
@@ -152,15 +151,6 @@ export const readEditorLoadingOverlay = () =>
     "utf8",
   );
 
-export const readAgentBoardStartupPane = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentBoardStartupPane.tsx",
-    ),
-    "utf8",
-  );
-
 export const readDesktopButton = () =>
   readFileSync(
     resolve(
@@ -179,20 +169,11 @@ export const readDesktopStartupWiring = () =>
     "utf8",
   );
 
-export const readProjectAutosaveWiring = () =>
+export const readProjectRoomFlushWiring = () =>
   readFileSync(
     resolve(
       process.cwd(),
-      "apps/image-board-desktop/src/app/useProjectAutosaveWiring.ts",
-    ),
-    "utf8",
-  );
-
-export const readAgentBridgeWiring = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/useAgentBridgeWiring.ts",
+      "apps/image-board-desktop/src/app/useProjectRoomFlushWiring.ts",
     ),
     "utf8",
   );
@@ -283,15 +264,6 @@ export const readImageInspector = () =>
     resolve(
       process.cwd(),
       "apps/image-board-desktop/src/app/components/ImageInspector.tsx",
-    ),
-    "utf8",
-  );
-
-export const readAgentBoard = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AgentBoard.tsx",
     ),
     "utf8",
   );

@@ -14,6 +14,9 @@ export const AGENT_HTTP_ROUTES = {
   status: "/v1/status",
   capabilities: "/v1/agent/capabilities",
   authorize: "/v1/agent/authorize",
+  boardSession: "/v1/board/session",
+  boardProjects: "/v1/board/projects",
+  boardProjectOpen: "/v1/board/projects/open",
   roomTicket: "/v1/room/ticket",
   roomAssets: "/v1/room/assets",
   roomPersistAssets: "/v1/room/assets/persist",
@@ -82,9 +85,7 @@ export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
 
-export const AGENT_DESKTOP_BRIDGE_METHODS = [
-  "loadAppInfo",
-] as const;
+export const AGENT_DESKTOP_BRIDGE_METHODS = ["loadAppInfo"] as const;
 
 export type AgentDesktopBridgeMethod =
   typeof AGENT_DESKTOP_BRIDGE_METHODS[number];

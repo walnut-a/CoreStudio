@@ -1158,6 +1158,15 @@ skill 不能提前发布。正确顺序是：
 - 新的独立文件导入入口、导出或批量项目操作；现有画布粘贴本地图片不受影响；
 - 超出当前产品表面的任意 CLI 场景编辑能力。
 
+项目入口采用独立的短期选择会话，不恢复旧的通用 Desktop Bridge：
+
+- 有当前项目时，`read board-url` 直接签发该项目的一次性房间票据；
+- 无当前项目时，`read projects` 返回受信任 Codex 调用可见的最近项目候选；
+- 目标明确时，`read board-url --project <projectPath>` 直接为候选项目签发房间票据；
+- 目标不明确时，`read board-url` 返回项目候选页链接。候选页只能列出候选并选择一次，选择成功后换取目标项目的房间票据；
+- 项目选择令牌短期有效、一次消费，不具备项目读写权限，也不能调用通用桌面方法；
+- 这一入口直接打开对应项目房间，不依赖先把桌面主客户端切到该项目。后续多标签实现继续复用同一项目选择与房间绑定契约。
+
 这里的限制不是技术冲突无法解决，而是用户理解成本没有被架构自动消除。直接生图至少会引入：
 
 - 这次生成属于 CoreStudio 操作还是 Codex 任务；
@@ -1214,7 +1223,8 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 12. **关闭交互语义**：同一 Codex actor 的多个连接在 presence 和关闭确认中只展示一次；用户取消关闭只保持当前项目，不再被包装成“旧项目未能保存”。
 13. **CLI 权威读取**：`read board` 和 `read scene` 直接读取主进程房间 scene，并按项目资产层补齐图片；不再依赖主画布 renderer 是否已经应用到同一帧。
 14. **图片实时加载与目录**：房间收到 `assets.updated` 或权威 scene 后都会按当前 scene 调度既有 rendition loader；左侧“图片资产”只展示未删除画布图片和 prompt reference，支持不改数据的“仅查看生成内容”筛选。
-15. **统一批量布局**：CLI 支持多个图片路径组成一个 `files[]` 请求，Agent writer 从参考 element IDs 计算整体锚点并复用 `placeGeneratedImages`；内置 Skill 1.6.0 / Skill 8 要求同一轮成功结果一次性写回。
+15. **统一批量布局**：CLI 支持多个图片路径组成一个 `files[]` 请求，Agent writer 从参考 element IDs 计算整体锚点并复用 `placeGeneratedImages`；内置 Skill 要求同一轮成功结果一次性写回。
+16. **打开入口消歧**：内置 Skill 1.6.1 / Skill 9 不再把“打开 CoreStudio”默认解释为打开 Agent Board；用户未点明入口时，先确认是 Codex 内置画布还是桌面客户端，再进入对应路径。
 
 当前验证证据：
 
@@ -1350,8 +1360,9 @@ TDD 和验收顺序：
 - CLI 已支持多图片路径，并把同轮图片作为一个 `files[]` 请求发送；Agent
   writer 从参考 element IDs 计算 `anchorBounds`，继续调用既有
   `placeGeneratedImages`，没有新增结果组或第二套布局实现。
-- 内置 CoreStudio Skill 已升级到集成 1.6.0 / Skill 8，明确同轮成功结果
-  收齐后一次写回；安装器、CLI 版本输出和公开安装说明保持一致。
+- 内置 CoreStudio Skill 已升级到集成 1.6.1 / Skill 9，明确同轮成功结果
+  收齐后一次写回，并在“打开 CoreStudio”入口不明确时先区分 Codex 内置
+  画布与桌面客户端；安装器、CLI 版本输出和公开安装说明保持一致。
 - 当前验证：Desktop 210 个测试文件、1664 个测试全部通过；全仓 TypeScript
   typecheck 通过；desktop renderer 与 Electron build 通过。构建只有既有的
   chunk size 提示。

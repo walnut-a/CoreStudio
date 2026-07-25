@@ -6481,9 +6481,11 @@ describe("App startup", () => {
     });
 
     expect(generateImages).toHaveBeenCalledTimes(1);
-    const firstUpdate = mockExcalidrawAPI?.updateScene.mock.calls[0]?.[0];
+    const firstElementUpdate = mockExcalidrawAPI?.updateScene.mock.calls
+      .map(([update]) => update)
+      .find((update) => Array.isArray(update.elements));
     const pendingFrames =
-      firstUpdate?.elements?.filter(
+      firstElementUpdate?.elements?.filter(
         (element: any) => !element.isDeleted && element.type === "frame",
       ) ?? [];
     expect(pendingFrames).toHaveLength(1);

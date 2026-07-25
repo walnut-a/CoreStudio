@@ -59,9 +59,49 @@ describe("buildAgentBrowserBridgeConfig", () => {
       }),
     ).toBeNull();
   });
+
+  it("keeps the scoped project selection token separate from project tokens", () => {
+    expect(
+      buildAgentBrowserBridgeConfig({
+        pathname: "/agent-board",
+        href: "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectSelectionToken=selection-token&projectToken=legacy-token",
+      }),
+    ).toEqual({
+      bridge: "http://127.0.0.1:60909",
+      projectSelectionToken: "selection-token",
+    });
+  });
 });
 
 describe("room-scoped Agent Browser assets", () => {
+  it("loads recent projects through the scoped selection route", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectSelectionToken=selection-token",
+    );
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ok: true, data: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    await bridge?.loadRecentProjects();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:60909/v1/board/projects",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer selection-token",
+        }),
+      }),
+    );
+  });
+
   it("persists assets through the room route without a project token", async () => {
     window.history.pushState(
       null,

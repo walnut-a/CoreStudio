@@ -210,11 +210,11 @@ const withImageWritebackBridgeMock = (bridge: Record<string, any>) => {
         },
         participants: [
           {
+            actorId: "corestudio:desktop",
             sessionId: input.sessionId,
-            originSessionId: input.sessionId,
-            participantKind: "desktop",
+            transport: "ipc",
+            role: "desktop-editor",
             displayLabel: "CoreStudio",
-            joinedAt: "2026-07-24T00:00:00.000Z",
           },
         ],
       };
@@ -490,11 +490,14 @@ vi.mock("@excalidraw/excalidraw", () => {
             zoom: { value: 1 },
             selectedElementIds: {},
             selectedGroupIds: {},
+            collaborators: new Map(),
             ...(initialData?.appState ?? {}),
           },
           files: initialData?.files ?? {},
         });
         const apiRef = React.useRef<any>(null);
+        const onExcalidrawAPIRef = React.useRef(onExcalidrawAPI);
+        onExcalidrawAPIRef.current = onExcalidrawAPI;
 
         if (!apiRef.current) {
           apiRef.current = {
@@ -503,16 +506,19 @@ vi.mock("@excalidraw/excalidraw", () => {
                 elements,
                 appState,
                 files,
+                collaborators,
               }: {
                 elements?: any[];
                 appState?: Record<string, any>;
                 files?: Record<string, any>;
+                collaborators?: Map<string, unknown>;
               }) => {
                 sceneRef.current = {
                   elements: elements ?? sceneRef.current.elements,
                   appState: {
                     ...sceneRef.current.appState,
                     ...(appState ?? {}),
+                    ...(collaborators ? { collaborators } : {}),
                   },
                   files: files ?? sceneRef.current.files,
                 };
@@ -558,9 +564,9 @@ vi.mock("@excalidraw/excalidraw", () => {
         React.useEffect(() => {
           mockExcalidrawAPI = apiRef.current;
           if (!skipExcalidrawApiRegistration) {
-            onExcalidrawAPI?.(apiRef.current);
+            onExcalidrawAPIRef.current?.(apiRef.current);
           }
-        }, [onExcalidrawAPI]);
+        }, []);
 
         React.useEffect(() => {
           if (!emitExcalidrawChangeAfterEveryRender) {
@@ -579,7 +585,16 @@ vi.mock("@excalidraw/excalidraw", () => {
           );
         });
 
-        triggerExcalidrawInitialize = () => onInitialize?.(apiRef.current);
+        triggerExcalidrawInitialize = () => {
+          sceneRef.current = {
+            ...sceneRef.current,
+            appState: {
+              ...sceneRef.current.appState,
+              collaborators: new Map(),
+            },
+          };
+          onInitialize?.(apiRef.current);
+        };
         triggerExcalidrawPointerUpdate = (payload) =>
           onPointerUpdate?.(payload);
         triggerExcalidrawScrollChange = ({

@@ -220,6 +220,24 @@ type AppSceneSnapshot = {
 
 type PlacementViewportContext = GeneratedImagePlacementViewport;
 
+const AGENT_BOARD_REOPEN_ERROR_CODES = new Set([
+  "AUTH_REQUIRED",
+  "TOKEN_EXPIRED",
+  "PROJECT_MISMATCH",
+  "ROOM_MISMATCH",
+  "SESSION_EPOCH_EXPIRED",
+  "ROOM_CLOSED",
+]);
+
+const shouldReopenAgentBoard = (error: unknown) =>
+  Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      typeof error.code === "string" &&
+      AGENT_BOARD_REOPEN_ERROR_CODES.has(error.code),
+  );
+
 interface AppProps {
   locale?: DesktopLocale;
   localePreference?: DesktopLocalePreference;
@@ -237,6 +255,9 @@ const App = ({
     pathname: window.location.pathname,
     href: window.location.href,
   });
+  const isAgentProjectSelectionRoute =
+    isAgentBrowserRoute &&
+    new URL(window.location.href).searchParams.has("projectSelectionToken");
   const bridge = maybeGetDesktopBridge();
   if (!bridge) {
     return <AppBridgeUnavailable isAgentBrowserRoute={isAgentBrowserRoute} />;
@@ -356,35 +377,21 @@ const App = ({
     () => createProjectRoomCollaborators(projectRoomParticipants),
     [projectRoomParticipants],
   );
-  const projectRoomCollaboratorSignature = useMemo(
-    () =>
-      [...projectRoomCollaborators.entries()]
-        .map(
-          ([socketId, collaborator]) =>
-            `${socketId}\u0000${collaborator.id ?? ""}\u0000${
-              collaborator.username ?? ""
-            }`,
-        )
-        .join("\n"),
+  const applyProjectRoomCollaborators = useCallback(
+    (api: ExcalidrawImperativeAPI | null) => {
+      if (!api) {
+        return;
+      }
+      api.updateScene({
+        collaborators: projectRoomCollaborators,
+        captureUpdate: CaptureUpdateAction.NEVER,
+      });
+    },
     [projectRoomCollaborators],
   );
-  const appliedProjectRoomCollaboratorSignatureRef = useRef("");
   useEffect(() => {
-    const api = excalidrawAPIRef.current;
-    if (
-      !api ||
-      projectRoomCollaboratorSignature ===
-        appliedProjectRoomCollaboratorSignatureRef.current
-    ) {
-      return;
-    }
-    api.updateScene({
-      collaborators: projectRoomCollaborators,
-      captureUpdate: CaptureUpdateAction.NEVER,
-    });
-    appliedProjectRoomCollaboratorSignatureRef.current =
-      projectRoomCollaboratorSignature;
-  }, [projectRoomCollaborators, projectRoomCollaboratorSignature]);
+    applyProjectRoomCollaborators(excalidrawAPIRef.current);
+  }, [applyProjectRoomCollaborators]);
   const [savingProviders, setSavingProviders] = useState(false);
   const providerSettingsRendererActions = useMemo(
     () =>
@@ -404,6 +411,8 @@ const App = ({
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [projectRoomError, setProjectRoomError] = useState<string | null>(null);
+  const [agentBoardConnectionExpired, setAgentBoardConnectionExpired] =
+    useState(false);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
@@ -887,7 +896,8 @@ const App = ({
     createAppStartupLifecycleRendererActions({
       getNotifyRendererReady: () => bridge?.notifyRendererReady,
       getIsAgentBrowserRoute: () => isAgentBrowserRoute,
-      getIsProjectRoomRoute: () => isAgentBrowserRoute,
+      getIsProjectRoomRoute: () =>
+        isAgentBrowserRoute && !isAgentProjectSelectionRoute,
       loadDesktopStartupState: desktopStartupRendererActions.loadAll,
       startAgentBrowserBridgeStatusRetryLoop:
         agentBrowserBridgeStatusRetryLoopRendererActions.start,
@@ -1383,27 +1393,41 @@ const App = ({
     if (!isAgentBrowserRoute) {
       return;
     }
+    setAgentBoardConnectionExpired(false);
     const url = new URL(window.location.href);
     const launchTicket = url.searchParams.get("launchTicket");
     const resumeToken = url.searchParams.get("resumeToken");
+    const projectSelectionToken = url.searchParams.get("projectSelectionToken");
     const bridgeBaseUrl =
       url.searchParams.get("bridge") ?? window.location.origin;
+    if (projectSelectionToken && !launchTicket && !resumeToken) {
+      setProjectRoomReady(false);
+      setProjectRoomError(null);
+      return;
+    }
     if (!launchTicket && !resumeToken) {
       setProjectRoomError("Agent Board 缺少有效的房间连接凭证。");
       return;
     }
 
     let disposed = false;
+    const reportConnectionError = (error: unknown) => {
+      if (disposed) {
+        return;
+      }
+      setProjectRoomReady(false);
+      if (shouldReopenAgentBoard(error)) {
+        setAgentBoardConnectionExpired(true);
+        setProjectRoomError(null);
+      } else {
+        setProjectRoomError(formatProjectSaveError(error));
+      }
+    };
     const transport = createProjectRoomWebSocketTransport({
       bridgeBaseUrl,
       launchTicket,
       resumeToken,
-      onTerminalError: (error) => {
-        if (!disposed) {
-          setProjectRoomReady(false);
-          setProjectRoomError(formatProjectSaveError(error));
-        }
-      },
+      onTerminalError: reportConnectionError,
       replaceResumeToken: (nextResumeToken) => {
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.delete("launchTicket");
@@ -1430,7 +1454,8 @@ const App = ({
       },
       onRoomClosed: () => {
         setProjectRoomReady(false);
-        setProjectRoomError("项目已关闭，画布协作已断开。");
+        setAgentBoardConnectionExpired(true);
+        setProjectRoomError(null);
       },
       applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
         const api = excalidrawAPIRef.current;
@@ -1492,7 +1517,7 @@ const App = ({
         .catch((error) => {
           if (!disposed) {
             console.error("[project-room:agent-board-join-failed]", error);
-            setProjectRoomError(formatProjectSaveError(error));
+            reportConnectionError(error);
           }
         });
     }, 0);
@@ -1939,8 +1964,29 @@ const App = ({
     />
   );
 
+  if (isAgentBrowserRoute && agentBoardConnectionExpired) {
+    return (
+      <div className="image-board-app">
+        <div className="welcome-pane">
+          <div
+            className="welcome-pane__card welcome-pane__diagnostic"
+            role="alert"
+            aria-labelledby="agent-board-expired-title"
+          >
+            <span className="welcome-pane__eyebrow">Agent Board</span>
+            <h1 id="agent-board-expired-title">
+              {copy.agentBoard.expiredConnectionTitle}
+            </h1>
+            <p>{copy.agentBoard.expiredConnectionDescription}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (
     isAgentBrowserRoute &&
+    !isAgentProjectSelectionRoute &&
     !projectError &&
     !projectRoomError &&
     (!currentProject || !initialData)
@@ -2025,6 +2071,7 @@ const App = ({
                 langCode={locale}
                 initialData={initialData}
                 onInitialize={(api) => {
+                  applyProjectRoomCollaborators(api ?? null);
                   currentProjectEditorReadyRendererActions.ready(
                     api ?? null,
                     projectRenderNonce,
@@ -2037,14 +2084,6 @@ const App = ({
                     visibleImageRenditionLoadRendererActions.schedule(
                       latestSceneRef.current,
                     );
-                    if (api && projectRoomCollaborators.size > 0) {
-                      api.updateScene({
-                        collaborators: projectRoomCollaborators,
-                        captureUpdate: CaptureUpdateAction.NEVER,
-                      });
-                      appliedProjectRoomCollaboratorSignatureRef.current =
-                        projectRoomCollaboratorSignature;
-                    }
                   }
                 }}
                 onPointerUpdate={({ pointer }) => {
@@ -2068,57 +2107,51 @@ const App = ({
                 detectScroll={false}
                 handleKeyboardGlobally={true}
                 autoFocus={true}
-                renderSelectedShapeActions={
-                  isAgentBrowserRoute
-                    ? undefined
-                    : ({
-                        fullSelectedShapeActions,
-                        shouldRenderSelectedShapeActions,
-                      }) => (
-                        <InspectorSidebar
-                          open={inspectorDockOpen}
-                          onOpenChange={setInspectorDockOpen}
-                          selectedShapeActions={fullSelectedShapeActions}
-                          shouldRenderSelectedShapeActions={
-                            shouldRenderSelectedShapeActions
-                          }
-                          record={selectedRecord}
-                          parentRecord={selectedImageRelationship.parentRecord}
-                          ancestorRecords={
-                            selectedImageRelationship.ancestorRecords
-                          }
-                          descendantRecords={
-                            selectedImageRelationship.descendantRecords
-                          }
-                          task={selectedTask}
-                          onCopyPrompt={() => {
-                            void imageAssetRendererActions.copyPrompt();
-                          }}
-                          onCopyTaskError={() => {
-                            void generationErrorRendererActions.copyTaskError();
-                          }}
-                          onLocateImageRecord={(fileId) => {
-                            void imageRecordLocatorRendererActions.locateImageRecord(
-                              fileId,
-                            );
-                          }}
-                          onLocateImageAsset={() => {
-                            if (selectedRecord) {
-                              setImageAssetRevealRequest((current) => ({
-                                fileId: selectedRecord.fileId,
-                                requestId: (current?.requestId ?? 0) + 1,
-                              }));
-                            }
-                            setImageAssetSidebarOpen(true);
-                          }}
-                          onLocatePromptReference={(reference) => {
-                            void imageRecordLocatorRendererActions.locatePromptReference(
-                              reference,
-                            );
-                          }}
-                        />
-                      )
-                }
+                renderSelectedShapeActions={({
+                  fullSelectedShapeActions,
+                  shouldRenderSelectedShapeActions,
+                }) => (
+                  <InspectorSidebar
+                    open={inspectorDockOpen}
+                    onOpenChange={setInspectorDockOpen}
+                    selectedShapeActions={fullSelectedShapeActions}
+                    shouldRenderSelectedShapeActions={
+                      shouldRenderSelectedShapeActions
+                    }
+                    record={selectedRecord}
+                    parentRecord={selectedImageRelationship.parentRecord}
+                    ancestorRecords={selectedImageRelationship.ancestorRecords}
+                    descendantRecords={
+                      selectedImageRelationship.descendantRecords
+                    }
+                    task={selectedTask}
+                    onCopyPrompt={() => {
+                      void imageAssetRendererActions.copyPrompt();
+                    }}
+                    onCopyTaskError={() => {
+                      void generationErrorRendererActions.copyTaskError();
+                    }}
+                    onLocateImageRecord={(fileId) => {
+                      void imageRecordLocatorRendererActions.locateImageRecord(
+                        fileId,
+                      );
+                    }}
+                    onLocateImageAsset={() => {
+                      if (selectedRecord) {
+                        setImageAssetRevealRequest((current) => ({
+                          fileId: selectedRecord.fileId,
+                          requestId: (current?.requestId ?? 0) + 1,
+                        }));
+                      }
+                      setImageAssetSidebarOpen(true);
+                    }}
+                    onLocatePromptReference={(reference) => {
+                      void imageRecordLocatorRendererActions.locatePromptReference(
+                        reference,
+                      );
+                    }}
+                  />
+                )}
               >
                 <LazyProjectMainMenu
                   currentProjectName={currentProject.project.name}
@@ -2137,22 +2170,20 @@ const App = ({
                 onClearSelection={clearAgentBoardSelection}
               />
             ) : null}
-            {!isAgentBrowserRoute ? (
-              <ImageAssetSidebar
-                open={imageAssetSidebarOpen}
-                onOpenChange={setImageAssetSidebarOpen}
-                records={imageAssetItems}
-                generatedOnly={imageAssetGeneratedOnly}
-                onGeneratedOnlyChange={setImageAssetGeneratedOnly}
-                selectedFileId={selectedRecord?.fileId}
-                revealRequest={imageAssetRevealRequest}
-                onSelectRecord={(fileId) => {
-                  void imageRecordLocatorRendererActions.locateImageRecord(
-                    fileId,
-                  );
-                }}
-              />
-            ) : null}
+            <ImageAssetSidebar
+              open={imageAssetSidebarOpen}
+              onOpenChange={setImageAssetSidebarOpen}
+              records={imageAssetItems}
+              generatedOnly={imageAssetGeneratedOnly}
+              onGeneratedOnlyChange={setImageAssetGeneratedOnly}
+              selectedFileId={selectedRecord?.fileId}
+              revealRequest={imageAssetRevealRequest}
+              onSelectRecord={(fileId) => {
+                void imageRecordLocatorRendererActions.locateImageRecord(
+                  fileId,
+                );
+              }}
+            />
             <WorkspaceBoundsOverlay
               state={workspaceOverlayState}
               pulsing={workspaceFitPulse}

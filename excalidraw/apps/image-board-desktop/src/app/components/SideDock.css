@@ -183,6 +183,13 @@
   transition: margin-left 0.16s ease;
 }
 
+.image-board-app:not(.image-board-app--right-dock-open)
+  .layer-ui__wrapper__top-right {
+  margin-right: calc(
+    var(--side-dock-toggle-size) + var(--side-dock-button-gap)
+  );
+}
+
 .image-board-app .App-menu_top__left .main-menu-trigger {
   width: var(--side-dock-toggle-size);
   height: var(--side-dock-toggle-size);

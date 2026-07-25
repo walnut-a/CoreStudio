@@ -75,6 +75,7 @@ import {
   saveAgentAccessSettings,
 } from "./agent/agentAccessStore";
 import { buildAgentBoardUrl } from "./agent/agentBoardUrl";
+import { createBoardProjectSelectionStore } from "./agent/boardProjectSelectionStore";
 import {
   loadRecentProjects,
   rememberRecentProject,
@@ -154,6 +155,7 @@ const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
 const participantIssuerToken = randomUUID();
 const projectRoomTicketStore = createProjectRoomTicketStore();
+const boardProjectSelectionStore = createBoardProjectSelectionStore();
 const projectRoomService = createProjectRoomService({
   readProjectBundle,
   writeProjectScene,
@@ -540,6 +542,45 @@ const startLocalBridge = async () => {
             actorId: `codex:${threadId}`,
             displayLabel,
           }),
+        };
+      },
+      issueBoardProjectSelection: async ({ threadId, displayLabel }) => ({
+        selectionToken: boardProjectSelectionStore.issue({
+          actorId: `codex:${threadId}`,
+          displayLabel,
+        }),
+      }),
+      listBoardProjectCandidates: async (selectionToken) => {
+        boardProjectSelectionStore.authorize(selectionToken);
+        return loadRecentProjects();
+      },
+      openBoardProjectCandidate: async ({ selectionToken, projectPath }) => {
+        const grant = boardProjectSelectionStore.authorize(selectionToken);
+        const candidates = await loadRecentProjects();
+        if (
+          !candidates.some((candidate) => candidate.projectPath === projectPath)
+        ) {
+          throw Object.assign(
+            new Error("The selected project is not an available candidate."),
+            {
+              code: "BAD_REQUEST",
+              details: { projectPath },
+            },
+          );
+        }
+        const bundle = await readProjectBundle(projectPath);
+        const room = await projectRoomService.openProject(projectPath);
+        boardProjectSelectionStore.consume(selectionToken);
+        return {
+          launchTicket: projectRoomTicketStore.issueLaunchTicket({
+            identity: room.identity,
+            actorId: grant.actorId,
+            displayLabel: grant.displayLabel,
+          }),
+          project: {
+            projectPath,
+            name: bundle.project.name,
+          },
         };
       },
       authenticateProjectRoomWebSocket: async (input) => {

@@ -31,6 +31,7 @@ export const actionGoToCollaborator = register<Collaborator>({
 
     if (
       !collaborator.socketId ||
+      collaborator.canFollow === false ||
       appState.userToFollow?.socketId === collaborator.socketId ||
       collaborator.isCurrentUser
     ) {

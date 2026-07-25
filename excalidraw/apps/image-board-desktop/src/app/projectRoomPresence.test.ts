@@ -39,27 +39,39 @@ describe("selectProjectRoomAgentPresence", () => {
     ]);
   });
 
-  it("maps Agent actors to Excalidraw collaborators instead of a custom presence widget", () => {
+  it("shows an active agent writer when that actor has no open Agent Board", () => {
+    expect(
+      selectProjectRoomAgentPresence([
+        {
+          actorId: "codex:thread-writer",
+          sessionId: "writer-1",
+          transport: "command",
+          role: "agent-writer",
+          displayLabel: "结构探索",
+        },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        actorId: "codex:thread-writer",
+        sessionId: "writer-1",
+      }),
+    ]);
+  });
+
+  it("feeds one identifiable Agent per actor into Excalidraw collaborators", () => {
     const collaborators = createProjectRoomCollaborators([
       {
-        actorId: "corestudio:desktop",
-        sessionId: "desktop",
-        transport: "ipc",
-        role: "desktop-editor",
-        displayLabel: "CoreStudio",
+        actorId: "codex:thread-b",
+        sessionId: "writer-1",
+        transport: "command",
+        role: "agent-writer",
+        displayLabel: "结构探索",
       },
       {
         actorId: "codex:thread-b",
         sessionId: "board-1",
         transport: "websocket",
         role: "board-editor",
-        displayLabel: "结构探索",
-      },
-      {
-        actorId: "codex:thread-b",
-        sessionId: "writer-1",
-        transport: "command",
-        role: "agent-writer",
         displayLabel: "结构探索",
       },
     ]);
@@ -71,6 +83,8 @@ describe("selectProjectRoomAgentPresence", () => {
           id: "codex:thread-b",
           socketId: "board-1",
           username: "结构探索",
+          avatarUrl: expect.stringMatching(/^data:image\/svg\+xml,/),
+          canFollow: false,
         }),
       ],
     ]);

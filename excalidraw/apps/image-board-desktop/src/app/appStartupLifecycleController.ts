@@ -17,7 +17,7 @@ export const runAppStartupLifecycleAction = ({
   if (isProjectRoomRoute) {
     return;
   }
-  if (!isAgentBrowserRoute) {
+  if (!isAgentBrowserRoute || !isProjectRoomRoute) {
     loadDesktopStartupState();
   }
 

@@ -391,6 +391,8 @@ describe("createLocalBridgeServer", () => {
         headers: {
           "Content-Type": "application/json",
           "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
         },
         body: JSON.stringify({
           threadId: "thread-b",
@@ -412,6 +414,108 @@ describe("createLocalBridgeServer", () => {
       project: currentProject,
       threadId: "thread-b",
       displayLabel: "任务 B",
+    });
+  });
+
+  it("issues a scoped project-selection session when there is no current project", async () => {
+    const issueBoardProjectSelection = vi.fn(async () => ({
+      selectionToken: "selection-token",
+    }));
+    const { server } = await track(
+      startServer({
+        getCurrentProject: () => null,
+        participantIssuerToken: "issuer-secret",
+        issueBoardProjectSelection,
+      }),
+    );
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardSession,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          threadId: "thread-b",
+          displayLabel: "任务 B",
+        }),
+      },
+    );
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          boardUrl,
+          selectionToken: "selection-token",
+        },
+      },
+    });
+  });
+
+  it("lists candidates and exchanges a scoped selection token for a room ticket", async () => {
+    const candidates = [
+      {
+        projectPath: "/projects/a",
+        name: "项目 A",
+        lastOpenedAt: "2026-07-24T08:00:00.000Z",
+      },
+    ];
+    const listBoardProjectCandidates = vi.fn(async () => candidates);
+    const openBoardProjectCandidate = vi.fn(async () => ({
+      launchTicket: "launch-ticket-a",
+    }));
+    const { server } = await track(
+      startServer({
+        listBoardProjectCandidates,
+        openBoardProjectCandidate,
+      }),
+    );
+
+    const listed = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardProjects,
+      {
+        headers: { Authorization: "Bearer selection-token" },
+      },
+    );
+    expect(listed).toEqual({
+      status: 200,
+      body: { ok: true, data: candidates },
+    });
+    expect(listBoardProjectCandidates).toHaveBeenCalledWith("selection-token");
+
+    const opened = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardProjectOpen,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer selection-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ projectPath: "/projects/a" }),
+      },
+    );
+    expect(opened).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          boardUrl,
+          launchTicket: "launch-ticket-a",
+        },
+      },
+    });
+    expect(openBoardProjectCandidate).toHaveBeenCalledWith({
+      selectionToken: "selection-token",
+      projectPath: "/projects/a",
     });
   });
 
@@ -987,16 +1091,13 @@ describe("createLocalBridgeServer", () => {
   });
 
   it("maps storage divergence errors to conflict responses", async () => {
-    const error = Object.assign(
-      new Error("磁盘内容与当前项目房间不一致。"),
-      {
-        code: "PROJECT_STORAGE_DIVERGED",
-        details: {
-          expectedSceneHash: "old",
-          currentSceneHash: "new",
-        },
+    const error = Object.assign(new Error("磁盘内容与当前项目房间不一致。"), {
+      code: "PROJECT_STORAGE_DIVERGED",
+      details: {
+        expectedSceneHash: "old",
+        currentSceneHash: "new",
       },
-    );
+    });
     const renderer = {
       request: vi.fn().mockRejectedValue(error),
     };

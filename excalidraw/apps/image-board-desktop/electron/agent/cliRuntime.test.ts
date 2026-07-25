@@ -209,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.26 (Codex integration 1.6.0, bridge protocol 2)\n",
+          "CoreStudio 1.1.26 (Codex integration 1.7.0, bridge protocol 2)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -227,7 +227,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.26",
-        integrationVersion: "1.6.0",
+        integrationVersion: "1.7.0",
         bridgeProtocolVersion: 2,
       },
     });
@@ -539,11 +539,90 @@ describe("runCli", () => {
       })}\n`,
     );
     expect(records[0]).toMatchObject({
-      url: `${baseUrl}${AGENT_HTTP_ROUTES.roomTicket}`,
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.boardSession}`,
       method: "POST",
       headers: {
         "X-CoreStudio-Participant-Issuer": "issuer-secret",
       },
+    });
+  });
+
+  it("opens the project candidate page when no project is active", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(
+      {
+        ok: true,
+        data: {
+          boardUrl,
+          selectionToken: "selection-token",
+        },
+      },
+      records,
+    );
+
+    const result = await runCommand(["read", "board-url", "--json"], {
+      env: {
+        CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+        CORESTUDIO_AGENT_PROJECT_TOKEN: "",
+        CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+        CODEX_THREAD_ID: "thread-b",
+        CODEX_TASK_TITLE: "任务 B",
+      },
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("projectSelectionToken=selection-token");
+    expect(records[0].url).toBe(`${baseUrl}${AGENT_HTTP_ROUTES.boardSession}`);
+  });
+
+  it("lists recent project candidates through the trusted Board session", async () => {
+    const records: RequestRecord[] = [];
+    const projects = [
+      {
+        projectPath: "/projects/a",
+        name: "项目 A",
+        lastOpenedAt: "2026-07-24T08:00:00.000Z",
+      },
+    ];
+    const fetch = createFetch({ ok: true, data: { projects } }, records);
+
+    const result = await runCommand(["read", "projects", "--json"], {
+      fetch,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      `${JSON.stringify({ ok: true, data: { projects } })}\n`,
+    );
+    expect(JSON.parse(records[0].body ?? "{}")).toMatchObject({
+      listProjects: true,
+      threadId: "thread-b",
+    });
+  });
+
+  it("requests a direct Board URL for an explicit recent project", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(
+      {
+        ok: true,
+        data: {
+          boardUrl,
+          launchTicket: "launch-ticket-a",
+        },
+      },
+      records,
+    );
+
+    const result = await runCommand(
+      ["read", "board-url", "--project", "/projects/a", "--json"],
+      { fetch },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(records[0].body ?? "{}")).toMatchObject({
+      projectPath: "/projects/a",
+      threadId: "thread-b",
     });
   });
 
@@ -603,7 +682,8 @@ describe("runCli", () => {
         ok: false,
         error: {
           code: "COMMAND_FAILED",
-          message: "Agent Bridge did not return a Board launch ticket.",
+          message:
+            "Agent Bridge did not return a Board launch or project-selection ticket.",
         },
       })}\n`,
     );

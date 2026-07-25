@@ -53,6 +53,13 @@ describe("agent integration docs", () => {
     expect(installationGuide).toContain("corestudio --version --json");
     expect(installationGuide).not.toContain("corestudio read context --json");
     expect(corestudioSkill).toContain("corestudio read status --json");
+    expect(corestudioSkill).toContain("“打开 CoreStudio”本身存在歧义");
+    expect(corestudioSkill).toContain(
+      "你想打开 Codex 内置画布，还是打开 CoreStudio 桌面客户端？",
+    );
+    expect(corestudioSkill).toContain(
+      "确认前不要读取 board URL，也不要启动或切换桌面应用",
+    );
     expect(corestudioSkill).toContain("只重试一次");
     expect(corestudioSkill).toContain("一键链接");
     expect(corestudioSkill).toContain("不要擅自改用 Chrome 或系统默认浏览器");
@@ -77,6 +84,8 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain("`summary` 只作为提示");
     expect(corestudioSkill).toContain("按实际解析结果重新计算数量和类型");
     expect(corestudioSkill).toContain("默认写回当前项目");
+    expect(corestudioSkill).toContain("图片文件名跟随用户当前使用的语言");
+    expect(corestudioSkill).toContain("用户使用中文交互时，使用简洁、可辨认的中文文件名");
     expect(corestudioSkill).toContain("写回后验证");
     expect(corestudioSkill).not.toContain(
       "运行 `corestudio read context --json` 发现当前 CoreStudio 会话和项目",
@@ -105,6 +114,10 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain("### Write An Agent Image Batch");
     expect(cliContract).toContain("files[]");
     expect(cliContract).toContain("--origin agent-board");
+    expect(cliContract).toContain("read projects --json");
+    expect(cliContract).toContain(
+      "read board-url --project <projectPath> --json",
+    );
     expect(cliContract).toContain("--reference-file-ids");
     expect(cliContract).toContain("### Locate A Written Result");
     expect(cliContract).toContain("corestudio edit locate --file-id");

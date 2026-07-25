@@ -32,6 +32,7 @@ import type {
 export interface AgentBrowserBridgeConfig {
   bridge: string;
   token?: string;
+  projectSelectionToken?: string;
 }
 
 export interface AgentBrowserRouteState {
@@ -86,6 +87,12 @@ export const buildAgentBrowserBridgeConfig = ({
 
   return {
     bridge: bridge.replace(/\/+$/, ""),
+    ...(url.searchParams.get("projectSelectionToken")
+      ? {
+          projectSelectionToken:
+            url.searchParams.get("projectSelectionToken") ?? undefined,
+        }
+      : {}),
   };
 };
 
@@ -141,10 +148,9 @@ const callDesktopBridge = <T>(
 
 const rejectUnavailableAgentBoardCapability = (capability: string) =>
   Promise.reject(
-    Object.assign(
-      new Error(`Agent Board 不提供 ${capability} 能力。`),
-      { code: "CAPABILITY_UNAVAILABLE" },
-    ),
+    Object.assign(new Error(`Agent Board 不提供 ${capability} 能力。`), {
+      code: "CAPABILITY_UNAVAILABLE",
+    }),
   );
 
 export const publishAgentBrowserRuntimeState = async (
@@ -182,8 +188,43 @@ export const maybeCreateAgentBrowserDesktopBridge =
     const bridge: DesktopBridgeApi = {
       createProject: async () => null,
       openProject: async () => null,
-      openRecentProject: async () => null,
-      loadRecentProjects: async () => [],
+      openRecentProject: async (projectPath) => {
+        if (!config.projectSelectionToken) {
+          return null;
+        }
+        const result = await requestAgentBridge<{
+          boardUrl: string;
+          launchTicket: string;
+        }>(
+          {
+            bridge: config.bridge,
+            token: config.projectSelectionToken,
+          },
+          AGENT_HTTP_ROUTES.boardProjectOpen,
+          {
+            method: "POST",
+            body: JSON.stringify({ projectPath }),
+          },
+        );
+        const nextUrl = new URL(result.boardUrl);
+        nextUrl.searchParams.set("launchTicket", result.launchTicket);
+        nextUrl.searchParams.delete("projectSelectionToken");
+        window.history.replaceState(null, "", nextUrl.toString());
+        window.location.reload();
+        return null;
+      },
+      loadRecentProjects: async () => {
+        if (!config.projectSelectionToken) {
+          return [];
+        }
+        return requestAgentBridge<RecentProjectEntry[]>(
+          {
+            bridge: config.bridge,
+            token: config.projectSelectionToken,
+          },
+          AGENT_HTTP_ROUTES.boardProjects,
+        );
+      },
       readProjectAssetPayloads: (input) =>
         (() => {
           const resumeToken = new URL(window.location.href).searchParams.get(
@@ -241,8 +282,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
         rejectUnavailableAgentBoardCapability("旧图片写回事务"),
       rollbackImageWriteback: () =>
         rejectUnavailableAgentBoardCapability("旧图片写回事务"),
-      importImages: () =>
-        rejectUnavailableAgentBoardCapability("系统图片导入"),
+      importImages: () => rejectUnavailableAgentBoardCapability("系统图片导入"),
       revealProjectInFinder: () =>
         rejectUnavailableAgentBoardCapability("访达定位"),
       loadAppInfo: () =>

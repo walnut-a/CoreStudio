@@ -22,6 +22,7 @@ import type {
 import type {
   PersistedImageAssetInput,
   ProjectAssetPayload,
+  RecentProjectEntry,
 } from "../../src/shared/desktopBridgeTypes";
 import type {
   ImageAssetRequestRendition,
@@ -81,6 +82,17 @@ export interface LocalBridgeServerOptions {
     project: LocalBridgeCurrentProject;
     threadId: string;
     displayLabel: string;
+  }) => Promise<{ launchTicket: string }>;
+  issueBoardProjectSelection?: (input: {
+    threadId: string;
+    displayLabel: string;
+  }) => Promise<{ selectionToken: string }>;
+  listBoardProjectCandidates?: (
+    selectionToken: string,
+  ) => Promise<RecentProjectEntry[]>;
+  openBoardProjectCandidate?: (input: {
+    selectionToken: string;
+    projectPath: string;
   }) => Promise<{ launchTicket: string }>;
   authenticateProjectRoomWebSocket?: (
     input: AuthenticateProjectRoomWebSocketInput,
@@ -176,6 +188,7 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   ROOM_MISMATCH: 409,
   SESSION_EPOCH_EXPIRED: 409,
   SESSION_NOT_FOUND: 409,
+  TOKEN_EXPIRED: 401,
   PERSISTENCE_FAILED: 500,
   PROJECT_STORAGE_DIVERGED: 409,
   PARTICIPANTS_CHANGED: 409,
@@ -927,6 +940,213 @@ export const createLocalBridgeServer = async (
 
       if (request.method === "OPTIONS") {
         sendCorsPreflight(response);
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.boardSession
+      ) {
+        if (!options.isAgentAccessEnabled()) {
+          sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
+          return;
+        }
+        const trustedParticipant = getTrustedParticipantIdentity(
+          request,
+          options.participantIssuerToken,
+        );
+        if (!trustedParticipant) {
+          sendError(
+            response,
+            403,
+            "FORBIDDEN",
+            "Board session issuer is not authorized.",
+          );
+          return;
+        }
+        let body: JsonBody;
+        try {
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+        } catch (error) {
+          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
+            message: getErrorMessage(error),
+          });
+          return;
+        }
+        try {
+          if (body.listProjects === true) {
+            if (
+              !options.issueBoardProjectSelection ||
+              !options.listBoardProjectCandidates
+            ) {
+              throw Object.assign(
+                new Error("Board project selection is unavailable."),
+                { code: "CAPABILITY_UNAVAILABLE" },
+              );
+            }
+            const selection = await options.issueBoardProjectSelection(
+              trustedParticipant,
+            );
+            sendJson(
+              response,
+              200,
+              createAgentOk({
+                projects: await options.listBoardProjectCandidates(
+                  selection.selectionToken,
+                ),
+              }),
+            );
+            return;
+          }
+          if (typeof body.projectPath === "string" && body.projectPath.trim()) {
+            if (!options.openBoardProjectCandidate) {
+              throw Object.assign(
+                new Error("Board project selection is unavailable."),
+                { code: "CAPABILITY_UNAVAILABLE" },
+              );
+            }
+            const selection = await options.issueBoardProjectSelection?.(
+              trustedParticipant,
+            );
+            if (!selection) {
+              throw Object.assign(
+                new Error("Board project selection is unavailable."),
+                { code: "CAPABILITY_UNAVAILABLE" },
+              );
+            }
+            const ticket = await options.openBoardProjectCandidate({
+              selectionToken: selection.selectionToken,
+              projectPath: body.projectPath,
+            });
+            sendJson(
+              response,
+              200,
+              createAgentOk({
+                ...ticket,
+                boardUrl: options.getBoardUrl?.() ?? null,
+              }),
+            );
+            return;
+          }
+
+          const currentProject = options.getCurrentProject();
+          if (currentProject && options.issueProjectRoomTicket) {
+            const ticket = await options.issueProjectRoomTicket({
+              project: currentProject,
+              ...trustedParticipant,
+            });
+            sendJson(
+              response,
+              200,
+              createAgentOk({
+                ...ticket,
+                boardUrl: options.getBoardUrl?.() ?? null,
+              }),
+            );
+            return;
+          }
+
+          if (!options.issueBoardProjectSelection) {
+            throw Object.assign(
+              new Error("Board project selection is unavailable."),
+              { code: "CAPABILITY_UNAVAILABLE" },
+            );
+          }
+          sendJson(
+            response,
+            200,
+            createAgentOk({
+              ...(await options.issueBoardProjectSelection(trustedParticipant)),
+              boardUrl: options.getBoardUrl?.() ?? null,
+            }),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === AGENT_HTTP_ROUTES.boardProjects
+      ) {
+        const selectionToken = getBearerToken(request);
+        if (!selectionToken || !options.listBoardProjectCandidates) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A valid project selection token is required.",
+          );
+          return;
+        }
+        try {
+          sendJson(
+            response,
+            200,
+            createAgentOk(
+              await options.listBoardProjectCandidates(selectionToken),
+            ),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.boardProjectOpen
+      ) {
+        const selectionToken = getBearerToken(request);
+        if (!selectionToken || !options.openBoardProjectCandidate) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A valid project selection token is required.",
+          );
+          return;
+        }
+        let body: JsonBody;
+        try {
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+        } catch (error) {
+          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
+            message: getErrorMessage(error),
+          });
+          return;
+        }
+        if (typeof body.projectPath !== "string" || !body.projectPath.trim()) {
+          sendError(
+            response,
+            400,
+            "BAD_REQUEST",
+            "Board project selection requires projectPath.",
+          );
+          return;
+        }
+        try {
+          sendJson(
+            response,
+            200,
+            createAgentOk({
+              ...(await options.openBoardProjectCandidate({
+                selectionToken,
+                projectPath: body.projectPath,
+              })),
+              boardUrl: options.getBoardUrl?.() ?? null,
+            }),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
         return;
       }
 

@@ -87,6 +87,7 @@ export type Collaborator = Readonly<{
   id?: string;
   socketId?: SocketId;
   isCurrentUser?: boolean;
+  canFollow?: boolean;
   isInCall?: boolean;
   isSpeaking?: boolean;
   isMuted?: boolean;

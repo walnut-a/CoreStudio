@@ -42,6 +42,16 @@ const {
 } = composerStyleTestSupport;
 
 describe("CoreStudio shell layout styles", () => {
+  it("keeps the native collaborator list clear of the collapsed right dock toggle", () => {
+    const sideDockCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/SideDock.css",
+    );
+
+    expect(sideDockCss).toMatch(
+      /\.image-board-app:not\(\.image-board-app--right-dock-open\)\s+\.layer-ui__wrapper__top-right/,
+    );
+    expect(sideDockCss).toContain("margin-right: calc(");
+  });
   it("keeps the application settings header above its navigation and content", () => {
     const appCss = readAppCss();
     const settingsDialogRule = getRule(

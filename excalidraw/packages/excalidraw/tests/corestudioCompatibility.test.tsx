@@ -1,4 +1,4 @@
-import { queryByTestId } from "@testing-library/react";
+import { fireEvent, queryByTestId } from "@testing-library/react";
 import React from "react";
 
 import { MIME_TYPES } from "@excalidraw/common";
@@ -7,7 +7,12 @@ import type { FileId } from "@excalidraw/element/types";
 
 import { Excalidraw } from "../index";
 
-import type { BinaryFileData, DataURL } from "../types";
+import type {
+  BinaryFileData,
+  Collaborator,
+  DataURL,
+  SocketId,
+} from "../types";
 
 import { API } from "./helpers/api";
 import { act, render, waitFor } from "./test-utils";
@@ -54,6 +59,40 @@ describe("CoreStudio Excalidraw compatibility", () => {
         queryByTestId(container, "selected-shape-actions-host"),
       ).toHaveTextContent("selected-actions-full");
     });
+  });
+
+  it("can render a collaborator as presence-only without enabling follow mode", async () => {
+    const { container } = await render(<Excalidraw />);
+    const socketId = "presence-only-agent" as SocketId;
+    const collaborator: Collaborator & { canFollow: boolean } = {
+      id: "codex:thread-1",
+      socketId,
+      username: "工业设计探索",
+      canFollow: false,
+    };
+
+    act(() => {
+      h.app.updateScene({
+        collaborators: new Map([[socketId, collaborator]]),
+      });
+    });
+
+    const moreButton = await waitFor(() => {
+      const element = container.querySelector(".UserList__more");
+      expect(element).not.toBeNull();
+      return element as HTMLElement;
+    });
+    fireEvent.click(moreButton);
+    const collaboratorItem = await waitFor(() => {
+      const element = document.querySelector(
+        ".UserList__collaborators .UserList__collaborator",
+      );
+      expect(element).toHaveTextContent("工业设计探索");
+      return element as HTMLElement;
+    });
+    fireEvent.click(collaboratorItem);
+
+    expect(h.state.userToFollow).toBeNull();
   });
 
   it("replaces existing files through the imperative API", async () => {

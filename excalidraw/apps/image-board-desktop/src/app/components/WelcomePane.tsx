@@ -107,16 +107,18 @@ export const WelcomePane = ({
                       )}
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    className="welcome-pane__recent-delete"
-                    aria-label={`${copy.welcome.deleteProject}：${project.name}`}
-                    title={`${copy.welcome.deleteProject}：${project.name}`}
-                    onClick={() => setDeleteTarget(project)}
-                    disabled={loading}
-                  >
-                    {trashProjectIcon}
-                  </button>
+                  {manualProjectActionsVisible ? (
+                    <button
+                      type="button"
+                      className="welcome-pane__recent-delete"
+                      aria-label={`${copy.welcome.deleteProject}：${project.name}`}
+                      title={`${copy.welcome.deleteProject}：${project.name}`}
+                      onClick={() => setDeleteTarget(project)}
+                      disabled={loading}
+                    >
+                      {trashProjectIcon}
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -127,7 +129,7 @@ export const WelcomePane = ({
           )}
         </div>
       </section>
-      {deleteTarget ? (
+      {manualProjectActionsVisible && deleteTarget ? (
         <div className="dialog-backdrop">
           <div
             className="dialog-card welcome-pane__delete-dialog"

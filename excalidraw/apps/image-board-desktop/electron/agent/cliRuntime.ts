@@ -166,7 +166,9 @@ Global options:
 
 Examples:
   corestudio read context --json
+  corestudio read projects --json
   corestudio read board-url --json
+  corestudio read board-url --project /path/to/project --json
   corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
   corestudio write image ./searched.png --source-type imported --json
   corestudio edit locate --file-id <file-id> --json
@@ -343,8 +345,12 @@ const parseCommand = (
       board: { route: AGENT_HTTP_ROUTES.sceneBoard, method: "GET" },
       scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
       selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
+      projects: {
+        route: AGENT_HTTP_ROUTES.boardSession,
+        method: "POST",
+      },
       "board-url": {
-        route: AGENT_HTTP_ROUTES.roomTicket,
+        route: AGENT_HTTP_ROUTES.boardSession,
         method: "POST",
         formatHuman: (data) =>
           isObject(data) && typeof data.boardUrl === "string"
@@ -355,10 +361,12 @@ const parseCommand = (
     const route = target ? readRoutes[target] : null;
     if (!route) {
       return badRequestEnvelope(
-        "read requires one of: status, capabilities, context, project, records, health, board, scene, selection, image-paths, board-url, browser-state.",
+        "read requires one of: status, capabilities, context, project, projects, records, health, board, scene, selection, image-paths, board-url, browser-state.",
       );
     }
-    const parsed = parseArgs(argv.slice(2));
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: target === "board-url" ? ["--project"] : [],
+    });
     if (isEnvelope(parsed)) {
       return parsed;
     }
@@ -369,6 +377,9 @@ const parseCommand = (
     if (target === "board-url") {
       return {
         ...route,
+        body: parsed.flags["--project"]
+          ? { projectPath: parsed.flags["--project"] }
+          : undefined,
         transformEnvelope: (envelope, bridge) => {
           if (!envelope.ok) {
             return envelope;
@@ -377,16 +388,24 @@ const parseCommand = (
           if (
             !isObject(data) ||
             typeof data.boardUrl !== "string" ||
-            typeof data.launchTicket !== "string"
+            (typeof data.launchTicket !== "string" &&
+              typeof data.selectionToken !== "string")
           ) {
             return commandFailedEnvelope(
-              "Agent Bridge did not return a Board launch ticket.",
+              "Agent Bridge did not return a Board launch or project-selection ticket.",
             );
           }
           const boardUrl = new URL(data.boardUrl);
           boardUrl.searchParams.delete("projectToken");
           boardUrl.searchParams.delete("token");
-          boardUrl.searchParams.set("launchTicket", data.launchTicket);
+          if (typeof data.launchTicket === "string") {
+            boardUrl.searchParams.set("launchTicket", data.launchTicket);
+          } else {
+            boardUrl.searchParams.set(
+              "projectSelectionToken",
+              data.selectionToken as string,
+            );
+          }
           return {
             ok: true,
             data: {
@@ -394,6 +413,12 @@ const parseCommand = (
             },
           };
         },
+      };
+    }
+    if (target === "projects") {
+      return {
+        ...route,
+        body: { listProjects: true },
       };
     }
     return route;
@@ -1044,10 +1069,13 @@ const discoverBridge = async (
   const envProjectToken = env.CORESTUDIO_AGENT_PROJECT_TOKEN;
   const envParticipantIssuerToken =
     env.CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN;
-  if (envBaseUrl && envProjectToken) {
+  if (
+    envBaseUrl &&
+    (envProjectToken !== undefined || envParticipantIssuerToken)
+  ) {
     return {
       baseUrl: normalizeBaseUrl(envBaseUrl),
-      projectToken: envProjectToken,
+      projectToken: envProjectToken ?? "",
       ...(envParticipantIssuerToken
         ? { participantIssuerToken: envParticipantIssuerToken }
         : {}),
@@ -1225,7 +1253,7 @@ export const runCli = async (
             env.CODEX_TASK_TITLE?.trim() || `Codex ${threadId.slice(0, 8)}`,
         }
       : undefined;
-  if (command.route === AGENT_HTTP_ROUTES.roomTicket) {
+  if (command.route === AGENT_HTTP_ROUTES.boardSession) {
     if (!threadId || !bridge.participantIssuerToken) {
       return finishWithEnvelope(
         badRequestEnvelope(
@@ -1237,6 +1265,7 @@ export const runCli = async (
       );
     }
     body = {
+      ...(body ?? {}),
       threadId,
       displayLabel: participant?.displayLabel,
     };

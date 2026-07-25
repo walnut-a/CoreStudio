@@ -485,6 +485,9 @@ export const enCopy: DesktopCopy = {
       unrecognizedBridgeData: "Agent Bridge returned unrecognized data.",
       refreshFailed: "Could not refresh Agent Board.",
     },
+    expiredConnectionTitle: "This built-in board connection has expired",
+    expiredConnectionDescription:
+      "Previous board links stop working after CoreStudio restarts or switches projects. Return to the current Codex conversation and reopen the CoreStudio built-in board.",
     missingConnectionTitle: "Connection information missing",
     missingConnectionDescription:
       "Copy the Agent Board link from the CoreStudio desktop app, then open it in Codex's built-in browser.",

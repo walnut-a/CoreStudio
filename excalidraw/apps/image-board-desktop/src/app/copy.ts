@@ -475,6 +475,9 @@ const zhCnCopy = {
       unrecognizedBridgeData: "Agent Bridge 返回了无法识别的数据。",
       refreshFailed: "Agent Board 刷新失败。",
     },
+    expiredConnectionTitle: "这个内置画布连接已失效",
+    expiredConnectionDescription:
+      "CoreStudio 重新启动或切换项目后，之前的画布链接不能继续使用。请回到当前 Codex 对话，重新打开 CoreStudio 内置画布。",
     missingConnectionTitle: "缺少连接信息",
     missingConnectionDescription:
       "请从 CoreStudio 桌面端复制 Agent Board 链接，再在 Codex 内置浏览器中打开。",

@@ -123,9 +123,9 @@ export class DesktopProjectTabRuntime {
     };
   }
 
-  public attachApi(api: ExcalidrawImperativeAPI) {
+  public attachApi(api: ExcalidrawImperativeAPI | null) {
     this.api = api;
-    if (this.pendingAuthoritativeScene) {
+    if (api && this.pendingAuthoritativeScene) {
       this.applyAuthoritativeScene(this.pendingAuthoritativeScene);
     }
   }

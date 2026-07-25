@@ -222,6 +222,7 @@ import type {
   ImageAssetRequestRendition,
   ImagePromptReferenceRecord,
   ImageRecord,
+  ImageRecordMap,
 } from "../shared/projectTypes";
 import type {
   DesktopAppInfo,

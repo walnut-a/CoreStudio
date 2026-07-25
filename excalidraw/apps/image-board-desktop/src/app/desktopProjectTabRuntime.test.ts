@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
-import type { ProjectRoomEvent } from "../shared/projectRoomProtocol";
+import type {
+  ProjectRoomEvent,
+  ProjectRoomSceneOperation,
+} from "../shared/projectRoomProtocol";
+import type { ProjectRoomClientTransport } from "./projectRoomClientController";
 import { createDesktopProjectTabRuntime } from "./desktopProjectTabRuntime";
 
 const createHarness = (
@@ -17,7 +21,7 @@ const createHarness = (
     roomId: `room:${projectPath}`,
     sessionEpoch: 1,
   };
-  const transport = {
+  const transport: ProjectRoomClientTransport = {
     join: vi.fn(async () => ({
       sessionId,
       snapshot: {
@@ -33,7 +37,7 @@ const createHarness = (
         participants: [],
       },
     })),
-    submitOperation: vi.fn(async (operation) => ({
+    submitOperation: vi.fn(async (operation: ProjectRoomSceneOperation) => ({
       type: "operation.accepted" as const,
       operationId: operation.operationId,
       sequence: 1,
@@ -110,11 +114,13 @@ describe("DesktopProjectTabRuntime", () => {
     vi.mocked(runtimeB.api.updateScene).mockClear();
 
     runtimeA.emit({
-      type: "scene.operation",
+      type: "scene.update",
       identity: runtimeA.identity,
       originSessionId: "agent-a",
+      originActorId: "codex:thread-a",
       operationId: "operation-a",
       sequence: 1,
+      baseSequence: 0,
       elements: [
         {
           id: "rect-a",
@@ -127,6 +133,8 @@ describe("DesktopProjectTabRuntime", () => {
         },
       ],
       sharedSceneConfig: {},
+      acceptedElementIds: ["rect-a"],
+      supersededElementIds: [],
     });
 
     expect(runtimeA.api.updateScene).toHaveBeenCalledWith(
@@ -150,6 +158,47 @@ describe("DesktopProjectTabRuntime", () => {
     expect(harness.api.updateScene).toHaveBeenCalledWith(
       expect.objectContaining({
         elements: [],
+        captureUpdate: "NEVER",
+      }),
+    );
+  });
+
+  it("buffers authoritative updates while the project editor is detached", async () => {
+    const harness = createHarness("/projects/a", "session-a");
+    await harness.runtime.start();
+    vi.mocked(harness.api.updateScene).mockClear();
+    harness.runtime.attachApi(null);
+
+    harness.emit({
+      type: "scene.update",
+      identity: harness.identity,
+      originSessionId: "agent-a",
+      originActorId: "codex:thread-a",
+      operationId: "operation-a",
+      sequence: 1,
+      baseSequence: 0,
+      elements: [
+        {
+          id: "rect-a",
+          type: "rectangle",
+          version: 1,
+          versionNonce: 1,
+          index: "a0",
+          isDeleted: false,
+          x: 10,
+        },
+      ],
+      sharedSceneConfig: {},
+      acceptedElementIds: ["rect-a"],
+      supersededElementIds: [],
+    });
+
+    expect(harness.api.updateScene).not.toHaveBeenCalled();
+
+    harness.runtime.attachApi(harness.api);
+
+    expect(harness.api.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
         captureUpdate: "NEVER",
       }),
     );

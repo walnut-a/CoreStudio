@@ -253,6 +253,7 @@ describe("createAppMenuTemplate", () => {
       platform: "darwin",
       projectActionsEnabled: false,
     });
+    const fileMenu = template.find((item) => item.label === "文件");
     const maintenanceItems = getProjectMaintenanceMenu(template);
 
     expect(getMenuItem(maintenanceItems, "安全模式打开项目")?.enabled).not.toBe(
@@ -265,6 +266,10 @@ describe("createAppMenuTemplate", () => {
       false,
     );
     expect(getMenuItem(maintenanceItems, "清理当前项目缓存")?.enabled).toBe(
+      false,
+    );
+    expect(getMenuItem(fileMenu?.submenu, "导入图片")?.enabled).toBe(false);
+    expect(getMenuItem(fileMenu?.submenu, "显示项目文件夹")?.enabled).toBe(
       false,
     );
   });

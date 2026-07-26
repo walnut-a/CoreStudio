@@ -488,6 +488,7 @@ const App = ({
   const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
   const [imageAssetSidebarOpen, setImageAssetSidebarOpen] = useState(false);
   const [imageAssetGeneratedOnly, setImageAssetGeneratedOnly] = useState(false);
+  const [imageAssetFilesRevision, setImageAssetFilesRevision] = useState(0);
   const [imageAssetRevealRequest, setImageAssetRevealRequest] = useState<{
     fileId: string;
     requestId: number;
@@ -529,7 +530,12 @@ const App = ({
         files: latestSceneRef.current?.files ?? null,
         generatedOnly: imageAssetGeneratedOnly,
       }),
-    [currentProject, imageAssetGeneratedOnly, sceneImageFileIds],
+    [
+      currentProject,
+      imageAssetFilesRevision,
+      imageAssetGeneratedOnly,
+      sceneImageFileIds,
+    ],
   );
 
   const sceneImageFileIdsRendererActions =
@@ -658,6 +664,7 @@ const App = ({
       queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
       setLatestScene: (scene) => {
         latestSceneRef.current = scene;
+        setImageAssetFilesRevision((revision) => revision + 1);
       },
     });
 

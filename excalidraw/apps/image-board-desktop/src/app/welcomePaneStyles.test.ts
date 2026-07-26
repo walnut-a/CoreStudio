@@ -31,14 +31,50 @@ describe("welcome pane styles", () => {
     );
     const eyebrowRule = getRule(welcomePaneCss, ".welcome-pane__eyebrow");
     const actionsRule = getRule(welcomePaneCss, ".welcome-pane__actions");
+    const recentRule = getRule(welcomePaneCss, ".welcome-pane__recent");
+    const recentListRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-list",
+    );
+    const recentItemRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-item",
+    );
+    const recentOpenRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-open",
+    );
 
-    expect(paneRule).toContain("align-items: start");
+    expect(paneRule).toContain("place-items: center");
+    expect(paneRule).toContain("overflow: auto");
+    expect(cardRule).toContain("display: grid");
+    expect(cardRule).toContain(
+      "grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr)",
+    );
+    expect(cardRule).toContain("width: min(100%, 960px)");
+    expect(cardRule).toContain("max-height: calc(100% - 48px)");
     expect(cardRule).toContain("box-shadow: 0 1px 2px");
     expect(cardRule).not.toContain("var(--modal-shadow)");
-    expect(introRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(introRule).toContain("display: flex");
+    expect(introRule).toContain("flex-direction: column");
+    expect(recentRule).toContain("border-left:");
+    expect(recentRule).toContain("min-height: 0");
+    expect(recentListRule).toContain("overflow-y: auto");
+    expect(recentListRule).toContain("border: 1px solid");
+    expect(recentItemRule).toContain("border: 0");
+    expect(recentItemRule).not.toContain("box-shadow");
+    expect(recentOpenRule).toContain(
+      "grid-template-columns: minmax(0, 1fr) auto",
+    );
     expect(diagnosticRule).toContain("padding: 28px");
     expect(welcomePaneCss).toContain(
       ".welcome-pane__diagnostic {\n    padding: 22px;",
+    );
+    expect(welcomePaneCss).toContain(
+      ".welcome-pane__recent-time {\n    grid-column: 1;\n    grid-row: 2;",
+    );
+    expect(welcomePaneCss).toContain(
+      ".welcome-pane__recent-path {\n    grid-row: 3;",
     );
     expect(eyebrowRule).toContain("background: transparent");
     expect(eyebrowRule).not.toContain("border-radius: 999px");

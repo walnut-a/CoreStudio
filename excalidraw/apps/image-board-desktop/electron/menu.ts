@@ -114,11 +114,13 @@ export const createAppMenuTemplate = (
         { type: "separator" },
         {
           label: copy.menu.importImages,
+          enabled: options.projectActionsEnabled ?? true,
           click: (_item, ownerWindow) =>
             sendMenuAction({ action: "import-images" }, ownerWindow),
         },
         {
           label: copy.menu.revealProject,
+          enabled: options.projectActionsEnabled ?? true,
           click: (_item, ownerWindow) =>
             sendMenuAction({ action: "reveal-project" }, ownerWindow),
         },

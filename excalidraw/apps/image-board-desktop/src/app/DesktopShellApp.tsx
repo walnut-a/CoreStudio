@@ -205,6 +205,18 @@ export const DesktopShellApp = ({
       </div>
     ) : undefined;
 
+  const applicationSettings = (
+    <ShellApplicationSettings
+      bridge={bridge}
+      open={appSettingsOpen}
+      activeCategory={appSettingsCategory}
+      localePreference={localePreference}
+      onCategoryChange={setAppSettingsCategory}
+      onLocalePreferenceChange={onLocalePreferenceChange}
+      onClose={() => setAppSettingsOpen(false)}
+    />
+  );
+
   return (
     <>
       <AppProjectEntryScreen
@@ -251,16 +263,7 @@ export const DesktopShellApp = ({
           bridge.revealProjectInFinder(projectPath)
         }
         manualProjectActionsVisible={true}
-        globalDialogs={null}
-      />
-      <ShellApplicationSettings
-        bridge={bridge}
-        open={appSettingsOpen}
-        activeCategory={appSettingsCategory}
-        localePreference={localePreference}
-        onCategoryChange={setAppSettingsCategory}
-        onLocalePreferenceChange={onLocalePreferenceChange}
-        onClose={() => setAppSettingsOpen(false)}
+        globalDialogs={applicationSettings}
       />
     </>
   );

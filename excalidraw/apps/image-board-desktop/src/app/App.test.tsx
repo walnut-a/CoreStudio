@@ -2915,6 +2915,26 @@ describe("App startup", () => {
               createdAt: "2026-04-12T08:00:00.000Z",
               mimeType: "image/png",
             },
+            "generated-file": {
+              fileId: "generated-file",
+              assetPath: "assets/generated.png",
+              sourceType: "generated",
+              generationOrigin: "corestudio",
+              prompt: "参考图生成",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T08:01:00.000Z",
+              mimeType: "image/png",
+              promptReferences: [
+                {
+                  id: "far-file-reference",
+                  index: 1,
+                  label: "参考图 1",
+                  kind: "image",
+                  fileIds: ["far-file"],
+                },
+              ],
+            },
           },
         }),
       ),
@@ -2950,6 +2970,21 @@ describe("App startup", () => {
       screen.queryByText("放大查看时会优先载入原图。"),
     ).not.toBeInTheDocument();
 
+    const imageAssetDock = screen.getByTestId("side-dock-left");
+    fireEvent.click(
+      within(imageAssetDock).getByRole("button", {
+        name: "图片资产",
+      }),
+    );
+    expect(imageAssetDock).toHaveAttribute("data-open", "true");
+    const imageAssetList = await screen.findByLabelText("图片资产列表");
+    expect(imageAssetList.querySelector("img")).toHaveAttribute(
+      "src",
+      `data:image/svg+xml;base64,${Buffer.from("far-file-placeholder").toString(
+        "base64",
+      )}`,
+    );
+
     await act(async () => {
       rebuildDeferred.resolve({
         generatedFileIds: ["far-file"],
@@ -2970,6 +3005,12 @@ describe("App startup", () => {
       ]);
     });
     expect(mockExcalidrawAPI?.getFiles()["far-file"].dataURL).toBe(
+      `data:image/png;base64,${Buffer.from("far-file-thumbnail").toString(
+        "base64",
+      )}`,
+    );
+    expect(imageAssetList.querySelector("img")).toHaveAttribute(
+      "src",
       `data:image/png;base64,${Buffer.from("far-file-thumbnail").toString(
         "base64",
       )}`,

@@ -54,14 +54,17 @@ describe("component style ownership boundaries", () => {
     const paneRule = getRule(appCss, ".welcome-pane");
     const cardRule = getRule(appCss, ".welcome-pane__card");
     const introRule = getRule(appCss, ".welcome-pane__intro");
-    const mobileRules = getRulesContaining(appCss, ".welcome-pane__intro").join(
+    const mobileRules = getRulesContaining(appCss, ".welcome-pane__card").join(
       "\n",
     );
 
     expect(welcomeSource).toContain('import "./WelcomePane.css";');
-    expect(paneRule).toContain("justify-items: center");
-    expect(cardRule).toContain("width: min(100%, 720px)");
-    expect(introRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(paneRule).toContain("place-items: center");
+    expect(cardRule).toContain("width: min(100%, 960px)");
+    expect(cardRule).toContain(
+      "grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr)",
+    );
+    expect(introRule).toContain("flex-direction: column");
     expect(mobileRules).toContain("grid-template-columns: 1fr");
     expect(rootAppCss).not.toContain(".welcome-pane");
   });

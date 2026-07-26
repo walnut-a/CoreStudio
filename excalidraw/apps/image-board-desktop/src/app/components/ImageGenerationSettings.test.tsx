@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ProviderConfigurationSnapshot } from "../../shared/desktopBridgeTypes";
@@ -31,6 +31,7 @@ const renderSettings = (
 ) => {
   const onSave = vi.fn(async () => undefined);
   const onDelete = vi.fn(async () => undefined);
+  const onRefreshCatalog = vi.fn(async () => undefined);
   const onDirtyChange = vi.fn();
 
   render(
@@ -39,11 +40,12 @@ const renderSettings = (
       saving={false}
       onSave={onSave}
       onDelete={onDelete}
+      onRefreshCatalog={onRefreshCatalog}
       onDirtyChange={onDirtyChange}
     />,
   );
 
-  return { onSave, onDelete, onDirtyChange };
+  return { onSave, onDelete, onRefreshCatalog, onDirtyChange };
 };
 
 describe("ImageGenerationSettings", () => {
@@ -78,5 +80,27 @@ describe("ImageGenerationSettings", () => {
     expect(
       screen.getByRole("button", { name: "添加服务" }),
     ).toBeInTheDocument();
+  });
+
+  it("显示模型预制版本并允许手动检查更新", async () => {
+    const configuration = {
+      ...createConfiguration(),
+      modelCatalog: {
+        source: "cache" as const,
+        revision: 3,
+        checkedAt: "2026-07-26T22:00:00.000Z",
+        catalog: null,
+      },
+    };
+    const { onRefreshCatalog } = renderSettings(configuration);
+
+    expect(screen.getByText("预制模型目录")).toBeInTheDocument();
+    expect(screen.getByText("版本 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+
+    await waitFor(() => {
+      expect(onRefreshCatalog).toHaveBeenCalledTimes(1);
+    });
   });
 });

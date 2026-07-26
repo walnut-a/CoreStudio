@@ -102,6 +102,7 @@ import {
   runCurrentProjectCommandStartAction,
 } from "./currentProjectApplyController";
 import { createProviderSettingsRendererActions } from "./providerSettingsLoader";
+import { applyRemoteModelCatalog } from "../shared/providerCatalog";
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
 import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
 import { buildSelectedImageRelationshipState } from "./imageRecordState";
@@ -1905,6 +1906,18 @@ const App = ({
                   ...selection,
                 });
               }
+            }}
+            onRefreshCatalog={async () => {
+              if (!desktopBridge.refreshModelCatalog) {
+                throw new Error(
+                  copy.applicationSettings.imageGenerationPage.catalogUpdateUnsupported,
+                );
+              }
+              const configuration = await desktopBridge.refreshModelCatalog();
+              if (configuration.modelCatalog?.catalog) {
+                applyRemoteModelCatalog(configuration.modelCatalog.catalog);
+              }
+              setProviderConfiguration(configuration);
             }}
             onDirtyChange={setAppSettingsDirty}
           />

@@ -1,4 +1,7 @@
-import { normalizeGenerationRequest } from "../shared/providerCatalog";
+import {
+  applyRemoteModelCatalog,
+  normalizeGenerationRequest,
+} from "../shared/providerCatalog";
 import type {
   DeleteProviderSettingsInput,
   DesktopBridgeApi,
@@ -97,6 +100,9 @@ export const runProviderSettingsLoadAction = async ({
         retryDelayMs,
       },
     );
+    if (nextProviderConfiguration.modelCatalog?.catalog) {
+      applyRemoteModelCatalog(nextProviderConfiguration.modelCatalog.catalog);
+    }
     setProviderSettings(nextProviderConfiguration);
 
     if (!isGenerationModelSelectionLocked()) {

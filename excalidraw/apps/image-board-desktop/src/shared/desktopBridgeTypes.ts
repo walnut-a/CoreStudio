@@ -22,6 +22,7 @@ import type {
   ProviderId,
   ProviderSettings,
 } from "./providerTypes";
+import type { ModelCatalogSnapshot } from "./modelCatalogContract";
 import type { AgentRendererCommandRequest } from "./agentBridgeTypes";
 import type {
   DesktopLocalePreference,
@@ -60,6 +61,7 @@ export const IPC_CHANNELS = {
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
   deleteProviderSettings: "image-board:delete-provider-settings",
+  refreshModelCatalog: "image-board:refresh-model-catalog",
   generateImages: "image-board:generate-images",
   cancelGenerateImages: "image-board:cancel-generate-images",
   readClipboardImage: "image-board:read-clipboard-image",
@@ -315,6 +317,7 @@ export interface ProviderConfigurationSnapshot {
   schemaVersion: 2;
   defaultProvider: ProviderId | null;
   providers: PublicProviderSettings;
+  modelCatalog?: ModelCatalogSnapshot;
 }
 
 export interface SaveProviderSettingsInput {
@@ -435,6 +438,7 @@ export interface DesktopBridgeApi {
   deleteProviderSettings(
     input: DeleteProviderSettingsInput,
   ): Promise<ProviderConfigurationSnapshot>;
+  refreshModelCatalog?(): Promise<ProviderConfigurationSnapshot>;
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
   cancelGenerateImages?(generationJobId: string): Promise<void>;
   readClipboardImage?(): Promise<ImportedImagePayload | null>;

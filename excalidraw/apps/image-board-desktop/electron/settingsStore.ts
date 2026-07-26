@@ -387,6 +387,34 @@ export const deleteProviderSettings = async (
   return toPublicConfiguration(configuration);
 };
 
+export const migrateProviderDefaultModels = async (
+  modelAliases: Partial<Record<ProviderId, Record<string, string>>>,
+) => {
+  const configuration = await readSettings();
+  let changed = false;
+  for (const provider of PROVIDER_IDS) {
+    const currentModel = configuration.providers[provider]?.defaultModel;
+    const replacement = currentModel
+      ? modelAliases[provider]?.[currentModel]
+      : undefined;
+    if (!replacement || replacement === currentModel) {
+      continue;
+    }
+    configuration.providers[provider] = {
+      ...configuration.providers[provider],
+      defaultModel: replacement,
+      lastStatus: "unknown",
+      lastCheckedAt: null,
+      lastError: null,
+    };
+    changed = true;
+  }
+  if (changed) {
+    await writeSettings(configuration);
+  }
+  return toPublicConfiguration(configuration);
+};
+
 export const getProviderApiKey = async (provider: ProviderId) => {
   const settings = await readSettings();
   const storedApiKey = settings.providers[provider].apiKey;

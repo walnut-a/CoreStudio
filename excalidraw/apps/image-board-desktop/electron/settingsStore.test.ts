@@ -48,6 +48,7 @@ import {
   getProviderApiKey,
   getProviderRuntimeSettings,
   loadProviderSettings,
+  migrateProviderDefaultModels,
   saveProviderSettings,
   updateProviderStatus,
 } from "./settingsStore";
@@ -130,6 +131,28 @@ describe("settingsStore", () => {
     await expect(
       fs.access(path.join(mockUserDataPath, "image-board-settings.json")),
     ).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("migrates saved default models using a validated catalog alias", async () => {
+    await saveProviderSettings({
+      provider: "zenmux",
+      apiKey: "saved-key",
+      defaultModel: "google/gemini-3-pro-image-preview",
+    });
+
+    await migrateProviderDefaultModels({
+      zenmux: {
+        "google/gemini-3-pro-image-preview": "google/gemini-3-pro-image",
+      },
+    });
+
+    await expect(loadProviderSettings()).resolves.toMatchObject({
+      providers: {
+        zenmux: {
+          defaultModel: "google/gemini-3-pro-image",
+        },
+      },
+    });
   });
 
   it("stores API keys as local-only plain settings", async () => {

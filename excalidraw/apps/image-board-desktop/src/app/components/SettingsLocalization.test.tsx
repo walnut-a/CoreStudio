@@ -29,6 +29,7 @@ describe("application settings localization", () => {
         saving={false}
         onSave={vi.fn(async () => undefined)}
         onDelete={vi.fn(async () => undefined)}
+        onRefreshCatalog={vi.fn(async () => undefined)}
         onDirtyChange={vi.fn()}
       />,
     );

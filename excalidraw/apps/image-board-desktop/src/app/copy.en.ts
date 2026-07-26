@@ -303,6 +303,14 @@ export const enCopy: DesktopCopy = {
       emptyTitle: "No image generation service configured",
       emptyDescription:
         "Add a service to generate images directly from the board.",
+      catalogTitle: "Preset Model Catalog",
+      catalogRevision: (revision: number) => `Revision ${revision}`,
+      catalogBuiltin: "Using the built-in catalog",
+      catalogCheck: "Check for Updates",
+      catalogUpdating: "Checking…",
+      catalogUpdated: "Updated",
+      catalogUpdateFailed: "Model catalog update failed",
+      catalogUpdateUnsupported: "This version cannot update the model catalog.",
     },
     providerEditor: {
       description:

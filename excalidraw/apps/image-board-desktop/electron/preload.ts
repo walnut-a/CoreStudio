@@ -93,6 +93,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.saveProviderSettings, input),
   deleteProviderSettings: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.deleteProviderSettings, input),
+  refreshModelCatalog: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.refreshModelCatalog),
   generateImages: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.generateImages, input),
   cancelGenerateImages: (generationJobId) =>

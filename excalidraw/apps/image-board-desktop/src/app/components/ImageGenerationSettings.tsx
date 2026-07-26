@@ -22,6 +22,7 @@ export interface ImageGenerationSettingsProps {
   discardToken?: number;
   onSave(input: SaveProviderSettingsInput): Promise<void>;
   onDelete(input: DeleteProviderSettingsInput): Promise<void>;
+  onRefreshCatalog(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
 }
 
@@ -36,10 +37,13 @@ export const ImageGenerationSettings = ({
   discardToken = 0,
   onSave,
   onDelete,
+  onRefreshCatalog,
   onDirtyChange,
 }: ImageGenerationSettingsProps) => {
   const requestLeave = useApplicationSettingsLeave();
   const [route, setRoute] = useState<SettingsRoute>({ name: "list" });
+  const [catalogRefreshing, setCatalogRefreshing] = useState(false);
+  const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
   const configuredProviders = getConfiguredProviderIds(configuration.providers);
 
   const navigate = (nextRoute: SettingsRoute) => {
@@ -184,6 +188,51 @@ export const ImageGenerationSettings = ({
           </DesktopButton>
         </div>
       )}
+
+      <div className="settings-model-catalog">
+        <div>
+          <strong>
+            {copy.applicationSettings.imageGenerationPage.catalogTitle}
+          </strong>
+          <p>
+            {configuration.modelCatalog?.revision
+              ? copy.applicationSettings.imageGenerationPage.catalogRevision(
+                  configuration.modelCatalog.revision,
+                )
+              : copy.applicationSettings.imageGenerationPage.catalogBuiltin}
+            {catalogMessage ? ` · ${catalogMessage}` : ""}
+          </p>
+        </div>
+        <DesktopButton
+          size="small"
+          disabled={catalogRefreshing}
+          onClick={() => {
+            setCatalogRefreshing(true);
+            setCatalogMessage(null);
+            void onRefreshCatalog()
+              .then(() => {
+                setCatalogMessage(
+                  copy.applicationSettings.imageGenerationPage.catalogUpdated,
+                );
+              })
+              .catch((error) => {
+                setCatalogMessage(
+                  error instanceof Error
+                    ? error.message
+                    : copy.applicationSettings.imageGenerationPage
+                        .catalogUpdateFailed,
+                );
+              })
+              .finally(() => {
+                setCatalogRefreshing(false);
+              });
+          }}
+        >
+          {catalogRefreshing
+            ? copy.applicationSettings.imageGenerationPage.catalogUpdating
+            : copy.applicationSettings.imageGenerationPage.catalogCheck}
+        </DesktopButton>
+      </div>
     </section>
   );
 };

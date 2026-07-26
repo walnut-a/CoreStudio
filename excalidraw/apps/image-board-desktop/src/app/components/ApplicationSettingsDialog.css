@@ -199,6 +199,27 @@
   background: var(--island-bg-color);
 }
 
+.settings-model-catalog {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface-mid);
+}
+
+.settings-model-catalog strong {
+  display: block;
+}
+
+.settings-model-catalog p {
+  margin: 4px 0 0;
+  color: var(--text-secondary-color);
+  font-size: var(--ui-text-size-sm);
+}
+
 .settings-about-summary,
 .settings-about-dependency-list {
   margin: 0;

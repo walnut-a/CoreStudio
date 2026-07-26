@@ -10,7 +10,7 @@ body,
 
 body {
   overflow: hidden;
-  background: #f6f6f9;
+  background: transparent;
 }
 
 .image-board-app {
@@ -21,7 +21,7 @@ body {
   font-family: var(--ui-font);
   background: radial-gradient(
       circle at top left,
-      rgba(105, 101, 219, 0.08),
+      color-mix(in srgb, var(--color-primary) 8%, transparent),
       transparent 28%
     ),
     linear-gradient(

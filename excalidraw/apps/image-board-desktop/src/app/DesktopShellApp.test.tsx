@@ -164,6 +164,50 @@ describe("DesktopShellApp", () => {
     );
   });
 
+  it("keeps the active dark theme across the whole shell after returning Home", async () => {
+    const darkProject = {
+      projectPath: "/projects/a",
+      projectId: "project-a",
+      name: "项目 A",
+      status: "ready" as const,
+      webContentsId: 11,
+      theme: "dark" as const,
+    };
+    const activateProjectView = vi.fn().mockResolvedValue({
+      activeProjectPath: null,
+      projects: [darkProject],
+    });
+    const bridge = createBridge({
+      loadProjectViewsState: vi.fn().mockResolvedValue({
+        activeProjectPath: "/projects/a",
+        projects: [darkProject],
+      }),
+      activateProjectView,
+    });
+    window.imageBoardDesktop = bridge;
+    const { container } = render(<DesktopShellApp />);
+
+    await waitFor(() => {
+      expect(container.querySelector(".image-board-app")).toHaveAttribute(
+        "data-theme",
+        "dark",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "项目首页" }));
+
+    await waitFor(() => {
+      expect(container.querySelector(".image-board-app")).toHaveAttribute(
+        "data-theme",
+        "dark",
+      );
+      expect(container.querySelector(".desktop-project-tabs")).toHaveAttribute(
+        "data-theme",
+        "dark",
+      );
+    });
+  });
+
   it("shows Home by asking the main process to hide the active project view", async () => {
     const activateProjectView = vi.fn().mockResolvedValue({
       activeProjectPath: null,

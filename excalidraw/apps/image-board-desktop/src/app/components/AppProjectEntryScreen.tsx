@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
-import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
+import type {
+  DesktopProjectTheme,
+  RecentProjectEntry,
+} from "../../shared/desktopBridgeTypes";
 import { AppErrorBanners } from "./AppErrorBanners";
 import { WelcomePane } from "./WelcomePane";
 
@@ -18,6 +21,7 @@ interface AppProjectEntryScreenProps {
   onRevealProject: (projectPath: string) => void | Promise<void>;
   manualProjectActionsVisible: boolean;
   globalDialogs: ReactNode;
+  theme?: DesktopProjectTheme;
 }
 
 export const AppProjectEntryScreen = ({
@@ -34,8 +38,9 @@ export const AppProjectEntryScreen = ({
   onRevealProject,
   manualProjectActionsVisible,
   globalDialogs,
+  theme = "light",
 }: AppProjectEntryScreenProps) => (
-  <div className="image-board-app">
+  <div className="image-board-app" data-theme={theme}>
     {titlebar}
     <AppErrorBanners startupError={startupError} projectError={projectError} />
     {content ?? (

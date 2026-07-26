@@ -303,8 +303,11 @@ describe("DesktopShellApp", () => {
       menuListenerRef.current?.({ action: "app-settings" });
     });
 
-    expect(
-      await screen.findByRole("dialog", { name: "应用设置" }),
-    ).toBeVisible();
+    const settingsDialog = await screen.findByRole("dialog", {
+      name: "应用设置",
+    });
+
+    expect(settingsDialog).toBeVisible();
+    expect(settingsDialog.closest(".image-board-app")).not.toBeNull();
   });
 });

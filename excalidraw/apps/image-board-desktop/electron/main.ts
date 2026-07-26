@@ -631,7 +631,6 @@ const getStableAgentBoardUrl = async (projectPath: string) => {
   return buildAgentBoardUrl({
     agentAccessEnabled,
     bridgeBaseUrl: localBridgeHandle?.baseUrl ?? null,
-    rendererUrl,
     stableBoardId,
   });
 };
@@ -640,7 +639,6 @@ const getAgentBoardUrl = () => {
   return buildAgentBoardUrl({
     agentAccessEnabled,
     bridgeBaseUrl: localBridgeHandle?.baseUrl ?? null,
-    rendererUrl,
   });
 };
 
@@ -799,6 +797,7 @@ const startLocalBridge = async () => {
       agentBoardAssetsDir: rendererUrl
         ? undefined
         : path.join(__dirname, "..", "dist"),
+      agentBoardDevServerUrl: rendererUrl ?? undefined,
       isAgentAccessEnabled: () => agentAccessEnabled,
       getCurrentProject,
       getProjectByToken: getAgentProjectByToken,

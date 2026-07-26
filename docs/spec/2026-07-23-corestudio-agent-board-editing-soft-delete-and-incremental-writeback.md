@@ -800,12 +800,16 @@ Agent Board 不能只显示 WebSocket disconnected，应明确显示：
 打开的 Agent Board 地址，例如：
 
 ```text
-http://127.0.0.1:60909/agent-board/<stableBoardId>
+http://127.0.0.1:60909/board/<stableBoardId>
 ```
 
 具体路由形式可以在实现时调整，但必须满足以下产品契约：
 
 - URL 只表达“打开哪个项目”，不表达“沿用哪一次连接”；
+- 开发版和打包版使用同一个 `60909` 地址；Vite `5174` 只作为开发资源上游，
+  不进入地址栏、复制结果或 CLI 输出；
+- 页面、HTTP API 和房间 WebSocket 从同一个 Local Bridge origin 推导，不使用
+  `bridge` 查询参数；
 - URL 中不携带 `launchTicket`、`resumeToken`、`sessionId`、`roomId` 或
   `sessionEpoch`；
 - 同一个项目反复调用 `read board-url` 返回同一个规范地址；
@@ -1702,13 +1706,14 @@ TDD 和验收顺序：
 
 ### 26.1 本轮新增事实
 
-安装态 Agent Board 当前仍使用如下形式的地址：
+旧 Agent Board 曾使用如下双服务地址：
 
 ```text
 /agent-board?bridge=<local-bridge>&resumeToken=<temporary-token>
 ```
 
-这个地址把项目入口和一次连接凭证绑定在一起。CoreStudio 重启、房间 epoch
+这个地址已经整体废弃，不提供解析、跳转或迁移。它把项目入口和一次连接凭证
+绑定在一起；CoreStudio 重启、房间 epoch
 变化或 token 过期后，用户保留的页面无法自行证明“我要重新打开原项目”，只能
 得到内部认证错误或重新运行 CLI 取得新链接。这与单机软件的使用直觉不符。
 
@@ -1790,7 +1795,7 @@ Local project index
 新增稳定路由和类型化接口：
 
 ```text
-GET  /agent-board/<stableBoardId>
+GET  /board/<stableBoardId>
 POST /v1/agent-board/session/exchange
 ```
 
@@ -1996,7 +2001,8 @@ issues[]
 本轮已经按上述边界完成以下代码落点：
 
 - 项目清单按需生成并保留 `stableBoardId`，稳定入口使用
-  `/agent-board/<stableBoardId>`，正式地址不携带 room、token 或 actor；
+  `http://127.0.0.1:60909/board/<stableBoardId>`，开发版和打包版地址一致，
+  正式地址不携带开发服务器、Bridge 参数、room、token 或 actor；
 - Local Bridge 在正式运行中严格占用固定端口，不再静默回退到随机端口；
 - 旧 token URL 直接显示旧链接已失效，不解析、不迁移、不进入旧写入链路；
 - 主端主菜单提供低调的“复制画布地址”，复制动作不创建 participant；
@@ -2366,9 +2372,9 @@ Excalidraw 实例。
     而串到另一个 renderer。
 11. 项目最近记录的读—改—写已进入同一串行队列。多个项目 renderer 同时启动
     时不会再互相覆盖项目候选列表。
-12. WebSocket 仍拒绝陌生 Origin；开发版额外接受 Local Bridge 配置的唯一
-    Agent Board Origin，从而支持 renderer `5174`、Bridge `60909` 的开发端口
-    分离，不扩大浏览器信任范围。
+12. WebSocket 仍拒绝陌生 Origin。Stable Agent Board、API 和项目房间
+    WebSocket 现在同属 Local Bridge `60909` Origin；开发 renderer `5174`
+    只作为内部资源上游和 HMR 连接，不再作为 Agent Board Origin。
 
 开发版已经取得第一层真实运行证据：同时打开两个现有项目和两个通过 CoreStudio
 API 创建的临时项目后，进程列表显示一个 shell renderer 和四个不同 PID 的项目
@@ -2400,7 +2406,7 @@ WebContents 引用，现已改为捕获不可变 `webContentsId`，修复后再�
 
 当前源码验证结果：typecheck 通过，Desktop 全量 225 个测试文件、1764 个测试
 全部通过，Desktop build 通过。尚不能标记安装版最终完成，原因是本机已安装
-Codex 集成仍为 1.7.0，而当前源码协议要求 1.8.0；稳定地址因此正确显示“需要
+Codex 集成仍为 1.8.0，而当前源码协议要求 1.9.0；稳定地址因此正确显示“需要
 更新 CoreStudio 集成”。本轮没有擅自安装或打包。用户明确进入打包和安装阶段
 后，仍需完成真实安装包中的三至四项目并发、稳定地址、双画布、图片原图和故障
 隔离联合验收。
@@ -2465,3 +2471,59 @@ CoreStudio 项目菜单不再暴露 Excalidraw 的“导出图片”“在画布
 `UIOptions` 关闭清空和图片导出，并让禁用的 action 同时退出快捷键与帮助列表；
 关闭默认侧栏时，文本搜索 action 也不再响应 `Cmd/Ctrl+F`。普通 Excalidraw
 默认配置下的搜索、导出和清空能力保持不变。
+
+### 27.15 2026-07-26 Stable Board 规范地址收口
+
+Stable Agent Board 的公开地址统一为：
+
+```text
+http://127.0.0.1:60909/board/<stableBoardId>
+```
+
+该地址只包含 Local Bridge 的固定 Origin、`/board` 路由和稳定项目身份。开发端口
+`5174`、`bridge` 参数、launch ticket、resume token 和 project token 都不再进入
+项目稳定地址。无论开发版还是安装版，用户、CLI、Skill 和“复制画布地址”拿到的
+都是同一格式；`5174` 只作为开发时的内部 renderer 服务存在。
+
+Local Bridge 继续作为唯一公开入口。安装版直接提供构建产物，并为嵌套路由注入
+根级 `base`，确保 `/board/<stableBoardId>` 下的脚本、样式和字体仍从
+`/assets/...` 加载；开发版由 Local Bridge 反向代理 Vite 页面和模块请求，HMR
+仍直接连接内部 `5174`。API 与 WebSocket 继续位于同一个 `60909` Origin，不新增
+第二套公开服务。
+
+旧 `/agent-board...` 地址和带 `bridge`、ticket 或 token 的历史页面地址不做
+迁移或兼容。旧页面路径由 Local Bridge 明确返回 404；规范 `/board` 页面如果
+发现历史敏感查询参数，则只显示地址已失效并要求从 CoreStudio 重新复制。项目
+候选页可以临时携带 `projectSelectionToken`，但它不是稳定项目地址。
+
+CoreStudio Codex 集成版本同步提升为 1.9.0、Skill 契约版本提升为 13。CLI、Skill、
+集成文档、会话测试和界面测试已统一使用规范地址，避免任一入口继续向 Agent
+暴露开发实现细节。
+
+当前验证证据：
+
+- Stable Board URL、浏览器路由、Local Bridge 静态服务和开发代理均有回归测试；
+- Desktop 全量 226 个测试文件、1789 个测试全部通过；
+- typecheck 与 Desktop build 通过；
+- worktree 开发版真实访问规范项目地址返回 200，`/@vite/client` 经 60909 返回
+  200，旧 `/agent-board/<stableBoardId>` 返回 404；
+- 仓库级格式检查仍报告 4 个本轮未修改的既有文件，本轮改动文件不在报告中。
+
+后续代码 review 进一步收紧了地址语法：页面入口只接受精确 `/board`，或仅含一个
+非空路径段的 `/board/<stableBoardId>`；尾斜杠、额外路径段、无法解码的百分号
+编码和稳定项目地址上的任意查询参数均无效。`projectSelectionToken` 只允许作为
+精确 `/board` 的唯一查询参数。无效地址由页面显示重新复制提示，不再触发
+renderer 异常。
+
+开发代理也不再把所有非 API 页面导航交给 Vite。只有规范 Board 页面可以获得
+HTML fallback；Vite 模块和资源请求继续代理，其他 HTML 页面请求进入 Local
+Bridge 的标准 404。相应失败测试已覆盖开发版无效页面、安装版尾斜杠与嵌套路径、
+候选令牌污染以及非法编码。
+
+App 中从 URL 读取旧 `launchTicket` / `resumeToken` 并直接建立房间的兼容分支，
+以及依赖旧一次性链接过期状态的重复 UI，已经物理删除。Stable Board 只通过页面
+nonce、当前 Codex 身份认领和 session exchange 取得连接票据；架构守卫测试禁止
+旧 URL 凭证分支重新进入根应用。
+
+本轮没有打包、安装或更新本机 Codex 集成。安装包中的地址栏、复制入口和升级后
+Skill 行为仍归入下一次明确授权的打包验收。

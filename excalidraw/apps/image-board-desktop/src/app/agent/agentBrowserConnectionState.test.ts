@@ -20,7 +20,7 @@ const createStatus = (
       token: "project-token",
     },
   },
-  boardUrl: "http://127.0.0.1:5174/agent-board?projectToken=project-token",
+  boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
   ...patch,
 });
 
@@ -96,7 +96,7 @@ describe("buildAgentBrowserBridgeStatusRetryPlan", () => {
     expect(
       buildAgentBrowserBridgeStatusRetryPlan({
         bridgeStatus: createStatus({
-          boardUrl: "http://127.0.0.1:5174/agent-board",
+          boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
         }),
         attempts: 1,
       }),

@@ -29,7 +29,7 @@ const createStatus = (
       token: "project-token",
     },
   },
-  boardUrl: "http://127.0.0.1:5174/agent-board?projectToken=project-token",
+  boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
   ...patch,
 });
 
@@ -146,7 +146,7 @@ describe("useAgentBridgeStatusCurrentProjectSyncEffect", () => {
       createElement(AgentBridgeStatusCurrentProjectSyncProbe, {
         project: {
           ...project,
-          sceneJson: "{\"changed\":true}",
+          sceneJson: '{"changed":true}',
         },
         applyBridgeStatus,
       }),
@@ -178,7 +178,7 @@ describe("runAgentBridgeStatusRefreshAction", () => {
       runAgentBridgeStatusRefreshAction({
         bridge: {},
         currentProject: createProjectBundle(),
-        fallbackBoardUrl: "http://127.0.0.1:5174/agent-board",
+        fallbackBoardUrl: "http://127.0.0.1:60909/board/stable-board-id",
         applyBridgeStatus,
       }),
     ).resolves.toEqual({
@@ -262,7 +262,7 @@ describe("runAgentBrowserConnectionRefreshAction", () => {
         },
         currentProject: createProjectBundle(),
         currentProjectPath: "/Users/example/CoreStudio/EDC设计助手",
-        fallbackBoardUrl: "http://127.0.0.1:5174/agent-board",
+        fallbackBoardUrl: "http://127.0.0.1:60909/board/stable-board-id",
         isAgentBrowserRoute: true,
         applyBridgeStatus,
         resetAutoOpenProjectPath,
@@ -295,7 +295,7 @@ describe("runAgentBrowserConnectionRefreshAction", () => {
         },
         currentProject: null,
         currentProjectPath: null,
-        fallbackBoardUrl: "http://127.0.0.1:5174/agent-board",
+        fallbackBoardUrl: "http://127.0.0.1:60909/board/stable-board-id",
         isAgentBrowserRoute: true,
         applyBridgeStatus,
         resetAutoOpenProjectPath,
@@ -422,7 +422,7 @@ describe("createAgentBridgeStatusRendererActions", () => {
       getBridge: () => bridge,
       getCurrentProject: () => currentProject,
       getIsAgentBrowserRoute: () => true,
-      getFallbackBoardUrl: () => "http://127.0.0.1:5174/agent-board",
+      getFallbackBoardUrl: () => "http://127.0.0.1:60909/board/stable-board-id",
       applyBridgeStatus,
       resetAutoOpenProjectPath,
       refreshDesktopStartupState,

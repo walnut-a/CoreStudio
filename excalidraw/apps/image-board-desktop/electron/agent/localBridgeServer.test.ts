@@ -1,4 +1,8 @@
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import {
+  createServer as createHttpServer,
+  type Server as HttpServer,
+} from "node:http";
 import os from "node:os";
 import path from "node:path";
 
@@ -18,10 +22,8 @@ import { createLocalBridgeServer } from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
 
 const projectToken = "project-token-1";
-const boardUrl =
-  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909";
-const stableBoardUrl =
-  "http://127.0.0.1:5174/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A60909";
+const boardUrl = "http://127.0.0.1:60909/board";
+const stableBoardUrl = "http://127.0.0.1:60909/board/stable-board-id";
 const currentProject = {
   projectPath: "/Users/alice/CoreStudio/project-1",
   name: "Project 1",
@@ -101,10 +103,19 @@ const startServer = async (
 
 describe("createLocalBridgeServer", () => {
   const handles: Awaited<ReturnType<typeof startServer>>["server"][] = [];
+  const devServers: HttpServer[] = [];
   const temporaryDirectories: string[] = [];
 
   afterEach(async () => {
     await Promise.all(handles.splice(0).map((handle) => handle.close()));
+    await Promise.all(
+      devServers.splice(0).map(
+        (server) =>
+          new Promise<void>((resolve, reject) => {
+            server.close((error) => (error ? reject(error) : resolve()));
+          }),
+      ),
+    );
     await Promise.all(
       temporaryDirectories
         .splice(0)
@@ -127,7 +138,7 @@ describe("createLocalBridgeServer", () => {
     await mkdir(path.join(assetsDir, "assets"));
     await writeFile(
       path.join(assetsDir, "index.html"),
-      '<script type="module" src="./assets/index.js"></script>',
+      '<html><head></head><body><script type="module" src="./assets/index.js"></script></body></html>',
     );
     await writeFile(
       path.join(assetsDir, "assets", "index.js"),
@@ -139,7 +150,7 @@ describe("createLocalBridgeServer", () => {
       }),
     );
 
-    const boardResponse = await fetch(`${server.baseUrl}/agent-board`);
+    const boardResponse = await fetch(`${server.baseUrl}/board`);
     expect(boardResponse.status).toBe(200);
     expect(boardResponse.headers.get("content-type")).toBe(
       "text/html; charset=utf-8",
@@ -147,13 +158,13 @@ describe("createLocalBridgeServer", () => {
     await expect(boardResponse.text()).resolves.toContain("./assets/index.js");
 
     const stableBoardResponse = await fetch(
-      `${server.baseUrl}/agent-board/stable-board-id`,
+      `${server.baseUrl}/board/stable-board-id`,
     );
     expect(stableBoardResponse.status).toBe(200);
     expect(stableBoardResponse.headers.get("cache-control")).toBe("no-cache");
-    await expect(stableBoardResponse.text()).resolves.toContain(
-      "./assets/index.js",
-    );
+    const stableBoardHtml = await stableBoardResponse.text();
+    expect(stableBoardHtml).toContain('<base href="/"');
+    expect(stableBoardHtml).toContain("./assets/index.js");
 
     const assetResponse = await fetch(`${server.baseUrl}/assets/index.js`);
     expect(assetResponse.status).toBe(200);
@@ -161,6 +172,79 @@ describe("createLocalBridgeServer", () => {
       "text/javascript; charset=utf-8",
     );
     await expect(assetResponse.text()).resolves.toContain("agent-board");
+
+    const removedRouteResponse = await fetch(
+      `${server.baseUrl}/agent-board/stable-board-id`,
+    );
+    expect(removedRouteResponse.status).toBe(404);
+
+    const trailingSlashResponse = await fetch(`${server.baseUrl}/board/`);
+    expect(trailingSlashResponse.status).toBe(404);
+
+    const nestedRouteResponse = await fetch(
+      `${server.baseUrl}/board/stable-board-id/extra`,
+    );
+    expect(nestedRouteResponse.status).toBe(404);
+  });
+
+  it("serves the development Board through the canonical Local Bridge origin", async () => {
+    const requestedPaths: string[] = [];
+    const devServer = createHttpServer((request, response) => {
+      requestedPaths.push(request.url ?? "");
+      response.writeHead(200, {
+        "Content-Type": request.url?.startsWith("/src/")
+          ? "text/javascript; charset=utf-8"
+          : "text/html; charset=utf-8",
+      });
+      response.end(
+        request.url?.startsWith("/src/")
+          ? 'console.log("development-board")'
+          : '<script type="module" src="/src/main.tsx"></script>',
+      );
+    });
+    await new Promise<void>((resolve) => {
+      devServer.listen(0, "127.0.0.1", resolve);
+    });
+    devServers.push(devServer);
+    const address = devServer.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Development server did not expose a TCP port.");
+    }
+    const { server } = await track(
+      startServer({
+        agentBoardDevServerUrl: `http://127.0.0.1:${address.port}`,
+      }),
+    );
+
+    const boardResponse = await fetch(
+      `${server.baseUrl}/board/stable-board-id`,
+    );
+    expect(boardResponse.status).toBe(200);
+    expect(boardResponse.url).toBe(`${server.baseUrl}/board/stable-board-id`);
+    await expect(boardResponse.text()).resolves.toContain("/src/main.tsx");
+
+    const moduleResponse = await fetch(`${server.baseUrl}/src/main.tsx?t=123`);
+    expect(moduleResponse.status).toBe(200);
+    await expect(moduleResponse.text()).resolves.toContain("development-board");
+
+    const removedRouteResponse = await fetch(
+      `${server.baseUrl}/agent-board/stable-board-id`,
+    );
+    expect(removedRouteResponse.status).toBe(404);
+
+    const invalidPageResponse = await fetch(
+      `${server.baseUrl}/not-a-board-page`,
+      {
+        headers: {
+          Accept: "text/html",
+        },
+      },
+    );
+    expect(invalidPageResponse.status).toBe(404);
+
+    const trailingSlashResponse = await fetch(`${server.baseUrl}/board/`);
+    expect(trailingSlashResponse.status).toBe(404);
+    expect(requestedPaths).toEqual(["/", "/src/main.tsx?t=123"]);
   });
 
   it("returns status with the current project when authenticated", async () => {
@@ -622,7 +706,7 @@ describe("createLocalBridgeServer", () => {
     const inspectStableBoardIntegration = vi.fn(async () => ({
       state: "repair-required" as const,
       appVersion: "1.1.26",
-      integrationVersion: "1.8.0",
+      integrationVersion: "1.9.0",
       bridgeProtocolVersion: 3,
       actorClaimed: false,
       issues: [
@@ -763,7 +847,7 @@ describe("createLocalBridgeServer", () => {
     expect(renderer.request).not.toHaveBeenCalled();
   });
 
-  it("allows browser CORS preflight requests from the Agent Board origin", async () => {
+  it("allows browser CORS preflight requests from the canonical Board origin", async () => {
     const { server } = await track(startServer());
 
     const response = await fetch(
@@ -771,7 +855,7 @@ describe("createLocalBridgeServer", () => {
       {
         method: "OPTIONS",
         headers: {
-          Origin: "http://127.0.0.1:5174",
+          Origin: "http://127.0.0.1:60909",
           "Access-Control-Request-Method": "GET",
           "Access-Control-Request-Headers": "authorization",
         },
@@ -780,7 +864,7 @@ describe("createLocalBridgeServer", () => {
 
     expect(response.status).toBe(204);
     expect(response.headers.get("access-control-allow-origin")).toBe(
-      "http://127.0.0.1:5174",
+      "http://127.0.0.1:60909",
     );
     expect(response.headers.get("access-control-allow-headers")).toContain(
       "Authorization",

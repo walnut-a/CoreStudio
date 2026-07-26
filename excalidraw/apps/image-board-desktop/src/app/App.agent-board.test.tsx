@@ -18,7 +18,7 @@ import type { FileId } from "./App.testSupport";
 const readyIntegrationStatus = {
   state: "ready",
   appVersion: "1.1.26",
-  integrationVersion: "1.8.0",
+  integrationVersion: "1.9.0",
   bridgeProtocolVersion: 3,
   actorClaimed: false,
   issues: [],
@@ -29,7 +29,7 @@ describe("App Agent Board room route", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectSelectionToken=selection-token",
+      "/board?projectSelectionToken=selection-token",
     );
     vi.stubGlobal(
       "fetch",
@@ -73,11 +73,7 @@ describe("App Agent Board room route", () => {
       send() {}
       close() {}
     }
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A60909",
-    );
+    window.history.pushState(null, "", "/board/stable-board-id");
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -114,11 +110,7 @@ describe("App Agent Board room route", () => {
   });
 
   it("exposes a page nonce while waiting for trusted Codex identity", async () => {
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A60909",
-    );
+    window.history.pushState(null, "", "/board/stable-board-id");
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -163,11 +155,7 @@ describe("App Agent Board room route", () => {
   });
 
   it("guides the user to CoreStudio settings when the Codex integration is outdated", async () => {
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A60909",
-    );
+    window.history.pushState(null, "", "/board/stable-board-id");
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -253,11 +241,7 @@ describe("App Agent Board room route", () => {
       }
     }
 
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&resumeToken=expired-token",
-    );
+    window.history.pushState(null, "", "/board?resumeToken=expired-token");
     vi.stubGlobal("WebSocket", ExpiredRoomWebSocket);
 
     render(<App />);
@@ -382,11 +366,7 @@ describe("App Agent Board room route", () => {
         }
       }
     }
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A60909",
-    );
+    window.history.pushState(null, "", "/board/stable-board-id");
     const fetchMock = vi.fn(
       async (url: string | URL) =>
         new Response(JSON.stringify({

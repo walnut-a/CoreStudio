@@ -1313,6 +1313,9 @@ describe("generate composer styles", () => {
       "createAgentBrowserAutoOpenProjectRendererActions",
     );
     expect(source).not.toContain("useAgentBridgeWiring");
+    expect(source).not.toContain("legacyLaunchTicket");
+    expect(source).not.toContain("legacyResumeToken");
+    expect(source).not.toContain("agentBoardConnectionExpired");
   });
 
   it("keeps Agent command request subscription wiring outside the root app", () => {

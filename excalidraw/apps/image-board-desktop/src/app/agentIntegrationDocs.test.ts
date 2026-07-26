@@ -62,6 +62,10 @@ describe("agent integration docs", () => {
     );
     expect(corestudioSkill).toContain("只重试一次");
     expect(corestudioSkill).toContain("一键链接");
+    expect(corestudioSkill).toContain(
+      "http://127.0.0.1:60909/board/<stableBoardId>",
+    );
+    expect(corestudioSkill).toContain("任何 `/agent-board` 地址");
     expect(corestudioSkill).toContain("不要擅自改用 Chrome 或系统默认浏览器");
     expect(corestudioSkill).toContain("主动读取当前画布和选区");
     expect(corestudioSkill).toContain(
@@ -117,6 +121,9 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain("read projects --json");
     expect(cliContract).toContain(
       "read board-url --project <projectPath> --json",
+    );
+    expect(cliContract).toContain(
+      "http://127.0.0.1:60909/board/<stableBoardId>",
     );
     expect(cliContract).toContain("--reference-file-ids");
     expect(cliContract).toContain("### Locate A Written Result");

@@ -9,15 +9,13 @@ import {
 describe("desktop renderer route", () => {
   it("defaults to the existing app route outside desktop shell URLs", () => {
     expect(
-      parseDesktopRendererRoute("http://127.0.0.1:5174/agent-board/board-id"),
+      parseDesktopRendererRoute("http://127.0.0.1:60909/board/board-id"),
     ).toEqual({ mode: "app" });
   });
 
   it("parses a shell route without project identity", () => {
     expect(
-      parseDesktopRendererRoute(
-        "http://127.0.0.1:5174/?desktopMode=shell",
-      ),
+      parseDesktopRendererRoute("http://127.0.0.1:5174/?desktopMode=shell"),
     ).toEqual({ mode: "shell" });
   });
 
@@ -28,16 +26,14 @@ describe("desktop renderer route", () => {
       ),
     ).toEqual({ mode: "project", projectPath: "/projects/a" });
     expect(() =>
-      parseDesktopRendererRoute(
-        "http://127.0.0.1:5174/?desktopMode=project",
-      ),
+      parseDesktopRendererRoute("http://127.0.0.1:5174/?desktopMode=project"),
     ).toThrow("Project renderer route requires a project path.");
   });
 
   it("builds stable shell and project renderer URLs", () => {
-    expect(
-      buildDesktopShellRendererUrl("http://127.0.0.1:5174/"),
-    ).toBe("http://127.0.0.1:5174/?desktopMode=shell");
+    expect(buildDesktopShellRendererUrl("http://127.0.0.1:5174/")).toBe(
+      "http://127.0.0.1:5174/?desktopMode=shell",
+    );
     expect(
       buildDesktopProjectRendererUrl(
         "http://127.0.0.1:5174/",

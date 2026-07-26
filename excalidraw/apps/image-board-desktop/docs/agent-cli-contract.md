@@ -25,6 +25,8 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `read projects --json`
 - `read board-url --project <projectPath> --json`
 
+`board-url` 返回 `http://127.0.0.1:60909/board/<stableBoardId>` 形式的项目稳定入口。地址不包含开发服务器端口、Bridge 查询参数或任何连接凭证。
+
 `read project --json` 返回当前项目的 `projectId`、名称、创建时间、更新时间和本地路径。`projectId` 是固定选区引用使用的非敏感稳定身份；不得用项目名或创建时间代替它进行项目匹配。
 
 ## Write Commands

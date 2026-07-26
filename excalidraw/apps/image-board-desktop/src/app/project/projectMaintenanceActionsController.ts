@@ -403,7 +403,6 @@ interface CreateProjectRepairSceneRefreshRendererActionsInput<
     appState: TAppState;
     files: TFiles;
   }) => void;
-  updateWorkspaceOverlay: (elements: TElements, appState: TAppState) => void;
   updateCurrentProject: (project: TProject) => void;
   updateSelectedInspector: (input: {
     elements: TElements;
@@ -828,7 +827,6 @@ export const runProjectRepairSceneRefreshRendererAction = async <
   setLatestScene,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
-  updateWorkspaceOverlay,
   updateCurrentProject,
   updateSelectedInspector,
 }: ProjectRepairSceneRefreshInput<TProject> & {
@@ -884,7 +882,6 @@ export const runProjectRepairSceneRefreshRendererAction = async <
   setLatestScene(sceneApplyState.scene);
   updateSceneImageFileIds(elements);
   scheduleVisibleImageRenditionLoad(sceneApplyState.scene);
-  updateWorkspaceOverlay(elements, appState);
   updateCurrentProject(sceneApplyState.project);
   updateSelectedInspector({ elements, appState, imageRecords });
 
@@ -910,7 +907,6 @@ export const createProjectRepairSceneRefreshRendererActions = <
   setLatestScene,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
-  updateWorkspaceOverlay,
   updateCurrentProject,
   updateSelectedInspector,
 }: CreateProjectRepairSceneRefreshRendererActionsInput<
@@ -932,7 +928,6 @@ export const createProjectRepairSceneRefreshRendererActions = <
       setLatestScene,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
-      updateWorkspaceOverlay,
       updateCurrentProject,
       updateSelectedInspector,
     });

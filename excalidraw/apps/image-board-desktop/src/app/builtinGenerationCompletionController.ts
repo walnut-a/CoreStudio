@@ -294,7 +294,6 @@ export interface BuiltinGenerationJobCompletionRendererActionsInput<
   scheduleVisibleImageRenditionLoad: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
-  updateWorkspaceOverlay: (elements: Elements, appState: AppStateValue) => void;
   flushProjectRoom: (options: { strict: true }) => Promise<unknown> | unknown;
 }
 
@@ -312,7 +311,6 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
   setScene,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
-  updateWorkspaceOverlay,
   flushProjectRoom,
 }: BuiltinGenerationJobCompletionRendererActionsInput<
   Elements,
@@ -348,7 +346,6 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
           files,
         };
         scheduleVisibleImageRenditionLoad(latestScene);
-        updateWorkspaceOverlay(elements, appState);
       },
       flushProjectRoom,
     }),

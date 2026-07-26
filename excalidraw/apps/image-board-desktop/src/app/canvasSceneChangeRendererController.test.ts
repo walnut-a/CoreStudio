@@ -103,7 +103,6 @@ describe("runCanvasSceneChangeRendererAction", () => {
     const updateSceneImageFileIds = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
     const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
-    const updateWorkspaceOverlay = vi.fn();
     const updateSelectionReference = vi.fn();
     const updateSelectedInspector = vi.fn();
     let nextRequest = createRequest();
@@ -120,12 +119,10 @@ describe("runCanvasSceneChangeRendererAction", () => {
       activeProject: project,
       removedSelectionReferenceSignature: "old-selection",
       setRemovedSelectionReferenceSignature,
-      maybeSnapWorkspaceZoom: vi.fn(() => false),
       setLatestScene,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
-      updateWorkspaceOverlay,
       updateSelectionReference,
       setGenerateRequest,
       updateSelectedInspector,
@@ -142,7 +139,6 @@ describe("runCanvasSceneChangeRendererAction", () => {
     expect(scheduleAgentBrowserRuntimeStatePublish).toHaveBeenCalledWith(
       nextScene,
     );
-    expect(updateWorkspaceOverlay).toHaveBeenCalledWith(elements, appState);
     expect(updateSelectionReference).toHaveBeenCalledWith({
       signature: selectionReferenceSignature,
       getReference: expect.any(Function),
@@ -187,12 +183,10 @@ describe("runCanvasSceneChangeRendererAction", () => {
       activeProject: project,
       removedSelectionReferenceSignature: selectionReferenceSignature,
       setRemovedSelectionReferenceSignature: vi.fn(),
-      maybeSnapWorkspaceZoom: vi.fn(() => false),
       setLatestScene: vi.fn(),
       updateSceneImageFileIds: vi.fn(),
       scheduleVisibleImageRenditionLoad: vi.fn(),
       scheduleAgentBrowserRuntimeStatePublish: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
       setGenerateRequest: (updater) => {
         nextRequest = updater(createRequest());
       },
@@ -200,34 +194,6 @@ describe("runCanvasSceneChangeRendererAction", () => {
     });
 
     expect(nextRequest?.reference).toBeNull();
-  });
-
-  it("clears changed reference state but skips scene effects when workspace snap handles the change", () => {
-    const project = createProject();
-    const { elements, appState, files } = createScene();
-    const setRemovedSelectionReferenceSignature = vi.fn();
-    const setLatestScene = vi.fn();
-
-    const result = runCanvasSceneChangeRendererAction({
-      elements,
-      appState,
-      files,
-      activeProject: project,
-      removedSelectionReferenceSignature: "old-selection",
-      setRemovedSelectionReferenceSignature,
-      maybeSnapWorkspaceZoom: vi.fn(() => true),
-      setLatestScene,
-      updateSceneImageFileIds: vi.fn(),
-      scheduleVisibleImageRenditionLoad: vi.fn(),
-      scheduleAgentBrowserRuntimeStatePublish: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
-      setGenerateRequest: vi.fn(),
-      updateSelectedInspector: vi.fn(),
-    });
-
-    expect(result).toEqual({ status: "skipped", reason: "workspace-snap" });
-    expect(setRemovedSelectionReferenceSignature).toHaveBeenCalledWith(null);
-    expect(setLatestScene).not.toHaveBeenCalled();
   });
 
   it("skips when no project is active", () => {
@@ -241,12 +207,10 @@ describe("runCanvasSceneChangeRendererAction", () => {
       activeProject: null,
       removedSelectionReferenceSignature: null,
       setRemovedSelectionReferenceSignature: vi.fn(),
-      maybeSnapWorkspaceZoom: vi.fn(),
       setLatestScene,
       updateSceneImageFileIds: vi.fn(),
       scheduleVisibleImageRenditionLoad: vi.fn(),
       scheduleAgentBrowserRuntimeStatePublish: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
       setGenerateRequest: vi.fn(),
       updateSelectedInspector: vi.fn(),
     });
@@ -266,12 +230,10 @@ describe("createCanvasSceneChangeRendererActions", () => {
       getActiveProject: () => project,
       getRemovedSelectionReferenceSignature: () => null,
       setRemovedSelectionReferenceSignature: vi.fn(),
-      maybeSnapWorkspaceZoom: vi.fn(() => false),
       setLatestScene,
       updateSceneImageFileIds: vi.fn(),
       scheduleVisibleImageRenditionLoad: vi.fn(),
       scheduleAgentBrowserRuntimeStatePublish: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
       setGenerateRequest: vi.fn(),
       updateSelectedInspector: vi.fn(),
     });

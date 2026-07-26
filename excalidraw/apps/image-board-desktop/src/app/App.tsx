@@ -56,15 +56,6 @@ import {
   type GeneratedImagePlacementViewport,
   type SceneBounds,
 } from "./project/imagePlacement";
-import {
-  createWorkspaceFitPulseRendererActions,
-  createWorkspaceOverlayRendererActions,
-  createWorkspaceZoomSnapRendererActions,
-  createWorkspaceZoomGateState,
-  type WorkspaceBounds,
-  type WorkspaceOverlayState,
-  type WorkspaceZoomGateState,
-} from "./workspaceBounds";
 import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
 import {
   deserializeSceneFromProject,
@@ -141,7 +132,6 @@ import { AppProjectEntryScreen } from "./components/AppProjectEntryScreen";
 import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
-import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
 import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
 import { DesktopButton } from "./components/DesktopButton";
 import {
@@ -354,11 +344,6 @@ const App = ({
   const generationTaskByElementIdRef = useRef<
     Map<string, GenerationTaskRecord>
   >(new Map());
-  const previousWorkspaceZoomValueRef = useRef<number | null>(null);
-  const workspaceZoomGateStateRef = useRef<WorkspaceZoomGateState>(
-    createWorkspaceZoomGateState(),
-  );
-  const workspaceFitPulseTimerRef = useRef<number | null>(null);
   const highResImageLoadTimerRef = useRef<number | null>(null);
   const loadedPreviewImageFileIdsRef = useRef<Set<string>>(new Set());
   const loadingPreviewImageFileIdsRef = useRef<Set<string>>(new Set());
@@ -509,9 +494,6 @@ const App = ({
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
-  const [workspaceOverlayState, setWorkspaceOverlayState] =
-    useState<WorkspaceOverlayState | null>(null);
-  const [workspaceFitPulse, setWorkspaceFitPulse] = useState(false);
   const [thumbnailMaintenance, setThumbnailMaintenance] =
     useState<ThumbnailMaintenanceState | null>(null);
 
@@ -602,53 +584,6 @@ const App = ({
         projectOpenSequenceRef.current = sequence;
       },
     });
-
-  const workspaceOverlayRendererActions = useMemo(
-    () =>
-      createWorkspaceOverlayRendererActions({
-        setWorkspaceOverlayState,
-      }),
-    [],
-  );
-
-  const workspaceFitPulseRendererActions = useMemo(
-    () =>
-      createWorkspaceFitPulseRendererActions({
-        delayMs: 520,
-        getTimerId: () => workspaceFitPulseTimerRef.current,
-        clearTimer: (timerId) => window.clearTimeout(timerId),
-        setTimerId: (timerId) => {
-          workspaceFitPulseTimerRef.current = timerId;
-        },
-        setPulse: setWorkspaceFitPulse,
-        setPreviousZoomValue: (zoomValue) => {
-          previousWorkspaceZoomValueRef.current = zoomValue;
-        },
-        setZoomGateState: (state) => {
-          workspaceZoomGateStateRef.current = state;
-        },
-        scheduleTimeout: (callback, delayMs) =>
-          window.setTimeout(callback, delayMs),
-      }),
-    [setWorkspaceFitPulse],
-  );
-
-  const workspaceZoomSnapRendererActions = useMemo(
-    () =>
-      createWorkspaceZoomSnapRendererActions({
-        getApi: () => excalidrawAPIRef.current,
-        getPreviousZoomValue: () => previousWorkspaceZoomValueRef.current,
-        setPreviousZoomValue: (zoomValue) => {
-          previousWorkspaceZoomValueRef.current = zoomValue;
-        },
-        getZoomGateState: () => workspaceZoomGateStateRef.current,
-        setZoomGateState: (state) => {
-          workspaceZoomGateStateRef.current = state;
-        },
-        triggerWorkspaceFitPulse: workspaceFitPulseRendererActions.trigger,
-      }),
-    [workspaceFitPulseRendererActions],
-  );
 
   const projectNoticeRendererActions = useMemo(
     () =>
@@ -812,7 +747,6 @@ const App = ({
       updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
       scheduleVisibleImageRenditionLoad:
         visibleImageRenditionLoadRendererActions.schedule,
-      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
       updateCurrentProject,
       updateSelectedInspector: selectedInspectorRendererActions.update,
     });
@@ -856,7 +790,6 @@ const App = ({
       visibleImageRenditionLoadRendererActions.schedule,
     scheduleAgentBrowserRuntimeStatePublish:
       agentBrowserRuntimePublishRendererActions.schedule,
-    updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
   });
 
   const desktopStartupRendererActions = createDesktopStartupRendererActions({
@@ -963,7 +896,6 @@ const App = ({
 
   const appUnmountCleanupRendererActions =
     createAppUnmountCleanupRendererActions({
-      clearWorkspaceFitPulseTimer: workspaceFitPulseRendererActions.clearTimer,
       clearProjectNoticeTimer: projectNoticeRendererActions.clearTimer,
       clearVisibleImageRenditionLoadTimer:
         visibleImageRenditionLoadRendererActions.clearTimer,
@@ -1017,8 +949,6 @@ const App = ({
       updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
       scheduleVisibleImageRenditionLoad:
         visibleImageRenditionLoadRendererActions.schedule,
-      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
-      resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
       lastCanvasPointerRef,
       setSelectedRecord,
       setSelectedTask,
@@ -1043,8 +973,6 @@ const App = ({
       setSceneImageFileIds,
       updateCurrentProject,
       setInitialData,
-      setWorkspaceOverlayState,
-      resetWorkspaceZoomGate: workspaceFitPulseRendererActions.reset,
       updateEditorInitializing:
         currentProjectEditorInitializingRendererActions.update,
       setSelectedRecord,
@@ -1106,7 +1034,6 @@ const App = ({
       setPreviousBatchBounds: (bounds) => {
         lastBatchBoundsRef.current = bounds;
       },
-      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
       setActiveProject: updateCurrentProject,
       flushProjectRoom: waitForCurrentProjectSubmission,
       getFallbackCreatedAt: () => Date.now(),
@@ -1124,7 +1051,6 @@ const App = ({
       setPreviousBatchBounds: (bounds) => {
         lastBatchBoundsRef.current = bounds;
       },
-      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
       getGenerationTasks: () => generationTaskByElementIdRef.current,
       setGenerationTasks: (generationTasks) => {
         generationTaskByElementIdRef.current = generationTasks;
@@ -1220,7 +1146,6 @@ const App = ({
       updateSceneImageFileIds: sceneImageFileIdsRendererActions.update,
       scheduleVisibleImageRenditionLoad:
         visibleImageRenditionLoadRendererActions.schedule,
-      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
       flushProjectRoom: (options) => flushProjectRoom(options),
     });
 
@@ -1236,7 +1161,6 @@ const App = ({
       setRemovedSelectionReferenceSignature: (signature) => {
         removedSelectionReferenceSignatureRef.current = signature;
       },
-      maybeSnapWorkspaceZoom: workspaceZoomSnapRendererActions.maybeSnap,
       setLatestScene: (scene) => {
         latestSceneRef.current = scene;
       },
@@ -1245,7 +1169,6 @@ const App = ({
         visibleImageRenditionLoadRendererActions.schedule,
       scheduleAgentBrowserRuntimeStatePublish:
         agentBrowserRuntimePublishRendererActions.schedule,
-      updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
       updateSelectionReference: ({ signature, getReference }) => {
         if (
           !isAgentBrowserRoute ||
@@ -2346,10 +2269,6 @@ const App = ({
                   fileId,
                 );
               }}
-            />
-            <WorkspaceBoundsOverlay
-              state={workspaceOverlayState}
-              pulsing={workspaceFitPulse}
             />
           </div>
         </div>

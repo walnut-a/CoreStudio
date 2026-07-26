@@ -102,7 +102,175 @@ describe("placeGeneratedImages", () => {
     );
   });
 
-  it("keeps referenced generation inside the workspace when the preferred right side would exceed it", () => {
+  it("searches the full local perimeter before jumping to a farther diagonal", () => {
+    const imageSize = 100;
+    const gap = 32;
+    const step = imageSize + gap * 2;
+    const preferredStart = { x: -imageSize / 2, y: -imageSize / 2 };
+    const blockedOffsets = [
+      [0, 0],
+      [0, 1],
+      [0, -1],
+      [-1, 0],
+      [1, 0],
+      [-1, 1],
+      [1, 1],
+      [-1, -1],
+      [1, -1],
+      [0, 2],
+      [0, -2],
+      [-2, 0],
+      [2, 0],
+    ] as const;
+    const occupiedBounds = blockedOffsets.map(([dx, dy]) => ({
+      x: preferredStart.x + dx * step,
+      y: preferredStart.y + dy * step,
+      width: imageSize,
+      height: imageSize,
+    }));
+
+    const [placement] = placeGeneratedImages({
+      images: [{ width: imageSize, height: imageSize }],
+      viewportCenter: { x: 0, y: 0 },
+      viewportSize: { width: 1200, height: 800 },
+      zoomValue: 1,
+      occupiedBounds,
+      gap,
+    });
+
+    const distance = Math.hypot(
+      placement.x - preferredStart.x,
+      placement.y - preferredStart.y,
+    );
+    expect(distance).toBeLessThan(Math.hypot(step * 2, step * 2));
+    expect(
+      occupiedBounds.some((bounds) => rectanglesOverlap(placement, bounds)),
+    ).toBe(false);
+  });
+
+  it("chooses the closest obstacle edge instead of a farther horizontal exit", () => {
+    const image = { width: 600, height: 20 };
+    const gap = 32;
+    const stepX = image.width + gap * 2;
+    const stepY = image.height + gap * 2;
+    const preferredStart = {
+      x: -image.width / 2,
+      y: -image.height / 2,
+    };
+    const occupiedBounds = [
+      [0, 0],
+      [0, 1],
+      [0, -1],
+      [-1, 1],
+      [1, 1],
+      [-1, -1],
+      [1, -1],
+    ].map(([dx, dy]) => ({
+      x: preferredStart.x + dx * stepX,
+      y: preferredStart.y + dy * stepY,
+      width: image.width,
+      height: image.height,
+    }));
+
+    const [placement] = placeGeneratedImages({
+      images: [image],
+      viewportCenter: { x: 0, y: 0 },
+      viewportSize: { width: 1200, height: 800 },
+      zoomValue: 1,
+      occupiedBounds,
+      gap,
+    });
+
+    expect(placement.x).toBe(preferredStart.x);
+    expect(placement.y).toBe(preferredStart.y + stepY * 2 - gap);
+  });
+
+  it("falls back outside large occupied content instead of returning a blocked start", () => {
+    const occupiedBounds = [
+      {
+        x: -10_000,
+        y: -10_000,
+        width: 20_000,
+        height: 20_000,
+      },
+    ];
+
+    const [placement] = placeGeneratedImages({
+      images: [{ width: 100, height: 100 }],
+      viewportCenter: { x: 0, y: 0 },
+      viewportSize: { width: 1200, height: 800 },
+      zoomValue: 1,
+      occupiedBounds,
+    });
+
+    expect(rectanglesOverlap(placement, occupiedBounds[0])).toBe(false);
+  });
+
+  it("uses a nearby open position beyond the initial search area instead of jumping past distant scene outliers", () => {
+    const imageSize = 100;
+    const gap = 32;
+    const step = imageSize + gap * 2;
+    const preferredStart = { x: -imageSize / 2, y: -imageSize / 2 };
+    const occupiedBounds = [];
+
+    for (let dy = -8; dy <= 8; dy += 1) {
+      for (let dx = -8; dx <= 8; dx += 1) {
+        occupiedBounds.push({
+          x: preferredStart.x + dx * step,
+          y: preferredStart.y + dy * step,
+          width: imageSize,
+          height: imageSize,
+        });
+      }
+    }
+    occupiedBounds.push(
+      {
+        x: -1_000_000,
+        y: preferredStart.y,
+        width: imageSize,
+        height: imageSize,
+      },
+      {
+        x: 1_000_000,
+        y: preferredStart.y,
+        width: imageSize,
+        height: imageSize,
+      },
+      {
+        x: preferredStart.x,
+        y: -1_000_000,
+        width: imageSize,
+        height: imageSize,
+      },
+      {
+        x: preferredStart.x,
+        y: 1_000_000,
+        width: imageSize,
+        height: imageSize,
+      },
+    );
+
+    const [placement] = placeGeneratedImages({
+      images: [{ width: imageSize, height: imageSize }],
+      viewportCenter: { x: 0, y: 0 },
+      viewportSize: { width: 1200, height: 800 },
+      zoomValue: 1,
+      occupiedBounds,
+      gap,
+    });
+
+    expect(
+      Math.hypot(
+        placement.x - preferredStart.x,
+        placement.y - preferredStart.y,
+      ),
+    ).toBeLessThan(step * 10);
+    expect(
+      occupiedBounds.some((bounds) => rectanglesOverlap(placement, bounds)),
+    ).toBe(false);
+  });
+
+  it("keeps referenced generation on the preferred side without an artificial workspace edge", () => {
     const placements = placeGeneratedImages({
       images: [{ width: 320, height: 180 }],
       viewportCenter: { x: 600, y: 400 },
@@ -114,16 +282,14 @@ describe("placeGeneratedImages", () => {
         width: 200,
         height: 180,
       },
-      workspaceBounds: {
-        x: 0,
-        y: 0,
-        width: 1200,
-        height: 800,
-      },
     });
 
-    expect(placements[0].x).toBeGreaterThanOrEqual(0);
-    expect(placements[0].x + placements[0].width).toBeLessThanOrEqual(1200);
+    expect(placements[0]).toMatchObject({
+      x: 1164,
+      y: 300,
+      width: 320,
+      height: 180,
+    });
   });
 
   it("places a generated batch around the latest canvas pointer", () => {
@@ -175,14 +341,10 @@ describe("placeGeneratedImages", () => {
     });
 
     expect(placements.map((placement) => placement.width)).toEqual([
-      512,
-      512,
-      512,
+      512, 512, 512,
     ]);
     expect(placements.map((placement) => placement.height)).toEqual([
-      512,
-      512,
-      512,
+      512, 512, 512,
     ]);
   });
 });

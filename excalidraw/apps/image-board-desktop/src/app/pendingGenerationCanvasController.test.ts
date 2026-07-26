@@ -161,7 +161,9 @@ describe("runPendingGenerationPlaceholderInsertCanvasAction", () => {
     });
 
     if (result.kind !== "inserted") {
-      throw new Error("Expected pending generation placeholders to be inserted.");
+      throw new Error(
+        "Expected pending generation placeholders to be inserted.",
+      );
     }
 
     expect(result.job).toMatchObject({
@@ -245,7 +247,6 @@ describe("createPendingGenerationCanvasRendererActions", () => {
     const setViewport = vi.fn();
     const assertActiveProject = vi.fn();
     const setPreviousBatchBounds = vi.fn();
-    const updateWorkspaceOverlay = vi.fn(() => null);
     const api = {
       getAppState: () => appState,
       getSceneElementsIncludingDeleted: () => [],
@@ -262,7 +263,6 @@ describe("createPendingGenerationCanvasRendererActions", () => {
       getLastCanvasPointer: () => ({ x: 40, y: 50 }),
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds,
-      updateWorkspaceOverlay,
       getGenerationTasks: () => generationTasks,
       setGenerationTasks,
       createJobId: () => "job-1",
@@ -282,7 +282,6 @@ describe("createPendingGenerationCanvasRendererActions", () => {
     });
     expect(assertActiveProject).toHaveBeenCalledTimes(2);
     expect(assertActiveProject).toHaveBeenCalledWith("/tmp/corestudio-project");
-    expect(updateWorkspaceOverlay).toHaveBeenCalledWith([], appState);
     expect(setPreviousBatchBounds).toHaveBeenCalledWith(
       expect.objectContaining({
         x: expect.any(Number),
@@ -307,7 +306,7 @@ describe("createPendingGenerationCanvasRendererActions", () => {
       getEditorApi: () => ({
         getSceneElementsIncludingDeleted: () => placeholderElements,
         updateScene,
-        getAppState: () => ({ selectedElementIds: {} }) as AppState,
+        getAppState: () => ({ selectedElementIds: {} } as AppState),
         addFiles: vi.fn(),
         setViewport: vi.fn(),
       }),
@@ -317,7 +316,6 @@ describe("createPendingGenerationCanvasRendererActions", () => {
       getLastCanvasPointer: () => null,
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(() => null),
       getGenerationTasks: () => generationTasks,
       setGenerationTasks,
     });
@@ -354,11 +352,12 @@ describe("createPendingGenerationCanvasRendererActions", () => {
     const actions = createPendingGenerationCanvasRendererActions({
       getEditorApi: () => ({
         getSceneElementsIncludingDeleted: () => placeholderElements,
-        getAppState: () => ({
-          selectedElementIds: {
-            [slots[0].frameId]: true,
-          },
-        }) as AppState,
+        getAppState: () =>
+          ({
+            selectedElementIds: {
+              [slots[0].frameId]: true,
+            },
+          } as AppState),
         addFiles,
         updateScene,
         setViewport: vi.fn(),
@@ -369,7 +368,6 @@ describe("createPendingGenerationCanvasRendererActions", () => {
       getLastCanvasPointer: () => null,
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(() => null),
       getGenerationTasks: () => generationTasks,
       setGenerationTasks,
     });

@@ -47,7 +47,6 @@ export const createDesktopProjectRepairSceneRefreshRendererActions = ({
   setLatestScene,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
-  updateWorkspaceOverlay,
   updateCurrentProject,
   updateSelectedInspector,
 }: {
@@ -66,15 +65,9 @@ export const createDesktopProjectRepairSceneRefreshRendererActions = ({
     | undefined;
   queueFiles: (files: BinaryFileData[]) => void;
   setLatestScene: (scene: DesktopProjectRepairSceneSnapshot) => void;
-  updateSceneImageFileIds: (
-    elements: readonly ExcalidrawElement[],
-  ) => void;
+  updateSceneImageFileIds: (elements: readonly ExcalidrawElement[]) => void;
   scheduleVisibleImageRenditionLoad: (
     scene: DesktopProjectRepairSceneSnapshot,
-  ) => void;
-  updateWorkspaceOverlay: (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
   ) => void;
   updateCurrentProject: (project: DesktopProjectBundle) => void;
   updateSelectedInspector: (input: {
@@ -145,7 +138,6 @@ export const createDesktopProjectRepairSceneRefreshRendererActions = ({
     setLatestScene,
     updateSceneImageFileIds,
     scheduleVisibleImageRenditionLoad,
-    updateWorkspaceOverlay,
     updateCurrentProject,
     updateSelectedInspector,
   });

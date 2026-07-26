@@ -1,11 +1,10 @@
-export interface GeneratedImageGeometry {
-  width: number;
-  height: number;
-}
+import { BinaryHeap } from "@excalidraw/common";
 
-export interface SceneBounds {
-  x: number;
-  y: number;
+import type { SceneBounds } from "../sceneGeometry";
+
+export type { SceneBounds } from "../sceneGeometry";
+
+export interface GeneratedImageGeometry {
   width: number;
   height: number;
 }
@@ -27,7 +26,6 @@ interface PlaceGeneratedImagesArgs {
   anchorBounds?: SceneBounds | null;
   occupiedBounds?: readonly SceneBounds[];
   previousBatchBounds?: SceneBounds | null;
-  workspaceBounds?: SceneBounds | null;
   gap?: number;
 }
 
@@ -106,19 +104,12 @@ const rectanglesOverlap = (
   first.y < second.y + second.height + padding &&
   first.y + first.height > second.y - padding;
 
-const rectangleInside = (rect: SceneBounds, bounds: SceneBounds) =>
-  rect.x >= bounds.x &&
-  rect.y >= bounds.y &&
-  rect.x + rect.width <= bounds.x + bounds.width &&
-  rect.y + rect.height <= bounds.y + bounds.height;
-
 const findNearestOpenBatchStart = ({
   startX,
   startY,
   totalWidth,
   totalHeight,
   occupiedBounds,
-  workspaceBounds,
   gap,
 }: {
   startX: number;
@@ -126,7 +117,6 @@ const findNearestOpenBatchStart = ({
   totalWidth: number;
   totalHeight: number;
   occupiedBounds: readonly SceneBounds[];
-  workspaceBounds?: SceneBounds | null;
   gap: number;
 }) => {
   const getBatchBounds = (x: number, y: number) => ({
@@ -135,59 +125,54 @@ const findNearestOpenBatchStart = ({
     width: totalWidth,
     height: totalHeight,
   });
-  const isOpen = (x: number, y: number) => {
+  const getBlockingBounds = (x: number, y: number) => {
     const batchBounds = getBatchBounds(x, y);
 
-    return !occupiedBounds.some((bounds) =>
+    return occupiedBounds.filter((bounds) =>
       rectanglesOverlap(batchBounds, bounds, gap),
     );
   };
-  const isInsideWorkspace = (x: number, y: number) => {
-    if (!workspaceBounds) {
-      return true;
+  type Candidate = { x: number; y: number; distanceSquared: number };
+  const candidates = new BinaryHeap<Candidate>(
+    (candidate) => candidate.distanceSquared,
+  );
+  const visited = new Set<string>();
+  const enqueueCandidate = (x: number, y: number) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
     }
-
-    return rectangleInside(getBatchBounds(x, y), workspaceBounds);
+    const key = `${x}:${y}`;
+    if (visited.has(key)) {
+      return;
+    }
+    visited.add(key);
+    candidates.push({
+      x,
+      y,
+      distanceSquared: (x - startX) ** 2 + (y - startY) ** 2,
+    });
   };
-  const isOpenInsideWorkspace = (x: number, y: number) =>
-    isOpen(x, y) && isInsideWorkspace(x, y);
 
-  if (isOpenInsideWorkspace(startX, startY)) {
-    return { x: startX, y: startY };
-  }
+  enqueueCandidate(startX, startY);
+  while (candidates.size()) {
+    const candidate = candidates.pop();
+    if (!candidate) {
+      break;
+    }
+    const blockingBounds = getBlockingBounds(candidate.x, candidate.y);
+    if (!blockingBounds.length) {
+      return { x: candidate.x, y: candidate.y };
+    }
 
-  let fallbackOpenStart = isOpen(startX, startY)
-    ? { x: startX, y: startY }
-    : null;
-
-  const stepX = totalWidth + gap * 2;
-  const stepY = totalHeight + gap * 2;
-
-  for (let radius = 1; radius <= 8; radius++) {
-    const candidates = [
-      { dx: 0, dy: radius },
-      { dx: 0, dy: -radius },
-      { dx: -radius, dy: 0 },
-      { dx: radius, dy: 0 },
-      { dx: -radius, dy: radius },
-      { dx: radius, dy: radius },
-      { dx: -radius, dy: -radius },
-      { dx: radius, dy: -radius },
-    ];
-
-    for (const candidate of candidates) {
-      const x = startX + candidate.dx * stepX;
-      const y = startY + candidate.dy * stepY;
-      if (!fallbackOpenStart && isOpen(x, y)) {
-        fallbackOpenStart = { x, y };
-      }
-      if (isOpenInsideWorkspace(x, y)) {
-        return { x, y };
-      }
+    for (const bounds of blockingBounds) {
+      enqueueCandidate(candidate.x, bounds.y + bounds.height + gap);
+      enqueueCandidate(candidate.x, bounds.y - gap - totalHeight);
+      enqueueCandidate(bounds.x - gap - totalWidth, candidate.y);
+      enqueueCandidate(bounds.x + bounds.width + gap, candidate.y);
     }
   }
 
-  return fallbackOpenStart ?? { x: startX, y: startY };
+  throw new Error("Unable to find a non-overlapping image placement");
 };
 
 export const placeGeneratedImages = ({
@@ -197,7 +182,6 @@ export const placeGeneratedImages = ({
   anchorBounds,
   occupiedBounds = [],
   previousBatchBounds,
-  workspaceBounds,
   gap = 32,
 }: PlaceGeneratedImagesArgs): ImagePlacement[] => {
   if (!images.length) {
@@ -207,7 +191,8 @@ export const placeGeneratedImages = ({
   const normalized = images.map((image) =>
     normalizeGeneratedImageDimensions(image),
   );
-  const columnCount = images.length === 1 ? 1 : Math.ceil(Math.sqrt(images.length));
+  const columnCount =
+    images.length === 1 ? 1 : Math.ceil(Math.sqrt(images.length));
   const rowCount = Math.ceil(images.length / columnCount);
   const columnWidths = Array.from({ length: columnCount }, (_, columnIndex) =>
     Math.max(
@@ -233,20 +218,20 @@ export const placeGeneratedImages = ({
   const anchorX = anchorBounds
     ? anchorBounds.x + anchorBounds.width + gap * 2 + totalWidth / 2
     : anchorPoint
-      ? anchorPoint.x
-      : previousBatchBounds
-        ? previousBatchBounds.x +
-          previousBatchBounds.width +
-          gap * 2 +
-          totalWidth / 2
-        : viewportCenter.x;
+    ? anchorPoint.x
+    : previousBatchBounds
+    ? previousBatchBounds.x +
+      previousBatchBounds.width +
+      gap * 2 +
+      totalWidth / 2
+    : viewportCenter.x;
   const anchorY = anchorBounds
     ? anchorBounds.y + anchorBounds.height / 2
     : anchorPoint
-      ? anchorPoint.y
-      : previousBatchBounds
-        ? previousBatchBounds.y + previousBatchBounds.height / 2
-        : viewportCenter.y;
+    ? anchorPoint.y
+    : previousBatchBounds
+    ? previousBatchBounds.y + previousBatchBounds.height / 2
+    : viewportCenter.y;
 
   const preferredStartX = anchorX - totalWidth / 2;
   const preferredStartY = anchorY - totalHeight / 2;
@@ -256,7 +241,6 @@ export const placeGeneratedImages = ({
     totalWidth,
     totalHeight,
     occupiedBounds,
-    workspaceBounds,
     gap,
   });
   const startX = openStart.x;
@@ -268,7 +252,9 @@ export const placeGeneratedImages = ({
 
     const cellX =
       startX +
-      columnWidths.slice(0, columnIndex).reduce((sum, width) => sum + width, 0) +
+      columnWidths
+        .slice(0, columnIndex)
+        .reduce((sum, width) => sum + width, 0) +
       gap * columnIndex;
     const cellY =
       startY +

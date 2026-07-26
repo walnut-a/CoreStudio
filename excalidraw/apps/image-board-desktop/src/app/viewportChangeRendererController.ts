@@ -1,4 +1,3 @@
-import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
 
 import {
@@ -21,10 +20,6 @@ export type ViewportChangeRendererActionsInput = {
   scheduleAgentBrowserRuntimeStatePublish: (
     scene: ImageRenditionSceneSnapshot,
   ) => void;
-  updateWorkspaceOverlay: (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-  ) => void;
 };
 
 export const runViewportChangeRendererAction = ({
@@ -36,7 +31,6 @@ export const runViewportChangeRendererAction = ({
   setLatestScene,
   scheduleVisibleImageRenditionLoad,
   scheduleAgentBrowserRuntimeStatePublish,
-  updateWorkspaceOverlay,
 }: {
   scrollX: number;
   scrollY: number;
@@ -63,7 +57,6 @@ export const runViewportChangeRendererAction = ({
   setLatestScene(nextScene);
   scheduleVisibleImageRenditionLoad(nextScene);
   scheduleAgentBrowserRuntimeStatePublish(nextScene);
-  updateWorkspaceOverlay(nextScene.elements, nextScene.appState);
 
   return { status: "updated" };
 };
@@ -74,7 +67,6 @@ export const createViewportChangeRendererActions = ({
   setLatestScene,
   scheduleVisibleImageRenditionLoad,
   scheduleAgentBrowserRuntimeStatePublish,
-  updateWorkspaceOverlay,
 }: ViewportChangeRendererActionsInput) => {
   const changeViewport = (
     scrollX: number,
@@ -90,7 +82,6 @@ export const createViewportChangeRendererActions = ({
       setLatestScene,
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
-      updateWorkspaceOverlay,
     });
 
   return { changeViewport };

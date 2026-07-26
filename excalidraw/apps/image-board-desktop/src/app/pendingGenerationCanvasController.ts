@@ -2,10 +2,7 @@ import { CaptureUpdateAction } from "@excalidraw/element";
 import type { CaptureUpdateActionType } from "@excalidraw/element";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
-import type {
-  AppState,
-  BinaryFileData,
-} from "@excalidraw/excalidraw/types";
+import type { AppState, BinaryFileData } from "@excalidraw/excalidraw/types";
 
 import { buildExcalidrawBinaryFilesFromImageAssets } from "./canvasImageAssetState";
 import { resolveGenerationCanvasReadiness } from "./generationCanvasReadiness";
@@ -39,12 +36,6 @@ import {
   type PendingGenerationPlacementApi,
   type PendingGenerationReferenceScene,
 } from "./pendingGenerationPlacementController";
-import {
-  ENABLE_WORKSPACE_BOUNDS,
-  getWorkspaceBounds,
-  type WorkspaceBounds,
-} from "./workspaceBounds";
-
 import type { PersistedImageAssetInput } from "../shared/desktopBridgeTypes";
 import type { GenerationRequest } from "../shared/providerTypes";
 
@@ -88,8 +79,7 @@ export interface PendingGenerationPlaceholderInsertRendererOptions {
 }
 
 export interface PendingGenerationPlaceholderInsertRendererActionsInput<
-  TProject extends PendingGenerationJobProjectContext =
-    PendingGenerationJobProjectContext,
+  TProject extends PendingGenerationJobProjectContext = PendingGenerationJobProjectContext,
 > {
   getEditorApi: () =>
     | PendingGenerationPlaceholderInsertRendererApi
@@ -104,10 +94,6 @@ export interface PendingGenerationPlaceholderInsertRendererActionsInput<
   getLastCanvasPointer: () => { x: number; y: number } | null;
   getPreviousBatchBounds: () => SceneBounds | null;
   setPreviousBatchBounds: (bounds: SceneBounds | null) => void;
-  updateWorkspaceOverlay: (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-  ) => WorkspaceBounds | null;
   getGenerationTasks: () => ReadonlyMap<string, GenerationTaskRecord>;
   setGenerationTasks: (
     generationTasks: Map<string, GenerationTaskRecord>,
@@ -155,7 +141,6 @@ export const runPendingGenerationPlaceholderInsertRendererAction = <
   getLastCanvasPointer,
   getPreviousBatchBounds,
   setPreviousBatchBounds,
-  updateWorkspaceOverlay,
   getGenerationTasks,
   setGenerationTasks,
   createGroupId,
@@ -184,19 +169,6 @@ export const runPendingGenerationPlaceholderInsertRendererAction = <
     fallbackReferenceScene: getFallbackReferenceScene() ?? null,
     lastCanvasPointer: getLastCanvasPointer(),
     previousBatchBounds: getPreviousBatchBounds(),
-    resolveWorkspaceBounds: ({
-      elements,
-      appState,
-      placementViewport,
-      explicitPlacementViewport,
-    }) =>
-      explicitPlacementViewport
-        ? ENABLE_WORKSPACE_BOUNDS
-          ? getWorkspaceBounds(elements, {
-              viewportCenter: placementViewport.viewportCenter,
-            })
-          : null
-        : updateWorkspaceOverlay(elements, appState),
   });
 
   assertActiveProject(options.expectedProjectPath);
@@ -313,12 +285,11 @@ export const runPendingGenerationPlaceholderInsertCanvasAction = <
     setGenerationTasks,
   });
 
-  const placeholderSceneUpdate =
-    buildPendingGenerationPlaceholderSceneUpdate({
-      existingElements: api.getSceneElementsIncludingDeleted(),
-      placeholderElements,
-      placeholderFrames,
-    });
+  const placeholderSceneUpdate = buildPendingGenerationPlaceholderSceneUpdate({
+    existingElements: api.getSceneElementsIncludingDeleted(),
+    placeholderElements,
+    placeholderFrames,
+  });
 
   api.updateScene({
     elements: placeholderSceneUpdate.elements,

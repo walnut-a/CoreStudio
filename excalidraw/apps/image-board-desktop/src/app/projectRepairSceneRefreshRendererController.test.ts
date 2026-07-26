@@ -89,19 +89,21 @@ describe("createDesktopProjectRepairSceneRefreshRendererActions", () => {
     const readProjectAssets = vi.fn(async () => [createThumbnailAsset()]);
     const replaceFiles = vi.fn();
     const updateScene = vi.fn();
-    const getAppState = vi.fn(() => ({
-      ...getDefaultAppState(),
-      scrollX: 345,
-      scrollY: -120,
-      zoom: { value: 0.75 },
-      width: 1280,
-      height: 720,
-    }) as AppState);
+    const getAppState = vi.fn(
+      () =>
+        ({
+          ...getDefaultAppState(),
+          scrollX: 345,
+          scrollY: -120,
+          zoom: { value: 0.75 },
+          width: 1280,
+          height: 720,
+        } as AppState),
+    );
     const queueFiles = vi.fn();
     const setLatestScene = vi.fn();
     const updateSceneImageFileIds = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
-    const updateWorkspaceOverlay = vi.fn();
     const updateCurrentProject = vi.fn();
     const updateSelectedInspector = vi.fn();
 
@@ -119,7 +121,6 @@ describe("createDesktopProjectRepairSceneRefreshRendererActions", () => {
       setLatestScene,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
-      updateWorkspaceOverlay,
       updateCurrentProject,
       updateSelectedInspector,
     });
@@ -186,7 +187,6 @@ describe("createDesktopProjectRepairSceneRefreshRendererActions", () => {
     );
     expect(updateSceneImageFileIds).toHaveBeenCalled();
     expect(scheduleVisibleImageRenditionLoad).toHaveBeenCalled();
-    expect(updateWorkspaceOverlay).toHaveBeenCalled();
   });
 
   it("queues restored scene files when the editor api is not ready", async () => {
@@ -203,7 +203,6 @@ describe("createDesktopProjectRepairSceneRefreshRendererActions", () => {
       setLatestScene: vi.fn(),
       updateSceneImageFileIds: vi.fn(),
       scheduleVisibleImageRenditionLoad: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
       updateCurrentProject: vi.fn(),
       updateSelectedInspector: vi.fn(),
     });

@@ -5,8 +5,6 @@ import { setActiveDesktopLocale } from "./copy";
 
 import {
   App,
-  DEFAULT_WORKSPACE_HEIGHT,
-  DEFAULT_WORKSPACE_WIDTH,
   act,
   createDeferred,
   createDesktopBridgeMock,
@@ -14,7 +12,6 @@ import {
   createMockProviderSettings,
   deserializeSceneFromProject,
   fireEvent,
-  getWorkspaceFitZoom,
   hoistedExportToBlob,
   mockExcalidrawAPI,
   newFrameElement,
@@ -268,9 +265,7 @@ describe("App startup", () => {
   it("reports desktop project theme changes to the shell", async () => {
     const notifyProjectThemeChanged = vi.fn();
     window.imageBoardDesktop = createDesktopBridgeMock({
-      openRecentProject: vi
-        .fn()
-        .mockResolvedValue(createMockProjectBundle()),
+      openRecentProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
       notifyProjectThemeChanged,
     }) as any;
 
@@ -3438,66 +3433,6 @@ describe("App startup", () => {
     ]);
   });
 
-  it("keeps the workspace overlay in canvas-local coordinates after viewport offsets change", async () => {
-    const contentFrame = newFrameElement({
-      x: 100,
-      y: 200,
-      width: 300,
-      height: 200,
-    });
-
-    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
-      elements: [contentFrame],
-      appState: {
-        width: 1440,
-        height: 900,
-        scrollX: 0,
-        scrollY: 0,
-        zoom: { value: 1 },
-        selectedElementIds: {},
-        selectedGroupIds: {},
-        viewBackgroundColor: "#ffffff",
-      } as any,
-      files: {},
-    });
-    window.imageBoardDesktop = createDesktopBridgeMock() as any;
-
-    render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
-    await waitFor(() => {
-      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
-    });
-    act(() => {
-      triggerExcalidrawScrollChange?.({
-        scrollX: -50,
-        scrollY: -80,
-        zoom: { value: 0.01 },
-        appState: {
-          width: 1440,
-          height: 900,
-          offsetLeft: 22,
-          offsetTop: 34,
-        },
-      });
-    });
-
-    const overlay = document.querySelector(
-      ".image-board-workspace-bounds",
-    ) as HTMLElement | null;
-
-    expect(overlay).toBeTruthy();
-    expect(parseFloat(overlay!.style.left)).toBeCloseTo(-16);
-    expect(parseFloat(overlay!.style.top)).toBeCloseTo(-9.8);
-    expect(parseFloat(overlay!.style.width)).toBeCloseTo(36);
-    expect(parseFloat(overlay!.style.height)).toBeCloseTo(24);
-  });
-
   it("ignores stale native menu project bundles that arrive out of order", async () => {
     const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
     let menuActionListener:
@@ -4081,93 +4016,6 @@ describe("App startup", () => {
       "false",
     );
     expect(screen.queryByTestId("mock-selected-shape-actions")).toBeNull();
-  });
-
-  it("soft-stops zoom at the workspace fit level before allowing further zoom-out", async () => {
-    window.imageBoardDesktop = createDesktopBridgeMock() as any;
-
-    render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
-
-    act(() => {
-      triggerExcalidrawChange?.({
-        elements: [],
-        appState: {
-          width: 1440,
-          height: 900,
-          scrollX: 0,
-          scrollY: 0,
-          zoom: { value: 0.5 },
-          selectedElementIds: {},
-          selectedGroupIds: {},
-        },
-        files: {},
-      });
-    });
-
-    mockExcalidrawAPI?.updateScene.mockClear();
-
-    act(() => {
-      triggerExcalidrawChange?.({
-        elements: [],
-        appState: {
-          width: 1440,
-          height: 900,
-          scrollX: 0,
-          scrollY: 0,
-          zoom: { value: 0.08 },
-          selectedElementIds: {},
-          selectedGroupIds: {},
-        },
-        files: {},
-      });
-    });
-
-    const snapCall = mockExcalidrawAPI?.updateScene.mock.calls.find(
-      ([scene]) => scene.appState?.zoom,
-    );
-    const expectedFitZoom = getWorkspaceFitZoom(
-      {
-        x: -DEFAULT_WORKSPACE_WIDTH / 2,
-        y: -DEFAULT_WORKSPACE_HEIGHT / 2,
-        width: DEFAULT_WORKSPACE_WIDTH,
-        height: DEFAULT_WORKSPACE_HEIGHT,
-      },
-      {
-        width: 1440,
-        height: 900,
-      },
-    );
-    expect(snapCall?.[0].appState?.zoom.value).toBeCloseTo(expectedFitZoom!);
-    expect(
-      document.querySelector(".image-board-workspace-bounds--fit-pulse"),
-    ).toBeTruthy();
-
-    mockExcalidrawAPI?.updateScene.mockClear();
-
-    act(() => {
-      triggerExcalidrawChange?.({
-        elements: [],
-        appState: {
-          width: 1440,
-          height: 900,
-          scrollX: 0,
-          scrollY: 0,
-          zoom: { value: 0.08 },
-          selectedElementIds: {},
-          selectedGroupIds: {},
-        },
-        files: {},
-      });
-    });
-
-    expect(mockExcalidrawAPI?.updateScene).not.toHaveBeenCalled();
   });
 
   it("shows selected image parameters inside the CoreStudio side dock instead of a standalone right column", async () => {
@@ -6072,9 +5920,7 @@ describe("App startup", () => {
       },
     });
     const submitProjectRoomOperation = vi.fn(async (input) => {
-      throw new Error(
-        `磁盘不可写：${input.operation.operationId as string}`,
-      );
+      throw new Error(`磁盘不可写：${input.operation.operationId as string}`);
     });
 
     window.imageBoardDesktop = createDesktopBridgeMock({

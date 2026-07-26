@@ -101,8 +101,6 @@ const createBundleOpenInput = (patch: Record<string, unknown> = {}) => {
     latestSceneRef: { current: null },
     updateSceneImageFileIds: vi.fn(),
     scheduleVisibleImageRenditionLoad: vi.fn(),
-    updateWorkspaceOverlay: vi.fn(),
-    resetWorkspaceZoomGate: vi.fn(),
     lastCanvasPointerRef: { current: { pointer: true } },
     setSelectedRecord: vi.fn(),
     setSelectedTask: vi.fn(),
@@ -252,8 +250,6 @@ describe("runProjectViewClearAction", () => {
       setSceneImageFileIds: vi.fn(),
       updateCurrentProject: vi.fn(),
       setInitialData: vi.fn(),
-      setWorkspaceOverlayState: vi.fn(),
-      resetWorkspaceZoomGate: vi.fn(),
       updateEditorInitializing: vi.fn(),
       setSelectedRecord: vi.fn(),
       setSelectedTask: vi.fn(),
@@ -271,8 +267,6 @@ describe("runProjectViewClearAction", () => {
     expect(callbacks.setSceneImageFileIds).toHaveBeenCalledWith([]);
     expect(callbacks.updateCurrentProject).toHaveBeenCalledWith(null);
     expect(callbacks.setInitialData).toHaveBeenCalledWith(null);
-    expect(callbacks.setWorkspaceOverlayState).toHaveBeenCalledWith(null);
-    expect(callbacks.resetWorkspaceZoomGate).toHaveBeenCalledTimes(1);
     expect(callbacks.updateEditorInitializing).toHaveBeenCalledWith(false);
     expect(callbacks.setSelectedRecord).toHaveBeenCalledWith(null);
     expect(callbacks.setSelectedTask).toHaveBeenCalledWith(null);
@@ -296,8 +290,6 @@ describe("createProjectViewClearRendererActions", () => {
       setSceneImageFileIds: vi.fn(),
       updateCurrentProject: vi.fn(),
       setInitialData: vi.fn(),
-      setWorkspaceOverlayState: vi.fn(),
-      resetWorkspaceZoomGate: vi.fn(),
       updateEditorInitializing: vi.fn(),
       setSelectedRecord: vi.fn(),
       setSelectedTask: vi.fn(),
@@ -317,8 +309,6 @@ describe("createProjectViewClearRendererActions", () => {
     expect(callbacks.setSceneImageFileIds).toHaveBeenCalledWith([]);
     expect(callbacks.updateCurrentProject).toHaveBeenCalledWith(null);
     expect(callbacks.setInitialData).toHaveBeenCalledWith(null);
-    expect(callbacks.setWorkspaceOverlayState).toHaveBeenCalledWith(null);
-    expect(callbacks.resetWorkspaceZoomGate).toHaveBeenCalledTimes(1);
     expect(callbacks.updateEditorInitializing).toHaveBeenCalledWith(false);
     expect(callbacks.setSelectedRecord).toHaveBeenCalledWith(null);
     expect(callbacks.setSelectedTask).toHaveBeenCalledWith(null);
@@ -1139,8 +1129,6 @@ describe("runProjectBundleOpenSuccessAction", () => {
       latestSceneRef,
       updateSceneImageFileIds: vi.fn(),
       scheduleVisibleImageRenditionLoad: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
-      resetWorkspaceZoomGate: vi.fn(),
       lastCanvasPointerRef,
       setSelectedRecord: vi.fn(),
       setSelectedTask: vi.fn(),
@@ -1176,11 +1164,6 @@ describe("runProjectBundleOpenSuccessAction", () => {
     expect(callbacks.scheduleVisibleImageRenditionLoad).toHaveBeenCalledWith(
       latestScene,
     );
-    expect(callbacks.updateWorkspaceOverlay).toHaveBeenCalledWith(
-      elements,
-      appState,
-    );
-    expect(callbacks.resetWorkspaceZoomGate).toHaveBeenCalledTimes(1);
     expect(lastCanvasPointerRef.current).toBe(null);
     expect(callbacks.setSelectedRecord).toHaveBeenCalledWith(null);
     expect(callbacks.setSelectedTask).toHaveBeenCalledWith(null);
@@ -1273,8 +1256,6 @@ describe("runCurrentProjectBundleOpenRendererAction", () => {
     expect(input.setInitialData).toHaveBeenCalledTimes(1);
     expect(input.updateSceneImageFileIds).toHaveBeenCalledTimes(1);
     expect(input.scheduleVisibleImageRenditionLoad).toHaveBeenCalledTimes(1);
-    expect(input.updateWorkspaceOverlay).toHaveBeenCalledTimes(1);
-    expect(input.resetWorkspaceZoomGate).toHaveBeenCalledTimes(1);
     expect(input.loadRecentProjectsState).toHaveBeenCalledTimes(1);
   });
 

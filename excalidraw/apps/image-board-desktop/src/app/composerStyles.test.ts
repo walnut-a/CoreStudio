@@ -17,7 +17,6 @@ const {
   readGenerateComposerActionBar,
   readAboutDialog,
   readGenerationErrorDetailsDialog,
-  readWorkspaceBoundsOverlay,
   readProjectRenderBoundary,
   readAppBridgeUnavailable,
   readAppProjectEntryScreen,
@@ -641,9 +640,6 @@ describe("generate composer styles", () => {
     expect(source).toContain("createAppUnmountCleanupRendererActions");
     expect(source).toContain("useDesktopStartupWiring");
     expect(wiring).toContain("appUnmountCleanupRendererActions.cleanup");
-    expect(source).not.toContain(
-      "workspaceFitPulseRendererActions.clearTimer();",
-    );
     expect(source).not.toContain("projectNoticeRendererActions.clearTimer();");
     expect(source).not.toContain(
       "visibleImageRenditionLoadRendererActions.clearTimer();",
@@ -1075,7 +1071,9 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("syncSelectionReferenceIntoRequest");
     expect(source).not.toContain("buildSelectionReferenceSummary");
     expect(source).not.toContain("getSelectionReferenceSignature");
-    expect(source).not.toContain("createDesktopProjectCanvasChangeRendererActions");
+    expect(source).not.toContain(
+      "createDesktopProjectCanvasChangeRendererActions",
+    );
   });
 
   it("keeps generation submit routing outside the root app", () => {
@@ -1225,50 +1223,6 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("const clearProjectNotice");
     expect(source).not.toContain("showTimedNoticeAction");
     expect(source).not.toContain("clearTimedNoticeAction");
-  });
-
-  it("keeps workspace fit pulse timer wiring outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("createWorkspaceFitPulseRendererActions");
-    expect(source).toContain("workspaceFitPulseRendererActions.trigger");
-    expect(source).toContain("workspaceFitPulseRendererActions.reset");
-    expect(source).toContain("workspaceFitPulseRendererActions.clearTimer");
-    expect(source).not.toContain("const resetWorkspaceZoomGate");
-    expect(source).not.toContain("const clearWorkspaceFitPulseTimer");
-    expect(source).not.toContain("const triggerWorkspaceFitPulse");
-    expect(source).not.toContain("resetWorkspaceFitPulseAction");
-    expect(source).not.toContain("triggerWorkspaceFitPulseAction");
-  });
-
-  it("keeps workspace overlay state wiring outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("createWorkspaceOverlayRendererActions");
-    expect(source).toContain("workspaceOverlayRendererActions.update");
-    expect(source).not.toContain("const updateWorkspaceOverlay");
-    expect(source).not.toContain("buildWorkspaceOverlayState(");
-    expect(source).not.toContain("buildWorkspaceOverlayStateUpdate");
-  });
-
-  it("keeps workspace bounds overlay rendering outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("WorkspaceBoundsOverlay");
-    expect(source).not.toContain("const renderWorkspaceBoundsOverlay");
-    expect(source).not.toContain('"image-board-workspace-bounds"');
-    expect(source).not.toContain("image-board-workspace-bounds--fit-pulse");
-  });
-
-  it("keeps workspace zoom snapping wiring outside the root app", () => {
-    const source = readImageBoardApp();
-
-    expect(source).toContain("createWorkspaceZoomSnapRendererActions");
-    expect(source).toContain("workspaceZoomSnapRendererActions.maybeSnap");
-    expect(source).not.toContain("const maybeSnapWorkspaceZoom");
-    expect(source).not.toContain("resolveWorkspaceZoomGate");
-    expect(source).not.toContain("getViewportCenteredZoomState");
-    expect(source).not.toContain("getWorkspaceFitZoom");
   });
 
   it("keeps Agent Board runtime publish timer wiring outside the root app", () => {

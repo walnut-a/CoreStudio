@@ -131,8 +131,6 @@ export interface ProjectViewClearRendererActionsInput {
   setSceneImageFileIds: (fileIds: []) => void;
   updateCurrentProject: (project: null) => void;
   setInitialData: (initialData: null) => void;
-  setWorkspaceOverlayState: (state: null) => void;
-  resetWorkspaceZoomGate: () => void;
   updateEditorInitializing: (initializing: false) => void;
   setSelectedRecord: (record: null) => void;
   setSelectedTask: (task: null) => void;
@@ -149,8 +147,6 @@ export const runProjectViewClearAction = ({
   setSceneImageFileIds,
   updateCurrentProject,
   setInitialData,
-  setWorkspaceOverlayState,
-  resetWorkspaceZoomGate,
   updateEditorInitializing,
   setSelectedRecord,
   setSelectedTask,
@@ -165,8 +161,6 @@ export const runProjectViewClearAction = ({
   setSceneImageFileIds([]);
   updateCurrentProject(null);
   setInitialData(null);
-  setWorkspaceOverlayState(null);
-  resetWorkspaceZoomGate();
   updateEditorInitializing(false);
   setSelectedRecord(null);
   setSelectedTask(null);
@@ -857,8 +851,6 @@ export const runProjectBundleOpenSuccessAction = <
   latestSceneRef,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
-  updateWorkspaceOverlay,
-  resetWorkspaceZoomGate,
   lastCanvasPointerRef,
   setSelectedRecord,
   setSelectedTask,
@@ -882,8 +874,6 @@ export const runProjectBundleOpenSuccessAction = <
   latestSceneRef: CurrentProjectMutableRef<Scene | null>;
   updateSceneImageFileIds: (elements: Elements) => void;
   scheduleVisibleImageRenditionLoad: (scene: Scene) => void;
-  updateWorkspaceOverlay: (elements: Elements, appState: AppStateValue) => void;
-  resetWorkspaceZoomGate: () => void;
   lastCanvasPointerRef: CurrentProjectClearableRef<unknown>;
   setSelectedRecord: (record: null) => void;
   setSelectedTask: (task: null) => void;
@@ -905,8 +895,6 @@ export const runProjectBundleOpenSuccessAction = <
   latestSceneRef.current = latestScene;
   updateSceneImageFileIds(latestScene.elements);
   scheduleVisibleImageRenditionLoad(latestScene);
-  updateWorkspaceOverlay(latestScene.elements, latestScene.appState);
-  resetWorkspaceZoomGate();
 
   lastCanvasPointerRef.current = null;
   setSelectedRecord(null);
@@ -994,11 +982,6 @@ export interface CurrentProjectBundleOpenRendererActionsInput {
   scheduleVisibleImageRenditionLoad: (
     scene: ProjectBundleOpenLatestScene,
   ) => void;
-  updateWorkspaceOverlay: (
-    elements: ProjectBundleOpenLatestScene["elements"],
-    appState: ProjectBundleOpenLatestScene["appState"],
-  ) => void;
-  resetWorkspaceZoomGate: () => void;
   lastCanvasPointerRef: CurrentProjectClearableRef<unknown>;
   setSelectedRecord: (record: null) => void;
   setSelectedTask: (task: null) => void;
@@ -1040,8 +1023,6 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
   latestSceneRef,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
-  updateWorkspaceOverlay,
-  resetWorkspaceZoomGate,
   lastCanvasPointerRef,
   setSelectedRecord,
   setSelectedTask,
@@ -1146,8 +1127,6 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
       latestSceneRef,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
-      updateWorkspaceOverlay,
-      resetWorkspaceZoomGate,
       lastCanvasPointerRef,
       setSelectedRecord,
       setSelectedTask,

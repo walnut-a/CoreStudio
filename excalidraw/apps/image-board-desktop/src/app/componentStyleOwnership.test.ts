@@ -17,7 +17,6 @@ const {
   readGenerateComposerActionBar,
   readAboutDialog,
   readGenerationErrorDetailsDialog,
-  readWorkspaceBoundsOverlay,
   readProjectRenderBoundary,
   readAppBridgeUnavailable,
   readAppProjectEntryScreen,
@@ -106,24 +105,6 @@ describe("component style ownership boundaries", () => {
     expect(preRule).toContain("font: 12px/1.6");
     expect(preRule).toContain("max-height: 260px");
     expect(rootAppCss).not.toContain(".debug-error-dialog");
-  });
-
-  it("keeps workspace bounds overlay styles with the overlay owner component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const overlaySource = readWorkspaceBoundsOverlay();
-    const overlayRule = getRule(appCss, ".image-board-workspace-bounds");
-    const pulseRule = getRule(
-      appCss,
-      ".image-board-workspace-bounds--fit-pulse",
-    );
-
-    expect(overlaySource).toContain('import "./WorkspaceBoundsOverlay.css";');
-    expect(overlayRule).toContain("position: absolute");
-    expect(overlayRule).toContain("pointer-events: none");
-    expect(pulseRule).toContain("border-color: rgba(75, 107, 255, 0.72)");
-    expect(pulseRule).toContain("0 0 22px rgba(75, 107, 255, 0.2)");
-    expect(rootAppCss).not.toContain(".image-board-workspace-bounds");
   });
 
   it("keeps project render boundary runtime error styles with the boundary owner component", () => {

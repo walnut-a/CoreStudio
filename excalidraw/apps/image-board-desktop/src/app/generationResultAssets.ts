@@ -14,27 +14,38 @@ const getPromptHistoryText = (request: GenerationRequest) =>
 export const buildCoreStudioGeneratedImageAssetInputs = ({
   request,
   response,
+  imageIndexes,
   createFileId = () => crypto.randomUUID(),
 }: {
   request: GenerationRequest;
   response: GenerationResponse;
+  imageIndexes?: readonly number[];
   createFileId?: (index: number) => string;
 }): PersistedImageAssetInput[] => {
   const promptHistoryText = getPromptHistoryText(request);
   const promptReferences = buildImagePromptReferenceRecords(request);
+  const selectedImageIndexes =
+    imageIndexes ?? response.images.map((_image, index) => index);
 
-  return response.images.map((image, index) => ({
-    ...image,
-    fileId: createFileId(index),
-    sourceType: "generated",
-    generationOrigin: "corestudio",
-    provider: response.provider,
-    model: response.model,
-    prompt: promptHistoryText,
-    negativePrompt: request.negativePrompt,
-    seed: response.seed,
-    createdAt: response.createdAt,
-    parentFileId: request.reference?.debug?.fileId ?? null,
-    ...(promptReferences.length ? { promptReferences } : {}),
-  }));
+  return selectedImageIndexes.flatMap((index) => {
+    const image = response.images[index];
+    return image
+      ? [
+          {
+            ...image,
+            fileId: createFileId(index),
+            sourceType: "generated" as const,
+            generationOrigin: "corestudio" as const,
+            provider: response.provider,
+            model: response.model,
+            prompt: promptHistoryText,
+            negativePrompt: request.negativePrompt,
+            seed: response.seed,
+            createdAt: response.createdAt,
+            parentFileId: request.reference?.debug?.fileId ?? null,
+            ...(promptReferences.length ? { promptReferences } : {}),
+          },
+        ]
+      : [];
+  });
 };

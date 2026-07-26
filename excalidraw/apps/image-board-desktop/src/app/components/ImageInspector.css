@@ -39,7 +39,7 @@
 
 .inspector-sidebar__section-header h3 {
   margin: 0;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: 0.75rem;
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
@@ -68,7 +68,7 @@
 .inspector-sidebar__empty {
   margin: 0;
   padding: 0 14px 14px;
-  color: var(--color-gray-60);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-60));
   font-size: 0.8125rem;
   line-height: 1.45;
 }
@@ -135,7 +135,7 @@
 }
 
 .image-inspector__empty-card p {
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   line-height: 1.55;
 }
 
@@ -187,7 +187,7 @@
 
 .image-inspector__hero p {
   margin: 0;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   line-height: 1.6;
 }
 
@@ -202,7 +202,7 @@
   padding: 4px 7px;
   border-radius: var(--border-radius-md);
   background: color-mix(in srgb, var(--text-primary-color) 4%, transparent);
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--image-inspector-caption-size);
   line-height: 1.25;
 }
@@ -327,7 +327,7 @@
 .image-inspector__detail-item dt {
   font-size: var(--image-inspector-caption-size);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-gray-60);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-60));
   user-select: text;
 }
 

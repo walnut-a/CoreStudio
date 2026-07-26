@@ -16,20 +16,11 @@
   -webkit-app-region: drag;
 }
 
-.desktop-project-tabs--dark {
-  --color-surface-high: #2e2d39;
-  --color-surface-low: hsl(240, 8%, 15%);
-  --color-surface-lowest: hsl(0, 0%, 7%);
-  --color-on-surface: #e3e3e8;
-  --color-gray-70: #b8b8b8;
-  --button-hover-bg: var(--color-surface-high);
-}
-
 .desktop-project-tabs__home,
 .desktop-project-tabs__tab,
 .desktop-project-tabs__close {
   border: 0;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color);
   background: transparent;
   font: inherit;
   -webkit-app-region: no-drag;
@@ -75,7 +66,7 @@
   display: flex;
   align-items: center;
   border-radius: var(--border-radius-md);
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color);
   -webkit-app-region: no-drag;
 }
 

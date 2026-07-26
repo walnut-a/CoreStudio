@@ -288,6 +288,52 @@ const readEditorParts = (editor: HTMLElement | null) => {
   );
 };
 
+const arePromptPartsEqual = (
+  left: readonly GenerationPromptPart[],
+  right: readonly GenerationPromptPart[],
+) => {
+  const normalizedLeft = stripBrowserFillerContent(mergeTextParts([...left]));
+  const normalizedRight = stripBrowserFillerContent(mergeTextParts([...right]));
+
+  return (
+    normalizedLeft.length === normalizedRight.length &&
+    normalizedLeft.every((part, index) => {
+      const other = normalizedRight[index];
+      return part.type === "text"
+        ? other?.type === "text" && other.text === part.text
+        : other?.type === "reference" && other.referenceId === part.referenceId;
+    })
+  );
+};
+
+const areReferenceDecorationsEqual = (
+  left: readonly GenerationPromptReferencePayload[],
+  right: readonly GenerationPromptReferencePayload[],
+) =>
+  left.length === right.length &&
+  left.every((reference, index) => {
+    const other = right[index];
+    return (
+      other?.id === reference.id &&
+      other.label === reference.label &&
+      other.thumbnailDataUrl === reference.thumbnailDataUrl
+    );
+  });
+
+const arePendingReferenceDecorationsEqual = (
+  left: GenerationReferencePayload | null,
+  right: GenerationReferencePayload | null,
+) => {
+  if (!left || !right) {
+    return left === right;
+  }
+
+  return (
+    getPendingReferenceLabel(left) === getPendingReferenceLabel(right) &&
+    getPendingThumbnail(left) === getPendingThumbnail(right)
+  );
+};
+
 const nodeTextLength = (node: Node): number => {
   if (node.nodeType === Node.TEXT_NODE) {
     return node.textContent?.length ?? 0;
@@ -510,6 +556,12 @@ export const InlinePromptEditor = forwardRef<
     const restoreOffsetRef = useRef<number | null>(null);
     const composingRef = useRef(false);
     const compositionCommitTimerRef = useRef<number | null>(null);
+    const renderedReferencesRef = useRef<
+      GenerationPromptReferencePayload[] | null
+    >(null);
+    const renderedPendingReferenceRef =
+      useRef<GenerationReferencePayload | null>(null);
+    const renderedResetKeyRef = useRef<number | null>(null);
 
     useEffect(() => {
       if (composingRef.current) {
@@ -529,15 +581,40 @@ export const InlinePromptEditor = forwardRef<
     );
 
     useLayoutEffect(() => {
+      const editor = editorRef.current;
+      const contentMatches = arePromptPartsEqual(
+        readEditorParts(editor),
+        localParts,
+      );
+      const decorationsMatch =
+        renderedReferencesRef.current !== null &&
+        areReferenceDecorationsEqual(
+          renderedReferencesRef.current,
+          references,
+        ) &&
+        arePendingReferenceDecorationsEqual(
+          renderedPendingReferenceRef.current,
+          pendingReference,
+        );
+      const resetMatches = renderedResetKeyRef.current === resetKey;
+
+      if (contentMatches && decorationsMatch && resetMatches) {
+        restoreOffsetRef.current = null;
+        return;
+      }
+
       renderEditorContent({
-        editor: editorRef.current,
+        editor,
         parts: localParts,
         references,
         pendingReference,
       });
-      restoreCaretOffset(editorRef.current, restoreOffsetRef.current);
+      renderedReferencesRef.current = [...references];
+      renderedPendingReferenceRef.current = pendingReference;
+      renderedResetKeyRef.current = resetKey;
+      restoreCaretOffset(editor, restoreOffsetRef.current);
       restoreOffsetRef.current = null;
-    }, [localParts, pendingReference, references]);
+    }, [localParts, pendingReference, references, resetKey]);
 
     const commitDomChange = () => {
       if (composingRef.current) {

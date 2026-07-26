@@ -1,6 +1,4 @@
-import {
-  applyBuiltinGenerationSubmittedRequestState,
-} from "./generationRequestState";
+import { applyBuiltinGenerationSubmittedRequestState } from "./generationRequestState";
 import { prepareBuiltinGenerationRequestRendererAction } from "./generationRequestRendererController";
 import {
   readPendingGenerationJobAsyncResultPlan,
@@ -17,13 +15,17 @@ import type {
   GenerateImagesInput,
   DesktopProjectBundle,
 } from "../shared/desktopBridgeTypes";
-import type { GenerationRequest, GenerationResponse } from "../shared/providerTypes";
+import type {
+  GenerationRequest,
+  GenerationResponse,
+} from "../shared/providerTypes";
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
 
 type PrepareBuiltinGenerationInput = Parameters<
   typeof prepareBuiltinGenerationRequestRendererAction
 >[0];
-type BuiltinGenerationSourceScene = PrepareBuiltinGenerationInput["sourceScene"];
+type BuiltinGenerationSourceScene =
+  PrepareBuiltinGenerationInput["sourceScene"];
 
 export interface RunBuiltinGenerationRendererActionInput<
   TPlacementViewport = unknown,
@@ -166,7 +168,12 @@ export const runBuiltinGenerationRendererAction = async <
       });
       await runPendingGenerationJobSuccessResultAction({
         getResultPlan: getPendingJobAsyncResultPlan,
-        finish: () => finishPendingJob(pendingJob, preparedRequest, response),
+        finish: () => {
+          const latestJob = getGenerationJobs().get(pendingJob.jobId);
+          return latestJob
+            ? finishPendingJob(latestJob, preparedRequest, response)
+            : undefined;
+        },
       });
     } catch (error: unknown) {
       if (getPendingJobAsyncResultPlan("failure").kind !== "mark-failed") {
@@ -175,8 +182,22 @@ export const runBuiltinGenerationRendererAction = async <
       const errorDetails = showGenerationError(preparedRequest, error);
       runPendingGenerationJobFailureResultAction({
         getResultPlan: getPendingJobAsyncResultPlan,
-        markFailed: () =>
-          markPendingGenerationFailed(pendingJob, errorDetails),
+        markFailed: () => {
+          const latestJob = getGenerationJobs().get(pendingJob.jobId);
+          if (!latestJob) {
+            return;
+          }
+          const dismissedSlotIds = new Set(latestJob.dismissedSlotIds ?? []);
+          markPendingGenerationFailed(
+            {
+              ...latestJob,
+              slots: latestJob.slots.filter(
+                (slot) => !dismissedSlotIds.has(slot.frameId),
+              ),
+            },
+            errorDetails,
+          );
+        },
       });
     } finally {
       runPendingGenerationJobRegistryRemoveAction({

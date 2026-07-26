@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type {
   DesktopProjectBundle,
+  DesktopProjectTheme,
   DesktopProjectViewsState,
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
@@ -17,6 +18,12 @@ const EMPTY_PROJECT_VIEWS_STATE: DesktopProjectViewsState = {
   activeProjectPath: null,
   projects: [],
 };
+
+const getInitialShellTheme = (): DesktopProjectTheme =>
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 
 export interface DesktopShellAppProps {
   localePreference?: DesktopLocalePreference;
@@ -38,6 +45,8 @@ export const DesktopShellApp = ({
   const [loadingProject, setLoadingProject] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [shellTheme, setShellTheme] =
+    useState<DesktopProjectTheme>(getInitialShellTheme);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [appSettingsCategory, setAppSettingsCategory] =
     useState<ApplicationSettingsCategory>("image-generation");
@@ -139,9 +148,23 @@ export const DesktopShellApp = ({
     };
   }, [applyOpenedBundle, bridge]);
 
+  const activeProject = projectViewsState.activeProjectPath
+    ? projectViewsState.projects.find(
+        (project) =>
+          project.projectPath === projectViewsState.activeProjectPath,
+      ) ?? null
+    : null;
+  const currentShellTheme = activeProject?.theme ?? shellTheme;
+
+  useEffect(() => {
+    if (activeProject?.theme) {
+      setShellTheme(activeProject.theme);
+    }
+  }, [activeProject?.theme]);
+
   if (!bridge) {
     return (
-      <div className="image-board-app">
+      <div className="image-board-app" data-theme={currentShellTheme}>
         <div className="welcome-pane">
           <p role="alert">CoreStudio 桌面桥接不可用。</p>
         </div>
@@ -149,12 +172,6 @@ export const DesktopShellApp = ({
     );
   }
 
-  const activeProject = projectViewsState.activeProjectPath
-    ? projectViewsState.projects.find(
-        (project) =>
-          project.projectPath === projectViewsState.activeProjectPath,
-      ) ?? null
-    : null;
   const titlebar = (
     <DesktopProjectTabs
       tabs={projectViewsState.projects.map((project) => ({
@@ -162,7 +179,7 @@ export const DesktopShellApp = ({
         name: project.name,
       }))}
       activeProjectPath={projectViewsState.activeProjectPath}
-      theme={activeProject?.theme ?? "light"}
+      theme={currentShellTheme}
       onShowHome={() => {
         void runProjectViewAction(() => bridge.activateProjectView?.(null));
       }}
@@ -264,6 +281,7 @@ export const DesktopShellApp = ({
         }
         manualProjectActionsVisible={true}
         globalDialogs={applicationSettings}
+        theme={currentShellTheme}
       />
     </>
   );

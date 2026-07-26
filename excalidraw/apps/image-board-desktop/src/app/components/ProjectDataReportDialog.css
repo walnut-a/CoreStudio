@@ -28,7 +28,7 @@
 .project-health-group__header span,
 .project-health-group__suggestion,
 .project-health-issue__meta {
-  color: var(--color-gray-60);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-60));
 }
 
 .project-health-dialog__summary strong {
@@ -116,7 +116,7 @@
   padding: 2px 6px;
   border-radius: var(--border-radius-md);
   background: var(--island-bg-color);
-  color: var(--color-gray-60);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-60));
   font-size: 0.75rem;
   line-height: 1.2;
   font-weight: var(--font-weight-medium);

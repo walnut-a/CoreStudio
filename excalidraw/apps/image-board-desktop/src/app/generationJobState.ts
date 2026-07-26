@@ -8,6 +8,7 @@ export interface PendingGenerationJob {
   jobId: string;
   projectPath: string;
   slots: PendingGenerationSlot[];
+  dismissedSlotIds?: string[];
 }
 
 export interface EmptyGenerationTrackingState {
@@ -294,15 +295,18 @@ export const buildPendingGenerationJobSlotCompletionPlan = ({
   completedCount: number;
 }): PendingGenerationJobSlotCompletionPlan => {
   const normalizedCompletedCount = Math.max(0, completedCount);
+  const dismissedSlotIds = new Set(job.dismissedSlotIds ?? []);
+  const activeSlotsWithIndexes = job.slots
+    .map((slot, assetIndex) => ({ slot, assetIndex }))
+    .filter(({ slot }) => !dismissedSlotIds.has(slot.frameId));
 
   return {
-    replacements: job.slots
-      .slice(0, normalizedCompletedCount)
-      .map((slot, assetIndex) => ({
-        slot,
-        assetIndex,
-      })),
-    failedSlots: job.slots.slice(normalizedCompletedCount),
+    replacements: activeSlotsWithIndexes.filter(
+      ({ assetIndex }) => assetIndex < normalizedCompletedCount,
+    ),
+    failedSlots: activeSlotsWithIndexes
+      .filter(({ assetIndex }) => assetIndex >= normalizedCompletedCount)
+      .map(({ slot }) => slot),
   };
 };
 

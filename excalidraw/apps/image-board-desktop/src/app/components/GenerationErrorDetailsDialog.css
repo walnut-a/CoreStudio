@@ -21,7 +21,7 @@
 
 .debug-error-dialog__meta span {
   font-size: 12px;
-  color: var(--color-gray-60);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-60));
 }
 
 .debug-error-dialog__meta strong {

@@ -1,6 +1,6 @@
 import {
+  newElement,
   newElementWith,
-  newFrameElement,
   newImageElement,
   newTextElement,
 } from "@excalidraw/element";
@@ -41,7 +41,8 @@ export const buildPendingGenerationPlaceholders = ({
   const placeholderFrames: ExcalidrawElement[] = [];
   const placeholderElements = placements.flatMap((placement, index) => {
     const slotGroupId = createGroupId(index);
-    const frame = newFrameElement({
+    const container = newElement({
+      type: "rectangle",
       x: placement.x,
       y: placement.y,
       width: placement.width,
@@ -64,7 +65,7 @@ export const buildPendingGenerationPlaceholders = ({
             }`
           : copy.generateDialog.pendingCanvasLabel,
       groupIds: [slotGroupId],
-      frameId: frame.id,
+      containerId: container.id,
       fontSize: 24,
       textAlign: "center",
       verticalAlign: "middle",
@@ -72,6 +73,9 @@ export const buildPendingGenerationPlaceholders = ({
       strokeColor: PENDING_PLACEHOLDER_STROKE,
       backgroundColor: "transparent",
       roughness: 0,
+    });
+    const frame = newElementWith(container, {
+      boundElements: [{ type: "text", id: label.id }],
     });
 
     placeholderFrames.push(frame);

@@ -64,6 +64,37 @@ export interface ApplyBuiltinGenerationSceneRoomUpdateInput<
   files: Files;
 }
 
+const buildPendingGenerationJobForLiveSlots = ({
+  job,
+  isSlotActive,
+}: {
+  job: PendingGenerationJob;
+  isSlotActive: (slot: PendingGenerationJob["slots"][number]) => boolean;
+}) => {
+  const dismissedSlotIds = new Set(job.dismissedSlotIds ?? []);
+  job.slots.forEach((slot) => {
+    if (!isSlotActive(slot)) {
+      dismissedSlotIds.add(slot.frameId);
+    }
+  });
+  const orderedDismissedSlotIds = job.slots
+    .filter((slot) => dismissedSlotIds.has(slot.frameId))
+    .map((slot) => slot.frameId);
+  const previousDismissedSlotIds = job.dismissedSlotIds ?? [];
+  const isUnchanged =
+    orderedDismissedSlotIds.length === previousDismissedSlotIds.length &&
+    orderedDismissedSlotIds.every(
+      (slotId, index) => slotId === previousDismissedSlotIds[index],
+    );
+
+  return isUnchanged
+    ? job
+    : {
+        ...job,
+        dismissedSlotIds: orderedDismissedSlotIds,
+      };
+};
+
 export const runBuiltinGenerationJobCompletionAction = async <
   Elements extends readonly ExcalidrawElement[],
   AppStateValue extends AppState,
@@ -74,6 +105,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
   response,
   getActiveProject,
   beginGeneratedAssets,
+  isSlotActive = () => true,
   replaceSlot,
   markSlotFailed,
   getCanvasSnapshot,
@@ -89,6 +121,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
   beginGeneratedAssets: (
     input: PersistBuiltinGenerationAssetsInput,
   ) => Promise<ProjectImageWritebackHandle>;
+  isSlotActive?: (slot: PendingGenerationJob["slots"][number]) => boolean;
   replaceSlot: (
     slot: PendingGenerationJob["slots"][number],
     asset: PersistedImageAssetInput,
@@ -119,8 +152,18 @@ export const runBuiltinGenerationJobCompletionAction = async <
   }) => void;
   flushProjectRoom: (options: { strict: true }) => Promise<unknown> | unknown;
 }): Promise<BuiltinGenerationJobCompletionResult> => {
-  const completionPlan = buildPendingGenerationJobCompletionPlan({
+  const liveJob = buildPendingGenerationJobForLiveSlots({
     job,
+    isSlotActive,
+  });
+  const activeSlotCount =
+    liveJob.slots.length - (liveJob.dismissedSlotIds?.length ?? 0);
+  if (activeSlotCount === 0) {
+    return { kind: "skipped" };
+  }
+
+  const completionPlan = buildPendingGenerationJobCompletionPlan({
+    job: liveJob,
     project: getActiveProject(),
     completedCount: response.images.length,
   });
@@ -136,12 +179,15 @@ export const runBuiltinGenerationJobCompletionAction = async <
   const files = buildCoreStudioGeneratedImageAssetInputs({
     request,
     response,
+    imageIndexes: completionPlan.replacements.map(
+      ({ assetIndex }) => assetIndex,
+    ),
   });
   if (files.length === 0) {
     try {
       completionPlan.failedSlots.forEach((slot) => {
         const failure = buildPendingGenerationMissingResultFailure({
-          job,
+          job: liveJob,
           slot,
           message: "模型没有返回这张图。",
         });
@@ -149,7 +195,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
       });
       const snapshot = getCanvasSnapshot();
       const sceneCommitPlan = buildPendingGenerationJobSceneCommitPlan({
-        job,
+        job: liveJob,
         project: getActiveProject(),
         hasCanvasApi: Boolean(snapshot),
       });
@@ -192,19 +238,41 @@ export const runBuiltinGenerationJobCompletionAction = async <
     };
   }
   const writeback = await beginGeneratedAssets({
-    projectPath: job.projectPath,
+    projectPath: liveJob.projectPath,
     projectImageRecords: completionPlan.project.imageRecords,
     activeProject: getActiveProject(),
     files,
   });
+  const jobAfterPersistence = buildPendingGenerationJobForLiveSlots({
+    job: liveJob,
+    isSlotActive,
+  });
+  if (jobAfterPersistence !== liveJob) {
+    await writeback.rollback();
+    return runBuiltinGenerationJobCompletionAction({
+      job: jobAfterPersistence,
+      request,
+      response,
+      getActiveProject,
+      beginGeneratedAssets,
+      isSlotActive,
+      replaceSlot,
+      markSlotFailed,
+      getCanvasSnapshot,
+      restoreCanvasSnapshot,
+      applySceneRoomUpdate,
+      afterSceneCommit,
+      flushProjectRoom,
+    });
+  }
   try {
-    completionPlan.replacements.forEach(({ slot, assetIndex }) => {
-      replaceSlot(slot, files[assetIndex]);
+    completionPlan.replacements.forEach(({ slot }, replacementIndex) => {
+      replaceSlot(slot, files[replacementIndex]);
     });
 
     completionPlan.failedSlots.forEach((slot) => {
       const failure = buildPendingGenerationMissingResultFailure({
-        job,
+        job: liveJob,
         slot,
         message: "模型没有返回这张图。",
       });
@@ -213,7 +281,7 @@ export const runBuiltinGenerationJobCompletionAction = async <
 
     const snapshot = getCanvasSnapshot();
     const sceneCommitPlan = buildPendingGenerationJobSceneCommitPlan({
-      job,
+      job: liveJob,
       project: getActiveProject(),
       hasCanvasApi: Boolean(snapshot),
     });
@@ -271,6 +339,7 @@ export interface BuiltinGenerationJobCompletionRendererActionsInput<
     activeProject: DesktopProjectBundle | null;
     files: PersistedImageAssetInput[];
   }) => Promise<ProjectImageWritebackHandle>;
+  isSlotActive?: (slot: PendingGenerationJob["slots"][number]) => boolean;
   replaceSlot: (
     slot: PendingGenerationJob["slots"][number],
     asset: PersistedImageAssetInput,
@@ -304,6 +373,7 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
 >({
   getActiveProject,
   beginProjectImageWriteback,
+  isSlotActive,
   replaceSlot,
   markSlotFailed,
   getCanvasSnapshot,
@@ -328,6 +398,7 @@ export const createBuiltinGenerationJobCompletionRendererActions = <
       response,
       getActiveProject,
       beginGeneratedAssets: beginProjectImageWriteback,
+      isSlotActive,
       replaceSlot,
       markSlotFailed,
       getCanvasSnapshot,

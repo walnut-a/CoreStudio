@@ -121,7 +121,7 @@
 .settings-list-header p {
   margin: 6px 0 0;
   max-width: 62ch;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-lg);
   line-height: var(--ui-line-height-relaxed);
   text-wrap: pretty;
@@ -138,7 +138,7 @@
 .settings-section-label {
   display: block;
   margin-bottom: 14px;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-sm);
   font-weight: var(--font-weight-semibold);
 }
@@ -216,7 +216,7 @@
 
 .settings-model-catalog p {
   margin: 4px 0 0;
-  color: var(--text-secondary-color);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-sm);
 }
 
@@ -245,7 +245,7 @@
 
 .settings-about-summary dt,
 .settings-about-dependency-list dt {
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-sm);
   font-weight: var(--font-weight-semibold);
 }
@@ -302,7 +302,7 @@
 
 .settings-service-empty p {
   margin: 0;
-  color: var(--text-secondary-color);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
 }
 
 .settings-provider-picker {
@@ -333,7 +333,7 @@
 }
 
 .settings-provider-option small {
-  color: var(--text-secondary-color);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-sm);
 }
 
@@ -366,7 +366,7 @@
 .settings-model-row button {
   padding: 4px 8px;
   font: inherit;
-  color: var(--text-secondary-color);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -417,7 +417,7 @@
 
 .settings-service-row small {
   overflow: hidden;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -474,7 +474,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-sm);
 }
 
@@ -495,7 +495,7 @@
 
 .settings-form-card__feedback {
   margin: 0;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-lg);
 }
 
@@ -522,7 +522,7 @@
 .settings-install-card p,
 .settings-start-card p {
   margin: 6px 0 0;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   line-height: var(--ui-line-height-relaxed);
 }
 
@@ -594,7 +594,7 @@
 
 .settings-check-row small,
 .settings-check-row em {
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-sm);
   font-style: normal;
 }
@@ -649,7 +649,7 @@
 
 .app-settings-confirm p {
   margin: 8px 0 20px;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-lg);
 }
 

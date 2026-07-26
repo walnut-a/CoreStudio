@@ -354,6 +354,32 @@ describe("pending generation job slot completion plan", () => {
       failedSlots: [],
     });
   });
+
+  it("keeps original result indexes when an earlier slot was dismissed", () => {
+    const job: PendingGenerationJob = {
+      ...buildPendingGenerationJob({
+        jobId: "job-1",
+        projectPath: "/projects/industrial",
+        slots: [slot, secondSlot, thirdSlot],
+      }),
+      dismissedSlotIds: [slot.frameId],
+    };
+
+    expect(
+      buildPendingGenerationJobSlotCompletionPlan({
+        job,
+        completedCount: 2,
+      }),
+    ).toEqual({
+      replacements: [
+        {
+          slot: secondSlot,
+          assetIndex: 1,
+        },
+      ],
+      failedSlots: [thirdSlot],
+    });
+  });
 });
 
 describe("pending generation job project match plan", () => {

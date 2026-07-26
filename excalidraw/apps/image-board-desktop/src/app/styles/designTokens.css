@@ -76,6 +76,7 @@
   --color-gray-70: #5c5c5c;
   --color-border-outline-variant: #c5c5d0;
   --color-danger-background: #fff0f0;
+  --color-danger: #db6965;
   --color-danger-darker: #d65550;
   --color-danger-color: #700000;
   --color-success-background: #e8f6ef;
@@ -95,4 +96,50 @@
   --side-dock-z-index: 35;
   --canvas-footer-overlay-z-index: 45;
   --dropdown-icon: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M3.25 5.4 7 9.15l3.75-3.75" fill="none" stroke="%231b1b1f" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  --corestudio-secondary-text-color: color-mix(
+    in srgb,
+    var(--text-primary-color) 68%,
+    var(--island-bg-color)
+  );
+}
+
+/*
+ * The desktop Home shell lives outside Excalidraw's renderer tree, so it
+ * cannot inherit `.excalidraw.theme--dark` directly. Keep this boundary on
+ * the same token vocabulary and values as packages/excalidraw/css/theme.scss.
+ */
+.image-board-app[data-theme="dark"] {
+  color-scheme: dark;
+  --text-primary-color: var(--color-on-surface);
+  --island-bg-color: #232329;
+  --island-bg-color-alt: hsl(240, 12%, 12%);
+  --default-bg-color: #121212;
+  --default-border-color: var(--color-surface-high);
+  --dialog-border-color: #3d3d3d;
+  --input-bg-color: #121212;
+  --input-border-color: #2e2e2e;
+  --input-hover-bg-color: #181818;
+  --input-label-color: #ebebeb;
+  --button-hover-bg: var(--color-surface-high);
+  --button-active-bg: var(--color-surface-high);
+  --button-active-border: var(--color-brand-active);
+  --color-primary: #a8a5ff;
+  --color-primary-hover: #bbb8ff;
+  --color-primary-darkest: #beb9ff;
+  --color-icon-white: #1e1e1e;
+  --color-surface-high: #2e2d39;
+  --color-surface-low: hsl(240, 8%, 15%);
+  --color-surface-lowest: hsl(0, 0%, 7%);
+  --color-surface-mid: hsl(240 6% 10%);
+  --color-surface-primary-container: #403e6a;
+  --color-on-surface: #e3e3e8;
+  --color-on-primary-container: #e0dfff;
+  --color-brand-active: #d0ccff;
+  --color-border-outline-variant: #46464f;
+  --color-danger-background: #fbcbcc;
+  --color-danger: #ffa8a5;
+  --color-danger-darker: #8f2625;
+  --color-danger-color: #261919;
+  --color-warning-color: #3d3d3d;
+  --dropdown-icon: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><path d="M3.25 5.4 7 9.15l3.75-3.75" fill="none" stroke="%23ced4da" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 }

@@ -30,6 +30,14 @@ const currentProject = {
     enabled: true,
   },
 };
+const backgroundProject = {
+  projectPath: "/Users/alice/CoreStudio/project-2",
+  name: "Project 2",
+  agentAccess: {
+    token: "project-token-2",
+    enabled: true,
+  },
+};
 
 const requestJson = async (
   baseUrl: string,
@@ -610,7 +618,7 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
-  it("returns stable Board diagnostics and executes only a typed repair action", async () => {
+  it("returns stable Board diagnostics without exposing a browser repair route", async () => {
     const inspectStableBoardIntegration = vi.fn(async () => ({
       state: "repair-required" as const,
       appVersion: "1.1.26",
@@ -623,18 +631,10 @@ describe("createLocalBridgeServer", () => {
           message: "需要更新集成。",
         },
       ],
-      repairActions: [
-        {
-          type: "install-codex-integration" as const,
-          label: "更新 Codex 集成",
-        },
-      ],
     }));
-    const repairStableBoardIntegration = vi.fn(async () => ({ ok: true }));
     const { server } = await track(
       startServer({
         inspectStableBoardIntegration,
-        repairStableBoardIntegration,
       }),
     );
     const identity = {
@@ -657,40 +657,22 @@ describe("createLocalBridgeServer", () => {
         ok: true,
         data: {
           state: "repair-required",
-          repairActions: [{ type: "install-codex-integration" }],
         },
       },
     });
 
     const repair = await requestJsonWithoutAuth(
       server.baseUrl,
-      AGENT_HTTP_ROUTES.stableBoardIntegrationRepair,
+      "/v1/agent-board/integration/repair",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "install-codex-integration" }),
       },
     );
-    expect(repair).toEqual({
-      status: 200,
-      body: { ok: true, data: { ok: true } },
-    });
-    expect(repairStableBoardIntegration).toHaveBeenCalledWith({
-      action: "install-codex-integration",
-    });
-
-    const rejected = await requestJsonWithoutAuth(
-      server.baseUrl,
-      AGENT_HTTP_ROUTES.stableBoardIntegrationRepair,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "run-shell" }),
-      },
-    );
-    expect(rejected).toMatchObject({
-      status: 400,
-      body: { error: { code: "BAD_REQUEST" } },
+    expect(repair).toMatchObject({
+      status: 404,
+      body: { error: { code: "UNSUPPORTED_COMMAND" } },
     });
   });
 
@@ -936,11 +918,50 @@ describe("createLocalBridgeServer", () => {
     const result = await requestJson(server.baseUrl, route);
 
     expect(result.status).toBe(200);
-    expect(renderer.request).toHaveBeenCalledWith(command);
+    expect(renderer.request).toHaveBeenCalledWith(command, {
+      projectPath: currentProject.projectPath,
+    });
     expect(result.body).toEqual({
       ok: true,
       data: {
         command,
+        payload: {
+          projectPath: currentProject.projectPath,
+        },
+      },
+    });
+  });
+
+  it("routes an authenticated background project to its own renderer", async () => {
+    const { server, renderer } = await track(
+      startServer({
+        getProjectByToken: async (token) =>
+          token === backgroundProject.agentAccess.token
+            ? backgroundProject
+            : null,
+      }),
+    );
+
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.projectCurrent}`,
+      {
+        headers: {
+          Authorization: `Bearer ${backgroundProject.agentAccess.token}`,
+        },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(renderer.request).toHaveBeenCalledWith("project.current", {
+      projectPath: backgroundProject.projectPath,
+    });
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      data: {
+        command: "project.current",
+        payload: {
+          projectPath: backgroundProject.projectPath,
+        },
       },
     });
   });
@@ -1215,6 +1236,7 @@ describe("createLocalBridgeServer", () => {
     expect(renderer.request).toHaveBeenCalledWith("desktop.bridge", {
       method: "loadAppInfo",
       args: [],
+      projectPath: currentProject.projectPath,
     });
     expect(result.body).toEqual({
       ok: true,
@@ -1223,6 +1245,7 @@ describe("createLocalBridgeServer", () => {
         payload: {
           method: "loadAppInfo",
           args: [],
+          projectPath: currentProject.projectPath,
         },
       },
     });
@@ -1409,6 +1432,8 @@ describe("createLocalBridgeServer", () => {
     expect(result.status).toBe(200);
     expect(renderer.request).toHaveBeenCalledWith("scene.imagePaths", {
       fileIds: ["file-1", "file-2"],
+      projectPath: currentProject.projectPath,
+      dryRun: false,
     });
   });
 

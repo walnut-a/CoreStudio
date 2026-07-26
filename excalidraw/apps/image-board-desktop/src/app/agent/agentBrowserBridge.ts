@@ -202,22 +202,6 @@ export const inspectStableAgentBoardIntegration = ({
     },
   );
 
-export const repairStableAgentBoardIntegration = ({
-  bridge,
-  action,
-}: {
-  bridge: string;
-  action: "install-codex-integration";
-}) =>
-  requestAgentBridge<unknown>(
-    { bridge },
-    AGENT_HTTP_ROUTES.stableBoardIntegrationRepair,
-    {
-      method: "POST",
-      body: JSON.stringify({ action }),
-    },
-  );
-
 const callDesktopBridge = <T>(
   config: AgentBrowserBridgeConfig,
   method: AgentDesktopBridgeMethod,

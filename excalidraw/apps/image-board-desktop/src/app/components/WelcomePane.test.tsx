@@ -35,6 +35,29 @@ describe("WelcomePane", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("uses the project list as the only recent-project entry point", () => {
+    const onOpenRecentProject = vi.fn();
+
+    render(
+      <WelcomePane
+        loading={false}
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        recentProjects={recentProjects}
+        onOpenRecentProject={onOpenRecentProject}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "继续最近项目" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^常用项目/ }));
+    expect(onOpenRecentProject).toHaveBeenCalledWith(
+      "/Users/zhaolixing/Documents/工业设计助手/常用项目",
+    );
+  });
+
   it("separates deleting a project record from deleting local project data", () => {
     const onRemoveRecentProject = vi.fn();
     const onRevealProject = vi.fn();

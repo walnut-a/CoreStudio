@@ -1,17 +1,19 @@
 import fs from "fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "path";
-import type { BaseWindow, IpcMainEvent } from "electron";
+import type { BaseWindow, IpcMainEvent, WebContents } from "electron";
 
 import {
   BrowserWindow,
   Menu,
+  WebContentsView,
   app,
   clipboard,
   dialog,
   ipcMain,
   nativeImage,
   shell,
+  webContents,
 } from "electron";
 
 import {
@@ -20,12 +22,18 @@ import {
   type DesktopMenuEvent,
   type DesktopAgentBridgeStatus,
   type DesktopProjectStateChangedPayload,
+  type DesktopProjectViewsState,
+  type DesktopProjectViewOpenOptions,
   type DesktopProjectBundle,
   type RecentProjectEntry,
   type DeleteProviderSettingsInput,
   type GenerateImagesInput,
   type SaveProviderSettingsInput,
 } from "../src/shared/desktopBridgeTypes";
+import {
+  buildDesktopProjectRendererUrl,
+  buildDesktopShellRendererUrl,
+} from "../src/shared/desktopRendererRoute";
 import type { DesktopLocalePreference } from "../src/shared/desktopLocale";
 import type {
   DesktopProjectRoomEventEnvelope,
@@ -137,6 +145,22 @@ import {
   collectProjectRoomAgentImageFileIds,
   readProjectRoomAgentScene,
 } from "./room/projectRoomAgentRead";
+import {
+  createProjectRendererPartition,
+  createProjectViewRegistry,
+  type ProjectViewRegistry,
+} from "./projectViewRegistry";
+import { createProjectRendererLifecycle } from "./projectRendererLifecycle";
+import {
+  createProjectRoomSenderBindings,
+  type ProjectRoomSenderBindings,
+} from "./room/projectRoomSenderBindings";
+import {
+  buildDesktopStartupIdentity,
+  resolveDesktopWindowTitle,
+} from "./desktopStartupIdentity";
+import { createActiveProjectDescriptorSync } from "./activeProjectDescriptorSync";
+import { resolveDesktopMenuEventTarget } from "./desktopMenuEventRouting";
 
 installBrokenPipeConsoleGuard();
 
@@ -158,6 +182,8 @@ let agentSessionWriteChain: Promise<void> = Promise.resolve();
 let localeSettingsController: ReturnType<
   typeof createLocaleSettingsController
 > | null = null;
+let projectViewRegistry: ProjectViewRegistry | null = null;
+let projectRoomSenderBindings: ProjectRoomSenderBindings | null = null;
 const quitState = createQuitState();
 const agentSessionPath = getAgentSessionPath();
 const taskGrantStore = createTaskGrantStore();
@@ -271,6 +297,7 @@ const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingProjectRoomFlushes = new Map<
   number,
   {
+    expectedSenderId: number;
     resolve: () => void;
     reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
@@ -279,6 +306,123 @@ const pendingProjectRoomFlushes = new Map<
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
 const isDev = Boolean(rendererUrl);
+const desktopWindowTitle = resolveDesktopWindowTitle({
+  appName: DESKTOP_APP_NAME,
+  configuredTitle: process.env.CORESTUDIO_WINDOW_TITLE,
+});
+const DESKTOP_TITLEBAR_HEIGHT = 44;
+
+const getProjectViewRegistry = () => {
+  if (!projectViewRegistry) {
+    throw Object.assign(new Error("Project renderer registry is not ready."), {
+      code: "PROJECT_SESSION_REQUIRED",
+    });
+  }
+  return projectViewRegistry;
+};
+
+const getProjectRoomSenderBindings = () => {
+  if (!projectRoomSenderBindings) {
+    throw Object.assign(
+      new Error("Project room sender bindings are not ready."),
+      { code: "PROJECT_SESSION_REQUIRED" },
+    );
+  }
+  return projectRoomSenderBindings;
+};
+
+const getProjectViewBounds = (targetWindow: BrowserWindow) => {
+  const { width, height } = targetWindow.getContentBounds();
+  return {
+    x: 0,
+    y: DESKTOP_TITLEBAR_HEIGHT,
+    width,
+    height: Math.max(0, height - DESKTOP_TITLEBAR_HEIGHT),
+  };
+};
+
+const requireShellSender = (sender: WebContents) => {
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    sender.id !== mainWindow.webContents.id
+  ) {
+    throw Object.assign(
+      new Error("This project view action is only available to the app shell."),
+      { code: "PROJECT_MISMATCH" },
+    );
+  }
+};
+
+const requireProjectRendererSender = (
+  sender: WebContents,
+  projectPath?: string,
+) => {
+  const registry = getProjectViewRegistry();
+  if (projectPath) {
+    return registry.requireSenderProject(sender.id, projectPath);
+  }
+  const project = registry
+    .snapshot()
+    .projects.find((candidate) => candidate.webContentsId === sender.id);
+  if (!project) {
+    throw Object.assign(
+      new Error("The IPC sender is not a registered project renderer."),
+      { code: "PROJECT_SESSION_REQUIRED" },
+    );
+  }
+  return project;
+};
+
+const requireShellOrProjectRendererSender = (sender: WebContents) => {
+  if (
+    mainWindow &&
+    !mainWindow.isDestroyed() &&
+    sender.id === mainWindow.webContents.id
+  ) {
+    return;
+  }
+  requireProjectRendererSender(sender);
+};
+
+const requireShellOrActiveProjectSenderForHome = (sender: WebContents) => {
+  if (
+    mainWindow &&
+    !mainWindow.isDestroyed() &&
+    sender.id === mainWindow.webContents.id
+  ) {
+    return;
+  }
+  const project = requireProjectRendererSender(sender);
+  if (
+    getProjectViewRegistry().snapshot().activeProjectPath !==
+    project.projectPath
+  ) {
+    throw Object.assign(
+      new Error("Only the active project renderer can show the project Home."),
+      { code: "PROJECT_MISMATCH" },
+    );
+  }
+};
+
+const releaseProjectRendererRoomSessions = (senderId: number) => {
+  const sessionIds = projectRoomSenderBindings?.removeSender(senderId) ?? [];
+  for (const sessionId of sessionIds) {
+    projectRoomIpcController.leave(sessionId);
+  }
+};
+
+const publishProjectViewsState = (state: DesktopProjectViewsState) => {
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    mainWindow.webContents.isDestroyed()
+  ) {
+    return;
+  }
+  mainWindow.webContents.send(IPC_CHANNELS.projectViewsState, state);
+  Menu.setApplicationMenu(buildMenu());
+};
 
 configureNoSystemKeychainAccess(app.commandLine);
 app.setName(DESKTOP_APP_NAME);
@@ -318,11 +462,21 @@ const isClipboardPermission = (permission: string) =>
 
 const configureRendererPermissions = (targetWindow: BrowserWindow) => {
   const targetWebContents = targetWindow.webContents;
+  const isTrustedDesktopRenderer = (candidate: WebContents | null) =>
+    Boolean(
+      candidate &&
+        (candidate.id === targetWebContents.id ||
+          projectViewRegistry
+            ?.snapshot()
+            .projects.some(
+              (project) => project.webContentsId === candidate.id,
+            )),
+    );
 
   targetWebContents.session.setPermissionRequestHandler(
     (webContents, permission, callback) => {
       callback(
-        webContents.id === targetWebContents.id &&
+        isTrustedDesktopRenderer(webContents) &&
           isClipboardPermission(permission),
       );
     },
@@ -330,7 +484,27 @@ const configureRendererPermissions = (targetWindow: BrowserWindow) => {
 
   targetWebContents.session.setPermissionCheckHandler(
     (webContents, permission) =>
-      webContents?.id === targetWebContents.id &&
+      isTrustedDesktopRenderer(webContents) &&
+      isClipboardPermission(permission),
+  );
+};
+
+const configureProjectRendererPermissions = (
+  targetWebContents: WebContents,
+) => {
+  const isTrustedProjectRenderer = (candidate: WebContents | null) =>
+    Boolean(candidate && candidate.id === targetWebContents.id);
+  targetWebContents.session.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      callback(
+        isTrustedProjectRenderer(webContents) &&
+          isClipboardPermission(permission),
+      );
+    },
+  );
+  targetWebContents.session.setPermissionCheckHandler(
+    (webContents, permission) =>
+      isTrustedProjectRenderer(webContents) &&
       isClipboardPermission(permission),
   );
 };
@@ -339,6 +513,28 @@ const sendRendererMenuEvent = (
   event: DesktopMenuEvent,
   ownerWindow?: BaseWindow | null,
 ) => {
+  const eventTarget = resolveDesktopMenuEventTarget(event);
+  if (eventTarget !== "shell") {
+    try {
+      const activeProject = getProjectViewRegistry().resolveCommandProject();
+      const targetProjectWebContents = webContents.fromId(
+        activeProject.webContentsId,
+      );
+      if (targetProjectWebContents && !targetProjectWebContents.isDestroyed()) {
+        targetProjectWebContents.send(IPC_CHANNELS.menuAction, event);
+        return;
+      }
+    } catch {
+      if (eventTarget === "active-project") {
+        return;
+      }
+    }
+
+    if (eventTarget === "active-project") {
+      return;
+    }
+  }
+
   const targetWindow = getTargetWindow(ownerWindow);
   if (!targetWindow || targetWindow.webContents.isDestroyed()) {
     return;
@@ -517,20 +713,61 @@ const setCurrentProject = async (
   }
 };
 
-const createMainRendererCommandBridge = () =>
-  createRendererCommandBridge({
+const syncActiveProjectDescriptor = createActiveProjectDescriptorSync({
+  getActiveProjectPath: () =>
+    projectViewRegistry?.snapshot().activeProjectPath ?? null,
+  readProjectDescriptor: async (projectPath) => {
+    const bundle = await readProjectBundle(projectPath);
+    return {
+      name: bundle.project.name,
+      agentAccess: bundle.project.agentAccess,
+    };
+  },
+  setCurrentProject,
+});
+
+const createMainRendererCommandBridge = () => {
+  const requestTargetIds = new Map<string, number>();
+  const resolveTargetWebContents = (payload: unknown) => {
+    const explicitProjectPath =
+      payload &&
+      typeof payload === "object" &&
+      !Array.isArray(payload) &&
+      "projectPath" in payload &&
+      typeof payload.projectPath === "string"
+        ? payload.projectPath
+        : null;
+    const project =
+      getProjectViewRegistry().resolveCommandProject(explicitProjectPath);
+    const targetWebContents = webContents.fromId(project.webContentsId);
+    if (!targetWebContents || targetWebContents.isDestroyed()) {
+      throw Object.assign(
+        new Error(`Project renderer is not available: ${project.projectPath}`),
+        {
+          code: "PROJECT_SESSION_REQUIRED",
+          details: {
+            projectPath: project.projectPath,
+            webContentsId: project.webContentsId,
+          },
+        },
+      );
+    }
+    return targetWebContents;
+  };
+  return createRendererCommandBridge({
     send: (channel, request) => {
-      const targetWindow = getTargetWindow();
-      if (!targetWindow || targetWindow.webContents.isDestroyed()) {
-        throw new Error("CoreStudio renderer is not ready");
-      }
-      targetWindow.webContents.send(channel, request);
+      const targetWebContents = resolveTargetWebContents(request.payload);
+      requestTargetIds.set(request.requestId, targetWebContents.id);
+      targetWebContents.send(channel, request);
     },
     onResponse: (listener) => {
       const handler = (
-        _event: IpcMainEvent,
+        event: IpcMainEvent,
         response: AgentRendererCommandResponse,
       ) => {
+        if (requestTargetIds.get(response.requestId) !== event.sender.id) {
+          return;
+        }
         listener(response);
       };
       ipcMain.on(IPC_CHANNELS.agentCommandResponse, handler);
@@ -538,15 +775,15 @@ const createMainRendererCommandBridge = () =>
         ipcMain.removeListener(IPC_CHANNELS.agentCommandResponse, handler);
       };
     },
-    isAvailable: () => {
-      const targetWindow = getTargetWindow();
-      return Boolean(
-        rendererReady &&
-          targetWindow &&
-          !targetWindow.webContents.isDestroyed(),
-      );
+    // Target availability is resolved in send() from the authenticated
+    // projectPath. Keeping this check registry-scoped preserves structured
+    // routing errors instead of replacing them with a generic message.
+    isAvailable: () => Boolean(projectViewRegistry),
+    onSettled: (requestId) => {
+      requestTargetIds.delete(requestId);
     },
   });
+};
 
 const startLocalBridge = async () => {
   if (localBridgeHandle) {
@@ -722,27 +959,7 @@ const startLocalBridge = async () => {
             pageNonce,
           }),
           issues,
-          repairActions: repairRequired
-            ? [
-                {
-                  type: "install-codex-integration" as const,
-                  label: "更新 Codex 集成",
-                },
-              ]
-            : [],
         };
-      },
-      repairStableBoardIntegration: async () => {
-        const result = await installCodexIntegration({
-          resourcesPath: process.resourcesPath,
-        });
-        if (!result.ok) {
-          throw Object.assign(new Error(result.error), {
-            code: "COMMAND_FAILED",
-            details: result.details,
-          });
-        }
-        return result;
       },
       issueBoardProjectSelection: async ({ threadId, displayLabel }) => ({
         selectionToken: boardProjectSelectionStore.issue({
@@ -1085,9 +1302,12 @@ const sendProjectOpenErrorToRenderer = (
   );
 };
 
-const openRecentProjectBundle = async (projectPath: string) => {
+const openRecentProjectBundle = async (
+  projectPath: string,
+  options: DesktopProjectViewOpenOptions = {},
+) => {
   try {
-    return await buildProjectBundle(projectPath);
+    return await buildProjectBundle(projectPath, options);
   } catch (error) {
     if (isMissingProjectFileError(error)) {
       currentRecentProjects = await removeRecentProject(projectPath);
@@ -1103,11 +1323,11 @@ const openRecentProjectBundle = async (projectPath: string) => {
 };
 
 const requestRendererProjectRoomFlush = (
-  targetWindow: BrowserWindow,
+  targetWebContents: WebContents,
   timeoutMs = 5000,
 ) =>
   new Promise<void>((resolve, reject) => {
-    if (targetWindow.isDestroyed() || targetWindow.webContents.isDestroyed()) {
+    if (targetWebContents.isDestroyed()) {
       reject(new Error("窗口已经关闭，无法完成项目保存。"));
       return;
     }
@@ -1119,6 +1339,7 @@ const requestRendererProjectRoomFlush = (
     }, timeoutMs);
 
     pendingProjectRoomFlushes.set(requestId, {
+      expectedSenderId: targetWebContents.id,
       resolve: () => {
         clearTimeout(timeout);
         resolve();
@@ -1130,7 +1351,7 @@ const requestRendererProjectRoomFlush = (
       timeout,
     });
 
-    targetWindow.webContents.send(IPC_CHANNELS.flushProjectRoomRequest, {
+    targetWebContents.send(IPC_CHANNELS.flushProjectRoomRequest, {
       requestId,
     });
   });
@@ -1191,12 +1412,20 @@ const closeWindowAfterProjectRoomFlush = async (
   attempt = 1,
 ) => {
   const openRooms = projectRoomService.manager.list();
+  const confirmedCloseRequests: Array<{
+    projectPath: string;
+    expectedRoomId: string;
+    acknowledgedParticipantSessionIds: string[];
+  }> = [];
   for (const room of openRooms) {
-    const closeState = await projectRoomService
-      .getCloseState(room.identity.canonicalProjectPath)
-      .catch(() => null);
+    const closeState = await projectRoomService.getCloseState(
+      room.identity.canonicalProjectPath,
+    );
+    if (!closeState) {
+      continue;
+    }
     const collaborators = selectProjectRoomAgentPresence(
-      closeState?.otherParticipants ?? [],
+      closeState.otherParticipants,
     );
     if (
       collaborators.length > 0 &&
@@ -1209,27 +1438,33 @@ const closeWindowAfterProjectRoomFlush = async (
       quitState.clearQuitRequest();
       return;
     }
+    confirmedCloseRequests.push({
+      projectPath: room.identity.canonicalProjectPath,
+      expectedRoomId: closeState.roomId,
+      acknowledgedParticipantSessionIds: closeState.otherParticipants.map(
+        (participant) => participant.sessionId,
+      ),
+    });
   }
   if (openRooms.length > 0) {
     try {
-      await requestRendererProjectRoomFlush(targetWindow);
+      const projectRendererIds =
+        projectViewRegistry
+          ?.snapshot()
+          .projects.map((project) => project.webContentsId) ?? [];
+      await Promise.all(
+        projectRendererIds.map(async (webContentsId) => {
+          const targetWebContents = webContents.fromId(webContentsId);
+          if (targetWebContents) {
+            await requestRendererProjectRoomFlush(targetWebContents);
+          }
+        }),
+      );
+      await projectRoomService.closeProjectPaths(confirmedCloseRequests, {
+        reason: "app-closed",
+        requireExactRoomSet: true,
+      });
       for (const room of openRooms) {
-        const closeState = await projectRoomService.getCloseState(
-          room.identity.canonicalProjectPath,
-        );
-        if (!closeState) {
-          continue;
-        }
-        await projectRoomService.closeProjectPath(
-          room.identity.canonicalProjectPath,
-          {
-            reason: "app-closed",
-            expectedRoomId: closeState.roomId,
-            acknowledgedParticipantSessionIds: closeState.otherParticipants.map(
-              (participant) => participant.sessionId,
-            ),
-          },
-        );
         projectRoomTicketStore.revokeRoom(room.identity);
       }
       allowWindowClose = true;
@@ -1291,7 +1526,18 @@ const closeWindowAfterProjectRoomFlush = async (
     }
   }
   try {
-    await requestRendererProjectRoomFlush(targetWindow);
+    const projectRendererIds =
+      projectViewRegistry
+        ?.snapshot()
+        .projects.map((project) => project.webContentsId) ?? [];
+    await Promise.all(
+      projectRendererIds.map(async (webContentsId) => {
+        const targetWebContents = webContents.fromId(webContentsId);
+        if (targetWebContents) {
+          await requestRendererProjectRoomFlush(targetWebContents);
+        }
+      }),
+    );
     allowWindowClose = true;
     targetWindow.close();
   } catch (error) {
@@ -1365,8 +1611,139 @@ const handleProjectMenuAction = async (
   }
 };
 
+const toProjectViewDescriptor = (bundle: DesktopProjectBundle) => {
+  const projectId = bundle.project.projectId;
+  if (!projectId) {
+    throw Object.assign(
+      new Error("Project manifest is missing a stable project id."),
+      { code: "PROJECT_MISMATCH" },
+    );
+  }
+  return {
+    projectPath: bundle.projectPath,
+    projectId,
+    name: bundle.project.name,
+    ...(bundle.safeMode ? { safeMode: true } : {}),
+  };
+};
+
+const setActiveProjectFromPath = async (projectPath: string | null) => {
+  await syncActiveProjectDescriptor(projectPath);
+};
+
+const openProjectView = async (
+  projectPath: string,
+  options: DesktopProjectViewOpenOptions = {},
+) => {
+  const bundle = await openRecentProjectBundle(projectPath, options);
+  const registry = getProjectViewRegistry();
+  registry.open(toProjectViewDescriptor(bundle));
+  registry.setBounds(
+    mainWindow
+      ? getProjectViewBounds(mainWindow)
+      : {
+          x: 0,
+          y: DESKTOP_TITLEBAR_HEIGHT,
+          width: 0,
+          height: 0,
+        },
+  );
+  await setActiveProjectFromPath(bundle.projectPath);
+  return registry.snapshot();
+};
+
+const closeProjectViewWithProtection = async (
+  targetWindow: BrowserWindow,
+  projectPath: string,
+  attempt = 1,
+): Promise<DesktopProjectViewsState> => {
+  const registry = getProjectViewRegistry();
+  const project = registry
+    .snapshot()
+    .projects.find((candidate) => candidate.projectPath === projectPath);
+  if (!project) {
+    return registry.snapshot();
+  }
+  const room = await projectRoomService.findOpenRoom(projectPath);
+  const closeState = room
+    ? await projectRoomService.getCloseState(projectPath)
+    : null;
+  const collaborators = selectProjectRoomAgentPresence(
+    closeState?.otherParticipants ?? [],
+  );
+  if (
+    collaborators.length > 0 &&
+    !(await confirmDisconnectProjectParticipants(
+      targetWindow,
+      project.name,
+      collaborators,
+    ))
+  ) {
+    return registry.snapshot();
+  }
+
+  try {
+    const targetWebContents = webContents.fromId(project.webContentsId);
+    if (targetWebContents) {
+      await requestRendererProjectRoomFlush(targetWebContents);
+    }
+    if (room && closeState) {
+      const closed = await projectRoomService.closeProjectPath(projectPath, {
+        reason: "project-closed",
+        expectedRoomId: closeState.roomId,
+        acknowledgedParticipantSessionIds: closeState.otherParticipants.map(
+          (participant) => participant.sessionId,
+        ),
+      });
+      if (!closed) {
+        throw new Error("项目房间未能关闭。");
+      }
+      projectRoomTicketStore.revokeRoom(room.identity);
+    }
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "PARTICIPANTS_CHANGED"
+    ) {
+      if (attempt < 3) {
+        return closeProjectViewWithProtection(
+          targetWindow,
+          projectPath,
+          attempt + 1,
+        );
+      }
+      if (!(await confirmForceCloseAfterParticipantChanges(targetWindow))) {
+        return registry.snapshot();
+      }
+    } else if (!(await showCloseAfterSaveFailedDialog(targetWindow, error))) {
+      return registry.snapshot();
+    }
+    const activeRoom = await projectRoomService.findOpenRoom(projectPath);
+    if (activeRoom) {
+      await projectRoomService.closeProjectPath(projectPath, {
+        force: true,
+        reason: "project-closed",
+      });
+      projectRoomTicketStore.revokeRoom(activeRoom.identity);
+    }
+  }
+
+  registry.close(projectPath);
+  await setActiveProjectFromPath(registry.snapshot().activeProjectPath);
+  return registry.snapshot();
+};
+
 const registerIpcHandlers = () => {
   ipcMain.on(IPC_CHANNELS.rendererReady, (event) => {
+    if (
+      !mainWindow ||
+      mainWindow.isDestroyed() ||
+      event.sender.id !== mainWindow.webContents.id
+    ) {
+      return;
+    }
     rendererReady = true;
     const targetWindow =
       BrowserWindow.fromWebContents(event.sender) ?? getTargetWindow();
@@ -1383,30 +1760,136 @@ const registerIpcHandlers = () => {
 
   ipcMain.on(
     IPC_CHANNELS.projectStateChanged,
-    (_event, payload: DesktopProjectStateChangedPayload) => {
-      void setCurrentProject(payload.currentProject);
+    (event, payload: DesktopProjectStateChangedPayload) => {
+      if (!payload.currentProject) {
+        return;
+      }
+      getProjectViewRegistry().requireSenderProject(
+        event.sender.id,
+        payload.currentProject.projectPath,
+      );
+      if (
+        getProjectViewRegistry().snapshot().activeProjectPath ===
+        payload.currentProject.projectPath
+      ) {
+        void setCurrentProject(payload.currentProject);
+      }
+    },
+  );
+  ipcMain.on(IPC_CHANNELS.projectThemeChanged, (event, payload: unknown) => {
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      !("projectPath" in payload) ||
+      typeof payload.projectPath !== "string" ||
+      !("theme" in payload) ||
+      (payload.theme !== "light" && payload.theme !== "dark")
+    ) {
+      throw new Error("Project theme update is invalid.");
+    }
+    const registry = getProjectViewRegistry();
+    registry.requireSenderProject(event.sender.id, payload.projectPath);
+    registry.setTheme(event.sender.id, payload.theme);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.loadProjectViewsState, async (event) => {
+    requireShellSender(event.sender);
+    return getProjectViewRegistry().snapshot();
+  });
+  ipcMain.handle(
+    IPC_CHANNELS.openProjectView,
+    async (
+      event,
+      projectPath: unknown,
+      options: DesktopProjectViewOpenOptions | undefined,
+    ) => {
+      requireShellSender(event.sender);
+      if (typeof projectPath !== "string" || projectPath.length === 0) {
+        throw new Error("Project view requires a project path.");
+      }
+      return openProjectView(projectPath, {
+        safeMode: options?.safeMode === true,
+      });
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.activateProjectView,
+    async (event, projectPath: unknown) => {
+      const registry = getProjectViewRegistry();
+      if (projectPath === null) {
+        requireShellOrActiveProjectSenderForHome(event.sender);
+        registry.showHome();
+        await setActiveProjectFromPath(null);
+        return registry.snapshot();
+      }
+      requireShellSender(event.sender);
+      if (typeof projectPath !== "string" || projectPath.length === 0) {
+        throw new Error("Project view activation requires a project path.");
+      }
+      registry.activate(projectPath);
+      await setActiveProjectFromPath(projectPath);
+      return registry.snapshot();
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.closeProjectView,
+    async (event, projectPath: unknown) => {
+      requireShellSender(event.sender);
+      if (typeof projectPath !== "string" || projectPath.length === 0) {
+        throw new Error("Project view close requires a project path.");
+      }
+      const targetWindow = getTargetWindow();
+      if (!targetWindow) {
+        throw new Error("CoreStudio window is not available.");
+      }
+      return closeProjectViewWithProtection(targetWindow, projectPath);
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.recoverProjectView,
+    async (event, projectPath: unknown) => {
+      requireShellSender(event.sender);
+      if (typeof projectPath !== "string" || projectPath.length === 0) {
+        throw new Error("Project view recovery requires a project path.");
+      }
+      const registry = getProjectViewRegistry();
+      registry.recover(projectPath);
+      registry.setBounds(
+        mainWindow
+          ? getProjectViewBounds(mainWindow)
+          : {
+              x: 0,
+              y: DESKTOP_TITLEBAR_HEIGHT,
+              width: 0,
+              height: 0,
+            },
+      );
+      return registry.snapshot();
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.getAgentBridgeStatus, async () =>
-    getAgentBridgeStatus(),
-  );
+  ipcMain.handle(IPC_CHANNELS.getAgentBridgeStatus, async (event) => {
+    requireProjectRendererSender(event.sender);
+    return getAgentBridgeStatus();
+  });
   ipcMain.handle(
     IPC_CHANNELS.getStableAgentBoardUrl,
-    async (_event, projectPath: unknown) => {
+    async (event, projectPath: unknown) => {
       if (typeof projectPath !== "string" || projectPath.length === 0) {
         throw Object.assign(
           new Error("Stable Board URL requires a project path."),
           { code: "PROJECT_MISMATCH" },
         );
       }
+      requireProjectRendererSender(event.sender, projectPath);
       return getStableAgentBoardUrl(projectPath);
     },
   );
 
   ipcMain.handle(
     IPC_CHANNELS.setAgentBridgeEnabled,
-    async (_event, enabled: unknown) => {
+    async (event, enabled: unknown) => {
+      requireProjectRendererSender(event.sender);
       if (typeof enabled !== "boolean") {
         throw new Error("Agent Bridge enabled state must be a boolean.");
       }
@@ -1419,18 +1902,31 @@ const registerIpcHandlers = () => {
     IPC_CHANNELS.projectRoomJoin,
     async (event, input: DesktopProjectRoomJoinInput) => {
       const sender = event.sender;
-      const snapshot = projectRoomIpcController.join(input, (roomEvent) => {
-        if (sender.isDestroyed()) {
-          projectRoomIpcController.leave(input.sessionId);
-          return;
-        }
-        const envelope: DesktopProjectRoomEventEnvelope = {
-          sessionId: input.sessionId,
-          event: roomEvent,
-        };
-        sender.send(IPC_CHANNELS.projectRoomEvent, envelope);
+      const senderBindings = getProjectRoomSenderBindings();
+      senderBindings.bind({
+        sessionId: input.sessionId,
+        senderId: sender.id,
+        projectPath: input.projectPath,
       });
+      let snapshot;
+      try {
+        snapshot = projectRoomIpcController.join(input, (roomEvent) => {
+          if (sender.isDestroyed()) {
+            projectRoomIpcController.leave(input.sessionId);
+            return;
+          }
+          const envelope: DesktopProjectRoomEventEnvelope = {
+            sessionId: input.sessionId,
+            event: roomEvent,
+          };
+          sender.send(IPC_CHANNELS.projectRoomEvent, envelope);
+        });
+      } catch (error) {
+        senderBindings.removeSession(sender.id, input.sessionId);
+        throw error;
+      }
       sender.once("destroyed", () => {
+        projectRoomSenderBindings?.removeSender(sender.id);
         projectRoomIpcController.leave(input.sessionId);
       });
       return snapshot;
@@ -1438,36 +1934,55 @@ const registerIpcHandlers = () => {
   );
   ipcMain.handle(
     IPC_CHANNELS.projectRoomResync,
-    async (_event, sessionId: string) =>
-      projectRoomIpcController.resync(sessionId),
+    async (event, sessionId: string) => {
+      getProjectRoomSenderBindings().requireSession(event.sender.id, sessionId);
+      return projectRoomIpcController.resync(sessionId);
+    },
   );
   ipcMain.handle(
     IPC_CHANNELS.projectRoomOperation,
     async (
-      _event,
+      event,
       input: {
         sessionId: string;
         operation: ProjectRoomSceneOperation;
       },
-    ) =>
-      projectRoomIpcController.applySceneOperation(
+    ) => {
+      getProjectRoomSenderBindings().requireSession(
+        event.sender.id,
+        input.sessionId,
+      );
+      return projectRoomIpcController.applySceneOperation(
         input.sessionId,
         input.operation,
-      ),
+      );
+    },
   );
   ipcMain.handle(
     IPC_CHANNELS.projectRoomFlushPersistence,
-    async (_event, sessionId: string) =>
-      projectRoomIpcController.flushPersistence(sessionId),
+    async (event, sessionId: string) => {
+      getProjectRoomSenderBindings().requireSession(event.sender.id, sessionId);
+      return projectRoomIpcController.flushPersistence(sessionId);
+    },
   );
   ipcMain.handle(
     IPC_CHANNELS.projectRoomLeave,
-    async (_event, sessionId: string) =>
-      projectRoomIpcController.leave(sessionId),
+    async (event, sessionId: string) => {
+      getProjectRoomSenderBindings().removeSession(event.sender.id, sessionId);
+      return projectRoomIpcController.leave(sessionId);
+    },
   );
   ipcMain.handle(
     IPC_CHANNELS.projectRoomCloseState,
-    async (_event, input: { projectPath: string; sessionId: string }) => {
+    async (event, input: { projectPath: string; sessionId: string }) => {
+      getProjectRoomSenderBindings().requireSession(
+        event.sender.id,
+        input.sessionId,
+      );
+      getProjectViewRegistry().requireSenderProject(
+        event.sender.id,
+        input.projectPath,
+      );
       const state = await projectRoomService.getCloseState(
         input.projectPath,
         input.sessionId,
@@ -1483,7 +1998,7 @@ const registerIpcHandlers = () => {
   ipcMain.handle(
     IPC_CHANNELS.projectRoomClose,
     async (
-      _event,
+      event,
       input: {
         projectPath: string;
         force?: boolean;
@@ -1492,6 +2007,16 @@ const registerIpcHandlers = () => {
         acknowledgedParticipantSessionIds?: string[];
       },
     ) => {
+      getProjectViewRegistry().requireSenderProject(
+        event.sender.id,
+        input.projectPath,
+      );
+      if (input.requestingSessionId) {
+        getProjectRoomSenderBindings().requireSession(
+          event.sender.id,
+          input.requestingSessionId,
+        );
+      }
       const room = await projectRoomService.findOpenRoom(input.projectPath);
       const closed = await projectRoomService.closeProjectPath(
         input.projectPath,
@@ -1512,9 +2037,9 @@ const registerIpcHandlers = () => {
 
   ipcMain.on(
     IPC_CHANNELS.flushProjectRoomResponse,
-    (_event, response: DesktopProjectRoomFlushResponse) => {
+    (event, response: DesktopProjectRoomFlushResponse) => {
       const pendingFlush = pendingProjectRoomFlushes.get(response.requestId);
-      if (!pendingFlush) {
+      if (!pendingFlush || pendingFlush.expectedSenderId !== event.sender.id) {
         return;
       }
 
@@ -1528,7 +2053,8 @@ const registerIpcHandlers = () => {
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.createProject, async () => {
+  ipcMain.handle(IPC_CHANNELS.createProject, async (event) => {
+    requireShellSender(event.sender);
     const selectedPath = await chooseCreateProjectDirectory(mainWindow);
     if (!selectedPath) {
       return null;
@@ -1540,7 +2066,8 @@ const registerIpcHandlers = () => {
     return buildProjectBundle(projectPath);
   });
 
-  ipcMain.handle(IPC_CHANNELS.openProject, async () => {
+  ipcMain.handle(IPC_CHANNELS.openProject, async (event) => {
+    requireShellSender(event.sender);
     const selectedPath = await chooseOpenProjectDirectory(mainWindow);
     if (!selectedPath) {
       return null;
@@ -1550,8 +2077,14 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(
     IPC_CHANNELS.openRecentProject,
-    async (_event, projectPath: string) => {
-      return openRecentProjectBundle(projectPath);
+    async (event, projectPath: string) => {
+      const project = getProjectViewRegistry().requireSenderProject(
+        event.sender.id,
+        projectPath,
+      );
+      return openRecentProjectBundle(projectPath, {
+        safeMode: project.safeMode,
+      });
     },
   );
 
@@ -1561,7 +2094,8 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(
     IPC_CHANNELS.removeRecentProject,
-    async (_event, projectPath: string) => {
+    async (event, projectPath: string) => {
+      requireShellSender(event.sender);
       currentRecentProjects = await removeRecentProject(projectPath);
       Menu.setApplicationMenu(buildMenu());
       return currentRecentProjects;
@@ -1570,18 +2104,21 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(
     IPC_CHANNELS.readProjectAssetPayloads,
-    async (_event, input) => {
+    async (event, input) => {
+      requireProjectRendererSender(event.sender, input.projectPath);
       return readProjectAssetPayloads(input);
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.inspectProjectHealth, async (_event, input) => {
+  ipcMain.handle(IPC_CHANNELS.inspectProjectHealth, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
     return inspectProjectHealth(input);
   });
 
   ipcMain.handle(
     IPC_CHANNELS.rebuildProjectThumbnails,
-    async (_event, input) => {
+    async (event, input) => {
+      requireProjectRendererSender(event.sender, input.projectPath);
       const activeRoom = await projectRoomService.findOpenRoom(
         input.projectPath,
       );
@@ -1612,19 +2149,23 @@ const registerIpcHandlers = () => {
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.cleanProjectCache, async (_event, input) => {
+  ipcMain.handle(IPC_CHANNELS.cleanProjectCache, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
     return cleanProjectCache(input);
   });
 
-  ipcMain.handle(IPC_CHANNELS.persistImageAssets, async (_event, input) => {
+  ipcMain.handle(IPC_CHANNELS.persistImageAssets, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
     return persistAndPublishProjectRoomAssets(input);
   });
 
-  ipcMain.handle(IPC_CHANNELS.beginImageWriteback, async (_event, input) => {
+  ipcMain.handle(IPC_CHANNELS.beginImageWriteback, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
     return beginProjectImageWriteback(input);
   });
 
-  ipcMain.handle(IPC_CHANNELS.commitImageWriteback, async (_event, input) => {
+  ipcMain.handle(IPC_CHANNELS.commitImageWriteback, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
     const result = await commitProjectImageWriteback(input);
     const room = await projectRoomService.findOpenRoom(input.projectPath);
     if (room) {
@@ -1636,25 +2177,36 @@ const registerIpcHandlers = () => {
     return result;
   });
 
-  ipcMain.handle(IPC_CHANNELS.rollbackImageWriteback, async (_event, input) => {
+  ipcMain.handle(IPC_CHANNELS.rollbackImageWriteback, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
     return rollbackProjectImageWriteback(input);
   });
 
-  ipcMain.handle(IPC_CHANNELS.importImages, async () => importImagesFromDisk());
+  ipcMain.handle(IPC_CHANNELS.importImages, async (event) => {
+    requireProjectRendererSender(event.sender);
+    return importImagesFromDisk();
+  });
 
   ipcMain.handle(
     IPC_CHANNELS.revealProjectInFinder,
-    async (_event, projectPath: string) => {
+    async (event, projectPath: string) => {
+      if (event.sender.id !== mainWindow?.webContents.id) {
+        requireProjectRendererSender(event.sender, projectPath);
+      }
       shell.showItemInFolder(path.join(projectPath, PROJECT_FILENAMES.project));
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.loadAppInfo, async () => ({
-    name: DESKTOP_APP_NAME,
-    version: DESKTOP_APP_VERSION,
-  }));
+  ipcMain.handle(IPC_CHANNELS.loadAppInfo, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    return {
+      name: DESKTOP_APP_NAME,
+      version: DESKTOP_APP_VERSION,
+    };
+  });
 
-  ipcMain.handle(IPC_CHANNELS.openExternal, async (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.openExternal, async (event, value: unknown) => {
+    requireShellOrProjectRendererSender(event.sender);
     if (typeof value !== "string") {
       throw new Error("External URL must be a string.");
     }
@@ -1667,17 +2219,19 @@ const registerIpcHandlers = () => {
     await shell.openExternal(url.toString());
   });
 
-  ipcMain.handle(IPC_CHANNELS.inspectCodexIntegration, async () =>
-    inspectCodexIntegration({
+  ipcMain.handle(IPC_CHANNELS.inspectCodexIntegration, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    return inspectCodexIntegration({
       homeDir: app.getPath("home"),
       resourcesPath: process.resourcesPath,
       appVersion: DESKTOP_APP_VERSION,
-    }),
-  );
+    });
+  });
 
   ipcMain.handle(
     IPC_CHANNELS.installCodexIntegration,
-    async (_event, ...args) => {
+    async (event, ...args) => {
+      requireShellOrProjectRendererSender(event.sender);
       if (args.length > 0) {
         throw new Error(
           "Codex integration installer does not accept arguments.",
@@ -1689,37 +2243,46 @@ const registerIpcHandlers = () => {
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.loadProviderSettings, async () =>
-    loadProviderSettings(),
-  );
+  ipcMain.handle(IPC_CHANNELS.loadProviderSettings, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    return loadProviderSettings();
+  });
 
   ipcMain.handle(
     IPC_CHANNELS.saveProviderSettings,
-    async (_event, input: SaveProviderSettingsInput) =>
-      saveProviderSettings(input),
+    async (event, input: SaveProviderSettingsInput) => {
+      requireShellOrProjectRendererSender(event.sender);
+      return saveProviderSettings(input);
+    },
   );
 
   ipcMain.handle(
     IPC_CHANNELS.deleteProviderSettings,
-    async (_event, input: DeleteProviderSettingsInput) =>
-      deleteProviderSettings(input),
+    async (event, input: DeleteProviderSettingsInput) => {
+      requireShellOrProjectRendererSender(event.sender);
+      return deleteProviderSettings(input);
+    },
   );
   ipcMain.handle(
     IPC_CHANNELS.generateImages,
-    async (_event, input: GenerateImagesInput) =>
-      generationRequestController.generate(input),
+    async (event, input: GenerateImagesInput) => {
+      requireProjectRendererSender(event.sender, input.projectPath);
+      return generationRequestController.generate(input);
+    },
   );
 
   ipcMain.handle(
     IPC_CHANNELS.cancelGenerateImages,
-    async (_event, generationJobId: string) => {
+    async (event, generationJobId: string) => {
+      requireProjectRendererSender(event.sender);
       generationRequestController.cancel(generationJobId);
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.readClipboardImage, async () =>
-    readClipboardImageFromSystem(),
-  );
+  ipcMain.handle(IPC_CHANNELS.readClipboardImage, async (event) => {
+    requireProjectRendererSender(event.sender);
+    return readClipboardImageFromSystem();
+  });
   ipcMain.handle(IPC_CHANNELS.loadLocaleSettings, async () =>
     localeSettingsController?.getSettings(),
   );
@@ -1731,6 +2294,18 @@ const registerIpcHandlers = () => {
       }
       return localeSettingsController.savePreference(preference);
     },
+  );
+};
+
+const hasActiveReadyProject = () => {
+  const state = projectViewRegistry?.snapshot();
+  return Boolean(
+    state?.activeProjectPath &&
+      state.projects.some(
+        (project) =>
+          project.projectPath === state.activeProjectPath &&
+          project.status === "ready",
+      ),
   );
 };
 
@@ -1746,9 +2321,157 @@ const buildMenu = () =>
       {
         platform: process.platform,
         locale: DESKTOP_LANG_CODE,
+        projectActionsEnabled: hasActiveReadyProject(),
       },
     ),
   );
+
+const loadProjectRenderer = async (
+  targetWebContents: WebContents,
+  projectPath: string,
+) => {
+  if (rendererUrl) {
+    await targetWebContents.loadURL(
+      buildDesktopProjectRendererUrl(rendererUrl, projectPath),
+    );
+    return;
+  }
+  await targetWebContents.loadFile(
+    path.join(__dirname, "..", "dist", "index.html"),
+    {
+      query: {
+        desktopMode: "project",
+        projectPath,
+      },
+    },
+  );
+};
+
+const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
+  createProjectViewRegistry({
+    createView: (descriptor) => {
+      const view = new WebContentsView({
+        webPreferences: {
+          backgroundThrottling: false,
+          contextIsolation: true,
+          nodeIntegration: false,
+          partition: createProjectRendererPartition(descriptor.projectId),
+          preload: path.join(__dirname, "preload.js"),
+        },
+      });
+      let attached = false;
+      const projectWebContentsId = view.webContents.id;
+      const projectRendererLifecycle = createProjectRendererLifecycle({
+        webContentsId: projectWebContentsId,
+        releaseSessions: releaseProjectRendererRoomSessions,
+        markCrashed: (webContentsId) => {
+          projectViewRegistry?.markCrashed(webContentsId);
+        },
+      });
+      configureProjectRendererPermissions(view.webContents);
+      view.setVisible(false);
+      view.setBounds(getProjectViewBounds(targetWindow));
+      view.setBackgroundColor("#f5f3ef");
+
+      const resetZoom = () => {
+        if (view.webContents.isDestroyed()) {
+          return;
+        }
+        view.webContents.setZoomFactor(1);
+        void view.webContents
+          .setVisualZoomLevelLimits(1, 1)
+          .catch(() => undefined);
+      };
+      resetZoom();
+      view.webContents.on("zoom-changed", (event) => {
+        event.preventDefault();
+        resetZoom();
+      });
+      view.webContents.on("did-finish-load", resetZoom);
+      view.webContents.on(
+        "console-message",
+        (_event, level, message, line, sourceId) => {
+          console.log(
+            `[project-renderer:${descriptor.projectPath}:${level}] ${message}${
+              sourceId ? ` (${sourceId}:${line})` : ""
+            }`,
+          );
+        },
+      );
+      view.webContents.on("render-process-gone", (_event, details) => {
+        console.error("[project-renderer:gone]", {
+          projectPath: descriptor.projectPath,
+          details,
+        });
+        projectRendererLifecycle.markUnavailable();
+      });
+      view.webContents.on("unresponsive", () => {
+        console.error("[project-renderer:unresponsive]", {
+          projectPath: descriptor.projectPath,
+        });
+      });
+      view.webContents.on(
+        "did-fail-load",
+        (_event, errorCode, errorDescription, validatedURL) => {
+          console.error("[project-renderer:load-failed]", {
+            projectPath: descriptor.projectPath,
+            errorCode,
+            errorDescription,
+            validatedURL,
+          });
+        },
+      );
+      view.webContents.once("destroyed", () => {
+        projectRendererLifecycle.release();
+      });
+      void loadProjectRenderer(view.webContents, descriptor.projectPath).catch(
+        (error) => {
+          console.error("[project-renderer:load-error]", {
+            projectPath: descriptor.projectPath,
+            error,
+          });
+          projectRendererLifecycle.markUnavailable();
+        },
+      );
+
+      return {
+        projectPath: descriptor.projectPath,
+        webContentsId: projectWebContentsId,
+        attach: () => {
+          if (!attached) {
+            attached = true;
+            targetWindow.contentView.addChildView(view);
+            view.setVisible(true);
+          }
+        },
+        detach: () => {
+          if (attached) {
+            targetWindow.contentView.removeChildView(view);
+          }
+          attached = false;
+          view.setVisible(false);
+        },
+        focus: () => {
+          if (!view.webContents.isDestroyed()) {
+            view.webContents.focus();
+          }
+        },
+        setBounds: (bounds) => {
+          view.setBounds(bounds);
+        },
+        destroy: () => {
+          if (attached) {
+            targetWindow.contentView.removeChildView(view);
+            attached = false;
+          }
+          if (!view.webContents.isDestroyed()) {
+            view.webContents.close({ waitForBeforeUnload: false });
+          }
+        },
+      };
+    },
+    onChange: publishProjectViewsState,
+  });
 
 const createWindow = async () => {
   allowWindowClose = false;
@@ -1760,10 +2483,11 @@ const createWindow = async () => {
     minWidth: 1180,
     minHeight: 760,
     backgroundColor: "#f5f3ef",
-    title: DESKTOP_APP_NAME,
+    title: desktopWindowTitle,
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hiddenInset" as const,
+          trafficLightPosition: { x: 16, y: 16 },
         }
       : {}),
     webPreferences: {
@@ -1772,8 +2496,23 @@ const createWindow = async () => {
       preload: path.join(__dirname, "preload.js"),
     },
   });
+  projectViewRegistry = createProjectViewRegistryForWindow(mainWindow);
+  projectRoomSenderBindings = createProjectRoomSenderBindings({
+    requireProjectSender: (senderId, projectPath) =>
+      getProjectViewRegistry().requireSenderProject(senderId, projectPath),
+  });
   configureRendererPermissions(mainWindow);
   disableRendererPageZoom(mainWindow);
+  mainWindow.on("resize", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    projectViewRegistry?.setBounds(getProjectViewBounds(mainWindow));
+  });
+  mainWindow.on("page-title-updated", (event) => {
+    event.preventDefault();
+    mainWindow?.setTitle(desktopWindowTitle);
+  });
 
   mainWindow.on("close", (event) => {
     const targetWindow = mainWindow;
@@ -1786,6 +2525,9 @@ const createWindow = async () => {
   });
 
   mainWindow.on("closed", () => {
+    projectViewRegistry?.closeAll();
+    projectViewRegistry = null;
+    projectRoomSenderBindings = null;
     mainWindow = null;
     rendererReady = false;
     void setCurrentProject(null);
@@ -1834,12 +2576,19 @@ const createWindow = async () => {
   });
 
   if (rendererUrl) {
-    await mainWindow.loadURL(rendererUrl);
+    await mainWindow.loadURL(buildDesktopShellRendererUrl(rendererUrl));
     if (shouldOpenDevTools()) {
       mainWindow.webContents.openDevTools({ mode: "detach" });
     }
   } else {
-    await mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    await mainWindow.loadFile(
+      path.join(__dirname, "..", "dist", "index.html"),
+      {
+        query: {
+          desktopMode: "shell",
+        },
+      },
+    );
   }
 };
 
@@ -1911,6 +2660,15 @@ const readClipboardImageFromSystem = () => {
 
 if (hasSingleInstanceLock) {
   app.whenReady().then(async () => {
+    console.log(
+      "[desktop:startup]",
+      buildDesktopStartupIdentity({
+        appPath: app.getAppPath(),
+        executable: process.execPath,
+        userData: app.getPath("userData"),
+        windowTitle: desktopWindowTitle,
+      }),
+    );
     localeSettingsController = createLocaleSettingsController({
       store: createLocaleSettingsStore({
         settingsPath: path.join(

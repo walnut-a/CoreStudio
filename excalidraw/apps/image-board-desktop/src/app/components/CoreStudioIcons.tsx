@@ -48,7 +48,7 @@ export const closeIcon = (
 );
 
 export const homeIcon = (
-  <LineIcon size={18}>
+  <LineIcon size={20}>
     <path d="m5.25 10.25 6.75-5.5 6.75 5.5" />
     <path d="M7.25 9.25v9h9.5v-9" />
     <path d="M10 18.25v-5.5h4v5.5" />

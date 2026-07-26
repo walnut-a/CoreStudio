@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createStableBoardSessionClaimStore } from "./stableBoardSessionClaimStore";
 
 describe("StableBoardSessionClaimStore", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("requires a trusted actor claim before a page can exchange", () => {
-    const store = createStableBoardSessionClaimStore({
-      now: () => 1_000,
-    });
+    const store = createStableBoardSessionClaimStore();
 
     store.register({
       stableBoardId: "board-1",
@@ -22,9 +24,7 @@ describe("StableBoardSessionClaimStore", () => {
   });
 
   it("binds one page nonce to one trusted actor for repeated short sessions", () => {
-    const store = createStableBoardSessionClaimStore({
-      now: () => 1_000,
-    });
+    const store = createStableBoardSessionClaimStore();
     store.register({
       stableBoardId: "board-1",
       pageNonce: "page-1",
@@ -57,9 +57,7 @@ describe("StableBoardSessionClaimStore", () => {
   });
 
   it("accepts a trusted claim before the page status request is observed", () => {
-    const store = createStableBoardSessionClaimStore({
-      now: () => 1_000,
-    });
+    const store = createStableBoardSessionClaimStore();
 
     store.claim({
       stableBoardId: "board-1",
@@ -77,9 +75,7 @@ describe("StableBoardSessionClaimStore", () => {
   });
 
   it("does not allow a claim to cross stable project identities", () => {
-    const store = createStableBoardSessionClaimStore({
-      now: () => 1_000,
-    });
+    const store = createStableBoardSessionClaimStore();
     store.register({
       stableBoardId: "board-1",
       pageNonce: "page-1",
@@ -95,25 +91,30 @@ describe("StableBoardSessionClaimStore", () => {
     ).toThrowError(expect.objectContaining({ code: "PROJECT_MISMATCH" }));
   });
 
-  it("expires abandoned page nonces", () => {
-    let now = 1_000;
-    const store = createStableBoardSessionClaimStore({
-      now: () => now,
-      ttlMs: 500,
-    });
+  it("keeps a page nonce claimable for the lifetime of the browser page", () => {
+    vi.useFakeTimers();
+    const store = createStableBoardSessionClaimStore();
     store.register({
       stableBoardId: "board-1",
       pageNonce: "page-1",
     });
-    now = 1_501;
+    vi.advanceTimersByTime(24 * 60 * 60 * 1_000);
 
-    expect(() =>
-      store.claim({
+    store.claim({
+      stableBoardId: "board-1",
+      pageNonce: "page-1",
+      actorId: "codex:thread-a",
+      displayLabel: "Codex · 任务 A",
+    });
+
+    expect(
+      store.consume({
         stableBoardId: "board-1",
         pageNonce: "page-1",
-        actorId: "codex:thread-a",
-        displayLabel: "Codex · 任务 A",
       }),
-    ).toThrowError(expect.objectContaining({ code: "TOKEN_EXPIRED" }));
+    ).toEqual({
+      actorId: "codex:thread-a",
+      displayLabel: "Codex · 任务 A",
+    });
   });
 });

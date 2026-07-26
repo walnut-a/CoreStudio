@@ -38,20 +38,20 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 └── review-packets/
 ```
 
-| 路径 | 用途 |
-| --- | --- |
-| `docs/README.md` | 仓库文档总入口 |
-| `docs/doc/` | 稳定说明类文档，例如仓库分析、架构说明、接口说明 |
-| `docs/plan/` | 后续计划类文档入口；初始化阶段不默认创建具体计划 |
-| `docs/spec/` | 后续规范类文档入口；初始化阶段不默认制定具体规范 |
-| `docs/superpowers/` | 已存在的历史计划和规格文档目录，当前保留原位置 |
-| `excalidraw/` | 上游 Excalidraw monorepo 和 CoreStudio 实际代码工作区 |
-| `excalidraw/apps/image-board-desktop/` | CoreStudio 桌面端主应用 |
-| `excalidraw/apps/image-board-desktop/electron/` | Electron 主进程、项目文件、Local Bridge、provider 适配 |
-| `excalidraw/apps/image-board-desktop/src/app/` | React renderer、画布 UI、生成输入框、生成记录和项目状态 |
-| `excalidraw/apps/image-board-desktop/src/shared/` | renderer / Electron 共享类型和数据完整性逻辑 |
-| `excalidraw/packages/` | Excalidraw workspace packages |
-| `review-packets/` | 本地审核材料；当前没有作为主代码入口 |
+| 路径                                              | 用途                                                    |
+| ------------------------------------------------- | ------------------------------------------------------- |
+| `docs/README.md`                                  | 仓库文档总入口                                          |
+| `docs/doc/`                                       | 稳定说明类文档，例如仓库分析、架构说明、接口说明        |
+| `docs/plan/`                                      | 后续计划类文档入口；初始化阶段不默认创建具体计划        |
+| `docs/spec/`                                      | 后续规范类文档入口；初始化阶段不默认制定具体规范        |
+| `docs/superpowers/`                               | 已存在的历史计划和规格文档目录，当前保留原位置          |
+| `excalidraw/`                                     | 上游 Excalidraw monorepo 和 CoreStudio 实际代码工作区   |
+| `excalidraw/apps/image-board-desktop/`            | CoreStudio 桌面端主应用                                 |
+| `excalidraw/apps/image-board-desktop/electron/`   | Electron 主进程、项目文件、Local Bridge、provider 适配  |
+| `excalidraw/apps/image-board-desktop/src/app/`    | React renderer、画布 UI、生成输入框、生成记录和项目状态 |
+| `excalidraw/apps/image-board-desktop/src/shared/` | renderer / Electron 共享类型和数据完整性逻辑            |
+| `excalidraw/packages/`                            | Excalidraw workspace packages                           |
+| `review-packets/`                                 | 本地审核材料；当前没有作为主代码入口                    |
 
 ## 核心能力
 
@@ -71,15 +71,15 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 
 ## 对外入口
 
-| 入口 | 依据 | 说明 |
-| --- | --- | --- |
-| 桌面端开发启动 | `excalidraw/package.json` -> `start:desktop` | 启动 CoreStudio Electron 开发版 |
-| 桌面端构建 | `excalidraw/package.json` -> `build:desktop` | 构建 renderer 和 Electron main/preload |
-| 桌面端打包 | `excalidraw/package.json` -> `package:desktop` | 构建、密钥扫描、electron-builder、notarize |
-| CLI | `excalidraw/apps/image-board-desktop/package.json` 的 `bin.corestudio` | 通过 `node bin/corestudio.cjs ...` 调用本地 bridge |
-| Agent Board | `electron/main.ts` 和 `AgentBoard.tsx` 中的 `/agent-board` | 依赖本地客户端和 Local Bridge |
-| React renderer | `excalidraw/apps/image-board-desktop/src/main.tsx` | CoreStudio 桌面端前端入口 |
-| Electron main | `excalidraw/apps/image-board-desktop/electron/main.ts` | 主进程入口 |
+| 入口           | 依据                                                                   | 说明                                                           |
+| -------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 桌面端开发启动 | `excalidraw/package.json` -> `dev:desktop`                             | 用项目专属 Electron 路径、profile 和端口启动 CoreStudio 开发版 |
+| 桌面端构建     | `excalidraw/package.json` -> `build:desktop`                           | 构建 renderer 和 Electron main/preload                         |
+| 桌面端打包     | `excalidraw/package.json` -> `package:desktop`                         | 构建、密钥扫描、electron-builder、notarize                     |
+| CLI            | `excalidraw/apps/image-board-desktop/package.json` 的 `bin.corestudio` | 通过 `node bin/corestudio.cjs ...` 调用本地 bridge             |
+| Agent Board    | `electron/main.ts` 和 `AgentBoard.tsx` 中的 `/agent-board`             | 依赖本地客户端和 Local Bridge                                  |
+| React renderer | `excalidraw/apps/image-board-desktop/src/main.tsx`                     | CoreStudio 桌面端前端入口                                      |
+| Electron main  | `excalidraw/apps/image-board-desktop/electron/main.ts`                 | 主进程入口                                                     |
 
 ## 常用命令
 
@@ -98,8 +98,14 @@ corepack yarn install
 启动桌面客户端开发版：
 
 ```sh
-corepack yarn start:desktop
+corepack yarn dev:desktop
 ```
+
+`start:desktop` 继续作为兼容别名。实际 Electron 进程由项目内启动器绑定到
+`apps/image-board-desktop` 的绝对路径、独立 `.electron-dev-profile`、renderer
+端口 `5174` 和调试端口 `9331`；启动日志会打印应用路径、Electron 可执行文件、
+用户数据目录和开发窗口标题。不要使用全局 `electron`、`open -a Electron` 或
+批量终止 Electron 进程。
 
 常用检查：
 

@@ -19,7 +19,7 @@ export const ProjectMainMenu = ({
   canvasUtilityActionsVisible = true,
 }: ProjectMainMenuProps) => (
   <MainMenu>
-    <MainMenu.Group title={copy.menu.projectGroup}>
+    <MainMenu.Group>
       <MainMenu.ItemCustom
         className="project-main-menu__current"
         aria-label={copy.menu.currentProject(currentProjectName)}
@@ -45,16 +45,8 @@ export const ProjectMainMenu = ({
       ) : null}
     </MainMenu.Group>
 
-    {canvasUtilityActionsVisible ? (
-      <>
-        <MainMenu.Separator />
-        <MainMenu.DefaultItems.SaveAsImage />
-        <MainMenu.DefaultItems.SearchMenu />
-        <MainMenu.DefaultItems.Help />
-        <MainMenu.DefaultItems.ClearCanvas />
-      </>
-    ) : null}
     <MainMenu.Separator />
+    {canvasUtilityActionsVisible ? <MainMenu.DefaultItems.Help /> : null}
     <MainMenu.DefaultItems.ToggleTheme allowSystemTheme={false} />
   </MainMenu>
 );

@@ -1,7 +1,7 @@
-import { fireEvent, queryByTestId } from "@testing-library/react";
+import { fireEvent, queryByTestId, queryByText } from "@testing-library/react";
 import React from "react";
 
-import { MIME_TYPES } from "@excalidraw/common";
+import { KEYS, MIME_TYPES } from "@excalidraw/common";
 
 import type { FileId } from "@excalidraw/element/types";
 
@@ -15,6 +15,7 @@ import type {
 } from "../types";
 
 import { API } from "./helpers/api";
+import { Keyboard } from "./helpers/ui";
 import { act, render, waitFor } from "./test-utils";
 
 const { h } = window;
@@ -27,6 +28,40 @@ describe("CoreStudio Excalidraw compatibility", () => {
 
     expect(container.querySelector(".default-sidebar-trigger")).toBeNull();
     expect(container.querySelector(".sidebar")).toBeNull();
+  });
+
+  it("does not expose disabled canvas utilities through shortcuts or help", async () => {
+    await render(
+      <Excalidraw
+        UIOptions={{
+          defaultSidebar: false,
+          canvasActions: {
+            clearCanvas: false,
+            saveAsImage: false,
+          },
+        }}
+        handleKeyboardGlobally
+      />,
+    );
+
+    Keyboard.withModifierKeys({ ctrl: true }, () => {
+      Keyboard.keyDown("f");
+    });
+    expect(h.state.openSidebar).toBeNull();
+
+    Keyboard.withModifierKeys({ ctrl: true, shift: true }, () => {
+      Keyboard.keyDown("e");
+    });
+    expect(h.state.openDialog).toBeNull();
+
+    Keyboard.withModifierKeys({ ctrl: true }, () => {
+      Keyboard.keyDown(KEYS.DELETE);
+    });
+    expect(document.querySelector(".confirm-dialog")).toBeNull();
+
+    Keyboard.keyDown(KEYS.QUESTION_MARK);
+    expect(queryByText(document.body, "Find on canvas")).toBeNull();
+    expect(queryByText(document.body, "Reset the canvas")).toBeNull();
   });
 
   it("renders selected shape actions through the host callback", async () => {

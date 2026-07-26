@@ -22,7 +22,6 @@ const readyIntegrationStatus = {
   bridgeProtocolVersion: 3,
   actorClaimed: false,
   issues: [],
-  repairActions: [],
 };
 
 describe("App Agent Board room route", () => {
@@ -163,7 +162,7 @@ describe("App Agent Board room route", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the single typed repair action when the Codex integration is outdated", async () => {
+  it("guides the user to CoreStudio settings when the Codex integration is outdated", async () => {
     window.history.pushState(
       null,
       "",
@@ -185,12 +184,6 @@ describe("App Agent Board room route", () => {
                     message: "当前 Codex 集成与 CoreStudio 版本不匹配。",
                   },
                 ],
-                repairActions: [
-                  {
-                    type: "install-codex-integration",
-                    label: "更新 Codex 集成",
-                  },
-                ],
               },
             }),
             {
@@ -205,14 +198,16 @@ describe("App Agent Board room route", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "需要更新 CoreStudio 集成",
+        name: "请在 CoreStudio 中更新集成",
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "更新 Codex 集成" }),
+      screen.getByText(
+        "回到 CoreStudio，打开“应用设置”中的“Codex 集成”，完成更新后再刷新这个页面。",
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /修复项目|清理缓存/ }),
+      screen.queryByRole("button", { name: "更新 Codex 集成" }),
     ).not.toBeInTheDocument();
   });
 

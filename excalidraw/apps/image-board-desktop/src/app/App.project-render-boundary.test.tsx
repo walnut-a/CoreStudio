@@ -59,7 +59,7 @@ describe("App project render boundary", () => {
     render(<App />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "继续最近项目" }),
+      await screen.findByRole("button", { name: /^常用项目/ }),
     );
 
     expect(
@@ -93,7 +93,7 @@ describe("App project render boundary", () => {
     render(<App />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "继续最近项目" }),
+      await screen.findByRole("button", { name: /^测试项目/ }),
     );
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();

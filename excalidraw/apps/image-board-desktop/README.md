@@ -35,10 +35,14 @@ CLI 是 Local Bridge 的薄客户端。所有项目写入由 CoreStudio 校验�
 从仓库 `excalidraw/` 目录运行：
 
 ```sh
-corepack yarn start:desktop
+corepack yarn dev:desktop
 corepack yarn test:desktop --run
 corepack yarn build:desktop
 ```
+
+`dev:desktop` 是桌面开发的固定入口。它会解析当前 workspace 的 Electron 绝对路径，并把应用绝对路径、独立 `.electron-dev-profile`、renderer 端口 `5174`、调试端口 `9331` 和 `CoreStudio · DEV` 窗口标题绑定到同一次启动。主进程随后打印 `app.getAppPath()`、`process.execPath` 和 `app.getPath("userData")`，便于确认没有启动到其他 Electron 项目。
+
+`start:desktop` 保留为兼容别名。多项目并行开发时不要使用全局 `electron`、 `electron .`、`open -a Electron`、`killall Electron` 或 `pkill -f Electron`。
 
 详细契约见：
 

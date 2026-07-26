@@ -7,7 +7,7 @@ import type {
   ProjectRoomSceneOperation,
 } from "../shared/projectRoomProtocol";
 import type { ProjectRoomClientTransport } from "./projectRoomClientController";
-import { createDesktopProjectTabRuntime } from "./desktopProjectTabRuntime";
+import { createDesktopProjectRuntime } from "./desktopProjectRuntime";
 
 const createHarness = (
   projectPath: string,
@@ -45,6 +45,7 @@ const createHarness = (
       supersededElementIds: [],
     })),
     leave: vi.fn(async () => true),
+    cancelPendingJoin: vi.fn(async () => undefined),
     subscribe: vi.fn((next: (event: ProjectRoomEvent) => void) => {
       listener = next;
       return () => {
@@ -64,14 +65,15 @@ const createHarness = (
     updateScene: vi.fn(),
   } as unknown as ExcalidrawImperativeAPI;
   const onScene = vi.fn();
-  const runtime = createDesktopProjectTabRuntime({
+  const onReadyChange = vi.fn();
+  const runtime = createDesktopProjectRuntime({
     projectPath,
     sessionId,
     transport,
     onParticipants: vi.fn(),
     onImageRecords: vi.fn(),
     onScene,
-    onReadyChange: vi.fn(),
+    onReadyChange,
     onError: vi.fn(),
     onRoomClosed: vi.fn(),
   });
@@ -82,12 +84,56 @@ const createHarness = (
     runtime,
     transport,
     api,
+    onReadyChange,
     emit: (event: ProjectRoomEvent) => listener?.(event),
     identity,
   };
 };
 
-describe("DesktopProjectTabRuntime", () => {
+describe("DesktopProjectRuntime", () => {
+  it("does not become ready after it is stopped during an in-flight join", async () => {
+    const harness = createHarness("/projects/a", "session-a");
+    let resolveJoin!: (value: {
+      sessionId: string;
+      snapshot: {
+        type: "room.snapshot";
+        identity: typeof harness.identity;
+        sequence: number;
+        persistedSequence: number;
+        projectRevision: string;
+        scene: { elements: never[]; sharedSceneConfig: {} };
+        participants: never[];
+      };
+    }) => void;
+    vi.mocked(harness.transport.join).mockReturnValue(
+      new Promise((resolve) => {
+        resolveJoin = resolve;
+      }),
+    );
+
+    const starting = harness.runtime.start();
+    await harness.runtime.stop();
+    resolveJoin({
+      sessionId: "late-room-session",
+      snapshot: {
+        type: "room.snapshot",
+        identity: harness.identity,
+        sequence: 0,
+        persistedSequence: 0,
+        projectRevision: "revision-1",
+        scene: {
+          elements: [],
+          sharedSceneConfig: {},
+        },
+        participants: [],
+      },
+    });
+    await starting;
+
+    expect(harness.onReadyChange).not.toHaveBeenCalledWith(true);
+    expect(harness.onReadyChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("keeps project sessions and editor APIs independent", async () => {
     const runtimeA = createHarness("/projects/a", "session-a");
     const runtimeB = createHarness("/projects/b", "session-b");

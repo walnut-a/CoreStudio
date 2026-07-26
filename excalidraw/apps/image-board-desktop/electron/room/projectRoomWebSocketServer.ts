@@ -30,6 +30,7 @@ export interface AuthenticatedProjectRoomWebSocket {
 export interface AttachProjectRoomWebSocketServerInput {
   server: http.Server;
   path?: string;
+  allowOrigin?: (origin: string) => boolean;
   authenticate: (
     input: AuthenticateProjectRoomWebSocketInput,
   ) => Promise<AuthenticatedProjectRoomWebSocket>;
@@ -61,7 +62,10 @@ const sendJson = (socket: WebSocket, value: unknown) => {
   }
 };
 
-const hasAllowedOrigin = (request: http.IncomingMessage) => {
+const hasAllowedOrigin = (
+  request: http.IncomingMessage,
+  allowOrigin?: (origin: string) => boolean,
+) => {
   const origin = request.headers.origin;
   if (!origin) {
     return true;
@@ -70,12 +74,17 @@ const hasAllowedOrigin = (request: http.IncomingMessage) => {
   if (!host) {
     return false;
   }
-  return origin === `http://${host}` || origin === `https://${host}`;
+  return (
+    origin === `http://${host}` ||
+    origin === `https://${host}` ||
+    allowOrigin?.(origin) === true
+  );
 };
 
 export const attachProjectRoomWebSocketServer = ({
   server,
   path = "/v1/room",
+  allowOrigin,
   authenticate,
 }: AttachProjectRoomWebSocketServerInput) => {
   const webSocketServer = new WebSocketServer({ noServer: true });
@@ -90,7 +99,7 @@ export const attachProjectRoomWebSocketServer = ({
     if (url.pathname !== path) {
       return;
     }
-    if (!hasAllowedOrigin(request)) {
+    if (!hasAllowedOrigin(request, allowOrigin)) {
       socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
       socket.destroy();
       return;

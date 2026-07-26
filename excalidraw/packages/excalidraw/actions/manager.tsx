@@ -92,6 +92,8 @@ export class ActionManager {
     }
 
     const canvasActions = this.app.props.UIOptions.canvasActions;
+    const appState = this.getAppState();
+    const elements = this.getElementsIncludingDeleted();
     const data = Object.values(this.actions)
       .sort((a, b) => (b.keyPriority || 0) - (a.keyPriority || 0))
       .filter(
@@ -99,13 +101,10 @@ export class ActionManager {
           (action.name in canvasActions
             ? canvasActions[action.name as keyof typeof canvasActions]
             : true) &&
+          (!action.predicate ||
+            action.predicate(elements, appState, this.app.props, this.app)) &&
           action.keyTest &&
-          action.keyTest(
-            event,
-            this.getAppState(),
-            this.getElementsIncludingDeleted(),
-            this.app,
-          ),
+          action.keyTest(event, appState, elements, this.app),
       );
 
     if (data.length !== 1) {
@@ -127,8 +126,6 @@ export class ActionManager {
       return false;
     }
 
-    const elements = this.getElementsIncludingDeleted();
-    const appState = this.getAppState();
     const value = null;
 
     trackAction(action, "keyboard", appState, elements, this.app, null);

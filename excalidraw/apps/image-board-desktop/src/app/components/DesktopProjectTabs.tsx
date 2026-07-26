@@ -1,3 +1,4 @@
+import type { DesktopProjectTheme } from "../../shared/desktopBridgeTypes";
 import { closeIcon, homeIcon } from "./CoreStudioIcons";
 
 import "./DesktopProjectTabs.css";
@@ -10,6 +11,7 @@ export interface DesktopProjectTabItem {
 interface DesktopProjectTabsProps {
   tabs: DesktopProjectTabItem[];
   activeProjectPath: string | null;
+  theme?: DesktopProjectTheme;
   onShowHome: () => void;
   onActivateProject: (projectPath: string) => void;
   onCloseProject: (projectPath: string) => void;
@@ -18,11 +20,16 @@ interface DesktopProjectTabsProps {
 export const DesktopProjectTabs = ({
   tabs,
   activeProjectPath,
+  theme = "light",
   onShowHome,
   onActivateProject,
   onCloseProject,
 }: DesktopProjectTabsProps) => (
-  <header className="desktop-project-tabs" aria-label="打开的项目">
+  <header
+    className={`desktop-project-tabs desktop-project-tabs--${theme}`}
+    data-theme={theme}
+    aria-label="打开的项目"
+  >
     <button
       type="button"
       className="desktop-project-tabs__home"

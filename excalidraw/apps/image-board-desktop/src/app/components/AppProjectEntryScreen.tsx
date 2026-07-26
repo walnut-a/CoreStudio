@@ -5,6 +5,8 @@ import { AppErrorBanners } from "./AppErrorBanners";
 import { WelcomePane } from "./WelcomePane";
 
 interface AppProjectEntryScreenProps {
+  titlebar?: ReactNode;
+  content?: ReactNode;
   startupError: string | null;
   projectError: string | null;
   loadingProject: boolean;
@@ -19,6 +21,8 @@ interface AppProjectEntryScreenProps {
 }
 
 export const AppProjectEntryScreen = ({
+  titlebar,
+  content,
   startupError,
   projectError,
   loadingProject,
@@ -32,17 +36,20 @@ export const AppProjectEntryScreen = ({
   globalDialogs,
 }: AppProjectEntryScreenProps) => (
   <div className="image-board-app">
+    {titlebar}
     <AppErrorBanners startupError={startupError} projectError={projectError} />
-    <WelcomePane
-      loading={loadingProject}
-      onCreateProject={onCreateProject}
-      onOpenProject={onOpenProject}
-      recentProjects={recentProjects}
-      onOpenRecentProject={onOpenRecentProject}
-      onRemoveRecentProject={onRemoveRecentProject}
-      onRevealProject={onRevealProject}
-      manualProjectActionsVisible={manualProjectActionsVisible}
-    />
+    {content ?? (
+      <WelcomePane
+        loading={loadingProject}
+        onCreateProject={onCreateProject}
+        onOpenProject={onOpenProject}
+        recentProjects={recentProjects}
+        onOpenRecentProject={onOpenRecentProject}
+        onRemoveRecentProject={onRemoveRecentProject}
+        onRevealProject={onRevealProject}
+        manualProjectActionsVisible={manualProjectActionsVisible}
+      />
+    )}
     {globalDialogs}
   </div>
 );

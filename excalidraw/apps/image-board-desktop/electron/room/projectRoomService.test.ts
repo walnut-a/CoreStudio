@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { createProjectRoomService } from "./projectRoomService";
@@ -392,5 +394,142 @@ describe("ProjectRoomService", () => {
       code: "PARTICIPANTS_CHANGED",
     });
     expect(room.lifecycle).toBe("active");
+  });
+
+  it("keeps every room open when one room fails during app-wide close", async () => {
+    const writeProjectScene = vi.fn(
+      async ({ projectPath }: { projectPath: string }) => {
+        if (projectPath === "/projects/project-2") {
+          throw new Error("project 2 storage failed");
+        }
+        return {};
+      },
+    );
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle(path.basename(projectPath), projectPath),
+      ),
+      writeProjectScene,
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      randomId: vi
+        .fn()
+        .mockReturnValueOnce("room-id-1")
+        .mockReturnValueOnce("room-id-2"),
+      persistenceDebounceMs: 10_000,
+    });
+    const room1 = await service.openProject("/projects/project-1");
+    const room2 = await service.openProject("/projects/project-2");
+    for (const [room, sessionId] of [
+      [room1, "desktop-session-1"],
+      [room2, "desktop-session-2"],
+    ] as const) {
+      room.join({
+        actorId: "corestudio:desktop",
+        sessionId,
+        transport: "ipc",
+        role: "desktop-editor",
+        displayLabel: "CoreStudio",
+      });
+      room.applySceneOperation(sessionId, {
+        ...room.identity,
+        operationId: `operation-${sessionId}`,
+        baseSequence: room.sequence,
+        elements: [
+          {
+            ...room.getSnapshot().scene.elements[0],
+            version: 2,
+            x: 100,
+          },
+        ],
+      });
+    }
+
+    await expect(
+      service.closeProjectPaths([
+        {
+          projectPath: room1.identity.canonicalProjectPath,
+          expectedRoomId: room1.identity.roomId,
+          acknowledgedParticipantSessionIds: ["desktop-session-1"],
+        },
+        {
+          projectPath: room2.identity.canonicalProjectPath,
+          expectedRoomId: room2.identity.roomId,
+          acknowledgedParticipantSessionIds: ["desktop-session-2"],
+        },
+      ]),
+    ).rejects.toThrow("project 2 storage failed");
+
+    expect(service.manager.list()).toEqual([room1, room2]);
+    expect(room1.lifecycle).toBe("active");
+    expect(room2.lifecycle).toBe("storage-error");
+  });
+
+  it("closes all rooms only after app-wide close persistence succeeds", async () => {
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle(path.basename(projectPath), projectPath),
+      ),
+      writeProjectScene: vi.fn(async () => ({})),
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      randomId: vi
+        .fn()
+        .mockReturnValueOnce("room-id-1")
+        .mockReturnValueOnce("room-id-2"),
+      persistenceDebounceMs: 10_000,
+    });
+    const room1 = await service.openProject("/projects/project-1");
+    const room2 = await service.openProject("/projects/project-2");
+
+    await expect(
+      service.closeProjectPaths([
+        {
+          projectPath: room1.identity.canonicalProjectPath,
+          expectedRoomId: room1.identity.roomId,
+          acknowledgedParticipantSessionIds: [],
+        },
+        {
+          projectPath: room2.identity.canonicalProjectPath,
+          expectedRoomId: room2.identity.roomId,
+          acknowledgedParticipantSessionIds: [],
+        },
+      ]),
+    ).resolves.toBe(2);
+
+    expect(service.manager.size).toBe(0);
+    expect(room1.lifecycle).toBe("closed");
+    expect(room2.lifecycle).toBe("closed");
+  });
+
+  it("does not partially close when the app-wide room set changes", async () => {
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle(path.basename(projectPath), projectPath),
+      ),
+      writeProjectScene: vi.fn(async () => ({})),
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      randomId: vi
+        .fn()
+        .mockReturnValueOnce("room-id-1")
+        .mockReturnValueOnce("room-id-2"),
+    });
+    const room1 = await service.openProject("/projects/project-1");
+    const room2 = await service.openProject("/projects/project-2");
+
+    await expect(
+      service.closeProjectPaths(
+        [
+          {
+            projectPath: room1.identity.canonicalProjectPath,
+            expectedRoomId: room1.identity.roomId,
+            acknowledgedParticipantSessionIds: [],
+          },
+        ],
+        { requireExactRoomSet: true },
+      ),
+    ).rejects.toMatchObject({ code: "PARTICIPANTS_CHANGED" });
+
+    expect(service.manager.list()).toEqual([room1, room2]);
+    expect(room1.lifecycle).toBe("active");
+    expect(room2.lifecycle).toBe("active");
   });
 });

@@ -21,6 +21,7 @@ export interface ProjectRoomClientTransport {
     operation: ProjectRoomSceneOperation,
   ): Promise<ProjectRoomOperationResult>;
   leave(sessionId: string): Promise<boolean>;
+  cancelPendingJoin?(): Promise<void> | void;
   subscribe(listener: (event: ProjectRoomEvent) => void): () => void;
   subscribeSnapshot(
     listener: (joined: ProjectRoomJoinResult) => void,
@@ -171,6 +172,7 @@ export class ProjectRoomClientController {
         sessionId: this.input.sessionId,
       });
       if (generation !== this.lifecycleGeneration) {
+        await this.input.transport.leave(joined.sessionId);
         return joined;
       }
       this.applySnapshot(joined);
@@ -194,9 +196,11 @@ export class ProjectRoomClientController {
     this.unsubscribeSnapshot = null;
     unsubscribe?.();
     unsubscribeSnapshot?.();
-    await this.input.transport.leave(
-      this.activeSessionId ?? this.input.sessionId,
-    );
+    if (this.activeSessionId) {
+      await this.input.transport.leave(this.activeSessionId);
+    } else {
+      await this.input.transport.cancelPendingJoin?.();
+    }
     this.identity = null;
     this.activeSessionId = null;
     this.joined = null;

@@ -12,7 +12,6 @@ const createStableBoardSessionError = (
 
 interface PendingStableBoardPage {
   stableBoardId: string;
-  expiresAt: number;
   claim?: {
     actorId: string;
     displayLabel: string;
@@ -31,19 +30,6 @@ export interface StableBoardActorClaim extends StableBoardPageIdentity {
 
 export class StableBoardSessionClaimStore {
   private readonly pages = new Map<string, PendingStableBoardPage>();
-  private readonly now: () => number;
-  private readonly ttlMs: number;
-
-  constructor({
-    now = Date.now,
-    ttlMs = 5 * 60 * 1_000,
-  }: {
-    now?: () => number;
-    ttlMs?: number;
-  } = {}) {
-    this.now = now;
-    this.ttlMs = ttlMs;
-  }
 
   public register(input: StableBoardPageIdentity) {
     this.assertInput(input);
@@ -54,14 +40,9 @@ export class StableBoardSessionClaimStore {
         "The Agent Board page nonce belongs to another project.",
       );
     }
-    const activeClaim =
-      existing && existing.expiresAt >= this.now()
-        ? existing.claim
-        : undefined;
     this.pages.set(input.pageNonce, {
       stableBoardId: input.stableBoardId,
-      expiresAt: this.now() + this.ttlMs,
-      ...(activeClaim ? { claim: activeClaim } : {}),
+      ...(existing?.claim ? { claim: existing.claim } : {}),
     });
   }
 
@@ -85,10 +66,7 @@ export class StableBoardSessionClaimStore {
   public hasClaim(input: StableBoardPageIdentity) {
     const page = this.pages.get(input.pageNonce);
     return Boolean(
-      page &&
-        page.expiresAt >= this.now() &&
-        page.stableBoardId === input.stableBoardId &&
-        page.claim,
+      page && page.stableBoardId === input.stableBoardId && page.claim,
     );
   }
 
@@ -120,13 +98,6 @@ export class StableBoardSessionClaimStore {
         { pageNonce: input.pageNonce },
       );
     }
-    if (page.expiresAt < this.now()) {
-      this.pages.delete(input.pageNonce);
-      throw createStableBoardSessionError(
-        "TOKEN_EXPIRED",
-        "The Agent Board page nonce has expired.",
-      );
-    }
     return page;
   }
 
@@ -140,6 +111,5 @@ export class StableBoardSessionClaimStore {
   }
 }
 
-export const createStableBoardSessionClaimStore = (
-  input?: ConstructorParameters<typeof StableBoardSessionClaimStore>[0],
-) => new StableBoardSessionClaimStore(input);
+export const createStableBoardSessionClaimStore = () =>
+  new StableBoardSessionClaimStore();

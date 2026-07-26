@@ -34,7 +34,6 @@ const zhCnCopy = {
     recentTitle: "项目列表",
     recentEmpty: "还没有项目，先新建或打开一个项目。",
     lastOpenedAt: "上次打开",
-    continueLastProject: "继续最近项目",
     deleteProject: "删除项目",
     deleteProjectRecordOnly: "仅删除记录",
     revealProjectForManualDelete: "在文件管理器中显示",
@@ -235,7 +234,6 @@ const zhCnCopy = {
       "本地优先的工业设计 AI 画板，用来整理参考、生成方案和沉淀设计过程。",
   },
   menu: {
-    projectGroup: "CoreStudio 项目",
     currentProject: (name: string) => `当前项目：${name}`,
     file: "文件",
     newProject: "新建项目",

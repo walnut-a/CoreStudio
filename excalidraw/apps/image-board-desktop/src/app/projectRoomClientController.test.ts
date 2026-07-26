@@ -78,6 +78,7 @@ const createHarness = (
       supersededElementIds: [],
     })),
     leave: vi.fn(async () => true),
+    cancelPendingJoin: vi.fn(async () => undefined),
     subscribe: vi.fn((nextListener: (event: ProjectRoomEvent) => void) => {
       listener = nextListener;
       return () => {
@@ -139,6 +140,31 @@ describe("ProjectRoomClientController", () => {
       sequence: 0,
       origin: "snapshot",
     });
+  });
+
+  it("leaves a room session that finishes joining after the client has stopped", async () => {
+    const harness = createHarness();
+    let resolveJoin!: (value: {
+      snapshot: ProjectRoomSnapshot;
+      sessionId: string;
+    }) => void;
+    harness.transport.join.mockReturnValue(
+      new Promise((resolve) => {
+        resolveJoin = resolve;
+      }),
+    );
+
+    const starting = harness.controller.start();
+    await harness.controller.stop();
+    expect(harness.transport.cancelPendingJoin).toHaveBeenCalledTimes(1);
+    resolveJoin({
+      snapshot,
+      sessionId: "late-room-session",
+    });
+    await starting;
+
+    expect(harness.transport.leave).toHaveBeenCalledTimes(1);
+    expect(harness.transport.leave).toHaveBeenCalledWith("late-room-session");
   });
 
   it("preserves the room close reason for reconnect policy", async () => {
@@ -974,11 +1000,13 @@ describe("ProjectRoomClientController", () => {
     const startPromise = harness.controller.start();
     await harness.controller.stop();
 
-    expect(harness.transport.leave).toHaveBeenCalledWith("desktop-session");
+    expect(harness.transport.cancelPendingJoin).toHaveBeenCalledTimes(1);
+    expect(harness.transport.leave).not.toHaveBeenCalled();
     resolveJoin({
       snapshot,
       sessionId: "desktop-session",
     });
     await startPromise;
+    expect(harness.transport.leave).toHaveBeenCalledWith("desktop-session");
   });
 });

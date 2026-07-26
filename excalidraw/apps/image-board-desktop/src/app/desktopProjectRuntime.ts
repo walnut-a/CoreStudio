@@ -20,13 +20,13 @@ import {
 } from "./projectRoomClientController";
 import { reconcileProjectRoomScene } from "./projectRoomSceneReconciliation";
 
-export interface DesktopProjectTabScene {
+export interface DesktopProjectScene {
   elements: readonly ExcalidrawElement[];
   appState: AppState;
   files: BinaryFiles;
 }
 
-export interface CreateDesktopProjectTabRuntimeInput {
+export interface CreateDesktopProjectRuntimeInput {
   projectPath: string;
   sessionId: string;
   transport: ProjectRoomClientTransport;
@@ -36,20 +36,21 @@ export interface CreateDesktopProjectTabRuntimeInput {
   ) => Promise<ImageRecordMap | void>;
   onParticipants: (participants: ProjectRoomParticipant[]) => void;
   onImageRecords: (imageRecords: ImageRecordMap) => void;
-  onScene: (scene: DesktopProjectTabScene) => void;
+  onScene: (scene: DesktopProjectScene) => void;
   onReadyChange: (ready: boolean) => void;
   onError: (error: Error | null) => void;
   onRoomClosed: () => void;
 }
 
-export class DesktopProjectTabRuntime {
+export class DesktopProjectRuntime {
   private api: ExcalidrawImperativeAPI | null = null;
   private readonly controller: ProjectRoomClientController;
   private startPromise: Promise<void> | null = null;
+  private lifecycleGeneration = 0;
   private pendingAuthoritativeScene: ApplyAuthoritativeProjectRoomSceneInput | null =
     null;
 
-  constructor(private readonly input: CreateDesktopProjectTabRuntimeInput) {
+  constructor(private readonly input: CreateDesktopProjectRuntimeInput) {
     this.controller = createProjectRoomClientController({
       projectPath: input.projectPath,
       sessionId: input.sessionId,
@@ -112,7 +113,7 @@ export class DesktopProjectTabRuntime {
     return this.controller;
   }
 
-  public getScene(): DesktopProjectTabScene {
+  public getScene(): DesktopProjectScene {
     if (!this.api) {
       throw new Error("The project tab editor is not initialized.");
     }
@@ -134,14 +135,21 @@ export class DesktopProjectTabRuntime {
     if (this.startPromise) {
       return this.startPromise;
     }
+    const generation = this.lifecycleGeneration;
     this.input.onReadyChange(false);
     this.startPromise = this.controller
       .start()
       .then(() => {
+        if (generation !== this.lifecycleGeneration) {
+          return;
+        }
         this.input.onReadyChange(true);
         this.input.onError(null);
       })
       .catch((error) => {
+        if (generation !== this.lifecycleGeneration) {
+          return;
+        }
         this.startPromise = null;
         const normalized =
           error instanceof Error ? error : new Error(String(error));
@@ -181,12 +189,13 @@ export class DesktopProjectTabRuntime {
   }
 
   public async stop() {
+    this.lifecycleGeneration += 1;
     this.input.onReadyChange(false);
     this.api = null;
     await this.controller.stop();
   }
 }
 
-export const createDesktopProjectTabRuntime = (
-  input: CreateDesktopProjectTabRuntimeInput,
-) => new DesktopProjectTabRuntime(input);
+export const createDesktopProjectRuntime = (
+  input: CreateDesktopProjectRuntimeInput,
+) => new DesktopProjectRuntime(input);

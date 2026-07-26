@@ -23,7 +23,6 @@ export const enCopy: DesktopCopy = {
     recentTitle: "Projects",
     recentEmpty: "No projects yet. Create or open one to get started.",
     lastOpenedAt: "Last opened",
-    continueLastProject: "Continue recent project",
     deleteProject: "Remove project",
     deleteProjectRecordOnly: "Remove from list",
     revealProjectForManualDelete: "Show in file manager",
@@ -230,7 +229,6 @@ export const enCopy: DesktopCopy = {
       "A local-first AI board for industrial design, built to organize references, generate concepts, and preserve the design process.",
   },
   menu: {
-    projectGroup: "CoreStudio Project",
     currentProject: (name: string) => `Current project: ${name}`,
     file: "File",
     newProject: "New Project",

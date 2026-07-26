@@ -106,9 +106,6 @@ export interface LocalBridgeServerOptions {
     stableBoardId: string;
     pageNonce: string;
   }) => Promise<StableBoardIntegrationStatus>;
-  repairStableBoardIntegration?: (input: {
-    action: "install-codex-integration";
-  }) => Promise<unknown>;
   issueBoardProjectSelection?: (input: {
     threadId: string;
     displayLabel: string;
@@ -677,9 +674,10 @@ const handleReadCommand = async (
   response: http.ServerResponse,
   renderer: LocalBridgeServerOptions["renderer"],
   command: AgentRendererCommandName,
+  projectPath: string,
 ) => {
   try {
-    const result = await renderer.request(command);
+    const result = await renderer.request(command, { projectPath });
     sendJson(response, 200, createAgentOk(result));
   } catch (error) {
     sendRendererError(response, error);
@@ -715,15 +713,15 @@ const handleDesktopBridgeCommand = async (
     return;
   }
 
-  if (hasToken) {
-    const project = await authenticateProjectRequest(
+  const authenticatedProject = hasToken
+    ? await authenticateProjectRequest(
       request,
       response,
       options,
-    );
-    if (!project) {
+    )
+    : null;
+  if (hasToken && !authenticatedProject) {
       return;
-    }
   }
 
   const args = body.args;
@@ -741,6 +739,9 @@ const handleDesktopBridgeCommand = async (
     const result = await renderer.request("desktop.bridge", {
       method,
       args: args ?? [],
+      ...(authenticatedProject
+        ? { projectPath: authenticatedProject.projectPath }
+        : {}),
     });
     sendJson(response, 200, createAgentOk(result));
   } catch (error) {
@@ -1196,45 +1197,6 @@ export const createLocalBridgeServer = async (
       }
 
       if (
-        request.method === "POST" &&
-        url.pathname === AGENT_HTTP_ROUTES.stableBoardIntegrationRepair
-      ) {
-        if (!options.repairStableBoardIntegration) {
-          sendError(
-            response,
-            409,
-            "CAPABILITY_UNAVAILABLE",
-            "Stable Board integration repair is unavailable.",
-          );
-          return;
-        }
-        try {
-          const body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
-          if (body.action !== "install-codex-integration") {
-            throw Object.assign(
-              new Error("Unsupported stable Board repair action."),
-              { code: "BAD_REQUEST" },
-            );
-          }
-          sendJson(
-            response,
-            200,
-            createAgentOk(
-              await options.repairStableBoardIntegration({
-                action: body.action,
-              }),
-            ),
-          );
-        } catch (error) {
-          sendRendererError(response, error);
-        }
-        return;
-      }
-
-      if (
         request.method === "GET" &&
         url.pathname === AGENT_HTTP_ROUTES.boardProjects
       ) {
@@ -1522,7 +1484,12 @@ export const createLocalBridgeServer = async (
           sendJson(response, 200, createAgentOk(roomRuntimeState.selection));
           return;
         }
-        await handleReadCommand(response, options.renderer, "scene.selection");
+        await handleReadCommand(
+          response,
+          options.renderer,
+          "scene.selection",
+          currentProject.projectPath,
+        );
         return;
       }
 
@@ -1539,7 +1506,9 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
-          const result = await options.renderer.request("agent.context");
+          const result = await options.renderer.request("agent.context", {
+            projectPath: currentProject.projectPath,
+          });
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
           sendRendererError(response, error);
@@ -1584,7 +1553,12 @@ export const createLocalBridgeServer = async (
           }
           return;
         }
-        await handleReadCommand(response, options.renderer, readCommand);
+        await handleReadCommand(
+          response,
+          options.renderer,
+          readCommand,
+          currentProject.projectPath,
+        );
         return;
       }
 
@@ -1687,14 +1661,14 @@ export const createLocalBridgeServer = async (
               : null;
           const result = await options.renderer.request(
             "scene.imagePaths",
-            roomRuntimeState
-              ? createRendererPayload(
-                  body,
-                  currentProject.projectPath,
-                  false,
-                  buildAgentBoardCommandContext(roomRuntimeState),
-                )
-              : body,
+            createRendererPayload(
+              body,
+              currentProject.projectPath,
+              false,
+              roomRuntimeState
+                ? buildAgentBoardCommandContext(roomRuntimeState)
+                : null,
+            ),
           );
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
@@ -1784,6 +1758,8 @@ export const createLocalBridgeServer = async (
     ? attachProjectRoomWebSocketServer({
         server,
         authenticate: options.authenticateProjectRoomWebSocket,
+        allowOrigin: (origin) =>
+          getAllowedCorsOrigin(origin, options.getBoardUrl?.() ?? null) !== null,
       })
     : null;
 

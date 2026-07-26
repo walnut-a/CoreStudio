@@ -4,7 +4,11 @@ import { isDarwin, isFirefox, isWindows } from "@excalidraw/common";
 
 import { KEYS } from "@excalidraw/common";
 
-import { actionToggleTheme } from "../actions";
+import {
+  actionClearCanvas,
+  actionToggleSearchMenu,
+  actionToggleTheme,
+} from "../actions";
 import { getShortcutFromShortcutName } from "../actions/shortcuts";
 import { probablySupportsClipboardBlob } from "../clipboard";
 import { t } from "../i18n";
@@ -315,10 +319,12 @@ export const HelpDialog = ({ onClose }: { onClose?: () => void }) => {
               label={t("stats.fullTitle")}
               shortcuts={[getShortcutKey("Alt+/")]}
             />
-            <Shortcut
-              label={t("search.title")}
-              shortcuts={[getShortcutFromShortcutName("searchMenu")]}
-            />
+            {actionManager.isActionEnabled(actionToggleSearchMenu) && (
+              <Shortcut
+                label={t("search.title")}
+                shortcuts={[getShortcutFromShortcutName("searchMenu")]}
+              />
+            )}
             <Shortcut
               label={t("commandPalette.title")}
               shortcuts={
@@ -353,10 +359,12 @@ export const HelpDialog = ({ onClose }: { onClose?: () => void }) => {
               ]}
               isOr={true}
             />
-            <Shortcut
-              label={t("buttons.clearReset")}
-              shortcuts={[getShortcutKey("CtrlOrCmd+Delete")]}
-            />
+            {actionManager.isActionEnabled(actionClearCanvas) && (
+              <Shortcut
+                label={t("buttons.clearReset")}
+                shortcuts={[getShortcutKey("CtrlOrCmd+Delete")]}
+              />
+            )}
             <Shortcut
               label={t("labels.delete")}
               shortcuts={[getShortcutKey("Delete")]}

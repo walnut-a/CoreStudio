@@ -18,6 +18,7 @@ export interface RendererCommandBridgeOptions {
     listener: (response: AgentRendererCommandResponse) => void,
   ) => () => void;
   isAvailable: () => boolean;
+  onSettled?: (requestId: string) => void;
 }
 
 interface PendingRequest {
@@ -45,6 +46,7 @@ export const createRendererCommandBridge = (
     }
     pending.delete(requestId);
     clearTimeout(entry.timer);
+    options.onSettled?.(requestId);
     entry.reject(error);
   };
 
@@ -56,6 +58,7 @@ export const createRendererCommandBridge = (
 
     pending.delete(response.requestId);
     clearTimeout(entry.timer);
+    options.onSettled?.(response.requestId);
     if (response.ok) {
       entry.resolve(response.data);
       return;

@@ -82,6 +82,13 @@ export const IPC_CHANNELS = {
   projectRoomCloseState: "image-board:project-room-close-state",
   projectRoomClose: "image-board:project-room-close",
   projectRoomEvent: "image-board:project-room-event",
+  projectViewsState: "image-board:project-views-state",
+  loadProjectViewsState: "image-board:load-project-views-state",
+  openProjectView: "image-board:open-project-view",
+  activateProjectView: "image-board:activate-project-view",
+  closeProjectView: "image-board:close-project-view",
+  recoverProjectView: "image-board:recover-project-view",
+  projectThemeChanged: "image-board:project-theme-changed",
 } as const;
 
 export type DesktopMenuAction =
@@ -129,6 +136,33 @@ export interface DesktopCurrentProject {
 
 export interface DesktopProjectStateChangedPayload {
   currentProject: DesktopCurrentProject | null;
+}
+
+export type DesktopProjectViewStatus = "ready" | "crashed";
+export type DesktopProjectTheme = "light" | "dark";
+
+export interface DesktopProjectViewEntry {
+  projectPath: string;
+  projectId: string;
+  name: string;
+  status: DesktopProjectViewStatus;
+  webContentsId: number;
+  safeMode?: boolean;
+  theme?: DesktopProjectTheme;
+}
+
+export interface DesktopProjectViewOpenOptions {
+  safeMode?: boolean;
+}
+
+export interface DesktopProjectViewsState {
+  activeProjectPath: string | null;
+  projects: DesktopProjectViewEntry[];
+}
+
+export interface DesktopProjectThemeChangedPayload {
+  projectPath: string;
+  theme: DesktopProjectTheme;
 }
 
 export interface DesktopAgentBridgeStatus {
@@ -441,6 +475,22 @@ export interface DesktopBridgeApi {
   }): Promise<boolean>;
   onProjectRoomEvent?(
     listener: (sessionId: string, event: ProjectRoomEvent) => void,
+  ): () => void;
+  loadProjectViewsState?(): Promise<DesktopProjectViewsState>;
+  openProjectView?(
+    projectPath: string,
+    options?: DesktopProjectViewOpenOptions,
+  ): Promise<DesktopProjectViewsState>;
+  activateProjectView?(
+    projectPath: string | null,
+  ): Promise<DesktopProjectViewsState>;
+  closeProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
+  recoverProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
+  notifyProjectThemeChanged?(
+    payload: DesktopProjectThemeChangedPayload,
+  ): void;
+  onProjectViewsState?(
+    listener: (state: DesktopProjectViewsState) => void,
   ): () => void;
   onFlushProjectRoomRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(

@@ -265,6 +265,32 @@ describe("App startup", () => {
     expect(notifyProjectStateChanged).not.toHaveBeenCalledWith(null);
   });
 
+  it("reports desktop project theme changes to the shell", async () => {
+    const notifyProjectThemeChanged = vi.fn();
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      openRecentProject: vi
+        .fn()
+        .mockResolvedValue(createMockProjectBundle()),
+      notifyProjectThemeChanged,
+    }) as any;
+
+    render(<App desktopProjectPath="/tmp/mock-project" />);
+
+    await screen.findByTestId("excalidraw-canvas");
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: [],
+        appState: { theme: "dark" },
+        files: {},
+      });
+    });
+
+    expect(notifyProjectThemeChanged).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      theme: "dark",
+    });
+  });
+
   it("does not add a Codex status dock after accepting an opened project", async () => {
     let notifiedProject: {
       projectPath: string;
@@ -883,159 +909,6 @@ describe("App startup", () => {
     expect(submitProjectRoomOperation).not.toHaveBeenCalled();
   });
 
-  it("keeps both project editors mounted and switches tabs without reopening either project", async () => {
-    const closeProjectRoom = vi.fn().mockResolvedValue(true);
-    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
-    let menuActionListener:
-      | ((event: {
-          action: string;
-          openRequestId?: number;
-          projectBundle?: Record<string, unknown> | null;
-        }) => void)
-      | null = null;
-    const projectBBundle = {
-      projectPath: "/tmp/project-b",
-      project: {
-        formatVersion: 1,
-        appVersion: "0.0.0-test",
-        name: "项目 B",
-        createdAt: "2026-04-12T08:00:00.000Z",
-        updatedAt: "2026-04-12T08:00:00.000Z",
-        sceneFile: "scene.excalidraw.json",
-        imageRecordsFile: "image-records.json",
-        assetsDir: "assets",
-        exportsDir: "exports",
-      },
-      sceneJson: JSON.stringify({ elements: [], appState: {} }),
-      imageRecords: {},
-    };
-
-    window.imageBoardDesktop = {
-      createProject: vi.fn().mockResolvedValue({
-        projectPath: "/tmp/project-a",
-        project: {
-          formatVersion: 1,
-          appVersion: "0.0.0-test",
-          name: "项目 A",
-          createdAt: "2026-04-12T08:00:00.000Z",
-          updatedAt: "2026-04-12T08:00:00.000Z",
-          sceneFile: "scene.excalidraw.json",
-          imageRecordsFile: "image-records.json",
-          assetsDir: "assets",
-          exportsDir: "exports",
-        },
-        sceneJson: JSON.stringify({ elements: [], appState: {} }),
-        imageRecords: {},
-      }),
-      openProject: vi.fn().mockResolvedValue(projectBBundle),
-      closeProjectRoom,
-      readProjectAssetPayloads,
-      persistImageAssets: vi.fn().mockResolvedValue({}),
-      importImages: vi.fn().mockResolvedValue([]),
-      revealProjectInFinder: vi.fn().mockResolvedValue(undefined),
-      loadProviderSettings: vi.fn().mockResolvedValue({
-        gemini: {
-          defaultModel: "imagen-4.0-fast-generate-001",
-          isConfigured: true,
-          lastStatus: "success",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        zenmux: {
-          defaultModel: "google/gemini-2.5-flash-image",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-        fal: {
-          defaultModel: "fal-ai/flux/schnell",
-          isConfigured: false,
-          lastStatus: "unknown",
-          lastCheckedAt: null,
-          lastError: null,
-        },
-      }),
-      saveProviderSettings: vi.fn(),
-      generateImages: vi.fn(),
-      onMenuAction: vi.fn((listener) => {
-        menuActionListener = listener;
-        return () => undefined;
-      }),
-    } as any;
-
-    render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
-
-    await waitFor(() => {
-      expect(readProjectAssetPayloads).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
-    });
-
-    act(() => {
-      triggerExcalidrawChange?.({
-        elements: [
-          {
-            id: "rect-a",
-            type: "rectangle",
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 100,
-            isDeleted: false,
-          },
-        ],
-        appState: {
-          selectedElementIds: {},
-        },
-        files: {},
-      });
-    });
-
-    await act(async () => {
-      menuActionListener?.({
-        action: "project-opened",
-        openRequestId: 1,
-        projectBundle: projectBBundle,
-      });
-    });
-
-    expect(closeProjectRoom).not.toHaveBeenCalled();
-    expect(screen.getByRole("tab", { name: "项目 A" })).toHaveAttribute(
-      "aria-selected",
-      "false",
-    );
-    expect(screen.getByRole("tab", { name: "项目 B" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(readProjectAssetPayloads).toHaveBeenCalledTimes(2);
-    expect(screen.getAllByTestId("excalidraw-canvas")).toHaveLength(2);
-    expect(
-      document.querySelectorAll(".image-board-canvas__project-runtime--active"),
-    ).toHaveLength(1);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("tab", { name: "项目 A" }));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole("tab", { name: "项目 A" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-    });
-    expect(readProjectAssetPayloads).toHaveBeenCalledTimes(2);
-  });
-
   it("opens an about dialog from the native help menu", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
 
@@ -1500,13 +1373,16 @@ describe("App startup", () => {
     render(<App />);
 
     expect(await screen.findByText("项目列表")).toBeInTheDocument();
-    const continueRecentProjectButton = await screen.findByRole("button", {
-      name: "继续最近项目",
+    const recentProjectButton = await screen.findByRole("button", {
+      name: /^常用项目/,
     });
-    expect(continueRecentProjectButton).toBeInTheDocument();
+    expect(recentProjectButton).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "继续最近项目" }),
+    ).not.toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(continueRecentProjectButton);
+      fireEvent.click(recentProjectButton);
     });
     act(() => {
       triggerExcalidrawInitialize?.();
@@ -1644,115 +1520,6 @@ describe("App startup", () => {
     expect(
       screen.queryByText(/\[CORESTUDIO_MISSING_RECENT_PROJECT\]/),
     ).not.toBeInTheDocument();
-  });
-
-  it("returns to the project picker from the native canvas menu", async () => {
-    const currentProject = createMockProjectBundle({
-      projectPath: "/Users/zhaolixing/Documents/工业设计助手/当前项目",
-      project: {
-        ...createMockProjectBundle().project,
-        name: "当前项目",
-      },
-    });
-
-    const closeProjectRoom = vi.fn().mockResolvedValue(true);
-    window.imageBoardDesktop = createDesktopBridgeMock({
-      createProject: vi.fn().mockResolvedValue(currentProject),
-      closeProjectRoom,
-      loadRecentProjects: vi.fn().mockResolvedValue([
-        {
-          projectPath: "/Users/zhaolixing/Documents/工业设计助手/当前项目",
-          name: "当前项目",
-          lastOpenedAt: "2026-06-26T08:00:00.000Z",
-        },
-        {
-          projectPath: "/Users/zhaolixing/Documents/工业设计助手/备用项目",
-          name: "备用项目",
-          lastOpenedAt: "2026-06-25T08:00:00.000Z",
-        },
-      ]),
-    }) as any;
-
-    render(<App />);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
-
-    const projectMenu = await screen.findByTestId("project-main-menu");
-    expect(projectMenu).toHaveTextContent("菜单当前项目: 当前项目");
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "切换项目..." }));
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId("project-main-menu")).not.toBeInTheDocument();
-    });
-    expect(
-      screen.getByRole("button", { name: "新建项目" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "继续最近项目" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "当前项目" })).toHaveAttribute(
-      "aria-selected",
-      "false",
-    );
-    expect(screen.getByTestId("excalidraw-canvas")).toBeInTheDocument();
-    expect(
-      document.querySelector(".image-board-canvas__project-runtime--active"),
-    ).toBeNull();
-    expect(closeProjectRoom).not.toHaveBeenCalled();
-  });
-
-  it("closes only when the project tab close button is used", async () => {
-    const currentProject = createMockProjectBundle({
-      projectPath: "/Users/zhaolixing/Documents/工业设计助手/待关闭项目",
-      project: {
-        ...createMockProjectBundle().project,
-        name: "待关闭项目",
-      },
-    });
-    const closeProjectRoom = vi.fn().mockResolvedValue(true);
-    window.imageBoardDesktop = createDesktopBridgeMock({
-      createProject: vi.fn().mockResolvedValue(currentProject),
-      getProjectRoomCloseState: vi.fn().mockResolvedValue(null),
-      closeProjectRoom,
-    }) as any;
-
-    render(<App />);
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-    });
-    act(() => {
-      triggerExcalidrawInitialize?.();
-    });
-
-    await act(async () => {
-      fireEvent.click(
-        await screen.findByRole("button", {
-          name: "关闭项目 待关闭项目",
-        }),
-      );
-    });
-
-    await waitFor(() => {
-      expect(closeProjectRoom).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectPath: "/Users/zhaolixing/Documents/工业设计助手/待关闭项目",
-        }),
-      );
-    });
-    expect(
-      screen.queryByRole("tab", { name: "待关闭项目" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "新建项目" }),
-    ).toBeInTheDocument();
   });
 
   it("does not add a custom project toolbar to the canvas top-left area", async () => {
@@ -6305,21 +6072,10 @@ describe("App startup", () => {
         mimeType: "image/png",
       },
     });
-    let submissionCount = 0;
     const submitProjectRoomOperation = vi.fn(async (input) => {
-      submissionCount += 1;
-      if (submissionCount === 2) {
-        throw new Error("磁盘不可写");
-      }
-      return {
-        operationId: input.operation.operationId,
-        sequence: submissionCount,
-        persistedSequence: 0,
-        changedElementIds: input.operation.elements.map(
-          (element: { id: string }) => element.id,
-        ),
-        ignoredElementIds: [],
-      };
+      throw new Error(
+        `磁盘不可写：${input.operation.operationId as string}`,
+      );
     });
 
     window.imageBoardDesktop = createDesktopBridgeMock({

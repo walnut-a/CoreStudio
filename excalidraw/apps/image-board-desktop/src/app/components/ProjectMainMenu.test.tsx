@@ -64,7 +64,7 @@ vi.mock("@excalidraw/excalidraw/index", () => {
 describe("ProjectMainMenu", () => {
   afterEach(() => setActiveDesktopLocale("zh-CN"));
 
-  it("adds a lightweight CoreStudio project entry to the native Excalidraw menu", () => {
+  it("uses the current project as the menu heading without a redundant product label", () => {
     const onSwitchProject = vi.fn();
     const onCopyBoardAddress = vi.fn();
 
@@ -76,44 +76,52 @@ describe("ProjectMainMenu", () => {
       />,
     );
 
-    const projectGroup = screen.getByRole("region", {
-      name: "CoreStudio 项目",
+    const projectMenu = screen.getByRole("navigation", {
+      name: "画布菜单",
     });
     expect(
-      within(projectGroup).getByLabelText("当前项目：当前项目"),
+      within(projectMenu).queryByRole("heading", {
+        name: "CoreStudio 项目",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(projectMenu).getByLabelText("当前项目：当前项目"),
     ).toBeInTheDocument();
-    expect(within(projectGroup).queryByText("当前")).not.toBeInTheDocument();
+    expect(within(projectMenu).queryByText("当前")).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(projectGroup).getByRole("button", { name: "切换项目..." }),
+      within(projectMenu).getByRole("button", { name: "切换项目..." }),
     );
 
     expect(onSwitchProject).toHaveBeenCalledTimes(1);
     expect(
-      within(projectGroup).queryByRole("button", { name: "打开项目" }),
+      within(projectMenu).queryByRole("button", { name: "打开项目" }),
     ).not.toBeInTheDocument();
     expect(
-      within(projectGroup).queryByRole("button", { name: "显示项目文件夹" }),
+      within(projectMenu).queryByRole("button", { name: "显示项目文件夹" }),
     ).not.toBeInTheDocument();
     fireEvent.click(
-      within(projectGroup).getByRole("button", {
+      within(projectMenu).getByRole("button", {
         name: "复制画布地址",
       }),
     );
     expect(onCopyBoardAddress).toHaveBeenCalledOnce();
     expect(
-      within(projectGroup).queryByRole("button", { name: "最近项目" }),
+      within(projectMenu).queryByRole("button", { name: "最近项目" }),
     ).not.toBeInTheDocument();
     expect(
-      within(projectGroup).queryByRole("button", { name: "项目维护" }),
+      within(projectMenu).queryByRole("button", { name: "项目维护" }),
     ).not.toBeInTheDocument();
 
     expect(
-      screen.getByRole("button", { name: "导出图片" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "导出图片" }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "查找画布" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "查找画布" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "重置画布" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "帮助" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "GitHub" }),
@@ -121,6 +129,7 @@ describe("ProjectMainMenu", () => {
     expect(
       screen.queryByRole("button", { name: "画布背景" }),
     ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("separator")).toHaveLength(1);
   });
 
   it("localizes project menu labels without rewriting the project name", () => {
@@ -133,14 +142,19 @@ describe("ProjectMainMenu", () => {
       />,
     );
 
-    const projectGroup = screen.getByRole("region", {
-      name: "CoreStudio Project",
+    const projectMenu = screen.getByRole("navigation", {
+      name: "画布菜单",
     });
     expect(
-      within(projectGroup).getByLabelText("Current project: 工业设计助手"),
+      within(projectMenu).queryByRole("heading", {
+        name: "CoreStudio Project",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(projectMenu).getByLabelText("Current project: 工业设计助手"),
     ).toBeInTheDocument();
     expect(
-      within(projectGroup).getByRole("button", { name: "Switch Project..." }),
+      within(projectMenu).getByRole("button", { name: "Switch Project..." }),
     ).toBeInTheDocument();
   });
 

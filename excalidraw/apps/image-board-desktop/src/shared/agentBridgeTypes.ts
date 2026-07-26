@@ -18,7 +18,6 @@ export const AGENT_HTTP_ROUTES = {
   stableBoardSessionClaim: "/v1/agent-board/session/claim",
   stableBoardSessionExchange: "/v1/agent-board/session/exchange",
   stableBoardIntegrationStatus: "/v1/agent-board/integration/status",
-  stableBoardIntegrationRepair: "/v1/agent-board/integration/repair",
   boardProjects: "/v1/board/projects",
   boardProjectOpen: "/v1/board/projects/open",
   roomTicket: "/v1/room/ticket",
@@ -55,10 +54,6 @@ export interface StableBoardIntegrationStatus {
   bridgeProtocolVersion: number;
   actorClaimed: boolean;
   issues: StableBoardIntegrationIssue[];
-  repairActions: Array<{
-    type: "install-codex-integration";
-    label: string;
-  }>;
 }
 
 export interface AgentBrowserRuntimeViewport {

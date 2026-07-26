@@ -76,6 +76,45 @@ describe("recentProjectsStore", () => {
     ]);
   });
 
+  it("preserves every project when multiple renderers remember projects concurrently", async () => {
+    const projectAPath = path.join(mockDocumentsPath, "并发项目 A");
+    const projectBPath = path.join(mockDocumentsPath, "并发项目 B");
+    for (const projectPath of [projectAPath, projectBPath]) {
+      await fs.mkdir(projectPath, { recursive: true });
+      await fs.writeFile(
+        path.join(projectPath, PROJECT_FILENAMES.project),
+        "{}",
+        "utf8",
+      );
+    }
+
+    await Promise.all([
+      rememberRecentProject(
+        projectAPath,
+        "并发项目 A",
+        "2026-04-16T01:00:00.000Z",
+      ),
+      rememberRecentProject(
+        projectBPath,
+        "并发项目 B",
+        "2026-04-16T02:00:00.000Z",
+      ),
+    ]);
+
+    await expect(loadRecentProjects()).resolves.toEqual([
+      {
+        projectPath: projectBPath,
+        name: "并发项目 B",
+        lastOpenedAt: "2026-04-16T02:00:00.000Z",
+      },
+      {
+        projectPath: projectAPath,
+        name: "并发项目 A",
+        lastOpenedAt: "2026-04-16T01:00:00.000Z",
+      },
+    ]);
+  });
+
   it("keeps up to 20 recent projects for the project list", async () => {
     for (let index = 1; index <= 21; index += 1) {
       const projectPath = path.join(mockDocumentsPath, `项目 ${index}`);

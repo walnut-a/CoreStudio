@@ -52,7 +52,8 @@ body {
 }
 
 html.image-board-desktop-titlebar-hidden {
-  --desktop-window-top-inset: 36px;
+  --desktop-window-top-inset: 44px;
+  --desktop-window-control-safe-left: 94px;
 }
 
 .image-board-shell {
@@ -65,23 +66,6 @@ html.image-board-desktop-titlebar-hidden {
   position: relative;
   min-width: 0;
   height: 100%;
-}
-
-.image-board-canvas__project-runtime {
-  position: absolute;
-  inset: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.image-board-canvas__project-runtime--active {
-  visibility: visible;
-  pointer-events: auto;
-}
-
-.image-board-canvas--project-home {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .image-board-canvas--editor-initializing .LoadingMessage {

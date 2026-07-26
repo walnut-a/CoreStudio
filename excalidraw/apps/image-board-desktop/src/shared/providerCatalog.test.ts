@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  applyRemoteModelCatalog,
   inferCustomModelCapabilityTemplate,
   inferProviderRequestAdapter,
   getAspectRatioOptions,
@@ -14,9 +15,63 @@ import {
   normalizeGenerationRequest,
   PROVIDER_CATALOG,
   PROVIDER_REQUEST_ADAPTER_OPTIONS,
+  resetRemoteModelCatalog,
 } from "./providerCatalog";
+import type { RemoteModelCatalog } from "./modelCatalogContract";
+
+afterEach(() => {
+  resetRemoteModelCatalog();
+});
 
 describe("providerCatalog", () => {
+  it("replaces built-in presets with a validated remote provider catalog", () => {
+    const catalog: RemoteModelCatalog = {
+      schemaVersion: 1,
+      revision: 2,
+      publishedAt: "2026-07-26T21:00:00.000Z",
+      minClientVersion: "1.1.26",
+      modelAliases: {
+        zenmux: {
+          "google/gemini-3-pro-image-preview": "google/gemini-3-pro-image",
+        },
+      },
+      providers: {
+        zenmux: {
+          defaultModel: "google/gemini-3-pro-image",
+          models: [
+            {
+              id: "google/gemini-3-pro-image",
+              label: "Gemini 3 Pro Image",
+              adapter: "zenmux-vertex-generate-content",
+              capabilities: {
+                supportsNegativePrompt: false,
+                supportsSeed: false,
+                supportsImageCount: false,
+                supportsReferenceImages: true,
+                maxImageCount: 1,
+                maxReferenceImageCount: 14,
+                sizeControlMode: "aspect-ratio",
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    applyRemoteModelCatalog(catalog);
+
+    expect(getDefaultModel("zenmux")).toBe("google/gemini-3-pro-image");
+    expect(Object.keys(getProviderModels("zenmux"))).toEqual([
+      "google/gemini-3-pro-image",
+    ]);
+    expect(
+      getProviderRequestAdapter({
+        provider: "zenmux",
+        model: "google/gemini-3-pro-image",
+      }),
+    ).toBe("zenmux-vertex-generate-content");
+  });
+
   it("只返回完成配置的服务，并保持目录顺序", () => {
     expect(
       getConfiguredProviderIds({

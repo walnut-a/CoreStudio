@@ -10,6 +10,7 @@ import type {
   ProviderModelDefinition,
   ProviderRequestAdapter,
 } from "./providerTypes";
+import type { RemoteModelCatalog } from "./modelCatalogContract";
 
 export const PROVIDER_REQUEST_ADAPTERS: readonly ProviderRequestAdapter[] = [
   "gemini-generate-content",
@@ -670,6 +671,34 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
   },
 };
 
+let remoteProviderCatalog: Partial<Record<ProviderId, ProviderDefinition>> = {};
+
+export const applyRemoteModelCatalog = (catalog: RemoteModelCatalog) => {
+  remoteProviderCatalog = Object.fromEntries(
+    Object.entries(catalog.providers).map(([providerId, provider]) => {
+      const id = providerId as ProviderId;
+      return [
+        id,
+        {
+          id,
+          label: PROVIDER_CATALOG[id].label,
+          defaultModel: provider.defaultModel,
+          models: Object.fromEntries(
+            provider.models.map((model) => [model.id, model]),
+          ),
+        },
+      ];
+    }),
+  );
+};
+
+export const resetRemoteModelCatalog = () => {
+  remoteProviderCatalog = {};
+};
+
+const getActiveProviderDefinition = (provider: ProviderId) =>
+  remoteProviderCatalog[provider] ?? PROVIDER_CATALOG[provider];
+
 const fieldVisibilityFromCapabilities = (
   capabilities: ProviderCapabilities,
 ): Record<GenerationField, boolean> => {
@@ -685,14 +714,14 @@ const fieldVisibilityFromCapabilities = (
 };
 
 export const getDefaultModel = (provider: ProviderId) =>
-  PROVIDER_CATALOG[provider].defaultModel;
+  getActiveProviderDefinition(provider).defaultModel;
 
 export const getProviderDefinition = (provider: ProviderId) =>
-  PROVIDER_CATALOG[provider];
+  getActiveProviderDefinition(provider);
 
 export const getOptionalProviderDefinition = (provider: string | undefined) =>
   provider && Object.prototype.hasOwnProperty.call(PROVIDER_CATALOG, provider)
-    ? PROVIDER_CATALOG[provider as ProviderId]
+    ? getActiveProviderDefinition(provider as ProviderId)
     : null;
 
 export const isProviderRequestAdapter = (
@@ -836,7 +865,7 @@ export const getProviderModels = (
   provider: ProviderId,
   customModels: readonly CustomProviderModel[] = [],
 ) => ({
-  ...PROVIDER_CATALOG[provider].models,
+  ...getActiveProviderDefinition(provider).models,
   ...getCustomModelMap(provider, customModels),
 });
 

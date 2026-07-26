@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   DeleteProviderSettingsInput,
@@ -8,6 +8,10 @@ import type {
   SaveProviderSettingsInput,
 } from "../shared/desktopBridgeTypes";
 import type { GenerationRequest } from "../shared/providerTypes";
+import {
+  getDefaultModel,
+  resetRemoteModelCatalog,
+} from "../shared/providerCatalog";
 
 import {
   createProviderSettingsRendererActions,
@@ -135,6 +139,10 @@ describe("loadProviderSettingsWithRetry", () => {
 });
 
 describe("runProviderSettingsLoadAction", () => {
+  afterEach(() => {
+    resetRemoteModelCatalog();
+  });
+
   it("loads settings and updates the preferred generation model when selection is not locked", async () => {
     const bridge = createBridge(
       vi.fn().mockResolvedValue(providerConfigurationFixture),
@@ -188,6 +196,56 @@ describe("runProviderSettingsLoadAction", () => {
     });
 
     expect(setGenerateRequest).not.toHaveBeenCalled();
+  });
+
+  it("activates a cached remote catalog before resolving the model selection", async () => {
+    const configuration: ProviderConfigurationSnapshot = {
+      ...providerConfigurationFixture,
+      modelCatalog: {
+        source: "cache",
+        revision: 1,
+        checkedAt: null,
+        catalog: {
+          schemaVersion: 1,
+          revision: 1,
+          publishedAt: "2026-07-26T21:00:00.000Z",
+          minClientVersion: "1.1.26",
+          modelAliases: {},
+          providers: {
+            zenmux: {
+              defaultModel: "google/gemini-3-pro-image",
+              models: [
+                {
+                  id: "google/gemini-3-pro-image",
+                  label: "Gemini 3 Pro Image",
+                  adapter: "zenmux-vertex-generate-content",
+                  capabilities: {
+                    supportsNegativePrompt: false,
+                    supportsSeed: false,
+                    supportsImageCount: false,
+                    supportsReferenceImages: true,
+                    maxImageCount: 1,
+                    maxReferenceImageCount: 14,
+                    sizeControlMode: "aspect-ratio",
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+
+    await runProviderSettingsLoadAction({
+      bridge: createBridge(vi.fn().mockResolvedValue(configuration)),
+      isGenerationModelSelectionLocked: () => true,
+      setProviderSettings: vi.fn(),
+      setGenerateRequest: vi.fn(),
+      setStartupError: vi.fn(),
+      retryDelayMs: 0,
+    });
+
+    expect(getDefaultModel("zenmux")).toBe("google/gemini-3-pro-image");
   });
 
   it("writes a readable startup error when provider settings cannot be loaded", async () => {
@@ -305,7 +363,7 @@ describe("createProviderSettingsRendererActions", () => {
 
   it("creates a delete handler and applies the returned configuration", async () => {
     const input: DeleteProviderSettingsInput = { provider: "gemini" };
-    const nextConfiguration = {
+    const nextConfiguration: ProviderConfigurationSnapshot = {
       ...providerConfigurationFixture,
       defaultProvider: null,
       providers: {
@@ -315,7 +373,7 @@ describe("createProviderSettingsRendererActions", () => {
           isConfigured: false,
         },
       },
-    } satisfies ProviderConfigurationSnapshot;
+    };
     const deleteProviderSettings = vi.fn().mockResolvedValue(nextConfiguration);
     const setProviderSettings = vi.fn();
 

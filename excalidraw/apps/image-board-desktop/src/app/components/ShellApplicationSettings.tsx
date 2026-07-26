@@ -13,6 +13,7 @@ import {
 import { copyPlainTextToClipboard } from "../clipboardText";
 import { copy } from "../copy";
 import { createProviderSettingsRendererActions } from "../providerSettingsLoader";
+import { applyRemoteModelCatalog } from "../../shared/providerCatalog";
 import { AboutSettingsSection } from "./AboutSettingsSection";
 import {
   ApplicationSettingsDialog,
@@ -79,6 +80,9 @@ export const ShellApplicationSettings = ({
       .loadProviderSettings()
       .then((configuration) => {
         if (active) {
+          if (configuration.modelCatalog?.catalog) {
+            applyRemoteModelCatalog(configuration.modelCatalog.catalog);
+          }
           setProviderConfiguration(configuration);
         }
       })
@@ -143,6 +147,18 @@ export const ShellApplicationSettings = ({
             }}
             onDelete={async (input) => {
               await providerSettingsActions.deleteSettings(input);
+            }}
+            onRefreshCatalog={async () => {
+              if (!bridge.refreshModelCatalog) {
+                throw new Error(
+                  copy.applicationSettings.imageGenerationPage.catalogUpdateUnsupported,
+                );
+              }
+              const configuration = await bridge.refreshModelCatalog();
+              if (configuration.modelCatalog?.catalog) {
+                applyRemoteModelCatalog(configuration.modelCatalog.catalog);
+              }
+              setProviderConfiguration(configuration);
             }}
             onDirtyChange={setDirty}
           />

@@ -78,8 +78,10 @@ import { createGenerationRequestController } from "./generationRequestController
 import {
   deleteProviderSettings,
   loadProviderSettings,
+  migrateProviderDefaultModels,
   saveProviderSettings,
 } from "./settingsStore";
+import { createModelCatalogService } from "./modelCatalogService";
 import {
   loadAgentAccessSettings,
   saveAgentAccessSettings,
@@ -182,6 +184,8 @@ let agentSessionWriteChain: Promise<void> = Promise.resolve();
 let localeSettingsController: ReturnType<
   typeof createLocaleSettingsController
 > | null = null;
+let modelCatalogService: ReturnType<typeof createModelCatalogService> | null =
+  null;
 let projectViewRegistry: ProjectViewRegistry | null = null;
 let projectRoomSenderBindings: ProjectRoomSenderBindings | null = null;
 const quitState = createQuitState();
@@ -2244,14 +2248,20 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC_CHANNELS.loadProviderSettings, async (event) => {
     requireShellOrProjectRendererSender(event.sender);
-    return loadProviderSettings();
+    return {
+      ...(await loadProviderSettings()),
+      modelCatalog: modelCatalogService?.getState(),
+    };
   });
 
   ipcMain.handle(
     IPC_CHANNELS.saveProviderSettings,
     async (event, input: SaveProviderSettingsInput) => {
       requireShellOrProjectRendererSender(event.sender);
-      return saveProviderSettings(input);
+      return {
+        ...(await saveProviderSettings(input)),
+        modelCatalog: modelCatalogService?.getState(),
+      };
     },
   );
 
@@ -2259,9 +2269,26 @@ const registerIpcHandlers = () => {
     IPC_CHANNELS.deleteProviderSettings,
     async (event, input: DeleteProviderSettingsInput) => {
       requireShellOrProjectRendererSender(event.sender);
-      return deleteProviderSettings(input);
+      return {
+        ...(await deleteProviderSettings(input)),
+        modelCatalog: modelCatalogService?.getState(),
+      };
     },
   );
+  ipcMain.handle(IPC_CHANNELS.refreshModelCatalog, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    if (!modelCatalogService) {
+      throw new Error("模型目录服务尚未初始化。");
+    }
+    const modelCatalog = await modelCatalogService.refresh();
+    if (modelCatalog.catalog) {
+      await migrateProviderDefaultModels(modelCatalog.catalog.modelAliases);
+    }
+    return {
+      ...(await loadProviderSettings()),
+      modelCatalog,
+    };
+  });
   ipcMain.handle(
     IPC_CHANNELS.generateImages,
     async (event, input: GenerateImagesInput) => {
@@ -2684,6 +2711,14 @@ if (hasSingleInstanceLock) {
       },
     });
     await localeSettingsController.initialize();
+    modelCatalogService = createModelCatalogService({
+      appVersion: DESKTOP_APP_VERSION,
+      cacheDirectory: path.join(app.getPath("userData"), "model-catalog"),
+    });
+    const modelCatalog = await modelCatalogService.initialize();
+    if (modelCatalog.catalog) {
+      await migrateProviderDefaultModels(modelCatalog.catalog.modelAliases);
+    }
     stableBoardActorResumeTokenService =
       createStableBoardActorResumeTokenService({
         secret: await loadOrCreateStableBoardActorTokenSecret(

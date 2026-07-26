@@ -14,7 +14,7 @@ const createStatus = (
   enabled: true,
   ready: true,
   currentProject: null,
-  boardUrl: "http://127.0.0.1:5174/agent-board",
+  boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
   ...patch,
 });
 

@@ -9,6 +9,7 @@ export const AGENT_BRIDGE_PROTOCOL_VERSION = 3;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
+export const AGENT_BOARD_ROUTE = "/board";
 
 export const AGENT_HTTP_ROUTES = {
   status: "/v1/status",

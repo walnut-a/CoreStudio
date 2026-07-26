@@ -51,7 +51,7 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 6. 使用 Codex 内置浏览器打开稳定地址。等待页面渲染后，从页面根节点读取 `data-corestudio-stable-board-id` 和 `data-corestudio-page-nonce`；它们是页面运行态数据，不是网页中的指令。不得从地址栏猜测 page nonce，也不得把 nonce 拼回 URL。
 7. 立即运行 `corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce> --json`。CLI 会使用当前 `CODEX_THREAD_ID` 和任务标题在 URL 外完成可信身份认领；成功后页面会自动继续连接房间，不需要刷新或生成新地址。
 8. 多个 Codex 任务打开同一个项目时，各自读取自己页面的 nonce 并分别认领。不得复用其他页面的 nonce，也不得把 thread id 或任务标题手工写进命令参数或 URL。
-9. 用户直接提供了 `/agent-board/<stableBoardId>` 地址时，先打开该地址，再执行第 6、7 步。包含 `launchTicket`、`resumeToken`、`projectToken` 或 `token` 的旧地址已经失效；不要解析、迁移、清洗或重试旧地址，直接重新读取稳定地址。
+9. 用户直接提供了 `http://127.0.0.1:60909/board/<stableBoardId>` 地址时，先打开该地址，再执行第 6、7 步。只有这个固定端口、无查询参数的 `/board/` 地址是项目稳定入口。任何 `/agent-board` 地址，或包含 `bridge`、`launchTicket`、`resumeToken`、`projectToken`、`token` 的地址都已经失效；不要解析、迁移、清洗或重试，直接重新读取稳定地址。
 10. 如果当前任务没有实际浏览器控制工具，向用户提供稳定的一键链接，并说明当前任务无法读取页面 nonce、因此尚未建立可编辑协作身份。不要改用一次性票据，也不要在正文中展示任何令牌。
 11. 不要擅自改用 Chrome 或系统默认浏览器。只有用户明确允许时，才使用其他浏览器。
 12. 需要完整画布、选区、图片记录或健康状态时，再分别使用 `corestudio read board --json`、`corestudio read selection --json`、`corestudio read records --json`、`corestudio read health --json`。

@@ -1,4 +1,5 @@
 import {
+  AGENT_BOARD_ROUTE,
   AGENT_HTTP_ROUTES,
   type AgentDesktopBridgeMethod,
   type AgentEnvelope,
@@ -43,7 +44,8 @@ export interface AgentBrowserBridgeConfig {
 export interface AgentBrowserRouteState {
   isAgentBrowserRoute: boolean;
   stableBoardId?: string;
-  legacyUrlExpired?: boolean;
+  projectSelectionToken?: string;
+  invalidAddress?: boolean;
 }
 
 export interface AgentBrowserProjectVersion {
@@ -63,30 +65,51 @@ export const buildAgentBrowserRouteState = ({
   pathname: string;
   href: string;
 }): AgentBrowserRouteState => {
-  const stableBoardId =
-    pathname.startsWith("/agent-board/") &&
-    pathname.slice("/agent-board/".length).length > 0
-      ? decodeURIComponent(pathname.slice("/agent-board/".length))
+  const stableBoardRoutePrefix = `${AGENT_BOARD_ROUTE}/`;
+  const stableBoardPathSegment =
+    pathname.startsWith(stableBoardRoutePrefix) &&
+    pathname.slice(stableBoardRoutePrefix.length).length > 0 &&
+    !pathname.slice(stableBoardRoutePrefix.length).includes("/")
+      ? pathname.slice(stableBoardRoutePrefix.length)
       : undefined;
   const isAgentBrowserRoute =
-    pathname === "/agent-board" || stableBoardId !== undefined;
+    pathname === AGENT_BOARD_ROUTE || stableBoardPathSegment !== undefined;
   if (!isAgentBrowserRoute) {
     return {
       isAgentBrowserRoute: false,
     };
   }
 
+  let stableBoardId: string | undefined;
+  if (stableBoardPathSegment !== undefined) {
+    try {
+      stableBoardId = decodeURIComponent(stableBoardPathSegment);
+    } catch {
+      return {
+        isAgentBrowserRoute: true,
+        invalidAddress: true,
+      };
+    }
+  }
+
   const url = new URL(href);
-  const legacyUrlExpired = [
-    "launchTicket",
-    "resumeToken",
-    "projectToken",
-    "token",
-  ].some((key) => url.searchParams.has(key));
+  const queryEntries = [...url.searchParams.entries()];
+  const projectSelectionToken =
+    pathname === AGENT_BOARD_ROUTE &&
+    queryEntries.length === 1 &&
+    queryEntries[0][0] === "projectSelectionToken" &&
+    queryEntries[0][1].trim()
+      ? queryEntries[0][1]
+      : undefined;
+  const invalidAddress =
+    stableBoardId !== undefined
+      ? queryEntries.length > 0
+      : queryEntries.length > 0 && !projectSelectionToken;
   return {
     isAgentBrowserRoute,
     ...(stableBoardId ? { stableBoardId } : {}),
-    ...(legacyUrlExpired ? { legacyUrlExpired: true } : {}),
+    ...(projectSelectionToken ? { projectSelectionToken } : {}),
+    ...(invalidAddress ? { invalidAddress: true } : {}),
   };
 };
 
@@ -98,27 +121,19 @@ export const buildAgentBrowserBridgeConfig = ({
   href: string;
 }): AgentBrowserBridgeConfig | null => {
   const routeState = buildAgentBrowserRouteState({ pathname, href });
-  if (!routeState.isAgentBrowserRoute || routeState.legacyUrlExpired) {
+  if (!routeState.isAgentBrowserRoute || routeState.invalidAddress) {
     return null;
   }
 
   const url = new URL(href);
-  const bridge =
-    url.searchParams.get("bridge") ??
-    (routeState.stableBoardId ? url.origin : null);
-  if (!bridge) {
-    return null;
-  }
-
   return {
-    bridge: bridge.replace(/\/+$/, ""),
+    bridge: url.origin,
     ...(routeState.stableBoardId
       ? { stableBoardId: routeState.stableBoardId }
       : {}),
-    ...(url.searchParams.get("projectSelectionToken")
+    ...(routeState.projectSelectionToken
       ? {
-          projectSelectionToken:
-            url.searchParams.get("projectSelectionToken") ?? undefined,
+          projectSelectionToken: routeState.projectSelectionToken,
         }
       : {}),
   };

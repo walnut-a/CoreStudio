@@ -16,6 +16,12 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     open: false,
+    hmr: {
+      host: "127.0.0.1",
+      port: 5174,
+      clientPort: 5174,
+      protocol: "ws",
+    },
   },
   resolve: {
     extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],

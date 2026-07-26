@@ -3,6 +3,7 @@ import { readFile as fsReadFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
+  AGENT_BOARD_ROUTE,
   AGENT_BRIDGE_PROTOCOL_VERSION,
   AGENT_HTTP_ROUTES,
   AGENT_PERMISSIONS,
@@ -54,6 +55,7 @@ export interface LocalBridgeServerOptions {
   allowDynamicPortFallback?: boolean;
   maxRequestBodyBytes?: number;
   agentBoardAssetsDir?: string;
+  agentBoardDevServerUrl?: string;
   isAgentAccessEnabled: () => boolean;
   getCurrentProject: () => LocalBridgeCurrentProject | null;
   getProjectByToken?: (
@@ -225,8 +227,8 @@ const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
 const PARTICIPANT_ISSUER_HEADER = "x-corestudio-participant-issuer";
 const PARTICIPANT_THREAD_HEADER = "x-corestudio-participant-thread";
 const PARTICIPANT_LABEL_HEADER = "x-corestudio-participant-label";
-const AGENT_BOARD_ROUTE = "/agent-board";
 const AGENT_BOARD_ASSET_ROUTE_PREFIX = "/assets/";
+const RETIRED_AGENT_BOARD_ROUTE = "/agent-board";
 const STATIC_CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -305,6 +307,40 @@ const sendCorsPreflight = (response: http.ServerResponse) => {
   response.end();
 };
 
+const isAgentBoardRoutePath = (pathname: string) =>
+  pathname === AGENT_BOARD_ROUTE ||
+  pathname.startsWith(`${AGENT_BOARD_ROUTE}/`);
+
+const isAgentBoardPagePath = (pathname: string) => {
+  if (pathname === AGENT_BOARD_ROUTE) {
+    return true;
+  }
+  const stableBoardPathSegment = pathname.startsWith(`${AGENT_BOARD_ROUTE}/`)
+    ? pathname.slice(`${AGENT_BOARD_ROUTE}/`.length)
+    : "";
+  return (
+    stableBoardPathSegment.length > 0 &&
+    !stableBoardPathSegment.includes("/")
+  );
+};
+
+const isRetiredAgentBoardPagePath = (pathname: string) =>
+  pathname === RETIRED_AGENT_BOARD_ROUTE ||
+  pathname === `${RETIRED_AGENT_BOARD_ROUTE}/` ||
+  pathname.startsWith(`${RETIRED_AGENT_BOARD_ROUTE}/`);
+
+const addAgentBoardBaseHref = (contents: Buffer) => {
+  const html = contents.toString("utf8");
+  if (/<base\b/i.test(html)) {
+    return contents;
+  }
+  const nextHtml = html.replace(
+    /<head(\s[^>]*)?>/i,
+    (head) => `${head}<base href="/" />`,
+  );
+  return Buffer.from(nextHtml === html ? `<base href="/" />${html}` : nextHtml);
+};
+
 const serveAgentBoardAsset = async (
   response: http.ServerResponse,
   pathname: string,
@@ -312,20 +348,15 @@ const serveAgentBoardAsset = async (
 ) => {
   if (
     !assetsDir ||
-    (pathname !== AGENT_BOARD_ROUTE &&
-      pathname !== `${AGENT_BOARD_ROUTE}/` &&
-      !pathname.startsWith(`${AGENT_BOARD_ROUTE}/`) &&
+    (!isAgentBoardPagePath(pathname) &&
       !pathname.startsWith(AGENT_BOARD_ASSET_ROUTE_PREFIX))
   ) {
     return false;
   }
 
-  const relativePath =
-    pathname === AGENT_BOARD_ROUTE ||
-    pathname === `${AGENT_BOARD_ROUTE}/` ||
-    pathname.startsWith(`${AGENT_BOARD_ROUTE}/`)
-      ? "index.html"
-      : pathname.slice(1);
+  const relativePath = isAgentBoardPagePath(pathname)
+    ? "index.html"
+    : pathname.slice(1);
   const root = path.resolve(assetsDir);
   const filePath = path.resolve(root, relativePath);
   if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
@@ -345,10 +376,86 @@ const serveAgentBoardAsset = async (
           ? "no-cache"
           : "public, max-age=31536000, immutable",
     });
-    response.end(contents);
+    response.end(
+      relativePath === "index.html"
+        ? addAgentBoardBaseHref(contents)
+        : contents,
+    );
   } catch {
     response.writeHead(404);
     response.end();
+  }
+  return true;
+};
+
+const proxyAgentBoardDevAsset = async (
+  request: http.IncomingMessage,
+  response: http.ServerResponse,
+  url: URL,
+  devServerUrl: string | undefined,
+) => {
+  if (
+    !devServerUrl ||
+    request.method !== "GET" ||
+    url.pathname.startsWith("/v1/")
+  ) {
+    return false;
+  }
+  if (isRetiredAgentBoardPagePath(url.pathname)) {
+    response.writeHead(404);
+    response.end();
+    return true;
+  }
+  if (
+    isAgentBoardRoutePath(url.pathname) &&
+    !isAgentBoardPagePath(url.pathname)
+  ) {
+    return false;
+  }
+  if (
+    request.headers.accept?.includes("text/html") &&
+    !isAgentBoardPagePath(url.pathname)
+  ) {
+    return false;
+  }
+
+  const target = new URL(`${url.pathname}${url.search}`, devServerUrl);
+  if (isAgentBoardPagePath(url.pathname)) {
+    target.pathname = "/";
+    target.search = "";
+  }
+
+  try {
+    const upstream = await fetch(target, {
+      headers: {
+        Accept:
+          typeof request.headers.accept === "string"
+            ? request.headers.accept
+            : "*/*",
+        "Accept-Encoding": "identity",
+      },
+    });
+    const headers: Record<string, string> = {};
+    for (const name of [
+      "content-type",
+      "cache-control",
+      "etag",
+      "last-modified",
+    ]) {
+      const value = upstream.headers.get(name);
+      if (value) {
+        headers[name] = value;
+      }
+    }
+    const body = Buffer.from(await upstream.arrayBuffer());
+    response.writeHead(upstream.status, headers);
+    response.end(body);
+  } catch {
+    response.writeHead(502, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    response.end("CoreStudio development renderer is unavailable.");
   }
   return true;
 };
@@ -857,11 +964,17 @@ export const createLocalBridgeServer = async (
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
       if (
         request.method === "GET" &&
-        (await serveAgentBoardAsset(
+        ((await serveAgentBoardAsset(
           response,
           url.pathname,
           options.agentBoardAssetsDir,
-        ))
+        )) ||
+          (await proxyAgentBoardDevAsset(
+            request,
+            response,
+            url,
+            options.agentBoardDevServerUrl,
+          )))
       ) {
         return;
       }

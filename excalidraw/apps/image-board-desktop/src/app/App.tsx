@@ -263,16 +263,20 @@ const App = ({
   desktopProjectPath,
   onLocalePreferenceChange = () => undefined,
 }: AppProps) => {
-  const { isAgentBrowserRoute, stableBoardId, legacyUrlExpired } =
+  const {
+    isAgentBrowserRoute,
+    stableBoardId,
+    projectSelectionToken,
+    invalidAddress,
+  } =
     buildAgentBrowserRouteState({
       pathname: window.location.pathname,
       href: window.location.href,
     });
   const isAgentProjectSelectionRoute =
-    isAgentBrowserRoute &&
-    new URL(window.location.href).searchParams.has("projectSelectionToken");
+    isAgentBrowserRoute && Boolean(projectSelectionToken);
   const isDesktopProjectRenderer = Boolean(desktopProjectPath);
-  if (legacyUrlExpired) {
+  if (invalidAddress) {
     return (
       <div className="image-board-app">
         <div className="welcome-pane">
@@ -445,8 +449,6 @@ const App = ({
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [projectRoomError, setProjectRoomError] = useState<string | null>(null);
-  const [agentBoardConnectionExpired, setAgentBoardConnectionExpired] =
-    useState(false);
   const [agentBoardReconnectGeneration, setAgentBoardReconnectGeneration] =
     useState(0);
   const [stableBoardIntegrationStatus, setStableBoardIntegrationStatus] =
@@ -1292,24 +1294,13 @@ const App = ({
     if (!isAgentBrowserRoute) {
       return;
     }
-    setAgentBoardConnectionExpired(false);
-    const url = new URL(window.location.href);
-    const legacyLaunchTicket = url.searchParams.get("launchTicket");
-    const legacyResumeToken = url.searchParams.get("resumeToken");
-    const projectSelectionToken = url.searchParams.get("projectSelectionToken");
-    const bridgeBaseUrl =
-      url.searchParams.get("bridge") ?? window.location.origin;
-    if (
-      projectSelectionToken &&
-      !stableBoardId &&
-      !legacyLaunchTicket &&
-      !legacyResumeToken
-    ) {
+    const bridgeBaseUrl = window.location.origin;
+    if (projectSelectionToken && !stableBoardId) {
       setProjectRoomReady(false);
       setProjectRoomError(null);
       return;
     }
-    if (!stableBoardId && !legacyLaunchTicket && !legacyResumeToken) {
+    if (!stableBoardId) {
       setProjectRoomError("Agent Board 缺少有效的房间连接凭证。");
       return;
     }
@@ -1332,17 +1323,14 @@ const App = ({
         return;
       }
       setProjectRoomReady(false);
-      if (stableBoardId && shouldReopenAgentBoard(error)) {
+      if (shouldReopenAgentBoard(error)) {
         setProjectRoomError(null);
         scheduleStableReconnect(0);
-      } else if (stableBoardId && isTransientAgentBoardConnectionError(error)) {
+      } else if (isTransientAgentBoardConnectionError(error)) {
         setProjectRoomError(
           "正在等待 CoreStudio 恢复连接，画布地址无需重新获取。",
         );
         scheduleStableReconnect(1_000);
-      } else if (shouldReopenAgentBoard(error)) {
-        setAgentBoardConnectionExpired(true);
-        setProjectRoomError(null);
       } else {
         setProjectRoomError(formatProjectSaveError(error));
       }
@@ -1357,8 +1345,8 @@ const App = ({
     const waitForActorClaim = () =>
       new Promise<void>((resolve) => window.setTimeout(resolve, 1_000));
     const connect = async () => {
-      let launchTicket = legacyLaunchTicket;
-      if (stableBoardId && pageNonce) {
+      let launchTicket: string | null = null;
+      if (pageNonce) {
         const integrationStatus = await inspectStableAgentBoardIntegration({
           bridge: bridgeBaseUrl,
           stableBoardId,
@@ -1397,13 +1385,13 @@ const App = ({
           }
         }
       }
-      if (disposed || (!launchTicket && !legacyResumeToken)) {
+      if (disposed || !launchTicket) {
         return;
       }
       const transport = createProjectRoomWebSocketTransport({
         bridgeBaseUrl,
         launchTicket,
-        resumeToken: legacyResumeToken,
+        resumeToken: null,
         onTerminalError: reportConnectionError,
         replaceResumeToken: (nextResumeToken) => {
           setAgentBrowserRoomResumeToken(nextResumeToken);
@@ -1435,9 +1423,6 @@ const App = ({
             setProjectRoomError(
               "CoreStudio 已关闭这个项目，协作连接已断开。重新打开项目后可继续使用同一画布地址。",
             );
-          } else {
-            setAgentBoardConnectionExpired(true);
-            setProjectRoomError(null);
           }
         },
         applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
@@ -1515,7 +1500,12 @@ const App = ({
       }
       void controller?.stop();
     };
-  }, [agentBoardReconnectGeneration, isAgentBrowserRoute, stableBoardId]);
+  }, [
+    agentBoardReconnectGeneration,
+    isAgentBrowserRoute,
+    projectSelectionToken,
+    stableBoardId,
+  ]);
 
   const reportDesktopProjectTheme = (
     appState: Pick<AppState, "theme">,
@@ -1981,26 +1971,6 @@ const App = ({
       onOpenDetails={() => setProjectHealthReportOpen(true)}
     />
   );
-
-  if (isAgentBrowserRoute && agentBoardConnectionExpired) {
-    return (
-      <div className="image-board-app">
-        <div className="welcome-pane">
-          <div
-            className="welcome-pane__card welcome-pane__diagnostic"
-            role="alert"
-            aria-labelledby="agent-board-expired-title"
-          >
-            <span className="welcome-pane__eyebrow">Agent Board</span>
-            <h1 id="agent-board-expired-title">
-              {copy.agentBoard.expiredConnectionTitle}
-            </h1>
-            <p>{copy.agentBoard.expiredConnectionDescription}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (
     isAgentBrowserRoute &&

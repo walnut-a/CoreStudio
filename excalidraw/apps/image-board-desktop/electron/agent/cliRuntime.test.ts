@@ -10,10 +10,8 @@ import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
 
 const baseUrl = "http://127.0.0.1:49152";
 const projectToken = "project-token-1";
-const boardUrl =
-  "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152";
-const stableBoardUrl =
-  "http://127.0.0.1:5174/agent-board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A49152";
+const boardUrl = "http://127.0.0.1:49152/board";
+const stableBoardUrl = "http://127.0.0.1:49152/board/stable-board-id";
 const okEnvelope = {
   ok: true,
   data: {
@@ -211,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.26 (Codex integration 1.8.0, bridge protocol 3)\n",
+          "CoreStudio 1.1.26 (Codex integration 1.9.0, bridge protocol 3)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -229,7 +227,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.26",
-        integrationVersion: "1.8.0",
+        integrationVersion: "1.9.0",
         bridgeProtocolVersion: 3,
       },
     });
@@ -244,7 +242,7 @@ describe("runCli", () => {
           projectPath: "/tmp/project",
           name: "Current Project",
         },
-        boardUrl: "http://127.0.0.1:49321/agent-board",
+        boardUrl: "http://127.0.0.1:49321/board",
       },
     };
     const result = await runCommand(["read", "status", "--json"], {

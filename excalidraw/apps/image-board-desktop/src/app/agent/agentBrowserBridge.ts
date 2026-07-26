@@ -1,8 +1,9 @@
 import {
+  AGENT_BOARD_ROUTE,
   AGENT_HTTP_ROUTES,
-  type AgentBrowserRuntimeState,
   type AgentDesktopBridgeMethod,
   type AgentEnvelope,
+  type StableBoardIntegrationStatus,
 } from "../../shared/agentBridgeTypes";
 
 import type {
@@ -28,15 +29,23 @@ import type {
   ImageRecordMap,
   ProjectImageWritebackTransaction,
 } from "../../shared/projectTypes";
+import {
+  getAgentBrowserRoomResumeToken,
+  getStableBoardActorResumeToken,
+} from "./agentBrowserRoomCredentials";
 
 export interface AgentBrowserBridgeConfig {
   bridge: string;
   token?: string;
   projectSelectionToken?: string;
+  stableBoardId?: string;
 }
 
 export interface AgentBrowserRouteState {
   isAgentBrowserRoute: boolean;
+  stableBoardId?: string;
+  projectSelectionToken?: string;
+  invalidAddress?: boolean;
 }
 
 export interface AgentBrowserProjectVersion {
@@ -56,15 +65,51 @@ export const buildAgentBrowserRouteState = ({
   pathname: string;
   href: string;
 }): AgentBrowserRouteState => {
-  const isAgentBrowserRoute = pathname === "/agent-board";
+  const stableBoardRoutePrefix = `${AGENT_BOARD_ROUTE}/`;
+  const stableBoardPathSegment =
+    pathname.startsWith(stableBoardRoutePrefix) &&
+    pathname.slice(stableBoardRoutePrefix.length).length > 0 &&
+    !pathname.slice(stableBoardRoutePrefix.length).includes("/")
+      ? pathname.slice(stableBoardRoutePrefix.length)
+      : undefined;
+  const isAgentBrowserRoute =
+    pathname === AGENT_BOARD_ROUTE || stableBoardPathSegment !== undefined;
   if (!isAgentBrowserRoute) {
     return {
       isAgentBrowserRoute: false,
     };
   }
 
+  let stableBoardId: string | undefined;
+  if (stableBoardPathSegment !== undefined) {
+    try {
+      stableBoardId = decodeURIComponent(stableBoardPathSegment);
+    } catch {
+      return {
+        isAgentBrowserRoute: true,
+        invalidAddress: true,
+      };
+    }
+  }
+
+  const url = new URL(href);
+  const queryEntries = [...url.searchParams.entries()];
+  const projectSelectionToken =
+    pathname === AGENT_BOARD_ROUTE &&
+    queryEntries.length === 1 &&
+    queryEntries[0][0] === "projectSelectionToken" &&
+    queryEntries[0][1].trim()
+      ? queryEntries[0][1]
+      : undefined;
+  const invalidAddress =
+    stableBoardId !== undefined
+      ? queryEntries.length > 0
+      : queryEntries.length > 0 && !projectSelectionToken;
   return {
     isAgentBrowserRoute,
+    ...(stableBoardId ? { stableBoardId } : {}),
+    ...(projectSelectionToken ? { projectSelectionToken } : {}),
+    ...(invalidAddress ? { invalidAddress: true } : {}),
   };
 };
 
@@ -75,22 +120,20 @@ export const buildAgentBrowserBridgeConfig = ({
   pathname: string;
   href: string;
 }): AgentBrowserBridgeConfig | null => {
-  if (pathname !== "/agent-board") {
+  const routeState = buildAgentBrowserRouteState({ pathname, href });
+  if (!routeState.isAgentBrowserRoute || routeState.invalidAddress) {
     return null;
   }
 
   const url = new URL(href);
-  const bridge = url.searchParams.get("bridge");
-  if (!bridge) {
-    return null;
-  }
-
   return {
-    bridge: bridge.replace(/\/+$/, ""),
-    ...(url.searchParams.get("projectSelectionToken")
+    bridge: url.origin,
+    ...(routeState.stableBoardId
+      ? { stableBoardId: routeState.stableBoardId }
+      : {}),
+    ...(routeState.projectSelectionToken
       ? {
-          projectSelectionToken:
-            url.searchParams.get("projectSelectionToken") ?? undefined,
+          projectSelectionToken: routeState.projectSelectionToken,
         }
       : {}),
   };
@@ -133,6 +176,47 @@ const requestAgentBridge = async <T>(
   return json.data;
 };
 
+export const exchangeStableAgentBoardSession = ({
+  bridge,
+  stableBoardId,
+  pageNonce,
+  actorResumeToken = getStableBoardActorResumeToken(stableBoardId),
+}: {
+  bridge: string;
+  stableBoardId: string;
+  pageNonce: string;
+  actorResumeToken?: string | null;
+}) =>
+  requestAgentBridge<{
+    launchTicket: string;
+    actorResumeToken: string;
+  }>({ bridge }, AGENT_HTTP_ROUTES.stableBoardSessionExchange, {
+    method: "POST",
+    body: JSON.stringify({
+      stableBoardId,
+      pageNonce,
+      ...(actorResumeToken ? { actorResumeToken } : {}),
+    }),
+  });
+
+export const inspectStableAgentBoardIntegration = ({
+  bridge,
+  stableBoardId,
+  pageNonce,
+}: {
+  bridge: string;
+  stableBoardId: string;
+  pageNonce: string;
+}) =>
+  requestAgentBridge<StableBoardIntegrationStatus>(
+    { bridge },
+    AGENT_HTTP_ROUTES.stableBoardIntegrationStatus,
+    {
+      method: "POST",
+      body: JSON.stringify({ stableBoardId, pageNonce }),
+    },
+  );
+
 const callDesktopBridge = <T>(
   config: AgentBrowserBridgeConfig,
   method: AgentDesktopBridgeMethod,
@@ -152,25 +236,6 @@ const rejectUnavailableAgentBoardCapability = (capability: string) =>
       code: "CAPABILITY_UNAVAILABLE",
     }),
   );
-
-export const publishAgentBrowserRuntimeState = async (
-  state: AgentBrowserRuntimeState,
-) => {
-  const config = getAgentBrowserBridgeConfig();
-  if (!config) {
-    return false;
-  }
-
-  await requestAgentBridge<{ accepted: true }>(
-    config,
-    AGENT_HTTP_ROUTES.browserState,
-    {
-      method: "POST",
-      body: JSON.stringify(state),
-    },
-  );
-  return true;
-};
 
 export const maybeCreateAgentBrowserDesktopBridge =
   (): DesktopBridgeApi | null => {
@@ -194,7 +259,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
         }
         const result = await requestAgentBridge<{
           boardUrl: string;
-          launchTicket: string;
         }>(
           {
             bridge: config.bridge,
@@ -207,7 +271,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
           },
         );
         const nextUrl = new URL(result.boardUrl);
-        nextUrl.searchParams.set("launchTicket", result.launchTicket);
         nextUrl.searchParams.delete("projectSelectionToken");
         window.history.replaceState(null, "", nextUrl.toString());
         window.location.reload();
@@ -227,9 +290,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
       },
       readProjectAssetPayloads: (input) =>
         (() => {
-          const resumeToken = new URL(window.location.href).searchParams.get(
-            "resumeToken",
-          );
+          const resumeToken = getAgentBrowserRoomResumeToken();
           if (!config.token && resumeToken) {
             return requestAgentBridge<ProjectAssetPayload[]>(
               {
@@ -258,9 +319,7 @@ export const maybeCreateAgentBrowserDesktopBridge =
         projectPath: string;
         files: PersistedImageAssetInput[];
       }) => {
-        const resumeToken = new URL(window.location.href).searchParams.get(
-          "resumeToken",
-        );
+        const resumeToken = getAgentBrowserRoomResumeToken();
         if (!config.token && resumeToken) {
           return requestAgentBridge<ImageRecordMap>(
             {

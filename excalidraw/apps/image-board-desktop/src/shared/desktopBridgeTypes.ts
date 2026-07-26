@@ -52,6 +52,7 @@ export const IPC_CHANNELS = {
   importImages: "image-board:import-images",
   cleanProjectCache: "image-board:clean-project-cache",
   revealProjectInFinder: "image-board:reveal-project-in-finder",
+  getStableAgentBoardUrl: "image-board:get-stable-agent-board-url",
   loadAppInfo: "image-board:load-app-info",
   openExternal: "image-board:open-external",
   inspectCodexIntegration: "image-board:inspect-codex-integration",
@@ -74,12 +75,20 @@ export const IPC_CHANNELS = {
   getAgentBridgeStatus: "image-board:get-agent-bridge-status",
   setAgentBridgeEnabled: "image-board:set-agent-bridge-enabled",
   projectRoomJoin: "image-board:project-room-join",
+  projectRoomResync: "image-board:project-room-resync",
   projectRoomOperation: "image-board:project-room-operation",
   projectRoomFlushPersistence: "image-board:project-room-flush-persistence",
   projectRoomLeave: "image-board:project-room-leave",
   projectRoomCloseState: "image-board:project-room-close-state",
   projectRoomClose: "image-board:project-room-close",
   projectRoomEvent: "image-board:project-room-event",
+  projectViewsState: "image-board:project-views-state",
+  loadProjectViewsState: "image-board:load-project-views-state",
+  openProjectView: "image-board:open-project-view",
+  activateProjectView: "image-board:activate-project-view",
+  closeProjectView: "image-board:close-project-view",
+  recoverProjectView: "image-board:recover-project-view",
+  projectThemeChanged: "image-board:project-theme-changed",
 } as const;
 
 export type DesktopMenuAction =
@@ -127,6 +136,33 @@ export interface DesktopCurrentProject {
 
 export interface DesktopProjectStateChangedPayload {
   currentProject: DesktopCurrentProject | null;
+}
+
+export type DesktopProjectViewStatus = "ready" | "crashed";
+export type DesktopProjectTheme = "light" | "dark";
+
+export interface DesktopProjectViewEntry {
+  projectPath: string;
+  projectId: string;
+  name: string;
+  status: DesktopProjectViewStatus;
+  webContentsId: number;
+  safeMode?: boolean;
+  theme?: DesktopProjectTheme;
+}
+
+export interface DesktopProjectViewOpenOptions {
+  safeMode?: boolean;
+}
+
+export interface DesktopProjectViewsState {
+  activeProjectPath: string | null;
+  projects: DesktopProjectViewEntry[];
+}
+
+export interface DesktopProjectThemeChangedPayload {
+  projectPath: string;
+  theme: DesktopProjectTheme;
 }
 
 export interface DesktopAgentBridgeStatus {
@@ -387,6 +423,7 @@ export interface DesktopBridgeApi {
   }): Promise<ImageRecordMap>;
   importImages(): Promise<ImportedImagePayload[]>;
   revealProjectInFinder(projectPath: string): Promise<void>;
+  getStableAgentBoardUrl?(projectPath: string): Promise<string | null>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
   openExternal?(url: string): Promise<void>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;
@@ -415,6 +452,7 @@ export interface DesktopBridgeApi {
   joinProjectRoom?(
     input: DesktopProjectRoomJoinInput,
   ): Promise<ProjectRoomSnapshot>;
+  resyncProjectRoom?(sessionId: string): Promise<ProjectRoomSnapshot>;
   submitProjectRoomOperation?(input: {
     sessionId: string;
     operation: ProjectRoomSceneOperation;
@@ -437,6 +475,22 @@ export interface DesktopBridgeApi {
   }): Promise<boolean>;
   onProjectRoomEvent?(
     listener: (sessionId: string, event: ProjectRoomEvent) => void,
+  ): () => void;
+  loadProjectViewsState?(): Promise<DesktopProjectViewsState>;
+  openProjectView?(
+    projectPath: string,
+    options?: DesktopProjectViewOpenOptions,
+  ): Promise<DesktopProjectViewsState>;
+  activateProjectView?(
+    projectPath: string | null,
+  ): Promise<DesktopProjectViewsState>;
+  closeProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
+  recoverProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
+  notifyProjectThemeChanged?(
+    payload: DesktopProjectThemeChangedPayload,
+  ): void;
+  onProjectViewsState?(
+    listener: (state: DesktopProjectViewsState) => void,
   ): () => void;
   onFlushProjectRoomRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(

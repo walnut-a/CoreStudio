@@ -1,6 +1,9 @@
 import { loadFromBlob } from "@excalidraw/excalidraw/data/blob";
 import { serializeAsJSON } from "@excalidraw/excalidraw/data/json";
-import { getDefaultAppState } from "@excalidraw/excalidraw/appState";
+import {
+  cleanAppStateForExport,
+  getDefaultAppState,
+} from "@excalidraw/excalidraw/appState";
 
 import type {
   AppState,
@@ -17,6 +20,10 @@ export const serializeSceneForProject = ({
 }) => {
   return serializeAsJSON(elements, appState, {}, "local");
 };
+
+export const extractSharedSceneConfig = (
+  appState: Partial<AppState>,
+): Record<string, unknown> => cleanAppStateForExport(appState);
 
 export const deserializeSceneFromProject = async (
   sceneJson: string,

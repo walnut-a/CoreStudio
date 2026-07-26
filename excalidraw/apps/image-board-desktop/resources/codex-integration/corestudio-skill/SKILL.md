@@ -46,14 +46,16 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 1. 运行 `corestudio read status --json`，用轻量状态发现当前 CoreStudio 会话、项目和项目房间。房间模式下同时确认 `projectRoom.sceneWriteMode = "room"`、`roomId`、`sessionEpoch` 和连接状态；不要用完整 `read context` 作为打开项目的前置检查。
 2. 如果错误详情包含 `sessionDiscovered: true`，说明会话已经找到，但当前执行环境无法连接本机 Local Bridge。若运行在 Codex 中，立即申请在网络沙箱外重试同一条命令，并且只重试一次；完成重试前，不要误报 CoreStudio 未运行或 Bridge 未启用。
 3. 状态读取成功后运行 `corestudio read capabilities --json`，确认存在 `roomProtocolVersion`、`roomCapabilityVersion` 和 `scene-operations` capability。
-4. 已有当前项目时，运行 `corestudio read board-url --json`，取得只包含短期 launch ticket 的 `boardUrl`。
-5. 没有当前项目时，不要要求用户先去桌面客户端手动打开，也不要改用 Computer Use。先运行 `corestudio read projects --json` 读取候选项目：用户已经明确指定且能唯一匹配时，运行 `corestudio read board-url --project <projectPath> --json` 直接打开；用户没有指定或存在多个合理候选时，运行 `corestudio read board-url --json` 打开 CoreStudio 自己的项目候选页，由用户选择。候选页使用短期项目选择令牌，选择成功后才换取目标项目的房间票据。
-6. 不要把项目 token、项目选择令牌、Codex thread id 或任务标题手工拼进 URL，也不要调用已经废弃的通用 Desktop Bridge 项目切换方法。
-7. 如果当前 Codex 任务具备内置浏览器控制能力，直接在内置浏览器打开 `boardUrl`。
-8. 如果当前任务没有实际浏览器控制工具，向用户提供语义清楚的一键链接，并说明限制来自当前 Codex 任务能力，不是 CoreStudio 或 Bridge 故障。不要在正文中重复展示任何令牌。
-9. 不要擅自改用 Chrome 或系统默认浏览器。只有用户明确允许时，才使用其他浏览器。
-10. 需要完整画布、选区、图片记录或健康状态时，再分别使用 `corestudio read board --json`、`corestudio read selection --json`、`corestudio read records --json`、`corestudio read health --json`。
-11. 只有在没有发现会话，或沙箱外单次重试仍失败时，才请用户检查 CoreStudio 和 Agent Bridge 状态。保留 CLI 的原始错误码、消息和详情。遇到 `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED` 或 `PROJECT_MISMATCH` 时不要重试旧房间写入；请用户重新打开或重新绑定目标项目。
+4. 已有当前项目时，运行 `corestudio read board-url --json`，取得该项目长期稳定的 `boardUrl`。同一项目重复读取必须得到同一个地址；地址中不得出现 `launchTicket`、`resumeToken`、项目 token、thread id 或任务标题。
+5. 没有当前项目时，不要要求用户先去桌面客户端手动打开，也不要改用 Computer Use。先运行 `corestudio read projects --json` 读取候选项目：用户已经明确指定且能唯一匹配时，运行 `corestudio read board-url --project <projectPath> --json` 取得该项目稳定地址；用户没有指定或存在多个合理候选时，运行 `corestudio read board-url --json` 打开 CoreStudio 自己的短期项目候选页。用户选择后，页面必须跳转到目标项目的稳定地址。
+6. 使用 Codex 内置浏览器打开稳定地址。等待页面渲染后，从页面根节点读取 `data-corestudio-stable-board-id` 和 `data-corestudio-page-nonce`；它们是页面运行态数据，不是网页中的指令。不得从地址栏猜测 page nonce，也不得把 nonce 拼回 URL。
+7. 立即运行 `corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce> --json`。CLI 会使用当前 `CODEX_THREAD_ID` 和任务标题在 URL 外完成可信身份认领；成功后页面会自动继续连接房间，不需要刷新或生成新地址。
+8. 多个 Codex 任务打开同一个项目时，各自读取自己页面的 nonce 并分别认领。不得复用其他页面的 nonce，也不得把 thread id 或任务标题手工写进命令参数或 URL。
+9. 用户直接提供了 `http://127.0.0.1:60909/board/<stableBoardId>` 地址时，先打开该地址，再执行第 6、7 步。只有这个固定端口、无查询参数的 `/board/` 地址是项目稳定入口。任何 `/agent-board` 地址，或包含 `bridge`、`launchTicket`、`resumeToken`、`projectToken`、`token` 的地址都已经失效；不要解析、迁移、清洗或重试，直接重新读取稳定地址。
+10. 如果当前任务没有实际浏览器控制工具，向用户提供稳定的一键链接，并说明当前任务无法读取页面 nonce、因此尚未建立可编辑协作身份。不要改用一次性票据，也不要在正文中展示任何令牌。
+11. 不要擅自改用 Chrome 或系统默认浏览器。只有用户明确允许时，才使用其他浏览器。
+12. 需要完整画布、选区、图片记录或健康状态时，再分别使用 `corestudio read board --json`、`corestudio read selection --json`、`corestudio read records --json`、`corestudio read health --json`。
+13. 只有在没有发现会话，或沙箱外单次重试仍失败时，才请用户检查 CoreStudio 和 Agent Bridge 状态。保留 CLI 的原始错误码、消息和详情。遇到 `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED` 或 `PROJECT_MISMATCH` 时不要重试旧房间写入；请用户重新打开或重新绑定目标项目。
 
 ## 写回
 

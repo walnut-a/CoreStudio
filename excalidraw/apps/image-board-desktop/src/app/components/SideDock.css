@@ -183,6 +183,13 @@
   transition: margin-left 0.16s ease;
 }
 
+.image-board-app .layer-ui__wrapper__top-right {
+  min-height: var(--side-dock-toggle-size);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .image-board-app:not(.image-board-app--right-dock-open)
   .layer-ui__wrapper__top-right {
   margin-right: calc(
@@ -266,16 +273,21 @@
     scrollbar-width: none;
   }
 
-  .image-board-app:not(.image-board-app--agent-board) .App-toolbar::-webkit-scrollbar {
+  .image-board-app:not(.image-board-app--agent-board)
+    .App-toolbar::-webkit-scrollbar {
     display: none;
   }
 
-  .image-board-app:not(.image-board-app--agent-board) .App-toolbar .Stack_horizontal {
+  .image-board-app:not(.image-board-app--agent-board)
+    .App-toolbar
+    .Stack_horizontal {
     min-width: max-content;
     gap: var(--canvas-toolbar-compact-gap);
   }
 
-  .image-board-app:not(.image-board-app--agent-board) .App-toolbar .ToolIcon__keybinding {
+  .image-board-app:not(.image-board-app--agent-board)
+    .App-toolbar
+    .ToolIcon__keybinding {
     display: none;
   }
 }

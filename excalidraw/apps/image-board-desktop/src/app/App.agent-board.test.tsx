@@ -15,12 +15,21 @@ import {
 } from "./App.testSupport";
 import type { FileId } from "./App.testSupport";
 
+const readyIntegrationStatus = {
+  state: "ready",
+  appVersion: "1.1.26",
+  integrationVersion: "1.9.0",
+  bridgeProtocolVersion: 3,
+  actorClaimed: false,
+  issues: [],
+};
+
 describe("App Agent Board room route", () => {
   it("shows recent project candidates when opened without an active project", async () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectSelectionToken=selection-token",
+      "/board?projectSelectionToken=selection-token",
     );
     vi.stubGlobal(
       "fetch",
@@ -64,10 +73,29 @@ describe("App Agent Board room route", () => {
       send() {}
       close() {}
     }
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&launchTicket=launch-ticket",
+    window.history.pushState(null, "", "/board/stable-board-id");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (input: string | URL) =>
+          new Response(
+            JSON.stringify({
+              ok: true,
+              data:
+                new URL(String(input)).pathname ===
+                AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
+                  ? readyIntegrationStatus
+                  : {
+                      launchTicket: "launch-ticket",
+                      actorResumeToken: "actor-resume-token",
+                    },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+      ),
     );
     vi.stubGlobal("WebSocket", PendingRoomWebSocket);
 
@@ -78,6 +106,96 @@ describe("App Agent Board room route", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "选择项目开始" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("exposes a page nonce while waiting for trusted Codex identity", async () => {
+    window.history.pushState(null, "", "/board/stable-board-id");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (input: string | URL) =>
+          new Response(
+            JSON.stringify(
+              new URL(String(input)).pathname ===
+                AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
+                ? { ok: true, data: readyIntegrationStatus }
+                : {
+                    ok: false,
+                    error: {
+                      code: "ACTOR_CLAIM_REQUIRED",
+                      message: "Waiting for a trusted Agent identity.",
+                    },
+                  },
+            ),
+            {
+              status: 409,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+      ),
+    );
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(
+        document.documentElement.dataset.corestudioStableBoardId,
+      ).toBe("stable-board-id");
+      expect(
+        document.documentElement.dataset.corestudioPageNonce,
+      ).toEqual(expect.any(String));
+    });
+    expect(
+      screen.getByRole("status", { name: "正在连接当前项目…" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Waiting for a trusted Agent identity."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("guides the user to CoreStudio settings when the Codex integration is outdated", async () => {
+    window.history.pushState(null, "", "/board/stable-board-id");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ok: true,
+              data: {
+                ...readyIntegrationStatus,
+                state: "repair-required",
+                issues: [
+                  {
+                    code: "CODEX_INTEGRATION_OUTDATED",
+                    message: "当前 Codex 集成与 CoreStudio 版本不匹配。",
+                  },
+                ],
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+      ),
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "请在 CoreStudio 中更新集成",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "回到 CoreStudio，打开“应用设置”中的“Codex 集成”，完成更新后再刷新这个页面。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "更新 Codex 集成" }),
     ).not.toBeInTheDocument();
   });
 
@@ -123,11 +241,7 @@ describe("App Agent Board room route", () => {
       }
     }
 
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&resumeToken=expired-token",
-    );
+    window.history.pushState(null, "", "/board?resumeToken=expired-token");
     vi.stubGlobal("WebSocket", ExpiredRoomWebSocket);
 
     render(<App />);
@@ -252,14 +366,23 @@ describe("App Agent Board room route", () => {
         }
       }
     }
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&launchTicket=launch-ticket",
-    );
+    window.history.pushState(null, "", "/board/stable-board-id");
     const fetchMock = vi.fn(
-      async (_url: string | URL) =>
-        new Response(JSON.stringify({ ok: true, data: [] }), {
+      async (url: string | URL) =>
+        new Response(JSON.stringify({
+          ok: true,
+          data:
+            new URL(String(url)).pathname ===
+            AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
+              ? readyIntegrationStatus
+              : new URL(String(url)).pathname ===
+                AGENT_HTTP_ROUTES.stableBoardSessionExchange
+              ? {
+                  launchTicket: "launch-ticket",
+                  actorResumeToken: "actor-resume-token",
+                }
+              : [],
+        }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -284,16 +407,15 @@ describe("App Agent Board room route", () => {
       "true",
     );
     await waitFor(() => {
-      expect(
-        new URL(window.location.href).searchParams.get("resumeToken"),
-      ).toBe("resume-token");
+      expect(new URL(window.location.href).searchParams.has("resumeToken")).toBe(
+        false,
+      );
     });
     expect(
       fetchMock.mock.calls.map(([url]) => new URL(String(url)).pathname),
     ).toEqual(
       expect.not.arrayContaining([
         AGENT_HTTP_ROUTES.status,
-        AGENT_HTTP_ROUTES.browserState,
         AGENT_HTTP_ROUTES.desktopBridge,
       ]),
     );
@@ -316,7 +438,7 @@ describe("App Agent Board room route", () => {
             expect.objectContaining({
               id: "codex:thread-1",
               socketId: "board-session",
-              username: "工业设计探索",
+              username: "Codex · 工业设计探索",
             }),
           ],
         ]),

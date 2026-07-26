@@ -13,6 +13,7 @@ export const CORESTUDIO_RELEASES_URL =
 interface AppMenuOptions {
   platform?: NodeJS.Platform;
   locale?: DesktopLocale;
+  projectActionsEnabled?: boolean;
 }
 
 export const createAppMenuTemplate = (
@@ -86,6 +87,7 @@ export const createAppMenuTemplate = (
             { type: "separator" },
             {
               label: copy.menu.inspectProjectHealth,
+              enabled: options.projectActionsEnabled ?? true,
               click: (_item, ownerWindow) =>
                 sendMenuAction(
                   { action: "inspect-project-health" },
@@ -94,6 +96,7 @@ export const createAppMenuTemplate = (
             },
             {
               label: copy.menu.repairProjectThumbnails,
+              enabled: options.projectActionsEnabled ?? true,
               click: (_item, ownerWindow) =>
                 sendMenuAction(
                   { action: "repair-project-thumbnails" },
@@ -102,6 +105,7 @@ export const createAppMenuTemplate = (
             },
             {
               label: copy.menu.cleanProjectCache,
+              enabled: options.projectActionsEnabled ?? true,
               click: (_item, ownerWindow) =>
                 sendMenuAction({ action: "clean-project-cache" }, ownerWindow),
             },

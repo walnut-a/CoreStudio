@@ -5,6 +5,7 @@ import { API } from "@excalidraw/excalidraw/tests/helpers/api";
 
 import {
   deserializeSceneFromProject,
+  extractSharedSceneConfig,
   serializeSceneForProject,
 } from "./sceneSerialization";
 
@@ -36,5 +37,22 @@ describe("sceneSerialization", () => {
 
     expect(restored.elements).toHaveLength(1);
     expect(restored.appState?.theme).toBe(getDefaultAppState().theme);
+  });
+
+  it("extracts exportable shared scene config without requiring elements", () => {
+    const appState = {
+      ...getDefaultAppState(),
+      viewBackgroundColor: "#f5f5f5",
+      scrollX: 240,
+      scrollY: 180,
+      selectedElementIds: { selected: true as const },
+    };
+
+    const sharedSceneConfig = extractSharedSceneConfig(appState);
+
+    expect(sharedSceneConfig.viewBackgroundColor).toBe("#f5f5f5");
+    expect(sharedSceneConfig).not.toHaveProperty("scrollX");
+    expect(sharedSceneConfig).not.toHaveProperty("scrollY");
+    expect(sharedSceneConfig).not.toHaveProperty("selectedElementIds");
   });
 });

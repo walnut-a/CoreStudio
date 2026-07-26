@@ -229,4 +229,42 @@ describe("createRendererCommandBridge", () => {
       "CoreStudio renderer command bridge disposed",
     );
   });
+
+  it("releases request routing metadata after every terminal outcome", async () => {
+    vi.useFakeTimers();
+    let responseListener:
+      | ((response: AgentRendererCommandResponse) => void)
+      | undefined;
+    const onSettled = vi.fn();
+    let requestNumber = 0;
+    const bridge = createRendererCommandBridge({
+      timeoutMs: 25,
+      randomId: () => `request-${++requestNumber}`,
+      send: vi.fn(),
+      onResponse: (listener) => {
+        responseListener = listener;
+        return vi.fn();
+      },
+      isAvailable: () => true,
+      onSettled,
+    });
+
+    const completed = bridge.request("scene.snapshot");
+    responseListener?.({ requestId: "request-1", ok: true });
+    await completed;
+
+    const timedOut = bridge.request("scene.snapshot");
+    vi.advanceTimersByTime(25);
+    await expect(timedOut).rejects.toThrow("timed out");
+
+    const disposed = bridge.request("scene.snapshot");
+    bridge.dispose();
+    await expect(disposed).rejects.toThrow("disposed");
+
+    expect(onSettled.mock.calls).toEqual([
+      ["request-1"],
+      ["request-2"],
+      ["request-3"],
+    ]);
+  });
 });

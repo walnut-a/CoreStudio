@@ -20,7 +20,16 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 
-import { buildAgentBrowserRouteState } from "./agent/agentBrowserBridge";
+import {
+  buildAgentBrowserRouteState,
+  exchangeStableAgentBoardSession,
+  inspectStableAgentBoardIntegration,
+} from "./agent/agentBrowserBridge";
+import {
+  getOrCreateStableBoardPageNonce,
+  setAgentBrowserRoomResumeToken,
+  setStableBoardActorResumeToken,
+} from "./agent/agentBrowserRoomCredentials";
 import { createProjectRoomFlushLifecycleActions } from "./projectRoomFlushLifecycle";
 import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
 import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
@@ -33,7 +42,6 @@ import { createProjectRoomAssetRefreshRendererActions } from "./projectRoomAsset
 import { createProjectRoomWebSocketTransport } from "./projectRoomWebSocketTransport";
 import {
   createProjectRoomCollaborators,
-  selectProjectRoomAgentPresence,
 } from "./projectRoomPresence";
 import { reconcileProjectRoomScene } from "./projectRoomSceneReconciliation";
 import { maybeGetDesktopBridge } from "./desktopBridge";
@@ -60,6 +68,7 @@ import {
 import { createGeneratedImageSceneInsertRendererActions } from "./generatedImageSceneInsertRendererController";
 import {
   deserializeSceneFromProject,
+  extractSharedSceneConfig,
   serializeSceneForProject,
 } from "./project/sceneSerialization";
 import {
@@ -134,6 +143,11 @@ import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { WorkspaceBoundsOverlay } from "./components/WorkspaceBoundsOverlay";
 import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
+import { DesktopButton } from "./components/DesktopButton";
+import {
+  createDesktopProjectRuntime,
+  type DesktopProjectRuntime,
+} from "./desktopProjectRuntime";
 import {
   CORESTUDIO_OPEN_SOURCE_DEPENDENCIES,
   CORESTUDIO_REPOSITORY_URL,
@@ -184,6 +198,7 @@ import type {
   ProjectRoomParticipant,
   ProjectRoomSceneElement,
 } from "../shared/projectRoomProtocol";
+import type { StableBoardIntegrationStatus } from "../shared/agentBridgeTypes";
 import type { AgentRendererCommandRequest } from "../shared/agentBridgeTypes";
 
 import "./App.css";
@@ -238,9 +253,15 @@ const shouldReopenAgentBoard = (error: unknown) =>
       AGENT_BOARD_REOPEN_ERROR_CODES.has(error.code),
   );
 
+const isTransientAgentBoardConnectionError = (error: unknown) =>
+  error instanceof TypeError ||
+  (error instanceof Error &&
+    /fetch|network|websocket|disconnected/i.test(error.message));
+
 interface AppProps {
   locale?: DesktopLocale;
   localePreference?: DesktopLocalePreference;
+  desktopProjectPath?: string;
   onLocalePreferenceChange?: (
     preference: DesktopLocalePreference,
   ) => void | Promise<void>;
@@ -249,15 +270,41 @@ interface AppProps {
 const App = ({
   locale = DESKTOP_LANG_CODE,
   localePreference = "system",
+  desktopProjectPath,
   onLocalePreferenceChange = () => undefined,
 }: AppProps) => {
-  const { isAgentBrowserRoute } = buildAgentBrowserRouteState({
-    pathname: window.location.pathname,
-    href: window.location.href,
-  });
+  const {
+    isAgentBrowserRoute,
+    stableBoardId,
+    projectSelectionToken,
+    invalidAddress,
+  } =
+    buildAgentBrowserRouteState({
+      pathname: window.location.pathname,
+      href: window.location.href,
+    });
   const isAgentProjectSelectionRoute =
-    isAgentBrowserRoute &&
-    new URL(window.location.href).searchParams.has("projectSelectionToken");
+    isAgentBrowserRoute && Boolean(projectSelectionToken);
+  const isDesktopProjectRenderer = Boolean(desktopProjectPath);
+  if (invalidAddress) {
+    return (
+      <div className="image-board-app">
+        <div className="welcome-pane">
+          <div
+            className="welcome-pane__card welcome-pane__diagnostic"
+            role="alert"
+            aria-labelledby="agent-board-expired-title"
+          >
+            <span className="welcome-pane__eyebrow">Agent Board</span>
+            <h1 id="agent-board-expired-title">
+              {copy.agentBoard.expiredConnectionTitle}
+            </h1>
+            <p>{copy.agentBoard.expiredConnectionDescription}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const bridge = maybeGetDesktopBridge();
   if (!bridge) {
     return <AppBridgeUnavailable isAgentBrowserRoute={isAgentBrowserRoute} />;
@@ -276,6 +323,10 @@ const App = ({
   const initializingRenderNonceRef = useRef<number | null>(null);
   const projectRenderNonceRef = useRef(0);
   const projectOpenSequenceRef = useRef(0);
+  const lastReportedDesktopThemeRef = useRef<{
+    projectPath: string;
+    theme: "light" | "dark";
+  } | null>(null);
   const agentRuntimeRefsController = useAgentRuntimeRefsController();
   const latestMenuProjectOpenRequestIdRef = useRef(0);
   const rememberedGenerationModelSelectionRef = useRef(
@@ -284,7 +335,9 @@ const App = ({
   const generationModelSelectionLockedRef = useRef(false);
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
   const projectRoomClientRef = useRef<ProjectRoomClientController | null>(null);
-  const projectRoomSessionIdRef = useRef(crypto.randomUUID());
+  const desktopProjectRuntimeRef = useRef<DesktopProjectRuntime | null>(
+    null,
+  );
   const projectRoomAssetTransactionDepthRef = useRef(0);
   const latestSceneRef = useRef<{
     elements: readonly ExcalidrawElement[];
@@ -411,8 +464,13 @@ const App = ({
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [projectRoomError, setProjectRoomError] = useState<string | null>(null);
-  const [agentBoardConnectionExpired, setAgentBoardConnectionExpired] =
-    useState(false);
+  const [agentBoardReconnectGeneration, setAgentBoardReconnectGeneration] =
+    useState(0);
+  const [stableBoardIntegrationStatus, setStableBoardIntegrationStatus] =
+    useState<StableBoardIntegrationStatus | null>(null);
+  const stableBoardPageNonceRef = useRef<string | null>(
+    stableBoardId ? getOrCreateStableBoardPageNonce(stableBoardId) : null,
+  );
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
@@ -926,75 +984,15 @@ const App = ({
     });
   }, [isEditorInitializing, projectRenderNonce]);
 
-  const closeCurrentProjectRoomForTransition = async () => {
-    const activeProject = currentProjectRef.current;
-    if (
-      isAgentBrowserRoute ||
-      !activeProject ||
-      !desktopBridge.getProjectRoomCloseState ||
-      !desktopBridge.closeProjectRoom
-    ) {
-      return;
-    }
-    const closeState = await desktopBridge.getProjectRoomCloseState({
-      projectPath: activeProject.projectPath,
-      sessionId: projectRoomSessionIdRef.current,
-    });
-    const activeAgents = selectProjectRoomAgentPresence(
-      closeState?.otherParticipants ?? [],
-    );
-    if (
-      activeAgents.length > 0 &&
-      !window.confirm(
-        `仍有 Agent 正在这个画布中工作：\n${activeAgents
-          .map((participant) => `• ${participant.displayLabel}`)
-          .join("\n")}\n\n关闭项目后，这些协作会立即断开。`,
-      )
-    ) {
-      throw Object.assign(new Error("已取消关闭项目。"), {
-        code: "PROJECT_CLOSE_CANCELLED",
-      });
-    }
-    try {
-      await projectRoomClientRef.current?.waitForPersistence();
-      await desktopBridge.closeProjectRoom({
-        projectPath: activeProject.projectPath,
-        expectedRoomId: closeState?.roomId,
-        requestingSessionId: projectRoomSessionIdRef.current,
-        acknowledgedParticipantSessionIds: closeState?.otherParticipants.map(
-          (participant) => participant.sessionId,
-        ),
-      });
-    } catch (error) {
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "PARTICIPANTS_CHANGED"
-      ) {
-        return closeCurrentProjectRoomForTransition();
-      }
-      if (
-        !window.confirm(
-          `项目保存失败：${formatProjectSaveError(
-            error,
-          )}\n\n是否仍然关闭项目？未保存的画布变更可能丢失。`,
-        )
-      ) {
-        throw error;
-      }
-      await desktopBridge.closeProjectRoom({
-        projectPath: activeProject.projectPath,
-        force: true,
-      });
-    }
+  const waitForCurrentProjectSubmission = async () => {
+    await projectRoomClientRef.current?.waitForSubmission();
   };
 
   const currentProjectBundleOpenRendererActions =
     createCurrentProjectBundleOpenRendererActions({
       beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
       isCurrentProjectOpen: currentProjectOpenSequenceRendererActions.isCurrent,
-      flushProjectRoom: (options) => flushProjectRoom(options),
+      flushProjectRoom: waitForCurrentProjectSubmission,
       getDevicePixelRatio: () => window.devicePixelRatio,
       getFallbackCreatedAt: () => Date.now(),
       readProjectAssets: (input) =>
@@ -1035,16 +1033,7 @@ const App = ({
   const openProjectBundle = async (
     bundle: DesktopProjectBundle | null,
     sequence?: number,
-  ) => {
-    if (
-      bundle &&
-      currentProjectRef.current &&
-      bundle.projectPath !== currentProjectRef.current.projectPath
-    ) {
-      await closeCurrentProjectRoomForTransition();
-    }
-    return currentProjectBundleOpenRendererActions.open(bundle, sequence);
-  };
+  ) => currentProjectBundleOpenRendererActions.open(bundle, sequence);
 
   const projectViewClearRendererActions = createProjectViewClearRendererActions(
     {
@@ -1119,7 +1108,7 @@ const App = ({
       },
       updateWorkspaceOverlay: workspaceOverlayRendererActions.update,
       setActiveProject: updateCurrentProject,
-      flushProjectRoom: (options) => flushProjectRoom(options),
+      flushProjectRoom: waitForCurrentProjectSubmission,
       getFallbackCreatedAt: () => Date.now(),
     });
 
@@ -1296,248 +1285,335 @@ const App = ({
     });
 
   useEffect(() => {
-    if (!currentProject) {
-      if (!isAgentBrowserRoute) {
-        setProjectRoomReady(false);
-      }
-      return;
-    }
-    if (isAgentBrowserRoute) {
+    const projectPath = desktopProjectPath ?? currentProject?.projectPath;
+    if (
+      isAgentBrowserRoute ||
+      !projectPath ||
+      currentProject?.projectPath !== projectPath
+    ) {
       return;
     }
 
-    let disposed = false;
-    const sessionId = projectRoomSessionIdRef.current;
-    const transport = createDesktopProjectRoomTransport({
-      bridge: desktopBridge,
+    const sessionId = crypto.randomUUID();
+    const runtime = createDesktopProjectRuntime({
+      projectPath,
       sessionId,
-    });
-    const controller = createProjectRoomClientController({
-      projectPath: currentProject.projectPath,
-      sessionId,
-      transport,
-      applyParticipants: setProjectRoomParticipants,
-      applyImageRecords:
-        projectRoomAssetRefreshRendererActions.applyImageRecords,
-      ensureAssetsForElements: ensureProjectRoomAssetsForElements,
-      onSyncStateChange: (state, error) => {
-        if (error) {
-          setProjectRoomError(formatProjectSaveError(error));
-        } else if (state === "saved") {
-          setProjectRoomError(null);
+      transport: createDesktopProjectRoomTransport({
+        bridge: desktopBridge,
+        sessionId,
+      }),
+      ensureAssetsForElements: (elements, files) => {
+        const project = currentProjectRef.current;
+        if (!project || project.projectPath !== projectPath) {
+          return Promise.resolve();
         }
+        return projectImageAssetPersistenceRendererActions.persistUnknownCanvasImages(
+          project,
+          elements as ExcalidrawElement[],
+          files as BinaryFiles,
+        );
+      },
+      onParticipants: (participants) => {
+        setProjectRoomParticipants(participants);
+        runtime.getApi()?.updateScene({
+          collaborators: createProjectRoomCollaborators(participants),
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+      },
+      onImageRecords: (imageRecords) => {
+        const project = currentProjectRef.current;
+        if (!project || project.projectPath !== projectPath) {
+          return;
+        }
+        updateCurrentProject({
+          ...project,
+          imageRecords: {
+            ...project.imageRecords,
+            ...imageRecords,
+          },
+        });
+      },
+      onScene: (scene) => {
+        latestSceneRef.current = scene;
+        projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(scene);
+      },
+      onReadyChange: setProjectRoomReady,
+      onError: (error) => {
+        setProjectRoomError(error ? formatProjectSaveError(error) : null);
       },
       onRoomClosed: () => {
         setProjectRoomReady(false);
-        setProjectRoomError("项目已关闭，画布协作已断开。");
-      },
-      applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
-        const api = excalidrawAPIRef.current;
-        if (!api) {
-          return;
-        }
-        const appState = api.getAppState();
-        const reconciledElements = reconcileProjectRoomScene({
-          localElements: api.getSceneElementsIncludingDeleted(),
-          remoteElements: elements as ExcalidrawElement[],
-          appState,
-          snapshot: origin === "snapshot",
-        });
-        api.updateScene({
-          elements: reconciledElements,
-          appState: {
-            ...appState,
-            ...sharedSceneConfig,
-          } as AppState,
-          captureUpdate: CaptureUpdateAction.NEVER,
-        });
-        const latestScene = {
-          elements: api.getSceneElementsIncludingDeleted(),
-          appState: api.getAppState(),
-          files: api.getFiles(),
-        };
-        latestSceneRef.current = latestScene;
-        projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
-          latestScene,
-        );
       },
     });
-    projectRoomClientRef.current = controller;
-    setProjectRoomReady(false);
-    void controller
-      .start()
-      .then(() => {
-        if (!disposed) {
-          setProjectRoomReady(true);
-          setProjectRoomError(null);
-        }
-      })
-      .catch((error) => {
-        if (!disposed) {
-          console.error("[project-room:desktop-join-failed]", error);
-          setProjectRoomError(formatProjectSaveError(error));
-        }
-      });
+
+    desktopProjectRuntimeRef.current = runtime;
+    projectRoomClientRef.current = runtime.getController();
+    runtime.attachApi(excalidrawAPIRef.current);
+    void runtime.start().catch(() => undefined);
 
     return () => {
-      disposed = true;
-      setProjectRoomParticipants([]);
-      if (projectRoomClientRef.current === controller) {
+      if (desktopProjectRuntimeRef.current === runtime) {
+        desktopProjectRuntimeRef.current = null;
+      }
+      if (projectRoomClientRef.current === runtime.getController()) {
         projectRoomClientRef.current = null;
       }
-      void controller.stop();
+      void runtime.stop();
     };
-  }, [currentProject?.projectPath, desktopBridge, isAgentBrowserRoute]);
+  }, [
+    currentProject?.projectPath,
+    desktopBridge,
+    desktopProjectPath,
+    isAgentBrowserRoute,
+  ]);
 
   useEffect(() => {
     if (!isAgentBrowserRoute) {
       return;
     }
-    setAgentBoardConnectionExpired(false);
-    const url = new URL(window.location.href);
-    const launchTicket = url.searchParams.get("launchTicket");
-    const resumeToken = url.searchParams.get("resumeToken");
-    const projectSelectionToken = url.searchParams.get("projectSelectionToken");
-    const bridgeBaseUrl =
-      url.searchParams.get("bridge") ?? window.location.origin;
-    if (projectSelectionToken && !launchTicket && !resumeToken) {
+    const bridgeBaseUrl = window.location.origin;
+    if (projectSelectionToken && !stableBoardId) {
       setProjectRoomReady(false);
       setProjectRoomError(null);
       return;
     }
-    if (!launchTicket && !resumeToken) {
+    if (!stableBoardId) {
       setProjectRoomError("Agent Board 缺少有效的房间连接凭证。");
       return;
     }
 
     let disposed = false;
+    let reconnectTimer: number | null = null;
+    const scheduleStableReconnect = (delayMs: number) => {
+      if (reconnectTimer !== null) {
+        return;
+      }
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        if (!disposed) {
+          setAgentBoardReconnectGeneration((current) => current + 1);
+        }
+      }, delayMs);
+    };
     const reportConnectionError = (error: unknown) => {
       if (disposed) {
         return;
       }
       setProjectRoomReady(false);
       if (shouldReopenAgentBoard(error)) {
-        setAgentBoardConnectionExpired(true);
         setProjectRoomError(null);
+        scheduleStableReconnect(0);
+      } else if (isTransientAgentBoardConnectionError(error)) {
+        setProjectRoomError(
+          "正在等待 CoreStudio 恢复连接，画布地址无需重新获取。",
+        );
+        scheduleStableReconnect(1_000);
       } else {
         setProjectRoomError(formatProjectSaveError(error));
       }
     };
-    const transport = createProjectRoomWebSocketTransport({
-      bridgeBaseUrl,
-      launchTicket,
-      resumeToken,
-      onTerminalError: reportConnectionError,
-      replaceResumeToken: (nextResumeToken) => {
-        const nextUrl = new URL(window.location.href);
-        nextUrl.searchParams.delete("launchTicket");
-        nextUrl.searchParams.delete("projectToken");
-        nextUrl.searchParams.delete("token");
-        nextUrl.searchParams.set("resumeToken", nextResumeToken);
-        window.history.replaceState(null, "", nextUrl.toString());
-      },
-    });
-    const controller = createProjectRoomClientController({
-      projectPath: "",
-      sessionId: crypto.randomUUID(),
-      transport,
-      applyParticipants: setProjectRoomParticipants,
-      applyImageRecords:
-        projectRoomAssetRefreshRendererActions.applyImageRecords,
-      ensureAssetsForElements: ensureProjectRoomAssetsForElements,
-      onSyncStateChange: (state, error) => {
-        if (error) {
-          setProjectRoomError(formatProjectSaveError(error));
-        } else if (state === "saved") {
-          setProjectRoomError(null);
-        }
-      },
-      onRoomClosed: () => {
-        setProjectRoomReady(false);
-        setAgentBoardConnectionExpired(true);
-        setProjectRoomError(null);
-      },
-      applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
-        const api = excalidrawAPIRef.current;
-        if (!api) {
+    let controller: ProjectRoomClientController | null = null;
+    setProjectRoomReady(false);
+    const pageNonce = stableBoardId ? stableBoardPageNonceRef.current : null;
+    if (stableBoardId && pageNonce) {
+      document.documentElement.dataset.corestudioStableBoardId = stableBoardId;
+      document.documentElement.dataset.corestudioPageNonce = pageNonce;
+    }
+    const waitForActorClaim = () =>
+      new Promise<void>((resolve) => window.setTimeout(resolve, 1_000));
+    const connect = async () => {
+      let launchTicket: string | null = null;
+      if (pageNonce) {
+        const integrationStatus = await inspectStableAgentBoardIntegration({
+          bridge: bridgeBaseUrl,
+          stableBoardId,
+          pageNonce,
+        });
+        if (disposed) {
           return;
         }
-        const appState = api.getAppState();
-        const reconciledElements = reconcileProjectRoomScene({
-          localElements: api.getSceneElementsIncludingDeleted(),
-          remoteElements: elements as ExcalidrawElement[],
-          appState,
-          snapshot: origin === "snapshot",
-        });
-        api.updateScene({
-          elements: reconciledElements,
-          appState: {
-            ...appState,
-            ...sharedSceneConfig,
-          } as AppState,
-          captureUpdate: CaptureUpdateAction.NEVER,
-        });
-        const latestScene = {
-          elements: api.getSceneElementsIncludingDeleted(),
-          appState: api.getAppState(),
-          files: api.getFiles(),
-        };
-        latestSceneRef.current = latestScene;
-        projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
-          latestScene,
-        );
-      },
-    });
-    projectRoomClientRef.current = controller;
-    setProjectRoomReady(false);
-    const startTimer = window.setTimeout(() => {
-      void controller
-        .start()
-        .then(async (joined) => {
-          if (!joined.bootstrap) {
-            throw new Error("Agent Board 房间缺少项目初始化数据。");
+        setStableBoardIntegrationStatus(integrationStatus);
+        if (integrationStatus.state !== "ready") {
+          return;
+        }
+        while (!disposed && !launchTicket) {
+          try {
+            const exchangedSession = await exchangeStableAgentBoardSession({
+              bridge: bridgeBaseUrl,
+              stableBoardId,
+              pageNonce,
+            });
+            launchTicket = exchangedSession.launchTicket;
+            setStableBoardActorResumeToken(
+              stableBoardId,
+              exchangedSession.actorResumeToken,
+            );
+          } catch (error) {
+            if (
+              error &&
+              typeof error === "object" &&
+              "code" in error &&
+              error.code === "ACTOR_CLAIM_REQUIRED"
+            ) {
+              await waitForActorClaim();
+              continue;
+            }
+            throw error;
           }
-          const sceneJson = JSON.stringify({
-            type: "excalidraw",
-            version: 2,
-            source: "local",
-            elements: joined.snapshot.scene.elements,
-            appState: joined.snapshot.scene.sharedSceneConfig,
-            files: {},
-          });
-          await currentProjectBundleOpenRendererActions.applyExternalSnapshot({
-            ...joined.bootstrap,
-            sceneJson,
-          });
-          if (!disposed) {
-            setProjectRoomReady(true);
+        }
+      }
+      if (disposed || !launchTicket) {
+        return;
+      }
+      const transport = createProjectRoomWebSocketTransport({
+        bridgeBaseUrl,
+        launchTicket,
+        resumeToken: null,
+        onTerminalError: reportConnectionError,
+        replaceResumeToken: (nextResumeToken) => {
+          setAgentBrowserRoomResumeToken(nextResumeToken);
+        },
+      });
+      controller = createProjectRoomClientController({
+        projectPath: "",
+        sessionId: crypto.randomUUID(),
+        transport,
+        applyParticipants: setProjectRoomParticipants,
+        applyImageRecords:
+          projectRoomAssetRefreshRendererActions.applyImageRecords,
+        ensureAssetsForElements: ensureProjectRoomAssetsForElements,
+        onSyncStateChange: (state, error) => {
+          if (error) {
+            setProjectRoomError(formatProjectSaveError(error));
+          } else if (state === "saved") {
             setProjectRoomError(null);
           }
-        })
-        .catch((error) => {
-          if (!disposed) {
-            console.error("[project-room:agent-board-join-failed]", error);
-            reportConnectionError(error);
+        },
+        onRoomClosed: (event) => {
+          setProjectRoomReady(false);
+          if (stableBoardId && event.reason === "app-closed") {
+            setProjectRoomError(
+              "CoreStudio 正在关闭，重新启动后会自动恢复这个画布。",
+            );
+            scheduleStableReconnect(1_000);
+          } else if (stableBoardId) {
+            setProjectRoomError(
+              "CoreStudio 已关闭这个项目，协作连接已断开。重新打开项目后可继续使用同一画布地址。",
+            );
           }
-        });
-    }, 0);
+        },
+        applyAuthoritativeScene: ({ elements, sharedSceneConfig, origin }) => {
+          const api = excalidrawAPIRef.current;
+          if (!api) {
+            return;
+          }
+          const appState = api.getAppState();
+          const reconciledElements = reconcileProjectRoomScene({
+            localElements: api.getSceneElementsIncludingDeleted(),
+            remoteElements: elements as ExcalidrawElement[],
+            appState,
+            snapshot: origin === "snapshot",
+          });
+          api.updateScene({
+            elements: reconciledElements,
+            appState: {
+              ...appState,
+              ...sharedSceneConfig,
+            } as AppState,
+            captureUpdate: CaptureUpdateAction.NEVER,
+          });
+          const latestScene = {
+            elements: api.getSceneElementsIncludingDeleted(),
+            appState: api.getAppState(),
+            files: api.getFiles(),
+          };
+          latestSceneRef.current = latestScene;
+          projectRoomAssetRefreshRendererActions.applyAuthoritativeScene(
+            latestScene,
+          );
+          return reconciledElements as readonly ProjectRoomSceneElement[];
+        },
+      });
+      projectRoomClientRef.current = controller;
+      const joined = await controller.start();
+      if (!joined.bootstrap) {
+        throw new Error("Agent Board 房间缺少项目初始化数据。");
+      }
+      const sceneJson = JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "local",
+        elements: joined.snapshot.scene.elements,
+        appState: joined.snapshot.scene.sharedSceneConfig,
+        files: {},
+      });
+      await currentProjectBundleOpenRendererActions.applyExternalSnapshot({
+        ...joined.bootstrap,
+        sceneJson,
+      });
+      if (!disposed) {
+        setProjectRoomReady(true);
+        setProjectRoomError(null);
+      }
+    };
+    void connect().catch((error) => {
+      if (!disposed) {
+        console.error("[project-room:agent-board-join-failed]", error);
+        reportConnectionError(error);
+      }
+    });
 
     return () => {
       disposed = true;
-      window.clearTimeout(startTimer);
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+      }
+      setAgentBrowserRoomResumeToken(null);
+      delete document.documentElement.dataset.corestudioStableBoardId;
+      delete document.documentElement.dataset.corestudioPageNonce;
       setProjectRoomParticipants([]);
       if (projectRoomClientRef.current === controller) {
         projectRoomClientRef.current = null;
       }
-      void controller.stop();
+      void controller?.stop();
     };
-  }, [isAgentBrowserRoute]);
+  }, [
+    agentBoardReconnectGeneration,
+    isAgentBrowserRoute,
+    projectSelectionToken,
+    stableBoardId,
+  ]);
+
+  const reportDesktopProjectTheme = (
+    appState: Pick<AppState, "theme">,
+  ) => {
+    if (!isDesktopProjectRenderer || !currentProject) {
+      return;
+    }
+    const theme = appState.theme === "dark" ? "dark" : "light";
+    const lastReportedTheme = lastReportedDesktopThemeRef.current;
+    if (
+      lastReportedTheme?.projectPath === currentProject.projectPath &&
+      lastReportedTheme.theme === theme
+    ) {
+      return;
+    }
+    lastReportedDesktopThemeRef.current = {
+      projectPath: currentProject.projectPath,
+      theme,
+    };
+    desktopBridge.notifyProjectThemeChanged?.({
+      projectPath: currentProject.projectPath,
+      theme,
+    });
+  };
 
   const handleCanvasSceneChange = (
     elements: readonly ExcalidrawElement[],
     appState: AppState,
     files: BinaryFiles,
   ) => {
+    reportDesktopProjectTheme(appState);
     const result = canvasSceneChangeRendererActions.changeScene(
       elements,
       appState,
@@ -1550,17 +1626,22 @@ const App = ({
     ) {
       const sharedSceneConfig = isAgentBrowserRoute
         ? undefined
-        : (JSON.parse(
-            serializeSceneForProject({
+        : extractSharedSceneConfig(appState);
+      const submission =
+        !isAgentBrowserRoute && desktopProjectRuntimeRef.current
+          ? desktopProjectRuntimeRef.current.handleLocalSceneChange(
               elements,
-              appState,
-            }),
-          ).appState as Record<string, unknown>);
-      void projectRoomClientRef.current
-        ?.handleLocalSceneChange(elements, files, sharedSceneConfig)
-        .catch((error) => {
-          setProjectRoomError(formatProjectSaveError(error));
-        });
+              files,
+              sharedSceneConfig ?? {},
+            )
+          : projectRoomClientRef.current?.handleLocalSceneChange(
+              elements,
+              files,
+              sharedSceneConfig,
+            );
+      void submission?.catch((error) => {
+        setProjectRoomError(formatProjectSaveError(error));
+      });
     }
     return result;
   };
@@ -1604,12 +1685,7 @@ const App = ({
     const appState = api.getAppState();
     const sharedSceneConfig = isAgentBrowserRoute
       ? undefined
-      : (JSON.parse(
-          serializeSceneForProject({
-            elements,
-            appState,
-          }),
-        ).appState as Record<string, unknown>);
+      : extractSharedSceneConfig(appState);
     await controller.handleLocalSceneChange(
       elements,
       api.getFiles(),
@@ -1645,10 +1721,7 @@ const App = ({
       beginProjectOpen: currentProjectOpenSequenceRendererActions.begin,
       openProjectBundle,
       isCurrentProjectOpen: currentProjectOpenSequenceRendererActions.isCurrent,
-      flushProjectRoom: (options) =>
-        !isAgentBrowserRoute
-          ? closeCurrentProjectRoomForTransition()
-          : flushProjectRoom(options),
+      flushProjectRoom: (options) => flushProjectRoom(options),
       clearProjectViewState: projectViewClearRendererActions.clear,
       loadRecentProjectsState: desktopStartupRendererActions.loadRecentProjects,
       formatCreateError: formatProjectCreateError,
@@ -1661,6 +1734,18 @@ const App = ({
         currentProjectEditorInitializingRendererActions.update,
       clearProjectNotice: projectNoticeRendererActions.clear,
     });
+
+  useEffect(() => {
+    if (
+      !desktopProjectPath ||
+      currentProjectRef.current?.projectPath === desktopProjectPath
+    ) {
+      return;
+    }
+    void currentProjectEntryRendererActions.openRecentProject(
+      desktopProjectPath,
+    );
+  }, [desktopProjectPath]);
 
   const revealProjectFromList = useCallback(
     async (projectPath: string) => {
@@ -1964,20 +2049,40 @@ const App = ({
     />
   );
 
-  if (isAgentBrowserRoute && agentBoardConnectionExpired) {
+  if (
+    isAgentBrowserRoute &&
+    stableBoardId &&
+    stableBoardIntegrationStatus &&
+    stableBoardIntegrationStatus.state !== "ready"
+  ) {
+    const integrationRepairRequired =
+      stableBoardIntegrationStatus.state === "repair-required";
     return (
       <div className="image-board-app">
         <div className="welcome-pane">
           <div
             className="welcome-pane__card welcome-pane__diagnostic"
             role="alert"
-            aria-labelledby="agent-board-expired-title"
+            aria-labelledby="agent-board-integration-title"
           >
             <span className="welcome-pane__eyebrow">Agent Board</span>
-            <h1 id="agent-board-expired-title">
-              {copy.agentBoard.expiredConnectionTitle}
+            <h1 id="agent-board-integration-title">
+              {integrationRepairRequired
+                ? "请在 CoreStudio 中更新集成"
+                : "暂时无法打开这个项目"}
             </h1>
-            <p>{copy.agentBoard.expiredConnectionDescription}</p>
+            {stableBoardIntegrationStatus.issues.map((issue) => (
+              <p key={issue.code}>{issue.message}</p>
+            ))}
+            {integrationRepairRequired ? (
+              <p>
+                回到 CoreStudio，打开“应用设置”中的“Codex
+                集成”，完成更新后再刷新这个页面。
+              </p>
+            ) : null}
+            {projectRoomError ? (
+              <p className="welcome-pane__error">{projectRoomError}</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -2008,6 +2113,19 @@ const App = ({
     );
   }
 
+  if (
+    isDesktopProjectRenderer &&
+    (!currentProject || !initialData) &&
+    !projectError &&
+    !projectRoomError
+  ) {
+    return (
+      <div className="image-board-app image-board-app--project-open">
+        <EditorLoadingOverlay />
+      </div>
+    );
+  }
+
   if (!currentProject || !initialData) {
     return (
       <AppProjectEntryScreen
@@ -2020,9 +2138,7 @@ const App = ({
         onOpenRecentProject={
           currentProjectEntryRendererActions.openRecentProject
         }
-        onRemoveRecentProject={
-          desktopStartupRendererActions.removeRecentProject
-        }
+        onRemoveRecentProject={desktopStartupRendererActions.removeRecentProject}
         onRevealProject={revealProjectFromList}
         manualProjectActionsVisible={!isAgentBrowserRoute}
         globalDialogs={globalDialogs}
@@ -2067,24 +2183,40 @@ const App = ({
             {renderProjectStatusToast()}
             <Suspense fallback={null}>
               <LazyExcalidraw
-                key={projectRenderKey}
                 langCode={locale}
                 initialData={initialData}
                 onInitialize={(api) => {
+                  const runtime = desktopProjectRuntimeRef.current;
+                  if (!isAgentBrowserRoute && api && runtime) {
+                    runtime.attachApi(api);
+                    projectRoomClientRef.current = runtime.getController();
+                    void runtime.start().catch(() => undefined);
+                  }
                   applyProjectRoomCollaborators(api ?? null);
                   currentProjectEditorReadyRendererActions.ready(
                     api ?? null,
                     projectRenderNonce,
                   );
+                  if (api) {
+                    reportDesktopProjectTheme(api.getAppState());
+                  }
                 }}
                 onExcalidrawAPI={(api) => {
-                  if (projectRenderNonce === projectRenderNonceRef.current) {
-                    excalidrawAPIRef.current = api;
-                    queuedExcalidrawBinaryFilesRendererActions.flush();
-                    visibleImageRenditionLoadRendererActions.schedule(
-                      latestSceneRef.current,
-                    );
+                  if (projectRenderNonce !== projectRenderNonceRef.current) {
+                    return;
                   }
+                  excalidrawAPIRef.current = api;
+                  if (!isAgentBrowserRoute) {
+                    const runtime = desktopProjectRuntimeRef.current;
+                    runtime?.attachApi(api);
+                    if (runtime) {
+                      projectRoomClientRef.current = runtime.getController();
+                    }
+                  }
+                  queuedExcalidrawBinaryFilesRendererActions.flush();
+                  visibleImageRenditionLoadRendererActions.schedule(
+                    latestSceneRef.current,
+                  );
                 }}
                 onPointerUpdate={({ pointer }) => {
                   lastCanvasPointerRef.current = {
@@ -2098,9 +2230,11 @@ const App = ({
                 UIOptions={{
                   defaultSidebar: false,
                   canvasActions: {
+                    clearCanvas: false,
                     loadScene: false,
                     saveToActiveFile: false,
                     export: false,
+                    saveAsImage: false,
                     toggleTheme: true,
                   },
                 }}
@@ -2156,8 +2290,37 @@ const App = ({
                 <LazyProjectMainMenu
                   currentProjectName={currentProject.project.name}
                   canvasUtilityActionsVisible={!isAgentBrowserRoute}
+                  onCopyBoardAddress={() => {
+                    void (async () => {
+                      const boardUrl =
+                        await desktopBridge.getStableAgentBoardUrl?.(
+                          currentProject.projectPath,
+                        );
+                      if (!boardUrl) {
+                        projectNoticeRendererActions.show(
+                          copy.menu.boardAddressUnavailable,
+                        );
+                        return;
+                      }
+                      await clipboardTextRendererActions.copy(boardUrl);
+                      projectNoticeRendererActions.show(
+                        copy.menu.boardAddressCopied,
+                      );
+                    })().catch((error) => {
+                      projectNoticeRendererActions.show(
+                        formatProjectSaveError(error),
+                      );
+                    });
+                  }}
                   onSwitchProject={() => {
-                    void currentProjectEntryRendererActions.switchToProjectList();
+                    if (isAgentBrowserRoute) {
+                      return;
+                    }
+                    void desktopBridge.activateProjectView?.(null).catch(
+                      (error) => {
+                        setProjectError(formatProjectSaveError(error));
+                      },
+                    );
                   }}
                 />
               </LazyExcalidraw>

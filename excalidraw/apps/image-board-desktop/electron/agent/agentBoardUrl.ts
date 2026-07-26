@@ -1,17 +1,20 @@
+import { AGENT_BOARD_ROUTE } from "../../src/shared/agentBridgeTypes";
+
 export const buildAgentBoardUrl = ({
   agentAccessEnabled,
   bridgeBaseUrl,
-  rendererUrl,
+  stableBoardId,
 }: {
   agentAccessEnabled: boolean;
   bridgeBaseUrl: string | null;
-  rendererUrl: string | null;
+  stableBoardId?: string | null;
 }) => {
   if (!agentAccessEnabled || !bridgeBaseUrl) {
     return null;
   }
 
-  const url = new URL("/agent-board", rendererUrl ?? bridgeBaseUrl);
-  url.searchParams.set("bridge", bridgeBaseUrl);
-  return url.toString();
+  const boardPath = stableBoardId
+    ? `${AGENT_BOARD_ROUTE}/${encodeURIComponent(stableBoardId)}`
+    : AGENT_BOARD_ROUTE;
+  return new URL(boardPath, bridgeBaseUrl).toString();
 };

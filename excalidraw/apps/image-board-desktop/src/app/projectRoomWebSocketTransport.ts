@@ -297,6 +297,24 @@ export const createProjectRoomWebSocketTransport = (
     });
   };
 
+  const closeTransport = (sessionId?: string) => {
+    stopped = true;
+    rejectAllPending(
+      Object.assign(new Error("Project room connection closed."), {
+        code: "ROOM_CLOSED",
+      }),
+    );
+    if (
+      socket &&
+      (!sessionId || !activeSessionId || activeSessionId === sessionId)
+    ) {
+      if (sessionId && socket.readyState === WebSocketImpl.OPEN) {
+        socket.send(JSON.stringify({ type: "room.leave" }));
+      }
+      socket.close(1000, "room leave");
+    }
+  };
+
   return {
     join: () => {
       if (joinPromise) {
@@ -342,19 +360,11 @@ export const createProjectRoomWebSocketTransport = (
       );
     },
     leave: async (sessionId) => {
-      stopped = true;
-      rejectAllPending(
-        Object.assign(new Error("Project room connection closed."), {
-          code: "ROOM_CLOSED",
-        }),
-      );
-      if (socket && (!activeSessionId || activeSessionId === sessionId)) {
-        if (socket.readyState === WebSocketImpl.OPEN) {
-          socket.send(JSON.stringify({ type: "room.leave" }));
-        }
-        socket.close(1000, "room leave");
-      }
+      closeTransport(sessionId);
       return true;
+    },
+    cancelPendingJoin: () => {
+      closeTransport();
     },
     subscribe: (listener) => {
       listeners.add(listener);

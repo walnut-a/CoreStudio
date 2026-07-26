@@ -111,4 +111,12 @@ describe("ProjectRoomManager", () => {
     expect(manager.get("project-b")).not.toBeNull();
     expect(manager.size).toBe(1);
   });
+
+  it("lists every open room so application shutdown can close background projects", () => {
+    const manager = createProjectRoomManager();
+    const roomA = manager.open(roomInput("project-a"));
+    const roomB = manager.open(roomInput("project-b"));
+
+    expect(manager.list()).toEqual([roomA, roomB]);
+  });
 });

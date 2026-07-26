@@ -23,7 +23,7 @@ const Harness = () => {
           controller.setters.setStatus({
             enabled: true,
             ready: true,
-            boardUrl: "http://127.0.0.1:5174/agent-board",
+            boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
             currentProject: null,
           });
           controller.setters.setAutoOpenProjectPath("/tmp/project.corestudio");
@@ -56,7 +56,7 @@ describe("useAgentBridgeConnectionStateController", () => {
 
     expect(screen.getByTestId("status")).toHaveTextContent("enabled");
     expect(screen.getByTestId("board-url")).toHaveTextContent(
-      "http://127.0.0.1:5174/agent-board",
+      "http://127.0.0.1:60909/board/stable-board-id",
     );
     expect(screen.getByTestId("auto-open")).toHaveTextContent(
       "/tmp/project.corestudio",

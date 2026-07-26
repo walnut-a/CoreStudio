@@ -154,6 +154,7 @@ Usage: corestudio <tool> <command> [options]
 
 Tools:
   read    Read project and bridge state
+  board   Connect a stable Board page to the current Codex task
   write   Write images and prompts
   edit    Locate or select scene content
   bash    Print shell integration helpers
@@ -169,6 +170,7 @@ Examples:
   corestudio read projects --json
   corestudio read board-url --json
   corestudio read board-url --project /path/to/project --json
+  corestudio board claim --stable-board-id <id> --page-nonce <nonce> --json
   corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
   corestudio write image ./searched.png --source-type imported --json
   corestudio edit locate --file-id <file-id> --json
@@ -285,6 +287,31 @@ const parseCommand = (
 ): CliCommand | AgentEnvelope<never> => {
   const [tool, target] = argv;
 
+  if (tool === "board" && target === "claim") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: ["--stable-board-id", "--page-nonce"],
+    });
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("board claim", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    const stableBoardId = parsed.flags["--stable-board-id"];
+    const pageNonce = parsed.flags["--page-nonce"];
+    if (!stableBoardId || !pageNonce) {
+      return badRequestEnvelope(
+        "board claim requires --stable-board-id and --page-nonce.",
+      );
+    }
+    return {
+      route: AGENT_HTTP_ROUTES.stableBoardSessionClaim,
+      method: "POST",
+      body: { stableBoardId, pageNonce },
+    };
+  }
+
   if (tool === "read") {
     if (target === "image-paths") {
       const parsed = parseArgs(argv.slice(2), {
@@ -338,10 +365,6 @@ const parseCommand = (
       project: { route: AGENT_HTTP_ROUTES.projectCurrent, method: "GET" },
       records: { route: AGENT_HTTP_ROUTES.projectRecords, method: "GET" },
       health: { route: AGENT_HTTP_ROUTES.projectHealth, method: "GET" },
-      "browser-state": {
-        route: AGENT_HTTP_ROUTES.browserState,
-        method: "GET",
-      },
       board: { route: AGENT_HTTP_ROUTES.sceneBoard, method: "GET" },
       scene: { route: AGENT_HTTP_ROUTES.sceneSnapshot, method: "GET" },
       selection: { route: AGENT_HTTP_ROUTES.sceneSelection, method: "GET" },
@@ -361,7 +384,7 @@ const parseCommand = (
     const route = target ? readRoutes[target] : null;
     if (!route) {
       return badRequestEnvelope(
-        "read requires one of: status, capabilities, context, project, projects, records, health, board, scene, selection, image-paths, board-url, browser-state.",
+        "read requires one of: status, capabilities, context, project, projects, records, health, board, scene, selection, image-paths, board-url.",
       );
     }
     const parsed = parseArgs(argv.slice(2), {
@@ -388,19 +411,17 @@ const parseCommand = (
           if (
             !isObject(data) ||
             typeof data.boardUrl !== "string" ||
-            (typeof data.launchTicket !== "string" &&
+            (data.selectionToken !== undefined &&
               typeof data.selectionToken !== "string")
           ) {
             return commandFailedEnvelope(
-              "Agent Bridge did not return a Board launch or project-selection ticket.",
+              "Agent Bridge did not return a stable Board URL or project-selection session.",
             );
           }
           const boardUrl = new URL(data.boardUrl);
           boardUrl.searchParams.delete("projectToken");
           boardUrl.searchParams.delete("token");
-          if (typeof data.launchTicket === "string") {
-            boardUrl.searchParams.set("launchTicket", data.launchTicket);
-          } else {
+          if (typeof data.selectionToken === "string") {
             boardUrl.searchParams.set(
               "projectSelectionToken",
               data.selectionToken as string,
@@ -618,7 +639,6 @@ const parseCommand = (
           `${envPrefix} ${executable} read context --json`,
           `${envPrefix} ${executable} read selection --json`,
           `${envPrefix} ${executable} read board --json`,
-          `${envPrefix} ${executable} read browser-state --json`,
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,
@@ -1249,11 +1269,15 @@ export const runCli = async (
     threadId && bridge.participantIssuerToken
       ? {
           threadId,
-          displayLabel:
-            env.CODEX_TASK_TITLE?.trim() || `Codex ${threadId.slice(0, 8)}`,
+          displayLabel: env.CODEX_TASK_TITLE?.trim()
+            ? `Codex · ${env.CODEX_TASK_TITLE.trim()}`
+            : `Codex Agent · ${threadId.slice(0, 8)}`,
         }
       : undefined;
-  if (command.route === AGENT_HTTP_ROUTES.boardSession) {
+  if (
+    command.route === AGENT_HTTP_ROUTES.boardSession ||
+    command.route === AGENT_HTTP_ROUTES.stableBoardSessionClaim
+  ) {
     if (!threadId || !bridge.participantIssuerToken) {
       return finishWithEnvelope(
         badRequestEnvelope(

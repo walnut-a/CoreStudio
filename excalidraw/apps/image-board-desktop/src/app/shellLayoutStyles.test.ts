@@ -47,6 +47,17 @@ describe("CoreStudio shell layout styles", () => {
       "apps/image-board-desktop/src/app/components/SideDock.css",
     );
 
+    const collaboratorSlotRule = getRule(
+      sideDockCss,
+      ".image-board-app .layer-ui__wrapper__top-right",
+    );
+
+    expect(collaboratorSlotRule).toContain(
+      "min-height: var(--side-dock-toggle-size)",
+    );
+    expect(collaboratorSlotRule).toContain("display: flex");
+    expect(collaboratorSlotRule).toContain("align-items: center");
+    expect(collaboratorSlotRule).toContain("justify-content: flex-end");
     expect(sideDockCss).toMatch(
       /\.image-board-app:not\(\.image-board-app--right-dock-open\)\s+\.layer-ui__wrapper__top-right/,
     );
@@ -417,6 +428,25 @@ describe("CoreStudio shell layout styles", () => {
       appCss,
       "html.image-board-desktop-titlebar-hidden",
     );
+    const projectTabsRule = getRule(
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/DesktopProjectTabs.css",
+      ),
+      ".desktop-project-tabs",
+    );
+    const projectTabsListRule = getRule(
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/DesktopProjectTabs.css",
+      ),
+      ".desktop-project-tabs__list",
+    );
+    const desktopMainSource = readFileSync(
+      resolve(
+        process.cwd(),
+        "apps/image-board-desktop/electron/main.ts",
+      ),
+      "utf8",
+    );
     const dragRegionRule = getRule(appCss, ".image-board-app::before");
     const projectOpenRule = getRule(appCss, ".image-board-app--project-open");
     const toggleRule = getRule(appCss, ".side-dock__toggle");
@@ -451,7 +481,30 @@ describe("CoreStudio shell layout styles", () => {
     expect(layoutRule).toContain(
       "padding-top: var(--desktop-window-top-inset, 0px)",
     );
-    expect(titlebarRule).toContain("--desktop-window-top-inset: 28px");
+    expect(titlebarRule).toContain("--desktop-window-top-inset: 44px");
+    expect(titlebarRule).toContain(
+      "--desktop-window-control-safe-left: 94px",
+    );
+    expect(projectTabsRule).toContain(
+      "max(var(--desktop-window-control-safe-left, 0px), var(--ui-space-sm))",
+    );
+    expect(projectTabsRule).toContain(
+      "background: var(--color-surface-lowest)",
+    );
+    expect(projectTabsRule).toContain(
+      "border-bottom: 1px solid var(--color-surface-low)",
+    );
+    expect(projectTabsListRule).toContain(
+      "height: var(--ui-control-size-sm)",
+    );
+    expect(projectTabsListRule).toContain(
+      "border-left: 1px solid var(--color-surface-low)",
+    );
+    expect(projectTabsListRule).toContain("padding-left: var(--ui-space-xs)");
+    expect(desktopMainSource).toContain(
+      "trafficLightPosition: { x: 16, y: 16 }",
+    );
+    expect(projectTabsRule).not.toContain("76px");
     expect(dragRegionRule).toContain("-webkit-app-region: drag");
     expect(dragRegionRule).toContain("left: 0");
     expect(dragRegionRule).not.toContain("background:");
@@ -504,8 +557,8 @@ describe("CoreStudio shell layout styles", () => {
     expect(nameRule).toContain("min-width: 0");
     expect(nameRule).toContain("overflow: hidden");
     expect(nameRule).toContain("text-overflow: ellipsis");
-    expect(nameRule).toContain("font-size: 0.8125rem");
-    expect(nameRule).toContain("color: var(--color-gray-70)");
+    expect(nameRule).toContain("font-size: 0.875rem");
+    expect(nameRule).toContain("color: var(--color-on-surface)");
     expect(rootAppCss).not.toContain(".project-main-menu__current");
   });
 
@@ -528,16 +581,26 @@ describe("CoreStudio shell layout styles", () => {
     ).find((rule) => rule.includes("overflow-x: auto"));
     const toolbarScrollbarRule = getRulesContaining(
       appCss,
-      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar::-webkit-scrollbar",
-    ).find((rule) => rule.includes("display: none"));
+      ".App-toolbar::-webkit-scrollbar",
+    ).find(
+      (rule) =>
+        rule.includes(".image-board-app--agent-board") &&
+        rule.includes("display: none"),
+    );
     const toolbarStackRule = getRulesContaining(
       appCss,
-      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar .Stack_horizontal",
-    ).find((rule) => rule.includes("min-width: max-content"));
+      ".Stack_horizontal",
+    ).find(
+      (rule) =>
+        rule.includes(".App-toolbar") &&
+        rule.includes("min-width: max-content"),
+    );
     const keybindingRule = getRulesContaining(
       appCss,
-      ".image-board-app:not(.image-board-app--agent-board) .App-toolbar .ToolIcon__keybinding",
-    ).find((rule) => rule.includes("display: none"));
+      ".ToolIcon__keybinding",
+    ).find(
+      (rule) => rule.includes(".App-toolbar") && rule.includes("display: none"),
+    );
 
     expect(appCss).toContain("@media (max-width: 900px)");
     expect(narrowAppRule).toContain(
@@ -602,15 +665,15 @@ describe("CoreStudio shell layout styles", () => {
       ".agent-board-selection-bar__icon-button",
     );
 
-    expect(selectionRule).toContain(
-      "border-radius: var(--border-radius-lg)",
-    );
+    expect(selectionRule).toContain("border-radius: var(--border-radius-lg)");
     expect(selectionRule).toContain("background: var(--island-bg-color)");
     expect(selectionRule).toContain("box-shadow: var(--shadow-island)");
     expect(selectionRule).not.toContain("color-mix");
     expect(selectionRule).not.toContain("backdrop-filter");
     expect(actionRule).toContain("width: var(--lg-button-size)");
     expect(actionRule).toContain("height: var(--lg-button-size)");
+    expect(actionRule).toContain("border: 0");
+    expect(actionRule).toContain("background: transparent");
   });
 
   it("keeps the extreme narrow embedded browser fallback visually calm", () => {
@@ -696,6 +759,9 @@ describe("CoreStudio shell layout styles", () => {
     expect(iconSource).toContain('stroke="currentColor"');
     expect(iconSource).toContain('strokeLinecap="round"');
     expect(iconSource).toContain('strokeLinejoin="round"');
+    expect(iconSource).toMatch(
+      /export const homeIcon = \(\s*<LineIcon size=\{20\}>/,
+    );
     expect(appCss).toContain('stroke-width="1.25"');
     expect(appCss).toContain(".side-dock__toggle svg");
     expect(sideDockSource).not.toContain("<svg");

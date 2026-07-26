@@ -98,6 +98,28 @@ describe("createProjectRoomWebSocketTransport", () => {
     expect(replaceResumeToken).toHaveBeenCalledWith("resume-token");
   });
 
+  it("closes an in-flight socket when the client stops before joining", async () => {
+    FakeWebSocket.instances = [];
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      launchTicket: "launch-ticket",
+      WebSocketImpl: FakeWebSocket as any,
+    });
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored-browser-session",
+    });
+    const socket = FakeWebSocket.instances[0];
+
+    await transport.cancelPendingJoin?.();
+
+    await expect(joinedPromise).rejects.toThrow(
+      "Project room WebSocket disconnected.",
+    );
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(socket.sent).toEqual([]);
+  });
+
   it("forwards room events and resolves operation results", async () => {
     FakeWebSocket.instances = [];
     const transport = createProjectRoomWebSocketTransport({

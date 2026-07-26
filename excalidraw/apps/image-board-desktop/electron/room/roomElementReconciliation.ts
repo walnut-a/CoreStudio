@@ -28,20 +28,6 @@ export const chooseAuthoritativeRoomElement = <T extends RoomSceneElement>(
 export const orderRoomSceneElements = <T extends RoomSceneElement>(
   elements: readonly T[],
 ): T[] => {
-  const ordered = elements.map((element) => structuredClone(element));
-  ordered.sort((left, right) => {
-    if (left.index && right.index) {
-      if (left.index < right.index) {
-        return -1;
-      }
-      if (left.index > right.index) {
-        return 1;
-      }
-      return left.id < right.id ? -1 : 1;
-    }
-    return 1;
-  });
-
   const isValidIndex = (index: unknown): index is string => {
     if (typeof index !== "string" || index.length === 0) {
       return false;
@@ -53,6 +39,30 @@ export const orderRoomSceneElements = <T extends RoomSceneElement>(
       return false;
     }
   };
+
+  const ordered = elements.map((element) => structuredClone(element));
+  ordered.sort((left, right) => {
+    const leftIndex = left.index;
+    const rightIndex = right.index;
+    const leftHasValidIndex = isValidIndex(leftIndex);
+    const rightHasValidIndex = isValidIndex(rightIndex);
+    if (leftHasValidIndex && rightHasValidIndex) {
+      if (leftIndex < rightIndex) {
+        return -1;
+      }
+      if (leftIndex > rightIndex) {
+        return 1;
+      }
+      return left.id.localeCompare(right.id);
+    }
+    if (leftHasValidIndex) {
+      return -1;
+    }
+    if (rightHasValidIndex) {
+      return 1;
+    }
+    return left.id.localeCompare(right.id);
+  });
 
   let lowerBound: string | null = null;
   let position = 0;

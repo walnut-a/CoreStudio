@@ -26,7 +26,7 @@ export const reconcileProjectRoomScene = ({
   snapshot: boolean;
 }): readonly ExcalidrawElement[] => {
   if (snapshot) {
-    return remoteElements;
+    return restoreElements(remoteElements, localElements);
   }
 
   const restoredRemoteElements = restoreElements(

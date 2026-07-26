@@ -212,6 +212,32 @@ describe("projectFs", () => {
     );
   });
 
+  it("lazily persists one stable Agent Board id per project", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const created = await createProjectStructure(root, "Stable Board");
+    const { ensureProjectStableBoardId } = await import("./projectFs");
+
+    const first = await ensureProjectStableBoardId(
+      created.projectPath,
+      () => "stable-board-id",
+    );
+    const second = await ensureProjectStableBoardId(
+      created.projectPath,
+      () => "must-not-replace",
+    );
+    const persisted = JSON.parse(
+      await fs.readFile(
+        path.join(created.projectPath, PROJECT_FILENAMES.project),
+        "utf8",
+      ),
+    );
+
+    expect(first.stableBoardId).toBe("stable-board-id");
+    expect(second.stableBoardId).toBe("stable-board-id");
+    expect(persisted.stableBoardId).toBe("stable-board-id");
+  });
+
   it("normalizes deterministic legacy manifest fields without touching assets", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);

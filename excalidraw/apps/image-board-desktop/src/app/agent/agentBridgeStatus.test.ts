@@ -34,7 +34,7 @@ const createStatus = (
       token: "project-token",
     },
   },
-  boardUrl: "http://127.0.0.1:5174/agent-board?projectToken=project-token",
+  boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
   ...patch,
 });
 
@@ -72,13 +72,13 @@ describe("createUnavailableAgentBridgeStatus", () => {
   it("builds a disabled fallback status with the optional board URL", () => {
     expect(
       createUnavailableAgentBridgeStatus(
-        "http://127.0.0.1:5174/agent-board?projectToken=project-token",
+        "http://127.0.0.1:60909/board/stable-board-id",
       ),
     ).toEqual({
       enabled: false,
       ready: false,
       currentProject: null,
-      boardUrl: "http://127.0.0.1:5174/agent-board?projectToken=project-token",
+      boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
     });
   });
 
@@ -92,7 +92,7 @@ describe("readAgentBridgeStatus", () => {
     await expect(
       readAgentBridgeStatus({
         bridge: {},
-        fallbackBoardUrl: "http://127.0.0.1:5174/agent-board",
+        fallbackBoardUrl: "http://127.0.0.1:60909/board/stable-board-id",
       }),
     ).resolves.toBeNull();
   });
@@ -118,13 +118,13 @@ describe("readAgentBridgeStatus", () => {
             throw new Error("bridge offline");
           }),
         },
-        fallbackBoardUrl: "http://127.0.0.1:5174/agent-board",
+        fallbackBoardUrl: "http://127.0.0.1:60909/board/stable-board-id",
       }),
     ).resolves.toEqual({
       enabled: false,
       ready: false,
       currentProject: null,
-      boardUrl: "http://127.0.0.1:5174/agent-board",
+      boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
     });
   });
 });
@@ -243,7 +243,7 @@ describe("refreshAgentBridgeStatus", () => {
       refreshAgentBridgeStatus({
         bridge: { notifyProjectStateChanged },
         currentProject: createProjectBundle(),
-        fallbackBoardUrl: "http://127.0.0.1:5174/agent-board",
+        fallbackBoardUrl: "http://127.0.0.1:60909/board/stable-board-id",
       }),
     ).resolves.toBeNull();
     expect(notifyProjectStateChanged).not.toHaveBeenCalled();
@@ -286,13 +286,13 @@ describe("refreshAgentBridgeStatus", () => {
           }),
         },
         currentProject: null,
-        fallbackBoardUrl: "http://127.0.0.1:5174/agent-board",
+        fallbackBoardUrl: "http://127.0.0.1:60909/board/stable-board-id",
       }),
     ).resolves.toEqual({
       enabled: false,
       ready: false,
       currentProject: null,
-      boardUrl: "http://127.0.0.1:5174/agent-board",
+      boardUrl: "http://127.0.0.1:60909/board/stable-board-id",
     });
   });
 });

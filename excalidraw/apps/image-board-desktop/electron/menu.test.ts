@@ -247,4 +247,25 @@ describe("createAppMenuTemplate", () => {
       undefined,
     );
   });
+
+  it("disables current-project maintenance while Home is active", () => {
+    const template = createAppMenuTemplate(vi.fn(), [], undefined, undefined, {
+      platform: "darwin",
+      projectActionsEnabled: false,
+    });
+    const maintenanceItems = getProjectMaintenanceMenu(template);
+
+    expect(getMenuItem(maintenanceItems, "安全模式打开项目")?.enabled).not.toBe(
+      false,
+    );
+    expect(getMenuItem(maintenanceItems, "检查当前项目健康")?.enabled).toBe(
+      false,
+    );
+    expect(getMenuItem(maintenanceItems, "修复当前项目数据")?.enabled).toBe(
+      false,
+    );
+    expect(getMenuItem(maintenanceItems, "清理当前项目缓存")?.enabled).toBe(
+      false,
+    );
+  });
 });

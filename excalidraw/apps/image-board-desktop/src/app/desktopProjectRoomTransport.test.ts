@@ -9,6 +9,10 @@ describe("createDesktopProjectRoomTransport", () => {
       | undefined;
     const bridge = {
       joinProjectRoom: vi.fn(async (input) => ({ input })),
+      resyncProjectRoom: vi.fn(async () => ({
+        type: "room.snapshot",
+        sequence: 3,
+      })),
       submitProjectRoomOperation: vi.fn(async (input) => ({ input })),
       leaveProjectRoom: vi.fn(async () => true),
       onProjectRoomEvent: vi.fn((listener) => {
@@ -21,7 +25,9 @@ describe("createDesktopProjectRoomTransport", () => {
       sessionId: "desktop-session",
     });
     const listener = vi.fn();
+    const snapshotListener = vi.fn();
     transport.subscribe(listener);
+    transport.subscribeSnapshot(snapshotListener);
 
     await transport.join({
       projectPath: "/projects/project-1",
@@ -38,12 +44,18 @@ describe("createDesktopProjectRoomTransport", () => {
     });
     eventListener?.("another-session", { type: "scene.persisted" });
     eventListener?.("desktop-session", { type: "scene.persisted" });
+    await transport.requestResync();
 
     expect(bridge.submitProjectRoomOperation).toHaveBeenCalledWith({
       sessionId: "desktop-session",
       operation: expect.objectContaining({ operationId: "operation-1" }),
     });
     expect(listener).toHaveBeenCalledTimes(1);
+    expect(bridge.resyncProjectRoom).toHaveBeenCalledWith("desktop-session");
+    expect(snapshotListener).toHaveBeenCalledWith({
+      snapshot: expect.objectContaining({ sequence: 3 }),
+      sessionId: "desktop-session",
+    });
   });
 
   it("reports unavailable room IPC explicitly", async () => {

@@ -10,6 +10,18 @@ const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 const RECENT_PROJECTS_FILE_NAME = "recent-projects.json";
 const DEFAULT_PROJECTS_DIRECTORY_NAME = "工业设计助手";
 const MAX_RECENT_PROJECTS = 20;
+let recentProjectsMutationQueue: Promise<void> = Promise.resolve();
+
+const enqueueRecentProjectsOperation = <Result>(
+  operation: () => Promise<Result>,
+) => {
+  const result = recentProjectsMutationQueue.then(operation, operation);
+  recentProjectsMutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+};
 
 const getRecentProjectsPath = () =>
   path.join(
@@ -104,7 +116,7 @@ export const ensureDefaultProjectsRoot = async () => {
   return defaultProjectsRoot;
 };
 
-export const loadRecentProjects = async () => {
+const loadRecentProjectsUnsafe = async () => {
   const { entries: storedEntries, canRewrite, needsRewrite } =
     await readRecentProjectsFile();
   const validEntries: RecentProjectEntry[] = [];
@@ -141,30 +153,35 @@ export const loadRecentProjects = async () => {
   return nextEntries;
 };
 
+export const loadRecentProjects = () =>
+  enqueueRecentProjectsOperation(loadRecentProjectsUnsafe);
+
 export const rememberRecentProject = async (
   projectPath: string,
   name: string,
   lastOpenedAt = new Date().toISOString(),
-) => {
-  const existingEntries = await loadRecentProjects();
-  const nextEntries = [
-    {
-      projectPath,
-      name,
-      lastOpenedAt,
-    },
-    ...existingEntries.filter((entry) => entry.projectPath !== projectPath),
-  ].slice(0, MAX_RECENT_PROJECTS);
+) =>
+  enqueueRecentProjectsOperation(async () => {
+    const existingEntries = await loadRecentProjectsUnsafe();
+    const nextEntries = [
+      {
+        projectPath,
+        name,
+        lastOpenedAt,
+      },
+      ...existingEntries.filter((entry) => entry.projectPath !== projectPath),
+    ].slice(0, MAX_RECENT_PROJECTS);
 
-  await writeRecentProjectsFile(nextEntries);
-  return nextEntries;
-};
+    await writeRecentProjectsFile(nextEntries);
+    return nextEntries;
+  });
 
-export const removeRecentProject = async (projectPath: string) => {
-  const existingEntries = await loadRecentProjects();
-  const nextEntries = existingEntries.filter(
-    (entry) => entry.projectPath !== projectPath,
-  );
-  await writeRecentProjectsFile(nextEntries);
-  return nextEntries;
-};
+export const removeRecentProject = (projectPath: string) =>
+  enqueueRecentProjectsOperation(async () => {
+    const existingEntries = await loadRecentProjectsUnsafe();
+    const nextEntries = existingEntries.filter(
+      (entry) => entry.projectPath !== projectPath,
+    );
+    await writeRecentProjectsFile(nextEntries);
+    return nextEntries;
+  });

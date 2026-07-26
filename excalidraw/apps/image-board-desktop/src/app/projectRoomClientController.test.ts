@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type {
+  ProjectRoomClosed,
   ProjectRoomEvent,
   ProjectRoomSceneElement,
   ProjectRoomSnapshot,
@@ -55,6 +56,7 @@ const createHarness = (
     ) => Promise<ImageRecordMap | void>;
     randomId?: () => string;
     applyImageRecords?: (imageRecords: ImageRecordMap) => void;
+    onRoomClosed?: (event: ProjectRoomClosed) => void;
   } = {},
 ) => {
   let listener: ((event: ProjectRoomEvent) => void) | null = null;
@@ -76,6 +78,7 @@ const createHarness = (
       supersededElementIds: [],
     })),
     leave: vi.fn(async () => true),
+    cancelPendingJoin: vi.fn(async () => undefined),
     subscribe: vi.fn((nextListener: (event: ProjectRoomEvent) => void) => {
       listener = nextListener;
       return () => {
@@ -136,6 +139,49 @@ describe("ProjectRoomClientController", () => {
       sharedSceneConfig: {},
       sequence: 0,
       origin: "snapshot",
+    });
+  });
+
+  it("leaves a room session that finishes joining after the client has stopped", async () => {
+    const harness = createHarness();
+    let resolveJoin!: (value: {
+      snapshot: ProjectRoomSnapshot;
+      sessionId: string;
+    }) => void;
+    harness.transport.join.mockReturnValue(
+      new Promise((resolve) => {
+        resolveJoin = resolve;
+      }),
+    );
+
+    const starting = harness.controller.start();
+    await harness.controller.stop();
+    expect(harness.transport.cancelPendingJoin).toHaveBeenCalledTimes(1);
+    resolveJoin({
+      snapshot,
+      sessionId: "late-room-session",
+    });
+    await starting;
+
+    expect(harness.transport.leave).toHaveBeenCalledTimes(1);
+    expect(harness.transport.leave).toHaveBeenCalledWith("late-room-session");
+  });
+
+  it("preserves the room close reason for reconnect policy", async () => {
+    const onRoomClosed = vi.fn();
+    const harness = createHarness({ onRoomClosed });
+    await harness.controller.start();
+
+    harness.emit({
+      type: "room.closed",
+      identity,
+      reason: "app-closed",
+    });
+
+    expect(onRoomClosed).toHaveBeenCalledWith({
+      type: "room.closed",
+      identity,
+      reason: "app-closed",
     });
   });
 
@@ -201,6 +247,99 @@ describe("ProjectRoomClientController", () => {
         }),
       ],
     });
+  });
+
+  it("does not echo an authoritative scene version applied by reconciliation", async () => {
+    const reconciledElement = {
+      ...initialElements[0],
+      version: 3,
+      versionNonce: 30,
+      x: 200,
+    };
+    const harness = createHarness();
+    harness.applyAuthoritativeScene.mockImplementation(({ origin }) =>
+      origin === "remote" ? [reconciledElement, initialElements[1]] : undefined,
+    );
+    await harness.controller.start();
+
+    harness.emit({
+      type: "scene.update",
+      identity,
+      sequence: 1,
+      originSessionId: "board-session",
+      originActorId: "codex:thread-b",
+      operationId: "remote-operation",
+      baseSequence: 0,
+      elements: [{ ...initialElements[0], version: 2, x: 200 }],
+      acceptedElementIds: ["element-a"],
+      supersededElementIds: [],
+    });
+
+    await harness.controller.handleLocalSceneChange([
+      reconciledElement,
+      initialElements[1],
+    ]);
+
+    expect(harness.transport.submitOperation).not.toHaveBeenCalled();
+  });
+
+  it("keeps the mirror authoritative when the room normalizes an accepted element", async () => {
+    const harness = createHarness();
+    harness.transport.submitOperation.mockImplementationOnce(
+      async (operation) => {
+        harness.emit({
+          type: "scene.update",
+          identity,
+          sequence: 1,
+          originSessionId: "desktop-session",
+          originActorId: "corestudio:desktop",
+          operationId: operation.operationId,
+          baseSequence: 0,
+          elements: [
+            {
+              ...initialElements[0],
+              version: 3,
+              versionNonce: 30,
+              index: "a0V",
+              x: 100,
+            },
+          ],
+          acceptedElementIds: ["element-a"],
+          supersededElementIds: [],
+        });
+        return {
+          type: "operation.accepted",
+          operationId: operation.operationId,
+          sequence: 1,
+          acceptedElementIds: ["element-a"],
+          supersededElementIds: [],
+        };
+      },
+    );
+    await harness.controller.start();
+
+    await harness.controller.handleLocalSceneChange([
+      {
+        ...initialElements[0],
+        version: 2,
+        versionNonce: 20,
+        index: "invalid",
+        x: 100,
+      },
+      initialElements[1],
+    ]);
+    await harness.controller.handleLocalSceneChange([
+      {
+        ...initialElements[0],
+        version: 3,
+        versionNonce: 30,
+        index: "a0V",
+        x: 100,
+      },
+      initialElements[1],
+    ]);
+
+    expect(harness.transport.submitOperation).toHaveBeenCalledTimes(1);
   });
 
   it("retries the same local scene after a transport submission failure", async () => {
@@ -359,6 +498,31 @@ describe("ProjectRoomClientController", () => {
     await persistenceWait;
 
     expect(harness.transport.submitOperation).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for room submission without forcing disk persistence during tab switching", async () => {
+    let finishAssetPreparation!: () => void;
+    const harness = createHarness({
+      ensureAssetsForElements: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishAssetPreparation = resolve;
+          }),
+      ),
+    });
+    await harness.controller.start();
+    void harness.controller.handleLocalSceneChange([
+      { ...initialElements[0], version: 2, x: 100 },
+      initialElements[1],
+    ]);
+
+    const submitted = harness.controller.waitForSubmission();
+    expect(harness.transport.submitOperation).not.toHaveBeenCalled();
+    finishAssetPreparation();
+    await submitted;
+
+    expect(harness.transport.submitOperation).toHaveBeenCalledOnce();
+    expect(harness.transport.requestPersistence).not.toHaveBeenCalled();
   });
 
   it("persists new image assets before submit and applies project asset notifications", async () => {
@@ -520,6 +684,39 @@ describe("ProjectRoomClientController", () => {
         gridSize: 20,
       },
     });
+  });
+
+  it("does not echo semantically unchanged nested shared scene config", async () => {
+    const nestedSnapshot: ProjectRoomSnapshot = {
+      ...snapshot,
+      scene: {
+        ...snapshot.scene,
+        sharedSceneConfig: {
+          viewBackgroundColor: "#ffffff",
+          lockedMultiSelections: {},
+          editingGroupId: null,
+        },
+      },
+    };
+    const harness = createHarness();
+    harness.transport.join.mockResolvedValue({
+      snapshot: nestedSnapshot,
+      sessionId: "desktop-session",
+    });
+    await harness.controller.start();
+
+    const result = await harness.controller.handleLocalSceneChange(
+      initialElements,
+      {},
+      {
+        viewBackgroundColor: "#ffffff",
+        lockedMultiSelections: {},
+        editingGroupId: null,
+      },
+    );
+
+    expect(result).toBeNull();
+    expect(harness.transport.submitOperation).not.toHaveBeenCalled();
   });
 
   it("waits for the submitted room sequence to be persisted", async () => {
@@ -714,6 +911,43 @@ describe("ProjectRoomClientController", () => {
     expect(harness.controller.confirmedSequence).toBe(0);
   });
 
+  it("rolls back a failed scene application and requests resync", async () => {
+    const onSyncStateChange = vi.fn();
+    const harness = createHarness();
+    const controller = createProjectRoomClientController({
+      projectPath: "/projects/project-1",
+      sessionId: "desktop-session",
+      transport: harness.transport,
+      applyAuthoritativeScene: harness.applyAuthoritativeScene,
+      onSyncStateChange,
+    });
+    await controller.start();
+    harness.applyAuthoritativeScene.mockClear();
+    harness.applyAuthoritativeScene.mockImplementationOnce(() => {
+      throw new Error("scene restore failed");
+    });
+
+    harness.emit({
+      type: "scene.update",
+      identity,
+      sequence: 1,
+      originSessionId: "board-session",
+      originActorId: "codex:thread-b",
+      operationId: "operation-board",
+      baseSequence: 0,
+      elements: [{ ...initialElements[1], version: 2, x: 200 }],
+      acceptedElementIds: ["element-b"],
+      supersededElementIds: [],
+    });
+
+    expect(controller.confirmedSequence).toBe(0);
+    expect(harness.transport.requestResync).toHaveBeenCalledOnce();
+    expect(onSyncStateChange).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ message: "scene restore failed" }),
+    );
+  });
+
   it("replaces local state and session from a reconnect snapshot", async () => {
     const harness = createHarness();
     await harness.controller.start();
@@ -766,11 +1000,13 @@ describe("ProjectRoomClientController", () => {
     const startPromise = harness.controller.start();
     await harness.controller.stop();
 
-    expect(harness.transport.leave).toHaveBeenCalledWith("desktop-session");
+    expect(harness.transport.cancelPendingJoin).toHaveBeenCalledTimes(1);
+    expect(harness.transport.leave).not.toHaveBeenCalled();
     resolveJoin({
       snapshot,
       sessionId: "desktop-session",
     });
     await startPromise;
+    expect(harness.transport.leave).toHaveBeenCalledWith("desktop-session");
   });
 });

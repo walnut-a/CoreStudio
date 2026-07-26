@@ -11,7 +11,7 @@ import {
 } from "./sessionStore";
 
 const descriptor: AgentSessionDescriptor = {
-  protocolVersion: 2,
+  protocolVersion: 3,
   appName: "CoreStudio",
   appVersion: "1.1.10",
   bridge: {
@@ -21,8 +21,7 @@ const descriptor: AgentSessionDescriptor = {
   },
   readToken: "read-token",
   projectToken: "project-token",
-  boardUrl:
-    "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152",
+  boardUrl: "http://127.0.0.1:49152/board",
   currentProject: {
     projectPath: "/Users/alice/project.corestudio",
     name: "Project",
@@ -54,7 +53,7 @@ describe("sessionStore", () => {
 
     const contents = await fs.readFile(sessionPath, "utf8");
     expect(JSON.parse(contents)).toEqual({
-      protocolVersion: 2,
+      protocolVersion: 3,
       appName: "CoreStudio",
       appVersion: "1.1.10",
       bridge: {
@@ -64,8 +63,7 @@ describe("sessionStore", () => {
       },
       readToken: "read-token",
       projectToken: "project-token",
-      boardUrl:
-        "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A49152",
+      boardUrl: "http://127.0.0.1:49152/board",
       currentProject: {
         projectPath: "/Users/alice/project.corestudio",
         name: "Project",

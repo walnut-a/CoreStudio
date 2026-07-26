@@ -40,6 +40,11 @@ export interface ProjectManifest {
    * an id before they are exposed to the renderer.
    */
   projectId?: string;
+  /**
+   * Stable, non-secret local Agent Board address identity. It is generated
+   * lazily and must never be used as a room or participant credential.
+   */
+  stableBoardId?: string;
   name: string;
   createdAt: string;
   updatedAt: string;

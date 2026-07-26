@@ -1039,6 +1039,9 @@ vi.mock("./project/sceneSerialization", () => ({
       },
     };
   }),
+  extractSharedSceneConfig: vi.fn(
+    (appState: Record<string, unknown>) => appState,
+  ),
   serializeSceneForProject: vi.fn(() => "{}"),
 }));
 

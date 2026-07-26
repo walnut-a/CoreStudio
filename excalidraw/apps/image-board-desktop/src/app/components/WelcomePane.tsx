@@ -27,7 +27,6 @@ export const WelcomePane = ({
   onRevealProject,
   manualProjectActionsVisible = true,
 }: WelcomePaneProps) => {
-  const latestProject = recentProjects[0] ?? null;
   const [deleteTarget, setDeleteTarget] = useState<RecentProjectEntry | null>(
     null,
   );
@@ -63,17 +62,6 @@ export const WelcomePane = ({
               >
                 {loading ? copy.welcome.opening : copy.welcome.openProject}
               </DesktopButton>
-              {latestProject ? (
-                <DesktopButton
-                  type="button"
-                  onClick={() =>
-                    onOpenRecentProject?.(latestProject.projectPath)
-                  }
-                  disabled={loading}
-                >
-                  {copy.welcome.continueLastProject}
-                </DesktopButton>
-              ) : null}
             </div>
           ) : null}
         </div>

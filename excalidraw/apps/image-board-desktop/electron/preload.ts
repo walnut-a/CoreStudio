@@ -32,6 +32,15 @@ const markHiddenDesktopTitlebar = () => {
   if (process.platform !== "darwin") {
     return;
   }
+  const routeMode = new URL(window.location.href).searchParams.get(
+    "desktopMode",
+  );
+  if (routeMode === "project") {
+    document.documentElement.classList.add(
+      "image-board-desktop-project-renderer",
+    );
+    return;
+  }
   document.documentElement.classList.add("image-board-desktop-titlebar-hidden");
 };
 
@@ -70,6 +79,8 @@ const desktopBridge: DesktopBridgeApi = {
   importImages: () => ipcRenderer.invoke(IPC_CHANNELS.importImages),
   revealProjectInFinder: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.revealProjectInFinder, projectPath),
+  getStableAgentBoardUrl: (projectPath) =>
+    ipcRenderer.invoke(IPC_CHANNELS.getStableAgentBoardUrl, projectPath),
   loadAppInfo: () => ipcRenderer.invoke(IPC_CHANNELS.loadAppInfo),
   openExternal: (url) => ipcRenderer.invoke(IPC_CHANNELS.openExternal, url),
   inspectCodexIntegration: () =>
@@ -113,6 +124,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.setAgentBridgeEnabled, enabled),
   joinProjectRoom: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomJoin, input),
+  resyncProjectRoom: (sessionId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectRoomResync, sessionId),
   submitProjectRoomOperation: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomOperation, input),
   flushProjectRoomPersistence: (sessionId) =>
@@ -133,6 +146,31 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.on(IPC_CHANNELS.projectRoomEvent, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.projectRoomEvent, handler);
+    };
+  },
+  loadProjectViewsState: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.loadProjectViewsState),
+  openProjectView: (projectPath, options) =>
+    ipcRenderer.invoke(IPC_CHANNELS.openProjectView, projectPath, options),
+  activateProjectView: (projectPath) =>
+    ipcRenderer.invoke(IPC_CHANNELS.activateProjectView, projectPath),
+  closeProjectView: (projectPath) =>
+    ipcRenderer.invoke(IPC_CHANNELS.closeProjectView, projectPath),
+  recoverProjectView: (projectPath) =>
+    ipcRenderer.invoke(IPC_CHANNELS.recoverProjectView, projectPath),
+  notifyProjectThemeChanged: (payload) => {
+    ipcRenderer.send(IPC_CHANNELS.projectThemeChanged, payload);
+  },
+  onProjectViewsState: (listener) => {
+    const handler = (
+      _event: unknown,
+      state: import("../src/shared/desktopBridgeTypes").DesktopProjectViewsState,
+    ) => {
+      listener(state);
+    };
+    ipcRenderer.on(IPC_CHANNELS.projectViewsState, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.projectViewsState, handler);
     };
   },
   onFlushProjectRoomRequest: (listener) => {

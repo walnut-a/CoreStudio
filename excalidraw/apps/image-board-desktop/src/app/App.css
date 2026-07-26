@@ -52,7 +52,8 @@ body {
 }
 
 html.image-board-desktop-titlebar-hidden {
-  --desktop-window-top-inset: 28px;
+  --desktop-window-top-inset: 44px;
+  --desktop-window-control-safe-left: 94px;
 }
 
 .image-board-shell {

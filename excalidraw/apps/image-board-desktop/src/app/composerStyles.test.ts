@@ -737,7 +737,8 @@ describe("generate composer styles", () => {
     expect(source).toContain(
       "currentProjectEntryRendererActions.openRecentProject",
     );
-    expect(source).toContain(
+    expect(source).toContain("desktopBridge.activateProjectView?.(null)");
+    expect(source).not.toContain(
       "currentProjectEntryRendererActions.switchToProjectList",
     );
     expect(source).toContain(
@@ -1070,10 +1071,11 @@ describe("generate composer styles", () => {
 
     expect(source).toContain("createCanvasSceneChangeRendererActions");
     expect(source).toContain("canvasSceneChangeRendererActions.changeScene");
+    expect(source).toContain("onChange={handleCanvasSceneChange}");
     expect(source).not.toContain("syncSelectionReferenceIntoRequest");
     expect(source).not.toContain("buildSelectionReferenceSummary");
     expect(source).not.toContain("getSelectionReferenceSignature");
-    expect(source).not.toContain("onChange={(elements, appState, files)");
+    expect(source).not.toContain("createDesktopProjectCanvasChangeRendererActions");
   });
 
   it("keeps generation submit routing outside the root app", () => {
@@ -1311,6 +1313,9 @@ describe("generate composer styles", () => {
       "createAgentBrowserAutoOpenProjectRendererActions",
     );
     expect(source).not.toContain("useAgentBridgeWiring");
+    expect(source).not.toContain("legacyLaunchTicket");
+    expect(source).not.toContain("legacyResumeToken");
+    expect(source).not.toContain("agentBoardConnectionExpired");
   });
 
   it("keeps Agent command request subscription wiring outside the root app", () => {

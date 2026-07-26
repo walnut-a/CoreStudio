@@ -23,7 +23,6 @@ export const enCopy: DesktopCopy = {
     recentTitle: "Projects",
     recentEmpty: "No projects yet. Create or open one to get started.",
     lastOpenedAt: "Last opened",
-    continueLastProject: "Continue recent project",
     deleteProject: "Remove project",
     deleteProjectRecordOnly: "Remove from list",
     revealProjectForManualDelete: "Show in file manager",
@@ -230,12 +229,16 @@ export const enCopy: DesktopCopy = {
       "A local-first AI board for industrial design, built to organize references, generate concepts, and preserve the design process.",
   },
   menu: {
-    projectGroup: "CoreStudio Project",
     currentProject: (name: string) => `Current project: ${name}`,
     file: "File",
     newProject: "New Project",
     openProject: "Open Project",
     switchProject: "Switch Project...",
+    copyBoardAddress: "Copy Board Address",
+    boardAddressCopied:
+      "Board address copied. Paste it into Codex to open the canvas.",
+    boardAddressUnavailable:
+      "The Board address is unavailable. Make sure Agent Bridge is enabled.",
     openProjectSafe: "Open Project in Safe Mode",
     recentProjects: "Recent Projects",
     version: "Version",

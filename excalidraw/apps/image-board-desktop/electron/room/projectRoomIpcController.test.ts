@@ -95,6 +95,25 @@ describe("ProjectRoomIpcController", () => {
     ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
 
+  it("returns an authoritative snapshot for an already joined desktop session", async () => {
+    const room = createRoom();
+    const controller = createProjectRoomIpcController({
+      openProject: vi.fn(async () => room),
+    });
+    await controller.join(
+      {
+        projectPath: "/projects/project-1",
+        sessionId: "desktop-session",
+      },
+      vi.fn(),
+    );
+
+    const snapshot = controller.resync("desktop-session");
+
+    expect(snapshot).toEqual(room.getSnapshot());
+    expect(snapshot.participants).toHaveLength(1);
+  });
+
   it("leaves the bound room and stops delivering events", async () => {
     const room = createRoom();
     const onEvent = vi.fn();

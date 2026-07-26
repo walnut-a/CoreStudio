@@ -43,12 +43,13 @@ describe("ProjectRoomTicketStore", () => {
     ).toThrowError(expect.objectContaining({ code: "AUTH_REQUIRED" }));
   });
 
-  it("uses a resume token to create a fresh page session", () => {
+  it("rotates a resume token when creating a fresh page session", () => {
     const randomId = vi
       .fn()
       .mockReturnValueOnce("launch-ticket")
       .mockReturnValueOnce("board-session-1")
       .mockReturnValueOnce("resume-token")
+      .mockReturnValueOnce("resume-token-2")
       .mockReturnValueOnce("board-session-2");
     const store = createProjectRoomTicketStore({
       randomId,
@@ -63,7 +64,7 @@ describe("ProjectRoomTicketStore", () => {
 
     expect(store.resume(exchanged.resumeToken, identity)).toEqual({
       sessionId: "board-session-2",
-      resumeToken: "resume-token",
+      resumeToken: "resume-token-2",
       participant: {
         actorId: "codex:thread-b",
         sessionId: "board-session-2",
@@ -72,6 +73,9 @@ describe("ProjectRoomTicketStore", () => {
         displayLabel: "任务 B",
       },
     });
+    expect(() =>
+      store.resume(exchanged.resumeToken, identity),
+    ).toThrowError(expect.objectContaining({ code: "AUTH_REQUIRED" }));
   });
 
   it("authorizes scoped HTTP reads without creating another participant session", () => {
@@ -116,9 +120,28 @@ describe("ProjectRoomTicketStore", () => {
     ).toThrowError(expect.objectContaining({ code: "SESSION_EPOCH_EXPIRED" }));
   });
 
-  it("expires launch and resume tokens", () => {
+  it("expires and removes launch and resume tokens", () => {
     let now = 1_000;
-    const store = createProjectRoomTicketStore({
+    const launchStore = createProjectRoomTicketStore({
+      randomId: vi
+        .fn()
+        .mockReturnValueOnce("expired-launch-ticket"),
+      now: () => now,
+      launchTicketTtlMs: 100,
+      resumeTokenTtlMs: 200,
+    });
+    const launchTicket = launchStore.issueLaunchTicket({
+      identity,
+      actorId: "codex:thread-b",
+      displayLabel: "任务 B",
+    });
+    now = 1_101;
+    expect(() =>
+      launchStore.consumeLaunchTicket(launchTicket, identity),
+    ).toThrowError(expect.objectContaining({ code: "TOKEN_EXPIRED" }));
+
+    now = 2_000;
+    const resumeStore = createProjectRoomTicketStore({
       randomId: vi
         .fn()
         .mockReturnValueOnce("launch-ticket")
@@ -128,14 +151,21 @@ describe("ProjectRoomTicketStore", () => {
       launchTicketTtlMs: 100,
       resumeTokenTtlMs: 200,
     });
-    const launchTicket = store.issueLaunchTicket({
+    const freshLaunchTicket = resumeStore.issueLaunchTicket({
       identity,
       actorId: "codex:thread-b",
       displayLabel: "任务 B",
     });
-    now = 1_101;
+    const exchange = resumeStore.consumeLaunchTicket(
+      freshLaunchTicket,
+      identity,
+    );
+    now = 2_201;
     expect(() =>
-      store.consumeLaunchTicket(launchTicket, identity),
+      resumeStore.resume(exchange.resumeToken, identity),
     ).toThrowError(expect.objectContaining({ code: "TOKEN_EXPIRED" }));
+    expect(() =>
+      resumeStore.resume(exchange.resumeToken, identity),
+    ).toThrowError(expect.objectContaining({ code: "AUTH_REQUIRED" }));
   });
 });

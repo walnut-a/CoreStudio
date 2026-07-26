@@ -18,6 +18,9 @@ export const createDesktopProjectRoomTransport = ({
   sessionId,
 }: CreateDesktopProjectRoomTransportInput): ProjectRoomClientTransport => {
   const listeners = new Set<(event: ProjectRoomEvent) => void>();
+  const snapshotListeners = new Set<
+    Parameters<ProjectRoomClientTransport["subscribeSnapshot"]>[0]
+  >();
   const unsubscribeBridge = bridge.onProjectRoomEvent?.(
     (eventSessionId, event) => {
       if (eventSessionId !== sessionId) {
@@ -68,6 +71,21 @@ export const createDesktopProjectRoomTransport = ({
           unsubscribeBridge?.();
         }
       };
+    },
+    subscribeSnapshot: (listener) => {
+      snapshotListeners.add(listener);
+      return () => {
+        snapshotListeners.delete(listener);
+      };
+    },
+    requestResync: async () => {
+      if (!bridge.resyncProjectRoom) {
+        throw unavailable();
+      }
+      const snapshot = await bridge.resyncProjectRoom(sessionId);
+      for (const listener of snapshotListeners) {
+        listener({ snapshot, sessionId });
+      }
     },
   };
 };

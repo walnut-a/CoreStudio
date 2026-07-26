@@ -13,7 +13,6 @@ import { buildAgentSelectionContext } from "./agentCommandHandlers";
 import {
   buildAgentBrowserRuntimePublishPlan,
 } from "./agentBrowserRuntimeState";
-import { publishAgentBrowserRuntimeState } from "./agentBrowserBridge";
 import { clearTimerRefAction } from "../timerRefController";
 
 export interface AgentBrowserRuntimePublishScene {
@@ -52,7 +51,7 @@ export interface RunAgentBrowserRuntimePublishActionInput {
   projectPath: string | null | undefined;
   scene: AgentBrowserRuntimePublishScene | null;
   updatedAt: string;
-  publishRuntimeState?: (state: AgentBrowserRuntimeState) => Promise<unknown>;
+  publishRuntimeState: (state: AgentBrowserRuntimeState) => Promise<unknown>;
   onError?: (error: unknown) => void;
 }
 
@@ -79,7 +78,7 @@ export interface CreateAgentBrowserRuntimePublishRendererActionsInput<
   clearTimer: (timerId: number) => void;
   setTimerId: (timerId: number | null) => void;
   scheduleTimeout: (callback: () => void, delayMs: number) => number;
-  publishRuntimeState?: (state: AgentBrowserRuntimeState) => Promise<unknown>;
+  publishRuntimeState: (state: AgentBrowserRuntimeState) => Promise<unknown>;
   onError?: (error: unknown) => void;
 }
 
@@ -174,7 +173,7 @@ export const runAgentBrowserRuntimePublishAction = async ({
   projectPath,
   scene,
   updatedAt,
-  publishRuntimeState = publishAgentBrowserRuntimeState,
+  publishRuntimeState,
   onError,
 }: RunAgentBrowserRuntimePublishActionInput): Promise<AgentBrowserRuntimePublishResult> => {
   if (!enabled) {

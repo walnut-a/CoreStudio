@@ -1,9 +1,9 @@
 # CoreStudio 本地协作房间、双画布同步与多项目演进方案
 
 > 所属项目：CoreStudio
-> 文档状态：协作主链路已实现；图片实时加载与“图片资产”侧栏仍待修复和验收
-> 当前交付范围：维持 Agent Board 现有编辑能力，重构双画布同步和持久化架构
-> 架构预留：多标签、多项目房间、多个 Codex 线程
+> 文档状态：协作主链路和项目级 renderer 隔离已实现；开发版与安装包真实并发验收待完成
+> 当前交付范围：维持 Agent Board 现有编辑能力，重构双画布同步、持久化和多项目客户端运行边界
+> 架构基准：一个应用外壳、每项目独立 WebContents/renderer、多项目 Room Manager、多个 Codex 线程
 > 日期：2026-07-23
 
 ## 1. 文档定位
@@ -81,19 +81,25 @@ CoreStudio 1.1.26 中已经观察到：
 6. **不同元素的操作自动合并；同一元素按 Excalidraw 的版本语义确定性收敛。**
 7. **删除使用 `isDeleted` 墓碑，普通删除不物理清理图片资产和生成记录。**
 8. **图片二进制、图片记录、生成记录、项目元数据和健康记录继续由 CoreStudio 项目层管理。**
-9. **底层按多项目 Room Manager 设计；当前首个交付验收同一项目中的主画布、Agent Board 和 Codex 命令同步。**
-10. **未来每个 CoreStudio 标签页都是独立项目会话，不得只做共用 `currentProject` 的视觉标签。**
+9. **底层按多项目 Room Manager 设计；不同项目的房间、消息顺序、写入队列和持久化状态互相隔离。**
+10. **每个 CoreStudio 项目标签都是独立的 WebContents/renderer 项目会话，不得在同一个 React renderer 中常驻多个 Excalidraw，再用 CSS 隐藏模拟标签。**
 11. **关闭项目的最后一个本地标签页会终止该项目房间；仍有其他参与者时必须二次确认。**
 12. **默认不新增 Excalidraw 核心补丁；协作能力优先全部放在 CoreStudio 自有层。**
 13. **旧 patch autosave 和新房间写入不能在同一项目中同时活跃。**
 14. **新架构不扩大 Agent Board 产品权限；尤其不开放直接调用 CoreStudio 生图能力。**
-15. **未来 CoreStudio 支持多标签后，同一个项目在同一窗口中仍只允许一个标签页；再次打开时聚焦已有标签。**
+15. **CoreStudio 支持多项目标签，但同一个项目在同一窗口中仍只允许一个标签页；再次打开时聚焦已有标签。**
 16. **CoreStudio 主画布和 Agent Board 都提供低调的 Agent 头像区，显示同一份房间在线 Agent 列表。**
 17. **界面明确区分“已同步到房间”和“已写入项目文件”；正常状态低调展示，延迟或失败时明显提示。**
 18. **持久化失败只按保存失败处理，不增加导出恢复副本或其他额外恢复流程。**
 19. **关闭项目时优先完成待保存内容；保存失败或等待超时后允许重试，也允许用户明确承担未保存内容丢失风险后仍然关闭。**
 20. **Agent 头像使用 Codex 图标和可识别的 Codex 任务名称，不使用 Agent B/C 等无意义编号。**
-21. **本轮不实现多项目 UI，但双项目房间并行与隔离测试属于新架构交付门槛；多项目功能将在新架构完成后紧接着推进。**
+21. **多项目 UI 已进入当前交付范围；它必须建立项目级 renderer、JS heap、DOM、Canvas 和故障边界，不接受只有视觉标签而没有运行时隔离的实现。**
+22. **同一个本机项目必须拥有稳定的 Agent Board 地址。页面刷新、闲置、WebSocket 重连、项目关闭重开、CoreStudio 重启和兼容版本升级都不能让这个地址失效。**
+23. **稳定地址是用户入口，不是 participant 凭证。`launchTicket`、`resumeToken`、`sessionId`、`roomId` 和 `sessionEpoch` 都是内部运行态，不得继续成为用户需要保存、复制或理解的 URL 契约。**
+24. **只要 CoreStudio 正在运行、项目仍可由本机项目索引解析且协议兼容，稳定地址就应当自动建立新连接并恢复到权威 scene；临时凭证刷新不得要求用户重新取得链接。**
+25. **CoreStudio 主端为每个项目提供低调的稳定地址展示和复制入口。复制动作只交付项目入口，不提前创建 participant；Agent 实际完成连接后才进入 presence。**
+26. **Codex UA 只用于识别运行环境和触发 Codex 专用连接体验，不能单独证明具体 Codex thread 身份。任务名称、actor 和操作来源必须由 Codex host 或 Skill/CLI 的可信 URL 外 claim 建立。**
+27. **稳定项目地址同时是集成自检入口。正常时直接进入画布；CoreStudio、Bridge、CLI、Skill、协议版本或必要能力不完整时，应说明具体问题并提供受控修复动作，而不是只显示连接失败或内部错误码。**
 
 ### 3.1 当前不在交付范围
 
@@ -101,7 +107,8 @@ CoreStudio 1.1.26 中已经观察到：
 - 账号体系、组织成员和远程邀请；
 - 字段级 CRDT；
 - 多个 CoreStudio 进程同时编辑同一个项目；
-- 多标签 UI 的实际实现；
+- 同一项目在同一窗口中打开多个标签；
+- 标签分屏、跨窗口拖动和多个 CoreStudio 主窗口；
 - 项目关闭后的无界面后台托管；
 - 普通删除时清理未引用原始资产；
 - 多人光标、跟随视口等重型协作展示；
@@ -119,6 +126,8 @@ CoreStudio 1.1.26 中已经观察到：
 | Participant         | 加入项目房间的会话，包括 CoreStudio editor、Agent Board editor 和 Codex agent-writer。 |
 | `actorId`           | 稳定的参与者来源身份，例如 CoreStudio Desktop 或某个 Codex thread。                    |
 | `sessionId`         | 一次页面挂载、标签页或连接的身份；刷新和重新挂载后重新生成。                           |
+| `stableBoardId`     | 项目长期稳定的本机画布入口身份；不等于路径、房间或连接凭证。                           |
+| 稳定项目地址        | 由本机 Bridge 地址和 `stableBoardId` 组成的长期可重复访问 URL。                        |
 | `roomId`            | 一次项目房间生命周期的身份；关闭项目后失效。                                           |
 | `sessionEpoch`      | 房间会话代际，用于拒绝旧页面、旧 token 上下文和迟到操作。                              |
 | `operationId`       | 一次提交批次的唯一 ID，用于确认、去重和重试。                                          |
@@ -157,17 +166,40 @@ Codex thread 身份不能由浏览器任意声明。稳定 `actorId` 和展示�
 因此新增一个 Codex 侧参与者身份适配层：
 
 1. Codex 侧适配层取得 `CODEX_THREAD_ID` 和 host 提供的任务标题。
-2. CLI 使用项目授权向 Local Bridge 申请一个短期、不透明、项目绑定的 participant ticket。
-3. 主进程把 ticket 绑定到 `projectId`、`roomId`、`sessionEpoch`、`actorId = codex:<threadId>`、`displayName`、role、capability、过期时间和 nonce。
-4. `read board-url` 返回携带不透明 launch ticket 的 Agent Board URL，不在 URL 中暴露可自行修改的 thread id、任务标题或长期项目 token。
-5. Agent Board 首次建立 WebSocket 时消费 launch ticket，由主进程生成新的 `sessionId`，并换发只对同一 actor、项目、房间和 epoch 有效的 board resume token。
-6. Agent Board 使用 `history.replaceState` 把 URL 中的 launch ticket 替换成 resume token。页面刷新时用 resume token 建立新 session；关闭房间或 epoch 变化后立即失效。
+2. CLI 使用明确项目身份向 Local Bridge 查询或创建项目的 `stableBoardId`。
+3. `read board-url` 返回只包含稳定项目入口身份的 URL，不在 URL 中暴露 thread id、任务标题、长期项目 token、launch ticket 或 resume token。
+4. Agent Board 访问稳定地址时，由本机 Bridge 解析 `stableBoardId → projectId`，再在后台建立一次短期、不透明的 participant connection grant。
+5. 主进程把 connection grant 绑定到 `projectId`、当前 `roomId`、`sessionEpoch`、`actorId = codex:<threadId>`、`displayName`、role、capability、过期时间和 nonce。
+6. Agent Board 消费 connection grant 后获得新的 `sessionId` 和只在当前连接生命周期内使用的 resume token。凭证过期、页面刷新或 CoreStudio 重启时，由稳定入口自动重新交换，不改变地址。
 7. 同一 Codex thread 的 agent-writer 与 board-editor 使用同一 `actorId`、不同 `sessionId`；presence 按 actor 合并为一个头像，仍保留每个 session 的真实连接状态。
 8. 任务改名只更新 `displayName`；不改变 `actorId`，也不新建参与者。
 
 任务标题是 Codex host 集成字段，不读取 Codex 私有数据库，也不让 Agent Board 页面通过查询参数自行填写。它属于本机协作展示身份，不等同于互联网账号认证。
 
-### 4.2 低调的 Agent presence
+### 4.2 稳定项目身份与运行态身份
+
+项目访问必须明确区分长期身份和运行态身份：
+
+| 身份                            | 生命周期                              | 用户是否可见                  | 主要作用                                   |
+| ------------------------------- | ------------------------------------- | ----------------------------- | ------------------------------------------ |
+| `projectId`                     | 跟随项目数据长期存在                  | 通常不可见                    | 标识项目本身，支持项目路径变化后的重新定位 |
+| `stableBoardId`                 | 跟随本机项目登记长期存在              | 只作为稳定 URL 的不透明部分   | 把一个可收藏地址解析到明确项目             |
+| `actorId`                       | 跟随 CoreStudio 客户端或 Codex thread | 以 Agent 名称间接展示         | 标识操作来源和 presence 归属               |
+| `roomId`                        | 一次项目房间运行周期                  | 不可见                        | 隔离一次打开期间的权威房间                 |
+| `sessionEpoch`                  | 一次房间代际                          | 不可见                        | 拒绝旧房间的迟到操作                       |
+| `sessionId`                     | 一次页面挂载或连接                    | 不可见                        | 标识具体连接和操作确认来源                 |
+| connection grant / resume token | 短期                                  | 不可见且不得出现在稳定 URL 中 | 完成当前连接的认证和恢复                   |
+
+`stableBoardId` 不能直接复用 `roomId`。房间关闭重开后 `roomId` 和
+`sessionEpoch` 必须变化，以阻止旧操作写入；稳定地址仍必须解析到同一个
+`projectId` 并自动加入新房间。稳定入口和旧写入权限因此可以同时成立。
+
+`stableBoardId` 也不能直接使用绝对项目路径。项目路径可能因重命名、移动、
+磁盘挂载点变化或后续多项目管理而改变。主进程应以 `projectId` 为主键，在
+本机项目索引中维护当前规范路径。路径变化但项目身份仍能确认时，原地址继续
+有效；项目确实被删除或身份无法确认时才进入不可恢复错误。
+
+### 4.3 低调的 Agent presence
 
 CoreStudio 主画布和 Agent Board 都提供一个低调的头像区，展示当前连接到这个项目房间的 Agent。两端使用同一份房间权威在线列表。它的作用是让用户理解“现在有哪些 Agent 正在这个画布中工作”，不是引入完整的多人协作社交界面。
 
@@ -209,7 +241,7 @@ CoreStudio Electron 主进程
 │     └─ 独立状态与队列
 │
 ├─ IPC participant adapter
-│  └─ CoreStudio 主画布或未来标签页 / desktop-editor
+│  └─ 各项目独立 WebContents/renderer 中的 CoreStudio 主画布 / desktop-editor
 │
 ├─ WebSocket participant adapter
 │  └─ Codex Agent Board / board-editor
@@ -225,7 +257,10 @@ CoreStudio Electron 主进程
    └─ 健康检查与修复
 ```
 
-Room Manager 只协调项目房间，不依赖某个 renderer 的当前 UI 状态。本轮产品 UI 只显示一个活动项目，但 Room Manager、协议、项目 API 和自动化测试必须允许至少两个房间并行存在，不得继续把单一 `currentProject` 当成隐式写入目标。
+Room Manager 只协调项目房间，不依赖某个 renderer 的当前 UI 状态。桌面内容区同一
+时刻只显示一个活动项目，但标签栏可以保留多个已打开项目；Room Manager、协议、
+项目 API 和自动化测试必须允许多个房间并行存在，不得继续把单一
+`currentProject` 当成隐式写入目标。
 
 ## 6. Project Room 权威状态
 
@@ -305,15 +340,15 @@ Agent Board 可以提交当前已经开放的元素编辑和临时 selection con
 
 首版至少需要：
 
-| 消息                  | 作用                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------------------- |
-| `room.join`           | desktop-editor 通过可信 IPC 身份加入；board-editor 使用 launch ticket 或 resume token 加入。             |
-| `scene.operation`     | desktop-editor、board-editor，或主进程代表 agent-writer 语义命令，提交一次操作中所有发生版本变化的元素。 |
-| `scene.config.update` | desktop-editor 更新项目中真正持久化的共享场景设置；board-editor 和 agent-writer 无权提交。               |
-| `selection.update`    | 参与者更新自己的临时选区，不进入项目持久化。                                                             |
-| `room.resync`         | 检测到序列缺口后请求权威 snapshot。                                                                      |
-| `room.leave`          | 正常退出参与者会话。                                                                                     |
-| `room.close-confirm`  | CoreStudio UI 确认关闭项目房间。                                                                         |
+| 消息                  | 作用                                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `room.join`           | desktop-editor 通过可信 IPC 身份加入；board-editor 先经稳定项目入口取得短期 connection grant，再加入当前房间。 |
+| `scene.operation`     | desktop-editor、board-editor，或主进程代表 agent-writer 语义命令，提交一次操作中所有发生版本变化的元素。       |
+| `scene.config.update` | desktop-editor 更新项目中真正持久化的共享场景设置；board-editor 和 agent-writer 无权提交。                     |
+| `selection.update`    | 参与者更新自己的临时选区，不进入项目持久化。                                                                   |
+| `room.resync`         | 检测到序列缺口后请求权威 snapshot。                                                                            |
+| `room.leave`          | 正常退出参与者会话。                                                                                           |
+| `room.close-confirm`  | CoreStudio UI 确认关闭项目房间。                                                                               |
 
 `scene.operation` 的权威信封至少包含：
 
@@ -377,7 +412,7 @@ Agent Board 可以提交当前已经开放的元素编辑和临时 selection con
 
 加入过程必须由房间队列原子处理：
 
-1. 验证 desktop IPC 身份，或验证 launch ticket / resume token 中的项目、房间、epoch、actor、role 和 capability。
+1. 验证 desktop IPC 身份，或验证稳定入口后台换取的 connection grant / resume token 中的项目、房间、epoch、actor、role 和 capability。
 2. 在房间序号 `N` 上登记参与者，并开始为该参与者缓存后续事件。
 3. 返回包含 `sequence = N` 的权威 snapshot。
 4. 客户端应用 snapshot。
@@ -606,14 +641,14 @@ CoreStudio 内置生成和 Codex 生成是两个不同的生成入口，但不�
 4. 避让发生在整批结果区域层面，不能让每张图片分别向上、下、左、右寻找
    空位。
 5. 同一轮结果无论来自哪个入口，都具有相同间距、尺寸归一化、占用检测和
-   工作区边界规则。
+   局部放置规则。
 
 两个入口只在生成过程上有差异：
 
-| 入口                | 生成和写入过程                                                                 | 放置过程                     |
-| ------------------- | ------------------------------------------------------------------------------ | ---------------------------- |
-| CoreStudio 内置生成 | 提交时已知 `imageCount`，先按批量布局创建占位框；图片返回后替换对应占位框。     | 使用共享批量布局器。         |
-| Codex 生成          | Codex 在当前任务中完成这一轮图片生成，收集本轮成功结果后通过一次批量写入提交。 | 使用同一个共享批量布局器。   |
+| 入口                | 生成和写入过程                                                                 | 放置过程                   |
+| ------------------- | ------------------------------------------------------------------------------ | -------------------------- |
+| CoreStudio 内置生成 | 提交时已知 `imageCount`，先按批量布局创建占位框；图片返回后替换对应占位框。    | 使用共享批量布局器。       |
+| Codex 生成          | Codex 在当前任务中完成这一轮图片生成，收集本轮成功结果后通过一次批量写入提交。 | 使用同一个共享批量布局器。 |
 
 Codex 当前一张一张调用 `scene.addImage` 会让每次单图写入从同一锚点重新执行
 最近空位搜索；前一张又会立即成为占用区域，最终结果向上下左右散开。正式行为不
@@ -624,7 +659,31 @@ Codex 当前一张一张调用 `scene.addImage` 会让每次单图写入从同�
 使用一个房间 operation。若某些图片生成失败，只提交这一轮已经成功的图片，
 不为失败项保留永久空位。
 
-## 12. 多项目和未来多标签
+### 11.6 无限画布与局部放置约束
+
+CoreStudio 保留 Excalidraw 无限画布语义，不再使用自有“工作区围栏”限制图片
+落点、平移或缩放，也不接入全局 Viewport lock。围栏虚线、缩放到边界时的软
+停顿和对应脉冲反馈都不是图片写入正确性的组成部分。
+
+移除围栏后，图片不能“天南海北”地散落，依靠的是以下可执行约束：
+
+1. 有参考图或有效选区时，以全部参考元素的整体边界作为唯一语义锚点。
+2. 没有参考图时，使用发起写入的 participant 的有效视口中心；不得在已有内容
+   的项目中因为上下文缺失而静默回退到任意固定坐标，例如 `(0, 0)`。
+3. 同一轮多图必须一次批量布局和一次语义写入；调用方不得用连续单图请求模拟
+   同一轮批次。
+4. 空位搜索以整批边界为单位，并按与语义锚点的实际距离选择最近合法区域；
+   不使用全局工作区边界改变搜索方向，也不把每张图片分别向不同方向避让。
+5. 当局部区域内容密集时，布局器仍需返回离锚点最近的可解释位置。测试必须覆盖
+   远离原点的已有项目、缺失视口、参考元素位于内容边缘、密集画布和连续多批
+   写入。
+6. selection、viewport 和临时 UI 状态仍属于各 participant。Agent 写入不能为了
+   展示新结果而持久化或广播另一个参与者的视口。
+
+具体删除范围、测试顺序和 worktree 策略记录在
+`docs/plan/2026-07-26-workspace-fence-removal.md`，本节是产品行为事实来源。
+
+## 12. 多项目房间与项目级 renderer 隔离
 
 ### 12.1 Room Manager 从第一天按多项目设计
 
@@ -637,9 +696,10 @@ RoomManager
 
 每个房间拥有独立 scene、participant、sequence、asset 状态和持久化队列。任何写入接口都必须显式携带项目身份，不得依赖进程级隐式 `currentProject`。
 
-当前产品仍可以只显示一个沉浸式项目，但不能把这一 UI 限制写进房间模型。
+桌面外壳允许同时打开多个项目；每个项目房间必须与自己的项目 renderer 一一绑定，
+不能把当前可见标签误当成进程级唯一项目。
 
-即使当前 renderer 只挂载一个可见项目，本轮自动化也必须同时创建至少两个不同项目房间，验证：
+本轮自动化必须同时创建至少两个不同项目房间，验证：
 
 - scene 和元素操作不会串项目；
 - participant 与 Agent presence 不会串房间；
@@ -648,9 +708,9 @@ RoomManager
 - 持久化队列可以并行存在，但每个项目内部仍保持串行；
 - 关闭其中一个房间不会影响另一个房间。
 
-### 12.2 多标签要求
+### 12.2 项目标签运行时要求
 
-未来 CoreStudio 支持多标签时，每个项目标签页至少独立持有：
+每个项目标签页必须由独立的 WebContents/renderer 承载，并独立持有：
 
 - projectId、projectPath、roomId；
 - actorId、sessionId、sessionEpoch；
@@ -661,9 +721,14 @@ RoomManager
 - 未确认 operation；
 - 连接、同步和保存状态。
 
-不能只增加视觉标签，然后继续共用全局 `currentProjectRef`、autosave timer、Excalidraw API 或 expected revision。
+不能只增加视觉标签，然后在同一个 React renderer 中挂载多套 Excalidraw，
+继续共用全局 `currentProjectRef`、autosave timer、Excalidraw API、DOM、Canvas
+或 expected revision。非活动项目可以隐藏对应的 WebContentsView，但不能退化为
+同一 renderer 中用 CSS 隐藏的 React 子树。
 
-首版不实现多标签 UI，但 Room Manager、协议和项目服务 API 需要通过测试证明不会把房间状态写死成单例。
+Room Manager、协议和项目服务 API 必须通过测试证明不会把房间状态写死成单例；
+桌面运行时还必须证明不同项目拥有独立 renderer、独立故障边界和独立 IPC sender
+身份。
 
 ### 12.3 同一项目重复标签
 
@@ -673,7 +738,9 @@ RoomManager
 
 ## 13. 项目关闭保护
 
-关闭普通标签页只让该标签页离开房间。关闭项目的最后一个本地标签页，代表准备终止整个项目房间。当前沉浸式单项目客户端切换到另一个项目时，也等同于关闭当前项目，必须经过同一套保护。
+关闭项目标签页会销毁该项目的项目 renderer，并让本地参与者离开房间。由于同一
+项目不允许重复标签，这也代表准备终止该项目房间。切换到另一个标签只改变可见的
+WebContentsView，不关闭后台项目，也不得中断它的 Agent 协作和持久化。
 
 ### 13.1 无远端参与者
 
@@ -727,31 +794,206 @@ Agent Board 不能只显示 WebSocket disconnected，应明确显示：
 
 ## 14. 断线与恢复
 
-### 14.1 Agent Board 刷新
+### 14.1 用户可依赖的稳定地址
 
-- 使用同一个 actor 身份建立新 session；
-- 使用 URL 中已经换发的 board resume token，验证项目、room 和 epoch；
+同一个项目在同一个 CoreStudio 安装环境中必须拥有一个稳定、可收藏、可重复
+打开的 Agent Board 地址，例如：
+
+```text
+http://127.0.0.1:60909/board/<stableBoardId>
+```
+
+具体路由形式可以在实现时调整，但必须满足以下产品契约：
+
+- URL 只表达“打开哪个项目”，不表达“沿用哪一次连接”；
+- 开发版和打包版使用同一个 `60909` 地址；Vite `5174` 只作为开发资源上游，
+  不进入地址栏、复制结果或 CLI 输出；
+- 页面、HTTP API 和房间 WebSocket 从同一个 Local Bridge origin 推导，不使用
+  `bridge` 查询参数；
+- URL 中不携带 `launchTicket`、`resumeToken`、`sessionId`、`roomId` 或
+  `sessionEpoch`；
+- 同一个项目反复调用 `read board-url` 返回同一个规范地址；
+- 地址允许用户收藏、保留在 Codex 任务中、复制到另一个本机 Codex 任务中；
+- 连接凭证刷新、WebSocket 重建、页面重新挂载和房间重建都不改变地址；
+- 兼容版本升级后继续沿用同一地址，不按安装包版本重新生成；
+- 只有项目被删除、明确撤销本机画布入口或项目身份不可恢复时，地址才真正失效。
+
+`stableBoardId` 应当是本机生成的不透明随机值，不泄露项目路径，也不能由
+`projectId` 直接推导。它是“本机可定位入口”，不是互联网分享链接，更不是
+长期写入凭证。
+
+### 14.2 稳定入口的连接交换
+
+访问稳定地址时，页面按以下顺序工作：
+
+1. 连接固定的本机 Local Bridge。
+2. 把 `stableBoardId` 交给稳定入口解析器。
+3. 主进程在本机项目索引中解析对应 `projectId` 和当前规范路径。
+4. 检查项目是否仍存在、是否与当前集成协议兼容，以及调用来源是否来自允许的
+   本机 Board 页面。
+5. 查找现有 Project Room；需要时为该项目创建新的房间和 `sessionEpoch`。
+6. 根据可信 Codex 启动上下文或既有本机会话建立短期 connection grant。
+7. Board 使用 grant 加入房间，原子取得 snapshot 和 `sequence > N` 的后续事件。
+8. grant 和后续 resume token 只保存在页面运行态或受控本机存储中，不写回
+   稳定 URL。
+
+用户不需要感知第 5 至 8 步，也不需要在凭证失效后重新运行 CLI 获取链接。
+临时认证失败但稳定入口仍有效时，页面应自行重新交换一次凭证，而不是把内部
+错误直接显示成“链接已失效”。
+
+### 14.3 稳定入口的集成自检与修复
+
+稳定地址不仅负责打开画布，还负责判断当前本机集成是否具备进入画布的条件。
+页面取得 Local Bridge 后，先读取一个类型化的 `integration.status`，至少检查：
+
+| 检查项           | 正常条件                                           | 异常时的用户提示与动作                    |
+| ---------------- | -------------------------------------------------- | ----------------------------------------- |
+| CoreStudio 应用  | 正在运行且可响应                                   | 提示启动或重新启动 CoreStudio             |
+| Local Bridge     | 回环地址可连接、身份正确                           | 重新连接；持续失败时提示重启集成          |
+| 集成版本         | CoreStudio、CLI、Skill、Board 静态资源版本一致     | 显示具体版本差异并更新整套集成            |
+| 房间协议         | `roomProtocolVersion` 和 capability 满足当前 Board | 刷新同版本页面或更新 CoreStudio           |
+| 项目身份         | `stableBoardId` 能解析到存在的 `projectId`         | 提示项目缺失、重新定位或重新复制地址      |
+| 项目房间         | 可以创建、加入，且未处于不可恢复关闭状态           | 打开项目、等待切换确认或重试建连          |
+| Codex actor      | 已通过 host 或 Skill/CLI 完成可信 claim            | 显示“正在连接当前 Codex 任务”并自动 claim |
+| CLI / Skill 能力 | 新稳定地址、actor claim 和当前命令契约可用         | 安装或更新 CoreStudio CLI / Skill         |
+| 项目健康         | scene 与必要图片资产能够读取                       | 给出只读诊断；项目修复仍遵循既有权限      |
+
+自检结果必须包含稳定的 `code`、面向用户的中文 `message`、可选 `details` 和
+允许执行的 `repairActions`。页面按状态展示唯一主要动作，避免把所有底层错误和
+一排修复按钮同时暴露给用户。
+
+修复只能调用主进程或 Codex host 已定义的类型化动作，例如：
+
+- `retry-connection`：重新连接 Bridge 或 WebSocket；
+- `reload-board`：重新加载当前安装版本提供的 Board 静态资源；
+- `open-project`：在没有其他活动项目时打开稳定地址对应项目；
+- `request-project-switch`：进入 CoreStudio 现有项目关闭保护和切换流程；
+- `restart-corestudio`：由 Codex/系统集成请求重启应用；
+- `update-integration`：使用当前安装包提供的安装器同步更新 CLI 和 Skill；
+- `reclaim-codex-actor`：重新完成当前 Codex 任务的 URL 外身份交接；
+- `open-health-details`：查看项目健康诊断，但不自动执行项目修复。
+
+Agent Board 页面不能接收任意 shell 命令、任意安装路径或任意脚本作为
+`repairAction`。涉及安装、重启应用、切换项目或修改本机集成的动作需要明确说明
+影响，并沿用 Codex/CoreStudio 的重要操作确认；普通重试和重新加载可以自动
+执行。
+
+自检只修复“进入画布所必需的运行环境”。它不借机清理项目资产、重建缩略图、
+修改 Provider 设置、升级无关依赖或扩大 board-editor capability。
+
+#### 14.3.1 Bridge 本身不可达时
+
+当前稳定地址由 CoreStudio Local Bridge 提供。如果 CoreStudio 或 Bridge 根本
+没有运行，全新访问 `127.0.0.1` 时浏览器无法取得页面，页面自身不可能显示
+定制提示。首版不为此引入常驻后台守护进程，而是由 Codex 入口做外层预检：
+
+1. 用户把稳定地址粘贴到 Codex。
+2. CoreStudio Skill 识别稳定地址并先执行只读 `integration status`。
+3. Bridge 可达时，完成 actor claim 并打开稳定地址。
+4. Bridge 不可达时，在 Codex 对话中说明 CoreStudio 未运行或集成缺失。
+5. 用户允许后，由类型化安装/启动动作修复；成功后继续打开原稳定地址。
+
+已经加载过的 Board 页面在 Bridge 后续掉线时，可以保留页面壳并显示重连状态。
+只有“全新打开且本机服务不存在”需要 Codex 外层预检。未来如果产品要求不经过
+Codex 对话、直接在任意浏览器地址栏中也能修复 CoreStudio 未启动问题，再单独
+评估常驻轻量 Connector 或系统 URL Scheme；本轮不提前引入。
+
+### 14.4 页面刷新、闲置和临时断线
+
+页面刷新或 WebSocket 暂时断线时：
+
+- 稳定 URL 保持不变；
+- 使用同一个 actor 身份建立新的 `sessionId`；
+- 当前 room 和 epoch 仍有效时，可以用短期 resume token 快速恢复；
+- resume token 已过期或不可用时，自动回到稳定入口重新换取 connection grant；
 - 原子取得 snapshot 和后续事件；
-- 未确认 operation 继续使用原 `operationId` 重试；
+- 未确认 operation 在同一 room/epoch 下继续使用原 `operationId` 重试；
 - 服务端通过 operation 去重返回原结果；
 - 恢复实时订阅、编辑能力和临时 selection context。
 
-launch ticket 只用于首次加入，不能反复充当长期项目凭证。resume token 只能创建同一 actor、同一项目的 `board-editor` session，不能调用通用 HTTP Bridge、改变 capability 或直接向其他项目写入。用户在 Agent Board 选择另一个已授权项目时，必须通过类型化的项目选择接口换取新项目和新房间绑定的 ticket；旧 token 本身不能成为新项目的写入凭证。
+闲置时间本身不是失效条件。只要 CoreStudio 仍在运行、项目仍可解析且稳定入口
+没有被明确撤销，页面无论闲置多久都应当能够恢复。实现可以回收空闲 WebSocket、
+participant session 和内存缓存，但不能因此废弃稳定项目地址。
 
-### 14.2 旧页面、旧 participant 凭证和错误项目
+### 14.5 CoreStudio 重启和项目关闭重开
 
-- launch ticket 已消费时返回 `PARTICIPANT_TICKET_CONSUMED`；
-- launch ticket 或 resume token 过期时返回 `PARTICIPANT_TICKET_EXPIRED`；
-- resume token 的 room 或 epoch 已失效时返回 `SESSION_EPOCH_EXPIRED`；
-- 使用错误项目的项目 token 申请 ticket 时返回 `PROJECT_MISMATCH`；
-- operation 中的项目与已认证 session 不一致时返回 `PROJECT_MISMATCH`；
-- 项目已经关闭返回 `ROOM_CLOSED`；
-- 项目正在关闭返回 `ROOM_CLOSING`；
-- 错误必须保留 code、message 和 details 穿过 IPC、renderer command 和 WebSocket。
+CoreStudio 重启或项目房间被正常关闭后：
 
-不得再统一包装成无 details 的 `Renderer command failed`。
+- 旧 `roomId`、`sessionEpoch`、`sessionId`、grant 和 resume token 全部失效；
+- 旧 operation 不得直接写入新房间；
+- `projectId` 和 `stableBoardId` 保持不变；
+- 原 Agent Board 页面应持续尝试连接固定本机 Bridge；
+- CoreStudio 再次启动后，页面通过稳定入口解析项目并加入新房间；
+- 新房间先从磁盘恢复权威 snapshot，再接受新的编辑；
+- 用户不需要取得新链接，也不需要手动替换 URL 查询参数。
 
-### 14.3 断线期间的编辑状态
+CoreStudio 未运行时，Agent Board 显示明确的等待状态：
+
+> CoreStudio 尚未运行。启动 CoreStudio 后，此画布会自动重新连接。
+
+页面可以采用有限频率的后台重试，并提供立即重试按钮。它不应显示
+`AUTH_REQUIRED`、`SESSION_EPOCH_EXPIRED` 或英文 token 错误作为主文案。
+
+### 14.6 项目未打开和多项目定位
+
+稳定地址绑定明确项目，不绑定“当前项目”。访问时按以下规则处理：
+
+1. 目标项目已有房间：直接加入。
+2. 目标项目没有房间：为目标项目创建房间，不关闭其他项目房间。
+3. Agent Board 加入房间不强制切换桌面当前可见标签，也不因另一个标签当前
+   可见而返回 `PROJECT_SWITCH_REQUIRED`。
+4. 用户在桌面端主动打开目标项目时：创建或聚焦对应标签；同一个项目不创建
+   两个本地标签。
+
+项目候选页仍然用于“用户没有指定项目”的入口。选择项目成功后跳转到该项目的
+稳定地址，而不是生成一次性可访问 URL。直接打开项目和打开项目候选页是两种
+入口体验，最终都必须收敛到稳定项目地址。
+
+### 14.7 真正失效与可恢复错误
+
+以下情况才属于稳定地址真正失效：
+
+- 项目已被删除且无法从本机项目索引恢复；
+- 项目身份损坏，无法确认当前目录仍是原项目；
+- 用户明确撤销或重新生成该项目的 `stableBoardId`；
+- 当前 CoreStudio 与页面静态资源协议真正不兼容，且无法通过刷新加载同版本页面。
+
+以下情况只属于可恢复连接错误，不能宣告地址失效：
+
+- CoreStudio 暂时没有运行；
+- Local Bridge 暂时不可达；
+- WebSocket 断线；
+- resume token 过期；
+- 旧 room 或旧 epoch 已结束；
+- CoreStudio 重启；
+- 项目关闭后重新打开；
+- 页面闲置；
+- 项目路径变化但 `projectId` 仍可定位；
+- 兼容的 CoreStudio 升级。
+
+错误必须保留 code、message 和 details 供诊断，同时给用户显示与恢复动作一致的
+中文文案。不得统一包装成无 details 的 `Renderer command failed`，也不得把
+内部 token 错误直接作为最终产品提示。
+
+### 14.8 旧页面、旧凭证和错误项目
+
+- 已消费的 connection grant 返回 `PARTICIPANT_TICKET_CONSUMED`，页面自动
+  回到稳定入口重新交换；
+- connection grant 或 resume token 过期返回
+  `PARTICIPANT_TICKET_EXPIRED`，页面自动重新交换；
+- resume token 的 room 或 epoch 已失效返回 `SESSION_EPOCH_EXPIRED`，页面
+  丢弃旧凭证并通过稳定入口加入新房间；
+- operation 中的项目与已认证 session 不一致返回 `PROJECT_MISMATCH`，不得
+  自动改写目标项目；
+- 项目正在关闭返回 `ROOM_CLOSING`，页面停止编辑并等待关闭结果；
+- 项目已经关闭返回 `ROOM_CLOSED`，页面回到稳定入口判断项目能否重新打开；
+- 已经被主进程明确撤销的稳定入口返回 `BOARD_ACCESS_REVOKED`，停止自动重试。
+
+旧凭证只负责拒绝旧写入，不能决定稳定地址是否存在。用户在 Agent Board 选择
+另一个已授权项目时，必须进入目标项目自己的稳定地址；旧 token 不能成为新项目
+的写入凭证。
+
+### 14.9 断线期间的编辑状态
 
 首版 Agent Board 断线后立即进入“可浏览、不可修改”状态：
 
@@ -762,6 +1004,23 @@ launch ticket 只用于首次加入，不能反复充当长期项目凭证。res
 - 重连并应用权威 snapshot 后恢复编辑和选区发布。
 
 支持长期离线编辑需要单独的离线操作日志和重新基线策略，不应隐式塞进首版。
+
+### 14.10 稳定地址的数据和安全边界
+
+- `stableBoardId` 与 `projectId` 的映射由 Electron 主进程维护，renderer
+  只能请求解析结果，不能自行写映射；
+- `stableBoardId` 作为可选项目元数据按需生成，本机项目索引缓存反向映射；
+  旧项目首次打开稳定地址时懒生成，不批量改写所有历史项目；
+- 兼容升级不能清空项目元数据或本机反向索引；索引丢失时可以重新扫描项目元
+  数据恢复；
+- 项目格式不需要为了实时协作写入 room/session/token；若需要跨本机复制项目后
+  保留相同入口，应另行确认，首版的稳定性范围是同一电脑环境；
+- 所有写操作仍必须经过短期 participant session 的 capability 校验；
+- 稳定地址本身不能调用通用 Desktop Bridge、读取 Provider 设置、执行项目维护
+  或绕过 board-editor 权限；
+- Local Bridge 继续只监听回环地址，并校验 Board 页面来源；
+- 用户应能在未来的项目管理入口明确执行“撤销此画布地址”，这会轮换
+  `stableBoardId` 并使旧地址停止重试，但不删除项目数据。
 
 ## 15. 上游 Excalidraw 边界
 
@@ -833,7 +1092,7 @@ Electron 主进程不能直接加载包含 React 和浏览器环境的完整 Exc
 - `roomId`、participant、operation 去重和 presence 都是运行态信息，不写进项目；
 - 项目清单继续使用当前 `formatVersion = 1`。
 
-旧项目缺少 `projectId` 时，当前项目读取链路已经会生成稳定 ID 并回写项目清单。这属于现有兼容行为，不需要为协作房间再增加一轮批量数据迁移。
+历史项目缺少 `projectId` 时，当前项目读取链路已经会生成稳定 ID 并回写项目清单。这属于项目身份规范化，不需要为协作房间再增加一轮批量数据迁移。
 
 如果后续发现必须把 room metadata、持久化序号或参与者信息写入项目，必须重新评估项目格式版本；不能在本轮中隐式加入。
 
@@ -875,7 +1134,7 @@ closed
 - 不允许 renderer 转为直接写盘；
 - 持续保存失败时按项目关闭规则允许用户明确承担未保存内容丢失风险后结束房间。
 
-### 16.3 Bridge 和旧客户端兼容
+### 16.3 协议版本切换与旧客户端拒绝
 
 当前 Local Bridge 协议版本为 2。房间 WebSocket 应拥有独立的 `roomProtocolVersion` 和 capability 声明，避免为了新增实时通道无条件破坏现有 CLI、图片读取和 HTTP Bridge 能力。
 
@@ -887,13 +1146,17 @@ closed
 - 当前项目的 `sceneWriteMode`；
 - 当前 `roomId` 和 `sessionEpoch`，仅在授权后返回。
 
-兼容规则：
+版本切换规则：
 
 - 新 Agent Board 只有在发现房间 capability 后才进入可编辑状态；
 - 旧 patch 和 renderer scene 写入方法已经从 Bridge / IPC 契约物理删除；旧页面调用时得到明确的“不允许的方法”或协议不兼容错误；
 - 不支持房间协议的页面不能编辑，并提示刷新或升级 CoreStudio；
-- 项目 token 可以继续用于受控 HTTP 项目读取和申请 participant ticket，但不能单独建立可编辑 WebSocket；
-- 不为旧页面恢复 patch 或直接 scene 写盘旁路。
+- 旧 token-bearing Agent Board URL 直接失效，只提示用户从 CoreStudio 项目页、
+  当前 CLI 或新版 Skill 重新打开稳定地址；
+- 不解析旧 URL 恢复项目，不把旧 token 换成稳定地址，也不为旧页面恢复 patch、
+  直接 scene 写盘或通用 Bridge 旁路；
+- CoreStudio、CLI、Skill 和 Agent Board 静态资源按同一集成版本发布，版本不
+  匹配时明确拒绝，不维护跨实现代际兼容。
 
 Agent Board 页面资源由当前 CoreStudio 提供，但已经打开的旧页面可能长期存活，因此不能假设“桌面升级后所有浏览器页面一定同步升级”。
 
@@ -943,19 +1206,20 @@ Agent Board 页面资源由当前 CoreStudio 提供，但已经打开的旧页�
 
 ### 16.7 CoreStudio CLI 迁移
 
-现有 CLI 命令名称可以尽量保持兼容，但它们的读取来源、写入完成语义和项目定位方式需要调整。
+CLI 只保留仍然表达相同产品动作的命令名称；读取来源、写入完成语义、项目定位
+和 Board 地址全部以新房间契约为准，不为旧实现保留参数、返回字段或回退路径。
 
-| 现有命令                                        | 房间架构下的要求                                                           |
-| ----------------------------------------------- | -------------------------------------------------------------------------- |
-| `read status` / `read capabilities`             | 返回 room capability、协议版本、当前授权项目和房间状态。                   |
-| `read board` / `read scene`                     | 读取房间权威 scene，不能只读可能落后的磁盘文件或某个 renderer 快照。       |
-| `read project` / `read records` / `read health` | 继续读取 CoreStudio 项目服务，但必须绑定明确项目。                         |
-| `read selection`                                | 读取调用方所绑定参与者的临时选区，不能使用全局唯一 selection。             |
-| `read image-paths --selection`                  | 使用调用方参与者选区解析图片，避免读取另一个标签页或 Codex thread 的选区。 |
+| 现有命令                                        | 房间架构下的要求                                                                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `read status` / `read capabilities`             | 返回 room capability、协议版本、当前授权项目和房间状态。                                                                  |
+| `read board` / `read scene`                     | 读取房间权威 scene，不能只读可能落后的磁盘文件或某个 renderer 快照。                                                      |
+| `read project` / `read records` / `read health` | 继续读取 CoreStudio 项目服务，但必须绑定明确项目。                                                                        |
+| `read selection`                                | 读取调用方所绑定参与者的临时选区，不能使用全局唯一 selection。                                                            |
+| `read image-paths --selection`                  | 使用调用方参与者选区解析图片，避免读取另一个标签页或 Codex thread 的选区。                                                |
 | `write image`                                   | 支持一次提交同一轮的多张图片；先完成整批资产事务，再通过一个房间 operation 按共享布局写入，并默认等待对应序号持久化成功。 |
-| `write prompt`                                  | 通过房间新增元素，不再调用 renderer `updateScene` 后 strict flush。        |
-| `edit locate` / `edit select`                   | 作用于明确的参与者 session，只改变该参与者的视口或选区。                   |
-| `read board-url`                                | 返回明确项目房间的 Agent Board URL，不能依赖全局 `currentProject`。        |
+| `write prompt`                                  | 通过房间新增元素，不再调用 renderer `updateScene` 后 strict flush。                                                       |
+| `edit locate` / `edit select`                   | 作用于明确的参与者 session，只改变该参与者的视口或选区。                                                                  |
+| `read board-url`                                | 返回明确项目的稳定 Agent Board URL；同一项目重复调用结果不变，URL 不携带 room 或临时凭证。                                |
 
 CLI 写命令成功结果应继续返回 imageId、fileId、elementId 或 prompt id，并增加：
 
@@ -969,15 +1233,18 @@ CLI 写命令成功结果应继续返回 imageId、fileId、elementId 或 prompt
 
 #### 多项目定位
 
-当前 CLI 通过单一 session descriptor 和 `currentProject` 发现项目，这在多房间、多标签下会产生歧义。长期需要一个线程安全的显式上下文：
+当前 CLI 通过单一 session descriptor 和 `currentProject` 发现项目，这在多房间、多标签下会产生歧义。多项目客户端必须使用线程安全的显式上下文：
 
 - 每条命令绑定项目身份和调用方 actor/session；
 - 不使用进程级“切换当前项目”作为多个 Codex thread 共享的可变全局状态；
 - 可以由 Codex thread 启动上下文提供不透明 session handle；
 - 无绑定上下文且存在多个项目时，CLI 必须返回歧义错误，不能自行选择最近项目；
-- `roomId` 是生命周期身份，不应由用户手工输入或长期保存。
+- `roomId` 是生命周期身份，不应由用户手工输入或长期保存；
+- CLI 长期保存和返回的是项目稳定地址，不是当前 room 地址；
+- 项目路径变化时优先通过 `projectId` 和本机项目索引恢复稳定地址映射。
 
-首个单一活动房间版本可以继续兼容当前 session descriptor，但协议和命令输入必须为后续显式上下文预留字段。
+所有新会话都使用明确项目身份和新的 session context，不继续沿用把全局
+`currentProject` 当作隐式目标的旧 session descriptor 语义。
 
 CLI 还需要增加参与者身份交接，但不要求用户手工输入：
 
@@ -985,7 +1252,8 @@ CLI 还需要增加参与者身份交接，但不要求用户手工输入：
 - 由 Codex host adapter 提供当前任务标题；
 - 向 Local Bridge 换取短期 participant ticket；
 - 把 CLI 自身作为同一 actor 下的临时 `agent-writer` session；
-- `read board-url` 为同一 actor 创建 `board-editor` ticket；
+- `read board-url` 返回项目稳定地址；Board 打开后再为同一 actor 后台换取
+  `board-editor` connection grant；
 - 不复用当前随机 task grant `taskId` 作为 actor 身份。
 
 ### 16.8 CoreStudio skill 迁移
@@ -1001,13 +1269,18 @@ CoreStudio skill 当前假设“本机只有一个当前项目和一个当前选
 7. `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED`、`PROJECT_MISMATCH` 和 `PERSISTENCE_FAILED` 保留原始 code 与 details。
 8. 项目被 CoreStudio 关闭后，skill 不重试旧 room 写入；提示重新打开项目并获取新的 session。
 9. 继续坚持所有项目数据通过 CLI / Local Bridge 操作，不直接编辑项目文件。
+10. 用户粘贴稳定 CoreStudio 画布地址时，Skill 先执行集成预检，再完成当前
+    Codex thread 的 URL 外 claim 并打开原地址。
+11. Bridge 不可达、CLI/Skill 版本不一致或必要 capability 缺失时，Skill 先说明
+    问题；启动、重启或更新集成必须经过相应授权，修复后重新验证再继续。
 
 skill 不能提前发布。正确顺序是：
 
-1. 新 CoreStudio 和 CLI 先提供向后兼容的 room capability 与结果字段。
-2. 验证旧 skill 在单一活动项目中仍可使用。
-3. 再更新 skill，使其使用 session context、权威 room 读取和持久化确认。
-4. 最后验证新 skill 面对旧 CoreStudio 时能够识别 capability 缺失并给出升级提示，而不是调用不存在的命令。
+1. 新 CoreStudio、CLI、Skill 和 Agent Board 静态资源按同一个集成版本一起更新。
+2. 新 Skill 只使用稳定项目地址、session context、权威 room 读取和持久化确认。
+3. 删除生成和传播旧 token URL、调用旧 patch/renderer 写入或回退通用 Bridge
+   的描述与代码路径。
+4. 版本不匹配时明确提示更新整套集成，不尝试兼容旧行为或调用旧命令。
 
 ## 17. 实施阶段
 
@@ -1073,15 +1346,22 @@ skill 不能提前发布。正确顺序是：
 
 这一阶段只覆盖 Agent Board 当前已经开放的元素编辑能力，不增加直接生图或其他新的产品入口。
 
-### Phase 5：多项目和多标签演进
+### Phase 5：多项目客户端运行时重做
 
-1. 在已经通过双项目房间隔离测试的 Room Manager 上接入多项目 UI。
-2. 将剩余项目服务 API 从隐式 `currentProject` 改为显式项目身份。
-3. 设计并实现真正独立的项目标签页会话。
-4. 验证不同 Codex thread 分别加入不同项目。
-5. 验证关闭某个项目不会影响其他房间。
+1. 保留已经通过双项目房间隔离测试的 Room Manager。
+2. 将应用外壳与项目画布 renderer 拆分，主进程为每个项目创建独立
+   WebContentsView。
+3. 将剩余项目服务 API 从隐式 `currentProject` 改为显式项目身份，并校验 IPC
+   sender 与项目会话的绑定。
+4. 删除同一 React renderer 中常驻多套 Excalidraw、CSS 隐藏非活动画布和切换
+   全局 Excalidraw API ref 的错误实现。
+5. 验证不同 Codex thread 分别加入不同项目，并与对应项目 renderer 同时编辑。
+6. 验证切换标签不暂停后台项目，关闭或崩溃某个项目不影响其他房间。
+7. 在开发版和安装包中完成 3–4 个项目同时打开时的内存、交互、写入和故障隔离
+   验收。
 
-多标签 UI 不属于当前首个交付，但当前房间核心不得阻塞这一演进。
+本阶段属于当前交付范围。项目级 renderer 隔离和显式项目路由已经完成代码迁移；
+在开发版与安装包真实并发验收完成前，多项目客户端仍不能标记为最终完成。
 
 ## 18. 测试和验收
 
@@ -1114,6 +1394,14 @@ skill 不能提前发布。正确顺序是：
       Excalidraw `files`，不依赖手动刷新。
 - [x] 关闭重开项目后，最终场景正确。
 - [x] Agent Board 刷新后从权威 snapshot 恢复，并继续接收后续事件。
+- [ ] 同一项目反复取得的 Agent Board 地址保持不变，URL 不包含
+      `launchTicket`、`resumeToken`、`roomId` 或 `sessionEpoch`。
+- [ ] Agent Board 闲置、刷新、WebSocket 断线、CoreStudio 重启和项目关闭重开
+      后，使用原地址自动恢复，不要求用户重新运行 CLI 获取链接。
+- [ ] CoreStudio 未运行时原页面显示可理解的等待状态；CoreStudio 启动后自动
+      恢复，不把内部 token 错误暴露为主提示。
+- [ ] 项目路径变化但 `projectId` 仍可定位时原地址继续有效；项目删除或明确
+      撤销入口时才停止恢复。
 - [x] 旧 session、旧 epoch 和错误项目身份不能写入。
 - [x] 主进程是活动房间唯一 scene 文件写入者。
 - [x] 旧 patch autosave 与新房间不会双写。
@@ -1158,14 +1446,18 @@ skill 不能提前发布。正确顺序是：
 - 新的独立文件导入入口、导出或批量项目操作；现有画布粘贴本地图片不受影响；
 - 超出当前产品表面的任意 CLI 场景编辑能力。
 
-项目入口采用独立的短期选择会话，不恢复旧的通用 Desktop Bridge：
+项目选择采用独立的短期选择会话，项目画布采用长期稳定地址；两者都不恢复旧的
+通用 Desktop Bridge：
 
-- 有当前项目时，`read board-url` 直接签发该项目的一次性房间票据；
+- 有当前项目时，`read board-url` 直接返回该项目的稳定地址；
 - 无当前项目时，`read projects` 返回受信任 Codex 调用可见的最近项目候选；
-- 目标明确时，`read board-url --project <projectPath>` 直接为候选项目签发房间票据；
-- 目标不明确时，`read board-url` 返回项目候选页链接。候选页只能列出候选并选择一次，选择成功后换取目标项目的房间票据；
+- 目标明确时，`read board-url --project <projectPath>` 解析项目身份并返回同一个稳定地址；
+- 目标不明确时，`read board-url` 返回项目候选页链接。候选页只能列出候选并选择一次，选择成功后跳转到目标项目的稳定地址；
 - 项目选择令牌短期有效、一次消费，不具备项目读写权限，也不能调用通用桌面方法；
-- 这一入口直接打开对应项目房间，不依赖先把桌面主客户端切到该项目。后续多标签实现继续复用同一项目选择与房间绑定契约。
+- 稳定地址在后台换取当前房间的短期 connection grant，临时凭证不进入地址栏；
+- 这一入口直接定位对应项目，不依赖全局 `currentProject` 猜测目标。目标项目
+  已在桌面打开时聚焦既有标签；尚未打开时创建唯一项目标签和独立 renderer，
+  不关闭或替换其他已打开项目。
 
 这里的限制不是技术冲突无法解决，而是用户理解成本没有被架构自动消除。直接生图至少会引入：
 
@@ -1193,14 +1485,17 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 
 1. `CODEX_THREAD_ID` 作为稳定 actor 来源；任务标题由 Codex host adapter 提供。两者通过主进程签发的短期 participant ticket 进入房间，浏览器不能自行声明。
 2. capability 由主进程按 `desktop-editor`、`board-editor`、`agent-writer` 三类角色强制执行。现有通用 Desktop Bridge 代理和未实际生效的 permission 声明不能直接沿用。
-3. CoreStudio CLI 和 skill 需要配套升级身份交接、显式项目绑定、房间状态读取与写入完成语义；命令表面尽量兼容。
+3. CoreStudio CLI 和 skill 配套升级身份交接、显式项目绑定、稳定地址、房间状态
+   读取与写入完成语义；不保留旧 URL、旧 session descriptor 或旧写入回退。
 4. 上述变化只影响运行时协议和集成契约，不写入项目业务数据，不触发项目格式迁移。
 
 本文已经完成一次完整一致性审阅，并统一了以下边界：
 
-- 可见 UI 当前仍是单项目，但 Room Manager 和测试必须支持双项目房间并行；
+- 内容区同一时刻只显示一个活动项目，但应用壳允许多个项目标签和项目级
+  renderer 并存；Room Manager 和测试必须支持多项目房间并行；
 - 项目 token 只用于受控项目访问和换取 participant 凭证，不能单独建立可编辑 WebSocket；
-- launch ticket、board resume token、actor 和 session 各自承担不同职责；
+- 稳定项目地址负责长期定位；connection grant、board resume token、actor 和
+  session 各自承担不同的短期认证、来源和连接职责；
 - elements、共享场景设置和参与者临时 app state 分开处理；
 - 保存失败不增加恢复副本，但关闭流程保留重试和明确承担风险后退出；
 - Agent Board 维持当前能力，同时由主进程 capability 阻止通用 Bridge 旁路和能力扩张。
@@ -1211,13 +1506,17 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 
 1. **Phase 0 阻断故障**：曾用失败测试固定双重 strict flush 和错误包装问题；对应旧 patch 运行时代码已随迁移完成而删除，结构化错误传递原则保留。
 2. **房间核心与唯一写入**：主进程 `Room Manager` 维护权威 scene、参与者、序号、去重、Excalidraw 版本胜负、软删除和防抖持久化；renderer 不再拥有场景磁盘写入口。
-3. **IPC 与 WebSocket 垂直切片**：主画布通过 IPC、Agent Board 通过本地 WebSocket 进入同一房间；snapshot 与增量之间有缓冲，断线使用项目、room、epoch 和 actor 绑定的 resume token 恢复。
-4. **可信身份**：`read board-url` 使用 Codex thread 身份换取一次性 launch ticket。CLI 写命令使用同一可信 thread 创建短生命周期 `agent-writer` session，renderer 只生成语义命令结果，不再把 Codex 操作记成桌面用户。
+3. **IPC 与 WebSocket 垂直切片**：主画布通过 IPC、Agent Board 通过本地 WebSocket 进入同一房间；snapshot 与增量之间有缓冲，当前实现使用项目、room、epoch 和 actor 绑定的 resume token 恢复。
+4. **可信身份与稳定地址**：`read board-url` 返回按项目
+   `stableBoardId` 构造的稳定入口，地址不携带 room、token 或 actor。页面再通过
+   URL 外 claim 和当前 Codex thread 身份换取短期连接凭证；CLI 写命令使用同一
+   可信 thread 创建短生命周期 `agent-writer` session。旧 token-bearing URL
+   已明确失效，不作为迁移输入或最终产品契约。
 5. **选区与 Presence**：Agent Board 选区和视口作为参与者临时状态发布，不进入项目文件；CLI 优先读取自己 thread 对应的 Board 选区。主画布和 Agent Board 按 actor 合并显示 Codex 图标和任务名称。
 6. **资产与项目数据**：图片元素广播前先通过项目资产事务持久化二进制和 `imageRecords`；场景持久化保留原 scene 文档中的 `files` 和其他项目字段，普通删除不清理资产。
 7. **持久化状态与失败**：房间立即同步，`scene.persisted` 单独确认写盘；两端区分同步中、等待写盘、已保存和失败。CLI 写命令返回 operation、room sequence、persisted sequence 和 persisted 状态。
 8. **关闭保护**：关闭前读取参与者并二次确认；确认后主进程再次核对 room 和参与者集合，变化时重新确认。保存失败可以保留项目重试，也可明确承担风险后强制关闭。
-9. **多项目底层隔离**：Room Manager、项目身份、scene、序号、资产和持久化队列均按 canonical project path 隔离；本轮仍不实现多标签 UI，也禁止同一项目重复标签的产品约束发生变化。
+9. **多项目客户端隔离**：Room Manager、项目身份、scene、序号、资产和持久化队列均按 canonical project path 隔离；同一项目不允许重复标签。桌面应用已经拆成 shell renderer 和每项目独立 WebContentsView/renderer，并删除同 renderer 多画布模型。
 10. **迁移和能力边界**：旧 patch / renderer autosave 链路、开发应急开关和 Bridge 暴露均已删除；项目文件格式不变，无需数据迁移。Agent Board 没有新增直接生图、项目维护或通用 Desktop Bridge 权限。
 11. **开发运行稳定性**：Agent Board 在 React StrictMode 的探测挂载中不会提前消费一次性 ticket；连接仍在建立时卸载也会关闭 transport，并忽略迟到的 join 结果。
 12. **关闭交互语义**：同一 Codex actor 的多个连接在 presence 和关闭确认中只展示一次；用户取消关闭只保持当前项目，不再被包装成“旧项目未能保存”。
@@ -1225,12 +1524,39 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 14. **图片实时加载与目录**：房间收到 `assets.updated` 或权威 scene 后都会按当前 scene 调度既有 rendition loader；左侧“图片资产”只展示未删除画布图片和 prompt reference，支持不改数据的“仅查看生成内容”筛选。
 15. **统一批量布局**：CLI 支持多个图片路径组成一个 `files[]` 请求，Agent writer 从参考 element IDs 计算整体锚点并复用 `placeGeneratedImages`；内置 Skill 要求同一轮成功结果一次性写回。
 16. **打开入口消歧**：内置 Skill 1.6.1 / Skill 9 不再把“打开 CoreStudio”默认解释为打开 Agent Board；用户未点明入口时，先确认是 Codex 内置画布还是桌面客户端，再进入对应路径。
+17. **稳定地址代码已实现、真实恢复仍待验收**：项目清单、固定入口、URL 外
+    actor claim、页面会话恢复和 CoreStudio 重启重连已经落入代码；页面长时间
+    闲置、完整退出重启、端口占用和多真实 Codex 任务仍按第 26.10 节在安装包中
+    验收，不能只依据自动化标记完成。
 
-当前验证证据：
+当前自动化和构建验证证据：
 
-- Desktop 全量测试：210 个测试文件、1664 个测试通过；数量变化来自旧生成记录侧栏测试被新的图片资产 view model、组件和房间资产刷新测试替换；
+- Desktop 全量测试：221 个测试文件、1740 个测试通过；
 - 全仓 TypeScript typecheck 通过；
 - desktop renderer 与 Electron 主进程构建通过；只有既有的大 chunk 提示，没有构建错误；
+- shell renderer 不挂载 Excalidraw；每个项目使用独立 WebContentsView、独立
+  session partition 和单项目运行时，后台项目不启用 renderer timer throttle；
+- 项目注册表覆盖打开去重、激活、Home、相邻标签关闭、边界更新、单项目崩溃与
+  恢复；项目 renderer sender 和 room session 双重绑定；
+- 安全模式作为项目 View 的启动属性保留；同一项目已经打开时不会因普通/安全
+  打开模式不同而创建第二个 renderer 或悄悄替换现有运行实例；
+- Agent renderer command 记录每个 request 的目标 WebContents，标签切换后只
+  接受原目标 renderer 的响应，结束、超时和销毁都会释放路由元数据；
+- 旧 `projectTabsState`、同 renderer 多画布 change controller、运行时 map、
+  CSS 隐藏容器和对应完成口径测试已经物理删除；
+- 开发版已同时打开两个现有项目和两个通过 CoreStudio API 创建的临时项目。
+  现场进程为一个 shell renderer 和四个独立项目 renderer，各自具有独立 PID
+  和 RSS；切换标签不重新加载画布。非活动项目从窗口 View 与辅助功能树卸载，
+  但 renderer PID 和房间保持存活；
+- 开发版已用 `kill -9` 注入单项目 renderer 崩溃：Home 和另一项目继续可用，
+  故障标签显示单项目恢复入口，恢复后创建新的 renderer 并重新加载完整画布。
+  首次复验暴露了销毁回调读取已失效 WebContents 引用的问题；实现已改为在注册
+  生命周期时捕获不可变 `webContentsId`，再次复验未出现主进程错误；
+- 开发版已用 `SIGSTOP` 加一次画布输入注入单项目 renderer 无响应，并用
+  `SIGCONT` 安全释放旧进程：shell 收到 `project-renderer:unresponsive`，
+  其他项目仍可进入，恢复操作以新 PID 替换旧 renderer 并加载完整画布；
+- 两个无 Agent 的临时项目关闭时均未出现二次确认，活动标签按相邻顺序继续；
+  临时最近项目记录已通过 CoreStudio UI 移除，测试目录已移入废纸篓；
 - 源代码开发版已完成主画布到 Agent Board、Agent Board 到主画布的双向移动验收，过程中不重新打开项目；
 - Agent Board 刷新后已验证从权威 snapshot 恢复并重新读取项目图片；
 - 开发版已验证同一 Codex 任务名称在主画布和 Agent Board presence 中一致显示；React StrictMode 下只建立一个有效 WebSocket；
@@ -1239,11 +1565,15 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 - CLI prompt/image 写入、agent-writer 身份、房间广播和持久化完成语义由自动化回归覆盖。为避免在用户现有项目留下测试元素，本轮没有强行执行真实项目的 CLI 写入；
 - 多路径 CLI 只发送一个 `scene.addImage` 请求；参考图锚点、整批稳定网格、图片资产候选集合、生成筛选、房间资产事件重试和内置 Skill/安装器版本一致性均有自动化回归；
 - 旧 session/epoch、资产顺序、持久化失败、关闭退路、双项目隔离、全元素结构和 CLI agent-writer 身份均有自动化回归；
-- 当前没有提交、打包、安装或发布。
+- 本次架构纠偏文档尚未提交，也未据此重新打包、安装或发布。
 
 仍待最终收口：
 
-1. 最终安装包真实双画布验收。该项需要打包和安装权限，本轮不会绕过用户“不得擅自打包、安装”的明确限制。
+1. 在开发版中让多个真实 Agent 同时写入不同后台项目，并观察切回后的场景、
+   持久化顺序和图片资产；四项目独立 PID/RSS、标签切换、无响应与崩溃恢复已经
+   取得真实运行证据。
+2. 最终安装包真实双画布与多项目验收。该项需要明确进入打包阶段后执行，不能只
+   以单元测试或开发版标签可点击作为完成证据。
 
 ## 22. 第二轮可靠性审阅与修复计划
 
@@ -1288,7 +1618,11 @@ Agent Board 继续隐藏当前不适合开放的导出图片、在画布上查�
 4. 项目修复的场景变化只通过 maintenance operation 广播。renderer 只补充图片二进制和项目记录，不再重新加载或直接覆盖整份 scene。
 5. WebSocket 暂时断线时保留尚未确认的 operation，并在同 actor、同项目、同 room、同 epoch 恢复后使用原 `operationId` 重试。终止性身份错误不重试。
 6. 进程外磁盘变化使用独立的 `STORAGE_DIVERGED` 状态和错误码，不再描述为正常协作参与者造成的“其他会话更新”，也不折叠成无差别的 `PERSISTENCE_FAILED`。
-7. Agent Board 只使用 launch ticket、resume token 和房间资产接口。删除浏览器侧 project token 回退、公开 `openRecentProject` 和通用 Desktop Bridge 能力旁路；未来跨项目选择必须显式换取目标项目 ticket，不能切换主客户端全局项目。
+7. Agent Board 只使用稳定项目入口后台换取的 connection grant、resume token
+   和房间资产接口。删除浏览器侧 project token 回退、公开
+   `openRecentProject` 和通用 Desktop Bridge 能力旁路；未来跨项目选择必须
+   进入目标项目自己的稳定地址，不能通过旧 token 改写目标，也不能静默切换
+   主客户端全局项目。
 8. 正常实时同步和后台持久化不显示常驻成功提示。保存失败使用独立错误状态，恢复成功后自动清除，不与通用项目错误重复。
 9. 删除未进入生产调用图的旧 Agent Board HTTP 刷新页面、启动 ViewModel、项目版本轮询和对应测试，不保留第二套兼容路径。
 
@@ -1363,7 +1697,833 @@ TDD 和验收顺序：
 - 内置 CoreStudio Skill 已升级到集成 1.6.1 / Skill 9，明确同轮成功结果
   收齐后一次写回，并在“打开 CoreStudio”入口不明确时先区分 Codex 内置
   画布与桌面客户端；安装器、CLI 版本输出和公开安装说明保持一致。
-- 当前验证：Desktop 210 个测试文件、1664 个测试全部通过；全仓 TypeScript
+- 当前验证：Desktop 221 个测试文件、1740 个测试全部通过；全仓 TypeScript
   typecheck 通过；desktop renderer 与 Electron build 通过。构建只有既有的
   chunk size 提示。
 - 尚未进行安装包真实双画布 UI 验收；本轮未打包、安装或提交。
+
+## 26. 2026-07-25 稳定项目地址与空更新回声收口方案
+
+### 26.1 本轮新增事实
+
+旧 Agent Board 曾使用如下双服务地址：
+
+```text
+/agent-board?bridge=<local-bridge>&resumeToken=<temporary-token>
+```
+
+这个地址已经整体废弃，不提供解析、跳转或迁移。它把项目入口和一次连接凭证
+绑定在一起；CoreStudio 重启、房间 epoch
+变化或 token 过期后，用户保留的页面无法自行证明“我要重新打开原项目”，只能
+得到内部认证错误或重新运行 CLI 取得新链接。这与单机软件的使用直觉不符。
+
+2026-07-25 的 live 诊断还确认了一个独立但会放大失效体验的运行时故障：
+
+- Agent Board 放大到 150% 后没有发出原图读取请求；
+- 连续观察到 499 条 `scene.update` 在约 11.6 秒内到达，约 43 条/秒；
+- 事件全部来自 `corestudio:desktop`，`elements` 为空，共享场景配置内容相同；
+- `ProjectRoomClientController` 使用浅层 `Object.is` 比较共享场景配置；
+- `lockedMultiSelections: {}` 在权威状态应用和 `structuredClone` 后引用不同，
+  因而被误判为配置变化；
+- 每次空更新广播都会重新调度图片 rendition loader，220ms 防抖计时器持续
+  被取消，最终表现为放大后仍显示缩略图或预览图；
+- 同一消息风暴还会持续增加 room sequence、场景应用和持久化负载，解释了
+  页面长时间放置后逐渐卡死的现象。
+
+稳定地址和空更新回声必须分别修复：稳定地址解决“原页面能否重新建立连接”，
+空更新回声解决“连接建立后是否能持续正常运行”。任何一项都不能替代另一项。
+
+### 26.2 实施原则
+
+1. 不修改 Excalidraw 核心协作和 appState 导出实现。
+2. 共享配置内容比较、稳定入口、身份交换和项目索引全部放在 CoreStudio 自有
+   adapter、主进程房间和项目服务中。
+3. 不给图片加载单独增加绕过消息风暴的永久兜底；先消灭无意义 operation。
+4. 房间协调器不接受语义上没有元素变化、也没有共享配置变化的 operation。
+5. 稳定地址不获得长期写入权限；所有编辑继续依赖短期 participant session。
+6. 旧 token URL 在新版本中直接失效，不解析、不迁移、不兼容；用户从
+   CoreStudio、CLI 或新版 Skill 重新取得稳定地址。
+7. 项目 scene、图片资产和生成记录不迁移；旧项目只在首次需要稳定入口时增加
+   可选 `stableBoardId` 元数据。
+
+### 26.3 阶段 A：先停止空更新回声
+
+行为变化按 TDD 完成：
+
+1. 增加失败测试：两个内容相同、对象引用不同的嵌套共享配置不产生
+   `scene.config.update` 或空 `scene.operation`。
+2. 增加失败测试：客户端收到自己的权威确认并再次触发 Excalidraw `onChange`
+   时，不会形成第二个 operation。
+3. 增加失败测试：主进程收到语义上没有任何变化的 operation 时，不增加
+   `roomSequence`，不广播，也不安排持久化。
+4. 在 CoreStudio 房间客户端使用适用于 JSON 配置值的结构相等比较，替换顶层
+   `Object.is`。不修改上游 `cleanAppStateForExport`。
+5. 主进程房间再做一次权威 no-op 判断，确保异常或旧客户端不能制造空更新风暴。
+6. 增加 rendition liveness 测试：正常房间确认流量存在时，放大触发的原图读取
+   仍能在有限时间内执行；相同空事件不能持续重置 220ms 计时器。
+7. live 验证 room sequence 在没有真实编辑时保持稳定，放大后产生一次明确的
+   `rendition: original` 资产请求。
+
+主进程 no-op 判断不是兼容旧写入链路，而是权威协调器的输入不变量；它与客户端
+差分共同保证房间不会因为引用变化而自激。
+
+### 26.4 阶段 B：建立稳定项目入口
+
+新增最小数据模型：
+
+```text
+Project metadata
+  projectId
+  stableBoardId?    # 旧项目按需生成
+
+Local project index
+  projectId -> canonicalProjectPath
+  stableBoardId -> projectId
+```
+
+要求：
+
+- `stableBoardId` 使用高熵、不透明随机值；
+- 同一项目已经存在 ID 时重复请求必须返回原值；
+- 生成和写入通过 CoreStudio 项目服务完成，不由 renderer 直接修改项目文件；
+- 本机索引只是加速和反向定位，项目元数据是索引重建依据；
+- 项目路径变化后更新 `projectId → canonicalProjectPath`，不轮换
+  `stableBoardId`；
+- 明确撤销入口时才生成新 `stableBoardId` 并使旧映射返回
+  `BOARD_ACCESS_REVOKED`。
+
+新增稳定路由和类型化接口：
+
+```text
+GET  /board/<stableBoardId>
+POST /v1/agent-board/session/exchange
+```
+
+具体 HTTP 方法可以按现有 Local Bridge 结构调整，但职责必须分开：
+
+- 页面路由只负责加载与当前安装版本一致的 Agent Board 静态资源；
+- session exchange 解析稳定项目身份、取得可信 actor 上下文、创建或找到房间，
+  并返回短期 connection grant；
+- WebSocket 只消费 grant/resume token 加入明确房间；
+- 通用 Desktop Bridge 不因稳定入口重新开放。
+
+#### 26.4.1 CoreStudio 主端的稳定地址入口
+
+CoreStudio 主端为每个项目提供一个低调但可发现的 Agent Board 入口。它属于
+项目级能力，不放在画布主工具栏持续抢占注意力。优先位置是项目详情、项目菜单
+或协作信息区域。
+
+首版至少提供：
+
+- 只读展示当前项目的稳定 Agent Board 地址；
+- `复制画布地址` 按钮；
+- 复制成功提示：`画布地址已复制，可粘贴到 Codex 中打开`；
+- 项目尚未生成 `stableBoardId` 时，由按钮通过主进程项目服务懒生成，完成后
+  立即复制；
+- 重复点击始终复制同一个地址；
+- 不在 UI 中展示 `projectId`、`roomId`、token 或 session 信息。
+
+按钮文案不固定写死成“复制到 Codex”。数据模型和地址都是 Agent 中立的，
+首版提示可以明确提到 Codex，后续可以自然扩展到其他 Agent。未来如果 Codex
+提供稳定的应用跳转或任务投递 API，可以在同一区域增加次级的
+`在 Codex 中打开` 操作；本轮不假设该 API 已存在。
+
+点击复制只产生稳定地址，不创建长期 participant、不加入房间，也不制造在线
+头像。只有 Agent 实际打开地址并完成可信身份交接后，才进入 presence。
+
+#### 26.4.2 Codex 任务身份的 URL 外交接
+
+稳定地址只能证明“用户要访问哪个本机项目”，不能天然证明“当前页面属于哪个
+Codex thread”。当前已经确认 `CODEX_THREAD_ID` 存在于 CLI 执行环境，但尚未
+确认 Codex 内置浏览器访问本地页面时会向页面或 HTTP 请求提供可信 thread
+身份。因此实现稳定地址前必须先 live 核对 Codex host 的浏览器身份能力，不能
+假设打开网页就自动得到 actor。
+
+身份交接优先级：
+
+1. **首选：Codex host 提供可信浏览器任务上下文。** 由 host 给本地页面或
+   Local Bridge 提供签名/受控的 thread id 和任务标题，页面不能自行填写。
+2. **可接受：Skill/CLI 与页面进行 URL 外 claim。** 稳定页面启动后生成一次
+   页面 nonce；当前 Codex 任务通过 CLI 向 Local Bridge 提交
+   `CODEX_THREAD_ID + pageNonce`，主进程校验后给该页面换发 connection grant。
+   nonce 只存在于页面运行态和 Bridge，不进入稳定 URL。
+3. **不接受：把 thread id、任务标题、launch ticket 或 resume token 重新放回
+   查询参数或 fragment。** 这会重新把用户入口和临时身份绑定。
+4. **不接受：页面自行声明 actor。** 这会破坏 presence、operation 来源和关闭
+   确认的可信度。
+
+如果 Codex host 暂时没有可信浏览器上下文，Skill 应自动完成第 2 种 claim，
+用户仍然只看到和保存稳定地址。用户直接粘贴稳定地址、但没有完成 actor claim
+时，页面可以读取项目和等待身份连接，但不能伪装成某个已有 Codex 任务写入；
+应显示“正在连接当前 Codex 任务”，由 Skill/CLI 或 host 自动完成后进入
+`ready`。
+
+多个 Codex 任务同时打开同一稳定地址时，每个页面使用独立 page nonce 和
+`sessionId`，分别绑定自己的 `actorId = codex:<threadId>`。稳定项目地址相同，
+参与者身份和操作来源仍然不同。
+
+### 26.5 阶段 C：重连状态机
+
+Agent Board 使用以下连接状态：
+
+| 状态                      | 用户表现                            | 自动行为                                |
+| ------------------------- | ----------------------------------- | --------------------------------------- |
+| `bridge-unavailable`      | CoreStudio 尚未运行，启动后自动恢复 | 低频探测固定 Bridge                     |
+| `checking-integration`    | 正在检查 CoreStudio 集成            | 读取版本、capability、项目和 actor 状态 |
+| `repair-required`         | 说明缺少的组件或版本                | 展示一个主要修复动作                    |
+| `repairing`               | 正在修复 CoreStudio 集成            | 执行类型化动作并重新自检                |
+| `resolving-project`       | 正在打开项目                        | 解析 `stableBoardId`                    |
+| `project-switch-required` | CoreStudio 正在使用另一个项目       | 等待用户在客户端确认切换                |
+| `exchanging-session`      | 正在连接画布                        | 换取短期 grant                          |
+| `joining-room`            | 正在恢复画布                        | 原子取得 snapshot 和增量                |
+| `ready`                   | 可正常编辑                          | 维持 WebSocket 和 presence              |
+| `reconnecting`            | 暂时只读，正在重连                  | 先尝试 resume，失败后重新 exchange      |
+| `project-missing`         | 找不到原项目                        | 停止自动写入，提供项目候选入口          |
+| `access-revoked`          | 此画布地址已撤销                    | 停止自动重试                            |
+| `protocol-incompatible`   | 需要刷新或升级 CoreStudio           | 不使用旧协议继续写入                    |
+
+只有 `ready` 可以提交编辑。其他状态保留最后画面用于理解上下文，但不能把离线
+变化伪装成待同步操作。
+
+### 26.6 阶段 D：CLI、Skill 和 Codex 建连
+
+- `corestudio read board-url` 对同一项目始终返回稳定地址；
+- `read board-url --project <path>` 先解析 `projectId`，再返回已有稳定地址；
+- 项目候选页选择成功后跳转稳定地址；
+- CoreStudio Skill 收到或生成稳定项目地址后，使用当前
+  `CODEX_THREAD_ID` 和任务标题完成 URL 外 actor claim，再打开同一个稳定地址；
+- 页面 UA 表明来自 Codex 时，可以自动进入 Codex 专用连接流程、显示 Codex
+  品牌提示并等待 claim，但 UA 不能直接生成可信 `actorId`；
+- actor claim 完成后，页面才把具体 Codex 任务加入 collaborators/presence；
+- CLI 和 Skill 不读取、保存、传播或解释旧 `launchTicket` / `resumeToken`
+  URL；
+- 旧 URL 一律显示“此画布链接已失效，请从 CoreStudio 或新版 CoreStudio
+  Skill 重新打开”，不尝试解析项目或恢复连接；
+- CLI、Skill、Local Bridge 和 Agent Board 静态资源随同一安装版本更新，不保留
+  旧 URL、旧命令或通用 Bridge 旁路。
+
+### 26.7 阶段 E：集成诊断与受控修复
+
+主进程新增只读诊断结果，统一描述：
+
+```text
+integrationVersion
+componentVersions
+bridgeStatus
+roomProtocolVersion
+capabilities
+projectResolution
+actorClaimStatus
+health
+issues[]
+  code
+  message
+  details?
+  repairActions[]
+```
+
+页面只根据该结果渲染状态，不在 renderer 中分别猜测 CLI、Skill、项目和房间
+错误。Codex 外层预检复用同一诊断语义，区别只是 Bridge 不可达时由 Skill
+生成最外层 `BRIDGE_UNAVAILABLE` 结果。
+
+修复流程：
+
+1. 先用失败测试固定每类 issue 对应的唯一主要动作。
+2. 普通连接重试可自动执行；安装、启动/重启应用和项目切换要求明确授权。
+3. 修复动作执行完毕后重新读取完整 `integration.status`，不能只因命令退出码
+   为 0 就宣称恢复。
+4. 所有必要条件通过后继续原来的稳定地址连接流程，不生成新 URL。
+5. 修复失败保留原始 code、details 和可重试动作，不连续叠加其他补丁。
+
+首版支持的修复范围只包括：
+
+- 启动或重新连接 CoreStudio；
+- 同步安装包内配套的 CLI 和 Skill；
+- 刷新 Board 静态资源；
+- 重新完成 Codex actor claim；
+- 打开目标项目或请求切换项目；
+- 重新建立房间连接。
+
+项目数据修复、资产清理、Provider 配置、系统级包管理和下载任意外部依赖不进入
+这个入口。
+
+### 26.8 自动化与真实验收
+
+至少补齐：
+
+1. 相同嵌套共享配置不产生 operation。
+2. 自己的 operation 确认不形成回声。
+3. 主进程拒绝 no-op 且 sequence/persistence 不变化。
+4. 放大触发原图读取，不被正常确认流量饿死。
+5. 同一项目重复取得完全相同的稳定 URL。
+6. 两个项目的稳定 URL 不同且不会串房间。
+7. 页面刷新和 resume token 过期后 URL 不变并恢复。
+8. CoreStudio 重启后原页面自动加入新 room/epoch。
+9. 项目路径变化后原 URL 仍能解析。
+10. 项目删除、入口撤销和协议不兼容显示不同、可理解的状态。
+11. 旧 token URL 明确失效，不解析项目、不跳转稳定地址，也不触发旧写入链路。
+12. 打开另一项目的稳定地址时不会关闭、替换或改写正在编辑的项目；需要桌面
+    画布时创建或聚焦目标项目的唯一标签和独立 renderer。
+13. 两个 Codex 任务打开同一个稳定地址时，地址相同，但得到不同 session 和
+    可信 actor；presence 显示两个正确任务名称，操作来源不串联。
+14. 缺少可信 actor claim 时页面不得伪造身份写入，完成 URL 外 claim 后无需
+    改变地址即可进入可编辑状态。
+15. CoreStudio 主端能低调展示并复制项目稳定地址；重复复制结果不变，复制动作
+    本身不创建在线 participant。
+16. Codex UA 只能触发专用连接体验，不能在没有可信 claim 时伪造具体任务身份。
+17. 稳定地址页面能区分 Bridge、版本、协议、项目、actor、CLI/Skill 和项目健康
+    问题，并为每类问题展示正确的唯一主要动作。
+18. 受控修复完成后重新执行完整自检并继续打开同一个 URL；失败时保留结构化
+    code 和 details。
+19. Bridge 全新不可达时，Codex Skill 能在打开页面前给出提示并在授权后启动或
+    修复；不依赖不存在的网页服务器显示提示。
+20. 页面和 Bridge 都不能通过 repair action 执行任意命令、路径或脚本。
+21. `desktop tests`、typecheck 和 desktop build 通过。
+22. 安装包中把页面闲置、CoreStudio 重启、项目关闭重开、集成组件缺失和图片
+    放大串成一次真实
+    UI 验收，不能只验证单元测试。
+
+### 26.9 明确不做
+
+- 不把 Agent Board 变成互联网可分享链接；
+- 不新增云账号、远程邀请或跨设备同步；
+- 不支持断线期间继续离线编辑；
+- 不让稳定地址绕过 board-editor capability；
+- 不让同一项目在 CoreStudio 中打开两个本地标签；
+- 稳定地址阶段本身不负责多标签 UI；多项目客户端在第 27 节独立实施，并复用
+  稳定项目身份和入口；
+- 不保留旧 patch autosave、项目轮询或通用 Desktop Bridge 作为失败兜底。
+- 不让 Agent Board 页面执行任意 shell 命令或安装任意第三方依赖；
+- 本轮不引入常驻后台 Connector；Bridge 全新不可达由 Codex Skill 外层预检。
+
+### 26.10 2026-07-25 实施状态
+
+本轮已经按上述边界完成以下代码落点：
+
+- 项目清单按需生成并保留 `stableBoardId`，稳定入口使用
+  `http://127.0.0.1:60909/board/<stableBoardId>`，开发版和打包版地址一致，
+  正式地址不携带开发服务器、Bridge 参数、room、token 或 actor；
+- Local Bridge 在正式运行中严格占用固定端口，不再静默回退到随机端口；
+- 旧 token URL 直接显示旧链接已失效，不解析、不迁移、不进入旧写入链路；
+- 主端主菜单提供低调的“复制画布地址”，复制动作不创建 participant；
+- CLI 增加 URL 外 actor claim；Skill 先读取页面暴露的 stable board id 和 page
+  nonce，再用当前 Codex thread 完成可信认领；
+- page nonce 和 actor resume token 只保存在当前浏览器页面的
+  `sessionStorage`，不会写入 URL；主进程使用本机持久密钥签名和验证 actor
+  resume token，因此页面刷新、房间 epoch 更新和 CoreStudio 重启不需要改 URL
+  或重新伪造身份；该绑定跟随当前浏览器页面会话，不设置独立倒计时；
+- actor resume token 只恢复 actor 绑定，真正加入房间仍然每次换取短期 launch
+  ticket，旧 room/session epoch 不能直接写入新房间；
+- 房间区分用户主动关闭项目与 CoreStudio 应用退出：主动关闭项目会保持断开，
+  应用退出则由原页面在固定 Bridge 地址上低频重试，应用重新启动后换取新
+  room/epoch 并自动恢复；
+- 页面增加集成状态检查，只允许执行类型化的“安装/更新 Codex 集成”动作，不
+  接收 shell、任意路径或任意脚本；
+- 相同 scene config 和空元素 operation 在 renderer 与主进程两层都作为 no-op，
+  不推进 room sequence、不广播、不触发持久化。
+
+当前仍必须通过安装包真实验收后才能关闭的项目：
+
+- 页面闲置后断线、CoreStudio 完整退出再启动、项目关闭再打开的连续恢复；
+- 两个真实 Codex 任务同时进入同一地址后的头像、任务名和操作来源；
+- 固定端口被其他本机进程占用时，Skill 的外层提示和恢复动作；
+- 原图放大、图片资产和房间恢复组合场景；
+- 项目文件在磁盘移动后，先由 CoreStudio 重新发现项目，再验证原稳定地址恢复。
+
+## 27. CoreStudio 多标签与多项目客户端
+
+> 需求状态：2026-07-26 完成项目级 WebContents/renderer 代码迁移，等待开发版与安装包真实并发验收
+>
+> 所属范围：CoreStudio 桌面客户端；继续复用本 Spec 已完成的多项目
+> Room Manager，不新建第二套多项目协议。
+
+### 27.1 架构纠偏结论
+
+2026-07-25 的首轮实现把多个完整 Excalidraw 实例挂在同一个 React renderer
+中，再通过 CSS `visibility` 和共享应用状态模拟项目标签。该实现可以完成视觉
+切换，但产品心智和运行边界都不正确，本 Spec 明确撤销对它的认可。
+
+以下认知全部废止：
+
+- “项目已经打开”等于“该项目的 Excalidraw 必须挂在同一个 React 树里”；
+- “协作房间需要持续在线”等于“对应画布 renderer 必须持续挂载”；
+- “切换项目不能重新挂载”等于“所有项目共享一个 JS 主线程和垃圾回收域”；
+- “多个画布分别保存到不同 map/ref”就等于项目级隔离；
+- Home 可以作为同一页面中隐藏画布之上的覆盖层长期存在；
+- 只要 projectPath 路由正确，就可以接受所有项目共享 renderer 故障边界。
+
+正确基准是：
+
+> 一个 CoreStudio 应用外壳，多个项目级独立 WebContents/renderer。每个项目
+> 标签代表一个完整、独立、可销毁的 CoreStudio 项目运行实例，而不是同一页面
+> 中的一组隐藏组件。
+
+这可以粗略理解为“CoreStudio 允许同时多开多个项目窗口，再由一个统一外壳把
+它们拼成标签页”。共享的是 Electron 主进程和应用外壳，不共享项目 renderer
+中的 React、Excalidraw、DOM、Canvas 和 JS heap。
+
+### 27.2 产品目标与概念边界
+
+用户可以在一个 CoreStudio 窗口中同时打开多个项目，并在 Home 和项目标签之间
+切换：
+
+- `openProjects`：本窗口已经打开的项目运行实例集合；
+- `activeProject`：当前内容区可见并接收人工输入的项目；
+- `project room`：由主进程维护的项目协作与持久化状态，不依赖标签是否可见；
+- `project renderer`：一个项目自己的交互画布进程边界，只服务一个项目；
+- `shell renderer`：只负责 Home、标题栏、标签和窗口级状态，不承载项目画布。
+
+“项目标签”“项目 renderer”“项目房间”相互关联但不是同一个对象：
+
+- 标签决定用户导航；
+- renderer 决定本地画布交互和故障边界；
+- 房间决定协作、权威场景和磁盘持久化。
+
+### 27.3 目标运行结构
+
+```text
+CoreStudio BrowserWindow
+├─ 应用壳 renderer
+│  ├─ macOS 标题栏
+│  ├─ Home
+│  ├─ 项目标签注册表
+│  └─ 项目级加载、崩溃和关闭状态
+│
+└─ 内容区
+   ├─ Project A WebContentsView / renderer
+   │  └─ 只挂载 Project A 的 Excalidraw
+   ├─ Project B WebContentsView / renderer
+   │  └─ 只挂载 Project B 的 Excalidraw
+   └─ Project C WebContentsView / renderer
+      └─ 只挂载 Project C 的 Excalidraw
+
+Electron 主进程
+├─ 打开项目注册表
+├─ ProjectRoom A
+├─ ProjectRoom B
+├─ ProjectRoom C
+├─ Agent Board WebSocket
+├─ 项目资产和健康检查
+└─ 每项目独立持久化队列
+```
+
+首选承载方式是 Electron `WebContentsView`。不得用 iframe、同一 React 根节点
+下的多套 Excalidraw、CSS 隐藏画布或共享可变 ref 伪造项目隔离。
+
+独立 WebContents 的价值不以“总内存一定更低”为前提。即使多个 renderer 的
+总基础内存略高，也必须优先取得以下性质：
+
+- 每个项目拥有更小且独立的 JS heap 和垃圾回收停顿；
+- 单项目 reconcile、图片加载和生成结果写入不阻塞其他项目主线程；
+- 单项目 renderer 崩溃、白屏或死循环不拖垮 Home 和其他项目；
+- 关闭标签可以完整销毁对应 WebContents、DOM、Canvas、定时器和缓存；
+- 操作系统和 Chromium 可以分别调度、降优先级和回收后台 renderer；
+- 性能、内存和错误可以明确归属到具体项目。
+
+### 27.4 应用壳与项目 renderer 职责
+
+应用壳 renderer 只负责窗口级能力：
+
+- Home 和最近项目；
+- 项目标签新增、去重、激活、关闭和相邻标签选择；
+- 标题栏、安全区和窗口拖动；
+- 项目 WebContentsView 的可见性、尺寸和焦点切换请求；
+- 单项目加载失败、renderer 崩溃和恢复入口；
+- 应用退出时的项目清单和确认流程。
+
+应用壳不得：
+
+- 保存或合并 scene；
+- 持有任一项目的 Excalidraw API；
+- 持有跨项目的 selection、viewport、undo/redo 或图片缓存；
+- 作为所有项目 IPC 的共享项目身份；
+- 因当前激活标签变化而改写后台操作的目标项目。
+
+每个项目 renderer 只负责一个项目：
+
+- 只挂载一套 Excalidraw；
+- 只绑定一个 canonical project path、projectId、roomId 和 session epoch；
+- 只加入自己的桌面 room session；
+- 只持有自己的 selection、viewport、undo/redo、图片缓存和临时 UI 状态；
+- 只提交自己的 scene operation；
+- 不读取其他标签的 bundle、API、controller 或运行时状态。
+
+### 27.5 项目身份与 IPC 路由
+
+主进程为每个项目运行实例建立不可混用的身份：
+
+- canonical project path；
+- 稳定 projectId；
+- project renderer / WebContents id；
+- roomId；
+- desktop sessionId；
+- session epoch。
+
+项目 IPC 必须根据发送方 WebContents 和显式项目身份共同校验。不能只相信
+renderer 传入的 projectPath，也不能使用一个全局 `currentProject` 推断目标。
+
+具体要求：
+
+- 一个项目 renderer 只能访问自己绑定的项目房间和项目资产；
+- shell renderer 只能调用窗口级项目管理 API，不能伪装成画布参与者；
+- renderer 销毁后，其 session 和 IPC 绑定立即失效；
+- 标签切换不改变任何项目 renderer 的项目身份；
+- Stable Agent Board 继续按稳定项目身份加入目标房间，不依赖桌面当前标签；
+- 无显式项目目标的 CLI 命令可以使用当前活动项目作为便利上下文，但显式项目
+  地址和项目身份始终优先。
+
+### 27.6 打开、切换与后台运行
+
+项目标签以 canonical project path 为窗口内唯一键：
+
+- 新建或首次打开项目：创建项目运行实例和 WebContentsView，在标签末尾新增并
+  激活；
+- 再次打开已有项目：聚焦原标签，不创建第二个 renderer；
+- 从最近项目、文件选择器、系统菜单和稳定项目入口进入时使用同一去重规则；
+- 项目名称变化时更新标签标题，不改变标签或 renderer 身份；
+- 同一个项目允许多个 Agent/Codex session，但不允许同一窗口出现两个本地
+  项目标签。
+
+切换标签只切换内容 View 的可见性、尺寸和焦点，不关闭项目房间，不改变
+session epoch，不等待磁盘持久化。只有活动项目 renderer 接收窗口键盘、剪贴板
+和焦点。
+
+首版不引入复杂的后台自动卸载策略。打开的项目 WebContents 可以继续运行，但
+它们必须是彼此独立的 renderer，而不是同一 renderer 中的隐藏 React 子树。
+未来如需按内存压力卸载后台 renderer，必须另行定义视口、选区、undo/redo 和
+恢复规则，不在本轮顺带实现。
+
+### 27.7 多项目人工与 Agent 并发
+
+多个项目同时编辑时，真正承担并发的是主进程中的多个 ProjectRoom：
+
+- 用户在活动项目 A 的 renderer 中人工编辑；
+- Agent 可以同时向 A、B、C、D 的独立房间提交操作；
+- 不同项目拥有独立 room sequence、持久化状态和项目级串行写入队列；
+- A 的 reconcile、持久化失败或图片压力不得阻塞 B/C/D；
+- Agent 对后台项目的写入不要求该项目先成为当前桌面标签；
+- 用户切回后台项目前，主进程确保该 renderer 已取得当前权威 snapshot 和之后
+  的连续增量；
+- 切回不重新打开项目文件，也不把合法后台写入识别为外部快照冲突。
+
+同一个项目内的人工和 Agent 并发继续遵循本 Spec 的房间语义：
+
+- 不同元素自动合并；
+- 同一元素按 Excalidraw version/versionNonce 协调；
+- 删除使用 `isDeleted` 墓碑；
+- 发起端通过 operationId 和 originSessionId 识别确认；
+- 房间先合并和广播，主进程再异步持久化。
+
+### 27.8 Home 与标题栏
+
+macOS 隐藏标题栏中的信号灯一行作为应用壳项目导航：
+
+1. 左侧保留系统信号灯安全区。
+2. 安全区右侧放置固定 Home 按钮。
+3. Home 右侧横向排列项目标签。
+4. 信号灯、Home 和标签使用同一标题栏中心基准。
+5. 标题栏与内容区有明确但低调的原生分隔。
+6. 空白区域可拖动窗口；Home、标签和关闭按钮是 `no-drag` 区域。
+7. 视觉沿用 Excalidraw/CoreStudio 的图标、尺寸、圆角、颜色和 hover/focus
+   语义，不另建重阴影或胶囊风格。
+8. 项目 renderer 通过主进程项目视图状态上报当前浅色/深色主题；shell
+   标题栏跟随活动项目即时切换，切换标签时使用各项目最后上报的主题。Home
+   不继承已隐藏项目的临时主题。
+
+Home 属于应用壳，不是项目 renderer，也不覆盖或插入任一项目 React 树。点击
+Home 只把内容区切换回项目候选页；所有项目标签、独立 renderer 和主进程房间
+保持原身份。
+
+### 27.9 关闭标签、renderer 崩溃与退出应用
+
+标签切换、标签关闭和 renderer 崩溃必须严格区分：
+
+- 切换标签：只切换可见 View 和焦点；
+- 关闭标签：执行第 13 节的保存、参与者检查和二次确认，成功后终止该项目本地
+  session、销毁 WebContentsView、移除标签并按规则关闭房间；
+- 关闭活动标签成功后：优先激活右侧相邻标签，其次左侧相邻标签；没有项目标签
+  时回到 Home；
+- 用户取消关闭：标签、renderer 和房间保持原状；
+- 用户已确认承担风险后，即使最终持久化失败也允许强制关闭，不能形成无法退出
+  的死循环；
+- 项目 renderer 崩溃：只在该标签显示恢复状态，Home 和其他项目继续工作；
+- renderer 恢复：用同一项目身份换取新 desktop session，从主进程权威 scene
+  恢复，不复用已失效的 session epoch；
+- 退出应用：枚举全部打开项目，逐项目 flush 和检查参与者，不能只处理活动
+  标签。
+
+关闭一个项目不得撤销其他项目的 ticket、actor claim、room、WebContents 或
+持久化队列。
+
+### 27.10 错误实现的迁移与删除
+
+原同 renderer 多画布实现只作为迁移源，不是需要兼容的第二条运行路径。当前迁移
+已经将其删除，没有在新 WebContents 架构外保留兜底。
+
+可以保留：
+
+- 主进程多项目 Room Manager；
+- 按 canonical project path 去重的项目注册规则；
+- 项目级房间身份、operation、reconcile 和持久化队列；
+- Home、标签栏和关闭确认的产品规则；
+- Stable Agent Board、Agent presence 和资产层；
+- Excalidraw 公开 API、`CaptureUpdateAction.NEVER` 和现有协作协调语义。
+
+必须替换或删除：
+
+- `App.tsx` 中同时 map 多个标签并挂载多套 `LazyExcalidraw` 的结构；
+- `.image-board-canvas__project-runtime` 和通过 CSS `visibility` 隐藏项目画布；
+- Home 作为同一 React 页面中画布之后或画布之上的覆盖层；
+- `desktopProjectTabRuntimesRef`、`desktopProjectInitialData` 等在单一 renderer
+  中模拟多个项目运行时的状态；
+- 一套全局 Excalidraw API/ref 在标签切换时反复绑定不同项目；
+- 证明“两个画布同时挂载”“Home 不卸载画布”的旧测试和完成口径；
+- 为旧同 renderer 模型增加的额外布局、状态同步和防串联补丁。
+
+标签纯状态机和标题栏组件可以迁移到 shell renderer，但不能继续直接管理
+Excalidraw 实例。
+
+项目文件格式不变，因此不涉及项目数据迁移。需要迁移的是客户端运行结构和测试
+口径；不保留旧 renderer 模型的兼容开关。
+
+### 27.11 首版范围与暂不扩展
+
+本轮包含：
+
+- 一个 BrowserWindow 应用壳；
+- Home、横向项目标签、激活与关闭；
+- 每项目独立 WebContentsView/renderer；
+- 同项目去重；
+- 多项目房间并存和后台 Agent 写入；
+- 项目级 IPC 身份和 sender 校验；
+- 单项目 renderer 崩溃隔离与恢复；
+- 项目级关闭确认；
+- 应用退出时全部项目收口；
+- 菜单、最近项目和文件选择器进入同一标签注册逻辑。
+
+本轮不包含：
+
+- 同一项目多个本地标签；
+- 标签拖拽排序、固定、分组、分屏或跨窗口移动；
+- 多个 CoreStudio 主窗口；
+- 云端标签同步；
+- 自动恢复上次退出时的全部标签；
+- 复杂后台 renderer 内存淘汰策略；
+- 后台标签未读红点、保存进度或协作人数徽标；
+- 为兼容旧单 renderer 模型保留第二套活跃路径。
+
+### 27.12 验收标准
+
+1. Home 与多个项目标签在同一应用壳中稳定切换。
+2. 每个打开项目拥有独立 WebContents/renderer context，不共享 React 根、
+   Excalidraw API、DOM、Canvas 或 JS heap。
+3. 运行时检查能看到项目级 renderer 边界；不得只通过多个 DOM 容器证明隔离。
+4. 同一路径重复打开只激活已有标签，不创建第二个 renderer。
+5. A、B、C、D 的 scene、图片、selection、viewport、undo/redo、room
+   sequence 和持久化互不串联。
+6. 用户在 A 人工编辑时，Agent 可以同时写入 B、C、D；A 的交互不因后台项目
+   reconcile 或批量图片更新明显卡顿。
+7. Agent 对后台项目的修改立即进入对应房间并持久化；切回后无需刷新项目。
+8. 同一项目中的人工和 Agent 修改按 Excalidraw 协作语义收敛。
+9. 切换标签不触发关闭提示，不断开任一项目房间或 Agent。
+10. Home 不覆盖、不插入项目 renderer，也不关闭任何项目。
+11. 人为使 A renderer 崩溃或无响应时，Home、B 和 C 仍可操作；A 可以单独恢复。
+12. 关闭 A 会销毁 A 的 WebContents 和本地 session，B/C/D 不受影响。
+13. A 有 Agent 时关闭 A 会显示项目名和参与者；取消后 A 保持打开。
+14. Stable Agent Board 可以同时编辑多个项目，不要求桌面先激活对应标签。
+15. 不同项目的持久化队列可以独立推进；一个项目保存失败不阻塞其他项目。
+16. 主进程仍是所有项目唯一磁盘写入者，不恢复整项目双写或强制刷新链路。
+17. 退出应用检查并收口所有打开项目，不遗漏后台标签。
+18. 测试必须覆盖 renderer sender 身份、项目进程隔离、崩溃隔离、多项目并发和
+    迁移后旧同 renderer 代码删除。
+19. desktop tests、typecheck、desktop build 和真实安装包中的三至四项目并发
+    UI/内存/故障验收全部通过后，才能标记完成。
+
+### 27.13 当前实施状态与剩余验收
+
+2026-07-26 已按上述顺序完成代码迁移：
+
+1. 先用失败测试固定项目 WebContents 生命周期、同项目去重、IPC sender 绑定、
+   房间 session 绑定、故障隔离和路由元数据释放。
+2. `DesktopShellApp` 只负责 Home、标题栏、标签和项目故障恢复，不挂载
+   Excalidraw。
+3. 项目 renderer 通过 `desktopMode=project` 和 canonical project path 启动，
+   一个 renderer 只持有一个 `DesktopProjectRuntime` 和一套 Excalidraw。
+4. Electron 主进程使用 `WebContentsView` 注册、激活、隐藏、恢复和销毁项目
+   renderer；每个项目使用稳定且互异的内存 session partition，避免不同项目
+   共用 renderer 运行域。
+5. 项目房间、资产、健康检查、生成、剪贴板和维护 IPC 都校验 sender 绑定的
+   project path；room session 还会再次校验 sender。
+6. 非活动项目 View 从窗口 View 树卸载，但不销毁其 WebContents、renderer 或
+   房间；重新激活时原实例直接挂回。关闭活动项目优先选择右侧相邻标签，其次
+   左侧。
+7. renderer 真正崩溃或加载失败时只移除该 renderer 的本地 room session，并在
+   shell 显示单项目恢复入口；短暂 `unresponsive` 只记录诊断信息，不提前销毁
+   session 或把可恢复的 renderer 永久标记为崩溃。
+8. 关闭项目和退出应用都在主进程完成 flush、Agent 参与者确认、房间关闭和强制
+   关闭退路。应用退出使用一次多房间原子收口：先冻结全部目标房间，再完成全部
+   持久化；任一项目失败时取消全部 closing 状态，不能留下“应用没退出但部分
+   房间已关闭”的半完成状态。
+9. 原多画布 DOM、CSS、runtime map/ref、切换 controller、状态机和对应旧测试
+   已物理删除，没有兼容开关；架构守卫测试会在这些文件、标识或单 renderer
+   多画布结构重新出现时失败。
+10. Agent/CLI 的显式 `projectPath` 优先路由到对应后台项目 renderer；只有未给出
+    目标项目时才使用活动标签。响应固定返回原请求方，不会因用户中途切换标签
+    而串到另一个 renderer。
+11. 项目最近记录的读—改—写已进入同一串行队列。多个项目 renderer 同时启动
+    时不会再互相覆盖项目候选列表。
+12. WebSocket 仍拒绝陌生 Origin。Stable Agent Board、API 和项目房间
+    WebSocket 现在同属 Local Bridge `60909` Origin；开发 renderer `5174`
+    只作为内部资源上游和 HMR 连接，不再作为 Agent Board Origin。
+
+开发版已经取得第一层真实运行证据：同时打开两个现有项目和两个通过 CoreStudio
+API 创建的临时项目后，进程列表显示一个 shell renderer 和四个不同 PID 的项目
+renderer；各项目分别保有自己的 RSS，切换前后台不出现加载页。返回 Home 后，
+后台项目不再出现在窗口辅助功能树中，但其 renderer PID 继续存活；重新激活时
+立即恢复原画布。开发版还通过
+`kill -9` 人为终止单个项目 renderer，确认 Home 和另一项目继续工作、故障标签
+可以单独恢复并重新加载完整画布。该复验曾发现 destroyed 回调访问失效
+WebContents 引用，现已改为捕获不可变 `webContentsId`，修复后再次复验通过。
+随后又对临时项目执行 `SIGSTOP` 并触发一次画布输入，主进程明确记录
+`project-renderer:unresponsive`，其他项目仍可进入。该诊断暴露出最初实现把
+`unresponsive` 直接当成永久崩溃、提前释放 room session 的错误；当前实现已把
+短暂无响应和 `render-process-gone` 分开，只有后者进入恢复流程。两个无 Agent
+临时标签均可直接关闭，未出现多余确认。
+
+第二层开发版真实运行证据也已完成：
+
+- B 为前台时，Agent 通过 A 的明确项目身份写入文本；A 的房间立即合并并持久化，
+  B 保持不变，切回 A 后无需刷新即可看到结果。
+- A 为前台时对 B 重复相同验证，两个后台方向都没有串项目。
+- 临时项目 B 存在 Agent WebSocket 参与者时，关闭标签显示项目名和 Agent 名称；
+  取消后标签和连接继续存在；确认后依次收到 `room.closing`、
+  `room.closed(project-closed)`，随后 WebSocket 以 1001 正常关闭。
+- 临时项目 A 存在 Agent 时，退出应用显示相同二次确认；取消后应用与房间继续
+  运行；确认后收到 `room.closed(app-closed)` 并正常退出。
+- 验收过程中真实复现了开发端口 Origin 拒绝和最近项目并发覆盖，均先补失败测试
+  再修复；临时项目已经通过 CoreStudio 流程关闭并移动到废纸篓，原有最近项目
+  记录已通过 CoreStudio 自身 API 恢复。
+
+当前源码验证结果：typecheck 通过，Desktop 全量 225 个测试文件、1764 个测试
+全部通过，Desktop build 通过。尚不能标记安装版最终完成，原因是本机已安装
+Codex 集成仍为 1.8.0，而当前源码协议要求 1.9.0；稳定地址因此正确显示“需要
+更新 CoreStudio 集成”。本轮没有擅自安装或打包。用户明确进入打包和安装阶段
+后，仍需完成真实安装包中的三至四项目并发、稳定地址、双画布、图片原图和故障
+隔离联合验收。
+
+### 27.14 2026-07-26 定向 Debug 收口
+
+本轮没有扩大功能范围，只针对现有生命周期和身份边界做了第二次定向审计。通过
+失败测试确认并修复了四个明确问题：
+
+1. Electron 的 `unresponsive` 事件原本会立即释放项目 renderer 的 room
+   session 并把标签标记为崩溃。短暂主线程阻塞可以恢复，因此该处理会制造“画布
+   放一段时间后直接挂掉”的假故障。现在 `unresponsive` 只记录日志，真正的
+   `render-process-gone` 或加载失败才进入不可用流程。
+2. `ProjectRoomClientController.stop()` 与尚未完成的 `join()` 竞态时，迟到的
+   join 结果可能留下幽灵 room session。现在 transport 明确区分“离开已加入
+   session”和“取消待加入连接”；如果 IPC join 已经无法取消，迟到结果会按服务
+   端返回的真实 `sessionId` 立即 leave。
+3. `DesktopProjectRuntime` 在启动过程中被停止后，旧 join 仍可能回调
+   `onReadyChange(true)`，把已经停止的 renderer 重新标成 ready。现在每次
+   start/stop 都校验生命周期代际，旧异步结果不能再写回运行态。
+4. Stable Agent Board 的页面 nonce 原本带有独立五分钟 TTL，与第 26.4 节
+   “身份绑定跟随浏览器页面会话，不设置独立倒计时”的契约冲突。现在页面 nonce
+   不因闲置自行失效；launch ticket 和 resume token 仍保留各自的短期凭证期限。
+
+静态审计还确认活动标签更新与全局 CLI/Bridge `currentProject` 之间存在异步读
+项目描述符的覆盖窗口。现在活动项目描述符同步在提交前重新核对 registry 的
+权威活动路径，切到另一个项目或 Home 后，迟到读取不能再恢复旧项目身份。
+
+开发版运行态使用本机调试端口同时打开两个真实项目，确认存在一个 shell
+renderer 和两个独立项目 renderer；依次激活项目 A、项目 B、再返回 Home 时，
+registry 的 `activeProjectPath` 与 Bridge/CLI 的 `currentProject.projectPath`
+分别一致为 A、B、`null`。本次没有修改两个项目的 scene。
+
+当前自动验证覆盖上述生命周期竞态、Stable Board 页面身份和活动项目同步；还需
+在未锁定的 macOS 会话中补做一次短暂无响应后自动恢复、Agent presence 和画布
+交互的可视化验收。该项属于安装前 UI 证据，不再通过新增兜底逻辑替代。
+
+多 renderer 迁移后，macOS“项目维护”菜单曾继续把健康检查、数据修复和缓存清理
+事件发送给 shell renderer，导致项目 renderer 中的既有处理器无法收到命令。菜单
+事件现在按作用域路由：项目操作进入 registry 中的活动且 ready 的项目 renderer，
+项目打开结果仍返回 shell；Home 或项目 renderer 崩溃时，三个项目维护项直接禁用。
+开发版已在真实“工业设计助手”项目上执行只读健康检查，项目 renderer 正常显示
+“项目检查完成：202 张图片资源、142 条生成记录与画板一致”；未执行修复或清理。
+
+应用设置与关于属于应用级能力，不依赖某个项目存在。菜单事件现在优先交给活动且
+ready 的项目 renderer，以维持画布内原有对话框体验；位于 Home 或没有可用项目
+renderer 时则回退到 shell。Shell 复用同一组设置页面组件，只新增对话框宿主，不
+复制设置表单；主进程也只向 shell 开放应用信息、语言、图像服务配置、Codex 集成
+和外部链接这些应用级 IPC，项目资产与项目维护接口仍保持 sender 隔离。开发版已
+分别在 Home 和“工业设计助手”项目页打开完整应用设置，确认两处读取到同一套
+ZenMux 配置，项目页原入口未回归。
+
+Stable Agent Board 的集成版本检查只承担只读诊断，不再从网页执行安装或更新。
+版本不匹配时，页面说明具体原因，并引导用户回到 CoreStudio 的“应用设置 >
+Codex 集成”完成更新后刷新页面；Local Bridge 不再暴露网页专用的集成修复路由。
+CoreStudio 应用设置中的既有安装能力继续保留，避免同一项系统级操作同时存在网页
+和桌面端两条入口。
+
+CoreStudio 项目菜单不再暴露 Excalidraw 的“导出图片”“在画布上查找”和“重置
+画布”。前两项与当前图片资产和自有侧栏路径不一致，整画布重置又会把批量删除
+广播给所有房间参与者。底层能力不做产品级复制：CoreStudio 通过既有
+`UIOptions` 关闭清空和图片导出，并让禁用的 action 同时退出快捷键与帮助列表；
+关闭默认侧栏时，文本搜索 action 也不再响应 `Cmd/Ctrl+F`。普通 Excalidraw
+默认配置下的搜索、导出和清空能力保持不变。
+
+### 27.15 2026-07-26 Stable Board 规范地址收口
+
+Stable Agent Board 的公开地址统一为：
+
+```text
+http://127.0.0.1:60909/board/<stableBoardId>
+```
+
+该地址只包含 Local Bridge 的固定 Origin、`/board` 路由和稳定项目身份。开发端口
+`5174`、`bridge` 参数、launch ticket、resume token 和 project token 都不再进入
+项目稳定地址。无论开发版还是安装版，用户、CLI、Skill 和“复制画布地址”拿到的
+都是同一格式；`5174` 只作为开发时的内部 renderer 服务存在。
+
+Local Bridge 继续作为唯一公开入口。安装版直接提供构建产物，并为嵌套路由注入
+根级 `base`，确保 `/board/<stableBoardId>` 下的脚本、样式和字体仍从
+`/assets/...` 加载；开发版由 Local Bridge 反向代理 Vite 页面和模块请求，HMR
+仍直接连接内部 `5174`。API 与 WebSocket 继续位于同一个 `60909` Origin，不新增
+第二套公开服务。
+
+旧 `/agent-board...` 地址和带 `bridge`、ticket 或 token 的历史页面地址不做
+迁移或兼容。旧页面路径由 Local Bridge 明确返回 404；规范 `/board` 页面如果
+发现历史敏感查询参数，则只显示地址已失效并要求从 CoreStudio 重新复制。项目
+候选页可以临时携带 `projectSelectionToken`，但它不是稳定项目地址。
+
+CoreStudio Codex 集成版本同步提升为 1.9.0、Skill 契约版本提升为 13。CLI、Skill、
+集成文档、会话测试和界面测试已统一使用规范地址，避免任一入口继续向 Agent
+暴露开发实现细节。
+
+当前验证证据：
+
+- Stable Board URL、浏览器路由、Local Bridge 静态服务和开发代理均有回归测试；
+- Desktop 全量 226 个测试文件、1789 个测试全部通过；
+- typecheck 与 Desktop build 通过；
+- worktree 开发版真实访问规范项目地址返回 200，`/@vite/client` 经 60909 返回
+  200，旧 `/agent-board/<stableBoardId>` 返回 404；
+- 仓库级格式检查仍报告 4 个本轮未修改的既有文件，本轮改动文件不在报告中。
+
+后续代码 review 进一步收紧了地址语法：页面入口只接受精确 `/board`，或仅含一个
+非空路径段的 `/board/<stableBoardId>`；尾斜杠、额外路径段、无法解码的百分号
+编码和稳定项目地址上的任意查询参数均无效。`projectSelectionToken` 只允许作为
+精确 `/board` 的唯一查询参数。无效地址由页面显示重新复制提示，不再触发
+renderer 异常。
+
+开发代理也不再把所有非 API 页面导航交给 Vite。只有规范 Board 页面可以获得
+HTML fallback；Vite 模块和资源请求继续代理，其他 HTML 页面请求进入 Local
+Bridge 的标准 404。相应失败测试已覆盖开发版无效页面、安装版尾斜杠与嵌套路径、
+候选令牌污染以及非法编码。
+
+App 中从 URL 读取旧 `launchTicket` / `resumeToken` 并直接建立房间的兼容分支，
+以及依赖旧一次性链接过期状态的重复 UI，已经物理删除。Stable Board 只通过页面
+nonce、当前 Codex 身份认领和 session exchange 取得连接票据；架构守卫测试禁止
+旧 URL 凭证分支重新进入根应用。
+
+本轮没有打包、安装或更新本机 Codex 集成。安装包中的地址栏、复制入口和升级后
+Skill 行为仍归入下一次明确授权的打包验收。

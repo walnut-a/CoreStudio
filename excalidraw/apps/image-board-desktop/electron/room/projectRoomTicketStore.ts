@@ -76,6 +76,7 @@ export class ProjectRoomTicketStore {
   }
 
   public issueLaunchTicket(input: IssueProjectRoomLaunchTicketInput) {
+    this.purgeExpired();
     const ticket = this.randomId();
     this.launchTickets.set(ticket, {
       identity: structuredClone(input.identity),
@@ -92,6 +93,7 @@ export class ProjectRoomTicketStore {
   ): ProjectRoomTicketExchange {
     const grant = this.launchTickets.get(ticket);
     this.launchTickets.delete(ticket);
+    this.purgeExpired();
     if (!grant) {
       throw new ProjectRoomError(
         "AUTH_REQUIRED",
@@ -115,6 +117,7 @@ export class ProjectRoomTicketStore {
     currentIdentity: ProjectRoomIdentity,
   ): ProjectRoomTicketExchange {
     const grant = this.resumeTokens.get(resumeToken);
+    this.purgeExpired();
     if (!grant) {
       throw new ProjectRoomError(
         "AUTH_REQUIRED",
@@ -122,7 +125,10 @@ export class ProjectRoomTicketStore {
       );
     }
     this.assertGrant(grant, currentIdentity);
-    return this.createExchange(resumeToken, grant);
+    this.resumeTokens.delete(resumeToken);
+    const nextResumeToken = this.randomId();
+    this.resumeTokens.set(nextResumeToken, grant);
+    return this.createExchange(nextResumeToken, grant);
   }
 
   public authorizeResumeToken(
@@ -130,6 +136,7 @@ export class ProjectRoomTicketStore {
     currentIdentity: ProjectRoomIdentity,
   ) {
     const grant = this.resumeTokens.get(resumeToken);
+    this.purgeExpired();
     if (!grant) {
       throw new ProjectRoomError(
         "AUTH_REQUIRED",
@@ -149,10 +156,17 @@ export class ProjectRoomTicketStore {
       : input.resumeToken
       ? this.resumeTokens.get(input.resumeToken)
       : null;
+    this.purgeExpired();
     if (!grant) {
       throw new ProjectRoomError(
         "AUTH_REQUIRED",
         "A valid project room ticket is required.",
+      );
+    }
+    if (grant.expiresAt < this.now()) {
+      throw new ProjectRoomError(
+        "TOKEN_EXPIRED",
+        "The project room ticket has expired.",
       );
     }
     return structuredClone(grant.identity);
@@ -182,6 +196,20 @@ export class ProjectRoomTicketStore {
       );
     }
     assertIdentity(grant.identity, currentIdentity);
+  }
+
+  private purgeExpired() {
+    const now = this.now();
+    for (const [ticket, grant] of this.launchTickets) {
+      if (grant.expiresAt < now) {
+        this.launchTickets.delete(ticket);
+      }
+    }
+    for (const [token, grant] of this.resumeTokens) {
+      if (grant.expiresAt < now) {
+        this.resumeTokens.delete(token);
+      }
+    }
   }
 
   private createExchange(

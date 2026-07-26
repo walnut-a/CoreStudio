@@ -1,14 +1,18 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 
 import type { DesktopProjectBundle } from "../../src/shared/desktopBridgeTypes";
-import { isProjectRoomSceneElement } from "../../src/shared/projectRoomProtocol";
+import {
+  isProjectRoomSceneElement,
+  type ProjectRoomClosed,
+} from "../../src/shared/projectRoomProtocol";
 
 import {
   createProjectRoomManager,
   type ProjectRoomManager,
 } from "./roomManager";
-import { ProjectRoomError } from "./projectRoom";
+import { ProjectRoomError, type ProjectRoom } from "./projectRoom";
 import { createProjectRoomPersistence } from "./projectRoomPersistence";
 
 interface ProjectSceneWriteInput {
@@ -16,6 +20,24 @@ interface ProjectSceneWriteInput {
   sceneJson: string;
   expectedSceneHash?: string | null;
 }
+
+const parseProjectSceneDocument = (
+  sceneJson: string,
+): Record<string, unknown> => {
+  const parsed = JSON.parse(sceneJson) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ProjectRoomError(
+      "PERSISTENCE_FAILED",
+      "Maintenance produced an invalid project scene.",
+    );
+  }
+  return parsed as Record<string, unknown>;
+};
+
+const omitSceneElements = ({
+  elements: _elements,
+  ...document
+}: Record<string, unknown>) => document;
 
 export interface CreateProjectRoomServiceInput {
   readProjectBundle: (
@@ -74,7 +96,10 @@ export class ProjectRoomService {
 
   public async closeProject(
     projectId: string,
-    options: { force?: boolean } = {},
+    options: {
+      force?: boolean;
+      reason?: ProjectRoomClosed["reason"];
+    } = {},
   ) {
     const room = this.manager.get(projectId);
     if (!room) {
@@ -90,7 +115,7 @@ export class ProjectRoomService {
       }
     }
     const canonicalProjectPath = room.identity.canonicalProjectPath;
-    const closed = this.manager.close(projectId);
+    const closed = this.manager.close(projectId, options.reason);
     if (closed) {
       this.projectIdByPath.delete(canonicalProjectPath);
     }
@@ -121,6 +146,7 @@ export class ProjectRoomService {
     projectPath: string,
     options: {
       force?: boolean;
+      reason?: ProjectRoomClosed["reason"];
       expectedRoomId?: string;
       requestingSessionId?: string;
       acknowledgedParticipantSessionIds?: string[];
@@ -130,36 +156,83 @@ export class ProjectRoomService {
     if (!room) {
       return false;
     }
-    if (!options.force && options.expectedRoomId) {
-      const currentParticipantSessionIds = room
-        .getSnapshot()
-        .participants.filter(
-          (participant) =>
-            participant.sessionId !== options.requestingSessionId,
-        )
-        .map((participant) => participant.sessionId)
-        .sort();
-      const acknowledgedParticipantSessionIds = [
-        ...(options.acknowledgedParticipantSessionIds ?? []),
-      ].sort();
-      if (
-        room.identity.roomId !== options.expectedRoomId ||
-        JSON.stringify(currentParticipantSessionIds) !==
-          JSON.stringify(acknowledgedParticipantSessionIds)
-      ) {
-        throw new ProjectRoomError(
-          "PARTICIPANTS_CHANGED",
-          "Project room participants changed while close confirmation was open.",
-          {
-            expectedRoomId: options.expectedRoomId,
-            currentRoomId: room.identity.roomId,
-            acknowledgedParticipantSessionIds,
-            currentParticipantSessionIds,
-          },
-        );
-      }
+    if (!options.force) {
+      this.assertRoomCloseState(room, options);
     }
     return this.closeProject(room.identity.projectId, options);
+  }
+
+  public async closeProjectPaths(
+    requests: Array<{
+      projectPath: string;
+      expectedRoomId?: string;
+      requestingSessionId?: string;
+      acknowledgedParticipantSessionIds?: string[];
+    }>,
+    options: {
+      reason?: ProjectRoomClosed["reason"];
+      requireExactRoomSet?: boolean;
+    } = {},
+  ) {
+    const rooms = (
+      await Promise.all(
+        requests.map(async (request) => ({
+          request,
+          room: await this.findOpenRoom(request.projectPath),
+        })),
+      )
+    ).filter(
+      (
+        entry,
+      ): entry is {
+        request: (typeof requests)[number];
+        room: ProjectRoom;
+      } => Boolean(entry.room),
+    );
+    const uniqueRooms = rooms.filter(
+      ({ room }, index) =>
+        rooms.findIndex(
+          (candidate) =>
+            candidate.room.identity.projectId === room.identity.projectId,
+        ) === index,
+    );
+
+    if (options.requireExactRoomSet) {
+      this.assertExactRoomSet(uniqueRooms.map(({ room }) => room));
+    }
+    for (const { request, room } of uniqueRooms) {
+      this.assertRoomCloseState(room, request);
+    }
+    for (const { room } of uniqueRooms) {
+      room.beginClosing();
+    }
+    try {
+      await Promise.all(
+        uniqueRooms.map(({ room }) => room.flushPersistence()),
+      );
+      if (options.requireExactRoomSet) {
+        this.assertExactRoomSet(uniqueRooms.map(({ room }) => room));
+      }
+    } catch (error) {
+      for (const { room } of uniqueRooms) {
+        room.cancelClosing();
+      }
+      throw error;
+    }
+
+    let closedRoomCount = 0;
+    for (const { room } of uniqueRooms) {
+      if (
+        this.manager.close(
+          room.identity.projectId,
+          options.reason ?? "app-closed",
+        )
+      ) {
+        this.projectIdByPath.delete(room.identity.canonicalProjectPath);
+        closedRoomCount += 1;
+      }
+    }
+    return closedRoomCount;
   }
 
   public async findOpenRoom(projectPath: string) {
@@ -178,9 +251,7 @@ export class ProjectRoomService {
       await this.input.writeProjectScene(input);
       return;
     }
-    const parsed = JSON.parse(input.sceneJson) as {
-      elements?: unknown;
-    };
+    const parsed = parseProjectSceneDocument(input.sceneJson);
     if (
       !Array.isArray(parsed.elements) ||
       !parsed.elements.every(isProjectRoomSceneElement)
@@ -188,6 +259,24 @@ export class ProjectRoomService {
       throw new ProjectRoomError(
         "PERSISTENCE_FAILED",
         "Maintenance produced an invalid project scene.",
+      );
+    }
+    const currentBundle = await this.input.readProjectBundle(
+      room.identity.canonicalProjectPath,
+    );
+    const currentDocument = parseProjectSceneDocument(currentBundle.sceneJson);
+    if (
+      !isDeepStrictEqual(
+        omitSceneElements(parsed),
+        omitSceneElements(currentDocument),
+      )
+    ) {
+      throw new ProjectRoomError(
+        "PERSISTENCE_FAILED",
+        "Maintenance can only change scene elements while a project room is active.",
+        {
+          reason: "UNSUPPORTED_MAINTENANCE_SCENE_FIELDS",
+        },
       );
     }
     room.applyMaintenanceOperation({
@@ -226,6 +315,68 @@ export class ProjectRoomService {
     this.lastEpochByProjectId.set(projectId, sessionEpoch);
     this.projectIdByPath.set(canonicalProjectPath, projectId);
     return room;
+  }
+
+  private assertRoomCloseState(
+    room: ProjectRoom,
+    options: {
+      expectedRoomId?: string;
+      requestingSessionId?: string;
+      acknowledgedParticipantSessionIds?: string[];
+    },
+  ) {
+    if (!options.expectedRoomId) {
+      return;
+    }
+    const currentParticipantSessionIds = room
+      .getSnapshot()
+      .participants.filter(
+        (participant) =>
+          participant.sessionId !== options.requestingSessionId,
+      )
+      .map((participant) => participant.sessionId)
+      .sort();
+    const acknowledgedParticipantSessionIds = [
+      ...(options.acknowledgedParticipantSessionIds ?? []),
+    ].sort();
+    if (
+      room.identity.roomId !== options.expectedRoomId ||
+      JSON.stringify(currentParticipantSessionIds) !==
+        JSON.stringify(acknowledgedParticipantSessionIds)
+    ) {
+      throw new ProjectRoomError(
+        "PARTICIPANTS_CHANGED",
+        "Project room participants changed while close confirmation was open.",
+        {
+          expectedRoomId: options.expectedRoomId,
+          currentRoomId: room.identity.roomId,
+          acknowledgedParticipantSessionIds,
+          currentParticipantSessionIds,
+        },
+      );
+    }
+  }
+
+  private assertExactRoomSet(expectedRooms: ProjectRoom[]) {
+    const expectedProjectIds = expectedRooms
+      .map((room) => room.identity.projectId)
+      .sort();
+    const currentProjectIds = this.manager
+      .list()
+      .map((room) => room.identity.projectId)
+      .sort();
+    if (
+      JSON.stringify(expectedProjectIds) !== JSON.stringify(currentProjectIds)
+    ) {
+      throw new ProjectRoomError(
+        "PARTICIPANTS_CHANGED",
+        "The open project room set changed while the app was closing.",
+        {
+          expectedProjectIds,
+          currentProjectIds,
+        },
+      );
+    }
   }
 }
 

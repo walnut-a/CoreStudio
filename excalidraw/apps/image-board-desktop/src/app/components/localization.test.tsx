@@ -166,9 +166,9 @@ describe("Chinese localization", () => {
     expect(
       screen.getByText("/Users/zhaolixing/Documents/工业设计助手/常用项目"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "继续最近项目" })).toHaveClass(
-      "excalidraw-button",
-    );
+    expect(
+      screen.queryByRole("button", { name: "继续最近项目" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新建项目" })).toHaveClass(
       "excalidraw-button",
     );

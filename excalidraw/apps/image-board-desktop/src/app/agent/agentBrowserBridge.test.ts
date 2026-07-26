@@ -5,16 +5,17 @@ import {
   buildAgentBrowserRouteState,
   maybeCreateAgentBrowserDesktopBridge,
 } from "./agentBrowserBridge";
+import { setAgentBrowserRoomResumeToken } from "./agentBrowserRoomCredentials";
 
 describe("buildAgentBrowserRouteState", () => {
-  it("detects the Agent Board route without reading legacy project tokens", () => {
+  it("does not recognize the removed Agent Board route", () => {
     expect(
       buildAgentBrowserRouteState({
         pathname: "/agent-board",
         href: "http://127.0.0.1:5174/agent-board?projectToken=project-token",
       }),
     ).toEqual({
-      isAgentBrowserRoute: true,
+      isAgentBrowserRoute: false,
     });
   });
 
@@ -28,18 +29,91 @@ describe("buildAgentBrowserRouteState", () => {
       isAgentBrowserRoute: false,
     });
   });
+
+  it("detects a stable project Agent Board route", () => {
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board/stable-board-id",
+        href: "http://127.0.0.1:60909/board/stable-board-id",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: true,
+      stableBoardId: "stable-board-id",
+    });
+  });
+
+  it("marks token-bearing Board URLs as invalid", () => {
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board",
+        href: "http://127.0.0.1:60909/board?resumeToken=old-token",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: true,
+      invalidAddress: true,
+    });
+  });
+
+  it("recognizes project selection only on the exact Board route", () => {
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board",
+        href: "http://127.0.0.1:60909/board?projectSelectionToken=selection-token",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: true,
+      projectSelectionToken: "selection-token",
+    });
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board/stable-board-id",
+        href: "http://127.0.0.1:60909/board/stable-board-id?projectSelectionToken=selection-token",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: true,
+      stableBoardId: "stable-board-id",
+      invalidAddress: true,
+    });
+  });
+
+  it("rejects empty, polluted and malformed Board addresses without throwing", () => {
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board/",
+        href: "http://127.0.0.1:60909/board/",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: false,
+    });
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board",
+        href: "http://127.0.0.1:60909/board?projectSelectionToken=selection-token&unexpected=value",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: true,
+      invalidAddress: true,
+    });
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board/%E0%A4%A",
+        href: "http://127.0.0.1:60909/board/%E0%A4%A",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: true,
+      invalidAddress: true,
+    });
+  });
 });
 
 describe("buildAgentBrowserBridgeConfig", () => {
-  it("normalizes the Agent Bridge URL and ignores project tokens", () => {
+  it("does not create a bridge for a legacy project-token URL", () => {
     expect(
       buildAgentBrowserBridgeConfig({
         pathname: "/agent-board",
         href: "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909%2F%2F&projectToken=project-token",
       }),
-    ).toEqual({
-      bridge: "http://127.0.0.1:60909",
-    });
+    ).toBeNull();
   });
 
   it("does not create a bridge config outside the Agent Board route", () => {
@@ -51,25 +125,55 @@ describe("buildAgentBrowserBridgeConfig", () => {
     ).toBeNull();
   });
 
-  it("requires the local bridge query parameter", () => {
+  it("uses the page origin for a stable project route", () => {
     expect(
       buildAgentBrowserBridgeConfig({
-        pathname: "/agent-board",
-        href: "http://127.0.0.1:5174/agent-board?projectToken=project-token",
+        pathname: "/board/stable-board-id",
+        href: "http://127.0.0.1:60909/board/stable-board-id",
       }),
-    ).toBeNull();
+    ).toEqual({
+      bridge: "http://127.0.0.1:60909",
+      stableBoardId: "stable-board-id",
+    });
   });
 
-  it("keeps the scoped project selection token separate from project tokens", () => {
+  it("uses the page origin for the project-selection route", () => {
     expect(
       buildAgentBrowserBridgeConfig({
-        pathname: "/agent-board",
-        href: "http://127.0.0.1:5174/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectSelectionToken=selection-token&projectToken=legacy-token",
+        pathname: "/board",
+        href: "http://127.0.0.1:60909/board?projectSelectionToken=selection-token",
       }),
     ).toEqual({
       bridge: "http://127.0.0.1:60909",
       projectSelectionToken: "selection-token",
     });
+  });
+
+  it("rejects a removed Bridge query even on the canonical route", () => {
+    expect(
+      buildAgentBrowserBridgeConfig({
+        pathname: "/board/stable-board-id",
+        href: "http://127.0.0.1:60909/board/stable-board-id?bridge=http%3A%2F%2F127.0.0.1%3A5174",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a project-selection token on a stable project route", () => {
+    expect(
+      buildAgentBrowserBridgeConfig({
+        pathname: "/board/stable-board-id",
+        href: "http://127.0.0.1:60909/board/stable-board-id?projectSelectionToken=selection-token",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a project-selection URL polluted with a legacy project token", () => {
+    expect(
+      buildAgentBrowserBridgeConfig({
+        pathname: "/board",
+        href: "http://127.0.0.1:60909/board?projectSelectionToken=selection-token&projectToken=legacy-token",
+      }),
+    ).toBeNull();
   });
 });
 
@@ -78,7 +182,7 @@ describe("room-scoped Agent Browser assets", () => {
     window.history.pushState(
       null,
       "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&projectSelectionToken=selection-token",
+      "/board?projectSelectionToken=selection-token",
     );
     const fetchMock = vi.fn(
       async () =>
@@ -93,7 +197,7 @@ describe("room-scoped Agent Browser assets", () => {
     await bridge?.loadRecentProjects();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:60909/v1/board/projects",
+      `${window.location.origin}/v1/board/projects`,
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer selection-token",
@@ -103,11 +207,8 @@ describe("room-scoped Agent Browser assets", () => {
   });
 
   it("persists assets through the room route without a project token", async () => {
-    window.history.pushState(
-      null,
-      "",
-      "/agent-board?bridge=http%3A%2F%2F127.0.0.1%3A60909&resumeToken=resume-token",
-    );
+    window.history.pushState(null, "", "/board/stable-board-id");
+    setAgentBrowserRoomResumeToken("resume-token");
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ ok: true, data: {} }), {
@@ -134,7 +235,7 @@ describe("room-scoped Agent Browser assets", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:60909/v1/room/assets/persist",
+      `${window.location.origin}/v1/room/assets/persist`,
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -142,5 +243,6 @@ describe("room-scoped Agent Browser assets", () => {
         }),
       }),
     );
+    setAgentBrowserRoomResumeToken(null);
   });
 });

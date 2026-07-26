@@ -15,8 +15,7 @@ import {
   getSceneOccupiedBounds,
   getViewportCenterFromAppState,
   getViewportZoomValue,
-  type WorkspaceBounds,
-} from "./workspaceBounds";
+} from "./sceneGeometry";
 
 import type { GenerationRequest } from "../shared/providerTypes";
 
@@ -29,13 +28,6 @@ export interface PendingGenerationReferenceScene {
   elements: readonly ExcalidrawElement[];
   appState: AppState;
   files: BinaryFiles;
-}
-
-export interface PendingGenerationWorkspaceBoundsContext {
-  elements: readonly ExcalidrawElement[];
-  appState: AppState;
-  placementViewport: GeneratedImagePlacementViewport;
-  explicitPlacementViewport: GeneratedImagePlacementViewport | null;
 }
 
 export interface PendingGenerationPlacementResult {
@@ -51,7 +43,6 @@ export const buildPendingGenerationPlacements = ({
   fallbackReferenceScene,
   lastCanvasPointer,
   previousBatchBounds,
-  resolveWorkspaceBounds,
 }: {
   api: PendingGenerationPlacementApi;
   request: GenerationRequest;
@@ -60,9 +51,6 @@ export const buildPendingGenerationPlacements = ({
   fallbackReferenceScene?: PendingGenerationReferenceScene | null;
   lastCanvasPointer?: { x: number; y: number } | null;
   previousBatchBounds?: SceneBounds | null;
-  resolveWorkspaceBounds: (
-    context: PendingGenerationWorkspaceBoundsContext,
-  ) => WorkspaceBounds | null;
 }): PendingGenerationPlacementResult => {
   const appState = api.getAppState();
   const elements = api.getSceneElementsIncludingDeleted();
@@ -77,12 +65,6 @@ export const buildPendingGenerationPlacements = ({
       },
       zoomValue: getViewportZoomValue(appState),
     },
-  });
-  const workspaceBounds = resolveWorkspaceBounds({
-    elements,
-    appState,
-    placementViewport,
-    explicitPlacementViewport: normalizedExplicitPlacementViewport,
   });
   const anchorBounds = getGenerationReferenceAnchorBounds(
     request,
@@ -100,7 +82,6 @@ export const buildPendingGenerationPlacements = ({
     viewportCenter: placementViewport.viewportCenter,
     viewportSize: placementViewport.viewportSize,
     zoomValue: placementViewport.zoomValue,
-    workspaceBounds,
     previousBatchBounds: getGeneratedImagePreviousBatchBounds({
       anchorBounds,
       anchorPoint,

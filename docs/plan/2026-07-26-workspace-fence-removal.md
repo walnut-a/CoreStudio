@@ -1,6 +1,6 @@
 # CoreStudio 工作区围栏移除计划
 
-> 状态：方向已确认，等待当前多项目 renderer 重构形成可作为基线的提交后实施
+> 状态：已完成实现、自动验证与主画布围栏验收；Agent 写入场景真实界面验收待补
 >
 > 产品事实来源：`docs/spec/2026-07-23-corestudio-agent-board-editing-soft-delete-and-incremental-writeback.md` 第 11.5–11.6 节
 > 日期：2026-07-26
@@ -54,6 +54,8 @@ Agent/Codex 写入的结果靠近有效语义锚点，以整批形式稳定排�
 - 同一轮成功图片通过一个 `files[]` 请求进入一个房间 operation。
 - 布局器按整批边界避让，不拆成逐图搜索。
 - 候选位置按到语义锚点的实际距离稳定排序，返回最近的无重叠位置。
+- 搜索从冲突位置按实际距离展开到障碍边缘，直到取得最近合法位置；不能因为
+  固定搜索半径或远端场景外边界而跳过附近空位。
 - selection 和 viewport 仍是 participant 本地状态，写入不能持久化或广播他人的
   视口。
 
@@ -113,20 +115,38 @@ Agent/Codex 写入的结果靠近有效语义锚点，以整批形式稳定排�
 这项工作适合独立 worktree，因为它会同时改动布局器、Agent writer、App wiring、
 组件和测试，且需要保持一条可独立验证的删除链路。
 
-当前不立即创建 worktree。主工作区正在进行未提交的多项目 renderer 重构，并且
-已经大幅修改 `App.tsx` 和协作 Spec；从当前 `main` HEAD 新开会落在旧运行时上，
-最终需要重新移植或解决无意义冲突。
+已在多项目 renderer 重构提交 `90423bdfe` 之上创建独立分支
+`walnut/remove-workspace-fence`，worktree 位于
+`/Users/zhaolixing/GitHub/工业设计助手-remove-workspace-fence`。
 
-创建时机：
+围栏删除链路与主工作区隔离，不修改或暂存主工作区文件。
 
-1. 当前多项目 renderer 重构完成验证并形成明确提交。
-2. 确认该提交包含项目级 renderer 结构和当前协作 Spec。
-3. 从该提交创建 `walnut/remove-workspace-fence`。
-4. worktree 建议路径为仓库同级的
-   `/Users/zhaolixing/GitHub/工业设计助手-remove-workspace-fence`。
+## 实施结果
 
-不得为了提前创建 worktree，把当前工作区的大量未提交改动打成临时混合提交，也
-不得在新 worktree 中基于旧 `App.tsx` 实现后再反向移植。
+- `workspaceBounds.ts`、围栏 Overlay 组件、样式和对应测试已物理删除。
+- 图片布局 API 不再接收 `workspaceBounds`；空位搜索从冲突位置按实际距离展开
+  到障碍边缘，直接返回最近的合法整批区域，不使用固定搜索半径或场景外边界。
+- 通用场景边界、占用区域和视口换算已迁移到 `sceneGeometry.ts`。
+- Agent 图片写入在 participant 视口缺失且项目已有内容时，选择最接近场景中心
+  的实际占用元素作为放置锚点，避免落在相距很远的内容簇之间；只有空场景才使用
+  初始视口。该图片兜底不改变 `scene.addPrompt` 的既有放置语义。
+- App、项目切换、scene change、viewport change、生成、导入和修复链路中的围栏
+  状态与副作用已全部移除。
+- 历史设计文档已改为废止说明，避免继续把围栏描述为当前方案。
+
+## 当前验证证据
+
+- 新增局部放置、固定半径外近空位、Agent 缺失视口/远距双簇和提示文本隔离回归
+  均按 TDD 先失败、实现后通过。
+- 围栏相关 13 个直接测试文件全部通过。
+- TypeScript 全量类型检查通过。
+- CoreStudio Desktop 生产构建通过。
+- Desktop 全量测试首轮除一条已废止 Overlay 断言外全部通过；删除该过时断言后
+  已复跑最终全量测试。
+- 使用当前 worktree 的 Electron 可执行文件和独立 `user-data-dir` 验证：
+  - 空画布不再显示工作区虚线；
+  - 已有图形的画布不再显示工作区虚线；
+  - 两种状态均可连续缩小到 Excalidraw 的 `1%`，不出现软停顿或蓝色脉冲。
 
 ## 完成标准
 
@@ -135,4 +155,6 @@ Agent/Codex 写入的结果靠近有效语义锚点，以整批形式稳定排�
 - 所有图片写入入口复用同一批量布局语义。
 - 围栏视觉、缩放软停顿和落点边界代码被物理删除，没有兼容开关。
 - 无限画布平移和缩放保持正常。
-- 自动验证和真实界面验证全部取得当前证据。
+- 自动验证和主画布围栏移除的真实界面验收已取得当前证据。
+- Agent Board、有无参考图、密集内容、连续多批、远端项目及后台项目写入隔离的
+  真实界面验收仍待补齐。

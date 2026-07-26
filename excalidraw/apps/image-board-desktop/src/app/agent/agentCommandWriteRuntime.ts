@@ -11,7 +11,7 @@ import { appendElementsWithSyncedIndices } from "../sceneOrder";
 import {
   getElementsSceneBounds,
   getSceneOccupiedBounds,
-} from "../workspaceBounds";
+} from "../sceneGeometry";
 import {
   getAgentBoardSelectedElementIds,
   getPlacementViewportFromAgentBoardContext,
@@ -39,6 +39,55 @@ const DEFAULT_AGENT_VIEWPORT = {
   viewportCenter: { x: 0, y: 0 },
   viewportSize: { width: 1280, height: 720 },
   zoomValue: 1,
+};
+
+const getAgentImagePlacementViewport = ({
+  agentBoardContext,
+  elements,
+}: {
+  agentBoardContext: ReturnType<typeof parseAgentBoardCommandContext>;
+  elements: AgentWriterCommandContext["scene"]["elements"];
+}) => {
+  const participantViewport =
+    getPlacementViewportFromAgentBoardContext(agentBoardContext);
+  if (participantViewport) {
+    return participantViewport;
+  }
+
+  const visibleElements = elements.filter(
+    (element) => !element.isDeleted,
+  ) as unknown as readonly ExcalidrawElement[];
+  const sceneBounds = getElementsSceneBounds(visibleElements);
+  if (!sceneBounds) {
+    return DEFAULT_AGENT_VIEWPORT;
+  }
+  const sceneCenter = {
+    x: sceneBounds.x + sceneBounds.width / 2,
+    y: sceneBounds.y + sceneBounds.height / 2,
+  };
+  const occupiedBounds = getSceneOccupiedBounds(visibleElements);
+  const anchorBounds = occupiedBounds.reduce<{
+    bounds: typeof occupiedBounds[number];
+    distance: number;
+  } | null>((nearest, bounds) => {
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
+    const distance =
+      (centerX - sceneCenter.x) ** 2 + (centerY - sceneCenter.y) ** 2;
+    return !nearest || distance < nearest.distance
+      ? { bounds, distance }
+      : nearest;
+  }, null)?.bounds;
+
+  return {
+    ...DEFAULT_AGENT_VIEWPORT,
+    viewportCenter: anchorBounds
+      ? {
+          x: anchorBounds.x + anchorBounds.width / 2,
+          y: anchorBounds.y + anchorBounds.height / 2,
+        }
+      : sceneCenter,
+  };
 };
 
 const parseAgentAnchorPoint = (anchorPoint: unknown) => {
@@ -141,12 +190,13 @@ export const handleAgentWriteCommand = async (
   assertAgentProjectPath(request.payload, project.projectPath);
   const context = requireAgentWriterContext(request.payload);
   const agentBoardContext = parseAgentBoardCommandContext(request.payload);
-  const placementViewport =
-    getPlacementViewportFromAgentBoardContext(agentBoardContext) ??
-    DEFAULT_AGENT_VIEWPORT;
 
   let prepared: PreparedAgentWriterCommand;
   if (request.command === "scene.addImage") {
+    const placementViewport = getAgentImagePlacementViewport({
+      agentBoardContext,
+      elements: context.scene.elements,
+    });
     const files = getAgentImageAssetsFromPayload(
       request.payload,
       agentBoardContext,
@@ -181,6 +231,9 @@ export const handleAgentWriteCommand = async (
     ) {
       throw createAgentBadRequestError("scene.addPrompt 需要非空 text。");
     }
+    const placementViewport =
+      getPlacementViewportFromAgentBoardContext(agentBoardContext) ??
+      DEFAULT_AGENT_VIEWPORT;
     const element = createAgentPromptTextElement({
       text: request.payload.text,
       anchorPoint: parseAgentAnchorPoint(request.payload.anchorPoint),

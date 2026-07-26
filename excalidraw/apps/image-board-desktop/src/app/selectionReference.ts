@@ -8,7 +8,7 @@ import type { ProjectAssetPayload } from "../shared/desktopBridgeTypes";
 import type { GenerationReferencePayload } from "../shared/providerTypes";
 import { buildExcalidrawBinaryFilesFromProjectAssets } from "./canvasImageAssetState";
 import { copy } from "./copy";
-import { getElementsSceneBounds } from "./workspaceBounds";
+import { getElementsSceneBounds } from "./sceneGeometry";
 
 const REFERENCE_EXPORT_PADDING = 24;
 const REFERENCE_ITEM_TEXT_MAX_LENGTH = 16;

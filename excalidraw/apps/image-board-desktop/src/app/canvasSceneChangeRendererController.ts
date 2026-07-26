@@ -16,8 +16,7 @@ import {
 
 export type CanvasSceneChangeRendererActionResult =
   | { status: "updated" }
-  | { status: "skipped"; reason: "missing-project" }
-  | { status: "skipped"; reason: "workspace-snap" };
+  | { status: "skipped"; reason: "missing-project" };
 
 export interface CanvasSceneChangeRendererActionsInput<
   Elements extends readonly ExcalidrawElement[],
@@ -27,10 +26,6 @@ export interface CanvasSceneChangeRendererActionsInput<
   getActiveProject: () => DesktopProjectBundle | null;
   getRemovedSelectionReferenceSignature: () => string | null;
   setRemovedSelectionReferenceSignature: (signature: string | null) => void;
-  maybeSnapWorkspaceZoom: (
-    elements: Elements,
-    appState: AppStateValue,
-  ) => boolean;
   setLatestScene: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
@@ -41,7 +36,6 @@ export interface CanvasSceneChangeRendererActionsInput<
   scheduleAgentBrowserRuntimeStatePublish: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
-  updateWorkspaceOverlay: (elements: Elements, appState: AppStateValue) => void;
   updateSelectionReference?: (input: {
     signature: string | null;
     getReference: () => GenerationReferencePayload | null;
@@ -67,12 +61,10 @@ export const runCanvasSceneChangeRendererAction = <
   activeProject,
   removedSelectionReferenceSignature,
   setRemovedSelectionReferenceSignature,
-  maybeSnapWorkspaceZoom,
   setLatestScene,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
   scheduleAgentBrowserRuntimeStatePublish,
-  updateWorkspaceOverlay,
   updateSelectionReference,
   setGenerateRequest,
   updateSelectedInspector,
@@ -83,10 +75,6 @@ export const runCanvasSceneChangeRendererAction = <
   activeProject: DesktopProjectBundle | null;
   removedSelectionReferenceSignature: string | null;
   setRemovedSelectionReferenceSignature: (signature: string | null) => void;
-  maybeSnapWorkspaceZoom: (
-    elements: Elements,
-    appState: AppStateValue,
-  ) => boolean;
   setLatestScene: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
@@ -97,7 +85,6 @@ export const runCanvasSceneChangeRendererAction = <
   scheduleAgentBrowserRuntimeStatePublish: (
     scene: SceneSnapshot<Elements, AppStateValue, Files>,
   ) => void;
-  updateWorkspaceOverlay: (elements: Elements, appState: AppStateValue) => void;
   updateSelectionReference?: (input: {
     signature: string | null;
     getReference: () => GenerationReferencePayload | null;
@@ -140,15 +127,10 @@ export const runCanvasSceneChangeRendererAction = <
     setRemovedSelectionReferenceSignature(null);
   }
 
-  if (maybeSnapWorkspaceZoom(elements, appState)) {
-    return { status: "skipped", reason: "workspace-snap" };
-  }
-
   setLatestScene(nextScene);
   updateSceneImageFileIds(elements);
   scheduleVisibleImageRenditionLoad(nextScene);
   scheduleAgentBrowserRuntimeStatePublish(nextScene);
-  updateWorkspaceOverlay(elements, appState);
   setGenerateRequest((current) =>
     syncSelectionReferenceIntoRequest(
       current,
@@ -174,12 +156,10 @@ export const createCanvasSceneChangeRendererActions = <
   getActiveProject,
   getRemovedSelectionReferenceSignature,
   setRemovedSelectionReferenceSignature,
-  maybeSnapWorkspaceZoom,
   setLatestScene,
   updateSceneImageFileIds,
   scheduleVisibleImageRenditionLoad,
   scheduleAgentBrowserRuntimeStatePublish,
-  updateWorkspaceOverlay,
   updateSelectionReference,
   setGenerateRequest,
   updateSelectedInspector,
@@ -193,12 +173,10 @@ export const createCanvasSceneChangeRendererActions = <
       removedSelectionReferenceSignature:
         getRemovedSelectionReferenceSignature(),
       setRemovedSelectionReferenceSignature,
-      maybeSnapWorkspaceZoom,
       setLatestScene,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
-      updateWorkspaceOverlay,
       updateSelectionReference,
       setGenerateRequest,
       updateSelectedInspector,

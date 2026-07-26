@@ -177,6 +177,176 @@ describe("agentCommandWriteRuntime", () => {
     });
   });
 
+  it("keeps an unanchored image near existing remote scene content when viewport context is missing", async () => {
+    const result = await handleAgentWriteCommand(
+      {
+        requestId: "request-remote-scene",
+        command: "scene.addImage",
+        payload: {
+          projectPath: project.projectPath,
+          sourceType: "generated",
+          generationOrigin: "agent-board",
+          fileId: "remote-result",
+          mimeType: "image/png",
+          dataBase64: "aW1hZ2U=",
+          width: 320,
+          height: 180,
+          projectRoomAgentWriter: {
+            ...roomContext,
+            scene: {
+              elements: [
+                {
+                  id: "remote-content",
+                  type: "rectangle",
+                  x: 10_000,
+                  y: 8_000,
+                  width: 400,
+                  height: 300,
+                  angle: 0,
+                  isDeleted: false,
+                  groupIds: [],
+                },
+              ],
+              sharedSceneConfig: {},
+            },
+          },
+        },
+      },
+      { project, deps: {} as any },
+    );
+
+    expect(result).toMatchObject({
+      handled: true,
+      value: {
+        elements: [
+          {
+            type: "image",
+            x: expect.any(Number),
+            y: expect.any(Number),
+          },
+        ],
+      },
+    });
+    if (!result.handled) {
+      throw new Error("Expected the image write command to be handled");
+    }
+    const [element] = (
+      result.value as { elements: Array<{ x: number; y: number }> }
+    ).elements;
+    expect(element.x).toBeGreaterThan(9_000);
+    expect(element.y).toBeGreaterThan(7_000);
+  });
+
+  it("anchors an unanchored image to actual content instead of an empty midpoint between distant clusters", async () => {
+    const result = await handleAgentWriteCommand(
+      {
+        requestId: "request-distant-clusters",
+        command: "scene.addImage",
+        payload: {
+          projectPath: project.projectPath,
+          sourceType: "generated",
+          generationOrigin: "agent-board",
+          fileId: "cluster-result",
+          mimeType: "image/png",
+          dataBase64: "aW1hZ2U=",
+          width: 320,
+          height: 180,
+          projectRoomAgentWriter: {
+            ...roomContext,
+            scene: {
+              elements: [
+                {
+                  id: "left-cluster",
+                  type: "rectangle",
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 200,
+                  angle: 0,
+                  isDeleted: false,
+                  groupIds: [],
+                },
+                {
+                  id: "right-cluster",
+                  type: "rectangle",
+                  x: 100_000,
+                  y: 0,
+                  width: 200,
+                  height: 200,
+                  angle: 0,
+                  isDeleted: false,
+                  groupIds: [],
+                },
+              ],
+              sharedSceneConfig: {},
+            },
+          },
+        },
+      },
+      { project, deps: {} as any },
+    );
+
+    if (!result.handled) {
+      throw new Error("Expected the image write command to be handled");
+    }
+    const [element] = (
+      result.value as { elements: Array<{ x: number; y: number }> }
+    ).elements;
+    const distanceToLeftCluster = Math.abs(element.x);
+    const distanceToRightCluster = Math.abs(element.x - 100_000);
+
+    expect(
+      Math.min(distanceToLeftCluster, distanceToRightCluster),
+    ).toBeLessThan(2_000);
+  });
+
+  it("keeps an unanchored prompt from inheriting the image-only scene fallback", async () => {
+    const result = await handleAgentWriteCommand(
+      {
+        requestId: "request-unanchored-prompt",
+        command: "scene.addPrompt",
+        payload: {
+          projectPath: project.projectPath,
+          text: "继续优化这个方案",
+          projectRoomAgentWriter: {
+            ...roomContext,
+            scene: {
+              elements: [
+                {
+                  id: "remote-content",
+                  type: "rectangle",
+                  x: 10_000,
+                  y: 8_000,
+                  width: 400,
+                  height: 300,
+                  angle: 0,
+                  isDeleted: false,
+                  groupIds: [],
+                },
+              ],
+              sharedSceneConfig: {},
+            },
+          },
+        },
+      },
+      { project, deps: {} as any },
+    );
+
+    expect(result).toMatchObject({
+      handled: true,
+      value: {
+        elements: [
+          {
+            type: "text",
+            x: 0,
+            y: 0,
+            text: "继续优化这个方案",
+          },
+        ],
+      },
+    });
+  });
+
   it("rejects writes that are not bound to an authenticated room command", async () => {
     await expect(
       handleAgentWriteCommand(

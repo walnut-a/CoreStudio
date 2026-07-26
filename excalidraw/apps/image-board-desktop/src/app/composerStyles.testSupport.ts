@@ -23,7 +23,6 @@ export const readAppCss = () =>
     "apps/image-board-desktop/src/app/components/ProjectStatusToast.css",
     "apps/image-board-desktop/src/app/components/SideDock.css",
     "apps/image-board-desktop/src/app/components/WelcomePane.css",
-    "apps/image-board-desktop/src/app/components/WorkspaceBoundsOverlay.css",
   ]
     .map(readCssFile)
     .join("\n");
@@ -93,15 +92,6 @@ export const readGenerationErrorDetailsDialog = () =>
     resolve(
       process.cwd(),
       "apps/image-board-desktop/src/app/components/GenerationErrorDetailsDialog.tsx",
-    ),
-    "utf8",
-  );
-
-export const readWorkspaceBoundsOverlay = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/WorkspaceBoundsOverlay.tsx",
     ),
     "utf8",
   );

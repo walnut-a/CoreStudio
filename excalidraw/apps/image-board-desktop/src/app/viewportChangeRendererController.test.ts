@@ -23,11 +23,12 @@ describe("createViewportChangeRendererActions", () => {
   it("updates latest scene and runs viewport side effects with the same snapshot", () => {
     const scene = createScene();
     const activeElements = [{ id: "active-element" } as ExcalidrawElement];
-    const activeFiles = { "file-a": { id: "file-a" } } as unknown as BinaryFiles;
+    const activeFiles = {
+      "file-a": { id: "file-a" },
+    } as unknown as BinaryFiles;
     const setLatestScene = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
     const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
-    const updateWorkspaceOverlay = vi.fn();
     const zoom = { value: 1.5 } as AppState["zoom"];
 
     const actions = createViewportChangeRendererActions({
@@ -40,7 +41,6 @@ describe("createViewportChangeRendererActions", () => {
       setLatestScene,
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
-      updateWorkspaceOverlay,
     });
 
     expect(actions.changeViewport(12, 24, zoom)).toEqual({
@@ -62,17 +62,12 @@ describe("createViewportChangeRendererActions", () => {
     expect(scheduleAgentBrowserRuntimeStatePublish).toHaveBeenCalledWith(
       nextScene,
     );
-    expect(updateWorkspaceOverlay).toHaveBeenCalledWith(
-      activeElements,
-      nextScene.appState,
-    );
   });
 
   it("skips side effects when no scene is loaded", () => {
     const setLatestScene = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
     const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
-    const updateWorkspaceOverlay = vi.fn();
 
     const actions = createViewportChangeRendererActions({
       getScene: () => null,
@@ -80,7 +75,6 @@ describe("createViewportChangeRendererActions", () => {
       setLatestScene,
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
-      updateWorkspaceOverlay,
     });
 
     expect(
@@ -93,6 +87,5 @@ describe("createViewportChangeRendererActions", () => {
     expect(setLatestScene).not.toHaveBeenCalled();
     expect(scheduleVisibleImageRenditionLoad).not.toHaveBeenCalled();
     expect(scheduleAgentBrowserRuntimeStatePublish).not.toHaveBeenCalled();
-    expect(updateWorkspaceOverlay).not.toHaveBeenCalled();
   });
 });

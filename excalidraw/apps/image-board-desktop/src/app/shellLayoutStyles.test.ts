@@ -17,7 +17,6 @@ const {
   readGenerateComposerActionBar,
   readAboutDialog,
   readGenerationErrorDetailsDialog,
-  readWorkspaceBoundsOverlay,
   readProjectRenderBoundary,
   readAppBridgeUnavailable,
   readAppProjectEntryScreen,
@@ -441,10 +440,7 @@ describe("CoreStudio shell layout styles", () => {
       ".desktop-project-tabs__list",
     );
     const desktopMainSource = readFileSync(
-      resolve(
-        process.cwd(),
-        "apps/image-board-desktop/electron/main.ts",
-      ),
+      resolve(process.cwd(), "apps/image-board-desktop/electron/main.ts"),
       "utf8",
     );
     const dragRegionRule = getRule(appCss, ".image-board-app::before");
@@ -482,9 +478,7 @@ describe("CoreStudio shell layout styles", () => {
       "padding-top: var(--desktop-window-top-inset, 0px)",
     );
     expect(titlebarRule).toContain("--desktop-window-top-inset: 44px");
-    expect(titlebarRule).toContain(
-      "--desktop-window-control-safe-left: 94px",
-    );
+    expect(titlebarRule).toContain("--desktop-window-control-safe-left: 94px");
     expect(projectTabsRule).toContain(
       "max(var(--desktop-window-control-safe-left, 0px), var(--ui-space-sm))",
     );
@@ -494,9 +488,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(projectTabsRule).toContain(
       "border-bottom: 1px solid var(--color-surface-low)",
     );
-    expect(projectTabsListRule).toContain(
-      "height: var(--ui-control-size-sm)",
-    );
+    expect(projectTabsListRule).toContain("height: var(--ui-control-size-sm)");
     expect(projectTabsListRule).toContain(
       "border-left: 1px solid var(--color-surface-low)",
     );

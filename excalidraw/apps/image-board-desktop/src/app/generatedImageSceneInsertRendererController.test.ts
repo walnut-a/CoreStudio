@@ -72,7 +72,6 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
       assertActiveProject,
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
       setActiveProject: vi.fn(),
       flushProjectRoom,
       getFallbackCreatedAt: () => Date.parse("2026-07-06T00:02:00.000Z"),
@@ -111,7 +110,6 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
     };
     const setActiveProject = vi.fn();
     const setPreviousBatchBounds = vi.fn();
-    const updateWorkspaceOverlay = vi.fn(() => null);
     const flushProjectRoom = vi.fn(async () => ({ status: "flushed" }));
     const assertActiveProject = vi.fn();
 
@@ -121,7 +119,6 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
       assertActiveProject,
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds,
-      updateWorkspaceOverlay,
       setActiveProject,
       flushProjectRoom,
       getFallbackCreatedAt: () => Date.parse("2026-07-06T00:02:00.000Z"),
@@ -191,7 +188,6 @@ describe("createGeneratedImageSceneInsertRendererActions", () => {
       assertActiveProject: vi.fn(),
       getPreviousBatchBounds: () => null,
       setPreviousBatchBounds: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(() => null),
       setActiveProject: vi.fn(),
       flushProjectRoom: vi.fn(async () => ({ status: "flushed" })),
       getFallbackCreatedAt: () => Date.parse("2026-07-06T00:02:00.000Z"),

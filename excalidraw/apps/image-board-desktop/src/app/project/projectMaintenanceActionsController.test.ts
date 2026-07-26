@@ -908,7 +908,6 @@ describe("createProjectRepairSceneRefreshRendererActions", () => {
     const applyCanvasScene = vi.fn();
     const updateSceneImageFileIds = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
-    const updateWorkspaceOverlay = vi.fn();
     const updateCurrentProject = vi.fn();
     const updateSelectedInspector = vi.fn();
 
@@ -926,7 +925,6 @@ describe("createProjectRepairSceneRefreshRendererActions", () => {
       setLatestScene,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
-      updateWorkspaceOverlay,
       updateCurrentProject,
       updateSelectedInspector,
     });
@@ -959,10 +957,6 @@ describe("createProjectRepairSceneRefreshRendererActions", () => {
     expect(setLatestScene).toHaveBeenCalledWith(nextScene);
     expect(updateSceneImageFileIds).toHaveBeenCalledWith(restoredElements);
     expect(scheduleVisibleImageRenditionLoad).toHaveBeenCalledWith(nextScene);
-    expect(updateWorkspaceOverlay).toHaveBeenCalledWith(
-      restoredElements,
-      restoredAppState,
-    );
     expect(updateCurrentProject).toHaveBeenCalledWith({
       ...project,
       imageRecords,
@@ -994,7 +988,6 @@ describe("createProjectRepairSceneRefreshRendererActions", () => {
       setLatestScene,
       updateSceneImageFileIds: vi.fn(),
       scheduleVisibleImageRenditionLoad: vi.fn(),
-      updateWorkspaceOverlay: vi.fn(),
       updateCurrentProject: vi.fn(),
       updateSelectedInspector: vi.fn(),
     });

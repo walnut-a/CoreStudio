@@ -403,7 +403,6 @@ describe("createBuiltinGenerationJobCompletionRendererActions", () => {
     const setScene = vi.fn();
     const updateSceneImageFileIds = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
-    const updateWorkspaceOverlay = vi.fn();
     const flushProjectRoom = vi.fn(async () => undefined);
 
     const actions = createBuiltinGenerationJobCompletionRendererActions({
@@ -416,7 +415,6 @@ describe("createBuiltinGenerationJobCompletionRendererActions", () => {
       setScene,
       updateSceneImageFileIds,
       scheduleVisibleImageRenditionLoad,
-      updateWorkspaceOverlay,
       flushProjectRoom,
     });
 
@@ -453,7 +451,6 @@ describe("createBuiltinGenerationJobCompletionRendererActions", () => {
       appState,
       files,
     });
-    expect(updateWorkspaceOverlay).toHaveBeenCalledWith(elements, appState);
     expect(flushProjectRoom).toHaveBeenCalledWith({ strict: true });
     expect(commit).toHaveBeenCalledTimes(1);
   });

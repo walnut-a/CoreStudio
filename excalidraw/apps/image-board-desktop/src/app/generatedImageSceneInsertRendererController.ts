@@ -23,11 +23,9 @@ import {
   type SceneBounds,
 } from "./project/imagePlacement";
 import {
-  ENABLE_WORKSPACE_BOUNDS,
   getSceneOccupiedBounds,
   getViewportCenterFromAppState,
-  getWorkspaceBounds,
-} from "./workspaceBounds";
+} from "./sceneGeometry";
 
 export interface GeneratedImageSceneInsertOptions {
   anchorPoint?: { x: number; y: number } | null;
@@ -52,10 +50,6 @@ export interface GeneratedImageSceneInsertRendererActionsInput {
   assertActiveProject: (expectedProjectPath?: string) => void;
   getPreviousBatchBounds: () => SceneBounds | null;
   setPreviousBatchBounds: (bounds: SceneBounds | null) => void;
-  updateWorkspaceOverlay: (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-  ) => SceneBounds | null;
   setActiveProject: (project: DesktopProjectBundle) => void;
   flushProjectRoom: (options?: { strict?: boolean }) => Promise<unknown>;
   getFallbackCreatedAt: () => number;
@@ -70,7 +64,6 @@ export const runGeneratedImageSceneInsertRendererAction = async ({
   assertActiveProject,
   getPreviousBatchBounds,
   setPreviousBatchBounds,
-  updateWorkspaceOverlay,
   setActiveProject,
   flushProjectRoom,
   getFallbackCreatedAt,
@@ -104,13 +97,6 @@ export const runGeneratedImageSceneInsertRendererAction = async ({
       zoomValue: appState.zoom.value,
     },
   });
-  const workspaceBounds = explicitPlacementViewport
-    ? ENABLE_WORKSPACE_BOUNDS
-      ? getWorkspaceBounds(elements, {
-          viewportCenter: placementViewport.viewportCenter,
-        })
-      : null
-    : updateWorkspaceOverlay(elements, appState);
   const anchorPoint = options.anchorPoint ?? null;
   const placements = placeGeneratedImages({
     images: assets.map((asset) => ({
@@ -126,7 +112,6 @@ export const runGeneratedImageSceneInsertRendererAction = async ({
       previousBatchBounds: getPreviousBatchBounds(),
     }),
     occupiedBounds: getSceneOccupiedBounds(elements),
-    workspaceBounds,
   });
 
   const filesToAdd = buildExcalidrawBinaryFilesFromImageAssets({

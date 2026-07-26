@@ -6,6 +6,7 @@
 
 ## 当前计划文档
 
+- [2026-07-26-generation-placeholder-undo-theme.md](2026-07-26-generation-placeholder-undo-theme.md)：修复生成输入撤销、占位一次删除、删除后的任务/结果生命周期及 Excalidraw 深色主题继承。
 - [2026-07-26-workspace-fence-removal.md](2026-07-26-workspace-fence-removal.md)：移除主编辑器工作区围栏，并用批量语义、有效锚点和最近空位搜索固定图片局部放置。
 - [2026-07-19-generation-record-robustness.md](2026-07-19-generation-record-robustness.md)：收紧图片来源与记录读取边界，并修复引用链定位和生成记录 reveal。
 - [2026-07-19-agent-runtime-removal.md](2026-07-19-agent-runtime-removal.md)：移除 CoreStudio 内置 Agent runtime，保留单次生成与 Codex Agent 两条清晰路径。

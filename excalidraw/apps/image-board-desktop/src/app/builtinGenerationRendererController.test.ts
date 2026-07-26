@@ -203,10 +203,7 @@ describe("runBuiltinGenerationRendererAction", () => {
       expect.objectContaining({ prompt: request.prompt }),
       generationError,
     );
-    expect(markPendingGenerationFailed).toHaveBeenCalledWith(
-      job,
-      errorDetails,
-    );
+    expect(markPendingGenerationFailed).toHaveBeenCalledWith(job, errorDetails);
     expect(loadProviderState).toHaveBeenCalledTimes(1);
     expect(pendingJobs.size).toBe(0);
   });
@@ -262,15 +259,82 @@ describe("runBuiltinGenerationRendererAction", () => {
     expect(markPendingGenerationFailed).not.toHaveBeenCalled();
   });
 
+  it("finishes a successful response with the latest partially dismissed job", async () => {
+    const request = createRequest();
+    const project = createProject();
+    const job: PendingGenerationJob = {
+      jobId: "job-1",
+      projectPath: project.projectPath,
+      slots: [
+        {
+          frameId: "placeholder-1",
+          labelId: "label-1",
+          fitReturnedImageSize: false,
+        },
+        {
+          frameId: "placeholder-2",
+          labelId: "label-2",
+          fitReturnedImageSize: false,
+        },
+      ],
+    };
+    let resolveGeneration: (response: GenerationResponse) => void = () =>
+      undefined;
+    let pendingJobs = new Map<string, PendingGenerationJob>();
+    const finishPendingJob = vi.fn();
+
+    const result = await runBuiltinGenerationRendererAction({
+      request,
+      project,
+      providerSettings: null,
+      sourceScene: null,
+      referenceScene: null,
+      expectedProjectPath: project.projectPath,
+      placementViewport: null,
+      startupGenerateFailedMessage: "生成失败",
+      loadOriginalScene: async (scene) => scene,
+      assertProjectActive: vi.fn(),
+      setGenerateRequest: vi.fn(),
+      insertPlaceholders: vi.fn(() => job),
+      getGenerationJobs: () => pendingJobs,
+      applyRegistryState: (state) => {
+        pendingJobs = state.pendingJobs;
+        return state;
+      },
+      generateImages: vi.fn(
+        () =>
+          new Promise<GenerationResponse>((resolve) => {
+            resolveGeneration = resolve;
+          }),
+      ),
+      finishPendingJob,
+      markPendingGenerationFailed: vi.fn(),
+      showGenerationError: vi.fn(),
+      loadProviderState: vi.fn(),
+    });
+
+    const latestJob: PendingGenerationJob = {
+      ...job,
+      dismissedSlotIds: [job.slots[0].frameId],
+    };
+    pendingJobs = new Map([[job.jobId, latestJob]]);
+    resolveGeneration(createResponse());
+    await result.completion;
+
+    expect(finishPendingJob).toHaveBeenCalledWith(
+      latestJob,
+      expect.objectContaining({ prompt: request.prompt }),
+      createResponse(),
+    );
+  });
+
   it("cancels active builtin jobs, marks their slots cancelled, and clears the registry", async () => {
     const job: PendingGenerationJob = {
       jobId: "job-1",
       projectPath: "/tmp/corestudio-project",
       slots: [],
     };
-    let pendingJobs = new Map<string, PendingGenerationJob>([
-      [job.jobId, job],
-    ]);
+    let pendingJobs = new Map<string, PendingGenerationJob>([[job.jobId, job]]);
     const markPendingGenerationFailed = vi.fn();
     const cancelGenerateImages = vi.fn(async () => undefined);
 

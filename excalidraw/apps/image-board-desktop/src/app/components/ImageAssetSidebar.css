@@ -91,7 +91,7 @@
 }
 
 .image-asset-sidebar__item span {
-  color: var(--color-gray-60);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-60));
   font-size: var(--ui-text-size-xs);
   font-weight: var(--font-weight-regular);
 }

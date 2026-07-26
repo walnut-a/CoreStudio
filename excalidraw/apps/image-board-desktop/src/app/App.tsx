@@ -40,9 +40,7 @@ import {
 } from "./projectRoomClientController";
 import { createProjectRoomAssetRefreshRendererActions } from "./projectRoomAssetRefreshController";
 import { createProjectRoomWebSocketTransport } from "./projectRoomWebSocketTransport";
-import {
-  createProjectRoomCollaborators,
-} from "./projectRoomPresence";
+import { createProjectRoomCollaborators } from "./projectRoomPresence";
 import { reconcileProjectRoomScene } from "./projectRoomSceneReconciliation";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
@@ -135,6 +133,7 @@ import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
 import { DesktopButton } from "./components/DesktopButton";
+import { ExcalidrawThemeTokenBridge } from "./components/ExcalidrawThemeTokenBridge";
 import {
   createDesktopProjectRuntime,
   type DesktopProjectRuntime,
@@ -151,6 +150,7 @@ import {
 import { type GenerationTaskRecord } from "./generationTaskState";
 import { createBuiltinGenerationJobCompletionRendererActions } from "./builtinGenerationCompletionController";
 import { createPendingGenerationCanvasRendererActions } from "./pendingGenerationCanvasController";
+import { reconcilePendingGenerationScene } from "./pendingGenerationSceneReconciliation";
 
 import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
 import { collectAgentImageFileIds } from "./agent/agentCommandHandlers";
@@ -269,11 +269,10 @@ const App = ({
     stableBoardId,
     projectSelectionToken,
     invalidAddress,
-  } =
-    buildAgentBrowserRouteState({
-      pathname: window.location.pathname,
-      href: window.location.href,
-    });
+  } = buildAgentBrowserRouteState({
+    pathname: window.location.pathname,
+    href: window.location.href,
+  });
   const isAgentProjectSelectionRoute =
     isAgentBrowserRoute && Boolean(projectSelectionToken);
   const isDesktopProjectRenderer = Boolean(desktopProjectPath);
@@ -310,6 +309,7 @@ const App = ({
     [desktopBridge],
   );
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const appRootRef = useRef<HTMLDivElement | null>(null);
   const isEditorInitializingRef = useRef(false);
   const initializingRenderNonceRef = useRef<number | null>(null);
   const projectRenderNonceRef = useRef(0);
@@ -326,9 +326,7 @@ const App = ({
   const generationModelSelectionLockedRef = useRef(false);
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
   const projectRoomClientRef = useRef<ProjectRoomClientController | null>(null);
-  const desktopProjectRuntimeRef = useRef<DesktopProjectRuntime | null>(
-    null,
-  );
+  const desktopProjectRuntimeRef = useRef<DesktopProjectRuntime | null>(null);
   const projectRoomAssetTransactionDepthRef = useRef(0);
   const latestSceneRef = useRef<{
     elements: readonly ExcalidrawElement[];
@@ -1078,11 +1076,16 @@ const App = ({
       typeof projectImageAssetPersistenceRendererActions.beginProjectImageWriteback
     >[0],
   ) => {
-    const writeback =
-      await projectImageAssetPersistenceRendererActions.beginProjectImageWriteback(
-        input,
-      );
     projectRoomAssetTransactionDepthRef.current += 1;
+    const writeback = await projectImageAssetPersistenceRendererActions
+      .beginProjectImageWriteback(input)
+      .catch((error) => {
+        projectRoomAssetTransactionDepthRef.current = Math.max(
+          0,
+          projectRoomAssetTransactionDepthRef.current - 1,
+        );
+        throw error;
+      });
     let finished = false;
     const finish = () => {
       if (finished) {
@@ -1121,6 +1124,21 @@ const App = ({
     >({
       getActiveProject: () => currentProjectRef.current,
       beginProjectImageWriteback: beginProjectImageWritebackForRoom,
+      isSlotActive: (slot) => {
+        const elements =
+          excalidrawAPIRef.current?.getSceneElementsIncludingDeleted();
+        if (!elements) {
+          return false;
+        }
+        const liveElementIds = new Set(
+          elements
+            .filter((element) => !element.isDeleted)
+            .map((element) => element.id),
+        );
+        return (
+          liveElementIds.has(slot.frameId) && liveElementIds.has(slot.labelId)
+        );
+      },
       replaceSlot: pendingGenerationCanvasRendererActions.replaceSlot,
       markSlotFailed: pendingGenerationCanvasRendererActions.markFailed,
       getCanvasSnapshot: () => {
@@ -1515,9 +1533,7 @@ const App = ({
     stableBoardId,
   ]);
 
-  const reportDesktopProjectTheme = (
-    appState: Pick<AppState, "theme">,
-  ) => {
+  const reportDesktopProjectTheme = (appState: Pick<AppState, "theme">) => {
     if (!isDesktopProjectRenderer || !currentProject) {
       return;
     }
@@ -1545,6 +1561,25 @@ const App = ({
     files: BinaryFiles,
   ) => {
     reportDesktopProjectTheme(appState);
+    if (
+      currentProjectRef.current &&
+      projectRoomAssetTransactionDepthRef.current === 0 &&
+      !isEditorInitializingRef.current
+    ) {
+      const reconciliation = reconcilePendingGenerationScene({
+        generationJobs: pendingGenerationJobsRef.current,
+        generationTasks: generationTaskByElementIdRef.current,
+        elements,
+      });
+      pendingGenerationJobsRef.current = reconciliation.pendingJobs;
+      generationTaskByElementIdRef.current = reconciliation.generationTasks;
+      setPendingGenerationCount(reconciliation.pendingCount);
+      reconciliation.cancelledJobIds.forEach((jobId) => {
+        void desktopBridge.cancelGenerateImages?.(jobId).catch((error) => {
+          console.error("取消已删除占位对应的生成任务失败", error);
+        });
+      });
+    }
     const result = canvasSceneChangeRendererActions.changeScene(
       elements,
       appState,
@@ -2081,7 +2116,9 @@ const App = ({
         onOpenRecentProject={
           currentProjectEntryRendererActions.openRecentProject
         }
-        onRemoveRecentProject={desktopStartupRendererActions.removeRecentProject}
+        onRemoveRecentProject={
+          desktopStartupRendererActions.removeRecentProject
+        }
         onRevealProject={revealProjectFromList}
         manualProjectActionsVisible={!isAgentBrowserRoute}
         globalDialogs={globalDialogs}
@@ -2107,7 +2144,7 @@ const App = ({
     .join(" ");
 
   return (
-    <div className={appClassName}>
+    <div ref={appRootRef} className={appClassName}>
       <AppErrorBanners
         startupError={startupError}
         projectError={projectError ?? projectRoomError}
@@ -2266,6 +2303,7 @@ const App = ({
                     );
                   }}
                 />
+                <ExcalidrawThemeTokenBridge targetRef={appRootRef} />
               </LazyExcalidraw>
             </Suspense>
             {isAgentBrowserRoute ? (

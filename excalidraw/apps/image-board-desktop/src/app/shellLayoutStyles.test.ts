@@ -519,7 +519,14 @@ describe("CoreStudio shell layout styles", () => {
       "height: var(--side-dock-toggle-size)",
     );
     expect(mainMenuTriggerRule).toContain("background: var(--island-bg-color)");
-    expect(mainMenuTriggerHoverRule).toContain("background: #f1f0ff");
+    expect(mainMenuTriggerHoverRule).toContain(
+      "background: var(--button-hover-bg)",
+    );
+    expect(mainMenuTriggerHoverRule).toContain(
+      "border-color: var(--color-surface-primary-container)",
+    );
+    expect(sideDockSource).not.toContain("#f1f0ff");
+    expect(sideDockSource).not.toContain("#e0dfff");
     expect(closedMenuRule).toContain("var(--side-dock-toggle-size)");
     expect(openMenuRule).toContain("var(--corestudio-left-sidebar-width)");
     expect(sideDockSource).toContain('import "./SideDock.css";');

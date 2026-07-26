@@ -286,6 +286,52 @@ describe("App startup", () => {
     });
   });
 
+  it("keeps CoreStudio project overlays outside the Excalidraw layout scope", async () => {
+    let menuActionListener: ((event: { action: string }) => void) | null = null;
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      onMenuAction: vi.fn((listener) => {
+        menuActionListener = listener;
+        return () => undefined;
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    const canvas = await screen.findByTestId("excalidraw-canvas");
+    expect(
+      within(canvas).queryByTestId("side-dock-left"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(canvas).queryByRole("button", {
+        name: "提交生成",
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("side-dock-left")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "提交生成",
+      }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      menuActionListener?.({ action: "app-settings" });
+    });
+
+    expect(
+      within(canvas).queryByRole("dialog", { name: "应用设置" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "应用设置" }),
+    ).toBeInTheDocument();
+  });
+
   it("does not add a Codex status dock after accepting an opened project", async () => {
     let notifiedProject: {
       projectPath: string;
@@ -5606,7 +5652,7 @@ describe("App startup", () => {
     });
   });
 
-  it("inserts placeholder frames onto the canvas before the image task finishes", async () => {
+  it("inserts atomic placeholder containers onto the canvas before the image task finishes", async () => {
     const firstJob = createDeferred<{
       provider: "gemini";
       model: string;
@@ -5694,13 +5740,16 @@ describe("App startup", () => {
         update?.elements?.some(
           (element: any) =>
             !element.isDeleted &&
-            element.type === "frame" &&
+            element.type === "rectangle" &&
             element.strokeStyle === "dashed",
         ),
     )?.[0];
     const pendingFrames =
       firstUpdate?.elements?.filter(
-        (element: any) => !element.isDeleted && element.type === "frame",
+        (element: any) =>
+          !element.isDeleted &&
+          element.type === "rectangle" &&
+          element.strokeStyle === "dashed",
       ) ?? [];
     const pendingLabels =
       firstUpdate?.elements?.filter(
@@ -5715,7 +5764,111 @@ describe("App startup", () => {
     expect(pendingLabels).toHaveLength(1);
   });
 
-  it("focuses generation placeholder frames after creating them", async () => {
+  it("cancels a deleted pending slot and ignores its late result before persistence", async () => {
+    const firstJob = createDeferred<{
+      provider: "gemini";
+      model: string;
+      seed: null;
+      createdAt: string;
+      images: Array<{
+        dataBase64: string;
+        mimeType: string;
+        width: number;
+        height: number;
+      }>;
+    }>();
+    const generateImages = vi.fn().mockImplementation(() => firstJob.promise);
+    const cancelGenerateImages = vi.fn().mockResolvedValue(undefined);
+    const bridge = createDesktopBridgeMock({
+      generateImages,
+      cancelGenerateImages,
+    });
+    window.imageBoardDesktop = bridge as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "提交生成" }));
+    });
+    const generationJobId = generateImages.mock.calls[0]?.[0]?.generationJobId;
+    const pendingElements =
+      mockExcalidrawAPI?.getSceneElementsIncludingDeleted() ?? [];
+    const pendingContainer = pendingElements.find(
+      (element: any) =>
+        !element.isDeleted &&
+        element.type === "rectangle" &&
+        element.strokeStyle === "dashed",
+    );
+    const pendingLabel = pendingElements.find(
+      (element: any) =>
+        !element.isDeleted &&
+        element.type === "text" &&
+        element.containerId === pendingContainer?.id,
+    );
+
+    expect(pendingContainer).toBeTruthy();
+    expect(pendingLabel).toBeTruthy();
+
+    act(() => {
+      triggerExcalidrawChange?.({
+        elements: pendingElements.map((element: any) =>
+          element.id === pendingContainer.id || element.id === pendingLabel.id
+            ? { ...element, isDeleted: true }
+            : element,
+        ),
+        appState: {
+          selectedElementIds: {},
+          selectedGroupIds: {},
+        },
+        files: {},
+      });
+    });
+
+    await waitFor(() => {
+      expect(cancelGenerateImages).toHaveBeenCalledWith(generationJobId);
+    });
+
+    await act(async () => {
+      firstJob.resolve({
+        provider: "gemini",
+        model: "gemini-2.5-flash-image",
+        seed: null,
+        createdAt: "2026-07-26T00:00:00.000Z",
+        images: [
+          {
+            dataBase64: "bGF0ZS1yZXN1bHQ=",
+            mimeType: "image/png",
+            width: 1024,
+            height: 1024,
+          },
+        ],
+      });
+      await firstJob.promise;
+    });
+
+    await waitFor(() => {
+      const visibleImages = (
+        mockExcalidrawAPI?.getSceneElementsIncludingDeleted() ?? []
+      ).filter(
+        (element: any) => !element.isDeleted && element.type === "image",
+      );
+      expect(visibleImages).toHaveLength(0);
+    });
+    expect(bridge.beginImageWriteback).not.toHaveBeenCalled();
+    expect(bridge.persistImageAssets).not.toHaveBeenCalled();
+  });
+
+  it("focuses generation placeholder containers after creating them", async () => {
     const firstJob = createDeferred<{
       provider: "gemini";
       model: string;
@@ -5754,7 +5907,7 @@ describe("App startup", () => {
         update?.elements?.some(
           (element: any) =>
             !element.isDeleted &&
-            element.type === "frame" &&
+            element.type === "rectangle" &&
             element.strokeStyle === "dashed",
         ),
     )?.[0];
@@ -5762,7 +5915,7 @@ describe("App startup", () => {
       placeholderUpdate?.elements?.filter(
         (element: any) =>
           !element.isDeleted &&
-          element.type === "frame" &&
+          element.type === "rectangle" &&
           element.strokeStyle === "dashed",
       ) ?? [];
 
@@ -5870,14 +6023,14 @@ describe("App startup", () => {
         update?.elements?.some(
           (element: any) =>
             !element.isDeleted &&
-            element.type === "frame" &&
+            element.type === "rectangle" &&
             element.strokeStyle === "dashed",
         ),
     )?.[0];
     const pendingFrame = placeholderUpdate?.elements?.find(
       (element: any) =>
         !element.isDeleted &&
-        element.type === "frame" &&
+        element.type === "rectangle" &&
         element.strokeStyle === "dashed",
     );
 
@@ -6208,12 +6361,18 @@ describe("App startup", () => {
       .map(([update]) => update)
       .find((update) =>
         update.elements?.some(
-          (element: any) => !element.isDeleted && element.type === "frame",
+          (element: any) =>
+            !element.isDeleted &&
+            element.type === "rectangle" &&
+            element.strokeStyle === "dashed",
         ),
       );
     const pendingFrames =
       pendingFrameUpdate?.elements?.filter(
-        (element: any) => !element.isDeleted && element.type === "frame",
+        (element: any) =>
+          !element.isDeleted &&
+          element.type === "rectangle" &&
+          element.strokeStyle === "dashed",
       ) ?? [];
     expect(pendingFrames).toHaveLength(1);
   });
@@ -6326,7 +6485,7 @@ describe("App startup", () => {
     const pendingFrame = placeholderUpdate?.elements?.find(
       (element: any) =>
         !element.isDeleted &&
-        element.type === "frame" &&
+        element.type === "rectangle" &&
         element.id !== referenceFrame.id,
     );
 
@@ -6410,7 +6569,7 @@ describe("App startup", () => {
     const pendingFrame = placeholderUpdate?.elements?.find(
       (element: any) =>
         !element.isDeleted &&
-        element.type === "frame" &&
+        element.type === "rectangle" &&
         element.id !== referenceFrame.id &&
         element.id !== blockingFrame.id,
     );
@@ -6517,14 +6676,14 @@ describe("App startup", () => {
         update?.elements?.some(
           (element: any) =>
             !element.isDeleted &&
-            element.type === "frame" &&
+            element.type === "rectangle" &&
             element.strokeStyle === "dashed",
         ),
     )?.[0];
     const pendingFrame = placeholderUpdate?.elements?.find(
       (element: any) =>
         !element.isDeleted &&
-        element.type === "frame" &&
+        element.type === "rectangle" &&
         element.strokeStyle === "dashed",
     );
 
@@ -6654,13 +6813,16 @@ describe("App startup", () => {
           update?.elements?.filter(
             (element: any) =>
               !element.isDeleted &&
-              element.type === "frame" &&
+              element.type === "rectangle" &&
               element.strokeStyle === "dashed",
           ).length === 2,
       );
     const queuedFrames =
       secondUpdate?.elements?.filter(
-        (element: any) => !element.isDeleted && element.type === "frame",
+        (element: any) =>
+          !element.isDeleted &&
+          element.type === "rectangle" &&
+          element.strokeStyle === "dashed",
       ) ?? [];
 
     expect(queuedFrames).toHaveLength(2);
@@ -6688,7 +6850,10 @@ describe("App startup", () => {
       const latestElements =
         mockExcalidrawAPI?.updateScene.mock.calls.at(-1)?.[0]?.elements ?? [];
       const visibleFrames = latestElements.filter(
-        (element: any) => !element.isDeleted && element.type === "frame",
+        (element: any) =>
+          !element.isDeleted &&
+          element.type === "rectangle" &&
+          element.strokeStyle === "dashed",
       );
       const visibleImages = latestElements.filter(
         (element: any) => !element.isDeleted && element.type === "image",
@@ -6720,7 +6885,10 @@ describe("App startup", () => {
       const latestElements =
         mockExcalidrawAPI?.updateScene.mock.calls.at(-1)?.[0]?.elements ?? [];
       const visibleFrames = latestElements.filter(
-        (element: any) => !element.isDeleted && element.type === "frame",
+        (element: any) =>
+          !element.isDeleted &&
+          element.type === "rectangle" &&
+          element.strokeStyle === "dashed",
       );
       const visibleImages = latestElements.filter(
         (element: any) => !element.isDeleted && element.type === "image",

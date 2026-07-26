@@ -193,6 +193,190 @@ describe("runBuiltinGenerationJobCompletionAction", () => {
     expect(result).toEqual({ kind: "skipped" });
   });
 
+  it("persists only live slot results and preserves their original response indexes", async () => {
+    const project = createProject();
+    const baseJob = createJob(project.projectPath);
+    const job: PendingGenerationJob = {
+      ...baseJob,
+      dismissedSlotIds: [baseJob.slots[0].frameId],
+    };
+    const request = createRequest();
+    const response: GenerationResponse = {
+      ...createResponse(),
+      images: [
+        {
+          fileName: "discarded.png",
+          mimeType: "image/png",
+          dataBase64: "discarded",
+          width: 1024,
+          height: 1024,
+        },
+        {
+          fileName: "kept.png",
+          mimeType: "image/png",
+          dataBase64: "kept",
+          width: 1024,
+          height: 1024,
+        },
+      ],
+    };
+    const replaceSlot = vi.fn();
+    const beginGeneratedAssets = vi.fn(
+      async ({ files }: { files: PersistedImageAssetInput[] }) => {
+        expect(files).toHaveLength(1);
+        expect(files[0]).toMatchObject({
+          fileName: "kept.png",
+          dataBase64: "kept",
+        });
+        return {
+          transaction: {
+            transactionId: "transaction-1",
+            projectPath: project.projectPath,
+            fileIds: [files[0].fileId],
+            imageRecords: {},
+          },
+          imageRecords: {},
+          commit: vi.fn(async () => undefined),
+          rollback: vi.fn(async () => project.imageRecords),
+        } satisfies ProjectImageWritebackHandle;
+      },
+    );
+    const snapshot = {
+      elements: [{ id: "placeholder-2" }] as any,
+      appState: { zoom: { value: 1 } } as any,
+      files: {} as any,
+    };
+
+    await expect(
+      runBuiltinGenerationJobCompletionAction({
+        job,
+        request,
+        response,
+        getActiveProject: () => project,
+        beginGeneratedAssets,
+        replaceSlot,
+        markSlotFailed: vi.fn(),
+        getCanvasSnapshot: () => snapshot,
+        restoreCanvasSnapshot: vi.fn(),
+        applySceneRoomUpdate: vi.fn(),
+        afterSceneCommit: vi.fn(),
+        flushProjectRoom: vi.fn(),
+      }),
+    ).resolves.toMatchObject({
+      kind: "completed",
+      replacedCount: 1,
+      failedCount: 0,
+    });
+
+    expect(replaceSlot).toHaveBeenCalledWith(
+      job.slots[1],
+      expect.objectContaining({ fileName: "kept.png" }),
+    );
+  });
+
+  it("rolls back and retries only surviving slots when deletion races asset persistence", async () => {
+    const project = createProject();
+    const job = createJob(project.projectPath);
+    const request = createRequest();
+    const response: GenerationResponse = {
+      ...createResponse(),
+      images: [
+        {
+          fileName: "deleted-slot.png",
+          mimeType: "image/png",
+          dataBase64: "deleted-slot",
+          width: 1024,
+          height: 1024,
+        },
+        {
+          fileName: "surviving-slot.png",
+          mimeType: "image/png",
+          dataBase64: "surviving-slot",
+          width: 1024,
+          height: 1024,
+        },
+      ],
+    };
+    const liveSlotIds = new Set(job.slots.map((slot) => slot.frameId));
+    const firstRollback = vi.fn(async () => project.imageRecords);
+    const secondCommit = vi.fn(async () => undefined);
+    const beginGeneratedAssets = vi
+      .fn()
+      .mockImplementationOnce(
+        async ({ files }: { files: PersistedImageAssetInput[] }) => {
+          expect(files).toHaveLength(2);
+          liveSlotIds.delete(job.slots[0].frameId);
+          return {
+            transaction: {
+              transactionId: "transaction-1",
+              projectPath: project.projectPath,
+              fileIds: files.map((file) => file.fileId),
+              imageRecords: {},
+            },
+            imageRecords: {},
+            commit: vi.fn(),
+            rollback: firstRollback,
+          } satisfies ProjectImageWritebackHandle;
+        },
+      )
+      .mockImplementationOnce(
+        async ({ files }: { files: PersistedImageAssetInput[] }) => {
+          expect(files).toHaveLength(1);
+          expect(files[0]).toMatchObject({
+            fileName: "surviving-slot.png",
+            dataBase64: "surviving-slot",
+          });
+          return {
+            transaction: {
+              transactionId: "transaction-2",
+              projectPath: project.projectPath,
+              fileIds: files.map((file) => file.fileId),
+              imageRecords: {},
+            },
+            imageRecords: {},
+            commit: secondCommit,
+            rollback: vi.fn(),
+          } satisfies ProjectImageWritebackHandle;
+        },
+      );
+    const replaceSlot = vi.fn();
+    const snapshot = {
+      elements: [{ id: "surviving-slot" }] as any,
+      appState: { zoom: { value: 1 } } as any,
+      files: {} as any,
+    };
+
+    await expect(
+      runBuiltinGenerationJobCompletionAction({
+        job,
+        request,
+        response,
+        getActiveProject: () => project,
+        beginGeneratedAssets,
+        isSlotActive: (slot) => liveSlotIds.has(slot.frameId),
+        replaceSlot,
+        markSlotFailed: vi.fn(),
+        getCanvasSnapshot: () => snapshot,
+        restoreCanvasSnapshot: vi.fn(),
+        applySceneRoomUpdate: vi.fn(),
+        afterSceneCommit: vi.fn(),
+        flushProjectRoom: vi.fn(),
+      }),
+    ).resolves.toMatchObject({
+      kind: "completed",
+      replacedCount: 1,
+      failedCount: 0,
+    });
+
+    expect(firstRollback).toHaveBeenCalledTimes(1);
+    expect(secondCommit).toHaveBeenCalledTimes(1);
+    expect(replaceSlot).toHaveBeenCalledTimes(1);
+    expect(replaceSlot).toHaveBeenCalledWith(
+      job.slots[1],
+      expect.objectContaining({ fileName: "surviving-slot.png" }),
+    );
+  });
+
   it("fails before persisting when no restorable canvas snapshot is available", async () => {
     const project = createProject();
     const replaceSlot = vi.fn();

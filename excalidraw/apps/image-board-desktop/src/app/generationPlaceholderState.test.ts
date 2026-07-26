@@ -51,7 +51,7 @@ describe("buildPendingGenerationPlaceholders", () => {
     setActiveDesktopLocale("zh-CN");
   });
 
-  it("builds dashed frame and centered labels for multiple pending images", () => {
+  it("builds dashed text containers that delete atomically for multiple pending images", () => {
     const plan = buildPendingGenerationPlaceholders({
       request: createRequest({ imageCount: 2 }),
       placements: [
@@ -77,7 +77,7 @@ describe("buildPendingGenerationPlaceholders", () => {
     ]);
 
     expect(plan.placeholderFrames[0]).toMatchObject({
-      type: "frame",
+      type: "rectangle",
       x: 10,
       y: 20,
       width: 100,
@@ -89,12 +89,19 @@ describe("buildPendingGenerationPlaceholders", () => {
       strokeWidth: 2,
       roughness: 0,
       opacity: 80,
+      boundElements: [
+        {
+          type: "text",
+          id: plan.placeholderElements[1].id,
+        },
+      ],
     });
     expect(plan.placeholderElements[1]).toMatchObject({
       type: "text",
       text: "生成中\n1/2",
       groupIds: ["slot-1"],
-      frameId: plan.placeholderFrames[0].id,
+      frameId: null,
+      containerId: plan.placeholderFrames[0].id,
       fontSize: 24,
       textAlign: "center",
       verticalAlign: "middle",
@@ -107,7 +114,8 @@ describe("buildPendingGenerationPlaceholders", () => {
       type: "text",
       text: "生成中\n2/2",
       groupIds: ["slot-2"],
-      frameId: plan.placeholderFrames[1].id,
+      frameId: null,
+      containerId: plan.placeholderFrames[1].id,
     });
   });
 

@@ -50,8 +50,8 @@
 }
 
 .side-dock__toggle:hover {
-  background: #f1f0ff;
-  border-color: #e0dfff;
+  background: var(--button-hover-bg);
+  border-color: var(--color-surface-primary-container);
   color: var(--color-primary);
 }
 
@@ -135,7 +135,7 @@
   border: 0;
   border-radius: var(--border-radius-md);
   background: transparent;
-  color: var(--text-secondary-color);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -143,7 +143,7 @@
 }
 
 .side-dock__close:hover {
-  background: #f1f0ff;
+  background: var(--button-hover-bg);
   color: var(--text-primary-color);
 }
 
@@ -209,8 +209,8 @@
 }
 
 .image-board-app .App-menu_top__left .main-menu-trigger:hover {
-  background: #f1f0ff;
-  border-color: #e0dfff;
+  background: var(--button-hover-bg);
+  border-color: var(--color-surface-primary-container);
   color: var(--color-primary);
 }
 

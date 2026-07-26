@@ -39,7 +39,7 @@
 
 .app-settings-section__copy p {
   margin: 0;
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-lg);
   line-height: 1.5;
 }
@@ -85,7 +85,7 @@
   border-radius: 999px;
   background: color-mix(
     in srgb,
-    var(--color-gray-70) 28%,
+    var(--corestudio-secondary-text-color, var(--color-gray-70)) 28%,
     var(--island-bg-color)
   );
   cursor: pointer;
@@ -166,7 +166,7 @@
 }
 
 .app-settings-advanced summary em {
-  color: var(--color-gray-70);
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
   font-size: var(--ui-text-size-md);
   font-style: normal;
   line-height: 1.45;

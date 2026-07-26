@@ -1,16 +1,21 @@
 .welcome-pane {
   display: grid;
-  align-items: start;
-  justify-items: center;
+  place-items: center;
   height: 100%;
-  padding: clamp(40px, 8vh, 72px) 32px 32px;
+  min-height: 0;
+  padding: 32px;
+  overflow: auto;
 }
 
 .welcome-pane__card {
-  width: min(100%, 720px);
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+  width: min(100%, 960px);
+  min-height: 360px;
+  max-height: calc(100% - 48px);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--default-border-color) 78%, white);
-  border-radius: 18px;
+  border-radius: 16px;
   background: color-mix(
     in srgb,
     var(--island-bg-color) 96%,
@@ -20,11 +25,12 @@
 }
 
 .welcome-pane__intro {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 28px;
-  align-items: start;
-  padding: 28px;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px;
+  background: var(--island-bg-color);
 }
 
 .welcome-pane__diagnostic {
@@ -35,8 +41,8 @@
 
 .welcome-pane__copy {
   display: grid;
-  gap: 10px;
-  max-width: 56ch;
+  gap: 12px;
+  max-width: 48ch;
 }
 
 .welcome-pane__eyebrow {
@@ -64,48 +70,63 @@
 
 .welcome-pane__actions {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  min-width: 168px;
+  margin-top: auto;
+  padding-top: 12px;
 }
 
 .welcome-pane__recent {
-  padding: 18px 28px 24px;
-  border-top: 1px solid
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  padding: 28px 24px;
+  border-left: 1px solid
     color-mix(in srgb, var(--default-border-color) 72%, white);
-  background: color-mix(in srgb, var(--color-surface-lowest) 74%, transparent);
+  background: var(--color-surface-mid);
 }
 
 .welcome-pane__recent-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--ui-text-size-title);
+  line-height: 1.3;
 }
 
 .welcome-pane__recent-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
+  min-height: 0;
+  margin-top: 14px;
+  overflow-y: auto;
+  border: 1px solid
+    color-mix(in srgb, var(--default-border-color) 78%, white);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
 }
 
 .welcome-pane__recent-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 40px;
-  gap: 8px;
   align-items: stretch;
   width: 100%;
-  border: 1px solid color-mix(in srgb, var(--default-border-color) 78%, white);
-  border-radius: var(--border-radius-lg);
-  background: var(--island-bg-color);
+  border: 0;
+  background: transparent;
   color: var(--text-primary-color);
-  transition: border-color 0.15s ease, background-color 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: background-color 0.15s ease;
+}
+
+.welcome-pane__recent-item + .welcome-pane__recent-item {
+  border-top: 1px solid var(--default-border-color);
 }
 
 .welcome-pane__recent-open {
   display: grid;
-  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 16px;
+  row-gap: 4px;
   min-width: 0;
   width: 100%;
-  padding: 12px 0 12px 14px;
+  padding: 14px 0 14px 16px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -130,17 +151,11 @@
 
 .welcome-pane__recent-item:hover,
 .welcome-pane__recent-item:focus-within {
-  border-color: color-mix(
-    in srgb,
-    var(--color-primary) 22%,
-    var(--default-border-color)
-  );
   background: color-mix(
     in srgb,
-    var(--color-primary) 3%,
+    var(--color-primary) 4%,
     var(--island-bg-color)
   );
-  box-shadow: 0 1px 2px rgba(24, 27, 42, 0.05);
 }
 
 .welcome-pane__recent-delete:hover {
@@ -153,6 +168,13 @@
   color: var(--color-danger, #d94841);
 }
 
+.welcome-pane__recent-open:focus-visible,
+.welcome-pane__recent-delete:focus-visible {
+  outline: 2px solid
+    color-mix(in srgb, var(--color-primary) 34%, transparent);
+  outline-offset: -2px;
+}
+
 .welcome-pane__recent-open:disabled,
 .welcome-pane__recent-delete:disabled {
   opacity: 0.6;
@@ -160,6 +182,8 @@
 }
 
 .welcome-pane__recent-name {
+  grid-column: 1;
+  grid-row: 1;
   font-size: 15px;
   font-weight: var(--font-weight-semibold);
 }
@@ -173,9 +197,30 @@
 }
 
 .welcome-pane__recent-path {
+  grid-column: 1 / -1;
+  grid-row: 2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.welcome-pane__recent-time {
+  grid-column: 2;
+  grid-row: 1;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.welcome-pane__recent-empty {
+  display: grid;
+  min-height: 180px;
+  margin-top: 14px;
+  place-items: center;
+  padding: 24px;
+  border: 1px dashed var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  text-align: center;
 }
 
 .welcome-pane__delete-dialog {
@@ -205,29 +250,71 @@
 
 @media (max-width: 720px) {
   .welcome-pane {
+    place-items: start center;
     padding: 16px;
   }
 
   .welcome-pane__card {
-    padding: 0;
-    border-radius: 20px;
+    grid-template-columns: 1fr;
+    width: 100%;
+    min-height: 0;
+    max-height: none;
+    border-radius: 16px;
   }
 
   .welcome-pane__intro {
-    grid-template-columns: 1fr;
-    gap: 18px;
-    padding: 22px;
+    gap: 24px;
+    padding: 24px;
   }
 
   .welcome-pane__diagnostic {
     padding: 22px;
   }
 
+  .welcome-pane__recent {
+    padding: 24px;
+    border-top: 1px solid
+      color-mix(in srgb, var(--default-border-color) 72%, white);
+    border-left: 0;
+  }
+
+  .welcome-pane__recent-list {
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 480px) {
   .welcome-pane__actions {
     grid-template-columns: 1fr;
   }
 
+  .welcome-pane__recent-open {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-pane__recent-time {
+    grid-column: 1;
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .welcome-pane__recent-path {
+    grid-row: 3;
+  }
+}
+
+@media (max-height: 640px) and (min-width: 721px) {
+  .welcome-pane {
+    place-items: start center;
+    padding: 24px 32px;
+  }
+
+  .welcome-pane__card {
+    max-height: 100%;
+  }
+
+  .welcome-pane__intro,
   .welcome-pane__recent {
-    padding: 18px 22px 22px;
+    padding: 24px;
   }
 }

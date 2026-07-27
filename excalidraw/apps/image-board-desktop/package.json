@@ -28,7 +28,7 @@
     "notarize:release": "node scripts/notarize-release.cjs",
     "package:app": "node scripts/package-once.cjs",
     "package:app:raw": "yarn build && yarn check:secrets --source --package-inputs && electron-builder --mac dmg && yarn notarize:release && yarn check:secrets --release",
-    "test": "cd ../.. && vitest apps/image-board-desktop"
+    "test": "cd ../.. && yarn test:desktop"
   },
   "dependencies": {
     "ws": "8.21.0"

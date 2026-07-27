@@ -36,9 +36,28 @@ CLI 是 Local Bridge 的薄客户端。所有项目写入由 CoreStudio 校验�
 
 ```sh
 corepack yarn dev:desktop
-corepack yarn test:desktop --run
+corepack yarn test:desktop
 corepack yarn build:desktop
 ```
+
+桌面测试入口分为：
+
+| 场景 | 命令 | 说明 |
+| --- | --- | --- |
+| 定向回归 | `corepack yarn vitest <test-files> --run` | 开发过程默认优先使用，不获取全量测试锁 |
+| 全量一次性 | `corepack yarn test:desktop` | 固定使用 Vitest `run`，默认最多 2 个 worker |
+| 交互式 watch | `corepack yarn test:desktop:watch` | 唯一明确的全量 watch 入口 |
+| CI | `corepack yarn test:desktop:ci` | 与本地全量入口共用 runner、锁和 worker 边界 |
+
+全量入口由统一 Node runner 管理。`CORESTUDIO_TEST_MAX_WORKERS=<正整数>` 可显式覆盖 worker 上限，`CORESTUDIO_TEST_TIMEOUT_MS=<毫秒>` 可覆盖默认 30 分钟超时；watch 默认不设置超时。同一 Git 仓库默认只允许一套全量桌面测试，活跃锁会报告已有 runner 的 PID、启动时间和退出命令。只有经过明确判断的特殊场景才可使用 `CORESTUDIO_TEST_ALLOW_CONCURRENT=1` 绕过互斥。
+
+## 长任务执行协议
+
+- session、cell 或 job ID 代表任务仍在运行。暂时没有输出时必须继续轮询原任务，不能重新执行同一条命令。
+- 启动全量测试、构建或打包前，先检查同一仓库是否已有等价任务。
+- 定向测试优先于全量测试；开发过程中不要反复运行全量套件。
+- 不并行运行两套全量 Vitest，也不默认把全量 Vitest、多个 Vite build 和 packaging 同时启动。
+- 取消或放弃任务前，必须等待 runner 完成进程树清理和残留复查。复查应使用当前仓库 cwd、已记录的 PID/PPID/PGID 和完整命令行，禁止使用 `killall node` 或宽泛 `pkill`。
 
 `dev:desktop` 是桌面开发的固定入口。它会解析当前 workspace 的 Electron 绝对路径，并把应用绝对路径、独立 `.electron-dev-profile`、renderer 端口 `5174`、调试端口 `9331`、Agent Bridge 端口 `60910`、开发 session 文件和 `CoreStudio · DEV` 窗口标题绑定到同一次启动。模型 Key、Agent 开关、最近项目和主进程日志也写入这个 profile，不会读取或覆盖正式版配置。主进程会打印完整运行身份，便于核对启动路径、用户目录、Bridge 和 session。
 

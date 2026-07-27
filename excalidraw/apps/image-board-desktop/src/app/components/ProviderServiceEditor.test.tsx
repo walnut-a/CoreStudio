@@ -27,7 +27,13 @@ describe("ProviderServiceEditor", () => {
     renderEditor("zenmux");
 
     expect(screen.getByLabelText("API Key")).toBeInTheDocument();
-    expect(screen.getByLabelText("默认模型")).toBeInTheDocument();
+    const defaultModel = screen.getByLabelText("默认模型");
+    expect(defaultModel).toBeInTheDocument();
+    expect(
+      defaultModel
+        .closest(".settings-select")
+        ?.querySelector(".settings-select__chevron"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "添加自定义模型" }),
     ).toBeInTheDocument();

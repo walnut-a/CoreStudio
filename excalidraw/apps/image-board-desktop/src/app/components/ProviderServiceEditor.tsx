@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type SelectHTMLAttributes,
+} from "react";
 
 import {
   CUSTOM_MODEL_USAGE_PRESETS,
@@ -36,6 +41,21 @@ export interface ProviderServiceEditorProps {
 
 const DEFAULT_TEMPLATE: CustomModelCapabilityTemplateId =
   "image-editing-aspect-ratio";
+
+const SettingsSelect = (
+  props: SelectHTMLAttributes<HTMLSelectElement>,
+) => (
+  <span className="settings-select">
+    <select {...props} />
+    <svg
+      className="settings-select__chevron"
+      aria-hidden="true"
+      viewBox="0 0 14 14"
+    >
+      <path d="M3.25 5.4 7 9.15l3.75-3.75" />
+    </svg>
+  </span>
+);
 
 export const ProviderServiceEditor = ({
   provider,
@@ -247,7 +267,7 @@ export const ProviderServiceEditor = ({
               <span>
                 {copy.applicationSettings.providerEditor.modelCapability}
               </span>
-              <select
+              <SettingsSelect
                 value={customTemplate}
                 onChange={(event) => {
                   setCustomTemplate(
@@ -266,7 +286,7 @@ export const ProviderServiceEditor = ({
                     }
                   </option>
                 ))}
-              </select>
+              </SettingsSelect>
             </label>
           </>
         ) : (
@@ -275,7 +295,7 @@ export const ProviderServiceEditor = ({
               <span>
                 {copy.applicationSettings.providerEditor.defaultModel}
               </span>
-              <select
+              <SettingsSelect
                 value={defaultModel}
                 onChange={(event) => {
                   setDefaultModel(event.target.value);
@@ -287,7 +307,7 @@ export const ProviderServiceEditor = ({
                     {model.label}
                   </option>
                 ))}
-              </select>
+              </SettingsSelect>
             </label>
 
             <section
@@ -355,7 +375,7 @@ export const ProviderServiceEditor = ({
                   <span>
                     {copy.applicationSettings.providerEditor.modelCapability}
                   </span>
-                  <select
+                  <SettingsSelect
                     value={customTemplate}
                     onChange={(event) => {
                       setCustomTemplate(
@@ -374,13 +394,13 @@ export const ProviderServiceEditor = ({
                         }
                       </option>
                     ))}
-                  </select>
+                  </SettingsSelect>
                 </label>
                 <label>
                   <span>
                     {copy.applicationSettings.providerEditor.adapterType}
                   </span>
-                  <select
+                  <SettingsSelect
                     value={customAdapter}
                     onChange={(event) => {
                       setCustomAdapter(
@@ -400,7 +420,7 @@ export const ProviderServiceEditor = ({
                         </option>
                       ),
                     )}
-                  </select>
+                  </SettingsSelect>
                 </label>
               </div>
               <DesktopButton

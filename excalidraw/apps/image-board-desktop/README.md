@@ -61,7 +61,7 @@ corepack yarn build:desktop
 
 `dev:desktop` 是桌面开发的固定入口。它会解析当前 workspace 的 Electron 绝对路径，并把应用绝对路径、独立 `.electron-dev-profile`、renderer 端口 `5174`、调试端口 `9331`、Agent Bridge 端口 `60910`、开发 session 文件和 `CoreStudio · DEV` 窗口标题绑定到同一次启动。模型 Key、Agent 开关、最近项目和主进程日志也写入这个 profile，不会读取或覆盖正式版配置。主进程会打印完整运行身份，便于核对启动路径、用户目录、Bridge 和 session。
 
-这些边界由主进程强制执行，而不只是文档约定：源码被裸 Electron 启动、人工使用 `qa` runtime，或给开发版注入其他 Bridge、设置目录、profile/session 时都会直接启动失败。`qa` runtime 只供 `smoke:packaged` 自动化检查使用；人工 UI 验收必须使用 `CoreStudio Dev`。若已有开发版实例，复用它，或者精确关闭后通过固定入口重启，不能另建临时应用名、端口或 profile。
+这些边界由主进程强制执行，而不只是文档约定：源码被裸 Electron 启动、人工使用 `qa` runtime，或给开发版注入其他 Bridge、设置目录、profile/session 时都会直接启动失败。`smoke:packaged` 会先在隔离目录中验证无 runtime 覆盖的正式包身份，再验证仅供自动化检查使用的 `qa` runtime；人工 UI 验收必须使用 `CoreStudio Dev`。若已有开发版实例，复用它，或者精确关闭后通过固定入口重启，不能另建临时应用名、端口或 profile。
 
 正式版和开发版的默认运行身份如下：
 

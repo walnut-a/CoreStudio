@@ -17,6 +17,7 @@ export type DesktopRuntimeMode = "production" | "development" | "qa";
 
 interface DesktopRuntimeConfigInput extends AgentSessionPathInput {
   bundledAppName: string;
+  isPackaged: boolean;
   userDataPath: string;
 }
 
@@ -57,6 +58,7 @@ const resolveBridgePort = (
 const assertRuntimeBoundary = (input: {
   mode: DesktopRuntimeMode;
   bundledAppName: string;
+  isPackaged: boolean;
   appName: string;
   bridgePort: number;
   userDataPath: string;
@@ -64,10 +66,7 @@ const assertRuntimeBoundary = (input: {
   sessionPath: string;
   env: NodeJS.ProcessEnv;
 }) => {
-  if (
-    input.mode === "production" &&
-    input.bundledAppName !== PRODUCTION_APP_NAME
-  ) {
+  if (input.mode === "production" && !input.isPackaged) {
     throw new Error(
       "A source checkout must be launched through the fixed CoreStudio Dev launcher. Run `corepack yarn dev:desktop` instead of starting Electron directly.",
     );
@@ -151,6 +150,7 @@ export const resolveDesktopRuntimeConfig = (
   assertRuntimeBoundary({
     mode,
     bundledAppName: input.bundledAppName,
+    isPackaged: input.isPackaged,
     appName,
     bridgePort,
     userDataPath: input.userDataPath,

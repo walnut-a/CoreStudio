@@ -36,7 +36,7 @@ describe("GenerateDialogBody", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders provider warnings, errors, and advanced panels", () => {
+  it("renders provider warnings and errors without an empty advanced section", () => {
     const onOpenErrorDetails = vi.fn();
     const onOpenProviderSettings = vi.fn();
 
@@ -50,16 +50,39 @@ describe("GenerateDialogBody", () => {
     expect(
       screen.getByText(copy.generateDialog.providerWarning),
     ).toBeInTheDocument();
+    const configurationState = screen.getByRole("status");
+    expect(configurationState).toHaveClass(
+      "generate-panel__configuration-state",
+    );
+    expect(configurationState).not.toHaveClass("dialog-card__warning");
     expect(screen.getByText("生成失败")).toBeInTheDocument();
-    expect(screen.getByText("高级参数")).toBeInTheDocument();
-    expect(screen.getByText("模型参数")).toBeInTheDocument();
+    expect(screen.queryByText("高级参数")).toBeNull();
+    expect(screen.queryByText("模型参数")).toBeNull();
+    expect(
+      configurationState.parentElement?.querySelector(".dialog-form-grid"),
+    ).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "打开应用设置" }));
+    const settingsButton = screen.getByRole("button", {
+      name: "打开应用设置",
+    });
+    expect(settingsButton).toHaveClass("image-board-button--small");
+    expect(settingsButton).toHaveClass(
+      "generate-panel__configuration-action",
+    );
+    fireEvent.click(settingsButton);
     expect(onOpenProviderSettings).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: copy.debugError.view }));
 
     expect(onOpenErrorDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders advanced panels when a provider is configured", () => {
+    const { container } = renderBody();
+
+    expect(screen.getByText("高级参数")).toBeInTheDocument();
+    expect(screen.getByText("模型参数")).toBeInTheDocument();
+    expect(container.querySelector(".dialog-form-grid")).toBeInTheDocument();
   });
 
   it("keeps advanced panels unmounted until settings are expanded", () => {

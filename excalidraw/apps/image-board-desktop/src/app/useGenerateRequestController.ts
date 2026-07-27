@@ -39,6 +39,9 @@ export const useGenerateRequestController = ({
   const promptReferencesRef = useRef<GenerationPromptReferencePayload[]>(
     initialRequest.promptReferences || [],
   );
+  const promptReferenceCacheRef = useRef<GenerationPromptReferencePayload[]>(
+    initialRequest.promptReferences || [],
+  );
   const [promptEditorParts, setPromptEditorParts] = useState<
     GenerationPromptPart[]
   >(() => getInitialPromptParts(initialRequest));
@@ -60,6 +63,7 @@ export const useGenerateRequestController = ({
     });
     requestRef.current = nextRequest;
     promptReferencesRef.current = nextRequest.promptReferences || [];
+    promptReferenceCacheRef.current = nextRequest.promptReferences || [];
     resetPromptEditorParts(getInitialPromptParts(nextRequest));
     setRequest(nextRequest);
   }, [initialRequest, open]);
@@ -108,11 +112,22 @@ export const useGenerateRequestController = ({
     references: readonly GenerationPromptReferencePayload[],
   ) => {
     promptReferencesRef.current = [...references];
+    const referencesById = new Map(
+      promptReferenceCacheRef.current.map((reference) => [
+        reference.id,
+        reference,
+      ]),
+    );
+    for (const reference of references) {
+      referencesById.set(reference.id, reference);
+    }
+    promptReferenceCacheRef.current = [...referencesById.values()];
   };
 
   const updatePrompt = (prompt: string) => {
     const nextParts = prompt ? [{ type: "text" as const, text: prompt }] : [];
     promptReferencesRef.current = [];
+    promptReferenceCacheRef.current = [];
     resetPromptEditorParts(nextParts);
     updateRequest((current) => ({
       ...current,
@@ -124,7 +139,7 @@ export const useGenerateRequestController = ({
 
   const updatePromptParts = (parts: GenerationPromptPart[]) => {
     const nextReferences = filterPromptReferencesForParts(
-      promptReferencesRef.current,
+      promptReferenceCacheRef.current,
       parts,
     );
     promptReferencesRef.current = nextReferences;
@@ -138,11 +153,14 @@ export const useGenerateRequestController = ({
 
   const replacePromptParts = (
     parts: GenerationPromptPart[],
-    references: readonly GenerationPromptReferencePayload[] =
-      filterPromptReferencesForParts(promptReferencesRef.current, parts),
+    references: readonly GenerationPromptReferencePayload[] = filterPromptReferencesForParts(
+      promptReferencesRef.current,
+      parts,
+    ),
   ) => {
     const nextReferences = [...references];
     promptReferencesRef.current = nextReferences;
+    promptReferenceCacheRef.current = nextReferences;
     resetPromptEditorParts(parts);
     updateRequest((current) => ({
       ...current,
@@ -154,6 +172,7 @@ export const useGenerateRequestController = ({
 
   const clearSubmittedPrompt = () => {
     promptReferencesRef.current = [];
+    promptReferenceCacheRef.current = [];
     resetPromptEditorParts([]);
     updateRequest(clearSubmittedPromptRequest);
   };

@@ -200,6 +200,18 @@ describe("CoreStudio shell layout styles", () => {
     expect(serviceRowRule).toContain("font: inherit");
   });
 
+  it("centers the custom settings select chevron instead of using the native arrow", () => {
+    const appCss = readAppCss();
+    const selectRule = getRule(appCss, ".settings-select select");
+    const chevronRule = getRule(appCss, ".settings-select__chevron");
+
+    expect(selectRule).toContain("appearance: none");
+    expect(selectRule).toContain("padding-right: 40px");
+    expect(chevronRule).toContain("top: 50%");
+    expect(chevronRule).toContain("right: 14px");
+    expect(chevronRule).toContain("transform: translateY(-50%)");
+  });
+
   it("assigns shared typography sizes by settings text role", () => {
     const appCss = readAppCss();
     const providerLabelRule = getRule(

@@ -30,10 +30,17 @@ export const GenerateDialogBody = ({
   return (
     <div className="generate-panel__body">
       {!isConfigured && (
-        <div className="dialog-card__warning">
-          <span>{copy.generateDialog.providerWarning}</span>
+        <div className="generate-panel__configuration-state" role="status">
+          <span className="generate-panel__configuration-copy">
+            {copy.generateDialog.providerWarning}
+          </span>
           {onOpenProviderSettings ? (
-            <DesktopButton type="button" onClick={onOpenProviderSettings}>
+            <DesktopButton
+              type="button"
+              size="small"
+              className="generate-panel__configuration-action"
+              onClick={onOpenProviderSettings}
+            >
               {copy.generateDialog.openApplicationSettings}
             </DesktopButton>
           ) : null}
@@ -62,7 +69,7 @@ export const GenerateDialogBody = ({
         </div>
       )}
 
-      {advancedOpen && (
+      {advancedOpen && isConfigured && (
         <div className="dialog-form-grid">{advancedContent}</div>
       )}
     </div>

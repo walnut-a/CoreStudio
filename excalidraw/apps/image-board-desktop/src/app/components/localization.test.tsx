@@ -1593,6 +1593,13 @@ describe("Chinese localization", () => {
 
   it("resets hidden multi-image state when switching to a single-image model", () => {
     const onSubmit = vi.fn();
+    const multiProviderSettings: PublicProviderSettings = {
+      ...providerSettings,
+      fal: {
+        ...providerSettings.fal,
+        isConfigured: true,
+      },
+    };
 
     render(
       <GenerateImageDialog
@@ -1612,7 +1619,7 @@ describe("Chinese localization", () => {
             textCount: 0,
           },
         }}
-        providerSettings={providerSettings}
+        providerSettings={multiProviderSettings}
         loading={false}
         error={null}
         onClose={() => undefined}
@@ -1620,9 +1627,7 @@ describe("Chinese localization", () => {
       />,
     );
 
-    if (!screen.queryByLabelText("模型服务")) {
-      fireEvent.click(screen.getByRole("button", { name: /设置/ }));
-    }
+    fireEvent.click(screen.getByRole("button", { name: "展开设置" }));
     fireEvent.change(screen.getByLabelText("模型服务"), {
       target: { value: "gemini" },
     });

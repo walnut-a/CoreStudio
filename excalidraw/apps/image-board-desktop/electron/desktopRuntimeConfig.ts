@@ -9,6 +9,7 @@ import {
 
 export const PRODUCTION_AGENT_BRIDGE_PORT = 60909;
 export const DEVELOPMENT_AGENT_BRIDGE_PORT = 60910;
+export const QA_AGENT_BRIDGE_PORT = 60911;
 export const PRODUCTION_APP_NAME = "CoreStudio";
 export const DEVELOPMENT_APP_NAME = "CoreStudio Dev";
 
@@ -53,6 +54,68 @@ const resolveBridgePort = (
   return port;
 };
 
+const assertRuntimeBoundary = (input: {
+  mode: DesktopRuntimeMode;
+  bundledAppName: string;
+  appName: string;
+  bridgePort: number;
+  userDataPath: string;
+  settingsDirectory: string;
+  sessionPath: string;
+  env: NodeJS.ProcessEnv;
+}) => {
+  if (
+    input.mode === "production" &&
+    input.bundledAppName !== PRODUCTION_APP_NAME
+  ) {
+    throw new Error(
+      "A source checkout must be launched through the fixed CoreStudio Dev launcher. Run `corepack yarn dev:desktop` instead of starting Electron directly.",
+    );
+  }
+
+  if (input.mode === "qa") {
+    if (input.env.CORESTUDIO_SMOKE_TEST !== "1") {
+      throw new Error(
+        "The qa runtime is reserved for the automated packaged smoke test. Use CoreStudio Dev for interactive UI acceptance.",
+      );
+    }
+    if (input.bridgePort !== QA_AGENT_BRIDGE_PORT) {
+      throw new Error(
+        `The packaged smoke test must use its fixed Agent Bridge port ${QA_AGENT_BRIDGE_PORT}.`,
+      );
+    }
+    return;
+  }
+
+  if (input.mode !== "development") {
+    return;
+  }
+
+  const fixedSettingsDirectory = path.resolve(input.userDataPath);
+  if (
+    input.bundledAppName !== DEVELOPMENT_APP_NAME &&
+    path.basename(fixedSettingsDirectory) !== ".electron-dev-profile"
+  ) {
+    throw new Error(
+      "CoreStudio source development must use the fixed .electron-dev-profile created by the CoreStudio Dev launcher.",
+    );
+  }
+  const fixedSessionPath = path.join(
+    fixedSettingsDirectory,
+    AGENT_SESSION_FILE_NAME,
+  );
+  if (
+    input.appName !== DEVELOPMENT_APP_NAME ||
+    input.bridgePort !== DEVELOPMENT_AGENT_BRIDGE_PORT ||
+    input.settingsDirectory !== fixedSettingsDirectory ||
+    input.sessionPath !== fixedSessionPath
+  ) {
+    throw new Error(
+      `CoreStudio Dev must use its fixed development identity: app name "${DEVELOPMENT_APP_NAME}", Agent Bridge ${DEVELOPMENT_AGENT_BRIDGE_PORT}, and the active development user-data directory for settings and session.`,
+    );
+  }
+};
+
 export const resolveDesktopAppName = ({
   bundledAppName,
   env = process.env,
@@ -83,11 +146,23 @@ export const resolveDesktopRuntimeConfig = (
     : mode === "production"
     ? path.join(getAgentSessionDirectory(input), AGENT_SESSION_FILE_NAME)
     : path.join(settingsDirectory, AGENT_SESSION_FILE_NAME);
+  const bridgePort = resolveBridgePort(env.CORESTUDIO_AGENT_BRIDGE_PORT, mode);
+
+  assertRuntimeBoundary({
+    mode,
+    bundledAppName: input.bundledAppName,
+    appName,
+    bridgePort,
+    userDataPath: input.userDataPath,
+    settingsDirectory,
+    sessionPath,
+    env,
+  });
 
   return {
     mode,
     appName,
-    bridgePort: resolveBridgePort(env.CORESTUDIO_AGENT_BRIDGE_PORT, mode),
+    bridgePort,
     settingsDirectory,
     sessionPath,
   } as const;

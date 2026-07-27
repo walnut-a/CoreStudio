@@ -107,6 +107,12 @@ corepack yarn dev:desktop
 用户数据目录和开发窗口标题。不要使用全局 `electron`、`open -a Electron` 或
 批量终止 Electron 进程。
 
+主进程会拒绝裸启动源码、人工创建 `qa` runtime，以及自定义开发版 Bridge、
+profile 或 session。真实界面验收只能使用固定的 `CoreStudio Dev` 身份：
+源码交互走 `corepack yarn dev:desktop`，打包开发版验收走
+`corepack yarn preview:desktop`。如果开发版已经运行，应复用或精确关闭后重启，
+不得另建临时 Electron 身份。仓库级强制规则见 [AGENTS.md](AGENTS.md)。
+
 常用检查：
 
 ```sh

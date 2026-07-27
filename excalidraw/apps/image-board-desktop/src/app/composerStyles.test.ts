@@ -260,6 +260,10 @@ describe("generate composer styles", () => {
     expect(composerRule).toContain(
       "--generate-composer-control-icon-size: 20px",
     );
+    expect(composerRule).toContain(
+      "--generate-composer-placeholder-color: color-mix(",
+    );
+    expect(composerRule).toContain("var(--text-primary-color) 62%");
     expect(composerRule).toContain("box-sizing: border-box");
     expect(composerRule).toContain(
       "padding: var(--ui-space-xs) var(--ui-space-xs) var(--ui-space-xs)",
@@ -490,6 +494,18 @@ describe("generate composer styles", () => {
   it("keeps the expanded settings surface in the same native control family", () => {
     const appCss = readAppCss();
     const bodyRule = getRule(appCss, ".generate-panel__body");
+    const configurationStateRule = getRule(
+      appCss,
+      ".generate-panel__configuration-state",
+    );
+    const configurationCopyRule = getRule(
+      appCss,
+      ".generate-panel__configuration-copy",
+    );
+    const configurationActionRule = getRule(
+      appCss,
+      ".generate-panel__configuration-action",
+    );
     const panelGridRule = getRule(
       appCss,
       ".generate-panel__body .dialog-form-grid",
@@ -498,7 +514,34 @@ describe("generate composer styles", () => {
     expect(bodyRule).toContain("border: 1px solid var(--input-border-color)");
     expect(bodyRule).toContain("border-radius: var(--border-radius-lg)");
     expect(bodyRule).toContain("background: var(--island-bg-color)");
+    expect(bodyRule).toContain("padding: var(--ui-space-lg)");
     expect(bodyRule).toContain("backdrop-filter: none");
+    expect(configurationStateRule).toContain("display: flex");
+    expect(configurationStateRule).toContain("flex-wrap: wrap");
+    expect(configurationStateRule).toContain(
+      "gap: var(--ui-space-lg)",
+    );
+    expect(configurationStateRule).toContain(
+      "padding: var(--ui-space-md) var(--ui-space-lg)",
+    );
+    expect(configurationStateRule).toContain(
+      "border: 1px solid var(--default-border-color)",
+    );
+    expect(configurationStateRule).toContain(
+      "border-radius: var(--border-radius-lg)",
+    );
+    expect(configurationStateRule).toContain(
+      "background: var(--color-surface-mid)",
+    );
+    expect(configurationStateRule).toContain(
+      "color: var(--text-primary-color)",
+    );
+    expect(configurationStateRule).not.toContain(
+      "var(--color-warning-background)",
+    );
+    expect(configurationCopyRule).toContain("flex: 1 1 180px");
+    expect(configurationCopyRule).toContain("min-width: 0");
+    expect(configurationActionRule).toContain("margin-left: auto");
     expect(panelGridRule).toContain("gap: 14px");
   });
 

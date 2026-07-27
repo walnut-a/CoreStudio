@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ClipboardEvent,
   type CompositionEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -235,6 +236,26 @@ const mergeTextParts = (parts: GenerationPromptPart[]) => {
 const isBrowserFillerText = (text: string) =>
   !text.replace(/[\n\r\u200b\ufeff\u00a0]/g, "");
 
+const BLOCK_ELEMENT_TAGS = new Set([
+  "ADDRESS",
+  "BLOCKQUOTE",
+  "DIV",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "LI",
+  "OL",
+  "P",
+  "PRE",
+  "UL",
+]);
+
+const isBlockElement = (node: Node): node is HTMLElement =>
+  node instanceof HTMLElement && BLOCK_ELEMENT_TAGS.has(node.tagName);
+
 const stripBrowserFillerContent = (
   parts: GenerationPromptPart[],
   options: { hasVisualReference?: boolean } = {},
@@ -303,16 +324,33 @@ const readPartsFromNode = (node: Node): GenerationPromptPart[] => {
     return [{ type: "text", text: "\n" }];
   }
 
-  return Array.from(node.childNodes).flatMap(readPartsFromNode);
+  const parts: GenerationPromptPart[] = [];
+  const children = Array.from(node.childNodes);
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    const childParts = readPartsFromNode(child);
+    const previousChild = children[index - 1];
+    const previousPart = parts.at(-1);
+    const firstChildPart = childParts[0];
+    const needsBlockBoundary =
+      index > 0 && (isBlockElement(previousChild) || isBlockElement(child));
+    const boundaryAlreadyPresent =
+      (previousPart?.type === "text" && previousPart.text.endsWith("\n")) ||
+      (firstChildPart?.type === "text" && firstChildPart.text.startsWith("\n"));
+
+    if (needsBlockBoundary && childParts.length && !boundaryAlreadyPresent) {
+      parts.push({ type: "text", text: "\n" });
+    }
+    parts.push(...childParts);
+  }
+  return parts;
 };
 
 const readEditorParts = (editor: HTMLElement | null) => {
   if (!editor) {
     return [];
   }
-  return stripBrowserFillerContent(
-    mergeTextParts(Array.from(editor.childNodes).flatMap(readPartsFromNode)),
-  );
+  return stripBrowserFillerContent(mergeTextParts(readPartsFromNode(editor)));
 };
 
 const arePromptPartsEqual = (
@@ -339,6 +377,9 @@ const getPromptUnits = (parts: readonly GenerationPromptPart[]) =>
       ? part.text.split("").map((character) => `text:${character}`)
       : [`reference:${part.referenceId}`],
   );
+
+const getReferencePartCount = (parts: readonly GenerationPromptPart[]) =>
+  parts.reduce((count, part) => count + (part.type === "reference" ? 1 : 0), 0);
 
 const getCaretOffsetAfterDomChange = (
   previousParts: readonly GenerationPromptPart[],
@@ -525,6 +566,29 @@ const restoreCaretOffset = (
   selection.addRange(range);
 };
 
+const insertPlainTextAtSelection = (editor: HTMLElement, text: string) => {
+  const selection = window.getSelection();
+  const currentRange =
+    selection?.rangeCount &&
+    editor.contains(selection.getRangeAt(0).startContainer)
+      ? selection.getRangeAt(0)
+      : null;
+  const range = currentRange?.cloneRange() ?? document.createRange();
+
+  if (!currentRange) {
+    range.selectNodeContents(editor);
+    range.collapse(false);
+  }
+
+  range.deleteContents();
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+};
+
 const insertReferencePart = (
   parts: GenerationPromptPart[],
   referenceId: string,
@@ -628,19 +692,38 @@ export const InlinePromptEditor = forwardRef<
     const restoreOffsetRef = useRef<number | null>(null);
     const composingRef = useRef(false);
     const compositionCommitTimerRef = useRef<number | null>(null);
+    const compositionCommitPendingRef = useRef(false);
     const caretRestoreFrameRef = useRef<number | null>(null);
+    const deferredExternalPartsRef = useRef<GenerationPromptPart[] | null>(
+      null,
+    );
+    const observedResetKeyRef = useRef(resetKey);
     const renderedReferencesRef = useRef<
       GenerationPromptReferencePayload[] | null
     >(null);
     const renderedPendingReferenceRef =
       useRef<GenerationReferencePayload | null>(null);
-    const renderedResetKeyRef = useRef<number | null>(null);
 
-    useEffect(() => {
-      if (composingRef.current) {
+    const clearScheduledCaretRestore = () => {
+      if (caretRestoreFrameRef.current === null) {
         return;
       }
 
+      window.cancelAnimationFrame(caretRestoreFrameRef.current);
+      caretRestoreFrameRef.current = null;
+    };
+
+    useEffect(() => {
+      const resetChanged = observedResetKeyRef.current !== resetKey;
+      observedResetKeyRef.current = resetKey;
+      if (composingRef.current || compositionCommitPendingRef.current) {
+        if (resetChanged) {
+          deferredExternalPartsRef.current = parts;
+        }
+        return;
+      }
+
+      deferredExternalPartsRef.current = null;
       setLocalParts(parts);
     }, [parts, resetKey]);
 
@@ -658,10 +741,16 @@ export const InlinePromptEditor = forwardRef<
 
     useLayoutEffect(() => {
       const editor = editorRef.current;
+      if (composingRef.current || compositionCommitPendingRef.current) {
+        return;
+      }
       const contentMatches = arePromptPartsEqual(
         readEditorParts(editor),
         localParts,
       );
+      const decorationCaretOffset = contentMatches
+        ? getCaretOffset(editor)
+        : null;
       const currentReferenceDecorations = getReferenceDecorationsForParts(
         localParts,
         references,
@@ -676,9 +765,7 @@ export const InlinePromptEditor = forwardRef<
           renderedPendingReferenceRef.current,
           pendingReference,
         );
-      const resetMatches = renderedResetKeyRef.current === resetKey;
-
-      if (contentMatches && decorationsMatch && resetMatches) {
+      if (contentMatches && decorationsMatch) {
         restoreCaretOffset(editor, restoreOffsetRef.current);
         restoreOffsetRef.current = null;
         return;
@@ -692,12 +779,15 @@ export const InlinePromptEditor = forwardRef<
       });
       renderedReferencesRef.current = currentReferenceDecorations;
       renderedPendingReferenceRef.current = pendingReference;
-      renderedResetKeyRef.current = resetKey;
-      restoreCaretOffset(editor, restoreOffsetRef.current);
+      restoreCaretOffset(
+        editor,
+        restoreOffsetRef.current ?? decorationCaretOffset,
+      );
       restoreOffsetRef.current = null;
     }, [localParts, pendingReference, references, resetKey]);
 
     const commitDomChange = () => {
+      clearScheduledCaretRestore();
       if (composingRef.current) {
         return;
       }
@@ -709,16 +799,14 @@ export const InlinePromptEditor = forwardRef<
         nextParts,
         caretOffset,
       );
-      const contentWasDeleted =
-        getPromptUnits(nextParts).length < getPromptUnits(localParts).length;
+      const referenceWasDeleted =
+        getReferencePartCount(nextParts) < getReferencePartCount(localParts);
+      renderedReferencesRef.current = getReferenceDecorationsForParts(
+        nextParts,
+        references,
+      );
       restoreOffsetRef.current = nextCaretOffset;
-      if (
-        nextCaretOffset !== null &&
-        (contentWasDeleted || nextCaretOffset !== caretOffset)
-      ) {
-        if (caretRestoreFrameRef.current !== null) {
-          window.cancelAnimationFrame(caretRestoreFrameRef.current);
-        }
+      if (nextCaretOffset !== null && referenceWasDeleted) {
         caretRestoreFrameRef.current = window.requestAnimationFrame(() => {
           caretRestoreFrameRef.current = null;
           restoreCaretOffset(editorRef.current, nextCaretOffset);
@@ -737,8 +825,24 @@ export const InlinePromptEditor = forwardRef<
       compositionCommitTimerRef.current = null;
     };
 
+    const finishCompositionCommit = () => {
+      compositionCommitPendingRef.current = false;
+      const deferredExternalParts = deferredExternalPartsRef.current;
+      deferredExternalPartsRef.current = null;
+      if (deferredExternalParts) {
+        setLocalParts(deferredExternalParts);
+      } else {
+        commitDomChange();
+      }
+      setIsComposing(false);
+    };
+
     const handleInput = () => {
       clearScheduledCompositionCommit();
+      if (!composingRef.current && compositionCommitPendingRef.current) {
+        finishCompositionCommit();
+        return;
+      }
       commitDomChange();
       if (!composingRef.current) {
         setIsComposing(false);
@@ -749,23 +853,48 @@ export const InlinePromptEditor = forwardRef<
       _event: CompositionEvent<HTMLDivElement>,
     ) => {
       clearScheduledCompositionCommit();
+      clearScheduledCaretRestore();
+      compositionCommitPendingRef.current = false;
+      deferredExternalPartsRef.current = null;
       composingRef.current = true;
       setIsComposing(true);
     };
 
     const handleCompositionEnd = (_event: CompositionEvent<HTMLDivElement>) => {
       composingRef.current = false;
+      compositionCommitPendingRef.current = true;
       compositionCommitTimerRef.current = window.setTimeout(() => {
         compositionCommitTimerRef.current = null;
-        commitDomChange();
-        setIsComposing(false);
+        finishCompositionCommit();
       }, 0);
+    };
+
+    const handlePaste = (event: ClipboardEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.nativeEvent.stopImmediatePropagation?.();
+      const editor = editorRef.current;
+      if (!editor) {
+        return;
+      }
+
+      const plainText = event.clipboardData
+        .getData("text/plain")
+        .replace(/\r\n?/g, "\n");
+      const insertedWithNativeHistory =
+        typeof document.execCommand === "function" &&
+        document.execCommand("insertText", false, plainText);
+      if (!insertedWithNativeHistory) {
+        insertPlainTextAtSelection(editor, plainText);
+        commitDomChange();
+      }
     };
 
     useImperativeHandle(ref, () => ({
       focus: () => editorRef.current?.focus(),
       getParts: () => readEditorParts(editorRef.current),
       insertReference: (referenceId: string) => {
+        clearScheduledCaretRestore();
         const caretOffset = getCaretOffset(editorRef.current);
         const currentParts = readEditorParts(editorRef.current);
         const nextParts = insertReferencePart(
@@ -800,11 +929,13 @@ export const InlinePromptEditor = forwardRef<
           .join(" ")}
         role="textbox"
         aria-label={ariaLabel}
+        aria-placeholder={placeholder}
         aria-multiline="true"
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
         onInput={handleInput}
+        onPaste={handlePaste}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
         onFocus={onFocusIntent}

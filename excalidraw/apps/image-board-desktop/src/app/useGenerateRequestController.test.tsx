@@ -22,46 +22,43 @@ const createRequest = (
   ...patch,
 });
 
-const createSettings = (): PublicProviderSettings =>
-  ({
-    gemini: {
-      isConfigured: true,
-      defaultModel: "gemini-2.5-flash-image-preview",
-      customModels: [],
-    },
-    zenmux: {
-      isConfigured: false,
-      defaultModel: "gemini-3-pro-image-preview",
-      customModels: [],
-    },
-    fal: {
-      isConfigured: false,
-      defaultModel: "fal-ai/imagen4/preview",
-      customModels: [],
-    },
-    jimeng: {
-      isConfigured: false,
-      defaultModel: "jimeng-3.1",
-      customModels: [],
-    },
-    openai: {
-      isConfigured: false,
-      defaultModel: "gpt-image-1",
-      customModels: [],
-    },
-    openrouter: {
-      isConfigured: false,
-      defaultModel: "google/gemini-3-pro-image-preview",
-      customModels: [],
-    },
-  });
+const createSettings = (): PublicProviderSettings => ({
+  gemini: {
+    isConfigured: true,
+    defaultModel: "gemini-2.5-flash-image-preview",
+    customModels: [],
+  },
+  zenmux: {
+    isConfigured: false,
+    defaultModel: "gemini-3-pro-image-preview",
+    customModels: [],
+  },
+  fal: {
+    isConfigured: false,
+    defaultModel: "fal-ai/imagen4/preview",
+    customModels: [],
+  },
+  jimeng: {
+    isConfigured: false,
+    defaultModel: "jimeng-3.1",
+    customModels: [],
+  },
+  openai: {
+    isConfigured: false,
+    defaultModel: "gpt-image-1",
+    customModels: [],
+  },
+  openrouter: {
+    isConfigured: false,
+    defaultModel: "google/gemini-3-pro-image-preview",
+    customModels: [],
+  },
+});
 
 const DEFAULT_REQUEST = createRequest();
 const DEFAULT_SETTINGS = createSettings();
 
-const reference = (
-  id: string,
-): GenerationPromptReferencePayload => ({
+const reference = (id: string): GenerationPromptReferencePayload => ({
   id,
   label: "图片",
   enabled: true,
@@ -179,6 +176,39 @@ describe("useGenerateRequestController", () => {
     expect(getState().request.prompt).toBe("参考 ");
     expect(getState().request.promptReferences).toEqual([reference("keep")]);
     expect(getState().promptReferences).toEqual([reference("keep")]);
+  });
+
+  it("restores reference metadata when browser undo brings a deleted chip back", () => {
+    render(
+      <ControllerProbe
+        initialRequest={createRequest({
+          promptParts: [
+            { type: "reference", referenceId: "keep" },
+            { type: "reference", referenceId: "restore" },
+          ],
+          promptReferences: [reference("keep"), reference("restore")],
+        })}
+      />,
+    );
+
+    act(() => {
+      controller?.updatePromptParts([
+        { type: "reference", referenceId: "keep" },
+      ]);
+    });
+    expect(getState().request.promptReferences).toEqual([reference("keep")]);
+
+    act(() => {
+      controller?.updatePromptParts([
+        { type: "reference", referenceId: "keep" },
+        { type: "reference", referenceId: "restore" },
+      ]);
+    });
+
+    expect(getState().request.promptReferences).toEqual([
+      reference("keep"),
+      reference("restore"),
+    ]);
   });
 
   it("replaces prompt parts and resets the editor", () => {

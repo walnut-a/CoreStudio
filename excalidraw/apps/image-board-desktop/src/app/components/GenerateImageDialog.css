@@ -128,7 +128,7 @@
   );
   --generate-composer-placeholder-color: color-mix(
     in srgb,
-    var(--text-primary-color) 43%,
+    var(--text-primary-color) 62%,
     transparent
   );
   --generate-composer-reference-color: color-mix(
@@ -607,7 +607,7 @@
   bottom: calc(100% + 10px);
   overflow-y: auto;
   max-height: min(56vh, 420px);
-  padding: 12px;
+  padding: var(--ui-space-lg);
   border: 1px solid var(--input-border-color);
   border-radius: var(--border-radius-lg);
   background: var(--island-bg-color);
@@ -649,22 +649,35 @@
   color: var(--corestudio-secondary-text-color, var(--color-gray-60));
 }
 
-.generate-panel__body .dialog-card__warning,
 .generate-panel__body .dialog-card__error {
   margin-top: 0;
   font-size: 0.8125rem;
   line-height: 1.45;
 }
 
-.generate-panel__body .dialog-card__warning {
+.generate-panel__configuration-state {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: var(--ui-space-lg);
+  padding: var(--ui-space-md) var(--ui-space-lg);
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface-mid);
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-md);
+  line-height: var(--ui-line-height-relaxed);
 }
 
-.generate-panel__body .dialog-card__warning .desktop-button {
-  flex: 0 0 auto;
+.generate-panel__configuration-copy {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.generate-panel__configuration-action {
+  flex: none;
+  margin-left: auto;
 }
 
 .generate-panel__body .dialog-form-grid {
@@ -760,7 +773,7 @@
 
   .generate-panel__body {
     max-height: min(62vh, 460px);
-    padding: 14px;
+    padding: var(--ui-space-xl);
   }
 }
 

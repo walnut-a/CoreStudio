@@ -14,6 +14,10 @@ import {
 } from "./roomManager";
 import { ProjectRoomError, type ProjectRoom } from "./projectRoom";
 import { createProjectRoomPersistence } from "./projectRoomPersistence";
+import type {
+  ProjectProcessLease,
+  ProjectProcessLeaseRegistry,
+} from "./projectProcessLease";
 
 interface ProjectSceneWriteInput {
   projectPath: string;
@@ -49,6 +53,7 @@ export interface CreateProjectRoomServiceInput {
   canonicalizeProjectPath?: (projectPath: string) => Promise<string>;
   randomId?: () => string;
   persistenceDebounceMs?: number;
+  projectProcessLeaseRegistry?: ProjectProcessLeaseRegistry;
 }
 
 export class ProjectRoomService {
@@ -59,6 +64,10 @@ export class ProjectRoomService {
   private readonly openingByPath = new Map<
     string,
     Promise<ReturnType<ProjectRoomManager["open"]>>
+  >();
+  private readonly processLeaseByProjectId = new Map<
+    string,
+    ProjectProcessLease
   >();
 
   constructor(private readonly input: CreateProjectRoomServiceInput) {
@@ -118,6 +127,7 @@ export class ProjectRoomService {
     const closed = this.manager.close(projectId, options.reason);
     if (closed) {
       this.projectIdByPath.delete(canonicalProjectPath);
+      await this.releaseProcessLease(projectId);
     }
     return closed;
   }
@@ -229,6 +239,7 @@ export class ProjectRoomService {
         )
       ) {
         this.projectIdByPath.delete(room.identity.canonicalProjectPath);
+        await this.releaseProcessLease(room.identity.projectId);
         closedRoomCount += 1;
       }
     }
@@ -289,32 +300,53 @@ export class ProjectRoomService {
   }
 
   private async openCanonicalProject(canonicalProjectPath: string) {
-    const bundle = await this.input.readProjectBundle(canonicalProjectPath);
-    const projectId = bundle.project.projectId ?? canonicalProjectPath;
-    const persistence = createProjectRoomPersistence({
-      projectPath: canonicalProjectPath,
-      initialSceneJson: bundle.sceneJson,
-      writeProjectScene: this.input.writeProjectScene,
-    });
-    const sessionEpoch = (this.lastEpochByProjectId.get(projectId) ?? 0) + 1;
-    const room = this.manager.open({
-      identity: {
-        projectId,
+    const processLease =
+      await this.input.projectProcessLeaseRegistry?.acquire(
         canonicalProjectPath,
-        roomId: (this.input.randomId ?? randomUUID)(),
-        sessionEpoch,
-      },
-      initialScene: persistence.initialScene,
-      persistedSequence: 0,
-      projectRevision: persistence.initialProjectRevision,
-      persistence: {
-        debounceMs: this.input.persistenceDebounceMs ?? 750,
-        persist: persistence.persist,
-      },
-    });
-    this.lastEpochByProjectId.set(projectId, sessionEpoch);
-    this.projectIdByPath.set(canonicalProjectPath, projectId);
-    return room;
+      );
+    try {
+      const bundle = await this.input.readProjectBundle(canonicalProjectPath);
+      const projectId = bundle.project.projectId ?? canonicalProjectPath;
+      const persistence = createProjectRoomPersistence({
+        projectPath: canonicalProjectPath,
+        initialSceneJson: bundle.sceneJson,
+        writeProjectScene: this.input.writeProjectScene,
+      });
+      const sessionEpoch = (this.lastEpochByProjectId.get(projectId) ?? 0) + 1;
+      const room = this.manager.open({
+        identity: {
+          projectId,
+          canonicalProjectPath,
+          roomId: (this.input.randomId ?? randomUUID)(),
+          sessionEpoch,
+        },
+        initialScene: persistence.initialScene,
+        persistedSequence: 0,
+        projectRevision: persistence.initialProjectRevision,
+        persistence: {
+          debounceMs: this.input.persistenceDebounceMs ?? 750,
+          persist: persistence.persist,
+        },
+      });
+      if (processLease) {
+        this.processLeaseByProjectId.set(projectId, processLease);
+      }
+      this.lastEpochByProjectId.set(projectId, sessionEpoch);
+      this.projectIdByPath.set(canonicalProjectPath, projectId);
+      return room;
+    } catch (error) {
+      await processLease?.release().catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async releaseProcessLease(projectId: string) {
+    const lease = this.processLeaseByProjectId.get(projectId);
+    if (!lease) {
+      return;
+    }
+    this.processLeaseByProjectId.delete(projectId);
+    await lease.release();
   }
 
   private assertRoomCloseState(

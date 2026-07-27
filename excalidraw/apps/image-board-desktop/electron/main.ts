@@ -66,6 +66,7 @@ import {
   persistImageAssets,
   readProjectAssetPayloads,
   readProjectBundle,
+  readProjectManifestSnapshot,
   rebuildProjectThumbnails,
   writeProjectScene,
 } from "./projectFs";
@@ -128,6 +129,7 @@ import { installBrokenPipeConsoleGuard } from "./safeProcessLogging";
 import { createLocaleSettingsStore } from "./localeSettingsStore";
 import { createLocaleSettingsController } from "./localeSettingsController";
 import { createProjectRoomService } from "./room/projectRoomService";
+import { createProjectProcessLeaseRegistry } from "./room/projectProcessLease";
 import { executeProjectRoomAgentWriterCommand } from "./room/projectRoomAgentWriter";
 import { createProjectRoomIpcController } from "./room/projectRoomIpcController";
 import { createProjectRoomTicketStore } from "./room/projectRoomTicketStore";
@@ -147,6 +149,7 @@ import {
   createProjectViewRegistry,
   type ProjectViewRegistry,
 } from "./projectViewRegistry";
+import { createProjectViewHandleLifecycle } from "./projectViewHandleLifecycle";
 import { createProjectRendererLifecycle } from "./projectRendererLifecycle";
 import {
   createProjectRoomSenderBindings,
@@ -208,9 +211,15 @@ const stableBoardSessionClaimStore = createStableBoardSessionClaimStore();
 let stableBoardActorResumeTokenService: StableBoardActorResumeTokenService | null =
   null;
 const boardProjectSelectionStore = createBoardProjectSelectionStore();
+const projectProcessLeaseRegistry = createProjectProcessLeaseRegistry({
+  appName: desktopRuntime.appName,
+  pid: process.pid,
+  processNonce: randomUUID(),
+});
 const projectRoomService = createProjectRoomService({
   readProjectBundle,
   writeProjectScene,
+  projectProcessLeaseRegistry,
 });
 const verifiedProjectRoomAssetFileIds = new WeakMap<ProjectRoom, Set<string>>();
 const validateProjectRoomOperationAssets = async (
@@ -595,12 +604,12 @@ const getAgentProjectByToken = async (
     }
 
     try {
-      const bundle = await readProjectBundle(project.projectPath);
-      if (bundle.project.agentAccess.token === token) {
+      const manifest = await readProjectManifestSnapshot(project.projectPath);
+      if (manifest.agentAccess.token === token) {
         return {
           projectPath: project.projectPath,
-          name: bundle.project.name,
-          agentAccess: bundle.project.agentAccess,
+          name: manifest.name,
+          agentAccess: manifest.agentAccess,
         };
       }
     } catch {
@@ -620,12 +629,12 @@ const getAgentProjectByStableBoardId = async (
   ];
   for (const projectPath of new Set(projectPaths)) {
     try {
-      const bundle = await readProjectBundle(projectPath);
-      if (bundle.project.stableBoardId === stableBoardId) {
+      const manifest = await readProjectManifestSnapshot(projectPath);
+      if (manifest.stableBoardId === stableBoardId) {
         return {
           projectPath,
-          name: bundle.project.name,
-          agentAccess: bundle.project.agentAccess,
+          name: manifest.name,
+          agentAccess: manifest.agentAccess,
         };
       }
     } catch {
@@ -636,7 +645,10 @@ const getAgentProjectByStableBoardId = async (
 };
 
 const getStableAgentBoardUrl = async (projectPath: string) => {
-  const { stableBoardId } = await ensureProjectStableBoardId(projectPath);
+  const room = await projectRoomService.openProject(projectPath);
+  const { stableBoardId } = await ensureProjectStableBoardId(
+    room.identity.canonicalProjectPath,
+  );
   return buildAgentBoardUrl({
     agentAccessEnabled,
     bridgeBaseUrl: localBridgeHandle?.baseUrl ?? null,
@@ -993,7 +1005,7 @@ const startLocalBridge = async () => {
             },
           );
         }
-        const bundle = await readProjectBundle(projectPath);
+        const manifest = await readProjectManifestSnapshot(projectPath);
         boardProjectSelectionStore.consume(selectionToken);
         const boardUrl = await getStableAgentBoardUrl(projectPath);
         if (!boardUrl) {
@@ -1006,7 +1018,7 @@ const startLocalBridge = async () => {
           boardUrl,
           project: {
             projectPath,
-            name: bundle.project.name,
+            name: manifest.name,
           },
         };
       },
@@ -1262,7 +1274,8 @@ const buildProjectBundle = async (
   projectPath: string,
   options: { safeMode?: boolean } = {},
 ) => {
-  const canonicalProjectPath = await fs.realpath(projectPath);
+  const room = await projectRoomService.openProject(projectPath);
+  const canonicalProjectPath = room.identity.canonicalProjectPath;
   const bundle = await readProjectBundle(canonicalProjectPath);
   currentRecentProjects = await rememberRecentProject(
     canonicalProjectPath,
@@ -2390,8 +2403,8 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
           preload: path.join(__dirname, "preload.js"),
         },
       });
-      let attached = false;
-      const projectWebContentsId = view.webContents.id;
+      const projectWebContents = view.webContents;
+      const projectWebContentsId = projectWebContents.id;
       const projectRendererLifecycle = createProjectRendererLifecycle({
         webContentsId: projectWebContentsId,
         releaseSessions: releaseProjectRendererRoomSessions,
@@ -2399,27 +2412,27 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
           projectViewRegistry?.markCrashed(webContentsId);
         },
       });
-      configureProjectRendererPermissions(view.webContents);
+      configureProjectRendererPermissions(projectWebContents);
       view.setVisible(false);
       view.setBounds(getProjectViewBounds(targetWindow));
       view.setBackgroundColor("#f5f3ef");
 
       const resetZoom = () => {
-        if (view.webContents.isDestroyed()) {
+        if (projectWebContents.isDestroyed()) {
           return;
         }
-        view.webContents.setZoomFactor(1);
-        void view.webContents
+        projectWebContents.setZoomFactor(1);
+        void projectWebContents
           .setVisualZoomLevelLimits(1, 1)
           .catch(() => undefined);
       };
       resetZoom();
-      view.webContents.on("zoom-changed", (event) => {
+      projectWebContents.on("zoom-changed", (event) => {
         event.preventDefault();
         resetZoom();
       });
-      view.webContents.on("did-finish-load", resetZoom);
-      view.webContents.on(
+      projectWebContents.on("did-finish-load", resetZoom);
+      projectWebContents.on(
         "console-message",
         (_event, level, message, line, sourceId) => {
           console.log(
@@ -2429,19 +2442,19 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
           );
         },
       );
-      view.webContents.on("render-process-gone", (_event, details) => {
+      projectWebContents.on("render-process-gone", (_event, details) => {
         console.error("[project-renderer:gone]", {
           projectPath: descriptor.projectPath,
           details,
         });
         projectRendererLifecycle.markUnavailable();
       });
-      view.webContents.on("unresponsive", () => {
+      projectWebContents.on("unresponsive", () => {
         console.error("[project-renderer:unresponsive]", {
           projectPath: descriptor.projectPath,
         });
       });
-      view.webContents.on(
+      projectWebContents.on(
         "did-fail-load",
         (_event, errorCode, errorDescription, validatedURL) => {
           console.error("[project-renderer:load-failed]", {
@@ -2452,10 +2465,10 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
           });
         },
       );
-      view.webContents.once("destroyed", () => {
+      projectWebContents.once("destroyed", () => {
         projectRendererLifecycle.release();
       });
-      void loadProjectRenderer(view.webContents, descriptor.projectPath).catch(
+      void loadProjectRenderer(projectWebContents, descriptor.projectPath).catch(
         (error) => {
           console.error("[project-renderer:load-error]", {
             projectPath: descriptor.projectPath,
@@ -2465,40 +2478,33 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
         },
       );
 
-      return {
-        projectPath: descriptor.projectPath,
-        webContentsId: projectWebContentsId,
-        attach: () => {
-          if (!attached) {
-            attached = true;
-            targetWindow.contentView.addChildView(view);
-            view.setVisible(true);
-          }
+      const handleLifecycle = createProjectViewHandleLifecycle({
+        isHostDestroyed: () => targetWindow.isDestroyed(),
+        isContentsDestroyed: () => projectWebContents.isDestroyed(),
+        attachView: () => {
+          targetWindow.contentView.addChildView(view);
         },
-        detach: () => {
-          if (attached) {
-            targetWindow.contentView.removeChildView(view);
-          }
-          attached = false;
-          view.setVisible(false);
+        detachView: () => {
+          targetWindow.contentView.removeChildView(view);
         },
-        focus: () => {
-          if (!view.webContents.isDestroyed()) {
-            view.webContents.focus();
-          }
+        setVisible: (visible) => {
+          view.setVisible(visible);
+        },
+        focusContents: () => {
+          projectWebContents.focus();
         },
         setBounds: (bounds) => {
           view.setBounds(bounds);
         },
-        destroy: () => {
-          if (attached) {
-            targetWindow.contentView.removeChildView(view);
-            attached = false;
-          }
-          if (!view.webContents.isDestroyed()) {
-            view.webContents.close({ waitForBeforeUnload: false });
-          }
+        closeContents: () => {
+          projectWebContents.close({ waitForBeforeUnload: false });
         },
+      });
+
+      return {
+        projectPath: descriptor.projectPath,
+        webContentsId: projectWebContentsId,
+        ...handleLifecycle,
       };
     },
     onChange: publishProjectViewsState,

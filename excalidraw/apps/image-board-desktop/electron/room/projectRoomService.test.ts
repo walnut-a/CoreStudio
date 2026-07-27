@@ -41,6 +41,64 @@ const bundle = (projectId: string, projectPath: string) => ({
 });
 
 describe("ProjectRoomService", () => {
+  it("acquires the machine-wide project lease before reading project data", async () => {
+    const release = vi.fn(async () => undefined);
+    const acquire = vi.fn(async (projectPath: string) => ({
+      projectPath,
+      owner: {
+        appName: "CoreStudio",
+        pid: process.pid,
+        processNonce: "test-process",
+      },
+      release,
+    }));
+    const readProjectBundle = vi.fn(async (projectPath: string) =>
+      bundle("project-1", projectPath),
+    );
+    const service = createProjectRoomService({
+      readProjectBundle,
+      writeProjectScene: vi.fn(async () => ({})),
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      projectProcessLeaseRegistry: { acquire },
+    });
+
+    const room = await service.openProject("/projects/project-1");
+
+    expect(acquire).toHaveBeenCalledWith("/projects/project-1");
+    expect(acquire.mock.invocationCallOrder[0]).toBeLessThan(
+      readProjectBundle.mock.invocationCallOrder[0],
+    );
+    await service.closeProject(room.identity.projectId, { force: true });
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the project lease when opening project data fails", async () => {
+    const release = vi.fn(async () => undefined);
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async () => {
+        throw new Error("project read failed");
+      }),
+      writeProjectScene: vi.fn(async () => ({})),
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      projectProcessLeaseRegistry: {
+        acquire: vi.fn(async (projectPath: string) => ({
+          projectPath,
+          owner: {
+            appName: "CoreStudio",
+            pid: process.pid,
+            processNonce: "test-process",
+          },
+          release,
+        })),
+      },
+    });
+
+    await expect(
+      service.openProject("/projects/project-1"),
+    ).rejects.toThrow("project read failed");
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
   it("opens a room from the canonical project bundle", async () => {
     const readProjectBundle = vi.fn(async (projectPath: string) =>
       bundle("project-1", projectPath),

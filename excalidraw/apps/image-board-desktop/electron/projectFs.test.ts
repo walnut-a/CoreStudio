@@ -18,6 +18,7 @@ import {
   persistImageAssets,
   readProjectAssetPayloads,
   readProjectBundle,
+  readProjectManifestSnapshot,
   rebuildProjectThumbnails,
   updateProjectAgentAccess,
   writeProjectScene,
@@ -210,6 +211,35 @@ describe("projectFs", () => {
     expect(reopened.project.agentAccess.token).toBe(
       migrated.project.agentAccess.token,
     );
+  });
+
+  it("reads a normalized project manifest snapshot without migrating the file", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Read-only Manifest");
+    const projectFile = path.join(
+      project.projectPath,
+      PROJECT_FILENAMES.project,
+    );
+    const legacyProject = {
+      ...project.project,
+      agentAccess: undefined,
+    };
+    delete legacyProject.agentAccess;
+    const originalJson = JSON.stringify(legacyProject, null, 2);
+    await fs.writeFile(projectFile, originalJson);
+
+    const manifest = await readProjectManifestSnapshot(project.projectPath);
+
+    expect(manifest).toMatchObject({
+      name: "Read-only Manifest",
+      agentAccess: {
+        token: expect.any(String),
+        enabled: true,
+      },
+    });
+    await expect(fs.readFile(projectFile, "utf8")).resolves.toBe(originalJson);
   });
 
   it("lazily persists one stable Agent Board id per project", async () => {

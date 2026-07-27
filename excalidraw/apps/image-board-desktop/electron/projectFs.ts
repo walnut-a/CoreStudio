@@ -336,6 +336,31 @@ const readProjectBundleFiles = async (
   };
 };
 
+export const readProjectManifestSnapshot = async (
+  projectPath: string,
+): Promise<ProjectManifest> => {
+  const projectFile = path.join(projectPath, PROJECT_FILENAMES.project);
+  let manifestValue: unknown;
+  try {
+    manifestValue = JSON.parse(await fs.readFile(projectFile, "utf8"));
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw Object.assign(
+        new Error("项目清单 JSON 已损坏，已保留原文件。"),
+        { code: "PROJECT_MANIFEST_INVALID", details: error.message },
+      );
+    }
+    throw error;
+  }
+  return parseProjectManifest({
+    value: manifestValue,
+    projectPath,
+    appVersion: DESKTOP_APP_VERSION,
+    createAgentAccess: createProjectAgentAccess,
+    createProjectId: randomUUID,
+  }).project;
+};
+
 export const readProjectBundle = async (projectPath: string) => {
   const initialBundle = await readProjectBundleFiles(projectPath);
   const recovery = await recoverProjectImageWritebacks(projectPath);

@@ -71,6 +71,8 @@ corepack yarn build:desktop
 | session | 正式全局目录 | 开发 profile 内的 `agent-session.json` |
 | 用户配置 | 正式全局目录 | `.electron-dev-profile` 或 `CoreStudio Dev` 用户目录 |
 
+这些运行身份彼此隔离，但项目所有权不会隔离：同一个项目路径同时只能由一个 Electron 进程打开。另一个 Electron 若尝试打开同一项目会被明确拦截；需要多端协作时，保留一个 Electron 作为房间宿主，其余参与者通过浏览器 Agent Board 加入。
+
 本地打包验收使用独立开发包：
 
 ```sh
@@ -79,6 +81,8 @@ corepack yarn --cwd apps/image-board-desktop open:dev:packaged
 ```
 
 产物位于 `apps/image-board-desktop/release-dev/mac-arm64/CoreStudio Dev.app`。它即使被直接双击，也会按开发身份使用 `60910`、独立用户目录和独立 session。`release/mac-arm64/CoreStudio.app` 始终是正式身份，不用于本地开发验收。
+
+Electron UI、项目读写和退出流程验收必须使用临时项目，不能把正式用户项目同时交给正式版与开发版。需要验证房间协作时，启动一个 Electron 宿主，并用一个或多个浏览器 Agent Board 连接该宿主。
 
 `start:desktop` 保留为兼容别名。多项目并行开发时不要使用全局 `electron`、 `electron .`、`open -a Electron`、`killall Electron` 或 `pkill -f Electron`。
 

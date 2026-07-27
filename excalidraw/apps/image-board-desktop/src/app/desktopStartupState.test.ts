@@ -15,6 +15,44 @@ import type {
 import { setActiveDesktopLocale } from "./copy";
 
 describe("loadRecentProjectsStateAction", () => {
+  it("reports loading and loaded states around a successful project-list read", async () => {
+    const setRecentProjectsLoadStatus = vi.fn();
+
+    await loadRecentProjectsStateAction({
+      bridge: {
+        loadRecentProjects: vi.fn(async () => []),
+      } as unknown as DesktopBridgeApi,
+      setRecentProjects: vi.fn(),
+      setRecentProjectsLoadStatus,
+    });
+
+    expect(setRecentProjectsLoadStatus.mock.calls).toEqual([
+      ["loading"],
+      ["loaded"],
+    ]);
+  });
+
+  it("reports a failed state instead of treating a read error as an empty list", async () => {
+    const setRecentProjects = vi.fn();
+    const setRecentProjectsLoadStatus = vi.fn();
+
+    await loadRecentProjectsStateAction({
+      bridge: {
+        loadRecentProjects: vi.fn(async () => {
+          throw new Error("读取失败");
+        }),
+      } as unknown as DesktopBridgeApi,
+      setRecentProjects,
+      setRecentProjectsLoadStatus,
+    });
+
+    expect(setRecentProjects).toHaveBeenCalledWith([]);
+    expect(setRecentProjectsLoadStatus.mock.calls).toEqual([
+      ["loading"],
+      ["failed"],
+    ]);
+  });
+
   it("loads recent projects through the desktop bridge", async () => {
     const recentProjects: RecentProjectEntry[] = [
       {

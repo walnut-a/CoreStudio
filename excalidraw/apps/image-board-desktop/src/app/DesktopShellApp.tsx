@@ -4,15 +4,18 @@ import type {
   DesktopProjectBundle,
   DesktopProjectTheme,
   DesktopProjectViewsState,
+  ProviderConfigurationSnapshot,
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
 import type { DesktopLocalePreference } from "../shared/desktopLocale";
+import { getConfiguredProviderIds } from "../shared/providerCatalog";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { AppProjectEntryScreen } from "./components/AppProjectEntryScreen";
 import type { ApplicationSettingsCategory } from "./components/ApplicationSettingsDialog";
 import { DesktopButton } from "./components/DesktopButton";
 import { DesktopProjectTabs } from "./components/DesktopProjectTabs";
 import { ShellApplicationSettings } from "./components/ShellApplicationSettings";
+import type { RecentProjectsLoadStatus } from "./desktopStartupState";
 
 const EMPTY_PROJECT_VIEWS_STATE: DesktopProjectViewsState = {
   activeProjectPath: null,
@@ -42,6 +45,10 @@ export const DesktopShellApp = ({
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>(
     [],
   );
+  const [recentProjectsLoadStatus, setRecentProjectsLoadStatus] =
+    useState<RecentProjectsLoadStatus>("loading");
+  const [providerConfiguration, setProviderConfiguration] =
+    useState<ProviderConfigurationSnapshot | null>(null);
   const [loadingProject, setLoadingProject] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -63,6 +70,7 @@ export const DesktopShellApp = ({
         ),
       );
       setRecentProjects(await bridge.loadRecentProjects());
+      setRecentProjectsLoadStatus("loaded");
     },
     [bridge],
   );
@@ -117,14 +125,24 @@ export const DesktopShellApp = ({
         }
         setProjectViewsState(nextProjectViewsState);
         setRecentProjects(nextRecentProjects);
+        setRecentProjectsLoadStatus("loaded");
       })
       .catch((error) => {
         if (!disposed) {
+          setRecentProjectsLoadStatus("failed");
           setStartupError(
             error instanceof Error ? error.message : String(error || ""),
           );
         }
       });
+    void bridge
+      .loadProviderSettings()
+      .then((configuration) => {
+        if (!disposed) {
+          setProviderConfiguration(configuration);
+        }
+      })
+      .catch(() => undefined);
     const unsubscribeProjectViews =
       bridge.onProjectViewsState?.(setProjectViewsState);
     const unsubscribeMenu = bridge.onMenuAction((event) => {
@@ -230,6 +248,7 @@ export const DesktopShellApp = ({
       localePreference={localePreference}
       onCategoryChange={setAppSettingsCategory}
       onLocalePreferenceChange={onLocalePreferenceChange}
+      onProviderConfigurationChange={setProviderConfiguration}
       onClose={() => setAppSettingsOpen(false)}
     />
   );
@@ -243,11 +262,23 @@ export const DesktopShellApp = ({
         projectError={projectError}
         loadingProject={loadingProject}
         recentProjects={recentProjects}
+        recentProjectsLoadStatus={recentProjectsLoadStatus}
+        providerConfigurationStatus={
+          providerConfiguration === null
+            ? "loading"
+            : getConfiguredProviderIds(providerConfiguration.providers).length
+            ? "configured"
+            : "not-configured"
+        }
         onCreateProject={() => {
           void runProjectAction(() => bridge.createProject());
         }}
         onOpenProject={() => {
           void runProjectAction(() => bridge.openProject());
+        }}
+        onOpenProviderSettings={() => {
+          setAppSettingsCategory("image-generation");
+          setAppSettingsOpen(true);
         }}
         onOpenRecentProject={(projectPath) => {
           if (!bridge.openProjectView) {
@@ -260,6 +291,7 @@ export const DesktopShellApp = ({
             .then(async (state) => {
               setProjectViewsState(state);
               setRecentProjects(await bridge.loadRecentProjects());
+              setRecentProjectsLoadStatus("loaded");
             })
             .catch((error) => {
               setProjectError(
@@ -275,6 +307,7 @@ export const DesktopShellApp = ({
             return;
           }
           setRecentProjects(await bridge.removeRecentProject(projectPath));
+          setRecentProjectsLoadStatus("loaded");
         }}
         onRevealProject={(projectPath) =>
           bridge.revealProjectInFinder(projectPath)

@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -28,6 +29,11 @@ const createBridge = (
     loadProjectViewsState: vi.fn().mockResolvedValue({
       activeProjectPath: null,
       projects: [],
+    }),
+    loadProviderSettings: vi.fn().mockResolvedValue({
+      schemaVersion: 2,
+      defaultProvider: null,
+      providers: {},
     }),
     openRecentProject: vi.fn().mockResolvedValue({
       projectPath: "/projects/a",
@@ -137,9 +143,10 @@ describe("DesktopShellApp", () => {
     const { container } = render(<DesktopShellApp />);
 
     await waitFor(() => {
-      expect(
-        container.querySelector(".desktop-project-tabs"),
-      ).toHaveAttribute("data-theme", "dark");
+      expect(container.querySelector(".desktop-project-tabs")).toHaveAttribute(
+        "data-theme",
+        "dark",
+      );
     });
 
     act(() => {
@@ -353,5 +360,26 @@ describe("DesktopShellApp", () => {
 
     expect(settingsDialog).toBeVisible();
     expect(settingsDialog.closest(".image-board-app")).not.toBeNull();
+  });
+
+  it("opens image-generation settings from the empty Home guide", async () => {
+    const bridge = createBridge({
+      loadRecentProjects: vi.fn().mockResolvedValue([]),
+    });
+    window.imageBoardDesktop = bridge;
+    render(<DesktopShellApp />);
+
+    expect(
+      await screen.findByRole("heading", { name: "三步开始创作" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "配置 API Key" }));
+
+    const settingsDialog = await screen.findByRole("dialog", {
+      name: "应用设置",
+    });
+    expect(
+      within(settingsDialog).getByRole("tab", { name: "图像生成" }),
+    ).toHaveAttribute("aria-selected", "true");
   });
 });

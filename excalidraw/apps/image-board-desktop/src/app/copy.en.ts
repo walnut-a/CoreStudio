@@ -22,6 +22,27 @@ export const enCopy: DesktopCopy = {
       "Create a local project or open an existing one. Boards, images, prompts, and generation history stay in the project folder.",
     recentTitle: "Projects",
     recentEmpty: "No projects yet. Create or open one to get started.",
+    recentLoading: "Loading projects…",
+    recentLoadFailed: "Projects could not be loaded right now.",
+    gettingStartedTitle: "Start creating in three steps",
+    gettingStartedDescription:
+      "These steps never block you. Start in whichever order works for you.",
+    setupProviderTitle: "Configure image generation",
+    setupProviderDescription:
+      "Add an API Key for at least one service before generating images.",
+    providerConfigured: "Configured",
+    providerNotConfigured: "Not configured",
+    providerChecking: "Checking",
+    configureApiKey: "Configure API Key",
+    manageProvider: "Manage image generation",
+    createFirstProjectTitle: "Create or open a project",
+    createFirstProjectDescription:
+      "Projects keep boards, images, and generation history on your device.",
+    startGeneratingTitle: "Add references and start generating",
+    startGeneratingDescription:
+      "Place reference images on the board, describe your idea, and generate a concept.",
+    gettingStartedSkippable:
+      "Skip any step and start using the app right away.",
     lastOpenedAt: "Last opened",
     deleteProject: "Remove project",
     deleteProjectRecordOnly: "Remove from list",

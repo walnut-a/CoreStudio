@@ -38,6 +38,9 @@ export interface ShellApplicationSettingsProps {
   onLocalePreferenceChange: (
     preference: DesktopLocalePreference,
   ) => Promise<void> | void;
+  onProviderConfigurationChange?: (
+    configuration: ProviderConfigurationSnapshot,
+  ) => void;
   onClose: () => void;
 }
 
@@ -48,6 +51,7 @@ export const ShellApplicationSettings = ({
   localePreference,
   onCategoryChange,
   onLocalePreferenceChange,
+  onProviderConfigurationChange,
   onClose,
 }: ShellApplicationSettingsProps) => {
   const [providerConfiguration, setProviderConfiguration] =
@@ -84,6 +88,7 @@ export const ShellApplicationSettings = ({
             applyRemoteModelCatalog(configuration.modelCatalog.catalog);
           }
           setProviderConfiguration(configuration);
+          onProviderConfigurationChange?.(configuration);
         }
       })
       .catch((error) => {
@@ -106,7 +111,7 @@ export const ShellApplicationSettings = ({
     return () => {
       active = false;
     };
-  }, [bridge, open]);
+  }, [bridge, onProviderConfigurationChange, open]);
 
   return (
     <ApplicationSettingsDialog
@@ -143,10 +148,14 @@ export const ShellApplicationSettings = ({
             saving={savingProviders}
             discardToken={discardToken}
             onSave={async (input) => {
-              await providerSettingsActions.saveSettings(input);
+              const result = await providerSettingsActions.saveSettings(input);
+              onProviderConfigurationChange?.(result.providerConfiguration);
             }}
             onDelete={async (input) => {
-              await providerSettingsActions.deleteSettings(input);
+              const result = await providerSettingsActions.deleteSettings(
+                input,
+              );
+              onProviderConfigurationChange?.(result.providerConfiguration);
             }}
             onRefreshCatalog={async () => {
               if (!bridge.refreshModelCatalog) {

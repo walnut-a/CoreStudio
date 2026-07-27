@@ -176,6 +176,7 @@ configureNoSystemKeychainAccess(app.commandLine);
 app.setName(configuredDesktopAppName);
 const desktopRuntime = resolveDesktopRuntimeConfig({
   bundledAppName: bundledDesktopAppName,
+  isPackaged: app.isPackaged,
   userDataPath: app.getPath("userData"),
 });
 process.env.CORESTUDIO_SETTINGS_DIRECTORY = desktopRuntime.settingsDirectory;

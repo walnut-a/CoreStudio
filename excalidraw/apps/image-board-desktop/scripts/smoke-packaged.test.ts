@@ -23,6 +23,7 @@ const loadModule = () =>
     }) => string;
     runPackagedSmoke: (options: {
       executablePath: string;
+      runtimeMode?: "production" | "qa";
       spawn: (
         command: string,
         args: string[],
@@ -100,12 +101,19 @@ describe("smoke-packaged", () => {
       stderr: new EventEmitter(),
       kill: vi.fn(),
     });
-    const spawn = vi.fn(() => child);
+    const spawn = vi.fn(
+      (
+        _command: string,
+        _args: string[],
+        _options: Record<string, unknown>,
+      ) => child,
+    );
     const mkdtempSync = vi.fn(() => "/tmp/corestudio-app-smoke-profile");
     const rmSync = vi.fn();
 
     const smoke = runPackagedSmoke({
       executablePath: "/Applications/CoreStudio.app/Contents/MacOS/CoreStudio",
+      runtimeMode: "production",
       spawn,
       setTimeout: vi.fn(),
       clearTimeout: vi.fn(),
@@ -126,14 +134,17 @@ describe("smoke-packaged", () => {
       expect.objectContaining({
         env: expect.objectContaining({
           CORESTUDIO_SMOKE_TEST: "1",
-          CORESTUDIO_RUNTIME_MODE: "qa",
-          CORESTUDIO_AGENT_BRIDGE_PORT: "60911",
+          CORESTUDIO_AGENT_BRIDGE_PORT: "60912",
           CORESTUDIO_AGENT_SESSION_FILE:
             "/tmp/corestudio-app-smoke-profile/agent-session.json",
           CORESTUDIO_SETTINGS_DIRECTORY: "/tmp/corestudio-app-smoke-profile",
         }),
       }),
     );
+    const spawnOptions = spawn.mock.calls[0]?.[2] as {
+      env: NodeJS.ProcessEnv;
+    };
+    expect(spawnOptions.env.CORESTUDIO_RUNTIME_MODE).toBeUndefined();
     expect(child.kill).toHaveBeenCalled();
     expect(mkdtempSync).toHaveBeenCalledWith("/tmp/corestudio-app-smoke-");
     expect(rmSync).toHaveBeenCalledWith("/tmp/corestudio-app-smoke-profile", {

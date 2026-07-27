@@ -8,7 +8,8 @@ describe("desktop runtime config", () => {
   it("preserves the production identity, bridge, and global session defaults", () => {
     expect(
       resolveDesktopRuntimeConfig({
-        bundledAppName: "CoreStudio",
+        bundledAppName: "image-board-desktop",
+        isPackaged: true,
         userDataPath: "/Users/alice/Library/Application Support/CoreStudio",
         platform: "darwin",
         homeDir: "/Users/alice",
@@ -29,6 +30,7 @@ describe("desktop runtime config", () => {
     expect(() =>
       resolveDesktopRuntimeConfig({
         bundledAppName: "image-board-desktop",
+        isPackaged: false,
         userDataPath:
           "/Users/alice/Library/Application Support/image-board-desktop",
         platform: "darwin",
@@ -45,6 +47,7 @@ describe("desktop runtime config", () => {
     expect(
       resolveDesktopRuntimeConfig({
         bundledAppName: "CoreStudio",
+        isPackaged: false,
         userDataPath:
           "/workspace/apps/image-board-desktop/.electron-dev-profile",
         platform: "darwin",
@@ -72,6 +75,7 @@ describe("desktop runtime config", () => {
     expect(() =>
       resolveDesktopRuntimeConfig({
         bundledAppName: "CoreStudio",
+        isPackaged: false,
         userDataPath,
         env: {
           CORESTUDIO_RUNTIME_MODE: "development",
@@ -94,6 +98,7 @@ describe("desktop runtime config", () => {
     expect(
       resolveDesktopRuntimeConfig({
         bundledAppName: "CoreStudio Dev",
+        isPackaged: true,
         userDataPath,
         platform: "darwin",
         homeDir: "/Users/alice",
@@ -112,6 +117,7 @@ describe("desktop runtime config", () => {
     expect(() =>
       resolveDesktopRuntimeConfig({
         bundledAppName: "CoreStudio",
+        isPackaged: false,
         userDataPath: "/tmp/corestudio-dev",
         env: {
           CORESTUDIO_RUNTIME_MODE: "development",
@@ -125,6 +131,7 @@ describe("desktop runtime config", () => {
     expect(() =>
       resolveDesktopRuntimeConfig({
         bundledAppName: "CoreStudio",
+        isPackaged: true,
         userDataPath: "/tmp/corestudio-chevron-qa",
         env: {
           CORESTUDIO_RUNTIME_MODE: "qa",
@@ -142,6 +149,7 @@ describe("desktop runtime config", () => {
     expect(
       resolveDesktopRuntimeConfig({
         bundledAppName: "CoreStudio",
+        isPackaged: true,
         userDataPath: "/tmp/corestudio-app-smoke",
         env: {
           CORESTUDIO_SMOKE_TEST: "1",
@@ -188,6 +196,7 @@ describe("desktop runtime config", () => {
     expect(() =>
       resolveDesktopRuntimeConfig({
         bundledAppName: "CoreStudio",
+        isPackaged: false,
         userDataPath,
         env: {
           CORESTUDIO_RUNTIME_MODE: "development",

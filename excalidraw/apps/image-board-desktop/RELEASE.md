@@ -73,7 +73,7 @@ excalidraw/apps/image-board-desktop/release/
 corepack yarn --cwd apps/image-board-desktop smoke:packaged
 ```
 
-这个脚本会启动最新的 macOS `.app` 产物，等待 renderer 完成加载后自动退出。也可以用 `CORESTUDIO_APP_PATH=/path/to/CoreStudio.app` 指定待测包。
+这个脚本会先在隔离目录中以正式模式启动最新的 macOS `.app` 产物，不注入 `CORESTUDIO_RUNTIME_MODE`，确认正式包完成 renderer 加载后自动退出；随后再验证隔离的 QA 身份。也可以用 `CORESTUDIO_APP_PATH=/path/to/CoreStudio.app` 指定待测包。
 
 DMG 安装窗口布局由 `apps/image-board-desktop/package.json` 里的 `build.dmg` 固定，包括窗口尺寸、背景色、图标尺寸以及 `CoreStudio.app` / `Applications` 两个图标的位置。调整安装窗口视觉时，需要重新生成 DMG。
 
@@ -179,6 +179,16 @@ gh release create v1.1.0 \
 ```
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
+
+## 1.1.29 发布说明
+
+1.1.29 修复 1.1.28 正式安装包无法启动的严重回归：
+
+- 正式包不再通过内部 package name 判断是否属于源码环境，改用 Electron 的 `app.isPackaged` 识别打包状态
+- 保留源码必须通过固定 `CoreStudio Dev` 启动器运行的 fail-closed 边界
+- 打包冒烟测试会先以无 `CORESTUDIO_RUNTIME_MODE` 覆盖的正式身份启动应用，再验证隔离的 QA 身份，防止开发或 QA 环境变量掩盖正式包启动故障
+
+本次客户端升级不要求重新安装 Codex 集成；Codex 集成版本继续保持 `1.9.0`。
 
 ## 1.1.28 发布说明
 

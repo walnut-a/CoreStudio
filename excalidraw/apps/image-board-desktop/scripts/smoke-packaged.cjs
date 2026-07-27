@@ -67,6 +67,7 @@ const findPackagedAppExecutable = ({
 
 const runPackagedSmoke = ({
   executablePath,
+  runtimeMode = "qa",
   spawn = childProcess.spawn,
   setTimeout: setTimer = setTimeout,
   clearTimeout: clearTimer = clearTimeout,
@@ -91,21 +92,28 @@ const runPackagedSmoke = ({
     let stderr = "";
     let child;
     try {
+      const smokeEnv = {
+        ...env,
+        CORESTUDIO_SMOKE_TEST: "1",
+        CORESTUDIO_AGENT_BRIDGE_PORT:
+          runtimeMode === "production" ? "60912" : "60911",
+        CORESTUDIO_AGENT_SESSION_FILE: path.join(
+          temporaryUserDataDir,
+          "agent-session.json",
+        ),
+        CORESTUDIO_SETTINGS_DIRECTORY: temporaryUserDataDir,
+      };
+      delete smokeEnv.CORESTUDIO_APP_NAME;
+      if (runtimeMode === "qa") {
+        smokeEnv.CORESTUDIO_RUNTIME_MODE = "qa";
+      } else {
+        delete smokeEnv.CORESTUDIO_RUNTIME_MODE;
+      }
       child = spawn(
         executablePath,
         [`--user-data-dir=${temporaryUserDataDir}`],
         {
-          env: {
-            ...env,
-            CORESTUDIO_SMOKE_TEST: "1",
-            CORESTUDIO_RUNTIME_MODE: "qa",
-            CORESTUDIO_AGENT_BRIDGE_PORT: "60911",
-            CORESTUDIO_AGENT_SESSION_FILE: path.join(
-              temporaryUserDataDir,
-              "agent-session.json",
-            ),
-            CORESTUDIO_SETTINGS_DIRECTORY: temporaryUserDataDir,
-          },
+          env: smokeEnv,
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
@@ -287,9 +295,12 @@ const runCodexIntegrationSmoke = ({
 const main = async () => {
   const executablePath = findPackagedAppExecutable();
   runCodexIntegrationSmoke({ executablePath });
-  console.log(`Running packaged smoke: ${executablePath}`);
-  await runPackagedSmoke({ executablePath });
-  console.log("Packaged smoke passed.");
+  console.log(`Running packaged production smoke: ${executablePath}`);
+  await runPackagedSmoke({ executablePath, runtimeMode: "production" });
+  console.log("Packaged production smoke passed.");
+  console.log(`Running packaged QA smoke: ${executablePath}`);
+  await runPackagedSmoke({ executablePath, runtimeMode: "qa" });
+  console.log("Packaged QA smoke passed.");
 };
 
 if (require.main === module) {

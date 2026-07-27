@@ -7,7 +7,7 @@
   --side-dock-button-gap: var(--ui-space-sm);
   --floating-panel-edge-gap: 24px;
   --generate-panel-min-width: 280px;
-  --generate-panel-max-width: 760px;
+  --generate-panel-max-width: 720px;
   --floating-panel-anchor-gutter: max(
     var(--floating-panel-edge-gap),
     calc((100vw - var(--generate-panel-max-width)) / 2)
@@ -89,6 +89,7 @@
   --border-radius-lg: 0.5rem;
   --lg-button-size: 2.25rem;
   --canvas-footer-button-size: var(--lg-button-size);
+  --canvas-footer-edge-offset: var(--ui-space-2xl);
   --canvas-footer-icon-size: var(--lg-icon-size);
   --canvas-footer-button-gap: var(--ui-space-sm);
   --floating-panel-z-index: 30;

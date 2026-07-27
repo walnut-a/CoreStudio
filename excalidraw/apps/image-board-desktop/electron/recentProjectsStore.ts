@@ -5,8 +5,8 @@ import { app } from "electron";
 
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import type { RecentProjectEntry } from "../src/shared/desktopBridgeTypes";
+import { getDesktopSettingsDirectory } from "./desktopSettingsDirectory";
 
-const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 const RECENT_PROJECTS_FILE_NAME = "recent-projects.json";
 const DEFAULT_PROJECTS_DIRECTORY_NAME = "工业设计助手";
 const MAX_RECENT_PROJECTS = 20;
@@ -24,11 +24,7 @@ const enqueueRecentProjectsOperation = <Result>(
 };
 
 const getRecentProjectsPath = () =>
-  path.join(
-    app.getPath("appData"),
-    SETTINGS_DIRECTORY_NAME,
-    RECENT_PROJECTS_FILE_NAME,
-  );
+  path.join(getDesktopSettingsDirectory(), RECENT_PROJECTS_FILE_NAME);
 
 const isRecentProjectEntry = (value: unknown): value is RecentProjectEntry =>
   typeof value === "object" &&
@@ -63,11 +59,7 @@ const readRecentProjectsFile = async (): Promise<{
       needsRewrite: entries.length !== parsed.length,
     };
   } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return { entries: [], canRewrite: true, needsRewrite: false };
     }
     throw error;
@@ -117,8 +109,11 @@ export const ensureDefaultProjectsRoot = async () => {
 };
 
 const loadRecentProjectsUnsafe = async () => {
-  const { entries: storedEntries, canRewrite, needsRewrite } =
-    await readRecentProjectsFile();
+  const {
+    entries: storedEntries,
+    canRewrite,
+    needsRewrite,
+  } = await readRecentProjectsFile();
   const validEntries: RecentProjectEntry[] = [];
 
   for (const entry of storedEntries) {
@@ -144,8 +139,7 @@ const loadRecentProjectsUnsafe = async () => {
 
   if (
     canRewrite &&
-    (needsRewrite ||
-      !areRecentProjectEntriesEqual(nextEntries, storedEntries))
+    (needsRewrite || !areRecentProjectEntriesEqual(nextEntries, storedEntries))
   ) {
     await writeRecentProjectsFile(nextEntries);
   }

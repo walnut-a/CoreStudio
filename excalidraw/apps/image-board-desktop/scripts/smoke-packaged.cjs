@@ -15,7 +15,8 @@ const getFileMtime = (filePath, statSync = fs.statSync) =>
 
 const sortNewestFirst = (files, statSync = fs.statSync) =>
   [...files].sort(
-    (left, right) => getFileMtime(right, statSync) - getFileMtime(left, statSync),
+    (left, right) =>
+      getFileMtime(right, statSync) - getFileMtime(left, statSync),
   );
 
 const findPackagedAppExecutable = ({
@@ -31,7 +32,9 @@ const findPackagedAppExecutable = ({
   }
 
   if (platform !== "darwin") {
-    throw new Error("Packaged smoke test currently supports macOS app bundles.");
+    throw new Error(
+      "Packaged smoke test currently supports macOS app bundles.",
+    );
   }
 
   const releaseDir = path.join(root, "release");
@@ -54,7 +57,9 @@ const findPackagedAppExecutable = ({
 
   const executablePath = path.join(appPath, "Contents", "MacOS", name);
   if (!existsSync(executablePath)) {
-    throw new Error(`Packaged app executable does not exist: ${executablePath}`);
+    throw new Error(
+      `Packaged app executable does not exist: ${executablePath}`,
+    );
   }
 
   return executablePath;
@@ -93,6 +98,13 @@ const runPackagedSmoke = ({
           env: {
             ...env,
             CORESTUDIO_SMOKE_TEST: "1",
+            CORESTUDIO_RUNTIME_MODE: "qa",
+            CORESTUDIO_AGENT_BRIDGE_PORT: "60911",
+            CORESTUDIO_AGENT_SESSION_FILE: path.join(
+              temporaryUserDataDir,
+              "agent-session.json",
+            ),
+            CORESTUDIO_SETTINGS_DIRECTORY: temporaryUserDataDir,
           },
           stdio: ["ignore", "pipe", "pipe"],
         },
@@ -189,7 +201,9 @@ const runCodexIntegrationSmoke = ({
 
   try {
     if (!existsSync(installerPath)) {
-      throw new Error(`Codex integration installer is missing: ${installerPath}`);
+      throw new Error(
+        `Codex integration installer is missing: ${installerPath}`,
+      );
     }
     if (!existsSync(guidePath)) {
       throw new Error(`Codex installation guide is missing: ${guidePath}`);
@@ -208,7 +222,9 @@ const runCodexIntegrationSmoke = ({
     });
     if (installResult.status !== 0) {
       throw new Error(
-        `Packaged Codex integration install failed: ${installResult.stderr || installResult.stdout}`,
+        `Packaged Codex integration install failed: ${
+          installResult.stderr || installResult.stdout
+        }`,
       );
     }
 
@@ -227,25 +243,25 @@ const runCodexIntegrationSmoke = ({
     );
     for (const installedPath of [cliPath, skillPath, manifestPath]) {
       if (!existsSync(installedPath)) {
-        throw new Error(`Codex integration output is missing: ${installedPath}`);
+        throw new Error(
+          `Codex integration output is missing: ${installedPath}`,
+        );
       }
     }
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
-    const cliResult = spawnSync(
-      cliPath,
-      ["--version", "--json"],
-      {
-        env: smokeEnv,
-        encoding: "utf8",
-      },
-    );
+    const cliResult = spawnSync(cliPath, ["--version", "--json"], {
+      env: smokeEnv,
+      encoding: "utf8",
+    });
     let cliEnvelope;
     try {
       cliEnvelope = JSON.parse(cliResult.stdout.trim());
     } catch {
       throw new Error(
-        `Installed CoreStudio CLI did not return JSON: ${cliResult.stderr || cliResult.stdout}`,
+        `Installed CoreStudio CLI did not return JSON: ${
+          cliResult.stderr || cliResult.stdout
+        }`,
       );
     }
     if (

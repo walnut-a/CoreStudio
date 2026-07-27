@@ -126,6 +126,11 @@ describe("smoke-packaged", () => {
       expect.objectContaining({
         env: expect.objectContaining({
           CORESTUDIO_SMOKE_TEST: "1",
+          CORESTUDIO_RUNTIME_MODE: "qa",
+          CORESTUDIO_AGENT_BRIDGE_PORT: "60911",
+          CORESTUDIO_AGENT_SESSION_FILE:
+            "/tmp/corestudio-app-smoke-profile/agent-session.json",
+          CORESTUDIO_SETTINGS_DIRECTORY: "/tmp/corestudio-app-smoke-profile",
         }),
       }),
     );

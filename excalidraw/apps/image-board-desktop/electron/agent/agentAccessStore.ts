@@ -1,9 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 
-import { app } from "electron";
+import { getDesktopSettingsDirectory } from "../desktopSettingsDirectory";
 
-const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 const AGENT_ACCESS_SETTINGS_FILE_NAME = "agent-access-settings.json";
 
 export interface AgentAccessSettings {
@@ -15,15 +14,9 @@ const defaultAgentAccessSettings = (): AgentAccessSettings => ({
 });
 
 const getAgentAccessSettingsPath = () =>
-  path.join(
-    app.getPath("appData"),
-    SETTINGS_DIRECTORY_NAME,
-    AGENT_ACCESS_SETTINGS_FILE_NAME,
-  );
+  path.join(getDesktopSettingsDirectory(), AGENT_ACCESS_SETTINGS_FILE_NAME);
 
-const normalizeAgentAccessSettings = (
-  value: unknown,
-): AgentAccessSettings => {
+const normalizeAgentAccessSettings = (value: unknown): AgentAccessSettings => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return defaultAgentAccessSettings();
   }

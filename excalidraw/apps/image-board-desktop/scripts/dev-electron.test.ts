@@ -18,6 +18,9 @@ const loadModule = () =>
       rendererUrl: string;
       debuggingPort: number;
       windowTitle: string;
+      bridgePort: number;
+      sessionPath: string;
+      appName: string;
     };
   };
 
@@ -41,6 +44,13 @@ describe("buildDevElectronLaunch", () => {
       rendererUrl: "http://127.0.0.1:5174",
       debuggingPort: 9331,
       windowTitle: "CoreStudio · DEV",
+      bridgePort: 60910,
+      sessionPath: path.join(
+        appRoot,
+        ".electron-dev-profile",
+        "agent-session.json",
+      ),
+      appName: "CoreStudio Dev",
     });
     expect(launch.args).toEqual([
       `--user-data-dir=${path.join(appRoot, ".electron-dev-profile")}`,
@@ -52,6 +62,18 @@ describe("buildDevElectronLaunch", () => {
         PATH: "/usr/bin",
         ELECTRON_RENDERER_URL: "http://127.0.0.1:5174",
         CORESTUDIO_WINDOW_TITLE: "CoreStudio · DEV",
+        CORESTUDIO_RUNTIME_MODE: "development",
+        CORESTUDIO_APP_NAME: "CoreStudio Dev",
+        CORESTUDIO_AGENT_BRIDGE_PORT: "60910",
+        CORESTUDIO_AGENT_SESSION_FILE: path.join(
+          appRoot,
+          ".electron-dev-profile",
+          "agent-session.json",
+        ),
+        CORESTUDIO_SETTINGS_DIRECTORY: path.join(
+          appRoot,
+          ".electron-dev-profile",
+        ),
       }),
     );
     expect(path.isAbsolute(launch.command)).toBe(true);
@@ -81,5 +103,12 @@ describe("buildDevElectronLaunch", () => {
     expect(packageJson.scripts["dev:electron"]).not.toMatch(
       /(?:^|\s)electron(?:\s|$)/,
     );
+    expect(packageJson.scripts["package:dev:dir"]).toContain(
+      "electron-builder --dir --config electron-builder.dev.cjs",
+    );
+    expect(packageJson.scripts.preview).toBe(
+      "yarn package:dev:dir && yarn open:dev:packaged",
+    );
+    expect(packageJson.scripts.preview).not.toMatch(/(?:^|\s)electron(?:\s|$)/);
   });
 });

@@ -26,18 +26,32 @@ describe("desktop startup identity", () => {
   it("reports the three Electron paths needed to identify the running project", () => {
     expect(
       buildDesktopStartupIdentity({
+        runtimeMode: "development",
+        appName: "CoreStudio Dev",
         appPath: "/workspace/apps/image-board-desktop",
         executable:
           "/workspace/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
         userData: "/workspace/apps/image-board-desktop/.electron-dev-profile",
         windowTitle: "CoreStudio · DEV",
+        bridgePort: 60910,
+        sessionPath:
+          "/workspace/apps/image-board-desktop/.electron-dev-profile/agent-session.json",
+        settingsDirectory:
+          "/workspace/apps/image-board-desktop/.electron-dev-profile",
       }),
     ).toEqual({
+      runtimeMode: "development",
+      appName: "CoreStudio Dev",
       appPath: "/workspace/apps/image-board-desktop",
       executable:
         "/workspace/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
       userData: "/workspace/apps/image-board-desktop/.electron-dev-profile",
       windowTitle: "CoreStudio · DEV",
+      bridgePort: 60910,
+      sessionPath:
+        "/workspace/apps/image-board-desktop/.electron-dev-profile/agent-session.json",
+      settingsDirectory:
+        "/workspace/apps/image-board-desktop/.electron-dev-profile",
     });
   });
 });

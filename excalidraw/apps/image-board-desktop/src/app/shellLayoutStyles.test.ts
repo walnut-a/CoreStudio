@@ -113,6 +113,9 @@ describe("CoreStudio shell layout styles", () => {
     expect(appRule).toContain(
       "--canvas-footer-button-size: var(--lg-button-size)",
     );
+    expect(appRule).toContain(
+      "--canvas-footer-edge-offset: var(--ui-space-2xl)",
+    );
     expect(appRule).toContain("--canvas-footer-icon-size: var(--lg-icon-size)");
     expect(appRule).toContain("--canvas-footer-button-gap: var(--ui-space-sm)");
     expect(appRule).toContain("--floating-panel-z-index: 30");
@@ -378,7 +381,7 @@ describe("CoreStudio shell layout styles", () => {
       ".image-board-app--left-dock-open.image-board-app--right-dock-open",
     ).filter((rule) => rule.includes(".floating-panel-layer"));
 
-    expect(appRule).toContain("--generate-panel-max-width: 760px");
+    expect(appRule).toContain("--generate-panel-max-width: 720px");
     expect(appRule).toContain("--lg-button-size: 2.25rem");
     expect(appRule).toContain("--floating-panel-anchor-gutter: max(");
     expect(appRule).toContain(
@@ -659,18 +662,29 @@ describe("CoreStudio shell layout styles", () => {
       "apps/image-board-desktop/src/app/components/AgentBoardSelectionBar.css",
     );
     const selectionRule = getRule(selectionCss, ".agent-board-selection-bar");
+    const thumbnailRule = getRule(
+      selectionCss,
+      ".agent-board-selection-bar__thumbnail,\n.agent-board-selection-bar__overflow",
+    );
     const actionRule = getRule(
       selectionCss,
       ".agent-board-selection-bar__icon-button",
     );
 
+    expect(selectionRule).toContain("height: var(--canvas-footer-button-size)");
+    expect(selectionRule).toContain("bottom: var(--canvas-footer-edge-offset)");
+    expect(selectionRule).toContain("padding: var(--ui-space-xs)");
     expect(selectionRule).toContain("border-radius: var(--border-radius-lg)");
     expect(selectionRule).toContain("background: var(--island-bg-color)");
     expect(selectionRule).toContain("box-shadow: var(--shadow-island)");
     expect(selectionRule).not.toContain("color-mix");
     expect(selectionRule).not.toContain("backdrop-filter");
-    expect(actionRule).toContain("width: var(--lg-button-size)");
-    expect(actionRule).toContain("height: var(--lg-button-size)");
+    expect(thumbnailRule).toContain("width: var(--ui-control-size-sm)");
+    expect(thumbnailRule).toContain("height: var(--ui-control-size-sm)");
+    expect(actionRule).toContain("width: var(--ui-control-size-sm)");
+    expect(actionRule).toContain("min-width: var(--ui-control-size-sm)");
+    expect(actionRule).toContain("height: var(--ui-control-size-sm)");
+    expect(actionRule).toContain("min-height: var(--ui-control-size-sm)");
     expect(actionRule).toContain("border: 0");
     expect(actionRule).toContain("background: transparent");
   });

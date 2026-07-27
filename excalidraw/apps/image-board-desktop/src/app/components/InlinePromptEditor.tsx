@@ -50,6 +50,39 @@ const isPendingReferenceElement = (node: Node): node is HTMLElement =>
 
 const createTextNode = (text: string) => document.createTextNode(text);
 
+const appendReferenceThumbnail = ({
+  chip,
+  thumbnail,
+  alt,
+}: {
+  chip: HTMLElement;
+  thumbnail: string | null | undefined;
+  alt: string;
+}) => {
+  if (!thumbnail) {
+    return;
+  }
+
+  const thumbnailNode = document.createElement("span");
+  thumbnailNode.className = "generate-composer__reference-chip-thumbnail";
+  const image = document.createElement("img");
+  image.addEventListener(
+    "error",
+    () => {
+      thumbnailNode.remove();
+      chip.classList.remove(
+        "generate-composer__reference-chip--with-thumbnail",
+      );
+    },
+    { once: true },
+  );
+  image.src = thumbnail;
+  image.alt = alt;
+  image.draggable = false;
+  thumbnailNode.append(image);
+  chip.append(thumbnailNode);
+};
+
 const createReferenceChipNode = (
   reference: GenerationPromptReferencePayload,
   index: number,
@@ -68,16 +101,13 @@ const createReferenceChipNode = (
   chip.title = getReferenceLabel(reference, index);
 
   if (thumbnail) {
-    const thumbnailNode = document.createElement("span");
-    thumbnailNode.className = "generate-composer__reference-chip-thumbnail";
-    const image = document.createElement("img");
-    image.src = thumbnail;
-    image.alt = copy.generateDialog.referenceThumbnail(
-      getReferenceLabel(reference, index),
-    );
-    image.draggable = false;
-    thumbnailNode.append(image);
-    chip.append(thumbnailNode);
+    appendReferenceThumbnail({
+      chip,
+      thumbnail,
+      alt: copy.generateDialog.referenceThumbnail(
+        getReferenceLabel(reference, index),
+      ),
+    });
   }
 
   const indexNode = document.createElement("span");
@@ -103,7 +133,7 @@ const createPendingReferenceChipNode = (
   chip.className = [
     "generate-composer__reference-chip",
     "generate-composer__reference-chip--pending",
-    "generate-composer__reference-chip--with-thumbnail",
+    thumbnail ? "generate-composer__reference-chip--with-thumbnail" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -115,16 +145,13 @@ const createPendingReferenceChipNode = (
     copy.generateDialog.pendingReference(index + 1, label),
   );
 
-  const thumbnailNode = document.createElement("span");
-  thumbnailNode.className = "generate-composer__reference-chip-thumbnail";
   if (thumbnail) {
-    const image = document.createElement("img");
-    image.src = thumbnail;
-    image.alt = copy.generateDialog.pendingReferenceThumbnail(index + 1, label);
-    image.draggable = false;
-    thumbnailNode.append(image);
+    appendReferenceThumbnail({
+      chip,
+      thumbnail,
+      alt: copy.generateDialog.pendingReferenceThumbnail(index + 1, label),
+    });
   }
-  chip.append(thumbnailNode);
 
   const indexNode = document.createElement("span");
   indexNode.className = "generate-composer__reference-chip-index";
@@ -306,6 +333,39 @@ const arePromptPartsEqual = (
   );
 };
 
+const getPromptUnits = (parts: readonly GenerationPromptPart[]) =>
+  stripBrowserFillerContent(mergeTextParts([...parts])).flatMap((part) =>
+    part.type === "text"
+      ? part.text.split("").map((character) => `text:${character}`)
+      : [`reference:${part.referenceId}`],
+  );
+
+const getCaretOffsetAfterDomChange = (
+  previousParts: readonly GenerationPromptPart[],
+  nextParts: readonly GenerationPromptPart[],
+  browserCaretOffset: number | null,
+) => {
+  const previousUnits = getPromptUnits(previousParts);
+  const nextUnits = getPromptUnits(nextParts);
+
+  if (
+    nextUnits.length >= previousUnits.length ||
+    (browserCaretOffset !== null && browserCaretOffset > 0)
+  ) {
+    return browserCaretOffset;
+  }
+
+  let commonPrefixLength = 0;
+  while (
+    commonPrefixLength < nextUnits.length &&
+    previousUnits[commonPrefixLength] === nextUnits[commonPrefixLength]
+  ) {
+    commonPrefixLength += 1;
+  }
+
+  return commonPrefixLength || browserCaretOffset;
+};
+
 const areReferenceDecorationsEqual = (
   left: readonly GenerationPromptReferencePayload[],
   right: readonly GenerationPromptReferencePayload[],
@@ -319,6 +379,18 @@ const areReferenceDecorationsEqual = (
       other.thumbnailDataUrl === reference.thumbnailDataUrl
     );
   });
+
+const getReferenceDecorationsForParts = (
+  parts: readonly GenerationPromptPart[],
+  references: readonly GenerationPromptReferencePayload[],
+) => {
+  const referenceIds = new Set(
+    parts.flatMap((part) =>
+      part.type === "reference" ? [part.referenceId] : [],
+    ),
+  );
+  return references.filter((reference) => referenceIds.has(reference.id));
+};
 
 const arePendingReferenceDecorationsEqual = (
   left: GenerationReferencePayload | null,
@@ -556,6 +628,7 @@ export const InlinePromptEditor = forwardRef<
     const restoreOffsetRef = useRef<number | null>(null);
     const composingRef = useRef(false);
     const compositionCommitTimerRef = useRef<number | null>(null);
+    const caretRestoreFrameRef = useRef<number | null>(null);
     const renderedReferencesRef = useRef<
       GenerationPromptReferencePayload[] | null
     >(null);
@@ -576,6 +649,9 @@ export const InlinePromptEditor = forwardRef<
         if (compositionCommitTimerRef.current !== null) {
           window.clearTimeout(compositionCommitTimerRef.current);
         }
+        if (caretRestoreFrameRef.current !== null) {
+          window.cancelAnimationFrame(caretRestoreFrameRef.current);
+        }
       },
       [],
     );
@@ -586,11 +662,15 @@ export const InlinePromptEditor = forwardRef<
         readEditorParts(editor),
         localParts,
       );
+      const currentReferenceDecorations = getReferenceDecorationsForParts(
+        localParts,
+        references,
+      );
       const decorationsMatch =
         renderedReferencesRef.current !== null &&
         areReferenceDecorationsEqual(
           renderedReferencesRef.current,
-          references,
+          currentReferenceDecorations,
         ) &&
         arePendingReferenceDecorationsEqual(
           renderedPendingReferenceRef.current,
@@ -599,6 +679,7 @@ export const InlinePromptEditor = forwardRef<
       const resetMatches = renderedResetKeyRef.current === resetKey;
 
       if (contentMatches && decorationsMatch && resetMatches) {
+        restoreCaretOffset(editor, restoreOffsetRef.current);
         restoreOffsetRef.current = null;
         return;
       }
@@ -609,7 +690,7 @@ export const InlinePromptEditor = forwardRef<
         references,
         pendingReference,
       });
-      renderedReferencesRef.current = [...references];
+      renderedReferencesRef.current = currentReferenceDecorations;
       renderedPendingReferenceRef.current = pendingReference;
       renderedResetKeyRef.current = resetKey;
       restoreCaretOffset(editor, restoreOffsetRef.current);
@@ -623,7 +704,26 @@ export const InlinePromptEditor = forwardRef<
 
       const caretOffset = getCaretOffset(editorRef.current);
       const nextParts = readEditorParts(editorRef.current);
-      restoreOffsetRef.current = caretOffset;
+      const nextCaretOffset = getCaretOffsetAfterDomChange(
+        localParts,
+        nextParts,
+        caretOffset,
+      );
+      const contentWasDeleted =
+        getPromptUnits(nextParts).length < getPromptUnits(localParts).length;
+      restoreOffsetRef.current = nextCaretOffset;
+      if (
+        nextCaretOffset !== null &&
+        (contentWasDeleted || nextCaretOffset !== caretOffset)
+      ) {
+        if (caretRestoreFrameRef.current !== null) {
+          window.cancelAnimationFrame(caretRestoreFrameRef.current);
+        }
+        caretRestoreFrameRef.current = window.requestAnimationFrame(() => {
+          caretRestoreFrameRef.current = null;
+          restoreCaretOffset(editorRef.current, nextCaretOffset);
+        });
+      }
       setLocalParts(nextParts);
       onChange(nextParts);
     };

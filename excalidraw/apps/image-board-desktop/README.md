@@ -40,7 +40,26 @@ corepack yarn test:desktop --run
 corepack yarn build:desktop
 ```
 
-`dev:desktop` 是桌面开发的固定入口。它会解析当前 workspace 的 Electron 绝对路径，并把应用绝对路径、独立 `.electron-dev-profile`、renderer 端口 `5174`、调试端口 `9331` 和 `CoreStudio · DEV` 窗口标题绑定到同一次启动。主进程随后打印 `app.getAppPath()`、`process.execPath` 和 `app.getPath("userData")`，便于确认没有启动到其他 Electron 项目。
+`dev:desktop` 是桌面开发的固定入口。它会解析当前 workspace 的 Electron 绝对路径，并把应用绝对路径、独立 `.electron-dev-profile`、renderer 端口 `5174`、调试端口 `9331`、Agent Bridge 端口 `60910`、开发 session 文件和 `CoreStudio · DEV` 窗口标题绑定到同一次启动。模型 Key、Agent 开关、最近项目和主进程日志也写入这个 profile，不会读取或覆盖正式版配置。主进程会打印完整运行身份，便于核对启动路径、用户目录、Bridge 和 session。
+
+正式版和开发版的默认运行身份如下：
+
+| 项目 | 正式版 | 开发版 |
+| --- | --- | --- |
+| 应用名 | `CoreStudio` | `CoreStudio Dev` |
+| Bundle ID | `com.corestudio.desktop` | `com.corestudio.desktop.dev` |
+| Agent Bridge | `127.0.0.1:60909` | `127.0.0.1:60910` |
+| session | 正式全局目录 | 开发 profile 内的 `agent-session.json` |
+| 用户配置 | 正式全局目录 | `.electron-dev-profile` 或 `CoreStudio Dev` 用户目录 |
+
+本地打包验收使用独立开发包：
+
+```sh
+corepack yarn --cwd apps/image-board-desktop package:dev:dir
+corepack yarn --cwd apps/image-board-desktop open:dev:packaged
+```
+
+产物位于 `apps/image-board-desktop/release-dev/mac-arm64/CoreStudio Dev.app`。它即使被直接双击，也会按开发身份使用 `60910`、独立用户目录和独立 session。`release/mac-arm64/CoreStudio.app` 始终是正式身份，不用于本地开发验收。
 
 `start:desktop` 保留为兼容别名。多项目并行开发时不要使用全局 `electron`、 `electron .`、`open -a Electron`、`killall Electron` 或 `pkill -f Electron`。
 

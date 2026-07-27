@@ -44,6 +44,16 @@ describe("welcome pane styles", () => {
       welcomePaneCss,
       ".welcome-pane__recent-open",
     );
+    const stepRule = getRule(welcomePaneCss, ".welcome-pane__step");
+    const stepsRule = getRule(welcomePaneCss, ".welcome-pane__steps");
+    const stepTitleRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__step-title",
+    );
+    const stepActionRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__step-action",
+    );
 
     expect(paneRule).toContain("place-items: center");
     expect(paneRule).toContain("overflow: auto");
@@ -79,5 +89,19 @@ describe("welcome pane styles", () => {
     expect(eyebrowRule).toContain("background: transparent");
     expect(eyebrowRule).not.toContain("border-radius: 999px");
     expect(actionsRule).toContain("display: grid");
+    expect(stepsRule).toContain("grid-auto-rows: 1fr");
+    expect(stepRule).toContain(
+      "grid-template-columns: 28px minmax(0, 1fr) auto",
+    );
+    expect(stepRule).toContain("align-items: center");
+    expect(stepRule).toContain(
+      "var(--ui-button-height-md) + var(--ui-space-2xl) +",
+    );
+    expect(stepTitleRule).toContain("justify-content: flex-start");
+    expect(stepActionRule).toContain("grid-column: 3");
+    expect(stepActionRule).toContain("margin-top: 0");
+    expect(welcomePaneCss).not.toContain(
+      ".welcome-pane__getting-started-footnote",
+    );
   });
 });

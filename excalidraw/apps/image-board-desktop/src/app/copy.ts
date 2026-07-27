@@ -48,7 +48,6 @@ const zhCnCopy = {
     createFirstProjectDescription: "项目会在本地保存画板、图片和生成记录。",
     startGeneratingTitle: "添加参考图并开始生成",
     startGeneratingDescription: "把参考图片放到画板，描述想法后即可生成方案。",
-    gettingStartedSkippable: "你可以跳过任何步骤，直接开始使用。",
     lastOpenedAt: "上次打开",
     deleteProject: "删除项目",
     deleteProjectRecordOnly: "仅删除记录",

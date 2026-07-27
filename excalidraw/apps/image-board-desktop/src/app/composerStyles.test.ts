@@ -302,8 +302,12 @@ describe("generate composer styles", () => {
       "max-height: var(--generate-composer-editor-max-height)",
     );
     expect(promptEditorRule).toContain("overflow-y: auto");
-    expect(promptEditorRule).toContain("padding: 0 4px 0 0");
-    expect(promptEditorRule).toContain("line-height: 28px");
+    expect(promptEditorRule).toContain(
+      "padding: var(--ui-space-xxs) 4px",
+    );
+    expect(promptEditorRule).toContain(
+      "line-height: calc(var(--ui-control-size-sm) - var(--ui-space-xs))",
+    );
     expect(promptEditorRule).toContain("scrollbar-width: none");
     expect(promptEditorScrollbarRule).toContain("display: none");
     expect(inlinePromptChipRule).toContain("margin: 0 6px");
@@ -316,7 +320,7 @@ describe("generate composer styles", () => {
       "min-height: calc(var(--ui-control-size-sm) - var(--ui-space-xs))",
     );
     expect(inlinePromptChipRule).toContain("box-sizing: border-box");
-    expect(inlinePromptChipRule).toContain("vertical-align: middle");
+    expect(inlinePromptChipRule).toContain("vertical-align: top");
     expect(inlinePromptChipThumbnailRule).toContain(
       "width: calc(var(--ui-control-size-sm) - var(--ui-space-sm))",
     );

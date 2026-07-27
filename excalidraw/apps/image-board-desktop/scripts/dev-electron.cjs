@@ -7,6 +7,8 @@ const path = require("node:path");
 const DEFAULT_RENDERER_URL = "http://127.0.0.1:5174";
 const DEFAULT_DEBUGGING_PORT = 9331;
 const DEFAULT_WINDOW_TITLE = "CoreStudio · DEV";
+const DEFAULT_BRIDGE_PORT = 60910;
+const DEFAULT_APP_NAME = "CoreStudio Dev";
 
 function buildDevElectronLaunch(options = {}) {
   const appRoot = options.appRoot || path.resolve(__dirname, "..");
@@ -23,6 +25,9 @@ function buildDevElectronLaunch(options = {}) {
   const rendererUrl = DEFAULT_RENDERER_URL;
   const debuggingPort = DEFAULT_DEBUGGING_PORT;
   const windowTitle = DEFAULT_WINDOW_TITLE;
+  const bridgePort = DEFAULT_BRIDGE_PORT;
+  const sessionPath = path.join(profilePath, "agent-session.json");
+  const appName = DEFAULT_APP_NAME;
 
   return {
     command: electronPath,
@@ -36,11 +41,19 @@ function buildDevElectronLaunch(options = {}) {
       ...env,
       ELECTRON_RENDERER_URL: rendererUrl,
       CORESTUDIO_WINDOW_TITLE: windowTitle,
+      CORESTUDIO_RUNTIME_MODE: "development",
+      CORESTUDIO_APP_NAME: appName,
+      CORESTUDIO_AGENT_BRIDGE_PORT: String(bridgePort),
+      CORESTUDIO_AGENT_SESSION_FILE: sessionPath,
+      CORESTUDIO_SETTINGS_DIRECTORY: profilePath,
     },
     profilePath,
     rendererUrl,
     debuggingPort,
     windowTitle,
+    bridgePort,
+    sessionPath,
+    appName,
   };
 }
 
@@ -57,6 +70,9 @@ function runDevElectron(options = {}) {
   console.log(`Renderer:      ${launch.rendererUrl}`);
   console.log(`Debug port:    ${launch.debuggingPort}`);
   console.log(`Window title:  ${launch.windowTitle}`);
+  console.log(`App name:      ${launch.appName}`);
+  console.log(`Agent Bridge:  127.0.0.1:${launch.bridgePort}`);
+  console.log(`Agent session: ${launch.sessionPath}`);
 
   const child = childProcess.spawn(launch.command, launch.args, {
     cwd: launch.cwd,

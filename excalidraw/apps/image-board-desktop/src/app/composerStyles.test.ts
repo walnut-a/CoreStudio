@@ -153,9 +153,8 @@ describe("generate composer styles", () => {
     const composerRule = getRule(appCss, ".generate-composer");
     const focusWithinRule = getRule(appCss, ".generate-composer:focus-within");
 
-    expect(floatingLayerRule).toContain(
-      "calc(16px + env(safe-area-inset-bottom, 0px))",
-    );
+    expect(floatingLayerRule).toContain("var(--canvas-footer-edge-offset)");
+    expect(floatingLayerRule).toContain("env(safe-area-inset-bottom, 0px)");
     expect(appCss).not.toContain(".floating-status-stack");
     expect(composerRule).toContain("border: 0");
     expect(composerRule).toContain("background: var(--island-bg-color)");
@@ -209,6 +208,10 @@ describe("generate composer styles", () => {
       appCss,
       ".generate-composer__prompt-editor .generate-composer__reference-chip",
     );
+    const inlinePromptChipThumbnailRule = getRule(
+      appCss,
+      ".generate-composer__prompt-editor .generate-composer__reference-chip-thumbnail",
+    );
     const adjacentInlinePromptChipRule = getRulesContaining(
       appCss,
       "+ .generate-composer__reference-chip",
@@ -246,16 +249,22 @@ describe("generate composer styles", () => {
       "grid-template-rows: minmax(var(--generate-composer-editor-min-height), auto)",
     );
     expect(composerRule).toContain(
-      "--generate-composer-editor-min-height: 36px",
+      "--generate-composer-editor-min-height: var(--ui-control-size-sm)",
+    );
+    expect(composerRule).toContain(
+      "--generate-composer-control-size: var(--ui-control-size-sm)",
     );
     expect(composerRule).toContain(
       "--generate-composer-editor-max-height: min(30vh, 10rem)",
     );
     expect(composerRule).toContain(
-      "--generate-composer-control-icon-size: 24px",
+      "--generate-composer-control-icon-size: 20px",
     );
     expect(composerRule).toContain("box-sizing: border-box");
-    expect(composerRule).toContain("padding: 6px 8px 6px 12px");
+    expect(composerRule).toContain(
+      "padding: var(--ui-space-xs) var(--ui-space-xs) var(--ui-space-xs)",
+    );
+    expect(composerRule).toContain("var(--ui-space-lg)");
     expect(appCss).not.toContain("padding: 7px 12px");
     expect(composerRule).not.toContain("justify-content: center");
     expect(composerRule).not.toMatch(/\n\s+min-height:/);
@@ -263,8 +272,12 @@ describe("generate composer styles", () => {
     expect(controlsRule).toContain("justify-content: flex-start");
     expect(controlsRule).toContain("align-self: end");
     expect(controlsRule).toContain("grid-column: 2");
-    expect(controlsRule).toContain("height: var(--lg-button-size)");
-    expect(controlsRule).not.toContain("flex: 0 0 var(--lg-button-size)");
+    expect(controlsRule).toContain(
+      "height: var(--generate-composer-control-size)",
+    );
+    expect(controlsRule).not.toContain(
+      "flex: 0 0 var(--generate-composer-control-size)",
+    );
     expect(referenceControlsRule).toContain("align-self: end");
     expect(actionRule).toContain("margin-left: auto");
     expect(fieldRule).toContain("display: block");
@@ -289,17 +302,30 @@ describe("generate composer styles", () => {
       "max-height: var(--generate-composer-editor-max-height)",
     );
     expect(promptEditorRule).toContain("overflow-y: auto");
-    expect(promptEditorRule).toContain("padding: 3px 4px 3px 0");
+    expect(promptEditorRule).toContain("padding: 0 4px 0 0");
     expect(promptEditorRule).toContain("line-height: 28px");
     expect(promptEditorRule).toContain("scrollbar-width: none");
     expect(promptEditorScrollbarRule).toContain("display: none");
     expect(inlinePromptChipRule).toContain("margin: 0 6px");
     expect(inlinePromptChipRule).toContain("font-size: 0.8125rem");
     expect(inlinePromptChipRule).toContain("line-height: 1");
-    expect(inlinePromptChipRule).toContain("height: 28px");
-    expect(inlinePromptChipRule).toContain("min-height: 28px");
+    expect(inlinePromptChipRule).toContain(
+      "height: calc(var(--ui-control-size-sm) - var(--ui-space-xs))",
+    );
+    expect(inlinePromptChipRule).toContain(
+      "min-height: calc(var(--ui-control-size-sm) - var(--ui-space-xs))",
+    );
     expect(inlinePromptChipRule).toContain("box-sizing: border-box");
     expect(inlinePromptChipRule).toContain("vertical-align: middle");
+    expect(inlinePromptChipThumbnailRule).toContain(
+      "width: calc(var(--ui-control-size-sm) - var(--ui-space-sm))",
+    );
+    expect(inlinePromptChipThumbnailRule).toContain(
+      "height: calc(var(--ui-control-size-sm) - var(--ui-space-sm))",
+    );
+    expect(inlinePromptChipThumbnailRule).toContain(
+      "flex-basis: calc(var(--ui-control-size-sm) - var(--ui-space-sm))",
+    );
     expect(adjacentInlinePromptChipRule).toContain("margin-left: 0");
     expect(promptEditorPlaceholderRule).toContain(
       "content: attr(data-placeholder)",
@@ -309,7 +335,9 @@ describe("generate composer styles", () => {
     expect(iconRule).toContain("padding: 0");
     expect(actionRule).not.toContain("--button-width");
     expect(actionRule).not.toContain("--button-height");
-    expect(actionRule).toContain("min-width: var(--lg-button-size)");
+    expect(actionRule).toContain(
+      "min-width: var(--generate-composer-control-size)",
+    );
     expect(actionRule).toContain("padding: 0");
     expect(iconRule).toContain("background: transparent");
     expect(actionRule).toContain("background: transparent");

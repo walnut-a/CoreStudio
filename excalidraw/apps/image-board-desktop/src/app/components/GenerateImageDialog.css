@@ -6,7 +6,8 @@
   z-index: var(--floating-panel-z-index);
   display: flex;
   justify-content: center;
-  padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: 0 0
+    calc(var(--canvas-footer-edge-offset) + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
 }
 
@@ -190,9 +191,10 @@
     var(--text-primary-color) 36%,
     transparent
   );
-  --generate-composer-editor-min-height: 36px;
+  --generate-composer-editor-min-height: var(--ui-control-size-sm);
   --generate-composer-editor-max-height: min(30vh, 10rem);
-  --generate-composer-control-icon-size: 24px;
+  --generate-composer-control-size: var(--ui-control-size-sm);
+  --generate-composer-control-icon-size: 20px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: minmax(var(--generate-composer-editor-min-height), auto);
@@ -200,7 +202,8 @@
   row-gap: 4px;
   column-gap: 8px;
   box-sizing: border-box;
-  padding: 6px 8px 6px 12px;
+  padding: var(--ui-space-xs) var(--ui-space-xs) var(--ui-space-xs)
+    var(--ui-space-lg);
   border: 0;
   border-radius: var(--border-radius-lg);
   background: var(--island-bg-color);
@@ -211,7 +214,7 @@
 }
 
 .generate-composer--with-reference {
-  --generate-composer-editor-min-height: 36px;
+  --generate-composer-editor-min-height: var(--ui-control-size-sm);
 }
 
 .generate-composer:focus-within {
@@ -426,7 +429,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 3px 4px 3px 0;
+  padding: 0 4px 0 0;
   box-sizing: border-box;
   font-size: 0.9375rem;
   line-height: 28px;
@@ -454,13 +457,19 @@
 .generate-composer__prompt-editor .generate-composer__reference-chip {
   margin: 0 6px;
   max-width: 7.5rem;
-  height: 28px;
-  min-height: 28px;
+  height: calc(var(--ui-control-size-sm) - var(--ui-space-xs));
+  min-height: calc(var(--ui-control-size-sm) - var(--ui-space-xs));
   padding: 1px 6px 1px 2px;
   box-sizing: border-box;
   font-size: 0.8125rem;
   line-height: 1;
   vertical-align: middle;
+}
+
+.generate-composer__prompt-editor .generate-composer__reference-chip-thumbnail {
+  width: calc(var(--ui-control-size-sm) - var(--ui-space-sm));
+  height: calc(var(--ui-control-size-sm) - var(--ui-space-sm));
+  flex-basis: calc(var(--ui-control-size-sm) - var(--ui-space-sm));
 }
 
 .generate-composer__prompt-editor
@@ -498,8 +507,8 @@
   justify-content: flex-start;
   align-self: end;
   gap: 8px;
-  height: var(--lg-button-size);
-  min-height: var(--lg-button-size);
+  height: var(--generate-composer-control-size);
+  min-height: var(--generate-composer-control-size);
 }
 
 .generate-composer--with-reference .generate-composer__controls {
@@ -507,9 +516,9 @@
 }
 
 .image-board-button.generate-composer__icon {
-  width: var(--lg-button-size);
-  height: var(--lg-button-size);
-  min-height: var(--lg-button-size);
+  width: var(--generate-composer-control-size);
+  height: var(--generate-composer-control-size);
+  min-height: var(--generate-composer-control-size);
   padding: 0;
   border: 0;
   border-radius: var(--border-radius-lg);
@@ -534,10 +543,10 @@
 }
 
 .image-board-button.generate-composer__action {
-  width: var(--lg-button-size);
-  min-width: var(--lg-button-size);
-  height: var(--lg-button-size);
-  min-height: var(--lg-button-size);
+  width: var(--generate-composer-control-size);
+  min-width: var(--generate-composer-control-size);
+  height: var(--generate-composer-control-size);
+  min-height: var(--generate-composer-control-size);
   padding: 0;
   flex-shrink: 0;
   border: 1px solid transparent;

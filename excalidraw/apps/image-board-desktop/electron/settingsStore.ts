@@ -20,6 +20,7 @@ import type {
   ProviderId,
   ProviderSettings,
 } from "../src/shared/providerTypes";
+import { getDesktopSettingsDirectory } from "./desktopSettingsDirectory";
 
 type StoredProviderSettings = Record<ProviderId, Partial<ProviderSettings>>;
 
@@ -37,7 +38,6 @@ export interface ProviderRuntimeSettings {
 }
 
 const SETTINGS_FILE_NAME = "image-board-settings.json";
-const SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 const SETTINGS_DIRECTORY_MODE = 0o700;
 const SETTINGS_FILE_MODE = 0o600;
 const KEY_LEGACY_ENCRYPTED_ERROR =
@@ -59,11 +59,7 @@ const defaultConfiguration = (): StoredProviderConfigurationV2 => ({
 });
 
 const getSettingsPath = () =>
-  path.join(
-    app.getPath("appData"),
-    SETTINGS_DIRECTORY_NAME,
-    SETTINGS_FILE_NAME,
-  );
+  path.join(getDesktopSettingsDirectory(), SETTINGS_FILE_NAME);
 
 const getLegacySettingsPath = () =>
   path.join(app.getPath("userData"), SETTINGS_FILE_NAME);
@@ -232,7 +228,9 @@ const normalizeConfiguration = (
     typeof candidate.providers === "object";
   const providers = {
     ...defaultProviders(),
-    ...((isV2 ? candidate?.providers : parsed) as Partial<StoredProviderSettings>),
+    ...((isV2
+      ? candidate?.providers
+      : parsed) as Partial<StoredProviderSettings>),
   };
   const defaultProvider = normalizeDefaultProvider(
     providers,
@@ -297,14 +295,10 @@ const writeSettings = async (settings: StoredProviderConfigurationV2) => {
     recursive: true,
     mode: SETTINGS_DIRECTORY_MODE,
   });
-  await fs.writeFile(
-    settingsPath,
-    JSON.stringify(settings, null, 2),
-    {
-      encoding: "utf8",
-      mode: SETTINGS_FILE_MODE,
-    },
-  );
+  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), {
+    encoding: "utf8",
+    mode: SETTINGS_FILE_MODE,
+  });
   if (process.platform !== "win32") {
     await fs.chmod(settingsPath, SETTINGS_FILE_MODE);
   }
@@ -352,9 +346,7 @@ export const saveProviderSettings = async (
   assertValidProviderInput(input, existing);
   configuration.providers[input.provider] = {
     ...existing,
-    apiKey: input.apiKey
-      ? serializePlainApiKey(input.apiKey)
-      : existing.apiKey,
+    apiKey: input.apiKey ? serializePlainApiKey(input.apiKey) : existing.apiKey,
     displayName: input.displayName?.trim() || undefined,
     baseUrl: normalizeBaseUrl(input.baseUrl),
     defaultModel: input.defaultModel?.trim(),

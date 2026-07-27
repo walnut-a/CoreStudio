@@ -15,6 +15,78 @@ const recentProjects = [
 describe("WelcomePane", () => {
   afterEach(() => setActiveDesktopLocale("zh-CN"));
 
+  it("shows a non-blocking getting-started guide when the loaded project list is empty", () => {
+    const onOpenProviderSettings = vi.fn();
+
+    render(
+      <WelcomePane
+        loading={false}
+        recentProjectsLoadStatus="loaded"
+        providerConfigurationStatus="not-configured"
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        onOpenProviderSettings={onOpenProviderSettings}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "三步开始创作" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("配置图片生成服务")).toBeInTheDocument();
+    expect(screen.getByText("新建或打开项目")).toBeInTheDocument();
+    expect(screen.getByText("添加参考图并开始生成")).toBeInTheDocument();
+    expect(
+      screen.getByText("你可以跳过任何步骤，直接开始使用。"),
+    ).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "新建项目" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "打开项目" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "配置 API Key" }));
+    expect(onOpenProviderSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("reflects an existing provider configuration without hiding the guide", () => {
+    render(
+      <WelcomePane
+        loading={false}
+        recentProjectsLoadStatus="loaded"
+        providerConfigurationStatus="configured"
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        onOpenProviderSettings={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "三步开始创作" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("已配置")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "管理图片生成服务" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["loading", "failed"] as const)(
+    "does not mistake a %s project list for an empty project list",
+    (recentProjectsLoadStatus) => {
+      render(
+        <WelcomePane
+          loading={false}
+          recentProjectsLoadStatus={recentProjectsLoadStatus}
+          providerConfigurationStatus="not-configured"
+          onCreateProject={vi.fn()}
+          onOpenProject={vi.fn()}
+          onOpenProviderSettings={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByRole("heading", { name: "三步开始创作" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("keeps Agent collaboration controls out of the welcome page", () => {
     render(
       <WelcomePane
@@ -50,6 +122,9 @@ describe("WelcomePane", () => {
 
     expect(
       screen.queryByRole("button", { name: "继续最近项目" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "三步开始创作" }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^常用项目/ }));

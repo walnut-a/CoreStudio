@@ -2,15 +2,24 @@ import { useState } from "react";
 
 import { copy, DESKTOP_LANG_CODE } from "../copy";
 import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
+import type { RecentProjectsLoadStatus } from "../desktopStartupState";
 import { DesktopButton } from "./DesktopButton";
-import { trashProjectIcon } from "./CoreStudioIcons";
+import { checkIcon, trashProjectIcon } from "./CoreStudioIcons";
 import "./WelcomePane.css";
+
+export type ProviderConfigurationStatus =
+  | "loading"
+  | "configured"
+  | "not-configured";
 
 interface WelcomePaneProps {
   loading: boolean;
   onCreateProject: () => void;
   onOpenProject: () => void;
   recentProjects?: RecentProjectEntry[];
+  recentProjectsLoadStatus?: RecentProjectsLoadStatus;
+  providerConfigurationStatus?: ProviderConfigurationStatus;
+  onOpenProviderSettings?: () => void;
   onOpenRecentProject?: (projectPath: string) => void;
   onRemoveRecentProject?: (projectPath: string) => void | Promise<void>;
   onRevealProject?: (projectPath: string) => void | Promise<void>;
@@ -22,6 +31,9 @@ export const WelcomePane = ({
   onCreateProject,
   onOpenProject,
   recentProjects = [],
+  recentProjectsLoadStatus = "loaded",
+  providerConfigurationStatus = "loading",
+  onOpenProviderSettings,
   onOpenRecentProject,
   onRemoveRecentProject,
   onRevealProject,
@@ -32,6 +44,17 @@ export const WelcomePane = ({
   );
 
   const deleteDialogTitleId = "welcome-delete-project-title";
+  const showGettingStarted =
+    manualProjectActionsVisible &&
+    recentProjectsLoadStatus === "loaded" &&
+    recentProjects.length === 0;
+  const providerConfigured = providerConfigurationStatus === "configured";
+  const providerStatusLabel =
+    providerConfigurationStatus === "loading"
+      ? copy.welcome.providerChecking
+      : providerConfigured
+      ? copy.welcome.providerConfigured
+      : copy.welcome.providerNotConfigured;
 
   return (
     <div className="welcome-pane">
@@ -66,54 +89,149 @@ export const WelcomePane = ({
           ) : null}
         </div>
         <div className="welcome-pane__recent">
-          <div className="welcome-pane__recent-header">
-            <h2>{copy.welcome.recentTitle}</h2>
-          </div>
-          {recentProjects.length ? (
-            <div className="welcome-pane__recent-list">
-              {recentProjects.map((project) => (
-                <div
-                  key={project.projectPath}
-                  className="welcome-pane__recent-item"
-                >
-                  <button
-                    type="button"
-                    className="welcome-pane__recent-open"
-                    onClick={() => onOpenRecentProject?.(project.projectPath)}
-                    disabled={loading}
-                  >
-                    <span className="welcome-pane__recent-name">
-                      {project.name}
-                    </span>
-                    <span className="welcome-pane__recent-path">
-                      {project.projectPath}
-                    </span>
-                    <span className="welcome-pane__recent-time">
-                      {copy.welcome.lastOpenedAt}{" "}
-                      {new Date(project.lastOpenedAt).toLocaleString(
-                        DESKTOP_LANG_CODE,
-                      )}
-                    </span>
-                  </button>
-                  {manualProjectActionsVisible ? (
-                    <button
-                      type="button"
-                      className="welcome-pane__recent-delete"
-                      aria-label={`${copy.welcome.deleteProject}：${project.name}`}
-                      title={`${copy.welcome.deleteProject}：${project.name}`}
-                      onClick={() => setDeleteTarget(project)}
-                      disabled={loading}
-                    >
-                      {trashProjectIcon}
-                    </button>
-                  ) : null}
+          {showGettingStarted ? (
+            <section
+              className="welcome-pane__getting-started"
+              aria-labelledby="welcome-getting-started-title"
+            >
+              <header className="welcome-pane__getting-started-header">
+                <div>
+                  <h2 id="welcome-getting-started-title">
+                    {copy.welcome.gettingStartedTitle}
+                  </h2>
+                  <p>{copy.welcome.gettingStartedDescription}</p>
                 </div>
-              ))}
-            </div>
+              </header>
+              <ol className="welcome-pane__steps">
+                <li
+                  className={[
+                    "welcome-pane__step",
+                    providerConfigured ? "welcome-pane__step--complete" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <span
+                    className="welcome-pane__step-marker"
+                    aria-hidden="true"
+                  >
+                    {providerConfigured ? checkIcon : "1"}
+                  </span>
+                  <div className="welcome-pane__step-copy">
+                    <div className="welcome-pane__step-title">
+                      <strong>{copy.welcome.setupProviderTitle}</strong>
+                      <span
+                        className={[
+                          "welcome-pane__step-status",
+                          providerConfigured
+                            ? "welcome-pane__step-status--ready"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        {providerStatusLabel}
+                      </span>
+                    </div>
+                    <p>{copy.welcome.setupProviderDescription}</p>
+                    <DesktopButton
+                      size="small"
+                      className="welcome-pane__step-action"
+                      onClick={onOpenProviderSettings}
+                    >
+                      {providerConfigured
+                        ? copy.welcome.manageProvider
+                        : copy.welcome.configureApiKey}
+                    </DesktopButton>
+                  </div>
+                </li>
+                <li className="welcome-pane__step">
+                  <span
+                    className="welcome-pane__step-marker"
+                    aria-hidden="true"
+                  >
+                    2
+                  </span>
+                  <div className="welcome-pane__step-copy">
+                    <strong>{copy.welcome.createFirstProjectTitle}</strong>
+                    <p>{copy.welcome.createFirstProjectDescription}</p>
+                  </div>
+                </li>
+                <li className="welcome-pane__step">
+                  <span
+                    className="welcome-pane__step-marker"
+                    aria-hidden="true"
+                  >
+                    3
+                  </span>
+                  <div className="welcome-pane__step-copy">
+                    <strong>{copy.welcome.startGeneratingTitle}</strong>
+                    <p>{copy.welcome.startGeneratingDescription}</p>
+                  </div>
+                </li>
+              </ol>
+              <p className="welcome-pane__getting-started-footnote">
+                {copy.welcome.gettingStartedSkippable}
+              </p>
+            </section>
           ) : (
-            <p className="welcome-pane__recent-empty">
-              {copy.welcome.recentEmpty}
-            </p>
+            <>
+              <div className="welcome-pane__recent-header">
+                <h2>{copy.welcome.recentTitle}</h2>
+              </div>
+              {recentProjects.length ? (
+                <div className="welcome-pane__recent-list">
+                  {recentProjects.map((project) => (
+                    <div
+                      key={project.projectPath}
+                      className="welcome-pane__recent-item"
+                    >
+                      <button
+                        type="button"
+                        className="welcome-pane__recent-open"
+                        onClick={() =>
+                          onOpenRecentProject?.(project.projectPath)
+                        }
+                        disabled={loading}
+                      >
+                        <span className="welcome-pane__recent-name">
+                          {project.name}
+                        </span>
+                        <span className="welcome-pane__recent-path">
+                          {project.projectPath}
+                        </span>
+                        <span className="welcome-pane__recent-time">
+                          {copy.welcome.lastOpenedAt}{" "}
+                          {new Date(project.lastOpenedAt).toLocaleString(
+                            DESKTOP_LANG_CODE,
+                          )}
+                        </span>
+                      </button>
+                      {manualProjectActionsVisible ? (
+                        <button
+                          type="button"
+                          className="welcome-pane__recent-delete"
+                          aria-label={`${copy.welcome.deleteProject}：${project.name}`}
+                          title={`${copy.welcome.deleteProject}：${project.name}`}
+                          onClick={() => setDeleteTarget(project)}
+                          disabled={loading}
+                        >
+                          {trashProjectIcon}
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="welcome-pane__recent-empty">
+                  {recentProjectsLoadStatus === "loading"
+                    ? copy.welcome.recentLoading
+                    : recentProjectsLoadStatus === "failed"
+                    ? copy.welcome.recentLoadFailed
+                    : copy.welcome.recentEmpty}
+                </p>
+              )}
+            </>
           )}
         </div>
       </section>

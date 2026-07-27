@@ -93,11 +93,7 @@ import {
   rememberRecentProject,
   removeRecentProject,
 } from "./recentProjectsStore";
-import {
-  DESKTOP_APP_NAME,
-  DESKTOP_LANG_CODE,
-  setActiveDesktopLocale,
-} from "../src/app/copy";
+import { DESKTOP_LANG_CODE, setActiveDesktopLocale } from "../src/app/copy";
 import { selectProjectRoomAgentPresence } from "../src/app/projectRoomPresence";
 import { DESKTOP_APP_VERSION } from "./appVersion";
 import { createAppMenuTemplate } from "./menu";
@@ -125,7 +121,6 @@ import {
   removeAgentSessionDescriptor,
   writeAgentSessionDescriptor,
 } from "./agent/sessionStore";
-import { getAgentSessionPath } from "./agent/sessionPaths";
 import { createTaskGrantStore } from "./agent/taskGrants";
 import { createRendererCommandBridge } from "./agent/rendererCommandBridge";
 import { configureNoSystemKeychainAccess } from "./keychainGuard";
@@ -163,8 +158,24 @@ import {
 } from "./desktopStartupIdentity";
 import { createActiveProjectDescriptorSync } from "./activeProjectDescriptorSync";
 import { resolveDesktopMenuEventTarget } from "./desktopMenuEventRouting";
+import {
+  resolveDesktopAppName,
+  resolveDesktopRuntimeConfig,
+} from "./desktopRuntimeConfig";
 
 installBrokenPipeConsoleGuard();
+
+const bundledDesktopAppName = app.getName();
+const configuredDesktopAppName = resolveDesktopAppName({
+  bundledAppName: bundledDesktopAppName,
+});
+configureNoSystemKeychainAccess(app.commandLine);
+app.setName(configuredDesktopAppName);
+const desktopRuntime = resolveDesktopRuntimeConfig({
+  bundledAppName: bundledDesktopAppName,
+  userDataPath: app.getPath("userData"),
+});
+process.env.CORESTUDIO_SETTINGS_DIRECTORY = desktopRuntime.settingsDirectory;
 
 let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];
@@ -189,7 +200,7 @@ let modelCatalogService: ReturnType<typeof createModelCatalogService> | null =
 let projectViewRegistry: ProjectViewRegistry | null = null;
 let projectRoomSenderBindings: ProjectRoomSenderBindings | null = null;
 const quitState = createQuitState();
-const agentSessionPath = getAgentSessionPath();
+const agentSessionPath = desktopRuntime.sessionPath;
 const taskGrantStore = createTaskGrantStore();
 const participantIssuerToken = randomUUID();
 const projectRoomTicketStore = createProjectRoomTicketStore();
@@ -295,7 +306,6 @@ const generationRequestController = createGenerationRequestController({
   generateImages,
 });
 const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
-const AGENT_BRIDGE_PREFERRED_PORT = 60909;
 const PACKAGED_SMOKE_READY_SIGNAL = "[corestudio:smoke-ready]";
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingProjectRoomFlushes = new Map<
@@ -309,9 +319,8 @@ const pendingProjectRoomFlushes = new Map<
 >();
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
-const isDev = Boolean(rendererUrl);
 const desktopWindowTitle = resolveDesktopWindowTitle({
-  appName: DESKTOP_APP_NAME,
+  appName: desktopRuntime.appName,
   configuredTitle: process.env.CORESTUDIO_WINDOW_TITLE,
 });
 const DESKTOP_TITLEBAR_HEIGHT = 44;
@@ -428,17 +437,13 @@ const publishProjectViewsState = (state: DesktopProjectViewsState) => {
   Menu.setApplicationMenu(buildMenu());
 };
 
-configureNoSystemKeychainAccess(app.commandLine);
-app.setName(DESKTOP_APP_NAME);
-
 installMainProcessErrorHandlers(
   process,
   createMainProcessErrorReporter({
-    appName: DESKTOP_APP_NAME,
+    appName: desktopRuntime.appName,
     getLogPath: () =>
       path.join(
-        app.getPath("appData"),
-        "Excalidraw Image Board",
+        desktopRuntime.settingsDirectory,
         "logs",
         "main-process-errors.log",
       ),
@@ -665,7 +670,7 @@ const writeCurrentAgentSessionDescriptor = async () => {
   const projectToken = currentProject?.agentAccess.token ?? "";
   const descriptor = {
     protocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
-    appName: DESKTOP_APP_NAME,
+    appName: desktopRuntime.appName,
     appVersion: DESKTOP_APP_VERSION,
     bridge: {
       host: bridge.host,
@@ -796,7 +801,7 @@ const startLocalBridge = async () => {
   let bridge: LocalBridgeServerHandle | null = null;
   try {
     bridge = await createLocalBridgeServer({
-      preferredPort: AGENT_BRIDGE_PREFERRED_PORT,
+      preferredPort: desktopRuntime.bridgePort,
       allowDynamicPortFallback: false,
       agentBoardAssetsDir: rendererUrl
         ? undefined
@@ -2203,7 +2208,7 @@ const registerIpcHandlers = () => {
   ipcMain.handle(IPC_CHANNELS.loadAppInfo, async (event) => {
     requireShellOrProjectRendererSender(event.sender);
     return {
-      name: DESKTOP_APP_NAME,
+      name: desktopRuntime.appName,
       version: DESKTOP_APP_VERSION,
     };
   });
@@ -2689,10 +2694,15 @@ if (hasSingleInstanceLock) {
     console.log(
       "[desktop:startup]",
       buildDesktopStartupIdentity({
+        runtimeMode: desktopRuntime.mode,
+        appName: desktopRuntime.appName,
         appPath: app.getAppPath(),
         executable: process.execPath,
         userData: app.getPath("userData"),
         windowTitle: desktopWindowTitle,
+        bridgePort: desktopRuntime.bridgePort,
+        sessionPath: desktopRuntime.sessionPath,
+        settingsDirectory: desktopRuntime.settingsDirectory,
       }),
     );
     localeSettingsController = createLocaleSettingsController({

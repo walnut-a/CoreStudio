@@ -44,7 +44,10 @@ import { createProjectRoomCollaborators } from "./projectRoomPresence";
 import { reconcileProjectRoomScene } from "./projectRoomSceneReconciliation";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
-import { createDesktopStartupRendererActions } from "./desktopStartupState";
+import {
+  createDesktopStartupRendererActions,
+  type RecentProjectsLoadStatus,
+} from "./desktopStartupState";
 import { createAppStartupLifecycleRendererActions } from "./appStartupLifecycleController";
 import { createAppUnmountCleanupRendererActions } from "./appUnmountCleanupController";
 import { createGenerationRequestRendererActions } from "./generationRequestRendererController";
@@ -100,7 +103,10 @@ import {
   runCurrentProjectCommandStartAction,
 } from "./currentProjectApplyController";
 import { createProviderSettingsRendererActions } from "./providerSettingsLoader";
-import { applyRemoteModelCatalog } from "../shared/providerCatalog";
+import {
+  applyRemoteModelCatalog,
+  getConfiguredProviderIds,
+} from "../shared/providerCatalog";
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
 import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
 import { buildSelectedImageRelationshipState } from "./imageRecordState";
@@ -386,6 +392,8 @@ const App = ({
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>(
     [],
   );
+  const [recentProjectsLoadStatus, setRecentProjectsLoadStatus] =
+    useState<RecentProjectsLoadStatus>("loading");
   const [selectedRecord, setSelectedRecord] = useState<ImageRecord | null>(
     null,
   );
@@ -808,6 +816,7 @@ const App = ({
     setGenerateRequest,
     setStartupError,
     setRecentProjects,
+    setRecentProjectsLoadStatus,
     setProjectError,
     setAppInfo,
   });
@@ -2111,8 +2120,20 @@ const App = ({
         projectError={projectError ?? projectRoomError}
         loadingProject={loadingProject}
         recentProjects={recentProjects}
+        recentProjectsLoadStatus={recentProjectsLoadStatus}
+        providerConfigurationStatus={
+          providerConfiguration === null
+            ? "loading"
+            : getConfiguredProviderIds(providerConfiguration.providers).length
+            ? "configured"
+            : "not-configured"
+        }
         onCreateProject={currentProjectEntryRendererActions.createProject}
         onOpenProject={currentProjectEntryRendererActions.openProject}
+        onOpenProviderSettings={() => {
+          setAppSettingsCategory("image-generation");
+          setAppSettingsOpen(true);
+        }}
         onOpenRecentProject={
           currentProjectEntryRendererActions.openRecentProject
         }

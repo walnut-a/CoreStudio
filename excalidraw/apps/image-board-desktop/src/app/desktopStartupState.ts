@@ -11,22 +11,31 @@ type ProviderSettingsLoadActionInput = Parameters<
   typeof runProviderSettingsLoadAction
 >[0];
 
+export type RecentProjectsLoadStatus = "loading" | "loaded" | "failed";
+
 export const loadRecentProjectsStateAction = async ({
   bridge,
   setRecentProjects,
+  setRecentProjectsLoadStatus,
 }: {
   bridge: DesktopBridgeApi | null;
   setRecentProjects: (projects: RecentProjectEntry[]) => void;
+  setRecentProjectsLoadStatus?: (status: RecentProjectsLoadStatus) => void;
 }) => {
+  setRecentProjectsLoadStatus?.("loading");
+
   if (!bridge) {
     setRecentProjects([]);
+    setRecentProjectsLoadStatus?.("failed");
     return;
   }
 
   try {
     setRecentProjects(await bridge.loadRecentProjects());
+    setRecentProjectsLoadStatus?.("loaded");
   } catch {
     setRecentProjects([]);
+    setRecentProjectsLoadStatus?.("failed");
   }
 };
 
@@ -81,6 +90,7 @@ export const createDesktopStartupRendererActions = ({
   setGenerateRequest,
   setStartupError,
   setRecentProjects,
+  setRecentProjectsLoadStatus,
   setProjectError,
   setAppInfo,
 }: {
@@ -91,6 +101,7 @@ export const createDesktopStartupRendererActions = ({
   setGenerateRequest: ProviderSettingsLoadActionInput["setGenerateRequest"];
   setStartupError: ProviderSettingsLoadActionInput["setStartupError"];
   setRecentProjects: (projects: RecentProjectEntry[]) => void;
+  setRecentProjectsLoadStatus?: (status: RecentProjectsLoadStatus) => void;
   setProjectError?: (message: string | null) => void;
   setAppInfo: (appInfo: DesktopAppInfo | null) => void;
 }) => {
@@ -109,6 +120,7 @@ export const createDesktopStartupRendererActions = ({
     await loadRecentProjectsStateAction({
       bridge: getBridge(),
       setRecentProjects,
+      setRecentProjectsLoadStatus,
     });
   };
 

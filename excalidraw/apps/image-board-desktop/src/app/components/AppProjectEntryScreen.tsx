@@ -5,7 +5,8 @@ import type {
   RecentProjectEntry,
 } from "../../shared/desktopBridgeTypes";
 import { AppErrorBanners } from "./AppErrorBanners";
-import { WelcomePane } from "./WelcomePane";
+import { type ProviderConfigurationStatus, WelcomePane } from "./WelcomePane";
+import type { RecentProjectsLoadStatus } from "../desktopStartupState";
 
 interface AppProjectEntryScreenProps {
   titlebar?: ReactNode;
@@ -14,8 +15,11 @@ interface AppProjectEntryScreenProps {
   projectError: string | null;
   loadingProject: boolean;
   recentProjects: RecentProjectEntry[];
+  recentProjectsLoadStatus: RecentProjectsLoadStatus;
+  providerConfigurationStatus: ProviderConfigurationStatus;
   onCreateProject: () => void;
   onOpenProject: () => void;
+  onOpenProviderSettings: () => void;
   onOpenRecentProject: (projectPath: string) => void;
   onRemoveRecentProject: (projectPath: string) => void | Promise<void>;
   onRevealProject: (projectPath: string) => void | Promise<void>;
@@ -31,8 +35,11 @@ export const AppProjectEntryScreen = ({
   projectError,
   loadingProject,
   recentProjects,
+  recentProjectsLoadStatus,
+  providerConfigurationStatus,
   onCreateProject,
   onOpenProject,
+  onOpenProviderSettings,
   onOpenRecentProject,
   onRemoveRecentProject,
   onRevealProject,
@@ -49,6 +56,9 @@ export const AppProjectEntryScreen = ({
         onCreateProject={onCreateProject}
         onOpenProject={onOpenProject}
         recentProjects={recentProjects}
+        recentProjectsLoadStatus={recentProjectsLoadStatus}
+        providerConfigurationStatus={providerConfigurationStatus}
+        onOpenProviderSettings={onOpenProviderSettings}
         onOpenRecentProject={onOpenRecentProject}
         onRemoveRecentProject={onRemoveRecentProject}
         onRevealProject={onRevealProject}

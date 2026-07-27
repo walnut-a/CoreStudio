@@ -70,7 +70,7 @@ describe("desktop project process architecture", () => {
   it("does not turn a transient unresponsive event into a crashed project renderer", () => {
     const mainProcessSource = readDesktopFile("electron/main.ts");
     const unresponsiveHandler = mainProcessSource.match(
-      /view\.webContents\.on\("unresponsive",[\s\S]*?view\.webContents\.on\(\s*"did-fail-load"/,
+      /projectWebContents\.on\("unresponsive",[\s\S]*?projectWebContents\.on\(\s*"did-fail-load"/,
     )?.[0];
 
     expect(unresponsiveHandler).toBeDefined();
@@ -96,5 +96,42 @@ describe("desktop project process architecture", () => {
     );
     expect(shellSource).toContain("ShellApplicationSettings");
     expect(shellSource).toContain('event.action === "app-settings"');
+  });
+
+  it("acquires the project room before a project bundle can migrate or recover files", () => {
+    const mainProcessSource = readDesktopFile("electron/main.ts");
+    const buildProjectBundleSource = mainProcessSource.match(
+      /const buildProjectBundle = async[\s\S]*?\n};/,
+    )?.[0];
+
+    expect(buildProjectBundleSource).toBeDefined();
+    expect(buildProjectBundleSource!.indexOf("projectRoomService.openProject("))
+      .toBeLessThan(buildProjectBundleSource!.indexOf("readProjectBundle("));
+  });
+
+  it("keeps Agent project discovery read-only and claims ownership before creating a Board id", () => {
+    const mainProcessSource = readDesktopFile("electron/main.ts");
+    const tokenLookupSource = mainProcessSource.match(
+      /const getAgentProjectByToken = async[\s\S]*?\n};/,
+    )?.[0];
+    const stableBoardLookupSource = mainProcessSource.match(
+      /const getAgentProjectByStableBoardId = async[\s\S]*?\n};/,
+    )?.[0];
+    const stableBoardUrlSource = mainProcessSource.match(
+      /const getStableAgentBoardUrl = async[\s\S]*?\n};/,
+    )?.[0];
+
+    expect(tokenLookupSource).toContain("readProjectManifestSnapshot(");
+    expect(tokenLookupSource).not.toContain("readProjectBundle(");
+    expect(stableBoardLookupSource).toContain(
+      "readProjectManifestSnapshot(",
+    );
+    expect(stableBoardLookupSource).not.toContain("readProjectBundle(");
+    expect(stableBoardUrlSource).toBeDefined();
+    expect(
+      stableBoardUrlSource!.indexOf("projectRoomService.openProject("),
+    ).toBeLessThan(
+      stableBoardUrlSource!.indexOf("ensureProjectStableBoardId("),
+    );
   });
 });

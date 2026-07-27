@@ -429,10 +429,10 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 0 4px 0 0;
+  padding: var(--ui-space-xxs) 4px;
   box-sizing: border-box;
   font-size: 0.9375rem;
-  line-height: 28px;
+  line-height: calc(var(--ui-control-size-sm) - var(--ui-space-xs));
   letter-spacing: 0.003em;
   white-space: pre-wrap;
   overflow-x: hidden;
@@ -463,7 +463,7 @@
   box-sizing: border-box;
   font-size: 0.8125rem;
   line-height: 1;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .generate-composer__prompt-editor .generate-composer__reference-chip-thumbnail {

@@ -41,8 +41,6 @@ export const enCopy: DesktopCopy = {
     startGeneratingTitle: "Add references and start generating",
     startGeneratingDescription:
       "Place reference images on the board, describe your idea, and generate a concept.",
-    gettingStartedSkippable:
-      "Skip any step and start using the app right away.",
     lastOpenedAt: "Last opened",
     deleteProject: "Remove project",
     deleteProjectRecordOnly: "Remove from list",

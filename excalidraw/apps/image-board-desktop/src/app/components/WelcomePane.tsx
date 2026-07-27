@@ -134,16 +134,16 @@ export const WelcomePane = ({
                       </span>
                     </div>
                     <p>{copy.welcome.setupProviderDescription}</p>
-                    <DesktopButton
-                      size="small"
-                      className="welcome-pane__step-action"
-                      onClick={onOpenProviderSettings}
-                    >
-                      {providerConfigured
-                        ? copy.welcome.manageProvider
-                        : copy.welcome.configureApiKey}
-                    </DesktopButton>
                   </div>
+                  <DesktopButton
+                    size="small"
+                    className="welcome-pane__step-action"
+                    onClick={onOpenProviderSettings}
+                  >
+                    {providerConfigured
+                      ? copy.welcome.manageProvider
+                      : copy.welcome.configureApiKey}
+                  </DesktopButton>
                 </li>
                 <li className="welcome-pane__step">
                   <span
@@ -170,9 +170,6 @@ export const WelcomePane = ({
                   </div>
                 </li>
               </ol>
-              <p className="welcome-pane__getting-started-footnote">
-                {copy.welcome.gettingStartedSkippable}
-              </p>
             </section>
           ) : (
             <>

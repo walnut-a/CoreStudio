@@ -91,6 +91,7 @@ export type ProjectRoomErrorCode =
   | "PARTICIPANTS_CHANGED"
   | "FORBIDDEN"
   | "PROJECT_ROOM_ALREADY_OPEN"
+  | "PROJECT_OPEN_IN_ANOTHER_APP"
   | "OPERATION_ID_CONFLICT";
 
 export interface ProjectRoomSnapshot {

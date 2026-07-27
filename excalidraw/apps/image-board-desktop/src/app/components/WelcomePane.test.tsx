@@ -36,13 +36,20 @@ describe("WelcomePane", () => {
     expect(screen.getByText("新建或打开项目")).toBeInTheDocument();
     expect(screen.getByText("添加参考图并开始生成")).toBeInTheDocument();
     expect(
-      screen.getByText("你可以跳过任何步骤，直接开始使用。"),
-    ).toBeInTheDocument();
+      screen.queryByText("你可以跳过任何步骤，直接开始使用。"),
+    ).not.toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "新建项目" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "打开项目" })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "配置 API Key" }));
+    const configureButton = screen.getByRole("button", {
+      name: "配置 API Key",
+    });
+    expect(
+      configureButton.parentElement?.classList.contains("welcome-pane__step"),
+    ).toBe(true);
+
+    fireEvent.click(configureButton);
     expect(onOpenProviderSettings).toHaveBeenCalledTimes(1);
   });
 

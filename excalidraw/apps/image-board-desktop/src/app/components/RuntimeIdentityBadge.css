@@ -1,0 +1,20 @@
+.runtime-identity-badge {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  z-index: 2147483647;
+  max-width: calc(100vw - 24px);
+  padding: 4px 8px;
+  overflow: hidden;
+  color: #fff;
+  font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgb(18 24 38 / 86%);
+  border: 1px solid rgb(255 255 255 / 26%);
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 22%);
+}

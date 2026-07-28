@@ -10,10 +10,16 @@ import {
 export const PRODUCTION_AGENT_BRIDGE_PORT = 60909;
 export const DEVELOPMENT_AGENT_BRIDGE_PORT = 60910;
 export const QA_AGENT_BRIDGE_PORT = 60911;
+export const PREVIEW_AGENT_BRIDGE_PORT = 60913;
 export const PRODUCTION_APP_NAME = "CoreStudio";
 export const DEVELOPMENT_APP_NAME = "CoreStudio Dev";
+export const PREVIEW_APP_NAME = "CoreStudio Preview";
 
-export type DesktopRuntimeMode = "production" | "development" | "qa";
+export type DesktopRuntimeMode =
+  | "production"
+  | "development"
+  | "preview"
+  | "qa";
 
 interface DesktopRuntimeConfigInput extends AgentSessionPathInput {
   bundledAppName: string;
@@ -27,7 +33,12 @@ const resolveRuntimeMode = (
 ): DesktopRuntimeMode => {
   const mode = configuredMode?.trim();
   if (mode) {
-    if (mode === "production" || mode === "development" || mode === "qa") {
+    if (
+      mode === "production" ||
+      mode === "development" ||
+      mode === "preview" ||
+      mode === "qa"
+    ) {
       return mode;
     }
     throw new Error(`Unsupported CORESTUDIO_RUNTIME_MODE: ${configuredMode}`);
@@ -40,8 +51,11 @@ const resolveBridgePort = (
   mode: DesktopRuntimeMode,
 ) => {
   if (!configuredPort) {
-    return mode === "production"
-      ? PRODUCTION_AGENT_BRIDGE_PORT
+    if (mode === "production") {
+      return PRODUCTION_AGENT_BRIDGE_PORT;
+    }
+    return mode === "preview"
+      ? PREVIEW_AGENT_BRIDGE_PORT
       : DEVELOPMENT_AGENT_BRIDGE_PORT;
   }
 
@@ -81,6 +95,31 @@ const assertRuntimeBoundary = (input: {
     if (input.bridgePort !== QA_AGENT_BRIDGE_PORT) {
       throw new Error(
         `The packaged smoke test must use its fixed Agent Bridge port ${QA_AGENT_BRIDGE_PORT}.`,
+      );
+    }
+    return;
+  }
+
+  if (input.mode === "preview") {
+    const fixedSettingsDirectory = path.resolve(input.userDataPath);
+    const fixedSessionPath = path.join(
+      fixedSettingsDirectory,
+      AGENT_SESSION_FILE_NAME,
+    );
+    if (!input.isPackaged) {
+      throw new Error(
+        "The preview runtime is reserved for the fixed packaged preview launcher.",
+      );
+    }
+    if (
+      path.basename(fixedSettingsDirectory) !== ".electron-preview-profile" ||
+      input.appName !== PREVIEW_APP_NAME ||
+      input.bridgePort !== PREVIEW_AGENT_BRIDGE_PORT ||
+      input.settingsDirectory !== fixedSettingsDirectory ||
+      input.sessionPath !== fixedSessionPath
+    ) {
+      throw new Error(
+        `CoreStudio packaged preview must use .electron-preview-profile, app name "${PREVIEW_APP_NAME}", Agent Bridge ${PREVIEW_AGENT_BRIDGE_PORT}, and its fixed session path.`,
       );
     }
     return;

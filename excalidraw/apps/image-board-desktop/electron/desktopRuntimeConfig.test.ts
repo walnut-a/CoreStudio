@@ -113,6 +113,56 @@ describe("desktop runtime config", () => {
     });
   });
 
+  it("uses a separate fixed identity for packaged preview", () => {
+    const userDataPath =
+      "/workspace/apps/image-board-desktop/.electron-preview-profile";
+    expect(
+      resolveDesktopRuntimeConfig({
+        bundledAppName: "CoreStudio Dev",
+        isPackaged: true,
+        userDataPath,
+        env: {
+          CORESTUDIO_RUNTIME_MODE: "preview",
+          CORESTUDIO_APP_NAME: "CoreStudio Preview",
+          CORESTUDIO_AGENT_BRIDGE_PORT: "60913",
+          CORESTUDIO_AGENT_SESSION_FILE: path.join(
+            userDataPath,
+            "agent-session.json",
+          ),
+          CORESTUDIO_SETTINGS_DIRECTORY: userDataPath,
+        },
+      }),
+    ).toEqual({
+      mode: "preview",
+      appName: "CoreStudio Preview",
+      bridgePort: 60913,
+      settingsDirectory: userDataPath,
+      sessionPath: path.join(userDataPath, "agent-session.json"),
+    });
+  });
+
+  it("rejects a packaged preview that borrows the source development profile", () => {
+    const userDataPath =
+      "/workspace/apps/image-board-desktop/.electron-dev-profile";
+    expect(() =>
+      resolveDesktopRuntimeConfig({
+        bundledAppName: "CoreStudio Dev",
+        isPackaged: true,
+        userDataPath,
+        env: {
+          CORESTUDIO_RUNTIME_MODE: "preview",
+          CORESTUDIO_APP_NAME: "CoreStudio Preview",
+          CORESTUDIO_AGENT_BRIDGE_PORT: "60913",
+          CORESTUDIO_AGENT_SESSION_FILE: path.join(
+            userDataPath,
+            "agent-session.json",
+          ),
+          CORESTUDIO_SETTINGS_DIRECTORY: userDataPath,
+        },
+      }),
+    ).toThrow(/electron-preview-profile/i);
+  });
+
   it("rejects an invalid injected bridge port instead of silently sharing production", () => {
     expect(() =>
       resolveDesktopRuntimeConfig({

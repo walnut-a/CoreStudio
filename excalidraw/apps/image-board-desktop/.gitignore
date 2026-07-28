@@ -4,6 +4,7 @@ dist-electron/
 release/
 release-dev/
 .electron-dev-profile/
+.electron-preview-profile/
 .env
 .env.*
 !.env.example

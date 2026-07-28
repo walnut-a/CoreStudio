@@ -3,10 +3,17 @@
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const {
+  resolveWorkspaceBuildIdentity,
+} = require("./runtime-build-identity.cjs");
+const {
+  assertRuntimeLaunchAvailable,
+  listProcesses,
+  terminateOwnedProcessGroup,
+} = require("./runtime-instance.cjs");
 
 const DEFAULT_RENDERER_URL = "http://127.0.0.1:5174";
 const DEFAULT_DEBUGGING_PORT = 9331;
-const DEFAULT_WINDOW_TITLE = "CoreStudio · DEV";
 const DEFAULT_BRIDGE_PORT = 60910;
 const DEFAULT_APP_NAME = "CoreStudio Dev";
 
@@ -24,10 +31,25 @@ function buildDevElectronLaunch(options = {}) {
   const profilePath = path.join(appRoot, ".electron-dev-profile");
   const rendererUrl = DEFAULT_RENDERER_URL;
   const debuggingPort = DEFAULT_DEBUGGING_PORT;
-  const windowTitle = DEFAULT_WINDOW_TITLE;
   const bridgePort = DEFAULT_BRIDGE_PORT;
   const sessionPath = path.join(profilePath, "agent-session.json");
+  const identityPath = path.join(profilePath, "runtime-identity.json");
   const appName = DEFAULT_APP_NAME;
+  const instanceKind = "source-dev";
+  let buildIdentity = options.buildIdentity;
+  if (!buildIdentity) {
+    try {
+      buildIdentity = resolveWorkspaceBuildIdentity(appRoot);
+    } catch {
+      buildIdentity = {
+        gitCommit: "unknown",
+        gitDirty: false,
+        appVersion: "0.0.0",
+        buildId: "unknown",
+      };
+    }
+  }
+  const windowTitle = `CoreStudio · SOURCE DEV · ${buildIdentity.buildId}`;
 
   return {
     command: electronPath,
@@ -46,6 +68,13 @@ function buildDevElectronLaunch(options = {}) {
       CORESTUDIO_AGENT_BRIDGE_PORT: String(bridgePort),
       CORESTUDIO_AGENT_SESSION_FILE: sessionPath,
       CORESTUDIO_SETTINGS_DIRECTORY: profilePath,
+      CORESTUDIO_RUNTIME_IDENTITY_FILE: identityPath,
+      CORESTUDIO_INSTANCE_KIND: instanceKind,
+      CORESTUDIO_DEBUG_PORT: String(debuggingPort),
+      CORESTUDIO_GIT_COMMIT: buildIdentity.gitCommit,
+      CORESTUDIO_GIT_DIRTY: buildIdentity.gitDirty ? "1" : "0",
+      CORESTUDIO_BUILD_ID: buildIdentity.buildId,
+      CORESTUDIO_LAUNCHER_PID: String(process.pid),
     },
     profilePath,
     rendererUrl,
@@ -53,7 +82,10 @@ function buildDevElectronLaunch(options = {}) {
     windowTitle,
     bridgePort,
     sessionPath,
+    identityPath,
     appName,
+    instanceKind,
+    buildIdentity,
   };
 }
 
@@ -62,6 +94,16 @@ function runDevElectron(options = {}) {
   if (!fs.existsSync(launch.command)) {
     throw new Error(`Electron executable not found: ${launch.command}`);
   }
+  assertRuntimeLaunchAvailable(
+    {
+      instanceKind: launch.instanceKind,
+      executable: launch.command,
+      appPath: launch.cwd,
+      userData: launch.profilePath,
+      debugPort: launch.debuggingPort,
+    },
+    listProcesses(),
+  );
 
   console.log("[desktop:dev-launch]");
   console.log(`Project:       ${launch.cwd}`);
@@ -73,20 +115,44 @@ function runDevElectron(options = {}) {
   console.log(`App name:      ${launch.appName}`);
   console.log(`Agent Bridge:  127.0.0.1:${launch.bridgePort}`);
   console.log(`Agent session: ${launch.sessionPath}`);
+  console.log(`Identity file: ${launch.identityPath}`);
+  console.log(`Git commit:    ${launch.buildIdentity.gitCommit}`);
+  console.log(`Git dirty:     ${launch.buildIdentity.gitDirty}`);
+  console.log(`Build ID:      ${launch.buildIdentity.buildId}`);
 
   const child = childProcess.spawn(launch.command, launch.args, {
     cwd: launch.cwd,
     env: launch.env,
     stdio: "inherit",
+    detached: process.platform !== "win32",
   });
+  let cleanupPromise;
+  const cleanup = (signal) => {
+    if (!child.pid) {
+      return Promise.resolve({ remaining: 0 });
+    }
+    if (!cleanupPromise) {
+      cleanupPromise = terminateOwnedProcessGroup(
+        { pid: child.pid, pgid: child.pid },
+        { allowKill: true },
+      ).catch((error) => {
+        console.error(`[desktop:dev-cleanup-failed] ${error.message}`);
+        return { remaining: -1 };
+      });
+    }
+    return cleanupPromise.then((result) => {
+      console.log(
+        `[desktop:dev-cleanup] signal=${signal} PGID=${child.pid} remaining=${result.remaining}`,
+      );
+      return result;
+    });
+  };
   const signals = ["SIGINT", "SIGTERM"];
   const signalHandlers = new Map(
     signals.map((signal) => [
       signal,
       () => {
-        if (!child.killed) {
-          child.kill(signal);
-        }
+        void cleanup(signal);
       },
     ]),
   );

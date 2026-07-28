@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import App from "./app/App";
 import { DesktopShellApp } from "./app/DesktopShellApp";
+import { RuntimeIdentityBadge } from "./app/components/RuntimeIdentityBadge";
 import {
   DesktopLocaleProvider,
   useDesktopLocale,
@@ -42,6 +43,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <DesktopLocaleProvider>
       <LocalizedApp />
+      <RuntimeIdentityBadge />
     </DesktopLocaleProvider>
   </StrictMode>,
 );

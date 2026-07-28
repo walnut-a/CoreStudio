@@ -10,17 +10,20 @@ const { hasReusablePackage, removeLegacyZipArtifacts } =
   require("./package-once.cjs") as {
     hasReusablePackage: (options: {
       state: {
+        schemaVersion: number;
         fingerprint: string;
         version: string;
         platform: string;
         arch: string;
         artifacts: string[];
+        toolchain: ToolchainVersions;
       } | null;
       fingerprint: string;
       version: string;
       platform: string;
       arch: string;
       releaseDir: string;
+      toolchain: ToolchainVersions;
     }) => boolean;
     removeLegacyZipArtifacts: (options: {
       releaseDir: string;
@@ -29,6 +32,20 @@ const { hasReusablePackage, removeLegacyZipArtifacts } =
       arch: string;
     }) => void;
   };
+
+interface ToolchainVersions {
+  node: string;
+  esbuild: string;
+  electron: string;
+  electronBuilder: string;
+}
+
+const toolchain: ToolchainVersions = {
+  node: "24.8.0",
+  esbuild: "0.28.1",
+  electron: "41.2.0",
+  electronBuilder: "26.8.1",
+};
 
 const tempDirs: string[] = [];
 
@@ -54,17 +71,20 @@ describe("CoreStudio package-once guard", () => {
     expect(
       hasReusablePackage({
         state: {
+          schemaVersion: 2,
           fingerprint: "same-source",
           version: "1.2.3",
           platform: "darwin",
           arch: "arm64",
           artifacts: ["CoreStudio.dmg"],
+          toolchain,
         },
         fingerprint: "same-source",
         version: "1.2.3",
         platform: "darwin",
         arch: "arm64",
         releaseDir,
+        toolchain,
       }),
     ).toBe(true);
   });
@@ -79,6 +99,7 @@ describe("CoreStudio package-once guard", () => {
     expect(
       hasReusablePackage({
         state: {
+          schemaVersion: 2,
           fingerprint: "same-source",
           version: "1.2.3",
           platform: "darwin",
@@ -88,12 +109,14 @@ describe("CoreStudio package-once guard", () => {
             "CoreStudio-1.2.3-arm64-mac.zip",
             "mac-arm64/CoreStudio.app",
           ],
+          toolchain,
         },
         fingerprint: "same-source",
         version: "1.2.3",
         platform: "darwin",
         arch: "arm64",
         releaseDir,
+        toolchain,
       }),
     ).toBe(true);
   });
@@ -102,11 +125,13 @@ describe("CoreStudio package-once guard", () => {
     const releaseDir = createTempDir();
     fs.writeFileSync(path.join(releaseDir, "CoreStudio.dmg"), "dmg");
     const state = {
+      schemaVersion: 2,
       fingerprint: "old-source",
       version: "1.2.3",
       platform: "darwin",
       arch: "arm64",
       artifacts: ["CoreStudio.dmg", "CoreStudio.app"],
+      toolchain,
     };
 
     expect(
@@ -117,6 +142,7 @@ describe("CoreStudio package-once guard", () => {
         platform: "darwin",
         arch: "arm64",
         releaseDir,
+        toolchain,
       }),
     ).toBe(false);
     expect(
@@ -127,6 +153,50 @@ describe("CoreStudio package-once guard", () => {
         platform: "darwin",
         arch: "arm64",
         releaseDir,
+        toolchain,
+      }),
+    ).toBe(false);
+  });
+
+  it("packages again when the installed build toolchain changes", () => {
+    const releaseDir = createTempDir();
+    fs.writeFileSync(path.join(releaseDir, "CoreStudio.dmg"), "dmg");
+    const state = {
+      schemaVersion: 2,
+      fingerprint: "same-source",
+      version: "1.2.3",
+      platform: "darwin",
+      arch: "arm64",
+      artifacts: ["CoreStudio.dmg"],
+      toolchain,
+    };
+
+    expect(
+      hasReusablePackage({
+        state,
+        fingerprint: "same-source",
+        version: "1.2.3",
+        platform: "darwin",
+        arch: "arm64",
+        releaseDir,
+        toolchain: {
+          ...toolchain,
+          esbuild: "0.29.0",
+        },
+      }),
+    ).toBe(false);
+    expect(
+      hasReusablePackage({
+        state: {
+          ...state,
+          schemaVersion: 1,
+        },
+        fingerprint: "same-source",
+        version: "1.2.3",
+        platform: "darwin",
+        arch: "arm64",
+        releaseDir,
+        toolchain,
       }),
     ).toBe(false);
   });

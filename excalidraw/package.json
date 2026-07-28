@@ -45,6 +45,8 @@
     "preview:desktop": "yarn --cwd ./apps/image-board-desktop preview",
     "dev:desktop": "yarn --cwd ./apps/image-board-desktop dev:desktop",
     "dev:composer": "yarn --cwd ./apps/image-board-desktop dev:composer",
+    "verify:desktop:source": "yarn --cwd ./apps/image-board-desktop runtime:verify:source",
+    "verify:desktop:preview": "yarn --cwd ./apps/image-board-desktop runtime:verify:preview",
     "start:desktop": "yarn dev:desktop",
     "package:desktop": "yarn --cwd ./apps/image-board-desktop package:app",
     "test:all": "yarn test:typecheck && yarn test:other && yarn test:app --watch=false",

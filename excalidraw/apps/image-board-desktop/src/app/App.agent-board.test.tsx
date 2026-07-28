@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AGENT_HTTP_ROUTES } from "../shared/agentBridgeTypes";
 import {
   App,
+  act,
   createMockProjectBundle,
   fireEvent,
   mockExcalidrawAPI,
@@ -264,7 +265,7 @@ describe("App Agent Board room route", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("joins the room without starting the retired Agent Board bridge", async () => {
+  it("joins the room and asks for a browser refresh when Electron restarts", async () => {
     const project = createMockProjectBundle({
       projectPath: "/tmp/room-project",
       imageRecords: {
@@ -299,6 +300,7 @@ describe("App Agent Board room route", () => {
     };
     const sentMessages: unknown[] = [];
     let socketCount = 0;
+    let activeRoomSocket: FakeRoomWebSocket | null = null;
     class FakeRoomWebSocket {
       static readonly OPEN = 1;
       readonly readyState = FakeRoomWebSocket.OPEN;
@@ -309,7 +311,20 @@ describe("App Agent Board room route", () => {
 
       constructor(_url: string) {
         socketCount += 1;
+        activeRoomSocket = this;
         queueMicrotask(() => {
+          if (socketCount > 1) {
+            this.emit("message", {
+              data: JSON.stringify({
+                type: "room.error",
+                error: {
+                  code: "AUTH_REQUIRED",
+                  message: "A valid project room ticket is required.",
+                },
+              }),
+            });
+            return;
+          }
           this.emit("message", {
             data: JSON.stringify({
               type: "room.joined",
@@ -359,6 +374,10 @@ describe("App Agent Board room route", () => {
       }
 
       close() {}
+
+      disconnectForRestart() {
+        this.emit("close", {});
+      }
 
       private emit(type: string, event: { data?: string }) {
         for (const listener of this.listeners.get(type) ?? []) {
@@ -444,5 +463,19 @@ describe("App Agent Board room route", () => {
         ]),
       );
     });
+
+    act(() => {
+      activeRoomSocket?.disconnectForRestart();
+    });
+
+    expect(
+      await screen.findByRole("alert", { name: "画板连接已断开" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("CoreStudio 重启后，请刷新当前页面恢复画板。"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("重新启动后会自动恢复这个画布"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -43,6 +43,23 @@ const {
 } = composerStyleTestSupport;
 
 describe("generate composer styles", () => {
+  it("keeps CoreStudio dropdown affordances isolated from Excalidraw's icon token", () => {
+    const designTokens = readCssFile(
+      "apps/image-board-desktop/src/app/styles/designTokens.css",
+    );
+    const dropdownOwners = [
+      readDialogPrimitivesCss(),
+      readCssFile(
+        "apps/image-board-desktop/src/app/components/AgentSettings.css",
+      ),
+      readCssFile("apps/image-board-desktop/src/app/dev/ComposerLabApp.css"),
+    ].join("\n");
+
+    expect(designTokens).toContain("--corestudio-dropdown-icon:");
+    expect(dropdownOwners).toContain("var(--corestudio-dropdown-icon)");
+    expect(dropdownOwners).not.toContain("var(--dropdown-icon)");
+  });
+
   it("keeps the image inspector typography on a compact sidebar scale", () => {
     const appCss = readAppCss();
     const rootAppCss = readRootAppCss();

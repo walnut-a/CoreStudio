@@ -38,7 +38,6 @@ const EXCALIDRAW_THEME_TOKENS = [
   "--color-warning-background",
   "--color-warning-dark",
   "--color-warning-color",
-  "--dropdown-icon",
 ] as const;
 
 interface ExcalidrawThemeTokenBridgeProps {

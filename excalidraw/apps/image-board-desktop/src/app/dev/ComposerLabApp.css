@@ -121,8 +121,8 @@ body {
   border: 1px solid var(--input-border-color);
   border-radius: var(--border-radius-lg);
   appearance: none;
-  background: var(--input-bg-color) var(--dropdown-icon) no-repeat right 10px
-    center;
+  background: var(--input-bg-color) var(--corestudio-dropdown-icon) no-repeat
+    right 10px center;
   color: var(--text-primary-color);
 }
 

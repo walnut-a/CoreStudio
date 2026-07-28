@@ -415,6 +415,8 @@ const App = ({
   );
   const [loadingProject, setLoadingProject] = useState(false);
   const [projectRoomReady, setProjectRoomReady] = useState(false);
+  const [agentBoardRefreshRequired, setAgentBoardRefreshRequired] =
+    useState(false);
   const [projectRoomParticipants, setProjectRoomParticipants] = useState<
     ProjectRoomParticipant[]
   >([]);
@@ -1333,15 +1335,18 @@ const App = ({
     if (projectSelectionToken && !stableBoardId) {
       setProjectRoomReady(false);
       setProjectRoomError(null);
+      setAgentBoardRefreshRequired(false);
       return;
     }
     if (!stableBoardId) {
       setProjectRoomError("Agent Board 缺少有效的房间连接凭证。");
+      setAgentBoardRefreshRequired(false);
       return;
     }
 
     let disposed = false;
     let reconnectTimer: number | null = null;
+    let hasJoinedStableRoom = false;
     const scheduleStableReconnect = (delayMs: number) => {
       if (reconnectTimer !== null) {
         return;
@@ -1358,6 +1363,12 @@ const App = ({
         return;
       }
       setProjectRoomReady(false);
+      if (hasJoinedStableRoom) {
+        setProjectRoomError(null);
+        setAgentBoardRefreshRequired(true);
+        return;
+      }
+
       if (shouldReopenAgentBoard(error)) {
         setProjectRoomError(null);
         scheduleStableReconnect(0);
@@ -1372,6 +1383,7 @@ const App = ({
     };
     let controller: ProjectRoomClientController | null = null;
     setProjectRoomReady(false);
+    setAgentBoardRefreshRequired(false);
     const pageNonce = stableBoardId ? stableBoardPageNonceRef.current : null;
     if (stableBoardId && pageNonce) {
       document.documentElement.dataset.corestudioStableBoardId = stableBoardId;
@@ -1450,11 +1462,10 @@ const App = ({
         onRoomClosed: (event) => {
           setProjectRoomReady(false);
           if (stableBoardId && event.reason === "app-closed") {
-            setProjectRoomError(
-              "CoreStudio 正在关闭，重新启动后会自动恢复这个画布。",
-            );
-            scheduleStableReconnect(1_000);
+            setProjectRoomError(null);
+            setAgentBoardRefreshRequired(true);
           } else if (stableBoardId) {
+            setAgentBoardRefreshRequired(false);
             setProjectRoomError(
               "CoreStudio 已关闭这个项目，协作连接已断开。重新打开项目后可继续使用同一画布地址。",
             );
@@ -1510,8 +1521,10 @@ const App = ({
         sceneJson,
       });
       if (!disposed) {
+        hasJoinedStableRoom = true;
         setProjectRoomReady(true);
         setProjectRoomError(null);
+        setAgentBoardRefreshRequired(false);
       }
     };
     void connect().catch((error) => {
@@ -2179,7 +2192,18 @@ const App = ({
         <div className="image-board-shell">
           <div className={canvasClassName}>
             {isEditorInitializing || !projectRoomReady ? (
-              <EditorLoadingOverlay />
+              <EditorLoadingOverlay
+                mode={
+                  isAgentBrowserRoute && agentBoardRefreshRequired
+                    ? "refresh-required"
+                    : "loading"
+                }
+                onReload={
+                  isAgentBrowserRoute && agentBoardRefreshRequired
+                    ? () => window.location.reload()
+                    : undefined
+                }
+              />
             ) : null}
             {renderProjectStatusToast()}
             <Suspense fallback={null}>

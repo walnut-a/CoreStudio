@@ -59,10 +59,11 @@ describe("generate composer styles", () => {
       "utf8",
     );
 
-    expect(inspectorRule).toContain("--image-inspector-title-size: 1rem");
+    expect(inspectorRule).toContain("--image-inspector-title-size: 0.875rem");
     expect(inspectorRule).toContain("--image-inspector-body-size: 0.8125rem");
     expect(inspectorRule).toContain("--image-inspector-caption-size: 0.75rem");
     expect(titleRule).toContain("font-size: var(--image-inspector-title-size)");
+    expect(titleRule).toContain("font-weight: var(--font-weight-semibold)");
     expect(emptyTitleRule).toContain(
       "font-size: var(--image-inspector-title-size)",
     );

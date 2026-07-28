@@ -197,12 +197,17 @@ export const WelcomePane = ({
                         <span className="welcome-pane__recent-path">
                           {project.projectPath}
                         </span>
-                        <span className="welcome-pane__recent-time">
-                          {copy.welcome.lastOpenedAt}{" "}
-                          {new Date(project.lastOpenedAt).toLocaleString(
-                            DESKTOP_LANG_CODE,
-                          )}
-                        </span>
+                        <time
+                          className="welcome-pane__recent-time"
+                          dateTime={project.lastOpenedAt}
+                        >
+                          <span>{copy.welcome.lastOpenedAt}</span>
+                          <span>
+                            {new Date(project.lastOpenedAt).toLocaleString(
+                              DESKTOP_LANG_CODE,
+                            )}
+                          </span>
+                        </time>
                       </button>
                       {manualProjectActionsVisible ? (
                         <button

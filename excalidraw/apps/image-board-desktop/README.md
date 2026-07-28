@@ -90,7 +90,7 @@ Lab 内置空内容、短文字、长文字、一张参考图、三张参考图�
 
 `dev:desktop` 是源码桌面开发的固定入口。它会解析当前 workspace 的 Electron 绝对路径，并把应用绝对路径、独立 `.electron-dev-profile`、renderer 端口 `5174`、调试端口 `9331`、Agent Bridge 端口 `60910` 和开发 session 绑定到同一次启动。打包预览固定使用 `.electron-preview-profile`、调试端口 `9332`、Bridge `60913`。两者不会共享 profile、端口或 session。
 
-主进程把运行身份写入各 profile 的 `runtime-identity.json`，并以 `[corestudio:runtime-identity]` 单行 JSON 输出。字段包括 runtime mode、实例类型、应用名、可执行文件、app path、user-data-dir、renderer URL、调试端口、Bridge/session、主 PID/PGID、Git 短 SHA/dirty、版本和构建标识。窗口右下角同时显示 `SOURCE DEV`、`PACKAGED PREVIEW` 或 `PRODUCTION` 与构建标识，供人工辨认；显示文本不能作为自动化选实例的证据。
+主进程把运行身份写入各 profile 的 `runtime-identity.json`，并以 `[corestudio:runtime-identity]` 单行 JSON 输出。字段包括 runtime mode、实例类型、应用名、可执行文件、app path、user-data-dir、renderer URL、调试端口、Bridge/session、主 PID/PGID、Git 短 SHA/dirty、版本和构建标识。源码开发版和打包预览版在窗口右下角显示 `SOURCE DEV` 或 `PACKAGED PREVIEW` 与构建标识，供人工辨认；正式版只保留机器可读身份，不在产品界面显示常驻徽标。显示文本不能作为自动化选实例的证据。
 
 GUI 自动化操作前必须运行：
 
@@ -107,7 +107,7 @@ corepack yarn verify:desktop:preview
 
 | 项目 | 正式版 | 源码开发版 | 打包预览版 |
 | --- | --- | --- | --- |
-| 界面标识 | `PRODUCTION` | `SOURCE DEV` | `PACKAGED PREVIEW` |
+| 界面标识 | 无常驻徽标 | `SOURCE DEV` | `PACKAGED PREVIEW` |
 | 应用名 | `CoreStudio` | `CoreStudio Dev` | `CoreStudio Preview` |
 | Bundle ID | `com.corestudio.desktop` | Electron 开发运行时 | `com.corestudio.desktop.dev` |
 | Debug | 无固定调试端口 | `9331` | `9332` |

@@ -10,7 +10,7 @@ interface RuntimeIdentityBadgeProps {
     Pick<DesktopAppInfo, "name" | "version"> & {
       runtimeIdentity?: Pick<
         NonNullable<DesktopAppInfo["runtimeIdentity"]>,
-        "runtimeLabel" | "buildId"
+        "instanceKind" | "runtimeLabel" | "buildId"
       >;
     }
   >;
@@ -31,9 +31,16 @@ export const RuntimeIdentityBadge = ({
     void loader()
       .then((appInfo) => {
         const identity = appInfo.runtimeIdentity;
-        if (!disposed && identity) {
-          setLabel(`${identity.runtimeLabel} · ${identity.buildId}`);
+        if (disposed) {
+          return;
         }
+        const showBadge =
+          identity &&
+          identity.instanceKind !== "production" &&
+          identity.instanceKind !== "qa";
+        setLabel(
+          showBadge ? `${identity.runtimeLabel} · ${identity.buildId}` : null,
+        );
       })
       .catch(() => undefined);
     return () => {

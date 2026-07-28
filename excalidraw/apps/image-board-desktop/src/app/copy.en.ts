@@ -271,6 +271,8 @@ export const enCopy: DesktopCopy = {
     generateImage: "Generate Image",
     providers: "Model Services",
     edit: "Edit",
+    undo: "Undo",
+    redo: "Redo",
     settings: "Settings",
     appSettings: "Application Settings",
     quit: "Quit CoreStudio",

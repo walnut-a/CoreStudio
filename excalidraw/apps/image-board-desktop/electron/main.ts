@@ -76,6 +76,7 @@ import {
 } from "./projectDialogs";
 import { generateImages } from "./providers";
 import { createGenerationRequestController } from "./generationRequestController";
+import { resolveDesktopEditShortcut } from "./desktopEditShortcut";
 import {
   deleteProviderSettings,
   loadProviderSettings,
@@ -1271,6 +1272,18 @@ const sendMenuAction = (
   sendRendererMenuEvent(event, ownerWindow);
 };
 
+const registerDesktopEditShortcuts = (targetWebContents: WebContents) => {
+  targetWebContents.on("before-input-event", (event, input) => {
+    const action = resolveDesktopEditShortcut(input, process.platform);
+    if (!action) {
+      return;
+    }
+
+    event.preventDefault();
+    sendMenuAction({ action });
+  });
+};
+
 const buildProjectBundle = async (
   projectPath: string,
   options: { safeMode?: boolean } = {},
@@ -2414,6 +2427,7 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
         },
       });
       configureProjectRendererPermissions(projectWebContents);
+      registerDesktopEditShortcuts(projectWebContents);
       view.setVisible(false);
       view.setBounds(getProjectViewBounds(targetWindow));
       view.setBackgroundColor("#f5f3ef");
@@ -2469,15 +2483,16 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
       projectWebContents.once("destroyed", () => {
         projectRendererLifecycle.release();
       });
-      void loadProjectRenderer(projectWebContents, descriptor.projectPath).catch(
-        (error) => {
-          console.error("[project-renderer:load-error]", {
-            projectPath: descriptor.projectPath,
-            error,
-          });
-          projectRendererLifecycle.markUnavailable();
-        },
-      );
+      void loadProjectRenderer(
+        projectWebContents,
+        descriptor.projectPath,
+      ).catch((error) => {
+        console.error("[project-renderer:load-error]", {
+          projectPath: descriptor.projectPath,
+          error,
+        });
+        projectRendererLifecycle.markUnavailable();
+      });
 
       const handleLifecycle = createProjectViewHandleLifecycle({
         isHostDestroyed: () => targetWindow.isDestroyed(),
@@ -2540,6 +2555,7 @@ const createWindow = async () => {
       getProjectViewRegistry().requireSenderProject(senderId, projectPath),
   });
   configureRendererPermissions(mainWindow);
+  registerDesktopEditShortcuts(mainWindow.webContents);
   disableRendererPageZoom(mainWindow);
   mainWindow.on("resize", () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -2742,7 +2758,11 @@ if (hasSingleInstanceLock) {
           path.join(app.getPath("userData"), "stable-board-actor-token-secret"),
         ),
       });
-    agentAccessEnabled = (await loadAgentAccessSettings()).enabled;
+    agentAccessEnabled = (
+      await loadAgentAccessSettings({
+        defaultEnabled: desktopRuntime.mode === "development",
+      })
+    ).enabled;
     currentRecentProjects = await loadRecentProjects();
     await removeAgentSessionDescriptor(agentSessionPath).catch((error) => {
       console.error("[agent:session-cleanup-failed]", error);

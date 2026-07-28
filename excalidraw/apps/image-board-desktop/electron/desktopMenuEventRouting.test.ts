@@ -25,6 +25,15 @@ describe("desktop menu event routing", () => {
     },
   );
 
+  it.each(["edit-undo", "edit-redo"] as const)(
+    "routes %s to the active project with a shell fallback",
+    (action) => {
+      expect(resolveDesktopMenuEventTarget({ action })).toBe(
+        "active-project-or-shell",
+      );
+    },
+  );
+
   it.each(["project-opened", "project-open-failed"] as const)(
     "routes %s to the shell renderer",
     (action) => {

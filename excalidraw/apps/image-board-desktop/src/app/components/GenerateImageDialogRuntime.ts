@@ -80,10 +80,7 @@ export const useGenerateImageDialogRuntime = ({
     provider: request.provider,
     providerSettings,
   });
-  const {
-    advancedOpen,
-    setAdvancedOpen,
-  } = useGenerateDialogPanelController({
+  const { advancedOpen, setAdvancedOpen } = useGenerateDialogPanelController({
     open,
     persistent,
     focusToken,
@@ -150,6 +147,7 @@ export const useGenerateImageDialogRuntime = ({
     requestRef,
     currentProviderCustomModels: providerContext.currentProviderCustomModels,
     clearSubmittedPrompt,
+    discardPendingReference: onReferenceRemove,
     onSubmit,
   });
 

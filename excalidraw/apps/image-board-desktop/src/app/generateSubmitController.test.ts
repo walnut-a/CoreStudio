@@ -19,7 +19,7 @@ const createRequest = (
 });
 
 describe("submitGenerationRequest", () => {
-  it("blocks built-in submission until the pending reference is confirmed in the input", async () => {
+  it("submits confirmed content and discards an unconfirmed reference", async () => {
     const requestRef = {
       current: createRequest({
         prompt: "原始提示词",
@@ -32,6 +32,7 @@ describe("submitGenerationRequest", () => {
     };
     const onSubmit = vi.fn();
     const clearSubmittedPrompt = vi.fn();
+    const discardPendingReference = vi.fn();
 
     await expect(
       submitGenerationRequest({
@@ -39,12 +40,20 @@ describe("submitGenerationRequest", () => {
         requestRef,
         customModels: [],
         clearSubmittedPrompt,
+        discardPendingReference,
         onSubmit,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
 
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(clearSubmittedPrompt).not.toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "原始提示词",
+        reference: null,
+      }),
+      false,
+    );
+    expect(discardPendingReference).toHaveBeenCalledTimes(1);
+    expect(clearSubmittedPrompt).toHaveBeenCalledTimes(1);
   });
 
   it("does not submit when the composer cannot submit", async () => {

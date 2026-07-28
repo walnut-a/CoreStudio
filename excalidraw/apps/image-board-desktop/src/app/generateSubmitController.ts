@@ -13,6 +13,7 @@ interface SubmitGenerationRequestInput {
   requestRef: { current: GenerationRequest };
   customModels: readonly CustomProviderModel[];
   clearSubmittedPrompt: () => void;
+  discardPendingReference?: () => void;
   onSubmit: (request: GenerationRequest, keepOpen: boolean) => void;
 }
 
@@ -22,19 +23,24 @@ export const submitGenerationRequest = async (
   executeGenerationSubmitPlan({
     plan: buildGenerationSubmitPlan({
       canSubmit: input.canSubmit,
-      hasPendingReferenceToCommit: Boolean(
-        input.requestRef.current.reference?.enabled,
-      ),
     }),
     submitPreparedRequest: () => {
-      input.onSubmit(
-        prepareGenerationSubmitRequest({
-          request: input.requestRef.current,
-          generationSource: "builtin",
-          customModels: input.customModels,
-        }),
-        false,
+      const hadPendingReference = Boolean(
+        input.requestRef.current.reference?.enabled,
       );
+      const requestWithoutPendingReference = {
+        ...input.requestRef.current,
+        reference: null,
+      };
+      const preparedRequest = prepareGenerationSubmitRequest({
+        request: requestWithoutPendingReference,
+        generationSource: "builtin",
+        customModels: input.customModels,
+      });
+      if (hadPendingReference) {
+        input.discardPendingReference?.();
+      }
+      input.onSubmit(preparedRequest, false);
       input.clearSubmittedPrompt();
     },
   });

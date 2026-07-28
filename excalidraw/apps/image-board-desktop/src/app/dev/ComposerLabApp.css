@@ -1,0 +1,276 @@
+html,
+body,
+#root {
+  min-width: 0;
+  min-height: 100%;
+}
+
+body {
+  overflow: auto;
+  background: var(--color-surface-lowest);
+}
+
+.composer-lab {
+  min-height: 100%;
+  height: auto;
+  padding: 32px;
+  background: var(--color-surface-lowest);
+}
+
+.composer-lab__header {
+  max-width: 1120px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.composer-lab__header h1,
+.composer-lab__header p {
+  margin: 0;
+}
+
+.composer-lab__header h1 {
+  margin-bottom: 6px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.composer-lab__header p {
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-lg);
+}
+
+.composer-lab__header .composer-lab__eyebrow {
+  margin-bottom: 8px;
+  color: var(--color-primary);
+  font-size: var(--ui-text-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+}
+
+.composer-lab__theme-switch,
+.composer-lab__segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface-low);
+}
+
+.composer-lab button,
+.composer-lab select {
+  font: inherit;
+}
+
+.composer-lab__theme-switch button,
+.composer-lab__segmented button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: calc(var(--border-radius-lg) - 2px);
+  background: transparent;
+  color: var(--corestudio-secondary-text-color);
+  cursor: pointer;
+}
+
+.composer-lab__theme-switch button[aria-pressed="true"],
+.composer-lab__segmented button[aria-pressed="true"] {
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+  color: var(--text-primary-color);
+}
+
+.composer-lab__workspace {
+  width: min(1120px, 100%);
+  min-height: 540px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--default-border-color);
+  border-radius: 12px;
+  background: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+}
+
+.composer-lab__controls {
+  padding: 20px;
+  border-right: 1px solid var(--default-border-color);
+  background: var(--color-surface-mid);
+}
+
+.composer-lab__controls label,
+.composer-lab__controls fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.composer-lab__controls select {
+  width: 100%;
+  height: 36px;
+  padding: 0 32px 0 10px;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius-lg);
+  appearance: none;
+  background: var(--input-bg-color) var(--dropdown-icon) no-repeat right 10px
+    center;
+  color: var(--text-primary-color);
+}
+
+.composer-lab__checkbox {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.composer-lab__checkbox input {
+  accent-color: var(--color-primary);
+}
+
+.composer-lab__mock-action {
+  width: 100%;
+  min-height: 36px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--border-radius-lg);
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.composer-lab__panel-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--default-border-color);
+}
+
+.composer-lab__panel-section + .composer-lab__panel-section {
+  margin-top: 16px;
+}
+
+.composer-lab__panel-section h2 {
+  margin: 0 0 10px;
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.composer-lab__telemetry {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-sm);
+}
+
+.composer-lab__telemetry div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.composer-lab__telemetry dt,
+.composer-lab__telemetry dd {
+  margin: 0;
+}
+
+.composer-lab__telemetry dd {
+  color: var(--text-primary-color);
+}
+
+.composer-lab__measurements {
+  font-size: var(--ui-text-size-xs);
+}
+
+.composer-lab__measurements dd {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.composer-lab__measurements .composer-lab__measurement-mismatch {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.composer-lab__content-summary {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-xs);
+}
+
+.composer-lab__content-summary > div {
+  max-height: 4.2em;
+  overflow: auto;
+  color: var(--text-primary-color);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.composer-lab__preview {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 48px 32px;
+  background-color: var(--color-surface-lowest);
+  background-image: linear-gradient(
+      color-mix(in srgb, var(--default-border-color) 45%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--default-border-color) 45%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 24px 24px;
+}
+
+.composer-lab__ruler {
+  width: min(640px, 100%);
+  margin-bottom: 12px;
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-sm);
+  text-align: center;
+}
+
+.composer-lab__stage {
+  max-width: 100%;
+  transition: width 0.18s ease;
+}
+
+.composer-lab__stage form {
+  width: 100%;
+}
+
+.composer-lab__hint {
+  margin: 16px 0 0;
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-sm);
+  text-align: center;
+}
+
+@media (max-width: 1040px) {
+  .composer-lab {
+    padding: 20px;
+  }
+
+  .composer-lab__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-lab__controls {
+    border-right: 0;
+    border-bottom: 1px solid var(--default-border-color);
+  }
+}

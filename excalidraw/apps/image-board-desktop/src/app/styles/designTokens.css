@@ -7,7 +7,7 @@
   --side-dock-button-gap: var(--ui-space-sm);
   --floating-panel-edge-gap: 24px;
   --generate-panel-min-width: 280px;
-  --generate-panel-max-width: 720px;
+  --generate-panel-max-width: 640px;
   --floating-panel-anchor-gutter: max(
     var(--floating-panel-edge-gap),
     calc((100vw - var(--generate-panel-max-width)) / 2)

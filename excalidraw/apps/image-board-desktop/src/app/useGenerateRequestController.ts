@@ -15,6 +15,7 @@ import {
   getInitialPromptParts,
   partsToPlainPrompt,
 } from "./generatePromptRequest";
+import { isSameGenerationRequest } from "./generationRequestState";
 
 type RequestUpdater =
   | GenerationRequest
@@ -35,6 +36,8 @@ export const useGenerateRequestController = ({
 }: UseGenerateRequestControllerOptions) => {
   const [request, setRequest] = useState(initialRequest);
   const requestRef = useRef(initialRequest);
+  const initialRequestSyncedRef = useRef(false);
+  const observedOpenRef = useRef(open);
   const providerSettingsRef = useRef(providerSettings);
   const promptReferencesRef = useRef<GenerationPromptReferencePayload[]>(
     initialRequest.promptReferences || [],
@@ -61,6 +64,17 @@ export const useGenerateRequestController = ({
     const nextRequest = normalizeGenerationRequest(initialRequest, {
       customModels: getCustomModelsForProvider(initialRequest.provider),
     });
+    const openChanged = observedOpenRef.current !== open;
+    observedOpenRef.current = open;
+    if (
+      initialRequestSyncedRef.current &&
+      !openChanged &&
+      isSameGenerationRequest(requestRef.current, nextRequest)
+    ) {
+      return;
+    }
+
+    initialRequestSyncedRef.current = true;
     requestRef.current = nextRequest;
     promptReferencesRef.current = nextRequest.promptReferences || [];
     promptReferenceCacheRef.current = nextRequest.promptReferences || [];

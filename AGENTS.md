@@ -1,5 +1,15 @@
 # CoreStudio Agent 工作规范
 
+## 生成输入框验收（强制）
+
+修改生成输入框的结构、样式、交互或编辑器行为时，先从 `excalidraw/` 目录运行 `corepack yarn dev:composer`，在浏览器 Composer Lab 中使用真实生产组件完成快速调试和回归。
+
+- 必须覆盖空内容、长文字、一张参考图、三张参考图混排、参考图上限提示和待确认参考图。
+- 必须检查 `360px`、`480px`、`640px` 三种宽度以及浅色、深色主题。
+- 光标、粘贴、撤销、重做、退格删除和连续增删引用图必须在 Lab 中先验证。
+- 禁止为了 Lab 复制或仿制输入框；Lab 必须引用客户端真实组件、CSS 和设计 token。
+- Lab 通过不能代替 Electron 验收。涉及输入框的改动最后仍必须通过 `corepack yarn dev:desktop` 在 `CoreStudio Dev` 中检查一次真实窗口、字体和缩放。
+
 ## Electron UI 验收（强制）
 
 CoreStudio 已经为正式版和开发版建立固定的应用身份、端口、Session 和用户数据隔离。任何需要真实界面的开发或验收都必须复用这套隔离，不得临时创建第三套 Electron 身份。

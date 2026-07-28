@@ -107,6 +107,8 @@ export type DesktopMenuAction =
   | "generate-image"
   | "provider-settings"
   | "app-settings"
+  | "edit-undo"
+  | "edit-redo"
   | "set-agent-bridge-enabled"
   | "reveal-project"
   | "show-about";
@@ -490,9 +492,7 @@ export interface DesktopBridgeApi {
   ): Promise<DesktopProjectViewsState>;
   closeProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
   recoverProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
-  notifyProjectThemeChanged?(
-    payload: DesktopProjectThemeChangedPayload,
-  ): void;
+  notifyProjectThemeChanged?(payload: DesktopProjectThemeChangedPayload): void;
   onProjectViewsState?(
     listener: (state: DesktopProjectViewsState) => void,
   ): () => void;

@@ -11,6 +11,7 @@ interface CreateGenerateDialogComposerRuntimeInput {
   requestRef: { current: GenerationRequest };
   currentProviderCustomModels: readonly CustomProviderModel[];
   clearSubmittedPrompt: () => void;
+  discardPendingReference?: () => void;
   onSubmit: (request: GenerationRequest, keepOpen: boolean) => void;
 }
 
@@ -19,6 +20,7 @@ export const createGenerateDialogComposerRuntime = ({
   requestRef,
   currentProviderCustomModels,
   clearSubmittedPrompt,
+  discardPendingReference,
   onSubmit,
 }: CreateGenerateDialogComposerRuntimeInput) =>
   createGenerateComposerEventHandlers({
@@ -27,6 +29,7 @@ export const createGenerateDialogComposerRuntime = ({
       requestRef,
       customModels: currentProviderCustomModels,
       clearSubmittedPrompt,
+      discardPendingReference,
       onSubmit,
     }),
   });

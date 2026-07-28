@@ -205,6 +205,7 @@ describe("generationRequestState", () => {
       prompt: "",
       promptParts: [],
       promptReferences: [],
+      reference: null,
     });
   });
 
@@ -232,6 +233,7 @@ describe("generationRequestState", () => {
       prompt: "",
       promptParts: [],
       promptReferences: [],
+      reference: null,
     });
     expect(setGenerateRequest).toHaveBeenCalledWith(state);
   });

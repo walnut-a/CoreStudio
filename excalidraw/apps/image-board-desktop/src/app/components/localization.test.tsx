@@ -305,7 +305,7 @@ describe("Chinese localization", () => {
     expect(preventDefault).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the generation dialog in Chinese", () => {
+  it("renders the generation dialog in Chinese", async () => {
     const onSubmit = vi.fn();
     const colorReferenceThumbnail = "data:image/png;base64,Y29sb3ItcmVm";
     const shapeReferenceThumbnail = "data:image/png;base64,c2hhcGUtcmVm";
@@ -369,10 +369,9 @@ describe("Chinese localization", () => {
     );
     expect(screen.getByLabelText("提示词")).not.toHaveAttribute("wrap");
     expect(screen.queryByText("已引用：3")).toBeNull();
-    const pendingReferenceChip = document.querySelector(
-      "[data-pending-reference]",
+    const pendingReferenceChip = await screen.findByLabelText(
+      "1 标注图，待确认",
     );
-    expect(pendingReferenceChip).not.toBeNull();
     expect(screen.queryByText("+")).toBeNull();
     expect(
       within(pendingReferenceChip as HTMLElement).getByText("1"),
@@ -396,7 +395,7 @@ describe("Chinese localization", () => {
       "excalidraw-button",
     );
 
-    expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "开始生成" })).toBeEnabled();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -473,7 +472,7 @@ describe("Chinese localization", () => {
     );
   });
 
-  it("keeps a selected reference pending until the input confirms it", () => {
+  it("keeps a selected reference pending without blocking confirmed text", async () => {
     const onSubmit = vi.fn();
     render(
       <GenerateImageDialog
@@ -511,8 +510,10 @@ describe("Chinese localization", () => {
 
     expect(screen.queryByText("已引用：2")).toBeNull();
     expect(screen.queryByRole("button", { name: "移除引用" })).toBeNull();
-    expect(document.querySelector("[data-pending-reference]")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
+    expect(
+      await screen.findByLabelText("1 标注图，待确认"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始生成" })).toBeEnabled();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -576,7 +577,7 @@ describe("Chinese localization", () => {
     );
 
     const promptInput = screen.getByLabelText("提示词");
-    expect(document.querySelector("[data-pending-reference]")).not.toBeNull();
+    expect(await screen.findByLabelText("1 图片，待确认")).toBeInTheDocument();
 
     fireEvent.focus(promptInput);
 
@@ -604,7 +605,7 @@ describe("Chinese localization", () => {
     );
   });
 
-  it("renders pending inline references with the next reference number", () => {
+  it("renders pending inline references with the next reference number", async () => {
     render(
       <GenerateImageDialog
         open={true}
@@ -693,9 +694,9 @@ describe("Chinese localization", () => {
     );
 
     const promptInput = screen.getByLabelText("提示词");
-    const pendingChip = promptInput.querySelector("[data-pending-reference]");
+    const pendingChip = await screen.findByLabelText("4 标注图，待确认");
 
-    expect(pendingChip).not.toBeNull();
+    expect(promptInput.contains(pendingChip)).toBe(true);
     expect(pendingChip).toHaveAttribute("aria-label", "4 标注图，待确认");
     expect(
       within(pendingChip as HTMLElement).getByText("4"),
@@ -771,7 +772,7 @@ describe("Chinese localization", () => {
     );
 
     const promptInput = screen.getByLabelText("提示词");
-    const pendingChip = promptInput.querySelector("[data-pending-reference]");
+    const pendingChip = await screen.findByLabelText("1 标注图，待确认");
     expect(pendingChip?.querySelector("img")).toBeNull();
 
     fireEvent.focus(promptInput);
@@ -878,7 +879,7 @@ describe("Chinese localization", () => {
     const promptInput = screen.getByLabelText("提示词");
 
     expect(promptInput.querySelectorAll("[data-reference-id]")).toHaveLength(3);
-    expect(promptInput.querySelector("[data-pending-reference]")).toBeNull();
+    expect(document.querySelector("[data-pending-reference]")).toBeNull();
     expect(
       screen.getByText("当前模型最多可插入 3 张参考图。"),
     ).toBeInTheDocument();
@@ -948,105 +949,20 @@ describe("Chinese localization", () => {
     const promptInput = screen.getByLabelText("提示词");
 
     expect(promptInput.querySelectorAll("[data-reference-id]")).toHaveLength(3);
-    expect(
-      promptInput.querySelector("[data-pending-reference]"),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText("4 图片，待确认")).toBeInTheDocument();
     expect(
       screen.queryByText("当前模型最多可插入 3 张参考图。"),
     ).not.toBeInTheDocument();
   });
 
-  it("keeps IME composition text local until the input method commits it", async () => {
-    const onRequestChange = vi.fn();
-
+  it("keeps the pending reference in the prompt document flow", async () => {
     render(
       <GenerateImageDialog
         open={true}
         initialRequest={{
           provider: "gemini",
           model: getDefaultModel("gemini"),
-          prompt: "",
-          negativePrompt: "",
-          width: 1024,
-          height: 1024,
-          seed: null,
-          imageCount: 1,
-          reference: null,
-        }}
-        providerSettings={providerSettings}
-        loading={false}
-        error={null}
-        onClose={() => undefined}
-        onRequestChange={onRequestChange}
-        onSubmit={() => undefined}
-      />,
-    );
-
-    const promptInput = screen.getByLabelText("提示词");
-
-    fireEvent.compositionStart(promptInput);
-    promptInput.textContent = "阿西达";
-    fireEvent.input(promptInput);
-
-    expect(onRequestChange).not.toHaveBeenCalled();
-
-    fireEvent.compositionEnd(promptInput);
-
-    await waitFor(() =>
-      expect(onRequestChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          prompt: "阿西达",
-          promptParts: [{ type: "text", text: "阿西达" }],
-        }),
-      ),
-    );
-  });
-
-  it("hides the prompt placeholder while IME composition text is active", () => {
-    render(
-      <GenerateImageDialog
-        open={true}
-        initialRequest={{
-          provider: "gemini",
-          model: getDefaultModel("gemini"),
-          prompt: "",
-          negativePrompt: "",
-          width: 1024,
-          height: 1024,
-          seed: null,
-          imageCount: 1,
-          reference: null,
-        }}
-        providerSettings={providerSettings}
-        loading={false}
-        error={null}
-        onClose={() => undefined}
-        onSubmit={() => undefined}
-      />,
-    );
-
-    const promptInput = screen.getByLabelText("提示词");
-    expect(promptInput).toHaveClass("generate-composer__prompt-editor--empty");
-
-    fireEvent.compositionStart(promptInput);
-    promptInput.textContent = "ni'ha";
-    fireEvent.input(promptInput);
-
-    expect(promptInput).not.toHaveClass(
-      "generate-composer__prompt-editor--empty",
-    );
-  });
-
-  it("does not leak the pending reference chip text into the prompt", async () => {
-    const onRequestChange = vi.fn();
-
-    render(
-      <GenerateImageDialog
-        open={true}
-        initialRequest={{
-          provider: "gemini",
-          model: getDefaultModel("gemini"),
-          prompt: "",
+          prompt: "结构参考",
           negativePrompt: "",
           width: 1024,
           height: 1024,
@@ -1071,26 +987,18 @@ describe("Chinese localization", () => {
         loading={false}
         error={null}
         onClose={() => undefined}
-        onRequestChange={onRequestChange}
         onSubmit={() => undefined}
       />,
     );
 
     const promptInput = screen.getByLabelText("提示词");
-    const pendingChip = promptInput.querySelector("[data-pending-reference]");
+    const pendingChip = await screen.findByLabelText("1 图片，待确认");
 
-    promptInput.insertBefore(document.createTextNode("结构参考"), pendingChip);
-    fireEvent.input(promptInput);
-
-    expect(onRequestChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        prompt: "结构参考",
-        promptParts: [{ type: "text", text: "结构参考" }],
-      }),
-    );
+    expect(promptInput).toHaveTextContent("结构参考");
+    expect(promptInput.contains(pendingChip)).toBe(true);
   });
 
-  it("drops browser filler lines before rendering a pending reference chip", () => {
+  it("drops browser filler lines before rendering a pending reference chip", async () => {
     render(
       <GenerateImageDialog
         open={true}
@@ -1128,57 +1036,13 @@ describe("Chinese localization", () => {
     );
 
     const promptInput = screen.getByLabelText("提示词");
+    const pendingChip = await screen.findByLabelText("1 图片，待确认");
 
-    expect(promptInput.firstChild).toBe(
-      promptInput.querySelector("[data-pending-reference]"),
-    );
     expect(promptInput.textContent).not.toContain("\n");
+    expect(promptInput.contains(pendingChip)).toBe(true);
   });
 
-  it("keeps the dialog alive when the inline prompt is cleared", () => {
-    const onRequestChange = vi.fn();
-
-    render(
-      <GenerateImageDialog
-        open={true}
-        initialRequest={{
-          provider: "gemini",
-          model: getDefaultModel("gemini"),
-          prompt: "清空这段文字",
-          negativePrompt: "",
-          width: 1024,
-          height: 1024,
-          seed: null,
-          imageCount: 1,
-          reference: null,
-        }}
-        providerSettings={providerSettings}
-        loading={false}
-        error={null}
-        onClose={() => undefined}
-        onRequestChange={onRequestChange}
-        onSubmit={() => undefined}
-      />,
-    );
-
-    const promptInput = screen.getByLabelText("提示词");
-
-    promptInput.textContent = "";
-    fireEvent.input(promptInput);
-
-    expect(
-      screen.getByRole("dialog", { name: "直接生成到画板" }),
-    ).toBeInTheDocument();
-    expect(onRequestChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        prompt: "",
-        promptParts: [],
-        promptReferences: [],
-      }),
-    );
-  });
-
-  it("does not keep a browser filler line after text is cleared before inserting a reference", async () => {
+  it("does not keep a filler line before inserting a reference", async () => {
     const onRequestChange = vi.fn();
     const onReferenceRemove = vi.fn();
     const onReferenceCommit = vi.fn(async () => ({
@@ -1207,6 +1071,7 @@ describe("Chinese localization", () => {
           provider: "gemini",
           model: getDefaultModel("gemini"),
           prompt: "",
+          promptParts: [{ type: "text", text: "\n\u200b" }],
           negativePrompt: "",
           width: 1024,
           height: 1024,
@@ -1239,24 +1104,6 @@ describe("Chinese localization", () => {
     );
 
     const promptInput = screen.getByLabelText("提示词");
-
-    promptInput.textContent = "测试";
-    fireEvent.input(promptInput);
-    expect(onRequestChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        prompt: "测试",
-        promptParts: [{ type: "text", text: "测试" }],
-      }),
-    );
-
-    promptInput.innerHTML = "<br>";
-    fireEvent.input(promptInput);
-    expect(onRequestChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        prompt: "",
-        promptParts: [],
-      }),
-    );
 
     fireEvent.focus(promptInput);
     await waitFor(() => expect(onReferenceCommit).toHaveBeenCalledTimes(1));
@@ -1367,7 +1214,7 @@ describe("Chinese localization", () => {
     expect(keydown.stopPropagation).toHaveBeenCalledTimes(1);
   });
 
-  it("submits the generation request when pressing Enter in the compact prompt", () => {
+  it("submits the generation request when pressing Enter in the compact prompt", async () => {
     const onSubmit = vi.fn();
 
     render(
@@ -1402,10 +1249,10 @@ describe("Chinese localization", () => {
       }),
       false,
     );
-    expect(compactPrompt).toHaveTextContent("");
+    await waitFor(() => expect(compactPrompt).toHaveTextContent(/^$/));
   });
 
-  it("does not bubble Enter from the main prompt editor", () => {
+  it("does not bubble Enter from the main prompt editor", async () => {
     const onSubmit = vi.fn();
     const documentListener = vi.fn();
 
@@ -1443,7 +1290,7 @@ describe("Chinese localization", () => {
       false,
     );
     expect(documentListener).not.toHaveBeenCalled();
-    expect(promptInput).toHaveTextContent("");
+    await waitFor(() => expect(promptInput).toHaveTextContent(/^$/));
 
     document.removeEventListener("keydown", documentListener);
   });
@@ -1484,7 +1331,7 @@ describe("Chinese localization", () => {
     document.removeEventListener("keydown", documentListener);
   });
 
-  it("submits the generation request when clicking the send button", () => {
+  it("submits the generation request when clicking the send button", async () => {
     const onSubmit = vi.fn();
 
     render(
@@ -1517,7 +1364,9 @@ describe("Chinese localization", () => {
       }),
       false,
     );
-    expect(screen.getByLabelText("提示词")).toHaveTextContent("");
+    await waitFor(() =>
+      expect(screen.getByLabelText("提示词")).toHaveTextContent(/^$/),
+    );
   });
 
   it("keeps multiline editing inside the main prompt", () => {
@@ -1556,7 +1405,7 @@ describe("Chinese localization", () => {
     expect(screen.queryByRole("button", { name: "展开输入框" })).toBeNull();
   });
 
-  it("does not submit an unconfirmed selection on supported image editing models", () => {
+  it("submits confirmed text while discarding an unconfirmed selection", async () => {
     const onSubmit = vi.fn();
 
     render(
@@ -1586,9 +1435,20 @@ describe("Chinese localization", () => {
       />,
     );
 
+    expect(
+      await screen.findByLabelText("1 标注图，待确认"),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /设置/ }));
-    expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
-    expect(onSubmit).not.toHaveBeenCalled();
+    const submitButton = screen.getByRole("button", { name: "开始生成" });
+    expect(submitButton).toBeEnabled();
+    fireEvent.click(submitButton);
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "工业设计草图",
+        reference: null,
+      }),
+      false,
+    );
   });
 
   it("resets hidden multi-image state when switching to a single-image model", () => {

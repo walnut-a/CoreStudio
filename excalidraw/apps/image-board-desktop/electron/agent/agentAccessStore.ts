@@ -9,8 +9,10 @@ export interface AgentAccessSettings {
   enabled: boolean;
 }
 
-const defaultAgentAccessSettings = (): AgentAccessSettings => ({
-  enabled: false,
+const defaultAgentAccessSettings = (
+  defaultEnabled = false,
+): AgentAccessSettings => ({
+  enabled: defaultEnabled,
 });
 
 const getAgentAccessSettingsPath = () =>
@@ -27,13 +29,15 @@ const normalizeAgentAccessSettings = (value: unknown): AgentAccessSettings => {
 };
 
 export const loadAgentAccessSettings =
-  async (): Promise<AgentAccessSettings> => {
+  async (
+    options: { defaultEnabled?: boolean } = {},
+  ): Promise<AgentAccessSettings> => {
     try {
       const contents = await fs.readFile(getAgentAccessSettingsPath(), "utf8");
       return normalizeAgentAccessSettings(JSON.parse(contents));
     } catch (error: any) {
       if (error.code === "ENOENT") {
-        return defaultAgentAccessSettings();
+        return defaultAgentAccessSettings(options.defaultEnabled);
       }
       throw error;
     }

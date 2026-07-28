@@ -25,10 +25,7 @@ describe("welcome pane styles", () => {
     const paneRule = getRule(welcomePaneCss, ".welcome-pane");
     const cardRule = getRule(welcomePaneCss, ".welcome-pane__card");
     const introRule = getRule(welcomePaneCss, ".welcome-pane__intro");
-    const diagnosticRule = getRule(
-      welcomePaneCss,
-      ".welcome-pane__diagnostic",
-    );
+    const diagnosticRule = getRule(welcomePaneCss, ".welcome-pane__diagnostic");
     const eyebrowRule = getRule(welcomePaneCss, ".welcome-pane__eyebrow");
     const actionsRule = getRule(welcomePaneCss, ".welcome-pane__actions");
     const recentRule = getRule(welcomePaneCss, ".welcome-pane__recent");
@@ -44,12 +41,21 @@ describe("welcome pane styles", () => {
       welcomePaneCss,
       ".welcome-pane__recent-open",
     );
+    const recentNameRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-name",
+    );
+    const recentPathRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-path",
+    );
+    const recentTimeRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-time",
+    );
     const stepRule = getRule(welcomePaneCss, ".welcome-pane__step");
     const stepsRule = getRule(welcomePaneCss, ".welcome-pane__steps");
-    const stepTitleRule = getRule(
-      welcomePaneCss,
-      ".welcome-pane__step-title",
-    );
+    const stepTitleRule = getRule(welcomePaneCss, ".welcome-pane__step-title");
     const stepActionRule = getRule(
       welcomePaneCss,
       ".welcome-pane__step-action",
@@ -72,19 +78,28 @@ describe("welcome pane styles", () => {
     expect(recentListRule).toContain("overflow-y: auto");
     expect(recentListRule).toContain("border: 1px solid");
     expect(recentItemRule).toContain("border: 0");
+    expect(recentItemRule).toContain("column-gap: 16px");
     expect(recentItemRule).not.toContain("box-shadow");
     expect(recentOpenRule).toContain(
       "grid-template-columns: minmax(0, 1fr) auto",
     );
+    expect(recentNameRule).toContain("grid-column: 1 / -1");
+    expect(recentPathRule).toContain("grid-column: 1");
+    expect(recentPathRule).toContain("grid-row: 2");
+    expect(recentTimeRule).toContain("grid-column: 2");
+    expect(recentTimeRule).toContain("grid-row: 2");
+    expect(recentTimeRule).toContain("display: inline-flex");
+    expect(recentTimeRule).toContain("font-variant-numeric: tabular-nums");
+    expect(recentTimeRule).toContain("font-size: 0.75rem");
     expect(diagnosticRule).toContain("padding: 28px");
     expect(welcomePaneCss).toContain(
       ".welcome-pane__diagnostic {\n    padding: 22px;",
     );
     expect(welcomePaneCss).toContain(
-      ".welcome-pane__recent-time {\n    grid-column: 1;\n    grid-row: 2;",
+      ".welcome-pane__recent-time {\n    grid-column: 1;\n    grid-row: 3;",
     );
     expect(welcomePaneCss).toContain(
-      ".welcome-pane__recent-path {\n    grid-row: 3;",
+      ".welcome-pane__recent-path {\n    grid-row: 2;",
     );
     expect(eyebrowRule).toContain("background: transparent");
     expect(eyebrowRule).not.toContain("border-radius: 999px");

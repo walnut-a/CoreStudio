@@ -115,7 +115,7 @@ const isSamePromptReferences = (
   });
 };
 
-const isSameGenerationRequest = (
+export const isSameGenerationRequest = (
   left: GenerationRequest,
   right: GenerationRequest,
 ) => {

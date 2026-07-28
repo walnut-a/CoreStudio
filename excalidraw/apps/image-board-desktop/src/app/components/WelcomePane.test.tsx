@@ -133,6 +133,12 @@ describe("WelcomePane", () => {
     expect(
       screen.queryByRole("heading", { name: "三步开始创作" }),
     ).not.toBeInTheDocument();
+    const lastOpened = screen.getByText("上次打开").closest("time");
+    expect(lastOpened).not.toBeNull();
+    expect(lastOpened).toHaveAttribute(
+      "dateTime",
+      recentProjects[0].lastOpenedAt,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /^常用项目/ }));
     expect(onOpenRecentProject).toHaveBeenCalledWith(

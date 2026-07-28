@@ -4,11 +4,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: color-mix(
-    in srgb,
-    var(--island-bg-color) 96%,
-    var(--color-surface-mid)
-  );
+  background: transparent;
 }
 
 .inspector-sidebar__section {
@@ -34,7 +30,8 @@
   display: flex;
   align-items: center;
   min-height: 38px;
-  padding: var(--ui-space-md) var(--ui-space-xl) var(--ui-space-sm);
+  padding: var(--ui-space-md) var(--side-dock-content-padding-inline)
+    var(--ui-space-sm);
 }
 
 .inspector-sidebar__section-header h3 {
@@ -54,7 +51,8 @@
   height: auto;
   max-height: none;
   min-height: 0;
-  padding: var(--ui-space-md) var(--ui-space-lg) var(--ui-space-xl);
+  padding: var(--ui-space-md) var(--side-dock-content-padding-inline)
+    var(--side-dock-section-gap);
   overflow: visible;
   background: transparent;
 }
@@ -67,7 +65,8 @@
 
 .inspector-sidebar__empty {
   margin: 0;
-  padding: 0 var(--ui-space-xl) var(--ui-space-xl);
+  padding: 0 var(--side-dock-content-padding-inline)
+    var(--side-dock-section-gap);
   color: var(--corestudio-secondary-text-color, var(--color-gray-60));
   font-size: var(--ui-text-size-lg);
   line-height: var(--ui-line-height-relaxed);
@@ -103,13 +102,15 @@
   align-content: start;
   gap: var(--ui-space-2xl);
   overflow: visible;
-  padding: var(--ui-space-lg) var(--ui-space-lg) var(--ui-space-2xl);
+  padding: var(--side-dock-content-padding-block)
+    var(--side-dock-content-padding-inline) var(--side-dock-section-gap);
   user-select: text;
 }
 
 .image-inspector--empty {
   justify-content: flex-start;
-  padding: var(--ui-space-lg);
+  padding: var(--side-dock-content-padding-block)
+    var(--side-dock-content-padding-inline);
 }
 
 .image-inspector__empty-card {

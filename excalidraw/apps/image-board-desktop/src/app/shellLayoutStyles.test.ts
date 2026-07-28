@@ -41,6 +41,108 @@ const {
 } = composerStyleTestSupport;
 
 describe("CoreStudio shell layout styles", () => {
+  it("uses one content gutter and surface across both side docks", () => {
+    const sideDockCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/SideDock.css",
+    );
+    const imageAssetCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/ImageAssetSidebar.css",
+    );
+    const inspectorCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/ImageInspector.css",
+    );
+    const dockRule = getRule(sideDockCss, ".side-dock");
+    const dockHeaderRule = getRule(sideDockCss, ".side-dock__header");
+    const dockBodyRule = getRule(sideDockCss, ".side-dock__body");
+    const assetRootRule = getRule(imageAssetCss, ".image-asset-sidebar");
+    const assetFilterRule = getRule(
+      imageAssetCss,
+      ".image-asset-sidebar__filter",
+    );
+    const inspectorRootRule = getRule(inspectorCss, ".inspector-sidebar");
+    const inspectorSectionHeaderRule = getRule(
+      inspectorCss,
+      ".inspector-sidebar__section-header",
+    );
+    const shapeActionsRule = getRule(
+      inspectorCss,
+      ".inspector-sidebar .selected-shape-actions",
+    );
+    const imageScrollRule = getRule(inspectorCss, ".image-inspector__scroll");
+
+    expect(dockRule).toContain(
+      "--side-dock-content-padding-inline: var(--ui-space-2xl)",
+    );
+    expect(dockRule).toContain(
+      "--side-dock-content-padding-block: var(--ui-space-lg)",
+    );
+    expect(dockRule).toContain("--side-dock-section-gap: var(--ui-space-2xl)");
+    expect(dockHeaderRule).toContain(
+      "padding: 0 var(--side-dock-content-padding-inline)",
+    );
+    expect(dockBodyRule).toContain("background: var(--side-dock-content-bg)");
+    expect(assetRootRule).toContain("var(--side-dock-content-padding-inline)");
+    expect(assetRootRule).toContain("background: transparent");
+    expect(assetFilterRule).toContain(
+      "padding: 0 0 var(--side-dock-content-padding-block)",
+    );
+    expect(inspectorRootRule).toContain("background: transparent");
+    expect(inspectorSectionHeaderRule).toContain(
+      "var(--side-dock-content-padding-inline)",
+    );
+    expect(shapeActionsRule).toContain(
+      "var(--side-dock-content-padding-inline)",
+    );
+    expect(imageScrollRule).toContain(
+      "var(--side-dock-content-padding-inline)",
+    );
+  });
+
+  it("uses mirrored motion and one timing contract for both side docks", () => {
+    const sideDockCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/SideDock.css",
+    );
+    const dockRule = getRule(sideDockCss, ".side-dock");
+    const leftPanelRule = getRule(
+      sideDockCss,
+      ".side-dock--left .side-dock__panel",
+    );
+    const rightPanelRule = getRule(
+      sideDockCss,
+      ".side-dock--right .side-dock__panel",
+    );
+    const topLeftRule = getRule(
+      sideDockCss,
+      ".image-board-app .App-menu_top__left",
+    );
+    const topRightRule = getRule(
+      sideDockCss,
+      ".image-board-app .layer-ui__wrapper__top-right",
+    );
+
+    expect(dockRule).toContain("--side-dock-motion-duration: 180ms");
+    expect(dockRule).toContain(
+      "--side-dock-motion-easing: cubic-bezier(0.25, 1, 0.5, 1)",
+    );
+    expect(leftPanelRule).toContain(
+      "animation-name: side-dock-enter-from-left",
+    );
+    expect(rightPanelRule).toContain(
+      "animation-name: side-dock-enter-from-right",
+    );
+    expect(sideDockCss).toContain("@keyframes side-dock-enter-from-left");
+    expect(sideDockCss).toContain("@keyframes side-dock-enter-from-right");
+    expect(topLeftRule).toContain(
+      "transition: margin-left var(--side-dock-motion-duration)",
+    );
+    expect(topRightRule).toContain(
+      "transition: margin-right var(--side-dock-motion-duration)",
+    );
+    expect(sideDockCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(sideDockCss).toContain("animation-duration: 0.01ms");
+    expect(sideDockCss).toContain("transition-duration: 0.01ms");
+  });
+
   it("keeps the native collaborator list clear of the collapsed right dock toggle", () => {
     const sideDockCss = readCssFile(
       "apps/image-board-desktop/src/app/components/SideDock.css",

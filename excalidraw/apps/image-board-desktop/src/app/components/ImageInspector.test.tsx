@@ -108,19 +108,22 @@ describe("ImageInspector", () => {
     ).toBeInTheDocument();
   });
 
-  it("gives the prompt its own readable section and keeps secondary details grouped", () => {
+  it("gives the prompt its own flat section and keeps secondary details grouped", () => {
     const { container } = renderInspector();
-    const promptCard = container.querySelector(
-      ".image-inspector__prompt-card",
+    const promptSection = container.querySelector(
+      ".image-inspector__prompt-section",
     ) as HTMLElement;
     const detailGrid = container.querySelector(
       ".image-inspector__detail-grid",
     ) as HTMLElement;
 
-    expect(promptCard).not.toBeNull();
-    expect(within(promptCard).getByText("提示词")).toBeInTheDocument();
+    expect(promptSection).not.toBeNull();
     expect(
-      within(promptCard).getByText(/一台桌面级五轴 CNC 机器/),
+      container.querySelector(".image-inspector__prompt-card"),
+    ).not.toBeInTheDocument();
+    expect(within(promptSection).getByText("提示词")).toBeInTheDocument();
+    expect(
+      within(promptSection).getByText(/一台桌面级五轴 CNC 机器/),
     ).toBeInTheDocument();
     expect(detailGrid).not.toBeNull();
     expect(within(detailGrid).getByText("模型服务")).toBeInTheDocument();
@@ -143,6 +146,17 @@ describe("ImageInspector", () => {
     fireEvent.click(screen.getByRole("button", { name: "在图片资产中显示" }));
 
     expect(onLocateImageAsset).toHaveBeenCalledWith("file-1");
+  });
+
+  it("uses compact buttons for inspector actions", () => {
+    renderInspector();
+
+    expect(
+      screen.getByRole("button", { name: "在图片资产中显示" }),
+    ).toHaveClass("image-board-button--small");
+    expect(screen.getByRole("button", { name: "复制提示词" })).toHaveClass(
+      "image-board-button--small",
+    );
   });
 
   it("does not offer a generation-record action for imported images", () => {

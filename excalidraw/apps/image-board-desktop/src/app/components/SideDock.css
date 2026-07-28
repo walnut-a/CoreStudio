@@ -107,8 +107,8 @@
   min-width: 0;
   overflow: hidden;
   margin: 0;
-  font-size: 0.9375rem;
-  line-height: 1.2;
+  font-size: var(--ui-text-size-title);
+  line-height: var(--ui-line-height-tight);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary-color);
   text-overflow: ellipsis;

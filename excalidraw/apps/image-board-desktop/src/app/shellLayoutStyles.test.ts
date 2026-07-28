@@ -838,23 +838,27 @@ describe("CoreStudio shell layout styles", () => {
     expect(preRule).toContain("user-select: text");
   });
 
-  it("presents the sidebar as an asset detail panel instead of a flat parameter list", () => {
+  it("keeps one summary card and presents secondary details as flat rows", () => {
     const appCss = readAppCss();
     const inspectorSource = readImageInspector();
     const heroRule = getRule(appCss, ".image-inspector__hero");
-    const promptRules = getRulesContaining(
-      appCss,
-      ".image-inspector__prompt-card",
-    ).join("\n");
+    const promptRule = getRule(appCss, ".image-inspector__prompt-section");
     const detailGridRule = getRule(appCss, ".image-inspector__detail-grid");
+    const detailItemRule = getRule(appCss, ".image-inspector__detail-item");
 
     expect(inspectorSource).toContain("image-inspector__hero");
-    expect(inspectorSource).toContain("image-inspector__prompt-card");
+    expect(inspectorSource).toContain("image-inspector__prompt-section");
+    expect(inspectorSource).not.toContain("image-inspector__prompt-card");
     expect(inspectorSource).toContain("image-inspector__detail-grid");
     expect(heroRule).toContain("display: grid");
-    expect(promptRules).toContain("border: 1px solid");
-    expect(detailGridRule).toContain(
-      "grid-template-columns: repeat(auto-fit, minmax(132px, 1fr))",
+    expect(heroRule).toContain("border: 1px solid");
+    expect(promptRule).not.toContain("border:");
+    expect(promptRule).not.toContain("background:");
+    expect(detailGridRule).not.toContain("grid-template-columns");
+    expect(detailItemRule).toContain(
+      "grid-template-columns: minmax(72px, 0.38fr) minmax(0, 1fr)",
     );
+    expect(detailItemRule).not.toContain("border-radius:");
+    expect(detailItemRule).not.toContain("background:");
   });
 });

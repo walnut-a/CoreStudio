@@ -60,14 +60,20 @@ describe("generate composer styles", () => {
     expect(dropdownOwners).not.toContain("var(--dropdown-icon)");
   });
 
-  it("keeps the image inspector typography on a compact sidebar scale", () => {
+  it("uses the shared product typography roles throughout the inspector", () => {
     const appCss = readAppCss();
     const rootAppCss = readRootAppCss();
     const inspectorRule = getRule(appCss, ".image-inspector");
     const titleRule = getRule(appCss, ".image-inspector__hero h2");
     const emptyTitleRule = getRule(appCss, ".image-inspector__empty-card h2");
     const eyebrowRule = getRule(appCss, ".image-inspector__eyebrow");
+    const sectionTitleRule = getRule(
+      appCss,
+      ".image-inspector__section h3,\n.image-inspector__section-header h3",
+    );
     const detailValueRule = getRule(appCss, ".image-inspector__detail-value");
+    const sidebarTitleRule = getRule(appCss, ".side-dock__header h2");
+    const sidebarEmptyRule = getRule(appCss, ".inspector-sidebar__empty");
     const inspectorSidebarSource = readFileSync(
       resolve(
         process.cwd(),
@@ -76,20 +82,17 @@ describe("generate composer styles", () => {
       "utf8",
     );
 
-    expect(inspectorRule).toContain("--image-inspector-title-size: 0.875rem");
-    expect(inspectorRule).toContain("--image-inspector-body-size: 0.8125rem");
-    expect(inspectorRule).toContain("--image-inspector-caption-size: 0.75rem");
-    expect(titleRule).toContain("font-size: var(--image-inspector-title-size)");
+    expect(inspectorRule).not.toContain("--image-inspector-");
+    expect(inspectorRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(sidebarTitleRule).toContain("font-size: var(--ui-text-size-title)");
+    expect(titleRule).toContain("font-size: var(--ui-text-size-lg)");
     expect(titleRule).toContain("font-weight: var(--font-weight-semibold)");
-    expect(emptyTitleRule).toContain(
-      "font-size: var(--image-inspector-title-size)",
-    );
-    expect(eyebrowRule).toContain(
-      "font-size: var(--image-inspector-caption-size)",
-    );
-    expect(detailValueRule).toContain(
-      "font-size: var(--image-inspector-body-size)",
-    );
+    expect(emptyTitleRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(eyebrowRule).toContain("font-size: var(--ui-text-size-sm)");
+    expect(sectionTitleRule).toContain("font-size: var(--ui-text-size-sm)");
+    expect(sectionTitleRule).toContain("font-weight: var(--font-weight-bold)");
+    expect(detailValueRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(sidebarEmptyRule).toContain("font-size: var(--ui-text-size-lg)");
     expect(inspectorSidebarSource).toContain('side="right"');
     expect(inspectorSidebarSource).toContain(
       "title={copy.inspector.sidebarTitle}",

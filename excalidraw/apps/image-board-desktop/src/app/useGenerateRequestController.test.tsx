@@ -131,6 +131,35 @@ describe("useGenerateRequestController", () => {
     expect(getState().promptEditorResetKey).toBeGreaterThan(previousResetKey);
   });
 
+  it("does not reset the editor when the parent echoes its own request change", () => {
+    const onRequestChange = vi.fn();
+    const { rerender } = render(
+      <ControllerProbe
+        initialRequest={createRequest()}
+        onRequestChange={onRequestChange}
+      />,
+    );
+
+    act(() => {
+      controller?.updatePromptParts([{ type: "text", text: "正在输入" }]);
+    });
+    const resetKeyAfterTyping = getState().promptEditorResetKey;
+    const echoedRequest = onRequestChange.mock.lastCall?.[0];
+    expect(echoedRequest).toBeDefined();
+
+    rerender(
+      <ControllerProbe
+        initialRequest={{ ...echoedRequest }}
+        onRequestChange={onRequestChange}
+      />,
+    );
+
+    expect(getState().promptEditorResetKey).toBe(resetKeyAfterTyping);
+    expect(getState().request.promptParts).toEqual([
+      { type: "text", text: "正在输入" },
+    ]);
+  });
+
   it("updates plain prompt text and clears inline references", () => {
     const onRequestChange = vi.fn();
     render(
@@ -239,7 +268,7 @@ describe("useGenerateRequestController", () => {
     expect(getState().promptEditorResetKey).toBeGreaterThan(previousResetKey);
   });
 
-  it("clears submitted prompt fields while keeping selected reference data", () => {
+  it("clears submitted prompt fields and discards selected reference data", () => {
     render(
       <ControllerProbe
         initialRequest={createRequest({
@@ -263,11 +292,7 @@ describe("useGenerateRequestController", () => {
       prompt: "",
       promptParts: [],
       promptReferences: [],
-      reference: {
-        enabled: false,
-        elementCount: 1,
-        textCount: 0,
-      },
+      reference: null,
     });
     expect(getState().promptEditorParts).toEqual([]);
     expect(getState().promptReferences).toEqual([]);

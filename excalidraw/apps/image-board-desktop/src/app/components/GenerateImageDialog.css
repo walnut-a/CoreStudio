@@ -13,7 +13,7 @@
 
 .generate-panel {
   position: relative;
-  width: 100%;
+  width: min(100%, var(--generate-panel-max-width));
   min-width: min(100%, var(--generate-panel-min-width));
   max-height: none;
   overflow: visible;
@@ -193,17 +193,20 @@
   );
   --generate-composer-editor-min-height: var(--ui-control-size-sm);
   --generate-composer-editor-max-height: min(30vh, 10rem);
+  --generate-composer-editor-font-size: 0.9375rem;
   --generate-composer-control-size: var(--ui-control-size-sm);
   --generate-composer-control-icon-size: 20px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "field controls";
   grid-template-rows: minmax(var(--generate-composer-editor-min-height), auto);
   align-items: stretch;
-  row-gap: 4px;
+  align-content: center;
+  row-gap: 0;
   column-gap: 8px;
   box-sizing: border-box;
-  padding: var(--ui-space-xs) var(--ui-space-xs) var(--ui-space-xs)
-    var(--ui-space-lg);
+  min-height: calc(var(--generate-composer-control-size) + var(--ui-space-lg));
+  padding: var(--ui-space-xs) var(--ui-space-sm);
   border: 0;
   border-radius: var(--border-radius-lg);
   background: var(--island-bg-color);
@@ -217,13 +220,21 @@
   --generate-composer-editor-min-height: var(--ui-control-size-sm);
 }
 
+.generate-composer--with-notice {
+  grid-template-areas: "field controls" "notice empty";
+  grid-template-rows:
+    minmax(var(--generate-composer-editor-min-height), auto)
+    auto;
+  row-gap: 4px;
+}
+
 .generate-composer:focus-within {
   box-shadow: var(--shadow-island),
     0 0 0 2px var(--generate-composer-focus-ring);
 }
 
 .generate-composer__field {
-  grid-column: 1;
+  grid-area: field;
   min-width: 0;
   display: block;
   overflow: hidden;
@@ -397,7 +408,7 @@
   background: transparent;
   padding: 5px 0 6px;
   box-sizing: border-box;
-  font-size: 0.9375rem;
+  font-size: var(--generate-composer-editor-font-size);
   line-height: 20px;
   letter-spacing: 0.003em;
   resize: none;
@@ -429,33 +440,58 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: var(--ui-space-xxs) 4px;
+  padding: var(--ui-space-xxs) 0;
   box-sizing: border-box;
-  font-size: 0.9375rem;
-  line-height: calc(var(--ui-control-size-sm) - var(--ui-space-xs));
+  font-size: var(--generate-composer-editor-font-size);
+  line-height: var(--ui-control-size-sm);
   letter-spacing: 0.003em;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   overflow-x: hidden;
   overflow-y: auto;
   color: var(--text-primary-color);
   scrollbar-width: none;
   outline: none;
-  word-break: break-word;
+  cursor: text;
+  position: relative;
 }
 
 .generate-composer__prompt-editor::-webkit-scrollbar {
   display: none;
 }
 
-.generate-composer__prompt-editor:empty::before,
-.generate-composer__prompt-editor--empty::before {
-  content: attr(data-placeholder);
+.generate-composer__prompt-editor-content {
+  display: inline;
+  min-width: 1px;
+  outline: none;
+  white-space: inherit;
+}
+
+.generate-composer__prompt-editor-content > p {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.generate-composer__prompt-placeholder {
+  position: absolute;
+  inset-block-start: var(--ui-space-xxs);
+  inset-inline-start: 0;
   color: var(--generate-composer-placeholder-color);
   pointer-events: none;
 }
 
+.generate-composer__prompt-editor .generate-composer__reference-node {
+  display: inline-flex;
+  margin-inline: var(--ui-space-xxs);
+  padding-block: var(--ui-space-xxs);
+  /* Keep the 24px chip centered inside the shared 28px editor line box.
+     Typographic `middle` uses the font x-height and grows the line box. */
+  vertical-align: top;
+}
+
 .generate-composer__prompt-editor .generate-composer__reference-chip {
-  margin: 0 6px;
+  margin: 0;
   max-width: 7.5rem;
   height: calc(var(--ui-control-size-sm) - var(--ui-space-xs));
   min-height: calc(var(--ui-control-size-sm) - var(--ui-space-xs));
@@ -463,24 +499,13 @@
   box-sizing: border-box;
   font-size: 0.8125rem;
   line-height: 1;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .generate-composer__prompt-editor .generate-composer__reference-chip-thumbnail {
   width: calc(var(--ui-control-size-sm) - var(--ui-space-sm));
   height: calc(var(--ui-control-size-sm) - var(--ui-space-sm));
   flex-basis: calc(var(--ui-control-size-sm) - var(--ui-space-sm));
-}
-
-.generate-composer__prompt-editor
-  .generate-composer__reference-chip:first-child {
-  margin-left: 0;
-}
-
-.generate-composer__prompt-editor
-  .generate-composer__reference-chip
-  + .generate-composer__reference-chip {
-  margin-left: 0;
 }
 
 .generate-composer__prompt-editor .generate-composer__reference-chip-label {
@@ -493,7 +518,7 @@
 }
 
 .generate-composer__notice {
-  grid-column: 1 / -1;
+  grid-area: notice;
   align-self: flex-start;
   color: color-mix(in srgb, var(--text-primary-color) 52%, transparent);
   font-size: 0.75rem;
@@ -501,7 +526,7 @@
 }
 
 .generate-composer__controls {
-  grid-column: 2;
+  grid-area: controls;
   display: flex;
   align-items: center;
   justify-content: flex-start;

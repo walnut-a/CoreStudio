@@ -271,6 +271,8 @@ const zhCnCopy = {
     generateImage: "生成图片",
     providers: "模型服务",
     edit: "编辑",
+    undo: "撤销",
+    redo: "重做",
     settings: "设置",
     appSettings: "应用设置",
     quit: `退出 ${DESKTOP_APP_NAME}`,

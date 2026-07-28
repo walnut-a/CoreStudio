@@ -23,7 +23,7 @@ const referenceLimitMessages = {
 };
 
 describe("buildGenerateDialogViewModel", () => {
-  it("requires built-in references to be confirmed in the input before submit", () => {
+  it("allows confirmed prompt content to submit beside a pending reference", () => {
     const viewModel = buildGenerateDialogViewModel({
       request: createRequest({
         prompt: "基于选中对象继续优化",
@@ -45,7 +45,38 @@ describe("buildGenerateDialogViewModel", () => {
 
     expect(viewModel.hasSubmitContent).toBe(true);
     expect(viewModel.pendingReference).not.toBeNull();
-    expect(viewModel.canSubmit).toBe(false);
+    expect(viewModel.canSubmit).toBe(true);
+  });
+
+  it("allows submit at the reference limit because the extra pending reference is discarded", () => {
+    const viewModel = buildGenerateDialogViewModel({
+      request: createRequest({
+        prompt: "提交三张已确认参考图",
+        promptReferences: Array.from({ length: 3 }, (_, index) => ({
+          id: `ref-${index + 1}`,
+          label: `图片 ${index + 1}`,
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+        })),
+        reference: {
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+        },
+      }),
+      providerSettings: {
+        gemini: {
+          isConfigured: true,
+          customModels: [],
+        },
+      } as never,
+      currentProviderCustomModels: [],
+      referenceLimitMessages,
+    });
+
+    expect(viewModel.referenceLimitReached).toBe(true);
+    expect(viewModel.canSubmit).toBe(true);
   });
 
   it("blocks built-in generation when inline references exceed the selected model limit", () => {
@@ -73,9 +104,8 @@ describe("buildGenerateDialogViewModel", () => {
     expect(viewModel.referenceLimitExceeded).toBe(true);
     expect(viewModel.referenceLimitMessage).toBe("最多 3 张参考图。");
     expect(viewModel.canSubmit).toBe(false);
-    expect(viewModel.classNames).toContain(
-      "generate-composer--with-reference",
-    );
+    expect(viewModel.classNames).toContain("generate-composer--with-reference");
+    expect(viewModel.classNames).toContain("generate-composer--with-notice");
     expect(viewModel.showBody).toBe(false);
   });
 

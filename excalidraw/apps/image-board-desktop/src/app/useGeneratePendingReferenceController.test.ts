@@ -33,12 +33,12 @@ const createCommitHarness = ({
   }),
   references = [],
   promptEditorParts = [],
-  insertReference,
+  confirmPendingReference,
 }: {
   request?: GenerationRequest;
   references?: GenerationPromptReferencePayload[];
   promptEditorParts?: GenerationPromptPart[];
-  insertReference?: (referenceId: string) => GenerationPromptPart[];
+  confirmPendingReference?: (referenceId: string) => GenerationPromptPart[];
 } = {}) => {
   const requestRef = { current: request };
   const promptReferencesRef = { current: references };
@@ -60,7 +60,7 @@ const createCommitHarness = ({
     promptReferencesRef,
     committingReferenceRef,
     promptEditorRef: {
-      current: insertReference ? { insertReference } : null,
+      current: confirmPendingReference ? { confirmPendingReference } : null,
     },
     promptEditorParts,
     setPromptReferences,
@@ -114,16 +114,18 @@ describe("commitPendingPromptReference", () => {
   });
 
   it("commits a pending reference into inline prompt parts", async () => {
-    const insertReference = vi.fn((referenceId: string) => [
+    const confirmPendingReference = vi.fn((referenceId: string) => [
       { type: "text" as const, text: "参考 " },
       { type: "reference" as const, referenceId },
     ]);
-    const harness = createCommitHarness({ insertReference });
+    const harness = createCommitHarness({ confirmPendingReference });
     const onReferenceCommit = vi.fn(async () => ({
       enabled: true,
       elementCount: 1,
       textCount: 0,
-      items: [{ id: "image-1", index: 1, kind: "image" as const, label: "图 1" }],
+      items: [
+        { id: "image-1", index: 1, kind: "image" as const, label: "图 1" },
+      ],
       image: {
         mimeType: "image/png",
         dataBase64: "abc",
@@ -140,7 +142,7 @@ describe("commitPendingPromptReference", () => {
 
     expect(committed).toBe(true);
     expect(onReferenceCommit).toHaveBeenCalledTimes(1);
-    expect(insertReference).toHaveBeenCalledTimes(1);
+    expect(confirmPendingReference).toHaveBeenCalledTimes(1);
     expect(onReferenceRemove).toHaveBeenCalledTimes(1);
     const promptReference = harness.promptReferencesRef.current[0];
     expect(promptReference).toMatchObject({

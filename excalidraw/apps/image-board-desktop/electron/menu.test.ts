@@ -91,6 +91,40 @@ describe("createAppMenuTemplate", () => {
     expect(getSubmenuLabels(template[0].submenu)).toContain("Quit CoreStudio");
   });
 
+  it("routes undo and redo shortcuts to the focused renderer", () => {
+    const sendMenuAction = vi.fn();
+    const template = createAppMenuTemplate(
+      sendMenuAction,
+      [],
+      undefined,
+      undefined,
+      {
+        platform: "darwin",
+      },
+    );
+    const editMenu = template.find((item) => item.label === "编辑");
+    const editItems = getSubmenuItems(editMenu?.submenu);
+    const undoItem = editItems.find((item) => item.label === "撤销");
+    const redoItem = editItems.find((item) => item.label === "重做");
+
+    expect(undoItem?.accelerator).toBe("CmdOrCtrl+Z");
+    expect(redoItem?.accelerator).toBe("CmdOrCtrl+Shift+Z");
+
+    undoItem?.click?.(undoItem as any, undefined, undefined as any);
+    redoItem?.click?.(redoItem as any, undefined, undefined as any);
+
+    expect(sendMenuAction).toHaveBeenNthCalledWith(
+      1,
+      { action: "edit-undo" },
+      undefined,
+    );
+    expect(sendMenuAction).toHaveBeenNthCalledWith(
+      2,
+      { action: "edit-redo" },
+      undefined,
+    );
+  });
+
   it("opens application settings from the settings menu", () => {
     const sendMenuAction = vi.fn();
     const template = createAppMenuTemplate(

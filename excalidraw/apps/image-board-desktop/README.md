@@ -45,11 +45,32 @@ corepack yarn build:desktop
 | 场景 | 命令 | 说明 |
 | --- | --- | --- |
 | 定向回归 | `corepack yarn vitest <test-files> --run` | 开发过程默认优先使用，不获取全量测试锁 |
+| 输入框 Lab | `corepack yarn dev:composer` | 只启动 renderer，在浏览器中复用真实输入框组件 |
 | 全量一次性 | `corepack yarn test:desktop` | 固定使用 Vitest `run`，默认最多 2 个 worker |
 | 交互式 watch | `corepack yarn test:desktop:watch` | 唯一明确的全量 watch 入口 |
 | CI | `corepack yarn test:desktop:ci` | 与本地全量入口共用 runner、锁和 worker 边界 |
 
 全量入口由统一 Node runner 管理。`CORESTUDIO_TEST_MAX_WORKERS=<正整数>` 可显式覆盖 worker 上限，`CORESTUDIO_TEST_TIMEOUT_MS=<毫秒>` 可覆盖默认 30 分钟超时；watch 默认不设置超时。同一 Git 仓库默认只允许一套全量桌面测试，活跃锁会报告已有 runner 的 PID、启动时间和退出命令。只有经过明确判断的特殊场景才可使用 `CORESTUDIO_TEST_ALLOW_CONCURRENT=1` 绕过互斥。
+
+### Composer Lab
+
+生成输入框的结构、样式或编辑行为优先在 Composer Lab 中调试：
+
+```sh
+corepack yarn dev:composer
+```
+
+该命令只启动 Vite renderer，并打开 `http://127.0.0.1:5174/composer-lab.html`，不启动 Electron、Bridge 或项目房间。Lab 直接引用客户端的 `GenerateDialogComposerSection`、Lexical 输入框、`GenerateImageDialog.css`、`App.css` 和设计 token，不维护第二套输入框实现。
+
+Lab 内置空内容、短文字、长文字、一张参考图、三张参考图混排、参考图上限提示和待确认参考图场景，可切换 `360px`、`480px`、`640px` 宽度和浅色、深色主题。选图、发送和配置状态由浏览器内的薄 mock 提供，不读取正式版配置或项目数据。当前场景、主题和宽度会写入 URL 查询参数，可直接保存成稳定的截图地址。
+
+输入框改动的固定验收顺序为：
+
+1. 在 Composer Lab 中完成布局和编辑行为调试。
+2. 运行输入框与 Lab 的定向自动化测试。
+3. 使用 `corepack yarn dev:desktop` 在 `CoreStudio Dev` 中检查真实窗口字体、缩放和 Electron 事件边界。
+
+`composer-lab.html` 是 Vite 开发入口，不属于正式 renderer 的 `index.html` 构建入口，也不会进入 Electron 安装包。
 
 ## 长任务执行协议
 

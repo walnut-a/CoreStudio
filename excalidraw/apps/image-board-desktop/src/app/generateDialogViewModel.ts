@@ -84,8 +84,7 @@ export const buildGenerateDialogViewModel = ({
   const canSubmit = Boolean(
     referenceState.hasSubmitContent &&
       isConfigured &&
-      !referenceState.pendingReference &&
-      !referenceState.referenceLimitReason,
+      !referenceState.referenceLimitExceeded,
   );
   const showBody = advancedOpen;
   const classNames = [
@@ -93,6 +92,7 @@ export const buildGenerateDialogViewModel = ({
     referenceState.hasInlineReferenceVisuals
       ? "generate-composer--with-reference"
       : "",
+    referenceLimitMessage ? "generate-composer--with-notice" : "",
   ].filter(Boolean);
 
   return {

@@ -1,4 +1,9 @@
-import { useCallback, useRef, type MutableRefObject, type RefObject } from "react";
+import {
+  useCallback,
+  useRef,
+  type MutableRefObject,
+  type RefObject,
+} from "react";
 
 import type {
   CustomProviderModel,
@@ -15,7 +20,7 @@ import {
 } from "./generatePromptRequest";
 
 interface PromptReferenceEditorHandle {
-  insertReference: (referenceId: string) => GenerationPromptPart[];
+  confirmPendingReference: (referenceId: string) => GenerationPromptPart[];
 }
 
 type RequestUpdater = (
@@ -89,7 +94,7 @@ export const commitPendingPromptReference = async ({
     const promptReference = createPromptReferencePayload(reference);
     const nextReferences = [...promptReferencesRef.current, promptReference];
     setPromptReferences(nextReferences);
-    const nextParts = promptEditorRef.current?.insertReference(
+    const nextParts = promptEditorRef.current?.confirmPendingReference(
       promptReference.id,
     ) || [
       ...promptEditorParts,

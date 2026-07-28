@@ -393,7 +393,7 @@ describe("CoreStudio shell layout styles", () => {
       ".image-board-app--left-dock-open.image-board-app--right-dock-open",
     ).filter((rule) => rule.includes(".floating-panel-layer"));
 
-    expect(appRule).toContain("--generate-panel-max-width: 720px");
+    expect(appRule).toContain("--generate-panel-max-width: 640px");
     expect(appRule).toContain("--lg-button-size: 2.25rem");
     expect(appRule).toContain("--floating-panel-anchor-gutter: max(");
     expect(appRule).toContain(
@@ -424,7 +424,9 @@ describe("CoreStudio shell layout styles", () => {
     );
     expect(leftDockLayerRule).not.toContain("justify-content:");
     expect(leftDockLayerRule).not.toContain("right:");
-    expect(panelRule).toContain("width: 100%");
+    expect(panelRule).toContain(
+      "width: min(100%, var(--generate-panel-max-width))",
+    );
     expect(bothDockPanelRules).toHaveLength(0);
     expect(rightDockPanelRule).toBeUndefined();
   });

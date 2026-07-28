@@ -536,9 +536,7 @@ export const buildGeneratePromptReferenceState = ({
 export type GenerationSubmitPlan =
   | {
       kind: "blocked";
-      reason:
-        | "cannot-submit"
-        | "pending-reference-unconfirmed";
+      reason: "cannot-submit";
     }
   | {
       kind: "submit";
@@ -546,18 +544,9 @@ export type GenerationSubmitPlan =
 
 export const buildGenerationSubmitPlan = ({
   canSubmit,
-  hasPendingReferenceToCommit,
 }: {
   canSubmit: boolean;
-  hasPendingReferenceToCommit: boolean;
 }): GenerationSubmitPlan => {
-  if (hasPendingReferenceToCommit) {
-    return {
-      kind: "blocked",
-      reason: "pending-reference-unconfirmed",
-    };
-  }
-
   if (!canSubmit) {
     return {
       kind: "blocked",
@@ -590,4 +579,5 @@ export const clearSubmittedPromptRequest = (
   prompt: "",
   promptParts: [],
   promptReferences: [],
+  reference: null,
 });

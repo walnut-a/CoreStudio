@@ -735,7 +735,7 @@ describe("generatePromptRequest", () => {
     expect(setGenerateRequest).toHaveBeenCalledWith(state.request);
   });
 
-  it("clears prompt fields after submit without changing the selected reference", () => {
+  it("clears prompt fields and the unconfirmed reference after submit", () => {
     const request = createRequest({
       prompt: "保留参考图再清空提示词",
       promptParts: [{ type: "text", text: "保留参考图再清空提示词" }],
@@ -759,7 +759,7 @@ describe("generatePromptRequest", () => {
       prompt: "",
       promptParts: [],
       promptReferences: [],
-      reference: request.reference,
+      reference: null,
     });
   });
 
@@ -904,7 +904,6 @@ describe("generatePromptRequest", () => {
     expect(
       buildGenerationSubmitPlan({
         canSubmit: false,
-        hasPendingReferenceToCommit: false,
       }),
     ).toEqual({
       kind: "blocked",
@@ -914,11 +913,9 @@ describe("generatePromptRequest", () => {
     expect(
       buildGenerationSubmitPlan({
         canSubmit: true,
-        hasPendingReferenceToCommit: true,
       }),
     ).toEqual({
-      kind: "blocked",
-      reason: "pending-reference-unconfirmed",
+      kind: "submit",
     });
   });
 

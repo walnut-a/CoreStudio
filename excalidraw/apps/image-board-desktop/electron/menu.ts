@@ -131,8 +131,18 @@ export const createAppMenuTemplate = (
     {
       label: copy.menu.edit,
       submenu: [
-        { role: "undo" },
-        { role: "redo" },
+        {
+          label: copy.menu.undo,
+          accelerator: "CmdOrCtrl+Z",
+          click: (_item, ownerWindow) =>
+            sendMenuAction({ action: "edit-undo" }, ownerWindow),
+        },
+        {
+          label: copy.menu.redo,
+          accelerator: "CmdOrCtrl+Shift+Z",
+          click: (_item, ownerWindow) =>
+            sendMenuAction({ action: "edit-redo" }, ownerWindow),
+        },
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },

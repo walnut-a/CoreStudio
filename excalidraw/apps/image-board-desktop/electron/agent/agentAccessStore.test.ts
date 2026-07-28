@@ -41,6 +41,14 @@ describe("agentAccessStore", () => {
     });
   });
 
+  it("allows an isolated development profile to default Agent access on", async () => {
+    await expect(
+      loadAgentAccessSettings({ defaultEnabled: true }),
+    ).resolves.toEqual({
+      enabled: true,
+    });
+  });
+
   it("persists the global Agent access switch outside project files", async () => {
     await saveAgentAccessSettings({ enabled: true });
 

@@ -73,7 +73,7 @@ describe("GenerateComposerPromptBody", () => {
     );
   });
 
-  it("localizes inline reference accessibility labels", () => {
+  it("localizes inline reference accessibility labels", async () => {
     setActiveDesktopLocale("en");
 
     render(
@@ -121,7 +121,7 @@ describe("GenerateComposerPromptBody", () => {
       screen.getByRole("img", { name: "1 参考图 thumbnail" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText("2 Image, pending confirmation"),
+      await screen.findByLabelText("2 Image, pending confirmation"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("img", {

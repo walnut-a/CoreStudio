@@ -1,534 +1,479 @@
-import { useEffect, useState } from "react";
+import { createRef } from "react";
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  InlinePromptEditor,
+  type InlinePromptEditorHandle,
+} from "./InlinePromptEditor";
+import { DESKTOP_EDIT_COMMAND_EVENT } from "../desktopEditCommand";
 
 import type {
   GenerationPromptPart,
   GenerationPromptReferencePayload,
 } from "../../shared/providerTypes";
-import { InlinePromptEditor } from "./InlinePromptEditor";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const ControlledPromptEditor = () => {
-  const [parts, setParts] = useState<GenerationPromptPart[]>([]);
-
-  return (
-    <InlinePromptEditor
-      ariaLabel="提示词"
-      placeholder="描述你想生成的内容"
-      parts={parts}
-      references={[]}
-      pendingReference={null}
-      resetKey={0}
-      onChange={setParts}
-      onFocusIntent={vi.fn()}
-      onKeyDown={vi.fn()}
-      onMouseDown={vi.fn()}
-      onKeyPressCapture={vi.fn()}
-      onKeyUpCapture={vi.fn()}
-    />
-  );
-};
-
-const EchoingControlledPromptEditor = () => {
-  const [externalParts, setExternalParts] = useState<GenerationPromptPart[]>(
-    [],
-  );
-  const [parts, setParts] = useState<GenerationPromptPart[]>([]);
-  const [resetKey, setResetKey] = useState(0);
-
-  useEffect(() => {
-    setParts(externalParts);
-    setResetKey((current) => current + 1);
-  }, [externalParts]);
-
-  return (
-    <InlinePromptEditor
-      ariaLabel="提示词"
-      placeholder="描述你想生成的内容"
-      parts={parts}
-      references={[]}
-      pendingReference={null}
-      resetKey={resetKey}
-      onChange={setExternalParts}
-      onFocusIntent={vi.fn()}
-      onKeyDown={vi.fn()}
-      onMouseDown={vi.fn()}
-      onKeyPressCapture={vi.fn()}
-      onKeyUpCapture={vi.fn()}
-    />
-  );
-};
-
 const referencePayloads: GenerationPromptReferencePayload[] = [
   {
     id: "reference-1",
-    label: "参考图 1",
+    label: "图片",
     enabled: true,
     elementCount: 1,
     textCount: 0,
+    thumbnailDataUrl: "data:image/png;base64,one",
   },
   {
     id: "reference-2",
-    label: "参考图 2",
+    label: "图片",
     enabled: true,
     elementCount: 1,
     textCount: 0,
   },
 ];
 
-const ControlledMultiReferenceEditor = () => {
-  const [parts, setParts] = useState<GenerationPromptPart[]>([
-    { type: "reference", referenceId: "reference-1" },
-    { type: "reference", referenceId: "reference-2" },
-  ]);
-  const [references, setReferences] = useState(referencePayloads);
+const createProps = (
+  overrides: Partial<Parameters<typeof InlinePromptEditor>[0]> = {},
+) => ({
+  ariaLabel: "提示词",
+  placeholder: "描述你想生成的内容",
+  parts: [] as GenerationPromptPart[],
+  references: [] as GenerationPromptReferencePayload[],
+  pendingReference: null,
+  resetKey: 0,
+  onChange: vi.fn(),
+  onFocusIntent: vi.fn(),
+  onKeyDown: vi.fn(),
+  onMouseDown: vi.fn(),
+  onKeyPressCapture: vi.fn(),
+  onKeyUpCapture: vi.fn(),
+  ...overrides,
+});
 
-  useEffect(() => {
-    const referenceIds = new Set(
-      parts.flatMap((part) =>
-        part.type === "reference" ? [part.referenceId] : [],
-      ),
-    );
-    setReferences((current) =>
-      current.filter((reference) => referenceIds.has(reference.id)),
-    );
-  }, [parts]);
-
-  return (
-    <InlinePromptEditor
-      ariaLabel="提示词"
-      placeholder="描述你想生成的内容"
-      parts={parts}
-      references={references}
-      pendingReference={null}
-      resetKey={0}
-      onChange={setParts}
-      onFocusIntent={vi.fn()}
-      onKeyDown={vi.fn()}
-      onMouseDown={vi.fn()}
-      onKeyPressCapture={vi.fn()}
-      onKeyUpCapture={vi.fn()}
-    />
+const dispatchDesktopEditCommand = (
+  editor: HTMLElement,
+  command: "undo" | "redo",
+) => {
+  editor.dispatchEvent(
+    new CustomEvent(DESKTOP_EDIT_COMMAND_EVENT, {
+      bubbles: true,
+      cancelable: true,
+      detail: { command },
+    }),
   );
 };
 
 describe("InlinePromptEditor", () => {
-  it("does not render an empty thumbnail shell for a pending image without thumbnail data", () => {
+  it("renders mixed text and atomic references without inventing line breaks", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
     render(
       <InlinePromptEditor
-        ariaLabel="提示词"
-        placeholder="描述你想生成的内容"
-        parts={[]}
-        references={[]}
-        pendingReference={{
-          enabled: true,
-          elementCount: 1,
-          textCount: 0,
-          items: [
-            {
-              id: "pending-image",
-              index: 1,
-              kind: "image",
-              label: "图片",
-            },
+        ref={handle}
+        {...createProps({
+          parts: [
+            { type: "reference", referenceId: "reference-1" },
+            { type: "reference", referenceId: "reference-2" },
+            { type: "text", text: "说明" },
           ],
-        }}
-        resetKey={0}
-        onChange={vi.fn()}
-        onFocusIntent={vi.fn()}
-        onKeyDown={vi.fn()}
-        onMouseDown={vi.fn()}
-        onKeyPressCapture={vi.fn()}
-        onKeyUpCapture={vi.fn()}
+          references: referencePayloads,
+        })}
       />,
     );
 
-    const pendingReference = document.querySelector("[data-pending-reference]");
-    expect(pendingReference).not.toHaveClass(
-      "generate-composer__reference-chip--with-thumbnail",
+    await waitFor(() => {
+      expect(screen.getAllByLabelText(/^[12] 图片$/)).toHaveLength(2);
+    });
+    expect(handle.current?.getParts()).toEqual([
+      { type: "reference", referenceId: "reference-1" },
+      { type: "reference", referenceId: "reference-2" },
+      { type: "text", text: "说明" },
+    ]);
+    expect(screen.getByRole("textbox", { name: "提示词" })).toHaveTextContent(
+      "说明",
     );
-    expect(
-      pendingReference?.querySelector(
-        ".generate-composer__reference-chip-thumbnail",
-      ),
-    ).toBeNull();
   });
 
-  it("falls back to a text-only reference chip when its thumbnail fails to load", () => {
+  it("inserts a reference through one editor transaction", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const onChange = vi.fn();
     render(
       <InlinePromptEditor
-        ariaLabel="提示词"
-        placeholder="描述你想生成的内容"
-        parts={[{ type: "reference", referenceId: "broken-reference" }]}
-        references={[
-          {
-            id: "broken-reference",
-            label: "参考图片",
-            enabled: true,
-            elementCount: 1,
-            textCount: 0,
-            thumbnailDataUrl: "data:image/png;base64,broken",
-          },
-        ]}
-        pendingReference={null}
-        resetKey={0}
-        onChange={vi.fn()}
-        onFocusIntent={vi.fn()}
-        onKeyDown={vi.fn()}
-        onMouseDown={vi.fn()}
-        onKeyPressCapture={vi.fn()}
-        onKeyUpCapture={vi.fn()}
+        ref={handle}
+        {...createProps({
+          parts: [{ type: "text", text: "描述" }],
+          references: [referencePayloads[0]],
+          onChange,
+        })}
       />,
     );
 
-    const reference = document.querySelector("[data-reference-id]");
-    const thumbnail = reference?.querySelector("img");
-    expect(thumbnail).not.toBeNull();
-
-    fireEvent.error(thumbnail!);
-
-    expect(reference).not.toHaveClass(
-      "generate-composer__reference-chip--with-thumbnail",
-    );
-    expect(
-      reference?.querySelector(".generate-composer__reference-chip-thumbnail"),
-    ).toBeNull();
-  });
-
-  it("preserves the browser edit history when controlled state echoes a DOM input", () => {
-    const replaceChildren = vi.spyOn(Element.prototype, "replaceChildren");
-
-    render(<ControlledPromptEditor />);
-
-    const editor = screen.getByRole("textbox", { name: "提示词" });
-    const initialRenderCount = replaceChildren.mock.calls.length;
-
-    editor.textContent = "一大段粘贴进来的提示词";
-    fireEvent.input(editor);
-
-    expect(editor).toHaveTextContent("一大段粘贴进来的提示词");
-    expect(replaceChildren).toHaveBeenCalledTimes(initialRenderCount);
-
-    editor.textContent = "";
-    fireEvent.input(editor);
-
-    expect(editor).toBeEmptyDOMElement();
-    expect(replaceChildren).toHaveBeenCalledTimes(initialRenderCount);
-  });
-
-  it("keeps the caret in place when the request controller echoes typed content with a new reset key", async () => {
-    render(<EchoingControlledPromptEditor />);
-
-    const editor = screen.getByRole("textbox", { name: "提示词" });
-    editor.textContent = "a";
-    const selection = window.getSelection()!;
-    const browserRange = document.createRange();
-    browserRange.setStart(editor.firstChild!, 1);
-    browserRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(browserRange);
-
-    fireEvent.input(editor, { inputType: "insertText", data: "a" });
-
-    await waitFor(() => {
-      expect(selection.rangeCount).toBe(1);
-      expect(selection.getRangeAt(0).startContainer).toBe(editor.firstChild);
-      expect(selection.getRangeAt(0).startOffset).toBe(1);
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    act(() => {
+      handle.current?.insertReference("reference-1");
     });
-  });
 
-  it("keeps the committed IME caret after the request controller echoes the composition", async () => {
-    render(<EchoingControlledPromptEditor />);
-
-    const editor = screen.getByRole("textbox", { name: "提示词" });
-    fireEvent.compositionStart(editor);
-    editor.textContent = "中文";
-    const selection = window.getSelection()!;
-    const compositionRange = document.createRange();
-    compositionRange.setStart(editor.firstChild!, 2);
-    compositionRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(compositionRange);
-    fireEvent.input(editor, { inputType: "insertCompositionText" });
-    fireEvent.compositionEnd(editor);
-
-    await waitFor(() => {
-      expect(editor).toHaveTextContent("中文");
-      expect(selection.getRangeAt(0).startContainer).toBe(editor.firstChild);
-      expect(selection.getRangeAt(0).startOffset).toBe(2);
-    });
-  });
-
-  it("applies an explicit external reset after an active IME composition ends", async () => {
-    const onChange = vi.fn();
-    const props = {
-      ariaLabel: "提示词",
-      placeholder: "描述你想生成的内容",
-      references: [],
-      pendingReference: null,
-      onChange,
-      onFocusIntent: vi.fn(),
-      onKeyDown: vi.fn(),
-      onMouseDown: vi.fn(),
-      onKeyPressCapture: vi.fn(),
-      onKeyUpCapture: vi.fn(),
-    };
-    const { rerender } = render(
-      <InlinePromptEditor
-        {...props}
-        parts={[{ type: "text", text: "旧内容" }]}
-        resetKey={0}
-      />,
-    );
-    const editor = screen.getByRole("textbox", { name: "提示词" });
-
-    fireEvent.compositionStart(editor);
-    editor.textContent = "正在输入";
-    rerender(<InlinePromptEditor {...props} parts={[]} resetKey={1} />);
-    expect(editor).toHaveTextContent("正在输入");
-
-    fireEvent.compositionEnd(editor);
-
-    await waitFor(() => {
-      expect(editor).toBeEmptyDOMElement();
-    });
-    expect(onChange).not.toHaveBeenCalledWith([
-      { type: "text", text: "正在输入" },
+    expect(handle.current?.getParts()).toEqual([
+      { type: "text", text: "描述" },
+      { type: "reference", referenceId: "reference-1" },
     ]);
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith([
+        { type: "text", text: "描述" },
+        { type: "reference", referenceId: "reference-1" },
+      ]);
+    });
   });
 
-  it("still applies an explicit external reset when the content changes", () => {
-    const props = {
-      ariaLabel: "提示词",
-      placeholder: "描述你想生成的内容",
-      references: [],
-      pendingReference: null,
-      onChange: vi.fn(),
-      onFocusIntent: vi.fn(),
-      onKeyDown: vi.fn(),
-      onMouseDown: vi.fn(),
-      onKeyPressCapture: vi.fn(),
-      onKeyUpCapture: vi.fn(),
-    };
-    const { rerender } = render(
-      <InlinePromptEditor
-        {...props}
-        parts={[{ type: "text", text: "原始内容" }]}
-        resetKey={0}
-      />,
-    );
+  it("only replaces document content for an explicit reset", async () => {
+    const initialProps = createProps({
+      parts: [{ type: "text", text: "原始内容" }],
+    });
+    const { rerender } = render(<InlinePromptEditor {...initialProps} />);
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+
+    await waitFor(() => expect(editor).toHaveTextContent("原始内容"));
+    const originalParagraph = editor.firstChild;
 
     rerender(
       <InlinePromptEditor
-        {...props}
-        parts={[{ type: "text", text: "外部重置内容" }]}
+        {...initialProps}
+        parts={[{ type: "text", text: "仅外部回显" }]}
+      />,
+    );
+    expect(editor).toHaveTextContent("原始内容");
+    expect(editor.firstChild).toBe(originalParagraph);
+
+    rerender(
+      <InlinePromptEditor
+        {...initialProps}
+        parts={[{ type: "text", text: "明确重置" }]}
         resetKey={1}
       />,
     );
+    await waitFor(() => expect(editor).toHaveTextContent("明确重置"));
+  });
 
-    expect(screen.getByRole("textbox", { name: "提示词" })).toHaveTextContent(
-      "外部重置内容",
+  it("does not dispatch a second undo command from the React key handler", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const onKeyDown = vi.fn();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: [{ type: "text", text: "描述" }],
+          references: [referencePayloads[0]],
+          onKeyDown,
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    act(() => {
+      handle.current?.insertReference("reference-1");
+    });
+    expect(handle.current?.getParts()).toEqual([
+      { type: "text", text: "描述" },
+      { type: "reference", referenceId: "reference-1" },
+    ]);
+
+    fireEvent.keyDown(editor, { key: "z", metaKey: true });
+    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    expect(handle.current?.getParts()).toEqual([
+      { type: "text", text: "描述" },
+      { type: "reference", referenceId: "reference-1" },
+    ]);
+
+    dispatchDesktopEditCommand(editor, "undo");
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "描述" },
+      ]),
+    );
+
+    dispatchDesktopEditCommand(editor, "redo");
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "描述" },
+        { type: "reference", referenceId: "reference-1" },
+      ]),
     );
   });
 
-  it("inserts pasted rich content as plain text while preserving line breaks", () => {
-    const onChange = vi.fn();
+  it("undoes consecutive programmatic reference insertions one at a time", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
     render(
       <InlinePromptEditor
-        ariaLabel="提示词"
-        placeholder="描述你想生成的内容"
-        parts={[]}
-        references={[]}
-        pendingReference={null}
-        resetKey={0}
-        onChange={onChange}
-        onFocusIntent={vi.fn()}
-        onKeyDown={vi.fn()}
-        onMouseDown={vi.fn()}
-        onKeyPressCapture={vi.fn()}
-        onKeyUpCapture={vi.fn()}
+        ref={handle}
+        {...createProps({
+          references: referencePayloads,
+        })}
       />,
     );
-    const editor = screen.getByRole("textbox", { name: "提示词" });
 
-    fireEvent.paste(editor, {
-      clipboardData: {
-        getData: (type: string) =>
-          type === "text/plain"
-            ? "第一行\n第二行"
-            : '<span style="font-size: 40px; color: red">第一行</span>',
-      },
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    act(() => {
+      handle.current?.insertReference("reference-1");
+      handle.current?.insertReference("reference-2");
+    });
+    expect(handle.current?.getParts()).toEqual([
+      { type: "reference", referenceId: "reference-1" },
+      { type: "reference", referenceId: "reference-2" },
+    ]);
+
+    dispatchDesktopEditCommand(editor, "undo");
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "reference", referenceId: "reference-1" },
+      ]),
+    );
+  });
+
+  it("handles a desktop menu edit command without relying on DOM focus", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: [{ type: "text", text: "描述" }],
+          references: [referencePayloads[0]],
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    act(() => {
+      handle.current?.insertReference("reference-1");
     });
 
-    expect(editor.textContent).toBe("第一行\n第二行");
-    expect(editor.querySelector("[style], b, span")).toBeNull();
-    expect(onChange).toHaveBeenLastCalledWith([
-      { type: "text", text: "第一行\n第二行" },
-    ]);
+    dispatchDesktopEditCommand(editor, "undo");
+
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "描述" },
+      ]),
+    );
   });
 
-  it("preserves block boundaries when reading browser-created editable DOM", () => {
+  it("records typed text in the same undo history", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
     const onChange = vi.fn();
     render(
       <InlinePromptEditor
-        ariaLabel="提示词"
-        placeholder="描述你想生成的内容"
-        parts={[]}
-        references={[]}
-        pendingReference={null}
-        resetKey={0}
-        onChange={onChange}
-        onFocusIntent={vi.fn()}
-        onKeyDown={vi.fn()}
-        onMouseDown={vi.fn()}
-        onKeyPressCapture={vi.fn()}
-        onKeyUpCapture={vi.fn()}
+        ref={handle}
+        {...createProps({
+          onChange,
+        })}
       />,
     );
+
     const editor = screen.getByRole("textbox", { name: "提示词" });
-    editor.innerHTML = "<div>第一行</div><div>第二行</div>";
+    act(() => {
+      editor.textContent = "ABC";
+      fireEvent.input(editor, {
+        data: "ABC",
+        inputType: "insertText",
+      });
+    });
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith([
+        { type: "text", text: "ABC" },
+      ]);
+    });
 
-    fireEvent.input(editor, { inputType: "insertFromPaste" });
+    dispatchDesktopEditCommand(editor, "undo");
 
-    expect(onChange).toHaveBeenLastCalledWith([
-      { type: "text", text: "第一行\n第二行" },
-    ]);
+    await waitFor(() => expect(handle.current?.getParts()).toEqual([]));
   });
 
-  it("preserves the caret when a pending reference decoration appears", () => {
-    const props = {
-      ariaLabel: "提示词",
-      placeholder: "描述你想生成的内容",
-      references: [],
-      onChange: vi.fn(),
-      onFocusIntent: vi.fn(),
-      onKeyDown: vi.fn(),
-      onMouseDown: vi.fn(),
-      onKeyPressCapture: vi.fn(),
-      onKeyUpCapture: vi.fn(),
+  it("keeps a paste replacement separate from preceding typing history", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: [],
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    act(() => {
+      editor.textContent = "ABC";
+      fireEvent.input(editor, {
+        data: "ABC",
+        inputType: "insertText",
+      });
+    });
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "ABC" },
+      ]),
+    );
+
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", "粘贴内容");
+    fireEvent(
+      editor,
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "ABC粘贴内容" },
+      ]),
+    );
+
+    dispatchDesktopEditCommand(editor, "undo");
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "ABC" },
+      ]),
+    );
+  });
+
+  it("does not insert a line break when plain Enter is handled as submit", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const onKeyDown = vi.fn((event) => {
+      event.preventDefault();
+    });
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: [{ type: "text", text: "描述" }],
+          onKeyDown,
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    fireEvent.keyDown(editor, { key: "Enter" });
+
+    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "描述" },
+      ]),
+    );
+  });
+
+  it("renders a pending reference as an editor node without submitting it", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const pendingReference = {
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      items: [
+        {
+          id: "pending",
+          index: 1,
+          kind: "image" as const,
+          label: "图片",
+        },
+      ],
     };
-    const { rerender } = render(
+    render(
       <InlinePromptEditor
-        {...props}
-        parts={[{ type: "text", text: "abcd" }]}
-        pendingReference={null}
-        resetKey={0}
-      />,
-    );
-    const editor = screen.getByRole("textbox", { name: "提示词" });
-    const selection = window.getSelection()!;
-    const range = document.createRange();
-    range.setStart(editor.firstChild!, 2);
-    range.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(range);
-
-    rerender(
-      <InlinePromptEditor
-        {...props}
-        parts={[{ type: "text", text: "abcd" }]}
-        pendingReference={{
-          enabled: true,
-          elementCount: 1,
-          textCount: 0,
-          items: [
-            {
-              id: "pending",
-              index: 1,
-              kind: "image",
-              label: "图片",
-            },
-          ],
-        }}
-        resetKey={0}
+        ref={handle}
+        {...createProps({
+          parts: [{ type: "text", text: "已确认内容\n" }],
+          pendingReference,
+        })}
       />,
     );
 
-    expect(selection.getRangeAt(0).startContainer).toBe(editor.firstChild);
-    expect(selection.getRangeAt(0).startOffset).toBe(2);
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    const pendingChip = await screen.findByLabelText("1 图片，待确认");
+    expect(editor.contains(pendingChip)).toBe(true);
+    expect(handle.current?.getParts()).toEqual([
+      { type: "text", text: "已确认内容\n" },
+    ]);
+    expect(pendingChip).not.toContainHTML(
+      "generate-composer__reference-chip-thumbnail",
+    );
   });
 
-  it("does not rebuild the DOM after deleting a reference", async () => {
-    const replaceChildren = vi.spyOn(Element.prototype, "replaceChildren");
-    render(<ControlledMultiReferenceEditor />);
-
-    const editor = screen.getByRole("textbox", { name: "提示词" });
-    const initialRenderCount = replaceChildren.mock.calls.length;
-    editor.lastChild?.remove();
-    fireEvent.input(editor, { inputType: "deleteContentBackward" });
-
-    await waitFor(() => {
-      expect(editor.childNodes).toHaveLength(1);
-      expect(replaceChildren).toHaveBeenCalledTimes(initialRenderCount);
+  it("removes the temporary editor node when the pending reference is discarded", async () => {
+    const pendingReference = {
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      items: [
+        {
+          id: "pending",
+          index: 1,
+          kind: "image" as const,
+          label: "图片",
+        },
+      ],
+    };
+    const props = createProps({
+      parts: [{ type: "text", text: "已确认内容" }],
+      pendingReference,
     });
+    const { rerender } = render(<InlinePromptEditor {...props} />);
+
+    expect(await screen.findByLabelText("1 图片，待确认")).toBeInTheDocument();
+    rerender(<InlinePromptEditor {...props} pendingReference={null} />);
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText("1 图片，待确认")).not.toBeInTheDocument(),
+    );
   });
 
-  it("cancels a stale reference-deletion caret restore when typing continues", () => {
-    let scheduledRestore: FrameRequestCallback | null = null;
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      scheduledRestore = callback;
-      return 42;
-    });
-    const cancelAnimationFrame = vi.spyOn(window, "cancelAnimationFrame");
+  it("falls back to a text-only reference chip when its thumbnail fails", async () => {
+    render(
+      <InlinePromptEditor
+        {...createProps({
+          parts: [{ type: "reference", referenceId: "reference-1" }],
+          references: [referencePayloads[0]],
+        })}
+      />,
+    );
 
-    render(<ControlledMultiReferenceEditor />);
-
-    const editor = screen.getByRole("textbox", { name: "提示词" });
-    editor.lastChild?.remove();
-    const selection = window.getSelection()!;
-    const deletionRange = document.createRange();
-    deletionRange.setStart(editor, 1);
-    deletionRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(deletionRange);
-    fireEvent.input(editor, { inputType: "deleteContentBackward" });
-
-    expect(scheduledRestore).not.toBeNull();
-
-    const textNode = document.createTextNode("a");
-    editor.append(textNode);
-    const typingRange = document.createRange();
-    typingRange.setStart(textNode, 1);
-    typingRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(typingRange);
-    fireEvent.input(editor, { inputType: "insertText", data: "a" });
-
-    expect(cancelAnimationFrame).toHaveBeenCalledWith(42);
+    const reference = await screen.findByLabelText("1 图片");
+    const image = reference.querySelector("img");
+    expect(image).not.toBeNull();
+    fireEvent.error(image!);
+    expect(
+      reference.querySelector(".generate-composer__reference-chip-thumbnail"),
+    ).toBeNull();
+    expect(reference).toHaveTextContent("1图片");
   });
 
-  it("keeps the caret after the remaining content when backspace removes the last reference", async () => {
-    render(<ControlledMultiReferenceEditor />);
+  it("commits a pending reference after pointer selection can update", () => {
+    const events: string[] = [];
+    render(
+      <InlinePromptEditor
+        {...createProps({
+          onMouseDown: () => events.push("pointer"),
+          onFocusIntent: () => events.push("commit"),
+        })}
+      />,
+    );
 
     const editor = screen.getByRole("textbox", { name: "提示词" });
-    expect(editor.childNodes).toHaveLength(2);
-
-    editor.lastChild?.remove();
-    const selection = window.getSelection()!;
-    const browserRange = document.createRange();
-    browserRange.setStart(editor, 1);
-    browserRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(browserRange);
-
-    fireEvent.input(editor, { inputType: "deleteContentBackward" });
-
-    const browserPostInputRange = document.createRange();
-    browserPostInputRange.setStart(editor, 0);
-    browserPostInputRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(browserPostInputRange);
-
-    expect(editor.childNodes).toHaveLength(1);
-    await waitFor(() => {
-      expect(selection.rangeCount).toBe(1);
-      expect(selection.getRangeAt(0).startContainer).toBe(editor);
-      expect(selection.getRangeAt(0).startOffset).toBe(1);
-    });
+    fireEvent.mouseDown(editor);
+    expect(events).toEqual(["pointer"]);
+    fireEvent.click(editor);
+    expect(events).toEqual(["pointer", "commit"]);
   });
 });

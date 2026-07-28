@@ -45,7 +45,6 @@ export const GenerateDialogComposerContentSection = ({
 
   const handlePromptMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     onStopInputEvent(event);
-    commitPendingReference();
   };
 
   return (

@@ -54,4 +54,4 @@ CoreStudio 为正式版、源码开发版和打包预览版建立固定身份。
 
 验收结束后，只清理本次固定入口记录的精确进程组并复查残留。不得使用 `killall Electron`、宽泛 `pkill`，也不得触碰正式版进程和数据。
 
-主进程会对上述边界执行 fail-closed 校验，并在窗口内显示 `SOURCE DEV`、`PACKAGED PREVIEW` 或 `PRODUCTION` 及构建标识。裸启动源码、人工 `qa` runtime、开发版自定义 Bridge/profile/session 都应直接启动失败。相关测试位于 `excalidraw/apps/image-board-desktop/electron/desktopRuntimeConfig.test.ts`。
+主进程会对上述边界执行 fail-closed 校验。源码开发版和打包预览版在窗口内显示 `SOURCE DEV` 或 `PACKAGED PREVIEW` 及构建标识；正式版的运行身份只写入身份文件和日志，不在产品界面显示常驻徽标。裸启动源码、人工 `qa` runtime、开发版自定义 Bridge/profile/session 都应直接启动失败。相关测试位于 `excalidraw/apps/image-board-desktop/electron/desktopRuntimeConfig.test.ts`。

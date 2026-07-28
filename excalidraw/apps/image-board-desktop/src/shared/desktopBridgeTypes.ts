@@ -185,6 +185,36 @@ export interface RecentProjectEntry {
 export interface DesktopAppInfo {
   name: string;
   version: string;
+  runtimeIdentity?: DesktopRuntimeIdentity;
+}
+
+export interface DesktopRuntimeIdentity {
+  schemaVersion: 1;
+  instanceKind:
+    | "source-dev"
+    | "packaged-preview"
+    | "production"
+    | "qa"
+    | "packaged-dev";
+  runtimeLabel: string;
+  runtimeMode: string;
+  appName: string;
+  appPath: string;
+  executable: string;
+  userData: string;
+  windowTitle: string;
+  bridgePort: number;
+  sessionPath: string;
+  settingsDirectory: string;
+  rendererUrl: string | null;
+  debugPort: number | null;
+  identityPath: string;
+  mainPid: number;
+  mainPgid: number;
+  gitCommit: string;
+  gitDirty: boolean;
+  appVersion: string;
+  buildId: string;
 }
 
 export interface ProjectAssetPayload {

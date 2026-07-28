@@ -195,6 +195,9 @@ const zhCnCopy = {
     retryInstruction:
       "开发模式下运行 `corepack yarn start:desktop`；正式包请退出后重新打开 CoreStudio。",
     editorLoading: "正在加载画板…",
+    editorReloadRequired: "画板连接已断开",
+    editorReloadInstruction: "CoreStudio 重启后，请刷新当前页面恢复画板。",
+    editorReloadAction: "刷新页面",
     providerLoadFailed: "桌面连接异常，暂时无法读取模型服务配置。",
     createProjectFailed: "新建项目失败。",
     openProjectFailed: "打开项目失败。",
@@ -205,7 +208,6 @@ const zhCnCopy = {
     generateFailed: "生成图片失败。",
   },
   debugError: {
-    eyebrow: "调试信息",
     title: "详细报错",
     view: "查看详细报错",
     close: "关闭",
@@ -619,7 +621,6 @@ const zhCnCopy = {
     },
   },
   projectDataReport: {
-    eyebrow: "项目数据",
     title: {
       checkAndRepair: "数据检查与修复详情",
       repair: "数据修复详情",

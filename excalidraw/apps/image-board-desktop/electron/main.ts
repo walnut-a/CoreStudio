@@ -105,6 +105,7 @@ import {
 } from "./mainProcessErrors";
 import { shouldOpenDevTools } from "./devtools";
 import { createQuitState } from "./windowLifecycle";
+import { createLauncherLivenessGuard } from "./launcherLiveness";
 import { disableRendererPageZoom } from "./windowZoomGuard";
 import {
   inspectCodexIntegration,
@@ -158,7 +159,12 @@ import {
 } from "./room/projectRoomSenderBindings";
 import {
   buildDesktopStartupIdentity,
+  removeDesktopStartupIdentity,
+  resolveDesktopInstanceKind,
+  resolveDesktopRendererIdentityUrl,
   resolveDesktopWindowTitle,
+  resolveMainProcessGroupId,
+  writeDesktopStartupIdentity,
 } from "./desktopStartupIdentity";
 import { createActiveProjectDescriptorSync } from "./activeProjectDescriptorSync";
 import { resolveDesktopMenuEventTarget } from "./desktopMenuEventRouting";
@@ -334,7 +340,76 @@ const desktopWindowTitle = resolveDesktopWindowTitle({
   appName: desktopRuntime.appName,
   configuredTitle: process.env.CORESTUDIO_WINDOW_TITLE,
 });
+const desktopInstanceKind = resolveDesktopInstanceKind({
+  runtimeMode: desktopRuntime.mode,
+  isPackaged: app.isPackaged,
+});
+const desktopRuntimeLabel =
+  desktopInstanceKind === "source-dev"
+    ? "SOURCE DEV"
+    : desktopInstanceKind === "packaged-preview"
+    ? "PACKAGED PREVIEW"
+    : desktopInstanceKind === "production"
+    ? "PRODUCTION"
+    : desktopInstanceKind === "qa"
+    ? "QA"
+    : "PACKAGED DEV";
+const configuredDebugPort = Number(process.env.CORESTUDIO_DEBUG_PORT);
+const desktopIdentityPath =
+  process.env.CORESTUDIO_RUNTIME_IDENTITY_FILE?.trim() ||
+  path.join(app.getPath("userData"), "runtime-identity.json");
+const desktopShellRendererUrl = resolveDesktopRendererIdentityUrl({
+  developmentUrl: rendererUrl,
+  packagedIndexPath: path.join(__dirname, "..", "dist", "index.html"),
+});
+const desktopStartupIdentity = buildDesktopStartupIdentity({
+  schemaVersion: 1,
+  instanceKind: desktopInstanceKind,
+  runtimeLabel: desktopRuntimeLabel,
+  runtimeMode: desktopRuntime.mode,
+  appName: desktopRuntime.appName,
+  appPath: app.getAppPath(),
+  executable: process.execPath,
+  userData: app.getPath("userData"),
+  windowTitle: desktopWindowTitle,
+  bridgePort: desktopRuntime.bridgePort,
+  sessionPath: desktopRuntime.sessionPath,
+  settingsDirectory: desktopRuntime.settingsDirectory,
+  rendererUrl: desktopShellRendererUrl,
+  debugPort:
+    Number.isSafeInteger(configuredDebugPort) && configuredDebugPort > 0
+      ? configuredDebugPort
+      : null,
+  identityPath: desktopIdentityPath,
+  mainPid: process.pid,
+  mainPgid: resolveMainProcessGroupId(),
+  gitCommit: process.env.CORESTUDIO_GIT_COMMIT?.trim() || "packaged",
+  gitDirty: process.env.CORESTUDIO_GIT_DIRTY === "1",
+  appVersion: DESKTOP_APP_VERSION,
+  buildId:
+    process.env.CORESTUDIO_BUILD_ID?.trim() ||
+    `${DESKTOP_APP_VERSION}-${desktopRuntimeLabel
+      .toLowerCase()
+      .replaceAll(" ", "-")}`,
+});
 const DESKTOP_TITLEBAR_HEIGHT = 44;
+const configuredLauncherPid = Number(process.env.CORESTUDIO_LAUNCHER_PID);
+if (
+  desktopInstanceKind === "source-dev" &&
+  Number.isSafeInteger(configuredLauncherPid) &&
+  configuredLauncherPid > 0
+) {
+  const launcherLivenessGuard = createLauncherLivenessGuard({
+    launcherPid: configuredLauncherPid,
+    onOrphaned: () => {
+      console.error(
+        `[desktop:launcher-missing] launcherPID=${configuredLauncherPid}; shutting down SOURCE DEV`,
+      );
+      app.quit();
+    },
+  });
+  setInterval(() => launcherLivenessGuard.check(), 500).unref();
+}
 
 const getProjectViewRegistry = () => {
   if (!projectViewRegistry) {
@@ -2237,6 +2312,7 @@ const registerIpcHandlers = () => {
     return {
       name: desktopRuntime.appName,
       version: DESKTOP_APP_VERSION,
+      runtimeIdentity: desktopStartupIdentity,
     };
   });
 
@@ -2714,19 +2790,9 @@ const readClipboardImageFromSystem = () => {
 
 if (hasSingleInstanceLock) {
   app.whenReady().then(async () => {
+    await writeDesktopStartupIdentity(desktopStartupIdentity);
     console.log(
-      "[desktop:startup]",
-      buildDesktopStartupIdentity({
-        runtimeMode: desktopRuntime.mode,
-        appName: desktopRuntime.appName,
-        appPath: app.getAppPath(),
-        executable: process.execPath,
-        userData: app.getPath("userData"),
-        windowTitle: desktopWindowTitle,
-        bridgePort: desktopRuntime.bridgePort,
-        sessionPath: desktopRuntime.sessionPath,
-        settingsDirectory: desktopRuntime.settingsDirectory,
-      }),
+      `[corestudio:runtime-identity] ${JSON.stringify(desktopStartupIdentity)}`,
     );
     localeSettingsController = createLocaleSettingsController({
       store: createLocaleSettingsStore({
@@ -2802,10 +2868,18 @@ app.on("will-quit", (event) => {
     return;
   }
 
-  void stopLocalBridge({ final: true }).finally(() => {
-    localBridgeCleanupFinished = true;
-    app.quit();
-  });
+  void stopLocalBridge({ final: true })
+    .then(() =>
+      removeDesktopStartupIdentity(desktopIdentityPath, process.pid).catch(
+        (error) => {
+          console.error("[desktop:identity-cleanup-failed]", error);
+        },
+      ),
+    )
+    .finally(() => {
+      localBridgeCleanupFinished = true;
+      app.quit();
+    });
 });
 
 app.on("window-all-closed", () => {

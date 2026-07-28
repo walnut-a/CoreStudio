@@ -6,22 +6,26 @@ import { createRequire } from "module";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { scanSecretFiles } = require("./check-secrets.cjs") as {
-  scanSecretFiles: (files: string[]) => Promise<
-    Array<{
-      filePath: string;
-      line: number;
-      rule: string;
-      excerpt: string;
-    }>
-  >;
-};
+const { collectSourceFiles, scanSecretFiles } =
+  require("./check-secrets.cjs") as {
+    collectSourceFiles: () => Promise<string[]>;
+    scanSecretFiles: (files: string[]) => Promise<
+      Array<{
+        filePath: string;
+        line: number;
+        rule: string;
+        excerpt: string;
+      }>
+    >;
+  };
 
 describe("check-secrets", () => {
   let tempDir = "";
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-secret-check-"));
+    tempDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "image-board-secret-check-"),
+    );
   });
 
   afterEach(async () => {
@@ -72,5 +76,22 @@ describe("check-secrets", () => {
         rule: "openai-or-compatible-key",
       }),
     ]);
+  });
+
+  it("excludes fixed runtime profiles that are not package inputs", async () => {
+    const files = await collectSourceFiles();
+
+    expect(files).not.toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(`${path.sep}.electron-dev-profile${path.sep}`),
+      ]),
+    );
+    expect(files).not.toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          `${path.sep}.electron-preview-profile${path.sep}`,
+        ),
+      ]),
+    );
   });
 });

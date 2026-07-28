@@ -21,9 +21,9 @@ colors:
 typography:
   body:
     fontFamily: '"Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "0.9375rem"
+    fontSize: "0.875rem"
     fontWeight: 400
-    lineHeight: 1.55
+    lineHeight: 1.45
   title:
     fontFamily: '"Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "1rem"
@@ -32,18 +32,20 @@ typography:
   label:
     fontFamily: '"Assistant", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "0.75rem"
-    fontWeight: 650
+    fontWeight: 600
     lineHeight: 1.2
 rounded:
   md: "0.375rem"
   lg: "0.5rem"
   pill: "999px"
 spacing:
+  xxs: "2px"
   xs: "4px"
   sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "24px"
+  md: "10px"
+  lg: "12px"
+  xl: "14px"
+  2xl: "16px"
 components:
   button-default:
     backgroundColor: "{colors.island}"
@@ -132,9 +134,10 @@ CoreStudio 使用 Excalidraw 风格的 restrained palette：白色 island、浅�
 ### Hierarchy
 
 - **Headline** (700, 24px, 1.2): 欢迎页标题、对话框大标题。不要在紧凑面板里使用 hero 级文字。
-- **Title** (700, 1rem, 1.25-1.3): inspector 小节标题、popover 主状态、面板标题。
-- **Body** (400, 0.875-0.9375rem, 1.45-1.6): 说明文字、路径、提示词、列表内容。
-- **Label** (600-700, 0.75rem, 1.2): eyebrow、小标签、badge、菜单辅助文字。
+- **Title** (700, 1rem, 1.25-1.3): inspector 面板标题、popover 主状态。
+- **Subheading** (600, 0.875rem, 1.3-1.35): inspector 内容标题和紧凑区块标题。
+- **Body** (400, 0.875rem, 1.45): 说明文字、路径、提示词、列表内容和参数值。
+- **Label** (600-700, 0.75rem, 1.2-1.25): inspector 分组标题、字段名、eyebrow、小标签、badge、菜单辅助文字。
 - **Caption** (400-650, 0.75rem, 1.25-1.35): 次级状态、路径、时间、计数。
 
 ### Named Rules

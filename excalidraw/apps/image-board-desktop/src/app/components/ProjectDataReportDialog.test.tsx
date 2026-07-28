@@ -100,6 +100,7 @@ describe("ProjectDataReportDialog", () => {
 
     const statusSummary = screen.getByLabelText("图片状态");
 
+    expect(screen.queryByText("项目数据")).not.toBeInTheDocument();
     expect(within(statusSummary).getByText("已在画板")).toBeInTheDocument();
     expect(
       within(statusSummary).getByText("可通过修复处理"),

@@ -31,6 +31,8 @@ const allowedExtensions = new Set([
 
 const skippedDirectoryNames = new Set([
   ".git",
+  ".electron-dev-profile",
+  ".electron-preview-profile",
   ".turbo",
   ".vite",
   "build",
@@ -39,6 +41,7 @@ const skippedDirectoryNames = new Set([
   "dist-electron",
   "node_modules",
   "release",
+  "release-dev",
 ]);
 
 const allowlistMarkers = [
@@ -165,7 +168,8 @@ const scanSecretFiles = async (files) => {
         filePath,
         line: 1,
         rule: "local-settings-file",
-        excerpt: "image-board-settings.json should never be committed or packaged",
+        excerpt:
+          "image-board-settings.json should never be committed or packaged",
       });
       continue;
     }

@@ -34,7 +34,7 @@ CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" corepack yarn package
 
 正式发布不要在这个命令前额外运行 `build:desktop`；`package:desktop` 已经包含唯一一次生产构建。
 
-同一版本、同一平台和同一份源码已经成功生成完整 App 与 DMG 时，再次执行该命令会直接复用现有产物，不会重复构建、公证。确实需要重新生成时，显式使用：
+同一版本、同一平台、同一份源码和同一套 Node / esbuild / Electron / electron-builder 工具链已经成功生成完整 App 与 DMG 时，再次执行该命令会直接复用现有产物，不会重复构建、公证。源码或实际工具链版本变化后必须重新生成，不能复用旧包。确实需要强制重新生成时，显式使用：
 
 ```sh
 CORESTUDIO_FORCE_PACKAGE=1 CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychain-db" \
@@ -46,10 +46,12 @@ CORESTUDIO_FORCE_PACKAGE=1 CSC_KEYCHAIN="$HOME/Library/Keychains/mylogin.keychai
 这个命令会执行：
 
 - renderer build
-- Electron main / preload build
+- 使用 workspace 内声明版本的 esbuild 构建 Electron main / preload / CLI runtime
+- 扫描 renderer 和 Electron 构建输出，禁止写入 `/Users/`、`/home/` 或 `C:\Users\` 开发机路径
 - 源码密钥扫描
 - 打包输入密钥扫描
 - electron-builder 生成签名 App 与 DMG
+- 扫描签名 App 内的 `app.asar`，在公证前再次阻断开发机路径
 - DMG 签名
 - Apple 公证
 - DMG / App 写入公证票据
@@ -66,6 +68,15 @@ excalidraw/apps/image-board-desktop/release/
 ```
 
 `release/` 已被 git 忽略。
+
+路径扫描也可以独立复核：
+
+```sh
+corepack yarn --cwd apps/image-board-desktop check:bundle-paths --build
+corepack yarn --cwd apps/image-board-desktop check:bundle-paths --release
+```
+
+`build:electron` 通过固定的 Node 脚本设置 esbuild `absWorkingDir`，并在执行构建前核对实际加载版本必须等于 `package.json` 声明版本。禁止改回依赖调用目录或全局 PATH 的裸 `esbuild` 命令。
 
 打包后先跑一次最小冒烟：
 

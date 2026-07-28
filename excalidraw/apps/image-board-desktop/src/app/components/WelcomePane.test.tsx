@@ -164,9 +164,9 @@ describe("WelcomePane", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "删除项目：常用项目" }));
 
-    expect(
-      screen.getByRole("dialog", { name: "删除项目" }),
-    ).toBeInTheDocument();
+    const deleteDialog = screen.getByRole("dialog", { name: "删除项目" });
+    expect(deleteDialog).toBeInTheDocument();
+    expect(within(deleteDialog).queryByText("项目列表")).not.toBeInTheDocument();
     expect(
       screen.getByText("这只会从项目列表移除记录，不会删除本地项目文件夹。"),
     ).toBeInTheDocument();
@@ -207,7 +207,7 @@ describe("WelcomePane", () => {
     );
 
     const dialog = screen.getByRole("dialog", { name: "Remove project" });
-    expect(within(dialog).getByText("Projects")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Projects")).not.toBeInTheDocument();
     expect(within(dialog).getByText("常用项目")).toBeInTheDocument();
     expect(
       within(dialog).getByText(

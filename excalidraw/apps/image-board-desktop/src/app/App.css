@@ -96,6 +96,34 @@ html.image-board-desktop-titlebar-hidden {
   font-weight: var(--font-weight-semibold);
 }
 
+.image-board-canvas__loading-card--refresh-required {
+  display: grid;
+  width: min(420px, 100%);
+  gap: 14px;
+  padding: 18px;
+  font-weight: var(--font-weight-regular);
+}
+
+.image-board-canvas__loading-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.image-board-canvas__loading-copy strong {
+  font-size: var(--ui-text-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.image-board-canvas__loading-copy span {
+  color: var(--color-gray-60);
+  font-size: var(--ui-text-size-md);
+  line-height: 1.5;
+}
+
+.image-board-canvas__loading-card--refresh-required > .image-board-button {
+  justify-self: start;
+}
+
 .image-board-canvas__loading-spinner {
   width: 18px;
   height: 18px;

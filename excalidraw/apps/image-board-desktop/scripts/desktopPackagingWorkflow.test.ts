@@ -28,6 +28,24 @@ describe("CoreStudio desktop packaging workflow", () => {
     expect(packageScript).not.toContain("electron-builder &&");
   });
 
+  it("blocks developer paths before packaging and verifies the packaged asar", () => {
+    const packageScript = packageJson.scripts["package:app:raw"];
+    const buildCheck = "yarn check:bundle-paths --build";
+    const releaseCheck = "yarn check:bundle-paths --release";
+
+    expect(packageScript).toContain(buildCheck);
+    expect(packageScript).toContain(releaseCheck);
+    expect(packageScript.indexOf(buildCheck)).toBeLessThan(
+      packageScript.indexOf("electron-builder --mac dmg"),
+    );
+    expect(packageScript.indexOf(releaseCheck)).toBeGreaterThan(
+      packageScript.indexOf("electron-builder --mac dmg"),
+    );
+    expect(packageScript.indexOf(releaseCheck)).toBeLessThan(
+      packageScript.indexOf("yarn notarize:release"),
+    );
+  });
+
   it("routes formal packaging through the duplicate-run guard", () => {
     expect(packageJson.scripts["package:app"]).toBe(
       "node scripts/package-once.cjs",

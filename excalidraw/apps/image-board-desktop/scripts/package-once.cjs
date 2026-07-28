@@ -4,12 +4,14 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { isDeepStrictEqual } = require("node:util");
 
 const appRoot = path.resolve(__dirname, "..");
 const releaseDir = path.join(appRoot, "release");
 const statePath = path.join(releaseDir, ".corestudio-package-state.json");
 const lockPath = path.join(releaseDir, ".corestudio-package.lock");
 const packageJson = require(path.join(appRoot, "package.json"));
+const PACKAGE_STATE_SCHEMA_VERSION = 2;
 
 const productName = packageJson.build?.productName ?? "CoreStudio";
 const version = packageJson.version;
@@ -102,6 +104,24 @@ const readState = () => {
   }
 };
 
+const resolveInstalledPackageVersion = (packageName) => {
+  const manifestPath = require.resolve(`${packageName}/package.json`, {
+    paths: [appRoot],
+  });
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (typeof manifest.version !== "string" || !manifest.version) {
+    throw new Error(`${packageName} package manifest is missing a version.`);
+  }
+  return manifest.version;
+};
+
+const getInstalledToolchainVersions = () => ({
+  node: process.versions.node,
+  esbuild: resolveInstalledPackageVersion("esbuild"),
+  electron: resolveInstalledPackageVersion("electron"),
+  electronBuilder: resolveInstalledPackageVersion("electron-builder"),
+});
+
 const isLegacyZipArtifact = (artifact) =>
   artifact.endsWith("-mac.zip") || artifact.endsWith("-mac.zip.blockmap");
 
@@ -112,6 +132,7 @@ const hasReusablePackage = ({
   platform,
   arch,
   releaseDir: expectedReleaseDir,
+  toolchain,
 }) => {
   const requiredArtifacts = Array.isArray(state?.artifacts)
     ? state.artifacts.filter((artifact) => !isLegacyZipArtifact(artifact))
@@ -119,10 +140,12 @@ const hasReusablePackage = ({
 
   return Boolean(
     state &&
+      state.schemaVersion === PACKAGE_STATE_SCHEMA_VERSION &&
       state.fingerprint === fingerprint &&
       state.version === expectedVersion &&
       state.platform === platform &&
       state.arch === arch &&
+      isDeepStrictEqual(state.toolchain, toolchain) &&
       requiredArtifacts.length > 0 &&
       requiredArtifacts.every((artifact) =>
         fs.existsSync(path.join(expectedReleaseDir, artifact)),
@@ -230,6 +253,7 @@ const runRawPackage = () => {
 const main = () => {
   const fingerprint = getSourceFingerprint();
   const forcePackage = process.env.CORESTUDIO_FORCE_PACKAGE === "1";
+  const toolchain = getInstalledToolchainVersions();
 
   removeLegacyZipArtifacts({
     releaseDir,
@@ -247,6 +271,7 @@ const main = () => {
       platform: process.platform,
       arch: process.arch,
       releaseDir,
+      toolchain,
     })
   ) {
     console.log(
@@ -263,11 +288,13 @@ const main = () => {
       statePath,
       `${JSON.stringify(
         {
+          schemaVersion: PACKAGE_STATE_SCHEMA_VERSION,
           fingerprint,
           version,
           platform: process.platform,
           arch: process.arch,
           artifacts,
+          toolchain,
           completedAt: new Date().toISOString(),
         },
         null,
@@ -280,6 +307,7 @@ const main = () => {
 };
 
 module.exports = {
+  getInstalledToolchainVersions,
   hasReusablePackage,
   removeLegacyZipArtifacts,
 };

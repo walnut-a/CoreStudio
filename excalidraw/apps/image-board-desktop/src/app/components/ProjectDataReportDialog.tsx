@@ -207,9 +207,6 @@ export function ProjectDataReportDialog({
       >
         <div className="dialog-card__header">
           <div>
-            <span className="dialog-card__eyebrow">
-              {copy.projectDataReport.eyebrow}
-            </span>
             <h2 id="project-data-report-title">{title}</h2>
           </div>
           <DesktopButton

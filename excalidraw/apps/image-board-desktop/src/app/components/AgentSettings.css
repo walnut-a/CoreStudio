@@ -53,7 +53,7 @@
   border: 1px solid var(--input-border-color);
   border-radius: var(--border-radius-lg);
   background-color: var(--input-bg-color);
-  background-image: var(--dropdown-icon);
+  background-image: var(--corestudio-dropdown-icon);
   background-repeat: no-repeat;
   background-position: calc(100% - 14px) 50%;
   background-size: 12px;
@@ -145,7 +145,7 @@
   width: 14px;
   height: 14px;
   flex: 0 0 auto;
-  background: var(--dropdown-icon) center / 14px 14px no-repeat;
+  background: var(--corestudio-dropdown-icon) center / 14px 14px no-repeat;
   transition: transform 0.15s ease;
 }
 

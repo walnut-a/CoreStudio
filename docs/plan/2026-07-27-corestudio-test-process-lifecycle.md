@@ -2,7 +2,7 @@
 
 ## 当前目标
 
-在不改变 CoreStudio 产品行为、正式验证顺序和发版语义的前提下，把桌面全量测试收敛为一套默认一次性、资源有界、互斥运行、可取消且可复查的执行流程，并保留明确的交互式 watch 入口。
+在不改变 CoreStudio 产品业务行为、正式验证强度和发版语义的前提下，治理测试与 GUI 验收两类长流程：桌面全量测试保持一次性、资源有界、互斥、可取消和可复查；日常改动按 L1–L4 从最低充分层级验证；源码开发与打包预览使用可机器校验且可精确清理的固定运行身份。
 
 ## 事故根因
 
@@ -24,15 +24,32 @@
 - runner、锁、命令构造、fixture 生命周期和 CI workflow 合同测试；
 - 仓库级长任务执行协议；
 - 2/4 worker 基线和最终完整测试的时间、峰值内存、残留进程证据。
+- L1–L4 验证分级、升级条件与合并验收规则；
+- 源码开发、打包预览和正式版的可机器读取身份；
+- GUI 自动化操作前的实例校验、冲突快速失败和精确进程组清理。
 
 本轮不包含：
 
 - 产品业务行为修改；
-- Electron UI 验收；
-- 构建、打包、公证、发布；
+- 正式打包、公证、发布；
 - 提交、推送或 PR。
 
 ## 设计决策
+
+### 验证层级
+
+- L1：文案、简单样式、局部逻辑和小范围重构，只做相关单测、静态检查和必要 typecheck。
+- L2：复杂组件结构、输入行为、响应式或主题改动，使用 Composer Lab 等组件级入口。
+- L3：真实窗口、字体、缩放、跨层 CSS、菜单、IPC、文件选择或 Electron 行为，使用固定 `dev:desktop`。
+- L4：构建、资源装载、签名、安装包或发版准备，才使用打包预览、packaged smoke 或正式链路。
+
+从最低充分层级开始，有证据不足才升级。同类小调整在开发中合并验收；完整桌面测试只在收尾或高风险变更时运行一次；打包不作为普通 UI 修改的默认验证。
+
+### Electron 运行身份
+
+源码开发固定使用 `.electron-dev-profile`、Debug `9331`、Bridge `60910`；打包预览固定使用 `.electron-preview-profile`、Debug `9332`、Bridge `60913`。主进程输出并原子写入包含路径、端口、PID/PGID、Git/dirty、版本和构建标识的 JSON 身份。
+
+GUI 校验器必须同时核对身份文件与精确进程命令行，禁止按显示名称选择。关键字段错误、身份不完整或未声明目标时发现多实例均快速失败。窗口标签只用于人工辨认，不参与自动化信任判断。启动器在启动前检查同类精确进程；取消后只终止本次记录的 PGID，并复查组内残留。
 
 ### 单一 runner
 
@@ -79,6 +96,8 @@
 4. 验证单元测试、stale lock、重复启动、SIGINT/SIGTERM/超时/runner 异常退出。
 5. 运行受影响的定向 Vitest 和 `test:typecheck`。
 6. 最终只运行一次新的完整 `test:desktop`，随后按 cwd、PID、PPID、PGID、命令行精确复查残留。
+7. 为运行身份先添加构造、源码/预览区分、错误/多实例、禁止名称选择和精确清理测试，再实现固定启动与校验入口。
+8. 运行身份定向测试和 `test:typecheck` 后，分别启动一次源码实例与轻量打包预览实例，校验身份 JSON 和实际进程一致，再只清理本次 PGID。
 
 ## 当前基线
 
@@ -117,10 +136,10 @@
 两次基线均在实现前串行执行，使用同一命令范围和 `dot` reporter，并按独立
 PGID 每 200 ms 采样进程组总 RSS：
 
-| worker 上限 | 测试 | Vitest 时间 | runner 墙钟 | 峰值进程组 RSS | 峰值进程数 |
-| --- | --- | --- | --- | --- | --- |
-| 2 | 235 files / 1809 tests | 105.08 s | 105.765 s | 751.5 MiB | 7 |
-| 4 | 235 files / 1809 tests | 111.94 s | 113.292 s | 1114.2 MiB | 9 |
+| worker 上限 | 测试                   | Vitest 时间 | runner 墙钟 | 峰值进程组 RSS | 峰值进程数 |
+| ----------- | ---------------------- | ----------- | ----------- | -------------- | ---------- |
+| 2           | 235 files / 1809 tests | 105.08 s    | 105.765 s   | 751.5 MiB      | 7          |
+| 4           | 235 files / 1809 tests | 111.94 s    | 113.292 s   | 1114.2 MiB     | 9          |
 
 4 worker 相比 2 worker 墙钟增加约 7.1%，峰值 RSS 增加约 48.3%，因此默认采用 2。
 
@@ -165,6 +184,44 @@ cleanup=complete reason=timeout termSent=true killSent=false remaining=0 lockRel
 最终完整测试使用 Vitest 默认 reporter，且并发工作区在基线后又增加了测试，
 因此其 235.917 s 不与前面的受控 2/4 worker `dot` reporter 基线直接比较。
 
+### 2026-07-28 验证分级与运行身份
+
+TDD 红灯先确认了以下缺口：
+
+- 启动身份缺少 Debug、renderer、PID/PGID、Git/dirty、版本和构建标识；
+- 打包预览与源码开发共享开发身份，无法可靠区分；
+- 运行实例校验器和精确停止入口不存在；
+- 旧预览脚本被测试导入时会直接启动应用；
+- 外层 `concurrently` 取消时，Electron 可能变成 `PPID=1` 残留；
+- 打包身份最初没有记录实际 `file://` renderer URL。
+
+实现后定向回归共 12 个文件、51 项测试通过，覆盖身份构造、源码/预览区分、
+错误字段、多实例冲突、禁止名称选择、启动前冲突、精确 PGID 清理、启动器租约、
+固定 runtime 边界、打包 workflow、smoke 合同、secret scan profile 排除和界面
+标识。`corepack yarn test:typecheck --pretty false` 通过。
+
+真实 SOURCE DEV 验收记录：
+
+- 主 PID/PGID：`83300/83300`，后续清理回归实例为 `4316/4316`；
+- Debug `9331`、Bridge `60910`、renderer
+  `http://127.0.0.1:5174/?desktopMode=shell`；
+- 身份校验器逐字段通过，真实 DOM 标识为
+  `SOURCE DEV · 9ce3740ed-dirty`；
+- 按显示名定位曾实际选中旧 `release-dev` app.asar，按 Debug `9331` 定位才命中
+  正确源码 renderer，证实显示名不能作为自动化证据；
+- 向外层固定 PGID 发送 SIGINT 后，外层进程组、Electron PGID 以及
+  `5174/9331/60910` 均无残留。
+
+真实 PACKAGED PREVIEW 验收记录：
+
+- 只生成未签名 `electron-builder --dir` 开发目录包，没有 DMG、签名、公证或发布；
+- 主 PID/PGID `31616/31616`，Debug `9332`，固定 Bridge 身份 `60913`；
+- 身份中的 app.asar、可执行文件、`.electron-preview-profile`、session、Git/dirty、
+  版本和实际 `file://.../dist/index.html?desktopMode=shell` 均与进程及 Debug 页面
+  一致；
+- 真实 DOM 标识为 `PACKAGED PREVIEW · 9ce3740ed-dirty`；
+- 精确停止输出 `remaining=0`，PGID `31616` 和 Debug `9332` 无残留。
+
 ## 当前限制
 
 - macOS/POSIX 的独立进程组、信号和 supervisor 断连清理已真实验证；Windows
@@ -178,3 +235,9 @@ cleanup=complete reason=timeout termSent=true killSent=false remaining=0 lockRel
   自动恢复 stale lock。
 - 进程组峰值 RSS 采样目前依赖 POSIX `ps`；Windows 仍能执行生命周期治理，但
   runner 不提供同等的 RSS 指标。
+- 运行身份的实际进程、端口和取消验收只在 macOS 完成；Windows 的 GUI 进程树
+  与调试端口定位尚未实机验证。
+- 开发目录包成功生成，但 electron-builder 的依赖收集器仍提示
+  `@lexical/yjs` 的 peer `yjs@>=13.5.22` 缺失；本轮未扩大为依赖治理或正式包验证。
+- `PACKAGED PREVIEW` 默认关闭 Agent Bridge，因此身份保留固定 Bridge 端口与
+  session 路径，但本轮没有把 Bridge 监听作为预览验收条件。

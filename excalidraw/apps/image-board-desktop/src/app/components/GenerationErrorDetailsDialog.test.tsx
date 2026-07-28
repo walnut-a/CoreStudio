@@ -56,6 +56,7 @@ describe("GenerationErrorDetailsDialog", () => {
     expect(
       screen.getByRole("dialog", { name: copy.debugError.title }),
     ).toBeInTheDocument();
+    expect(screen.queryByText("调试信息")).not.toBeInTheDocument();
     expect(screen.getByText("ZenMux")).toBeInTheDocument();
     expect(
       screen.getByText("google/gemini-3-pro-image-preview"),

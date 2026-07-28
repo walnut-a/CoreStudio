@@ -247,9 +247,6 @@ export const WelcomePane = ({
           >
             <div className="dialog-card__header">
               <div>
-                <span className="dialog-card__eyebrow">
-                  {copy.welcome.recentTitle}
-                </span>
                 <h2 id={deleteDialogTitleId}>{copy.welcome.deleteProject}</h2>
               </div>
               <DesktopButton

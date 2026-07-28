@@ -188,6 +188,10 @@ export const enCopy: DesktopCopy = {
     retryInstruction:
       "In development, run `corepack yarn start:desktop`. For a packaged app, quit and reopen CoreStudio.",
     editorLoading: "Loading board...",
+    editorReloadRequired: "Board connection lost",
+    editorReloadInstruction:
+      "After CoreStudio restarts, refresh this page to restore the board.",
+    editorReloadAction: "Refresh page",
     providerLoadFailed:
       "The desktop connection is unavailable, so model service settings could not be loaded.",
     createProjectFailed: "Could not create the project.",
@@ -200,7 +204,6 @@ export const enCopy: DesktopCopy = {
     generateFailed: "Image generation failed.",
   },
   debugError: {
-    eyebrow: "Debug information",
     title: "Error details",
     view: "View error details",
     close: "Close",
@@ -645,7 +648,6 @@ export const enCopy: DesktopCopy = {
     },
   },
   projectDataReport: {
-    eyebrow: "Project data",
     title: {
       checkAndRepair: "Data check and repair details",
       repair: "Data repair details",

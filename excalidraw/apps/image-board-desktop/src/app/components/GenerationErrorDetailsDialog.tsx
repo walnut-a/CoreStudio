@@ -33,9 +33,6 @@ export const GenerationErrorDetailsDialog = ({
       >
         <div className="dialog-card__header">
           <div>
-            <span className="dialog-card__eyebrow">
-              {copy.debugError.eyebrow}
-            </span>
             <h2 id="generation-error-details-title">{copy.debugError.title}</h2>
           </div>
           <DesktopButton

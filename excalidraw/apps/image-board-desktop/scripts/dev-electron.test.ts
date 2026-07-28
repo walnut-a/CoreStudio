@@ -9,6 +9,12 @@ const loadModule = () =>
       appRoot: string;
       electronPath: string;
       env?: NodeJS.ProcessEnv;
+      buildIdentity?: {
+        gitCommit: string;
+        gitDirty: boolean;
+        appVersion: string;
+        buildId: string;
+      };
     }) => {
       command: string;
       args: string[];
@@ -21,6 +27,13 @@ const loadModule = () =>
       bridgePort: number;
       sessionPath: string;
       appName: string;
+      identityPath: string;
+      instanceKind: string;
+      buildIdentity: {
+        gitCommit: string;
+        gitDirty: boolean;
+        buildId: string;
+      };
     };
   };
 
@@ -35,6 +48,12 @@ describe("buildDevElectronLaunch", () => {
       appRoot,
       electronPath,
       env: { PATH: "/usr/bin" },
+      buildIdentity: {
+        gitCommit: "9ce3740ed",
+        gitDirty: true,
+        appVersion: "1.1.29",
+        buildId: "9ce3740ed-dirty",
+      },
     });
 
     expect(launch).toMatchObject({
@@ -43,7 +62,7 @@ describe("buildDevElectronLaunch", () => {
       profilePath: path.join(appRoot, ".electron-dev-profile"),
       rendererUrl: "http://127.0.0.1:5174",
       debuggingPort: 9331,
-      windowTitle: "CoreStudio · DEV",
+      windowTitle: "CoreStudio · SOURCE DEV · 9ce3740ed-dirty",
       bridgePort: 60910,
       sessionPath: path.join(
         appRoot,
@@ -51,6 +70,12 @@ describe("buildDevElectronLaunch", () => {
         "agent-session.json",
       ),
       appName: "CoreStudio Dev",
+      identityPath: path.join(
+        appRoot,
+        ".electron-dev-profile",
+        "runtime-identity.json",
+      ),
+      instanceKind: "source-dev",
     });
     expect(launch.args).toEqual([
       `--user-data-dir=${path.join(appRoot, ".electron-dev-profile")}`,
@@ -61,7 +86,7 @@ describe("buildDevElectronLaunch", () => {
       expect.objectContaining({
         PATH: "/usr/bin",
         ELECTRON_RENDERER_URL: "http://127.0.0.1:5174",
-        CORESTUDIO_WINDOW_TITLE: "CoreStudio · DEV",
+        CORESTUDIO_WINDOW_TITLE: "CoreStudio · SOURCE DEV · 9ce3740ed-dirty",
         CORESTUDIO_RUNTIME_MODE: "development",
         CORESTUDIO_APP_NAME: "CoreStudio Dev",
         CORESTUDIO_AGENT_BRIDGE_PORT: "60910",
@@ -74,10 +99,32 @@ describe("buildDevElectronLaunch", () => {
           appRoot,
           ".electron-dev-profile",
         ),
+        CORESTUDIO_RUNTIME_IDENTITY_FILE: path.join(
+          appRoot,
+          ".electron-dev-profile",
+          "runtime-identity.json",
+        ),
+        CORESTUDIO_INSTANCE_KIND: "source-dev",
+        CORESTUDIO_DEBUG_PORT: "9331",
+        CORESTUDIO_GIT_COMMIT: "9ce3740ed",
+        CORESTUDIO_GIT_DIRTY: "1",
+        CORESTUDIO_BUILD_ID: "9ce3740ed-dirty",
+        CORESTUDIO_LAUNCHER_PID: String(process.pid),
       }),
     );
     expect(path.isAbsolute(launch.command)).toBe(true);
     expect(path.isAbsolute(launch.cwd)).toBe(true);
+  });
+
+  it("uses an owned process group so cancellation never targets Electron by name", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "dev-electron.cjs"),
+      "utf8",
+    );
+
+    expect(source).toContain('detached: process.platform !== "win32"');
+    expect(source).toMatch(/terminateOwnedProcessGroup/);
+    expect(source).not.toMatch(/killall|pkill/);
   });
 
   it("rejects relative paths so the launcher cannot depend on the shell cwd", () => {

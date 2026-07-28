@@ -202,7 +202,7 @@ export const ImageInspector = ({
             </div>
           </header>
 
-          <section className="image-inspector__prompt-card">
+          <section className="image-inspector__prompt-section">
             <div className="image-inspector__section-header">
               <h3>{copy.inspector.prompt}</h3>
             </div>
@@ -264,7 +264,11 @@ export const ImageInspector = ({
           </section>
           {task.status === "error" && (
             <div className="image-inspector__actions">
-              <DesktopButton type="button" onClick={onCopyTaskError}>
+              <DesktopButton
+                type="button"
+                size="small"
+                onClick={onCopyTaskError}
+              >
                 {copy.inspector.copyTaskError}
               </DesktopButton>
             </div>
@@ -338,7 +342,7 @@ export const ImageInspector = ({
           </div>
         </header>
 
-        <section className="image-inspector__prompt-card">
+        <section className="image-inspector__prompt-section">
           <div className="image-inspector__section-header">
             <h3>{copy.inspector.prompt}</h3>
           </div>
@@ -462,6 +466,7 @@ export const ImageInspector = ({
           {record.sourceType === "generated" && (
             <DesktopButton
               type="button"
+              size="small"
               onClick={() => onLocateImageAsset(record.fileId)}
             >
               {copy.inspector.locateImageAsset}
@@ -469,6 +474,7 @@ export const ImageInspector = ({
           )}
           <DesktopButton
             type="button"
+            size="small"
             onClick={onCopyPrompt}
             disabled={!record.prompt}
           >

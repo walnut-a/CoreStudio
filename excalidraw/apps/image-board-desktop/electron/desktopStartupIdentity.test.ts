@@ -75,7 +75,7 @@ describe("desktop startup identity", () => {
         mainPgid: 1200,
         gitCommit: "9ce3740ed",
         gitDirty: true,
-        appVersion: "1.1.29",
+        appVersion: "1.1.30",
         buildId: "9ce3740ed-dirty",
       }),
     ).toEqual({
@@ -102,7 +102,7 @@ describe("desktop startup identity", () => {
       mainPgid: 1200,
       gitCommit: "9ce3740ed",
       gitDirty: true,
-      appVersion: "1.1.29",
+      appVersion: "1.1.30",
       buildId: "9ce3740ed-dirty",
     });
   });
@@ -128,7 +128,7 @@ describe("desktop startup identity", () => {
       mainPgid: 1200,
       gitCommit: "9ce3740ed",
       gitDirty: false,
-      appVersion: "1.1.29",
+      appVersion: "1.1.30",
       buildId: "9ce3740ed",
     });
     const preview = buildDesktopStartupIdentity({

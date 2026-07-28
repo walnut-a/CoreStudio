@@ -60,7 +60,7 @@ const sourceIdentity = {
   mainPgid: 1200,
   gitCommit: "9ce3740ed",
   gitDirty: false,
-  appVersion: "1.1.29",
+  appVersion: "1.1.30",
   buildId: "9ce3740ed",
 };
 

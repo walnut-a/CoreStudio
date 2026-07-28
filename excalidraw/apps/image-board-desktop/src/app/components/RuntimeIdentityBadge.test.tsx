@@ -9,7 +9,7 @@ describe("RuntimeIdentityBadge", () => {
       <RuntimeIdentityBadge
         loadAppInfo={vi.fn().mockResolvedValue({
           name: "CoreStudio Preview",
-          version: "1.1.29",
+          version: "1.1.30",
           runtimeIdentity: {
             instanceKind: "packaged-preview",
             runtimeLabel: "PACKAGED PREVIEW",
@@ -27,11 +27,11 @@ describe("RuntimeIdentityBadge", () => {
   it("does not expose the machine identity badge in production", async () => {
     const productionAppInfo = {
       name: "CoreStudio",
-      version: "1.1.29",
+      version: "1.1.30",
       runtimeIdentity: {
         instanceKind: "production",
         runtimeLabel: "PRODUCTION",
-        buildId: "1.1.29-production",
+        buildId: "1.1.30-production",
       },
     } as const;
     let resolveAppInfo: (value: typeof productionAppInfo) => void = () =>

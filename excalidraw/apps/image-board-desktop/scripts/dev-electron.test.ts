@@ -51,7 +51,7 @@ describe("buildDevElectronLaunch", () => {
       buildIdentity: {
         gitCommit: "9ce3740ed",
         gitDirty: true,
-        appVersion: "1.1.29",
+        appVersion: "1.1.30",
         buildId: "9ce3740ed-dirty",
       },
     });

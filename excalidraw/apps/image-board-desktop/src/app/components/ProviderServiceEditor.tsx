@@ -70,7 +70,8 @@ const SettingsSelect = (
 
 interface ModelCapabilitiesEditorProps {
   capabilities: ProviderCapabilities;
-  manual: boolean;
+  expanded: boolean;
+  overridden: boolean;
   modelIdPresent: boolean;
   onStartManual(): void;
   onRestoreAutomatic(): void;
@@ -79,7 +80,8 @@ interface ModelCapabilitiesEditorProps {
 
 const ModelCapabilitiesEditor = ({
   capabilities,
-  manual,
+  expanded,
+  overridden,
   modelIdPresent,
   onStartManual,
   onRestoreAutomatic,
@@ -113,7 +115,7 @@ const ModelCapabilitiesEditor = ({
           <p aria-live="polite">{summary}</p>
           {modelIdPresent ? (
             <small>
-              {manual
+              {overridden
                 ? providerCopy.capabilityManualStatus
                 : providerCopy.capabilityAutoStatus}
             </small>
@@ -123,16 +125,16 @@ const ModelCapabilitiesEditor = ({
           <button
             type="button"
             className="settings-inline-action"
-            onClick={manual ? onRestoreAutomatic : onStartManual}
+            onClick={expanded ? onRestoreAutomatic : onStartManual}
           >
-            {manual
+            {expanded
               ? providerCopy.restoreAutomaticCapabilities
               : providerCopy.adjustCapabilities}
           </button>
         ) : null}
       </div>
 
-      {manual && modelIdPresent ? (
+      {expanded && modelIdPresent ? (
         <div className="settings-capability-editor__controls">
           <label className="settings-capability-option">
             <input
@@ -250,7 +252,9 @@ export const ProviderServiceEditor = ({
     useState<ProviderCapabilities>(() =>
       getTemplateCapabilities(DEFAULT_TEMPLATE),
     );
-  const [customCapabilitiesManual, setCustomCapabilitiesManual] =
+  const [customCapabilitiesExpanded, setCustomCapabilitiesExpanded] =
+    useState(false);
+  const [customCapabilitiesOverridden, setCustomCapabilitiesOverridden] =
     useState(false);
   const [customAdapter, setCustomAdapter] = useState<ProviderRequestAdapter>(
     PROVIDER_REQUEST_ADAPTER_OPTIONS[provider][0],
@@ -276,7 +280,9 @@ export const ProviderServiceEditor = ({
         ? cloneCapabilities(savedCompatibleModel.capabilities)
         : getTemplateCapabilities(savedTemplate),
     );
-    setCustomCapabilitiesManual(Boolean(savedCompatibleModel?.capabilities));
+    const hasCapabilityOverride = Boolean(savedCompatibleModel?.capabilities);
+    setCustomCapabilitiesExpanded(hasCapabilityOverride);
+    setCustomCapabilitiesOverridden(hasCapabilityOverride);
     setCustomAdapter(PROVIDER_REQUEST_ADAPTER_OPTIONS[provider][0]);
     setFeedback(null);
     onDirtyChange(false);
@@ -298,31 +304,37 @@ export const ProviderServiceEditor = ({
     onDirtyChange(true);
   };
 
-  const activeCustomCapabilities = customCapabilitiesManual
+  const activeCustomCapabilities = customCapabilitiesOverridden
     ? customCapabilities
     : CUSTOM_MODEL_USAGE_PRESETS[customTemplate].capabilities;
 
   const renderCustomCapabilitiesEditor = () => (
     <ModelCapabilitiesEditor
       capabilities={activeCustomCapabilities}
-      manual={customCapabilitiesManual}
+      expanded={customCapabilitiesExpanded}
+      overridden={customCapabilitiesOverridden}
       modelIdPresent={Boolean(customModelId.trim())}
       onStartManual={() => {
         setCustomCapabilities(cloneCapabilities(activeCustomCapabilities));
-        setCustomCapabilitiesManual(true);
+        setCustomCapabilitiesExpanded(true);
       }}
       onRestoreAutomatic={() => {
+        const hadOverride = customCapabilitiesOverridden;
         const inferredTemplate = inferCustomModelCapabilityTemplate({
           provider,
           modelId: customModelId,
         });
         setCustomTemplate(inferredTemplate);
         setCustomCapabilities(getTemplateCapabilities(inferredTemplate));
-        setCustomCapabilitiesManual(false);
-        markDirty();
+        setCustomCapabilitiesExpanded(false);
+        setCustomCapabilitiesOverridden(false);
+        if (hadOverride) {
+          markDirty();
+        }
       }}
       onChange={(nextCapabilities) => {
         setCustomCapabilities(nextCapabilities);
+        setCustomCapabilitiesOverridden(true);
         markDirty();
       }}
     />
@@ -338,7 +350,7 @@ export const ProviderServiceEditor = ({
       label: customModelLabel.trim() || id,
       capabilityTemplate: customTemplate,
       adapter: customAdapter,
-      ...(customCapabilitiesManual
+      ...(customCapabilitiesOverridden
         ? { capabilities: cloneCapabilities(customCapabilities) }
         : {}),
     };
@@ -349,7 +361,8 @@ export const ProviderServiceEditor = ({
     setDefaultModel(id);
     setCustomModelId("");
     setCustomModelLabel("");
-    setCustomCapabilitiesManual(false);
+    setCustomCapabilitiesExpanded(false);
+    setCustomCapabilitiesOverridden(false);
     markDirty();
   };
 
@@ -362,7 +375,7 @@ export const ProviderServiceEditor = ({
             label: customModelLabel.trim() || compatibleModelId,
             capabilityTemplate: customTemplate,
             adapter: "openai-images",
-            ...(customCapabilitiesManual
+            ...(customCapabilitiesOverridden
               ? { capabilities: cloneCapabilities(customCapabilities) }
               : {}),
           },

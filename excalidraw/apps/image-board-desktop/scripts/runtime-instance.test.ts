@@ -41,6 +41,12 @@ const loadModule = () =>
         command: string;
       }>,
     ) => void;
+    listProcesses: () => Array<{
+      pid: number;
+      ppid: number;
+      pgid: number;
+      command: string;
+    }>;
   };
 
 const sourceIdentity = {
@@ -72,6 +78,26 @@ const sourceProcess = {
 };
 
 describe("runtime instance selection", () => {
+  it("reports the fixed source launcher when no source instance is running", () => {
+    const { selectRuntimeInstance } = loadModule();
+    expect(() =>
+      selectRuntimeInstance([], {
+        expectedKind: "source-dev",
+        processes: [],
+      }),
+    ).toThrow(/no source-dev runtime.*corepack yarn dev:desktop/is);
+  });
+
+  it("reports the fixed preview launcher when no preview instance is running", () => {
+    const { selectRuntimeInstance } = loadModule();
+    expect(() =>
+      selectRuntimeInstance([], {
+        expectedKind: "packaged-preview",
+        processes: [],
+      }),
+    ).toThrow(/no packaged-preview runtime.*corepack yarn preview:desktop/is);
+  });
+
   it("selects only by complete machine identity, never by display name", () => {
     const { selectRuntimeInstance } = loadModule();
     expect(
@@ -148,6 +174,32 @@ describe("runtime instance selection", () => {
         },
       ),
     ).toThrow(/incomplete.*display name/is);
+  });
+});
+
+describe("runtime process inspection", () => {
+  it("reports spawn failures instead of throwing while reading missing stderr", () => {
+    const childProcess = require("node:child_process") as typeof import("node:child_process");
+    const spawnError = Object.assign(new Error("spawnSync /bin/ps EPERM"), {
+      code: "EPERM",
+    });
+    const spawnSync = vi
+      .spyOn(childProcess, "spawnSync")
+      .mockReturnValueOnce({
+        pid: 0,
+        output: [null, null, null],
+        stdout: undefined as unknown as string,
+        stderr: undefined as unknown as string,
+        status: null,
+        signal: null,
+        error: spawnError,
+      });
+
+    const { listProcesses } = loadModule();
+    expect(() => listProcesses()).toThrow(
+      /unable to inspect processes.*spawnSync \/bin\/ps EPERM/is,
+    );
+    spawnSync.mockRestore();
   });
 });
 

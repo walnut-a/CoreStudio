@@ -431,8 +431,11 @@
 }
 
 .settings-inline-action {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
-  padding: 2px 0;
+  min-height: var(--ui-control-size-md);
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--color-primary);
@@ -466,6 +469,8 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: var(--ui-control-size-md);
+  padding: 4px 0;
   font-size: var(--ui-text-size-sm);
   font-weight: var(--font-weight-regular);
   cursor: pointer;
@@ -851,5 +856,25 @@
 
   .app-settings-content {
     padding: 24px 20px 32px;
+  }
+
+  .settings-current-provider__controls,
+  .settings-provider-picker,
+  .settings-model-fields,
+  .settings-capability-editor__controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-capability-size {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-model-catalog {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-model-catalog > .image-board-button {
+    align-self: flex-start;
   }
 }

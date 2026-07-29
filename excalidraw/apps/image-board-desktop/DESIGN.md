@@ -37,6 +37,7 @@ typography:
 rounded:
   md: "0.375rem"
   lg: "0.5rem"
+  dialog: "1rem"
   pill: "999px"
 spacing:
   xxs: "2px"

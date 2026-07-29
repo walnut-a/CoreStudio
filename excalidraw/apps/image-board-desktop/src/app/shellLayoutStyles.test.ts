@@ -189,6 +189,57 @@ describe("CoreStudio shell layout styles", () => {
     );
   });
 
+  it("keeps settings capability controls comfortably targetable", () => {
+    const settingsCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
+    );
+    const capabilityOptionRule = getRule(
+      settingsCss,
+      ".settings-form-card .settings-capability-option",
+    );
+    const inlineActionRule = getRule(settingsCss, ".settings-inline-action");
+
+    expect(capabilityOptionRule).toContain(
+      "min-height: var(--ui-control-size-md)",
+    );
+    expect(inlineActionRule).toContain(
+      "min-height: var(--ui-control-size-md)",
+    );
+  });
+
+  it("stacks settings subgrids when the settings dialog becomes narrow", () => {
+    const settingsCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
+    );
+
+    expect(settingsCss).toMatch(
+      /@media \(max-width: 720px\)[\s\S]*\.settings-current-provider__controls,[\s\S]*\.settings-provider-picker,[\s\S]*\.settings-model-fields,[\s\S]*\.settings-capability-editor__controls[\s\S]*grid-template-columns: minmax\(0, 1fr\)/,
+    );
+    expect(settingsCss).toMatch(
+      /@media \(max-width: 720px\)[\s\S]*\.settings-capability-size[\s\S]*grid-template-columns: minmax\(0, 1fr\)/,
+    );
+  });
+
+  it("uses the compact CoreStudio modal geometry without backdrop blur", () => {
+    const appCss = readAppCss();
+    const appRule = getRule(appCss, ".image-board-app");
+    const backdropRule = getRule(appCss, ".dialog-backdrop");
+    const cardRule = getRule(appCss, ".dialog-card");
+
+    expect(appRule).toContain("--ui-radius-dialog: 1rem");
+    expect(backdropRule).toContain("backdrop-filter: none");
+    expect(cardRule).toContain("border-radius: var(--ui-radius-dialog)");
+    expect(cardRule).toContain("border: 0");
+  });
+
+  it("applies one reduced-motion fallback across the desktop surface", () => {
+    const appCss = readAppCss();
+
+    expect(appCss).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.image-board-app \*,[\s\S]*animation-duration: 0\.01ms !important[\s\S]*animation-iteration-count: 1 !important[\s\S]*transition-duration: 0\.01ms !important/,
+    );
+  });
+
   it("keeps canvas-level errors out of the native toolbar area", () => {
     const appCss = readAppCss();
     const canvasErrorRule = getRule(appCss, ".app-canvas-error-toast");

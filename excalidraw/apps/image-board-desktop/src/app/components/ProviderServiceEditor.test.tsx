@@ -7,6 +7,7 @@ const renderEditor = (
   provider: "zenmux" | "openai-compatible",
   onSave = vi.fn(async () => undefined),
 ) => {
+  const onDirtyChange = vi.fn();
   render(
     <ProviderServiceEditor
       provider={provider}
@@ -15,11 +16,11 @@ const renderEditor = (
       discardToken={0}
       onSave={onSave}
       onDelete={vi.fn(async () => undefined)}
-      onDirtyChange={vi.fn()}
+      onDirtyChange={onDirtyChange}
       onBack={vi.fn()}
     />,
   );
-  return { onSave };
+  return { onSave, onDirtyChange };
 };
 
 describe("ProviderServiceEditor", () => {
@@ -126,6 +127,41 @@ describe("ProviderServiceEditor", () => {
                 supportsImageCount: true,
                 maxImageCount: 4,
               }),
+            }),
+          ],
+        }),
+      ),
+    );
+  });
+
+  it("仅展开手动设置时不写入能力覆盖", async () => {
+    const { onSave, onDirtyChange } = renderEditor("openai-compatible");
+
+    fireEvent.change(screen.getByLabelText("服务名称"), {
+      target: { value: "示例服务" },
+    });
+    fireEvent.change(screen.getByLabelText("Base URL"), {
+      target: { value: "https://images.example.com/v1" },
+    });
+    fireEvent.change(screen.getByLabelText("API Key"), {
+      target: { value: "secret" },
+    });
+    fireEvent.change(screen.getByLabelText("模型 ID"), {
+      target: { value: "vendor/image-model" },
+    });
+
+    onDirtyChange.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "手动调整" }));
+    expect(screen.getByLabelText("支持参考图")).toBeInTheDocument();
+    expect(onDirtyChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customModels: [
+            expect.not.objectContaining({
+              capabilities: expect.anything(),
             }),
           ],
         }),

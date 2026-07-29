@@ -11,12 +11,14 @@ import { applyRemoteModelCatalog } from "../src/shared/providerCatalog";
 
 const CATALOG_FILE_NAME = "model-catalog.v1.json";
 const MAX_CATALOG_BYTES = 256 * 1024;
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 
 interface ModelCatalogServiceOptions {
   appVersion: string;
   cacheDirectory: string;
   fetchCatalog?: typeof fetch;
   now?: () => Date;
+  requestTimeoutMs?: number;
 }
 
 export const createModelCatalogService = ({
@@ -24,6 +26,7 @@ export const createModelCatalogService = ({
   cacheDirectory,
   fetchCatalog = fetch,
   now = () => new Date(),
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 }: ModelCatalogServiceOptions) => {
   let state: ModelCatalogSnapshot = {
     source: "builtin",
@@ -68,17 +71,34 @@ export const createModelCatalogService = ({
   };
 
   const refresh = async () => {
-    const response = await fetchCatalog(MODEL_CATALOG_DOWNLOAD_URL, {
-      headers: {
-        Accept: "application/vnd.github.raw+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": `CoreStudio/${appVersion}`,
-      },
-    });
+    const requestController = new AbortController();
+    const timeout = setTimeout(
+      () => requestController.abort(),
+      requestTimeoutMs,
+    );
+    let response: Response;
+    let catalogText: string;
+    try {
+      response = await fetchCatalog(MODEL_CATALOG_DOWNLOAD_URL, {
+        headers: {
+          Accept: "application/vnd.github.raw+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "User-Agent": `CoreStudio/${appVersion}`,
+        },
+        signal: requestController.signal,
+      });
+      catalogText = await response.text();
+    } catch (error) {
+      if (requestController.signal.aborted) {
+        throw new Error("模型目录下载超时，请检查网络后重试。");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!response.ok) {
       throw new Error(`模型目录下载失败（HTTP ${response.status}）`);
     }
-    const catalogText = await response.text();
     if (Buffer.byteLength(catalogText, "utf8") > MAX_CATALOG_BYTES) {
       throw new Error("模型目录超过 256 KB 安全上限");
     }

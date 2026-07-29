@@ -173,6 +173,44 @@ describe("createProjectRoomPersistence", () => {
     );
   });
 
+  it("explains that persistence stopped when the project folder path disappears", async () => {
+    const missingPathError = Object.assign(
+      new Error("ENOENT: no such file or directory"),
+      {
+        code: "ENOENT",
+      },
+    );
+    const persistence = createProjectRoomPersistence({
+      projectPath: "/projects/project-1",
+      initialSceneJson,
+      writeProjectScene: vi.fn(async () => {
+        throw missingPathError;
+      }),
+    });
+
+    await expect(
+      persistence.persist({
+        identity: {
+          projectId: "project-1",
+          canonicalProjectPath: "/projects/project-1",
+          roomId: "room-1",
+          sessionEpoch: 1,
+        },
+        sequence: 1,
+        previousProjectRevision: persistence.initialProjectRevision,
+        scene: persistence.initialScene,
+      }),
+    ).rejects.toMatchObject({
+      code: "PROJECT_PATH_MISSING",
+      message:
+        "项目文件夹已被移动、改名或删除，保存已暂停。请停止编辑，将文件夹恢复到原路径，然后关闭项目以重试保存：/projects/project-1",
+      details: {
+        reason: "PROJECT_PATH_MISSING",
+        projectPath: "/projects/project-1",
+      },
+    });
+  });
+
   it("rejects malformed persisted scene documents before opening a room", () => {
     expect(() =>
       createProjectRoomPersistence({

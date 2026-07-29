@@ -43,6 +43,9 @@ const omitSceneElements = ({
   ...document
 }: Record<string, unknown>) => document;
 
+const isMissingPathError = (error: unknown) =>
+  error instanceof Error && "code" in error && error.code === "ENOENT";
+
 export interface CreateProjectRoomServiceInput {
   readProjectBundle: (
     projectPath: string,
@@ -247,9 +250,18 @@ export class ProjectRoomService {
   }
 
   public async findOpenRoom(projectPath: string) {
-    const canonicalProjectPath = await (
-      this.input.canonicalizeProjectPath ?? fs.realpath
-    )(projectPath);
+    let canonicalProjectPath: string;
+    try {
+      canonicalProjectPath = await (
+        this.input.canonicalizeProjectPath ?? fs.realpath
+      )(projectPath);
+    } catch (error) {
+      if (isMissingPathError(error) && this.projectIdByPath.has(projectPath)) {
+        canonicalProjectPath = projectPath;
+      } else {
+        throw error;
+      }
+    }
     const projectId = this.projectIdByPath.get(canonicalProjectPath);
     return projectId ? this.manager.get(projectId) : null;
   }

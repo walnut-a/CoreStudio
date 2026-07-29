@@ -34,8 +34,18 @@ function listProcesses() {
     ["-ax", "-o", "pid=,ppid=,pgid=,command="],
     { encoding: "utf8" },
   );
+  if (result.error) {
+    throw new Error(`Unable to inspect processes: ${result.error.message}`);
+  }
   if (result.status !== 0) {
-    throw new Error(`Unable to inspect processes: ${result.stderr.trim()}`);
+    const details =
+      typeof result.stderr === "string" && result.stderr.trim()
+        ? result.stderr.trim()
+        : `ps exited with status ${String(result.status)}`;
+    throw new Error(`Unable to inspect processes: ${details}`);
+  }
+  if (typeof result.stdout !== "string") {
+    throw new Error("Unable to inspect processes: ps returned no output");
   }
   return result.stdout
     .split("\n")
@@ -138,6 +148,19 @@ function selectRuntimeInstance(identities, options = {}) {
         (identity) => identity.instanceKind === options.expectedKind,
       )
     : complete;
+  if (candidates.length === 0 && options.expectedKind) {
+    const launchCommand =
+      options.expectedKind === "source-dev"
+        ? "corepack yarn dev:desktop"
+        : options.expectedKind === "packaged-preview"
+        ? "corepack yarn preview:desktop"
+        : null;
+    throw new Error(
+      `No ${options.expectedKind} runtime instance is running.${
+        launchCommand ? ` Start it with \`${launchCommand}\`, then retry.` : ""
+      }`,
+    );
+  }
   if (candidates.length !== 1) {
     const conflicts = describeProcesses(options.processes || []);
     throw new Error(

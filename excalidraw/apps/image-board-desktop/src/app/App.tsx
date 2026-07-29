@@ -1983,6 +1983,9 @@ const App = ({
               }
               setProviderConfiguration(configuration);
             }}
+            onOpenExternal={(url) => {
+              void desktopBridge.openExternal?.(url);
+            }}
             onDirtyChange={setAppSettingsDirty}
           />
         ),

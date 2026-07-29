@@ -32,6 +32,7 @@ const renderSettings = (
   const onSave = vi.fn(async () => undefined);
   const onDelete = vi.fn(async () => undefined);
   const onRefreshCatalog = vi.fn(async () => undefined);
+  const onOpenExternal = vi.fn();
   const onDirtyChange = vi.fn();
 
   render(
@@ -41,11 +42,18 @@ const renderSettings = (
       onSave={onSave}
       onDelete={onDelete}
       onRefreshCatalog={onRefreshCatalog}
+      onOpenExternal={onOpenExternal}
       onDirtyChange={onDirtyChange}
     />,
   );
 
-  return { onSave, onDelete, onRefreshCatalog, onDirtyChange };
+  return {
+    onSave,
+    onDelete,
+    onRefreshCatalog,
+    onOpenExternal,
+    onDirtyChange,
+  };
 };
 
 describe("ImageGenerationSettings", () => {
@@ -82,7 +90,7 @@ describe("ImageGenerationSettings", () => {
     ).toBeInTheDocument();
   });
 
-  it("显示模型预制版本并允许手动检查更新", async () => {
+  it("显示预置模型目录版本、更新仓库并允许手动检查更新", async () => {
     const configuration = {
       ...createConfiguration(),
       modelCatalog: {
@@ -92,10 +100,22 @@ describe("ImageGenerationSettings", () => {
         catalog: null,
       },
     };
-    const { onRefreshCatalog } = renderSettings(configuration);
+    const { onRefreshCatalog, onOpenExternal } =
+      renderSettings(configuration);
 
-    expect(screen.getByText("预制模型目录")).toBeInTheDocument();
+    expect(screen.getByText("预置模型目录")).toBeInTheDocument();
     expect(screen.getByText("版本 3")).toBeInTheDocument();
+    const repository = screen.getByRole("button", {
+      name: "打开模型目录更新仓库",
+    });
+    expect(repository).toHaveTextContent(
+      "walnut-a/CoreStudio-Model-Catalog",
+    );
+
+    fireEvent.click(repository);
+    expect(onOpenExternal).toHaveBeenCalledWith(
+      "https://github.com/walnut-a/CoreStudio-Model-Catalog",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
 

@@ -10,6 +10,10 @@ import type {
   ProviderConfigurationSnapshot,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
+import {
+  MODEL_CATALOG_REPOSITORY_LABEL,
+  MODEL_CATALOG_REPOSITORY_URL,
+} from "../../shared/modelCatalogMetadata";
 import type { ProviderId } from "../../shared/providerTypes";
 import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
@@ -23,6 +27,7 @@ export interface ImageGenerationSettingsProps {
   onSave(input: SaveProviderSettingsInput): Promise<void>;
   onDelete(input: DeleteProviderSettingsInput): Promise<void>;
   onRefreshCatalog(): Promise<void>;
+  onOpenExternal(url: string): void;
   onDirtyChange(dirty: boolean): void;
 }
 
@@ -38,6 +43,7 @@ export const ImageGenerationSettings = ({
   onSave,
   onDelete,
   onRefreshCatalog,
+  onOpenExternal,
   onDirtyChange,
 }: ImageGenerationSettingsProps) => {
   const requestLeave = useApplicationSettingsLeave();
@@ -201,6 +207,22 @@ export const ImageGenerationSettings = ({
                 )
               : copy.applicationSettings.imageGenerationPage.catalogBuiltin}
             {catalogMessage ? ` · ${catalogMessage}` : ""}
+          </p>
+          <p className="settings-model-catalog__repository">
+            <span>
+              {copy.applicationSettings.imageGenerationPage.catalogRepository}
+            </span>
+            <button
+              type="button"
+              className="settings-about-link"
+              aria-label={
+                copy.applicationSettings.imageGenerationPage
+                  .catalogOpenRepository
+              }
+              onClick={() => onOpenExternal(MODEL_CATALOG_REPOSITORY_URL)}
+            >
+              {MODEL_CATALOG_REPOSITORY_LABEL}
+            </button>
           </p>
         </div>
         <DesktopButton

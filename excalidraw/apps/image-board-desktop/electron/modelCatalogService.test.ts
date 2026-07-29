@@ -135,4 +135,28 @@ describe("model catalog service", () => {
       revision: 1,
     });
   });
+
+  it("times out a catalog request without replacing the last-known-good state", async () => {
+    const cacheDirectory = await createCacheDirectory();
+    const fetchCatalog = vi.fn(
+      async (_input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted", "AbortError"));
+          });
+        }),
+    );
+    const service = createModelCatalogService({
+      appVersion: "1.1.26",
+      cacheDirectory,
+      fetchCatalog,
+      requestTimeoutMs: 5,
+    });
+
+    await expect(service.refresh()).rejects.toThrow("模型目录下载超时");
+    expect(service.getState()).toMatchObject({
+      source: "builtin",
+      revision: null,
+    });
+  });
 });

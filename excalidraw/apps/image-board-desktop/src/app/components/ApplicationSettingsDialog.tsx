@@ -1,12 +1,12 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useState,
   type ReactNode,
 } from "react";
 
 import { DesktopButton } from "./DesktopButton";
+import { useModalFocus } from "./useModalFocus";
 import { copy } from "../copy";
 import "./ApplicationSettingsDialog.css";
 
@@ -49,30 +49,20 @@ export const ApplicationSettingsDialog = ({
   aboutContent,
 }: ApplicationSettingsDialogProps) => {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      setPendingAction(null);
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") {
-        return;
-      }
-      event.preventDefault();
-      if (pendingAction) {
-        setPendingAction(null);
-      } else if (dirty) {
+  const dialogRef = useModalFocus<HTMLDivElement>({
+    open,
+    onEscape: () => {
+      if (dirty) {
         setPendingAction(() => onClose);
       } else {
         onClose();
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dirty, onClose, open, pendingAction]);
+    },
+  });
+  const confirmDialogRef = useModalFocus<HTMLElement>({
+    open: Boolean(pendingAction),
+    onEscape: () => setPendingAction(null),
+  });
 
   if (!open) {
     return null;
@@ -110,14 +100,49 @@ export const ApplicationSettingsDialog = ({
       : activeCategory === "codex-integration"
       ? codexIntegrationContent
       : aboutContent;
+  const activeTabId = `app-settings-tab-${activeCategory}`;
+  const activePanelId = `app-settings-panel-${activeCategory}`;
+
+  const handleTabKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    currentIndex: number,
+  ) => {
+    const { key } = event;
+    if (
+      key !== "ArrowLeft" &&
+      key !== "ArrowRight" &&
+      key !== "Home" &&
+      key !== "End"
+    ) {
+      return;
+    }
+    event.preventDefault();
+    const targetIndex =
+      key === "Home"
+        ? 0
+        : key === "End"
+        ? settingsNavItems.length - 1
+        : (currentIndex +
+            (key === "ArrowRight" ? 1 : -1) +
+            settingsNavItems.length) %
+          settingsNavItems.length;
+    const target = settingsNavItems[targetIndex]!;
+    document.getElementById(`app-settings-tab-${target.id}`)?.focus();
+    if (target.id !== activeCategory) {
+      requestAction(() => onCategoryChange(target.id));
+    }
+  };
 
   return (
     <div className="dialog-backdrop app-settings-backdrop">
       <div
+        ref={dialogRef}
         className="dialog-card dialog-card--application-settings"
         role="dialog"
         aria-modal="true"
         aria-labelledby="app-settings-title"
+        data-corestudio-modal="true"
+        tabIndex={-1}
       >
         <header className="app-settings-header">
           <h2 id="app-settings-title">{copy.applicationSettings.title}</h2>
@@ -137,13 +162,17 @@ export const ApplicationSettingsDialog = ({
             role="tablist"
             aria-label={copy.applicationSettings.categoriesLabel}
           >
-            {settingsNavItems.map((item) => (
+            {settingsNavItems.map((item, index) => (
               <button
                 key={item.id}
+                id={`app-settings-tab-${item.id}`}
                 type="button"
                 role="tab"
                 aria-selected={activeCategory === item.id}
+                aria-controls={`app-settings-panel-${item.id}`}
+                tabIndex={activeCategory === item.id ? 0 : -1}
                 className="app-settings-nav__item"
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
                 onClick={() => {
                   if (activeCategory !== item.id) {
                     requestAction(() => onCategoryChange(item.id));
@@ -154,7 +183,13 @@ export const ApplicationSettingsDialog = ({
               </button>
             ))}
           </nav>
-          <main className="app-settings-content">
+          <main
+            id={activePanelId}
+            className="app-settings-content"
+            role="tabpanel"
+            aria-labelledby={activeTabId}
+            tabIndex={-1}
+          >
             <ApplicationSettingsLeaveContext.Provider value={requestAction}>
               {content}
             </ApplicationSettingsLeaveContext.Provider>
@@ -164,10 +199,13 @@ export const ApplicationSettingsDialog = ({
         {pendingAction ? (
           <div className="app-settings-confirm-backdrop">
             <section
+              ref={confirmDialogRef}
               className="app-settings-confirm"
               role="alertdialog"
               aria-modal="true"
               aria-labelledby="app-settings-discard-title"
+              data-corestudio-modal="true"
+              tabIndex={-1}
             >
               <h3 id="app-settings-discard-title">
                 {copy.applicationSettings.discardTitle}

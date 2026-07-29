@@ -87,6 +87,7 @@
   --color-modal-scrim: rgb(20 20 28 / 36%);
   --border-radius-md: 0.375rem;
   --border-radius-lg: 0.5rem;
+  --ui-radius-dialog: 1rem;
   --lg-button-size: 2.25rem;
   --canvas-footer-button-size: var(--lg-button-size);
   --canvas-footer-edge-offset: var(--ui-space-2xl);

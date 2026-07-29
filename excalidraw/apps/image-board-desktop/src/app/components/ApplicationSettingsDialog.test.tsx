@@ -40,13 +40,35 @@ describe("ApplicationSettingsDialog", () => {
     renderDialog();
 
     expect(screen.getByRole("tab", { name: "通用" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "图像生成" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    const activeTab = screen.getByRole("tab", { name: "图像生成" });
+    expect(activeTab).toHaveAttribute("aria-selected", "true");
+    expect(activeTab).toHaveAttribute(
+      "aria-controls",
+      "app-settings-panel-image-generation",
     );
+    expect(
+      screen.getByRole("tabpanel", { name: "图像生成" }),
+    ).toHaveAttribute("id", "app-settings-panel-image-generation");
     expect(screen.getByRole("tab", { name: "Codex 集成" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "关于" })).toBeInTheDocument();
     expect(screen.getByText("图像生成内容")).toBeInTheDocument();
+  });
+
+  it("使用方向键切换设置分类并保持单一 Tab 停靠点", () => {
+    const { onCategoryChange } = renderDialog();
+    const activeTab = screen.getByRole("tab", { name: "图像生成" });
+    const generalTab = screen.getByRole("tab", { name: "通用" });
+    const codexTab = screen.getByRole("tab", { name: "Codex 集成" });
+
+    expect(activeTab).toHaveAttribute("tabindex", "0");
+    expect(generalTab).toHaveAttribute("tabindex", "-1");
+    expect(codexTab).toHaveAttribute("tabindex", "-1");
+
+    activeTab.focus();
+    fireEvent.keyDown(activeTab, { key: "ArrowRight" });
+
+    expect(onCategoryChange).toHaveBeenCalledWith("codex-integration");
+    expect(codexTab).toHaveFocus();
   });
 
   it("切换到关于分类", () => {

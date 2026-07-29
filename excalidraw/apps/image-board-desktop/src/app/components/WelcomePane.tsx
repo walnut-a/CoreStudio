@@ -5,6 +5,7 @@ import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
 import type { RecentProjectsLoadStatus } from "../desktopStartupState";
 import { DesktopButton } from "./DesktopButton";
 import { checkIcon, trashProjectIcon } from "./CoreStudioIcons";
+import { useModalFocus } from "./useModalFocus";
 import "./WelcomePane.css";
 
 export type ProviderConfigurationStatus =
@@ -42,6 +43,10 @@ export const WelcomePane = ({
   const [deleteTarget, setDeleteTarget] = useState<RecentProjectEntry | null>(
     null,
   );
+  const deleteDialogRef = useModalFocus<HTMLDivElement>({
+    open: manualProjectActionsVisible && Boolean(deleteTarget),
+    onEscape: () => setDeleteTarget(null),
+  });
 
   const deleteDialogTitleId = "welcome-delete-project-title";
   const showGettingStarted =
@@ -240,10 +245,13 @@ export const WelcomePane = ({
       {manualProjectActionsVisible && deleteTarget ? (
         <div className="dialog-backdrop">
           <div
+            ref={deleteDialogRef}
             className="dialog-card welcome-pane__delete-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby={deleteDialogTitleId}
+            data-corestudio-modal="true"
+            tabIndex={-1}
           >
             <div className="dialog-card__header">
               <div>

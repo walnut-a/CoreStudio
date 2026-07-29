@@ -169,6 +169,9 @@ export const ShellApplicationSettings = ({
               }
               setProviderConfiguration(configuration);
             }}
+            onOpenExternal={(url) => {
+              void bridge.openExternal?.(url);
+            }}
             onDirtyChange={setDirty}
           />
         </>

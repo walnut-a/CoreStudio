@@ -2,6 +2,7 @@ import { getProviderDefinition } from "../../shared/providerCatalog";
 import { copy, DESKTOP_LANG_CODE } from "../copy";
 import type { GenerationErrorDetails } from "../generationErrorViewModel";
 import { DesktopButton } from "./DesktopButton";
+import { useModalFocus } from "./useModalFocus";
 import "./GenerationErrorDetailsDialog.css";
 
 interface GenerationErrorDetailsDialogProps {
@@ -19,6 +20,11 @@ export const GenerationErrorDetailsDialog = ({
   onCopyDetails,
   onClose,
 }: GenerationErrorDetailsDialogProps) => {
+  const dialogRef = useModalFocus<HTMLDivElement>({
+    open: open && Boolean(details),
+    onEscape: onClose,
+  });
+
   if (!open || !details) {
     return null;
   }
@@ -26,10 +32,13 @@ export const GenerationErrorDetailsDialog = ({
   return (
     <div className="dialog-backdrop">
       <div
+        ref={dialogRef}
         aria-labelledby="generation-error-details-title"
         aria-modal="true"
         className="dialog-card dialog-card--wide"
         role="dialog"
+        data-corestudio-modal="true"
+        tabIndex={-1}
       >
         <div className="dialog-card__header">
           <div>

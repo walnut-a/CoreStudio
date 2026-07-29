@@ -6,6 +6,7 @@ import type {
 import type { ProjectRepairReport } from "../project/projectMaintenanceController";
 import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
+import { useModalFocus } from "./useModalFocus";
 
 import "./ProjectDataReportDialog.css";
 
@@ -182,6 +183,11 @@ export function ProjectDataReportDialog({
   repairReport,
   onClose,
 }: ProjectDataReportDialogProps) {
+  const dialogRef = useModalFocus<HTMLDivElement>({
+    open: open && Boolean(healthReport || repairReport),
+    onEscape: onClose,
+  });
+
   if (!open || (!healthReport && !repairReport)) {
     return null;
   }
@@ -200,10 +206,13 @@ export function ProjectDataReportDialog({
   return (
     <div className="dialog-backdrop">
       <div
+        ref={dialogRef}
         className="dialog-card dialog-card--wide project-health-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="project-data-report-title"
+        data-corestudio-modal="true"
+        tabIndex={-1}
       >
         <div className="dialog-card__header">
           <div>

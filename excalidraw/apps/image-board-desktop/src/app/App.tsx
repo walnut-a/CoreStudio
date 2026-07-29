@@ -497,10 +497,6 @@ const App = ({
   const [imageAssetSidebarOpen, setImageAssetSidebarOpen] = useState(false);
   const [imageAssetGeneratedOnly, setImageAssetGeneratedOnly] = useState(false);
   const [imageAssetFilesRevision, setImageAssetFilesRevision] = useState(0);
-  const [imageAssetRevealRequest, setImageAssetRevealRequest] = useState<{
-    fileId: string;
-    requestId: number;
-  } | null>(null);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
@@ -2281,7 +2277,6 @@ const App = ({
                       shouldRenderSelectedShapeActions
                     }
                     record={selectedRecord}
-                    parentRecord={selectedImageRelationship.parentRecord}
                     ancestorRecords={selectedImageRelationship.ancestorRecords}
                     descendantRecords={
                       selectedImageRelationship.descendantRecords
@@ -2297,15 +2292,6 @@ const App = ({
                       void imageRecordLocatorRendererActions.locateImageRecord(
                         fileId,
                       );
-                    }}
-                    onLocateImageAsset={() => {
-                      if (selectedRecord) {
-                        setImageAssetRevealRequest((current) => ({
-                          fileId: selectedRecord.fileId,
-                          requestId: (current?.requestId ?? 0) + 1,
-                        }));
-                      }
-                      setImageAssetSidebarOpen(true);
                     }}
                     onLocatePromptReference={(reference) => {
                       void imageRecordLocatorRendererActions.locatePromptReference(
@@ -2344,11 +2330,11 @@ const App = ({
                     if (isAgentBrowserRoute) {
                       return;
                     }
-                    void desktopBridge.activateProjectView?.(null).catch(
-                      (error) => {
+                    void desktopBridge
+                      .activateProjectView?.(null)
+                      .catch((error) => {
                         setProjectError(formatProjectSaveError(error));
-                      },
-                    );
+                      });
                   }}
                 />
                 <ExcalidrawThemeTokenBridge targetRef={appRootRef} />
@@ -2369,7 +2355,6 @@ const App = ({
               generatedOnly={imageAssetGeneratedOnly}
               onGeneratedOnlyChange={setImageAssetGeneratedOnly}
               selectedFileId={selectedRecord?.fileId}
-              revealRequest={imageAssetRevealRequest}
               onSelectRecord={(fileId) => {
                 void imageRecordLocatorRendererActions.locateImageRecord(
                   fileId,

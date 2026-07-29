@@ -64,12 +64,12 @@ describe("generate composer styles", () => {
     const appCss = readAppCss();
     const rootAppCss = readRootAppCss();
     const inspectorRule = getRule(appCss, ".image-inspector");
-    const titleRule = getRule(appCss, ".image-inspector__hero h2");
+    const titleRule = getRule(appCss, ".image-inspector__hero h4");
     const emptyTitleRule = getRule(appCss, ".image-inspector__empty-card h2");
     const eyebrowRule = getRule(appCss, ".image-inspector__eyebrow");
     const sectionTitleRule = getRule(
       appCss,
-      ".image-inspector__section h3,\n.image-inspector__section-header h3",
+      ".image-inspector__section h4,\n.image-inspector__section-header h4",
     );
     const detailValueRule = getRule(appCss, ".image-inspector__detail-value");
     const sidebarTitleRule = getRule(appCss, ".side-dock__header h2");
@@ -83,15 +83,17 @@ describe("generate composer styles", () => {
     );
 
     expect(inspectorRule).not.toContain("--image-inspector-");
-    expect(inspectorRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(inspectorRule).toContain("font-size: var(--ui-text-size-md)");
     expect(sidebarTitleRule).toContain("font-size: var(--ui-text-size-title)");
-    expect(titleRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(titleRule).toContain("font-size: var(--ui-text-size-md)");
     expect(titleRule).toContain("font-weight: var(--font-weight-semibold)");
     expect(emptyTitleRule).toContain("font-size: var(--ui-text-size-lg)");
     expect(eyebrowRule).toContain("font-size: var(--ui-text-size-sm)");
     expect(sectionTitleRule).toContain("font-size: var(--ui-text-size-sm)");
-    expect(sectionTitleRule).toContain("font-weight: var(--font-weight-bold)");
-    expect(detailValueRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(sectionTitleRule).toContain(
+      "font-weight: var(--font-weight-medium)",
+    );
+    expect(detailValueRule).toContain("font-size: var(--ui-text-size-md)");
     expect(sidebarEmptyRule).toContain("font-size: var(--ui-text-size-lg)");
     expect(inspectorSidebarSource).toContain('side="right"');
     expect(inspectorSidebarSource).toContain(
@@ -880,7 +882,7 @@ describe("generate composer styles", () => {
     expect(source).toContain(
       "currentProjectEntryRendererActions.openRecentProject",
     );
-    expect(source).toContain("desktopBridge.activateProjectView?.(null)");
+    expect(source).toMatch(/desktopBridge\s*\.activateProjectView\?\.\(null\)/);
     expect(source).not.toContain(
       "currentProjectEntryRendererActions.switchToProjectList",
     );

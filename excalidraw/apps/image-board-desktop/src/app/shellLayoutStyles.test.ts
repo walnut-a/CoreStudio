@@ -202,9 +202,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(capabilityOptionRule).toContain(
       "min-height: var(--ui-control-size-md)",
     );
-    expect(inlineActionRule).toContain(
-      "min-height: var(--ui-control-size-md)",
-    );
+    expect(inlineActionRule).toContain("min-height: var(--ui-control-size-md)");
   });
 
   it("stacks settings subgrids when the settings dialog becomes narrow", () => {
@@ -276,7 +274,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(appRule).toContain("--ui-space-sm: 8px");
     expect(appRule).toContain("--ui-radius-pill: 999px");
     expect(appRule).toContain("--agent-status-dock-z-index: 32");
-    expect(appRule).toContain("--side-dock-z-index: 35");
+    expect(appRule).toContain("--side-dock-z-index: 130");
     expect(appRule).toContain("--canvas-footer-overlay-z-index: 45");
     expect(appCss).not.toContain(".agent-status-dock");
   });
@@ -676,7 +674,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(projectOpenRule).toContain(
       "background: var(--color-surface-lowest)",
     );
-    expect(tokenRule).toContain("--side-dock-z-index: 35");
+    expect(tokenRule).toContain("--side-dock-z-index: 130");
     expect(dockRule).toContain("top: var(--desktop-window-top-inset, 0px)");
     expect(dockRule).toContain("z-index: var(--side-dock-z-index)");
     expect(toggleRule).toContain("top: calc(");
@@ -991,22 +989,45 @@ describe("CoreStudio shell layout styles", () => {
     expect(preRule).toContain("user-select: text");
   });
 
-  it("keeps one summary card and presents secondary details as flat rows", () => {
+  it("uses the approved inspector hierarchy, external prompt gutter, and edit timeline", () => {
     const appCss = readAppCss();
     const inspectorSource = readImageInspector();
+    const inspectorRule = getRule(appCss, ".image-inspector");
     const heroRule = getRule(appCss, ".image-inspector__hero");
     const promptRule = getRule(appCss, ".image-inspector__prompt-section");
+    const promptBodyRule = getRule(appCss, ".image-inspector__prompt-body");
+    const chainItemRule = getRule(appCss, ".image-inspector__chain-item");
+    const chainMarkerRule = getRule(appCss, ".image-inspector__chain-marker");
     const detailGridRule = getRule(appCss, ".image-inspector__detail-grid");
     const detailItemRule = getRule(appCss, ".image-inspector__detail-item");
 
     expect(inspectorSource).toContain("image-inspector__hero");
     expect(inspectorSource).toContain("image-inspector__prompt-section");
+    expect(inspectorSource).toContain("image-inspector__prompt-body");
+    expect(inspectorSource).toContain("image-inspector__copy-button");
+    expect(inspectorSource).toContain("image-inspector__chain-marker");
     expect(inspectorSource).not.toContain("image-inspector__prompt-card");
     expect(inspectorSource).toContain("image-inspector__detail-grid");
+    expect(inspectorRule).toContain("font-size: var(--ui-text-size-md)");
     expect(heroRule).toContain("display: grid");
     expect(heroRule).toContain("border: 1px solid");
-    expect(promptRule).not.toContain("border:");
-    expect(promptRule).not.toContain("background:");
+    expect(heroRule).toContain("background: var(--island-bg-color)");
+    expect(promptRule).toContain("border: 1px solid");
+    expect(promptRule).toContain("padding: var(--ui-space-lg)");
+    expect(promptRule).toContain("--image-inspector-prompt-scroll-gutter");
+    expect(promptBodyRule).toContain("max-height:");
+    expect(promptBodyRule).toContain("overflow-y: auto");
+    expect(promptBodyRule).toContain("scrollbar-gutter: stable");
+    expect(promptBodyRule).toContain(
+      "width: calc(100% + var(--image-inspector-prompt-scroll-gutter))",
+    );
+    expect(promptBodyRule).toContain(
+      "padding-right: var(--image-inspector-prompt-scroll-gutter)",
+    );
+    expect(chainItemRule).toContain(
+      "grid-template-columns: var(--ui-space-xl) minmax(0, 1fr)",
+    );
+    expect(chainMarkerRule).toContain("border-radius: 50%");
     expect(detailGridRule).not.toContain("grid-template-columns");
     expect(detailItemRule).toContain(
       "grid-template-columns: minmax(72px, 0.38fr) minmax(0, 1fr)",

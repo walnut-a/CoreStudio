@@ -37,14 +37,12 @@ const renderInspector = (
   overrides: Partial<{
     record: ImageRecord;
     onLocateImageRecord: (fileId: string) => void;
-    onLocateImageAsset: (fileId: string) => void;
     onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
   }> = {},
 ) =>
   render(
     <ImageInspector
       record={overrides.record ?? generatedRecord}
-      parentRecord={parentRecord}
       ancestorRecords={[parentRecord]}
       descendantRecords={[
         {
@@ -61,7 +59,6 @@ const renderInspector = (
       onCopyPrompt={vi.fn()}
       onCopyTaskError={vi.fn()}
       onLocateImageRecord={overrides.onLocateImageRecord ?? vi.fn()}
-      onLocateImageAsset={overrides.onLocateImageAsset ?? vi.fn()}
       onLocatePromptReference={overrides.onLocatePromptReference ?? vi.fn()}
     />,
   );
@@ -79,7 +76,7 @@ describe("ImageInspector", () => {
       screen.queryByRole("heading", { name: "图片参数" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "AI 生成图片" }),
+      screen.getByRole("heading", { name: "AI 生成图片", level: 4 }),
     ).toBeInTheDocument();
   });
 
@@ -95,40 +92,50 @@ describe("ImageInspector", () => {
     expect(within(hero).getByText("1024 × 768")).toBeInTheDocument();
   });
 
-  it("shows the stable image ID in the detail panel", () => {
+  it("removes the redundant generation parameter record from image details", () => {
     renderInspector();
 
-    const detailGrid = screen.getByText("生成参数").closest("section");
-    expect(detailGrid).not.toBeNull();
-    expect(
-      within(detailGrid as HTMLElement).getByText("图片 ID"),
-    ).toBeInTheDocument();
-    expect(
-      within(detailGrid as HTMLElement).getByText("file-1"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
+    expect(screen.queryByText("图片 ID")).not.toBeInTheDocument();
+    expect(screen.queryByText("反向提示词")).not.toBeInTheDocument();
+    expect(screen.queryByText("种子")).not.toBeInTheDocument();
   });
 
-  it("gives the prompt its own flat section and keeps secondary details grouped", () => {
+  it("keeps the prompt and its copy action together in one bounded section", () => {
     const { container } = renderInspector();
     const promptSection = container.querySelector(
       ".image-inspector__prompt-section",
+    ) as HTMLElement;
+    const promptBody = container.querySelector(
+      ".image-inspector__prompt-body",
     ) as HTMLElement;
     const detailGrid = container.querySelector(
       ".image-inspector__detail-grid",
     ) as HTMLElement;
 
     expect(promptSection).not.toBeNull();
+    expect(promptBody).not.toBeNull();
     expect(
       container.querySelector(".image-inspector__prompt-card"),
     ).not.toBeInTheDocument();
     expect(within(promptSection).getByText("提示词")).toBeInTheDocument();
+    const copyButton = within(promptSection).getByRole("button", {
+      name: "复制提示词",
+    });
+    expect(copyButton).toHaveClass("image-inspector__copy-button");
+    expect(copyButton).toHaveTextContent("");
+    expect(copyButton.querySelector("svg")).not.toBeNull();
     expect(
-      within(promptSection).getByText(/一台桌面级五轴 CNC 机器/),
+      within(promptBody).getByText(/一台桌面级五轴 CNC 机器/),
     ).toBeInTheDocument();
-    expect(detailGrid).not.toBeNull();
-    expect(within(detailGrid).getByText("模型服务")).toBeInTheDocument();
-    expect(within(detailGrid).getByText("来源图片")).toBeInTheDocument();
-    expect(screen.getByText("编辑链")).toBeInTheDocument();
+    expect(detailGrid).toBeNull();
+    expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "提示词", level: 4 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "编辑链", level: 4 }),
+    ).toBeInTheDocument();
   });
 
   it("does not show the old parameter reuse action", () => {
@@ -139,39 +146,15 @@ describe("ImageInspector", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens the matching image asset from image details", () => {
-    const onLocateImageAsset = vi.fn();
-    renderInspector({ onLocateImageAsset });
-
-    fireEvent.click(screen.getByRole("button", { name: "在图片资产中显示" }));
-
-    expect(onLocateImageAsset).toHaveBeenCalledWith("file-1");
-  });
-
-  it("uses compact buttons for inspector actions", () => {
+  it("keeps the prompt copy action icon-only and removes redundant asset navigation", () => {
     renderInspector();
-
-    expect(
-      screen.getByRole("button", { name: "在图片资产中显示" }),
-    ).toHaveClass("image-board-button--small");
-    expect(screen.getByRole("button", { name: "复制提示词" })).toHaveClass(
-      "image-board-button--small",
-    );
-  });
-
-  it("does not offer a generation-record action for imported images", () => {
-    renderInspector({
-      record: {
-        ...generatedRecord,
-        sourceType: "imported",
-        generationOrigin: undefined,
-        provider: undefined,
-      },
-    });
 
     expect(
       screen.queryByRole("button", { name: "在图片资产中显示" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制提示词" })).toHaveClass(
+      "image-inspector__copy-button",
+    );
   });
 
   it("lets lineage entries request locating their canvas image", () => {
@@ -186,6 +169,19 @@ describe("ImageInspector", () => {
     expect(
       screen.queryByRole("button", { name: /当前图片/ }),
     ).not.toBeInTheDocument();
+
+    const chain = screen
+      .getByRole("heading", { name: "编辑链" })
+      .closest(".image-inspector__chain") as HTMLElement;
+    const chainItems = chain.querySelectorAll(".image-inspector__chain-item");
+    expect(chainItems.length).toBeGreaterThan(1);
+    expect(
+      chain.querySelector(".image-inspector__chain-marker"),
+    ).not.toBeNull();
+    expect(
+      chain.querySelector(".image-inspector__chain-heading"),
+    ).not.toBeNull();
+    expect(chain.querySelector("time")).not.toBeNull();
   });
 
   it("turns structured prompt references into locate actions", () => {
@@ -236,10 +232,14 @@ describe("ImageInspector", () => {
       screen.getByRole("button", { name: "Locate 参考图 1" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/风格参考这个/)).toHaveLength(2);
-    expect(screen.getByText(/4\/12\/2026.*风格参考这个/)).toBeInTheDocument();
+    const currentItem = screen
+      .getByText("Current image")
+      .closest(".image-inspector__chain-item") as HTMLElement;
+    expect(within(currentItem).getByText(/4\/12\/2026/)).toBeInTheDocument();
+    expect(within(currentItem).getByText(/风格参考这个/)).toBeInTheDocument();
   });
 
-  it("shows Agent Board provenance and prompt references for externally generated images", () => {
+  it("keeps prompt references actionable for externally generated images", () => {
     const promptReference: ImagePromptReferenceRecord = {
       id: "reference-agent-board",
       index: 1,
@@ -261,17 +261,13 @@ describe("ImageInspector", () => {
       onLocatePromptReference,
     });
 
-    const detailGrid = screen.getByText("生成参数").closest("section");
-    expect(detailGrid).not.toBeNull();
-    expect(
-      within(detailGrid as HTMLElement).getByText("Codex"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "定位参考图 1" }));
 
     expect(onLocatePromptReference).toHaveBeenCalledWith(promptReference);
   });
 
-  it("shows an external Codex provider without requiring a catalog entry", () => {
+  it("keeps the model summary for externally generated images", () => {
     renderInspector({
       record: {
         ...generatedRecord,
@@ -280,14 +276,8 @@ describe("ImageInspector", () => {
       },
     });
 
-    const detailGrid = screen.getByText("生成参数").closest("section");
-    expect(detailGrid).not.toBeNull();
-    expect(
-      within(detailGrid as HTMLElement).getByText("Codex"),
-    ).toBeInTheDocument();
-    expect(
-      within(detailGrid as HTMLElement).getByText("external-image-service"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("fal-ai/nano-banana-2")).toBeInTheDocument();
+    expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
   });
 
   it("shows an unknown-time label for invalid legacy timestamps", () => {
@@ -298,7 +288,7 @@ describe("ImageInspector", () => {
       },
     });
 
-    expect(screen.getByText("时间未知")).toBeInTheDocument();
+    expect(screen.getAllByText("时间未知")).toHaveLength(2);
   });
 
   it("copies only the selected visible text from the sidebar", () => {

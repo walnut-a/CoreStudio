@@ -500,8 +500,13 @@ const App = ({
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
+  const [isImageCropping, setIsImageCropping] = useState(false);
   const [thumbnailMaintenance, setThumbnailMaintenance] =
     useState<ThumbnailMaintenanceState | null>(null);
+
+  useEffect(() => {
+    setIsImageCropping(false);
+  }, [currentProject?.projectPath]);
 
   const generationTrackingRendererActions =
     createGenerationTrackingRendererActions({
@@ -1578,6 +1583,7 @@ const App = ({
     appState: AppState,
     files: BinaryFiles,
   ) => {
+    setIsImageCropping(Boolean(appState.croppingElementId));
     reportDesktopProjectTheme(appState);
     if (
       currentProjectRef.current &&
@@ -1628,6 +1634,20 @@ const App = ({
       });
     }
     return result;
+  };
+
+  const finishImageCropping = () => {
+    const api = excalidrawAPIRef.current;
+    if (!api?.getAppState().croppingElementId) {
+      return;
+    }
+    api.updateScene({
+      appState: {
+        croppingElementId: null,
+        isCropping: false,
+      },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    });
   };
 
   useEffect(() => {
@@ -2276,6 +2296,8 @@ const App = ({
                     shouldRenderSelectedShapeActions={
                       shouldRenderSelectedShapeActions
                     }
+                    isImageCropping={isImageCropping}
+                    onFinishImageCropping={finishImageCropping}
                     record={selectedRecord}
                     ancestorRecords={selectedImageRelationship.ancestorRecords}
                     descendantRecords={

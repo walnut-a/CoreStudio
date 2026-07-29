@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import type {
   ImagePromptReferenceRecord,
@@ -7,6 +8,7 @@ import type {
 import type { ImageLineageEntry } from "../imageRelationships";
 import type { GenerationTaskRecord } from "../generationTaskState";
 import { copy } from "../copy";
+import { cropImageIcon } from "./CoreStudioIcons";
 import { ImageInspector } from "./ImageInspector";
 import { SideDock } from "./SideDock";
 import "./ImageInspector.css";
@@ -16,6 +18,8 @@ interface InspectorSidebarProps {
   onOpenChange: (open: boolean) => void;
   selectedShapeActions: ReactNode;
   shouldRenderSelectedShapeActions: boolean;
+  isImageCropping: boolean;
+  onFinishImageCropping: () => void;
   record: ImageRecord | null;
   ancestorRecords: ImageRecord[];
   descendantRecords: ImageLineageEntry[];
@@ -31,6 +35,8 @@ export const InspectorSidebar = ({
   onOpenChange,
   selectedShapeActions,
   shouldRenderSelectedShapeActions,
+  isImageCropping,
+  onFinishImageCropping,
   record,
   ancestorRecords,
   descendantRecords,
@@ -40,6 +46,22 @@ export const InspectorSidebar = ({
   onLocateImageRecord,
   onLocatePromptReference,
 }: InspectorSidebarProps) => {
+  const elementActionsHostRef = useRef<HTMLDivElement | null>(null);
+  const [elementActionList, setElementActionList] =
+    useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    const nextActionList =
+      isImageCropping && shouldRenderSelectedShapeActions
+        ? elementActionsHostRef.current?.querySelector<HTMLElement>(
+            ".selected-shape-actions fieldset:last-of-type .buttonList",
+          ) ?? null
+        : null;
+    setElementActionList((current) =>
+      current === nextActionList ? current : nextActionList,
+    );
+  }, [isImageCropping, selectedShapeActions, shouldRenderSelectedShapeActions]);
+
   return (
     <SideDock
       side="right"
@@ -52,7 +74,10 @@ export const InspectorSidebar = ({
           <header className="inspector-sidebar__section-header">
             <h3>{copy.elementActions.title}</h3>
           </header>
-          <div className="inspector-sidebar__section-body">
+          <div
+            ref={elementActionsHostRef}
+            className="inspector-sidebar__section-body"
+          >
             {shouldRenderSelectedShapeActions ? (
               selectedShapeActions
             ) : (
@@ -61,6 +86,22 @@ export const InspectorSidebar = ({
               </p>
             )}
           </div>
+          {elementActionList &&
+            createPortal(
+              <button
+                type="button"
+                className="ToolIcon ToolIcon_type_toggle ToolIcon_size_medium ToolIcon--checked inspector-sidebar__active-crop-action"
+                title={copy.elementActions.finishCrop}
+                aria-label={copy.elementActions.finishCrop}
+                aria-pressed="true"
+                onClick={onFinishImageCropping}
+              >
+                <span className="ToolIcon__icon" aria-hidden="true">
+                  {cropImageIcon}
+                </span>
+              </button>,
+              elementActionList,
+            )}
         </section>
 
         <section className="inspector-sidebar__section inspector-sidebar__section--image">

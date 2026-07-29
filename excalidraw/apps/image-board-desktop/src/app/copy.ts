@@ -183,6 +183,7 @@ const zhCnCopy = {
   },
   elementActions: {
     title: "元素编辑",
+    finishCrop: "完成裁切",
   },
   clipboard: {
     writeFailed: "复制失败，请检查系统剪贴板权限。",

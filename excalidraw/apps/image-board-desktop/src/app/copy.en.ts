@@ -176,6 +176,7 @@ export const enCopy: DesktopCopy = {
   },
   elementActions: {
     title: "Element editing",
+    finishCrop: "Finish cropping",
   },
   clipboard: {
     writeFailed: "Copy failed. Check the system clipboard permission.",

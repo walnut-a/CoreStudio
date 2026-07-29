@@ -112,6 +112,13 @@ export const copyIcon = (
   </LineIcon>
 );
 
+export const cropImageIcon = (
+  <LineIcon>
+    <path d="M8 5v10a1 1 0 0 0 1 1h10" />
+    <path d="M5 8h10a1 1 0 0 1 1 1v10" />
+  </LineIcon>
+);
+
 export const checkIcon = (
   <LineIcon size={18}>
     <path d="m6.5 12 3.25 3.25 7.75-7.75" />

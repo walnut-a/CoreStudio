@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="image-board-app" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CoreStudio · 详情侧栏排版实验</title>
+    <link rel="stylesheet" href="../src/app/styles/designTokens.css" />
+    <style>
+      @font-face {
+        font-family: "Assistant";
+        src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-Regular.woff2")
+          format("woff2");
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: "Assistant";
+        src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-Medium.woff2")
+          format("woff2");
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: "Assistant";
+        src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-SemiBold.woff2")
+          format("woff2");
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: "Assistant";
+        src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-Bold.woff2")
+          format("woff2");
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+      }
+
+      :root {
+        color-scheme: light;
+        font-family: var(--ui-font);
+        font-synthesis: none;
+        /*
+         * Mock-local aliases may only compose values exported by
+         * designTokens.css. Do not add raw typography, color, radius, or
+         * spacing values here.
+         */
+        --accent: var(--color-primary);
+        --accent-strong: var(--color-primary-darkest);
+        --accent-soft: var(--color-surface-high);
+        --page-bg: var(--color-surface-low);
+        --stage-bg: var(--color-surface-mid);
+        --surface: var(--island-bg-color);
+        --surface-muted: var(--color-surface-mid);
+        --text: var(--text-primary-color);
+        --text-secondary: var(
+          --corestudio-secondary-text-color,
+          var(--color-gray-70)
+        );
+        --border: var(--default-border-color);
+        --border-strong: var(--color-border-outline-variant);
+        --control-bg: var(--input-bg-color);
+        --control-hover: var(--input-hover-bg-color);
+        --shadow: none;
+        --radius-sm: var(--border-radius-md);
+        --radius-md: var(--border-radius-lg);
+        --sidebar-width: var(--corestudio-right-sidebar-width);
+        --sidebar-inline: var(--ui-space-2xl);
+        --sidebar-block: var(--ui-space-xl);
+        --section-gap: var(--ui-space-2xl);
+        --card-padding: var(--ui-space-lg);
+        --card-gap: var(--ui-space-sm);
+        --prompt-scroll-gutter: calc(var(--card-padding) + var(--ui-space-sm));
+        --panel-title-size: var(--ui-text-size-title);
+        --panel-title-weight: var(--font-weight-semibold);
+        --panel-title-leading: var(--ui-line-height-tight);
+        --major-title-size: var(--ui-text-size-md);
+        --major-title-weight: var(--font-weight-semibold);
+        --major-title-leading: var(--ui-line-height-normal);
+        --section-title-size: var(--ui-text-size-sm);
+        --section-title-weight: var(--font-weight-medium);
+        --section-title-leading: var(--ui-line-height-relaxed);
+        --field-label-size: var(--ui-text-size-sm);
+        --field-label-weight: var(--font-weight-regular);
+        --field-label-leading: var(--ui-line-height-relaxed);
+        --card-title-size: var(--ui-text-size-md);
+        --card-title-weight: var(--font-weight-semibold);
+        --card-title-leading: var(--ui-line-height-relaxed);
+        --body-size: var(--ui-text-size-md);
+        --body-leading: var(--ui-line-height-relaxed);
+        --meta-size: var(--ui-text-size-sm);
+        --meta-leading: var(--ui-line-height-relaxed);
+        --prompt-max-height: 16rem;
+      }
+
+      :root[data-preset="current"] {
+        --sidebar-inline: var(--ui-space-lg);
+        --sidebar-block: var(--ui-space-md);
+        --section-gap: var(--ui-space-2xl);
+        --card-padding: var(--ui-space-lg);
+        --card-gap: var(--ui-space-sm);
+        --panel-title-size: var(--ui-text-size-title);
+        --panel-title-weight: var(--font-weight-bold);
+        --panel-title-leading: var(--ui-line-height-normal);
+        --major-title-size: var(--ui-text-size-sm);
+        --major-title-weight: var(--font-weight-bold);
+        --major-title-leading: var(--ui-line-height-tight);
+        --section-title-size: var(--ui-text-size-sm);
+        --section-title-weight: var(--font-weight-bold);
+        --section-title-leading: var(--ui-line-height-tight);
+        --field-label-size: var(--ui-text-size-sm);
+        --field-label-weight: var(--font-weight-semibold);
+        --field-label-leading: var(--ui-line-height-relaxed);
+        --card-title-size: var(--ui-text-size-lg);
+        --card-title-weight: var(--font-weight-semibold);
+        --card-title-leading: var(--ui-line-height-normal);
+        --body-size: var(--ui-text-size-lg);
+        --body-leading: var(--ui-line-height-relaxed);
+        --meta-size: var(--ui-text-size-sm);
+        --meta-leading: var(--ui-line-height-relaxed);
+      }
+
+      :root[data-preset="compact"] {
+        --sidebar-inline: var(--ui-space-xl);
+        --sidebar-block: var(--ui-space-md);
+        --section-gap: var(--ui-space-xl);
+        --card-padding: var(--ui-space-md);
+        --card-gap: var(--ui-space-xs);
+        --panel-title-size: var(--ui-text-size-title);
+        --panel-title-weight: var(--font-weight-semibold);
+        --panel-title-leading: var(--ui-line-height-tight);
+        --major-title-size: var(--ui-text-size-sm);
+        --major-title-weight: var(--font-weight-semibold);
+        --major-title-leading: var(--ui-line-height-normal);
+        --section-title-size: var(--ui-text-size-xs);
+        --section-title-weight: var(--font-weight-semibold);
+        --section-title-leading: var(--ui-line-height-normal);
+        --field-label-size: var(--ui-text-size-xs);
+        --field-label-weight: var(--font-weight-medium);
+        --field-label-leading: var(--ui-line-height-normal);
+        --card-title-size: var(--ui-text-size-md);
+        --card-title-weight: var(--font-weight-semibold);
+        --card-title-leading: var(--ui-line-height-normal);
+        --body-size: var(--ui-text-size-md);
+        --body-leading: var(--ui-line-height-relaxed);
+        --meta-size: var(--ui-text-size-xs);
+        --meta-leading: var(--ui-line-height-normal);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page-bg);
+        color: var(--text);
+      }
+
+      button,
+      select {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      .lab {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+
+      .lab-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ui-space-2xl);
+        padding: var(--ui-space-xl) var(--ui-space-2xl);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      .lab-heading {
+        min-width: 0;
+      }
+
+      .lab-kicker {
+        margin: 0 0 var(--ui-space-xs);
+        color: var(--accent-strong);
+        font-size: var(--ui-text-size-xs);
+        font-weight: var(--font-weight-bold);
+        line-height: var(--ui-line-height-tight);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .lab-heading h1 {
+        margin: 0;
+        font-size: var(--ui-text-size-page-title);
+        font-weight: var(--font-weight-bold);
+        line-height: var(--ui-line-height-tight);
+      }
+
+      .lab-heading p {
+        max-width: 720px;
+        margin: var(--ui-space-sm) 0 0;
+        color: var(--text-secondary);
+        font-size: var(--ui-text-size-md);
+        line-height: var(--ui-line-height-relaxed);
+      }
+
+      .dev-badge {
+        flex: none;
+        padding: var(--ui-space-xs) var(--ui-space-sm);
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+        border-radius: var(--radius-sm);
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: var(--ui-text-size-xs);
+        font-weight: var(--font-weight-bold);
+        line-height: var(--ui-line-height-tight);
+        letter-spacing: 0.04em;
+      }
+
+      .lab-body {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+      }
+
+      .controls {
+        min-height: 0;
+        overflow-y: auto;
+        padding: var(--ui-space-2xl);
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      .control-section + .control-section {
+        margin-top: var(--ui-space-2xl);
+        padding-top: var(--ui-space-2xl);
+        border-top: 1px solid var(--border);
+      }
+
+      .control-section h2 {
+        margin: 0 0 var(--ui-space-lg);
+        font-size: var(--ui-text-size-sm);
+        font-weight: var(--font-weight-bold);
+        line-height: var(--ui-line-height-tight);
+        color: var(--text-secondary);
+      }
+
+      .field {
+        display: grid;
+        gap: var(--ui-space-xs);
+      }
+
+      .field + .field {
+        margin-top: var(--ui-space-xl);
+      }
+
+      .field label {
+        color: var(--text-secondary);
+        font-size: var(--ui-text-size-sm);
+        font-weight: var(--font-weight-semibold);
+        line-height: var(--ui-line-height-tight);
+      }
+
+      select {
+        width: 100%;
+        height: var(--ui-button-height-md);
+        padding: 0 calc(var(--ui-space-2xl) + var(--ui-space-2xl)) 0
+          var(--ui-space-md);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        outline: none;
+        appearance: none;
+        background: var(--control-bg) var(--corestudio-dropdown-icon) no-repeat
+          right var(--ui-space-md) center;
+        color: var(--text);
+        font-size: var(--ui-text-size-md);
+      }
+
+      select:focus-visible {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+      }
+
+      .preset-note {
+        margin: var(--ui-space-lg) 0 0;
+        color: var(--text-secondary);
+        font-size: var(--ui-text-size-sm);
+        line-height: var(--ui-line-height-relaxed);
+      }
+
+      .metric-list {
+        display: grid;
+        gap: 0;
+        margin: 0;
+      }
+
+      .metric {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--ui-space-lg);
+        padding: var(--ui-space-sm) 0;
+        border-bottom: 1px solid var(--border);
+        font-size: var(--ui-text-size-sm);
+        line-height: var(--ui-line-height-normal);
+      }
+
+      .metric:last-child {
+        border-bottom: 0;
+      }
+
+      .metric dt {
+        color: var(--text-secondary);
+      }
+
+      .metric dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .stage {
+        min-width: 0;
+        min-height: 0;
+        display: grid;
+        place-items: start center;
+        overflow: auto;
+        padding: var(--ui-space-2xl);
+        background: var(--stage-bg);
+      }
+
+      .preview-frame {
+        display: grid;
+        gap: var(--ui-space-lg);
+        justify-items: center;
+      }
+
+      .preview-caption {
+        width: var(--sidebar-width);
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-secondary);
+        font-size: var(--ui-text-size-xs);
+        line-height: var(--ui-line-height-tight);
+      }
+
+      .sidebar {
+        width: var(--sidebar-width);
+        height: min(790px, calc(100vh - 155px));
+        min-height: 620px;
+        display: grid;
+        grid-template-rows: 64px minmax(0, 1fr);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-width: 0;
+        padding: 0 var(--sidebar-inline);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sidebar-header h2 {
+        margin: 0;
+        font-size: var(--panel-title-size);
+        font-weight: var(--panel-title-weight);
+        line-height: var(--panel-title-leading);
+      }
+
+      .icon-button {
+        width: var(--ui-control-size-md);
+        min-width: var(--ui-control-size-md);
+        height: var(--ui-control-size-md);
+        min-height: var(--ui-control-size-md);
+        display: grid;
+        place-items: center;
+        flex: none;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+
+      .sidebar-header .icon-button {
+        margin-right: calc(
+          (var(--ui-space-2xl) - var(--ui-control-size-md)) / 2
+        );
+      }
+
+      .icon-button svg {
+        width: var(--ui-space-2xl);
+        height: var(--ui-space-2xl);
+      }
+
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--text);
+      }
+
+      .icon-button:active {
+        background: var(--button-active-bg);
+      }
+
+      .icon-button:focus-visible,
+      .tool-button:focus-visible,
+      .chain-button:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: var(--ui-space-xxs);
+      }
+
+      .sidebar-scroll {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
+
+      .sidebar-section {
+        padding: var(--sidebar-block) var(--sidebar-inline)
+          calc(var(--sidebar-block) + var(--ui-space-xs));
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sidebar-section:last-child {
+        border-bottom: 0;
+      }
+
+      .section-title {
+        margin: 0 0 var(--ui-space-md);
+        color: var(--text-secondary);
+        font-size: var(--section-title-size);
+        font-weight: var(--section-title-weight);
+        line-height: var(--section-title-leading);
+      }
+
+      .section-title--major {
+        margin-bottom: var(--ui-space-xl);
+        color: var(--text);
+        font-size: var(--major-title-size);
+        font-weight: var(--major-title-weight);
+        line-height: var(--major-title-leading);
+      }
+
+      .section-title--subsection {
+        margin-bottom: var(--ui-space-sm);
+      }
+
+      .shape-grid {
+        display: grid;
+        gap: var(--ui-space-xl);
+      }
+
+      .property-group {
+        min-width: 0;
+        display: grid;
+        gap: var(--ui-space-sm);
+      }
+
+      .property-label {
+        color: var(--text);
+        font-size: var(--field-label-size);
+        font-weight: var(--field-label-weight);
+        line-height: var(--field-label-leading);
+      }
+
+      .corner-buttons,
+      .layer-buttons,
+      .operation-buttons {
+        display: flex;
+        min-width: 0;
+        flex-wrap: wrap;
+        gap: var(--ui-space-sm);
+      }
+
+      .tool-button {
+        width: var(--ui-control-size-md);
+        height: var(--ui-control-size-md);
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: var(--surface-muted);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .tool-button:hover {
+        background: var(--control-hover);
+      }
+
+      .tool-button:active {
+        background: var(--button-active-bg);
+      }
+
+      .tool-button.is-active {
+        border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .range-input {
+        --range-progress: 100%;
+        width: 100%;
+        height: var(--ui-space-xs);
+        margin: var(--ui-space-xs) 0 var(--ui-space-xxs);
+        border: 0;
+        border-radius: var(--ui-space-xxs);
+        outline: none;
+        appearance: none;
+        background: linear-gradient(
+          to right,
+          color-mix(in srgb, var(--accent) 48%, var(--border)) 0,
+          color-mix(in srgb, var(--accent) 48%, var(--border))
+            var(--range-progress),
+          var(--surface-muted) var(--range-progress),
+          var(--surface-muted) 100%
+        );
+        cursor: pointer;
+      }
+
+      .range-input::-webkit-slider-thumb {
+        appearance: none;
+        width: var(--ui-space-xl);
+        height: var(--ui-space-xl);
+        border: 0;
+        border-radius: 50%;
+        background: var(--text-secondary);
+        box-shadow: var(--shadow-control-knob);
+      }
+
+      .range-input::-moz-range-thumb {
+        width: var(--ui-space-xl);
+        height: var(--ui-space-xl);
+        border: 0;
+        border-radius: 50%;
+        background: var(--text-secondary);
+        box-shadow: var(--shadow-control-knob);
+      }
+
+      .range-input:focus-visible {
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
+      }
+
+      .range-values {
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-secondary);
+        font-size: var(--meta-size);
+        line-height: var(--meta-leading);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .range-values output {
+        font: inherit;
+        color: inherit;
+      }
+
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .inspector-content {
+        display: grid;
+        gap: var(--section-gap);
+      }
+
+      .inspector-content > section {
+        min-width: 0;
+      }
+
+      .summary-card,
+      .prompt-card {
+        min-width: 0;
+        display: grid;
+        gap: var(--card-gap);
+        padding: var(--card-padding);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+      }
+
+      .summary-main {
+        display: grid;
+        gap: var(--ui-space-xs);
+      }
+
+      .summary-card h4 {
+        margin: 0;
+        font-size: var(--card-title-size);
+        font-weight: var(--card-title-weight);
+        line-height: var(--card-title-leading);
+      }
+
+      .summary-model {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: var(--body-size);
+        line-height: var(--body-leading);
+      }
+
+      .summary-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ui-space-xs);
+      }
+
+      .summary-facts span {
+        padding: var(--ui-space-xs) var(--ui-space-sm);
+        border-radius: var(--radius-sm);
+        background: var(--surface-muted);
+        color: var(--text-secondary);
+        font-size: var(--meta-size);
+        line-height: var(--meta-leading);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .prompt-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ui-space-sm);
+      }
+
+      .prompt-header .section-title {
+        margin: 0;
+      }
+
+      .prompt-actions {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--ui-space-xs);
+      }
+
+      .copy-status {
+        color: var(--accent-strong);
+        font-size: var(--meta-size);
+        line-height: var(--meta-leading);
+        white-space: nowrap;
+      }
+
+      .copy-status.is-error {
+        color: var(--color-danger);
+      }
+
+      .copy-status:empty {
+        display: none;
+      }
+
+      .copy-button {
+        width: var(--ui-control-size-sm);
+        min-width: var(--ui-control-size-sm);
+        height: var(--ui-control-size-sm);
+        min-height: var(--ui-control-size-sm);
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        margin-right: calc(
+          (var(--ui-space-2xl) - var(--ui-control-size-sm)) / 2
+        );
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        box-shadow: none;
+        color: var(--text);
+        cursor: pointer;
+        transition: background-color 150ms ease, color 150ms ease;
+      }
+
+      .copy-button:hover {
+        background: var(--color-surface-high);
+      }
+
+      .copy-button:active {
+        background: var(--color-surface-low);
+      }
+
+      .copy-button:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: var(--ui-space-xxs);
+      }
+
+      .copy-button svg {
+        width: var(--ui-space-2xl);
+        height: var(--ui-space-2xl);
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.25;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .copy-button [data-icon="check"] {
+        display: none;
+      }
+
+      .copy-button.is-copied {
+        color: var(--accent-strong);
+        background: var(--accent-soft);
+      }
+
+      .copy-button.is-copied [data-icon="copy"] {
+        display: none;
+      }
+
+      .copy-button.is-copied [data-icon="check"] {
+        display: block;
+      }
+
+      .prompt-body {
+        box-sizing: border-box;
+        width: calc(100% + var(--prompt-scroll-gutter));
+        max-height: var(--prompt-max-height);
+        margin-right: calc(0px - var(--prompt-scroll-gutter));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-right: var(--prompt-scroll-gutter);
+        scrollbar-gutter: stable;
+      }
+
+      .prompt-body p {
+        margin: 0;
+        font-size: var(--body-size);
+        line-height: var(--body-leading);
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      .prompt-reference {
+        color: var(--accent-strong);
+        font-weight: var(--font-weight-semibold);
+        text-decoration: underline;
+        text-underline-offset: var(--ui-space-xxs);
+      }
+
+      .chain {
+        display: grid;
+        gap: var(--ui-space-sm);
+      }
+
+      .chain .section-title {
+        margin: 0;
+      }
+
+      .chain-list {
+        display: grid;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .chain-item {
+        box-sizing: border-box;
+        min-width: 0;
+        position: relative;
+        display: grid;
+        grid-template-columns: var(--ui-space-xl) minmax(0, 1fr);
+        align-items: start;
+        gap: var(--ui-space-sm);
+        padding: 0 0 var(--ui-space-sm);
+      }
+
+      .chain-item:last-child {
+        padding-bottom: 0;
+      }
+
+      .chain-item:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: calc(var(--ui-space-xl) / 2);
+        top: calc(var(--ui-space-md) + var(--ui-space-xs));
+        bottom: calc(0px - var(--ui-space-xl));
+        width: 1px;
+        background: var(--border);
+      }
+
+      .chain-marker {
+        z-index: 1;
+        width: var(--ui-space-sm);
+        height: var(--ui-space-sm);
+        justify-self: center;
+        margin-top: var(--ui-space-md);
+        border: 1px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+      }
+
+      .chain-content {
+        min-width: 0;
+        display: grid;
+        gap: var(--ui-space-xs);
+        padding: var(--ui-space-sm) var(--ui-space-md);
+        border-radius: var(--radius-md);
+      }
+
+      .chain-button {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        border: 0;
+        text-align: left;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .chain-item--actionable .chain-button:hover {
+        background: var(--control-hover);
+      }
+
+      .chain-item--actionable .chain-button:active {
+        background: var(--button-active-bg);
+      }
+
+      .chain-item.is-current .chain-marker {
+        border-color: var(--accent);
+        background: var(--accent);
+        outline: var(--ui-space-xxs) solid var(--surface);
+      }
+
+      .chain-item.is-current .chain-content {
+        background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+      }
+
+      .chain-heading {
+        min-width: 0;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--ui-space-sm);
+      }
+
+      .chain-label {
+        min-width: 0;
+        color: var(--text);
+        font-size: var(--meta-size);
+        font-weight: var(--font-weight-semibold);
+        line-height: var(--meta-leading);
+      }
+
+      .chain-item.is-current .chain-label {
+        color: var(--accent-strong);
+      }
+
+      .chain-time {
+        flex: none;
+        color: var(--text-secondary);
+        font-size: var(--meta-size);
+        line-height: var(--meta-leading);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .chain-summary {
+        display: -webkit-box;
+        margin: 0;
+        overflow: hidden;
+        font-size: var(--body-size);
+        line-height: var(--body-leading);
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (max-width: 860px) {
+        .lab-header {
+          align-items: flex-start;
+          padding: var(--ui-space-2xl);
+        }
+
+        .lab-body {
+          grid-template-columns: 1fr;
+        }
+
+        .controls {
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .control-sections {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: var(--ui-space-2xl);
+        }
+
+        .control-section + .control-section {
+          margin: 0;
+          padding: 0;
+          border-top: 0;
+        }
+
+        .stage {
+          padding: var(--ui-space-2xl);
+        }
+
+        .sidebar {
+          height: 740px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .lab-header {
+          display: grid;
+        }
+
+        .control-sections {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header class="lab-header">
+        <div class="lab-heading">
+          <p class="lab-kicker">CoreStudio typography lab</p>
+          <h1>详情侧栏排版实验</h1>
+          <p>
+            在真实侧栏尺度中比较信息层级、正文阅读密度和垂直节奏。页面直接引用产品设计
+            token，但不引用或修改产品组件。
+          </p>
+        </div>
+        <span class="dev-badge">DEVELOPMENT ONLY</span>
+      </header>
+
+      <div class="lab-body">
+        <aside class="controls" aria-label="预览参数">
+          <div class="control-sections">
+            <section class="control-section">
+              <h2>预览设置</h2>
+              <div class="field">
+                <label for="preset">排版方案</label>
+                <select id="preset">
+                  <option value="recommended" selected>
+                    推荐 · 设计系统组合
+                  </option>
+                  <option value="current">当前 · 正文偏重</option>
+                  <option value="compact">紧凑 · 高密度</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="scenario">内容场景</label>
+                <select id="scenario">
+                  <option value="long" selected>长提示词</option>
+                  <option value="short">短提示词</option>
+                  <option value="imported">导入图片</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="sidebar-width">侧栏宽度</label>
+                <select id="sidebar-width">
+                  <option value="300" selected>300px · 产品默认</option>
+                  <option value="340">340px · 对照</option>
+                  <option value="380">380px · 对照</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="theme">主题</label>
+                <select id="theme">
+                  <option value="light" selected>浅色</option>
+                  <option value="dark">深色</option>
+                </select>
+              </div>
+              <p class="preset-note" id="preset-note">
+                推荐方案只组合现有字号、字重、行高和间距 token，不在 mock
+                内定义新的基础值。
+              </p>
+            </section>
+
+            <section class="control-section">
+              <h2>设计系统映射</h2>
+              <dl class="metric-list">
+                <div class="metric">
+                  <dt>面板标题</dt>
+                  <dd id="metric-panel-title">title · semibold · tight</dd>
+                </div>
+                <div class="metric">
+                  <dt>一级 section</dt>
+                  <dd id="metric-major-title">md · semibold · normal</dd>
+                </div>
+                <div class="metric">
+                  <dt>二级 section</dt>
+                  <dd id="metric-section-title">sm · medium · relaxed</dd>
+                </div>
+                <div class="metric">
+                  <dt>字段标签</dt>
+                  <dd id="metric-field-label">sm · regular · relaxed</dd>
+                </div>
+                <div class="metric">
+                  <dt>卡片标题</dt>
+                  <dd id="metric-card-title">md · semibold · relaxed</dd>
+                </div>
+                <div class="metric">
+                  <dt>正文</dt>
+                  <dd id="metric-body">md · regular · relaxed</dd>
+                </div>
+                <div class="metric">
+                  <dt>元数据</dt>
+                  <dd id="metric-meta">sm · regular · relaxed</dd>
+                </div>
+                <div class="metric">
+                  <dt>侧栏内边距</dt>
+                  <dd id="metric-padding">space-2xl</dd>
+                </div>
+                <div class="metric">
+                  <dt>区块间距</dt>
+                  <dd id="metric-gap">space-2xl</dd>
+                </div>
+                <div class="metric">
+                  <dt>提示词上限</dt>
+                  <dd id="metric-prompt-height">16rem · 生产约束</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+        </aside>
+
+        <section class="stage" aria-label="详情侧栏预览">
+          <div class="preview-frame">
+            <div class="preview-caption">
+              <span id="preview-label">推荐 · 长提示词</span>
+              <span id="preview-width">300px</span>
+            </div>
+
+            <aside class="sidebar">
+              <header class="sidebar-header">
+                <h2>详情</h2>
+                <button class="icon-button" type="button" aria-label="关闭">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m4.25 4.25 7.5 7.5m0-7.5-7.5 7.5"
+                      stroke="currentColor"
+                      stroke-width="1.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </header>
+
+              <div class="sidebar-scroll">
+                <section class="sidebar-section">
+                  <h3 class="section-title section-title--major">元素编辑</h3>
+                  <div class="shape-grid">
+                    <div class="property-group">
+                      <span class="property-label">边角</span>
+                      <div class="corner-buttons">
+                        <button
+                          class="tool-button is-active"
+                          type="button"
+                          data-corner="square"
+                          aria-label="直角"
+                          aria-pressed="true"
+                          title="直角"
+                        >
+                          ⌜
+                        </button>
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-corner="round"
+                          aria-label="圆角"
+                          aria-pressed="false"
+                          title="圆角"
+                        >
+                          ╭
+                        </button>
+                      </div>
+                    </div>
+                    <div class="property-group">
+                      <label class="property-label" for="opacity-range">
+                        透明度
+                      </label>
+                      <input
+                        class="range-input"
+                        id="opacity-range"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value="100"
+                      />
+                      <div class="range-values">
+                        <span>0</span>
+                        <output id="opacity-value" for="opacity-range">
+                          100
+                        </output>
+                      </div>
+                    </div>
+                    <div class="property-group">
+                      <span class="property-label">图层</span>
+                      <div class="layer-buttons">
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="置于底层"
+                          aria-label="置于底层"
+                          title="置于底层"
+                        >
+                          ⇩
+                        </button>
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="下移一层"
+                          aria-label="下移一层"
+                          title="下移一层"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="上移一层"
+                          aria-label="上移一层"
+                          title="上移一层"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="置于顶层"
+                          aria-label="置于顶层"
+                          title="置于顶层"
+                        >
+                          ⇧
+                        </button>
+                      </div>
+                    </div>
+                    <div class="property-group">
+                      <span class="property-label">操作</span>
+                      <div class="operation-buttons">
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="复制元素"
+                          aria-label="复制元素"
+                          title="复制元素"
+                        >
+                          ⧉
+                        </button>
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="删除元素"
+                          aria-label="删除元素"
+                          title="删除元素"
+                        >
+                          ⌫
+                        </button>
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="复制图片链接"
+                          aria-label="复制图片链接"
+                          title="复制图片链接"
+                        >
+                          ↗
+                        </button>
+                        <button
+                          class="tool-button"
+                          type="button"
+                          data-mock-action="裁剪图片"
+                          aria-label="裁剪图片"
+                          title="裁剪图片"
+                        >
+                          ⌗
+                        </button>
+                      </div>
+                    </div>
+                    <p
+                      class="visually-hidden"
+                      id="tool-status"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      当前：直角 · 透明度 100%
+                    </p>
+                  </div>
+                </section>
+
+                <section class="sidebar-section">
+                  <h3 class="section-title section-title--major">图片信息</h3>
+                  <div class="inspector-content">
+                    <article class="summary-card">
+                      <div class="summary-main">
+                        <h4 id="summary-title">AI 生成图片</h4>
+                        <p class="summary-model" id="summary-model">
+                          openai/gpt-image-2
+                        </p>
+                      </div>
+                      <div class="summary-facts">
+                        <span>1548 × 1016</span>
+                        <span>2026/7/28 18:19:13</span>
+                      </div>
+                    </article>
+
+                    <article class="prompt-card" id="prompt-card">
+                      <header class="prompt-header">
+                        <h4 class="section-title section-title--subsection">
+                          提示词
+                        </h4>
+                        <div class="prompt-actions">
+                          <span
+                            class="copy-status"
+                            id="copy-status"
+                            role="status"
+                            aria-live="polite"
+                          ></span>
+                          <button
+                            class="copy-button"
+                            type="button"
+                            id="copy-button"
+                            aria-label="复制提示词"
+                            title="复制提示词"
+                          >
+                            <svg
+                              data-icon="copy"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
+                              <rect
+                                x="8.25"
+                                y="8.25"
+                                width="10.5"
+                                height="10.5"
+                                rx="1.75"
+                              />
+                              <path
+                                d="M15.75 8.25v-1.5A1.5 1.5 0 0 0 14.25 5.25h-7.5a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h1.5"
+                              />
+                            </svg>
+                            <svg
+                              data-icon="check"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
+                              <path d="m6.5 12 3.25 3.25 7.75-7.75" />
+                            </svg>
+                          </button>
+                        </div>
+                      </header>
+                      <div class="prompt-body">
+                        <p id="prompt-text">
+                          这是我自己建模的产品模型，我需要你帮我生成渲染图效果。这张模型上分成了几个主要区域：
+                          1.
+                          整体布局：左右分成两块，中间有一套竖向分割线，左右接近黄金比例。
+                          2.
+                          左侧区域：最大的区域是透明玻璃，外框采用深色阳极氧化铝合金。
+                          3.
+                          右侧区域：较窄区域使用浅色金属原色，与左侧形成对比。
+                          4. 右下角区域：黑框内是设备屏幕。 整台机器是桌面级 CNC
+                          设备。生成渲染图时保持整体结构，只优化材质、光影和细节，使它更精致。参考
+                          <span class="prompt-reference">参考图 1</span>
+                          的摄影棚光线与背景质感。
+                        </p>
+                      </div>
+                    </article>
+
+                    <section class="chain" id="chain">
+                      <h4 class="section-title section-title--subsection">
+                        编辑链
+                      </h4>
+                      <ol class="chain-list">
+                        <li class="chain-item chain-item--actionable">
+                          <span class="chain-marker" aria-hidden="true"></span>
+                          <button
+                            class="chain-content chain-button"
+                            type="button"
+                            aria-label="定位到图片：原始图片，2026/6/8 17:03"
+                            title="定位到图片"
+                            data-mock-action="定位到原始图片"
+                          >
+                            <div class="chain-heading">
+                              <span class="chain-label">原始图片</span>
+                              <time
+                                class="chain-time"
+                                datetime="2026-06-08T17:03:08"
+                              >
+                                2026/6/8 17:03
+                              </time>
+                            </div>
+                            <p class="chain-summary">
+                              导入产品模型正视图，保留初始结构。
+                            </p>
+                          </button>
+                        </li>
+                        <li class="chain-item is-current">
+                          <span class="chain-marker" aria-hidden="true"></span>
+                          <div class="chain-content">
+                            <div class="chain-heading">
+                              <span class="chain-label">当前图片</span>
+                              <time
+                                class="chain-time"
+                                datetime="2026-06-08T17:04:10"
+                              >
+                                2026/6/8 17:04
+                              </time>
+                            </div>
+                            <p class="chain-summary">
+                              这是我自己建模的产品模型，我需要你帮我生成渲染图效果。这张模型上分成了几个主要区域……
+                            </p>
+                          </div>
+                        </li>
+                      </ol>
+                    </section>
+                  </div>
+                </section>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const root = document.documentElement;
+      const presetSelect = document.querySelector("#preset");
+      const scenarioSelect = document.querySelector("#scenario");
+      const widthSelect = document.querySelector("#sidebar-width");
+      const themeSelect = document.querySelector("#theme");
+      const copyButton = document.querySelector("#copy-button");
+      const copyStatus = document.querySelector("#copy-status");
+      const opacityRange = document.querySelector("#opacity-range");
+      const opacityValue = document.querySelector("#opacity-value");
+      const toolStatus = document.querySelector("#tool-status");
+      let copyResetTimer;
+
+      const presets = {
+        recommended: {
+          label: "推荐",
+          note: "推荐方案只组合现有字号、字重、行高和间距 token，不在 mock 内定义新的基础值。",
+        },
+        current: {
+          label: "当前",
+          note: "当前方案让一级、二级 section 都使用 12px 粗体，字段标签也偏重；标题数量一多就会互相竞争。",
+        },
+        compact: {
+          label: "紧凑",
+          note: "紧凑方案适合高频专业用户，但长提示词阅读舒适度较低，不建议作为当前默认值。",
+        },
+      };
+
+      const scenarios = {
+        long: {
+          label: "长提示词",
+          title: "AI 生成图片",
+          model: "openai/gpt-image-2",
+          prompt: `这是我自己建模的产品模型，我需要你帮我生成渲染图效果。这张模型上分成了几个主要区域：
+
+1. 整体布局：左右分成两块，中间有一套竖向分割线，左右接近黄金比例。
+2. 左侧区域：最大的区域是透明玻璃，外框采用深色阳极氧化铝合金。
+3. 右侧区域：较窄区域使用浅色金属原色，与左侧形成对比。
+4. 右下角区域：黑框内是设备屏幕。
+
+整台机器是桌面级 CNC 设备。生成渲染图时保持整体结构，只优化材质、光影和细节，使它更精致。参考参考图 1的摄影棚光线与背景质感。`,
+        },
+        short: {
+          label: "短提示词",
+          title: "AI 生成图片",
+          model: "google/gemini-2.5-flash-image",
+          prompt:
+            "保持产品结构不变，优化金属与玻璃材质，使用柔和摄影棚光线和浅灰背景。",
+        },
+        imported: {
+          label: "导入图片",
+          title: "导入图片",
+          model: "无",
+          prompt: "无",
+        },
+      };
+
+      const presetTokenLabels = {
+        recommended: {
+          panel: "title · semibold · tight",
+          major: "md · semibold · normal",
+          subsection: "sm · medium · relaxed",
+          field: "sm · regular · relaxed",
+          card: "md · semibold · relaxed",
+          body: "md · regular · relaxed",
+          meta: "sm · regular · relaxed",
+          padding: "space-2xl",
+          gap: "space-2xl",
+        },
+        current: {
+          panel: "title · bold · normal",
+          major: "sm · bold · tight",
+          subsection: "sm · bold · tight",
+          field: "sm · semibold · relaxed",
+          card: "lg · semibold · normal",
+          body: "lg · regular · relaxed",
+          meta: "sm · regular · relaxed",
+          padding: "space-lg",
+          gap: "space-2xl",
+        },
+        compact: {
+          panel: "title · semibold · tight",
+          major: "sm · semibold · normal",
+          subsection: "xs · semibold · normal",
+          field: "xs · medium · normal",
+          card: "md · semibold · normal",
+          body: "md · regular · relaxed",
+          meta: "xs · regular · normal",
+          padding: "space-xl",
+          gap: "space-xl",
+        },
+      };
+
+      function updateMetrics() {
+        const labels = presetTokenLabels[presetSelect.value];
+        document.querySelector("#metric-panel-title").textContent =
+          labels.panel;
+        document.querySelector("#metric-major-title").textContent =
+          labels.major;
+        document.querySelector("#metric-section-title").textContent =
+          labels.subsection;
+        document.querySelector("#metric-field-label").textContent =
+          labels.field;
+        document.querySelector("#metric-card-title").textContent = labels.card;
+        document.querySelector("#metric-body").textContent = labels.body;
+        document.querySelector("#metric-meta").textContent = labels.meta;
+        document.querySelector("#metric-padding").textContent = labels.padding;
+        document.querySelector("#metric-gap").textContent = labels.gap;
+        document.querySelector("#metric-prompt-height").textContent =
+          "16rem · 生产约束";
+      }
+
+      function renderScenario() {
+        const scenario = scenarios[scenarioSelect.value];
+        document.querySelector("#summary-title").textContent = scenario.title;
+        document.querySelector("#summary-model").textContent = scenario.model;
+        document.querySelector("#prompt-text").textContent = scenario.prompt;
+        document
+          .querySelector("#chain")
+          .classList.toggle("hidden", scenarioSelect.value === "imported");
+      }
+
+      function syncUrl() {
+        const params = new URLSearchParams({
+          preset: presetSelect.value,
+          scenario: scenarioSelect.value,
+          width: widthSelect.value,
+          theme: themeSelect.value,
+        });
+        history.replaceState(null, "", `?${params.toString()}`);
+      }
+
+      function render() {
+        root.dataset.preset = presetSelect.value;
+        root.dataset.theme = themeSelect.value;
+        if (widthSelect.value === "300") {
+          root.style.removeProperty("--sidebar-width");
+        } else {
+          root.style.setProperty("--sidebar-width", `${widthSelect.value}px`);
+        }
+        document.querySelector("#preset-note").textContent =
+          presets[presetSelect.value].note;
+        document.querySelector("#preview-label").textContent = `${
+          presets[presetSelect.value].label
+        } · ${scenarios[scenarioSelect.value].label}`;
+        document.querySelector(
+          "#preview-width",
+        ).textContent = `${widthSelect.value}px`;
+        renderScenario();
+        requestAnimationFrame(updateMetrics);
+        syncUrl();
+      }
+
+      const initial = new URLSearchParams(location.search);
+      if (presets[initial.get("preset")]) {
+        presetSelect.value = initial.get("preset");
+      }
+      if (scenarios[initial.get("scenario")]) {
+        scenarioSelect.value = initial.get("scenario");
+      }
+      if (["300", "340", "380"].includes(initial.get("width"))) {
+        widthSelect.value = initial.get("width");
+      }
+      if (["light", "dark"].includes(initial.get("theme"))) {
+        themeSelect.value = initial.get("theme");
+      }
+
+      [presetSelect, scenarioSelect, widthSelect, themeSelect].forEach(
+        (control) => control.addEventListener("change", render),
+      );
+
+      document.querySelectorAll("[data-corner]").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll("[data-corner]").forEach((candidate) => {
+            const isSelected = candidate === button;
+            candidate.classList.toggle("is-active", isSelected);
+            candidate.setAttribute("aria-pressed", String(isSelected));
+          });
+          toolStatus.textContent = `当前：${button.getAttribute(
+            "aria-label",
+          )} · 透明度 ${opacityRange.value}%`;
+        });
+      });
+
+      opacityRange.addEventListener("input", () => {
+        const value = opacityRange.value;
+        opacityRange.style.setProperty("--range-progress", `${value}%`);
+        opacityValue.value = value;
+        const selectedCorner = document.querySelector(
+          "[data-corner][aria-pressed='true']",
+        );
+        toolStatus.textContent = `当前：${selectedCorner.getAttribute(
+          "aria-label",
+        )} · 透明度 ${value}%`;
+      });
+
+      document.querySelectorAll("[data-mock-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+          toolStatus.textContent = `已模拟：${button.dataset.mockAction}`;
+        });
+      });
+
+      copyButton.addEventListener("click", async () => {
+        const prompt = scenarios[scenarioSelect.value].prompt;
+        window.clearTimeout(copyResetTimer);
+        copyStatus.classList.remove("is-error");
+        try {
+          await navigator.clipboard.writeText(prompt);
+          copyButton.classList.add("is-copied");
+          copyButton.setAttribute("aria-label", "提示词已复制");
+          copyButton.setAttribute("title", "提示词已复制");
+          copyResetTimer = window.setTimeout(() => {
+            copyButton.classList.remove("is-copied");
+            copyButton.setAttribute("aria-label", "复制提示词");
+            copyButton.setAttribute("title", "复制提示词");
+            copyStatus.textContent = "";
+          }, 1200);
+        } catch {
+          copyButton.setAttribute("aria-label", "复制提示词失败");
+          copyButton.setAttribute("title", "复制提示词失败");
+          copyStatus.classList.add("is-error");
+          copyStatus.textContent = "复制失败，请重试";
+          copyResetTimer = window.setTimeout(() => {
+            copyButton.setAttribute("aria-label", "复制提示词");
+            copyButton.setAttribute("title", "复制提示词");
+            copyStatus.classList.remove("is-error");
+            copyStatus.textContent = "";
+          }, 2400);
+        }
+      });
+
+      render();
+    </script>
+  </body>
+</html>

@@ -22,6 +22,7 @@ import type {
 import type {
   CustomModelCapabilityTemplateId,
   CustomProviderModel,
+  ProviderCapabilities,
   ProviderId,
   ProviderRequestAdapter,
 } from "../../shared/providerTypes";
@@ -41,6 +42,16 @@ export interface ProviderServiceEditorProps {
 
 const DEFAULT_TEMPLATE: CustomModelCapabilityTemplateId =
   "image-editing-aspect-ratio";
+const DEFAULT_REFERENCE_IMAGE_COUNT = 8;
+const DEFAULT_IMAGE_COUNT = 4;
+
+const cloneCapabilities = (
+  capabilities: ProviderCapabilities,
+): ProviderCapabilities => ({ ...capabilities });
+
+const getTemplateCapabilities = (
+  template: CustomModelCapabilityTemplateId,
+) => cloneCapabilities(CUSTOM_MODEL_USAGE_PRESETS[template].capabilities);
 
 const SettingsSelect = (
   props: SelectHTMLAttributes<HTMLSelectElement>,
@@ -56,6 +67,163 @@ const SettingsSelect = (
     </svg>
   </span>
 );
+
+interface ModelCapabilitiesEditorProps {
+  capabilities: ProviderCapabilities;
+  manual: boolean;
+  modelIdPresent: boolean;
+  onStartManual(): void;
+  onRestoreAutomatic(): void;
+  onChange(capabilities: ProviderCapabilities): void;
+}
+
+const ModelCapabilitiesEditor = ({
+  capabilities,
+  manual,
+  modelIdPresent,
+  onStartManual,
+  onRestoreAutomatic,
+  onChange,
+}: ModelCapabilitiesEditorProps) => {
+  const providerCopy = copy.applicationSettings.providerEditor;
+  const summary = modelIdPresent
+    ? [
+        capabilities.supportsReferenceImages
+          ? providerCopy.capabilitySummary.referenceImages
+          : providerCopy.capabilitySummary.textOnly,
+        capabilities.sizeControlMode === "exact"
+          ? providerCopy.capabilitySummary.exactSize
+          : providerCopy.capabilitySummary.aspectRatio,
+        capabilities.supportsSeed
+          ? providerCopy.capabilitySummary.seed
+          : null,
+        capabilities.supportsImageCount
+          ? providerCopy.capabilitySummary.imageCount
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : providerCopy.capabilityPending;
+
+  return (
+    <section className="settings-capability-editor">
+      <div className="settings-capability-editor__header">
+        <div>
+          <strong>{providerCopy.modelUsage}</strong>
+          <p aria-live="polite">{summary}</p>
+          {modelIdPresent ? (
+            <small>
+              {manual
+                ? providerCopy.capabilityManualStatus
+                : providerCopy.capabilityAutoStatus}
+            </small>
+          ) : null}
+        </div>
+        {modelIdPresent ? (
+          <button
+            type="button"
+            className="settings-inline-action"
+            onClick={manual ? onRestoreAutomatic : onStartManual}
+          >
+            {manual
+              ? providerCopy.restoreAutomaticCapabilities
+              : providerCopy.adjustCapabilities}
+          </button>
+        ) : null}
+      </div>
+
+      {manual && modelIdPresent ? (
+        <div className="settings-capability-editor__controls">
+          <label className="settings-capability-option">
+            <input
+              type="checkbox"
+              checked={capabilities.supportsReferenceImages}
+              onChange={(event) => {
+                const supported = event.target.checked;
+                onChange({
+                  ...capabilities,
+                  supportsReferenceImages: supported,
+                  maxReferenceImageCount: supported
+                    ? capabilities.maxReferenceImageCount ||
+                      DEFAULT_REFERENCE_IMAGE_COUNT
+                    : 0,
+                });
+              }}
+            />
+            <span>{providerCopy.supportsReferenceImages}</span>
+          </label>
+
+          <fieldset className="settings-capability-size">
+            <legend>{providerCopy.sizeControl}</legend>
+            <label className="settings-capability-option">
+              <input
+                type="radio"
+                name="custom-model-size-control"
+                checked={capabilities.sizeControlMode === "aspect-ratio"}
+                onChange={() =>
+                  onChange({
+                    ...capabilities,
+                    sizeControlMode: "aspect-ratio",
+                  })
+                }
+              />
+              <span>{providerCopy.aspectRatioSize}</span>
+            </label>
+            <label className="settings-capability-option">
+              <input
+                type="radio"
+                name="custom-model-size-control"
+                checked={capabilities.sizeControlMode === "exact"}
+                onChange={() =>
+                  onChange({
+                    ...capabilities,
+                    sizeControlMode: "exact",
+                  })
+                }
+              />
+              <span>{providerCopy.exactSize}</span>
+            </label>
+          </fieldset>
+
+          <label className="settings-capability-option">
+            <input
+              type="checkbox"
+              checked={capabilities.supportsSeed}
+              onChange={(event) =>
+                onChange({
+                  ...capabilities,
+                  supportsSeed: event.target.checked,
+                })
+              }
+            />
+            <span>{providerCopy.supportsSeed}</span>
+          </label>
+
+          <label className="settings-capability-option">
+            <input
+              type="checkbox"
+              checked={capabilities.supportsImageCount}
+              onChange={(event) => {
+                const supported = event.target.checked;
+                onChange({
+                  ...capabilities,
+                  supportsImageCount: supported,
+                  maxImageCount: supported
+                    ? Math.max(
+                        capabilities.maxImageCount,
+                        DEFAULT_IMAGE_COUNT,
+                      )
+                    : 1,
+                });
+              }}
+            />
+            <span>{providerCopy.supportsImageCount}</span>
+          </label>
+        </div>
+      ) : null}
+    </section>
+  );
+};
 
 export const ProviderServiceEditor = ({
   provider,
@@ -78,6 +246,12 @@ export const ProviderServiceEditor = ({
   const [customModelLabel, setCustomModelLabel] = useState("");
   const [customTemplate, setCustomTemplate] =
     useState<CustomModelCapabilityTemplateId>(DEFAULT_TEMPLATE);
+  const [customCapabilities, setCustomCapabilities] =
+    useState<ProviderCapabilities>(() =>
+      getTemplateCapabilities(DEFAULT_TEMPLATE),
+    );
+  const [customCapabilitiesManual, setCustomCapabilitiesManual] =
+    useState(false);
   const [customAdapter, setCustomAdapter] = useState<ProviderRequestAdapter>(
     PROVIDER_REQUEST_ADAPTER_OPTIONS[provider][0],
   );
@@ -94,9 +268,15 @@ export const ProviderServiceEditor = ({
       : null;
     setCustomModelId(savedCompatibleModel?.id || "");
     setCustomModelLabel(savedCompatibleModel?.label || "");
-    setCustomTemplate(
-      savedCompatibleModel?.capabilityTemplate || DEFAULT_TEMPLATE,
+    const savedTemplate =
+      savedCompatibleModel?.capabilityTemplate || DEFAULT_TEMPLATE;
+    setCustomTemplate(savedTemplate);
+    setCustomCapabilities(
+      savedCompatibleModel?.capabilities
+        ? cloneCapabilities(savedCompatibleModel.capabilities)
+        : getTemplateCapabilities(savedTemplate),
     );
+    setCustomCapabilitiesManual(Boolean(savedCompatibleModel?.capabilities));
     setCustomAdapter(PROVIDER_REQUEST_ADAPTER_OPTIONS[provider][0]);
     setFeedback(null);
     onDirtyChange(false);
@@ -118,6 +298,36 @@ export const ProviderServiceEditor = ({
     onDirtyChange(true);
   };
 
+  const activeCustomCapabilities = customCapabilitiesManual
+    ? customCapabilities
+    : CUSTOM_MODEL_USAGE_PRESETS[customTemplate].capabilities;
+
+  const renderCustomCapabilitiesEditor = () => (
+    <ModelCapabilitiesEditor
+      capabilities={activeCustomCapabilities}
+      manual={customCapabilitiesManual}
+      modelIdPresent={Boolean(customModelId.trim())}
+      onStartManual={() => {
+        setCustomCapabilities(cloneCapabilities(activeCustomCapabilities));
+        setCustomCapabilitiesManual(true);
+      }}
+      onRestoreAutomatic={() => {
+        const inferredTemplate = inferCustomModelCapabilityTemplate({
+          provider,
+          modelId: customModelId,
+        });
+        setCustomTemplate(inferredTemplate);
+        setCustomCapabilities(getTemplateCapabilities(inferredTemplate));
+        setCustomCapabilitiesManual(false);
+        markDirty();
+      }}
+      onChange={(nextCapabilities) => {
+        setCustomCapabilities(nextCapabilities);
+        markDirty();
+      }}
+    />
+  );
+
   const addCustomModel = () => {
     const id = customModelId.trim();
     if (!id) {
@@ -128,6 +338,9 @@ export const ProviderServiceEditor = ({
       label: customModelLabel.trim() || id,
       capabilityTemplate: customTemplate,
       adapter: customAdapter,
+      ...(customCapabilitiesManual
+        ? { capabilities: cloneCapabilities(customCapabilities) }
+        : {}),
     };
     setCustomModels((current) => [
       ...current.filter((model) => model.id !== id),
@@ -136,6 +349,7 @@ export const ProviderServiceEditor = ({
     setDefaultModel(id);
     setCustomModelId("");
     setCustomModelLabel("");
+    setCustomCapabilitiesManual(false);
     markDirty();
   };
 
@@ -148,6 +362,9 @@ export const ProviderServiceEditor = ({
             label: customModelLabel.trim() || compatibleModelId,
             capabilityTemplate: customTemplate,
             adapter: "openai-images",
+            ...(customCapabilitiesManual
+              ? { capabilities: cloneCapabilities(customCapabilities) }
+              : {}),
           },
         ]
       : [];
@@ -263,31 +480,7 @@ export const ProviderServiceEditor = ({
                 }}
               />
             </label>
-            <label>
-              <span>
-                {copy.applicationSettings.providerEditor.modelCapability}
-              </span>
-              <SettingsSelect
-                value={customTemplate}
-                onChange={(event) => {
-                  setCustomTemplate(
-                    event.target.value as CustomModelCapabilityTemplateId,
-                  );
-                  markDirty();
-                }}
-              >
-                {Object.entries(CUSTOM_MODEL_USAGE_PRESETS).map(([id]) => (
-                  <option key={id} value={id}>
-                    {
-                      copy.applicationSettings.providerEditor
-                        .capabilityTemplates[
-                        id as CustomModelCapabilityTemplateId
-                      ]
-                    }
-                  </option>
-                ))}
-              </SettingsSelect>
-            </label>
+            {renderCustomCapabilitiesEditor()}
           </>
         ) : (
           <>
@@ -371,31 +564,7 @@ export const ProviderServiceEditor = ({
                     }}
                   />
                 </label>
-                <label>
-                  <span>
-                    {copy.applicationSettings.providerEditor.modelCapability}
-                  </span>
-                  <SettingsSelect
-                    value={customTemplate}
-                    onChange={(event) => {
-                      setCustomTemplate(
-                        event.target.value as CustomModelCapabilityTemplateId,
-                      );
-                      markDirty();
-                    }}
-                  >
-                    {Object.entries(CUSTOM_MODEL_USAGE_PRESETS).map(([id]) => (
-                      <option key={id} value={id}>
-                        {
-                          copy.applicationSettings.providerEditor
-                            .capabilityTemplates[
-                            id as CustomModelCapabilityTemplateId
-                          ]
-                        }
-                      </option>
-                    ))}
-                  </SettingsSelect>
-                </label>
+                {renderCustomCapabilitiesEditor()}
                 <label>
                   <span>
                     {copy.applicationSettings.providerEditor.adapterType}

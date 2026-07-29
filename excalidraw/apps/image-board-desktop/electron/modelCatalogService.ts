@@ -6,11 +6,10 @@ import {
   type ModelCatalogSnapshot,
   type RemoteModelCatalog,
 } from "../src/shared/modelCatalogContract";
+import { MODEL_CATALOG_DOWNLOAD_URL } from "../src/shared/modelCatalogMetadata";
 import { applyRemoteModelCatalog } from "../src/shared/providerCatalog";
 
 const CATALOG_FILE_NAME = "model-catalog.v1.json";
-const CATALOG_URL =
-  "https://api.github.com/repos/walnut-a/CoreStudio-Model-Catalog/contents/model-catalog.v1.json?ref=main";
 const MAX_CATALOG_BYTES = 256 * 1024;
 
 interface ModelCatalogServiceOptions {
@@ -69,7 +68,7 @@ export const createModelCatalogService = ({
   };
 
   const refresh = async () => {
-    const response = await fetchCatalog(CATALOG_URL, {
+    const response = await fetchCatalog(MODEL_CATALOG_DOWNLOAD_URL, {
       headers: {
         Accept: "application/vnd.github.raw+json",
         "X-GitHub-Api-Version": "2022-11-28",

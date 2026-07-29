@@ -30,6 +30,7 @@ describe("application settings localization", () => {
         onSave={vi.fn(async () => undefined)}
         onDelete={vi.fn(async () => undefined)}
         onRefreshCatalog={vi.fn(async () => undefined)}
+        onOpenExternal={vi.fn()}
         onDirtyChange={vi.fn()}
       />,
     );

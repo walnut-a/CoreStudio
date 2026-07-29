@@ -206,9 +206,11 @@ export const ImageInspector = ({
             <div className="image-inspector__section-header">
               <h3>{copy.inspector.prompt}</h3>
             </div>
-            <p className="image-inspector__prompt-text">
-              {getOptionalText(task.prompt)}
-            </p>
+            <div className="image-inspector__prompt-body">
+              <p className="image-inspector__prompt-text">
+                {getOptionalText(task.prompt)}
+              </p>
+            </div>
           </section>
 
           <section className="image-inspector__section">
@@ -345,33 +347,43 @@ export const ImageInspector = ({
         <section className="image-inspector__prompt-section">
           <div className="image-inspector__section-header">
             <h3>{copy.inspector.prompt}</h3>
-          </div>
-          <p className="image-inspector__prompt-text">
-            {renderPromptTextWithReferences(
-              record.prompt,
-              record.promptReferences,
-              onLocatePromptReference,
-            )}
-          </p>
-          {detachedPromptReferenceList.length ? (
-            <div
-              className="image-inspector__prompt-reference-list"
-              aria-label={copy.inspector.promptReferences}
+            <DesktopButton
+              type="button"
+              size="small"
+              onClick={onCopyPrompt}
+              disabled={!record.prompt}
             >
-              {detachedPromptReferenceList.map((reference) => (
-                <button
-                  key={reference.id}
-                  type="button"
-                  className="image-inspector__prompt-reference-chip"
-                  aria-label={copy.inspector.locateReference(reference.label)}
-                  title={copy.inspector.locateImage}
-                  onClick={() => onLocatePromptReference(reference)}
-                >
-                  {reference.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+              {copy.inspector.copyPrompt}
+            </DesktopButton>
+          </div>
+          <div className="image-inspector__prompt-body">
+            <p className="image-inspector__prompt-text">
+              {renderPromptTextWithReferences(
+                record.prompt,
+                record.promptReferences,
+                onLocatePromptReference,
+              )}
+            </p>
+            {detachedPromptReferenceList.length ? (
+              <div
+                className="image-inspector__prompt-reference-list"
+                aria-label={copy.inspector.promptReferences}
+              >
+                {detachedPromptReferenceList.map((reference) => (
+                  <button
+                    key={reference.id}
+                    type="button"
+                    className="image-inspector__prompt-reference-chip"
+                    aria-label={copy.inspector.locateReference(reference.label)}
+                    title={copy.inspector.locateImage}
+                    onClick={() => onLocatePromptReference(reference)}
+                  >
+                    {reference.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </section>
 
         <section className="image-inspector__section">
@@ -462,8 +474,8 @@ export const ImageInspector = ({
             )}
           </section>
         )}
-        <div className="image-inspector__actions">
-          {record.sourceType === "generated" && (
+        {record.sourceType === "generated" && (
+          <div className="image-inspector__actions">
             <DesktopButton
               type="button"
               size="small"
@@ -471,16 +483,8 @@ export const ImageInspector = ({
             >
               {copy.inspector.locateImageAsset}
             </DesktopButton>
-          )}
-          <DesktopButton
-            type="button"
-            size="small"
-            onClick={onCopyPrompt}
-            disabled={!record.prompt}
-          >
-            {copy.inspector.copyPrompt}
-          </DesktopButton>
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

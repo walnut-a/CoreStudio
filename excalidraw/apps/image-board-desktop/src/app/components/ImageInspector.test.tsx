@@ -108,23 +108,36 @@ describe("ImageInspector", () => {
     ).toBeInTheDocument();
   });
 
-  it("gives the prompt its own flat section and keeps secondary details grouped", () => {
+  it("keeps the prompt and its copy action together in one bounded section", () => {
     const { container } = renderInspector();
     const promptSection = container.querySelector(
       ".image-inspector__prompt-section",
+    ) as HTMLElement;
+    const promptBody = container.querySelector(
+      ".image-inspector__prompt-body",
     ) as HTMLElement;
     const detailGrid = container.querySelector(
       ".image-inspector__detail-grid",
     ) as HTMLElement;
 
     expect(promptSection).not.toBeNull();
+    expect(promptBody).not.toBeNull();
     expect(
       container.querySelector(".image-inspector__prompt-card"),
     ).not.toBeInTheDocument();
     expect(within(promptSection).getByText("提示词")).toBeInTheDocument();
     expect(
-      within(promptSection).getByText(/一台桌面级五轴 CNC 机器/),
+      within(promptSection).getByRole("button", { name: "复制提示词" }),
     ).toBeInTheDocument();
+    expect(
+      within(promptBody).getByText(/一台桌面级五轴 CNC 机器/),
+    ).toBeInTheDocument();
+    const bottomActions = container.querySelector(
+      ".image-inspector__actions",
+    ) as HTMLElement;
+    expect(
+      within(bottomActions).queryByRole("button", { name: "复制提示词" }),
+    ).not.toBeInTheDocument();
     expect(detailGrid).not.toBeNull();
     expect(within(detailGrid).getByText("模型服务")).toBeInTheDocument();
     expect(within(detailGrid).getByText("来源图片")).toBeInTheDocument();

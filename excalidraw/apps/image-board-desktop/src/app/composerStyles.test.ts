@@ -318,6 +318,9 @@ describe("generate composer styles", () => {
       "--generate-composer-editor-max-height: min(30vh, 10rem)",
     );
     expect(composerRule).toContain(
+      "--generate-composer-editor-font-size: var(--ui-text-size-lg)",
+    );
+    expect(composerRule).toContain(
       "--generate-composer-control-icon-size: 20px",
     );
     expect(composerRule).toContain(

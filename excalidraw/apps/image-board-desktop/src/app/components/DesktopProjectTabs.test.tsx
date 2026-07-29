@@ -71,4 +71,95 @@ describe("DesktopProjectTabs", () => {
     fireEvent.click(home);
     expect(onShowHome).toHaveBeenCalledOnce();
   });
+
+  it("reorders project tabs without activating the drop target", () => {
+    const onActivateProject = vi.fn();
+    const onReorderProjects = vi.fn();
+    render(
+      <DesktopProjectTabs
+        tabs={[...tabs, { projectPath: "/projects/c", name: "项目 C" }]}
+        activeProjectPath="/projects/a"
+        onShowHome={vi.fn()}
+        onActivateProject={onActivateProject}
+        onCloseProject={vi.fn()}
+        onReorderProjects={onReorderProjects}
+      />,
+    );
+
+    const projectATab = screen.getByRole("tab", { name: "项目 A" });
+    const projectAShell = projectATab.closest(
+      ".desktop-project-tabs__tab-shell",
+    )!;
+    const projectBShell = screen
+      .getByRole("tab", { name: "项目 B" })
+      .closest(".desktop-project-tabs__tab-shell")!;
+    vi.spyOn(projectBShell, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 0,
+      width: 100,
+      height: 28,
+      top: 0,
+      right: 200,
+      bottom: 28,
+      left: 100,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.dragStart(projectATab, {
+      dataTransfer: {
+        effectAllowed: "",
+        setData: vi.fn(),
+      },
+    });
+    expect(projectAShell).toHaveClass(
+      "desktop-project-tabs__tab-shell--dragging",
+    );
+    fireEvent.dragOver(projectBShell, {
+      clientX: 175,
+      dataTransfer: {
+        dropEffect: "",
+      },
+    });
+    expect(projectBShell).toHaveClass(
+      "desktop-project-tabs__tab-shell--drop-after",
+    );
+    fireEvent.drop(projectBShell);
+
+    expect(onReorderProjects).toHaveBeenCalledWith([
+      "/projects/b",
+      "/projects/a",
+      "/projects/c",
+    ]);
+    expect(onActivateProject).not.toHaveBeenCalled();
+    expect(projectAShell).not.toHaveClass(
+      "desktop-project-tabs__tab-shell--dragging",
+    );
+    expect(projectBShell).not.toHaveClass(
+      "desktop-project-tabs__tab-shell--drop-after",
+    );
+  });
+
+  it("provides a keyboard equivalent for project tab reordering", () => {
+    const onReorderProjects = vi.fn();
+    render(
+      <DesktopProjectTabs
+        tabs={tabs}
+        activeProjectPath="/projects/b"
+        onShowHome={vi.fn()}
+        onActivateProject={vi.fn()}
+        onCloseProject={vi.fn()}
+        onReorderProjects={onReorderProjects}
+      />,
+    );
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: "项目 B" }), {
+      key: "ArrowLeft",
+      altKey: true,
+    });
+
+    expect(onReorderProjects).toHaveBeenCalledWith([
+      "/projects/b",
+      "/projects/a",
+    ]);
+  });
 });

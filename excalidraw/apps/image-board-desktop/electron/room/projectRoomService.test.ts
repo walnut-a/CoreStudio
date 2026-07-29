@@ -143,6 +143,107 @@ describe("ProjectRoomService", () => {
     expect(second).toBe(first);
   });
 
+  it("keeps an already-open room reachable when its folder path disappears", async () => {
+    let projectPathExists = true;
+    const missingPathError = Object.assign(
+      new Error("project folder is missing"),
+      {
+        code: "ENOENT",
+      },
+    );
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle("project-1", projectPath),
+      ),
+      writeProjectScene: vi.fn(async () => ({})),
+      canonicalizeProjectPath: vi.fn(async (value) => {
+        if (!projectPathExists) {
+          throw missingPathError;
+        }
+        return value;
+      }),
+      randomId: vi.fn(() => "room-id-1"),
+    });
+
+    const room = await service.openProject("/projects/project-1");
+    projectPathExists = false;
+
+    await expect(service.findOpenRoom("/projects/project-1")).resolves.toBe(
+      room,
+    );
+    await expect(
+      service.getCloseState("/projects/project-1"),
+    ).resolves.toMatchObject({
+      projectId: "project-1",
+      roomId: "room-id-1",
+    });
+    await expect(
+      service.closeProjectPath("/projects/project-1", { force: true }),
+    ).resolves.toBe(true);
+    await expect(
+      service.findOpenRoom("/projects/project-1"),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("keeps unsaved room state open and reports the missing path during close", async () => {
+    let projectPathExists = true;
+    const missingPathError = Object.assign(
+      new Error("project folder is missing"),
+      {
+        code: "ENOENT",
+      },
+    );
+    const service = createProjectRoomService({
+      readProjectBundle: vi.fn(async (projectPath: string) =>
+        bundle("project-1", projectPath),
+      ),
+      writeProjectScene: vi.fn(async () => {
+        throw missingPathError;
+      }),
+      canonicalizeProjectPath: vi.fn(async (value) => {
+        if (!projectPathExists) {
+          throw missingPathError;
+        }
+        return value;
+      }),
+      randomId: vi.fn(() => "room-id-1"),
+      persistenceDebounceMs: 10_000,
+    });
+    const room = await service.openProject("/projects/project-1");
+    room.join({
+      actorId: "corestudio:desktop",
+      sessionId: "desktop-session",
+      transport: "ipc",
+      role: "desktop-editor",
+      displayLabel: "CoreStudio",
+    });
+    room.applySceneOperation("desktop-session", {
+      ...room.identity,
+      operationId: "operation-1",
+      baseSequence: 0,
+      elements: [
+        {
+          ...room.getSnapshot().scene.elements[0],
+          version: 2,
+          x: 100,
+        },
+      ],
+    });
+    projectPathExists = false;
+
+    await expect(
+      service.closeProjectPath("/projects/project-1"),
+    ).rejects.toMatchObject({
+      code: "PROJECT_PATH_MISSING",
+      details: {
+        reason: "PROJECT_PATH_MISSING",
+        projectPath: "/projects/project-1",
+      },
+    });
+    expect(room.lifecycle).toBe("storage-error");
+    expect(service.manager.get("project-1")).toBe(room);
+  });
+
   it("flushes before close and increments epoch when the project reopens", async () => {
     const writeProjectScene = vi.fn(async () => ({}));
     const randomId = vi

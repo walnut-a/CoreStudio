@@ -8,41 +8,19 @@
         "role": "primary",
         "displayName": "Excalidraw Purple",
         "canonical": "#6965db",
-        "tonalRamp": [
-          "#19163f",
-          "#302c82",
-          "#4a47b1",
-          "#6965db",
-          "#918df0",
-          "#c9c7ff",
-          "#e0dfff",
-          "#f1f0ff"
-        ]
+        "tonalRamp": ["#19163f", "#302c82", "#4a47b1", "#6965db", "#918df0", "#c9c7ff", "#e0dfff", "#f1f0ff"]
       },
       "ink": {
         "role": "neutral",
         "displayName": "Ink Black",
         "canonical": "#1b1b1f",
-        "tonalRamp": [
-          "#0d0d10",
-          "#1b1b1f",
-          "#34343a",
-          "#5c5c5c",
-          "#7a7a7a",
-          "#c5c5d0",
-          "#ececf4",
-          "#f6f6f9"
-        ]
+        "tonalRamp": ["#0d0d10", "#1b1b1f", "#34343a", "#5c5c5c", "#7a7a7a", "#c5c5d0", "#ececf4", "#f6f6f9"]
       },
       "island": {
         "role": "neutral",
         "displayName": "Canvas White",
         "canonical": "#ffffff",
-        "tonalRamp": [
-          "#f1f0ff",
-          "#f6f6f9",
-          "#ffffff"
-        ]
+        "tonalRamp": ["#f1f0ff", "#f6f6f9", "#ffffff"]
       }
     },
     "typographyMeta": {

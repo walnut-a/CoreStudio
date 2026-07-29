@@ -38,8 +38,34 @@ class ProjectRoomPersistenceError extends Error {
   }
 }
 
+class ProjectPathMissingError extends Error {
+  public readonly code = "PROJECT_PATH_MISSING";
+  public readonly details: {
+    reason: "PROJECT_PATH_MISSING";
+    projectPath: string;
+    cause: string;
+  };
+
+  constructor(projectPath: string, cause: unknown) {
+    super(
+      `项目文件夹已被移动、改名或删除，保存已暂停。请停止编辑，将文件夹恢复到原路径，然后关闭项目以重试保存：${projectPath}`,
+    );
+    this.name = "ProjectPathMissingError";
+    this.details = {
+      reason: "PROJECT_PATH_MISSING",
+      projectPath,
+      cause: cause instanceof Error ? cause.message : String(cause),
+    };
+  }
+}
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const isMissingPathError = (error: unknown) =>
+  error instanceof Error &&
+  "code" in error &&
+  error.code === "ENOENT";
 
 const parseInitialScene = (sceneJson: string) => {
   let document: Record<string, unknown>;
@@ -96,11 +122,18 @@ export const createProjectRoomPersistence = ({
         null,
         2,
       );
-      await writeProjectScene({
-        projectPath,
-        sceneJson,
-        expectedSceneHash: input.previousProjectRevision,
-      });
+      try {
+        await writeProjectScene({
+          projectPath,
+          sceneJson,
+          expectedSceneHash: input.previousProjectRevision,
+        });
+      } catch (error) {
+        if (isMissingPathError(error)) {
+          throw new ProjectPathMissingError(projectPath, error);
+        }
+        throw error;
+      }
       return {
         projectRevision: getSceneContentHash(sceneJson),
       };

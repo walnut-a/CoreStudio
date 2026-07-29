@@ -9,8 +9,5 @@
     "rootDir": ".",
     "noEmit": false
   },
-  "include": [
-    "electron/**/*.ts",
-    "src/shared/**/*.ts"
-  ]
+  "include": ["electron/**/*.ts", "src/shared/**/*.ts"]
 }

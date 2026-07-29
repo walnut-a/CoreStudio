@@ -996,6 +996,14 @@ describe("CoreStudio shell layout styles", () => {
     const heroRule = getRule(appCss, ".image-inspector__hero");
     const promptRule = getRule(appCss, ".image-inspector__prompt-section");
     const promptBodyRule = getRule(appCss, ".image-inspector__prompt-body");
+    const copyButtonRule = getRule(
+      appCss,
+      ".image-board-app .image-inspector__copy-button.image-board-button",
+    );
+    const copyIconRule = getRule(
+      appCss,
+      ".image-board-app .image-inspector__copy-button.image-board-button svg",
+    );
     const chainItemRule = getRule(appCss, ".image-inspector__chain-item");
     const chainMarkerRule = getRule(appCss, ".image-inspector__chain-marker");
     const detailGridRule = getRule(appCss, ".image-inspector__detail-grid");
@@ -1024,6 +1032,11 @@ describe("CoreStudio shell layout styles", () => {
     expect(promptBodyRule).toContain(
       "padding-right: var(--image-inspector-prompt-scroll-gutter)",
     );
+    expect(copyButtonRule).toContain("border: 0");
+    expect(copyButtonRule).toContain("background: transparent");
+    expect(copyButtonRule).toContain("box-shadow: none");
+    expect(copyIconRule).toContain("width: var(--ui-space-2xl)");
+    expect(copyIconRule).toContain("height: var(--ui-space-2xl)");
     expect(chainItemRule).toContain(
       "grid-template-columns: var(--ui-space-xl) minmax(0, 1fr)",
     );

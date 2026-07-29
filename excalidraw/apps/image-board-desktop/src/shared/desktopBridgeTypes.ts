@@ -89,6 +89,7 @@ export const IPC_CHANNELS = {
   openProjectView: "image-board:open-project-view",
   activateProjectView: "image-board:activate-project-view",
   closeProjectView: "image-board:close-project-view",
+  reorderProjectViews: "image-board:reorder-project-views",
   recoverProjectView: "image-board:recover-project-view",
   projectThemeChanged: "image-board:project-theme-changed",
 } as const;
@@ -521,6 +522,9 @@ export interface DesktopBridgeApi {
     projectPath: string | null,
   ): Promise<DesktopProjectViewsState>;
   closeProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
+  reorderProjectViews?(
+    projectPaths: string[],
+  ): Promise<DesktopProjectViewsState>;
   recoverProjectView?(projectPath: string): Promise<DesktopProjectViewsState>;
   notifyProjectThemeChanged?(payload: DesktopProjectThemeChangedPayload): void;
   onProjectViewsState?(

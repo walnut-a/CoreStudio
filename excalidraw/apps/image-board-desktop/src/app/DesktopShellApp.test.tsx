@@ -56,6 +56,7 @@ const createBridge = (
     }),
     activateProjectView: vi.fn(),
     closeProjectView: vi.fn(),
+    reorderProjectViews: vi.fn(),
     recoverProjectView: vi.fn(),
     onProjectViewsState: vi.fn(() => () => undefined),
     onMenuAction: vi.fn(() => () => undefined),
@@ -104,6 +105,74 @@ describe("DesktopShellApp", () => {
     expect(await screen.findByRole("tab", { name: "项目 A" })).toBeVisible();
     expect(container.querySelector(".image-board-canvas")).toBeNull();
     expect(container.querySelector(".excalidraw")).toBeNull();
+  });
+
+  it("forwards project tab reordering to the main process", async () => {
+    const reorderProjectViews = vi.fn().mockResolvedValue({
+      activeProjectPath: "/projects/a",
+      projects: [],
+    });
+    const bridge = createBridge({
+      loadProjectViewsState: vi.fn().mockResolvedValue({
+        activeProjectPath: "/projects/a",
+        projects: [
+          {
+            projectPath: "/projects/a",
+            projectId: "project-a",
+            name: "项目 A",
+            status: "ready",
+            webContentsId: 11,
+          },
+          {
+            projectPath: "/projects/b",
+            projectId: "project-b",
+            name: "项目 B",
+            status: "ready",
+            webContentsId: 12,
+          },
+        ],
+      }),
+      reorderProjectViews,
+    });
+    window.imageBoardDesktop = bridge;
+    render(<DesktopShellApp />);
+
+    const projectATab = await screen.findByRole("tab", { name: "项目 A" });
+    const projectBShell = screen
+      .getByRole("tab", { name: "项目 B" })
+      .closest(".desktop-project-tabs__tab-shell")!;
+    vi.spyOn(projectBShell, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 0,
+      width: 100,
+      height: 28,
+      top: 0,
+      right: 200,
+      bottom: 28,
+      left: 100,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.dragStart(projectATab, {
+      dataTransfer: {
+        effectAllowed: "",
+        setData: vi.fn(),
+      },
+    });
+    fireEvent.dragOver(projectBShell, {
+      clientX: 175,
+      dataTransfer: {
+        dropEffect: "",
+      },
+    });
+    fireEvent.drop(projectBShell);
+
+    await waitFor(() => {
+      expect(reorderProjectViews).toHaveBeenCalledWith([
+        "/projects/b",
+        "/projects/a",
+      ]);
+    });
   });
 
   it("follows the active project theme in the shell titlebar", async () => {

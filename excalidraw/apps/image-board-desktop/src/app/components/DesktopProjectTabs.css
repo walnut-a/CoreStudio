@@ -60,6 +60,7 @@
 }
 
 .desktop-project-tabs__tab-shell {
+  position: relative;
   min-width: 112px;
   max-width: 220px;
   height: var(--ui-control-size-sm);
@@ -68,12 +69,42 @@
   border-radius: var(--border-radius-md);
   color: var(--corestudio-secondary-text-color);
   -webkit-app-region: no-drag;
+  transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .desktop-project-tabs__tab-shell:hover,
 .desktop-project-tabs__tab-shell--active {
   color: var(--color-on-surface);
   background: var(--button-hover-bg);
+}
+
+.desktop-project-tabs__tab-shell--dragging {
+  opacity: 0.56;
+  transform: scale(0.98);
+}
+
+.desktop-project-tabs__tab-shell--drop-before::before,
+.desktop-project-tabs__tab-shell--drop-after::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: var(--ui-space-xs);
+  bottom: var(--ui-space-xs);
+  width: 2px;
+  border-radius: var(--ui-radius-pill);
+  background: var(--color-primary);
+  pointer-events: none;
+}
+
+.desktop-project-tabs__tab-shell--drop-before::before {
+  left: -2px;
+}
+
+.desktop-project-tabs__tab-shell--drop-after::after {
+  right: -2px;
 }
 
 .desktop-project-tabs__tab {
@@ -115,4 +146,10 @@
 
 .desktop-project-tabs__close:hover {
   background: var(--color-surface-low);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-project-tabs__tab-shell {
+    transition: none;
+  }
 }

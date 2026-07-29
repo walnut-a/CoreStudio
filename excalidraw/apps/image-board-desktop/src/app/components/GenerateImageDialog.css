@@ -193,7 +193,7 @@
   );
   --generate-composer-editor-min-height: var(--ui-control-size-sm);
   --generate-composer-editor-max-height: min(30vh, 10rem);
-  --generate-composer-editor-font-size: 0.9375rem;
+  --generate-composer-editor-font-size: var(--ui-text-size-lg);
   --generate-composer-control-size: var(--ui-control-size-sm);
   --generate-composer-control-icon-size: 20px;
   display: grid;

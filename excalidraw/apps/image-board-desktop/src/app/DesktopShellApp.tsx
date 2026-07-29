@@ -209,6 +209,11 @@ export const DesktopShellApp = ({
       onCloseProject={(projectPath) => {
         void runProjectViewAction(() => bridge.closeProjectView?.(projectPath));
       }}
+      onReorderProjects={(projectPaths) => {
+        void runProjectViewAction(() =>
+          bridge.reorderProjectViews?.(projectPaths),
+        );
+      }}
     />
   );
   const projectFailureContent =

@@ -17,14 +17,12 @@ interface InspectorSidebarProps {
   selectedShapeActions: ReactNode;
   shouldRenderSelectedShapeActions: boolean;
   record: ImageRecord | null;
-  parentRecord: ImageRecord | null;
   ancestorRecords: ImageRecord[];
   descendantRecords: ImageLineageEntry[];
   task: GenerationTaskRecord | null;
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
-  onLocateImageAsset: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }
 
@@ -34,14 +32,12 @@ export const InspectorSidebar = ({
   selectedShapeActions,
   shouldRenderSelectedShapeActions,
   record,
-  parentRecord,
   ancestorRecords,
   descendantRecords,
   task,
   onCopyPrompt,
   onCopyTaskError,
   onLocateImageRecord,
-  onLocateImageAsset,
   onLocatePromptReference,
 }: InspectorSidebarProps) => {
   return (
@@ -73,14 +69,12 @@ export const InspectorSidebar = ({
           </header>
           <ImageInspector
             record={record}
-            parentRecord={parentRecord}
             ancestorRecords={ancestorRecords}
             descendantRecords={descendantRecords}
             task={task}
             onCopyPrompt={onCopyPrompt}
             onCopyTaskError={onCopyTaskError}
             onLocateImageRecord={onLocateImageRecord}
-            onLocateImageAsset={onLocateImageAsset}
             onLocatePromptReference={onLocatePromptReference}
           />
         </section>

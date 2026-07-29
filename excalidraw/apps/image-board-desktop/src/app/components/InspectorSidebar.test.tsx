@@ -7,6 +7,35 @@ import { InspectorSidebar } from "./InspectorSidebar";
 afterEach(() => setActiveDesktopLocale("zh-CN"));
 
 describe("InspectorSidebar", () => {
+  it("renders the Excalidraw element actions supplied by the editor without replacing them", () => {
+    render(
+      <InspectorSidebar
+        open
+        onOpenChange={vi.fn()}
+        selectedShapeActions={
+          <div data-testid="production-selected-shape-actions">
+            Excalidraw 元素编辑控件
+          </div>
+        }
+        shouldRenderSelectedShapeActions
+        record={null}
+        ancestorRecords={[]}
+        descendantRecords={[]}
+        task={null}
+        onCopyPrompt={vi.fn()}
+        onCopyTaskError={vi.fn()}
+        onLocateImageRecord={vi.fn()}
+        onLocatePromptReference={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByTestId("production-selected-shape-actions"),
+    ).toHaveTextContent("Excalidraw 元素编辑控件");
+    expect(screen.queryByText("⌜")).not.toBeInTheDocument();
+    expect(screen.queryByText("╭")).not.toBeInTheDocument();
+  });
+
   it("localizes the sidebar title and empty element state", () => {
     setActiveDesktopLocale("en");
 
@@ -17,14 +46,12 @@ describe("InspectorSidebar", () => {
         selectedShapeActions={null}
         shouldRenderSelectedShapeActions={false}
         record={null}
-        parentRecord={null}
         ancestorRecords={[]}
         descendantRecords={[]}
         task={null}
         onCopyPrompt={vi.fn()}
         onCopyTaskError={vi.fn()}
         onLocateImageRecord={vi.fn()}
-        onLocateImageAsset={vi.fn()}
         onLocatePromptReference={vi.fn()}
       />,
     );

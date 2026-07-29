@@ -912,7 +912,6 @@ vi.mock("./components/GenerateImageDialog", () => ({
 vi.mock("./components/ImageInspector", () => ({
   ImageInspector: ({
     record,
-    parentRecord,
     ancestorRecords,
     descendantRecords,
     task,
@@ -928,7 +927,6 @@ vi.mock("./components/ImageInspector", () => ({
         elementIds?: string[];
       }>;
     } | null;
-    parentRecord?: { fileId?: string; prompt?: string | null } | null;
     ancestorRecords?: Array<{ fileId: string; prompt?: string | null }>;
     descendantRecords?: Array<{
       record: { fileId: string; prompt?: string | null };
@@ -952,18 +950,7 @@ vi.mock("./components/ImageInspector", () => ({
     ) : record ? (
       <aside>
         {`图片信息: ${record.model || "无"}${
-          parentRecord?.prompt ? ` 来源图片: ${parentRecord.prompt}` : ""
-        }${
           ancestorRecords?.length || descendantRecords?.length ? " 编辑链" : ""
-        }${
-          descendantRecords?.length
-            ? ` 后续版本: ${descendantRecords
-                .map(
-                  ({ record: descendantRecord }) =>
-                    descendantRecord.prompt || "无",
-                )
-                .join(" / ")}`
-            : ""
         }`}
         {ancestorRecords?.map((ancestorRecord) => (
           <button

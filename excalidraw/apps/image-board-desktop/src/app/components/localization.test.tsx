@@ -181,25 +181,25 @@ describe("Chinese localization", () => {
     render(
       <ImageInspector
         record={generatedRecord}
-        parentRecord={parentRecord}
         ancestorRecords={[parentRecord]}
         descendantRecords={descendantRecords}
         task={null}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
-        onLocateImageAsset={() => undefined}
         onLocatePromptReference={() => undefined}
       />,
     );
 
-    expect(screen.getByText("AI 生成图片")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "AI 生成图片", level: 4 }),
+    ).toBeInTheDocument();
     expect(screen.getByText("提示词")).toBeInTheDocument();
-    expect(screen.getByText("生成参数")).toBeInTheDocument();
-    expect(screen.getByText("来源")).toBeInTheDocument();
-    expect(screen.getAllByText("AI 生成")).toHaveLength(1);
-    expect(screen.getByText("来源图片")).toBeInTheDocument();
-    expect(screen.getAllByText(/第一版结构草图/)).toHaveLength(2);
+    expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
+    expect(screen.queryByText("来源")).not.toBeInTheDocument();
+    expect(screen.queryByText("AI 生成")).not.toBeInTheDocument();
+    expect(screen.queryByText("来源图片")).not.toBeInTheDocument();
+    expect(screen.getByText(/第一版结构草图/)).toBeInTheDocument();
     expect(screen.getByText("编辑链")).toBeInTheDocument();
     expect(screen.getByText("后续版本")).toBeInTheDocument();
     expect(screen.getByText(/第二版结构细化/)).toBeInTheDocument();
@@ -222,14 +222,12 @@ describe("Chinese localization", () => {
     render(
       <ImageInspector
         record={null}
-        parentRecord={null}
         ancestorRecords={[]}
         descendantRecords={[]}
         task={failedTask}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
-        onLocateImageAsset={() => undefined}
         onLocatePromptReference={() => undefined}
       />,
     );
@@ -249,14 +247,12 @@ describe("Chinese localization", () => {
     render(
       <ImageInspector
         record={generatedRecord}
-        parentRecord={parentRecord}
         ancestorRecords={[parentRecord]}
         descendantRecords={descendantRecords}
         task={null}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={() => undefined}
-        onLocateImageAsset={() => undefined}
         onLocatePromptReference={() => undefined}
       />,
     );

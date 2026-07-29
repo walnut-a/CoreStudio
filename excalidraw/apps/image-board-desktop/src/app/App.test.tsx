@@ -4259,12 +4259,21 @@ describe("App startup", () => {
       await screen.findByText(/图片信息: fal-ai\/nano-banana-2/),
     ).toBeInTheDocument();
     expect(screen.getByText(/编辑链/)).toBeInTheDocument();
-    expect(screen.getByText(/来源图片: 第一版结构草图/)).toBeInTheDocument();
     expect(
-      screen.getByText(/后续版本: 第二版结构细化 \/ 最终版渲染/),
+      screen.getByRole("button", {
+        name: "定位前序: 第一版结构草图",
+      }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/第二版结构细化/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/最终版渲染/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", {
+        name: "定位后续: 第二版结构细化",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "定位后续: 最终版渲染",
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("default-sidebar")).toBeNull();
     expect(screen.getByTestId("side-dock-right")).toHaveAttribute(
       "data-open",

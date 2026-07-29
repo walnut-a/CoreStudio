@@ -8,51 +8,21 @@ import { referencePlaceholderText } from "../../shared/promptReferences";
 import type { ImageLineageEntry } from "../imageRelationships";
 import type { GenerationTaskRecord } from "../generationTaskState";
 import { copy, DESKTOP_LANG_CODE, getOptionalText } from "../copy";
-import { buildImageProvenanceViewModel } from "../imageProvenance";
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
+import { copyIcon } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 
 interface ImageInspectorProps {
   record: ImageRecord | null;
-  parentRecord: ImageRecord | null;
   ancestorRecords: ImageRecord[];
   descendantRecords: ImageLineageEntry[];
   task: GenerationTaskRecord | null;
   onCopyPrompt: () => void;
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
-  onLocateImageAsset: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
 }
-
-const getImageRecordSummary = (record: ImageRecord) => {
-  const prompt = record.prompt?.trim();
-  const promptSummary = prompt
-    ? prompt.length > 48
-      ? `${prompt.slice(0, 48)}...`
-      : prompt
-    : record.fileId;
-
-  return `${new Date(record.createdAt).toLocaleString(
-    DESKTOP_LANG_CODE,
-  )} · ${promptSummary}`;
-};
-
-const getParentImageSummary = (
-  record: ImageRecord,
-  parentRecord: ImageRecord | null,
-) => {
-  if (!record.parentFileId) {
-    return null;
-  }
-
-  if (!parentRecord) {
-    return record.parentFileId;
-  }
-
-  return getImageRecordSummary(parentRecord);
-};
 
 const formatDateTime = (value: string) => {
   const date = new Date(value);
@@ -61,24 +31,38 @@ const formatDateTime = (value: string) => {
     : date.toLocaleString(DESKTOP_LANG_CODE);
 };
 
+const formatChainDateTime = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? copy.inspector.unknownTime
+    : date.toLocaleString(DESKTOP_LANG_CODE, {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+};
+
+const getImageRecordPromptSummary = (record: ImageRecord) => {
+  const prompt = record.prompt?.trim();
+  return prompt
+    ? prompt.length > 48
+      ? `${prompt.slice(0, 48)}...`
+      : prompt
+    : record.fileId;
+};
+
+const getImageRecordSummary = (record: ImageRecord) =>
+  `${formatDateTime(record.createdAt)} · ${getImageRecordPromptSummary(
+    record,
+  )}`;
+
 const formatSize = (width: number, height: number) => `${width} × ${height}`;
 const formatTaskSize = (task: GenerationTaskRecord) =>
   task.aspectRatio === null
     ? copy.inspector.autoAspectRatio
     : formatSize(task.width, task.height);
-
-const getProviderLabel = (record: ImageRecord) => {
-  const { providerLabel } = buildImageProvenanceViewModel(record);
-  if (providerLabel) {
-    return providerLabel;
-  }
-  if (record.generationOrigin === "agent-board") {
-    return copy.inspector.agentProvider;
-  }
-  return record.sourceType === "generated"
-    ? copy.inspector.unrecordedProvider
-    : copy.inspector.importedProvider;
-};
 
 const getImageRecordTitle = (record: ImageRecord) =>
   record.sourceType === "generated"
@@ -148,14 +132,12 @@ const getPromptReferenceList = (
 
 export const ImageInspector = ({
   record,
-  parentRecord,
   ancestorRecords,
   descendantRecords,
   task,
   onCopyPrompt,
   onCopyTaskError,
   onLocateImageRecord,
-  onLocateImageAsset,
   onLocatePromptReference,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -193,7 +175,7 @@ export const ImageInspector = ({
           <header className="image-inspector__hero">
             <div className="image-inspector__hero-main">
               <span className="image-inspector__eyebrow">{taskStatusText}</span>
-              <h2>{copy.inspector.taskTitle}</h2>
+              <h4>{copy.inspector.taskTitle}</h4>
               <p>{getOptionalText(task.model)}</p>
             </div>
             <div className="image-inspector__hero-facts">
@@ -204,7 +186,7 @@ export const ImageInspector = ({
 
           <section className="image-inspector__prompt-section">
             <div className="image-inspector__section-header">
-              <h3>{copy.inspector.prompt}</h3>
+              <h4>{copy.inspector.prompt}</h4>
             </div>
             <div className="image-inspector__prompt-body">
               <p className="image-inspector__prompt-text">
@@ -214,7 +196,7 @@ export const ImageInspector = ({
           </section>
 
           <section className="image-inspector__section">
-            <h3>{copy.inspector.detailsTitle}</h3>
+            <h4>{copy.inspector.detailsTitle}</h4>
             <dl className="image-inspector__detail-grid">
               <div className="image-inspector__detail-item">
                 <dt>{copy.inspector.taskStatus}</dt>
@@ -294,10 +276,8 @@ export const ImageInspector = ({
     );
   }
 
-  const { sourceLabel } = buildImageProvenanceViewModel(record);
   const imageTitle = getImageRecordTitle(record);
   const modelText = getOptionalText(record.model);
-  const parentSummary = getParentImageSummary(record, parentRecord);
   const promptReferenceList = getPromptReferenceList(record.promptReferences);
   const detachedPromptReferenceList = promptReferenceList.filter(
     (reference) =>
@@ -310,6 +290,7 @@ export const ImageInspector = ({
     } = {},
   ) => {
     const summary = getImageRecordSummary(chainRecord);
+    const promptSummary = getImageRecordPromptSummary(chainRecord);
 
     return (
       <li
@@ -317,14 +298,28 @@ export const ImageInspector = ({
         className="image-inspector__chain-item image-inspector__chain-item--actionable"
         style={options.style}
       >
+        <span className="image-inspector__chain-marker" aria-hidden="true" />
         <button
           type="button"
-          className="image-inspector__chain-button"
+          className="image-inspector__chain-content image-inspector__chain-button"
           aria-label={`${copy.inspector.locateImage}：${summary}`}
           title={copy.inspector.locateImage}
           onClick={() => onLocateImageRecord(chainRecord.fileId)}
         >
-          <span className="image-inspector__chain-summary">{summary}</span>
+          <span className="image-inspector__chain-heading">
+            <span className="image-inspector__chain-label">
+              {getImageRecordTitle(chainRecord)}
+            </span>
+            <time
+              className="image-inspector__chain-time"
+              dateTime={chainRecord.createdAt}
+            >
+              {formatChainDateTime(chainRecord.createdAt)}
+            </time>
+          </span>
+          <span className="image-inspector__chain-summary">
+            {promptSummary}
+          </span>
         </button>
       </li>
     );
@@ -335,7 +330,7 @@ export const ImageInspector = ({
       <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
         <header className="image-inspector__hero">
           <div className="image-inspector__hero-main">
-            <h2>{imageTitle}</h2>
+            <h4>{imageTitle}</h4>
             <p>{modelText}</p>
           </div>
           <div className="image-inspector__hero-facts">
@@ -346,14 +341,17 @@ export const ImageInspector = ({
 
         <section className="image-inspector__prompt-section">
           <div className="image-inspector__section-header">
-            <h3>{copy.inspector.prompt}</h3>
+            <h4>{copy.inspector.prompt}</h4>
             <DesktopButton
               type="button"
               size="small"
+              className="image-inspector__copy-button"
+              aria-label={copy.inspector.copyPrompt}
+              title={copy.inspector.copyPrompt}
               onClick={onCopyPrompt}
               disabled={!record.prompt}
             >
-              {copy.inspector.copyPrompt}
+              {copyIcon}
             </DesktopButton>
           </div>
           <div className="image-inspector__prompt-body">
@@ -386,71 +384,34 @@ export const ImageInspector = ({
           </div>
         </section>
 
-        <section className="image-inspector__section">
-          <h3>{copy.inspector.detailsTitle}</h3>
-          <dl className="image-inspector__detail-grid">
-            <div className="image-inspector__detail-item image-inspector__detail-item--wide">
-              <dt>{copy.inspector.imageId}</dt>
-              <dd className="image-inspector__detail-value image-inspector__detail-code">
-                {record.fileId}
-              </dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.source}</dt>
-              <dd className="image-inspector__detail-value">{sourceLabel}</dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.provider}</dt>
-              <dd className="image-inspector__detail-value">
-                {getProviderLabel(record)}
-              </dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.model}</dt>
-              <dd className="image-inspector__detail-value">{modelText}</dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.size}</dt>
-              <dd className="image-inspector__detail-value">
-                {formatSize(record.width, record.height)}
-              </dd>
-            </div>
-            {record.parentFileId && (
-              <div className="image-inspector__detail-item image-inspector__detail-item--wide">
-                <dt>{copy.inspector.parentImage}</dt>
-                <dd className="image-inspector__detail-value">
-                  {parentSummary}
-                </dd>
-              </div>
-            )}
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.negativePrompt}</dt>
-              <dd className="image-inspector__detail-value">
-                {getOptionalText(record.negativePrompt)}
-              </dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.seed}</dt>
-              <dd className="image-inspector__detail-value">
-                {getOptionalText(record.seed)}
-              </dd>
-            </div>
-          </dl>
-        </section>
         {(ancestorRecords.length > 0 || descendantRecords.length > 0) && (
           <section className="image-inspector__chain">
-            <h3>{copy.inspector.chainTitle}</h3>
+            <h4>{copy.inspector.chainTitle}</h4>
 
             <ol className="image-inspector__chain-list">
               {ancestorRecords.map((ancestorRecord) =>
                 renderLocateChainItem(ancestorRecord),
               )}
               <li className="image-inspector__chain-item image-inspector__chain-item--current">
-                <span className="image-inspector__chain-label">
-                  {copy.inspector.currentImage}
-                </span>
-                <span className="image-inspector__chain-summary">
-                  {getImageRecordSummary(record)}
+                <span
+                  className="image-inspector__chain-marker"
+                  aria-hidden="true"
+                />
+                <span className="image-inspector__chain-content">
+                  <span className="image-inspector__chain-heading">
+                    <span className="image-inspector__chain-label">
+                      {copy.inspector.currentImage}
+                    </span>
+                    <time
+                      className="image-inspector__chain-time"
+                      dateTime={record.createdAt}
+                    >
+                      {formatChainDateTime(record.createdAt)}
+                    </time>
+                  </span>
+                  <span className="image-inspector__chain-summary">
+                    {getImageRecordPromptSummary(record)}
+                  </span>
                 </span>
               </li>
             </ol>
@@ -473,17 +434,6 @@ export const ImageInspector = ({
               </div>
             )}
           </section>
-        )}
-        {record.sourceType === "generated" && (
-          <div className="image-inspector__actions">
-            <DesktopButton
-              type="button"
-              size="small"
-              onClick={() => onLocateImageAsset(record.fileId)}
-            >
-              {copy.inspector.locateImageAsset}
-            </DesktopButton>
-          </div>
         )}
       </div>
     </section>

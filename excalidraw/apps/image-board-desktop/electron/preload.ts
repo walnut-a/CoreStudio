@@ -158,6 +158,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.activateProjectView, projectPath),
   closeProjectView: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.closeProjectView, projectPath),
+  reorderProjectViews: (projectPaths) =>
+    ipcRenderer.invoke(IPC_CHANNELS.reorderProjectViews, projectPaths),
   recoverProjectView: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.recoverProjectView, projectPath),
   notifyProjectThemeChanged: (payload) => {

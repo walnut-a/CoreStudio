@@ -178,10 +178,41 @@ export const createProjectViewRegistry = ({
     return true;
   };
 
-  const requireSenderProject = (
-    webContentsId: number,
-    projectPath: string,
-  ) => {
+  const reorder = (projectPaths: string[]) => {
+    const uniqueProjectPaths = new Set(projectPaths);
+    if (
+      projectPaths.length !== entries.length ||
+      uniqueProjectPaths.size !== entries.length ||
+      entries.some(
+        (entry) => !uniqueProjectPaths.has(entry.descriptor.projectPath),
+      )
+    ) {
+      throw new Error(
+        "Project tab order must include every open project exactly once.",
+      );
+    }
+    if (
+      entries.every(
+        (entry, index) => entry.descriptor.projectPath === projectPaths[index],
+      )
+    ) {
+      return false;
+    }
+    const entriesByProjectPath = new Map(
+      entries.map((entry) => [entry.descriptor.projectPath, entry]),
+    );
+    entries.splice(
+      0,
+      entries.length,
+      ...projectPaths.map(
+        (projectPath) => entriesByProjectPath.get(projectPath)!,
+      ),
+    );
+    publish();
+    return true;
+  };
+
+  const requireSenderProject = (webContentsId: number, projectPath: string) => {
     const senderEntry =
       entries.find((entry) => entry.handle.webContentsId === webContentsId) ??
       null;
@@ -200,10 +231,7 @@ export const createProjectViewRegistry = ({
     return senderEntry.descriptor;
   };
 
-  const setTheme = (
-    webContentsId: number,
-    theme: DesktopProjectTheme,
-  ) => {
+  const setTheme = (webContentsId: number, theme: DesktopProjectTheme) => {
     const senderEntry =
       entries.find((entry) => entry.handle.webContentsId === webContentsId) ??
       null;
@@ -239,8 +267,9 @@ export const createProjectViewRegistry = ({
 
   const markCrashed = (webContentsId: number) => {
     const entry =
-      entries.find((candidate) => candidate.handle.webContentsId === webContentsId) ??
-      null;
+      entries.find(
+        (candidate) => candidate.handle.webContentsId === webContentsId,
+      ) ?? null;
     if (!entry) {
       return false;
     }
@@ -291,6 +320,7 @@ export const createProjectViewRegistry = ({
     activate,
     showHome,
     close,
+    reorder,
     closeAll,
     markCrashed,
     recover,
@@ -302,6 +332,4 @@ export const createProjectViewRegistry = ({
   };
 };
 
-export type ProjectViewRegistry = ReturnType<
-  typeof createProjectViewRegistry
->;
+export type ProjectViewRegistry = ReturnType<typeof createProjectViewRegistry>;

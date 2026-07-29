@@ -357,6 +357,67 @@ describe("project view registry", () => {
     expect(registry.snapshot().activeProjectPath).toBe("/projects/c");
   });
 
+  it("reorders open projects without changing the active renderer", () => {
+    const handles = new Map<string, ProjectViewHandle>();
+    const onChange = vi.fn();
+    const registry = createProjectViewRegistry({
+      createView: ({ projectPath }) => {
+        const handle = createHandle(projectPath, handles.size + 70);
+        handles.set(projectPath, handle);
+        return handle;
+      },
+      onChange,
+    });
+    for (const project of ["a", "b", "c"]) {
+      registry.open({
+        projectPath: `/projects/${project}`,
+        projectId: `project-${project}`,
+        name: `项目 ${project.toUpperCase()}`,
+      });
+    }
+    registry.activate("/projects/b");
+    onChange.mockClear();
+    for (const handle of handles.values()) {
+      vi.mocked(handle.attach).mockClear();
+      vi.mocked(handle.detach).mockClear();
+      vi.mocked(handle.focus).mockClear();
+    }
+
+    registry.reorder(["/projects/c", "/projects/b", "/projects/a"]);
+
+    expect(
+      registry.snapshot().projects.map((project) => project.projectPath),
+    ).toEqual(["/projects/c", "/projects/b", "/projects/a"]);
+    expect(registry.snapshot().activeProjectPath).toBe("/projects/b");
+    expect(onChange).toHaveBeenCalledOnce();
+    for (const handle of handles.values()) {
+      expect(handle.attach).not.toHaveBeenCalled();
+      expect(handle.detach).not.toHaveBeenCalled();
+      expect(handle.focus).not.toHaveBeenCalled();
+    }
+  });
+
+  it("rejects incomplete or duplicate project tab orders", () => {
+    const registry = createProjectViewRegistry({
+      createView: ({ projectPath }) =>
+        createHandle(projectPath, projectPath.endsWith("/a") ? 80 : 81),
+    });
+    for (const project of ["a", "b"]) {
+      registry.open({
+        projectPath: `/projects/${project}`,
+        projectId: `project-${project}`,
+        name: `项目 ${project.toUpperCase()}`,
+      });
+    }
+
+    expect(() => registry.reorder(["/projects/a"])).toThrow(
+      "Project tab order must include every open project exactly once.",
+    );
+    expect(() => registry.reorder(["/projects/a", "/projects/a"])).toThrow(
+      "Project tab order must include every open project exactly once.",
+    );
+  });
+
   it("keeps every project view aligned with the shared content bounds", () => {
     const handles: ProjectViewHandle[] = [];
     const registry = createProjectViewRegistry({

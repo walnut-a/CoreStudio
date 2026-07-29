@@ -1956,6 +1956,24 @@ const registerIpcHandlers = () => {
     },
   );
   ipcMain.handle(
+    IPC_CHANNELS.reorderProjectViews,
+    async (event, projectPaths: unknown) => {
+      requireShellSender(event.sender);
+      if (
+        !Array.isArray(projectPaths) ||
+        projectPaths.some(
+          (projectPath) =>
+            typeof projectPath !== "string" || projectPath.length === 0,
+        )
+      ) {
+        throw new Error("Project tab order is invalid.");
+      }
+      const registry = getProjectViewRegistry();
+      registry.reorder(projectPaths);
+      return registry.snapshot();
+    },
+  );
+  ipcMain.handle(
     IPC_CHANNELS.recoverProjectView,
     async (event, projectPath: unknown) => {
       requireShellSender(event.sender);

@@ -411,7 +411,7 @@ sha256: f0bd062592cb704982dad94e49670c2cd9d1a0461d3635aa1d2d645aa0a147ca
 - CoreStudio 设置页可以直接执行当前应用包内的固定安装器，并在完成后自动重新检测
 - 安装器改用 `corestudio --version --json` 做离线自检，不再依赖当前项目、Local Bridge 或 Codex 网络沙箱
 - “打开当前 CoreStudio 项目”改用轻量 `read status`，避免读取完整项目记录
-- 当前 Codex 任务缺少浏览器控制能力时，明确降级为一键链接，不再误报 CoreStudio 或 Bridge 故障
+- 当前 Codex 对话缺少浏览器控制能力时，明确降级为一键链接，不再误报 CoreStudio 或 Bridge 故障
 - Agent Board 只同步选择、视口和运行态画布，不再自动保存项目场景，也不再暴露 `writeProjectScene`
 - 桌面端遇到旧项目快照时会停止重复排队和自动保存，改为显示“加载最新版本”恢复操作
 - 旧快照冲突不再直接显示 Electron IPC 原始错误文案

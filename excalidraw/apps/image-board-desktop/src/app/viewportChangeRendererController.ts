@@ -13,6 +13,11 @@ export type ViewportChangeRendererActionResult =
 export type ViewportChangeRendererActionsInput = {
   getScene: () => ImageRenditionSceneSnapshot | null;
   getSceneReader: () => ImageRenditionSceneSnapshotReader;
+  recordViewportChange: (
+    scrollX: number,
+    scrollY: number,
+    zoom: AppState["zoom"],
+  ) => void;
   setLatestScene: (scene: ImageRenditionSceneSnapshot) => void;
   scheduleVisibleImageRenditionLoad: (
     scene: ImageRenditionSceneSnapshot,
@@ -39,7 +44,7 @@ export const runViewportChangeRendererAction = ({
   sceneReader: ImageRenditionSceneSnapshotReader;
 } & Omit<
   ViewportChangeRendererActionsInput,
-  "getScene" | "getSceneReader"
+  "getScene" | "getSceneReader" | "recordViewportChange"
 >): ViewportChangeRendererActionResult => {
   if (!scene) {
     return { status: "skipped", reason: "missing-scene" };
@@ -64,6 +69,7 @@ export const runViewportChangeRendererAction = ({
 export const createViewportChangeRendererActions = ({
   getScene,
   getSceneReader,
+  recordViewportChange,
   setLatestScene,
   scheduleVisibleImageRenditionLoad,
   scheduleAgentBrowserRuntimeStatePublish,
@@ -72,8 +78,9 @@ export const createViewportChangeRendererActions = ({
     scrollX: number,
     scrollY: number,
     zoom: AppState["zoom"],
-  ) =>
-    runViewportChangeRendererAction({
+  ) => {
+    recordViewportChange(scrollX, scrollY, zoom);
+    return runViewportChangeRendererAction({
       scrollX,
       scrollY,
       zoom,
@@ -83,6 +90,7 @@ export const createViewportChangeRendererActions = ({
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
     });
+  };
 
   return { changeViewport };
 };

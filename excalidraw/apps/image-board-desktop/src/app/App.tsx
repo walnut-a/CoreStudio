@@ -30,6 +30,12 @@ import {
   setAgentBrowserRoomResumeToken,
   setStableBoardActorResumeToken,
 } from "./agent/agentBrowserRoomCredentials";
+import {
+  mergeAgentBoardAuthoritativeAppState,
+  mergeAgentBoardInitialAppState,
+  readAgentBoardViewportState,
+  writeAgentBoardViewportState,
+} from "./agent/agentBoardViewportState";
 import { createProjectRoomFlushLifecycleActions } from "./projectRoomFlushLifecycle";
 import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
 import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
@@ -138,6 +144,7 @@ import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
+import { AgentBoardClaimInstructions } from "./components/AgentBoardClaimInstructions";
 import { DesktopButton } from "./components/DesktopButton";
 import { ExcalidrawThemeTokenBridge } from "./components/ExcalidrawThemeTokenBridge";
 import {
@@ -800,6 +807,15 @@ const App = ({
   const viewportChangeRendererActions = createViewportChangeRendererActions({
     getScene: () => latestSceneRef.current,
     getSceneReader: () => excalidrawAPIRef.current ?? {},
+    recordViewportChange: (scrollX, scrollY, zoom) => {
+      if (stableBoardId) {
+        writeAgentBoardViewportState(stableBoardId, {
+          scrollX,
+          scrollY,
+          zoom,
+        });
+      }
+    },
     setLatestScene: (scene) => {
       latestSceneRef.current = scene;
     },
@@ -1241,6 +1257,38 @@ const App = ({
       getProject: () => currentProjectRef.current,
       getLatestScene: () => latestSceneRef.current,
       updateProject: updateCurrentProject,
+      hydrateImageRecords: async (project, fileIds) => {
+        const currentFiles =
+          excalidrawAPIRef.current?.getFiles() ??
+          latestSceneRef.current?.files ??
+          {};
+        const missingFileIds = fileIds.filter(
+          (fileId) => !currentFiles[fileId],
+        );
+        if (missingFileIds.length === 0) {
+          return fileIds;
+        }
+
+        const assets = await readProjectImageAssets(
+          project,
+          missingFileIds,
+          "preview",
+        );
+        const applied = projectAssetSceneApplyRendererAction(project, assets);
+        if (!applied) {
+          return fileIds.filter((fileId) => !missingFileIds.includes(fileId));
+        }
+
+        const hydratedFileIds = assets.map((asset) => asset.fileId);
+        loadedPreviewImageFileIdsRef.current = new Set([
+          ...loadedPreviewImageFileIdsRef.current,
+          ...hydratedFileIds,
+        ]);
+        return [
+          ...fileIds.filter((fileId) => !missingFileIds.includes(fileId)),
+          ...hydratedFileIds,
+        ];
+      },
       scheduleVisibleImageRenditionLoad:
         visibleImageRenditionLoadRendererActions.schedule,
     });
@@ -1286,13 +1334,7 @@ const App = ({
         if (!project || project.projectPath !== projectPath) {
           return;
         }
-        updateCurrentProject({
-          ...project,
-          imageRecords: {
-            ...project.imageRecords,
-            ...imageRecords,
-          },
-        });
+        projectRoomAssetRefreshRendererActions.applyImageRecords(imageRecords);
       },
       onScene: (scene) => {
         latestSceneRef.current = scene;
@@ -1486,10 +1528,10 @@ const App = ({
           });
           api.updateScene({
             elements: reconciledElements,
-            appState: {
-              ...appState,
-              ...sharedSceneConfig,
-            } as AppState,
+            appState: mergeAgentBoardAuthoritativeAppState(
+              appState,
+              sharedSceneConfig,
+            ),
             captureUpdate: CaptureUpdateAction.NEVER,
           });
           const latestScene = {
@@ -1514,7 +1556,10 @@ const App = ({
         version: 2,
         source: "local",
         elements: joined.snapshot.scene.elements,
-        appState: joined.snapshot.scene.sharedSceneConfig,
+        appState: mergeAgentBoardInitialAppState(
+          joined.snapshot.scene.sharedSceneConfig,
+          stableBoardId ? readAgentBoardViewportState(stableBoardId) : null,
+        ),
         files: {},
       });
       await currentProjectBundleOpenRendererActions.applyExternalSnapshot({
@@ -2085,22 +2130,43 @@ const App = ({
             aria-labelledby="agent-board-integration-title"
           >
             <span className="welcome-pane__eyebrow">Agent Board</span>
-            <h1 id="agent-board-integration-title">
-              {integrationRepairRequired
-                ? "请在 CoreStudio 中更新集成"
-                : "暂时无法打开这个项目"}
-            </h1>
-            {stableBoardIntegrationStatus.issues.map((issue) => (
-              <p key={issue.code}>{issue.message}</p>
-            ))}
+            <div className="welcome-pane__diagnostic-copy">
+              <h1 id="agent-board-integration-title">
+                {integrationRepairRequired
+                  ? "请在 CoreStudio 中更新集成"
+                  : "暂时无法打开这个项目"}
+              </h1>
+              <section className="welcome-pane__diagnostic-section">
+                <h2>当前状态</h2>
+                {stableBoardIntegrationStatus.issues.map((issue) => (
+                  <p key={issue.code}>{issue.message}</p>
+                ))}
+              </section>
+              {integrationRepairRequired ? (
+                <section className="welcome-pane__diagnostic-section welcome-pane__diagnostic-next-step">
+                  <h2>你需要做什么</h2>
+                  <p>
+                    回到 CoreStudio，打开“应用设置”中的“Codex
+                    集成”，完成更新后再返回这个页面。
+                  </p>
+                </section>
+              ) : null}
+              {projectRoomError ? (
+                <p className="welcome-pane__error">{projectRoomError}</p>
+              ) : null}
+            </div>
             {integrationRepairRequired ? (
-              <p>
-                回到 CoreStudio，打开“应用设置”中的“Codex
-                集成”，完成更新后再刷新这个页面。
-              </p>
-            ) : null}
-            {projectRoomError ? (
-              <p className="welcome-pane__error">{projectRoomError}</p>
+              <div className="welcome-pane__diagnostic-actions">
+                <DesktopButton
+                  variant="primary"
+                  onClick={() => window.location.reload()}
+                >
+                  我已更新，重新检查
+                </DesktopButton>
+                <p className="welcome-pane__diagnostic-hint">
+                  更新完成后无需重新复制画布地址。
+                </p>
+              </div>
             ) : null}
           </div>
         </div>
@@ -2115,6 +2181,24 @@ const App = ({
     !projectRoomError &&
     (!currentProject || !initialData)
   ) {
+    const pageNonce = stableBoardPageNonceRef.current;
+    if (
+      stableBoardId &&
+      pageNonce &&
+      stableBoardIntegrationStatus?.state === "ready" &&
+      !stableBoardIntegrationStatus.actorClaimed
+    ) {
+      return (
+        <div className="image-board-app">
+          <div className="welcome-pane">
+            <AgentBoardClaimInstructions
+              stableBoardId={stableBoardId}
+              pageNonce={pageNonce}
+            />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="image-board-app">
         <div className="welcome-pane">

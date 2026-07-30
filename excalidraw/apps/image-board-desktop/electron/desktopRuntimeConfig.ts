@@ -21,6 +21,10 @@ export type DesktopRuntimeMode =
   | "preview"
   | "qa";
 
+export const shouldDefaultAgentAccessEnabled = (
+  mode: DesktopRuntimeMode,
+) => mode === "development" || mode === "preview";
+
 interface DesktopRuntimeConfigInput extends AgentSessionPathInput {
   bundledAppName: string;
   isPackaged: boolean;

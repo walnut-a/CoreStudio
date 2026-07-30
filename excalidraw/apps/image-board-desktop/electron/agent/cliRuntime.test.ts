@@ -209,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.31 (Codex integration 1.9.0, bridge protocol 3)\n",
+          "CoreStudio 1.1.31 (Codex integration 1.10.0, bridge protocol 3)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -227,7 +227,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.31",
-        integrationVersion: "1.9.0",
+        integrationVersion: "1.10.0",
         bridgeProtocolVersion: 3,
       },
     });
@@ -634,7 +634,7 @@ describe("runCli", () => {
     expect(result.stdout).toBe(`${stableBoardUrl}\n`);
   });
 
-  it("claims a stable Board page for the current Codex task", async () => {
+  it("claims a stable Board page for the current Codex conversation", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(
       { ok: true, data: { claimed: true } },
@@ -689,7 +689,7 @@ describe("runCli", () => {
     });
   });
 
-  it("uses an explicit Agent label when the Codex task has no title", async () => {
+  it("uses an explicit Agent label when the Codex conversation has no title", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(okEnvelope, records);
 

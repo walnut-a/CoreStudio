@@ -12,6 +12,7 @@ import {
   render,
   screen,
   triggerExcalidrawInitialize,
+  triggerExcalidrawScrollChange,
   waitFor,
 } from "./App.testSupport";
 import type { FileId } from "./App.testSupport";
@@ -110,7 +111,7 @@ describe("App Agent Board room route", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("exposes a page nonce while waiting for trusted Codex identity", async () => {
+  it("explains how to connect the page while waiting for trusted Codex identity", async () => {
     window.history.pushState(null, "", "/board/stable-board-id");
     vi.stubGlobal(
       "fetch",
@@ -140,16 +141,42 @@ describe("App Agent Board room route", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(
-        document.documentElement.dataset.corestudioStableBoardId,
-      ).toBe("stable-board-id");
-      expect(
-        document.documentElement.dataset.corestudioPageNonce,
-      ).toEqual(expect.any(String));
+      expect(document.documentElement.dataset.corestudioStableBoardId).toBe(
+        "stable-board-id",
+      );
+      expect(document.documentElement.dataset.corestudioPageNonce).toEqual(
+        expect.any(String),
+      );
     });
     expect(
-      screen.getByRole("status", { name: "正在连接当前项目…" }),
+      screen.getByRole("heading", { name: "画布正在等待连接 Codex" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "当前状态" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到 Codex 对话，因此暂时无法进入画布。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "你需要做什么" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的 Codex 对话，粘贴并发送。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "完成后" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Codex 会连接这个画布。连接成功后，本页面将自动进入可编辑画布，无需刷新或重新打开。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复制连接指令" })).toBeEnabled();
+    expect(
+      screen.queryByRole("status", { name: "正在连接当前项目…" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText("Waiting for a trusted Agent identity."),
     ).not.toBeInTheDocument();
@@ -192,8 +219,20 @@ describe("App Agent Board room route", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "回到 CoreStudio，打开“应用设置”中的“Codex 集成”，完成更新后再刷新这个页面。",
+        "回到 CoreStudio，打开“应用设置”中的“Codex 集成”，完成更新后再返回这个页面。",
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "当前状态" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "你需要做什么" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "我已更新，重新检查" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByText("更新完成后无需重新复制画布地址。"),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "更新 Codex 集成" }),
@@ -263,6 +302,228 @@ describe("App Agent Board room route", () => {
     expect(
       screen.queryByRole("heading", { name: "选择项目开始" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("hydrates CLI image updates live and preserves the board viewport", async () => {
+    const project = createMockProjectBundle({
+      projectPath: "/tmp/live-room-project",
+    });
+    const identity = {
+      projectId: "project-live",
+      canonicalProjectPath: project.projectPath,
+      roomId: "room-live",
+      sessionEpoch: 1,
+    };
+    let activeRoomSocket: LiveRoomWebSocket | null = null;
+    class LiveRoomWebSocket {
+      static readonly OPEN = 1;
+      readonly readyState = LiveRoomWebSocket.OPEN;
+      private readonly listeners = new Map<
+        string,
+        Array<(event: { data?: string }) => void>
+      >();
+
+      constructor() {
+        activeRoomSocket = this;
+        queueMicrotask(() => {
+          this.emit({
+            type: "room.joined",
+            sessionId: "board-session",
+            resumeToken: "resume-token",
+            snapshot: {
+              type: "room.snapshot",
+              identity,
+              sequence: 0,
+              persistedSequence: 0,
+              projectRevision: "revision-1",
+              scene: {
+                elements: [],
+                sharedSceneConfig: {
+                  scrollX: 0,
+                  scrollY: 0,
+                  zoom: { value: 1 },
+                  viewBackgroundColor: "#fff",
+                },
+              },
+              participants: [],
+            },
+            bootstrap: {
+              projectPath: project.projectPath,
+              project: project.project,
+              imageRecords: {},
+            },
+          });
+        });
+      }
+
+      addEventListener(
+        type: string,
+        listener: (event: { data?: string }) => void,
+      ) {
+        const listeners = this.listeners.get(type) ?? [];
+        listeners.push(listener);
+        this.listeners.set(type, listeners);
+      }
+
+      send() {}
+      close() {}
+
+      publish(event: unknown) {
+        this.emit({ type: "room.event", event });
+      }
+
+      private emit(message: unknown) {
+        for (const listener of this.listeners.get("message") ?? []) {
+          listener({ data: JSON.stringify(message) });
+        }
+      }
+    }
+    const imageRecord = {
+      fileId: "cli-image",
+      assetPath: "assets/cli-image.png",
+      sourceType: "generated" as const,
+      generationOrigin: "agent-board" as const,
+      width: 512,
+      height: 512,
+      createdAt: "2026-07-30T08:00:00.000Z",
+      mimeType: "image/png",
+    };
+    const imageElement = newImageElement({
+      type: "image",
+      fileId: "cli-image" as FileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 400,
+      y: 300,
+      width: 512,
+      height: 512,
+    });
+    window.history.pushState(null, "", "/board/stable-board-id");
+    window.sessionStorage.setItem(
+      "corestudio:stable-board:stable-board-id:viewport",
+      JSON.stringify({
+        version: 1,
+        scrollX: -320,
+        scrollY: 180,
+        zoom: { value: 1.4 },
+      }),
+    );
+    const fetchMock = vi.fn(async (url: string | URL, _init?: RequestInit) => {
+      const pathname = new URL(String(url)).pathname;
+      const data =
+        pathname === AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
+          ? readyIntegrationStatus
+          : pathname === AGENT_HTTP_ROUTES.stableBoardSessionExchange
+          ? {
+              launchTicket: "launch-ticket",
+              actorResumeToken: "actor-resume-token",
+            }
+          : pathname === AGENT_HTTP_ROUTES.roomAssets
+          ? [
+              {
+                fileId: "cli-image",
+                mimeType: "image/png",
+                dataBase64: "aW1hZ2U=",
+                width: 512,
+                height: 512,
+                createdAt: "2026-07-30T08:00:00.000Z",
+                rendition: "preview",
+              },
+            ]
+          : [];
+      return new Response(JSON.stringify({ ok: true, data }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", LiveRoomWebSocket);
+
+    render(<App />);
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockExcalidrawAPI?.getAppState()).toEqual(
+        expect.objectContaining({
+          scrollX: -320,
+          scrollY: 180,
+          zoom: { value: 1.4 },
+        }),
+      );
+    });
+    triggerExcalidrawInitialize?.();
+
+    act(() => {
+      triggerExcalidrawScrollChange?.({
+        scrollX: -600,
+        scrollY: 240,
+        zoom: { value: 1.75 },
+      });
+      activeRoomSocket?.publish({
+        type: "assets.updated",
+        identity,
+        imageRecords: { "cli-image": imageRecord },
+      });
+      activeRoomSocket?.publish({
+        type: "scene.updated",
+        identity,
+        sequence: 1,
+        originSessionId: "cli-session",
+        originActorId: "codex:thread-live",
+        operationId: "cli-write-1",
+        baseSequence: 0,
+        elements: [imageElement],
+        sharedSceneConfig: {
+          scrollX: 0,
+          scrollY: 0,
+          zoom: { value: 1 },
+          viewBackgroundColor: "#f5f5f5",
+        },
+        acceptedElementIds: [imageElement.id],
+        supersededElementIds: [],
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            new URL(String(url)).pathname === AGENT_HTTP_ROUTES.roomAssets &&
+            String(init?.body).includes("cli-image"),
+        ),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: "cli-image",
+          dataURL: "data:image/png;base64,aW1hZ2U=",
+        }),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(mockExcalidrawAPI?.getAppState()).toEqual(
+        expect.objectContaining({
+          scrollX: -600,
+          scrollY: 240,
+          zoom: { value: 1.75 },
+          viewBackgroundColor: "#f5f5f5",
+        }),
+      );
+    });
+    expect(
+      JSON.parse(
+        window.sessionStorage.getItem(
+          "corestudio:stable-board:stable-board-id:viewport",
+        ) ?? "null",
+      ),
+    ).toEqual({
+      version: 1,
+      scrollX: -600,
+      scrollY: 240,
+      zoom: { value: 1.75 },
+    });
   });
 
   it("joins the room and asks for a browser refresh when Electron restarts", async () => {
@@ -388,23 +649,26 @@ describe("App Agent Board room route", () => {
     window.history.pushState(null, "", "/board/stable-board-id");
     const fetchMock = vi.fn(
       async (url: string | URL) =>
-        new Response(JSON.stringify({
-          ok: true,
-          data:
-            new URL(String(url)).pathname ===
-            AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
-              ? readyIntegrationStatus
-              : new URL(String(url)).pathname ===
-                AGENT_HTTP_ROUTES.stableBoardSessionExchange
-              ? {
-                  launchTicket: "launch-ticket",
-                  actorResumeToken: "actor-resume-token",
-                }
-              : [],
-        }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data:
+              new URL(String(url)).pathname ===
+              AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
+                ? readyIntegrationStatus
+                : new URL(String(url)).pathname ===
+                  AGENT_HTTP_ROUTES.stableBoardSessionExchange
+                ? {
+                    launchTicket: "launch-ticket",
+                    actorResumeToken: "actor-resume-token",
+                  }
+                : [],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
     );
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("WebSocket", FakeRoomWebSocket);
@@ -426,9 +690,9 @@ describe("App Agent Board room route", () => {
       "true",
     );
     await waitFor(() => {
-      expect(new URL(window.location.href).searchParams.has("resumeToken")).toBe(
-        false,
-      );
+      expect(
+        new URL(window.location.href).searchParams.has("resumeToken"),
+      ).toBe(false);
     });
     expect(
       fetchMock.mock.calls.map(([url]) => new URL(String(url)).pathname),

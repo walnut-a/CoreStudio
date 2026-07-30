@@ -26,7 +26,13 @@ describe("welcome pane styles", () => {
     const cardRule = getRule(welcomePaneCss, ".welcome-pane__card");
     const introRule = getRule(welcomePaneCss, ".welcome-pane__intro");
     const diagnosticRule = getRule(welcomePaneCss, ".welcome-pane__diagnostic");
+    const diagnosticNextStepRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__diagnostic-next-step",
+    );
+    const claimRule = getRule(welcomePaneCss, ".welcome-pane__claim");
     const eyebrowRule = getRule(welcomePaneCss, ".welcome-pane__eyebrow");
+    const paragraphRule = getRule(welcomePaneCss, ".welcome-pane p");
     const actionsRule = getRule(welcomePaneCss, ".welcome-pane__actions");
     const recentRule = getRule(welcomePaneCss, ".welcome-pane__recent");
     const recentListRule = getRule(
@@ -92,8 +98,22 @@ describe("welcome pane styles", () => {
     expect(recentTimeRule).toContain("font-variant-numeric: tabular-nums");
     expect(recentTimeRule).toContain("font-size: 0.75rem");
     expect(diagnosticRule).toContain("padding: 28px");
+    expect(diagnosticRule).toContain(
+      "grid-template-columns: minmax(0, 1fr)",
+    );
+    expect(diagnosticRule).toContain("width: min(100%, 620px)");
+    expect(diagnosticRule).toContain("min-height: 0");
+    expect(diagnosticRule).toContain("max-height: none");
+    expect(claimRule).toContain("gap: 16px");
+    expect(diagnosticNextStepRule).toContain(
+      "background: var(--color-surface-mid)",
+    );
+    expect(paragraphRule).toContain(
+      "font-size: var(--ui-text-size-lg)",
+    );
+    expect(paragraphRule).toContain("line-height: 1.5");
     expect(welcomePaneCss).toContain(
-      ".welcome-pane__diagnostic {\n    padding: 22px;",
+      ".welcome-pane__diagnostic {\n    padding: 20px;",
     );
     expect(welcomePaneCss).toContain(
       ".welcome-pane__recent-time {\n    grid-column: 1;\n    grid-row: 3;",

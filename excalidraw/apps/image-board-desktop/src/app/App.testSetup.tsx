@@ -1043,6 +1043,7 @@ afterEach(() => {
     value: 1,
   });
   window.localStorage.clear();
+  window.sessionStorage.clear();
   delete window.imageBoardDesktop;
   triggerExcalidrawInitialize = null;
   triggerExcalidrawChange = null;

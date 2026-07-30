@@ -2,9 +2,19 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { resolveDesktopRuntimeConfig } from "./desktopRuntimeConfig";
+import {
+  resolveDesktopRuntimeConfig,
+  shouldDefaultAgentAccessEnabled,
+} from "./desktopRuntimeConfig";
 
 describe("desktop runtime config", () => {
+  it("enables Agent Bridge by default for interactive development runtimes", () => {
+    expect(shouldDefaultAgentAccessEnabled("development")).toBe(true);
+    expect(shouldDefaultAgentAccessEnabled("preview")).toBe(true);
+    expect(shouldDefaultAgentAccessEnabled("production")).toBe(false);
+    expect(shouldDefaultAgentAccessEnabled("qa")).toBe(false);
+  });
+
   it("preserves the production identity, bridge, and global session defaults", () => {
     expect(
       resolveDesktopRuntimeConfig({

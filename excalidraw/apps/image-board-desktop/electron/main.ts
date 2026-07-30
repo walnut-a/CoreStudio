@@ -171,6 +171,7 @@ import { resolveDesktopMenuEventTarget } from "./desktopMenuEventRouting";
 import {
   resolveDesktopAppName,
   resolveDesktopRuntimeConfig,
+  shouldDefaultAgentAccessEnabled,
 } from "./desktopRuntimeConfig";
 
 installBrokenPipeConsoleGuard();
@@ -2844,7 +2845,7 @@ if (hasSingleInstanceLock) {
       });
     agentAccessEnabled = (
       await loadAgentAccessSettings({
-        defaultEnabled: desktopRuntime.mode === "development",
+        defaultEnabled: shouldDefaultAgentAccessEnabled(desktopRuntime.mode),
       })
     ).enabled;
     currentRecentProjects = await loadRecentProjects();

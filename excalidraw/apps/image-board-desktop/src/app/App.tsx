@@ -30,6 +30,12 @@ import {
   setAgentBrowserRoomResumeToken,
   setStableBoardActorResumeToken,
 } from "./agent/agentBrowserRoomCredentials";
+import {
+  mergeAgentBoardAuthoritativeAppState,
+  mergeAgentBoardInitialAppState,
+  readAgentBoardViewportState,
+  writeAgentBoardViewportState,
+} from "./agent/agentBoardViewportState";
 import { createProjectRoomFlushLifecycleActions } from "./projectRoomFlushLifecycle";
 import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
 import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
@@ -138,6 +144,7 @@ import { EditorLoadingOverlay } from "./components/EditorLoadingOverlay";
 import { ProjectStatusToast } from "./components/ProjectStatusToast";
 import { ProjectRenderBoundary } from "./components/ProjectRenderBoundary";
 import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
+import { AgentBoardClaimInstructions } from "./components/AgentBoardClaimInstructions";
 import { DesktopButton } from "./components/DesktopButton";
 import { ExcalidrawThemeTokenBridge } from "./components/ExcalidrawThemeTokenBridge";
 import {
@@ -800,6 +807,15 @@ const App = ({
   const viewportChangeRendererActions = createViewportChangeRendererActions({
     getScene: () => latestSceneRef.current,
     getSceneReader: () => excalidrawAPIRef.current ?? {},
+    recordViewportChange: (scrollX, scrollY, zoom) => {
+      if (stableBoardId) {
+        writeAgentBoardViewportState(stableBoardId, {
+          scrollX,
+          scrollY,
+          zoom,
+        });
+      }
+    },
     setLatestScene: (scene) => {
       latestSceneRef.current = scene;
     },
@@ -1241,6 +1257,38 @@ const App = ({
       getProject: () => currentProjectRef.current,
       getLatestScene: () => latestSceneRef.current,
       updateProject: updateCurrentProject,
+      hydrateImageRecords: async (project, fileIds) => {
+        const currentFiles =
+          excalidrawAPIRef.current?.getFiles() ??
+          latestSceneRef.current?.files ??
+          {};
+        const missingFileIds = fileIds.filter(
+          (fileId) => !currentFiles[fileId],
+        );
+        if (missingFileIds.length === 0) {
+          return fileIds;
+        }
+
+        const assets = await readProjectImageAssets(
+          project,
+          missingFileIds,
+          "preview",
+        );
+        const applied = projectAssetSceneApplyRendererAction(project, assets);
+        if (!applied) {
+          return fileIds.filter((fileId) => !missingFileIds.includes(fileId));
+        }
+
+        const hydratedFileIds = assets.map((asset) => asset.fileId);
+        loadedPreviewImageFileIdsRef.current = new Set([
+          ...loadedPreviewImageFileIdsRef.current,
+          ...hydratedFileIds,
+        ]);
+        return [
+          ...fileIds.filter((fileId) => !missingFileIds.includes(fileId)),
+          ...hydratedFileIds,
+        ];
+      },
       scheduleVisibleImageRenditionLoad:
         visibleImageRenditionLoadRendererActions.schedule,
     });
@@ -1286,13 +1334,7 @@ const App = ({
         if (!project || project.projectPath !== projectPath) {
           return;
         }
-        updateCurrentProject({
-          ...project,
-          imageRecords: {
-            ...project.imageRecords,
-            ...imageRecords,
-          },
-        });
+        projectRoomAssetRefreshRendererActions.applyImageRecords(imageRecords);
       },
       onScene: (scene) => {
         latestSceneRef.current = scene;
@@ -1486,10 +1528,10 @@ const App = ({
           });
           api.updateScene({
             elements: reconciledElements,
-            appState: {
-              ...appState,
-              ...sharedSceneConfig,
-            } as AppState,
+            appState: mergeAgentBoardAuthoritativeAppState(
+              appState,
+              sharedSceneConfig,
+            ),
             captureUpdate: CaptureUpdateAction.NEVER,
           });
           const latestScene = {
@@ -1514,7 +1556,10 @@ const App = ({
         version: 2,
         source: "local",
         elements: joined.snapshot.scene.elements,
-        appState: joined.snapshot.scene.sharedSceneConfig,
+        appState: mergeAgentBoardInitialAppState(
+          joined.snapshot.scene.sharedSceneConfig,
+          stableBoardId ? readAgentBoardViewportState(stableBoardId) : null,
+        ),
         files: {},
       });
       await currentProjectBundleOpenRendererActions.applyExternalSnapshot({
@@ -2115,6 +2160,24 @@ const App = ({
     !projectRoomError &&
     (!currentProject || !initialData)
   ) {
+    const pageNonce = stableBoardPageNonceRef.current;
+    if (
+      stableBoardId &&
+      pageNonce &&
+      stableBoardIntegrationStatus?.state === "ready" &&
+      !stableBoardIntegrationStatus.actorClaimed
+    ) {
+      return (
+        <div className="image-board-app">
+          <div className="welcome-pane">
+            <AgentBoardClaimInstructions
+              stableBoardId={stableBoardId}
+              pageNonce={pageNonce}
+            />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="image-board-app">
         <div className="welcome-pane">

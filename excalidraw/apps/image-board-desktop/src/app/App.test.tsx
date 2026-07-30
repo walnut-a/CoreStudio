@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { BinaryFileData, FileId } from "./App.testSupport";
+import type { ProjectRoomEvent } from "../shared/projectRoomProtocol";
 import { setActiveDesktopLocale } from "./copy";
 
 import {
@@ -122,6 +123,87 @@ describe("App startup", () => {
       });
     },
   );
+
+  it("hydrates image payloads when CLI assets arrive in the desktop project room", async () => {
+    let roomEventListener:
+      | ((sessionId: string, event: ProjectRoomEvent) => void)
+      | null = null;
+    const readProjectAssetPayloads = vi.fn(async ({ fileIds, rendition }) =>
+      fileIds.map((fileId: string) => ({
+        fileId,
+        mimeType: "image/png",
+        dataBase64: Buffer.from(`${fileId}-${rendition}`).toString("base64"),
+        width: 512,
+        height: 512,
+        createdAt: "2026-07-30T08:00:00.000Z",
+        rendition,
+      })),
+    );
+    const bridge = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(createMockProjectBundle()),
+      readProjectAssetPayloads,
+      onProjectRoomEvent: vi.fn((listener) => {
+        roomEventListener = listener;
+        return () => undefined;
+      }),
+    });
+    window.imageBoardDesktop = bridge as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(roomEventListener).not.toBeNull();
+      expect(bridge.joinProjectRoom).toHaveBeenCalled();
+    });
+    const roomSessionId = vi.mocked(bridge.joinProjectRoom).mock.calls[0]?.[0]
+      .sessionId;
+
+    act(() => {
+      roomEventListener?.(roomSessionId, {
+        type: "assets.updated",
+        identity: {
+          projectId: "test-project",
+          canonicalProjectPath: "/tmp/mock-project",
+          roomId: "room:/tmp/mock-project",
+          sessionEpoch: 1,
+        },
+        imageRecords: {
+          "cli-desktop-image": {
+            fileId: "cli-desktop-image",
+            assetPath: "assets/cli-desktop-image.png",
+            sourceType: "generated",
+            generationOrigin: "agent-board",
+            width: 512,
+            height: 512,
+            createdAt: "2026-07-30T08:00:00.000Z",
+            mimeType: "image/png",
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+        projectPath: "/tmp/mock-project",
+        fileIds: ["cli-desktop-image"],
+        rendition: "preview",
+      });
+    });
+    expect(mockExcalidrawAPI?.replaceFiles).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "cli-desktop-image",
+        dataURL: `data:image/png;base64,${Buffer.from(
+          "cli-desktop-image-preview",
+        ).toString("base64")}`,
+      }),
+    ]);
+  });
 
   it("shows a Chinese loading mask while Excalidraw is still initializing", async () => {
     window.imageBoardDesktop = {

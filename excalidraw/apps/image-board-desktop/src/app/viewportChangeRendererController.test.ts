@@ -29,6 +29,7 @@ describe("createViewportChangeRendererActions", () => {
     const setLatestScene = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
     const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
+    const recordViewportChange = vi.fn();
     const zoom = { value: 1.5 } as AppState["zoom"];
 
     const actions = createViewportChangeRendererActions({
@@ -38,6 +39,7 @@ describe("createViewportChangeRendererActions", () => {
         getAppState: () => ({ width: 1200 } as Partial<AppState>),
         getFiles: () => activeFiles,
       }),
+      recordViewportChange,
       setLatestScene,
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
@@ -46,6 +48,7 @@ describe("createViewportChangeRendererActions", () => {
     expect(actions.changeViewport(12, 24, zoom)).toEqual({
       status: "updated",
     });
+    expect(recordViewportChange).toHaveBeenCalledWith(12, 24, zoom);
 
     const nextScene = setLatestScene.mock.calls[0]?.[0];
     expect(nextScene).toEqual({
@@ -68,10 +71,12 @@ describe("createViewportChangeRendererActions", () => {
     const setLatestScene = vi.fn();
     const scheduleVisibleImageRenditionLoad = vi.fn();
     const scheduleAgentBrowserRuntimeStatePublish = vi.fn();
+    const recordViewportChange = vi.fn();
 
     const actions = createViewportChangeRendererActions({
       getScene: () => null,
       getSceneReader: () => ({}),
+      recordViewportChange,
       setLatestScene,
       scheduleVisibleImageRenditionLoad,
       scheduleAgentBrowserRuntimeStatePublish,
@@ -85,6 +90,11 @@ describe("createViewportChangeRendererActions", () => {
     });
 
     expect(setLatestScene).not.toHaveBeenCalled();
+    expect(recordViewportChange).toHaveBeenCalledWith(
+      12,
+      24,
+      expect.objectContaining({ value: 1 }),
+    );
     expect(scheduleVisibleImageRenditionLoad).not.toHaveBeenCalled();
     expect(scheduleAgentBrowserRuntimeStatePublish).not.toHaveBeenCalled();
   });

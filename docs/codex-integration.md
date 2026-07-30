@@ -12,7 +12,7 @@
 - `~/.codex/skills/corestudio/SKILL.md`：CoreStudio Skill。
 - `~/.codex/corestudio-integration.json`：独立的集成版本与兼容性记录。
 
-Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。当前开发版内置的集成版本为 `1.9.0`。当用户只说“打开 CoreStudio”而没有点明入口时，Skill 会先确认是打开 Codex 内置画布还是桌面客户端；进入画布任务后，会打开 `http://127.0.0.1:60909/board/<stableBoardId>` 形式的项目稳定地址，从页面读取一次性 nonce，再通过 CLI 在 URL 外认领当前 Codex 任务身份。画布地址不包含开发服务器地址、Bridge 查询参数、房间票据或恢复 token。
+Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。当前开发版内置的集成版本为 `1.10.0`。当用户只说“打开 CoreStudio”而没有点明入口时，Skill 会先确认是打开 Codex 内置画布还是桌面客户端；进入画布任务后，会打开 `http://127.0.0.1:60909/board/<stableBoardId>` 形式的项目稳定地址，从页面读取一次性 nonce，再通过 CLI 在 URL 外认领当前 Codex 任务身份。画布地址不包含开发服务器地址、Bridge 查询参数、房间票据或恢复 token。
 
 不要直接修改 CoreStudio 项目文件，不要从网络下载或执行其他安装脚本。安装代码必须来自本机已签名的 CoreStudio 应用包。
 
@@ -103,5 +103,7 @@ corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce
 ```
 
 页面会在身份认领后自动换取短期房间会话。nonce、Codex thread id、launch ticket 和 resume token 都不得进入稳定 URL。旧 token URL 不迁移、不兼容，直接重新取得稳定地址。没有实际浏览器控制工具时只提供稳定链接，并明确尚不能替用户完成页面身份认领；不要擅自改用 Chrome 或系统默认浏览器。
+
+用户直接在 Codex 内置浏览器打开稳定地址，但当前任务尚未完成身份认领时，页面不能停留在无说明的加载状态。页面会依次说明当前状态、用户下一步和连接成功后的结果，并提供“复制连接指令”按钮。复制内容包含 `<corestudio-board-claim version="1">` 结构化引用；用户把完整内容粘贴到目标 Codex 任务后，Skill 必须认领引用对应的原页面，不得另开页面或刷新生成新的 nonce。
 
 如果检测仍未通过，报告具体缺失项，不要反复盲目执行安装器。

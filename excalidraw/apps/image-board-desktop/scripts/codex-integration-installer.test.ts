@@ -41,6 +41,21 @@ afterEach(() => {
 });
 
 describe("CoreStudio Codex integration installer", () => {
+  it("ships a deterministic contract for copied board claim requests", () => {
+    const skill = readFileSync(
+      join(sourceRoot, "corestudio-skill", "SKILL.md"),
+      "utf8",
+    );
+
+    expect(skill).toContain('<corestudio-board-claim version="1">');
+    expect(skill).toContain('"source":"agent-board"');
+    expect(skill).toContain('"mode":"claim"');
+    expect(skill).toContain(
+      "corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce> --json",
+    );
+    expect(skill).toContain("不要打开新的画布标签页");
+  });
+
   it("uses its own app bundle and does not treat an ASAR entry as a normal file", () => {
     const source = readFileSync(join(sourceRoot, "install.sh"), "utf8");
 

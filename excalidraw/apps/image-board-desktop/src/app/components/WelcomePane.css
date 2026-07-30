@@ -44,6 +44,50 @@
   padding: 28px;
 }
 
+.welcome-pane__claim {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 680px);
+  min-height: 0;
+  max-height: none;
+  align-content: start;
+  gap: 20px;
+}
+
+.welcome-pane__claim-copy {
+  display: grid;
+  gap: 20px;
+  max-width: 64ch;
+}
+
+.welcome-pane__claim-steps {
+  display: grid;
+  gap: 18px;
+}
+
+.welcome-pane__claim-steps section {
+  display: grid;
+  gap: 6px;
+}
+
+.welcome-pane__claim-steps h2 {
+  margin: 0;
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-lg);
+  line-height: 1.3;
+}
+
+.welcome-pane__claim-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.welcome-pane__claim-feedback {
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-md);
+}
+
 .welcome-pane__copy {
   display: grid;
   gap: 12px;

@@ -531,6 +531,25 @@ export const enCopy: DesktopCopy = {
     },
   },
   agentBoard: {
+    connectionClaim: {
+      title: "This board is waiting for Codex",
+      currentStateTitle: "Current status",
+      currentStateDescription:
+        "CoreStudio and the project are ready, but this board page is not connected to a Codex task yet, so the canvas cannot open.",
+      nextStepTitle: "What to do next",
+      nextStepDescription:
+        "Copy the connection instruction below, return to the Codex task where you want to use this board, then paste and send it.",
+      completionTitle: "What happens next",
+      completionDescription:
+        "Codex will connect this board. When the connection succeeds, this page will open the editable canvas automatically. You do not need to refresh or reopen it.",
+      copyAction: "Copy connection instruction",
+      copying: "Copying…",
+      copySucceeded:
+        "Connection instruction copied. Return to Codex, then paste and send it.",
+      copyFailed: "Copy failed. Try again.",
+      clipboardInstruction:
+        "Connect this CoreStudio board, then confirm that the page opened the editable canvas.",
+    },
     errors: {
       missingConfig: "The Agent Board link is missing bridge or projectToken.",
       unrecognizedBridgeData: "Agent Bridge returned unrecognized data.",

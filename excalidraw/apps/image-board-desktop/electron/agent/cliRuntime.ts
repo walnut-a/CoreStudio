@@ -154,7 +154,7 @@ Usage: corestudio <tool> <command> [options]
 
 Tools:
   read    Read project and bridge state
-  board   Connect a stable Board page to the current Codex task
+  board   Connect a stable Board page to the current Codex conversation
   write   Write images and prompts
   edit    Locate or select scene content
   bash    Print shell integration helpers

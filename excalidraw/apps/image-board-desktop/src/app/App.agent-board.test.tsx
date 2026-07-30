@@ -156,7 +156,7 @@ describe("App Agent Board room route", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到 Codex 任务，因此暂时无法进入画布。",
+        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到 Codex 对话，因此暂时无法进入画布。",
       ),
     ).toBeInTheDocument();
     expect(
@@ -164,7 +164,7 @@ describe("App Agent Board room route", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的 Codex 任务，粘贴并发送。",
+        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的 Codex 对话，粘贴并发送。",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "完成后" })).toBeInTheDocument();

@@ -519,10 +519,10 @@ const zhCnCopy = {
       title: "画布正在等待连接 Codex",
       currentStateTitle: "当前状态",
       currentStateDescription:
-        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到 Codex 任务，因此暂时无法进入画布。",
+        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到 Codex 对话，因此暂时无法进入画布。",
       nextStepTitle: "你需要做什么",
       nextStepDescription:
-        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的 Codex 任务，粘贴并发送。",
+        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的 Codex 对话，粘贴并发送。",
       completionTitle: "完成后",
       completionDescription:
         "Codex 会连接这个画布。连接成功后，本页面将自动进入可编辑画布，无需刷新或重新打开。",

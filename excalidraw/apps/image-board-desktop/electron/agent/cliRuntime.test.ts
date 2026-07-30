@@ -634,7 +634,7 @@ describe("runCli", () => {
     expect(result.stdout).toBe(`${stableBoardUrl}\n`);
   });
 
-  it("claims a stable Board page for the current Codex task", async () => {
+  it("claims a stable Board page for the current Codex conversation", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(
       { ok: true, data: { claimed: true } },
@@ -689,7 +689,7 @@ describe("runCli", () => {
     });
   });
 
-  it("uses an explicit Agent label when the Codex task has no title", async () => {
+  it("uses an explicit Agent label when the Codex conversation has no title", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(okEnvelope, records);
 

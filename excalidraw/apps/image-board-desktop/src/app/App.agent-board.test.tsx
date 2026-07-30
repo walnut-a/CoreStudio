@@ -219,8 +219,20 @@ describe("App Agent Board room route", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "回到 CoreStudio，打开“应用设置”中的“Codex 集成”，完成更新后再刷新这个页面。",
+        "回到 CoreStudio，打开“应用设置”中的“Codex 集成”，完成更新后再返回这个页面。",
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "当前状态" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "你需要做什么" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "我已更新，重新检查" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByText("更新完成后无需重新复制画布地址。"),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "更新 Codex 集成" }),

@@ -2130,22 +2130,43 @@ const App = ({
             aria-labelledby="agent-board-integration-title"
           >
             <span className="welcome-pane__eyebrow">Agent Board</span>
-            <h1 id="agent-board-integration-title">
-              {integrationRepairRequired
-                ? "请在 CoreStudio 中更新集成"
-                : "暂时无法打开这个项目"}
-            </h1>
-            {stableBoardIntegrationStatus.issues.map((issue) => (
-              <p key={issue.code}>{issue.message}</p>
-            ))}
+            <div className="welcome-pane__diagnostic-copy">
+              <h1 id="agent-board-integration-title">
+                {integrationRepairRequired
+                  ? "请在 CoreStudio 中更新集成"
+                  : "暂时无法打开这个项目"}
+              </h1>
+              <section className="welcome-pane__diagnostic-section">
+                <h2>当前状态</h2>
+                {stableBoardIntegrationStatus.issues.map((issue) => (
+                  <p key={issue.code}>{issue.message}</p>
+                ))}
+              </section>
+              {integrationRepairRequired ? (
+                <section className="welcome-pane__diagnostic-section welcome-pane__diagnostic-next-step">
+                  <h2>你需要做什么</h2>
+                  <p>
+                    回到 CoreStudio，打开“应用设置”中的“Codex
+                    集成”，完成更新后再返回这个页面。
+                  </p>
+                </section>
+              ) : null}
+              {projectRoomError ? (
+                <p className="welcome-pane__error">{projectRoomError}</p>
+              ) : null}
+            </div>
             {integrationRepairRequired ? (
-              <p>
-                回到 CoreStudio，打开“应用设置”中的“Codex
-                集成”，完成更新后再刷新这个页面。
-              </p>
-            ) : null}
-            {projectRoomError ? (
-              <p className="welcome-pane__error">{projectRoomError}</p>
+              <div className="welcome-pane__diagnostic-actions">
+                <DesktopButton
+                  variant="primary"
+                  onClick={() => window.location.reload()}
+                >
+                  我已更新，重新检查
+                </DesktopButton>
+                <p className="welcome-pane__diagnostic-hint">
+                  更新完成后无需重新复制画布地址。
+                </p>
+              </div>
             ) : null}
           </div>
         </div>

@@ -399,7 +399,7 @@ describe("App Agent Board room route", () => {
       height: 512,
     });
     window.history.pushState(null, "", "/board/stable-board-id");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "corestudio:stable-board:stable-board-id:viewport",
       JSON.stringify({
         version: 1,
@@ -514,7 +514,7 @@ describe("App Agent Board room route", () => {
     });
     expect(
       JSON.parse(
-        window.sessionStorage.getItem(
+        window.localStorage.getItem(
           "corestudio:stable-board:stable-board-id:viewport",
         ) ?? "null",
       ),

@@ -44,10 +44,12 @@ const parseViewportState = (value: unknown): AgentBoardViewportState | null => {
 
 export const readAgentBoardViewportState = (
   stableBoardId: string,
-  storage: ViewportStorageReader = window.sessionStorage,
+  storage?: ViewportStorageReader,
 ): AgentBoardViewportState | null => {
   try {
-    const serialized = storage.getItem(viewportStorageKey(stableBoardId));
+    const serialized = (storage ?? window.localStorage).getItem(
+      viewportStorageKey(stableBoardId),
+    );
     return serialized ? parseViewportState(JSON.parse(serialized)) : null;
   } catch {
     return null;
@@ -57,7 +59,7 @@ export const readAgentBoardViewportState = (
 export const writeAgentBoardViewportState = (
   stableBoardId: string,
   viewport: AgentBoardViewportState,
-  storage: ViewportStorageWriter = window.sessionStorage,
+  storage?: ViewportStorageWriter,
 ): void => {
   if (
     !isFiniteNumber(viewport.scrollX) ||
@@ -68,7 +70,7 @@ export const writeAgentBoardViewportState = (
     return;
   }
   try {
-    storage.setItem(
+    (storage ?? window.localStorage).setItem(
       viewportStorageKey(stableBoardId),
       JSON.stringify({
         version: 1,
@@ -78,7 +80,7 @@ export const writeAgentBoardViewportState = (
       }),
     );
   } catch {
-    // A disabled or full session store should not interrupt canvas navigation.
+    // A disabled or full persistent store should not interrupt navigation.
   }
 };
 

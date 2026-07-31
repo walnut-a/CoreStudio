@@ -139,6 +139,7 @@ export interface LocalBridgeServerOptions {
       project: LocalBridgeCurrentProject;
       threadId: string;
       displayLabel: string;
+      dryRun?: boolean;
     },
     run: (context: {
       sessionId: string;
@@ -181,6 +182,10 @@ const WRITE_ROUTES: WriteRouteConfig[] = [
   {
     route: AGENT_HTTP_ROUTES.sceneAddPrompt,
     command: "scene.addPrompt",
+  },
+  {
+    route: AGENT_HTTP_ROUTES.sceneAddDiagram,
+    command: "scene.addDiagram",
   },
   {
     route: AGENT_HTTP_ROUTES.taskComplete,
@@ -869,10 +874,10 @@ const handleWriteCommand = async (
   const payload = createRendererPayload(
     body,
     currentProject.projectPath,
-    false,
+    body.dryRun === true,
     runtimeState ? buildAgentBoardCommandContext(runtimeState) : null,
   );
-  if (body.dryRun === true) {
+  if (body.dryRun === true && config.command !== "scene.addDiagram") {
     sendJson(
       response,
       200,
@@ -920,7 +925,8 @@ const handleWriteCommand = async (
     );
     const isRoomWrite =
       config.command === "scene.addImage" ||
-      config.command === "scene.addPrompt";
+      config.command === "scene.addPrompt" ||
+      config.command === "scene.addDiagram";
     let result: unknown;
     if (isRoomWrite) {
       if (!trustedParticipant) {
@@ -941,6 +947,7 @@ const handleWriteCommand = async (
         {
           project: currentProject,
           ...trustedParticipant,
+          ...(body.dryRun === true ? { dryRun: true } : {}),
         },
         (context) =>
           options.renderer.request(config.command, {

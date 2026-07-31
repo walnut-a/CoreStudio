@@ -78,6 +78,8 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 
 ## 写回
 
+- 流程图、时序图、类图或 ER 图优先写成 Mermaid 文件，再使用 `corestudio write diagram --format mermaid --file <absolute-path> --anchor auto` 写回。CoreStudio 会在本机转换为可编辑原生图元并通过 Project Room 原子写入；不要渲染成图片，也不要直接生成或修改 `scene.excalidraw.json`。需要只验证语法和布局时追加 `--dry-run`。
+- `--anchor auto` 优先放在当前选区旁，无选区时使用当前画布视口；只有用户明确要求忽略选区时使用 `viewport`，明确要求紧邻选区且选区存在时可使用 `selection`。
 - Codex 生成图片后使用 `corestudio write image <path...> --source-type generated --origin agent-board` 写回，并保留 prompt、reference file ids 和 reference element ids。CoreStudio 内置模型不属于 Codex 工作流，禁止通过 CLI、Local Bridge 或 Agent Board 调用。
 - 同一轮任务生成多张图片时，先收集本轮所有成功落盘的图片，再把多个路径放在同一条 `corestudio write image` 命令中一次性写回。不要逐张流式写回，也不要自行计算每张图的位置；CoreStudio 会把这一批结果作为一个整体，使用当前参考元素和统一画布布局规则放置。某张生成失败只排除该张，不影响其余成功结果组成批次。
 - Codex 搜索或下载得到的图片使用 `corestudio write image <path> --source-type imported` 写回；图片必须先由 Codex 保存到本地，CoreStudio 不负责联网获取。

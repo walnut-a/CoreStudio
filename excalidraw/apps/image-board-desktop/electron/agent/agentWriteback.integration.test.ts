@@ -88,6 +88,39 @@ const createAgentWritebackHarness = async ({
           getProject: () => activeProject,
           getScene: () => null,
           getExcalidrawAPI: () => null,
+          parseMermaidDiagram: async () => ({
+            elements: [
+              {
+                id: "start",
+                type: "rectangle",
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 80,
+                label: { text: "Start" },
+              },
+              {
+                id: "review",
+                type: "diamond",
+                x: 260,
+                y: 0,
+                width: 160,
+                height: 80,
+                label: { text: "Review" },
+              },
+              {
+                id: "start_review",
+                type: "arrow",
+                x: 160,
+                y: 40,
+                width: 100,
+                height: 0,
+                start: { id: "start" },
+                end: { id: "review" },
+              },
+            ],
+            files: {},
+          }),
           readProjectImageAssets: async () => [],
           beginImageWriteback: undefined,
           insertAssetsIntoScene: undefined,
@@ -154,8 +187,31 @@ const createAgentWritebackHarness = async ({
     return { status: response.status, body: (await response.json()) as any };
   };
 
+  const requestDiagramWriteback = async () => {
+    const response = await fetch(
+      `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneAddDiagram}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${activeProject.project.agentAccess.token}`,
+          "Content-Type": "application/json",
+          "X-CoreStudio-Participant-Issuer": participantIssuerToken,
+          "X-CoreStudio-Participant-Thread": "integration-thread",
+          "X-CoreStudio-Participant-Label": "Integration",
+        },
+        body: JSON.stringify({
+          format: "mermaid",
+          source: "flowchart LR\nstart[Start] --> review{Review}",
+          anchor: "viewport",
+        }),
+      },
+    );
+    return { status: response.status, body: (await response.json()) as any };
+  };
+
   return {
     projectPath: created.projectPath,
+    requestDiagramWriteback,
     requestImageWriteback,
     readBundle: async () => ({
       projectPath: created.projectPath,
@@ -165,6 +221,40 @@ const createAgentWritebackHarness = async ({
 };
 
 describe("Agent image writeback integration", () => {
+  it("writes a native diagram through Local Bridge as one persisted room operation", async () => {
+    const harness = await createAgentWritebackHarness();
+
+    const response = await harness.requestDiagramWriteback();
+    expect(response).toMatchObject({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          diagramId: expect.any(String),
+          elementCount: 5,
+          inserted: true,
+          persisted: true,
+          roomSequence: 1,
+          persistedSequence: 1,
+        },
+      },
+    });
+
+    const bundle = await harness.readBundle();
+    const elements = JSON.parse(bundle.sceneJson).elements;
+    expect(elements.map((element: { type: string }) => element.type)).toEqual([
+      "rectangle",
+      "diamond",
+      "arrow",
+      "text",
+      "text",
+    ]);
+    expect(elements[2]).toMatchObject({
+      startBinding: { elementId: elements[0].id },
+      endBinding: { elementId: elements[1].id },
+    });
+  });
+
   it("writes a CLI image through Local Bridge into one consistent project bundle", async () => {
     const harness = await createAgentWritebackHarness();
 

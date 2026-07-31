@@ -3,6 +3,7 @@ import type {
   AgentWriterCommandContext,
   PreparedAgentWriterCommand,
 } from "../../shared/agentBridgeTypes";
+import { randomId } from "@excalidraw/common";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
 import { buildGeneratedImageSceneElements } from "../generationSceneElements";
@@ -17,6 +18,7 @@ import {
   getPlacementViewportFromAgentBoardContext,
   parseAgentBoardCommandContext,
 } from "./agentCommandBoardContext";
+import { compileAgentMermaidDiagram } from "./agentDiagramCompiler";
 import { createAgentPromptTextElement } from "./agentCommandHandlers";
 import { getAgentImageAssetsFromPayload } from "./agentCommandImageAssets";
 import type { AgentCommandRuntimeDeps } from "./agentCommandRuntimeTypes";
@@ -176,13 +178,40 @@ const getImagePlacementAnchorBounds = ({
   );
 };
 
+const getDiagramAnchorBounds = ({
+  anchor,
+  elements,
+  selectedElementIds,
+}: {
+  anchor: "auto" | "selection" | "viewport";
+  elements: AgentWriterCommandContext["scene"]["elements"];
+  selectedElementIds: readonly string[];
+}) => {
+  if (anchor === "viewport") {
+    return null;
+  }
+  const selectedIds = new Set(selectedElementIds);
+  const selectedBounds = getElementsSceneBounds(
+    elements.filter(
+      (element) => !element.isDeleted && selectedIds.has(element.id),
+    ) as unknown as readonly ExcalidrawElement[],
+  );
+  if (anchor === "selection" && !selectedBounds) {
+    throw createAgentBadRequestError(
+      "scene.addDiagram --anchor selection 需要当前选区。",
+    );
+  }
+  return selectedBounds;
+};
+
 export const handleAgentWriteCommand = async (
   request: AgentRendererCommandRequest,
-  { project }: AgentWriteCommandRuntimeInput,
+  { project, deps }: AgentWriteCommandRuntimeInput,
 ): Promise<AgentWriteCommandResult> => {
   if (
     request.command !== "scene.addImage" &&
-    request.command !== "scene.addPrompt"
+    request.command !== "scene.addPrompt" &&
+    request.command !== "scene.addDiagram"
   ) {
     return { handled: false };
   }
@@ -223,7 +252,7 @@ export const handleAgentWriteCommand = async (
       ),
       files,
     };
-  } else {
+  } else if (request.command === "scene.addPrompt") {
     if (
       !isObjectPayload(request.payload) ||
       typeof request.payload.text !== "string" ||
@@ -242,6 +271,78 @@ export const handleAgentWriteCommand = async (
     prepared = {
       type: "agent-writer.prepared",
       elements: assignRoomIndices(context.scene.elements, [element]),
+    };
+  } else {
+    if (
+      !isObjectPayload(request.payload) ||
+      request.payload.format !== "mermaid" ||
+      typeof request.payload.source !== "string" ||
+      !request.payload.source.trim()
+    ) {
+      throw createAgentBadRequestError(
+        "scene.addDiagram 需要 Mermaid format 和非空 source。",
+      );
+    }
+    if (
+      new TextEncoder().encode(request.payload.source).byteLength >
+      256 * 1024
+    ) {
+      throw createAgentBadRequestError(
+        "scene.addDiagram source 超过 256 KiB 限制。",
+      );
+    }
+    const anchor = request.payload.anchor ?? "auto";
+    if (anchor !== "auto" && anchor !== "selection" && anchor !== "viewport") {
+      throw createAgentBadRequestError(
+        "scene.addDiagram anchor 必须是 auto、selection 或 viewport。",
+      );
+    }
+    const placementViewport = getAgentImagePlacementViewport({
+      agentBoardContext,
+      elements: context.scene.elements,
+    });
+    const diagramId = randomId();
+    let compiled: Awaited<ReturnType<typeof compileAgentMermaidDiagram>>;
+    try {
+      compiled = await compileAgentMermaidDiagram({
+        source: request.payload.source,
+        diagramId,
+        anchorBounds: getDiagramAnchorBounds({
+          anchor,
+          elements: context.scene.elements,
+          selectedElementIds:
+            getAgentBoardSelectedElementIds(agentBoardContext),
+        }),
+        viewportCenter: placementViewport.viewportCenter,
+        existingElements: context.scene
+          .elements as unknown as readonly ExcalidrawElement[],
+        ...(deps.parseMermaidDiagram
+          ? { parseMermaid: deps.parseMermaidDiagram }
+          : {}),
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "BAD_REQUEST"
+      ) {
+        throw error;
+      }
+      throw createAgentBadRequestError(
+        error instanceof Error
+          ? error.message
+          : "Mermaid diagram conversion failed.",
+      );
+    }
+    prepared = {
+      type: "agent-writer.prepared",
+      elements: assignRoomIndices(context.scene.elements, compiled.elements),
+      result: {
+        diagramId,
+        format: "mermaid",
+        elementCount: compiled.elements.length,
+        bounds: compiled.bounds,
+      },
     };
   }
 

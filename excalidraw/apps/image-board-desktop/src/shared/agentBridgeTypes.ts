@@ -5,7 +5,7 @@ import type {
   ProjectRoomSceneElement,
 } from "./projectRoomProtocol";
 
-export const AGENT_BRIDGE_PROTOCOL_VERSION = 3;
+export const AGENT_BRIDGE_PROTOCOL_VERSION = 4;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
@@ -37,6 +37,7 @@ export const AGENT_HTTP_ROUTES = {
   sceneSelect: "/v1/scene/select",
   sceneAddImage: "/v1/scene/add-image",
   sceneAddPrompt: "/v1/scene/add-prompt",
+  sceneAddDiagram: "/v1/scene/add-diagram",
   taskComplete: "/v1/task/complete",
 } as const;
 
@@ -99,6 +100,7 @@ export interface PreparedAgentWriterCommand {
   type: "agent-writer.prepared";
   elements: ProjectRoomSceneElement[];
   files?: PersistedImageAssetInput[];
+  result?: Record<string, unknown>;
 }
 
 export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
@@ -130,6 +132,7 @@ export type AgentRendererCommandName =
   | "scene.select"
   | "scene.addImage"
   | "scene.addPrompt"
+  | "scene.addDiagram"
   | "task.complete";
 
 export interface AgentRendererCommandRequest {

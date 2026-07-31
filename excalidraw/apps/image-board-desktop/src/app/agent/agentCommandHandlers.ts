@@ -30,6 +30,7 @@ const AGENT_AVAILABLE_COMMANDS = [
   "scene.imagePaths",
   "scene.addImage",
   "scene.addPrompt",
+  "scene.addDiagram",
   "task.complete",
 ] as const;
 
@@ -117,8 +118,8 @@ export const buildAgentImagePathList = ({
       fileIds?.length
         ? fileIds
         : selectionOnly
-          ? collectSelectedAgentImageFileIds(scene)
-          : Object.keys(imageRecords),
+        ? collectSelectedAgentImageFileIds(scene)
+        : Object.keys(imageRecords),
     ),
   );
   const missingFileIds: string[] = [];

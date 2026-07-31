@@ -209,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.32 (Codex integration 1.10.0, bridge protocol 3)\n",
+          "CoreStudio 1.1.32 (Codex integration 1.11.0, bridge protocol 4)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -227,8 +227,8 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.32",
-        integrationVersion: "1.10.0",
-        bridgeProtocolVersion: 3,
+        integrationVersion: "1.11.0",
+        bridgeProtocolVersion: 4,
       },
     });
   });
@@ -274,7 +274,9 @@ describe("runCli", () => {
       expect(result.stderr).toBe("");
       expect(result.stdout).toContain("Usage: corestudio <tool> <command>");
       expect(result.stdout).toContain("read    Read project and bridge state");
-      expect(result.stdout).toContain("write   Write images and prompts");
+      expect(result.stdout).toContain(
+        "write   Write images, prompts, and native diagrams",
+      );
       expect(result.stdout).toContain("edit    Locate or select scene content");
       expect(result.stdout).toContain(
         "bash    Print shell integration helpers",
@@ -506,6 +508,80 @@ describe("runCli", () => {
     });
   });
 
+  it("reads a Mermaid file and sends a native diagram write request", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+    const readFile = vi.fn(async (filePath: string, encoding: "utf8") => {
+      expect(filePath).toBe("/tmp/process.mmd");
+      expect(encoding).toBe("utf8");
+      return "flowchart LR\nA[Start] --> B{Review}";
+    });
+
+    const result = await runCommand(
+      [
+        "write",
+        "diagram",
+        "--format",
+        "mermaid",
+        "--file",
+        "/tmp/process.mmd",
+        "--anchor",
+        "selection",
+        "--dry-run",
+        "--json",
+      ],
+      { fetch, readFile },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(readFile).toHaveBeenCalledTimes(1);
+    expect(records).toHaveLength(1);
+    expect(records[0].url).toBe(
+      `${baseUrl}${AGENT_HTTP_ROUTES.sceneAddDiagram}`,
+    );
+    expect(parseRequestBody(records)).toEqual({
+      format: "mermaid",
+      source: "flowchart LR\nA[Start] --> B{Review}",
+      anchor: "selection",
+      dryRun: true,
+    });
+  });
+
+  it("reports a diagram source read failure before contacting the bridge", async () => {
+    const fetch = createFetch();
+    const result = await runCommand(
+      [
+        "write",
+        "diagram",
+        "--format",
+        "mermaid",
+        "--file",
+        "/tmp/missing.mmd",
+        "--json",
+      ],
+      {
+        fetch,
+        readFile: vi.fn(async () => {
+          throw new Error("ENOENT");
+        }),
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      error: {
+        code: "COMMAND_FAILED",
+        message: "Failed to read diagram source: ENOENT",
+        details: {
+          stage: "read-diagram-source",
+          filePath: "/tmp/missing.mmd",
+        },
+      },
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("prints the current Agent Board URL as JSON", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(
@@ -636,10 +712,7 @@ describe("runCli", () => {
 
   it("claims a stable Board page for the current Codex conversation", async () => {
     const records: RequestRecord[] = [];
-    const fetch = createFetch(
-      { ok: true, data: { claimed: true } },
-      records,
-    );
+    const fetch = createFetch({ ok: true, data: { claimed: true } }, records);
 
     const result = await runCommand(
       [
@@ -1226,7 +1299,27 @@ describe("runCli", () => {
     {
       name: "retired built-in generation command",
       argv: ["write", "generation", "--prompt", "prompt", "--json"],
-      message: "write requires one of: image, prompt.",
+      message: "write requires one of: image, prompt, diagram.",
+    },
+    {
+      name: "diagram without a format",
+      argv: ["write", "diagram", "--file", "/tmp/process.mmd", "--json"],
+      message: "write diagram requires --format mermaid.",
+    },
+    {
+      name: "diagram with an unsupported anchor",
+      argv: [
+        "write",
+        "diagram",
+        "--format",
+        "mermaid",
+        "--file",
+        "/tmp/process.mmd",
+        "--anchor",
+        "canvas",
+        "--json",
+      ],
+      message: "write diagram --anchor must be auto, selection, or viewport.",
     },
     {
       name: "write image with empty reference file ids",

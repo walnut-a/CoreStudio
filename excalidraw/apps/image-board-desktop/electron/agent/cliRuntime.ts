@@ -61,6 +61,7 @@ interface CliCommand {
   method?: "GET" | "POST";
   body?: Record<string, unknown>;
   imagePaths?: string[];
+  diagramSourcePath?: string;
   local?: (
     bridge: BridgeSession,
     options: CliRuntimeOptions,
@@ -155,7 +156,7 @@ Usage: corestudio <tool> <command> [options]
 Tools:
   read    Read project and bridge state
   board   Connect a stable Board page to the current Codex conversation
-  write   Write images and prompts
+  write   Write images, prompts, and native diagrams
   edit    Locate or select scene content
   bash    Print shell integration helpers
 
@@ -173,6 +174,7 @@ Examples:
   corestudio board claim --stable-board-id <id> --page-nonce <nonce> --json
   corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
   corestudio write image ./searched.png --source-type imported --json
+  corestudio write diagram --format mermaid --file ./process.mmd --anchor auto --json
   corestudio edit locate --file-id <file-id> --json
 `;
 
@@ -539,8 +541,48 @@ const parseCommand = (
     };
   }
 
+  if (tool === "write" && target === "diagram") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: ["--format", "--file", "--anchor"],
+      boolFlags: ["--dry-run"],
+    });
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("write diagram", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    if (parsed.flags["--format"] !== "mermaid") {
+      return badRequestEnvelope("write diagram requires --format mermaid.");
+    }
+    const filePath = requiredString(
+      parsed.flags["--file"],
+      "write diagram requires --file.",
+    );
+    if (typeof filePath !== "string") {
+      return filePath;
+    }
+    const anchor = parsed.flags["--anchor"] ?? "auto";
+    if (anchor !== "auto" && anchor !== "selection" && anchor !== "viewport") {
+      return badRequestEnvelope(
+        "write diagram --anchor must be auto, selection, or viewport.",
+      );
+    }
+    return {
+      route: AGENT_HTTP_ROUTES.sceneAddDiagram,
+      method: "POST",
+      diagramSourcePath: filePath,
+      body: {
+        format: "mermaid",
+        anchor,
+        ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
+      },
+    };
+  }
+
   if (tool === "write") {
-    return badRequestEnvelope("write requires one of: image, prompt.");
+    return badRequestEnvelope("write requires one of: image, prompt, diagram.");
   }
 
   if (tool === "edit") {
@@ -644,6 +686,7 @@ const parseCommand = (
           `${envPrefix} ${executable} read health --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/searched.png --source-type imported --json`,
+          `${envPrefix} ${executable} write diagram --format mermaid --file /absolute/path/to/process.mmd --anchor auto --json`,
           `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
           `${envPrefix} ${executable} write prompt --text "..." --json`,
         ];
@@ -1006,6 +1049,33 @@ const prepareRequestBody = async (
   );
   if (preparedAddImageBodyError) {
     return badRequestEnvelope(preparedAddImageBodyError);
+  }
+
+  if (command.diagramSourcePath) {
+    const readFile = options.readFile ?? fsReadFile;
+    let source: string;
+    try {
+      source = await readFile(command.diagramSourcePath, "utf8");
+    } catch (error) {
+      const cause = getErrorMessage(error);
+      return commandFailedEnvelope(`Failed to read diagram source: ${cause}`, {
+        stage: "read-diagram-source",
+        filePath: command.diagramSourcePath,
+        cause,
+      });
+    }
+    if (!source.trim()) {
+      return badRequestEnvelope("Diagram source file must not be empty.");
+    }
+    if (Buffer.byteLength(source, "utf8") > 256 * 1024) {
+      return badRequestEnvelope(
+        "Diagram source file exceeds the 256 KiB limit.",
+      );
+    }
+    return {
+      ...(normalizedCommandBody ?? {}),
+      source,
+    };
   }
 
   if (!command.imagePaths?.length) {

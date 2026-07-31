@@ -97,6 +97,85 @@ describe("agentCommandWriteRuntime", () => {
     });
   });
 
+  it("prepares a Mermaid diagram as one native room operation", async () => {
+    const result = await handleAgentWriteCommand(
+      {
+        requestId: "request-diagram",
+        command: "scene.addDiagram",
+        payload: {
+          projectPath: project.projectPath,
+          format: "mermaid",
+          source: "flowchart LR\nA[Start] --> B[End]",
+          anchor: "viewport",
+          projectRoomAgentWriter: roomContext,
+        },
+      },
+      {
+        project,
+        deps: {
+          parseMermaidDiagram: async () => ({
+            elements: [
+              {
+                id: "A",
+                type: "rectangle",
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 80,
+                label: { text: "Start" },
+              },
+              {
+                id: "B",
+                type: "rectangle",
+                x: 260,
+                y: 0,
+                width: 160,
+                height: 80,
+                label: { text: "End" },
+              },
+              {
+                id: "A_B",
+                type: "arrow",
+                x: 160,
+                y: 40,
+                width: 100,
+                height: 0,
+                start: { id: "A" },
+                end: { id: "B" },
+              },
+            ],
+            files: {},
+          }),
+        } as any,
+      },
+    );
+
+    expect(result).toMatchObject({
+      handled: true,
+      value: {
+        type: "agent-writer.prepared",
+        result: {
+          format: "mermaid",
+          diagramId: expect.any(String),
+          elementCount: 5,
+          bounds: {
+            x: expect.any(Number),
+            y: expect.any(Number),
+            width: expect.any(Number),
+            height: expect.any(Number),
+          },
+        },
+        elements: [
+          { type: "rectangle" },
+          { type: "rectangle" },
+          { type: "arrow" },
+          { type: "text" },
+          { type: "text" },
+        ],
+      },
+    });
+  });
+
   it("places one generation batch together beside its selected references", async () => {
     const result = await handleAgentWriteCommand(
       {

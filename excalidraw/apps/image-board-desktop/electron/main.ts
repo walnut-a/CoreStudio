@@ -1224,7 +1224,7 @@ const startLocalBridge = async () => {
         });
       },
       withAgentWriterCommand: async (
-        { project, threadId, displayLabel },
+        { project, threadId, displayLabel, dryRun },
         run,
       ) => {
         const room = await projectRoomService.openProject(project.projectPath);
@@ -1240,6 +1240,7 @@ const startLocalBridge = async () => {
             }),
           validateOperation: (operation) =>
             validateProjectRoomOperationAssets(room, operation),
+          dryRun,
         });
       },
       getProjectRoomParticipantState: async ({ project, threadId }) => {

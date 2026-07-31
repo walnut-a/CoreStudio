@@ -89,8 +89,11 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain("按实际解析结果重新计算数量和类型");
     expect(corestudioSkill).toContain("默认写回当前项目");
     expect(corestudioSkill).toContain("图片文件名跟随用户当前使用的语言");
-    expect(corestudioSkill).toContain("用户使用中文交互时，使用简洁、可辨认的中文文件名");
+    expect(corestudioSkill).toContain(
+      "用户使用中文交互时，使用简洁、可辨认的中文文件名",
+    );
     expect(corestudioSkill).toContain("写回后验证");
+    expect(corestudioSkill).toContain("corestudio write diagram");
     expect(corestudioSkill).not.toContain(
       "运行 `corestudio read context --json` 发现当前 CoreStudio 会话和项目",
     );
@@ -127,6 +130,8 @@ describe("agent integration docs", () => {
     );
     expect(cliContract).toContain("--reference-file-ids");
     expect(cliContract).toContain("### Locate A Written Result");
+    expect(cliContract).toContain("### Write A Native Mermaid Diagram");
+    expect(cliContract).toContain("corestudio write diagram");
     expect(cliContract).toContain("corestudio edit locate --file-id");
     expect(cliContract).toContain("### Read Project Health Report");
     expect(cliContract).toContain("corestudio read health --json");
@@ -145,7 +150,7 @@ describe("agent integration docs", () => {
       "apps/image-board-desktop/docs/agent-integration-qa-notes.md",
     );
     const screenshotSurfaces = [
-      "应用设置 · 图像生成",
+      "应用设置 · 图片集成",
       "应用设置 · Codex 集成",
       "底部单次生成",
       "左侧生成记录",

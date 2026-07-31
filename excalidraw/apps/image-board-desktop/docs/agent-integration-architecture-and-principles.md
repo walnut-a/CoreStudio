@@ -28,7 +28,7 @@ CoreStudio 不保存 Agent 会话、thread、任务包、运行日志或外部 A
 
 ## 写入与恢复
 
-外部写入必须经过 CLI / Local Bridge，并携带可信的 Codex 参与者身份。Agent Writer 只借助 renderer 中的 Excalidraw 原生元素工厂准备语义元素，不读取或直接修改当前可见画布；主进程负责资产登记，并把一个带 `operationId` 的操作提交到项目房间。
+外部写入必须经过 CLI / Local Bridge，并携带可信的 Codex 参与者身份。Agent Writer 只借助 renderer 中的 Excalidraw 原生元素工厂或 Mermaid 转换器准备语义元素，不读取或直接修改当前可见画布；主进程负责资产登记，并把一个带 `operationId` 的操作提交到项目房间。图表输入只传 Mermaid 文本，转换结果保持为可编辑的节点、文字和箭头绑定，不上传云端，也不开放任意 scene 替换。
 
 项目房间是当前 scene 的权威状态。操作先在房间内协调和广播，再由主进程统一持久化；两个 renderer 不再分别保存整份 scene，也不通过重新打开项目完成同步。
 

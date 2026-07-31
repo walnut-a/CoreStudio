@@ -34,6 +34,7 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `write image <path...> --source-type generated --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`
 - `write image <path> --source-type imported --json`
 - `write prompt --text <text> --json`
+- `write diagram --format mermaid --file <path> --anchor auto|selection|viewport --json`
 
 Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜索或下载的外部图片使用 `--source-type imported`。生成图必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。
 
@@ -42,6 +43,8 @@ Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜
 CLI 和 Local Bridge 只负责把已存在的本地图片写入项目，不暴露 CoreStudio 内置生成模型。
 
 引用元数据必须是非空有效 id。`--reference-file-ids` 和 `--reference-element-ids` 接受逗号分隔列表；空列表或无效值在读取图片和调用 Bridge 前被拒绝。
+
+图表命令由 CLI 读取 UTF-8 Mermaid 文件，再由 renderer 使用上游 Mermaid 转换器生成原生 Excalidraw 节点、文字和箭头绑定。`auto` 优先放到当前 Agent Board 选区右侧，否则使用当前视口；`selection` 要求已有选区；`viewport` 忽略选区。追加 `--dry-run` 时仍完成解析、转换和碰撞避让，但不提交房间 operation。需要二进制图片资产的图表会被拒绝，不会降级为图片或上传到云端。
 
 ## Record Diagnostics
 
@@ -136,6 +139,18 @@ corestudio write image /absolute/path/to/searched.png \
 corestudio edit locate --file-id generated-file-1 --json
 ```
 
+### Write A Native Mermaid Diagram
+
+```bash
+corestudio write diagram \
+  --format mermaid \
+  --file /absolute/path/to/process.mmd \
+  --anchor auto \
+  --json
+```
+
+成功结果包含 `diagramId`、`elementIds`、`bounds`、`operationId`、`roomSequence`、`persistedSequence` 和 `persisted`。整张图作为一个房间 operation 写入，仍可在 Excalidraw 中逐个编辑节点、文字和连线。
+
 ### Read Project Health Report
 
 ```bash
@@ -146,6 +161,6 @@ corestudio read health --json
 
 ## Writeback Consistency
 
-图片写回仍由 CoreStudio 复制和登记资产，但画布元素只通过当前项目房间提交。主进程先准备资产，再把一个带 `operationId` 的场景操作应用到房间；房间立即协调并广播元素，磁盘持久化由主进程统一完成。
+图片写回仍由 CoreStudio 复制和登记资产；图表写回在 renderer 中准备原生元素。两者的画布元素都只通过当前项目房间提交。主进程把一个带 `operationId` 的场景操作应用到房间；房间立即协调并广播元素，磁盘持久化由主进程统一完成。
 
 房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。Agent 应根据结构化错误处理：普通持久化失败可以稍后重试；`PROJECT_STORAGE_DIVERGED` 表示房间之外出现了磁盘写入，必须先查明来源，不能绕过 CoreStudio 直接修改项目文件。

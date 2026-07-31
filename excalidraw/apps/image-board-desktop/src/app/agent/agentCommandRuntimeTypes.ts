@@ -16,6 +16,7 @@ import type {
   ImageRecordMap,
 } from "../../shared/projectTypes";
 import type { ProjectImageWritebackHandle } from "../projectImageWritebackController";
+import type { ParseMermaidDiagram } from "./agentDiagramCompiler";
 
 export type AgentCommandSceneSnapshot = {
   elements: readonly ExcalidrawElement[];
@@ -30,6 +31,7 @@ export type AgentCommandPlacementViewport = {
 };
 
 export interface AgentCommandRuntimeDeps {
+  parseMermaidDiagram?: ParseMermaidDiagram;
   desktopBridge: DesktopBridgeApi;
   getProject: () => DesktopProjectBundle | null;
   getScene: () => AgentCommandSceneSnapshot | null;

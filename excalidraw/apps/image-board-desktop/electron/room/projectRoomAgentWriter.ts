@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type {
-  PreparedAgentWriterCommand,
-} from "../../src/shared/agentBridgeTypes";
+import type { PreparedAgentWriterCommand } from "../../src/shared/agentBridgeTypes";
 import {
   isProjectRoomSceneElement,
   type ProjectRoomSceneOperation,
@@ -34,6 +32,7 @@ export const executeProjectRoomAgentWriterCommand = async ({
   prepare,
   persistAssets,
   validateOperation,
+  dryRun = false,
   randomId = randomUUID,
 }: {
   room: ProjectRoom;
@@ -48,9 +47,8 @@ export const executeProjectRoomAgentWriterCommand = async ({
   persistAssets: (
     files: NonNullable<PreparedAgentWriterCommand["files"]>,
   ) => Promise<unknown>;
-  validateOperation?: (
-    operation: ProjectRoomSceneOperation,
-  ) => Promise<void>;
+  validateOperation?: (operation: ProjectRoomSceneOperation) => Promise<void>;
+  dryRun?: boolean;
   randomId?: () => string;
 }) => {
   const sessionId = randomId();
@@ -71,19 +69,32 @@ export const executeProjectRoomAgentWriterCommand = async ({
         scene: snapshot.scene,
       }),
     );
-    if (command.files?.length) {
+    if (!dryRun && command.files?.length) {
       await persistAssets(command.files);
     }
     const operation: ProjectRoomSceneOperation = {
       ...room.identity,
-      operationId: randomId(),
+      operationId: dryRun ? `dry-run:${sessionId}` : randomId(),
       baseSequence: snapshot.sequence,
       elements: command.elements,
     };
     await validateOperation?.(operation);
+    if (dryRun) {
+      return {
+        ...(command.result ?? {}),
+        dryRun: true,
+        inserted: false,
+        roomId: room.identity.roomId,
+        roomSequence: snapshot.sequence,
+        persistedSequence: room.persistedSequence,
+        persisted: false,
+        elementIds: command.elements.map((element) => element.id),
+      };
+    }
     const result = room.applyAgentCommandOperation(sessionId, operation);
     await room.flushPersistence();
     return {
+      ...(command.result ?? {}),
       inserted: true,
       operationId: result.operationId,
       roomId: room.identity.roomId,

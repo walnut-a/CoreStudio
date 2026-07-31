@@ -1503,6 +1503,93 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("runs diagram dry-runs through the renderer without applying a room operation", async () => {
+    const withAgentWriterCommand = vi.fn(
+      async (
+        _input: {
+          threadId: string;
+          displayLabel: string;
+          project: typeof currentProject;
+          dryRun?: boolean;
+        },
+        run: (context: {
+          sessionId: string;
+          identity: {
+            projectId: string;
+            canonicalProjectPath: string;
+            roomId: string;
+            sessionEpoch: number;
+          };
+          roomSequence: number;
+          scene: {
+            elements: [];
+            sharedSceneConfig: {};
+          };
+        }) => Promise<unknown>,
+      ) =>
+        run({
+          sessionId: "agent-writer-session",
+          identity: {
+            projectId: "project-1",
+            canonicalProjectPath: currentProject.projectPath,
+            roomId: "room-1",
+            sessionEpoch: 2,
+          },
+          roomSequence: 0,
+          scene: {
+            elements: [],
+            sharedSceneConfig: {},
+          },
+        }),
+    );
+    const { server, renderer } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        withAgentWriterCommand,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddDiagram,
+      {
+        method: "POST",
+        headers: {
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          format: "mermaid",
+          source: "flowchart LR\nA --> B",
+          anchor: "auto",
+          dryRun: true,
+        }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(withAgentWriterCommand).toHaveBeenCalledWith(
+      {
+        project: currentProject,
+        threadId: "thread-b",
+        displayLabel: "任务 B",
+        dryRun: true,
+      },
+      expect.any(Function),
+    );
+    expect(renderer.request).toHaveBeenCalledWith("scene.addDiagram", {
+      projectPath: currentProject.projectPath,
+      format: "mermaid",
+      source: "flowchart LR\nA --> B",
+      anchor: "auto",
+      dryRun: true,
+      projectRoomAgentWriter: expect.objectContaining({
+        sessionId: "agent-writer-session",
+      }),
+    });
+  });
+
   it("forwards image path queries with only the local bridge token", async () => {
     const { server, renderer } = await track(startServer());
 

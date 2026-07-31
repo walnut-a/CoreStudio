@@ -132,9 +132,7 @@ describe("CoreStudio shell layout styles", () => {
     );
     expect(sideDockCss).toContain("@keyframes side-dock-enter-from-left");
     expect(sideDockCss).toContain("@keyframes side-dock-enter-from-right");
-    expect(topLeftRule).toContain(
-      "transition: margin-left var(--side-dock-motion-duration)",
-    );
+    expect(topLeftRule).not.toContain("transition:");
     expect(topRightRule).toContain(
       "transition: margin-right var(--side-dock-motion-duration)",
     );
@@ -696,7 +694,8 @@ describe("CoreStudio shell layout styles", () => {
     expect(sideDockSource).not.toContain("#f1f0ff");
     expect(sideDockSource).not.toContain("#e0dfff");
     expect(closedMenuRule).toContain("var(--side-dock-toggle-size)");
-    expect(openMenuRule).toContain("var(--corestudio-left-sidebar-width)");
+    expect(openMenuRule).toContain("visibility: hidden");
+    expect(openMenuRule).not.toContain("margin-left");
     expect(sideDockSource).toContain('import "./SideDock.css";');
     expect(rootAppCss).not.toContain("\n.side-dock {");
     expect(rootAppCss).not.toContain("\n.side-dock__toggle {");
@@ -911,6 +910,14 @@ describe("CoreStudio shell layout styles", () => {
   it("keeps CoreStudio-only icons in the Excalidraw fine-line style", () => {
     const iconSource = readCoreStudioIcons();
     const appCss = readAppCss();
+    const tokenRule = getRule(
+      readCssFile("apps/image-board-desktop/src/app/styles/designTokens.css"),
+      ".image-board-app",
+    );
+    const sideDockToggleIconRule = getRule(
+      appCss,
+      ".side-dock__toggle svg",
+    );
     const sideDockSource = readFileSync(
       resolve(
         process.cwd(),
@@ -937,6 +944,14 @@ describe("CoreStudio shell layout styles", () => {
     expect(iconSource).toContain('stroke="currentColor"');
     expect(iconSource).toContain('strokeLinecap="round"');
     expect(iconSource).toContain('strokeLinejoin="round"');
+    expect(tokenRule).toContain("--side-dock-icon-size: 20px");
+    expect(sideDockToggleIconRule).toContain(
+      "width: var(--side-dock-icon-size)",
+    );
+    expect(sideDockToggleIconRule).toContain(
+      "height: var(--side-dock-icon-size)",
+    );
+    expect(sideDockToggleIconRule).not.toContain("--lg-icon-size");
     expect(iconSource).toMatch(
       /export const homeIcon = \(\s*<LineIcon size=\{20\}>/,
     );

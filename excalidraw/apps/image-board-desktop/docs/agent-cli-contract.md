@@ -7,6 +7,7 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `read`：读取当前状态和项目证据。
 - `write`：通过 CoreStudio 校验创建项目变更。
 - `edit`：只改变选区、定位等临时画布状态。
+- `generate`：在用户按集成明确授权后，使用 CoreStudio 当前图片服务生成并写回。
 - `bash`：输出当前会话环境与示例。
 
 ## Read Commands
@@ -40,7 +41,7 @@ Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜
 
 同一轮生成得到多张成功图片时，在同一条命令中依次提供全部路径。CLI 会读取全部图片并以一个 `files[]` 请求提交，CoreStudio 使用同一组参考元素和现有批量布局算法创建一个房间操作；不要逐张调用命令。
 
-CLI 和 Local Bridge 只负责把已存在的本地图片写入项目，不暴露 CoreStudio 内置生成模型。
+`write image` 只负责把已存在的本地图片写入项目，不调用 CoreStudio 内置生成模型。
 
 引用元数据必须是非空有效 id。`--reference-file-ids` 和 `--reference-element-ids` 接受逗号分隔列表；空列表或无效值在读取图片和调用 Bridge 前被拒绝。
 
@@ -63,6 +64,25 @@ CLI 和 Local Bridge 只负责把已存在的本地图片写入项目，不暴�
 
 `locate` 会选择并滚动到目标。找不到直接元素时，会尝试定位引用该文件的结果图；仍找不到时返回 `located: false`、`reason: "missing-board-element"` 和 `repairable: true`。
 
+## Generate Commands
+
+- `generate image --prompt <text> [--count <number>] [--reference-file-ids <ids>] [--reference-element-ids <ids>] --json`
+
+该命令仅在“应用设置 → Codex 集成 → Agent 权限”中允许 Codex 使用 CoreStudio 图片生成后可用。新安装和旧版本升级均默认关闭。Agent Bridge、画布生成输入框显示状态和本权限互相独立。
+
+命令不接受 `--provider`、`--model`、`--api-key` 或 `--base-url`。Local Bridge 在接受请求时锁定用户当前默认服务及其当前默认模型；调用失败时不切换模型，也不静默删减不受支持的参数。
+
+运行前先读取 `read capabilities --json`。只有 `imageGeneration.supported`、`authorized` 和 `configured` 均为 `true` 时才允许调用。返回成功表示 CoreStudio 已完成生成、资产记录、画布元素和房间持久化；调用方不得再运行 `write image`。只有 `persisted: true` 才算完成。
+
+```bash
+corestudio generate image \
+  --prompt "继续细化当前工业设计方案" \
+  --count 2 \
+  --reference-file-ids image-file-1 \
+  --reference-element-ids element-1 \
+  --json
+```
+
 ## Structured Errors
 
 ```json
@@ -83,6 +103,10 @@ Agent 应根据 `error.code` 分支，不解析本地化 `message`：
 - `BAD_REQUEST`：参数无效。
 - `BRIDGE_UNAVAILABLE`：CoreStudio 未运行或会话不可达。
 - `PROJECT_STORAGE_DIVERGED`：磁盘项目与房间持有的持久化基线不一致；本次持久化已停止，需要检查项目文件为何被房间之外的写入者修改。
+- `IMAGE_GENERATION_DISABLED`：当前 Codex 集成没有获得图片生成权限。
+- `IMAGE_PROVIDER_NOT_CONFIGURED`：当前默认服务或模型尚未配置完成。
+- `IMAGE_MODEL_CAPABILITY_UNSUPPORTED`：当前模型不支持请求的数量或参考图能力。
+- `IMAGE_GENERATION_FAILED`：当前服务或模型调用失败；不得自动切换服务或模型。
 
 ## Bash Commands
 

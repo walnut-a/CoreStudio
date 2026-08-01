@@ -65,6 +65,7 @@ export interface ImageRecord {
   assetPath: string;
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
+  generationSource?: "builtin" | "agent";
   /**
    * Provider identifiers from CoreStudio use ProviderId, while images written
    * by an external agent may carry an identifier unknown to this client.

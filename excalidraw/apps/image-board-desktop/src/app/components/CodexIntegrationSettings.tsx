@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   CodexIntegrationCheck,
   CodexIntegrationInstallResult,
   CodexIntegrationStatus,
+  DesktopAgentBridgeStatus,
+  DesktopAgentIntegrationSettings,
 } from "../../shared/desktopBridgeTypes";
 import { copy } from "../copy";
 import { useCodexIntegrationStatus } from "../useCodexIntegrationStatus";
@@ -14,6 +16,14 @@ export interface CodexIntegrationSettingsProps {
   inspect: () => Promise<CodexIntegrationStatus>;
   install: () => Promise<CodexIntegrationInstallResult>;
   copyText: (text: string) => Promise<boolean | void>;
+  loadAgentIntegrationSettings?: () => Promise<DesktopAgentIntegrationSettings>;
+  setCodexImageGenerationEnabled?: (
+    enabled: boolean,
+  ) => Promise<DesktopAgentIntegrationSettings>;
+  providerConfigured?: boolean;
+  agentBridgeEnabled?: boolean;
+  loadAgentBridgeStatus?: () => Promise<DesktopAgentBridgeStatus>;
+  onOpenImageIntegrations?: () => void;
 }
 
 export const CODEX_INSTALL_PROMPT = ({
@@ -74,6 +84,12 @@ export const CodexIntegrationSettings = ({
   inspect,
   install,
   copyText,
+  loadAgentIntegrationSettings,
+  setCodexImageGenerationEnabled,
+  providerConfigured = false,
+  agentBridgeEnabled = true,
+  loadAgentBridgeStatus,
+  onOpenImageIntegrations,
 }: CodexIntegrationSettingsProps) => {
   const { status, loading, error, refresh } = useCodexIntegrationStatus({
     open,
@@ -82,7 +98,58 @@ export const CodexIntegrationSettings = ({
   const [copied, setCopied] = useState<"install" | "prompt" | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
+  const [imageGenerationAllowed, setImageGenerationAllowed] = useState(false);
+  const [permissionSaving, setPermissionSaving] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [bridgeEnabled, setBridgeEnabled] = useState(agentBridgeEnabled);
   const installPrompt = status ? CODEX_INSTALL_PROMPT(status) : "";
+
+  useEffect(() => {
+    if (!open || !loadAgentIntegrationSettings) {
+      return;
+    }
+    let active = true;
+    setPermissionError(null);
+    void loadAgentIntegrationSettings()
+      .then((settings) => {
+        if (active) {
+          setImageGenerationAllowed(
+            settings.codex.allowImageGeneration === true,
+          );
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setPermissionError(
+            error instanceof Error
+              ? error.message
+              : copy.applicationSettings.codexPage
+                  .imageGenerationPermissionSaveFailed,
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadAgentIntegrationSettings, open]);
+
+  useEffect(() => {
+    if (!open || !loadAgentBridgeStatus) {
+      setBridgeEnabled(agentBridgeEnabled);
+      return;
+    }
+    let active = true;
+    void loadAgentBridgeStatus()
+      .then((bridgeStatus) => {
+        if (active) {
+          setBridgeEnabled(bridgeStatus.enabled);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [agentBridgeEnabled, loadAgentBridgeStatus, open]);
 
   return (
     <section className="settings-page settings-codex-page">
@@ -232,6 +299,94 @@ export const CodexIntegrationSettings = ({
           </section>
         </>
       ) : null}
+
+      <section>
+        <div className="settings-list-header">
+          <div>
+            <h4>{copy.applicationSettings.codexPage.agentPermissions}</h4>
+          </div>
+        </div>
+        <div className="app-settings-section">
+          <div className="app-settings-section__copy">
+            <span>
+              {
+                copy.applicationSettings.codexPage
+                  .imageGenerationPermissionTitle
+              }
+            </span>
+            <p>
+              {
+                copy.applicationSettings.codexPage
+                  .imageGenerationPermissionDescription
+              }
+            </p>
+            {!providerConfigured ? (
+              <p className="settings-inline-note">
+                {
+                  copy.applicationSettings.codexPage
+                    .imageGenerationNotConfigured
+                }{" "}
+                {onOpenImageIntegrations ? (
+                  <button
+                    type="button"
+                    className="settings-about-link"
+                    onClick={onOpenImageIntegrations}
+                  >
+                    {copy.applicationSettings.codexPage.openImageIntegrations}
+                  </button>
+                ) : null}
+              </p>
+            ) : null}
+            {!bridgeEnabled && imageGenerationAllowed ? (
+              <p className="settings-inline-note">
+                {
+                  copy.applicationSettings.codexPage
+                    .bridgeDisabledPermissionNote
+                }
+              </p>
+            ) : null}
+            {permissionError ? (
+              <p className="settings-inline-error" role="alert">
+                {permissionError}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            role="switch"
+            className="app-settings-section__switch"
+            aria-label={
+              copy.applicationSettings.codexPage.imageGenerationPermissionLabel
+            }
+            aria-checked={imageGenerationAllowed}
+            disabled={permissionSaving || !setCodexImageGenerationEnabled}
+            onClick={() => {
+              if (!setCodexImageGenerationEnabled) {
+                return;
+              }
+              setPermissionSaving(true);
+              setPermissionError(null);
+              void setCodexImageGenerationEnabled(!imageGenerationAllowed)
+                .then((settings) => {
+                  setImageGenerationAllowed(
+                    settings.codex.allowImageGeneration === true,
+                  );
+                })
+                .catch((error) => {
+                  setPermissionError(
+                    error instanceof Error
+                      ? error.message
+                      : copy.applicationSettings.codexPage
+                          .imageGenerationPermissionSaveFailed,
+                  );
+                })
+                .finally(() => {
+                  setPermissionSaving(false);
+                });
+            }}
+          />
+        </div>
+      </section>
 
       <section className="settings-start-card">
         <div>

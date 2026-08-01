@@ -40,15 +40,16 @@ describe("ApplicationSettingsDialog", () => {
     renderDialog();
 
     expect(screen.getByRole("tab", { name: "通用" })).toBeInTheDocument();
-    const activeTab = screen.getByRole("tab", { name: "图像生成" });
+    const activeTab = screen.getByRole("tab", { name: "图片集成" });
     expect(activeTab).toHaveAttribute("aria-selected", "true");
     expect(activeTab).toHaveAttribute(
       "aria-controls",
       "app-settings-panel-image-generation",
     );
-    expect(
-      screen.getByRole("tabpanel", { name: "图像生成" }),
-    ).toHaveAttribute("id", "app-settings-panel-image-generation");
+    expect(screen.getByRole("tabpanel", { name: "图片集成" })).toHaveAttribute(
+      "id",
+      "app-settings-panel-image-generation",
+    );
     expect(screen.getByRole("tab", { name: "Codex 集成" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "关于" })).toBeInTheDocument();
     expect(screen.getByText("图像生成内容")).toBeInTheDocument();
@@ -56,7 +57,7 @@ describe("ApplicationSettingsDialog", () => {
 
   it("使用方向键切换设置分类并保持单一 Tab 停靠点", () => {
     const { onCategoryChange } = renderDialog();
-    const activeTab = screen.getByRole("tab", { name: "图像生成" });
+    const activeTab = screen.getByRole("tab", { name: "图片集成" });
     const generalTab = screen.getByRole("tab", { name: "通用" });
     const codexTab = screen.getByRole("tab", { name: "Codex 集成" });
 

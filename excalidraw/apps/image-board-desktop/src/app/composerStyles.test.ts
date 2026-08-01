@@ -335,7 +335,7 @@ describe("generate composer styles", () => {
     expect(composerRule).not.toContain("justify-content: center");
     expect(controlsRule).toContain("display: flex");
     expect(controlsRule).toContain("justify-content: flex-start");
-    expect(controlsRule).toContain("align-self: end");
+    expect(controlsRule).toContain("align-self: center");
     expect(controlsRule).toContain("grid-area: controls");
     expect(controlsRule).toContain(
       "height: var(--generate-composer-control-size)",

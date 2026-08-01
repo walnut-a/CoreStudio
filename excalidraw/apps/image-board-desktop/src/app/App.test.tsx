@@ -1107,9 +1107,9 @@ describe("App startup", () => {
       target: { value: "en" },
     });
     expect(onLocalePreferenceChange).toHaveBeenCalledWith("en");
-    fireEvent.click(within(dialog).getByRole("tab", { name: "图像生成" }));
+    fireEvent.click(within(dialog).getByRole("tab", { name: "图片集成" }));
     expect(
-      within(dialog).getByRole("tab", { name: "图像生成" }),
+      within(dialog).getByRole("tab", { name: "图片集成" }),
     ).toHaveAttribute("aria-selected", "true");
     expect(
       within(dialog).getByRole("tab", { name: "Codex 集成" }),
@@ -1260,6 +1260,29 @@ describe("App startup", () => {
         }),
       }),
     );
+  });
+
+  it("does not render the generation composer when its display preference is disabled", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        schemaVersion: 2,
+        composerVisible: false,
+        defaultProvider: null,
+        providers: {},
+      }),
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
+    expect(screen.queryByText("生成图片弹窗")).toBeNull();
   });
 
   it("defaults generation settings to the first configured provider without local memory", async () => {

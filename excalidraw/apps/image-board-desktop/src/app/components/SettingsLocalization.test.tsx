@@ -36,10 +36,18 @@ describe("application settings localization", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Image Generation" }),
+      screen.getByRole("heading", { name: "Image Integrations" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Add Service" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: "Show generation composer" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Show the built-in image generation composer at the bottom of project boards. If you do not need built-in image generation for now, you can turn it off; your services, models, and API keys will stay saved.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText("添加服务")).not.toBeInTheDocument();
   });

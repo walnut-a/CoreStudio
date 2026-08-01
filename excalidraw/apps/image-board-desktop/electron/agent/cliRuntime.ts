@@ -158,6 +158,7 @@ Tools:
   board   Connect a stable Board page to the current Codex conversation
   write   Write images, prompts, and native diagrams
   edit    Locate or select scene content
+  generate Generate content with an explicitly authorized CoreStudio capability
   bash    Print shell integration helpers
 
 Global options:
@@ -172,6 +173,7 @@ Examples:
   corestudio read board-url --json
   corestudio read board-url --project /path/to/project --json
   corestudio board claim --stable-board-id <id> --page-nonce <nonce> --json
+  corestudio generate image --prompt "..." --count 1 --json
   corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
   corestudio write image ./searched.png --source-type imported --json
   corestudio write diagram --format mermaid --file ./process.mmd --anchor auto --json
@@ -512,6 +514,66 @@ const parseCommand = (
     };
   }
 
+  if (tool === "generate" && target === "image") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: [
+        "--prompt",
+        "--count",
+        "--reference-file-ids",
+        "--reference-element-ids",
+      ],
+    });
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("generate image", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    const prompt = requiredString(
+      parsed.flags["--prompt"],
+      "generate image requires --prompt.",
+    );
+    if (typeof prompt !== "string") {
+      return prompt;
+    }
+    const rawCount = parsed.flags["--count"];
+    const count = rawCount === undefined ? 1 : Number(rawCount);
+    if (!Number.isInteger(count) || count <= 0) {
+      return badRequestEnvelope(
+        "generate image --count must be a positive integer.",
+      );
+    }
+    const referenceFileIds = parseReferenceIdsFlag(
+      parsed.flags["--reference-file-ids"],
+      "--reference-file-ids",
+    );
+    if (isEnvelope(referenceFileIds)) {
+      return referenceFileIds;
+    }
+    const referenceElementIds = parseReferenceIdsFlag(
+      parsed.flags["--reference-element-ids"],
+      "--reference-element-ids",
+    );
+    if (isEnvelope(referenceElementIds)) {
+      return referenceElementIds;
+    }
+    return {
+      route: AGENT_HTTP_ROUTES.imageGeneration,
+      method: "POST",
+      body: {
+        prompt: prompt.trim(),
+        count,
+        ...(referenceFileIds ? { referenceFileIds } : {}),
+        ...(referenceElementIds ? { referenceElementIds } : {}),
+      },
+    };
+  }
+
+  if (tool === "generate") {
+    return badRequestEnvelope("generate requires: image.");
+  }
+
   if (tool === "write" && target === "prompt") {
     const parsed = parseArgs(argv.slice(2), {
       valueFlags: ["--text"],
@@ -717,7 +779,7 @@ const parseCommand = (
   }
 
   return badRequestEnvelope(
-    "CoreStudio CLI tools are: read, write, edit, bash.",
+    "CoreStudio CLI tools are: read, write, edit, generate, bash.",
   );
 };
 

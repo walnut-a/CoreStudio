@@ -271,6 +271,7 @@ const createImageRecord = (
     assetPath: path.posix.join(PROJECT_FILENAMES.assetsDir, assetFileName),
     sourceType: file.sourceType,
     generationOrigin: file.generationOrigin,
+    generationSource: file.generationSource,
     provider: file.provider,
     model: file.model,
     prompt: file.prompt,

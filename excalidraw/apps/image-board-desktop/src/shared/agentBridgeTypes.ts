@@ -5,7 +5,7 @@ import type {
   ProjectRoomSceneElement,
 } from "./projectRoomProtocol";
 
-export const AGENT_BRIDGE_PROTOCOL_VERSION = 4;
+export const AGENT_BRIDGE_PROTOCOL_VERSION = 5;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
@@ -14,6 +14,7 @@ export const AGENT_BOARD_ROUTE = "/board";
 export const AGENT_HTTP_ROUTES = {
   status: "/v1/status",
   capabilities: "/v1/agent/capabilities",
+  imageGeneration: "/v1/agent/image-generation",
   authorize: "/v1/agent/authorize",
   boardSession: "/v1/board/session",
   stableBoardSessionClaim: "/v1/agent-board/session/claim",
@@ -103,6 +104,26 @@ export interface PreparedAgentWriterCommand {
   result?: Record<string, unknown>;
 }
 
+export interface AgentImageGenerationCapability {
+  supported: boolean;
+  authorized: boolean;
+  configured: boolean;
+  currentProvider: string | null;
+  currentModel: string | null;
+  capabilities: {
+    maxImageCount: number;
+    supportsImageCount: boolean;
+    supportsReferenceImages: boolean;
+  } | null;
+}
+
+export interface AgentImageGenerationInput {
+  prompt: string;
+  count: number;
+  referenceFileIds: string[];
+  referenceElementIds: string[];
+}
+
 export const AGENT_PERMISSIONS = ["read-context", "write-board"] as const;
 
 export type AgentPermission = typeof AGENT_PERMISSIONS[number];
@@ -131,6 +152,9 @@ export type AgentRendererCommandName =
   | "scene.locate"
   | "scene.select"
   | "scene.addImage"
+  | "scene.addCoreStudioGenerationPlaceholders"
+  | "scene.addCoreStudioGeneratedImage"
+  | "scene.failCoreStudioGenerationPlaceholders"
   | "scene.addPrompt"
   | "scene.addDiagram"
   | "task.complete";
@@ -160,6 +184,10 @@ export const AGENT_ERROR_CODES = [
   "CAPABILITY_UNAVAILABLE",
   "COMMAND_FAILED",
   "FORBIDDEN",
+  "IMAGE_GENERATION_DISABLED",
+  "IMAGE_GENERATION_FAILED",
+  "IMAGE_MODEL_CAPABILITY_UNSUPPORTED",
+  "IMAGE_PROVIDER_NOT_CONFIGURED",
   "PROJECT_MISMATCH",
   "PROJECT_REQUIRED",
   "PROJECT_OPEN_IN_ANOTHER_APP",

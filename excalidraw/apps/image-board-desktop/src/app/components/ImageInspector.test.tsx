@@ -92,6 +92,20 @@ describe("ImageInspector", () => {
     expect(within(hero).getByText("1024 × 768")).toBeInTheDocument();
   });
 
+  it("identifies CoreStudio generations initiated by Codex", () => {
+    renderInspector({
+      record: {
+        ...generatedRecord,
+        generationOrigin: "corestudio",
+        generationSource: "agent",
+      },
+    });
+
+    expect(
+      screen.getByText("CoreStudio 图片生成 · 由 Codex 发起"),
+    ).toBeInTheDocument();
+  });
+
   it("removes the redundant generation parameter record from image details", () => {
     renderInspector();
 

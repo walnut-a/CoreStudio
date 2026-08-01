@@ -173,6 +173,18 @@ export const ShellApplicationSettings = ({
               void bridge.openExternal?.(url);
             }}
             onDirtyChange={setDirty}
+            onComposerVisibilityChange={async (visible) => {
+              if (!bridge.setGenerateComposerVisible) {
+                throw new Error(
+                  copy.applicationSettings.imageGenerationPage.composerVisibilitySaveFailed,
+                );
+              }
+              const configuration = await bridge.setGenerateComposerVisible(
+                visible,
+              );
+              setProviderConfiguration(configuration);
+              onProviderConfigurationChange?.(configuration);
+            }}
           />
         </>
       }
@@ -196,6 +208,42 @@ export const ShellApplicationSettings = ({
             return bridge.installCodexIntegration();
           }}
           copyText={copyPlainTextToClipboard}
+          loadAgentIntegrationSettings={() => {
+            if (!bridge.getAgentIntegrationSettings) {
+              return Promise.reject(
+                new Error("当前版本暂不支持读取 Agent 权限。"),
+              );
+            }
+            return bridge.getAgentIntegrationSettings();
+          }}
+          setCodexImageGenerationEnabled={(enabled) => {
+            if (!bridge.setCodexImageGenerationEnabled) {
+              return Promise.reject(
+                new Error("当前版本暂不支持保存 Agent 权限。"),
+              );
+            }
+            return bridge.setCodexImageGenerationEnabled(enabled);
+          }}
+          loadAgentBridgeStatus={() => {
+            if (!bridge.getAgentBridgeStatus) {
+              return Promise.reject(
+                new Error("当前版本暂不支持读取 Agent Bridge 状态。"),
+              );
+            }
+            return bridge.getAgentBridgeStatus();
+          }}
+          providerConfigured={Boolean(
+            providerConfiguration.defaultProvider &&
+              providerConfiguration.providers[
+                providerConfiguration.defaultProvider
+              ]?.isConfigured &&
+              providerConfiguration.providers[
+                providerConfiguration.defaultProvider
+              ]?.defaultModel,
+          )}
+          onOpenImageIntegrations={() =>
+            onCategoryChange("image-generation")
+          }
         />
       }
       aboutContent={

@@ -38,6 +38,11 @@ describe("agentAccessStore", () => {
   it("defaults the global Agent access switch to disabled", async () => {
     await expect(loadAgentAccessSettings()).resolves.toEqual({
       enabled: false,
+      integrations: {
+        codex: {
+          allowImageGeneration: false,
+        },
+      },
     });
   });
 
@@ -46,14 +51,53 @@ describe("agentAccessStore", () => {
       loadAgentAccessSettings({ defaultEnabled: true }),
     ).resolves.toEqual({
       enabled: true,
+      integrations: {
+        codex: {
+          allowImageGeneration: false,
+        },
+      },
     });
   });
 
   it("persists the global Agent access switch outside project files", async () => {
-    await saveAgentAccessSettings({ enabled: true });
+    await saveAgentAccessSettings({
+      enabled: true,
+      integrations: {
+        codex: {
+          allowImageGeneration: true,
+        },
+      },
+    });
 
     await expect(loadAgentAccessSettings()).resolves.toEqual({
       enabled: true,
+      integrations: {
+        codex: {
+          allowImageGeneration: true,
+        },
+      },
+    });
+  });
+
+  it("migrates existing access settings with image generation disabled", async () => {
+    const settingsDirectory = path.join(
+      mockAppDataPath,
+      "Excalidraw Image Board",
+    );
+    await fs.mkdir(settingsDirectory, { recursive: true });
+    await fs.writeFile(
+      path.join(settingsDirectory, "agent-access-settings.json"),
+      JSON.stringify({ enabled: true }),
+      "utf8",
+    );
+
+    await expect(loadAgentAccessSettings()).resolves.toEqual({
+      enabled: true,
+      integrations: {
+        codex: {
+          allowImageGeneration: false,
+        },
+      },
     });
   });
 });

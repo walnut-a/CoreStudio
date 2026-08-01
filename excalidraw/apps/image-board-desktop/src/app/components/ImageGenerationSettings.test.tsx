@@ -34,6 +34,7 @@ const renderSettings = (
   const onRefreshCatalog = vi.fn(async () => undefined);
   const onOpenExternal = vi.fn();
   const onDirtyChange = vi.fn();
+  const onComposerVisibilityChange = vi.fn(async () => undefined);
 
   render(
     <ImageGenerationSettings
@@ -44,6 +45,7 @@ const renderSettings = (
       onRefreshCatalog={onRefreshCatalog}
       onOpenExternal={onOpenExternal}
       onDirtyChange={onDirtyChange}
+      onComposerVisibilityChange={onComposerVisibilityChange}
     />,
   );
 
@@ -53,13 +55,38 @@ const renderSettings = (
     onRefreshCatalog,
     onOpenExternal,
     onDirtyChange,
+    onComposerVisibilityChange,
   };
 };
 
 describe("ImageGenerationSettings", () => {
+  it("immediately changes composer visibility without marking provider settings dirty", async () => {
+    const { onComposerVisibilityChange, onDirtyChange } = renderSettings({
+      ...createConfiguration(),
+      composerVisible: true,
+    });
+
+    const visibilitySwitch = screen.getByRole("switch", {
+      name: "显示生成输入框",
+    });
+    expect(visibilitySwitch).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(visibilitySwitch);
+
+    await waitFor(() => {
+      expect(onComposerVisibilityChange).toHaveBeenCalledWith(false);
+    });
+    expect(onDirtyChange).not.toHaveBeenCalled();
+  });
+
   it("首页只显示已配置服务", () => {
     renderSettings();
 
+    expect(
+      screen.getByText(
+        "控制项目画布底部的图片生成输入框。如果你暂时不需要内置的图片生成功能，可以先关掉；服务、模型和 API Key 会继续保留。",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /编辑 ZenMux/ }),
     ).toBeInTheDocument();
@@ -100,17 +127,14 @@ describe("ImageGenerationSettings", () => {
         catalog: null,
       },
     };
-    const { onRefreshCatalog, onOpenExternal } =
-      renderSettings(configuration);
+    const { onRefreshCatalog, onOpenExternal } = renderSettings(configuration);
 
     expect(screen.getByText("预置模型目录")).toBeInTheDocument();
     expect(screen.getByText("版本 3")).toBeInTheDocument();
     const repository = screen.getByRole("button", {
       name: "打开模型目录更新仓库",
     });
-    expect(repository).toHaveTextContent(
-      "walnut-a/CoreStudio-Model-Catalog",
-    );
+    expect(repository).toHaveTextContent("walnut-a/CoreStudio-Model-Catalog");
 
     fireEvent.click(repository);
     expect(onOpenExternal).toHaveBeenCalledWith(

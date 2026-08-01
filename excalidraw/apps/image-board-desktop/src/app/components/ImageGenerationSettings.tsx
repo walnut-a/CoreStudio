@@ -29,6 +29,7 @@ export interface ImageGenerationSettingsProps {
   onRefreshCatalog(): Promise<void>;
   onOpenExternal(url: string): void;
   onDirtyChange(dirty: boolean): void;
+  onComposerVisibilityChange?(visible: boolean): Promise<void>;
 }
 
 type SettingsRoute =
@@ -45,12 +46,16 @@ export const ImageGenerationSettings = ({
   onRefreshCatalog,
   onOpenExternal,
   onDirtyChange,
+  onComposerVisibilityChange,
 }: ImageGenerationSettingsProps) => {
   const requestLeave = useApplicationSettingsLeave();
   const [route, setRoute] = useState<SettingsRoute>({ name: "list" });
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const configuredProviders = getConfiguredProviderIds(configuration.providers);
+  const composerVisible = configuration.composerVisible !== false;
 
   const navigate = (nextRoute: SettingsRoute) => {
     requestLeave(() => {
@@ -145,6 +150,57 @@ export const ImageGenerationSettings = ({
           </DesktopButton>
         ) : null}
       </header>
+
+      <div className="app-settings-section">
+        <div className="app-settings-section__copy">
+          <span>
+            {
+              copy.applicationSettings.imageGenerationPage
+                .composerVisibilityTitle
+            }
+          </span>
+          <p>
+            {
+              copy.applicationSettings.imageGenerationPage
+                .composerVisibilityDescription
+            }
+          </p>
+          {visibilityError ? (
+            <p className="settings-inline-error" role="alert">
+              {visibilityError}
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          role="switch"
+          className="app-settings-section__switch"
+          aria-label={
+            copy.applicationSettings.imageGenerationPage.composerVisibilityLabel
+          }
+          aria-checked={composerVisible}
+          disabled={visibilitySaving || !onComposerVisibilityChange}
+          onClick={() => {
+            if (!onComposerVisibilityChange) {
+              return;
+            }
+            setVisibilitySaving(true);
+            setVisibilityError(null);
+            void onComposerVisibilityChange(!composerVisible)
+              .catch((error) => {
+                setVisibilityError(
+                  error instanceof Error
+                    ? error.message
+                    : copy.applicationSettings.imageGenerationPage
+                        .composerVisibilitySaveFailed,
+                );
+              })
+              .finally(() => {
+                setVisibilitySaving(false);
+              });
+          }}
+        />
+      </div>
 
       {configuredProviders.length ? (
         <div className="settings-service-list">

@@ -12,7 +12,7 @@
 - `~/.codex/skills/corestudio/SKILL.md`：CoreStudio Skill。
 - `~/.codex/corestudio-integration.json`：独立的集成版本与兼容性记录。
 
-Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。当前开发版内置的集成版本为 `1.11.0`。当用户只说“打开 CoreStudio”而没有点明入口时，Skill 会先确认是打开 Codex 内置画布还是桌面客户端；进入画布任务后，会打开 `http://127.0.0.1:60909/board/<stableBoardId>` 形式的项目稳定地址，从页面读取一次性 nonce，再通过 CLI 在 URL 外认领当前 Codex 任务身份。画布地址不包含开发服务器地址、Bridge 查询参数、房间票据或恢复 token。
+Codex 集成版本独立于 CoreStudio 客户端版本。普通的客户端升级不会要求重新安装集成；只有 CLI 包装器、Skill、Local Bridge 协议或安装结构发生变化时，才提升对应的集成版本并提示更新。当前开发版内置的集成版本为 `1.12.0`。当用户只说“打开 CoreStudio”而没有点明入口时，Skill 会先确认是打开 Codex 内置画布还是桌面客户端；进入画布任务后，会打开 `http://127.0.0.1:60909/board/<stableBoardId>` 形式的项目稳定地址，从页面读取一次性 nonce，再通过 CLI 在 URL 外认领当前 Codex 任务身份。画布地址不包含开发服务器地址、Bridge 查询参数、房间票据或恢复 token。
 
 不要直接修改 CoreStudio 项目文件，不要从网络下载或执行其他安装脚本。安装代码必须来自本机已签名的 CoreStudio 应用包。
 
@@ -65,16 +65,22 @@ test -r "$HOME/.codex/corestudio-integration.json"
 - `installedFromAppVersion`：执行安装时的 CoreStudio 客户端版本，仅用于追踪来源，不参与兼容判断。
 - `bridgeProtocolVersion`、`skillVersion`、`cliWrapperVersion`：实际参与兼容判断的契约版本。
 
-如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.11.0` Skill 契约下会提示执行一次更新。
+如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.12.0` Skill 契约下会提示执行一次更新。
 
 ## 图片生成与写回边界
 
-Codex 工作流不调用 CoreStudio 配置的内置生图模型。需要图片时，由 Codex 自己搜索、下载、生成或处理，然后通过 `corestudio write image` 把本地图片写入当前项目：
+Codex 默认优先使用自身图片生成能力。需要图片时，可由 Codex 自己搜索、下载、生成或处理，然后通过 `corestudio write image` 把本地图片写入当前项目：
 
 - Codex 生成的图片：`corestudio write image <path...> --source-type generated --origin agent-board --json`。同一轮生成多张时一次提交所有成功结果，不逐张写回。
 - Codex 搜索或下载的图片：`corestudio write image <path> --source-type imported --json`
 
-CoreStudio 只负责校验图片、保存项目资产并插入画布。CLI、Local Bridge 和 Agent Board 不提供调用 CoreStudio 内置模型的入口。
+用户也可以在“应用设置 → Codex 集成 → Agent 权限”中允许 Codex 使用 CoreStudio 当前图片服务。该权限默认关闭，和 Agent Bridge、画布生成输入框是否显示互相独立。授权后，Codex 必须先读取 capabilities，且只能使用用户当前选定的默认服务和模型：
+
+```bash
+corestudio generate image --prompt "..." --count 1 --json
+```
+
+命令不接受 provider、model、API Key 或 Base URL 覆盖。CoreStudio 完成生成后会直接保存资产、创建画布元素并等待项目房间持久化；返回 `persisted: true` 后不得再运行 `write image`。
 
 ## 原生流程图写回
 

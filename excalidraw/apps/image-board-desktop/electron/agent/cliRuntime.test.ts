@@ -209,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.32 (Codex integration 1.11.0, bridge protocol 4)\n",
+          "CoreStudio 1.1.32 (Codex integration 1.12.0, bridge protocol 5)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -227,8 +227,8 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.32",
-        integrationVersion: "1.11.0",
-        bridgeProtocolVersion: 4,
+        integrationVersion: "1.12.0",
+        bridgeProtocolVersion: 5,
       },
     });
   });
@@ -399,6 +399,30 @@ describe("runCli", () => {
       },
     },
     {
+      name: "generate image with the current CoreStudio provider and model",
+      argv: [
+        "generate",
+        "image",
+        "--prompt",
+        "继续细化当前工业设计方案",
+        "--count",
+        "2",
+        "--reference-file-ids",
+        "file-1,file-2",
+        "--reference-element-ids",
+        "element-1",
+        "--json",
+      ],
+      route: "/v1/agent/image-generation",
+      method: "POST",
+      body: {
+        prompt: "继续细化当前工业设计方案",
+        count: 2,
+        referenceFileIds: ["file-1", "file-2"],
+        referenceElementIds: ["element-1"],
+      },
+    },
+    {
       name: "edit locate image",
       argv: ["edit", "locate", "--file-id", "file-1", "--json"],
       route: "/v1/scene/locate",
@@ -465,6 +489,35 @@ describe("runCli", () => {
         expect(records[0].body).toBeUndefined();
       }
       expect(result.stdout).toBe(`${JSON.stringify(okEnvelope)}\n`);
+    },
+  );
+
+  it.each(["--provider", "--model", "--api-key", "--base-url"])(
+    "rejects the forbidden Agent image generation override %s",
+    async (flag) => {
+      const fetch = createFetch();
+      const result = await runCommand(
+        [
+          "generate",
+          "image",
+          "--prompt",
+          "工业设计草图",
+          flag,
+          "forbidden-value",
+          "--json",
+        ],
+        { fetch },
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        ok: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: `Unknown flag: ${flag}`,
+        },
+      });
+      expect(fetch).not.toHaveBeenCalled();
     },
   );
 
@@ -902,7 +955,8 @@ describe("runCli", () => {
         ok: false,
         error: {
           code: "BAD_REQUEST",
-          message: "CoreStudio CLI tools are: read, write, edit, bash.",
+          message:
+            "CoreStudio CLI tools are: read, write, edit, generate, bash.",
         },
       });
       expect(fetch).not.toHaveBeenCalled();

@@ -176,6 +176,7 @@ const buildPromptReferencesFromIds = (
 const toAgentImageAsset = (
   payload: unknown,
   defaults: Partial<PersistedImageAssetInput> = {},
+  options: { allowCoreStudioOrigin?: boolean } = {},
   createdAt = new Date().toISOString(),
 ): PersistedImageAssetInput => {
   if (!isObjectPayload(payload)) {
@@ -209,8 +210,8 @@ const toAgentImageAsset = (
     typeof payload.prompt === "string"
       ? payload.prompt
       : typeof defaults.prompt === "string"
-        ? defaults.prompt
-        : undefined;
+      ? defaults.prompt
+      : undefined;
   const negativePrompt =
     typeof payload.negativePrompt === "string"
       ? payload.negativePrompt
@@ -226,10 +227,12 @@ const toAgentImageAsset = (
     parseOptionalImageSourceType(payload.sourceType) ??
     defaults.sourceType ??
     (generationOrigin ? "generated" : "imported");
-  if (sourceType === "generated" && generationOrigin === "corestudio") {
-    throw createAgentBadRequestError(
-      "Codex 生成图片必须记录为 Codex 来源。",
-    );
+  if (
+    sourceType === "generated" &&
+    generationOrigin === "corestudio" &&
+    !options.allowCoreStudioOrigin
+  ) {
+    throw createAgentBadRequestError("Codex 生成图片必须记录为 Codex 来源。");
   }
   const provenanceError = getPersistedImageAssetIntegrityError({
     sourceType,
@@ -240,6 +243,14 @@ const toAgentImageAsset = (
   }
   const promptReferences =
     buildPromptReferencesFromIds(payload, null) ?? defaults.promptReferences;
+  const generationSource =
+    payload.generationSource === "builtin" ||
+    payload.generationSource === "agent"
+      ? payload.generationSource
+      : defaults.generationSource ??
+        (sourceType === "generated" && generationOrigin === "agent-board"
+          ? "agent"
+          : undefined);
 
   return {
     fileId: createAgentImageFileId(),
@@ -251,23 +262,24 @@ const toAgentImageAsset = (
       typeof payload.createdAt === "string" ? payload.createdAt : createdAt,
     sourceType,
     ...(generationOrigin ? { generationOrigin } : {}),
+    ...(generationSource ? { generationSource } : {}),
     ...(parseOptionalNonEmptyString(payload.provider)
       ? { provider: parseOptionalNonEmptyString(payload.provider) }
       : defaults.provider
-        ? { provider: defaults.provider }
-        : {}),
+      ? { provider: defaults.provider }
+      : {}),
     ...(typeof payload.model === "string"
       ? { model: payload.model }
       : defaults.model
-        ? { model: defaults.model }
-        : {}),
+      ? { model: defaults.model }
+      : {}),
     ...(prompt ? { prompt } : {}),
     ...(negativePrompt ? { negativePrompt } : {}),
     ...(typeof payload.seed === "number" || payload.seed === null
       ? { seed: payload.seed }
       : defaults.seed !== undefined
-        ? { seed: defaults.seed }
-        : {}),
+      ? { seed: defaults.seed }
+      : {}),
     ...(parentFileId ? { parentFileId } : {}),
     ...(promptReferences ? { promptReferences } : {}),
   };
@@ -276,6 +288,7 @@ const toAgentImageAsset = (
 export const getAgentImageAssetsFromPayload = (
   payload: unknown,
   agentBoardContext: AgentBoardCommandContext | null = null,
+  options: { allowCoreStudioOrigin?: boolean } = {},
 ): PersistedImageAssetInput[] => {
   const rootPayload = isObjectPayload(payload) ? payload : {};
   const generationOrigin = parseOptionalImageGenerationOrigin(
@@ -283,9 +296,7 @@ export const getAgentImageAssetsFromPayload = (
   );
   const sourceType = parseOptionalImageSourceType(rootPayload.sourceType);
   if (!sourceType) {
-    throw createAgentBadRequestError(
-      "Codex 写入图片必须明确记录来源类型。",
-    );
+    throw createAgentBadRequestError("Codex 写入图片必须明确记录来源类型。");
   }
   const promptReferences = buildPromptReferencesFromIds(
     rootPayload,
@@ -294,6 +305,10 @@ export const getAgentImageAssetsFromPayload = (
   const defaults: Partial<PersistedImageAssetInput> = {
     sourceType,
     ...(generationOrigin ? { generationOrigin } : {}),
+    ...(rootPayload.generationSource === "builtin" ||
+    rootPayload.generationSource === "agent"
+      ? { generationSource: rootPayload.generationSource }
+      : {}),
     ...(typeof rootPayload.prompt === "string" && rootPayload.prompt.trim()
       ? { prompt: rootPayload.prompt }
       : {}),
@@ -311,8 +326,10 @@ export const getAgentImageAssetsFromPayload = (
     if (!payload.files.length) {
       throw createAgentBadRequestError("scene.addImage files 不能为空。");
     }
-    return payload.files.map((file) => toAgentImageAsset(file, defaults));
+    return payload.files.map((file) =>
+      toAgentImageAsset(file, defaults, options),
+    );
   }
 
-  return [toAgentImageAsset(payload, defaults)];
+  return [toAgentImageAsset(payload, defaults, options)];
 };

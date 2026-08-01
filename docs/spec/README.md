@@ -11,6 +11,7 @@
 - [2026-07-14-corestudio-usability-improvement-backlog.md](2026-07-14-corestudio-usability-improvement-backlog.md)：易用性优化清单。
 - [2026-07-23-corestudio-canvas-selection-context-and-codex-reference.md](2026-07-23-corestudio-canvas-selection-context-and-codex-reference.md)：画布选区状态、复制引用与 Codex 主动读取规则。
 - [2026-07-23-corestudio-agent-board-editing-soft-delete-and-incremental-writeback.md](2026-07-23-corestudio-agent-board-editing-soft-delete-and-incremental-writeback.md)：Agent Board 画布编辑、软删除、资产保留与元素级增量写回规则。
+- [2026-07-31-corestudio-agent-image-generation-authorization.md](2026-07-31-corestudio-agent-image-generation-authorization.md)：按 Agent 集成授权调用 CoreStudio 当前图片生成服务的权限、CLI、Skill 与验收规则。
 - [2026-07-31-corestudio-cli-diagram-write.md](2026-07-31-corestudio-cli-diagram-write.md)：CoreStudio CLI 使用 Mermaid 创建原生可编辑图表的契约、边界与验收标准。
 
 ## 既有历史规格

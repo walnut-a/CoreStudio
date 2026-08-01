@@ -4463,6 +4463,30 @@ class App extends React.Component<AppProps, AppState> {
       }
     }
 
+    // ------------------- Elements -------------------
+    // A CoreStudio clipboard can retain an image flavor for pasting into
+    // external apps. Prefer the editable Excalidraw payload when both are
+    // present so internal pastes do not fall back to that bitmap rendition.
+    if (data.elements) {
+      const elements = (
+        data.programmaticAPI
+          ? convertToExcalidrawElements(
+              data.elements as ExcalidrawElementSkeleton[],
+            )
+          : data.elements
+      ) as readonly ExcalidrawElement[];
+      // TODO: remove formatting from elements if isPlainPaste
+      this.addElementsFromPasteOrLibrary({
+        elements,
+        files: data.files || null,
+        position:
+          this.editorInterface.formFactor === "desktop" ? "cursor" : "center",
+        retainSeed: isPlainPaste,
+        preserveFrameChildrenOrder: true,
+      });
+      return;
+    }
+
     // ------------------- Images or SVG code -------------------
     const imageFiles = dataTransferFiles.map((data) => data.file);
 
@@ -4481,27 +4505,6 @@ class App extends React.Component<AppProps, AppState> {
       } else {
         this.setState({ errorMessage: t("errors.imageToolNotSupported") });
       }
-      return;
-    }
-
-    // ------------------- Elements -------------------
-    if (data.elements) {
-      const elements = (
-        data.programmaticAPI
-          ? convertToExcalidrawElements(
-              data.elements as ExcalidrawElementSkeleton[],
-            )
-          : data.elements
-      ) as readonly ExcalidrawElement[];
-      // TODO: remove formatting from elements if isPlainPaste
-      this.addElementsFromPasteOrLibrary({
-        elements,
-        files: data.files || null,
-        position:
-          this.editorInterface.formFactor === "desktop" ? "cursor" : "center",
-        retainSeed: isPlainPaste,
-        preserveFrameChildrenOrder: true,
-      });
       return;
     }
 

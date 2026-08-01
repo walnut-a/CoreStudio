@@ -94,6 +94,26 @@ beforeEach(async () => {
 });
 
 describe("general paste behavior", () => {
+  it("prefers structured elements when the clipboard also contains an image", async () => {
+    const rectangle = API.createElement({ type: "rectangle" });
+    const clipboardJSON = await serializeAsClipboardJSON({
+      elements: [rectangle],
+      files: null,
+    });
+
+    document.dispatchEvent(
+      createPasteEvent({
+        types: { "text/plain": clipboardJSON },
+        files: [await API.loadFile("./fixtures/smiley.png")],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(h.elements).toHaveLength(1);
+      expect(h.elements[0].type).toBe("rectangle");
+    });
+  });
+
   it("should randomize seed on paste", async () => {
     const rectangle = API.createElement({ type: "rectangle" });
     const clipboardJSON = await serializeAsClipboardJSON({

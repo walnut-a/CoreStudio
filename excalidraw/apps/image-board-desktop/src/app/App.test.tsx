@@ -26,6 +26,8 @@ import {
   setSuppressUpdateSceneChangeEvent,
   setThrowExcalidrawRenderError,
   triggerExcalidrawChange,
+  triggerExcalidrawCopy,
+  triggerExcalidrawCopyAsPng,
   triggerExcalidrawInitialize,
   triggerExcalidrawPaste,
   triggerExcalidrawPointerUpdate,
@@ -3864,6 +3866,80 @@ describe("App startup", () => {
           }),
         ]),
       }),
+    );
+  });
+
+  it("uses original project assets for editable copy and Copy as PNG", async () => {
+    const writeProjectClipboard = vi.fn().mockResolvedValue(undefined);
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([
+      {
+        fileId: "file-1",
+        mimeType: "image/png",
+        dataBase64: "b3JpZ2luYWw=",
+        width: 2400,
+        height: 1600,
+        createdAt: "2026-08-02T01:00:00.000Z",
+        rendition: "original",
+      },
+    ]);
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            "file-1": {
+              fileId: "file-1",
+              assetPath: "assets/file-1.png",
+              sourceType: "imported",
+              width: 2400,
+              height: 1600,
+              createdAt: "2026-08-02T01:00:00.000Z",
+              mimeType: "image/png",
+            },
+          },
+        }),
+      ),
+      writeProjectClipboard,
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => triggerExcalidrawInitialize?.());
+
+    const element = {
+      id: "element-1",
+      type: "image",
+      fileId: "file-1",
+      isDeleted: false,
+    };
+    const thumbnailFiles = {
+      "file-1": {
+        id: "file-1",
+        mimeType: "image/png",
+        dataURL: "data:image/png;base64,dGh1bWJuYWls",
+        created: Date.parse("2026-08-02T01:00:00.000Z"),
+      },
+    };
+
+    await expect(triggerExcalidrawCopy?.([element])).resolves.toBe(false);
+    expect(writeProjectClipboard).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      elements: [element],
+    });
+
+    const exportFiles = await triggerExcalidrawCopyAsPng?.(
+      [element],
+      thumbnailFiles,
+    );
+    expect(readProjectAssetPayloads).toHaveBeenCalledWith({
+      projectPath: "/tmp/mock-project",
+      fileIds: ["file-1"],
+      rendition: "original",
+    });
+    expect(exportFiles?.["file-1"].dataURL).toBe(
+      "data:image/png;base64,b3JpZ2luYWw=",
     );
   });
 

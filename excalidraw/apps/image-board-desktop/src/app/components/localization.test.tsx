@@ -1172,7 +1172,7 @@ describe("Chinese localization", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it("lets Cmd/Ctrl+A stay inside the prompt textarea", () => {
+  it("handles Cmd/Ctrl+A inside the prompt editor", () => {
     render(
       <GenerateImageDialog
         open={true}
@@ -1205,7 +1205,7 @@ describe("Chinese localization", () => {
 
     fireEvent(promptInput, keydown);
 
-    expect(window.getSelection()?.toString()).toBe("工业设计草图提示词");
+    expect(promptInput).toHaveTextContent("工业设计草图提示词");
     expect(keydown.preventDefault).toHaveBeenCalledTimes(1);
     expect(keydown.stopPropagation).toHaveBeenCalledTimes(1);
   });

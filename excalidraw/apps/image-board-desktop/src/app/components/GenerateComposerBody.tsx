@@ -21,6 +21,7 @@ interface GenerateComposerPromptBodyProps {
   resetKey: number;
   referenceLimitMessage: string | null;
   onChange: (parts: GenerationPromptPart[]) => void;
+  onPendingReferenceDiscard?: () => void;
   onFocusIntent: () => void;
   onMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
   onKeyPressCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
@@ -38,6 +39,7 @@ export const GenerateComposerPromptBody = ({
   resetKey,
   referenceLimitMessage,
   onChange,
+  onPendingReferenceDiscard,
   onFocusIntent,
   onMouseDown,
   onKeyPressCapture,
@@ -55,6 +57,7 @@ export const GenerateComposerPromptBody = ({
         pendingReference={pendingReference}
         resetKey={resetKey}
         onChange={onChange}
+        onPendingReferenceDiscard={onPendingReferenceDiscard}
         onFocusIntent={onFocusIntent}
         onMouseDown={onMouseDown}
         onKeyPressCapture={onKeyPressCapture}

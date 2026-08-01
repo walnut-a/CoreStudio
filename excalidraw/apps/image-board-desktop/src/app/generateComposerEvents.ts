@@ -9,23 +9,9 @@ export const stopGenerateInputEventPropagation = (
   event.nativeEvent.stopImmediatePropagation?.();
 };
 
-export const selectAllElementContents = (element: HTMLElement) => {
-  const selection = window.getSelection();
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  selection?.removeAllRanges();
-  selection?.addRange(range);
-};
-
 export const handleGenerateComposerPromptKeyDown = (
   event: KeyboardEvent<HTMLDivElement>,
-  {
-    submit,
-    selectAllElementContents: selectAllContents = selectAllElementContents,
-  }: {
-    submit: () => void;
-    selectAllElementContents?: (element: HTMLDivElement) => void;
-  },
+  { submit }: { submit: () => void },
 ) => {
   stopGenerateInputEventPropagation(event);
 
@@ -39,8 +25,6 @@ export const handleGenerateComposerPromptKeyDown = (
   });
 
   if (action === "select-all") {
-    event.preventDefault();
-    selectAllContents(event.currentTarget);
     return;
   }
 

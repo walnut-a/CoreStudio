@@ -179,6 +179,7 @@ export const useGenerateImageDialogRuntime = ({
       onStopInputEvent: stopInputEventPropagation,
       onCommitPendingReference: commitPendingReference,
       onPromptChange: updatePromptParts,
+      onPendingReferenceDiscard: onReferenceRemove,
       onPromptKeyPressCapture: handleInputKeyPhaseCapture,
       onPromptKeyUpCapture: handleInputKeyPhaseCapture,
       onPromptKeyDown: handleComposerPromptKeyDown,

@@ -29,6 +29,7 @@ interface GenerateDialogComposerSectionProps {
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
   onCommitPendingReference: () => void | Promise<unknown>;
   onPromptChange: (parts: GenerationPromptPart[]) => void;
+  onPendingReferenceDiscard?: () => void;
   onPromptKeyPressCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
   onPromptKeyUpCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
   onPromptKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
@@ -48,6 +49,7 @@ export const GenerateDialogComposerSection = ({
   onStopInputEvent,
   onCommitPendingReference,
   onPromptChange,
+  onPendingReferenceDiscard,
   onPromptKeyPressCapture,
   onPromptKeyUpCapture,
   onPromptKeyDown,
@@ -64,6 +66,7 @@ export const GenerateDialogComposerSection = ({
       onStopInputEvent={onStopInputEvent}
       onCommitPendingReference={onCommitPendingReference}
       onPromptChange={onPromptChange}
+      onPendingReferenceDiscard={onPendingReferenceDiscard}
       onPromptKeyPressCapture={onPromptKeyPressCapture}
       onPromptKeyUpCapture={onPromptKeyUpCapture}
       onPromptKeyDown={onPromptKeyDown}

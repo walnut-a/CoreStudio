@@ -1,4 +1,4 @@
-import { createRef } from "react";
+import { createRef, useState } from "react";
 
 import {
   act,
@@ -8,12 +8,17 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  CONTROLLED_TEXT_INSERTION_COMMAND,
+  getNearestEditorFromDOMNode,
+} from "lexical";
 
 import {
   InlinePromptEditor,
   type InlinePromptEditorHandle,
 } from "./InlinePromptEditor";
 import { DESKTOP_EDIT_COMMAND_EVENT } from "../desktopEditCommand";
+import { handleGenerateComposerPromptKeyDown } from "../generateComposerEvents";
 
 import type {
   GenerationPromptPart,
@@ -42,6 +47,12 @@ const referencePayloads: GenerationPromptReferencePayload[] = [
   },
 ];
 
+const mixedPromptParts: GenerationPromptPart[] = [
+  { type: "reference", referenceId: "reference-1" },
+  { type: "text", text: "第一行\n第二行" },
+  { type: "reference", referenceId: "reference-2" },
+];
+
 const createProps = (
   overrides: Partial<Parameters<typeof InlinePromptEditor>[0]> = {},
 ) => ({
@@ -52,6 +63,7 @@ const createProps = (
   pendingReference: null,
   resetKey: 0,
   onChange: vi.fn(),
+  onPendingReferenceDiscard: vi.fn(),
   onFocusIntent: vi.fn(),
   onKeyDown: vi.fn(),
   onMouseDown: vi.fn(),
@@ -101,6 +113,293 @@ describe("InlinePromptEditor", () => {
     expect(screen.getByRole("textbox", { name: "提示词" })).toHaveTextContent(
       "说明",
     );
+  });
+
+  it("clears multiline text and inline references with one select-all deletion", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const submit = vi.fn();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: [...mixedPromptParts],
+          references: referencePayloads,
+          onKeyDown: (event) =>
+            handleGenerateComposerPromptKeyDown(event, { submit }),
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() =>
+      expect(screen.getAllByLabelText(/^[12] 图片$/)).toHaveLength(2),
+    );
+
+    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+    fireEvent.keyDown(editor, { key: "Backspace" });
+
+    await waitFor(() => expect(handle.current?.getParts()).toEqual([]));
+    expect(editor).toHaveTextContent("");
+  });
+
+  it("clears multiline text and inline references with one forward deletion", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: mixedPromptParts,
+          references: referencePayloads,
+          onKeyDown: (event) =>
+            handleGenerateComposerPromptKeyDown(event, { submit: vi.fn() }),
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() =>
+      expect(screen.getAllByLabelText(/^[12] 图片$/)).toHaveLength(2),
+    );
+
+    fireEvent.keyDown(editor, { key: "a", ctrlKey: true });
+    fireEvent.keyDown(editor, { key: "Delete" });
+
+    await waitFor(() => expect(handle.current?.getParts()).toEqual([]));
+  });
+
+  it("replaces a selected mixed prompt through typing", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: mixedPromptParts,
+          references: referencePayloads,
+          onKeyDown: (event) =>
+            handleGenerateComposerPromptKeyDown(event, { submit: vi.fn() }),
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+    const lexicalEditor = getNearestEditorFromDOMNode(editor);
+    expect(lexicalEditor).not.toBeNull();
+    act(() => {
+      lexicalEditor?.dispatchCommand(
+        CONTROLLED_TEXT_INSERTION_COMMAND,
+        "替换内容",
+      );
+    });
+
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "替换内容" },
+      ]),
+    );
+  });
+
+  it("replaces a selected mixed prompt through plain-text paste and preserves history", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: mixedPromptParts,
+          references: referencePayloads,
+          onKeyDown: (event) =>
+            handleGenerateComposerPromptKeyDown(event, { submit: vi.fn() }),
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", "替换内容\n第二行");
+    fireEvent(
+      editor,
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "替换内容\n第二行" },
+      ]),
+    );
+
+    dispatchDesktopEditCommand(editor, "undo");
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual(mixedPromptParts),
+    );
+
+    dispatchDesktopEditCommand(editor, "redo");
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual([
+        { type: "text", text: "替换内容\n第二行" },
+      ]),
+    );
+  });
+
+  it("cuts a selected mixed prompt in one editor transaction", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: mixedPromptParts,
+          references: referencePayloads,
+          onKeyDown: (event) =>
+            handleGenerateComposerPromptKeyDown(event, { submit: vi.fn() }),
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+    const clipboardData = new DataTransfer();
+    fireEvent(
+      editor,
+      new ClipboardEvent("cut", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+
+    await waitFor(() => expect(handle.current?.getParts()).toEqual([]));
+  });
+
+  it("discards external pending-reference state when editing removes its node", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const onPendingReferenceDiscard = vi.fn();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: mixedPromptParts,
+          references: referencePayloads,
+          pendingReference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "pending",
+                index: 1,
+                kind: "image",
+                label: "图片",
+              },
+            ],
+          },
+          onPendingReferenceDiscard,
+          onKeyDown: (event) =>
+            handleGenerateComposerPromptKeyDown(event, { submit: vi.fn() }),
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    expect(await screen.findByLabelText("3 图片，待确认")).toBeInTheDocument();
+    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+    fireEvent.keyDown(editor, { key: "Backspace" });
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText("3 图片，待确认")).not.toBeInTheDocument(),
+    );
+    expect(onPendingReferenceDiscard).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not restore a discarded pending reference through editor undo", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const pendingReference = {
+      enabled: true,
+      elementCount: 1,
+      textCount: 0,
+      items: [
+        {
+          id: "pending",
+          index: 1,
+          kind: "image" as const,
+          label: "图片",
+        },
+      ],
+    };
+    const StatefulEditor = () => {
+      const [pending, setPending] = useState<typeof pendingReference | null>(
+        pendingReference,
+      );
+      return (
+        <InlinePromptEditor
+          ref={handle}
+          {...createProps({
+            parts: mixedPromptParts,
+            references: referencePayloads,
+            pendingReference: pending,
+            onPendingReferenceDiscard: () => setPending(null),
+            onKeyDown: (event) =>
+              handleGenerateComposerPromptKeyDown(event, { submit: vi.fn() }),
+          })}
+        />
+      );
+    };
+    render(<StatefulEditor />);
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    expect(await screen.findByLabelText("3 图片，待确认")).toBeInTheDocument();
+    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+    fireEvent.keyDown(editor, { key: "Backspace" });
+    await waitFor(() => expect(handle.current?.getParts()).toEqual([]));
+
+    dispatchDesktopEditCommand(editor, "undo");
+    await waitFor(() =>
+      expect(handle.current?.getParts()).toEqual(mixedPromptParts),
+    );
+    expect(screen.queryByLabelText("3 图片，待确认")).not.toBeInTheDocument();
+  });
+
+  it("does not report a confirmed pending reference as discarded", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const onPendingReferenceDiscard = vi.fn();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          references: [referencePayloads[0]],
+          pendingReference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            items: [
+              {
+                id: "pending",
+                index: 1,
+                kind: "image",
+                label: "图片",
+              },
+            ],
+          },
+          onPendingReferenceDiscard,
+        })}
+      />,
+    );
+
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    act(() => {
+      handle.current?.confirmPendingReference("reference-1");
+    });
+
+    expect(handle.current?.getParts()).toEqual([
+      { type: "reference", referenceId: "reference-1" },
+    ]);
+    expect(onPendingReferenceDiscard).not.toHaveBeenCalled();
   });
 
   it("inserts a reference through one editor transaction", async () => {

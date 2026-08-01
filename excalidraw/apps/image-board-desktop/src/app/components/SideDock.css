@@ -66,8 +66,8 @@
 }
 
 .side-dock__toggle svg {
-  width: var(--lg-icon-size);
-  height: var(--lg-icon-size);
+  width: var(--side-dock-icon-size);
+  height: var(--side-dock-icon-size);
 }
 
 .side-dock--left .side-dock__toggle {
@@ -220,8 +220,6 @@
     var(--side-dock-edge-gap) + var(--side-dock-toggle-size) +
       var(--side-dock-button-gap) - var(--editor-container-padding, 16px)
   );
-  transition: margin-left var(--side-dock-motion-duration)
-    var(--side-dock-motion-easing);
 }
 
 .image-board-app .layer-ui__wrapper__top-right {
@@ -264,10 +262,7 @@
 }
 
 .image-board-app--left-dock-open .App-menu_top__left {
-  margin-left: calc(
-    var(--corestudio-left-sidebar-width) + var(--side-dock-edge-gap) -
-      var(--editor-container-padding, 16px)
-  );
+  visibility: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -275,7 +270,6 @@
     animation-duration: 0.01ms;
   }
 
-  .image-board-app .App-menu_top__left,
   .image-board-app .layer-ui__wrapper__top-right {
     transition-duration: 0.01ms;
   }

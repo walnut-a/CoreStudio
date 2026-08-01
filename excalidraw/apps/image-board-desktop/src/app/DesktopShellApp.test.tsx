@@ -431,6 +431,50 @@ describe("DesktopShellApp", () => {
     expect(settingsDialog.closest(".image-board-app")).not.toBeNull();
   });
 
+  it("persists composer visibility from Home settings", async () => {
+    const menuListenerRef: {
+      current: ((event: DesktopMenuEvent) => void) | null;
+    } = { current: null };
+    const setGenerateComposerVisible = vi.fn().mockResolvedValue({
+      schemaVersion: 2,
+      composerVisible: false,
+      defaultProvider: null,
+      providers: {},
+    });
+    const bridge = createBridge({
+      setGenerateComposerVisible,
+      onMenuAction: vi.fn((listener) => {
+        menuListenerRef.current = listener;
+        return () => undefined;
+      }),
+    });
+    window.imageBoardDesktop = bridge;
+    render(<DesktopShellApp />);
+
+    await waitFor(() => {
+      expect(menuListenerRef.current).not.toBeNull();
+    });
+    act(() => {
+      menuListenerRef.current?.({ action: "app-settings" });
+    });
+
+    const settingsDialog = await screen.findByRole("dialog", {
+      name: "应用设置",
+    });
+    fireEvent.click(
+      within(settingsDialog).getByRole("tab", { name: "图片集成" }),
+    );
+    fireEvent.click(
+      within(settingsDialog).getByRole("switch", {
+        name: "显示生成输入框",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(setGenerateComposerVisible).toHaveBeenCalledWith(false);
+    });
+  });
+
   it("opens image-generation settings from the empty Home guide", async () => {
     const bridge = createBridge({
       loadRecentProjects: vi.fn().mockResolvedValue([]),
@@ -448,7 +492,7 @@ describe("DesktopShellApp", () => {
       name: "应用设置",
     });
     expect(
-      within(settingsDialog).getByRole("tab", { name: "图像生成" }),
+      within(settingsDialog).getByRole("tab", { name: "图片集成" }),
     ).toHaveAttribute("aria-selected", "true");
   });
 });

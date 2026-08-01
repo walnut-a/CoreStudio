@@ -61,6 +61,7 @@ interface CliCommand {
   method?: "GET" | "POST";
   body?: Record<string, unknown>;
   imagePaths?: string[];
+  diagramSourcePath?: string;
   local?: (
     bridge: BridgeSession,
     options: CliRuntimeOptions,
@@ -155,8 +156,9 @@ Usage: corestudio <tool> <command> [options]
 Tools:
   read    Read project and bridge state
   board   Connect a stable Board page to the current Codex conversation
-  write   Write images and prompts
+  write   Write images, prompts, and native diagrams
   edit    Locate or select scene content
+  generate Generate content with an explicitly authorized CoreStudio capability
   bash    Print shell integration helpers
 
 Global options:
@@ -171,8 +173,10 @@ Examples:
   corestudio read board-url --json
   corestudio read board-url --project /path/to/project --json
   corestudio board claim --stable-board-id <id> --page-nonce <nonce> --json
+  corestudio generate image --prompt "..." --count 1 --json
   corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
   corestudio write image ./searched.png --source-type imported --json
+  corestudio write diagram --format mermaid --file ./process.mmd --anchor auto --json
   corestudio edit locate --file-id <file-id> --json
 `;
 
@@ -510,6 +514,66 @@ const parseCommand = (
     };
   }
 
+  if (tool === "generate" && target === "image") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: [
+        "--prompt",
+        "--count",
+        "--reference-file-ids",
+        "--reference-element-ids",
+      ],
+    });
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("generate image", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    const prompt = requiredString(
+      parsed.flags["--prompt"],
+      "generate image requires --prompt.",
+    );
+    if (typeof prompt !== "string") {
+      return prompt;
+    }
+    const rawCount = parsed.flags["--count"];
+    const count = rawCount === undefined ? 1 : Number(rawCount);
+    if (!Number.isInteger(count) || count <= 0) {
+      return badRequestEnvelope(
+        "generate image --count must be a positive integer.",
+      );
+    }
+    const referenceFileIds = parseReferenceIdsFlag(
+      parsed.flags["--reference-file-ids"],
+      "--reference-file-ids",
+    );
+    if (isEnvelope(referenceFileIds)) {
+      return referenceFileIds;
+    }
+    const referenceElementIds = parseReferenceIdsFlag(
+      parsed.flags["--reference-element-ids"],
+      "--reference-element-ids",
+    );
+    if (isEnvelope(referenceElementIds)) {
+      return referenceElementIds;
+    }
+    return {
+      route: AGENT_HTTP_ROUTES.imageGeneration,
+      method: "POST",
+      body: {
+        prompt: prompt.trim(),
+        count,
+        ...(referenceFileIds ? { referenceFileIds } : {}),
+        ...(referenceElementIds ? { referenceElementIds } : {}),
+      },
+    };
+  }
+
+  if (tool === "generate") {
+    return badRequestEnvelope("generate requires: image.");
+  }
+
   if (tool === "write" && target === "prompt") {
     const parsed = parseArgs(argv.slice(2), {
       valueFlags: ["--text"],
@@ -539,8 +603,48 @@ const parseCommand = (
     };
   }
 
+  if (tool === "write" && target === "diagram") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: ["--format", "--file", "--anchor"],
+      boolFlags: ["--dry-run"],
+    });
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("write diagram", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    if (parsed.flags["--format"] !== "mermaid") {
+      return badRequestEnvelope("write diagram requires --format mermaid.");
+    }
+    const filePath = requiredString(
+      parsed.flags["--file"],
+      "write diagram requires --file.",
+    );
+    if (typeof filePath !== "string") {
+      return filePath;
+    }
+    const anchor = parsed.flags["--anchor"] ?? "auto";
+    if (anchor !== "auto" && anchor !== "selection" && anchor !== "viewport") {
+      return badRequestEnvelope(
+        "write diagram --anchor must be auto, selection, or viewport.",
+      );
+    }
+    return {
+      route: AGENT_HTTP_ROUTES.sceneAddDiagram,
+      method: "POST",
+      diagramSourcePath: filePath,
+      body: {
+        format: "mermaid",
+        anchor,
+        ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
+      },
+    };
+  }
+
   if (tool === "write") {
-    return badRequestEnvelope("write requires one of: image, prompt.");
+    return badRequestEnvelope("write requires one of: image, prompt, diagram.");
   }
 
   if (tool === "edit") {
@@ -644,6 +748,7 @@ const parseCommand = (
           `${envPrefix} ${executable} read health --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/searched.png --source-type imported --json`,
+          `${envPrefix} ${executable} write diagram --format mermaid --file /absolute/path/to/process.mmd --anchor auto --json`,
           `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
           `${envPrefix} ${executable} write prompt --text "..." --json`,
         ];
@@ -674,7 +779,7 @@ const parseCommand = (
   }
 
   return badRequestEnvelope(
-    "CoreStudio CLI tools are: read, write, edit, bash.",
+    "CoreStudio CLI tools are: read, write, edit, generate, bash.",
   );
 };
 
@@ -1006,6 +1111,33 @@ const prepareRequestBody = async (
   );
   if (preparedAddImageBodyError) {
     return badRequestEnvelope(preparedAddImageBodyError);
+  }
+
+  if (command.diagramSourcePath) {
+    const readFile = options.readFile ?? fsReadFile;
+    let source: string;
+    try {
+      source = await readFile(command.diagramSourcePath, "utf8");
+    } catch (error) {
+      const cause = getErrorMessage(error);
+      return commandFailedEnvelope(`Failed to read diagram source: ${cause}`, {
+        stage: "read-diagram-source",
+        filePath: command.diagramSourcePath,
+        cause,
+      });
+    }
+    if (!source.trim()) {
+      return badRequestEnvelope("Diagram source file must not be empty.");
+    }
+    if (Buffer.byteLength(source, "utf8") > 256 * 1024) {
+      return badRequestEnvelope(
+        "Diagram source file exceeds the 256 KiB limit.",
+      );
+    }
+    return {
+      ...(normalizedCommandBody ?? {}),
+      source,
+    };
   }
 
   if (!command.imagePaths?.length) {

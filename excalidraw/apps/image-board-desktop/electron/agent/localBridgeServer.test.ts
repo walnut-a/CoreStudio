@@ -86,6 +86,14 @@ const startServer = async (
   });
   const server = await createLocalBridgeServer({
     isAgentAccessEnabled: () => true,
+    getAgentImageGenerationCapability: async () => ({
+      supported: true,
+      authorized: false,
+      configured: false,
+      currentProvider: null,
+      currentModel: null,
+      capabilities: null,
+    }),
     getCurrentProject: () => currentProject,
     getBoardUrl: () => boardUrl,
     getStableBoardUrl: async () => stableBoardUrl,
@@ -783,9 +791,162 @@ describe("createLocalBridgeServer", () => {
         ],
         routes: AGENT_HTTP_ROUTES,
         permissions: AGENT_PERMISSIONS,
+        imageGeneration: {
+          supported: true,
+          authorized: false,
+          configured: false,
+          currentProvider: null,
+          currentModel: null,
+          capabilities: null,
+        },
       },
     });
   });
+
+  it("rejects image generation before invoking the provider when permission is disabled", async () => {
+    const generateAgentImages = vi.fn();
+    const { server } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        generateAgentImages,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      "/v1/agent/image-generation",
+      {
+        method: "POST",
+        headers: {
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({ prompt: "工业设计草图", count: 1 }),
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 403,
+      body: {
+        ok: false,
+        error: {
+          code: "IMAGE_GENERATION_DISABLED",
+        },
+      },
+    });
+    expect(generateAgentImages).not.toHaveBeenCalled();
+  });
+
+  it("passes authorized image generation to the trusted Codex integration", async () => {
+    const generateAgentImages = vi.fn(async () => ({
+      jobId: "job-1",
+      provider: "openai",
+      model: "gpt-image-1",
+      generationSource: "agent",
+      images: [],
+      operationId: "operation-1",
+      roomSequence: 2,
+      persistedSequence: 2,
+      persisted: true,
+    }));
+    const { server } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        getAgentImageGenerationCapability: async () => ({
+          supported: true,
+          authorized: true,
+          configured: true,
+          currentProvider: "openai",
+          currentModel: "gpt-image-1",
+          capabilities: {
+            maxImageCount: 4,
+            supportsImageCount: true,
+            supportsReferenceImages: true,
+          },
+        }),
+        generateAgentImages,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      "/v1/agent/image-generation",
+      {
+        method: "POST",
+        headers: {
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          prompt: "工业设计草图",
+          count: 2,
+          referenceFileIds: ["file-1"],
+          referenceElementIds: ["element-1"],
+        }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(generateAgentImages).toHaveBeenCalledWith({
+      project: currentProject,
+      threadId: "thread-b",
+      displayLabel: "任务 B",
+      prompt: "工业设计草图",
+      count: 2,
+      referenceFileIds: ["file-1"],
+      referenceElementIds: ["element-1"],
+    });
+  });
+
+  it.each(["provider", "model", "apiKey", "baseUrl"])(
+    "rejects the forbidden image generation override %s at the bridge boundary",
+    async (field) => {
+      const generateAgentImages = vi.fn();
+      const { server } = await track(
+        startServer({
+          participantIssuerToken: "issuer-secret",
+          getAgentImageGenerationCapability: async () => ({
+            supported: true,
+            authorized: true,
+            configured: true,
+            currentProvider: "openai",
+            currentModel: "gpt-image-1",
+            capabilities: {
+              maxImageCount: 4,
+              supportsImageCount: true,
+              supportsReferenceImages: true,
+            },
+          }),
+          generateAgentImages,
+        }),
+      );
+
+      const result = await requestJson(
+        server.baseUrl,
+        AGENT_HTTP_ROUTES.imageGeneration,
+        {
+          method: "POST",
+          headers: {
+            "X-CoreStudio-Participant-Issuer": "issuer-secret",
+            "X-CoreStudio-Participant-Thread": "thread-b",
+            "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+          },
+          body: JSON.stringify({
+            prompt: "工业设计草图",
+            [field]: "forbidden-value",
+          }),
+        },
+      );
+
+      expect(result).toMatchObject({
+        status: 400,
+        body: { ok: false, error: { code: "BAD_REQUEST" } },
+      });
+      expect(generateAgentImages).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects project read requests without Authorization", async () => {
     const { server } = await track(startServer());
@@ -1500,6 +1661,93 @@ describe("createLocalBridgeServer", () => {
           sharedSceneConfig: {},
         },
       },
+    });
+  });
+
+  it("runs diagram dry-runs through the renderer without applying a room operation", async () => {
+    const withAgentWriterCommand = vi.fn(
+      async (
+        _input: {
+          threadId: string;
+          displayLabel: string;
+          project: typeof currentProject;
+          dryRun?: boolean;
+        },
+        run: (context: {
+          sessionId: string;
+          identity: {
+            projectId: string;
+            canonicalProjectPath: string;
+            roomId: string;
+            sessionEpoch: number;
+          };
+          roomSequence: number;
+          scene: {
+            elements: [];
+            sharedSceneConfig: {};
+          };
+        }) => Promise<unknown>,
+      ) =>
+        run({
+          sessionId: "agent-writer-session",
+          identity: {
+            projectId: "project-1",
+            canonicalProjectPath: currentProject.projectPath,
+            roomId: "room-1",
+            sessionEpoch: 2,
+          },
+          roomSequence: 0,
+          scene: {
+            elements: [],
+            sharedSceneConfig: {},
+          },
+        }),
+    );
+    const { server, renderer } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        withAgentWriterCommand,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddDiagram,
+      {
+        method: "POST",
+        headers: {
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-b",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("任务 B"),
+        },
+        body: JSON.stringify({
+          format: "mermaid",
+          source: "flowchart LR\nA --> B",
+          anchor: "auto",
+          dryRun: true,
+        }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(withAgentWriterCommand).toHaveBeenCalledWith(
+      {
+        project: currentProject,
+        threadId: "thread-b",
+        displayLabel: "任务 B",
+        dryRun: true,
+      },
+      expect.any(Function),
+    );
+    expect(renderer.request).toHaveBeenCalledWith("scene.addDiagram", {
+      projectPath: currentProject.projectPath,
+      format: "mermaid",
+      source: "flowchart LR\nA --> B",
+      anchor: "auto",
+      dryRun: true,
+      projectRoomAgentWriter: expect.objectContaining({
+        sessionId: "agent-writer-session",
+      }),
     });
   });
 

@@ -17,6 +17,7 @@ import type {
   ProjectRecordExplanation,
 } from "./projectRecordIntegrity";
 import type {
+  GenerationSource,
   GenerationRequest,
   GenerationResponse,
   ProviderId,
@@ -61,6 +62,7 @@ export const IPC_CHANNELS = {
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
   deleteProviderSettings: "image-board:delete-provider-settings",
+  setGenerateComposerVisible: "image-board:set-generate-composer-visible",
   refreshModelCatalog: "image-board:refresh-model-catalog",
   generateImages: "image-board:generate-images",
   cancelGenerateImages: "image-board:cancel-generate-images",
@@ -76,6 +78,9 @@ export const IPC_CHANNELS = {
   agentCommandResponse: "image-board:agent-command-response",
   getAgentBridgeStatus: "image-board:get-agent-bridge-status",
   setAgentBridgeEnabled: "image-board:set-agent-bridge-enabled",
+  getAgentIntegrationSettings: "image-board:get-agent-integration-settings",
+  setCodexImageGenerationEnabled:
+    "image-board:set-codex-image-generation-enabled",
   projectRoomJoin: "image-board:project-room-join",
   projectRoomResync: "image-board:project-room-resync",
   projectRoomOperation: "image-board:project-room-operation",
@@ -175,6 +180,12 @@ export interface DesktopAgentBridgeStatus {
   ready: boolean;
   currentProject: DesktopCurrentProject | null;
   boardUrl: string | null;
+}
+
+export interface DesktopAgentIntegrationSettings {
+  codex: {
+    allowImageGeneration: boolean;
+  };
 }
 
 export interface RecentProjectEntry {
@@ -326,6 +337,7 @@ export interface CleanProjectCacheResult {
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
+  generationSource?: GenerationSource;
   provider?: string;
   model?: string;
   prompt?: string;
@@ -348,6 +360,7 @@ export type PublicProviderSettings = Partial<
 
 export interface ProviderConfigurationSnapshot {
   schemaVersion: 2;
+  composerVisible?: boolean;
   defaultProvider: ProviderId | null;
   providers: PublicProviderSettings;
   modelCatalog?: ModelCatalogSnapshot;
@@ -471,6 +484,9 @@ export interface DesktopBridgeApi {
   deleteProviderSettings(
     input: DeleteProviderSettingsInput,
   ): Promise<ProviderConfigurationSnapshot>;
+  setGenerateComposerVisible?(
+    visible: boolean,
+  ): Promise<ProviderConfigurationSnapshot>;
   refreshModelCatalog?(): Promise<ProviderConfigurationSnapshot>;
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
   cancelGenerateImages?(generationJobId: string): Promise<void>;
@@ -486,6 +502,10 @@ export interface DesktopBridgeApi {
   ): void;
   getAgentBridgeStatus?(): Promise<DesktopAgentBridgeStatus>;
   setAgentBridgeEnabled?(enabled: boolean): Promise<DesktopAgentBridgeStatus>;
+  getAgentIntegrationSettings?(): Promise<DesktopAgentIntegrationSettings>;
+  setCodexImageGenerationEnabled?(
+    enabled: boolean,
+  ): Promise<DesktopAgentIntegrationSettings>;
   joinProjectRoom?(
     input: DesktopProjectRoomJoinInput,
   ): Promise<ProjectRoomSnapshot>;

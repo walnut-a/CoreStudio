@@ -50,6 +50,7 @@ import {
   loadProviderSettings,
   migrateProviderDefaultModels,
   saveProviderSettings,
+  setGenerateComposerVisible,
   updateProviderStatus,
 } from "./settingsStore";
 
@@ -64,6 +65,47 @@ describe("settingsStore", () => {
     safeStorageMock.encryptionAvailable = true;
     safeStorageMock.encryptString.mockClear();
     safeStorageMock.decryptString.mockClear();
+  });
+
+  it("persists composer visibility without changing provider credentials", async () => {
+    await saveProviderSettings({
+      provider: "gemini",
+      apiKey: "saved-key",
+      defaultModel: "gemini-2.5-flash-image",
+    });
+
+    await expect(setGenerateComposerVisible(false)).resolves.toMatchObject({
+      composerVisible: false,
+      defaultProvider: "gemini",
+      providers: {
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: true,
+        },
+      },
+    });
+    await expect(loadProviderSettings()).resolves.toMatchObject({
+      composerVisible: false,
+      defaultProvider: "gemini",
+      providers: {
+        gemini: {
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: true,
+        },
+      },
+    });
+
+    const stored = await fs.readFile(
+      path.join(
+        mockAppDataPath,
+        "Excalidraw Image Board",
+        "image-board-settings.json",
+      ),
+      "utf8",
+    );
+    expect(stored).toContain('"composerVisible": false');
+    expect(stored).toContain('"apiKey": "plain:saved-key"');
+    expect(stored).toContain('"defaultModel": "gemini-2.5-flash-image"');
   });
 
   afterEach(async () => {
@@ -94,12 +136,12 @@ describe("settingsStore", () => {
       defaultProvider: "gemini",
       providers: {
         gemini: {
-        defaultModel: "gemini-2.5-flash-image",
-        isConfigured: true,
-        lastStatus: "unknown",
-        lastCheckedAt: null,
-        lastError: null,
-      },
+          defaultModel: "gemini-2.5-flash-image",
+          isConfigured: true,
+          lastStatus: "unknown",
+          lastCheckedAt: null,
+          lastError: null,
+        },
         zenmux: { isConfigured: false },
         fal: { isConfigured: false },
         jimeng: { isConfigured: false },

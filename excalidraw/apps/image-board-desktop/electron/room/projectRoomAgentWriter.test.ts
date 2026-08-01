@@ -128,4 +128,45 @@ describe("executeProjectRoomAgentWriterCommand", () => {
     expect(room.sequence).toBe(0);
     expect(room.getSnapshot().participants).toEqual([]);
   });
+
+  it("prepares and validates a dry-run without changing or persisting the room", async () => {
+    const persist = vi.fn(async () => ({ projectRevision: "r2" }));
+    const room = createRoom(persist);
+    const persistAssets = vi.fn(async () => undefined);
+
+    await expect(
+      executeProjectRoomAgentWriterCommand({
+        room,
+        actorId: "codex:thread-1",
+        displayLabel: "任务 1",
+        dryRun: true,
+        randomId: vi.fn().mockReturnValueOnce("session-1"),
+        prepare: async () => ({
+          type: "agent-writer.prepared",
+          elements: [imageElement],
+          result: {
+            diagramId: "diagram-1",
+            format: "mermaid",
+            elementCount: 1,
+          },
+        }),
+        persistAssets,
+      }),
+    ).resolves.toMatchObject({
+      diagramId: "diagram-1",
+      format: "mermaid",
+      elementCount: 1,
+      dryRun: true,
+      inserted: false,
+      roomSequence: 0,
+      persistedSequence: 0,
+      persisted: false,
+      elementIds: ["image-1"],
+    });
+    expect(persistAssets).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
+    expect(room.sequence).toBe(0);
+    expect(room.getSnapshot().scene.elements).toEqual([]);
+    expect(room.getSnapshot().participants).toEqual([]);
+  });
 });

@@ -82,12 +82,14 @@ import {
   loadProviderSettings,
   migrateProviderDefaultModels,
   saveProviderSettings,
+  setGenerateComposerVisible,
 } from "./settingsStore";
 import { createModelCatalogService } from "./modelCatalogService";
 import {
   loadAgentAccessSettings,
   saveAgentAccessSettings,
 } from "./agent/agentAccessStore";
+import { createAgentImageGenerationService } from "./agent/agentImageGenerationService";
 import { buildAgentBoardUrl } from "./agent/agentBoardUrl";
 import { createBoardProjectSelectionStore } from "./agent/boardProjectSelectionStore";
 import {
@@ -324,6 +326,154 @@ const generationRequestController = createGenerationRequestController({
   generateImages,
 });
 const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
+const executeAgentImageGenerationWriterCommand = async ({
+  projectPath,
+  threadId,
+  displayLabel,
+  command,
+  payload,
+}: {
+  projectPath: string;
+  threadId?: string;
+  displayLabel?: string;
+  command: AgentRendererCommandName;
+  payload: Record<string, unknown>;
+}) => {
+  if (!threadId || !displayLabel) {
+    throw Object.assign(
+      new Error("A trusted Codex participant identity is required."),
+      { code: "AUTH_REQUIRED" },
+    );
+  }
+  if (!rendererCommandBridge) {
+    throw Object.assign(
+      new Error("CoreStudio renderer command bridge is not ready."),
+      { code: "APP_NOT_READY" },
+    );
+  }
+  const room = await projectRoomService.openProject(projectPath);
+  const participantState = room.getParticipantSelectionByActor(
+    `codex:${threadId}`,
+  );
+  const agentBoardContext = participantState
+    ? {
+        ...(participantState.selection === undefined
+          ? {}
+          : { selection: participantState.selection }),
+        ...(participantState.scene === undefined
+          ? {}
+          : { scene: participantState.scene }),
+        browserRuntime: {
+          source: participantState.source,
+          updatedAt: participantState.updatedAt,
+          receivedAt: new Date().toISOString(),
+        },
+      }
+    : null;
+  return executeProjectRoomAgentWriterCommand({
+    room,
+    actorId: `codex:${threadId}`,
+    displayLabel,
+    prepare: (context) =>
+      rendererCommandBridge!.request(
+        command,
+        {
+          projectPath,
+          ...payload,
+          ...(agentBoardContext ? { agentBoardContext } : {}),
+          projectRoomAgentWriter: context,
+        },
+        { timeoutMs: AGENT_GENERATE_IMAGES_TIMEOUT_MS },
+      ),
+    persistAssets: (preparedFiles) =>
+      persistAndPublishProjectRoomAssets({
+        projectPath,
+        files: preparedFiles,
+      }),
+    validateOperation: (operation) =>
+      validateProjectRoomOperationAssets(room, operation),
+  });
+};
+const agentImageGenerationService = createAgentImageGenerationService({
+  loadAgentAccessSettings,
+  loadProviderSettings,
+  readProjectAssetPayloads,
+  generateImages: ({ projectPath, request }) =>
+    generationRequestController.generate({
+      projectPath,
+      generationJobId: randomUUID(),
+      request,
+    }),
+  createPlaceholders: async ({
+    projectPath,
+    request,
+    referenceElementIds,
+    threadId,
+    displayLabel,
+  }) =>
+    (await executeAgentImageGenerationWriterCommand({
+      projectPath,
+      threadId,
+      displayLabel,
+      command: "scene.addCoreStudioGenerationPlaceholders",
+      payload: { request, referenceElementIds },
+    })) as unknown as {
+      slots: Array<{
+        frameId: string;
+        labelId: string;
+        fitReturnedImageSize: boolean;
+      }>;
+    },
+  markPlaceholdersFailed: async ({
+    projectPath,
+    slots,
+    threadId,
+    displayLabel,
+  }) => {
+    await executeAgentImageGenerationWriterCommand({
+      projectPath,
+      threadId,
+      displayLabel,
+      command: "scene.failCoreStudioGenerationPlaceholders",
+      payload: { slots },
+    });
+  },
+  writeImages: async ({
+    projectPath,
+    files,
+    referenceElementIds,
+    threadId,
+    displayLabel,
+    slots,
+  }) => {
+    return (await executeAgentImageGenerationWriterCommand({
+      projectPath,
+      threadId,
+      displayLabel,
+      command: "scene.addCoreStudioGeneratedImage",
+      payload: {
+        sourceType: "generated",
+        generationOrigin: "corestudio",
+        generationSource: "agent",
+        referenceElementIds,
+        files,
+        slots,
+      },
+    })) as unknown as {
+      operationId: string;
+      roomSequence: number;
+      persistedSequence: number;
+      persisted: boolean;
+      elementIds: string[];
+      fileIds: string[];
+      images: Array<{
+        fileId: string;
+        elementId: string;
+        frameId: string;
+      }>;
+    };
+  },
+});
 const PACKAGED_SMOKE_READY_SIGNAL = "[corestudio:smoke-ready]";
 const pendingRendererMenuEvents: DesktopMenuEvent[] = [];
 const pendingProjectRoomFlushes = new Map<
@@ -898,6 +1048,26 @@ const startLocalBridge = async () => {
         : path.join(__dirname, "..", "dist"),
       agentBoardDevServerUrl: rendererUrl ?? undefined,
       isAgentAccessEnabled: () => agentAccessEnabled,
+      getAgentImageGenerationCapability: () =>
+        agentImageGenerationService.getCapability(),
+      generateAgentImages: ({
+        project,
+        threadId,
+        displayLabel,
+        prompt,
+        count,
+        referenceFileIds,
+        referenceElementIds,
+      }) =>
+        agentImageGenerationService.generate({
+          projectPath: project.projectPath,
+          threadId,
+          displayLabel,
+          prompt,
+          count,
+          referenceFileIds,
+          referenceElementIds,
+        }),
       getCurrentProject,
       getProjectByToken: getAgentProjectByToken,
       getBoardUrl: getAgentBoardUrl,
@@ -1224,7 +1394,7 @@ const startLocalBridge = async () => {
         });
       },
       withAgentWriterCommand: async (
-        { project, threadId, displayLabel },
+        { project, threadId, displayLabel, dryRun },
         run,
       ) => {
         const room = await projectRoomService.openProject(project.projectPath);
@@ -1240,6 +1410,7 @@ const startLocalBridge = async () => {
             }),
           validateOperation: (operation) =>
             validateProjectRoomOperationAssets(room, operation),
+          dryRun,
         });
       },
       getProjectRoomParticipantState: async ({ project, threadId }) => {
@@ -1305,7 +1476,11 @@ const setAgentBridgeEnabled = async (enabled: boolean) => {
   }
 
   const previousEnabled = agentAccessEnabled;
-  const settings = await saveAgentAccessSettings({ enabled });
+  const previousSettings = await loadAgentAccessSettings();
+  const settings = await saveAgentAccessSettings({
+    ...previousSettings,
+    enabled,
+  });
   agentAccessEnabled = settings.enabled;
 
   if (!enabled) {
@@ -1318,11 +1493,12 @@ const setAgentBridgeEnabled = async (enabled: boolean) => {
     await startLocalBridge();
   } catch (error) {
     agentAccessEnabled = previousEnabled;
-    await saveAgentAccessSettings({ enabled: previousEnabled }).catch(
-      (persistError) => {
-        console.error("[agent:bridge-enable-rollback-failed]", persistError);
-      },
-    );
+    await saveAgentAccessSettings({
+      ...previousSettings,
+      enabled: previousEnabled,
+    }).catch((persistError) => {
+      console.error("[agent:bridge-enable-rollback-failed]", persistError);
+    });
     Menu.setApplicationMenu(buildMenu());
     throw error;
   }
@@ -1998,7 +2174,7 @@ const registerIpcHandlers = () => {
   );
 
   ipcMain.handle(IPC_CHANNELS.getAgentBridgeStatus, async (event) => {
-    requireProjectRendererSender(event.sender);
+    requireShellOrProjectRendererSender(event.sender);
     return getAgentBridgeStatus();
   });
   ipcMain.handle(
@@ -2024,6 +2200,34 @@ const registerIpcHandlers = () => {
       }
 
       return setAgentBridgeEnabled(enabled);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.getAgentIntegrationSettings, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    const settings = await loadAgentAccessSettings();
+    return settings.integrations;
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.setCodexImageGenerationEnabled,
+    async (event, enabled: unknown) => {
+      requireShellOrProjectRendererSender(event.sender);
+      if (typeof enabled !== "boolean") {
+        throw new Error("Codex image generation permission must be a boolean.");
+      }
+      const settings = await loadAgentAccessSettings();
+      const saved = await saveAgentAccessSettings({
+        ...settings,
+        integrations: {
+          ...settings.integrations,
+          codex: {
+            ...settings.integrations.codex,
+            allowImageGeneration: enabled,
+          },
+        },
+      });
+      return saved.integrations;
     },
   );
 
@@ -2398,6 +2602,16 @@ const registerIpcHandlers = () => {
       requireShellOrProjectRendererSender(event.sender);
       return {
         ...(await deleteProviderSettings(input)),
+        modelCatalog: modelCatalogService?.getState(),
+      };
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.setGenerateComposerVisible,
+    async (event, visible: boolean) => {
+      requireShellOrProjectRendererSender(event.sender);
+      return {
+        ...(await setGenerateComposerVisible(visible)),
         modelCatalog: modelCatalogService?.getState(),
       };
     },

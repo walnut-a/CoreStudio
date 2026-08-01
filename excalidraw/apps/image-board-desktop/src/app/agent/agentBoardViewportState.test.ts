@@ -21,6 +21,37 @@ const createStorage = () => {
 const zoom = (value: number) => ({ value } as AppState["zoom"]);
 
 describe("agentBoardViewportState", () => {
+  it("persists the viewport across a full browser reload", () => {
+    writeAgentBoardViewportState("board-a", {
+      scrollX: -480,
+      scrollY: 260,
+      zoom: zoom(1.6),
+    });
+
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          "corestudio:stable-board:board-a:viewport",
+        ) ?? "null",
+      ),
+    ).toEqual({
+      version: 1,
+      scrollX: -480,
+      scrollY: 260,
+      zoom: { value: 1.6 },
+    });
+    expect(
+      window.sessionStorage.getItem(
+        "corestudio:stable-board:board-a:viewport",
+      ),
+    ).toBeNull();
+    expect(readAgentBoardViewportState("board-a")).toEqual({
+      scrollX: -480,
+      scrollY: 260,
+      zoom: { value: 1.6 },
+    });
+  });
+
   it("stores and restores the viewport independently for each stable board", () => {
     const storage = createStorage();
 

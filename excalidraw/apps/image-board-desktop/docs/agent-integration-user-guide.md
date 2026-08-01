@@ -1,6 +1,6 @@
 # CoreStudio Codex 集成使用说明
 
-“Codex 集成”让 Codex 通过本地客户端安全地读取和写回 CoreStudio 项目。它不是账户连接功能，也没有额外启停开关。
+“Codex 集成”让 Codex 通过本地客户端安全地读取和写回 CoreStudio 项目。它不是账户连接功能；Agent Bridge 和消耗用户图片服务额度的权限分别控制。
 
 ## 两条产品路径
 
@@ -27,6 +27,8 @@ Codex 是 Agent 工作流的唯一调度者；CLI / Local Bridge 只是受 CoreS
 4. Codex 可以读取画布和选区、使用自身能力生成图片，并通过 CLI / Local Bridge 写回。
 5. 写回完成后，可在 CoreStudio 左侧生成记录中定位结果。
 
+Codex 默认优先使用自身图片生成能力。如果其他 Agent 没有合适的生图能力，或用户明确要求使用 CoreStudio，可以在“Codex 集成 → Agent 权限”单独开启图片生成权限。该权限使用用户当前选定的服务和模型并消耗对应服务商额度；Agent 不能读取凭证、切换模型或修改图片集成配置。
+
 本地 CoreStudio 必须保持运行。网页画布用于查看、选择、标注和确认结果，不提供另一套生成输入器。
 
 如果稳定画布地址已经打开，但页面尚未连接到 Codex 对话，页面会说明当前状态、下一步操作和连接成功后的结果。点击“复制连接指令”，把复制的完整内容粘贴到目标 Codex 对话中发送。指令包含当前页面的一次性结构化连接引用；Codex 完成身份认领后，原页面会自动进入可编辑画布，无需刷新或重新打开。
@@ -36,6 +38,7 @@ Codex 是 Agent 工作流的唯一调度者；CLI / Local Bridge 只是受 CoreS
 - `read`：读取状态、项目、选区、图片路径、记录和健康报告。
 - `write`：经 CoreStudio 校验写入图片或 prompt。
 - `edit`：定位、选择等临时画布操作。
+- `generate`：获得单独授权后，使用 CoreStudio 当前图片服务生成、写回并持久化。
 - `bash`：输出当前会话环境与示例。
 
 Agent 生成图片的写回来源统一使用 `agent-board`。

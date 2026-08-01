@@ -135,6 +135,10 @@ export const enCopy: DesktopCopy = {
       "Select an AI-generated image or generation placeholder to inspect its prompt, model, size, and task status.",
     generatedImageTitle: "AI-generated image",
     importedImageTitle: "Imported image",
+    coreStudioGenerationByCodex:
+      "CoreStudio image generation · Initiated by Codex",
+    coreStudioGenerationByApp:
+      "CoreStudio image generation · Initiated by CoreStudio",
     taskTitle: "Generation task",
     taskPending: "Generating",
     taskFailed: "Generation failed",
@@ -289,7 +293,7 @@ export const enCopy: DesktopCopy = {
     close: "Close",
     categoriesLabel: "Settings categories",
     general: "General",
-    imageGeneration: "Image Generation",
+    imageGeneration: "Image Integrations",
     codexIntegration: "Codex Integration",
     experimental: "Experimental Features",
     about: "About",
@@ -312,9 +316,15 @@ export const enCopy: DesktopCopy = {
     },
     imageGenerationPage: {
       description:
-        "Manage the image generation services available on the board.",
+        "Manage image generation services and the composer shown on the board.",
+      composerVisibilityTitle: "Board Generation Composer",
+      composerVisibilityDescription:
+        "Show the built-in image generation composer at the bottom of project boards. If you do not need built-in image generation for now, you can turn it off; your services, models, and API keys will stay saved.",
+      composerVisibilityLabel: "Show generation composer",
+      composerVisibilitySaveFailed:
+        "Could not save the generation composer setting.",
       addService: "Add Service",
-      back: "← Back to Image Generation",
+      back: "← Back to Image Integrations",
       selectProvider: "Choose a Provider",
       selectProviderDescription:
         "Choose a provider, then enter the settings it requires.",
@@ -456,6 +466,20 @@ export const enCopy: DesktopCopy = {
       openCurrentProject: "Open the current CoreStudio project",
       startDescription: "Copy this instruction into any Codex conversation.",
       copyInstructions: "Copy Instructions",
+      agentPermissions: "Agent Permissions",
+      imageGenerationPermissionTitle:
+        "Allow Codex to use CoreStudio image generation",
+      imageGenerationPermissionDescription:
+        "When enabled, Codex can use the provider, model, and API key currently selected in Image Integrations through the CoreStudio CLI. This consumes the corresponding provider quota. Codex cannot view credentials, switch models, or change image integration settings. Turning this off does not affect board access or project writes. Codex already includes a generous image generation allowance, so keeping this off is usually recommended.",
+      imageGenerationPermissionLabel:
+        "Allow Codex to use CoreStudio image generation",
+      imageGenerationPermissionSaveFailed:
+        "Could not save the Codex image generation permission.",
+      imageGenerationNotConfigured:
+        "No image generation service is configured. After enabling permission, select a service and model in Image Integrations.",
+      openImageIntegrations: "Open Image Integrations",
+      bridgeDisabledPermissionNote:
+        "Permission is saved and will take effect after Agent Bridge is enabled.",
       installPrompt: (appVersion: string, guideUrl: string) =>
         `Repair the Codex integration using the zero-argument installer bundled with the installed production CoreStudio ${appVersion}. Do not download or rewrite an installer. Then verify only the CLI, Skill, and compatibility record. Reference guide: ${guideUrl}`,
     },

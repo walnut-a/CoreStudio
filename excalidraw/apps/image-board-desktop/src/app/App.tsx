@@ -2048,6 +2048,16 @@ const App = ({
               void desktopBridge.openExternal?.(url);
             }}
             onDirtyChange={setAppSettingsDirty}
+            onComposerVisibilityChange={async (visible) => {
+              if (!desktopBridge.setGenerateComposerVisible) {
+                throw new Error(
+                  copy.applicationSettings.imageGenerationPage.composerVisibilitySaveFailed,
+                );
+              }
+              const configuration =
+                await desktopBridge.setGenerateComposerVisible(visible);
+              setProviderConfiguration(configuration);
+            }}
           />
         ),
         codexIntegrationContent: (
@@ -2072,6 +2082,43 @@ const App = ({
               return desktopBridge.installCodexIntegration();
             }}
             copyText={clipboardTextRendererActions.copy}
+            loadAgentIntegrationSettings={() => {
+              if (!desktopBridge.getAgentIntegrationSettings) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持读取 Agent 权限。"),
+                );
+              }
+              return desktopBridge.getAgentIntegrationSettings();
+            }}
+            setCodexImageGenerationEnabled={(enabled) => {
+              if (!desktopBridge.setCodexImageGenerationEnabled) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持保存 Agent 权限。"),
+                );
+              }
+              return desktopBridge.setCodexImageGenerationEnabled(enabled);
+            }}
+            loadAgentBridgeStatus={() => {
+              if (!desktopBridge.getAgentBridgeStatus) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持读取 Agent Bridge 状态。"),
+                );
+              }
+              return desktopBridge.getAgentBridgeStatus();
+            }}
+            providerConfigured={Boolean(
+              providerConfiguration &&
+                providerConfiguration.defaultProvider &&
+                providerConfiguration.providers[
+                  providerConfiguration.defaultProvider
+                ]?.isConfigured &&
+                providerConfiguration.providers[
+                  providerConfiguration.defaultProvider
+                ]?.defaultModel,
+            )}
+            onOpenImageIntegrations={() =>
+              setAppSettingsCategory("image-generation")
+            }
           />
         ),
         aboutContent: (
@@ -2471,7 +2518,9 @@ const App = ({
         </div>
       </ProjectRenderBoundary>
 
-      {!isAgentBrowserRoute ? (
+      {!isAgentBrowserRoute &&
+      providerConfiguration !== null &&
+      providerConfiguration.composerVisible !== false ? (
         <GenerateImageDialog
           open={true}
           persistent={true}

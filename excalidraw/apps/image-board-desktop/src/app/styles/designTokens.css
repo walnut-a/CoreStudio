@@ -3,6 +3,7 @@
   --corestudio-left-sidebar-width: var(--corestudio-side-panel-width);
   --corestudio-right-sidebar-width: var(--corestudio-side-panel-width);
   --side-dock-toggle-size: 40px;
+  --side-dock-icon-size: 20px;
   --side-dock-edge-gap: var(--ui-space-lg);
   --side-dock-button-gap: var(--ui-space-sm);
   --floating-panel-edge-gap: 24px;

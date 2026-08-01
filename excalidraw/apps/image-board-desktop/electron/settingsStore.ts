@@ -26,6 +26,7 @@ type StoredProviderSettings = Record<ProviderId, Partial<ProviderSettings>>;
 
 interface StoredProviderConfigurationV2 {
   schemaVersion: 2;
+  composerVisible: boolean;
   defaultProvider: ProviderId | null;
   providers: StoredProviderSettings;
 }
@@ -54,6 +55,7 @@ const defaultProviders = (): StoredProviderSettings =>
 
 const defaultConfiguration = (): StoredProviderConfigurationV2 => ({
   schemaVersion: 2,
+  composerVisible: true,
   defaultProvider: null,
   providers: defaultProviders(),
 });
@@ -240,6 +242,7 @@ const normalizeConfiguration = (
   return {
     configuration: {
       schemaVersion: 2,
+      composerVisible: !isV2 || candidate?.composerVisible !== false,
       defaultProvider,
       providers,
     },
@@ -251,6 +254,7 @@ const toPublicConfiguration = (
   configuration: StoredProviderConfigurationV2,
 ): ProviderConfigurationSnapshot => ({
   schemaVersion: 2,
+  composerVisible: configuration.composerVisible,
   defaultProvider: normalizeDefaultProvider(
     configuration.providers,
     configuration.defaultProvider,
@@ -306,6 +310,13 @@ const writeSettings = async (settings: StoredProviderConfigurationV2) => {
 
 export const loadProviderSettings = async () => {
   return toPublicConfiguration(await readSettings());
+};
+
+export const setGenerateComposerVisible = async (visible: boolean) => {
+  const configuration = await readSettings();
+  configuration.composerVisible = visible;
+  await writeSettings(configuration);
+  return toPublicConfiguration(configuration);
 };
 
 const normalizeBaseUrl = (baseUrl: string | undefined) =>

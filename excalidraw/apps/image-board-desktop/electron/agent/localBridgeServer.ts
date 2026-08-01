@@ -18,6 +18,8 @@ import type {
   AgentBrowserRuntimeState,
   AgentDesktopBridgeMethod,
   AgentErrorCode,
+  AgentImageGenerationCapability,
+  AgentImageGenerationInput,
   AgentRendererCommandName,
   StableBoardIntegrationStatus,
 } from "../../src/shared/agentBridgeTypes";
@@ -139,6 +141,7 @@ export interface LocalBridgeServerOptions {
       project: LocalBridgeCurrentProject;
       threadId: string;
       displayLabel: string;
+      dryRun?: boolean;
     },
     run: (context: {
       sessionId: string;
@@ -151,6 +154,14 @@ export interface LocalBridgeServerOptions {
     project: LocalBridgeCurrentProject;
     threadId: string;
   }) => Promise<AgentBrowserRuntimeState | null>;
+  getAgentImageGenerationCapability?: () => Promise<AgentImageGenerationCapability>;
+  generateAgentImages?: (
+    input: AgentImageGenerationInput & {
+      project: LocalBridgeCurrentProject;
+      threadId: string;
+      displayLabel: string;
+    },
+  ) => Promise<unknown>;
 }
 
 export interface LocalBridgeServerHandle {
@@ -183,6 +194,10 @@ const WRITE_ROUTES: WriteRouteConfig[] = [
     command: "scene.addPrompt",
   },
   {
+    route: AGENT_HTTP_ROUTES.sceneAddDiagram,
+    command: "scene.addDiagram",
+  },
+  {
     route: AGENT_HTTP_ROUTES.taskComplete,
     command: "task.complete",
     completeGrant: true,
@@ -206,6 +221,10 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   BAD_REQUEST: 400,
   CAPABILITY_UNAVAILABLE: 409,
   FORBIDDEN: 403,
+  IMAGE_GENERATION_DISABLED: 403,
+  IMAGE_GENERATION_FAILED: 502,
+  IMAGE_MODEL_CAPABILITY_UNSUPPORTED: 409,
+  IMAGE_PROVIDER_NOT_CONFIGURED: 409,
   PROJECT_MISMATCH: 409,
   PROJECT_OPEN_IN_ANOTHER_APP: 409,
   PROJECT_REQUIRED: 409,
@@ -230,6 +249,82 @@ const PARTICIPANT_THREAD_HEADER = "x-corestudio-participant-thread";
 const PARTICIPANT_LABEL_HEADER = "x-corestudio-participant-label";
 const AGENT_BOARD_ASSET_ROUTE_PREFIX = "/assets/";
 const RETIRED_AGENT_BOARD_ROUTE = "/agent-board";
+
+const parseStringArray = (value: unknown, fieldName: string): string[] => {
+  if (value === undefined) {
+    return [];
+  }
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string" || !item.trim())
+  ) {
+    throw Object.assign(
+      new Error(`${fieldName} must be an array of non-empty strings.`),
+      { code: "BAD_REQUEST" },
+    );
+  }
+  return Array.from(new Set(value.map((item) => item.trim())));
+};
+
+const parseAgentImageGenerationInput = (
+  body: JsonBody,
+  capability: AgentImageGenerationCapability,
+): AgentImageGenerationInput => {
+  for (const forbiddenField of ["provider", "model", "apiKey", "baseUrl"]) {
+    if (body[forbiddenField] !== undefined) {
+      throw Object.assign(
+        new Error(`${forbiddenField} cannot be overridden by an Agent.`),
+        { code: "BAD_REQUEST" },
+      );
+    }
+  }
+  const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+  if (!prompt) {
+    throw Object.assign(new Error("prompt must be a non-empty string."), {
+      code: "BAD_REQUEST",
+    });
+  }
+  const count = body.count === undefined ? 1 : body.count;
+  if (typeof count !== "number" || !Number.isInteger(count) || count <= 0) {
+    throw Object.assign(new Error("count must be a positive integer."), {
+      code: "BAD_REQUEST",
+    });
+  }
+  if (
+    capability.capabilities &&
+    count > capability.capabilities.maxImageCount
+  ) {
+    throw Object.assign(
+      new Error(
+        `The current model supports at most ${capability.capabilities.maxImageCount} images per request.`,
+      ),
+      { code: "IMAGE_MODEL_CAPABILITY_UNSUPPORTED" },
+    );
+  }
+  const referenceFileIds = parseStringArray(
+    body.referenceFileIds,
+    "referenceFileIds",
+  );
+  const referenceElementIds = parseStringArray(
+    body.referenceElementIds,
+    "referenceElementIds",
+  );
+  if (
+    referenceFileIds.length > 0 &&
+    capability.capabilities?.supportsReferenceImages === false
+  ) {
+    throw Object.assign(
+      new Error("The current model does not support image references."),
+      { code: "IMAGE_MODEL_CAPABILITY_UNSUPPORTED" },
+    );
+  }
+  return {
+    prompt,
+    count,
+    referenceFileIds,
+    referenceElementIds,
+  };
+};
 const STATIC_CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -320,8 +415,7 @@ const isAgentBoardPagePath = (pathname: string) => {
     ? pathname.slice(`${AGENT_BOARD_ROUTE}/`.length)
     : "";
   return (
-    stableBoardPathSegment.length > 0 &&
-    !stableBoardPathSegment.includes("/")
+    stableBoardPathSegment.length > 0 && !stableBoardPathSegment.includes("/")
   );
 };
 
@@ -822,14 +916,10 @@ const handleDesktopBridgeCommand = async (
   }
 
   const authenticatedProject = hasToken
-    ? await authenticateProjectRequest(
-      request,
-      response,
-      options,
-    )
+    ? await authenticateProjectRequest(request, response, options)
     : null;
   if (hasToken && !authenticatedProject) {
-      return;
+    return;
   }
 
   const args = body.args;
@@ -869,10 +959,10 @@ const handleWriteCommand = async (
   const payload = createRendererPayload(
     body,
     currentProject.projectPath,
-    false,
+    body.dryRun === true,
     runtimeState ? buildAgentBoardCommandContext(runtimeState) : null,
   );
-  if (body.dryRun === true) {
+  if (body.dryRun === true && config.command !== "scene.addDiagram") {
     sendJson(
       response,
       200,
@@ -920,7 +1010,8 @@ const handleWriteCommand = async (
     );
     const isRoomWrite =
       config.command === "scene.addImage" ||
-      config.command === "scene.addPrompt";
+      config.command === "scene.addPrompt" ||
+      config.command === "scene.addDiagram";
     let result: unknown;
     if (isRoomWrite) {
       if (!trustedParticipant) {
@@ -941,6 +1032,7 @@ const handleWriteCommand = async (
         {
           project: currentProject,
           ...trustedParticipant,
+          ...(body.dryRun === true ? { dryRun: true } : {}),
         },
         (context) =>
           options.renderer.request(config.command, {
@@ -1551,6 +1643,16 @@ export const createLocalBridgeServer = async (
           sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
           return;
         }
+        const imageGeneration = options.getAgentImageGenerationCapability
+          ? await options.getAgentImageGenerationCapability()
+          : {
+              supported: false,
+              authorized: false,
+              configured: false,
+              currentProvider: null,
+              currentModel: null,
+              capabilities: null,
+            };
         sendJson(
           response,
           200,
@@ -1566,6 +1668,7 @@ export const createLocalBridgeServer = async (
             ],
             routes: AGENT_HTTP_ROUTES,
             permissions: AGENT_PERMISSIONS,
+            imageGeneration,
           }),
         );
         return;
@@ -1687,13 +1790,16 @@ export const createLocalBridgeServer = async (
         url.pathname === AGENT_HTTP_ROUTES.sceneImagePaths;
       const isDesktopBridgeRoute =
         url.pathname === AGENT_HTTP_ROUTES.desktopBridge;
+      const isImageGenerationRoute =
+        url.pathname === AGENT_HTTP_ROUTES.imageGeneration;
       if (
         request.method === "POST" &&
         !isAuthorizeRoute &&
         !isSceneImagePathsRoute &&
         !writeRoute &&
         !projectCommandRoute &&
-        !isDesktopBridgeRoute
+        !isDesktopBridgeRoute &&
+        !isImageGenerationRoute
       ) {
         sendError(
           response,
@@ -1749,6 +1855,72 @@ export const createLocalBridgeServer = async (
               : {}),
           }),
         );
+        return;
+      }
+
+      if (request.method === "POST" && isImageGenerationRoute && body) {
+        const currentProject = await authenticateProjectRequest(
+          request,
+          response,
+          options,
+        );
+        if (!currentProject) {
+          return;
+        }
+        const trustedParticipant = getTrustedParticipantIdentity(
+          request,
+          options.participantIssuerToken,
+        );
+        if (!trustedParticipant) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A trusted Codex participant identity is required for image generation.",
+          );
+          return;
+        }
+        const capability = options.getAgentImageGenerationCapability
+          ? await options.getAgentImageGenerationCapability()
+          : null;
+        if (!capability?.supported || !options.generateAgentImages) {
+          sendError(
+            response,
+            409,
+            "CAPABILITY_UNAVAILABLE",
+            "CoreStudio Agent image generation is unavailable.",
+          );
+          return;
+        }
+        if (!capability.authorized) {
+          sendError(
+            response,
+            403,
+            "IMAGE_GENERATION_DISABLED",
+            "Codex is not allowed to use CoreStudio image generation.",
+          );
+          return;
+        }
+        if (!capability.configured) {
+          sendError(
+            response,
+            409,
+            "IMAGE_PROVIDER_NOT_CONFIGURED",
+            "The current CoreStudio image provider and model are not configured.",
+          );
+          return;
+        }
+        try {
+          const input = parseAgentImageGenerationInput(body, capability);
+          const result = await options.generateAgentImages({
+            project: currentProject,
+            ...trustedParticipant,
+            ...input,
+          });
+          sendJson(response, 200, createAgentOk(result));
+        } catch (error) {
+          sendRendererError(response, error);
+        }
         return;
       }
 
@@ -1873,7 +2045,8 @@ export const createLocalBridgeServer = async (
         server,
         authenticate: options.authenticateProjectRoomWebSocket,
         allowOrigin: (origin) =>
-          getAllowedCorsOrigin(origin, options.getBoardUrl?.() ?? null) !== null,
+          getAllowedCorsOrigin(origin, options.getBoardUrl?.() ?? null) !==
+          null,
       })
     : null;
 

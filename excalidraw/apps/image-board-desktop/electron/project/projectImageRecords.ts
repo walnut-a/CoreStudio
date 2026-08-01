@@ -131,7 +131,10 @@ export const parseProjectImageRecords = (
   }
 
   for (const [recordKey, rawRecord] of Object.entries(value)) {
-    if (!isObjectRecord(rawRecord) || !hasRequiredImageRecordFields(rawRecord)) {
+    if (
+      !isObjectRecord(rawRecord) ||
+      !hasRequiredImageRecordFields(rawRecord)
+    ) {
       issues.push({
         code: "invalid-record-field",
         fileId: recordKey,
@@ -163,9 +166,7 @@ export const parseProjectImageRecords = (
       mimeType: rawRecord.mimeType,
     };
     let hasInvalidOptionalField = false;
-    const copyOptionalString = (
-      key: "model" | "prompt" | "negativePrompt",
-    ) => {
+    const copyOptionalString = (key: "model" | "prompt" | "negativePrompt") => {
       const fieldValue = rawRecord[key];
       if (fieldValue === undefined) {
         return;
@@ -179,6 +180,15 @@ export const parseProjectImageRecords = (
     copyOptionalString("model");
     copyOptionalString("prompt");
     copyOptionalString("negativePrompt");
+
+    if (
+      rawRecord.generationSource === "builtin" ||
+      rawRecord.generationSource === "agent"
+    ) {
+      normalizedRecord.generationSource = rawRecord.generationSource;
+    } else if (rawRecord.generationSource !== undefined) {
+      hasInvalidOptionalField = true;
+    }
 
     if (rawRecord.seed !== undefined) {
       if (
@@ -291,7 +301,10 @@ export const writeProjectImageRecords = async (
   imageRecords: ImageRecordMap,
   storage: Pick<ProjectImageRecordStorage, "writeJson">,
 ) => {
-  await storage.writeJson(getProjectImageRecordsPath(projectPath), imageRecords);
+  await storage.writeJson(
+    getProjectImageRecordsPath(projectPath),
+    imageRecords,
+  );
 };
 
 export const repairLegacyGeneratedImageRecordOrigins = (

@@ -7,12 +7,22 @@ const AGENT_ACCESS_SETTINGS_FILE_NAME = "agent-access-settings.json";
 
 export interface AgentAccessSettings {
   enabled: boolean;
+  integrations: {
+    codex: {
+      allowImageGeneration: boolean;
+    };
+  };
 }
 
 const defaultAgentAccessSettings = (
   defaultEnabled = false,
 ): AgentAccessSettings => ({
   enabled: defaultEnabled,
+  integrations: {
+    codex: {
+      allowImageGeneration: false,
+    },
+  },
 });
 
 const getAgentAccessSettingsPath = () =>
@@ -25,23 +35,32 @@ const normalizeAgentAccessSettings = (value: unknown): AgentAccessSettings => {
 
   return {
     enabled: (value as Partial<AgentAccessSettings>).enabled === true,
+    integrations: {
+      codex: {
+        allowImageGeneration:
+          (
+            value as {
+              integrations?: { codex?: { allowImageGeneration?: unknown } };
+            }
+          ).integrations?.codex?.allowImageGeneration === true,
+      },
+    },
   };
 };
 
-export const loadAgentAccessSettings =
-  async (
-    options: { defaultEnabled?: boolean } = {},
-  ): Promise<AgentAccessSettings> => {
-    try {
-      const contents = await fs.readFile(getAgentAccessSettingsPath(), "utf8");
-      return normalizeAgentAccessSettings(JSON.parse(contents));
-    } catch (error: any) {
-      if (error.code === "ENOENT") {
-        return defaultAgentAccessSettings(options.defaultEnabled);
-      }
-      throw error;
+export const loadAgentAccessSettings = async (
+  options: { defaultEnabled?: boolean } = {},
+): Promise<AgentAccessSettings> => {
+  try {
+    const contents = await fs.readFile(getAgentAccessSettingsPath(), "utf8");
+    return normalizeAgentAccessSettings(JSON.parse(contents));
+  } catch (error: any) {
+    if (error.code === "ENOENT") {
+      return defaultAgentAccessSettings(options.defaultEnabled);
     }
-  };
+    throw error;
+  }
+};
 
 export const saveAgentAccessSettings = async (
   settings: AgentAccessSettings,

@@ -36,6 +36,7 @@ export const buildCoreStudioGeneratedImageAssetInputs = ({
             fileId: createFileId(index),
             sourceType: "generated" as const,
             generationOrigin: "corestudio" as const,
+            generationSource: request.generationSource ?? "builtin",
             provider: response.provider,
             model: response.model,
             prompt: promptHistoryText,

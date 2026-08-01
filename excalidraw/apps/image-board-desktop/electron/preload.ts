@@ -93,6 +93,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.saveProviderSettings, input),
   deleteProviderSettings: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.deleteProviderSettings, input),
+  setGenerateComposerVisible: (visible) =>
+    ipcRenderer.invoke(IPC_CHANNELS.setGenerateComposerVisible, visible),
   refreshModelCatalog: () =>
     ipcRenderer.invoke(IPC_CHANNELS.refreshModelCatalog),
   generateImages: (input) =>
@@ -124,6 +126,10 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.getAgentBridgeStatus),
   setAgentBridgeEnabled: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setAgentBridgeEnabled, enabled),
+  getAgentIntegrationSettings: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.getAgentIntegrationSettings),
+  setCodexImageGenerationEnabled: (enabled) =>
+    ipcRenderer.invoke(IPC_CHANNELS.setCodexImageGenerationEnabled, enabled),
   joinProjectRoom: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomJoin, input),
   resyncProjectRoom: (sessionId) =>

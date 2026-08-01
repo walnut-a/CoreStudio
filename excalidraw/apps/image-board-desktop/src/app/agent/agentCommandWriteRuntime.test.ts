@@ -97,6 +97,85 @@ describe("agentCommandWriteRuntime", () => {
     });
   });
 
+  it("prepares a Mermaid diagram as one native room operation", async () => {
+    const result = await handleAgentWriteCommand(
+      {
+        requestId: "request-diagram",
+        command: "scene.addDiagram",
+        payload: {
+          projectPath: project.projectPath,
+          format: "mermaid",
+          source: "flowchart LR\nA[Start] --> B[End]",
+          anchor: "viewport",
+          projectRoomAgentWriter: roomContext,
+        },
+      },
+      {
+        project,
+        deps: {
+          parseMermaidDiagram: async () => ({
+            elements: [
+              {
+                id: "A",
+                type: "rectangle",
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 80,
+                label: { text: "Start" },
+              },
+              {
+                id: "B",
+                type: "rectangle",
+                x: 260,
+                y: 0,
+                width: 160,
+                height: 80,
+                label: { text: "End" },
+              },
+              {
+                id: "A_B",
+                type: "arrow",
+                x: 160,
+                y: 40,
+                width: 100,
+                height: 0,
+                start: { id: "A" },
+                end: { id: "B" },
+              },
+            ],
+            files: {},
+          }),
+        } as any,
+      },
+    );
+
+    expect(result).toMatchObject({
+      handled: true,
+      value: {
+        type: "agent-writer.prepared",
+        result: {
+          format: "mermaid",
+          diagramId: expect.any(String),
+          elementCount: 5,
+          bounds: {
+            x: expect.any(Number),
+            y: expect.any(Number),
+            width: expect.any(Number),
+            height: expect.any(Number),
+          },
+        },
+        elements: [
+          { type: "rectangle" },
+          { type: "rectangle" },
+          { type: "arrow" },
+          { type: "text" },
+          { type: "text" },
+        ],
+      },
+    });
+  });
+
   it("places one generation batch together beside its selected references", async () => {
     const result = await handleAgentWriteCommand(
       {
@@ -165,14 +244,119 @@ describe("agentCommandWriteRuntime", () => {
       value: {
         files: [
           {
+            generationSource: "agent",
             promptReferences: [{ elementIds: ["reference-1", "reference-2"] }],
           },
-          {},
+          { generationSource: "agent" },
         ],
         elements: [
           { type: "image", x: 584, y: -56, width: 512, height: 512 },
           { type: "image", x: 1128, y: -56, width: 512, height: 512 },
         ],
+      },
+    });
+  });
+
+  it("creates placeholders and replaces them with internal CoreStudio generation results", async () => {
+    const placeholderResult = await handleAgentWriteCommand(
+      {
+        requestId: "request-corestudio-placeholder",
+        command: "scene.addCoreStudioGenerationPlaceholders",
+        payload: {
+          projectPath: project.projectPath,
+          request: {
+            generationSource: "agent",
+            provider: "openai",
+            model: "gpt-image-1.5",
+            prompt: "industrial design sketch",
+            promptParts: [{ type: "text", text: "industrial design sketch" }],
+            width: 1024,
+            height: 1024,
+            aspectRatio: null,
+            seed: null,
+            imageCount: 1,
+            reference: null,
+          },
+          referenceElementIds: [],
+          projectRoomAgentWriter: roomContext,
+        },
+      },
+      { project, deps: {} as any },
+    );
+    expect(placeholderResult).toMatchObject({
+      handled: true,
+      value: {
+        elements: [{ type: "rectangle" }, { type: "text" }],
+        result: {
+          slots: [
+            {
+              frameId: expect.any(String),
+              labelId: expect.any(String),
+              fitReturnedImageSize: true,
+            },
+          ],
+        },
+      },
+    });
+    if (!placeholderResult.handled) {
+      throw new Error("Expected placeholders to be prepared");
+    }
+    const placeholderCommand = placeholderResult.value as {
+      elements: any[];
+      result: { slots: any[] };
+    };
+
+    await expect(
+      handleAgentWriteCommand(
+        {
+          requestId: "request-corestudio-generation",
+          command: "scene.addCoreStudioGeneratedImage",
+          payload: {
+            projectPath: project.projectPath,
+            sourceType: "generated",
+            generationOrigin: "corestudio",
+            generationSource: "agent",
+            fileId: "input-file",
+            mimeType: "image/png",
+            dataBase64: "aW1hZ2U=",
+            width: 512,
+            height: 256,
+            slots: placeholderCommand.result.slots,
+            projectRoomAgentWriter: {
+              ...roomContext,
+              scene: {
+                elements: placeholderCommand.elements,
+                sharedSceneConfig: {},
+              },
+            },
+          },
+        },
+        { project, deps: {} as any },
+      ),
+    ).resolves.toMatchObject({
+      handled: true,
+      value: {
+        elements: [
+          { type: "rectangle", isDeleted: true },
+          { type: "text", isDeleted: true },
+          { type: "image", fileId: expect.any(String) },
+        ],
+        files: [
+          {
+            sourceType: "generated",
+            generationOrigin: "corestudio",
+            generationSource: "agent",
+          },
+        ],
+        result: {
+          images: [
+            {
+              fileId: expect.any(String),
+              elementId: expect.any(String),
+              frameId: placeholderCommand.result.slots[0].frameId,
+            },
+          ],
+        },
       },
     });
   });

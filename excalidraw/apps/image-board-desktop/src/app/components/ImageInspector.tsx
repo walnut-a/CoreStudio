@@ -69,6 +69,18 @@ const getImageRecordTitle = (record: ImageRecord) =>
     ? copy.inspector.generatedImageTitle
     : copy.inspector.importedImageTitle;
 
+const getGenerationAttribution = (record: ImageRecord) => {
+  if (
+    record.sourceType !== "generated" ||
+    record.generationOrigin !== "corestudio"
+  ) {
+    return null;
+  }
+  return record.generationSource === "agent"
+    ? copy.inspector.coreStudioGenerationByCodex
+    : copy.inspector.coreStudioGenerationByApp;
+};
+
 const hasPromptReferenceTarget = (reference: ImagePromptReferenceRecord) =>
   Boolean(reference.fileIds?.length || reference.elementIds?.length);
 
@@ -278,6 +290,7 @@ export const ImageInspector = ({
 
   const imageTitle = getImageRecordTitle(record);
   const modelText = getOptionalText(record.model);
+  const generationAttribution = getGenerationAttribution(record);
   const promptReferenceList = getPromptReferenceList(record.promptReferences);
   const detachedPromptReferenceList = promptReferenceList.filter(
     (reference) =>
@@ -334,6 +347,9 @@ export const ImageInspector = ({
             <p>{modelText}</p>
           </div>
           <div className="image-inspector__hero-facts">
+            {generationAttribution ? (
+              <span>{generationAttribution}</span>
+            ) : null}
             <span>{formatSize(record.width, record.height)}</span>
             <span>{formatDateTime(record.createdAt)}</span>
           </div>

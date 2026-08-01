@@ -530,7 +530,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  align-self: end;
+  align-self: center;
   gap: 8px;
   height: var(--generate-composer-control-size);
   min-height: var(--generate-composer-control-size);

@@ -14,14 +14,14 @@ import {
 } from "./agentBridgeTypes";
 
 describe("agentBridgeTypes", () => {
-  it("keeps the external Agent contract limited to image writeback", () => {
+  it("keeps the external Agent contract limited to semantic writeback", () => {
     expect(AGENT_HTTP_ROUTES).not.toHaveProperty("generate");
     expect(AGENT_PERMISSIONS).toEqual(["read-context", "write-board"]);
     expect(AGENT_DESKTOP_BRIDGE_METHODS).not.toContain("generateImages");
   });
 
   it("exports the Agent Bridge protocol version", () => {
-    expect(AGENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
+    expect(AGENT_BRIDGE_PROTOCOL_VERSION).toBe(5);
   });
 
   it("exports the documented HTTP routes", () => {
@@ -34,6 +34,7 @@ describe("agentBridgeTypes", () => {
     expect(AGENT_HTTP_ROUTES.sceneBoard).toBe("/v1/scene/board");
     expect(AGENT_HTTP_ROUTES.sceneImagePaths).toBe("/v1/scene/image-paths");
     expect(AGENT_HTTP_ROUTES.sceneAddImage).toBe("/v1/scene/add-image");
+    expect(AGENT_HTTP_ROUTES.sceneAddDiagram).toBe("/v1/scene/add-diagram");
   });
 
   it("exports the Agent browser desktop bridge method allowlist", () => {

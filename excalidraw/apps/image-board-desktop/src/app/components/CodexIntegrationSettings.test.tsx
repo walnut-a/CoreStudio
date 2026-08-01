@@ -189,6 +189,56 @@ describe("CodexIntegrationSettings", () => {
     await waitFor(() => expect(inspect).toHaveBeenCalledTimes(2));
   });
 
+  it("独立保存 Codex 图片生成权限并提示未配置服务", async () => {
+    const setCodexImageGenerationEnabled = vi.fn(async (enabled: boolean) => ({
+      codex: { allowImageGeneration: enabled },
+    }));
+    const onOpenImageIntegrations = vi.fn();
+    render(
+      <CodexIntegrationSettings
+        open
+        inspect={vi.fn(async () => status)}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
+        copyText={vi.fn(async () => true)}
+        loadAgentIntegrationSettings={vi.fn(async () => ({
+          codex: { allowImageGeneration: false },
+        }))}
+        setCodexImageGenerationEnabled={setCodexImageGenerationEnabled}
+        loadAgentBridgeStatus={vi.fn(async () => ({
+          enabled: false,
+          ready: false,
+          currentProject: null,
+          boardUrl: null,
+        }))}
+        providerConfigured={false}
+        onOpenImageIntegrations={onOpenImageIntegrations}
+      />,
+    );
+
+    const permission = await screen.findByRole("switch", {
+      name: "允许 Codex 使用 CoreStudio 图片生成",
+    });
+    expect(permission).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText(/尚未配置图片生成服务/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "前往图片集成" }));
+    expect(onOpenImageIntegrations).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(permission);
+    await waitFor(() =>
+      expect(setCodexImageGenerationEnabled).toHaveBeenCalledWith(true),
+    );
+    await waitFor(() =>
+      expect(permission).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(
+      screen.getByText("权限已保存，开启 Agent Bridge 后生效。"),
+    ).toBeInTheDocument();
+  });
+
   it("检测失败时不伪造已准备好，并允许重新检测", async () => {
     const inspect = vi
       .fn<() => Promise<CodexIntegrationStatus>>()

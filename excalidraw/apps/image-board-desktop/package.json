@@ -45,6 +45,7 @@
     "@excalidraw/common": "0.18.0",
     "@excalidraw/element": "0.18.0",
     "@excalidraw/excalidraw": "0.18.0",
+    "@excalidraw/mermaid-to-excalidraw": "2.2.2",
     "@google/genai": "1.49.0",
     "@types/node": "^24.8.1",
     "concurrently": "9.2.1",

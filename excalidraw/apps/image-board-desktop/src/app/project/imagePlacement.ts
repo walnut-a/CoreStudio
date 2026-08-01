@@ -104,7 +104,7 @@ const rectanglesOverlap = (
   first.y < second.y + second.height + padding &&
   first.y + first.height > second.y - padding;
 
-const findNearestOpenBatchStart = ({
+export const findNearestOpenScenePlacement = ({
   startX,
   startY,
   totalWidth,
@@ -235,7 +235,7 @@ export const placeGeneratedImages = ({
 
   const preferredStartX = anchorX - totalWidth / 2;
   const preferredStartY = anchorY - totalHeight / 2;
-  const openStart = findNearestOpenBatchStart({
+  const openStart = findNearestOpenScenePlacement({
     startX: preferredStartX,
     startY: preferredStartY,
     totalWidth,

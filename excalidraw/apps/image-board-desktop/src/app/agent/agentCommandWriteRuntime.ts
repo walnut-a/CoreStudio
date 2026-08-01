@@ -3,9 +3,17 @@ import type {
   AgentWriterCommandContext,
   PreparedAgentWriterCommand,
 } from "../../shared/agentBridgeTypes";
+import { randomId } from "@excalidraw/common";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
+import type { GenerationRequest } from "../../shared/providerTypes";
 import { buildGeneratedImageSceneElements } from "../generationSceneElements";
+import {
+  buildPendingGenerationFailureSceneUpdate,
+  buildPendingGenerationPlaceholders,
+  buildPendingGenerationSlotReplacementSceneUpdate,
+  type PendingGenerationSlot,
+} from "../generationPlaceholderState";
 import { placeGeneratedImages } from "../project/imagePlacement";
 import { appendElementsWithSyncedIndices } from "../sceneOrder";
 import {
@@ -17,6 +25,7 @@ import {
   getPlacementViewportFromAgentBoardContext,
   parseAgentBoardCommandContext,
 } from "./agentCommandBoardContext";
+import { compileAgentMermaidDiagram } from "./agentDiagramCompiler";
 import { createAgentPromptTextElement } from "./agentCommandHandlers";
 import { getAgentImageAssetsFromPayload } from "./agentCommandImageAssets";
 import type { AgentCommandRuntimeDeps } from "./agentCommandRuntimeTypes";
@@ -176,13 +185,93 @@ const getImagePlacementAnchorBounds = ({
   );
 };
 
+const parsePendingGenerationSlots = (
+  value: unknown,
+): PendingGenerationSlot[] => {
+  if (!Array.isArray(value)) {
+    throw createAgentBadRequestError("生图占位信息无效。");
+  }
+  return value.map((slot) => {
+    if (
+      !isObjectPayload(slot) ||
+      typeof slot.frameId !== "string" ||
+      !slot.frameId ||
+      typeof slot.labelId !== "string" ||
+      !slot.labelId ||
+      typeof slot.fitReturnedImageSize !== "boolean"
+    ) {
+      throw createAgentBadRequestError("生图占位信息无效。");
+    }
+    return {
+      frameId: slot.frameId,
+      labelId: slot.labelId,
+      fitReturnedImageSize: slot.fitReturnedImageSize,
+    };
+  });
+};
+
+const getReferenceElementAnchorBounds = ({
+  elements,
+  referenceElementIds,
+}: {
+  elements: AgentWriterCommandContext["scene"]["elements"];
+  referenceElementIds: unknown;
+}) => {
+  if (!Array.isArray(referenceElementIds)) {
+    return null;
+  }
+  const ids = new Set(
+    referenceElementIds.filter(
+      (elementId): elementId is string => typeof elementId === "string",
+    ),
+  );
+  if (!ids.size) {
+    return null;
+  }
+  return getElementsSceneBounds(
+    elements.filter(
+      (element) => !element.isDeleted && ids.has(element.id),
+    ) as unknown as readonly ExcalidrawElement[],
+  );
+};
+
+const getDiagramAnchorBounds = ({
+  anchor,
+  elements,
+  selectedElementIds,
+}: {
+  anchor: "auto" | "selection" | "viewport";
+  elements: AgentWriterCommandContext["scene"]["elements"];
+  selectedElementIds: readonly string[];
+}) => {
+  if (anchor === "viewport") {
+    return null;
+  }
+  const selectedIds = new Set(selectedElementIds);
+  const selectedBounds = getElementsSceneBounds(
+    elements.filter(
+      (element) => !element.isDeleted && selectedIds.has(element.id),
+    ) as unknown as readonly ExcalidrawElement[],
+  );
+  if (anchor === "selection" && !selectedBounds) {
+    throw createAgentBadRequestError(
+      "scene.addDiagram --anchor selection 需要当前选区。",
+    );
+  }
+  return selectedBounds;
+};
+
 export const handleAgentWriteCommand = async (
   request: AgentRendererCommandRequest,
-  { project }: AgentWriteCommandRuntimeInput,
+  { project, deps }: AgentWriteCommandRuntimeInput,
 ): Promise<AgentWriteCommandResult> => {
   if (
     request.command !== "scene.addImage" &&
-    request.command !== "scene.addPrompt"
+    request.command !== "scene.addCoreStudioGenerationPlaceholders" &&
+    request.command !== "scene.addCoreStudioGeneratedImage" &&
+    request.command !== "scene.failCoreStudioGenerationPlaceholders" &&
+    request.command !== "scene.addPrompt" &&
+    request.command !== "scene.addDiagram"
   ) {
     return { handled: false };
   }
@@ -192,7 +281,139 @@ export const handleAgentWriteCommand = async (
   const agentBoardContext = parseAgentBoardCommandContext(request.payload);
 
   let prepared: PreparedAgentWriterCommand;
-  if (request.command === "scene.addImage") {
+  if (request.command === "scene.addCoreStudioGenerationPlaceholders") {
+    if (
+      !isObjectPayload(request.payload) ||
+      !isObjectPayload(request.payload.request) ||
+      typeof request.payload.request.imageCount !== "number" ||
+      !Number.isInteger(request.payload.request.imageCount) ||
+      request.payload.request.imageCount < 1 ||
+      typeof request.payload.request.width !== "number" ||
+      request.payload.request.width <= 0 ||
+      typeof request.payload.request.height !== "number" ||
+      request.payload.request.height <= 0
+    ) {
+      throw createAgentBadRequestError("生图请求缺少有效的尺寸或数量。");
+    }
+    const generationRequest = request.payload
+      .request as unknown as GenerationRequest;
+    const placementViewport = getAgentImagePlacementViewport({
+      agentBoardContext,
+      elements: context.scene.elements,
+    });
+    const placements = placeGeneratedImages({
+      images: Array.from({ length: generationRequest.imageCount }, () => ({
+        width: generationRequest.width,
+        height: generationRequest.height,
+      })),
+      viewportCenter: placementViewport.viewportCenter,
+      viewportSize: placementViewport.viewportSize,
+      zoomValue: placementViewport.zoomValue,
+      anchorBounds: getReferenceElementAnchorBounds({
+        elements: context.scene.elements,
+        referenceElementIds: request.payload.referenceElementIds,
+      }),
+      occupiedBounds: getSceneOccupiedBounds(
+        context.scene.elements as unknown as readonly ExcalidrawElement[],
+      ),
+    });
+    const placeholders = buildPendingGenerationPlaceholders({
+      request: generationRequest,
+      placements,
+    });
+    prepared = {
+      type: "agent-writer.prepared",
+      elements: assignRoomIndices(
+        context.scene.elements,
+        placeholders.placeholderElements,
+      ),
+      result: { slots: placeholders.slots },
+    };
+  } else if (request.command === "scene.addCoreStudioGeneratedImage") {
+    if (!isObjectPayload(request.payload)) {
+      throw createAgentBadRequestError("生图结果载荷无效。");
+    }
+    const files = getAgentImageAssetsFromPayload(
+      request.payload,
+      agentBoardContext,
+      { allowCoreStudioOrigin: true },
+    );
+    const slots = parsePendingGenerationSlots(request.payload.slots);
+    if (files.length > slots.length) {
+      throw createAgentBadRequestError("生图结果数量超过占位数量。");
+    }
+    let elements = context.scene
+      .elements as unknown as readonly ExcalidrawElement[];
+    let selectedElementIds = Object.fromEntries(
+      getAgentBoardSelectedElementIds(agentBoardContext).map((id) => [
+        id,
+        true as const,
+      ]),
+    );
+    const images: Array<{
+      fileId: string;
+      elementId: string;
+      frameId: string;
+    }> = [];
+    files.forEach((file, index) => {
+      const slot = slots[index];
+      if (!slot) {
+        return;
+      }
+      const replacement = buildPendingGenerationSlotReplacementSceneUpdate({
+        elements,
+        selectedElementIds,
+        slot,
+        asset: file,
+      });
+      if (!replacement) {
+        throw createAgentBadRequestError("找不到待替换的生图占位。");
+      }
+      elements = replacement.elements;
+      selectedElementIds = replacement.selectedElementIds;
+      images.push({
+        fileId: file.fileId,
+        elementId: replacement.imageElement.id,
+        frameId: slot.frameId,
+      });
+    });
+    if (files.length < slots.length) {
+      elements = buildPendingGenerationFailureSceneUpdate({
+        elements,
+        slots: slots.slice(files.length),
+      }).elements;
+    }
+    const affectedIds = new Set([
+      ...slots.flatMap((slot) => [slot.frameId, slot.labelId]),
+      ...images.map((image) => image.elementId),
+    ]);
+    prepared = {
+      type: "agent-writer.prepared",
+      elements: elements.filter((element) => affectedIds.has(element.id)),
+      files,
+      result: { images },
+    };
+  } else if (request.command === "scene.failCoreStudioGenerationPlaceholders") {
+    if (!isObjectPayload(request.payload)) {
+      throw createAgentBadRequestError("生图失败载荷无效。");
+    }
+    const slots = parsePendingGenerationSlots(request.payload.slots);
+    const failed = buildPendingGenerationFailureSceneUpdate({
+      elements: context.scene
+        .elements as unknown as readonly ExcalidrawElement[],
+      slots,
+    });
+    const affectedIds = new Set(
+      slots.flatMap((slot) => [slot.frameId, slot.labelId]),
+    );
+    prepared = {
+      type: "agent-writer.prepared",
+      elements: failed.elements.filter((element) =>
+        affectedIds.has(element.id),
+      ),
+      result: { slotsFailed: slots.length },
+    };
+  } else if (request.command === "scene.addImage") {
     const placementViewport = getAgentImagePlacementViewport({
       agentBoardContext,
       elements: context.scene.elements,
@@ -223,7 +444,7 @@ export const handleAgentWriteCommand = async (
       ),
       files,
     };
-  } else {
+  } else if (request.command === "scene.addPrompt") {
     if (
       !isObjectPayload(request.payload) ||
       typeof request.payload.text !== "string" ||
@@ -242,6 +463,78 @@ export const handleAgentWriteCommand = async (
     prepared = {
       type: "agent-writer.prepared",
       elements: assignRoomIndices(context.scene.elements, [element]),
+    };
+  } else {
+    if (
+      !isObjectPayload(request.payload) ||
+      request.payload.format !== "mermaid" ||
+      typeof request.payload.source !== "string" ||
+      !request.payload.source.trim()
+    ) {
+      throw createAgentBadRequestError(
+        "scene.addDiagram 需要 Mermaid format 和非空 source。",
+      );
+    }
+    if (
+      new TextEncoder().encode(request.payload.source).byteLength >
+      256 * 1024
+    ) {
+      throw createAgentBadRequestError(
+        "scene.addDiagram source 超过 256 KiB 限制。",
+      );
+    }
+    const anchor = request.payload.anchor ?? "auto";
+    if (anchor !== "auto" && anchor !== "selection" && anchor !== "viewport") {
+      throw createAgentBadRequestError(
+        "scene.addDiagram anchor 必须是 auto、selection 或 viewport。",
+      );
+    }
+    const placementViewport = getAgentImagePlacementViewport({
+      agentBoardContext,
+      elements: context.scene.elements,
+    });
+    const diagramId = randomId();
+    let compiled: Awaited<ReturnType<typeof compileAgentMermaidDiagram>>;
+    try {
+      compiled = await compileAgentMermaidDiagram({
+        source: request.payload.source,
+        diagramId,
+        anchorBounds: getDiagramAnchorBounds({
+          anchor,
+          elements: context.scene.elements,
+          selectedElementIds:
+            getAgentBoardSelectedElementIds(agentBoardContext),
+        }),
+        viewportCenter: placementViewport.viewportCenter,
+        existingElements: context.scene
+          .elements as unknown as readonly ExcalidrawElement[],
+        ...(deps.parseMermaidDiagram
+          ? { parseMermaid: deps.parseMermaidDiagram }
+          : {}),
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "BAD_REQUEST"
+      ) {
+        throw error;
+      }
+      throw createAgentBadRequestError(
+        error instanceof Error
+          ? error.message
+          : "Mermaid diagram conversion failed.",
+      );
+    }
+    prepared = {
+      type: "agent-writer.prepared",
+      elements: assignRoomIndices(context.scene.elements, compiled.elements),
+      result: {
+        diagramId,
+        format: "mermaid",
+        elementCount: compiled.elements.length,
+        bounds: compiled.bounds,
+      },
     };
   }
 

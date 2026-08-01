@@ -7,6 +7,7 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `read`：读取当前状态和项目证据。
 - `write`：通过 CoreStudio 校验创建项目变更。
 - `edit`：只改变选区、定位等临时画布状态。
+- `generate`：在用户按集成明确授权后，使用 CoreStudio 当前图片服务生成并写回。
 - `bash`：输出当前会话环境与示例。
 
 ## Read Commands
@@ -34,14 +35,17 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `write image <path...> --source-type generated --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`
 - `write image <path> --source-type imported --json`
 - `write prompt --text <text> --json`
+- `write diagram --format mermaid --file <path> --anchor auto|selection|viewport --json`
 
 Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜索或下载的外部图片使用 `--source-type imported`。生成图必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。
 
 同一轮生成得到多张成功图片时，在同一条命令中依次提供全部路径。CLI 会读取全部图片并以一个 `files[]` 请求提交，CoreStudio 使用同一组参考元素和现有批量布局算法创建一个房间操作；不要逐张调用命令。
 
-CLI 和 Local Bridge 只负责把已存在的本地图片写入项目，不暴露 CoreStudio 内置生成模型。
+`write image` 只负责把已存在的本地图片写入项目，不调用 CoreStudio 内置生成模型。
 
 引用元数据必须是非空有效 id。`--reference-file-ids` 和 `--reference-element-ids` 接受逗号分隔列表；空列表或无效值在读取图片和调用 Bridge 前被拒绝。
+
+图表命令由 CLI 读取 UTF-8 Mermaid 文件，再由 renderer 使用上游 Mermaid 转换器生成原生 Excalidraw 节点、文字和箭头绑定。`auto` 优先放到当前 Agent Board 选区右侧，否则使用当前视口；`selection` 要求已有选区；`viewport` 忽略选区。追加 `--dry-run` 时仍完成解析、转换和碰撞避让，但不提交房间 operation。需要二进制图片资产的图表会被拒绝，不会降级为图片或上传到云端。
 
 ## Record Diagnostics
 
@@ -59,6 +63,25 @@ CLI 和 Local Bridge 只负责把已存在的本地图片写入项目，不暴�
 - `edit select --element-ids <ids> --json`
 
 `locate` 会选择并滚动到目标。找不到直接元素时，会尝试定位引用该文件的结果图；仍找不到时返回 `located: false`、`reason: "missing-board-element"` 和 `repairable: true`。
+
+## Generate Commands
+
+- `generate image --prompt <text> [--count <number>] [--reference-file-ids <ids>] [--reference-element-ids <ids>] --json`
+
+该命令仅在“应用设置 → Codex 集成 → Agent 权限”中允许 Codex 使用 CoreStudio 图片生成后可用。新安装和旧版本升级均默认关闭。Agent Bridge、画布生成输入框显示状态和本权限互相独立。
+
+命令不接受 `--provider`、`--model`、`--api-key` 或 `--base-url`。Local Bridge 在接受请求时锁定用户当前默认服务及其当前默认模型；调用失败时不切换模型，也不静默删减不受支持的参数。
+
+运行前先读取 `read capabilities --json`。只有 `imageGeneration.supported`、`authorized` 和 `configured` 均为 `true` 时才允许调用。返回成功表示 CoreStudio 已完成生成、资产记录、画布元素和房间持久化；调用方不得再运行 `write image`。只有 `persisted: true` 才算完成。
+
+```bash
+corestudio generate image \
+  --prompt "继续细化当前工业设计方案" \
+  --count 2 \
+  --reference-file-ids image-file-1 \
+  --reference-element-ids element-1 \
+  --json
+```
 
 ## Structured Errors
 
@@ -80,6 +103,10 @@ Agent 应根据 `error.code` 分支，不解析本地化 `message`：
 - `BAD_REQUEST`：参数无效。
 - `BRIDGE_UNAVAILABLE`：CoreStudio 未运行或会话不可达。
 - `PROJECT_STORAGE_DIVERGED`：磁盘项目与房间持有的持久化基线不一致；本次持久化已停止，需要检查项目文件为何被房间之外的写入者修改。
+- `IMAGE_GENERATION_DISABLED`：当前 Codex 集成没有获得图片生成权限。
+- `IMAGE_PROVIDER_NOT_CONFIGURED`：当前默认服务或模型尚未配置完成。
+- `IMAGE_MODEL_CAPABILITY_UNSUPPORTED`：当前模型不支持请求的数量或参考图能力。
+- `IMAGE_GENERATION_FAILED`：当前服务或模型调用失败；不得自动切换服务或模型。
 
 ## Bash Commands
 
@@ -136,6 +163,18 @@ corestudio write image /absolute/path/to/searched.png \
 corestudio edit locate --file-id generated-file-1 --json
 ```
 
+### Write A Native Mermaid Diagram
+
+```bash
+corestudio write diagram \
+  --format mermaid \
+  --file /absolute/path/to/process.mmd \
+  --anchor auto \
+  --json
+```
+
+成功结果包含 `diagramId`、`elementIds`、`bounds`、`operationId`、`roomSequence`、`persistedSequence` 和 `persisted`。整张图作为一个房间 operation 写入，仍可在 Excalidraw 中逐个编辑节点、文字和连线。
+
 ### Read Project Health Report
 
 ```bash
@@ -146,6 +185,6 @@ corestudio read health --json
 
 ## Writeback Consistency
 
-图片写回仍由 CoreStudio 复制和登记资产，但画布元素只通过当前项目房间提交。主进程先准备资产，再把一个带 `operationId` 的场景操作应用到房间；房间立即协调并广播元素，磁盘持久化由主进程统一完成。
+图片写回仍由 CoreStudio 复制和登记资产；图表写回在 renderer 中准备原生元素。两者的画布元素都只通过当前项目房间提交。主进程把一个带 `operationId` 的场景操作应用到房间；房间立即协调并广播元素，磁盘持久化由主进程统一完成。
 
 房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。Agent 应根据结构化错误处理：普通持久化失败可以稍后重试；`PROJECT_STORAGE_DIVERGED` 表示房间之外出现了磁盘写入，必须先查明来源，不能绕过 CoreStudio 直接修改项目文件。

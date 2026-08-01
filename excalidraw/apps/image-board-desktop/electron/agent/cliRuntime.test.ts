@@ -209,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.32 (Codex integration 1.12.0, bridge protocol 5)\n",
+          "CoreStudio 1.1.33 (Codex integration 1.12.0, bridge protocol 5)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -226,7 +226,7 @@ describe("runCli", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       ok: true,
       data: {
-        appVersion: "1.1.32",
+        appVersion: "1.1.33",
         integrationVersion: "1.12.0",
         bridgeProtocolVersion: 5,
       },

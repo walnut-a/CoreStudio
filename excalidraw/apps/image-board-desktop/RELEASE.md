@@ -191,6 +191,21 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
+## 1.1.33 发布说明
+
+1.1.33 完善画布恢复、Agent 原生图表写入与图片生成授权边界：
+
+- 修复 Codex 内置浏览器直接刷新画布后视口回到原点的问题，保留刷新前的位置与缩放比例
+- 去掉左侧栏对汉堡菜单的额外避让，统一左右侧栏入口布局、按钮尺寸和图标视觉大小
+- 在图片集成设置中新增画布生成输入框显示开关；关闭后只隐藏输入框，不清除服务、模型或密钥配置
+- 在 Codex 集成中新增 Agent 使用 CoreStudio 图片生成能力的独立授权，默认关闭；开启后才允许消耗用户自己的图片服务额度
+- Agent 调用 CoreStudio 生图时只能使用用户当前选定的服务与模型，不能读取凭据、切换模型或修改图片集成配置
+- 新增 `corestudio generate image` 与受控 Local Bridge 生图路由，复用占位、原位替换、项目图片记录和严格持久化链路
+- 新增 `corestudio write diagram --format mermaid`，将 Mermaid 写成可编辑的原生画布元素，并支持自动、选区和当前视口三种落点
+- 同步中英文设置文案、CLI 合同、CoreStudio Skill、安装器与规格文档
+
+本次客户端升级同时将 Codex 集成提升至 `1.12.0`、Agent Bridge protocol 提升至 `5`、Skill contract version 提升至 `16`。安装 1.1.33 后，请在“应用设置 → Codex 集成”中完成更新。
+
 ## 1.1.32 发布说明
 
 1.1.32 完善 CoreStudio Agent Board 与 Codex 内置浏览器之间的连接和实时同步：

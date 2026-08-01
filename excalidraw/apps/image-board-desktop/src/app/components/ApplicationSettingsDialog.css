@@ -698,6 +698,34 @@
   align-items: start;
 }
 
+.settings-agent-host-selector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-agent-host-selector__item {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  color: var(--text-primary-color);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.settings-agent-host-selector__item:hover {
+  background: var(--button-hover-bg);
+}
+
+.settings-agent-host-selector__item--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary-darkest);
+}
+
 .settings-install-card > div:first-child > p {
   font-size: var(--ui-text-size-md);
 }

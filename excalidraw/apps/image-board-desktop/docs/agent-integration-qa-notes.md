@@ -7,8 +7,8 @@ Status: needs-recheck
 | Surface | Status | 回归重点 |
 | --- | --- | --- |
 | 应用设置 · 图片集成 | pending | 输入框展示、服务、模型、API Key 和未保存确认正常 |
-| 应用设置 · Codex 集成 | pending | 安装检测、独立集成版本、打开当前项目引导正常 |
-| 应用设置 | pending | 只保留图片集成、Codex 集成、通用和关于页 |
+| 应用设置 · Agent 集成 | pending | Codex、Cursor、Claude Code 独立安装检测、权限与打开当前项目引导正常 |
+| 应用设置 | pending | 只保留图片集成、Agent 集成、通用和关于页 |
 | 底部单次生成 | pending | 候选 prompt 不可直接提交；正式编辑后可提交；提交后清空；多张并行生成 |
 | 左侧生成记录 | pending | CoreStudio 与 Codex 写回图片都可查看和定位 |
 | Agent Board | pending | 只提供画布上下文、选择、标注和结果确认 |
@@ -31,5 +31,5 @@ Status: needs-recheck
 ## Data Integrity Checklist
 
 - CoreStudio 单次生成只使用 `corestudio` 来源。
-- Codex 写回只使用 `agent-board` 来源。
+- 外部 Agent 写回只使用 `agent-board` 来源。
 - 项目修复不删除仍被画布引用的图片资产。

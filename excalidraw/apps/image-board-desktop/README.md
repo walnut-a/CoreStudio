@@ -1,6 +1,6 @@
 # CoreStudio Desktop
 
-CoreStudio 是基于 Excalidraw 的本地优先图像画板。本目录包含 Electron 桌面端、renderer、Local Bridge、CLI 和 Codex 集成资源。
+CoreStudio 是基于 Excalidraw 的本地优先图像画板。本目录包含 Electron 桌面端、renderer、Local Bridge、CLI 和本地 Agent 集成资源。
 
 ## 产品路径
 
@@ -132,5 +132,6 @@ Electron UI、项目读写和退出流程验收必须使用临时项目，不能
 详细契约见：
 
 - [Agent CLI Contract](docs/agent-cli-contract.md)
-- [Codex 集成使用说明](docs/agent-integration-user-guide.md)
+- [本地 Agent 集成使用说明](docs/agent-integration-user-guide.md)
 - [Agent 集成架构与迭代原则](docs/agent-integration-architecture-and-principles.md)
+- [本地多 Agent 集成方案](docs/local-agent-multi-host-integration-plan.md)

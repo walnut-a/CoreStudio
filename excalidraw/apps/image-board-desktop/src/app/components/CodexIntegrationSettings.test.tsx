@@ -135,7 +135,7 @@ describe("CodexIntegrationSettings", () => {
     );
 
     await screen.findByText("CoreStudio CLI");
-    expect(screen.queryByText(status.command)).not.toBeInTheDocument();
+    expect(screen.queryByText(status.command!)).not.toBeInTheDocument();
     expect(
       screen.getByText(
         (_, element) =>
@@ -192,6 +192,8 @@ describe("CodexIntegrationSettings", () => {
   it("独立保存 Codex 图片生成权限并提示未配置服务", async () => {
     const setCodexImageGenerationEnabled = vi.fn(async (enabled: boolean) => ({
       codex: { allowImageGeneration: enabled },
+      cursor: { allowImageGeneration: false },
+      "claude-code": { allowImageGeneration: false },
     }));
     const onOpenImageIntegrations = vi.fn();
     render(
@@ -206,6 +208,8 @@ describe("CodexIntegrationSettings", () => {
         copyText={vi.fn(async () => true)}
         loadAgentIntegrationSettings={vi.fn(async () => ({
           codex: { allowImageGeneration: false },
+          cursor: { allowImageGeneration: false },
+          "claude-code": { allowImageGeneration: false },
         }))}
         setCodexImageGenerationEnabled={setCodexImageGenerationEnabled}
         loadAgentBridgeStatus={vi.fn(async () => ({
@@ -237,6 +241,134 @@ describe("CodexIntegrationSettings", () => {
     expect(
       screen.getByText("权限已保存，开启 Agent Bridge 后生效。"),
     ).toBeInTheDocument();
+  });
+
+  it("切换宿主后独立检测、安装并保存对应图片生成权限", async () => {
+    const inspectAgentIntegration = vi.fn(async (host) => ({
+      ...status,
+      host,
+      canRemove: false,
+      skillPath:
+        host === "cursor"
+          ? "/Users/tester/.cursor/skills/corestudio/SKILL.md"
+          : "/Users/tester/.codex/skills/corestudio/SKILL.md",
+    }));
+    const installAgentIntegration = vi.fn(async () => ({
+      ok: true as const,
+      output: "installed",
+      warning: null,
+    }));
+    const setAgentImageGenerationEnabled = vi.fn(
+      async (host, enabled: boolean) => ({
+        codex: { allowImageGeneration: false },
+        cursor: {
+          allowImageGeneration: host === "cursor" ? enabled : false,
+        },
+        "claude-code": { allowImageGeneration: false },
+      }),
+    );
+
+    render(
+      <CodexIntegrationSettings
+        open
+        inspect={vi.fn(async () => status)}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
+        inspectAgentIntegration={inspectAgentIntegration}
+        installAgentIntegration={installAgentIntegration}
+        copyText={vi.fn(async () => true)}
+        loadAgentIntegrationSettings={vi.fn(async () => ({
+          codex: { allowImageGeneration: false },
+          cursor: { allowImageGeneration: false },
+          "claude-code": { allowImageGeneration: false },
+        }))}
+        setAgentImageGenerationEnabled={setAgentImageGenerationEnabled}
+      />,
+    );
+
+    await screen.findByText("CoreStudio CLI");
+    fireEvent.click(screen.getByRole("button", { name: "Cursor" }));
+    await waitFor(() =>
+      expect(inspectAgentIntegration).toHaveBeenCalledWith("cursor"),
+    );
+    const permission = await screen.findByRole("switch", {
+      name: "允许 Cursor 使用 CoreStudio 图片生成",
+    });
+    fireEvent.click(permission);
+    await waitFor(() =>
+      expect(setAgentImageGenerationEnabled).toHaveBeenCalledWith(
+        "cursor",
+        true,
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "安装 Cursor 集成" }));
+    await waitFor(() =>
+      expect(installAgentIntegration).toHaveBeenCalledWith("cursor"),
+    );
+  });
+
+  it("只在可验证的托管 Skill 上提供按宿主移除入口", async () => {
+    const removeAgentIntegration = vi.fn(async () => ({
+      ok: true as const,
+      output: "removed",
+      warning: null,
+    }));
+    const inspectAgentIntegration = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ...status,
+        host: "codex",
+        state: "ready",
+        skillPath: "/Users/tester/.codex/skills/corestudio/SKILL.md",
+        canRemove: true,
+      })
+      .mockResolvedValue({
+        ...status,
+        host: "cursor",
+        state: "ready",
+        skillPath: "/Users/tester/.cursor/skills/corestudio/SKILL.md",
+        canRemove: true,
+      });
+
+    render(
+      <CodexIntegrationSettings
+        open
+        inspect={vi.fn(async () => status)}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
+        inspectAgentIntegration={inspectAgentIntegration}
+        installAgentIntegration={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
+        removeAgentIntegration={removeAgentIntegration}
+        copyText={vi.fn(async () => true)}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "移除 Codex 集成" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cursor" }));
+    const removeCursor = await screen.findByRole("button", {
+      name: "移除 Cursor 集成",
+    });
+    expect(
+      screen.getByText(
+        "只移除当前 Agent 的 CoreStudio Skill；共享 CLI、其他 Agent 和已保存权限不受影响。",
+      ),
+    ).toBeVisible();
+    fireEvent.click(removeCursor);
+    await waitFor(() =>
+      expect(removeAgentIntegration).toHaveBeenCalledWith("cursor"),
+    );
   });
 
   it("检测失败时不伪造已准备好，并允许重新检测", async () => {

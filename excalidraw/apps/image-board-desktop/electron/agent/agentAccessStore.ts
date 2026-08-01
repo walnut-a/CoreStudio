@@ -3,15 +3,13 @@ import path from "path";
 
 import { getDesktopSettingsDirectory } from "../desktopSettingsDirectory";
 
+import type { AgentHost } from "../../src/shared/agentBridgeTypes";
+
 const AGENT_ACCESS_SETTINGS_FILE_NAME = "agent-access-settings.json";
 
 export interface AgentAccessSettings {
   enabled: boolean;
-  integrations: {
-    codex: {
-      allowImageGeneration: boolean;
-    };
-  };
+  integrations: Record<AgentHost, { allowImageGeneration: boolean }>;
 }
 
 const defaultAgentAccessSettings = (
@@ -20,6 +18,12 @@ const defaultAgentAccessSettings = (
   enabled: defaultEnabled,
   integrations: {
     codex: {
+      allowImageGeneration: false,
+    },
+    cursor: {
+      allowImageGeneration: false,
+    },
+    "claude-code": {
       allowImageGeneration: false,
     },
   },
@@ -43,6 +47,26 @@ const normalizeAgentAccessSettings = (value: unknown): AgentAccessSettings => {
               integrations?: { codex?: { allowImageGeneration?: unknown } };
             }
           ).integrations?.codex?.allowImageGeneration === true,
+      },
+      cursor: {
+        allowImageGeneration:
+          (
+            value as {
+              integrations?: {
+                cursor?: { allowImageGeneration?: unknown };
+              };
+            }
+          ).integrations?.cursor?.allowImageGeneration === true,
+      },
+      "claude-code": {
+        allowImageGeneration:
+          (
+            value as {
+              integrations?: {
+                "claude-code"?: { allowImageGeneration?: unknown };
+              };
+            }
+          ).integrations?.["claude-code"]?.allowImageGeneration === true,
       },
     },
   };

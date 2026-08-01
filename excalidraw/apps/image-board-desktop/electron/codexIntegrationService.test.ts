@@ -65,7 +65,7 @@ describe("inspectCodexIntegration", () => {
         schemaVersion: 1,
         integrationVersion: "1.12.0",
         installedFromAppVersion: "1.1.15",
-        bridgeProtocolVersion: 5,
+        bridgeProtocolVersion: 6,
         skillVersion: 16,
         cliWrapperVersion: 1,
         cliPath: CLI,

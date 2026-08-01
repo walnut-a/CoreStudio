@@ -9,6 +9,7 @@ import {
   AGENT_PERMISSIONS,
   createAgentError,
   createAgentOk,
+  isAgentHost,
   isAgentDesktopBridgeMethod,
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
@@ -20,6 +21,8 @@ import type {
   AgentErrorCode,
   AgentImageGenerationCapability,
   AgentImageGenerationInput,
+  AgentHost,
+  LocalAgentSession,
   AgentRendererCommandName,
   StableBoardIntegrationStatus,
 } from "../../src/shared/agentBridgeTypes";
@@ -87,15 +90,25 @@ export interface LocalBridgeServerOptions {
   };
   grants: TaskGrantStore;
   participantIssuerToken?: string;
+  issueAgentSession?: (input: {
+    host: AgentHost;
+    displayLabel: string;
+    externalConversationId?: string;
+  }) => LocalAgentSession | Promise<LocalAgentSession>;
+  resolveAgentSession?: (sessionRef: string) => LocalAgentSession;
   issueProjectRoomTicket?: (input: {
     project: LocalBridgeCurrentProject;
     threadId: string;
+    actorId?: string;
+    host?: AgentHost;
     displayLabel: string;
   }) => Promise<{ launchTicket: string }>;
   claimStableBoardSession?: (input: {
     stableBoardId: string;
     pageNonce: string;
     threadId: string;
+    actorId?: string;
+    host?: AgentHost;
     displayLabel: string;
   }) => Promise<void>;
   exchangeStableBoardSession?: (input: {
@@ -112,6 +125,8 @@ export interface LocalBridgeServerOptions {
   }) => Promise<StableBoardIntegrationStatus>;
   issueBoardProjectSelection?: (input: {
     threadId: string;
+    actorId?: string;
+    host?: AgentHost;
     displayLabel: string;
   }) => Promise<{ selectionToken: string }>;
   listBoardProjectCandidates?: (
@@ -140,6 +155,8 @@ export interface LocalBridgeServerOptions {
     input: {
       project: LocalBridgeCurrentProject;
       threadId: string;
+      actorId?: string;
+      host?: AgentHost;
       displayLabel: string;
       dryRun?: boolean;
     },
@@ -153,12 +170,18 @@ export interface LocalBridgeServerOptions {
   getProjectRoomParticipantState?: (input: {
     project: LocalBridgeCurrentProject;
     threadId: string;
+    actorId?: string;
+    host?: AgentHost;
   }) => Promise<AgentBrowserRuntimeState | null>;
-  getAgentImageGenerationCapability?: () => Promise<AgentImageGenerationCapability>;
+  getAgentImageGenerationCapability?: (
+    host?: AgentHost,
+  ) => Promise<AgentImageGenerationCapability>;
   generateAgentImages?: (
     input: AgentImageGenerationInput & {
       project: LocalBridgeCurrentProject;
       threadId: string;
+      actorId?: string;
+      host?: AgentHost;
       displayLabel: string;
     },
   ) => Promise<unknown>;
@@ -242,11 +265,13 @@ const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
 };
 
 const DEFAULT_MAX_REQUEST_BODY_BYTES = 128 * 1024 * 1024;
-const CORS_ALLOW_HEADERS = "Authorization, Content-Type, Accept";
+const CORS_ALLOW_HEADERS =
+  "Authorization, Content-Type, Accept, X-CoreStudio-Agent-Session";
 const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
 const PARTICIPANT_ISSUER_HEADER = "x-corestudio-participant-issuer";
 const PARTICIPANT_THREAD_HEADER = "x-corestudio-participant-thread";
 const PARTICIPANT_LABEL_HEADER = "x-corestudio-participant-label";
+const AGENT_SESSION_HEADER = "x-corestudio-agent-session";
 const AGENT_BOARD_ASSET_ROUTE_PREFIX = "/assets/";
 const RETIRED_AGENT_BOARD_ROUTE = "/agent-board";
 
@@ -618,12 +643,31 @@ const getSingleHeader = (request: http.IncomingMessage, name: string) => {
 
 const getTrustedParticipantIdentity = (
   request: http.IncomingMessage,
-  participantIssuerToken: string | undefined,
+  options: Pick<
+    LocalBridgeServerOptions,
+    "participantIssuerToken" | "resolveAgentSession"
+  >,
 ) => {
+  const sessionRef = getSingleHeader(request, AGENT_SESSION_HEADER)?.trim();
+  if (sessionRef) {
+    if (!options.resolveAgentSession) {
+      throw Object.assign(
+        new Error("Local Agent session resolution is unavailable."),
+        { code: "AUTH_REQUIRED" },
+      );
+    }
+    const session = options.resolveAgentSession(sessionRef);
+    return {
+      threadId: session.sessionRef,
+      actorId: session.actorId,
+      host: session.host,
+      displayLabel: session.displayLabel,
+    };
+  }
   if (
-    !participantIssuerToken ||
+    !options.participantIssuerToken ||
     getSingleHeader(request, PARTICIPANT_ISSUER_HEADER) !==
-      participantIssuerToken
+      options.participantIssuerToken
   ) {
     return null;
   }
@@ -1004,10 +1048,7 @@ const handleWriteCommand = async (
       return;
     }
 
-    const trustedParticipant = getTrustedParticipantIdentity(
-      request,
-      options.participantIssuerToken,
-    );
+    const trustedParticipant = getTrustedParticipantIdentity(request, options);
     const isRoomWrite =
       config.command === "scene.addImage" ||
       config.command === "scene.addPrompt" ||
@@ -1017,7 +1058,7 @@ const handleWriteCommand = async (
       if (!trustedParticipant) {
         throw Object.assign(
           new Error(
-            "A trusted Codex participant identity is required for project room writes.",
+            "A trusted Agent participant identity is required for project room writes.",
           ),
           { code: "AUTH_REQUIRED" },
         );
@@ -1069,6 +1110,66 @@ export const createLocalBridgeServer = async (
             options.agentBoardDevServerUrl,
           )))
       ) {
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.agentSession
+      ) {
+        if (
+          !options.participantIssuerToken ||
+          getSingleHeader(request, PARTICIPANT_ISSUER_HEADER) !==
+            options.participantIssuerToken ||
+          !options.issueAgentSession
+        ) {
+          sendError(
+            response,
+            403,
+            "FORBIDDEN",
+            "Local Agent session issuer is not authorized.",
+          );
+          return;
+        }
+        try {
+          const body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+          if (
+            !isAgentHost(body.host) ||
+            typeof body.displayLabel !== "string" ||
+            !body.displayLabel.trim() ||
+            (body.externalConversationId !== undefined &&
+              (typeof body.externalConversationId !== "string" ||
+                !body.externalConversationId.trim()))
+          ) {
+            throw Object.assign(
+              new Error(
+                "Local Agent session requires a supported host and displayLabel.",
+              ),
+              { code: "BAD_REQUEST" },
+            );
+          }
+          sendJson(
+            response,
+            200,
+            createAgentOk(
+              await options.issueAgentSession({
+                host: body.host,
+                displayLabel: body.displayLabel.trim(),
+                ...(typeof body.externalConversationId === "string"
+                  ? {
+                      externalConversationId:
+                        body.externalConversationId.trim(),
+                    }
+                  : {}),
+              }),
+            ),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
         return;
       }
 
@@ -1159,7 +1260,7 @@ export const createLocalBridgeServer = async (
         }
         const trustedParticipant = getTrustedParticipantIdentity(
           request,
-          options.participantIssuerToken,
+          options,
         );
         if (!trustedParticipant) {
           sendError(
@@ -1269,7 +1370,7 @@ export const createLocalBridgeServer = async (
       ) {
         const trustedParticipant = getTrustedParticipantIdentity(
           request,
-          options.participantIssuerToken,
+          options,
         );
         if (!trustedParticipant || !options.claimStableBoardSession) {
           sendError(
@@ -1643,8 +1744,14 @@ export const createLocalBridgeServer = async (
           sendError(response, 403, "FORBIDDEN", "Agent access is disabled");
           return;
         }
+        const capabilityParticipant = getTrustedParticipantIdentity(
+          request,
+          options,
+        );
         const imageGeneration = options.getAgentImageGenerationCapability
-          ? await options.getAgentImageGenerationCapability()
+          ? await options.getAgentImageGenerationCapability(
+              capabilityParticipant?.host,
+            )
           : {
               supported: false,
               authorized: false,
@@ -1688,7 +1795,7 @@ export const createLocalBridgeServer = async (
         }
         const trustedParticipant = getTrustedParticipantIdentity(
           request,
-          options.participantIssuerToken,
+          options,
         );
         const roomRuntimeState =
           trustedParticipant && options.getProjectRoomParticipantState
@@ -1869,19 +1976,21 @@ export const createLocalBridgeServer = async (
         }
         const trustedParticipant = getTrustedParticipantIdentity(
           request,
-          options.participantIssuerToken,
+          options,
         );
         if (!trustedParticipant) {
           sendError(
             response,
             401,
             "AUTH_REQUIRED",
-            "A trusted Codex participant identity is required for image generation.",
+            "A trusted Agent participant identity is required for image generation.",
           );
           return;
         }
         const capability = options.getAgentImageGenerationCapability
-          ? await options.getAgentImageGenerationCapability()
+          ? await options.getAgentImageGenerationCapability(
+              trustedParticipant.host,
+            )
           : null;
         if (!capability?.supported || !options.generateAgentImages) {
           sendError(
@@ -1897,7 +2006,7 @@ export const createLocalBridgeServer = async (
             response,
             403,
             "IMAGE_GENERATION_DISABLED",
-            "Codex is not allowed to use CoreStudio image generation.",
+            "This Agent is not allowed to use CoreStudio image generation.",
           );
           return;
         }
@@ -1936,7 +2045,7 @@ export const createLocalBridgeServer = async (
         try {
           const trustedParticipant = getTrustedParticipantIdentity(
             request,
-            options.participantIssuerToken,
+            options,
           );
           const roomRuntimeState =
             trustedParticipant && options.getProjectRoomParticipantState
@@ -2006,7 +2115,7 @@ export const createLocalBridgeServer = async (
         }
         const trustedParticipant = getTrustedParticipantIdentity(
           request,
-          options.participantIssuerToken,
+          options,
         );
         const roomRuntimeState =
           trustedParticipant && options.getProjectRoomParticipantState
@@ -2033,11 +2142,7 @@ export const createLocalBridgeServer = async (
         "UNSUPPORTED_COMMAND",
         `Unsupported route: ${request.method ?? "GET"} ${url.pathname}`,
       );
-    })().catch((error) => {
-      sendError(response, 500, "COMMAND_FAILED", "Local bridge failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    });
+    })().catch((error) => sendRendererError(response, error));
   });
 
   const projectRoomWebSocket = options.authenticateProjectRoomWebSocket

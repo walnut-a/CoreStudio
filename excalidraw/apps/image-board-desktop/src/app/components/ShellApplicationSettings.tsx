@@ -207,6 +207,30 @@ export const ShellApplicationSettings = ({
             }
             return bridge.installCodexIntegration();
           }}
+          inspectAgentIntegration={(host) => {
+            if (!bridge.inspectAgentIntegration) {
+              return Promise.reject(
+                new Error("当前版本暂不支持检测 Agent 集成。"),
+              );
+            }
+            return bridge.inspectAgentIntegration(host);
+          }}
+          installAgentIntegration={(host) => {
+            if (!bridge.installAgentIntegration) {
+              return Promise.reject(
+                new Error("当前版本暂不支持安装 Agent 集成。"),
+              );
+            }
+            return bridge.installAgentIntegration(host);
+          }}
+          removeAgentIntegration={(host) => {
+            if (!bridge.removeAgentIntegration) {
+              return Promise.reject(
+                new Error("当前版本暂不支持移除 Agent 集成。"),
+              );
+            }
+            return bridge.removeAgentIntegration(host);
+          }}
           copyText={copyPlainTextToClipboard}
           loadAgentIntegrationSettings={() => {
             if (!bridge.getAgentIntegrationSettings) {
@@ -223,6 +247,14 @@ export const ShellApplicationSettings = ({
               );
             }
             return bridge.setCodexImageGenerationEnabled(enabled);
+          }}
+          setAgentImageGenerationEnabled={(host, enabled) => {
+            if (!bridge.setAgentImageGenerationEnabled) {
+              return Promise.reject(
+                new Error("当前版本暂不支持保存 Agent 权限。"),
+              );
+            }
+            return bridge.setAgentImageGenerationEnabled(host, enabled);
           }}
           loadAgentBridgeStatus={() => {
             if (!bridge.getAgentBridgeStatus) {
@@ -241,9 +273,7 @@ export const ShellApplicationSettings = ({
                 providerConfiguration.defaultProvider
               ]?.defaultModel,
           )}
-          onOpenImageIntegrations={() =>
-            onCategoryChange("image-generation")
-          }
+          onOpenImageIntegrations={() => onCategoryChange("image-generation")}
         />
       }
       aboutContent={

@@ -202,6 +202,16 @@ const runCodexIntegrationSmoke = ({
   );
   const installerPath = path.join(integrationDir, "install.sh");
   const guidePath = path.join(integrationDir, "CODEX_INSTALLATION.md");
+  const agentIntegrationDir = path.join(
+    appPath,
+    "Contents",
+    "Resources",
+    "agent-integration",
+  );
+  const agentInstallerPath = path.join(agentIntegrationDir, "install.sh");
+  const agentHostSkillAddenda = ["codex", "cursor", "claude-code"].map(
+    (host) => path.join(agentIntegrationDir, "hosts", `${host}.md`),
+  );
   const temporaryHome = mkdtempSync(
     path.join(tmpdir(), "corestudio-codex-smoke-"),
   );
@@ -215,6 +225,16 @@ const runCodexIntegrationSmoke = ({
     }
     if (!existsSync(guidePath)) {
       throw new Error(`Codex installation guide is missing: ${guidePath}`);
+    }
+    if (!existsSync(agentInstallerPath)) {
+      throw new Error(
+        `Agent integration installer is missing: ${agentInstallerPath}`,
+      );
+    }
+    for (const addendumPath of agentHostSkillAddenda) {
+      if (!existsSync(addendumPath)) {
+        throw new Error(`Agent host Skill addendum is missing: ${addendumPath}`);
+      }
     }
     if (
       !readFileSync(guidePath, "utf8").includes(

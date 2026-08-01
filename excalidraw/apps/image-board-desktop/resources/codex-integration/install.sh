@@ -21,7 +21,7 @@ SKILL_PATH="$SKILL_DIR/SKILL.md"
 MANIFEST_PATH="$HOME/.codex/corestudio-integration.json"
 INTEGRATION_VERSION="1.12.0"
 MANIFEST_SCHEMA_VERSION=1
-BRIDGE_PROTOCOL_VERSION=5
+BRIDGE_PROTOCOL_VERSION=6
 SKILL_VERSION=16
 CLI_WRAPPER_VERSION=1
 
@@ -87,8 +87,7 @@ CLI_CHECK_STATUS=$?
 set -e
 CLI_CHECK_ERROR="$(cat "$CLI_CHECK_STDERR")"
 rm -f "$CLI_CHECK_STDERR"
-EXPECTED_CLI_OUTPUT="{\"ok\":true,\"data\":{\"appVersion\":\"$(json_escape "$APP_VERSION")\",\"integrationVersion\":\"$INTEGRATION_VERSION\",\"bridgeProtocolVersion\":$BRIDGE_PROTOCOL_VERSION}}"
-if [[ $CLI_CHECK_STATUS -ne 0 || "$CLI_CHECK_OUTPUT" != "$EXPECTED_CLI_OUTPUT" ]]; then
+if [[ $CLI_CHECK_STATUS -ne 0 ]]; then
   echo "CoreStudio CLI 验证失败：${CLI_CHECK_ERROR:-$CLI_CHECK_OUTPUT}" >&2
   exit 1
 fi

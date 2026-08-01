@@ -42,6 +42,12 @@ describe("agentAccessStore", () => {
         codex: {
           allowImageGeneration: false,
         },
+        cursor: {
+          allowImageGeneration: false,
+        },
+        "claude-code": {
+          allowImageGeneration: false,
+        },
       },
     });
   });
@@ -55,6 +61,12 @@ describe("agentAccessStore", () => {
         codex: {
           allowImageGeneration: false,
         },
+        cursor: {
+          allowImageGeneration: false,
+        },
+        "claude-code": {
+          allowImageGeneration: false,
+        },
       },
     });
   });
@@ -66,6 +78,12 @@ describe("agentAccessStore", () => {
         codex: {
           allowImageGeneration: true,
         },
+        cursor: {
+          allowImageGeneration: false,
+        },
+        "claude-code": {
+          allowImageGeneration: true,
+        },
       },
     });
 
@@ -73,6 +91,12 @@ describe("agentAccessStore", () => {
       enabled: true,
       integrations: {
         codex: {
+          allowImageGeneration: true,
+        },
+        cursor: {
+          allowImageGeneration: false,
+        },
+        "claude-code": {
           allowImageGeneration: true,
         },
       },
@@ -95,6 +119,12 @@ describe("agentAccessStore", () => {
       enabled: true,
       integrations: {
         codex: {
+          allowImageGeneration: false,
+        },
+        cursor: {
+          allowImageGeneration: false,
+        },
+        "claude-code": {
           allowImageGeneration: false,
         },
       },

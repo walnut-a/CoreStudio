@@ -30,7 +30,7 @@ const discoveredButUnreachableEnvelope = {
   error: {
     code: "BRIDGE_UNAVAILABLE",
     message:
-      "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If this command is running in Codex, allow it to run outside the network sandbox so it can access localhost.",
+      "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If the current Agent uses a network sandbox, allow this command to access localhost and retry once.",
     details: {
       baseUrl,
       sessionDiscovered: true,
@@ -209,7 +209,7 @@ describe("runCli", () => {
       expect(result).toEqual({
         exitCode: 0,
         stdout:
-          "CoreStudio 1.1.33 (Codex integration 1.12.0, bridge protocol 5)\n",
+          "CoreStudio 1.1.33 (Agent integration 2.0.0, bridge protocol 6)\n",
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -227,8 +227,8 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: "1.1.33",
-        integrationVersion: "1.12.0",
-        bridgeProtocolVersion: 5,
+        integrationVersion: "2.0.0",
+        bridgeProtocolVersion: 6,
       },
     });
   });
@@ -795,6 +795,102 @@ describe("runCli", () => {
     });
   });
 
+  it("creates a trusted runtime session for Cursor", async () => {
+    const records: RequestRecord[] = [];
+    const session = {
+      sessionRef: "cursor-session-ref",
+      actorId: "agent:cursor:cursor-session-ref",
+      host: "cursor",
+      displayLabel: "Cursor · 工业设计",
+      issuedAt: "2026-08-02T00:00:00.000Z",
+    };
+    const fetch = createFetch({ ok: true, data: session }, records);
+
+    const result = await runCommand(
+      ["agent", "connect", "--host", "cursor", "--label", "工业设计", "--json"],
+      {
+        fetch,
+        env: {
+          CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+          CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+          CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+        },
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ ok: true, data: session });
+    expect(records[0]).toMatchObject({
+      url: `${baseUrl}${AGENT_HTTP_ROUTES.agentSession}`,
+      method: "POST",
+      headers: {
+        "X-CoreStudio-Participant-Issuer": "issuer-secret",
+      },
+    });
+    expect(JSON.parse(records[0].body ?? "{}")).toEqual({
+      host: "cursor",
+      displayLabel: "Cursor · 工业设计",
+    });
+  });
+
+  it("uses an explicit local Agent session without Codex environment variables", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+
+    const result = await runCommand(
+      [
+        "write",
+        "prompt",
+        "--text",
+        "prompt",
+        "--agent-session",
+        "cursor-session-ref",
+        "--json",
+      ],
+      {
+        fetch,
+        env: {
+          CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+          CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+          CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+        },
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0]).toMatchObject({
+      headers: {
+        "X-CoreStudio-Agent-Session": "cursor-session-ref",
+      },
+    });
+    expect(records[0].headers).not.toHaveProperty(
+      "X-CoreStudio-Participant-Thread",
+    );
+  });
+
+  it("uses a local Agent session to request and claim a stable Board", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(
+      { ok: true, data: { boardUrl: stableBoardUrl } },
+      records,
+    );
+    const env = {
+      CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+      CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+      CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+    };
+
+    const result = await runCommand(
+      ["read", "board-url", "--agent-session", "cursor-session-ref", "--json"],
+      { fetch, env },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0].headers["X-CoreStudio-Agent-Session"]).toBe(
+      "cursor-session-ref",
+    );
+  });
+
   it("passes trusted Codex participant identity on write commands", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(okEnvelope, records);
@@ -956,7 +1052,7 @@ describe("runCli", () => {
         error: {
           code: "BAD_REQUEST",
           message:
-            "CoreStudio CLI tools are: read, write, edit, generate, bash.",
+            "CoreStudio CLI tools are: agent, read, board, write, edit, generate, bash.",
         },
       });
       expect(fetch).not.toHaveBeenCalled();

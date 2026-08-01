@@ -5,15 +5,32 @@ import type {
   ProjectRoomSceneElement,
 } from "./projectRoomProtocol";
 
-export const AGENT_BRIDGE_PROTOCOL_VERSION = 5;
+export const AGENT_BRIDGE_PROTOCOL_VERSION = 6;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 export const AGENT_BOARD_ROUTE = "/board";
 
+export const AGENT_HOSTS = ["codex", "cursor", "claude-code"] as const;
+
+export type AgentHost = typeof AGENT_HOSTS[number];
+
+export const isAgentHost = (value: unknown): value is AgentHost =>
+  typeof value === "string" && AGENT_HOSTS.includes(value as AgentHost);
+
+export interface LocalAgentSession {
+  sessionRef: string;
+  actorId: string;
+  host: AgentHost;
+  displayLabel: string;
+  issuedAt: string;
+  externalConversationId?: string;
+}
+
 export const AGENT_HTTP_ROUTES = {
   status: "/v1/status",
   capabilities: "/v1/agent/capabilities",
+  agentSession: "/v1/agent/session",
   imageGeneration: "/v1/agent/image-generation",
   authorize: "/v1/agent/authorize",
   boardSession: "/v1/board/session",

@@ -24,7 +24,10 @@ import type {
   ProviderSettings,
 } from "./providerTypes";
 import type { ModelCatalogSnapshot } from "./modelCatalogContract";
-import type { AgentRendererCommandRequest } from "./agentBridgeTypes";
+import type {
+  AgentHost,
+  AgentRendererCommandRequest,
+} from "./agentBridgeTypes";
 import type {
   DesktopLocalePreference,
   DesktopLocaleSettings,
@@ -59,6 +62,9 @@ export const IPC_CHANNELS = {
   openExternal: "image-board:open-external",
   inspectCodexIntegration: "image-board:inspect-codex-integration",
   installCodexIntegration: "image-board:install-codex-integration",
+  inspectAgentIntegration: "image-board:inspect-agent-integration",
+  installAgentIntegration: "image-board:install-agent-integration",
+  removeAgentIntegration: "image-board:remove-agent-integration",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
   deleteProviderSettings: "image-board:delete-provider-settings",
@@ -81,6 +87,8 @@ export const IPC_CHANNELS = {
   getAgentIntegrationSettings: "image-board:get-agent-integration-settings",
   setCodexImageGenerationEnabled:
     "image-board:set-codex-image-generation-enabled",
+  setAgentImageGenerationEnabled:
+    "image-board:set-agent-image-generation-enabled",
   projectRoomJoin: "image-board:project-room-join",
   projectRoomResync: "image-board:project-room-resync",
   projectRoomOperation: "image-board:project-room-operation",
@@ -184,6 +192,12 @@ export interface DesktopAgentBridgeStatus {
 
 export interface DesktopAgentIntegrationSettings {
   codex: {
+    allowImageGeneration: boolean;
+  };
+  cursor: {
+    allowImageGeneration: boolean;
+  };
+  "claude-code": {
     allowImageGeneration: boolean;
   };
 }
@@ -394,14 +408,21 @@ export interface CodexIntegrationCheck {
 }
 
 export interface CodexIntegrationStatus {
+  host?: AgentHost;
   state: "ready" | "install" | "update" | "repair" | "error";
-  command: string;
+  command?: string;
   appVersion: string;
   integrationVersion: string;
   guideUrl: string;
   checks: CodexIntegrationCheck[];
   detectedAt: string;
 }
+
+export type AgentIntegrationStatus = CodexIntegrationStatus & {
+  host: AgentHost;
+  skillPath: string;
+  canRemove: boolean;
+};
 
 export type CodexIntegrationInstallResult =
   | {
@@ -414,6 +435,7 @@ export type CodexIntegrationInstallResult =
       error: string;
       details: string;
     };
+export type AgentIntegrationInstallResult = CodexIntegrationInstallResult;
 export interface GenerateImagesInput {
   projectPath: string;
   generationJobId?: string;
@@ -477,6 +499,13 @@ export interface DesktopBridgeApi {
   openExternal?(url: string): Promise<void>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;
   installCodexIntegration?(): Promise<CodexIntegrationInstallResult>;
+  inspectAgentIntegration?(host: AgentHost): Promise<AgentIntegrationStatus>;
+  installAgentIntegration?(
+    host: AgentHost,
+  ): Promise<AgentIntegrationInstallResult>;
+  removeAgentIntegration?(
+    host: AgentHost,
+  ): Promise<AgentIntegrationInstallResult>;
   loadProviderSettings(): Promise<ProviderConfigurationSnapshot>;
   saveProviderSettings(
     input: SaveProviderSettingsInput,
@@ -504,6 +533,10 @@ export interface DesktopBridgeApi {
   setAgentBridgeEnabled?(enabled: boolean): Promise<DesktopAgentBridgeStatus>;
   getAgentIntegrationSettings?(): Promise<DesktopAgentIntegrationSettings>;
   setCodexImageGenerationEnabled?(
+    enabled: boolean,
+  ): Promise<DesktopAgentIntegrationSettings>;
+  setAgentImageGenerationEnabled?(
+    host: AgentHost,
     enabled: boolean,
   ): Promise<DesktopAgentIntegrationSettings>;
   joinProjectRoom?(

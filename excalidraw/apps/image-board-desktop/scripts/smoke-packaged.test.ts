@@ -207,4 +207,24 @@ describe("smoke-packaged", () => {
       force: true,
     });
   });
+
+  it("fails when the packaged multi-host Agent installer is missing", () => {
+    const { runCodexIntegrationSmoke } = loadModule();
+
+    expect(() =>
+      runCodexIntegrationSmoke({
+        executablePath:
+          "/release/mac-arm64/CoreStudio.app/Contents/MacOS/CoreStudio",
+        existsSync: (filePath) =>
+          !filePath.endsWith("/agent-integration/install.sh"),
+        mkdtempSync: () => "/tmp/corestudio-smoke-home",
+        readFileSync: () => "# CoreStudio Codex 集成安装指南",
+        rmSync: vi.fn(),
+        spawnSync: vi.fn(),
+        tmpdir: () => "/tmp",
+        env: { HOME: "/Users/alice" },
+        stdout: { write: vi.fn() },
+      }),
+    ).toThrow("Agent integration installer is missing");
+  });
 });

@@ -1,6 +1,6 @@
 # CoreStudio Agent CLI Contract
 
-CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local Bridge 的薄客户端。CLI 不直接读取或修改项目文件。
+CoreStudio CLI 是本地 Agent 与 Agent Board 使用的自动化入口，也是 Local Bridge 的薄客户端。CLI 不直接读取或修改项目文件。
 
 ## Tool Shape
 
@@ -9,6 +9,18 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `edit`：只改变选区、定位等临时画布状态。
 - `generate`：在用户按集成明确授权后，使用 CoreStudio 当前图片服务生成并写回。
 - `bash`：输出当前会话环境与示例。
+- `agent`：为当前本地 Agent 对话建立短期可信身份。
+
+## Agent Session
+
+Cursor 与 Claude Code 在开始写入、图片生成或画布认领前建立 session：
+
+```bash
+corestudio agent connect --host cursor --json
+corestudio agent connect --host claude-code --json
+```
+
+返回的 `sessionRef` 只在当前 CoreStudio 进程内有效，同一 Agent 对话后续命令通过 `--agent-session <sessionRef>` 复用。CoreStudio 退出后旧 session 明确失效。Codex 继续兼容 `CODEX_THREAD_ID` 自动身份，不要求现有用户手工连接。
 
 ## Read Commands
 
@@ -37,7 +49,7 @@ CoreStudio CLI 是 Codex 与 Agent Board 使用的自动化入口，也是 Local
 - `write prompt --text <text> --json`
 - `write diagram --format mermaid --file <path> --anchor auto|selection|viewport --json`
 
-Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜索或下载的外部图片使用 `--source-type imported`。生成图必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。
+Agent 生成的图片使用 `--source-type generated --origin agent-board`；搜索或下载的外部图片使用 `--source-type imported`。生成图必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。
 
 同一轮生成得到多张成功图片时，在同一条命令中依次提供全部路径。CLI 会读取全部图片并以一个 `files[]` 请求提交，CoreStudio 使用同一组参考元素和现有批量布局算法创建一个房间操作；不要逐张调用命令。
 
@@ -68,7 +80,7 @@ Codex 生成的图片使用 `--source-type generated --origin agent-board`；搜
 
 - `generate image --prompt <text> [--count <number>] [--reference-file-ids <ids>] [--reference-element-ids <ids>] --json`
 
-该命令仅在“应用设置 → Codex 集成 → Agent 权限”中允许 Codex 使用 CoreStudio 图片生成后可用。新安装和旧版本升级均默认关闭。Agent Bridge、画布生成输入框显示状态和本权限互相独立。
+该命令仅在“应用设置 → Agent 集成”中为当前宿主开启 CoreStudio 图片生成权限后可用。Codex、Cursor 与 Claude Code 的权限彼此独立，且新安装和旧版本升级均默认关闭。Agent Bridge、画布生成输入框显示状态和本权限互相独立。
 
 命令不接受 `--provider`、`--model`、`--api-key` 或 `--base-url`。Local Bridge 在接受请求时锁定用户当前默认服务及其当前默认模型；调用失败时不切换模型，也不静默删减不受支持的参数。
 
@@ -103,7 +115,7 @@ Agent 应根据 `error.code` 分支，不解析本地化 `message`：
 - `BAD_REQUEST`：参数无效。
 - `BRIDGE_UNAVAILABLE`：CoreStudio 未运行或会话不可达。
 - `PROJECT_STORAGE_DIVERGED`：磁盘项目与房间持有的持久化基线不一致；本次持久化已停止，需要检查项目文件为何被房间之外的写入者修改。
-- `IMAGE_GENERATION_DISABLED`：当前 Codex 集成没有获得图片生成权限。
+- `IMAGE_GENERATION_DISABLED`：当前 Agent 宿主没有获得图片生成权限。
 - `IMAGE_PROVIDER_NOT_CONFIGURED`：当前默认服务或模型尚未配置完成。
 - `IMAGE_MODEL_CAPABILITY_UNSUPPORTED`：当前模型不支持请求的数量或参考图能力。
 - `IMAGE_GENERATION_FAILED`：当前服务或模型调用失败；不得自动切换服务或模型。

@@ -8,7 +8,10 @@ import {
 import { buildCoreStudioGeneratedImageAssetInputs } from "../../src/app/generationResultAssets";
 
 import type { AgentAccessSettings } from "./agentAccessStore";
-import type { AgentImageGenerationCapability } from "../../src/shared/agentBridgeTypes";
+import type {
+  AgentHost,
+  AgentImageGenerationCapability,
+} from "../../src/shared/agentBridgeTypes";
 import type {
   PersistedImageAssetInput,
   ProjectAssetPayload,
@@ -124,12 +127,14 @@ export const createAgentImageGenerationService = ({
     request: GenerationRequest;
     referenceElementIds: string[];
     threadId?: string;
+    actorId?: string;
     displayLabel?: string;
   }) => Promise<{ slots: AgentGenerationPlaceholderSlot[] }>;
   markPlaceholdersFailed?: (input: {
     projectPath: string;
     slots: AgentGenerationPlaceholderSlot[];
     threadId?: string;
+    actorId?: string;
     displayLabel?: string;
   }) => Promise<void>;
   writeImages: (input: {
@@ -137,12 +142,15 @@ export const createAgentImageGenerationService = ({
     files: PersistedImageAssetInput[];
     referenceElementIds: string[];
     threadId?: string;
+    actorId?: string;
     displayLabel?: string;
     slots: AgentGenerationPlaceholderSlot[];
   }) => Promise<AgentImageWriteResult>;
   randomId?: () => string;
 }) => {
-  const getCapability = async (): Promise<AgentImageGenerationCapability> => {
+  const getCapability = async (
+    host: AgentHost = "codex",
+  ): Promise<AgentImageGenerationCapability> => {
     const [access, configuration] = await Promise.all([
       loadAgentAccessSettings(),
       loadProviderSettings(),
@@ -150,7 +158,7 @@ export const createAgentImageGenerationService = ({
     const current = getCurrentProviderSnapshot(configuration);
     return {
       supported: true,
-      authorized: access.integrations.codex.allowImageGeneration,
+      authorized: access.integrations[host].allowImageGeneration,
       configured: Boolean(current),
       currentProvider: current?.provider ?? null,
       currentModel: current?.model ?? null,
@@ -174,6 +182,8 @@ export const createAgentImageGenerationService = ({
     referenceFileIds,
     referenceElementIds,
     threadId,
+    actorId,
+    host = "codex",
     displayLabel,
   }: {
     projectPath: string;
@@ -182,13 +192,15 @@ export const createAgentImageGenerationService = ({
     referenceFileIds: string[];
     referenceElementIds: string[];
     threadId?: string;
+    actorId?: string;
+    host?: AgentHost;
     displayLabel?: string;
   }) => {
     const access = await loadAgentAccessSettings();
-    if (!access.integrations.codex.allowImageGeneration) {
+    if (!access.integrations[host].allowImageGeneration) {
       throw createAgentImageGenerationError(
         "IMAGE_GENERATION_DISABLED",
-        "Codex is not allowed to use CoreStudio image generation.",
+        "This Agent integration is not allowed to use CoreStudio image generation.",
       );
     }
     const configuration = await loadProviderSettings();
@@ -269,6 +281,7 @@ export const createAgentImageGenerationService = ({
           request,
           referenceElementIds,
           threadId,
+          actorId,
           displayLabel,
         })
       : { slots: [] };
@@ -280,6 +293,7 @@ export const createAgentImageGenerationService = ({
         projectPath,
         slots: placeholderResult.slots,
         threadId,
+        actorId,
         displayLabel,
       }).catch(() => undefined);
       throw createAgentImageGenerationError(
@@ -300,6 +314,7 @@ export const createAgentImageGenerationService = ({
         files,
         referenceElementIds,
         threadId,
+        actorId,
         displayLabel,
         slots: placeholderResult.slots,
       });
@@ -314,6 +329,7 @@ export const createAgentImageGenerationService = ({
         projectPath,
         slots: placeholderResult.slots,
         threadId,
+        actorId,
         displayLabel,
       }).catch(() => undefined);
       throw error;

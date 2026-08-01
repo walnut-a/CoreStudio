@@ -51,7 +51,7 @@ describe("CoreStudio Codex integration installer", () => {
     expect(skill).toContain('"source":"agent-board"');
     expect(skill).toContain('"mode":"claim"');
     expect(skill).toContain(
-      "corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce> --json",
+      "corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce> --agent-session <sessionRef> --json",
     );
     expect(skill).toContain("不要打开新的画布标签页");
   });

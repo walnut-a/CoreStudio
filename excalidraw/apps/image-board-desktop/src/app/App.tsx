@@ -2081,6 +2081,30 @@ const App = ({
               }
               return desktopBridge.installCodexIntegration();
             }}
+            inspectAgentIntegration={(host) => {
+              if (!desktopBridge.inspectAgentIntegration) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持检测 Agent 集成。"),
+                );
+              }
+              return desktopBridge.inspectAgentIntegration(host);
+            }}
+            installAgentIntegration={(host) => {
+              if (!desktopBridge.installAgentIntegration) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持安装 Agent 集成。"),
+                );
+              }
+              return desktopBridge.installAgentIntegration(host);
+            }}
+            removeAgentIntegration={(host) => {
+              if (!desktopBridge.removeAgentIntegration) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持移除 Agent 集成。"),
+                );
+              }
+              return desktopBridge.removeAgentIntegration(host);
+            }}
             copyText={clipboardTextRendererActions.copy}
             loadAgentIntegrationSettings={() => {
               if (!desktopBridge.getAgentIntegrationSettings) {
@@ -2097,6 +2121,17 @@ const App = ({
                 );
               }
               return desktopBridge.setCodexImageGenerationEnabled(enabled);
+            }}
+            setAgentImageGenerationEnabled={(host, enabled) => {
+              if (!desktopBridge.setAgentImageGenerationEnabled) {
+                return Promise.reject(
+                  new Error("当前版本暂不支持保存 Agent 权限。"),
+                );
+              }
+              return desktopBridge.setAgentImageGenerationEnabled(
+                host,
+                enabled,
+              );
             }}
             loadAgentBridgeStatus={() => {
               if (!desktopBridge.getAgentBridgeStatus) {

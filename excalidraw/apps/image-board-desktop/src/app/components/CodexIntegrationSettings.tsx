@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+import { AGENT_HOST_LABELS } from "../../shared/agentIntegrationContract";
+import type { AgentHost } from "../../shared/agentBridgeTypes";
 
 import type {
   CodexIntegrationCheck,
   CodexIntegrationInstallResult,
   CodexIntegrationStatus,
+  AgentIntegrationStatus,
   DesktopAgentBridgeStatus,
   DesktopAgentIntegrationSettings,
 } from "../../shared/desktopBridgeTypes";
@@ -15,9 +19,22 @@ export interface CodexIntegrationSettingsProps {
   open: boolean;
   inspect: () => Promise<CodexIntegrationStatus>;
   install: () => Promise<CodexIntegrationInstallResult>;
+  inspectAgentIntegration?: (
+    host: AgentHost,
+  ) => Promise<AgentIntegrationStatus>;
+  installAgentIntegration?: (
+    host: AgentHost,
+  ) => Promise<CodexIntegrationInstallResult>;
+  removeAgentIntegration?: (
+    host: AgentHost,
+  ) => Promise<CodexIntegrationInstallResult>;
   copyText: (text: string) => Promise<boolean | void>;
   loadAgentIntegrationSettings?: () => Promise<DesktopAgentIntegrationSettings>;
   setCodexImageGenerationEnabled?: (
+    enabled: boolean,
+  ) => Promise<DesktopAgentIntegrationSettings>;
+  setAgentImageGenerationEnabled?: (
+    host: AgentHost,
     enabled: boolean,
   ) => Promise<DesktopAgentIntegrationSettings>;
   providerConfigured?: boolean;
@@ -83,26 +100,50 @@ export const CodexIntegrationSettings = ({
   open,
   inspect,
   install,
+  inspectAgentIntegration,
+  installAgentIntegration,
+  removeAgentIntegration,
   copyText,
   loadAgentIntegrationSettings,
   setCodexImageGenerationEnabled,
+  setAgentImageGenerationEnabled,
   providerConfigured = false,
   agentBridgeEnabled = true,
   loadAgentBridgeStatus,
   onOpenImageIntegrations,
 }: CodexIntegrationSettingsProps) => {
+  const [activeHost, setActiveHost] = useState<AgentHost>("codex");
+  const hostLabel = AGENT_HOST_LABELS[activeHost];
+  const hostText = useCallback(
+    (value: string) => value.replaceAll("Codex", hostLabel),
+    [hostLabel],
+  );
+  const inspectCurrentHost = useCallback(
+    () =>
+      inspectAgentIntegration
+        ? inspectAgentIntegration(activeHost)
+        : activeHost === "codex"
+        ? inspect()
+        : Promise.reject(new Error(`${hostLabel} 集成检测暂不可用。`)),
+    [activeHost, hostLabel, inspect, inspectAgentIntegration],
+  );
   const { status, loading, error, refresh } = useCodexIntegrationStatus({
     open,
-    inspect,
+    inspect: inspectCurrentHost,
   });
   const [copied, setCopied] = useState<"install" | "prompt" | null>(null);
-  const [installing, setInstalling] = useState(false);
-  const [installError, setInstallError] = useState<string | null>(null);
+  const [integrationAction, setIntegrationAction] = useState<
+    "install" | "remove" | null
+  >(null);
+  const [integrationError, setIntegrationError] = useState<{
+    action: "install" | "remove";
+    message: string;
+  } | null>(null);
   const [imageGenerationAllowed, setImageGenerationAllowed] = useState(false);
   const [permissionSaving, setPermissionSaving] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [bridgeEnabled, setBridgeEnabled] = useState(agentBridgeEnabled);
-  const installPrompt = status ? CODEX_INSTALL_PROMPT(status) : "";
+  const installPrompt = status ? hostText(CODEX_INSTALL_PROMPT(status)) : "";
 
   useEffect(() => {
     if (!open || !loadAgentIntegrationSettings) {
@@ -114,7 +155,7 @@ export const CodexIntegrationSettings = ({
       .then((settings) => {
         if (active) {
           setImageGenerationAllowed(
-            settings.codex.allowImageGeneration === true,
+            settings[activeHost].allowImageGeneration === true,
           );
         }
       })
@@ -123,15 +164,23 @@ export const CodexIntegrationSettings = ({
           setPermissionError(
             error instanceof Error
               ? error.message
-              : copy.applicationSettings.codexPage
-                  .imageGenerationPermissionSaveFailed,
+              : hostText(
+                  copy.applicationSettings.codexPage
+                    .imageGenerationPermissionSaveFailed,
+                ),
           );
         }
       });
     return () => {
       active = false;
     };
-  }, [loadAgentIntegrationSettings, open]);
+  }, [activeHost, hostText, loadAgentIntegrationSettings, open]);
+
+  useEffect(() => {
+    setCopied(null);
+    setIntegrationError(null);
+    setPermissionError(null);
+  }, [activeHost]);
 
   useEffect(() => {
     if (!open || !loadAgentBridgeStatus) {
@@ -168,9 +217,27 @@ export const CodexIntegrationSettings = ({
         </DesktopButton>
       </header>
 
+      <div className="settings-agent-host-selector" role="group">
+        {(Object.keys(AGENT_HOST_LABELS) as AgentHost[]).map((host) => (
+          <button
+            key={host}
+            type="button"
+            className={`settings-agent-host-selector__item${
+              activeHost === host
+                ? " settings-agent-host-selector__item--active"
+                : ""
+            }`}
+            aria-pressed={activeHost === host}
+            onClick={() => setActiveHost(host)}
+          >
+            {AGENT_HOST_LABELS[host]}
+          </button>
+        ))}
+      </div>
+
       {loading && !status ? (
         <div className="settings-detection-loading">
-          {copy.applicationSettings.codexPage.loading}
+          {hostText(copy.applicationSettings.codexPage.loading)}
         </div>
       ) : error ? (
         <section className="settings-callout settings-callout--error">
@@ -185,7 +252,9 @@ export const CodexIntegrationSettings = ({
                 {copy.applicationSettings.codexPage.installOnDevice}
               </span>
               <h4>
-                {copy.applicationSettings.codexPage.stateTitle[status.state]}
+                {hostText(
+                  copy.applicationSettings.codexPage.stateTitle[status.state],
+                )}
               </h4>
               <p>
                 {status.state === "ready"
@@ -193,12 +262,16 @@ export const CodexIntegrationSettings = ({
                   : copy.applicationSettings.codexPage.actionDescription}
               </p>
             </div>
-            {installError ? (
+            {integrationError ? (
               <section className="settings-callout settings-callout--error">
                 <strong>
-                  {copy.applicationSettings.codexPage.installFailed}
+                  {hostText(
+                    integrationError.action === "remove"
+                      ? copy.applicationSettings.codexPage.removeFailed
+                      : copy.applicationSettings.codexPage.installFailed,
+                  )}
                 </strong>
-                <p>{installError}</p>
+                <p>{integrationError.message}</p>
               </section>
             ) : null}
             <div className="settings-install-actions">
@@ -206,33 +279,50 @@ export const CodexIntegrationSettings = ({
                 type="button"
                 size="small"
                 variant={status.state === "ready" ? "default" : "primary"}
-                disabled={installing}
+                disabled={integrationAction !== null}
                 onClick={async () => {
-                  setInstalling(true);
-                  setInstallError(null);
+                  setIntegrationAction("install");
+                  setIntegrationError(null);
                   try {
-                    const result = await install();
+                    const result = installAgentIntegration
+                      ? await installAgentIntegration(activeHost)
+                      : activeHost === "codex"
+                      ? await install()
+                      : {
+                          ok: false as const,
+                          error: `${hostLabel} 集成安装暂不可用。`,
+                          details: "",
+                        };
                     if (!result.ok) {
-                      setInstallError(result.details || result.error);
+                      setIntegrationError({
+                        action: "install",
+                        message: result.details || result.error,
+                      });
                       return;
                     }
                     await refresh();
                   } catch (nextError) {
-                    setInstallError(
-                      nextError instanceof Error
-                        ? nextError.message
-                        : copy.applicationSettings.codexPage.installFailed,
-                    );
+                    setIntegrationError({
+                      action: "install",
+                      message:
+                        nextError instanceof Error
+                          ? nextError.message
+                          : hostText(
+                              copy.applicationSettings.codexPage.installFailed,
+                            ),
+                    });
                   } finally {
-                    setInstalling(false);
+                    setIntegrationAction(null);
                   }
                 }}
               >
-                {installing
+                {integrationAction === "install"
                   ? copy.applicationSettings.codexPage.installing
-                  : copy.applicationSettings.codexPage.installAction[
-                      status.state
-                    ]}
+                  : hostText(
+                      copy.applicationSettings.codexPage.installAction[
+                        status.state
+                      ],
+                    )}
               </DesktopButton>
               <DesktopButton
                 type="button"
@@ -244,12 +334,59 @@ export const CodexIntegrationSettings = ({
               >
                 {copied === "install"
                   ? copy.applicationSettings.codexPage.copied
-                  : copy.applicationSettings.codexPage.copyToCodex}
+                  : hostText(copy.applicationSettings.codexPage.copyToCodex)}
               </DesktopButton>
+              {"canRemove" in status &&
+              status.canRemove &&
+              removeAgentIntegration ? (
+                <DesktopButton
+                  type="button"
+                  size="small"
+                  disabled={integrationAction !== null}
+                  onClick={async () => {
+                    setIntegrationAction("remove");
+                    setIntegrationError(null);
+                    try {
+                      const result = await removeAgentIntegration(activeHost);
+                      if (!result.ok) {
+                        setIntegrationError({
+                          action: "remove",
+                          message: result.details || result.error,
+                        });
+                        return;
+                      }
+                      await refresh();
+                    } catch (nextError) {
+                      setIntegrationError({
+                        action: "remove",
+                        message:
+                          nextError instanceof Error
+                            ? nextError.message
+                            : hostText(
+                                copy.applicationSettings.codexPage.removeFailed,
+                              ),
+                      });
+                    } finally {
+                      setIntegrationAction(null);
+                    }
+                  }}
+                >
+                  {integrationAction === "remove"
+                    ? copy.applicationSettings.codexPage.removing
+                    : hostText(
+                        copy.applicationSettings.codexPage.removeAction,
+                      )}
+                </DesktopButton>
+              ) : null}
             </div>
+            {"canRemove" in status && status.canRemove ? (
+              <p className="settings-inline-note">
+                {copy.applicationSettings.codexPage.removeDescription}
+              </p>
+            ) : null}
             <div className="settings-agent-prompt">
               <span className="settings-section-label">
-                {copy.applicationSettings.codexPage.repairWithCodex}
+                {hostText(copy.applicationSettings.codexPage.repairWithCodex)}
               </span>
               <p>{installPrompt}</p>
             </div>
@@ -282,8 +419,11 @@ export const CodexIntegrationSettings = ({
                       {check.status === "ready" ? "✓" : "!"}
                     </span>
                     <span>
-                      <strong>{presentation.label}</strong>
-                      <small>{presentation.detail}</small>
+                      <strong>{hostText(presentation.label)}</strong>
+                      <small>{hostText(presentation.detail)}</small>
+                      {check.id === "skill" && "skillPath" in status ? (
+                        <small>{String(status.skillPath)}</small>
+                      ) : null}
                     </span>
                     <em>
                       {
@@ -309,16 +449,16 @@ export const CodexIntegrationSettings = ({
         <div className="app-settings-section">
           <div className="app-settings-section__copy">
             <span>
-              {
+              {hostText(
                 copy.applicationSettings.codexPage
-                  .imageGenerationPermissionTitle
-              }
+                  .imageGenerationPermissionTitle,
+              )}
             </span>
             <p>
-              {
-                copy.applicationSettings.codexPage
-                  .imageGenerationPermissionDescription
-              }
+              {copy.applicationSettings.codexPage.imageGenerationPermissionDescriptionForHost(
+                hostLabel,
+                activeHost === "codex",
+              )}
             </p>
             {!providerConfigured ? (
               <p className="settings-inline-note">
@@ -355,29 +495,41 @@ export const CodexIntegrationSettings = ({
             type="button"
             role="switch"
             className="app-settings-section__switch"
-            aria-label={
-              copy.applicationSettings.codexPage.imageGenerationPermissionLabel
-            }
+            aria-label={hostText(
+              copy.applicationSettings.codexPage.imageGenerationPermissionLabel,
+            )}
             aria-checked={imageGenerationAllowed}
-            disabled={permissionSaving || !setCodexImageGenerationEnabled}
+            disabled={
+              permissionSaving ||
+              (!setAgentImageGenerationEnabled &&
+                (activeHost !== "codex" || !setCodexImageGenerationEnabled))
+            }
             onClick={() => {
-              if (!setCodexImageGenerationEnabled) {
+              const savePermission = setAgentImageGenerationEnabled
+                ? (enabled: boolean) =>
+                    setAgentImageGenerationEnabled(activeHost, enabled)
+                : activeHost === "codex" && setCodexImageGenerationEnabled
+                ? setCodexImageGenerationEnabled
+                : null;
+              if (!savePermission) {
                 return;
               }
               setPermissionSaving(true);
               setPermissionError(null);
-              void setCodexImageGenerationEnabled(!imageGenerationAllowed)
+              void savePermission(!imageGenerationAllowed)
                 .then((settings) => {
                   setImageGenerationAllowed(
-                    settings.codex.allowImageGeneration === true,
+                    settings[activeHost].allowImageGeneration === true,
                   );
                 })
                 .catch((error) => {
                   setPermissionError(
                     error instanceof Error
                       ? error.message
-                      : copy.applicationSettings.codexPage
-                          .imageGenerationPermissionSaveFailed,
+                      : hostText(
+                          copy.applicationSettings.codexPage
+                            .imageGenerationPermissionSaveFailed,
+                        ),
                   );
                 })
                 .finally(() => {
@@ -391,10 +543,10 @@ export const CodexIntegrationSettings = ({
       <section className="settings-start-card">
         <div>
           <span className="settings-section-label">
-            {copy.applicationSettings.codexPage.startInCodex}
+            {hostText(copy.applicationSettings.codexPage.startInCodex)}
           </span>
           <h4>{copy.applicationSettings.codexPage.openCurrentProject}</h4>
-          <p>{copy.applicationSettings.codexPage.startDescription}</p>
+          <p>{hostText(copy.applicationSettings.codexPage.startDescription)}</p>
         </div>
         <DesktopButton
           type="button"

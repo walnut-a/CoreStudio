@@ -529,6 +529,117 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("issues local Agent sessions only through the trusted participant issuer", async () => {
+    const issuedSession = {
+      sessionRef: "cursor-session-ref",
+      actorId: "agent:cursor:cursor-session-ref",
+      host: "cursor" as const,
+      displayLabel: "Cursor · 任务 A",
+      issuedAt: "2026-08-02T00:00:00.000Z",
+    };
+    const issueAgentSession = vi.fn(() => issuedSession);
+    const { server } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        issueAgentSession,
+      }),
+    );
+
+    const denied = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.agentSession,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "cursor",
+          displayLabel: "Cursor · 任务 A",
+        }),
+      },
+    );
+    expect(denied).toMatchObject({
+      status: 403,
+      body: { error: { code: "FORBIDDEN" } },
+    });
+
+    const issued = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.agentSession,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+        },
+        body: JSON.stringify({
+          host: "cursor",
+          displayLabel: "Cursor · 任务 A",
+        }),
+      },
+    );
+    expect(issued).toEqual({
+      status: 200,
+      body: { ok: true, data: issuedSession },
+    });
+    expect(issueAgentSession).toHaveBeenCalledWith({
+      host: "cursor",
+      displayLabel: "Cursor · 任务 A",
+    });
+  });
+
+  it("resolves a local Agent session for trusted project room writes", async () => {
+    const session = {
+      sessionRef: "cursor-session-ref",
+      actorId: "agent:cursor:cursor-session-ref",
+      host: "cursor" as const,
+      displayLabel: "Cursor · 任务 A",
+      issuedAt: "2026-08-02T00:00:00.000Z",
+    };
+    const resolveAgentSession = vi.fn(() => session);
+    const withAgentWriterCommand = vi.fn(async (_input, run) =>
+      run({
+        sessionId: "writer-session",
+        identity: {
+          projectId: "project-1",
+          canonicalProjectPath: currentProject.projectPath,
+          roomId: "room-1",
+          sessionEpoch: 1,
+        },
+        roomSequence: 1,
+        scene: { elements: [], sharedSceneConfig: {} },
+      }),
+    );
+    const { server } = await track(
+      startServer({ resolveAgentSession, withAgentWriterCommand }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Agent-Session": session.sessionRef,
+        },
+        body: JSON.stringify({ text: "方案 A" }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(resolveAgentSession).toHaveBeenCalledWith(session.sessionRef);
+    expect(withAgentWriterCommand).toHaveBeenCalledWith(
+      {
+        project: currentProject,
+        threadId: session.sessionRef,
+        actorId: session.actorId,
+        host: "cursor",
+        displayLabel: session.displayLabel,
+      },
+      expect.any(Function),
+    );
+  });
+
   it("issues a scoped project-selection session when there is no current project", async () => {
     const issueBoardProjectSelection = vi.fn(async () => ({
       selectionToken: "selection-token",
@@ -898,6 +1009,89 @@ describe("createLocalBridgeServer", () => {
       referenceFileIds: ["file-1"],
       referenceElementIds: ["element-1"],
     });
+  });
+
+  it("resolves image generation permission and writes for the active Agent host", async () => {
+    const getAgentImageGenerationCapability = vi.fn(async () => ({
+      supported: true,
+      authorized: true,
+      configured: true,
+      currentProvider: "openai",
+      currentModel: "gpt-image-1",
+      capabilities: {
+        maxImageCount: 1,
+        supportsImageCount: true,
+        supportsReferenceImages: false,
+      },
+    }));
+    const generateAgentImages = vi.fn(async () => ({ persisted: true }));
+    const { server } = await track(
+      startServer({
+        resolveAgentSession: () => ({
+          sessionRef: "cursor-session",
+          actorId: "agent:cursor:cursor-session",
+          host: "cursor",
+          displayLabel: "Cursor Agent",
+          issuedAt: "2026-08-02T00:00:00.000Z",
+        }),
+        getAgentImageGenerationCapability,
+        generateAgentImages,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      "/v1/agent/image-generation",
+      {
+        method: "POST",
+        headers: {
+          "X-CoreStudio-Agent-Session": "cursor-session",
+        },
+        body: JSON.stringify({ prompt: "工业设计草图", count: 1 }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(getAgentImageGenerationCapability).toHaveBeenCalledWith("cursor");
+    expect(generateAgentImages).toHaveBeenCalledWith({
+      project: currentProject,
+      threadId: "cursor-session",
+      actorId: "agent:cursor:cursor-session",
+      host: "cursor",
+      displayLabel: "Cursor Agent",
+      prompt: "工业设计草图",
+      count: 1,
+      referenceFileIds: [],
+      referenceElementIds: [],
+    });
+  });
+
+  it("rejects an expired Agent session before resolving host capabilities", async () => {
+    const getAgentImageGenerationCapability = vi.fn();
+    const { server } = await track(
+      startServer({
+        resolveAgentSession: () => {
+          throw Object.assign(new Error("Agent session expired."), {
+            code: "AUTH_REQUIRED",
+          });
+        },
+        getAgentImageGenerationCapability,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.capabilities,
+      {
+        headers: { "X-CoreStudio-Agent-Session": "expired-session" },
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 401,
+      body: { ok: false, error: { code: "AUTH_REQUIRED" } },
+    });
+    expect(getAgentImageGenerationCapability).not.toHaveBeenCalled();
   });
 
   it.each(["provider", "model", "apiKey", "baseUrl"])(

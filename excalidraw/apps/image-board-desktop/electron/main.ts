@@ -48,10 +48,11 @@ import {
 } from "../src/shared/recentProjectErrors";
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
+  isAgentHost,
   type AgentRendererCommandName,
   type AgentRendererCommandResponse,
 } from "../src/shared/agentBridgeTypes";
-import { CODEX_INTEGRATION_VERSION } from "../src/shared/codexIntegrationContract";
+import { AGENT_INTEGRATION_VERSION } from "../src/shared/agentIntegrationContract";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 import {
   beginProjectImageWriteback,
@@ -90,6 +91,7 @@ import {
   saveAgentAccessSettings,
 } from "./agent/agentAccessStore";
 import { createAgentImageGenerationService } from "./agent/agentImageGenerationService";
+import { createLocalAgentSessionStore } from "./agent/localAgentSessionStore";
 import { buildAgentBoardUrl } from "./agent/agentBoardUrl";
 import { createBoardProjectSelectionStore } from "./agent/boardProjectSelectionStore";
 import {
@@ -110,9 +112,10 @@ import { createQuitState } from "./windowLifecycle";
 import { createLauncherLivenessGuard } from "./launcherLiveness";
 import { disableRendererPageZoom } from "./windowZoomGuard";
 import {
-  inspectCodexIntegration,
-  installCodexIntegration,
-} from "./codexIntegrationService";
+  inspectAgentIntegration,
+  installAgentIntegration,
+  removeAgentIntegration,
+} from "./agentIntegrationService";
 import {
   createSingleInstanceController,
   focusExistingWindow,
@@ -217,6 +220,7 @@ const quitState = createQuitState();
 const agentSessionPath = desktopRuntime.sessionPath;
 const taskGrantStore = createTaskGrantStore();
 const participantIssuerToken = randomUUID();
+const localAgentSessionStore = createLocalAgentSessionStore();
 const projectRoomTicketStore = createProjectRoomTicketStore();
 const stableBoardSessionClaimStore = createStableBoardSessionClaimStore();
 let stableBoardActorResumeTokenService: StableBoardActorResumeTokenService | null =
@@ -326,22 +330,42 @@ const generationRequestController = createGenerationRequestController({
   generateImages,
 });
 const AGENT_GENERATE_IMAGES_TIMEOUT_MS = 180_000;
+const resolveAgentActorId = ({
+  actorId,
+  threadId,
+}: {
+  actorId?: string;
+  threadId?: string;
+}) => {
+  if (actorId) {
+    return actorId;
+  }
+  if (threadId) {
+    return `codex:${threadId}`;
+  }
+  throw Object.assign(
+    new Error("A trusted Agent participant identity is required."),
+    { code: "AUTH_REQUIRED" },
+  );
+};
 const executeAgentImageGenerationWriterCommand = async ({
   projectPath,
   threadId,
+  actorId,
   displayLabel,
   command,
   payload,
 }: {
   projectPath: string;
   threadId?: string;
+  actorId?: string;
   displayLabel?: string;
   command: AgentRendererCommandName;
   payload: Record<string, unknown>;
 }) => {
-  if (!threadId || !displayLabel) {
+  if ((!actorId && !threadId) || !displayLabel) {
     throw Object.assign(
-      new Error("A trusted Codex participant identity is required."),
+      new Error("A trusted Agent participant identity is required."),
       { code: "AUTH_REQUIRED" },
     );
   }
@@ -351,10 +375,9 @@ const executeAgentImageGenerationWriterCommand = async ({
       { code: "APP_NOT_READY" },
     );
   }
+  const resolvedActorId = resolveAgentActorId({ actorId, threadId });
   const room = await projectRoomService.openProject(projectPath);
-  const participantState = room.getParticipantSelectionByActor(
-    `codex:${threadId}`,
-  );
+  const participantState = room.getParticipantSelectionByActor(resolvedActorId);
   const agentBoardContext = participantState
     ? {
         ...(participantState.selection === undefined
@@ -372,7 +395,7 @@ const executeAgentImageGenerationWriterCommand = async ({
     : null;
   return executeProjectRoomAgentWriterCommand({
     room,
-    actorId: `codex:${threadId}`,
+    actorId: resolvedActorId,
     displayLabel,
     prepare: (context) =>
       rendererCommandBridge!.request(
@@ -409,11 +432,13 @@ const agentImageGenerationService = createAgentImageGenerationService({
     request,
     referenceElementIds,
     threadId,
+    actorId,
     displayLabel,
   }) =>
     (await executeAgentImageGenerationWriterCommand({
       projectPath,
       threadId,
+      actorId,
       displayLabel,
       command: "scene.addCoreStudioGenerationPlaceholders",
       payload: { request, referenceElementIds },
@@ -428,11 +453,13 @@ const agentImageGenerationService = createAgentImageGenerationService({
     projectPath,
     slots,
     threadId,
+    actorId,
     displayLabel,
   }) => {
     await executeAgentImageGenerationWriterCommand({
       projectPath,
       threadId,
+      actorId,
       displayLabel,
       command: "scene.failCoreStudioGenerationPlaceholders",
       payload: { slots },
@@ -443,12 +470,14 @@ const agentImageGenerationService = createAgentImageGenerationService({
     files,
     referenceElementIds,
     threadId,
+    actorId,
     displayLabel,
     slots,
   }) => {
     return (await executeAgentImageGenerationWriterCommand({
       projectPath,
       threadId,
+      actorId,
       displayLabel,
       command: "scene.addCoreStudioGeneratedImage",
       payload: {
@@ -1048,11 +1077,13 @@ const startLocalBridge = async () => {
         : path.join(__dirname, "..", "dist"),
       agentBoardDevServerUrl: rendererUrl ?? undefined,
       isAgentAccessEnabled: () => agentAccessEnabled,
-      getAgentImageGenerationCapability: () =>
-        agentImageGenerationService.getCapability(),
+      getAgentImageGenerationCapability: (host) =>
+        agentImageGenerationService.getCapability(host),
       generateAgentImages: ({
         project,
         threadId,
+        actorId,
+        host,
         displayLabel,
         prompt,
         count,
@@ -1062,6 +1093,8 @@ const startLocalBridge = async () => {
         agentImageGenerationService.generate({
           projectPath: project.projectPath,
           threadId,
+          actorId,
+          host,
           displayLabel,
           prompt,
           count,
@@ -1087,12 +1120,20 @@ const startLocalBridge = async () => {
       },
       grants: taskGrantStore,
       participantIssuerToken,
-      issueProjectRoomTicket: async ({ project, threadId, displayLabel }) => {
+      issueAgentSession: (input) => localAgentSessionStore.issue(input),
+      resolveAgentSession: (sessionRef) =>
+        localAgentSessionStore.resolve(sessionRef),
+      issueProjectRoomTicket: async ({
+        project,
+        threadId,
+        actorId,
+        displayLabel,
+      }) => {
         const room = await projectRoomService.openProject(project.projectPath);
         return {
           launchTicket: projectRoomTicketStore.issueLaunchTicket({
             identity: room.identity,
-            actorId: `codex:${threadId}`,
+            actorId: resolveAgentActorId({ actorId, threadId }),
             displayLabel,
           }),
         };
@@ -1101,6 +1142,7 @@ const startLocalBridge = async () => {
         stableBoardId,
         pageNonce,
         threadId,
+        actorId,
         displayLabel,
       }) => {
         if (!(await getAgentProjectByStableBoardId(stableBoardId))) {
@@ -1112,7 +1154,7 @@ const startLocalBridge = async () => {
         stableBoardSessionClaimStore.claim({
           stableBoardId,
           pageNonce,
-          actorId: `codex:${threadId}`,
+          actorId: resolveAgentActorId({ actorId, threadId }),
           displayLabel,
         });
       },
@@ -1171,19 +1213,9 @@ const startLocalBridge = async () => {
       },
       inspectStableBoardIntegration: async ({ stableBoardId, pageNonce }) => {
         stableBoardSessionClaimStore.register({ stableBoardId, pageNonce });
-        const [project, integration] = await Promise.all([
-          getAgentProjectByStableBoardId(stableBoardId),
-          inspectCodexIntegration({
-            homeDir: app.getPath("home"),
-            resourcesPath: process.resourcesPath,
-            appVersion: DESKTOP_APP_VERSION,
-          }),
-        ]);
+        const project = await getAgentProjectByStableBoardId(stableBoardId);
         const issues: Array<{
-          code:
-            | "CODEX_INTEGRATION_MISSING"
-            | "CODEX_INTEGRATION_OUTDATED"
-            | "PROJECT_NOT_FOUND";
+          code: "PROJECT_NOT_FOUND";
           message: string;
         }> = [];
         if (!project) {
@@ -1193,34 +1225,15 @@ const startLocalBridge = async () => {
               "CoreStudio 找不到这个画布对应的本地项目。项目可能已经移动或删除。",
           });
         }
-        if (integration.state !== "ready") {
-          issues.push({
-            code:
-              integration.state === "install"
-                ? "CODEX_INTEGRATION_MISSING"
-                : "CODEX_INTEGRATION_OUTDATED",
-            message:
-              integration.state === "install"
-                ? "当前 Codex 集成尚未安装完整。"
-                : "当前 Codex 集成与 CoreStudio 版本不匹配。",
-          });
-        }
         const projectUnavailable = issues.some(
           (issue) => issue.code === "PROJECT_NOT_FOUND",
-        );
-        const repairRequired = issues.some(
-          (issue) =>
-            issue.code === "CODEX_INTEGRATION_MISSING" ||
-            issue.code === "CODEX_INTEGRATION_OUTDATED",
         );
         return {
           state: projectUnavailable
             ? ("project-unavailable" as const)
-            : repairRequired
-            ? ("repair-required" as const)
             : ("ready" as const),
           appVersion: DESKTOP_APP_VERSION,
-          integrationVersion: CODEX_INTEGRATION_VERSION,
+          integrationVersion: AGENT_INTEGRATION_VERSION,
           bridgeProtocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
           actorClaimed: stableBoardSessionClaimStore.hasClaim({
             stableBoardId,
@@ -1229,9 +1242,13 @@ const startLocalBridge = async () => {
           issues,
         };
       },
-      issueBoardProjectSelection: async ({ threadId, displayLabel }) => ({
+      issueBoardProjectSelection: async ({
+        threadId,
+        actorId,
+        displayLabel,
+      }) => ({
         selectionToken: boardProjectSelectionStore.issue({
-          actorId: `codex:${threadId}`,
+          actorId: resolveAgentActorId({ actorId, threadId }),
           displayLabel,
         }),
       }),
@@ -1394,13 +1411,13 @@ const startLocalBridge = async () => {
         });
       },
       withAgentWriterCommand: async (
-        { project, threadId, displayLabel, dryRun },
+        { project, threadId, actorId, displayLabel, dryRun },
         run,
       ) => {
         const room = await projectRoomService.openProject(project.projectPath);
         return executeProjectRoomAgentWriterCommand({
           room,
-          actorId: `codex:${threadId}`,
+          actorId: resolveAgentActorId({ actorId, threadId }),
           displayLabel,
           prepare: run,
           persistAssets: (files) =>
@@ -1413,10 +1430,16 @@ const startLocalBridge = async () => {
           dryRun,
         });
       },
-      getProjectRoomParticipantState: async ({ project, threadId }) => {
+      getProjectRoomParticipantState: async ({
+        project,
+        threadId,
+        actorId,
+      }) => {
         const room = await projectRoomService.findOpenRoom(project.projectPath);
         return (
-          room?.getParticipantSelectionByActor(`codex:${threadId}`) ?? null
+          room?.getParticipantSelectionByActor(
+            resolveAgentActorId({ actorId, threadId }),
+          ) ?? null
         );
       },
     });
@@ -2232,6 +2255,30 @@ const registerIpcHandlers = () => {
   );
 
   ipcMain.handle(
+    IPC_CHANNELS.setAgentImageGenerationEnabled,
+    async (event, host: unknown, enabled: unknown) => {
+      requireShellOrProjectRendererSender(event.sender);
+      if (!isAgentHost(host) || typeof enabled !== "boolean") {
+        throw new Error(
+          "Agent host and image generation permission are invalid.",
+        );
+      }
+      const settings = await loadAgentAccessSettings();
+      const saved = await saveAgentAccessSettings({
+        ...settings,
+        integrations: {
+          ...settings.integrations,
+          [host]: {
+            ...settings.integrations[host],
+            allowImageGeneration: enabled,
+          },
+        },
+      });
+      return saved.integrations;
+    },
+  );
+
+  ipcMain.handle(
     IPC_CHANNELS.projectRoomJoin,
     async (event, input: DesktopProjectRoomJoinInput) => {
       const sender = event.sender;
@@ -2555,8 +2602,10 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC_CHANNELS.inspectCodexIntegration, async (event) => {
     requireShellOrProjectRendererSender(event.sender);
-    return inspectCodexIntegration({
+    return inspectAgentIntegration({
+      host: "codex",
       homeDir: app.getPath("home"),
+      settingsDirectory: desktopRuntime.settingsDirectory,
       resourcesPath: process.resourcesPath,
       appVersion: DESKTOP_APP_VERSION,
     });
@@ -2571,7 +2620,61 @@ const registerIpcHandlers = () => {
           "Codex integration installer does not accept arguments.",
         );
       }
-      return installCodexIntegration({
+      return installAgentIntegration({
+        host: "codex",
+        homeDir: app.getPath("home"),
+        settingsDirectory: desktopRuntime.settingsDirectory,
+        resourcesPath: process.resourcesPath,
+        appVersion: DESKTOP_APP_VERSION,
+      });
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.inspectAgentIntegration,
+    async (event, host: unknown) => {
+      requireShellOrProjectRendererSender(event.sender);
+      if (!isAgentHost(host)) {
+        throw new Error("Unsupported Agent host.");
+      }
+      return inspectAgentIntegration({
+        host,
+        homeDir: app.getPath("home"),
+        settingsDirectory: desktopRuntime.settingsDirectory,
+        resourcesPath: process.resourcesPath,
+        appVersion: DESKTOP_APP_VERSION,
+      });
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.installAgentIntegration,
+    async (event, host: unknown) => {
+      requireShellOrProjectRendererSender(event.sender);
+      if (!isAgentHost(host)) {
+        throw new Error("Unsupported Agent host.");
+      }
+      return installAgentIntegration({
+        host,
+        homeDir: app.getPath("home"),
+        settingsDirectory: desktopRuntime.settingsDirectory,
+        resourcesPath: process.resourcesPath,
+        appVersion: DESKTOP_APP_VERSION,
+      });
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.removeAgentIntegration,
+    async (event, host: unknown) => {
+      requireShellOrProjectRendererSender(event.sender);
+      if (!isAgentHost(host)) {
+        throw new Error("Unsupported Agent host.");
+      }
+      return removeAgentIntegration({
+        host,
+        homeDir: app.getPath("home"),
+        settingsDirectory: desktopRuntime.settingsDirectory,
         resourcesPath: process.resourcesPath,
       });
     },

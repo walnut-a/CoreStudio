@@ -89,24 +89,19 @@ describe("generateComposerEvents", () => {
     expect(submit).toHaveBeenCalledTimes(1);
   });
 
-  it("selects all rich prompt content through the provided selector", () => {
+  it("leaves rich prompt select-all behavior to the Lexical editor", () => {
     const target = document.createElement("div");
     target.textContent = "prompt";
     const submit = vi.fn();
-    const selectAll = vi.fn();
     const event = createBaseKeyboardEvent({
       currentTarget: target,
       key: "a",
       ctrlKey: true,
     });
 
-    handleGenerateComposerPromptKeyDown(event, {
-      submit,
-      selectAllElementContents: selectAll,
-    });
+    handleGenerateComposerPromptKeyDown(event, { submit });
 
-    expect(event.preventDefault).toHaveBeenCalledTimes(1);
-    expect(selectAll).toHaveBeenCalledWith(target);
+    expect(event.preventDefault).not.toHaveBeenCalled();
     expect(submit).not.toHaveBeenCalled();
   });
 
@@ -118,10 +113,7 @@ describe("generateComposerEvents", () => {
       key: "Enter",
     });
 
-    handleGenerateComposerPromptKeyDown(event, {
-      submit,
-      selectAllElementContents: vi.fn(),
-    });
+    handleGenerateComposerPromptKeyDown(event, { submit });
 
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
     expect(submit).toHaveBeenCalledTimes(1);

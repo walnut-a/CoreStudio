@@ -546,6 +546,12 @@ export const ComposerLabApp = () => {
     setActivity("已模拟选图，点击输入框确认");
   };
 
+  const discardPendingReference = () => {
+    pendingReferenceRef.current = null;
+    setPendingReference(null);
+    setActivity("待确认参考已移除");
+  };
+
   const commitPendingReference = async () => {
     const pendingReferenceToCommit = pendingReferenceRef.current;
     if (!pendingReferenceToCommit) {
@@ -894,6 +900,7 @@ export const ComposerLabApp = () => {
                 onStopInputEvent={onStopInputEvent}
                 onCommitPendingReference={commitPendingReference}
                 onPromptChange={updatePromptParts}
+                onPendingReferenceDiscard={discardPendingReference}
                 onPromptKeyPressCapture={onStopInputEvent}
                 onPromptKeyUpCapture={onStopInputEvent}
                 onPromptKeyDown={onPromptKeyDown}

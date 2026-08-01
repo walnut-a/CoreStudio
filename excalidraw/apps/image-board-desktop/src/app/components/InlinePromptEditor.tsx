@@ -34,6 +34,7 @@ import {
   KEY_ENTER_COMMAND,
   PASTE_COMMAND,
   REDO_COMMAND,
+  SELECT_ALL_COMMAND,
   SKIP_DOM_SELECTION_TAG,
   UNDO_COMMAND,
   type LexicalEditor,
@@ -78,6 +79,7 @@ interface InlinePromptEditorProps {
   pendingReference: GenerationReferencePayload | null;
   resetKey: number;
   onChange: (parts: GenerationPromptPart[]) => void;
+  onPendingReferenceDiscard?: () => void;
   onFocusIntent: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onMouseDown: (event: MouseEvent<HTMLDivElement>) => void;
@@ -87,6 +89,7 @@ interface InlinePromptEditorProps {
 
 const EXTERNAL_RESET_TAG = "prompt-editor-external-reset";
 const PENDING_REFERENCE_SYNC_TAG = "prompt-editor-pending-reference-sync";
+const PENDING_REFERENCE_CONFIRM_TAG = "prompt-editor-pending-reference-confirm";
 
 const PendingReferencePlugin = ({
   pendingReference,
@@ -111,6 +114,40 @@ const PendingReferencePlugin = ({
       },
     );
   }, [editor, pendingReference, resetKey]);
+
+  return null;
+};
+
+const PendingReferenceEditingPlugin = ({
+  onDiscard,
+}: {
+  onDiscard?: () => void;
+}) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (!onDiscard) {
+      return;
+    }
+
+    return editor.registerMutationListener(
+      PendingPromptReferenceNode,
+      (mutations, { updateTags }) => {
+        if (
+          updateTags.has(EXTERNAL_RESET_TAG) ||
+          updateTags.has(PENDING_REFERENCE_SYNC_TAG) ||
+          updateTags.has(PENDING_REFERENCE_CONFIRM_TAG)
+        ) {
+          return;
+        }
+
+        if ([...mutations.values()].includes("destroyed")) {
+          queueMicrotask(onDiscard);
+        }
+      },
+      { skipInitialization: true },
+    );
+  }, [editor, onDiscard]);
 
   return null;
 };
@@ -336,6 +373,7 @@ export const InlinePromptEditor = forwardRef<
       pendingReference,
       resetKey,
       onChange,
+      onPendingReferenceDiscard,
       onFocusIntent,
       onKeyDown,
       onMouseDown,
@@ -364,6 +402,17 @@ export const InlinePromptEditor = forwardRef<
     );
 
     const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        event.key.toLowerCase() === "a"
+      ) {
+        event.preventDefault();
+        editorRef.current?.dispatchCommand(
+          SELECT_ALL_COMMAND,
+          event.nativeEvent,
+        );
+      }
       onKeyDown(event);
     };
 
@@ -390,6 +439,7 @@ export const InlinePromptEditor = forwardRef<
 
         editor.update(() => $confirmPendingPromptReference(referenceId), {
           discrete: true,
+          tag: PENDING_REFERENCE_CONFIRM_TAG,
         });
         return editor.getEditorState().read($getPromptParts);
       },
@@ -450,6 +500,9 @@ export const InlinePromptEditor = forwardRef<
           <PendingReferencePlugin
             pendingReference={pendingReference}
             resetKey={resetKey}
+          />
+          <PendingReferenceEditingPlugin
+            onDiscard={onPendingReferenceDiscard}
           />
           <PromptChangePlugin onChange={onChange} />
         </LexicalComposer>

@@ -49,3 +49,11 @@ Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 Se
 - 正式域名确定后，补充 canonical URL、完整的 Open Graph 图片 URL、`robots.txt` 和 `sitemap.xml`。
 - 下载按钮当前始终指向 GitHub Latest Release，不在页面内写死版本号。
 - GitHub、Release 和 License 链接均指向 `walnut-a/CoreStudio`。
+
+## GitHub Pages 部署
+
+`.github/workflows/deploy-website-pages.yml` 会在 `main` 分支的官网文件发生变化时，
+直接把 `website/` 上传到 GitHub Pages，不需要额外构建。也可以在 Actions 页面手动运行该工作流。
+
+默认公开地址为 `https://walnut-a.github.io/CoreStudio/`，英文版位于
+`https://walnut-a.github.io/CoreStudio/en/`。

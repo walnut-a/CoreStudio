@@ -44,6 +44,18 @@ let triggerExcalidrawPaste:
       event?: ClipboardEvent | null,
     ) => Promise<boolean> | boolean)
   | null = null;
+let triggerExcalidrawCopy:
+  | ((
+      elements: any[],
+      files?: Record<string, any>,
+    ) => Promise<boolean> | boolean)
+  | null = null;
+let triggerExcalidrawCopyAsPng:
+  | ((
+      elements: any[],
+      files?: Record<string, any>,
+    ) => Promise<Record<string, any> | void> | Record<string, any> | void)
+  | null = null;
 let throwExcalidrawRenderError: Error | null = null;
 let emitExcalidrawChangeAfterEveryRender = false;
 let renderChangeEmissionCount = 0;
@@ -415,6 +427,8 @@ vi.mock("@excalidraw/excalidraw", () => {
       onScrollChange,
       onChange,
       onPaste,
+      onCopy,
+      onCopyAsPng,
       renderSelectedShapeActions,
       renderTopLeftUI,
     }: {
@@ -446,6 +460,14 @@ vi.mock("@excalidraw/excalidraw", () => {
         data: Record<string, unknown>,
         event: ClipboardEvent | null,
       ) => Promise<boolean> | boolean;
+      onCopy?: (
+        elements: any[],
+        files: Record<string, any>,
+      ) => Promise<boolean> | boolean;
+      onCopyAsPng?: (
+        elements: any[],
+        files: Record<string, any>,
+      ) => Promise<Record<string, any> | void> | Record<string, any> | void;
       renderSelectedShapeActions?: (args: {
         selectedShapeActions: React.ReactNode;
         fullSelectedShapeActions: React.ReactNode;
@@ -617,6 +639,12 @@ vi.mock("@excalidraw/excalidraw", () => {
         };
         triggerExcalidrawPaste = (data, event = null) =>
           onPaste?.(data, event) ?? true;
+        triggerExcalidrawCopy = (elements, files = sceneRef.current.files) =>
+          onCopy?.(elements, files) ?? true;
+        triggerExcalidrawCopyAsPng = (
+          elements,
+          files = sceneRef.current.files,
+        ) => onCopyAsPng?.(elements, files) ?? files;
         triggerExcalidrawChange = (scene) => {
           sceneRef.current = {
             elements: scene.elements,
@@ -1050,6 +1078,8 @@ afterEach(() => {
   triggerExcalidrawPointerUpdate = null;
   triggerExcalidrawScrollChange = null;
   triggerExcalidrawPaste = null;
+  triggerExcalidrawCopy = null;
+  triggerExcalidrawCopyAsPng = null;
   throwExcalidrawRenderError = null;
   emitExcalidrawChangeAfterEveryRender = false;
   renderChangeEmissionCount = 0;
@@ -1073,6 +1103,8 @@ export {
   setSuppressUpdateSceneChangeEvent,
   setThrowExcalidrawRenderError,
   triggerExcalidrawChange,
+  triggerExcalidrawCopy,
+  triggerExcalidrawCopyAsPng,
   triggerExcalidrawInitialize,
   triggerExcalidrawPaste,
   triggerExcalidrawPointerUpdate,

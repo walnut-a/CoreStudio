@@ -762,6 +762,16 @@ export interface ExcalidrawProps {
     data: ClipboardData,
     event: ClipboardEvent | null,
   ) => Promise<boolean> | boolean;
+  /** Return false when the host has written its own editable clipboard data. */
+  onCopy?: (
+    elements: readonly ExcalidrawElement[],
+    files: BinaryFiles,
+  ) => Promise<boolean> | boolean;
+  /** Prepare image files used only by the Copy as PNG export. */
+  onCopyAsPng?: (
+    elements: readonly ExcalidrawElement[],
+    files: BinaryFiles,
+  ) => Promise<BinaryFiles | void> | BinaryFiles | void;
   /**
    * Called when element(s) are duplicated so you can listen or modify as
    * needed.

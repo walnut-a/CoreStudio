@@ -1,20 +1,30 @@
 # CoreStudio
 
-CoreStudio 是一个基于 Excalidraw 的本地优先工业设计图像画板。它把自由画布、图片素材、提示词、生成结果、生成记录和 Agent 协作入口放进同一个本地项目，让设计草案、产品渲染、参考图和自动化写回可以在一张画板上持续推进。
+**本地优先的图片生成画布。**
 
-当前仓库的主要业务代码在 `excalidraw/apps/image-board-desktop/`。`excalidraw/` 保留上游 Excalidraw monorepo 结构，CoreStudio 桌面端作为其中的 `image-board-desktop` workspace 维护。
+[官方网站](https://getcorestudio.com/) · [中文官网](https://getcorestudio.com/zh/) · [下载 macOS 版](https://github.com/walnut-a/CoreStudio/releases/latest) · [项目文档](docs/README.md)
 
-## 项目概览
+CoreStudio 在优秀的 Excalidraw 项目基础上增加了图片生成、本地素材管理与 Agent 协作能力。项目、素材和生成结果默认保存在你的设备上；你可以自由配置需要的模型，也可以让 Codex 等 Agent 读取当前画布与选区，生成图片并写回同一个本地项目。CoreStudio 免费、开源，也可自由定制。
 
-CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工业设计生图和本地 Agent 协作工作流：
+![CoreStudio 产品界面：在 Excalidraw 画布中生成和管理图片](website/assets/corestudio-product-1600.webp)
 
-- 在画布底部直接输入提示词生成图片。
-- 当前选区可以作为参考图或上下文。
-- 生成结果直接进入画板，并保留模型、提示词、尺寸、来源和时间等记录。
-- 本地项目文件夹保存画布、图片资源和生成记录。
-- Agent Board 可以在 Codex、Cursor 等 Agent 内置浏览器里打开本地画板。
-- CoreStudio CLI / Local Bridge 允许外部 Agent 读取项目上下文并受控写回。
-- 复杂、连续或并行任务由 Codex 调度，并通过 CLI / Local Bridge 安全写回。
+## 为什么选择 CoreStudio
+
+- **本地优先：** 项目、素材和生成结果保存在本地，便于查看、管理、备份与迁移。
+- **成熟画布：** 直接继承 Excalidraw 的图形、文字、连线、流程图和自由布局能力，不重新发明画布。
+- **模型自由：** 可以配置自己的图片生成服务，在画布中使用参考图、提示词和生成记录持续工作。
+- **Agent 共用：** CoreStudio CLI / Local Bridge 允许 Codex 等 Agent 读取项目上下文并受控写回结果。
+- **免费开源：** CoreStudio 本身免费使用，代码采用 MIT License，可按自己的工作流继续定制。
+
+## 下载
+
+当前公开版本面向 macOS，可从 [GitHub Releases](https://github.com/walnut-a/CoreStudio/releases/latest) 下载最新版。
+
+CoreStudio 本身不额外收取使用费用；第三方模型 API 和 Agent 产品的订阅、额度仍按各自服务规则计算。
+
+## 项目与仓库
+
+当前仓库的主要业务代码在 `excalidraw/apps/image-board-desktop/`。`excalidraw/` 保留上游 Excalidraw monorepo 结构，CoreStudio 桌面端作为其中的 `image-board-desktop` workspace 维护；`website/` 是部署到 GitHub Pages 的静态官方网站。
 
 上游 Excalidraw 使用 MIT License，本仓库也使用 MIT License。见 [LICENSE](LICENSE) 和 [excalidraw/LICENSE](excalidraw/LICENSE)。
 
@@ -35,6 +45,10 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 │   ├── packages/
 │   ├── excalidraw-app/
 │   └── package.json
+├── website/
+│   ├── index.html
+│   ├── zh/
+│   └── assets/
 └── review-packets/
 ```
 
@@ -51,6 +65,7 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 | `excalidraw/apps/image-board-desktop/src/app/`    | React renderer、画布 UI、生成输入框、生成记录和项目状态 |
 | `excalidraw/apps/image-board-desktop/src/shared/` | renderer / Electron 共享类型和数据完整性逻辑            |
 | `excalidraw/packages/`                            | Excalidraw workspace packages                           |
+| `website/`                                        | 官方网站静态页面、响应式素材与 GitHub Pages 配置        |
 | `review-packets/`                                 | 本地审核材料；当前没有作为主代码入口                    |
 
 ## 核心能力
@@ -73,6 +88,7 @@ CoreStudio 继承 Excalidraw 的自由画布体验，并在此基础上加入工
 
 | 入口           | 依据                                                                   | 说明                                                           |
 | -------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 官方网站       | `website/`                                                             | [getcorestudio.com](https://getcorestudio.com/)                 |
 | 桌面端开发启动 | `excalidraw/package.json` -> `dev:desktop`                             | 用项目专属 Electron 路径、profile 和端口启动 CoreStudio 开发版 |
 | 桌面端构建     | `excalidraw/package.json` -> `build:desktop`                           | 构建 renderer 和 Electron main/preload                         |
 | 桌面端打包     | `excalidraw/package.json` -> `package:desktop`                         | 构建、密钥扫描、electron-builder、notarize                     |

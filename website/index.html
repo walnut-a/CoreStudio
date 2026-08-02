@@ -44,7 +44,7 @@
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="styles.css?v=20260802-7" />
+    <link rel="stylesheet" href="styles.css?v=20260802-8" />
     <script src="main.js?v=20260802-4" defer></script>
   </head>
   <body class="page-en">
@@ -179,18 +179,12 @@
           <figure class="product-shot">
             <picture>
               <source
-                media="(max-width: 600px)"
-                srcset="assets/corestudio-product-mobile-720.webp 720w"
-                sizes="calc(100vw - 32px)"
-                type="image/webp"
-              />
-              <source
                 srcset="
                   assets/corestudio-product-960.webp   960w,
                   assets/corestudio-product-1600.webp 1600w,
                   assets/corestudio-product-2400.webp 2400w
                 "
-                sizes="min(1180px, calc(100vw - 64px))"
+                sizes="(max-width: 600px) calc(100vw - 32px), min(1180px, calc(100vw - 64px))"
                 type="image/webp"
               />
               <img

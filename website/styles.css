@@ -568,6 +568,23 @@ button:focus-visible {
     margin-bottom: 22px;
   }
 
+  .hero h1.hero-title-zh {
+    width: max-content;
+    max-width: 100%;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    font-size: clamp(2.125rem, 9vw, 2.25rem);
+    line-height: 1.08;
+    text-align: left;
+  }
+
+  .hero-title-zh wbr {
+    display: none;
+  }
+
   .hero-description {
     margin-top: 18px;
     line-height: 1.68;

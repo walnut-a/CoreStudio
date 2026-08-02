@@ -24,6 +24,7 @@ Status: needs-recheck
 - 模拟 Agent 的 `PATH` 中没有 `~/.local/bin`，确认仍能按 Skill 记录的绝对路径执行 `--version --json`。
 - 新建本地 Cursor / Claude Code 对话后能发现 Skill；不得用重复安装掩盖当前对话未重新扫描的问题。
 - packaged smoke 从应用包内运行三宿主安装器，并执行最终共享 CLI；不得引用开发仓库文件。
+- packaged smoke 读取包内 `agent-integration/contract.json`，并确认共享 CLI 返回的集成版本和 Bridge 协议完全一致。
 
 ## Multi-session Isolation Checklist
 

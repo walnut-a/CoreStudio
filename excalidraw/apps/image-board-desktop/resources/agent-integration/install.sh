@@ -33,6 +33,7 @@ CONTENTS_DIR="$(cd "$RESOURCES_DIR/.." && pwd)"
 INFO_PLIST="$CONTENTS_DIR/Info.plist"
 COMMON_SKILL="$RESOURCES_DIR/codex-integration/corestudio-skill/SKILL.md"
 HOST_ADDENDUM="$SCRIPT_DIR/hosts/$HOST.md"
+CONTRACT="$SCRIPT_DIR/contract.json"
 APP_ASAR="$RESOURCES_DIR/app.asar"
 CLI_RUNTIME="$RESOURCES_DIR/app.asar/bin/corestudio.cjs"
 CLI_DIR="$HOME/.local/bin"
@@ -40,7 +41,7 @@ CLI_PATH="$CLI_DIR/corestudio"
 SKILL_PATH="$SKILL_DIR/SKILL.md"
 MANAGED_MARKER="<!-- corestudio-managed-agent-skill host=$HOST -->"
 
-for required in "$COMMON_SKILL" "$HOST_ADDENDUM" "$APP_ASAR" "$INFO_PLIST"; do
+for required in "$COMMON_SKILL" "$HOST_ADDENDUM" "$CONTRACT" "$APP_ASAR" "$INFO_PLIST"; do
   if [[ ! -f "$required" ]]; then
     echo "CoreStudio Agent 集成资源缺失：$required" >&2
     exit 1

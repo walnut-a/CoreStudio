@@ -162,6 +162,8 @@ CLI 只安装一次：
 
 集成权威状态从 Codex 目录迁移到 CoreStudio 设置目录，采用中立 manifest：
 
+应用包同时携带 `Resources/agent-integration/contract.json`，作为打包产物可直接读取的版本合同镜像。源码测试必须保证它与运行时常量完全一致；packaged smoke 必须按该文件核对共享 CLI 的 integration version 和 Bridge protocol。用户级 manifest 仍由主进程安装服务写入设置目录，不由 shell 安装器猜测运行身份路径。
+
 ```json
 {
   "schemaVersion": 2,
@@ -432,23 +434,25 @@ agent:<host>:<session-id>
 - 定向单测、静态检查和类型检查。
 - 设置组件真实界面验收。
 - 源码 Electron 的安装、更新、修复和多会话验收。
-- packaged smoke 验证包内 CLI、三套 Skill 和新 manifest。
+- packaged smoke 验证包内 CLI、三套 Skill 和 `contract.json`；安装服务测试验证按同一合同写入新 manifest。
 - 收尾时只运行一次完整桌面测试和正式打包链路。
 
 ## 13. 验收标准
 
-- [ ] Codex 现有读取、写回、画布认领和图片生成授权不回归。
-- [ ] Cursor 和 Claude Code 可以在设置中一键安装各自 Skill。
+- [x] Codex 现有读取、写回、画布认领和图片生成授权不回归。
+- [x] Cursor 和 Claude Code 可以在设置中一键安装各自 Skill。
 - [ ] 断开互联网后，三个受支持本地 Agent 仍能读取和写回 CoreStudio 项目。
-- [ ] 两个不同 Agent 对话同时连接同一项目时，参与者、选区、视口和写回身份互不串线。
-- [ ] 用户把画布连接指令粘贴到任一已支持 Agent 后，原页面可以完成认领。
-- [ ] Cursor 的图片生成授权不影响 Codex 和 Claude Code。
-- [ ] Agent 无法传入或修改 provider、model、API Key 和 Base URL。
-- [ ] CoreStudio 重启后旧 Agent session 明确失效，不被静默复用。
-- [ ] 用户自行修改的 Skill 不会被安装器直接覆盖。
-- [ ] 移除一个宿主的 Skill 不会删除公共 CLI 或其他宿主的 Skill。
-- [ ] 旧 Codex 安装可以一键迁移，不要求用户手工清理。
-- [ ] 打包产物包含当前版本对应的 CLI、三套 Skill、安装器和版本合同。
+- [x] 两个不同 Agent 对话同时连接同一项目时，参与者、选区、视口和写回身份互不串线。
+- [x] 用户把画布连接指令粘贴到任一已支持 Agent 后，原页面可以完成认领。
+- [x] Cursor 的图片生成授权不影响 Codex 和 Claude Code。
+- [x] Agent 无法传入或修改 provider、model、API Key 和 Base URL。
+- [x] CoreStudio 重启后旧 Agent session 明确失效，不被静默复用。
+- [x] 用户自行修改的 Skill 不会被安装器直接覆盖。
+- [x] 移除一个宿主的 Skill 不会删除公共 CLI 或其他宿主的 Skill。
+- [x] 旧 Codex 安装可以一键迁移，不要求用户手工清理。
+- [x] 打包产物包含当前版本对应的 CLI、三套 Skill、安装器和版本合同。
+
+除断网项外，以上完成项均已有定向测试；设置界面另有源码 Electron 验收，打包内容另有开发目录包真实安装冒烟。断网项必须在三个目标宿主中人工验证，不以“代码只使用 localhost”替代产品验收。
 
 ## 14. 实现阶段已确认合同
 

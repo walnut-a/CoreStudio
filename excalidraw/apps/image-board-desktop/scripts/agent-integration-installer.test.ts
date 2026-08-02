@@ -14,6 +14,14 @@ import { dirname, join, resolve } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { AGENT_BRIDGE_PROTOCOL_VERSION } from "../src/shared/agentBridgeTypes";
+import {
+  AGENT_INTEGRATION_CLI_WRAPPER_VERSION,
+  AGENT_INTEGRATION_MANIFEST_SCHEMA_VERSION,
+  AGENT_INTEGRATION_SKILL_VERSION,
+  AGENT_INTEGRATION_VERSION,
+} from "../src/shared/agentIntegrationContract";
+
 const sourceRoot = resolve(
   process.cwd(),
   "apps/image-board-desktop/resources/agent-integration",
@@ -31,6 +39,21 @@ afterEach(() => {
 });
 
 describe("CoreStudio multi-host Agent installer", () => {
+  it("ships a package-readable contract synchronized with runtime constants", () => {
+    const contract = JSON.parse(
+      readFileSync(join(sourceRoot, "contract.json"), "utf8"),
+    );
+
+    expect(contract).toEqual({
+      schemaVersion: AGENT_INTEGRATION_MANIFEST_SCHEMA_VERSION,
+      integrationVersion: AGENT_INTEGRATION_VERSION,
+      bridgeProtocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
+      skillVersion: AGENT_INTEGRATION_SKILL_VERSION,
+      cliWrapperVersion: AGENT_INTEGRATION_CLI_WRAPPER_VERSION,
+      hosts: ["codex", "cursor", "claude-code"],
+    });
+  });
+
   it("declares an explicit allowlist and separate Skill directories", () => {
     const source = readFileSync(join(sourceRoot, "install.sh"), "utf8");
 
@@ -64,6 +87,10 @@ describe("CoreStudio multi-host Agent installer", () => {
       mkdirSync(dirname(executable), { recursive: true });
       mkdirSync(home, { recursive: true });
       copyFileSync(join(sourceRoot, "install.sh"), installer);
+      copyFileSync(
+        join(sourceRoot, "contract.json"),
+        join(integration, "contract.json"),
+      );
       copyFileSync(
         commonSkill,
         join(commonIntegration, "corestudio-skill", "SKILL.md"),

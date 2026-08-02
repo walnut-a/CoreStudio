@@ -187,6 +187,9 @@ describe("smoke-packaged", () => {
         if (filePath.endsWith("corestudio-integration.json")) {
           return '{"installedFromAppVersion":"1.1.26","integrationVersion":"1.12.0","bridgeProtocolVersion":6}';
         }
+        if (filePath.endsWith("agent-integration/contract.json")) {
+          return '{"schemaVersion":2,"integrationVersion":"2.0.0","bridgeProtocolVersion":6,"skillVersion":17,"cliWrapperVersion":2,"hosts":["codex","cursor","claude-code"]}';
+        }
         const host = filePath.includes("/.cursor/")
           ? "cursor"
           : filePath.includes("/.claude/")
@@ -264,5 +267,25 @@ describe("smoke-packaged", () => {
         stdout: { write: vi.fn() },
       }),
     ).toThrow("Agent integration installer is missing");
+  });
+
+  it("fails when the packaged Agent version contract is missing", () => {
+    const { runCodexIntegrationSmoke } = loadModule();
+
+    expect(() =>
+      runCodexIntegrationSmoke({
+        executablePath:
+          "/release/mac-arm64/CoreStudio.app/Contents/MacOS/CoreStudio",
+        existsSync: (filePath) =>
+          !filePath.endsWith("/agent-integration/contract.json"),
+        mkdtempSync: () => "/tmp/corestudio-smoke-home",
+        readFileSync: () => "# CoreStudio Codex 集成安装指南",
+        rmSync: vi.fn(),
+        spawnSync: vi.fn(),
+        tmpdir: () => "/tmp",
+        env: { HOME: "/Users/alice" },
+        stdout: { write: vi.fn() },
+      }),
+    ).toThrow("Agent integration contract is missing");
   });
 });

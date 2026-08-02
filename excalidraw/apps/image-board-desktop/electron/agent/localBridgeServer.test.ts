@@ -899,6 +899,60 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it.each([
+    {
+      host: "cursor" as const,
+      sessionRef: "cursor-session-ref",
+      actorId: "agent:cursor:cursor-session-ref",
+      displayLabel: "Cursor · 任务 A",
+    },
+    {
+      host: "claude-code" as const,
+      sessionRef: "claude-session-ref",
+      actorId: "agent:claude-code:claude-session-ref",
+      displayLabel: "Claude Code · 任务 B",
+    },
+  ])("claims the original stable Board with a $host session", async (session) => {
+    const resolveAgentSession = vi.fn(() => ({
+      ...session,
+      issuedAt: "2026-08-02T00:00:00.000Z",
+    }));
+    const claimStableBoardSession = vi.fn(async () => undefined);
+    const { server } = await track(
+      startServer({ resolveAgentSession, claimStableBoardSession }),
+    );
+
+    const claim = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.stableBoardSessionClaim,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Agent-Session": session.sessionRef,
+        },
+        body: JSON.stringify({
+          stableBoardId: "stable-board-id",
+          pageNonce: "page-nonce",
+        }),
+      },
+    );
+
+    expect(claim).toEqual({
+      status: 200,
+      body: { ok: true, data: { claimed: true } },
+    });
+    expect(resolveAgentSession).toHaveBeenCalledWith(session.sessionRef);
+    expect(claimStableBoardSession).toHaveBeenCalledWith({
+      stableBoardId: "stable-board-id",
+      pageNonce: "page-nonce",
+      threadId: session.sessionRef,
+      actorId: session.actorId,
+      host: session.host,
+      displayLabel: session.displayLabel,
+    });
+  });
+
   it("returns stable Board diagnostics without exposing a browser repair route", async () => {
     const inspectStableBoardIntegration = vi.fn(async () => ({
       state: "repair-required" as const,

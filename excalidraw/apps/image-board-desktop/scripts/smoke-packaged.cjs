@@ -209,6 +209,7 @@ const runCodexIntegrationSmoke = ({
     "agent-integration",
   );
   const agentInstallerPath = path.join(agentIntegrationDir, "install.sh");
+  const agentContractPath = path.join(agentIntegrationDir, "contract.json");
   const agentHostSkillAddenda = ["codex", "cursor", "claude-code"].map(
     (host) => path.join(agentIntegrationDir, "hosts", `${host}.md`),
   );
@@ -231,6 +232,11 @@ const runCodexIntegrationSmoke = ({
         `Agent integration installer is missing: ${agentInstallerPath}`,
       );
     }
+    if (!existsSync(agentContractPath)) {
+      throw new Error(
+        `Agent integration contract is missing: ${agentContractPath}`,
+      );
+    }
     for (const addendumPath of agentHostSkillAddenda) {
       if (!existsSync(addendumPath)) {
         throw new Error(`Agent host Skill addendum is missing: ${addendumPath}`);
@@ -242,6 +248,24 @@ const runCodexIntegrationSmoke = ({
       )
     ) {
       throw new Error("Packaged Codex installation guide is invalid.");
+    }
+    let agentContract;
+    try {
+      agentContract = JSON.parse(readFileSync(agentContractPath, "utf8"));
+    } catch {
+      throw new Error("Packaged Agent integration contract is invalid JSON.");
+    }
+    if (
+      !agentContract ||
+      typeof agentContract.schemaVersion !== "number" ||
+      typeof agentContract.integrationVersion !== "string" ||
+      typeof agentContract.bridgeProtocolVersion !== "number" ||
+      typeof agentContract.skillVersion !== "number" ||
+      typeof agentContract.cliWrapperVersion !== "number" ||
+      !Array.isArray(agentContract.hosts) ||
+      agentContract.hosts.join(",") !== "codex,cursor,claude-code"
+    ) {
+      throw new Error("Packaged Agent integration contract is invalid.");
     }
 
     const installResult = spawnSync("/bin/bash", [installerPath], {
@@ -398,7 +422,11 @@ const runCodexIntegrationSmoke = ({
       agentCliResult.status !== 0 ||
       !agentCliEnvelope ||
       agentCliEnvelope.ok !== true ||
-      !agentCliEnvelope.data
+      !agentCliEnvelope.data ||
+      agentCliEnvelope.data.integrationVersion !==
+        agentContract.integrationVersion ||
+      agentCliEnvelope.data.bridgeProtocolVersion !==
+        agentContract.bridgeProtocolVersion
     ) {
       throw new Error(
         "Installed multi-host CoreStudio CLI version contract is invalid.",

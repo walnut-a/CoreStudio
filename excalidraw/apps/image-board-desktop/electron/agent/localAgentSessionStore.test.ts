@@ -62,4 +62,21 @@ describe("localAgentSessionStore", () => {
       expect(error).toMatchObject({ code: "COMMAND_FAILED" });
     }
   });
+
+  it("invalidates every previous session when CoreStudio creates a new runtime store", () => {
+    const previousRuntime = createLocalAgentSessionStore({
+      randomId: () => "previous-runtime-session",
+    });
+    const previousSession = previousRuntime.issue({
+      host: "cursor",
+      displayLabel: "Cursor · 旧对话",
+    });
+    const restartedRuntime = createLocalAgentSessionStore({
+      randomId: () => "new-runtime-session",
+    });
+
+    expect(() => restartedRuntime.resolve(previousSession.sessionRef)).toThrow(
+      expect.objectContaining({ code: "AUTH_REQUIRED" }),
+    );
+  });
 });

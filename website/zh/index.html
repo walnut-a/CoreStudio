@@ -34,7 +34,7 @@
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="../styles.css?v=20260802-6" />
+    <link rel="stylesheet" href="../styles.css?v=20260802-7" />
     <script src="../main.js?v=20260802-4" defer></script>
   </head>
   <body>
@@ -58,31 +58,40 @@
           <span>CoreStudio</span>
         </a>
 
-        <button
-          class="nav-toggle"
-          type="button"
-          aria-label="打开导航菜单"
-          aria-expanded="false"
-          aria-controls="site-nav"
-          data-label-open="打开导航菜单"
-          data-label-close="关闭导航菜单"
-          data-nav-toggle
-        >
-          <span></span>
-          <span></span>
-        </button>
+        <div class="header-mobile-actions">
+          <a
+            class="header-language"
+            href="../index.html"
+            lang="en"
+            hreflang="en"
+            aria-label="切换至英文"
+          >
+            EN
+          </a>
+          <button
+            class="nav-toggle"
+            type="button"
+            aria-label="打开导航菜单"
+            aria-expanded="false"
+            aria-controls="site-nav"
+            data-label-open="打开导航菜单"
+            data-label-close="关闭导航菜单"
+            data-nav-toggle
+          >
+            <span></span>
+            <span></span>
+          </button>
+        </div>
 
         <nav class="site-nav" id="site-nav" aria-label="主要导航" data-site-nav>
           <a href="#why">为什么选择</a>
           <a
+            class="nav-secondary-last"
             href="https://github.com/walnut-a/CoreStudio"
             target="_blank"
             rel="noreferrer"
           >
             GitHub
-          </a>
-          <a class="language-link" href="../index.html" lang="en" hreflang="en">
-            English
           </a>
           <a
             class="nav-download button button-primary"
@@ -94,14 +103,25 @@
           </a>
         </nav>
 
-        <a
-          class="button button-small button-primary header-download"
-          href="https://github.com/walnut-a/CoreStudio/releases/latest"
-          target="_blank"
-          rel="noreferrer"
-        >
-          下载 macOS 版
-        </a>
+        <div class="header-actions">
+          <a
+            class="header-language"
+            href="../index.html"
+            lang="en"
+            hreflang="en"
+            aria-label="切换至英文"
+          >
+            EN
+          </a>
+          <a
+            class="button button-small button-primary header-download"
+            href="https://github.com/walnut-a/CoreStudio/releases/latest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            下载 macOS 版
+          </a>
+        </div>
       </div>
     </header>
 

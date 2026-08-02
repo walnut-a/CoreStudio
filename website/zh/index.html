@@ -1,24 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="CoreStudio adds image generation to Excalidraw, keeps projects and assets local, lets you choose your models, and works with agents such as Codex."
+      content="CoreStudio 在 Excalidraw 画布上直接生成图片，数据保存在本地，支持自由配置模型、管理素材，并与 Codex 等 Agent 协作。"
     />
     <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content="en_US" />
-    <meta
-      property="og:title"
-      content="CoreStudio · A local-first canvas for image generation"
-    />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="CoreStudio · 本地优先的图片生成画布" />
     <meta
       property="og:description"
-      content="Generate images on an Excalidraw canvas, manage local assets, and work with agents such as Codex."
+      content="直接在 Excalidraw 画布上生成图片、管理本地素材，并与 Codex 等 Agent 协作。"
     />
-    <meta property="og:url" content="https://getcorestudio.com/" />
+    <meta property="og:url" content="https://getcorestudio.com/zh/" />
     <meta
       property="og:image"
       content="https://getcorestudio.com/assets/corestudio-social-card.jpeg"
@@ -27,38 +24,31 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="An industrial design concept on the CoreStudio canvas"
+      content="CoreStudio 画布中的工业设计概念图"
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <title>CoreStudio · A local-first canvas for image generation</title>
-    <link
-      rel="icon"
-      href="assets/corestudio-favicon-32.png"
-      type="image/png"
-    />
-    <link
-      rel="apple-touch-icon"
-      href="assets/corestudio-apple-touch-icon.png"
-    />
-    <link rel="canonical" href="https://getcorestudio.com/" />
-    <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
+    <title>CoreStudio · 本地优先的图片生成画布</title>
+    <link rel="icon" href="../assets/corestudio-favicon-32.png" type="image/png" />
+    <link rel="apple-touch-icon" href="../assets/corestudio-apple-touch-icon.png" />
+    <link rel="canonical" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
+    <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="styles.css?v=20260802-6" />
-    <script src="main.js?v=20260802-4" defer></script>
+    <link rel="stylesheet" href="../styles.css?v=20260802-6" />
+    <script src="../main.js?v=20260802-4" defer></script>
   </head>
-  <body class="page-en">
-    <a class="skip-link" href="#main">Skip to main content</a>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
 
     <header class="site-header">
       <div class="header-inner">
-        <a class="brand" href="#top" aria-label="CoreStudio home">
+        <a class="brand" href="#top" aria-label="CoreStudio 首页">
           <img
-            src="assets/corestudio-icon-256.png"
+            src="../assets/corestudio-icon-256.png"
             srcset="
-              assets/corestudio-icon-64.webp   64w,
-              assets/corestudio-icon-256.webp 256w,
-              assets/corestudio-icon-512.webp 512w
+              ../assets/corestudio-icon-64.webp   64w,
+              ../assets/corestudio-icon-256.webp 256w,
+              ../assets/corestudio-icon-512.webp 512w
             "
             sizes="32px"
             alt=""
@@ -71,19 +61,19 @@
         <button
           class="nav-toggle"
           type="button"
-          aria-label="Open navigation menu"
+          aria-label="打开导航菜单"
           aria-expanded="false"
           aria-controls="site-nav"
-          data-label-open="Open navigation menu"
-          data-label-close="Close navigation menu"
+          data-label-open="打开导航菜单"
+          data-label-close="关闭导航菜单"
           data-nav-toggle
         >
           <span></span>
           <span></span>
         </button>
 
-        <nav class="site-nav" id="site-nav" aria-label="Main navigation" data-site-nav>
-          <a href="#why">Why CoreStudio</a>
+        <nav class="site-nav" id="site-nav" aria-label="主要导航" data-site-nav>
+          <a href="#why">为什么选择</a>
           <a
             href="https://github.com/walnut-a/CoreStudio"
             target="_blank"
@@ -91,8 +81,8 @@
           >
             GitHub
           </a>
-          <a class="language-link" href="zh/index.html" lang="zh-CN" hreflang="zh-CN">
-            中文
+          <a class="language-link" href="../index.html" lang="en" hreflang="en">
+            English
           </a>
           <a
             class="nav-download button button-primary"
@@ -100,7 +90,7 @@
             target="_blank"
             rel="noreferrer"
           >
-            Download for macOS
+            下载 macOS 版
           </a>
         </nav>
 
@@ -110,7 +100,7 @@
           target="_blank"
           rel="noreferrer"
         >
-          Download for macOS
+          下载 macOS 版
         </a>
       </div>
     </header>
@@ -120,20 +110,20 @@
         <div class="hero-inner">
           <img
             class="hero-icon"
-            src="assets/corestudio-icon-256.png"
+            src="../assets/corestudio-icon-256.png"
             srcset="
-              assets/corestudio-icon-64.webp   64w,
-              assets/corestudio-icon-256.webp 256w,
-              assets/corestudio-icon-512.webp 512w
+              ../assets/corestudio-icon-64.webp   64w,
+              ../assets/corestudio-icon-256.webp 256w,
+              ../assets/corestudio-icon-512.webp 512w
             "
             sizes="(max-width: 600px) 84px, 104px"
-            alt="CoreStudio app icon"
+            alt="CoreStudio 应用图标"
             width="112"
             height="112"
           />
-          <h1>A local-first canvas for image generation.</h1>
+          <h1><span>本地优先的</span><wbr /><span>图片生成画布。</span></h1>
           <p class="hero-description">
-            Built on the excellent Excalidraw project, CoreStudio adds practical image generation without replacing the canvas you already know. Assets and results stay in local projects by default; choose your own models or let agents such as Codex generate images and write them back to the canvas. CoreStudio is free, open source, and customizable.
+            我们在优秀的 Excalidraw 项目基础上，增加了好用的图片生成能力。素材与结果默认保存在本地；你可以自由配置模型，也可以让 Codex 等 Agent 直接生图并写回画布。CoreStudio 免费、开源，也可自由定制。
           </p>
           <div class="hero-actions">
             <a
@@ -142,7 +132,7 @@
               target="_blank"
               rel="noreferrer"
             >
-              Download for macOS
+              下载 macOS 版
             </a>
             <a
               class="button button-secondary"
@@ -150,7 +140,7 @@
               target="_blank"
               rel="noreferrer"
             >
-              View on GitHub
+              查看 GitHub 项目
             </a>
           </div>
         </div>
@@ -160,22 +150,22 @@
             <picture>
               <source
                 media="(max-width: 600px)"
-                srcset="assets/corestudio-product-mobile-720.webp 720w"
+                srcset="../assets/corestudio-product-mobile-720.webp 720w"
                 sizes="calc(100vw - 32px)"
                 type="image/webp"
               />
               <source
                 srcset="
-                  assets/corestudio-product-960.webp   960w,
-                  assets/corestudio-product-1600.webp 1600w,
-                  assets/corestudio-product-2400.webp 2400w
+                  ../assets/corestudio-product-960.webp   960w,
+                  ../assets/corestudio-product-1600.webp 1600w,
+                  ../assets/corestudio-product-2400.webp 2400w
                 "
                 sizes="min(1180px, calc(100vw - 64px))"
                 type="image/webp"
               />
               <img
-                src="assets/corestudio-product.jpeg"
-                alt="The CoreStudio interface showing an industrial design concept on the canvas, the Excalidraw toolbar above, and the image-generation prompt below."
+                src="../assets/corestudio-product.jpeg"
+                alt="CoreStudio 产品界面：画布中展示一张工业设计概念图，上方是 Excalidraw 工具栏，下方是图片生成输入框。"
                 width="2942"
                 height="1848"
                 fetchpriority="high"
@@ -189,36 +179,36 @@
         <div class="why-inner">
           <header class="why-header">
             <h2 id="why-consider-title">
-              There are already plenty of image generators. Why consider CoreStudio?
+              生图工具这么多，为什么 CoreStudio 仍然值得考虑？
             </h2>
             <p class="why-thesis">
-              Generating an image is no longer the hard part. What shapes the workflow is what happens next: where the image lives, how you keep working with it, and whether an agent can join the same project.
+              生成一张图已经不是难事。真正影响工作体验的，是生成之后，图片留在哪里、如何继续工作，以及 Agent 能不能加入同一套流程。
             </p>
           </header>
 
           <article class="why-essay">
-            <p><strong>Most image tools live on the web, and their results do not automatically become part of a local project.</strong> Organizing and backing them up takes extra work. CoreStudio keeps projects, assets, and generated results on your device, ready to view, manage, and back up.</p>
-            <p><strong>CoreStudio does not reinvent the canvas.</strong> Excalidraw already provides a mature, capable open-source canvas for creative and exploratory work. CoreStudio builds on it and adds only what image generation, local asset management, and agent collaboration need.</p>
-            <p><strong>Image-generation APIs have become affordable enough for personal use.</strong> Models such as GPT Image 2 and Nano Banana 2 offer strong value when usage is moderate, while still letting you choose a provider and model and control your budget.</p>
-            <p><strong>You can also generate images through an agent without configuring an API key in CoreStudio.</strong> CoreStudio includes comprehensive CLI support, so products such as Codex can use their own image-generation capabilities and write the results back to CoreStudio. CoreStudio adds no extra charge for this workflow; third-party subscriptions and usage limits still apply.</p>
+            <p><strong>大多数生图工具都运行在网页中，生成结果不会自动进入本地项目。</strong>后续整理与备份还要额外花时间。CoreStudio 将项目、素材和生成结果保存在你的设备上，随时可以查看、管理和备份。</p>
+            <p><strong>CoreStudio 没有重新发明画布。</strong>Excalidraw 已经具备成熟、丰富的开源画布能力，能很好地服务创意与探索类工作。CoreStudio 只在这个基础上增加图片生成、本地素材和 Agent 协作所需的功能。</p>
+            <p><strong>图片生成 API 的价格已经足够低。</strong>得益于 GPT Image 2 和 Nano Banana 2 的高性价比，在用量不极端时，个人充值 API 也很划算，还能自行选择模型、控制预算。</p>
+            <p><strong>不想配置 API Key，也可以借助 Agent 生图。</strong>CoreStudio 提供完善的 CLI 支持，可以借助 Codex 等产品的生图能力，并把结果写回 CoreStudio。这条协作路径不由 CoreStudio 额外收费；第三方产品的订阅和额度仍按各自规则计算。</p>
           </article>
         </div>
       </section>
 
       <section class="closing">
         <img
-          src="assets/corestudio-icon-256.png"
+          src="../assets/corestudio-icon-256.png"
           srcset="
-            assets/corestudio-icon-64.webp   64w,
-            assets/corestudio-icon-256.webp 256w,
-            assets/corestudio-icon-512.webp 512w
+            ../assets/corestudio-icon-64.webp   64w,
+            ../assets/corestudio-icon-256.webp 256w,
+            ../assets/corestudio-icon-512.webp 512w
           "
           sizes="72px"
           alt=""
           width="72"
           height="72"
         />
-        <h2>Keep the project local.<br />Bring in an agent when you need one.</h2>
+        <h2>项目留在本地，<br />Agent 随时加入。</h2>
         <div class="hero-actions">
           <a
             class="button button-primary"
@@ -226,7 +216,7 @@
             target="_blank"
             rel="noreferrer"
           >
-            Download for macOS
+            下载 macOS 版
           </a>
           <a
             class="button button-secondary"
@@ -234,7 +224,7 @@
             target="_blank"
             rel="noreferrer"
           >
-            View source
+            查看源代码
           </a>
         </div>
       </section>
@@ -244,11 +234,11 @@
       <div>
         <a class="brand" href="#top">
           <img
-            src="assets/corestudio-icon-256.png"
+            src="../assets/corestudio-icon-256.png"
             srcset="
-              assets/corestudio-icon-64.webp   64w,
-              assets/corestudio-icon-256.webp 256w,
-              assets/corestudio-icon-512.webp 512w
+              ../assets/corestudio-icon-64.webp   64w,
+              ../assets/corestudio-icon-256.webp 256w,
+              ../assets/corestudio-icon-512.webp 512w
             "
             sizes="28px"
             alt=""
@@ -257,7 +247,7 @@
           />
           <span>CoreStudio</span>
         </a>
-        <p>Local projects bring images, assets, and agent collaboration together.</p>
+        <p>本地项目，是图片、素材与 Agent 协作的起点。</p>
       </div>
       <div class="footer-links">
         <a href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">GitHub</a>
@@ -275,7 +265,7 @@
         >
           MIT License
         </a>
-        <a href="zh/index.html" lang="zh-CN" hreflang="zh-CN">中文</a>
+        <a href="../index.html" lang="en" hreflang="en">English</a>
       </div>
     </footer>
   </body>

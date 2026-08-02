@@ -46,7 +46,7 @@ website/
 `excalidraw/apps/image-board-desktop/build/icon.png`，官网不另行重绘或替代。页面使用的
 PNG / WebP 是从这张原始图标生成的尺寸与格式衍生文件，网站目录不重复保存原图。
 
-`corestudio-product.jpeg` 是产品截图原图；带尺寸后缀的 WebP 和移动端裁切图用于响应式加载。
+`corestudio-product.jpeg` 是产品截图原图；带尺寸后缀的 WebP 用于响应式加载。桌面端与移动端使用同一幅完整截图，按容器宽度等比缩放，不做额外裁切。
 
 Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 SemiBold / Bold；英文版正文
 使用 Regular，导航、按钮和重点文字使用 SemiBold / Bold。

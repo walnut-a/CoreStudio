@@ -292,21 +292,120 @@ const runCodexIntegrationSmoke = ({
         }`,
       );
     }
+    // The legacy Codex manifest keeps its 1.x installer contract while the
+    // bundled CLI reports the current shared Agent integration version.
     if (
       cliResult.status !== 0 ||
       !cliEnvelope ||
       cliEnvelope.ok !== true ||
       !cliEnvelope.data ||
       cliEnvelope.data.appVersion !== manifest.installedFromAppVersion ||
-      cliEnvelope.data.integrationVersion !== manifest.integrationVersion ||
+      typeof cliEnvelope.data.integrationVersion !== "string" ||
       cliEnvelope.data.bridgeProtocolVersion !== manifest.bridgeProtocolVersion
     ) {
       throw new Error(
-        "Installed CoreStudio CLI version contract does not match the integration manifest.",
+        "Installed CoreStudio CLI app and bridge contract does not match the legacy integration manifest.",
       );
     }
 
-    stdout.write("Packaged Codex integration smoke passed.\n");
+    const agentHosts = [
+      {
+        id: "codex",
+        skillPath: path.join(
+          temporaryHome,
+          ".codex",
+          "skills",
+          "corestudio",
+          "SKILL.md",
+        ),
+      },
+      {
+        id: "cursor",
+        skillPath: path.join(
+          temporaryHome,
+          ".cursor",
+          "skills",
+          "corestudio",
+          "SKILL.md",
+        ),
+      },
+      {
+        id: "claude-code",
+        skillPath: path.join(
+          temporaryHome,
+          ".claude",
+          "skills",
+          "corestudio",
+          "SKILL.md",
+        ),
+      },
+    ];
+
+    for (const host of agentHosts) {
+      const agentInstallResult = spawnSync(
+        "/bin/bash",
+        [agentInstallerPath, host.id],
+        {
+          env: smokeEnv,
+          encoding: "utf8",
+        },
+      );
+      if (agentInstallResult.status !== 0) {
+        throw new Error(
+          `Packaged ${host.id} Agent integration install failed: ${
+            agentInstallResult.stderr || agentInstallResult.stdout
+          }`,
+        );
+      }
+    }
+
+    for (const host of agentHosts) {
+      if (!existsSync(host.skillPath)) {
+        throw new Error(
+          `Agent integration output is missing: ${host.skillPath}`,
+        );
+      }
+      const installedSkill = readFileSync(host.skillPath, "utf8");
+      if (
+        !installedSkill.includes(
+          `corestudio-managed-agent-skill host=${host.id}`,
+        ) ||
+        !installedSkill.includes(
+          `本机安装器已确认 CLI 位于：\`${cliPath}\``,
+        )
+      ) {
+        throw new Error(
+          `Packaged ${host.id} Agent Skill does not contain the managed host marker and CLI fallback.`,
+        );
+      }
+    }
+
+    const agentCliResult = spawnSync(cliPath, ["--version", "--json"], {
+      env: smokeEnv,
+      encoding: "utf8",
+    });
+    let agentCliEnvelope;
+    try {
+      agentCliEnvelope = JSON.parse(agentCliResult.stdout.trim());
+    } catch {
+      throw new Error(
+        `Multi-host CoreStudio CLI did not return JSON: ${
+          agentCliResult.stderr || agentCliResult.stdout
+        }`,
+      );
+    }
+    if (
+      agentCliResult.status !== 0 ||
+      !agentCliEnvelope ||
+      agentCliEnvelope.ok !== true ||
+      !agentCliEnvelope.data
+    ) {
+      throw new Error(
+        "Installed multi-host CoreStudio CLI version contract is invalid.",
+      );
+    }
+
+    stdout.write("Packaged legacy and multi-host Agent integration smoke passed.\n");
   } finally {
     rmSync(temporaryHome, { recursive: true, force: true });
   }

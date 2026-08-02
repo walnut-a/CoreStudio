@@ -28,6 +28,10 @@
 5. Agent 可以读取画布和选区、使用自身能力生成图片，并通过 CLI / Local Bridge 写回。
 6. 写回完成后，可在 CoreStudio 左侧生成记录中定位结果。
 
+安装器会把共享 CLI 安装到 `~/.local/bin/corestudio`，并把安装时确认的绝对路径写入对应宿主的 Skill。Agent 会先尝试直接运行 `corestudio`；如果图形客户端没有继承终端的 `PATH`，则使用 Skill 中记录的绝对路径，不需要重复安装。
+
+如果安装后当前 Cursor 或 Claude Code 对话还没有发现新 Skill，请新建一个本地 Agent 对话再试。Claude Code 首次创建顶层 Skill 目录时也可以重启一次。当前版本不支持 Cursor Background Agent、Claude Desktop 普通聊天或任何云端 Agent。
+
 Agent 默认优先使用自身图片生成能力。如果当前 Agent 没有合适的生图能力，或用户明确要求使用 CoreStudio，可以在对应宿主卡片中单独开启图片生成权限。该权限使用用户当前选定的服务和模型并消耗对应服务商额度；Agent 不能读取凭证、切换模型或修改图片集成配置。一个宿主的开关不会影响其他宿主。
 
 本地 CoreStudio 必须保持运行。网页画布用于查看、选择、标注和确认结果，不提供另一套生成输入器。
@@ -53,6 +57,10 @@ Agent 生成图片的写回来源统一使用 `agent-board`。
 ### Agent 集成检测未通过
 
 先选择对应宿主并点击当前页面给出的安装、更新或修复按钮。若应用内安装失败，再保留页面显示的路径和错误信息排查；不要手工覆盖已有 Skill。
+
+### Agent 找不到 corestudio 命令
+
+不要重复安装。安装后的 Skill 已记录本机 CLI 绝对路径，Agent 应改用该路径继续执行；如果当前对话连 Skill 本身也未发现，请新建一个本地 Agent 对话。
 
 ### 网页画布打不开项目
 

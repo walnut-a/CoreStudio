@@ -80,6 +80,9 @@ mv -f "$CLI_TEMP" "$CLI_PATH"
 {
   cat "$COMMON_SKILL"
   printf '\n\n%s\n' "$MANAGED_MARKER"
+  printf '\n## 本机 CLI 入口\n\n'
+  printf '本机安装器已确认 CLI 位于：`%s`\n\n' "$CLI_PATH"
+  printf '下文所有 `corestudio` 命令都表示这个可执行文件。先尝试直接运行 `corestudio`；如果当前 Agent 的 PATH 无法发现它，必须改用上述绝对路径，不要重复安装或自行改写 CLI。\n\n'
   cat "$HOST_ADDENDUM"
 } > "$SKILL_TEMP"
 chmod 644 "$SKILL_TEMP"

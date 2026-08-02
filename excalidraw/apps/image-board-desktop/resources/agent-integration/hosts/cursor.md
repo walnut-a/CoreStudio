@@ -1,5 +1,7 @@
 ## Cursor 宿主连接
 
+如果安装后当前 Cursor 对话尚未发现这个 Skill，请新建一个本地 Agent 对话再试；不要重复安装。Cursor Background Agent 不属于当前本地集成范围。
+
 开始需要可信身份的画布任务时，先运行：
 
 ```bash

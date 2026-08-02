@@ -105,6 +105,14 @@ describe("CoreStudio multi-host Agent installer", () => {
       expect(readFileSync(cursorSkill, "utf8")).toContain(
         "corestudio-managed-agent-skill host=cursor",
       );
+      expect(readFileSync(cursorSkill, "utf8")).toContain(
+        `本机安装器已确认 CLI 位于：\`${join(
+          home,
+          ".local",
+          "bin",
+          "corestudio",
+        )}\``,
+      );
       expect(
         existsSync(join(home, ".codex", "skills", "corestudio", "SKILL.md")),
       ).toBe(false);

@@ -17,6 +17,20 @@ Status: needs-recheck
 
 每项必须在开发版中验证后才能标记为 checked，并记录日期、项目、截图或浏览器证据。
 
+## Multi-host Installation Checklist
+
+- 在隔离 HOME 中分别安装 Codex、Cursor 和 Claude Code，确认只生成所选宿主的 Skill。
+- 三套 Skill 都包含对应 managed marker，以及安装器确认过的 `~/.local/bin/corestudio` 绝对路径。
+- 模拟 Agent 的 `PATH` 中没有 `~/.local/bin`，确认仍能按 Skill 记录的绝对路径执行 `--version --json`。
+- 新建本地 Cursor / Claude Code 对话后能发现 Skill；不得用重复安装掩盖当前对话未重新扫描的问题。
+- packaged smoke 从应用包内运行三宿主安装器，并执行最终共享 CLI；不得引用开发仓库文件。
+
+## Multi-session Isolation Checklist
+
+- Cursor 与 Claude Code 各自连接同一项目，获得不同的 `sessionRef` 和 `actorId`。
+- 两个 session 交替写入时，Project Room 收到各自的 `threadId`、`actorId`、`host` 和 `displayLabel`，不得串线。
+- 关闭并重新启动 CoreStudio 后，旧 `sessionRef` 必须返回明确错误，不能自动映射到新会话。
+
 ## Image Writeback Recovery Checklist
 
 - 全部引用：所有 `fileId` 都在未删除 image element 中；重启后 commit，保留记录、资产和 scene，删除 journal。

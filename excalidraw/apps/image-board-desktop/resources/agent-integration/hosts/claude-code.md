@@ -1,5 +1,7 @@
 ## Claude Code 宿主连接
 
+如果安装后当前 Claude Code 对话尚未发现这个 Skill，请新建一个本地对话再试；首次创建顶层 Skill 目录时也可以重启 Claude Code。不要重复安装。
+
 开始需要可信身份的画布任务时，先运行：
 
 ```bash

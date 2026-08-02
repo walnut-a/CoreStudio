@@ -153,7 +153,7 @@ describe("smoke-packaged", () => {
     });
   });
 
-  it("installs and executes the Codex integration from the packaged app", () => {
+  it("installs and executes the legacy and multi-host integrations from the packaged app", () => {
     const { runCodexIntegrationSmoke } = loadModule();
     const spawnSync = vi
       .fn()
@@ -161,7 +161,16 @@ describe("smoke-packaged", () => {
       .mockReturnValueOnce({
         status: 0,
         stdout:
-          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"1.7.0","bridgeProtocolVersion":2}}\n',
+          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"2.0.0","bridgeProtocolVersion":6}}\n',
+        stderr: "",
+      })
+      .mockReturnValueOnce({ status: 0, stdout: "codex\n", stderr: "" })
+      .mockReturnValueOnce({ status: 0, stdout: "cursor\n", stderr: "" })
+      .mockReturnValueOnce({ status: 0, stdout: "claude\n", stderr: "" })
+      .mockReturnValueOnce({
+        status: 0,
+        stdout:
+          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"2.0.0","bridgeProtocolVersion":6}}\n',
         stderr: "",
       });
     const rmSync = vi.fn();
@@ -171,12 +180,20 @@ describe("smoke-packaged", () => {
         "/release/mac-arm64/CoreStudio.app/Contents/MacOS/CoreStudio",
       existsSync: () => true,
       mkdtempSync: () => "/tmp/corestudio-smoke-home",
-      readFileSync: (filePath) =>
-        filePath.endsWith("CODEX_INSTALLATION.md")
-          ? "# CoreStudio Codex 集成安装指南"
-          : filePath.endsWith("corestudio-integration.json")
-          ? '{"installedFromAppVersion":"1.1.26","integrationVersion":"1.7.0","bridgeProtocolVersion":2}'
-          : '{"version":"1.1.26"}',
+      readFileSync: (filePath) => {
+        if (filePath.endsWith("CODEX_INSTALLATION.md")) {
+          return "# CoreStudio Codex 集成安装指南";
+        }
+        if (filePath.endsWith("corestudio-integration.json")) {
+          return '{"installedFromAppVersion":"1.1.26","integrationVersion":"1.12.0","bridgeProtocolVersion":6}';
+        }
+        const host = filePath.includes("/.cursor/")
+          ? "cursor"
+          : filePath.includes("/.claude/")
+          ? "claude-code"
+          : "codex";
+        return `<!-- corestudio-managed-agent-skill host=${host} -->\n本机安装器已确认 CLI 位于：\`/tmp/corestudio-smoke-home/.local/bin/corestudio\``;
+      },
       rmSync,
       spawnSync,
       tmpdir: () => "/tmp",
@@ -196,6 +213,27 @@ describe("smoke-packaged", () => {
     );
     expect(spawnSync).toHaveBeenNthCalledWith(
       2,
+      "/tmp/corestudio-smoke-home/.local/bin/corestudio",
+      ["--version", "--json"],
+      expect.objectContaining({
+        env: expect.objectContaining({ HOME: "/tmp/corestudio-smoke-home" }),
+      }),
+    );
+    for (const [index, host] of ["codex", "cursor", "claude-code"].entries()) {
+      expect(spawnSync).toHaveBeenNthCalledWith(
+        index + 3,
+        "/bin/bash",
+        [
+          "/release/mac-arm64/CoreStudio.app/Contents/Resources/agent-integration/install.sh",
+          host,
+        ],
+        expect.objectContaining({
+          env: expect.objectContaining({ HOME: "/tmp/corestudio-smoke-home" }),
+        }),
+      );
+    }
+    expect(spawnSync).toHaveBeenNthCalledWith(
+      6,
       "/tmp/corestudio-smoke-home/.local/bin/corestudio",
       ["--version", "--json"],
       expect.objectContaining({

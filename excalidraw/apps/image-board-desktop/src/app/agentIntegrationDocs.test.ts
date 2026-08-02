@@ -36,6 +36,9 @@ describe("agent integration docs", () => {
     expect(userGuide).toContain("Codex、Cursor 和 Claude Code");
     expect(userGuide).toContain("点击安装、更新或修复");
     expect(userGuide).toContain("CLI / Local Bridge");
+    expect(userGuide).toContain("~/.local/bin/corestudio");
+    expect(userGuide).toContain("新建一个本地 Agent 对话");
+    expect(userGuide).toContain("不需要重复安装");
     expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
     expect(architecture).toContain("CoreStudio 内只做本地单次生成");
     expect(architecture).toContain("CLI / Local Bridge");

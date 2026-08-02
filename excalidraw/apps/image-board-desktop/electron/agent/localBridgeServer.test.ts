@@ -640,6 +640,84 @@ describe("createLocalBridgeServer", () => {
     );
   });
 
+  it("keeps concurrent Cursor and Claude Code writer identities isolated", async () => {
+    const sessions = {
+      "cursor-session-ref": {
+        sessionRef: "cursor-session-ref",
+        actorId: "agent:cursor:cursor-session-ref",
+        host: "cursor" as const,
+        displayLabel: "Cursor · 任务 A",
+        issuedAt: "2026-08-02T00:00:00.000Z",
+      },
+      "claude-session-ref": {
+        sessionRef: "claude-session-ref",
+        actorId: "agent:claude-code:claude-session-ref",
+        host: "claude-code" as const,
+        displayLabel: "Claude Code · 任务 B",
+        issuedAt: "2026-08-02T00:00:01.000Z",
+      },
+    };
+    const resolveAgentSession = vi.fn(
+      (sessionRef: string) =>
+        sessions[sessionRef as keyof typeof sessions] ?? null,
+    );
+    const withAgentWriterCommand = vi.fn(async (_input, run) =>
+      run({
+        sessionId: "writer-session",
+        identity: {
+          projectId: "project-1",
+          canonicalProjectPath: currentProject.projectPath,
+          roomId: "room-1",
+          sessionEpoch: 1,
+        },
+        roomSequence: 1,
+        scene: { elements: [], sharedSceneConfig: {} },
+      }),
+    );
+    const { server } = await track(
+      startServer({ resolveAgentSession, withAgentWriterCommand }),
+    );
+
+    for (const session of Object.values(sessions)) {
+      const result = await requestJson(
+        server.baseUrl,
+        AGENT_HTTP_ROUTES.sceneAddPrompt,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CoreStudio-Agent-Session": session.sessionRef,
+          },
+          body: JSON.stringify({ text: session.displayLabel }),
+        },
+      );
+      expect(result.status).toBe(200);
+    }
+
+    expect(withAgentWriterCommand).toHaveBeenNthCalledWith(
+      1,
+      {
+        project: currentProject,
+        threadId: sessions["cursor-session-ref"].sessionRef,
+        actorId: sessions["cursor-session-ref"].actorId,
+        host: "cursor",
+        displayLabel: sessions["cursor-session-ref"].displayLabel,
+      },
+      expect.any(Function),
+    );
+    expect(withAgentWriterCommand).toHaveBeenNthCalledWith(
+      2,
+      {
+        project: currentProject,
+        threadId: sessions["claude-session-ref"].sessionRef,
+        actorId: sessions["claude-session-ref"].actorId,
+        host: "claude-code",
+        displayLabel: sessions["claude-session-ref"].displayLabel,
+      },
+      expect.any(Function),
+    );
+  });
+
   it("issues a scoped project-selection session when there is no current project", async () => {
     const issueBoardProjectSelection = vi.fn(async () => ({
       selectionToken: "selection-token",

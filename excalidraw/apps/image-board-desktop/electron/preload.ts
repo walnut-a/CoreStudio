@@ -108,6 +108,8 @@ const desktopBridge: DesktopBridgeApi = {
   cancelGenerateImages: (generationJobId) =>
     ipcRenderer.invoke(IPC_CHANNELS.cancelGenerateImages, generationJobId),
   readClipboardImage: () => ipcRenderer.invoke(IPC_CHANNELS.readClipboardImage),
+  writeProjectClipboard: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.writeProjectClipboard, input),
   loadLocaleSettings: () => ipcRenderer.invoke(IPC_CHANNELS.loadLocaleSettings),
   saveLocalePreference: (preference) =>
     ipcRenderer.invoke(IPC_CHANNELS.saveLocalePreference, preference),

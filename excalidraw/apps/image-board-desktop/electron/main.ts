@@ -158,6 +158,7 @@ import {
 } from "./projectViewRegistry";
 import { createProjectViewHandleLifecycle } from "./projectViewHandleLifecycle";
 import { createProjectRendererLifecycle } from "./projectRendererLifecycle";
+import { writeProjectElementsToClipboard } from "./projectClipboard";
 import {
   createProjectRoomSenderBindings,
   type ProjectRoomSenderBindings,
@@ -2752,6 +2753,33 @@ const registerIpcHandlers = () => {
   ipcMain.handle(IPC_CHANNELS.readClipboardImage, async (event) => {
     requireProjectRendererSender(event.sender);
     return readClipboardImageFromSystem();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.writeProjectClipboard, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
+    if (!Array.isArray(input.elements)) {
+      throw new Error("Project clipboard elements must be an array.");
+    }
+    await writeProjectElementsToClipboard({
+      projectPath: input.projectPath,
+      elements: input.elements,
+      readProjectAssetPayloads: async (assetInput) =>
+        (
+          await readProjectAssetPayloads(assetInput)
+        ).filter((asset): asset is NonNullable<typeof asset> => asset !== null),
+      writeClipboard: ({ text, previewImageDataUrl }) => {
+        if (!previewImageDataUrl) {
+          clipboard.writeText(text);
+          return;
+        }
+        const image = nativeImage.createFromDataURL(previewImageDataUrl);
+        if (image.isEmpty()) {
+          clipboard.writeText(text);
+          return;
+        }
+        clipboard.write({ text, image });
+      },
+    });
   });
   ipcMain.handle(IPC_CHANNELS.loadLocaleSettings, async () =>
     localeSettingsController?.getSettings(),

@@ -118,6 +118,7 @@ import { createSceneImageFileIdsRendererActions } from "./sceneImageFileIds";
 import { buildSelectedImageRelationshipState } from "./imageRecordState";
 import { createProjectImageAssetPersistenceRendererActions } from "./projectImageAssetPersistenceController";
 import { createProjectImageImportRendererActions } from "./projectImageImportController";
+import { createProjectClipboardRendererActions } from "./projectClipboardController";
 import { createProjectImageStateResetRendererActions } from "./projectImageStateResetRendererActions";
 import { createImageRecordLocatorRendererActions } from "./imageRecordLocator";
 import { IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS } from "./imageRenditions";
@@ -371,6 +372,16 @@ const App = ({
           readProjectImageAssets(project, fileIds, "original"),
       }),
     [readProjectImageAssets],
+  );
+  const projectClipboardRendererActions = useMemo(
+    () =>
+      createProjectClipboardRendererActions({
+        getProject: () => currentProjectRef.current,
+        writeProjectClipboard: desktopBridge.writeProjectClipboard,
+        readProjectAssets: readProjectImageAssets,
+        getFallbackCreatedAt: () => Date.now(),
+      }),
+    [desktopBridge.writeProjectClipboard, readProjectImageAssets],
   );
   const [currentProject, setCurrentProject] =
     useState<DesktopProjectBundle | null>(null);
@@ -2435,6 +2446,10 @@ const App = ({
                   };
                 }}
                 onScrollChange={viewportChangeRendererActions.changeViewport}
+                onCopy={projectClipboardRendererActions.copyElements}
+                onCopyAsPng={
+                  projectClipboardRendererActions.preparePngExportFiles
+                }
                 onPaste={projectImageImportRendererActions.pasteClipboardImage}
                 onChange={handleCanvasSceneChange}
                 UIOptions={{

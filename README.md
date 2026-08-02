@@ -1,12 +1,30 @@
-# CoreStudio
-
-**本地优先的图片生成画布。**
-
-[官方网站](https://getcorestudio.com/) · [中文官网](https://getcorestudio.com/zh/) · [下载 macOS 版](https://github.com/walnut-a/CoreStudio/releases/latest) · [项目文档](docs/README.md)
+<div align="center">
+  <img src="website/assets/corestudio-icon-256.webp" width="96" alt="CoreStudio 应用图标" />
+  <h1>CoreStudio</h1>
+  <p><strong>本地优先的图片生成画布</strong></p>
+  <p>
+    <a href="https://getcorestudio.com/"><strong>官方网站</strong></a>
+    ·
+    <a href="https://getcorestudio.com/zh/">中文官网</a>
+    ·
+    <a href="https://github.com/walnut-a/CoreStudio/releases/latest">下载 macOS 版</a>
+    ·
+    <a href="docs/README.md">项目文档</a>
+  </p>
+  <p>
+    <a href="https://github.com/walnut-a/CoreStudio/releases/latest"><img src="https://img.shields.io/github/v/release/walnut-a/CoreStudio?display_name=tag&amp;style=flat-square&amp;color=292a2e" alt="最新版本" /></a>
+    <a href="https://github.com/walnut-a/CoreStudio/actions/workflows/corestudio-desktop.yml"><img src="https://github.com/walnut-a/CoreStudio/actions/workflows/corestudio-desktop.yml/badge.svg?branch=main" alt="桌面端检查状态" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/walnut-a/CoreStudio?style=flat-square&amp;color=5f6368" alt="MIT License" /></a>
+  </p>
+</div>
 
 CoreStudio 在优秀的 Excalidraw 项目基础上增加了图片生成、本地素材管理与 Agent 协作能力。项目、素材和生成结果默认保存在你的设备上；你可以自由配置需要的模型，也可以让 Codex 等 Agent 读取当前画布与选区，生成图片并写回同一个本地项目。CoreStudio 免费、开源，也可自由定制。
 
-![CoreStudio 产品界面：在 Excalidraw 画布中生成和管理图片](website/assets/corestudio-product-1600.webp)
+<p align="center">
+  <a href="https://getcorestudio.com/">
+    <img src="website/assets/corestudio-product-1600.webp" alt="CoreStudio 产品界面：在 Excalidraw 画布中生成和管理图片" />
+  </a>
+</p>
 
 ## 为什么选择 CoreStudio
 

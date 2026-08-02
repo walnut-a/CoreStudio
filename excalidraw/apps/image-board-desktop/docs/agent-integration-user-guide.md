@@ -1,15 +1,15 @@
-# CoreStudio Codex 集成使用说明
+# CoreStudio 本地 Agent 集成使用说明
 
-“Codex 集成”让 Codex 通过本地客户端安全地读取和写回 CoreStudio 项目。它不是账户连接功能；Agent Bridge 和消耗用户图片服务额度的权限分别控制。
+“Agent 集成”让 Codex、Cursor 和 Claude Code 通过本地客户端安全地读取和写回 CoreStudio 项目。它不是账户连接功能；Agent Bridge 和消耗用户图片服务额度的权限分别控制。
 
 ## 两条产品路径
 
 | 路径 | 适用场景 | 调度者 | 写入方式 |
 | --- | --- | --- | --- |
 | CoreStudio 单次生成 | 在当前画布基于 prompt 和参考图快速生图 | CoreStudio | 客户端内部保存资产、记录和画布元素 |
-| 在 Codex 中使用 CoreStudio | 分析画布、连续迭代、并行生成或组合工具 | Codex | CLI / Local Bridge |
+| 在本地 Agent 中使用 CoreStudio | 分析画布、连续迭代、并行生成或组合工具 | 发起任务的 Agent | CLI / Local Bridge |
 
-Codex 是 Agent 工作流的唯一调度者；CLI / Local Bridge 只是受 CoreStudio 校验的数据通道。
+任务从哪个 Agent 发起，哪个 Agent 就是该工作流的唯一调度者；CLI / Local Bridge 只是受 CoreStudio 校验的数据通道。
 
 ## CoreStudio 单次生成
 
@@ -19,19 +19,24 @@ Codex 是 Agent 工作流的唯一调度者；CLI / Local Bridge 只是受 CoreS
 - 一次提交可以按当前设置并行生成多张图片。
 - 左侧生成记录同时展示 CoreStudio 结果和 Codex 写回结果。
 
-## 在 Codex 中使用 CoreStudio
+## 在本地 Agent 中使用 CoreStudio
 
-1. 打开“应用设置 → Codex 集成”。
-2. 点击安装、更新或修复；CoreStudio 使用应用包内固定安装器，并自动重新检测。
-3. 把“打开当前 CoreStudio 项目”的提示词发送给 Codex。
-4. Codex 可以读取画布和选区、使用自身能力生成图片，并通过 CLI / Local Bridge 写回。
-5. 写回完成后，可在 CoreStudio 左侧生成记录中定位结果。
+1. 打开“应用设置 → Agent 集成”。
+2. 选择 Codex、Cursor 或 Claude Code，只为自己使用的宿主点击安装、更新或修复；CoreStudio 使用应用包内固定安装器，并自动重新检测。
+3. 若不再需要某个宿主，可在该宿主状态为已托管时点击移除。CoreStudio 只会删除当前宿主中未被修改的托管 Skill，不会删除共享 CLI、其他宿主的 Skill 或已保存权限。
+4. 把“打开当前 CoreStudio 项目”的提示词发送给对应 Agent。
+5. Agent 可以读取画布和选区、使用自身能力生成图片，并通过 CLI / Local Bridge 写回。
+6. 写回完成后，可在 CoreStudio 左侧生成记录中定位结果。
 
-Codex 默认优先使用自身图片生成能力。如果其他 Agent 没有合适的生图能力，或用户明确要求使用 CoreStudio，可以在“Codex 集成 → Agent 权限”单独开启图片生成权限。该权限使用用户当前选定的服务和模型并消耗对应服务商额度；Agent 不能读取凭证、切换模型或修改图片集成配置。
+安装器会把共享 CLI 安装到 `~/.local/bin/corestudio`，并把安装时确认的绝对路径写入对应宿主的 Skill。Agent 会先尝试直接运行 `corestudio`；如果图形客户端没有继承终端的 `PATH`，则使用 Skill 中记录的绝对路径，不需要重复安装。
+
+如果安装后当前 Cursor 或 Claude Code 对话还没有发现新 Skill，请新建一个本地 Agent 对话再试。Claude Code 首次创建顶层 Skill 目录时也可以重启一次。当前版本不支持 Cursor Background Agent、Claude Desktop 普通聊天或任何云端 Agent。
+
+Agent 默认优先使用自身图片生成能力。如果当前 Agent 没有合适的生图能力，或用户明确要求使用 CoreStudio，可以在对应宿主卡片中单独开启图片生成权限。该权限使用用户当前选定的服务和模型并消耗对应服务商额度；Agent 不能读取凭证、切换模型或修改图片集成配置。一个宿主的开关不会影响其他宿主。
 
 本地 CoreStudio 必须保持运行。网页画布用于查看、选择、标注和确认结果，不提供另一套生成输入器。
 
-如果稳定画布地址已经打开，但页面尚未连接到 Codex 对话，页面会说明当前状态、下一步操作和连接成功后的结果。点击“复制连接指令”，把复制的完整内容粘贴到目标 Codex 对话中发送。指令包含当前页面的一次性结构化连接引用；Codex 完成身份认领后，原页面会自动进入可编辑画布，无需刷新或重新打开。
+如果稳定画布地址已经打开，但页面尚未连接到 Agent 对话，页面会说明当前状态、下一步操作和连接成功后的结果。点击“复制连接指令”，把复制的完整内容粘贴到目标本地 Agent 对话中发送。指令包含当前页面的一次性结构化连接引用；Agent 完成身份认领后，原页面会自动进入可编辑画布，无需刷新或重新打开。
 
 ## CLI 边界
 
@@ -49,13 +54,17 @@ Agent 生成图片的写回来源统一使用 `agent-board`。
 
 ## 常见问题
 
-### Codex 集成检测未通过
+### Agent 集成检测未通过
 
-先点击当前页面给出的安装、更新或修复按钮。若应用内安装失败，再复制页面提供的故障处理请求发给 Codex。
+先选择对应宿主并点击当前页面给出的安装、更新或修复按钮。若应用内安装失败，再保留页面显示的路径和错误信息排查；不要手工覆盖已有 Skill。
+
+### Agent 找不到 corestudio 命令
+
+不要重复安装。安装后的 Skill 已记录本机 CLI 绝对路径，Agent 应改用该路径继续执行；如果当前对话连 Skill 本身也未发现，请新建一个本地 Agent 对话。
 
 ### 网页画布打不开项目
 
-确认 CoreStudio 正在运行，并使用 Codex 集成页生成的当前项目入口。如果页面提示“画布正在等待连接 Codex”，点击“复制连接指令”，返回目标 Codex 对话粘贴并发送。不要刷新页面；刷新会生成新的页面连接引用。
+确认 CoreStudio 正在运行，并使用 Agent 集成页生成的当前项目入口。如果页面提示“画布正在等待连接 Agent”，点击“复制连接指令”，返回目标本地 Agent 对话粘贴并发送。不要刷新页面；刷新会生成新的页面连接引用。
 
 ### 写回后找不到图片
 

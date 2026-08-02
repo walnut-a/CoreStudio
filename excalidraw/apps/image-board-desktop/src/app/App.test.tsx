@@ -1114,7 +1114,7 @@ describe("App startup", () => {
       within(dialog).getByRole("tab", { name: "图片集成" }),
     ).toHaveAttribute("aria-selected", "true");
     expect(
-      within(dialog).getByRole("tab", { name: "Codex 集成" }),
+      within(dialog).getByRole("tab", { name: "Agent 集成" }),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByRole("tab", { name: "关于" }),

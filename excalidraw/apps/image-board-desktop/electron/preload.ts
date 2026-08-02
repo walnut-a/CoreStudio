@@ -87,6 +87,12 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.inspectCodexIntegration),
   installCodexIntegration: () =>
     ipcRenderer.invoke(IPC_CHANNELS.installCodexIntegration),
+  inspectAgentIntegration: (host) =>
+    ipcRenderer.invoke(IPC_CHANNELS.inspectAgentIntegration, host),
+  installAgentIntegration: (host) =>
+    ipcRenderer.invoke(IPC_CHANNELS.installAgentIntegration, host),
+  removeAgentIntegration: (host) =>
+    ipcRenderer.invoke(IPC_CHANNELS.removeAgentIntegration, host),
   loadProviderSettings: () =>
     ipcRenderer.invoke(IPC_CHANNELS.loadProviderSettings),
   saveProviderSettings: (input) =>
@@ -132,6 +138,12 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.getAgentIntegrationSettings),
   setCodexImageGenerationEnabled: (enabled) =>
     ipcRenderer.invoke(IPC_CHANNELS.setCodexImageGenerationEnabled, enabled),
+  setAgentImageGenerationEnabled: (host, enabled) =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.setAgentImageGenerationEnabled,
+      host,
+      enabled,
+    ),
   joinProjectRoom: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectRoomJoin, input),
   resyncProjectRoom: (sessionId) =>

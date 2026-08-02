@@ -294,7 +294,7 @@ export const enCopy: DesktopCopy = {
     categoriesLabel: "Settings categories",
     general: "General",
     imageGeneration: "Image Integrations",
-    codexIntegration: "Codex Integration",
+    codexIntegration: "Agent Integrations",
     experimental: "Experimental Features",
     about: "About",
     language: "Language",
@@ -401,7 +401,7 @@ export const enCopy: DesktopCopy = {
     },
     codexPage: {
       description:
-        "Install once so Codex can discover and work with local CoreStudio projects.",
+        "Install the integration for each local Agent you use and manage CoreStudio image generation access separately.",
       refresh: "Check Again",
       loading: "Checking Codex integration...",
       detectionFailed: "Unable to complete the check",
@@ -425,6 +425,11 @@ export const enCopy: DesktopCopy = {
       },
       installing: "Installing...",
       installFailed: "Codex integration installation failed",
+      removeAction: "Remove Codex Integration",
+      removing: "Removing...",
+      removeFailed: "Could not remove the Codex integration",
+      removeDescription:
+        "Only the CoreStudio Skill for this Agent is removed. The shared CLI, other Agents, and saved permissions are preserved.",
       readyDescription:
         "All dependencies are available. You can reinstall from the current app bundle if needed.",
       actionDescription:
@@ -471,6 +476,15 @@ export const enCopy: DesktopCopy = {
         "Allow Codex to use CoreStudio image generation",
       imageGenerationPermissionDescription:
         "When enabled, Codex can use the provider, model, and API key currently selected in Image Integrations through the CoreStudio CLI. This consumes the corresponding provider quota. Codex cannot view credentials, switch models, or change image integration settings. Turning this off does not affect board access or project writes. Codex already includes a generous image generation allowance, so keeping this off is usually recommended.",
+      imageGenerationPermissionDescriptionForHost: (
+        hostLabel: string,
+        preferNativeGeneration: boolean,
+      ) =>
+        `When enabled, ${hostLabel} can use the provider, model, and API key currently selected in Image Integrations through the CoreStudio CLI. This consumes the corresponding provider quota. ${hostLabel} cannot view credentials, switch models, or change image integration settings. Turning this off does not affect board access or project writes. ${
+          preferNativeGeneration
+            ? `${hostLabel} already includes a generous image generation allowance, so keeping this off is usually recommended.`
+            : `If ${hostLabel} has suitable native image generation, prefer that capability; otherwise enable this as needed.`
+        }`,
       imageGenerationPermissionLabel:
         "Allow Codex to use CoreStudio image generation",
       imageGenerationPermissionSaveFailed:
@@ -481,7 +495,7 @@ export const enCopy: DesktopCopy = {
       bridgeDisabledPermissionNote:
         "Permission is saved and will take effect after Agent Bridge is enabled.",
       installPrompt: (appVersion: string, guideUrl: string) =>
-        `Repair the Codex integration using the zero-argument installer bundled with the installed production CoreStudio ${appVersion}. Do not download or rewrite an installer. Then verify only the CLI, Skill, and compatibility record. Reference guide: ${guideUrl}`,
+        `Open Agent Integrations in the installed production CoreStudio ${appVersion}, select Codex, then install, update, or repair it. Do not download or rewrite an installer. Then verify only the CLI, Skill, and compatibility record. Reference guide: ${guideUrl}`,
     },
   },
   agentUi: {
@@ -556,20 +570,20 @@ export const enCopy: DesktopCopy = {
   },
   agentBoard: {
     connectionClaim: {
-      title: "This board is waiting for Codex",
+      title: "This board is waiting for an Agent",
       currentStateTitle: "Current status",
       currentStateDescription:
-        "CoreStudio and the project are ready, but this board page is not connected to a Codex conversation yet, so the canvas cannot open.",
+        "CoreStudio and the project are ready, but this board page is not connected to a local Agent conversation yet, so the canvas cannot open.",
       nextStepTitle: "What to do next",
       nextStepDescription:
-        "Copy the connection instruction below, return to the Codex conversation where you want to use this board, then paste and send it.",
+        "Copy the connection instruction below, return to the local Agent conversation where you want to use this board, then paste and send it.",
       completionTitle: "What happens next",
       completionDescription:
-        "Codex will connect this board. When the connection succeeds, this page will open the editable canvas automatically. You do not need to refresh or reopen it.",
+        "The Agent will connect this board. When the connection succeeds, this page will open the editable canvas automatically. You do not need to refresh or reopen it.",
       copyAction: "Copy connection instruction",
       copying: "Copying…",
       copySucceeded:
-        "Connection instruction copied. Return to Codex, then paste and send it.",
+        "Connection instruction copied. Return to your local Agent, then paste and send it.",
       copyFailed: "Copy failed. Try again.",
       clipboardInstruction:
         "Connect this CoreStudio board, then confirm that the page opened the editable canvas.",
@@ -581,13 +595,13 @@ export const enCopy: DesktopCopy = {
     },
     expiredConnectionTitle: "This built-in board connection has expired",
     expiredConnectionDescription:
-      "Previous board links stop working after CoreStudio restarts or switches projects. Return to the current Codex conversation and reopen the CoreStudio built-in board.",
+      "Previous board links stop working after CoreStudio restarts or switches projects. Return to the current local Agent conversation and reopen CoreStudio Agent Board.",
     missingConnectionTitle: "Connection information missing",
     missingConnectionDescription:
-      "Copy the Agent Board link from the CoreStudio desktop app, then open it in Codex's built-in browser.",
+      "Copy the Agent Board link from the CoreStudio desktop app, then open it in a browser available to the current Agent.",
     defaultTitle: "CoreStudio Agent Board",
     description:
-      "View the current CoreStudio board in Codex's built-in browser. Write-back uses the local project token.",
+      "View the current CoreStudio board in a browser available to your local Agent. Write-back goes through Local Bridge.",
     loadingBuiltInTitle: "Loading built-in board",
     loadingBuiltInDescription:
       "Please wait while CoreStudio prepares Agent Board.",

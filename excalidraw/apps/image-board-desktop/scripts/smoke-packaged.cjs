@@ -202,6 +202,17 @@ const runCodexIntegrationSmoke = ({
   );
   const installerPath = path.join(integrationDir, "install.sh");
   const guidePath = path.join(integrationDir, "CODEX_INSTALLATION.md");
+  const agentIntegrationDir = path.join(
+    appPath,
+    "Contents",
+    "Resources",
+    "agent-integration",
+  );
+  const agentInstallerPath = path.join(agentIntegrationDir, "install.sh");
+  const agentContractPath = path.join(agentIntegrationDir, "contract.json");
+  const agentHostSkillAddenda = ["codex", "cursor", "claude-code"].map(
+    (host) => path.join(agentIntegrationDir, "hosts", `${host}.md`),
+  );
   const temporaryHome = mkdtempSync(
     path.join(tmpdir(), "corestudio-codex-smoke-"),
   );
@@ -216,12 +227,45 @@ const runCodexIntegrationSmoke = ({
     if (!existsSync(guidePath)) {
       throw new Error(`Codex installation guide is missing: ${guidePath}`);
     }
+    if (!existsSync(agentInstallerPath)) {
+      throw new Error(
+        `Agent integration installer is missing: ${agentInstallerPath}`,
+      );
+    }
+    if (!existsSync(agentContractPath)) {
+      throw new Error(
+        `Agent integration contract is missing: ${agentContractPath}`,
+      );
+    }
+    for (const addendumPath of agentHostSkillAddenda) {
+      if (!existsSync(addendumPath)) {
+        throw new Error(`Agent host Skill addendum is missing: ${addendumPath}`);
+      }
+    }
     if (
       !readFileSync(guidePath, "utf8").includes(
         "# CoreStudio Codex 集成安装指南",
       )
     ) {
       throw new Error("Packaged Codex installation guide is invalid.");
+    }
+    let agentContract;
+    try {
+      agentContract = JSON.parse(readFileSync(agentContractPath, "utf8"));
+    } catch {
+      throw new Error("Packaged Agent integration contract is invalid JSON.");
+    }
+    if (
+      !agentContract ||
+      typeof agentContract.schemaVersion !== "number" ||
+      typeof agentContract.integrationVersion !== "string" ||
+      typeof agentContract.bridgeProtocolVersion !== "number" ||
+      typeof agentContract.skillVersion !== "number" ||
+      typeof agentContract.cliWrapperVersion !== "number" ||
+      !Array.isArray(agentContract.hosts) ||
+      agentContract.hosts.join(",") !== "codex,cursor,claude-code"
+    ) {
+      throw new Error("Packaged Agent integration contract is invalid.");
     }
 
     const installResult = spawnSync("/bin/bash", [installerPath], {
@@ -272,21 +316,124 @@ const runCodexIntegrationSmoke = ({
         }`,
       );
     }
+    // The legacy Codex manifest keeps its 1.x installer contract while the
+    // bundled CLI reports the current shared Agent integration version.
     if (
       cliResult.status !== 0 ||
       !cliEnvelope ||
       cliEnvelope.ok !== true ||
       !cliEnvelope.data ||
       cliEnvelope.data.appVersion !== manifest.installedFromAppVersion ||
-      cliEnvelope.data.integrationVersion !== manifest.integrationVersion ||
+      typeof cliEnvelope.data.integrationVersion !== "string" ||
       cliEnvelope.data.bridgeProtocolVersion !== manifest.bridgeProtocolVersion
     ) {
       throw new Error(
-        "Installed CoreStudio CLI version contract does not match the integration manifest.",
+        "Installed CoreStudio CLI app and bridge contract does not match the legacy integration manifest.",
       );
     }
 
-    stdout.write("Packaged Codex integration smoke passed.\n");
+    const agentHosts = [
+      {
+        id: "codex",
+        skillPath: path.join(
+          temporaryHome,
+          ".codex",
+          "skills",
+          "corestudio",
+          "SKILL.md",
+        ),
+      },
+      {
+        id: "cursor",
+        skillPath: path.join(
+          temporaryHome,
+          ".cursor",
+          "skills",
+          "corestudio",
+          "SKILL.md",
+        ),
+      },
+      {
+        id: "claude-code",
+        skillPath: path.join(
+          temporaryHome,
+          ".claude",
+          "skills",
+          "corestudio",
+          "SKILL.md",
+        ),
+      },
+    ];
+
+    for (const host of agentHosts) {
+      const agentInstallResult = spawnSync(
+        "/bin/bash",
+        [agentInstallerPath, host.id],
+        {
+          env: smokeEnv,
+          encoding: "utf8",
+        },
+      );
+      if (agentInstallResult.status !== 0) {
+        throw new Error(
+          `Packaged ${host.id} Agent integration install failed: ${
+            agentInstallResult.stderr || agentInstallResult.stdout
+          }`,
+        );
+      }
+    }
+
+    for (const host of agentHosts) {
+      if (!existsSync(host.skillPath)) {
+        throw new Error(
+          `Agent integration output is missing: ${host.skillPath}`,
+        );
+      }
+      const installedSkill = readFileSync(host.skillPath, "utf8");
+      if (
+        !installedSkill.includes(
+          `corestudio-managed-agent-skill host=${host.id}`,
+        ) ||
+        !installedSkill.includes(
+          `本机安装器已确认 CLI 位于：\`${cliPath}\``,
+        )
+      ) {
+        throw new Error(
+          `Packaged ${host.id} Agent Skill does not contain the managed host marker and CLI fallback.`,
+        );
+      }
+    }
+
+    const agentCliResult = spawnSync(cliPath, ["--version", "--json"], {
+      env: smokeEnv,
+      encoding: "utf8",
+    });
+    let agentCliEnvelope;
+    try {
+      agentCliEnvelope = JSON.parse(agentCliResult.stdout.trim());
+    } catch {
+      throw new Error(
+        `Multi-host CoreStudio CLI did not return JSON: ${
+          agentCliResult.stderr || agentCliResult.stdout
+        }`,
+      );
+    }
+    if (
+      agentCliResult.status !== 0 ||
+      !agentCliEnvelope ||
+      agentCliEnvelope.ok !== true ||
+      !agentCliEnvelope.data ||
+      agentCliEnvelope.data.integrationVersion !==
+        agentContract.integrationVersion ||
+      agentCliEnvelope.data.bridgeProtocolVersion !==
+        agentContract.bridgeProtocolVersion
+    ) {
+      throw new Error(
+        "Installed multi-host CoreStudio CLI version contract is invalid.",
+      );
+    }
+
+    stdout.write("Packaged legacy and multi-host Agent integration smoke passed.\n");
   } finally {
     rmSync(temporaryHome, { recursive: true, force: true });
   }

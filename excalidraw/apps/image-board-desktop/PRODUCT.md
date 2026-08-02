@@ -12,7 +12,7 @@ CoreStudio 面向在本地整理工业设计参考、标注图、提示词和生
 
 ## Product Purpose
 
-CoreStudio 是一个基于 Excalidraw 底座的本地优先图像画板。它把项目管理、图片素材、提示词、生图记录和 Agent 协作组织到同一个桌面工作空间里。数据仍由本地客户端维护；Codex 中的画布和 CLI / Local Bridge 只是查看、读取与写回本地数据的协作入口。
+CoreStudio 是一个基于 Excalidraw 底座的本地优先图像画板。它把项目管理、图片素材、提示词、生图记录和 Agent 协作组织到同一个桌面工作空间里。数据仍由本地客户端维护；本地 Agent 中的画布和 CLI / Local Bridge 只是查看、读取与写回本地数据的协作入口。
 
 成功的体验不是让 CoreStudio 看起来像一个全新的设计工具，而是让新增能力自然长在 Excalidraw 的既有画布、菜单、侧栏、按钮和浮层体系里。
 

@@ -50,7 +50,7 @@ describe("ApplicationSettingsDialog", () => {
       "id",
       "app-settings-panel-image-generation",
     );
-    expect(screen.getByRole("tab", { name: "Codex 集成" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Agent 集成" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "关于" })).toBeInTheDocument();
     expect(screen.getByText("图像生成内容")).toBeInTheDocument();
   });
@@ -59,7 +59,7 @@ describe("ApplicationSettingsDialog", () => {
     const { onCategoryChange } = renderDialog();
     const activeTab = screen.getByRole("tab", { name: "图片集成" });
     const generalTab = screen.getByRole("tab", { name: "通用" });
-    const codexTab = screen.getByRole("tab", { name: "Codex 集成" });
+    const codexTab = screen.getByRole("tab", { name: "Agent 集成" });
 
     expect(activeTab).toHaveAttribute("tabindex", "0");
     expect(generalTab).toHaveAttribute("tabindex", "-1");
@@ -83,7 +83,7 @@ describe("ApplicationSettingsDialog", () => {
   it("没有未保存修改时直接切换分类", () => {
     const { onCategoryChange } = renderDialog();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 集成" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Agent 集成" }));
 
     expect(onCategoryChange).toHaveBeenCalledWith("codex-integration");
   });
@@ -91,7 +91,7 @@ describe("ApplicationSettingsDialog", () => {
   it("存在未保存修改时先确认切换", () => {
     const { onCategoryChange } = renderDialog({ dirty: true });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Codex 集成" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Agent 集成" }));
 
     expect(onCategoryChange).not.toHaveBeenCalled();
     expect(

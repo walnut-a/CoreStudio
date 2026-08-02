@@ -5,9 +5,10 @@ import {
   AGENT_HTTP_ROUTES,
   createAgentError,
   createAgentOk,
+  isAgentHost,
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
-import { CODEX_INTEGRATION_VERSION } from "../../src/shared/codexIntegrationContract";
+import { AGENT_INTEGRATION_VERSION } from "../../src/shared/agentIntegrationContract";
 import { getPersistedImageAssetIntegrityError } from "../../src/shared/projectRecordIntegrity";
 import { DESKTOP_APP_VERSION } from "../appVersion";
 import { readLocalImagePayload } from "./localImagePayload";
@@ -71,7 +72,12 @@ interface CliCommand {
     bridge: BridgeSession,
   ) => AgentEnvelope<unknown>;
   formatHuman?: (data: unknown) => string;
+  requiresParticipantIssuer?: boolean;
 }
+
+type CliParticipant =
+  | { sessionRef: string }
+  | { threadId: string; displayLabel: string };
 
 interface ParsedArgs {
   flags: Record<string, string>;
@@ -91,7 +97,7 @@ const discoveredBridgeUnavailableEnvelope = (
 ) =>
   createAgentError(
     "BRIDGE_UNAVAILABLE",
-    "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If this command is running in Codex, allow it to run outside the network sandbox so it can access localhost.",
+    "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If the current Agent uses a network sandbox, allow this command to access localhost and retry once.",
     {
       baseUrl: bridge.baseUrl,
       sessionDiscovered: true,
@@ -154,8 +160,9 @@ const CLI_HELP_TEXT = `CoreStudio CLI
 Usage: corestudio <tool> <command> [options]
 
 Tools:
+  agent   Connect this local Agent conversation to CoreStudio
   read    Read project and bridge state
-  board   Connect a stable Board page to the current Codex conversation
+  board   Connect a stable Board page to the current Agent conversation
   write   Write images, prompts, and native diagrams
   edit    Locate or select scene content
   generate Generate content with an explicitly authorized CoreStudio capability
@@ -166,8 +173,10 @@ Global options:
   -h, --help      Print this help
   --json          Print a JSON envelope
   --jsonl         Print a JSON Lines envelope
+  --agent-session Use a Bridge-issued local Agent session
 
 Examples:
+  corestudio agent connect --host cursor --json
   corestudio read context --json
   corestudio read projects --json
   corestudio read board-url --json
@@ -182,12 +191,12 @@ Examples:
 
 const getVersionData = () => ({
   appVersion: DESKTOP_APP_VERSION,
-  integrationVersion: CODEX_INTEGRATION_VERSION,
+  integrationVersion: AGENT_INTEGRATION_VERSION,
   bridgeProtocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
 });
 
 const formatVersionHuman = () =>
-  `CoreStudio ${DESKTOP_APP_VERSION} (Codex integration ${CODEX_INTEGRATION_VERSION}, bridge protocol ${AGENT_BRIDGE_PROTOCOL_VERSION})`;
+  `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration ${AGENT_INTEGRATION_VERSION}, bridge protocol ${AGENT_BRIDGE_PROTOCOL_VERSION})`;
 
 const parseArgs = (
   tokens: readonly string[],
@@ -290,6 +299,52 @@ const parseCommand = (
   argv: readonly string[],
 ): CliCommand | AgentEnvelope<never> => {
   const [tool, target] = argv;
+
+  if (tool === "agent" && target === "connect") {
+    const parsed = parseArgs(argv.slice(2), {
+      valueFlags: ["--host", "--label", "--external-conversation-id"],
+    });
+    if (isEnvelope(parsed)) {
+      return parsed;
+    }
+    const positionalsError = expectNoPositionals("agent connect", parsed);
+    if (positionalsError) {
+      return positionalsError;
+    }
+    const host = parsed.flags["--host"];
+    if (!isAgentHost(host)) {
+      return badRequestEnvelope(
+        "agent connect --host must be codex, cursor, or claude-code.",
+      );
+    }
+    const defaultLabels = {
+      codex: "Codex Agent",
+      cursor: "Cursor Agent",
+      "claude-code": "Claude Code Agent",
+    } as const;
+    const label = parsed.flags["--label"]?.trim();
+    return {
+      route: AGENT_HTTP_ROUTES.agentSession,
+      method: "POST",
+      requiresParticipantIssuer: true,
+      body: {
+        host,
+        displayLabel: label
+          ? `${defaultLabels[host].replace(/ Agent$/, "")} · ${label}`
+          : defaultLabels[host],
+        ...(parsed.flags["--external-conversation-id"]?.trim()
+          ? {
+              externalConversationId:
+                parsed.flags["--external-conversation-id"].trim(),
+            }
+          : {}),
+      },
+    };
+  }
+
+  if (tool === "agent") {
+    return badRequestEnvelope("agent requires: connect.");
+  }
 
   if (tool === "board" && target === "claim") {
     const parsed = parseArgs(argv.slice(2), {
@@ -779,8 +834,35 @@ const parseCommand = (
   }
 
   return badRequestEnvelope(
-    "CoreStudio CLI tools are: read, write, edit, generate, bash.",
+    "CoreStudio CLI tools are: agent, read, board, write, edit, generate, bash.",
   );
+};
+
+const extractAgentSessionFlag = (
+  argv: readonly string[],
+): { argv: string[]; sessionRef?: string } | AgentEnvelope<never> => {
+  const nextArgv: string[] = [];
+  let sessionRef: string | undefined;
+  for (let index = 0; index < argv.length; index++) {
+    const token = argv[index];
+    if (token !== "--agent-session") {
+      nextArgv.push(token);
+      continue;
+    }
+    if (sessionRef !== undefined) {
+      return badRequestEnvelope("--agent-session may only be provided once.");
+    }
+    const value = argv[index + 1];
+    if (!value || value.startsWith("--")) {
+      return badRequestEnvelope("--agent-session requires a value.");
+    }
+    sessionRef = value.trim();
+    if (!sessionRef) {
+      return badRequestEnvelope("--agent-session requires a value.");
+    }
+    index++;
+  }
+  return { argv: nextArgv, ...(sessionRef ? { sessionRef } : {}) };
 };
 
 const assertDimensions = (width: number, height: number, format: string) => {
@@ -1242,10 +1324,7 @@ const requestBridge = async (
   bridge: BridgeSession,
   fetchImpl: CliFetch,
   body: Record<string, unknown> | undefined,
-  participant?: {
-    threadId: string;
-    displayLabel: string;
-  },
+  participant?: CliParticipant,
 ): Promise<AgentEnvelope<unknown>> => {
   const init: CliFetchInit = {
     method: command.method,
@@ -1262,7 +1341,12 @@ const requestBridge = async (
     };
     init.body = JSON.stringify(body);
   }
-  if (bridge.participantIssuerToken && participant) {
+  if (participant && "sessionRef" in participant) {
+    init.headers = {
+      ...init.headers,
+      "X-CoreStudio-Agent-Session": participant.sessionRef,
+    };
+  } else if (bridge.participantIssuerToken && participant) {
     init.headers = {
       ...init.headers,
       "X-CoreStudio-Participant-Issuer": bridge.participantIssuerToken,
@@ -1270,6 +1354,12 @@ const requestBridge = async (
       "X-CoreStudio-Participant-Label": encodeURIComponent(
         participant.displayLabel,
       ),
+    };
+  }
+  if (command.requiresParticipantIssuer && bridge.participantIssuerToken) {
+    init.headers = {
+      ...init.headers,
+      "X-CoreStudio-Participant-Issuer": bridge.participantIssuerToken,
     };
   }
 
@@ -1345,7 +1435,16 @@ export const runCli = async (
     return 0;
   }
 
-  const command = parseCommand(argv);
+  const extractedAgentSession = extractAgentSessionFlag(argv);
+  if (isEnvelope(extractedAgentSession)) {
+    return finishWithEnvelope(
+      extractedAgentSession,
+      mode,
+      options.stdout,
+      options.stderr,
+    );
+  }
+  const command = parseCommand(extractedAgentSession.argv);
   if (isEnvelope(command)) {
     return finishWithEnvelope(command, mode, options.stdout, options.stderr);
   }
@@ -1397,8 +1496,10 @@ export const runCli = async (
   }
   const env = options.env ?? process.env;
   const threadId = env.CODEX_THREAD_ID?.trim();
-  const participant =
-    threadId && bridge.participantIssuerToken
+  const participant: CliParticipant | undefined =
+    extractedAgentSession.sessionRef
+      ? { sessionRef: extractedAgentSession.sessionRef }
+      : threadId && bridge.participantIssuerToken
       ? {
           threadId,
           displayLabel: env.CODEX_TASK_TITLE?.trim()
@@ -1410,21 +1511,23 @@ export const runCli = async (
     command.route === AGENT_HTTP_ROUTES.boardSession ||
     command.route === AGENT_HTTP_ROUTES.stableBoardSessionClaim
   ) {
-    if (!threadId || !bridge.participantIssuerToken) {
+    if (!participant) {
       return finishWithEnvelope(
         badRequestEnvelope(
-          "read board-url requires Codex thread identity and a trusted participant issuer.",
+          "read board-url requires a trusted local Agent session or Codex conversation identity.",
         ),
         mode,
         options.stdout,
         options.stderr,
       );
     }
-    body = {
-      ...(body ?? {}),
-      threadId,
-      displayLabel: participant?.displayLabel,
-    };
+    if ("threadId" in participant) {
+      body = {
+        ...(body ?? {}),
+        threadId: participant.threadId,
+        displayLabel: participant.displayLabel,
+      };
+    }
   }
 
   try {

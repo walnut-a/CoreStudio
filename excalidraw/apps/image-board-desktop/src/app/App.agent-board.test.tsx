@@ -149,14 +149,14 @@ describe("App Agent Board room route", () => {
       );
     });
     expect(
-      screen.getByRole("heading", { name: "画布正在等待连接 Codex" }),
+      screen.getByRole("heading", { name: "画布正在等待连接 Agent" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "当前状态" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到 Codex 对话，因此暂时无法进入画布。",
+        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到本地 Agent 对话，因此暂时无法进入画布。",
       ),
     ).toBeInTheDocument();
     expect(
@@ -164,13 +164,13 @@ describe("App Agent Board room route", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的 Codex 对话，粘贴并发送。",
+        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的本地 Agent 对话，粘贴并发送。",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "完成后" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Codex 会连接这个画布。连接成功后，本页面将自动进入可编辑画布，无需刷新或重新打开。",
+        "Agent 会连接这个画布。连接成功后，本页面将自动进入可编辑画布，无需刷新或重新打开。",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制连接指令" })).toBeEnabled();
@@ -293,7 +293,7 @@ describe("App Agent Board room route", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "CoreStudio 重新启动或切换项目后，之前的画布链接不能继续使用。请回到当前 Codex 对话，重新打开 CoreStudio 内置画布。",
+        "CoreStudio 重新启动或切换项目后，之前的画布链接不能继续使用。请回到当前本地 Agent 对话，重新打开 CoreStudio Agent Board。",
       ),
     ).toBeInTheDocument();
     expect(

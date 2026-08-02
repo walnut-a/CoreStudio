@@ -17,9 +17,16 @@ const configuration = {
   },
 };
 
-const accessSettings = (allowImageGeneration: boolean) => ({
+const accessSettings = (
+  allowImageGeneration: boolean,
+  cursorAllowImageGeneration = allowImageGeneration,
+) => ({
   enabled: true,
-  integrations: { codex: { allowImageGeneration } },
+  integrations: {
+    codex: { allowImageGeneration },
+    cursor: { allowImageGeneration: cursorAllowImageGeneration },
+    "claude-code": { allowImageGeneration: false },
+  },
 });
 
 describe("createAgentImageGenerationService", () => {
@@ -58,6 +65,32 @@ describe("createAgentImageGenerationService", () => {
 
     await expect(
       service.generate({
+        projectPath: "/tmp/project",
+        prompt: "工业设计草图",
+        count: 1,
+        referenceFileIds: [],
+        referenceElementIds: [],
+      }),
+    ).rejects.toMatchObject({ code: "IMAGE_GENERATION_DISABLED" });
+    expect(generateImages).not.toHaveBeenCalled();
+  });
+
+  it("checks image generation authorization for the active Agent host", async () => {
+    const generateImages = vi.fn();
+    const service = createAgentImageGenerationService({
+      loadAgentAccessSettings: async () => accessSettings(true, false),
+      loadProviderSettings: async () => configuration,
+      readProjectAssetPayloads: vi.fn(),
+      generateImages,
+      writeImages: vi.fn(),
+    });
+
+    await expect(service.getCapability("cursor")).resolves.toMatchObject({
+      authorized: false,
+    });
+    await expect(
+      service.generate({
+        host: "cursor",
         projectPath: "/tmp/project",
         prompt: "工业设计草图",
         count: 1,

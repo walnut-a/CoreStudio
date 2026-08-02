@@ -106,7 +106,7 @@ describe("application settings localization", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Codex Integration" }),
+      screen.getByRole("heading", { name: "Agent Integrations" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Environment ready")).toBeInTheDocument();
     expect(

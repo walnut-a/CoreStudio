@@ -7,7 +7,7 @@ const readDoc = (filePath: string) =>
   readFileSync(resolve(process.cwd(), filePath), "utf8");
 
 describe("agent integration docs", () => {
-  it("documents the CoreStudio one-shot and Codex Agent boundary", () => {
+  it("documents the CoreStudio one-shot and local Agent boundary", () => {
     const product = readDoc("apps/image-board-desktop/PRODUCT.md");
     const userGuide = readDoc(
       "apps/image-board-desktop/docs/agent-integration-user-guide.md",
@@ -29,17 +29,21 @@ describe("agent integration docs", () => {
     };
 
     expect(product).toContain("任务发起位置决定调度者");
-    expect(userGuide).toContain("在 Codex 中使用 CoreStudio");
+    expect(userGuide).toContain("在本地 Agent 中使用 CoreStudio");
     expect(userGuide).toContain("CoreStudio 单次生成");
-    expect(userGuide).toContain("Codex 是 Agent 工作流的唯一调度者");
-    expect(userGuide).toContain("Codex 集成");
+    expect(userGuide).toContain("任务从哪个 Agent 发起");
+    expect(userGuide).toContain("Agent 集成");
+    expect(userGuide).toContain("Codex、Cursor 和 Claude Code");
     expect(userGuide).toContain("点击安装、更新或修复");
     expect(userGuide).toContain("CLI / Local Bridge");
+    expect(userGuide).toContain("~/.local/bin/corestudio");
+    expect(userGuide).toContain("新建一个本地 Agent 对话");
+    expect(userGuide).toContain("不需要重复安装");
     expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
     expect(architecture).toContain("CoreStudio 内只做本地单次生成");
     expect(architecture).toContain("CLI / Local Bridge");
     expect(architecture).toContain(
-      'Codex 写回图片使用 `generationOrigin: "agent-board"`',
+      '外部 Agent 写回图片统一使用 `generationOrigin: "agent-board"`',
     );
     expect(codexSettings).toContain(
       "copy.applicationSettings.codexPage.installOnDevice",
@@ -55,7 +59,7 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain("corestudio read status --json");
     expect(corestudioSkill).toContain("“打开 CoreStudio”本身存在歧义");
     expect(corestudioSkill).toContain(
-      "你想打开 Codex 内置画布，还是打开 CoreStudio 桌面客户端？",
+      "你想打开 Agent Board，还是打开 CoreStudio 桌面客户端？",
     );
     expect(corestudioSkill).toContain(
       "确认前不要读取 board URL，也不要启动或切换桌面应用",
@@ -97,6 +101,10 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).not.toContain(
       "运行 `corestudio read context --json` 发现当前 CoreStudio 会话和项目",
     );
+    expect(desktopPackage.build?.extraResources).toContainEqual({
+      from: "resources/agent-integration",
+      to: "agent-integration",
+    });
     expect(desktopPackage.build?.extraResources).toContainEqual({
       from: "../../../docs/codex-integration.md",
       to: "codex-integration/CODEX_INSTALLATION.md",
@@ -151,7 +159,7 @@ describe("agent integration docs", () => {
     );
     const screenshotSurfaces = [
       "应用设置 · 图片集成",
-      "应用设置 · Codex 集成",
+      "应用设置 · Agent 集成",
       "底部单次生成",
       "左侧生成记录",
       "Agent Board",
@@ -165,7 +173,7 @@ describe("agent integration docs", () => {
     for (const surface of screenshotSurfaces) {
       expect(qaNotes).toContain(surface);
     }
-    expect(qaNotes).toContain("Codex 写回只使用 `agent-board` 来源");
+    expect(qaNotes).toContain("外部 Agent 写回只使用 `agent-board` 来源");
   });
 
   it("documents transactional image writeback and crash recovery", () => {

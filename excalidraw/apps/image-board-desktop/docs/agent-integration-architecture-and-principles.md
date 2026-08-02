@@ -7,11 +7,19 @@
 任务发起位置决定调度者：
 
 - CoreStudio 内只做本地单次生成，由 CoreStudio 调度。
-- Codex 中的复杂、连续或并行任务由 Codex 调度。
+- Codex、Cursor 或 Claude Code 中的复杂、连续或并行任务由发起任务的 Agent 调度。
 - Agent Board 只提供画布上下文、选择、标注和结果确认。
 - CLI / Local Bridge 是数据通道，不是第三个调度者。
 
-CoreStudio 不保存 Agent 会话、thread、任务包、运行日志或外部 Agent 设置。
+CoreStudio 不保存外部 Agent 的任务包、运行日志或任务设置。Bridge 只在当前 CoreStudio 进程内保存短期 `LocalAgentSession`，用于区分宿主与对话；它不进入项目文件或长期配置。
+
+## 本地多宿主身份
+
+- 支持宿主为 `codex`、`cursor`、`claude-code`。
+- Cursor 与 Claude Code 通过 `corestudio agent connect` 换取当前进程内的 `sessionRef`。
+- Project Room actor 统一使用 `agent:<host>:<sessionRef>`，不同宿主和不同对话互不复用选区、视口或写入身份。
+- Codex 的 `CODEX_THREAD_ID` 保留一轮兼容，内部仍经过相同的可信参与者边界。
+- 图片生成权限按宿主独立保存；读取和写回仍受 Agent Bridge 总开关控制。
 
 ## 分层
 
@@ -28,7 +36,7 @@ CoreStudio 不保存 Agent 会话、thread、任务包、运行日志或外部 A
 
 ## 写入与恢复
 
-外部写入必须经过 CLI / Local Bridge，并携带可信的 Codex 参与者身份。Agent Writer 只借助 renderer 中的 Excalidraw 原生元素工厂或 Mermaid 转换器准备语义元素，不读取或直接修改当前可见画布；主进程负责资产登记，并把一个带 `operationId` 的操作提交到项目房间。图表输入只传 Mermaid 文本，转换结果保持为可编辑的节点、文字和箭头绑定，不上传云端，也不开放任意 scene 替换。
+外部写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参与者身份。Agent Writer 只借助 renderer 中的 Excalidraw 原生元素工厂或 Mermaid 转换器准备语义元素，不读取或直接修改当前可见画布；主进程负责资产登记，并把一个带 `operationId` 的操作提交到项目房间。图表输入只传 Mermaid 文本，转换结果保持为可编辑的节点、文字和箭头绑定，不上传云端，也不开放任意 scene 替换。
 
 项目房间是当前 scene 的权威状态。操作先在房间内协调和广播，再由主进程统一持久化；两个 renderer 不再分别保存整份 scene，也不通过重新打开项目完成同步。
 
@@ -55,14 +63,14 @@ CoreStudio 不保存 Agent 会话、thread、任务包、运行日志或外部 A
 ## 数据边界
 
 - CoreStudio 生成图片使用 `generationOrigin: "corestudio"`。
-- Codex 写回图片使用 `generationOrigin: "agent-board"`。
+- 外部 Agent 写回图片统一使用 `generationOrigin: "agent-board"`。
 - 项目 `assets/`、场景和图片记录由 CoreStudio 统一校验和维护。
 
 ## 迭代原则
 
 1. 项目数据由 CoreStudio 持有，Agent 不直接改项目文件。
 2. 外部写入前后都校验图片资产、记录和画布元素关系；scene 只由项目房间协调。
-3. Codex 集成版本独立于客户端版本；只有 CLI、Skill 或 Bridge 协议变化时才要求更新集成。
+3. Agent 集成版本独立于客户端版本；只有 CLI、Skill 或 Bridge 协议变化时才要求更新集成。
 4. 本地生成与 Agent 工作流保持两套清晰入口，不共享隐式会话状态。
 5. 新能力优先扩展稳定契约，避免把 Agent 运行时重新塞回桌面客户端。
 6. Electron 验收使用隔离的临时项目；协作验收由一个 Electron 宿主配合多个浏览器参与者完成，不用两个 Electron 同时打开同一项目。

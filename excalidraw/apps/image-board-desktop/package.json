@@ -81,6 +81,10 @@
         "to": "codex-integration"
       },
       {
+        "from": "resources/agent-integration",
+        "to": "agent-integration"
+      },
+      {
         "from": "../../../docs/codex-integration.md",
         "to": "codex-integration/CODEX_INSTALLATION.md"
       }

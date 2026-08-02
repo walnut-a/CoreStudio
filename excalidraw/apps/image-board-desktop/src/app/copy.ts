@@ -291,7 +291,7 @@ const zhCnCopy = {
     categoriesLabel: "设置分类",
     general: "通用",
     imageGeneration: "图片集成",
-    codexIntegration: "Codex 集成",
+    codexIntegration: "Agent 集成",
     experimental: "实验性功能",
     about: "关于",
     language: "语言",
@@ -389,7 +389,8 @@ const zhCnCopy = {
       },
     },
     codexPage: {
-      description: "安装一次后，Codex 就能发现并操作本机 CoreStudio 项目。",
+      description:
+        "为你使用的本地 Agent 安装集成，并分别管理 CoreStudio 图片生成权限。",
       refresh: "重新检测",
       loading: "正在检测 Codex 集成...",
       detectionFailed: "无法完成检测",
@@ -413,6 +414,11 @@ const zhCnCopy = {
       },
       installing: "正在安装...",
       installFailed: "Codex 集成安装失败",
+      removeAction: "移除 Codex 集成",
+      removing: "正在移除...",
+      removeFailed: "Codex 集成移除失败",
+      removeDescription:
+        "只移除当前 Agent 的 CoreStudio Skill；共享 CLI、其他 Agent 和已保存权限不受影响。",
       readyDescription: "当前依赖齐全。需要时可以从当前应用包重新安装。",
       actionDescription: "CoreStudio 将使用当前应用包内的固定安装器完成操作。",
       copied: "已复制",
@@ -453,6 +459,15 @@ const zhCnCopy = {
       imageGenerationPermissionTitle: "允许 Codex 使用 CoreStudio 图片生成",
       imageGenerationPermissionDescription:
         "开启后，Codex 可以通过 CoreStudio CLI 使用你当前在“图片集成”中选定的服务、模型和 API Key，生成会消耗对应服务商的额度。Codex 不能查看凭证、切换模型或修改图片集成配置。关闭后不影响 Codex 读取画布或向项目写入内容。Codex 自身提供较宽松的图片生成额度，通常建议保持关闭。",
+      imageGenerationPermissionDescriptionForHost: (
+        hostLabel: string,
+        preferNativeGeneration: boolean,
+      ) =>
+        `开启后，${hostLabel} 可以通过 CoreStudio CLI 使用你当前在“图片集成”中选定的服务、模型和 API Key，生成会消耗对应服务商的额度。${hostLabel} 不能查看凭证、切换模型或修改图片集成配置。关闭后不影响 ${hostLabel} 读取画布或向项目写入内容。${
+          preferNativeGeneration
+            ? `${hostLabel} 自身提供较宽松的图片生成额度，通常建议保持关闭。`
+            : `如果 ${hostLabel} 自身具备合适的图片生成能力，建议优先使用自身能力；否则可以按需开启。`
+        }`,
       imageGenerationPermissionLabel: "允许 Codex 使用 CoreStudio 图片生成",
       imageGenerationPermissionSaveFailed: "无法保存 Codex 图片生成权限",
       imageGenerationNotConfigured:
@@ -460,7 +475,7 @@ const zhCnCopy = {
       openImageIntegrations: "前往图片集成",
       bridgeDisabledPermissionNote: "权限已保存，开启 Agent Bridge 后生效。",
       installPrompt: (appVersion: string, guideUrl: string) =>
-        `请使用本机正式 CoreStudio ${appVersion} 应用包内的零参数安装器修复 Codex 集成，不要从网络下载或重写安装脚本。完成后只验证 CLI、Skill 和集成兼容性记录；安装说明可参考：${guideUrl}`,
+        `请打开本机正式 CoreStudio ${appVersion} 的“应用设置 → Agent 集成”，选择 Codex 后执行安装、更新或修复，不要从网络下载或重写安装脚本。完成后只验证 CLI、Skill 和集成兼容性记录；安装说明可参考：${guideUrl}`,
     },
   },
   agentUi: {
@@ -533,19 +548,19 @@ const zhCnCopy = {
   },
   agentBoard: {
     connectionClaim: {
-      title: "画布正在等待连接 Codex",
+      title: "画布正在等待连接 Agent",
       currentStateTitle: "当前状态",
       currentStateDescription:
-        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到 Codex 对话，因此暂时无法进入画布。",
+        "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到本地 Agent 对话，因此暂时无法进入画布。",
       nextStepTitle: "你需要做什么",
       nextStepDescription:
-        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的 Codex 对话，粘贴并发送。",
+        "点击下方按钮复制连接指令，然后返回你希望使用这个画布的本地 Agent 对话，粘贴并发送。",
       completionTitle: "完成后",
       completionDescription:
-        "Codex 会连接这个画布。连接成功后，本页面将自动进入可编辑画布，无需刷新或重新打开。",
+        "Agent 会连接这个画布。连接成功后，本页面将自动进入可编辑画布，无需刷新或重新打开。",
       copyAction: "复制连接指令",
       copying: "正在复制…",
-      copySucceeded: "连接指令已复制。现在请返回 Codex，粘贴并发送。",
+      copySucceeded: "连接指令已复制。现在请返回本地 Agent，粘贴并发送。",
       copyFailed: "复制失败，请重试。",
       clipboardInstruction:
         "请连接这个 CoreStudio 画布，完成后确认页面已进入可编辑状态。",
@@ -557,13 +572,13 @@ const zhCnCopy = {
     },
     expiredConnectionTitle: "这个内置画布连接已失效",
     expiredConnectionDescription:
-      "CoreStudio 重新启动或切换项目后，之前的画布链接不能继续使用。请回到当前 Codex 对话，重新打开 CoreStudio 内置画布。",
+      "CoreStudio 重新启动或切换项目后，之前的画布链接不能继续使用。请回到当前本地 Agent 对话，重新打开 CoreStudio Agent Board。",
     missingConnectionTitle: "缺少连接信息",
     missingConnectionDescription:
-      "请从 CoreStudio 桌面端复制 Agent Board 链接，再在 Codex 内置浏览器中打开。",
+      "请从 CoreStudio 桌面端复制 Agent Board 链接，再在当前 Agent 可用的浏览器中打开。",
     defaultTitle: "CoreStudio Agent Board",
     description:
-      "在 Codex 内置浏览器中查看当前 CoreStudio 画板；写回使用本地项目 token 完成。",
+      "在本地 Agent 可用的浏览器中查看当前 CoreStudio 画板；写回通过 Local Bridge 完成。",
     loadingBuiltInTitle: "正在载入内置画板",
     loadingBuiltInDescription: "请稍等，CoreStudio 正在准备 Agent Board。",
     refreshing: "刷新中",

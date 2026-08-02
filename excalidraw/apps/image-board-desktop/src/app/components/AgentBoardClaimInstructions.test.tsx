@@ -45,7 +45,9 @@ describe("AgentBoardClaimInstructions", () => {
       ),
     );
     expect(
-      await screen.findByText("连接指令已复制。现在请返回 Codex，粘贴并发送。"),
+      await screen.findByText(
+        "连接指令已复制。现在请返回本地 Agent，粘贴并发送。",
+      ),
     ).toBeInTheDocument();
   });
 

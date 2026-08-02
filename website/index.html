@@ -44,7 +44,7 @@
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="styles.css?v=20260802-6" />
+    <link rel="stylesheet" href="styles.css?v=20260802-7" />
     <script src="main.js?v=20260802-4" defer></script>
   </head>
   <body class="page-en">
@@ -68,31 +68,40 @@
           <span>CoreStudio</span>
         </a>
 
-        <button
-          class="nav-toggle"
-          type="button"
-          aria-label="Open navigation menu"
-          aria-expanded="false"
-          aria-controls="site-nav"
-          data-label-open="Open navigation menu"
-          data-label-close="Close navigation menu"
-          data-nav-toggle
-        >
-          <span></span>
-          <span></span>
-        </button>
+        <div class="header-mobile-actions">
+          <a
+            class="header-language"
+            href="zh/index.html"
+            lang="zh-CN"
+            hreflang="zh-CN"
+            aria-label="Switch to Chinese"
+          >
+            中文
+          </a>
+          <button
+            class="nav-toggle"
+            type="button"
+            aria-label="Open navigation menu"
+            aria-expanded="false"
+            aria-controls="site-nav"
+            data-label-open="Open navigation menu"
+            data-label-close="Close navigation menu"
+            data-nav-toggle
+          >
+            <span></span>
+            <span></span>
+          </button>
+        </div>
 
         <nav class="site-nav" id="site-nav" aria-label="Main navigation" data-site-nav>
           <a href="#why">Why CoreStudio</a>
           <a
+            class="nav-secondary-last"
             href="https://github.com/walnut-a/CoreStudio"
             target="_blank"
             rel="noreferrer"
           >
             GitHub
-          </a>
-          <a class="language-link" href="zh/index.html" lang="zh-CN" hreflang="zh-CN">
-            中文
           </a>
           <a
             class="nav-download button button-primary"
@@ -104,14 +113,25 @@
           </a>
         </nav>
 
-        <a
-          class="button button-small button-primary header-download"
-          href="https://github.com/walnut-a/CoreStudio/releases/latest"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Download for macOS
-        </a>
+        <div class="header-actions">
+          <a
+            class="header-language"
+            href="zh/index.html"
+            lang="zh-CN"
+            hreflang="zh-CN"
+            aria-label="Switch to Chinese"
+          >
+            中文
+          </a>
+          <a
+            class="button button-small button-primary header-download"
+            href="https://github.com/walnut-a/CoreStudio/releases/latest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Download for macOS
+          </a>
+        </div>
       </div>
     </header>
 

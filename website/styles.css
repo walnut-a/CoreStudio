@@ -154,6 +154,7 @@ h2 {
 .brand,
 .button,
 .site-nav,
+.header-language,
 .footer-links {
   font-family: var(--font-interface);
 }
@@ -186,13 +187,34 @@ h2 {
 
 .site-nav a:hover,
 .site-nav a:focus-visible,
+.header-language:hover,
+.header-language:focus-visible,
 .footer-links a:hover,
 .footer-links a:focus-visible {
   color: var(--ink);
 }
 
-.header-download {
+.header-actions {
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-mobile-actions {
+  display: none;
+}
+
+.header-language {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: var(--type-label);
+  font-weight: 600;
+  transition: color 150ms ease;
 }
 
 .nav-toggle {
@@ -469,8 +491,14 @@ button:focus-visible {
     grid-template-columns: 1fr auto;
   }
 
-  .header-download {
+  .header-actions {
     display: none;
+  }
+
+  .header-mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
   }
 
   .nav-toggle {
@@ -502,7 +530,7 @@ button:focus-visible {
     border-bottom: 1px solid var(--line);
   }
 
-  .site-nav > .language-link {
+  .site-nav > .nav-secondary-last {
     border-bottom: 0;
   }
 

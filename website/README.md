@@ -17,8 +17,11 @@ python3 -m http.server 4173 --directory website
 
 ```text
 website/
+├── CNAME
 ├── DESIGN.md
 ├── index.html
+├── robots.txt
+├── sitemap.xml
 ├── en/
 │   └── index.html
 ├── styles.css
@@ -27,6 +30,7 @@ website/
     ├── corestudio-icon-*.{png,webp}
     ├── corestudio-favicon-32.png
     ├── corestudio-apple-touch-icon.png
+    ├── corestudio-social-card.jpeg
     ├── corestudio-product.jpeg
     ├── corestudio-product-*.webp
     └── fonts/
@@ -44,9 +48,10 @@ PNG / WebP 是从这张原始图标生成的尺寸与格式衍生文件，网站
 Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 SemiBold / Bold；英文版正文
 使用 Regular，导航、按钮和重点文字使用 SemiBold / Bold。
 
-## 发布前需要确认
+## 发布配置
 
-- 正式域名确定后，补充 canonical URL、完整的 Open Graph 图片 URL、`robots.txt` 和 `sitemap.xml`。
+- 正式域名为 `https://getcorestudio.com/`，`www.getcorestudio.com` 由 GitHub Pages 重定向到裸域名。
+- `CNAME`、canonical URL、Open Graph 图片 URL、`robots.txt` 和 `sitemap.xml` 均使用正式域名。
 - 下载按钮当前始终指向 GitHub Latest Release，不在页面内写死版本号。
 - GitHub、Release 和 License 链接均指向 `walnut-a/CoreStudio`。
 
@@ -55,5 +60,5 @@ Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 Se
 `.github/workflows/deploy-website-pages.yml` 会在 `main` 分支的官网文件发生变化时，
 直接把 `website/` 上传到 GitHub Pages，不需要额外构建。也可以在 Actions 页面手动运行该工作流。
 
-默认公开地址为 `https://walnut-a.github.io/CoreStudio/`，英文版位于
-`https://walnut-a.github.io/CoreStudio/en/`。
+正式公开地址为 `https://getcorestudio.com/`，英文版位于
+`https://getcorestudio.com/en/`。

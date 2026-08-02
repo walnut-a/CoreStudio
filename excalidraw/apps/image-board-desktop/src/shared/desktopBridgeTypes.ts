@@ -34,6 +34,7 @@ import type {
   ProjectRoomEvent,
   ProjectRoomOperationResult,
   ProjectRoomParticipant,
+  ProjectRoomSceneElement,
   ProjectRoomSceneOperation,
   ProjectRoomSnapshot,
 } from "./projectRoomProtocol";
@@ -67,6 +68,7 @@ export const IPC_CHANNELS = {
   generateImages: "image-board:generate-images",
   cancelGenerateImages: "image-board:cancel-generate-images",
   readClipboardImage: "image-board:read-clipboard-image",
+  writeProjectClipboard: "image-board:write-project-clipboard",
   loadLocaleSettings: "image-board:load-locale-settings",
   saveLocalePreference: "image-board:save-locale-preference",
   menuAction: "image-board:menu-action",
@@ -491,6 +493,10 @@ export interface DesktopBridgeApi {
   generateImages(input: GenerateImagesInput): Promise<GenerationResponse>;
   cancelGenerateImages?(generationJobId: string): Promise<void>;
   readClipboardImage?(): Promise<ImportedImagePayload | null>;
+  writeProjectClipboard?(input: {
+    projectPath: string;
+    elements: readonly ProjectRoomSceneElement[];
+  }): Promise<void>;
   loadLocaleSettings?(): Promise<DesktopLocaleSettings>;
   saveLocalePreference?(
     preference: DesktopLocalePreference,

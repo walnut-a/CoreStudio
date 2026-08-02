@@ -33,6 +33,14 @@ export const actionCopy = register<ClipboardEvent | null>({
     });
 
     try {
+      if (
+        app.props.onCopy &&
+        (await app.props.onCopy(elementsToCopy, app.files)) === false
+      ) {
+        return {
+          captureUpdate: CaptureUpdateAction.EVENTUALLY,
+        };
+      }
       await copyToClipboard(elementsToCopy, app.files, event);
     } catch (error: any) {
       return {
@@ -215,7 +223,10 @@ export const actionCopyAsPng = register({
       true,
     );
     try {
-      await exportCanvas("clipboard", exportedElements, appState, app.files, {
+      const exportFiles =
+        (await app.props.onCopyAsPng?.(exportedElements, app.files)) ??
+        app.files;
+      await exportCanvas("clipboard", exportedElements, appState, exportFiles, {
         ...appState,
         exportingFrame,
         name: app.getName(),

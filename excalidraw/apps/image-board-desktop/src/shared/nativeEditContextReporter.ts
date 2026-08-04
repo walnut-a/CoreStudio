@@ -21,20 +21,51 @@ const isNativeTextEditControl = (
 export const installNativeEditContextReporter = (
   report: (nativeTextContext: boolean) => void,
 ) => {
-  const reportTarget = (target: EventTarget | null) => {
-    report(isNativeTextEditControl(target));
-  };
-  const handleInteraction = (event: Event) => {
-    reportTarget(event.target);
+  let activeNativeControl: HTMLInputElement | HTMLTextAreaElement | null = null;
+  let lastReportedContext: boolean | undefined;
+
+  const activeControlObserver = new MutationObserver(() => {
+    if (
+      activeNativeControl &&
+      (!activeNativeControl.isConnected ||
+        document.activeElement !== activeNativeControl)
+    ) {
+      syncFromActiveElement();
+    }
+  });
+
+  const syncFromActiveElement = () => {
+    const nextNativeControl = isNativeTextEditControl(document.activeElement)
+      ? document.activeElement
+      : null;
+
+    if (activeNativeControl !== nextNativeControl) {
+      activeNativeControl = nextNativeControl;
+      activeControlObserver.disconnect();
+      if (activeNativeControl) {
+        activeControlObserver.observe(document, {
+          childList: true,
+          subtree: true,
+        });
+      }
+    }
+
+    const nextContext = activeNativeControl !== null;
+    if (lastReportedContext !== nextContext) {
+      lastReportedContext = nextContext;
+      report(nextContext);
+    }
   };
 
-  reportTarget(document.activeElement);
-  document.addEventListener("focus", handleInteraction, true);
-  document.addEventListener("pointerdown", handleInteraction, true);
+  syncFromActiveElement();
+  document.addEventListener("focus", syncFromActiveElement, true);
+  document.addEventListener("blur", syncFromActiveElement, true);
 
   return () => {
-    document.removeEventListener("focus", handleInteraction, true);
-    document.removeEventListener("pointerdown", handleInteraction, true);
+    document.removeEventListener("focus", syncFromActiveElement, true);
+    document.removeEventListener("blur", syncFromActiveElement, true);
+    activeControlObserver.disconnect();
+    activeNativeControl = null;
     report(false);
   };
 };

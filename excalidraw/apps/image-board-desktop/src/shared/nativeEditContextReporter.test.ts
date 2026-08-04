@@ -24,6 +24,55 @@ describe("installNativeEditContextReporter", () => {
     expect(report).toHaveBeenLastCalledWith(false);
   });
 
+  it("clears the native edit context when the focused control is removed", async () => {
+    const report = vi.fn();
+    const input = document.createElement("input");
+    document.body.append(input);
+    const dispose = installNativeEditContextReporter(report);
+
+    input.focus();
+    expect(report).toHaveBeenLastCalledWith(true);
+
+    input.remove();
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(document.body);
+    expect(report).toHaveBeenLastCalledWith(false);
+
+    dispose();
+  });
+
+  it("clears the native edit context when the focused control is blurred", () => {
+    const report = vi.fn();
+    const input = document.createElement("input");
+    document.body.append(input);
+    const dispose = installNativeEditContextReporter(report);
+
+    input.focus();
+    expect(report).toHaveBeenLastCalledWith(true);
+
+    input.blur();
+
+    expect(document.activeElement).toBe(document.body);
+    expect(report).toHaveBeenLastCalledWith(false);
+
+    dispose();
+  });
+
+  it("derives the edit context from focus instead of a pointer target", () => {
+    const report = vi.fn();
+    const input = document.createElement("input");
+    document.body.append(input);
+    const dispose = installNativeEditContextReporter(report);
+
+    input.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+
+    expect(document.activeElement).toBe(document.body);
+    expect(report).toHaveBeenLastCalledWith(false);
+
+    dispose();
+  });
+
   it("keeps non-text inputs and contenteditable elements on the custom path", () => {
     const report = vi.fn();
     const checkbox = document.createElement("input");

@@ -143,9 +143,17 @@ export const createAppMenuTemplate = (
           click: (_item, ownerWindow) =>
             sendMenuAction({ action: "edit-redo" }, ownerWindow),
         },
+        { type: "separator" },
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },
+        { type: "separator" },
+        {
+          label: copy.menu.selectAll,
+          accelerator: "CmdOrCtrl+A",
+          click: (_item, ownerWindow) =>
+            sendMenuAction({ action: "edit-select-all" }, ownerWindow),
+        },
       ],
     },
     ...(!isMac

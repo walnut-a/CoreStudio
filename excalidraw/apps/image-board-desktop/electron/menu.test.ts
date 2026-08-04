@@ -91,7 +91,7 @@ describe("createAppMenuTemplate", () => {
     expect(getSubmenuLabels(template[0].submenu)).toContain("Quit CoreStudio");
   });
 
-  it("routes undo and redo shortcuts to the focused renderer", () => {
+  it("routes editing shortcuts to the focused renderer", () => {
     const sendMenuAction = vi.fn();
     const template = createAppMenuTemplate(
       sendMenuAction,
@@ -106,12 +106,15 @@ describe("createAppMenuTemplate", () => {
     const editItems = getSubmenuItems(editMenu?.submenu);
     const undoItem = editItems.find((item) => item.label === "撤销");
     const redoItem = editItems.find((item) => item.label === "重做");
+    const selectAllItem = editItems.find((item) => item.label === "全选");
 
     expect(undoItem?.accelerator).toBe("CmdOrCtrl+Z");
     expect(redoItem?.accelerator).toBe("CmdOrCtrl+Shift+Z");
+    expect(selectAllItem?.accelerator).toBe("CmdOrCtrl+A");
 
     undoItem?.click?.(undoItem as any, undefined, undefined as any);
     redoItem?.click?.(redoItem as any, undefined, undefined as any);
+    selectAllItem?.click?.(selectAllItem as any, undefined, undefined as any);
 
     expect(sendMenuAction).toHaveBeenNthCalledWith(
       1,
@@ -121,6 +124,11 @@ describe("createAppMenuTemplate", () => {
     expect(sendMenuAction).toHaveBeenNthCalledWith(
       2,
       { action: "edit-redo" },
+      undefined,
+    );
+    expect(sendMenuAction).toHaveBeenNthCalledWith(
+      3,
+      { action: "edit-select-all" },
       undefined,
     );
   });

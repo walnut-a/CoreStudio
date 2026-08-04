@@ -125,6 +125,7 @@ export type DesktopMenuAction =
   | "app-settings"
   | "edit-undo"
   | "edit-redo"
+  | "edit-select-all"
   | "set-agent-bridge-enabled"
   | "reveal-project"
   | "show-about";

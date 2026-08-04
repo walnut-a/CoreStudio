@@ -46,9 +46,10 @@ describe("useDesktopMenuEvents", () => {
     fireEvent.pointerDown(editor);
 
     act(() => {
-      menuListener?.({ action: "edit-undo" });
+      menuListener?.({ action: "edit-select-all" });
     });
 
     expect(received).toHaveBeenCalledOnce();
+    expect(received.mock.calls[0][0]).toMatchObject({ key: "a" });
   });
 });

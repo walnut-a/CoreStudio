@@ -282,6 +282,7 @@ const zhCnCopy = {
     edit: "编辑",
     undo: "撤销",
     redo: "重做",
+    selectAll: "全选",
     settings: "设置",
     appSettings: "应用设置",
     quit: `退出 ${DESKTOP_APP_NAME}`,

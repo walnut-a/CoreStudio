@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ProviderConfigurationSnapshot } from "../../shared/desktopBridgeTypes";
@@ -67,7 +73,7 @@ describe("ImageGenerationSettings", () => {
     });
 
     const visibilitySwitch = screen.getByRole("switch", {
-      name: "显示生成输入框",
+      name: "显示图片生成输入框",
     });
     expect(visibilitySwitch).toHaveAttribute("aria-checked", "true");
 
@@ -83,13 +89,44 @@ describe("ImageGenerationSettings", () => {
     renderSettings();
 
     expect(
-      screen.getByText(
-        "控制项目画布底部的图片生成输入框。如果你暂时不需要内置的图片生成功能，可以先关掉；服务、模型和 API Key 会继续保留。",
-      ),
+      screen.queryByRole("heading", { name: "图片集成" }),
+    ).not.toBeInTheDocument();
+
+    const servicesSection = screen.getByRole("region", {
+      name: "图片来源",
+    });
+    expect(
+      within(servicesSection).getByRole("heading", {
+        name: "图片来源",
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /编辑 ZenMux/ }),
+      within(servicesSection).getByRole("button", {
+        name: "添加来源",
+      }),
     ).toBeInTheDocument();
+    expect(
+      within(servicesSection).getByRole("button", { name: /编辑 ZenMux/ }),
+    ).toBeInTheDocument();
+
+    const secondarySettings = screen.getByRole("region", {
+      name: "其他设置",
+    });
+    expect(
+      within(secondarySettings).getByRole("switch", {
+        name: "显示图片生成输入框",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(secondarySettings).getByText("在画布显示图片生成输入框"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "画布设置" }),
+    ).not.toBeInTheDocument();
+    expect(
+      servicesSection.compareDocumentPosition(secondarySettings) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Gemini")).not.toBeInTheDocument();
     expect(screen.queryByText("缺少 API Key")).not.toBeInTheDocument();
   });
@@ -97,9 +134,9 @@ describe("ImageGenerationSettings", () => {
   it("从添加服务进入服务商选择，再进入配置页", () => {
     renderSettings();
 
-    fireEvent.click(screen.getByRole("button", { name: "添加服务" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加来源" }));
     expect(
-      screen.getByRole("heading", { name: "选择服务商" }),
+      screen.getByRole("heading", { name: "选择图片来源" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /添加 ZenMux/ })).toBeNull();
 
@@ -111,13 +148,14 @@ describe("ImageGenerationSettings", () => {
   it("没有服务时显示唯一空状态入口", () => {
     renderSettings(createConfiguration([]));
 
-    expect(screen.getByText("尚未配置图像生成服务")).toBeInTheDocument();
+    expect(screen.getByText("尚未添加图片来源")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "添加服务" }),
+      screen.getByRole("button", { name: "添加来源" }),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "添加来源" })).toHaveLength(1);
   });
 
-  it("显示预置模型目录版本、更新仓库并允许手动检查更新", async () => {
+  it("以低权重工具行显示模型目录版本和更新入口", async () => {
     const configuration = {
       ...createConfiguration(),
       modelCatalog: {
@@ -129,12 +167,12 @@ describe("ImageGenerationSettings", () => {
     };
     const { onRefreshCatalog, onOpenExternal } = renderSettings(configuration);
 
-    expect(screen.getByText("预置模型目录")).toBeInTheDocument();
+    expect(screen.getByText("模型目录")).toBeInTheDocument();
     expect(screen.getByText("版本 3")).toBeInTheDocument();
     const repository = screen.getByRole("button", {
       name: "打开模型目录更新仓库",
     });
-    expect(repository).toHaveTextContent("walnut-a/CoreStudio-Model-Catalog");
+    expect(repository).toHaveTextContent("更新来源");
 
     fireEvent.click(repository);
     expect(onOpenExternal).toHaveBeenCalledWith(

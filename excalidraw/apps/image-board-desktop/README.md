@@ -134,4 +134,5 @@ Electron UI、项目读写和退出流程验收必须使用临时项目，不能
 - [Agent CLI Contract](docs/agent-cli-contract.md)
 - [本地 Agent 集成使用说明](docs/agent-integration-user-guide.md)
 - [Agent 集成架构与迭代原则](docs/agent-integration-architecture-and-principles.md)
+- [Seedream / 即梦服务接入说明](docs/seedream-provider-integration.md)
 - [本地多 Agent 集成方案](docs/local-agent-multi-host-integration-plan.md)

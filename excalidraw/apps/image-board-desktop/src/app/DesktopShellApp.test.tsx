@@ -466,7 +466,7 @@ describe("DesktopShellApp", () => {
     );
     fireEvent.click(
       within(settingsDialog).getByRole("switch", {
-        name: "显示生成输入框",
+        name: "显示图片生成输入框",
       }),
     );
 

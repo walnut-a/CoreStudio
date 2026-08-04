@@ -91,6 +91,28 @@ describe("normalizeDesktopErrorMessage", () => {
     ).toBe("ZenMux 余额不足，这个模型需要账户里有正余额。");
   });
 
+  it("明确只支持火山方舟控制台创建的 API Key Secret", () => {
+    expect(
+      normalizeDesktopErrorMessage(
+        "jimeng",
+        '401 {"error":{"code":"AuthenticationError"}}',
+      ),
+    ).toBe(
+      "火山方舟 / Seedream API Key 鉴权失败（401）。当前仅支持在火山方舟控制台创建的 API Key Secret，无需填写 API Key ID；主账号密钥列表或 IAM 用户创建的 API Key 暂不支持。",
+    );
+  });
+
+  it("准确提示 Seedream 模型尚未开通", () => {
+    expect(
+      normalizeDesktopErrorMessage(
+        "jimeng",
+        '404 {"error":{"code":"ModelNotOpen","message":"Your account has not activated the model doubao-seedream-5-0-pro-260628."}}',
+      ),
+    ).toBe(
+      "火山方舟 / Seedream 模型尚未开通，请先在火山方舟控制台的开通管理中开通当前模型。",
+    );
+  });
+
   it.each([
     ["401 Unauthorized", "OpenAI API Key 无效，请在应用设置中检查后重新保存。"],
     ["403 Forbidden", "OpenAI API Key 无效，请在应用设置中检查后重新保存。"],

@@ -237,6 +237,10 @@ export const enCopy: DesktopCopy = {
     zenmuxNotConfigured:
       "The ZenMux API Key is not configured. Complete the setup in Application Settings.",
     falInvalidKey: "The fal API Key is invalid. Check it and save again.",
+    seedreamApiKeyInvalid:
+      "Volcengine Ark / Seedream API Key authentication failed (401). Only an API Key Secret created in the Volcengine Ark console is currently supported; an API Key ID is not required. API keys created in the main-account key list or for IAM users are not currently supported.",
+    seedreamModelNotOpen:
+      "The Volcengine Ark / Seedream model is not activated. Activate the current model in the Volcengine Ark console before trying again.",
     providerInvalidKey: (provider: string) =>
       `The ${provider} API Key is invalid. Check it in Application Settings and save again.`,
     providerNetwork: (provider: string) =>
@@ -315,33 +319,29 @@ export const enCopy: DesktopCopy = {
         "These versions come from the current build configuration and update with the application.",
     },
     imageGenerationPage: {
-      description:
-        "Manage image generation services and the composer shown on the board.",
-      composerVisibilityTitle: "Board Generation Composer",
-      composerVisibilityDescription:
-        "Show the built-in image generation composer at the bottom of project boards. If you do not need built-in image generation for now, you can turn it off; your services, models, and API keys will stay saved.",
-      composerVisibilityLabel: "Show generation composer",
+      composerVisibilityTitle: "Show on the board",
+      composerVisibilityLabel: "Show Image Generation Composer",
       composerVisibilitySaveFailed:
         "Could not save the generation composer setting.",
-      addService: "Add Service",
+      servicesTitle: "Image Sources",
+      secondarySettingsLabel: "Additional Settings",
+      addService: "Add Source",
       back: "← Back to Image Integrations",
-      selectProvider: "Choose a Provider",
+      selectProvider: "Choose an Image Source",
       selectProviderDescription:
-        "Choose a provider, then enter the settings it requires.",
+        "Choose a source, then enter the settings it requires.",
       addProvider: (label: string) => `Add ${label}`,
       compatibleProviderDescription:
         "Connect a service compatible with OpenAI Images",
       builtInProviderDescription: "Use CoreStudio's built-in integration",
       editProvider: (label: string) => `Edit ${label}`,
       defaultStatus: "Default",
-      configuredStatus: "Configured",
-      emptyTitle: "No image generation service configured",
-      emptyDescription:
-        "Add a service to generate images directly from the board.",
-      catalogTitle: "Preset Model Catalog",
+      emptyTitle: "No image source added",
+      emptyDescription: "Add a source to generate images from the board.",
+      catalogTitle: "Model Catalog",
       catalogRevision: (revision: number) => `Revision ${revision}`,
-      catalogBuiltin: "Using the built-in catalog",
-      catalogRepository: "Update source",
+      catalogBuiltin: "Built-in version",
+      catalogRepositoryAction: "Update Source",
       catalogOpenRepository: "Open the model catalog repository",
       catalogCheck: "Check for Updates",
       catalogUpdating: "Checking…",
@@ -355,6 +355,25 @@ export const enCopy: DesktopCopy = {
       serviceName: "Service Name",
       keepCurrentKey: "Leave blank to keep the current key",
       pasteApiKey: "Paste API Key",
+      apiKeySecret: "API Key Secret",
+      seedreamApiKeySources:
+        "Only an API Key Secret created in the Volcengine Ark console is supported; an API Key ID is not required. API keys created in the main-account key list or for IAM users are not currently supported.",
+      seedreamSetup: {
+        apiKeyAction: "Get API Key",
+        apiKeyActionLabel: "Get API Key (opens in browser)",
+        apiKeyHint:
+          "Paste the API Key Secret created in the Volcengine Ark console, not the API Key ID. Leave this blank to keep an existing key.",
+        modelAction: "Activate or Manage Models",
+        modelActionLabel: "Activate or Manage Models (opens in browser)",
+        modelHint:
+          "The selected model must be activated under Open Management → Vision Models. The console may require cross-service authorization and acceptance of model terms.",
+        documentationAction: "View Official API Docs",
+        documentationActionLabel: "View Official API Docs (opens in browser)",
+        failedTitle: "Verification failed",
+        failedDescription:
+          "Check the latest error, API Key Secret, and model activation status. Save your changes, then verify again.",
+        lastCheckedAt: (value: string) => `Last verified: ${value}`,
+      },
       modelId: "Model ID",
       modelUsage: "Model Usage",
       capabilityPending: "Enter a model ID to detect its usage",
@@ -377,11 +396,16 @@ export const enCopy: DesktopCopy = {
         imageCount: "Multiple outputs",
       },
       defaultModel: "Default Model",
+      advancedSettings: "Advanced Settings",
+      advancedSettingsDescription: "Add a custom model (optional)",
+      customModelCount: (count: number) => `${count} custom models added`,
       customModels: "Custom Models",
       remove: "Remove",
+      removeModel: (name: string) => `Remove model ${name}`,
       displayName: "Display Name",
       adapterType: "API Type",
       addCustomModel: "Add Custom Model",
+      discardDraft: "Discard Changes",
       saved: "Saved",
       saveFailed: "Save failed",
       deleteConfirmation: (name: string) =>
@@ -389,12 +413,13 @@ export const enCopy: DesktopCopy = {
       deleteService: "Delete Service",
       saving: "Saving...",
       save: "Save",
+      saveConfiguration: "Save Configuration",
       adapters: {
         "gemini-generate-content": "Gemini official API",
         "zenmux-vertex-generate-content": "ZenMux Vertex: Gemini / Nano Banana",
         "zenmux-vertex-gpt-image": "ZenMux Vertex: Image API",
         "fal-image": "fal.ai image API",
-        "jimeng-image": "Jimeng / Seedream API",
+        "jimeng-image": "Volcengine Ark Seedream API",
         "openai-images": "OpenAI Images API",
         "openrouter-chat-image": "OpenRouter Chat image API",
       },

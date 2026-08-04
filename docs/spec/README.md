@@ -13,6 +13,7 @@
 - [2026-07-23-corestudio-agent-board-editing-soft-delete-and-incremental-writeback.md](2026-07-23-corestudio-agent-board-editing-soft-delete-and-incremental-writeback.md)：Agent Board 画布编辑、软删除、资产保留与元素级增量写回规则。
 - [2026-07-31-corestudio-agent-image-generation-authorization.md](2026-07-31-corestudio-agent-image-generation-authorization.md)：按 Agent 集成授权调用 CoreStudio 当前图片生成服务的权限、CLI、Skill 与验收规则。
 - [2026-07-31-corestudio-cli-diagram-write.md](2026-07-31-corestudio-cli-diagram-write.md)：CoreStudio CLI 使用 Mermaid 创建原生可编辑图表的契约、边界与验收标准。
+- [2026-08-03-corestudio-seedream-dual-access.md](2026-08-03-corestudio-seedream-dual-access.md)：火山方舟 Seedream 与即梦 AI AK/SK 双通道接入、迁移和验收规则。
 
 ## 既有历史规格
 

@@ -57,7 +57,7 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   gemini: "Gemini",
   zenmux: "ZenMux",
   fal: "fal.ai",
-  jimeng: "即梦",
+  jimeng: "火山方舟 / Seedream",
   openai: "OpenAI",
   openrouter: "OpenRouter",
   "openai-compatible": "OpenAI 兼容服务",

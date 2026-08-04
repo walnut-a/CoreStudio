@@ -160,6 +160,15 @@ export const normalizeDesktopErrorMessage = (
     return copy.generationError.falInvalidKey;
   }
 
+  if (
+    provider === "jimeng" &&
+    /\b(?:401|403)\b|unauthorized|forbidden|invalid api key|AuthenticationError/i.test(
+      sanitizedMessage,
+    )
+  ) {
+    return copy.generationError.seedreamApiKeyInvalid;
+  }
+
   const providerLabel = getProviderDefinition(provider).label;
 
   if (
@@ -176,6 +185,13 @@ export const normalizeDesktopErrorMessage = (
     )
   ) {
     return copy.generationError.providerNetwork(providerLabel);
+  }
+
+  if (
+    provider === "jimeng" &&
+    /ModelNotOpen|has not activated the model/i.test(sanitizedMessage)
+  ) {
+    return copy.generationError.seedreamModelNotOpen;
   }
 
   if (

@@ -72,6 +72,42 @@ describe("providerCatalog", () => {
     ).toBe("zenmux-vertex-generate-content");
   });
 
+  it("不会让旧远程目录覆盖应用内更新的 Seedream 官方模型", () => {
+    applyRemoteModelCatalog({
+      schemaVersion: 1,
+      revision: 2,
+      publishedAt: "2026-07-26T21:00:00.000Z",
+      minClientVersion: "1.1.26",
+      modelAliases: {},
+      providers: {
+        jimeng: {
+          defaultModel: "doubao-seedream-5-0-lite-260128",
+          models: [
+            {
+              id: "doubao-seedream-5-0-lite-260128",
+              label: "Seedream 5.0 Lite",
+              adapter: "jimeng-image",
+              capabilities: {
+                supportsNegativePrompt: false,
+                supportsSeed: false,
+                supportsImageCount: false,
+                supportsReferenceImages: true,
+                maxImageCount: 1,
+                maxReferenceImageCount: 1,
+                sizeControlMode: "exact",
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(getDefaultModel("jimeng")).toBe("doubao-seedream-5-0-pro-260628");
+    expect(
+      getProviderModels("jimeng")["doubao-seedream-5-0-pro-260628"],
+    ).toBeDefined();
+  });
+
   it("只返回完成配置的服务，并保持目录顺序", () => {
     expect(
       getConfiguredProviderIds({
@@ -98,11 +134,27 @@ describe("providerCatalog", () => {
     ]);
   });
 
+  it("只列出火山方舟 Seedream API Key 服务", () => {
+    expect(getProviderDefinition("jimeng").label).toBe("火山方舟 / Seedream");
+    expect(getProviderDefinition("jimeng")).toMatchObject({
+      defaultModel: "doubao-seedream-5-0-pro-260628",
+      models: {
+        "doubao-seedream-5-0-pro-260628": {
+          label: "Seedream 5.0 Pro",
+          capabilities: {
+            supportsReferenceImages: true,
+            maxReferenceImageCount: 10,
+          },
+        },
+      },
+    });
+  });
+
   it("returns the documented default models", () => {
     expect(getDefaultModel("gemini")).toBe("gemini-2.5-flash-image");
     expect(getDefaultModel("zenmux")).toBe("google/gemini-2.5-flash-image");
     expect(getDefaultModel("fal")).toBe("fal-ai/nano-banana-2");
-    expect(getDefaultModel("jimeng")).toBe("doubao-seedream-5-0-lite-260128");
+    expect(getDefaultModel("jimeng")).toBe("doubao-seedream-5-0-pro-260628");
     expect(getDefaultModel("openai")).toBe("gpt-image-1.5");
     expect(getDefaultModel("openrouter")).toBe(
       "google/gemini-3.1-flash-image-preview",
@@ -717,7 +769,14 @@ describe("providerCatalog", () => {
         provider: "jimeng",
         model: "doubao-seedream-5-0-lite-260128",
       }).maxReferenceImageCount,
-    ).toBe(1);
+    ).toBe(14);
+
+    expect(
+      getProviderCapabilities({
+        provider: "jimeng",
+        model: "doubao-seedream-5-0-pro-260628",
+      }).maxReferenceImageCount,
+    ).toBe(10);
 
     expect(
       getProviderCapabilities({

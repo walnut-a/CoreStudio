@@ -10,10 +10,7 @@ import type {
   ProviderConfigurationSnapshot,
   SaveProviderSettingsInput,
 } from "../../shared/desktopBridgeTypes";
-import {
-  MODEL_CATALOG_REPOSITORY_LABEL,
-  MODEL_CATALOG_REPOSITORY_URL,
-} from "../../shared/modelCatalogMetadata";
+import { MODEL_CATALOG_REPOSITORY_URL } from "../../shared/modelCatalogMetadata";
 import type { ProviderId } from "../../shared/providerTypes";
 import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
@@ -73,6 +70,7 @@ export const ImageGenerationSettings = ({
         discardToken={discardToken}
         onSave={onSave}
         onDelete={onDelete}
+        onOpenExternal={onOpenExternal}
         onDirtyChange={onDirtyChange}
         onBack={() => navigate({ name: "list" })}
       />
@@ -135,139 +133,175 @@ export const ImageGenerationSettings = ({
   }
 
   return (
-    <section className="settings-page">
-      <header className="settings-page__header">
-        <div>
-          <h3>{copy.applicationSettings.imageGeneration}</h3>
-          <p>{copy.applicationSettings.imageGenerationPage.description}</p>
-        </div>
-        {configuredProviders.length ? (
+    <section className="settings-page settings-image-generation-page">
+      <section
+        className="settings-sources-section"
+        aria-labelledby="settings-sources-title"
+      >
+        <header className="settings-sources-header">
+          <h3 id="settings-sources-title">
+            {copy.applicationSettings.imageGenerationPage.servicesTitle}
+          </h3>
           <DesktopButton
             size="small"
             onClick={() => setRoute({ name: "picker" })}
           >
             {copy.applicationSettings.imageGenerationPage.addService}
           </DesktopButton>
-        ) : null}
-      </header>
-
-      <div className="app-settings-section">
-        <div className="app-settings-section__copy">
-          <span>
-            {
-              copy.applicationSettings.imageGenerationPage
-                .composerVisibilityTitle
-            }
-          </span>
-          <p>
-            {
-              copy.applicationSettings.imageGenerationPage
-                .composerVisibilityDescription
-            }
-          </p>
-          {visibilityError ? (
-            <p className="settings-inline-error" role="alert">
-              {visibilityError}
-            </p>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          role="switch"
-          className="app-settings-section__switch"
-          aria-label={
-            copy.applicationSettings.imageGenerationPage.composerVisibilityLabel
-          }
-          aria-checked={composerVisible}
-          disabled={visibilitySaving || !onComposerVisibilityChange}
-          onClick={() => {
-            if (!onComposerVisibilityChange) {
-              return;
-            }
-            setVisibilitySaving(true);
-            setVisibilityError(null);
-            void onComposerVisibilityChange(!composerVisible)
-              .catch((error) => {
-                setVisibilityError(
-                  error instanceof Error
-                    ? error.message
-                    : copy.applicationSettings.imageGenerationPage
-                        .composerVisibilitySaveFailed,
-                );
-              })
-              .finally(() => {
-                setVisibilitySaving(false);
-              });
-          }}
-        />
-      </div>
-
-      {configuredProviders.length ? (
-        <div className="settings-service-list">
-          {configuredProviders.map((provider) => {
-            const definition = getProviderDefinition(provider);
-            const settings = configuration.providers[provider];
-            const label = settings?.displayName || definition.label;
-            return (
-              <button
-                key={provider}
-                type="button"
-                className="settings-service-row"
-                aria-label={copy.applicationSettings.imageGenerationPage.editProvider(
-                  label,
-                )}
-                onClick={() => setRoute({ name: "editor", provider })}
-              >
-                <span>
-                  <strong>{label}</strong>
-                  <small>{settings?.defaultModel}</small>
-                </span>
-                <span className="settings-status-badge settings-status-badge--ready">
-                  {configuration.defaultProvider === provider
-                    ? copy.applicationSettings.imageGenerationPage.defaultStatus
-                    : copy.applicationSettings.imageGenerationPage
-                        .configuredStatus}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="settings-service-empty">
-          <div>
-            <strong>
-              {copy.applicationSettings.imageGenerationPage.emptyTitle}
-            </strong>
-            <p>
-              {copy.applicationSettings.imageGenerationPage.emptyDescription}
-            </p>
+        </header>
+        {configuredProviders.length ? (
+          <div className="settings-service-list">
+            {configuredProviders.map((provider) => {
+              const definition = getProviderDefinition(provider);
+              const settings = configuration.providers[provider];
+              const label = settings?.displayName || definition.label;
+              return (
+                <button
+                  key={provider}
+                  type="button"
+                  className="settings-service-row"
+                  aria-label={copy.applicationSettings.imageGenerationPage.editProvider(
+                    label,
+                  )}
+                  onClick={() => setRoute({ name: "editor", provider })}
+                >
+                  <span>
+                    <strong>{label}</strong>
+                    <small>{settings?.defaultModel}</small>
+                  </span>
+                  <span className="settings-service-row__meta">
+                    {configuration.defaultProvider === provider ? (
+                      <span className="settings-status-badge settings-status-badge--ready">
+                        {
+                          copy.applicationSettings.imageGenerationPage
+                            .defaultStatus
+                        }
+                      </span>
+                    ) : null}
+                    <svg
+                      className="settings-service-row__chevron"
+                      aria-hidden="true"
+                      viewBox="0 0 14 14"
+                    >
+                      <path d="m5.25 3.5 3.5 3.5-3.5 3.5" />
+                    </svg>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <DesktopButton
-            variant="primary"
-            onClick={() => setRoute({ name: "picker" })}
-          >
-            {copy.applicationSettings.imageGenerationPage.addService}
-          </DesktopButton>
-        </div>
-      )}
+        ) : (
+          <div className="settings-service-empty">
+            <div>
+              <strong>
+                {copy.applicationSettings.imageGenerationPage.emptyTitle}
+              </strong>
+              <p>
+                {copy.applicationSettings.imageGenerationPage.emptyDescription}
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
 
-      <div className="settings-model-catalog">
-        <div>
-          <strong>
-            {copy.applicationSettings.imageGenerationPage.catalogTitle}
-          </strong>
-          <p>
-            {configuration.modelCatalog?.revision
-              ? copy.applicationSettings.imageGenerationPage.catalogRevision(
-                  configuration.modelCatalog.revision,
-                )
-              : copy.applicationSettings.imageGenerationPage.catalogBuiltin}
-            {catalogMessage ? ` · ${catalogMessage}` : ""}
-          </p>
-          <p className="settings-model-catalog__repository">
+      <section
+        className="settings-secondary-settings"
+        aria-label={
+          copy.applicationSettings.imageGenerationPage.secondarySettingsLabel
+        }
+      >
+        <div className="settings-compact-row">
+          <div className="settings-compact-row__copy">
+            <strong>
+              {
+                copy.applicationSettings.imageGenerationPage
+                  .composerVisibilityTitle
+              }
+            </strong>
+            {visibilityError ? (
+              <p className="settings-inline-error" role="alert">
+                {visibilityError}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            role="switch"
+            className="app-settings-section__switch"
+            aria-label={
+              copy.applicationSettings.imageGenerationPage
+                .composerVisibilityLabel
+            }
+            aria-checked={composerVisible}
+            disabled={visibilitySaving || !onComposerVisibilityChange}
+            onClick={() => {
+              if (!onComposerVisibilityChange) {
+                return;
+              }
+              setVisibilitySaving(true);
+              setVisibilityError(null);
+              void onComposerVisibilityChange(!composerVisible)
+                .catch((error) => {
+                  setVisibilityError(
+                    error instanceof Error
+                      ? error.message
+                      : copy.applicationSettings.imageGenerationPage
+                          .composerVisibilitySaveFailed,
+                  );
+                })
+                .finally(() => {
+                  setVisibilitySaving(false);
+                });
+            }}
+          />
+        </div>
+        <div className="settings-compact-row settings-model-catalog">
+          <div className="settings-model-catalog__summary">
+            <strong>
+              {copy.applicationSettings.imageGenerationPage.catalogTitle}
+            </strong>
             <span>
-              {copy.applicationSettings.imageGenerationPage.catalogRepository}
+              {configuration.modelCatalog?.revision
+                ? copy.applicationSettings.imageGenerationPage.catalogRevision(
+                    configuration.modelCatalog.revision,
+                  )
+                : copy.applicationSettings.imageGenerationPage.catalogBuiltin}
+              {catalogMessage ? ` · ${catalogMessage}` : ""}
             </span>
+          </div>
+          <div className="settings-model-catalog__actions">
+            <button
+              type="button"
+              className="settings-about-link"
+              disabled={catalogRefreshing}
+              onClick={() => {
+                setCatalogRefreshing(true);
+                setCatalogMessage(null);
+                void onRefreshCatalog()
+                  .then(() => {
+                    setCatalogMessage(
+                      copy.applicationSettings.imageGenerationPage
+                        .catalogUpdated,
+                    );
+                  })
+                  .catch((error) => {
+                    setCatalogMessage(
+                      error instanceof Error
+                        ? error.message
+                        : copy.applicationSettings.imageGenerationPage
+                            .catalogUpdateFailed,
+                    );
+                  })
+                  .finally(() => {
+                    setCatalogRefreshing(false);
+                  });
+              }}
+            >
+              {catalogRefreshing
+                ? copy.applicationSettings.imageGenerationPage.catalogUpdating
+                : copy.applicationSettings.imageGenerationPage.catalogCheck}
+            </button>
+            <span aria-hidden="true">·</span>
             <button
               type="button"
               className="settings-about-link"
@@ -277,40 +311,14 @@ export const ImageGenerationSettings = ({
               }
               onClick={() => onOpenExternal(MODEL_CATALOG_REPOSITORY_URL)}
             >
-              {MODEL_CATALOG_REPOSITORY_LABEL}
+              {
+                copy.applicationSettings.imageGenerationPage
+                  .catalogRepositoryAction
+              }
             </button>
-          </p>
+          </div>
         </div>
-        <DesktopButton
-          size="small"
-          disabled={catalogRefreshing}
-          onClick={() => {
-            setCatalogRefreshing(true);
-            setCatalogMessage(null);
-            void onRefreshCatalog()
-              .then(() => {
-                setCatalogMessage(
-                  copy.applicationSettings.imageGenerationPage.catalogUpdated,
-                );
-              })
-              .catch((error) => {
-                setCatalogMessage(
-                  error instanceof Error
-                    ? error.message
-                    : copy.applicationSettings.imageGenerationPage
-                        .catalogUpdateFailed,
-                );
-              })
-              .finally(() => {
-                setCatalogRefreshing(false);
-              });
-          }}
-        >
-          {catalogRefreshing
-            ? copy.applicationSettings.imageGenerationPage.catalogUpdating
-            : copy.applicationSettings.imageGenerationPage.catalogCheck}
-        </DesktopButton>
-      </div>
+      </section>
     </section>
   );
 };

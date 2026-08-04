@@ -9,6 +9,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "z",
+          code: "KeyZ",
           meta: true,
           control: false,
           shift: false,
@@ -22,6 +23,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "z",
+          code: "KeyZ",
           meta: true,
           control: false,
           shift: true,
@@ -38,6 +40,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "z",
+          code: "KeyZ",
           meta: false,
           control: true,
           shift: false,
@@ -51,6 +54,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "y",
+          code: "KeyY",
           meta: false,
           control: true,
           shift: false,
@@ -67,6 +71,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "a",
+          code: "KeyA",
           meta: true,
           control: false,
           shift: false,
@@ -80,6 +85,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "A",
+          code: "KeyA",
           meta: false,
           control: true,
           shift: false,
@@ -90,12 +96,75 @@ describe("resolveDesktopEditShortcut", () => {
     ).toBe("edit-select-all");
   });
 
+  it("falls back to the physical key code for non-Latin layouts", () => {
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key: "я",
+          code: "KeyZ",
+          meta: false,
+          control: true,
+          shift: false,
+          alt: false,
+        },
+        "win32",
+      ),
+    ).toBe("edit-undo");
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key: "н",
+          code: "KeyY",
+          meta: false,
+          control: true,
+          shift: false,
+          alt: false,
+        },
+        "linux",
+      ),
+    ).toBe("edit-redo");
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key: "ф",
+          code: "KeyA",
+          meta: false,
+          control: true,
+          shift: false,
+          alt: false,
+        },
+        "linux",
+      ),
+    ).toBe("edit-select-all");
+  });
+
+  it("prefers a Latin key over its physical code on remapped layouts", () => {
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key: "z",
+          code: "KeyY",
+          meta: false,
+          control: true,
+          shift: false,
+          alt: false,
+        },
+        "win32",
+      ),
+    ).toBe("edit-undo");
+  });
+
   it("ignores unrelated and modified key events", () => {
     expect(
       resolveDesktopEditShortcut(
         {
           type: "keyUp",
           key: "z",
+          code: "KeyZ",
           meta: true,
           control: false,
           shift: false,
@@ -109,6 +178,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "z",
+          code: "KeyZ",
           meta: true,
           control: false,
           shift: false,
@@ -122,6 +192,7 @@ describe("resolveDesktopEditShortcut", () => {
         {
           type: "keyDown",
           key: "a",
+          code: "KeyA",
           meta: true,
           control: false,
           shift: true,

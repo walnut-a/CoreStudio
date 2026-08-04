@@ -19,11 +19,11 @@ describe("useDesktopMenuEvents", () => {
   it("remembers the last pointer target while the native menu owns focus", () => {
     let menuListener: ((event: DesktopMenuEvent) => void) | null = null;
     window.imageBoardDesktop = {
-      onMenuAction: (listener) => {
+      onMenuAction: (listener: (event: DesktopMenuEvent) => void) => {
         menuListener = listener;
         return () => undefined;
       },
-    } as DesktopBridgeApi;
+    } as unknown as DesktopBridgeApi;
     const received = vi.fn((event: KeyboardEvent<HTMLDivElement>) => {
       event.preventDefault();
     });

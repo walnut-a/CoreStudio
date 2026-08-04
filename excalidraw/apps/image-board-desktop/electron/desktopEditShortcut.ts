@@ -3,11 +3,20 @@ import type { DesktopMenuAction } from "../src/shared/desktopBridgeTypes";
 interface DesktopEditInput {
   type: string;
   key: string;
+  code: string;
   meta: boolean;
   control: boolean;
   shift: boolean;
   alt: boolean;
 }
+
+const matchesEditKey = (input: DesktopEditInput, key: string, code: string) => {
+  const normalizedKey = input.key.toLowerCase();
+  if (normalizedKey === key) {
+    return true;
+  }
+  return !/^[a-z]$/.test(normalizedKey) && input.code === code;
+};
 
 export const resolveDesktopEditShortcut = (
   input: DesktopEditInput,
@@ -22,14 +31,17 @@ export const resolveDesktopEditShortcut = (
     return null;
   }
 
-  const key = input.key.toLowerCase();
-  if (key === "z") {
+  if (matchesEditKey(input, "z", "KeyZ")) {
     return input.shift ? "edit-redo" : "edit-undo";
   }
-  if (key === "a" && !input.shift) {
+  if (matchesEditKey(input, "a", "KeyA") && !input.shift) {
     return "edit-select-all";
   }
-  if (platform !== "darwin" && key === "y" && !input.shift) {
+  if (
+    platform !== "darwin" &&
+    matchesEditKey(input, "y", "KeyY") &&
+    !input.shift
+  ) {
     return "edit-redo";
   }
   return null;

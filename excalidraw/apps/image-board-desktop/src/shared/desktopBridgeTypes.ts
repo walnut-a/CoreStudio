@@ -78,6 +78,7 @@ export const IPC_CHANNELS = {
   loadLocaleSettings: "image-board:load-locale-settings",
   saveLocalePreference: "image-board:save-locale-preference",
   menuAction: "image-board:menu-action",
+  nativeEditContextChanged: "image-board:native-edit-context-changed",
   rendererReady: "image-board:renderer-ready",
   projectStateChanged: "image-board:project-state-changed",
   flushProjectRoomRequest: "image-board:flush-project-room-request",

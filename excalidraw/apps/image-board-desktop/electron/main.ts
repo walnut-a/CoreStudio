@@ -78,6 +78,7 @@ import {
 import { generateImages } from "./providers";
 import { createGenerationRequestController } from "./generationRequestController";
 import { resolveDesktopEditShortcut } from "./desktopEditShortcut";
+import { createDesktopEditContextController } from "./desktopEditContext";
 import {
   deleteProviderSettings,
   loadProviderSettings,
@@ -1531,6 +1532,8 @@ const setAgentBridgeEnabled = async (enabled: boolean) => {
   return getAgentBridgeStatus();
 };
 
+const desktopEditContext = createDesktopEditContextController();
+
 const sendMenuAction = (
   event: DesktopMenuEvent,
   ownerWindow?: BaseWindow | null,
@@ -1545,18 +1548,36 @@ const sendMenuAction = (
     return;
   }
 
+  const focusedWebContents = webContents.getFocusedWebContents();
+  if (
+    focusedWebContents &&
+    desktopEditContext.runAction(focusedWebContents, event.action)
+  ) {
+    return;
+  }
+
   sendRendererMenuEvent(event, ownerWindow);
 };
 
 const registerDesktopEditShortcuts = (targetWebContents: WebContents) => {
   targetWebContents.on("before-input-event", (event, input) => {
     const action = resolveDesktopEditShortcut(input, process.platform);
+    if (desktopEditContext.runAction(targetWebContents, action)) {
+      event.preventDefault();
+      return;
+    }
     if (!action) {
       return;
     }
 
     event.preventDefault();
     sendMenuAction({ action });
+  });
+  targetWebContents.on("did-start-navigation", () => {
+    desktopEditContext.setNativeTextContext(targetWebContents, false);
+  });
+  targetWebContents.once("destroyed", () => {
+    desktopEditContext.forget(targetWebContents);
   });
 };
 
@@ -2047,6 +2068,11 @@ const closeProjectViewWithProtection = async (
 };
 
 const registerIpcHandlers = () => {
+  ipcMain.on(IPC_CHANNELS.nativeEditContextChanged, (event, nativeContext) => {
+    requireShellOrProjectRendererSender(event.sender);
+    desktopEditContext.setNativeTextContext(event.sender, nativeContext);
+  });
+
   ipcMain.on(IPC_CHANNELS.rendererReady, (event) => {
     if (
       !mainWindow ||

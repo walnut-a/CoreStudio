@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -36,19 +36,17 @@ describe("application settings localization", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Image Integrations" }),
+      screen.getByRole("heading", { name: "Image Sources" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add Service" }),
+      screen.getByRole("button", { name: "Add Source" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("switch", { name: "Show generation composer" }),
+      screen.getByRole("switch", {
+        name: "Show Image Generation Composer",
+      }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Show the built-in image generation composer at the bottom of project boards. If you do not need built-in image generation for now, you can turn it off; your services, models, and API keys will stay saved.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Show on the board")).toBeInTheDocument();
     expect(screen.queryByText("添加服务")).not.toBeInTheDocument();
   });
 
@@ -63,6 +61,7 @@ describe("application settings localization", () => {
         discardToken={0}
         onSave={vi.fn(async () => undefined)}
         onDelete={vi.fn(async () => undefined)}
+        onOpenExternal={vi.fn()}
         onDirtyChange={vi.fn()}
         onBack={vi.fn()}
       />,
@@ -73,6 +72,7 @@ describe("application settings localization", () => {
         "Configure credentials and the models available on the board.",
       ),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Advanced Settings/ }));
     expect(
       screen.getByRole("region", { name: "Custom Models" }),
     ).toBeInTheDocument();

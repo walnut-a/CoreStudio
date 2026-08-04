@@ -370,7 +370,9 @@ export interface ImportedImagePayload extends ProjectAssetPayload {
 export type PublicProviderSettings = Partial<
   Record<
     ProviderId,
-    Omit<ProviderSettings, "apiKey"> & { isConfigured: boolean }
+    Omit<ProviderSettings, "apiKey"> & {
+      isConfigured: boolean;
+    }
   >
 >;
 

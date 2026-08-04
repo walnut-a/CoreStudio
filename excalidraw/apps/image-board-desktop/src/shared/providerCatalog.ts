@@ -30,7 +30,7 @@ export const PROVIDER_REQUEST_ADAPTER_LABELS: Record<
   "zenmux-vertex-generate-content": "ZenMux Vertex：Gemini / Nano Banana",
   "zenmux-vertex-gpt-image": "ZenMux Vertex：图片 API",
   "fal-image": "fal.ai 生图接口",
-  "jimeng-image": "即梦 / Seedream 接口",
+  "jimeng-image": "火山方舟 Seedream 接口",
   "openai-images": "OpenAI Images 接口",
   "openrouter-chat-image": "OpenRouter Chat 图像接口",
 };
@@ -55,6 +55,8 @@ const SINGLE_REFERENCE_IMAGE_COUNT = 1;
 const OPENAI_REFERENCE_IMAGE_COUNT = 4;
 const GEMINI_2_5_REFERENCE_IMAGE_COUNT = 3;
 const GEMINI_3_REFERENCE_IMAGE_COUNT = 14;
+const SEEDREAM_5_PRO_REFERENCE_IMAGE_COUNT = 10;
+const SEEDREAM_REFERENCE_IMAGE_COUNT = 14;
 const CUSTOM_IMAGE_REFERENCE_IMAGE_COUNT = 8;
 
 const GEMINI_2_5_IMAGE_CAPABILITIES: ProviderCapabilities = {
@@ -83,8 +85,13 @@ const SEEDREAM_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsImageCount: false,
   supportsReferenceImages: true,
   maxImageCount: 1,
-  maxReferenceImageCount: SINGLE_REFERENCE_IMAGE_COUNT,
+  maxReferenceImageCount: SEEDREAM_REFERENCE_IMAGE_COUNT,
   sizeControlMode: "exact",
+};
+
+const SEEDREAM_5_PRO_IMAGE_CAPABILITIES: ProviderCapabilities = {
+  ...SEEDREAM_IMAGE_CAPABILITIES,
+  maxReferenceImageCount: SEEDREAM_5_PRO_REFERENCE_IMAGE_COUNT,
 };
 
 const SEEDREAM_T2I_CAPABILITIES: ProviderCapabilities = {
@@ -164,6 +171,54 @@ const createOpenAICompatibleGptImageModels = (
     adapter,
   },
 });
+
+const createSeedreamModels = (
+  adapter?: ProviderRequestAdapter,
+): Record<string, ProviderModelDefinition> => {
+  const createModel = (
+    id: string,
+    label: string,
+    capabilities: ProviderCapabilities,
+  ): ProviderModelDefinition => ({
+    id,
+    label,
+    capabilities,
+    ...(adapter ? { adapter } : {}),
+  });
+
+  return {
+    "doubao-seedream-5-0-pro-260628": createModel(
+      "doubao-seedream-5-0-pro-260628",
+      "Seedream 5.0 Pro",
+      SEEDREAM_5_PRO_IMAGE_CAPABILITIES,
+    ),
+    "doubao-seedream-5-0-lite-260128": createModel(
+      "doubao-seedream-5-0-lite-260128",
+      "Seedream 5.0 Lite",
+      SEEDREAM_IMAGE_CAPABILITIES,
+    ),
+    "doubao-seedream-5-0-260128": createModel(
+      "doubao-seedream-5-0-260128",
+      "Seedream 5.0",
+      SEEDREAM_IMAGE_CAPABILITIES,
+    ),
+    "doubao-seedream-4-5-251128": createModel(
+      "doubao-seedream-4-5-251128",
+      "Seedream 4.5",
+      SEEDREAM_IMAGE_CAPABILITIES,
+    ),
+    "doubao-seedream-4-0-250828": createModel(
+      "doubao-seedream-4-0-250828",
+      "Seedream 4.0",
+      SEEDREAM_IMAGE_CAPABILITIES,
+    ),
+    "doubao-seedream-3-0-t2i-250415": createModel(
+      "doubao-seedream-3-0-t2i-250415",
+      "Seedream 3.0 T2I",
+      SEEDREAM_T2I_CAPABILITIES,
+    ),
+  };
+};
 
 export const isOpenAICompatibleGptImageModel = (model?: string) =>
   /^openai\/(?:gpt-image-|gpt-[\w.-]*image)/.test(
@@ -564,35 +619,9 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
   },
   jimeng: {
     id: "jimeng",
-    label: "即梦 / Seedream",
-    defaultModel: "doubao-seedream-5-0-lite-260128",
-    models: {
-      "doubao-seedream-5-0-lite-260128": {
-        id: "doubao-seedream-5-0-lite-260128",
-        label: "Seedream 5.0 Lite",
-        capabilities: SEEDREAM_IMAGE_CAPABILITIES,
-      },
-      "doubao-seedream-5-0-260128": {
-        id: "doubao-seedream-5-0-260128",
-        label: "Seedream 5.0",
-        capabilities: SEEDREAM_IMAGE_CAPABILITIES,
-      },
-      "doubao-seedream-4-5-251128": {
-        id: "doubao-seedream-4-5-251128",
-        label: "Seedream 4.5",
-        capabilities: SEEDREAM_IMAGE_CAPABILITIES,
-      },
-      "doubao-seedream-4-0-250828": {
-        id: "doubao-seedream-4-0-250828",
-        label: "Seedream 4.0",
-        capabilities: SEEDREAM_IMAGE_CAPABILITIES,
-      },
-      "doubao-seedream-3-0-t2i-250415": {
-        id: "doubao-seedream-3-0-t2i-250415",
-        label: "Seedream 3.0 T2I",
-        capabilities: SEEDREAM_T2I_CAPABILITIES,
-      },
-    },
+    label: "火山方舟 / Seedream",
+    defaultModel: "doubao-seedream-5-0-pro-260628",
+    models: createSeedreamModels(),
   },
   openai: {
     id: "openai",
@@ -673,20 +702,33 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
 
 let remoteProviderCatalog: Partial<Record<ProviderId, ProviderDefinition>> = {};
 
+const REQUIRED_BUILTIN_MODEL_IDS: Partial<
+  Record<ProviderId, readonly string[]>
+> = {
+  jimeng: ["doubao-seedream-5-0-pro-260628"],
+};
+
 export const applyRemoteModelCatalog = (catalog: RemoteModelCatalog) => {
   remoteProviderCatalog = Object.fromEntries(
-    Object.entries(catalog.providers).map(([providerId, provider]) => {
+    Object.entries(catalog.providers).flatMap(([providerId, provider]) => {
       const id = providerId as ProviderId;
+      const requiredModelIds = REQUIRED_BUILTIN_MODEL_IDS[id] ?? [];
+      const remoteModelIds = new Set(provider.models.map((model) => model.id));
+      if (requiredModelIds.some((modelId) => !remoteModelIds.has(modelId))) {
+        return [];
+      }
       return [
-        id,
-        {
+        [
           id,
-          label: PROVIDER_CATALOG[id].label,
-          defaultModel: provider.defaultModel,
-          models: Object.fromEntries(
-            provider.models.map((model) => [model.id, model]),
-          ),
-        },
+          {
+            id,
+            label: PROVIDER_CATALOG[id].label,
+            defaultModel: provider.defaultModel,
+            models: Object.fromEntries(
+              provider.models.map((model) => [model.id, model]),
+            ),
+          } as ProviderDefinition,
+        ],
       ];
     }),
   );
@@ -993,10 +1035,7 @@ export const getAspectRatioOptions = (args: {
     return ZENMUX_GPT_IMAGE_2_SIZE_OPTIONS;
   }
 
-  if (
-    adapter === "openai-images" &&
-    args.model?.includes("gpt-image-2")
-  ) {
+  if (adapter === "openai-images" && args.model?.includes("gpt-image-2")) {
     return OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS;
   }
 

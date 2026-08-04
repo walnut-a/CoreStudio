@@ -70,6 +70,34 @@ describe("generateJimengImages", () => {
     expect(response.images).toHaveLength(1);
   });
 
+  it("omits sequential image generation for Seedream 5.0 Pro", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            b64_json: Buffer.from("seedream pro image").toString("base64"),
+          },
+        ],
+      }),
+    });
+
+    await generateJimengImages({
+      apiKey: "ark-key",
+      request: {
+        provider: "jimeng",
+        model: "doubao-seedream-5-0-pro-260628",
+        prompt: "一颗白色陶瓷球",
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).not.toHaveProperty("sequential_image_generation");
+  });
+
   it("passes reference image data through the supported Seedream image field", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -114,10 +142,78 @@ describe("generateJimengImages", () => {
           response_format: "b64_json",
           watermark: false,
           sequential_image_generation: "disabled",
-          image: `data:image/png;base64,${Buffer.from("selection").toString("base64")}`,
+          image: `data:image/png;base64,${Buffer.from("selection").toString(
+            "base64",
+          )}`,
         }),
       }),
     );
+  });
+
+  it("passes ordered reference images to Seedream 5.0 as an image array", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            b64_json: Buffer.from("seedream multi reference image").toString(
+              "base64",
+            ),
+          },
+        ],
+      }),
+    });
+
+    await generateJimengImages({
+      apiKey: "ark-key",
+      request: {
+        provider: "jimeng",
+        model: "doubao-seedream-5-0-pro-260628",
+        prompt: "结合两张参考图生成产品渲染",
+        promptParts: [{ type: "text", text: "结合两张参考图生成产品渲染" }],
+        promptReferences: [
+          {
+            id: "reference-1",
+            label: "参考图 1",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/png",
+              dataBase64: Buffer.from("reference-one").toString("base64"),
+            },
+          },
+          {
+            id: "reference-2",
+            label: "参考图 2",
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            image: {
+              mimeType: "image/jpeg",
+              dataBase64: Buffer.from("reference-two").toString("base64"),
+            },
+          },
+        ],
+        width: 2048,
+        height: 2048,
+        imageCount: 1,
+      },
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody).toMatchObject({
+      model: "doubao-seedream-5-0-pro-260628",
+      image: [
+        `data:image/png;base64,${Buffer.from("reference-one").toString(
+          "base64",
+        )}`,
+        `data:image/jpeg;base64,${Buffer.from("reference-two").toString(
+          "base64",
+        )}`,
+      ],
+    });
+    expect(requestBody).not.toHaveProperty("sequential_image_generation");
   });
 
   it("keeps Seedream 3.0 T2I on text-only seed parameters", async () => {

@@ -221,6 +221,42 @@ describe("settingsStore", () => {
     await expect(getProviderApiKey("openai")).resolves.toBe(apiKey);
   });
 
+  it("把旧版误存在 Access Key 服务下的 API Key 迁移回 API Key 服务", async () => {
+    const settingsPath = path.join(
+      mockAppDataPath,
+      "Excalidraw Image Board",
+      "image-board-settings.json",
+    );
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({
+        schemaVersion: 2,
+        composerVisible: true,
+        defaultProvider: "jimeng-direct",
+        providers: {
+          "jimeng-direct": {
+            apiKey: "plain:legacy-iam-placeholder",
+            credentialMode: "api-key",
+            defaultModel: "doubao-seedream-5-0-pro-260628",
+          },
+        },
+      }),
+    );
+
+    await expect(loadProviderSettings()).resolves.toMatchObject({
+      providers: {
+        jimeng: {
+          isConfigured: true,
+          defaultModel: "doubao-seedream-5-0-pro-260628",
+        },
+      },
+    });
+    await expect(getProviderRuntimeSettings("jimeng")).resolves.toMatchObject({
+      apiKey: "legacy-iam-placeholder",
+    });
+  });
+
   it("writes the local settings file with owner-only permissions", async () => {
     if (process.platform === "win32") {
       return;

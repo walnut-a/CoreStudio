@@ -43,6 +43,7 @@ const SETTINGS_DIRECTORY_MODE = 0o700;
 const SETTINGS_FILE_MODE = 0o600;
 const KEY_LEGACY_ENCRYPTED_ERROR =
   "之前保存的密钥使用了系统加密存储。当前版本不再读取钥匙串，请重新填写并保存一次。";
+const CURRENT_SEEDREAM_DEFAULT_MODEL = "doubao-seedream-5-0-pro-260628";
 
 const defaultProviders = (): StoredProviderSettings =>
   PROVIDER_IDS.reduce(
@@ -67,11 +68,12 @@ const getLegacySettingsPath = () =>
   path.join(app.getPath("userData"), SETTINGS_FILE_NAME);
 
 const serializePlainApiKey = (apiKey: string | undefined) => {
-  if (!apiKey) {
+  const normalizedApiKey = apiKey?.trim();
+  if (!normalizedApiKey) {
     return apiKey;
   }
 
-  return `plain:${apiKey}`;
+  return `plain:${normalizedApiKey}`;
 };
 
 const normalizeStoredApiKey = (apiKey: string | undefined) => {
@@ -228,12 +230,37 @@ const normalizeConfiguration = (
     candidate?.schemaVersion === 2 &&
     Boolean(candidate.providers) &&
     typeof candidate.providers === "object";
-  const providers = {
-    ...defaultProviders(),
-    ...((isV2
-      ? candidate?.providers
-      : parsed) as Partial<StoredProviderSettings>),
-  };
+  const rawProviders = ((isV2 ? candidate?.providers : parsed) ?? {}) as Record<
+    string,
+    Partial<ProviderSettings> & { credentialMode?: string }
+  >;
+  const providers = PROVIDER_IDS.reduce(
+    (result, provider) => ({
+      ...result,
+      [provider]: rawProviders[provider] ?? {},
+    }),
+    defaultProviders(),
+  );
+  const legacyJimengDirect = rawProviders["jimeng-direct"];
+  const hasLegacyJimengDirect = Boolean(legacyJimengDirect);
+  if (
+    legacyJimengDirect?.credentialMode === "api-key" &&
+    legacyJimengDirect.apiKey &&
+    !providers.jimeng.apiKey
+  ) {
+    providers.jimeng = {
+      ...providers.jimeng,
+      apiKey: legacyJimengDirect.apiKey,
+      defaultModel: legacyJimengDirect.defaultModel?.startsWith(
+        "doubao-seedream-",
+      )
+        ? legacyJimengDirect.defaultModel
+        : providers.jimeng.defaultModel || CURRENT_SEEDREAM_DEFAULT_MODEL,
+      lastStatus: "unknown",
+      lastCheckedAt: null,
+      lastError: null,
+    };
+  }
   const defaultProvider = normalizeDefaultProvider(
     providers,
     isV2 ? candidate?.defaultProvider : null,
@@ -246,7 +273,7 @@ const normalizeConfiguration = (
       defaultProvider,
       providers,
     },
-    migrated: !isV2,
+    migrated: !isV2 || hasLegacyJimengDirect,
   };
 };
 

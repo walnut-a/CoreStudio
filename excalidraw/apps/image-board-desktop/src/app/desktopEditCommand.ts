@@ -1,4 +1,4 @@
-export type DesktopEditCommand = "undo" | "redo";
+export type DesktopEditCommand = "undo" | "redo" | "select-all";
 
 export const DESKTOP_EDIT_COMMAND_EVENT = "corestudio:desktop-edit-command";
 
@@ -21,12 +21,15 @@ const getEditCommandKeyboardInit = (
   return {
     bubbles: true,
     cancelable: true,
-    key: "z",
+    key: command === "select-all" ? "a" : "z",
     metaKey: isMac,
     ctrlKey: !isMac,
     shiftKey: command === "redo",
   };
 };
+
+const getBrowserEditCommand = (command: DesktopEditCommand) =>
+  command === "select-all" ? "selectAll" : command;
 
 export const dispatchDesktopEditCommand = (
   command: DesktopEditCommand,
@@ -61,6 +64,6 @@ export const dispatchDesktopEditCommand = (
 
   target.dispatchEvent(event);
   if (!event.defaultPrevented) {
-    document.execCommand?.(command);
+    document.execCommand?.(getBrowserEditCommand(command));
   }
 };

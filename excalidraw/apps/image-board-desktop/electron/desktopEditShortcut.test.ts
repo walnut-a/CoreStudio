@@ -61,6 +61,35 @@ describe("resolveDesktopEditShortcut", () => {
     ).toBe("edit-redo");
   });
 
+  it("maps the platform select-all shortcut", () => {
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key: "a",
+          meta: true,
+          control: false,
+          shift: false,
+          alt: false,
+        },
+        "darwin",
+      ),
+    ).toBe("edit-select-all");
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key: "A",
+          meta: false,
+          control: true,
+          shift: false,
+          alt: false,
+        },
+        "win32",
+      ),
+    ).toBe("edit-select-all");
+  });
+
   it("ignores unrelated and modified key events", () => {
     expect(
       resolveDesktopEditShortcut(
@@ -84,6 +113,19 @@ describe("resolveDesktopEditShortcut", () => {
           control: false,
           shift: false,
           alt: true,
+        },
+        "darwin",
+      ),
+    ).toBeNull();
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key: "a",
+          meta: true,
+          control: false,
+          shift: true,
+          alt: false,
         },
         "darwin",
       ),

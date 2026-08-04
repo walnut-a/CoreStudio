@@ -285,6 +285,7 @@ export const enCopy: DesktopCopy = {
     edit: "Edit",
     undo: "Undo",
     redo: "Redo",
+    selectAll: "Select All",
     settings: "Settings",
     appSettings: "Application Settings",
     quit: "Quit CoreStudio",

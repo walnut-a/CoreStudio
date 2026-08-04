@@ -34,9 +34,17 @@ export const useDesktopMenuEvents = (
     document.addEventListener("pointerdown", rememberInteractionTarget, true);
 
     const unsubscribe = bridge.onMenuAction((event) => {
-      if (event.action === "edit-undo" || event.action === "edit-redo") {
+      if (
+        event.action === "edit-undo" ||
+        event.action === "edit-redo" ||
+        event.action === "edit-select-all"
+      ) {
         dispatchDesktopEditCommand(
-          event.action === "edit-undo" ? "undo" : "redo",
+          event.action === "edit-undo"
+            ? "undo"
+            : event.action === "edit-redo"
+            ? "redo"
+            : "select-all",
           lastFocusedElement,
         );
         return;

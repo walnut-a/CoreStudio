@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe("dispatchDesktopEditCommand", () => {
-  it("dispatches undo and redo to the focused editor first", () => {
+  it("dispatches undo, redo, and select all to the focused editor first", () => {
     const editor = document.createElement("div");
     editor.tabIndex = 0;
     document.body.append(editor);
@@ -40,6 +40,7 @@ describe("dispatchDesktopEditCommand", () => {
 
     dispatchDesktopEditCommand("undo");
     dispatchDesktopEditCommand("redo");
+    dispatchDesktopEditCommand("select-all");
 
     const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
     expect(received).toEqual([
@@ -54,6 +55,12 @@ describe("dispatchDesktopEditCommand", () => {
         metaKey: isMac,
         ctrlKey: !isMac,
         shiftKey: true,
+      },
+      {
+        key: "a",
+        metaKey: isMac,
+        ctrlKey: !isMac,
+        shiftKey: false,
       },
     ]);
     expect(execCommand).not.toHaveBeenCalled();
@@ -72,6 +79,22 @@ describe("dispatchDesktopEditCommand", () => {
     dispatchDesktopEditCommand("undo");
 
     expect(execCommand).toHaveBeenCalledWith("undo");
+  });
+
+  it("uses the browser selectAll command when the focused input does not handle the shortcut", () => {
+    const input = document.createElement("input");
+    input.value = "Select all QA";
+    document.body.append(input);
+    input.focus();
+    const execCommand = vi.fn();
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommand,
+    });
+
+    dispatchDesktopEditCommand("select-all");
+
+    expect(execCommand).toHaveBeenCalledWith("selectAll");
   });
 
   it("uses the last focused editor when the native menu temporarily owns focus", () => {

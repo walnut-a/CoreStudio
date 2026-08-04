@@ -26,6 +26,9 @@ export const resolveDesktopEditShortcut = (
   if (key === "z") {
     return input.shift ? "edit-redo" : "edit-undo";
   }
+  if (key === "a" && !input.shift) {
+    return "edit-select-all";
+  }
   if (platform !== "darwin" && key === "y" && !input.shift) {
     return "edit-redo";
   }

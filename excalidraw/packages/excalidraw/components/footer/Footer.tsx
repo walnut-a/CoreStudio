@@ -26,7 +26,8 @@ const Footer = ({
   defaultUIEnabled: boolean;
   zoomUIEnabled: boolean;
 }) => {
-  const { FooterCenterTunnel, WelcomeScreenHelpHintTunnel } = useTunnels();
+  const { FooterCenterTunnel, FooterRightTunnel, WelcomeScreenHelpHintTunnel } =
+    useTunnels();
   const app = useApp();
 
   return (
@@ -73,6 +74,7 @@ const Footer = ({
             },
           )}
         >
+          <FooterRightTunnel.Out />
           <div style={{ position: "relative" }}>
             {renderWelcomeScreen && <WelcomeScreenHelpHintTunnel.Out />}
             {defaultUIEnabled && (

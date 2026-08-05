@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { THEME } from "@excalidraw/common";
 
 import { t } from "../i18n";
-import { Excalidraw, Footer, MainMenu } from "../index";
+import { Excalidraw, Footer, FooterRight, MainMenu } from "../index";
 import { actionExportWithDarkMode } from "../actions/actionExport";
 
 import {
@@ -96,6 +96,29 @@ describe("<Excalidraw/>", () => {
       </div>
     `,
     );
+  });
+
+  it("renders host actions to the left of the help button", async () => {
+    const { container } = await render(
+      <Excalidraw>
+        <FooterRight>
+          <button type="button">Host action</button>
+        </FooterRight>
+      </Excalidraw>,
+    );
+
+    const footerRight = container.querySelector(
+      ".layer-ui__wrapper__footer-right",
+    );
+    const hostAction = queryByText(footerRight as HTMLElement, "Host action");
+    const helpButton = footerRight?.querySelector(".help-icon");
+
+    expect(hostAction).not.toBeNull();
+    expect(helpButton).not.toBeNull();
+    expect(
+      (hostAction as Node).compareDocumentPosition(helpButton as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   describe("Test gridModeEnabled prop", () => {

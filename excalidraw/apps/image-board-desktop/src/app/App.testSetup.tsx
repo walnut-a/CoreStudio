@@ -338,6 +338,9 @@ vi.mock("@excalidraw/excalidraw", () => {
       IMMEDIATELY: "immediately",
       NEVER: "never",
     },
+    FooterRight: ({ children }: { children?: React.ReactNode }) => (
+      <div data-testid="footer-right-host-actions">{children}</div>
+    ),
     DefaultSidebar: Object.assign(
       ({
         children,
@@ -755,6 +758,7 @@ vi.mock("@excalidraw/excalidraw", () => {
 vi.mock("./components/GenerateImageDialog", () => ({
   GenerateImageDialog: ({
     open,
+    expanded = true,
     initialRequest,
     error,
     onOpenErrorDetails,
@@ -762,6 +766,7 @@ vi.mock("./components/GenerateImageDialog", () => ({
     onSubmit,
   }: {
     open: boolean;
+    expanded?: boolean;
     initialRequest: {
       provider:
         | "gemini"
@@ -832,7 +837,11 @@ vi.mock("./components/GenerateImageDialog", () => ({
     ) => void;
   }) =>
     open ? (
-      <div>
+      <div
+        data-testid="generate-image-dialog"
+        aria-hidden={!expanded}
+        inert={!expanded}
+      >
         <div>生成图片弹窗</div>
         <div data-testid="generate-dialog-prompt">{initialRequest.prompt}</div>
         <div data-testid="generate-dialog-provider">

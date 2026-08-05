@@ -12,7 +12,7 @@ import type {
 } from "../../shared/desktopBridgeTypes";
 import { MODEL_CATALOG_REPOSITORY_URL } from "../../shared/modelCatalogMetadata";
 import type { ProviderId } from "../../shared/providerTypes";
-import { copy } from "../copy";
+import { copy, DESKTOP_LANG_CODE } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 import { ProviderServiceEditor } from "./ProviderServiceEditor";
 import { useApplicationSettingsLeave } from "./ApplicationSettingsDialog";
@@ -34,6 +34,19 @@ type SettingsRoute =
   | { name: "picker" }
   | { name: "editor"; provider: ProviderId };
 
+const formatCatalogPublishedDate = (publishedAt: string | undefined) => {
+  if (!publishedAt) {
+    return null;
+  }
+  const date = new Date(publishedAt);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleDateString(DESKTOP_LANG_CODE, {
+    dateStyle: "medium",
+  });
+};
+
 export const ImageGenerationSettings = ({
   configuration,
   saving,
@@ -53,6 +66,9 @@ export const ImageGenerationSettings = ({
   const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const configuredProviders = getConfiguredProviderIds(configuration.providers);
   const composerVisible = configuration.composerVisible !== false;
+  const catalogPublishedDate = formatCatalogPublishedDate(
+    configuration.modelCatalog?.catalog?.publishedAt,
+  );
 
   const navigate = (nextRoute: SettingsRoute) => {
     requestLeave(() => {
@@ -261,9 +277,9 @@ export const ImageGenerationSettings = ({
               {copy.applicationSettings.imageGenerationPage.catalogTitle}
             </strong>
             <span>
-              {configuration.modelCatalog?.revision
-                ? copy.applicationSettings.imageGenerationPage.catalogRevision(
-                    configuration.modelCatalog.revision,
+              {catalogPublishedDate
+                ? copy.applicationSettings.imageGenerationPage.catalogPublishedAt(
+                    catalogPublishedDate,
                   )
                 : copy.applicationSettings.imageGenerationPage.catalogBuiltin}
               {catalogMessage ? ` · ${catalogMessage}` : ""}

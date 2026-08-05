@@ -12,11 +12,12 @@ import {
 
 export interface GenerateImageDialogProps
   extends UseGenerateImageDialogRuntimeInput {
+  expanded?: boolean;
   loading: boolean;
 }
 
 export const GenerateImageDialog = (props: GenerateImageDialogProps) => {
-  const { open } = props;
+  const { open, expanded = true } = props;
   const {
     panelRef,
     handleSubmit,
@@ -30,7 +31,16 @@ export const GenerateImageDialog = (props: GenerateImageDialogProps) => {
   }
 
   return (
-    <div className="floating-panel-layer">
+    <div
+      className={[
+        "floating-panel-layer",
+        expanded ? "" : "floating-panel-layer--collapsed",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-hidden={!expanded}
+      inert={!expanded}
+    >
       <section
         ref={panelRef}
         className={[

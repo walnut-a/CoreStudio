@@ -1264,6 +1264,53 @@ describe("App startup", () => {
     );
   });
 
+  it("temporarily hides and restores the generation composer from the canvas footer", async () => {
+    const setGenerateComposerVisible = vi.fn();
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      loadProviderSettings: vi.fn().mockResolvedValue({
+        schemaVersion: 2,
+        composerVisible: true,
+        defaultProvider: null,
+        providers: {},
+      }),
+      setGenerateComposerVisible,
+    }) as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    expect(await screen.findByText("生成图片弹窗")).toBeInTheDocument();
+    const composer = screen.getByTestId("generate-image-dialog");
+    expect(composer).toHaveAttribute("aria-hidden", "false");
+    const hideComposer = screen.getByRole("button", {
+      name: "隐藏图片生成输入框",
+    });
+    expect(hideComposer).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(hideComposer);
+
+    expect(screen.getByText("生成图片弹窗")).toBeInTheDocument();
+    expect(composer).toHaveAttribute("aria-hidden", "true");
+    expect(composer).toHaveAttribute("inert");
+    const showComposer = screen.getByRole("button", {
+      name: "展开图片生成输入框",
+    });
+    expect(showComposer).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(showComposer);
+
+    expect(screen.getByText("生成图片弹窗")).toBeInTheDocument();
+    expect(composer).toHaveAttribute("aria-hidden", "false");
+    expect(composer).not.toHaveAttribute("inert");
+    expect(setGenerateComposerVisible).not.toHaveBeenCalled();
+  });
+
   it("does not render the generation composer when its display preference is disabled", async () => {
     window.imageBoardDesktop = createDesktopBridgeMock({
       loadProviderSettings: vi.fn().mockResolvedValue({
@@ -1285,6 +1332,9 @@ describe("App startup", () => {
 
     expect(await screen.findByTestId("excalidraw-canvas")).toBeInTheDocument();
     expect(screen.queryByText("生成图片弹窗")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "显示图片生成输入框" }),
+    ).toBeNull();
   });
 
   it("defaults generation settings to the first configured provider without local memory", async () => {

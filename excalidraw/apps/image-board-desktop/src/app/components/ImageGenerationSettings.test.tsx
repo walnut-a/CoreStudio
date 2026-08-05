@@ -155,20 +155,28 @@ describe("ImageGenerationSettings", () => {
     expect(screen.getAllByRole("button", { name: "添加来源" })).toHaveLength(1);
   });
 
-  it("以低权重工具行显示模型目录版本和更新入口", async () => {
+  it("以低权重工具行显示模型目录发布日期和更新入口", async () => {
     const configuration = {
       ...createConfiguration(),
       modelCatalog: {
         source: "cache" as const,
         revision: 3,
         checkedAt: "2026-07-26T22:00:00.000Z",
-        catalog: null,
+        catalog: {
+          schemaVersion: 1 as const,
+          revision: 3,
+          publishedAt: "2026-07-26T12:00:00.000Z",
+          minClientVersion: "1.1.0",
+          modelAliases: {},
+          providers: {},
+        },
       },
     };
     const { onRefreshCatalog, onOpenExternal } = renderSettings(configuration);
 
     expect(screen.getByText("模型目录")).toBeInTheDocument();
-    expect(screen.getByText("版本 3")).toBeInTheDocument();
+    expect(screen.getByText("更新于 2026年7月26日")).toBeInTheDocument();
+    expect(screen.queryByText("版本 3")).toBeNull();
     const repository = screen.getByRole("button", {
       name: "打开模型目录更新仓库",
     });

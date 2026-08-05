@@ -148,6 +148,7 @@ import { AgentBoardSelectionBar } from "./components/AgentBoardSelectionBar";
 import { AgentBoardClaimInstructions } from "./components/AgentBoardClaimInstructions";
 import { DesktopButton } from "./components/DesktopButton";
 import { ExcalidrawThemeTokenBridge } from "./components/ExcalidrawThemeTokenBridge";
+import { GenerateComposerFooterToggle } from "./components/GenerateComposerFooterToggle";
 import {
   createDesktopProjectRuntime,
   type DesktopProjectRuntime,
@@ -230,6 +231,11 @@ const LazyExcalidraw = lazy(async () => {
 const LazyProjectMainMenu = lazy(async () => {
   const { ProjectMainMenu } = await import("./components/ProjectMainMenu");
   return { default: ProjectMainMenu };
+});
+
+const LazyFooterRight = lazy(async () => {
+  const { FooterRight } = await import("@excalidraw/excalidraw");
+  return { default: FooterRight };
 });
 
 type AppSceneSnapshot = {
@@ -505,6 +511,8 @@ const App = ({
     [setProjectError],
   );
   const [generateFocusToken, setGenerateFocusToken] = useState(0);
+  const [generateComposerExpanded, setGenerateComposerExpanded] =
+    useState(true);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
@@ -1908,7 +1916,10 @@ const App = ({
       inspectProjectHealth: projectMaintenanceRendererActions.inspectHealth,
       cleanProjectCache: projectMaintenanceRendererActions.cleanCache,
       importImages: projectImageImportRendererActions.importImages,
-      openGenerateDialog: generateDialogReferenceRendererActions.open,
+      openGenerateDialog: () => {
+        setGenerateComposerExpanded(true);
+        return generateDialogReferenceRendererActions.open();
+      },
       focusProviderSettings: () => {
         setAppSettingsCategory("image-generation");
         setAppSettingsOpen(true);
@@ -2068,6 +2079,9 @@ const App = ({
               const configuration =
                 await desktopBridge.setGenerateComposerVisible(visible);
               setProviderConfiguration(configuration);
+              if (visible) {
+                setGenerateComposerExpanded(true);
+              }
             }}
           />
         ),
@@ -2540,6 +2554,19 @@ const App = ({
                       });
                   }}
                 />
+                {!isAgentBrowserRoute &&
+                providerConfiguration !== null &&
+                providerConfiguration.composerVisible !== false ? (
+                  <LazyFooterRight>
+                    <GenerateComposerFooterToggle
+                      expanded={generateComposerExpanded}
+                      loading={pendingGenerationCount > 0}
+                      onToggle={() => {
+                        setGenerateComposerExpanded((expanded) => !expanded);
+                      }}
+                    />
+                  </LazyFooterRight>
+                ) : null}
                 <ExcalidrawThemeTokenBridge targetRef={appRootRef} />
               </LazyExcalidraw>
             </Suspense>
@@ -2573,6 +2600,7 @@ const App = ({
       providerConfiguration.composerVisible !== false ? (
         <GenerateImageDialog
           open={true}
+          expanded={generateComposerExpanded}
           persistent={true}
           focusToken={generateFocusToken}
           initialRequest={generateRequest}

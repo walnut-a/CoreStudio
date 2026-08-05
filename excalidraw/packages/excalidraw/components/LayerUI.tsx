@@ -39,7 +39,7 @@ import Footer from "./footer/Footer";
 import { isSidebarDockedAtom } from "./Sidebar/Sidebar";
 import MainMenu from "./main-menu/MainMenu";
 import { ActiveConfirmDialog } from "./ActiveConfirmDialog";
-import { useEditorInterface, useStylesPanelMode } from "./App";
+import { useAppProps, useEditorInterface, useStylesPanelMode } from "./App";
 import { OverwriteConfirmDialog } from "./OverwriteConfirm/OverwriteConfirm";
 import { sidebarRightIcon } from "./icons";
 import { DefaultSidebar } from "./DefaultSidebar";
@@ -93,8 +93,11 @@ interface LayerUIProps {
   children?: React.ReactNode;
   app: AppClassProperties;
   defaultUIEnabled: boolean;
+  zoomUIEnabled: boolean;
+  scrollBackToContentUIEnabled: boolean;
   isCollaborating: boolean;
   generateLinkForSelection?: AppProps["generateLinkForSelection"];
+  currentUserControls?: ExcalidrawProps["currentUserControls"];
 }
 
 const DefaultMainMenu: React.FC<{
@@ -153,10 +156,14 @@ const LayerUI = ({
   children,
   app,
   defaultUIEnabled,
+  zoomUIEnabled,
+  scrollBackToContentUIEnabled,
   isCollaborating,
   generateLinkForSelection,
+  currentUserControls,
 }: LayerUIProps) => {
   const editorInterface = useEditorInterface();
+  const appProps = useAppProps();
   const stylesPanelMode = useStylesPanelMode();
   const isCompactStylesPanel = stylesPanelMode === "compact";
   const tunnels = useInitializeTunnels();
@@ -417,7 +424,8 @@ const LayerUI = ({
             {defaultUIEnabled && appState.collaborators.size > 0 && (
               <UserList
                 collaborators={appState.collaborators}
-                userToFollow={appState.userToFollow?.socketId || null}
+                userToFollow={appProps.userToFollow?.socketId || null}
+                currentUserControls={currentUserControls}
               />
             )}
             {renderTopRightUI?.(
@@ -617,7 +625,7 @@ const LayerUI = ({
           renderSidebars={renderSidebars}
           renderWelcomeScreen={renderWelcomeScreen}
           defaultUIEnabled={defaultUIEnabled}
-          UIOptions={UIOptions}
+          scrollBackToContentUIEnabled={scrollBackToContentUIEnabled}
         />
       )}
       {editorInterface.formFactor !== "phone" && (
@@ -649,9 +657,10 @@ const LayerUI = ({
               showExitZenModeBtn={showExitZenModeBtn}
               renderWelcomeScreen={renderWelcomeScreen}
               defaultUIEnabled={defaultUIEnabled}
+              zoomUIEnabled={zoomUIEnabled}
             />
             {(appState.toast ||
-              (defaultUIEnabled && appState.scrolledOutside)) && (
+              (scrollBackToContentUIEnabled && appState.scrolledOutside)) && (
               <div className="floating-status-stack">
                 {appState.toast && (
                   <Toast
@@ -662,7 +671,7 @@ const LayerUI = ({
                   />
                 )}
                 {!appState.toast &&
-                  defaultUIEnabled &&
+                  scrollBackToContentUIEnabled &&
                   appState.scrolledOutside && (
                     <button
                       type="button"

@@ -153,6 +153,18 @@ export const SelectedShapeActions = ({
     app,
   );
 
+  // the bucket fill tool configures only the fill it creates: color, fill
+  // style, and opacity (shared `currentItem*` values; no stroke properties)
+  if (appState.activeTool.type === "bucketfill") {
+    return (
+      <div className="selected-shape-actions">
+        <div>{renderAction("changeBucketFillBackgroundColor")}</div>
+        {renderAction("changeFillStyle")}
+        {renderAction("changeOpacity")}
+      </div>
+    );
+  }
+
   return (
     <div className="selected-shape-actions">
       <div>{predicates.strokeColor && renderAction("changeStrokeColor")}</div>
@@ -163,14 +175,11 @@ export const SelectedShapeActions = ({
 
       {predicates.strokeWidth && renderAction("changeStrokeWidth")}
 
+      {predicates.strokeStyle && <>{renderAction("changeStrokeStyle")}</>}
+
       {predicates.freedrawMode && renderAction("changeFreedrawMode")}
 
-      {predicates.strokeStyle && (
-        <>
-          {renderAction("changeStrokeStyle")}
-          {renderAction("changeSloppiness")}
-        </>
-      )}
+      {predicates.sloppiness && <>{renderAction("changeSloppiness")}</>}
 
       {predicates.roundness && <>{renderAction("changeRoundness")}</>}
 
@@ -187,9 +196,9 @@ export const SelectedShapeActions = ({
       {predicates.verticalAlign && renderAction("changeVerticalAlign")}
       {predicates.arrowheads && <>{renderAction("changeArrowhead")}</>}
 
-      {renderAction("changeOpacity")}
+      {predicates.opacity && renderAction("changeOpacity")}
 
-      <LayersFieldset renderAction={renderAction} />
+      {predicates.layers && <LayersFieldset renderAction={renderAction} />}
 
       {predicates.align && (
         <AlignFieldset
@@ -290,13 +299,11 @@ const CombinedShapeProperties = ({
                 predicates.freedrawMode && renderAction("changeFreedrawMode")
               }
               {predicates.strokeStyle && (
-                <>
-                  {renderAction("changeStrokeStyle")}
-                  {renderAction("changeSloppiness")}
-                </>
+                <>{renderAction("changeStrokeStyle")}</>
               )}
+              {predicates.sloppiness && <>{renderAction("changeSloppiness")}</>}
               {predicates.roundness && renderAction("changeRoundness")}
-              {renderAction("changeOpacity")}
+              {predicates.opacity && renderAction("changeOpacity")}
             </div>
           </PropertiesPopover>
         )}
@@ -322,11 +329,11 @@ const CombinedArrowProperties = ({
   container: HTMLDivElement | null;
   app: AppClassProperties;
 }) => {
-  const isOpen = appState.openPopup === "compactArrowProperties";
-
   if (!predicates.arrowType) {
     return null;
   }
+
+  const isOpen = appState.openPopup === "compactArrowProperties";
 
   return (
     <div className="compact-action-item">
@@ -550,7 +557,9 @@ const CombinedExtraActions = ({
             onClose={() => {}}
           >
             <div className="selected-shape-actions">
-              <LayersFieldset renderAction={renderAction} />
+              {predicates.layers && (
+                <LayersFieldset renderAction={renderAction} />
+              )}
 
               {predicates.align && (
                 <AlignFieldset
@@ -630,10 +639,14 @@ export const CompactShapeActions = ({
         </div>
       )}
 
-      {/* Background Color */}
+      {/* Background Color (the bucket fill variant excludes `transparent`) */}
       {predicates.backgroundColor && (
         <div className="compact-action-item">
-          {renderAction("changeBackgroundColor")}
+          {renderAction(
+            appState.activeTool.type === "bucketfill"
+              ? "changeBucketFillBackgroundColor"
+              : "changeBackgroundColor",
+          )}
         </div>
       )}
 
@@ -784,9 +797,14 @@ export const MobileShapeActions = ({
             {renderAction("changeStrokeColor")}
           </div>
         )}
+        {/* Background Color (the bucket fill variant excludes `transparent`) */}
         {predicates.backgroundColor && (
           <div className="compact-action-item">
-            {renderAction("changeBackgroundColor")}
+            {renderAction(
+              appState.activeTool.type === "bucketfill"
+                ? "changeBucketFillBackgroundColor"
+                : "changeBackgroundColor",
+            )}
           </div>
         )}
         <CombinedShapeProperties

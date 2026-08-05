@@ -1,6 +1,6 @@
 # Excalidraw Fork 维护说明
 
-**日期：** 2026-07-20
+**日期：** 2026-08-05
 **状态：** Current
 
 ## 当前基线
@@ -13,7 +13,7 @@
 | --- | --- |
 | CoreStudio 初始导入提交 | `0b6d56623aa6b9b2fb4c66a40921d4fffb134daf`（2026-04-17） |
 | Excalidraw upstream 初始导入基线 | `1caec99b290c75cda05385e637138998807a65ae`（2026-04-13，`docs: change twitter label by X (#11158)`） |
-| Excalidraw upstream 当前源码基线 | `5ca083436d44a51a0705d43ea22d323839d5fe8e` |
+| Excalidraw upstream 当前源码基线 | `85270fcc8db26f98d119e2d2752b0c0139e86e16` |
 | Excalidraw `v0.18.0` tag | `817d8c553c3389650f8b4503984a6d4a5d2f0c11`（2025-03-11，仅作版本历史参照） |
 | Excalidraw `v0.18.1` tag | `a2ec2889babf7d2295469c6d90ebe77fae57df84`（2026-04-20，包含 Mermaid XSS backport） |
 | `@excalidraw/excalidraw` | `0.18.0` |
@@ -22,7 +22,7 @@
 | `@excalidraw/math` | `0.18.0` |
 | `@excalidraw/utils` | `0.1.2` |
 
-这里必须区分“初始导入基线”“当前源码基线”和“npm package version”：初始导入时，本地包仍标为 `0.18.0`，但源码已经来自 2026-04-13 的 upstream `master`，并不是 2025-03-11 的 `v0.18.0` tag；2026-07-16 完成升级后，当前源码基线已经推进到 `5ca0834`。直接拿初始导入和 `v0.18.0` 比较会出现 993 个路径差异，不能把 tag 当成 fork 基线，也不能再从初始导入 SHA 开始计算下一次升级。
+这里必须区分“初始导入基线”“当前源码基线”和“npm package version”：初始导入时，本地包仍标为 `0.18.0`，但源码已经来自 2026-04-13 的 upstream `master`，并不是 2025-03-11 的 `v0.18.0` tag；2026-08-05 完成增量升级后，当前源码基线已经推进到 `85270fc`。此时 npm 最新稳定版是 `0.18.1`，但 upstream `master` 内各源码包仍标为 `0.18.0`；CoreStudio 采用的是比稳定发布更新的源码基线，因此不能用 npm 版本号替代源码 SHA。直接拿初始导入和 `v0.18.0` 比较会出现 993 个路径差异，不能把 tag 当成 fork 基线，也不能再从初始导入 SHA 开始计算下一次升级。
 
 ### 初始导入基线复核证据
 
@@ -51,9 +51,10 @@ diff -qr "$TMPDIR/corestudio-import" "$TMPDIR/excalidraw-upstream"
 
 当前 CoreStudio 对上游源码的定制按 `excalidraw/upstream-baseline.json` 中的 `patchGroups` 管理。该文件记录每组补丁的目的、核心路径和合同测试，本文件不再复制容易漂移的逐文件清单。
 
-当前 6 组补丁为：
+当前 7 组补丁为：
 
 - `file-replacement`：图片文件替换和缓存失效；
+- `host-action-integration`：宿主动作 predicate 与 presence-only 协作者控制；
 - `inspector-integration`：CoreStudio Inspector 接入；
 - `viewport-policy`：最小缩放和滚轮策略；
 - `arrange-grid`：选中元素网格排列；

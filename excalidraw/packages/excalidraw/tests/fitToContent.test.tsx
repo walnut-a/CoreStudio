@@ -1,9 +1,9 @@
 import React from "react";
 
 import { Excalidraw } from "../index";
+import { SCROLL_TO_CONTENT_ANIMATION_KEY } from "../components/App.viewport";
 import { AnimationController } from "../renderer/animation";
 import { getNormalizedZoom } from "../scene";
-import { SCROLL_TO_CONTENT_ANIMATION_KEY } from "../viewport";
 
 import { API } from "./helpers/api";
 import { act, render } from "./test-utils";
@@ -80,7 +80,7 @@ describe("scale-down", () => {
     expect(h.state.zoom.value).toBe(1);
 
     act(() => {
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement,
         fit: "scale-down",
         animation: false,
@@ -116,7 +116,7 @@ describe("scale-down", () => {
     expect(h.state.zoom.value).toBe(1);
 
     act(() => {
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: [topLeft, bottomRight],
         fit: "scale-down",
         animation: false,
@@ -147,7 +147,7 @@ describe("scale-down", () => {
 
     act(() => {
       // navigating by element id (a string target) with zoomToFit
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement.id,
         fit: "scale-down",
         animation: false,
@@ -171,9 +171,14 @@ describe("scale-down", () => {
       x: 0,
       y: 0,
     });
+    API.setElements([largeElement]);
 
     act(() => {
-      h.app.scrollToContent(largeElement, { fitToContent: true });
+      h.app.viewport.setViewport({
+        target: largeElement,
+        fit: "scale-down",
+        animation: false,
+      });
     });
 
     expect(h.state.zoom.value).toBeCloseTo(0.01);
@@ -198,7 +203,7 @@ describe("scale-down", () => {
     expect(h.state.scrollY).toBe(0);
 
     act(() => {
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement,
         fit: "contain",
         animation: false,
@@ -233,7 +238,7 @@ describe("none", () => {
     });
 
     act(() => {
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement,
         fit: "none",
         animation: false,
@@ -278,7 +283,7 @@ describe("scale-down animated", () => {
     API.setElements([rectElement]);
 
     act(() => {
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement,
         fit: "scale-down",
         animation: { duration: LONG_ANIMATION_DURATION },
@@ -322,7 +327,7 @@ describe("scale-down animated", () => {
     expect(h.state.scrollY).toBe(0);
 
     act(() => {
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement,
         fit: "scale-down",
         animation: { duration: LONG_ANIMATION_DURATION },
@@ -359,7 +364,7 @@ describe("scale-down animated", () => {
 
     act(() => {
       // a short duration so the animation completes within a few frames
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement,
         fit: "scale-down",
         animation: { duration: 10 },
@@ -402,7 +407,7 @@ describe("scale-down animated", () => {
     API.setElements([rectElement]);
 
     act(() => {
-      h.app.setViewport({
+      h.app.viewport.setViewport({
         target: rectElement,
         fit: "scale-down",
         animation: { duration: LONG_ANIMATION_DURATION },

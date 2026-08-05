@@ -98,6 +98,7 @@ describe("CoreStudio Excalidraw compatibility", () => {
 
   it("can render a collaborator as presence-only without enabling follow mode", async () => {
     const { container } = await render(<Excalidraw />);
+    const followIntentSpy = vi.spyOn(h.app, "emitUserFollowIntent");
     const socketId = "presence-only-agent" as SocketId;
     const collaborator: Collaborator & { canFollow: boolean } = {
       id: "codex:thread-1",
@@ -112,22 +113,17 @@ describe("CoreStudio Excalidraw compatibility", () => {
       });
     });
 
-    const moreButton = await waitFor(() => {
-      const element = container.querySelector(".UserList__more");
+    const collaboratorAvatar = await waitFor(() => {
+      const element = container.querySelector(
+        ".UserList__collaborator .Avatar",
+      );
       expect(element).not.toBeNull();
       return element as HTMLElement;
     });
-    fireEvent.click(moreButton);
-    const collaboratorItem = await waitFor(() => {
-      const element = document.querySelector(
-        ".UserList__collaborators .UserList__collaborator",
-      );
-      expect(element).toHaveTextContent("工业设计探索");
-      return element as HTMLElement;
-    });
-    fireEvent.click(collaboratorItem);
+    fireEvent.click(collaboratorAvatar);
 
-    expect(h.state.userToFollow).toBeNull();
+    expect(h.app.props.userToFollow).toBeUndefined();
+    expect(followIntentSpy).not.toHaveBeenCalled();
   });
 
   it("replaces existing files through the imperative API", async () => {

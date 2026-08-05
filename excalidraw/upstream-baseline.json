@@ -1,15 +1,21 @@
 {
   "repository": "https://github.com/excalidraw/excalidraw.git",
   "managedRoot": "excalidraw",
-  "currentSha": "5ca083436d44a51a0705d43ea22d323839d5fe8e",
-  "targetSha": "5ca083436d44a51a0705d43ea22d323839d5fe8e",
+  "currentSha": "85270fcc8db26f98d119e2d2752b0c0139e86e16",
+  "targetSha": "85270fcc8db26f98d119e2d2752b0c0139e86e16",
   "ownedPaths": ["apps/image-board-desktop"],
   "patchGroups": [
     {
       "id": "file-replacement",
       "purpose": "Replace existing image files and invalidate image caches without duplicating records.",
-      "corePaths": ["packages/excalidraw/actions/actionNavigate.tsx", "packages/excalidraw/components/App.tsx", "packages/excalidraw/types.ts"],
+      "corePaths": ["packages/excalidraw/components/App.tsx", "packages/excalidraw/types.ts"],
       "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx", "apps/image-board-desktop/src/app/canvasImageAssetState.test.ts"]
+    },
+    {
+      "id": "host-action-integration",
+      "purpose": "Preserve host action predicates and presence-only collaborators without enabling follow mode.",
+      "corePaths": ["packages/excalidraw/actions/actionNavigate.tsx", "packages/excalidraw/actions/manager.tsx"],
+      "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx"]
     },
     {
       "id": "inspector-integration",

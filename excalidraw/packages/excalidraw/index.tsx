@@ -105,6 +105,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onPointerDown,
     onPointerUp,
     onScrollChange,
+    onUserFollow,
+    userToFollow,
     onDuplicate,
     children,
     validateEmbeddable,
@@ -112,6 +114,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     aiEnabled,
     showDeprecatedFonts,
     renderScrollbars,
+    viewportStatusFrame,
+    currentUserControls,
     imageOptions,
   } = props;
 
@@ -245,12 +249,16 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
           onScrollChange={onScrollChange}
+          onUserFollow={onUserFollow}
+          userToFollow={userToFollow}
           onDuplicate={onDuplicate}
           validateEmbeddable={validateEmbeddable}
           renderEmbeddable={renderEmbeddable}
           aiEnabled={aiEnabled !== false}
           showDeprecatedFonts={showDeprecatedFonts}
           renderScrollbars={renderScrollbars}
+          viewportStatusFrame={viewportStatusFrame}
+          currentUserControls={currentUserControls}
           imageOptions={normalizedImageOptions}
         >
           {children}
@@ -271,6 +279,7 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
     UIOptions: prevUIOptions = {},
     imageOptions: prevImageOptions,
     interaction: prevInteraction,
+    ui: prevUI,
     activeTool: prevActiveTool,
     ...prev
   } = prevProps;
@@ -279,6 +288,7 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
     UIOptions: nextUIOptions = {},
     imageOptions: nextImageOptions,
     interaction: nextInteraction,
+    ui: nextUI,
     activeTool: nextActiveTool,
     ...next
   } = nextProps;
@@ -318,6 +328,22 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
         !!nextInteraction.enabled?.tools?.custom);
 
   if (!isInteractionSame) {
+    return false;
+  }
+
+  // compare `ui` semantically so that hosts inlining the config object don't
+  // bust the memo every render
+  const isUISame =
+    prevUI === nextUI ||
+    (typeof prevUI === "object" &&
+      prevUI !== null &&
+      typeof nextUI === "object" &&
+      nextUI !== null &&
+      !!prevUI.enabled?.zoom === !!nextUI.enabled?.zoom &&
+      !!prevUI.enabled?.scrollBackToContent ===
+        !!nextUI.enabled?.scrollBackToContent);
+
+  if (!isUISame) {
     return false;
   }
 
@@ -463,6 +489,8 @@ export type {
   SavedChat,
   SavedChats,
 } from "./components/TTDDialog/types";
+
+export type { ViewportStatusFrame } from "./types";
 
 export { zoomToFitBounds, DEFAULT_OVERSCROLL } from "./viewport";
 

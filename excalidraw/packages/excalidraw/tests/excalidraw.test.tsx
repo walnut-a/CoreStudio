@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { THEME } from "@excalidraw/common";
 
 import { t } from "../i18n";
-import { Excalidraw, Footer, MainMenu, ToolbarButton } from "../index";
+import { Excalidraw, Footer, MainMenu } from "../index";
 import { actionExportWithDarkMode } from "../actions/actionExport";
 
 import {
@@ -483,27 +483,6 @@ describe("<Excalidraw/>", () => {
       expect(onThemeChange).toHaveBeenCalledWith(THEME.DARK);
       expect(h.state.theme).toBe(THEME.LIGHT);
     });
-  });
-
-  it("renders custom toolbar buttons passed as children", async () => {
-    const onClick = vi.fn();
-    const { container } = await render(
-      <Excalidraw>
-        <ToolbarButton
-          icon={<span aria-hidden="true">AI</span>}
-          aria-label="Generate image"
-          data-testid="toolbar-host-generate"
-          onClick={onClick}
-        />
-      </Excalidraw>,
-    );
-
-    const toolbarButton = queryByTestId(container, "toolbar-host-generate");
-    expect(toolbarButton).not.toBeNull();
-
-    fireEvent.click(toolbarButton!);
-
-    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("should localize the default main menu from langCode", async () => {

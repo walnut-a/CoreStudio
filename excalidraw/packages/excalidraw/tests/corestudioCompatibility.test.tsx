@@ -7,12 +7,7 @@ import type { FileId } from "@excalidraw/element/types";
 
 import { Excalidraw } from "../index";
 
-import type {
-  BinaryFileData,
-  Collaborator,
-  DataURL,
-  SocketId,
-} from "../types";
+import type { BinaryFileData, Collaborator, DataURL, SocketId } from "../types";
 
 import { API } from "./helpers/api";
 import { Keyboard } from "./helpers/ui";
@@ -21,6 +16,24 @@ import { act, render, waitFor } from "./test-utils";
 const { h } = window;
 
 describe("CoreStudio Excalidraw compatibility", () => {
+  it("keeps the host layout seams and top-level controls stable", async () => {
+    const { container } = await render(
+      <Excalidraw UIOptions={{ defaultSidebar: false }} />,
+    );
+
+    expect(
+      container.querySelectorAll('[data-testid="main-menu-trigger"]'),
+    ).toHaveLength(1);
+    expect(container.querySelectorAll(".default-sidebar-trigger")).toHaveLength(
+      0,
+    );
+    expect(container.querySelector(".App-menu_top__left")).not.toBeNull();
+    expect(
+      container.querySelector(".layer-ui__wrapper__top-right"),
+    ).not.toBeNull();
+    expect(container.querySelector(".App-toolbar")).not.toBeNull();
+  });
+
   it("hides the default sidebar when defaultSidebar is false", async () => {
     const { container } = await render(
       <Excalidraw UIOptions={{ defaultSidebar: false }} />,

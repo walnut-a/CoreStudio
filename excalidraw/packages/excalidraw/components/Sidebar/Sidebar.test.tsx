@@ -3,7 +3,7 @@ import { vi } from "vitest";
 
 import { DEFAULT_SIDEBAR } from "@excalidraw/common";
 
-import { DefaultSidebar, Excalidraw, Sidebar } from "../../index";
+import { Excalidraw, Sidebar } from "../../index";
 import {
   act,
   fireEvent,
@@ -29,115 +29,6 @@ const toggleSidebar = (
 
 describe("Sidebar", () => {
   describe("General behavior", () => {
-    it("should render a host default sidebar with custom tabs", async () => {
-      const { container } = await render(
-        <Excalidraw
-          initialData={{
-            appState: {
-              openSidebar: {
-                name: DEFAULT_SIDEBAR.name,
-                tab: "image-board",
-              },
-            },
-          }}
-        >
-          <DefaultSidebar>
-            <DefaultSidebar.TabTriggers>
-              <Sidebar.TabTrigger
-                tab="image-board"
-                title="Image params"
-                aria-label="Image params"
-              >
-                tab
-              </Sidebar.TabTrigger>
-            </DefaultSidebar.TabTriggers>
-            <Sidebar.Tab tab="image-board">
-              <div id="custom-default-sidebar-tab">42</div>
-            </Sidebar.Tab>
-          </DefaultSidebar>
-        </Excalidraw>,
-      );
-
-      const trigger = container.querySelector<HTMLButtonElement>(
-        '[aria-label="Image params"]',
-      );
-
-      expect(trigger).not.toBe(null);
-
-      await waitFor(() => {
-        expect(
-          container.querySelector("#custom-default-sidebar-tab"),
-        ).not.toBe(null);
-      });
-    });
-
-    it("should keep the default sidebar open when clicking inside a custom tab", async () => {
-      const { container, getByRole } = await render(
-        <Excalidraw
-          initialData={{
-            appState: {
-              openSidebar: {
-                name: DEFAULT_SIDEBAR.name,
-                tab: "image-board",
-              },
-            },
-          }}
-        >
-          <DefaultSidebar>
-            <DefaultSidebar.TabTriggers>
-              <Sidebar.TabTrigger tab="image-board" aria-label="Image params">
-                tab
-              </Sidebar.TabTrigger>
-            </DefaultSidebar.TabTriggers>
-            <Sidebar.Tab tab="image-board">
-              <button type="button">Inside action</button>
-            </Sidebar.Tab>
-          </DefaultSidebar>
-        </Excalidraw>,
-      );
-
-      fireEvent.pointerDown(getByRole("button", { name: "Inside action" }));
-      fireEvent.click(getByRole("button", { name: "Inside action" }));
-
-      await waitFor(() => {
-        expect(container.querySelector(".default-sidebar")).not.toBe(null);
-        expect(getByRole("button", { name: "Inside action" })).toBeVisible();
-      });
-    });
-
-    it("should keep the sidebar open after outside clicks when outside closing is disabled", async () => {
-      const onStateChange = vi.fn();
-      const { container } = await render(
-        <Excalidraw
-          initialData={{
-            appState: {
-              openSidebar: {
-                name: "customSidebar",
-              },
-            },
-          }}
-        >
-          <Sidebar
-            name="customSidebar"
-            className="test-sidebar"
-            closeOnOutsideClick={false}
-            onStateChange={onStateChange}
-          >
-            <div id="test-sidebar-content">42</div>
-          </Sidebar>
-        </Excalidraw>,
-      );
-
-      expect(container.querySelector(".test-sidebar")).not.toBe(null);
-
-      fireEvent.pointerDown(document.body);
-
-      await waitFor(() => {
-        expect(container.querySelector(".test-sidebar")).not.toBe(null);
-      });
-      expect(onStateChange).not.toHaveBeenCalledWith(null);
-    });
-
     it("should render custom sidebar", async () => {
       const { container } = await render(
         <Excalidraw

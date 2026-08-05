@@ -48,6 +48,7 @@ const MainMenu = Object.assign(
                   openDialog: null,
                 });
               }}
+              aria-label={t("buttons.menu")}
               data-testid="main-menu-trigger"
               className="main-menu-trigger"
             >

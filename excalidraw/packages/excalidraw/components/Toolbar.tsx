@@ -220,7 +220,6 @@ export const Toolbar = ({
 }) => {
   const editorInterface = useEditorInterface();
   const isCompactStylesPanel = useStylesPanelMode() === "compact";
-  const { ToolbarToolsTunnel } = useTunnels();
 
   const activeTool = appState.activeTool;
   const toolProps = { app, activeTool };
@@ -290,7 +289,6 @@ export const Toolbar = ({
         <TextToolButton {...toolProps} />
         {UIOptions.tools?.image !== false && <ImageToolButton {...toolProps} />}
         <EraserToolButton {...toolProps} />
-        <ToolbarToolsTunnel.Out />
 
         <div
           className="App-toolbar__divider"

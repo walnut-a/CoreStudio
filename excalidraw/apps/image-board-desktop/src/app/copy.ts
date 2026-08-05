@@ -75,6 +75,8 @@ const zhCnCopy = {
     promptInputHint: "Enter 发送，Shift+Enter 换行",
     expandPrompt: "展开输入框",
     collapsePrompt: "收起输入框",
+    showComposer: "显示图片生成输入框",
+    hideComposer: "隐藏图片生成输入框",
     expandSettings: "展开设置",
     collapseSettings: "收起设置",
     providerWarning: "尚未配置图像生成服务。",

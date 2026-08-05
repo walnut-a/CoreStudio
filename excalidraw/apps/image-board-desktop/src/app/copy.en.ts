@@ -68,6 +68,8 @@ export const enCopy: DesktopCopy = {
     promptInputHint: "Enter to send, Shift+Enter for a new line",
     expandPrompt: "Expand input",
     collapsePrompt: "Collapse input",
+    showComposer: "Show image generation composer",
+    hideComposer: "Hide image generation composer",
     expandSettings: "Expand settings",
     collapseSettings: "Collapse settings",
     providerWarning: "No image generation service is configured.",

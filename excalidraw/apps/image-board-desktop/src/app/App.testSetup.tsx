@@ -338,6 +338,9 @@ vi.mock("@excalidraw/excalidraw", () => {
       IMMEDIATELY: "immediately",
       NEVER: "never",
     },
+    FooterRight: ({ children }: { children?: React.ReactNode }) => (
+      <div data-testid="footer-right-host-actions">{children}</div>
+    ),
     DefaultSidebar: Object.assign(
       ({
         children,

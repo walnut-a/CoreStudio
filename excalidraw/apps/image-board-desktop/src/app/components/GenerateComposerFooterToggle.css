@@ -1,0 +1,29 @@
+.generate-composer-footer-toggle-slot {
+  display: flex;
+  margin-inline-end: var(--canvas-footer-button-gap);
+}
+
+.generate-composer-footer-toggle {
+  position: relative;
+}
+
+.generate-composer-footer-toggle[aria-pressed="true"] {
+  border-color: var(--color-surface-primary-container);
+  background: var(--color-surface-high);
+  color: var(--color-primary);
+}
+
+.generate-composer-footer-toggle[aria-pressed="true"]:hover {
+  background: var(--color-surface-primary-container);
+}
+
+.generate-composer-footer-toggle__activity {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--island-bg-color);
+  border-radius: 50%;
+  background: var(--color-primary);
+}

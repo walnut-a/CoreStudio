@@ -1286,6 +1286,8 @@ describe("App startup", () => {
     });
 
     expect(await screen.findByText("生成图片弹窗")).toBeInTheDocument();
+    const composer = screen.getByTestId("generate-image-dialog");
+    expect(composer).toHaveAttribute("aria-hidden", "false");
     const hideComposer = screen.getByRole("button", {
       name: "隐藏图片生成输入框",
     });
@@ -1293,15 +1295,19 @@ describe("App startup", () => {
 
     fireEvent.click(hideComposer);
 
-    expect(screen.queryByText("生成图片弹窗")).toBeNull();
+    expect(screen.getByText("生成图片弹窗")).toBeInTheDocument();
+    expect(composer).toHaveAttribute("aria-hidden", "true");
+    expect(composer).toHaveAttribute("inert");
     const showComposer = screen.getByRole("button", {
-      name: "显示图片生成输入框",
+      name: "展开图片生成输入框",
     });
     expect(showComposer).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(showComposer);
 
     expect(screen.getByText("生成图片弹窗")).toBeInTheDocument();
+    expect(composer).toHaveAttribute("aria-hidden", "false");
+    expect(composer).not.toHaveAttribute("inert");
     expect(setGenerateComposerVisible).not.toHaveBeenCalled();
   });
 

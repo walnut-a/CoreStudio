@@ -7,6 +7,12 @@
   position: relative;
 }
 
+.generate-composer-footer-toggle-slot
+  .help-icon.generate-composer-footer-toggle
+  svg {
+  transform: scale(1.25);
+}
+
 .generate-composer-footer-toggle[aria-pressed="true"] {
   border-color: var(--color-surface-primary-container);
   background: var(--color-surface-high);

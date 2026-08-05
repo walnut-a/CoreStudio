@@ -2597,10 +2597,10 @@ const App = ({
 
       {!isAgentBrowserRoute &&
       providerConfiguration !== null &&
-      providerConfiguration.composerVisible !== false &&
-      generateComposerExpanded ? (
+      providerConfiguration.composerVisible !== false ? (
         <GenerateImageDialog
           open={true}
+          expanded={generateComposerExpanded}
           persistent={true}
           focusToken={generateFocusToken}
           initialRequest={generateRequest}

@@ -186,6 +186,37 @@ describe("generate composer styles", () => {
     expect(focusWithinRule).toContain("var(--generate-composer-focus-ring)");
   });
 
+  it("collapses the generation composer toward the footer toggle", () => {
+    const appCss = readAppCss();
+    const panelRule = getRule(appCss, ".generate-panel");
+    const collapsedLayerRule = getRule(
+      appCss,
+      ".floating-panel-layer--collapsed",
+    );
+    const collapsedPanelRule = getRule(
+      appCss,
+      ".floating-panel-layer--collapsed .generate-panel",
+    );
+
+    expect(panelRule).toContain("cubic-bezier(0.16, 1, 0.3, 1)");
+    expect(collapsedLayerRule).toContain("visibility: hidden");
+    expect(collapsedPanelRule).toContain("translate3d(calc(50vw - 5rem - 11%)");
+    expect(collapsedPanelRule).toContain("scale(0.78)");
+    expect(appCss).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
+  it("optically balances the generation footer icon with the help icon", () => {
+    const toggleCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/GenerateComposerFooterToggle.css",
+    );
+    const iconRule = getRule(
+      toggleCss,
+      ".generate-composer-footer-toggle-slot\n  .help-icon.generate-composer-footer-toggle\n  svg",
+    );
+
+    expect(iconRule).toContain("transform: scale(1.25)");
+  });
+
   it("matches the single-outline composer layout from the reference mock", () => {
     const appCss = readAppCss();
     const composerRule = getRule(appCss, ".generate-composer");

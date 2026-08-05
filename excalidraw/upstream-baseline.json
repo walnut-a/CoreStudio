@@ -129,6 +129,13 @@
       "contractTests": ["packages/excalidraw/tests/i18n.test.ts", "packages/excalidraw/tests/excalidraw.test.tsx"]
     },
     {
+      "id": "self-hosted-font-policy",
+      "purpose": "Use only host-provided font roots in strict-CSP and offline desktop environments.",
+      "disposition": "keep-core-patch",
+      "corePaths": ["packages/excalidraw/fonts/ExcalidrawFontFace.ts"],
+      "contractTests": ["packages/excalidraw/fonts/ExcalidrawFontFace.test.ts"]
+    },
+    {
       "id": "build-and-test-integration",
       "purpose": "Keep the CoreStudio desktop workspace, test projects, TypeScript settings, and dependency resolutions.",
       "disposition": "keep-support",

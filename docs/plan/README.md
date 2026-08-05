@@ -6,7 +6,7 @@
 
 ## 当前计划文档
 
-- [2026-08-05-excalidraw-upgrade-regression-audit.md](2026-08-05-excalidraw-upgrade-regression-audit.md)：已完成 Excalidraw 升级后的宿主 UI、补丁合同、上游 DOM/API 接缝和遗留补丁审计与实施，补丁路径由 63 个收缩至 51 个，并通过完整测试、构建和真实界面矩阵验收。
+- [2026-08-05-excalidraw-upgrade-regression-audit.md](2026-08-05-excalidraw-upgrade-regression-audit.md)：已完成 Excalidraw 升级后的宿主 UI、补丁合同、上游 DOM/API 接缝和遗留补丁审计与实施，补丁路径由 63 个收缩至 53 个，并通过完整测试、构建和真实界面矩阵验收。
 - [2026-07-27-corestudio-test-process-lifecycle.md](2026-07-27-corestudio-test-process-lifecycle.md)：把 CoreStudio 桌面全量测试收敛为一次性、资源有界、互斥运行、可取消且无孤儿进程的统一执行流程。
 - [2026-07-26-generation-placeholder-undo-theme.md](2026-07-26-generation-placeholder-undo-theme.md)：修复生成输入撤销、占位一次删除、删除后的任务/结果生命周期及 Excalidraw 深色主题继承。
 - [2026-07-26-workspace-fence-removal.md](2026-07-26-workspace-fence-removal.md)：移除主编辑器工作区围栏，并用批量语义、有效锚点和最近空位搜索固定图片局部放置。

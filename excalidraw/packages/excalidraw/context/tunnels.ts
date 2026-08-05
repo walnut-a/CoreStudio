@@ -14,7 +14,6 @@ type TunnelsContextValue = {
   DefaultSidebarTriggerTunnel: Tunnel;
   DefaultSidebarTabTriggersTunnel: Tunnel;
   OverwriteConfirmDialogTunnel: Tunnel;
-  ToolbarToolsTunnel: Tunnel;
   TTDDialogTriggerTunnel: Tunnel;
   // this can be removed once we create jotai stores per each editor
   // instance
@@ -39,7 +38,6 @@ export const useInitializeTunnels = () => {
       DefaultSidebarTriggerTunnel: tunnel(),
       DefaultSidebarTabTriggersTunnel: tunnel(),
       OverwriteConfirmDialogTunnel: tunnel(),
-      ToolbarToolsTunnel: tunnel(),
       TTDDialogTriggerTunnel: tunnel(),
       tunnelsJotai,
     };

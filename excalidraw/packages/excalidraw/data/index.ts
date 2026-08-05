@@ -32,6 +32,7 @@ import { getSelectedElements, isSomeElementSelected } from "../scene";
 import { exportToCanvas, exportToSvg } from "../scene/export";
 
 import { canvasToBlob } from "./blob";
+import { getFrameRenderingForExport } from "./exportFrameRendering";
 import { fileSave } from "./filesystem";
 import { serializeAsJSON } from "./json";
 
@@ -120,6 +121,8 @@ export const exportCanvas = async (
   if (elements.length === 0) {
     throw new Error(t("alerts.cannotExportEmptyCanvas"));
   }
+  const frameRendering = getFrameRenderingForExport(appState.frameRendering);
+
   if (type === "svg" || type === "clipboard-svg") {
     const svgPromise = exportToSvg(
       elements,
@@ -130,6 +133,7 @@ export const exportCanvas = async (
         exportPadding,
         exportScale: appState.exportScale,
         exportEmbedScene: appState.exportEmbedScene && type === "svg",
+        frameRendering,
       },
       files,
       { exportingFrame },
@@ -163,12 +167,20 @@ export const exportCanvas = async (
     }
   }
 
-  const tempCanvas = exportToCanvas(elements, appState, files, {
-    exportBackground,
-    viewBackgroundColor,
-    exportPadding,
-    exportingFrame,
-  });
+  const tempCanvas = exportToCanvas(
+    elements,
+    {
+      ...appState,
+      frameRendering,
+    },
+    files,
+    {
+      exportBackground,
+      viewBackgroundColor,
+      exportPadding,
+      exportingFrame,
+    },
+  );
 
   if (type === "png") {
     let blob = canvasToBlob(tempCanvas);

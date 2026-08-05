@@ -228,8 +228,6 @@
   align-items: center;
   justify-content: flex-end;
   margin-right: 0;
-  transition: margin-right var(--side-dock-motion-duration)
-    var(--side-dock-motion-easing);
 }
 
 .image-board-app:not(.image-board-app--right-dock-open)

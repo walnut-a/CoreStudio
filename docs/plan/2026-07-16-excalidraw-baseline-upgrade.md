@@ -237,6 +237,34 @@ Arrange Into Grid 本轮没有外移到 CoreStudio 产品层。它依赖 Excalid
 
 本轮没有额外启动 Electron 开发实例。旧项目、图片恢复、Inspector、Agent/CLI/Local Bridge、保存重开等关键路径已有桌面自动化覆盖；1% 缩放、`scrollToContent`、Arrange Into Grid 和编辑器卸载行为已有专项契约测试。
 
+## 2026-08-05 增量升级执行记录
+
+本轮在 `walnut/update-excalidraw-baseline-20260805` 分支继续沿用既有同步合同，将源码基线从 `5ca083436d44a51a0705d43ea22d323839d5fe8e` 推进到当日 upstream `master` 的 `85270fcc8db26f98d119e2d2752b0c0139e86e16`。该范围包含 24 个上游提交、196 个变更路径；npm 最新稳定版虽为 `0.18.1`，但不能覆盖这一范围内 2026-08-04 的嵌套分组修复，因此本轮继续升级 vendored source baseline，不改用 npm 包替代。
+
+同步前 dry-run 预测 4 个文本冲突，实际冲突与预测一致：
+
+1. `packages/element/src/index.ts`：同时导出 CoreStudio `arrange` 与上游 `arrowEndpointText`。
+2. `packages/excalidraw/actions/actionNavigate.tsx`：保留 presence-only 协作者的 `canFollow` 限制，同时接入上游宿主持有的跟随状态。
+3. `packages/excalidraw/actions/manager.tsx`：保留 CoreStudio 动作 predicate 过滤，同时接入上游 viewport 过渡期间的导航动作保护。
+4. `packages/excalidraw/components/App.tsx`：保留图片替换、Inspector、剪贴板和滚轮曲线等接入；删除已被上游 `AppViewport` 取代的旧 viewport 实现，并把 CoreStudio 滚轮曲线接到新的 scroll constraint 管线。
+
+上游删除了 `scene/zoom.ts`，本轮仅保留其中 CoreStudio 自有的 `getWheelZoomValue`；焦点缩放、动画、锁定和回弹全部采用上游新 `AppViewport`/`viewport.ts` 实现。补丁合同新增 `host-action-integration` 分组，把动作 predicate 与 presence-only 协作者控制从图片替换职责中独立出来。
+
+升级前，`supports nested groups` 回归用例稳定失败，内层选中元素仍只有 1 层 `groupIds`；同步后该用例已转绿，说明上游的“在正在编辑的组内再次编组”修复已生效。1% 最小缩放、CoreStudio 滚轮曲线、Inspector 回调、文件替换、禁用默认 Sidebar、presence-only 协作者和旧 `scrollToContent` 不暴露等合同继续保留。
+
+本轮最终验证结果：
+
+- 上游新增能力与 CoreStudio 受影响合同：12 个文件、295 项测试通过。
+- TypeScript：`corepack yarn test:typecheck` 通过。
+- CoreStudio 桌面测试：261 个测试文件、2,038 项通过；测试进程和锁均清理完成，残留为 0。
+- Excalidraw/CoreStudio 完整测试：386 个测试文件、3,894 项通过、47 项跳过、1 项 todo，无失败。
+- Secret scan：源码和打包输入共检查 961 个文件，通过。
+- Desktop renderer 与 Electron 构建：`corepack yarn build:desktop` 通过；bundle budget 通过。
+- 打包预览：固定 `PACKAGED PREVIEW` 身份、构建标识和欢迎页真实渲染通过，验收后精确清理对应进程组，残留为 0。
+- Packaged smoke：production、qa 和多宿主 Agent 集成 smoke 通过，隔离进程与临时数据均已退出。
+
+源码 Dev 的固定端口 `5174` 当时被另一个仓库的 Electron Forge 进程占用（PID 31938，`CNC-Desktop-Studio`），本轮没有终止该无关进程，也没有创建自定义端口或临时源码实例；真实界面验收改走项目规定的 `preview:desktop` 固定入口。macOS Computer Use 服务未能启动，因此预览界面通过该固定实例的只读调试端口核对 DOM 与截图，不影响应用自身启动和打包证据。
+
 ## 后续升级标准操作
 
 1. 将 `upstream-baseline.json` 的 `targetSha` 更新为已审核的固定上游提交。

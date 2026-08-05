@@ -52,7 +52,6 @@ export const SidebarInner = forwardRef(
       children,
       onDock,
       docked,
-      closeOnOutsideClick = true,
       className,
       ...rest
     }: SidebarProps & Omit<React.RefAttributes<HTMLDivElement>, "onSelect">,
@@ -113,9 +112,6 @@ export const SidebarInner = forwardRef(
       islandRef,
       useCallback(
         (event) => {
-          if (!closeOnOutsideClick) {
-            return;
-          }
           // If click on the library icon, do nothing so that LibraryButton
           // can toggle library menu
           if ((event.target as Element).closest(".sidebar-trigger")) {
@@ -125,7 +121,7 @@ export const SidebarInner = forwardRef(
             closeLibrary();
           }
         },
-        [closeLibrary, closeOnOutsideClick, docked, editorInterface.canFitSidebar],
+        [closeLibrary, docked, editorInterface.canFitSidebar],
       ),
     );
 

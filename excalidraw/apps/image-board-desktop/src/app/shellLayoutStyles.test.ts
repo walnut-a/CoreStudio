@@ -133,9 +133,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(sideDockCss).toContain("@keyframes side-dock-enter-from-left");
     expect(sideDockCss).toContain("@keyframes side-dock-enter-from-right");
     expect(topLeftRule).not.toContain("transition:");
-    expect(topRightRule).toContain(
-      "transition: margin-right var(--side-dock-motion-duration)",
-    );
+    expect(topRightRule).not.toContain("transition: margin-right");
     expect(sideDockCss).toContain("@media (prefers-reduced-motion: reduce)");
     expect(sideDockCss).toContain("animation-duration: 0.01ms");
     expect(sideDockCss).toContain("transition-duration: 0.01ms");
@@ -914,21 +912,11 @@ describe("CoreStudio shell layout styles", () => {
       readCssFile("apps/image-board-desktop/src/app/styles/designTokens.css"),
       ".image-board-app",
     );
-    const sideDockToggleIconRule = getRule(
-      appCss,
-      ".side-dock__toggle svg",
-    );
+    const sideDockToggleIconRule = getRule(appCss, ".side-dock__toggle svg");
     const sideDockSource = readFileSync(
       resolve(
         process.cwd(),
         "apps/image-board-desktop/src/app/components/SideDock.tsx",
-      ),
-      "utf8",
-    );
-    const toolbarButtonSource = readFileSync(
-      resolve(
-        process.cwd(),
-        "apps/image-board-desktop/src/app/components/GenerateToolbarButton.tsx",
       ),
       "utf8",
     );
@@ -958,7 +946,6 @@ describe("CoreStudio shell layout styles", () => {
     expect(appCss).toContain('stroke-width="1.25"');
     expect(appCss).toContain(".side-dock__toggle svg");
     expect(sideDockSource).not.toContain("<svg");
-    expect(toolbarButtonSource).not.toContain("<svg");
     expect(generateDialogSource).not.toMatch(
       /strokeWidth="(?:1\.6|1\.7|1\.75|1\.8|2)"/,
     );

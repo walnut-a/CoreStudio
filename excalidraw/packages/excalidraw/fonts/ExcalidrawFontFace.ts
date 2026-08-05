@@ -163,8 +163,12 @@ export class ExcalidrawFontFace {
       });
     }
 
-    // fallback url for bundled fonts
-    urls.push(new URL(assetUrl, ExcalidrawFontFace.ASSETS_FALLBACK_URL));
+    // Hosts that provide an asset path are explicitly self-hosting fonts. Do
+    // not append the remote fallback in that case, so strict CSP and offline
+    // desktop environments do not evaluate an unnecessary network source.
+    if (urls.length === 0) {
+      urls.push(new URL(assetUrl, ExcalidrawFontFace.ASSETS_FALLBACK_URL));
+    }
 
     return urls;
   }

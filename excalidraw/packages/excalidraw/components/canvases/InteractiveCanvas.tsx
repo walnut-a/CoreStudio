@@ -161,7 +161,7 @@ const InteractiveCanvas = (props: InteractiveCanvasProps) => {
         selectionColor,
         renderScrollbars: props.renderScrollbars,
         // NOTE not memoized on so we don't rerender on cursor move
-        lastViewportPosition: props.app.lastViewportPosition,
+        lastViewportPosition: props.app.viewport.lastPosition,
       },
       editorInterface: props.editorInterface,
       callback: props.renderInteractiveSceneCallback,
@@ -258,6 +258,7 @@ const getRelevantAppStateProps = (
   isMidpointSnappingEnabled: appState.isMidpointSnappingEnabled,
   gridModeEnabled: appState.gridModeEnabled,
   suggestedBinding: appState.suggestedBinding,
+  hoveredArrowTextAnchor: appState.hoveredArrowTextAnchor,
   isRotating: appState.isRotating,
   elementsToHighlight: appState.elementsToHighlight,
   collaborators: appState.collaborators, // Necessary for collab. sessions

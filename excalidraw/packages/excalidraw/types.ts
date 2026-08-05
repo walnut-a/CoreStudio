@@ -20,6 +20,7 @@ import type {
   ExcalidrawElement,
   GroupId,
   ExcalidrawBindableElement,
+  ExcalidrawArrowElement,
   Arrowhead,
   FontFamilyValues,
   FileId,
@@ -160,7 +161,9 @@ export type ToolType =
   | "frame"
   | "magicframe"
   | "embeddable"
-  | "laser";
+  | "laser"
+  | "autoshape"
+  | "bucketfill";
 
 export type ElementOrToolType = ExcalidrawElementType | ToolType | "custom";
 
@@ -230,6 +233,7 @@ export type InteractiveCanvasAppState = Readonly<
     isMidpointSnappingEnabled: AppState["isMidpointSnappingEnabled"];
     gridModeEnabled: AppState["gridModeEnabled"];
     suggestedBinding: AppState["suggestedBinding"];
+    hoveredArrowTextAnchor: AppState["hoveredArrowTextAnchor"];
     isRotating: AppState["isRotating"];
     elementsToHighlight: AppState["elementsToHighlight"];
     // Collaborators
@@ -363,6 +367,15 @@ export interface AppState {
   suggestedBinding: {
     element: NonDeleted<ExcalidrawBindableElement>;
     midPoint?: GlobalPoint;
+  } | null;
+  /**
+   * Where on a hovered arrow the text tool would attach text if clicked —
+   * a free endpoint (binds the arrow to a new text element positioned against
+   * that endpoint) or the arrow's midpoint (adds a label bound to the arrow).
+   */
+  hoveredArrowTextAnchor: {
+    elementId: ExcalidrawArrowElement["id"];
+    anchor: "start" | "end" | "label";
   } | null;
   frameToHighlight: NonDeleted<ExcalidrawFrameLikeElement> | null;
   frameRendering: {
@@ -502,10 +515,6 @@ export interface AppState {
     y: number;
   } | null;
   objectsSnapModeEnabled: boolean;
-  /** the user's socket id & username who is being followed on the canvas */
-  userToFollow: UserToFollow | null;
-  /** the socket ids of the users following the current user */
-  followedBy: Set<SocketId>;
 
   /** image cropping */
   isCropping: boolean;
@@ -557,6 +566,7 @@ export type UIAppState = Omit<
   | "snapLines"
   | "originSnapOffset"
   | "suggestedBinding"
+  | "hoveredArrowTextAnchor"
   | "frameToHighlight"
   | "elementsToHighlight"
 >;
@@ -625,6 +635,22 @@ export type ExcalidrawInitialState = {
 export type OnUserFollowedPayload = {
   userToFollow: UserToFollow;
   action: "FOLLOW" | "UNFOLLOW";
+};
+
+export type ViewportStatusFrame = {
+  /** the badge (bottom-center pill) */
+  label?: {
+    label: React.ReactNode;
+    icon?: React.ReactNode;
+    /** badge background; defaults to var(--color-primary-hover) */
+    background?: string;
+    /** badge text color; defaults to var(--color-primary-light) */
+    color?: string;
+    /** renders a close button when set */
+    onClose?: () => void;
+  };
+  /** viewport-edge border: CSS color, or `false` for none */
+  border: false | string;
 };
 
 export type OnExportProgress = {
@@ -717,6 +743,27 @@ export type InteractionConfig = {
        */
       custom?: boolean;
     };
+  };
+};
+
+export type UIConfig = {
+  /**
+   * Default UI controls that stay enabled while the rest of Excalidraw's
+   * default UI is hidden. Opt-in: anything omitted or `false` is disabled.
+   */
+  enabled: {
+    /**
+     * The zoom-out, reset-zoom, and zoom-in controls.
+     *
+     * @default false
+     */
+    zoom?: boolean;
+    /**
+     * The button shown when the viewport is scrolled away from all content.
+     *
+     * @default false
+     */
+    scrollBackToContent?: boolean;
   };
 };
 
@@ -830,12 +877,19 @@ export interface ExcalidrawProps {
    * renders, and the editor remains interactive unless `interaction` is set to
    * `false`.
    *
+   * Pass a config object to keep specific default controls rendered while the
+   * rest of the default UI is hidden (see `UIConfig`):
+   *
+   * ```tsx
+   * <Excalidraw ui={{ enabled: { zoom: true } }} />
+   * ```
+   *
    * NOTE: this is WIP and what default UI is/is not rendered when ui=false
    * may yet change.
    *
    * @default true
    */
-  ui?: boolean;
+  ui?: boolean | UIConfig;
   /**
    * Forces the active editor tool (controlled). While set, user- and
    * API-driven tool switching is ignored — `setActiveTool` refuses with a
@@ -909,6 +963,23 @@ export interface ExcalidrawProps {
   aiEnabled?: boolean;
   showDeprecatedFonts?: boolean;
   renderScrollbars?: boolean;
+  viewportStatusFrame?: ViewportStatusFrame | null;
+  /**
+   * Rendered inside the UserList "who's here" dropdown (desktop) and inline
+   * in the mobile menu's collaborators section, below a divider. Accepts a
+   * render function — called with `isMobile` so hosts can render different
+   * UI for each surface — in addition to a plain node.
+   */
+  currentUserControls?:
+    | React.ReactNode
+    | ((isMobile: boolean) => React.ReactNode);
+  /**
+   * The user being followed on the canvas, if any. Controlled by the host —
+   * the editor never sets it; it emits follow/unfollow intents via
+   * `onUserFollow` (prop or imperative API) and renders the followed
+   * user's avatar highlight from this value.
+   */
+  userToFollow?: UserToFollow | null;
   /**
    * Called before exporting to a file.
    *
@@ -1048,8 +1119,7 @@ export type AppClassProperties = {
   id: App["id"];
   onInsertElements: App["onInsertElements"];
   onExportImage: App["onExportImage"];
-  lastViewportPosition: App["lastViewportPosition"];
-  setViewport: App["setViewport"];
+  viewport: App["viewport"];
   addFiles: App["addFiles"];
   addElementsFromPasteOrLibrary: App["addElementsFromPasteOrLibrary"];
   togglePenMode: App["togglePenMode"];
@@ -1061,12 +1131,12 @@ export type AppClassProperties = {
   getName: App["getName"];
   dismissLinearEditor: App["dismissLinearEditor"];
   flowchart: App["flowchart"];
+  drawShape: App["drawShape"];
   cursor: App["cursor"];
   isToolLocked: App["isToolLocked"];
   getEffectiveGridSize: App["getEffectiveGridSize"];
   setPlugins: App["setPlugins"];
   plugins: App["plugins"];
-  getViewportOffsets: App["getViewportOffsets"];
   visibleElements: App["visibleElements"];
   excalidrawContainerValue: App["excalidrawContainerValue"];
 
@@ -1079,6 +1149,9 @@ export type AppClassProperties = {
   lastPointerMoveCoords: App["lastPointerMoveCoords"];
   lastPointerMoveEvent: App["lastPointerMoveEvent"];
   bindModeHandler: App["bindModeHandler"];
+
+  emitUserFollowIntent: App["emitUserFollowIntent"];
+  requestUnfollow: App["requestUnfollow"];
 
   setAppState: App["setAppState"];
 
@@ -1197,8 +1270,8 @@ export interface ExcalidrawImperativeAPI {
   getAppState: () => InstanceType<typeof App>["state"];
   getFiles: () => InstanceType<typeof App>["files"];
   getName: InstanceType<typeof App>["getName"];
-  setViewport: InstanceType<typeof App>["setViewport"];
-  getViewportOffsets: InstanceType<typeof App>["getViewportOffsets"];
+  setViewport: InstanceType<typeof App>["viewport"]["setViewport"];
+  getViewportOffsets: InstanceType<typeof App>["viewport"]["getOffsets"];
   registerAction: (action: Action) => void;
   refresh: InstanceType<typeof App>["refresh"];
   setToast: InstanceType<typeof App>["setToast"];

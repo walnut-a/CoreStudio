@@ -714,20 +714,6 @@ vi.mock("@excalidraw/excalidraw", () => {
           </>
         );
       })(),
-    ToolbarButton: ({
-      "aria-label": ariaLabel,
-      onClick,
-    }: {
-      "aria-label": string;
-      onClick?: () => void;
-    }) => (
-      <button
-        type="button"
-        data-testid="toolbar-generate-image"
-        aria-label={ariaLabel}
-        onClick={onClick}
-      />
-    ),
     Sidebar: {
       TabTrigger: ({
         tab,

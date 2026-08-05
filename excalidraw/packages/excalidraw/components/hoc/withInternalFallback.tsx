@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect } from "react";
 
 import { useTunnels } from "../../context/tunnels";
 import { atom } from "../../editor-jotai";
@@ -17,53 +17,19 @@ export const withInternalFallback = <P,>(
     const {
       tunnelsJotai: { useAtom },
     } = useTunnels();
-    // for rerenders
-    const [, setCounter] = useAtom(renderAtom);
-    // for initial & subsequent renders. Tracked as component state
-    // due to excalidraw multi-instance scanerios.
-    const metaRef = useRef({
-      // flag set on initial render to tell the fallback component to skip the
-      // render until mount counter are initialized. This is because the counter
-      // is initialized in an effect, and thus we could end rendering both
-      // components at the same time until counter is initialized.
-      preferHost: false,
-      counter: 0,
-    });
+    const [counter, setCounter] = useAtom(renderAtom);
 
     useLayoutEffect(() => {
-      const meta = metaRef.current;
-      setCounter((c) => {
-        const next = c + 1;
-        meta.counter = next;
-
-        return next;
-      });
+      setCounter((current) => current + 1);
       return () => {
-        setCounter((c) => {
-          const next = c - 1;
-          meta.counter = next;
-          if (!next) {
-            meta.preferHost = false;
-          }
-          return next;
-        });
+        setCounter((current) => Math.max(0, current - 1));
       };
     }, [setCounter]);
 
-    if (!props.__fallback) {
-      metaRef.current.preferHost = true;
-    }
-
-    // ensure we don't render fallback and host components at the same time
-    if (
-      // either before the counters are initialized
-      (!metaRef.current.counter &&
-        props.__fallback &&
-        metaRef.current.preferHost) ||
-      // or after the counters are initialized, and both are rendered
-      // (this is the default when host renders as well)
-      (metaRef.current.counter > 1 && props.__fallback)
-    ) {
+    // The atom is scoped to the current Excalidraw instance by its tunnel
+    // store. Read its live value so a fallback that mounted first is removed
+    // when a host component arrives later (for example through React.lazy).
+    if (counter > 1 && props.__fallback) {
       return null;
     }
 

@@ -12,7 +12,8 @@ import { ToolPopover } from "./ToolPopover";
 import {
   EraserToolButton,
   FrameToolButton,
-  FreedrawToolButton,
+  FreedrawToolPopover,
+  getToolShortcut,
   HandToolButton,
   ImageToolButton,
   isToolButtonDisabled,
@@ -24,10 +25,12 @@ import {
 import {
   TextIcon,
   ImageIcon,
-  extraToolsIcon,
+  DotsIcon,
   frameToolIcon,
   EmbedIcon,
   laserPointerToolIcon,
+  drawShapeToolIcon,
+  bucketFillIcon,
   mermaidLogoIcon,
   MagicIcon,
 } from "./icons";
@@ -71,8 +74,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
   }, [activeTool.type]);
 
   const frameToolSelected = activeTool.type === "frame";
+  const drawShapeToolSelected = activeTool.type === "autoshape";
   const laserToolSelected = activeTool.type === "laser";
   const embeddableToolSelected = activeTool.type === "embeddable";
+  const bucketFillToolSelected = activeTool.type === "bucketfill";
 
   const { TTDDialogTriggerTunnel } = useTunnels();
 
@@ -107,7 +112,14 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
   const showFrameToolOutside = toolbarWidth >= MIN_WIDTH + 3 * ADDITIONAL_WIDTH;
 
   const extraTools: readonly typeof activeTool.type[] = (
-    ["text", "frame", "embeddable", "laser", "magicframe"] as const
+    [
+      "text",
+      "frame",
+      "embeddable",
+      "laser",
+      "bucketfill",
+      "magicframe",
+    ] as const
   ).filter((tool) => {
     if (showTextToolOutside && tool === "text") {
       return false;
@@ -129,10 +141,12 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
       ? EmbedIcon
       : activeTool.type === "laser"
       ? laserPointerToolIcon
+      : activeTool.type === "bucketfill"
+      ? bucketFillIcon
       : activeTool.type === "magicframe"
       ? MagicIcon
-      : extraToolsIcon
-    : extraToolsIcon;
+      : DotsIcon
+    : DotsIcon;
 
   const toolProps = { app, activeTool };
 
@@ -152,7 +166,7 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
       <SelectionToolPopover {...toolProps} setAppState={setAppState} />
 
       {/* Free Draw */}
-      <FreedrawToolButton {...toolProps} hideShortcut />
+      <FreedrawToolPopover {...toolProps} />
 
       {/* Eraser */}
       <EraserToolButton {...toolProps} hideShortcut />
@@ -286,6 +300,16 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
             {t("toolBar.embeddable")}
           </DropdownMenu.Item>
           <DropdownMenu.Item
+            onSelect={() => app.setActiveTool({ type: "autoshape" })}
+            icon={drawShapeToolIcon}
+            shortcut={getToolShortcut("autoshape")}
+            data-testid="toolbar-autoshape"
+            selected={drawShapeToolSelected}
+            disabled={isToolButtonDisabled(app, "autoshape")}
+          >
+            {t("toolBar.autoshape")}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
             onSelect={() => app.setActiveTool({ type: "laser" })}
             icon={laserPointerToolIcon}
             data-testid="toolbar-laser"
@@ -294,6 +318,16 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
             disabled={isToolButtonDisabled(app, "laser")}
           >
             {t("toolBar.laser")}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => app.setActiveTool({ type: "bucketfill" })}
+            icon={bucketFillIcon}
+            data-testid="toolbar-bucketfill"
+            selected={bucketFillToolSelected}
+            shortcut={KEYS.B.toLocaleUpperCase()}
+            disabled={isToolButtonDisabled(app, "bucketfill")}
+          >
+            {t("toolBar.bucketfill")}
           </DropdownMenu.Item>
           <div style={{ margin: "6px 0", fontSize: 14, fontWeight: 600 }}>
             Generate

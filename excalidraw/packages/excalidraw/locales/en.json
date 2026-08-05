@@ -109,6 +109,7 @@
     "group": "Group selection",
     "ungroup": "Ungroup selection",
     "collaborators": "Collaborators",
+    "you": "You",
     "toggleGrid": "Toggle grid",
     "addToLibrary": "Add to library",
     "removeFromLibrary": "Remove from library",
@@ -332,10 +333,16 @@
     "magicframe": "Wireframe to code",
     "embeddable": "Web Embed",
     "laser": "Laser pointer",
+    "autoshape": "Draw to shape",
+    "bucketfill": "Bucket fill",
     "hand": "Hand (panning tool)",
     "extraTools": "More tools",
     "mermaidToExcalidraw": "Mermaid to Excalidraw",
     "convertElementType": "Toggle shape type"
+  },
+  "bucketfill": {
+    "noRegion": "Couldn't find an enclosed region to fill here.",
+    "tooComplex": "This region is too complex to fill."
   },
   "element": {
     "rectangle": "Rectangle",
@@ -367,6 +374,7 @@
     "freeDraw": "Click and drag, release when you're finished",
     "text": "Tip: you can also add text by double-clicking anywhere with the selection tool",
     "embeddable": "Click-drag to create a website embed",
+    "autoshape": "Draw rectangles, circles, diamonds, lines and arrows",
     "text_selected": "Double-click or press {{shortcut}} to edit text",
     "text_editing": "Press {{shortcut_1}} or {{shortcut_2}} to finish editing",
     "linearElementMulti": "Click on last point or press {{shortcut_1}} or {{shortcut_2}} to finish",
@@ -603,7 +611,9 @@
     "colors": "Colors",
     "shades": "Shades",
     "hexCode": "Hex code",
-    "noShades": "No shades available for this color"
+    "noShades": "No shades available for this color",
+    "invalidColor": "Not a valid color",
+    "invalidHexLength": "Hex code must be 3, 4, 6, or 8 characters"
   },
   "overwriteConfirm": {
     "action": {

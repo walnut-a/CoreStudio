@@ -21,6 +21,7 @@ import {
 import { probablySupportsClipboardBlob } from "../clipboard";
 import { prepareElementsForExport } from "../data";
 import { canvasToBlob } from "../data/blob";
+import { getFrameRenderingForExport } from "../data/exportFrameRendering";
 import { nativeFileSystemSupported } from "../data/filesystem";
 import { useCopyStatus } from "../hooks/useCopiedIndicator";
 
@@ -136,6 +137,9 @@ const ImageExportModal = ({
         exportWithDarkMode,
         exportScale,
         exportEmbedScene: embedScene,
+        frameRendering: getFrameRenderingForExport(
+          appStateSnapshot.frameRendering,
+        ),
       },
       files,
       exportPadding: DEFAULT_EXPORT_PADDING,

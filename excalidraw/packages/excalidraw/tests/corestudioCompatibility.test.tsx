@@ -7,12 +7,7 @@ import type { FileId } from "@excalidraw/element/types";
 
 import { Excalidraw } from "../index";
 
-import type {
-  BinaryFileData,
-  Collaborator,
-  DataURL,
-  SocketId,
-} from "../types";
+import type { BinaryFileData, Collaborator, DataURL, SocketId } from "../types";
 
 import { API } from "./helpers/api";
 import { Keyboard } from "./helpers/ui";
@@ -21,6 +16,24 @@ import { act, render, waitFor } from "./test-utils";
 const { h } = window;
 
 describe("CoreStudio Excalidraw compatibility", () => {
+  it("keeps the host layout seams and top-level controls stable", async () => {
+    const { container } = await render(
+      <Excalidraw UIOptions={{ defaultSidebar: false }} />,
+    );
+
+    expect(
+      container.querySelectorAll('[data-testid="main-menu-trigger"]'),
+    ).toHaveLength(1);
+    expect(container.querySelectorAll(".default-sidebar-trigger")).toHaveLength(
+      0,
+    );
+    expect(container.querySelector(".App-menu_top__left")).not.toBeNull();
+    expect(
+      container.querySelector(".layer-ui__wrapper__top-right"),
+    ).not.toBeNull();
+    expect(container.querySelector(".App-toolbar")).not.toBeNull();
+  });
+
   it("hides the default sidebar when defaultSidebar is false", async () => {
     const { container } = await render(
       <Excalidraw UIOptions={{ defaultSidebar: false }} />,
@@ -98,6 +111,7 @@ describe("CoreStudio Excalidraw compatibility", () => {
 
   it("can render a collaborator as presence-only without enabling follow mode", async () => {
     const { container } = await render(<Excalidraw />);
+    const followIntentSpy = vi.spyOn(h.app, "emitUserFollowIntent");
     const socketId = "presence-only-agent" as SocketId;
     const collaborator: Collaborator & { canFollow: boolean } = {
       id: "codex:thread-1",
@@ -112,22 +126,17 @@ describe("CoreStudio Excalidraw compatibility", () => {
       });
     });
 
-    const moreButton = await waitFor(() => {
-      const element = container.querySelector(".UserList__more");
+    const collaboratorAvatar = await waitFor(() => {
+      const element = container.querySelector(
+        ".UserList__collaborator .Avatar",
+      );
       expect(element).not.toBeNull();
       return element as HTMLElement;
     });
-    fireEvent.click(moreButton);
-    const collaboratorItem = await waitFor(() => {
-      const element = document.querySelector(
-        ".UserList__collaborators .UserList__collaborator",
-      );
-      expect(element).toHaveTextContent("工业设计探索");
-      return element as HTMLElement;
-    });
-    fireEvent.click(collaboratorItem);
+    fireEvent.click(collaboratorAvatar);
 
-    expect(h.state.userToFollow).toBeNull();
+    expect(h.app.props.userToFollow).toBeUndefined();
+    expect(followIntentSpy).not.toHaveBeenCalled();
   });
 
   it("replaces existing files through the imperative API", async () => {

@@ -51,14 +51,16 @@ diff -qr "$TMPDIR/corestudio-import" "$TMPDIR/excalidraw-upstream"
 
 当前 CoreStudio 对上游源码的定制按 `excalidraw/upstream-baseline.json` 中的 `patchGroups` 管理。该文件记录每组补丁的目的、核心路径和合同测试，本文件不再复制容易漂移的逐文件清单。
 
-当前 7 组补丁为：
+当前 9 组补丁为：
 
 - `file-replacement`：图片文件替换和缓存失效；
 - `host-action-integration`：宿主动作 predicate 与 presence-only 协作者控制；
+- `host-ui-fallback`：异步宿主 UI 挂载后抑制上游默认 fallback；
 - `inspector-integration`：CoreStudio Inspector 接入；
 - `viewport-policy`：最小缩放和滚轮策略；
 - `arrange-grid`：选中元素网格排列；
 - `clipboard-and-images`：剪贴板异常处理和图片替换；
+- `export-rendering-policy`：导出图片时隐藏 Frame 名称和边框，同时保留裁剪与编辑态显示；
 - `build-and-test-integration`：桌面工作区、构建与测试接入。
 
 不要默认假设 `packages/` 与 Excalidraw upstream 完全一致。升级前必须运行 upstream 检查工具，并按补丁组复核目录级差异。

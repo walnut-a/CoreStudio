@@ -18,6 +18,12 @@
       "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx"]
     },
     {
+      "id": "host-ui-fallback",
+      "purpose": "Suppress default UI fallbacks when host components mount asynchronously.",
+      "corePaths": ["packages/excalidraw/components/hoc/withInternalFallback.tsx"],
+      "contractTests": ["packages/excalidraw/components/hoc/withInternalFallback.test.tsx"]
+    },
+    {
       "id": "inspector-integration",
       "purpose": "Render selected shape actions in the CoreStudio inspector and suppress the default sidebar.",
       "corePaths": ["packages/excalidraw/components/App.tsx", "packages/excalidraw/components/LayerUI.tsx", "packages/excalidraw/index.tsx", "packages/excalidraw/types.ts"],
@@ -51,6 +57,12 @@
       "purpose": "Preserve CoreStudio clipboard failure handling and image replacement behavior.",
       "corePaths": ["packages/element/src/image.ts", "packages/excalidraw/actions/actionClipboard.tsx"],
       "contractTests": ["packages/element/tests/image.test.ts", "packages/excalidraw/actions/actionClipboard.test.tsx", "apps/image-board-desktop/src/app/projectImageImportController.test.ts"]
+    },
+    {
+      "id": "export-rendering-policy",
+      "purpose": "Hide frame names and outlines in image exports while preserving frame clipping and editor rendering.",
+      "corePaths": ["packages/excalidraw/data/exportFrameRendering.ts", "packages/excalidraw/data/index.ts", "packages/excalidraw/components/ImageExportDialog.tsx"],
+      "contractTests": ["packages/excalidraw/data/exportFrameRendering.test.ts", "packages/excalidraw/data/exportCanvas.test.ts"]
     },
     {
       "id": "build-and-test-integration",

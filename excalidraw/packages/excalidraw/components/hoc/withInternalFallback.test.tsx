@@ -1,7 +1,7 @@
 import React from "react";
 
 import { Excalidraw, MainMenu } from "../../index";
-import { render, queryAllByTestId } from "../../tests/test-utils";
+import { queryAllByTestId, render, waitFor } from "../../tests/test-utils";
 
 describe("Test internal component fallback rendering", () => {
   it("should render only one menu per excalidraw instance (custom menu first scenario)", async () => {
@@ -98,5 +98,21 @@ describe("Test internal component fallback rendering", () => {
     expect(
       queryAllByTestId(excalContainers[1], "main-menu-trigger")?.length,
     ).toBe(1);
+  });
+
+  it("should remove the fallback when a custom menu mounts later", async () => {
+    const { container, rerender } = await render(<Excalidraw />);
+
+    expect(queryAllByTestId(container, "main-menu-trigger")?.length).toBe(1);
+
+    rerender(
+      <Excalidraw>
+        <MainMenu>test</MainMenu>
+      </Excalidraw>,
+    );
+
+    await waitFor(() => {
+      expect(queryAllByTestId(container, "main-menu-trigger")?.length).toBe(1);
+    });
   });
 });

@@ -146,6 +146,48 @@ describe("WelcomePane", () => {
     );
   });
 
+  it("makes project switching availability explicit in Agent Board", () => {
+    const onOpenRecentProject = vi.fn();
+
+    render(
+      <WelcomePane
+        loading={false}
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        recentProjects={[
+          {
+            ...recentProjects[0],
+            selectionAvailability: "current",
+          },
+          {
+            projectPath: "/projects/available",
+            name: "可切换项目",
+            lastOpenedAt: "2026-04-15T08:00:00.000Z",
+            selectionAvailability: "available",
+          },
+          {
+            projectPath: "/projects/unavailable",
+            name: "不可用项目",
+            lastOpenedAt: "2026-04-14T08:00:00.000Z",
+            selectionAvailability: "unavailable",
+          },
+        ]}
+        onOpenRecentProject={onOpenRecentProject}
+        manualProjectActionsVisible={false}
+      />,
+    );
+
+    expect(screen.getByText("当前项目")).toBeInTheDocument();
+    expect(screen.getByText("可切换")).toBeInTheDocument();
+    expect(screen.getByText("不可用")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /常用项目/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /可切换项目/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /不可用项目/ })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /可切换项目/ }));
+    expect(onOpenRecentProject).toHaveBeenCalledWith("/projects/available");
+  });
+
   it("separates deleting a project record from deleting local project data", () => {
     const onRemoveRecentProject = vi.fn();
     const onRevealProject = vi.fn();
@@ -166,7 +208,9 @@ describe("WelcomePane", () => {
 
     const deleteDialog = screen.getByRole("dialog", { name: "删除项目" });
     expect(deleteDialog).toBeInTheDocument();
-    expect(within(deleteDialog).queryByText("项目列表")).not.toBeInTheDocument();
+    expect(
+      within(deleteDialog).queryByText("项目列表"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText("这只会从项目列表移除记录，不会删除本地项目文件夹。"),
     ).toBeInTheDocument();

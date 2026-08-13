@@ -850,6 +850,7 @@ describe("createLocalBridgeServer", () => {
     const listBoardProjectCandidates = vi.fn(async () => candidates);
     const openBoardProjectCandidate = vi.fn(async () => ({
       boardUrl: stableBoardUrl,
+      returnSelectionToken: "return-selection-token",
       project: {
         projectPath: "/projects/a",
         name: "项目 A",
@@ -893,6 +894,7 @@ describe("createLocalBridgeServer", () => {
         ok: true,
         data: {
           boardUrl: stableBoardUrl,
+          returnSelectionToken: "return-selection-token",
           project: {
             projectPath: "/projects/a",
             name: "项目 A",

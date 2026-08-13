@@ -21,6 +21,13 @@ export const enCopy: DesktopCopy = {
     description:
       "Create a local project or open an existing one. Boards, images, prompts, and generation history stay in the project folder.",
     recentTitle: "Projects",
+    projectSelectionTitle: "Choose a project to switch to",
+    projectSelectionDescription:
+      "The current project stays in the list. Choose another available project.",
+    projectSelectionListTitle: "Choose a project",
+    projectCurrent: "Current project",
+    projectAvailable: "Available",
+    projectUnavailable: "Unavailable",
     recentEmpty: "No projects yet. Create or open one to get started.",
     recentLoading: "Loading projects…",
     recentLoadFailed: "Projects could not be loaded right now.",
@@ -599,6 +606,8 @@ export const enCopy: DesktopCopy = {
   agentBoard: {
     connectionClaim: {
       title: "This board is waiting for an Agent",
+      targetProjectLabel: "Project about to connect",
+      returnToProjectSelection: "Back to project selection",
       currentStateTitle: "Current status",
       currentStateDescription:
         "CoreStudio and the project are ready, but this board page is not connected to a local Agent conversation yet, so the canvas cannot open.",

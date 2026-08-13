@@ -51,6 +51,10 @@ describe("welcome pane styles", () => {
       welcomePaneCss,
       ".welcome-pane__recent-name",
     );
+    const recentHeadingRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-heading",
+    );
     const recentPathRule = getRule(
       welcomePaneCss,
       ".welcome-pane__recent-path",
@@ -89,7 +93,8 @@ describe("welcome pane styles", () => {
     expect(recentOpenRule).toContain(
       "grid-template-columns: minmax(0, 1fr) auto",
     );
-    expect(recentNameRule).toContain("grid-column: 1 / -1");
+    expect(recentHeadingRule).toContain("grid-column: 1 / -1");
+    expect(recentNameRule).toContain("text-overflow: ellipsis");
     expect(recentPathRule).toContain("grid-column: 1");
     expect(recentPathRule).toContain("grid-row: 2");
     expect(recentTimeRule).toContain("grid-column: 2");

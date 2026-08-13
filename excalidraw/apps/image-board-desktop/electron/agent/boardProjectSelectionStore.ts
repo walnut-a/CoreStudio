@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 interface BoardProjectSelectionGrant {
   actorId: string;
   displayLabel: string;
+  currentProjectPath?: string;
   expiresAt: number;
 }
 
@@ -65,7 +66,11 @@ export const createBoardProjectSelectionStore = (
   };
 
   return {
-    issue(input: { actorId: string; displayLabel: string }) {
+    issue(input: {
+      actorId: string;
+      displayLabel: string;
+      currentProjectPath?: string;
+    }) {
       prune();
       const token = randomId();
       grants.set(token, {

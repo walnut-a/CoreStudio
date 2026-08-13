@@ -59,7 +59,10 @@ describe("ProjectRoomService", () => {
       readProjectBundle,
       writeProjectScene: vi.fn(async () => ({})),
       canonicalizeProjectPath: vi.fn(async (value) => value),
-      projectProcessLeaseRegistry: { acquire },
+      projectProcessLeaseRegistry: {
+        acquire,
+        canAcquire: vi.fn(async () => true),
+      },
     });
 
     const room = await service.openProject("/projects/project-1");
@@ -81,6 +84,7 @@ describe("ProjectRoomService", () => {
       writeProjectScene: vi.fn(async () => ({})),
       canonicalizeProjectPath: vi.fn(async (value) => value),
       projectProcessLeaseRegistry: {
+        canAcquire: vi.fn(async () => true),
         acquire: vi.fn(async (projectPath: string) => ({
           projectPath,
           owner: {

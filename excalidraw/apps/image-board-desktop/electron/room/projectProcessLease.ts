@@ -24,6 +24,7 @@ export interface ProjectProcessLease {
 
 export interface ProjectProcessLeaseRegistry {
   acquire(projectPath: string): Promise<ProjectProcessLease>;
+  canAcquire(projectPath: string): Promise<boolean>;
 }
 
 interface CreateProjectProcessLeaseRegistryInput
@@ -278,6 +279,15 @@ export const createProjectProcessLeaseRegistry = ({
   };
 
   return {
+    canAcquire: async (projectPath) => {
+      if (leases.has(projectPath) || opening.has(projectPath)) {
+        return true;
+      }
+      return (
+        (await inspectEndpoint(getEndpointPath(projectPath), inspectTimeoutMs))
+          .status === "stale"
+      );
+    },
     acquire: async (projectPath) => {
       const existing = leases.get(projectPath);
       if (existing) {

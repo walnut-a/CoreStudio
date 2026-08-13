@@ -142,6 +142,7 @@ export interface LocalBridgeServerOptions {
     projectPath: string;
   }) => Promise<{
     boardUrl: string;
+    returnSelectionToken: string;
     project: { projectPath: string; name: string };
   }>;
   authenticateProjectRoomWebSocket?: (

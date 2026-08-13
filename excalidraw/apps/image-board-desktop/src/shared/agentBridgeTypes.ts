@@ -74,6 +74,7 @@ export interface StableBoardIntegrationStatus {
   integrationVersion: string;
   bridgeProtocolVersion: number;
   actorClaimed: boolean;
+  projectName?: string;
   issues: StableBoardIntegrationIssue[];
 }
 

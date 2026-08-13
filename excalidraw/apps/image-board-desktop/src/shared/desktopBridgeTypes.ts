@@ -209,6 +209,7 @@ export interface RecentProjectEntry {
   projectPath: string;
   name: string;
   lastOpenedAt: string;
+  selectionAvailability?: "current" | "available" | "unavailable";
 }
 
 export interface DesktopAppInfo {

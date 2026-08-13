@@ -94,6 +94,7 @@ import { createAgentImageGenerationService } from "./agent/agentImageGenerationS
 import { createLocalAgentSessionStore } from "./agent/localAgentSessionStore";
 import { buildAgentBoardUrl } from "./agent/agentBoardUrl";
 import { createBoardProjectSelectionStore } from "./agent/boardProjectSelectionStore";
+import { buildBoardProjectCandidates } from "./agent/boardProjectCandidates";
 import {
   loadRecentProjects,
   rememberRecentProject,
@@ -1240,6 +1241,7 @@ const startLocalBridge = async () => {
             stableBoardId,
             pageNonce,
           }),
+          ...(project ? { projectName: project.name } : {}),
           issues,
         };
       },
@@ -1264,28 +1266,42 @@ const startLocalBridge = async () => {
             { code: "APP_NOT_READY" },
           );
         }
-        if (!(await getAgentProjectByStableBoardId(stableBoardId))) {
+        const project = await getAgentProjectByStableBoardId(stableBoardId);
+        if (!project) {
           throw Object.assign(
             new Error("The stable Agent Board project could not be found."),
             { code: "PROJECT_REQUIRED", details: { stableBoardId } },
           );
         }
         return {
-          selectionToken: boardProjectSelectionStore.issue(
-            stableBoardActorResumeTokenService.verify({
+          selectionToken: boardProjectSelectionStore.issue({
+            ...stableBoardActorResumeTokenService.verify({
               token: actorResumeToken,
               stableBoardId,
               pageNonce,
             }),
-          ),
+            currentProjectPath: project.projectPath,
+          }),
         };
       },
       listBoardProjectCandidates: async (selectionToken) => {
-        boardProjectSelectionStore.authorize(selectionToken);
-        return loadRecentProjects();
+        const grant = boardProjectSelectionStore.authorize(selectionToken);
+        return buildBoardProjectCandidates({
+          projects: await loadRecentProjects(),
+          currentProjectPath: grant.currentProjectPath,
+          readProject: readProjectManifestSnapshot,
+          canOpenProject: (projectPath) =>
+            projectProcessLeaseRegistry.canAcquire(projectPath),
+        });
       },
       openBoardProjectCandidate: async ({ selectionToken, projectPath }) => {
-        boardProjectSelectionStore.authorize(selectionToken);
+        const grant = boardProjectSelectionStore.authorize(selectionToken);
+        if (grant.currentProjectPath === projectPath) {
+          throw Object.assign(
+            new Error("The selected project is already current."),
+            { code: "BAD_REQUEST", details: { projectPath } },
+          );
+        }
         const candidates = await loadRecentProjects();
         if (
           !candidates.some((candidate) => candidate.projectPath === projectPath)
@@ -1299,7 +1315,6 @@ const startLocalBridge = async () => {
           );
         }
         const manifest = await readProjectManifestSnapshot(projectPath);
-        boardProjectSelectionStore.consume(selectionToken);
         const boardUrl = await getStableAgentBoardUrl(projectPath);
         if (!boardUrl) {
           throw Object.assign(
@@ -1307,8 +1322,15 @@ const startLocalBridge = async () => {
             { code: "CAPABILITY_UNAVAILABLE" },
           );
         }
+        boardProjectSelectionStore.consume(selectionToken);
+        const returnSelectionToken = boardProjectSelectionStore.issue({
+          actorId: grant.actorId,
+          displayLabel: grant.displayLabel,
+          currentProjectPath: projectPath,
+        });
         return {
           boardUrl,
+          returnSelectionToken,
           project: {
             projectPath,
             name: manifest.name,

@@ -23,6 +23,7 @@ const readyIntegrationStatus = {
   integrationVersion: "1.9.0",
   bridgeProtocolVersion: 3,
   actorClaimed: false,
+  projectName: "平面设计助手",
   issues: [],
 };
 
@@ -115,7 +116,11 @@ describe("App Agent Board room route", () => {
   });
 
   it("explains how to connect the page while waiting for trusted Codex identity", async () => {
-    window.history.pushState(null, "", "/board/stable-board-id");
+    window.history.pushState(
+      null,
+      "",
+      "/board/stable-board-id?targetProjectName=%E5%B9%B3%E9%9D%A2%E8%AE%BE%E8%AE%A1%E5%8A%A9%E6%89%8B&returnProjectSelectionToken=return-selection-token",
+    );
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -153,6 +158,11 @@ describe("App Agent Board room route", () => {
     });
     expect(
       screen.getByRole("heading", { name: "画布正在等待连接 Agent" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("即将连接的项目")).toBeInTheDocument();
+    expect(screen.getByText("平面设计助手")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "返回选择项目" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "当前状态" }),

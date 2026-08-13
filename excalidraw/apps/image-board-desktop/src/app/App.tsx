@@ -23,7 +23,9 @@ import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 import {
   buildAgentBrowserRouteState,
   exchangeStableAgentBoardSession,
+  getPendingAgentBoardConnection,
   inspectStableAgentBoardIntegration,
+  returnToAgentBoardProjectSelection,
 } from "./agent/agentBrowserBridge";
 import {
   getOrCreateStableBoardPageNonce,
@@ -296,6 +298,9 @@ const App = ({
   });
   const isAgentProjectSelectionRoute =
     isAgentBrowserRoute && Boolean(projectSelectionToken);
+  const pendingAgentBoardConnection = stableBoardId
+    ? getPendingAgentBoardConnection(stableBoardId)
+    : null;
   const isDesktopProjectRenderer = Boolean(desktopProjectPath);
   if (invalidAddress) {
     return (
@@ -2320,6 +2325,18 @@ const App = ({
             <AgentBoardClaimInstructions
               stableBoardId={stableBoardId}
               pageNonce={pageNonce}
+              projectName={
+                stableBoardIntegrationStatus.projectName ??
+                pendingAgentBoardConnection?.projectName
+              }
+              onReturnToProjectSelection={
+                pendingAgentBoardConnection
+                  ? () =>
+                      returnToAgentBoardProjectSelection(
+                        pendingAgentBoardConnection,
+                      )
+                  : undefined
+              }
             />
           </div>
         </div>

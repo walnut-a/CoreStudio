@@ -363,6 +363,14 @@
   border-top: 1px solid var(--default-border-color);
 }
 
+.welcome-pane__recent-item--current {
+  background: color-mix(
+    in srgb,
+    var(--color-surface-primary-container) 52%,
+    var(--island-bg-color)
+  );
+}
+
 .welcome-pane__recent-item--unavailable {
   background: color-mix(
     in srgb,
@@ -402,8 +410,10 @@
   cursor: pointer;
 }
 
-.welcome-pane__recent-item:hover,
-.welcome-pane__recent-item:focus-within {
+.welcome-pane__recent-item:not(.welcome-pane__recent-item--current):not(
+    .welcome-pane__recent-item--unavailable
+  ):hover,
+.welcome-pane__recent-item:not(.welcome-pane__recent-item--current):focus-within {
   background: color-mix(
     in srgb,
     var(--color-primary) 4%,
@@ -431,6 +441,11 @@
 .welcome-pane__recent-delete:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.welcome-pane__recent-item--current .welcome-pane__recent-open:disabled {
+  opacity: 1;
+  cursor: default;
 }
 
 .welcome-pane__recent-heading {
@@ -462,7 +477,11 @@
   line-height: 1.4;
 }
 
-.welcome-pane__recent-availability--current,
+.welcome-pane__recent-availability--current {
+  background: var(--color-surface-primary-container);
+  color: var(--color-on-primary-container);
+}
+
 .welcome-pane__recent-availability--unavailable {
   background: color-mix(
     in srgb,

@@ -207,7 +207,7 @@ export const WelcomePane = ({
                         : selectionAvailability === "unavailable"
                         ? copy.welcome.projectUnavailable
                         : copy.welcome.projectAvailable;
-                    const projectUnavailable =
+                    const projectNotSelectable =
                       selectionAvailability === "current" ||
                       selectionAvailability === "unavailable";
                     return (
@@ -215,8 +215,8 @@ export const WelcomePane = ({
                         key={project.projectPath}
                         className={[
                           "welcome-pane__recent-item",
-                          projectUnavailable
-                            ? "welcome-pane__recent-item--unavailable"
+                          selectionAvailability
+                            ? `welcome-pane__recent-item--${selectionAvailability}`
                             : "",
                         ]
                           .filter(Boolean)
@@ -228,7 +228,12 @@ export const WelcomePane = ({
                           onClick={() =>
                             onOpenRecentProject?.(project.projectPath)
                           }
-                          disabled={loading || projectUnavailable}
+                          disabled={loading || projectNotSelectable}
+                          aria-current={
+                            selectionAvailability === "current"
+                              ? "true"
+                              : undefined
+                          }
                         >
                           <span className="welcome-pane__recent-heading">
                             <span className="welcome-pane__recent-name">

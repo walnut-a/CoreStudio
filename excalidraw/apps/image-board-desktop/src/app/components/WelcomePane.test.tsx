@@ -180,9 +180,22 @@ describe("WelcomePane", () => {
     expect(screen.getByText("当前项目")).toBeInTheDocument();
     expect(screen.getByText("可切换")).toBeInTheDocument();
     expect(screen.getByText("不可用")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /常用项目/ })).toBeDisabled();
+    const currentProjectButton = screen.getByRole("button", {
+      name: /常用项目/,
+    });
+    expect(currentProjectButton).toBeDisabled();
+    expect(currentProjectButton).toHaveAttribute("aria-current", "true");
+    expect(currentProjectButton.closest(".welcome-pane__recent-item")).toHaveClass(
+      "welcome-pane__recent-item--current",
+    );
     expect(screen.getByRole("button", { name: /可切换项目/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /不可用项目/ })).toBeDisabled();
+    const unavailableProjectButton = screen.getByRole("button", {
+      name: /不可用项目/,
+    });
+    expect(unavailableProjectButton).toBeDisabled();
+    expect(
+      unavailableProjectButton.closest(".welcome-pane__recent-item"),
+    ).toHaveClass("welcome-pane__recent-item--unavailable");
 
     fireEvent.click(screen.getByRole("button", { name: /可切换项目/ }));
     expect(onOpenRecentProject).toHaveBeenCalledWith("/projects/available");

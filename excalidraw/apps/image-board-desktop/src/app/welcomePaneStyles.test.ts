@@ -43,6 +43,10 @@ describe("welcome pane styles", () => {
       welcomePaneCss,
       ".welcome-pane__recent-item",
     );
+    const recentCurrentRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-item--current",
+    );
     const recentOpenRule = getRule(
       welcomePaneCss,
       ".welcome-pane__recent-open",
@@ -90,6 +94,14 @@ describe("welcome pane styles", () => {
     expect(recentItemRule).toContain("border: 0");
     expect(recentItemRule).toContain("column-gap: 16px");
     expect(recentItemRule).not.toContain("box-shadow");
+    expect(recentCurrentRule).toContain(
+      "var(--color-surface-primary-container)",
+    );
+    expect(welcomePaneCss).toContain(
+      ".welcome-pane__recent-item--current .welcome-pane__recent-open:disabled",
+    );
+    expect(welcomePaneCss).toContain("opacity: 1");
+    expect(welcomePaneCss).toContain("cursor: default");
     expect(recentOpenRule).toContain(
       "grid-template-columns: minmax(0, 1fr) auto",
     );

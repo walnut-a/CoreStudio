@@ -760,6 +760,85 @@ describe("createLocalBridgeServer", () => {
     });
   });
 
+  it("issues a scoped project-selection session from a claimed stable Board", async () => {
+    const issueBoardProjectSelectionFromStableBoard = vi.fn(async () => ({
+      selectionToken: "selection-token",
+    }));
+    const { server } = await track(
+      startServer({
+        issueBoardProjectSelectionFromStableBoard,
+      }),
+    );
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardProjectSelectionSession,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer actor-resume-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stableBoardId: "stable-board-id",
+          pageNonce: "page-nonce",
+        }),
+      },
+    );
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          boardUrl,
+          selectionToken: "selection-token",
+        },
+      },
+    });
+    expect(issueBoardProjectSelectionFromStableBoard).toHaveBeenCalledWith({
+      stableBoardId: "stable-board-id",
+      pageNonce: "page-nonce",
+      actorResumeToken: "actor-resume-token",
+    });
+  });
+
+  it("rejects stable Board project switching without an actor resume token", async () => {
+    const issueBoardProjectSelectionFromStableBoard = vi.fn(async () => ({
+      selectionToken: "selection-token",
+    }));
+    const { server } = await track(
+      startServer({
+        issueBoardProjectSelectionFromStableBoard,
+      }),
+    );
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.boardProjectSelectionSession,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stableBoardId: "stable-board-id",
+          pageNonce: "page-nonce",
+        }),
+      },
+    );
+
+    expect(result).toEqual({
+      status: 401,
+      body: {
+        ok: false,
+        error: {
+          code: "AUTH_REQUIRED",
+          message: "A valid stable Board actor resume token is required.",
+        },
+      },
+    });
+    expect(issueBoardProjectSelectionFromStableBoard).not.toHaveBeenCalled();
+  });
+
   it("lists candidates and opens their stable Board address", async () => {
     const candidates = [
       {
@@ -912,46 +991,49 @@ describe("createLocalBridgeServer", () => {
       actorId: "agent:claude-code:claude-session-ref",
       displayLabel: "Claude Code · 任务 B",
     },
-  ])("claims the original stable Board with a $host session", async (session) => {
-    const resolveAgentSession = vi.fn(() => ({
-      ...session,
-      issuedAt: "2026-08-02T00:00:00.000Z",
-    }));
-    const claimStableBoardSession = vi.fn(async () => undefined);
-    const { server } = await track(
-      startServer({ resolveAgentSession, claimStableBoardSession }),
-    );
+  ])(
+    "claims the original stable Board with a $host session",
+    async (session) => {
+      const resolveAgentSession = vi.fn(() => ({
+        ...session,
+        issuedAt: "2026-08-02T00:00:00.000Z",
+      }));
+      const claimStableBoardSession = vi.fn(async () => undefined);
+      const { server } = await track(
+        startServer({ resolveAgentSession, claimStableBoardSession }),
+      );
 
-    const claim = await requestJsonWithoutAuth(
-      server.baseUrl,
-      AGENT_HTTP_ROUTES.stableBoardSessionClaim,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CoreStudio-Agent-Session": session.sessionRef,
+      const claim = await requestJsonWithoutAuth(
+        server.baseUrl,
+        AGENT_HTTP_ROUTES.stableBoardSessionClaim,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CoreStudio-Agent-Session": session.sessionRef,
+          },
+          body: JSON.stringify({
+            stableBoardId: "stable-board-id",
+            pageNonce: "page-nonce",
+          }),
         },
-        body: JSON.stringify({
-          stableBoardId: "stable-board-id",
-          pageNonce: "page-nonce",
-        }),
-      },
-    );
+      );
 
-    expect(claim).toEqual({
-      status: 200,
-      body: { ok: true, data: { claimed: true } },
-    });
-    expect(resolveAgentSession).toHaveBeenCalledWith(session.sessionRef);
-    expect(claimStableBoardSession).toHaveBeenCalledWith({
-      stableBoardId: "stable-board-id",
-      pageNonce: "page-nonce",
-      threadId: session.sessionRef,
-      actorId: session.actorId,
-      host: session.host,
-      displayLabel: session.displayLabel,
-    });
-  });
+      expect(claim).toEqual({
+        status: 200,
+        body: { ok: true, data: { claimed: true } },
+      });
+      expect(resolveAgentSession).toHaveBeenCalledWith(session.sessionRef);
+      expect(claimStableBoardSession).toHaveBeenCalledWith({
+        stableBoardId: "stable-board-id",
+        pageNonce: "page-nonce",
+        threadId: session.sessionRef,
+        actorId: session.actorId,
+        host: session.host,
+        displayLabel: session.displayLabel,
+      });
+    },
+  );
 
   it("returns stable Board diagnostics without exposing a browser repair route", async () => {
     const inspectStableBoardIntegration = vi.fn(async () => ({

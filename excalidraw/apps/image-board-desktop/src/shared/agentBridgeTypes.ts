@@ -34,6 +34,7 @@ export const AGENT_HTTP_ROUTES = {
   imageGeneration: "/v1/agent/image-generation",
   authorize: "/v1/agent/authorize",
   boardSession: "/v1/board/session",
+  boardProjectSelectionSession: "/v1/board/projects/session",
   stableBoardSessionClaim: "/v1/agent-board/session/claim",
   stableBoardSessionExchange: "/v1/agent-board/session/exchange",
   stableBoardIntegrationStatus: "/v1/agent-board/integration/status",

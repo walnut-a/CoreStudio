@@ -31,6 +31,7 @@ import type {
 } from "../../shared/projectTypes";
 import {
   getAgentBrowserRoomResumeToken,
+  getOrCreateStableBoardPageNonce,
   getStableBoardActorResumeToken,
 } from "./agentBrowserRoomCredentials";
 
@@ -288,6 +289,44 @@ export const maybeCreateAgentBrowserDesktopBridge =
           AGENT_HTTP_ROUTES.boardProjects,
         );
       },
+      switchAgentBoardProject: async () => {
+        if (!config.stableBoardId) {
+          return;
+        }
+        const actorResumeToken = getStableBoardActorResumeToken(
+          config.stableBoardId,
+        );
+        if (!actorResumeToken) {
+          return rejectUnavailableAgentBoardCapability("项目切换");
+        }
+        const result = await requestAgentBridge<{
+          boardUrl: string | null;
+          selectionToken: string;
+        }>(
+          {
+            bridge: config.bridge,
+            token: actorResumeToken,
+          },
+          AGENT_HTTP_ROUTES.boardProjectSelectionSession,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              stableBoardId: config.stableBoardId,
+              pageNonce: getOrCreateStableBoardPageNonce(config.stableBoardId),
+            }),
+          },
+        );
+        if (!result.boardUrl) {
+          return rejectUnavailableAgentBoardCapability("项目切换");
+        }
+        const nextUrl = new URL(result.boardUrl);
+        nextUrl.searchParams.set(
+          "projectSelectionToken",
+          result.selectionToken,
+        );
+        window.history.replaceState(null, "", nextUrl.toString());
+        window.location.reload();
+      },
       readProjectAssetPayloads: (input) =>
         (() => {
           const resumeToken = getAgentBrowserRoomResumeToken();
@@ -357,8 +396,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
           "Agent Board 不能调用 CoreStudio 内置生成模型，请写回外部生成的图片。",
         );
       },
-      readClipboardImage: () =>
-        rejectUnavailableAgentBoardCapability("系统剪贴板读取"),
       onMenuAction: () => () => undefined,
       notifyRendererReady: () => undefined,
       notifyProjectStateChanged: () => undefined,

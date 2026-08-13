@@ -148,7 +148,6 @@ export const createDesktopStartupRendererActions = ({
 
   const refreshAgentBrowser = async () => {
     void loadAppInfo();
-    void loadProvider();
     await loadRecentProjects();
   };
 

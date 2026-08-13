@@ -1253,6 +1253,33 @@ const startLocalBridge = async () => {
           displayLabel,
         }),
       }),
+      issueBoardProjectSelectionFromStableBoard: async ({
+        stableBoardId,
+        pageNonce,
+        actorResumeToken,
+      }) => {
+        if (!stableBoardActorResumeTokenService) {
+          throw Object.assign(
+            new Error("Stable Board actor recovery is not ready."),
+            { code: "APP_NOT_READY" },
+          );
+        }
+        if (!(await getAgentProjectByStableBoardId(stableBoardId))) {
+          throw Object.assign(
+            new Error("The stable Agent Board project could not be found."),
+            { code: "PROJECT_REQUIRED", details: { stableBoardId } },
+          );
+        }
+        return {
+          selectionToken: boardProjectSelectionStore.issue(
+            stableBoardActorResumeTokenService.verify({
+              token: actorResumeToken,
+              stableBoardId,
+              pageNonce,
+            }),
+          ),
+        };
+      },
       listBoardProjectCandidates: async (selectionToken) => {
         boardProjectSelectionStore.authorize(selectionToken);
         return loadRecentProjects();

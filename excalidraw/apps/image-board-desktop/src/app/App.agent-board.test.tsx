@@ -65,6 +65,9 @@ describe("App Agent Board room route", () => {
     expect(
       screen.queryByRole("status", { name: "正在连接当前项目…" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Agent Board 不提供 模型供应商设置 能力。"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a room connection state instead of the project picker while joining", () => {
@@ -399,6 +402,10 @@ describe("App Agent Board room route", () => {
       height: 512,
     });
     window.history.pushState(null, "", "/board/stable-board-id");
+    window.sessionStorage.setItem(
+      "corestudio:stable-board:stable-board-id:page-nonce",
+      "page-a",
+    );
     window.localStorage.setItem(
       "corestudio:stable-board:stable-board-id:viewport",
       JSON.stringify({
@@ -451,7 +458,45 @@ describe("App Agent Board room route", () => {
         }),
       );
     });
+    act(() => {
+      triggerExcalidrawScrollChange?.({
+        scrollX: 0,
+        scrollY: 0,
+        zoom: { value: 1 },
+      });
+    });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          "corestudio:stable-board:stable-board-id:viewport",
+        ) ?? "null",
+      ),
+    ).toEqual({
+      version: 1,
+      scrollX: -320,
+      scrollY: 180,
+      zoom: { value: 1.4 },
+    });
     triggerExcalidrawInitialize?.();
+    expect(mockExcalidrawAPI?.getAppState()).toEqual(
+      expect.objectContaining({
+        scrollX: -320,
+        scrollY: 180,
+        zoom: { value: 1.4 },
+      }),
+    );
+    expect(mockExcalidrawAPI?.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appState: {
+          scrollX: -320,
+          scrollY: 180,
+          zoom: { value: 1.4 },
+        },
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
 
     act(() => {
       triggerExcalidrawScrollChange?.({
@@ -514,8 +559,8 @@ describe("App Agent Board room route", () => {
     });
     expect(
       JSON.parse(
-        window.localStorage.getItem(
-          "corestudio:stable-board:stable-board-id:viewport",
+        window.sessionStorage.getItem(
+          "corestudio:stable-board:stable-board-id:page:page-a:viewport",
         ) ?? "null",
       ),
     ).toEqual({

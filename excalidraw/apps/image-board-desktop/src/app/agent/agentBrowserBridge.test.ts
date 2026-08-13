@@ -5,7 +5,10 @@ import {
   buildAgentBrowserRouteState,
   maybeCreateAgentBrowserDesktopBridge,
 } from "./agentBrowserBridge";
-import { setAgentBrowserRoomResumeToken } from "./agentBrowserRoomCredentials";
+import {
+  setAgentBrowserRoomResumeToken,
+  setStableBoardActorResumeToken,
+} from "./agentBrowserRoomCredentials";
 
 describe("buildAgentBrowserRouteState", () => {
   it("does not recognize the removed Agent Board route", () => {
@@ -178,6 +181,14 @@ describe("buildAgentBrowserBridgeConfig", () => {
 });
 
 describe("room-scoped Agent Browser assets", () => {
+  it("does not advertise unavailable system clipboard reading", () => {
+    window.history.pushState(null, "", "/board/stable-board-id");
+
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    expect(bridge?.readClipboardImage).toBeUndefined();
+  });
+
   it("loads recent projects through the scoped selection route", async () => {
     window.history.pushState(
       null,
@@ -204,6 +215,49 @@ describe("room-scoped Agent Browser assets", () => {
         }),
       }),
     );
+  });
+
+  it("opens a scoped project-selection route from a stable Board", async () => {
+    window.history.pushState(null, "", "/board/stable-board-id");
+    setStableBoardActorResumeToken("stable-board-id", "actor-resume-token");
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              boardUrl: `${window.location.origin}/board`,
+              selectionToken: "selection-token",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    await bridge?.switchAgentBoardProject?.();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${window.location.origin}/v1/board/projects/session`,
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer actor-resume-token",
+        }),
+        body: expect.stringContaining('"stableBoardId":"stable-board-id"'),
+      }),
+    );
+    expect(window.location.href).toBe(
+      `${window.location.origin}/board?projectSelectionToken=selection-token`,
+    );
+    consoleError.mockRestore();
   });
 
   it("persists assets through the room route without a project token", async () => {

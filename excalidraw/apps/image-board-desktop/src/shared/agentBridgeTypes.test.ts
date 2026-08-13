@@ -28,6 +28,9 @@ describe("agentBridgeTypes", () => {
     expect(AGENT_HTTP_ROUTES.status).toBe("/v1/status");
     expect(AGENT_HTTP_ROUTES.authorize).toBe("/v1/agent/authorize");
     expect(AGENT_HTTP_ROUTES.boardSession).toBe("/v1/board/session");
+    expect(AGENT_HTTP_ROUTES.boardProjectSelectionSession).toBe(
+      "/v1/board/projects/session",
+    );
     expect(AGENT_HTTP_ROUTES.boardProjects).toBe("/v1/board/projects");
     expect(AGENT_HTTP_ROUTES.boardProjectOpen).toBe("/v1/board/projects/open");
     expect(AGENT_HTTP_ROUTES.desktopBridge).toBe("/v1/desktop-bridge");

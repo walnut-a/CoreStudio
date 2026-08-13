@@ -8,6 +8,18 @@ const packageJson = JSON.parse(
   fs.readFileSync(path.join(appRoot, "package.json"), "utf8"),
 ) as {
   scripts: Record<string, string>;
+  build: {
+    dmg: {
+      background?: string;
+      backgroundColor?: string;
+      contents: Array<{
+        x: number;
+        y: number;
+        type: "file" | "link";
+        path?: string;
+      }>;
+    };
+  };
 };
 const releaseGuide = fs.readFileSync(path.join(appRoot, "RELEASE.md"), "utf8");
 const notarizeScript = fs.readFileSync(
@@ -20,6 +32,40 @@ const packageOnceScript = fs.readFileSync(
 );
 
 describe("CoreStudio desktop packaging workflow", () => {
+  it("ships a Retina DMG background with a clear drag-to-install instruction", () => {
+    const dmg = packageJson.build.dmg;
+    const sourcePath = path.join(appRoot, "build/dmg-background.svg");
+    const backgroundPath = path.join(appRoot, "build/dmg-background.png");
+    const retinaBackgroundPath = path.join(
+      appRoot,
+      "build/dmg-background@2x.png",
+    );
+    const readPngSize = (filePath: string) => {
+      const contents = fs.readFileSync(filePath);
+
+      return {
+        width: contents.readUInt32BE(16),
+        height: contents.readUInt32BE(20),
+      };
+    };
+
+    expect(dmg.background).toBe("build/dmg-background.png");
+    expect(dmg.backgroundColor).toBeUndefined();
+    expect(dmg.contents).toEqual([
+      { x: 180, y: 220, type: "file" },
+      { x: 460, y: 220, type: "link", path: "/Applications" },
+    ]);
+    const source = fs.readFileSync(sourcePath, "utf8");
+
+    expect(source).toContain("Drag CoreStudio to the Applications folder");
+    expect(source).not.toMatch(/[\u3400-\u9fff]/u);
+    expect(readPngSize(backgroundPath)).toEqual({ width: 640, height: 420 });
+    expect(readPngSize(retinaBackgroundPath)).toEqual({
+      width: 1280,
+      height: 840,
+    });
+  });
+
   it("builds once and asks electron-builder to create only the DMG", () => {
     const packageScript = packageJson.scripts["package:app:raw"];
 

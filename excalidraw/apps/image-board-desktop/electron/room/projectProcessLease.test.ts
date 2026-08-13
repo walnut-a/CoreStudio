@@ -40,8 +40,7 @@ afterEach(async () => {
 
 describe("project process lease", () => {
   it("allows one Electron owner and rejects a second process for the same project", async () => {
-    const { endpointPath, registry: production } =
-      createRegistry("CoreStudio");
+    const { endpointPath, registry: production } = createRegistry("CoreStudio");
     const development = createProjectProcessLeaseRegistry({
       appName: "CoreStudio Dev",
       pid: process.pid + 1,
@@ -50,6 +49,9 @@ describe("project process lease", () => {
     });
 
     const productionLease = await production.acquire(projectPath);
+
+    await expect(production.canAcquire(projectPath)).resolves.toBe(true);
+    await expect(development.canAcquire(projectPath)).resolves.toBe(false);
 
     await expect(development.acquire(projectPath)).rejects.toMatchObject({
       code: "PROJECT_OPEN_IN_ANOTHER_APP",
@@ -62,6 +64,7 @@ describe("project process lease", () => {
     });
 
     await productionLease.release();
+    await expect(development.canAcquire(projectPath)).resolves.toBe(true);
     const developmentLease = await development.acquire(projectPath);
     await developmentLease.release();
   });

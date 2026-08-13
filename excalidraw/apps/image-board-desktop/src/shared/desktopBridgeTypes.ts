@@ -209,6 +209,7 @@ export interface RecentProjectEntry {
   projectPath: string;
   name: string;
   lastOpenedAt: string;
+  selectionAvailability?: "current" | "available" | "unavailable";
 }
 
 export interface DesktopAppInfo {
@@ -500,6 +501,7 @@ export interface DesktopBridgeApi {
   importImages(): Promise<ImportedImagePayload[]>;
   revealProjectInFinder(projectPath: string): Promise<void>;
   getStableAgentBoardUrl?(projectPath: string): Promise<string | null>;
+  switchAgentBoardProject?(): Promise<void>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
   openExternal?(url: string): Promise<void>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;

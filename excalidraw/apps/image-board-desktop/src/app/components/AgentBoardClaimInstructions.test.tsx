@@ -51,6 +51,24 @@ describe("AgentBoardClaimInstructions", () => {
     ).toBeInTheDocument();
   });
 
+  it("names the project about to connect and can return to project selection", () => {
+    const onReturnToProjectSelection = vi.fn();
+
+    render(
+      <AgentBoardClaimInstructions
+        stableBoardId="board-1"
+        pageNonce="page-1"
+        projectName="平面设计助手"
+        onReturnToProjectSelection={onReturnToProjectSelection}
+      />,
+    );
+
+    expect(screen.getByText("即将连接的项目")).toBeInTheDocument();
+    expect(screen.getByText("平面设计助手")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "返回选择项目" }));
+    expect(onReturnToProjectSelection).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the action available when copying fails", async () => {
     const copyText = vi.fn(async () => false);
 

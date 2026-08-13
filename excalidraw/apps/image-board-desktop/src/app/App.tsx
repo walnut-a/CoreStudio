@@ -23,7 +23,9 @@ import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 import {
   buildAgentBrowserRouteState,
   exchangeStableAgentBoardSession,
+  getPendingAgentBoardConnection,
   inspectStableAgentBoardIntegration,
+  returnToAgentBoardProjectSelection,
 } from "./agent/agentBrowserBridge";
 import {
   getOrCreateStableBoardPageNonce,
@@ -34,6 +36,7 @@ import {
   mergeAgentBoardAuthoritativeAppState,
   mergeAgentBoardInitialAppState,
   readAgentBoardViewportState,
+  type AgentBoardViewportState,
   writeAgentBoardViewportState,
 } from "./agent/agentBoardViewportState";
 import { createProjectRoomFlushLifecycleActions } from "./projectRoomFlushLifecycle";
@@ -295,6 +298,9 @@ const App = ({
   });
   const isAgentProjectSelectionRoute =
     isAgentBrowserRoute && Boolean(projectSelectionToken);
+  const pendingAgentBoardConnection = stableBoardId
+    ? getPendingAgentBoardConnection(stableBoardId)
+    : null;
   const isDesktopProjectRenderer = Boolean(desktopProjectPath);
   if (invalidAddress) {
     return (
@@ -489,6 +495,8 @@ const App = ({
   const stableBoardPageNonceRef = useRef<string | null>(
     stableBoardId ? getOrCreateStableBoardPageNonce(stableBoardId) : null,
   );
+  const pendingAgentBoardViewportRestoreRef =
+    useRef<AgentBoardViewportState | null>(null);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [projectHealthReport, setProjectHealthReport] =
     useState<ProjectHealthReport | null>(null);
@@ -827,12 +835,18 @@ const App = ({
     getScene: () => latestSceneRef.current,
     getSceneReader: () => excalidrawAPIRef.current ?? {},
     recordViewportChange: (scrollX, scrollY, zoom) => {
-      if (stableBoardId) {
-        writeAgentBoardViewportState(stableBoardId, {
-          scrollX,
-          scrollY,
-          zoom,
-        });
+      if (stableBoardId && !isEditorInitializingRef.current) {
+        writeAgentBoardViewportState(
+          stableBoardId,
+          {
+            scrollX,
+            scrollY,
+            zoom,
+          },
+          {
+            pageNonce: stableBoardPageNonceRef.current,
+          },
+        );
       }
     },
     setLatestScene: (scene) => {
@@ -928,7 +942,9 @@ const App = ({
     createAgentBrowserBridgeStatusRetryLoopRendererActions({
       refreshConnection: ({ canApply }) =>
         agentBridgeStatusRendererActions.refreshBrowserConnection({
-          refreshDesktopStartupState: desktopStartupRendererActions.loadAll,
+          refreshDesktopStartupState: isAgentProjectSelectionRoute
+            ? desktopStartupRendererActions.refreshAgentBrowser
+            : desktopStartupRendererActions.loadAll,
           canApply,
         }),
       scheduleTimeout: (callback, delayMs) =>
@@ -942,7 +958,11 @@ const App = ({
       getIsAgentBrowserRoute: () => isAgentBrowserRoute,
       getIsProjectRoomRoute: () =>
         isAgentBrowserRoute && !isAgentProjectSelectionRoute,
-      loadDesktopStartupState: desktopStartupRendererActions.loadAll,
+      loadDesktopStartupState: isAgentProjectSelectionRoute
+        ? () => {
+            void desktopStartupRendererActions.refreshAgentBrowser();
+          }
+        : desktopStartupRendererActions.loadAll,
       startAgentBrowserBridgeStatusRetryLoop:
         agentBrowserBridgeStatusRetryLoopRendererActions.start,
     });
@@ -1570,6 +1590,10 @@ const App = ({
       if (!joined.bootstrap) {
         throw new Error("Agent Board 房间缺少项目初始化数据。");
       }
+      const savedViewport = readAgentBoardViewportState(stableBoardId, {
+        pageNonce: stableBoardPageNonceRef.current,
+      });
+      pendingAgentBoardViewportRestoreRef.current = savedViewport;
       const sceneJson = JSON.stringify({
         type: "excalidraw",
         version: 2,
@@ -1577,7 +1601,7 @@ const App = ({
         elements: joined.snapshot.scene.elements,
         appState: mergeAgentBoardInitialAppState(
           joined.snapshot.scene.sharedSceneConfig,
-          stableBoardId ? readAgentBoardViewportState(stableBoardId) : null,
+          savedViewport,
         ),
         files: {},
       });
@@ -2301,6 +2325,18 @@ const App = ({
             <AgentBoardClaimInstructions
               stableBoardId={stableBoardId}
               pageNonce={pageNonce}
+              projectName={
+                stableBoardIntegrationStatus.projectName ??
+                pendingAgentBoardConnection?.projectName
+              }
+              onReturnToProjectSelection={
+                pendingAgentBoardConnection
+                  ? () =>
+                      returnToAgentBoardProjectSelection(
+                        pendingAgentBoardConnection,
+                      )
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -2428,6 +2464,17 @@ const App = ({
                     void runtime.start().catch(() => undefined);
                   }
                   applyProjectRoomCollaborators(api ?? null);
+                  if (api && stableBoardId) {
+                    const savedViewport =
+                      pendingAgentBoardViewportRestoreRef.current;
+                    if (savedViewport) {
+                      api.updateScene({
+                        appState: savedViewport,
+                        captureUpdate: CaptureUpdateAction.NEVER,
+                      });
+                    }
+                    pendingAgentBoardViewportRestoreRef.current = null;
+                  }
                   currentProjectEditorReadyRendererActions.ready(
                     api ?? null,
                     projectRenderNonce,
@@ -2545,6 +2592,11 @@ const App = ({
                   }}
                   onSwitchProject={() => {
                     if (isAgentBrowserRoute) {
+                      void desktopBridge
+                        .switchAgentBoardProject?.()
+                        .catch((error) => {
+                          setProjectError(formatProjectSaveError(error));
+                        });
                       return;
                     }
                     void desktopBridge

@@ -3,9 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildAgentBrowserBridgeConfig,
   buildAgentBrowserRouteState,
+  getPendingAgentBoardConnection,
   maybeCreateAgentBrowserDesktopBridge,
 } from "./agentBrowserBridge";
-import { setAgentBrowserRoomResumeToken } from "./agentBrowserRoomCredentials";
+import {
+  setAgentBrowserRoomResumeToken,
+  setStableBoardActorResumeToken,
+} from "./agentBrowserRoomCredentials";
 
 describe("buildAgentBrowserRouteState", () => {
   it("does not recognize the removed Agent Board route", () => {
@@ -35,6 +39,18 @@ describe("buildAgentBrowserRouteState", () => {
       buildAgentBrowserRouteState({
         pathname: "/board/stable-board-id",
         href: "http://127.0.0.1:60909/board/stable-board-id",
+      }),
+    ).toEqual({
+      isAgentBrowserRoute: true,
+      stableBoardId: "stable-board-id",
+    });
+  });
+
+  it("accepts only the scoped project title and return token on a stable Board route", () => {
+    expect(
+      buildAgentBrowserRouteState({
+        pathname: "/board/stable-board-id",
+        href: "http://127.0.0.1:60909/board/stable-board-id?targetProjectName=Design&returnProjectSelectionToken=return-token",
       }),
     ).toEqual({
       isAgentBrowserRoute: true,
@@ -178,6 +194,14 @@ describe("buildAgentBrowserBridgeConfig", () => {
 });
 
 describe("room-scoped Agent Browser assets", () => {
+  it("does not advertise unavailable system clipboard reading", () => {
+    window.history.pushState(null, "", "/board/stable-board-id");
+
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    expect(bridge?.readClipboardImage).toBeUndefined();
+  });
+
   it("loads recent projects through the scoped selection route", async () => {
     window.history.pushState(
       null,
@@ -204,6 +228,94 @@ describe("room-scoped Agent Browser assets", () => {
         }),
       }),
     );
+  });
+
+  it("opens a scoped project-selection route from a stable Board", async () => {
+    window.history.pushState(null, "", "/board/stable-board-id");
+    setStableBoardActorResumeToken("stable-board-id", "actor-resume-token");
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              boardUrl: `${window.location.origin}/board`,
+              selectionToken: "selection-token",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    await bridge?.switchAgentBoardProject?.();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${window.location.origin}/v1/board/projects/session`,
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer actor-resume-token",
+        }),
+        body: expect.stringContaining('"stableBoardId":"stable-board-id"'),
+      }),
+    );
+    expect(window.location.href).toBe(
+      `${window.location.origin}/board?projectSelectionToken=selection-token`,
+    );
+    consoleError.mockRestore();
+  });
+
+  it("keeps the selected project title and a scoped return route while opening its Board", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/board?projectSelectionToken=selection-token",
+    );
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              boardUrl: `${window.location.origin}/board/target-board`,
+              project: {
+                projectPath: "/projects/target",
+                name: "平面设计助手",
+              },
+              returnSelectionToken: "return-selection-token",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    await bridge?.openRecentProject?.("/projects/target");
+
+    expect(window.location.href).toBe(
+      `${window.location.origin}/board/target-board?targetProjectName=%E5%B9%B3%E9%9D%A2%E8%AE%BE%E8%AE%A1%E5%8A%A9%E6%89%8B&returnProjectSelectionToken=return-selection-token`,
+    );
+    expect(getPendingAgentBoardConnection("target-board")).toEqual({
+      stableBoardId: "target-board",
+      projectName: "平面设计助手",
+      returnUrl: `${window.location.origin}/board?projectSelectionToken=return-selection-token`,
+    });
+    consoleError.mockRestore();
   });
 
   it("persists assets through the room route without a project token", async () => {

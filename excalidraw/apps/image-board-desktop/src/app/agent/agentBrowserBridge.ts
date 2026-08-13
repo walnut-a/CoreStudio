@@ -31,6 +31,7 @@ import type {
 } from "../../shared/projectTypes";
 import {
   getAgentBrowserRoomResumeToken,
+  getOrCreateStableBoardPageNonce,
   getStableBoardActorResumeToken,
 } from "./agentBrowserRoomCredentials";
 
@@ -52,6 +53,59 @@ export interface AgentBrowserProjectVersion {
   projectPath: string;
   updatedAt: string;
 }
+
+export interface PendingAgentBoardConnection {
+  stableBoardId: string;
+  projectName: string;
+  returnUrl: string;
+}
+
+const TARGET_PROJECT_NAME_PARAM = "targetProjectName";
+const RETURN_PROJECT_SELECTION_TOKEN_PARAM = "returnProjectSelectionToken";
+
+export const getPendingAgentBoardConnection = (
+  stableBoardId: string,
+): PendingAgentBoardConnection | null => {
+  try {
+    const currentUrl = new URL(window.location.href);
+    const currentRoute = buildAgentBrowserRouteState({
+      pathname: currentUrl.pathname,
+      href: currentUrl.toString(),
+    });
+    const projectName = currentUrl.searchParams
+      .get(TARGET_PROJECT_NAME_PARAM)
+      ?.trim();
+    const returnSelectionToken = currentUrl.searchParams
+      .get(RETURN_PROJECT_SELECTION_TOKEN_PARAM)
+      ?.trim();
+    if (
+      currentRoute.stableBoardId !== stableBoardId ||
+      !projectName ||
+      !returnSelectionToken
+    ) {
+      return null;
+    }
+    const returnUrl = new URL(AGENT_BOARD_ROUTE, currentUrl.origin);
+    returnUrl.searchParams.set(
+      "projectSelectionToken",
+      returnSelectionToken,
+    );
+    return {
+      stableBoardId,
+      projectName,
+      returnUrl: returnUrl.toString(),
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const returnToAgentBoardProjectSelection = (
+  connection: PendingAgentBoardConnection,
+) => {
+  window.history.replaceState(null, "", connection.returnUrl);
+  window.location.reload();
+};
 
 interface AgentBridgeStatusResponse {
   ready: boolean;
@@ -101,9 +155,15 @@ export const buildAgentBrowserRouteState = ({
     queryEntries[0][1].trim()
       ? queryEntries[0][1]
       : undefined;
+  const hasValidStableConnectionContext =
+    stableBoardId !== undefined &&
+    queryEntries.length === 2 &&
+    url.searchParams.get(TARGET_PROJECT_NAME_PARAM)?.trim() &&
+    url.searchParams.get(RETURN_PROJECT_SELECTION_TOKEN_PARAM)?.trim() &&
+    new Set(queryEntries.map(([key]) => key)).size === 2;
   const invalidAddress =
     stableBoardId !== undefined
-      ? queryEntries.length > 0
+      ? queryEntries.length > 0 && !hasValidStableConnectionContext
       : queryEntries.length > 0 && !projectSelectionToken;
   return {
     isAgentBrowserRoute,
@@ -259,6 +319,8 @@ export const maybeCreateAgentBrowserDesktopBridge =
         }
         const result = await requestAgentBridge<{
           boardUrl: string;
+          returnSelectionToken: string;
+          project: { projectPath: string; name: string };
         }>(
           {
             bridge: config.bridge,
@@ -272,6 +334,21 @@ export const maybeCreateAgentBrowserDesktopBridge =
         );
         const nextUrl = new URL(result.boardUrl);
         nextUrl.searchParams.delete("projectSelectionToken");
+        const nextRoute = buildAgentBrowserRouteState({
+          pathname: nextUrl.pathname,
+          href: nextUrl.toString(),
+        });
+        if (!nextRoute.stableBoardId) {
+          throw new Error("Agent Bridge 返回了无效的画布地址。");
+        }
+        nextUrl.searchParams.set(
+          TARGET_PROJECT_NAME_PARAM,
+          result.project.name,
+        );
+        nextUrl.searchParams.set(
+          RETURN_PROJECT_SELECTION_TOKEN_PARAM,
+          result.returnSelectionToken,
+        );
         window.history.replaceState(null, "", nextUrl.toString());
         window.location.reload();
         return null;
@@ -287,6 +364,44 @@ export const maybeCreateAgentBrowserDesktopBridge =
           },
           AGENT_HTTP_ROUTES.boardProjects,
         );
+      },
+      switchAgentBoardProject: async () => {
+        if (!config.stableBoardId) {
+          return;
+        }
+        const actorResumeToken = getStableBoardActorResumeToken(
+          config.stableBoardId,
+        );
+        if (!actorResumeToken) {
+          return rejectUnavailableAgentBoardCapability("项目切换");
+        }
+        const result = await requestAgentBridge<{
+          boardUrl: string | null;
+          selectionToken: string;
+        }>(
+          {
+            bridge: config.bridge,
+            token: actorResumeToken,
+          },
+          AGENT_HTTP_ROUTES.boardProjectSelectionSession,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              stableBoardId: config.stableBoardId,
+              pageNonce: getOrCreateStableBoardPageNonce(config.stableBoardId),
+            }),
+          },
+        );
+        if (!result.boardUrl) {
+          return rejectUnavailableAgentBoardCapability("项目切换");
+        }
+        const nextUrl = new URL(result.boardUrl);
+        nextUrl.searchParams.set(
+          "projectSelectionToken",
+          result.selectionToken,
+        );
+        window.history.replaceState(null, "", nextUrl.toString());
+        window.location.reload();
       },
       readProjectAssetPayloads: (input) =>
         (() => {
@@ -357,8 +472,6 @@ export const maybeCreateAgentBrowserDesktopBridge =
           "Agent Board 不能调用 CoreStudio 内置生成模型，请写回外部生成的图片。",
         );
       },
-      readClipboardImage: () =>
-        rejectUnavailableAgentBoardCapability("系统剪贴板读取"),
       onMenuAction: () => () => undefined,
       notifyRendererReady: () => undefined,
       notifyProjectStateChanged: () => undefined,

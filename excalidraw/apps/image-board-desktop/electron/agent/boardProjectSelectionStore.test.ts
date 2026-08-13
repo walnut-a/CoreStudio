@@ -14,10 +14,12 @@ describe("boardProjectSelectionStore", () => {
     const token = store.issue({
       actorId: "codex:thread-a",
       displayLabel: "任务 A",
+      currentProjectPath: "/projects/project-a",
     });
 
     expect(store.authorize(token)).toMatchObject({
       actorId: "codex:thread-a",
+      currentProjectPath: "/projects/project-a",
     });
     expect(store.consume(token)).toMatchObject({
       displayLabel: "任务 A",

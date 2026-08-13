@@ -8,9 +8,16 @@ export interface AgentBoardViewportState {
 
 type ViewportStorageReader = Pick<Storage, "getItem">;
 type ViewportStorageWriter = Pick<Storage, "setItem">;
+type ViewportStorageScope = {
+  pageNonce?: string | null;
+  sessionStorage?: ViewportStorageReader & Partial<ViewportStorageWriter>;
+  persistentStorage?: ViewportStorageReader & Partial<ViewportStorageWriter>;
+};
 
 const viewportStorageKey = (stableBoardId: string) =>
   `corestudio:stable-board:${stableBoardId}:viewport`;
+const pageViewportStorageKey = (stableBoardId: string, pageNonce: string) =>
+  `corestudio:stable-board:${stableBoardId}:page:${pageNonce}:viewport`;
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -42,24 +49,41 @@ const parseViewportState = (value: unknown): AgentBoardViewportState | null => {
   };
 };
 
-export const readAgentBoardViewportState = (
-  stableBoardId: string,
-  storage?: ViewportStorageReader,
+const readStoredViewport = (
+  storage: ViewportStorageReader,
+  key: string,
 ): AgentBoardViewportState | null => {
   try {
-    const serialized = (storage ?? window.localStorage).getItem(
-      viewportStorageKey(stableBoardId),
-    );
+    const serialized = storage.getItem(key);
     return serialized ? parseViewportState(JSON.parse(serialized)) : null;
   } catch {
     return null;
   }
 };
 
+export const readAgentBoardViewportState = (
+  stableBoardId: string,
+  scope: ViewportStorageScope = {},
+): AgentBoardViewportState | null => {
+  if (scope.pageNonce) {
+    const pageViewport = readStoredViewport(
+      scope.sessionStorage ?? window.sessionStorage,
+      pageViewportStorageKey(stableBoardId, scope.pageNonce),
+    );
+    if (pageViewport) {
+      return pageViewport;
+    }
+  }
+  return readStoredViewport(
+    scope.persistentStorage ?? window.localStorage,
+    viewportStorageKey(stableBoardId),
+  );
+};
+
 export const writeAgentBoardViewportState = (
   stableBoardId: string,
   viewport: AgentBoardViewportState,
-  storage?: ViewportStorageWriter,
+  scope: ViewportStorageScope = {},
 ): void => {
   if (
     !isFiniteNumber(viewport.scrollX) ||
@@ -69,18 +93,28 @@ export const writeAgentBoardViewportState = (
   ) {
     return;
   }
+  const serialized = JSON.stringify({
+    version: 1,
+    scrollX: viewport.scrollX,
+    scrollY: viewport.scrollY,
+    zoom: { value: viewport.zoom.value },
+  });
   try {
-    (storage ?? window.localStorage).setItem(
-      viewportStorageKey(stableBoardId),
-      JSON.stringify({
-        version: 1,
-        scrollX: viewport.scrollX,
-        scrollY: viewport.scrollY,
-        zoom: { value: viewport.zoom.value },
-      }),
-    );
+    if (scope.pageNonce) {
+      const sessionStorage = scope.sessionStorage ?? window.sessionStorage;
+      sessionStorage.setItem?.(
+        pageViewportStorageKey(stableBoardId, scope.pageNonce),
+        serialized,
+      );
+    }
   } catch {
-    // A disabled or full persistent store should not interrupt navigation.
+    // A disabled or full page store should not interrupt navigation.
+  }
+  try {
+    const persistentStorage = scope.persistentStorage ?? window.localStorage;
+    persistentStorage.setItem?.(viewportStorageKey(stableBoardId), serialized);
+  } catch {
+    // The durable fallback is best-effort for recreated browser sessions.
   }
 };
 

@@ -7,6 +7,8 @@ import { DesktopButton } from "./DesktopButton";
 interface AgentBoardClaimInstructionsProps {
   stableBoardId: string;
   pageNonce: string;
+  projectName?: string;
+  onReturnToProjectSelection?: () => void;
   copyText?: (text: string) => Promise<boolean>;
 }
 
@@ -34,6 +36,8 @@ export const buildAgentBoardClaimInstruction = ({
 export const AgentBoardClaimInstructions = ({
   stableBoardId,
   pageNonce,
+  projectName,
+  onReturnToProjectSelection,
   copyText = copyPlainTextToClipboard,
 }: AgentBoardClaimInstructionsProps) => {
   const [copying, setCopying] = useState(false);
@@ -70,6 +74,12 @@ export const AgentBoardClaimInstructions = ({
       <span className="welcome-pane__eyebrow">Agent Board</span>
       <div className="welcome-pane__claim-copy">
         <h1 id="agent-board-claim-title">{claimCopy.title}</h1>
+        {projectName ? (
+          <div className="welcome-pane__claim-project">
+            <span>{claimCopy.targetProjectLabel}</span>
+            <strong>{projectName}</strong>
+          </div>
+        ) : null}
         <div className="welcome-pane__claim-steps">
           <section>
             <h2>{claimCopy.currentStateTitle}</h2>
@@ -93,6 +103,11 @@ export const AgentBoardClaimInstructions = ({
         >
           {copying ? claimCopy.copying : claimCopy.copyAction}
         </DesktopButton>
+        {onReturnToProjectSelection ? (
+          <DesktopButton onClick={onReturnToProjectSelection}>
+            {claimCopy.returnToProjectSelection}
+          </DesktopButton>
+        ) : null}
         {feedback ? (
           <p
             className="welcome-pane__claim-feedback"

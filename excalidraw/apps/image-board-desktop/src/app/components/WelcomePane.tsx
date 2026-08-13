@@ -53,6 +53,7 @@ export const WelcomePane = ({
     manualProjectActionsVisible &&
     recentProjectsLoadStatus === "loaded" &&
     recentProjects.length === 0;
+  const projectSelectionMode = !manualProjectActionsVisible;
   const providerConfigured = providerConfigurationStatus === "configured";
   const providerStatusLabel =
     providerConfigurationStatus === "loading"
@@ -69,8 +70,17 @@ export const WelcomePane = ({
             <span className="welcome-pane__eyebrow">
               {copy.welcome.eyebrow}
             </span>
-            <h1 id="welcome-title">{copy.welcome.title}</h1>
-            <p>{copy.welcome.description}</p>
+            {projectSelectionMode ? (
+              <>
+                <h1 id="welcome-title">{copy.welcome.projectSelectionTitle}</h1>
+                <p>{copy.welcome.projectSelectionDescription}</p>
+              </>
+            ) : (
+              <>
+                <h1 id="welcome-title">{copy.welcome.title}</h1>
+                <p>{copy.welcome.description}</p>
+              </>
+            )}
           </div>
           {manualProjectActionsVisible ? (
             <div className="welcome-pane__actions">
@@ -179,55 +189,94 @@ export const WelcomePane = ({
           ) : (
             <>
               <div className="welcome-pane__recent-header">
-                <h2>{copy.welcome.recentTitle}</h2>
+                <h2>
+                  {projectSelectionMode
+                    ? copy.welcome.projectSelectionListTitle
+                    : copy.welcome.recentTitle}
+                </h2>
               </div>
               {recentProjects.length ? (
                 <div className="welcome-pane__recent-list">
-                  {recentProjects.map((project) => (
-                    <div
-                      key={project.projectPath}
-                      className="welcome-pane__recent-item"
-                    >
-                      <button
-                        type="button"
-                        className="welcome-pane__recent-open"
-                        onClick={() =>
-                          onOpenRecentProject?.(project.projectPath)
-                        }
-                        disabled={loading}
+                  {recentProjects.map((project) => {
+                    const selectionAvailability = projectSelectionMode
+                      ? project.selectionAvailability ?? "available"
+                      : undefined;
+                    const selectionLabel =
+                      selectionAvailability === "current"
+                        ? copy.welcome.projectCurrent
+                        : selectionAvailability === "unavailable"
+                        ? copy.welcome.projectUnavailable
+                        : copy.welcome.projectAvailable;
+                    const projectNotSelectable =
+                      selectionAvailability === "current" ||
+                      selectionAvailability === "unavailable";
+                    return (
+                      <div
+                        key={project.projectPath}
+                        className={[
+                          "welcome-pane__recent-item",
+                          selectionAvailability
+                            ? `welcome-pane__recent-item--${selectionAvailability}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                       >
-                        <span className="welcome-pane__recent-name">
-                          {project.name}
-                        </span>
-                        <span className="welcome-pane__recent-path">
-                          {project.projectPath}
-                        </span>
-                        <time
-                          className="welcome-pane__recent-time"
-                          dateTime={project.lastOpenedAt}
-                        >
-                          <span>{copy.welcome.lastOpenedAt}</span>
-                          <span>
-                            {new Date(project.lastOpenedAt).toLocaleString(
-                              DESKTOP_LANG_CODE,
-                            )}
-                          </span>
-                        </time>
-                      </button>
-                      {manualProjectActionsVisible ? (
                         <button
                           type="button"
-                          className="welcome-pane__recent-delete"
-                          aria-label={`${copy.welcome.deleteProject}：${project.name}`}
-                          title={`${copy.welcome.deleteProject}：${project.name}`}
-                          onClick={() => setDeleteTarget(project)}
-                          disabled={loading}
+                          className="welcome-pane__recent-open"
+                          onClick={() =>
+                            onOpenRecentProject?.(project.projectPath)
+                          }
+                          disabled={loading || projectNotSelectable}
+                          aria-current={
+                            selectionAvailability === "current"
+                              ? "true"
+                              : undefined
+                          }
                         >
-                          {trashProjectIcon}
+                          <span className="welcome-pane__recent-heading">
+                            <span className="welcome-pane__recent-name">
+                              {project.name}
+                            </span>
+                            {selectionAvailability ? (
+                              <span
+                                className={`welcome-pane__recent-availability welcome-pane__recent-availability--${selectionAvailability}`}
+                              >
+                                {selectionLabel}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="welcome-pane__recent-path">
+                            {project.projectPath}
+                          </span>
+                          <time
+                            className="welcome-pane__recent-time"
+                            dateTime={project.lastOpenedAt}
+                          >
+                            <span>{copy.welcome.lastOpenedAt}</span>
+                            <span>
+                              {new Date(project.lastOpenedAt).toLocaleString(
+                                DESKTOP_LANG_CODE,
+                              )}
+                            </span>
+                          </time>
                         </button>
-                      ) : null}
-                    </div>
-                  ))}
+                        {manualProjectActionsVisible ? (
+                          <button
+                            type="button"
+                            className="welcome-pane__recent-delete"
+                            aria-label={`${copy.welcome.deleteProject}：${project.name}`}
+                            title={`${copy.welcome.deleteProject}：${project.name}`}
+                            onClick={() => setDeleteTarget(project)}
+                            disabled={loading}
+                          >
+                            {trashProjectIcon}
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="welcome-pane__recent-empty">

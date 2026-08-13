@@ -32,6 +32,13 @@ const zhCnCopy = {
     description:
       "新建一个本地项目，或打开之前的项目。画板、图片、提示词和生成记录都会保存在项目文件夹里。",
     recentTitle: "项目列表",
+    projectSelectionTitle: "选择要切换到的项目",
+    projectSelectionDescription:
+      "当前项目会保留在列表中，请选择另一个可用项目。",
+    projectSelectionListTitle: "选择项目",
+    projectCurrent: "当前项目",
+    projectAvailable: "可切换",
+    projectUnavailable: "不可用",
     recentEmpty: "还没有项目，先新建或打开一个项目。",
     recentLoading: "正在加载项目列表…",
     recentLoadFailed: "暂时无法加载项目列表。",
@@ -579,6 +586,8 @@ const zhCnCopy = {
   agentBoard: {
     connectionClaim: {
       title: "画布正在等待连接 Agent",
+      targetProjectLabel: "即将连接的项目",
+      returnToProjectSelection: "返回选择项目",
       currentStateTitle: "当前状态",
       currentStateDescription:
         "CoreStudio 和项目已经就绪，但这个画布页面尚未连接到本地 Agent 对话，因此暂时无法进入画布。",

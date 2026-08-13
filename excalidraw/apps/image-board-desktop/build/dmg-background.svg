@@ -1,0 +1,81 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="640"
+  height="420"
+  viewBox="0 0 640 420"
+  role="img"
+  aria-labelledby="title description"
+>
+  <title id="title">CoreStudio installer background</title>
+  <desc id="description">Drag CoreStudio to the Applications folder to install</desc>
+
+  <rect width="640" height="420" fill="#f1f0ed" />
+  <rect width="640" height="104" fill="#25262a" />
+  <path d="M0 104H640" stroke="#b8b9bd" stroke-width="1" />
+
+  <image
+    href="icon.png"
+    x="524"
+    y="8"
+    width="88"
+    height="88"
+    opacity="0.78"
+    preserveAspectRatio="xMidYMid meet"
+  />
+
+  <text
+    x="42"
+    y="46"
+    fill="#f5f5f3"
+    font-family="Helvetica Neue, Arial, sans-serif"
+    font-size="22"
+    font-weight="600"
+  >Install CoreStudio</text>
+  <text
+    x="42"
+    y="74"
+    fill="#bdbec2"
+    font-family="Helvetica Neue, Arial, sans-serif"
+    font-size="13"
+  >Drag CoreStudio to the Applications folder</text>
+
+  <rect
+    x="31.5"
+    y="123.5"
+    width="577"
+    height="225"
+    rx="18"
+    fill="#faf9f7"
+    stroke="#d4d3d0"
+  />
+
+  <text
+    x="320"
+    y="173"
+    fill="#77787d"
+    font-family="Helvetica Neue, Arial, sans-serif"
+    font-size="10"
+    font-weight="600"
+    letter-spacing="1.6"
+    text-anchor="middle"
+  >DRAG TO INSTALL</text>
+  <g
+    fill="none"
+    stroke="#45464b"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="260" cy="220" r="4" fill="#faf9f7" stroke-width="1.75" />
+    <path d="M269 220h102" stroke-width="2" />
+    <path d="m364 212 9 8-9 8" stroke-width="2" />
+  </g>
+
+  <text
+    x="320"
+    y="386"
+    fill="#6c6d71"
+    font-family="Helvetica Neue, Arial, sans-serif"
+    font-size="11"
+    text-anchor="middle"
+  >Open CoreStudio from Applications after the copy completes.</text>
+</svg>

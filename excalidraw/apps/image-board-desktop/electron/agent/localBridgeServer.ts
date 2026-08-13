@@ -129,6 +129,11 @@ export interface LocalBridgeServerOptions {
     host?: AgentHost;
     displayLabel: string;
   }) => Promise<{ selectionToken: string }>;
+  issueBoardProjectSelectionFromStableBoard?: (input: {
+    stableBoardId: string;
+    pageNonce: string;
+    actorResumeToken: string;
+  }) => Promise<{ selectionToken: string }>;
   listBoardProjectCandidates?: (
     selectionToken: string,
   ) => Promise<RecentProjectEntry[]>;
@@ -137,6 +142,7 @@ export interface LocalBridgeServerOptions {
     projectPath: string;
   }) => Promise<{
     boardUrl: string;
+    returnSelectionToken: string;
     project: { projectPath: string; name: string };
   }>;
   authenticateProjectRoomWebSocket?: (
@@ -1247,6 +1253,68 @@ export const createLocalBridgeServer = async (
 
       if (request.method === "OPTIONS") {
         sendCorsPreflight(response);
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === AGENT_HTTP_ROUTES.boardProjectSelectionSession
+      ) {
+        const actorResumeToken = getBearerToken(request);
+        if (
+          !actorResumeToken ||
+          !options.issueBoardProjectSelectionFromStableBoard
+        ) {
+          sendError(
+            response,
+            401,
+            "AUTH_REQUIRED",
+            "A valid stable Board actor resume token is required.",
+          );
+          return;
+        }
+        let body: JsonBody;
+        try {
+          body = await readRequestBody(
+            request,
+            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
+          );
+        } catch (error) {
+          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
+            message: getErrorMessage(error),
+          });
+          return;
+        }
+        if (
+          typeof body.stableBoardId !== "string" ||
+          !body.stableBoardId.trim() ||
+          typeof body.pageNonce !== "string" ||
+          !body.pageNonce.trim()
+        ) {
+          sendError(
+            response,
+            400,
+            "BAD_REQUEST",
+            "Stable Board project selection requires stableBoardId and pageNonce.",
+          );
+          return;
+        }
+        try {
+          sendJson(
+            response,
+            200,
+            createAgentOk({
+              ...(await options.issueBoardProjectSelectionFromStableBoard({
+                stableBoardId: body.stableBoardId,
+                pageNonce: body.pageNonce,
+                actorResumeToken,
+              })),
+              boardUrl: options.getBoardUrl?.() ?? null,
+            }),
+          );
+        } catch (error) {
+          sendRendererError(response, error);
+        }
         return;
       }
 

@@ -21,12 +21,16 @@ const createStorage = () => {
 const zoom = (value: number) => ({ value } as AppState["zoom"]);
 
 describe("agentBoardViewportState", () => {
-  it("persists the viewport across a full browser reload", () => {
-    writeAgentBoardViewportState("board-a", {
-      scrollX: -480,
-      scrollY: 260,
-      zoom: zoom(1.6),
-    });
+  it("persists the viewport for the current page with a durable fallback", () => {
+    writeAgentBoardViewportState(
+      "board-a",
+      {
+        scrollX: -480,
+        scrollY: 260,
+        zoom: zoom(1.6),
+      },
+      { pageNonce: "page-a" },
+    );
 
     expect(
       JSON.parse(
@@ -41,19 +45,29 @@ describe("agentBoardViewportState", () => {
       zoom: { value: 1.6 },
     });
     expect(
-      window.sessionStorage.getItem(
-        "corestudio:stable-board:board-a:viewport",
+      JSON.parse(
+        window.sessionStorage.getItem(
+          "corestudio:stable-board:board-a:page:page-a:viewport",
+        ) ?? "null",
       ),
-    ).toBeNull();
-    expect(readAgentBoardViewportState("board-a")).toEqual({
+    ).toEqual({
+      version: 1,
+      scrollX: -480,
+      scrollY: 260,
+      zoom: { value: 1.6 },
+    });
+    expect(
+      readAgentBoardViewportState("board-a", { pageNonce: "page-a" }),
+    ).toEqual({
       scrollX: -480,
       scrollY: 260,
       zoom: { value: 1.6 },
     });
   });
 
-  it("stores and restores the viewport independently for each stable board", () => {
-    const storage = createStorage();
+  it("prefers the current page viewport over another page's durable fallback", () => {
+    const sessionStorage = createStorage();
+    const persistentStorage = createStorage();
 
     writeAgentBoardViewportState(
       "board-a",
@@ -62,15 +76,70 @@ describe("agentBoardViewportState", () => {
         scrollY: 180,
         zoom: zoom(1.4),
       },
-      storage,
+      { pageNonce: "page-a", sessionStorage, persistentStorage },
+    );
+    writeAgentBoardViewportState(
+      "board-a",
+      {
+        scrollX: -700,
+        scrollY: 360,
+        zoom: zoom(1.8),
+      },
+      { pageNonce: "page-b", sessionStorage, persistentStorage },
     );
 
-    expect(readAgentBoardViewportState("board-a", storage)).toEqual({
-      scrollX: -320,
-      scrollY: 180,
-      zoom: { value: 1.4 },
-    });
-    expect(readAgentBoardViewportState("board-b", storage)).toBeNull();
+    expect(
+      readAgentBoardViewportState("board-a", {
+        pageNonce: "page-a",
+        sessionStorage,
+        persistentStorage,
+      }),
+    ).toEqual({ scrollX: -320, scrollY: 180, zoom: { value: 1.4 } });
+    expect(
+      readAgentBoardViewportState("board-a", {
+        pageNonce: "page-b",
+        sessionStorage,
+        persistentStorage,
+      }),
+    ).toEqual({ scrollX: -700, scrollY: 360, zoom: { value: 1.8 } });
+  });
+
+  it("falls back to the durable viewport when the page session was recreated", () => {
+    const persistentStorage = createStorage();
+    writeAgentBoardViewportState(
+      "board-a",
+      { scrollX: -320, scrollY: 180, zoom: zoom(1.4) },
+      { pageNonce: "old-page", persistentStorage },
+    );
+
+    expect(
+      readAgentBoardViewportState("board-a", {
+        pageNonce: "new-page",
+        sessionStorage: createStorage(),
+        persistentStorage,
+      }),
+    ).toEqual({ scrollX: -320, scrollY: 180, zoom: { value: 1.4 } });
+  });
+
+  it("still reads the durable fallback when page storage is unavailable", () => {
+    const persistentStorage = createStorage();
+    writeAgentBoardViewportState(
+      "board-a",
+      { scrollX: -320, scrollY: 180, zoom: zoom(1.4) },
+      { persistentStorage },
+    );
+
+    expect(
+      readAgentBoardViewportState("board-a", {
+        pageNonce: "page-a",
+        sessionStorage: {
+          getItem: () => {
+            throw new Error("session storage disabled");
+          },
+        },
+        persistentStorage,
+      }),
+    ).toEqual({ scrollX: -320, scrollY: 180, zoom: { value: 1.4 } });
   });
 
   it("ignores malformed or unsafe stored values", () => {
@@ -85,7 +154,11 @@ describe("agentBoardViewportState", () => {
       }),
     );
 
-    expect(readAgentBoardViewportState("board-a", storage)).toBeNull();
+    expect(
+      readAgentBoardViewportState("board-a", {
+        persistentStorage: storage,
+      }),
+    ).toBeNull();
   });
 
   it("restores the saved viewport over the room scene configuration", () => {

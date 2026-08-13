@@ -253,7 +253,7 @@ describe("createDesktopStartupRendererActions", () => {
     await actions.refreshAgentBrowser();
 
     expect(bridge.loadAppInfo).toHaveBeenCalledTimes(1);
-    expect(bridge.loadProviderSettings).toHaveBeenCalledTimes(1);
+    expect(bridge.loadProviderSettings).not.toHaveBeenCalled();
     expect(bridge.loadRecentProjects).toHaveBeenCalledTimes(1);
   });
 });

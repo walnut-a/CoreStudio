@@ -17,6 +17,9 @@ build
 apps/image-board-desktop/build/*
 !apps/image-board-desktop/build/icon.icns
 !apps/image-board-desktop/build/icon.png
+!apps/image-board-desktop/build/dmg-background.svg
+!apps/image-board-desktop/build/dmg-background.png
+!apps/image-board-desktop/build/dmg-background@2x.png
 dist
 firebase
 logs

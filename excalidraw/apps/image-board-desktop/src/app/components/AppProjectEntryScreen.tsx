@@ -19,6 +19,7 @@ interface AppProjectEntryScreenProps {
   providerConfigurationStatus: ProviderConfigurationStatus;
   onCreateProject: () => void;
   onOpenProject: () => void;
+  onReloadRecentProjects?: () => void | Promise<void>;
   onOpenProviderSettings: () => void;
   onOpenRecentProject: (projectPath: string) => void;
   onRemoveRecentProject: (projectPath: string) => void | Promise<void>;
@@ -39,6 +40,7 @@ export const AppProjectEntryScreen = ({
   providerConfigurationStatus,
   onCreateProject,
   onOpenProject,
+  onReloadRecentProjects,
   onOpenProviderSettings,
   onOpenRecentProject,
   onRemoveRecentProject,
@@ -55,6 +57,7 @@ export const AppProjectEntryScreen = ({
         loading={loadingProject}
         onCreateProject={onCreateProject}
         onOpenProject={onOpenProject}
+        onReloadRecentProjects={onReloadRecentProjects}
         recentProjects={recentProjects}
         recentProjectsLoadStatus={recentProjectsLoadStatus}
         providerConfigurationStatus={providerConfigurationStatus}

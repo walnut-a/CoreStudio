@@ -40,8 +40,17 @@ const zhCnCopy = {
     projectAvailable: "可切换",
     projectUnavailable: "不可用",
     recentEmpty: "还没有项目，先新建或打开一个项目。",
-    recentLoading: "正在加载项目列表…",
-    recentLoadFailed: "暂时无法加载项目列表。",
+    recentLoadingTitle: "正在读取项目列表",
+    recentLoadingDescription: "CoreStudio 正在准备最近项目，请稍候。",
+    recentLoadFailedTitle: "未能读取项目列表",
+    recentLoadFailedDescription:
+      "这个列表由正在运行的 CoreStudio 提供。应用已关闭、正在重启，或当前页面连接已过期时，项目就不会显示。",
+    recentLoadFailedInstruction:
+      "确认 CoreStudio 正在运行，然后重新加载。若刚重启过应用，请从当前画板重新打开“切换项目”。",
+    recentReload: "重新加载项目列表",
+    projectSelectionEmptyTitle: "没有可切换的项目",
+    projectSelectionEmptyDescription:
+      "请先在 CoreStudio 中新建或打开另一个项目，再回到这里重新加载。",
     gettingStartedTitle: "三步开始创作",
     gettingStartedDescription: "这些步骤不会阻断操作，你可以按自己的顺序开始。",
     setupProviderTitle: "配置图片生成服务",

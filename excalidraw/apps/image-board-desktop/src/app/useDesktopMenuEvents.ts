@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import type { DesktopMenuEvent } from "../shared/desktopBridgeTypes";
+import { isNativeTextEditControl } from "../shared/nativeEditContextReporter";
 
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { dispatchDesktopEditCommand } from "./desktopEditCommand";
@@ -25,13 +26,30 @@ export const useDesktopMenuEvents = (
       document.activeElement !== document.body
         ? document.activeElement
         : null;
-    const rememberInteractionTarget = (event: Event) => {
+    const rememberFocusedTarget = (event: Event) => {
       if (event.target instanceof HTMLElement) {
         lastFocusedElement = event.target;
       }
     };
-    document.addEventListener("focus", rememberInteractionTarget, true);
-    document.addEventListener("pointerdown", rememberInteractionTarget, true);
+    const rememberPointerTarget = (event: Event) => {
+      if (
+        event.target instanceof HTMLElement &&
+        !isNativeTextEditControl(event.target)
+      ) {
+        lastFocusedElement = event.target;
+      }
+    };
+    const forgetBlurredNativeTarget = (event: Event) => {
+      if (
+        event.target === lastFocusedElement &&
+        isNativeTextEditControl(event.target)
+      ) {
+        lastFocusedElement = null;
+      }
+    };
+    document.addEventListener("focus", rememberFocusedTarget, true);
+    document.addEventListener("blur", forgetBlurredNativeTarget, true);
+    document.addEventListener("pointerdown", rememberPointerTarget, true);
 
     const unsubscribe = bridge.onMenuAction((event) => {
       if (
@@ -54,12 +72,9 @@ export const useDesktopMenuEvents = (
     });
 
     return () => {
-      document.removeEventListener("focus", rememberInteractionTarget, true);
-      document.removeEventListener(
-        "pointerdown",
-        rememberInteractionTarget,
-        true,
-      );
+      document.removeEventListener("focus", rememberFocusedTarget, true);
+      document.removeEventListener("blur", forgetBlurredNativeTarget, true);
+      document.removeEventListener("pointerdown", rememberPointerTarget, true);
       unsubscribe();
     };
   }, []);

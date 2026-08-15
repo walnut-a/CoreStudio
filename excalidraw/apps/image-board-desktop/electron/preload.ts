@@ -9,6 +9,7 @@ import {
 } from "../src/shared/desktopBridgeTypes";
 import type { DesktopProjectRoomEventEnvelope } from "../src/shared/projectRoomProtocol";
 import { isAgentErrorCode } from "../src/shared/agentBridgeTypes";
+import { installNativeEditContextReporter } from "../src/shared/nativeEditContextReporter";
 
 import type {
   AgentRendererCommandRequest,
@@ -254,4 +255,7 @@ const desktopBridge: DesktopBridgeApi = {
   },
 };
 
+installNativeEditContextReporter((nativeTextContext) => {
+  ipcRenderer.send(IPC_CHANNELS.nativeEditContextChanged, nativeTextContext);
+});
 contextBridge.exposeInMainWorld("imageBoardDesktop", desktopBridge);

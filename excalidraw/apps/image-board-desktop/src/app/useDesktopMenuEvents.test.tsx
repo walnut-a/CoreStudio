@@ -52,4 +52,44 @@ describe("useDesktopMenuEvents", () => {
     expect(received).toHaveBeenCalledOnce();
     expect(received.mock.calls[0][0]).toMatchObject({ key: "a" });
   });
+
+  it.each(["blur", "pointerdown"] as const)(
+    "does not retain a native input after %s without focus",
+    (interaction) => {
+      let menuListener: ((event: DesktopMenuEvent) => void) | null = null;
+      window.imageBoardDesktop = {
+        onMenuAction: (listener) => {
+          menuListener = listener;
+          return () => undefined;
+        },
+      } as DesktopBridgeApi;
+      const received = vi.fn<(event: globalThis.KeyboardEvent) => void>();
+      document.addEventListener("keydown", received);
+
+      const TestSurface = () => {
+        const handlerRef = useRef(vi.fn());
+        useDesktopMenuEvents(handlerRef.current);
+        return <input aria-label="原生输入" />;
+      };
+
+      const { getByRole } = render(<TestSurface />);
+      const input = getByRole("textbox", { name: "原生输入" });
+      if (interaction === "blur") {
+        input.focus();
+        input.blur();
+      } else {
+        fireEvent.pointerDown(input);
+      }
+
+      act(() => {
+        menuListener?.({ action: "edit-select-all" });
+      });
+
+      expect(received).toHaveBeenCalledOnce();
+      expect(received.mock.calls[0][0]).toMatchObject({ key: "a" });
+      expect(received.mock.calls[0][0].target).toBe(document.body);
+
+      document.removeEventListener("keydown", received);
+    },
+  );
 });

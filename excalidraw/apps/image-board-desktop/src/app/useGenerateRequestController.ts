@@ -122,10 +122,9 @@ export const useGenerateRequestController = ({
     return commitRequest(nextRequest, customModels);
   };
 
-  const setPromptReferences = (
+  const cachePromptReferences = (
     references: readonly GenerationPromptReferencePayload[],
   ) => {
-    promptReferencesRef.current = [...references];
     const referencesById = new Map(
       promptReferenceCacheRef.current.map((reference) => [
         reference.id,
@@ -136,6 +135,13 @@ export const useGenerateRequestController = ({
       referencesById.set(reference.id, reference);
     }
     promptReferenceCacheRef.current = [...referencesById.values()];
+  };
+
+  const setPromptReferences = (
+    references: readonly GenerationPromptReferencePayload[],
+  ) => {
+    promptReferencesRef.current = [...references];
+    cachePromptReferences(references);
   };
 
   const updatePrompt = (prompt: string) => {
@@ -201,6 +207,7 @@ export const useGenerateRequestController = ({
     commitRequest,
     updateRequest,
     setPromptReferences,
+    cachePromptReferences,
     updatePrompt,
     updatePromptParts,
     replacePromptParts,

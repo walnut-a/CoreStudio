@@ -53,6 +53,48 @@ describe("useDesktopMenuEvents", () => {
     expect(received.mock.calls[0][0]).toMatchObject({ key: "a" });
   });
 
+  it.each([
+    ["edit-cut", "cut", "x"],
+    ["edit-copy", "copy", "c"],
+    ["edit-paste", "paste", "v"],
+  ] as const)(
+    "routes %s through the custom editor command path",
+    (action, browserCommand, key) => {
+      let menuListener: ((event: DesktopMenuEvent) => void) | null = null;
+      window.imageBoardDesktop = {
+        onMenuAction: (listener) => {
+          menuListener = listener;
+          return () => undefined;
+        },
+      } as DesktopBridgeApi;
+      const received = vi.fn<(event: globalThis.KeyboardEvent) => void>();
+      const execCommand = vi.fn();
+      Object.defineProperty(document, "execCommand", {
+        configurable: true,
+        value: execCommand,
+      });
+
+      const TestSurface = () => {
+        const handlerRef = useRef(vi.fn());
+        useDesktopMenuEvents(handlerRef.current);
+        return <div aria-label="提示词" contentEditable role="textbox" />;
+      };
+
+      const { getByRole } = render(<TestSurface />);
+      const editor = getByRole("textbox", { name: "提示词" });
+      editor.addEventListener("keydown", received);
+      fireEvent.pointerDown(editor);
+
+      act(() => {
+        menuListener?.({ action });
+      });
+
+      expect(received).toHaveBeenCalledOnce();
+      expect(received.mock.calls[0][0]).toMatchObject({ key });
+      expect(execCommand).toHaveBeenCalledWith(browserCommand);
+    },
+  );
+
   it.each(["blur", "pointerdown"] as const)(
     "does not retain a native input after %s without focus",
     (interaction) => {

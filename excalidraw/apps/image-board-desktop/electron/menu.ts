@@ -144,9 +144,24 @@ export const createAppMenuTemplate = (
             sendMenuAction({ action: "edit-redo" }, ownerWindow),
         },
         { type: "separator" },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
+        {
+          label: copy.menu.cut,
+          accelerator: "CmdOrCtrl+X",
+          click: (_item, ownerWindow) =>
+            sendMenuAction({ action: "edit-cut" }, ownerWindow),
+        },
+        {
+          label: copy.menu.copy,
+          accelerator: "CmdOrCtrl+C",
+          click: (_item, ownerWindow) =>
+            sendMenuAction({ action: "edit-copy" }, ownerWindow),
+        },
+        {
+          label: copy.menu.paste,
+          accelerator: "CmdOrCtrl+V",
+          click: (_item, ownerWindow) =>
+            sendMenuAction({ action: "edit-paste" }, ownerWindow),
+        },
         { type: "separator" },
         {
           label: copy.menu.selectAll,

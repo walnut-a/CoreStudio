@@ -24,6 +24,9 @@ const APP_GLOBAL_MENU_ACTIONS = new Set<DesktopMenuAction>([
   "show-about",
   "edit-undo",
   "edit-redo",
+  "edit-cut",
+  "edit-copy",
+  "edit-paste",
   "edit-select-all",
 ]);
 

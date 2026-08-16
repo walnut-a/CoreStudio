@@ -37,6 +37,17 @@ export const resolveDesktopEditShortcut = (
   if (matchesEditKey(input, "a", "KeyA") && !input.shift) {
     return "edit-select-all";
   }
+  if (!input.shift) {
+    if (matchesEditKey(input, "x", "KeyX")) {
+      return "edit-cut";
+    }
+    if (matchesEditKey(input, "c", "KeyC")) {
+      return "edit-copy";
+    }
+    if (matchesEditKey(input, "v", "KeyV")) {
+      return "edit-paste";
+    }
+  }
   if (
     platform !== "darwin" &&
     matchesEditKey(input, "y", "KeyY") &&

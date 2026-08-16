@@ -10,6 +10,9 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CONTROLLED_TEXT_INSERTION_COMMAND,
+  COPY_COMMAND,
+  CUT_COMMAND,
+  SELECT_ALL_COMMAND,
   getNearestEditorFromDOMNode,
 } from "lexical";
 
@@ -17,6 +20,7 @@ import {
   InlinePromptEditor,
   type InlinePromptEditorHandle,
 } from "./InlinePromptEditor";
+import { $getSelectedPromptParts } from "./promptEditorDocument";
 import { DESKTOP_EDIT_COMMAND_EVENT } from "../desktopEditCommand";
 import { handleGenerateComposerPromptKeyDown } from "../generateComposerEvents";
 
@@ -53,6 +57,8 @@ const mixedPromptParts: GenerationPromptPart[] = [
   { type: "reference", referenceId: "reference-2" },
 ];
 
+const PROMPT_FRAGMENT_MIME = "application/x-corestudio-prompt-fragment+json";
+
 const createProps = (
   overrides: Partial<Parameters<typeof InlinePromptEditor>[0]> = {},
 ) => ({
@@ -63,6 +69,7 @@ const createProps = (
   pendingReference: null,
   resetKey: 0,
   onChange: vi.fn(),
+  onPasteReferences: vi.fn(),
   onPendingReferenceDiscard: vi.fn(),
   onFocusIntent: vi.fn(),
   onKeyDown: vi.fn(),
@@ -183,6 +190,7 @@ describe("InlinePromptEditor", () => {
 
     const editor = screen.getByRole("textbox", { name: "提示词" });
     await waitFor(() => expect(handle.current).not.toBeNull());
+    fireEvent.focus(editor);
     fireEvent.keyDown(editor, { key: "a", metaKey: true });
     const lexicalEditor = getNearestEditorFromDOMNode(editor);
     expect(lexicalEditor).not.toBeNull();
@@ -263,18 +271,133 @@ describe("InlinePromptEditor", () => {
 
     const editor = screen.getByRole("textbox", { name: "提示词" });
     await waitFor(() => expect(handle.current).not.toBeNull());
-    fireEvent.keyDown(editor, { key: "a", metaKey: true });
+    const lexicalEditor = getNearestEditorFromDOMNode(editor);
+    expect(lexicalEditor).not.toBeNull();
+    act(() => {
+      lexicalEditor?.dispatchCommand(
+        SELECT_ALL_COMMAND,
+        new KeyboardEvent("keydown", { key: "a", metaKey: true }),
+      );
+    });
     const clipboardData = new DataTransfer();
-    fireEvent(
-      editor,
-      new ClipboardEvent("cut", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData,
-      }),
-    );
+    act(() => {
+      lexicalEditor?.dispatchCommand(
+        CUT_COMMAND,
+        new ClipboardEvent("cut", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData,
+        }),
+      );
+    });
 
     await waitFor(() => expect(handle.current?.getParts()).toEqual([]));
+    expect(clipboardData.getData(PROMPT_FRAGMENT_MIME)).not.toBe("");
+  });
+
+  it("copies and pastes mixed text with image references", async () => {
+    const handle = createRef<InlinePromptEditorHandle>();
+    const onPasteReferences = vi.fn();
+    render(
+      <InlinePromptEditor
+        ref={handle}
+        {...createProps({
+          parts: mixedPromptParts,
+          references: referencePayloads,
+          onPasteReferences,
+          onKeyDown: (event) =>
+            handleGenerateComposerPromptKeyDown(event, { submit: vi.fn() }),
+        })}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "提示词" });
+    await waitFor(() =>
+      expect(screen.getAllByLabelText(/^[12] 图片$/)).toHaveLength(2),
+    );
+    fireEvent.focus(editor);
+    const lexicalEditor = getNearestEditorFromDOMNode(editor);
+    expect(lexicalEditor).not.toBeNull();
+    act(() => {
+      lexicalEditor?.dispatchCommand(
+        SELECT_ALL_COMMAND,
+        new KeyboardEvent("keydown", { key: "a", metaKey: true }),
+      );
+    });
+    expect(
+      lexicalEditor?.read(() => $getSelectedPromptParts(lexicalEditor!)),
+    ).toEqual(mixedPromptParts);
+    const clipboardData = new DataTransfer();
+    act(() => {
+      lexicalEditor?.dispatchCommand(
+        COPY_COMMAND,
+        new ClipboardEvent("copy", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData,
+        }),
+      );
+    });
+
+    expect(
+      JSON.parse(clipboardData.getData(PROMPT_FRAGMENT_MIME)),
+    ).toMatchObject({
+      version: 1,
+      parts: mixedPromptParts,
+      references: referencePayloads,
+    });
+    expect(clipboardData.getData("text/html")).toContain(
+      "data-corestudio-prompt-fragment",
+    );
+
+    const systemClipboardData = new DataTransfer();
+    systemClipboardData.setData(
+      "text/html",
+      clipboardData.getData("text/html"),
+    );
+    systemClipboardData.setData(
+      "text/plain",
+      clipboardData.getData("text/plain"),
+    );
+
+    await act(async () => {
+      fireEvent.keyDown(editor, { key: "Backspace" });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(handle.current?.getParts()).toEqual([]));
+    await act(async () => {
+      fireEvent(
+        editor,
+        new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: systemClipboardData,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const pastedParts = handle.current?.getParts() ?? [];
+      expect(pastedParts.map((part) => part.type)).toEqual([
+        "reference",
+        "text",
+        "reference",
+      ]);
+      expect(pastedParts.filter((part) => part.type === "text")).toEqual([
+        { type: "text", text: "第一行\n第二行" },
+      ]);
+      const pastedReferenceIds = pastedParts
+        .filter((part) => part.type === "reference")
+        .map((part) => part.referenceId);
+      expect(pastedReferenceIds).toHaveLength(2);
+      expect(pastedReferenceIds).not.toEqual(["reference-1", "reference-2"]);
+      expect(
+        onPasteReferences.mock.lastCall?.[0].map(
+          (reference: GenerationPromptReferencePayload) => reference.id,
+        ),
+      ).toEqual(pastedReferenceIds);
+    });
   });
 
   it("discards external pending-reference state when editing removes its node", async () => {

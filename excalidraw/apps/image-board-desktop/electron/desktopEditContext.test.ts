@@ -3,8 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { createDesktopEditContextController } from "./desktopEditContext";
 
 const createTarget = (id = 1) => ({
+  copy: vi.fn(),
+  cut: vi.fn(),
   id,
   isDestroyed: vi.fn(() => false),
+  paste: vi.fn(),
   redo: vi.fn(),
   selectAll: vi.fn(),
   undo: vi.fn(),
@@ -28,6 +31,9 @@ describe("createDesktopEditContextController", () => {
     ["edit-undo", "undo"],
     ["edit-redo", "redo"],
     ["edit-select-all", "selectAll"],
+    ["edit-cut", "cut"],
+    ["edit-copy", "copy"],
+    ["edit-paste", "paste"],
   ] as const)("runs %s through the native editing API", (action, method) => {
     const controller = createDesktopEditContextController();
     const target = createTarget();
@@ -43,6 +49,14 @@ describe("createDesktopEditContextController", () => {
 
     expect(controller.runAction(target, "edit-redo")).toBe(false);
     expect(target.redo).not.toHaveBeenCalled();
+  });
+
+  it("injects paste through WebContents for custom editors", () => {
+    const controller = createDesktopEditContextController();
+    const target = createTarget();
+
+    expect(controller.runAction(target, "edit-paste")).toBe(true);
+    expect(target.paste).toHaveBeenCalledOnce();
   });
 
   it("forgets native state on lifecycle reset and destruction", () => {

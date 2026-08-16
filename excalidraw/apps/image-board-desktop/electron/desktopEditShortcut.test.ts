@@ -96,6 +96,27 @@ describe("resolveDesktopEditShortcut", () => {
     ).toBe("edit-select-all");
   });
 
+  it.each([
+    ["x", "KeyX", "edit-cut"],
+    ["c", "KeyC", "edit-copy"],
+    ["v", "KeyV", "edit-paste"],
+  ] as const)("maps the platform %s shortcut", (key, code, action) => {
+    expect(
+      resolveDesktopEditShortcut(
+        {
+          type: "keyDown",
+          key,
+          code,
+          meta: true,
+          control: false,
+          shift: false,
+          alt: false,
+        },
+        "darwin",
+      ),
+    ).toBe(action);
+  });
+
   it("falls back to the physical key code for non-Latin layouts", () => {
     expect(
       resolveDesktopEditShortcut(

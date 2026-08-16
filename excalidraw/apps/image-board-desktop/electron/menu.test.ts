@@ -106,14 +106,23 @@ describe("createAppMenuTemplate", () => {
     const editItems = getSubmenuItems(editMenu?.submenu);
     const undoItem = editItems.find((item) => item.label === "撤销");
     const redoItem = editItems.find((item) => item.label === "重做");
+    const cutItem = editItems.find((item) => item.label === "剪切");
+    const copyItem = editItems.find((item) => item.label === "复制");
+    const pasteItem = editItems.find((item) => item.label === "粘贴");
     const selectAllItem = editItems.find((item) => item.label === "全选");
 
     expect(undoItem?.accelerator).toBe("CmdOrCtrl+Z");
     expect(redoItem?.accelerator).toBe("CmdOrCtrl+Shift+Z");
+    expect(cutItem?.accelerator).toBe("CmdOrCtrl+X");
+    expect(copyItem?.accelerator).toBe("CmdOrCtrl+C");
+    expect(pasteItem?.accelerator).toBe("CmdOrCtrl+V");
     expect(selectAllItem?.accelerator).toBe("CmdOrCtrl+A");
 
     undoItem?.click?.(undoItem as any, undefined, undefined as any);
     redoItem?.click?.(redoItem as any, undefined, undefined as any);
+    cutItem?.click?.(cutItem as any, undefined, undefined as any);
+    copyItem?.click?.(copyItem as any, undefined, undefined as any);
+    pasteItem?.click?.(pasteItem as any, undefined, undefined as any);
     selectAllItem?.click?.(selectAllItem as any, undefined, undefined as any);
 
     expect(sendMenuAction).toHaveBeenNthCalledWith(
@@ -128,6 +137,21 @@ describe("createAppMenuTemplate", () => {
     );
     expect(sendMenuAction).toHaveBeenNthCalledWith(
       3,
+      { action: "edit-cut" },
+      undefined,
+    );
+    expect(sendMenuAction).toHaveBeenNthCalledWith(
+      4,
+      { action: "edit-copy" },
+      undefined,
+    );
+    expect(sendMenuAction).toHaveBeenNthCalledWith(
+      5,
+      { action: "edit-paste" },
+      undefined,
+    );
+    expect(sendMenuAction).toHaveBeenNthCalledWith(
+      6,
       { action: "edit-select-all" },
       undefined,
     );

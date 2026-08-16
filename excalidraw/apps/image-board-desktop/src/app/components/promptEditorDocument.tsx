@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { $generateJSONFromSelectedNodes } from "@lexical/clipboard";
 import {
   $createLineBreakNode,
   $createParagraphNode,
@@ -12,6 +13,7 @@ import {
   $nodesOfType,
   DecoratorNode,
   type EditorConfig,
+  type LexicalEditor,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -175,6 +177,37 @@ const appendTextPart = (parts: GenerationPromptPart[], text: string): void => {
   }
 };
 
+type SerializedPromptEditorNode = SerializedLexicalNode & {
+  children?: SerializedPromptEditorNode[];
+  referenceId?: string;
+  text?: string;
+};
+
+const appendSerializedNodeParts = (
+  node: SerializedPromptEditorNode,
+  parts: GenerationPromptPart[],
+) => {
+  if (node.type === "text" && typeof node.text === "string") {
+    appendTextPart(parts, node.text);
+    return;
+  }
+  if (node.type === "linebreak") {
+    appendTextPart(parts, "\n");
+    return;
+  }
+  if (
+    node.type === PromptReferenceNode.getType() &&
+    typeof node.referenceId === "string" &&
+    node.referenceId
+  ) {
+    parts.push({ type: "reference", referenceId: node.referenceId });
+    return;
+  }
+  for (const child of node.children ?? []) {
+    appendSerializedNodeParts(child, parts);
+  }
+};
+
 const isBrowserFillerText = (text: string) =>
   !text.replace(/[\n\r\u200b\ufeff\u00a0]/g, "");
 
@@ -246,37 +279,70 @@ export const $getPromptParts = (): GenerationPromptPart[] => {
   return normalizePromptParts(parts);
 };
 
-const appendTextWithLineBreaks = (
-  paragraph: ReturnType<typeof $createParagraphNode>,
-  text: string,
-) => {
-  const lines = text.split("\n");
-  lines.forEach((line, index) => {
-    if (index > 0) {
-      paragraph.append($createLineBreakNode());
-    }
-    if (line) {
-      paragraph.append($createTextNode(line));
-    }
+export const $getSelectedPromptParts = (
+  editor: LexicalEditor,
+): GenerationPromptPart[] => {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) || selection.isCollapsed()) {
+    return [];
+  }
+
+  const serializedNodes = $generateJSONFromSelectedNodes(editor, selection)
+    .nodes as SerializedPromptEditorNode[];
+  const parts: GenerationPromptPart[] = [];
+  serializedNodes.forEach((node) => {
+    appendSerializedNodeParts(node, parts);
   });
+  return normalizePromptParts(parts);
+};
+
+const createPromptPartNodes = (
+  parts: readonly GenerationPromptPart[],
+): LexicalNode[] => {
+  const nodes: LexicalNode[] = [];
+  for (const part of normalizePromptParts([...parts])) {
+    if (part.type === "reference") {
+      nodes.push($createPromptReferenceNode(part.referenceId));
+      continue;
+    }
+    const lines = part.text.split("\n");
+    lines.forEach((line, index) => {
+      if (index > 0) {
+        nodes.push($createLineBreakNode());
+      }
+      if (line) {
+        nodes.push($createTextNode(line));
+      }
+    });
+  }
+  return nodes;
 };
 
 export const $setPromptParts = (parts: readonly GenerationPromptPart[]) => {
   const root = $getRoot();
   const paragraph = $createParagraphNode();
-  const normalizedParts = normalizePromptParts([...parts]);
-
-  for (const part of normalizedParts) {
-    if (part.type === "text") {
-      appendTextWithLineBreaks(paragraph, part.text);
-    } else if (part.referenceId) {
-      paragraph.append($createPromptReferenceNode(part.referenceId));
-    }
-  }
+  paragraph.append(...createPromptPartNodes(parts));
 
   root.clear();
   root.append(paragraph);
   paragraph.selectEnd();
+};
+
+export const $insertPromptPartsAtSelection = (
+  parts: readonly GenerationPromptPart[],
+) => {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection)) {
+    return false;
+  }
+
+  const nodes = createPromptPartNodes(parts);
+  if (nodes.length === 0) {
+    return false;
+  }
+  selection.insertNodes(nodes);
+  nodes.at(-1)?.selectNext(0, 0);
+  return true;
 };
 
 export const $insertPromptReferenceAtSelection = (referenceId: string) => {

@@ -7,7 +7,10 @@ import {
   type MouseEvent,
 } from "react";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
-import { $insertDataTransferForPlainText } from "@lexical/clipboard";
+import {
+  $getHtmlContent,
+  $insertDataTransferForPlainText,
+} from "@lexical/clipboard";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import {
@@ -27,6 +30,8 @@ import {
   CLEAR_HISTORY_COMMAND,
   COMMAND_PRIORITY_HIGH,
   CONTROLLED_TEXT_INSERTION_COMMAND,
+  COPY_COMMAND,
+  CUT_COMMAND,
   HISTORIC_TAG,
   HISTORY_PUSH_TAG,
   INPUT_COMMAND,
@@ -50,6 +55,8 @@ import {
 import {
   $confirmPendingPromptReference,
   $getPromptParts,
+  $getSelectedPromptParts,
+  $insertPromptPartsAtSelection,
   $insertPendingPromptReferenceAtSelection,
   $insertPromptReferenceAtSelection,
   $removePendingPromptReference,
@@ -57,6 +64,15 @@ import {
   PendingPromptReferenceNode,
   PromptReferenceNode,
 } from "./promptEditorDocument";
+import { createPromptReferenceId } from "../generatePromptRequest";
+import {
+  clonePromptEditorClipboardFragment,
+  embedPromptEditorClipboardFragmentInHtml,
+  parsePromptEditorClipboardFragment,
+  parsePromptEditorClipboardFragmentFromHtml,
+  PROMPT_EDITOR_CLIPBOARD_MIME,
+  serializePromptEditorClipboardFragment,
+} from "../promptEditorClipboard";
 
 import type {
   GenerationPromptPart,
@@ -79,6 +95,7 @@ interface InlinePromptEditorProps {
   pendingReference: GenerationReferencePayload | null;
   resetKey: number;
   onChange: (parts: GenerationPromptPart[]) => void;
+  onPasteReferences: (references: GenerationPromptReferencePayload[]) => void;
   onPendingReferenceDiscard?: () => void;
   onFocusIntent: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
@@ -152,93 +169,186 @@ const PendingReferenceEditingPlugin = ({
   return null;
 };
 
-const PromptEditingContractPlugin = () => {
+const PromptEditingContractPlugin = ({
+  references,
+  onPasteReferences,
+}: {
+  references: readonly GenerationPromptReferencePayload[];
+  onPasteReferences: (references: GenerationPromptReferencePayload[]) => void;
+}) => {
   const [editor] = useLexicalComposerContext();
   const needsHistoryBoundaryRef = useRef(false);
 
-  useEffect(
-    () =>
-      mergeRegister(
-        editor.registerMutationListener(
-          PromptReferenceNode,
-          (mutations, { updateTags }) => {
-            if (!updateTags.has(EXTERNAL_RESET_TAG) && mutations.size > 0) {
-              needsHistoryBoundaryRef.current = true;
-            }
-          },
-          { skipInitialization: true },
-        ),
-        editor.registerCommand(
-          CONTROLLED_TEXT_INSERTION_COMMAND,
-          () => {
-            if (needsHistoryBoundaryRef.current) {
-              $addUpdateTag(HISTORY_PUSH_TAG);
-              needsHistoryBoundaryRef.current = false;
-            }
-            return false;
-          },
-          COMMAND_PRIORITY_HIGH,
-        ),
-        editor.registerCommand(
-          INPUT_COMMAND,
-          () => {
-            if (needsHistoryBoundaryRef.current) {
-              $addUpdateTag(HISTORY_PUSH_TAG);
-              needsHistoryBoundaryRef.current = false;
-            }
-            return false;
-          },
-          COMMAND_PRIORITY_HIGH,
-        ),
-        editor.registerCommand(
-          INSERT_LINE_BREAK_COMMAND,
-          () => {
-            if (needsHistoryBoundaryRef.current) {
-              $addUpdateTag(HISTORY_PUSH_TAG);
-              needsHistoryBoundaryRef.current = false;
-            }
-            return false;
-          },
-          COMMAND_PRIORITY_HIGH,
-        ),
-        editor.registerCommand(
-          PASTE_COMMAND,
-          (event) => {
-            const selection = $getSelection();
-            const clipboardData =
-              "clipboardData" in event ? event.clipboardData : null;
-            if (!$isRangeSelection(selection) || !clipboardData) {
-              return false;
-            }
+  useEffect(() => {
+    const writeReferenceFragment = (
+      event: ClipboardEvent | null,
+      removeSelection: boolean,
+    ) => {
+      const clipboardData = event?.clipboardData;
+      const selection = $getSelection();
+      if (!clipboardData || !$isRangeSelection(selection)) {
+        return false;
+      }
 
-            event.preventDefault();
+      const parts = $getSelectedPromptParts(editor);
+      const selectedReferenceIds = new Set(
+        parts
+          .filter(
+            (
+              part,
+            ): part is Extract<GenerationPromptPart, { type: "reference" }> =>
+              part.type === "reference",
+          )
+          .map((part) => part.referenceId),
+      );
+      if (selectedReferenceIds.size === 0) {
+        return false;
+      }
+
+      const selectedReferences = references.filter((reference) =>
+        selectedReferenceIds.has(reference.id),
+      );
+      if (selectedReferences.length !== selectedReferenceIds.size) {
+        return false;
+      }
+
+      const serializedFragment = serializePromptEditorClipboardFragment({
+        parts,
+        references: selectedReferences,
+      });
+      const html = $getHtmlContent(editor);
+
+      event.preventDefault();
+      clipboardData.setData(PROMPT_EDITOR_CLIPBOARD_MIME, serializedFragment);
+      clipboardData.setData("text/plain", selection.getTextContent());
+      if (html) {
+        clipboardData.setData(
+          "text/html",
+          embedPromptEditorClipboardFragmentInHtml(html, serializedFragment),
+        );
+      }
+      if (removeSelection) {
+        $addUpdateTag(HISTORY_PUSH_TAG);
+        needsHistoryBoundaryRef.current = false;
+        selection.removeText();
+      }
+      return true;
+    };
+
+    return mergeRegister(
+      editor.registerMutationListener(
+        PromptReferenceNode,
+        (mutations, { updateTags }) => {
+          if (!updateTags.has(EXTERNAL_RESET_TAG) && mutations.size > 0) {
+            needsHistoryBoundaryRef.current = true;
+          }
+        },
+        { skipInitialization: true },
+      ),
+      editor.registerCommand(
+        CONTROLLED_TEXT_INSERTION_COMMAND,
+        () => {
+          if (needsHistoryBoundaryRef.current) {
             $addUpdateTag(HISTORY_PUSH_TAG);
             needsHistoryBoundaryRef.current = false;
-            $insertDataTransferForPlainText(clipboardData, selection);
-            return true;
-          },
-          COMMAND_PRIORITY_HIGH,
-        ),
-        editor.registerCommand(
-          KEY_ENTER_COMMAND,
-          (event) => {
-            if (
-              event === null ||
-              event.shiftKey ||
-              event.altKey ||
-              event.isComposing
-            ) {
-              return false;
-            }
-
-            event.preventDefault();
-            return true;
-          },
-          COMMAND_PRIORITY_HIGH,
-        ),
+          }
+          return false;
+        },
+        COMMAND_PRIORITY_HIGH,
       ),
-    [editor],
-  );
+      editor.registerCommand(
+        INPUT_COMMAND,
+        () => {
+          if (needsHistoryBoundaryRef.current) {
+            $addUpdateTag(HISTORY_PUSH_TAG);
+            needsHistoryBoundaryRef.current = false;
+          }
+          return false;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+      editor.registerCommand(
+        INSERT_LINE_BREAK_COMMAND,
+        () => {
+          if (needsHistoryBoundaryRef.current) {
+            $addUpdateTag(HISTORY_PUSH_TAG);
+            needsHistoryBoundaryRef.current = false;
+          }
+          return false;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+      editor.registerCommand(
+        COPY_COMMAND,
+        (event) =>
+          writeReferenceFragment(
+            event && "clipboardData" in event ? event : null,
+            false,
+          ),
+        COMMAND_PRIORITY_HIGH,
+      ),
+      editor.registerCommand(
+        CUT_COMMAND,
+        (event) =>
+          writeReferenceFragment(
+            event && "clipboardData" in event ? event : null,
+            true,
+          ),
+        COMMAND_PRIORITY_HIGH,
+      ),
+      editor.registerCommand(
+        PASTE_COMMAND,
+        (event) => {
+          const selection = $getSelection();
+          const clipboardData =
+            "clipboardData" in event ? event.clipboardData : null;
+          if (!$isRangeSelection(selection) || !clipboardData) {
+            return false;
+          }
+
+          event.preventDefault();
+          $addUpdateTag(HISTORY_PUSH_TAG);
+          needsHistoryBoundaryRef.current = false;
+          const fragment =
+            parsePromptEditorClipboardFragment(
+              clipboardData.getData(PROMPT_EDITOR_CLIPBOARD_MIME),
+            ) ||
+            parsePromptEditorClipboardFragmentFromHtml(
+              clipboardData.getData("text/html"),
+            );
+          if (fragment) {
+            const pastedFragment = clonePromptEditorClipboardFragment(
+              fragment,
+              createPromptReferenceId,
+            );
+            onPasteReferences(pastedFragment.references);
+            $insertPromptPartsAtSelection(pastedFragment.parts);
+            return true;
+          }
+          $insertDataTransferForPlainText(clipboardData, selection);
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+      editor.registerCommand(
+        KEY_ENTER_COMMAND,
+        (event) => {
+          if (
+            event === null ||
+            event.shiftKey ||
+            event.altKey ||
+            event.isComposing
+          ) {
+            return false;
+          }
+
+          event.preventDefault();
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+    );
+  }, [editor, onPasteReferences, references]);
 
   return null;
 };
@@ -373,6 +483,7 @@ export const InlinePromptEditor = forwardRef<
       pendingReference,
       resetKey,
       onChange,
+      onPasteReferences,
       onPendingReferenceDiscard,
       onFocusIntent,
       onKeyDown,
@@ -493,7 +604,10 @@ export const InlinePromptEditor = forwardRef<
             />
           </div>
           <PromptHistoryPlugin />
-          <PromptEditingContractPlugin />
+          <PromptEditingContractPlugin
+            references={references}
+            onPasteReferences={onPasteReferences}
+          />
           <EditorRefPlugin editorRef={editorRef} />
           <DesktopEditCommandPlugin />
           <ExternalResetPlugin parts={parts} resetKey={resetKey} />

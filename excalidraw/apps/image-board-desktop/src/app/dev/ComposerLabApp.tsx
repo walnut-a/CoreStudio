@@ -604,6 +604,21 @@ export const ComposerLabApp = () => {
     );
   };
 
+  const cachePastedReferences = (
+    references: readonly GenerationPromptReferencePayload[],
+  ) => {
+    const referencesById = new Map(
+      promptReferenceCacheRef.current.map((reference) => [
+        reference.id,
+        reference,
+      ]),
+    );
+    for (const reference of references) {
+      referencesById.set(reference.id, reference);
+    }
+    promptReferenceCacheRef.current = [...referencesById.values()];
+  };
+
   const submit = async () => {
     if (!configured || parts.length === 0) {
       setActivity("当前状态不可发送");
@@ -900,6 +915,7 @@ export const ComposerLabApp = () => {
                 onStopInputEvent={onStopInputEvent}
                 onCommitPendingReference={commitPendingReference}
                 onPromptChange={updatePromptParts}
+                onPasteReferences={cachePastedReferences}
                 onPendingReferenceDiscard={discardPendingReference}
                 onPromptKeyPressCapture={onStopInputEvent}
                 onPromptKeyUpCapture={onStopInputEvent}

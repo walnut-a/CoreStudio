@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe("dispatchDesktopEditCommand", () => {
-  it("dispatches undo, redo, and select all to the focused editor first", () => {
+  it("dispatches editing shortcuts to the focused editor first", () => {
     const editor = document.createElement("div");
     editor.tabIndex = 0;
     document.body.append(editor);
@@ -40,6 +40,9 @@ describe("dispatchDesktopEditCommand", () => {
 
     dispatchDesktopEditCommand("undo");
     dispatchDesktopEditCommand("redo");
+    dispatchDesktopEditCommand("cut");
+    dispatchDesktopEditCommand("copy");
+    dispatchDesktopEditCommand("paste");
     dispatchDesktopEditCommand("select-all");
 
     const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
@@ -55,6 +58,24 @@ describe("dispatchDesktopEditCommand", () => {
         metaKey: isMac,
         ctrlKey: !isMac,
         shiftKey: true,
+      },
+      {
+        key: "x",
+        metaKey: isMac,
+        ctrlKey: !isMac,
+        shiftKey: false,
+      },
+      {
+        key: "c",
+        metaKey: isMac,
+        ctrlKey: !isMac,
+        shiftKey: false,
+      },
+      {
+        key: "v",
+        metaKey: isMac,
+        ctrlKey: !isMac,
+        shiftKey: false,
       },
       {
         key: "a",
@@ -96,6 +117,25 @@ describe("dispatchDesktopEditCommand", () => {
 
     expect(execCommand).toHaveBeenCalledWith("selectAll");
   });
+
+  it.each(["cut", "copy", "paste"] as const)(
+    "uses the browser %s command for a custom editor",
+    (command) => {
+      const editor = document.createElement("div");
+      editor.tabIndex = 0;
+      document.body.append(editor);
+      editor.focus();
+      const execCommand = vi.fn();
+      Object.defineProperty(document, "execCommand", {
+        configurable: true,
+        value: execCommand,
+      });
+
+      dispatchDesktopEditCommand(command);
+
+      expect(execCommand).toHaveBeenCalledWith(command);
+    },
+  );
 
   it("uses the last focused editor when the native menu temporarily owns focus", () => {
     const editor = document.createElement("div");

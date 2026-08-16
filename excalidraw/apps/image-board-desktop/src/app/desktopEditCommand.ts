@@ -1,4 +1,10 @@
-export type DesktopEditCommand = "undo" | "redo" | "select-all";
+export type DesktopEditCommand =
+  | "undo"
+  | "redo"
+  | "cut"
+  | "copy"
+  | "paste"
+  | "select-all";
 
 export const DESKTOP_EDIT_COMMAND_EVENT = "corestudio:desktop-edit-command";
 
@@ -18,10 +24,20 @@ const getEditCommandKeyboardInit = (
   command: DesktopEditCommand,
 ): KeyboardEventInit => {
   const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
+  const key =
+    command === "select-all"
+      ? "a"
+      : command === "cut"
+      ? "x"
+      : command === "copy"
+      ? "c"
+      : command === "paste"
+      ? "v"
+      : "z";
   return {
     bubbles: true,
     cancelable: true,
-    key: command === "select-all" ? "a" : "z",
+    key,
     metaKey: isMac,
     ctrlKey: !isMac,
     shiftKey: command === "redo",

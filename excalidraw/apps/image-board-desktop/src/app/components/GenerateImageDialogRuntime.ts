@@ -66,6 +66,7 @@ export const useGenerateImageDialogRuntime = ({
     getCustomModelsForProvider,
     updateRequest,
     setPromptReferences,
+    cachePromptReferences,
     updatePromptParts,
     clearSubmittedPrompt,
   } = useGenerateRequestController({
@@ -179,6 +180,7 @@ export const useGenerateImageDialogRuntime = ({
       onStopInputEvent: stopInputEventPropagation,
       onCommitPendingReference: commitPendingReference,
       onPromptChange: updatePromptParts,
+      onPasteReferences: cachePromptReferences,
       onPendingReferenceDiscard: onReferenceRemove,
       onPromptKeyPressCapture: handleInputKeyPhaseCapture,
       onPromptKeyUpCapture: handleInputKeyPhaseCapture,

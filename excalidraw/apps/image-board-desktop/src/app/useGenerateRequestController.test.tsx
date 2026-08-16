@@ -240,6 +240,27 @@ describe("useGenerateRequestController", () => {
     ]);
   });
 
+  it("activates reference metadata imported before a clipboard paste", () => {
+    render(<ControllerProbe />);
+
+    act(() => {
+      controller?.cachePromptReferences([reference("pasted")]);
+      controller?.updatePromptParts([
+        { type: "text", text: "参考 " },
+        { type: "reference", referenceId: "pasted" },
+      ]);
+    });
+
+    expect(getState().request).toMatchObject({
+      prompt: "参考 ",
+      promptParts: [
+        { type: "text", text: "参考 " },
+        { type: "reference", referenceId: "pasted" },
+      ],
+      promptReferences: [reference("pasted")],
+    });
+  });
+
   it("replaces prompt parts and resets the editor", () => {
     render(
       <ControllerProbe

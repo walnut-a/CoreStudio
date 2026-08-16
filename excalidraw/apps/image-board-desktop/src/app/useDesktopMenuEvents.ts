@@ -55,6 +55,9 @@ export const useDesktopMenuEvents = (
       if (
         event.action === "edit-undo" ||
         event.action === "edit-redo" ||
+        event.action === "edit-cut" ||
+        event.action === "edit-copy" ||
+        event.action === "edit-paste" ||
         event.action === "edit-select-all"
       ) {
         dispatchDesktopEditCommand(
@@ -62,6 +65,12 @@ export const useDesktopMenuEvents = (
             ? "undo"
             : event.action === "edit-redo"
             ? "redo"
+            : event.action === "edit-cut"
+            ? "cut"
+            : event.action === "edit-copy"
+            ? "copy"
+            : event.action === "edit-paste"
+            ? "paste"
             : "select-all",
           lastFocusedElement,
         );

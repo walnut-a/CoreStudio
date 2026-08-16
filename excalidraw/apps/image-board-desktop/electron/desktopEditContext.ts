@@ -4,12 +4,24 @@ import type { DesktopMenuAction } from "../src/shared/desktopBridgeTypes";
 
 type DesktopEditAction = Extract<
   DesktopMenuAction,
-  "edit-undo" | "edit-redo" | "edit-select-all"
+  | "edit-undo"
+  | "edit-redo"
+  | "edit-cut"
+  | "edit-copy"
+  | "edit-paste"
+  | "edit-select-all"
 >;
 
 type DesktopEditTarget = Pick<
   WebContents,
-  "id" | "isDestroyed" | "redo" | "selectAll" | "undo"
+  | "copy"
+  | "cut"
+  | "id"
+  | "isDestroyed"
+  | "paste"
+  | "redo"
+  | "selectAll"
+  | "undo"
 >;
 
 const isDesktopEditAction = (
@@ -17,6 +29,9 @@ const isDesktopEditAction = (
 ): action is DesktopEditAction =>
   action === "edit-undo" ||
   action === "edit-redo" ||
+  action === "edit-cut" ||
+  action === "edit-copy" ||
+  action === "edit-paste" ||
   action === "edit-select-all";
 
 export const createDesktopEditContextController = () => {
@@ -40,17 +55,24 @@ export const createDesktopEditContextController = () => {
     target: DesktopEditTarget,
     action: DesktopMenuAction | null,
   ) => {
-    if (
-      !nativeTextWebContentsIds.has(target.id) ||
-      !isDesktopEditAction(action) ||
-      target.isDestroyed()
-    ) {
+    if (!isDesktopEditAction(action) || target.isDestroyed()) {
+      return false;
+    }
+    if (action === "edit-paste") {
+      target.paste();
+      return true;
+    }
+    if (!nativeTextWebContentsIds.has(target.id)) {
       return false;
     }
     if (action === "edit-undo") {
       target.undo();
     } else if (action === "edit-redo") {
       target.redo();
+    } else if (action === "edit-cut") {
+      target.cut();
+    } else if (action === "edit-copy") {
+      target.copy();
     } else {
       target.selectAll();
     }

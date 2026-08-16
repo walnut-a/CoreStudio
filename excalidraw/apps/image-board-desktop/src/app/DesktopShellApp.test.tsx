@@ -495,4 +495,32 @@ describe("DesktopShellApp", () => {
       within(settingsDialog).getByRole("tab", { name: "图片集成" }),
     ).toHaveAttribute("aria-selected", "true");
   });
+
+  it("项目列表首次读取失败后可在空态中重新加载", async () => {
+    const loadRecentProjects = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("本地连接已断开"))
+      .mockResolvedValueOnce([
+        {
+          projectPath: "/projects/recovered",
+          name: "已恢复项目",
+          lastOpenedAt: "2026-08-16T00:00:00.000Z",
+        },
+      ]);
+    const bridge = createBridge({ loadRecentProjects });
+    window.imageBoardDesktop = bridge;
+    render(<DesktopShellApp />);
+
+    const failedState = await screen.findByRole("alert", {
+      name: "未能读取项目列表",
+    });
+    fireEvent.click(
+      within(failedState).getByRole("button", {
+        name: "重新加载项目列表",
+      }),
+    );
+
+    expect(await screen.findByText("已恢复项目")).toBeVisible();
+    expect(loadRecentProjects).toHaveBeenCalledTimes(2);
+  });
 });

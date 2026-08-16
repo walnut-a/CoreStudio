@@ -29,8 +29,18 @@ export const enCopy: DesktopCopy = {
     projectAvailable: "Available",
     projectUnavailable: "Unavailable",
     recentEmpty: "No projects yet. Create or open one to get started.",
-    recentLoading: "Loading projects…",
-    recentLoadFailed: "Projects could not be loaded right now.",
+    recentLoadingTitle: "Loading projects",
+    recentLoadingDescription:
+      "CoreStudio is preparing your recent projects. This should only take a moment.",
+    recentLoadFailedTitle: "Projects could not be loaded",
+    recentLoadFailedDescription:
+      "This list comes from the running CoreStudio app. Projects will not appear if the app is closed, restarting, or this page's connection has expired.",
+    recentLoadFailedInstruction:
+      "Make sure CoreStudio is running, then reload the list. If you just restarted the app, open Switch project again from the current board.",
+    recentReload: "Reload project list",
+    projectSelectionEmptyTitle: "No projects available to switch to",
+    projectSelectionEmptyDescription:
+      "Create or open another project in CoreStudio, then return here and reload the list.",
     gettingStartedTitle: "Start creating in three steps",
     gettingStartedDescription:
       "These steps never block you. Start in whichever order works for you.",

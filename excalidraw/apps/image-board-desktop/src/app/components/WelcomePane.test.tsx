@@ -94,6 +94,69 @@ describe("WelcomePane", () => {
     },
   );
 
+  it("解释项目列表读取失败的原因并提供恢复动作", () => {
+    const onReloadRecentProjects = vi.fn();
+
+    render(
+      <WelcomePane
+        loading={false}
+        recentProjectsLoadStatus="failed"
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        onReloadRecentProjects={onReloadRecentProjects}
+        manualProjectActionsVisible={false}
+      />,
+    );
+
+    const state = screen.getByRole("alert", {
+      name: "未能读取项目列表",
+    });
+    expect(state).toHaveClass(
+      "welcome-pane__recent-state",
+      "welcome-pane__recent-state--failed",
+    );
+    expect(
+      within(state).getByText(
+        "这个列表由正在运行的 CoreStudio 提供。应用已关闭、正在重启，或当前页面连接已过期时，项目就不会显示。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(state).getByText(
+        "确认 CoreStudio 正在运行，然后重新加载。若刚重启过应用，请从当前画板重新打开“切换项目”。",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(state).getByRole("button", { name: "重新加载项目列表" }),
+    );
+    expect(onReloadRecentProjects).toHaveBeenCalledTimes(1);
+  });
+
+  it("在切换项目时说明真正的空列表以及后续操作", () => {
+    render(
+      <WelcomePane
+        loading={false}
+        recentProjectsLoadStatus="loaded"
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        onReloadRecentProjects={vi.fn()}
+        manualProjectActionsVisible={false}
+      />,
+    );
+
+    const state = screen.getByRole("status", {
+      name: "没有可切换的项目",
+    });
+    expect(
+      within(state).getByText(
+        "请先在 CoreStudio 中新建或打开另一个项目，再回到这里重新加载。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(state).getByRole("button", { name: "重新加载项目列表" }),
+    ).toBeEnabled();
+  });
+
   it("keeps Agent collaboration controls out of the welcome page", () => {
     render(
       <WelcomePane
@@ -185,9 +248,9 @@ describe("WelcomePane", () => {
     });
     expect(currentProjectButton).toBeDisabled();
     expect(currentProjectButton).toHaveAttribute("aria-current", "true");
-    expect(currentProjectButton.closest(".welcome-pane__recent-item")).toHaveClass(
-      "welcome-pane__recent-item--current",
-    );
+    expect(
+      currentProjectButton.closest(".welcome-pane__recent-item"),
+    ).toHaveClass("welcome-pane__recent-item--current");
     expect(screen.getByRole("button", { name: /可切换项目/ })).toBeEnabled();
     const unavailableProjectButton = screen.getByRole("button", {
       name: /不可用项目/,

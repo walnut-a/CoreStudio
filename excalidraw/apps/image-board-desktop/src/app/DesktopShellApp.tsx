@@ -109,6 +109,22 @@ export const DesktopShellApp = ({
     [],
   );
 
+  const reloadRecentProjects = useCallback(async () => {
+    setRecentProjectsLoadStatus("loading");
+    if (!bridge) {
+      setRecentProjects([]);
+      setRecentProjectsLoadStatus("failed");
+      return;
+    }
+    try {
+      setRecentProjects(await bridge.loadRecentProjects());
+      setRecentProjectsLoadStatus("loaded");
+    } catch {
+      setRecentProjects([]);
+      setRecentProjectsLoadStatus("failed");
+    }
+  }, [bridge]);
+
   useEffect(() => {
     if (!bridge?.loadProjectViewsState) {
       setStartupError("当前 CoreStudio 版本缺少项目视图能力。");
@@ -281,6 +297,7 @@ export const DesktopShellApp = ({
         onOpenProject={() => {
           void runProjectAction(() => bridge.openProject());
         }}
+        onReloadRecentProjects={reloadRecentProjects}
         onOpenProviderSettings={() => {
           setAppSettingsCategory("image-generation");
           setAppSettingsOpen(true);

@@ -4,7 +4,11 @@ import { copy, DESKTOP_LANG_CODE } from "../copy";
 import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
 import type { RecentProjectsLoadStatus } from "../desktopStartupState";
 import { DesktopButton } from "./DesktopButton";
-import { checkIcon, trashProjectIcon } from "./CoreStudioIcons";
+import {
+  checkIcon,
+  projectFolderIcon,
+  trashProjectIcon,
+} from "./CoreStudioIcons";
 import { useModalFocus } from "./useModalFocus";
 import "./WelcomePane.css";
 
@@ -17,6 +21,7 @@ interface WelcomePaneProps {
   loading: boolean;
   onCreateProject: () => void;
   onOpenProject: () => void;
+  onReloadRecentProjects?: () => void | Promise<void>;
   recentProjects?: RecentProjectEntry[];
   recentProjectsLoadStatus?: RecentProjectsLoadStatus;
   providerConfigurationStatus?: ProviderConfigurationStatus;
@@ -31,6 +36,7 @@ export const WelcomePane = ({
   loading,
   onCreateProject,
   onOpenProject,
+  onReloadRecentProjects,
   recentProjects = [],
   recentProjectsLoadStatus = "loaded",
   providerConfigurationStatus = "loading",
@@ -49,6 +55,7 @@ export const WelcomePane = ({
   });
 
   const deleteDialogTitleId = "welcome-delete-project-title";
+  const recentStateTitleId = "welcome-recent-state-title";
   const showGettingStarted =
     manualProjectActionsVisible &&
     recentProjectsLoadStatus === "loaded" &&
@@ -279,13 +286,67 @@ export const WelcomePane = ({
                   })}
                 </div>
               ) : (
-                <p className="welcome-pane__recent-empty">
-                  {recentProjectsLoadStatus === "loading"
-                    ? copy.welcome.recentLoading
-                    : recentProjectsLoadStatus === "failed"
-                    ? copy.welcome.recentLoadFailed
-                    : copy.welcome.recentEmpty}
-                </p>
+                <section
+                  className={[
+                    "welcome-pane__recent-state",
+                    recentProjectsLoadStatus === "failed"
+                      ? "welcome-pane__recent-state--failed"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  role={
+                    recentProjectsLoadStatus === "failed" ? "alert" : "status"
+                  }
+                  aria-labelledby={recentStateTitleId}
+                >
+                  <span
+                    className="welcome-pane__recent-state-icon"
+                    aria-hidden="true"
+                  >
+                    {projectFolderIcon}
+                  </span>
+                  <div className="welcome-pane__recent-state-copy">
+                    <h3 id={recentStateTitleId}>
+                      {recentProjectsLoadStatus === "loading"
+                        ? copy.welcome.recentLoadingTitle
+                        : recentProjectsLoadStatus === "failed"
+                        ? copy.welcome.recentLoadFailedTitle
+                        : projectSelectionMode
+                        ? copy.welcome.projectSelectionEmptyTitle
+                        : copy.welcome.recentEmpty}
+                    </h3>
+                    <p>
+                      {recentProjectsLoadStatus === "loading"
+                        ? copy.welcome.recentLoadingDescription
+                        : recentProjectsLoadStatus === "failed"
+                        ? copy.welcome.recentLoadFailedDescription
+                        : projectSelectionMode
+                        ? copy.welcome.projectSelectionEmptyDescription
+                        : copy.welcome.recentEmpty}
+                    </p>
+                    {recentProjectsLoadStatus === "failed" ? (
+                      <p className="welcome-pane__recent-state-next-step">
+                        {copy.welcome.recentLoadFailedInstruction}
+                      </p>
+                    ) : null}
+                  </div>
+                  {recentProjectsLoadStatus !== "loading" &&
+                  onReloadRecentProjects ? (
+                    <DesktopButton
+                      size="small"
+                      variant={
+                        recentProjectsLoadStatus === "failed"
+                          ? "primary"
+                          : "default"
+                      }
+                      className="welcome-pane__recent-state-action"
+                      onClick={() => void onReloadRecentProjects()}
+                    >
+                      {copy.welcome.recentReload}
+                    </DesktopButton>
+                  ) : null}
+                </section>
               )}
             </>
           )}

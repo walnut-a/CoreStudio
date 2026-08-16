@@ -2389,6 +2389,9 @@ const App = ({
         }
         onCreateProject={currentProjectEntryRendererActions.createProject}
         onOpenProject={currentProjectEntryRendererActions.openProject}
+        onReloadRecentProjects={
+          desktopStartupRendererActions.loadRecentProjects
+        }
         onOpenProviderSettings={() => {
           setAppSettingsCategory("image-generation");
           setAppSettingsOpen(true);

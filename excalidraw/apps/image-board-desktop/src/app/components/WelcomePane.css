@@ -410,9 +410,7 @@
   cursor: pointer;
 }
 
-.welcome-pane__recent-item:not(.welcome-pane__recent-item--current):not(
-    .welcome-pane__recent-item--unavailable
-  ):hover,
+.welcome-pane__recent-item:not(.welcome-pane__recent-item--current):not(.welcome-pane__recent-item--unavailable):hover,
 .welcome-pane__recent-item:not(.welcome-pane__recent-item--current):focus-within {
   background: color-mix(
     in srgb,
@@ -517,19 +515,66 @@
   font-variant-numeric: tabular-nums;
 }
 
-.welcome-pane__recent-empty {
+.welcome-pane__recent-state {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 18px;
   min-height: 180px;
   margin-top: 14px;
+  padding: 28px 18px;
+}
+
+.welcome-pane__recent-state-icon {
+  display: grid;
+  grid-row: 1;
   place-items: center;
-  padding: 24px;
-  border: 1px dashed var(--default-border-color);
+  width: 44px;
+  height: 44px;
   border-radius: var(--border-radius-lg);
-  background: var(--island-bg-color);
+  background: var(--color-surface-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.welcome-pane__recent-state-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.welcome-pane__recent-state-copy {
+  display: grid;
+  grid-column: 2;
+  gap: 6px;
+  max-width: 62ch;
+}
+
+.welcome-pane__recent-state-copy h3,
+.welcome-pane__recent-state-copy p {
+  margin: 0;
+}
+
+.welcome-pane__recent-state-copy h3 {
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-title);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.welcome-pane__recent-state-copy p {
   color: var(--corestudio-secondary-text-color);
-  font-size: 0.8125rem;
+  font-size: var(--ui-text-size-md);
   line-height: 1.5;
-  text-align: center;
+}
+
+.welcome-pane__recent-state-copy .welcome-pane__recent-state-next-step {
+  color: var(--text-primary-color);
+}
+
+.welcome-pane__recent-state-action {
+  grid-column: 2;
+  justify-self: start;
 }
 
 .welcome-pane__delete-dialog {
@@ -609,6 +654,22 @@
 
   .welcome-pane__actions {
     grid-template-columns: 1fr;
+  }
+
+  .welcome-pane__recent-state {
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding: 22px 0;
+  }
+
+  .welcome-pane__recent-state-icon,
+  .welcome-pane__recent-state-copy,
+  .welcome-pane__recent-state-action {
+    grid-column: 1;
+  }
+
+  .welcome-pane__recent-state-action {
+    width: 100%;
   }
 
   .welcome-pane__recent-open {

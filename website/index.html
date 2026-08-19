@@ -5,292 +5,205 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="CoreStudio adds image generation to Excalidraw, keeps projects and assets local, lets you choose your models, and works with agents such as Codex."
+      content="CoreStudio is a local-first image-generation canvas built on Excalidraw, with your choice of models and agent write-back."
     />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f8f8f7" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
-    <meta
-      property="og:title"
-      content="CoreStudio · A local-first canvas for image generation"
-    />
+    <meta property="og:title" content="CoreStudio · A local-first canvas for image generation" />
     <meta
       property="og:description"
-      content="Generate images on an Excalidraw canvas, manage local assets, and work with agents such as Codex."
+      content="Keep the canvas, references, generated images, and agent collaboration in one local project."
     />
     <meta property="og:url" content="https://getcorestudio.com/" />
-    <meta
-      property="og:image"
-      content="https://getcorestudio.com/assets/corestudio-social-card.jpeg"
-    />
+    <meta property="og:image" content="https://getcorestudio.com/assets/corestudio-social-card.jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta
-      property="og:image:alt"
-      content="An industrial design concept on the CoreStudio canvas"
-    />
+    <meta property="og:image:alt" content="An industrial-design concept on the CoreStudio canvas" />
     <meta name="twitter:card" content="summary_large_image" />
     <title>CoreStudio · A local-first canvas for image generation</title>
-    <link
-      rel="icon"
-      href="assets/corestudio-favicon-32.png"
-      type="image/png"
-    />
-    <link
-      rel="apple-touch-icon"
-      href="assets/corestudio-apple-touch-icon.png"
-    />
+    <link rel="icon" href="assets/corestudio-favicon-32.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/corestudio-apple-touch-icon.png" />
     <link rel="canonical" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="styles.css?v=20260802-10" />
-    <script src="main.js?v=20260802-4" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20260820-3" />
+    <script type="module" src="main.js?v=20260820-3"></script>
   </head>
   <body class="page-en">
-    <a class="skip-link" href="#main">Skip to main content</a>
+    <!--
+    THESIS: The CoreStudio website is a living canvas, not a page that explains one in stacked marketing sections.
+    OWN-WORLD: Paper-white dotted space, native CoreStudio controls, silver industrial imagery, precise selection geometry, and quiet production status feedback.
+    STORY: References enter a local project, a model generates on the canvas, and a Codex cursor writes the result back before the visitor downloads the macOS app.
+    FIRST VIEWPORT: A selected headline and reference cluster balance a large generated object; toolbar, minimap, composer, and download action form the working edge of the canvas.
+    FORM: Center workshop canvas from the user-pinned direction; concept seed 4fb4245c.
+    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+    -->
+    <a class="skip-link" href="#main">Skip to the canvas</a>
 
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href="#top" aria-label="CoreStudio home">
+    <div class="canvas-app" data-canvas-app data-active-tool="select">
+      <header class="canvas-header">
+        <a class="brand" href="#canvas-home" aria-label="CoreStudio home">
           <img
             src="assets/corestudio-icon-256.png"
-            srcset="
-              assets/corestudio-icon-64.webp   64w,
-              assets/corestudio-icon-256.webp 256w,
-              assets/corestudio-icon-512.webp 512w
-            "
-            sizes="32px"
+            srcset="assets/corestudio-icon-64.webp 64w, assets/corestudio-icon-256.webp 256w"
+            sizes="34px"
+            width="34"
+            height="34"
             alt=""
-            width="32"
-            height="32"
           />
           <span>CoreStudio</span>
         </a>
 
-        <div class="header-mobile-actions">
-          <a
-            class="header-language"
-            href="zh/index.html"
-            lang="zh-CN"
-            hreflang="zh-CN"
-            aria-label="Switch to Chinese"
-          >
-            中文
-          </a>
-          <button
-            class="nav-toggle"
-            type="button"
-            aria-label="Open navigation menu"
-            aria-expanded="false"
-            aria-controls="site-nav"
-            data-label-open="Open navigation menu"
-            data-label-close="Close navigation menu"
-            data-nav-toggle
-          >
-            <span></span>
-            <span></span>
+        <div class="canvas-toolbar" role="toolbar" aria-label="Canvas demo tools">
+          <button class="tool-button is-active" type="button" data-tool="select" aria-label="Select objects" aria-pressed="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.8 18 13l-6.2 1.1L8.2 20 5 3.8Z" /></svg>
+          </button>
+          <button class="tool-button" type="button" data-tool="hand" aria-label="Pan the canvas" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 11V6.5a1.5 1.5 0 0 1 3 0V10m0 0V5a1.5 1.5 0 0 1 3 0v5m0 .5V6.2a1.5 1.5 0 0 1 3 0v6.3m0-2a1.5 1.5 0 0 1 3 0v3.8c0 3.7-2.7 6.7-6.5 6.7h-1.6a6.2 6.2 0 0 1-5-2.5l-3.1-4.1a1.6 1.6 0 0 1 2.4-2.1l1.8 1.6V11Z" /></svg>
+          </button>
+          <button class="tool-button" type="button" data-tool="shape" aria-label="Show canvas shapes" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5" /></svg>
+          </button>
+          <button class="tool-button" type="button" data-tool="image" aria-label="Open image generation" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 18.25h11.5a1.5 1.5 0 0 0 1.5-1.5v-7.5a1.5 1.5 0 0 0-1.5-1.5H6.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5Z" /><path d="m7.75 15.75 3-3 2.25 2.25 1.25-1.25 2 2" /><path d="M14.75 4.75 16 7.25l2.5 1.25L16 9.75l-1.25 2.5-1.25-2.5L11 8.5l2.5-1.25 1.25-2.5Z" /></svg>
           </button>
         </div>
 
-        <nav class="site-nav" id="site-nav" aria-label="Main navigation" data-site-nav>
-          <a href="#why">Why CoreStudio</a>
-          <a
-            class="nav-secondary-last"
-            href="https://github.com/walnut-a/CoreStudio"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-          <a
-            class="nav-download button button-primary"
-            href="https://github.com/walnut-a/CoreStudio/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Download for macOS
-          </a>
-        </nav>
-
         <div class="header-actions">
-          <a
-            class="header-language"
-            href="zh/index.html"
-            lang="zh-CN"
-            hreflang="zh-CN"
-            aria-label="Switch to Chinese"
-          >
-            中文
-          </a>
-          <a
-            class="button button-small button-primary header-download"
-            href="https://github.com/walnut-a/CoreStudio/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Download for macOS
+          <a class="header-link header-github" href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">GitHub</a>
+          <a class="header-link language-link" href="zh/index.html" lang="zh-CN" hreflang="zh-CN">中文</a>
+          <a class="download-button" href="https://github.com/walnut-a/CoreStudio/releases/latest" target="_blank" rel="noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" /></svg>
+            <span>Download for macOS</span>
           </a>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <main id="main" tabindex="-1">
-      <section class="hero" id="top">
-        <div class="hero-inner">
-          <img
-            class="hero-icon"
-            src="assets/corestudio-icon-256.png"
-            srcset="
-              assets/corestudio-icon-64.webp   64w,
-              assets/corestudio-icon-256.webp 256w,
-              assets/corestudio-icon-512.webp 512w
-            "
-            sizes="(max-width: 600px) 84px, 104px"
-            alt="CoreStudio app icon"
-            width="112"
-            height="112"
-          />
-          <h1>A local-first canvas for image generation.</h1>
-          <p class="hero-description">
-            Built on the excellent Excalidraw project, CoreStudio adds practical image generation without replacing the canvas you already know. Assets and results stay in local projects by default; choose your own models or let agents such as Codex generate images and write them back to the canvas. CoreStudio is free, open source, and customizable.
-          </p>
-          <div class="hero-actions">
-            <a
-              class="button button-primary"
-              href="https://github.com/walnut-a/CoreStudio/releases/latest"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Download for macOS
-            </a>
-            <a
-              class="button button-secondary"
-              href="https://github.com/walnut-a/CoreStudio"
-              target="_blank"
-              rel="noreferrer"
-            >
-              View on GitHub
-            </a>
+      <main class="canvas-main" id="main" tabindex="-1">
+        <div class="canvas-viewport" data-canvas-viewport aria-label="Interactive CoreStudio product demonstration">
+          <div class="canvas-plane" data-canvas-plane>
+            <div class="project-tab" aria-hidden="true">
+              <span class="project-home">
+                <svg viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v8H4v-8Z" /><path d="M9 19v-5h6v5" /></svg>
+              </span>
+              <span>Industrial light</span>
+              <span class="project-close">×</span>
+            </div>
+
+            <section class="scene-title is-selected" id="canvas-home" data-scene-object>
+              <div class="selection-box" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+              <h1>A local-first canvas<br />for image generation.</h1>
+              <p>Built on Excalidraw. Keep the project local, choose your models, and let agents write back.</p>
+            </section>
+
+            <div class="shape-cluster" data-shape-cluster data-scene-object aria-label="Excalidraw shapes and connectors">
+              <span class="shape-rectangle"></span>
+              <span class="shape-circle"></span>
+              <svg viewBox="0 0 150 90" aria-hidden="true"><path d="M10 72c34-65 72 30 128-45" /><path d="m128 22 10 5-7 9" /></svg>
+            </div>
+
+            <button class="scene-chip scene-chip-local" type="button" data-camera-target="overview">
+              <strong>Local project</strong>
+              <span>References and results stay together</span>
+            </button>
+
+            <figure class="reference-board" data-scene-object>
+              <div class="reference-grid" aria-label="Four industrial-design references">
+                <span class="reference-tile reference-tile-a"><img src="assets/corestudio-reference-board.webp" alt="Brushed aluminum and amber seam reference" /></span>
+                <span class="reference-tile reference-tile-b"><img src="assets/corestudio-reference-board.webp" alt="Industrial-design sketch reference" /></span>
+                <span class="reference-tile reference-tile-c"><img src="assets/corestudio-reference-board.webp" alt="Machined aluminum control reference" /></span>
+                <span class="reference-tile reference-tile-d"><img src="assets/corestudio-reference-board.webp" alt="Flowing silver surface reference" /></span>
+              </div>
+              <figcaption>4 references · saved locally</figcaption>
+            </figure>
+
+            <svg class="canvas-connectors" viewBox="0 0 1400 780" aria-hidden="true">
+              <defs>
+                <marker id="arrow-end-en" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0 0 10 5 0 10" />
+                </marker>
+              </defs>
+              <path class="connector connector-a" d="M455 430C565 430 602 392 710 378" marker-end="url(#arrow-end-en)" />
+              <path class="connector connector-b" d="M455 510C575 520 602 470 710 454" marker-end="url(#arrow-end-en)" />
+              <path class="connector connector-c" d="M455 585C578 610 628 560 735 526" marker-end="url(#arrow-end-en)" />
+            </svg>
+
+            <button class="scene-chip scene-chip-model" type="button" data-camera-target="generate">
+              <strong>Your models</strong>
+              <span>Quality, speed, or budget</span>
+            </button>
+
+            <figure class="generation-result" data-scene-object>
+              <div class="result-frame">
+                <span class="result-status" data-result-status data-generating="Generating" data-ready="Updated on canvas"><i></i><span data-result-status-label>Updated on canvas</span></span>
+                <img class="result-image" src="assets/corestudio-canvas-result.webp" alt="Illustrative silver desktop light generated in the CoreStudio demo" width="1536" height="1024" />
+                <span class="result-corner result-corner-a"></span>
+                <span class="result-corner result-corner-b"></span>
+                <span class="result-corner result-corner-c"></span>
+                <span class="result-corner result-corner-d"></span>
+              </div>
+              <figcaption>Illustrative generation demo</figcaption>
+            </figure>
+
+            <button class="scene-chip scene-chip-agent" type="button" data-camera-target="agent">
+              <strong>Agent write-back</strong>
+              <span>Current canvas, shared context</span>
+            </button>
+
+            <div class="agent-cursor" aria-hidden="true">
+              <svg viewBox="0 0 32 38"><path d="M4 3 27 23l-11 1.6L10 35 4 3Z" /></svg>
+              <span>Codex</span>
+            </div>
+            <div class="writeback-tag" aria-hidden="true"><i></i>Written back</div>
           </div>
         </div>
 
-        <div class="product-stage">
-          <figure class="product-shot">
-            <picture>
-              <source
-                srcset="
-                  assets/corestudio-product-960.webp   960w,
-                  assets/corestudio-product-1600.webp 1600w,
-                  assets/corestudio-product-2400.webp 2400w
-                "
-                sizes="(max-width: 600px) calc(100vw - 32px), min(1180px, calc(100vw - 64px))"
-                type="image/webp"
-              />
-              <img
-                src="assets/corestudio-product.jpeg"
-                alt="The CoreStudio interface showing an industrial design concept on the canvas, the Excalidraw toolbar above, and the image-generation prompt below."
-                width="2942"
-                height="1848"
-                fetchpriority="high"
-              />
-            </picture>
-          </figure>
+        <nav class="story-nav" aria-label="Canvas story">
+          <button class="story-step is-active" type="button" data-camera-target="overview" aria-current="step">Project</button>
+          <button class="story-step" type="button" data-camera-target="generate" aria-current="false">Generate</button>
+          <button class="story-step" type="button" data-camera-target="agent" aria-current="false">Agent</button>
+        </nav>
+
+        <div class="canvas-dock canvas-dock-left">
+          <div class="zoom-control is-expanded" data-zoom-control aria-label="Canvas zoom controls">
+            <button type="button" data-zoom-out aria-label="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg></button>
+            <button class="zoom-value" type="button" data-minimap-toggle aria-label="Close minimap, current zoom 90%" aria-pressed="true"><span data-zoom-label>90%</span></button>
+            <button type="button" data-zoom-in aria-label="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg></button>
+          </div>
+          <div class="minimap is-open" data-minimap aria-label="Canvas minimap">
+            <button class="minimap-object minimap-title" type="button" data-camera-target="overview" aria-label="Show project overview"></button>
+            <button class="minimap-object minimap-result" type="button" data-camera-target="generate" aria-label="Show generated result"></button>
+            <button class="minimap-object minimap-agent" type="button" data-camera-target="agent" aria-label="Show agent write-back"></button>
+            <span class="minimap-viewport" data-minimap-viewport></span>
+          </div>
         </div>
-      </section>
 
-      <section class="why-consider" id="why" aria-labelledby="why-consider-title">
-        <div class="why-inner">
-          <header class="why-header">
-            <h2 id="why-consider-title">
-              There are already plenty of image generators. Why consider CoreStudio?
-            </h2>
-            <p class="why-thesis">
-              Generating an image is no longer the hard part. What shapes the workflow is what happens next: where the image lives, how you keep working with it, and whether an agent can join the same project.
-            </p>
-          </header>
-
-          <article class="why-essay">
-            <p><strong>Most image tools live on the web, and their results do not automatically become part of a local project.</strong> Organizing and backing them up takes extra work. CoreStudio keeps projects, assets, and generated results on your device, ready to view, manage, and back up.</p>
-            <p><strong>CoreStudio does not reinvent the canvas.</strong> Excalidraw already provides a mature, capable open-source canvas for creative and exploratory work. CoreStudio builds on it and adds only what image generation, local asset management, and agent collaboration need.</p>
-            <p><strong>Image-generation APIs have become affordable enough for personal use.</strong> Models such as GPT Image 2 and Nano Banana 2 offer strong value when usage is moderate, while still letting you choose a provider and model and control your budget.</p>
-            <p><strong>You can also generate images through an agent without configuring an API key in CoreStudio.</strong> CoreStudio includes comprehensive CLI support, so products such as Codex can use their own image-generation capabilities and write the results back to CoreStudio. CoreStudio adds no extra charge for this workflow; third-party subscriptions and usage limits still apply.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="closing">
-        <img
-          src="assets/corestudio-icon-256.png"
-          srcset="
-            assets/corestudio-icon-64.webp   64w,
-            assets/corestudio-icon-256.webp 256w,
-            assets/corestudio-icon-512.webp 512w
-          "
-          sizes="72px"
-          alt=""
-          width="72"
-          height="72"
-        />
-        <h2>Keep the project local.<br />Bring in an agent when you need one.</h2>
-        <div class="hero-actions">
-          <a
-            class="button button-primary"
-            href="https://github.com/walnut-a/CoreStudio/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Download for macOS
-          </a>
-          <a
-            class="button button-secondary"
-            href="https://github.com/walnut-a/CoreStudio"
-            target="_blank"
-            rel="noreferrer"
-          >
-            View source
-          </a>
-        </div>
-      </section>
-    </main>
-
-    <footer class="site-footer">
-      <div>
-        <a class="brand" href="#top">
-          <img
-            src="assets/corestudio-icon-256.png"
-            srcset="
-              assets/corestudio-icon-64.webp   64w,
-              assets/corestudio-icon-256.webp 256w,
-              assets/corestudio-icon-512.webp 512w
-            "
-            sizes="28px"
-            alt=""
-            width="28"
-            height="28"
-          />
-          <span>CoreStudio</span>
-        </a>
-        <p>Local projects bring images, assets, and agent collaboration together.</p>
-      </div>
-      <div class="footer-links">
-        <a href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">GitHub</a>
-        <a
-          href="https://github.com/walnut-a/CoreStudio/releases/latest"
-          target="_blank"
-          rel="noreferrer"
+        <form
+          class="generation-composer"
+          data-generation-form
+          data-status-generating="Generating on the canvas…"
+          data-status-generated="Image generated"
+          data-status-writeback="Codex wrote the result back to the project"
         >
-          Releases
-        </a>
-        <a
-          href="https://github.com/walnut-a/CoreStudio/blob/main/LICENSE"
-          target="_blank"
-          rel="noreferrer"
-        >
-          MIT License
-        </a>
-        <a href="zh/index.html" lang="zh-CN" hreflang="zh-CN">中文</a>
-      </div>
-    </footer>
+          <label class="sr-only" for="generation-prompt-en">Describe the image to generate</label>
+          <input id="generation-prompt-en" data-prompt-input value="A continuous aluminum desk light with a warm seam" autocomplete="off" />
+          <button class="composer-icon" type="button" data-composer-settings aria-label="Generation settings" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h5.25M13.75 7.5H19M12 5.75v3.5M5 16.5h8.25M16.75 16.5H19M15 14.75v3.5" /></svg>
+          </button>
+          <button class="generate-button" type="submit" data-generate-button>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11.75 18.25 5.5a.7.7 0 0 1 .95.82l-3.85 12.9a.7.7 0 0 1-1.26.18l-3.05-4.65-4.98-1.72a.7.7 0 0 1-.06-1.28Z" /><path d="m11.05 14.7 3.7-3.7" /></svg>
+            <span class="sr-only">Generate</span>
+          </button>
+          <p class="sr-only" role="status" aria-live="polite" data-demo-status></p>
+        </form>
+
+        <div class="canvas-links" aria-label="Project links">
+          <a href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">Source</a>
+          <a href="https://github.com/walnut-a/CoreStudio/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT</a>
+        </div>
+      </main>
+    </div>
   </body>
 </html>

@@ -2,3 +2,5 @@
 .git-backups/
 review-packets/
 .worktrees/
+website/.impeccable/
+website/assets/*.webp.json

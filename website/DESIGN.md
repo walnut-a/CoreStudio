@@ -1,127 +1,202 @@
-# CoreStudio 官网设计方案
+---
+name: CoreStudio Website
+description: A local-first image-generation canvas presented as a living workshop.
+colors:
+  ink: "#1b1b1f"
+  primary: "#6965db"
+  primary-hover: "#5753d0"
+  muted: "#5c5c5c"
+  quiet: "#7a7a7a"
+  paper: "#f6f6f9"
+  surface: "#ffffff"
+  surface-high: "#f1f0ff"
+  surface-low: "#ececf4"
+  line: "#f1f0ff"
+  success: "#2d9b59"
+typography:
+  display:
+    fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif'
+    fontSize: "clamp(3.25rem, 4.2vw, 4.35rem)"
+    fontWeight: 700
+    lineHeight: 0.98
+    letterSpacing: "-0.035em"
+  body:
+    fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif'
+    fontSize: "1.03rem"
+    fontWeight: 400
+    lineHeight: 1.5
+  interface:
+    fontFamily: '"Assistant", "PingFang SC", "Microsoft YaHei", sans-serif'
+    fontSize: "0.82rem"
+    fontWeight: 600
+    lineHeight: 1.2
+rounded:
+  handle: "2px"
+  compact: "0.375rem"
+  control: "0.5rem"
+  pill: "999px"
+spacing:
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.surface}"
+    typography: "{typography.interface}"
+    rounded: "{rounded.control}"
+    padding: "0 14px"
+    height: "40px"
+  tool-button-active:
+    backgroundColor: "{colors.surface-high}"
+    textColor: "{colors.primary}"
+    rounded: "{rounded.control}"
+    size: "36px"
+  image-result:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.control}"
+---
 
-## 核心定位
+# Design System: CoreStudio Website
 
-CoreStudio 是一款基于 Excalidraw 的本地优先图片生成画布。官网先讲清楚产品由什么组成，再解释它为什么仍值得被选择：
+## Overview
 
-1. **成熟画布上的图片生成。** 沿用 Excalidraw 已有的图形、文字、连线、流程图和自由布局能力，只增加图片生成、本地素材管理与 Agent 协作所需的功能。
-2. **本地优先。** 项目、参考素材、生成结果、画布和批注由本地客户端维护，用户可以直接查看、整理和备份。
-3. **模型自由。** 用户可以配置自己的服务商、API Key 与模型，按质量、速度和预算选择生成方案。
-4. **与 Agent 共用。** Codex 等 Agent 可以通过 CLI / Local Bridge 读取当前画布与选区，使用自身能力生成图片，再把结果写回本地项目。
-5. **免费、开源、可定制。** CoreStudio 本身免费使用，代码完全开放，也可以按自己的工作流继续修改。
+**Creative North Star: "The Living Canvas Workshop"**
 
-本地数据所有权仍是第一差异点。Excalidraw 解释产品为何具备成熟画布能力；模型自由和 Agent / CLI 则提供两条可选的图片生成路径。
+CoreStudio does not sit inside a conventional marketing page. The page itself behaves like a restrained Excalidraw workspace: product proof, controls, references, generated work, and the download action coexist on one paper-white canvas. The mood is precise, quiet, and useful rather than promotional.
 
-## 目标用户
+The visual identity remains grounded in the incumbent CoreStudio palette, production design tokens, and application icon. Silver industrial-design imagery supplies material depth; every toolbar, zoom control, minimap, composer, and action uses the same geometry and states as the desktop product. Generation is communicated by the production status-dot pattern and light content de-emphasis, not a decorative effect layer.
 
-- 在本地整理工业设计参考、标注图、提示词和生成结果的设计工作者。
-- 已经在 Codex、Cursor 等 Agent 环境中工作，希望 Agent 能直接使用当前项目上下文的用户。
-- 希望使用免费、开放、可自行定制画布工具的个人或团队。
+**Key Characteristics:**
 
-## 参考方向
+- One continuous dotted canvas instead of stacked landing-page sections.
+- Real raster material references and generated results, connected by hand-drawn paths.
+- Compact desktop-tool controls with clear selected, hover, focus, and disabled states.
+- Camera movement reveals project, generation, and Agent writeback without turning the page into a full editor.
+- Download remains the only dominant action.
 
-- [Linear Desktop](https://mobbin.com/sites/sections/627cc68a-7bbd-48e2-9040-3165bce00849)：用克制的应用图标、标题和下载动作建立首屏。
-- [Spline Product UI](https://mobbin.com/sites/sections/4c08cec4-6089-412d-a59e-bb5cc67f5d8f)：让产品界面承担主要视觉表达。
-- [Framer Editor](https://mobbin.com/sites/sections/2f2f92bb-e246-474d-970a-d5cd50db3c13)：减少外层包装，直接展示工作界面。
-- [Retool Open Source](https://mobbin.com/sites/sections/7f968da7-08ef-4274-adc3-4ae312fe921a)：用朴素的文字和分隔线解释开放底座的价值。
+## Colors
 
-最终采用「Linear 的安静首屏 + Spline / Framer 的产品主视觉 + Retool 的内容结构」。
+The palette is CoreStudio's existing Excalidraw-derived system: white islands, gray-violet surfaces, dark text, and a small amount of violet and green for state.
 
-## 视觉方向
+### Primary
 
-- **色彩策略：** Restrained。官网以应用图标的石墨黑、银灰和白色为主，主按钮使用 `#292a2e`，边框与表面保持冷中性灰。Excalidraw 的紫色只保留在真实产品截图中，作为软件界面自身的选中状态，不再承担 CoreStudio 官网品牌色。
-- **场景句：** 设计师在明亮、安静的桌面环境里打开一个自己的本地项目，所有图片和素材都在手边，需要时再把当前画布交给 Agent。
-- **字体：** 中文正文与标题优先使用系统中文字体，品牌、导航和按钮中的拉丁字符使用 Assistant。正文以 16px 为阅读基线，长文区导语约 18px；首屏标题、选择理由标题和收尾标题分别使用递减的响应式字号。选择理由区通过更紧凑的标题、行高、段距和留白承载较大文字量，不得反向大于首屏产品定位。
-- **形状与层级：** 6–10px 小圆角、细边框、弱阴影；不使用玻璃、渐变、光斑或悬浮卡片堆叠。
-- **图标：** 只使用桌面应用打包素材 `excalidraw/apps/image-board-desktop/build/icon.png`，不重新绘制；官网可以从原图生成适合页面加载的尺寸与格式。
+- **CoreStudio Primary:** Carries the macOS download, selected tools, focus, and the send control using the production primary, hover, and active values.
+- **Excalidraw Selection:** Marks selection geometry, minimap state, and generating connectors.
 
-## 页面结构
+### Neutral
 
-英文版使用根路径 `/`，中文版使用 `/zh/`，原 `/en/` 保留为兼容跳转。两版共享同一套布局、样式、脚本和真实产品素材，
-并在页头与页脚提供固定语言入口；不根据浏览器语言自动跳转，确保用户可以明确选择并保留当前版本。
-英文文案保持与中文版相同的事实边界和叙事顺序，不扩展新的功能承诺。
+- **Paper White:** Infinite-canvas ground behind the dotted grid.
+- **Clean Surface:** Floating controls, the result frame, minimap, and composer.
+- **Workshop Ink:** Display lettering and high-priority interface text.
+- **Working Gray:** Supporting copy and passive controls.
+- **Construction Line:** Borders and lightweight geometry.
 
-### 1. 导航
+### Named Rules
 
-固定在页面顶部，但保持白色、细边框和低存在感。页面内只保留「为什么选择」、GitHub 和下载动作，不再为已经合并的内容设置多个锚点。语言切换属于全局工具：桌面端放在右侧下载动作旁，手机端与菜单按钮并列常驻，不与页面主导航混排。
+**The Production Token Rule.** Website controls use the values from `apps/image-board-desktop/src/app/styles/designTokens.css`; local approximations are not a second source of truth.
 
-### 2. 首屏：本地优先
+**The Material Carries Color Rule.** Outside active generation, warmth and chroma come from the industrial-design imagery, not decorative page backgrounds.
 
-- 真实应用图标作为主视觉，桌面端约 104px，移动端约 84px。
-- 主标题：「本地优先的图片生成画布」
-- 保留用户提供的首屏句式：「我们在优秀的 Excalidraw 项目基础上，增加了好用的图片生成能力」，再依次带出模型自由、Agent 协作、本地项目和开源属性。
-- 本地优先仍是标题中的第一利益点；Excalidraw、Agent 和开源作为产品构成出现。
-- 首屏下方直接使用真实 CoreStudio 产品截图，不再用 HTML 和 CSS 仿制界面。桌面端与手机端均完整展示画布、工具栏和生成输入框；手机端按容器宽度等比缩放整幅截图，不做额外裁切。
-- 首屏纵向空间保持克制，让产品界面在常见桌面视口底部开始出现，不让长介绍完全挤走主视觉。
+## Typography
 
-### 3. 界面后的选择理由
+**Display Font:** System CJK sans stack, led by PingFang SC on macOS.
 
-产品工作流示意结束后，立即回答：
+**Body Font:** The same CJK sans stack for a continuous product voice.
 
-> 生图工具已经这么多了，为什么 CoreStudio 仍然值得考虑？
+**Label/Interface Font:** Assistant for Latin interface text, with the CJK stack as fallback.
 
-先承认「输入提示词，得到一张图」已经有很多成熟选择，再把判断标准转向四件事：
+**Character:** Heavy, compact display lettering reads like a selected text object on a working canvas. Interface type stays smaller and denser so tools remain subordinate to the work.
 
-- 是否直接进入本地项目，而不是重新整理下载文件。
-- 是否站在 Excalidraw 的成熟画布能力上，而不是重新发明轮子。
-- 是否允许用户按质量、速度和预算自由配置模型。
-- 是否能让 Codex 等 Agent 使用同一张画布与上下文，并把结果写回。
+### Hierarchy
 
-这一段不做卡片矩阵、左右分栏或两个独立模块。它从产品截图所在的白色页面中脱开，成为一段通栏的浅灰编辑式叙事：先用问题和一句判断建立观点，随后把四条理由写成一篇连续文章。四段证据只用段落首句的字重区别重点，不增加章节标题、编号、错位或段间分隔线。长文区使用比首屏更紧凑的标题、导语、行高、段距和区块留白，保持单一的自上而下阅读路径，避免大量文字占据过多页面高度。它负责给出完整结论，不再用后续独立章节重复解释。
+- **Display** (700, responsive 3.25–4.35rem, 0.98 line-height): the single selected product proposition.
+- **Body** (400, 1.03rem, 1.5 line-height): one short supporting sentence below the proposition.
+- **Interface** (600–700, 0.7–0.9rem): toolbars, chips, status, composer, and metadata.
 
-模型价格会变化，官网不写固定单价，也不承诺所有用户场景都“非常便宜”。只说明 GPT Image 2、Nano Banana 2 等模型支持按量调用，用户可以自行控制服务商、模型与预算。
+### Named Rules
 
-### 4. 收尾行动
+**The Selected Statement Rule.** The largest text should feel like an editable canvas object through scale and selection geometry, not like a polished marketing billboard.
 
-用一句「项目留在本地，Agent 随时加入」收束叙事，随后只保留下载和查看源代码两个动作。
+## Layout
 
-页面完整流程缩减为：
+The desktop world is a fixed 1400 × 780 spatial plane centered inside the viewport. A three-column reading order—title and references, connectors and model choice, generated result and Agent writeback—provides narrative without page scrolling. Header, zoom/minimap, composer, and source links stay pinned to the viewport edge as canvas chrome.
 
-1. 首屏定位与下载。
-2. 产品界面。
-3. 四条选择理由。
-4. 收尾下载。
+Camera transforms, not document flow, reveal alternate moments. At 820px and below, the toolbar is removed, the controls stack into the top corners, and a three-step story switcher sits above the composer. Mobile keeps a stable page and moves the canvas plane; it never captures the page's vertical scroll gesture. At 470px, the selected title narrows and the display size reduces while preserving its two-line composition.
 
-本地数据边界、Agent 写回方式、模型选择和开源价值全部在首屏与四条理由中一次讲清，不再各自展开成 section。
+The recurring spacing rhythm is 4, 8, 12, and 20px. The dotted grid repeats every 22px on the main canvas and every 8px in the minimap.
 
-## 文案语气
+## Elevation & Depth
 
-- 用户提供的首屏介绍和四条选择理由是当前文案源，只做语病、节奏和事实边界修正，不再改写成另一套营销话术。
-- 直接、具体、少形容词。
-- 先承认成熟选择已经存在，再把判断标准自然转向「生成之后」。
-- 标题写结论，正文补充场景与边界；避免连续解释功能。
-- 句子尽量短，使用「一起保留、接着做、写回项目」等可感知的动作。
-- 同级标题保持节奏一致，不堆叠相同的「可以、支持、提供」。
-- 不使用「革命性」「无限可能」「重新定义」等营销语言。
-- 不把通用生图能力包装成独家能力。
-- 始终使用「本地项目、素材、模型、Agent、写回、开源」这组统一术语。
-- 技术实现只在必要处出现，用户利益始终先于 CLI、Bridge 或协议名。
-- 「本地」只描述项目数据、素材管理、画布协作与结果写回；不暗示在线模型在用户设备上完成推理。
-- 「免费」只描述 CoreStudio 本身及其 Agent 协作能力不另收费；第三方模型和 Agent 产品的费用、额度由对应服务决定。
+Depth is functional and inherited from the product. The canvas stays flat; floating controls use the production island shadow, while raster imagery supplies the only substantial physical volume.
 
-## 响应式
+### Shadow Vocabulary
 
-- 桌面：最大内容宽度 1180px，首屏居中，产品界面占主要横向空间。
-- 平板：两栏内容可保持，但缩小间距和标题字号。
-- 手机：导航折叠；所有双栏区域改为单栏；主按钮可占满宽度；中文首屏标题按语义分成两行，两行分别居中对齐；产品截图保持原始宽高比等比缩放，完整呈现界面。
-- 页面不得出现水平滚动，触控目标不小于 40px。
+- **Island Shadow** (`0 0 1px rgba(0,0,0,.17), 0 0 3px rgba(0,0,0,.08), 0 7px 14px rgba(0,0,0,.05)`): toolbar, minimap, composer, and compact mobile navigation.
+- **Selection Edge:** Generated imagery stays flat and receives only the Excalidraw selection outline and handles.
 
-## 明确移除
+### Named Rules
 
-- 重复解释本地素材管理、Agent 协作、模型选择和 Excalidraw 的四个独立章节。
-- 为这些重复章节设置的导航锚点。
-- 把 Codex 描述成唯一可用的 Agent。
-- 让普通用户先理解 CLI、Bridge、token 或 ACP。
-- 声称 CoreStudio 重新发明了成熟的生图或画布能力。
-- 声称所有模型推理都在本地完成，或第三方模型与 Agent 永远免费。
-- 巨型应用图标、测量标记、黑色满屏章节、装饰网格和巨型宣言。
-- 伪装成真实截图的复杂自绘界面。
+**The Flat Canvas Rule.** Shadows belong to viewport chrome and movable work, never to invented marketing cards.
 
-## 验收标准
+## Shapes
 
-- 首屏一眼能认出真实 CoreStudio 图标。
-- 10 秒内先理解「图片和素材留在本地」，再理解「可以与 Agent 共用」。
-- 页面最后清楚说明「基于 Excalidraw、开源、免费、可定制」。
-- 产品界面和内容比装饰更醒目。
-- 桌面、平板和手机尺寸下层级清楚，无溢出和不可用导航。
-- 所有交互有键盘焦点，颜色满足 WCAG AA 基线。
+Controls use the production 6px compact and 8px regular radii. Selection geometry stays sharper—thin violet strokes, 2px handle radii, and square corner handles—to preserve the Excalidraw editing character. Connectors are open paths with round line caps and arrow markers.
+
+## Components
+
+### Buttons
+
+- **Primary:** CoreStudio violet, white interface label, 8px radius, and 40px height.
+- **Hover / Focus:** Hover uses the production primary-hover value; keyboard focus uses the production 2px mixed violet ring.
+- **Tool:** 36px square, transparent at rest, `surface-high` on hover, and violet icon when active.
+- **Composer action:** 28px icon-only send button with a 9% primary tint, 20% mixed border, and the production disabled state.
+
+### Chips
+
+- **Style:** Text-first canvas annotations with a 7px outlined dot rather than filled pills.
+- **State:** The dot fills violet on hover or when its camera target is active; supporting text disappears on narrow viewports.
+
+### Cards / Containers
+
+- **Corner Style:** Compact controls use 6px; regular controls and raster results use 8px.
+- **Background:** White or translucent white against paper.
+- **Shadow Strategy:** Only floating chrome and visual work lift from the plane.
+- **Border:** Borders appear on selection geometry and minimap viewport, not around every surface.
+
+### Inputs / Fields
+
+- **Style:** The generation composer mirrors the production component: one white island containing a borderless prompt, 28px settings control, and 28px icon-only send action.
+- **Focus:** The entire composer receives a soft violet two-pixel halo in addition to the focused element's accessible outline.
+- **Disabled:** Only the action is disabled during generation; the live region reports progress and writeback.
+
+### Navigation
+
+Desktop navigation behaves like application chrome: brand and toolbar align left/center while language and download align right. Mobile keeps brand, language, and download visible, then adds a compact three-step camera switcher above the composer.
+
+### Generation Status
+
+Generation uses the same restrained feedback as CoreStudio status surfaces: a pulsing violet 6px dot, a short status label, slight result-image de-emphasis, and a temporary connector color shift. There is no glow, blur field, moving dash, or decorative color bloom.
+
+### Minimap
+
+The minimap uses the same paper grid and object topology as the canvas. Its viewport rectangle changes with camera position and zoom; object markers are interactive shortcuts rather than decorative thumbnails.
+
+## Do's and Don'ts
+
+### Do:
+
+- **Do** let visible product operations explain the product before adding prose.
+- **Do** keep the macOS download continuously available and visually dominant.
+- **Do** use raster imagery for metal, light, and other physical material.
+- **Do** preserve keyboard focus, live status updates, and reduced-motion behavior.
+- **Do** keep violet rare and tied to state.
+
+### Don't:
+
+- **Don't** rebuild the site as stacked feature sections or a generic SaaS card grid.
+- **Don't** imply that third-party model inference is local or free.
+- **Don't** fake metal, glass, or dimensional objects with CSS bevels and decorative gradients.
+- **Don't** expand the simulated canvas into a misleading full web editor.
+- **Don't** add customer claims, performance figures, or badges without evidence.

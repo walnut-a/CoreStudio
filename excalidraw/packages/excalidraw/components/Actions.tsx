@@ -882,14 +882,21 @@ export const MobileShapeActions = ({
 
 export const ZoomActions = ({
   renderAction,
+  showIncrementControls = true,
 }: {
   renderAction: ActionManager["renderAction"];
+  showIncrementControls?: boolean;
 }) => (
-  <Stack.Col gap={1} className={CLASSES.ZOOM_ACTIONS}>
+  <Stack.Col
+    gap={1}
+    className={clsx(CLASSES.ZOOM_ACTIONS, {
+      "zoom-actions--compact": !showIncrementControls,
+    })}
+  >
     <Stack.Row align="center">
-      {renderAction("zoomOut")}
+      {showIncrementControls && renderAction("zoomOut")}
       {renderAction("resetZoom")}
-      {renderAction("zoomIn")}
+      {showIncrementControls && renderAction("zoomIn")}
     </Stack.Row>
   </Stack.Col>
 );

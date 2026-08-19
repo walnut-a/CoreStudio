@@ -79,6 +79,10 @@ let mockExcalidrawAPI: {
   onScrollChange: ReturnType<typeof vi.fn>;
 } | null = null;
 let mockExcalidrawAPIForContext: any = null;
+const mockFooterNavigationControls = {
+  zoomControlsExpanded: false,
+  setZoomControlsExpanded: vi.fn(),
+};
 let skipExcalidrawApiRegistration = false;
 
 const setThrowExcalidrawRenderError = (error: Error | null) => {
@@ -338,11 +342,14 @@ vi.mock("@excalidraw/excalidraw/components/footer/FooterNavigation", () => ({
   }: {
     children?:
       | React.ReactNode
-      | ((api: typeof mockExcalidrawAPI) => React.ReactNode);
+      | ((
+          api: typeof mockExcalidrawAPI,
+          controls: typeof mockFooterNavigationControls,
+        ) => React.ReactNode);
   }) => (
     <div data-testid="footer-navigation-host-actions">
       {typeof children === "function"
-        ? children(mockExcalidrawAPIForContext)
+        ? children(mockExcalidrawAPIForContext, mockFooterNavigationControls)
         : children}
     </div>
   ),
@@ -372,11 +379,14 @@ vi.mock("@excalidraw/excalidraw", () => {
     }: {
       children?:
         | React.ReactNode
-        | ((api: typeof mockExcalidrawAPI) => React.ReactNode);
+        | ((
+            api: typeof mockExcalidrawAPI,
+            controls: typeof mockFooterNavigationControls,
+          ) => React.ReactNode);
     }) => (
       <div data-testid="footer-navigation-host-actions">
         {typeof children === "function"
-          ? children(mockExcalidrawAPIForContext)
+          ? children(mockExcalidrawAPIForContext, mockFooterNavigationControls)
           : children}
       </div>
     ),
@@ -1130,6 +1140,7 @@ afterEach(() => {
   renderChangeEmissionCount = 0;
   mockExcalidrawAPI = null;
   mockExcalidrawAPIForContext = null;
+  mockFooterNavigationControls.setZoomControlsExpanded.mockClear();
   skipExcalidrawApiRegistration = false;
   suppressUpdateSceneChangeEvent = false;
   hoistedExportToBlob.mockClear();

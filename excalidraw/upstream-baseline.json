@@ -6,6 +6,11 @@
   "ownedPaths": ["apps/image-board-desktop"],
   "sharedPaths": [
     {
+      "path": "packages/excalidraw/components/Actions.tsx",
+      "groups": ["arrange-grid", "footer-host-actions"],
+      "reason": "The native action surface provides both Arrange Into Grid and host-controlled compact zoom controls."
+    },
+    {
       "path": "packages/excalidraw/components/App.tsx",
       "groups": ["clipboard-and-images", "file-replacement", "host-ui-action-policy", "inspector-integration"],
       "reason": "The upstream App class is the integration point for file replacement, host UI actions, inspector rendering, and clipboard behavior."
@@ -92,8 +97,11 @@
       "purpose": "Let CoreStudio place canvas utility actions beside native footer controls without coordinate-based overlays.",
       "disposition": "keep-core-patch",
       "corePaths": [
+        "packages/excalidraw/components/Actions.scss",
+        "packages/excalidraw/components/Actions.tsx",
         "packages/excalidraw/components/footer/Footer.tsx",
         "packages/excalidraw/components/footer/FooterNavigation.tsx",
+        "packages/excalidraw/components/footer/FooterNavigationContext.tsx",
         "packages/excalidraw/components/footer/FooterRight.tsx",
         "packages/excalidraw/context/tunnels.ts",
         "packages/excalidraw/index.tsx",

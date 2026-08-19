@@ -32,7 +32,14 @@ describe("CanvasMinimap", () => {
 
   it("opens from the footer toggle without changing the viewport", () => {
     const api = createApi();
-    render(<CanvasMinimap api={api as never} preferenceKey="test:minimap" />);
+    const onOpenChange = vi.fn();
+    render(
+      <CanvasMinimap
+        api={api as never}
+        preferenceKey="test:minimap"
+        onOpenChange={onOpenChange}
+      />,
+    );
 
     const toggle = screen.getByRole("button", { name: "打开迷你地图" });
     expect(toggle).toHaveAttribute("aria-pressed", "false");
@@ -43,6 +50,7 @@ describe("CanvasMinimap", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("application")).toBeInTheDocument();
     expect(api.setViewport).not.toHaveBeenCalled();
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
   });
 
   it("closes with Escape and restores focus to the toggle", () => {

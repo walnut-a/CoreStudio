@@ -19,6 +19,7 @@ import type {
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
+import type { FooterNavigationControls } from "@excalidraw/excalidraw/components/footer/FooterNavigation";
 
 import {
   buildAgentBrowserRouteState,
@@ -593,9 +594,13 @@ const App = ({
     ],
   );
   const renderCanvasMinimap = useCallback(
-    (api: ExcalidrawImperativeAPI | null) => (
+    (
+      api: ExcalidrawImperativeAPI | null,
+      navigation: FooterNavigationControls,
+    ) => (
       <CanvasMinimap
         api={api}
+        onOpenChange={navigation.setZoomControlsExpanded}
         preferenceKey={`corestudio:minimap:${
           isAgentBrowserRoute ? "agent-board" : "desktop"
         }`}
@@ -2637,7 +2642,7 @@ const App = ({
                       });
                   }}
                 />
-                <LazyFooterNavigation>
+                <LazyFooterNavigation collapseZoomControls>
                   {renderCanvasMinimap}
                 </LazyFooterNavigation>
                 {!isAgentBrowserRoute &&

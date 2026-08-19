@@ -545,6 +545,8 @@ describe("<Excalidraw/>", () => {
     const undoActions = footerLeft?.querySelector(".undo-redo-buttons");
 
     expect(zoomActions).not.toBeNull();
+    expect(zoomActions?.querySelector(".zoom-out-button")).not.toBeNull();
+    expect(zoomActions?.querySelector(".zoom-in-button")).not.toBeNull();
     expect(hostAction).not.toBeNull();
     expect(undoActions).not.toBeNull();
     expect(
@@ -555,5 +557,39 @@ describe("<Excalidraw/>", () => {
       (hostAction as Node).compareDocumentPosition(undoActions as Node) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("reveals zoom increment controls with expanded host navigation", async () => {
+    const { container } = await render(
+      <Excalidraw>
+        <FooterNavigation collapseZoomControls>
+          {(_api, controls) => (
+            <button
+              type="button"
+              onClick={() =>
+                controls.setZoomControlsExpanded(!controls.zoomControlsExpanded)
+              }
+            >
+              Toggle navigation
+            </button>
+          )}
+        </FooterNavigation>
+      </Excalidraw>,
+    );
+
+    const toggle = queryByText(container, "Toggle navigation")!;
+    expect(container.querySelector(".reset-zoom-button")).not.toBeNull();
+    expect(container.querySelector(".zoom-out-button")).toBeNull();
+    expect(container.querySelector(".zoom-in-button")).toBeNull();
+
+    fireEvent.click(toggle);
+
+    expect(container.querySelector(".zoom-out-button")).not.toBeNull();
+    expect(container.querySelector(".zoom-in-button")).not.toBeNull();
+
+    fireEvent.click(toggle);
+
+    expect(container.querySelector(".zoom-out-button")).toBeNull();
+    expect(container.querySelector(".zoom-in-button")).toBeNull();
   });
 });

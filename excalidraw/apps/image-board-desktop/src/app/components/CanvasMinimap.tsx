@@ -33,6 +33,7 @@ import "./CanvasMinimap.css";
 interface CanvasMinimapProps {
   api: ExcalidrawImperativeAPI | null;
   preferenceKey: string;
+  onOpenChange?: (open: boolean) => void;
   canvasContainerRef?: RefObject<HTMLElement | null>;
   leftOcclusionRef?: RefObject<HTMLElement | null>;
   rightOcclusionRef?: RefObject<HTMLElement | null>;
@@ -81,6 +82,7 @@ const savePreference = (key: string, open: boolean) => {
 export const CanvasMinimap = ({
   api,
   preferenceKey,
+  onOpenChange,
   canvasContainerRef,
   leftOcclusionRef,
   rightOcclusionRef,
@@ -106,6 +108,17 @@ export const CanvasMinimap = ({
   useEffect(() => {
     setOpen(readPreference(preferenceKey));
   }, [preferenceKey]);
+
+  useLayoutEffect(() => {
+    onOpenChange?.(open);
+  }, [onOpenChange, open]);
+
+  useEffect(
+    () => () => {
+      onOpenChange?.(false);
+    },
+    [onOpenChange],
+  );
 
   const updateAvoidance = useCallback(() => {
     const button = toggleRef.current;

@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useState } from "react";
 
 import { actionShortcuts } from "../../actions";
 import { useTunnels } from "../../context/tunnels";
@@ -7,6 +8,7 @@ import { useApp } from "../App";
 import { HelpButton } from "../HelpButton";
 import { Section } from "../Section";
 import Stack from "../Stack";
+import { FooterNavigationContext } from "./FooterNavigationContext";
 
 import type { ActionManager } from "../../actions/manager";
 import type { UIAppState } from "../../types";
@@ -33,6 +35,9 @@ const Footer = ({
     WelcomeScreenHelpHintTunnel,
   } = useTunnels();
   const app = useApp();
+  const [compactZoomControlsEnabled, setCompactZoomControlsEnabled] =
+    useState(false);
+  const [zoomControlsExpanded, setZoomControlsExpanded] = useState(false);
 
   return (
     <footer
@@ -50,23 +55,36 @@ const Footer = ({
           )}
         >
           <Stack.Col gap={2}>
-            <Section heading="canvasActions">
-              {zoomUIEnabled && app.isNavigationEnabled() && (
-                <ZoomActions renderAction={actionManager.renderAction} />
-              )}
+            <FooterNavigationContext.Provider
+              value={{
+                zoomControlsExpanded,
+                setZoomControlsExpanded,
+                setCompactZoomControlsEnabled,
+              }}
+            >
+              <Section heading="canvasActions">
+                {zoomUIEnabled && app.isNavigationEnabled() && (
+                  <ZoomActions
+                    renderAction={actionManager.renderAction}
+                    showIncrementControls={
+                      !compactZoomControlsEnabled || zoomControlsExpanded
+                    }
+                  />
+                )}
 
-              <FooterNavigationTunnel.Out />
+                <FooterNavigationTunnel.Out />
 
-              {defaultUIEnabled && !appState.viewModeEnabled && (
-                <UndoRedoActions
-                  renderAction={actionManager.renderAction}
-                  className={clsx("zen-mode-transition", {
-                    "layer-ui__wrapper__footer-left--transition-bottom":
-                      appState.zenModeEnabled,
-                  })}
-                />
-              )}
-            </Section>
+                {defaultUIEnabled && !appState.viewModeEnabled && (
+                  <UndoRedoActions
+                    renderAction={actionManager.renderAction}
+                    className={clsx("zen-mode-transition", {
+                      "layer-ui__wrapper__footer-left--transition-bottom":
+                        appState.zenModeEnabled,
+                    })}
+                  />
+                )}
+              </Section>
+            </FooterNavigationContext.Provider>
           </Stack.Col>
         </div>
       )}

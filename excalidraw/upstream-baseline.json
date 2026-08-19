@@ -6,6 +6,11 @@
   "ownedPaths": ["apps/image-board-desktop"],
   "sharedPaths": [
     {
+      "path": "packages/excalidraw/components/Actions.tsx",
+      "groups": ["arrange-grid", "footer-host-actions"],
+      "reason": "The native action surface provides both Arrange Into Grid and host-controlled compact zoom controls."
+    },
+    {
       "path": "packages/excalidraw/components/App.tsx",
       "groups": ["clipboard-and-images", "file-replacement", "host-ui-action-policy", "inspector-integration"],
       "reason": "The upstream App class is the integration point for file replacement, host UI actions, inspector rendering, and clipboard behavior."
@@ -17,12 +22,12 @@
     },
     {
       "path": "packages/excalidraw/index.tsx",
-      "groups": ["clipboard-and-images", "footer-right-host-actions", "inspector-integration"],
+      "groups": ["clipboard-and-images", "footer-host-actions", "inspector-integration"],
       "reason": "The package entry forwards active inspector, clipboard, and footer host APIs."
     },
     {
       "path": "packages/excalidraw/tests/excalidraw.test.tsx",
-      "groups": ["footer-right-host-actions", "i18n-module-compatibility"],
+      "groups": ["footer-host-actions", "i18n-module-compatibility"],
       "reason": "The public component suite covers both footer host placement and locale-compatible rendering."
     },
     {
@@ -88,10 +93,20 @@
       "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx", "apps/image-board-desktop/src/app/App.test.tsx"]
     },
     {
-      "id": "footer-right-host-actions",
-      "purpose": "Let CoreStudio place canvas utility actions beside the native help button without coordinate-based overlays.",
+      "id": "footer-host-actions",
+      "purpose": "Let CoreStudio place canvas utility actions beside native footer controls without coordinate-based overlays.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/components/footer/Footer.tsx", "packages/excalidraw/components/footer/FooterRight.tsx", "packages/excalidraw/context/tunnels.ts", "packages/excalidraw/index.tsx"],
+      "corePaths": [
+        "packages/excalidraw/components/Actions.scss",
+        "packages/excalidraw/components/Actions.tsx",
+        "packages/excalidraw/components/footer/Footer.tsx",
+        "packages/excalidraw/components/footer/FooterNavigation.tsx",
+        "packages/excalidraw/components/footer/FooterNavigationContext.tsx",
+        "packages/excalidraw/components/footer/FooterRight.tsx",
+        "packages/excalidraw/context/tunnels.ts",
+        "packages/excalidraw/index.tsx",
+        "packages/excalidraw/tests/__snapshots__/excalidraw.test.tsx.snap"
+      ],
       "contractTests": ["packages/excalidraw/tests/excalidraw.test.tsx", "apps/image-board-desktop/src/app/App.test.tsx"]
     },
     {

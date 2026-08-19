@@ -33,6 +33,22 @@
   color: var(--text-primary-color);
 }
 
+.zoom-actions--compact .reset-zoom-button {
+  border-radius: var(--border-radius-lg) !important;
+
+  .ToolIcon__icon {
+    border-radius: var(--border-radius-lg) !important;
+  }
+}
+
+.zoom-actions__center-control {
+  display: flex;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
 .zoom-out-button {
   border-top-left-radius: var(--border-radius-lg) !important;
   border-bottom-left-radius: var(--border-radius-lg) !important;

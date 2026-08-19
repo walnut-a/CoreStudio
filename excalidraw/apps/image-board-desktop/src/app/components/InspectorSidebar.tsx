@@ -1,4 +1,10 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { createPortal } from "react-dom";
 
 import type {
@@ -28,6 +34,7 @@ interface InspectorSidebarProps {
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
+  rootRef?: Ref<HTMLElement>;
 }
 
 export const InspectorSidebar = ({
@@ -45,6 +52,7 @@ export const InspectorSidebar = ({
   onCopyTaskError,
   onLocateImageRecord,
   onLocatePromptReference,
+  rootRef,
 }: InspectorSidebarProps) => {
   const elementActionsHostRef = useRef<HTMLDivElement | null>(null);
   const [elementActionList, setElementActionList] =
@@ -68,6 +76,7 @@ export const InspectorSidebar = ({
       title={copy.inspector.sidebarTitle}
       open={open}
       onOpenChange={onOpenChange}
+      rootRef={rootRef}
     >
       <div className="inspector-sidebar">
         <section className="inspector-sidebar__section inspector-sidebar__section--actions">

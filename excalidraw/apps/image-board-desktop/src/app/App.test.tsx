@@ -1311,6 +1311,32 @@ describe("App startup", () => {
     expect(setGenerateComposerVisible).not.toHaveBeenCalled();
   });
 
+  it("opens the canvas minimap from the native footer navigation group", async () => {
+    window.imageBoardDesktop = createDesktopBridgeMock() as any;
+
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+
+    const toggle = await screen.findByRole("button", {
+      name: "打开迷你地图，当前缩放 100%",
+    });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("application", { name: /画布迷你地图/ }),
+    ).toBeInTheDocument();
+    expect(mockExcalidrawAPI?.setViewport).not.toHaveBeenCalled();
+  });
+
   it("does not render the generation composer when its display preference is disabled", async () => {
     window.imageBoardDesktop = createDesktopBridgeMock({
       loadProviderSettings: vi.fn().mockResolvedValue({

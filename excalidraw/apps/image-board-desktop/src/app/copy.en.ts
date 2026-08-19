@@ -76,6 +76,12 @@ export const enCopy: DesktopCopy = {
   toolbar: {
     generateImage: "Generate image",
   },
+  minimap: {
+    open: "Open minimap",
+    close: "Close minimap",
+    description: "Canvas minimap. Use arrow keys to pan the canvas.",
+    empty: "The canvas is empty",
+  },
   generateDialog: {
     eyebrow: "Generate image",
     title: "Generate directly onto the board",

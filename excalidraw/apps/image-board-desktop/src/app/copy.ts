@@ -82,6 +82,12 @@ const zhCnCopy = {
   toolbar: {
     generateImage: "生成图片",
   },
+  minimap: {
+    open: "打开迷你地图",
+    close: "关闭迷你地图",
+    description: "画布迷你地图，使用方向键平移画布",
+    empty: "画布中还没有内容",
+  },
   generateDialog: {
     eyebrow: "生成图片",
     title: "直接生成到画板",

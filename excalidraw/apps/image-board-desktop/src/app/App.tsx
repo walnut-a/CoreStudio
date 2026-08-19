@@ -19,6 +19,7 @@ import type {
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
+import type { FooterNavigationControls } from "@excalidraw/excalidraw/components/footer/FooterNavigation";
 
 import {
   buildAgentBrowserRouteState,
@@ -152,6 +153,7 @@ import { AgentBoardClaimInstructions } from "./components/AgentBoardClaimInstruc
 import { DesktopButton } from "./components/DesktopButton";
 import { ExcalidrawThemeTokenBridge } from "./components/ExcalidrawThemeTokenBridge";
 import { GenerateComposerFooterToggle } from "./components/GenerateComposerFooterToggle";
+import { CanvasMinimap } from "./components/CanvasMinimap";
 import {
   createDesktopProjectRuntime,
   type DesktopProjectRuntime,
@@ -239,6 +241,13 @@ const LazyProjectMainMenu = lazy(async () => {
 const LazyFooterRight = lazy(async () => {
   const { FooterRight } = await import("@excalidraw/excalidraw");
   return { default: FooterRight };
+});
+
+const LazyFooterNavigation = lazy(async () => {
+  const { default: FooterNavigation } = await import(
+    "@excalidraw/excalidraw/components/footer/FooterNavigation"
+  );
+  return { default: FooterNavigation };
 });
 
 type AppSceneSnapshot = {
@@ -335,6 +344,10 @@ const App = ({
     [desktopBridge],
   );
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const imageAssetDockRef = useRef<HTMLElement | null>(null);
+  const inspectorDockRef = useRef<HTMLElement | null>(null);
+  const generatePanelRef = useRef<HTMLElement | null>(null);
   const appRootRef = useRef<HTMLDivElement | null>(null);
   const isEditorInitializingRef = useRef(false);
   const initializingRenderNonceRef = useRef<number | null>(null);
@@ -579,6 +592,25 @@ const App = ({
       imageAssetGeneratedOnly,
       sceneImageFileIds,
     ],
+  );
+  const renderCanvasMinimap = useCallback(
+    (
+      api: ExcalidrawImperativeAPI | null,
+      navigation: FooterNavigationControls,
+    ) => (
+      <CanvasMinimap
+        api={api}
+        onOpenChange={navigation.setZoomControlsExpanded}
+        preferenceKey={`corestudio:minimap:${
+          isAgentBrowserRoute ? "agent-board" : "desktop"
+        }`}
+        canvasContainerRef={canvasContainerRef}
+        leftOcclusionRef={imageAssetDockRef}
+        rightOcclusionRef={inspectorDockRef}
+        avoidElementRef={generatePanelRef}
+      />
+    ),
+    [isAgentBrowserRoute],
   );
 
   const sceneImageFileIdsRendererActions =
@@ -2439,7 +2471,7 @@ const App = ({
         onReset={projectRenderBoundaryRendererActions.resetProjectView}
       >
         <div className="image-board-shell">
-          <div className={canvasClassName}>
+          <div ref={canvasContainerRef} className={canvasClassName}>
             {isEditorInitializing || !projectRoomReady ? (
               <EditorLoadingOverlay
                 mode={
@@ -2535,6 +2567,7 @@ const App = ({
                   shouldRenderSelectedShapeActions,
                 }) => (
                   <InspectorSidebar
+                    rootRef={inspectorDockRef}
                     open={inspectorDockOpen}
                     onOpenChange={setInspectorDockOpen}
                     selectedShapeActions={fullSelectedShapeActions}
@@ -2609,6 +2642,9 @@ const App = ({
                       });
                   }}
                 />
+                <LazyFooterNavigation collapseZoomControls>
+                  {renderCanvasMinimap}
+                </LazyFooterNavigation>
                 {!isAgentBrowserRoute &&
                 providerConfiguration !== null &&
                 providerConfiguration.composerVisible !== false ? (
@@ -2634,6 +2670,7 @@ const App = ({
               />
             ) : null}
             <ImageAssetSidebar
+              rootRef={imageAssetDockRef}
               open={imageAssetSidebarOpen}
               onOpenChange={setImageAssetSidebarOpen}
               records={imageAssetItems}
@@ -2654,6 +2691,9 @@ const App = ({
       providerConfiguration !== null &&
       providerConfiguration.composerVisible !== false ? (
         <GenerateImageDialog
+          onPanelElementChange={(element) => {
+            generatePanelRef.current = element;
+          }}
           open={true}
           expanded={generateComposerExpanded}
           persistent={true}

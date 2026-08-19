@@ -5,27 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="CoreStudio 在 Excalidraw 画布上直接生成图片，数据保存在本地，支持自由配置模型、管理素材，并与 Codex 等 Agent 协作。"
+      content="CoreStudio 是基于 Excalidraw 的本地优先图片生成画布，支持自由选择模型并与 Codex 等 Agent 协作。"
     />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f8f8f7" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:title" content="CoreStudio · 本地优先的图片生成画布" />
-    <meta
-      property="og:description"
-      content="直接在 Excalidraw 画布上生成图片、管理本地素材，并与 Codex 等 Agent 协作。"
-    />
+    <meta property="og:description" content="把画布、参考素材、生成结果和 Agent 协作放进同一个本地项目。" />
     <meta property="og:url" content="https://getcorestudio.com/zh/" />
-    <meta
-      property="og:image"
-      content="https://getcorestudio.com/assets/corestudio-social-card.jpeg"
-    />
+    <meta property="og:image" content="https://getcorestudio.com/assets/corestudio-social-card.jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta
-      property="og:image:alt"
-      content="CoreStudio 画布中的工业设计概念图"
-    />
+    <meta property="og:image:alt" content="CoreStudio 画布中的工业设计概念图" />
     <meta name="twitter:card" content="summary_large_image" />
     <title>CoreStudio · 本地优先的图片生成画布</title>
     <link rel="icon" href="../assets/corestudio-favicon-32.png" type="image/png" />
@@ -34,253 +25,182 @@
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="../styles.css?v=20260802-10" />
-    <script src="../main.js?v=20260802-4" defer></script>
+    <link rel="stylesheet" href="../styles.css?v=20260820-3" />
+    <script type="module" src="../main.js?v=20260820-3"></script>
   </head>
   <body>
-    <a class="skip-link" href="#main">跳到主要内容</a>
+    <!--
+    THESIS: CoreStudio 官网就是一张活的画布，不再用传统营销章节解释画布产品。
+    OWN-WORLD: 纸白点阵空间、CoreStudio 原生控件、银色工业设计图像与精确选框；生成过程只使用克制的生产状态反馈。
+    STORY: 参考素材进入本地项目，模型在画布中生成，Codex 光标把结果写回，访问者随后下载 macOS 客户端。
+    FIRST VIEWPORT: 选中的标题和参考素材与大幅生成结果平衡；工具栏、迷你地图、输入框和下载动作构成画布工作边缘。
+    FORM: 用户锁定的中心工作台画布；concept seed 4fb4245c。
+    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+    -->
+    <a class="skip-link" href="#main">跳到画布演示</a>
 
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href="#top" aria-label="CoreStudio 首页">
+    <div class="canvas-app" data-canvas-app data-active-tool="select">
+      <header class="canvas-header">
+        <a class="brand" href="#canvas-home" aria-label="CoreStudio 首页">
           <img
             src="../assets/corestudio-icon-256.png"
-            srcset="
-              ../assets/corestudio-icon-64.webp   64w,
-              ../assets/corestudio-icon-256.webp 256w,
-              ../assets/corestudio-icon-512.webp 512w
-            "
-            sizes="32px"
+            srcset="../assets/corestudio-icon-64.webp 64w, ../assets/corestudio-icon-256.webp 256w"
+            sizes="34px"
+            width="34"
+            height="34"
             alt=""
-            width="32"
-            height="32"
           />
           <span>CoreStudio</span>
         </a>
 
-        <div class="header-mobile-actions">
-          <a
-            class="header-language"
-            href="../index.html"
-            lang="en"
-            hreflang="en"
-            aria-label="切换至英文"
-          >
-            EN
-          </a>
-          <button
-            class="nav-toggle"
-            type="button"
-            aria-label="打开导航菜单"
-            aria-expanded="false"
-            aria-controls="site-nav"
-            data-label-open="打开导航菜单"
-            data-label-close="关闭导航菜单"
-            data-nav-toggle
-          >
-            <span></span>
-            <span></span>
+        <div class="canvas-toolbar" role="toolbar" aria-label="画布演示工具">
+          <button class="tool-button is-active" type="button" data-tool="select" aria-label="选择对象" aria-pressed="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.8 18 13l-6.2 1.1L8.2 20 5 3.8Z" /></svg>
+          </button>
+          <button class="tool-button" type="button" data-tool="hand" aria-label="拖动画布" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 11V6.5a1.5 1.5 0 0 1 3 0V10m0 0V5a1.5 1.5 0 0 1 3 0v5m0 .5V6.2a1.5 1.5 0 0 1 3 0v6.3m0-2a1.5 1.5 0 0 1 3 0v3.8c0 3.7-2.7 6.7-6.5 6.7h-1.6a6.2 6.2 0 0 1-5-2.5l-3.1-4.1a1.6 1.6 0 0 1 2.4-2.1l1.8 1.6V11Z" /></svg>
+          </button>
+          <button class="tool-button" type="button" data-tool="shape" aria-label="查看画布图形" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5" /></svg>
+          </button>
+          <button class="tool-button" type="button" data-tool="image" aria-label="打开图片生成" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 18.25h11.5a1.5 1.5 0 0 0 1.5-1.5v-7.5a1.5 1.5 0 0 0-1.5-1.5H6.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5Z" /><path d="m7.75 15.75 3-3 2.25 2.25 1.25-1.25 2 2" /><path d="M14.75 4.75 16 7.25l2.5 1.25L16 9.75l-1.25 2.5-1.25-2.5L11 8.5l2.5-1.25 1.25-2.5Z" /></svg>
           </button>
         </div>
 
-        <nav class="site-nav" id="site-nav" aria-label="主要导航" data-site-nav>
-          <a href="#why">为什么选择</a>
-          <a
-            class="nav-secondary-last"
-            href="https://github.com/walnut-a/CoreStudio"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-          <a
-            class="nav-download button button-primary"
-            href="https://github.com/walnut-a/CoreStudio/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-          >
-            下载 macOS 版
-          </a>
-        </nav>
-
         <div class="header-actions">
-          <a
-            class="header-language"
-            href="../index.html"
-            lang="en"
-            hreflang="en"
-            aria-label="切换至英文"
-          >
-            EN
-          </a>
-          <a
-            class="button button-small button-primary header-download"
-            href="https://github.com/walnut-a/CoreStudio/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-          >
-            下载 macOS 版
+          <a class="header-link header-github" href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">GitHub</a>
+          <a class="header-link language-link" href="../index.html" lang="en" hreflang="en">EN</a>
+          <a class="download-button" href="https://github.com/walnut-a/CoreStudio/releases/latest" target="_blank" rel="noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" /></svg>
+            <span>下载 macOS 版</span>
           </a>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <main id="main" tabindex="-1">
-      <section class="hero" id="top">
-        <div class="hero-inner">
-          <img
-            class="hero-icon"
-            src="../assets/corestudio-icon-256.png"
-            srcset="
-              ../assets/corestudio-icon-64.webp   64w,
-              ../assets/corestudio-icon-256.webp 256w,
-              ../assets/corestudio-icon-512.webp 512w
-            "
-            sizes="(max-width: 600px) 84px, 104px"
-            alt="CoreStudio 应用图标"
-            width="112"
-            height="112"
-          />
-          <h1 class="hero-title-zh"><span>本地优先的</span><wbr /><span>图片生成画布</span></h1>
-          <p class="hero-description">
-            我们在优秀的 Excalidraw 项目基础上，增加了好用的图片生成能力。素材与结果默认保存在本地；你可以自由配置模型，也可以让 Codex 等 Agent 直接生图并写回画布。CoreStudio 免费、开源，也可自由定制。
-          </p>
-          <div class="hero-actions">
-            <a
-              class="button button-primary"
-              href="https://github.com/walnut-a/CoreStudio/releases/latest"
-              target="_blank"
-              rel="noreferrer"
-            >
-              下载 macOS 版
-            </a>
-            <a
-              class="button button-secondary"
-              href="https://github.com/walnut-a/CoreStudio"
-              target="_blank"
-              rel="noreferrer"
-            >
-              查看 GitHub 项目
-            </a>
+      <main class="canvas-main" id="main" tabindex="-1">
+        <div class="canvas-viewport" data-canvas-viewport aria-label="CoreStudio 产品交互演示">
+          <div class="canvas-plane" data-canvas-plane>
+            <div class="project-tab" aria-hidden="true">
+              <span class="project-home">
+                <svg viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v8H4v-8Z" /><path d="M9 19v-5h6v5" /></svg>
+              </span>
+              <span>工业设计灯具</span>
+              <span class="project-close">×</span>
+            </div>
+
+            <section class="scene-title is-selected" id="canvas-home" data-scene-object>
+              <div class="selection-box" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+              <h1>本地优先的<br />图片生成画布</h1>
+              <p>基于 Excalidraw。项目留在本地，模型自由选择，Agent 可直接写回。</p>
+            </section>
+
+            <div class="shape-cluster" data-shape-cluster data-scene-object aria-label="Excalidraw 图形与连线">
+              <span class="shape-rectangle"></span>
+              <span class="shape-circle"></span>
+              <svg viewBox="0 0 150 90" aria-hidden="true"><path d="M10 72c34-65 72 30 128-45" /><path d="m128 22 10 5-7 9" /></svg>
+            </div>
+
+            <button class="scene-chip scene-chip-local" type="button" data-camera-target="overview">
+              <strong>本地项目</strong>
+              <span>参考素材与结果放在一起</span>
+            </button>
+
+            <figure class="reference-board" data-scene-object>
+              <div class="reference-grid" aria-label="四张工业设计参考素材">
+                <span class="reference-tile reference-tile-a"><img src="../assets/corestudio-reference-board.webp" alt="拉丝铝与琥珀色接缝参考" /></span>
+                <span class="reference-tile reference-tile-b"><img src="../assets/corestudio-reference-board.webp" alt="工业设计草图参考" /></span>
+                <span class="reference-tile reference-tile-c"><img src="../assets/corestudio-reference-board.webp" alt="铝合金旋钮细节参考" /></span>
+                <span class="reference-tile reference-tile-d"><img src="../assets/corestudio-reference-board.webp" alt="银色流动曲面参考" /></span>
+              </div>
+              <figcaption>4 张参考 · 保存在本地</figcaption>
+            </figure>
+
+            <svg class="canvas-connectors" viewBox="0 0 1400 780" aria-hidden="true">
+              <defs>
+                <marker id="arrow-end-zh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0 0 10 5 0 10" />
+                </marker>
+              </defs>
+              <path class="connector connector-a" d="M455 430C565 430 602 392 710 378" marker-end="url(#arrow-end-zh)" />
+              <path class="connector connector-b" d="M455 510C575 520 602 470 710 454" marker-end="url(#arrow-end-zh)" />
+              <path class="connector connector-c" d="M455 585C578 610 628 560 735 526" marker-end="url(#arrow-end-zh)" />
+            </svg>
+
+            <button class="scene-chip scene-chip-model" type="button" data-camera-target="generate">
+              <strong>模型自由</strong>
+              <span>按质量、速度或预算选择</span>
+            </button>
+
+            <figure class="generation-result" data-scene-object>
+              <div class="result-frame">
+                <span class="result-status" data-result-status data-generating="正在生成" data-ready="画布已更新"><i></i><span data-result-status-label>画布已更新</span></span>
+                <img class="result-image" src="../assets/corestudio-canvas-result.webp" alt="CoreStudio 演示中生成的银色桌面灯具概念图" width="1536" height="1024" />
+                <span class="result-corner result-corner-a"></span>
+                <span class="result-corner result-corner-b"></span>
+                <span class="result-corner result-corner-c"></span>
+                <span class="result-corner result-corner-d"></span>
+              </div>
+              <figcaption>示意生成演示</figcaption>
+            </figure>
+
+            <button class="scene-chip scene-chip-agent" type="button" data-camera-target="agent">
+              <strong>Agent 写回</strong>
+              <span>共用当前画布与上下文</span>
+            </button>
+
+            <div class="agent-cursor" aria-hidden="true">
+              <svg viewBox="0 0 32 38"><path d="M4 3 27 23l-11 1.6L10 35 4 3Z" /></svg>
+              <span>Codex</span>
+            </div>
+            <div class="writeback-tag" aria-hidden="true"><i></i>已写回项目</div>
           </div>
         </div>
 
-        <div class="product-stage">
-          <figure class="product-shot">
-            <picture>
-              <source
-                srcset="
-                  ../assets/corestudio-product-960.webp   960w,
-                  ../assets/corestudio-product-1600.webp 1600w,
-                  ../assets/corestudio-product-2400.webp 2400w
-                "
-                sizes="(max-width: 600px) calc(100vw - 32px), min(1180px, calc(100vw - 64px))"
-                type="image/webp"
-              />
-              <img
-                src="../assets/corestudio-product.jpeg"
-                alt="CoreStudio 产品界面：画布中展示一张工业设计概念图，上方是 Excalidraw 工具栏，下方是图片生成输入框。"
-                width="2942"
-                height="1848"
-                fetchpriority="high"
-              />
-            </picture>
-          </figure>
+        <nav class="story-nav" aria-label="画布演示步骤">
+          <button class="story-step is-active" type="button" data-camera-target="overview" aria-current="step">项目</button>
+          <button class="story-step" type="button" data-camera-target="generate" aria-current="false">生成</button>
+          <button class="story-step" type="button" data-camera-target="agent" aria-current="false">Agent</button>
+        </nav>
+
+        <div class="canvas-dock canvas-dock-left">
+          <div class="zoom-control is-expanded" data-zoom-control aria-label="画布缩放控件">
+            <button type="button" data-zoom-out aria-label="缩小画布"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg></button>
+            <button class="zoom-value" type="button" data-minimap-toggle aria-label="关闭迷你地图，当前缩放 90%" aria-pressed="true"><span data-zoom-label>90%</span></button>
+            <button type="button" data-zoom-in aria-label="放大画布"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg></button>
+          </div>
+          <div class="minimap is-open" data-minimap aria-label="画布迷你地图">
+            <button class="minimap-object minimap-title" type="button" data-camera-target="overview" aria-label="查看项目概览"></button>
+            <button class="minimap-object minimap-result" type="button" data-camera-target="generate" aria-label="查看生成结果"></button>
+            <button class="minimap-object minimap-agent" type="button" data-camera-target="agent" aria-label="查看 Agent 写回"></button>
+            <span class="minimap-viewport" data-minimap-viewport></span>
+          </div>
         </div>
-      </section>
 
-      <section class="why-consider" id="why" aria-labelledby="why-consider-title">
-        <div class="why-inner">
-          <header class="why-header">
-            <h2 id="why-consider-title">
-              生图工具这么多，为什么 CoreStudio 仍然值得考虑？
-            </h2>
-            <p class="why-thesis">
-              生成一张图已经不是难事。真正影响工作体验的，是生成之后，图片留在哪里、如何继续工作，以及 Agent 能不能加入同一套流程。
-            </p>
-          </header>
-
-          <article class="why-essay">
-            <p><strong>大多数生图工具都运行在网页中，生成结果不会自动进入本地项目。</strong>后续整理与备份还要额外花时间。CoreStudio 将项目、素材和生成结果保存在你的设备上，随时可以查看、管理和备份。</p>
-            <p><strong>CoreStudio 没有重新发明画布。</strong>Excalidraw 已经具备成熟、丰富的开源画布能力，能很好地服务创意与探索类工作。CoreStudio 只在这个基础上增加图片生成、本地素材和 Agent 协作所需的功能。</p>
-            <p><strong>图片生成 API 的价格已经足够低。</strong>得益于 GPT Image 2 和 Nano Banana 2 的高性价比，在用量不极端时，个人充值 API 也很划算，还能自行选择模型、控制预算。</p>
-            <p><strong>不想配置 API Key，也可以借助 Agent 生图。</strong>CoreStudio 提供完善的 CLI 支持，可以借助 Codex 等产品的生图能力，并把结果写回 CoreStudio。这条协作路径不由 CoreStudio 额外收费；第三方产品的订阅和额度仍按各自规则计算。</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="closing">
-        <img
-          src="../assets/corestudio-icon-256.png"
-          srcset="
-            ../assets/corestudio-icon-64.webp   64w,
-            ../assets/corestudio-icon-256.webp 256w,
-            ../assets/corestudio-icon-512.webp 512w
-          "
-          sizes="72px"
-          alt=""
-          width="72"
-          height="72"
-        />
-        <h2>项目留在本地，<br />Agent 随时加入</h2>
-        <div class="hero-actions">
-          <a
-            class="button button-primary"
-            href="https://github.com/walnut-a/CoreStudio/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-          >
-            下载 macOS 版
-          </a>
-          <a
-            class="button button-secondary"
-            href="https://github.com/walnut-a/CoreStudio"
-            target="_blank"
-            rel="noreferrer"
-          >
-            查看源代码
-          </a>
-        </div>
-      </section>
-    </main>
-
-    <footer class="site-footer">
-      <div>
-        <a class="brand" href="#top">
-          <img
-            src="../assets/corestudio-icon-256.png"
-            srcset="
-              ../assets/corestudio-icon-64.webp   64w,
-              ../assets/corestudio-icon-256.webp 256w,
-              ../assets/corestudio-icon-512.webp 512w
-            "
-            sizes="28px"
-            alt=""
-            width="28"
-            height="28"
-          />
-          <span>CoreStudio</span>
-        </a>
-        <p>本地项目，是图片、素材与 Agent 协作的起点。</p>
-      </div>
-      <div class="footer-links">
-        <a href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">GitHub</a>
-        <a
-          href="https://github.com/walnut-a/CoreStudio/releases/latest"
-          target="_blank"
-          rel="noreferrer"
+        <form
+          class="generation-composer"
+          data-generation-form
+          data-status-generating="正在画布中生成…"
+          data-status-generated="图片已生成"
+          data-status-writeback="Codex 已把结果写回项目"
         >
-          Releases
-        </a>
-        <a
-          href="https://github.com/walnut-a/CoreStudio/blob/main/LICENSE"
-          target="_blank"
-          rel="noreferrer"
-        >
-          MIT License
-        </a>
-        <a href="../index.html" lang="en" hreflang="en">English</a>
-      </div>
-    </footer>
+          <label class="sr-only" for="generation-prompt-zh">描述想生成的图片</label>
+          <input id="generation-prompt-zh" data-prompt-input value="一盏带暖色接缝的连续铝合金桌面灯" autocomplete="off" />
+          <button class="composer-icon" type="button" data-composer-settings aria-label="生成设置" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h5.25M13.75 7.5H19M12 5.75v3.5M5 16.5h8.25M16.75 16.5H19M15 14.75v3.5" /></svg>
+          </button>
+          <button class="generate-button" type="submit" data-generate-button>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11.75 18.25 5.5a.7.7 0 0 1 .95.82l-3.85 12.9a.7.7 0 0 1-1.26.18l-3.05-4.65-4.98-1.72a.7.7 0 0 1-.06-1.28Z" /><path d="m11.05 14.7 3.7-3.7" /></svg>
+            <span class="sr-only">生成</span>
+          </button>
+          <p class="sr-only" role="status" aria-live="polite" data-demo-status></p>
+        </form>
+
+        <div class="canvas-links" aria-label="项目链接">
+          <a href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">源代码</a>
+          <a href="https://github.com/walnut-a/CoreStudio/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT</a>
+        </div>
+      </main>
+    </div>
   </body>
 </html>

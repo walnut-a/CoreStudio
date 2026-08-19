@@ -1,15 +1,15 @@
 <svg
   xmlns="http://www.w3.org/2000/svg"
   width="640"
-  height="420"
-  viewBox="0 0 640 420"
+  height="452"
+  viewBox="0 0 640 452"
   role="img"
   aria-labelledby="title description"
 >
   <title id="title">CoreStudio installer background</title>
   <desc id="description">Drag CoreStudio to the Applications folder to install</desc>
 
-  <rect width="640" height="420" fill="#f1f0ed" />
+  <rect width="640" height="452" fill="#f1f0ed" />
   <rect width="640" height="104" fill="#25262a" />
   <path d="M0 104H640" stroke="#b8b9bd" stroke-width="1" />
 

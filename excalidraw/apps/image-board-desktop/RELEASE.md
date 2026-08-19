@@ -86,7 +86,7 @@ corepack yarn --cwd apps/image-board-desktop smoke:packaged
 
 这个脚本会先在隔离目录中以正式模式启动最新的 macOS `.app` 产物，不注入 `CORESTUDIO_RUNTIME_MODE`，确认正式包完成 renderer 加载后自动退出；随后再验证隔离的 QA 身份。也可以用 `CORESTUDIO_APP_PATH=/path/to/CoreStudio.app` 指定待测包。
 
-DMG 安装窗口布局由 `apps/image-board-desktop/package.json` 里的 `build.dmg` 固定，包括窗口尺寸、背景色、图标尺寸以及 `CoreStudio.app` / `Applications` 两个图标的位置。调整安装窗口视觉时，需要重新生成 DMG。
+DMG 安装窗口布局由 `apps/image-board-desktop/package.json` 里的 `build.dmg` 和 `build/dmg-background.png` 固定，包括窗口尺寸、背景、图标尺寸以及 `CoreStudio.app` / `Applications` 两个图标的位置。当前 electron-builder 在设置背景图时以图片尺寸生成 Finder 窗口；标题栏会占用约 `32px` 的内容高度，因此 `640x452` 的背景底部预留了对应安全区，`build.dmg.window` 也保持同样尺寸。调整安装窗口视觉时，需要同步更新 SVG、1x / 2x PNG、窗口尺寸和测试，并重新生成 DMG。
 
 ## 签名
 
@@ -201,6 +201,7 @@ gh release create v1.1.0 \
 - 根据画布侧栏、生成输入框和可见区域计算实际视口，避免迷你地图定位被悬浮界面遮挡
 - 支持方向键平移和 `Escape` 收起，并为开关、地图画布和空状态补齐中英文无障碍说明
 - 倍率按钮完整复用现有缩放控件的 hover、按下和焦点样式，迷你地图与整组缩放控件左边缘对齐
+- 放大 macOS DMG 安装窗口并增加底部安全区，避免安装完成说明贴边或被 Finder 标题栏裁切
 
 本次更新不改变 CoreStudio 项目格式、图片生成服务配置、Agent Bridge protocol、Agent 集成版本或 Excalidraw 底座版本。
 

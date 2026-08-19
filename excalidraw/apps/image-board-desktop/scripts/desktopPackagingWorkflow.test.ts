@@ -12,6 +12,10 @@ const packageJson = JSON.parse(
     dmg: {
       background?: string;
       backgroundColor?: string;
+      window?: {
+        width: number;
+        height: number;
+      };
       contents: Array<{
         x: number;
         y: number;
@@ -51,6 +55,7 @@ describe("CoreStudio desktop packaging workflow", () => {
 
     expect(dmg.background).toBe("build/dmg-background.png");
     expect(dmg.backgroundColor).toBeUndefined();
+    expect(dmg.window).toEqual({ width: 640, height: 452 });
     expect(dmg.contents).toEqual([
       { x: 180, y: 220, type: "file" },
       { x: 460, y: 220, type: "link", path: "/Applications" },
@@ -59,10 +64,10 @@ describe("CoreStudio desktop packaging workflow", () => {
 
     expect(source).toContain("Drag CoreStudio to the Applications folder");
     expect(source).not.toMatch(/[\u3400-\u9fff]/u);
-    expect(readPngSize(backgroundPath)).toEqual({ width: 640, height: 420 });
+    expect(readPngSize(backgroundPath)).toEqual({ width: 640, height: 452 });
     expect(readPngSize(retinaBackgroundPath)).toEqual({
       width: 1280,
-      height: 840,
+      height: 904,
     });
   });
 

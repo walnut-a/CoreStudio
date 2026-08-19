@@ -566,14 +566,13 @@ figure {
 
 .reference-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  align-items: end;
-  gap: 12px;
+  grid-template-columns: 112px 111px 111px;
+  grid-template-rows: 100px 68px;
+  gap: 8px;
 }
 
 .reference-tile {
   position: relative;
-  height: 142px;
   overflow: hidden;
   background: #ececed;
   border-radius: var(--border-radius-md);
@@ -581,9 +580,10 @@ figure {
     opacity var(--motion-control) ease;
 }
 
-.reference-tile:nth-child(2) { height: 178px; }
-.reference-tile:nth-child(3) { height: 128px; }
-.reference-tile:nth-child(4) { height: 158px; }
+.reference-tile-a { grid-column: 1; grid-row: 1 / 3; }
+.reference-tile-b { grid-column: 2 / 4; grid-row: 1; }
+.reference-tile-c { grid-column: 2; grid-row: 2; }
+.reference-tile-d { grid-column: 3; grid-row: 2; }
 
 .reference-tile img {
   position: absolute;

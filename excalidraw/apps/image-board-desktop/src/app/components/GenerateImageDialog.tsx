@@ -14,6 +14,7 @@ export interface GenerateImageDialogProps
   extends UseGenerateImageDialogRuntimeInput {
   expanded?: boolean;
   loading: boolean;
+  onPanelElementChange?: (element: HTMLElement | null) => void;
 }
 
 export const GenerateImageDialog = (props: GenerateImageDialogProps) => {
@@ -42,7 +43,10 @@ export const GenerateImageDialog = (props: GenerateImageDialogProps) => {
       inert={!expanded}
     >
       <section
-        ref={panelRef}
+        ref={(element) => {
+          panelRef.current = element;
+          props.onPanelElementChange?.(element);
+        }}
         className={[
           "generate-panel",
           bodyProps.show

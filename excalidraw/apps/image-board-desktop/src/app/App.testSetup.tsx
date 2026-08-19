@@ -65,10 +65,20 @@ let mockExcalidrawAPI: {
   addFiles: ReturnType<typeof vi.fn>;
   replaceFiles: ReturnType<typeof vi.fn>;
   setViewport: ReturnType<typeof vi.fn>;
+  getSceneElements: () => any[];
   getSceneElementsIncludingDeleted: () => any[];
   getAppState: () => Record<string, any>;
   getFiles: () => Record<string, any>;
+  getViewportOffsets: () => {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  onChange: ReturnType<typeof vi.fn>;
+  onScrollChange: ReturnType<typeof vi.fn>;
 } | null = null;
+let mockExcalidrawAPIForContext: any = null;
 let skipExcalidrawApiRegistration = false;
 
 const setThrowExcalidrawRenderError = (error: Error | null) => {
@@ -322,6 +332,22 @@ vi.mock("@excalidraw/utils", () => ({
   exportToBlob: hoistedExportToBlob,
 }));
 
+vi.mock("@excalidraw/excalidraw/components/footer/FooterNavigation", () => ({
+  default: ({
+    children,
+  }: {
+    children?:
+      | React.ReactNode
+      | ((api: typeof mockExcalidrawAPI) => React.ReactNode);
+  }) => (
+    <div data-testid="footer-navigation-host-actions">
+      {typeof children === "function"
+        ? children(mockExcalidrawAPIForContext)
+        : children}
+    </div>
+  ),
+}));
+
 vi.mock("@excalidraw/excalidraw", () => {
   const sidebarTabsContext = React.createContext<{
     activeTab: string;
@@ -340,6 +366,19 @@ vi.mock("@excalidraw/excalidraw", () => {
     },
     FooterRight: ({ children }: { children?: React.ReactNode }) => (
       <div data-testid="footer-right-host-actions">{children}</div>
+    ),
+    FooterNavigation: ({
+      children,
+    }: {
+      children?:
+        | React.ReactNode
+        | ((api: typeof mockExcalidrawAPI) => React.ReactNode);
+    }) => (
+      <div data-testid="footer-navigation-host-actions">
+        {typeof children === "function"
+          ? children(mockExcalidrawAPIForContext)
+          : children}
+      </div>
     ),
     DefaultSidebar: Object.assign(
       ({
@@ -579,12 +618,23 @@ vi.mock("@excalidraw/excalidraw", () => {
                 files: nextFiles,
               };
             }),
+            getSceneElements: () =>
+              sceneRef.current.elements.filter((element) => !element.isDeleted),
             getSceneElementsIncludingDeleted: () => sceneRef.current.elements,
             getAppState: () => sceneRef.current.appState,
             getFiles: () => sceneRef.current.files,
+            getViewportOffsets: () => ({
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }),
+            onChange: vi.fn(() => vi.fn()),
+            onScrollChange: vi.fn(() => vi.fn()),
             setViewport: vi.fn(),
           };
         }
+        mockExcalidrawAPIForContext = apiRef.current;
 
         React.useEffect(() => {
           mockExcalidrawAPI = apiRef.current;
@@ -1079,6 +1129,7 @@ afterEach(() => {
   emitExcalidrawChangeAfterEveryRender = false;
   renderChangeEmissionCount = 0;
   mockExcalidrawAPI = null;
+  mockExcalidrawAPIForContext = null;
   skipExcalidrawApiRegistration = false;
   suppressUpdateSceneChangeEvent = false;
   hoistedExportToBlob.mockClear();

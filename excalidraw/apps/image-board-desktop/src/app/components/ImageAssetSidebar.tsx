@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type Ref } from "react";
 
 import { Switch } from "@excalidraw/excalidraw/components/Switch";
 
@@ -17,6 +17,7 @@ interface ImageAssetSidebarProps {
   selectedFileId?: string | null;
   revealRequest?: { fileId: string; requestId: number } | null;
   onSelectRecord?: (fileId: string) => void;
+  rootRef?: Ref<HTMLElement>;
 }
 
 export const ImageAssetSidebar = ({
@@ -28,6 +29,7 @@ export const ImageAssetSidebar = ({
   selectedFileId,
   revealRequest,
   onSelectRecord,
+  rootRef,
 }: ImageAssetSidebarProps) => {
   const revealTargetRef = useRef<HTMLButtonElement | null>(null);
   const revealRequestId = revealRequest?.requestId;
@@ -48,6 +50,7 @@ export const ImageAssetSidebar = ({
       title={copy.agentUi.imageAssetsTitle}
       open={open}
       onOpenChange={onOpenChange}
+      rootRef={rootRef}
     >
       <div className="image-asset-sidebar">
         <label

@@ -63,6 +63,14 @@ export const generateImageIcon = (
   </LineIcon>
 );
 
+export const minimapIcon = (
+  <LineIcon>
+    <path d="M5.25 6.25h13.5v11.5H5.25z" />
+    <path d="m7.5 14.75 2.75-3 2.25 1.75 3.75-4.25" />
+    <path d="M8.25 8.5h4.5v3.25h-4.5z" />
+  </LineIcon>
+);
+
 export const agentBridgeIcon = (
   <LineIcon>
     <path d="M8.25 4.75v5" />

@@ -26,8 +26,12 @@ const Footer = ({
   defaultUIEnabled: boolean;
   zoomUIEnabled: boolean;
 }) => {
-  const { FooterCenterTunnel, FooterRightTunnel, WelcomeScreenHelpHintTunnel } =
-    useTunnels();
+  const {
+    FooterCenterTunnel,
+    FooterNavigationTunnel,
+    FooterRightTunnel,
+    WelcomeScreenHelpHintTunnel,
+  } = useTunnels();
   const app = useApp();
 
   return (
@@ -50,6 +54,8 @@ const Footer = ({
               {zoomUIEnabled && app.isNavigationEnabled() && (
                 <ZoomActions renderAction={actionManager.renderAction} />
               )}
+
+              <FooterNavigationTunnel.Out />
 
               {defaultUIEnabled && !appState.viewModeEnabled && (
                 <UndoRedoActions

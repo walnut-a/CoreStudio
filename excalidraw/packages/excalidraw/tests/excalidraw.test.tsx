@@ -4,7 +4,13 @@ import { useMemo } from "react";
 import { THEME } from "@excalidraw/common";
 
 import { t } from "../i18n";
-import { Excalidraw, Footer, FooterRight, MainMenu } from "../index";
+import {
+  Excalidraw,
+  Footer,
+  FooterNavigation,
+  FooterRight,
+  MainMenu,
+} from "../index";
 import { actionExportWithDarkMode } from "../actions/actionExport";
 
 import {
@@ -520,5 +526,34 @@ describe("<Excalidraw/>", () => {
     expect(queryByText(document.body, "重置画布")).not.toBe(null);
     expect(queryByText(document.body, "深色模式")).not.toBe(null);
     expect(queryByText(document.body, "Export image...")).toBe(null);
+  });
+
+  it("renders host navigation actions after the zoom controls", async () => {
+    const { container } = await render(
+      <Excalidraw>
+        <FooterNavigation>
+          <button type="button">Minimap</button>
+        </FooterNavigation>
+      </Excalidraw>,
+    );
+
+    const footerLeft = container.querySelector(
+      ".layer-ui__wrapper__footer-left",
+    );
+    const zoomActions = footerLeft?.querySelector(".zoom-actions");
+    const hostAction = queryByText(footerLeft as HTMLElement, "Minimap");
+    const undoActions = footerLeft?.querySelector(".undo-redo-buttons");
+
+    expect(zoomActions).not.toBeNull();
+    expect(hostAction).not.toBeNull();
+    expect(undoActions).not.toBeNull();
+    expect(
+      (zoomActions as Node).compareDocumentPosition(hostAction as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      (hostAction as Node).compareDocumentPosition(undoActions as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

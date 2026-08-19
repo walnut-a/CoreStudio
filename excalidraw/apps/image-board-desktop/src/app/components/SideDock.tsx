@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { copy } from "../copy";
 
 import "./SideDock.css";
@@ -10,6 +10,7 @@ interface SideDockProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   headerActions?: ReactNode;
+  rootRef?: Ref<HTMLElement>;
   children: ReactNode;
 }
 
@@ -19,12 +20,14 @@ export const SideDock = ({
   open,
   onOpenChange,
   headerActions,
+  rootRef,
   children,
 }: SideDockProps) => {
   const closeLabel = copy.sideDock.close(title);
 
   return (
     <section
+      ref={rootRef}
       className={`side-dock side-dock--${side}`}
       data-testid={`side-dock-${side}`}
       data-open={open ? "true" : "false"}

@@ -65,8 +65,8 @@ const clampPercent = (value, size) =>
   Math.min(100 - size, Math.max(0, value));
 
 export const getMinimapViewport = ({ x, y, zoom }) => {
-  const width = Math.min(84, 54 / zoom);
-  const height = Math.min(78, 46 / zoom);
+  const width = Math.min(84, 42 / zoom);
+  const height = Math.min(78, 35 / zoom);
   const centerX = 50 - x / 34;
   const centerY = 50 - y / 24;
 

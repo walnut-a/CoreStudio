@@ -6,7 +6,7 @@ import {
   getMinimapViewport,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260820-5";
+} from "./canvas-engine.mjs?v=20260820-6";
 
 document.documentElement.classList.add("js");
 

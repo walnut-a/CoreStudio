@@ -3,10 +3,12 @@ import {
   applyCanvasWheelGesture,
   composeTransform,
   getGenerationSequence,
+  getMinimapDragOffset,
+  getMinimapViewAtPoint,
   getMinimapViewport,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260820-6";
+} from "./canvas-engine.mjs?v=20260820-7";
 
 document.documentElement.classList.add("js");
 
@@ -34,6 +36,7 @@ if (app) {
   let activeTool = "select";
   let view = { ...CAMERA_VIEWS.desktop.overview };
   let dragState = null;
+  let minimapDragState = null;
   let generationTimer = null;
   let minimapOpen = mobileLayout.matches
     ? false
@@ -135,11 +138,6 @@ if (app) {
       button.setAttribute("aria-pressed", String(selected));
     });
 
-    if (name === "shape") {
-      setCamera("overview");
-      app.querySelector("[data-shape-cluster]")?.classList.add("is-selected");
-    }
-
     if (name === "image") {
       setCamera("generate");
       promptInput?.focus({ preventScroll: true });
@@ -212,6 +210,68 @@ if (app) {
     minimapOpen = !minimapOpen;
     renderZoomControls();
   });
+
+  const getMinimapPoint = (event) => {
+    const rect = minimap.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100,
+    };
+  };
+
+  minimap?.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || event.target.closest("button")) {
+      return;
+    }
+
+    event.preventDefault();
+    const point = getMinimapPoint(event);
+    minimapDragState = {
+      pointerId: event.pointerId,
+      grabOffset: getMinimapDragOffset(view, point),
+    };
+    minimap.setPointerCapture?.(event.pointerId);
+    minimap.classList.add("is-dragging");
+    app.classList.add("is-minimap-dragging");
+    setCustomView(
+      getMinimapViewAtPoint(view, point, minimapDragState.grabOffset),
+    );
+  });
+
+  minimap?.addEventListener("pointermove", (event) => {
+    if (
+      !minimapDragState ||
+      event.pointerId !== minimapDragState.pointerId
+    ) {
+      return;
+    }
+
+    setCustomView(
+      getMinimapViewAtPoint(
+        view,
+        getMinimapPoint(event),
+        minimapDragState.grabOffset,
+      ),
+    );
+  });
+
+  const endMinimapDrag = (event) => {
+    if (
+      !minimapDragState ||
+      event.pointerId !== minimapDragState.pointerId
+    ) {
+      return;
+    }
+    if (minimap.hasPointerCapture?.(event.pointerId)) {
+      minimap.releasePointerCapture(event.pointerId);
+    }
+    minimapDragState = null;
+    minimap.classList.remove("is-dragging");
+    app.classList.remove("is-minimap-dragging");
+  };
+
+  minimap?.addEventListener("pointerup", endMinimapDrag);
+  minimap?.addEventListener("pointercancel", endMinimapDrag);
 
   composerSettings?.addEventListener("click", () => {
     const active = composerSettings.getAttribute("aria-pressed") !== "true";

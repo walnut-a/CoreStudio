@@ -455,48 +455,6 @@ figure {
 .selection-box i:nth-child(3) { right: -5px; bottom: -5px; }
 .selection-box i:nth-child(4) { bottom: -5px; left: -5px; }
 
-.shape-cluster {
-  position: absolute;
-  top: 96px;
-  left: 700px;
-  width: 170px;
-  height: 104px;
-  opacity: 0.48;
-  transition: opacity var(--motion-control) ease;
-}
-
-.shape-cluster.is-selected {
-  opacity: 1;
-}
-
-.shape-rectangle,
-.shape-circle {
-  position: absolute;
-  border: 1.5px solid var(--ink);
-}
-
-.shape-rectangle {
-  top: 7px;
-  left: 9px;
-  width: 48px;
-  height: 36px;
-}
-
-.shape-circle {
-  right: 10px;
-  bottom: 6px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-}
-
-.shape-cluster svg {
-  position: absolute;
-  inset: 4px;
-  width: 150px;
-  height: 90px;
-}
-
 .scene-chip {
   position: absolute;
   z-index: 3;
@@ -837,6 +795,9 @@ figure {
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-island);
   transform: translateY(4px);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
   transition:
     opacity var(--motion-control) ease,
     visibility var(--motion-control) ease,
@@ -924,12 +885,22 @@ figure {
   position: absolute;
   z-index: 3;
   border: 1.5px solid var(--text-primary-color);
-  pointer-events: none;
+  cursor: grab;
+  pointer-events: auto;
   transition:
     left var(--motion-canvas) var(--ease-canvas),
     top var(--motion-canvas) var(--ease-canvas),
     width var(--motion-canvas) var(--ease-canvas),
     height var(--motion-canvas) var(--ease-canvas);
+}
+
+.minimap.is-dragging .minimap-viewport {
+  cursor: grabbing;
+  transition: none;
+}
+
+.canvas-app.is-minimap-dragging .canvas-plane {
+  transition: none;
 }
 
 .generation-composer {

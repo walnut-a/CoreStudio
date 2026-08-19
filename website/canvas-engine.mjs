@@ -64,16 +64,61 @@ export const composeTransform = ({ x, y, zoom }) =>
 const clampPercent = (value, size) =>
   Math.min(100 - size, Math.max(0, value));
 
+const MINIMAP_X_SCALE = 34;
+const MINIMAP_Y_SCALE = 24;
+
 export const getMinimapViewport = ({ x, y, zoom }) => {
   const width = Math.min(84, 42 / zoom);
   const height = Math.min(78, 35 / zoom);
-  const centerX = 50 - x / 34;
-  const centerY = 50 - y / 24;
+  const centerX = 50 - x / MINIMAP_X_SCALE;
+  const centerY = 50 - y / MINIMAP_Y_SCALE;
 
   return {
     x: clampPercent(centerX - width / 2, width),
     y: clampPercent(centerY - height / 2, height),
     width,
     height,
+  };
+};
+
+export const getMinimapDragOffset = (view, point) => {
+  const rect = getMinimapViewport(view);
+  const inside =
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height;
+
+  if (!inside) {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: point.x - (rect.x + rect.width / 2),
+    y: point.y - (rect.y + rect.height / 2),
+  };
+};
+
+export const getMinimapViewAtPoint = (
+  view,
+  point,
+  grabOffset = { x: 0, y: 0 },
+) => {
+  const rect = getMinimapViewport(view);
+  const halfWidth = rect.width / 2;
+  const halfHeight = rect.height / 2;
+  const centerX = Math.min(
+    100 - halfWidth,
+    Math.max(halfWidth, point.x - grabOffset.x),
+  );
+  const centerY = Math.min(
+    100 - halfHeight,
+    Math.max(halfHeight, point.y - grabOffset.y),
+  );
+
+  return {
+    ...view,
+    x: (50 - centerX) * MINIMAP_X_SCALE,
+    y: (50 - centerY) * MINIMAP_Y_SCALE,
   };
 };

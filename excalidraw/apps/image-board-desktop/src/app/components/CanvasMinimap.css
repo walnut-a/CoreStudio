@@ -7,17 +7,13 @@
   display: none;
 }
 
-.canvas-minimap__toggle {
-  position: relative;
+.canvas-minimap__toggle:hover {
+  background: var(--button-hover-bg) !important;
+  color: var(--text-primary-color) !important;
 }
 
-.canvas-minimap__toggle[aria-pressed="true"] {
-  background: var(--color-surface-high) !important;
-  color: var(--color-primary) !important;
-}
-
-.canvas-minimap__toggle[aria-pressed="true"]:hover {
-  background: var(--color-surface-primary-container) !important;
+.canvas-minimap__toggle:active {
+  background: var(--button-gray-3) !important;
 }
 
 .canvas-minimap__popover {

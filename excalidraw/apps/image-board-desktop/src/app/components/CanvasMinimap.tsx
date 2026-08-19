@@ -437,10 +437,13 @@ export const CanvasMinimap = ({
           title={label}
           aria-label={label}
           aria-pressed={open}
-          onClick={() => {
+          onClick={(event) => {
             const nextOpen = !open;
             setOpen(nextOpen);
             savePreference(preferenceKey, nextOpen);
+            if (event.detail > 0) {
+              toggleRef.current?.blur();
+            }
           }}
         >
           {zoomPercent}%

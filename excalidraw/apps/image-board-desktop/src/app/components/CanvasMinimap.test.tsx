@@ -64,9 +64,11 @@ describe("CanvasMinimap", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("application")).not.toBeInTheDocument();
 
-    fireEvent.click(toggle);
+    toggle.focus();
+    fireEvent.click(toggle, { detail: 1 });
 
     expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(toggle).not.toHaveFocus();
     expect(screen.getByRole("application")).toBeInTheDocument();
     expect(api.setViewport).not.toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenLastCalledWith(true);
@@ -76,6 +78,21 @@ describe("CanvasMinimap", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("application")).not.toBeInTheDocument();
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps keyboard focus visible when opening the minimap", () => {
+    render(
+      <CanvasMinimap api={createApi() as never} preferenceKey="test:minimap" />,
+    );
+    const toggle = screen.getByRole("button", {
+      name: "打开迷你地图，当前缩放 100%",
+    });
+
+    toggle.focus();
+    fireEvent.click(toggle, { detail: 0 });
+
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
   });
 
   it("closes with Escape and restores focus to the toggle", () => {

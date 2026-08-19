@@ -9,7 +9,7 @@
 
 .canvas-minimap__popover {
   position: absolute;
-  inset-inline-start: 0;
+  inset-inline-start: calc(-1 * var(--canvas-footer-button-size));
   bottom: calc(
     100% + var(--canvas-footer-button-gap) +
       var(--canvas-minimap-avoid-shift, 0px)

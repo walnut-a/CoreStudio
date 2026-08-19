@@ -40,6 +40,13 @@ test("canvas transforms keep translation independent from zoom", () => {
 });
 
 test("minimap viewport stays bounded and gets smaller as the canvas zooms in", () => {
+  assert.deepEqual(getMinimapViewport({ x: 0, y: 0, zoom: 1 }), {
+    x: 29,
+    y: 32.5,
+    width: 42,
+    height: 35,
+  });
+
   const wide = getMinimapViewport({ x: 0, y: 0, zoom: 0.8 });
   const close = getMinimapViewport({ x: 4000, y: -4000, zoom: 1.2 });
 

@@ -25,8 +25,8 @@
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="../styles.css?v=20260820-4" />
-    <script type="module" src="../main.js?v=20260820-5"></script>
+    <link rel="stylesheet" href="../styles.css?v=20260820-5" />
+    <script type="module" src="../main.js?v=20260820-6"></script>
   </head>
   <body>
     <!--
@@ -172,9 +172,17 @@
             <button type="button" data-zoom-in aria-label="放大画布"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg></button>
           </div>
           <div class="minimap is-open" data-minimap aria-label="画布迷你地图">
-            <button class="minimap-object minimap-title" type="button" data-camera-target="overview" aria-label="查看项目概览"></button>
-            <button class="minimap-object minimap-result" type="button" data-camera-target="generate" aria-label="查看生成结果"></button>
-            <button class="minimap-object minimap-agent" type="button" data-camera-target="agent" aria-label="查看 Agent 写回"></button>
+            <button class="minimap-target minimap-references" type="button" data-camera-target="overview" aria-label="查看项目概览">
+              <span class="minimap-marker minimap-reference-a"></span>
+              <span class="minimap-marker minimap-reference-b"></span>
+              <span class="minimap-marker minimap-reference-c"></span>
+              <span class="minimap-marker minimap-reference-d"></span>
+            </button>
+            <svg class="minimap-flow" viewBox="0 0 224 144" aria-hidden="true">
+              <path d="M77 58 C94 58 96 66 111 69" />
+              <path d="M77 79 C94 79 97 75 111 72" />
+            </svg>
+            <button class="minimap-target minimap-result" type="button" data-camera-target="generate" aria-label="查看生成结果"><span class="minimap-result-selection"></span></button>
             <span class="minimap-viewport" data-minimap-viewport></span>
           </div>
         </div>

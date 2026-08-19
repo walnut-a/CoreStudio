@@ -833,7 +833,7 @@ figure {
   overflow: hidden;
   opacity: 0;
   visibility: hidden;
-  background: var(--island-bg-color);
+  background: var(--color-surface-mid);
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-island);
   transform: translateY(4px);
@@ -849,35 +849,80 @@ figure {
   transform: translateY(0);
 }
 
-.minimap::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle, rgba(87, 88, 96, 0.2) 0.6px, transparent 0.7px);
-  background-size: 8px 8px;
-}
-
-.minimap-object {
+.minimap-target {
   position: absolute;
   z-index: 1;
   padding: 0;
-  background: var(--color-gray-40);
-  border-radius: 2px;
-  cursor: pointer;
+  background: transparent;
+  cursor: crosshair;
 }
 
-.minimap-object:hover,
-.minimap-object.is-active {
-  background: var(--selection);
+.minimap-target:focus-visible {
+  outline: 2px solid var(--selection);
+  outline-offset: 2px;
 }
 
-.minimap-title { top: 20px; left: 14px; width: 44px; height: 16px; }
-.minimap-result { top: 24px; right: 14px; width: 50px; height: 36px; }
-.minimap-agent { right: 18px; bottom: 13px; width: 16px; height: 10px; }
+.minimap-references {
+  top: 39px;
+  left: 29px;
+  width: 51px;
+  height: 52px;
+}
+
+.minimap-marker {
+  position: absolute;
+  background: var(--color-gray-60);
+  opacity: 0.55;
+  transition: opacity var(--motion-control) ease;
+}
+
+.minimap-reference-a { top: 4px; left: 3px; width: 13px; height: 13px; }
+.minimap-reference-b { top: 7px; left: 22px; width: 12px; height: 10px; }
+.minimap-reference-c { top: 25px; left: 3px; width: 12px; height: 14px; }
+.minimap-reference-d { top: 24px; left: 22px; width: 17px; height: 16px; }
+
+.minimap-references:hover .minimap-marker {
+  opacity: 0.72;
+}
+
+.minimap-flow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.minimap-flow path {
+  fill: none;
+  stroke: var(--color-border-outline-variant);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.minimap-result {
+  top: 43px;
+  left: 111px;
+  width: 69px;
+  height: 45px;
+}
+
+.minimap-result-selection {
+  position: absolute;
+  inset: 0;
+  border: 1.25px solid var(--selection);
+  background: color-mix(in srgb, var(--selection) 7%, transparent);
+  transition: background-color var(--motion-control) ease;
+}
+
+.minimap-result:hover .minimap-result-selection {
+  background: color-mix(in srgb, var(--selection) 13%, transparent);
+}
 
 .minimap-viewport {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   border: 1.5px solid var(--text-primary-color);
   pointer-events: none;
   transition:

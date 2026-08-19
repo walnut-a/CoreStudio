@@ -1,10 +1,12 @@
 import {
   CAMERA_VIEWS,
+  applyCanvasWheelGesture,
   composeTransform,
+  getGenerationSequence,
   getMinimapViewport,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs";
+} from "./canvas-engine.mjs?v=20260820-5";
 
 document.documentElement.classList.add("js");
 
@@ -32,7 +34,7 @@ if (app) {
   let activeTool = "select";
   let view = { ...CAMERA_VIEWS.desktop.overview };
   let dragState = null;
-  let demoTimers = [];
+  let generationTimer = null;
   let minimapOpen = mobileLayout.matches
     ? false
     : minimapToggle?.getAttribute("aria-pressed") === "true";
@@ -94,6 +96,7 @@ if (app) {
     }
 
     activeCamera = name;
+    app.dataset.camera = name;
     view = { ...next };
     app.querySelectorAll("[data-camera-target]").forEach((button) => {
       const selected = button.dataset.cameraTarget === name;
@@ -105,14 +108,22 @@ if (app) {
     renderView();
   };
 
-  const setZoom = (direction) => {
-    view.zoom = stepZoom(view.zoom, direction);
+  const setCustomView = (nextView) => {
+    view = nextView;
     activeCamera = "custom";
+    app.dataset.camera = "custom";
     app.querySelectorAll(".story-step").forEach((button) => {
       button.classList.remove("is-active");
       button.setAttribute("aria-current", "false");
     });
     renderView();
+  };
+
+  const setZoom = (direction) => {
+    setCustomView({
+      ...view,
+      zoom: stepZoom(view.zoom, direction),
+    });
   };
 
   const setTool = (name) => {
@@ -135,65 +146,56 @@ if (app) {
     }
   };
 
-  const clearDemoTimers = () => {
-    demoTimers.forEach(window.clearTimeout);
-    demoTimers = [];
+  const clearGenerationTimer = () => {
+    if (generationTimer !== null) {
+      window.clearTimeout(generationTimer);
+      generationTimer = null;
+    }
   };
 
-  const schedule = (callback, delay) => {
-    demoTimers.push(window.setTimeout(callback, delay));
+  const setGenerationState = (state) => {
+    const generating = state === "generating";
+    app.classList.toggle("is-generating", generating);
+    app.classList.toggle("is-result-ready", state === "generated");
+    generateButton.disabled = generating;
+    if (generating) {
+      generateButton.setAttribute("aria-busy", "true");
+      if (demoStatus) {
+        demoStatus.textContent = generationForm?.dataset.statusGenerating ?? "Generating";
+      }
+      if (resultStatusLabel && resultStatus) {
+        resultStatusLabel.textContent = resultStatus.dataset.generating ?? "Generating";
+      }
+      return;
+    }
+
+    generateButton.removeAttribute("aria-busy");
+    if (demoStatus) {
+      demoStatus.textContent = generationForm?.dataset.statusGenerated ?? "Generated";
+    }
+    if (resultStatusLabel && resultStatus) {
+      resultStatusLabel.textContent = resultStatus.dataset.ready ?? "Updated on canvas";
+    }
   };
 
-  const runDemo = ({ moveCamera = true } = {}) => {
+  const runDemo = () => {
     if (!generateButton || generateButton.disabled) {
       return;
     }
 
-    clearDemoTimers();
-    app.classList.remove("is-result-ready", "is-writeback-complete");
-    void app.offsetWidth;
-    app.classList.add("is-generating");
-    generateButton.disabled = true;
-    generateButton.setAttribute("aria-busy", "true");
-    if (demoStatus) {
-      demoStatus.textContent = generationForm?.dataset.statusGenerating ?? "Generating";
-    }
-    if (resultStatusLabel && resultStatus) {
-      resultStatusLabel.textContent = resultStatus.dataset.generating ?? "Generating";
-    }
-    if (moveCamera) {
-      setCamera("generate");
-    }
-
-    const resultDelay = reducedMotion.matches ? 80 : 1450;
-    const writebackDelay = reducedMotion.matches ? 140 : 2300;
-    const finishDelay = reducedMotion.matches ? 220 : 3100;
-
-    schedule(() => {
-      app.classList.remove("is-generating");
-      app.classList.add("is-result-ready");
-      if (demoStatus) {
-        demoStatus.textContent = generationForm?.dataset.statusGenerated ?? "Generated";
+    clearGenerationTimer();
+    setCamera("generate");
+    const sequence = getGenerationSequence(reducedMotion.matches);
+    sequence.forEach(({ state, at }) => {
+      if (at === 0) {
+        setGenerationState(state);
+        return;
       }
-      if (resultStatusLabel && resultStatus) {
-        resultStatusLabel.textContent = resultStatus.dataset.ready ?? "Updated on canvas";
-      }
-    }, resultDelay);
-
-    schedule(() => {
-      app.classList.add("is-writeback-complete");
-      if (moveCamera) {
-        setCamera("agent");
-      }
-      if (demoStatus) {
-        demoStatus.textContent = generationForm?.dataset.statusWriteback ?? "Written back";
-      }
-    }, writebackDelay);
-
-    schedule(() => {
-      generateButton.disabled = false;
-      generateButton.removeAttribute("aria-busy");
-    }, finishDelay);
+      generationTimer = window.setTimeout(() => {
+        generationTimer = null;
+        setGenerationState(state);
+      }, at);
+    });
   };
 
   app.querySelectorAll("[data-camera-target]").forEach((button) => {
@@ -243,10 +245,11 @@ if (app) {
       return;
     }
 
-    view.x = dragState.viewX + event.clientX - dragState.startX;
-    view.y = dragState.viewY + event.clientY - dragState.startY;
-    activeCamera = "custom";
-    renderView();
+    setCustomView({
+      ...view,
+      x: dragState.viewX + event.clientX - dragState.startX,
+      y: dragState.viewY + event.clientY - dragState.startY,
+    });
   });
 
   const endDrag = (event) => {
@@ -267,7 +270,15 @@ if (app) {
         return;
       }
       event.preventDefault();
-      setZoom(event.deltaY < 0 ? 1 : -1);
+      setCustomView(
+        applyCanvasWheelGesture(view, {
+          deltaX: event.deltaX,
+          deltaY: event.deltaY,
+          deltaMode: event.deltaMode,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+        }),
+      );
     },
     { passive: false },
   );
@@ -294,10 +305,5 @@ if (app) {
 
   setTool("select");
   setCamera("overview");
-
-  if (!reducedMotion.matches) {
-    schedule(() => runDemo({ moveCamera: false }), 1100);
-  } else {
-    app.classList.add("is-result-ready", "is-writeback-complete");
-  }
+  setGenerationState("generated");
 }

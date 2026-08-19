@@ -3,8 +3,12 @@ import test from "node:test";
 
 import {
   CAMERA_VIEWS,
+  CAMERA_TRANSITION_MS,
+  GENERATION_SETTLE_MS,
+  applyCanvasWheelGesture,
   clampZoom,
   composeTransform,
+  getGenerationSequence,
   getMinimapViewport,
   getZoomControlState,
   stepZoom,
@@ -54,4 +58,52 @@ test("compact zoom controls follow the production minimap interaction", () => {
     minimapOpen: true,
     showIncrementControls: true,
   });
+});
+
+test("camera navigation uses the product minimap timing", () => {
+  assert.equal(CAMERA_TRANSITION_MS, 180);
+});
+
+test("generation is one user-triggered flow and never implies agent write-back", () => {
+  assert.equal(GENERATION_SETTLE_MS, 1200);
+  assert.deepEqual(getGenerationSequence(false), [
+    { state: "generating", at: 0 },
+    { state: "generated", at: 1200 },
+  ]);
+  assert.deepEqual(getGenerationSequence(true), [
+    { state: "generating", at: 0 },
+    { state: "generated", at: 0 },
+  ]);
+});
+
+test("plain trackpad scrolling pans while modified scrolling zooms", () => {
+  const view = { x: 40, y: -10, zoom: 1 };
+
+  assert.deepEqual(
+    applyCanvasWheelGesture(view, {
+      deltaX: 24,
+      deltaY: -16,
+      ctrlKey: false,
+      metaKey: false,
+    }),
+    { x: 16, y: 6, zoom: 1 },
+  );
+  assert.deepEqual(
+    applyCanvasWheelGesture(view, {
+      deltaX: 0,
+      deltaY: -16,
+      ctrlKey: true,
+      metaKey: false,
+    }),
+    { x: 40, y: -10, zoom: 1.1 },
+  );
+  assert.deepEqual(
+    applyCanvasWheelGesture(view, {
+      deltaX: 0,
+      deltaY: 16,
+      ctrlKey: false,
+      metaKey: true,
+    }),
+    { x: 40, y: -10, zoom: 0.9 },
+  );
 });

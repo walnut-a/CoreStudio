@@ -559,7 +559,7 @@ describe("<Excalidraw/>", () => {
     ).toBeTruthy();
   });
 
-  it("reveals zoom increment controls with expanded host navigation", async () => {
+  it("uses expanded host navigation as the zoom control", async () => {
     const { container } = await render(
       <Excalidraw>
         <FooterNavigation collapseZoomControls>
@@ -578,14 +578,25 @@ describe("<Excalidraw/>", () => {
     );
 
     const toggle = queryByText(container, "Toggle navigation")!;
-    expect(container.querySelector(".reset-zoom-button")).not.toBeNull();
+    const zoomActions = container.querySelector(".zoom-actions")!;
+    expect(zoomActions.contains(toggle)).toBe(true);
+    expect(container.querySelector(".reset-zoom-button")).toBeNull();
     expect(container.querySelector(".zoom-out-button")).toBeNull();
     expect(container.querySelector(".zoom-in-button")).toBeNull();
 
     fireEvent.click(toggle);
 
-    expect(container.querySelector(".zoom-out-button")).not.toBeNull();
-    expect(container.querySelector(".zoom-in-button")).not.toBeNull();
+    const zoomOut = container.querySelector(".zoom-out-button")!;
+    const zoomIn = container.querySelector(".zoom-in-button")!;
+    expect(zoomOut).not.toBeNull();
+    expect(zoomIn).not.toBeNull();
+    expect(
+      zoomOut.compareDocumentPosition(toggle) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      toggle.compareDocumentPosition(zoomIn) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     fireEvent.click(toggle);
 

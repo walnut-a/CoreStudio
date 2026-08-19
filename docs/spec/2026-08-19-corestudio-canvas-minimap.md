@@ -72,13 +72,13 @@ CoreStudio 只借鉴这些产品和算法思路，不引入 tldraw 依赖，不�
 
 ### 4.1 入口和布局
 
-- 左下角默认使用紧凑态，只显示当前倍率和迷你地图按钮；打开迷你地图后展开为 `− / 100% / ＋ / 迷你地图`，关闭后重新收起加减按钮。
-- 迷你地图按钮与原生 footer 控件同高，为 36px，并与缩放组保持 8px 间距。
-- 按钮使用地图/鸟瞰图语义的线性图标，不把百分比按钮改成多功能入口。百分比点击仍然只负责恢复 100% 缩放。
-- 迷你地图从按钮上方展开，使用 Excalidraw island 的背景、边框、阴影和圆角。
+- 左下角默认使用紧凑态，只显示当前倍率；点击倍率后打开迷你地图，并展开为 `− / 100% / ＋`，关闭后重新收起加减按钮。
+- 倍率是这组导航控件的统一入口：它始终显示实时缩放比例，点击只负责展开或收起迷你地图，不在同一位置混入“恢复 100%”语义。
+- `Cmd/Ctrl+0` 继续保留为恢复 100% 缩放的标准快捷键；迷你地图不会改变原生缩放动作本身。
+- 迷你地图从倍率按钮上方展开，使用 Excalidraw island 的背景、边框、阴影和圆角。
 - 默认宽高暂定为 `224 × 144px`；窄窗口下使用 `min(224px, calc(100vw - 32px))`，高度按相同比例缩放。
 - 底部生图输入框是居中的局部遮挡，不会被折算成整条底部 viewport offset。窄窗口下若它与地图面板相交，地图面板通过实测输入框边界向上避让，不用固定高度猜测。
-- 面板常驻直到用户再次点击开关或按 `Escape`，点击画布不自动关闭，避免导航过程中面板反复消失。
+- 面板常驻直到用户再次点击倍率或按 `Escape`，点击画布不自动关闭，避免导航过程中面板反复消失。
 
 ### 4.2 显示层级
 
@@ -94,10 +94,10 @@ CoreStudio 只借鉴这些产品和算法思路，不引入 tldraw 依赖，不�
 
 ### 4.3 开关状态
 
-- 关闭：普通图标按钮，`aria-pressed="false"`；缩放组隐藏加减按钮，只保留当前倍率。
-- 打开：使用和其他持续开启功能一致的 primary tint，`aria-pressed="true"`；缩放组同时显示减号、当前倍率和加号。
-- 空画布：开关仍可用；面板中只显示当前视口轮廓和“画布中还没有内容”的轻量提示，不把空画布当成错误。
-- 编辑器未初始化或正在换项目：不渲染宿主开关，不显示一个不可用的空壳。
+- 关闭：倍率按钮 `aria-pressed="false"`；缩放组隐藏加减按钮，只保留实时倍率。
+- 打开：倍率按钮使用和其他持续开启功能一致的 primary tint，`aria-pressed="true"`；缩放组同时显示减号、当前倍率和加号。
+- 空画布：倍率入口仍可用；面板中只显示当前视口轮廓和“画布中还没有内容”的轻量提示，不把空画布当成错误。
+- 编辑器未初始化或正在换项目：不渲染宿主倍率入口，不显示一个不可用的空壳。
 
 ### 4.4 定位与拖拽
 
@@ -238,11 +238,11 @@ sceneY = mapSceneTop  + (mapY - innerTop)  / scale
 ```text
 Excalidraw 共享层
 └─ 一个左下角宿主 tunnel / exported wrapper
-   ├─ 把宿主 React 内容放到缩放组旁边
+   ├─ 允许宿主 React 内容替换缩放组的中间控件
    └─ 接收宿主的明确展开状态，按需显示原生缩放加减按钮
 
 CoreStudio 产品层
-├─ CanvasMinimapToggle
+├─ CanvasMinimapZoomControl
 ├─ CanvasMinimapPopover
 ├─ CanvasMinimapCanvas
 ├─ CanvasViewportOcclusionAdapter
@@ -250,14 +250,14 @@ CoreStudio 产品层
 └─ canvasMinimapRenderer / controller
 ```
 
-Excalidraw 共享层不知道“迷你地图”，只知道宿主在左下角导航区有一个扩展位。迷你地图的状态、文案、图标、渲染和交互全部保留在 `apps/image-board-desktop` 自有层。
+Excalidraw 共享层不知道“迷你地图”，只知道宿主可在左下角导航区替换缩放组的中间控件。迷你地图的状态、文案、渲染和交互全部保留在 `apps/image-board-desktop` 自有层。
 
 ### 7.2 宿主接入点
 
 推荐将当前 `footer-right-host-actions` 补丁组泛化为 `footer-host-actions`，新增一个与 `FooterRight` 对称的左下角宿主 wrapper：
 
 - 在 `tunnels.ts` 中增加一个 tunnel；
-- 在 `Footer.tsx` 中把 tunnel output 放在 `ZoomActions` 之后、`UndoRedoActions` 之前；
+- 在 `Footer.tsx` 中把专用 tunnel output 放入 `ZoomActions` 的中间位置；未启用替换时仍渲染原生 reset zoom；
 - 导出一个名称明确的 wrapper，供 CoreStudio 通过 Excalidraw children 挂载；
 - 用合同测试锁定输出位置、多编辑器隔离和卸载清理。
 
@@ -319,8 +319,8 @@ Excalidraw 共享层不知道“迷你地图”，只知道宿主在左下角导
 
 | 语义     | 简体中文                         | 英文                                              |
 | -------- | -------------------------------- | ------------------------------------------------- |
-| 打开开关 | 打开迷你地图                     | Open minimap                                      |
-| 关闭开关 | 关闭迷你地图                     | Close minimap                                     |
+| 打开倍率 | 打开迷你地图，当前缩放 100%      | Open minimap, current zoom 100%                   |
+| 关闭倍率 | 关闭迷你地图，当前缩放 100%      | Close minimap, current zoom 100%                  |
 | 地图说明 | 画布迷你地图，使用方向键平移画布 | Canvas minimap. Use arrow keys to pan the canvas. |
 | 空状态   | 画布中还没有内容                 | The canvas is empty                               |
 
@@ -384,7 +384,7 @@ Phase 1 真实验收后再根据证据决定：
 
 第一版只有同时满足以下条件才算完成：
 
-1. 用户可从缩放区识别并打开迷你地图。
+1. 用户可直接点击缩放区的当前倍率打开和关闭迷你地图，不存在第二个含义重叠的入口。
 2. 地图能在大幅缩放和平移后清楚表达当前方位。
 3. 点击、拖拽和键盘导航保持 zoom，并和合并内部 UI、左右边缘遮挡后的矩形可用视口一致。
 4. 桌面端和 Agent Board 行为一致，没有两套组件。
@@ -394,10 +394,9 @@ Phase 1 真实验收后再根据证据决定：
 
 ## 13. 待实现时确认
 
-以下问题不改变方案主体，可以在实现前由快速样式试验确认：
+以下问题不改变方案主体，可以在实现阶段由快速样式试验确认：
 
-- 宿主 wrapper 最终命名使用 `FooterLeft` 还是 `FooterNavigation`；
-- 开关图标选用“地图”还是“画布鸟瞰”几何；
+- 宿主 wrapper 继续使用 `FooterNavigation`，内部以专用 zoom-control tunnel 实现中间控件替换；
 - 224 × 144px 在真实图片画布上是否需要微调为 240 × 152px。
 
-这些选择不允许改变已确认的功能边界：开关仍位于缩放区，地图仍是简化几何，导航仍保持当前 zoom，功能仍保留在 CoreStudio 产品层。
+这些选择不允许改变已确认的功能边界：倍率仍是缩放区的唯一迷你地图入口，地图仍是简化几何，导航仍保持当前 zoom，功能仍保留在 CoreStudio 产品层。

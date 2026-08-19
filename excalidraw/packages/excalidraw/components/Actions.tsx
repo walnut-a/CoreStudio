@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { useRef } from "react";
+import type { ReactNode } from "react";
 import { Popover } from "radix-ui";
 
 import { CLASSES } from "@excalidraw/common";
@@ -882,9 +883,13 @@ export const MobileShapeActions = ({
 
 export const ZoomActions = ({
   renderAction,
+  centerControl,
+  useCenterControl = false,
   showIncrementControls = true,
 }: {
   renderAction: ActionManager["renderAction"];
+  centerControl?: ReactNode;
+  useCenterControl?: boolean;
   showIncrementControls?: boolean;
 }) => (
   <Stack.Col
@@ -895,7 +900,15 @@ export const ZoomActions = ({
   >
     <Stack.Row align="center">
       {showIncrementControls && renderAction("zoomOut")}
-      {renderAction("resetZoom")}
+      {!useCenterControl && renderAction("resetZoom")}
+      {centerControl ? (
+        <span
+          className="zoom-actions__center-control"
+          hidden={!useCenterControl}
+        >
+          {centerControl}
+        </span>
+      ) : null}
       {showIncrementControls && renderAction("zoomIn")}
     </Stack.Row>
   </Stack.Col>

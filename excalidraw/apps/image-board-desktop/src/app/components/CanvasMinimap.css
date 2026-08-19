@@ -1,10 +1,9 @@
-.canvas-minimap__toggle-slot {
+.canvas-minimap__zoom-control {
   position: relative;
   display: flex;
-  margin-inline-start: var(--canvas-footer-button-gap);
 }
 
-.image-board-canvas--editor-initializing .canvas-minimap__toggle-slot {
+.image-board-canvas--editor-initializing .canvas-minimap__zoom-control {
   display: none;
 }
 
@@ -13,12 +12,12 @@
 }
 
 .canvas-minimap__toggle[aria-pressed="true"] {
-  background: var(--color-surface-high);
-  color: var(--color-primary);
+  background: var(--color-surface-high) !important;
+  color: var(--color-primary) !important;
 }
 
 .canvas-minimap__toggle[aria-pressed="true"]:hover {
-  background: var(--color-surface-primary-container);
+  background: var(--color-surface-primary-container) !important;
 }
 
 .canvas-minimap__popover {

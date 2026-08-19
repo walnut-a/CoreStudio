@@ -1324,7 +1324,7 @@ describe("App startup", () => {
     });
 
     const toggle = await screen.findByRole("button", {
-      name: "打开迷你地图",
+      name: "打开迷你地图，当前缩放 100%",
     });
     expect(toggle).toHaveAttribute("aria-pressed", "false");
 

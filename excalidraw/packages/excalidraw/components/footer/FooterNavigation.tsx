@@ -53,14 +53,17 @@ const FooterNavigation = ({
   children?: FooterNavigationChildren;
   collapseZoomControls?: boolean;
 }) => {
-  const { FooterNavigationTunnel } = useTunnels();
+  const { FooterNavigationTunnel, FooterZoomControlTunnel } = useTunnels();
+  const NavigationTunnel = collapseZoomControls
+    ? FooterZoomControlTunnel
+    : FooterNavigationTunnel;
 
   return (
-    <FooterNavigationTunnel.In>
+    <NavigationTunnel.In>
       <FooterNavigationContent collapseZoomControls={collapseZoomControls}>
         {children}
       </FooterNavigationContent>
-    </FooterNavigationTunnel.In>
+    </NavigationTunnel.In>
   );
 };
 

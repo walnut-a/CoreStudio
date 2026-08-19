@@ -31,6 +31,7 @@ const Footer = ({
   const {
     FooterCenterTunnel,
     FooterNavigationTunnel,
+    FooterZoomControlTunnel,
     FooterRightTunnel,
     WelcomeScreenHelpHintTunnel,
   } = useTunnels();
@@ -66,6 +67,8 @@ const Footer = ({
                 {zoomUIEnabled && app.isNavigationEnabled() && (
                   <ZoomActions
                     renderAction={actionManager.renderAction}
+                    centerControl={<FooterZoomControlTunnel.Out />}
+                    useCenterControl={compactZoomControlsEnabled}
                     showIncrementControls={
                       !compactZoomControlsEnabled || zoomControlsExpanded
                     }

@@ -1,4 +1,5 @@
 import { Tooltip } from "@excalidraw/excalidraw/components/Tooltip";
+import { IconButton } from "@excalidraw/excalidraw/components/IconButton";
 import type {
   ExcalidrawImperativeAPI,
   Offsets,
@@ -26,7 +27,6 @@ import {
   type CanvasMinimapRenderModel,
 } from "../canvasMinimapRenderer";
 import { copy } from "../copy";
-import { minimapIcon } from "./CoreStudioIcons";
 
 import "./CanvasMinimap.css";
 
@@ -89,6 +89,9 @@ export const CanvasMinimap = ({
   avoidElementRef,
 }: CanvasMinimapProps) => {
   const [open, setOpen] = useState(() => readPreference(preferenceKey));
+  const [zoomPercent, setZoomPercent] = useState(() =>
+    Math.round((api?.getAppState().zoom.value ?? 1) * 100),
+  );
   const [empty, setEmpty] = useState(true);
   const [avoidShift, setAvoidShift] = useState(0);
   const avoidShiftRef = useRef(0);
@@ -108,6 +111,16 @@ export const CanvasMinimap = ({
   useEffect(() => {
     setOpen(readPreference(preferenceKey));
   }, [preferenceKey]);
+
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+    setZoomPercent(Math.round(api.getAppState().zoom.value * 100));
+    return api.onScrollChange((_scrollX, _scrollY, zoom) => {
+      setZoomPercent(Math.round(zoom.value * 100));
+    });
+  }, [api]);
 
   useLayoutEffect(() => {
     onOpenChange?.(open);
@@ -410,25 +423,27 @@ export const CanvasMinimap = ({
     return null;
   }
 
-  const label = open ? copy.minimap.close : copy.minimap.open;
+  const label = `${
+    open ? copy.minimap.close : copy.minimap.open
+  }，当前缩放 ${zoomPercent}%`;
 
   return (
-    <div className="canvas-minimap__toggle-slot">
+    <div className="canvas-minimap__zoom-control">
       <Tooltip label={label}>
-        <button
+        <IconButton
           ref={toggleRef}
-          type="button"
-          className="help-icon canvas-minimap__toggle"
+          type="toggle"
+          checked={open}
+          icon={`${zoomPercent}%`}
+          className="reset-zoom-button zoom-button canvas-minimap__toggle"
+          title={label}
           aria-label={label}
-          aria-pressed={open}
-          onClick={() => {
+          onSelect={() => {
             const nextOpen = !open;
             setOpen(nextOpen);
             savePreference(preferenceKey, nextOpen);
           }}
-        >
-          {minimapIcon}
-        </button>
+        />
       </Tooltip>
       {open ? (
         <div

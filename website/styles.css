@@ -65,7 +65,10 @@
   --header-height: 70px;
   --radius-control: var(--border-radius-lg);
   --radius-image: var(--border-radius-lg);
-  --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --motion-control: 150ms;
+  --motion-canvas: 180ms;
+  --motion-status: 1.2s;
+  --ease-canvas: cubic-bezier(0.25, 1, 0.5, 1);
   --font-cjk: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
     "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-interface: "Assistant", "PingFang SC", "Microsoft YaHei",
@@ -168,7 +171,7 @@ figure {
   background: var(--ink);
   border-radius: var(--radius-control);
   transform: translateY(-150%);
-  transition: transform 180ms var(--ease);
+  transition: transform var(--motion-canvas) var(--ease-canvas);
 }
 
 .skip-link:focus {
@@ -240,9 +243,9 @@ figure {
   border-radius: var(--border-radius-lg);
   cursor: pointer;
   transition:
-    color 150ms ease,
-    background-color 150ms ease,
-    transform 150ms var(--ease);
+    color var(--motion-control) ease,
+    background-color var(--motion-control) ease,
+    transform var(--motion-control) var(--ease-canvas);
 }
 
 .tool-button svg {
@@ -300,9 +303,9 @@ figure {
   font-size: 0.875rem;
   font-weight: 600;
   transition:
-    background-color 150ms ease,
-    transform 150ms var(--ease),
-    border-color 150ms ease;
+    background-color var(--motion-control) ease,
+    transform var(--motion-control) var(--ease-canvas),
+    border-color var(--motion-control) ease;
 }
 
 .download-button svg {
@@ -352,7 +355,7 @@ figure {
   width: 1400px;
   height: 780px;
   transform-origin: center;
-  transition: transform 620ms var(--ease);
+  transition: transform var(--motion-canvas) var(--ease-canvas);
   will-change: transform;
 }
 
@@ -397,11 +400,15 @@ figure {
 
 .scene-title {
   position: absolute;
-  top: 102px;
+  top: 90px;
   left: 72px;
   width: 610px;
-  padding: 18px 20px 22px;
   cursor: default;
+}
+
+.scene-heading {
+  position: relative;
+  padding: 18px 20px 22px;
 }
 
 .scene-title h1 {
@@ -414,7 +421,7 @@ figure {
 
 .scene-title p {
   max-width: 530px;
-  margin-top: 22px;
+  margin: 22px 20px 0;
   color: var(--muted);
   font-size: 1.03rem;
   line-height: 1.5;
@@ -423,11 +430,11 @@ figure {
 
 .selection-box {
   position: absolute;
-  inset: 0 0 68px;
+  inset: 0;
   opacity: 0;
   border: 1.5px solid var(--selection);
   pointer-events: none;
-  transition: opacity 150ms ease;
+  transition: opacity var(--motion-control) ease;
 }
 
 .scene-title.is-selected .selection-box {
@@ -450,12 +457,12 @@ figure {
 
 .shape-cluster {
   position: absolute;
-  top: 116px;
-  left: 650px;
+  top: 96px;
+  left: 700px;
   width: 170px;
   height: 104px;
   opacity: 0.48;
-  transition: opacity 160ms ease;
+  transition: opacity var(--motion-control) ease;
 }
 
 .shape-cluster.is-selected {
@@ -514,8 +521,8 @@ figure {
   border: 1.5px solid currentColor;
   border-radius: 50%;
   transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
+    background-color var(--motion-control) ease,
+    border-color var(--motion-control) ease;
 }
 
 .scene-chip strong {
@@ -536,23 +543,23 @@ figure {
 }
 
 .scene-chip-local {
-  top: 345px;
+  top: 430px;
   left: 105px;
 }
 
 .scene-chip-model {
-  top: 650px;
-  left: 518px;
+  top: 690px;
+  left: 540px;
 }
 
 .scene-chip-agent {
-  top: 676px;
-  left: 1012px;
+  top: 668px;
+  left: 1070px;
 }
 
 .reference-board {
   position: absolute;
-  top: 390px;
+  top: 470px;
   left: 98px;
   width: 350px;
 }
@@ -571,7 +578,7 @@ figure {
   background: #ececed;
   border-radius: var(--border-radius-md);
   transition:
-    opacity 150ms ease;
+    opacity var(--motion-control) ease;
 }
 
 .reference-tile:nth-child(2) { height: 178px; }
@@ -633,9 +640,9 @@ figure {
 
 .generation-result {
   position: absolute;
-  top: 246px;
-  left: 720px;
-  width: 560px;
+  top: 238px;
+  left: 750px;
+  width: 540px;
 }
 
 .result-frame {
@@ -652,8 +659,8 @@ figure {
   object-fit: cover;
   border-radius: inherit;
   transition:
-    opacity 240ms ease,
-    filter 240ms ease;
+    opacity var(--motion-control) ease,
+    filter var(--motion-control) ease;
 }
 
 .result-status {
@@ -698,14 +705,15 @@ figure {
 
 .agent-cursor {
   position: absolute;
-  top: 556px;
-  left: 1178px;
+  top: 570px;
+  left: 1210px;
   z-index: 5;
   display: flex;
   align-items: center;
   gap: 5px;
   color: #fff;
-  opacity: 0.72;
+  opacity: 0.28;
+  transition: opacity var(--motion-control) ease;
 }
 
 .agent-cursor svg {
@@ -729,8 +737,8 @@ figure {
 
 .writeback-tag {
   position: absolute;
-  top: 644px;
-  left: 1140px;
+  top: 624px;
+  left: 1174px;
   z-index: 4;
   opacity: 0;
   display: flex;
@@ -740,6 +748,7 @@ figure {
   font-family: var(--font-interface);
   font-size: 0.7rem;
   font-weight: 600;
+  transition: opacity var(--motion-control) ease;
 }
 
 .writeback-tag i {
@@ -776,7 +785,9 @@ figure {
   background: var(--color-surface-low);
   border-radius: 0;
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color var(--motion-control) ease,
+    color var(--motion-control) ease;
 }
 
 .zoom-control button:hover {
@@ -827,9 +838,9 @@ figure {
   box-shadow: var(--shadow-island);
   transform: translateY(4px);
   transition:
-    opacity 180ms ease,
-    visibility 180ms ease,
-    transform 180ms var(--ease);
+    opacity var(--motion-control) ease,
+    visibility var(--motion-control) ease,
+    transform var(--motion-control) var(--ease-canvas);
 }
 
 .minimap.is-open {
@@ -869,7 +880,11 @@ figure {
   z-index: 2;
   border: 1.5px solid var(--text-primary-color);
   pointer-events: none;
-  transition: all 320ms var(--ease);
+  transition:
+    left var(--motion-canvas) var(--ease-canvas),
+    top var(--motion-canvas) var(--ease-canvas),
+    width var(--motion-canvas) var(--ease-canvas),
+    height var(--motion-canvas) var(--ease-canvas);
 }
 
 .generation-composer {
@@ -889,7 +904,9 @@ figure {
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-island);
   transform: translateX(-50%);
-  transition: background-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    background-color var(--motion-control) ease,
+    box-shadow var(--motion-control) ease;
 }
 
 .generation-composer input {
@@ -914,8 +931,11 @@ figure {
   place-items: center;
   border-radius: var(--border-radius-lg);
   cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease,
-    color 150ms ease, opacity 150ms ease;
+  transition:
+    background-color var(--motion-control) ease,
+    border-color var(--motion-control) ease,
+    color var(--motion-control) ease,
+    opacity var(--motion-control) ease;
 }
 
 .composer-icon {
@@ -1024,7 +1044,7 @@ figure {
 
 .canvas-app.is-generating .result-status i {
   background: var(--color-primary);
-  animation: project-status-pulse 1.2s ease-in-out infinite;
+  animation: project-status-pulse var(--motion-status) ease-in-out infinite;
 }
 
 .canvas-app.is-generating .connector {
@@ -1041,24 +1061,18 @@ figure {
   transform: scale(1);
 }
 
-.canvas-app.is-result-ready .agent-cursor {
-  animation: agent-return 420ms var(--ease) both;
+.canvas-app[data-camera="agent"] .agent-cursor {
+  opacity: 1;
 }
 
-.canvas-app.is-writeback-complete .writeback-tag {
+.canvas-app[data-camera="agent"] .writeback-tag {
   opacity: 1;
-  transition: opacity 260ms ease 120ms;
 }
 
 @keyframes project-status-pulse {
   0%,
   100% { opacity: 0.35; }
   50% { opacity: 1; }
-}
-
-@keyframes agent-return {
-  0% { opacity: 0; transform: translate(14px, 8px); }
-  100% { opacity: 1; transform: translate(0, 0) scale(1); }
 }
 
 a:focus-visible,

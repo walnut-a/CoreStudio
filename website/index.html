@@ -28,8 +28,8 @@
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
     <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
     <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="styles.css?v=20260820-3" />
-    <script type="module" src="main.js?v=20260820-3"></script>
+    <link rel="stylesheet" href="styles.css?v=20260820-4" />
+    <script type="module" src="main.js?v=20260820-5"></script>
   </head>
   <body class="page-en">
     <!--
@@ -93,8 +93,10 @@
             </div>
 
             <section class="scene-title is-selected" id="canvas-home" data-scene-object>
-              <div class="selection-box" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-              <h1>A local-first canvas<br />for image generation.</h1>
+              <div class="scene-heading">
+                <div class="selection-box" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                <h1>A local-first canvas<br />for image generation.</h1>
+              </div>
               <p>Built on Excalidraw. Keep the project local, choose your models, and let agents write back.</p>
             </section>
 
@@ -125,9 +127,9 @@
                   <path d="M0 0 10 5 0 10" />
                 </marker>
               </defs>
-              <path class="connector connector-a" d="M455 430C565 430 602 392 710 378" marker-end="url(#arrow-end-en)" />
-              <path class="connector connector-b" d="M455 510C575 520 602 470 710 454" marker-end="url(#arrow-end-en)" />
-              <path class="connector connector-c" d="M455 585C578 610 628 560 735 526" marker-end="url(#arrow-end-en)" />
+              <path class="connector connector-a" d="M455 510C578 510 624 382 740 362" marker-end="url(#arrow-end-en)" />
+              <path class="connector connector-b" d="M455 585C590 606 635 482 740 452" marker-end="url(#arrow-end-en)" />
+              <path class="connector connector-c" d="M455 648C584 682 652 598 740 542" marker-end="url(#arrow-end-en)" />
             </svg>
 
             <button class="scene-chip scene-chip-model" type="button" data-camera-target="generate">
@@ -185,7 +187,6 @@
           data-generation-form
           data-status-generating="Generating on the canvas…"
           data-status-generated="Image generated"
-          data-status-writeback="Codex wrote the result back to the project"
         >
           <label class="sr-only" for="generation-prompt-en">Describe the image to generate</label>
           <input id="generation-prompt-en" data-prompt-input value="A continuous aluminum desk light with a warm seam" autocomplete="off" />

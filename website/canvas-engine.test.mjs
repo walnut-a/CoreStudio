@@ -9,6 +9,8 @@ import {
   clampZoom,
   composeTransform,
   getGenerationSequence,
+  getMinimapDragOffset,
+  getMinimapViewAtPoint,
   getMinimapViewport,
   getZoomControlState,
   stepZoom,
@@ -54,6 +56,36 @@ test("minimap viewport stays bounded and gets smaller as the canvas zooms in", (
   assert.ok(wide.height > close.height);
   assert.ok(close.x >= 0 && close.x + close.width <= 100);
   assert.ok(close.y >= 0 && close.y + close.height <= 100);
+});
+
+test("minimap dragging preserves the grabbed point inside the viewport", () => {
+  const view = { x: 0, y: 0, zoom: 1 };
+  const pointer = { x: 60, y: 55 };
+  const grabOffset = getMinimapDragOffset(view, pointer);
+
+  assert.deepEqual(grabOffset, { x: 10, y: 5 });
+  assert.deepEqual(getMinimapViewAtPoint(view, pointer, grabOffset), view);
+  assert.deepEqual(
+    getMinimapViewAtPoint(view, { x: 70, y: 65 }, grabOffset),
+    { x: -340, y: -240, zoom: 1 },
+  );
+});
+
+test("minimap background clicks center the viewport and clamp to its bounds", () => {
+  const view = { x: 0, y: 0, zoom: 1 };
+
+  assert.deepEqual(getMinimapDragOffset(view, { x: 4, y: 4 }), {
+    x: 0,
+    y: 0,
+  });
+  const next = getMinimapViewAtPoint(view, { x: 0, y: 0 });
+  assert.deepEqual(next, { x: 986, y: 780, zoom: 1 });
+  assert.deepEqual(getMinimapViewport(next), {
+    x: 0,
+    y: 0,
+    width: 42,
+    height: 35,
+  });
 });
 
 test("compact zoom controls follow the production minimap interaction", () => {

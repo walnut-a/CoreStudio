@@ -433,17 +433,14 @@ export const CanvasMinimap = ({
         <IconButton
           ref={toggleRef}
           type="button"
-          className="reset-zoom-button zoom-button canvas-minimap__toggle"
+          className="reset-zoom-button zoom-button"
           title={label}
           aria-label={label}
           aria-pressed={open}
-          onClick={(event) => {
+          onClick={() => {
             const nextOpen = !open;
             setOpen(nextOpen);
             savePreference(preferenceKey, nextOpen);
-            if (event.detail > 0) {
-              toggleRef.current?.blur();
-            }
           }}
         >
           {zoomPercent}%

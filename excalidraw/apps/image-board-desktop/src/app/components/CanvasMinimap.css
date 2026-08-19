@@ -7,15 +7,6 @@
   display: none;
 }
 
-.canvas-minimap__toggle:hover {
-  background: var(--button-hover-bg) !important;
-  color: var(--text-primary-color) !important;
-}
-
-.canvas-minimap__toggle:active {
-  background: var(--button-gray-3) !important;
-}
-
 .canvas-minimap__popover {
   position: absolute;
   inset-inline-start: 0;

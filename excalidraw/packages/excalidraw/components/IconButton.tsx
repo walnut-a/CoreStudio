@@ -19,6 +19,7 @@ type IconButtonBaseProps = {
   icon?: React.ReactNode;
   "aria-label": string;
   "aria-keyshortcuts"?: string;
+  "aria-pressed"?: boolean;
   "data-testid"?: string;
   label?: string;
   title?: string;
@@ -126,6 +127,7 @@ export const IconButton = React.forwardRef(
           hidden={props.hidden}
           title={props.title}
           aria-label={props["aria-label"]}
+          aria-pressed={props["aria-pressed"]}
           type="button"
           onClick={onClick}
           ref={innerRef}

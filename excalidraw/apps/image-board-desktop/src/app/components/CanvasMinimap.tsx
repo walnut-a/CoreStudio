@@ -432,18 +432,19 @@ export const CanvasMinimap = ({
       <Tooltip label={label}>
         <IconButton
           ref={toggleRef}
-          type="toggle"
-          checked={open}
-          icon={`${zoomPercent}%`}
+          type="button"
           className="reset-zoom-button zoom-button canvas-minimap__toggle"
           title={label}
           aria-label={label}
-          onSelect={() => {
+          aria-pressed={open}
+          onClick={() => {
             const nextOpen = !open;
             setOpen(nextOpen);
             savePreference(preferenceKey, nextOpen);
           }}
-        />
+        >
+          {zoomPercent}%
+        </IconButton>
       </Tooltip>
       {open ? (
         <div

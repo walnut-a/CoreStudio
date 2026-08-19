@@ -59,6 +59,8 @@ describe("CanvasMinimap", () => {
     const toggle = screen.getByRole("button", {
       name: "打开迷你地图，当前缩放 100%",
     });
+    expect(toggle).toHaveClass("ToolIcon_type_button");
+    expect(toggle).not.toHaveClass("ToolIcon_type_toggle");
     expect(toggle).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("application")).not.toBeInTheDocument();
 

@@ -1,6 +1,13 @@
 import type { AppState, Offsets } from "@excalidraw/excalidraw/types";
 
 import type { SceneBounds } from "./sceneGeometry";
+import {
+  createCanvasMinimapTransform as createCanvasMinimapTransformCore,
+  getCanvasViewportBounds as getCanvasViewportBoundsCore,
+  minimapPointToScene as minimapPointToSceneCore,
+  sceneBoundsToMinimap as sceneBoundsToMinimapCore,
+  scenePointToMinimap as scenePointToMinimapCore,
+} from "./canvasMinimapCore.mjs";
 
 type ViewportAppState = Pick<
   AppState,
@@ -90,45 +97,7 @@ export const measureEdgeOcclusionOffsets = (
 export const getCanvasViewportBounds = (
   appState: ViewportAppState,
   offsets?: Offsets,
-): SceneBounds => {
-  const width = positive(appState.width);
-  const height = positive(appState.height);
-  const scrollX = finite(appState.scrollX);
-  const scrollY = finite(appState.scrollY);
-  const zoom = Math.max(0.0001, positive(appState.zoom?.value, 1));
-  const normalizedOffsets = normalizeOffsets(offsets);
-  const usableWidth = Math.max(
-    0,
-    width - normalizedOffsets.left - normalizedOffsets.right,
-  );
-  const usableHeight = Math.max(
-    0,
-    height - normalizedOffsets.top - normalizedOffsets.bottom,
-  );
-
-  return {
-    x: -scrollX + normalizedOffsets.left / zoom,
-    y: -scrollY + normalizedOffsets.top / zoom,
-    width: usableWidth / zoom,
-    height: usableHeight / zoom,
-  };
-};
-
-const unionBounds = (first: SceneBounds, second: SceneBounds): SceneBounds => {
-  const left = Math.min(first.x, second.x);
-  const top = Math.min(first.y, second.y);
-  const right = Math.max(first.x + first.width, second.x + second.width);
-  const bottom = Math.max(first.y + first.height, second.y + second.height);
-
-  return { x: left, y: top, width: right - left, height: bottom - top };
-};
-
-const normalizeSceneBounds = (bounds: SceneBounds): SceneBounds => ({
-  x: finite(bounds.x),
-  y: finite(bounds.y),
-  width: Math.max(1, positive(bounds.width, 1)),
-  height: Math.max(1, positive(bounds.height, 1)),
-});
+): SceneBounds => getCanvasViewportBoundsCore(appState, offsets);
 
 export const createCanvasMinimapTransform = ({
   contentBounds,
@@ -142,81 +111,26 @@ export const createCanvasMinimapTransform = ({
   mapWidth: number;
   mapHeight: number;
   padding: number;
-}): CanvasMinimapTransform => {
-  const safeMapWidth = Math.max(1, positive(mapWidth, 1));
-  const safeMapHeight = Math.max(1, positive(mapHeight, 1));
-  const safePadding = Math.min(
-    positive(padding),
-    Math.max(0, Math.min(safeMapWidth, safeMapHeight) / 2 - 0.5),
-  );
-  const innerWidth = Math.max(1, safeMapWidth - safePadding * 2);
-  const innerHeight = Math.max(1, safeMapHeight - safePadding * 2);
-  const normalizedViewport = normalizeSceneBounds(viewportBounds);
-  const combined = contentBounds
-    ? unionBounds(normalizeSceneBounds(contentBounds), normalizedViewport)
-    : normalizedViewport;
-  const targetAspect = innerWidth / innerHeight;
-  const currentAspect = combined.width / combined.height;
-  let sceneBounds = combined;
-
-  if (currentAspect > targetAspect) {
-    const height = combined.width / targetAspect;
-    sceneBounds = {
-      x: combined.x,
-      y: combined.y - (height - combined.height) / 2,
-      width: combined.width,
-      height,
-    };
-  } else if (currentAspect < targetAspect) {
-    const width = combined.height * targetAspect;
-    sceneBounds = {
-      x: combined.x - (width - combined.width) / 2,
-      y: combined.y,
-      width,
-      height: combined.height,
-    };
-  }
-
-  const scale = Math.min(
-    innerWidth / sceneBounds.width,
-    innerHeight / sceneBounds.height,
-  );
-
-  return {
-    mapWidth: safeMapWidth,
-    mapHeight: safeMapHeight,
-    offsetX: safePadding - sceneBounds.x * scale,
-    offsetY: safePadding - sceneBounds.y * scale,
-    scale,
-    sceneBounds,
-  };
-};
+}): CanvasMinimapTransform =>
+  createCanvasMinimapTransformCore({
+    contentBounds,
+    viewportBounds,
+    mapWidth,
+    mapHeight,
+    padding,
+  });
 
 export const scenePointToMinimap = (
   point: { x: number; y: number },
   transform: CanvasMinimapTransform,
-) => ({
-  x: point.x * transform.scale + transform.offsetX,
-  y: point.y * transform.scale + transform.offsetY,
-});
+) => scenePointToMinimapCore(point, transform);
 
 export const minimapPointToScene = (
   point: { x: number; y: number },
   transform: CanvasMinimapTransform,
-) => ({
-  x: (point.x - transform.offsetX) / transform.scale,
-  y: (point.y - transform.offsetY) / transform.scale,
-});
+) => minimapPointToSceneCore(point, transform);
 
 export const sceneBoundsToMinimap = (
   bounds: SceneBounds,
   transform: CanvasMinimapTransform,
-): SceneBounds => {
-  const origin = scenePointToMinimap(bounds, transform);
-  return {
-    x: origin.x,
-    y: origin.y,
-    width: bounds.width * transform.scale,
-    height: bounds.height * transform.scale,
-  };
-};
+): SceneBounds => sceneBoundsToMinimapCore(bounds, transform);

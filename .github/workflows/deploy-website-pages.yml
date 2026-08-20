@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "website/**"
+      - "excalidraw/apps/image-board-desktop/src/app/canvasMinimapCore.mjs"
       - ".github/workflows/deploy-website-pages.yml"
   workflow_dispatch:
 
@@ -32,10 +33,25 @@ jobs:
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: 准备官网文件
+        run: |
+          mkdir -p "$RUNNER_TEMP/corestudio-site"
+          cp -R website/. "$RUNNER_TEMP/corestudio-site/"
+          mkdir -p "$RUNNER_TEMP/corestudio-site/excalidraw/apps/image-board-desktop/src/app"
+          cp excalidraw/apps/image-board-desktop/src/app/canvasMinimapCore.mjs "$RUNNER_TEMP/corestudio-site/excalidraw/apps/image-board-desktop/src/app/"
+          mkdir -p "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Excalifont"
+          cp excalidraw/packages/excalidraw/fonts/Excalifont/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Excalifont/"
+          mkdir -p "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Xiaolai"
+          cp excalidraw/packages/excalidraw/fonts/Xiaolai/Xiaolai-Regular-0facdf1ea213ba40261022f5d5ed4493.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Xiaolai/"
+          cp excalidraw/packages/excalidraw/fonts/Xiaolai/Xiaolai-Regular-f8ee5d36068a42b51d0e4a1116cfcec1.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Xiaolai/"
+          cp excalidraw/packages/excalidraw/fonts/Xiaolai/Xiaolai-Regular-79d494361ae093b69e74ee9dbe65bfd4.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Xiaolai/"
+          cp excalidraw/packages/excalidraw/fonts/Xiaolai/Xiaolai-Regular-74e2263a91439c25b91d5132ce9f4d62.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Xiaolai/"
+          cp excalidraw/packages/excalidraw/fonts/Xiaolai/Xiaolai-Regular-145aa02cdd91946e67dc934e1acffe75.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Xiaolai/"
+
       - name: 上传官网文件
         uses: actions/upload-pages-artifact@v4
         with:
-          path: website
+          path: ${{ runner.temp }}/corestudio-site
 
       - name: 部署到 GitHub Pages
         id: deployment

@@ -21,6 +21,7 @@ import {
   mergeCanvasViewportOffsets,
   minimapPointToScene,
 } from "../canvasMinimapGeometry";
+import { canvasMinimapHasPoint } from "../canvasMinimapCore.mjs";
 import {
   renderCanvasMinimap,
   type CanvasMinimapBoundsCache,
@@ -44,23 +45,6 @@ type DragState = {
   grabOffsetX: number;
   grabOffsetY: number;
   pointerId: number;
-};
-
-const hasPoint = (
-  bounds: { x: number; y: number; width: number; height: number },
-  point: { x: number; y: number },
-  minimumSize = 0,
-) => {
-  const width = Math.max(bounds.width, minimumSize);
-  const height = Math.max(bounds.height, minimumSize);
-  const x = bounds.x - (width - bounds.width) / 2;
-  const y = bounds.y - (height - bounds.height) / 2;
-  return (
-    point.x >= x &&
-    point.x <= x + width &&
-    point.y >= y &&
-    point.y <= y + height
-  );
 };
 
 const readPreference = (key: string) => {
@@ -346,7 +330,11 @@ export const CanvasMinimap = ({
       x: model.viewportBounds.x + model.viewportBounds.width / 2,
       y: model.viewportBounds.y + model.viewportBounds.height / 2,
     };
-    const insideViewport = hasPoint(model.viewportMapBounds, mapPoint, 8);
+    const insideViewport = canvasMinimapHasPoint(
+      model.viewportMapBounds,
+      mapPoint,
+      8,
+    );
     dragRef.current = {
       grabOffsetX: insideViewport ? scenePoint.x - viewportCenter.x : 0,
       grabOffsetY: insideViewport ? scenePoint.y - viewportCenter.y : 0,

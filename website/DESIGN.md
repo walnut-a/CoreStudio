@@ -13,6 +13,8 @@ colors:
   surface-low: "#ececf4"
   line: "#f1f0ff"
   success: "#2d9b59"
+  generation-pending-stroke: "#6d5efc"
+  generation-pending-fill: "#f4f2ff"
 typography:
   display:
     fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif'
@@ -30,6 +32,16 @@ typography:
     fontSize: "0.82rem"
     fontWeight: 600
     lineHeight: 1.2
+  canvas:
+    fontFamily: '"Excalifont", "Xiaolai", sans-serif'
+    fontSize: "20px"
+    fontWeight: 400
+    lineHeight: 1.25
+  canvas-status:
+    fontFamily: '"Excalifont", "Xiaolai", sans-serif'
+    fontSize: "24px"
+    fontWeight: 400
+    lineHeight: 1.25
 rounded:
   handle: "2px"
   compact: "0.375rem"
@@ -55,7 +67,7 @@ components:
     size: "36px"
   image-result:
     backgroundColor: "{colors.surface}"
-    rounded: "{rounded.control}"
+    rounded: "0"
 ---
 
 # Design System: CoreStudio Website
@@ -66,7 +78,7 @@ components:
 
 CoreStudio does not sit inside a conventional marketing page. The page itself behaves like a restrained Excalidraw workspace: product proof, controls, references, generated work, and the download action coexist on one paper-white canvas. The mood is precise, quiet, and useful rather than promotional.
 
-The visual identity remains grounded in the incumbent CoreStudio palette, production design tokens, and application icon. Silver industrial-design imagery supplies material depth; every toolbar, zoom control, minimap, composer, and action uses the same geometry and states as the desktop product. Generation is communicated by the production status-dot pattern and light content de-emphasis, not a decorative effect layer.
+The visual identity remains grounded in the incumbent CoreStudio palette, production design tokens, and application icon. Silver industrial-design imagery supplies material depth; every toolbar, zoom control, minimap, composer, selection overlay, and action uses the same geometry and states as the desktop product. Generation is communicated by the production canvas placeholder, not a decorative effect layer.
 
 **Key Characteristics:**
 
@@ -113,7 +125,7 @@ The palette is CoreStudio's existing Excalidraw-derived system: white islands, g
 
 - **Display** (700, responsive 3.25–4.35rem, 0.98 line-height): the single selected product proposition.
 - **Body** (400, 1.03rem, 1.5 line-height): one short supporting sentence below the proposition.
-- **Interface** (600–700, 0.7–0.9rem): toolbars, chips, status, composer, and metadata.
+- **Interface** (600–700, 0.7–0.9rem): toolbars, status, composer, and metadata.
 
 ### Named Rules
 
@@ -134,7 +146,7 @@ Depth is functional and inherited from the product. The canvas stays flat; float
 ### Shadow Vocabulary
 
 - **Island Shadow** (`0 0 1px rgba(0,0,0,.17), 0 0 3px rgba(0,0,0,.08), 0 7px 14px rgba(0,0,0,.05)`): toolbar, minimap, composer, and compact mobile navigation.
-- **Selection Edge:** Generated imagery stays flat and receives only the Excalidraw selection outline and handles.
+- **Selection Edge:** Every selectable canvas object uses the same one-pixel Excalidraw outline, four screen-constant 8px handles, and rotation handle.
 
 ### Named Rules
 
@@ -142,7 +154,7 @@ Depth is functional and inherited from the product. The canvas stays flat; float
 
 ## Shapes
 
-Controls use the production 6px compact and 8px regular radii. Selection geometry stays sharper—thin violet strokes, 2px handle radii, and square corner handles—to preserve the Excalidraw editing character. Connectors are open paths with round line caps and arrow markers.
+Controls use the production 6px compact and 8px regular radii. Selection geometry stays sharper—thin violet strokes, 2px handle radii, and square corner handles—to preserve the Excalidraw editing character. The reference-to-result relationship uses one open Excalidraw arrow generated with the product's default Rough.js stroke, roughness, arrowhead size, and arrowhead angle; repeated decorative flow lines are not used.
 
 ## Components
 
@@ -153,23 +165,23 @@ Controls use the production 6px compact and 8px regular radii. Selection geometr
 - **Tool:** 36px square, transparent at rest, `surface-high` on hover, and violet icon when active.
 - **Composer action:** 28px icon-only send button with a 9% primary tint, 20% mixed border, and the production disabled state.
 
-### Chips
+### Canvas Annotations
 
-- **Style:** Text-first canvas annotations with a 7px outlined dot rather than filled pills.
-- **State:** The dot fills violet on hover or when its camera target is active; supporting text disappears on narrow viewports.
+- **Style:** Plain Excalidraw text objects without dots, pills, or webpage-card decoration.
+- **State:** Selection uses the shared production transform overlay; supporting annotations disappear on narrow viewports.
 
 ### Cards / Containers
 
-- **Corner Style:** Compact controls use 6px; regular controls and raster results use 8px.
+- **Corner Style:** Compact controls use 6px and regular controls use 8px; raster canvas images remain square.
 - **Background:** White or translucent white against paper.
 - **Shadow Strategy:** Only floating chrome and visual work lift from the plane.
 - **Border:** Borders appear on selection geometry and minimap viewport, not around every surface.
 
 ### Inputs / Fields
 
-- **Style:** The generation composer mirrors the production component: one white island containing a borderless prompt, 28px settings control, and 28px icon-only send action.
+- **Style:** The generation composer uses one white island containing a borderless prompt and 28px icon-only send action. Controls without working content are omitted.
 - **Focus:** The entire composer receives a soft violet two-pixel halo in addition to the focused element's accessible outline.
-- **Disabled:** Only the action is disabled during generation; the live region reports progress and writeback.
+- **Disabled:** Only the action is disabled during generation; the live region reports progress and completion.
 
 ### Navigation
 
@@ -177,18 +189,18 @@ Desktop navigation behaves like application chrome: brand and toolbar align left
 
 ### Generation Status
 
-Generation uses the same restrained feedback as CoreStudio status surfaces: a pulsing violet 6px dot, a short status label, slight result-image de-emphasis, and a temporary connector color shift. It begins only after the visitor submits the composer and ends at the updated-canvas state; it does not imply that Codex performed the generation. Agent write-back is a separate story view, revealed only when the visitor chooses the Agent target. There is no autoplay, glow, blur field, moving dash, or decorative color bloom.
+Generation uses the production canvas placeholder: a flat Excalidraw rectangle with the same violet dashed stroke, light fill, and centered canvas-font label as `generationPlaceholderState.ts`. When generation settles, the placeholder is replaced by a plain image element; status badges never sit on top of generated images. Every selected object uses the production one-pixel selection border, four screen-constant 8px corner handles, and rotation handle. The temporary connector color shift remains restrained. Generation begins only after the visitor submits the composer and does not imply that Codex performed it. Agent write-back is a separate story view, revealed only when the visitor chooses the Agent target; its cursor follows Excalidraw's 11 × 14 collaboration cursor and label geometry. There is no autoplay, glow, blur field, moving dash, or decorative color bloom.
 
 ### Motion
 
 - **Control feedback:** 150ms, matching production buttons, selected states, status changes, and disclosure feedback.
 - **Canvas navigation:** 180ms with the production minimap easing for story targets, minimap viewport movement, and camera changes.
-- **Working status:** 1.2s pulse, matching the production project-status dot; the simulated generation settles once after 1.2s.
+- **Working status:** The production dashed placeholder remains stable while the simulated generation settles once after 1.2s.
 - **Flow rule:** Time communicates state, not spectacle. No chained 3-second demo timeline, delayed write-back reveal, or automatic camera tour.
 
 ### Minimap
 
-The minimap uses the same paper grid and object topology as the canvas. Its viewport rectangle changes with camera position and zoom; object markers are interactive shortcuts rather than decorative thumbnails.
+The minimap uses the production canvas renderer over the same scene bounds and object topology as the canvas. Its viewport rectangle changes with camera position and zoom; clicking or dragging the viewport pans the real simulated scene.
 
 ### Canvas Input
 

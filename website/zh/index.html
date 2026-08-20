@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -11,22 +11,43 @@
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:title" content="CoreStudio · 本地优先的图片生成画布" />
-    <meta property="og:description" content="把画布、参考素材、生成结果和 Agent 协作放进同一个本地项目。" />
+    <meta
+      property="og:description"
+      content="把画布、参考素材、生成结果和 Agent 协作放进同一个本地项目。"
+    />
     <meta property="og:url" content="https://getcorestudio.com/zh/" />
-    <meta property="og:image" content="https://getcorestudio.com/assets/corestudio-social-card.jpeg" />
+    <meta
+      property="og:image"
+      content="https://getcorestudio.com/assets/corestudio-social-card.jpeg"
+    />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="CoreStudio 画布中的工业设计概念图" />
     <meta name="twitter:card" content="summary_large_image" />
     <title>CoreStudio · 本地优先的图片生成画布</title>
-    <link rel="icon" href="../assets/corestudio-favicon-32.png" type="image/png" />
-    <link rel="apple-touch-icon" href="../assets/corestudio-apple-touch-icon.png" />
+    <link
+      rel="icon"
+      href="../assets/corestudio-favicon-32.png"
+      type="image/png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="../assets/corestudio-apple-touch-icon.png"
+    />
     <link rel="canonical" href="https://getcorestudio.com/zh/" />
-    <link rel="alternate" hreflang="zh-CN" href="https://getcorestudio.com/zh/" />
+    <link
+      rel="alternate"
+      hreflang="zh-CN"
+      href="https://getcorestudio.com/zh/"
+    />
     <link rel="alternate" hreflang="en" href="https://getcorestudio.com/" />
-    <link rel="alternate" hreflang="x-default" href="https://getcorestudio.com/" />
-    <link rel="stylesheet" href="../styles.css?v=20260820-10" />
-    <script type="module" src="../main.js?v=20260820-7"></script>
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href="https://getcorestudio.com/"
+    />
+    <link rel="stylesheet" href="../styles.css?v=20260820-19" />
+    <script type="module" src="../main.js?v=20260820-11"></script>
   </head>
   <body>
     <!--
@@ -44,7 +65,10 @@
         <a class="brand" href="#canvas-home" aria-label="CoreStudio 首页">
           <img
             src="../assets/corestudio-icon-256.png"
-            srcset="../assets/corestudio-icon-64.webp 64w, ../assets/corestudio-icon-256.webp 256w"
+            srcset="
+              ../assets/corestudio-icon-64.webp   64w,
+              ../assets/corestudio-icon-256.webp 256w
+            "
             sizes="34px"
             width="34"
             height="34"
@@ -54,130 +78,339 @@
         </a>
 
         <div class="canvas-toolbar" role="toolbar" aria-label="画布演示工具">
-          <button class="tool-button is-active" type="button" data-tool="select" aria-label="选择对象" aria-pressed="true">
-            <svg viewBox="0 0 22 22" aria-hidden="true"><path d="M6 6l4.153 11.793a0.365 .365 0 0 0 .331 .207a0.366 .366 0 0 0 .332-.207L13 13l4.787-1.994a0.355 .355 0 0 0 .213-.323a0.355 .355 0 0 0-.213-.323L6 6Z" /><path d="M13.5 13.5 18 18" /></svg>
+          <button
+            class="tool-button fillable is-active"
+            type="button"
+            data-tool="select"
+            aria-label="选择对象"
+            aria-pressed="true"
+          >
+            <svg viewBox="0 0 22 22" aria-hidden="true">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+              <path
+                d="M6 6l4.153 11.793a0.365 .365 0 0 0 .331 .207a0.366 .366 0 0 0 .332 -.207l2.184 -4.793l4.787 -1.994a0.355 .355 0 0 0 .213 -.323a0.355 .355 0 0 0 -.213 -.323l-11.787 -4.36z"
+              />
+              <path d="M13.5 13.5l4.5 4.5" />
+            </svg>
           </button>
-          <button class="tool-button" type="button" data-tool="hand" aria-label="拖动画布" aria-pressed="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13v-7.5a1.5 1.5 0 0 1 3 0V12" /><path d="M11 5.5v-2a1.5 1.5 0 1 1 3 0V12" /><path d="M14 5.5a1.5 1.5 0 0 1 3 0V12" /><path d="M17 7.5a1.5 1.5 0 0 1 3 0V16a6 6 0 0 1-6 6h-2h.208a6 6 0 0 1-5.012-2.7A69.74 69.74 0 0 1 7 19c-.312-.479-1.407-2.388-3.286-5.728a1.5 1.5 0 0 1 .536-2.022 1.867 1.867 0 0 1 2.28.28L8 13" /></svg>
-          </button>
-          <button class="tool-button" type="button" data-tool="shape" aria-label="查看画布图形" aria-pressed="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
-          </button>
-          <button class="tool-button" type="button" data-tool="image" aria-label="打开图片生成" aria-pressed="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.25 18.25h11.5a1.5 1.5 0 0 0 1.5-1.5v-7.5a1.5 1.5 0 0 0-1.5-1.5H6.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5Z" /><path d="m7.75 15.75 3-3 2.25 2.25 1.25-1.25 2 2" /><path d="M14.75 4.75 16 7.25l2.5 1.25L16 9.75l-1.25 2.5-1.25-2.5L11 8.5l2.5-1.25 1.25-2.5Z" /></svg>
+          <button
+            class="tool-button"
+            type="button"
+            data-tool="hand"
+            aria-label="拖动画布"
+            aria-pressed="false"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+              <path d="M8 13v-7.5a1.5 1.5 0 0 1 3 0v6.5" />
+              <path d="M11 5.5v-2a1.5 1.5 0 1 1 3 0v8.5" />
+              <path d="M14 5.5a1.5 1.5 0 0 1 3 0v6.5" />
+              <path
+                d="M17 7.5a1.5 1.5 0 0 1 3 0v8.5a6 6 0 0 1 -6 6h-2h.208a6 6 0 0 1 -5.012 -2.7a69.74 69.74 0 0 1 -.196 -.3c-.312 -.479 -1.407 -2.388 -3.286 -5.728a1.5 1.5 0 0 1 .536 -2.022a1.867 1.867 0 0 1 2.28 .28l1.47 1.47"
+              />
+            </svg>
           </button>
         </div>
 
         <div class="header-actions">
-          <a class="header-link header-github" href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">GitHub</a>
-          <a class="header-link language-link" href="../index.html" lang="en" hreflang="en">EN</a>
-          <a class="download-button" href="https://github.com/walnut-a/CoreStudio/releases/latest" target="_blank" rel="noreferrer">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /><path d="m7 11 5 5 5-5" /><path d="M12 4v12" /></svg>
+          <a
+            class="header-link header-github"
+            href="https://github.com/walnut-a/CoreStudio"
+            target="_blank"
+            rel="noreferrer"
+            >GitHub</a
+          >
+          <a
+            class="header-link language-link"
+            href="../index.html"
+            lang="en"
+            hreflang="en"
+            >EN</a
+          >
+          <a
+            class="download-button"
+            href="https://github.com/walnut-a/CoreStudio/releases/latest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              <path d="m7 11 5 5 5-5" />
+              <path d="M12 4v12" />
+            </svg>
             <span>下载 macOS 版</span>
           </a>
         </div>
       </header>
 
       <main class="canvas-main" id="main" tabindex="-1">
-        <div class="canvas-viewport" data-canvas-viewport aria-label="CoreStudio 产品交互演示">
+        <div
+          class="canvas-viewport"
+          data-canvas-viewport
+          aria-label="CoreStudio 产品交互演示"
+        >
           <div class="canvas-plane" data-canvas-plane>
             <div class="project-tab" aria-hidden="true">
               <span class="project-home">
-                <svg viewBox="0 0 24 24"><path d="m5.25 10.25 6.75-5.5 6.75 5.5" /><path d="M7.25 9.25v9h9.5v-9" /><path d="M10 18.25v-5.5h4v5.5" /></svg>
+                <svg viewBox="0 0 24 24">
+                  <path d="m5.25 10.25 6.75-5.5 6.75 5.5" />
+                  <path d="M7.25 9.25v9h9.5v-9" />
+                  <path d="M10 18.25v-5.5h4v5.5" />
+                </svg>
               </span>
               <span>Dieter Rams 参考</span>
-              <span class="project-close"><svg viewBox="0 0 24 24"><path d="m7.5 7.5 9 9" /><path d="m16.5 7.5-9 9" /></svg></span>
+              <span class="project-close"
+                ><svg viewBox="0 0 24 24">
+                  <path d="m7.5 7.5 9 9" />
+                  <path d="m16.5 7.5-9 9" /></svg
+              ></span>
             </div>
 
-            <section class="scene-title is-selected" id="canvas-home" data-scene-object>
+            <section
+              class="scene-title is-selected"
+              id="canvas-home"
+              data-scene-object
+            >
               <div class="scene-heading">
-                <div class="selection-box" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                <div class="canvas-selection-overlay" aria-hidden="true">
+                  <span class="canvas-selection-border"></span>
+                  <span class="canvas-transform-handle canvas-handle-nw"></span>
+                  <span class="canvas-transform-handle canvas-handle-ne"></span>
+                  <span class="canvas-transform-handle canvas-handle-se"></span>
+                  <span class="canvas-transform-handle canvas-handle-sw"></span>
+                  <span
+                    class="canvas-transform-handle canvas-handle-rotation"
+                  ></span>
+                </div>
                 <h1>本地优先的<br />图片生成画布</h1>
               </div>
-              <p>基于 Excalidraw。项目留在本地，模型自由选择，Agent 可直接写回。</p>
+              <p>
+                基于 Excalidraw。项目留在本地，模型自由选择，Agent 可直接写回。
+              </p>
             </section>
 
-            <button class="scene-chip scene-chip-local" type="button" data-camera-target="overview">
-              <strong>本地项目</strong>
-              <span>参考素材与结果放在一起</span>
-            </button>
+            <div
+              class="canvas-annotation canvas-annotation-local"
+              data-scene-object
+            >
+              <div class="canvas-selection-overlay" aria-hidden="true">
+                <span class="canvas-selection-border"></span>
+                <span class="canvas-transform-handle canvas-handle-nw"></span>
+                <span class="canvas-transform-handle canvas-handle-ne"></span>
+                <span class="canvas-transform-handle canvas-handle-se"></span>
+                <span class="canvas-transform-handle canvas-handle-sw"></span>
+                <span
+                  class="canvas-transform-handle canvas-handle-rotation"
+                ></span>
+              </div>
+              <span class="canvas-annotation-title">本地项目</span>
+              <span class="canvas-annotation-detail"
+                >参考素材与结果放在一起</span
+              >
+            </div>
 
             <figure class="reference-board" data-scene-object>
-              <div class="reference-grid" aria-label="四张 Dieter Rams 作品参考素材">
-                <span class="reference-tile reference-tile-a"><img src="../assets/dieter-rams-tp1.webp" alt="Dieter Rams 设计的 Braun TP1 便携收音机与唱机" /></span>
-                <span class="reference-tile reference-tile-b"><img src="../assets/dieter-rams-sk4-v2.webp" alt="Dieter Rams 与 Hans Gugelot 设计的 Braun SK 4 收音唱机" /></span>
-                <span class="reference-tile reference-tile-c"><img src="../assets/dieter-rams-t4.webp" alt="Dieter Rams 设计的 Braun T4 晶体管收音机" /></span>
-                <span class="reference-tile reference-tile-d"><img src="../assets/dieter-rams-et66-v2.webp" alt="Dieter Rams 与 Dietrich Lubs 设计的 Braun ET66 计算器" /></span>
+              <div class="reference-selection-target">
+                <div
+                  class="reference-images"
+                  aria-label="四张 Dieter Rams 作品参考素材"
+                >
+                  <img
+                    class="reference-image reference-image-a"
+                    src="../assets/dieter-rams-tp1.webp"
+                    alt="Dieter Rams 设计的 Braun TP1 便携收音机与唱机"
+                  />
+                  <img
+                    class="reference-image reference-image-b"
+                    src="../assets/dieter-rams-sk4-v2.webp"
+                    alt="Dieter Rams 与 Hans Gugelot 设计的 Braun SK 4 收音唱机"
+                  />
+                  <img
+                    class="reference-image reference-image-c"
+                    src="../assets/dieter-rams-t4.webp"
+                    alt="Dieter Rams 设计的 Braun T4 晶体管收音机"
+                  />
+                  <img
+                    class="reference-image reference-image-d"
+                    src="../assets/dieter-rams-et66-v2.webp"
+                    alt="Dieter Rams 与 Dietrich Lubs 设计的 Braun ET66 计算器"
+                  />
+                </div>
+                <div class="canvas-selection-overlay" aria-hidden="true">
+                  <span class="canvas-selection-border"></span>
+                  <span class="canvas-transform-handle canvas-handle-nw"></span>
+                  <span class="canvas-transform-handle canvas-handle-ne"></span>
+                  <span class="canvas-transform-handle canvas-handle-se"></span>
+                  <span class="canvas-transform-handle canvas-handle-sw"></span>
+                  <span
+                    class="canvas-transform-handle canvas-handle-rotation"
+                  ></span>
+                </div>
               </div>
-              <figcaption><span>4 张参考 · 保存在本地</span><a href="https://github.com/walnut-a/CoreStudio/blob/main/website/THIRD_PARTY_ASSETS.md" target="_blank" rel="noreferrer">素材来源</a></figcaption>
+              <figcaption>4 张参考 · 保存在本地</figcaption>
             </figure>
 
-            <svg class="canvas-connectors" viewBox="0 0 1400 780" aria-hidden="true">
-              <defs>
-                <marker id="arrow-end-zh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M0 0 10 5 0 10" />
-                </marker>
-              </defs>
-              <path class="connector connector-a" d="M455 510C578 510 624 382 740 362" marker-end="url(#arrow-end-zh)" />
-              <path class="connector connector-b" d="M455 585C590 606 635 482 740 452" marker-end="url(#arrow-end-zh)" />
-              <path class="connector connector-c" d="M455 648C584 682 652 598 740 542" marker-end="url(#arrow-end-zh)" />
+            <svg
+              class="canvas-connectors"
+              viewBox="0 0 1400 780"
+              aria-hidden="true"
+            >
+              <g
+                data-excalidraw-arrow
+                data-roughness="1"
+                data-stroke-width="2"
+                data-arrowhead-size="25"
+                data-arrowhead-angle="20"
+              >
+                <path
+                  class="excalidraw-arrow-stroke"
+                  d="M630 548 C661.2134548835456 549.6806836314499, 681.2795737199485 512.3030356355011, 705.0814600400627 475.15759386494756 M629.8331612758338 546.5279457755387 C661.674359982647 552.0307223534212, 682.3987219924107 512.309295657836, 705.2411106819287 475.85372738000007 M707 477 C718.2880077771842 460.4234124608338, 730.5428969077766 451.1766352839768, 740.6179994754493 445.4526794143021 M705.3617928437889 475.1023625321686 C719.2213957065717 457.9921519195661, 733.1653093749658 452.8488389706239, 741.0130588585511 445.56416111942383"
+                />
+                <path
+                  class="excalidraw-arrow-stroke"
+                  d="M732.3109426721151 464.5807450455779 C735.215240255223 460.79648205331466, 735.4909595037298 455.98197801925244, 742.2096465434879 443.84830070473254 M730.4333297674696 466.32822490252346 C735.2562948573844 458.2322430928151, 739.1416254609876 449.36002908240386, 741.6005221353844 444.80399713944644"
+                />
+                <path
+                  class="excalidraw-arrow-stroke"
+                  d="M719.4366951362186 455.1021181354963 C723.4479280711371 450.26175421955725, 729.8775180797834 449.0931061073196, 743.4160518869758 442.24063620716333 M719.0531532206529 453.15031186218494 C727.9892502827983 449.67037383559267, 736.3074077706506 446.5732386126139, 742.0201478488743 444.55681301280856"
+                />
+              </g>
             </svg>
 
-            <button class="scene-chip scene-chip-model" type="button" data-camera-target="generate">
-              <strong>模型自由</strong>
-              <span>按质量、速度或预算选择</span>
-            </button>
+            <div
+              class="canvas-annotation canvas-annotation-model"
+              data-scene-object
+            >
+              <div class="canvas-selection-overlay" aria-hidden="true">
+                <span class="canvas-selection-border"></span>
+                <span class="canvas-transform-handle canvas-handle-nw"></span>
+                <span class="canvas-transform-handle canvas-handle-ne"></span>
+                <span class="canvas-transform-handle canvas-handle-se"></span>
+                <span class="canvas-transform-handle canvas-handle-sw"></span>
+                <span
+                  class="canvas-transform-handle canvas-handle-rotation"
+                ></span>
+              </div>
+              <span class="canvas-annotation-title">模型自由</span>
+              <span class="canvas-annotation-detail"
+                >按质量、速度或预算选择</span
+              >
+            </div>
 
             <figure class="generation-result" data-scene-object>
               <div class="result-frame">
-                <span class="result-status" data-result-status data-generating="正在生成" data-ready="画布已更新"><i></i><span data-result-status-label>画布已更新</span></span>
-                <img class="result-image" src="../assets/corestudio-canvas-result-rams-v2.webp" alt="CoreStudio 演示中生成的原创模块化桌面音响控制器" width="1536" height="1024" />
-                <span class="result-corner result-corner-a"></span>
-                <span class="result-corner result-corner-b"></span>
-                <span class="result-corner result-corner-c"></span>
-                <span class="result-corner result-corner-d"></span>
+                <div class="result-placeholder" aria-hidden="true">
+                  <span>正在生成</span>
+                </div>
+                <img
+                  class="result-image"
+                  src="../assets/corestudio-canvas-result-rams-v2.webp"
+                  alt="CoreStudio 演示中生成的原创模块化桌面音响控制器"
+                  width="1536"
+                  height="1024"
+                />
+                <div class="canvas-selection-overlay" aria-hidden="true">
+                  <span class="canvas-selection-border"></span>
+                  <span class="canvas-transform-handle canvas-handle-nw"></span>
+                  <span class="canvas-transform-handle canvas-handle-ne"></span>
+                  <span class="canvas-transform-handle canvas-handle-se"></span>
+                  <span class="canvas-transform-handle canvas-handle-sw"></span>
+                  <span
+                    class="canvas-transform-handle canvas-handle-rotation"
+                  ></span>
+                </div>
               </div>
               <figcaption>示意生成演示</figcaption>
             </figure>
 
-            <button class="scene-chip scene-chip-agent" type="button" data-camera-target="agent">
-              <strong>Agent 写回</strong>
-              <span>共用当前画布与上下文</span>
-            </button>
+            <div
+              class="canvas-annotation canvas-annotation-agent"
+              data-scene-object
+            >
+              <div class="canvas-selection-overlay" aria-hidden="true">
+                <span class="canvas-selection-border"></span>
+                <span class="canvas-transform-handle canvas-handle-nw"></span>
+                <span class="canvas-transform-handle canvas-handle-ne"></span>
+                <span class="canvas-transform-handle canvas-handle-se"></span>
+                <span class="canvas-transform-handle canvas-handle-sw"></span>
+                <span
+                  class="canvas-transform-handle canvas-handle-rotation"
+                ></span>
+              </div>
+              <span class="canvas-annotation-title">Agent 写回</span>
+              <span class="canvas-annotation-detail">共用当前画布与上下文</span>
+            </div>
 
             <div class="agent-cursor" aria-hidden="true">
-              <svg viewBox="0 0 32 38"><path d="M4 3 27 23l-11 1.6L10 35 4 3Z" /></svg>
+              <svg viewBox="0 0 11 14">
+                <path d="M0 0v14l4-5 7-1Z" />
+              </svg>
               <span>Codex</span>
             </div>
-            <div class="writeback-tag" aria-hidden="true"><i></i>已写回项目</div>
           </div>
         </div>
 
         <nav class="story-nav" aria-label="画布演示步骤">
-          <button class="story-step is-active" type="button" data-camera-target="overview" aria-current="step">项目</button>
-          <button class="story-step" type="button" data-camera-target="generate" aria-current="false">生成</button>
-          <button class="story-step" type="button" data-camera-target="agent" aria-current="false">Agent</button>
+          <button
+            class="story-step is-active"
+            type="button"
+            data-camera-target="overview"
+            aria-current="step"
+          >
+            项目
+          </button>
+          <button
+            class="story-step"
+            type="button"
+            data-camera-target="generate"
+            aria-current="false"
+          >
+            生成
+          </button>
+          <button
+            class="story-step"
+            type="button"
+            data-camera-target="agent"
+            aria-current="false"
+          >
+            Agent
+          </button>
         </nav>
 
         <div class="canvas-dock canvas-dock-left">
-          <div class="zoom-control is-expanded" data-zoom-control aria-label="画布缩放控件">
-            <button type="button" data-zoom-out aria-label="缩小画布"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" /></svg></button>
-            <button class="zoom-value" type="button" data-minimap-toggle aria-label="关闭迷你地图，当前缩放 90%" aria-pressed="true"><span data-zoom-label>90%</span></button>
-            <button type="button" data-zoom-in aria-label="放大画布"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.167v11.666M4.167 10h11.666" /></svg></button>
-          </div>
-          <div class="minimap is-open" data-minimap aria-label="画布迷你地图。拖动视口框可平移画布。">
-            <button class="minimap-target minimap-references" type="button" data-camera-target="overview" aria-label="查看项目概览">
-              <span class="minimap-marker minimap-reference-a"></span>
-              <span class="minimap-marker minimap-reference-b"></span>
-              <span class="minimap-marker minimap-reference-c"></span>
-              <span class="minimap-marker minimap-reference-d"></span>
+          <div
+            class="zoom-control is-expanded"
+            data-zoom-control
+            aria-label="画布缩放控件"
+          >
+            <button type="button" data-zoom-out aria-label="缩小画布">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5 10h10" />
+              </svg>
             </button>
-            <svg class="minimap-flow" viewBox="0 0 224 144" aria-hidden="true">
-              <path d="M77 58 C94 58 96 66 111 69" />
-              <path d="M77 79 C94 79 97 75 111 72" />
-            </svg>
-            <button class="minimap-target minimap-result" type="button" data-camera-target="generate" aria-label="查看生成结果"><span class="minimap-result-selection"></span></button>
-            <span class="minimap-viewport" data-minimap-viewport></span>
+            <button
+              class="zoom-value"
+              type="button"
+              data-minimap-toggle
+              aria-label="关闭迷你地图，当前缩放 90%"
+              aria-pressed="true"
+            >
+              <span data-zoom-label>90%</span>
+            </button>
+            <button type="button" data-zoom-in aria-label="放大画布">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M10 4.167v11.666M4.167 10h11.666" />
+              </svg>
+            </button>
+          </div>
+          <div class="minimap is-open" data-minimap>
+            <canvas
+              class="minimap-canvas"
+              data-minimap-canvas
+              role="application"
+              tabindex="0"
+              aria-label="画布迷你地图。拖动视口框可平移画布。"
+            ></canvas>
           </div>
         </div>
 
@@ -187,21 +420,51 @@
           data-status-generating="正在画布中生成…"
           data-status-generated="图片已生成"
         >
-          <label class="sr-only" for="generation-prompt-zh">描述想生成的图片</label>
-          <input id="generation-prompt-zh" data-prompt-input value="一台暖白机身、黑色网格与橙色状态点的模块化桌面音响控制器" autocomplete="off" />
-          <button class="composer-icon" type="button" data-composer-settings aria-label="生成设置" aria-pressed="false">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h5.25M13.75 7.5H19M12 5.75v3.5M5 16.5h8.25M16.75 16.5H19M15 14.75v3.5" /></svg>
-          </button>
+          <label class="sr-only" for="generation-prompt-zh"
+            >描述想生成的图片</label
+          >
+          <input
+            id="generation-prompt-zh"
+            data-prompt-input
+            value="一台暖白机身、黑色网格与橙色状态点的模块化桌面音响控制器"
+            autocomplete="off"
+          />
           <button class="generate-button" type="submit" data-generate-button>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11.75 18.25 5.5a.7.7 0 0 1 .95.82l-3.85 12.9a.7.7 0 0 1-1.26.18l-3.05-4.65-4.98-1.72a.7.7 0 0 1-.06-1.28Z" /><path d="m11.05 14.7 3.7-3.7" /></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 11.75 18.25 5.5a.7.7 0 0 1 .95.82l-3.85 12.9a.7.7 0 0 1-1.26.18l-3.05-4.65-4.98-1.72a.7.7 0 0 1-.06-1.28Z"
+              />
+              <path d="m11.05 14.7 3.7-3.7" />
+            </svg>
             <span class="sr-only">生成</span>
           </button>
-          <p class="sr-only" role="status" aria-live="polite" data-demo-status></p>
+          <p
+            class="sr-only"
+            role="status"
+            aria-live="polite"
+            data-demo-status
+          ></p>
         </form>
 
         <div class="canvas-links" aria-label="项目链接">
-          <a href="https://github.com/walnut-a/CoreStudio" target="_blank" rel="noreferrer">源代码</a>
-          <a href="https://github.com/walnut-a/CoreStudio/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT</a>
+          <a
+            href="https://github.com/walnut-a/CoreStudio"
+            target="_blank"
+            rel="noreferrer"
+            >源代码</a
+          >
+          <a
+            href="https://github.com/walnut-a/CoreStudio/blob/main/website/THIRD_PARTY_ASSETS.md"
+            target="_blank"
+            rel="noreferrer"
+            >素材来源</a
+          >
+          <a
+            href="https://github.com/walnut-a/CoreStudio/blob/main/LICENSE"
+            target="_blank"
+            rel="noreferrer"
+            >MIT</a
+          >
         </div>
       </main>
     </div>

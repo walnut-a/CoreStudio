@@ -6,6 +6,8 @@ import {
   CAMERA_VIEWS,
   CAMERA_TRANSITION_MS,
   GENERATION_SETTLE_MS,
+  applyCanvasPanGesture,
+  applyCanvasPinchGesture,
   applyCanvasWheelGesture,
   clampZoom,
   composeTransform,
@@ -135,6 +137,53 @@ test("plain trackpad scrolling pans while modified scrolling zooms", () => {
     }),
     { x: 40, y: -10, zoom: 0.9 }
   );
+});
+
+test("touch gestures pan directly and keep the pinch anchor under the fingers", () => {
+  const view = { x: 20, y: -10, zoom: 0.8 };
+
+  assert.deepEqual(applyCanvasPanGesture(view, { deltaX: 36, deltaY: -24 }), {
+    x: 56,
+    y: -34,
+    zoom: 0.8,
+  });
+
+  assert.deepEqual(
+    applyCanvasPinchGesture(view, {
+      startCenter: { x: 250, y: 320 },
+      currentCenter: { x: 260, y: 330 },
+      viewportCenter: { x: 200, y: 300 },
+      startDistance: 100,
+      currentDistance: 125,
+    }),
+    { x: 22.5, y: -7.5, zoom: 1 }
+  );
+
+  assert.deepEqual(
+    applyCanvasPinchGesture(view, {
+      startCenter: { x: 200, y: 300 },
+      currentCenter: { x: 200, y: 300 },
+      viewportCenter: { x: 200, y: 300 },
+      startDistance: 0,
+      currentDistance: 140,
+    }),
+    view
+  );
+});
+
+test("mobile canvas wires touch pointers without the old mobile guard", async () => {
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
+
+  assert.match(main, /event\.pointerType === "touch"/);
+  assert.match(main, /applyCanvasPanGesture/);
+  assert.match(main, /applyCanvasPinchGesture/);
+  assert.doesNotMatch(
+    main,
+    /mobileLayout\.matches\s*\|\|\s*activeTool !== "hand"/
+  );
+  assert.match(styles, /\.canvas-viewport\s*{[\s\S]*?touch-action:\s*none;/);
+  assert.doesNotMatch(styles, /touch-action:\s*manipulation;/);
 });
 
 test("the demo toolbar exposes only canvas tools that work on the website", async () => {

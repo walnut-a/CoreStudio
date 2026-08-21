@@ -406,12 +406,11 @@ figure {
     transparent 0.9px
   );
   background-size: 22px 22px;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .canvas-app[data-active-tool="hand"] .canvas-viewport {
   cursor: grab;
-  touch-action: none;
 }
 
 .canvas-app.is-panning .canvas-viewport {
@@ -1257,7 +1256,6 @@ select:focus-visible,
 
   .canvas-app[data-active-tool="hand"] .canvas-viewport {
     cursor: default;
-    touch-action: manipulation;
   }
 }
 

@@ -1,11 +1,13 @@
 import {
   CAMERA_VIEWS,
+  applyCanvasPanGesture,
+  applyCanvasPinchGesture,
   applyCanvasWheelGesture,
   composeTransform,
   getGenerationSequence,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260820-8";
+} from "./canvas-engine.mjs?v=20260820-9";
 import {
   canvasMinimapHasPoint,
   minimapPointToScene,
@@ -35,6 +37,9 @@ if (app) {
   let activeTool = "select";
   let view = { ...CAMERA_VIEWS.desktop.overview };
   let dragState = null;
+  let touchGestureState = null;
+  let suppressCanvasClick = false;
+  const touchPointers = new Map();
   let minimapDragState = null;
   let minimapModel = null;
   let minimapRenderFrame = null;
@@ -373,8 +378,59 @@ if (app) {
     runDemo();
   });
 
+  const getTouchCenter = ([first, second]) => ({
+    x: (first.x + second.x) / 2,
+    y: (first.y + second.y) / 2,
+  });
+
+  const getTouchDistance = ([first, second]) =>
+    Math.hypot(second.x - first.x, second.y - first.y);
+
+  const beginTouchGesture = () => {
+    const points = [...touchPointers.values()];
+    if (points.length >= 2) {
+      const pair = points.slice(0, 2);
+      const rect = viewport.getBoundingClientRect();
+      touchGestureState = {
+        mode: "pinch",
+        startView: { ...view },
+        startCenter: getTouchCenter(pair),
+        startDistance: getTouchDistance(pair),
+        viewportCenter: {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        },
+      };
+      suppressCanvasClick = true;
+      app.classList.add("is-panning");
+      return;
+    }
+
+    if (points.length === 1) {
+      touchGestureState = {
+        mode: "pan",
+        startView: { ...view },
+        startPoint: { ...points[0] },
+      };
+      return;
+    }
+
+    touchGestureState = null;
+  };
+
   viewport?.addEventListener("pointerdown", (event) => {
-    if (mobileLayout.matches || activeTool !== "hand" || event.button !== 0) {
+    if (event.pointerType === "touch") {
+      event.preventDefault();
+      touchPointers.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+      viewport.setPointerCapture?.(event.pointerId);
+      beginTouchGesture();
+      return;
+    }
+
+    if (activeTool !== "hand" || event.button !== 0) {
       return;
     }
 
@@ -390,6 +446,54 @@ if (app) {
   });
 
   viewport?.addEventListener("pointermove", (event) => {
+    if (touchPointers.has(event.pointerId)) {
+      event.preventDefault();
+      touchPointers.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      const points = [...touchPointers.values()];
+      if (points.length >= 2) {
+        if (touchGestureState?.mode !== "pinch") {
+          beginTouchGesture();
+        }
+        const pair = points.slice(0, 2);
+        suppressCanvasClick = true;
+        app.classList.add("is-panning");
+        setCustomView(
+          applyCanvasPinchGesture(touchGestureState.startView, {
+            startCenter: touchGestureState.startCenter,
+            currentCenter: getTouchCenter(pair),
+            viewportCenter: touchGestureState.viewportCenter,
+            startDistance: touchGestureState.startDistance,
+            currentDistance: getTouchDistance(pair),
+          })
+        );
+        return;
+      }
+
+      if (points.length === 1) {
+        if (touchGestureState?.mode !== "pan") {
+          beginTouchGesture();
+        }
+        const deltaX = points[0].x - touchGestureState.startPoint.x;
+        const deltaY = points[0].y - touchGestureState.startPoint.y;
+        if (Math.hypot(deltaX, deltaY) < 4) {
+          return;
+        }
+        suppressCanvasClick = true;
+        app.classList.add("is-panning");
+        setCustomView(
+          applyCanvasPanGesture(touchGestureState.startView, {
+            deltaX,
+            deltaY,
+          })
+        );
+      }
+      return;
+    }
+
     if (!dragState || event.pointerId !== dragState.pointerId) {
       return;
     }
@@ -402,6 +506,24 @@ if (app) {
   });
 
   const endDrag = (event) => {
+    if (touchPointers.has(event.pointerId)) {
+      event.preventDefault();
+      touchPointers.delete(event.pointerId);
+      if (viewport.hasPointerCapture?.(event.pointerId)) {
+        viewport.releasePointerCapture(event.pointerId);
+      }
+      if (touchPointers.size > 0) {
+        beginTouchGesture();
+      } else {
+        touchGestureState = null;
+        app.classList.remove("is-panning");
+        window.setTimeout(() => {
+          suppressCanvasClick = false;
+        }, 0);
+      }
+      return;
+    }
+
     if (!dragState || event.pointerId !== dragState.pointerId) {
       return;
     }
@@ -433,6 +555,10 @@ if (app) {
   );
 
   viewport?.addEventListener("click", (event) => {
+    if (suppressCanvasClick) {
+      event.preventDefault();
+      return;
+    }
     if (activeTool !== "select") {
       return;
     }

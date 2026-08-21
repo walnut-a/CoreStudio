@@ -135,7 +135,7 @@ The palette is CoreStudio's existing Excalidraw-derived system: white islands, g
 
 The desktop world is a fixed 1400 × 780 spatial plane centered inside the viewport. A three-column reading order—title and references, connectors and model choice, generated result and Agent writeback—provides narrative without page scrolling. Header, zoom/minimap, composer, and source links stay pinned to the viewport edge as canvas chrome.
 
-Camera transforms, not document flow, reveal alternate moments. The fixed plane reserves explicit non-overlapping zones for the selected statement, reference board, connectors, generated result, and Agent annotation; viewport width must never enlarge content inside that fixed coordinate system. At 820px and below, the toolbar is removed, the controls stack into the top corners, and a three-step story switcher sits above the composer. Mobile keeps a stable page while direct gestures move the canvas plane: one finger pans, two fingers continuously zoom around their shared center, and a tap still selects a canvas object. At 470px, the selected title narrows and the display size reduces while preserving its composition.
+Camera transforms, not document flow, reveal alternate moments. The fixed plane reserves explicit non-overlapping zones for the selected statement, reference board, connectors, generated result, and Agent annotation; viewport width must never enlarge content inside that fixed coordinate system. At 820px and below, the toolbar is removed and the controls stack into the top corners. Mobile keeps a stable page while direct gestures move the canvas plane: one finger pans, two fingers continuously zoom around their shared center, and a tap still selects a canvas object. Its minimum zoom fits the complete fixed plane inside the current viewport, bounded by Excalidraw's production minimum. At 470px, the selected title narrows and the display size reduces while preserving its composition.
 
 The recurring spacing rhythm is 4, 8, 12, and 20px. The dotted grid repeats every 22px on the main canvas and every 8px in the minimap.
 
@@ -185,18 +185,18 @@ Controls use the production 6px compact and 8px regular radii. Selection geometr
 
 ### Navigation
 
-Desktop navigation behaves like application chrome: brand and toolbar align left/center while language and download align right. Mobile keeps brand, language, and download visible, then adds a compact three-step camera switcher above the composer.
+Desktop navigation behaves like application chrome: brand and toolbar align left/center while language and download align right. Mobile keeps brand, language, download, canvas controls, and the composer visible without adding a second navigation layer.
 
 ### Generation Status
 
-Generation uses the production canvas placeholder: a flat Excalidraw rectangle with the same violet dashed stroke, light fill, and centered canvas-font label as `generationPlaceholderState.ts`. When generation settles, the placeholder is replaced by a plain image element; status badges never sit on top of generated images. Every selected object uses the production one-pixel selection border, four screen-constant 8px corner handles, and rotation handle. The temporary connector color shift remains restrained. Generation begins only after the visitor submits the composer and does not imply that Codex performed it. Agent write-back is a separate story view, revealed only when the visitor chooses the Agent target; its cursor follows Excalidraw's 11 × 14 collaboration cursor and label geometry. There is no autoplay, glow, blur field, moving dash, or decorative color bloom.
+Generation uses the production canvas placeholder: a flat Excalidraw rectangle with the same violet dashed stroke, light fill, and centered canvas-font label as `generationPlaceholderState.ts`. When generation settles, the placeholder is replaced by a plain image element; status badges never sit on top of generated images. Every selected object uses the production one-pixel selection border, four screen-constant 8px corner handles, and rotation handle. The temporary connector color shift remains restrained. Generation begins only after the visitor submits the composer and does not imply that Codex performed it. Agent write-back remains a spatial canvas element reached through normal canvas navigation; its cursor follows Excalidraw's 11 × 14 collaboration cursor and label geometry. There is no autoplay, glow, blur field, moving dash, or decorative color bloom.
 
 ### Motion
 
 - **Control feedback:** 150ms, matching production buttons, selected states, status changes, and disclosure feedback.
 - **Canvas navigation:** 180ms with the production minimap easing for story targets, minimap viewport movement, and camera changes.
 - **Working status:** The production dashed placeholder remains stable while the simulated generation settles once after 1.2s.
-- **Flow rule:** Time communicates state, not spectacle. No chained 3-second demo timeline, delayed write-back reveal, or automatic camera tour.
+- **Flow rule:** Time communicates state, not spectacle. No chained 3-second demo timeline or automatic camera tour.
 
 ### Minimap
 

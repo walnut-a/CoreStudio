@@ -4,10 +4,11 @@ import {
   applyCanvasPinchGesture,
   applyCanvasWheelGesture,
   composeTransform,
+  getCanvasMinimumZoom,
   getGenerationSequence,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260820-9";
+} from "./canvas-engine.mjs?v=20260821-10";
 import {
   canvasMinimapHasPoint,
   minimapPointToScene,
@@ -31,6 +32,7 @@ if (app) {
   const generateButton = app.querySelector("[data-generate-button]");
   const demoStatus = app.querySelector("[data-demo-status]");
   const mobileLayout = window.matchMedia("(max-width: 720px)");
+  const coarsePointer = window.matchMedia("(pointer: coarse)");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   let activeCamera = "overview";
@@ -50,6 +52,15 @@ if (app) {
 
   const mode = () => (mobileLayout.matches ? "mobile" : "desktop");
   const isChinese = document.documentElement.lang.startsWith("zh");
+
+  const getMinimumZoom = () =>
+    getCanvasMinimumZoom({
+      isMobile: mobileLayout.matches || coarsePointer.matches,
+      viewportWidth: viewport?.clientWidth ?? 0,
+      viewportHeight: viewport?.clientHeight ?? 0,
+      planeWidth: plane?.clientWidth ?? 0,
+      planeHeight: plane?.clientHeight ?? 0,
+    });
 
   const renderZoomControls = () => {
     const state = getZoomControlState(minimapOpen);
@@ -142,13 +153,6 @@ if (app) {
     activeCamera = name;
     app.dataset.camera = name;
     view = { ...next };
-    app.querySelectorAll("[data-camera-target]").forEach((button) => {
-      const selected = button.dataset.cameraTarget === name;
-      button.classList.toggle("is-active", selected);
-      if (button.matches(".story-step")) {
-        button.setAttribute("aria-current", selected ? "step" : "false");
-      }
-    });
     renderView();
   };
 
@@ -156,17 +160,13 @@ if (app) {
     view = nextView;
     activeCamera = "custom";
     app.dataset.camera = "custom";
-    app.querySelectorAll(".story-step").forEach((button) => {
-      button.classList.remove("is-active");
-      button.setAttribute("aria-current", "false");
-    });
     renderView();
   };
 
   const setZoom = (direction) => {
     setCustomView({
       ...view,
-      zoom: stepZoom(view.zoom, direction),
+      zoom: stepZoom(view.zoom, direction, getMinimumZoom()),
     });
   };
 
@@ -238,12 +238,6 @@ if (app) {
       }, at);
     });
   };
-
-  app.querySelectorAll("[data-camera-target]").forEach((button) => {
-    button.addEventListener("click", () =>
-      setCamera(button.dataset.cameraTarget)
-    );
-  });
 
   app.querySelectorAll("[data-tool]").forEach((button) => {
     button.addEventListener("click", () => setTool(button.dataset.tool));
@@ -468,6 +462,7 @@ if (app) {
             viewportCenter: touchGestureState.viewportCenter,
             startDistance: touchGestureState.startDistance,
             currentDistance: getTouchDistance(pair),
+            minimumZoom: getMinimumZoom(),
           })
         );
         return;

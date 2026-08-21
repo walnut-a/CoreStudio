@@ -260,6 +260,12 @@ test("the demo toolbar exposes only canvas tools that work on the website", asyn
 test("canvas annotations use native Excalidraw text styling without UI dots", async () => {
   const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
 
+  assert.doesNotMatch(
+    styles,
+    /\.canvas-annotation\s*{\s*display:\s*none;\s*}/,
+    "mobile must keep canvas annotations visible"
+  );
+
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
     assert.doesNotMatch(html, /class="scene-chip/);

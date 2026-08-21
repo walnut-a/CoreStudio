@@ -168,7 +168,7 @@ Controls use the production 6px compact and 8px regular radii. Selection geometr
 ### Canvas Annotations
 
 - **Style:** Plain Excalidraw text objects without dots, pills, or webpage-card decoration.
-- **State:** Selection uses the shared production transform overlay; supporting annotations disappear on narrow viewports.
+- **State:** Selection uses the shared production transform overlay; annotations remain canvas objects on narrow viewports and move or scale with the scene.
 
 ### Cards / Containers
 

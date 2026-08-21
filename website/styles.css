@@ -1156,10 +1156,6 @@ select:focus-visible,
     display: none;
   }
 
-  .canvas-annotation {
-    display: none;
-  }
-
   .generation-composer {
     right: 12px;
     bottom: 12px;

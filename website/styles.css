@@ -1018,10 +1018,6 @@ figure {
   color: var(--ink);
 }
 
-.story-nav {
-  display: none;
-}
-
 .canvas-app.is-generating .result-image {
   opacity: 0;
   filter: none;
@@ -1162,36 +1158,6 @@ select:focus-visible,
 
   .canvas-annotation {
     display: none;
-  }
-
-  .story-nav {
-    position: fixed;
-    bottom: 64px;
-    left: 50%;
-    z-index: 34;
-    padding: 4px;
-    display: flex;
-    gap: 2px;
-    background: var(--island-bg-color);
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-island);
-    transform: translateX(-50%);
-  }
-
-  .story-step {
-    min-width: 68px;
-    height: 36px;
-    padding: 0 12px;
-    color: var(--muted);
-    background: transparent;
-    border-radius: var(--border-radius-lg);
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .story-step.is-active {
-    color: var(--color-primary);
-    background: var(--color-surface-high);
   }
 
   .generation-composer {

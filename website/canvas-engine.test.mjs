@@ -5,12 +5,14 @@ import test from "node:test";
 import {
   CAMERA_VIEWS,
   CAMERA_TRANSITION_MS,
+  EXCALIDRAW_MIN_ZOOM,
   GENERATION_SETTLE_MS,
   applyCanvasPanGesture,
   applyCanvasPinchGesture,
   applyCanvasWheelGesture,
   clampZoom,
   composeTransform,
+  getCanvasMinimumZoom,
   getGenerationSequence,
   getZoomControlState,
   stepZoom,
@@ -31,7 +33,47 @@ test("zoom is clamped to the supported canvas range", () => {
   assert.equal(stepZoom(0.75, -1), 0.72);
 });
 
-test("desktop and mobile expose the complete three-step camera story", () => {
+test("mobile zooms out until the complete canvas fits the viewport", async () => {
+  const productionConstants = await readFile(
+    new URL("../excalidraw/packages/common/src/constants.ts", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(productionConstants, /export const MIN_ZOOM = 0\.01;/);
+  assert.equal(EXCALIDRAW_MIN_ZOOM, 0.01);
+  assert.equal(
+    getCanvasMinimumZoom({
+      isMobile: false,
+      viewportWidth: 390,
+      viewportHeight: 844,
+      planeWidth: 1400,
+      planeHeight: 780,
+    }),
+    0.72
+  );
+  assert.equal(
+    getCanvasMinimumZoom({
+      isMobile: true,
+      viewportWidth: 390,
+      viewportHeight: 844,
+      planeWidth: 1400,
+      planeHeight: 780,
+    }),
+    0.26
+  );
+  assert.equal(
+    getCanvasMinimumZoom({
+      isMobile: true,
+      viewportWidth: 320,
+      viewportHeight: 568,
+      planeWidth: 1400,
+      planeHeight: 780,
+    }),
+    0.21
+  );
+});
+
+test("desktop and mobile retain the complete camera presets", () => {
   for (const mode of ["desktop", "mobile"]) {
     assert.deepEqual(Object.keys(CAMERA_VIEWS[mode]), [
       "overview",
@@ -184,6 +226,19 @@ test("mobile canvas wires touch pointers without the old mobile guard", async ()
   );
   assert.match(styles, /\.canvas-viewport\s*{[\s\S]*?touch-action:\s*none;/);
   assert.doesNotMatch(styles, /touch-action:\s*manipulation;/);
+});
+
+test("mobile uses direct canvas gestures without a redundant story switcher", async () => {
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
+
+  for (const entrypoint of ["index.html", "zh/index.html"]) {
+    const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
+    assert.doesNotMatch(html, /story-nav|story-step|data-camera-target/);
+  }
+
+  assert.doesNotMatch(styles, /\.story-nav|\.story-step/);
+  assert.doesNotMatch(main, /data-camera-target|\.story-step/);
 });
 
 test("the demo toolbar exposes only canvas tools that work on the website", async () => {

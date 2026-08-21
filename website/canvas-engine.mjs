@@ -1,6 +1,8 @@
 export const MIN_ZOOM = 0.72;
+export const EXCALIDRAW_MIN_ZOOM = 0.01;
 export const MAX_ZOOM = 1.3;
 export const ZOOM_STEP = 0.1;
+export const CANVAS_FIT_PADDING = 24;
 export const CAMERA_TRANSITION_MS = 180;
 export const GENERATION_SETTLE_MS = 1200;
 
@@ -17,11 +19,35 @@ export const CAMERA_VIEWS = Object.freeze({
   }),
 });
 
-export const clampZoom = (value) =>
-  Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(2))));
+export const clampZoom = (value, minimumZoom = MIN_ZOOM) =>
+  Math.min(MAX_ZOOM, Math.max(minimumZoom, Number(value.toFixed(2))));
 
-export const stepZoom = (current, direction) =>
-  clampZoom(current + Math.sign(direction) * ZOOM_STEP);
+export const stepZoom = (current, direction, minimumZoom = MIN_ZOOM) =>
+  clampZoom(current + Math.sign(direction) * ZOOM_STEP, minimumZoom);
+
+export const getCanvasMinimumZoom = ({
+  isMobile,
+  viewportWidth,
+  viewportHeight,
+  planeWidth,
+  planeHeight,
+}) => {
+  if (
+    !isMobile ||
+    viewportWidth <= 0 ||
+    viewportHeight <= 0 ||
+    planeWidth <= 0 ||
+    planeHeight <= 0
+  ) {
+    return MIN_ZOOM;
+  }
+
+  const fitZoom = Math.min(
+    Math.max(1, viewportWidth - CANVAS_FIT_PADDING) / planeWidth,
+    Math.max(1, viewportHeight - CANVAS_FIT_PADDING) / planeHeight
+  );
+  return clampZoom(Math.min(MIN_ZOOM, fitZoom), EXCALIDRAW_MIN_ZOOM);
+};
 
 export const applyCanvasWheelGesture = (
   view,
@@ -53,7 +79,14 @@ export const applyCanvasPanGesture = (view, { deltaX, deltaY }) => ({
 
 export const applyCanvasPinchGesture = (
   view,
-  { startCenter, currentCenter, viewportCenter, startDistance, currentDistance }
+  {
+    startCenter,
+    currentCenter,
+    viewportCenter,
+    startDistance,
+    currentDistance,
+    minimumZoom = MIN_ZOOM,
+  }
 ) => {
   if (
     !Number.isFinite(startDistance) ||
@@ -64,7 +97,8 @@ export const applyCanvasPinchGesture = (
   }
 
   const zoom = clampZoom(
-    view.zoom * Math.max(0, currentDistance / startDistance)
+    view.zoom * Math.max(0, currentDistance / startDistance),
+    minimumZoom
   );
   const anchorX = (startCenter.x - viewportCenter.x - view.x) / view.zoom;
   const anchorY = (startCenter.y - viewportCenter.y - view.y) / view.zoom;

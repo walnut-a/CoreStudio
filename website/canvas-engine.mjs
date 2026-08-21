@@ -45,6 +45,38 @@ export const applyCanvasWheelGesture = (
   };
 };
 
+export const applyCanvasPanGesture = (view, { deltaX, deltaY }) => ({
+  ...view,
+  x: view.x + deltaX,
+  y: view.y + deltaY,
+});
+
+export const applyCanvasPinchGesture = (
+  view,
+  { startCenter, currentCenter, viewportCenter, startDistance, currentDistance }
+) => {
+  if (
+    !Number.isFinite(startDistance) ||
+    !Number.isFinite(currentDistance) ||
+    startDistance <= 0
+  ) {
+    return { ...view };
+  }
+
+  const zoom = clampZoom(
+    view.zoom * Math.max(0, currentDistance / startDistance)
+  );
+  const anchorX = (startCenter.x - viewportCenter.x - view.x) / view.zoom;
+  const anchorY = (startCenter.y - viewportCenter.y - view.y) / view.zoom;
+
+  return {
+    ...view,
+    x: currentCenter.x - viewportCenter.x - anchorX * zoom,
+    y: currentCenter.y - viewportCenter.y - anchorY * zoom,
+    zoom,
+  };
+};
+
 export const getZoomControlState = (minimapOpen) => ({
   minimapOpen: Boolean(minimapOpen),
   showIncrementControls: Boolean(minimapOpen),

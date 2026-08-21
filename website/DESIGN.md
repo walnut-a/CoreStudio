@@ -135,7 +135,7 @@ The palette is CoreStudio's existing Excalidraw-derived system: white islands, g
 
 The desktop world is a fixed 1400 × 780 spatial plane centered inside the viewport. A three-column reading order—title and references, connectors and model choice, generated result and Agent writeback—provides narrative without page scrolling. Header, zoom/minimap, composer, and source links stay pinned to the viewport edge as canvas chrome.
 
-Camera transforms, not document flow, reveal alternate moments. The fixed plane reserves explicit non-overlapping zones for the selected statement, reference board, connectors, generated result, and Agent annotation; viewport width must never enlarge content inside that fixed coordinate system. At 820px and below, the toolbar is removed, the controls stack into the top corners, and a three-step story switcher sits above the composer. Mobile keeps a stable page and moves the canvas plane; it never captures the page's vertical scroll gesture. At 470px, the selected title narrows and the display size reduces while preserving its composition.
+Camera transforms, not document flow, reveal alternate moments. The fixed plane reserves explicit non-overlapping zones for the selected statement, reference board, connectors, generated result, and Agent annotation; viewport width must never enlarge content inside that fixed coordinate system. At 820px and below, the toolbar is removed, the controls stack into the top corners, and a three-step story switcher sits above the composer. Mobile keeps a stable page while direct gestures move the canvas plane: one finger pans, two fingers continuously zoom around their shared center, and a tap still selects a canvas object. At 470px, the selected title narrows and the display size reduces while preserving its composition.
 
 The recurring spacing rhythm is 4, 8, 12, and 20px. The dotted grid repeats every 22px on the main canvas and every 8px in the minimap.
 
@@ -207,7 +207,7 @@ The minimap uses the production canvas renderer over the same scene bounds and o
 - **Trackpad / wheel:** Unmodified two-axis scrolling pans the canvas using the platform's native deltas.
 - **Modified trackpad / wheel:** `Command` or `Control` plus vertical scrolling zooms in discrete canvas steps.
 - **Pointer:** Dragging with the hand tool pans; the zoom buttons retain the same discrete zoom steps.
-- **Mobile:** The canvas does not capture page scrolling or emulate desktop wheel gestures.
+- **Mobile:** One-finger dragging pans the canvas, two-finger pinching zooms around the gesture center, and taps remain available for object selection. Touch gestures are handled only inside the canvas viewport; viewport chrome keeps its native button and input behavior.
 
 ## Do's and Don'ts
 

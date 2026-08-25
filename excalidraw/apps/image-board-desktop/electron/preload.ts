@@ -114,6 +114,23 @@ const desktopBridge: DesktopBridgeApi = {
   loadLocaleSettings: () => ipcRenderer.invoke(IPC_CHANNELS.loadLocaleSettings),
   saveLocalePreference: (preference) =>
     ipcRenderer.invoke(IPC_CHANNELS.saveLocalePreference, preference),
+  loadCanvasInteractionSettings: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.loadCanvasInteractionSettings),
+  saveTrackpadZoomSpeed: (speed) =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveTrackpadZoomSpeed, speed),
+  onCanvasInteractionSettingsChanged: (listener) => {
+    const handler = (
+      _event: unknown,
+      settings: Parameters<typeof listener>[0],
+    ) => listener(settings);
+    ipcRenderer.on(IPC_CHANNELS.canvasInteractionSettingsChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(
+        IPC_CHANNELS.canvasInteractionSettingsChanged,
+        handler,
+      );
+    };
+  },
   onMenuAction: (listener) => {
     const handler = (_event: unknown, menuEvent: DesktopMenuEvent) => {
       listener(menuEvent);

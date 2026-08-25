@@ -28,6 +28,7 @@ import {
   inspectStableAgentBoardIntegration,
   returnToAgentBoardProjectSelection,
 } from "./agent/agentBrowserBridge";
+import { buildAgentBoardLinkInstruction } from "./agentBoardLinkInstruction";
 import {
   getOrCreateStableBoardPageNonce,
   setAgentBrowserRoomResumeToken,
@@ -204,6 +205,10 @@ import type {
   DesktopLocale,
   DesktopLocalePreference,
 } from "../shared/desktopLocale";
+import {
+  getTrackpadZoomSensitivity,
+  type TrackpadZoomSpeed,
+} from "../shared/canvasInteractionSettings";
 import type { GenerationReferencePayload } from "../shared/providerTypes";
 import type {
   ProjectRoomParticipant,
@@ -288,6 +293,10 @@ interface AppProps {
   onLocalePreferenceChange?: (
     preference: DesktopLocalePreference,
   ) => void | Promise<void>;
+  trackpadZoomSpeed?: TrackpadZoomSpeed;
+  onTrackpadZoomSpeedChange?: (
+    speed: TrackpadZoomSpeed,
+  ) => void | Promise<void>;
 }
 
 const App = ({
@@ -295,6 +304,8 @@ const App = ({
   localePreference = "system",
   desktopProjectPath,
   onLocalePreferenceChange = () => undefined,
+  trackpadZoomSpeed = "standard",
+  onTrackpadZoomSpeedChange = () => undefined,
 }: AppProps) => {
   const {
     isAgentBrowserRoute,
@@ -2062,6 +2073,10 @@ const App = ({
             onPreferenceChange={(preference) => {
               void onLocalePreferenceChange(preference);
             }}
+            trackpadZoomSpeed={trackpadZoomSpeed}
+            onTrackpadZoomSpeedChange={(speed) => {
+              void onTrackpadZoomSpeedChange(speed);
+            }}
           />
         ),
         imageGenerationContent: (
@@ -2458,6 +2473,31 @@ const App = ({
     .filter(Boolean)
     .join(" ");
 
+  const copyCurrentBoardReference = async (
+    format: "address" | "instruction",
+  ) => {
+    const boardUrl = await desktopBridge.getStableAgentBoardUrl?.(
+      currentProject.projectPath,
+    );
+    if (!boardUrl) {
+      projectNoticeRendererActions.show(copy.menu.boardAddressUnavailable);
+      return;
+    }
+    const clipboardText =
+      format === "instruction"
+        ? buildAgentBoardLinkInstruction({
+            boardUrl,
+            instruction: copy.menu.boardLinkInstruction,
+          })
+        : boardUrl;
+    await clipboardTextRendererActions.copy(clipboardText);
+    projectNoticeRendererActions.show(
+      format === "instruction"
+        ? copy.menu.boardLinkInstructionCopied
+        : copy.menu.boardAddressCopied,
+    );
+  };
+
   return (
     <div ref={appRootRef} className={appClassName}>
       <AppErrorBanners
@@ -2490,6 +2530,9 @@ const App = ({
             <Suspense fallback={null}>
               <LazyExcalidraw
                 langCode={locale}
+                wheelZoomSensitivity={getTrackpadZoomSensitivity(
+                  trackpadZoomSpeed,
+                )}
                 initialData={initialData}
                 onInitialize={(api) => {
                   const runtime = desktopProjectRuntimeRef.current;
@@ -2605,26 +2648,20 @@ const App = ({
                   currentProjectName={currentProject.project.name}
                   canvasUtilityActionsVisible={!isAgentBrowserRoute}
                   onCopyBoardAddress={() => {
-                    void (async () => {
-                      const boardUrl =
-                        await desktopBridge.getStableAgentBoardUrl?.(
-                          currentProject.projectPath,
-                        );
-                      if (!boardUrl) {
-                        projectNoticeRendererActions.show(
-                          copy.menu.boardAddressUnavailable,
-                        );
-                        return;
-                      }
-                      await clipboardTextRendererActions.copy(boardUrl);
-                      projectNoticeRendererActions.show(
-                        copy.menu.boardAddressCopied,
-                      );
-                    })().catch((error) => {
+                    void copyCurrentBoardReference("address").catch((error) => {
                       projectNoticeRendererActions.show(
                         formatProjectSaveError(error),
                       );
                     });
+                  }}
+                  onCopyBoardLinkInstruction={() => {
+                    void copyCurrentBoardReference("instruction").catch(
+                      (error) => {
+                        projectNoticeRendererActions.show(
+                          formatProjectSaveError(error),
+                        );
+                      },
+                    );
                   }}
                   onSwitchProject={() => {
                     if (isAgentBrowserRoute) {

@@ -67,12 +67,14 @@ describe("ProjectMainMenu", () => {
   it("uses the current project as the menu heading without a redundant product label", () => {
     const onSwitchProject = vi.fn();
     const onCopyBoardAddress = vi.fn();
+    const onCopyBoardLinkInstruction = vi.fn();
 
     render(
       <ProjectMainMenu
         currentProjectName="当前项目"
         onSwitchProject={onSwitchProject}
         onCopyBoardAddress={onCopyBoardAddress}
+        onCopyBoardLinkInstruction={onCopyBoardLinkInstruction}
       />,
     );
 
@@ -106,6 +108,12 @@ describe("ProjectMainMenu", () => {
       }),
     );
     expect(onCopyBoardAddress).toHaveBeenCalledOnce();
+    fireEvent.click(
+      within(projectMenu).getByRole("button", {
+        name: "复制画布链接指令",
+      }),
+    );
+    expect(onCopyBoardLinkInstruction).toHaveBeenCalledOnce();
     expect(
       within(projectMenu).queryByRole("button", { name: "最近项目" }),
     ).not.toBeInTheDocument();

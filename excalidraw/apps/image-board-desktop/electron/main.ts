@@ -137,6 +137,12 @@ import { configureNoSystemKeychainAccess } from "./keychainGuard";
 import { installBrokenPipeConsoleGuard } from "./safeProcessLogging";
 import { createLocaleSettingsStore } from "./localeSettingsStore";
 import { createLocaleSettingsController } from "./localeSettingsController";
+import { createCanvasInteractionSettingsStore } from "./canvasInteractionSettingsStore";
+import { createCanvasInteractionSettingsController } from "./canvasInteractionSettingsController";
+import type {
+  DesktopCanvasInteractionSettings,
+  TrackpadZoomSpeed,
+} from "../src/shared/canvasInteractionSettings";
 import { createProjectRoomService } from "./room/projectRoomService";
 import { createProjectProcessLeaseRegistry } from "./room/projectProcessLease";
 import { executeProjectRoomAgentWriterCommand } from "./room/projectRoomAgentWriter";
@@ -214,6 +220,9 @@ let localBridgeCleanupFinished = false;
 let agentSessionWriteChain: Promise<void> = Promise.resolve();
 let localeSettingsController: ReturnType<
   typeof createLocaleSettingsController
+> | null = null;
+let canvasInteractionSettingsController: ReturnType<
+  typeof createCanvasInteractionSettingsController
 > | null = null;
 let modelCatalogService: ReturnType<typeof createModelCatalogService> | null =
   null;
@@ -704,6 +713,24 @@ const publishProjectViewsState = (state: DesktopProjectViewsState) => {
   }
   mainWindow.webContents.send(IPC_CHANNELS.projectViewsState, state);
   Menu.setApplicationMenu(buildMenu());
+};
+
+const publishCanvasInteractionSettings = (
+  settings: DesktopCanvasInteractionSettings,
+) => {
+  const rendererIds = new Set<number>();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    rendererIds.add(mainWindow.webContents.id);
+  }
+  for (const project of projectViewRegistry?.snapshot().projects ?? []) {
+    rendererIds.add(project.webContentsId);
+  }
+  for (const rendererId of rendererIds) {
+    const target = webContents.fromId(rendererId);
+    if (target && !target.isDestroyed()) {
+      target.send(IPC_CHANNELS.canvasInteractionSettingsChanged, settings);
+    }
+  }
 };
 
 installMainProcessErrorHandlers(
@@ -2868,6 +2895,23 @@ const registerIpcHandlers = () => {
       return localeSettingsController.savePreference(preference);
     },
   );
+  ipcMain.handle(IPC_CHANNELS.loadCanvasInteractionSettings, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    if (!canvasInteractionSettingsController) {
+      throw new Error("Canvas interaction settings are not ready.");
+    }
+    return canvasInteractionSettingsController.getSettings();
+  });
+  ipcMain.handle(
+    IPC_CHANNELS.saveTrackpadZoomSpeed,
+    async (event, speed: TrackpadZoomSpeed) => {
+      requireShellOrProjectRendererSender(event.sender);
+      if (!canvasInteractionSettingsController) {
+        throw new Error("Canvas interaction settings are not ready.");
+      }
+      return canvasInteractionSettingsController.saveTrackpadZoomSpeed(speed);
+    },
+  );
 };
 
 const hasActiveReadyProject = () => {
@@ -3249,6 +3293,17 @@ if (hasSingleInstanceLock) {
       },
     });
     await localeSettingsController.initialize();
+    canvasInteractionSettingsController =
+      createCanvasInteractionSettingsController({
+        store: createCanvasInteractionSettingsStore({
+          settingsPath: path.join(
+            app.getPath("userData"),
+            "canvas-interaction-settings.json",
+          ),
+        }),
+        onSettingsChanged: publishCanvasInteractionSettings,
+      });
+    await canvasInteractionSettingsController.initialize();
     modelCatalogService = createModelCatalogService({
       appVersion: DESKTOP_APP_VERSION,
       cacheDirectory: path.join(app.getPath("userData"), "model-catalog"),

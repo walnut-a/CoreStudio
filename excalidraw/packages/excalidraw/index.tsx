@@ -98,6 +98,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onCopy,
     onCopyAsPng,
     detectScroll = true,
+    wheelZoomSensitivity,
     handleKeyboardGlobally = false,
     onLibraryChange,
     autoFocus = false,
@@ -242,6 +243,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onCopy={onCopy}
           onCopyAsPng={onCopyAsPng}
           detectScroll={detectScroll}
+          wheelZoomSensitivity={wheelZoomSensitivity}
           handleKeyboardGlobally={handleKeyboardGlobally}
           onLibraryChange={onLibraryChange}
           autoFocus={autoFocus}

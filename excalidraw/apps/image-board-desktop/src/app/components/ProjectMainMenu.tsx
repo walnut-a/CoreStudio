@@ -9,6 +9,7 @@ interface ProjectMainMenuProps {
   currentProjectName: string;
   onSwitchProject: () => void;
   onCopyBoardAddress?: () => void;
+  onCopyBoardLinkInstruction?: () => void;
   canvasUtilityActionsVisible?: boolean;
 }
 
@@ -16,6 +17,7 @@ export const ProjectMainMenu = ({
   currentProjectName,
   onSwitchProject,
   onCopyBoardAddress,
+  onCopyBoardLinkInstruction,
   canvasUtilityActionsVisible = true,
 }: ProjectMainMenuProps) => (
   <MainMenu>
@@ -41,6 +43,15 @@ export const ProjectMainMenu = ({
           aria-label={copy.menu.copyBoardAddress}
         >
           {copy.menu.copyBoardAddress}
+        </MainMenu.Item>
+      ) : null}
+      {canvasUtilityActionsVisible && onCopyBoardLinkInstruction ? (
+        <MainMenu.Item
+          icon={copyIcon}
+          onSelect={onCopyBoardLinkInstruction}
+          aria-label={copy.menu.copyBoardLinkInstruction}
+        >
+          {copy.menu.copyBoardLinkInstruction}
         </MainMenu.Item>
       ) : null}
     </MainMenu.Group>

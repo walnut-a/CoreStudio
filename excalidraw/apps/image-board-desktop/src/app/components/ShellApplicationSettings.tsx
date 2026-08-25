@@ -6,6 +6,7 @@ import type {
   ProviderConfigurationSnapshot,
 } from "../../shared/desktopBridgeTypes";
 import type { DesktopLocalePreference } from "../../shared/desktopLocale";
+import type { TrackpadZoomSpeed } from "../../shared/canvasInteractionSettings";
 import {
   CORESTUDIO_OPEN_SOURCE_DEPENDENCIES,
   CORESTUDIO_REPOSITORY_URL,
@@ -38,6 +39,8 @@ export interface ShellApplicationSettingsProps {
   onLocalePreferenceChange: (
     preference: DesktopLocalePreference,
   ) => Promise<void> | void;
+  trackpadZoomSpeed: TrackpadZoomSpeed;
+  onTrackpadZoomSpeedChange: (speed: TrackpadZoomSpeed) => Promise<void> | void;
   onProviderConfigurationChange?: (
     configuration: ProviderConfigurationSnapshot,
   ) => void;
@@ -51,6 +54,8 @@ export const ShellApplicationSettings = ({
   localePreference,
   onCategoryChange,
   onLocalePreferenceChange,
+  trackpadZoomSpeed,
+  onTrackpadZoomSpeedChange,
   onProviderConfigurationChange,
   onClose,
 }: ShellApplicationSettingsProps) => {
@@ -129,6 +134,10 @@ export const ShellApplicationSettings = ({
           preference={localePreference}
           onPreferenceChange={(preference) => {
             void onLocalePreferenceChange(preference);
+          }}
+          trackpadZoomSpeed={trackpadZoomSpeed}
+          onTrackpadZoomSpeedChange={(speed) => {
+            void onTrackpadZoomSpeedChange(speed);
           }}
         />
       }

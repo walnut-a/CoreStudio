@@ -11,10 +11,13 @@ afterEach(() => {
 describe("GeneralSettingsSection", () => {
   it("offers one shared language preference without branching the UI", () => {
     const onPreferenceChange = vi.fn();
+    const onTrackpadZoomSpeedChange = vi.fn();
     render(
       <GeneralSettingsSection
         preference="system"
         onPreferenceChange={onPreferenceChange}
+        trackpadZoomSpeed="standard"
+        onTrackpadZoomSpeedChange={onTrackpadZoomSpeedChange}
       />,
     );
 
@@ -23,6 +26,13 @@ describe("GeneralSettingsSection", () => {
     });
 
     expect(onPreferenceChange).toHaveBeenCalledWith("en");
+
+    fireEvent.change(screen.getByRole("slider", { name: "触控板缩放速度" }), {
+      target: { value: "3" },
+    });
+
+    expect(onTrackpadZoomSpeedChange).toHaveBeenCalledWith("fast");
+    expect(screen.getByText("标准")).toBeVisible();
   });
 
   it("renders the same settings surface from the English catalog", () => {
@@ -31,6 +41,8 @@ describe("GeneralSettingsSection", () => {
       <GeneralSettingsSection
         preference="en"
         onPreferenceChange={() => undefined}
+        trackpadZoomSpeed="slow"
+        onTrackpadZoomSpeedChange={() => undefined}
       />,
     );
 
@@ -40,5 +52,8 @@ describe("GeneralSettingsSection", () => {
     expect(
       screen.getByText(/CoreStudio and the board interface/),
     ).toBeVisible();
+    expect(
+      screen.getByRole("slider", { name: "Trackpad zoom speed" }),
+    ).toHaveValue("1");
   });
 });

@@ -33,6 +33,10 @@ import type {
   DesktopLocaleSettings,
 } from "./desktopLocale";
 import type {
+  DesktopCanvasInteractionSettings,
+  TrackpadZoomSpeed,
+} from "./canvasInteractionSettings";
+import type {
   DesktopProjectRoomJoinInput,
   ProjectRoomEvent,
   ProjectRoomOperationResult,
@@ -77,6 +81,10 @@ export const IPC_CHANNELS = {
   writeProjectClipboard: "image-board:write-project-clipboard",
   loadLocaleSettings: "image-board:load-locale-settings",
   saveLocalePreference: "image-board:save-locale-preference",
+  loadCanvasInteractionSettings: "image-board:load-canvas-interaction-settings",
+  saveTrackpadZoomSpeed: "image-board:save-trackpad-zoom-speed",
+  canvasInteractionSettingsChanged:
+    "image-board:canvas-interaction-settings-changed",
   menuAction: "image-board:menu-action",
   nativeEditContextChanged: "image-board:native-edit-context-changed",
   rendererReady: "image-board:renderer-ready",
@@ -539,6 +547,13 @@ export interface DesktopBridgeApi {
   saveLocalePreference?(
     preference: DesktopLocalePreference,
   ): Promise<DesktopLocaleSettings>;
+  loadCanvasInteractionSettings?(): Promise<DesktopCanvasInteractionSettings>;
+  saveTrackpadZoomSpeed?(
+    speed: TrackpadZoomSpeed,
+  ): Promise<DesktopCanvasInteractionSettings>;
+  onCanvasInteractionSettingsChanged?(
+    listener: (settings: DesktopCanvasInteractionSettings) => void,
+  ): () => void;
   onMenuAction(listener: (event: DesktopMenuEvent) => void): () => void;
   notifyRendererReady?(): void;
   notifyProjectStateChanged?(

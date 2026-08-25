@@ -293,6 +293,10 @@ export const enCopy: DesktopCopy = {
     copyBoardAddress: "Copy Board Address",
     boardAddressCopied:
       "Board address copied. Paste it into Codex to open the canvas.",
+    copyBoardLinkInstruction: "Copy Board Link Instruction",
+    boardLinkInstruction: "Open and connect this CoreStudio board in Codex:",
+    boardLinkInstructionCopied:
+      "Board link instruction copied. Paste and send it to Codex.",
     boardAddressUnavailable:
       "The Board address is unavailable. Make sure Agent Bridge is enabled.",
     openProjectSafe: "Open Project in Safe Mode",
@@ -336,6 +340,14 @@ export const enCopy: DesktopCopy = {
     languageSystem: "Use system language",
     languageChinese: "简体中文",
     languageEnglish: "English",
+    trackpadZoomSpeed: "Trackpad zoom speed",
+    trackpadZoomSpeedDescription:
+      "Adjust the canvas response to pinch gestures. Changes apply immediately.",
+    trackpadZoomSpeedSlowest: "Slow",
+    trackpadZoomSpeedSlow: "Slower",
+    trackpadZoomSpeedStandard: "Standard",
+    trackpadZoomSpeedFast: "Faster",
+    trackpadZoomSpeedFastest: "Fast",
     discardTitle: "Discard unsaved changes?",
     discardDescription: "Changes on this page have not been saved.",
     continueEditing: "Continue editing",

@@ -74,6 +74,31 @@
   border-color: var(--color-primary);
 }
 
+.app-settings-section__range-control {
+  display: grid;
+  width: min(240px, 42%);
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.app-settings-section__range {
+  width: 100%;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.app-settings-section__range:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  outline-offset: 3px;
+}
+
+.app-settings-section__range-control output {
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-md);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
 .app-settings-section__switch {
   position: relative;
   flex: 0 0 auto;
@@ -179,6 +204,10 @@
   }
 
   .app-settings-section__select {
+    width: 100%;
+  }
+
+  .app-settings-section__range-control {
     width: 100%;
   }
 }

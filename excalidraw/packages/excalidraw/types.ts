@@ -928,6 +928,8 @@ export interface ExcalidrawProps {
    */
   imageOptions?: ImageOptions;
   detectScroll?: boolean;
+  /** Host-controlled sensitivity for ctrl/cmd wheel and trackpad pinch zoom. */
+  wheelZoomSensitivity?: number;
   handleKeyboardGlobally?: boolean;
   onLibraryChange?: (libraryItems: LibraryItems) => void | Promise<any>;
   autoFocus?: boolean;

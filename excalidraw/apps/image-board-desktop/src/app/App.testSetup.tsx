@@ -472,6 +472,7 @@ vi.mock("@excalidraw/excalidraw", () => {
     Excalidraw: ({
       initialData,
       langCode,
+      wheelZoomSensitivity,
       children,
       onInitialize,
       onExcalidrawAPI,
@@ -490,6 +491,7 @@ vi.mock("@excalidraw/excalidraw", () => {
         files?: Record<string, unknown>;
       } | null;
       langCode?: string;
+      wheelZoomSensitivity?: number;
       children?: React.ReactNode;
       onInitialize?: (api?: any) => void;
       onExcalidrawAPI?: (api: any) => void;
@@ -743,6 +745,7 @@ vi.mock("@excalidraw/excalidraw", () => {
             <div
               data-testid="excalidraw-canvas"
               data-lang-code={langCode}
+              data-wheel-zoom-sensitivity={wheelZoomSensitivity}
               data-has-top-left-ui={renderTopLeftUI ? "true" : "false"}
               data-has-custom-selected-shape-actions={
                 renderSelectedShapeActions ? "true" : "false"

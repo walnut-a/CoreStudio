@@ -8,16 +8,24 @@ import {
   DesktopLocaleProvider,
   useDesktopLocale,
 } from "./app/localization/DesktopLocaleProvider";
+import {
+  CanvasInteractionSettingsProvider,
+  useCanvasInteractionSettings,
+} from "./app/canvasInteraction/CanvasInteractionSettingsProvider";
 import { parseDesktopRendererRoute } from "./shared/desktopRendererRoute";
 
 const LocalizedApp = () => {
   const { locale, preference, setPreference } = useDesktopLocale();
+  const { trackpadZoomSpeed, setTrackpadZoomSpeed } =
+    useCanvasInteractionSettings();
   const route = parseDesktopRendererRoute(window.location.href);
   if (route.mode === "shell") {
     return (
       <DesktopShellApp
         localePreference={preference}
         onLocalePreferenceChange={setPreference}
+        trackpadZoomSpeed={trackpadZoomSpeed}
+        onTrackpadZoomSpeedChange={setTrackpadZoomSpeed}
       />
     );
   }
@@ -26,6 +34,8 @@ const LocalizedApp = () => {
       locale={locale}
       localePreference={preference}
       onLocalePreferenceChange={setPreference}
+      trackpadZoomSpeed={trackpadZoomSpeed}
+      onTrackpadZoomSpeedChange={setTrackpadZoomSpeed}
       desktopProjectPath={
         route.mode === "project" ? route.projectPath : undefined
       }
@@ -42,8 +52,10 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <DesktopLocaleProvider>
-      <LocalizedApp />
-      <RuntimeIdentityBadge />
+      <CanvasInteractionSettingsProvider>
+        <LocalizedApp />
+        <RuntimeIdentityBadge />
+      </CanvasInteractionSettingsProvider>
     </DesktopLocaleProvider>
   </StrictMode>,
 );

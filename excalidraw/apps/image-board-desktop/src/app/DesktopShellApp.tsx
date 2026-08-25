@@ -8,6 +8,7 @@ import type {
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
 import type { DesktopLocalePreference } from "../shared/desktopLocale";
+import type { TrackpadZoomSpeed } from "../shared/canvasInteractionSettings";
 import { getConfiguredProviderIds } from "../shared/providerCatalog";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { AppProjectEntryScreen } from "./components/AppProjectEntryScreen";
@@ -33,11 +34,17 @@ export interface DesktopShellAppProps {
   onLocalePreferenceChange?: (
     preference: DesktopLocalePreference,
   ) => Promise<void> | void;
+  trackpadZoomSpeed?: TrackpadZoomSpeed;
+  onTrackpadZoomSpeedChange?: (
+    speed: TrackpadZoomSpeed,
+  ) => Promise<void> | void;
 }
 
 export const DesktopShellApp = ({
   localePreference = "system",
   onLocalePreferenceChange = () => undefined,
+  trackpadZoomSpeed = "standard",
+  onTrackpadZoomSpeedChange = () => undefined,
 }: DesktopShellAppProps = {}) => {
   const bridge = maybeGetDesktopBridge();
   const [projectViewsState, setProjectViewsState] =
@@ -269,6 +276,8 @@ export const DesktopShellApp = ({
       localePreference={localePreference}
       onCategoryChange={setAppSettingsCategory}
       onLocalePreferenceChange={onLocalePreferenceChange}
+      trackpadZoomSpeed={trackpadZoomSpeed}
+      onTrackpadZoomSpeedChange={onTrackpadZoomSpeedChange}
       onProviderConfigurationChange={setProviderConfiguration}
       onClose={() => setAppSettingsOpen(false)}
     />

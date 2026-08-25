@@ -108,7 +108,7 @@ describe("App startup", () => {
         onMenuAction: vi.fn(() => () => undefined),
       } as any;
 
-      render(<App locale={locale} />);
+      render(<App locale={locale} trackpadZoomSpeed="slowest" />);
 
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
@@ -121,6 +121,10 @@ describe("App startup", () => {
         expect(screen.getByTestId("excalidraw-canvas")).toHaveAttribute(
           "data-lang-code",
           expectedLocale,
+        );
+        expect(screen.getByTestId("excalidraw-canvas")).toHaveAttribute(
+          "data-wheel-zoom-sensitivity",
+          "0.0035",
         );
       });
     },

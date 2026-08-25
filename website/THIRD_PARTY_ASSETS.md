@@ -10,3 +10,7 @@ The CoreStudio website includes the following resized WebP reference images from
 | `assets/dieter-rams-et66-v2.webp` | Braun ET66 calculator, designed by Dieter Rams and Dietrich Lubs | Pinot Dita | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:1987_Braun_calculator_ET66_by_Dieter_Rams_(13964223413).jpg) | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) |
 
 `assets/corestudio-canvas-result-rams-v2.webp` is an original AI-generated demonstration asset created for this website. It uses the four works above as references for functional hierarchy and restrained product photography, but it does not reproduce a specific Braun product and contains no Braun branding.
+
+## Display font
+
+The Chinese homepage display heading uses `assets/fonts/SmileySans-Oblique.woff2`, derived from [Smiley Sans v2.0.1](https://github.com/atelier-anchor/smiley-sans/releases/tag/v2.0.1) by atelierAnchor. Smiley Sans is distributed under the SIL Open Font License 1.1; the bundled license text is stored at `assets/fonts/SmileySans-LICENSE.txt`. The font is used only for the editorial display heading. Product controls and canvas annotations continue to use CoreStudio's production interface and Excalidraw fonts.

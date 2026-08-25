@@ -14,16 +14,10 @@ import {
   composeTransform,
   getCanvasMinimumZoom,
   getGenerationSequence,
+  getResponsiveOverviewView,
   getZoomControlState,
   stepZoom,
 } from "./canvas-engine.mjs";
-import {
-  createCanvasMinimapTransform,
-  getCanvasViewportBounds,
-  minimapPointToScene,
-  sceneBoundsToMinimap,
-  scenePointToMinimap,
-} from "../excalidraw/apps/image-board-desktop/src/app/canvasMinimapCore.mjs";
 
 test("zoom is clamped to the supported canvas range", () => {
   assert.equal(clampZoom(0.2), 0.72);
@@ -81,6 +75,44 @@ test("desktop and mobile retain the complete camera presets", () => {
       "agent",
     ]);
   }
+
+  assert.ok(
+    CAMERA_VIEWS.mobile.overview.y < 0 &&
+      CAMERA_VIEWS.mobile.overview.y >= -60,
+    "the mobile opening camera should lift the editorial canvas into the first viewport"
+  );
+});
+
+test("the overview camera uses large screens instead of surrounding the canvas with dead space", () => {
+  const baseView = CAMERA_VIEWS.desktop.overview;
+
+  assert.deepEqual(
+    getResponsiveOverviewView(baseView, {
+      viewportWidth: 1280,
+      viewportHeight: 720,
+      planeWidth: 1680,
+      planeHeight: 960,
+    }),
+    { x: 0, y: 70.2, zoom: 0.9 }
+  );
+  assert.deepEqual(
+    getResponsiveOverviewView(baseView, {
+      viewportWidth: 1800,
+      viewportHeight: 1000,
+      planeWidth: 1680,
+      planeHeight: 960,
+    }),
+    { x: 0, y: 0, zoom: 0.9 }
+  );
+  assert.deepEqual(
+    getResponsiveOverviewView(baseView, {
+      viewportWidth: 2940,
+      viewportHeight: 1850,
+      planeWidth: 1680,
+      planeHeight: 960,
+    }),
+    { x: 0, y: -221, zoom: 1.3 }
+  );
 });
 
 test("canvas transforms keep translation independent from zoom", () => {
@@ -90,50 +122,18 @@ test("canvas transforms keep translation independent from zoom", () => {
   );
 });
 
-test("website minimap uses the production scene transform", () => {
-  const viewportBounds = getCanvasViewportBounds({
-    width: 1200,
-    height: 800,
-    scrollX: -100,
-    scrollY: -50,
-    zoom: { value: 0.5 },
-  });
-  assert.deepEqual(viewportBounds, {
-    x: 100,
-    y: 50,
-    width: 2400,
-    height: 1600,
-  });
-
-  const transform = createCanvasMinimapTransform({
-    contentBounds: { x: 72, y: 90, width: 1208, height: 600 },
-    viewportBounds,
-    mapWidth: 224,
-    mapHeight: 144,
-    padding: 8,
-  });
-  const scenePoint = { x: 720, y: 360 };
-  const mapPoint = scenePointToMinimap(scenePoint, transform);
-
-  const roundTrip = minimapPointToScene(mapPoint, transform);
-  assert.ok(Math.abs(roundTrip.x - scenePoint.x) < 0.000001);
-  assert.ok(Math.abs(roundTrip.y - scenePoint.y) < 0.000001);
-  const mappedViewport = sceneBoundsToMinimap(viewportBounds, transform);
-  assert.ok(mappedViewport.width > 0 && mappedViewport.height > 0);
-});
-
-test("compact zoom controls follow the production minimap interaction", () => {
+test("compact zoom controls disclose increment actions without a minimap", () => {
   assert.deepEqual(getZoomControlState(false), {
-    minimapOpen: false,
+    expanded: false,
     showIncrementControls: false,
   });
   assert.deepEqual(getZoomControlState(true), {
-    minimapOpen: true,
+    expanded: true,
     showIncrementControls: true,
   });
 });
 
-test("camera navigation uses the product minimap timing", () => {
+test("camera navigation uses the product canvas timing", () => {
   assert.equal(CAMERA_TRANSITION_MS, 180);
 });
 
@@ -241,19 +241,16 @@ test("mobile uses direct canvas gestures without a redundant story switcher", as
   assert.doesNotMatch(main, /data-camera-target|\.story-step/);
 });
 
-test("the demo toolbar exposes only canvas tools that work on the website", async () => {
+test("the website omits the canvas tool switcher and mode state", async () => {
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
+
+  assert.doesNotMatch(main, /activeTool|setTool|\[data-tool\]/);
+  assert.doesNotMatch(styles, /\.canvas-toolbar|\.tool-button|data-active-tool/);
+
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    const toolbar = html.match(
-      /<div\s+class="canvas-toolbar"[\s\S]*?<\/div>/
-    )?.[0];
-
-    assert.ok(toolbar, `${entrypoint} should contain the canvas toolbar`);
-    assert.deepEqual(
-      [...toolbar.matchAll(/data-tool="([^"]+)"/g)].map((match) => match[1]),
-      ["select", "hand"]
-    );
-    assert.doesNotMatch(toolbar, /Open image generation|打开图片生成/);
+    assert.doesNotMatch(html, /canvas-toolbar|data-tool=|data-active-tool=/);
   }
 });
 
@@ -382,77 +379,28 @@ test("the generated image uses the native canvas placeholder and selection state
   );
 });
 
-test("the demo toolbar uses the exact CoreStudio tool icon geometry", async () => {
-  const iconSource = await readFile(
-    new URL(
-      "../excalidraw/packages/excalidraw/components/icons.tsx",
-      import.meta.url
-    ),
-    "utf8"
-  );
+test("the website removes the minimap but keeps zoom disclosure", async () => {
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
   const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
-  const sourcePaths = (start, end) => {
-    const block = iconSource.slice(
-      iconSource.indexOf(start),
-      iconSource.indexOf(end)
-    );
-    return [...block.matchAll(/\bd="([^"]+)"/g)].map((match) => match[1]);
-  };
-  const expected = {
-    select: sourcePaths("export const SelectionIcon", "export const LassoIcon"),
-    hand: sourcePaths("export const handIcon", "export const downloadIcon"),
-  };
+
+  assert.doesNotMatch(main, /canvasMinimap|minimap/i);
+  assert.doesNotMatch(styles, /\.minimap/);
 
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-
-    for (const [tool, paths] of Object.entries(expected)) {
-      const button = html.match(
-        new RegExp(`<button[^>]*data-tool="${tool}"[\\s\\S]*?<\\/button>`)
-      )?.[0];
-      assert.ok(button, `${entrypoint} should contain the ${tool} tool`);
-      assert.deepEqual(
-        [...button.matchAll(/\bd="([^"]+)"/g)].map((match) => match[1]),
-        paths
-      );
-    }
-
-    assert.match(
-      html,
-      /class="tool-button fillable is-active"[^>]*data-tool="select"/
-    );
+    assert.doesNotMatch(html, /minimap|迷你地图/i);
+    assert.match(html, /data-zoom-toggle/);
+    assert.match(html, /aria-expanded="true"/);
   }
-
-  assert.match(
-    styles,
-    /\.tool-button\.fillable\.is-active svg\s*{\s*fill: currentColor;/
-  );
 });
 
-test("the website minimap is the production canvas renderer, not hard-coded topology", async () => {
-  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
-  const renderer = await readFile(
-    new URL(
-      "../excalidraw/apps/image-board-desktop/src/app/canvasMinimapRenderer.ts",
-      import.meta.url
-    ),
-    "utf8"
-  );
+test("the canvas omits redundant lower-corner project links", async () => {
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
 
-  assert.match(main, /renderCanvasMinimapScene/);
-  assert.match(renderer, /renderCanvasMinimapScene/);
-
+  assert.doesNotMatch(styles, /\.canvas-links/);
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    const minimap = html.match(
-      /<div class="minimap is-open"[\s\S]*?<\/div>/
-    )?.[0];
-    assert.ok(minimap, `${entrypoint} should contain the minimap`);
-    assert.match(minimap, /<canvas[^>]*data-minimap-canvas/);
-    assert.doesNotMatch(
-      minimap,
-      /minimap-marker|minimap-flow|minimap-result|minimap-viewport|data-camera-target/
-    );
+    assert.doesNotMatch(html, /class="canvas-links"/);
   }
 });
 
@@ -463,7 +411,7 @@ test("every selectable canvas object uses one native transform overlay", async (
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
     const selectableCount = [...html.matchAll(/data-scene-object/g)].length;
 
-    assert.equal(selectableCount, 6);
+    assert.equal(selectableCount, 7);
     assert.equal(
       [...html.matchAll(/class="canvas-selection-overlay"/g)].length,
       selectableCount,
@@ -553,7 +501,7 @@ test("the demo exposes no settings control without settings content", async () =
   assert.doesNotMatch(main, /composerSettings/);
 });
 
-test("the opening composition reserves clear space for fixed canvas chrome", async () => {
+test("the opening composition behaves like an industrial-design editorial spread", async () => {
   const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
   const declaration = (selector, property) => {
     const block = styles.match(
@@ -568,8 +516,50 @@ test("the opening composition reserves clear space for fixed canvas chrome", asy
     return Number(value);
   };
 
-  assert.ok(declaration(".project-tab", "left") >= 170);
-  assert.ok(declaration(".project-tab", "top") >= 70);
-  assert.ok(declaration(".scene-title", "top") >= 135);
-  assert.ok(declaration(".reference-board", "left") >= 250);
+  assert.equal(declaration(".canvas-plane", "width"), 1680);
+  assert.equal(declaration(".canvas-plane", "height"), 960);
+  assert.ok(declaration(".generation-result", "width") >= 800);
+  assert.ok(declaration(".reference-board", "width") >= 560);
+  assert.match(
+    styles,
+    /\.page-en \.scene-title h1\s*\{[\s\S]*?font-size:\s*4\.2rem;/,
+    "the English display heading should leave room for its supporting copy before the reference strip"
+  );
+  assert.ok(
+    declaration(".canvas-annotation-local", "top") >=
+      declaration(".reference-board", "top") + 200,
+    "the local-project annotation should sit below the reference strip instead of overlapping the title copy"
+  );
+  assert.match(
+    styles,
+    /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?height:\s*170px;/
+  );
+  assert.match(styles, /\.scene-title h1\s*\{[\s\S]*?font-size:\s*6rem;/);
+  assert.match(
+    styles,
+    /\.scene-heading\s*\{[\s\S]*?color:\s*var\(--surface\);[\s\S]*?background:\s*var\(--ink\);/
+  );
+  assert.match(
+    styles,
+    /\.result-studies\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?pointer-events:\s*none;/
+  );
+  assert.match(
+    styles,
+    /\.canvas-app\.has-generated-once\.is-result-ready \.result-studies[\s\S]*?opacity:\s*1;/
+  );
+  assert.match(
+    styles,
+    /\.canvas-annotation-model,\s*\.canvas-annotation-agent\s*\{[\s\S]*?opacity:\s*0;/
+  );
+
+  for (const entrypoint of ["index.html", "zh/index.html"]) {
+    const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
+    assert.doesNotMatch(html, /class="scene-title is-selected"/);
+    assert.equal([...html.matchAll(/class="result-study-image /g)].length, 4);
+    assert.equal(
+      [...html.matchAll(/corestudio-canvas-result-rams-v2\.webp/g)].length,
+      5,
+      `${entrypoint} should reuse the real generated result for the hero and four editorial detail crops`
+    );
+  }
 });

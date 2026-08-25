@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - "website/**"
-      - "excalidraw/apps/image-board-desktop/src/app/canvasMinimapCore.mjs"
       - ".github/workflows/deploy-website-pages.yml"
   workflow_dispatch:
 
@@ -37,8 +36,6 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/corestudio-site"
           cp -R website/. "$RUNNER_TEMP/corestudio-site/"
-          mkdir -p "$RUNNER_TEMP/corestudio-site/excalidraw/apps/image-board-desktop/src/app"
-          cp excalidraw/apps/image-board-desktop/src/app/canvasMinimapCore.mjs "$RUNNER_TEMP/corestudio-site/excalidraw/apps/image-board-desktop/src/app/"
           mkdir -p "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Excalifont"
           cp excalidraw/packages/excalidraw/fonts/Excalifont/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Excalifont/"
           mkdir -p "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Xiaolai"

@@ -48,21 +48,21 @@
       hreflang="x-default"
       href="https://getcorestudio.com/"
     />
-    <link rel="stylesheet" href="styles.css?v=20260821-22" />
-    <script type="module" src="main.js?v=20260821-13"></script>
+    <link rel="stylesheet" href="styles.css?v=20260825-3" />
+    <script type="module" src="main.js?v=20260825-2"></script>
   </head>
   <body class="page-en">
     <!--
-    THESIS: The CoreStudio website is a living canvas, not a page that explains one in stacked marketing sections.
-    OWN-WORLD: Paper-white dotted space, native CoreStudio controls, silver industrial imagery, precise selection geometry, and quiet production status feedback.
-    STORY: References enter a local project, a model generates on the canvas, and a Codex cursor writes the result back before the visitor downloads the macOS app.
-    FIRST VIEWPORT: A selected headline and reference cluster balance a large generated object; toolbar, minimap, composer, and download action form the working edge of the canvas.
-    FORM: Center workshop canvas from the user-pinned direction; concept seed 4fb4245c.
+    THESIS: The CoreStudio website is an operable industrial-design editorial desk, not a conventional marketing page or a screenshot of an editor.
+    OWN-WORLD: Cool paper grid, near-black editorial type, warm ivory and aluminum imagery; violet belongs only to authentic CoreStudio interaction states.
+    STORY: Visitors move from real references to a large generated result, then inspect its material details on the same local canvas before downloading the macOS app.
+    FIRST VIEWPORT: One near-black title field and a compact reference strip occupy the left while an aggressively cropped result owns the right; detail studies and secondary annotations appear only after generation.
+    FORM: User-delegated industrial-design editorial desk; approved comp industrial-editorial-wide.png; direction seed 5cad0bdf is recorded for reproducibility, and the explicit user-pinned direction overrides its assigned challenger.
     FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
     -->
     <a class="skip-link" href="#main">Skip to the canvas</a>
 
-    <div class="canvas-app" data-canvas-app data-active-tool="select">
+    <div class="canvas-app" data-canvas-app>
       <header class="canvas-header">
         <a class="brand" href="#canvas-home" aria-label="CoreStudio home">
           <img
@@ -78,45 +78,6 @@
           />
           <span>CoreStudio</span>
         </a>
-
-        <div
-          class="canvas-toolbar"
-          role="toolbar"
-          aria-label="Canvas demo tools"
-        >
-          <button
-            class="tool-button fillable is-active"
-            type="button"
-            data-tool="select"
-            aria-label="Select objects"
-            aria-pressed="true"
-          >
-            <svg viewBox="0 0 22 22" aria-hidden="true">
-              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-              <path
-                d="M6 6l4.153 11.793a0.365 .365 0 0 0 .331 .207a0.366 .366 0 0 0 .332 -.207l2.184 -4.793l4.787 -1.994a0.355 .355 0 0 0 .213 -.323a0.355 .355 0 0 0 -.213 -.323l-11.787 -4.36z"
-              />
-              <path d="M13.5 13.5l4.5 4.5" />
-            </svg>
-          </button>
-          <button
-            class="tool-button"
-            type="button"
-            data-tool="hand"
-            aria-label="Pan the canvas"
-            aria-pressed="false"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-              <path d="M8 13v-7.5a1.5 1.5 0 0 1 3 0v6.5" />
-              <path d="M11 5.5v-2a1.5 1.5 0 1 1 3 0v8.5" />
-              <path d="M14 5.5a1.5 1.5 0 0 1 3 0v6.5" />
-              <path
-                d="M17 7.5a1.5 1.5 0 0 1 3 0v8.5a6 6 0 0 1 -6 6h-2h.208a6 6 0 0 1 -5.012 -2.7a69.74 69.74 0 0 1 -.196 -.3c-.312 -.479 -1.407 -2.388 -3.286 -5.728a1.5 1.5 0 0 1 .536 -2.022a1.867 1.867 0 0 1 2.28 .28l1.47 1.47"
-              />
-            </svg>
-          </button>
-        </div>
 
         <div class="header-actions">
           <a
@@ -172,11 +133,7 @@
               ></span>
             </div>
 
-            <section
-              class="scene-title is-selected"
-              id="canvas-home"
-              data-scene-object
-            >
+            <section class="scene-title" id="canvas-home" data-scene-object>
               <div class="scene-heading">
                 <div class="canvas-selection-overlay" aria-hidden="true">
                   <span class="canvas-selection-border"></span>
@@ -257,9 +214,56 @@
               <figcaption>4 references · saved locally</figcaption>
             </figure>
 
+            <figure class="result-studies" data-scene-object>
+              <div
+                class="result-study-images"
+                aria-label="Four industrial-design details from the generated result"
+              >
+                <span class="result-study-crop">
+                  <img
+                    class="result-study-image result-study-image-a"
+                    src="assets/corestudio-canvas-result-rams-v2.webp"
+                    alt=""
+                  />
+                </span>
+                <span class="result-study-crop">
+                  <img
+                    class="result-study-image result-study-image-b"
+                    src="assets/corestudio-canvas-result-rams-v2.webp"
+                    alt=""
+                  />
+                </span>
+                <span class="result-study-crop">
+                  <img
+                    class="result-study-image result-study-image-c"
+                    src="assets/corestudio-canvas-result-rams-v2.webp"
+                    alt=""
+                  />
+                </span>
+                <span class="result-study-crop">
+                  <img
+                    class="result-study-image result-study-image-d"
+                    src="assets/corestudio-canvas-result-rams-v2.webp"
+                    alt=""
+                  />
+                </span>
+                <div class="canvas-selection-overlay" aria-hidden="true">
+                  <span class="canvas-selection-border"></span>
+                  <span class="canvas-transform-handle canvas-handle-nw"></span>
+                  <span class="canvas-transform-handle canvas-handle-ne"></span>
+                  <span class="canvas-transform-handle canvas-handle-se"></span>
+                  <span class="canvas-transform-handle canvas-handle-sw"></span>
+                  <span
+                    class="canvas-transform-handle canvas-handle-rotation"
+                  ></span>
+                </div>
+              </div>
+              <figcaption>Result details · kept editable on the canvas</figcaption>
+            </figure>
+
             <svg
               class="canvas-connectors"
-              viewBox="0 0 1400 780"
+              viewBox="0 0 1680 960"
               aria-hidden="true"
             >
               <g
@@ -271,15 +275,15 @@
               >
                 <path
                   class="excalidraw-arrow-stroke"
-                  d="M630 548 C661.2134548835456 549.6806836314499, 681.2795737199485 512.3030356355011, 705.0814600400627 475.15759386494756 M629.8331612758338 546.5279457755387 C661.674359982647 552.0307223534212, 682.3987219924107 512.309295657836, 705.2411106819287 475.85372738000007 M707 477 C718.2880077771842 460.4234124608338, 730.5428969077766 451.1766352839768, 740.6179994754493 445.4526794143021 M705.3617928437889 475.1023625321686 C719.2213957065717 457.9921519195661, 733.1653093749658 452.8488389706239, 741.0130588585511 445.56416111942383"
+                  d="M716 588 C735 586 750 548 768 500 M715 585 C737 584 751 545 770 499"
                 />
                 <path
                   class="excalidraw-arrow-stroke"
-                  d="M732.3109426721151 464.5807450455779 C735.215240255223 460.79648205331466, 735.4909595037298 455.98197801925244, 742.2096465434879 443.84830070473254 M730.4333297674696 466.32822490252346 C735.2562948573844 458.2322430928151, 739.1416254609876 449.36002908240386, 741.6005221353844 444.80399713944644"
+                  d="M752 508 C758 505 764 501 771 495 M753 511 C760 507 766 502 772 497"
                 />
                 <path
                   class="excalidraw-arrow-stroke"
-                  d="M719.4366951362186 455.1021181354963 C723.4479280711371 450.26175421955725, 729.8775180797834 449.0931061073196, 743.4160518869758 442.24063620716333 M719.0531532206529 453.15031186218494 C727.9892502827983 449.67037383559267, 736.3074077706506 446.5732386126139, 742.0201478488743 444.55681301280856"
+                  d="M759 516 C763 510 768 503 773 496 M757 514 C762 509 767 502 771 496"
                 />
               </g>
             </svg>
@@ -373,9 +377,9 @@
             <button
               class="zoom-value"
               type="button"
-              data-minimap-toggle
-              aria-label="Close minimap, current zoom 90%"
-              aria-pressed="true"
+              data-zoom-toggle
+              aria-label="Collapse zoom controls, current zoom 90%"
+              aria-expanded="true"
             >
               <span data-zoom-label>90%</span>
             </button>
@@ -384,15 +388,6 @@
                 <path d="M10 4.167v11.666M4.167 10h11.666" />
               </svg>
             </button>
-          </div>
-          <div class="minimap is-open" data-minimap>
-            <canvas
-              class="minimap-canvas"
-              data-minimap-canvas
-              role="application"
-              tabindex="0"
-              aria-label="Canvas minimap. Drag the viewport to pan the canvas."
-            ></canvas>
           </div>
         </div>
 
@@ -428,26 +423,6 @@
           ></p>
         </form>
 
-        <div class="canvas-links" aria-label="Project links">
-          <a
-            href="https://github.com/walnut-a/CoreStudio"
-            target="_blank"
-            rel="noreferrer"
-            >Source</a
-          >
-          <a
-            href="https://github.com/walnut-a/CoreStudio/blob/main/website/THIRD_PARTY_ASSETS.md"
-            target="_blank"
-            rel="noreferrer"
-            >Credits</a
-          >
-          <a
-            href="https://github.com/walnut-a/CoreStudio/blob/main/LICENSE"
-            target="_blank"
-            rel="noreferrer"
-            >MIT</a
-          >
-        </div>
       </main>
     </div>
   </body>

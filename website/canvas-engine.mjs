@@ -8,14 +8,14 @@ export const GENERATION_SETTLE_MS = 1200;
 
 export const CAMERA_VIEWS = Object.freeze({
   desktop: Object.freeze({
-    overview: Object.freeze({ x: 0, y: 8, zoom: 0.9 }),
-    generate: Object.freeze({ x: -92, y: 20, zoom: 1 }),
-    agent: Object.freeze({ x: -205, y: 70, zoom: 1.08 }),
+    overview: Object.freeze({ x: 0, y: 0, zoom: 0.9 }),
+    generate: Object.freeze({ x: -360, y: 32, zoom: 1 }),
+    agent: Object.freeze({ x: -450, y: -130, zoom: 1.04 }),
   }),
   mobile: Object.freeze({
-    overview: Object.freeze({ x: 310, y: 34, zoom: 0.8 }),
-    generate: Object.freeze({ x: -176, y: 20, zoom: 0.84 }),
-    agent: Object.freeze({ x: -238, y: 78, zoom: 0.94 }),
+    overview: Object.freeze({ x: 390, y: -40, zoom: 0.72 }),
+    generate: Object.freeze({ x: -350, y: 36, zoom: 0.72 }),
+    agent: Object.freeze({ x: -430, y: -80, zoom: 0.8 }),
   }),
 });
 
@@ -47,6 +47,36 @@ export const getCanvasMinimumZoom = ({
     Math.max(1, viewportHeight - CANVAS_FIT_PADDING) / planeHeight
   );
   return clampZoom(Math.min(MIN_ZOOM, fitZoom), EXCALIDRAW_MIN_ZOOM);
+};
+
+export const getResponsiveOverviewView = (
+  baseView,
+  { viewportWidth, viewportHeight, planeWidth, planeHeight }
+) => {
+  if (
+    viewportWidth <= 0 ||
+    viewportHeight <= 0 ||
+    planeWidth <= 0 ||
+    planeHeight <= 0
+  ) {
+    return { ...baseView };
+  }
+
+  const fitZoom = Math.min(
+    Math.max(1, viewportWidth - 120) / planeWidth,
+    Math.max(1, viewportHeight - 160) / planeHeight
+  );
+
+  const zoom = clampZoom(Math.max(baseView.zoom, fitZoom));
+  const verticalAir = viewportHeight - planeHeight * zoom;
+  const wideScreenLift = Math.max(0, verticalAir - 160) * 0.5;
+  const shortScreenPush = Math.max(0, 900 - viewportHeight) * 0.39;
+
+  return {
+    ...baseView,
+    y: Number((baseView.y + shortScreenPush - wideScreenLift).toFixed(2)),
+    zoom,
+  };
 };
 
 export const applyCanvasWheelGesture = (
@@ -111,9 +141,9 @@ export const applyCanvasPinchGesture = (
   };
 };
 
-export const getZoomControlState = (minimapOpen) => ({
-  minimapOpen: Boolean(minimapOpen),
-  showIncrementControls: Boolean(minimapOpen),
+export const getZoomControlState = (expanded) => ({
+  expanded: Boolean(expanded),
+  showIncrementControls: Boolean(expanded),
 });
 
 export const getGenerationSequence = (reducedMotion) => [

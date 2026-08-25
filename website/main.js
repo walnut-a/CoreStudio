@@ -6,14 +6,10 @@ import {
   composeTransform,
   getCanvasMinimumZoom,
   getGenerationSequence,
+  getResponsiveOverviewView,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260821-10";
-import {
-  canvasMinimapHasPoint,
-  minimapPointToScene,
-  renderCanvasMinimapScene,
-} from "/excalidraw/apps/image-board-desktop/src/app/canvasMinimapCore.mjs";
+} from "./canvas-engine.mjs?v=20260825-2";
 
 document.documentElement.classList.add("js");
 
@@ -24,9 +20,7 @@ if (app) {
   const plane = app.querySelector("[data-canvas-plane]");
   const zoomLabel = app.querySelector("[data-zoom-label]");
   const zoomControl = app.querySelector("[data-zoom-control]");
-  const minimap = app.querySelector("[data-minimap]");
-  const minimapCanvas = app.querySelector("[data-minimap-canvas]");
-  const minimapToggle = app.querySelector("[data-minimap-toggle]");
+  const zoomToggle = app.querySelector("[data-zoom-toggle]");
   const promptInput = app.querySelector("[data-prompt-input]");
   const generationForm = app.querySelector("[data-generation-form]");
   const generateButton = app.querySelector("[data-generate-button]");
@@ -36,19 +30,14 @@ if (app) {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   let activeCamera = "overview";
-  let activeTool = "select";
   let view = { ...CAMERA_VIEWS.desktop.overview };
-  let dragState = null;
   let touchGestureState = null;
   let suppressCanvasClick = false;
   const touchPointers = new Map();
-  let minimapDragState = null;
-  let minimapModel = null;
-  let minimapRenderFrame = null;
   let generationTimer = null;
-  let minimapOpen = mobileLayout.matches
+  let zoomControlsExpanded = mobileLayout.matches
     ? false
-    : minimapToggle?.getAttribute("aria-pressed") === "true";
+    : zoomToggle?.getAttribute("aria-expanded") === "true";
 
   const mode = () => (mobileLayout.matches ? "mobile" : "desktop");
   const isChinese = document.documentElement.lang.startsWith("zh");
@@ -63,71 +52,24 @@ if (app) {
     });
 
   const renderZoomControls = () => {
-    const state = getZoomControlState(minimapOpen);
+    const state = getZoomControlState(zoomControlsExpanded);
     zoomControl?.classList.toggle("is-expanded", state.showIncrementControls);
-    minimap?.classList.toggle("is-open", state.minimapOpen);
-    if (minimapToggle) {
-      minimapToggle.setAttribute("aria-pressed", String(state.minimapOpen));
-      const action = state.minimapOpen
+    if (zoomToggle) {
+      zoomToggle.setAttribute("aria-expanded", String(state.expanded));
+      const action = state.expanded
         ? isChinese
-          ? "关闭迷你地图"
-          : "Close minimap"
+          ? "收起缩放控件"
+          : "Collapse zoom controls"
         : isChinese
-        ? "打开迷你地图"
-        : "Open minimap";
-      minimapToggle.setAttribute(
+        ? "展开缩放控件"
+        : "Expand zoom controls";
+      zoomToggle.setAttribute(
         "aria-label",
         `${action}，${isChinese ? "当前缩放" : "current zoom"} ${Math.round(
           view.zoom * 100
         )}%`
       );
     }
-  };
-
-  const getSceneElements = () =>
-    [...app.querySelectorAll("[data-scene-object]")].map((element) => ({
-      bounds: {
-        x: element.offsetLeft,
-        y: element.offsetTop,
-        width: element.offsetWidth,
-        height: element.offsetHeight,
-      },
-      category: element.matches("figure") ? "image" : "shape",
-      selected: element.classList.contains("is-selected"),
-    }));
-
-  const getMinimapAppState = () => {
-    const width = viewport?.clientWidth ?? 0;
-    const height = viewport?.clientHeight ?? 0;
-    const planeWidth = plane?.clientWidth ?? 0;
-    const planeHeight = plane?.clientHeight ?? 0;
-    return {
-      width,
-      height,
-      scrollX: -planeWidth / 2 + (width / 2 + view.x) / view.zoom,
-      scrollY: -planeHeight / 2 + (height / 2 + view.y) / view.zoom,
-      zoom: { value: view.zoom },
-    };
-  };
-
-  const drawMinimap = () => {
-    minimapRenderFrame = null;
-    if (!minimapCanvas || !minimapOpen) {
-      return;
-    }
-    minimapModel = renderCanvasMinimapScene({
-      canvas: minimapCanvas,
-      elements: getSceneElements(),
-      appState: getMinimapAppState(),
-      offsets: { top: 0, right: 0, bottom: 0, left: 0 },
-    });
-  };
-
-  const scheduleMinimapDraw = () => {
-    if (minimapRenderFrame !== null) {
-      return;
-    }
-    minimapRenderFrame = window.requestAnimationFrame(drawMinimap);
   };
 
   const renderView = () => {
@@ -141,13 +83,21 @@ if (app) {
       zoomLabel.textContent = `${Math.round(view.zoom * 100)}%`;
     }
     renderZoomControls();
-    scheduleMinimapDraw();
   };
 
   const setCamera = (name) => {
-    const next = CAMERA_VIEWS[mode()][name];
+    let next = CAMERA_VIEWS[mode()][name];
     if (!next) {
       return;
+    }
+
+    if (name === "overview" && !mobileLayout.matches) {
+      next = getResponsiveOverviewView(next, {
+        viewportWidth: viewport?.clientWidth ?? 0,
+        viewportHeight: viewport?.clientHeight ?? 0,
+        planeWidth: plane?.clientWidth ?? 0,
+        planeHeight: plane?.clientHeight ?? 0,
+      });
     }
 
     activeCamera = name;
@@ -167,16 +117,6 @@ if (app) {
     setCustomView({
       ...view,
       zoom: stepZoom(view.zoom, direction, getMinimumZoom()),
-    });
-  };
-
-  const setTool = (name) => {
-    activeTool = name;
-    app.dataset.activeTool = name;
-    app.querySelectorAll("[data-tool]").forEach((button) => {
-      const selected = button.dataset.tool === name;
-      button.classList.toggle("is-active", selected);
-      button.setAttribute("aria-pressed", String(selected));
     });
   };
 
@@ -215,7 +155,6 @@ if (app) {
     app.querySelectorAll("[data-scene-object]").forEach((item) => {
       item.classList.toggle("is-selected", item === selectedObject);
     });
-    scheduleMinimapDraw();
   };
 
   const runDemo = () => {
@@ -224,6 +163,7 @@ if (app) {
     }
 
     clearGenerationTimer();
+    app.classList.add("has-generated-once");
     selectSceneObject(app.querySelector(".generation-result"));
     setCamera("generate");
     const sequence = getGenerationSequence(reducedMotion.matches);
@@ -239,132 +179,15 @@ if (app) {
     });
   };
 
-  app.querySelectorAll("[data-tool]").forEach((button) => {
-    button.addEventListener("click", () => setTool(button.dataset.tool));
-  });
-
   app
     .querySelector("[data-zoom-in]")
     ?.addEventListener("click", () => setZoom(1));
   app
     .querySelector("[data-zoom-out]")
     ?.addEventListener("click", () => setZoom(-1));
-  minimapToggle?.addEventListener("click", () => {
-    minimapOpen = !minimapOpen;
+  zoomToggle?.addEventListener("click", () => {
+    zoomControlsExpanded = !zoomControlsExpanded;
     renderZoomControls();
-    scheduleMinimapDraw();
-  });
-
-  const getMinimapPoint = (event) => {
-    const rect = minimapCanvas.getBoundingClientRect();
-    return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    };
-  };
-
-  const centerViewAtScenePoint = (point) => ({
-    ...view,
-    x: ((plane?.clientWidth ?? 0) / 2 - point.x) * view.zoom,
-    y: ((plane?.clientHeight ?? 0) / 2 - point.y) * view.zoom,
-  });
-
-  minimapCanvas?.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || !minimapModel) {
-      return;
-    }
-
-    event.preventDefault();
-    const mapPoint = getMinimapPoint(event);
-    const scenePoint = minimapPointToScene(mapPoint, minimapModel.transform);
-    const viewportCenter = {
-      x: minimapModel.viewportBounds.x + minimapModel.viewportBounds.width / 2,
-      y: minimapModel.viewportBounds.y + minimapModel.viewportBounds.height / 2,
-    };
-    const insideViewport = canvasMinimapHasPoint(
-      minimapModel.viewportMapBounds,
-      mapPoint,
-      8
-    );
-    minimapDragState = {
-      pointerId: event.pointerId,
-      grabOffsetX: insideViewport ? scenePoint.x - viewportCenter.x : 0,
-      grabOffsetY: insideViewport ? scenePoint.y - viewportCenter.y : 0,
-    };
-    minimapCanvas.setPointerCapture?.(event.pointerId);
-    minimap.classList.add("is-dragging");
-    app.classList.add("is-minimap-dragging");
-    setCustomView(
-      centerViewAtScenePoint({
-        x: scenePoint.x - minimapDragState.grabOffsetX,
-        y: scenePoint.y - minimapDragState.grabOffsetY,
-      })
-    );
-  });
-
-  minimapCanvas?.addEventListener("pointermove", (event) => {
-    if (
-      !minimapDragState ||
-      event.pointerId !== minimapDragState.pointerId ||
-      !minimapModel
-    ) {
-      return;
-    }
-
-    const scenePoint = minimapPointToScene(
-      getMinimapPoint(event),
-      minimapModel.transform
-    );
-    setCustomView(
-      centerViewAtScenePoint({
-        x: scenePoint.x - minimapDragState.grabOffsetX,
-        y: scenePoint.y - minimapDragState.grabOffsetY,
-      })
-    );
-  });
-
-  const endMinimapDrag = (event) => {
-    if (!minimapDragState || event.pointerId !== minimapDragState.pointerId) {
-      return;
-    }
-    if (minimapCanvas.hasPointerCapture?.(event.pointerId)) {
-      minimapCanvas.releasePointerCapture(event.pointerId);
-    }
-    minimapDragState = null;
-    minimap.classList.remove("is-dragging");
-    app.classList.remove("is-minimap-dragging");
-  };
-
-  minimapCanvas?.addEventListener("pointerup", endMinimapDrag);
-  minimapCanvas?.addEventListener("pointercancel", endMinimapDrag);
-
-  minimapCanvas?.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      minimapOpen = false;
-      renderZoomControls();
-      minimapToggle?.focus();
-      return;
-    }
-    if (!minimapModel || !event.key.startsWith("Arrow")) {
-      return;
-    }
-    event.preventDefault();
-    const factor = event.shiftKey ? 0.5 : 0.1;
-    const center = {
-      x: minimapModel.viewportBounds.x + minimapModel.viewportBounds.width / 2,
-      y: minimapModel.viewportBounds.y + minimapModel.viewportBounds.height / 2,
-    };
-    if (event.key === "ArrowLeft") {
-      center.x -= minimapModel.viewportBounds.width * factor;
-    } else if (event.key === "ArrowRight") {
-      center.x += minimapModel.viewportBounds.width * factor;
-    } else if (event.key === "ArrowUp") {
-      center.y -= minimapModel.viewportBounds.height * factor;
-    } else if (event.key === "ArrowDown") {
-      center.y += minimapModel.viewportBounds.height * factor;
-    }
-    setCustomView(centerViewAtScenePoint(center));
   });
 
   generationForm?.addEventListener("submit", (event) => {
@@ -423,20 +246,6 @@ if (app) {
       beginTouchGesture();
       return;
     }
-
-    if (activeTool !== "hand" || event.button !== 0) {
-      return;
-    }
-
-    dragState = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      viewX: view.x,
-      viewY: view.y,
-    };
-    viewport.setPointerCapture(event.pointerId);
-    app.classList.add("is-panning");
   });
 
   viewport?.addEventListener("pointermove", (event) => {
@@ -488,16 +297,6 @@ if (app) {
       }
       return;
     }
-
-    if (!dragState || event.pointerId !== dragState.pointerId) {
-      return;
-    }
-
-    setCustomView({
-      ...view,
-      x: dragState.viewX + event.clientX - dragState.startX,
-      y: dragState.viewY + event.clientY - dragState.startY,
-    });
   });
 
   const endDrag = (event) => {
@@ -518,12 +317,6 @@ if (app) {
       }
       return;
     }
-
-    if (!dragState || event.pointerId !== dragState.pointerId) {
-      return;
-    }
-    dragState = null;
-    app.classList.remove("is-panning");
   };
 
   viewport?.addEventListener("pointerup", endDrag);
@@ -554,9 +347,6 @@ if (app) {
       event.preventDefault();
       return;
     }
-    if (activeTool !== "select") {
-      return;
-    }
     const selectedObject = event.target.closest("[data-scene-object]");
     if (!selectedObject) {
       return;
@@ -564,23 +354,17 @@ if (app) {
     selectSceneObject(selectedObject);
   });
 
-  if (typeof ResizeObserver !== "undefined") {
-    const minimapResizeObserver = new ResizeObserver(scheduleMinimapDraw);
-    for (const element of [viewport, plane, minimapCanvas]) {
-      if (element) {
-        minimapResizeObserver.observe(element);
-      }
-    }
-  }
-
   mobileLayout.addEventListener("change", (event) => {
-    if (event.matches) {
-      minimapOpen = false;
-    }
+    zoomControlsExpanded = !event.matches;
     setCamera(activeCamera === "custom" ? "overview" : activeCamera);
   });
 
-  setTool("select");
+  window.addEventListener("resize", () => {
+    if (activeCamera === "overview") {
+      setCamera("overview");
+    }
+  });
+
   setCamera("overview");
   setGenerationState("generated");
 }

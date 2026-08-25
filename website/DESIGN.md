@@ -1,6 +1,6 @@
 ---
 name: CoreStudio Website
-description: A local-first image-generation canvas presented as a living workshop.
+description: A local-first image-generation canvas arranged as an industrial-design editorial desk.
 colors:
   ink: "#1b1b1f"
   primary: "#6965db"
@@ -13,33 +13,36 @@ colors:
   surface-low: "#ececf4"
   line: "#f1f0ff"
   success: "#2d9b59"
+  material-paper: "#eeede9"
+  material-warm: "#f4f0e9"
   generation-pending-stroke: "#6d5efc"
   generation-pending-fill: "#f4f2ff"
 typography:
   display:
-    fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif'
-    fontSize: "clamp(3.25rem, 4.2vw, 4.35rem)"
+    fontFamily: '"Smiley Sans", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif'
+    fontSize: "6rem"
+    fontWeight: 400
+    lineHeight: 0.88
+    letterSpacing: "-0.035em"
+  display-latin:
+    fontFamily: '"Assistant", "PingFang SC", "Microsoft YaHei", sans-serif'
+    fontSize: "4.2rem"
     fontWeight: 700
-    lineHeight: 0.98
+    lineHeight: 0.9
     letterSpacing: "-0.035em"
   body:
     fontFamily: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif'
-    fontSize: "1.03rem"
+    fontSize: "1.05rem"
     fontWeight: 400
     lineHeight: 1.5
   interface:
     fontFamily: '"Assistant", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "0.82rem"
+    fontSize: "0.8125rem"
     fontWeight: 600
     lineHeight: 1.2
   canvas:
     fontFamily: '"Excalifont", "Xiaolai", sans-serif'
     fontSize: "20px"
-    fontWeight: 400
-    lineHeight: 1.25
-  canvas-status:
-    fontFamily: '"Excalifont", "Xiaolai", sans-serif'
-    fontSize: "24px"
     fontWeight: 400
     lineHeight: 1.25
 rounded:
@@ -52,6 +55,7 @@ spacing:
   sm: "8px"
   md: "12px"
   lg: "16px"
+  xl: "20px"
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
@@ -60,11 +64,10 @@ components:
     rounded: "{rounded.control}"
     padding: "0 14px"
     height: "40px"
-  tool-button-active:
-    backgroundColor: "{colors.surface-high}"
-    textColor: "{colors.primary}"
+  floating-control:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.control}"
-    size: "36px"
   image-result:
     backgroundColor: "{colors.surface}"
     rounded: "0"
@@ -74,155 +77,137 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Living Canvas Workshop"**
+**Creative North Star: "The Industrial Design Editorial Desk"**
 
-CoreStudio does not sit inside a conventional marketing page. The page itself behaves like a restrained Excalidraw workspace: product proof, controls, references, generated work, and the download action coexist on one paper-white canvas. The mood is precise, quiet, and useful rather than promotional.
+CoreStudio 的官网不是套着产品截图的营销页面，而是一张已经打开的本地设计画布。视觉语言来自工业设计编辑部的工作桌：冷白点阵纸面、压缩而有个性的标题、真实参考素材拼贴、大幅产品裁切和细节检查带。页面必须先像一件设计作品，再自然暴露它可以平移、缩放、生成与写回。
 
-The visual identity remains grounded in the incumbent CoreStudio palette, production design tokens, and application icon. Silver industrial-design imagery supplies material depth; every toolbar, zoom control, minimap, composer, selection overlay, and action uses the same geometry and states as the desktop product. Generation is communicated by the production canvas placeholder, not a decorative effect layer.
+产品界面与编辑内容承担不同角色。倍率、输入框、选区和生成占位严格沿用 CoreStudio / Excalidraw 的真实几何与状态；标题、图片比例和空间编排则形成网站自己的编辑感。紫色只表示真实交互状态，艺术感主要由排版、留白、裁切和实体材料图像产生。
 
 **Key Characteristics:**
 
-- One continuous dotted canvas instead of stacked landing-page sections.
-- Real raster material references and generated results, connected by hand-drawn paths.
-- Compact desktop-tool controls with clear selected, hover, focus, and disabled states.
-- Camera movement reveals project, generation, and Agent writeback without turning the page into a full editor.
-- Download remains the only dominant action.
+- 一张 1680 × 960 的连续编辑画布，不拆成常规网页区块。
+- 左侧是近黑标题场与 Dieter Rams 单行参考带，右侧是大幅生成结果；同一结果的细节检查带只在用户完成生成后出现。
+- 工具与网站导航退到视口边缘，让内容像正在被编辑，而不是被包装。
+- 只有一次明确的参考到结果关系箭头；不使用伪流程线、装饰图形或技术测量。
+- 下载始终是唯一主行动，生成演示只在用户提交后发生。
 
 ## Colors
 
-The palette is CoreStudio's existing Excalidraw-derived system: white islands, gray-violet surfaces, dark text, and a small amount of violet and green for state.
+基础色保持 CoreStudio 的冷白、近黑与灰紫体系；暖白和铝灰来自产品图像，不由页面渐变伪造。
 
 ### Primary
 
-- **CoreStudio Primary:** Carries the macOS download, selected tools, focus, and the send control using the production primary, hover, and active values.
-- **Excalidraw Selection:** Marks selection geometry, minimap state, and generating connectors.
+- **CoreStudio Violet:** 仅用于下载按钮、选中工具、选区、焦点和生成状态。
+- **Writeback Green:** 只标识真实的完成或写回状态，不承担装饰作用。
 
 ### Neutral
 
-- **Paper White:** Infinite-canvas ground behind the dotted grid.
-- **Clean Surface:** Floating controls, the result frame, minimap, and composer.
-- **Workshop Ink:** Display lettering and high-priority interface text.
-- **Working Gray:** Supporting copy and passive controls.
-- **Construction Line:** Borders and lightweight geometry.
+- **Cool Canvas Paper:** 点阵画布与网页背景，保持接近编辑软件的低对比冷白。
+- **Clean Surface:** 倍率、输入框等浮动界面岛。
+- **Editorial Ink:** 标题、重要说明和高优先级界面文字。
+- **Working Gray:** 辅助文案、被动控件和非当前状态。
+- **Warm Material Paper:** 只作为真实素材或生成结果的底色语境，不扩散成装饰卡片。
 
 ### Named Rules
 
-**The Production Token Rule.** Website controls use the values from `apps/image-board-desktop/src/app/styles/designTokens.css`; local approximations are not a second source of truth.
+**The State Color Rule.** 紫色只属于真实的选中、焦点、提交和生成状态；静态内容不借它制造品牌装饰。
 
-**The Material Carries Color Rule.** Outside active generation, warmth and chroma come from the industrial-design imagery, not decorative page backgrounds.
+**The Material Carries Color Rule.** 网站的暖度和色彩来自 Dieter Rams 素材与生成结果，背景和容器保持克制。
 
 ## Typography
 
-**Display Font:** System CJK sans stack, led by PingFang SC on macOS.
+**Display Font:** Smiley Sans，中文首页使用本地托管的倾斜字形。
 
-**Body Font:** The same CJK sans stack for a continuous product voice.
+**Body Font:** 以 PingFang SC 为首的系统 CJK 无衬线栈。
 
-**Label/Interface Font:** Assistant for Latin interface text, with the CJK stack as fallback.
+**Label/Interface Font:** Assistant 配合 CJK 系统字体；画布标注使用 Excalifont / Xiaolai。
 
-**Character:** Heavy, compact display lettering reads like a selected text object on a working canvas. Interface type stays smaller and denser so tools remain subordinate to the work.
+**Character:** 中文标题要像一本工业设计刊物的封面标题：窄、重心前倾、字面占满，但不靠额外描边或阴影制造戏剧性。正文和控件保持软件界面的清晰与中性，让显示字体只出现一次。
 
 ### Hierarchy
 
-- **Display** (700, responsive 3.25–4.35rem, 0.98 line-height): the single selected product proposition.
-- **Body** (400, 1.03rem, 1.5 line-height): one short supporting sentence below the proposition.
-- **Interface** (600–700, 0.7–0.9rem): toolbars, status, composer, and metadata.
+- **Display**（400，6rem，0.9 行高）：中文主命题；窄屏降到 4.35rem。
+- **Display Latin**（700，4.2rem，0.9 行高）：英文主命题，保持 Assistant 的紧凑几何感，并为说明文字与参考素材留出稳定间距。
+- **Body**（400，1.05rem，1.5 行高）：标题下唯一一段产品解释。
+- **Interface**（600，0.8125rem）：导航、工具、状态和元信息。
+- **Canvas**（400，20px）：画布内真实标注，尺寸随场景缩放。
 
 ### Named Rules
 
-**The Selected Statement Rule.** The largest text should feel like an editable canvas object through scale and selection geometry, not like a polished marketing billboard.
+**The One Display Voice Rule.** 每个视口只允许一个显示字体主命题；其余信息回到产品字体或画布字体。
+
+**The Unselected Opening Rule.** 首页首次出现时不默认选中标题；选区只响应用户点击或生成后的真实对象状态。
+
+**The Cover Contrast Rule.** 首屏只允许标题场使用大面积近黑底与白字，形成明确封面焦点；其他画布对象保持原生白底与材料色。
 
 ## Layout
 
-The desktop world is a fixed 1400 × 780 spatial plane centered inside the viewport. A three-column reading order—title and references, connectors and model choice, generated result and Agent writeback—provides narrative without page scrolling. Header, zoom/minimap, composer, and source links stay pinned to the viewport edge as canvas chrome.
+桌面场景是一张固定的 1680 × 960 编辑平面。近黑标题场与 4 张参考图组成左侧，参考图被压成一条不等宽的单行素材带；大幅 4:3 结果图占据右半侧并通过裁切放大旋钮、网孔与壳体材料。四格细节带位于结果下方，但首次进入时隐藏。固定于视口的品牌、下载、倍率和 composer 构成真实应用外壳。
 
-Camera transforms, not document flow, reveal alternate moments. The fixed plane reserves explicit non-overlapping zones for the selected statement, reference board, connectors, generated result, and Agent annotation; viewport width must never enlarge content inside that fixed coordinate system. At 820px and below, the toolbar is removed and the controls stack into the top corners. Mobile keeps a stable page while direct gestures move the canvas plane: one finger pans, two fingers continuously zoom around their shared center, and a tap still selects a canvas object. Its minimum zoom fits the complete fixed plane inside the current viewport, bounded by Excalidraw's production minimum. At 470px, the selected title narrows and the display size reduces while preserving its composition.
+镜头以当前视口计算构图倍率。桌面以 90% 的封面镜头起步，让黑色标题场和主产品图占据绝大多数首屏；细节带通过生成后的渐进披露出现，不再与首次认知竞争。矮屏自动下推内容，超宽或高分辨率屏幕提高倍率并向上收紧空白。820px 以下回到完整场景适配，但不把场景改成纵向网页；画布继续支持单指平移、双指以手势中心缩放和点击选中。最小倍率以完整场景适配视口为准，并受生产级缩放下限约束。
 
-The recurring spacing rhythm is 4, 8, 12, and 20px. The dotted grid repeats every 22px on the main canvas and every 8px in the minimap.
+界面内部使用 4、8、12、16、20px 节奏；主画布点阵每 22px 重复。
 
 ## Elevation & Depth
 
-Depth is functional and inherited from the product. The canvas stays flat; floating controls use the production island shadow, while raster imagery supplies the only substantial physical volume.
+画布内容默认扁平，物理深度来自照片中的真实材料与光线。只有视口级应用控件使用产品的 island shadow；大图、标题、注释和细节带不获得营销卡片式悬浮阴影。
 
 ### Shadow Vocabulary
 
-- **Island Shadow** (`0 0 1px rgba(0,0,0,.17), 0 0 3px rgba(0,0,0,.08), 0 7px 14px rgba(0,0,0,.05)`): toolbar, minimap, composer, and compact mobile navigation.
-- **Selection Edge:** Every selectable canvas object uses the same one-pixel Excalidraw outline, four screen-constant 8px handles, and rotation handle.
+- **Island Shadow**（`0 0 1px rgba(0,0,0,.17), 0 0 3px rgba(0,0,0,.08), 0 7px 14px rgba(0,0,0,.05)`）：composer 与紧凑移动端控制。
+- **Selection Edge:** 一像素 Excalidraw 选框、四个视觉恒定的 8px 控点和旋转手柄。
 
 ### Named Rules
 
-**The Flat Canvas Rule.** Shadows belong to viewport chrome and movable work, never to invented marketing cards.
+**The Flat Canvas Rule.** 阴影用于浮动应用控件，不用于把内容包装成网页卡片。
 
 ## Shapes
 
-Controls use the production 6px compact and 8px regular radii. Selection geometry stays sharper—thin violet strokes, 2px handle radii, and square corner handles—to preserve the Excalidraw editing character. The reference-to-result relationship uses one open Excalidraw arrow generated with the product's default Rough.js stroke, roughness, arrowhead size, and arrowhead angle; repeated decorative flow lines are not used.
+应用控件沿用产品的 6px 紧凑圆角与 8px 常规圆角。选择几何更锐利：细紫线、2px 控点圆角和方形角手柄。图片本身保持直角并通过容器裁切；箭头采用产品默认的 Rough.js 开放笔触与箭头几何。不得增加与内容无关的圆、线框、波浪或假测量标记。
 
 ## Components
 
 ### Buttons
 
-- **Primary:** CoreStudio violet, white interface label, 8px radius, and 40px height.
-- **Hover / Focus:** Hover uses the production primary-hover value; keyboard focus uses the production 2px mixed violet ring.
-- **Tool:** 36px square, transparent at rest, `surface-high` on hover, and violet icon when active.
-- **Composer action:** 28px icon-only send button with a 9% primary tint, 20% mixed border, and the production disabled state.
+- **Primary:** CoreStudio violet、白色界面文字、8px 圆角、40px 高度；只用于下载等唯一主行动。
+- **Hover / Focus:** hover 使用生产 primary-hover；键盘焦点使用 2px 混合紫色环。
+- **Composer Action:** 28px 图标按钮，使用真实发送图标、轻紫底与生产禁用状态。
 
-### Canvas Annotations
+### Canvas Objects
 
-- **Style:** Plain Excalidraw text objects without dots, pills, or webpage-card decoration.
-- **State:** Selection uses the shared production transform overlay; annotations remain canvas objects on narrow viewports and move or scale with the scene.
-
-### Cards / Containers
-
-- **Corner Style:** Compact controls use 6px and regular controls use 8px; raster canvas images remain square.
-- **Background:** White or translucent white against paper.
-- **Shadow Strategy:** Only floating chrome and visual work lift from the plane.
-- **Border:** Borders appear on selection geometry and minimap viewport, not around every surface.
+- **Text:** 普通 Excalidraw 文本对象，不加圆点、标题胶囊或网页标签。
+- **Images:** 真实图片元素；选中后只叠加生产选框，不在图片内部增加状态徽章。
+- **Reference Sheet:** 四张授权参考图以一条不等宽素材带排列，不加卡片底与单张阴影。
+- **Result Studies:** 复用同一结果图的四种裁切，表达检查细节，不伪造四次不同生成；首次进入隐藏，生成完成后与模型、Agent 标注一起出现。
 
 ### Inputs / Fields
 
-- **Style:** The generation composer uses one white island containing a borderless prompt and 28px icon-only send action. Controls without working content are omitted.
-- **Focus:** The entire composer receives a soft violet two-pixel halo in addition to the focused element's accessible outline.
-- **Disabled:** Only the action is disabled during generation; the live region reports progress and completion.
+- **Style:** 一个白色浮动 composer 包含无边框 prompt 与 28px 发送动作，不添加无功能的设置或模型控件。
+- **Focus:** composer 获得柔和的两像素紫色 halo，同时保留可访问的元素焦点。
+- **Disabled:** 生成期间只禁用发送动作，live region 报告进度和完成。
 
 ### Navigation
 
-Desktop navigation behaves like application chrome: brand and toolbar align left/center while language and download align right. Mobile keeps brand, language, download, canvas controls, and the composer visible without adding a second navigation layer.
+品牌位于顶部左侧，语言和下载位于右侧；移动端保留品牌、语言、下载、倍率与 composer，不增加第二层标签导航。所有图标取自软件现有图标体系，不自行绘制替代符号。
 
 ### Generation Status
 
-Generation uses the production canvas placeholder: a flat Excalidraw rectangle with the same violet dashed stroke, light fill, and centered canvas-font label as `generationPlaceholderState.ts`. When generation settles, the placeholder is replaced by a plain image element; status badges never sit on top of generated images. Every selected object uses the production one-pixel selection border, four screen-constant 8px corner handles, and rotation handle. The temporary connector color shift remains restrained. Generation begins only after the visitor submits the composer and does not imply that Codex performed it. Agent write-back remains a spatial canvas element reached through normal canvas navigation; its cursor follows Excalidraw's 11 × 14 collaboration cursor and label geometry. There is no autoplay, glow, blur field, moving dash, or decorative color bloom.
-
-### Motion
-
-- **Control feedback:** 150ms, matching production buttons, selected states, status changes, and disclosure feedback.
-- **Canvas navigation:** 180ms with the production minimap easing for story targets, minimap viewport movement, and camera changes.
-- **Working status:** The production dashed placeholder remains stable while the simulated generation settles once after 1.2s.
-- **Flow rule:** Time communicates state, not spectacle. No chained 3-second demo timeline or automatic camera tour.
-
-### Minimap
-
-The minimap uses the production canvas renderer over the same scene bounds and object topology as the canvas. Its viewport rectangle changes with camera position and zoom; clicking or dragging the viewport pans the real simulated scene.
-
-### Canvas Input
-
-- **Trackpad / wheel:** Unmodified two-axis scrolling pans the canvas using the platform's native deltas.
-- **Modified trackpad / wheel:** `Command` or `Control` plus vertical scrolling zooms in discrete canvas steps.
-- **Pointer:** Dragging with the hand tool pans; the zoom buttons retain the same discrete zoom steps.
-- **Mobile:** One-finger dragging pans the canvas, two-finger pinching zooms around the gesture center, and taps remain available for object selection. Touch gestures are handled only inside the canvas viewport; viewport chrome keeps its native button and input behavior.
+生成开始后，真实生产占位符接管结果区：Excalidraw 矩形、紫色虚线、浅紫填充和居中画布字体。完成时以一次 520ms 裁切揭示恢复图片；参考拼贴和细节带只降低透明度表达上下文。整个流程只由用户提交触发，减弱动态模式直接显示稳定结果。
 
 ## Do's and Don'ts
 
 ### Do:
 
-- **Do** let visible product operations explain the product before adding prose.
-- **Do** keep the macOS download continuously available and visually dominant.
-- **Do** use raster imagery for metal, light, and other physical material.
-- **Do** preserve keyboard focus, live status updates, and reduced-motion behavior.
-- **Do** keep violet rare and tied to state.
+- **Do** 用排版、裁切、留白和真实材料图像建立艺术感。
+- **Do** 让所有可交互组件继承软件中的图标、尺寸、状态和无障碍行为。
+- **Do** 保持下载动作可见且是唯一主 CTA。
+- **Do** 在桌面、超宽屏与 390px 移动端检查真实镜头和触摸行为。
+- **Do** 保留 reduced-motion、键盘焦点和 live status。
 
 ### Don't:
 
-- **Don't** rebuild the site as stacked feature sections or a generic SaaS card grid.
-- **Don't** imply that third-party model inference is local or free.
-- **Don't** fake metal, glass, or dimensional objects with CSS bevels and decorative gradients.
-- **Don't** expand the simulated canvas into a misleading full web editor.
-- **Don't** add customer claims, performance figures, or badges without evidence.
+- **Don't** 把官网改回堆叠区块、SaaS 卡片网格或功能说明长页。
+- **Don't** 用装饰圆圈、三条流程线、网页徽章或假技术图形填空。
+- **Don't** 用 CSS 渐变或阴影伪造金属、玻璃和实体产品。
+- **Don't** 模拟与桌面产品不同的工具、选区或图片状态。
+- **Don't** 暗示第三方推理在本地完成，也不添加未经证明的性能、客户或模型承诺。

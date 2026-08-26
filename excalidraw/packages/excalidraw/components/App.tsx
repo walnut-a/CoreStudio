@@ -13695,6 +13695,11 @@ class App extends React.Component<AppProps, AppState> {
       const { deltaX, deltaY } = event;
       // note that event.ctrlKey is necessary to handle pinch zooming
       if (event.metaKey || event.ctrlKey) {
+        const viewportX = event.clientX;
+        const viewportY = event.clientY;
+        this.viewport.lastPosition.x = viewportX;
+        this.viewport.lastPosition.y = viewportY;
+
         const minZoom = this.state.scrollConstraints?.lockZoom
           ? this.state.scrollConstraints.zoom
           : MIN_ZOOM;
@@ -13713,8 +13718,8 @@ class App extends React.Component<AppProps, AppState> {
           (state) => ({
             ...getViewportForZoomWithScrollConstraints(
               {
-                viewportX: this.viewport.lastPosition.x,
-                viewportY: this.viewport.lastPosition.y,
+                viewportX,
+                viewportY,
                 nextZoom,
               },
               state,

@@ -12,8 +12,8 @@
     },
     {
       "path": "packages/excalidraw/components/App.tsx",
-      "groups": ["clipboard-and-images", "file-replacement", "host-ui-action-policy", "inspector-integration"],
-      "reason": "The upstream App class is the integration point for file replacement, host UI actions, inspector rendering, and clipboard behavior."
+      "groups": ["clipboard-and-images", "file-replacement", "host-ui-action-policy", "inspector-integration", "trackpad-wheel-zoom"],
+      "reason": "The upstream App class is the integration point for file replacement, host UI actions, inspector rendering, clipboard behavior, and CoreStudio wheel zoom behavior."
     },
     {
       "path": "packages/excalidraw/components/HelpDialog.tsx",
@@ -22,8 +22,8 @@
     },
     {
       "path": "packages/excalidraw/index.tsx",
-      "groups": ["clipboard-and-images", "footer-host-actions", "inspector-integration"],
-      "reason": "The package entry forwards active inspector, clipboard, and footer host APIs."
+      "groups": ["clipboard-and-images", "footer-host-actions", "inspector-integration", "trackpad-wheel-zoom"],
+      "reason": "The package entry forwards active inspector, clipboard, footer, and wheel zoom host APIs."
     },
     {
       "path": "packages/excalidraw/tests/excalidraw.test.tsx",
@@ -32,13 +32,13 @@
     },
     {
       "path": "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
-      "groups": ["file-replacement", "host-action-integration", "host-ui-action-policy", "inspector-integration"],
-      "reason": "This compatibility suite currently covers several public CoreStudio host contracts."
+      "groups": ["file-replacement", "host-action-integration", "host-ui-action-policy", "inspector-integration", "trackpad-wheel-zoom"],
+      "reason": "This compatibility suite currently covers several public CoreStudio host contracts, including focus-safe wheel zoom anchoring."
     },
     {
       "path": "packages/excalidraw/types.ts",
-      "groups": ["clipboard-and-images", "file-replacement", "inspector-integration"],
-      "reason": "The public type surface declares file replacement, clipboard, inspector, and default sidebar host APIs."
+      "groups": ["clipboard-and-images", "file-replacement", "inspector-integration", "trackpad-wheel-zoom"],
+      "reason": "The public type surface declares file replacement, clipboard, inspector, default sidebar, and wheel zoom host APIs."
     }
   ],
   "patchGroups": [
@@ -115,6 +115,28 @@
       "disposition": "keep-core-patch",
       "corePaths": ["packages/common/src/constants.ts"],
       "contractTests": ["packages/excalidraw/tests/fitToContent.test.tsx"]
+    },
+    {
+      "id": "trackpad-wheel-zoom",
+      "purpose": "Provide host-configurable trackpad sensitivity and anchor wheel zoom to the current event so focus transitions cannot reuse a stale pointer position.",
+      "disposition": "keep-core-patch",
+      "corePaths": [
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/index.tsx",
+        "packages/excalidraw/scene/zoom.ts",
+        "packages/excalidraw/types.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
+        "packages/excalidraw/tests/zoom.test.ts"
+      ]
+    },
+    {
+      "id": "minimap-toggle-accessibility",
+      "purpose": "Preserve the pressed-state accessibility contract for the CoreStudio minimap toggle.",
+      "disposition": "keep-core-patch",
+      "corePaths": ["packages/excalidraw/components/IconButton.tsx"],
+      "contractTests": ["apps/image-board-desktop/src/app/components/CanvasMinimap.test.tsx"]
     },
     {
       "id": "arrange-grid",

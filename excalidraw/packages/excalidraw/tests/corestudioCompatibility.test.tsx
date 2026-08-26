@@ -1,7 +1,11 @@
 import { fireEvent, queryByTestId, queryByText } from "@testing-library/react";
 import React from "react";
 
-import { KEYS, MIME_TYPES } from "@excalidraw/common";
+import {
+  KEYS,
+  MIME_TYPES,
+  viewportCoordsToSceneCoords,
+} from "@excalidraw/common";
 
 import type { FileId } from "@excalidraw/element/types";
 
@@ -11,7 +15,14 @@ import type { BinaryFileData, Collaborator, DataURL, SocketId } from "../types";
 
 import { API } from "./helpers/api";
 import { Keyboard } from "./helpers/ui";
-import { act, render, waitFor } from "./test-utils";
+import {
+  act,
+  GlobalTestState,
+  mockBoundingClientRect,
+  render,
+  restoreOriginalGetBoundingClientRect,
+  waitFor,
+} from "./test-utils";
 
 const { h } = window;
 
@@ -168,5 +179,40 @@ describe("CoreStudio Excalidraw compatibility", () => {
 
     expect(h.app.api).not.toHaveProperty("scrollToContent");
     expect(h.app.api).toHaveProperty("setViewport");
+  });
+
+  it("anchors wheel zoom to the current wheel position after focus changes", async () => {
+    mockBoundingClientRect();
+
+    try {
+      await render(<Excalidraw handleKeyboardGlobally />);
+      await waitFor(() => expect(h.state.width).toBe(200));
+
+      // Simulate a pointer cache left behind before the window lost focus.
+      h.app.viewport.lastPosition.x = 20;
+      h.app.viewport.lastPosition.y = 20;
+
+      const wheelPosition = { clientX: 160, clientY: 70 };
+      const scenePointBefore = viewportCoordsToSceneCoords(
+        wheelPosition,
+        h.state,
+      );
+
+      fireEvent.wheel(GlobalTestState.interactiveCanvas, {
+        ...wheelPosition,
+        ctrlKey: true,
+        deltaY: -10,
+      });
+
+      const scenePointAfter = viewportCoordsToSceneCoords(
+        wheelPosition,
+        h.state,
+      );
+      expect(scenePointAfter.x).toBeCloseTo(scenePointBefore.x);
+      expect(scenePointAfter.y).toBeCloseTo(scenePointBefore.y);
+      expect(h.app.viewport.lastPosition).toEqual({ x: 160, y: 70 });
+    } finally {
+      restoreOriginalGetBoundingClientRect();
+    }
   });
 });

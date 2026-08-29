@@ -18,12 +18,12 @@ const TITLE_SCENE_X = 88;
 export const CAMERA_VIEWS = Object.freeze({
   desktop: Object.freeze({
     overview: Object.freeze({ x: 0, y: 0, zoom: 0.9 }),
-    generate: Object.freeze({ x: -360, y: 32, zoom: 1 }),
+    generate: Object.freeze({ x: -180, y: 48, zoom: 1 }),
     agent: Object.freeze({ x: -450, y: -130, zoom: 1.04 }),
   }),
   mobile: Object.freeze({
     overview: Object.freeze({ x: 390, y: -40, zoom: 0.72 }),
-    generate: Object.freeze({ x: -350, y: 36, zoom: 0.72 }),
+    generate: Object.freeze({ x: -80, y: -140, zoom: 0.44 }),
     agent: Object.freeze({ x: -430, y: -80, zoom: 0.8 }),
   }),
 });

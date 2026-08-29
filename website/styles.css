@@ -584,13 +584,13 @@ figure {
 }
 
 .canvas-annotation-model {
-  top: 864px;
-  left: 1000px;
+  top: 806px;
+  left: 840px;
 }
 
 .canvas-annotation-agent {
-  top: 864px;
-  left: 1260px;
+  top: 806px;
+  left: 1050px;
 }
 
 .canvas-annotation-model,
@@ -601,16 +601,16 @@ figure {
 
 .reference-board {
   position: absolute;
-  top: 340px;
+  top: 336px;
   left: 96px;
-  width: 480px;
+  width: 576px;
 }
 
 .reference-selection-target,
 .reference-images {
   position: relative;
-  width: 480px;
-  height: 132px;
+  width: 576px;
+  height: 160px;
 }
 
 .reference-image {
@@ -624,32 +624,32 @@ figure {
 .reference-image-a {
   top: 0;
   left: 0;
-  width: 85px;
-  height: 132px;
+  width: 102px;
+  height: 160px;
   object-position: 50% 48%;
 }
 
 .reference-image-b {
   top: 0;
-  left: 96px;
-  width: 194px;
-  height: 132px;
+  left: 115px;
+  width: 233px;
+  height: 160px;
   object-position: 50% 58%;
 }
 
 .reference-image-c {
   top: 0;
-  left: 300px;
-  width: 81px;
-  height: 132px;
+  left: 360px;
+  width: 97px;
+  height: 160px;
   object-position: 50% 52%;
 }
 
 .reference-image-d {
   top: 0;
-  left: 392px;
-  width: 88px;
-  height: 132px;
+  left: 470px;
+  width: 106px;
+  height: 160px;
   object-position: 50% 38%;
 }
 
@@ -669,9 +669,9 @@ figure {
 
 .result-studies {
   position: absolute;
-  top: 720px;
-  left: 620px;
-  width: 800px;
+  top: 663px;
+  left: 700px;
+  width: 560px;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--motion-canvas) var(--ease-canvas);
@@ -679,8 +679,8 @@ figure {
 
 .result-study-images {
   position: relative;
-  width: 800px;
-  height: 118px;
+  width: 560px;
+  height: 104px;
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr 1.45fr;
   gap: 12px;
@@ -688,14 +688,14 @@ figure {
 
 .result-study-crop {
   min-width: 0;
-  height: 118px;
+  height: 104px;
   overflow: hidden;
   background: #eeede9;
 }
 
 .result-study-image {
   width: 100%;
-  height: 118px;
+  height: 104px;
   object-fit: cover;
   background: #eeede9;
   transform: scale(1.55);
@@ -753,9 +753,9 @@ figure {
 
 .generation-result {
   position: absolute;
-  top: 84px;
-  left: 620px;
-  width: 800px;
+  top: 207px;
+  left: 700px;
+  width: 560px;
 }
 
 .result-frame {

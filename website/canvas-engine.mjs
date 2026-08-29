@@ -11,9 +11,10 @@ const NARROW_VIEWPORT_WIDTH = 470;
 const DESKTOP_FIT_HORIZONTAL_PADDING = 120;
 const COMPACT_FIT_HORIZONTAL_PADDING = 48;
 const FIT_VERTICAL_PADDING = 160;
-const NARROW_READABLE_ZOOM = 0.4;
 const NARROW_CONTENT_GUTTER = 16;
-const TITLE_SCENE_X = 88;
+const NARROW_CONTENT_LEFT = 96;
+const NARROW_CONTENT_WIDTH = 1164;
+const NARROW_CONTENT_HEIGHT = 804;
 
 export const CAMERA_VIEWS = Object.freeze({
   desktop: Object.freeze({
@@ -73,18 +74,19 @@ export const getResponsiveOverviewView = (
 
   const compact = viewportWidth <= COMPACT_VIEWPORT_WIDTH;
   const narrow = viewportWidth <= NARROW_VIEWPORT_WIDTH;
-  const horizontalPadding = compact
+  const horizontalPadding = narrow
+    ? NARROW_CONTENT_GUTTER * 2
+    : compact
     ? COMPACT_FIT_HORIZONTAL_PADDING
     : DESKTOP_FIT_HORIZONTAL_PADDING;
+  const fitWidth = narrow ? NARROW_CONTENT_WIDTH : planeWidth;
+  const fitHeight = narrow ? NARROW_CONTENT_HEIGHT : planeHeight;
   const fitZoom = Math.min(
-    Math.max(1, viewportWidth - horizontalPadding) / planeWidth,
-    Math.max(1, viewportHeight - FIT_VERTICAL_PADDING) / planeHeight
+    Math.max(1, viewportWidth - horizontalPadding) / fitWidth,
+    Math.max(1, viewportHeight - FIT_VERTICAL_PADDING) / fitHeight
   );
 
-  const zoom = clampZoom(
-    fitZoom,
-    narrow ? NARROW_READABLE_ZOOM : EXCALIDRAW_MIN_ZOOM
-  );
+  const zoom = clampZoom(fitZoom, EXCALIDRAW_MIN_ZOOM);
   const verticalAir = viewportHeight - planeHeight * zoom;
   const wideScreenLift = Math.max(0, verticalAir - 160) * 0.5;
   const x = narrow
@@ -93,7 +95,7 @@ export const getResponsiveOverviewView = (
           NARROW_CONTENT_GUTTER +
           (planeWidth * zoom) / 2 -
           viewportWidth / 2 -
-          TITLE_SCENE_X * zoom
+          NARROW_CONTENT_LEFT * zoom
         ).toFixed(2)
       )
     : 0;

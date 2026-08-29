@@ -129,15 +129,18 @@ test("the overview camera fits the full composition before using extra space", (
     { x: 0, y: -141.7, zoom: 0.41 }
   );
 
-  assert.deepEqual(
-    getResponsiveOverviewView(CAMERA_VIEWS.mobile.overview, {
+  const narrowView = getResponsiveOverviewView(CAMERA_VIEWS.mobile.overview, {
       viewportWidth: 390,
       viewportHeight: 844,
       planeWidth: 1680,
       planeHeight: 960,
-    }),
-    { x: 121.8, y: -150, zoom: 0.4 }
-  );
+    });
+  assert.deepEqual(narrowView, { x: 51.64, y: -193.2, zoom: 0.31 });
+
+  const narrowResultLeft =
+    390 / 2 + narrowView.x + (700 - 1680 / 2) * narrowView.zoom;
+  const narrowResultRight = narrowResultLeft + 560 * narrowView.zoom;
+  assert.ok(narrowResultLeft >= 12 && narrowResultRight <= 390 - 12);
 });
 
 test("canvas transforms keep translation independent from zoom", () => {
@@ -193,8 +196,8 @@ test("responsive layout and camera share the 820px compact breakpoint", async ()
 test("both localized entrypoints load the current website assets", async () => {
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    assert.match(html, /styles\.css\?v=20260830-3/);
-    assert.match(html, /main\.js\?v=20260830-4/);
+    assert.match(html, /styles\.css\?v=20260830-5/);
+    assert.match(html, /main\.js\?v=20260830-5/);
   }
 });
 
@@ -375,12 +378,12 @@ test("the reference flow embeds one arrow exported by Excalidraw", async () => {
     const arrowY = Number(
       connectors.match(/data-excalidraw-arrow[\s\S]*?\sy="([^"]+)"/)?.[1]
     );
-    assert.equal(arrowX, 580);
-    assert.equal(arrowY, 380);
+    assert.equal(arrowX, 664);
+    assert.equal(arrowY, 394);
     assert.equal(arrowWidth, 36);
     assert.ok(
-      arrowX + arrowWidth < 620,
-      `${entrypoint} should stop the arrow before the generated stage at x=620`
+      arrowX + arrowWidth <= 700,
+      `${entrypoint} should meet the generated stage at x=700 without crossing it`
     );
   }
 
@@ -610,7 +613,7 @@ test("the demo exposes no settings control without settings content", async () =
   assert.doesNotMatch(main, /composerSettings/);
 });
 
-test("the opening composition makes the generation stage the primary object", async () => {
+test("the opening composition balances enlarged references with a compact generation stage", async () => {
   const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
   const declaration = (selector, property) => {
     const block = styles.match(
@@ -633,7 +636,7 @@ test("the opening composition makes the generation stage the primary object", as
       left: declaration(".generation-result", "left"),
       width: declaration(".generation-result", "width"),
     },
-    { top: 84, left: 620, width: 800 }
+    { top: 207, left: 700, width: 560 }
   );
   assert.deepEqual(
     {
@@ -641,7 +644,7 @@ test("the opening composition makes the generation stage the primary object", as
       left: declaration(".reference-board", "left"),
       width: declaration(".reference-board", "width"),
     },
-    { top: 340, left: 96, width: 480 }
+    { top: 336, left: 96, width: 576 }
   );
   assert.deepEqual(
     {
@@ -652,9 +655,14 @@ test("the opening composition makes the generation stage the primary object", as
     { top: 620, left: 96, width: 480 }
   );
   assert.ok(
-    declaration(".generation-result", "width") >
+    declaration(".generation-result", "width") <
       declaration(".reference-board", "width"),
-    "the generation stage should dominate the supporting reference strip"
+    "the reference input strip should read wider than the compact generation stage"
+  );
+  assert.ok(
+    declaration(".generation-result", "width") >=
+      declaration(".reference-board", "width") * 0.95,
+    "the generation stage should remain substantial without overpowering the input strip"
   );
   assert.ok(
     declaration(".reference-board", "top") <
@@ -673,7 +681,7 @@ test("the opening composition makes the generation stage the primary object", as
   );
   assert.match(
     styles,
-    /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?width:\s*480px;[\s\S]*?height:\s*132px;/
+    /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?width:\s*576px;[\s\S]*?height:\s*160px;/
   );
   assert.match(styles, /\.scene-title h1\s*\{[\s\S]*?font-size:\s*4rem;/);
   assert.match(
@@ -698,7 +706,7 @@ test("the opening composition makes the generation stage the primary object", as
       left: declaration(".result-studies", "left"),
       width: declaration(".result-studies", "width"),
     },
-    { top: 720, left: 620, width: 800 }
+    { top: 663, left: 700, width: 560 }
   );
 
   for (const entrypoint of ["index.html", "zh/index.html"]) {

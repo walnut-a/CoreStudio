@@ -9,7 +9,7 @@ import {
   getResponsiveOverviewView,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260830-2";
+} from "./canvas-engine.mjs?v=20260830-4";
 
 document.documentElement.classList.add("js");
 
@@ -189,8 +189,6 @@ if (app) {
       const applyState = () => {
         if (state === "references-selected") {
           selectReferenceGroup();
-        } else if (state === "generating") {
-          setCamera("generate");
         } else if (state === "generated") {
           selectSceneObject(app.querySelector(".generation-result"));
         }

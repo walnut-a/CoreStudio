@@ -82,6 +82,16 @@ test("desktop and mobile retain the complete camera presets", () => {
       CAMERA_VIEWS.mobile.overview.y >= -60,
     "the mobile opening camera should lift the editorial canvas into the first viewport"
   );
+  assert.deepEqual(
+    CAMERA_VIEWS.desktop.generate,
+    { x: -180, y: 48, zoom: 1 },
+    "the desktop generation camera should center the fixed 800 by 600 stage without clipping it"
+  );
+  assert.deepEqual(
+    CAMERA_VIEWS.mobile.generate,
+    { x: -80, y: -140, zoom: 0.44 },
+    "the mobile generation camera should fit the complete stage instead of cropping more than half of it"
+  );
 });
 
 test("the overview camera fits the full composition before using extra space", () => {
@@ -189,8 +199,8 @@ test("responsive layout and camera share the 820px compact breakpoint", async ()
 test("both localized entrypoints load the current website assets", async () => {
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    assert.match(html, /styles\.css\?v=20260830-1/);
-    assert.match(html, /main\.js\?v=20260830-1/);
+    assert.match(html, /styles\.css\?v=20260830-3/);
+    assert.match(html, /main\.js\?v=20260830-2/);
   }
 });
 
@@ -199,7 +209,7 @@ test("the Chinese display title keeps editorial tension without colliding lines"
 
   assert.match(
     styles,
-    /\.scene-title h1\s*{[\s\S]*?line-height:\s*1;/
+    /\.scene-title h1\s*{[\s\S]*?line-height:\s*1\.06;/
   );
 });
 
@@ -337,7 +347,7 @@ test("canvas annotations use native Excalidraw text styling without UI dots", as
   assert.doesNotMatch(styles, /\.canvas-annotation::before/);
 });
 
-test("the reference flow uses one native Excalidraw rough arrow", async () => {
+test("the reference flow embeds one arrow exported by Excalidraw", async () => {
   const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
 
   for (const entrypoint of ["index.html", "zh/index.html"]) {
@@ -352,31 +362,37 @@ test("the reference flow uses one native Excalidraw rough arrow", async () => {
       1,
       `${entrypoint} should communicate the flow with one arrow`
     );
-    assert.equal(
-      [...connectors.matchAll(/class="excalidraw-arrow-stroke"/g)].length,
-      3,
-      `${entrypoint} should contain the Rough.js shaft and two open arrowhead strokes`
-    );
+    assert.match(connectors, /<!-- svg-source:excalidraw -->/);
+    assert.match(connectors, /data-export-source="excalidraw"/);
+    assert.match(connectors, /data-id="website-reference-flow-arrow"/);
+    assert.match(connectors, /stroke-linecap="round"/);
     assert.doesNotMatch(connectors, /<marker|marker-end|connector-[abc]/);
-    assert.match(connectors, /data-roughness="1"/);
-    assert.match(connectors, /data-stroke-width="2"/);
-    assert.match(connectors, /data-arrowhead-size="25"/);
-    assert.match(connectors, /data-arrowhead-angle="20"/);
-
-    const arrowXs = [...connectors.matchAll(/\sd="([^"]+)"/g)].flatMap(
-      ([, path]) =>
-        (path.match(/-?\d+(?:\.\d+)?/g) ?? [])
-          .map(Number)
-          .filter((_, index) => index % 2 === 0)
+    assert.doesNotMatch(
+      connectors,
+      /data-roughness|data-stroke-width|data-arrowhead-size|data-arrowhead-angle/
     );
+
+    const arrowX = Number(
+      connectors.match(/data-excalidraw-arrow[\s\S]*?\sx="([^"]+)"/)?.[1]
+    );
+    const arrowWidth = Number(
+      connectors.match(/data-excalidraw-arrow[\s\S]*?\swidth="([^"]+)"/)?.[1]
+    );
+    const arrowY = Number(
+      connectors.match(/data-excalidraw-arrow[\s\S]*?\sy="([^"]+)"/)?.[1]
+    );
+    assert.equal(arrowX, 580);
+    assert.equal(arrowY, 380);
+    assert.equal(arrowWidth, 36);
     assert.ok(
-      Math.max(...arrowXs) < 760,
-      `${entrypoint} should stop the arrow before the generated image at x=760`
+      arrowX + arrowWidth < 620,
+      `${entrypoint} should stop the arrow before the generated stage at x=620`
     );
   }
 
-  assert.match(styles, /\.excalidraw-arrow-stroke\s*{/);
-  assert.match(styles, /\.canvas-app\.is-generating \.excalidraw-arrow-stroke/);
+  assert.match(styles, /\.excalidraw-arrow-native path\s*{/);
+  assert.match(styles, /\.canvas-app\.is-generating \.excalidraw-arrow-native path/);
+  assert.doesNotMatch(styles, /\.excalidraw-arrow-stroke/);
   assert.doesNotMatch(styles, /\.connector\s*{/);
   assert.doesNotMatch(styles, /\.canvas-connectors marker path/);
 });
@@ -600,7 +616,7 @@ test("the demo exposes no settings control without settings content", async () =
   assert.doesNotMatch(main, /composerSettings/);
 });
 
-test("the opening composition behaves like an industrial-design editorial spread", async () => {
+test("the opening composition makes the generation stage the primary object", async () => {
   const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
   const declaration = (selector, property) => {
     const block = styles.match(
@@ -617,23 +633,55 @@ test("the opening composition behaves like an industrial-design editorial spread
 
   assert.equal(declaration(".canvas-plane", "width"), 1680);
   assert.equal(declaration(".canvas-plane", "height"), 960);
-  assert.ok(declaration(".generation-result", "width") >= 800);
-  assert.ok(declaration(".reference-board", "width") >= 560);
+  assert.deepEqual(
+    {
+      top: declaration(".generation-result", "top"),
+      left: declaration(".generation-result", "left"),
+      width: declaration(".generation-result", "width"),
+    },
+    { top: 84, left: 620, width: 800 }
+  );
+  assert.deepEqual(
+    {
+      top: declaration(".reference-board", "top"),
+      left: declaration(".reference-board", "left"),
+      width: declaration(".reference-board", "width"),
+    },
+    { top: 340, left: 96, width: 480 }
+  );
+  assert.deepEqual(
+    {
+      top: declaration(".scene-title", "top"),
+      left: declaration(".scene-title", "left"),
+      width: declaration(".scene-title", "width"),
+    },
+    { top: 620, left: 96, width: 480 }
+  );
+  assert.ok(
+    declaration(".generation-result", "width") >
+      declaration(".reference-board", "width"),
+    "the generation stage should dominate the supporting reference strip"
+  );
+  assert.ok(
+    declaration(".reference-board", "top") <
+      declaration(".scene-title", "top"),
+    "the slogan should sit below the input references as secondary information"
+  );
   assert.match(
     styles,
-    /\.page-en \.scene-title h1\s*\{[\s\S]*?font-size:\s*4\.2rem;/,
-    "the English display heading should leave room for its supporting copy before the reference strip"
+    /\.page-en \.scene-title h1\s*\{[\s\S]*?font-size:\s*3rem;/,
+    "the English slogan should stay subordinate to the generation stage"
   );
   assert.ok(
     declaration(".canvas-annotation-local", "top") >=
-      declaration(".reference-board", "top") + 200,
-    "the local-project annotation should sit below the reference strip instead of overlapping the title copy"
+      declaration(".reference-board", "top") + 145,
+    "the local-project annotation should sit below the compact reference strip"
   );
   assert.match(
     styles,
-    /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?height:\s*170px;/
+    /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?width:\s*480px;[\s\S]*?height:\s*132px;/
   );
-  assert.match(styles, /\.scene-title h1\s*\{[\s\S]*?font-size:\s*6rem;/);
+  assert.match(styles, /\.scene-title h1\s*\{[\s\S]*?font-size:\s*4rem;/);
   assert.match(
     styles,
     /\.scene-heading\s*\{[\s\S]*?color:\s*var\(--surface\);[\s\S]*?background:\s*var\(--ink\);/
@@ -649,6 +697,14 @@ test("the opening composition behaves like an industrial-design editorial spread
   assert.match(
     styles,
     /\.canvas-annotation-model,\s*\.canvas-annotation-agent\s*\{[\s\S]*?opacity:\s*0;/
+  );
+  assert.deepEqual(
+    {
+      top: declaration(".result-studies", "top"),
+      left: declaration(".result-studies", "left"),
+      width: declaration(".result-studies", "width"),
+    },
+    { top: 720, left: 620, width: 800 }
   );
 
   for (const entrypoint of ["index.html", "zh/index.html"]) {

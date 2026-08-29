@@ -436,48 +436,48 @@ figure {
 
 .scene-title {
   position: absolute;
-  top: 120px;
-  left: 88px;
-  width: 620px;
+  top: 620px;
+  left: 96px;
+  width: 480px;
   cursor: default;
 }
 
 .scene-heading {
   position: relative;
-  padding: 28px 32px 34px;
+  padding: 20px 24px 24px;
   color: var(--surface);
   background: var(--ink);
 }
 
 .scene-title h1 {
-  max-width: 600px;
+  max-width: 432px;
   font-family: var(--font-display);
-  font-size: 6rem;
+  font-size: 4rem;
   font-style: oblique;
   font-weight: 400;
-  line-height: 1;
+  line-height: 1.06;
   letter-spacing: -0.025em;
   text-wrap: balance;
 }
 
 .page-en .scene-title {
-  width: 650px;
+  width: 480px;
 }
 
 .page-en .scene-title h1 {
-  max-width: 640px;
+  max-width: 432px;
   font-family: var(--font-interface);
-  font-size: 4.2rem;
+  font-size: 3rem;
   font-style: normal;
   font-weight: 700;
-  line-height: 0.92;
+  line-height: 0.98;
 }
 
 .scene-title p {
-  max-width: 540px;
-  margin: 20px 32px 0;
+  max-width: 432px;
+  margin: 16px 24px 0;
   color: var(--muted);
-  font-size: 1.05rem;
+  font-size: 1rem;
   line-height: 1.55;
   text-wrap: pretty;
 }
@@ -579,18 +579,18 @@ figure {
 }
 
 .canvas-annotation-local {
-  top: 720px;
+  top: 526px;
   left: 108px;
 }
 
 .canvas-annotation-model {
-  top: 726px;
-  left: 670px;
+  top: 864px;
+  left: 1000px;
 }
 
 .canvas-annotation-agent {
-  top: 812px;
-  left: 1270px;
+  top: 864px;
+  left: 1260px;
 }
 
 .canvas-annotation-model,
@@ -601,16 +601,16 @@ figure {
 
 .reference-board {
   position: absolute;
-  top: 510px;
+  top: 340px;
   left: 96px;
-  width: 620px;
+  width: 480px;
 }
 
 .reference-selection-target,
 .reference-images {
   position: relative;
-  width: 620px;
-  height: 170px;
+  width: 480px;
+  height: 132px;
 }
 
 .reference-image {
@@ -624,32 +624,32 @@ figure {
 .reference-image-a {
   top: 0;
   left: 0;
-  width: 110px;
-  height: 170px;
+  width: 85px;
+  height: 132px;
   object-position: 50% 48%;
 }
 
 .reference-image-b {
   top: 0;
-  left: 124px;
-  width: 250px;
-  height: 170px;
+  left: 96px;
+  width: 194px;
+  height: 132px;
   object-position: 50% 58%;
 }
 
 .reference-image-c {
   top: 0;
-  left: 388px;
-  width: 105px;
-  height: 170px;
+  left: 300px;
+  width: 81px;
+  height: 132px;
   object-position: 50% 52%;
 }
 
 .reference-image-d {
   top: 0;
-  left: 507px;
-  width: 113px;
-  height: 170px;
+  left: 392px;
+  width: 88px;
+  height: 132px;
   object-position: 50% 38%;
 }
 
@@ -669,9 +669,9 @@ figure {
 
 .result-studies {
   position: absolute;
-  top: 770px;
-  left: 800px;
-  width: 820px;
+  top: 720px;
+  left: 620px;
+  width: 800px;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--motion-canvas) var(--ease-canvas);
@@ -679,7 +679,7 @@ figure {
 
 .result-study-images {
   position: relative;
-  width: 820px;
+  width: 800px;
   height: 118px;
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr 1.45fr;
@@ -747,19 +747,15 @@ figure {
   overflow: visible;
 }
 
-.excalidraw-arrow-stroke {
-  fill: none;
-  stroke: var(--ink);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.excalidraw-arrow-native path {
+  transition: stroke 180ms ease-out;
 }
 
 .generation-result {
   position: absolute;
-  top: 80px;
-  left: 760px;
-  width: 880px;
+  top: 84px;
+  left: 620px;
+  width: 800px;
 }
 
 .result-frame {
@@ -1032,7 +1028,7 @@ figure {
   filter: grayscale(0.45);
 }
 
-.canvas-app.is-generating .excalidraw-arrow-stroke {
+.canvas-app.is-generating .excalidraw-arrow-native path {
   stroke: color-mix(in srgb, var(--color-primary) 55%, var(--color-gray-70));
 }
 
@@ -1230,15 +1226,15 @@ select:focus-visible,
   }
 
   .scene-title {
-    width: 560px;
+    width: 480px;
   }
 
   .scene-title h1 {
-    font-size: 4.35rem;
+    font-size: 4rem;
   }
 
   .scene-title p {
-    max-width: 510px;
+    max-width: 432px;
     font-size: 1rem;
   }
 }

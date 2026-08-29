@@ -70,11 +70,7 @@ test("canvas zooms out until the complete composition fits the viewport", async 
 
 test("desktop and mobile retain the complete camera presets", () => {
   for (const mode of ["desktop", "mobile"]) {
-    assert.deepEqual(Object.keys(CAMERA_VIEWS[mode]), [
-      "overview",
-      "generate",
-      "agent",
-    ]);
+    assert.deepEqual(Object.keys(CAMERA_VIEWS[mode]), ["overview", "agent"]);
   }
 
   assert.ok(
@@ -82,16 +78,14 @@ test("desktop and mobile retain the complete camera presets", () => {
       CAMERA_VIEWS.mobile.overview.y >= -60,
     "the mobile opening camera should lift the editorial canvas into the first viewport"
   );
-  assert.deepEqual(
-    CAMERA_VIEWS.desktop.generate,
-    { x: -180, y: 48, zoom: 1 },
-    "the desktop generation camera should center the fixed 800 by 600 stage without clipping it"
-  );
-  assert.deepEqual(
-    CAMERA_VIEWS.mobile.generate,
-    { x: -80, y: -140, zoom: 0.44 },
-    "the mobile generation camera should fit the complete stage instead of cropping more than half of it"
-  );
+});
+
+test("generation preserves the responsive overview camera", async () => {
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
+
+  assert.doesNotMatch(main, /setCamera\("generate"\)/);
+  assert.match(main, /state === "generating"/);
+  assert.match(main, /setGenerationState\(state\)/);
 });
 
 test("the overview camera fits the full composition before using extra space", () => {
@@ -200,7 +194,7 @@ test("both localized entrypoints load the current website assets", async () => {
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
     assert.match(html, /styles\.css\?v=20260830-3/);
-    assert.match(html, /main\.js\?v=20260830-2/);
+    assert.match(html, /main\.js\?v=20260830-4/);
   }
 });
 

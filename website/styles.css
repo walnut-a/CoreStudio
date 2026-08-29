@@ -455,7 +455,7 @@ figure {
   font-size: 6rem;
   font-style: oblique;
   font-weight: 400;
-  line-height: 0.9;
+  line-height: 1;
   letter-spacing: -0.025em;
   text-wrap: balance;
 }
@@ -501,6 +501,15 @@ figure {
 
 [data-scene-object].is-selected .canvas-selection-overlay {
   opacity: 1;
+}
+
+.reference-board.is-multi-selected .canvas-selection-overlay {
+  opacity: 1;
+}
+
+.reference-board.is-multi-selected .reference-image {
+  outline: calc(1px * var(--inverse-canvas-zoom)) solid var(--selection);
+  outline-offset: calc(-1px * var(--inverse-canvas-zoom));
 }
 
 .canvas-selection-border {

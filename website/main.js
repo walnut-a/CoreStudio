@@ -9,7 +9,7 @@ import {
   getResponsiveOverviewView,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260825-2";
+} from "./canvas-engine.mjs?v=20260830-1";
 
 document.documentElement.classList.add("js");
 
@@ -25,8 +25,8 @@ if (app) {
   const generationForm = app.querySelector("[data-generation-form]");
   const generateButton = app.querySelector("[data-generate-button]");
   const demoStatus = app.querySelector("[data-demo-status]");
-  const mobileLayout = window.matchMedia("(max-width: 720px)");
-  const coarsePointer = window.matchMedia("(pointer: coarse)");
+  const referenceBoard = app.querySelector(".reference-board");
+  const mobileLayout = window.matchMedia("(max-width: 820px)");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   let activeCamera = "overview";
@@ -34,7 +34,7 @@ if (app) {
   let touchGestureState = null;
   let suppressCanvasClick = false;
   const touchPointers = new Map();
-  let generationTimer = null;
+  const generationTimers = new Set();
   let zoomControlsExpanded = mobileLayout.matches
     ? false
     : zoomToggle?.getAttribute("aria-expanded") === "true";
@@ -44,7 +44,6 @@ if (app) {
 
   const getMinimumZoom = () =>
     getCanvasMinimumZoom({
-      isMobile: mobileLayout.matches || coarsePointer.matches,
       viewportWidth: viewport?.clientWidth ?? 0,
       viewportHeight: viewport?.clientHeight ?? 0,
       planeWidth: plane?.clientWidth ?? 0,
@@ -91,7 +90,7 @@ if (app) {
       return;
     }
 
-    if (name === "overview" && !mobileLayout.matches) {
+    if (name === "overview") {
       next = getResponsiveOverviewView(next, {
         viewportWidth: viewport?.clientWidth ?? 0,
         viewportHeight: viewport?.clientHeight ?? 0,
@@ -120,18 +119,28 @@ if (app) {
     });
   };
 
-  const clearGenerationTimer = () => {
-    if (generationTimer !== null) {
-      window.clearTimeout(generationTimer);
-      generationTimer = null;
-    }
+  const clearGenerationTimers = () => {
+    generationTimers.forEach((timer) => window.clearTimeout(timer));
+    generationTimers.clear();
   };
 
   const setGenerationState = (state) => {
+    const referencesSelected = state === "references-selected";
     const generating = state === "generating";
+    const generated = state === "generated";
+    app.classList.toggle("is-preparing-generation", referencesSelected);
     app.classList.toggle("is-generating", generating);
-    app.classList.toggle("is-result-ready", state === "generated");
-    generateButton.disabled = generating;
+    app.classList.toggle("is-result-ready", generated);
+    generateButton.disabled = referencesSelected || generating;
+    if (referencesSelected) {
+      generateButton.setAttribute("aria-busy", "true");
+      if (demoStatus) {
+        demoStatus.textContent =
+          generationForm?.dataset.statusReferencesSelected ??
+          "Reference images selected";
+      }
+      return;
+    }
     if (generating) {
       generateButton.setAttribute("aria-busy", "true");
       if (demoStatus) {
@@ -148,13 +157,24 @@ if (app) {
     }
   };
 
+  const clearSceneSelection = () => {
+    referenceBoard?.classList.remove("is-multi-selected");
+    app.querySelectorAll("[data-scene-object]").forEach((item) => {
+      item.classList.remove("is-selected");
+    });
+  };
+
+  const selectReferenceGroup = () => {
+    clearSceneSelection();
+    referenceBoard?.classList.add("is-multi-selected");
+  };
+
   const selectSceneObject = (selectedObject) => {
     if (!selectedObject) {
       return;
     }
-    app.querySelectorAll("[data-scene-object]").forEach((item) => {
-      item.classList.toggle("is-selected", item === selectedObject);
-    });
+    clearSceneSelection();
+    selectedObject.classList.add("is-selected");
   };
 
   const runDemo = () => {
@@ -162,20 +182,29 @@ if (app) {
       return;
     }
 
-    clearGenerationTimer();
+    clearGenerationTimers();
     app.classList.add("has-generated-once");
-    selectSceneObject(app.querySelector(".generation-result"));
-    setCamera("generate");
     const sequence = getGenerationSequence(reducedMotion.matches);
     sequence.forEach(({ state, at }) => {
-      if (at === 0) {
+      const applyState = () => {
+        if (state === "references-selected") {
+          selectReferenceGroup();
+        } else if (state === "generating") {
+          setCamera("generate");
+        } else if (state === "generated") {
+          selectSceneObject(app.querySelector(".generation-result"));
+        }
         setGenerationState(state);
+      };
+      if (at === 0) {
+        applyState();
         return;
       }
-      generationTimer = window.setTimeout(() => {
-        generationTimer = null;
-        setGenerationState(state);
+      const timer = window.setTimeout(() => {
+        generationTimers.delete(timer);
+        applyState();
       }, at);
+      generationTimers.add(timer);
     });
   };
 
@@ -351,7 +380,11 @@ if (app) {
     if (!selectedObject) {
       return;
     }
-    selectSceneObject(selectedObject);
+    if (selectedObject === referenceBoard) {
+      selectReferenceGroup();
+    } else {
+      selectSceneObject(selectedObject);
+    }
   });
 
   mobileLayout.addEventListener("change", (event) => {
@@ -366,5 +399,6 @@ if (app) {
   });
 
   setCamera("overview");
+  selectReferenceGroup();
   setGenerationState("generated");
 }

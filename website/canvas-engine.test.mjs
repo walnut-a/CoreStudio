@@ -7,6 +7,7 @@ import {
   CAMERA_TRANSITION_MS,
   EXCALIDRAW_MIN_ZOOM,
   GENERATION_SETTLE_MS,
+  REFERENCE_SELECTION_SETTLE_MS,
   applyCanvasPanGesture,
   applyCanvasPinchGesture,
   applyCanvasWheelGesture,
@@ -27,7 +28,7 @@ test("zoom is clamped to the supported canvas range", () => {
   assert.equal(stepZoom(0.75, -1), 0.72);
 });
 
-test("mobile zooms out until the complete canvas fits the viewport", async () => {
+test("canvas zooms out until the complete composition fits the viewport", async () => {
   const productionConstants = await readFile(
     new URL("../excalidraw/packages/common/src/constants.ts", import.meta.url),
     "utf8"
@@ -38,12 +39,12 @@ test("mobile zooms out until the complete canvas fits the viewport", async () =>
   assert.equal(
     getCanvasMinimumZoom({
       isMobile: false,
-      viewportWidth: 390,
-      viewportHeight: 844,
-      planeWidth: 1400,
-      planeHeight: 780,
+      viewportWidth: 1280,
+      viewportHeight: 720,
+      planeWidth: 1680,
+      planeHeight: 960,
     }),
-    0.72
+    0.58
   );
   assert.equal(
     getCanvasMinimumZoom({
@@ -53,7 +54,7 @@ test("mobile zooms out until the complete canvas fits the viewport", async () =>
       planeWidth: 1400,
       planeHeight: 780,
     }),
-    0.26
+    0.24
   );
   assert.equal(
     getCanvasMinimumZoom({
@@ -63,7 +64,7 @@ test("mobile zooms out until the complete canvas fits the viewport", async () =>
       planeWidth: 1400,
       planeHeight: 780,
     }),
-    0.21
+    0.19
   );
 });
 
@@ -83,7 +84,7 @@ test("desktop and mobile retain the complete camera presets", () => {
   );
 });
 
-test("the overview camera uses large screens instead of surrounding the canvas with dead space", () => {
+test("the overview camera fits the full composition before using extra space", () => {
   const baseView = CAMERA_VIEWS.desktop.overview;
 
   assert.deepEqual(
@@ -93,7 +94,7 @@ test("the overview camera uses large screens instead of surrounding the canvas w
       planeWidth: 1680,
       planeHeight: 960,
     }),
-    { x: 0, y: 70.2, zoom: 0.9 }
+    { x: 0, y: -1.6, zoom: 0.58 }
   );
   assert.deepEqual(
     getResponsiveOverviewView(baseView, {
@@ -102,7 +103,7 @@ test("the overview camera uses large screens instead of surrounding the canvas w
       planeWidth: 1680,
       planeHeight: 960,
     }),
-    { x: 0, y: 0, zoom: 0.9 }
+    { x: 0, y: 0, zoom: 0.88 }
   );
   assert.deepEqual(
     getResponsiveOverviewView(baseView, {
@@ -112,6 +113,26 @@ test("the overview camera uses large screens instead of surrounding the canvas w
       planeHeight: 960,
     }),
     { x: 0, y: -221, zoom: 1.3 }
+  );
+
+  assert.deepEqual(
+    getResponsiveOverviewView(baseView, {
+      viewportWidth: 731,
+      viewportHeight: 837,
+      planeWidth: 1680,
+      planeHeight: 960,
+    }),
+    { x: 0, y: -141.7, zoom: 0.41 }
+  );
+
+  assert.deepEqual(
+    getResponsiveOverviewView(CAMERA_VIEWS.mobile.overview, {
+      viewportWidth: 390,
+      viewportHeight: 844,
+      planeWidth: 1680,
+      planeHeight: 960,
+    }),
+    { x: 121.8, y: -150, zoom: 0.4 }
   );
 });
 
@@ -139,14 +160,47 @@ test("camera navigation uses the product canvas timing", () => {
 
 test("generation is one user-triggered flow and never implies agent write-back", () => {
   assert.equal(GENERATION_SETTLE_MS, 1200);
+  assert.equal(REFERENCE_SELECTION_SETTLE_MS, 260);
   assert.deepEqual(getGenerationSequence(false), [
-    { state: "generating", at: 0 },
-    { state: "generated", at: 1200 },
+    { state: "references-selected", at: 0 },
+    { state: "generating", at: 260 },
+    { state: "generated", at: 1460 },
   ]);
   assert.deepEqual(getGenerationSequence(true), [
+    { state: "references-selected", at: 0 },
     { state: "generating", at: 0 },
     { state: "generated", at: 0 },
   ]);
+});
+
+test("responsive layout and camera share the 820px compact breakpoint", async () => {
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
+
+  assert.match(main, /matchMedia\("\(max-width: 820px\)"\)/);
+  assert.doesNotMatch(main, /matchMedia\("\(max-width: 720px\)"\)/);
+  assert.doesNotMatch(
+    main,
+    /name === "overview" && !mobileLayout\.matches/
+  );
+  assert.match(styles, /@media \(max-width: 820px\)/);
+});
+
+test("both localized entrypoints load the current website assets", async () => {
+  for (const entrypoint of ["index.html", "zh/index.html"]) {
+    const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
+    assert.match(html, /styles\.css\?v=20260830-1/);
+    assert.match(html, /main\.js\?v=20260830-1/);
+  }
+});
+
+test("the Chinese display title keeps editorial tension without colliding lines", async () => {
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
+
+  assert.match(
+    styles,
+    /\.scene-title h1\s*{[\s\S]*?line-height:\s*1;/
+  );
 });
 
 test("plain trackpad scrolling pans while modified scrolling zooms", () => {
@@ -308,12 +362,57 @@ test("the reference flow uses one native Excalidraw rough arrow", async () => {
     assert.match(connectors, /data-stroke-width="2"/);
     assert.match(connectors, /data-arrowhead-size="25"/);
     assert.match(connectors, /data-arrowhead-angle="20"/);
+
+    const arrowXs = [...connectors.matchAll(/\sd="([^"]+)"/g)].flatMap(
+      ([, path]) =>
+        (path.match(/-?\d+(?:\.\d+)?/g) ?? [])
+          .map(Number)
+          .filter((_, index) => index % 2 === 0)
+    );
+    assert.ok(
+      Math.max(...arrowXs) < 760,
+      `${entrypoint} should stop the arrow before the generated image at x=760`
+    );
   }
 
   assert.match(styles, /\.excalidraw-arrow-stroke\s*{/);
   assert.match(styles, /\.canvas-app\.is-generating \.excalidraw-arrow-stroke/);
   assert.doesNotMatch(styles, /\.connector\s*{/);
   assert.doesNotMatch(styles, /\.canvas-connectors marker path/);
+});
+
+test("the reference strip visibly communicates a four-image multi-selection", async () => {
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
+
+  for (const entrypoint of ["index.html", "zh/index.html"]) {
+    const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
+    const referenceBoard = html.match(
+      /<figure\s+class="reference-board is-multi-selected"[\s\S]*?<\/figure>/
+    )?.[0];
+
+    assert.ok(
+      referenceBoard,
+      `${entrypoint} should open with the reference strip multi-selected`
+    );
+    assert.equal(
+      [...referenceBoard.matchAll(/class="reference-image /g)].length,
+      4,
+      `${entrypoint} should show four selected reference images`
+    );
+    assert.match(html, /data-status-references-selected=/);
+  }
+
+  assert.match(
+    styles,
+    /\.reference-board\.is-multi-selected \.reference-image\s*{[\s\S]*?outline:/
+  );
+  assert.match(
+    styles,
+    /\.reference-board\.is-multi-selected \.canvas-selection-overlay/
+  );
+  assert.match(main, /selectReferenceGroup/);
+  assert.match(main, /references-selected/);
 });
 
 test("the generated image uses the native canvas placeholder and selection states", async () => {
@@ -446,7 +545,7 @@ test("reference material is composed from flat canvas images, not a web card gri
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
     const reference = html.match(
-      /<figure class="reference-board"[\s\S]*?<\/figure>/
+      /<figure\s+class="reference-board(?: is-multi-selected)?"[\s\S]*?<\/figure>/
     )?.[0];
 
     assert.ok(reference);

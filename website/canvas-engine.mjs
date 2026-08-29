@@ -2,9 +2,18 @@ export const MIN_ZOOM = 0.72;
 export const EXCALIDRAW_MIN_ZOOM = 0.01;
 export const MAX_ZOOM = 1.3;
 export const ZOOM_STEP = 0.1;
-export const CANVAS_FIT_PADDING = 24;
 export const CAMERA_TRANSITION_MS = 180;
 export const GENERATION_SETTLE_MS = 1200;
+export const REFERENCE_SELECTION_SETTLE_MS = 260;
+
+const COMPACT_VIEWPORT_WIDTH = 820;
+const NARROW_VIEWPORT_WIDTH = 470;
+const DESKTOP_FIT_HORIZONTAL_PADDING = 120;
+const COMPACT_FIT_HORIZONTAL_PADDING = 48;
+const FIT_VERTICAL_PADDING = 160;
+const NARROW_READABLE_ZOOM = 0.4;
+const NARROW_CONTENT_GUTTER = 16;
+const TITLE_SCENE_X = 88;
 
 export const CAMERA_VIEWS = Object.freeze({
   desktop: Object.freeze({
@@ -26,14 +35,12 @@ export const stepZoom = (current, direction, minimumZoom = MIN_ZOOM) =>
   clampZoom(current + Math.sign(direction) * ZOOM_STEP, minimumZoom);
 
 export const getCanvasMinimumZoom = ({
-  isMobile,
   viewportWidth,
   viewportHeight,
   planeWidth,
   planeHeight,
 }) => {
   if (
-    !isMobile ||
     viewportWidth <= 0 ||
     viewportHeight <= 0 ||
     planeWidth <= 0 ||
@@ -42,11 +49,15 @@ export const getCanvasMinimumZoom = ({
     return MIN_ZOOM;
   }
 
+  const horizontalPadding =
+    viewportWidth <= COMPACT_VIEWPORT_WIDTH
+      ? COMPACT_FIT_HORIZONTAL_PADDING
+      : DESKTOP_FIT_HORIZONTAL_PADDING;
   const fitZoom = Math.min(
-    Math.max(1, viewportWidth - CANVAS_FIT_PADDING) / planeWidth,
-    Math.max(1, viewportHeight - CANVAS_FIT_PADDING) / planeHeight
+    Math.max(1, viewportWidth - horizontalPadding) / planeWidth,
+    Math.max(1, viewportHeight - FIT_VERTICAL_PADDING) / planeHeight
   );
-  return clampZoom(Math.min(MIN_ZOOM, fitZoom), EXCALIDRAW_MIN_ZOOM);
+  return clampZoom(fitZoom, EXCALIDRAW_MIN_ZOOM);
 };
 
 export const getResponsiveOverviewView = (
@@ -62,19 +73,37 @@ export const getResponsiveOverviewView = (
     return { ...baseView };
   }
 
+  const compact = viewportWidth <= COMPACT_VIEWPORT_WIDTH;
+  const narrow = viewportWidth <= NARROW_VIEWPORT_WIDTH;
+  const horizontalPadding = compact
+    ? COMPACT_FIT_HORIZONTAL_PADDING
+    : DESKTOP_FIT_HORIZONTAL_PADDING;
   const fitZoom = Math.min(
-    Math.max(1, viewportWidth - 120) / planeWidth,
-    Math.max(1, viewportHeight - 160) / planeHeight
+    Math.max(1, viewportWidth - horizontalPadding) / planeWidth,
+    Math.max(1, viewportHeight - FIT_VERTICAL_PADDING) / planeHeight
   );
 
-  const zoom = clampZoom(Math.max(baseView.zoom, fitZoom));
+  const zoom = clampZoom(
+    fitZoom,
+    narrow ? NARROW_READABLE_ZOOM : EXCALIDRAW_MIN_ZOOM
+  );
   const verticalAir = viewportHeight - planeHeight * zoom;
   const wideScreenLift = Math.max(0, verticalAir - 160) * 0.5;
-  const shortScreenPush = Math.max(0, 900 - viewportHeight) * 0.39;
+  const x = narrow
+    ? Number(
+        (
+          NARROW_CONTENT_GUTTER +
+          (planeWidth * zoom) / 2 -
+          viewportWidth / 2 -
+          TITLE_SCENE_X * zoom
+        ).toFixed(2)
+      )
+    : 0;
 
   return {
     ...baseView,
-    y: Number((baseView.y + shortScreenPush - wideScreenLift).toFixed(2)),
+    x,
+    y: Number((-wideScreenLift).toFixed(2)),
     zoom,
   };
 };
@@ -147,10 +176,16 @@ export const getZoomControlState = (expanded) => ({
 });
 
 export const getGenerationSequence = (reducedMotion) => [
-  { state: "generating", at: 0 },
+  { state: "references-selected", at: 0 },
+  {
+    state: "generating",
+    at: reducedMotion ? 0 : REFERENCE_SELECTION_SETTLE_MS,
+  },
   {
     state: "generated",
-    at: reducedMotion ? 0 : GENERATION_SETTLE_MS,
+    at: reducedMotion
+      ? 0
+      : REFERENCE_SELECTION_SETTLE_MS + GENERATION_SETTLE_MS,
   },
 ];
 

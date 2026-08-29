@@ -46,8 +46,8 @@
       hreflang="x-default"
       href="https://getcorestudio.com/"
     />
-    <link rel="stylesheet" href="../styles.css?v=20260825-3" />
-    <script type="module" src="../main.js?v=20260825-2"></script>
+    <link rel="stylesheet" href="../styles.css?v=20260830-1" />
+    <script type="module" src="../main.js?v=20260830-1"></script>
   </head>
   <body>
     <!--
@@ -170,7 +170,10 @@
               >
             </div>
 
-            <figure class="reference-board" data-scene-object>
+            <figure
+              class="reference-board is-multi-selected"
+              data-scene-object
+            >
               <div class="reference-selection-target">
                 <div
                   class="reference-images"
@@ -272,15 +275,15 @@
               >
                 <path
                   class="excalidraw-arrow-stroke"
-                  d="M716 588 C735 586 750 548 768 500 M715 585 C737 584 751 545 770 499"
+                  d="M716 588 C728 586 733 548 743 500 M715 585 C729 584 734 545 745 499"
                 />
                 <path
                   class="excalidraw-arrow-stroke"
-                  d="M752 508 C758 505 764 501 771 495 M753 511 C760 507 766 502 772 497"
+                  d="M727 508 C733 505 739 501 746 495 M728 511 C735 507 741 502 747 497"
                 />
                 <path
                   class="excalidraw-arrow-stroke"
-                  d="M759 516 C763 510 768 503 773 496 M757 514 C762 509 767 502 771 496"
+                  d="M734 516 C738 510 743 503 748 496 M732 514 C737 509 742 502 746 496"
                 />
               </g>
             </svg>
@@ -389,6 +392,7 @@
         <form
           class="generation-composer"
           data-generation-form
+          data-status-references-selected="已选择 4 张参考图"
           data-status-generating="正在画布中生成…"
           data-status-generated="图片已生成"
         >

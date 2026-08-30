@@ -536,23 +536,24 @@ figure {
 }
 
 .canvas-annotation-detail {
-  margin-top: 2px;
+  margin-top: 12px;
   font-size: 18px;
-  line-height: 1.3;
+  line-height: 1.4;
+  text-wrap: pretty;
 }
 
 .canvas-annotation-local {
-  top: 628px;
+  top: 600px;
   left: 840px;
 }
 
 .canvas-annotation-model {
-  top: 628px;
+  top: 600px;
   left: 1032px;
 }
 
 .canvas-annotation-agent {
-  top: 628px;
+  top: 600px;
   left: 1224px;
 }
 

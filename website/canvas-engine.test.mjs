@@ -98,7 +98,7 @@ test("the overview camera fits the full composition before using extra space", (
       planeWidth: 1680,
       planeHeight: 960,
     }),
-    { x: 0, y: -1.6, zoom: 0.58 }
+    { x: 53.36, y: -1.6, zoom: 0.58 }
   );
   assert.deepEqual(
     getResponsiveOverviewView(baseView, {
@@ -107,7 +107,7 @@ test("the overview camera fits the full composition before using extra space", (
       planeWidth: 1680,
       planeHeight: 960,
     }),
-    { x: 0, y: 0, zoom: 0.88 }
+    { x: 80.96, y: 0, zoom: 0.88 }
   );
   assert.deepEqual(
     getResponsiveOverviewView(baseView, {
@@ -116,7 +116,7 @@ test("the overview camera fits the full composition before using extra space", (
       planeWidth: 1680,
       planeHeight: 960,
     }),
-    { x: 0, y: -221, zoom: 1.3 }
+    { x: 119.6, y: -221, zoom: 1.3 }
   );
 
   assert.deepEqual(
@@ -126,7 +126,7 @@ test("the overview camera fits the full composition before using extra space", (
       planeWidth: 1680,
       planeHeight: 960,
     }),
-    { x: 0, y: -141.7, zoom: 0.41 }
+    { x: 37.72, y: -141.7, zoom: 0.41 }
   );
 
   const narrowView = getResponsiveOverviewView(CAMERA_VIEWS.mobile.overview, {
@@ -135,12 +135,33 @@ test("the overview camera fits the full composition before using extra space", (
       planeWidth: 1680,
       planeHeight: 960,
     });
-  assert.deepEqual(narrowView, { x: 21.88, y: -212.4, zoom: 0.27 });
+  assert.deepEqual(narrowView, { x: 24.84, y: -212.4, zoom: 0.27 });
 
-  const narrowResultLeft =
-    390 / 2 + narrowView.x + (840 - 1680 / 2) * narrowView.zoom;
-  const narrowResultRight = narrowResultLeft + 560 * narrowView.zoom;
-  assert.ok(narrowResultLeft >= 12 && narrowResultRight <= 390 - 12);
+  const contentLeft = 96;
+  const contentRight = 1400;
+  const assertContentIsCentered = (viewportWidth, view) => {
+    const leftGap =
+      viewportWidth / 2 +
+      view.x +
+      (contentLeft - 1680 / 2) * view.zoom;
+    const rightGap =
+      viewportWidth -
+      (viewportWidth / 2 +
+        view.x +
+        (contentRight - 1680 / 2) * view.zoom);
+    assert.ok(Math.abs(leftGap - rightGap) < 0.01);
+  };
+
+  assertContentIsCentered(390, narrowView);
+  assertContentIsCentered(
+    1414,
+    getResponsiveOverviewView(baseView, {
+      viewportWidth: 1414,
+      viewportHeight: 878,
+      planeWidth: 1680,
+      planeHeight: 960,
+    })
+  );
 });
 
 test("canvas transforms keep translation independent from zoom", () => {
@@ -196,11 +217,11 @@ test("responsive layout and camera share the 820px compact breakpoint", async ()
 test("both localized entrypoints load the current website assets", async () => {
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    assert.match(html, /styles\.css\?v=20260830-7/);
-    assert.match(html, /main\.js\?v=20260830-7/);
+    assert.match(html, /styles\.css\?v=20260831-3/);
+    assert.match(html, /main\.js\?v=20260831-3/);
   }
   const main = await readFile(new URL("main.js", import.meta.url), "utf8");
-  assert.match(main, /canvas-engine\.mjs\?v=20260830-7/);
+  assert.match(main, /canvas-engine\.mjs\?v=20260831-3/);
 });
 
 test("the Chinese display title keeps editorial tension without colliding lines", async () => {
@@ -698,6 +719,12 @@ test("the opening composition balances a two-row reference set with an uncropped
       declaration(".scene-title", "top"),
     "the benefit points should share the lower editorial band with the slogan"
   );
+  assert.equal(
+    declaration(".canvas-annotation-local", "top"),
+    declaration(".scene-title", "top"),
+    "the benefit points and slogan should start on the same baseline"
+  );
+  assert.doesNotMatch(styles, /\.canvas-annotation-outcome/);
   assert.match(
     styles,
     /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?width:\s*560px;[\s\S]*?height:\s*336px;/
@@ -751,5 +778,17 @@ test("the opening composition balances a two-row reference set with an uncropped
       `${entrypoint} should render the generated result once at its original aspect ratio`
     );
     assert.equal([...html.matchAll(/class="canvas-annotation-detail"/g)].length, 3);
+    assert.equal([...html.matchAll(/class="canvas-annotation-outcome"/g)].length, 0);
   }
+
+  const zh = await readFile(new URL("zh/index.html", import.meta.url), "utf8");
+  assert.match(zh, /参考图片、生成结果和项目数据都保存在当前设备的项目文件夹中/);
+  assert.match(zh, /可按需配置图片生成服务与模型/);
+  assert.match(zh, /Codex 等 Agent 可以读取项目内容/);
+  assert.match(zh, /支持内置浏览器时/);
+
+  const en = await readFile(new URL("index.html", import.meta.url), "utf8");
+  assert.match(en, /Projects, references, and results stay on your device/);
+  assert.match(en, /Choose services and models for quality, speed, or budget/);
+  assert.match(en, /Agents read the canvas and selection/);
 });

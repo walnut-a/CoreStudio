@@ -135,10 +135,10 @@ test("the overview camera fits the full composition before using extra space", (
       planeWidth: 1680,
       planeHeight: 960,
     });
-  assert.deepEqual(narrowView, { x: 51.64, y: -193.2, zoom: 0.31 });
+  assert.deepEqual(narrowView, { x: 21.88, y: -212.4, zoom: 0.27 });
 
   const narrowResultLeft =
-    390 / 2 + narrowView.x + (700 - 1680 / 2) * narrowView.zoom;
+    390 / 2 + narrowView.x + (840 - 1680 / 2) * narrowView.zoom;
   const narrowResultRight = narrowResultLeft + 560 * narrowView.zoom;
   assert.ok(narrowResultLeft >= 12 && narrowResultRight <= 390 - 12);
 });
@@ -196,9 +196,11 @@ test("responsive layout and camera share the 820px compact breakpoint", async ()
 test("both localized entrypoints load the current website assets", async () => {
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    assert.match(html, /styles\.css\?v=20260830-5/);
-    assert.match(html, /main\.js\?v=20260830-5/);
+    assert.match(html, /styles\.css\?v=20260830-6/);
+    assert.match(html, /main\.js\?v=20260830-6/);
   }
+  const main = await readFile(new URL("main.js", import.meta.url), "utf8");
+  assert.match(main, /canvas-engine\.mjs\?v=20260830-6/);
 });
 
 test("the Chinese display title keeps editorial tension without colliding lines", async () => {
@@ -362,6 +364,7 @@ test("the reference flow embeds one arrow exported by Excalidraw", async () => {
     assert.match(connectors, /<!-- svg-source:excalidraw -->/);
     assert.match(connectors, /data-export-source="excalidraw"/);
     assert.match(connectors, /data-id="website-reference-flow-arrow"/);
+    assert.match(connectors, /data-arrow-shaft-extension/);
     assert.match(connectors, /stroke-linecap="round"/);
     assert.doesNotMatch(connectors, /<marker|marker-end|connector-[abc]/);
     assert.doesNotMatch(
@@ -378,12 +381,12 @@ test("the reference flow embeds one arrow exported by Excalidraw", async () => {
     const arrowY = Number(
       connectors.match(/data-excalidraw-arrow[\s\S]*?\sy="([^"]+)"/)?.[1]
     );
-    assert.equal(arrowX, 664);
-    assert.equal(arrowY, 394);
-    assert.equal(arrowWidth, 36);
+    assert.equal(arrowX, 676);
+    assert.equal(arrowY, 312);
+    assert.equal(arrowWidth, 144);
     assert.ok(
-      arrowX + arrowWidth <= 700,
-      `${entrypoint} should meet the generated stage at x=700 without crossing it`
+      arrowX + arrowWidth <= 840,
+      `${entrypoint} should meet the generated stage at x=840 without crossing it`
     );
   }
 
@@ -523,7 +526,7 @@ test("every selectable canvas object uses one native transform overlay", async (
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
     const selectableCount = [...html.matchAll(/data-scene-object/g)].length;
 
-    assert.equal(selectableCount, 7);
+    assert.equal(selectableCount, 6);
     assert.equal(
       [...html.matchAll(/class="canvas-selection-overlay"/g)].length,
       selectableCount,
@@ -613,7 +616,7 @@ test("the demo exposes no settings control without settings content", async () =
   assert.doesNotMatch(main, /composerSettings/);
 });
 
-test("the opening composition balances enlarged references with a compact generation stage", async () => {
+test("the opening composition balances a two-row reference set with an uncropped generation stage", async () => {
   const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
   const declaration = (selector, property) => {
     const block = styles.match(
@@ -636,7 +639,7 @@ test("the opening composition balances enlarged references with a compact genera
       left: declaration(".generation-result", "left"),
       width: declaration(".generation-result", "width"),
     },
-    { top: 207, left: 700, width: 560 }
+    { top: 184, left: 840, width: 560 }
   );
   assert.deepEqual(
     {
@@ -644,7 +647,7 @@ test("the opening composition balances enlarged references with a compact genera
       left: declaration(".reference-board", "left"),
       width: declaration(".reference-board", "width"),
     },
-    { top: 336, left: 96, width: 576 }
+    { top: 200, left: 96, width: 560 }
   );
   assert.deepEqual(
     {
@@ -652,17 +655,12 @@ test("the opening composition balances enlarged references with a compact genera
       left: declaration(".scene-title", "left"),
       width: declaration(".scene-title", "width"),
     },
-    { top: 620, left: 96, width: 480 }
+    { top: 600, left: 96, width: 560 }
   );
-  assert.ok(
-    declaration(".generation-result", "width") <
-      declaration(".reference-board", "width"),
-    "the reference input strip should read wider than the compact generation stage"
-  );
-  assert.ok(
-    declaration(".generation-result", "width") >=
-      declaration(".reference-board", "width") * 0.95,
-    "the generation stage should remain substantial without overpowering the input strip"
+  assert.equal(
+    declaration(".generation-result", "width"),
+    declaration(".reference-board", "width"),
+    "the input and output columns should carry equal visual weight"
   );
   assert.ok(
     declaration(".reference-board", "top") <
@@ -676,47 +674,52 @@ test("the opening composition balances enlarged references with a compact genera
   );
   assert.ok(
     declaration(".canvas-annotation-local", "top") >=
-      declaration(".reference-board", "top") + 145,
-    "the local-project annotation should sit below the compact reference strip"
+      declaration(".scene-title", "top"),
+    "the benefit points should share the lower editorial band with the slogan"
   );
   assert.match(
     styles,
-    /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?width:\s*576px;[\s\S]*?height:\s*160px;/
+    /\.reference-selection-target,\s*\.reference-images\s*\{[\s\S]*?width:\s*560px;[\s\S]*?height:\s*336px;/
+  );
+  assert.deepEqual(
+    {
+      top: declaration(".reference-image-a", "top"),
+      left: declaration(".reference-image-a", "left"),
+      width: declaration(".reference-image-a", "width"),
+      height: declaration(".reference-image-a", "height"),
+    },
+    { top: 0, left: 0, width: 180, height: 184 }
+  );
+  assert.deepEqual(
+    {
+      top: declaration(".reference-image-c", "top"),
+      left: declaration(".reference-image-c", "left"),
+      width: declaration(".reference-image-c", "width"),
+      height: declaration(".reference-image-c", "height"),
+    },
+    { top: 196, left: 0, width: 368, height: 140 }
   );
   assert.match(styles, /\.scene-title h1\s*\{[\s\S]*?font-size:\s*4rem;/);
   assert.match(
     styles,
     /\.scene-heading\s*\{[\s\S]*?color:\s*var\(--surface\);[\s\S]*?background:\s*var\(--ink\);/
   );
-  assert.match(
-    styles,
-    /\.result-studies\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?pointer-events:\s*none;/
-  );
-  assert.match(
-    styles,
-    /\.canvas-app\.has-generated-once\.is-result-ready \.result-studies[\s\S]*?opacity:\s*1;/
-  );
-  assert.match(
-    styles,
-    /\.canvas-annotation-model,\s*\.canvas-annotation-agent\s*\{[\s\S]*?opacity:\s*0;/
-  );
-  assert.deepEqual(
-    {
-      top: declaration(".result-studies", "top"),
-      left: declaration(".result-studies", "left"),
-      width: declaration(".result-studies", "width"),
-    },
-    { top: 663, left: 700, width: 560 }
-  );
+  assert.match(styles, /\.result-frame\s*\{[\s\S]*?aspect-ratio:\s*3 \/ 2;/);
+  const resultImageRule =
+    styles.match(/\.result-image\s*\{([^}]*)}/)?.[1] ?? "";
+  assert.match(resultImageRule, /object-fit:\s*contain;/);
+  assert.doesNotMatch(resultImageRule, /transform:/);
+  assert.doesNotMatch(styles, /\.result-studies\s*\{/);
 
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
     assert.doesNotMatch(html, /class="scene-title is-selected"/);
-    assert.equal([...html.matchAll(/class="result-study-image /g)].length, 4);
+    assert.equal([...html.matchAll(/class="result-study-image /g)].length, 0);
     assert.equal(
       [...html.matchAll(/corestudio-canvas-result-rams-v2\.webp/g)].length,
-      5,
-      `${entrypoint} should reuse the real generated result for the hero and four editorial detail crops`
+      1,
+      `${entrypoint} should render the generated result once at its original aspect ratio`
     );
+    assert.equal([...html.matchAll(/class="canvas-annotation-detail"/g)].length, 3);
   }
 });

@@ -9,7 +9,7 @@ import {
   getResponsiveOverviewView,
   getZoomControlState,
   stepZoom,
-} from "./canvas-engine.mjs?v=20260830-5";
+} from "./canvas-engine.mjs?v=20260830-6";
 
 document.documentElement.classList.add("js");
 

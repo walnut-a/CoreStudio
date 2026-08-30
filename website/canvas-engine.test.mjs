@@ -165,7 +165,7 @@ test("camera navigation uses the product canvas timing", () => {
   assert.equal(CAMERA_TRANSITION_MS, 180);
 });
 
-test("generation is one user-triggered flow and never implies agent write-back", () => {
+test("generation is one user-triggered flow and never implies autonomous agent activity", () => {
   assert.equal(GENERATION_SETTLE_MS, 1200);
   assert.equal(REFERENCE_SELECTION_SETTLE_MS, 260);
   assert.deepEqual(getGenerationSequence(false), [
@@ -196,11 +196,11 @@ test("responsive layout and camera share the 820px compact breakpoint", async ()
 test("both localized entrypoints load the current website assets", async () => {
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    assert.match(html, /styles\.css\?v=20260830-6/);
-    assert.match(html, /main\.js\?v=20260830-6/);
+    assert.match(html, /styles\.css\?v=20260830-7/);
+    assert.match(html, /main\.js\?v=20260830-7/);
   }
   const main = await readFile(new URL("main.js", import.meta.url), "utf8");
-  assert.match(main, /canvas-engine\.mjs\?v=20260830-6/);
+  assert.match(main, /canvas-engine\.mjs\?v=20260830-7/);
 });
 
 test("the Chinese display title keeps editorial tension without colliding lines", async () => {
@@ -364,7 +364,7 @@ test("the reference flow embeds one arrow exported by Excalidraw", async () => {
     assert.match(connectors, /<!-- svg-source:excalidraw -->/);
     assert.match(connectors, /data-export-source="excalidraw"/);
     assert.match(connectors, /data-id="website-reference-flow-arrow"/);
-    assert.match(connectors, /data-arrow-shaft-extension/);
+    assert.doesNotMatch(connectors, /data-arrow-shaft-extension/);
     assert.match(connectors, /stroke-linecap="round"/);
     assert.doesNotMatch(connectors, /<marker|marker-end|connector-[abc]/);
     assert.doesNotMatch(
@@ -381,9 +381,19 @@ test("the reference flow embeds one arrow exported by Excalidraw", async () => {
     const arrowY = Number(
       connectors.match(/data-excalidraw-arrow[\s\S]*?\sy="([^"]+)"/)?.[1]
     );
-    assert.equal(arrowX, 676);
-    assert.equal(arrowY, 312);
-    assert.equal(arrowWidth, 144);
+    const arrowHeight = Number(
+      connectors.match(/data-excalidraw-arrow[\s\S]*?\sheight="([^"]+)"/)?.[1]
+    );
+    assert.equal(arrowX, 664);
+    assert.equal(arrowY, 342);
+    assert.ok(
+      arrowWidth >= 168,
+      `${entrypoint} should stretch across the full input-output channel`
+    );
+    assert.ok(
+      arrowHeight <= 30,
+      `${entrypoint} should rise gradually instead of turning sharply`
+    );
     assert.ok(
       arrowX + arrowWidth <= 840,
       `${entrypoint} should meet the generated stage at x=840 without crossing it`
@@ -458,6 +468,11 @@ test("the generated image uses the native canvas placeholder and selection state
     assert.ok(result, `${entrypoint} should contain the generated image`);
     assert.match(result, /class="result-placeholder"/);
     assert.match(result, /class="canvas-selection-border"/);
+    assert.match(
+      result,
+      /<div class="result-frame">\s*<div class="result-media">[\s\S]*?<\/div>\s*<div class="canvas-selection-overlay"/,
+      `${entrypoint} should keep the selection overlay outside the clipped image layer`
+    );
     assert.equal(
       [...result.matchAll(/class="canvas-transform-handle /g)].length,
       5,
@@ -477,6 +492,12 @@ test("the generated image uses the native canvas placeholder and selection state
     styles,
     /\.canvas-selection-border\s*{[\s\S]*?inset: calc\(-4px \* var\(--inverse-canvas-zoom\)\);/
   );
+  const resultFrameRule =
+    [...styles.matchAll(/\.result-frame\s*\{([^}]*)}/g)].at(-1)?.[1] ?? "";
+  const resultMediaRule =
+    styles.match(/\.result-media\s*\{([^}]*)}/)?.[1] ?? "";
+  assert.match(resultFrameRule, /overflow:\s*visible;/);
+  assert.match(resultMediaRule, /overflow:\s*hidden;/);
   assert.match(
     styles,
     /\[data-scene-object\]\.is-selected \.canvas-selection-overlay/
@@ -704,6 +725,10 @@ test("the opening composition balances a two-row reference set with an uncropped
     styles,
     /\.scene-heading\s*\{[\s\S]*?color:\s*var\(--surface\);[\s\S]*?background:\s*var\(--ink\);/
   );
+  assert.match(
+    styles,
+    /\.scene-heading p\s*\{[\s\S]*?margin:\s*0;[\s\S]*?color:\s*color-mix\(/
+  );
   assert.match(styles, /\.result-frame\s*\{[\s\S]*?aspect-ratio:\s*3 \/ 2;/);
   const resultImageRule =
     styles.match(/\.result-image\s*\{([^}]*)}/)?.[1] ?? "";
@@ -713,6 +738,11 @@ test("the opening composition balances a two-row reference set with an uncropped
 
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
+    assert.match(
+      html,
+      /<div class="scene-heading">[\s\S]*?<h1>[\s\S]*?<\/h1>\s*<p>[\s\S]*?<\/p>\s*<\/div>/,
+      "the supporting sentence should sit inside the black slogan panel"
+    );
     assert.doesNotMatch(html, /class="scene-title is-selected"/);
     assert.equal([...html.matchAll(/class="result-study-image /g)].length, 0);
     assert.equal(

@@ -393,47 +393,6 @@ figure {
   transition: none;
 }
 
-.project-tab {
-  position: absolute;
-  top: 66px;
-  left: 96px;
-  height: 34px;
-  padding: 0 11px 0 7px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-gray-70);
-  background: var(--color-surface-high);
-  border-radius: var(--border-radius-md);
-  font-family: var(--font-interface);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.project-home {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-}
-
-.project-home svg {
-  width: 16px;
-  height: 16px;
-}
-
-.project-close {
-  width: 16px;
-  height: 16px;
-  margin-left: 8px;
-  color: var(--quiet);
-}
-
-.project-close svg {
-  width: 16px;
-  height: 16px;
-}
-
 .scene-title {
   position: absolute;
   top: 600px;
@@ -444,7 +403,10 @@ figure {
 
 .scene-heading {
   position: relative;
-  padding: 20px 24px 24px;
+  padding: 20px 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   color: var(--surface);
   background: var(--ink);
 }
@@ -473,10 +435,10 @@ figure {
   line-height: 0.98;
 }
 
-.scene-title p {
+.scene-heading p {
   max-width: 432px;
-  margin: 16px 24px 0;
-  color: var(--muted);
+  margin: 0;
+  color: color-mix(in srgb, var(--surface) 74%, var(--ink));
   font-size: 1rem;
   line-height: 1.55;
   text-wrap: pretty;
@@ -648,20 +610,6 @@ figure {
   object-position: 50% 38%;
 }
 
-.reference-board figcaption,
-.generation-result figcaption {
-  margin-top: 11px;
-  color: var(--muted);
-  font-family: var(--font-interface);
-  font-size: 0.72rem;
-  text-align: center;
-}
-
-.reference-board figcaption {
-  font-family: var(--font-canvas);
-  font-size: 15px;
-}
-
 .generation-result figcaption {
   position: absolute;
   width: 1px;
@@ -696,6 +644,12 @@ figure {
 .result-frame {
   position: relative;
   aspect-ratio: 3 / 2;
+  overflow: visible;
+}
+
+.result-media {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   background: #f4f0e9;
 }
@@ -1069,10 +1023,6 @@ select:focus-visible,
     grid-template-columns: auto 1fr;
   }
 
-  .project-tab {
-    left: 140px;
-  }
-
   .header-actions {
     gap: 4px;
   }
@@ -1153,7 +1103,7 @@ select:focus-visible,
     font-size: 4rem;
   }
 
-  .scene-title p {
+  .scene-heading p {
     max-width: 432px;
     font-size: 1rem;
   }

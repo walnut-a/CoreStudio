@@ -12,9 +12,9 @@ const DESKTOP_FIT_HORIZONTAL_PADDING = 120;
 const COMPACT_FIT_HORIZONTAL_PADDING = 48;
 const FIT_VERTICAL_PADDING = 160;
 const NARROW_CONTENT_GUTTER = 16;
-const NARROW_CONTENT_LEFT = 96;
-const NARROW_CONTENT_WIDTH = 1304;
-const NARROW_CONTENT_HEIGHT = 804;
+const OVERVIEW_CONTENT_LEFT = 96;
+const OVERVIEW_CONTENT_WIDTH = 1304;
+const OVERVIEW_CONTENT_HEIGHT = 804;
 
 export const CAMERA_VIEWS = Object.freeze({
   desktop: Object.freeze({
@@ -79,8 +79,8 @@ export const getResponsiveOverviewView = (
     : compact
     ? COMPACT_FIT_HORIZONTAL_PADDING
     : DESKTOP_FIT_HORIZONTAL_PADDING;
-  const fitWidth = narrow ? NARROW_CONTENT_WIDTH : planeWidth;
-  const fitHeight = narrow ? NARROW_CONTENT_HEIGHT : planeHeight;
+  const fitWidth = narrow ? OVERVIEW_CONTENT_WIDTH : planeWidth;
+  const fitHeight = narrow ? OVERVIEW_CONTENT_HEIGHT : planeHeight;
   const fitZoom = Math.min(
     Math.max(1, viewportWidth - horizontalPadding) / fitWidth,
     Math.max(1, viewportHeight - FIT_VERTICAL_PADDING) / fitHeight
@@ -89,16 +89,8 @@ export const getResponsiveOverviewView = (
   const zoom = clampZoom(fitZoom, EXCALIDRAW_MIN_ZOOM);
   const verticalAir = viewportHeight - planeHeight * zoom;
   const wideScreenLift = Math.max(0, verticalAir - 160) * 0.5;
-  const x = narrow
-    ? Number(
-        (
-          NARROW_CONTENT_GUTTER +
-          (planeWidth * zoom) / 2 -
-          viewportWidth / 2 -
-          NARROW_CONTENT_LEFT * zoom
-        ).toFixed(2)
-      )
-    : 0;
+  const contentCenter = OVERVIEW_CONTENT_LEFT + OVERVIEW_CONTENT_WIDTH / 2;
+  const x = Number(((planeWidth / 2 - contentCenter) * zoom).toFixed(2));
 
   return {
     ...baseView,

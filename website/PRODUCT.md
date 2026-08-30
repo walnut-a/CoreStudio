@@ -18,7 +18,7 @@ CoreStudio 是一款基于 Excalidraw 的本地优先图片生成画布。官网
 
 ## Positioning
 
-CoreStudio 不重新发明画布或模型能力，而是在成熟的 Excalidraw 画布上连接本地项目、自选图片生成模型和 Agent 写回流程。画布及项目素材由本地客户端管理；在线模型是否本地推理不属于这一承诺。
+CoreStudio 不重新发明画布或模型能力，而是在成熟的 Excalidraw 画布上连接本地项目、自选图片生成模型和 Agent 协作流程。画布及项目素材由本地客户端管理；在线模型是否本地推理不属于这一承诺。
 
 ## Operating Context
 

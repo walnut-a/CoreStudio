@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en" data-webmcp="enabled" data-host="codex">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Install the CoreStudio Skill and shared CLI for Codex, Cursor, or Claude Code, then connect your local canvas."
+    />
+    <meta name="theme-color" content="#f6f6f9" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="Agent integrations · CoreStudio" />
+    <meta
+      property="og:description"
+      content="Install one Agent Skill and the shared CoreStudio CLI from the signed macOS app."
+    />
+    <meta property="og:url" content="https://getcorestudio.com/integrations/" />
+    <meta
+      property="og:image"
+      content="https://getcorestudio.com/assets/corestudio-social-card.jpeg"
+    />
+    <title>Agent integrations · CoreStudio</title>
+    <link rel="icon" href="../assets/corestudio-favicon-32.png" type="image/png" />
+    <link rel="apple-touch-icon" href="../assets/corestudio-apple-touch-icon.png" />
+    <link rel="canonical" href="https://getcorestudio.com/integrations/" />
+    <link
+      rel="alternate"
+      hreflang="en"
+      href="https://getcorestudio.com/integrations/"
+    />
+    <link
+      rel="alternate"
+      hreflang="zh-CN"
+      href="https://getcorestudio.com/zh/integrations/"
+    />
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href="https://getcorestudio.com/integrations/"
+    />
+    <link rel="stylesheet" href="../integrations.css?v=20260831-1" />
+    <script type="module" src="../integrations.mjs?v=20260831-1"></script>
+    <script type="module" src="../webmcp-adapter.mjs?v=20260831-1"></script>
+  </head>
+  <body
+    class="integration-page integration-page-en"
+    data-locale="en"
+    data-content-revision="20260831-1"
+  >
+    <a class="skip-link" href="#main">Skip to the guide</a>
+
+    <header class="integration-header">
+      <a class="integration-brand" href="../" aria-label="CoreStudio home">
+        <img
+          src="../assets/corestudio-icon-256.png"
+          srcset="
+            ../assets/corestudio-icon-64.webp   64w,
+            ../assets/corestudio-icon-256.webp 256w
+          "
+          sizes="34px"
+          width="34"
+          height="34"
+          alt=""
+        />
+        <span>CoreStudio</span>
+        <span class="brand-route"><span>Agent integrations</span></span>
+      </a>
+
+      <nav class="integration-header-actions" aria-label="Site navigation">
+        <a
+          class="header-link header-github"
+          href="https://github.com/walnut-a/CoreStudio"
+          target="_blank"
+          rel="noreferrer"
+          >GitHub</a
+        >
+        <a
+          class="header-link language-link"
+          href="../zh/integrations/"
+          lang="zh-CN"
+          hreflang="zh-CN"
+          >中文</a
+        >
+        <a
+          class="download-button"
+          href="https://github.com/walnut-a/CoreStudio/releases/latest"
+          target="_blank"
+          rel="noreferrer"
+          >Download for macOS</a
+        >
+      </nav>
+    </header>
+
+    <div class="integration-shell">
+      <aside class="integration-index" aria-label="Integration guide navigation">
+        <p class="index-title">Choose your local Agent</p>
+        <div
+          class="host-switcher"
+          role="tablist"
+          aria-label="Supported local Agent hosts"
+          data-host-tabs
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected="true"
+            data-host-tab="codex"
+          >
+            Codex
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            data-host-tab="cursor"
+          >
+            Cursor
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            data-host-tab="claude-code"
+          >
+            Claude Code
+          </button>
+        </div>
+
+        <nav class="section-nav" aria-label="On this page">
+          <a class="is-current" href="#overview" data-section-link>Overview</a>
+          <a href="#install" data-section-link>Install</a>
+          <a href="#verify" data-section-link>Verify</a>
+          <a href="#first-use" data-section-link>First use</a>
+          <a href="#cli" data-section-link>CLI tasks</a>
+          <a href="#troubleshooting" data-section-link>Troubleshooting</a>
+        </nav>
+      </aside>
+
+      <main class="guide-document" id="main" tabindex="-1" data-integration-guide>
+        <section class="guide-hero" id="overview">
+          <h1>Use CoreStudio in your Agent</h1>
+          <p>
+            CoreStudio installs one host-specific Skill and one shared CLI from
+            the signed app already on your Mac. Choose your Agent, then finish
+            setup in Application Settings → Agent integration.
+          </p>
+          <div class="guide-status">
+            The website explains the process. It does not inspect your Mac or
+            run an installer.
+          </div>
+        </section>
+
+        <dl class="fact-ledger">
+          <div>
+            <dt>Skill</dt>
+            <dd>Installed separately for each Agent host</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>Installed once and shared by all supported hosts</dd>
+          </div>
+          <div>
+            <dt>Connection</dt>
+            <dd>Local CoreStudio and Local Bridge</dd>
+          </div>
+        </dl>
+
+        <section class="guide-section" id="install">
+          <h2>Install Skill and CLI together</h2>
+          <p class="section-intro">
+            Do not download a Skill archive or run a network install script.
+            CoreStudio uses the integration resources bundled inside its signed
+            application.
+          </p>
+
+          <ol class="installation-steps">
+            <li>
+              <div>
+                <h3>Install and open CoreStudio</h3>
+                <p>
+                  If CoreStudio is not installed, download the latest signed
+                  macOS release from GitHub. Keep the app open for connection
+                  checks.
+                </p>
+                <a
+                  class="source-link"
+                  href="https://github.com/walnut-a/CoreStudio/releases/latest"
+                  target="_blank"
+                  rel="noreferrer"
+                  >Download latest release</a
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>Open Agent integration settings</h3>
+                <p>
+                  In CoreStudio, open Application Settings → Agent integration.
+                  The website cannot open or inspect this local page for you.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>Install <span data-host-name>Codex</span></h3>
+                <p>
+                  Use Install, Update, or Repair. CoreStudio prepares the host
+                  Skill and the shared CLI in one managed action.
+                </p>
+                <span class="host-artifact" data-skill-path
+                  >~/.codex/skills/corestudio/</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>Start a fresh Agent conversation</h3>
+                <p>
+                  A conversation that was already open may not rescan newly
+                  installed Skills. Start a new local conversation before first
+                  use.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="guide-section" id="verify">
+          <h2>Verify installation before project access</h2>
+          <p class="section-intro">
+            Installation integrity and project connectivity are different
+            checks. Start with the version command, then check the running app.
+          </p>
+
+          <div class="verification-grid">
+            <div class="verification-block">
+              <h3>1. Installation integrity</h3>
+              <p>
+                This command does not require an open project or a reachable
+                Local Bridge.
+              </p>
+              <div class="code-block">
+                <code id="verify-install-command">corestudio --version --json</code>
+                <button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="#verify-install-command"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            <div class="verification-block">
+              <h3>2. Local connection</h3>
+              <p>
+                Run this after CoreStudio is open. It reports Bridge and
+                current-project state without changing the project.
+              </p>
+              <div class="code-block">
+                <code id="verify-connection-command"
+                  >corestudio read status --json</code
+                >
+                <button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="#verify-connection-command"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="guide-section" id="first-use">
+          <h2>Start with one natural-language task</h2>
+          <p class="section-intro">
+            Open a fresh local Agent conversation so the host can discover the
+            new Skill, then ask it to open your current CoreStudio project.
+          </p>
+
+          <div class="prompt-block">
+            <code id="first-agent-prompt" data-first-prompt
+              >Open my current CoreStudio project, read the canvas and selection,
+              then tell me what I can continue working on.</code
+            >
+            <button
+              class="copy-button"
+              type="button"
+              data-copy-target="#first-agent-prompt"
+            >
+              Copy
+            </button>
+          </div>
+          <p class="host-note" data-host-note>
+            Codex can establish its compatible local identity automatically.
+            You do not need to copy a session reference.
+          </p>
+        </section>
+
+        <section class="guide-section" id="cli">
+          <h2>Common CLI tasks</h2>
+          <p class="section-intro">
+            These examples are task entry points, not the complete contract.
+            Agents should keep JSON output enabled and use the linked contract
+            for full parameters.
+          </p>
+
+          <div class="cli-list">
+            <div class="cli-row" data-cli-task="status">
+              <h3>Check status</h3>
+              <div class="cli-command">
+                <code>corestudio read status --json</code>
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="selection">
+              <h3>Read selection</h3>
+              <div class="cli-command">
+                <code>corestudio read selection --json</code>
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="board-url">
+              <h3>Open Agent Board</h3>
+              <div class="cli-command">
+                <code>corestudio read board-url --json</code>
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="write-image">
+              <h3>Write an image</h3>
+              <div class="cli-command">
+                <code
+                  >corestudio write image /absolute/path/result.png --source-type
+                  generated --origin agent-board --json</code
+                >
+                <span class="session-requirement" data-session-requirement hidden
+                  >Agent session</span
+                >
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="write-diagram">
+              <h3>Write a diagram</h3>
+              <div class="cli-command">
+                <code
+                  >corestudio write diagram --format mermaid --file
+                  /absolute/path/process.mmd --anchor auto --json</code
+                >
+                <span class="session-requirement" data-session-requirement hidden
+                  >Agent session</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <a
+            class="contract-link"
+            href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md"
+            target="_blank"
+            rel="noreferrer"
+            >Open the full CLI contract</a
+          >
+        </section>
+
+        <section class="guide-section" id="troubleshooting">
+          <h2>Recover without stacking fixes</h2>
+          <p class="section-intro">
+            Match the visible symptom, take the shortest supported recovery
+            path, and verify once before trying another change.
+          </p>
+
+          <div class="troubleshooting-list" data-troubleshooting-list></div>
+
+          <noscript>
+            <p class="no-script-note">
+              JavaScript is off. The complete shared setup flow remains
+              available; host switching and copy buttons are disabled. For
+              detailed recovery, open the source document below.
+            </p>
+          </noscript>
+
+          <a
+            class="source-link"
+            href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md"
+            target="_blank"
+            rel="noreferrer"
+            >View source document</a
+          >
+        </section>
+      </main>
+
+      <aside class="evidence-rail" aria-label="Guide evidence and sources">
+        <section class="evidence-group">
+          <h2>Guide status</h2>
+          <p class="evidence-status">
+            Guide only — no local state was inspected
+          </p>
+        </section>
+
+        <section class="evidence-group">
+          <h2>Installed artifacts</h2>
+          <ul>
+            <li>
+              <span>Host Skill</span>
+              <code class="evidence-path" data-skill-path
+                >~/.codex/skills/corestudio/</code
+              >
+            </li>
+            <li>
+              <span>Shared CLI</span>
+              <code class="evidence-path">~/.local/bin/corestudio</code>
+            </li>
+          </ul>
+        </section>
+
+        <section class="evidence-group">
+          <h2>Supported local hosts</h2>
+          <ul>
+            <li>Codex</li>
+            <li>Cursor</li>
+            <li>Claude Code</li>
+          </ul>
+        </section>
+
+        <section class="evidence-group">
+          <h2>Source and fallback</h2>
+          <ul>
+            <li>
+              <a
+                href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md"
+                target="_blank"
+                rel="noreferrer"
+                >User guide</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md"
+                target="_blank"
+                rel="noreferrer"
+                >CLI contract</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md"
+                target="_blank"
+                rel="noreferrer"
+                >Architecture</a
+              >
+            </li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <p class="sr-only" role="status" aria-live="polite" data-copy-status></p>
+  </body>
+</html>

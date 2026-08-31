@@ -80,6 +80,9 @@
         </a>
 
         <div class="header-actions">
+          <a class="header-link header-integrations" href="integrations/"
+            >Agents</a
+          >
           <a
             class="header-link header-github"
             href="https://github.com/walnut-a/CoreStudio"
@@ -303,9 +306,11 @@
               <figcaption>Illustrative generation demo</figcaption>
             </figure>
 
-            <div
-              class="canvas-annotation canvas-annotation-agent"
+            <a
+              class="canvas-annotation canvas-annotation-agent canvas-annotation-agent-link"
+              href="integrations/"
               data-scene-object
+              aria-label="Open the CoreStudio Agent integration guide"
             >
               <div class="canvas-selection-overlay" aria-hidden="true">
                 <span class="canvas-selection-border"></span>
@@ -322,7 +327,7 @@
                 >Agents read the canvas and selection, generate images, and write
                 them back here.</span
               >
-            </div>
+            </a>
 
             <div class="agent-cursor" aria-hidden="true">
               <svg viewBox="0 0 11 14">

@@ -78,6 +78,9 @@
         </a>
 
         <div class="header-actions">
+          <a class="header-link header-integrations" href="integrations/"
+            >Agent</a
+          >
           <a
             class="header-link header-github"
             href="https://github.com/walnut-a/CoreStudio"
@@ -301,9 +304,11 @@
               <figcaption>示意生成演示</figcaption>
             </figure>
 
-            <div
-              class="canvas-annotation canvas-annotation-agent"
+            <a
+              class="canvas-annotation canvas-annotation-agent canvas-annotation-agent-link"
+              href="integrations/"
               data-scene-object
+              aria-label="打开 CoreStudio Agent 集成指南"
             >
               <div class="canvas-selection-overlay" aria-hidden="true">
                 <span class="canvas-selection-border"></span>
@@ -319,7 +324,7 @@
               <span class="canvas-annotation-detail"
                 >Codex 等 Agent 可以读取项目内容，也可以将图片等结果直接写回画布。支持内置浏览器时，还可以在 Agent 中直接打开并使用 CoreStudio。</span
               >
-            </div>
+            </a>
 
             <div class="agent-cursor" aria-hidden="true">
               <svg viewBox="0 0 11 14">

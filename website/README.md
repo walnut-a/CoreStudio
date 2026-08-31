@@ -16,6 +16,9 @@ python3 -m http.server 4173
 `http://127.0.0.1:4173/website/zh/`；从仓库根目录提供静态文件，是为了让官网加载仓库内的 Excalidraw 字体资源。两个版本在页头与页脚提供固定切换入口，不按浏览器语言自动跳转。
 原 `/en/` 路径保留为英文首页的兼容跳转。
 
+Agent 集成中心位于 `http://127.0.0.1:4173/website/integrations/` 与
+`http://127.0.0.1:4173/website/zh/integrations/`。页面提供 Codex、Cursor、Claude Code 的 Skill / CLI 安装指南与只读 WebMCP 渐进增强；不支持 WebMCP 或关闭 JavaScript 时，核心教程仍由静态 HTML 提供。
+
 ## 文件结构
 
 ```text
@@ -24,12 +27,21 @@ website/
 ├── DESIGN.md
 ├── PRODUCT.md
 ├── index.html
+├── integrations/
+│   └── index.html       # 英文 Agent 集成中心
 ├── robots.txt
 ├── sitemap.xml
 ├── en/
 │   └── index.html       # 旧英文路径兼容跳转
 ├── zh/
-│   └── index.html       # 中文版
+│   ├── index.html       # 中文版
+│   └── integrations/
+│       └── index.html   # 中文 Agent 集成中心
+├── integrations.css
+├── integrations.mjs
+├── integrations-content.mjs
+├── integrations-contract.test.mjs
+├── webmcp-adapter.mjs
 ├── styles.css
 ├── main.js
 ├── canvas-engine.mjs
@@ -63,7 +75,11 @@ PNG / WebP 是从这张原始图标生成的尺寸与格式衍生文件，网站
 
 ```sh
 node --test website/canvas-engine.test.mjs
+node --test website/integrations-contract.test.mjs
 node --check website/main.js
+node --check website/integrations.mjs
+node --check website/integrations-content.mjs
+node --check website/webmcp-adapter.mjs
 ```
 
 Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 SemiBold / Bold；英文版正文

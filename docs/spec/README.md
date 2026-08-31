@@ -15,6 +15,7 @@
 - [2026-07-31-corestudio-cli-diagram-write.md](2026-07-31-corestudio-cli-diagram-write.md)：CoreStudio CLI 使用 Mermaid 创建原生可编辑图表的契约、边界与验收标准。
 - [2026-08-03-corestudio-seedream-dual-access.md](2026-08-03-corestudio-seedream-dual-access.md)：火山方舟 Seedream 与即梦 AI AK/SK 双通道接入、迁移和验收规则。
 - [2026-08-19-corestudio-canvas-minimap.md](2026-08-19-corestudio-canvas-minimap.md)：大画布迷你地图的产品边界、导航交互、几何渲染、性能与验收方案。
+- [2026-08-31-corestudio-website-agent-integration-webmcp.md](2026-08-31-corestudio-website-agent-integration-webmcp.md)：官网 Agent 集成中心、Skill / CLI 安装教程、WebMCP 只读工具与 GitHub 文档 fallback 设计方案。
 
 ## 既有历史规格
 

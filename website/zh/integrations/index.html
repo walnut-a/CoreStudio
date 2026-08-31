@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-webmcp="enabled" data-host="codex">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="为 Codex、Cursor 或 Claude Code 安装 CoreStudio Skill 与共享 CLI，并连接本地画布。"
+    />
+    <meta name="theme-color" content="#f6f6f9" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="Agent 集成 · CoreStudio" />
+    <meta
+      property="og:description"
+      content="从已签名的 macOS 应用安装一个 Agent Skill 和 CoreStudio 共享 CLI。"
+    />
+    <meta
+      property="og:url"
+      content="https://getcorestudio.com/zh/integrations/"
+    />
+    <meta
+      property="og:image"
+      content="https://getcorestudio.com/assets/corestudio-social-card.jpeg"
+    />
+    <title>Agent 集成 · CoreStudio</title>
+    <link
+      rel="icon"
+      href="../../assets/corestudio-favicon-32.png"
+      type="image/png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="../../assets/corestudio-apple-touch-icon.png"
+    />
+    <link
+      rel="canonical"
+      href="https://getcorestudio.com/zh/integrations/"
+    />
+    <link
+      rel="alternate"
+      hreflang="en"
+      href="https://getcorestudio.com/integrations/"
+    />
+    <link
+      rel="alternate"
+      hreflang="zh-CN"
+      href="https://getcorestudio.com/zh/integrations/"
+    />
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href="https://getcorestudio.com/integrations/"
+    />
+    <link rel="stylesheet" href="../../integrations.css?v=20260831-1" />
+    <script type="module" src="../../integrations.mjs?v=20260831-1"></script>
+    <script
+      type="module"
+      src="../../webmcp-adapter.mjs?v=20260831-1"
+    ></script>
+  </head>
+  <body
+    class="integration-page integration-page-zh"
+    data-locale="zh-CN"
+    data-content-revision="20260831-1"
+  >
+    <a class="skip-link" href="#main">跳到安装指南</a>
+
+    <header class="integration-header">
+      <a class="integration-brand" href="../../" aria-label="CoreStudio 首页">
+        <img
+          src="../../assets/corestudio-icon-256.png"
+          srcset="
+            ../../assets/corestudio-icon-64.webp   64w,
+            ../../assets/corestudio-icon-256.webp 256w
+          "
+          sizes="34px"
+          width="34"
+          height="34"
+          alt=""
+        />
+        <span>CoreStudio</span>
+        <span class="brand-route"><span>Agent 集成</span></span>
+      </a>
+
+      <nav class="integration-header-actions" aria-label="网站导航">
+        <a
+          class="header-link header-github"
+          href="https://github.com/walnut-a/CoreStudio"
+          target="_blank"
+          rel="noreferrer"
+          >GitHub</a
+        >
+        <a
+          class="header-link language-link"
+          href="../../integrations/"
+          lang="en"
+          hreflang="en"
+          >EN</a
+        >
+        <a
+          class="download-button"
+          href="https://github.com/walnut-a/CoreStudio/releases/latest"
+          target="_blank"
+          rel="noreferrer"
+          >下载 macOS 版</a
+        >
+      </nav>
+    </header>
+
+    <div class="integration-shell">
+      <aside class="integration-index" aria-label="Agent 集成指南导航">
+        <p class="index-title">选择你的本地 Agent</p>
+        <div
+          class="host-switcher"
+          role="tablist"
+          aria-label="支持的本地 Agent 宿主"
+          data-host-tabs
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected="true"
+            data-host-tab="codex"
+          >
+            Codex
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            data-host-tab="cursor"
+          >
+            Cursor
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            data-host-tab="claude-code"
+          >
+            Claude Code
+          </button>
+        </div>
+
+        <nav class="section-nav" aria-label="本页目录">
+          <a class="is-current" href="#overview" data-section-link>概览</a>
+          <a href="#install" data-section-link>安装</a>
+          <a href="#verify" data-section-link>验证</a>
+          <a href="#first-use" data-section-link>首次使用</a>
+          <a href="#cli" data-section-link>CLI 常用任务</a>
+          <a href="#troubleshooting" data-section-link>故障排查</a>
+        </nav>
+      </aside>
+
+      <main class="guide-document" id="main" tabindex="-1" data-integration-guide>
+        <section class="guide-hero" id="overview">
+          <h1>在你的 Agent 中使用 CoreStudio</h1>
+          <p>
+            CoreStudio 会从 Mac 上已签名的本机应用包安装一个宿主 Skill
+            和一份共享 CLI。选择你使用的 Agent，然后在“应用设置 → Agent
+            集成”中完成安装。
+          </p>
+          <div class="guide-status">
+            官网只负责说明流程，不会检测你的 Mac，也不会执行安装。
+          </div>
+        </section>
+
+        <dl class="fact-ledger">
+          <div>
+            <dt>Skill</dt>
+            <dd>Codex、Cursor、Claude Code 分别安装</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>只安装一次，三种受支持宿主共用</dd>
+          </div>
+          <div>
+            <dt>连接</dt>
+            <dd>本机 CoreStudio 与 Local Bridge</dd>
+          </div>
+        </dl>
+
+        <section class="guide-section" id="install">
+          <h2>一次安装 Skill 与 CLI</h2>
+          <p class="section-intro">
+            不要下载 Skill 压缩包，也不要运行网络安装脚本。CoreStudio
+            使用已签名应用内自带的集成资源。
+          </p>
+
+          <ol class="installation-steps">
+            <li>
+              <div>
+                <h3>安装并打开 CoreStudio</h3>
+                <p>
+                  尚未安装时，从 GitHub 下载最新签名 macOS
+                  版本。连接验证期间保持 CoreStudio 正在运行。
+                </p>
+                <a
+                  class="source-link"
+                  href="https://github.com/walnut-a/CoreStudio/releases/latest"
+                  target="_blank"
+                  rel="noreferrer"
+                  >下载最新版本</a
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>打开 Agent 集成设置</h3>
+                <p>
+                  在 CoreStudio 中打开“应用设置 → Agent
+                  集成”。官网无法替你打开或检测这个本机页面。
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>安装 <span data-host-name>Codex</span></h3>
+                <p>
+                  点击安装、更新或修复。CoreStudio 会在同一个受管操作中准备宿主
+                  Skill 和共享 CLI。
+                </p>
+                <span class="host-artifact" data-skill-path
+                  >~/.codex/skills/corestudio/</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <h3>新建 Agent 对话</h3>
+                <p>
+                  已经打开的对话可能不会重新扫描刚安装的
+                  Skill。首次使用前请新建一个本地对话。
+                </p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="guide-section" id="verify">
+          <h2>先验证安装，再验证项目连接</h2>
+          <p class="section-intro">
+            安装完整与项目可连接是两个不同层级。先检查版本，再检查正在运行的
+            CoreStudio。
+          </p>
+
+          <div class="verification-grid">
+            <div class="verification-block">
+              <h3>1. 安装完整性</h3>
+              <p>这个命令不要求当前已经打开项目，也不要求 Local Bridge 可达。</p>
+              <div class="code-block">
+                <code id="verify-install-command">corestudio --version --json</code>
+                <button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="#verify-install-command"
+                >
+                  复制
+                </button>
+              </div>
+            </div>
+
+            <div class="verification-block">
+              <h3>2. 本地连接</h3>
+              <p>
+                打开 CoreStudio 后再运行。它只报告 Bridge
+                与当前项目状态，不会修改项目。
+              </p>
+              <div class="code-block">
+                <code id="verify-connection-command"
+                  >corestudio read status --json</code
+                >
+                <button
+                  class="copy-button"
+                  type="button"
+                  data-copy-target="#verify-connection-command"
+                >
+                  复制
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="guide-section" id="first-use">
+          <h2>从一条自然语言任务开始</h2>
+          <p class="section-intro">
+            新建一个本地 Agent 对话，让宿主重新发现 Skill，然后让它打开当前
+            CoreStudio 项目。
+          </p>
+
+          <div class="prompt-block">
+            <code id="first-agent-prompt" data-first-prompt
+              >打开当前 CoreStudio
+              项目，读取画布与选区，并告诉我当前可以继续做什么。</code
+            >
+            <button
+              class="copy-button"
+              type="button"
+              data-copy-target="#first-agent-prompt"
+            >
+              复制
+            </button>
+          </div>
+          <p class="host-note" data-host-note>
+            Codex
+            可以自动建立兼容的本地身份，不需要你复制或保存 session 引用。
+          </p>
+        </section>
+
+        <section class="guide-section" id="cli">
+          <h2>CLI 常用任务</h2>
+          <p class="section-intro">
+            这里提供按任务组织的入口，不复制完整命令合同。Agent 调用应保留 JSON
+            输出，完整参数以原始合同为准。
+          </p>
+
+          <div class="cli-list">
+            <div class="cli-row" data-cli-task="status">
+              <h3>检查状态</h3>
+              <div class="cli-command">
+                <code>corestudio read status --json</code>
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="selection">
+              <h3>读取选区</h3>
+              <div class="cli-command">
+                <code>corestudio read selection --json</code>
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="board-url">
+              <h3>打开 Agent Board</h3>
+              <div class="cli-command">
+                <code>corestudio read board-url --json</code>
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="write-image">
+              <h3>写回图片</h3>
+              <div class="cli-command">
+                <code
+                  >corestudio write image /absolute/path/result.png --source-type
+                  generated --origin agent-board --json</code
+                >
+                <span class="session-requirement" data-session-requirement hidden
+                  >Agent session</span
+                >
+              </div>
+            </div>
+            <div class="cli-row" data-cli-task="write-diagram">
+              <h3>写回流程图</h3>
+              <div class="cli-command">
+                <code
+                  >corestudio write diagram --format mermaid --file
+                  /absolute/path/process.mmd --anchor auto --json</code
+                >
+                <span class="session-requirement" data-session-requirement hidden
+                  >Agent session</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <a
+            class="contract-link"
+            href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md"
+            target="_blank"
+            rel="noreferrer"
+            >打开完整 CLI 合同</a
+          >
+        </section>
+
+        <section class="guide-section" id="troubleshooting">
+          <h2>先定位现象，不连续叠加修复</h2>
+          <p class="section-intro">
+            找到与当前现象匹配的一项，执行最短恢复路径，再验证一次后决定是否继续。
+          </p>
+
+          <div class="troubleshooting-list" data-troubleshooting-list></div>
+
+          <noscript>
+            <p class="no-script-note">
+              JavaScript 已关闭。共用安装流程仍然完整可读，但宿主切换和复制按钮不可用。需要完整排障时，请打开下方原始文档。
+            </p>
+          </noscript>
+
+          <a
+            class="source-link"
+            href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md"
+            target="_blank"
+            rel="noreferrer"
+            >查看原始文档</a
+          >
+        </section>
+      </main>
+
+      <aside class="evidence-rail" aria-label="指南证据与来源">
+        <section class="evidence-group">
+          <h2>指南状态</h2>
+          <p class="evidence-status">仅提供指南，未检测本机状态</p>
+        </section>
+
+        <section class="evidence-group">
+          <h2>安装产物</h2>
+          <ul>
+            <li>
+              <span>宿主 Skill</span>
+              <code class="evidence-path" data-skill-path
+                >~/.codex/skills/corestudio/</code
+              >
+            </li>
+            <li>
+              <span>共享 CLI</span>
+              <code class="evidence-path">~/.local/bin/corestudio</code>
+            </li>
+          </ul>
+        </section>
+
+        <section class="evidence-group">
+          <h2>支持的本地宿主</h2>
+          <ul>
+            <li>Codex</li>
+            <li>Cursor</li>
+            <li>Claude Code</li>
+          </ul>
+        </section>
+
+        <section class="evidence-group">
+          <h2>来源与 fallback</h2>
+          <ul>
+            <li>
+              <a
+                href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md"
+                target="_blank"
+                rel="noreferrer"
+                >用户指南</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-cli-contract.md"
+                target="_blank"
+                rel="noreferrer"
+                >CLI 合同</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-architecture-and-principles.md"
+                target="_blank"
+                rel="noreferrer"
+                >架构说明</a
+              >
+            </li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <p class="sr-only" role="status" aria-live="polite" data-copy-status></p>
+  </body>
+</html>

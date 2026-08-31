@@ -7,6 +7,7 @@ CoreStudio 是基于 Excalidraw 的本地优先图像画板。本目录包含 El
 - CoreStudio 内使用底部输入框进行单次生成。
 - Codex 负责复杂、连续或并行的 Agent 工作流。
 - Agent Board 提供画布查看、选择、标注和结果确认。
+- 支持 WebMCP 的浏览器 Agent 可从本地 Agent Board 读取脱敏画布上下文，并执行定位、选择等可逆操作。
 - CLI / Local Bridge 负责受控读取和写回，不直接修改项目文件。
 
 ## CLI

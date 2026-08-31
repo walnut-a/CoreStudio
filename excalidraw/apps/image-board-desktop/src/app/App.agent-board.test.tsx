@@ -16,6 +16,10 @@ import {
   waitFor,
 } from "./App.testSupport";
 import type { FileId } from "./App.testSupport";
+import type {
+  ModelContextLike,
+  WebMcpToolDefinition,
+} from "./agent/agentBoardWebMcp";
 
 const readyIntegrationStatus = {
   state: "ready",
@@ -318,6 +322,21 @@ describe("App Agent Board room route", () => {
   });
 
   it("hydrates CLI image updates live and preserves the board viewport", async () => {
+    const registeredWebMcpTools = new Map<string, WebMcpToolDefinition>();
+    const modelContext: ModelContextLike = {
+      registerTool: vi.fn(async (tool, options) => {
+        registeredWebMcpTools.set(tool.name, tool);
+        options?.signal?.addEventListener(
+          "abort",
+          () => registeredWebMcpTools.delete(tool.name),
+          { once: true },
+        );
+      }),
+    };
+    Object.defineProperty(document, "modelContext", {
+      configurable: true,
+      value: modelContext,
+    });
     const project = createMockProjectBundle({
       projectPath: "/tmp/live-room-project",
     });
@@ -487,7 +506,42 @@ describe("App Agent Board room route", () => {
       scrollY: 180,
       zoom: { value: 1.4 },
     });
-    triggerExcalidrawInitialize?.();
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(async () => {
+      expect(
+        await registeredWebMcpTools
+          .get("corestudio_get_board_status")
+          ?.execute({}),
+      ).toMatchObject({
+        actorClaimed: true,
+        roomState: "ready",
+        capabilities: {
+          readProjectContext: true,
+          navigateCanvas: true,
+        },
+      });
+      expect([...registeredWebMcpTools.keys()]).toEqual([
+        "corestudio_get_board_status",
+        "corestudio_get_canvas_summary",
+        "corestudio_get_selection",
+        "corestudio_locate_element",
+        "corestudio_select_elements",
+      ]);
+    });
+    await expect(
+      registeredWebMcpTools.get("corestudio_get_board_status")?.execute({}),
+    ).resolves.toMatchObject({
+      actorClaimed: true,
+      roomState: "ready",
+      capabilities: {
+        readProjectContext: true,
+        navigateCanvas: true,
+        revealLocalImagePaths: false,
+        writeProject: false,
+      },
+    });
     expect(mockExcalidrawAPI?.getAppState()).toEqual(
       expect.objectContaining({
         scrollX: -320,
@@ -766,7 +820,9 @@ describe("App Agent Board room route", () => {
     );
     expect(socketCount).toBe(1);
 
-    triggerExcalidrawInitialize?.();
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
 
     await waitFor(() => {
       expect(mockExcalidrawAPI?.getAppState().collaborators).toEqual(

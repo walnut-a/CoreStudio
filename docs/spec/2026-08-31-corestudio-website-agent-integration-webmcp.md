@@ -1,14 +1,22 @@
-# CoreStudio 官网 Agent 集成中心与 WebMCP 设计方案
+# CoreStudio 官网与 Agent Board WebMCP 设计方案
 
 > 所属项目：CoreStudio
 >
-> 状态：方案已确认，待实现
+> 状态：官网已上线；Agent Board 本地 WebMCP 已实现，待目标浏览器 Agent 验收
 >
-> 设计范围：官网 Agent 集成教程、Skill / CLI 安装引导、WebMCP 只读工具与 GitHub 文档 fallback
+> 设计范围：官网 Agent 集成教程、Skill / CLI 安装引导、Agent Board 本地 WebMCP 项目工具与 GitHub 文档 fallback
 >
-> 本文是该官网扩展的单一设计方案。实现过程中如果页面结构、工具边界或内容来源发生变化，应先更新本文，不再平行创建同类方案。
+> 本文是官网与本地 Agent Board WebMCP 的单一设计方案。实现过程中如果页面结构、工具边界或内容来源发生变化，应先更新本文，不再平行创建同类方案。
 
 ## 1. 设计结论
+
+CoreStudio 采用三层 Agent 接入结构：
+
+1. **官网 WebMCP**：提供安装、CLI 示例、兼容与排障的只读说明。
+2. **Agent Board WebMCP**：在 CoreStudio 通过 `127.0.0.1` 提供的本地 Agent Board 页面中，向浏览器 Agent 暴露当前已认领项目的只读上下文和可逆画布导航操作。
+3. **Skill + CLI fallback**：承载不支持 WebMCP 的 Agent、本地图片路径和完整写入能力。
+
+三层共用 CoreStudio 现有 Local Bridge / Project Room 边界，不新增公网 MCP Server、CoreStudio 云端 API 或第二套项目协议。
 
 CoreStudio 官网新增独立的 **Agent 集成中心**：
 
@@ -16,7 +24,7 @@ CoreStudio 官网新增独立的 **Agent 集成中心**：
 - 中文入口：`/zh/integrations/`
 - 首页只增加清晰入口，不承载完整教程，不破坏当前单视口画布叙事。
 - 集成中心同时服务普通用户和浏览器 Agent；普通用户看到完整可读教程，支持 WebMCP 的浏览器 Agent 可以读取同一份结构化指南。
-- WebMCP 只提供安装指导、CLI 示例、兼容信息和故障排查，不检测本机、不运行命令、不安装文件。
+- 官网 WebMCP 只提供安装指导、CLI 示例、兼容信息和故障排查，不检测本机、不运行命令、不安装文件。
 - Skill 与 CLI 的实际安装仍由本机已签名的 CoreStudio 应用包完成。官网不得提供网络安装脚本，也不得复制安装器内部实现。
 - GitHub 保留原始文档、接口合同和深度排障内容，作为可审计来源与网页不可用时的 fallback。
 
@@ -49,6 +57,7 @@ CoreStudio 官网新增独立的 **Agent 集成中心**：
 - 已安装 CoreStudio 的用户能够直接从“应用设置 → Agent 集成”开始，不被迫重复下载。
 - 尚未安装 CoreStudio 的用户能够明确前往 GitHub Latest Release。
 - 支持 WebMCP 的浏览器 Agent 能够从当前页面读取与可见教程一致的结构化内容。
+- 支持 WebMCP 的浏览器 Agent 在 Agent Board 完成认领和房间连接后，能读取当前画布摘要与选区，并执行定位、选择等可逆操作。
 - 不支持 WebMCP、禁用 JavaScript 或使用辅助技术时，核心教程仍然完整可用。
 - 页面内容和 GitHub 原始文档具有明确来源关系，不形成两套无法追踪的事实版本。
 
@@ -56,6 +65,8 @@ CoreStudio 官网新增独立的 **Agent 集成中心**：
 
 - 不把官网改造成覆盖全部仓库文档的通用文档站。
 - 不建设远程 MCP Server，也不把 WebMCP 宣传为 CoreStudio 本地 Bridge 的替代品。
+- 不在 Agent Board WebMCP 中返回项目绝对路径、图片绝对路径、Base64 资产、完整 `sceneJson` 或任何会话令牌。
+- 不在首版 Agent Board WebMCP 中开放项目持久化写入、生图或任意场景替换。
 - 不从网页探测 `~/.local/bin`、Skill 目录、CoreStudio 进程或本地配置。
 - 不在网页中执行 Shell、AppleScript、下载脚本或自定义协议跳转。
 - 不提供 `curl | bash`、远程 Skill 包或独立 CLI 安装包。
@@ -64,25 +75,26 @@ CoreStudio 官网新增独立的 **Agent 集成中心**：
 
 ## 4. 访问者与任务
 
-| 访问者 | 到达状态 | 首要问题 | 页面应给出的结果 |
-| --- | --- | --- | --- |
-| 新用户 | 尚未安装 CoreStudio | CoreStudio 如何与我的 Agent 配合？ | 先下载 CoreStudio，再进入 Agent 集成设置 |
-| 已安装用户 | 准备首次接入 | Skill 和 CLI 分别怎样安装？ | 告知二者由设置页一次完成，并给出四步流程 |
-| 已接入用户 | 想开始使用 | 安装后对 Agent 说什么？ | 提供首条任务示例和 CLI 验证方式 |
-| 故障用户 | 安装或发现失败 | 应该重装、修复还是新建对话？ | 根据症状给出最短排障路径 |
-| 浏览器 Agent | 用户要求其解释接入方式 | 当前页面有哪些可信步骤？ | 通过 WebMCP 获得结构化只读指南 |
-| 开发者 | 需要接口细节 | CLI / Bridge 的完整合同是什么？ | 前往对应 GitHub 原始文档 |
+| 访问者           | 到达状态                 | 首要问题                           | 页面应给出的结果                               |
+| ---------------- | ------------------------ | ---------------------------------- | ---------------------------------------------- |
+| 新用户           | 尚未安装 CoreStudio      | CoreStudio 如何与我的 Agent 配合？ | 先下载 CoreStudio，再进入 Agent 集成设置       |
+| 已安装用户       | 准备首次接入             | Skill 和 CLI 分别怎样安装？        | 告知二者由设置页一次完成，并给出四步流程       |
+| 已接入用户       | 想开始使用               | 安装后对 Agent 说什么？            | 提供首条任务示例和 CLI 验证方式                |
+| 故障用户         | 安装或发现失败           | 应该重装、修复还是新建对话？       | 根据症状给出最短排障路径                       |
+| 浏览器 Agent     | 用户要求其解释接入方式   | 当前页面有哪些可信步骤？           | 通过 WebMCP 获得结构化只读指南                 |
+| 本地浏览器 Agent | 已打开并认领 Agent Board | 当前画布和选区是什么？             | 通过本地 WebMCP 读取脱敏上下文并定位、选择元素 |
+| 开发者           | 需要接口细节             | CLI / Bridge 的完整合同是什么？    | 前往对应 GitHub 原始文档                       |
 
 ## 5. 整体信息架构
 
 ### 5.1 路由
 
-| 页面 | 作用 | 语言 |
-| --- | --- | --- |
-| `/` | 产品理解、画布演示、下载、Agent 集成入口 | English |
-| `/zh/` | 产品理解、画布演示、下载、Agent 集成入口 | 简体中文 |
-| `/integrations/` | Agent 集成中心 | English |
-| `/zh/integrations/` | Agent 集成中心 | 简体中文 |
+| 页面                | 作用                                     | 语言     |
+| ------------------- | ---------------------------------------- | -------- |
+| `/`                 | 产品理解、画布演示、下载、Agent 集成入口 | English  |
+| `/zh/`              | 产品理解、画布演示、下载、Agent 集成入口 | 简体中文 |
+| `/integrations/`    | Agent 集成中心                           | English  |
+| `/zh/integrations/` | Agent 集成中心                           | 简体中文 |
 
 宿主和章节使用可分享的 URL 状态：
 
@@ -145,10 +157,10 @@ CoreStudio 官网新增独立的 **Agent 集成中心**：
 
 桌面宽度 1280px 以上采用三列：
 
-| 区域 | 建议宽度 | 内容 | 行为 |
-| --- | ---: | --- | --- |
-| 左侧索引 | 240–264px | 返回首页、宿主选择、章节目录 | 视口内固定；当前章节随滚动更新 |
-| 主手册 | 680–760px | 标题、四步安装、验证、CLI、排障 | 正常文档流；承担主要阅读 |
+| 区域     |  建议宽度 | 内容                                | 行为                              |
+| -------- | --------: | ----------------------------------- | --------------------------------- |
+| 左侧索引 | 240–264px | 返回首页、宿主选择、章节目录        | 视口内固定；当前章节随滚动更新    |
+| 主手册   | 680–760px | 标题、四步安装、验证、CLI、排障     | 正常文档流；承担主要阅读          |
 | 证据侧栏 | 240–280px | 支持范围、安装产物、GitHub fallback | 在主标题以下 sticky；窄屏并入正文 |
 
 主手册不是居中的悬浮卡片，而是一块与画布网格对齐的白色“说明页”。它使用一条细边界和直角或现有紧凑圆角，不使用大面积阴影。
@@ -208,10 +220,10 @@ CoreStudio 官网新增独立的 **Agent 集成中心**：
 
 宿主路径作为“安装后会出现什么”的证据展示，不作为要求用户手工创建目录的操作步骤：
 
-| 宿主 | Skill 路径 |
-| --- | --- |
-| Codex | `~/.codex/skills/corestudio/` |
-| Cursor | `~/.cursor/skills/corestudio/` |
+| 宿主        | Skill 路径                     |
+| ----------- | ------------------------------ |
+| Codex       | `~/.codex/skills/corestudio/`  |
+| Cursor      | `~/.cursor/skills/corestudio/` |
 | Claude Code | `~/.claude/skills/corestudio/` |
 
 ### 7.3 安装主流程
@@ -263,13 +275,13 @@ Cursor 和 Claude Code 页面在首次写入前说明会建立当前进程内 Ag
 
 CLI 区域按“用户想完成什么”组织，不按全部命令字典排列：
 
-| 任务 | 示例入口 |
-| --- | --- |
-| 检查 CoreStudio 状态 | `corestudio read status --json` |
-| 读取当前选区 | `corestudio read selection --json` |
-| 打开当前项目画布 | `corestudio read board-url --json` |
-| 写回本地图片 | `corestudio write image … --json` |
-| 创建原生流程图 | `corestudio write diagram … --json` |
+| 任务                 | 示例入口                            |
+| -------------------- | ----------------------------------- |
+| 检查 CoreStudio 状态 | `corestudio read status --json`     |
+| 读取当前选区         | `corestudio read selection --json`  |
+| 打开当前项目画布     | `corestudio read board-url --json`  |
+| 写回本地图片         | `corestudio write image … --json`   |
+| 创建原生流程图       | `corestudio write diagram … --json` |
 
 复杂参数、结构化响应和错误码链接到 GitHub 的 CLI contract。官网不复制完整合同。
 
@@ -297,23 +309,23 @@ CLI 区域按“用户想完成什么”组织，不按全部命令字典排列�
 
 ## 8. 页面状态
 
-| 状态 | 页面行为 |
-| --- | --- |
-| 默认 | Codex 选中，教程完整可读 |
-| 切换宿主 | 更新 URL 和宿主相关内容，焦点保持在宿主选择器附近 |
-| 复制成功 | 按钮短暂显示成功状态，live region 宣告结果 |
-| WebMCP 不支持 | 不显示错误，不影响任何可见内容 |
-| WebMCP 注册失败 | 控制台记录开发信息；普通页面仍完整工作 |
-| 无 JavaScript | 展示三宿主共用教程和静态宿主差异表 |
-| 无效 `host` 参数 | 回到 Codex，并保留可用页面 |
-| GitHub 不可达 | 页面正文仍包含完整主流程；fallback 链接自然失败，不遮断教程 |
-| 减弱动态 | 取消平滑滚动和章节指示器动画，状态立即切换 |
+| 状态             | 页面行为                                                    |
+| ---------------- | ----------------------------------------------------------- |
+| 默认             | Codex 选中，教程完整可读                                    |
+| 切换宿主         | 更新 URL 和宿主相关内容，焦点保持在宿主选择器附近           |
+| 复制成功         | 按钮短暂显示成功状态，live region 宣告结果                  |
+| WebMCP 不支持    | 不显示错误，不影响任何可见内容                              |
+| WebMCP 注册失败  | 控制台记录开发信息；普通页面仍完整工作                      |
+| 无 JavaScript    | 展示三宿主共用教程和静态宿主差异表                          |
+| 无效 `host` 参数 | 回到 Codex，并保留可用页面                                  |
+| GitHub 不可达    | 页面正文仍包含完整主流程；fallback 链接自然失败，不遮断教程 |
+| 减弱动态         | 取消平滑滚动和章节指示器动画，状态立即切换                  |
 
 ## 9. WebMCP 设计
 
 ### 9.1 定位
 
-WebMCP 是页面能力的渐进增强。它让浏览器 Agent 调用当前页面注册的只读工具，不是：
+WebMCP 是页面能力的渐进增强。官网只注册教程工具；本地 Agent Board 只在已认领的当前项目上下文内注册脱敏读取和可逆画布导航工具。它们都不是：
 
 - CoreStudio Local Bridge；
 - 远程 MCP Server；
@@ -321,9 +333,9 @@ WebMCP 是页面能力的渐进增强。它让浏览器 Agent 调用当前页面
 - Agent 安装器；
 - GitHub 文档抓取器。
 
-页面必须先是一份完整教程，工具只是同一内容的结构化表达。
+官网必须先是一份完整教程，官网工具只是同一内容的结构化表达。Agent Board 工具则使用当前已同步的 Project Room 状态和现有 renderer 动作，不新建第二份项目数据源。
 
-### 9.2 第一版工具
+### 9.2 官网第一版工具
 
 #### `get_corestudio_integration_guide`
 
@@ -413,18 +425,57 @@ WebMCP 是页面能力的渐进增强。它让浏览器 Agent 调用当前页面
 
 每个工具响应携带 `contentRevision`，用于确认当前页面内容版本，但不把 CoreStudio 客户端版本错误地当作文档版本。
 
+### 9.5 Agent Board 本地 WebMCP
+
+Agent Board 由 CoreStudio Local Bridge 在环回地址提供，WebMCP 工具在页面 JavaScript 中注册，不需要公网后端。实际调用链为：
+
+```text
+浏览器 Agent
+  → document.modelContext
+  → Agent Board WebMCP adapter
+  → 现有 renderer 画布动作 / ProjectRoomClient
+  → Local Bridge WebSocket
+  → Project Room
+```
+
+WebMCP 不携带 `projectPath` 调用 CLI HTTP 路由，不读取 room resume token 或 actor resume token。定位与选择复用 CLI renderer command 同一组画布导航动作；选区仍通过现有 Project Room 参与者状态同步。
+
+工具分级：
+
+| 工具                            | 注册条件                   | 边界                                      |
+| ------------------------------- | -------------------------- | ----------------------------------------- |
+| `corestudio_get_board_status`   | 有效 Agent Board 页面      | 只返回认领、房间、脱敏项目名和能力状态    |
+| `corestudio_get_canvas_summary` | 已认领、房间就绪、画布就绪 | 只返回元素类型和选区计数                  |
+| `corestudio_get_selection`      | 已认领、房间就绪、画布就绪 | 只返回 `elementIds`、`fileIds` 和计数     |
+| `corestudio_locate_element`     | 已认领、房间就绪、画布就绪 | 选中并滚动到一个目标，不持久化场景        |
+| `corestudio_select_elements`    | 已认领、房间就绪、画布就绪 | 最多接受 50 个去重 ID，替换当前参与者选区 |
+
+`corestudio_get_image_paths` 不进入首版。需要本地原图时，Agent 继续使用 CLI `read image-paths`；WebMCP 不以带凭证 URL 或 Base64 数据替代路径。
+
+项目工具仅在以下条件同时成立时注册：
+
+```text
+integrationState === "ready"
+&& actorClaimed
+&& projectRoomReady
+&& editorReady
+&& !refreshRequired
+```
+
+每组注册使用独立 `AbortController`。项目切换、房间关闭、session 失效、要求刷新或组件卸载时立即 `abort()`；每次工具执行也重新校验当前上下文，不信任注册时的旧状态。
+
 ## 10. 内容来源与 GitHub fallback
 
 ### 10.1 内容分层
 
-| 层级 | 责任 | 主要载体 |
-| --- | --- | --- |
-| 官网主教程 | 面向用户的最短接入路径 | 集成中心页面 |
-| 结构化内容 | 页面与 WebMCP 共用的事实数据 | 仓库内版本化内容文件 |
-| 原始说明 | 用户使用边界与完整操作说明 | `agent-integration-user-guide.md` |
-| 接口合同 | 全量 CLI 参数、响应与错误 | `agent-cli-contract.md` |
-| 安装安全 | 应用包安装器来源与验证边界 | `docs/codex-integration.md` 及多宿主安装资源 |
-| 架构说明 | Local Bridge、Project Room、权限与身份 | GitHub 架构文档 |
+| 层级       | 责任                                   | 主要载体                                     |
+| ---------- | -------------------------------------- | -------------------------------------------- |
+| 官网主教程 | 面向用户的最短接入路径                 | 集成中心页面                                 |
+| 结构化内容 | 页面与 WebMCP 共用的事实数据           | 仓库内版本化内容文件                         |
+| 原始说明   | 用户使用边界与完整操作说明             | `agent-integration-user-guide.md`            |
+| 接口合同   | 全量 CLI 参数、响应与错误              | `agent-cli-contract.md`                      |
+| 安装安全   | 应用包安装器来源与验证边界             | `docs/codex-integration.md` 及多宿主安装资源 |
+| 架构说明   | Local Bridge、Project Room、权限与身份 | GitHub 架构文档                              |
 
 ### 10.2 推荐实现
 
@@ -510,7 +561,7 @@ website/
 - [ ] 页面不要求用户手工创建 Skill 目录或从网络执行安装脚本。
 - [ ] 深度内容都有对应 GitHub 原始文档入口。
 
-### 13.2 WebMCP 验收
+### 13.2 官网 WebMCP 验收
 
 - [ ] 支持 WebMCP 的目标浏览器能发现三个只读工具。
 - [ ] 每个工具的参数 schema、枚举、描述和输出与当前草案规范一致。
@@ -519,7 +570,16 @@ website/
 - [ ] 工具不能检测本机、执行安装、调用 Local Bridge 或收集敏感信息。
 - [ ] 工具输出不把教程返回误报为本机操作成功。
 
-### 13.3 视觉与交互验收
+### 13.3 Agent Board WebMCP 验收
+
+- [x] 未认领页面只注册脱敏状态工具。
+- [x] 认领、房间和画布就绪后注册五项工具，不注册图片路径或写入工具。
+- [x] 输出不包含项目绝对路径、token、完整场景文本或 Base64 资产。
+- [x] 定位和选择复用现有画布动作，不产生项目持久化写入。
+- [x] 注册信号在项目上下文失效或组件卸载时中止。
+- [ ] 在真实支持 WebMCP 的浏览器 Agent 中验证发现、调用、项目切换与注销。
+
+### 13.4 视觉与交互验收
 
 - [ ] 1440px 桌面检查三列构图、正文阅读宽度、sticky 侧栏和当前章节状态。
 - [ ] 1024px 检查两列重排，没有被压缩的右侧栏或代码块。
@@ -529,7 +589,7 @@ website/
 - [ ] 键盘完成宿主切换、章节跳转、复制和 GitHub fallback。
 - [ ] 减弱动态模式与 200% 页面缩放可用。
 
-### 13.4 内容与合同验收
+### 13.5 内容与合同验收
 
 - [ ] 三个宿主、Skill 路径、共享 CLI 路径与当前安装合同一致。
 - [ ] CLI 示例通过定向解析测试或 `--help` 合同检查。
@@ -565,6 +625,14 @@ website/
 - 分别检查英文、中文、查询参数和锚点深链。
 - 在真实支持 WebMCP 的浏览器中复核工具，而不是只验证代码存在。
 - 将部署 revision、页面视觉验收和 WebMCP 运行验收作为三项独立证据记录。
+
+### 阶段 E：Agent Board 本地 WebMCP
+
+- 在独立 adapter 中实现五项工具、参数上限、脱敏输出和动态注册。
+- 抽取 CLI 与 WebMCP 共用的画布定位、选择动作。
+- 使用认领、Project Room、画布 API 和刷新状态共同决定工具集。
+- 保留 Skill + CLI fallback，将图片路径和持久化写入留在 CLI 边界内。
+- 在真实支持 WebMCP 的浏览器 Agent 中完成最终运行验收。
 
 ## 15. 实现前必须重新确认的外部状态
 

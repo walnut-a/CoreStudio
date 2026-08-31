@@ -193,6 +193,14 @@ import { buildDefaultGenerationRequest } from "./generatePromptRequest";
 import { createGenerateDialogReferenceRendererActions } from "./generateDialogReferenceController";
 import { createAgentBrowserRuntimePublishRendererActions } from "./agent/agentBrowserRuntimePublishController";
 import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
+import {
+  registerAgentBoardWebMcpTools,
+  type ModelContextLike,
+} from "./agent/agentBoardWebMcp";
+import {
+  locateAgentSceneElement,
+  selectAgentSceneElements,
+} from "./agent/agentSceneNavigation";
 import { notifyAgentBridgeProjectState } from "./agent/agentBridgeStatus";
 import {
   applyAgentBridgeStatusCurrentProjectUpdate,
@@ -356,6 +364,7 @@ const App = ({
     [desktopBridge],
   );
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const [editorApiReadyVersion, setEditorApiReadyVersion] = useState(0);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const imageAssetDockRef = useRef<HTMLElement | null>(null);
   const inspectorDockRef = useRef<HTMLElement | null>(null);
@@ -720,6 +729,78 @@ const App = ({
       }),
     [agentRuntimeRefsController.actions, isAgentBrowserRoute],
   );
+
+  useEffect(() => {
+    if (!isAgentBrowserRoute || !stableBoardId) {
+      return;
+    }
+
+    const modelContext = (
+      document as Document & { modelContext?: ModelContextLike }
+    ).modelContext;
+    return registerAgentBoardWebMcpTools({
+      modelContext,
+      runtime: {
+        getState: () => ({
+          isAgentBoardRoute: isAgentBrowserRoute,
+          stableBoardId,
+          integrationStatus: stableBoardIntegrationStatus,
+          projectRoomReady,
+          refreshRequired: agentBoardRefreshRequired,
+          project: currentProjectRef.current,
+          scene: latestSceneRef.current,
+          editorReady: Boolean(excalidrawAPIRef.current),
+        }),
+        locateElement: (input) => {
+          const api = excalidrawAPIRef.current;
+          const activeProject = currentProjectRef.current;
+          if (!api || !activeProject) {
+            throw new Error("Agent Board 当前未就绪。");
+          }
+          const result = locateAgentSceneElement({
+            api,
+            imageRecords: activeProject.imageRecords,
+            ...input,
+          });
+          latestSceneRef.current = {
+            elements: api.getSceneElementsIncludingDeleted(),
+            appState: api.getAppState(),
+            files: api.getFiles(),
+          };
+          agentBrowserRuntimePublishRendererActions.schedule(
+            latestSceneRef.current,
+          );
+          return result;
+        },
+        selectElements: (input) => {
+          const api = excalidrawAPIRef.current;
+          if (!api || !currentProjectRef.current) {
+            throw new Error("Agent Board 当前未就绪。");
+          }
+          const result = selectAgentSceneElements({ api, ...input });
+          latestSceneRef.current = {
+            elements: api.getSceneElementsIncludingDeleted(),
+            appState: api.getAppState(),
+            files: api.getFiles(),
+          };
+          agentBrowserRuntimePublishRendererActions.schedule(
+            latestSceneRef.current,
+          );
+          return result;
+        },
+      },
+    });
+  }, [
+    agentBoardRefreshRequired,
+    agentBrowserRuntimePublishRendererActions,
+    Boolean(currentProject),
+    editorApiReadyVersion,
+    isAgentBrowserRoute,
+    isEditorInitializing,
+    projectRoomReady,
+    stableBoardId,
+    stableBoardIntegrationStatus,
+  ]);
 
   const queuedExcalidrawBinaryFilesRendererActions = useMemo(
     () =>
@@ -1126,6 +1207,7 @@ const App = ({
       getLatestScene: () => latestSceneRef.current,
       setEditorApi: (api) => {
         excalidrawAPIRef.current = api;
+        setEditorApiReadyVersion((current) => current + 1);
       },
       flushQueuedImageFilesToCanvas:
         queuedExcalidrawBinaryFilesRendererActions.flush,
@@ -1546,6 +1628,14 @@ const App = ({
               pageNonce,
             });
             launchTicket = exchangedSession.launchTicket;
+            setStableBoardIntegrationStatus((current) =>
+              current
+                ? {
+                    ...current,
+                    actorClaimed: true,
+                  }
+                : current,
+            );
             setStableBoardActorResumeToken(
               stableBoardId,
               exchangedSession.actorResumeToken,

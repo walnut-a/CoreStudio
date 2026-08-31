@@ -1,11 +1,10 @@
-import { CaptureUpdateAction } from "@excalidraw/element";
-
-import type { ExcalidrawElement } from "@excalidraw/element/types";
-
 import type { AgentRendererCommandRequest } from "../../shared/agentBridgeTypes";
 import type { DesktopProjectBundle } from "../../shared/desktopBridgeTypes";
-import { resolveImageRecordLocateTarget } from "../imageRecordLocator";
 import type { AgentCommandRuntimeDeps } from "./agentCommandRuntimeTypes";
+import {
+  locateAgentSceneElement,
+  selectAgentSceneElements,
+} from "./agentSceneNavigation";
 import {
   assertAgentProjectPath,
   createAgentBadRequestError,
@@ -66,23 +65,12 @@ const parseAgentSelectPayload = (payload: unknown) => {
   const elementIds = parseAgentStringList(payload.elementIds, "elementIds");
   const fileIds = parseAgentStringList(payload.fileIds, "fileIds");
   if (!elementIds.length && !fileIds.length) {
-    throw createAgentBadRequestError("scene.select 需要 elementIds 或 fileIds。");
+    throw createAgentBadRequestError(
+      "scene.select 需要 elementIds 或 fileIds。",
+    );
   }
   return { elementIds, fileIds };
 };
-
-const getDirectElementById = (
-  elements: readonly ExcalidrawElement[],
-  elementId: string | null,
-) =>
-  elementId
-    ? elements.find((element) => {
-        if (element.isDeleted) {
-          return false;
-        }
-        return element.id === elementId;
-      })
-    : null;
 
 export const handleAgentEditCommand = async (
   request: AgentRendererCommandRequest,
@@ -96,64 +84,14 @@ export const handleAgentEditCommand = async (
         throw new Error("CoreStudio 画板还没有准备好。");
       }
       const payload = parseAgentLocatePayload(request.payload);
-      const elements = api.getSceneElementsIncludingDeleted();
-      const directElementById = getDirectElementById(
-        elements,
-        payload.elementId,
-      );
-      const fileLocateResult =
-        !directElementById && payload.fileId
-          ? resolveImageRecordLocateTarget({
-              fileId: payload.fileId,
-              elements,
-              imageRecords: project.imageRecords,
-            })
-          : null;
-      const targetElement =
-        directElementById ??
-        (fileLocateResult && fileLocateResult.kind !== "missing"
-          ? fileLocateResult.element
-          : null);
-      if (!targetElement) {
-        return {
-          handled: true,
-          value: {
-            located: false,
-            elementIds: [],
-            fileIds: payload.fileId ? [payload.fileId] : [],
-            reason: "missing-board-element",
-            repairable: Boolean(payload.fileId),
-          },
-        };
-      }
-      api.updateScene({
-        appState: {
-          selectedElementIds: {
-            [targetElement.id]: true,
-          },
-          selectedGroupIds: {},
-        },
-        captureUpdate: CaptureUpdateAction.NEVER,
-      });
-      api.setViewport({
-        target: targetElement,
-        fit: "none",
-        animation: {
-          duration: 300,
-        },
-      });
       return {
         handled: true,
-        value: {
-          located: true,
-          locateKind: fileLocateResult?.kind ?? "direct",
-          elementIds: [targetElement.id],
-          fileIds:
-            targetElement.type === "image" && targetElement.fileId
-              ? [targetElement.fileId]
-              : [],
-          requestedFileIds: payload.fileId ? [payload.fileId] : [],
-        },
+        value: locateAgentSceneElement({
+          api,
+          imageRecords: project.imageRecords,
+          ...(payload.elementId ? { elementId: payload.elementId } : {}),
+          ...(payload.fileId ? { fileId: payload.fileId } : {}),
+        }),
       };
     }
     case "scene.select": {
@@ -163,41 +101,13 @@ export const handleAgentEditCommand = async (
         throw new Error("CoreStudio 画板还没有准备好。");
       }
       const payload = parseAgentSelectPayload(request.payload);
-      const elementIdSet = new Set(payload.elementIds);
-      const fileIdSet = new Set(payload.fileIds);
-      const targetElements = api
-        .getSceneElementsIncludingDeleted()
-        .filter((element) => {
-          if (element.isDeleted) {
-            return false;
-          }
-          if (elementIdSet.has(element.id)) {
-            return true;
-          }
-          return (
-            element.type === "image" &&
-            element.fileId &&
-            fileIdSet.has(element.fileId)
-          );
-        });
-      api.updateScene({
-        appState: {
-          selectedElementIds: Object.fromEntries(
-            targetElements.map((element) => [element.id, true]),
-          ),
-          selectedGroupIds: {},
-        },
-        captureUpdate: CaptureUpdateAction.NEVER,
-      });
       return {
         handled: true,
-        value: {
-          selected: targetElements.length > 0,
-          elementIds: targetElements.map((element) => element.id),
-          fileIds: targetElements.flatMap((element) =>
-            element.type === "image" && element.fileId ? [element.fileId] : [],
-          ),
-        },
+        value: selectAgentSceneElements({
+          api,
+          elementIds: payload.elementIds,
+          fileIds: payload.fileIds,
+        }),
       };
     }
     default:

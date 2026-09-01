@@ -270,7 +270,7 @@ describe("App image assets", () => {
     ).not.toBeInTheDocument();
     expect(imageAssetDock.getAllByText(/参考图/).length).toBeGreaterThan(0);
     expect(imageAssetDock.getByText("导入图片")).toBeInTheDocument();
-    expect(imageAssetDock.getByText("第 01 条生成记录")).toBeInTheDocument();
+    expect(imageAssetDock.getByText("第 25 条生成记录")).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(

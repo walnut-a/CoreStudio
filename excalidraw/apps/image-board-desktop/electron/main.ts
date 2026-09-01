@@ -1661,9 +1661,10 @@ const buildProjectBundle = async (
   projectPath: string,
   options: { safeMode?: boolean } = {},
 ) => {
-  const room = await projectRoomService.openProject(projectPath);
+  const { room, bundle } = await projectRoomService.openProjectWithBundle(
+    projectPath,
+  );
   const canonicalProjectPath = room.identity.canonicalProjectPath;
-  const bundle = await readProjectBundle(canonicalProjectPath);
   currentRecentProjects = await rememberRecentProject(
     canonicalProjectPath,
     bundle.project.name,

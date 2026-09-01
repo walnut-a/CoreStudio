@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
 import {
   buildImageAssetItems,
@@ -59,7 +58,6 @@ describe("buildImageAssetItems", () => {
       buildImageAssetItems({
         imageRecords,
         sceneImageFileIds: ["live-imported", "live-generated"],
-        files: null,
         generatedOnly: false,
       }).map((item) => ({
         fileId: item.fileId,
@@ -86,7 +84,6 @@ describe("buildImageAssetItems", () => {
       buildImageAssetItems({
         imageRecords,
         sceneImageFileIds: ["live-imported", "live-generated"],
-        files: null,
         generatedOnly: true,
       }).map((item) => item.fileId),
     ).toEqual(["live-generated"]);
@@ -111,35 +108,10 @@ describe("buildImageAssetItems", () => {
           },
         },
         sceneImageFileIds: ["live-imported", "live-generated"],
-        files: null,
         generatedOnly: false,
       }).find((item) => item.fileId === "live-imported"),
     ).toMatchObject({
       relationshipLabels: ["画布中", "参考图"],
-    });
-  });
-
-  it("uses loaded Excalidraw files as thumbnails", () => {
-    const files = {
-      "live-imported": {
-        id: "live-imported",
-        mimeType: "image/png",
-        dataURL: "data:image/png;base64,asset",
-        created: 1,
-      },
-    } as unknown as BinaryFiles;
-
-    expect(
-      buildImageAssetItems({
-        imageRecords,
-        sceneImageFileIds: ["live-imported"],
-        files,
-        generatedOnly: false,
-      })[0],
-    ).toMatchObject({
-      fileId: "live-imported",
-      title: "导入图片",
-      thumbnailDataUrl: "data:image/png;base64,asset",
     });
   });
 });

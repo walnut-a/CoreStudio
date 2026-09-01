@@ -1032,7 +1032,8 @@ export const enCopy: DesktopCopy = {
       "record-missing": "Missing image record",
       "thumbnail-not-needed": "No action needed",
       "thumbnail-cache-exists": "Cache already exists",
-      "thumbnail-rebuild-failed": "Cache rebuild failed",
+      "thumbnail-source-unreadable": "Original image is unreadable",
+      "thumbnail-rebuild-failed": "Display cache incomplete",
       "board-restore-failed": "Board restore failed",
     },
     repairNextActions: {
@@ -1042,8 +1043,10 @@ export const enCopy: DesktopCopy = {
         "No action is needed because this image does not require an additional display cache.",
       "thumbnail-cache-exists":
         "No action is needed because the display cache already exists.",
+      "thumbnail-source-unreadable":
+        "The original image cannot be read. Restore it from a backup or import it again.",
       "thumbnail-rebuild-failed":
-        "Confirm that the original image file can be read, then run project data repair again.",
+        "The original remains usable on the canvas. Retry the cache repair later; there is no need to import the image again.",
       "board-restore-failed":
         "Confirm that the original image is still in the project's assets folder, restore it if needed, then run project data repair again.",
     },

@@ -13,6 +13,7 @@ import {
 
 import {
   cleanProjectCache,
+  createNativeImageThumbnailWithAdapter,
   createProjectStructure,
   inspectProjectHealth,
   persistImageAssets,
@@ -36,6 +37,49 @@ afterEach(async () => {
 });
 
 describe("projectFs", () => {
+  it("falls back to the system thumbnail decoder when nativeImage cannot decode WebP buffers", async () => {
+    const emptyImage = {
+      isEmpty: () => true,
+      getSize: () => ({ width: 0, height: 0 }),
+      resize: vi.fn(),
+      toPNG: vi.fn(() => Buffer.alloc(0)),
+    };
+    const systemThumbnail = {
+      isEmpty: () => false,
+      getSize: () => ({ width: 320, height: 180 }),
+      resize: vi.fn(),
+      toPNG: vi.fn(() => Buffer.from("system-thumbnail")),
+    };
+    const createThumbnailFromPath = vi.fn(async () => systemThumbnail);
+
+    await expect(
+      createNativeImageThumbnailWithAdapter(
+        {
+          sourceBuffer: Buffer.from("webp-source"),
+          sourcePath: "/tmp/source.webp",
+          mimeType: "image/webp",
+          width: 1200,
+          height: 675,
+          maxDimension: 320,
+        },
+        {
+          createFromBuffer: vi.fn(() => emptyImage),
+          createThumbnailFromPath,
+        },
+      ),
+    ).resolves.toEqual({
+      data: Buffer.from("system-thumbnail"),
+      mimeType: "image/png",
+      width: 320,
+      height: 180,
+    });
+    expect(createThumbnailFromPath).toHaveBeenCalledWith("/tmp/source.webp", {
+      width: 320,
+      height: 180,
+    });
+    expect(systemThumbnail.resize).not.toHaveBeenCalled();
+  });
+
   it("creates the expected project folder structure", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
@@ -988,8 +1032,8 @@ describe("projectFs", () => {
       failedDetails: [
         {
           fileId: "file-missing",
-          reason: "thumbnail-rebuild-failed",
-          message: "图片显示缓存生成失败，请确认原图文件可读取。",
+          reason: "thumbnail-source-unreadable",
+          message: "原始图片文件不可读取，无法重建显示缓存。",
         },
       ],
       repairedGenerationRecordFileIds: [],

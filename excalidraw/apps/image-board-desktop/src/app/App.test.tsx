@@ -2071,7 +2071,7 @@ describe("App startup", () => {
         {
           fileId: "failed-file",
           reason: "thumbnail-rebuild-failed",
-          message: "图片缓存重建失败。",
+          message: "原图仍可继续使用，但显示缓存生成失败，不影响画布显示。",
           path: "assets/failed-file.png",
         },
       ],
@@ -2145,8 +2145,12 @@ describe("App startup", () => {
       screen.getByText("显示缓存已经存在，跳过重建。"),
     ).toBeInTheDocument();
     expect(screen.getByText("File ID: cached-file")).toBeInTheDocument();
-    expect(screen.getByText("缓存重建失败")).toBeInTheDocument();
-    expect(screen.getByText("图片缓存重建失败。")).toBeInTheDocument();
+    expect(screen.getByText("显示缓存未完成")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "原图仍可继续使用，但显示缓存生成失败，不影响画布显示。",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("路径: assets/failed-file.png"),
     ).toBeInTheDocument();

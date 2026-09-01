@@ -9,7 +9,6 @@ export const readAppCss = () =>
     "apps/image-board-desktop/src/app/styles/designTokens.css",
     "apps/image-board-desktop/src/app/styles/dialogPrimitives.css",
     "apps/image-board-desktop/src/app/App.css",
-    "apps/image-board-desktop/src/app/components/AboutDialog.css",
     "apps/image-board-desktop/src/app/components/AgentSettings.css",
     "apps/image-board-desktop/src/app/components/ApplicationSettingsDialog.css",
     "apps/image-board-desktop/src/app/components/DesktopButton.css",
@@ -74,15 +73,6 @@ export const readGenerateComposerActionBar = () =>
     resolve(
       process.cwd(),
       "apps/image-board-desktop/src/app/components/GenerateComposerActionBar.tsx",
-    ),
-    "utf8",
-  );
-
-export const readAboutDialog = () =>
-  readFileSync(
-    resolve(
-      process.cwd(),
-      "apps/image-board-desktop/src/app/components/AboutDialog.tsx",
     ),
     "utf8",
   );

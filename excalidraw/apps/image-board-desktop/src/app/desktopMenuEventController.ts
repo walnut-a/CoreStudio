@@ -28,7 +28,6 @@ export interface DesktopMenuEventActionHandlers {
   openAppSettings: () => void;
   setAgentBridgeEnabled: (enabled: boolean) => MaybePromise<unknown>;
   revealProject: () => MaybePromise<unknown>;
-  showAbout: () => void;
 }
 
 export interface DesktopMenuEventRendererActionsInput
@@ -162,9 +161,6 @@ export const runDesktopMenuEventAction = ({
       return { status: "handled", action: event.action };
     case "reveal-project":
       void handlers.revealProject();
-      return { status: "handled", action: event.action };
-    case "show-about":
-      handlers.showAbout();
       return { status: "handled", action: event.action };
     default:
       return { status: "ignored-unknown-action", action: event.action };

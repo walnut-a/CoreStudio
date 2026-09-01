@@ -21,7 +21,6 @@ const PROJECT_RENDERER_MENU_ACTIONS = new Set<DesktopMenuAction>([
 
 const APP_GLOBAL_MENU_ACTIONS = new Set<DesktopMenuAction>([
   "app-settings",
-  "show-about",
   "edit-undo",
   "edit-redo",
   "edit-cut",

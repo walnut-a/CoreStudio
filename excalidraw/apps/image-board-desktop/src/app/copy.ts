@@ -315,10 +315,8 @@ const zhCnCopy = {
     selectAll: "全选",
     settings: "设置",
     appSettings: "应用设置",
+    aboutAndUpdates: "关于与更新",
     quit: `退出 ${DESKTOP_APP_NAME}`,
-    help: "帮助",
-    viewUpdates: "查看更新",
-    about: `关于 ${DESKTOP_APP_NAME}`,
   },
   applicationSettings: {
     title: "应用设置",
@@ -351,6 +349,24 @@ const zhCnCopy = {
       repository: "代码仓库",
       dependencies: "主要开源依赖",
       dependenciesDescription: "以下版本来自当前构建配置，随应用升级同步更新。",
+      update: {
+        indicator: "有可用更新",
+        title: "版本更新",
+        description: "静默检查最新稳定版；下载和安装仍由你决定。",
+        check: "检查更新",
+        checking: "正在检查…",
+        availableTitle: (version: string) => `CoreStudio ${version} 可以更新`,
+        availableDescription: (version: string) =>
+          `你正在使用 CoreStudio ${version}。新版本已经发布。`,
+        incompatibleTitle: (version: string) => `CoreStudio ${version} 已发布`,
+        incompatibleDescription: (systemVersion: string) =>
+          `此版本需要 macOS ${systemVersion} 或更高版本。`,
+        upToDate: "当前已是最新版本",
+        failureTitle: "暂时无法检查更新",
+        failureDescription: "请检查网络连接后稍后重试。",
+        openDownload: "前往下载",
+        viewNotes: "查看更新说明",
+      },
     },
     imageGenerationPage: {
       composerVisibilityTitle: "在画布显示图片生成输入框",

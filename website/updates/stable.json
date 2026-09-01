@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.42",
-  "publishedAt": "2026-08-25T14:20:45Z",
+  "version": "1.1.43",
+  "publishedAt": "2026-09-01T10:41:20Z",
   "minimumSystemVersion": "14.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.42",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.43",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.42/CoreStudio-1.1.42-arm64.dmg",
-    "size": 122333386,
-    "sha256": "4cf33cc80eabacd74eb2ac22db8ca9039817fff7ac2ce842e7b6d11a992a55ff"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.43/CoreStudio-1.1.43-arm64.dmg",
+    "size": 122342697,
+    "sha256": "07f2bb0f81c6843ed5a69190f3a07b9aea920f92225b2042d79d8eb391f624d7"
   },
   "summary": {
     "zh-CN": [
-      "恢复适合触控板连续手势的缩放曲线",
-      "增加五档触控板缩放速度并在本机持久化",
-      "修复窗口失焦后缩放中心可能沿用旧指针位置的问题"
+      "增加版本更新提醒，并区分网络、服务和清单错误",
+      "为 Agent Board 增加本地 WebMCP 项目工具",
+      "优化大项目图片侧栏，并修复 WebP/SVG 显示缓存重建"
     ],
     "en": [
-      "Restored a smoother zoom curve for continuous trackpad gestures",
-      "Added five persistent trackpad zoom speed levels",
-      "Fixed stale pointer coordinates affecting the zoom center after window focus changes"
+      "Added update notifications with distinct network, service, and manifest errors",
+      "Added local WebMCP project tools to Agent Board",
+      "Improved large-project image browsing and WebP/SVG cache rebuilding"
     ]
   }
 }

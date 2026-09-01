@@ -963,7 +963,8 @@ const zhCnCopy = {
       "record-missing": "缺少图片记录",
       "thumbnail-not-needed": "无需处理",
       "thumbnail-cache-exists": "缓存已存在",
-      "thumbnail-rebuild-failed": "缓存重建失败",
+      "thumbnail-source-unreadable": "原图无法读取",
+      "thumbnail-rebuild-failed": "显示缓存未完成",
       "board-restore-failed": "画板补回失败",
     },
     repairNextActions: {
@@ -971,8 +972,10 @@ const zhCnCopy = {
         "这张图片缺少项目索引记录；请确认原始文件是否仍需要保留，必要时重新导入。",
       "thumbnail-not-needed": "不用处理这张图片；它不需要额外显示缓存。",
       "thumbnail-cache-exists": "不用处理这张图片；显示缓存已经存在。",
+      "thumbnail-source-unreadable":
+        "原始图片文件无法读取；请从备份恢复文件，或重新导入这张图片。",
       "thumbnail-rebuild-failed":
-        "请确认原始图片文件可读取，再重新运行项目数据修复。",
+        "原图仍可在画布中正常使用；可稍后重试缓存修复，无需重新导入图片。",
       "board-restore-failed":
         "请确认原始图片文件仍在项目 assets 中；恢复文件后再重新运行项目数据修复。",
     },

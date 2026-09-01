@@ -188,11 +188,23 @@ import {
   buildImageAssetItems,
   createImageAssetRendererActions,
 } from "./imageAssetViewModel";
+import {
+  createImageAssetThumbnailStore,
+  type ImageAssetThumbnailStore,
+} from "./imageAssetThumbnailStore";
 import { createTimedNoticeRendererActions } from "./noticeTimerController";
 import { buildDefaultGenerationRequest } from "./generatePromptRequest";
 import { createGenerateDialogReferenceRendererActions } from "./generateDialogReferenceController";
 import { createAgentBrowserRuntimePublishRendererActions } from "./agent/agentBrowserRuntimePublishController";
 import { createAgentBrowserBridgeStatusRetryLoopRendererActions } from "./agent/agentBrowserBridgeStatusRetryController";
+import {
+  registerAgentBoardWebMcpTools,
+  type ModelContextLike,
+} from "./agent/agentBoardWebMcp";
+import {
+  locateAgentSceneElement,
+  selectAgentSceneElements,
+} from "./agent/agentSceneNavigation";
 import { notifyAgentBridgeProjectState } from "./agent/agentBridgeStatus";
 import {
   applyAgentBridgeStatusCurrentProjectUpdate,
@@ -230,6 +242,7 @@ import type {
   DesktopProjectBundle,
   PersistedImageAssetInput,
   ProviderConfigurationSnapshot,
+  ProjectAssetPayload,
   ProjectHealthReport,
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
@@ -356,6 +369,7 @@ const App = ({
     [desktopBridge],
   );
   const excalidrawAPIRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const [editorApiReadyVersion, setEditorApiReadyVersion] = useState(0);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const imageAssetDockRef = useRef<HTMLElement | null>(null);
   const inspectorDockRef = useRef<HTMLElement | null>(null);
@@ -400,6 +414,14 @@ const App = ({
   const loadedOriginalImageFileIdsRef = useRef<Set<string>>(new Set());
   const loadingOriginalImageFileIdsRef = useRef<Set<string>>(new Set());
   const pendingImageFilesToAddRef = useRef<BinaryFileData[]>([]);
+  const imageAssetThumbnailStoreRef = useRef<ImageAssetThumbnailStore | null>(
+    null,
+  );
+  if (!imageAssetThumbnailStoreRef.current) {
+    imageAssetThumbnailStoreRef.current = createImageAssetThumbnailStore();
+  }
+  const imageAssetThumbnailStore = imageAssetThumbnailStoreRef.current;
+  const loadingImageAssetThumbnailKeysRef = useRef<Set<string>>(new Set());
 
   const selectionReferenceOriginalSceneActions = useMemo(
     () =>
@@ -555,7 +577,6 @@ const App = ({
   const appUpdate = useAppUpdate(desktopBridge);
   const [imageAssetSidebarOpen, setImageAssetSidebarOpen] = useState(false);
   const [imageAssetGeneratedOnly, setImageAssetGeneratedOnly] = useState(false);
-  const [imageAssetFilesRevision, setImageAssetFilesRevision] = useState(0);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
@@ -572,6 +593,80 @@ const App = ({
       appUpdate.resetTransientManualState();
     }
   }, [appSettingsOpen, appUpdate.resetTransientManualState]);
+
+  useEffect(() => {
+    const projectPath = currentProject?.projectPath ?? null;
+    if (imageAssetThumbnailStore.getSnapshot().projectPath === projectPath) {
+      return;
+    }
+    imageAssetThumbnailStore.reset(projectPath);
+    loadingImageAssetThumbnailKeysRef.current.clear();
+  }, [currentProject?.projectPath, imageAssetThumbnailStore]);
+
+  const replaceImageAssetThumbnailPayloads = useCallback(
+    (projectPath: string, assets: readonly ProjectAssetPayload[]) => {
+      imageAssetThumbnailStore.replace(projectPath, assets);
+    },
+    [imageAssetThumbnailStore],
+  );
+
+  const applyImageAssetThumbnailPayloads = useCallback(
+    (projectPath: string, assets: readonly ProjectAssetPayload[]) => {
+      if (currentProjectRef.current?.projectPath !== projectPath) {
+        return;
+      }
+      imageAssetThumbnailStore.merge(projectPath, assets);
+    },
+    [imageAssetThumbnailStore],
+  );
+
+  const loadVisibleImageAssetThumbnails = useCallback(
+    async (fileIds: string[]) => {
+      const project = currentProjectRef.current;
+      if (!project || fileIds.length === 0) {
+        return;
+      }
+      const projectPath = project.projectPath;
+      const cached = imageAssetThumbnailStore.getSnapshot();
+      const fileIdsToLoad = [...new Set(fileIds)].filter((fileId) => {
+        const loadingKey = `${projectPath}\0${fileId}`;
+        return (
+          project.imageRecords[fileId] &&
+          !(cached.projectPath === projectPath && cached.dataUrls[fileId]) &&
+          !loadingImageAssetThumbnailKeysRef.current.has(loadingKey)
+        );
+      });
+      if (fileIdsToLoad.length === 0) {
+        return;
+      }
+      const loadingKeys = fileIdsToLoad.map(
+        (fileId) => `${projectPath}\0${fileId}`,
+      );
+      loadingKeys.forEach((key) =>
+        loadingImageAssetThumbnailKeysRef.current.add(key),
+      );
+      try {
+        const assets = await desktopBridge.readProjectAssetPayloads({
+          projectPath,
+          fileIds: fileIdsToLoad,
+          rendition: "thumbnail",
+          thumbnailMode: "cache-only",
+        });
+        applyImageAssetThumbnailPayloads(projectPath, assets);
+      } catch (error) {
+        console.warn("[image-assets:thumbnail-load-failed]", error);
+      } finally {
+        loadingKeys.forEach((key) =>
+          loadingImageAssetThumbnailKeysRef.current.delete(key),
+        );
+      }
+    },
+    [
+      applyImageAssetThumbnailPayloads,
+      desktopBridge,
+      imageAssetThumbnailStore,
+    ],
+  );
 
   const generationTrackingRendererActions =
     createGenerationTrackingRendererActions({
@@ -601,12 +696,10 @@ const App = ({
       buildImageAssetItems({
         imageRecords: currentProject?.imageRecords,
         sceneImageFileIds,
-        files: latestSceneRef.current?.files ?? null,
         generatedOnly: imageAssetGeneratedOnly,
       }),
     [
-      currentProject,
-      imageAssetFilesRevision,
+      currentProject?.imageRecords,
       imageAssetGeneratedOnly,
       sceneImageFileIds,
     ],
@@ -721,6 +814,78 @@ const App = ({
     [agentRuntimeRefsController.actions, isAgentBrowserRoute],
   );
 
+  useEffect(() => {
+    if (!isAgentBrowserRoute || !stableBoardId) {
+      return;
+    }
+
+    const modelContext = (
+      document as Document & { modelContext?: ModelContextLike }
+    ).modelContext;
+    return registerAgentBoardWebMcpTools({
+      modelContext,
+      runtime: {
+        getState: () => ({
+          isAgentBoardRoute: isAgentBrowserRoute,
+          stableBoardId,
+          integrationStatus: stableBoardIntegrationStatus,
+          projectRoomReady,
+          refreshRequired: agentBoardRefreshRequired,
+          project: currentProjectRef.current,
+          scene: latestSceneRef.current,
+          editorReady: Boolean(excalidrawAPIRef.current),
+        }),
+        locateElement: (input) => {
+          const api = excalidrawAPIRef.current;
+          const activeProject = currentProjectRef.current;
+          if (!api || !activeProject) {
+            throw new Error("Agent Board 当前未就绪。");
+          }
+          const result = locateAgentSceneElement({
+            api,
+            imageRecords: activeProject.imageRecords,
+            ...input,
+          });
+          latestSceneRef.current = {
+            elements: api.getSceneElementsIncludingDeleted(),
+            appState: api.getAppState(),
+            files: api.getFiles(),
+          };
+          agentBrowserRuntimePublishRendererActions.schedule(
+            latestSceneRef.current,
+          );
+          return result;
+        },
+        selectElements: (input) => {
+          const api = excalidrawAPIRef.current;
+          if (!api || !currentProjectRef.current) {
+            throw new Error("Agent Board 当前未就绪。");
+          }
+          const result = selectAgentSceneElements({ api, ...input });
+          latestSceneRef.current = {
+            elements: api.getSceneElementsIncludingDeleted(),
+            appState: api.getAppState(),
+            files: api.getFiles(),
+          };
+          agentBrowserRuntimePublishRendererActions.schedule(
+            latestSceneRef.current,
+          );
+          return result;
+        },
+      },
+    });
+  }, [
+    agentBoardRefreshRequired,
+    agentBrowserRuntimePublishRendererActions,
+    Boolean(currentProject),
+    editorApiReadyVersion,
+    isAgentBrowserRoute,
+    isEditorInitializing,
+    projectRoomReady,
+    stableBoardId,
+    stableBoardIntegrationStatus,
+  ]);
+
   const queuedExcalidrawBinaryFilesRendererActions = useMemo(
     () =>
       createQueuedExcalidrawBinaryFilesRendererActions({
@@ -757,12 +922,11 @@ const App = ({
       queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
       setLatestScene: (scene) => {
         latestSceneRef.current = scene;
-        setImageAssetFilesRevision((revision) => revision + 1);
       },
     });
 
   const projectThumbnailAssetRefreshRendererActions =
-    createProjectThumbnailAssetRefreshRendererActions({
+    createProjectThumbnailAssetRefreshRendererActions<DesktopProjectBundle>({
       getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
       getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
       readThumbnailAssets: ({ project, fileIds }) =>
@@ -772,7 +936,10 @@ const App = ({
           rendition: "thumbnail",
           thumbnailMode: "cache-only",
         }),
-      applyThumbnailAssetsToScene: projectAssetSceneApplyRendererAction,
+      applyThumbnailAssetsToScene: (project, assets) => {
+        applyImageAssetThumbnailPayloads(project.projectPath, assets);
+        return projectAssetSceneApplyRendererAction(project, assets);
+      },
     });
 
   const projectThumbnailRebuildRendererActions =
@@ -788,7 +955,10 @@ const App = ({
           rendition: "thumbnail",
           thumbnailMode: "cache-only",
         }),
-      applyThumbnailAssetsToScene: projectAssetSceneApplyRendererAction,
+      applyThumbnailAssetsToScene: (project, assets) => {
+        applyImageAssetThumbnailPayloads(project.projectPath, assets);
+        return projectAssetSceneApplyRendererAction(project, assets);
+      },
       applyThumbnailMaintenance: setThumbnailMaintenance,
     });
 
@@ -1061,6 +1231,7 @@ const App = ({
       setThumbnailMaintenance,
       markImageAssetRenditionsLoaded:
         visibleImageRenditionLoadRendererActions.markLoaded,
+      applyInitialImageAssetThumbnails: replaceImageAssetThumbnailPayloads,
       projectRenderNonceRef,
       editorApiRef: excalidrawAPIRef,
       updateEditorInitializing:
@@ -1126,6 +1297,7 @@ const App = ({
       getLatestScene: () => latestSceneRef.current,
       setEditorApi: (api) => {
         excalidrawAPIRef.current = api;
+        setEditorApiReadyVersion((current) => current + 1);
       },
       flushQueuedImageFilesToCanvas:
         queuedExcalidrawBinaryFilesRendererActions.flush,
@@ -1546,6 +1718,14 @@ const App = ({
               pageNonce,
             });
             launchTicket = exchangedSession.launchTicket;
+            setStableBoardIntegrationStatus((current) =>
+              current
+                ? {
+                    ...current,
+                    actorClaimed: true,
+                  }
+                : current,
+            );
             setStableBoardActorResumeToken(
               stableBoardId,
               exchangedSession.actorResumeToken,
@@ -2728,6 +2908,9 @@ const App = ({
               generatedOnly={imageAssetGeneratedOnly}
               onGeneratedOnlyChange={setImageAssetGeneratedOnly}
               selectedFileId={selectedRecord?.fileId}
+              onVisibleFileIdsChange={loadVisibleImageAssetThumbnails}
+              thumbnailProjectPath={currentProject.projectPath}
+              thumbnailStore={imageAssetThumbnailStore}
               onSelectRecord={(fileId) => {
                 void imageRecordLocatorRendererActions.locateImageRecord(
                   fileId,

@@ -2,6 +2,16 @@
 
 CoreStudio CLI 是本地 Agent 与 Agent Board 使用的自动化入口，也是 Local Bridge 的薄客户端。CLI 不直接读取或修改项目文件。
 
+## Agent Board WebMCP
+
+CoreStudio 会在本地 `http://127.0.0.1:<port>/board/<stableBoardId>` Agent Board 页面中注册 WebMCP 工具。该能力不需要公网 MCP Server 或 CoreStudio 云端 API，也不改变 CLI / Local Bridge / Project Room 现有数据所有权。
+
+- 未完成画布认领时，只提供 `corestudio_get_board_status`。
+- 已认领且房间与画布就绪时，另提供 `corestudio_get_canvas_summary`、`corestudio_get_selection`、`corestudio_locate_element` 和 `corestudio_select_elements`。
+- WebMCP 不接收项目路径，不返回绝对路径、令牌、Base64 资产或完整场景文本。
+- 定位与选择只改变当前 Agent Board 参与者的视口和选区，不持久化场景内容。
+- 需要图片绝对路径、项目写入或不支持 WebMCP 时，继续使用本文下述 CLI 合同。
+
 ## Tool Shape
 
 - `read`：读取当前状态和项目证据。

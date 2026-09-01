@@ -291,6 +291,7 @@ export type ProjectRepairFileDetailReason =
   | "record-missing"
   | "thumbnail-not-needed"
   | "thumbnail-cache-exists"
+  | "thumbnail-source-unreadable"
   | "thumbnail-rebuild-failed"
   | "board-restore-failed";
 

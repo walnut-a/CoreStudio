@@ -1,6 +1,3 @@
-import type { FileId } from "@excalidraw/element/types";
-import type { BinaryFiles } from "@excalidraw/excalidraw/types";
-
 import type { ImageRecord, ImageRecordMap } from "../shared/projectTypes";
 import { copy, DESKTOP_LANG_CODE } from "./copy";
 import { buildImageProvenanceViewModel } from "./imageProvenance";
@@ -52,12 +49,10 @@ const compareNewestFirst = (left: ImageRecord, right: ImageRecord) => {
 export const buildImageAssetItems = ({
   imageRecords,
   sceneImageFileIds,
-  files,
   generatedOnly,
 }: {
   imageRecords: ImageRecordMap | null | undefined;
   sceneImageFileIds: readonly string[];
-  files: BinaryFiles | null | undefined;
   generatedOnly: boolean;
 }): ImageAssetListItem[] => {
   const records = imageRecords ?? {};
@@ -92,7 +87,6 @@ export const buildImageAssetItems = ({
       ];
       const { sourceLabel, providerLabel } =
         buildImageProvenanceViewModel(record);
-      const thumbnailDataUrl = files?.[record.fileId as FileId]?.dataURL;
       return {
         id: record.fileId,
         fileId: record.fileId,
@@ -106,7 +100,6 @@ export const buildImageAssetItems = ({
           .filter(Boolean)
           .join(" · "),
         relationshipLabels,
-        ...(thumbnailDataUrl ? { thumbnailDataUrl } : {}),
       };
     });
 };

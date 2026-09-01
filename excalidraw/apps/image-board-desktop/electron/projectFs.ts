@@ -30,6 +30,7 @@ import {
 } from "./project/projectImageRecords";
 import {
   rebuildProjectThumbnails as rebuildProjectThumbnailsWithDeps,
+  type CreateProjectThumbnail,
   type RebuildProjectThumbnailsOptions,
 } from "./project/projectRepair";
 import {
@@ -51,6 +52,36 @@ const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
 const THUMBNAILS_DIR = "thumbnails";
 const PREVIEWS_DIR = "previews";
+const projectImageRecordsReadCache = new Map<
+  string,
+  { signature: string; imageRecords: ImageRecordMap }
+>();
+const PROJECT_IMAGE_RECORDS_READ_CACHE_LIMIT = 8;
+
+const cacheProjectImageRecords = (
+  projectPath: string,
+  entry: { signature: string; imageRecords: ImageRecordMap },
+) => {
+  projectImageRecordsReadCache.delete(projectPath);
+  projectImageRecordsReadCache.set(projectPath, entry);
+  while (
+    projectImageRecordsReadCache.size > PROJECT_IMAGE_RECORDS_READ_CACHE_LIMIT
+  ) {
+    const oldestProjectPath = projectImageRecordsReadCache.keys().next().value;
+    if (!oldestProjectPath) {
+      break;
+    }
+    projectImageRecordsReadCache.delete(oldestProjectPath);
+  }
+};
+
+const getImageRecordsFileSignature = async (projectPath: string) => {
+  const stats = await fs.stat(
+    path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+    { bigint: true },
+  );
+  return `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeNs}`;
+};
 export const PROJECT_THUMBNAIL_MAX_DIMENSION = 320;
 export const PROJECT_PREVIEW_MAX_DIMENSION = 1280;
 const IMAGE_CACHE_RENDITION_CONFIG = {
@@ -131,13 +162,7 @@ interface ThumbnailPayload {
   height: number;
 }
 
-type CreateThumbnail = (input: {
-  sourceBuffer: Buffer;
-  mimeType: string;
-  width: number;
-  height: number;
-  maxDimension: number;
-}) => Promise<ThumbnailPayload | null>;
+type CreateThumbnail = CreateProjectThumbnail;
 
 interface ReadProjectAssetPayloadsOptions {
   createThumbnail?: CreateThumbnail;
@@ -281,10 +306,16 @@ const readProjectBundleFiles = async (
   projectPath: string,
   options: { validateScene?: boolean } = {},
 ) => {
-  const [projectJson, sceneJson, imageRecordsJson] = await Promise.all([
+  const [
+    projectJson,
+    sceneJson,
+    imageRecordsJson,
+    imageRecordsSignature,
+  ] = await Promise.all([
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.project), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.imageRecords), "utf8"),
+    getImageRecordsFileSignature(projectPath),
   ]);
   let manifestValue: unknown;
   try {
@@ -323,6 +354,10 @@ const readProjectBundleFiles = async (
   const parsedImageRecords = parseProjectImageRecords(
     imageRecordsValue,
   );
+  cacheProjectImageRecords(projectPath, {
+    signature: imageRecordsSignature,
+    imageRecords: parsedImageRecords.imageRecords,
+  });
   if (changed) {
     await writeProjectManifest(projectPath, project);
   }
@@ -378,10 +413,22 @@ export const readProjectBundle = async (projectPath: string) => {
   return withRecoveryIssues(initialBundle);
 };
 
-const readProjectImageRecords = (projectPath: string) =>
-  readProjectImageRecordsWithDeps(projectPath, {
+const readProjectImageRecords = async (projectPath: string) => {
+  const signature = await getImageRecordsFileSignature(projectPath);
+  const cached = projectImageRecordsReadCache.get(projectPath);
+  if (cached?.signature === signature) {
+    cacheProjectImageRecords(projectPath, cached);
+    return cached.imageRecords;
+  }
+  const parsed = await readProjectImageRecordsWithDeps(projectPath, {
     readText: (filePath) => fs.readFile(filePath, "utf8"),
   });
+  cacheProjectImageRecords(projectPath, {
+    signature,
+    imageRecords: parsed,
+  });
+  return parsed;
+};
 
 const readRawProjectImageRecords = async (projectPath: string) =>
   JSON.parse(
@@ -398,6 +445,7 @@ const writeProjectImageRecords = async (
   await writeProjectImageRecordsWithDeps(projectPath, imageRecords, {
     writeJson,
   });
+  projectImageRecordsReadCache.delete(projectPath);
 };
 
 const writeProjectManifest = async (
@@ -673,41 +721,109 @@ const getCachedRenditionCachePath = (
   );
 };
 
-const createNativeImageThumbnail: CreateThumbnail = async ({
-  sourceBuffer,
+interface NativeThumbnailImage {
+  isEmpty(): boolean;
+  getSize(): { width: number; height: number };
+  resize(options: {
+    width: number;
+    height: number;
+    quality: "best";
+  }): NativeThumbnailImage;
+  toPNG(): Buffer;
+}
+
+interface NativeThumbnailAdapter {
+  createFromBuffer(buffer: Buffer): NativeThumbnailImage;
+  createThumbnailFromPath?: (
+    sourcePath: string,
+    size: { width: number; height: number },
+  ) => Promise<NativeThumbnailImage>;
+}
+
+const getThumbnailTargetSize = ({
   width,
   height,
   maxDimension,
-}) => {
-  const { nativeImage } = await import("electron");
-  const sourceImage = nativeImage.createFromBuffer(sourceBuffer);
-  if (sourceImage.isEmpty()) {
+}: Pick<
+  Parameters<CreateThumbnail>[0],
+  "width" | "height" | "maxDimension"
+>) => {
+  const largestDimension = Math.max(width, height);
+  if (!Number.isFinite(largestDimension) || largestDimension <= 0) {
     return null;
+  }
+  const scale = Math.min(1, maxDimension / largestDimension);
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
+
+export const createNativeImageThumbnailWithAdapter = async (
+  input: Parameters<CreateThumbnail>[0],
+  nativeImage: NativeThumbnailAdapter,
+): Promise<ThumbnailPayload | null> => {
+  let sourceImage = nativeImage.createFromBuffer(input.sourceBuffer);
+  if (sourceImage.isEmpty()) {
+    const targetSize = getThumbnailTargetSize(input);
+    if (
+      !input.sourcePath ||
+      !targetSize ||
+      typeof nativeImage.createThumbnailFromPath !== "function"
+    ) {
+      return null;
+    }
+    try {
+      sourceImage = await nativeImage.createThumbnailFromPath(
+        input.sourcePath,
+        targetSize,
+      );
+    } catch {
+      return null;
+    }
+    if (sourceImage.isEmpty()) {
+      return null;
+    }
   }
 
   const sourceSize = sourceImage.getSize();
-  const sourceWidth = sourceSize.width || width;
-  const sourceHeight = sourceSize.height || height;
-  const largestDimension = Math.max(sourceWidth, sourceHeight);
-  if (!Number.isFinite(largestDimension) || largestDimension <= maxDimension) {
+  const sourceWidth = sourceSize.width || input.width;
+  const sourceHeight = sourceSize.height || input.height;
+  const targetSize = getThumbnailTargetSize({
+    width: sourceWidth,
+    height: sourceHeight,
+    maxDimension: input.maxDimension,
+  });
+  if (!targetSize) {
     return null;
   }
 
-  const scale = maxDimension / largestDimension;
-  const thumbnailWidth = Math.max(1, Math.round(sourceWidth * scale));
-  const thumbnailHeight = Math.max(1, Math.round(sourceHeight * scale));
-  const thumbnail = sourceImage.resize({
-    width: thumbnailWidth,
-    height: thumbnailHeight,
-    quality: "best",
-  });
+  const thumbnail =
+    targetSize.width === sourceWidth && targetSize.height === sourceHeight
+      ? sourceImage
+      : sourceImage.resize({
+          ...targetSize,
+          quality: "best",
+        });
+  if (thumbnail.isEmpty()) {
+    return null;
+  }
+  const data = thumbnail.toPNG();
+  if (!data.length) {
+    return null;
+  }
 
   return {
-    data: thumbnail.toPNG(),
+    data,
     mimeType: "image/png",
-    width: thumbnailWidth,
-    height: thumbnailHeight,
+    width: targetSize.width,
+    height: targetSize.height,
   };
+};
+
+const createNativeImageThumbnail: CreateThumbnail = async (input) => {
+  const { nativeImage } = await import("electron");
+  return createNativeImageThumbnailWithAdapter(input, nativeImage);
 };
 
 const buildAssetPayload = ({
@@ -827,6 +943,7 @@ const createCachedRenditionPayload = async ({
   const { maxDimension } = getCachedRenditionConfig(rendition);
   const thumbnail = await createThumbnail({
     sourceBuffer,
+    sourcePath: resolveProjectAssetPath(projectPath, record.assetPath),
     mimeType: record.mimeType,
     width: record.width,
     height: record.height,

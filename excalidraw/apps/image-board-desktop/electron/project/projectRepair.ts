@@ -28,6 +28,7 @@ interface ThumbnailPayload {
 
 export type CreateProjectThumbnail = (input: {
   sourceBuffer: Buffer;
+  sourcePath?: string;
   mimeType: string;
   width: number;
   height: number;
@@ -529,9 +530,22 @@ export const rebuildProjectThumbnails = async (
         }
       }
 
-      const sourceBuffer = await deps.readFile(
-        deps.resolveProjectAssetPath(projectPath, record.assetPath),
+      const sourcePath = deps.resolveProjectAssetPath(
+        projectPath,
+        record.assetPath,
       );
+      let sourceBuffer: Buffer;
+      try {
+        sourceBuffer = await deps.readFile(sourcePath);
+      } catch {
+        failedFileIds.push(fileId);
+        failedDetails.push({
+          fileId,
+          reason: "thumbnail-source-unreadable",
+          message: "原始图片文件不可读取，无法重建显示缓存。",
+        });
+        continue;
+      }
       const thumbnailPayload = await deps.createCachedRenditionPayload({
         projectPath,
         fileId,
@@ -549,7 +563,7 @@ export const rebuildProjectThumbnails = async (
         failedDetails.push({
           fileId,
           reason: "thumbnail-rebuild-failed",
-          message: "图片显示缓存生成失败，请确认原图文件可读取。",
+          message: "原图仍可继续使用，但显示缓存生成失败，不影响画布显示。",
         });
       }
     } catch {
@@ -557,7 +571,7 @@ export const rebuildProjectThumbnails = async (
       failedDetails.push({
         fileId,
         reason: "thumbnail-rebuild-failed",
-        message: "图片显示缓存生成失败，请确认原图文件可读取。",
+        message: "原图仍可继续使用，但显示缓存生成失败，不影响画布显示。",
       });
     }
   }

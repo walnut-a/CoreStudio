@@ -1139,6 +1139,7 @@ afterEach(() => {
   });
   window.localStorage.clear();
   window.sessionStorage.clear();
+  delete (document as Document & { modelContext?: unknown }).modelContext;
   delete window.imageBoardDesktop;
   triggerExcalidrawInitialize = null;
   triggerExcalidrawChange = null;

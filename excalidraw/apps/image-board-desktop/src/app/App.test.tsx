@@ -2071,7 +2071,7 @@ describe("App startup", () => {
         {
           fileId: "failed-file",
           reason: "thumbnail-rebuild-failed",
-          message: "图片缓存重建失败。",
+          message: "原图仍可继续使用，但显示缓存生成失败，不影响画布显示。",
           path: "assets/failed-file.png",
         },
       ],
@@ -2145,8 +2145,12 @@ describe("App startup", () => {
       screen.getByText("显示缓存已经存在，跳过重建。"),
     ).toBeInTheDocument();
     expect(screen.getByText("File ID: cached-file")).toBeInTheDocument();
-    expect(screen.getByText("缓存重建失败")).toBeInTheDocument();
-    expect(screen.getByText("图片缓存重建失败。")).toBeInTheDocument();
+    expect(screen.getByText("显示缓存未完成")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "原图仍可继续使用，但显示缓存生成失败，不影响画布显示。",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("路径: assets/failed-file.png"),
     ).toBeInTheDocument();
@@ -2626,6 +2630,135 @@ describe("App startup", () => {
       },
     });
     expect(mockExcalidrawAPI?.replaceFiles).not.toHaveBeenCalled();
+  });
+
+  it("loads only the visible sidebar thumbnail batch for referenced assets", async () => {
+    const referencedFileIds = Array.from(
+      { length: 100 },
+      (_, index) => `reference-${index}`,
+    );
+    vi.mocked(deserializeSceneFromProject).mockResolvedValueOnce({
+      elements: [
+        {
+          id: "generated-image",
+          type: "image",
+          fileId: "generated-file",
+          isDeleted: false,
+          groupIds: [],
+          x: 120,
+          y: 120,
+          width: 300,
+          height: 220,
+        },
+      ] as any,
+      appState: {
+        width: 500,
+        height: 400,
+        scrollX: -100,
+        scrollY: -80,
+        zoom: { value: 1 },
+        selectedElementIds: {},
+        selectedGroupIds: {},
+        viewBackgroundColor: "#ffffff",
+      } as any,
+      files: {},
+    });
+    const readProjectAssetPayloads = vi.fn(
+      async ({
+        rendition,
+        fileIds,
+      }: {
+        rendition?: string;
+        thumbnailMode?: string;
+        fileIds: string[];
+      }) =>
+        fileIds.map((fileId) => ({
+          fileId,
+          mimeType: "image/png",
+          dataBase64: Buffer.from(`${fileId}-${rendition}`).toString("base64"),
+          width: rendition === "preview" ? 1280 : 320,
+          height: rendition === "preview" ? 853 : 213,
+          createdAt: "2026-04-12T08:00:00.000Z",
+          rendition: rendition ?? "original",
+        })),
+    );
+    const referencedRecords = Object.fromEntries(
+      referencedFileIds.map((fileId, index) => [
+        fileId,
+        {
+          fileId,
+          assetPath: `assets/${fileId}.png`,
+          sourceType: "imported",
+          width: 1440,
+          height: 960,
+          createdAt: `2026-04-12T07:${String(index % 60).padStart(
+            2,
+            "0",
+          )}:00.000Z`,
+          mimeType: "image/png",
+        },
+      ]),
+    );
+    window.imageBoardDesktop = createDesktopBridgeMock({
+      createProject: vi.fn().mockResolvedValue(
+        createMockProjectBundle({
+          imageRecords: {
+            ...referencedRecords,
+            "generated-file": {
+              fileId: "generated-file",
+              assetPath: "assets/generated-file.png",
+              sourceType: "generated",
+              generationOrigin: "corestudio",
+              prompt: "多参考图方案",
+              width: 1440,
+              height: 960,
+              createdAt: "2026-04-12T09:00:00.000Z",
+              mimeType: "image/png",
+              promptReferences: [
+                {
+                  id: "reference-group",
+                  index: 1,
+                  label: "参考图",
+                  kind: "image",
+                  fileIds: referencedFileIds,
+                },
+              ],
+            },
+          },
+        }),
+      ),
+      readProjectAssetPayloads,
+    }) as any;
+
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    });
+    act(() => {
+      triggerExcalidrawInitialize?.();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
+    });
+    readProjectAssetPayloads.mockClear();
+
+    const imageAssetDock = screen.getByTestId("side-dock-left");
+    fireEvent.click(
+      within(imageAssetDock).getByRole("button", { name: "图片资产" }),
+    );
+
+    await waitFor(() => {
+      const thumbnailCalls = readProjectAssetPayloads.mock.calls
+        .map(([input]) => input)
+        .filter(
+          (input) =>
+            input.rendition === "thumbnail" &&
+            input.thumbnailMode === "cache-only",
+        );
+      expect(thumbnailCalls).toHaveLength(1);
+      expect(thumbnailCalls[0].fileIds.length).toBeGreaterThan(0);
+      expect(thumbnailCalls[0].fileIds.length).toBeLessThanOrEqual(18);
+    });
   });
 
   it("preloads original assets for initially visible large images before the canvas API is ready", async () => {

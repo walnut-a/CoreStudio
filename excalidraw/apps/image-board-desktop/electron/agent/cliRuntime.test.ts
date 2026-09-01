@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AGENT_HTTP_ROUTES } from "../../src/shared/agentBridgeTypes";
 
+import { DESKTOP_APP_VERSION } from "../appVersion";
+
 import { runCli } from "./cliRuntime";
 
 import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
@@ -208,8 +210,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout:
-          "CoreStudio 1.1.42 (Agent integration 2.0.0, bridge protocol 6)\n",
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.0.0, bridge protocol 6)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -226,7 +227,7 @@ describe("runCli", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       ok: true,
       data: {
-        appVersion: "1.1.42",
+        appVersion: DESKTOP_APP_VERSION,
         integrationVersion: "2.0.0",
         bridgeProtocolVersion: 6,
       },

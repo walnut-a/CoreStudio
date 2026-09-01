@@ -37,6 +37,10 @@ import type {
   TrackpadZoomSpeed,
 } from "./canvasInteractionSettings";
 import type {
+  DesktopAppUpdateAvailability,
+  DesktopAppUpdateCheckResponse,
+} from "./appUpdate";
+import type {
   DesktopProjectRoomJoinInput,
   ProjectRoomEvent,
   ProjectRoomOperationResult,
@@ -64,6 +68,9 @@ export const IPC_CHANNELS = {
   revealProjectInFinder: "image-board:reveal-project-in-finder",
   getStableAgentBoardUrl: "image-board:get-stable-agent-board-url",
   loadAppInfo: "image-board:load-app-info",
+  loadAppUpdateAvailability: "image-board:load-app-update-availability",
+  checkForAppUpdates: "image-board:check-for-app-updates",
+  appUpdateAvailabilityChanged: "image-board:app-update-availability-changed",
   openExternal: "image-board:open-external",
   inspectCodexIntegration: "image-board:inspect-codex-integration",
   installCodexIntegration: "image-board:install-codex-integration",
@@ -139,8 +146,7 @@ export type DesktopMenuAction =
   | "edit-paste"
   | "edit-select-all"
   | "set-agent-bridge-enabled"
-  | "reveal-project"
-  | "show-about";
+  | "reveal-project";
 
 export interface DesktopMenuEvent {
   action: DesktopMenuAction;
@@ -515,6 +521,11 @@ export interface DesktopBridgeApi {
   getStableAgentBoardUrl?(projectPath: string): Promise<string | null>;
   switchAgentBoardProject?(): Promise<void>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
+  loadAppUpdateAvailability?(): Promise<DesktopAppUpdateAvailability>;
+  checkForAppUpdates?(): Promise<DesktopAppUpdateCheckResponse>;
+  onAppUpdateAvailabilityChanged?(
+    listener: (availability: DesktopAppUpdateAvailability) => void,
+  ): () => void;
   openExternal?(url: string): Promise<void>;
   inspectCodexIntegration?(): Promise<CodexIntegrationStatus>;
   installCodexIntegration?(): Promise<CodexIntegrationInstallResult>;

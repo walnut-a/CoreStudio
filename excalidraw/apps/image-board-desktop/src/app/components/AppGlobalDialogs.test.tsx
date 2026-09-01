@@ -17,11 +17,6 @@ const generationErrorDetails: GenerationErrorDetails = {
 const createProps = (
   overrides: Partial<Parameters<typeof AppGlobalDialogs>[0]> = {},
 ): Parameters<typeof AppGlobalDialogs>[0] => ({
-  about: {
-    open: false,
-    appInfo: { name: "CoreStudio", version: "9.8.7" },
-    onClose: vi.fn(),
-  },
   appSettings: {
     open: false,
     activeCategory: "image-generation",
@@ -32,7 +27,7 @@ const createProps = (
     generalContent: <div>通用</div>,
     imageGenerationContent: <div>图像生成</div>,
     codexIntegrationContent: <div>Codex 集成</div>,
-    aboutContent: <div>关于</div>,
+    aboutContent: <div>关于设置内容</div>,
   },
   projectDataReport: {
     open: false,
@@ -57,27 +52,26 @@ describe("AppGlobalDialogs", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("renders the about dialog and forwards close", () => {
-    const onClose = vi.fn();
+  it("renders About only as part of application settings", () => {
     render(
       <AppGlobalDialogs
         {...createProps({
-          about: {
-            ...createProps().about,
+          appSettings: {
+            ...createProps().appSettings,
             open: true,
-            onClose,
+            activeCategory: "about",
           },
         })}
       />,
     );
 
     expect(
-      screen.getByRole("dialog", { name: "关于 CoreStudio" }),
+      screen.getByRole("dialog", { name: "应用设置" }),
     ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "关闭关于页面" }));
-
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("关于设置内容")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "关于 CoreStudio" }),
+    ).toBeNull();
   });
 
   it("renders generation error details and forwards copy", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MenuItemConstructorOptions } from "electron";
 
-import { CORESTUDIO_RELEASES_URL, createAppMenuTemplate } from "./menu";
+import { createAppMenuTemplate } from "./menu";
 
 const getSubmenuLabels = (submenu: MenuItemConstructorOptions["submenu"]) =>
   ((submenu || []) as MenuItemConstructorOptions[]).map((item) => item.label);
@@ -38,7 +38,6 @@ describe("createAppMenuTemplate", () => {
         },
       ],
       "1.1.9",
-      undefined,
       { platform: "linux" },
     );
 
@@ -46,7 +45,6 @@ describe("createAppMenuTemplate", () => {
       "文件",
       "编辑",
       "设置",
-      "帮助",
     ]);
 
     expect(getSubmenuLabels(template[0].submenu)).toContain("版本 1.1.9");
@@ -75,7 +73,7 @@ describe("createAppMenuTemplate", () => {
   });
 
   it("builds the same application menu from the English catalog", () => {
-    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", undefined, {
+    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", {
       platform: "linux",
       locale: "en",
     });
@@ -84,7 +82,6 @@ describe("createAppMenuTemplate", () => {
       "File",
       "Edit",
       "Settings",
-      "Help",
     ]);
     expect(getSubmenuLabels(template[0].submenu)).toContain("New Project");
     expect(getSubmenuLabels(template[0].submenu)).toContain("Recent Projects");
@@ -93,15 +90,9 @@ describe("createAppMenuTemplate", () => {
 
   it("routes editing shortcuts to the focused renderer", () => {
     const sendMenuAction = vi.fn();
-    const template = createAppMenuTemplate(
-      sendMenuAction,
-      [],
-      undefined,
-      undefined,
-      {
-        platform: "darwin",
-      },
-    );
+    const template = createAppMenuTemplate(sendMenuAction, [], undefined, {
+      platform: "darwin",
+    });
     const editMenu = template.find((item) => item.label === "编辑");
     const editItems = getSubmenuItems(editMenu?.submenu);
     const undoItem = editItems.find((item) => item.label === "撤销");
@@ -159,15 +150,9 @@ describe("createAppMenuTemplate", () => {
 
   it("opens application settings from the settings menu", () => {
     const sendMenuAction = vi.fn();
-    const template = createAppMenuTemplate(
-      sendMenuAction,
-      [],
-      undefined,
-      undefined,
-      {
-        platform: "linux",
-      },
-    );
+    const template = createAppMenuTemplate(sendMenuAction, [], undefined, {
+      platform: "linux",
+    });
     const settingsMenu = template.find((item) => item.label === "设置");
     const settingsItem = getMenuItem(settingsMenu?.submenu, "应用设置");
 
@@ -182,7 +167,7 @@ describe("createAppMenuTemplate", () => {
   });
 
   it("keeps Agent collaboration controls out of the application menu", () => {
-    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", undefined, {
+    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", {
       platform: "linux",
     });
 
@@ -191,19 +176,11 @@ describe("createAppMenuTemplate", () => {
 
   it("puts app-level settings inside the macOS application menu", () => {
     const sendMenuAction = vi.fn();
-    const template = createAppMenuTemplate(
-      sendMenuAction,
-      [],
-      "1.1.9",
-      undefined,
-      { platform: "darwin" },
-    );
+    const template = createAppMenuTemplate(sendMenuAction, [], "1.1.9", {
+      platform: "darwin",
+    });
 
-    expect(template.map((item) => item.label)).toEqual([
-      "文件",
-      "编辑",
-      "帮助",
-    ]);
+    expect(template.map((item) => item.label)).toEqual(["文件", "编辑"]);
     expect(getSubmenuLabels(template[0].submenu)).not.toContain(
       "启用 Agent 集成",
     );
@@ -223,35 +200,12 @@ describe("createAppMenuTemplate", () => {
     );
   });
 
-  it("opens the about page from the help menu", () => {
-    const sendMenuAction = vi.fn();
-    const template = createAppMenuTemplate(sendMenuAction);
-    const helpMenu = template.find((item) => item.label === "帮助");
-    const aboutItem = getSubmenuItems(helpMenu?.submenu).find(
-      (item) => item.label === "关于 CoreStudio",
-    );
+  it("keeps About and Check for Updates inside application settings only", () => {
+    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9");
 
-    expect(aboutItem).toBeTruthy();
-
-    aboutItem?.click?.(aboutItem as any, undefined, undefined as any);
-
-    expect(sendMenuAction).toHaveBeenCalledWith(
-      { action: "show-about" },
-      undefined,
-    );
-  });
-
-  it("opens the GitHub releases page from the help menu", () => {
-    const openExternal = vi.fn();
-    const template = createAppMenuTemplate(vi.fn(), [], "1.1.9", openExternal);
-    const helpMenu = template.find((item) => item.label === "帮助");
-    const updateItem = getMenuItem(helpMenu?.submenu, "查看更新");
-
-    expect(updateItem).toBeTruthy();
-
-    updateItem?.click?.(updateItem as any, undefined, undefined as any);
-
-    expect(openExternal).toHaveBeenCalledWith(CORESTUDIO_RELEASES_URL);
+    expect(getAllMenuLabels(template)).not.toContain("帮助");
+    expect(getAllMenuLabels(template)).not.toContain("关于 CoreStudio");
+    expect(getAllMenuLabels(template)).not.toContain("查看更新");
   });
 
   it("sends a repair current project data action from the maintenance menu", () => {
@@ -315,7 +269,7 @@ describe("createAppMenuTemplate", () => {
   });
 
   it("disables current-project maintenance while Home is active", () => {
-    const template = createAppMenuTemplate(vi.fn(), [], undefined, undefined, {
+    const template = createAppMenuTemplate(vi.fn(), [], undefined, {
       platform: "darwin",
       projectActionsEnabled: false,
     });

@@ -134,6 +134,7 @@ import { createSelectionReferenceOriginalSceneRendererActions } from "./selectio
 import { useDesktopMenuEvents } from "./useDesktopMenuEvents";
 import { useDesktopStartupWiring } from "./useDesktopStartupWiring";
 import { useProjectRoomFlushWiring } from "./useProjectRoomFlushWiring";
+import { useAppUpdate } from "./useAppUpdate";
 import { GenerateImageDialog } from "./components/GenerateImageDialog";
 import { AppBridgeUnavailable } from "./components/AppBridgeUnavailable";
 import { ImageAssetSidebar } from "./components/ImageAssetSidebar";
@@ -546,12 +547,12 @@ const App = ({
   const [generateComposerExpanded, setGenerateComposerExpanded] =
     useState(true);
   const [startupError, setStartupError] = useState<string | null>(null);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [appSettingsCategory, setAppSettingsCategory] =
     useState<ApplicationSettingsCategory>("image-generation");
   const [appSettingsDirty, setAppSettingsDirty] = useState(false);
   const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
+  const appUpdate = useAppUpdate(desktopBridge);
   const [imageAssetSidebarOpen, setImageAssetSidebarOpen] = useState(false);
   const [imageAssetGeneratedOnly, setImageAssetGeneratedOnly] = useState(false);
   const [imageAssetFilesRevision, setImageAssetFilesRevision] = useState(0);
@@ -565,6 +566,12 @@ const App = ({
   useEffect(() => {
     setIsImageCropping(false);
   }, [currentProject?.projectPath]);
+
+  useEffect(() => {
+    if (!appSettingsOpen) {
+      appUpdate.resetTransientManualState();
+    }
+  }, [appSettingsOpen, appUpdate.resetTransientManualState]);
 
   const generationTrackingRendererActions =
     createGenerationTrackingRendererActions({
@@ -1994,7 +2001,6 @@ const App = ({
       openAppSettings: () => setAppSettingsOpen(true),
       setAgentBridgeEnabled: agentBridgeStatusRendererActions.setEnabled,
       revealProject: currentProjectEntryRendererActions.revealProject,
-      showAbout: () => setAboutOpen(true),
     },
   );
 
@@ -2050,15 +2056,11 @@ const App = ({
 
   const globalDialogs = (
     <AppGlobalDialogs
-      about={{
-        open: aboutOpen,
-        appInfo,
-        onClose: () => setAboutOpen(false),
-      }}
       appSettings={{
         open: appSettingsOpen,
         activeCategory: appSettingsCategory,
         dirty: appSettingsDirty,
+        updateAvailable: Boolean(appUpdate.availability?.hasUnreviewedUpdate),
         onCategoryChange: (category) => {
           setAppSettingsCategory(category);
         },
@@ -2257,6 +2259,11 @@ const App = ({
             appInfo={appInfo}
             repositoryUrl={CORESTUDIO_REPOSITORY_URL}
             dependencies={CORESTUDIO_OPEN_SOURCE_DEPENDENCIES}
+            updateAvailability={appUpdate.availability}
+            manualUpdateState={appUpdate.manualState}
+            onCheckForUpdates={() => {
+              void appUpdate.checkManually();
+            }}
             onOpenExternal={(url) => {
               void desktopBridge.openExternal?.(url);
             }}
@@ -2663,6 +2670,13 @@ const App = ({
                       },
                     );
                   }}
+                  onOpenAboutSettings={() => {
+                    setAppSettingsCategory("about");
+                    setAppSettingsOpen(true);
+                  }}
+                  updateAvailable={Boolean(
+                    appUpdate.availability?.hasUnreviewedUpdate,
+                  )}
                   onSwitchProject={() => {
                     if (isAgentBrowserRoute) {
                       void desktopBridge

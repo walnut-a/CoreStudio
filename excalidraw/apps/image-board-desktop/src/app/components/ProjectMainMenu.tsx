@@ -1,7 +1,11 @@
 import { MainMenu } from "@excalidraw/excalidraw/index";
 
 import { copy } from "../copy";
-import { copyIcon, projectFolderIcon } from "./CoreStudioIcons";
+import {
+  copyIcon,
+  projectFolderIcon,
+  settingsSlidersIcon,
+} from "./CoreStudioIcons";
 
 import "./ProjectMainMenu.css";
 
@@ -10,6 +14,8 @@ interface ProjectMainMenuProps {
   onSwitchProject: () => void;
   onCopyBoardAddress?: () => void;
   onCopyBoardLinkInstruction?: () => void;
+  onOpenAboutSettings?: () => void;
+  updateAvailable?: boolean;
   canvasUtilityActionsVisible?: boolean;
 }
 
@@ -18,6 +24,8 @@ export const ProjectMainMenu = ({
   onSwitchProject,
   onCopyBoardAddress,
   onCopyBoardLinkInstruction,
+  onOpenAboutSettings,
+  updateAvailable = false,
   canvasUtilityActionsVisible = true,
 }: ProjectMainMenuProps) => (
   <MainMenu>
@@ -52,6 +60,27 @@ export const ProjectMainMenu = ({
           aria-label={copy.menu.copyBoardLinkInstruction}
         >
           {copy.menu.copyBoardLinkInstruction}
+        </MainMenu.Item>
+      ) : null}
+      {canvasUtilityActionsVisible && onOpenAboutSettings ? (
+        <MainMenu.Item
+          icon={settingsSlidersIcon}
+          badge={
+            updateAvailable ? (
+              <span
+                className="project-main-menu__update-indicator"
+                aria-hidden="true"
+              />
+            ) : undefined
+          }
+          onSelect={onOpenAboutSettings}
+          aria-label={
+            updateAvailable
+              ? `${copy.menu.aboutAndUpdates}，${copy.applicationSettings.aboutPage.update.indicator}`
+              : copy.menu.aboutAndUpdates
+          }
+        >
+          {copy.menu.aboutAndUpdates}
         </MainMenu.Item>
       ) : null}
     </MainMenu.Group>

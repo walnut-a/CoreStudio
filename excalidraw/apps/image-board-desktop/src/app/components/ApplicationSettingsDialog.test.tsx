@@ -14,7 +14,7 @@ const DetailBackProbe = ({ onBack }: { onBack: () => void }) => {
 };
 
 describe("ApplicationSettingsDialog", () => {
-  const renderDialog = ({ dirty = false } = {}) => {
+  const renderDialog = ({ dirty = false, updateAvailable = false } = {}) => {
     const onCategoryChange = vi.fn();
     const onClose = vi.fn();
 
@@ -23,6 +23,7 @@ describe("ApplicationSettingsDialog", () => {
         open
         activeCategory="image-generation"
         dirty={dirty}
+        updateAvailable={updateAvailable}
         onCategoryChange={onCategoryChange}
         onDiscardChanges={vi.fn()}
         onClose={onClose}
@@ -78,6 +79,17 @@ describe("ApplicationSettingsDialog", () => {
     fireEvent.click(screen.getByRole("tab", { name: "关于" }));
 
     expect(onCategoryChange).toHaveBeenCalledWith("about");
+  });
+
+  it("在关于分类显示未查看更新提示", () => {
+    renderDialog({ updateAvailable: true });
+
+    expect(
+      screen.getByRole("tab", { name: "关于，有可用更新" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("application-settings-update-indicator"),
+    ).toBeInTheDocument();
   });
 
   it("没有未保存修改时直接切换分类", () => {

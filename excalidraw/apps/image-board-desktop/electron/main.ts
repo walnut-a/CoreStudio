@@ -139,10 +139,12 @@ import { createLocaleSettingsStore } from "./localeSettingsStore";
 import { createLocaleSettingsController } from "./localeSettingsController";
 import { createCanvasInteractionSettingsStore } from "./canvasInteractionSettingsStore";
 import { createCanvasInteractionSettingsController } from "./canvasInteractionSettingsController";
+import { createAppUpdateService } from "./appUpdateService";
 import type {
   DesktopCanvasInteractionSettings,
   TrackpadZoomSpeed,
 } from "../src/shared/canvasInteractionSettings";
+import type { DesktopAppUpdateAvailability } from "../src/shared/appUpdate";
 import { createProjectRoomService } from "./room/projectRoomService";
 import { createProjectProcessLeaseRegistry } from "./room/projectProcessLease";
 import { executeProjectRoomAgentWriterCommand } from "./room/projectRoomAgentWriter";
@@ -226,6 +228,7 @@ let canvasInteractionSettingsController: ReturnType<
 > | null = null;
 let modelCatalogService: ReturnType<typeof createModelCatalogService> | null =
   null;
+let appUpdateService: ReturnType<typeof createAppUpdateService> | null = null;
 let projectViewRegistry: ProjectViewRegistry | null = null;
 let projectRoomSenderBindings: ProjectRoomSenderBindings | null = null;
 const quitState = createQuitState();
@@ -729,6 +732,24 @@ const publishCanvasInteractionSettings = (
     const target = webContents.fromId(rendererId);
     if (target && !target.isDestroyed()) {
       target.send(IPC_CHANNELS.canvasInteractionSettingsChanged, settings);
+    }
+  }
+};
+
+const publishAppUpdateAvailability = (
+  availability: DesktopAppUpdateAvailability,
+) => {
+  const rendererIds = new Set<number>();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    rendererIds.add(mainWindow.webContents.id);
+  }
+  for (const project of projectViewRegistry?.snapshot().projects ?? []) {
+    rendererIds.add(project.webContentsId);
+  }
+  for (const rendererId of rendererIds) {
+    const target = webContents.fromId(rendererId);
+    if (target && !target.isDestroyed()) {
+      target.send(IPC_CHANNELS.appUpdateAvailabilityChanged, availability);
     }
   }
 };
@@ -2689,6 +2710,22 @@ const registerIpcHandlers = () => {
     };
   });
 
+  ipcMain.handle(IPC_CHANNELS.loadAppUpdateAvailability, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    if (!appUpdateService) {
+      throw new Error("App update service is not ready.");
+    }
+    return appUpdateService.getAvailability();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.checkForAppUpdates, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
+    if (!appUpdateService) {
+      return { ok: false, failure: { code: "unsupported" } } as const;
+    }
+    return appUpdateService.checkManually();
+  });
+
   ipcMain.handle(IPC_CHANNELS.openExternal, async (event, value: unknown) => {
     requireShellOrProjectRendererSender(event.sender);
     if (typeof value !== "string") {
@@ -2932,9 +2969,6 @@ const buildMenu = () =>
       sendMenuAction,
       currentRecentProjects,
       DESKTOP_APP_VERSION,
-      (url) => {
-        void shell.openExternal(url);
-      },
       {
         platform: process.platform,
         locale: DESKTOP_LANG_CODE,
@@ -3304,6 +3338,13 @@ if (hasSingleInstanceLock) {
         onSettingsChanged: publishCanvasInteractionSettings,
       });
     await canvasInteractionSettingsController.initialize();
+    appUpdateService = createAppUpdateService({
+      currentVersion: DESKTOP_APP_VERSION,
+      currentSystemVersion: process.getSystemVersion(),
+      statePath: path.join(app.getPath("userData"), "app-update-state.json"),
+      onAvailabilityChanged: publishAppUpdateAvailability,
+    });
+    await appUpdateService.initialize();
     modelCatalogService = createModelCatalogService({
       appVersion: DESKTOP_APP_VERSION,
       cacheDirectory: path.join(app.getPath("userData"), "model-catalog"),
@@ -3329,6 +3370,9 @@ if (hasSingleInstanceLock) {
     });
     registerIpcHandlers();
     await createWindow();
+    if (process.env.CORESTUDIO_SMOKE_TEST !== "1") {
+      void appUpdateService.checkAutomaticallyIfNeeded();
+    }
     if (agentAccessEnabled) {
       await startLocalBridge().catch((error) => {
         console.error("[agent:bridge-startup-failed]", error);
@@ -3336,6 +3380,9 @@ if (hasSingleInstanceLock) {
     }
 
     app.on("activate", async () => {
+      if (process.env.CORESTUDIO_SMOKE_TEST !== "1") {
+        void appUpdateService?.checkAutomaticallyIfNeeded();
+      }
       if (BrowserWindow.getAllWindows().length === 0) {
         await createWindow();
         if (agentAccessEnabled) {

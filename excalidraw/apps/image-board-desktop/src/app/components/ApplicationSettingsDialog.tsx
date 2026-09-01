@@ -1,9 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 import { DesktopButton } from "./DesktopButton";
 import { useModalFocus } from "./useModalFocus";
@@ -20,6 +15,7 @@ export interface ApplicationSettingsDialogProps {
   open: boolean;
   activeCategory: ApplicationSettingsCategory;
   dirty: boolean;
+  updateAvailable?: boolean;
   onCategoryChange: (category: ApplicationSettingsCategory) => void;
   onDiscardChanges: () => void;
   onClose: () => void;
@@ -40,6 +36,7 @@ export const ApplicationSettingsDialog = ({
   open,
   activeCategory,
   dirty,
+  updateAvailable = false,
   onCategoryChange,
   onDiscardChanges,
   onClose,
@@ -172,6 +169,11 @@ export const ApplicationSettingsDialog = ({
                 aria-controls={`app-settings-panel-${item.id}`}
                 tabIndex={activeCategory === item.id ? 0 : -1}
                 className="app-settings-nav__item"
+                aria-label={
+                  item.id === "about" && updateAvailable
+                    ? `${item.label}，${copy.applicationSettings.aboutPage.update.indicator}`
+                    : item.label
+                }
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
                 onClick={() => {
                   if (activeCategory !== item.id) {
@@ -179,7 +181,14 @@ export const ApplicationSettingsDialog = ({
                   }
                 }}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.id === "about" && updateAvailable ? (
+                  <span
+                    className="settings-update-indicator"
+                    data-testid="application-settings-update-indicator"
+                    aria-hidden="true"
+                  />
+                ) : null}
               </button>
             ))}
           </nav>

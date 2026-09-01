@@ -320,10 +320,8 @@ export const enCopy: DesktopCopy = {
     selectAll: "Select All",
     settings: "Settings",
     appSettings: "Application Settings",
+    aboutAndUpdates: "About & Updates",
     quit: "Quit CoreStudio",
-    help: "Help",
-    viewUpdates: "View Updates",
-    about: "About CoreStudio",
   },
   applicationSettings: {
     title: "Application Settings",
@@ -358,6 +356,43 @@ export const enCopy: DesktopCopy = {
       dependencies: "Key Open Source Dependencies",
       dependenciesDescription:
         "These versions come from the current build configuration and update with the application.",
+      update: {
+        indicator: "Update available",
+        title: "Software Update",
+        description:
+          "Quietly check the latest stable release. You decide when to download and install it.",
+        check: "Check for Updates",
+        checking: "Checking…",
+        availableTitle: (version: string) =>
+          `CoreStudio ${version} is available`,
+        availableDescription: (version: string) =>
+          `You are using CoreStudio ${version}. A newer release is available.`,
+        incompatibleTitle: (version: string) =>
+          `CoreStudio ${version} has been released`,
+        incompatibleDescription: (systemVersion: string) =>
+          `This release requires macOS ${systemVersion} or later.`,
+        upToDate: "CoreStudio is up to date",
+        failureTitle: "Unable to check for updates",
+        failureDescriptions: {
+          network:
+            "Could not connect to the update service. Check your network or proxy settings and try again.",
+          timeout: "The update service timed out. Try again later.",
+          serviceNotConfigured:
+            "The update service has not been deployed correctly. Try again later.",
+          serviceUnavailable:
+            "The update service is temporarily unavailable. Try again later.",
+          serviceError:
+            "The update service returned an error. Try again later.",
+          invalidResponse:
+            "The update information could not be read. Try again later.",
+          unsupported:
+            "This version does not support checking for updates.",
+          unknown:
+            "An unknown error occurred while checking for updates. Try again later.",
+        },
+        openDownload: "Go to Download",
+        viewNotes: "View Release Notes",
+      },
     },
     imageGenerationPage: {
       composerVisibilityTitle: "Show on the board",

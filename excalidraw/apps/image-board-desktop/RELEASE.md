@@ -191,6 +191,22 @@ gh release create v1.1.0 \
 
 如果后续加入自动更新，再同时上传对应的 `.blockmap` 文件。
 
+## 稳定版更新清单
+
+客户端从官网固定地址 `https://getcorestudio.com/updates/stable.json` 发现最新稳定版。仓库源文件是：
+
+```text
+website/updates/stable.json
+```
+
+清单只能在签名、公证、GitHub Release 和线上 DMG 都验证完成后更新。根据实际 Release 填写版本、发布时间、最低系统版本、下载与说明链接、DMG 大小、SHA-256 和中英文摘要，然后运行：
+
+```sh
+node --test website/update-manifest-contract.test.mjs
+```
+
+官网部署工作流会再次执行同一合同测试。部署成功后，在线复核清单内容和 DMG 链接；低版本客户端只有在这一步完成后才应发现更新。开发中的 `package.json` 可以高于线上稳定版，不能为了让版本相等而提前发布清单。
+
 ## 1.1.42 发布说明
 
 1.1.42 改善触控板缩放手感，并扩展画布链接的复制方式：

@@ -68,6 +68,7 @@ describe("ProjectMainMenu", () => {
     const onSwitchProject = vi.fn();
     const onCopyBoardAddress = vi.fn();
     const onCopyBoardLinkInstruction = vi.fn();
+    const onOpenAboutSettings = vi.fn();
 
     render(
       <ProjectMainMenu
@@ -75,6 +76,8 @@ describe("ProjectMainMenu", () => {
         onSwitchProject={onSwitchProject}
         onCopyBoardAddress={onCopyBoardAddress}
         onCopyBoardLinkInstruction={onCopyBoardLinkInstruction}
+        onOpenAboutSettings={onOpenAboutSettings}
+        updateAvailable={true}
       />,
     );
 
@@ -114,6 +117,12 @@ describe("ProjectMainMenu", () => {
       }),
     );
     expect(onCopyBoardLinkInstruction).toHaveBeenCalledOnce();
+    fireEvent.click(
+      within(projectMenu).getByRole("button", {
+        name: "关于与更新，有可用更新",
+      }),
+    );
+    expect(onOpenAboutSettings).toHaveBeenCalledOnce();
     expect(
       within(projectMenu).queryByRole("button", { name: "最近项目" }),
     ).not.toBeInTheDocument();
@@ -147,6 +156,7 @@ describe("ProjectMainMenu", () => {
       <ProjectMainMenu
         currentProjectName="工业设计助手"
         onSwitchProject={vi.fn()}
+        onOpenAboutSettings={vi.fn()}
       />,
     );
 
@@ -164,6 +174,9 @@ describe("ProjectMainMenu", () => {
     expect(
       within(projectMenu).getByRole("button", { name: "Switch Project..." }),
     ).toBeInTheDocument();
+    expect(
+      within(projectMenu).getByRole("button", { name: "About & Updates" }),
+    ).toBeInTheDocument();
   });
 
   it("hides non-persistent canvas actions in Agent Board", () => {
@@ -171,6 +184,7 @@ describe("ProjectMainMenu", () => {
       <ProjectMainMenu
         currentProjectName="当前项目"
         onSwitchProject={vi.fn()}
+        onOpenAboutSettings={vi.fn()}
         canvasUtilityActionsVisible={false}
       />,
     );
@@ -190,6 +204,9 @@ describe("ProjectMainMenu", () => {
     expect(
       screen.getByRole("button", { name: "切换项目..." }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "关于与更新" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "深色模式" }),
     ).toBeInTheDocument();

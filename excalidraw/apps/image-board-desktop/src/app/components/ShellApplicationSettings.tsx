@@ -15,6 +15,7 @@ import { copyPlainTextToClipboard } from "../clipboardText";
 import { copy } from "../copy";
 import { createProviderSettingsRendererActions } from "../providerSettingsLoader";
 import { applyRemoteModelCatalog } from "../../shared/providerCatalog";
+import { useAppUpdate } from "../useAppUpdate";
 import { AboutSettingsSection } from "./AboutSettingsSection";
 import {
   ApplicationSettingsDialog,
@@ -65,6 +66,7 @@ export const ShellApplicationSettings = ({
   const [savingProviders, setSavingProviders] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [discardToken, setDiscardToken] = useState(0);
+  const appUpdate = useAppUpdate(bridge);
   const [providerLoadError, setProviderLoadError] = useState<string | null>(
     null,
   );
@@ -118,11 +120,18 @@ export const ShellApplicationSettings = ({
     };
   }, [bridge, onProviderConfigurationChange, open]);
 
+  useEffect(() => {
+    if (!open) {
+      appUpdate.resetTransientManualState();
+    }
+  }, [appUpdate.resetTransientManualState, open]);
+
   return (
     <ApplicationSettingsDialog
       open={open}
       activeCategory={activeCategory}
       dirty={dirty}
+      updateAvailable={Boolean(appUpdate.availability?.hasUnreviewedUpdate)}
       onCategoryChange={onCategoryChange}
       onDiscardChanges={() => {
         setDirty(false);
@@ -290,6 +299,11 @@ export const ShellApplicationSettings = ({
           appInfo={appInfo}
           repositoryUrl={CORESTUDIO_REPOSITORY_URL}
           dependencies={CORESTUDIO_OPEN_SOURCE_DEPENDENCIES}
+          updateAvailability={appUpdate.availability}
+          manualUpdateState={appUpdate.manualState}
+          onCheckForUpdates={() => {
+            void appUpdate.checkManually();
+          }}
           onOpenExternal={(url) => {
             void bridge.openExternal?.(url);
           }}

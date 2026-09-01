@@ -15,7 +15,6 @@ const {
   readGenerateImageDialogProviderRuntime,
   readImageBoardApp,
   readGenerateComposerActionBar,
-  readAboutDialog,
   readGenerationErrorDetailsDialog,
   readProjectRenderBoundary,
   readAppBridgeUnavailable,
@@ -187,22 +186,5 @@ describe("component style ownership boundaries", () => {
     expect(rootAppCss).not.toContain("\n.dialog-card {");
     expect(rootAppCss).not.toContain("\n.dialog-form-grid {");
     expect(rootAppCss).not.toContain("\n.provider-card {");
-  });
-
-  it("keeps about dialog styles with the about dialog owner component", () => {
-    const appCss = readAppCss();
-    const rootAppCss = readRootAppCss();
-    const dialogSource = readAboutDialog();
-    const cardRule = getRule(appCss, ".dialog-card--about");
-    const descriptionRule = getRule(appCss, ".about-dialog__description");
-    const versionRule = getRule(appCss, ".about-dialog__version");
-
-    expect(dialogSource).toContain('import "./AboutDialog.css";');
-    expect(cardRule).toContain("width: min(420px, calc(100vw - 48px))");
-    expect(descriptionRule).toContain("line-height: 1.55");
-    expect(versionRule).toContain("font-weight: var(--font-weight-semibold)");
-    expect(rootAppCss).not.toContain(".dialog-card--about");
-    expect(rootAppCss).not.toContain(".about-dialog__description");
-    expect(rootAppCss).not.toContain(".about-dialog__version");
   });
 });

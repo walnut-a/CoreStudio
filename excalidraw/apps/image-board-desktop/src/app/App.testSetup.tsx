@@ -1075,10 +1075,14 @@ vi.mock("./components/ProjectMainMenu", () => ({
   ProjectMainMenu: ({
     currentProjectName,
     onSwitchProject,
+    onOpenAboutSettings,
+    updateAvailable,
     canvasUtilityActionsVisible,
   }: {
     currentProjectName: string;
     onSwitchProject: () => void;
+    onOpenAboutSettings?: () => void;
+    updateAvailable?: boolean;
     canvasUtilityActionsVisible: boolean;
   }) => (
     <div
@@ -1089,6 +1093,11 @@ vi.mock("./components/ProjectMainMenu", () => ({
       <button type="button" onClick={onSwitchProject}>
         切换项目...
       </button>
+      {onOpenAboutSettings ? (
+        <button type="button" onClick={onOpenAboutSettings}>
+          {updateAvailable ? "关于与更新，有可用更新" : "关于与更新"}
+        </button>
+      ) : null}
     </div>
   ),
 }));

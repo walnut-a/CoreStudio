@@ -1037,48 +1037,14 @@ describe("App startup", () => {
     expect(submitProjectRoomOperation).not.toHaveBeenCalled();
   });
 
-  it("opens an about dialog from the native help menu", async () => {
-    let menuActionListener: ((event: { action: string }) => void) | null = null;
-
-    const loadAppInfo = vi.fn().mockResolvedValue({
-      name: "CoreStudio",
-      version: "9.8.7",
-    });
-
-    window.imageBoardDesktop = createDesktopBridgeMock({
-      loadAppInfo,
-      onMenuAction: vi.fn((listener) => {
-        menuActionListener = listener;
-        return () => undefined;
-      }),
-    }) as any;
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(loadAppInfo).toHaveBeenCalled();
-    });
-
-    act(() => {
-      menuActionListener?.({ action: "show-about" });
-    });
-
-    expect(
-      screen.getByRole("dialog", { name: "关于 CoreStudio" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("版本 9.8.7")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "关闭关于页面" }));
-
-    expect(
-      screen.queryByRole("dialog", { name: "关于 CoreStudio" }),
-    ).toBeNull();
-  });
-
   it("opens the unified settings from the native settings menu", async () => {
     let menuActionListener: ((event: { action: string }) => void) | null = null;
     const onLocalePreferenceChange = vi.fn();
     window.imageBoardDesktop = createDesktopBridgeMock({
+      loadAppInfo: vi.fn().mockResolvedValue({
+        name: "CoreStudio",
+        version: "9.8.7",
+      }),
       getAgentBridgeStatus: vi.fn(async () => ({
         enabled: false,
         ready: false,
@@ -1123,6 +1089,14 @@ describe("App startup", () => {
     expect(
       within(dialog).getByRole("tab", { name: "关于" }),
     ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("tab", { name: "关于" }));
+    expect(within(dialog).getByText("9.8.7")).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "检查更新" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "关于 CoreStudio" }),
+    ).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("switch", { name: /Codex/ })).toBeNull();
   });
 

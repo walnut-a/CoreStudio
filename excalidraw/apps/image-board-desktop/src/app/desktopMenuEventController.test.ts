@@ -10,7 +10,9 @@ import type {
   DesktopProjectBundle,
 } from "../shared/desktopBridgeTypes";
 
-const createProject = (projectPath = "/projects/current"): DesktopProjectBundle => ({
+const createProject = (
+  projectPath = "/projects/current",
+): DesktopProjectBundle => ({
   projectPath,
   project: {
     formatVersion: 1,
@@ -47,7 +49,6 @@ const createHandlers = () => ({
   openAppSettings: vi.fn(),
   setAgentBridgeEnabled: vi.fn(),
   revealProject: vi.fn(),
-  showAbout: vi.fn(),
 });
 
 const runEvent = (
@@ -121,9 +122,7 @@ describe("runDesktopMenuEventAction", () => {
       action: "project-open-failed",
     });
     expect(latestOpenRequestId).toBe(4);
-    expect(handlers.handleProjectOpenFailed).toHaveBeenCalledWith(
-      "打不开项目",
-    );
+    expect(handlers.handleProjectOpenFailed).toHaveBeenCalledWith("打不开项目");
   });
 
   it("routes simple menu actions to their handlers", () => {
@@ -131,9 +130,12 @@ describe("runDesktopMenuEventAction", () => {
 
     runEvent({ action: "generate-image" }, { handlers });
     runEvent({ action: "app-settings" }, { handlers });
-    runEvent({ action: "set-agent-bridge-enabled", enabled: true }, {
-      handlers,
-    });
+    runEvent(
+      { action: "set-agent-bridge-enabled", enabled: true },
+      {
+        handlers,
+      },
+    );
 
     expect(handlers.openGenerateDialog).toHaveBeenCalledTimes(1);
     expect(handlers.openAppSettings).toHaveBeenCalledTimes(1);

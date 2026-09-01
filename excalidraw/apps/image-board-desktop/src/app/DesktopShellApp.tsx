@@ -176,9 +176,6 @@ export const DesktopShellApp = ({
       } else if (event.action === "app-settings") {
         setAppSettingsCategory("image-generation");
         setAppSettingsOpen(true);
-      } else if (event.action === "show-about") {
-        setAppSettingsCategory("about");
-        setAppSettingsOpen(true);
       }
     });
     bridge.notifyRendererReady?.();

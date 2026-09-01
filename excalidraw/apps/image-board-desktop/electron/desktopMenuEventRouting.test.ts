@@ -16,14 +16,11 @@ describe("desktop menu event routing", () => {
     expect(resolveDesktopMenuEventTarget({ action })).toBe("active-project");
   });
 
-  it.each(["app-settings", "show-about"] as const)(
-    "routes %s to the active project with a shell fallback",
-    (action) => {
-      expect(resolveDesktopMenuEventTarget({ action })).toBe(
-        "active-project-or-shell",
-      );
-    },
-  );
+  it("routes app settings to the active project with a shell fallback", () => {
+    expect(resolveDesktopMenuEventTarget({ action: "app-settings" })).toBe(
+      "active-project-or-shell",
+    );
+  });
 
   it.each([
     "edit-undo",

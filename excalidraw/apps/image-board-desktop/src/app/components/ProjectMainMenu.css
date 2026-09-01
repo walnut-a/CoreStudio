@@ -19,3 +19,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.project-main-menu__update-indicator {
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-danger-darker);
+  box-shadow: 0 0 0 2px var(--color-surface-lowest);
+}

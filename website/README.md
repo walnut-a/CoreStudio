@@ -37,6 +37,8 @@ website/
 │   ├── index.html       # 中文版
 │   └── integrations/
 │       └── index.html   # 中文 Agent 集成中心
+├── updates/
+│   └── stable.json      # 客户端稳定版更新清单
 ├── integrations.css
 ├── integrations.mjs
 ├── integrations-content.mjs
@@ -76,6 +78,7 @@ PNG / WebP 是从这张原始图标生成的尺寸与格式衍生文件，网站
 ```sh
 node --test website/canvas-engine.test.mjs
 node --test website/integrations-contract.test.mjs
+node --test website/update-manifest-contract.test.mjs
 node --check website/main.js
 node --check website/integrations.mjs
 node --check website/integrations-content.mjs
@@ -94,6 +97,7 @@ Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 Se
 - 英文版使用根路径，中文版使用 `/zh/`，旧 `/en/` 路径跳转到英文首页。
 - `CNAME`、canonical URL、Open Graph 图片 URL、`robots.txt` 和 `sitemap.xml` 均使用正式域名。
 - 下载按钮当前始终指向 GitHub Latest Release，不在页面内写死版本号。
+- `/updates/stable.json` 是 CoreStudio 客户端发现最新稳定版的唯一远端事实源；必须在 GitHub Release 和 DMG 验证完成后更新。
 - GitHub 与 Release 链接均指向 `walnut-a/CoreStudio`；许可证和素材来源继续保存在仓库文档中，不占用官网画布界面。
 
 ## GitHub Pages 部署

@@ -38,16 +38,26 @@ export const useAppUpdate = (bridge: DesktopBridgeApi | null) => {
 
   const checkManually = useCallback(async () => {
     if (!bridge?.checkForAppUpdates) {
-      setManualState({ status: "failure" });
+      setManualState({
+        status: "failure",
+        failure: { code: "unsupported" },
+      });
       return;
     }
     setManualState({ status: "checking" });
     try {
-      const result = await bridge.checkForAppUpdates();
-      setAvailability(result.availability);
-      setManualState({ status: "complete", result });
+      const response = await bridge.checkForAppUpdates();
+      if (!response.ok) {
+        setManualState({ status: "failure", failure: response.failure });
+        return;
+      }
+      setAvailability(response.result.availability);
+      setManualState({ status: "complete", result: response.result });
     } catch {
-      setManualState({ status: "failure" });
+      setManualState({
+        status: "failure",
+        failure: { code: "unknown" },
+      });
     }
   }, [bridge]);
 

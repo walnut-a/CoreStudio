@@ -7,7 +7,9 @@ import {
   evaluateAppUpdateManifest,
   shouldAutomaticallyCheckForAppUpdate,
   type DesktopAppUpdateAvailability,
-  type DesktopAppUpdateCheckResult,
+  type DesktopAppUpdateCheckFailure,
+  type DesktopAppUpdateCheckFailureCode,
+  type DesktopAppUpdateCheckResponse,
   type DesktopAppUpdateEvaluation,
   type DesktopAppUpdateManifest,
   type DesktopAppUpdatePersistentState,
@@ -24,8 +26,47 @@ interface AppUpdateServiceOptions {
   manifestURL?: string;
   statePath: string;
   fetchManifest?: FetchManifest;
+  requestTimeoutMs?: number;
   onAvailabilityChanged?: (availability: DesktopAppUpdateAvailability) => void;
 }
+
+class AppUpdateCheckError extends Error {
+  readonly code: DesktopAppUpdateCheckFailureCode;
+  readonly httpStatus?: number;
+
+  constructor(
+    code: DesktopAppUpdateCheckFailureCode,
+    message: string,
+    httpStatus?: number,
+  ) {
+    super(message);
+    this.name = "AppUpdateCheckError";
+    this.code = code;
+    this.httpStatus = httpStatus;
+  }
+}
+
+const classifyHttpFailure = (status: number) => {
+  if (status === 404) {
+    return "service-not-configured" as const;
+  }
+  if (status === 408 || status === 429 || status >= 500) {
+    return "service-unavailable" as const;
+  }
+  return "service-error" as const;
+};
+
+const toCheckFailure = (error: unknown): DesktopAppUpdateCheckFailure => {
+  if (error instanceof AppUpdateCheckError) {
+    return {
+      code: error.code,
+      ...(error.httpStatus === undefined
+        ? {}
+        : { httpStatus: error.httpStatus }),
+    };
+  }
+  return { code: "unknown" };
+};
 
 const isNullableTimestamp = (value: unknown): value is string | null =>
   value === null ||
@@ -76,6 +117,7 @@ export const createAppUpdateService = ({
   manifestURL = CORESTUDIO_UPDATE_MANIFEST_URL,
   statePath,
   fetchManifest = (input, init) => fetch(input, init),
+  requestTimeoutMs = 15_000,
   onAvailabilityChanged = () => undefined,
 }: AppUpdateServiceOptions) => {
   let state: DesktopAppUpdatePersistentState = {
@@ -103,25 +145,53 @@ export const createAppUpdateService = ({
 
   const requestUpdate = async (): Promise<DesktopAppUpdateEvaluation> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
+    const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
-      const response = await fetchManifest(manifestURL, {
-        cache: "no-cache",
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "CoreStudio",
-        },
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        throw new Error(`Update service returned HTTP ${response.status}.`);
+      let response: Response;
+      try {
+        response = await fetchManifest(manifestURL, {
+          cache: "no-cache",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "CoreStudio",
+          },
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          throw new AppUpdateCheckError(
+            "timeout",
+            "Update service request timed out.",
+          );
+        }
+        throw new AppUpdateCheckError(
+          "network",
+          "Could not connect to the update service.",
+        );
       }
-      const manifest = (await response.json()) as DesktopAppUpdateManifest;
-      return evaluateAppUpdateManifest({
-        manifest,
-        currentVersion,
-        currentSystemVersion,
-      });
+      if (!response.ok) {
+        throw new AppUpdateCheckError(
+          classifyHttpFailure(response.status),
+          `Update service returned HTTP ${response.status}.`,
+          response.status,
+        );
+      }
+      try {
+        const manifest = (await response.json()) as DesktopAppUpdateManifest;
+        return evaluateAppUpdateManifest({
+          manifest,
+          currentVersion,
+          currentSystemVersion,
+        });
+      } catch (error) {
+        if (error instanceof AppUpdateCheckError) {
+          throw error;
+        }
+        throw new AppUpdateCheckError(
+          "invalid-response",
+          "Update service returned an invalid manifest.",
+        );
+      }
     } finally {
       clearTimeout(timeout);
     }
@@ -192,17 +262,24 @@ export const createAppUpdateService = ({
     },
     checkManually: async (
       now = new Date(),
-    ): Promise<DesktopAppUpdateCheckResult> => {
-      const result = await performCheck(now);
-      await recordSuccessfulCheck({
-        result,
-        completedAt: now,
-        reviewed: true,
-      });
-      return {
-        ...result,
-        availability: getAvailability(),
-      };
+    ): Promise<DesktopAppUpdateCheckResponse> => {
+      try {
+        const result = await performCheck(now);
+        await recordSuccessfulCheck({
+          result,
+          completedAt: now,
+          reviewed: true,
+        });
+        return {
+          ok: true,
+          result: {
+            ...result,
+            availability: getAvailability(),
+          },
+        };
+      } catch (error) {
+        return { ok: false, failure: toCheckFailure(error) };
+      }
     },
   };
 };

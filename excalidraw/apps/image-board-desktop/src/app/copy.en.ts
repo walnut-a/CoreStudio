@@ -373,8 +373,23 @@ export const enCopy: DesktopCopy = {
           `This release requires macOS ${systemVersion} or later.`,
         upToDate: "CoreStudio is up to date",
         failureTitle: "Unable to check for updates",
-        failureDescription:
-          "Check your network connection and try again later.",
+        failureDescriptions: {
+          network:
+            "Could not connect to the update service. Check your network or proxy settings and try again.",
+          timeout: "The update service timed out. Try again later.",
+          serviceNotConfigured:
+            "The update service has not been deployed correctly. Try again later.",
+          serviceUnavailable:
+            "The update service is temporarily unavailable. Try again later.",
+          serviceError:
+            "The update service returned an error. Try again later.",
+          invalidResponse:
+            "The update information could not be read. Try again later.",
+          unsupported:
+            "This version does not support checking for updates.",
+          unknown:
+            "An unknown error occurred while checking for updates. Try again later.",
+        },
         openDownload: "Go to Download",
         viewNotes: "View Release Notes",
       },

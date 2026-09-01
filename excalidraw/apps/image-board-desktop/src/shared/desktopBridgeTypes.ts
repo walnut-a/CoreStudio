@@ -38,7 +38,7 @@ import type {
 } from "./canvasInteractionSettings";
 import type {
   DesktopAppUpdateAvailability,
-  DesktopAppUpdateCheckResult,
+  DesktopAppUpdateCheckResponse,
 } from "./appUpdate";
 import type {
   DesktopProjectRoomJoinInput,
@@ -522,7 +522,7 @@ export interface DesktopBridgeApi {
   switchAgentBoardProject?(): Promise<void>;
   loadAppInfo?(): Promise<DesktopAppInfo>;
   loadAppUpdateAvailability?(): Promise<DesktopAppUpdateAvailability>;
-  checkForAppUpdates?(): Promise<DesktopAppUpdateCheckResult>;
+  checkForAppUpdates?(): Promise<DesktopAppUpdateCheckResponse>;
   onAppUpdateAvailabilityChanged?(
     listener: (availability: DesktopAppUpdateAvailability) => void,
   ): () => void;

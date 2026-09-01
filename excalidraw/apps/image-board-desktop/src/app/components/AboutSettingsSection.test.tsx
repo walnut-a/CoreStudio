@@ -118,7 +118,7 @@ describe("AboutSettingsSection", () => {
     );
   });
 
-  it("检查期间禁用按钮，并为失败和最新状态提供内联反馈", () => {
+  it("检查期间禁用按钮，并为服务未配置和最新状态提供内联反馈", () => {
     const { rerender } = render(
       <AboutSettingsSection
         appInfo={{ name: "CoreStudio", version: "9.8.7" }}
@@ -136,12 +136,18 @@ describe("AboutSettingsSection", () => {
         appInfo={{ name: "CoreStudio", version: "9.8.7" }}
         repositoryUrl="https://github.com/walnut-a/CoreStudio"
         dependencies={[]}
-        manualUpdateState={{ status: "failure" }}
+        manualUpdateState={{
+          status: "failure",
+          failure: { code: "service-not-configured", httpStatus: 404 },
+        }}
         onCheckForUpdates={vi.fn()}
         onOpenExternal={vi.fn()}
       />,
     );
     expect(screen.getByText("暂时无法检查更新")).toBeInTheDocument();
+    expect(
+      screen.getByText("更新服务尚未正确部署，请稍后重试。"),
+    ).toBeInTheDocument();
 
     rerender(
       <AboutSettingsSection

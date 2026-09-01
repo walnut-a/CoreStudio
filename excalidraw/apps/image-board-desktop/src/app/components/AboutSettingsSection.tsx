@@ -36,6 +36,29 @@ export const AboutSettingsSection = ({
     : checkLabel;
   const getSummary = (info: DesktopAppUpdateInfo) =>
     info.summary[DESKTOP_LANG_CODE] ?? info.summary.en ?? [];
+  const getFailureDescription = () => {
+    if (manualUpdateState.status !== "failure") {
+      return "";
+    }
+    switch (manualUpdateState.failure.code) {
+      case "network":
+        return updateCopy.failureDescriptions.network;
+      case "timeout":
+        return updateCopy.failureDescriptions.timeout;
+      case "service-not-configured":
+        return updateCopy.failureDescriptions.serviceNotConfigured;
+      case "service-unavailable":
+        return updateCopy.failureDescriptions.serviceUnavailable;
+      case "service-error":
+        return updateCopy.failureDescriptions.serviceError;
+      case "invalid-response":
+        return updateCopy.failureDescriptions.invalidResponse;
+      case "unsupported":
+        return updateCopy.failureDescriptions.unsupported;
+      case "unknown":
+        return updateCopy.failureDescriptions.unknown;
+    }
+  };
 
   return (
     <section className="settings-page settings-about-page">
@@ -163,7 +186,7 @@ export const AboutSettingsSection = ({
               role="alert"
             >
               <strong>{updateCopy.failureTitle}</strong>
-              <p>{updateCopy.failureDescription}</p>
+              <p>{getFailureDescription()}</p>
             </div>
           ) : null}
         </section>

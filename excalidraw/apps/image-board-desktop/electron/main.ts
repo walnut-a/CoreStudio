@@ -2721,7 +2721,7 @@ const registerIpcHandlers = () => {
   ipcMain.handle(IPC_CHANNELS.checkForAppUpdates, async (event) => {
     requireShellOrProjectRendererSender(event.sender);
     if (!appUpdateService) {
-      throw new Error("App update service is not ready.");
+      return { ok: false, failure: { code: "unsupported" } } as const;
     }
     return appUpdateService.checkManually();
   });

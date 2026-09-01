@@ -89,9 +89,14 @@ describe("app update service", () => {
       hasUnreviewedUpdate: true,
     });
 
-    const manualResult = await service.checkManually(
+    const manualResponse = await service.checkManually(
       new Date("2026-09-01T01:00:00.000Z"),
     );
+    expect(manualResponse.ok).toBe(true);
+    if (!manualResponse.ok) {
+      throw new Error("Expected a successful manual update check.");
+    }
+    const manualResult = manualResponse.result;
     expect(manualResult.status).toBe("update-available");
     expect(manualResult.availability.hasUnreviewedUpdate).toBe(false);
     expect(onAvailabilityChanged).toHaveBeenCalled();
@@ -130,7 +135,12 @@ describe("app update service", () => {
     resolveResponse(response());
 
     await automatic;
-    expect((await manual).availability.hasUnreviewedUpdate).toBe(false);
+    const manualResponse = await manual;
+    expect(manualResponse.ok).toBe(true);
+    if (!manualResponse.ok) {
+      throw new Error("Expected a successful manual update check.");
+    }
+    expect(manualResponse.result.availability.hasUnreviewedUpdate).toBe(false);
     expect(fetchManifest).toHaveBeenCalledTimes(1);
   });
 
@@ -152,10 +162,74 @@ describe("app update service", () => {
     ).resolves.toBeUndefined();
     await expect(
       service.checkManually(new Date("2026-09-01T00:00:01.000Z")),
-    ).rejects.toThrow();
+    ).resolves.toEqual({
+      ok: false,
+      failure: { code: "service-unavailable", httpStatus: 503 },
+    });
 
     const persisted = JSON.parse(await fs.readFile(statePath, "utf8"));
     expect(persisted.lastAttemptAt).toBe("2026-09-01T00:00:01.000Z");
     expect(persisted.lastSuccessfulCheckAt).toBeNull();
+  });
+
+  it.each([
+    {
+      name: "missing manifest",
+      response: new Response("missing", { status: 404 }),
+      failure: { code: "service-not-configured", httpStatus: 404 },
+    },
+    {
+      name: "rejected request",
+      response: new TypeError("fetch failed"),
+      failure: { code: "network" },
+    },
+    {
+      name: "malformed JSON",
+      response: new Response("not-json", { status: 200 }),
+      failure: { code: "invalid-response" },
+    },
+  ])("classifies $name failures for the renderer", async ({ response: value, failure }) => {
+    const statePath = await createTemporaryStatePath();
+    const service = createAppUpdateService({
+      currentVersion: "1.1.42",
+      currentSystemVersion: "15.0",
+      statePath,
+      fetchManifest: vi.fn(async () => {
+        if (value instanceof Error) {
+          throw value;
+        }
+        return value;
+      }),
+    });
+    await service.initialize();
+
+    await expect(service.checkManually()).resolves.toEqual({
+      ok: false,
+      failure,
+    });
+  });
+
+  it("distinguishes a request timeout from other network failures", async () => {
+    const statePath = await createTemporaryStatePath();
+    const service = createAppUpdateService({
+      currentVersion: "1.1.42",
+      currentSystemVersion: "15.0",
+      statePath,
+      requestTimeoutMs: 5,
+      fetchManifest: vi.fn(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new DOMException("Aborted", "AbortError"));
+            });
+          }),
+      ),
+    });
+    await service.initialize();
+
+    await expect(service.checkManually()).resolves.toEqual({
+      ok: false,
+      failure: { code: "timeout" },
+    });
   });
 });

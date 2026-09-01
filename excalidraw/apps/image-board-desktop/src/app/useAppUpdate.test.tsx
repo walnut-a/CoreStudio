@@ -21,21 +21,24 @@ describe("useAppUpdate", () => {
         };
       }),
       checkForAppUpdates: vi.fn().mockResolvedValue({
-        status: "up-to-date",
-        update: {
-          version: "1.1.42",
-          publishedAt: "2026-08-25T14:20:45.000Z",
-          minimumSystemVersion: "14.0",
-          downloadPageURL: "https://getcorestudio.com/",
-          releaseNotesURL:
-            "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.42",
-          summary: { "zh-CN": [], en: [] },
-        },
-        availability: {
-          currentVersion: "1.1.42",
-          latestVersion: "1.1.42",
-          hasUnreviewedUpdate: false,
-          lastSuccessfulCheckAt: "2026-09-01T00:00:00.000Z",
+        ok: true,
+        result: {
+          status: "up-to-date",
+          update: {
+            version: "1.1.42",
+            publishedAt: "2026-08-25T14:20:45.000Z",
+            minimumSystemVersion: "14.0",
+            downloadPageURL: "https://getcorestudio.com/",
+            releaseNotesURL:
+              "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.42",
+            summary: { "zh-CN": [], en: [] },
+          },
+          availability: {
+            currentVersion: "1.1.42",
+            latestVersion: "1.1.42",
+            hasUnreviewedUpdate: false,
+            lastSuccessfulCheckAt: "2026-09-01T00:00:00.000Z",
+          },
         },
       }),
     } as unknown as DesktopBridgeApi;
@@ -63,5 +66,24 @@ describe("useAppUpdate", () => {
 
     unmount();
     expect(listener).toBeNull();
+  });
+
+  it("keeps the main-process failure classification", async () => {
+    const bridge = {
+      checkForAppUpdates: vi.fn().mockResolvedValue({
+        ok: false,
+        failure: { code: "service-not-configured", httpStatus: 404 },
+      }),
+    } as unknown as DesktopBridgeApi;
+
+    const { result } = renderHook(() => useAppUpdate(bridge));
+    await act(async () => {
+      await result.current.checkManually();
+    });
+
+    expect(result.current.manualState).toEqual({
+      status: "failure",
+      failure: { code: "service-not-configured", httpStatus: 404 },
+    });
   });
 });

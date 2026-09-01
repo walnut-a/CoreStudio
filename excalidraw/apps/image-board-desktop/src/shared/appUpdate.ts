@@ -50,10 +50,29 @@ export interface DesktopAppUpdateCheckResult
   availability: DesktopAppUpdateAvailability;
 }
 
+export type DesktopAppUpdateCheckFailureCode =
+  | "network"
+  | "timeout"
+  | "service-not-configured"
+  | "service-unavailable"
+  | "service-error"
+  | "invalid-response"
+  | "unsupported"
+  | "unknown";
+
+export interface DesktopAppUpdateCheckFailure {
+  code: DesktopAppUpdateCheckFailureCode;
+  httpStatus?: number;
+}
+
+export type DesktopAppUpdateCheckResponse =
+  | { ok: true; result: DesktopAppUpdateCheckResult }
+  | { ok: false; failure: DesktopAppUpdateCheckFailure };
+
 export type DesktopAppUpdateManualState =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "failure" }
+  | { status: "failure"; failure: DesktopAppUpdateCheckFailure }
   | { status: "complete"; result: DesktopAppUpdateCheckResult };
 
 export interface DesktopAppUpdatePersistentState {

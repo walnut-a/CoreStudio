@@ -83,6 +83,22 @@ const desktopBridge: DesktopBridgeApi = {
   getStableAgentBoardUrl: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.getStableAgentBoardUrl, projectPath),
   loadAppInfo: () => ipcRenderer.invoke(IPC_CHANNELS.loadAppInfo),
+  loadAppUpdateAvailability: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.loadAppUpdateAvailability),
+  checkForAppUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.checkForAppUpdates),
+  onAppUpdateAvailabilityChanged: (listener) => {
+    const handler = (
+      _event: unknown,
+      availability: Parameters<typeof listener>[0],
+    ) => listener(availability);
+    ipcRenderer.on(IPC_CHANNELS.appUpdateAvailabilityChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(
+        IPC_CHANNELS.appUpdateAvailabilityChanged,
+        handler,
+      );
+    };
+  },
   openExternal: (url) => ipcRenderer.invoke(IPC_CHANNELS.openExternal, url),
   inspectCodexIntegration: () =>
     ipcRenderer.invoke(IPC_CHANNELS.inspectCodexIntegration),

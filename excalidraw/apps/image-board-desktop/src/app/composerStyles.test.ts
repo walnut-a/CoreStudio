@@ -15,7 +15,6 @@ const {
   readGenerateImageDialogProviderRuntime,
   readImageBoardApp,
   readGenerateComposerActionBar,
-  readAboutDialog,
   readGenerationErrorDetailsDialog,
   readProjectRenderBoundary,
   readAppBridgeUnavailable,
@@ -1551,7 +1550,7 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("copy.debugError.payload");
   });
 
-  it("keeps the about dialog rendering outside the root app", () => {
+  it("does not restore a standalone about dialog", () => {
     const source = readImageBoardApp();
 
     expect(source).toContain("AppGlobalDialogs");

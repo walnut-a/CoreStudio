@@ -16,6 +16,7 @@
 - [2026-08-03-corestudio-seedream-dual-access.md](2026-08-03-corestudio-seedream-dual-access.md)：火山方舟 Seedream 与即梦 AI AK/SK 双通道接入、迁移和验收规则。
 - [2026-08-19-corestudio-canvas-minimap.md](2026-08-19-corestudio-canvas-minimap.md)：大画布迷你地图的产品边界、导航交互、几何渲染、性能与验收方案。
 - [2026-08-31-corestudio-website-agent-integration-webmcp.md](2026-08-31-corestudio-website-agent-integration-webmcp.md)：官网 Agent 集成中心、Skill / CLI 安装教程、WebMCP 只读工具与 GitHub 文档 fallback 设计方案。
+- [2026-09-01-corestudio-update-notification.md](2026-09-01-corestudio-update-notification.md)：稳定版清单、静默更新检查、设置红点与关于页手动检查方案。
 
 ## 既有历史规格
 

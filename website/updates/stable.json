@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "channel": "stable",
+  "version": "1.1.42",
+  "publishedAt": "2026-08-25T14:20:45Z",
+  "minimumSystemVersion": "14.0",
+  "downloadPageURL": "https://getcorestudio.com/",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.42",
+  "asset": {
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.42/CoreStudio-1.1.42-arm64.dmg",
+    "size": 122333386,
+    "sha256": "4cf33cc80eabacd74eb2ac22db8ca9039817fff7ac2ce842e7b6d11a992a55ff"
+  },
+  "summary": {
+    "zh-CN": [
+      "恢复适合触控板连续手势的缩放曲线",
+      "增加五档触控板缩放速度并在本机持久化",
+      "修复窗口失焦后缩放中心可能沿用旧指针位置的问题"
+    ],
+    "en": [
+      "Restored a smoother zoom curve for continuous trackpad gestures",
+      "Added five persistent trackpad zoom speed levels",
+      "Fixed stale pointer coordinates affecting the zoom center after window focus changes"
+    ]
+  }
+}

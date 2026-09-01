@@ -15,7 +15,6 @@ const {
   readGenerateImageDialogProviderRuntime,
   readImageBoardApp,
   readGenerateComposerActionBar,
-  readAboutDialog,
   readGenerationErrorDetailsDialog,
   readProjectRenderBoundary,
   readAppBridgeUnavailable,

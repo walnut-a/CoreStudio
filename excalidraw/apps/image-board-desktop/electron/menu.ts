@@ -7,9 +7,6 @@ import type {
 import type { DesktopLocale } from "../src/shared/desktopLocale";
 import { getDesktopCopy } from "../src/app/copy";
 
-export const CORESTUDIO_RELEASES_URL =
-  "https://github.com/walnut-a/CoreStudio/releases";
-
 interface AppMenuOptions {
   platform?: NodeJS.Platform;
   locale?: DesktopLocale;
@@ -23,7 +20,6 @@ export const createAppMenuTemplate = (
   ) => void,
   recentProjects: RecentProjectEntry[] = [],
   appVersion?: string | null,
-  openExternal: (url: string) => void = () => undefined,
   options: AppMenuOptions = {},
 ): MenuItemConstructorOptions[] => {
   const isMac = options.platform === "darwin";
@@ -179,20 +175,6 @@ export const createAppMenuTemplate = (
           },
         ]
       : []),
-    {
-      label: copy.menu.help,
-      submenu: [
-        {
-          label: copy.menu.viewUpdates,
-          click: () => openExternal(CORESTUDIO_RELEASES_URL),
-        },
-        {
-          label: copy.menu.about,
-          click: (_item, ownerWindow) =>
-            sendMenuAction({ action: "show-about" }, ownerWindow),
-        },
-      ],
-    },
   ];
 
   return template;

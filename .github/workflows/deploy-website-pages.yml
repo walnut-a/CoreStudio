@@ -32,6 +32,9 @@ jobs:
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: 校验稳定版更新清单
+        run: node --test website/update-manifest-contract.test.mjs
+
       - name: 准备官网文件
         run: |
           mkdir -p "$RUNNER_TEMP/corestudio-site"

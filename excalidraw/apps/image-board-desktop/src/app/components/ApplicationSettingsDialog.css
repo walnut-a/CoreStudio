@@ -49,6 +49,10 @@
 }
 
 .app-settings-nav__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-height: 42px;
   padding: 0 14px;
   border: 0;
@@ -61,6 +65,16 @@
   text-align: left;
   cursor: pointer;
   transition: background-color 160ms ease-out, color 160ms ease-out;
+}
+
+.settings-update-indicator {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--color-danger-darker);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--color-danger-darker) 24%, transparent);
 }
 
 .app-settings-nav__item:hover {
@@ -382,6 +396,77 @@
 .settings-about-dependencies {
   display: grid;
   gap: 12px;
+}
+
+.settings-about-update {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface-mid);
+}
+
+.settings-about-update__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.settings-about-update__header h4,
+.settings-about-update__header p,
+.settings-about-update__result p,
+.settings-about-update__result ul {
+  margin: 0;
+}
+
+.settings-about-update__header h4 {
+  font-size: var(--ui-text-size-lg);
+}
+
+.settings-about-update__header p,
+.settings-about-update__result p,
+.settings-about-update__result li {
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
+  font-size: var(--ui-text-size-sm);
+  line-height: 1.45;
+}
+
+.settings-about-update__header p {
+  margin-top: 4px;
+}
+
+.settings-about-update__header .image-board-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.settings-about-update__result {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+}
+
+.settings-about-update__result--error {
+  border: 1px solid color-mix(in srgb, var(--color-danger) 32%, transparent);
+}
+
+.settings-about-update__result ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+}
+
+.settings-about-update__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
 }
 
 .settings-service-empty {

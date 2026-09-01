@@ -762,13 +762,18 @@ a {
     position: static;
     grid-column: 2;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 22px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 32px;
     padding: 0 clamp(28px, 5vw, 64px) 56px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-top: 0;
     border-radius: 0 0 var(--radius-control) var(--radius-control);
+  }
+
+  .evidence-group:nth-child(2) {
+    padding-top: 0;
+    border-top: 0;
   }
 
   .guide-document {
@@ -859,6 +864,11 @@ a {
     gap: 0;
     border: 1px solid var(--line);
     border-radius: var(--radius-control);
+  }
+
+  .evidence-group:nth-child(2) {
+    padding-top: 20px;
+    border-top: 1px solid var(--line-strong);
   }
 
   .guide-hero {

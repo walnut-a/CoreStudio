@@ -21,12 +21,22 @@
 }
 
 .image-asset-sidebar__list {
-  display: grid;
-  align-content: start;
-  gap: 2px;
   min-height: 0;
   overflow: auto;
   padding-right: var(--ui-space-xxs);
+}
+
+.image-asset-sidebar__virtual-spacer {
+  position: relative;
+  min-width: 0;
+}
+
+.image-asset-sidebar__virtual-window {
+  position: absolute;
+  inset: 0 0 auto;
+  display: grid;
+  align-content: start;
+  gap: 2px;
 }
 
 .image-asset-sidebar__item {
@@ -35,6 +45,7 @@
   align-items: center;
   gap: var(--ui-space-sm);
   width: 100%;
+  height: 46px;
   min-width: 0;
   padding: var(--ui-space-xs);
   border: 1px solid transparent;

@@ -966,6 +966,10 @@ export interface CurrentProjectBundleOpenRendererActionsInput {
     maintenance: ProjectThumbnailMaintenanceResult,
   ) => void;
   markImageAssetRenditionsLoaded: (assets: ProjectAssetPayload[]) => void;
+  applyInitialImageAssetThumbnails?: (
+    projectPath: string,
+    assets: ProjectAssetPayload[],
+  ) => void;
   projectRenderNonceRef: CurrentProjectMutableRef<number>;
   editorApiRef: CurrentProjectClearableRef<unknown>;
   updateEditorInitializing: (
@@ -1014,6 +1018,7 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
   resetImageRenditionState,
   setThumbnailMaintenance,
   markImageAssetRenditionsLoaded,
+  applyInitialImageAssetThumbnails,
   projectRenderNonceRef,
   editorApiRef,
   updateEditorInitializing,
@@ -1108,6 +1113,14 @@ export const runCurrentProjectBundleOpenRendererAction = async ({
         stage: "prepare",
       };
     }
+
+    applyInitialImageAssetThumbnails?.(
+      bundle.projectPath,
+      openData.assets.filter(
+        (asset) =>
+          asset.rendition === "thumbnail" || asset.rendition === "placeholder",
+      ),
+    );
 
     runProjectBundleOpenSuccessAction({
       project: bundle,

@@ -51,6 +51,36 @@ const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
 const THUMBNAILS_DIR = "thumbnails";
 const PREVIEWS_DIR = "previews";
+const projectImageRecordsReadCache = new Map<
+  string,
+  { signature: string; imageRecords: ImageRecordMap }
+>();
+const PROJECT_IMAGE_RECORDS_READ_CACHE_LIMIT = 8;
+
+const cacheProjectImageRecords = (
+  projectPath: string,
+  entry: { signature: string; imageRecords: ImageRecordMap },
+) => {
+  projectImageRecordsReadCache.delete(projectPath);
+  projectImageRecordsReadCache.set(projectPath, entry);
+  while (
+    projectImageRecordsReadCache.size > PROJECT_IMAGE_RECORDS_READ_CACHE_LIMIT
+  ) {
+    const oldestProjectPath = projectImageRecordsReadCache.keys().next().value;
+    if (!oldestProjectPath) {
+      break;
+    }
+    projectImageRecordsReadCache.delete(oldestProjectPath);
+  }
+};
+
+const getImageRecordsFileSignature = async (projectPath: string) => {
+  const stats = await fs.stat(
+    path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+    { bigint: true },
+  );
+  return `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeNs}`;
+};
 export const PROJECT_THUMBNAIL_MAX_DIMENSION = 320;
 export const PROJECT_PREVIEW_MAX_DIMENSION = 1280;
 const IMAGE_CACHE_RENDITION_CONFIG = {
@@ -281,10 +311,16 @@ const readProjectBundleFiles = async (
   projectPath: string,
   options: { validateScene?: boolean } = {},
 ) => {
-  const [projectJson, sceneJson, imageRecordsJson] = await Promise.all([
+  const [
+    projectJson,
+    sceneJson,
+    imageRecordsJson,
+    imageRecordsSignature,
+  ] = await Promise.all([
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.project), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
     fs.readFile(path.join(projectPath, PROJECT_FILENAMES.imageRecords), "utf8"),
+    getImageRecordsFileSignature(projectPath),
   ]);
   let manifestValue: unknown;
   try {
@@ -323,6 +359,10 @@ const readProjectBundleFiles = async (
   const parsedImageRecords = parseProjectImageRecords(
     imageRecordsValue,
   );
+  cacheProjectImageRecords(projectPath, {
+    signature: imageRecordsSignature,
+    imageRecords: parsedImageRecords.imageRecords,
+  });
   if (changed) {
     await writeProjectManifest(projectPath, project);
   }
@@ -378,10 +418,22 @@ export const readProjectBundle = async (projectPath: string) => {
   return withRecoveryIssues(initialBundle);
 };
 
-const readProjectImageRecords = (projectPath: string) =>
-  readProjectImageRecordsWithDeps(projectPath, {
+const readProjectImageRecords = async (projectPath: string) => {
+  const signature = await getImageRecordsFileSignature(projectPath);
+  const cached = projectImageRecordsReadCache.get(projectPath);
+  if (cached?.signature === signature) {
+    cacheProjectImageRecords(projectPath, cached);
+    return cached.imageRecords;
+  }
+  const parsed = await readProjectImageRecordsWithDeps(projectPath, {
     readText: (filePath) => fs.readFile(filePath, "utf8"),
   });
+  cacheProjectImageRecords(projectPath, {
+    signature,
+    imageRecords: parsed,
+  });
+  return parsed;
+};
 
 const readRawProjectImageRecords = async (projectPath: string) =>
   JSON.parse(
@@ -398,6 +450,7 @@ const writeProjectImageRecords = async (
   await writeProjectImageRecordsWithDeps(projectPath, imageRecords, {
     writeJson,
   });
+  projectImageRecordsReadCache.delete(projectPath);
 };
 
 const writeProjectManifest = async (

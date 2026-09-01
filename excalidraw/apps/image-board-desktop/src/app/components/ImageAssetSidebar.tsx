@@ -1,8 +1,18 @@
-import { useEffect, useRef, type Ref } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type Ref,
+  type UIEvent,
+} from "react";
 
 import { Switch } from "@excalidraw/excalidraw/components/Switch";
 
 import type { ImageAssetListItem } from "../imageAssetViewModel";
+import type { ImageAssetThumbnailStore } from "../imageAssetThumbnailStore";
 import { copy } from "../copy";
 import { SideDock } from "./SideDock";
 
@@ -17,8 +27,41 @@ interface ImageAssetSidebarProps {
   selectedFileId?: string | null;
   revealRequest?: { fileId: string; requestId: number } | null;
   onSelectRecord?: (fileId: string) => void;
+  onVisibleFileIdsChange?: (fileIds: string[]) => void;
+  thumbnailProjectPath?: string | null;
+  thumbnailStore?: ImageAssetThumbnailStore;
   rootRef?: Ref<HTMLElement>;
 }
+
+const IMAGE_ASSET_ROW_HEIGHT = 48;
+const IMAGE_ASSET_DEFAULT_VISIBLE_ROWS = 12;
+const IMAGE_ASSET_OVERSCAN_ROWS = 6;
+const EMPTY_THUMBNAIL_SNAPSHOT: {
+  projectPath: null;
+  dataUrls: Readonly<Record<string, string>>;
+} = { projectPath: null, dataUrls: {} };
+const subscribeToNoopStore = () => () => undefined;
+const getEmptyThumbnailSnapshot = () => EMPTY_THUMBNAIL_SNAPSHOT;
+
+const getVirtualRange = ({
+  itemCount,
+  scrollTop,
+  viewportHeight,
+}: {
+  itemCount: number;
+  scrollTop: number;
+  viewportHeight: number;
+}) => {
+  const firstVisibleIndex = Math.floor(scrollTop / IMAGE_ASSET_ROW_HEIGHT);
+  const visibleCount = Math.ceil(viewportHeight / IMAGE_ASSET_ROW_HEIGHT);
+  return {
+    startIndex: Math.max(0, firstVisibleIndex - IMAGE_ASSET_OVERSCAN_ROWS),
+    endIndex: Math.min(
+      itemCount,
+      firstVisibleIndex + visibleCount + IMAGE_ASSET_OVERSCAN_ROWS,
+    ),
+  };
+};
 
 export const ImageAssetSidebar = ({
   open,
@@ -29,10 +72,103 @@ export const ImageAssetSidebar = ({
   selectedFileId,
   revealRequest,
   onSelectRecord,
+  onVisibleFileIdsChange,
+  thumbnailProjectPath,
+  thumbnailStore,
   rootRef,
 }: ImageAssetSidebarProps) => {
+  const listRef = useRef<HTMLDivElement | null>(null);
   const revealTargetRef = useRef<HTMLButtonElement | null>(null);
   const revealRequestId = revealRequest?.requestId;
+  const thumbnailSnapshot = useSyncExternalStore(
+    thumbnailStore?.subscribe ?? subscribeToNoopStore,
+    thumbnailStore?.getSnapshot ?? getEmptyThumbnailSnapshot,
+  );
+  const thumbnailDataUrls =
+    thumbnailSnapshot.projectPath === thumbnailProjectPath
+      ? thumbnailSnapshot.dataUrls
+      : EMPTY_THUMBNAIL_SNAPSHOT.dataUrls;
+  const [viewport, setViewport] = useState({
+    scrollTop: 0,
+    height: IMAGE_ASSET_ROW_HEIGHT * IMAGE_ASSET_DEFAULT_VISIBLE_ROWS,
+  });
+  const { startIndex, endIndex } = getVirtualRange({
+    itemCount: records.length,
+    scrollTop: viewport.scrollTop,
+    viewportHeight: viewport.height,
+  });
+  const visibleRecords = useMemo(
+    () => records.slice(startIndex, endIndex),
+    [endIndex, records, startIndex],
+  );
+  const visibleFileIds = useMemo(
+    () => visibleRecords.map((record) => record.fileId),
+    [visibleRecords],
+  );
+
+  useLayoutEffect(() => {
+    if (open && listRef.current) {
+      listRef.current.scrollTop = viewport.scrollTop;
+    }
+  }, [open]);
+
+  useLayoutEffect(() => {
+    const maxScrollTop = Math.max(
+      0,
+      records.length * IMAGE_ASSET_ROW_HEIGHT - viewport.height,
+    );
+    if (viewport.scrollTop <= maxScrollTop) {
+      return;
+    }
+    if (listRef.current) {
+      listRef.current.scrollTop = maxScrollTop;
+    }
+    setViewport((current) => ({ ...current, scrollTop: maxScrollTop }));
+  }, [records.length, viewport.height, viewport.scrollTop]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!open || !list || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const updateHeight = () => {
+      if (list.clientHeight > 0) {
+        setViewport((current) => ({
+          ...current,
+          height: list.clientHeight,
+        }));
+      }
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      onVisibleFileIdsChange?.(visibleFileIds);
+    }
+  }, [onVisibleFileIdsChange, open, visibleFileIds]);
+
+  useEffect(() => {
+    if (revealRequestId === undefined || !revealRequest) {
+      return;
+    }
+    const index = records.findIndex(
+      (record) => record.fileId === revealRequest.fileId,
+    );
+    const list = listRef.current;
+    if (index < 0 || !list) {
+      return;
+    }
+    const nextScrollTop = Math.max(
+      0,
+      index * IMAGE_ASSET_ROW_HEIGHT - viewport.height / 2,
+    );
+    list.scrollTop = nextScrollTop;
+    setViewport((current) => ({ ...current, scrollTop: nextScrollTop }));
+  }, [records, revealRequest, revealRequestId, viewport.height]);
 
   useEffect(() => {
     if (revealRequestId === undefined) {
@@ -42,7 +178,15 @@ export const ImageAssetSidebar = ({
       block: "nearest",
       inline: "nearest",
     });
-  }, [revealRequestId]);
+  }, [revealRequestId, startIndex]);
+
+  const handleListScroll = (event: UIEvent<HTMLDivElement>) => {
+    const list = event.currentTarget;
+    setViewport({
+      scrollTop: list.scrollTop,
+      height: list.clientHeight || viewport.height,
+    });
+  };
 
   return (
     <SideDock
@@ -66,51 +210,76 @@ export const ImageAssetSidebar = ({
         </label>
         {records.length ? (
           <div
+            ref={listRef}
             className="image-asset-sidebar__list"
             aria-label={copy.agentUi.imageAssetsList}
+            onScroll={handleListScroll}
           >
-            {records.map((record) => (
-              <button
-                key={record.id}
-                type="button"
-                className={`image-asset-sidebar__item${
-                  record.fileId === selectedFileId
-                    ? " image-asset-sidebar__item--selected"
-                    : ""
-                }`}
-                aria-current={
-                  record.fileId === selectedFileId ? "true" : undefined
-                }
-                ref={
-                  record.fileId === revealRequest?.fileId
-                    ? revealTargetRef
-                    : undefined
-                }
-                disabled={!onSelectRecord}
-                onClick={() => onSelectRecord?.(record.fileId)}
+            <div
+              className="image-asset-sidebar__virtual-spacer"
+              style={{ height: records.length * IMAGE_ASSET_ROW_HEIGHT }}
+            >
+              <div
+                className="image-asset-sidebar__virtual-window"
+                style={{
+                  transform: `translateY(${
+                    startIndex * IMAGE_ASSET_ROW_HEIGHT
+                  }px)`,
+                }}
               >
-                {record.thumbnailDataUrl ? (
-                  <img
-                    src={record.thumbnailDataUrl}
-                    alt=""
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <span
-                    className="image-asset-sidebar__thumbnail"
-                    aria-hidden="true"
-                  />
-                )}
-                <span className="image-asset-sidebar__item-body">
-                  <strong>{record.title}</strong>
-                  <span>
-                    {[record.meta, ...record.relationshipLabels]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
-                </span>
-              </button>
-            ))}
+                {visibleRecords.map((record) => (
+                  <button
+                    key={record.id}
+                    type="button"
+                    className={`image-asset-sidebar__item${
+                      record.fileId === selectedFileId
+                        ? " image-asset-sidebar__item--selected"
+                        : ""
+                    }`}
+                    aria-current={
+                      record.fileId === selectedFileId ? "true" : undefined
+                    }
+                    ref={
+                      record.fileId === revealRequest?.fileId
+                        ? revealTargetRef
+                        : undefined
+                    }
+                    disabled={!onSelectRecord}
+                    onClick={() => onSelectRecord?.(record.fileId)}
+                  >
+                    {thumbnailDataUrls[record.fileId] ||
+                    record.thumbnailDataUrl ? (
+                      <img
+                        src={
+                          thumbnailDataUrls[record.fileId] ??
+                          record.thumbnailDataUrl ??
+                          undefined
+                        }
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                        width={38}
+                        height={38}
+                      />
+                    ) : (
+                      <span
+                        className="image-asset-sidebar__thumbnail"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span className="image-asset-sidebar__item-body">
+                      <strong>{record.title}</strong>
+                      <span>
+                        {[record.meta, ...record.relationshipLabels]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : null}
       </div>

@@ -100,13 +100,25 @@ describe("desktop project process architecture", () => {
 
   it("acquires the project room before a project bundle can migrate or recover files", () => {
     const mainProcessSource = readDesktopFile("electron/main.ts");
+    const projectRoomServiceSource = readDesktopFile(
+      "electron/room/projectRoomService.ts",
+    );
     const buildProjectBundleSource = mainProcessSource.match(
       /const buildProjectBundle = async[\s\S]*?\n};/,
     )?.[0];
+    const openProjectWithBundleSource = projectRoomServiceSource.match(
+      /public async openProjectWithBundle[\s\S]*?\n  }/,
+    )?.[0];
 
     expect(buildProjectBundleSource).toBeDefined();
-    expect(buildProjectBundleSource!.indexOf("projectRoomService.openProject("))
-      .toBeLessThan(buildProjectBundleSource!.indexOf("readProjectBundle("));
+    expect(buildProjectBundleSource).toContain(
+      "projectRoomService.openProjectWithBundle(",
+    );
+    expect(openProjectWithBundleSource).toBeDefined();
+    expect(openProjectWithBundleSource!.indexOf("this.openProject("))
+      .toBeLessThan(
+        openProjectWithBundleSource!.indexOf("this.input.readProjectBundle("),
+      );
   });
 
   it("keeps Agent project discovery read-only and claims ownership before creating a Board id", () => {

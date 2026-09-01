@@ -592,6 +592,130 @@ describe("projectFs", () => {
     ).rejects.toThrow("图片资源路径不在项目 assets 文件夹内");
   });
 
+  it("reuses an unchanged parsed image-record index across asset payload batches", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(
+      root,
+      "Image Index Cache Test",
+    );
+    await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-cached-index",
+          dataBase64: Buffer.from("cached-index-image").toString("base64"),
+          mimeType: "image/png",
+          width: 512,
+          height: 512,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    const imageRecordsPath = path.join(
+      project.projectPath,
+      PROJECT_FILENAMES.imageRecords,
+    );
+    const readFile = vi.spyOn(fs, "readFile");
+
+    await readProjectAssetPayloads({
+      projectPath: project.projectPath,
+      fileIds: ["file-cached-index"],
+    });
+    await readProjectAssetPayloads({
+      projectPath: project.projectPath,
+      fileIds: ["file-cached-index"],
+    });
+
+    expect(
+      readFile.mock.calls.filter(([filePath]) => filePath === imageRecordsPath),
+    ).toHaveLength(1);
+  });
+
+  it("reuses the image-record index parsed while opening the project bundle", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(root, "Bundle Index Cache Test");
+    await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-bundle-cached-index",
+          dataBase64: Buffer.from("bundle-cached-index-image").toString(
+            "base64",
+          ),
+          mimeType: "image/png",
+          width: 512,
+          height: 512,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    const imageRecordsPath = path.join(
+      project.projectPath,
+      PROJECT_FILENAMES.imageRecords,
+    );
+    const readFile = vi.spyOn(fs, "readFile");
+
+    await readProjectBundle(project.projectPath);
+    await readProjectAssetPayloads({
+      projectPath: project.projectPath,
+      fileIds: ["file-bundle-cached-index"],
+    });
+
+    expect(
+      readFile.mock.calls.filter(([filePath]) => filePath === imageRecordsPath),
+    ).toHaveLength(1);
+  });
+
+  it("invalidates the parsed image-record index when the index file changes", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+    const project = await createProjectStructure(
+      root,
+      "Image Index Invalidation Test",
+    );
+    const imageRecords = await persistImageAssets({
+      projectPath: project.projectPath,
+      files: [
+        {
+          fileId: "file-invalidated-index",
+          dataBase64: Buffer.from("invalidated-index-image").toString("base64"),
+          mimeType: "image/png",
+          width: 512,
+          height: 512,
+          sourceType: "imported",
+          createdAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+    });
+    const initialPayloads = await readProjectAssetPayloads({
+      projectPath: project.projectPath,
+      fileIds: ["file-invalidated-index"],
+    });
+    expect(initialPayloads[0]?.createdAt).toBe("2026-04-12T12:00:00.000Z");
+
+    await fs.writeFile(
+      path.join(project.projectPath, PROJECT_FILENAMES.imageRecords),
+      JSON.stringify({
+        ...imageRecords,
+        "file-invalidated-index": {
+          ...imageRecords["file-invalidated-index"],
+          createdAt: "2026-04-13T12:00:00.000Z",
+        },
+      }),
+      "utf8",
+    );
+
+    const updatedPayloads = await readProjectAssetPayloads({
+      projectPath: project.projectPath,
+      fileIds: ["file-invalidated-index"],
+    });
+    expect(updatedPayloads[0]?.createdAt).toBe("2026-04-13T12:00:00.000Z");
+  });
+
   it("generates and reuses thumbnail payloads when thumbnail rendition is requested", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);

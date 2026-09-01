@@ -72,6 +72,10 @@ export class ProjectRoomService {
     string,
     ProjectProcessLease
   >();
+  private readonly initialBundleByRoom = new WeakMap<
+    ProjectRoom,
+    Pick<DesktopProjectBundle, "project" | "sceneJson" | "imageRecords">
+  >();
 
   constructor(private readonly input: CreateProjectRoomServiceInput) {
     this.manager = createProjectRoomManager();
@@ -104,6 +108,21 @@ export class ProjectRoomService {
     );
     this.openingByPath.set(canonicalProjectPath, opening);
     return opening;
+  }
+
+  public async openProjectWithBundle(projectPath: string) {
+    const room = await this.openProject(projectPath);
+    const initialBundle = this.initialBundleByRoom.get(room);
+    if (initialBundle) {
+      this.initialBundleByRoom.delete(room);
+      return { room, bundle: initialBundle };
+    }
+    return {
+      room,
+      bundle: await this.input.readProjectBundle(
+        room.identity.canonicalProjectPath,
+      ),
+    };
   }
 
   public async closeProject(
@@ -198,7 +217,7 @@ export class ProjectRoomService {
       (
         entry,
       ): entry is {
-        request: (typeof requests)[number];
+        request: typeof requests[number];
         room: ProjectRoom;
       } => Boolean(entry.room),
     );
@@ -220,9 +239,7 @@ export class ProjectRoomService {
       room.beginClosing();
     }
     try {
-      await Promise.all(
-        uniqueRooms.map(({ room }) => room.flushPersistence()),
-      );
+      await Promise.all(uniqueRooms.map(({ room }) => room.flushPersistence()));
       if (options.requireExactRoomSet) {
         this.assertExactRoomSet(uniqueRooms.map(({ room }) => room));
       }
@@ -312,10 +329,9 @@ export class ProjectRoomService {
   }
 
   private async openCanonicalProject(canonicalProjectPath: string) {
-    const processLease =
-      await this.input.projectProcessLeaseRegistry?.acquire(
-        canonicalProjectPath,
-      );
+    const processLease = await this.input.projectProcessLeaseRegistry?.acquire(
+      canonicalProjectPath,
+    );
     try {
       const bundle = await this.input.readProjectBundle(canonicalProjectPath);
       const projectId = bundle.project.projectId ?? canonicalProjectPath;
@@ -345,6 +361,7 @@ export class ProjectRoomService {
       }
       this.lastEpochByProjectId.set(projectId, sessionEpoch);
       this.projectIdByPath.set(canonicalProjectPath, projectId);
+      this.initialBundleByRoom.set(room, bundle);
       return room;
     } catch (error) {
       await processLease?.release().catch(() => undefined);
@@ -375,8 +392,7 @@ export class ProjectRoomService {
     const currentParticipantSessionIds = room
       .getSnapshot()
       .participants.filter(
-        (participant) =>
-          participant.sessionId !== options.requestingSessionId,
+        (participant) => participant.sessionId !== options.requestingSessionId,
       )
       .map((participant) => participant.sessionId)
       .sort();

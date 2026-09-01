@@ -97,9 +97,9 @@ describe("ProjectRoomService", () => {
       },
     });
 
-    await expect(
-      service.openProject("/projects/project-1"),
-    ).rejects.toThrow("project read failed");
+    await expect(service.openProject("/projects/project-1")).rejects.toThrow(
+      "project read failed",
+    );
     expect(release).toHaveBeenCalledTimes(1);
   });
 
@@ -145,6 +145,24 @@ describe("ProjectRoomService", () => {
     const second = await service.openProject("/projects/project-1");
 
     expect(second).toBe(first);
+  });
+
+  it("reuses the initial bundle when a caller opens the room and needs its data", async () => {
+    const readProjectBundle = vi.fn(async (projectPath: string) =>
+      bundle("project-1", projectPath),
+    );
+    const service = createProjectRoomService({
+      readProjectBundle,
+      writeProjectScene: vi.fn(async () => ({})),
+      canonicalizeProjectPath: vi.fn(async (value) => value),
+      randomId: vi.fn(() => "room-id-1"),
+    });
+
+    const opened = await service.openProjectWithBundle("/projects/project-1");
+
+    expect(opened.room.identity.projectId).toBe("project-1");
+    expect(opened.bundle.project.projectId).toBe("project-1");
+    expect(readProjectBundle).toHaveBeenCalledTimes(1);
   });
 
   it("keeps an already-open room reachable when its folder path disappears", async () => {

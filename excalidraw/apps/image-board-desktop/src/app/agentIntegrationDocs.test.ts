@@ -39,6 +39,9 @@ describe("agent integration docs", () => {
     expect(userGuide).toContain("~/.local/bin/corestudio");
     expect(userGuide).toContain("新建一个本地 Agent 对话");
     expect(userGuide).toContain("不需要重复安装");
+    expect(userGuide).toContain(
+      "每个本地 Agent 对话中已认领的 Agent Board 页面独立绑定它自己的项目",
+    );
     expect(userGuide).not.toContain("通过右下角状态浮层复制 CLI 环境变量");
     expect(architecture).toContain("CoreStudio 内只做本地单次生成");
     expect(architecture).toContain("CLI / Local Bridge");
@@ -91,7 +94,7 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain("corestudio read project --json");
     expect(corestudioSkill).toContain("`summary` 只作为提示");
     expect(corestudioSkill).toContain("按实际解析结果重新计算数量和类型");
-    expect(corestudioSkill).toContain("默认写回当前项目");
+    expect(corestudioSkill).toContain("默认写回下方规则确认的目标项目");
     expect(corestudioSkill).toContain("图片文件名跟随用户当前使用的语言");
     expect(corestudioSkill).toContain(
       "用户使用中文交互时，使用简洁、可辨认的中文文件名",
@@ -143,6 +146,23 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain("corestudio edit locate --file-id");
     expect(cliContract).toContain("### Read Project Health Report");
     expect(cliContract).toContain("corestudio read health --json");
+  });
+
+  it("keeps the claimed Agent Board authoritative in multi-project sessions", () => {
+    const corestudioSkill = readDoc(
+      "apps/image-board-desktop/resources/codex-integration/corestudio-skill/SKILL.md",
+    );
+
+    expect(corestudioSkill).toContain(
+      "已连接且已认领的 Agent Board 页面是当前画布任务的目标项目",
+    );
+    expect(corestudioSkill).toContain("`corestudio_get_board_status`");
+    expect(corestudioSkill).toContain(
+      "不得仅因桌面客户端当前激活了另一个项目就报告 `PROJECT_MISMATCH`",
+    );
+    expect(corestudioSkill).not.toContain(
+      "确认当前项目名称与引用块的 `projectName` 一致",
+    );
   });
 
   it("does not publish removed embedded Agent commands as current CLI capabilities", () => {

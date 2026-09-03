@@ -210,7 +210,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.0.0, bridge protocol 6)\n`,
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.0.1, bridge protocol 6)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -228,7 +228,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: DESKTOP_APP_VERSION,
-        integrationVersion: "2.0.0",
+        integrationVersion: "2.0.1",
         bridgeProtocolVersion: 6,
       },
     });

@@ -52,6 +52,8 @@ corestudio agent connect --host claude-code --json
 
 `read project --json` 返回当前项目的 `projectId`、名称、创建时间、更新时间和本地路径。`projectId` 是固定选区引用使用的非敏感稳定身份；不得用项目名或创建时间代替它进行项目匹配。
 
+`read status --json` 中的当前项目是桌面客户端当前激活的项目，只用于 CLI session 和桌面状态诊断。如果当前 Agent 对话已经连接并认领了稳定 Agent Board 页面，该页面通过 `corestudio_get_board_status` 返回的项目 `id` 才是本次画布任务目标；不得因两个项目名称不同而报告 `PROJECT_MISMATCH`。必须使用 CLI 的操作仍需确认 `read project --json` 的 `projectId` 与页面目标一致，不一致时停止该 CLI 路径，不能改写桌面当前项目。
+
 ## Write Commands
 
 - `write image <path...> --source-type generated --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`

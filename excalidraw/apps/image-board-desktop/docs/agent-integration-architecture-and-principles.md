@@ -21,6 +21,14 @@ CoreStudio 不保存外部 Agent 的任务包、运行日志或任务设置。Br
 - Codex 的 `CODEX_THREAD_ID` 保留一轮兼容，内部仍经过相同的可信参与者边界。
 - 图片生成权限按宿主独立保存；读取和写回仍受 Agent Bridge 总开关控制。
 
+## 多项目目标身份
+
+- 桌面客户端当前激活的项目标签只是桌面 UI 焦点，不是所有 Agent 对话共享的唯一目标。
+- 每个 Agent 对话以自己已连接并认领的稳定 Agent Board 页面为画布任务目标；该页面所属项目由 `stableBoardId`、页面 nonce 和项目房间共同确认。桌面客户端切换到另一个项目，不改变已经认领页面的项目身份。
+- `corestudio read status --json` 报告 Local Bridge 状态和桌面当前激活项目，不能用它覆盖已连接 Agent Board 页面通过 `corestudio_get_board_status` 报告的项目 `id`。两个项目名称不同不构成 `PROJECT_MISMATCH`。
+- 后台项目请求必须携带明确的项目路径并路由到该项目自己的 renderer。只有稳定 Board、页面 nonce、固定引用 `projectId` 或项目房间身份真实不一致时，才停止并报告项目冲突。
+- 当前 CLI session 仍绑定其认证项目。CLI-only 操作必须先确认该项目 `projectId` 与页面目标一致；不一致时应停止未限定目标的 CLI 路径，不能把写入落到桌面当前项目，也不能自动切换用户的桌面标签。
+
 ## 分层
 
 | 层级 | 典型文件 | 职责 |

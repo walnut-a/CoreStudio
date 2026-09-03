@@ -176,15 +176,15 @@ CLI 只安装一次：
   "hosts": {
     "codex": {
       "skillPath": "~/.codex/skills/corestudio/SKILL.md",
-      "skillVersion": 17
+      "skillVersion": 18
     },
     "cursor": {
       "skillPath": "~/.cursor/skills/corestudio/SKILL.md",
-      "skillVersion": 17
+      "skillVersion": 18
     },
     "claude-code": {
       "skillPath": "~/.claude/skills/corestudio/SKILL.md",
-      "skillVersion": 17
+      "skillVersion": 18
     }
   }
 }

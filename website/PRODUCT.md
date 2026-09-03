@@ -31,7 +31,7 @@ CoreStudio 不重新发明画布或模型能力，而是在成熟的 Excalidraw 
 - 用户可以配置自己的服务商、API Key 与模型。
 - Codex 等 Agent 可以通过 CLI / Local Bridge 使用当前画布与选区，并把结果写回项目。
 - 官网提供 `/integrations/` 与 `/zh/integrations/` 双语 Agent 集成中心，承载 Skill、CLI、首次使用和受控故障排查；GitHub 原始文档保留为事实来源与 fallback。
-- 支持 WebMCP 的浏览器可从集成页发现三项只读工具；页面不检测本机状态、不执行命令，也不代替 CoreStudio 本地 Bridge。
+- 支持 WebMCP 的浏览器可从官网首页和集成页发现同一组共三项只读工具；页面不检测本机状态、不执行命令，也不代替 CoreStudio 本地 Bridge。
 - CoreStudio 本身免费、开源、可定制；第三方模型和 Agent 的费用与额度按各自规则计算。
 - 官网主行动是下载 macOS 版本，下载地址始终指向 GitHub Latest Release。
 - 官网为静态 HTML、CSS 和 JavaScript，并同时提供英文根路径与 `/zh/` 中文路径。

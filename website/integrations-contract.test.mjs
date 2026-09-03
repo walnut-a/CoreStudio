@@ -12,7 +12,10 @@ import {
   getTroubleshootingGuide,
   normalizeHost,
 } from "./integrations-content.mjs";
-import { createWebMcpToolDefinitions } from "./webmcp-adapter.mjs";
+import {
+  createWebMcpToolDefinitions,
+  registerCoreStudioWebMcpTools,
+} from "./webmcp-adapter.mjs";
 
 const readWebsiteFile = (path) =>
   readFile(new URL(path, import.meta.url), "utf8");
@@ -123,6 +126,21 @@ test("WebMCP exposes exactly three read-only, enum-bounded tools", () => {
   }
 });
 
+test("WebMCP registration publishes all guide tools to the current document", async () => {
+  const registered = [];
+  const result = await registerCoreStudioWebMcpTools({
+    locale: "zh-CN",
+    modelContext: {
+      registerTool: async (tool) => registered.push(tool),
+    },
+  });
+
+  assert.equal(result.supported, true);
+  assert.deepEqual(result.registered, registered.map(({ name }) => name));
+  assert.equal(registered.length, 3);
+  assert.equal(registered[0].title, "CoreStudio 集成指南");
+});
+
 test("localized integration pages keep semantic fallbacks and progressive enhancement", async () => {
   const entrypoints = {
     en: "integrations/index.html",
@@ -179,7 +197,7 @@ test("localized integration pages keep semantic fallbacks and progressive enhanc
   }
 });
 
-test("homepage and sitemap expose both localized integration routes", async () => {
+test("localized homepages register WebMCP and expose both integration routes", async () => {
   const [english, chinese, sitemap] = await Promise.all([
     readWebsiteFile("index.html"),
     readWebsiteFile("zh/index.html"),
@@ -188,6 +206,12 @@ test("homepage and sitemap expose both localized integration routes", async () =
 
   assert.match(english, /href="integrations\/"/);
   assert.match(chinese, /href="integrations\/"/);
+  assert.match(english, /<html[^>]+data-webmcp="enabled"/);
+  assert.match(chinese, /<html[^>]+data-webmcp="enabled"/);
+  assert.match(english, /<body[^>]+data-locale="en"/);
+  assert.match(chinese, /<body[^>]+data-locale="zh-CN"/);
+  assert.match(english, /src="webmcp-adapter\.mjs\?v=/);
+  assert.match(chinese, /src="\.\.\/webmcp-adapter\.mjs\?v=/);
   assert.match(sitemap, /https:\/\/getcorestudio\.com\/integrations\//);
   assert.match(sitemap, /https:\/\/getcorestudio\.com\/zh\/integrations\//);
 });

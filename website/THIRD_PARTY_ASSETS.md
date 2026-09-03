@@ -14,3 +14,10 @@ The CoreStudio website includes the following resized WebP reference images from
 ## Display font
 
 The Chinese homepage display heading uses `assets/fonts/SmileySans-Oblique.woff2`, derived from [Smiley Sans v2.0.1](https://github.com/atelier-anchor/smiley-sans/releases/tag/v2.0.1) by atelierAnchor. Smiley Sans is distributed under the SIL Open Font License 1.1; the bundled license text is stored at `assets/fonts/SmileySans-LICENSE.txt`. The font is used only for the editorial display heading. Product controls and canvas annotations continue to use CoreStudio's production interface and Excalidraw fonts.
+
+The Chinese canvas annotations use `assets/fonts/Xiaolai-Canvas-CJK.woff2`, a
+website-specific subset generated from the repository's bundled Xiaolai SC
+source font. Xiaolai SC is Copyright © 2020 LXGW and is distributed under the
+SIL Open Font License 1.1. The subset contains only the non-Latin glyphs used
+by the current annotations; Latin glyphs continue to use Excalifont. The
+bundled license text is stored at `assets/fonts/Xiaolai-LICENSE.txt`.

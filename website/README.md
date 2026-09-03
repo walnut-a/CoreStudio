@@ -62,7 +62,9 @@ website/
         ├── Assistant-SemiBold-Latin.woff2
         ├── Assistant-Bold-Latin.woff2
         ├── SmileySans-Oblique.woff2
-        └── SmileySans-LICENSE.txt
+        ├── SmileySans-LICENSE.txt
+        ├── Xiaolai-Canvas-CJK.woff2
+        └── Xiaolai-LICENSE.txt
 ```
 
 官网图标的唯一原始素材是
@@ -90,6 +92,9 @@ Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 Se
 
 中文版主标题使用本地托管的 Smiley Sans 倾斜字形，字体许可与第三方素材来源记录在
 `THIRD_PARTY_ASSETS.md` 和 `assets/fonts/SmileySans-LICENSE.txt`。
+
+中文版画布标注使用从仓库内 Xiaolai 源字体生成的中文子集，避免当前官网文案中的汉字
+回退到系统字体；覆盖范围由 `canvas-engine.test.mjs` 按实际标注文案校验。
 
 ## 发布配置
 

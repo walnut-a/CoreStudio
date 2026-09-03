@@ -17,7 +17,7 @@ python3 -m http.server 4173
 原 `/en/` 路径保留为英文首页的兼容跳转。
 
 Agent 集成中心位于 `http://127.0.0.1:4173/website/integrations/` 与
-`http://127.0.0.1:4173/website/zh/integrations/`。页面提供 Codex、Cursor、Claude Code 的 Skill / CLI 安装指南与只读 WebMCP 渐进增强；不支持 WebMCP 或关闭 JavaScript 时，核心教程仍由静态 HTML 提供。
+`http://127.0.0.1:4173/website/zh/integrations/`。页面提供 Codex、Cursor、Claude Code 的 Skill / CLI 安装指南与只读 WebMCP 渐进增强。英文和中文首页也注册同一组只读教程工具，让只访问官网入口页的浏览器 Agent 能直接发现接入能力；工具结果仍将完整教程指向对应集成页。不支持 WebMCP 或关闭 JavaScript 时，首页和核心教程照常工作。
 
 ## 文件结构
 

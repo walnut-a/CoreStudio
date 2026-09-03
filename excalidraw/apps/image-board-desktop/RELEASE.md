@@ -207,6 +207,17 @@ node --test website/update-manifest-contract.test.mjs
 
 官网部署工作流会再次执行同一合同测试。部署成功后，在线复核清单内容和 DMG 链接；低版本客户端只有在这一步完成后才应发现更新。开发中的 `package.json` 可以高于线上稳定版，不能为了让版本相等而提前发布清单。
 
+## 1.1.44 发布说明
+
+1.1.44 修正多项目架构下 Agent Board 的目标项目判定，并发布对应的 Agent 集成更新：
+
+- 每个 Agent 对话以自己已连接并认领的稳定 Agent Board 页面作为当前画布任务目标，桌面客户端停留在另一个项目标签时不再误报 `PROJECT_MISMATCH`
+- 已连接页面优先通过 WebMCP `corestudio_get_board_status` 校验项目 ID、认领状态和项目房间，不再用桌面当前激活项目名称覆盖页面身份
+- 固定选区引用改为按页面项目 ID 校验；项目名称只用于显示和辅助核对，不再充当跨项目身份主键
+- 页面支持的读取、定位、选择、导入和编辑继续作用于原 Agent Board；CLI-only 操作在认证项目与页面项目不同的时候明确停止，避免误写到桌面当前项目
+- 多宿主 Agent 集成提升到 `2.0.1 / Skill 18`，兼容 Codex 集成提升到 `1.12.1 / Skill 17`，让已安装旧 Skill 正常提示更新
+- 本次更新不改变项目文件格式、Agent Bridge protocol、CLI wrapper 或图片生成服务配置
+
 ## 1.1.43 发布说明
 
 1.1.43 增加版本更新提醒和 Agent Board WebMCP，并改善大项目图片性能与 WebP 缓存修复：

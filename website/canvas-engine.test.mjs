@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -164,6 +164,51 @@ test("the overview camera fits the full composition before using extra space", (
   );
 });
 
+test("the Chinese canvas annotations are fully covered by the bundled Xiaolai subset", async () => {
+  const styles = await readFile(new URL("styles.css", import.meta.url), "utf8");
+  const zh = await readFile(new URL("zh/index.html", import.meta.url), "utf8");
+  const xiaolaiFaces = [...styles.matchAll(/@font-face\s*\{([\s\S]*?)\}/g)]
+    .map((match) => match[1])
+    .filter((rule) => /font-family:\s*"Xiaolai"/.test(rule));
+
+  assert.equal(xiaolaiFaces.length, 1);
+  assert.match(xiaolaiFaces[0], /assets\/fonts\/Xiaolai-Canvas-CJK\.woff2/);
+
+  const ranges = [
+    ...xiaolaiFaces[0].matchAll(/U\+([0-9A-F]+)(?:-([0-9A-F]+))?/gi),
+  ].map(([, start, end]) => [
+    Number.parseInt(start, 16),
+    Number.parseInt(end ?? start, 16),
+  ]);
+  const annotationText = [
+    ...zh.matchAll(
+      /<span class="canvas-annotation-(?:title|detail)"[^>]*>([\s\S]*?)<\/span/g
+    ),
+  ]
+    .map(([, text]) => text)
+    .join(" ");
+  assert.match(annotationText, /本地项目/);
+  const uncovered = [...new Set(annotationText)]
+    .filter(
+      (character) => character.codePointAt(0) > 0x7e && !/\s/u.test(character)
+    )
+    .filter((character) => {
+      const codePoint = character.codePointAt(0);
+      return !ranges.some(
+        ([start, end]) => codePoint >= start && codePoint <= end
+      );
+    });
+
+  assert.deepEqual(uncovered, []);
+  assert.ok(
+    (
+      await stat(
+        new URL("assets/fonts/Xiaolai-Canvas-CJK.woff2", import.meta.url)
+      )
+    ).size > 1_000
+  );
+});
+
 test("canvas transforms keep translation independent from zoom", () => {
   assert.equal(
     composeTransform({ x: 24, y: -18, zoom: 1.1 }),
@@ -217,7 +262,7 @@ test("responsive layout and camera share the 820px compact breakpoint", async ()
 test("both localized entrypoints load the current website assets", async () => {
   for (const entrypoint of ["index.html", "zh/index.html"]) {
     const html = await readFile(new URL(entrypoint, import.meta.url), "utf8");
-    assert.match(html, /styles\.css\?v=20260831-3/);
+    assert.match(html, /styles\.css\?v=20260903-1/);
     assert.match(html, /main\.js\?v=20260831-3/);
   }
   const main = await readFile(new URL("main.js", import.meta.url), "utf8");

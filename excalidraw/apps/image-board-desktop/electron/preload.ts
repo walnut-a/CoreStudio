@@ -71,6 +71,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.cleanProjectCache, input),
   persistImageAssets: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.persistImageAssets, input),
+  updateImageRecordMetadata: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.updateImageRecordMetadata, input),
   beginImageWriteback: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.beginImageWriteback, input),
   commitImageWriteback: (input) =>

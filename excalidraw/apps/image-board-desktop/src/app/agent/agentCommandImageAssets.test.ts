@@ -12,6 +12,7 @@ describe("agentCommandImageAssets", () => {
       referenceFileIds: ["source-file"],
       referenceElementIds: ["source-element"],
       fileId: "input-file",
+      fileName: "/tmp/generated-concept.png",
       mimeType: "image/png",
       dataBase64: Buffer.from("image").toString("base64"),
       width: 512,
@@ -21,6 +22,7 @@ describe("agentCommandImageAssets", () => {
     expect(assets).toMatchObject([
       {
         fileId: expect.stringMatching(/^agent-/),
+        sourceFileName: "generated-concept.png",
         mimeType: "image/png",
         dataBase64: Buffer.from("image").toString("base64"),
         width: 512,

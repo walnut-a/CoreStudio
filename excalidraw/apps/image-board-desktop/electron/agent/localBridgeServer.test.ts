@@ -701,6 +701,47 @@ describe("createLocalBridgeServer", () => {
     );
   });
 
+  it("rejects an unbound trusted Agent session instead of falling back to the desktop project token", async () => {
+    const session = {
+      sessionRef: "codex-session-ref",
+      actorId: "agent:codex:codex-session-ref",
+      host: "codex" as const,
+      displayLabel: "Codex · 未认领任务",
+      issuedAt: "2026-09-04T00:00:00.000Z",
+    };
+    const withAgentWriterCommand = vi.fn();
+    const { server, renderer } = await track(
+      startServer({
+        resolveAgentSession: () => session,
+        resolveAgentProject: async () => null,
+        withAgentWriterCommand,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Agent-Session": session.sessionRef,
+        },
+        body: JSON.stringify({ text: "不应写入当前桌面项目" }),
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: {
+        ok: false,
+        error: { code: "AGENT_TARGET_REQUIRED" },
+      },
+    });
+    expect(withAgentWriterCommand).not.toHaveBeenCalled();
+    expect(renderer.request).not.toHaveBeenCalled();
+  });
+
   it("reads a claimed Agent project through the Bridge without a browser renderer", async () => {
     const session = {
       sessionRef: "codex-session-ref",

@@ -59,9 +59,9 @@ describe("component style ownership boundaries", () => {
 
     expect(welcomeSource).toContain('import "./WelcomePane.css";');
     expect(paneRule).toContain("place-items: center");
-    expect(cardRule).toContain("width: min(100%, 960px)");
+    expect(cardRule).toContain("width: min(100%, 920px)");
     expect(cardRule).toContain(
-      "grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr)",
+      "grid-template-columns: minmax(260px, 320px) minmax(0, 1fr)",
     );
     expect(introRule).toContain("flex-direction: column");
     expect(mobileRules).toContain("grid-template-columns: 1fr");

@@ -154,6 +154,46 @@
   min-width: 0;
 }
 
+.image-inspector__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-sm);
+  min-width: 0;
+}
+
+.image-inspector__title-row h4 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-inspector__rename-form {
+  display: grid;
+  gap: var(--ui-space-sm);
+}
+
+.image-inspector__rename-form input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--lg-button-size);
+  padding: 0 var(--ui-space-sm);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--border-radius-md);
+  background: var(--island-bg-color);
+  color: var(--text-primary-color);
+  font: inherit;
+  outline: 0;
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.image-inspector__rename-actions {
+  display: flex;
+  gap: var(--ui-space-xs);
+}
+
 .image-inspector__eyebrow {
   width: fit-content;
   padding: var(--ui-space-xxs) var(--ui-space-xs);
@@ -348,6 +388,52 @@
   margin: 0;
   padding: 0;
   border-top: 1px solid var(--default-border-color);
+}
+
+.image-inspector__technical {
+  display: grid;
+}
+
+.image-inspector__technical-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: var(--lg-button-size);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--default-border-color);
+  background: transparent;
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
+  font: inherit;
+  font-size: var(--ui-text-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+}
+
+.image-inspector__technical-value {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.image-inspector__technical-value code {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--ui-text-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-inspector__technical-value .image-board-button {
+  flex: none;
+  min-width: var(--ui-control-size-sm);
+  width: var(--ui-control-size-sm);
+  height: var(--ui-control-size-sm);
+  padding: 0;
 }
 
 .image-inspector__detail-item {

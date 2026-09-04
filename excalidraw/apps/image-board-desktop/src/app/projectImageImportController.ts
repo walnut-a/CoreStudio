@@ -22,6 +22,7 @@ const toImportedImageAssets = (
   images.map((image) => ({
     ...image,
     sourceType: "imported",
+    sourceFileName: image.fileName,
   }));
 
 export const runProjectImageAssetInsertAction = async <InsertionOptions>({

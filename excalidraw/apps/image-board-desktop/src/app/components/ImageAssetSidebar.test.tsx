@@ -7,16 +7,26 @@ const records = [
   {
     id: "file-imported",
     fileId: "file-imported",
-    title: "导入图片",
-    meta: "07/24 12:00 · 导入 · 512 × 512",
-    relationshipLabels: ["画布中"],
+    title: "assembly-reference.png",
+    sourceType: "imported" as const,
+    timeLabel: "07/24 12:00",
+    sourceLabel: "导入",
+    providerLabel: null,
+    sizeLabel: "512 × 512 px",
+    statusLabels: ["画布中"],
+    searchText: "assembly-reference.png file-imported",
   },
   {
     id: "file-reference",
     fileId: "file-reference",
     title: "参考方案",
-    meta: "07/24 11:00 · Codex · 512 × 512",
-    relationshipLabels: ["参考图"],
+    sourceType: "generated" as const,
+    timeLabel: "07/24 11:00",
+    sourceLabel: "Codex",
+    providerLabel: null,
+    sizeLabel: "512 × 512 px",
+    statusLabels: ["参考图"],
+    searchText: "参考方案 file-reference",
   },
 ];
 
@@ -25,8 +35,13 @@ const createRecords = (count: number) =>
     id: `file-${index}`,
     fileId: `file-${index}`,
     title: `图片 ${index}`,
-    meta: "07/24 12:00 · 导入 · 512 × 512",
-    relationshipLabels: ["画布中"],
+    sourceType: index % 2 ? ("generated" as const) : ("imported" as const),
+    timeLabel: "07/24 12:00",
+    sourceLabel: index % 2 ? "Codex" : "导入",
+    providerLabel: null,
+    sizeLabel: "512 × 512 px",
+    statusLabels: ["画布中"],
+    searchText: `图片 ${index} file-${index}`,
   }));
 
 describe("ImageAssetSidebar", () => {
@@ -36,33 +51,53 @@ describe("ImageAssetSidebar", () => {
         open={true}
         onOpenChange={vi.fn()}
         records={records}
-        generatedOnly={false}
-        onGeneratedOnlyChange={vi.fn()}
       />,
     );
 
     expect(screen.getByText("图片资产")).toBeInTheDocument();
     const list = screen.getByLabelText("图片资产列表");
-    expect(within(list).getByText("导入图片")).toBeInTheDocument();
+    expect(
+      within(list).getByText("assembly-reference.png"),
+    ).toBeInTheDocument();
     expect(within(list).getByText(/画布中/)).toBeInTheDocument();
     expect(within(list).getByText(/参考图/)).toBeInTheDocument();
   });
 
-  it("reports generated-only filter changes", () => {
-    const onGeneratedOnlyChange = vi.fn();
+  it("filters imported and generated assets with segmented controls", () => {
     render(
       <ImageAssetSidebar
         open={true}
         onOpenChange={vi.fn()}
         records={records}
-        generatedOnly={false}
-        onGeneratedOnlyChange={onGeneratedOnlyChange}
       />,
     );
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "仅查看生成内容" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成" }));
+    expect(
+      screen.queryByText("assembly-reference.png"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("参考方案")).toBeInTheDocument();
 
-    expect(onGeneratedOnlyChange).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: "导入" }));
+    expect(screen.getByText("assembly-reference.png")).toBeInTheDocument();
+    expect(screen.queryByText("参考方案")).not.toBeInTheDocument();
+  });
+
+  it("searches readable metadata and exact ids without showing ids in rows", () => {
+    render(
+      <ImageAssetSidebar
+        open={true}
+        onOpenChange={vi.fn()}
+        records={records}
+      />,
+    );
+
+    expect(screen.queryByText("file-imported")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索图片资产" }), {
+      target: { value: "file-imported" },
+    });
+    expect(screen.getByText("assembly-reference.png")).toBeInTheDocument();
+    expect(screen.queryByText("参考方案")).not.toBeInTheDocument();
   });
 
   it("reports selected asset file ids", () => {
@@ -72,8 +107,6 @@ describe("ImageAssetSidebar", () => {
         open={true}
         onOpenChange={vi.fn()}
         records={records}
-        generatedOnly={false}
-        onGeneratedOnlyChange={vi.fn()}
         onSelectRecord={onSelectRecord}
       />,
     );
@@ -89,8 +122,6 @@ describe("ImageAssetSidebar", () => {
         open={true}
         onOpenChange={vi.fn()}
         records={createRecords(1_000)}
-        generatedOnly={false}
-        onGeneratedOnlyChange={vi.fn()}
       />,
     );
 
@@ -107,8 +138,6 @@ describe("ImageAssetSidebar", () => {
         open={true}
         onOpenChange={vi.fn()}
         records={createRecords(100)}
-        generatedOnly={false}
-        onGeneratedOnlyChange={vi.fn()}
         onVisibleFileIdsChange={onVisibleFileIdsChange}
       />,
     );
@@ -122,20 +151,16 @@ describe("ImageAssetSidebar", () => {
     const props = {
       onOpenChange: vi.fn(),
       records: createRecords(100),
-      generatedOnly: false,
-      onGeneratedOnlyChange: vi.fn(),
     };
-    const { rerender } = render(
-      <ImageAssetSidebar {...props} open={true} />,
-    );
+    const { rerender } = render(<ImageAssetSidebar {...props} open={true} />);
     const list = screen.getByLabelText("图片资产列表");
-    list.scrollTop = 4_000;
+    list.scrollTop = 6_000;
     fireEvent.scroll(list);
 
     rerender(<ImageAssetSidebar {...props} open={false} />);
     rerender(<ImageAssetSidebar {...props} open={true} />);
 
-    expect(screen.getByLabelText("图片资产列表").scrollTop).toBe(4_000);
+    expect(screen.getByLabelText("图片资产列表").scrollTop).toBe(5_632);
     expect(screen.getByText("图片 99")).toBeInTheDocument();
   });
 
@@ -143,8 +168,6 @@ describe("ImageAssetSidebar", () => {
     const props = {
       open: true,
       onOpenChange: vi.fn(),
-      generatedOnly: false,
-      onGeneratedOnlyChange: vi.fn(),
     };
     const { rerender } = render(
       <ImageAssetSidebar {...props} records={createRecords(100)} />,

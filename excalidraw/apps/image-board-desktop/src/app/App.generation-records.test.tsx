@@ -17,7 +17,7 @@ import {
 } from "./App.testSupport";
 
 describe("App image assets", () => {
-  it("shows only current canvas images and prompt references", async () => {
+  it("shows all project assets and keeps current canvas relationships", async () => {
     const extraDirectRecords = Object.fromEntries(
       Array.from({ length: 25 }, (_, index) => {
         const recordIndex = index + 1;
@@ -266,8 +266,9 @@ describe("App image assets", () => {
       imageAssetDock.getByText("Agent Board 生成图片"),
     ).toBeInTheDocument();
     expect(
-      imageAssetDock.queryByText("已经不在画布上的旧生成记录"),
-    ).not.toBeInTheDocument();
+      imageAssetDock.getByText("已经不在画布上的旧生成记录"),
+    ).toBeInTheDocument();
+    expect(imageAssetDock.getByText("未使用")).toBeInTheDocument();
     expect(imageAssetDock.getAllByText(/参考图/).length).toBeGreaterThan(0);
     expect(imageAssetDock.getByText("导入图片")).toBeInTheDocument();
     expect(imageAssetDock.getByText("第 25 条生成记录")).toBeInTheDocument();

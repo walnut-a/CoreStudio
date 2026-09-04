@@ -6,7 +6,7 @@ import {
   getCliExample,
   getIntegrationGuide,
   getTroubleshootingGuide,
-} from "./integrations-content.mjs?v=20260904-1";
+} from "./integrations-content.mjs?v=20260904-2";
 
 const localizedMetadata = {
   en: {

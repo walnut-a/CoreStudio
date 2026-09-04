@@ -63,6 +63,8 @@ export interface ProjectAgentAccess {
 export interface ImageRecord {
   fileId: string;
   assetPath: string;
+  displayName?: string;
+  sourceFileName?: string;
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
   generationSource?: "builtin" | "agent";

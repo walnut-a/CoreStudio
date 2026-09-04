@@ -63,6 +63,7 @@ export const WelcomePane = ({
 
   const deleteDialogTitleId = "welcome-delete-project-title";
   const recentStateTitleId = "welcome-recent-state-title";
+  const projectsTitleId = "welcome-projects-title";
   const showGettingStarted =
     manualProjectActionsVisible &&
     recentProjectsLoadStatus === "loaded" &&
@@ -256,9 +257,12 @@ export const WelcomePane = ({
               </ol>
             </section>
           ) : (
-            <>
+            <section
+              className="welcome-pane__projects"
+              aria-labelledby={projectsTitleId}
+            >
               <div className="welcome-pane__recent-header">
-                <h2>
+                <h2 id={projectsTitleId}>
                   {projectSelectionMode
                     ? copy.welcome.projectSelectionListTitle
                     : copy.welcome.recentTitle}
@@ -376,7 +380,7 @@ export const WelcomePane = ({
                         ? copy.welcome.recentLoadFailedTitle
                         : projectSelectionMode
                         ? copy.welcome.projectSelectionEmptyTitle
-                        : copy.welcome.recentEmpty}
+                        : copy.welcome.recentEmptyTitle}
                     </h3>
                     <p>
                       {recentProjectsLoadStatus === "loading"
@@ -385,7 +389,7 @@ export const WelcomePane = ({
                         ? copy.welcome.recentLoadFailedDescription
                         : projectSelectionMode
                         ? copy.welcome.projectSelectionEmptyDescription
-                        : copy.welcome.recentEmpty}
+                        : copy.welcome.recentEmptyDescription}
                     </p>
                     {recentProjectsLoadStatus === "failed" ? (
                       <p className="welcome-pane__recent-state-next-step">
@@ -393,7 +397,8 @@ export const WelcomePane = ({
                       </p>
                     ) : null}
                   </div>
-                  {recentProjectsLoadStatus !== "loading" &&
+                  {(recentProjectsLoadStatus === "failed" ||
+                    projectSelectionMode) &&
                   onReloadRecentProjects ? (
                     <DesktopButton
                       size="small"
@@ -410,7 +415,7 @@ export const WelcomePane = ({
                   ) : null}
                 </section>
               )}
-            </>
+            </section>
           )}
         </div>
       </section>

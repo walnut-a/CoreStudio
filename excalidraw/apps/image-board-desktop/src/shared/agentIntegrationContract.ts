@@ -1,8 +1,8 @@
 import type { AgentHost } from "./agentBridgeTypes";
 
 export const AGENT_INTEGRATION_MANIFEST_SCHEMA_VERSION = 2;
-export const AGENT_INTEGRATION_VERSION = "2.1.0";
-export const AGENT_INTEGRATION_SKILL_VERSION = 19;
+export const AGENT_INTEGRATION_VERSION = "2.1.1";
+export const AGENT_INTEGRATION_SKILL_VERSION = 20;
 export const AGENT_INTEGRATION_CLI_WRAPPER_VERSION = 2;
 
 export const AGENT_HOST_LABELS: Record<AgentHost, string> = {

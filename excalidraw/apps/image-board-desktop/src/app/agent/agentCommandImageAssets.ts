@@ -251,6 +251,14 @@ const toAgentImageAsset = (
         (sourceType === "generated" && generationOrigin === "agent-board"
           ? "agent"
           : undefined);
+  const rawSourceFileName =
+    parseOptionalNonEmptyString(payload.sourceFileName) ??
+    parseOptionalNonEmptyString(payload.fileName);
+  const sourceFileName = rawSourceFileName
+    ?.split(/[\\/]/)
+    .filter(Boolean)
+    .at(-1)
+    ?.slice(0, 255);
 
   return {
     fileId: createAgentImageFileId(),
@@ -261,6 +269,7 @@ const toAgentImageAsset = (
     createdAt:
       typeof payload.createdAt === "string" ? payload.createdAt : createdAt,
     sourceType,
+    ...(sourceFileName ? { sourceFileName } : {}),
     ...(generationOrigin ? { generationOrigin } : {}),
     ...(generationSource ? { generationSource } : {}),
     ...(parseOptionalNonEmptyString(payload.provider)

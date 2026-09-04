@@ -87,6 +87,10 @@ export default defineConfig({
   build: {
     outDir: "dist",
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        diagramWorker: path.resolve(__dirname, "diagram-worker.html"),
+      },
       output: {
         manualChunks: getDesktopManualChunk,
       },

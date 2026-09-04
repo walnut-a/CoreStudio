@@ -269,6 +269,7 @@ const createImageRecord = (
   return {
     fileId: file.fileId,
     assetPath: path.posix.join(PROJECT_FILENAMES.assetsDir, assetFileName),
+    sourceFileName: file.sourceFileName,
     sourceType: file.sourceType,
     generationOrigin: file.generationOrigin,
     generationSource: file.generationSource,
@@ -573,6 +574,63 @@ export const rollbackProjectImageWriteback = async ({
       getProjectImageWritebackJournalPath(projectPath, transactionId),
     );
     return parseProjectImageRecords(restoredPersistedRecords).imageRecords;
+  });
+
+export const updateProjectImageRecordMetadata = async ({
+  projectPath,
+  fileId,
+  displayName,
+}: {
+  projectPath: string;
+  fileId: string;
+  displayName: string | null;
+}): Promise<ImageRecordMap> =>
+  withProjectWritebackLock(projectPath, async () => {
+    const normalizedFileId = fileId.trim();
+    const normalizedDisplayName = displayName?.trim() || null;
+    if (!normalizedFileId) {
+      throw new Error("图片 ID 不能为空。");
+    }
+    if (normalizedDisplayName && normalizedDisplayName.length > 120) {
+      throw new Error("图片名称不能超过 120 个字符。");
+    }
+
+    const pending = await listJournals(projectPath);
+    if (pending.invalidJournals.length) {
+      throw createWritebackConflict(
+        "项目存在无法读取的图片写回事务，已停止修改图片名称。",
+      );
+    }
+    const conflictingTransaction = pending.journals.find(
+      (journal) => journal.nextRecords[normalizedFileId],
+    );
+    if (conflictingTransaction) {
+      throw createWritebackConflict("这张图片仍有未完成的写回事务。", {
+        transactionId: conflictingTransaction.transactionId,
+        fileIds: [normalizedFileId],
+      });
+    }
+
+    const snapshot = await readImageRecordsWritebackSnapshot(
+      getImageRecordsPath(projectPath),
+    );
+    const current = snapshot.imageRecords[normalizedFileId];
+    if (!current || snapshot.unsafeFileIds.has(normalizedFileId)) {
+      throw new Error("没有找到可重命名的图片记录。");
+    }
+    const updatedRecord: ImageRecord = { ...current };
+    if (normalizedDisplayName) {
+      updatedRecord.displayName = normalizedDisplayName;
+    } else {
+      delete updatedRecord.displayName;
+    }
+    const persistedRecords = buildPersistedImageRecords({
+      snapshot,
+      updates: { [normalizedFileId]: updatedRecord },
+    });
+    await writeJsonAtomic(getImageRecordsPath(projectPath), persistedRecords);
+    await touchProjectManifest(projectPath);
+    return parseProjectImageRecords(persistedRecords).imageRecords;
   });
 
 const collectSceneImageFileIds = (sceneJson: string) => {

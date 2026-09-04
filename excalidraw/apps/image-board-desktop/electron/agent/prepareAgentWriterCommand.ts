@@ -1,4 +1,5 @@
 import { handleAgentWriteCommand } from "../../src/app/agent/agentCommandWriteRuntime";
+import type { ParseMermaidDiagram } from "../../src/app/agent/agentDiagramCompiler";
 import type { DesktopProjectBundle } from "../../src/shared/desktopBridgeTypes";
 
 import type { LocalBridgeServerOptions } from "./localBridgeServer";
@@ -6,10 +7,12 @@ import type { LocalBridgeServerOptions } from "./localBridgeServer";
 export const createPrepareAgentWriterCommand =
   ({
     readProjectBundle,
+    parseMermaidDiagram,
   }: {
     readProjectBundle: (
       projectPath: string,
     ) => Promise<Omit<DesktopProjectBundle, "projectPath">>;
+    parseMermaidDiagram?: ParseMermaidDiagram;
   }): NonNullable<LocalBridgeServerOptions["prepareAgentWriterCommand"]> =>
   async ({ command, project, payload, context }) => {
     const bundle = await readProjectBundle(project.projectPath);
@@ -27,7 +30,9 @@ export const createPrepareAgentWriterCommand =
           projectPath: project.projectPath,
           ...bundle,
         },
-        deps: {},
+        deps: {
+          ...(parseMermaidDiagram ? { parseMermaidDiagram } : {}),
+        },
       },
     );
     if (!result.handled) {

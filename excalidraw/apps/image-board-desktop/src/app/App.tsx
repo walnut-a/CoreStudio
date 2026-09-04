@@ -599,7 +599,6 @@ const App = ({
   const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
   const appUpdate = useAppUpdate(desktopBridge);
   const [imageAssetSidebarOpen, setImageAssetSidebarOpen] = useState(false);
-  const [imageAssetGeneratedOnly, setImageAssetGeneratedOnly] = useState(false);
   const [isEditorInitializing, setIsEditorInitializing] = useState(false);
   const [projectRenderNonce, setProjectRenderNonce] = useState(0);
   const [inspectorDockOpen, setInspectorDockOpen] = useState(false);
@@ -650,6 +649,7 @@ const App = ({
         return;
       }
       const projectPath = project.projectPath;
+      imageAssetThumbnailStore.touch(projectPath, fileIds);
       const cached = imageAssetThumbnailStore.getSnapshot();
       const fileIdsToLoad = [...new Set(fileIds)].filter((fileId) => {
         const loadingKey = `${projectPath}\0${fileId}`;
@@ -715,9 +715,8 @@ const App = ({
       buildImageAssetItems({
         imageRecords: currentProject?.imageRecords,
         sceneImageFileIds,
-        generatedOnly: imageAssetGeneratedOnly,
       }),
-    [currentProject?.imageRecords, imageAssetGeneratedOnly, sceneImageFileIds],
+    [currentProject?.imageRecords, sceneImageFileIds],
   );
   const renderCanvasMinimap = useCallback(
     (
@@ -1163,6 +1162,29 @@ const App = ({
     getSelectedRecord: () => selectedRecord,
     copyText: clipboardTextRendererActions.copy,
   });
+
+  const renameSelectedImage = useCallback(
+    async (displayName: string | null) => {
+      const project = currentProjectRef.current;
+      const fileId = selectedRecord?.fileId;
+      if (!project || !fileId || !desktopBridge.updateImageRecordMetadata) {
+        return;
+      }
+      try {
+        const imageRecords = await desktopBridge.updateImageRecordMetadata({
+          projectPath: project.projectPath,
+          fileId,
+          displayName,
+        });
+        updateCurrentProject({ ...project, imageRecords });
+        setSelectedRecord(imageRecords[fileId] ?? null);
+      } catch (error) {
+        setProjectError(formatProjectSaveError(error));
+        throw error;
+      }
+    },
+    [desktopBridge, selectedRecord?.fileId, updateCurrentProject],
+  );
 
   const imageRecordLocatorRendererActions =
     createImageRecordLocatorRendererActions({
@@ -2861,6 +2883,18 @@ const App = ({
                     onCopyPrompt={() => {
                       void imageAssetRendererActions.copyPrompt();
                     }}
+                    onCopyImageId={() => {
+                      if (selectedRecord?.fileId) {
+                        void clipboardTextRendererActions.copy(
+                          selectedRecord.fileId,
+                        );
+                      }
+                    }}
+                    onRenameImage={
+                      desktopBridge.updateImageRecordMetadata
+                        ? renameSelectedImage
+                        : undefined
+                    }
                     onCopyTaskError={() => {
                       void generationErrorRendererActions.copyTaskError();
                     }}
@@ -2951,16 +2985,31 @@ const App = ({
               open={imageAssetSidebarOpen}
               onOpenChange={setImageAssetSidebarOpen}
               records={imageAssetItems}
-              generatedOnly={imageAssetGeneratedOnly}
-              onGeneratedOnlyChange={setImageAssetGeneratedOnly}
               selectedFileId={selectedRecord?.fileId}
               onVisibleFileIdsChange={loadVisibleImageAssetThumbnails}
               thumbnailProjectPath={currentProject.projectPath}
               thumbnailStore={imageAssetThumbnailStore}
               onSelectRecord={(fileId) => {
-                void imageRecordLocatorRendererActions.locateImageRecord(
-                  fileId,
+                const record = currentProject.imageRecords[fileId];
+                if (record) {
+                  setSelectedRecord(record);
+                  setSelectedTask(null);
+                  setInspectorDockOpen(true);
+                }
+                const item = imageAssetItems.find(
+                  (candidate) => candidate.fileId === fileId,
                 );
+                if (
+                  item?.statusLabels.some(
+                    (label) =>
+                      label === copy.agentUi.imageAsset.onBoard ||
+                      label === copy.agentUi.imageAsset.reference,
+                  )
+                ) {
+                  void imageRecordLocatorRendererActions.locateImageRecord(
+                    fileId,
+                  );
+                }
               }}
             />
           </div>

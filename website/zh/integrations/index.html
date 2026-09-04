@@ -50,13 +50,13 @@
       href="https://getcorestudio.com/integrations/"
     />
     <link rel="stylesheet" href="../../integrations.css?v=20260901-2" />
-    <script type="module" src="../../integrations.mjs?v=20260904-1"></script>
-    <script type="module" src="../../webmcp-adapter.mjs?v=20260904-1"></script>
+    <script type="module" src="../../integrations.mjs?v=20260904-2"></script>
+    <script type="module" src="../../webmcp-adapter.mjs?v=20260904-2"></script>
   </head>
   <body
     class="integration-page integration-page-zh"
     data-locale="zh-CN"
-    data-content-revision="20260904-1"
+    data-content-revision="20260904-2"
   >
     <a class="skip-link" href="#main">跳到安装指南</a>
 
@@ -349,8 +349,9 @@
               <div class="cli-command">
                 <code
                   >corestudio write image /absolute/path/result.png
-                  --source-type generated --origin agent-board --agent-session
-                  &lt;sessionRef&gt; --json</code
+                  --source-type generated --origin agent-board --prompt
+                  "&lt;finalPrompt&gt;" --agent-session &lt;sessionRef&gt;
+                  --json</code
                 >
                 <span
                   class="session-requirement"

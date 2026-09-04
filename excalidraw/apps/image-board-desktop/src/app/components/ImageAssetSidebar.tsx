@@ -9,8 +9,6 @@ import {
   type UIEvent,
 } from "react";
 
-import { Switch } from "@excalidraw/excalidraw/components/Switch";
-
 import type { ImageAssetListItem } from "../imageAssetViewModel";
 import type { ImageAssetThumbnailStore } from "../imageAssetThumbnailStore";
 import { copy } from "../copy";
@@ -22,8 +20,6 @@ interface ImageAssetSidebarProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   records: readonly ImageAssetListItem[];
-  generatedOnly: boolean;
-  onGeneratedOnlyChange: (value: boolean) => void;
   selectedFileId?: string | null;
   revealRequest?: { fileId: string; requestId: number } | null;
   onSelectRecord?: (fileId: string) => void;
@@ -33,7 +29,7 @@ interface ImageAssetSidebarProps {
   rootRef?: Ref<HTMLElement>;
 }
 
-const IMAGE_ASSET_ROW_HEIGHT = 48;
+const IMAGE_ASSET_ROW_HEIGHT = 64;
 const IMAGE_ASSET_DEFAULT_VISIBLE_ROWS = 12;
 const IMAGE_ASSET_OVERSCAN_ROWS = 6;
 const EMPTY_THUMBNAIL_SNAPSHOT: {
@@ -67,8 +63,6 @@ export const ImageAssetSidebar = ({
   open,
   onOpenChange,
   records,
-  generatedOnly,
-  onGeneratedOnlyChange,
   selectedFileId,
   revealRequest,
   onSelectRecord,
@@ -77,6 +71,8 @@ export const ImageAssetSidebar = ({
   thumbnailStore,
   rootRef,
 }: ImageAssetSidebarProps) => {
+  const [filter, setFilter] = useState<"all" | "generated" | "imported">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
   const revealTargetRef = useRef<HTMLButtonElement | null>(null);
   const revealRequestId = revealRequest?.requestId;
@@ -92,14 +88,25 @@ export const ImageAssetSidebar = ({
     scrollTop: 0,
     height: IMAGE_ASSET_ROW_HEIGHT * IMAGE_ASSET_DEFAULT_VISIBLE_ROWS,
   });
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
+  const filteredRecords = useMemo(
+    () =>
+      records.filter(
+        (record) =>
+          (filter === "all" || record.sourceType === filter) &&
+          (!normalizedSearchQuery ||
+            record.searchText.includes(normalizedSearchQuery)),
+      ),
+    [filter, normalizedSearchQuery, records],
+  );
   const { startIndex, endIndex } = getVirtualRange({
-    itemCount: records.length,
+    itemCount: filteredRecords.length,
     scrollTop: viewport.scrollTop,
     viewportHeight: viewport.height,
   });
   const visibleRecords = useMemo(
-    () => records.slice(startIndex, endIndex),
-    [endIndex, records, startIndex],
+    () => filteredRecords.slice(startIndex, endIndex),
+    [endIndex, filteredRecords, startIndex],
   );
   const visibleFileIds = useMemo(
     () => visibleRecords.map((record) => record.fileId),
@@ -115,7 +122,7 @@ export const ImageAssetSidebar = ({
   useLayoutEffect(() => {
     const maxScrollTop = Math.max(
       0,
-      records.length * IMAGE_ASSET_ROW_HEIGHT - viewport.height,
+      filteredRecords.length * IMAGE_ASSET_ROW_HEIGHT - viewport.height,
     );
     if (viewport.scrollTop <= maxScrollTop) {
       return;
@@ -124,7 +131,7 @@ export const ImageAssetSidebar = ({
       listRef.current.scrollTop = maxScrollTop;
     }
     setViewport((current) => ({ ...current, scrollTop: maxScrollTop }));
-  }, [records.length, viewport.height, viewport.scrollTop]);
+  }, [filteredRecords.length, viewport.height, viewport.scrollTop]);
 
   useEffect(() => {
     const list = listRef.current;
@@ -155,7 +162,7 @@ export const ImageAssetSidebar = ({
     if (revealRequestId === undefined || !revealRequest) {
       return;
     }
-    const index = records.findIndex(
+    const index = filteredRecords.findIndex(
       (record) => record.fileId === revealRequest.fileId,
     );
     const list = listRef.current;
@@ -168,7 +175,7 @@ export const ImageAssetSidebar = ({
     );
     list.scrollTop = nextScrollTop;
     setViewport((current) => ({ ...current, scrollTop: nextScrollTop }));
-  }, [records, revealRequest, revealRequestId, viewport.height]);
+  }, [filteredRecords, revealRequest, revealRequestId, viewport.height]);
 
   useEffect(() => {
     if (revealRequestId === undefined) {
@@ -197,18 +204,38 @@ export const ImageAssetSidebar = ({
       rootRef={rootRef}
     >
       <div className="image-asset-sidebar">
-        <label
-          className="image-asset-sidebar__filter"
-          htmlFor="image-assets-generated-only"
-        >
-          <span>{copy.agentUi.imageAssetFilterGeneratedOnly}</span>
-          <Switch
-            name="image-assets-generated-only"
-            checked={generatedOnly}
-            onChange={onGeneratedOnlyChange}
+        <div className="image-asset-sidebar__controls">
+          <input
+            type="search"
+            className="image-asset-sidebar__search"
+            aria-label={copy.agentUi.imageAssetSearch}
+            placeholder={copy.agentUi.imageAssetSearch}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
           />
-        </label>
-        {records.length ? (
+          <div
+            className="image-asset-sidebar__segments"
+            aria-label={copy.agentUi.imageAssetFilter}
+          >
+            {(
+              [
+                ["all", copy.agentUi.imageAssetFilterAll],
+                ["generated", copy.agentUi.imageAssetFilterGenerated],
+                ["imported", copy.agentUi.imageAssetFilterImported],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {filteredRecords.length ? (
           <div
             ref={listRef}
             className="image-asset-sidebar__list"
@@ -217,7 +244,9 @@ export const ImageAssetSidebar = ({
           >
             <div
               className="image-asset-sidebar__virtual-spacer"
-              style={{ height: records.length * IMAGE_ASSET_ROW_HEIGHT }}
+              style={{
+                height: filteredRecords.length * IMAGE_ASSET_ROW_HEIGHT,
+              }}
             >
               <div
                 className="image-asset-sidebar__virtual-window"
@@ -269,11 +298,32 @@ export const ImageAssetSidebar = ({
                       />
                     )}
                     <span className="image-asset-sidebar__item-body">
-                      <strong>{record.title}</strong>
-                      <span>
-                        {[record.meta, ...record.relationshipLabels]
-                          .filter(Boolean)
-                          .join(" · ")}
+                      <span className="image-asset-sidebar__item-heading">
+                        <strong>{record.title}</strong>
+                        <span className="image-asset-sidebar__badges">
+                          {record.statusLabels.map((label) => (
+                            <span
+                              key={label}
+                              className="image-asset-sidebar__badge"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </span>
+                      </span>
+                      <span className="image-asset-sidebar__meta">
+                        <span className="image-asset-sidebar__meta-context">
+                          {[
+                            record.timeLabel,
+                            record.sourceLabel,
+                            record.providerLabel,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                        <span className="image-asset-sidebar__meta-size">
+                          {record.sizeLabel}
+                        </span>
                       </span>
                     </span>
                   </button>

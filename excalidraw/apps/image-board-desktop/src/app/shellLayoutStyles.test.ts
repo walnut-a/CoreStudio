@@ -54,9 +54,9 @@ describe("CoreStudio shell layout styles", () => {
     const dockHeaderRule = getRule(sideDockCss, ".side-dock__header");
     const dockBodyRule = getRule(sideDockCss, ".side-dock__body");
     const assetRootRule = getRule(imageAssetCss, ".image-asset-sidebar");
-    const assetFilterRule = getRule(
+    const assetControlsRule = getRule(
       imageAssetCss,
-      ".image-asset-sidebar__filter",
+      ".image-asset-sidebar__controls",
     );
     const inspectorRootRule = getRule(inspectorCss, ".inspector-sidebar");
     const inspectorSectionHeaderRule = getRule(
@@ -82,8 +82,8 @@ describe("CoreStudio shell layout styles", () => {
     expect(dockBodyRule).toContain("background: var(--side-dock-content-bg)");
     expect(assetRootRule).toContain("var(--side-dock-content-padding-inline)");
     expect(assetRootRule).toContain("background: transparent");
-    expect(assetFilterRule).toContain(
-      "padding: 0 0 var(--side-dock-content-padding-block)",
+    expect(assetControlsRule).toContain(
+      "padding-bottom: var(--side-dock-content-padding-block)",
     );
     expect(inspectorRootRule).toContain("background: transparent");
     expect(inspectorSectionHeaderRule).toContain(

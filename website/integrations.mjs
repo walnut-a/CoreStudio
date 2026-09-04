@@ -6,7 +6,7 @@ import {
   getLocalizedContent,
   getTroubleshootingGuide,
   normalizeHost,
-} from "./integrations-content.mjs?v=20260904-1";
+} from "./integrations-content.mjs?v=20260904-2";
 
 const locale = document.body.dataset.locale ?? "en";
 const content = getLocalizedContent(locale);

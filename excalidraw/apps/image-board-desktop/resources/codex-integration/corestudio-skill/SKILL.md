@@ -62,7 +62,7 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 5. 按当前宿主附录建立 Agent session，再使用引用中的原值运行 `corestudio board claim --stable-board-id <stableBoardId> --page-nonce <pageNonce> --agent-session <sessionRef> --json`。三个宿主都显式保存并复用 `sessionRef`，不得把宿主对话 ID、任务标题、项目 token 或其他身份字段手工加入命令。
 6. CLI 返回 `claimed: true` 后，页面会自动继续换取短期房间会话。若当前任务有内置浏览器控制能力，找到已经打开且地址精确匹配 `http://127.0.0.1:60909/board/<stableBoardId>` 的原标签页，确认连接提示消失并出现可编辑画布；不要为验证另开页面。
 7. 无法控制原标签页时，认领后的 CLI 读写仍可继续；只把“页面是否已经进入画布”记为尚未做可视验收，不得改用浏览器写入。
-8. CLI 失败时保留原始错误码、消息和 details。`PROJECT_MISMATCH`、无效 nonce 或已关闭页面都按连接引用失效处理，请用户回到原画布页面重新复制连接指令；不要猜测或生成替代 nonce。
+8. CLI 失败时保留原始错误码、消息和 details。`PROJECT_MISMATCH`、无效 nonce 或已关闭页面都按连接引用失效处理，请用户回到原画布页面重新复制连接指令；不要猜测或生成替代 nonce。`AGENT_TARGET_REQUIRED` 表示当前 session 尚未完成认领或 Bridge 重启后绑定已清除，应复用原稳定 Board 的真实运行态重新认领，绝不能回退到桌面当前项目。
 
 ## 打开入口
 
@@ -89,7 +89,7 @@ CoreStudio 是本机项目数据的唯一所有者。所有画布和图片读写
 10. 如果当前任务没有实际浏览器控制工具，向用户提供稳定的一键链接，并说明当前任务无法读取页面 nonce、因此尚未建立可编辑协作身份。不要改用一次性票据，也不要在正文中展示任何令牌。
 11. 不要擅自改用 Chrome 或系统默认浏览器。只有用户明确允许时，才使用其他浏览器。
 12. 需要完整画布、选区、图片记录或健康状态时，再分别使用 `corestudio read board --json`、`corestudio read selection --json`、`corestudio read records --json`、`corestudio read health --json`。
-13. 只有在没有发现会话，或沙箱外单次重试仍失败时，才请用户检查 CoreStudio 和 Agent Bridge 状态。保留 CLI 的原始错误码、消息和详情。遇到 `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED` 或 `PROJECT_MISMATCH` 时不要重试旧房间写入；请用户重新打开或重新绑定目标项目。
+13. 只有在没有发现会话，或沙箱外单次重试仍失败时，才请用户检查 CoreStudio 和 Agent Bridge 状态。保留 CLI 的原始错误码、消息和详情。遇到 `AGENT_TARGET_REQUIRED` 时复用原稳定 Board 重新认领；遇到 `ROOM_CLOSING`、`ROOM_CLOSED`、`SESSION_EPOCH_EXPIRED` 或 `PROJECT_MISMATCH` 时不要重试旧房间写入，请重新建立目标绑定。
 
 ## 写回
 
@@ -118,10 +118,10 @@ corestudio generate image \
 
 - 流程图、时序图、类图或 ER 图优先写成 Mermaid 文件，再使用 `corestudio write diagram --format mermaid --file <absolute-path> --anchor auto` 写回。CoreStudio 会在本机转换为可编辑原生图元并通过 Project Room 原子写入；不要渲染成图片，也不要直接生成或修改 `scene.excalidraw.json`。需要只验证语法和布局时追加 `--dry-run`。
 - `--anchor auto` 优先放在当前选区旁，无选区时使用当前画布视口；只有用户明确要求忽略选区时使用 `viewport`，明确要求紧邻选区且选区存在时可使用 `selection`。
-- Agent 自身生成图片后使用 `corestudio write image <path...> --source-type generated --origin agent-board --agent-session <sessionRef>` 写回，并保留 prompt、reference file ids 和 reference element ids。只有符合上方授权条件时，才改用 `corestudio generate image` 调用 CoreStudio 当前配置。
-- 同一轮任务生成多张图片时，先收集本轮所有成功落盘的图片，再把多个路径放在同一条 `corestudio write image` 命令中一次性写回。不要逐张流式写回，也不要自行计算每张图的位置；CoreStudio 会把这一批结果作为一个整体，使用当前参考元素和统一画布布局规则放置。某张生成失败只排除该张，不影响其余成功结果组成批次。
+- Agent 自身生成图片后使用 `corestudio write image <path...> --source-type generated --origin agent-board --prompt <prompt> --agent-session <sessionRef>` 写回。有提示词时，`--prompt` 必须保存实际传给图片生成模型的最终提示词，包括生成工具实际使用的翻译或扩写结果，不要把它改写成标题或摘要。确实没有提示词，或生成工具没有返回最终提示词时，允许省略 `--prompt`；不得根据用户需求自行猜测或补写提示词。reference file ids 和 reference element ids 同样按实际使用情况保留。只有符合上方授权条件时，才改用 `corestudio generate image` 调用 CoreStudio 当前配置。
+- 同一次生成调用使用同一提示词得到多张图片时，先收集所有成功落盘的图片，再把多个路径和这条实际提示词放在同一条 `corestudio write image` 命令中一次性写回。不同最终提示词产生的图片应按提示词分别提交，避免给图片记录错误的生成上下文。不要逐张流式写回同一提示词的结果，也不要自行计算每张图的位置；CoreStudio 会把同批结果作为一个整体，使用当前参考元素和统一画布布局规则放置。某张生成失败只排除该张，不影响其余同提示词成功结果组成批次。
 - Agent 搜索或下载得到的图片使用 `corestudio write image <path> --source-type imported` 写回；图片必须先由 Agent 保存到本地，CoreStudio 不负责联网获取。
-- 图片文件名跟随用户当前使用的语言。用户使用中文交互时，使用简洁、可辨认的中文文件名；用户使用其他语言时使用对应语言；用户明确指定名称时优先采用指定名称，不要在中文任务中写入 `generated-image-1.png` 一类泛化英文名。`--prompt` 会作为图片资产中的可见标题时，也应保存用户语言下的简洁描述；模型内部使用的翻译提示词不应替代这个用户可见标题。
+- 图片文件名跟随用户当前使用的语言。用户使用中文交互时，使用简洁、可辨认的中文文件名；用户使用其他语言时使用对应语言；用户明确指定名称时优先采用指定名称，不要在中文任务中写入 `generated-image-1.png` 一类泛化英文名。文件名负责辨认图片，`--prompt` 负责保存实际生成上下文，两者不要互相替代。
 - 定位和选择已有元素使用 `corestudio edit locate` / `corestudio edit select`。
 - 每次写回都向用户报告 CLI 返回的 imageId、elementId、frameId 或 prompt id；房间模式下同时检查 `operationId`、`roomId`、`roomSequence`、`persistedSequence` 和 `persisted`。
 - `persisted: true` 才表示这次写入已经进入项目文件。只有 `roomSequence` 而没有对应 `persistedSequence` 时，按“已同步但尚未保存”处理，不能向用户报告完成。

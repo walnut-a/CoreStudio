@@ -55,6 +55,7 @@ describe("WelcomePane", () => {
 
   it("shows Agent-active projects independently from recent projects and opens one on demand", () => {
     const onOpenAgentProject = vi.fn();
+    const onReloadRecentProjects = vi.fn();
 
     render(
       <WelcomePane
@@ -82,6 +83,7 @@ describe("WelcomePane", () => {
         onCreateProject={vi.fn()}
         onOpenProject={vi.fn()}
         onOpenAgentProject={onOpenAgentProject}
+        onReloadRecentProjects={onReloadRecentProjects}
       />,
     );
 
@@ -91,6 +93,22 @@ describe("WelcomePane", () => {
     expect(within(section).getByText("正在工作")).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "三步开始创作" }),
+    ).not.toBeInTheDocument();
+    const projectsSection = screen.getByRole("region", { name: "项目列表" });
+    expect(
+      within(projectsSection).getByRole("heading", {
+        name: "还没有最近项目",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(projectsSection).getByText(
+        "手动打开过的项目会显示在这里；Agent 使用中的项目可直接从上方打开。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(projectsSection).queryByRole("button", {
+        name: "重新加载项目列表",
+      }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(within(section).getByRole("button", { name: "打开查看" }));

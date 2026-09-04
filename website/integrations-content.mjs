@@ -1,4 +1,4 @@
-export const CONTENT_REVISION = "20260904-1";
+export const CONTENT_REVISION = "20260904-2";
 export const SUPPORTED_HOSTS = ["codex", "cursor", "claude-code"];
 export const LOCALES = ["en", "zh-CN"];
 
@@ -349,13 +349,14 @@ const CLI_TASKS = {
   },
   "write-image": {
     command:
-      "corestudio write image /absolute/path/result.png --source-type generated --origin agent-board --agent-session <sessionRef> --json",
+      'corestudio write image /absolute/path/result.png --source-type generated --origin agent-board --prompt "<finalPrompt>" --agent-session <sessionRef> --json',
     requiresCoreStudioRunning: true,
     requiresOpenProject: false,
     requiresAgentSession: true,
     purpose: {
-      en: "Write an existing local generated image through CoreStudio validation and persistence.",
-      "zh-CN": "通过 CoreStudio 校验和持久化写回一张已存在的本地生成图片。",
+      en: "Write an existing local generated image and its actual final prompt through CoreStudio validation and persistence; omit the prompt only when none is available.",
+      "zh-CN":
+        "通过 CoreStudio 校验和持久化写回本地生成图片及其实际最终提示词；确实没有提示词时可以省略。",
     },
   },
   "write-diagram": {

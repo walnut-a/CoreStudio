@@ -13,11 +13,11 @@ export interface ImageAssetThumbnailStore {
     projectPath: string,
     assets: readonly ProjectAssetPayload[],
   ) => void;
-  merge: (
-    projectPath: string,
-    assets: readonly ProjectAssetPayload[],
-  ) => void;
+  merge: (projectPath: string, assets: readonly ProjectAssetPayload[]) => void;
+  touch: (projectPath: string, fileIds: readonly string[]) => void;
 }
+
+export const IMAGE_ASSET_THUMBNAIL_CACHE_LIMIT = 96;
 
 const buildDataUrls = (assets: readonly ProjectAssetPayload[]) =>
   Object.fromEntries(
@@ -27,7 +27,11 @@ const buildDataUrls = (assets: readonly ProjectAssetPayload[]) =>
     ]),
   );
 
-export const createImageAssetThumbnailStore = (): ImageAssetThumbnailStore => {
+export const createImageAssetThumbnailStore = ({
+  maxEntries = IMAGE_ASSET_THUMBNAIL_CACHE_LIMIT,
+}: { maxEntries?: number } = {}): ImageAssetThumbnailStore => {
+  const normalizedMaxEntries = Math.max(1, Math.floor(maxEntries));
+  const recentDataUrls = new Map<string, string>();
   let snapshot: ImageAssetThumbnailSnapshot = {
     projectPath: null,
     dataUrls: {},
@@ -36,6 +40,25 @@ export const createImageAssetThumbnailStore = (): ImageAssetThumbnailStore => {
   const publish = (next: ImageAssetThumbnailSnapshot) => {
     snapshot = next;
     listeners.forEach((listener) => listener());
+  };
+  const publishRecentDataUrls = (projectPath: string) => {
+    publish({
+      projectPath,
+      dataUrls: Object.fromEntries(recentDataUrls),
+    });
+  };
+  const addRecentAssets = (assets: readonly ProjectAssetPayload[]) => {
+    for (const [fileId, dataUrl] of Object.entries(buildDataUrls(assets))) {
+      recentDataUrls.delete(fileId);
+      recentDataUrls.set(fileId, dataUrl);
+    }
+    while (recentDataUrls.size > normalizedMaxEntries) {
+      const oldestFileId = recentDataUrls.keys().next().value;
+      if (oldestFileId === undefined) {
+        break;
+      }
+      recentDataUrls.delete(oldestFileId);
+    }
   };
 
   return {
@@ -51,21 +74,36 @@ export const createImageAssetThumbnailStore = (): ImageAssetThumbnailStore => {
       ) {
         return;
       }
+      recentDataUrls.clear();
       publish({ projectPath, dataUrls: {} });
     },
     replace: (projectPath, assets) => {
-      publish({ projectPath, dataUrls: buildDataUrls(assets) });
+      recentDataUrls.clear();
+      addRecentAssets(assets);
+      publishRecentDataUrls(projectPath);
     },
     merge: (projectPath, assets) => {
       if (assets.length === 0) {
         return;
       }
-      const currentDataUrls =
-        snapshot.projectPath === projectPath ? snapshot.dataUrls : {};
-      publish({
-        projectPath,
-        dataUrls: { ...currentDataUrls, ...buildDataUrls(assets) },
-      });
+      if (snapshot.projectPath !== projectPath) {
+        recentDataUrls.clear();
+      }
+      addRecentAssets(assets);
+      publishRecentDataUrls(projectPath);
+    },
+    touch: (projectPath, fileIds) => {
+      if (snapshot.projectPath !== projectPath) {
+        return;
+      }
+      for (const fileId of fileIds) {
+        const dataUrl = recentDataUrls.get(fileId);
+        if (dataUrl === undefined) {
+          continue;
+        }
+        recentDataUrls.delete(fileId);
+        recentDataUrls.set(fileId, dataUrl);
+      }
     },
   };
 };

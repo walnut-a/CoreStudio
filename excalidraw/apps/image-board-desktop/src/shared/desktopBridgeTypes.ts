@@ -60,6 +60,7 @@ export const IPC_CHANNELS = {
   inspectProjectHealth: "image-board:inspect-project-health",
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
   persistImageAssets: "image-board:persist-image-assets",
+  updateImageRecordMetadata: "image-board:update-image-record-metadata",
   beginImageWriteback: "image-board:begin-image-writeback",
   commitImageWriteback: "image-board:commit-image-writeback",
   rollbackImageWriteback: "image-board:rollback-image-writeback",
@@ -395,6 +396,7 @@ export interface CleanProjectCacheResult {
 }
 
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
+  sourceFileName?: string;
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
   generationSource?: GenerationSource;
@@ -527,6 +529,11 @@ export interface DesktopBridgeApi {
   persistImageAssets(input: {
     projectPath: string;
     files: PersistedImageAssetInput[];
+  }): Promise<ImageRecordMap>;
+  updateImageRecordMetadata?(input: {
+    projectPath: string;
+    fileId: string;
+    displayName: string | null;
   }): Promise<ImageRecordMap>;
   beginImageWriteback(input: {
     projectPath: string;

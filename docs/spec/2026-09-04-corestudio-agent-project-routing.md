@@ -240,7 +240,7 @@ Agent 不需要在每条命令中传 `--project`。CLI 通过当前 `agentSessio
 ### 结构化错误
 
 - `AGENT_TARGET_REQUIRED`：当前 Agent session 尚未认领 Board。
-- `AGENT_TARGET_EXPIRED`：客户端重启、session 或绑定已经失效，需要自动重新认领。
+- `AUTH_REQUIRED`：客户端或 Bridge 重启后旧 session 已失效，需要重新建立 session 并认领原稳定 Board。
 - `AGENT_TARGET_PROJECT_UNAVAILABLE`：绑定项目已经移动、删除或不可读取。
 - `AGENT_TARGET_ROOM_CHANGED`：目标房间或 session epoch 已变化，旧命令不得继续提交。
 - `PROJECT_OPEN_IN_ANOTHER_APP`：目标项目由另一个 CoreStudio 进程持有。
@@ -327,6 +327,17 @@ Skill 应明确禁止 Agent 通过浏览器粘贴完成本地文件写回。绑�
 
 这不是只改桌面源码的补丁，而是一组必须同步交付的 Agent integration 变更。发版批次包含：
 
+| 项目                   | 版本     |
+| ---------------------- | -------- |
+| CoreStudio Desktop     | `1.1.45` |
+| Agent integration      | `2.1.1`  |
+| Bridge protocol        | `7`      |
+| Agent Skill            | `20`     |
+| Agent CLI wrapper      | `2`      |
+| 兼容 Codex integration | `1.13.1` |
+| 兼容 Codex Skill       | `19`     |
+| 兼容 Codex CLI wrapper | `1`      |
+
 - CoreStudio Desktop：绑定 store、target resolver、Project Room 后台路由和结构化错误。
 - Local Bridge / CLI：全部项目级命令改用统一目标解析，补齐批次写入与持久化回执。
 - Codex、Cursor、Claude Code Skill：删除“项目不一致时切换标签或浏览器粘贴”的旧指引，改为自动 claim、恢复绑定和一次安全重试。
@@ -336,24 +347,24 @@ Skill 应明确禁止 Agent 通过浏览器粘贴完成本地文件写回。绑�
 
 ### 同步发布矩阵
 
-| 交付面 | 必须同步的内容 | 完成证据 |
-| --- | --- | --- |
-| Local Bridge | 可信 Agent 请求统一经过 `AgentTargetResolver`；Project Room 不依赖人用标签或 renderer；提供 `agentActiveProjects` 实时状态 | 无标签项目可持续读写；Home 状态与 room presence 一致 |
-| CLI | 全部项目级命令按 Agent session 的 Board 绑定路由；`read project` 返回 `targetSource: claimed-board`；补齐绑定失效错误和批次持久化回执 | 桌面 A / Agent B、无桌面标签、双任务双项目 CLI 合同测试通过 |
-| Codex Skill | 删除 `PROJECT_MISMATCH`、要求切换桌面标签和浏览器粘贴兜底；改为 claim、绑定恢复、CLI 批次写入和原 Board 可见性验收 | 新 Codex 任务只需客户端运行即可完成目标项目写入 |
-| Cursor / Claude Code Skill | 与 Codex 共用同一项目路由和关闭语义，只保留各宿主 session 建立差异 | 三套生成 Skill 的通用规则合同测试一致 |
-| 集成安装与升级 | 应用包携带新版 CLI 和三套 Skill；设置页能检测旧版本并执行更新或修复；用户修改过的 Skill 仍遵守冲突保护 | 从上一发布版升级后，实际安装文件、manifest、hash 和版本合同一致 |
-| 桌面客户端 | Home 增加“Agent 正在使用”；点击后才打开人用标签；关闭标签不再提示 Agent 占用或关闭 Agent 房间 | 开发版和安装包完成无标签协作、打开查看、关闭后继续写入验收 |
-| 仓库用户文档 | 同步 CLI contract、Agent 架构原则、多宿主集成计划、用户指南和 `docs/codex-integration.md` | 文档内不存在旧项目目标、旧关闭语义和浏览器写回指引 |
-| 官网 Agent 集成中心 | 中英文教程、首次使用、CLI 示例、工作原理和故障排查同步为新语义；WebMCP 返回同一内容源 | 官网内容合同、链接、CLI 示例与中英文页面测试通过 |
-| 版本合同 | 必须提升 Agent integration version；若 Bridge 请求、响应或错误合同不兼容则同步提升 protocol；官网内容 revision 跟随更新 | 运行时常量、包内 `contract.json`、安装 manifest、CLI version 与官网兼容信息一致 |
+| 交付面                     | 必须同步的内容                                                                                                                        | 完成证据                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Local Bridge               | 可信 Agent 请求统一经过 `AgentTargetResolver`；Project Room 不依赖人用标签或 renderer；提供 `agentActiveProjects` 实时状态            | 无标签项目可持续读写；Home 状态与 room presence 一致                            |
+| CLI                        | 全部项目级命令按 Agent session 的 Board 绑定路由；`read project` 返回 `targetSource: claimed-board`；补齐绑定失效错误和批次持久化回执 | 桌面 A / Agent B、无桌面标签、双任务双项目 CLI 合同测试通过                     |
+| Codex Skill                | 删除 `PROJECT_MISMATCH`、要求切换桌面标签和浏览器粘贴兜底；改为 claim、绑定恢复、CLI 批次写入和原 Board 可见性验收                    | 新 Codex 任务只需客户端运行即可完成目标项目写入                                 |
+| Cursor / Claude Code Skill | 与 Codex 共用同一项目路由和关闭语义，只保留各宿主 session 建立差异                                                                    | 三套生成 Skill 的通用规则合同测试一致                                           |
+| 集成安装与升级             | 应用包携带新版 CLI 和三套 Skill；设置页能检测旧版本并执行更新或修复；用户修改过的 Skill 仍遵守冲突保护                                | 从上一发布版升级后，实际安装文件、manifest、hash 和版本合同一致                 |
+| 桌面客户端                 | Home 增加“Agent 正在使用”；点击后才打开人用标签；关闭标签不再提示 Agent 占用或关闭 Agent 房间                                         | 开发版和安装包完成无标签协作、打开查看、关闭后继续写入验收                      |
+| 仓库用户文档               | 同步 CLI contract、Agent 架构原则、多宿主集成计划、用户指南和 `docs/codex-integration.md`                                             | 文档内不存在旧项目目标、旧关闭语义和浏览器写回指引                              |
+| 官网 Agent 集成中心        | 中英文教程、首次使用、CLI 示例、工作原理和故障排查同步为新语义；WebMCP 返回同一内容源                                                 | 官网内容合同、链接、CLI 示例与中英文页面测试通过                                |
+| 版本合同                   | 必须提升 Agent integration version；若 Bridge 请求、响应或错误合同不兼容则同步提升 protocol；官网内容 revision 跟随更新               | 运行时常量、包内 `contract.json`、安装 manifest、CLI version 与官网兼容信息一致 |
 
 ### CLI 文档口径
 
 - 用户前提只有“CoreStudio 客户端正在运行、Agent Bridge 已启用、当前任务已认领目标 Board”。
 - 不再把桌面 `currentProject`、已打开标签或项目名称比对写成命令前置条件。
 - `read status` 中的桌面当前项目只能作为 UI 诊断信息；所有项目级示例必须通过 Agent session 展示绑定目标。
-- 故障排查围绕 `AGENT_TARGET_REQUIRED`、`AGENT_TARGET_EXPIRED`、项目不可用和房间变化，不再提供切换标签或浏览器粘贴的恢复步骤。
+- 故障排查围绕 `AGENT_TARGET_REQUIRED`、`AUTH_REQUIRED`、项目不可用和房间变化，不再提供切换标签或浏览器粘贴的恢复步骤。
 - 图片写入示例使用一条 CLI 批量传入全部文件，并检查每个返回 ID 与 `persisted: true`。
 
 ### Skill 口径
@@ -422,9 +433,11 @@ Skill 应明确禁止 Agent 通过浏览器粘贴完成本地文件写回。绑�
 - **重试造成重复写入**：写入沿用 `operationId` 与事务幂等边界，只有绑定恢复完成且原请求未被房间接受时才能重试。
 - **多宿主规则漂移**：通用 target contract 只维护一份，各宿主 Skill 只负责 session 建立和页面控制差异。
 
-## 待确认问题
+## 实现决策
 
-暂无产品阻塞项。进入技术设计时需要确认两点实现选择，但不得改变上述产品行为：
+暂无产品阻塞项。1.1.45 采用以下实现边界：
 
-1. Agent 目标绑定使用独立 store，还是由现有 claim store 发出事件后交给独立 resolver 保存。
-2. 人工 CLI 是否继续兼容桌面当前项目，或后续也改为显式项目绑定。
+1. Agent 目标绑定使用独立进程内 store，由 Board claim / exchange 成功事件写入，项目级命令经统一 resolver 解析。
+2. 可信 Agent session 不再兼容桌面当前项目；没有可信 Agent 身份的人工 CLI 调试暂时保留原行为。
+3. 图片写入允许附带可选生成提示词；有提示词时随图片资产持久化并在属性面板展示，没有时保持为空。
+4. 资产列表只渲染轻量摘要和受控缩略图，内部 ID 留在属性详情或诊断信息中，不进入默认列表副标题。

@@ -103,7 +103,7 @@ test("CLI examples state their runtime requirements", () => {
   assert.equal(writeImage.requiresAgentSession, true);
   assert.match(
     writeImage.command,
-    /--origin agent-board --agent-session <sessionRef> --json$/
+    /--origin agent-board --prompt "<finalPrompt>" --agent-session <sessionRef> --json$/
   );
   assert.ok(writeImage.safetyNotes.some((note) => note.includes("browser")));
 });

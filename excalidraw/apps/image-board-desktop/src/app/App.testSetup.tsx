@@ -313,6 +313,7 @@ const createDesktopBridgeMock = (overrides: Record<string, unknown> = {}) => {
       skippedFileCount: 0,
     }),
     persistImageAssets: vi.fn().mockResolvedValue({}),
+    updateImageRecordMetadata: vi.fn().mockResolvedValue({}),
     importImages: vi.fn().mockResolvedValue([]),
     readClipboardImage: vi.fn().mockResolvedValue(null),
     revealProjectInFinder: vi.fn().mockResolvedValue(undefined),

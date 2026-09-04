@@ -1,0 +1,87 @@
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  margin: 0;
+}
+
+.asset-lab {
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--color-surface-lowest);
+  color: var(--text-primary-color);
+  font-family: var(--ui-font);
+}
+
+.asset-lab__header {
+  position: fixed;
+  inset: 24px 324px auto;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.asset-lab__header h1,
+.asset-lab__header p,
+.asset-lab__header span {
+  margin: 0;
+}
+
+.asset-lab__header p {
+  color: var(--color-primary);
+  font-size: var(--ui-text-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+}
+
+.asset-lab__header h1 {
+  margin: 6px 0;
+  font-size: 24px;
+}
+
+.asset-lab__header span {
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-md);
+}
+
+.asset-lab__header button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--default-border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--island-bg-color);
+  color: var(--text-primary-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.asset-lab__canvas {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 120px 340px;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--default-border-color) 70%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+}
+
+.asset-lab__canvas p {
+  max-width: 360px;
+  color: var(--corestudio-secondary-text-color);
+  font-size: var(--ui-text-size-lg);
+  line-height: var(--ui-line-height-relaxed);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .asset-lab__header {
+    inset-inline: 24px;
+  }
+}

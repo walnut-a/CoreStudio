@@ -218,7 +218,11 @@ node --test website/update-manifest-contract.test.mjs
 - 关闭人的项目标签只关闭人的视图，不再显示“Agent 正在使用”确认，也不会关闭 Agent session 或 Project Room；正常保存失败保护保持不变
 - Home 新增“Agent 正在使用”区域，展示未打开或不在最近列表中的 Agent 项目、连接状态和任务；用户可自主点击“打开查看”
 - Agent Board 闲置或 CoreStudio 重启导致房间 HTTP 凭证失效时，页面统一进入“画板连接已断开”恢复态并提示手动刷新，不再把 `AUTH_REQUIRED`、`TOKEN_EXPIRED` 或英文协议错误交给通用错误弹窗
-- Agent integration 提升到 `2.1.0 / Bridge protocol 7 / Skill 19 / CLI wrapper 2`；兼容 Codex integration 提升到 `1.13.0 / Skill 18 / CLI wrapper 1`
+- Agent 自身生成图片后，有实际提示词时必须把真正传给生成模型的最终提示词随 `write image --prompt` 一并写入图片记录；没有或生成工具未返回提示词时允许留空，不得猜测补写
+- 资产列表改为展示项目内全部图片，并提供搜索、生成/导入筛选、画布中/参考图/未使用状态；名称优先使用用户命名或源文件名，尺寸固定显示为整数像素，ID、路径和 MIME 等技术字段收进可展开详情
+- 资产详情支持单独重命名，元数据通过项目写回锁和原子写入更新；精确 ID 仍可用于搜索和复制，但不再占据列表主信息层级
+- 资产列表保持虚拟滚动和按可见项读取缩略图，并为缩略图内存缓存增加 96 项 LRU 上限；日期格式器与排序时间复用，避免大项目重复构造昂贵格式化对象
+- Agent integration 提升到 `2.1.1 / Bridge protocol 7 / Skill 20 / CLI wrapper 2`；兼容 Codex integration 提升到 `1.13.1 / Skill 19 / CLI wrapper 1`
 - 同步更新 Codex、Cursor、Claude Code Skill、CLI 合同、安装/升级检测、仓库文档和官网中英文 Agent 集成指南
 
 本次更新不改变 CoreStudio 项目文件格式，也不会在 Agent 连接时自动创建或切换人的标签页。

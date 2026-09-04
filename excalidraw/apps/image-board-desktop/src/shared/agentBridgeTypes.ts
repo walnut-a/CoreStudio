@@ -196,6 +196,7 @@ export interface AgentRendererCommandResponse {
 export const AGENT_ERROR_CODES = [
   "APP_NOT_READY",
   "ACTOR_CLAIM_REQUIRED",
+  "AGENT_TARGET_REQUIRED",
   "AUTH_REQUIRED",
   "AUTH_DENIED",
   "BAD_REQUEST",

@@ -96,6 +96,11 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain("按实际解析结果重新计算数量和类型");
     expect(corestudioSkill).toContain("默认写回下方规则确认的目标项目");
     expect(corestudioSkill).toContain("图片文件名跟随用户当前使用的语言");
+    expect(corestudioSkill).toContain("实际传给图片生成模型的最终提示词");
+    expect(corestudioSkill).toContain(
+      "确实没有提示词，或生成工具没有返回最终提示词时，允许省略 `--prompt`",
+    );
+    expect(corestudioSkill).toContain("不得根据用户需求自行猜测或补写提示词");
     expect(corestudioSkill).toContain(
       "用户使用中文交互时，使用简洁、可辨认的中文文件名",
     );
@@ -132,6 +137,12 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain("### Write An Agent Image Batch");
     expect(cliContract).toContain("files[]");
     expect(cliContract).toContain("--origin agent-board");
+    expect(cliContract).toContain(
+      "有实际生成提示词时必须通过 `--prompt` 一并提交",
+    );
+    expect(cliContract).toContain(
+      "没有提示词或生成工具未返回最终提示词时可以省略",
+    );
     expect(cliContract).toContain("read projects --json");
     expect(cliContract).toContain(
       "read board-url --project <projectPath> --json",

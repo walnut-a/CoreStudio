@@ -70,6 +70,7 @@ import {
   readProjectBundle,
   readProjectManifestSnapshot,
   rebuildProjectThumbnails,
+  updateProjectImageRecordMetadata,
   writeProjectScene,
 } from "./projectFs";
 import {
@@ -96,6 +97,7 @@ import { createAgentImageGenerationService } from "./agent/agentImageGenerationS
 import { createLocalAgentSessionStore } from "./agent/localAgentSessionStore";
 import { createAgentProjectBindingStore } from "./agent/agentProjectBindingStore";
 import { createPrepareAgentWriterCommand } from "./agent/prepareAgentWriterCommand";
+import { createAgentDiagramRendererParser } from "./agent/agentDiagramRenderer";
 import { buildDesktopAgentActiveProjects } from "./agent/agentActiveProjects";
 import { createReadAgentProjectCommand } from "./agent/readAgentProjectCommand";
 import { buildAgentBoardUrl } from "./agent/agentBoardUrl";
@@ -209,6 +211,7 @@ const desktopRuntime = resolveDesktopRuntimeConfig({
   userDataPath: app.getPath("userData"),
 });
 process.env.CORESTUDIO_SETTINGS_DIRECTORY = desktopRuntime.settingsDirectory;
+const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
 
 let mainWindow: BrowserWindow | null = null;
 let currentRecentProjects: RecentProjectEntry[] = [];
@@ -258,8 +261,23 @@ const projectRoomService = createProjectRoomService({
   writeProjectScene,
   projectProcessLeaseRegistry,
 });
+const parseAgentMermaidDiagram = createAgentDiagramRendererParser({
+  createWindow: () =>
+    new BrowserWindow({
+      show: false,
+      webPreferences: {
+        backgroundThrottling: false,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    }),
+  rendererUrl,
+  packagedWorkerPath: path.join(__dirname, "..", "dist", "diagram-worker.html"),
+});
 const prepareAgentWriterCommand = createPrepareAgentWriterCommand({
   readProjectBundle,
+  parseMermaidDiagram: parseAgentMermaidDiagram,
 });
 const readAgentProjectCommand = createReadAgentProjectCommand({
   readProjectBundle,
@@ -544,7 +562,6 @@ const pendingProjectRoomFlushes = new Map<
   }
 >();
 
-const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? null;
 const desktopWindowTitle = resolveDesktopWindowTitle({
   appName: desktopRuntime.appName,
   configuredTitle: process.env.CORESTUDIO_WINDOW_TITLE,
@@ -742,16 +759,22 @@ const getAgentActiveProjects = (): DesktopAgentActiveProject[] =>
 
 const publishAgentActiveProjects = () => {
   if (
+    localBridgeCleanupStarted ||
     !mainWindow ||
     mainWindow.isDestroyed() ||
     mainWindow.webContents.isDestroyed()
   ) {
     return;
   }
-  mainWindow.webContents.send(
-    IPC_CHANNELS.agentActiveProjectsChanged,
-    getAgentActiveProjects(),
-  );
+  try {
+    mainWindow.webContents.send(
+      IPC_CHANNELS.agentActiveProjectsChanged,
+      getAgentActiveProjects(),
+    );
+  } catch {
+    // The room may publish its final lifecycle event after the shell frame has
+    // already detached during app shutdown. There is no renderer left to sync.
+  }
 };
 
 const observeAgentProjectRoom = (room: ProjectRoom) => {
@@ -2712,6 +2735,22 @@ const registerIpcHandlers = () => {
     requireProjectRendererSender(event.sender, input.projectPath);
     return persistAndPublishProjectRoomAssets(input);
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.updateImageRecordMetadata,
+    async (event, input) => {
+      requireProjectRendererSender(event.sender, input.projectPath);
+      const imageRecords = await updateProjectImageRecordMetadata(input);
+      const room = await projectRoomService.findOpenRoom(input.projectPath);
+      if (
+        room &&
+        (room.lifecycle === "active" || room.lifecycle === "storage-error")
+      ) {
+        room.publishAssetRecords(imageRecords);
+      }
+      return imageRecords;
+    },
+  );
 
   ipcMain.handle(IPC_CHANNELS.beginImageWriteback, async (event, input) => {
     requireProjectRendererSender(event.sender, input.projectPath);

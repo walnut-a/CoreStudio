@@ -1,6 +1,11 @@
-import { newTextElement } from "@excalidraw/element/newElement";
+import { DEFAULT_FONT_FAMILY, getLineHeight } from "@excalidraw/common";
+import { newElement, newTextElement } from "@excalidraw/element/newElement";
 
-import type { ExcalidrawElement } from "@excalidraw/element/types";
+import type {
+  ExcalidrawElement,
+  ExcalidrawTextElement,
+  NonDeleted,
+} from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 
 import type {
@@ -19,6 +24,58 @@ type SceneLike = {
 type Point = {
   x: number;
   y: number;
+};
+
+const normalizeAgentPromptText = (text: string) =>
+  text.replace(/\r\n?/g, "\n").replace(/\t/g, "        ");
+
+const createAgentPromptTextElementWithoutDom = ({
+  text,
+  point,
+}: {
+  text: string;
+  point: Point;
+}): NonDeleted<ExcalidrawTextElement> => {
+  const normalizedText = normalizeAgentPromptText(text);
+  const fontSize = 24;
+  const fontFamily = DEFAULT_FONT_FAMILY;
+  const lineHeight = getLineHeight(fontFamily);
+  const lines = normalizedText.split("\n");
+  const width = Math.max(
+    fontSize,
+    ...lines.map((line) =>
+      Array.from(line).reduce(
+        (current, character) =>
+          current + (/[^\u0000-\u00ff]/.test(character) ? fontSize : 14.4),
+        0,
+      ),
+    ),
+  );
+  const height = Math.max(
+    fontSize * lineHeight,
+    lines.length * fontSize * lineHeight,
+  );
+  const base = newElement({
+    type: "rectangle",
+    x: point.x,
+    y: point.y,
+    width,
+    height,
+  });
+
+  return {
+    ...base,
+    type: "text",
+    text: normalizedText,
+    fontSize,
+    fontFamily,
+    textAlign: "left",
+    verticalAlign: "top",
+    containerId: null,
+    originalText: normalizedText,
+    autoResize: true,
+    lineHeight,
+  } as unknown as NonDeleted<ExcalidrawTextElement>;
 };
 
 const AGENT_AVAILABLE_COMMANDS = [
@@ -261,6 +318,9 @@ export const createAgentPromptTextElement = ({
   viewportCenter: Point;
 }) => {
   const point = anchorPoint ?? viewportCenter;
+  if (typeof document === "undefined") {
+    return createAgentPromptTextElementWithoutDom({ text, point });
+  }
   return newTextElement({
     x: point.x,
     y: point.y,

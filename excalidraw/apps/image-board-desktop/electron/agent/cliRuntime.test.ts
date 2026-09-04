@@ -210,7 +210,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.0, bridge protocol 7)\n`,
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.1, bridge protocol 7)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -228,7 +228,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: DESKTOP_APP_VERSION,
-        integrationVersion: "2.1.0",
+        integrationVersion: "2.1.1",
         bridgeProtocolVersion: 7,
       },
     });
@@ -1029,7 +1029,7 @@ describe("runCli", () => {
           expect.stringContaining("read context --json"),
           expect.stringContaining("read board --json"),
           expect.stringContaining(
-            "write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board",
+            'write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --prompt "..."',
           ),
           expect.stringContaining(
             "write image /absolute/path/to/searched.png --source-type imported",

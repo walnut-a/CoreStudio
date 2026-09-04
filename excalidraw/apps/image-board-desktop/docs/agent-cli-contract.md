@@ -64,7 +64,9 @@ corestudio agent connect --host claude-code --json
 
 Agent 生成的图片使用 `--source-type generated --origin agent-board`；搜索或下载的外部图片使用 `--source-type imported`。生成图必须显式提供有效 `--origin`，否则 CLI 在读取本地图片前拒绝命令。
 
-同一轮生成得到多张成功图片时，在同一条命令中依次提供全部路径。CLI 会读取全部图片并以一个 `files[]` 请求提交，CoreStudio 使用同一组参考元素和现有批量布局算法创建一个房间操作；不要逐张调用命令。
+Agent 自身生成图片且有实际生成提示词时必须通过 `--prompt` 一并提交，内容应是实际传给图片生成模型的最终提示词，而不是后来整理的标题或摘要。没有提示词或生成工具未返回最终提示词时可以省略；调用方不得猜测或补写。CoreStudio 内置的 `generate image` 会自动保存其实际提示词，不需要再次运行 `write image`。
+
+同一次生成调用使用同一提示词得到多张成功图片时，在同一条命令中依次提供全部路径并只提交一次该提示词。不同最终提示词产生的图片按提示词分组提交。CLI 会读取同组全部图片并以一个 `files[]` 请求提交，CoreStudio 使用同一组参考元素和现有批量布局算法创建一个房间操作；不要逐张调用同一提示词的结果。
 
 `write image` 只负责把已存在的本地图片写入项目，不调用 CoreStudio 内置生成模型。
 
@@ -124,6 +126,7 @@ corestudio generate image \
 
 Agent 应根据 `error.code` 分支，不解析本地化 `message`：
 
+- `AGENT_TARGET_REQUIRED`：可信 Agent session 尚未认领目标 Board，或 Bridge 重启后原绑定已清除；复用原稳定 Board 重新认领，不得回退到桌面当前项目。
 - `PROJECT_REQUIRED`：没有当前项目。
 - `COMMAND_FAILED`：Bridge、renderer 或本地准备阶段失败。
 - `CAPABILITY_UNAVAILABLE`：当前运行时缺少对应能力。

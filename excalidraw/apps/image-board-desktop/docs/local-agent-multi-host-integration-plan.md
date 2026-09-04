@@ -1,9 +1,7 @@
 # CoreStudio 本地多 Agent 集成方案
 
 > 所属项目：CoreStudio Desktop  
-> 文档状态：已实现；2026-09-04 增补 Agent 项目解耦发布合同
-> 适用范围：macOS 本地客户端  
-> 最后更新：2026-09-04
+> 文档状态：已实现；2026-09-04 增补 Agent 项目解耦发布合同适用范围：macOS 本地客户端最后更新：2026-09-04
 
 ## 0. 2026-09-04 发布增补
 
@@ -11,7 +9,7 @@
 - 目标项目可以没有人类标签，也可以不在最近项目列表。Bridge 在主进程按需打开 Project Room。
 - 图片、提示词、图表和生成结果由 CLI / Local Bridge 直接写入，不允许通过浏览器剪贴板、粘贴、拖放或模拟点击兜底。
 - 关闭人类标签不停止 Agent；Home 新增“Agent 正在使用”区域，并由用户决定是否“打开查看”。
-- 本轮合同版本为 Agent integration `2.1.0`、Bridge protocol `7`、Skill `19`、CLI wrapper `2`；兼容 Codex integration 为 `1.13.0`、Skill `18`、CLI wrapper `1`。
+- 本轮合同版本为 Agent integration `2.1.1`、Bridge protocol `7`、Skill `20`、CLI wrapper `2`；兼容 Codex integration 为 `1.13.1`、Skill `19`、CLI wrapper `1`。
 
 ## 1. 文档定位
 
@@ -175,7 +173,7 @@ CLI 只安装一次：
 ```json
 {
   "schemaVersion": 2,
-  "integrationVersion": "2.1.0",
+  "integrationVersion": "2.1.1",
   "bridgeProtocolVersion": 7,
   "cli": {
     "path": "~/.local/bin/corestudio",

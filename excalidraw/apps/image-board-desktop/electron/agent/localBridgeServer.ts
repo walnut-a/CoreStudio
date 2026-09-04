@@ -282,6 +282,7 @@ const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
 
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   ACTOR_CLAIM_REQUIRED: 409,
+  AGENT_TARGET_REQUIRED: 409,
   AUTH_REQUIRED: 401,
   BAD_REQUEST: 400,
   CAPABILITY_UNAVAILABLE: 409,
@@ -773,6 +774,13 @@ const authenticateProjectRequest = async (
     if (boundProject) {
       return boundProject;
     }
+    sendError(
+      response,
+      409,
+      "AGENT_TARGET_REQUIRED",
+      "The local Agent session has not claimed a target Board.",
+    );
+    return null;
   }
   if (!sessionRef && options.resolveAgentProject) {
     const participant = getTrustedParticipantIdentity(request, options);
@@ -781,6 +789,13 @@ const authenticateProjectRequest = async (
       if (boundProject) {
         return boundProject;
       }
+      sendError(
+        response,
+        409,
+        "AGENT_TARGET_REQUIRED",
+        "The local Agent participant has not claimed a target Board.",
+      );
+      return null;
     }
   }
 
@@ -827,6 +842,13 @@ const resolveOptionalProjectRequest = async (
     if (boundProject) {
       return boundProject;
     }
+    sendError(
+      response,
+      409,
+      "AGENT_TARGET_REQUIRED",
+      "The local Agent session has not claimed a target Board.",
+    );
+    return undefined;
   }
   if (!sessionRef && options.resolveAgentProject) {
     const participant = getTrustedParticipantIdentity(request, options);
@@ -835,6 +857,13 @@ const resolveOptionalProjectRequest = async (
       if (boundProject) {
         return boundProject;
       }
+      sendError(
+        response,
+        409,
+        "AGENT_TARGET_REQUIRED",
+        "The local Agent participant has not claimed a target Board.",
+      );
+      return undefined;
     }
   }
 

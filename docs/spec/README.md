@@ -17,6 +17,7 @@
 - [2026-08-19-corestudio-canvas-minimap.md](2026-08-19-corestudio-canvas-minimap.md)：大画布迷你地图的产品边界、导航交互、几何渲染、性能与验收方案。
 - [2026-08-31-corestudio-website-agent-integration-webmcp.md](2026-08-31-corestudio-website-agent-integration-webmcp.md)：官网 Agent 集成中心、Skill / CLI 安装教程、WebMCP 只读工具与 GitHub 文档 fallback 设计方案。
 - [2026-09-01-corestudio-update-notification.md](2026-09-01-corestudio-update-notification.md)：稳定版清单、静默更新检查、设置红点与关于页手动检查方案。
+- [2026-09-04-corestudio-agent-project-routing.md](2026-09-04-corestudio-agent-project-routing.md)：Agent Board 认领后的项目无感路由、CLI / Project Room 绑定、浏览器职责与多项目验收方案。
 
 ## 既有历史规格
 

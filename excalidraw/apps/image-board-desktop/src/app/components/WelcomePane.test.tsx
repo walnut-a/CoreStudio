@@ -53,6 +53,70 @@ describe("WelcomePane", () => {
     expect(onOpenProviderSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("shows Agent-active projects independently from recent projects and opens one on demand", () => {
+    const onOpenAgentProject = vi.fn();
+    const onReloadRecentProjects = vi.fn();
+
+    render(
+      <WelcomePane
+        loading={false}
+        recentProjects={[]}
+        agentActiveProjects={[
+          {
+            projectId: "project-industrial-design",
+            projectPath: "/projects/industrial-design",
+            name: "工业设计",
+            status: "working",
+            agentCount: 1,
+            agents: [
+              {
+                actorId: "agent:codex:session-a",
+                displayLabel: "Codex · 方案整理",
+                host: "codex",
+                status: "working",
+              },
+            ],
+          },
+        ]}
+        recentProjectsLoadStatus="loaded"
+        providerConfigurationStatus="configured"
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        onOpenAgentProject={onOpenAgentProject}
+        onReloadRecentProjects={onReloadRecentProjects}
+      />,
+    );
+
+    const section = screen.getByRole("region", { name: "Agent 正在使用" });
+    expect(within(section).getByText("工业设计")).toBeInTheDocument();
+    expect(within(section).getByText(/Codex · 方案整理/)).toBeInTheDocument();
+    expect(within(section).getByText("正在工作")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "三步开始创作" }),
+    ).not.toBeInTheDocument();
+    const projectsSection = screen.getByRole("region", { name: "项目列表" });
+    expect(
+      within(projectsSection).getByRole("heading", {
+        name: "还没有最近项目",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(projectsSection).getByText(
+        "手动打开过的项目会显示在这里；Agent 使用中的项目可直接从上方打开。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(projectsSection).queryByRole("button", {
+        name: "重新加载项目列表",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(section).getByRole("button", { name: "打开查看" }));
+    expect(onOpenAgentProject).toHaveBeenCalledWith(
+      "/projects/industrial-design",
+    );
+  });
+
   it("reflects an existing provider configuration without hiding the guide", () => {
     render(
       <WelcomePane

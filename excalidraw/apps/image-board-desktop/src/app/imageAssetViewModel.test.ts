@@ -53,40 +53,81 @@ describe("buildImageAssetItems", () => {
     }),
   };
 
-  it("shows only live canvas images and referenced images", () => {
+  it("shows every project asset and describes its current relationship", () => {
     expect(
       buildImageAssetItems({
         imageRecords,
         sceneImageFileIds: ["live-imported", "live-generated"],
-        generatedOnly: false,
       }).map((item) => ({
         fileId: item.fileId,
-        relationshipLabels: item.relationshipLabels,
+        statusLabels: item.statusLabels,
       })),
     ).toEqual([
       {
+        fileId: "unrelated-generated",
+        statusLabels: ["未使用"],
+      },
+      {
         fileId: "live-imported",
-        relationshipLabels: ["画布中"],
+        statusLabels: ["画布中"],
       },
       {
         fileId: "live-generated",
-        relationshipLabels: ["画布中"],
+        statusLabels: ["画布中"],
       },
       {
         fileId: "reference-imported",
-        relationshipLabels: ["参考图"],
+        statusLabels: ["参考图"],
       },
     ]);
   });
 
-  it("filters the same candidate set to generated records", () => {
-    expect(
-      buildImageAssetItems({
-        imageRecords,
-        sceneImageFileIds: ["live-imported", "live-generated"],
-        generatedOnly: true,
-      }).map((item) => item.fileId),
-    ).toEqual(["live-generated"]);
+  it("uses display names and original file names before generic titles", () => {
+    const items = buildImageAssetItems({
+      imageRecords: {
+        renamed: createRecord({
+          fileId: "renamed",
+          displayName: "主视觉方案",
+          sourceFileName: "original-board.png",
+        }),
+        original: createRecord({
+          fileId: "original",
+          sourceFileName: "concept-sketch.png",
+        }),
+      },
+      sceneImageFileIds: [],
+    });
+
+    expect(items.find((item) => item.fileId === "renamed")?.title).toBe(
+      "主视觉方案",
+    );
+    expect(items.find((item) => item.fileId === "original")?.title).toBe(
+      "concept-sketch.png",
+    );
+  });
+
+  it("formats list metadata into readable fields", () => {
+    const [item] = buildImageAssetItems({
+      imageRecords: {
+        image: createRecord({
+          fileId: "image",
+          width: 541.7333333333333,
+          height: 707.824497257769,
+          sourceFileName: "details.png",
+        }),
+      },
+      sceneImageFileIds: ["image"],
+    });
+
+    expect(item).toMatchObject({
+      sourceType: "imported",
+      sourceLabel: "导入",
+      providerLabel: null,
+      sizeLabel: "542 × 708 px",
+      statusLabels: ["画布中"],
+    });
+    expect(item.searchText).toContain("details.png");
+    expect(item.searchText).toContain("image");
   });
 
   it("deduplicates an image that is both on canvas and referenced", () => {
@@ -108,10 +149,9 @@ describe("buildImageAssetItems", () => {
           },
         },
         sceneImageFileIds: ["live-imported", "live-generated"],
-        generatedOnly: false,
       }).find((item) => item.fileId === "live-imported"),
     ).toMatchObject({
-      relationshipLabels: ["画布中", "参考图"],
+      statusLabels: ["画布中", "参考图"],
     });
   });
 });

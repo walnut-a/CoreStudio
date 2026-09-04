@@ -130,6 +130,60 @@ describe("compileAgentMermaidDiagram", () => {
     });
   });
 
+  it("accepts native elements converted by the hidden browser worker", async () => {
+    const nativeElement = newElement({
+      type: "rectangle",
+      x: 0,
+      y: 0,
+      width: 160,
+      height: 80,
+      customData: {
+        corestudioDiagram: {
+          schemaVersion: 1,
+          diagramId: "diagram-worker",
+          format: "mermaid",
+          semanticId: "start",
+        },
+      },
+    });
+    const parseMermaid = vi.fn(async () => ({
+      elements: [
+        {
+          id: "start",
+          type: "rectangle" as const,
+          x: 0,
+          y: 0,
+          width: 160,
+          height: 80,
+        },
+      ],
+      nativeElements: [nativeElement],
+    }));
+
+    const result = await compileAgentMermaidDiagram({
+      source: "flowchart LR\nstart[Start]",
+      diagramId: "diagram-worker",
+      anchorBounds: null,
+      viewportCenter: { x: 320, y: 240 },
+      existingElements: [],
+      parseMermaid,
+    });
+
+    expect(parseMermaid).toHaveBeenCalledWith("flowchart LR\nstart[Start]", {
+      diagramId: "diagram-worker",
+    });
+    expect(result.elements).toHaveLength(1);
+    expect(result.elements[0]).toMatchObject({
+      type: "rectangle",
+      customData: {
+        corestudioDiagram: {
+          diagramId: "diagram-worker",
+          semanticId: "start",
+        },
+      },
+    });
+  });
+
   it("rejects Mermaid conversions that fall back to binary image files", async () => {
     await expect(
       compileAgentMermaidDiagram({

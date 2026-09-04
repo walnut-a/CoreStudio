@@ -1,4 +1,5 @@
 import type {
+  AgentBoardEditCommandRequest,
   DesktopProjectRoomJoinInput,
   ProjectRoomClosed,
   ProjectRoomEvent,
@@ -29,6 +30,9 @@ export interface ProjectRoomClientTransport {
   requestResync(): Promise<void> | void;
   requestPersistence?(): Promise<void>;
   updateSelection?(selection: ProjectRoomParticipantSelection): Promise<void>;
+  subscribeAgentCommand?(
+    listener: (request: AgentBoardEditCommandRequest) => Promise<unknown>,
+  ): () => void;
 }
 
 export interface ApplyAuthoritativeProjectRoomSceneInput

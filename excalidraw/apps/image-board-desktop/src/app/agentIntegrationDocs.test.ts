@@ -96,6 +96,11 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain("按实际解析结果重新计算数量和类型");
     expect(corestudioSkill).toContain("默认写回下方规则确认的目标项目");
     expect(corestudioSkill).toContain("图片文件名跟随用户当前使用的语言");
+    expect(corestudioSkill).toContain("实际传给图片生成模型的最终提示词");
+    expect(corestudioSkill).toContain(
+      "确实没有提示词，或生成工具没有返回最终提示词时，允许省略 `--prompt`",
+    );
+    expect(corestudioSkill).toContain("不得根据用户需求自行猜测或补写提示词");
     expect(corestudioSkill).toContain(
       "用户使用中文交互时，使用简洁、可辨认的中文文件名",
     );
@@ -122,7 +127,7 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain("## CLI Examples");
     expect(cliContract).toContain("### Read Current Selection");
     expect(cliContract).toContain(
-      "`read project --json` 返回当前项目的 `projectId`",
+      "带 `--agent-session` 的 `read project --json` 返回该 Agent session 所绑定项目的 `projectId`",
     );
     expect(cliContract).toContain("corestudio read selection --json");
     expect(cliContract).toContain("### Resolve Original Image Paths");
@@ -132,6 +137,12 @@ describe("agent integration docs", () => {
     expect(cliContract).toContain("### Write An Agent Image Batch");
     expect(cliContract).toContain("files[]");
     expect(cliContract).toContain("--origin agent-board");
+    expect(cliContract).toContain(
+      "有实际生成提示词时必须通过 `--prompt` 一并提交",
+    );
+    expect(cliContract).toContain(
+      "没有提示词或生成工具未返回最终提示词时可以省略",
+    );
     expect(cliContract).toContain("read projects --json");
     expect(cliContract).toContain(
       "read board-url --project <projectPath> --json",
@@ -154,11 +165,11 @@ describe("agent integration docs", () => {
     );
 
     expect(corestudioSkill).toContain(
-      "已连接且已认领的 Agent Board 页面是当前画布任务的目标项目",
+      "每个 Agent 对话在认领稳定 Agent Board 后，会把自己的可信 Agent session 绑定到该 Board 对应项目",
     );
     expect(corestudioSkill).toContain("`corestudio_get_board_status`");
     expect(corestudioSkill).toContain(
-      "不得仅因桌面客户端当前激活了另一个项目就报告 `PROJECT_MISMATCH`",
+      "不得把桌面当前项目、标签焦点、项目名称或最近项目顺序当成目标来源",
     );
     expect(corestudioSkill).not.toContain(
       "确认当前项目名称与引用块的 `projectName` 一致",
@@ -205,7 +216,7 @@ describe("agent integration docs", () => {
     );
 
     expect(architecture).toContain("cache/image-writebacks/");
-    expect(architecture).toContain("项目房间是当前 scene 的权威状态");
+    expect(architecture).toContain("项目房间是该项目 scene 的权威状态");
     expect(architecture).toContain("PROJECT_STORAGE_DIVERGED");
     expect(architecture).toContain("mixed");
     expect(architecture).toContain("WRITEBACK_CONFLICT");

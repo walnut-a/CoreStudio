@@ -3318,7 +3318,10 @@ describe("App startup", () => {
     );
     expect(imageAssetDock).toHaveAttribute("data-open", "true");
     const imageAssetList = await screen.findByLabelText("图片资产列表");
-    expect(imageAssetList.querySelector("img")).toHaveAttribute(
+    const importedAssetRow = within(imageAssetList).getByRole("button", {
+      name: /导入图片/,
+    });
+    expect(importedAssetRow.querySelector("img")).toHaveAttribute(
       "src",
       `data:image/svg+xml;base64,${Buffer.from("far-file-placeholder").toString(
         "base64",
@@ -3349,7 +3352,7 @@ describe("App startup", () => {
         "base64",
       )}`,
     );
-    expect(imageAssetList.querySelector("img")).toHaveAttribute(
+    expect(importedAssetRow.querySelector("img")).toHaveAttribute(
       "src",
       `data:image/png;base64,${Buffer.from("far-file-thumbnail").toString(
         "base64",

@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ImageRecord } from "../../shared/projectTypes";
@@ -38,6 +44,8 @@ const renderInspector = (
     record: ImageRecord;
     onLocateImageRecord: (fileId: string) => void;
     onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
+    onCopyImageId: () => void;
+    onRenameImage: (displayName: string | null) => Promise<void>;
   }> = {},
 ) =>
   render(
@@ -60,6 +68,10 @@ const renderInspector = (
       onCopyTaskError={vi.fn()}
       onLocateImageRecord={overrides.onLocateImageRecord ?? vi.fn()}
       onLocatePromptReference={overrides.onLocatePromptReference ?? vi.fn()}
+      onCopyImageId={overrides.onCopyImageId ?? vi.fn()}
+      onRenameImage={
+        overrides.onRenameImage ?? vi.fn().mockResolvedValue(undefined)
+      }
     />,
   );
 
@@ -90,6 +102,39 @@ describe("ImageInspector", () => {
     expect(within(hero).queryByText("AI 生成")).not.toBeInTheDocument();
     expect(within(hero).getByText("fal-ai/nano-banana-2")).toBeInTheDocument();
     expect(within(hero).getByText("1024 × 768")).toBeInTheDocument();
+  });
+
+  it("keeps technical identifiers collapsed and copies the id on demand", () => {
+    const onCopyImageId = vi.fn();
+    renderInspector({ onCopyImageId });
+
+    expect(screen.queryByText("file-1")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("技术信息"));
+    expect(screen.getByText("file-1")).toBeInTheDocument();
+    expect(screen.getByText("assets/file-1.png")).toBeInTheDocument();
+    expect(screen.getByText("image/png")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "复制图片 ID" }));
+    expect(onCopyImageId).toHaveBeenCalledOnce();
+  });
+
+  it("renames an asset from the inspector", async () => {
+    const onRenameImage = vi.fn().mockResolvedValue(undefined);
+    renderInspector({ onRenameImage });
+
+    fireEvent.click(screen.getByRole("button", { name: "重命名" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "图片名称" }), {
+      target: { value: "机床主视觉" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存名称" }));
+
+    await waitFor(() =>
+      expect(onRenameImage).toHaveBeenCalledWith("机床主视觉"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "保存名称" }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("identifies CoreStudio generations initiated by Codex", () => {

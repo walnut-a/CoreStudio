@@ -70,7 +70,7 @@ export const createAppMenuTemplate = (
                     ownerWindow,
                   ),
               }))
-            : [{ label: copy.welcome.recentEmpty, enabled: false }],
+            : [{ label: copy.welcome.recentEmptyTitle, enabled: false }],
         },
         {
           label: copy.menu.projectMaintenance,

@@ -42,6 +42,7 @@ import {
   commitProjectImageWriteback,
   inspectProjectImageWritebackJournals,
   recoverProjectImageWritebacks,
+  updateProjectImageRecordMetadata as updateProjectImageRecordMetadataWithLock,
 } from "./project/projectImageWriteback";
 import {
   parseProjectManifest,
@@ -1248,4 +1249,14 @@ export const persistImageAssets = async ({
     transactionId: transaction.transactionId,
   });
   return transaction.imageRecords;
+};
+
+export const updateProjectImageRecordMetadata = async (input: {
+  projectPath: string;
+  fileId: string;
+  displayName: string | null;
+}) => {
+  const imageRecords = await updateProjectImageRecordMetadataWithLock(input);
+  projectImageRecordsReadCache.delete(input.projectPath);
+  return imageRecords;
 };

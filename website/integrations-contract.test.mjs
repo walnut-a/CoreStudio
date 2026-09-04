@@ -21,7 +21,10 @@ const readWebsiteFile = (path) =>
   readFile(new URL(path, import.meta.url), "utf8");
 
 const normalizeVisibleText = (value) =>
-  value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 test("integration content supports the three shipped local agent hosts", () => {
   assert.deepEqual(SUPPORTED_HOSTS, ["codex", "cursor", "claude-code"]);
@@ -42,8 +45,14 @@ test("localized content stays structurally aligned and links to exact GitHub sou
   for (const locale of LOCALES) {
     const content = getLocalizedContent(locale);
     assert.equal(content.revision, CONTENT_REVISION);
-    assert.match(content.sourceUrl, /^https:\/\/github\.com\/walnut-a\/CoreStudio\/blob\/main\//);
-    assert.match(content.cliContractUrl, /^https:\/\/github\.com\/walnut-a\/CoreStudio\/blob\/main\//);
+    assert.match(
+      content.sourceUrl,
+      /^https:\/\/github\.com\/walnut-a\/CoreStudio\/blob\/main\//
+    );
+    assert.match(
+      content.cliContractUrl,
+      /^https:\/\/github\.com\/walnut-a\/CoreStudio\/blob\/main\//
+    );
     assert.equal(content.sharedCliPath, "~/.local/bin/corestudio");
   }
 });
@@ -58,7 +67,9 @@ test("installation guides describe the signed-app path without claiming local su
   assert.equal(guide.host, "cursor");
   assert.equal(guide.stage, "install");
   assert.equal(guide.artifacts.length, 2);
-  assert.ok(guide.artifacts.some(({ path }) => path === "~/.local/bin/corestudio"));
+  assert.ok(
+    guide.artifacts.some(({ path }) => path === "~/.local/bin/corestudio")
+  );
   assert.ok(
     guide.artifacts.some(({ path }) => path === "~/.cursor/skills/corestudio/")
   );
@@ -74,14 +85,43 @@ test("CLI examples state their runtime requirements", () => {
   assert.equal(status.requiresOpenProject, false);
   assert.equal(status.requiresAgentSession, false);
 
+  const selection = getCliExample({
+    task: "selection",
+    host: "codex",
+    locale: "en",
+  });
+  assert.equal(selection.requiresOpenProject, false);
+  assert.equal(selection.requiresAgentSession, true);
+  assert.match(selection.command, /--agent-session <sessionRef>/);
+
   const writeImage = getCliExample({
     task: "write-image",
     host: "claude-code",
     locale: "en",
   });
-  assert.equal(writeImage.requiresOpenProject, true);
+  assert.equal(writeImage.requiresOpenProject, false);
   assert.equal(writeImage.requiresAgentSession, true);
-  assert.match(writeImage.command, /--source-type generated --origin agent-board --json$/);
+  assert.match(
+    writeImage.command,
+    /--origin agent-board --prompt "<finalPrompt>" --agent-session <sessionRef> --json$/
+  );
+  assert.ok(writeImage.safetyNotes.some((note) => note.includes("browser")));
+});
+
+test("website guidance keeps Agent project routing independent of desktop tabs", () => {
+  const english = getLocalizedContent("en");
+  const chinese = getLocalizedContent("zh-CN");
+
+  assert.match(
+    english.sectionCopy["first-use"].intro,
+    /desktop tabs do not choose the target/
+  );
+  assert.match(chinese.sectionCopy["first-use"].intro, /桌面标签不决定目标/);
+  assert.match(
+    english.installSteps[0].body,
+    /does not need an open desktop tab/
+  );
+  assert.match(chinese.installSteps[0].body, /不需要预先打开桌面标签/);
 });
 
 test("troubleshooting is limited to curated symptoms", () => {
@@ -94,6 +134,13 @@ test("troubleshooting is limited to curated symptoms", () => {
   assert.equal(result.symptom, "session-expired");
   assert.ok(result.actions.length > 0);
   assert.ok(result.doNot.length > 0);
+  const boardPageExpired = getTroubleshootingGuide({
+    host: "codex",
+    symptom: "board-page-expired",
+    locale: "zh-CN",
+  });
+  assert.match(boardPageExpired.diagnosis, /页面闲置时间较长/);
+  assert.match(boardPageExpired.actions[0], /刷新页面/);
   assert.throws(
     () =>
       getTroubleshootingGuide({
@@ -122,7 +169,10 @@ test("WebMCP exposes exactly three read-only, enum-bounded tools", () => {
     assert.equal(tool.annotations.untrustedContentHint, false);
     assert.equal(tool.inputSchema.additionalProperties, false);
     assert.equal(typeof tool.execute, "function");
-    assert.doesNotMatch(JSON.stringify(tool.inputSchema), /api.?key|token|shell|command/i);
+    assert.doesNotMatch(
+      JSON.stringify(tool.inputSchema),
+      /api.?key|token|shell|command/i
+    );
   }
 });
 
@@ -136,7 +186,10 @@ test("WebMCP registration publishes all guide tools to the current document", as
   });
 
   assert.equal(result.supported, true);
-  assert.deepEqual(result.registered, registered.map(({ name }) => name));
+  assert.deepEqual(
+    result.registered,
+    registered.map(({ name }) => name)
+  );
   assert.equal(registered.length, 3);
   assert.equal(registered[0].title, "CoreStudio 集成指南");
 });
@@ -158,14 +211,20 @@ test("localized integration pages keep semantic fallbacks and progressive enhanc
     assert.match(html, /integrations\.mjs\?v=/);
     assert.match(html, /webmcp-adapter\.mjs\?v=/);
     assert.match(html, /github\.com\/walnut-a\/CoreStudio\/blob\/main\//);
-    assert.match(html, new RegExp(`data-content-revision="${CONTENT_REVISION}"`));
+    assert.match(
+      html,
+      new RegExp(`data-content-revision="${CONTENT_REVISION}"`)
+    );
 
     const sharedVisibleContent = [
       content.meta.title,
       content.hero.title,
       content.hero.intro,
       content.hero.localNote,
-      ...Object.values(content.facts).flatMap(({ label, value }) => [label, value]),
+      ...Object.values(content.facts).flatMap(({ label, value }) => [
+        label,
+        value,
+      ]),
       ...Object.values(content.sectionCopy).flatMap(({ title, intro }) => [
         title,
         intro,

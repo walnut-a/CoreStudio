@@ -1,7 +1,10 @@
 import { useState } from "react";
 
 import { copy, DESKTOP_LANG_CODE } from "../copy";
-import type { RecentProjectEntry } from "../../shared/desktopBridgeTypes";
+import type {
+  DesktopAgentActiveProject,
+  RecentProjectEntry,
+} from "../../shared/desktopBridgeTypes";
 import type { RecentProjectsLoadStatus } from "../desktopStartupState";
 import { DesktopButton } from "./DesktopButton";
 import {
@@ -23,10 +26,12 @@ interface WelcomePaneProps {
   onOpenProject: () => void;
   onReloadRecentProjects?: () => void | Promise<void>;
   recentProjects?: RecentProjectEntry[];
+  agentActiveProjects?: DesktopAgentActiveProject[];
   recentProjectsLoadStatus?: RecentProjectsLoadStatus;
   providerConfigurationStatus?: ProviderConfigurationStatus;
   onOpenProviderSettings?: () => void;
   onOpenRecentProject?: (projectPath: string) => void;
+  onOpenAgentProject?: (projectPath: string) => void;
   onRemoveRecentProject?: (projectPath: string) => void | Promise<void>;
   onRevealProject?: (projectPath: string) => void | Promise<void>;
   manualProjectActionsVisible?: boolean;
@@ -38,10 +43,12 @@ export const WelcomePane = ({
   onOpenProject,
   onReloadRecentProjects,
   recentProjects = [],
+  agentActiveProjects = [],
   recentProjectsLoadStatus = "loaded",
   providerConfigurationStatus = "loading",
   onOpenProviderSettings,
   onOpenRecentProject,
+  onOpenAgentProject,
   onRemoveRecentProject,
   onRevealProject,
   manualProjectActionsVisible = true,
@@ -56,10 +63,12 @@ export const WelcomePane = ({
 
   const deleteDialogTitleId = "welcome-delete-project-title";
   const recentStateTitleId = "welcome-recent-state-title";
+  const projectsTitleId = "welcome-projects-title";
   const showGettingStarted =
     manualProjectActionsVisible &&
     recentProjectsLoadStatus === "loaded" &&
-    recentProjects.length === 0;
+    recentProjects.length === 0 &&
+    agentActiveProjects.length === 0;
   const projectSelectionMode = !manualProjectActionsVisible;
   const providerConfigured = providerConfigurationStatus === "configured";
   const providerStatusLabel =
@@ -111,6 +120,60 @@ export const WelcomePane = ({
           ) : null}
         </div>
         <div className="welcome-pane__recent">
+          {manualProjectActionsVisible && agentActiveProjects.length > 0 ? (
+            <section
+              className="welcome-pane__agent-active"
+              aria-labelledby="welcome-agent-active-title"
+            >
+              <div className="welcome-pane__recent-header">
+                <h2 id="welcome-agent-active-title">
+                  {copy.welcome.agentActiveTitle}
+                </h2>
+              </div>
+              <div className="welcome-pane__agent-active-list">
+                {agentActiveProjects.map((project) => {
+                  const statusLabel =
+                    project.status === "working"
+                      ? copy.welcome.agentWorking
+                      : project.status === "connected"
+                      ? copy.welcome.agentConnected
+                      : copy.welcome.agentReconnecting;
+                  return (
+                    <article
+                      key={project.projectId}
+                      className="welcome-pane__agent-active-item"
+                    >
+                      <div className="welcome-pane__agent-active-copy">
+                        <div className="welcome-pane__agent-active-heading">
+                          <strong>{project.name}</strong>
+                          <span
+                            className={`welcome-pane__agent-status welcome-pane__agent-status--${project.status}`}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <span className="welcome-pane__agent-summary">
+                          {copy.welcome.agentCount(project.agentCount)} ·{" "}
+                          {project.agents
+                            .map((agent) => agent.displayLabel)
+                            .join("、")}
+                        </span>
+                      </div>
+                      <DesktopButton
+                        size="small"
+                        onClick={() =>
+                          onOpenAgentProject?.(project.projectPath)
+                        }
+                        disabled={loading}
+                      >
+                        {copy.welcome.openAgentProject}
+                      </DesktopButton>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
           {showGettingStarted ? (
             <section
               className="welcome-pane__getting-started"
@@ -194,9 +257,12 @@ export const WelcomePane = ({
               </ol>
             </section>
           ) : (
-            <>
+            <section
+              className="welcome-pane__projects"
+              aria-labelledby={projectsTitleId}
+            >
               <div className="welcome-pane__recent-header">
-                <h2>
+                <h2 id={projectsTitleId}>
                   {projectSelectionMode
                     ? copy.welcome.projectSelectionListTitle
                     : copy.welcome.recentTitle}
@@ -314,7 +380,7 @@ export const WelcomePane = ({
                         ? copy.welcome.recentLoadFailedTitle
                         : projectSelectionMode
                         ? copy.welcome.projectSelectionEmptyTitle
-                        : copy.welcome.recentEmpty}
+                        : copy.welcome.recentEmptyTitle}
                     </h3>
                     <p>
                       {recentProjectsLoadStatus === "loading"
@@ -323,7 +389,7 @@ export const WelcomePane = ({
                         ? copy.welcome.recentLoadFailedDescription
                         : projectSelectionMode
                         ? copy.welcome.projectSelectionEmptyDescription
-                        : copy.welcome.recentEmpty}
+                        : copy.welcome.recentEmptyDescription}
                     </p>
                     {recentProjectsLoadStatus === "failed" ? (
                       <p className="welcome-pane__recent-state-next-step">
@@ -331,7 +397,8 @@ export const WelcomePane = ({
                       </p>
                     ) : null}
                   </div>
-                  {recentProjectsLoadStatus !== "loading" &&
+                  {(recentProjectsLoadStatus === "failed" ||
+                    projectSelectionMode) &&
                   onReloadRecentProjects ? (
                     <DesktopButton
                       size="small"
@@ -348,7 +415,7 @@ export const WelcomePane = ({
                   ) : null}
                 </section>
               )}
-            </>
+            </section>
           )}
         </div>
       </section>

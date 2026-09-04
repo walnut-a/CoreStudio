@@ -10,6 +10,7 @@ import {
   getProjectImageWritebackJournalPath,
   recoverProjectImageWritebacks,
   rollbackProjectImageWriteback,
+  updateProjectImageRecordMetadata,
 } from "./projectImageWriteback";
 
 import {
@@ -556,5 +557,30 @@ describe("projectImageWriteback", () => {
         path.join(projectPath, PROJECT_FILENAMES.imageRecords),
       ),
     ).resolves.toEqual(transaction.imageRecords);
+  });
+
+  it("updates a readable image name without replacing technical metadata", async () => {
+    const projectPath = await createProjectFixture({
+      "file-existing": createRecord("file-existing", {
+        sourceFileName: "original.png",
+      }),
+    });
+
+    const imageRecords = await updateProjectImageRecordMetadata({
+      projectPath,
+      fileId: "file-existing",
+      displayName: "机床主视觉",
+    });
+
+    expect(imageRecords["file-existing"]).toMatchObject({
+      displayName: "机床主视觉",
+      sourceFileName: "original.png",
+      assetPath: "assets/file-existing-existing.png",
+    });
+    await expect(
+      readJson<ImageRecordMap>(
+        path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      ),
+    ).resolves.toEqual(imageRecords);
   });
 });

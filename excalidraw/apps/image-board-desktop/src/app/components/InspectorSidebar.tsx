@@ -34,6 +34,8 @@ interface InspectorSidebarProps {
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
+  onCopyImageId?: () => void;
+  onRenameImage?: (displayName: string | null) => Promise<void> | void;
   rootRef?: Ref<HTMLElement>;
 }
 
@@ -52,6 +54,8 @@ export const InspectorSidebar = ({
   onCopyTaskError,
   onLocateImageRecord,
   onLocatePromptReference,
+  onCopyImageId,
+  onRenameImage,
   rootRef,
 }: InspectorSidebarProps) => {
   const elementActionsHostRef = useRef<HTMLDivElement | null>(null);
@@ -126,6 +130,8 @@ export const InspectorSidebar = ({
             onCopyTaskError={onCopyTaskError}
             onLocateImageRecord={onLocateImageRecord}
             onLocatePromptReference={onLocatePromptReference}
+            onCopyImageId={onCopyImageId}
+            onRenameImage={onRenameImage}
           />
         </section>
       </div>

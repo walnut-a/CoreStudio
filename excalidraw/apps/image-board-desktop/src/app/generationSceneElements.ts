@@ -1,4 +1,4 @@
-import { newImageElement } from "@excalidraw/element";
+import { newImageElement } from "@excalidraw/element/newElement";
 
 import type { FileId } from "@excalidraw/element/types";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
@@ -36,9 +36,7 @@ export const buildGeneratedImageSceneElements = ({
 export const buildSelectedElementIdsForElements =
   buildSelectedElementIdsFromElements;
 
-export const buildGeneratedImageSceneUpdate = <
-  AppStateValue extends object,
->({
+export const buildGeneratedImageSceneUpdate = <AppStateValue extends object>({
   existingElements,
   appState,
   assets,

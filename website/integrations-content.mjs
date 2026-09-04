@@ -1,4 +1,4 @@
-export const CONTENT_REVISION = "20260831-1";
+export const CONTENT_REVISION = "20260904-2";
 export const SUPPORTED_HOSTS = ["codex", "cursor", "claude-code"];
 export const LOCALES = ["en", "zh-CN"];
 
@@ -14,7 +14,7 @@ const HOSTS = {
   codex: {
     name: "Codex",
     skillPath: "~/.codex/skills/corestudio/",
-    requiresAgentSession: false,
+    requiresAgentSession: true,
   },
   cursor: {
     name: "Cursor",
@@ -97,9 +97,9 @@ const CONTENT = {
           "Installation integrity and project connectivity are different checks. Start with the version command, then check the running app.",
       },
       "first-use": {
-        title: "Start with one natural-language task",
+        title: "Bind one Agent task to one project",
         intro:
-          "Open a fresh local Agent conversation so the host can discover the new Skill, then ask it to open your current CoreStudio project.",
+          "Keep CoreStudio running with Agent Bridge enabled. The Skill creates a task session and binds it to the Agent Board project you claim; desktop tabs do not choose the target.",
       },
       cli: {
         title: "Common CLI tasks",
@@ -115,7 +115,7 @@ const CONTENT = {
     installSteps: [
       {
         title: "Install and open CoreStudio",
-        body: "If CoreStudio is not installed, download the latest signed macOS release from GitHub. Keep the app open for connection checks.",
+        body: "If CoreStudio is not installed, download the latest signed macOS release from GitHub. Keep the app running with Agent Bridge enabled; the target project does not need an open desktop tab.",
       },
       {
         title: "Open Agent integration settings",
@@ -137,12 +137,12 @@ const CONTENT = {
       installCommand: "corestudio --version --json",
       connectionTitle: "2. Local connection",
       connectionBody:
-        "Run this after CoreStudio is open. It reports Bridge and current-project state without changing the project.",
+        "Run this after CoreStudio is open. It reports Bridge state without changing project data; after a Board claim, project commands use the task session binding.",
       connectionCommand: "corestudio read status --json",
     },
     prompts: {
       codex:
-        "Open my current CoreStudio project, read the canvas and selection, then tell me what I can continue working on.",
+        "Open the CoreStudio project I choose, bind this task to its Agent Board, read the canvas and selection, then tell me what I can continue working on.",
       cursor:
         "Connect to my current CoreStudio project, read the canvas and selection, then tell me what I can continue working on.",
       "claude-code":
@@ -150,7 +150,7 @@ const CONTENT = {
     },
     hostNotes: {
       codex:
-        "Codex can establish its compatible local identity automatically. You do not need to copy a session reference.",
+        "The Skill creates and reuses a process-scoped Agent session for Codex. Claiming a Board binds this task to that project, independently of desktop tabs.",
       cursor:
         "Cursor establishes a process-scoped Agent session before write, generation, or board-claim operations. The Skill handles this flow.",
       "claude-code":
@@ -238,9 +238,9 @@ const CONTENT = {
           "安装完整与项目可连接是两个不同层级。先检查版本，再检查正在运行的 CoreStudio。",
       },
       "first-use": {
-        title: "从一条自然语言任务开始",
+        title: "让一个 Agent 任务绑定一个项目",
         intro:
-          "新建一个本地 Agent 对话，让宿主重新发现 Skill，然后让它打开当前 CoreStudio 项目。",
+          "保持 CoreStudio 运行并开启 Agent Bridge。Skill 会建立任务 session，并在认领 Agent Board 时绑定所选项目；桌面标签不决定目标。",
       },
       cli: {
         title: "CLI 常用任务",
@@ -256,7 +256,7 @@ const CONTENT = {
     installSteps: [
       {
         title: "安装并打开 CoreStudio",
-        body: "尚未安装时，从 GitHub 下载最新签名 macOS 版本。连接验证期间保持 CoreStudio 正在运行。",
+        body: "尚未安装时，从 GitHub 下载最新签名 macOS 版本。保持 CoreStudio 运行并开启 Agent Bridge；目标项目不需要预先打开桌面标签。",
       },
       {
         title: "打开 Agent 集成设置",
@@ -273,22 +273,25 @@ const CONTENT = {
     ],
     verify: {
       installTitle: "1. 安装完整性",
-      installBody: "这个命令不要求当前已经打开项目，也不要求 Local Bridge 可达。",
+      installBody:
+        "这个命令不要求当前已经打开项目，也不要求 Local Bridge 可达。",
       installCommand: "corestudio --version --json",
       connectionTitle: "2. 本地连接",
       connectionBody:
-        "打开 CoreStudio 后再运行。它只报告 Bridge 与当前项目状态，不会修改项目。",
+        "打开 CoreStudio 后再运行。它只报告 Bridge 状态，不修改项目数据；认领 Board 后，项目命令使用任务 session 绑定。",
       connectionCommand: "corestudio read status --json",
     },
     prompts: {
-      codex: "打开当前 CoreStudio 项目，读取画布与选区，并告诉我当前可以继续做什么。",
-      cursor: "连接当前 CoreStudio 项目，读取画布与选区，并告诉我当前可以继续做什么。",
+      codex:
+        "打开我选择的 CoreStudio 项目，把当前任务绑定到它的 Agent Board，读取画布与选区，并告诉我可以继续做什么。",
+      cursor:
+        "连接当前 CoreStudio 项目，读取画布与选区，并告诉我当前可以继续做什么。",
       "claude-code":
         "连接当前 CoreStudio 项目，读取画布与选区，并告诉我当前可以继续做什么。",
     },
     hostNotes: {
       codex:
-        "Codex 可以自动建立兼容的本地身份，不需要你复制或保存 session 引用。",
+        "Skill 会为 Codex 建立并复用仅随当前进程存活的 Agent session；认领 Board 后，此任务独立绑定该项目，不受桌面标签影响。",
       cursor:
         "Cursor 在写入、生成或画布认领前建立仅随当前 CoreStudio 进程存活的 Agent session，这个流程由 Skill 处理。",
       "claude-code":
@@ -325,10 +328,10 @@ const CLI_TASKS = {
     },
   },
   selection: {
-    command: "corestudio read selection --json",
+    command: "corestudio read selection --agent-session <sessionRef> --json",
     requiresCoreStudioRunning: true,
-    requiresOpenProject: true,
-    requiresAgentSession: false,
+    requiresOpenProject: false,
+    requiresAgentSession: true,
     purpose: {
       en: "Read the current canvas selection and stable image references.",
       "zh-CN": "读取当前画布选区与稳定图片引用。",
@@ -346,20 +349,21 @@ const CLI_TASKS = {
   },
   "write-image": {
     command:
-      "corestudio write image /absolute/path/result.png --source-type generated --origin agent-board --json",
+      'corestudio write image /absolute/path/result.png --source-type generated --origin agent-board --prompt "<finalPrompt>" --agent-session <sessionRef> --json',
     requiresCoreStudioRunning: true,
-    requiresOpenProject: true,
+    requiresOpenProject: false,
     requiresAgentSession: true,
     purpose: {
-      en: "Write an existing local generated image through CoreStudio validation and persistence.",
-      "zh-CN": "通过 CoreStudio 校验和持久化写回一张已存在的本地生成图片。",
+      en: "Write an existing local generated image and its actual final prompt through CoreStudio validation and persistence; omit the prompt only when none is available.",
+      "zh-CN":
+        "通过 CoreStudio 校验和持久化写回本地生成图片及其实际最终提示词；确实没有提示词时可以省略。",
     },
   },
   "write-diagram": {
     command:
-      "corestudio write diagram --format mermaid --file /absolute/path/process.mmd --anchor auto --json",
+      "corestudio write diagram --format mermaid --file /absolute/path/process.mmd --anchor auto --agent-session <sessionRef> --json",
     requiresCoreStudioRunning: true,
-    requiresOpenProject: true,
+    requiresOpenProject: false,
     requiresAgentSession: true,
     purpose: {
       en: "Convert Mermaid input into native editable Excalidraw elements in the project.",
@@ -371,10 +375,16 @@ const CLI_TASKS = {
 const TROUBLESHOOTING = {
   "skill-not-found": {
     en: {
-      diagnosis: "The current Agent conversation may not have rescanned Skills installed after it started.",
-      actions: ["Start a fresh local Agent conversation and retry the same natural-language task."],
-      doNot: ["Do not reinstall repeatedly to hide a conversation discovery problem."],
-      verification: "Confirm the new conversation recognizes the CoreStudio Skill before running project commands.",
+      diagnosis:
+        "The current Agent conversation may not have rescanned Skills installed after it started.",
+      actions: [
+        "Start a fresh local Agent conversation and retry the same natural-language task.",
+      ],
+      doNot: [
+        "Do not reinstall repeatedly to hide a conversation discovery problem.",
+      ],
+      verification:
+        "Confirm the new conversation recognizes the CoreStudio Skill before running project commands.",
     },
     "zh-CN": {
       diagnosis: "当前 Agent 对话可能没有重新扫描对话启动后安装的 Skill。",
@@ -385,10 +395,16 @@ const TROUBLESHOOTING = {
   },
   "cli-not-found": {
     en: {
-      diagnosis: "The graphical Agent host may not inherit the terminal PATH that includes ~/.local/bin.",
-      actions: ["Let the installed Skill use the absolute CLI path recorded by CoreStudio."],
-      doNot: ["Do not create another CLI copy or edit the managed Skill by hand."],
-      verification: "Run corestudio --version --json through the path recorded by the Skill.",
+      diagnosis:
+        "The graphical Agent host may not inherit the terminal PATH that includes ~/.local/bin.",
+      actions: [
+        "Let the installed Skill use the absolute CLI path recorded by CoreStudio.",
+      ],
+      doNot: [
+        "Do not create another CLI copy or edit the managed Skill by hand.",
+      ],
+      verification:
+        "Run corestudio --version --json through the path recorded by the Skill.",
     },
     "zh-CN": {
       diagnosis: "图形化 Agent 宿主可能没有继承包含 ~/.local/bin 的终端 PATH。",
@@ -399,38 +415,57 @@ const TROUBLESHOOTING = {
   },
   "bridge-unavailable": {
     en: {
-      diagnosis: "CoreStudio is not running, or the local session has not become reachable yet.",
-      actions: ["Open the installed CoreStudio app, wait for it to finish starting, then run read status once."],
+      diagnosis:
+        "CoreStudio is not running, or the local session has not become reachable yet.",
+      actions: [
+        "Open the installed CoreStudio app, wait for it to finish starting, then run read status once.",
+      ],
       doNot: ["Do not bypass Local Bridge by editing project files directly."],
-      verification: "corestudio read status --json returns a structured status response.",
+      verification:
+        "corestudio read status --json returns a structured status response.",
     },
     "zh-CN": {
       diagnosis: "CoreStudio 没有运行，或本机会话尚未变为可达。",
-      actions: ["打开已安装的 CoreStudio，等待启动完成，然后只运行一次 read status。"],
+      actions: [
+        "打开已安装的 CoreStudio，等待启动完成，然后只运行一次 read status。",
+      ],
       doNot: ["不要绕过 Local Bridge 直接修改项目文件。"],
       verification: "corestudio read status --json 返回结构化状态。",
     },
   },
   "no-project": {
     en: {
-      diagnosis: "The Bridge is available, but no current project is selected.",
-      actions: ["Ask the Agent to list CoreStudio projects or open the stable project chooser URL."],
+      diagnosis:
+        "The Bridge is available, but this Agent task has not claimed and bound a project yet.",
+      actions: [
+        "Ask the Agent to list CoreStudio projects, open the stable project chooser, and claim the selected Board.",
+      ],
       doNot: ["Do not invent a project path or reuse an old board token URL."],
-      verification: "Read status reports the intended project before any write operation.",
+      verification:
+        "Read project with the same Agent session reports the intended bound project before any write operation.",
     },
     "zh-CN": {
-      diagnosis: "Bridge 已可达，但当前没有选中的项目。",
-      actions: ["让 Agent 读取 CoreStudio 项目列表，或打开稳定项目选择页。"],
+      diagnosis: "Bridge 已可达，但当前 Agent 任务还没有认领并绑定项目。",
+      actions: [
+        "让 Agent 读取 CoreStudio 项目列表，打开稳定项目选择页，并认领选中的 Board。",
+      ],
       doNot: ["不要猜项目路径，也不要复用旧的带 token 画布地址。"],
-      verification: "任何写入前，read status 已报告目标项目。",
+      verification:
+        "任何写入前，使用同一 Agent session 的 read project 已报告目标绑定项目。",
     },
   },
   "integration-outdated": {
     en: {
-      diagnosis: "The managed Skill, CLI wrapper, or integration contract is missing or out of date.",
-      actions: ["Open Application Settings → Agent integration and use Update or Repair for this host."],
-      doNot: ["Do not overwrite a user-modified Skill without reviewing the conflict shown by CoreStudio."],
-      verification: "corestudio --version --json reports the current integration contract.",
+      diagnosis:
+        "The managed Skill, CLI wrapper, or integration contract is missing or out of date.",
+      actions: [
+        "Open Application Settings → Agent integration and use Update or Repair for this host.",
+      ],
+      doNot: [
+        "Do not overwrite a user-modified Skill without reviewing the conflict shown by CoreStudio.",
+      ],
+      verification:
+        "corestudio --version --json reports the current integration contract.",
     },
     "zh-CN": {
       diagnosis: "受管 Skill、CLI 包装器或集成合同缺失或过期。",
@@ -441,30 +476,68 @@ const TROUBLESHOOTING = {
   },
   "session-expired": {
     en: {
-      diagnosis: "Cursor and Claude Code Agent sessions end when CoreStudio restarts.",
-      actions: ["Keep CoreStudio open and let the Skill establish a new Agent session for the current conversation."],
+      diagnosis: "Agent sessions end when CoreStudio restarts.",
+      actions: [
+        "Keep CoreStudio open and let the Skill establish a new Agent session for the current conversation.",
+      ],
       doNot: ["Do not reuse or persist the old session reference."],
-      verification: "Retry the read or write through the Skill and confirm the new session is accepted.",
+      verification:
+        "Retry the read or write through the Skill and confirm the new session is accepted.",
     },
     "zh-CN": {
-      diagnosis: "CoreStudio 重启后，Cursor 和 Claude Code 的 Agent session 会失效。",
-      actions: ["保持 CoreStudio 运行，让 Skill 为当前对话重新建立 Agent session。"],
+      diagnosis: "CoreStudio 重启后，Agent session 会失效。",
+      actions: [
+        "保持 CoreStudio 运行，让 Skill 为当前对话重新建立 Agent session。",
+      ],
       doNot: ["不要复用或长期保存旧 session 引用。"],
       verification: "通过 Skill 重试读取或写入，确认新 session 已被接受。",
     },
   },
-  "generation-not-authorized": {
+  "board-page-expired": {
     en: {
-      diagnosis: "CoreStudio image generation is either not authorized for this host or no current provider is configured.",
-      actions: ["Review this host in Agent integration settings and configure the image service separately if needed."],
-      doNot: ["Do not pass provider, model, API key, or base URL through the CLI."],
-      verification: "Read capabilities reports supported, authorized, and configured as true before generation.",
+      diagnosis:
+        "The Agent Board page was idle for a while, or CoreStudio restarted, so its room connection expired.",
+      actions: [
+        "Use Refresh page in the Board recovery view to establish a new room connection.",
+      ],
+      doNot: [
+        "Do not assume the desktop active tab changed the Agent project, and do not rely on automatic refresh for unsaved edits.",
+      ],
+      verification:
+        "The same stable Board reopens its bound project and returns to the editable canvas.",
     },
     "zh-CN": {
-      diagnosis: "当前宿主未获 CoreStudio 图片生成授权，或没有配置可用的当前服务。",
-      actions: ["在 Agent 集成设置中检查当前宿主权限；需要时另行配置图片服务。"],
+      diagnosis:
+        "Agent Board 页面闲置时间较长，或 CoreStudio 已重新启动，房间连接因此失效。",
+      actions: ["在画板恢复提示中点击“刷新页面”，重新建立房间连接。"],
+      doNot: [
+        "不要把它误判为桌面当前标签改变了 Agent 项目，也不要依赖自动刷新处理尚未保存的编辑。",
+      ],
+      verification: "同一个稳定 Board 重新打开已绑定项目并回到可编辑画布。",
+    },
+  },
+  "generation-not-authorized": {
+    en: {
+      diagnosis:
+        "CoreStudio image generation is either not authorized for this host or no current provider is configured.",
+      actions: [
+        "Review this host in Agent integration settings and configure the image service separately if needed.",
+      ],
+      doNot: [
+        "Do not pass provider, model, API key, or base URL through the CLI.",
+      ],
+      verification:
+        "Read capabilities reports supported, authorized, and configured as true before generation.",
+    },
+    "zh-CN": {
+      diagnosis:
+        "当前宿主未获 CoreStudio 图片生成授权，或没有配置可用的当前服务。",
+      actions: [
+        "在 Agent 集成设置中检查当前宿主权限；需要时另行配置图片服务。",
+      ],
       doNot: ["不要通过 CLI 传入 provider、model、API Key 或 Base URL。"],
-      verification: "生成前，read capabilities 同时报告 supported、authorized、configured 为 true。",
+      verification:
+        "生成前，read capabilities 同时报告 supported、authorized、configured 为 true。",
     },
   },
 };
@@ -522,7 +595,10 @@ export const getIntegrationGuide = ({
     prerequisites:
       normalizedLocale === "zh-CN"
         ? ["macOS 上已安装 CoreStudio", `使用 ${selectedHost.name} 本地 Agent`]
-        : ["CoreStudio is installed on macOS", `You use the local ${selectedHost.name} Agent`],
+        : [
+            "CoreStudio is installed on macOS",
+            `You use the local ${selectedHost.name} Agent`,
+          ],
     steps: content.installSteps,
     artifacts: [
       { type: "skill", path: selectedHost.skillPath },
@@ -559,10 +635,15 @@ export const getCliExample = ({
       example.requiresAgentSession && selectedHost.requiresAgentSession,
     safetyNotes:
       normalizedLocale === "zh-CN"
-        ? ["CLI 不直接修改项目文件。", "写入类任务必须通过 CoreStudio 校验并持久化。"]
+        ? [
+            "CLI 不直接修改项目文件。",
+            "写入类任务必须通过 CoreStudio 校验并持久化。",
+            "浏览器不承担图片粘贴或文件写入。",
+          ]
         : [
             "The CLI does not edit project files directly.",
             "Write operations must pass CoreStudio validation and persistence.",
+            "The browser is not an image-paste or file-write path.",
           ],
     contractUrl: CLI_CONTRACT_URL,
     contentRevision: CONTENT_REVISION,

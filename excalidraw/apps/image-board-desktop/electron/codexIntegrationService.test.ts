@@ -63,10 +63,10 @@ describe("inspectCodexIntegration", () => {
       existing: [CLI, SKILL, MANIFEST],
       manifest: {
         schemaVersion: 1,
-        integrationVersion: "1.12.1",
+        integrationVersion: "1.13.1",
         installedFromAppVersion: "1.1.15",
-        bridgeProtocolVersion: 6,
-        skillVersion: 17,
+        bridgeProtocolVersion: 7,
+        skillVersion: 19,
         cliWrapperVersion: 1,
         cliPath: CLI,
         skillPath: SKILL,
@@ -81,7 +81,7 @@ describe("inspectCodexIntegration", () => {
       {
         id: "compatibility",
         status: "ready",
-        installedIntegrationVersion: "1.12.1",
+        installedIntegrationVersion: "1.13.1",
       },
     ]);
   });

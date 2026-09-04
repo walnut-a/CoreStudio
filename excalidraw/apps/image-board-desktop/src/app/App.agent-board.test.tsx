@@ -635,6 +635,154 @@ describe("App Agent Board room route", () => {
     });
   });
 
+  it.each(["AUTH_REQUIRED", "TOKEN_EXPIRED"] as const)(
+    "shows the page-level refresh recovery when a room asset request returns %s",
+    async (errorCode) => {
+      const project = createMockProjectBundle({
+        projectPath: "/tmp/expired-http-room-project",
+      });
+      const identity = {
+        projectId: "project-expired-http",
+        canonicalProjectPath: project.projectPath,
+        roomId: "room-expired-http",
+        sessionEpoch: 1,
+      };
+      class ReadyRoomWebSocket {
+        static readonly OPEN = 1;
+        readonly readyState = ReadyRoomWebSocket.OPEN;
+        private readonly listeners = new Map<
+          string,
+          Array<(event: { data?: string }) => void>
+        >();
+
+        constructor() {
+          queueMicrotask(() => {
+            this.emit("message", {
+              data: JSON.stringify({
+                type: "room.joined",
+                sessionId: "board-session",
+                resumeToken: "expired-resume-token",
+                snapshot: {
+                  type: "room.snapshot",
+                  identity,
+                  sequence: 0,
+                  persistedSequence: 0,
+                  projectRevision: "revision-1",
+                  scene: { elements: [], sharedSceneConfig: {} },
+                  participants: [],
+                },
+                bootstrap: {
+                  projectPath: project.projectPath,
+                  project: project.project,
+                  imageRecords: {},
+                },
+              }),
+            });
+          });
+        }
+
+        addEventListener(
+          type: string,
+          listener: (event: { data?: string }) => void,
+        ) {
+          const listeners = this.listeners.get(type) ?? [];
+          listeners.push(listener);
+          this.listeners.set(type, listeners);
+        }
+
+        send() {}
+        close() {}
+
+        private emit(type: string, event: { data?: string }) {
+          for (const listener of this.listeners.get(type) ?? []) {
+            listener(event);
+          }
+        }
+      }
+
+      window.history.pushState(null, "", "/board/stable-board-id");
+      let roomAssetRequestCount = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string | URL) => {
+          const pathname = new URL(String(url)).pathname;
+          if (pathname === AGENT_HTTP_ROUTES.roomAssets) {
+            roomAssetRequestCount += 1;
+            if (roomAssetRequestCount === 1) {
+              return new Response(JSON.stringify({ ok: true, data: [] }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+            return new Response(
+              JSON.stringify({
+                ok: false,
+                error: {
+                  code: errorCode,
+                  message: "A valid project room ticket is required.",
+                },
+              }),
+              {
+                status: 401,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+          }
+          const data =
+            pathname === AGENT_HTTP_ROUTES.stableBoardIntegrationStatus
+              ? readyIntegrationStatus
+              : pathname === AGENT_HTTP_ROUTES.stableBoardSessionExchange
+              ? {
+                  launchTicket: "launch-ticket",
+                  actorResumeToken: "actor-resume-token",
+                }
+              : [];
+          return new Response(JSON.stringify({ ok: true, data }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }),
+      );
+      vi.stubGlobal("WebSocket", ReadyRoomWebSocket);
+
+      render(<App />);
+
+      expect(
+        await screen.findByTestId("excalidraw-canvas"),
+      ).toBeInTheDocument();
+      let requestError: unknown;
+      await act(async () => {
+        try {
+          await window.imageBoardDesktop?.readProjectAssetPayloads({
+            projectPath: project.projectPath,
+            fileIds: ["image-1"],
+            rendition: "preview",
+          });
+        } catch (error) {
+          requestError = error;
+        }
+      });
+      expect(requestError).toMatchObject({
+        code: "AGENT_BOARD_REFRESH_REQUIRED",
+      });
+
+      expect(
+        await screen.findByRole("alert", { name: "画板连接已断开" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "当前页面闲置时间较长，或 CoreStudio 已重新启动。刷新页面即可恢复连接。",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "刷新页面" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("A valid project room ticket is required."),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("joins the room and asks for a browser refresh when Electron restarts", async () => {
     const project = createMockProjectBundle({
       projectPath: "/tmp/room-project",
@@ -847,7 +995,9 @@ describe("App Agent Board room route", () => {
       await screen.findByRole("alert", { name: "画板连接已断开" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("CoreStudio 重启后，请刷新当前页面恢复画板。"),
+      screen.getByText(
+        "当前页面闲置时间较长，或 CoreStudio 已重新启动。刷新页面即可恢复连接。",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("重新启动后会自动恢复这个画布"),

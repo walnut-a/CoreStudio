@@ -1,4 +1,5 @@
 import type {
+  AgentBoardEditCommandRequest,
   ProjectRoomEvent,
   ProjectRoomJoinResult,
   ProjectRoomOperationResult,
@@ -89,6 +90,9 @@ export const createProjectRoomWebSocketTransport = (
     input.WebSocketImpl ?? (WebSocket as unknown as WebSocketConstructorLike);
   const listeners = new Set<(event: ProjectRoomEvent) => void>();
   const snapshotListeners = new Set<(joined: ProjectRoomJoinResult) => void>();
+  const agentCommandListeners = new Set<
+    (request: AgentBoardEditCommandRequest) => Promise<unknown>
+  >();
   const pendingOperations = new Map<
     string,
     {
@@ -227,6 +231,51 @@ export const createProjectRoomWebSocketTransport = (
         for (const listener of listeners) {
           listener(message.event);
         }
+        return;
+      }
+      if (message.type === "agent.command") {
+        const request = message.request as AgentBoardEditCommandRequest;
+        const listener = Array.from(agentCommandListeners)[0];
+        if (!listener) {
+          nextSocket.send(
+            JSON.stringify({
+              type: "agent.command-error",
+              requestId: request?.requestId,
+              error: {
+                code: "CAPABILITY_UNAVAILABLE",
+                message: "Agent Board command handler is unavailable.",
+              },
+            }),
+          );
+          return;
+        }
+        void listener(request).then(
+          (result) => {
+            nextSocket.send(
+              JSON.stringify({
+                type: "agent.command-result",
+                requestId: request.requestId,
+                result,
+              }),
+            );
+          },
+          (error) => {
+            nextSocket.send(
+              JSON.stringify({
+                type: "agent.command-error",
+                requestId: request.requestId,
+                error: {
+                  code:
+                    error && typeof error === "object" && "code" in error
+                      ? String(error.code)
+                      : "COMMAND_FAILED",
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                },
+              }),
+            );
+          },
+        );
         return;
       }
       if (message.type === "operation.result") {
@@ -376,6 +425,12 @@ export const createProjectRoomWebSocketTransport = (
       snapshotListeners.add(listener);
       return () => {
         snapshotListeners.delete(listener);
+      };
+    },
+    subscribeAgentCommand: (listener) => {
+      agentCommandListeners.add(listener);
+      return () => {
+        agentCommandListeners.delete(listener);
       };
     },
     requestResync: () => {

@@ -19,7 +19,7 @@
   </p>
 </div>
 
-CoreStudio 在优秀的 Excalidraw 项目基础上增加了图片生成、本地素材管理与 Agent 协作能力。项目、素材和生成结果默认保存在你的设备上；你可以自由配置需要的模型，也可以让 Codex 等 Agent 读取当前画布与选区，生成图片并写回同一个本地项目。CoreStudio 免费、开源，也可自由定制。
+CoreStudio 在优秀的 Excalidraw 项目基础上增加了图片生成、本地素材管理与 Agent 协作能力。项目、素材和生成结果默认保存在你的设备上；你可以自由配置需要的模型，也可以让 Codex 等 Agent 分别绑定自己的本地项目，不受桌面标签影响，并通过 CLI / Local Bridge 写回结果。CoreStudio 免费、开源，也可自由定制。
 
 <p align="center">
   <a href="https://getcorestudio.com/">
@@ -32,7 +32,7 @@ CoreStudio 在优秀的 Excalidraw 项目基础上增加了图片生成、本地
 - **本地优先：** 项目、素材和生成结果保存在本地，便于查看、管理、备份与迁移。
 - **成熟画布：** 直接继承 Excalidraw 的图形、文字、连线、流程图和自由布局能力，不重新发明画布。
 - **模型自由：** 可以配置自己的图片生成服务，在画布中使用参考图、提示词和生成记录持续工作。
-- **Agent 共用：** CoreStudio CLI / Local Bridge 允许 Codex 等 Agent 读取项目上下文并受控写回结果。
+- **Agent 共用：** CoreStudio CLI / Local Bridge 为每个 Agent 任务建立明确的项目绑定，浏览器上下文和人的桌面标签都不会成为文件写入通道。
 - **免费开源：** CoreStudio 本身免费使用，代码采用 MIT License，可按自己的工作流继续定制。
 
 ## 下载
@@ -108,7 +108,7 @@ CoreStudio 本身不额外收取使用费用；第三方模型 API 和 Agent 产
 
 | 入口           | 依据                                                                   | 说明                                                           |
 | -------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 官方网站       | `website/`                                                             | [getcorestudio.com](https://getcorestudio.com/)                 |
+| 官方网站       | `website/`                                                             | [getcorestudio.com](https://getcorestudio.com/)                |
 | 桌面端开发启动 | `excalidraw/package.json` -> `dev:desktop`                             | 用项目专属 Electron 路径、profile 和端口启动 CoreStudio 开发版 |
 | 桌面端构建     | `excalidraw/package.json` -> `build:desktop`                           | 构建 renderer 和 Electron main/preload                         |
 | 桌面端打包     | `excalidraw/package.json` -> `package:desktop`                         | 构建、密钥扫描、electron-builder、notarize                     |

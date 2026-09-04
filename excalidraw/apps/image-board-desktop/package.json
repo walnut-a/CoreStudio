@@ -1,6 +1,6 @@
 {
   "name": "image-board-desktop",
-  "version": "1.1.44",
+  "version": "1.1.45",
   "private": true,
   "license": "MIT",
   "description": "CoreStudio desktop image board",
@@ -15,6 +15,7 @@
     "check:secrets": "node scripts/check-secrets.cjs",
     "dev:renderer": "vite --config vite.config.mts --host 127.0.0.1 --port 5174",
     "dev:composer": "vite --config vite.config.mts --host 127.0.0.1 --port 5174 --open /composer-lab.html",
+    "dev:assets": "vite --config vite.config.mts --host 127.0.0.1 --port 5174 --open /asset-lab.html",
     "dev:electron": "yarn ensure:electron && wait-on tcp:5174 file:dist-electron/main.js file:dist-electron/preload.js && node scripts/dev-electron.cjs",
     "build:renderer": "vite build --config vite.config.mts",
     "build:electron": "node scripts/build-electron.mjs",

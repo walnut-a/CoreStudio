@@ -183,7 +183,7 @@ Examples:
   corestudio read board-url --project /path/to/project --json
   corestudio board claim --stable-board-id <id> --page-nonce <nonce> --json
   corestudio generate image --prompt "..." --count 1 --json
-  corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --json
+  corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --prompt "..." --json
   corestudio write image ./searched.png --source-type imported --json
   corestudio write diagram --format mermaid --file ./process.mmd --anchor auto --json
   corestudio edit locate --file-id <file-id> --json
@@ -801,7 +801,7 @@ const parseCommand = (
           `${envPrefix} ${executable} read image-paths --selection --json`,
           `${envPrefix} ${executable} read records --json`,
           `${envPrefix} ${executable} read health --json`,
-          `${envPrefix} ${executable} write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --json`,
+          `${envPrefix} ${executable} write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --prompt "..." --json`,
           `${envPrefix} ${executable} write image /absolute/path/to/searched.png --source-type imported --json`,
           `${envPrefix} ${executable} write diagram --format mermaid --file /absolute/path/to/process.mmd --anchor auto --json`,
           `${envPrefix} ${executable} edit locate --file-id <fileId> --json`,
@@ -1329,8 +1329,10 @@ const requestBridge = async (
   const init: CliFetchInit = {
     method: command.method,
     headers: {
-      Authorization: `Bearer ${bridge.projectToken}`,
       Accept: "application/json",
+      ...(bridge.projectToken
+        ? { Authorization: `Bearer ${bridge.projectToken}` }
+        : {}),
     },
   };
 

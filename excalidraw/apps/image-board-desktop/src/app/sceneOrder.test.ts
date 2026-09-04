@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { syncInvalidIndices, validateFractionalIndices } from "@excalidraw/element";
-import { newFrameElement, newImageElement, newTextElement } from "@excalidraw/element";
+import {
+  syncInvalidIndices,
+  validateFractionalIndices,
+} from "@excalidraw/element";
+import {
+  newFrameElement,
+  newImageElement,
+  newTextElement,
+} from "@excalidraw/element";
 import type { FileId } from "@excalidraw/element/types";
 
 import { appendElementsWithSyncedIndices } from "./sceneOrder";
@@ -38,7 +45,10 @@ describe("appendElementsWithSyncedIndices", () => {
       frameId: frame.id,
     });
 
-    const result = appendElementsWithSyncedIndices(existingElements, [frame, label]);
+    const result = appendElementsWithSyncedIndices(existingElements, [
+      frame,
+      label,
+    ]);
 
     expect(() =>
       validateFractionalIndices(result, {
@@ -47,8 +57,34 @@ describe("appendElementsWithSyncedIndices", () => {
         ignoreLogs: true,
       }),
     ).not.toThrow();
-    expect(result.slice(-2).every((element) => typeof element.index === "string")).toBe(
-      true,
-    );
+    expect(
+      result.slice(-2).every((element) => typeof element.index === "string"),
+    ).toBe(true);
+  });
+
+  it("preserves valid existing indices and appends after them", () => {
+    const first = newImageElement({
+      type: "image",
+      fileId: "file-1" as FileId,
+      status: "saved",
+      scale: [1, 1],
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+    const [existing] = syncInvalidIndices([first]);
+    const appended = newFrameElement({
+      x: 120,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+
+    const result = appendElementsWithSyncedIndices([existing], [appended]);
+
+    expect(result[0]).toBe(existing);
+    expect(result[0].index).toBe(existing.index);
+    expect(result[1].index! > existing.index!).toBe(true);
   });
 });

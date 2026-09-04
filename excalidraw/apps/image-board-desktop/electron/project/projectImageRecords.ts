@@ -166,7 +166,14 @@ export const parseProjectImageRecords = (
       mimeType: rawRecord.mimeType,
     };
     let hasInvalidOptionalField = false;
-    const copyOptionalString = (key: "model" | "prompt" | "negativePrompt") => {
+    const copyOptionalString = (
+      key:
+        | "displayName"
+        | "sourceFileName"
+        | "model"
+        | "prompt"
+        | "negativePrompt",
+    ) => {
       const fieldValue = rawRecord[key];
       if (fieldValue === undefined) {
         return;
@@ -177,6 +184,8 @@ export const parseProjectImageRecords = (
         hasInvalidOptionalField = true;
       }
     };
+    copyOptionalString("displayName");
+    copyOptionalString("sourceFileName");
     copyOptionalString("model");
     copyOptionalString("prompt");
     copyOptionalString("negativePrompt");

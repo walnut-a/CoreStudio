@@ -8,7 +8,10 @@ import {
   writeProjectImageRecords,
 } from "./projectImageRecords";
 
-import type { ImageRecord, ImageRecordMap } from "../../src/shared/projectTypes";
+import type {
+  ImageRecord,
+  ImageRecordMap,
+} from "../../src/shared/projectTypes";
 
 const createImageRecord = (patch: Partial<ImageRecord> = {}): ImageRecord => ({
   fileId: "file-ok",
@@ -113,6 +116,21 @@ describe("projectImageRecords", () => {
         repairable: false,
       }),
     );
+  });
+
+  it("preserves readable asset names", () => {
+    const result = parseProjectImageRecords({
+      named: createImageRecord({
+        fileId: "named",
+        displayName: "机床主视觉",
+        sourceFileName: "industrial-design.png",
+      }),
+    });
+
+    expect(result.imageRecords.named).toMatchObject({
+      displayName: "机床主视觉",
+      sourceFileName: "industrial-design.png",
+    });
   });
 
   it("sanitizes malformed optional fields before records reach the renderer", () => {

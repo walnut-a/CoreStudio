@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WebSocket } from "ws";
 
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
@@ -20,6 +21,7 @@ import {
 
 import { createLocalBridgeServer } from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
+import { createProjectRoom } from "../room/projectRoom";
 
 const projectToken = "project-token-1";
 const boardUrl = "http://127.0.0.1:60909/board";
@@ -640,6 +642,153 @@ describe("createLocalBridgeServer", () => {
     );
   });
 
+  it("routes a trusted Agent session to its claimed Board project without desktop focus or project token", async () => {
+    const session = {
+      sessionRef: "codex-session-ref",
+      actorId: "agent:codex:codex-session-ref",
+      host: "codex" as const,
+      displayLabel: "Codex · 工业设计",
+      issuedAt: "2026-09-04T00:00:00.000Z",
+    };
+    const resolveAgentSession = vi.fn(() => session);
+    const resolveAgentProject = vi.fn(async () => backgroundProject);
+    const withAgentWriterCommand = vi.fn(async (_input, run) =>
+      run({
+        sessionId: "writer-session",
+        identity: {
+          projectId: "project-2",
+          canonicalProjectPath: backgroundProject.projectPath,
+          roomId: "room-2",
+          sessionEpoch: 1,
+        },
+        roomSequence: 1,
+        scene: { elements: [], sharedSceneConfig: {} },
+      }),
+    );
+    const { server } = await track(
+      startServer({
+        getCurrentProject: () => null,
+        resolveAgentSession,
+        resolveAgentProject,
+        withAgentWriterCommand,
+      }),
+    );
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Agent-Session": session.sessionRef,
+        },
+        body: JSON.stringify({ text: "方案 B" }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(resolveAgentProject).toHaveBeenCalledWith(session);
+    expect(withAgentWriterCommand).toHaveBeenCalledWith(
+      {
+        project: backgroundProject,
+        threadId: session.sessionRef,
+        actorId: session.actorId,
+        host: session.host,
+        displayLabel: session.displayLabel,
+      },
+      expect.any(Function),
+    );
+  });
+
+  it("rejects an unbound trusted Agent session instead of falling back to the desktop project token", async () => {
+    const session = {
+      sessionRef: "codex-session-ref",
+      actorId: "agent:codex:codex-session-ref",
+      host: "codex" as const,
+      displayLabel: "Codex · 未认领任务",
+      issuedAt: "2026-09-04T00:00:00.000Z",
+    };
+    const withAgentWriterCommand = vi.fn();
+    const { server, renderer } = await track(
+      startServer({
+        resolveAgentSession: () => session,
+        resolveAgentProject: async () => null,
+        withAgentWriterCommand,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Agent-Session": session.sessionRef,
+        },
+        body: JSON.stringify({ text: "不应写入当前桌面项目" }),
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 409,
+      body: {
+        ok: false,
+        error: { code: "AGENT_TARGET_REQUIRED" },
+      },
+    });
+    expect(withAgentWriterCommand).not.toHaveBeenCalled();
+    expect(renderer.request).not.toHaveBeenCalled();
+  });
+
+  it("reads a claimed Agent project through the Bridge without a browser renderer", async () => {
+    const session = {
+      sessionRef: "codex-session-ref",
+      actorId: "agent:codex:codex-session-ref",
+      host: "codex" as const,
+      displayLabel: "Codex · 工业设计",
+      issuedAt: "2026-09-04T00:00:00.000Z",
+    };
+    const readAgentProjectCommand = vi.fn(async () => ({
+      projectId: "project-2",
+      projectPath: backgroundProject.projectPath,
+      name: backgroundProject.name,
+    }));
+    const { server, renderer } = await track(
+      startServer({
+        getCurrentProject: () => null,
+        resolveAgentSession: () => session,
+        resolveAgentProject: async () => backgroundProject,
+        readAgentProjectCommand,
+      }),
+    );
+
+    const result = await requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.projectCurrent,
+      {
+        headers: { "X-CoreStudio-Agent-Session": session.sessionRef },
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { ok: true, data: { projectId: "project-2" } },
+    });
+    expect(readAgentProjectCommand).toHaveBeenCalledWith({
+      command: "project.current",
+      project: backgroundProject,
+      participant: {
+        threadId: session.sessionRef,
+        actorId: session.actorId,
+        host: session.host,
+        displayLabel: session.displayLabel,
+      },
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
+  });
+
   it("keeps concurrent Cursor and Claude Code writer identities isolated", async () => {
     const sessions = {
       "cursor-session-ref": {
@@ -1036,6 +1185,101 @@ describe("createLocalBridgeServer", () => {
       });
     },
   );
+
+  it("routes a bound Agent visual edit to its Board instead of the desktop renderer", async () => {
+    const session = {
+      sessionRef: "codex-session-ref",
+      actorId: "agent:codex:codex-session-ref",
+      host: "codex" as const,
+      displayLabel: "Codex · 工业设计",
+      issuedAt: "2026-09-04T00:00:00.000Z",
+    };
+    const room = createProjectRoom({
+      identity: {
+        projectId: "project-2",
+        canonicalProjectPath: backgroundProject.projectPath,
+        roomId: "room-2",
+        sessionEpoch: 1,
+      },
+      initialScene: { elements: [], sharedSceneConfig: {} },
+      persistedSequence: 0,
+      projectRevision: "revision-1",
+    });
+    const { server, renderer } = await track(
+      startServer({
+        getCurrentProject: () => null,
+        resolveAgentSession: () => session,
+        resolveAgentProject: async () => ({
+          ...backgroundProject,
+          agentRoomId: room.identity.roomId,
+          agentActorId: session.actorId,
+        }),
+        authenticateProjectRoomWebSocket: async () => ({
+          room,
+          exchange: {
+            sessionId: "board-session",
+            resumeToken: "resume-token",
+            participant: {
+              actorId: session.actorId,
+              sessionId: "board-session",
+              transport: "websocket" as const,
+              role: "board-editor" as const,
+              displayLabel: session.displayLabel,
+            },
+          },
+        }),
+      }),
+    );
+    const socket = new WebSocket(
+      `${server.baseUrl.replace("http", "ws")}/v1/room?launchTicket=ticket`,
+    );
+    const messages: unknown[] = [];
+    socket.on("message", (data) => messages.push(JSON.parse(String(data))));
+    await new Promise<void>((resolve, reject) => {
+      socket.once("open", resolve);
+      socket.once("error", reject);
+    });
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
+
+    const responsePromise = requestJsonWithoutAuth(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneLocate,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CoreStudio-Agent-Session": session.sessionRef,
+        },
+        body: JSON.stringify({ fileId: "file-1" }),
+      },
+    );
+    await vi.waitFor(() => expect(messages).toHaveLength(2));
+    const command = messages[1] as any;
+    expect(command).toMatchObject({
+      type: "agent.command",
+      request: {
+        command: "scene.locate",
+        payload: {
+          projectPath: backgroundProject.projectPath,
+          fileId: "file-1",
+        },
+      },
+    });
+    socket.send(
+      JSON.stringify({
+        type: "agent.command-result",
+        requestId: command.request.requestId,
+        result: { located: true },
+      }),
+    );
+
+    await expect(responsePromise).resolves.toMatchObject({
+      status: 200,
+      body: { ok: true, data: { located: true } },
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
+    socket.close();
+  });
 
   it("returns stable Board diagnostics without exposing a browser repair route", async () => {
     const inspectStableBoardIntegration = vi.fn(async () => ({
@@ -2072,6 +2316,74 @@ describe("createLocalBridgeServer", () => {
         },
       },
     });
+  });
+
+  it("prepares project-room writes in the Bridge without opening or calling a browser renderer", async () => {
+    const prepared = {
+      type: "agent-writer.prepared" as const,
+      elements: [
+        {
+          id: "prompt-1",
+          type: "text",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 40,
+          isDeleted: false,
+        },
+      ],
+    };
+    const prepareAgentWriterCommand = vi.fn(async () => prepared);
+    const withAgentWriterCommand = vi.fn(async (_input, run) =>
+      run({
+        sessionId: "agent-writer-session",
+        identity: {
+          projectId: "project-1",
+          canonicalProjectPath: currentProject.projectPath,
+          roomId: "room-1",
+          sessionEpoch: 2,
+        },
+        roomSequence: 0,
+        scene: { elements: [], sharedSceneConfig: {} },
+      }),
+    );
+    const { server, renderer } = await track(
+      startServer({
+        participantIssuerToken: "issuer-secret",
+        prepareAgentWriterCommand,
+        withAgentWriterCommand,
+      }),
+    );
+
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.sceneAddPrompt,
+      {
+        method: "POST",
+        headers: {
+          "X-CoreStudio-Participant-Issuer": "issuer-secret",
+          "X-CoreStudio-Participant-Thread": "thread-direct",
+          "X-CoreStudio-Participant-Label": encodeURIComponent("直接写入"),
+        },
+        body: JSON.stringify({ text: "无需浏览器" }),
+      },
+    );
+
+    expect(result.status).toBe(200);
+    expect(prepareAgentWriterCommand).toHaveBeenCalledWith({
+      command: "scene.addPrompt",
+      project: currentProject,
+      payload: {
+        projectPath: currentProject.projectPath,
+        text: "无需浏览器",
+        dryRun: false,
+      },
+      context: expect.objectContaining({
+        sessionId: "agent-writer-session",
+        identity: expect.objectContaining({ projectId: "project-1" }),
+      }),
+    });
+    expect(renderer.request).not.toHaveBeenCalled();
   });
 
   it("runs diagram dry-runs through the renderer without applying a room operation", async () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type {
+  DesktopAgentActiveProject,
   DesktopProjectBundle,
   DesktopProjectTheme,
   DesktopProjectViewsState,
@@ -52,6 +53,9 @@ export const DesktopShellApp = ({
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>(
     [],
   );
+  const [agentActiveProjects, setAgentActiveProjects] = useState<
+    DesktopAgentActiveProject[]
+  >([]);
   const [recentProjectsLoadStatus, setRecentProjectsLoadStatus] =
     useState<RecentProjectsLoadStatus>("loading");
   const [providerConfiguration, setProviderConfiguration] =
@@ -132,6 +136,32 @@ export const DesktopShellApp = ({
     }
   }, [bridge]);
 
+  const openVisibleProject = useCallback(
+    (projectPath: string) => {
+      if (!bridge?.openProjectView) {
+        return;
+      }
+      setLoadingProject(true);
+      setProjectError(null);
+      void bridge
+        .openProjectView(projectPath)
+        .then(async (state) => {
+          setProjectViewsState(state);
+          setRecentProjects(await bridge.loadRecentProjects());
+          setRecentProjectsLoadStatus("loaded");
+        })
+        .catch((error) => {
+          setProjectError(
+            error instanceof Error ? error.message : String(error || ""),
+          );
+        })
+        .finally(() => {
+          setLoadingProject(false);
+        });
+    },
+    [bridge],
+  );
+
   useEffect(() => {
     if (!bridge?.loadProjectViewsState) {
       setStartupError("当前 CoreStudio 版本缺少项目视图能力。");
@@ -141,15 +171,25 @@ export const DesktopShellApp = ({
     void Promise.all([
       bridge.loadProjectViewsState(),
       bridge.loadRecentProjects(),
+      bridge.loadAgentActiveProjects
+        ? bridge.loadAgentActiveProjects()
+        : Promise.resolve([]),
     ])
-      .then(([nextProjectViewsState, nextRecentProjects]) => {
-        if (disposed) {
-          return;
-        }
-        setProjectViewsState(nextProjectViewsState);
-        setRecentProjects(nextRecentProjects);
-        setRecentProjectsLoadStatus("loaded");
-      })
+      .then(
+        ([
+          nextProjectViewsState,
+          nextRecentProjects,
+          nextAgentActiveProjects,
+        ]) => {
+          if (disposed) {
+            return;
+          }
+          setProjectViewsState(nextProjectViewsState);
+          setRecentProjects(nextRecentProjects);
+          setAgentActiveProjects(nextAgentActiveProjects);
+          setRecentProjectsLoadStatus("loaded");
+        },
+      )
       .catch((error) => {
         if (!disposed) {
           setRecentProjectsLoadStatus("failed");
@@ -168,6 +208,8 @@ export const DesktopShellApp = ({
       .catch(() => undefined);
     const unsubscribeProjectViews =
       bridge.onProjectViewsState?.(setProjectViewsState);
+    const unsubscribeAgentActiveProjects =
+      bridge.onAgentActiveProjectsChanged?.(setAgentActiveProjects);
     const unsubscribeMenu = bridge.onMenuAction((event) => {
       if (event.action === "project-opened" && event.projectBundle) {
         void applyOpenedBundle(event.projectBundle);
@@ -182,6 +224,7 @@ export const DesktopShellApp = ({
     return () => {
       disposed = true;
       unsubscribeProjectViews?.();
+      unsubscribeAgentActiveProjects?.();
       unsubscribeMenu();
     };
   }, [applyOpenedBundle, bridge]);
@@ -289,6 +332,7 @@ export const DesktopShellApp = ({
         projectError={projectError}
         loadingProject={loadingProject}
         recentProjects={recentProjects}
+        agentActiveProjects={agentActiveProjects}
         recentProjectsLoadStatus={recentProjectsLoadStatus}
         providerConfigurationStatus={
           providerConfiguration === null
@@ -308,28 +352,8 @@ export const DesktopShellApp = ({
           setAppSettingsCategory("image-generation");
           setAppSettingsOpen(true);
         }}
-        onOpenRecentProject={(projectPath) => {
-          if (!bridge.openProjectView) {
-            return;
-          }
-          setLoadingProject(true);
-          setProjectError(null);
-          void bridge
-            .openProjectView(projectPath)
-            .then(async (state) => {
-              setProjectViewsState(state);
-              setRecentProjects(await bridge.loadRecentProjects());
-              setRecentProjectsLoadStatus("loaded");
-            })
-            .catch((error) => {
-              setProjectError(
-                error instanceof Error ? error.message : String(error || ""),
-              );
-            })
-            .finally(() => {
-              setLoadingProject(false);
-            });
-        }}
+        onOpenRecentProject={openVisibleProject}
+        onOpenAgentProject={openVisibleProject}
         onRemoveRecentProject={async (projectPath) => {
           if (!bridge.removeRecentProject) {
             return;

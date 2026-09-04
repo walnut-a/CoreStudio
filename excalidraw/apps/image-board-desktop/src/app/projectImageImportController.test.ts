@@ -92,7 +92,7 @@ const createClipboardData = (
     mixedContent: [],
     errorMessage: undefined,
     ...overrides,
-  }) as ClipboardData;
+  } as ClipboardData);
 
 describe("runProjectImageAssetInsertAction", () => {
   it("persists image assets, merges records into the active project, and inserts them into the scene", async () => {
@@ -206,6 +206,7 @@ describe("runProjectImagesImportAction", () => {
         {
           ...importedImages[0],
           sourceType: "imported",
+          sourceFileName: "image-1.png",
         },
       ],
     });
@@ -214,6 +215,7 @@ describe("runProjectImagesImportAction", () => {
         {
           ...importedImages[0],
           sourceType: "imported",
+          sourceFileName: "image-1.png",
         },
       ],
       {
@@ -321,6 +323,7 @@ describe("runDesktopClipboardImagePasteAction", () => {
         {
           ...clipboardImage,
           sourceType: "imported",
+          sourceFileName: "clipboard-image.png",
         },
       ],
       {
@@ -411,6 +414,7 @@ describe("createProjectImageImportRendererActions", () => {
         {
           ...importedImage,
           sourceType: "imported",
+          sourceFileName: "imported-image.png",
         },
       ],
     });
@@ -420,6 +424,7 @@ describe("createProjectImageImportRendererActions", () => {
         {
           ...clipboardImage,
           sourceType: "imported",
+          sourceFileName: "clipboard-image.png",
         },
       ],
     });
@@ -429,6 +434,7 @@ describe("createProjectImageImportRendererActions", () => {
         {
           ...clipboardImage,
           sourceType: "imported",
+          sourceFileName: "clipboard-image.png",
         },
       ],
       {

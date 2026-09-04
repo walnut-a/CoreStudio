@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type {
   ImagePromptReferenceRecord,
@@ -7,6 +7,8 @@ import type {
 import { referencePlaceholderText } from "../../shared/promptReferences";
 import type { ImageLineageEntry } from "../imageRelationships";
 import type { GenerationTaskRecord } from "../generationTaskState";
+import { getImageAssetTitle } from "../imageAssetViewModel";
+import { buildImageProvenanceViewModel } from "../imageProvenance";
 import { copy, DESKTOP_LANG_CODE, getOptionalText } from "../copy";
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
 import { getProviderDefinition } from "../../shared/providerCatalog";
@@ -22,6 +24,8 @@ interface ImageInspectorProps {
   onCopyTaskError: () => void;
   onLocateImageRecord: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
+  onCopyImageId?: () => void;
+  onRenameImage?: (displayName: string | null) => Promise<void> | void;
 }
 
 const formatDateTime = (value: string) => {
@@ -50,7 +54,7 @@ const getImageRecordPromptSummary = (record: ImageRecord) => {
     ? prompt.length > 48
       ? `${prompt.slice(0, 48)}...`
       : prompt
-    : record.fileId;
+    : getImageAssetTitle(record);
 };
 
 const getImageRecordSummary = (record: ImageRecord) =>
@@ -151,9 +155,22 @@ export const ImageInspector = ({
   onCopyTaskError,
   onLocateImageRecord,
   onLocatePromptReference,
+  onCopyImageId,
+  onRenameImage,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
+  const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
   usePlainTextCopyWithin(inspectorRef);
+
+  useEffect(() => {
+    setTechnicalDetailsOpen(false);
+    setRenaming(false);
+    setRenameValue(record?.displayName ?? record?.sourceFileName ?? "");
+    setRenameSaving(false);
+  }, [record?.displayName, record?.fileId, record?.sourceFileName]);
 
   const handleScrollWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     const container = event.currentTarget;
@@ -288,7 +305,10 @@ export const ImageInspector = ({
     );
   }
 
-  const imageTitle = getImageRecordTitle(record);
+  const imageTitle =
+    record.displayName?.trim() ||
+    record.sourceFileName?.trim() ||
+    getImageRecordTitle(record);
   const modelText = getOptionalText(record.model);
   const generationAttribution = getGenerationAttribution(record);
   const promptReferenceList = getPromptReferenceList(record.promptReferences);
@@ -343,7 +363,64 @@ export const ImageInspector = ({
       <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
         <header className="image-inspector__hero">
           <div className="image-inspector__hero-main">
-            <h4>{imageTitle}</h4>
+            {renaming ? (
+              <form
+                className="image-inspector__rename-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!onRenameImage || renameSaving) {
+                    return;
+                  }
+                  const nextName = renameValue.trim() || null;
+                  setRenameSaving(true);
+                  void Promise.resolve(onRenameImage(nextName))
+                    .then(() => setRenaming(false))
+                    .catch(() => undefined)
+                    .finally(() => setRenameSaving(false));
+                }}
+              >
+                <input
+                  autoFocus
+                  aria-label={copy.inspector.assetName}
+                  placeholder={imageTitle}
+                  value={renameValue}
+                  maxLength={120}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                />
+                <div className="image-inspector__rename-actions">
+                  <DesktopButton
+                    type="submit"
+                    size="small"
+                    disabled={renameSaving}
+                  >
+                    {copy.inspector.saveName}
+                  </DesktopButton>
+                  <DesktopButton
+                    type="button"
+                    size="small"
+                    onClick={() => setRenaming(false)}
+                  >
+                    {copy.inspector.cancelRename}
+                  </DesktopButton>
+                </div>
+              </form>
+            ) : (
+              <div className="image-inspector__title-row">
+                <h4>{imageTitle}</h4>
+                {onRenameImage ? (
+                  <DesktopButton
+                    type="button"
+                    size="small"
+                    onClick={() => {
+                      setRenameValue(record.displayName ?? "");
+                      setRenaming(true);
+                    }}
+                  >
+                    {copy.inspector.rename}
+                  </DesktopButton>
+                ) : null}
+              </div>
+            )}
             <p>{modelText}</p>
           </div>
           <div className="image-inspector__hero-facts">
@@ -451,6 +528,63 @@ export const ImageInspector = ({
             )}
           </section>
         )}
+
+        <section className="image-inspector__technical">
+          <button
+            type="button"
+            className="image-inspector__technical-toggle"
+            aria-expanded={technicalDetailsOpen}
+            onClick={() => setTechnicalDetailsOpen((open) => !open)}
+          >
+            <span>{copy.inspector.technicalDetails}</span>
+            <span aria-hidden="true">{technicalDetailsOpen ? "−" : "+"}</span>
+          </button>
+          {technicalDetailsOpen ? (
+            <dl className="image-inspector__detail-grid">
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.imageId}</dt>
+                <dd className="image-inspector__technical-value">
+                  <code>{record.fileId}</code>
+                  {onCopyImageId ? (
+                    <DesktopButton
+                      type="button"
+                      size="small"
+                      aria-label={copy.inspector.copyImageId}
+                      title={copy.inspector.copyImageId}
+                      onClick={onCopyImageId}
+                    >
+                      {copyIcon}
+                    </DesktopButton>
+                  ) : null}
+                </dd>
+              </div>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.assetPath}</dt>
+                <dd className="image-inspector__detail-value image-inspector__detail-code">
+                  {record.assetPath}
+                </dd>
+              </div>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.mimeType}</dt>
+                <dd className="image-inspector__detail-value">
+                  {record.mimeType}
+                </dd>
+              </div>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.originalSize}</dt>
+                <dd className="image-inspector__detail-value">
+                  {formatSize(record.width, record.height)} px
+                </dd>
+              </div>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.generationOrigin}</dt>
+                <dd className="image-inspector__detail-value">
+                  {buildImageProvenanceViewModel(record).sourceLabel}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+        </section>
       </div>
     </section>
   );

@@ -204,6 +204,50 @@ describe("createProjectRoomWebSocketTransport", () => {
     await expect(persistence).resolves.toBeUndefined();
   });
 
+  it("executes visual edit commands from the room and returns the result", async () => {
+    FakeWebSocket.instances = [];
+    const transport = createProjectRoomWebSocketTransport({
+      bridgeBaseUrl: "http://127.0.0.1:60909",
+      resumeToken: "resume-token",
+      WebSocketImpl: FakeWebSocket as any,
+    });
+    const commandHandler = vi.fn(async () => ({ located: true }));
+    transport.subscribeAgentCommand?.(commandHandler);
+    const joinedPromise = transport.join({
+      projectPath: "/projects/project-1",
+      sessionId: "ignored",
+    });
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({
+      type: "room.joined",
+      sessionId: "board-session",
+      resumeToken: "resume-token",
+      snapshot,
+    });
+    await joinedPromise;
+
+    socket.receive({
+      type: "agent.command",
+      request: {
+        requestId: "command-1",
+        command: "scene.locate",
+        payload: { fileId: "file-1" },
+      },
+    });
+    await vi.waitFor(() => expect(socket.sent).toHaveLength(1));
+    expect(commandHandler).toHaveBeenCalledWith({
+      requestId: "command-1",
+      command: "scene.locate",
+      payload: { fileId: "file-1" },
+    });
+    expect(JSON.parse(socket.sent[0])).toEqual({
+      type: "agent.command-result",
+      requestId: "command-1",
+      result: { located: true },
+    });
+  });
+
   it("reconnects with the resume token and publishes the new snapshot", async () => {
     FakeWebSocket.instances = [];
     const scheduled: Array<() => void> = [];

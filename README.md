@@ -19,7 +19,7 @@
   </p>
 </div>
 
-CoreStudio adds image generation, local asset management, and agent collaboration to the excellent Excalidraw project. Projects, assets, and generated results stay on your device by default. You can configure the models you need, or let agents such as Codex read the current canvas and selection, generate images, and write them back to the same local project. CoreStudio is free, open source, and fully customizable.
+CoreStudio adds image generation, local asset management, and agent collaboration to the excellent Excalidraw project. Projects, assets, and generated results stay on your device by default. You can configure the models you need, or let agents such as Codex bind to their own local projects, work independently of desktop tabs, and write results back through the CLI and Local Bridge. CoreStudio is free, open source, and fully customizable.
 
 <p align="center">
   <a href="https://getcorestudio.com/">
@@ -32,7 +32,7 @@ CoreStudio adds image generation, local asset management, and agent collaboratio
 - **Local-first:** Projects, assets, and generated results stay local, making them easy to inspect, organize, back up, and move.
 - **A proven canvas:** CoreStudio inherits Excalidraw's shapes, text, connectors, diagrams, and freeform layout instead of reinventing the canvas.
 - **Model freedom:** Configure your preferred image-generation services and keep working with reference images, prompts, and generation history on the canvas.
-- **Built for agents:** CoreStudio CLI and Local Bridge let agents such as Codex read project context and write results back through controlled interfaces.
+- **Built for agents:** CoreStudio CLI and Local Bridge give every Agent task an explicit project binding, so browser context and human desktop tabs never become file-write paths.
 - **Free and open source:** CoreStudio is free to use, released under the MIT License, and ready to adapt to your own workflow.
 
 ## Download
@@ -72,21 +72,21 @@ Upstream Excalidraw is released under the MIT License, and so is this repository
 └── review-packets/
 ```
 
-| Path | Purpose |
-| --- | --- |
-| `docs/README.md` | Main entry point for repository documentation |
-| `docs/doc/` | Stable documentation such as repository analysis, architecture, and interface guides |
-| `docs/plan/` | Entry point for future plans; no new plan is created there by default |
-| `docs/spec/` | Entry point for future specifications; no new specification is created there by default |
-| `docs/superpowers/` | Existing historical plans and specifications, preserved in their current location |
-| `excalidraw/` | Upstream Excalidraw monorepo and the active CoreStudio workspace |
-| `excalidraw/apps/image-board-desktop/` | Main CoreStudio desktop application |
-| `excalidraw/apps/image-board-desktop/electron/` | Electron main process, project files, Local Bridge, and provider adapters |
-| `excalidraw/apps/image-board-desktop/src/app/` | React renderer, canvas UI, generation composer, generation history, and project state |
-| `excalidraw/apps/image-board-desktop/src/shared/` | Shared renderer/Electron types and data-integrity logic |
-| `excalidraw/packages/` | Excalidraw workspace packages |
-| `website/` | Static website pages, responsive assets, and GitHub Pages configuration |
-| `review-packets/` | Local review material; not a primary source-code entry point |
+| Path                                              | Purpose                                                                                 |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `docs/README.md`                                  | Main entry point for repository documentation                                           |
+| `docs/doc/`                                       | Stable documentation such as repository analysis, architecture, and interface guides    |
+| `docs/plan/`                                      | Entry point for future plans; no new plan is created there by default                   |
+| `docs/spec/`                                      | Entry point for future specifications; no new specification is created there by default |
+| `docs/superpowers/`                               | Existing historical plans and specifications, preserved in their current location       |
+| `excalidraw/`                                     | Upstream Excalidraw monorepo and the active CoreStudio workspace                        |
+| `excalidraw/apps/image-board-desktop/`            | Main CoreStudio desktop application                                                     |
+| `excalidraw/apps/image-board-desktop/electron/`   | Electron main process, project files, Local Bridge, and provider adapters               |
+| `excalidraw/apps/image-board-desktop/src/app/`    | React renderer, canvas UI, generation composer, generation history, and project state   |
+| `excalidraw/apps/image-board-desktop/src/shared/` | Shared renderer/Electron types and data-integrity logic                                 |
+| `excalidraw/packages/`                            | Excalidraw workspace packages                                                           |
+| `website/`                                        | Static website pages, responsive assets, and GitHub Pages configuration                 |
+| `review-packets/`                                 | Local review material; not a primary source-code entry point                            |
 
 ## Core capabilities
 
@@ -106,16 +106,16 @@ The following capabilities are backed by current code or documentation:
 
 ## Entry points
 
-| Entry point | Source | Description |
-| --- | --- | --- |
-| Official website | `website/` | [getcorestudio.com](https://getcorestudio.com/) |
-| Desktop development | `excalidraw/package.json` -> `dev:desktop` | Starts CoreStudio Dev with the project-specific Electron path, profile, and ports |
-| Desktop build | `excalidraw/package.json` -> `build:desktop` | Builds the renderer and Electron main/preload processes |
-| Desktop packaging | `excalidraw/package.json` -> `package:desktop` | Runs the build, secret scan, electron-builder, and notarization |
-| CLI | `excalidraw/apps/image-board-desktop/package.json` -> `bin.corestudio` | Calls the local bridge through `node bin/corestudio.cjs ...` |
-| Agent Board | `/agent-board` in `electron/main.ts` and `AgentBoard.tsx` | Requires the local client and Local Bridge |
-| React renderer | `excalidraw/apps/image-board-desktop/src/main.tsx` | CoreStudio desktop frontend entry point |
-| Electron main | `excalidraw/apps/image-board-desktop/electron/main.ts` | Desktop main-process entry point |
+| Entry point         | Source                                                                 | Description                                                                       |
+| ------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Official website    | `website/`                                                             | [getcorestudio.com](https://getcorestudio.com/)                                   |
+| Desktop development | `excalidraw/package.json` -> `dev:desktop`                             | Starts CoreStudio Dev with the project-specific Electron path, profile, and ports |
+| Desktop build       | `excalidraw/package.json` -> `build:desktop`                           | Builds the renderer and Electron main/preload processes                           |
+| Desktop packaging   | `excalidraw/package.json` -> `package:desktop`                         | Runs the build, secret scan, electron-builder, and notarization                   |
+| CLI                 | `excalidraw/apps/image-board-desktop/package.json` -> `bin.corestudio` | Calls the local bridge through `node bin/corestudio.cjs ...`                      |
+| Agent Board         | `/agent-board` in `electron/main.ts` and `AgentBoard.tsx`              | Requires the local client and Local Bridge                                        |
+| React renderer      | `excalidraw/apps/image-board-desktop/src/main.tsx`                     | CoreStudio desktop frontend entry point                                           |
+| Electron main       | `excalidraw/apps/image-board-desktop/electron/main.ts`                 | Desktop main-process entry point                                                  |
 
 ## Common commands
 

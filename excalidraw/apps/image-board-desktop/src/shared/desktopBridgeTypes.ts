@@ -60,6 +60,7 @@ export const IPC_CHANNELS = {
   inspectProjectHealth: "image-board:inspect-project-health",
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
   persistImageAssets: "image-board:persist-image-assets",
+  updateImageRecordMetadata: "image-board:update-image-record-metadata",
   beginImageWriteback: "image-board:begin-image-writeback",
   commitImageWriteback: "image-board:commit-image-writeback",
   rollbackImageWriteback: "image-board:rollback-image-writeback",
@@ -117,6 +118,8 @@ export const IPC_CHANNELS = {
   projectRoomEvent: "image-board:project-room-event",
   projectViewsState: "image-board:project-views-state",
   loadProjectViewsState: "image-board:load-project-views-state",
+  agentActiveProjectsChanged: "image-board:agent-active-projects-changed",
+  loadAgentActiveProjects: "image-board:load-agent-active-projects",
   openProjectView: "image-board:open-project-view",
   activateProjectView: "image-board:activate-project-view",
   closeProjectView: "image-board:close-project-view",
@@ -197,6 +200,27 @@ export interface DesktopProjectViewOpenOptions {
 export interface DesktopProjectViewsState {
   activeProjectPath: string | null;
   projects: DesktopProjectViewEntry[];
+}
+
+export type DesktopAgentActivityStatus =
+  | "working"
+  | "connected"
+  | "reconnecting";
+
+export interface DesktopAgentActivity {
+  actorId: string;
+  displayLabel: string;
+  host?: AgentHost;
+  status: DesktopAgentActivityStatus;
+}
+
+export interface DesktopAgentActiveProject {
+  projectId: string;
+  projectPath: string;
+  name: string;
+  status: DesktopAgentActivityStatus;
+  agentCount: number;
+  agents: DesktopAgentActivity[];
 }
 
 export interface DesktopProjectThemeChangedPayload {
@@ -372,6 +396,7 @@ export interface CleanProjectCacheResult {
 }
 
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
+  sourceFileName?: string;
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
   generationSource?: GenerationSource;
@@ -505,6 +530,11 @@ export interface DesktopBridgeApi {
     projectPath: string;
     files: PersistedImageAssetInput[];
   }): Promise<ImageRecordMap>;
+  updateImageRecordMetadata?(input: {
+    projectPath: string;
+    fileId: string;
+    displayName: string | null;
+  }): Promise<ImageRecordMap>;
   beginImageWriteback(input: {
     projectPath: string;
     files: PersistedImageAssetInput[];
@@ -609,6 +639,7 @@ export interface DesktopBridgeApi {
     listener: (sessionId: string, event: ProjectRoomEvent) => void,
   ): () => void;
   loadProjectViewsState?(): Promise<DesktopProjectViewsState>;
+  loadAgentActiveProjects?(): Promise<DesktopAgentActiveProject[]>;
   openProjectView?(
     projectPath: string,
     options?: DesktopProjectViewOpenOptions,
@@ -624,6 +655,9 @@ export interface DesktopBridgeApi {
   notifyProjectThemeChanged?(payload: DesktopProjectThemeChangedPayload): void;
   onProjectViewsState?(
     listener: (state: DesktopProjectViewsState) => void,
+  ): () => void;
+  onAgentActiveProjectsChanged?(
+    listener: (projects: DesktopAgentActiveProject[]) => void,
   ): () => void;
   onFlushProjectRoomRequest?(listener: () => Promise<void> | void): () => void;
   onAgentCommandRequest?(

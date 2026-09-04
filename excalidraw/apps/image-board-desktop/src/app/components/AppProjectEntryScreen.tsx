@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type {
+  DesktopAgentActiveProject,
   DesktopProjectTheme,
   RecentProjectEntry,
 } from "../../shared/desktopBridgeTypes";
@@ -15,6 +16,7 @@ interface AppProjectEntryScreenProps {
   projectError: string | null;
   loadingProject: boolean;
   recentProjects: RecentProjectEntry[];
+  agentActiveProjects?: DesktopAgentActiveProject[];
   recentProjectsLoadStatus: RecentProjectsLoadStatus;
   providerConfigurationStatus: ProviderConfigurationStatus;
   onCreateProject: () => void;
@@ -22,6 +24,7 @@ interface AppProjectEntryScreenProps {
   onReloadRecentProjects?: () => void | Promise<void>;
   onOpenProviderSettings: () => void;
   onOpenRecentProject: (projectPath: string) => void;
+  onOpenAgentProject?: (projectPath: string) => void;
   onRemoveRecentProject: (projectPath: string) => void | Promise<void>;
   onRevealProject: (projectPath: string) => void | Promise<void>;
   manualProjectActionsVisible: boolean;
@@ -36,6 +39,7 @@ export const AppProjectEntryScreen = ({
   projectError,
   loadingProject,
   recentProjects,
+  agentActiveProjects = [],
   recentProjectsLoadStatus,
   providerConfigurationStatus,
   onCreateProject,
@@ -43,6 +47,7 @@ export const AppProjectEntryScreen = ({
   onReloadRecentProjects,
   onOpenProviderSettings,
   onOpenRecentProject,
+  onOpenAgentProject,
   onRemoveRecentProject,
   onRevealProject,
   manualProjectActionsVisible,
@@ -59,10 +64,12 @@ export const AppProjectEntryScreen = ({
         onOpenProject={onOpenProject}
         onReloadRecentProjects={onReloadRecentProjects}
         recentProjects={recentProjects}
+        agentActiveProjects={agentActiveProjects}
         recentProjectsLoadStatus={recentProjectsLoadStatus}
         providerConfigurationStatus={providerConfigurationStatus}
         onOpenProviderSettings={onOpenProviderSettings}
         onOpenRecentProject={onOpenRecentProject}
+        onOpenAgentProject={onOpenAgentProject}
         onRemoveRecentProject={onRemoveRecentProject}
         onRevealProject={onRevealProject}
         manualProjectActionsVisible={manualProjectActionsVisible}

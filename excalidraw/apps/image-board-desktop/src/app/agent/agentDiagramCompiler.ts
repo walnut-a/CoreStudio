@@ -1,5 +1,7 @@
-import { convertToExcalidrawElements } from "@excalidraw/element";
-import type { ExcalidrawElementSkeleton } from "@excalidraw/element";
+import {
+  convertToExcalidrawElements,
+  type ExcalidrawElementSkeleton,
+} from "@excalidraw/element/transform";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
 import { findNearestOpenScenePlacement } from "../project/imagePlacement";
@@ -9,9 +11,13 @@ import {
   type SceneBounds,
 } from "../sceneGeometry";
 
-export type ParseMermaidDiagram = (source: string) => Promise<{
+export type ParseMermaidDiagram = (
+  source: string,
+  options?: { diagramId: string },
+) => Promise<{
   elements: ExcalidrawElementSkeleton[];
   files?: Record<string, unknown>;
+  nativeElements?: ExcalidrawElement[];
 }>;
 
 const DEFAULT_DIAGRAM_GAP = 64;
@@ -56,7 +62,7 @@ export const compileAgentMermaidDiagram = async ({
   existingElements: readonly ExcalidrawElement[];
   parseMermaid?: ParseMermaidDiagram;
 }) => {
-  const parsed = await parseMermaid(source);
+  const parsed = await parseMermaid(source, { diagramId });
   if (hasBinaryFiles(parsed.files)) {
     throw new Error(
       "Mermaid diagram requires binary image assets and is not supported.",
@@ -83,9 +89,11 @@ export const compileAgentMermaidDiagram = async ({
       },
     },
   }));
-  const converted = convertToExcalidrawElements(skeletons, {
-    regenerateIds: true,
-  });
+  const converted =
+    parsed.nativeElements ??
+    convertToExcalidrawElements(skeletons, {
+      regenerateIds: true,
+    });
   if (converted.length > MAX_DIAGRAM_ELEMENTS) {
     throw new Error(
       `Mermaid diagram exceeds the ${MAX_DIAGRAM_ELEMENTS}-element limit.`,

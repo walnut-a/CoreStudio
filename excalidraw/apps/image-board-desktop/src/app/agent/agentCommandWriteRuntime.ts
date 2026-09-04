@@ -41,7 +41,7 @@ export type AgentWriteCommandResult =
 
 export interface AgentWriteCommandRuntimeInput {
   project: DesktopProjectBundle;
-  deps: AgentCommandRuntimeDeps;
+  deps: Pick<AgentCommandRuntimeDeps, "parseMermaidDiagram">;
 }
 
 const DEFAULT_AGENT_VIEWPORT = {

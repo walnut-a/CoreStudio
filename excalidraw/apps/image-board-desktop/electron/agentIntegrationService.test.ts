@@ -1,12 +1,6 @@
 import { constants } from "node:fs";
 import { createHash } from "node:crypto";
-import {
-  chmod,
-  mkdtemp,
-  mkdir,
-  readFile,
-  writeFile,
-} from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -44,14 +38,14 @@ describe("Agent integration service", () => {
       manifestPath,
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.0.1",
+        integrationVersion: "2.1.1",
         installedFromAppVersion: "1.2.0",
-        bridgeProtocolVersion: 6,
+        bridgeProtocolVersion: 7,
         cli: { path: cliPath, wrapperVersion: 2 },
         hosts: {
           cursor: {
             skillPath,
-            skillVersion: 18,
+            skillVersion: 20,
             managedSha256: createHash("sha256")
               .update(skillContents)
               .digest("hex"),
@@ -103,7 +97,7 @@ describe("Agent integration service", () => {
       join(settingsDirectory, "agent-integration.json"),
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.0.1",
+        integrationVersion: "2.1.1",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: { path: cliPath, wrapperVersion: 2 },
@@ -173,11 +167,11 @@ describe("Agent integration service", () => {
     );
     expect(manifest).toMatchObject({
       schemaVersion: 2,
-      integrationVersion: "2.0.1",
+      integrationVersion: "2.1.1",
       installedFromAppVersion: "1.2.0",
       cli: { path: cliPath, wrapperVersion: 2 },
       hosts: {
-        "claude-code": { skillPath, skillVersion: 18 },
+        "claude-code": { skillPath, skillVersion: 20 },
       },
     });
   });
@@ -244,7 +238,7 @@ describe("Agent integration service", () => {
       manifestPath,
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.0.1",
+        integrationVersion: "2.1.1",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: { path: cliPath, wrapperVersion: 2 },
@@ -306,10 +300,13 @@ describe("Agent integration service", () => {
       join(settingsDirectory, "agent-integration.json"),
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.0.1",
+        integrationVersion: "2.1.1",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
-        cli: { path: join(homeDir, ".local", "bin", "corestudio"), wrapperVersion: 2 },
+        cli: {
+          path: join(homeDir, ".local", "bin", "corestudio"),
+          wrapperVersion: 2,
+        },
         hosts: {
           cursor: {
             skillPath,

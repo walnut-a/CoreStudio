@@ -58,6 +58,14 @@ export interface ProjectRoomParticipantSelection {
   };
 }
 
+export type AgentBoardEditCommandName = "scene.locate" | "scene.select";
+
+export interface AgentBoardEditCommandRequest {
+  requestId: string;
+  command: AgentBoardEditCommandName;
+  payload: Record<string, unknown>;
+}
+
 export interface DesktopProjectRoomJoinInput {
   projectPath: string;
   sessionId: string;

@@ -17,7 +17,7 @@ export type AgentEditCommandResult =
 
 export interface AgentEditCommandRuntimeInput {
   project: DesktopProjectBundle;
-  deps: AgentCommandRuntimeDeps;
+  deps: Pick<AgentCommandRuntimeDeps, "getExcalidrawAPI">;
 }
 
 const parseAgentStringList = (value: unknown, label: string) => {

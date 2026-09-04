@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT,
   buildAgentBrowserBridgeConfig,
   buildAgentBrowserRouteState,
   getPendingAgentBoardConnection,
   maybeCreateAgentBrowserDesktopBridge,
 } from "./agentBrowserBridge";
 import {
+  getAgentBrowserRoomResumeToken,
   setAgentBrowserRoomResumeToken,
   setStableBoardActorResumeToken,
 } from "./agentBrowserRoomCredentials";
@@ -356,5 +358,90 @@ describe("room-scoped Agent Browser assets", () => {
       }),
     );
     setAgentBrowserRoomResumeToken(null);
+  });
+
+  it.each(["AUTH_REQUIRED", "TOKEN_EXPIRED"] as const)(
+    "converts room asset %s responses into a page refresh signal",
+    async (code) => {
+      window.history.pushState(null, "", "/board/stable-board-id");
+      setAgentBrowserRoomResumeToken("expired-resume-token");
+      const expiredEvents: Event[] = [];
+      window.addEventListener(
+        AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT,
+        (event) => expiredEvents.push(event),
+        { once: true },
+      );
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                ok: false,
+                error: {
+                  code,
+                  message: "A valid project room ticket is required.",
+                },
+              }),
+              {
+                status: 401,
+                headers: { "Content-Type": "application/json" },
+              },
+            ),
+        ),
+      );
+      const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+      await expect(
+        bridge?.readProjectAssetPayloads({
+          projectPath: "/projects/project-1",
+          fileIds: ["image-1"],
+          rendition: "preview",
+        }),
+      ).rejects.toMatchObject({
+        code: "AGENT_BOARD_REFRESH_REQUIRED",
+        message: "画板连接已断开，请刷新页面恢复连接。",
+      });
+
+      expect(getAgentBrowserRoomResumeToken()).toBeNull();
+      expect(expiredEvents).toHaveLength(1);
+      expect((expiredEvents[0] as CustomEvent).detail).toEqual({ code });
+    },
+  );
+
+  it("does not reinterpret authentication errors from non-room routes", async () => {
+    window.history.pushState(null, "", "/board/stable-board-id");
+    const expiredListener = vi.fn();
+    window.addEventListener(
+      AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT,
+      expiredListener,
+      { once: true },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ok: false,
+              error: {
+                code: "AUTH_REQUIRED",
+                message: "Sign in first.",
+              },
+            }),
+            {
+              status: 401,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+      ),
+    );
+    const bridge = maybeCreateAgentBrowserDesktopBridge();
+
+    await expect(bridge?.getAgentBridgeStatus?.()).rejects.toMatchObject({
+      code: "AUTH_REQUIRED",
+      message: "Sign in first.",
+    });
+    expect(expiredListener).not.toHaveBeenCalled();
   });
 });

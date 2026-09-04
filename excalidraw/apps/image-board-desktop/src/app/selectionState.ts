@@ -1,4 +1,4 @@
-import { CaptureUpdateAction } from "@excalidraw/element";
+import { CaptureUpdateAction } from "@excalidraw/element/store";
 import type { ImageRecord } from "../shared/projectTypes";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
@@ -38,8 +38,14 @@ export const buildSelectedImageRecord = (
     return null;
   }
 
-  const selectedElement = elements.find((element) => element.id === selectedElementId);
-  if (!selectedElement || selectedElement.type !== "image" || !selectedElement.fileId) {
+  const selectedElement = elements.find(
+    (element) => element.id === selectedElementId,
+  );
+  if (
+    !selectedElement ||
+    selectedElement.type !== "image" ||
+    !selectedElement.fileId
+  ) {
     return null;
   }
 

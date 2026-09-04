@@ -42,4 +42,23 @@ describe("image asset thumbnail store", () => {
       dataUrls: {},
     });
   });
+
+  it("keeps a bounded least-recently-used cache and protects visible entries", () => {
+    const store = createImageAssetThumbnailStore({ maxEntries: 2 });
+    store.replace("/project-a", [
+      asset("oldest", "b2xkZXN0"),
+      asset("visible", "dmlzaWJsZQ=="),
+    ]);
+
+    store.touch("/project-a", ["oldest"]);
+    store.merge("/project-a", [asset("newest", "bmV3ZXN0")]);
+
+    expect(store.getSnapshot()).toEqual({
+      projectPath: "/project-a",
+      dataUrls: {
+        oldest: "data:image/png;base64,b2xkZXN0",
+        newest: "data:image/png;base64,bmV3ZXN0",
+      },
+    });
+  });
 });

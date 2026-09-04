@@ -210,7 +210,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.0.1, bridge protocol 6)\n`,
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.1, bridge protocol 7)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -228,8 +228,8 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: DESKTOP_APP_VERSION,
-        integrationVersion: "2.0.1",
-        bridgeProtocolVersion: 6,
+        integrationVersion: "2.1.1",
+        bridgeProtocolVersion: 7,
       },
     });
   });
@@ -869,6 +869,36 @@ describe("runCli", () => {
     );
   });
 
+  it("uses a claimed Agent session when no human project token is active", async () => {
+    const records: RequestRecord[] = [];
+    const fetch = createFetch(okEnvelope, records);
+
+    const result = await runCommand(
+      [
+        "write",
+        "prompt",
+        "--text",
+        "prompt",
+        "--agent-session",
+        "cursor-session-ref",
+        "--json",
+      ],
+      {
+        fetch,
+        env: {
+          CORESTUDIO_AGENT_BRIDGE_URL: baseUrl,
+          CORESTUDIO_AGENT_PARTICIPANT_ISSUER_TOKEN: "issuer-secret",
+        },
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(records[0].headers["X-CoreStudio-Agent-Session"]).toBe(
+      "cursor-session-ref",
+    );
+    expect(records[0].headers).not.toHaveProperty("Authorization");
+  });
+
   it("uses a local Agent session to request and claim a stable Board", async () => {
     const records: RequestRecord[] = [];
     const fetch = createFetch(
@@ -999,7 +1029,7 @@ describe("runCli", () => {
           expect.stringContaining("read context --json"),
           expect.stringContaining("read board --json"),
           expect.stringContaining(
-            "write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board",
+            'write image /absolute/path/to/generated-a.png /absolute/path/to/generated-b.png --source-type generated --origin agent-board --prompt "..."',
           ),
           expect.stringContaining(
             "write image /absolute/path/to/searched.png --source-type imported",

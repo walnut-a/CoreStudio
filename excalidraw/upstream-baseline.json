@@ -117,19 +117,18 @@
       "contractTests": ["packages/excalidraw/tests/fitToContent.test.tsx"]
     },
     {
+      "id": "desktop-node-runtime-compatibility",
+      "purpose": "Keep shared environment helpers safe when they are bundled into the Electron main process without Vite import-meta environment injection.",
+      "disposition": "keep-core-patch",
+      "corePaths": ["packages/common/src/utils.ts"],
+      "contractTests": ["apps/image-board-desktop/electron/agent/prepareAgentWriterCommand.test.ts"]
+    },
+    {
       "id": "trackpad-wheel-zoom",
       "purpose": "Provide host-configurable trackpad sensitivity and anchor wheel zoom to the current event so focus transitions cannot reuse a stale pointer position.",
       "disposition": "keep-core-patch",
-      "corePaths": [
-        "packages/excalidraw/components/App.tsx",
-        "packages/excalidraw/index.tsx",
-        "packages/excalidraw/scene/zoom.ts",
-        "packages/excalidraw/types.ts"
-      ],
-      "contractTests": [
-        "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
-        "packages/excalidraw/tests/zoom.test.ts"
-      ]
+      "corePaths": ["packages/excalidraw/components/App.tsx", "packages/excalidraw/index.tsx", "packages/excalidraw/scene/zoom.ts", "packages/excalidraw/types.ts"],
+      "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx", "packages/excalidraw/tests/zoom.test.ts"]
     },
     {
       "id": "minimap-toggle-accessibility",

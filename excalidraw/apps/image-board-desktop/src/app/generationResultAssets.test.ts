@@ -115,6 +115,7 @@ describe("buildCoreStudioGeneratedImageAssetInputs", () => {
       expect.objectContaining({
         fileId: "file-1",
         fileName: "first.png",
+        sourceFileName: "first.png",
         mimeType: "image/png",
         dataBase64: "first-base64",
         width: 1024,
@@ -142,6 +143,7 @@ describe("buildCoreStudioGeneratedImageAssetInputs", () => {
       expect.objectContaining({
         fileId: "file-2",
         fileName: "second.jpg",
+        sourceFileName: "second.jpg",
         mimeType: "image/jpeg",
         dataBase64: "second-base64",
         width: 640,

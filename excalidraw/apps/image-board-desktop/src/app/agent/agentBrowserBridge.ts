@@ -33,6 +33,7 @@ import {
   getAgentBrowserRoomResumeToken,
   getOrCreateStableBoardPageNonce,
   getStableBoardActorResumeToken,
+  setAgentBrowserRoomResumeToken,
 } from "./agentBrowserRoomCredentials";
 
 export interface AgentBrowserBridgeConfig {
@@ -60,6 +61,19 @@ export interface PendingAgentBoardConnection {
   returnUrl: string;
 }
 
+export const AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT =
+  "corestudio:agent-board-room-session-expired";
+
+const AGENT_BOARD_ROOM_SESSION_ROUTES = new Set<string>([
+  AGENT_HTTP_ROUTES.roomAssets,
+  AGENT_HTTP_ROUTES.roomPersistAssets,
+]);
+
+const AGENT_BOARD_ROOM_SESSION_ERROR_CODES = new Set([
+  "AUTH_REQUIRED",
+  "TOKEN_EXPIRED",
+]);
+
 const TARGET_PROJECT_NAME_PARAM = "targetProjectName";
 const RETURN_PROJECT_SELECTION_TOKEN_PARAM = "returnProjectSelectionToken";
 
@@ -86,10 +100,7 @@ export const getPendingAgentBoardConnection = (
       return null;
     }
     const returnUrl = new URL(AGENT_BOARD_ROUTE, currentUrl.origin);
-    returnUrl.searchParams.set(
-      "projectSelectionToken",
-      returnSelectionToken,
-    );
+    returnUrl.searchParams.set("projectSelectionToken", returnSelectionToken);
     return {
       stableBoardId,
       projectName,
@@ -228,6 +239,20 @@ const requestAgentBridge = async <T>(
     throw new Error("Agent Bridge 返回了无法识别的数据。");
   }
   if (!json.ok) {
+    if (
+      AGENT_BOARD_ROOM_SESSION_ROUTES.has(route) &&
+      AGENT_BOARD_ROOM_SESSION_ERROR_CODES.has(json.error.code)
+    ) {
+      setAgentBrowserRoomResumeToken(null);
+      window.dispatchEvent(
+        new CustomEvent(AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT, {
+          detail: { code: json.error.code },
+        }),
+      );
+      throw Object.assign(new Error("画板连接已断开，请刷新页面恢复连接。"), {
+        code: "AGENT_BOARD_REFRESH_REQUIRED",
+      });
+    }
     throw Object.assign(new Error(json.error.message), {
       code: json.error.code,
       details: json.error.details,

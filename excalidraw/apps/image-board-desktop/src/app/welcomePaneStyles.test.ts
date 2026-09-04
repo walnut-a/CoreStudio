@@ -35,6 +35,11 @@ describe("welcome pane styles", () => {
     const paragraphRule = getRule(welcomePaneCss, ".welcome-pane p");
     const actionsRule = getRule(welcomePaneCss, ".welcome-pane__actions");
     const recentRule = getRule(welcomePaneCss, ".welcome-pane__recent");
+    const agentActiveRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__agent-active",
+    );
+    const projectsRule = getRule(welcomePaneCss, ".welcome-pane__projects");
     const recentListRule = getRule(
       welcomePaneCss,
       ".welcome-pane__recent-list",
@@ -74,14 +79,19 @@ describe("welcome pane styles", () => {
       welcomePaneCss,
       ".welcome-pane__step-action",
     );
+    const recentStateRule = getRule(
+      welcomePaneCss,
+      ".welcome-pane__recent-state",
+    );
 
     expect(paneRule).toContain("place-items: center");
     expect(paneRule).toContain("overflow: auto");
     expect(cardRule).toContain("display: grid");
     expect(cardRule).toContain(
-      "grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr)",
+      "grid-template-columns: minmax(260px, 320px) minmax(0, 1fr)",
     );
-    expect(cardRule).toContain("width: min(100%, 960px)");
+    expect(cardRule).toContain("width: min(100%, 920px)");
+    expect(cardRule).toContain("min-height: 0");
     expect(cardRule).toContain("max-height: calc(100% - 48px)");
     expect(cardRule).toContain("box-shadow: 0 1px 2px");
     expect(cardRule).not.toContain("var(--modal-shadow)");
@@ -115,9 +125,7 @@ describe("welcome pane styles", () => {
     expect(recentTimeRule).toContain("font-variant-numeric: tabular-nums");
     expect(recentTimeRule).toContain("font-size: 0.75rem");
     expect(diagnosticRule).toContain("padding: 28px");
-    expect(diagnosticRule).toContain(
-      "grid-template-columns: minmax(0, 1fr)",
-    );
+    expect(diagnosticRule).toContain("grid-template-columns: minmax(0, 1fr)");
     expect(diagnosticRule).toContain("width: min(100%, 620px)");
     expect(diagnosticRule).toContain("min-height: 0");
     expect(diagnosticRule).toContain("max-height: none");
@@ -125,9 +133,7 @@ describe("welcome pane styles", () => {
     expect(diagnosticNextStepRule).toContain(
       "background: var(--color-surface-mid)",
     );
-    expect(paragraphRule).toContain(
-      "font-size: var(--ui-text-size-lg)",
-    );
+    expect(paragraphRule).toContain("font-size: var(--ui-text-size-lg)");
     expect(paragraphRule).toContain("line-height: 1.5");
     expect(welcomePaneCss).toContain(
       ".welcome-pane__diagnostic {\n    padding: 20px;",
@@ -141,6 +147,14 @@ describe("welcome pane styles", () => {
     expect(eyebrowRule).toContain("background: transparent");
     expect(eyebrowRule).not.toContain("border-radius: 999px");
     expect(actionsRule).toContain("display: grid");
+    expect(actionsRule).not.toContain("margin-top: auto");
+    expect(agentActiveRule).toContain("padding-bottom: 24px");
+    expect(agentActiveRule).toContain(
+      "border-bottom: 1px solid var(--default-border-color)",
+    );
+    expect(projectsRule).toContain("display: flex");
+    expect(projectsRule).toContain("flex: 1");
+    expect(recentStateRule).toContain("min-height: 108px");
     expect(stepsRule).toContain("grid-auto-rows: 1fr");
     expect(stepRule).toContain(
       "grid-template-columns: 28px minmax(0, 1fr) auto",

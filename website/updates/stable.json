@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.44",
-  "publishedAt": "2026-09-03T14:09:26Z",
+  "version": "1.1.45",
+  "publishedAt": "2026-09-04T17:54:36Z",
   "minimumSystemVersion": "14.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.44",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.45",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.44/CoreStudio-1.1.44-arm64.dmg",
-    "size": 122346163,
-    "sha256": "240c93389423e4bcc345ebd6c7646863a7f0d5d89a25ffceb40c820d2187232f"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.45/CoreStudio-1.1.45-arm64.dmg",
+    "size": 123887927,
+    "sha256": "f6afa18b414360249968477302199826cb3bb83637e4ac804498e70e49ee7898"
   },
   "summary": {
     "zh-CN": [
-      "修正多项目架构下 Agent Board 的目标项目判定",
-      "避免桌面标签切换造成错误的项目不匹配提示",
-      "通过页面项目身份校验保护后台项目和 CLI 写回"
+      "Agent 项目与客户端标签页彻底解耦",
+      "Home 独立显示 Agent 正在使用的项目",
+      "完善图片提示词、资产管理与无标签页写入"
     ],
     "en": [
-      "Fixed Agent Board target resolution in multi-project workspaces",
-      "Prevented desktop tab changes from causing false project mismatch errors",
-      "Protected background projects and CLI writes with page identity checks"
+      "Decoupled Agent projects from desktop tabs",
+      "Added a dedicated Agent activity section to Home",
+      "Improved image prompts, asset management, and tab-free writes"
     ]
   }
 }

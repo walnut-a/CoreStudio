@@ -23,14 +23,15 @@ CoreStudio 会在本地 `http://127.0.0.1:<port>/board/<stableBoardId>` Agent Bo
 
 ## Agent Session
 
-Cursor 与 Claude Code 在开始写入、图片生成或画布认领前建立 session：
+Codex、Cursor 与 Claude Code 在开始项目级读取、写入、图片生成或画布认领前建立 session：
 
 ```bash
+corestudio agent connect --host codex --label "当前任务" --json
 corestudio agent connect --host cursor --json
 corestudio agent connect --host claude-code --json
 ```
 
-返回的 `sessionRef` 只在当前 CoreStudio 进程内有效，同一 Agent 对话后续命令通过 `--agent-session <sessionRef>` 复用。CoreStudio 退出后旧 session 明确失效。Codex 继续兼容 `CODEX_THREAD_ID` 自动身份，不要求现有用户手工连接。
+返回的 `sessionRef` 只在当前 CoreStudio 进程内有效。同一 Agent 对话认领稳定 Agent Board 后，Bridge 把这个 session 绑定到 Board 对应项目；后续所有项目级命令都通过 `--agent-session <sessionRef>` 复用。CoreStudio 退出后旧 session 明确失效。`CODEX_THREAD_ID` 仅作为旧流程兼容入口，新 Skill 统一显式建立并复用 session。
 
 ## Read Commands
 
@@ -50,9 +51,9 @@ corestudio agent connect --host claude-code --json
 
 `board-url` 返回 `http://127.0.0.1:60909/board/<stableBoardId>` 形式的项目稳定入口。地址不包含开发服务器端口、Bridge 查询参数或任何连接凭证。
 
-`read project --json` 返回当前项目的 `projectId`、名称、创建时间、更新时间和本地路径。`projectId` 是固定选区引用使用的非敏感稳定身份；不得用项目名或创建时间代替它进行项目匹配。
+带 `--agent-session` 的 `read project --json` 返回该 Agent session 所绑定项目的 `projectId`、名称、创建时间、更新时间和本地路径。`projectId` 是固定选区引用使用的非敏感稳定身份；不得用项目名或创建时间代替它进行项目匹配。
 
-`read status --json` 中的当前项目是桌面客户端当前激活的项目，只用于 CLI session 和桌面状态诊断。如果当前 Agent 对话已经连接并认领了稳定 Agent Board 页面，该页面通过 `corestudio_get_board_status` 返回的项目 `id` 才是本次画布任务目标；不得因两个项目名称不同而报告 `PROJECT_MISMATCH`。必须使用 CLI 的操作仍需确认 `read project --json` 的 `projectId` 与页面目标一致，不一致时停止该 CLI 路径，不能改写桌面当前项目。
+带 `--agent-session` 的 `read status --json` 和全部项目级命令都按 session 绑定解析目标。桌面客户端当前标签、是否打开目标标签以及最近项目顺序均不参与路由。目标项目没有人类标签时，Bridge 会在主进程中按需打开 Project Room；客户端只需保持运行并开启 Agent Bridge。
 
 ## Write Commands
 
@@ -69,7 +70,7 @@ Agent 生成的图片使用 `--source-type generated --origin agent-board`；搜
 
 引用元数据必须是非空有效 id。`--reference-file-ids` 和 `--reference-element-ids` 接受逗号分隔列表；空列表或无效值在读取图片和调用 Bridge 前被拒绝。
 
-图表命令由 CLI 读取 UTF-8 Mermaid 文件，再由 renderer 使用上游 Mermaid 转换器生成原生 Excalidraw 节点、文字和箭头绑定。`auto` 优先放到当前 Agent Board 选区右侧，否则使用当前视口；`selection` 要求已有选区；`viewport` 忽略选区。追加 `--dry-run` 时仍完成解析、转换和碰撞避让，但不提交房间 operation。需要二进制图片资产的图表会被拒绝，不会降级为图片或上传到云端。
+图表命令由 CLI 读取 UTF-8 Mermaid 文件，再由主进程写入运行时使用上游 Mermaid 转换器生成原生 Excalidraw 节点、文字和箭头绑定，不依赖桌面 renderer。`auto` 优先放到当前 Agent Board 选区右侧，否则使用当前视口；`selection` 要求已有选区；`viewport` 忽略选区。追加 `--dry-run` 时仍完成解析、转换和碰撞避让，但不提交房间 operation。需要二进制图片资产的图表会被拒绝，不会降级为图片或上传到云端。
 
 ## Record Diagnostics
 
@@ -87,6 +88,8 @@ Agent 生成的图片使用 `--source-type generated --origin agent-board`；搜
 - `edit select --element-ids <ids> --json`
 
 `locate` 会选择并滚动到目标。找不到直接元素时，会尝试定位引用该文件的结果图；仍找不到时返回 `located: false`、`reason: "missing-board-element"` 和 `repairable: true`。
+
+`edit` 是视觉命令，只发送给同一 Agent actor 已连接的 Agent Board，不会发送给桌面当前标签。Board 页面未打开或未连接时返回 `CAPABILITY_UNAVAILABLE`；数据读取和写入不受此限制。
 
 ## Generate Commands
 
@@ -209,6 +212,6 @@ corestudio read health --json
 
 ## Writeback Consistency
 
-图片写回仍由 CoreStudio 复制和登记资产；图表写回在 renderer 中准备原生元素。两者的画布元素都只通过当前项目房间提交。主进程把一个带 `operationId` 的场景操作应用到房间；房间立即协调并广播元素，磁盘持久化由主进程统一完成。
+图片、提示词、图表和生成结果都由 CoreStudio 主进程直接准备并提交到 Agent session 绑定的 Project Room，不要求桌面打开该项目，也不使用浏览器剪贴板、粘贴、拖放或模拟点击传输文件。房间立即协调并广播元素，磁盘持久化由主进程统一完成。
 
 房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。Agent 应根据结构化错误处理：普通持久化失败可以稍后重试；`PROJECT_STORAGE_DIVERGED` 表示房间之外出现了磁盘写入，必须先查明来源，不能绕过 CoreStudio 直接修改项目文件。

@@ -22,6 +22,7 @@ import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 import type { FooterNavigationControls } from "@excalidraw/excalidraw/components/footer/FooterNavigation";
 
 import {
+  AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT,
   buildAgentBrowserRouteState,
   exchangeStableAgentBoardSession,
   getPendingAgentBoardConnection,
@@ -175,6 +176,7 @@ import { createPendingGenerationCanvasRendererActions } from "./pendingGeneratio
 import { reconcilePendingGenerationScene } from "./pendingGenerationSceneReconciliation";
 
 import { handleAgentCommandRequest } from "./agent/agentCommandRuntime";
+import { handleAgentEditCommand } from "./agent/agentCommandEditRuntime";
 import { collectAgentImageFileIds } from "./agent/agentCommandHandlers";
 import { createActiveAgentProjectPathRendererActions } from "./agent/agentCommandRuntimeShared";
 import { createAgentCommandRequestSubscriptionRendererActions } from "./agent/agentCommandRequestSubscriptionController";
@@ -494,6 +496,27 @@ const App = ({
   const [projectRoomReady, setProjectRoomReady] = useState(false);
   const [agentBoardRefreshRequired, setAgentBoardRefreshRequired] =
     useState(false);
+
+  useEffect(() => {
+    if (!isAgentBrowserRoute) {
+      return;
+    }
+    const handleRoomSessionExpired = () => {
+      setProjectRoomReady(false);
+      setProjectRoomError(null);
+      setAgentBoardRefreshRequired(true);
+    };
+    window.addEventListener(
+      AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT,
+      handleRoomSessionExpired,
+    );
+    return () => {
+      window.removeEventListener(
+        AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT,
+        handleRoomSessionExpired,
+      );
+    };
+  }, [isAgentBrowserRoute]);
   const [projectRoomParticipants, setProjectRoomParticipants] = useState<
     ProjectRoomParticipant[]
   >([]);
@@ -661,11 +684,7 @@ const App = ({
         );
       }
     },
-    [
-      applyImageAssetThumbnailPayloads,
-      desktopBridge,
-      imageAssetThumbnailStore,
-    ],
+    [applyImageAssetThumbnailPayloads, desktopBridge, imageAssetThumbnailStore],
   );
 
   const generationTrackingRendererActions =
@@ -698,11 +717,7 @@ const App = ({
         sceneImageFileIds,
         generatedOnly: imageAssetGeneratedOnly,
       }),
-    [
-      currentProject?.imageRecords,
-      imageAssetGeneratedOnly,
-      sceneImageFileIds,
-    ],
+    [currentProject?.imageRecords, imageAssetGeneratedOnly, sceneImageFileIds],
   );
   const renderCanvasMinimap = useCallback(
     (
@@ -1686,6 +1701,7 @@ const App = ({
       }
     };
     let controller: ProjectRoomClientController | null = null;
+    let unsubscribeAgentCommand: (() => void) | undefined;
     setProjectRoomReady(false);
     setAgentBoardRefreshRequired(false);
     const pageNonce = stableBoardId ? stableBoardPageNonceRef.current : null;
@@ -1756,6 +1772,35 @@ const App = ({
           setAgentBrowserRoomResumeToken(nextResumeToken);
         },
       });
+      unsubscribeAgentCommand = transport.subscribeAgentCommand?.(
+        async (request) => {
+          const project = currentProjectRef.current;
+          if (!project) {
+            throw Object.assign(new Error("Agent Board 当前未就绪。"), {
+              code: "PROJECT_REQUIRED",
+            });
+          }
+          const result = await handleAgentEditCommand(
+            {
+              requestId: request.requestId,
+              command: request.command,
+              payload: request.payload,
+            },
+            {
+              project,
+              deps: {
+                getExcalidrawAPI: () => excalidrawAPIRef.current,
+              },
+            },
+          );
+          if (!result.handled) {
+            throw Object.assign(new Error("Agent Board 不支持这个编辑命令。"), {
+              code: "UNSUPPORTED_COMMAND",
+            });
+          }
+          return result.value;
+        },
+      );
       controller = createProjectRoomClientController({
         projectPath: "",
         sessionId: crypto.randomUUID(),
@@ -1865,6 +1910,7 @@ const App = ({
       if (projectRoomClientRef.current === controller) {
         projectRoomClientRef.current = null;
       }
+      unsubscribeAgentCommand?.();
       void controller?.stop();
     };
   }, [

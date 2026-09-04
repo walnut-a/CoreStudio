@@ -1329,8 +1329,10 @@ const requestBridge = async (
   const init: CliFetchInit = {
     method: command.method,
     headers: {
-      Authorization: `Bearer ${bridge.projectToken}`,
       Accept: "application/json",
+      ...(bridge.projectToken
+        ? { Authorization: `Bearer ${bridge.projectToken}` }
+        : {}),
     },
   };
 

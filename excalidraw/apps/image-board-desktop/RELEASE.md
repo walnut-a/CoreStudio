@@ -207,6 +207,22 @@ node --test website/update-manifest-contract.test.mjs
 
 官网部署工作流会再次执行同一合同测试。部署成功后，在线复核清单内容和 DMG 链接；低版本客户端只有在这一步完成后才应发现更新。开发中的 `package.json` 可以高于线上稳定版，不能为了让版本相等而提前发布清单。
 
+## 1.1.45 发布说明
+
+1.1.45 完成 Agent 项目身份与桌面标签页的彻底解耦，并同步发布 CLI、Skill、安装器和官网合同：
+
+- 每个 Agent 对话在认领稳定 Agent Board 时，把可信 session 绑定到 Board 对应项目；后续项目级 CLI 请求不再读取桌面当前标签
+- Agent 目标项目可以没有人类标签，也可以不在最近项目列表；Bridge 在主进程中按需打开并维持该项目的 Project Room
+- 图片、提示词、Mermaid 图表和图片生成结果全部由 CLI / Local Bridge 直接写入，不再依赖桌面 renderer，也禁止以浏览器剪贴板、粘贴、拖放或模拟点击作为写入兜底
+- `locate/select` 只发送给同一 Agent actor 的 Board 页面；页面未连接时明确返回能力不可用，绝不误操作人的当前标签
+- 关闭人的项目标签只关闭人的视图，不再显示“Agent 正在使用”确认，也不会关闭 Agent session 或 Project Room；正常保存失败保护保持不变
+- Home 新增“Agent 正在使用”区域，展示未打开或不在最近列表中的 Agent 项目、连接状态和任务；用户可自主点击“打开查看”
+- Agent Board 闲置或 CoreStudio 重启导致房间 HTTP 凭证失效时，页面统一进入“画板连接已断开”恢复态并提示手动刷新，不再把 `AUTH_REQUIRED`、`TOKEN_EXPIRED` 或英文协议错误交给通用错误弹窗
+- Agent integration 提升到 `2.1.0 / Bridge protocol 7 / Skill 19 / CLI wrapper 2`；兼容 Codex integration 提升到 `1.13.0 / Skill 18 / CLI wrapper 1`
+- 同步更新 Codex、Cursor、Claude Code Skill、CLI 合同、安装/升级检测、仓库文档和官网中英文 Agent 集成指南
+
+本次更新不改变 CoreStudio 项目文件格式，也不会在 Agent 连接时自动创建或切换人的标签页。
+
 ## 1.1.44 发布说明
 
 1.1.44 修正多项目架构下 Agent Board 的目标项目判定，并发布对应的 Agent 集成更新：

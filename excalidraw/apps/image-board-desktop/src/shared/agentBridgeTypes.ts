@@ -5,7 +5,7 @@ import type {
   ProjectRoomSceneElement,
 } from "./projectRoomProtocol";
 
-export const AGENT_BRIDGE_PROTOCOL_VERSION = 6;
+export const AGENT_BRIDGE_PROTOCOL_VERSION = 7;
 
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";

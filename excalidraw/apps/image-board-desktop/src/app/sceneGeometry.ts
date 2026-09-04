@@ -1,4 +1,4 @@
-import { getCommonBounds } from "@excalidraw/element";
+import { getCommonBounds } from "@excalidraw/element/bounds";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
 

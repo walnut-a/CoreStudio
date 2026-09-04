@@ -1,4 +1,4 @@
-import { newTextElement } from "@excalidraw/element";
+import { newTextElement } from "@excalidraw/element/newElement";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";

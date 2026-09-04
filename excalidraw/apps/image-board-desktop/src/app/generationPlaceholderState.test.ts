@@ -247,7 +247,12 @@ describe("buildPendingGenerationPlaceholderSceneUpdate", () => {
         expect.objectContaining({ id: plan.placeholderElements[3].id }),
       ]),
     );
-    expect(update.focusElements).toBe(plan.placeholderFrames);
+    expect(update.focusElements.map(({ id }) => id)).toEqual(
+      plan.placeholderFrames.map(({ id }) => id),
+    );
+    expect(
+      update.focusElements.every((element) => typeof element.index === "string"),
+    ).toBe(true);
   });
 
   it("does not request viewport focus when no placeholder frames exist", () => {

@@ -33,10 +33,7 @@
       rel="apple-touch-icon"
       href="../../assets/corestudio-apple-touch-icon.png"
     />
-    <link
-      rel="canonical"
-      href="https://getcorestudio.com/zh/integrations/"
-    />
+    <link rel="canonical" href="https://getcorestudio.com/zh/integrations/" />
     <link
       rel="alternate"
       hreflang="en"
@@ -53,16 +50,13 @@
       href="https://getcorestudio.com/integrations/"
     />
     <link rel="stylesheet" href="../../integrations.css?v=20260901-2" />
-    <script type="module" src="../../integrations.mjs?v=20260831-1"></script>
-    <script
-      type="module"
-      src="../../webmcp-adapter.mjs?v=20260831-1"
-    ></script>
+    <script type="module" src="../../integrations.mjs?v=20260904-1"></script>
+    <script type="module" src="../../webmcp-adapter.mjs?v=20260904-1"></script>
   </head>
   <body
     class="integration-page integration-page-zh"
     data-locale="zh-CN"
-    data-content-revision="20260831-1"
+    data-content-revision="20260904-1"
   >
     <a class="skip-link" href="#main">跳到安装指南</a>
 
@@ -155,7 +149,12 @@
         </nav>
       </aside>
 
-      <main class="guide-document" id="main" tabindex="-1" data-integration-guide>
+      <main
+        class="guide-document"
+        id="main"
+        tabindex="-1"
+        data-integration-guide
+      >
         <section class="guide-hero" id="overview">
           <h1>在你的 Agent 中使用 CoreStudio</h1>
           <p>
@@ -195,8 +194,8 @@
               <div>
                 <h3>安装并打开 CoreStudio</h3>
                 <p>
-                  尚未安装时，从 GitHub 下载最新签名 macOS
-                  版本。连接验证期间保持 CoreStudio 正在运行。
+                  尚未安装时，从 GitHub 下载最新签名 macOS 版本。保持 CoreStudio
+                  运行并开启 Agent Bridge；目标项目不需要预先打开桌面标签。
                 </p>
                 <a
                   class="source-link"
@@ -250,9 +249,13 @@
           <div class="verification-grid">
             <div class="verification-block">
               <h3>1. 安装完整性</h3>
-              <p>这个命令不要求当前已经打开项目，也不要求 Local Bridge 可达。</p>
+              <p>
+                这个命令不要求当前已经打开项目，也不要求 Local Bridge 可达。
+              </p>
               <div class="code-block">
-                <code id="verify-install-command">corestudio --version --json</code>
+                <code id="verify-install-command"
+                  >corestudio --version --json</code
+                >
                 <button
                   class="copy-button"
                   type="button"
@@ -267,7 +270,8 @@
               <h3>2. 本地连接</h3>
               <p>
                 打开 CoreStudio 后再运行。它只报告 Bridge
-                与当前项目状态，不会修改项目。
+                状态，不修改项目数据；认领 Board 后，项目命令使用任务 session
+                绑定。
               </p>
               <div class="code-block">
                 <code id="verify-connection-command"
@@ -286,16 +290,16 @@
         </section>
 
         <section class="guide-section" id="first-use">
-          <h2>从一条自然语言任务开始</h2>
+          <h2>让一个 Agent 任务绑定一个项目</h2>
           <p class="section-intro">
-            新建一个本地 Agent 对话，让宿主重新发现 Skill，然后让它打开当前
-            CoreStudio 项目。
+            保持 CoreStudio 运行并开启 Agent Bridge。Skill 会建立任务
+            session，并在认领 Agent Board 时绑定所选项目；桌面标签不决定目标。
           </p>
 
           <div class="prompt-block">
             <code id="first-agent-prompt" data-first-prompt
-              >打开当前 CoreStudio
-              项目，读取画布与选区，并告诉我当前可以继续做什么。</code
+              >打开我选择的 CoreStudio 项目，把当前任务绑定到它的 Agent
+              Board，读取画布与选区，并告诉我可以继续做什么。</code
             >
             <button
               class="copy-button"
@@ -306,8 +310,8 @@
             </button>
           </div>
           <p class="host-note" data-host-note>
-            Codex
-            可以自动建立兼容的本地身份，不需要你复制或保存 session 引用。
+            Skill 会为 Codex 建立并复用仅随当前进程存活的 Agent session；认领
+            Board 后，此任务独立绑定该项目，不受桌面标签影响。
           </p>
         </section>
 
@@ -328,7 +332,10 @@
             <div class="cli-row" data-cli-task="selection">
               <h3>读取选区</h3>
               <div class="cli-command">
-                <code>corestudio read selection --json</code>
+                <code
+                  >corestudio read selection --agent-session &lt;sessionRef&gt;
+                  --json</code
+                >
               </div>
             </div>
             <div class="cli-row" data-cli-task="board-url">
@@ -341,10 +348,14 @@
               <h3>写回图片</h3>
               <div class="cli-command">
                 <code
-                  >corestudio write image /absolute/path/result.png --source-type
-                  generated --origin agent-board --json</code
+                  >corestudio write image /absolute/path/result.png
+                  --source-type generated --origin agent-board --agent-session
+                  &lt;sessionRef&gt; --json</code
                 >
-                <span class="session-requirement" data-session-requirement hidden
+                <span
+                  class="session-requirement"
+                  data-session-requirement
+                  hidden
                   >Agent session</span
                 >
               </div>
@@ -354,9 +365,13 @@
               <div class="cli-command">
                 <code
                   >corestudio write diagram --format mermaid --file
-                  /absolute/path/process.mmd --anchor auto --json</code
+                  /absolute/path/process.mmd --anchor auto --agent-session
+                  &lt;sessionRef&gt; --json</code
                 >
-                <span class="session-requirement" data-session-requirement hidden
+                <span
+                  class="session-requirement"
+                  data-session-requirement
+                  hidden
                   >Agent session</span
                 >
               </div>
@@ -382,7 +397,8 @@
 
           <noscript>
             <p class="no-script-note">
-              JavaScript 已关闭。共用安装流程仍然完整可读，但宿主切换和复制按钮不可用。需要完整排障时，请打开下方原始文档。
+              JavaScript
+              已关闭。共用安装流程仍然完整可读，但宿主切换和复制按钮不可用。需要完整排障时，请打开下方原始文档。
             </p>
           </noscript>
 

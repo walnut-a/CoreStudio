@@ -21,6 +21,13 @@ export const enCopy: DesktopCopy = {
     description:
       "Create a local project or open an existing one. Boards, images, prompts, and generation history stay in the project folder.",
     recentTitle: "Projects",
+    agentActiveTitle: "Active Agents",
+    agentWorking: "Working",
+    agentConnected: "Connected",
+    agentReconnecting: "Waiting to reconnect",
+    agentCount: (count: number) =>
+      `${count} ${count === 1 ? "Agent" : "Agents"}`,
+    openAgentProject: "Open to view",
     projectSelectionTitle: "Choose a project to switch to",
     projectSelectionDescription:
       "The current project stays in the list. Choose another available project.",
@@ -220,7 +227,7 @@ export const enCopy: DesktopCopy = {
     editorLoading: "Loading board...",
     editorReloadRequired: "Board connection lost",
     editorReloadInstruction:
-      "After CoreStudio restarts, refresh this page to restore the board.",
+      "This page may have been idle for a while, or CoreStudio may have restarted. Refresh the page to reconnect.",
     editorReloadAction: "Refresh page",
     providerLoadFailed:
       "The desktop connection is unavailable, so model service settings could not be loaded.",
@@ -385,8 +392,7 @@ export const enCopy: DesktopCopy = {
             "The update service returned an error. Try again later.",
           invalidResponse:
             "The update information could not be read. Try again later.",
-          unsupported:
-            "This version does not support checking for updates.",
+          unsupported: "This version does not support checking for updates.",
           unknown:
             "An unknown error occurred while checking for updates. Try again later.",
         },

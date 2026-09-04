@@ -1,9 +1,9 @@
 import {
   newElement,
-  newElementWith,
   newImageElement,
   newTextElement,
-} from "@excalidraw/element";
+} from "@excalidraw/element/newElement";
+import { newElementWith } from "@excalidraw/element/mutateElement";
 import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
 import { isAutoAspectRatioRequest } from "../shared/providerCatalog";
@@ -152,13 +152,20 @@ export const buildPendingGenerationPlaceholderSceneUpdate = ({
 }): {
   elements: readonly ExcalidrawElement[];
   focusElements: readonly ExcalidrawElement[];
-} => ({
-  elements: appendElementsWithSyncedIndices(
+} => {
+  const elements = appendElementsWithSyncedIndices(
     existingElements,
     placeholderElements,
-  ),
-  focusElements: placeholderFrames.length > 0 ? placeholderFrames : [],
-});
+  );
+  const focusElementIds = new Set(
+    placeholderFrames.map((element) => element.id),
+  );
+
+  return {
+    elements,
+    focusElements: elements.filter((element) => focusElementIds.has(element.id)),
+  };
+};
 
 export const buildPendingGenerationSlotReplacementSceneUpdate = ({
   elements,

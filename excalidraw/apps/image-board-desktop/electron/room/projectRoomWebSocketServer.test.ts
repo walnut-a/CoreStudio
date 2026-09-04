@@ -93,11 +93,17 @@ describe("attachProjectRoomWebSocketServer", () => {
     ) as WebSocket;
 
     const statusCode = await new Promise<number>((resolve, reject) => {
-      (socket as any).once("unexpected-response", (_request: unknown, response: {
-        statusCode?: number;
-      }) => {
-        resolve(response.statusCode ?? 0);
-      });
+      (socket as any).once(
+        "unexpected-response",
+        (
+          _request: unknown,
+          response: {
+            statusCode?: number;
+          },
+        ) => {
+          resolve(response.statusCode ?? 0);
+        },
+      );
       socket.once("open", () =>
         reject(new Error("Unexpected websocket connection.")),
       );
@@ -269,6 +275,74 @@ describe("attachProjectRoomWebSocketServer", () => {
     expect(validateOperationAssets).toHaveBeenCalledWith(
       expect.objectContaining({ operationId: "operation-board" }),
     );
+    socket.close();
+  });
+
+  it("routes visual edit commands only to the matching Agent Board actor", async () => {
+    const room = createRoom();
+    const server = http.createServer();
+    const attached = attachProjectRoomWebSocketServer({
+      server,
+      authenticate: vi.fn(async () => ({
+        room,
+        exchange: {
+          sessionId: "board-session",
+          resumeToken: "resume-token",
+          participant: {
+            actorId: "codex:thread-b",
+            sessionId: "board-session",
+            transport: "websocket" as const,
+            role: "board-editor" as const,
+            displayLabel: "任务 B",
+          },
+        },
+      })),
+    });
+    const port = await listen(server);
+    cleanups.push(async () => {
+      await attached.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${port}/v1/room?launchTicket=launch-ticket`,
+    );
+    const messages = createMessageReader(socket);
+    await new Promise<void>((resolve, reject) => {
+      socket.once("open", () => resolve());
+      socket.once("error", reject);
+    });
+    await messages.next();
+
+    const resultPromise = attached.requestAgentBoardCommand({
+      roomId: "room-1",
+      actorId: "codex:thread-b",
+      command: "scene.locate",
+      payload: { projectPath: "/projects/project-1", fileId: "file-1" },
+    });
+    const command = await messages.next();
+    expect(command).toMatchObject({
+      type: "agent.command",
+      request: {
+        command: "scene.locate",
+        payload: { fileId: "file-1" },
+      },
+    });
+    socket.send(
+      JSON.stringify({
+        type: "agent.command-result",
+        requestId: command.request.requestId,
+        result: { located: true },
+      }),
+    );
+    await expect(resultPromise).resolves.toEqual({ located: true });
+    await expect(
+      attached.requestAgentBoardCommand({
+        roomId: "room-1",
+        actorId: "codex:another-thread",
+        command: "scene.select",
+        payload: { elementIds: ["element-1"] },
+      }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_UNAVAILABLE" });
     socket.close();
   });
 

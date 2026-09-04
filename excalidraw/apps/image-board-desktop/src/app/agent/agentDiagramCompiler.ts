@@ -1,5 +1,7 @@
-import { convertToExcalidrawElements } from "@excalidraw/element";
-import type { ExcalidrawElementSkeleton } from "@excalidraw/element";
+import {
+  convertToExcalidrawElements,
+  type ExcalidrawElementSkeleton,
+} from "@excalidraw/element/transform";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
 import { findNearestOpenScenePlacement } from "../project/imagePlacement";

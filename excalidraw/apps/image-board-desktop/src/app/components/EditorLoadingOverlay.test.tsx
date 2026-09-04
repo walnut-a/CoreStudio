@@ -31,7 +31,9 @@ describe("EditorLoadingOverlay", () => {
       screen.getByRole("alert", { name: "画板连接已断开" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("CoreStudio 重启后，请刷新当前页面恢复画板。"),
+      screen.getByText(
+        "当前页面闲置时间较长，或 CoreStudio 已重新启动。刷新页面即可恢复连接。",
+      ),
     ).toBeInTheDocument();
     expect(
       container.querySelector(".image-board-canvas__loading-spinner"),

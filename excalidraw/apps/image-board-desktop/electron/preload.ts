@@ -206,6 +206,8 @@ const desktopBridge: DesktopBridgeApi = {
   },
   loadProjectViewsState: () =>
     ipcRenderer.invoke(IPC_CHANNELS.loadProjectViewsState),
+  loadAgentActiveProjects: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.loadAgentActiveProjects),
   openProjectView: (projectPath, options) =>
     ipcRenderer.invoke(IPC_CHANNELS.openProjectView, projectPath, options),
   activateProjectView: (projectPath) =>
@@ -229,6 +231,21 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.on(IPC_CHANNELS.projectViewsState, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.projectViewsState, handler);
+    };
+  },
+  onAgentActiveProjectsChanged: (listener) => {
+    const handler = (
+      _event: unknown,
+      projects: import("../src/shared/desktopBridgeTypes").DesktopAgentActiveProject[],
+    ) => {
+      listener(projects);
+    };
+    ipcRenderer.on(IPC_CHANNELS.agentActiveProjectsChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(
+        IPC_CHANNELS.agentActiveProjectsChanged,
+        handler,
+      );
     };
   },
   onFlushProjectRoomRequest: (listener) => {

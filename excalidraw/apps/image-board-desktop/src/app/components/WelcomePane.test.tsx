@@ -53,6 +53,52 @@ describe("WelcomePane", () => {
     expect(onOpenProviderSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("shows Agent-active projects independently from recent projects and opens one on demand", () => {
+    const onOpenAgentProject = vi.fn();
+
+    render(
+      <WelcomePane
+        loading={false}
+        recentProjects={[]}
+        agentActiveProjects={[
+          {
+            projectId: "project-industrial-design",
+            projectPath: "/projects/industrial-design",
+            name: "工业设计",
+            status: "working",
+            agentCount: 1,
+            agents: [
+              {
+                actorId: "agent:codex:session-a",
+                displayLabel: "Codex · 方案整理",
+                host: "codex",
+                status: "working",
+              },
+            ],
+          },
+        ]}
+        recentProjectsLoadStatus="loaded"
+        providerConfigurationStatus="configured"
+        onCreateProject={vi.fn()}
+        onOpenProject={vi.fn()}
+        onOpenAgentProject={onOpenAgentProject}
+      />,
+    );
+
+    const section = screen.getByRole("region", { name: "Agent 正在使用" });
+    expect(within(section).getByText("工业设计")).toBeInTheDocument();
+    expect(within(section).getByText(/Codex · 方案整理/)).toBeInTheDocument();
+    expect(within(section).getByText("正在工作")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "三步开始创作" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(section).getByRole("button", { name: "打开查看" }));
+    expect(onOpenAgentProject).toHaveBeenCalledWith(
+      "/projects/industrial-design",
+    );
+  });
+
   it("reflects an existing provider configuration without hiding the guide", () => {
     render(
       <WelcomePane

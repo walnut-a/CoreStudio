@@ -21,8 +21,15 @@
       content="https://getcorestudio.com/assets/corestudio-social-card.jpeg"
     />
     <title>Agent integrations · CoreStudio</title>
-    <link rel="icon" href="../assets/corestudio-favicon-32.png" type="image/png" />
-    <link rel="apple-touch-icon" href="../assets/corestudio-apple-touch-icon.png" />
+    <link
+      rel="icon"
+      href="../assets/corestudio-favicon-32.png"
+      type="image/png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="../assets/corestudio-apple-touch-icon.png"
+    />
     <link rel="canonical" href="https://getcorestudio.com/integrations/" />
     <link
       rel="alternate"
@@ -40,13 +47,13 @@
       href="https://getcorestudio.com/integrations/"
     />
     <link rel="stylesheet" href="../integrations.css?v=20260901-2" />
-    <script type="module" src="../integrations.mjs?v=20260831-1"></script>
-    <script type="module" src="../webmcp-adapter.mjs?v=20260831-1"></script>
+    <script type="module" src="../integrations.mjs?v=20260904-1"></script>
+    <script type="module" src="../webmcp-adapter.mjs?v=20260904-1"></script>
   </head>
   <body
     class="integration-page integration-page-en"
     data-locale="en"
-    data-content-revision="20260831-1"
+    data-content-revision="20260904-1"
   >
     <a class="skip-link" href="#main">Skip to the guide</a>
 
@@ -93,7 +100,10 @@
     </header>
 
     <div class="integration-shell">
-      <aside class="integration-index" aria-label="Integration guide navigation">
+      <aside
+        class="integration-index"
+        aria-label="Integration guide navigation"
+      >
         <p class="index-title">Choose your local Agent</p>
         <div
           class="host-switcher"
@@ -139,7 +149,12 @@
         </nav>
       </aside>
 
-      <main class="guide-document" id="main" tabindex="-1" data-integration-guide>
+      <main
+        class="guide-document"
+        id="main"
+        tabindex="-1"
+        data-integration-guide
+      >
         <section class="guide-hero" id="overview">
           <h1>Use CoreStudio in your Agent</h1>
           <p>
@@ -182,8 +197,9 @@
                 <h3>Install and open CoreStudio</h3>
                 <p>
                   If CoreStudio is not installed, download the latest signed
-                  macOS release from GitHub. Keep the app open for connection
-                  checks.
+                  macOS release from GitHub. Keep the app running with Agent
+                  Bridge enabled; the target project does not need an open
+                  desktop tab.
                 </p>
                 <a
                   class="source-link"
@@ -243,7 +259,9 @@
                 Local Bridge.
               </p>
               <div class="code-block">
-                <code id="verify-install-command">corestudio --version --json</code>
+                <code id="verify-install-command"
+                  >corestudio --version --json</code
+                >
                 <button
                   class="copy-button"
                   type="button"
@@ -257,8 +275,9 @@
             <div class="verification-block">
               <h3>2. Local connection</h3>
               <p>
-                Run this after CoreStudio is open. It reports Bridge and
-                current-project state without changing the project.
+                Run this after CoreStudio is open. It reports Bridge state
+                without changing project data; after a Board claim, project
+                commands use the task session binding.
               </p>
               <div class="code-block">
                 <code id="verify-connection-command"
@@ -277,16 +296,18 @@
         </section>
 
         <section class="guide-section" id="first-use">
-          <h2>Start with one natural-language task</h2>
+          <h2>Bind one Agent task to one project</h2>
           <p class="section-intro">
-            Open a fresh local Agent conversation so the host can discover the
-            new Skill, then ask it to open your current CoreStudio project.
+            Keep CoreStudio running with Agent Bridge enabled. The Skill creates
+            a task session and binds it to the Agent Board project you claim;
+            desktop tabs do not choose the target.
           </p>
 
           <div class="prompt-block">
             <code id="first-agent-prompt" data-first-prompt
-              >Open my current CoreStudio project, read the canvas and selection,
-              then tell me what I can continue working on.</code
+              >Open the CoreStudio project I choose, bind this task to its Agent
+              Board, read the canvas and selection, then tell me what I can
+              continue working on.</code
             >
             <button
               class="copy-button"
@@ -297,8 +318,9 @@
             </button>
           </div>
           <p class="host-note" data-host-note>
-            Codex can establish its compatible local identity automatically.
-            You do not need to copy a session reference.
+            The Skill creates and reuses a process-scoped Agent session for
+            Codex. Claiming a Board binds this task to that project,
+            independently of desktop tabs.
           </p>
         </section>
 
@@ -320,7 +342,10 @@
             <div class="cli-row" data-cli-task="selection">
               <h3>Read selection</h3>
               <div class="cli-command">
-                <code>corestudio read selection --json</code>
+                <code
+                  >corestudio read selection --agent-session &lt;sessionRef&gt;
+                  --json</code
+                >
               </div>
             </div>
             <div class="cli-row" data-cli-task="board-url">
@@ -333,10 +358,14 @@
               <h3>Write an image</h3>
               <div class="cli-command">
                 <code
-                  >corestudio write image /absolute/path/result.png --source-type
-                  generated --origin agent-board --json</code
+                  >corestudio write image /absolute/path/result.png
+                  --source-type generated --origin agent-board --agent-session
+                  &lt;sessionRef&gt; --json</code
                 >
-                <span class="session-requirement" data-session-requirement hidden
+                <span
+                  class="session-requirement"
+                  data-session-requirement
+                  hidden
                   >Agent session</span
                 >
               </div>
@@ -346,9 +375,13 @@
               <div class="cli-command">
                 <code
                   >corestudio write diagram --format mermaid --file
-                  /absolute/path/process.mmd --anchor auto --json</code
+                  /absolute/path/process.mmd --anchor auto --agent-session
+                  &lt;sessionRef&gt; --json</code
                 >
-                <span class="session-requirement" data-session-requirement hidden
+                <span
+                  class="session-requirement"
+                  data-session-requirement
+                  hidden
                   >Agent session</span
                 >
               </div>

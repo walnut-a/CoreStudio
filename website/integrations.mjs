@@ -6,7 +6,7 @@ import {
   getLocalizedContent,
   getTroubleshootingGuide,
   normalizeHost,
-} from "./integrations-content.mjs?v=20260831-1";
+} from "./integrations-content.mjs?v=20260904-1";
 
 const locale = document.body.dataset.locale ?? "en";
 const content = getLocalizedContent(locale);
@@ -122,7 +122,7 @@ hostTabs.forEach((tab, index) => {
   });
 
   tab.addEventListener("keydown", (event) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       return;
     }
     event.preventDefault();

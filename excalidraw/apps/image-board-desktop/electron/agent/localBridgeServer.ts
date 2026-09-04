@@ -14,6 +14,7 @@ import {
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
 
+import type { AgentBoardEditCommandName } from "../../src/shared/projectRoomProtocol";
 import type {
   AgentBoardCommandContext,
   AgentBrowserRuntimeState,
@@ -44,6 +45,7 @@ import {
   attachProjectRoomWebSocketServer,
   type AuthenticateProjectRoomWebSocketInput,
   type AuthenticatedProjectRoomWebSocket,
+  type ProjectRoomWebSocketServerHandle,
 } from "../room/projectRoomWebSocketServer";
 
 export interface LocalBridgeCurrentProject {
@@ -53,6 +55,8 @@ export interface LocalBridgeCurrentProject {
     token: string;
     enabled: boolean;
   };
+  agentRoomId?: string;
+  agentActorId?: string;
 }
 
 export interface LocalBridgeServerOptions {
@@ -82,6 +86,17 @@ export interface LocalBridgeServerOptions {
     project: LocalBridgeCurrentProject;
     command: "scene.board" | "scene.snapshot";
   }) => Promise<unknown>;
+  readAgentProjectCommand?: (input: {
+    command: AgentRendererCommandName;
+    project: LocalBridgeCurrentProject;
+    payload?: Record<string, unknown>;
+    participant?: {
+      threadId: string;
+      actorId?: string;
+      host?: AgentHost;
+      displayLabel: string;
+    } | null;
+  }) => Promise<unknown>;
   renderer: {
     request: (
       command: AgentRendererCommandName,
@@ -96,6 +111,16 @@ export interface LocalBridgeServerOptions {
     externalConversationId?: string;
   }) => LocalAgentSession | Promise<LocalAgentSession>;
   resolveAgentSession?: (sessionRef: string) => LocalAgentSession;
+  resolveAgentProject?: (
+    identity:
+      | LocalAgentSession
+      | {
+          threadId: string;
+          actorId?: string;
+          host?: AgentHost;
+          displayLabel: string;
+        },
+  ) => Promise<LocalBridgeCurrentProject | null>;
   issueProjectRoomTicket?: (input: {
     project: LocalBridgeCurrentProject;
     threadId: string;
@@ -173,6 +198,17 @@ export interface LocalBridgeServerOptions {
       scene: import("../../src/shared/projectRoomProtocol").ProjectRoomScene;
     }) => Promise<unknown>,
   ) => Promise<unknown>;
+  prepareAgentWriterCommand?: (input: {
+    command: AgentRendererCommandName;
+    project: LocalBridgeCurrentProject;
+    payload: Record<string, unknown>;
+    context: {
+      sessionId: string;
+      identity: import("../../src/shared/projectRoomProtocol").ProjectRoomIdentity;
+      roomSequence: number;
+      scene: import("../../src/shared/projectRoomProtocol").ProjectRoomScene;
+    };
+  }) => Promise<unknown>;
   getProjectRoomParticipantState?: (input: {
     project: LocalBridgeCurrentProject;
     threadId: string;
@@ -210,7 +246,7 @@ interface WriteRouteConfig {
 
 interface ProjectCommandRouteConfig {
   route: string;
-  command: AgentRendererCommandName;
+  command: AgentBoardEditCommandName;
 }
 
 const WRITE_ROUTES: WriteRouteConfig[] = [
@@ -713,7 +749,12 @@ const authenticateProjectRequest = async (
   response: http.ServerResponse,
   options: Pick<
     LocalBridgeServerOptions,
-    "getCurrentProject" | "getProjectByToken" | "isAgentAccessEnabled"
+    | "getCurrentProject"
+    | "getProjectByToken"
+    | "isAgentAccessEnabled"
+    | "resolveAgentProject"
+    | "resolveAgentSession"
+    | "participantIssuerToken"
   >,
 ) => {
   if (!options.isAgentAccessEnabled()) {
@@ -721,12 +762,33 @@ const authenticateProjectRequest = async (
     return null;
   }
 
+  const sessionRef = getSingleHeader(request, AGENT_SESSION_HEADER)?.trim();
+  if (
+    sessionRef &&
+    options.resolveAgentSession &&
+    options.resolveAgentProject
+  ) {
+    const session = options.resolveAgentSession(sessionRef);
+    const boundProject = await options.resolveAgentProject(session);
+    if (boundProject) {
+      return boundProject;
+    }
+  }
+  if (!sessionRef && options.resolveAgentProject) {
+    const participant = getTrustedParticipantIdentity(request, options);
+    if (participant) {
+      const boundProject = await options.resolveAgentProject(participant);
+      if (boundProject) {
+        return boundProject;
+      }
+    }
+  }
+
   const token = getBearerToken(request);
   if (!token) {
     sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
     return null;
   }
-
   const project = await resolveProjectByToken(token, options);
   if (!project) {
     sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
@@ -741,7 +803,12 @@ const resolveOptionalProjectRequest = async (
   response: http.ServerResponse,
   options: Pick<
     LocalBridgeServerOptions,
-    "getCurrentProject" | "getProjectByToken" | "isAgentAccessEnabled"
+    | "getCurrentProject"
+    | "getProjectByToken"
+    | "isAgentAccessEnabled"
+    | "resolveAgentProject"
+    | "resolveAgentSession"
+    | "participantIssuerToken"
   >,
 ) => {
   if (!options.isAgentAccessEnabled()) {
@@ -749,11 +816,32 @@ const resolveOptionalProjectRequest = async (
     return undefined;
   }
 
+  const sessionRef = getSingleHeader(request, AGENT_SESSION_HEADER)?.trim();
+  if (
+    sessionRef &&
+    options.resolveAgentSession &&
+    options.resolveAgentProject
+  ) {
+    const session = options.resolveAgentSession(sessionRef);
+    const boundProject = await options.resolveAgentProject(session);
+    if (boundProject) {
+      return boundProject;
+    }
+  }
+  if (!sessionRef && options.resolveAgentProject) {
+    const participant = getTrustedParticipantIdentity(request, options);
+    if (participant) {
+      const boundProject = await options.resolveAgentProject(participant);
+      if (boundProject) {
+        return boundProject;
+      }
+    }
+  }
+
   const token = getBearerToken(request);
   if (!token) {
     return null;
   }
-
   const project = await resolveProjectByToken(token, options);
   if (!project) {
     sendError(response, 401, "AUTH_REQUIRED", "Missing or invalid token");
@@ -1082,10 +1170,17 @@ const handleWriteCommand = async (
           ...(body.dryRun === true ? { dryRun: true } : {}),
         },
         (context) =>
-          options.renderer.request(config.command, {
-            ...payload,
-            projectRoomAgentWriter: context,
-          }),
+          options.prepareAgentWriterCommand
+            ? options.prepareAgentWriterCommand({
+                command: config.command,
+                project: currentProject,
+                payload,
+                context,
+              })
+            : options.renderer.request(config.command, {
+                ...payload,
+                projectRoomAgentWriter: context,
+              }),
       );
     } else {
       result = await options.renderer.request(config.command, payload);
@@ -1099,6 +1194,7 @@ const handleWriteCommand = async (
 export const createLocalBridgeServer = async (
   options: LocalBridgeServerOptions,
 ): Promise<LocalBridgeServerHandle> => {
+  let projectRoomWebSocket: ProjectRoomWebSocketServerHandle | null = null;
   const server = http.createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -1876,6 +1972,24 @@ export const createLocalBridgeServer = async (
           sendJson(response, 200, createAgentOk(roomRuntimeState.selection));
           return;
         }
+        if (options.readAgentProjectCommand) {
+          try {
+            sendJson(
+              response,
+              200,
+              createAgentOk(
+                await options.readAgentProjectCommand({
+                  command: "scene.selection",
+                  project: currentProject,
+                  participant: trustedParticipant,
+                }),
+              ),
+            );
+          } catch (error) {
+            sendRendererError(response, error);
+          }
+          return;
+        }
         await handleReadCommand(
           response,
           options.renderer,
@@ -1898,9 +2012,34 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
-          const result = await options.renderer.request("agent.context", {
-            projectPath: currentProject.projectPath,
-          });
+          const trustedParticipant = getTrustedParticipantIdentity(
+            request,
+            options,
+          );
+          const roomRuntimeState =
+            trustedParticipant && options.getProjectRoomParticipantState
+              ? await options.getProjectRoomParticipantState({
+                  project: currentProject,
+                  threadId: trustedParticipant.threadId,
+                })
+              : null;
+          const result = options.readAgentProjectCommand
+            ? await options.readAgentProjectCommand({
+                command: "agent.context",
+                project: currentProject,
+                payload: createRendererPayload(
+                  {},
+                  currentProject.projectPath,
+                  false,
+                  roomRuntimeState
+                    ? buildAgentBoardCommandContext(roomRuntimeState)
+                    : null,
+                ),
+                participant: trustedParticipant,
+              })
+            : await options.renderer.request("agent.context", {
+                projectPath: currentProject.projectPath,
+              });
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
           sendRendererError(response, error);
@@ -1937,6 +2076,24 @@ export const createLocalBridgeServer = async (
                 await options.readProjectRoomScene({
                   project: currentProject,
                   command: readCommand,
+                }),
+              ),
+            );
+          } catch (error) {
+            sendRendererError(response, error);
+          }
+          return;
+        }
+        if (options.readAgentProjectCommand) {
+          try {
+            sendJson(
+              response,
+              200,
+              createAgentOk(
+                await options.readAgentProjectCommand({
+                  command: readCommand,
+                  project: currentProject,
+                  participant: getTrustedParticipantIdentity(request, options),
                 }),
               ),
             );
@@ -2122,17 +2279,22 @@ export const createLocalBridgeServer = async (
                   threadId: trustedParticipant.threadId,
                 })
               : null;
-          const result = await options.renderer.request(
-            "scene.imagePaths",
-            createRendererPayload(
-              body,
-              currentProject.projectPath,
-              false,
-              roomRuntimeState
-                ? buildAgentBoardCommandContext(roomRuntimeState)
-                : null,
-            ),
+          const payload = createRendererPayload(
+            body,
+            currentProject.projectPath,
+            false,
+            roomRuntimeState
+              ? buildAgentBoardCommandContext(roomRuntimeState)
+              : null,
           );
+          const result = options.readAgentProjectCommand
+            ? await options.readAgentProjectCommand({
+                command: "scene.imagePaths",
+                project: currentProject,
+                payload,
+                participant: trustedParticipant,
+              })
+            : await options.renderer.request("scene.imagePaths", payload);
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
           sendRendererError(response, error);
@@ -2161,10 +2323,24 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
-          const result = await options.renderer.request(
-            projectCommandRoute.command,
-            createProjectCommandPayload(body, currentProject.projectPath),
+          const payload = createProjectCommandPayload(
+            body,
+            currentProject.projectPath,
           );
+          const result =
+            currentProject.agentRoomId &&
+            currentProject.agentActorId &&
+            projectRoomWebSocket
+              ? await projectRoomWebSocket.requestAgentBoardCommand({
+                  roomId: currentProject.agentRoomId,
+                  actorId: currentProject.agentActorId,
+                  command: projectCommandRoute.command,
+                  payload,
+                })
+              : await options.renderer.request(
+                  projectCommandRoute.command,
+                  payload,
+                );
           sendJson(response, 200, createAgentOk(result));
         } catch (error) {
           sendRendererError(response, error);
@@ -2213,7 +2389,7 @@ export const createLocalBridgeServer = async (
     })().catch((error) => sendRendererError(response, error));
   });
 
-  const projectRoomWebSocket = options.authenticateProjectRoomWebSocket
+  projectRoomWebSocket = options.authenticateProjectRoomWebSocket
     ? attachProjectRoomWebSocketServer({
         server,
         authenticate: options.authenticateProjectRoomWebSocket,

@@ -1,9 +1,17 @@
 # CoreStudio 本地多 Agent 集成方案
 
 > 所属项目：CoreStudio Desktop  
-> 文档状态：实现中  
+> 文档状态：已实现；2026-09-04 增补 Agent 项目解耦发布合同
 > 适用范围：macOS 本地客户端  
-> 最后更新：2026-08-02
+> 最后更新：2026-09-04
+
+## 0. 2026-09-04 发布增补
+
+- Agent session 在认领稳定 Agent Board 时绑定项目；后续项目级 CLI 请求不再读取桌面当前标签。
+- 目标项目可以没有人类标签，也可以不在最近项目列表。Bridge 在主进程按需打开 Project Room。
+- 图片、提示词、图表和生成结果由 CLI / Local Bridge 直接写入，不允许通过浏览器剪贴板、粘贴、拖放或模拟点击兜底。
+- 关闭人类标签不停止 Agent；Home 新增“Agent 正在使用”区域，并由用户决定是否“打开查看”。
+- 本轮合同版本为 Agent integration `2.1.0`、Bridge protocol `7`、Skill `19`、CLI wrapper `2`；兼容 Codex integration 为 `1.13.0`、Skill `18`、CLI wrapper `1`。
 
 ## 1. 文档定位
 
@@ -167,8 +175,8 @@ CLI 只安装一次：
 ```json
 {
   "schemaVersion": 2,
-  "integrationVersion": "2.x",
-  "bridgeProtocolVersion": 6,
+  "integrationVersion": "2.1.0",
+  "bridgeProtocolVersion": 7,
   "cli": {
     "path": "~/.local/bin/corestudio",
     "wrapperVersion": 2
@@ -176,15 +184,15 @@ CLI 只安装一次：
   "hosts": {
     "codex": {
       "skillPath": "~/.codex/skills/corestudio/SKILL.md",
-      "skillVersion": 18
+      "skillVersion": 19
     },
     "cursor": {
       "skillPath": "~/.cursor/skills/corestudio/SKILL.md",
-      "skillVersion": 18
+      "skillVersion": 19
     },
     "claude-code": {
       "skillPath": "~/.claude/skills/corestudio/SKILL.md",
-      "skillVersion": 18
+      "skillVersion": 19
     }
   }
 }

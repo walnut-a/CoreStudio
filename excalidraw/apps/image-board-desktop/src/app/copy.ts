@@ -32,6 +32,12 @@ const zhCnCopy = {
     description:
       "新建一个本地项目，或打开之前的项目。画板、图片、提示词和生成记录都会保存在项目文件夹里。",
     recentTitle: "项目列表",
+    agentActiveTitle: "Agent 正在使用",
+    agentWorking: "正在工作",
+    agentConnected: "已连接",
+    agentReconnecting: "等待重连",
+    agentCount: (count: number) => `${count} 个 Agent`,
+    openAgentProject: "打开查看",
     projectSelectionTitle: "选择要切换到的项目",
     projectSelectionDescription:
       "当前项目会保留在列表中，请选择另一个可用项目。",
@@ -223,7 +229,8 @@ const zhCnCopy = {
       "开发模式下运行 `corepack yarn start:desktop`；正式包请退出后重新打开 CoreStudio。",
     editorLoading: "正在加载画板…",
     editorReloadRequired: "画板连接已断开",
-    editorReloadInstruction: "CoreStudio 重启后，请刷新当前页面恢复画板。",
+    editorReloadInstruction:
+      "当前页面闲置时间较长，或 CoreStudio 已重新启动。刷新页面即可恢复连接。",
     editorReloadAction: "刷新页面",
     providerLoadFailed: "桌面连接异常，暂时无法读取模型服务配置。",
     createProjectFailed: "新建项目失败。",

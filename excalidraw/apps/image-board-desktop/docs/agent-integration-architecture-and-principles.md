@@ -25,9 +25,9 @@ CoreStudio 不保存外部 Agent 的任务包、运行日志或任务设置。Br
 
 - 桌面客户端当前激活的项目标签只是桌面 UI 焦点，不是所有 Agent 对话共享的唯一目标。
 - 每个 Agent 对话以自己已连接并认领的稳定 Agent Board 页面为画布任务目标；该页面所属项目由 `stableBoardId`、页面 nonce 和项目房间共同确认。桌面客户端切换到另一个项目，不改变已经认领页面的项目身份。
-- `corestudio read status --json` 报告 Local Bridge 状态和桌面当前激活项目，不能用它覆盖已连接 Agent Board 页面通过 `corestudio_get_board_status` 报告的项目 `id`。两个项目名称不同不构成 `PROJECT_MISMATCH`。
-- 后台项目请求必须携带明确的项目路径并路由到该项目自己的 renderer。只有稳定 Board、页面 nonce、固定引用 `projectId` 或项目房间身份真实不一致时，才停止并报告项目冲突。
-- 当前 CLI session 仍绑定其认证项目。CLI-only 操作必须先确认该项目 `projectId` 与页面目标一致；不一致时应停止未限定目标的 CLI 路径，不能把写入落到桌面当前项目，也不能自动切换用户的桌面标签。
+- 稳定 Agent Board 被认领时，Bridge 将可信 Agent session 绑定到该 Board 对应的稳定项目身份与 Project Room。此后所有带该 session 的项目级 CLI 请求都从绑定解析目标。
+- Agent 目标项目不要求存在桌面标签，也不要求出现在最近项目中。Bridge 在主进程中按需打开并维持 Project Room；桌面当前标签、焦点和名称都不参与 Agent 路由。
+- 只有稳定 Board、页面 nonce、固定引用 `projectId`、session 绑定或项目房间身份真实不一致时，才停止并报告项目冲突。
 
 ## 分层
 
@@ -35,7 +35,7 @@ CoreStudio 不保存外部 Agent 的任务包、运行日志或任务设置。Br
 | --- | --- | --- |
 | Project services | `electron/project/*`、`projectFs.ts` | 项目资产、场景、记录、健康检查和修复 |
 | Agent services | `electron/agent/localBridgeServer.ts`、`cliRuntime.ts` | Local Bridge、CLI、可信参与者身份校验 |
-| Project room | `electron/room/*` | 当前项目权威 scene、元素协调、广播和持久化 |
+| Project room | `electron/room/*` | 每个已打开或 Agent 已绑定项目的权威 scene、元素协调、广播和持久化 |
 | Shared contracts | `src/shared/agentBridgeTypes.ts`、`projectRecordIntegrity.ts` | 跨进程协议和记录完整性 |
 | Renderer controllers | `src/app/agent/*Controller.ts`、`project/*Controller.ts` | 状态和副作用编排 |
 | UI | 设置、生成输入框、生成记录、Agent Board | 展示与用户交互 |
@@ -44,9 +44,11 @@ CoreStudio 不保存外部 Agent 的任务包、运行日志或任务设置。Br
 
 ## 写入与恢复
 
-外部写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参与者身份。Agent Writer 只借助 renderer 中的 Excalidraw 原生元素工厂或 Mermaid 转换器准备语义元素，不读取或直接修改当前可见画布；主进程负责资产登记，并把一个带 `operationId` 的操作提交到项目房间。图表输入只传 Mermaid 文本，转换结果保持为可编辑的节点、文字和箭头绑定，不上传云端，也不开放任意 scene 替换。
+外部写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参与者身份。Agent Writer 在主进程写入运行时中准备图片、提示词和 Mermaid 原生元素，不依赖桌面 renderer 或浏览器粘贴；主进程负责资产登记，并把一个带 `operationId` 的操作提交到 session 绑定的项目房间。图表输入只传 Mermaid 文本，转换结果保持为可编辑的节点、文字和箭头绑定，不上传云端，也不开放任意 scene 替换。
 
-项目房间是当前 scene 的权威状态。操作先在房间内协调和广播，再由主进程统一持久化；两个 renderer 不再分别保存整份 scene，也不通过重新打开项目完成同步。
+项目房间是该项目 scene 的权威状态。操作先在房间内协调和广播，再由主进程统一持久化；人类标签和 Agent Board 都只是可选视图，不承担文件写入职责。
+
+人的标签页和 Agent 生命周期彼此独立：关闭标签只关闭人的视图，不关闭房间、不撤销 session，也不显示“Agent 正在使用”确认。Home 的“Agent 正在使用”区域从 Agent binding 与房间参与者聚合状态；用户可选择“打开查看”，Agent 连接本身不会自动创建或切换人的标签。
 
 ## 跨进程项目所有权
 

@@ -31,6 +31,191 @@ const imageElement = {
 };
 
 describe("executeProjectRoomAgentWriterCommand", () => {
+  it("keeps old receipts at the history limit instead of silently re-executing them", async () => {
+    const room = createRoom();
+    const prepare = vi.fn(async () => ({
+      type: "agent-writer.prepared",
+      elements: [imageElement],
+    }));
+    const input = {
+      room,
+      actorId: "agent:a",
+      displayLabel: "A",
+      prepare,
+      persistAssets: vi.fn(),
+    };
+    const first = await executeProjectRoomAgentWriterCommand({
+      ...input,
+      request: { id: "r0", fingerprint: "same" },
+    });
+    for (let i = 1; i < 4096; i++) {
+      await executeProjectRoomAgentWriterCommand({
+        ...input,
+        request: { id: `r${i}`, fingerprint: "same" },
+      });
+    }
+    await expect(
+      executeProjectRoomAgentWriterCommand({
+        ...input,
+        request: { id: "over-limit", fingerprint: "same" },
+      }),
+    ).rejects.toMatchObject({ code: "WRITEBACK_CONFLICT" });
+    expect(
+      await executeProjectRoomAgentWriterCommand({
+        ...input,
+        request: { id: "r0", fingerprint: "same" },
+      }),
+    ).toMatchObject({
+      operationId: first.operationId,
+      elementIds: first.elementIds,
+      persisted: true,
+    });
+    expect(prepare).toHaveBeenCalledTimes(4096);
+    room.close();
+    await expect(
+      executeProjectRoomAgentWriterCommand({
+        ...input,
+        request: { id: "r0", fingerprint: "same" },
+      }),
+    ).rejects.toMatchObject({ code: "ROOM_CLOSED" });
+  });
+  it("replays an already saved receipt even if a later unrelated write cannot save", async () => {
+    let fail = false;
+    const room = createRoom(
+      vi.fn(async () => {
+        if (fail) throw new Error("later save failed");
+        return { projectRevision: "r2" };
+      }),
+    );
+    const input = {
+      room,
+      actorId: "agent:a",
+      displayLabel: "A",
+      prepare: async () => ({
+        type: "agent-writer.prepared",
+        elements: [imageElement],
+      }),
+      persistAssets: vi.fn(),
+      request: { id: "saved-request", fingerprint: "original" },
+    };
+    const saved = await executeProjectRoomAgentWriterCommand(input);
+    fail = true;
+    await expect(
+      executeProjectRoomAgentWriterCommand({
+        ...input,
+        request: { id: "later-request", fingerprint: "other" },
+        prepare: async () => ({
+          type: "agent-writer.prepared",
+          elements: [{ ...imageElement, id: "later-image" }],
+        }),
+      }),
+    ).rejects.toThrow("later save failed");
+    await expect(executeProjectRoomAgentWriterCommand(input)).resolves.toEqual(
+      saved,
+    );
+    room.close();
+  });
+  it("retries persistence without preparing or inserting an accepted request twice", async () => {
+    let fail = true;
+    const room = createRoom(
+      vi.fn(async () => {
+        if (fail) throw new Error("disk unavailable");
+        return { projectRevision: "r2" };
+      }),
+    );
+    const prepare = vi.fn(async () => ({
+      type: "agent-writer.prepared",
+      elements: [{ ...imageElement, id: `image-${Math.random()}` }],
+    }));
+    const input = {
+      room,
+      actorId: "agent:a",
+      displayLabel: "A",
+      prepare,
+      persistAssets: vi.fn(),
+      request: { id: "request-a", fingerprint: "image-content" },
+    };
+    await expect(
+      executeProjectRoomAgentWriterCommand(input),
+    ).rejects.toMatchObject({
+      code: "PERSISTENCE_FAILED",
+      details: {
+        writeStatus: {
+          requestId: "request-a",
+          accepted: true,
+          persisted: false,
+        },
+      },
+    });
+    fail = false;
+    const result = await executeProjectRoomAgentWriterCommand(input);
+    expect(result).toMatchObject({ requestId: "request-a", persisted: true });
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(room.sequence).toBe(1);
+    expect(room.getSnapshot().scene.elements).toHaveLength(1);
+    // A lost success response is safely replayed as the same receipt.
+    expect(await executeProjectRoomAgentWriterCommand(input)).toEqual(result);
+    room.close();
+  });
+
+  it("coalesces concurrent requests and rejects ID reuse with different content", async () => {
+    const room = createRoom();
+    const prepare = vi.fn(async () => ({
+      type: "agent-writer.prepared",
+      elements: [imageElement],
+    }));
+    const input = {
+      room,
+      actorId: "agent:a",
+      displayLabel: "A",
+      prepare,
+      persistAssets: vi.fn(),
+      request: { id: "request-a", fingerprint: "original" },
+    };
+    const results = await Promise.all([
+      executeProjectRoomAgentWriterCommand(input),
+      executeProjectRoomAgentWriterCommand(input),
+    ]);
+    expect(results[0]).toEqual(results[1]);
+    expect(prepare).toHaveBeenCalledTimes(1);
+    await expect(
+      executeProjectRoomAgentWriterCommand({
+        ...input,
+        request: { id: "request-a", fingerprint: "changed" },
+      }),
+    ).rejects.toMatchObject({ code: "WRITEBACK_CONFLICT" });
+    room.close();
+  });
+
+  it("allows retry after preparation failure and keeps actors isolated", async () => {
+    const room = createRoom();
+    const prepare = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("prepare failed"))
+      .mockResolvedValue({
+        type: "agent-writer.prepared",
+        elements: [imageElement],
+      });
+    const input = {
+      room,
+      actorId: "agent:a",
+      displayLabel: "A",
+      prepare,
+      persistAssets: vi.fn(),
+      request: { id: "request-a", fingerprint: "original" },
+    };
+    await expect(executeProjectRoomAgentWriterCommand(input)).rejects.toThrow(
+      "prepare failed",
+    );
+    await executeProjectRoomAgentWriterCommand(input);
+    await executeProjectRoomAgentWriterCommand({
+      ...input,
+      actorId: "agent:b",
+    });
+    expect(prepare).toHaveBeenCalledTimes(3);
+    room.close();
+  });
+
   it("persists assets, applies one room operation, and flushes it", async () => {
     const room = createRoom();
     const persistAssets = vi.fn(async () => undefined);

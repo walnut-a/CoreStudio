@@ -38,14 +38,14 @@ describe("Agent integration service", () => {
       manifestPath,
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.1",
+        integrationVersion: "2.1.2",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 7,
         cli: { path: cliPath, wrapperVersion: 2 },
         hosts: {
           cursor: {
             skillPath,
-            skillVersion: 20,
+            skillVersion: 21,
             managedSha256: createHash("sha256")
               .update(skillContents)
               .digest("hex"),
@@ -97,7 +97,7 @@ describe("Agent integration service", () => {
       join(settingsDirectory, "agent-integration.json"),
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.1",
+        integrationVersion: "2.1.2",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: { path: cliPath, wrapperVersion: 2 },
@@ -167,11 +167,11 @@ describe("Agent integration service", () => {
     );
     expect(manifest).toMatchObject({
       schemaVersion: 2,
-      integrationVersion: "2.1.1",
+      integrationVersion: "2.1.2",
       installedFromAppVersion: "1.2.0",
       cli: { path: cliPath, wrapperVersion: 2 },
       hosts: {
-        "claude-code": { skillPath, skillVersion: 20 },
+        "claude-code": { skillPath, skillVersion: 21 },
       },
     });
   });
@@ -238,7 +238,7 @@ describe("Agent integration service", () => {
       manifestPath,
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.1",
+        integrationVersion: "2.1.2",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: { path: cliPath, wrapperVersion: 2 },
@@ -300,7 +300,7 @@ describe("Agent integration service", () => {
       join(settingsDirectory, "agent-integration.json"),
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.1",
+        integrationVersion: "2.1.2",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: {

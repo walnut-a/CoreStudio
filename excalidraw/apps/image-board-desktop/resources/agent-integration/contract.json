@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "integrationVersion": "2.1.1",
+  "integrationVersion": "2.1.2",
   "bridgeProtocolVersion": 7,
-  "skillVersion": 20,
+  "skillVersion": 21,
   "cliWrapperVersion": 2,
   "hosts": ["codex", "cursor", "claude-code"]
 }

@@ -96,6 +96,7 @@ import {
 import { createAgentImageGenerationService } from "./agent/agentImageGenerationService";
 import { createLocalAgentSessionStore } from "./agent/localAgentSessionStore";
 import { createAgentProjectBindingStore } from "./agent/agentProjectBindingStore";
+import { createAgentTargetResolver } from "./agent/agentTargetResolver";
 import { createPrepareAgentWriterCommand } from "./agent/prepareAgentWriterCommand";
 import { createAgentDiagramRendererParser } from "./agent/agentDiagramRenderer";
 import { buildDesktopAgentActiveProjects } from "./agent/agentActiveProjects";
@@ -1194,6 +1195,11 @@ const startLocalBridge = async () => {
   }
 
   rendererCommandBridge = createMainRendererCommandBridge();
+  const resolveAgentTarget = createAgentTargetResolver({
+    store: agentProjectBindingStore,
+    readProject: readProjectManifestSnapshot,
+    getRoom: (projectId) => projectRoomService.manager.get(projectId),
+  });
   let bridge: LocalBridgeServerHandle | null = null;
   try {
     bridge = await createLocalBridgeServer({
@@ -1251,7 +1257,7 @@ const startLocalBridge = async () => {
       resolveAgentSession: (sessionRef) =>
         localAgentSessionStore.resolve(sessionRef),
       resolveAgentProject: async (identity) => {
-        const binding = agentProjectBindingStore.resolveByActorId(
+        return resolveAgentTarget(
           resolveAgentActorId({
             actorId: identity.actorId,
             threadId:
@@ -1260,13 +1266,6 @@ const startLocalBridge = async () => {
                 : identity.threadId,
           }),
         );
-        return binding
-          ? {
-              ...binding.project,
-              agentRoomId: binding.roomId,
-              agentActorId: binding.actorId,
-            }
-          : null;
       },
       issueProjectRoomTicket: async ({
         project,
@@ -1315,6 +1314,7 @@ const startLocalBridge = async () => {
           stableBoardId,
           project: {
             ...project,
+            projectPath: room.identity.canonicalProjectPath,
             projectId: room.identity.projectId,
           },
           roomId: room.identity.roomId,
@@ -1626,7 +1626,7 @@ const startLocalBridge = async () => {
         });
       },
       withAgentWriterCommand: async (
-        { project, threadId, actorId, displayLabel, dryRun },
+        { project, threadId, actorId, displayLabel, dryRun, request },
         run,
       ) => {
         const room = await projectRoomService.openProject(project.projectPath);
@@ -1635,6 +1635,7 @@ const startLocalBridge = async () => {
           actorId: resolveAgentActorId({ actorId, threadId }),
           displayLabel,
           prepare: run,
+          request,
           persistAssets: (files) =>
             persistAndPublishProjectRoomAssets({
               projectPath: room.identity.canonicalProjectPath,

@@ -124,6 +124,8 @@ corestudio generate image \
 - 图片文件名跟随用户当前使用的语言。用户使用中文交互时，使用简洁、可辨认的中文文件名；用户使用其他语言时使用对应语言；用户明确指定名称时优先采用指定名称，不要在中文任务中写入 `generated-image-1.png` 一类泛化英文名。文件名负责辨认图片，`--prompt` 负责保存实际生成上下文，两者不要互相替代。
 - 定位和选择已有元素使用 `corestudio edit locate` / `corestudio edit select`。
 - 每次写回都向用户报告 CLI 返回的 imageId、elementId、frameId 或 prompt id；房间模式下同时检查 `operationId`、`roomId`、`roomSequence`、`persistedSequence` 和 `persisted`。
+- 图片、提示词、图表的每次独立写入，在首次调用前创建并保留唯一 request ID，使用 `--request-id <id>`。同一写入的重试必须复用该 ID 和原内容；不要重新生成 ID 后重试。
+- 保存失败时读取 `error.details.writeStatus`：`accepted: true` 表示元素已进入房间，仅保存未完成；同一房间内用原 ID 重试会继续保存原操作。网络或响应解析失败的 `accepted: "unknown"` 不表示未写入。房间关闭、项目重新认领或客户端重启后先核对画布，禁止盲目重放旧请求。这个重试协议不适用于可能扣费的 `generate image`。
 - `persisted: true` 才表示这次写入已经进入项目文件。只有 `roomSequence` 而没有对应 `persistedSequence` 时，按“已同步但尚未保存”处理，不能向用户报告完成。
 - 写回后验证项目已更新：重新读取画布或定位返回的元素 ID，确认新元素已在画布上可见。不要把 CLI 返回成功等同于用户已经看到结果。
 - CLI 失败时保留原始错误码、消息和 details，不绕过 Local Bridge 手工改文件。`PERSISTENCE_FAILED` 只按保存失败报告，不自行创建恢复副本。

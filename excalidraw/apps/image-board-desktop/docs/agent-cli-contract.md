@@ -217,4 +217,19 @@ corestudio read health --json
 
 图片、提示词、图表和生成结果都由 CoreStudio 主进程直接准备并提交到 Agent session 绑定的 Project Room，不要求桌面打开该项目，也不使用浏览器剪贴板、粘贴、拖放或模拟点击传输文件。房间立即协调并广播元素，磁盘持久化由主进程统一完成。
 
-房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。Agent 应根据结构化错误处理：普通持久化失败可以稍后重试；`PROJECT_STORAGE_DIVERGED` 表示房间之外出现了磁盘写入，必须先查明来源，不能绕过 CoreStudio 直接修改项目文件。
+房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。`PROJECT_STORAGE_DIVERGED` 表示房间之外出现了磁盘写入，必须先查明来源，不能绕过 CoreStudio 直接修改项目文件。
+
+### 请求身份与安全重试
+
+`write image`、`write prompt` 和 `write diagram` 支持 `--request-id <id>`。CLI 为普通写入自动产生 UUID；需要在回执丢失后重试的 Agent 应在第一次调用前为这次写入创建并保留唯一 ID，例如：
+
+```bash
+corestudio write image /absolute/path/to/result.png --source-type imported --request-id <本次写入的唯一ID> --json
+```
+
+- 相同 actor、相同 Project Room、相同 ID 和内容只准备并接受一次。并发重复请求共用操作；已保存请求返回原 operation/元素/资产 ID；已接受待保存请求只继续保存，不重新插入。
+- 成功结果包含 `requestId`。保存失败的 `error.details.writeStatus` 包含 `requestId`、`accepted: true`、`operationId`、`elementIds`、可选 `fileIds` 和 `persisted: false`。接受前失败为 `accepted: false`；网络或响应解析失败为 `accepted: "unknown"`、`persisted: "unknown"`，不能把它解释为未写入。
+- 重试必须携带原 `--request-id` 和原内容。新一批写入使用新 ID；同 ID 换图片、提示词或命令返回 `WRITEBACK_CONFLICT`。图片读取产生的新 fileId/createdAt 不影响同内容判断。
+- 请求记录仅在当前房间生命周期有效，不承诺跨 CoreStudio 重启的幂等。重新认领其他项目、房间关闭或客户端重启后，先检查原画布结果，不自动重放旧请求。
+- 每个房间最多保留 4,096 个带 ID 的请求，达到上限时拒绝新请求，已有请求仍可重试；不静默淘汰记录后重复执行。旧版直接 HTTP 调用省略 requestId 时不提供请求级去重保证。
+- `generate image` 不在此协议内：它可能消耗模型费用，不能套用写入重试规则。`--dry-run` 不占用写入 ID。

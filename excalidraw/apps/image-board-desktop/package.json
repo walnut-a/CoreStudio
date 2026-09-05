@@ -35,6 +35,7 @@
     "notarize:release": "node scripts/notarize-release.cjs",
     "package:app": "node scripts/package-once.cjs",
     "package:app:raw": "yarn build && yarn check:bundle-paths --build && yarn check:secrets --source --package-inputs && electron-builder --mac dmg && yarn check:bundle-paths --release && yarn notarize:release && yarn check:secrets --release",
+    "test:agent-integration": "vitest run --config vitest.agent-integration.config.mts",
     "test": "cd ../.. && yarn test:desktop"
   },
   "dependencies": {

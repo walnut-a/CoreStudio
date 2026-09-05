@@ -58,6 +58,7 @@ corepack yarn test:typecheck
 | 全量一次性 | `corepack yarn test:desktop` | 固定使用 Vitest `run`，默认最多 2 个 worker |
 | 交互式 watch | `corepack yarn test:desktop:watch` | 唯一明确的全量 watch 入口 |
 | CI | `corepack yarn test:desktop:ci` | 与本地全量入口共用 runner、锁和 worker 边界 |
+| Agent 纵向集成 | `corepack yarn --cwd apps/image-board-desktop test:agent-integration` | 纯 Node，真实 CLI/HTTP/房间/磁盘，无 DOM 或桌面 renderer；CI 独立执行 |
 
 全量入口由统一 Node runner 管理。`CORESTUDIO_TEST_MAX_WORKERS=<正整数>` 可显式覆盖 worker 上限，`CORESTUDIO_TEST_TIMEOUT_MS=<毫秒>` 可覆盖默认 30 分钟超时；watch 默认不设置超时。同一 Git 仓库默认只允许一套全量桌面测试，活跃锁会报告已有 runner 的 PID、启动时间和退出命令。只有经过明确判断的特殊场景才可使用 `CORESTUDIO_TEST_ALLOW_CONCURRENT=1` 绕过互斥。
 

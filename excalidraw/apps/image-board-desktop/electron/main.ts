@@ -95,8 +95,7 @@ import {
 } from "./agent/agentAccessStore";
 import { createAgentImageGenerationService } from "./agent/agentImageGenerationService";
 import { createLocalAgentSessionStore } from "./agent/localAgentSessionStore";
-import { createAgentProjectBindingStore } from "./agent/agentProjectBindingStore";
-import { createAgentTargetResolver } from "./agent/agentTargetResolver";
+import { createAgentProjectLifecycle } from "./agent/agentProjectLifecycle";
 import { createPrepareAgentWriterCommand } from "./agent/prepareAgentWriterCommand";
 import { createAgentDiagramRendererParser } from "./agent/agentDiagramRenderer";
 import { buildDesktopAgentActiveProjects } from "./agent/agentActiveProjects";
@@ -245,8 +244,6 @@ const agentSessionPath = desktopRuntime.sessionPath;
 const taskGrantStore = createTaskGrantStore();
 const participantIssuerToken = randomUUID();
 const localAgentSessionStore = createLocalAgentSessionStore();
-const agentProjectBindingStore = createAgentProjectBindingStore();
-const agentProjectRoomSubscriptions = new Map<string, () => void>();
 const projectRoomTicketStore = createProjectRoomTicketStore();
 const stableBoardSessionClaimStore = createStableBoardSessionClaimStore();
 let stableBoardActorResumeTokenService: StableBoardActorResumeTokenService | null =
@@ -752,7 +749,7 @@ const publishProjectViewsState = (state: DesktopProjectViewsState) => {
 
 const getAgentActiveProjects = (): DesktopAgentActiveProject[] =>
   buildDesktopAgentActiveProjects({
-    bindings: agentProjectBindingStore.list(),
+    bindings: agentProjectLifecycle.listBindings(),
     getParticipants: (projectId) =>
       projectRoomService.manager.get(projectId)?.getSnapshot().participants ??
       null,
@@ -778,19 +775,15 @@ const publishAgentActiveProjects = () => {
   }
 };
 
-const observeAgentProjectRoom = (room: ProjectRoom) => {
-  if (agentProjectRoomSubscriptions.has(room.identity.roomId)) {
-    return;
-  }
-  const unsubscribe = room.subscribe((event) => {
-    publishAgentActiveProjects();
-    if (event.type === "room.closed") {
-      agentProjectRoomSubscriptions.delete(room.identity.roomId);
-      unsubscribe();
-    }
-  });
-  agentProjectRoomSubscriptions.set(room.identity.roomId, unsubscribe);
-};
+const agentProjectLifecycle = createAgentProjectLifecycle({
+  getProjectByStableBoardId: (id) => getAgentProjectByStableBoardId(id),
+  openRoom: (projectPath) => projectRoomService.openProject(projectPath),
+  getRoom: (projectId) => projectRoomService.manager.get(projectId),
+  readProject: readProjectManifestSnapshot,
+  claimPage: (input) => stableBoardSessionClaimStore.claim(input),
+  onChanged: publishAgentActiveProjects,
+});
+const observeAgentProjectRoom = agentProjectLifecycle.observeRoom;
 
 const publishCanvasInteractionSettings = (
   settings: DesktopCanvasInteractionSettings,
@@ -1195,11 +1188,7 @@ const startLocalBridge = async () => {
   }
 
   rendererCommandBridge = createMainRendererCommandBridge();
-  const resolveAgentTarget = createAgentTargetResolver({
-    store: agentProjectBindingStore,
-    readProject: readProjectManifestSnapshot,
-    getRoom: (projectId) => projectRoomService.manager.get(projectId),
-  });
+  agentProjectLifecycle.start();
   let bridge: LocalBridgeServerHandle | null = null;
   try {
     bridge = await createLocalBridgeServer({
@@ -1257,7 +1246,7 @@ const startLocalBridge = async () => {
       resolveAgentSession: (sessionRef) =>
         localAgentSessionStore.resolve(sessionRef),
       resolveAgentProject: async (identity) => {
-        return resolveAgentTarget(
+        return agentProjectLifecycle.resolveTarget(
           resolveAgentActorId({
             actorId: identity.actorId,
             threadId:
@@ -1290,37 +1279,14 @@ const startLocalBridge = async () => {
         host,
         displayLabel,
       }) => {
-        const project = await getAgentProjectByStableBoardId(stableBoardId);
-        if (!project) {
-          throw Object.assign(
-            new Error("The stable Agent Board project could not be found."),
-            { code: "PROJECT_REQUIRED", details: { stableBoardId } },
-          );
-        }
-        const resolvedActorId = resolveAgentActorId({ actorId, threadId });
-        const room = await projectRoomService.openProject(project.projectPath);
-        observeAgentProjectRoom(room);
-        stableBoardSessionClaimStore.claim({
+        await agentProjectLifecycle.claim({
           stableBoardId,
           pageNonce,
-          actorId: resolvedActorId,
-          displayLabel,
-        });
-        agentProjectBindingStore.bind({
-          actorId: resolvedActorId,
+          actorId: resolveAgentActorId({ actorId, threadId }),
           sessionRef: threadId,
-          ...(host ? { host } : {}),
+          host,
           displayLabel,
-          stableBoardId,
-          project: {
-            ...project,
-            projectPath: room.identity.canonicalProjectPath,
-            projectId: room.identity.projectId,
-          },
-          roomId: room.identity.roomId,
-          sessionEpoch: room.identity.sessionEpoch,
         });
-        publishAgentActiveProjects();
       },
       exchangeStableBoardSession: async ({
         stableBoardId,
@@ -1666,6 +1632,7 @@ const startLocalBridge = async () => {
       console.log("[agent:bridge-started]", bridge.baseUrl);
     }
   } catch (error) {
+    agentProjectLifecycle.stop();
     rendererCommandBridge?.dispose();
     rendererCommandBridge = null;
     if (localBridgeHandle === bridge) {
@@ -1689,12 +1656,7 @@ const stopLocalBridge = async ({ final = false } = {}) => {
 
   rendererCommandBridge?.dispose();
   rendererCommandBridge = null;
-  agentProjectBindingStore.clear();
-  for (const unsubscribe of agentProjectRoomSubscriptions.values()) {
-    unsubscribe();
-  }
-  agentProjectRoomSubscriptions.clear();
-  publishAgentActiveProjects();
+  agentProjectLifecycle.stop();
 
   await agentSessionWriteChain.catch((error) => {
     console.error("[agent:session-write-failed]", error);

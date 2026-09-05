@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.45",
-  "publishedAt": "2026-09-04T17:54:36Z",
-  "minimumSystemVersion": "14.0",
+  "version": "1.1.46",
+  "publishedAt": "2026-09-05T20:27:22Z",
+  "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.45",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.46",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.45/CoreStudio-1.1.45-arm64.dmg",
-    "size": 123887927,
-    "sha256": "f6afa18b414360249968477302199826cb3bb83637e4ac804498e70e49ee7898"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.46/CoreStudio-1.1.46-arm64.dmg",
+    "size": 137379737,
+    "sha256": "525727f0de8fc9a3f92233f6111f406dad2a375365af64b09c3db6cfbb0dafef"
   },
   "summary": {
     "zh-CN": [
-      "Agent 项目与客户端标签页彻底解耦",
-      "Home 独立显示 Agent 正在使用的项目",
-      "完善图片提示词、资产管理与无标签页写入"
+      "项目目录新增图片自动进入资产与画布，无需开关或扫描",
+      "完善内容去重、文件修复后重试及删除保护",
+      "改善 Agent 项目可靠性，升级 Electron 44.2.0"
     ],
     "en": [
-      "Decoupled Agent projects from desktop tabs",
-      "Added a dedicated Agent activity section to Home",
-      "Improved image prompts, asset management, and tab-free writes"
+      "Automatically add project-folder images to assets and canvas",
+      "Improve deduplication, recovery after file repairs, and deletion protection",
+      "Improve Agent project reliability and upgrade to Electron 44.2.0"
     ]
   }
 }

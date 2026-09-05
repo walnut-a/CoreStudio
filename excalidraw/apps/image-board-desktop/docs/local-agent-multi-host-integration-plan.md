@@ -9,7 +9,7 @@
 - 目标项目可以没有人类标签，也可以不在最近项目列表。Bridge 在主进程按需打开 Project Room。
 - 图片、提示词、图表和生成结果由 CLI / Local Bridge 直接写入，不允许通过浏览器剪贴板、粘贴、拖放或模拟点击兜底。
 - 关闭人类标签不停止 Agent；Home 新增“Agent 正在使用”区域，并由用户决定是否“打开查看”。
-- 本轮合同版本为 Agent integration `2.1.1`、Bridge protocol `7`、Skill `20`、CLI wrapper `2`；兼容 Codex integration 为 `1.13.1`、Skill `19`、CLI wrapper `1`。
+- 本轮合同版本为 Agent integration `2.1.2`、Bridge protocol `7`、Skill `21`、CLI wrapper `2`；兼容 Codex integration 为 `1.13.2`、Skill `20`、CLI wrapper `1`。
 
 ## 1. 文档定位
 
@@ -173,7 +173,7 @@ CLI 只安装一次：
 ```json
 {
   "schemaVersion": 2,
-  "integrationVersion": "2.1.1",
+  "integrationVersion": "2.1.2",
   "bridgeProtocolVersion": 7,
   "cli": {
     "path": "~/.local/bin/corestudio",
@@ -182,15 +182,15 @@ CLI 只安装一次：
   "hosts": {
     "codex": {
       "skillPath": "~/.codex/skills/corestudio/SKILL.md",
-      "skillVersion": 19
+      "skillVersion": 21
     },
     "cursor": {
       "skillPath": "~/.cursor/skills/corestudio/SKILL.md",
-      "skillVersion": 19
+      "skillVersion": 21
     },
     "claude-code": {
       "skillPath": "~/.claude/skills/corestudio/SKILL.md",
-      "skillVersion": 19
+      "skillVersion": 21
     }
   }
 }

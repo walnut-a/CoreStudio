@@ -166,6 +166,22 @@ export const parseProjectImageRecords = (
       mimeType: rawRecord.mimeType,
     };
     let hasInvalidOptionalField = false;
+    if (rawRecord.contentHash !== undefined) {
+      if (
+        typeof rawRecord.contentHash === "string" &&
+        /^[a-f0-9]{64}$/.test(rawRecord.contentHash)
+      )
+        normalizedRecord.contentHash = rawRecord.contentHash;
+      else {
+        issues.push({
+          code: "invalid-record-field",
+          fileId: recordKey,
+          message: "图片内容校验值无效，已隔离该记录。",
+          repairable: false,
+        });
+        continue;
+      }
+    }
     const copyOptionalString = (
       key:
         | "displayName"

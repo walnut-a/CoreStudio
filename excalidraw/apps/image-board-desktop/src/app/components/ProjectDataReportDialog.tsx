@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   ProjectHealthIssue,
   ProjectHealthReport,
@@ -32,6 +33,8 @@ const PROJECT_HEALTH_ISSUE_GROUP_BY_CODE: Record<
   ProjectHealthIssue["code"],
   ProjectHealthIssueGroupKey
 > = {
+  "external-image-intake": "record-metadata",
+  "changed-original-file": "missing-file",
   "scene-parse-failed": "project-file",
   "missing-image-record": "record-metadata",
   "missing-asset-file": "missing-file",
@@ -175,6 +178,35 @@ interface ProjectDataReportDialogProps {
   healthReport: ProjectHealthReport | null;
   repairReport: ProjectRepairReport | null;
   onClose: () => void;
+  onConfirmImage?: (projectPath: string, relativePath: string) => Promise<void>;
+}
+
+function ConfirmImageAction({ onConfirm }: { onConfirm: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <DesktopButton
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await onConfirm();
+          } catch (error) {
+            setError(error instanceof Error ? error.message : String(error));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy
+          ? copy.projectDataReport.confirmingImage
+          : copy.projectDataReport.confirmImage}
+      </DesktopButton>
+      {error && <p role="alert">{error}</p>}
+    </>
+  );
 }
 
 export function ProjectDataReportDialog({
@@ -182,6 +214,7 @@ export function ProjectDataReportDialog({
   healthReport,
   repairReport,
   onClose,
+  onConfirmImage,
 }: ProjectDataReportDialogProps) {
   const dialogRef = useModalFocus<HTMLDivElement>({
     open: open && Boolean(healthReport || repairReport),
@@ -438,6 +471,19 @@ export function ProjectDataReportDialog({
                               </span>
                             )}
                           </div>
+                          {issue.resolution?.action === "confirm-image" &&
+                            issue.path &&
+                            onConfirmImage && (
+                              <ConfirmImageAction
+                                key={`${healthReport.projectPath}:${issue.path}`}
+                                onConfirm={() =>
+                                  onConfirmImage(
+                                    healthReport.projectPath,
+                                    issue.path!,
+                                  )
+                                }
+                              />
+                            )}
                         </div>
                       </article>
                     ))}

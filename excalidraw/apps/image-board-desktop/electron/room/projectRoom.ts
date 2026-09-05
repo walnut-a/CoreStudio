@@ -310,6 +310,22 @@ export class ProjectRoom {
     );
   }
 
+  public applyExternalIntakeOperation(
+    operation: ProjectRoomSceneOperation,
+  ): ProjectRoomOperationResult {
+    this.assertActive();
+    return this.applyAuthorizedOperation(
+      {
+        actorId: "corestudio:external-intake",
+        sessionId: "corestudio:external-intake",
+        transport: "command",
+        role: "agent-writer",
+        displayLabel: "CoreStudio Image Intake",
+      },
+      operation,
+    );
+  }
+
   private applyAuthorizedOperation(
     participant: ProjectRoomParticipant,
     operation: ProjectRoomSceneOperation,
@@ -378,6 +394,7 @@ export class ProjectRoom {
     );
     const acceptedElementIds: string[] = [];
     const supersededElementIds: string[] = [];
+    let orderChanged = false;
 
     for (const incomingElement of operation.elements) {
       const currentElement = elementsById.get(incomingElement.id);
@@ -385,37 +402,47 @@ export class ProjectRoom {
         currentElement,
         incomingElement,
       );
-      elementsById.set(authoritativeElement.id, authoritativeElement);
       if (authoritativeElement === incomingElement) {
+        // Existing room elements are already normalized and ordered. Moving or
+        // styling one element must not clone and sort the entire scene.
+        orderChanged ||=
+          !currentElement || currentElement.index !== incomingElement.index;
+        elementsById.set(incomingElement.id, clone(incomingElement));
         acceptedElementIds.push(incomingElement.id);
       } else {
         supersededElementIds.push(incomingElement.id);
       }
     }
 
-    const elementIdentitiesBeforeOrdering = new Map(
-      [...elementsById.values()].map((element) => [
-        element.id,
-        {
-          index: element.index,
-          version: element.version,
-          versionNonce: element.versionNonce,
-        },
-      ]),
-    );
-    this.elements = orderRoomSceneElements([...elementsById.values()]);
+    const elementIdentitiesBeforeOrdering = orderChanged
+      ? new Map(
+          [...elementsById.values()].map((element) => [
+            element.id,
+            {
+              index: element.index,
+              version: element.version,
+              versionNonce: element.versionNonce,
+            },
+          ]),
+        )
+      : null;
+    this.elements = orderChanged
+      ? orderRoomSceneElements([...elementsById.values()])
+      : [...elementsById.values()];
     const broadcastElementIds = new Set(
       operation.elements.map((element) => element.id),
     );
-    for (const element of this.elements) {
-      const previous = elementIdentitiesBeforeOrdering.get(element.id);
-      if (
-        previous &&
-        (previous.index !== element.index ||
-          previous.version !== element.version ||
-          previous.versionNonce !== element.versionNonce)
-      ) {
-        broadcastElementIds.add(element.id);
+    if (elementIdentitiesBeforeOrdering) {
+      for (const element of this.elements) {
+        const previous = elementIdentitiesBeforeOrdering.get(element.id);
+        if (
+          previous &&
+          (previous.index !== element.index ||
+            previous.version !== element.version ||
+            previous.versionNonce !== element.versionNonce)
+        ) {
+          broadcastElementIds.add(element.id);
+        }
       }
     }
     const authoritativeOperationElements = this.elements.filter((element) =>

@@ -194,6 +194,40 @@ const parseRequestBody = (records: RequestRecord[]) =>
   JSON.parse(records[0].body ?? "") as Record<string, unknown>;
 
 describe("runCli", () => {
+  it("passes an explicit write request ID and retains it on an uncertain network result", async () => {
+    const records: RequestRecord[] = [];
+    const argv = [
+      "write",
+      "prompt",
+      "--text",
+      "hello",
+      "--request-id",
+      "retry-1",
+      "--json",
+    ];
+    expect(
+      (await runCommand(argv, { fetch: createFetch(okEnvelope, records) }))
+        .exitCode,
+    ).toBe(0);
+    expect(JSON.parse(records[0].body!)).toMatchObject({
+      requestId: "retry-1",
+    });
+    const fetch = createFetch();
+    fetch.mockRejectedValue(new Error("connection reset after write"));
+    const result = await runCommand(argv, { fetch });
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      error: {
+        details: {
+          writeStatus: {
+            requestId: "retry-1",
+            accepted: "unknown",
+            persisted: "unknown",
+          },
+        },
+      },
+    });
+  });
   it.each(["--version", "-v"])(
     "prints CLI and integration versions for %s without discovering the bridge",
     async (flag) => {
@@ -210,7 +244,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.1, bridge protocol 7)\n`,
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.2, bridge protocol 7)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -228,7 +262,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: DESKTOP_APP_VERSION,
-        integrationVersion: "2.1.1",
+        integrationVersion: "2.1.2",
         bridgeProtocolVersion: 7,
       },
     });
@@ -485,7 +519,11 @@ describe("runCli", () => {
       }
       if (body) {
         expect(records[0].headers["Content-Type"]).toBe("application/json");
-        expect(JSON.parse(records[0].body ?? "")).toEqual(body);
+        expect(JSON.parse(records[0].body ?? "")).toEqual(
+          route === AGENT_HTTP_ROUTES.sceneAddImage
+            ? { ...body, requestId: expect.any(String) }
+            : body,
+        );
       } else {
         expect(records[0].body).toBeUndefined();
       }

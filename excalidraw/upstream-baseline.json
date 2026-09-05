@@ -12,7 +12,7 @@
     },
     {
       "path": "packages/excalidraw/components/App.tsx",
-      "groups": ["clipboard-and-images", "file-replacement", "host-ui-action-policy", "inspector-integration", "trackpad-wheel-zoom"],
+      "groups": ["clipboard-and-images", "file-replacement", "host-ui-action-policy", "inspector-integration", "trackpad-wheel-zoom", "upstream-selection-color-backports"],
       "reason": "The upstream App class is the integration point for file replacement, host UI actions, inspector rendering, clipboard behavior, and CoreStudio wheel zoom behavior."
     },
     {
@@ -37,11 +37,42 @@
     },
     {
       "path": "packages/excalidraw/types.ts",
-      "groups": ["clipboard-and-images", "file-replacement", "inspector-integration", "trackpad-wheel-zoom"],
+      "groups": ["clipboard-and-images", "file-replacement", "inspector-integration", "trackpad-wheel-zoom", "upstream-selection-color-backports"],
       "reason": "The public type surface declares file replacement, clipboard, inspector, default sidebar, and wheel zoom host APIs."
     }
   ],
   "patchGroups": [
+    {
+      "id": "upstream-selection-color-backports",
+      "purpose": "定向回补套索包围选择、填色取色器支持及深色主题取色修复；后续完整上游同步时采用上游实现并移除此组。",
+      "disposition": "adopt-upstream",
+      "upstreamCommits": [
+        "c5a50d223feb5fceaebc916ad75f2dcecb399467",
+        "4872083c044491b6d5c96ae134a75464f96d6831",
+        "cf212b2f3354c09bd6f960b53a9cfb0a3ecbfa58"
+      ],
+      "corePaths": [
+        "packages/common/src/colors.ts",
+        "packages/excalidraw/actions/actionDeselect.ts",
+        "packages/excalidraw/actions/actionProperties.tsx",
+        "packages/excalidraw/components/App.bucketFill.ts",
+        "packages/excalidraw/components/App.cursor.ts",
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/components/EyeDropper.scss",
+        "packages/excalidraw/components/EyeDropper.tsx",
+        "packages/excalidraw/components/icons.tsx",
+        "packages/excalidraw/lasso/index.ts",
+        "packages/excalidraw/lasso/utils.ts",
+        "packages/excalidraw/types.ts"
+      ],
+      "contractTests": [
+        "packages/common/src/colors.test.ts",
+        "packages/excalidraw/tests/bucketFill.test.tsx",
+        "packages/excalidraw/tests/eyeDropper.test.tsx",
+        "packages/excalidraw/tests/lasso.test.tsx",
+        "packages/excalidraw/tests/selection.test.tsx"
+      ]
+    },
     {
       "id": "environment-sanitization",
       "purpose": "Keep upstream example credentials out of the CoreStudio vendor tree and preserve desktop build assets.",

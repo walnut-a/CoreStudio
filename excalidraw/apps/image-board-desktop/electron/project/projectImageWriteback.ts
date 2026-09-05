@@ -15,6 +15,7 @@ import { assertPersistedImageAssetIntegrity } from "../../src/shared/projectReco
 import { DESKTOP_APP_VERSION } from "../appVersion";
 import { writeBufferAtomic, writeJsonAtomic } from "./atomicProjectFile";
 import { parseProjectImageRecords } from "./projectImageRecords";
+import { readRegisteredProjectAsset } from "./projectAssetAccess";
 import {
   parseProjectManifest,
   parseProjectScene,
@@ -29,7 +30,7 @@ const createWritebackConflict = (message: string, details?: unknown) =>
     ...(details === undefined ? {} : { details }),
   });
 
-const withProjectWritebackLock = async <T>(
+export const withProjectWritebackLock = async <T>(
   projectPath: string,
   operation: () => Promise<T>,
 ): Promise<T> => {
@@ -269,6 +270,7 @@ const createImageRecord = (
   return {
     fileId: file.fileId,
     assetPath: path.posix.join(PROJECT_FILENAMES.assetsDir, assetFileName),
+    ...(file.contentHash ? { contentHash: file.contentHash } : {}),
     sourceFileName: file.sourceFileName,
     sourceType: file.sourceType,
     generationOrigin: file.generationOrigin,
@@ -381,6 +383,62 @@ const touchProjectManifest = async (projectPath: string) => {
     updatedAt: new Date().toISOString(),
   });
 };
+
+// Keep maintenance and intake snapshots outside a live begin/commit window.
+export const withSettledProjectWriteback = <T>(
+  projectPath: string,
+  work: () => Promise<T>,
+) =>
+  withProjectWritebackLock(projectPath, async () => {
+    const pending = await listJournals(projectPath);
+    if (pending.journals.length || pending.invalidJournals.length)
+      throw createWritebackConflict(
+        "项目有尚未结束或无法读取的图片写入事务，请完成写入后重试。",
+      );
+    return work();
+  });
+
+export const registerProjectOriginal = async ({
+  projectPath,
+  record,
+}: {
+  projectPath: string;
+  record: ImageRecord;
+}) =>
+  withProjectWritebackLock(projectPath, async () => {
+    if (!record.contentHash || !/^[a-f0-9]{64}$/.test(record.contentHash))
+      throw new Error("就地入库需要有效内容身份。");
+    const parsed = parseProjectImageRecords({ [record.fileId]: record });
+    if (parsed.issues.length) throw new Error("原图记录不完整。");
+    await readRegisteredProjectAsset(projectPath, record);
+    const snapshot = await readImageRecordsWritebackSnapshot(
+      getImageRecordsPath(projectPath),
+    );
+    if (snapshot.unsafeFileIds.has(record.fileId))
+      throw createWritebackConflict("原图 ID 与无法读取的旧记录冲突。");
+    const existing = snapshot.imageRecords[record.fileId];
+    if (
+      existing &&
+      (existing.assetPath !== record.assetPath ||
+        existing.contentHash !== record.contentHash)
+    )
+      throw createWritebackConflict("原图 ID 与已有资产冲突。");
+    const pending = await listJournals(projectPath);
+    if (
+      pending.invalidJournals.length ||
+      pending.journals.some((journal) => journal.nextRecords[record.fileId])
+    )
+      throw createWritebackConflict("原图仍有未完成或无法解析的写回事务。");
+    if (!existing)
+      await writeJsonAtomic(
+        getImageRecordsPath(projectPath),
+        buildPersistedImageRecords({
+          snapshot,
+          updates: { [record.fileId]: record },
+        }),
+      );
+    return { ...snapshot.imageRecords, [record.fileId]: existing ?? record };
+  });
 
 export const beginProjectImageWriteback = async ({
   projectPath,

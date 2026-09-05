@@ -35,6 +35,15 @@ interface InspectProjectHealthDependencies {
   listProjectAssetPaths?: (projectPath: string) => Promise<string[]>;
   resolveProjectAssetPath: (projectPath: string, assetPath: string) => string;
   pathExists: (targetPath: string) => Promise<boolean>;
+  validateOriginal?: (
+    projectPath: string,
+    record: ImageRecord,
+  ) => Promise<unknown>;
+  inspectIntake?: (
+    projectPath: string,
+    projectId: string,
+    records: ImageRecordMap,
+  ) => Promise<Array<{ path: string; kind: string; message: string }>>;
   cachedRenditionExists: (input: {
     projectPath: string;
     record: ImageRecord;
@@ -139,6 +148,46 @@ export const inspectProjectHealth = async (
     (fileId) => bundle.imageRecords[fileId]?.sourceType === "generated",
   );
   const issues: ProjectHealthIssue[] = [];
+  try {
+    for (const issue of (await deps.inspectIntake?.(
+      projectPath,
+      bundle.project.projectId ?? projectPath,
+      bundle.imageRecords,
+    )) ?? [])
+      issues.push({
+        code: "external-image-intake",
+        path: issue.path,
+        message: issue.message,
+        severity: issue.kind === "waiting" ? "info" : "warning",
+        repairable:
+          issue.kind === "waiting" ||
+          issue.kind === "failed" ||
+          issue.kind === "cache",
+        resolution: {
+          action:
+            issue.kind === "needs-confirmation" ? "confirm-image" : undefined,
+          status:
+            issue.kind === "needs-confirmation" || issue.kind === "changed"
+              ? "manual"
+              : "repairable",
+          summary:
+            issue.kind === "needs-confirmation"
+              ? "确认这是需要加入画布的图片后接纳。"
+              : issue.kind === "changed"
+              ? "请恢复原图；需要作为新图片加入时，请另存为新文件。"
+              : issue.kind === "waiting"
+              ? "文件写入完成后会自动加入画布。"
+              : "修好文件后会自动重试，也可通过项目数据修复重新处理。",
+        },
+      });
+  } catch (error) {
+    issues.push({
+      code: "external-image-intake",
+      severity: "error",
+      message: String(error),
+      repairable: false,
+    });
+  }
 
   for (const issue of bundle.imageRecordReadIssues ?? []) {
     const isLegacyGeneratedRecord =
@@ -232,6 +281,9 @@ export const inspectProjectHealth = async (
       continue;
     }
     unindexedAssetFileIds.push(fileId);
+    // The shared intake classifier owns unknown managed images. A missing
+    // index alone is insufficient evidence that an old asset is damaged.
+    if (deps.inspectIntake) continue;
     addIssue({
       code: "missing-image-record",
       severity: "error",
@@ -249,78 +301,93 @@ export const inspectProjectHealth = async (
   const missingAssetFileIds: string[] = [];
   const missingThumbnailFileIds: string[] = [];
   const missingPreviewFileIds: string[] = [];
-  await Promise.all(
-    imageRecordFileIds.map(async (fileId) => {
-      const record = bundle.imageRecords[fileId];
-      let assetExists = false;
-      try {
-        assetExists = await deps.pathExists(
-          deps.resolveProjectAssetPath(projectPath, record.assetPath),
-        );
-      } catch {
-        assetExists = false;
-      }
+  for (const fileId of imageRecordFileIds) {
+    const record = bundle.imageRecords[fileId];
+    let assetExists = false;
+    try {
+      assetExists = await deps.pathExists(
+        deps.resolveProjectAssetPath(projectPath, record.assetPath),
+      );
+    } catch {
+      assetExists = false;
+    }
 
-      if (!assetExists) {
-        missingAssetFileIds.push(fileId);
-        addIssue({
-          code: "missing-asset-file",
-          severity: "error",
-          fileId,
-          path: record.assetPath,
-          message: `图片原始文件缺失：${record.assetPath}`,
-          repairable: false,
-          resolution: {
-            status: "manual",
-            summary: "需要从备份恢复原始图片文件，或清理对应图片记录。",
-          },
-        });
-        return;
-      }
+    if (!assetExists) {
+      missingAssetFileIds.push(fileId);
+      addIssue({
+        code: "missing-asset-file",
+        severity: "error",
+        fileId,
+        path: record.assetPath,
+        message: `图片原始文件缺失：${record.assetPath}`,
+        repairable: false,
+        resolution: {
+          status: "manual",
+          summary: "需要从备份恢复原始图片文件，或清理对应图片记录。",
+        },
+      });
+      continue;
+    }
 
-      if (
-        !(await deps.cachedRenditionExists({
-          projectPath,
-          record,
-          rendition: "thumbnail",
-        }))
-      ) {
-        missingThumbnailFileIds.push(fileId);
-        addIssue({
-          code: "missing-thumbnail-cache",
-          severity: "warning",
-          fileId,
-          message: `图片缓存待重建：${fileId}`,
-          repairable: true,
-          resolution: {
-            status: "repairable",
-            summary: "项目数据修复会重新生成这张图片的显示缓存。",
-          },
-        });
-      }
+    try {
+      await deps.validateOriginal?.(projectPath, record);
+    } catch (error) {
+      addIssue({
+        code: "changed-original-file",
+        severity: "error",
+        fileId,
+        path: record.assetPath,
+        message: `原图内容或路径无法验证：${String(error)}`,
+        repairable: false,
+        resolution: {
+          status: "manual",
+          summary: "请恢复原图，或在图片接纳中明确重新接纳。",
+        },
+      });
+      continue;
+    }
+    if (
+      !(await deps.cachedRenditionExists({
+        projectPath,
+        record,
+        rendition: "thumbnail",
+      }))
+    ) {
+      missingThumbnailFileIds.push(fileId);
+      addIssue({
+        code: "missing-thumbnail-cache",
+        severity: "warning",
+        fileId,
+        message: `图片缓存待重建：${fileId}`,
+        repairable: true,
+        resolution: {
+          status: "repairable",
+          summary: "项目数据修复会重新生成这张图片的显示缓存。",
+        },
+      });
+    }
 
-      if (
-        !(await deps.cachedRenditionExists({
-          projectPath,
-          record,
-          rendition: "preview",
-        }))
-      ) {
-        missingPreviewFileIds.push(fileId);
-        addIssue({
-          code: "missing-preview-cache",
-          severity: "info",
-          fileId,
-          message: `预览缓存尚未生成：${fileId}`,
-          repairable: false,
-          resolution: {
-            status: "info",
-            summary: "这是非阻断提示，通常无需手动处理。",
-          },
-        });
-      }
-    }),
-  );
+    if (
+      !(await deps.cachedRenditionExists({
+        projectPath,
+        record,
+        rendition: "preview",
+      }))
+    ) {
+      missingPreviewFileIds.push(fileId);
+      addIssue({
+        code: "missing-preview-cache",
+        severity: "info",
+        fileId,
+        message: `预览缓存尚未生成：${fileId}`,
+        repairable: false,
+        resolution: {
+          status: "info",
+          summary: "这是非阻断提示，通常无需手动处理。",
+        },
+      });
+    }
+  }
 
   const recordIntegrityReport = inspectProjectRecordIntegrity({
     imageRecords: bundle.imageRecords,

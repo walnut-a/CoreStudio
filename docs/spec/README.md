@@ -6,6 +6,7 @@
 
 ## 当前规范文档
 
+- [2026-09-05-corestudio-external-image-intake.md](2026-09-05-corestudio-external-image-intake.md)：外部新增图片自动接纳与项目维护一致性需求草案，包含根目录／可选 inbox、状态恢复、去重、软删除保护及待定产品取舍。
 - [2026-07-14-corestudio-application-settings-redesign.md](2026-07-14-corestudio-application-settings-redesign.md)：CoreStudio 统一应用设置重构设计。
 - [2026-07-14-corestudio-codex-collaboration-usability.md](2026-07-14-corestudio-codex-collaboration-usability.md)：CoreStudio 与 Codex 当前协作边界。
 - [2026-07-14-corestudio-usability-improvement-backlog.md](2026-07-14-corestudio-usability-improvement-backlog.md)：易用性优化清单。

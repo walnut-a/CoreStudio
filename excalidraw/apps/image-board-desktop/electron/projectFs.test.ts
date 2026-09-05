@@ -602,7 +602,7 @@ describe("projectFs", () => {
     ).rejects.toThrow("生成图片必须记录生成来源");
   });
 
-  it("rejects asset records that point outside the project assets folder", async () => {
+  it("rejects asset records that point outside the project original image boundary", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
 
@@ -633,7 +633,7 @@ describe("projectFs", () => {
         projectPath: project.projectPath,
         fileIds: ["file-escape"],
       }),
-    ).rejects.toThrow("图片资源路径不在项目 assets 文件夹内");
+    ).rejects.toThrow("图片资源路径不在项目允许的正式原图范围内");
   });
 
   it("reuses an unchanged parsed image-record index across asset payload batches", async () => {

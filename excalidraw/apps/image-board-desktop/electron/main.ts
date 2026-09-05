@@ -1,3 +1,8 @@
+import type { CreateProjectThumbnail } from "./project/projectRepair";
+import { createExternalImageDecoder } from "./project/externalImageDecoder";
+import { createExternalImageIntakeRuntime } from "./project/externalImageIntakeRuntime";
+import { readRegisteredProjectAsset } from "./project/projectAssetAccess";
+import { createCachedRenditionPayload } from "./projectFs";
 import fs from "fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "path";
@@ -9,6 +14,7 @@ import {
   WebContentsView,
   app,
   clipboard,
+  ClipboardItem,
   dialog,
   ipcMain,
   nativeImage,
@@ -95,7 +101,7 @@ import {
 } from "./agent/agentAccessStore";
 import { createAgentImageGenerationService } from "./agent/agentImageGenerationService";
 import { createLocalAgentSessionStore } from "./agent/localAgentSessionStore";
-import { createAgentProjectBindingStore } from "./agent/agentProjectBindingStore";
+import { createAgentProjectLifecycle } from "./agent/agentProjectLifecycle";
 import { createPrepareAgentWriterCommand } from "./agent/prepareAgentWriterCommand";
 import { createAgentDiagramRendererParser } from "./agent/agentDiagramRenderer";
 import { buildDesktopAgentActiveProjects } from "./agent/agentActiveProjects";
@@ -175,6 +181,7 @@ import {
 } from "./projectViewRegistry";
 import { createProjectViewHandleLifecycle } from "./projectViewHandleLifecycle";
 import { createProjectRendererLifecycle } from "./projectRendererLifecycle";
+import { createSystemClipboard } from "./systemClipboard";
 import { writeProjectElementsToClipboard } from "./projectClipboard";
 import {
   createProjectRoomSenderBindings,
@@ -244,8 +251,6 @@ const agentSessionPath = desktopRuntime.sessionPath;
 const taskGrantStore = createTaskGrantStore();
 const participantIssuerToken = randomUUID();
 const localAgentSessionStore = createLocalAgentSessionStore();
-const agentProjectBindingStore = createAgentProjectBindingStore();
-const agentProjectRoomSubscriptions = new Map<string, () => void>();
 const projectRoomTicketStore = createProjectRoomTicketStore();
 const stableBoardSessionClaimStore = createStableBoardSessionClaimStore();
 let stableBoardActorResumeTokenService: StableBoardActorResumeTokenService | null =
@@ -256,7 +261,45 @@ const projectProcessLeaseRegistry = createProjectProcessLeaseRegistry({
   pid: process.pid,
   processNonce: randomUUID(),
 });
+const intakeDecoder = createExternalImageDecoder();
+const createIntakeThumbnail: CreateProjectThumbnail = async ({
+  sourceBuffer,
+  mimeType,
+  maxDimension,
+}) => {
+  const image = await intakeDecoder.decode(
+    sourceBuffer,
+    mimeType,
+    maxDimension,
+  );
+  if (!image.dataBase64) throw new Error("图片缓存生成失败。");
+  return {
+    data: Buffer.from(image.dataBase64, "base64"),
+    width: image.width,
+    height: image.height,
+    mimeType: "image/png",
+  };
+};
+const imageIntakeRuntime = createExternalImageIntakeRuntime({
+  decode: ({ buffer, mimeType }) => intakeDecoder.decode(buffer, mimeType),
+  warmCache: async (record, projectPath) => {
+    const sourceBuffer = await readRegisteredProjectAsset(projectPath, record);
+    for (const rendition of ["thumbnail", "preview"] as const)
+      await createCachedRenditionPayload({
+        projectPath,
+        fileId: record.fileId,
+        record,
+        sourceBuffer,
+        rendition,
+        createThumbnail: createIntakeThumbnail,
+      });
+  },
+});
 const projectRoomService = createProjectRoomService({
+  onRoomOpened: (room) => {
+    imageIntakeRuntime.attach(room);
+  },
+  beforeRoomClosed: (room) => imageIntakeRuntime.stop(room),
   readProjectBundle,
   writeProjectScene,
   projectProcessLeaseRegistry,
@@ -751,7 +794,7 @@ const publishProjectViewsState = (state: DesktopProjectViewsState) => {
 
 const getAgentActiveProjects = (): DesktopAgentActiveProject[] =>
   buildDesktopAgentActiveProjects({
-    bindings: agentProjectBindingStore.list(),
+    bindings: agentProjectLifecycle.listBindings(),
     getParticipants: (projectId) =>
       projectRoomService.manager.get(projectId)?.getSnapshot().participants ??
       null,
@@ -777,19 +820,15 @@ const publishAgentActiveProjects = () => {
   }
 };
 
-const observeAgentProjectRoom = (room: ProjectRoom) => {
-  if (agentProjectRoomSubscriptions.has(room.identity.roomId)) {
-    return;
-  }
-  const unsubscribe = room.subscribe((event) => {
-    publishAgentActiveProjects();
-    if (event.type === "room.closed") {
-      agentProjectRoomSubscriptions.delete(room.identity.roomId);
-      unsubscribe();
-    }
-  });
-  agentProjectRoomSubscriptions.set(room.identity.roomId, unsubscribe);
-};
+const agentProjectLifecycle = createAgentProjectLifecycle({
+  getProjectByStableBoardId: (id) => getAgentProjectByStableBoardId(id),
+  openRoom: (projectPath) => projectRoomService.openProject(projectPath),
+  getRoom: (projectId) => projectRoomService.manager.get(projectId),
+  readProject: readProjectManifestSnapshot,
+  claimPage: (input) => stableBoardSessionClaimStore.claim(input),
+  onChanged: publishAgentActiveProjects,
+});
+const observeAgentProjectRoom = agentProjectLifecycle.observeRoom;
 
 const publishCanvasInteractionSettings = (
   settings: DesktopCanvasInteractionSettings,
@@ -1194,6 +1233,7 @@ const startLocalBridge = async () => {
   }
 
   rendererCommandBridge = createMainRendererCommandBridge();
+  agentProjectLifecycle.start();
   let bridge: LocalBridgeServerHandle | null = null;
   try {
     bridge = await createLocalBridgeServer({
@@ -1251,7 +1291,7 @@ const startLocalBridge = async () => {
       resolveAgentSession: (sessionRef) =>
         localAgentSessionStore.resolve(sessionRef),
       resolveAgentProject: async (identity) => {
-        const binding = agentProjectBindingStore.resolveByActorId(
+        return agentProjectLifecycle.resolveTarget(
           resolveAgentActorId({
             actorId: identity.actorId,
             threadId:
@@ -1260,13 +1300,6 @@ const startLocalBridge = async () => {
                 : identity.threadId,
           }),
         );
-        return binding
-          ? {
-              ...binding.project,
-              agentRoomId: binding.roomId,
-              agentActorId: binding.actorId,
-            }
-          : null;
       },
       issueProjectRoomTicket: async ({
         project,
@@ -1291,36 +1324,14 @@ const startLocalBridge = async () => {
         host,
         displayLabel,
       }) => {
-        const project = await getAgentProjectByStableBoardId(stableBoardId);
-        if (!project) {
-          throw Object.assign(
-            new Error("The stable Agent Board project could not be found."),
-            { code: "PROJECT_REQUIRED", details: { stableBoardId } },
-          );
-        }
-        const resolvedActorId = resolveAgentActorId({ actorId, threadId });
-        const room = await projectRoomService.openProject(project.projectPath);
-        observeAgentProjectRoom(room);
-        stableBoardSessionClaimStore.claim({
+        await agentProjectLifecycle.claim({
           stableBoardId,
           pageNonce,
-          actorId: resolvedActorId,
-          displayLabel,
-        });
-        agentProjectBindingStore.bind({
-          actorId: resolvedActorId,
+          actorId: resolveAgentActorId({ actorId, threadId }),
           sessionRef: threadId,
-          ...(host ? { host } : {}),
+          host,
           displayLabel,
-          stableBoardId,
-          project: {
-            ...project,
-            projectId: room.identity.projectId,
-          },
-          roomId: room.identity.roomId,
-          sessionEpoch: room.identity.sessionEpoch,
         });
-        publishAgentActiveProjects();
       },
       exchangeStableBoardSession: async ({
         stableBoardId,
@@ -1626,7 +1637,7 @@ const startLocalBridge = async () => {
         });
       },
       withAgentWriterCommand: async (
-        { project, threadId, actorId, displayLabel, dryRun },
+        { project, threadId, actorId, displayLabel, dryRun, request },
         run,
       ) => {
         const room = await projectRoomService.openProject(project.projectPath);
@@ -1635,6 +1646,7 @@ const startLocalBridge = async () => {
           actorId: resolveAgentActorId({ actorId, threadId }),
           displayLabel,
           prepare: run,
+          request,
           persistAssets: (files) =>
             persistAndPublishProjectRoomAssets({
               projectPath: room.identity.canonicalProjectPath,
@@ -1665,6 +1677,7 @@ const startLocalBridge = async () => {
       console.log("[agent:bridge-started]", bridge.baseUrl);
     }
   } catch (error) {
+    agentProjectLifecycle.stop();
     rendererCommandBridge?.dispose();
     rendererCommandBridge = null;
     if (localBridgeHandle === bridge) {
@@ -1688,12 +1701,7 @@ const stopLocalBridge = async ({ final = false } = {}) => {
 
   rendererCommandBridge?.dispose();
   rendererCommandBridge = null;
-  agentProjectBindingStore.clear();
-  for (const unsubscribe of agentProjectRoomSubscriptions.values()) {
-    unsubscribe();
-  }
-  agentProjectRoomSubscriptions.clear();
-  publishAgentActiveProjects();
+  agentProjectLifecycle.stop();
 
   await agentSessionWriteChain.catch((error) => {
     console.error("[agent:session-write-failed]", error);
@@ -2687,6 +2695,25 @@ const registerIpcHandlers = () => {
     },
   );
 
+  ipcMain.handle(IPC_CHANNELS.confirmProjectImage, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
+    const room = await projectRoomService.findOpenRoom(input.projectPath);
+    if (!room) throw new Error("项目尚未加载。");
+    const report = await inspectProjectHealth({
+      projectPath: input.projectPath,
+    });
+    if (
+      !report.issues.some(
+        (issue) =>
+          issue.path === input.relativePath &&
+          issue.resolution?.action === "confirm-image",
+      )
+    )
+      throw new Error("这张图片不需要来源确认，请重新检查项目数据。");
+    await imageIntakeRuntime.attach(room).confirm(input.relativePath);
+    await imageIntakeRuntime.scan(room, { forceRetry: true });
+    return inspectProjectHealth({ projectPath: input.projectPath });
+  });
   ipcMain.handle(IPC_CHANNELS.inspectProjectHealth, async (event, input) => {
     requireProjectRendererSender(event.sender, input.projectPath);
     return inspectProjectHealth(input);
@@ -2700,9 +2727,11 @@ const registerIpcHandlers = () => {
         input.projectPath,
       );
       if (activeRoom) {
+        await imageIntakeRuntime.scan(activeRoom, { forceRetry: true });
         await activeRoom.flushPersistence();
       }
       const result = await rebuildProjectThumbnails(input, {
+        createThumbnail: createIntakeThumbnail,
         writeProjectScene: (sceneInput) =>
           projectRoomService.writeMaintenanceScene(sceneInput),
       });
@@ -2995,18 +3024,7 @@ const registerIpcHandlers = () => {
         (
           await readProjectAssetPayloads(assetInput)
         ).filter((asset): asset is NonNullable<typeof asset> => asset !== null),
-      writeClipboard: ({ text, previewImageDataUrl }) => {
-        if (!previewImageDataUrl) {
-          clipboard.writeText(text);
-          return;
-        }
-        const image = nativeImage.createFromDataURL(previewImageDataUrl);
-        if (image.isEmpty()) {
-          clipboard.writeText(text);
-          return;
-        }
-        clipboard.write({ text, image });
-      },
+      writeClipboard: systemClipboard.writeProject,
     });
   });
   ipcMain.handle(IPC_CHANNELS.loadLocaleSettings, async () =>
@@ -3371,28 +3389,13 @@ const importImagesFromDisk = async () => {
   );
 };
 
-const readClipboardImageFromSystem = () => {
-  const image = clipboard.readImage();
-  if (image.isEmpty()) {
-    return null;
-  }
-
-  const imageBuffer = image.toPNG();
-  const size = image.getSize();
-  if (!imageBuffer.length || !size.width || !size.height) {
-    return null;
-  }
-
-  return {
-    fileName: "clipboard.png",
-    fileId: randomUUID(),
-    mimeType: "image/png",
-    dataBase64: imageBuffer.toString("base64"),
-    width: size.width,
-    height: size.height,
-    createdAt: new Date().toISOString(),
-  };
-};
+const systemClipboard = createSystemClipboard({
+  clipboard,
+  createItem: (data) => new ClipboardItem(data),
+  decodeDataUrl: (dataUrl) => nativeImage.createFromDataURL(dataUrl),
+  decodeBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
+});
+const readClipboardImageFromSystem = systemClipboard.readImage;
 
 if (hasSingleInstanceLock) {
   app.whenReady().then(async () => {

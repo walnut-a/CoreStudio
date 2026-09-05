@@ -38,6 +38,9 @@ jobs:
       - name: Desktop tests
         run: corepack yarn test:desktop:ci
 
+      - name: Agent Node integration
+        run: corepack yarn --cwd apps/image-board-desktop test:agent-integration
+
       - name: Secret scan
         run: corepack yarn check:desktop-secrets --source --package-inputs
 

@@ -1,4 +1,5 @@
 import { readFile as fsReadFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
@@ -94,14 +95,26 @@ const bridgeUnavailableEnvelope = () =>
 const discoveredBridgeUnavailableEnvelope = (
   bridge: BridgeSession,
   error: unknown,
+  requestId?: string,
 ) =>
   createAgentError(
     "BRIDGE_UNAVAILABLE",
-    "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If the current Agent uses a network sandbox, allow this command to access localhost and retry once.",
+    requestId
+      ? "The write response was not received. Its outcome is unknown. Retry only with the same --request-id in the same project room; after reconnecting or restarting, inspect the Board before writing again."
+      : "CoreStudio session was discovered, but the CLI could not connect to its local Agent Bridge. If the current Agent uses a network sandbox, allow this command to access localhost and retry once.",
     {
       baseUrl: bridge.baseUrl,
       sessionDiscovered: true,
       cause: getErrorMessage(error),
+      ...(requestId
+        ? {
+            writeStatus: {
+              requestId,
+              accepted: "unknown",
+              persisted: "unknown",
+            },
+          }
+        : {}),
     },
   );
 
@@ -185,6 +198,7 @@ Examples:
   corestudio generate image --prompt "..." --count 1 --json
   corestudio write image ./generated-a.png ./generated-b.png --source-type generated --origin agent-board --prompt "..." --json
   corestudio write image ./searched.png --source-type imported --json
+  corestudio write prompt --text "..." --request-id <unique-write-id> --json
   corestudio write diagram --format mermaid --file ./process.mmd --anchor auto --json
   corestudio edit locate --file-id <file-id> --json
 `;
@@ -508,6 +522,7 @@ const parseCommand = (
     const parsed = parseArgs(argv.slice(2), {
       valueFlags: [
         "--origin",
+        "--request-id",
         "--source-type",
         "--prompt",
         "--parent-file-id",
@@ -553,6 +568,9 @@ const parseCommand = (
       imagePaths: imagePaths as string[],
       body: {
         sourceType: parsed.flags["--source-type"] ?? "generated",
+        ...(parsed.flags["--request-id"]
+          ? { requestId: parsed.flags["--request-id"] }
+          : {}),
         ...(parsed.flags["--origin"]
           ? { generationOrigin: parsed.flags["--origin"] }
           : {}),
@@ -631,7 +649,7 @@ const parseCommand = (
 
   if (tool === "write" && target === "prompt") {
     const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--text"],
+      valueFlags: ["--text", "--request-id"],
       boolFlags: ["--dry-run"],
     });
     if (isEnvelope(parsed)) {
@@ -653,6 +671,9 @@ const parseCommand = (
       method: "POST",
       body: {
         text,
+        ...(parsed.flags["--request-id"]
+          ? { requestId: parsed.flags["--request-id"] }
+          : {}),
         ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
       },
     };
@@ -660,7 +681,7 @@ const parseCommand = (
 
   if (tool === "write" && target === "diagram") {
     const parsed = parseArgs(argv.slice(2), {
-      valueFlags: ["--format", "--file", "--anchor"],
+      valueFlags: ["--format", "--file", "--anchor", "--request-id"],
       boolFlags: ["--dry-run"],
     });
     if (isEnvelope(parsed)) {
@@ -693,6 +714,9 @@ const parseCommand = (
       body: {
         format: "mermaid",
         anchor,
+        ...(parsed.flags["--request-id"]
+          ? { requestId: parsed.flags["--request-id"] }
+          : {}),
         ...(parsed.boolFlags.has("--dry-run") ? { dryRun: true } : {}),
       },
     };
@@ -1366,15 +1390,28 @@ const requestBridge = async (
   }
 
   const response = await fetchImpl(`${bridge.baseUrl}${command.route}`, init);
+  const invalidWriteResponse = (message: string) =>
+    commandFailedEnvelope(
+      message,
+      typeof body?.requestId === "string"
+        ? {
+            writeStatus: {
+              requestId: body.requestId,
+              accepted: "unknown",
+              persisted: "unknown",
+            },
+          }
+        : undefined,
+    );
   let json: unknown;
   try {
     json = await response.json();
   } catch {
-    return commandFailedEnvelope("Agent Bridge returned a non-JSON response.");
+    return invalidWriteResponse("Agent Bridge returned a non-JSON response.");
   }
 
   if (!isAgentEnvelope(json)) {
-    return commandFailedEnvelope("Agent Bridge returned an invalid response.");
+    return invalidWriteResponse("Agent Bridge returned an invalid response.");
   }
 
   return json;
@@ -1496,6 +1533,16 @@ export const runCli = async (
   if (isAgentEnvelope(body)) {
     return finishWithEnvelope(body, mode, options.stdout, options.stderr);
   }
+  const isWriteCommand =
+    command.route === AGENT_HTTP_ROUTES.sceneAddImage ||
+    command.route === AGENT_HTTP_ROUTES.sceneAddPrompt ||
+    command.route === AGENT_HTTP_ROUTES.sceneAddDiagram;
+  if (isWriteCommand && body && body.dryRun !== true) {
+    body = {
+      ...body,
+      requestId: body.requestId ?? (options.randomId ?? randomUUID)(),
+    };
+  }
   const env = options.env ?? process.env;
   const threadId = env.CODEX_THREAD_ID?.trim();
   const participant: CliParticipant | undefined =
@@ -1552,7 +1599,11 @@ export const runCli = async (
     );
   } catch (error) {
     return finishWithEnvelope(
-      discoveredBridgeUnavailableEnvelope(bridge, error),
+      discoveredBridgeUnavailableEnvelope(
+        bridge,
+        error,
+        typeof body?.requestId === "string" ? body.requestId : undefined,
+      ),
       mode,
       options.stdout,
       options.stderr,

@@ -57,6 +57,8 @@ export interface CreateProjectRoomServiceInput {
   randomId?: () => string;
   persistenceDebounceMs?: number;
   projectProcessLeaseRegistry?: ProjectProcessLeaseRegistry;
+  onRoomOpened?: (room: ProjectRoom) => void;
+  beforeRoomClosed?: (room: ProjectRoom) => Promise<unknown>;
 }
 
 export class ProjectRoomService {
@@ -137,11 +139,13 @@ export class ProjectRoomService {
       return false;
     }
     room.beginClosing();
+    await this.input.beforeRoomClosed?.(room);
     if (!options.force) {
       try {
         await room.flushPersistence();
       } catch (error) {
         room.cancelClosing();
+        this.input.onRoomOpened?.(room);
         throw error;
       }
     }
@@ -239,6 +243,9 @@ export class ProjectRoomService {
       room.beginClosing();
     }
     try {
+      await Promise.all(
+        uniqueRooms.map(({ room }) => this.input.beforeRoomClosed?.(room)),
+      );
       await Promise.all(uniqueRooms.map(({ room }) => room.flushPersistence()));
       if (options.requireExactRoomSet) {
         this.assertExactRoomSet(uniqueRooms.map(({ room }) => room));
@@ -246,6 +253,7 @@ export class ProjectRoomService {
     } catch (error) {
       for (const { room } of uniqueRooms) {
         room.cancelClosing();
+        this.input.onRoomOpened?.(room);
       }
       throw error;
     }
@@ -362,6 +370,7 @@ export class ProjectRoomService {
       this.lastEpochByProjectId.set(projectId, sessionEpoch);
       this.projectIdByPath.set(canonicalProjectPath, projectId);
       this.initialBundleByRoom.set(room, bundle);
+      this.input.onRoomOpened?.(room);
       return room;
     } catch (error) {
       await processLease?.release().catch(() => undefined);

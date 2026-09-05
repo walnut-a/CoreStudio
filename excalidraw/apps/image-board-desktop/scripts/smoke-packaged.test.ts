@@ -158,7 +158,7 @@ describe("smoke-packaged", () => {
       .mockReturnValueOnce({
         status: 0,
         stdout:
-          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"2.1.1","bridgeProtocolVersion":7}}\n',
+          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"2.1.2","bridgeProtocolVersion":7}}\n',
         stderr: "",
       })
       .mockReturnValueOnce({ status: 0, stdout: "codex\n", stderr: "" })
@@ -167,7 +167,7 @@ describe("smoke-packaged", () => {
       .mockReturnValueOnce({
         status: 0,
         stdout:
-          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"2.1.1","bridgeProtocolVersion":7}}\n',
+          '{"ok":true,"data":{"appVersion":"1.1.26","integrationVersion":"2.1.2","bridgeProtocolVersion":7}}\n',
         stderr: "",
       });
     const rmSync = vi.fn();
@@ -182,10 +182,10 @@ describe("smoke-packaged", () => {
           return "# CoreStudio Codex 集成安装指南";
         }
         if (filePath.endsWith("corestudio-integration.json")) {
-          return '{"installedFromAppVersion":"1.1.26","integrationVersion":"1.13.1","bridgeProtocolVersion":7}';
+          return '{"installedFromAppVersion":"1.1.26","integrationVersion":"1.13.2","bridgeProtocolVersion":7}';
         }
         if (filePath.endsWith("agent-integration/contract.json")) {
-          return '{"schemaVersion":2,"integrationVersion":"2.1.1","bridgeProtocolVersion":7,"skillVersion":20,"cliWrapperVersion":2,"hosts":["codex","cursor","claude-code"]}';
+          return '{"schemaVersion":2,"integrationVersion":"2.1.2","bridgeProtocolVersion":7,"skillVersion":21,"cliWrapperVersion":2,"hosts":["codex","cursor","claude-code"]}';
         }
         const host = filePath.includes("/.cursor/")
           ? "cursor"

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createProjectRoom, type ProjectRoomParticipant } from "./projectRoom";
+import * as reconciliation from "./roomElementReconciliation";
 
 const initialElements = [
   {
@@ -62,6 +63,39 @@ const createRoom = () =>
   });
 
 describe("ProjectRoom", () => {
+  it("does not sort unchanged layer order during local movement, and isolates accepted input", () => {
+    const room = createRoom();
+    room.join(desktopParticipant);
+    const sort = vi.spyOn(reconciliation, "orderRoomSceneElements");
+    try {
+      const moved = { ...initialElements[0], version: 2, x: 100 };
+      room.applySceneOperation(desktopParticipant.sessionId, {
+        ...room.identity,
+        operationId: "move",
+        baseSequence: 0,
+        elements: [moved],
+      });
+      moved.x = 999;
+      expect(room.getSnapshot().scene.elements).toEqual([
+        { ...moved, x: 100 },
+        initialElements[1],
+      ]);
+      expect(sort).not.toHaveBeenCalled();
+      room.applySceneOperation(desktopParticipant.sessionId, {
+        ...room.identity,
+        operationId: "reorder",
+        baseSequence: 1,
+        elements: [{ ...moved, version: 3, index: "a2" }],
+      });
+      expect(sort).toHaveBeenCalledTimes(1);
+      expect(
+        room.getSnapshot().scene.elements.map((element) => element.id),
+      ).toEqual(["element-b", "element-a"]);
+    } finally {
+      sort.mockRestore();
+      room.close();
+    }
+  });
   it("joins participants with an atomic authoritative snapshot", () => {
     const room = createRoom();
 

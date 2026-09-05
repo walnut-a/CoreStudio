@@ -1,6 +1,6 @@
 # Excalidraw Fork 维护说明
 
-**日期：** 2026-08-05
+**日期：** 2026-09-05
 **状态：** Current
 
 ## 当前基线
@@ -51,17 +51,19 @@ diff -qr "$TMPDIR/corestudio-import" "$TMPDIR/excalidraw-upstream"
 
 当前 CoreStudio 对上游源码的定制按 `excalidraw/upstream-baseline.json` 中的 `patchGroups` 管理。该文件记录每组补丁的目的、核心路径和合同测试，本文件不再复制容易漂移的逐文件清单。
 
-当前 9 组补丁为：
+补丁组及共享路径归属以机器清单为准，避免在文档中维护第二份容易过期的数量和路径列表。
 
-- `file-replacement`：图片文件替换和缓存失效；
-- `host-action-integration`：宿主动作 predicate 与 presence-only 协作者控制；
-- `host-ui-fallback`：异步宿主 UI 挂载后抑制上游默认 fallback；
-- `inspector-integration`：CoreStudio Inspector 接入；
-- `viewport-policy`：最小缩放和滚轮策略；
-- `arrange-grid`：选中元素网格排列；
-- `clipboard-and-images`：剪贴板异常处理和图片替换；
-- `export-rendering-policy`：导出图片时隐藏 Frame 名称和边框，同时保留裁剪与编辑态显示；
-- `build-and-test-integration`：桌面工作区、构建与测试接入。
+### 2026-09-05 定向回补
+
+整体 `currentSha` / `targetSha` 仍为 `85270fcc8db26f98d119e2d2752b0c0139e86e16`。本轮仅引入以下上游提交，登记在 `upstream-selection-color-backports` 组；后续完整基线覆盖这些提交后，可采用上游实现并移除该组：
+
+| 上游提交 | 回补目的 |
+| --- | --- |
+| `c5a50d223feb5fceaebc916ad75f2dcecb399467` | 套索遵守包围/相交选择设置及边界几何修复 |
+| `4872083c044491b6d5c96ae134a75464f96d6831` | 取色改进所依赖的填色工具光标与取色支持 |
+| `cf212b2f3354c09bd6f960b53a9cfb0a3ecbfa58` | 深色主题取色、预览对比度及交互修复 |
+
+仅回补这些提交的生产代码与对应测试，保留已有宿主补丁，不引入箭头文字拖动、跨 document 渲染或网页端功能。Electron 44 的剪贴板迁移位于桌面应用自有 `electron/systemClipboard.ts`，不下沉到上游画布。执行和验证进度见 [Review 修复计划](../plan/2026-09-05-corestudio-review-reliability.md)。
 
 不要默认假设 `packages/` 与 Excalidraw upstream 完全一致。升级前必须运行 upstream 检查工具，并按补丁组复核目录级差异。
 
@@ -119,3 +121,8 @@ corepack yarn check:desktop-secrets --source
 3. typecheck、完整桌面测试、secret scan、production build 和 bundle budget 通过；
 4. 涉及最终桌面行为时完成 packaged smoke；
 5. 经受保护 PR 合入，没有直接推送 `main`。
+
+
+### CoreStudio 外部图片接纳边界（2026-09-05）
+
+外部图片分类、稳定读取、沙箱解码、ledger、监听/退避和 UI 均在 `apps/image-board-desktop/`，通过自有资产事务与 Project Room 接入。普通目录正式原图读取是项目格式扩展；没有新增 Excalidraw packages 补丁或依赖。升级底座后应运行桌面回归及纯 Node 的 `test:agent-integration`，并核对真实桌面的批次撤销和原图/缓存展示。完整规则与验收记录见 [外部图片接纳需求](../spec/2026-09-05-corestudio-external-image-intake.md)。

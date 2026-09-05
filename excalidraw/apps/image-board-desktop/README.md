@@ -2,6 +2,8 @@
 
 CoreStudio 是基于 Excalidraw 的本地优先图像画板。本目录包含 Electron 桌面端、renderer、Local Bridge、CLI 和本地 Agent 集成资源。
 
+当前源码采用 Electron 44.2.0，运行最低要求为 macOS 13；本地开发需要 Node.js 22.12.0 或更高版本。正式发布支持范围仍以对应版本的发布说明为准。
+
 ## 产品路径
 
 - CoreStudio 内使用底部输入框进行单次生成。
@@ -9,6 +11,14 @@ CoreStudio 是基于 Excalidraw 的本地优先图像画板。本目录包含 El
 - Agent Board 提供画布查看、选择、标注和结果确认。
 - 支持 WebMCP 的浏览器 Agent 可从本地 Agent Board 读取脱敏画布上下文，并执行定位、选择等可逆操作。
 - CLI / Local Bridge 负责受控读取和写回，不直接修改项目文件。
+
+## 外部图片自动接纳
+
+项目加载后，把 PNG、JPEG、WebP 或静态 SVG 放进项目根目录或普通子目录，CoreStudio 会就地登记原图，补齐画布图片和显示缓存。只有根目录 `inbox/` 子树会复制到 `assets/`，并保留 inbox 来源文件。不要直接编辑项目索引或 scene。
+
+接纳按内容去重，删除或撤销后不会因重扫复活。自动接纳始终随已加载项目静默运行，无需开关、专门面板或扫描操作；文件修好后会自动重试，来源不明的受管图片只在已有项目数据报告中提供确认；自动追加不移动原有内容、选区或视口。仅处理已加载项目，退出应用后停止；缓存、导出、隐藏/临时文件、链接和嵌套项目不纳入扫描。单文件上限 64 MiB、6400 万像素，SVG 不接受外部资源或活动内容。
+
+完整规则、异常处理和验收记录见 [外部图片接纳需求](../../../docs/spec/2026-09-05-corestudio-external-image-intake.md)。
 
 ## CLI
 
@@ -58,6 +68,7 @@ corepack yarn test:typecheck
 | 全量一次性 | `corepack yarn test:desktop` | 固定使用 Vitest `run`，默认最多 2 个 worker |
 | 交互式 watch | `corepack yarn test:desktop:watch` | 唯一明确的全量 watch 入口 |
 | CI | `corepack yarn test:desktop:ci` | 与本地全量入口共用 runner、锁和 worker 边界 |
+| Agent 纵向集成 | `corepack yarn --cwd apps/image-board-desktop test:agent-integration` | 纯 Node，真实 CLI/HTTP/房间/磁盘，无 DOM 或桌面 renderer；CI 独立执行 |
 
 全量入口由统一 Node runner 管理。`CORESTUDIO_TEST_MAX_WORKERS=<正整数>` 可显式覆盖 worker 上限，`CORESTUDIO_TEST_TIMEOUT_MS=<毫秒>` 可覆盖默认 30 分钟超时；watch 默认不设置超时。同一 Git 仓库默认只允许一套全量桌面测试，活跃锁会报告已有 runner 的 PID、启动时间和退出命令。只有经过明确判断的特殊场景才可使用 `CORESTUDIO_TEST_ALLOW_CONCURRENT=1` 绕过互斥。
 

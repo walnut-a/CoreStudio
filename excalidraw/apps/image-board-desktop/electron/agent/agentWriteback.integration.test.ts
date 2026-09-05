@@ -65,13 +65,15 @@ const createAgentWritebackHarness = async ({
     projectPath: created.projectPath,
     ...(await readProjectBundle(created.projectPath)),
   };
+  let storageFails = failAutosave;
   const projectRoomService = createProjectRoomService({
     readProjectBundle,
-    writeProjectScene: failAutosave
-      ? async () => {
-          throw new Error("simulated autosave failure");
-        }
-      : writeProjectScene,
+    writeProjectScene: async (input) => {
+      if (storageFails) {
+        throw new Error("simulated autosave failure");
+      }
+      return writeProjectScene(input);
+    },
     persistenceDebounceMs: 100_000,
   });
   const participantIssuerToken = "integration-participant-issuer";
@@ -140,7 +142,7 @@ const createAgentWritebackHarness = async ({
     grants: createTaskGrantStore(),
     participantIssuerToken,
     withAgentWriterCommand: async (
-      { project, threadId, displayLabel },
+      { project, threadId, displayLabel, request },
       prepare,
     ) => {
       const room = await projectRoomService.openProject(project.projectPath);
@@ -149,6 +151,7 @@ const createAgentWritebackHarness = async ({
         actorId: `codex:${threadId}`,
         displayLabel,
         prepare,
+        request,
         persistAssets: async (files) => {
           await persistImageAssets({
             projectPath: project.projectPath,
@@ -160,7 +163,10 @@ const createAgentWritebackHarness = async ({
   });
   bridgeHandles.push(server);
 
-  const requestImageWriteback = async () => {
+  const requestImageWriteback = async (
+    requestId?: string,
+    data = "integration-image",
+  ) => {
     const response = await fetch(
       `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneAddImage}`,
       {
@@ -173,9 +179,10 @@ const createAgentWritebackHarness = async ({
           "X-CoreStudio-Participant-Label": "Integration",
         },
         body: JSON.stringify({
+          ...(requestId ? { requestId } : {}),
           fileId: "cli-input",
           mimeType: "image/png",
-          dataBase64: Buffer.from("integration-image").toString("base64"),
+          dataBase64: Buffer.from(data).toString("base64"),
           width: 640,
           height: 480,
           sourceType: "generated",
@@ -210,6 +217,9 @@ const createAgentWritebackHarness = async ({
   };
 
   return {
+    recoverStorage: () => {
+      storageFails = false;
+    },
     projectPath: created.projectPath,
     requestDiagramWriteback,
     requestImageWriteback,
@@ -221,6 +231,48 @@ const createAgentWritebackHarness = async ({
 };
 
 describe("Agent image writeback integration", () => {
+  it("retries an accepted HTTP write after storage recovery without duplicate assets or elements", async () => {
+    const harness = await createAgentWritebackHarness({ failAutosave: true });
+    const failed = await harness.requestImageWriteback("retry-http");
+    expect(failed.body).toMatchObject({
+      ok: false,
+      error: {
+        code: "PERSISTENCE_FAILED",
+        details: {
+          writeStatus: {
+            requestId: "retry-http",
+            accepted: true,
+            persisted: false,
+          },
+        },
+      },
+    });
+    const originalStatus = failed.body.error.details.writeStatus;
+    harness.recoverStorage();
+    const [retry, duplicate] = await Promise.all([
+      harness.requestImageWriteback("retry-http"),
+      harness.requestImageWriteback("retry-http"),
+    ]);
+    expect(retry.status).toBe(200);
+    expect(retry.body).toEqual(duplicate.body);
+    expect(retry.body.data).toMatchObject({
+      persisted: true,
+      operationId: originalStatus.operationId,
+      fileIds: originalStatus.fileIds,
+      elementIds: originalStatus.elementIds,
+    });
+    const bundle = await harness.readBundle();
+    expect(Object.keys(bundle.imageRecords)).toHaveLength(1);
+    expect(JSON.parse(bundle.sceneJson).elements).toHaveLength(1);
+    const conflict = await harness.requestImageWriteback(
+      "retry-http",
+      "different-image",
+    );
+    expect(conflict.body).toMatchObject({
+      ok: false,
+      error: { code: "WRITEBACK_CONFLICT" },
+    });
+  });
   it("writes a native diagram through Local Bridge as one persisted room operation", async () => {
     const harness = await createAgentWritebackHarness();
 
@@ -291,15 +343,15 @@ describe("Agent image writeback integration", () => {
 
     expect(response).toMatchObject({
       status: 500,
-      body: { ok: false, error: { code: "COMMAND_FAILED" } },
+      body: { ok: false, error: { code: "PERSISTENCE_FAILED" } },
     });
     const after = await harness.readBundle();
     expect(after.project.updatedAt).not.toBe(before.project.updatedAt);
     expect(after.sceneJson).toBe(before.sceneJson);
     expect(Object.keys(after.imageRecords)).toHaveLength(1);
-    expect(await listFiles(path.join(harness.projectPath, "assets"))).not.toEqual(
-      beforeAssets,
-    );
+    expect(
+      await listFiles(path.join(harness.projectPath, "assets")),
+    ).not.toEqual(beforeAssets);
     expect(
       await listFiles(
         path.join(harness.projectPath, "cache", "image-writebacks"),

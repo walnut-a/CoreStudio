@@ -41,6 +41,8 @@ import {
   PROJECT_ROOM_PROTOCOL_VERSION,
 } from "../../src/shared/projectRoomProtocol";
 import type { TaskGrantStore } from "./taskGrants";
+import { parseAgentWriteRequest } from "./agentWriteRequest";
+import type { AgentWriteRequest } from "../room/projectRoomAgentWriter";
 import {
   attachProjectRoomWebSocketServer,
   type AuthenticateProjectRoomWebSocketInput,
@@ -190,6 +192,7 @@ export interface LocalBridgeServerOptions {
       host?: AgentHost;
       displayLabel: string;
       dryRun?: boolean;
+      request?: AgentWriteRequest;
     },
     run: (context: {
       sessionId: string;
@@ -1196,6 +1199,7 @@ const handleWriteCommand = async (
         {
           project: currentProject,
           ...trustedParticipant,
+          request: parseAgentWriteRequest(config.command, body),
           ...(body.dryRun === true ? { dryRun: true } : {}),
         },
         (context) =>

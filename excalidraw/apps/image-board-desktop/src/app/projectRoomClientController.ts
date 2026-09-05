@@ -38,7 +38,7 @@ export interface ProjectRoomClientTransport {
 export interface ApplyAuthoritativeProjectRoomSceneInput
   extends ProjectRoomScene {
   sequence: number;
-  origin: "snapshot" | "remote" | "confirmation";
+  origin: "snapshot" | "remote" | "confirmation" | "intake";
 }
 
 export interface CreateProjectRoomClientControllerInput {
@@ -504,7 +504,13 @@ export class ProjectRoomClientController {
     const confirmation =
       event.originSessionId === this.activeSessionId && wasPending;
     try {
-      this.applyScene(confirmation ? "confirmation" : "remote");
+      this.applyScene(
+        confirmation
+          ? "confirmation"
+          : event.originActorId === "corestudio:external-intake"
+          ? "intake"
+          : "remote",
+      );
     } catch (error) {
       this.elements = previousElements;
       this.sharedSceneConfig = previousSharedSceneConfig;

@@ -85,6 +85,7 @@ interface ProjectRepairDependencies {
     rendition: CachedImageAssetRendition;
   }) => Promise<unknown | null>;
   readFile: (filePath: string) => Promise<Buffer>;
+  readOriginal?: (projectPath: string, record: ImageRecord) => Promise<Buffer>;
   resolveProjectAssetPath: (projectPath: string, assetPath: string) => string;
   createCachedRenditionPayload: (input: {
     projectPath: string;
@@ -264,7 +265,10 @@ const resolveExistingAssetFileIds = async ({
   projectPath: string;
   imageRecords: ImageRecordMap;
   fileIds: readonly string[];
-  deps: Pick<ProjectRepairDependencies, "readFile" | "resolveProjectAssetPath">;
+  deps: Pick<
+    ProjectRepairDependencies,
+    "readFile" | "readOriginal" | "resolveProjectAssetPath"
+  >;
 }) => {
   const existingFileIds: string[] = [];
   const missingFileIds: string[] = [];
@@ -274,9 +278,11 @@ const resolveExistingAssetFileIds = async ({
       continue;
     }
     try {
-      await deps.readFile(
-        deps.resolveProjectAssetPath(projectPath, record.assetPath),
-      );
+      await (deps.readOriginal
+        ? deps.readOriginal(projectPath, record)
+        : deps.readFile(
+            deps.resolveProjectAssetPath(projectPath, record.assetPath),
+          ));
       existingFileIds.push(fileId);
     } catch {
       missingFileIds.push(fileId);
@@ -296,7 +302,10 @@ const restoreImageRecordsToScene = async ({
   imageRecords: ImageRecordMap;
   deps: Pick<
     ProjectRepairDependencies,
-    "readFile" | "resolveProjectAssetPath" | "writeProjectScene"
+    | "readFile"
+    | "readOriginal"
+    | "resolveProjectAssetPath"
+    | "writeProjectScene"
   >;
 }) => {
   const parsed = parseProjectScene(sceneJson);
@@ -320,7 +329,7 @@ const restoreImageRecordsToScene = async ({
     imageRecords,
     sceneImageFileIds,
     deletedSceneImageFileIds,
-  });
+  }).filter((fileId) => !fileId.startsWith("intake-"));
   const { existingFileIds, missingFileIds } = await resolveExistingAssetFileIds(
     {
       projectPath,
@@ -536,7 +545,9 @@ export const rebuildProjectThumbnails = async (
       );
       let sourceBuffer: Buffer;
       try {
-        sourceBuffer = await deps.readFile(sourcePath);
+        sourceBuffer = await (deps.readOriginal
+          ? deps.readOriginal(projectPath, record)
+          : deps.readFile(sourcePath));
       } catch {
         failedFileIds.push(fileId);
         failedDetails.push({

@@ -268,3 +268,48 @@ describe("ProjectDataReportDialog", () => {
     ).toBeInTheDocument();
   });
 });
+
+it("offers confirmation only for an exceptional image and keeps errors in the existing report", async () => {
+  const { fireEvent } = await import("@testing-library/react");
+  const confirm = vi.fn().mockRejectedValue(new Error("项目已关闭"));
+  render(
+    <ProjectDataReportDialog
+      open
+      healthReport={createHealthReport({
+        issues: [
+          {
+            code: "external-image-intake",
+            severity: "warning",
+            path: "assets/unknown.png",
+            message: "未登记图片",
+            repairable: false,
+            resolution: {
+              status: "manual",
+              summary: "确认来源",
+              action: "confirm-image",
+            },
+          },
+          {
+            code: "external-image-intake",
+            severity: "info",
+            path: "new.png",
+            message: "等待写入",
+            repairable: true,
+          },
+        ],
+      })}
+      repairReport={null}
+      onClose={() => {}}
+      onConfirmImage={confirm}
+    />,
+  );
+  expect(screen.getAllByRole("button", { name: "接纳这张图片" })).toHaveLength(
+    1,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "接纳这张图片" }));
+  expect(confirm).toHaveBeenCalledWith(
+    "/tmp/corestudio-project",
+    "assets/unknown.png",
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent("项目已关闭");
+});

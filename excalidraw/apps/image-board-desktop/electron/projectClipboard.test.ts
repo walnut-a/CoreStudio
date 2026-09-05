@@ -15,6 +15,27 @@ const imageElement = {
 };
 
 describe("projectClipboard", () => {
+  it("waits for the system write and propagates asynchronous failure", async () => {
+    let rejectWrite!: (error: Error) => void;
+    const writeResult = new Promise<void>((_resolve, reject) => {
+      rejectWrite = reject;
+    });
+    const readProjectAssetPayloads = vi.fn().mockResolvedValue([]);
+    const writeClipboard = vi.fn(() => writeResult);
+    const result = writeProjectElementsToClipboard({
+      projectPath: "/projects/source",
+      elements: [],
+      readProjectAssetPayloads,
+      writeClipboard,
+    });
+    const onSuccess = vi.fn();
+    const observed = result.then(onSuccess, (error) => error);
+    await Promise.resolve();
+    expect(onSuccess).not.toHaveBeenCalled();
+    rejectWrite(new Error("system clipboard denied"));
+    expect(await observed).toEqual(new Error("system clipboard denied"));
+  });
+
   it("serializes original project assets instead of renderer thumbnails", async () => {
     const readProjectAssetPayloads = vi
       .fn()

@@ -310,6 +310,22 @@ export class ProjectRoom {
     );
   }
 
+  public applyExternalIntakeOperation(
+    operation: ProjectRoomSceneOperation,
+  ): ProjectRoomOperationResult {
+    this.assertActive();
+    return this.applyAuthorizedOperation(
+      {
+        actorId: "corestudio:external-intake",
+        sessionId: "corestudio:external-intake",
+        transport: "command",
+        role: "agent-writer",
+        displayLabel: "CoreStudio Image Intake",
+      },
+      operation,
+    );
+  }
+
   private applyAuthorizedOperation(
     participant: ProjectRoomParticipant,
     operation: ProjectRoomSceneOperation,

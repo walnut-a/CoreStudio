@@ -1,3 +1,6 @@
+import { assertProjectAssetFile } from "./project/projectAssetAccess";
+import { inspectExternalImageIntake } from "./project/externalImageIntakeState";
+import { withSettledProjectWriteback } from "./project/projectImageWriteback";
 import fs from "fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "path";
@@ -48,6 +51,7 @@ import {
   parseProjectManifest,
   parseProjectScene,
 } from "./project/projectReadIntegrity";
+import { resolveProjectAssetPath, readRegisteredProjectAsset } from "./project/projectAssetAccess";
 
 const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
@@ -232,13 +236,6 @@ const assertPathInsideDirectory = ({
   return resolvedTarget;
 };
 
-const resolveProjectAssetPath = (projectPath: string, assetPath: string) =>
-  assertPathInsideDirectory({
-    directory: path.join(projectPath, PROJECT_FILENAMES.assetsDir),
-    targetPath: path.join(projectPath, assetPath),
-    errorMessage: "图片资源路径不在项目 assets 文件夹内。",
-  });
-
 const resolveProjectCachePath = (projectPath: string, cachePath: string) =>
   assertPathInsideDirectory({
     directory: path.join(projectPath, PROJECT_FILENAMES.cacheDir),
@@ -414,7 +411,7 @@ export const readProjectBundle = async (projectPath: string) => {
   return withRecoveryIssues(initialBundle);
 };
 
-const readProjectImageRecords = async (projectPath: string) => {
+export const readProjectImageRecords = async (projectPath: string) => {
   const signature = await getImageRecordsFileSignature(projectPath);
   const cached = projectImageRecordsReadCache.get(projectPath);
   if (cached?.signature === signature) {
@@ -563,6 +560,7 @@ const createMaintenanceBackup = async ({
     PROJECT_FILENAMES.project,
     PROJECT_FILENAMES.scene,
     PROJECT_FILENAMES.imageRecords,
+    PROJECT_FILENAMES.imageIntake,
   ];
   const copiedFiles: string[] = [];
 
@@ -916,7 +914,7 @@ const readCachedRenditionPayload = async ({
   }
 };
 
-const createCachedRenditionPayload = async ({
+export const createCachedRenditionPayload = async ({
   projectPath,
   fileId,
   record,
@@ -1085,6 +1083,8 @@ export const cleanProjectCache = async ({
 
 export const inspectProjectHealth = (input: { projectPath: string }) =>
   inspectProjectHealthWithDeps(input, {
+    inspectIntake: inspectExternalImageIntake,
+    validateOriginal: async(projectPath,record)=>{if(record.contentHash)await readRegisteredProjectAsset(projectPath,record);else await assertProjectAssetFile(projectPath,record.assetPath);},
     readProjectBundle: async (projectPath) => {
       const [bundle, writebackJournalReadIssues] = await Promise.all([
         readProjectBundleFiles(projectPath, { validateScene: false }),
@@ -1132,6 +1132,20 @@ export const readProjectAssetPayloads = async (
         return null;
       }
 
+      // Invalid index paths are contract errors, not missing display caches.
+      resolveProjectAssetPath(projectPath, record.assetPath);
+      let verifiedOriginal: Buffer | undefined;
+      if (record.contentHash) {
+        try {
+          verifiedOriginal = await readRegisteredProjectAsset(
+            projectPath,
+            record,
+          );
+        } catch {
+          return null;
+        }
+      }
+
       if (rendition !== "original") {
         try {
           const cachedRenditionPayload = await readCachedRenditionPayload({
@@ -1149,20 +1163,27 @@ export const readProjectAssetPayloads = async (
         }
 
         const dimensions = getCachedRenditionDimensions(record, rendition);
-        if (thumbnailMode === "cache-only" && dimensions.shouldUseThumbnail) {
+        if (
+          !record.contentHash &&
+          thumbnailMode === "cache-only" &&
+          dimensions.shouldUseThumbnail
+        ) {
           return buildMissingThumbnailPlaceholderPayload({ fileId, record });
         }
       }
 
-      const assetPath = resolveProjectAssetPath(projectPath, record.assetPath);
       let fileBuffer: Buffer;
       try {
-        fileBuffer = await fs.readFile(assetPath);
+        fileBuffer =
+          verifiedOriginal ??
+          (await readRegisteredProjectAsset(projectPath, record));
       } catch {
         return null;
       }
 
-      if (rendition !== "original") {
+      // Intake originals were validated by the isolated decoder. Until its
+      // cache is ready, return the real image rather than a Quick Look file icon.
+      if (rendition !== "original" && !record.contentHash) {
         try {
           const renditionPayload = await createCachedRenditionPayload({
             projectPath,
@@ -1211,29 +1232,32 @@ export const rebuildProjectThumbnails = async (
   },
   options: RebuildProjectThumbnailsOptions = {},
 ) =>
-  rebuildProjectThumbnailsWithDeps(
-    {
-      projectPath,
-      fileIds,
-      force,
-      createBackup,
-    },
-    options,
-    {
-      createMaintenanceBackup,
-      readProjectBundle: readProjectBundleFiles,
-      readRawProjectImageRecords,
-      repairLegacyGeneratedImageRecordOrigins,
-      writeProjectImageRecords,
-      touchProjectManifest,
-      writeProjectScene: options.writeProjectScene ?? writeProjectScene,
-      getCachedRenditionDimensions,
-      readCachedRenditionPayload,
-      readFile: fs.readFile,
-      resolveProjectAssetPath,
-      createCachedRenditionPayload,
-      createNativeImageThumbnail,
-    },
+  withSettledProjectWriteback(projectPath, () =>
+    rebuildProjectThumbnailsWithDeps(
+      {
+        projectPath,
+        fileIds,
+        force,
+        createBackup,
+      },
+      options,
+      {
+        createMaintenanceBackup,
+        readProjectBundle: readProjectBundleFiles,
+        readRawProjectImageRecords,
+        repairLegacyGeneratedImageRecordOrigins,
+        writeProjectImageRecords,
+        touchProjectManifest,
+        writeProjectScene: options.writeProjectScene ?? writeProjectScene,
+        getCachedRenditionDimensions,
+        readCachedRenditionPayload,
+        readFile: fs.readFile,
+        readOriginal: readRegisteredProjectAsset,
+        resolveProjectAssetPath,
+        createCachedRenditionPayload,
+        createNativeImageThumbnail,
+      },
+    ),
   );
 
 export const persistImageAssets = async ({

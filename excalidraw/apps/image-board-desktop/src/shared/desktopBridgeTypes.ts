@@ -57,6 +57,7 @@ export const IPC_CHANNELS = {
   loadRecentProjects: "image-board:load-recent-projects",
   removeRecentProject: "image-board:remove-recent-project",
   readProjectAssetPayloads: "image-board:read-project-asset-payloads",
+  confirmProjectImage: "image-board:confirm-project-image",
   inspectProjectHealth: "image-board:inspect-project-health",
   rebuildProjectThumbnails: "image-board:rebuild-project-thumbnails",
   persistImageAssets: "image-board:persist-image-assets",
@@ -333,12 +334,15 @@ export type ProjectHealthIssueResolutionStatus =
   | "info";
 
 export interface ProjectHealthIssueResolution {
+  action?: "confirm-image";
   status: ProjectHealthIssueResolutionStatus;
   summary: string;
 }
 
 export interface ProjectHealthIssue {
   code:
+    | "external-image-intake"
+    | "changed-original-file"
     | "scene-parse-failed"
     | "missing-image-record"
     | "missing-asset-file"
@@ -396,6 +400,7 @@ export interface CleanProjectCacheResult {
 }
 
 export interface PersistedImageAssetInput extends ProjectAssetPayload {
+  contentHash?: string;
   sourceFileName?: string;
   sourceType: ImageSourceType;
   generationOrigin?: ImageGenerationOrigin;
@@ -503,6 +508,10 @@ export interface DesktopProjectRoomFlushResponse {
 }
 
 export interface DesktopBridgeApi {
+  confirmProjectImage?(input: {
+    projectPath: string;
+    relativePath: string;
+  }): Promise<ProjectHealthReport>;
   createProject(): Promise<DesktopProjectBundle | null>;
   openProject(): Promise<DesktopProjectBundle | null>;
   openRecentProject(projectPath: string): Promise<DesktopProjectBundle | null>;

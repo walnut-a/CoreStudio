@@ -13,6 +13,10 @@ export default defineConfig({
     environment: "node",
     include: [
       "apps/image-board-desktop/electron/agent/agentProject.integration.test.ts",
+      "apps/image-board-desktop/electron/project/externalImageIntake.test.ts",
+      "apps/image-board-desktop/electron/project/externalImageHeader.test.ts",
+      "apps/image-board-desktop/electron/project/externalImageDecoder.test.ts",
+      "apps/image-board-desktop/electron/project/externalImageIntakeRuntime.test.ts",
     ],
     maxWorkers: 1,
     testTimeout: 15_000,

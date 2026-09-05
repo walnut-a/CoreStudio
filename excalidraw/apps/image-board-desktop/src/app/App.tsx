@@ -1868,7 +1868,10 @@ const App = ({
               appState,
               sharedSceneConfig,
             ),
-            captureUpdate: CaptureUpdateAction.NEVER,
+            captureUpdate:
+              origin === "intake"
+                ? CaptureUpdateAction.IMMEDIATELY
+                : CaptureUpdateAction.NEVER,
           });
           const latestScene = {
             elements: api.getSceneElementsIncludingDeleted(),
@@ -2522,6 +2525,17 @@ const App = ({
         open: projectHealthReportOpen,
         healthReport: projectHealthReport,
         repairReport: projectRepairReport,
+        onConfirmImage: desktopBridge.confirmProjectImage
+          ? async (projectPath, relativePath) => {
+              const report = await desktopBridge.confirmProjectImage!({
+                projectPath,
+                relativePath,
+              });
+              setProjectHealthReport((current) =>
+                current?.projectPath === projectPath ? report : current,
+              );
+            }
+          : undefined,
         onClose: () => setProjectHealthReportOpen(false),
       }}
       generationErrorDetails={{

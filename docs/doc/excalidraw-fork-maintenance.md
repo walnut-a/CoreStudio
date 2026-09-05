@@ -121,3 +121,8 @@ corepack yarn check:desktop-secrets --source
 3. typecheck、完整桌面测试、secret scan、production build 和 bundle budget 通过；
 4. 涉及最终桌面行为时完成 packaged smoke；
 5. 经受保护 PR 合入，没有直接推送 `main`。
+
+
+### CoreStudio 外部图片接纳边界（2026-09-05）
+
+外部图片分类、稳定读取、沙箱解码、ledger、监听/退避和 UI 均在 `apps/image-board-desktop/`，通过自有资产事务与 Project Room 接入。普通目录正式原图读取是项目格式扩展；没有新增 Excalidraw packages 补丁或依赖。升级底座后应运行桌面回归及纯 Node 的 `test:agent-integration`，并核对真实桌面的批次撤销和原图/缓存展示。完整规则与验收记录见 [外部图片接纳需求](../spec/2026-09-05-corestudio-external-image-intake.md)。

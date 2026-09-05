@@ -849,6 +849,8 @@ export const enCopy: DesktopCopy = {
     },
   },
   projectDataReport: {
+    confirmImage: "Accept this image",
+    confirmingImage: "Accepting…",
     title: {
       checkAndRepair: "Data check and repair details",
       repair: "Data repair details",
@@ -1007,6 +1009,16 @@ export const enCopy: DesktopCopy = {
         description: "The image provider is not stored as a non-empty string.",
         suggestion:
           "The field is ignored at runtime and can be corrected manually if needed.",
+      },
+      "external-image-intake": {
+        title: "External image intake",
+        description: "External images or unfinished intake tasks were found.",
+        suggestion: "Inspect, retry or confirm the source in Image intake.",
+      },
+      "changed-original-file": {
+        title: "Original cannot be verified",
+        description: "The original content, path or permissions changed.",
+        suggestion: "Restore the original or explicitly accept it again.",
       },
       "invalid-writeback-journal": {
         title: "Damaged image writeback journal",

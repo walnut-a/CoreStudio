@@ -71,7 +71,7 @@ corepack yarn --cwd apps/image-board-desktop test:agent-integration
 
 ## 写入与恢复
 
-外部写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参与者身份。Agent Writer 在主进程写入运行时中准备图片、提示词和 Mermaid 原生元素，不依赖桌面 renderer 或浏览器粘贴；主进程负责资产登记，并把一个带 `operationId` 的操作提交到 session 绑定的项目房间。图表输入只传 Mermaid 文本，转换结果保持为可编辑的节点、文字和箭头绑定，不上传云端，也不开放任意 scene 替换。
+Agent 主动写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参与者身份。Agent Writer 在主进程写入运行时中准备图片、提示词和 Mermaid 原生元素，不依赖桌面 renderer 或浏览器粘贴；主进程负责资产登记，并把一个带 `operationId` 的操作提交到 session 绑定的项目房间。图表输入只传 Mermaid 文本，转换结果保持为可编辑的节点、文字和箭头绑定，不上传云端，也不开放任意 scene 替换。
 
 项目房间是该项目 scene 的权威状态。操作先在房间内协调和广播，再由主进程统一持久化；人类标签和 Agent Board 都只是可选视图，不承担文件写入职责。
 
@@ -111,3 +111,10 @@ corepack yarn --cwd apps/image-board-desktop test:agent-integration
 4. 本地生成与 Agent 工作流保持两套清晰入口，不共享隐式会话状态。
 5. 新能力优先扩展稳定契约，避免把 Agent 运行时重新塞回桌面客户端。
 6. Electron 验收使用隔离的临时项目；协作验收由一个 Electron 宿主配合多个浏览器参与者完成，不用两个 Electron 同时打开同一项目。
+
+
+## 外部本地图片接纳
+
+CoreStudio 对已加载 Room 提供独立的本地图片接纳服务：用户或外部采集工具只新增图片文件，由 `electron/project/externalImageIntake*` 共用分类、持久化任务和 Room 增量提交补齐项目数据。普通项目目录的图片就地登记，仅根目录 inbox 子树复制到 assets；不因桌面标签关闭而停止仍被使用的 Room。
+
+这是新增原图的产品入口，不授权 Agent 或外部脚本编辑 project.json、image-records.json、image-intake.json 或 scene。Agent 的正式项目操作仍使用已认领 Board 对应的 CLI / Local Bridge。接纳 ledger 属于项目持久化状态，不能随 Agent session 或视图释放而删除。目录规则、版本恢复和验收证据见 [外部图片接纳需求](../../../../docs/spec/2026-09-05-corestudio-external-image-intake.md)。

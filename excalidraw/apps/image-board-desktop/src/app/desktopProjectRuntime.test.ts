@@ -1,3 +1,4 @@
+import { CaptureUpdateAction } from "@excalidraw/element";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
@@ -150,6 +151,41 @@ describe("DesktopProjectRuntime", () => {
       projectPath: "/projects/b",
       sessionId: "session-b",
     });
+  });
+
+  it("records an intake batch as one undoable update in the matching editor", async () => {
+    const harness = createHarness("/projects/a", "session-a");
+    await harness.runtime.start();
+    vi.mocked(harness.api.updateScene).mockClear();
+    harness.emit({
+      type: "scene.update",
+      identity: harness.identity,
+      originSessionId: "corestudio:external-intake",
+      originActorId: "corestudio:external-intake",
+      operationId: "intake-a",
+      sequence: 1,
+      baseSequence: 0,
+      elements: [
+        {
+          id: "image-a",
+          type: "image",
+          fileId: "asset-a",
+          version: 1,
+          versionNonce: 1,
+          index: "a0",
+          isDeleted: false,
+        },
+      ],
+      sharedSceneConfig: {},
+      acceptedElementIds: ["image-a"],
+      supersededElementIds: [],
+    });
+    expect(harness.api.updateScene).toHaveBeenCalledTimes(1);
+    expect(harness.api.updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      }),
+    );
   });
 
   it("applies remote scenes only to the matching project editor without recording history", async () => {

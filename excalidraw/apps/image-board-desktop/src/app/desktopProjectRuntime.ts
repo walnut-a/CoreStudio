@@ -95,7 +95,10 @@ export class DesktopProjectRuntime {
         ...appState,
         ...scene.sharedSceneConfig,
       } as AppState,
-      captureUpdate: CaptureUpdateAction.NEVER,
+      captureUpdate:
+        scene.origin === "intake"
+          ? CaptureUpdateAction.IMMEDIATELY
+          : CaptureUpdateAction.NEVER,
     });
     this.input.onScene(this.getScene());
     return reconciledElements as readonly ProjectRoomSceneElement[];

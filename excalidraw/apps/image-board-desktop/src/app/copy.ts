@@ -806,6 +806,8 @@ const zhCnCopy = {
     },
   },
   projectDataReport: {
+    confirmImage: "接纳这张图片",
+    confirmingImage: "正在接纳…",
     title: {
       checkAndRepair: "数据检查与修复详情",
       repair: "数据修复详情",
@@ -946,6 +948,16 @@ const zhCnCopy = {
         title: "模型服务字段无效",
         description: "图片记录的 provider 不是有效的非空字符串。",
         suggestion: "运行时已忽略该字段；需要时可手动修正原始记录。",
+      },
+      "external-image-intake": {
+        title: "外部图片待接纳",
+        description: "发现外部图片或未完成的接纳任务。",
+        suggestion: "通过图片接纳入口检查、重试或确认来源。",
+      },
+      "changed-original-file": {
+        title: "原图无法验证",
+        description: "原图内容、路径或访问权限已改变。",
+        suggestion: "恢复原图或明确重新接纳，不使用旧缓存代替原图。",
       },
       "invalid-writeback-journal": {
         title: "图片写回事务日志损坏",

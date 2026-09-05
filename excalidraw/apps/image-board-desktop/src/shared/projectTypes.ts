@@ -6,6 +6,7 @@ export const PROJECT_FILENAMES = {
   assetsDir: "assets",
   cacheDir: "cache",
   exportsDir: "exports",
+  imageIntake: "image-intake.json",
 } as const;
 
 export type ImageSourceType = "generated" | "imported";
@@ -63,6 +64,8 @@ export interface ProjectAgentAccess {
 export interface ImageRecord {
   fileId: string;
   assetPath: string;
+  /** SHA-256 of an automatically accepted original; detects external replacement. */
+  contentHash?: string;
   displayName?: string;
   sourceFileName?: string;
   sourceType: ImageSourceType;

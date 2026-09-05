@@ -1,3 +1,8 @@
+import type { CreateProjectThumbnail } from "./project/projectRepair";
+import { createExternalImageDecoder } from "./project/externalImageDecoder";
+import { createExternalImageIntakeRuntime } from "./project/externalImageIntakeRuntime";
+import { readRegisteredProjectAsset } from "./project/projectAssetAccess";
+import { createCachedRenditionPayload } from "./projectFs";
 import fs from "fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "path";
@@ -256,7 +261,45 @@ const projectProcessLeaseRegistry = createProjectProcessLeaseRegistry({
   pid: process.pid,
   processNonce: randomUUID(),
 });
+const intakeDecoder = createExternalImageDecoder();
+const createIntakeThumbnail: CreateProjectThumbnail = async ({
+  sourceBuffer,
+  mimeType,
+  maxDimension,
+}) => {
+  const image = await intakeDecoder.decode(
+    sourceBuffer,
+    mimeType,
+    maxDimension,
+  );
+  if (!image.dataBase64) throw new Error("图片缓存生成失败。");
+  return {
+    data: Buffer.from(image.dataBase64, "base64"),
+    width: image.width,
+    height: image.height,
+    mimeType: "image/png",
+  };
+};
+const imageIntakeRuntime = createExternalImageIntakeRuntime({
+  decode: ({ buffer, mimeType }) => intakeDecoder.decode(buffer, mimeType),
+  warmCache: async (record, projectPath) => {
+    const sourceBuffer = await readRegisteredProjectAsset(projectPath, record);
+    for (const rendition of ["thumbnail", "preview"] as const)
+      await createCachedRenditionPayload({
+        projectPath,
+        fileId: record.fileId,
+        record,
+        sourceBuffer,
+        rendition,
+        createThumbnail: createIntakeThumbnail,
+      });
+  },
+});
 const projectRoomService = createProjectRoomService({
+  onRoomOpened: (room) => {
+    imageIntakeRuntime.attach(room);
+  },
+  beforeRoomClosed: (room) => imageIntakeRuntime.stop(room),
   readProjectBundle,
   writeProjectScene,
   projectProcessLeaseRegistry,
@@ -2652,6 +2695,25 @@ const registerIpcHandlers = () => {
     },
   );
 
+  ipcMain.handle(IPC_CHANNELS.confirmProjectImage, async (event, input) => {
+    requireProjectRendererSender(event.sender, input.projectPath);
+    const room = await projectRoomService.findOpenRoom(input.projectPath);
+    if (!room) throw new Error("项目尚未加载。");
+    const report = await inspectProjectHealth({
+      projectPath: input.projectPath,
+    });
+    if (
+      !report.issues.some(
+        (issue) =>
+          issue.path === input.relativePath &&
+          issue.resolution?.action === "confirm-image",
+      )
+    )
+      throw new Error("这张图片不需要来源确认，请重新检查项目数据。");
+    await imageIntakeRuntime.attach(room).confirm(input.relativePath);
+    await imageIntakeRuntime.scan(room, { forceRetry: true });
+    return inspectProjectHealth({ projectPath: input.projectPath });
+  });
   ipcMain.handle(IPC_CHANNELS.inspectProjectHealth, async (event, input) => {
     requireProjectRendererSender(event.sender, input.projectPath);
     return inspectProjectHealth(input);
@@ -2665,9 +2727,11 @@ const registerIpcHandlers = () => {
         input.projectPath,
       );
       if (activeRoom) {
+        await imageIntakeRuntime.scan(activeRoom, { forceRetry: true });
         await activeRoom.flushPersistence();
       }
       const result = await rebuildProjectThumbnails(input, {
+        createThumbnail: createIntakeThumbnail,
         writeProjectScene: (sceneInput) =>
           projectRoomService.writeMaintenanceScene(sceneInput),
       });

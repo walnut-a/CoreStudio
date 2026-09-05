@@ -9,6 +9,7 @@ import {
   WebContentsView,
   app,
   clipboard,
+  ClipboardItem,
   dialog,
   ipcMain,
   nativeImage,
@@ -175,6 +176,7 @@ import {
 } from "./projectViewRegistry";
 import { createProjectViewHandleLifecycle } from "./projectViewHandleLifecycle";
 import { createProjectRendererLifecycle } from "./projectRendererLifecycle";
+import { createSystemClipboard } from "./systemClipboard";
 import { writeProjectElementsToClipboard } from "./projectClipboard";
 import {
   createProjectRoomSenderBindings,
@@ -2958,18 +2960,7 @@ const registerIpcHandlers = () => {
         (
           await readProjectAssetPayloads(assetInput)
         ).filter((asset): asset is NonNullable<typeof asset> => asset !== null),
-      writeClipboard: ({ text, previewImageDataUrl }) => {
-        if (!previewImageDataUrl) {
-          clipboard.writeText(text);
-          return;
-        }
-        const image = nativeImage.createFromDataURL(previewImageDataUrl);
-        if (image.isEmpty()) {
-          clipboard.writeText(text);
-          return;
-        }
-        clipboard.write({ text, image });
-      },
+      writeClipboard: systemClipboard.writeProject,
     });
   });
   ipcMain.handle(IPC_CHANNELS.loadLocaleSettings, async () =>
@@ -3334,28 +3325,13 @@ const importImagesFromDisk = async () => {
   );
 };
 
-const readClipboardImageFromSystem = () => {
-  const image = clipboard.readImage();
-  if (image.isEmpty()) {
-    return null;
-  }
-
-  const imageBuffer = image.toPNG();
-  const size = image.getSize();
-  if (!imageBuffer.length || !size.width || !size.height) {
-    return null;
-  }
-
-  return {
-    fileName: "clipboard.png",
-    fileId: randomUUID(),
-    mimeType: "image/png",
-    dataBase64: imageBuffer.toString("base64"),
-    width: size.width,
-    height: size.height,
-    createdAt: new Date().toISOString(),
-  };
-};
+const systemClipboard = createSystemClipboard({
+  clipboard,
+  createItem: (data) => new ClipboardItem(data),
+  decodeDataUrl: (dataUrl) => nativeImage.createFromDataURL(dataUrl),
+  decodeBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
+});
+const readClipboardImageFromSystem = systemClipboard.readImage;
 
 if (hasSingleInstanceLock) {
   app.whenReady().then(async () => {

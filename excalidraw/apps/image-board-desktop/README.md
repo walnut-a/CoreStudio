@@ -2,6 +2,8 @@
 
 CoreStudio 是基于 Excalidraw 的本地优先图像画板。本目录包含 Electron 桌面端、renderer、Local Bridge、CLI 和本地 Agent 集成资源。
 
+当前源码采用 Electron 44.2.0，运行最低要求为 macOS 13；本地开发需要 Node.js 22.12.0 或更高版本。正式发布支持范围仍以对应版本的发布说明为准。
+
 ## 产品路径
 
 - CoreStudio 内使用底部输入框进行单次生成。

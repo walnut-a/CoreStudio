@@ -1,7 +1,7 @@
 # CoreStudio Review 修复实施计划
 
 > 日期：2026-09-05
-> 状态：第一轮修复及新增生命周期治理与纵向测试均已完成本地提交，自动化验证通过；原 L3 界面验收仍待完成
+> 状态：第一轮修复及生命周期治理已提交；原 L3 验收已补齐。依赖升级实现、完整回归和 ad-hoc 打包 smoke 均完成，升级代码尚未提交。发布签名、安装和发布不在本轮完成范围。
 > 审查基线：本地 `f66234966`；实施基线：远端已合入的 `d3b394e02`（1.1.45）
 
 ## 目标与范围
@@ -41,7 +41,7 @@
 
 - [x] 更新 CLI contract 和 Agent 使用说明中的重试规则，测试契约与运行代码一致。
 - [x] 所有定向测试通过后运行一次完整桌面测试、typecheck、源码/打包输入密钥扫描、构建及 bundle budget；不与同类高资源任务并发。
-- [ ] 采用固定 `corepack yarn dev:desktop` 完成一次 L3：校验运行身份，临时项目双目标隔离、无标签写入、重复请求及结果可见性；只操作开发版测试数据。
+- [x] 采用固定 `corepack yarn dev:desktop` 完成一次 L3：校验运行身份，临时项目双目标隔离、无标签写入、重复请求及结果可见性；只操作开发版测试数据。证据见 G 阶段，早期阻塞记录保留为历史。
 - [x] 核对本任务进程树，清理精确所属实例并复查；记录结果、已知边界与剩余事项。后续继续 L3 时仍需清理该次新启动实例。
 
 ### E/F. 追加范围：生命周期治理与纵向测试（用户于 2026-09-05 授权）
@@ -119,3 +119,44 @@ L3 场景验收尚未完成，不能标记整轮验收通过。首次等待旧�
 - 源码/打包输入密钥扫描通过，1,029 个文件；桌面构建通过，10.11 秒；bundle budget 与构建路径扫描通过。保留上一节已说明的上游分块与 CJS import.meta 构建警告，不以这次治理顺带修改底座。最终复查本次测试、构建和检查进程均已退出。
 - 边界复核：本轮以及上一轮都没有修改 `excalidraw/packages/`；本轮也没有修改根 workspace package.json、yarn.lock 或上游 Vitest 配置。仅 CoreStudio 应用、仓库 CI 和文档发生变化。格式化脚本附带产生的一处无关 CSS 排版差异已撤销。
 - 本轮没有启动新的 Electron GUI、打包、安装、发布或远端推送；原 D 阶段的 L3 验收仍明确未完成。新增工程治理经用户明确要求，于 2026-09-05 完成本地提交。
+
+## G. 上游依赖分批升级（2026-09-05 用户授权）
+
+目标：先补安全依赖，再更新 Electron，最后定向回补套索与取色器。保持现有 Excalidraw 整体基线，不整体 merge master，不顺带更新 React、Lexical、Vite、TypeScript 或箭头文字功能。用户明确选择 Electron 44.2.0，并接受最低 macOS 13 与剪贴板 API 迁移；兼容代码留在 CoreStudio workspace。
+
+- [x] G1：DOMPurify 3.4.12 → 3.4.14、ws 8.21.0 → 8.21.3、Vitest/coverage 3.2.6 → 3.2.7；核验实际依赖链并运行定向回归。
+- [x] G2：Electron 41.2.0 → 44.2.0；核对 42–44 破坏性变化，迁移剪贴板，更新 macOS 系统要求，完成类型和定向测试。
+- [x] G3：按上游原始补丁回补套索 c5a50d2、取色器 cf212b2 及必要填色依赖 4872083；先运行对应失败测试，再应用实现。记录完整 SHA 与补丁组，不把部分回补标为整体基线前进。
+- [x] G4：收尾运行一次完整桌面测试、纯 Node Agent 集成、类型检查、密钥扫描、构建、bundle 预算与路径检查；固定入口完成 L3 和打包 smoke，检查精确进程清理。打包采用 ad-hoc 验证签名，正式 Developer ID 签名未完成。
+
+升级前：工作区干净，HEAD 3cfae05af。正式应用 PID 18230 已在运行，仅观察并保留。本轮不提交、推送、安装或发布正式版。上游维护 dry-run 确认既有 64 个差异路径均登记。最新上游 214cd6e 比基线多 16 个提交，143 个路径变化；整体同步会重叠 11 个本地补丁路径，模拟冲突 2 个测试文件，因此采用定向回补。
+
+依据：[Electron 44 破坏性变化](https://www.electronjs.org/docs/latest/breaking-changes)、[DOMPurify 3.4.14](https://github.com/cure53/DOMPurify/releases/tag/3.4.14)、[ws 8.21.3](https://github.com/websockets/ws/releases/tag/8.21.3)、[Vitest 3.2.7](https://github.com/vitest-dev/vitest/releases/tag/v3.2.7)。
+
+### 升级实现与定向验证
+
+- 安全依赖先更新测试期望，旧安装实际失败 3 项，安装后 6 项通过；图表 renderer 另有 2 项通过。锁文件与实际依赖链一致。
+- Electron npm 包及已下载二进制均为 44.2.0；新增 `electron/systemClipboard.ts` 适配异步 ClipboardItem API，原始可编辑文本和 PNG 预览在一次写入中提交，调用链等待异步完成。图片读取支持 PNG/JPEG/WebP 并归一为 PNG。底座没有因 Electron 迁移增加补丁。
+- 剪贴板 TDD 先复现异步失败提前返回成功，增加 await 后通过；适配器、项目复制、运行身份和 Electron 下载入口共 4 个文件 25 项通过。根 Node 开发要求提升为 22.12.0，CI 已使用 Node 22；macOS 最低 13.0 写入打包配置。现有正式发布清单不改写。
+- 上游测试先复现套索 7 项、取色/填色 15 项失败，再顺序应用三个原始提交的相关补丁。回归 6 个文件 165 项通过、1 项上游既有跳过。补丁组记录完整 SHA；基线仍为 85270fcc，当前 79 个差异路径全部登记。
+- 最终类型检查通过；纯 Node Agent 纵向入口 4 项通过。详细日志在 `/tmp/corestudio-upgrade-*.log`，仅为本机临时证据。
+
+### L3 真实界面结果（补齐原 D 阶段）
+
+- 固定 `dev:desktop` 启动，source verifier 通过：PID/PGID 73868、Bridge 60910、调试端口 9331，窗口显示 `SOURCE DEV · 3cfae05af-dirty`。本次原生窗口控制可用，通过客户端原生目录选择流程创建 `/private/tmp/corestudio-upgrade-20260905/验收甲`、`验收乙`，未手工构造项目文件。
+- 甲 Board 为 `cd3be109-86c3-48f1-839b-7f10d6f528da`，乙为 `91718914-7019-437c-9219-b0631fd4ebb7`。通过各自可见页面 nonce 认领，CLI 使用固定开发版 session；正式版 PID 18230 保留。
+- 从甲真实复制图片，在乙真实粘贴后可见。通过乙 CLI 获取资产路径，原始文件与乙资产 SHA-256 完全一致，均为 `e42f75396f80745a73a06a0a81f14cbce4fbb160e05ecf09b539ebf2c6f61b35`，实际图片尺寸 2400×1600。画布记录中的 640×427 是展示尺寸，不能据此判断原图被缩小。
+- 关闭甲的桌面标签并停留 Home，首页仍显示 Agent 使用甲。写入提示词成功落在甲 Room `cd5dc99b-d53c-430f-a07e-c5fe12fcf72d`，保存序号 3，Agent 浏览器画布立即可见该文字；乙未出现这条文字。
+- 对原 `upgrade-image-a` 请求重试，operationId `a192a256-faaf-41d0-a49b-2c7a89535e2c`、元素及资产 ID 均未变化，房间序号仍为原操作的 2，持久化序号为当前 3，没有插入重复图片。
+- 在真实画布深色主题中打开取色器，确认圆形预览呈现并可采样图像、更新背景色控件；套索工具可激活并正常呈现。套索包含/交叠语义以及颜色换算由上述定向自动化覆盖，不将工具外观检查描述为完整人工手势矩阵。
+- 关闭本次两个浏览器画板，固定 `runtime:stop:source` 返回 `PGID=73868 remaining=0`，外层 Electron/Vite 命令退出；CUA reset 后本次 kernel 74493 / worker 74494 已退出，既有服务和其他任务进程保留。
+
+### 最终回归与打包结果
+
+- 完整桌面测试仅运行一次：290 个文件、2,223 项全部通过，213.48 秒；runner 报告 `cleanup=complete`、`remaining=0`、`lockReleased=true`，14435 / 14470 / 14471 已退出。上游维护合同另外 2 个文件、7 项通过；workspace scope 和安全合同已包含于完整桌面测试。
+- 最终类型检查通过，29.89 秒。构建通过，源码与打包输入扫描通过（1,031 个文件），bundle budget、构建路径、打包路径与 release 扫描均通过。
+- `package:dir:diagnostic` 的构建和扫描完成后，Developer ID 签名停留在 codesign，并启动系统 SecurityAgent；等待近三分钟仍未完成。核对后终止本轮 PGID 41864，确认其中 launcher/builder/codesign 均已退出。未读取钥匙串、输入凭据或修改正式签名配置。
+- 复用已验证的构建，以 `corepack yarn electron-builder --dir --config.mac.identity=-` 完成本地 ad-hoc 签名包，6.02 秒。产物 `apps/image-board-desktop/release/mac-arm64/CoreStudio.app` 仅用于验证；包内 Electron Framework 为 44.2.0，Info.plist 的 LSMinimumSystemVersion 为 13.0。没有在 macOS 13 实机上复测，也没有完成发布签名/公证。
+- 固定 `smoke:packaged` 通过：legacy 和多宿主 Agent 集成安装资源、临时用户目录中的 production 启动、QA 启动均通过，4.97 秒。production/QA smoke 使用端口 60912/60911 和独立临时目录，未连接正式版数据。50794 / 50800 及 PGID 50122 已退出，源码、smoke 和调试端口均不再监听。
+- 保留现有上游 chunk/CJS import.meta 构建提示，以及未使用的 Lexical Yjs 协作入口 peer 依赖和重复依赖收集提示；没有因此扩展到 Lexical 重构。实际包已成功启动，但 smoke 不代表所有产品功能逐项人工验收。
+- 交付边界：本轮源码升级及本地验收完成；没有提交升级代码、推送、合并 PR、安装替换正式版或发布。系统 SecurityAgent 为 macOS 服务，保留；正式 CoreStudio PID 18230 及其他任务进程保留。

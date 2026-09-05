@@ -70,7 +70,7 @@ export const writeProjectElementsToClipboard = async ({
   writeClipboard: (input: {
     text: string;
     previewImageDataUrl?: string;
-  }) => void;
+  }) => void | Promise<void>;
 }) => {
   const fileIds = collectClipboardImageFileIds(elements);
   const assets = fileIds.length
@@ -91,7 +91,7 @@ export const writeProjectElementsToClipboard = async ({
         )[0]
       : undefined;
   const payload = buildProjectClipboardPayload({ elements, assets });
-  writeClipboard({
+  await writeClipboard({
     text: JSON.stringify(payload),
     previewImageDataUrl: previewAsset
       ? `data:${previewAsset.mimeType};base64,${previewAsset.dataBase64}`

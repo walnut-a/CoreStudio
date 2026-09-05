@@ -60,14 +60,12 @@ const excalidrawManifestPath = path.resolve(
 
 describe("CoreStudio desktop dependency security", () => {
   it("pins vulnerable transitive dependencies to reviewed versions", () => {
-    const rootPackage = readJson(
-      path.resolve(workspaceRoot, "package.json"),
-    );
+    const rootPackage = readJson(path.resolve(workspaceRoot, "package.json"));
     const excalidrawPackage = readJson(excalidrawManifestPath);
 
     expect(rootPackage.resolutions).toMatchObject({
       "@tootallnate/once": "2.0.1",
-      dompurify: "3.4.12",
+      dompurify: "3.4.14",
       immutable: "5.1.9",
       "lodash-es": "4.18.1",
       mermaid: "11.16.0",
@@ -78,7 +76,7 @@ describe("CoreStudio desktop dependency security", () => {
       "**/micromatch/picomatch": "2.3.2",
       "vitest/picomatch": "4.0.4",
       protobufjs: "7.6.3",
-      ws: "8.21.0",
+      ws: "8.21.3",
     });
     expect(excalidrawPackage.dependencies).toMatchObject({
       "@excalidraw/mermaid-to-excalidraw": "2.2.2",
@@ -92,11 +90,11 @@ describe("CoreStudio desktop dependency security", () => {
       "@google/genai",
       desktopManifestPath,
     );
-    expect(
-      resolveInstalledPackageVersion("protobufjs", googleGenaiEntry),
-    ).toBe("7.6.3");
+    expect(resolveInstalledPackageVersion("protobufjs", googleGenaiEntry)).toBe(
+      "7.6.3",
+    );
     expect(resolveInstalledPackageVersion("ws", googleGenaiEntry)).toBe(
-      "8.21.0",
+      "8.21.3",
     );
 
     const mermaidAdapterEntry = resolvePackageEntry(
@@ -104,11 +102,11 @@ describe("CoreStudio desktop dependency security", () => {
       desktopManifestPath,
     );
     const mermaidEntry = resolvePackageEntry("mermaid", mermaidAdapterEntry);
-    expect(
-      findPackageManifest(mermaidEntry, "mermaid").version,
-    ).toBe("11.16.0");
+    expect(findPackageManifest(mermaidEntry, "mermaid").version).toBe(
+      "11.16.0",
+    );
     expect(resolveInstalledPackageVersion("dompurify", mermaidEntry)).toBe(
-      "3.4.12",
+      "3.4.14",
     );
     expect(resolveInstalledPackageVersion("lodash-es", mermaidEntry)).toBe(
       "4.18.1",
@@ -160,8 +158,8 @@ describe("CoreStudio desktop dependency security", () => {
     );
 
     expect(rootPackage.devDependencies).toMatchObject({
-      "@vitest/coverage-v8": "3.2.6",
-      vitest: "3.2.6",
+      "@vitest/coverage-v8": "3.2.7",
+      vitest: "3.2.7",
     });
     expect(fs.existsSync(appSetupPath), "App mock setup 必须存在").toBe(true);
 

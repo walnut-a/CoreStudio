@@ -510,9 +510,11 @@ Q1 已按第 7.2 节收口。用户随后确认 Q2–Q6 全部采用文档建议
 
 - [x] 功能提交 a26ad8dca 已推送，内部签名 DMG、路径扫描、完整性及隔离启动 smoke 已通过；用户安装后确认可用。
 - [x] 准备 1.1.46 版本号与中文发布说明；最低 macOS 13，Apple Silicon。
-- [ ] PR 与 desktop 门禁通过后合入主分支。
-- [ ] 从已合入源码执行唯一正式打包链路，完成签名、公证、票据、Gatekeeper 和 packaged smoke。
-- [ ] 创建 GitHub Release，仅上传公证后的 DMG，并重新下载校验哈希。
-- [ ] Release 可用后再更新官网稳定清单，部署并核对线上清单。
+- [x] PR #131 与 desktop 门禁通过后合入主分支 caea40fbc；CI 桌面测试 2,264 通过、2 跳过，Node 集成 33 通过。
+- [x] 从已合入源码完成正式打包、签名、公证、票据、Gatekeeper 和 production/QA packaged smoke；公证提交 7f18293a-b39f-45c6-9c7d-9fd8b86a4935 已 Accepted，临时进程已退出。
+- [x] GitHub Release v1.1.46 已公开，仅上传公证后的 DMG，并通过公开地址重下载核对 SHA-256。
+- [x] Release 可用后按实际产物准备官网稳定清单；该提交经 PR 门禁合入后由官网工作流部署，部署成功和线上清单作为最后验收项。
 
 历史测试和内部包记录保留，不以旧记录代替正式发布产物验证。
+
+正式产物：CoreStudio-1.1.46-arm64.dmg，137,379,737 字节；SHA-256 `525727f0de8fc9a3f92233f6111f406dad2a375365af64b09c3db6cfbb0dafef`。本地公证包、GitHub 附件 digest 与公开下载文件三方一致。Release：<https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.46>。

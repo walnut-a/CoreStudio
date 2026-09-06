@@ -15,6 +15,22 @@ const formatFileSize = (bytes: number) => {
 };
 
 export const enCopy: DesktopCopy = {
+  browse: {
+    openGrid: "Grid view",
+    backToCanvas: "Back to canvas",
+    grid: "Image grid",
+    untitled: "Image",
+    empty: "No images in this project yet",
+    previewUnavailable: "No preview",
+    loading: "Loading image…",
+    loadFailed: "This image could not be loaded",
+    retry: "Retry",
+    close: "Close details",
+    previous: "Previous image",
+    next: "Next image",
+    fit: "Fit to window",
+    actualSize: "Actual size",
+  },
   welcome: {
     eyebrow: "Local projects",
     title: "Choose a project to begin",

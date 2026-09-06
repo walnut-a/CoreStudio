@@ -26,6 +26,22 @@ const formatFileSize = (bytes: number) => {
 };
 
 const zhCnCopy = {
+  browse: {
+    openGrid: "网格查看",
+    backToCanvas: "返回画布",
+    grid: "图片网格",
+    untitled: "图片",
+    empty: "项目中还没有图片",
+    previewUnavailable: "暂无预览",
+    loading: "正在读取图片…",
+    loadFailed: "暂时无法读取这张图片",
+    retry: "重试",
+    close: "关闭详情",
+    previous: "上一张",
+    next: "下一张",
+    fit: "适应窗口",
+    actualSize: "原始尺寸",
+  },
   welcome: {
     eyebrow: "本地项目",
     title: "选择项目开始",

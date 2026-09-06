@@ -12,6 +12,7 @@ import {
 import type { ImageAssetListItem } from "../imageAssetViewModel";
 import type { ImageAssetThumbnailStore } from "../imageAssetThumbnailStore";
 import { copy } from "../copy";
+import { gridViewIcon } from "./CoreStudioIcons";
 import { SideDock } from "./SideDock";
 
 import "./ImageAssetSidebar.css";
@@ -22,6 +23,7 @@ interface ImageAssetSidebarProps {
   records: readonly ImageAssetListItem[];
   selectedFileId?: string | null;
   revealRequest?: { fileId: string; requestId: number } | null;
+  onBrowse?: () => void;
   onSelectRecord?: (fileId: string) => void;
   onVisibleFileIdsChange?: (fileIds: string[]) => void;
   thumbnailProjectPath?: string | null;
@@ -65,6 +67,7 @@ export const ImageAssetSidebar = ({
   records,
   selectedFileId,
   revealRequest,
+  onBrowse,
   onSelectRecord,
   onVisibleFileIdsChange,
   thumbnailProjectPath,
@@ -202,6 +205,19 @@ export const ImageAssetSidebar = ({
       open={open}
       onOpenChange={onOpenChange}
       rootRef={rootRef}
+      headerActions={
+        onBrowse ? (
+          <button
+            type="button"
+            className="image-asset-sidebar__browse"
+            aria-label={copy.browse.openGrid}
+            title={copy.browse.openGrid}
+            onClick={onBrowse}
+          >
+            {gridViewIcon}
+          </button>
+        ) : undefined
+      }
     >
       <div className="image-asset-sidebar">
         <div className="image-asset-sidebar__controls">

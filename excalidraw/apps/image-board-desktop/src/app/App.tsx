@@ -57,6 +57,12 @@ import { reconcileProjectRoomScene } from "./projectRoomSceneReconciliation";
 import { maybeGetDesktopBridge } from "./desktopBridge";
 import { createDesktopMenuEventRendererActions } from "./desktopMenuEventController";
 import {
+  buildImageBrowseItems,
+  isBrowseMenuActionAllowed,
+} from "./imageBrowseModel";
+import { ImageBrowseView } from "./components/ImageBrowseView";
+import { useImageBrowseMode } from "./useImageBrowseMode";
+import {
   createDesktopStartupRendererActions,
   type RecentProjectsLoadStatus,
 } from "./desktopStartupState";
@@ -486,6 +492,42 @@ const App = ({
       setSelectedTask,
     });
   const [sceneImageFileIds, setSceneImageFileIds] = useState<string[]>([]);
+  const { browsing, changeMode } = useImageBrowseMode(
+    currentProject?.projectPath ?? null,
+    excalidrawAPIRef,
+  );
+  const wasBrowsingRef = useRef(false);
+  useEffect(() => {
+    if (wasBrowsingRef.current && !browsing) {
+      imageAssetDockRef.current
+        ?.querySelector<HTMLButtonElement>(".side-dock__toggle")
+        ?.focus({ preventScroll: true });
+    }
+    wasBrowsingRef.current = browsing;
+  }, [browsing]);
+  const browseItems = useMemo(
+    () =>
+      buildImageBrowseItems(
+        sceneImageFileIds,
+        currentProject?.imageRecords ?? {},
+      ),
+    [sceneImageFileIds, currentProject?.imageRecords],
+  );
+  const readBrowseOriginal = useCallback(
+    async (fileId: string) => {
+      const project = currentProjectRef.current;
+      if (!project) {
+        return undefined;
+      }
+      const assets = await readProjectImageAssets(
+        project,
+        [fileId],
+        "original",
+      );
+      return assets.find((asset) => asset.fileId === fileId);
+    },
+    [readProjectImageAssets],
+  );
   const [generateRequest, setGenerateRequest] = useState(() =>
     buildDefaultGenerationRequest(
       null,
@@ -2303,7 +2345,10 @@ const App = ({
       readProjectImageAssets,
     ],
   );
-  useDesktopMenuEvents(desktopMenuEventRendererActions.handle);
+  useDesktopMenuEvents(
+    desktopMenuEventRendererActions.handle,
+    (event) => !browsing || isBrowseMenuActionAllowed(event.action),
+  );
 
   const globalDialogs = (
     <AppGlobalDialogs
@@ -2729,6 +2774,7 @@ const App = ({
   const appClassName = [
     "image-board-app",
     "image-board-app--project-open",
+    browsing ? "image-board-app--browsing" : "",
     isAgentBrowserRoute ? "image-board-app--agent-board" : "",
     imageAssetSidebarOpen ? "image-board-app--left-dock-open" : "",
     inspectorDockOpen ? "image-board-app--right-dock-open" : "",
@@ -2737,6 +2783,7 @@ const App = ({
     .join(" ");
   const canvasClassName = [
     "image-board-canvas",
+    browsing ? "image-board-canvas--browsing" : "",
     isEditorInitializing ? "image-board-canvas--editor-initializing" : "",
   ]
     .filter(Boolean)
@@ -2768,7 +2815,22 @@ const App = ({
   };
 
   return (
-    <div ref={appRootRef} className={appClassName}>
+    <div
+      ref={appRootRef}
+      className={appClassName}
+      onDragOverCapture={(event) => {
+        if (browsing) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onDropCapture={(event) => {
+        if (browsing) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+    >
       <AppErrorBanners
         startupError={startupError}
         projectError={projectError ?? projectRoomError}
@@ -2780,7 +2842,12 @@ const App = ({
         onReset={projectRenderBoundaryRendererActions.resetProjectView}
       >
         <div className="image-board-shell">
-          <div ref={canvasContainerRef} className={canvasClassName}>
+          <div
+            ref={canvasContainerRef}
+            className={canvasClassName}
+            inert={browsing}
+            aria-hidden={browsing || undefined}
+          >
             {isEditorInitializing || !projectRoomReady ? (
               <EditorLoadingOverlay
                 mode={
@@ -2798,6 +2865,7 @@ const App = ({
             {renderProjectStatusToast()}
             <Suspense fallback={null}>
               <LazyExcalidraw
+                interaction={!browsing}
                 langCode={locale}
                 wheelZoomSensitivity={getTrackpadZoomSensitivity(
                   trackpadZoomSpeed,
@@ -2872,7 +2940,7 @@ const App = ({
                   },
                 }}
                 detectScroll={false}
-                handleKeyboardGlobally={true}
+                handleKeyboardGlobally={!browsing}
                 autoFocus={true}
                 renderSelectedShapeActions={({
                   fullSelectedShapeActions,
@@ -2998,6 +3066,16 @@ const App = ({
               rootRef={imageAssetDockRef}
               open={imageAssetSidebarOpen}
               onOpenChange={setImageAssetSidebarOpen}
+              onBrowse={
+                !isAgentBrowserRoute &&
+                !isEditorInitializing &&
+                projectRoomReady
+                  ? () => {
+                      setImageAssetSidebarOpen(false);
+                      changeMode(true);
+                    }
+                  : undefined
+              }
               records={imageAssetItems}
               selectedFileId={selectedRecord?.fileId}
               onVisibleFileIdsChange={loadVisibleImageAssetThumbnails}
@@ -3027,6 +3105,17 @@ const App = ({
               }}
             />
           </div>
+          {browsing && (
+            <ImageBrowseView
+              key={currentProject.projectPath}
+              items={browseItems}
+              projectPath={currentProject.projectPath}
+              thumbnailStore={imageAssetThumbnailStore}
+              onVisibleFileIdsChange={loadVisibleImageAssetThumbnails}
+              readOriginal={readBrowseOriginal}
+              onBackToCanvas={() => changeMode(false)}
+            />
+          )}
         </div>
       </ProjectRenderBoundary>
 
@@ -3038,7 +3127,7 @@ const App = ({
             generatePanelRef.current = element;
           }}
           open={true}
-          expanded={generateComposerExpanded}
+          expanded={!browsing && generateComposerExpanded}
           persistent={true}
           focusToken={generateFocusToken}
           initialRequest={generateRequest}

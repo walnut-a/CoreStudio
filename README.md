@@ -93,6 +93,7 @@ Upstream Excalidraw is released under the MIT License, and so is this repository
 The following capabilities are backed by current code or documentation:
 
 - Excalidraw canvas features including shapes, text, images, grouping, and freeform composition.
+- A desktop View mode for browsing the canvas images in a grid and opening full-size images, while preserving the original canvas layout.
 - Local project-folder persistence for `project.json`, `scene.excalidraw.json`, `image-records.json`, `assets/`, and related data.
 - Multiple image-generation providers, including Gemini, ZenMux, fal.ai, Jimeng / Seedream, OpenAI, and OpenRouter.
 - A bottom generation composer with reference images, generation parameters, prompt library, and generation history.

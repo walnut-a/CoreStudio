@@ -472,6 +472,7 @@ vi.mock("@excalidraw/excalidraw", () => {
     ),
     Excalidraw: ({
       initialData,
+      interaction,
       langCode,
       wheelZoomSensitivity,
       children,
@@ -486,6 +487,7 @@ vi.mock("@excalidraw/excalidraw", () => {
       renderSelectedShapeActions,
       renderTopLeftUI,
     }: {
+      interaction?: boolean;
       initialData?: {
         elements?: any[];
         appState?: Record<string, unknown>;
@@ -745,6 +747,7 @@ vi.mock("@excalidraw/excalidraw", () => {
             />
             <div
               data-testid="excalidraw-canvas"
+              data-interaction={interaction === false ? "false" : "true"}
               data-lang-code={langCode}
               data-wheel-zoom-sensitivity={wheelZoomSensitivity}
               data-has-top-left-ui={renderTopLeftUI ? "true" : "false"}

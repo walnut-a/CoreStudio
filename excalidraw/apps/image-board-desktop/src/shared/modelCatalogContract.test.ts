@@ -4,6 +4,7 @@ import {
   parseRemoteModelCatalog,
   type RemoteModelCatalog,
 } from "./modelCatalogContract";
+import { ZENMUX_OPENAI_IMAGE_MODELS } from "./zenmuxOpenAIModels";
 
 const createCatalog = (): RemoteModelCatalog => ({
   schemaVersion: 1,
@@ -39,6 +40,17 @@ const createCatalog = (): RemoteModelCatalog => ({
 });
 
 describe("remote model catalog contract", () => {
+  it("accepts ZenMux OpenAI presets only in a catalog supported by the client version", () => {
+    const catalog = createCatalog();
+    catalog.minClientVersion = "1.1.49";
+    catalog.providers.zenmux!.models.push(
+      ...Object.values(ZENMUX_OPENAI_IMAGE_MODELS),
+    );
+    expect(parseRemoteModelCatalog(catalog, "1.1.49")).toEqual(catalog);
+    expect(() => parseRemoteModelCatalog(catalog, "1.1.48")).toThrow(
+      "需要 CoreStudio 1.1.49",
+    );
+  });
   it("accepts a compatible data-only catalog", () => {
     expect(parseRemoteModelCatalog(createCatalog(), "1.1.26")).toEqual(
       createCatalog(),

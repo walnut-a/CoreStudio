@@ -8,12 +8,15 @@ import { dispatchDesktopEditCommand } from "./desktopEditCommand";
 
 export const useDesktopMenuEvents = (
   handler: (event: DesktopMenuEvent) => void,
+  isActionAllowed?: (event: DesktopMenuEvent) => boolean,
 ) => {
   const handlerRef = useRef(handler);
+  const allowedRef = useRef(isActionAllowed);
 
   useEffect(() => {
     handlerRef.current = handler;
-  }, [handler]);
+    allowedRef.current = isActionAllowed;
+  }, [handler, isActionAllowed]);
 
   useEffect(() => {
     const bridge = maybeGetDesktopBridge();
@@ -52,6 +55,9 @@ export const useDesktopMenuEvents = (
     document.addEventListener("pointerdown", rememberPointerTarget, true);
 
     const unsubscribe = bridge.onMenuAction((event) => {
+      if (allowedRef.current && !allowedRef.current(event)) {
+        return;
+      }
       if (
         event.action === "edit-undo" ||
         event.action === "edit-redo" ||

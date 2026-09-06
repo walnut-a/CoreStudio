@@ -93,6 +93,7 @@ CoreStudio 本身不额外收取使用费用；第三方模型 API 和 Agent 产
 以下能力均有明确代码或文档依据：
 
 - Excalidraw 画布、图形、文字、图片、分组和自由编排能力。
+- 客户端查看模式：将画布图片平铺为网格，点击浏览原图，切换时保留原画布布局。
 - 本地项目文件夹读写，包含 `project.json`、`scene.excalidraw.json`、`image-records.json`、`assets/` 等数据。
 - 多模型图片生成 provider，包括 Gemini、ZenMux、fal.ai、即梦 / Seedream、OpenAI、OpenRouter。
 - 底部生成输入框、参考图选择、生成参数、提示词库和生成记录。

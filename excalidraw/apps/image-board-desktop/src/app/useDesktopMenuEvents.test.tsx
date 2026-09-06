@@ -16,6 +16,44 @@ afterEach(() => {
 });
 
 describe("useDesktopMenuEvents", () => {
+  it("checks the current mode before dispatching native edit or import commands", () => {
+    let listener!: (event: DesktopMenuEvent) => void;
+    window.imageBoardDesktop = {
+      onMenuAction: (next) => {
+        listener = next;
+        return () => undefined;
+      },
+    } as DesktopBridgeApi;
+    const received = vi.fn();
+    const handler = vi.fn();
+    const Surface = ({ browsing }: { browsing: boolean }) => {
+      useDesktopMenuEvents(
+        handler,
+        (event) =>
+          !browsing ||
+          (event.action !== "edit-undo" && event.action !== "import-images"),
+      );
+      return (
+        <div tabIndex={0} onKeyDown={received}>
+          Canvas
+        </div>
+      );
+    };
+    const { rerender, getByText } = render(<Surface browsing={false} />);
+    fireEvent.pointerDown(getByText("Canvas"));
+    rerender(<Surface browsing />);
+    act(() => {
+      listener({ action: "edit-undo" });
+      listener({ action: "import-images" });
+      listener({ action: "app-settings" });
+    });
+    expect(received).not.toHaveBeenCalled();
+    expect(handler).toHaveBeenCalledExactlyOnceWith({ action: "app-settings" });
+    rerender(<Surface browsing={false} />);
+    act(() => listener({ action: "edit-undo" }));
+    expect(received).toHaveBeenCalledOnce();
+  });
+
   it("remembers the last pointer target while the native menu owns focus", () => {
     let menuListener: ((event: DesktopMenuEvent) => void) | null = null;
     window.imageBoardDesktop = {

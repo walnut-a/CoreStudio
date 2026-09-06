@@ -21,12 +21,33 @@ interface ImageInspectorProps {
   descendantRecords: ImageLineageEntry[];
   task: GenerationTaskRecord | null;
   onCopyPrompt: () => void;
-  onCopyTaskError: () => void;
-  onLocateImageRecord: (fileId: string) => void;
-  onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
+  onCopyTaskError?: () => void;
+  onLocateImageRecord?: (fileId: string) => void;
+  onLocatePromptReference?: (reference: ImagePromptReferenceRecord) => void;
   onCopyImageId?: () => void;
   onRenameImage?: (displayName: string | null) => Promise<void> | void;
 }
+
+// Without a navigation capability, references and lineage remain selectable text.
+const InspectorLink = ({
+  children,
+  onClick,
+  className,
+  ...props
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  className: string;
+  "aria-label"?: string;
+  title?: string;
+}) =>
+  onClick ? (
+    <button type="button" className={className} onClick={onClick} {...props}>
+      {children}
+    </button>
+  ) : (
+    <span className={className}>{children}</span>
+  );
 
 const formatDateTime = (value: string) => {
   const date = new Date(value);
@@ -91,7 +112,7 @@ const hasPromptReferenceTarget = (reference: ImagePromptReferenceRecord) =>
 const renderPromptTextWithReferences = (
   prompt: string | undefined,
   references: ImagePromptReferenceRecord[] | undefined,
-  onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void,
+  onLocatePromptReference: ImageInspectorProps["onLocatePromptReference"],
 ) => {
   const promptText = getOptionalText(prompt);
   const renderableReferences = (references || [])
@@ -118,16 +139,19 @@ const renderPromptTextWithReferences = (
     }
 
     nodes.push(
-      <button
+      <InspectorLink
         key={reference.id}
-        type="button"
         className="image-inspector__prompt-reference"
         aria-label={copy.inspector.locateReference(placeholder)}
         title={copy.inspector.locateImage}
-        onClick={() => onLocatePromptReference(reference)}
+        onClick={
+          onLocatePromptReference
+            ? () => onLocatePromptReference(reference)
+            : undefined
+        }
       >
         {placeholder}
-      </button>,
+      </InspectorLink>,
     );
     rest = rest.slice(placeholderIndex + placeholder.length);
   }
@@ -159,14 +183,12 @@ export const ImageInspector = ({
   onRenameImage,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
-  const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
   usePlainTextCopyWithin(inspectorRef);
 
   useEffect(() => {
-    setTechnicalDetailsOpen(false);
     setRenaming(false);
     setRenameValue(record?.displayName ?? record?.sourceFileName ?? "");
     setRenameSaving(false);
@@ -275,7 +297,7 @@ export const ImageInspector = ({
               )}
             </dl>
           </section>
-          {task.status === "error" && (
+          {task.status === "error" && onCopyTaskError && (
             <div className="image-inspector__actions">
               <DesktopButton
                 type="button"
@@ -309,7 +331,15 @@ export const ImageInspector = ({
     record.displayName?.trim() ||
     record.sourceFileName?.trim() ||
     getImageRecordTitle(record);
-  const modelText = getOptionalText(record.model);
+  const provenance = buildImageProvenanceViewModel(record);
+  const hasGenerationParameters =
+    record.sourceType === "generated" &&
+    Boolean(
+      record.model?.trim() ||
+        record.provider?.trim() ||
+        record.seed != null ||
+        record.negativePrompt?.trim(),
+    );
   const generationAttribution = getGenerationAttribution(record);
   const promptReferenceList = getPromptReferenceList(record.promptReferences);
   const detachedPromptReferenceList = promptReferenceList.filter(
@@ -328,16 +358,23 @@ export const ImageInspector = ({
     return (
       <li
         key={chainRecord.fileId}
-        className="image-inspector__chain-item image-inspector__chain-item--actionable"
+        className={`image-inspector__chain-item${
+          onLocateImageRecord ? " image-inspector__chain-item--actionable" : ""
+        }`}
         style={options.style}
       >
         <span className="image-inspector__chain-marker" aria-hidden="true" />
-        <button
-          type="button"
-          className="image-inspector__chain-content image-inspector__chain-button"
+        <InspectorLink
+          className={`image-inspector__chain-content${
+            onLocateImageRecord ? " image-inspector__chain-button" : ""
+          }`}
           aria-label={`${copy.inspector.locateImage}：${summary}`}
           title={copy.inspector.locateImage}
-          onClick={() => onLocateImageRecord(chainRecord.fileId)}
+          onClick={
+            onLocateImageRecord
+              ? () => onLocateImageRecord(chainRecord.fileId)
+              : undefined
+          }
         >
           <span className="image-inspector__chain-heading">
             <span className="image-inspector__chain-label">
@@ -353,13 +390,16 @@ export const ImageInspector = ({
           <span className="image-inspector__chain-summary">
             {promptSummary}
           </span>
-        </button>
+        </InspectorLink>
       </li>
     );
   };
 
   return (
-    <section className="image-inspector" ref={inspectorRef}>
+    <section
+      className="image-inspector image-inspector--record"
+      ref={inspectorRef}
+    >
       <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
         <header className="image-inspector__hero">
           <div className="image-inspector__hero-main">
@@ -421,61 +461,166 @@ export const ImageInspector = ({
                 ) : null}
               </div>
             )}
-            <p>{modelText}</p>
           </div>
-          <div className="image-inspector__hero-facts">
-            {generationAttribution ? (
-              <span>{generationAttribution}</span>
-            ) : null}
-            <span>{formatSize(record.width, record.height)}</span>
-            <span>{formatDateTime(record.createdAt)}</span>
-          </div>
+          <dl className="image-inspector__detail-grid image-inspector__metadata">
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.size}</dt>
+              <dd className="image-inspector__detail-value">
+                {formatSize(record.width, record.height)}
+              </dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.mimeType}</dt>
+              <dd className="image-inspector__detail-value">
+                {record.mimeType}
+              </dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.createdAt}</dt>
+              <dd className="image-inspector__detail-value">
+                {formatDateTime(record.createdAt)}
+              </dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.source}</dt>
+              <dd className="image-inspector__detail-value">
+                {generationAttribution || provenance.sourceLabel}
+              </dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.assetPath}</dt>
+              <dd className="image-inspector__detail-value image-inspector__detail-code">
+                {record.assetPath}
+              </dd>
+            </div>
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.imageId}</dt>
+              <dd className="image-inspector__id-value">
+                <code title={record.fileId}>{record.fileId}</code>
+                {onCopyImageId ? (
+                  <DesktopButton
+                    type="button"
+                    size="small"
+                    className="image-inspector__copy-button"
+                    aria-label={copy.inspector.copyImageId}
+                    title={copy.inspector.copyImageId}
+                    onClick={onCopyImageId}
+                  >
+                    {copyIcon}
+                  </DesktopButton>
+                ) : null}
+              </dd>
+            </div>
+          </dl>
         </header>
 
-        <section className="image-inspector__prompt-section">
-          <div className="image-inspector__section-header">
-            <h4>{copy.inspector.prompt}</h4>
-            <DesktopButton
-              type="button"
-              size="small"
-              className="image-inspector__copy-button"
-              aria-label={copy.inspector.copyPrompt}
-              title={copy.inspector.copyPrompt}
-              onClick={onCopyPrompt}
-              disabled={!record.prompt}
-            >
-              {copyIcon}
-            </DesktopButton>
-          </div>
-          <div className="image-inspector__prompt-body">
-            <p className="image-inspector__prompt-text">
-              {renderPromptTextWithReferences(
-                record.prompt,
-                record.promptReferences,
-                onLocatePromptReference,
-              )}
-            </p>
-            {detachedPromptReferenceList.length ? (
-              <div
-                className="image-inspector__prompt-reference-list"
-                aria-label={copy.inspector.promptReferences}
-              >
-                {detachedPromptReferenceList.map((reference) => (
-                  <button
-                    key={reference.id}
-                    type="button"
-                    className="image-inspector__prompt-reference-chip"
-                    aria-label={copy.inspector.locateReference(reference.label)}
-                    title={copy.inspector.locateImage}
-                    onClick={() => onLocatePromptReference(reference)}
-                  >
-                    {reference.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </section>
+        {(hasGenerationParameters ||
+          record.prompt?.trim() ||
+          promptReferenceList.length > 0) && (
+          <section
+            className="image-inspector__generation"
+            aria-label={
+              record.sourceType === "generated"
+                ? copy.inspector.generationInfo
+                : copy.inspector.prompt
+            }
+          >
+            {record.sourceType === "generated" && (
+              <h4>{copy.inspector.generationInfo}</h4>
+            )}
+            {(record.prompt?.trim() || promptReferenceList.length > 0) && (
+              <section className="image-inspector__prompt-section">
+                <div className="image-inspector__section-header">
+                  <h4>{copy.inspector.prompt}</h4>
+                  {record.prompt?.trim() && (
+                    <DesktopButton
+                      type="button"
+                      size="small"
+                      className="image-inspector__copy-button"
+                      aria-label={copy.inspector.copyPrompt}
+                      title={copy.inspector.copyPrompt}
+                      onClick={onCopyPrompt}
+                    >
+                      {copyIcon}
+                    </DesktopButton>
+                  )}
+                </div>
+                <div className="image-inspector__prompt-body">
+                  {record.prompt?.trim() && (
+                    <p className="image-inspector__prompt-text">
+                      {renderPromptTextWithReferences(
+                        record.prompt,
+                        record.promptReferences,
+                        onLocatePromptReference,
+                      )}
+                    </p>
+                  )}
+                  {detachedPromptReferenceList.length ? (
+                    <div
+                      className="image-inspector__prompt-reference-list"
+                      aria-label={copy.inspector.promptReferences}
+                    >
+                      {detachedPromptReferenceList.map((reference) => (
+                        <InspectorLink
+                          key={reference.id}
+                          className="image-inspector__prompt-reference-chip"
+                          aria-label={copy.inspector.locateReference(
+                            reference.label,
+                          )}
+                          title={copy.inspector.locateImage}
+                          onClick={
+                            onLocatePromptReference
+                              ? () => onLocatePromptReference(reference)
+                              : undefined
+                          }
+                        >
+                          {reference.label}
+                        </InspectorLink>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            )}
+            {hasGenerationParameters && (
+              <dl className="image-inspector__detail-grid image-inspector__metadata">
+                {record.sourceType === "generated" && record.model?.trim() && (
+                  <div className="image-inspector__detail-item">
+                    <dt>{copy.inspector.model}</dt>
+                    <dd className="image-inspector__detail-value">
+                      {record.model}
+                    </dd>
+                  </div>
+                )}
+                {record.sourceType === "generated" && record.provider && (
+                  <div className="image-inspector__detail-item">
+                    <dt>{copy.inspector.provider}</dt>
+                    <dd className="image-inspector__detail-value">
+                      {provenance.providerLabel}
+                    </dd>
+                  </div>
+                )}
+                {record.sourceType === "generated" && record.seed != null && (
+                  <div className="image-inspector__detail-item">
+                    <dt>{copy.inspector.seed}</dt>
+                    <dd className="image-inspector__detail-value">
+                      {record.seed}
+                    </dd>
+                  </div>
+                )}
+                {record.sourceType === "generated" &&
+                  record.negativePrompt?.trim() && (
+                    <div className="image-inspector__detail-item image-inspector__detail-item--wide">
+                      <dt>{copy.inspector.negativePrompt}</dt>
+                      <dd className="image-inspector__detail-value">
+                        {record.negativePrompt}
+                      </dd>
+                    </div>
+                  )}
+              </dl>
+            )}
+          </section>
+        )}
 
         {(ancestorRecords.length > 0 || descendantRecords.length > 0) && (
           <section className="image-inspector__chain">
@@ -528,63 +673,6 @@ export const ImageInspector = ({
             )}
           </section>
         )}
-
-        <section className="image-inspector__technical">
-          <button
-            type="button"
-            className="image-inspector__technical-toggle"
-            aria-expanded={technicalDetailsOpen}
-            onClick={() => setTechnicalDetailsOpen((open) => !open)}
-          >
-            <span>{copy.inspector.technicalDetails}</span>
-            <span aria-hidden="true">{technicalDetailsOpen ? "−" : "+"}</span>
-          </button>
-          {technicalDetailsOpen ? (
-            <dl className="image-inspector__detail-grid">
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.imageId}</dt>
-                <dd className="image-inspector__technical-value">
-                  <code>{record.fileId}</code>
-                  {onCopyImageId ? (
-                    <DesktopButton
-                      type="button"
-                      size="small"
-                      aria-label={copy.inspector.copyImageId}
-                      title={copy.inspector.copyImageId}
-                      onClick={onCopyImageId}
-                    >
-                      {copyIcon}
-                    </DesktopButton>
-                  ) : null}
-                </dd>
-              </div>
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.assetPath}</dt>
-                <dd className="image-inspector__detail-value image-inspector__detail-code">
-                  {record.assetPath}
-                </dd>
-              </div>
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.mimeType}</dt>
-                <dd className="image-inspector__detail-value">
-                  {record.mimeType}
-                </dd>
-              </div>
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.originalSize}</dt>
-                <dd className="image-inspector__detail-value">
-                  {formatSize(record.width, record.height)} px
-                </dd>
-              </div>
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.generationOrigin}</dt>
-                <dd className="image-inspector__detail-value">
-                  {buildImageProvenanceViewModel(record).sourceLabel}
-                </dd>
-              </div>
-            </dl>
-          ) : null}
-        </section>
       </div>
     </section>
   );

@@ -190,3 +190,25 @@
   line-height: 1.2;
   white-space: nowrap;
 }
+
+.image-asset-sidebar__browse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ui-control-size-md);
+  height: var(--ui-control-size-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
+  cursor: pointer;
+}
+.image-asset-sidebar__browse:hover {
+  background: var(--button-hover-bg);
+  color: var(--text-primary-color);
+}
+.image-asset-sidebar__browse:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

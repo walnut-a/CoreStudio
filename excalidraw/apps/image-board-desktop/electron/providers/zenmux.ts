@@ -1,9 +1,11 @@
+import { generateOpenAIImages } from "./openai";
 import { GoogleGenAI } from "@google/genai";
 
 import {
   getAspectRatioOptions,
   getProviderRequestAdapter,
   getRequestAspectRatioOption,
+  normalizeGenerationRequest,
 } from "../../src/shared/providerCatalog";
 
 import { writeGenerationLog } from "../generationLogs";
@@ -450,6 +452,19 @@ export const generateZenMuxImages = async ({
     model: request.model,
     customModels,
   });
+
+  if (adapter === "zenmux-openai-images") {
+    return generateOpenAIImages({
+      apiKey,
+      request: normalizeGenerationRequest(request, { customModels }),
+      projectPath,
+      signal,
+      baseUrl: "https://zenmux.ai/api/v1",
+      responseProvider: "zenmux",
+      providerLabel: "ZenMux",
+      outputFormat: null,
+    });
+  }
 
   if (adapter === "zenmux-vertex-gpt-image") {
     return generateZenMuxOpenAICompatibleImages({

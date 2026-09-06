@@ -161,3 +161,23 @@ export const chevronDownIcon = (className?: string) => (
     <path d="m7.25 9 4.75 4.75L16.75 9" />
   </LineIcon>
 );
+
+export const gridViewIcon = (
+  <LineIcon size={20}>
+    <rect x="4.75" y="4.75" width="5.5" height="5.5" rx="1" />
+    <rect x="13.75" y="4.75" width="5.5" height="5.5" rx="1" />
+    <rect x="4.75" y="13.75" width="5.5" height="5.5" rx="1" />
+    <rect x="13.75" y="13.75" width="5.5" height="5.5" rx="1" />
+  </LineIcon>
+);
+
+export const browsePreviousIcon = (
+  <LineIcon size={18}>
+    <path d="m14.5 6.5-5.5 5.5 5.5 5.5" />
+  </LineIcon>
+);
+export const browseNextIcon = (
+  <LineIcon size={18}>
+    <path d="m9.5 6.5 5.5 5.5-5.5 5.5" />
+  </LineIcon>
+);

@@ -81,6 +81,82 @@ afterEach(() => {
 });
 
 describe("ImageInspector", () => {
+  it("groups file metadata once and leaves imported images free of empty generation sections", () => {
+    render(
+      <ImageInspector
+        record={{ ...parentRecord, prompt: undefined }}
+        ancestorRecords={[]}
+        descendantRecords={[]}
+        task={null}
+        onCopyPrompt={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("技术信息")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "生成信息" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "提示词" })).toBeNull();
+    expect(screen.queryByText("无")).toBeNull();
+    expect(screen.getAllByText("1024 × 768")).toHaveLength(1);
+    expect(screen.getAllByText("image/png")).toHaveLength(1);
+    expect(screen.getByText("assets/file-0.png")).toBeVisible();
+  });
+  it("keeps model, prompt and seed in the generation group instead of file metadata", () => {
+    renderInspector();
+    const group = screen.getByRole("region", { name: "生成信息" });
+    expect(within(group).getByText(generatedRecord.prompt!)).toBeVisible();
+    expect(within(group).getByText(generatedRecord.model!)).toBeVisible();
+    expect(within(group).getByText("12")).toBeVisible();
+    expect(within(group).queryByText("图片 ID")).toBeNull();
+    expect(screen.getAllByText("1024 × 768")).toHaveLength(1);
+  });
+
+  it("renders prompt references and lineage as text when navigation capabilities are absent", () => {
+    const { container } = render(
+      <ImageInspector
+        record={{
+          ...generatedRecord,
+          prompt: "参考图 1细化外壳",
+          promptReferences: [
+            {
+              id: "ref-1",
+              index: 1,
+              label: "参考图片1",
+              kind: "image",
+              fileIds: ["file-0"],
+            },
+            {
+              id: "ref-2",
+              index: 2,
+              label: "轮廓参考",
+              kind: "image",
+              fileIds: ["file-2"],
+            },
+          ],
+        }}
+        ancestorRecords={[parentRecord]}
+        descendantRecords={[]}
+        task={null}
+        onCopyPrompt={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /定位|重命名/ })).toBeNull();
+    expect(screen.getByText("轮廓参考").tagName).toBe("SPAN");
+    expect(
+      container.querySelector(".image-inspector__prompt-reference")?.tagName,
+    ).toBe("SPAN");
+    expect(
+      container.querySelector(".image-inspector__chain-content")?.tagName,
+    ).toBe("SPAN");
+  });
+
+  it("groups saved generation parameters with the prompt", () => {
+    renderInspector({
+      record: { ...generatedRecord, seed: 0, negativePrompt: "不要文字和水印" },
+    });
+    expect(screen.queryByText("技术信息")).toBeNull();
+    expect(screen.getByText("不要文字和水印")).toBeVisible();
+    expect(screen.getByText("0")).toBeVisible();
+  });
+
   it("uses a concrete image heading instead of repeating the generic panel label", () => {
     renderInspector();
 
@@ -99,17 +175,17 @@ describe("ImageInspector", () => {
     ) as HTMLElement;
 
     expect(hero).not.toBeNull();
-    expect(within(hero).queryByText("AI 生成")).not.toBeInTheDocument();
-    expect(within(hero).getByText("fal-ai/nano-banana-2")).toBeInTheDocument();
+    expect(within(hero).getByText("AI 生成")).toBeInTheDocument();
+    expect(within(hero).queryByText("fal-ai/nano-banana-2")).toBeNull();
     expect(within(hero).getByText("1024 × 768")).toBeInTheDocument();
   });
 
-  it("keeps technical identifiers collapsed and copies the id on demand", () => {
+  it("shows file properties directly and copies the complete id on demand", () => {
     const onCopyImageId = vi.fn();
     renderInspector({ onCopyImageId });
 
-    expect(screen.queryByText("file-1")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("技术信息"));
+    expect(screen.queryByRole("button", { name: "技术信息" })).toBeNull();
+    expect(screen.queryByText("技术信息")).toBeNull();
     expect(screen.getByText("file-1")).toBeInTheDocument();
     expect(screen.getByText("assets/file-1.png")).toBeInTheDocument();
     expect(screen.getByText("image/png")).toBeInTheDocument();
@@ -151,13 +227,13 @@ describe("ImageInspector", () => {
     ).toBeInTheDocument();
   });
 
-  it("removes the redundant generation parameter record from image details", () => {
+  it("keeps one technical group and omits empty generation parameters", () => {
     renderInspector();
 
     expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
-    expect(screen.queryByText("图片 ID")).not.toBeInTheDocument();
+    expect(screen.getAllByText("图片 ID")).toHaveLength(1);
     expect(screen.queryByText("反向提示词")).not.toBeInTheDocument();
-    expect(screen.queryByText("种子")).not.toBeInTheDocument();
+    expect(screen.getAllByText("种子")).toHaveLength(1);
   });
 
   it("keeps the prompt and its copy action together in one bounded section", () => {
@@ -187,7 +263,8 @@ describe("ImageInspector", () => {
     expect(
       within(promptBody).getByText(/一台桌面级五轴 CNC 机器/),
     ).toBeInTheDocument();
-    expect(detailGrid).toBeNull();
+    expect(detailGrid).not.toContainElement(copyButton);
+    expect(promptSection).not.toContainElement(detailGrid);
     expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "提示词", level: 4 }),

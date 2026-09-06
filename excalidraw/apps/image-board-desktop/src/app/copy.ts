@@ -27,8 +27,12 @@ const formatFileSize = (bytes: number) => {
 
 const zhCnCopy = {
   browse: {
+    properties: "属性",
+    imageProperties: "图片属性",
+    noProperties: "暂无图片属性",
     openGrid: "网格查看",
     backToCanvas: "返回画布",
+    locateOnCanvas: "在画布中定位",
     grid: "图片网格",
     untitled: "图片",
     empty: "项目中还没有图片",
@@ -206,8 +210,8 @@ const zhCnCopy = {
     rename: "重命名",
     saveName: "保存名称",
     cancelRename: "取消",
-    technicalDetails: "技术信息",
-    assetPath: "资源路径",
+    generationInfo: "生成信息",
+    assetPath: "文件位置",
     mimeType: "文件类型",
     originalSize: "原始尺寸",
     generationOrigin: "生成来源",

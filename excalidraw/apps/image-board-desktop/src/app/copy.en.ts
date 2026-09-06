@@ -16,8 +16,12 @@ const formatFileSize = (bytes: number) => {
 
 export const enCopy: DesktopCopy = {
   browse: {
+    properties: "Properties",
+    imageProperties: "Image properties",
+    noProperties: "No image properties available",
     openGrid: "Grid view",
     backToCanvas: "Back to canvas",
+    locateOnCanvas: "Locate on canvas",
     grid: "Image grid",
     untitled: "Image",
     empty: "No images in this project yet",
@@ -203,8 +207,8 @@ export const enCopy: DesktopCopy = {
     rename: "Rename",
     saveName: "Save name",
     cancelRename: "Cancel",
-    technicalDetails: "Technical details",
-    assetPath: "Asset path",
+    generationInfo: "Generation",
+    assetPath: "File location",
     mimeType: "File type",
     originalSize: "Original size",
     generationOrigin: "Generation origin",

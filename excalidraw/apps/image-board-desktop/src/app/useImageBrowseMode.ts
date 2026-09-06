@@ -20,6 +20,7 @@ export const useImageBrowseMode = (
   const selectionRef = useRef<{
     projectPath: string;
     selection: BrowseSelection;
+    locateFileId?: string;
   } | null>(null);
   const browsing = Boolean(projectPath && browseProjectPath === projectPath);
 
@@ -48,6 +49,24 @@ export const useImageBrowseMode = (
       const elements = api
         .getSceneElements()
         .filter((element) => !element.isDeleted);
+      const target = saved.locateFileId
+        ? elements.find(
+            (element) =>
+              element.type === "image" && element.fileId === saved.locateFileId,
+          )
+        : undefined;
+      if (target) {
+        api.updateScene({
+          appState: {
+            selectedElementIds: { [target.id]: true },
+            selectedGroupIds: {},
+            editingGroupId: null,
+          },
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+        api.setViewport({ target, fit: "scale-down", animation: false });
+        return;
+      }
       const ids = new Set(elements.map((element) => element.id));
       const groups = new Set(elements.flatMap((element) => element.groupIds));
       // The base editor clears selection when interaction is disabled. Restore
@@ -98,5 +117,11 @@ export const useImageBrowseMode = (
       setBrowseProjectPath(null);
     }
   };
-  return { browsing, changeMode };
+  const locateImage = (fileId: string) => {
+    const saved = selectionRef.current;
+    if (!browsing || !saved || saved.projectPath !== projectPath) return;
+    saved.locateFileId = fileId;
+    setBrowseProjectPath(null);
+  };
+  return { browsing, changeMode, locateImage };
 };

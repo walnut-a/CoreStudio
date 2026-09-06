@@ -492,7 +492,7 @@ const App = ({
       setSelectedTask,
     });
   const [sceneImageFileIds, setSceneImageFileIds] = useState<string[]>([]);
-  const { browsing, changeMode } = useImageBrowseMode(
+  const { browsing, changeMode, locateImage } = useImageBrowseMode(
     currentProject?.projectPath ?? null,
     excalidrawAPIRef,
   );
@@ -3109,11 +3109,16 @@ const App = ({
             <ImageBrowseView
               key={currentProject.projectPath}
               items={browseItems}
+              imageRecords={currentProject.imageRecords}
+              onCopyText={(text) => {
+                void clipboardTextRendererActions.copy(text);
+              }}
               projectPath={currentProject.projectPath}
               thumbnailStore={imageAssetThumbnailStore}
               onVisibleFileIdsChange={loadVisibleImageAssetThumbnails}
               readOriginal={readBrowseOriginal}
               onBackToCanvas={() => changeMode(false)}
+              onLocateImage={locateImage}
             />
           )}
         </div>

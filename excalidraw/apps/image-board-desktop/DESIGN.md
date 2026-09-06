@@ -200,6 +200,14 @@ CoreStudio 使用 Excalidraw 的 island shadow 作为唯一常规浮层深度。
 - **Sidebars:** 右侧详情和左侧信息使用 Excalidraw `DefaultSidebar` / dock 语汇。新面板优先接入既有侧栏，而不是浮在画布中央。
 - **Agent Dock:** 右下角状态按钮必须和帮助按钮同尺寸、同 hover、同层级。popover 可以覆盖输入框，不需要避让。
 
+### Image Properties
+
+- **Content grouping:** 图片名称、尺寸、文件类型、创建时间、来源、文件位置和图片 ID 属于同一图片信息区。模型、服务、提示词、种子和反向提示词归入生成信息；编辑链单独展示来源及后续版本。相同属性不在多个区块重复显示。
+- **Disclosure:** 不使用“技术信息”兜底分类，不为这些图片属性增加默认折叠。大图详情的整个只读属性面板可以收起。
+- **Empty data:** 导入图片不显示空的生成信息，未保存的模型、提示词和参数不以“无”撑开占位。
+- **Density:** 分组内使用轻量标签和值，按空间 token 排列；仅组间使用细分隔线，不将只读属性做成逐行带边框的表格。
+- **Copy actions:** 提示词和图片 ID 共用 32px 方形点击区域及 16px 图标，常态透明无边框，hover／focus 使用现有控件反馈。显式限制按钮和 SVG 尺寸，不能只调整外层按钮。
+
 ### Agent Board
 
 Agent Board 是同一产品的浏览器入口，不是另一个 app。默认可以启用 Agent 操作模式、项目切换和 bridge 状态，但视觉上仍沿用桌面画板的按钮、菜单、floating composer 和 canvas 控件。

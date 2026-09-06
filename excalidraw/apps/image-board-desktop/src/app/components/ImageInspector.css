@@ -280,10 +280,10 @@
 }
 
 .image-board-app .image-inspector__copy-button.image-board-button {
-  width: var(--ui-control-size-sm);
-  min-width: var(--ui-control-size-sm);
-  height: var(--ui-control-size-sm);
-  min-height: var(--ui-control-size-sm);
+  width: var(--ui-control-size-md);
+  min-width: var(--ui-control-size-md);
+  height: var(--ui-control-size-md);
+  min-height: var(--ui-control-size-md);
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -350,7 +350,7 @@
   cursor: pointer;
 }
 
-.image-inspector__prompt-reference:hover {
+button.image-inspector__prompt-reference:hover {
   color: color-mix(
     in srgb,
     var(--color-primary) 78%,
@@ -378,7 +378,7 @@
   cursor: pointer;
 }
 
-.image-inspector__prompt-reference-chip:hover {
+button.image-inspector__prompt-reference-chip:hover {
   background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
@@ -390,29 +390,61 @@
   border-top: 1px solid var(--default-border-color);
 }
 
-.image-inspector__technical {
-  display: grid;
+.image-inspector__metadata {
+  gap: var(--ui-space-sm);
+  border: 0;
 }
 
-.image-inspector__technical-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: var(--lg-button-size);
+.image-inspector__metadata .image-inspector__detail-item {
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: var(--ui-space-sm);
+  align-items: baseline;
   padding: 0;
   border: 0;
-  border-bottom: 1px solid var(--default-border-color);
-  background: transparent;
-  color: var(--corestudio-secondary-text-color, var(--color-gray-70));
-  font: inherit;
-  font-size: var(--ui-text-size-sm);
-  font-weight: var(--font-weight-medium);
-  text-align: left;
-  cursor: pointer;
 }
 
-.image-inspector__technical-value {
+.image-inspector__metadata .image-inspector__detail-item--wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ui-space-xs);
+}
+
+.image-inspector__metadata .image-inspector__detail-item dt {
+  font-weight: var(--font-weight-medium);
+  line-height: var(--ui-line-height-relaxed);
+}
+
+.image-inspector__metadata .image-inspector__detail-code {
+  font-family: inherit;
+  font-size: var(--ui-text-size-md);
+}
+
+.image-inspector--record .image-inspector__hero,
+.image-inspector--record .image-inspector__prompt-section {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.image-inspector__generation {
+  display: grid;
+  gap: var(--ui-space-lg);
+}
+
+.image-inspector__generation > h4 {
+  margin: 0;
+  color: var(--text-primary-color);
+  font-size: var(--ui-text-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--ui-line-height-relaxed);
+}
+
+.image-inspector--record .image-inspector__generation,
+.image-inspector--record .image-inspector__chain {
+  border-top: 1px solid var(--default-border-color);
+  padding-top: var(--ui-space-2xl);
+}
+
+.image-inspector__id-value {
   display: flex;
   align-items: center;
   gap: var(--ui-space-xs);
@@ -420,20 +452,14 @@
   margin: 0;
 }
 
-.image-inspector__technical-value code {
+.image-inspector__id-value code {
+  flex: 1;
   min-width: 0;
+  font-family: inherit;
   overflow: hidden;
-  font-size: var(--ui-text-size-sm);
+  font-size: var(--ui-text-size-md);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.image-inspector__technical-value .image-board-button {
-  flex: none;
-  min-width: var(--ui-control-size-sm);
-  width: var(--ui-control-size-sm);
-  height: var(--ui-control-size-sm);
-  padding: 0;
 }
 
 .image-inspector__detail-item {
@@ -645,4 +671,11 @@
 .image-inspector__chain-group {
   display: grid;
   gap: var(--ui-space-sm);
+}
+
+span.image-inspector__prompt-reference,
+span.image-inspector__prompt-reference-chip {
+  cursor: text;
+  text-decoration: none;
+  color: inherit;
 }

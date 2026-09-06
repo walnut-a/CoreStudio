@@ -4,10 +4,12 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ImageBrowseView } from "./ImageBrowseView";
 import { createImageAssetThumbnailStore } from "../imageAssetThumbnailStore";
+import type { ImageRecordMap } from "../../shared/projectTypes";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
 
 const asset = (fileId: string): ProjectAssetPayload => ({
@@ -22,14 +24,52 @@ const items = Array.from({ length: 300 }, (_, i) => ({
   fileId: `image-${i}`,
   title: `图片 ${i}`,
   sizeLabel: "800 × 600 px",
+  aspectRatio: 4 / 3,
 }));
 const props = () => ({
   items,
+  imageRecords: {
+    "image-0": {
+      fileId: "image-0",
+      assetPath: "assets/0.png",
+      sourceType: "generated",
+      model: "test-model",
+      prompt: "圆润的桌面音箱",
+      parentFileId: "parent",
+      width: 800,
+      height: 600,
+      createdAt: "2026-09-06",
+      mimeType: "image/png",
+    },
+    parent: {
+      fileId: "parent",
+      assetPath: "assets/parent.png",
+      sourceType: "imported",
+      prompt: "最初的结构草图",
+      width: 800,
+      height: 600,
+      createdAt: "2026-09-05",
+      mimeType: "image/png",
+    },
+    "image-1": {
+      fileId: "image-1",
+      assetPath: "assets/1.png",
+      sourceType: "generated",
+      prompt: "细化音量旋钮",
+      parentFileId: "image-0",
+      width: 800,
+      height: 600,
+      createdAt: "2026-09-07",
+      mimeType: "image/png",
+    },
+  } as ImageRecordMap,
+  onCopyText: vi.fn(),
   projectPath: "/project-a",
   thumbnailStore: createImageAssetThumbnailStore(),
   onVisibleFileIdsChange: vi.fn(),
   readOriginal: vi.fn(async (fileId: string) => asset(fileId)),
   onBackToCanvas: vi.fn(),
+  onLocateImage: vi.fn(),
 });
 
 beforeEach(() => {
@@ -42,6 +82,63 @@ beforeEach(() => {
 });
 
 describe("ImageBrowseView", () => {
+  it("shows a collapsible read-only inspector for the displayed image and follows navigation", async () => {
+    const input = props();
+    render(<ImageBrowseView {...input} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    const toggle = screen.getByRole("button", { name: "属性" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("complementary", { name: "图片属性" }),
+    ).toBeNull();
+    fireEvent.click(toggle);
+    const panel = screen.getByRole("complementary", { name: "图片属性" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(within(panel).getByText("test-model")).toBeVisible();
+    expect(within(panel).getByText("最初的结构草图")).toBeVisible();
+    expect(
+      within(panel).getByRole("heading", { name: "编辑链" }),
+    ).toBeVisible();
+    expect(within(panel).queryByRole("textbox")).toBeNull();
+    expect(
+      within(panel).queryByRole("button", { name: /重命名|定位/ }),
+    ).toBeNull();
+    fireEvent.click(within(panel).getByRole("button", { name: "复制提示词" }));
+    expect(input.onCopyText).toHaveBeenLastCalledWith("圆润的桌面音箱");
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "复制提示词" }));
+    expect(input.onCopyText).toHaveBeenLastCalledWith("细化音量旋钮");
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByText("暂无图片属性")).toBeVisible();
+    expect(screen.queryByText("最初的结构草图")).toBeNull();
+    await screen.findByRole("img", { name: "图片 2" });
+  });
+
+  it("locates the image currently shown in details without treating it as a normal close", async () => {
+    const input = props();
+    render(<ImageBrowseView {...input} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    await screen.findByRole("img", { name: "图片 1" });
+    fireEvent.click(screen.getByRole("button", { name: "在画布中定位" }));
+    expect(input.onLocateImage).toHaveBeenCalledWith("image-1");
+    expect(input.onBackToCanvas).not.toHaveBeenCalled();
+  });
+
+  it("keeps names in hover hints and image details without grid captions", async () => {
+    render(<ImageBrowseView {...props()} />);
+    const image = screen.getByRole("button", { name: "图片 0" });
+    expect(image).toHaveAttribute("title", "图片 0");
+    expect(screen.queryByText("图片 0")).toBeNull();
+    fireEvent.click(image);
+    expect(screen.getByRole("dialog")).toHaveAccessibleName("图片 0");
+    expect(screen.getByText("图片 0")).toBeVisible();
+    await screen.findByRole("img", { name: "图片 0" });
+  });
+
   it("keeps navigation outside the scrollable image grid", () => {
     const input = props();
     render(<ImageBrowseView {...input} />);
@@ -153,7 +250,10 @@ describe("ImageBrowseView", () => {
     rerender(
       <ImageBrowseView
         {...input}
-        items={[...items, { fileId: "new", title: "新增", sizeLabel: "" }]}
+        items={[
+          ...items,
+          { fileId: "new", title: "新增", sizeLabel: "", aspectRatio: 1 },
+        ]}
       />,
     );
     expect(screen.getByRole("dialog")).toHaveAccessibleName("图片 0");

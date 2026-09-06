@@ -196,8 +196,11 @@ describe("Chinese localization", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("提示词")).toBeInTheDocument();
     expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
-    expect(screen.queryByText("来源")).not.toBeInTheDocument();
-    expect(screen.queryByText("AI 生成")).not.toBeInTheDocument();
+    expect(screen.getByText("来源")).toBeInTheDocument();
+    expect(screen.getByText("AI 生成")).toBeInTheDocument();
+    expect(screen.getByText("生成信息")).toBeInTheDocument();
+    expect(screen.getByText("文件位置")).toBeInTheDocument();
+    expect(screen.queryByText("技术信息")).not.toBeInTheDocument();
     expect(screen.queryByText("来源图片")).not.toBeInTheDocument();
     expect(screen.getByText(/第一版结构草图/)).toBeInTheDocument();
     expect(screen.getByText("编辑链")).toBeInTheDocument();

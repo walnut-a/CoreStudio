@@ -1,14 +1,23 @@
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
+import type { ImageRecordMap } from "../../shared/projectTypes";
+import { getImageAncestors, getImageDescendants } from "../imageRelationships";
+import { ImageInspector } from "./ImageInspector";
+import "./ImageInspector.css";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
 import type { ImageAssetThumbnailStore } from "../imageAssetThumbnailStore";
-import { getBrowseWindow, type ImageBrowseItem } from "../imageBrowseModel";
+import {
+  buildBrowseLayout,
+  getBrowseWindow,
+  type ImageBrowseItem,
+} from "../imageBrowseModel";
 import { copy } from "../copy";
 import {
   closeIcon,
@@ -20,11 +29,14 @@ import "./ImageBrowseView.css";
 
 interface ImageBrowseViewProps {
   items: readonly ImageBrowseItem[];
+  imageRecords: ImageRecordMap;
+  onCopyText: (text: string) => void;
   projectPath: string;
   thumbnailStore: ImageAssetThumbnailStore;
   onVisibleFileIdsChange: (fileIds: string[]) => unknown;
   readOriginal: (fileId: string) => Promise<ProjectAssetPayload | undefined>;
   onBackToCanvas: () => void;
+  onLocateImage: (fileId: string) => void;
 }
 
 const OriginalImage = ({
@@ -122,18 +134,37 @@ const ImageDetail = ({
   readOriginal,
   onClose,
   onNavigate,
+  onLocateImage,
   thumbnail,
+  imageRecords,
+  onCopyText,
 }: {
+  imageRecords: ImageRecordMap;
+  onCopyText: ImageBrowseViewProps["onCopyText"];
   item: ImageBrowseItem;
   index: number;
   count: number;
   readOriginal: ImageBrowseViewProps["readOriginal"];
   onClose: () => void;
   onNavigate: (delta: number) => void;
+  onLocateImage: ImageBrowseViewProps["onLocateImage"];
   thumbnail?: string;
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [actualSize, setActualSize] = useState(false);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const propertiesId = useId();
+  const record = imageRecords[item.fileId] ?? null;
+  const relationships = useMemo(
+    () =>
+      propertiesOpen
+        ? {
+            ancestors: getImageAncestors(imageRecords, record),
+            descendants: getImageDescendants(imageRecords, record),
+          }
+        : null,
+    [imageRecords, record, propertiesOpen],
+  );
   useLayoutEffect(() => {
     const dialog = dialogRef.current!;
     dialog.showModal();
@@ -169,12 +200,23 @@ const ImageDetail = ({
           <strong title={item.title}>{item.title}</strong>
           <span>{item.sizeLabel}</span>
         </div>
+        <DesktopButton size="small" onClick={() => onLocateImage(item.fileId)}>
+          {copy.browse.locateOnCanvas}
+        </DesktopButton>
         <DesktopButton
           size="small"
           aria-pressed={actualSize}
           onClick={() => setActualSize((value) => !value)}
         >
           {actualSize ? copy.browse.fit : copy.browse.actualSize}
+        </DesktopButton>
+        <DesktopButton
+          size="small"
+          aria-expanded={propertiesOpen}
+          aria-controls={propertiesId}
+          onClick={() => setPropertiesOpen((open) => !open)}
+        >
+          {copy.browse.properties}
         </DesktopButton>
         <DesktopButton
           size="small"
@@ -186,13 +228,38 @@ const ImageDetail = ({
           {closeIcon}
         </DesktopButton>
       </header>
-      <div key={item.fileId} className="image-browse-detail__image">
-        <OriginalImage
-          item={item}
-          readOriginal={readOriginal}
-          actualSize={actualSize}
-          thumbnail={thumbnail}
-        />
+      <div className="image-browse-detail__body">
+        <div key={item.fileId} className="image-browse-detail__image">
+          <OriginalImage
+            item={item}
+            readOriginal={readOriginal}
+            actualSize={actualSize}
+            thumbnail={thumbnail}
+          />
+        </div>
+        {propertiesOpen && relationships && (
+          <aside
+            id={propertiesId}
+            className="image-browse-detail__properties"
+            aria-label={copy.browse.imageProperties}
+          >
+            {record ? (
+              <ImageInspector
+                key={record.fileId}
+                record={record}
+                ancestorRecords={relationships.ancestors}
+                descendantRecords={relationships.descendants}
+                task={null}
+                onCopyPrompt={() => onCopyText(record.prompt ?? "")}
+                onCopyImageId={() => onCopyText(record.fileId)}
+              />
+            ) : (
+              <p className="image-browse-detail__properties-empty">
+                {copy.browse.noProperties}
+              </p>
+            )}
+          </aside>
+        )}
       </div>
       <footer className="image-browse-detail__footer">
         <DesktopButton
@@ -225,11 +292,14 @@ const ImageDetail = ({
 
 export const ImageBrowseView = ({
   items,
+  imageRecords,
+  onCopyText,
   projectPath,
   thumbnailStore,
   onVisibleFileIdsChange,
   readOriginal,
   onBackToCanvas,
+  onLocateImage,
 }: ImageBrowseViewProps) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -261,12 +331,11 @@ export const ImageBrowseView = ({
     observer.observe(grid);
     return () => observer.disconnect();
   }, []);
-  const range = getBrowseWindow(
-    items.length,
-    viewport.width,
-    viewport.height,
-    viewport.scrollTop,
+  const layout = useMemo(
+    () => buildBrowseLayout(items, viewport.width),
+    [items, viewport.width],
   );
+  const range = getBrowseWindow(layout, viewport.height, viewport.scrollTop);
   const visibleItems = useMemo(
     () => items.slice(range.start, range.end),
     [items, range.start, range.end],
@@ -316,54 +385,47 @@ export const ImageBrowseView = ({
         {items.length === 0 ? (
           <p className="image-browse-message">{copy.browse.empty}</p>
         ) : (
-          <div style={{ height: range.totalHeight, position: "relative" }}>
-            <div
-              className="image-browse-grid__items"
-              style={{
-                gridTemplateColumns: `repeat(${range.columns}, minmax(0, 1fr))`,
-                transform: `translateY(${range.offset}px)`,
-              }}
-            >
-              {visibleItems.map((item) => {
-                const thumbnail =
-                  thumbnails.projectPath === projectPath
-                    ? thumbnails.dataUrls[item.fileId]
-                    : undefined;
-                return (
-                  <button
-                    key={item.fileId}
-                    type="button"
-                    className="image-browse-tile"
-                    aria-label={item.title}
-                    onClick={(event) => {
-                      triggerRef.current = event.currentTarget;
-                      setSelectedId(item.fileId);
-                    }}
-                  >
-                    <span className="image-browse-tile__image">
-                      {thumbnail ? (
-                        <img src={thumbnail} alt="" draggable={false} />
-                      ) : (
-                        <span className="image-browse-tile__placeholder">
-                          {copy.browse.previewUnavailable}
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      className="image-browse-tile__title"
-                      title={item.title}
-                    >
-                      {item.title}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <div
+            className="image-browse-grid__items"
+            style={{ height: layout.totalHeight }}
+          >
+            {visibleItems.map((item, index) => {
+              const thumbnail =
+                thumbnails.projectPath === projectPath
+                  ? thumbnails.dataUrls[item.fileId]
+                  : undefined;
+              return (
+                <button
+                  key={item.fileId}
+                  type="button"
+                  className="image-browse-tile"
+                  style={layout.tiles[range.start + index]}
+                  aria-label={item.title}
+                  title={item.title}
+                  onClick={(event) => {
+                    triggerRef.current = event.currentTarget;
+                    setSelectedId(item.fileId);
+                  }}
+                >
+                  <span className="image-browse-tile__image">
+                    {thumbnail ? (
+                      <img src={thumbnail} alt="" draggable={false} />
+                    ) : (
+                      <span className="image-browse-tile__placeholder">
+                        {copy.browse.previewUnavailable}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
       {selectedIndex >= 0 && (
         <ImageDetail
+          imageRecords={imageRecords}
+          onCopyText={onCopyText}
           item={items[selectedIndex]}
           index={selectedIndex}
           count={items.length}
@@ -374,6 +436,7 @@ export const ImageBrowseView = ({
               : undefined
           }
           onClose={close}
+          onLocateImage={onLocateImage}
           onNavigate={(delta) => {
             const next = items[selectedIndex + delta];
             if (next) {

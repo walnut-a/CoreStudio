@@ -244,7 +244,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.2, bridge protocol 7)\n`,
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.2.0, bridge protocol 7)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -262,7 +262,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: DESKTOP_APP_VERSION,
-        integrationVersion: "2.1.2",
+        integrationVersion: "2.2.0",
         bridgeProtocolVersion: 7,
       },
     });
@@ -322,6 +322,43 @@ describe("runCli", () => {
       expect(readFile).not.toHaveBeenCalled();
     },
   );
+
+  it("requests visible pixels by element and rejects legacy original-only responses", async () => {
+    const records: RequestRecord[] = [];
+    const argv = [
+      "read",
+      "image-paths",
+      "--visible",
+      "--element-ids",
+      "crop-left,crop-right",
+      "--json",
+    ];
+    const result = await runCommand(argv, {
+      fetch: createFetch(
+        {
+          ok: true,
+          data: {
+            rendition: "visible",
+            items: [{ rendition: "visible", path: "/tmp/crop.png" }],
+          },
+        },
+        records,
+      ),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(records[0].body!)).toEqual({
+      visible: true,
+      elementIds: ["crop-left", "crop-right"],
+    });
+    const legacy = await runCommand(argv, {
+      fetch: createFetch(
+        { ok: true, data: { items: [{ path: "/project/original.png" }] } },
+        [],
+      ),
+    });
+    expect(legacy.exitCode).not.toBe(0);
+    expect(legacy.stdout).not.toContain("/project/original.png");
+  });
 
   it.each([
     {
@@ -834,19 +871,24 @@ describe("runCli", () => {
     });
   });
 
-  it("creates a trusted runtime session for Cursor", async () => {
+  it.each([
+    ["cursor", "Cursor"],
+    ["workbuddy", "WorkBuddy"],
+    ["qwenwork", "千问办公"],
+    ["doubaowork", "豆包工作"],
+  ])("creates a trusted runtime session for %s", async (host, label) => {
     const records: RequestRecord[] = [];
     const session = {
       sessionRef: "cursor-session-ref",
       actorId: "agent:cursor:cursor-session-ref",
-      host: "cursor",
-      displayLabel: "Cursor · 工业设计",
+      host,
+      displayLabel: `${label} · 工业设计`,
       issuedAt: "2026-08-02T00:00:00.000Z",
     };
     const fetch = createFetch({ ok: true, data: session }, records);
 
     const result = await runCommand(
-      ["agent", "connect", "--host", "cursor", "--label", "工业设计", "--json"],
+      ["agent", "connect", "--host", host, "--label", "工业设计", "--json"],
       {
         fetch,
         env: {
@@ -867,8 +909,8 @@ describe("runCli", () => {
       },
     });
     expect(JSON.parse(records[0].body ?? "{}")).toEqual({
-      host: "cursor",
-      displayLabel: "Cursor · 工业设计",
+      host,
+      displayLabel: `${label} · 工业设计`,
     });
   });
 

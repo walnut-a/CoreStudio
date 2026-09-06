@@ -269,7 +269,7 @@ export const inspectAgentIntegration = async ({
     state,
     appVersion,
     integrationVersion: AGENT_INTEGRATION_VERSION,
-    guideUrl: `https://github.com/walnut-a/CoreStudio/blob/v${appVersion}/docs/agent-integration-user-guide.md`,
+    guideUrl: `https://github.com/walnut-a/CoreStudio/blob/v${appVersion}/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md`,
     checks,
     detectedAt: new Date().toISOString(),
   };

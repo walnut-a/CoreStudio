@@ -1,6 +1,6 @@
 # CoreStudio 本地 Agent 集成使用说明
 
-“Agent 集成”让 Codex、Cursor 和 Claude Code 通过本地客户端安全地读取和写回 CoreStudio 项目。它不是账户连接功能；Agent Bridge 和消耗用户图片服务额度的权限分别控制。
+“Agent 集成”让 Codex、Cursor、Claude Code、WorkBuddy、千问办公和豆包工作 通过本地客户端安全地读取和写回 CoreStudio 项目。它不是账户连接功能；Agent Bridge 和消耗用户图片服务额度的权限分别控制。
 
 ## 两条产品路径
 
@@ -22,7 +22,7 @@
 ## 在本地 Agent 中使用 CoreStudio
 
 1. 打开“应用设置 → Agent 集成”。
-2. 选择 Codex、Cursor 或 Claude Code，只为自己使用的宿主点击安装、更新或修复；CoreStudio 使用应用包内固定安装器，并自动重新检测。
+2. 选择实际使用的宿主（Codex、Cursor、Claude Code、WorkBuddy、千问办公或豆包工作），只为自己使用的宿主点击安装、更新或修复；CoreStudio 使用应用包内固定安装器，并自动重新检测。
 3. 若不再需要某个宿主，可在该宿主状态为已托管时点击移除。CoreStudio 只会删除当前宿主中未被修改的托管 Skill，不会删除共享 CLI、其他宿主的 Skill 或已保存权限。
 4. 保持 CoreStudio 运行并开启 Agent Bridge；不需要预先打开目标项目，也不需要把桌面切到对应标签。
 5. 在目标 Agent 对话中打开并认领项目的稳定 Agent Board。这个对话的 session 会绑定到该 Board 项目。
@@ -31,7 +31,7 @@
 
 安装器会把共享 CLI 安装到 `~/.local/bin/corestudio`，并把安装时确认的绝对路径写入对应宿主的 Skill。Agent 会先尝试直接运行 `corestudio`；如果图形客户端没有继承终端的 `PATH`，则使用 Skill 中记录的绝对路径，不需要重复安装。
 
-如果安装后当前 Cursor 或 Claude Code 对话还没有发现新 Skill，请新建一个本地 Agent 对话再试。Claude Code 首次创建顶层 Skill 目录时也可以重启一次。当前版本不支持 Cursor Background Agent、Claude Desktop 普通聊天或任何云端 Agent。
+如果安装后当前 Agent 对话还没有发现新 Skill，请新建一个本地 Agent 对话再试。Claude Code 首次创建顶层 Skill 目录时也可以重启一次。当前版本不支持 Cursor Background Agent、Claude Desktop 普通聊天或任何云端 Agent。
 
 Agent 默认优先使用自身图片生成能力。如果当前 Agent 没有合适的生图能力，或用户明确要求使用 CoreStudio，可以在对应宿主卡片中单独开启图片生成权限。该权限使用用户当前选定的服务和模型并消耗对应服务商额度；Agent 不能读取凭证、切换模型或修改图片集成配置。一个宿主的开关不会影响其他宿主。
 
@@ -87,3 +87,73 @@ Agent 生成图片的写回来源统一使用 `agent-board`。
 ### 写入失败后的恢复
 
 CLI 图片、提示词和图表写入现在携带请求 ID。保存失败后，Agent 可在同一项目房间内用原请求 ID 继续保存，避免把同一结果插入两遍。网络断开不代表写入没有发生；重新连接或重启客户端后应先确认原画布内容。只有回执中的 `persisted: true` 才表示结果已经保存。详细协议见 [CLI contract](agent-cli-contract.md#请求身份与安全重试)。
+
+## WorkBuddy、千问办公与豆包工作（macOS 本地任务）
+
+先确认当前 CoreStudio 的“应用设置 → Agent 集成”中存在对应宿主选项；没有该选项的旧包尚不包含此适配，需要安装包含该支持的正式版本。官网和仓库源码更新不代表本机应用已更新。集成合同为 2.2.0；具体 Skill 修订以当前应用检测为准。
+
+### 安装范围与浏览器入口
+
+| 宿主 | 托管 Skill 目录 | 实测浏览器路线 |
+| --- | --- | --- |
+| WorkBuddy | `~/.workbuddy-ai/skills/corestudio` | 本地任务中提供的 `agent-browser`；`playwright-cli` 仅在当前任务实际提供时使用 |
+| 千问办公中国版 | `~/.qwenworkcn/skills/corestudio` | 官方 QwenWork 扩展连接外部 Chrome，再操作已连接标签页；没有验证可操作的内置浏览器，Edge 未做实机验收 |
+| 豆包工作 | `~/Library/Application Support/DoubaoWork/Default/.doubaowork/agent_mode/workspace/.user_skills/corestudio` | “本地电脑”任务的“操作浏览器”能力 |
+
+所有宿主共用 `~/.local/bin/corestudio`，但分别安装 Skill、建立对话 session 和管理 CoreStudio 生图授权。目录只是安装产物说明，不是让用户手动复制文件的步骤。集成只读取本机状态，不会登录宿主、替用户初始化账户或自动安装浏览器扩展。
+
+### WorkBuddy：准备与首次连接
+
+1. 安装并登录 WorkBuddy，使用可访问本机终端和文件的本地任务。
+2. 在 CoreStudio 的 Agent 集成中选择 WorkBuddy，执行安装或更新。受管安装会同时准备 Skill 和共享 CLI；无需再上传 Skill ZIP。
+3. 新建 WorkBuddy 任务，让它加载 CoreStudio Skill，并确认当前任务提供 `agent-browser` 或 `playwright-cli`。预览面板、`present_files` 展示或 HTTP 下载本身不能代替浏览器读取页面。
+4. 让任务打开用户选定项目的稳定 Agent Board，读取该页面的真实 nonce，建立 `workbuddy` session 并认领。不能根据桌面当前标签猜项目。
+5. 让 Agent 读取画布与选区；第一次验证可以写入一条明确标为测试的提示词，检查 `persisted: true` 并在画布确认。不要为了验证连接自动调用收费生图。
+
+若任务没有浏览器工具，保留明确的缺失信息；可使用原 Agent Board 的“复制连接指令”路线完成 CLI 认领，不能宣称已验证浏览器。只关闭本任务新建的测试标签或浏览器实例，不关闭用户原有浏览器。
+
+### 千问办公：三个连接状态分别确认
+
+千问办公中国版的本次实测入口是外部 Chrome，不是内置浏览器。使用本地任务；云端任务不能默认访问本机 CLI、`127.0.0.1` 或图片路径。
+
+1. 在 CoreStudio 中选择千问办公，安装 Skill 与 CLI。
+2. 在千问客户端打开“连接器 → 已安装 → 浏览器”，开启连接器。这是客户端配置，CoreStudio 的安装检测不会验证这个开关。
+3. 如果出现“等待扩展连接”，打开**实际使用的 Chrome 配置**的扩展管理页。英文界面显示 `QwenWork`，中文可能显示“千问办公”；检查是否存在、是否启用。其他 Chrome 配置中的安装不代表当前配置已经安装。
+4. 确实缺失时，按千问客户端给出的官方路径安装扩展。本次客户端提供 `~/Library/Application Support/QwenWorkCN/chrome-extension`，实测版本 1.5.8；今后以当前客户端给出的目录为准。Chrome 开发者模式下用“加载已解压的扩展程序”选择该目录。扩展安装和网页控制权限须经用户授权，不从第三方地址下载替代包，不重复安装已经正常启用的扩展。
+5. 打开目标 CoreStudio Agent Board 标签页，点击 QwenWork 扩展中的“连接”，确认**当前标签页显示“已连接”**。`chrome://extensions` 等受限页面不能用于该连接验证。扩展启用、客户端开关开启、目标标签页连接是三个不同状态；不要把其中一个状态当作全部完成。
+6. 回到千问确认浏览器连接器开启，再新建本地任务加载 Skill 和浏览器工具。实测能通过 `tabs_context` 定位目标标签，用 `javascript_tool` 读取真实页面 nonce；工具名称可能随宿主版本变化，以任务实际暴露为准。
+7. 认领成功后原页面自动进入画布。首次连接可从已连接的标签页开始；本轮没有单独验证宿主自行新开 Chrome 标签页，不把该能力作为使用前提。
+
+**没有浏览器工具时的可用路线**：在已打开的 Agent Board 点“复制连接指令”，把完整内容发给目标千问本地任务。发送后保留原页，不刷新、不重新打开；否则会改变 nonce。Agent 经 CLI 认领后可读写项目，但没有浏览器工具就不能声称已读取页面或截图。单纯 `curl` / WebFetch 返回 CoreStudio HTML 只证明地址可达。
+
+### 豆包工作：先初始化本地环境
+
+1. 登录豆包工作，先运行一次“本地电脑”任务，让客户端创建默认本地技能目录。
+2. 在 CoreStudio 中选择豆包工作并安装。若提示默认目录未初始化，先完成上一步再重试；安装器不会猜测账号、云端、自定义 workspace 或主动创建另一套环境。不要把 Skill 手动放进外观相似的目录。
+3. 新建“本地电脑”任务，确认能加载 CoreStudio Skill、执行本机 CLI，并使用当前任务的“操作浏览器”工具打开 Agent Board。
+4. 读取真实 nonce，建立 `doubaowork` session 并认领；所有读取和写回继续携带同一 session。
+5. 实测通过提示词保存、可见参考图导出及图片写回。图片生成若在云端执行，须先下载到本机可读文件，再交给 CLI；输出网页或聊天缩略图不等于原图已落盘。
+
+### 图片能力与费用
+
+| 能力 | WorkBuddy | 千问办公 | 豆包工作 |
+| --- | --- | --- | --- |
+| 本机 CLI、会话认领、提示词保存 | 实测通过 | 实测通过 | 实测通过 |
+| 浏览器读取真实 nonce | 实测通过 | 已连接 Chrome 标签页实测通过 | 实测通过 |
+| 原生图片工具 | 本次任务未提供 | 本次任务可发现，未调用 | 本次任务可发现，未调用 |
+| 可见参考图导出与图片写回往返 | 共享 CLI 回归覆盖，未单独做宿主往返 | 共享 CLI 回归覆盖，未单独做宿主往返 | 实测通过 |
+
+能力取决于登录账号、套餐、任务模式及当前工具，不从宣传页面推断每个任务均支持生图。原生能力合适时优先使用宿主工具，取得本机原图后通过 CLI 写回并保存实际最终提示词和参考关系。画布裁切过的参考图应通过 `read image-paths --visible --element-ids <ids> --agent-session <sessionRef> --json` 导出可见区域；不要用完整原图替代裁切结果。
+
+没有合适的原生工具或用户明确要求 CoreStudio 时，先检查 `read capabilities`；只有 supported、authorized、configured 均为 true 才可生成。对应宿主的“允许使用 CoreStudio 图片生成”默认关闭，须由用户决定；关闭不影响画布读取、提示词或已生成图片写回。调用会使用 CoreStudio 当前选定服务与模型，并消耗该服务商额度。Agent 不能查看 API Key、更换模型或修改服务配置。宿主原生工具也遵循宿主自己的额度政策。
+
+### 最短验证顺序与故障恢复
+
+1. **安装文件**：`corestudio --version --json`；检查当前包的宿主支持及集成版本。图形客户端找不到命令时用 Skill 记录的绝对路径，不重新复制 CLI。
+2. **本机可达**：保持 CoreStudio 和 Agent Bridge 开启，执行 `corestudio read status --json`。云端访问失败应回到本地任务，不开放公网 Bridge。
+3. **宿主加载**：安装后新建任务；能执行 CLI 不代表 Skill 或浏览器工具已挂载。千问按上面的三个状态逐一检查。
+4. **目标绑定**：读取实际页 nonce → `agent connect --host <宿主标识>` → `board claim` → 同 session 的 `read project`；项目 ID 必须匹配，名称仅作辅助。宿主标识分别是 `workbuddy`、`qwenwork`、`doubaowork`。
+5. **结果保存**：在已授权项目内执行一次测试写入，保留请求 ID。`persisted: true` 后再读 scene 或 records 验证；页面还要实际进入画布，不能以 HTTP 200 代替。
+6. **失效恢复**：CoreStudio 重启后旧 session 失效，回到原稳定 Board 建立新 session 并重新认领。收到 `AGENT_TARGET_REQUIRED` 不回退桌面当前项目；nonce 失效时重新从目标页面读取或复制。写入结果不确定时先检查是否已保存，再按同一请求 ID 协议恢复，避免重复插图；收费生成不要盲目重试。
+
+手动修改过的受管 Skill 会产生冲突提示；先检查用户改动，不直接覆盖。移除只影响所选宿主的未修改受管 Skill，保留共享 CLI、其他宿主和图片生成权限。以上是接入协议与已验证范围，不保证宿主后续版本、账号权限或第三方服务始终可用。

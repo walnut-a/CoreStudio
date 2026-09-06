@@ -17,7 +17,7 @@ python3 -m http.server 4173
 原 `/en/` 路径保留为英文首页的兼容跳转。
 
 Agent 集成中心位于 `http://127.0.0.1:4173/website/integrations/` 与
-`http://127.0.0.1:4173/website/zh/integrations/`。页面提供 Codex、Cursor、Claude Code 的 Skill / CLI 安装指南与只读 WebMCP 渐进增强。英文和中文首页也注册同一组只读教程工具，让只访问官网入口页的浏览器 Agent 能直接发现接入能力；工具结果仍将完整教程指向对应集成页。不支持 WebMCP 或关闭 JavaScript 时，首页和核心教程照常工作。
+`http://127.0.0.1:4173/website/zh/integrations/`。页面提供 Codex、Cursor、Claude Code、WorkBuddy、千问办公、豆包工作的 Skill / CLI 安装指南与只读 WebMCP 渐进增强。英文和中文首页也注册同一组只读教程工具，让只访问官网入口页的浏览器 Agent 能直接发现接入能力；工具结果仍将完整教程指向对应集成页。不支持 WebMCP 或关闭 JavaScript 时，首页和核心教程照常工作。
 
 ## 文件结构
 
@@ -112,3 +112,5 @@ Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 Se
 
 正式英文版地址为 `https://getcorestudio.com/`，中文版位于
 `https://getcorestudio.com/zh/`。
+
+三款新增宿主的准备步骤由 `integrations-content.mjs` 提供，静态中英文 HTML 保留相同说明供无 JavaScript 阅读，宿主切换和 WebMCP 必须返回对应说明。更新后运行 `node --test website/integrations-contract.test.mjs` 并实际检查中英文、移动端和六宿主切换；修改内容修订号时同步模块缓存参数。千问按官方扩展连接外部 Chrome 描述，不能统一称为内置浏览器。源码更新与 GitHub Pages 部署是两个交付状态。

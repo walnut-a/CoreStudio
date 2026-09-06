@@ -1,5 +1,12 @@
-export const CONTENT_REVISION = "20260904-2";
-export const SUPPORTED_HOSTS = ["codex", "cursor", "claude-code"];
+export const CONTENT_REVISION = "20260907-1";
+export const SUPPORTED_HOSTS = [
+  "codex",
+  "cursor",
+  "claude-code",
+  "workbuddy",
+  "qwenwork",
+  "doubaowork",
+];
 export const LOCALES = ["en", "zh-CN"];
 
 const REPOSITORY_BASE = "https://github.com/walnut-a/CoreStudio/blob/main/";
@@ -26,12 +33,70 @@ const HOSTS = {
     skillPath: "~/.claude/skills/corestudio/",
     requiresAgentSession: true,
   },
+  workbuddy: {
+    name: "WorkBuddy",
+    skillPath: "~/.workbuddy-ai/skills/corestudio/",
+    requiresAgentSession: true,
+  },
+  qwenwork: {
+    name: "千问办公",
+    skillPath: "~/.qwenworkcn/skills/corestudio/",
+    requiresAgentSession: true,
+  },
+  doubaowork: {
+    name: "豆包工作",
+    skillPath:
+      "~/Library/Application Support/DoubaoWork/Default/.doubaowork/agent_mode/workspace/.user_skills/corestudio/",
+    requiresAgentSession: true,
+  },
 };
 
 const SHARED_CLI_PATH = "~/.local/bin/corestudio";
 
 const CONTENT = {
   en: {
+    hostSetup: {
+      workbuddy: {
+        browser:
+          "Use agent-browser or playwright-cli exposed by the current local task. A preview panel alone is not browser control.",
+        steps: [
+          "Sign in to WorkBuddy, use a local task, and install its integration in CoreStudio.",
+          "Start a new task after installation. Confirm it discovers the CoreStudio Skill and browser skill; use the absolute CLI path in the Skill if PATH lookup fails.",
+          "Have the Agent open the chosen project’s Agent Board and read the rendered page before claiming it. A preview or downloaded HTML is not a successful connection.",
+        ],
+        images:
+          "The tested task did not expose native image generation. Check the current task’s tools. If unavailable, explicitly authorize CoreStudio generation as needed; its selected provider charges for usage.",
+        prompt:
+          "Use the CoreStudio Skill in this local WorkBuddy task. Open my chosen project and connect its Agent Board using the available browser skill. Check the canvas and selection; report missing browser tools clearly. Do not generate images yet.",
+      },
+      qwenwork: {
+        browser:
+          "The tested route controls external Chrome through the official QwenWork extension. A controllable embedded browser and Edge were not validated.",
+        steps: [
+          "Sign in to QwenWork China, use a local task, and install the QwenWork integration in CoreStudio.",
+          "Enable Connectors → Installed → Browser in QwenWork. If waiting for the extension, check the official QwenWork extension in the Chrome profile you actually use; load it from the directory provided by QwenWork if missing.",
+          "Open the target Agent Board, click Connect in the extension, and confirm the current tab is connected. Restricted pages such as chrome://extensions cannot be used for this check.",
+          "Start a new QwenWork task to load the Skill and browser tools. If tools are still absent, copy the connection instructions from the original Board into the local task; do not refresh that page after copying.",
+        ],
+        images:
+          "Native image tools were discoverable in the tested task but generation was not invoked; availability depends on the account and task. Save a readable local image before writeback. CoreStudio generation requires separate authorization and uses its current configuration.",
+        prompt:
+          "Use the CoreStudio Skill in this local QwenWork China task to connect my chosen project. Read the connected Chrome Agent Board tab through the official browser connector, then claim it and inspect the canvas and selection. If browser tools are absent, explain the copy-connection-instructions route. Do not generate images yet.",
+      },
+      doubaowork: {
+        browser:
+          "Use Operate Browser in a DoubaoWork Local Computer task. Cloud tasks cannot directly access CoreStudio on this Mac.",
+        steps: [
+          "Sign in and run a Local Computer task once so DoubaoWork creates its default local skill directory.",
+          "Select DoubaoWork in CoreStudio and install the integration. If the directory is uninitialized, complete the previous step instead of inventing a path.",
+          "Start a new Local Computer task to load the Skill, then use its browser capability to open and claim the chosen project’s Agent Board.",
+        ],
+        images:
+          "Visible-reference export and image writeback passed on the actual host. Native image tools were discoverable but paid generation was not tested. A chat preview alone is insufficient: obtain a readable local original. CoreStudio generation still needs separate permission.",
+        prompt:
+          "Use the CoreStudio Skill in this DoubaoWork Local Computer task. Open my chosen project and connect its Agent Board with Operate Browser. Inspect the canvas and selection and confirm the local CLI is available. Do not generate images yet.",
+      },
+    },
     revision: CONTENT_REVISION,
     language: "English",
     htmlLang: "en",
@@ -45,7 +110,7 @@ const CONTENT = {
     meta: {
       title: "Agent integrations · CoreStudio",
       description:
-        "Install the CoreStudio Skill and shared CLI for Codex, Cursor, or Claude Code, then connect your local canvas.",
+        "Install the CoreStudio Skill and shared CLI for Codex, Cursor, Claude Code, WorkBuddy, QwenWork China, or DoubaoWork, then connect your local canvas.",
     },
     navigation: {
       back: "CoreStudio",
@@ -174,6 +239,48 @@ const CONTENT = {
       "JavaScript is off. The complete shared setup flow remains available; host switching and copy buttons are disabled.",
   },
   "zh-CN": {
+    hostSetup: {
+      workbuddy: {
+        browser:
+          "使用当前本地任务提供的 agent-browser 或 playwright-cli；预览面板不等于可操作的浏览器。",
+        steps: [
+          "先登录 WorkBuddy，使用本地任务，并在 CoreStudio 中选择 WorkBuddy 安装集成。",
+          "安装后新建任务，确认已发现 CoreStudio Skill 和浏览器技能；CLI 找不到时使用 Skill 记录的绝对路径。",
+          "让 Agent 打开所选项目的 Agent Board，读取真实页面并连接；仅打开预览或下载网页不代表连接成功。",
+        ],
+        images:
+          "实测任务未提供原生生图工具。能力以当前任务为准；无可用工具时，可按需授权使用 CoreStudio 当前图片服务，费用由对应服务商计收。",
+        prompt:
+          "在 WorkBuddy 本地任务中使用 CoreStudio Skill，打开我选择的项目并连接 Agent Board。使用当前任务的浏览器技能读取页面，检查画布和选区；没有浏览器工具时明确说明。暂不生成图片。",
+      },
+      qwenwork: {
+        browser:
+          "通过官方 QwenWork 扩展操作外部 Chrome；本次接入未验证可操作的内置浏览器，Edge 未做实机验收。",
+        steps: [
+          "登录千问办公中国版，使用本地任务，在 CoreStudio 中选择千问办公安装集成。",
+          "在千问“连接器 → 已安装 → 浏览器”启用连接器。若等待扩展连接，检查实际使用的 Chrome 配置中的官方 QwenWork 扩展；缺失时按千问客户端提供的目录加载。",
+          "打开目标 Agent Board，在扩展中点击“连接”，确认当前标签页已连接。chrome://extensions 等受限页面不能用于连接验证。",
+          "新建千问任务加载 Skill 与浏览器工具。若仍没有工具，可在原画布点击“复制连接指令”，完整粘贴到千问本地任务；发送后不要刷新原页面。",
+        ],
+        images:
+          "实测任务能发现原生图片工具，但本轮未调用生图，不能保证每个账号或任务都有。生成结果需保存为本机可读图片再写回；CoreStudio 生图需另行授权并使用当前配置。",
+        prompt:
+          "在千问办公本地任务中使用 CoreStudio Skill，连接我选择的 CoreStudio 项目。通过官方浏览器连接器读取已连接的 Chrome Agent Board 标签页，再认领并检查画布与选区；没有浏览器工具时说明如何复制连接指令。暂不生成图片。",
+      },
+      doubaowork: {
+        browser:
+          "使用豆包工作“本地电脑”任务中的“操作浏览器”能力；云端任务无法直接访问这台 Mac 的 CoreStudio。",
+        steps: [
+          "先登录豆包工作并运行一次“本地电脑”任务，让客户端建立默认本地技能目录。",
+          "在 CoreStudio 中选择豆包工作安装集成；目录未初始化时先完成上一步，不手工创建猜测路径。",
+          "新建本地电脑任务加载 Skill，用任务的操作浏览器能力打开并连接所选项目的 Agent Board。",
+        ],
+        images:
+          "实测已完成可见参考图导出和图片写回。原生图片工具可发现但未做收费生图验收；仅聊天预览不能写回，需取得本机原图。使用 CoreStudio 生图仍需单独开启权限。",
+        prompt:
+          "在豆包工作“本地电脑”任务中使用 CoreStudio Skill，打开我选择的项目。用操作浏览器能力连接 Agent Board，检查画布与选区，并确认本机 CLI 可用。暂不生成图片。",
+      },
+    },
     revision: CONTENT_REVISION,
     language: "简体中文",
     htmlLang: "zh-CN",
@@ -187,7 +294,7 @@ const CONTENT = {
     meta: {
       title: "Agent 集成 · CoreStudio",
       description:
-        "为 Codex、Cursor 或 Claude Code 安装 CoreStudio Skill 与共享 CLI，并连接本地画布。",
+        "为 Codex、Cursor、Claude Code、WorkBuddy、千问办公或豆包工作安装 CoreStudio Skill 与共享 CLI，并连接本地画布。",
     },
     navigation: {
       back: "CoreStudio",
@@ -215,11 +322,12 @@ const CONTENT = {
     facts: {
       skill: {
         label: "Skill",
-        value: "Codex、Cursor、Claude Code 分别安装",
+        value:
+          "为每个使用的 Agent 单独安装",
       },
       cli: {
         label: "CLI",
-        value: "只安装一次，三种受支持宿主共用",
+        value: "只安装一次，六种受支持宿主共用",
       },
       transport: {
         label: "连接",
@@ -349,7 +457,7 @@ const CLI_TASKS = {
   },
   "write-image": {
     command:
-      'corestudio write image /absolute/path/result.png --source-type generated --origin agent-board --prompt "<finalPrompt>" --agent-session <sessionRef> --json',
+      'corestudio write image /absolute/path/result.png --source-type generated --request-id <requestId> --origin agent-board --prompt "<finalPrompt>" --agent-session <sessionRef> --json',
     requiresCoreStudioRunning: true,
     requiresOpenProject: false,
     requiresAgentSession: true,
@@ -361,7 +469,7 @@ const CLI_TASKS = {
   },
   "write-diagram": {
     command:
-      "corestudio write diagram --format mermaid --file /absolute/path/process.mmd --anchor auto --agent-session <sessionRef> --json",
+      "corestudio write diagram --format mermaid --file /absolute/path/process.mmd --request-id <requestId> --anchor auto --agent-session <sessionRef> --json",
     requiresCoreStudioRunning: true,
     requiresOpenProject: false,
     requiresAgentSession: true,
@@ -373,6 +481,97 @@ const CLI_TASKS = {
 };
 
 const TROUBLESHOOTING = {
+  "browser-tools-missing": {
+    "zh-CN": {
+      diagnosis: "已安装 Skill，但任务没有浏览器工具或千问仍在等待扩展连接。",
+      actions: [
+        "先确认是本地任务；安装或更改连接器后新建任务加载工具。",
+        "按当前宿主的准备步骤检查浏览器能力。千问分别检查客户端开关、实际 Chrome 配置中的 QwenWork 扩展、目标标签页的“已连接”状态。",
+        "无法使用浏览器工具时，从原 Agent Board 复制完整连接指令到目标本地任务；复制后保留原页，不刷新。",
+      ],
+      doNot: [
+        "不要将 HTTP 200、WebFetch、预览或扩展已安装当作浏览器已连接。",
+        "不要猜 nonce，不自动安装扩展或操作用户其他标签页。",
+      ],
+      verification:
+        "任务能从目标真实页面读取 nonce 并认领，或明确通过原页面复制引用完成 CLI 认领。",
+    },
+    en: {
+      diagnosis:
+        "The Skill is installed, but browser tools are missing or QwenWork is waiting for its extension.",
+      actions: [
+        "Use a local task; start a new task after installing the Skill or changing connectors.",
+        "Follow the selected host’s setup. For QwenWork, check the client switch, the official extension in the actual Chrome profile, and the target tab’s Connected state separately.",
+        "Without browser tools, copy the complete connection instructions from the original Board into the local task; keep that page open without refreshing.",
+      ],
+      doNot: [
+        "Do not treat HTTP 200, WebFetch, previews, or extension installation as an active browser connection.",
+        "Do not guess a nonce, install extensions automatically, or access unrelated tabs.",
+      ],
+      verification:
+        "The task reads the real page nonce and claims it, or explicitly completes CLI claiming with the original copied reference.",
+    },
+  },
+  "local-task-required": {
+    "zh-CN": {
+      diagnosis: "宿主找不到本机文件，或豆包安装提示默认技能目录未初始化。",
+      actions: [
+        "使用当前 Mac 的本地任务；豆包先登录并运行一次“本地电脑”任务，让宿主建立默认技能目录。",
+        "回 CoreStudio 选择对应宿主安装，再新建任务加载 Skill；设置中没有该宿主时先安装包含此支持的应用版本。",
+      ],
+      doNot: [
+        "不要猜测其他账号、云端或自定义 workspace 的目录。",
+        "不要把本机 Bridge 暴露到公网来绕过云端隔离。",
+      ],
+      verification:
+        "本地任务能加载 Skill，并用其中的绝对 CLI 路径读取版本和本机状态。",
+    },
+    en: {
+      diagnosis:
+        "The host cannot access local files, or DoubaoWork’s default Skill directory is uninitialized.",
+      actions: [
+        "Use a local task on this Mac. In DoubaoWork, sign in and run a Local Computer task once to initialize its default Skill directory.",
+        "Install the selected host in CoreStudio and start a fresh task. If the host option is missing, install an app version that includes it.",
+      ],
+      doNot: [
+        "Do not invent account, cloud, or custom workspace paths.",
+        "Do not expose the local Bridge publicly to bypass cloud isolation.",
+      ],
+      verification:
+        "The local task discovers the Skill and uses its recorded absolute CLI path to read version and local status.",
+    },
+  },
+  "image-output-unavailable": {
+    "zh-CN": {
+      diagnosis: "Agent 能聊天或展示图片，但没有可写回的本机原图。",
+      actions: [
+        "检查当前任务实际图片工具与账号能力；聊天预览不是原始文件。",
+        "将宿主生成结果保存或下载到本地任务可读路径，保存真实最终提示词与参考关系，再经 CLI 写回。",
+        "参考图使用 read image-paths --visible 按元素导出可见区域；临时导出文件失效时重新导出。无原生工具时仅在用户授权后使用 CoreStudio 生图。",
+      ],
+      doNot: [
+        "不要把云端路径、缩略图或网页 URL 当成本机原图。",
+        "不要通过浏览器粘贴写入，或用完整原图替代裁切参考图。",
+      ],
+      verification:
+        "写回返回 persisted: true，重新读取记录或画布能找到结果；收费生成不能盲目重试。",
+    },
+    en: {
+      diagnosis:
+        "The Agent can show an image, but no readable local original is available for writeback.",
+      actions: [
+        "Check the current task’s image tools and account capabilities; a chat preview is not an original file.",
+        "Save or download the generated original to a path readable by the local task, retain the actual final prompt and references, then write it through the CLI.",
+        "Export visible reference regions per element with read image-paths --visible; re-export expired temporary files. Use CoreStudio generation only with user authorization if native tools are unavailable.",
+      ],
+      doNot: [
+        "Do not pass cloud-only paths, thumbnails, or webpage URLs as local originals.",
+        "Do not paste into the browser or replace cropped references with full originals.",
+      ],
+      verification:
+        "The write receipt reports persisted: true and a record or canvas reread finds the result; never blindly retry paid generation.",
+    },
+  },
   "skill-not-found": {
     en: {
       diagnosis:
@@ -556,8 +755,16 @@ export const getHostContent = ({ host = "codex", locale = "en" } = {}) => {
   return {
     ...HOSTS[normalizedHost],
     id: normalizedHost,
-    prompt: content.prompts[normalizedHost],
-    note: content.hostNotes[normalizedHost],
+    name: normalizeLocale(locale) === "en"
+      ? ({qwenwork: "QwenWork China", doubaowork: "DoubaoWork"}[normalizedHost] ?? HOSTS[normalizedHost].name)
+      : HOSTS[normalizedHost].name,
+    prompt:
+      content.hostSetup[normalizedHost]?.prompt ??
+      content.prompts[normalizedHost],
+    note:
+      content.hostSetup[normalizedHost]?.browser ??
+      content.hostNotes[normalizedHost],
+    setup: content.hostSetup[normalizedHost] ?? null,
   };
 };
 
@@ -600,6 +807,7 @@ export const getIntegrationGuide = ({
             `You use the local ${selectedHost.name} Agent`,
           ],
     steps: content.installSteps,
+    hostSetup: selectedHost.setup,
     artifacts: [
       { type: "skill", path: selectedHost.skillPath },
       { type: "cli", path: SHARED_CLI_PATH },
@@ -666,6 +874,7 @@ export const getTroubleshootingGuide = ({
     host: selectedHost.id,
     symptom,
     ...guide,
+    hostSetup: selectedHost.setup,
     sourceUrl: SOURCE_URL,
     contentRevision: CONTENT_REVISION,
   };

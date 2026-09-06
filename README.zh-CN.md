@@ -221,3 +221,7 @@ corepack yarn check:desktop-secrets --source --package-inputs
 cd excalidraw/apps/image-board-desktop
 corepack yarn check:secrets --release
 ```
+
+### 本地 Agent 接入
+
+支持 Codex、Cursor、Claude Code、WorkBuddy、千问办公中国版和豆包工作。使用包含对应宿主选项的 CoreStudio 应用，在“应用设置 → Agent 集成”安装；新建本地任务加载 Skill。千问实测通过官方扩展连接外部 Chrome，豆包需先初始化“本地电脑”任务目录，WorkBuddy 使用任务提供的浏览器技能。完整准备步骤、图片能力与故障恢复见[本地 Agent 使用指南](excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md)。

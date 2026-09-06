@@ -3,7 +3,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "用法：install.sh <codex|cursor|claude-code>" >&2
+  echo "用法：install.sh <codex|cursor|claude-code|workbuddy|qwenwork|doubaowork>" >&2
   exit 2
 fi
 
@@ -20,6 +20,22 @@ case "$HOST" in
   claude-code)
     HOST_LABEL="Claude Code"
     SKILL_DIR="$HOME/.claude/skills/corestudio"
+    ;;
+  workbuddy)
+    HOST_LABEL="WorkBuddy"
+    SKILL_DIR="$HOME/.workbuddy-ai/skills/corestudio"
+    ;;
+  qwenwork)
+    HOST_LABEL="千问办公"
+    SKILL_DIR="$HOME/.qwenworkcn/skills/corestudio"
+    ;;
+  doubaowork)
+    HOST_LABEL="豆包工作"
+    SKILL_DIR="$HOME/Library/Application Support/DoubaoWork/Default/.doubaowork/agent_mode/workspace/.user_skills/corestudio"
+    if [[ ! -d "$(dirname "$SKILL_DIR")" ]]; then
+      echo "尚未找到豆包工作的本机技能目录，请先打开豆包工作并启用本地电脑任务。" >&2
+      exit 2
+    fi
     ;;
   *)
     echo "不支持的 Agent 宿主：$HOST" >&2

@@ -7,7 +7,7 @@
 任务发起位置决定调度者：
 
 - CoreStudio 内只做本地单次生成，由 CoreStudio 调度。
-- Codex、Cursor 或 Claude Code 中的复杂、连续或并行任务由发起任务的 Agent 调度。
+- Codex、Cursor、Claude Code、WorkBuddy、千问办公或豆包工作 中的复杂、连续或并行任务由发起任务的 Agent 调度。
 - Agent Board 只提供画布上下文、选择、标注和结果确认。
 - CLI / Local Bridge 是数据通道，不是第三个调度者。
 
@@ -111,7 +111,6 @@ Agent 主动写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参
 4. 本地生成与 Agent 工作流保持两套清晰入口，不共享隐式会话状态。
 5. 新能力优先扩展稳定契约，避免把 Agent 运行时重新塞回桌面客户端。
 6. Electron 验收使用隔离的临时项目；协作验收由一个 Electron 宿主配合多个浏览器参与者完成，不用两个 Electron 同时打开同一项目。
-
 
 ## 外部本地图片接纳
 

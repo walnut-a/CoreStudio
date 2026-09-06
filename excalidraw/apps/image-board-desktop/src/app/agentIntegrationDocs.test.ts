@@ -33,7 +33,7 @@ describe("agent integration docs", () => {
     expect(userGuide).toContain("CoreStudio 单次生成");
     expect(userGuide).toContain("任务从哪个 Agent 发起");
     expect(userGuide).toContain("Agent 集成");
-    expect(userGuide).toContain("Codex、Cursor 和 Claude Code");
+    expect(userGuide).toContain("Codex、Cursor、Claude Code、WorkBuddy、千问办公和豆包工作");
     expect(userGuide).toContain("点击安装、更新或修复");
     expect(userGuide).toContain("CLI / Local Bridge");
     expect(userGuide).toContain("~/.local/bin/corestudio");
@@ -73,19 +73,28 @@ describe("agent integration docs", () => {
       "http://127.0.0.1:60909/board/<stableBoardId>",
     );
     expect(corestudioSkill).toContain("任何 `/agent-board` 地址");
-    expect(corestudioSkill).toContain("不要擅自改用 Chrome 或系统默认浏览器");
+    expect(corestudioSkill).toContain("浏览器入口按宿主附录执行");
+    expect(
+      readDoc(
+        "apps/image-board-desktop/resources/agent-integration/hosts/codex.md",
+      ),
+    ).toContain("不要擅自改用 Chrome 或系统默认浏览器");
     expect(corestudioSkill).toContain("主动读取当前画布和选区");
     expect(corestudioSkill).toContain(
       "有选区时，以该选区作为本次任务的首要上下文",
     );
-    expect(corestudioSkill).toContain("使用首次读取到的 `fileIds` 解析原图");
+    expect(corestudioSkill).toContain(
+      "使用首次读取到的 `elementIds` 导出可见参考图",
+    );
     expect(corestudioSkill).toContain("后续选区变化不得静默改变正在执行的引用");
     expect(corestudioSkill).toContain(
       '`<corestudio-selection-reference version="1">`',
     );
     expect(corestudioSkill).toContain("固定选区引用优先于实时选区");
     expect(corestudioSkill).toContain("不得重新读取实时选区来替换这组 ID");
-    expect(corestudioSkill).toContain("使用引用块中的 `fileIds` 直接解析原图");
+    expect(corestudioSkill).toContain(
+      "使用引用块中的图片 `elementIds` 导出可见参考图",
+    );
     expect(corestudioSkill).toContain(
       "使用引用块中的 `elementIds` 从场景中定位",
     );

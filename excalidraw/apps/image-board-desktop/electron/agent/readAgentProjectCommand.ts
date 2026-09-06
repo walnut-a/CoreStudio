@@ -1,3 +1,4 @@
+import type { createAgentReferenceImages } from "./agentReferenceImages";
 import {
   getAgentBoardSelectedElementIds,
   parseAgentBoardCommandContext,
@@ -222,7 +223,12 @@ const buildProjectRecords = (
 
 const parseImagePathPayload = (payload: unknown) => {
   if (payload === undefined || payload === null) {
-    return { selectionOnly: false, fileIds: undefined };
+    return {
+      selectionOnly: false,
+      fileIds: undefined,
+      visible: false,
+      elementIds: [] as string[],
+    };
   }
   if (!isObject(payload)) {
     throw createBadRequestError("scene.imagePaths payload 格式不正确。");
@@ -242,8 +248,21 @@ const parseImagePathPayload = (payload: unknown) => {
       }),
     ),
   );
+  if (
+    payload.elementIds !== undefined &&
+    (!Array.isArray(payload.elementIds) ||
+      payload.elementIds.some((id) => typeof id !== "string" || !id.trim()))
+  )
+    throw createBadRequestError("elementIds 必须是非空字符串数组。");
+  const elementIds = [
+    ...new Set((payload.elementIds as string[] | undefined) ?? []),
+  ];
+  if (elementIds.length && payload.visible !== true)
+    throw createBadRequestError("elementIds 需要 visible 模式。");
   return {
     selectionOnly: payload.selectionOnly === true,
+    visible: payload.visible === true,
+    elementIds,
     fileIds: fileIds.length ? fileIds : undefined,
   };
 };
@@ -261,12 +280,16 @@ export const createReadAgentProjectCommand =
     readProjectBundle,
     getRoomScene,
     inspectProjectHealth,
+    readVisibleImagePaths,
   }: {
     readProjectBundle: (
       projectPath: string,
     ) => Promise<Omit<DesktopProjectBundle, "projectPath">>;
     getRoomScene: (projectPath: string) => Promise<ProjectRoomScene>;
     inspectProjectHealth: (projectPath: string) => Promise<unknown>;
+    readVisibleImagePaths?: ReturnType<
+      typeof createAgentReferenceImages
+    >["paths"];
   }): NonNullable<LocalBridgeServerOptions["readAgentProjectCommand"]> =>
   async ({ command, project, payload }) => {
     const bundle = await readProjectBundle(project.projectPath);
@@ -292,6 +315,35 @@ export const createReadAgentProjectCommand =
         return buildSelectionContext(scene, selectedElementIds);
       case "scene.imagePaths": {
         const parsed = parseImagePathPayload(payload);
+        if (parsed.visible) {
+          if (!readVisibleImagePaths)
+            throw Object.assign(new Error("当前运行时不支持可见参考图导出。"), {
+              code: "CAPABILITY_UNAVAILABLE",
+            });
+          if (!parsed.elementIds.length && !parsed.selectionOnly)
+            throw createBadRequestError(
+              "可见参考图需要 elementIds 或 selection。",
+            );
+          const referenceElementIds = parsed.elementIds.length
+            ? parsed.elementIds
+            : selectedElementIds;
+          if (!referenceElementIds.length && parsed.fileIds?.length)
+            throw createBadRequestError("当前选区没有对应的参考元素。");
+          const items = referenceElementIds.length
+            ? await readVisibleImagePaths({
+                projectPath: project.projectPath,
+                fileIds: parsed.fileIds ?? [],
+                elementIds: referenceElementIds,
+              })
+            : [];
+          return {
+            projectPath: project.projectPath,
+            rendition: "visible",
+            selectionOnly: parsed.selectionOnly,
+            items,
+            missingFileIds: [],
+          };
+        }
         const candidateFileIds = Array.from(
           new Set(
             parsed.fileIds ??

@@ -3,13 +3,19 @@
 > 所属项目：CoreStudio Desktop  
 > 文档状态：已实现；2026-09-04 增补 Agent 项目解耦发布合同适用范围：macOS 本地客户端最后更新：2026-09-04
 
+## 2026-09-07 新宿主增补（源码已实现，未发布）
+
+增加 WorkBuddy、千问办公中国版、豆包工作三款本地宿主；现有六宿主共用 CLI / Bridge、独立 session 和生成授权。集成合同 2.2.0、Skill 24、Bridge 7、CLI wrapper 2。本文后续“三个宿主”和 2026-09-04 版本描述保留为原阶段记录，不代表当前支持列表。
+
+当前安装与连接步骤以 [用户指南](agent-integration-user-guide.md) 为准；实测边界见 [QA 记录](agent-integration-qa-notes.md) 与仓库国内 Agent 调研文档。千问使用官方扩展连接外部 Chrome；豆包先初始化本地电脑目录；WorkBuddy 使用实际可用的浏览器技能。不得把源码完成写成正式包或线上官网已更新。
+
 ## 0. 2026-09-04 发布增补
 
 - Agent session 在认领稳定 Agent Board 时绑定项目；后续项目级 CLI 请求不再读取桌面当前标签。
 - 目标项目可以没有人类标签，也可以不在最近项目列表。Bridge 在主进程按需打开 Project Room。
 - 图片、提示词、图表和生成结果由 CLI / Local Bridge 直接写入，不允许通过浏览器剪贴板、粘贴、拖放或模拟点击兜底。
 - 关闭人类标签不停止 Agent；Home 新增“Agent 正在使用”区域，并由用户决定是否“打开查看”。
-- 本轮合同版本为 Agent integration `2.1.2`、Bridge protocol `7`、Skill `21`、CLI wrapper `2`；兼容 Codex integration 为 `1.13.2`、Skill `20`、CLI wrapper `1`。
+- 本轮合同版本为 Agent integration `2.1.3`、Bridge protocol `7`、Skill `22`、CLI wrapper `2`；兼容 Codex integration 为 `1.13.3`、Skill `21`、CLI wrapper `1`。
 
 ## 1. 文档定位
 
@@ -173,7 +179,7 @@ CLI 只安装一次：
 ```json
 {
   "schemaVersion": 2,
-  "integrationVersion": "2.1.2",
+  "integrationVersion": "2.1.3",
   "bridgeProtocolVersion": 7,
   "cli": {
     "path": "~/.local/bin/corestudio",
@@ -182,15 +188,15 @@ CLI 只安装一次：
   "hosts": {
     "codex": {
       "skillPath": "~/.codex/skills/corestudio/SKILL.md",
-      "skillVersion": 21
+      "skillVersion": 22
     },
     "cursor": {
       "skillPath": "~/.cursor/skills/corestudio/SKILL.md",
-      "skillVersion": 21
+      "skillVersion": 22
     },
     "claude-code": {
       "skillPath": "~/.claude/skills/corestudio/SKILL.md",
-      "skillVersion": 21
+      "skillVersion": 22
     }
   }
 }

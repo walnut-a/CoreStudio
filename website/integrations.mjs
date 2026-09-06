@@ -6,7 +6,7 @@ import {
   getLocalizedContent,
   getTroubleshootingGuide,
   normalizeHost,
-} from "./integrations-content.mjs?v=20260904-2";
+} from "./integrations-content.mjs?v=20260907-1";
 
 const locale = document.body.dataset.locale ?? "en";
 const content = getLocalizedContent(locale);
@@ -104,6 +104,11 @@ const renderHost = (host, { updateHistory = true, announce = false } = {}) => {
   setText("[data-skill-path]", selected.skillPath);
   setText("[data-first-prompt]", selected.prompt);
   setText("[data-host-note]", selected.note);
+  document.querySelectorAll("[data-host-setup]").forEach((element) => {
+    element.hidden = element.dataset.hostSetup !== activeHost;
+  });
+  const setups = document.querySelector("[data-host-setups]");
+  if (setups) setups.hidden = !selected.setup;
   renderTroubleshooting(activeHost);
   renderCliSessionRequirements(activeHost);
 

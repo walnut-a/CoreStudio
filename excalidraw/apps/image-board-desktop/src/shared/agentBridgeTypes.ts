@@ -11,7 +11,14 @@ export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 export const AGENT_BOARD_ROUTE = "/board";
 
-export const AGENT_HOSTS = ["codex", "cursor", "claude-code"] as const;
+export const AGENT_HOSTS = [
+  "codex",
+  "cursor",
+  "claude-code",
+  "workbuddy",
+  "qwenwork",
+  "doubaowork",
+] as const;
 
 export type AgentHost = typeof AGENT_HOSTS[number];
 

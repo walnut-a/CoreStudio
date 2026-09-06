@@ -23,6 +23,25 @@ import {
 } from "./agentAccessStore";
 
 describe("agentAccessStore", () => {
+  it.each(["workbuddy", "qwenwork", "doubaowork"] as const)(
+    "isolates image generation permission for %s",
+    async (host) => {
+      const settings = await loadAgentAccessSettings();
+      expect(settings.integrations[host]).toEqual({
+        allowImageGeneration: false,
+      });
+      settings.integrations[host].allowImageGeneration = true;
+      await saveAgentAccessSettings(settings);
+      const loaded = await loadAgentAccessSettings();
+      expect(loaded.integrations[host].allowImageGeneration).toBe(true);
+      expect(
+        Object.entries(loaded.integrations).filter(
+          ([key, value]) => key !== host && value.allowImageGeneration,
+        ),
+      ).toEqual([]);
+    },
+  );
+
   beforeEach(async () => {
     mockAppDataPath = await fs.mkdtemp(
       path.join(os.tmpdir(), "image-board-app-data-"),
@@ -48,6 +67,9 @@ describe("agentAccessStore", () => {
         "claude-code": {
           allowImageGeneration: false,
         },
+        workbuddy: { allowImageGeneration: false },
+        qwenwork: { allowImageGeneration: false },
+        doubaowork: { allowImageGeneration: false },
       },
     });
   });
@@ -67,6 +89,9 @@ describe("agentAccessStore", () => {
         "claude-code": {
           allowImageGeneration: false,
         },
+        workbuddy: { allowImageGeneration: false },
+        qwenwork: { allowImageGeneration: false },
+        doubaowork: { allowImageGeneration: false },
       },
     });
   });
@@ -84,6 +109,9 @@ describe("agentAccessStore", () => {
         "claude-code": {
           allowImageGeneration: true,
         },
+        workbuddy: { allowImageGeneration: false },
+        qwenwork: { allowImageGeneration: false },
+        doubaowork: { allowImageGeneration: false },
       },
     });
 
@@ -99,8 +127,35 @@ describe("agentAccessStore", () => {
         "claude-code": {
           allowImageGeneration: true,
         },
+        workbuddy: { allowImageGeneration: false },
+        qwenwork: { allowImageGeneration: false },
+        doubaowork: { allowImageGeneration: false },
       },
     });
+  });
+
+  it("preserves old host permissions without granting new hosts access", async () => {
+    const directory = path.join(mockAppDataPath, "Excalidraw Image Board");
+    await fs.mkdir(directory, { recursive: true });
+    await fs.writeFile(
+      path.join(directory, "agent-access-settings.json"),
+      JSON.stringify({
+        enabled: true,
+        integrations: {
+          codex: { allowImageGeneration: true },
+          cursor: { allowImageGeneration: false },
+          "claude-code": { allowImageGeneration: true },
+        },
+      }),
+    );
+    const result = await loadAgentAccessSettings();
+    expect(result.enabled).toBe(true);
+    expect(
+      Object.entries(result.integrations)
+        .filter(([, value]) => value.allowImageGeneration)
+        .map(([host]) => host),
+    ).toEqual(["codex", "claude-code"]);
+    expect(Object.keys(result.integrations)).toHaveLength(6);
   });
 
   it("migrates existing access settings with image generation disabled", async () => {
@@ -127,6 +182,9 @@ describe("agentAccessStore", () => {
         "claude-code": {
           allowImageGeneration: false,
         },
+        workbuddy: { allowImageGeneration: false },
+        qwenwork: { allowImageGeneration: false },
+        doubaowork: { allowImageGeneration: false },
       },
     });
   });

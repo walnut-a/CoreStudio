@@ -218,6 +218,11 @@ export const handleAgentReadCommand = async (
         ),
       };
     case "scene.imagePaths": {
+      if ((request.payload as { visible?: boolean } | null)?.visible) {
+        throw createAgentBadRequestError(
+          "可见参考图必须通过主进程项目房间导出。",
+        );
+      }
       const payload = parseAgentImagePathPayload(request.payload);
       return {
         handled: true,

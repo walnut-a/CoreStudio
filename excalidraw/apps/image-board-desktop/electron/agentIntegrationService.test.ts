@@ -38,14 +38,14 @@ describe("Agent integration service", () => {
       manifestPath,
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.2",
+        integrationVersion: "2.2.0",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 7,
         cli: { path: cliPath, wrapperVersion: 2 },
         hosts: {
           cursor: {
             skillPath,
-            skillVersion: 21,
+            skillVersion: 24,
             managedSha256: createHash("sha256")
               .update(skillContents)
               .digest("hex"),
@@ -72,6 +72,9 @@ describe("Agent integration service", () => {
       canRemove: true,
     });
     expect(result.command).toBeUndefined();
+    expect(result.guideUrl).toContain(
+      "/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md",
+    );
   });
 
   it("reports a managed Skill changed by the user as needing repair", async () => {
@@ -97,7 +100,7 @@ describe("Agent integration service", () => {
       join(settingsDirectory, "agent-integration.json"),
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.2",
+        integrationVersion: "2.2.0",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: { path: cliPath, wrapperVersion: 2 },
@@ -167,11 +170,11 @@ describe("Agent integration service", () => {
     );
     expect(manifest).toMatchObject({
       schemaVersion: 2,
-      integrationVersion: "2.1.2",
+      integrationVersion: "2.2.0",
       installedFromAppVersion: "1.2.0",
       cli: { path: cliPath, wrapperVersion: 2 },
       hosts: {
-        "claude-code": { skillPath, skillVersion: 21 },
+        "claude-code": { skillPath, skillVersion: 24 },
       },
     });
   });
@@ -238,7 +241,7 @@ describe("Agent integration service", () => {
       manifestPath,
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.2",
+        integrationVersion: "2.2.0",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: { path: cliPath, wrapperVersion: 2 },
@@ -300,7 +303,7 @@ describe("Agent integration service", () => {
       join(settingsDirectory, "agent-integration.json"),
       JSON.stringify({
         schemaVersion: 2,
-        integrationVersion: "2.1.2",
+        integrationVersion: "2.2.0",
         installedFromAppVersion: "1.2.0",
         bridgeProtocolVersion: 6,
         cli: {

@@ -1,11 +1,16 @@
+import {
+  visibleImageDrawExpression,
+  type VisibleImageTransform,
+} from "./visibleImageTransform";
 import { validateExternalImageHeader } from "./externalImageHeader";
 import { BrowserWindow } from "electron";
 
 // Decode in a sandboxed renderer, never on the editor or main process thread.
-const decodeExpression = (
+export const decodeExpression = (
   data: string,
   mimeType: string,
   maxDimension: number,
+  transform?: VisibleImageTransform,
 ) => `
 (async () => {
  const raw=atob(${JSON.stringify(data)}), mime=${JSON.stringify(mimeType)};
@@ -27,7 +32,8 @@ const decodeExpression = (
   const img=new Image();img.src=url;await img.decode();
   const width=img.naturalWidth,height=img.naturalHeight;
   if(!width||!height||width*height>64000000)throw Error('图片尺寸无效或超过 6400 万像素限制。');
-  const limit=${JSON.stringify(maxDimension)};
+  ${transform ? visibleImageDrawExpression(transform) : ""}
+ const limit=${JSON.stringify(maxDimension)};
   if(!limit) return {width,height};
   const scale=Math.min(1,limit/Math.max(width,height));
   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));
@@ -38,7 +44,12 @@ const decodeExpression = (
 
 export const createExternalImageDecoder = () => {
   let tail: Promise<unknown> = Promise.resolve();
-  const decode = (buffer: Buffer, mimeType: string, maxDimension = 0) => {
+  const decode = (
+    buffer: Buffer,
+    mimeType: string,
+    maxDimension = 0,
+    transform?: VisibleImageTransform,
+  ) => {
     const job = tail.then(async () => {
       validateExternalImageHeader(buffer, mimeType);
       const worker = new BrowserWindow({
@@ -65,6 +76,7 @@ export const createExternalImageDecoder = () => {
                 buffer.toString("base64"),
                 mimeType,
                 maxDimension,
+                transform,
               ),
             )) as { width: number; height: number; dataBase64?: string };
           })(),

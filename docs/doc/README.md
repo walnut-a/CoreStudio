@@ -18,6 +18,8 @@
 
 ## 文档索引
 
+- [2026-09-06-chinese-agent-integration-research.md](2026-09-06-chinese-agent-integration-research.md)：WorkBuddy、千问办公、豆包工作的官方能力调研、接入路径、参考图缺口与验收门槛。
+
 - [corestudio-dependency-security.md](corestudio-dependency-security.md)：CoreStudio 桌面 bundle 的依赖安全口径、已修复链路、Vitest mock 隔离、持续门禁和剩余上游风险。
 - [generation-record-robustness-audit.md](generation-record-robustness-audit.md)：图片来源、生成记录展示、画布定位与项目记录读取边界的健壮性审计。
 - [project-room-collaboration-audit.md](project-room-collaboration-audit.md)：项目房间协作机制重构后的审计，覆盖本地变更性能、快照恢复、断档重新同步、遗留选区通道和票据边界。

@@ -108,10 +108,10 @@ describe("application settings localization", () => {
     expect(
       screen.getByRole("heading", { name: "Agent Integrations" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("Environment ready")).toBeInTheDocument();
+    expect(await screen.findByText("Skill and CLI ready")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Copy Instructions" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("环境已准备好")).not.toBeInTheDocument();
+    expect(screen.queryByText("Skill 与 CLI 已就绪")).not.toBeInTheDocument();
   });
 });

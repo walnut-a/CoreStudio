@@ -1,6 +1,6 @@
 # CoreStudio Codex 集成安装指南
 
-这份文档的阅读者是 Codex。用户不需要手动执行命令，也不需要理解 CoreStudio 的应用包结构。
+这份文档的阅读者是 Codex。其他宿主（包括 WorkBuddy、千问办公、豆包工作）应使用[本地 Agent 集成使用说明](../excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md)，不要把下面的 Codex 浏览器约束套用到其他宿主。用户不需要手动执行命令，也不需要理解 CoreStudio 的应用包结构。
 
 安装代码必须来自本机 CoreStudio 应用包。GitHub 上对应版本的文档只用于阅读说明，不作为安装脚本来源。
 
@@ -67,7 +67,7 @@ test -r "$HOME/.codex/corestudio-integration.json"
 - `installedFromAppVersion`：执行安装时的 CoreStudio 客户端版本，仅用于追踪来源，不参与兼容判断。
 - `bridgeProtocolVersion`、`skillVersion`、`cliWrapperVersion`：实际参与兼容判断的契约版本。
 
-如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前 `1.13.1` Skill 契约下会提示执行一次更新。
+如果安装由 CoreStudio 设置页发起，应用会在安装完成后自动重新检测。若由 Codex 或终端执行，可回到“应用设置 → Codex 集成”查看结果，窗口重新获得焦点时也会自动检测。旧格式安装记录会映射为首个集成版本 `1.0.0`；它不会因为普通客户端升级失效，但在当前应用随包的 Skill 契约下会提示执行一次更新。
 
 ## 图片生成与写回边界
 

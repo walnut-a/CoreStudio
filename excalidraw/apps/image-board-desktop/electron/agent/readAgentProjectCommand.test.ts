@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createReadAgentProjectCommand } from "./readAgentProjectCommand";
 
@@ -31,6 +31,43 @@ const bundle = {
 };
 
 describe("createReadAgentProjectCommand", () => {
+  it("exports visible references using frozen element ids without returning original paths", async () => {
+    const readVisibleImagePaths = vi.fn(async () => [
+      {
+        fileId: "file-1",
+        elementId: "crop",
+        path: "/tmp/visible.png",
+        rendition: "visible" as const,
+        mimeType: "image/png",
+        width: 10,
+        height: 10,
+      },
+    ]);
+    const read = createReadAgentProjectCommand({
+      readProjectBundle: async () => bundle,
+      getRoomScene: async () => ({ elements: [], sharedSceneConfig: {} }),
+      inspectProjectHealth: vi.fn(),
+      readVisibleImagePaths,
+    });
+    const result = await read({
+      command: "scene.imagePaths",
+      project: {
+        projectPath: "/project",
+        name: "test",
+        agentAccess: { enabled: true, token: "test" },
+      },
+      payload: { visible: true, elementIds: ["crop"] },
+    });
+    expect(result).toMatchObject({
+      rendition: "visible",
+      items: [{ path: "/tmp/visible.png", elementId: "crop" }],
+    });
+    expect(readVisibleImagePaths).toHaveBeenCalledWith({
+      projectPath: "/project",
+      fileIds: [],
+      elementIds: ["crop"],
+    });
+  });
   it("reads project identity and image paths from the authoritative room and files", async () => {
     const read = createReadAgentProjectCommand({
       readProjectBundle: async () => bundle,

@@ -228,7 +228,16 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。新模型已完成协议测试及界面验收，尚未进行付费生图质量验收。本版不修改 Excalidraw 基座、项目文件格式或 Agent 集成协议。
 
-### 1.1.49 发布验收
+### 1.1.49 同版本修订验收
+
+- 来源提交：`a09096d53d9c24a053a7b141b639e61c878b5ce6`，PR #135 已合并，`v1.1.49` 标签同步到该提交。
+- 远端 desktop：301 个文件、2302 项测试通过，2 项跳过；Agent Node integration 33 项通过。
+- Developer ID 签名、Apple 公证（`1ff6bf31-5dd9-4cb5-95ed-7c190cc3e074`）、App / DMG 票据与 Gatekeeper 均通过。
+- production / QA packaged smoke、DMG 完整性、源码与打包输出扫描、包体预算通过；asar 中 135 个 JS / HTML 文件与当前构建逐字节一致，临时验收进程已退出。
+- 已替换同名 Release 附件并从公开链接重新下载：大小 137397348 字节，SHA-256 与本地及 GitHub 附件摘要一致：`c238ee53a0fc9004578e5a4ad9fcd298813bf65154b36cfd23acb38a113a0ea8`。
+- 公开下载验证后同步稳定版清单；版本与原始发布时间保持不变，不替换本机已安装应用。
+
+### 1.1.49 首次发布验收（替换前历史记录）
 
 - 来源提交：`04012434ed6babfc6bce0878c68ff14376870d40`，PR #133 已合并。
 - 远端 desktop：301 个文件、2299 项测试通过，2 项跳过；Agent Node integration 33 项通过。

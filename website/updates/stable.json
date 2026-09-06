@@ -8,18 +8,18 @@
   "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.49",
   "asset": {
     "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.49/CoreStudio-1.1.49-arm64.dmg",
-    "size": 137396685,
-    "sha256": "103a472143ec75a78ed76c34a0fa198a2d5c30a513b2ffefe0370f8a7613d889"
+    "size": 137397348,
+    "sha256": "c238ee53a0fc9004578e5a4ad9fcd298813bf65154b36cfd23acb38a113a0ea8"
   },
   "summary": {
     "zh-CN": [
-      "新增图片网格查看模式，支持大图浏览与返回画布定位",
-      "大图详情增加可折叠的只读属性、提示词与生成链",
+      "同版本修订：裁切参考图仅传可见区域，修复缩略图缓存失败误报",
+      "新增图片网格与大图查看，支持画布定位、只读属性、提示词与生成链",
       "适配 ZenMux Muse 和 Grok 图片模型，更新模型目录"
     ],
     "en": [
-      "Browse project images in a read-only grid and locate them on the canvas",
-      "View collapsible image details, prompts, and generation history",
+      "Same-version revision: send only visible cropped reference pixels and fix thumbnail-cache false warnings",
+      "Browse images in a grid with canvas location, read-only details, prompts, and generation history",
       "Add ZenMux Muse and Grok image model adapters and update the model catalog"
     ]
   }

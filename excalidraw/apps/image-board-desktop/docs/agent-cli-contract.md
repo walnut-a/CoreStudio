@@ -23,12 +23,15 @@ CoreStudio 会在本地 `http://127.0.0.1:<port>/board/<stableBoardId>` Agent Bo
 
 ## Agent Session
 
-Codex、Cursor 与 Claude Code 在开始项目级读取、写入、图片生成或画布认领前建立 session：
+Codex、Cursor、Claude Code、WorkBuddy、千问办公与豆包工作 在开始项目级读取、写入、图片生成或画布认领前建立 session：
 
 ```bash
 corestudio agent connect --host codex --label "当前任务" --json
 corestudio agent connect --host cursor --json
 corestudio agent connect --host claude-code --json
+corestudio agent connect --host workbuddy --json
+corestudio agent connect --host qwenwork --json
+corestudio agent connect --host doubaowork --json
 ```
 
 返回的 `sessionRef` 只在当前 CoreStudio 进程内有效。同一 Agent 对话认领稳定 Agent Board 后，Bridge 把这个 session 绑定到 Board 对应项目；后续所有项目级命令都通过 `--agent-session <sessionRef>` 复用。CoreStudio 退出后旧 session 明确失效。`CODEX_THREAD_ID` 仅作为旧流程兼容入口，新 Skill 统一显式建立并复用 session。
@@ -98,7 +101,7 @@ Agent 自身生成图片且有实际生成提示词时必须通过 `--prompt` �
 
 - `generate image --prompt <text> [--count <number>] [--reference-file-ids <ids>] [--reference-element-ids <ids>] --json`
 
-该命令仅在“应用设置 → Agent 集成”中为当前宿主开启 CoreStudio 图片生成权限后可用。Codex、Cursor 与 Claude Code 的权限彼此独立，且新安装和旧版本升级均默认关闭。Agent Bridge、画布生成输入框显示状态和本权限互相独立。
+该命令仅在“应用设置 → Agent 集成”中为当前宿主开启 CoreStudio 图片生成权限后可用。Codex、Cursor、Claude Code、WorkBuddy、千问办公与豆包工作 的权限彼此独立，且新安装和旧版本升级均默认关闭。Agent Bridge、画布生成输入框显示状态和本权限互相独立。
 
 命令不接受 `--provider`、`--model`、`--api-key` 或 `--base-url`。Local Bridge 在接受请求时锁定用户当前默认服务及其当前默认模型；调用失败时不切换模型，也不静默删减不受支持的参数。
 

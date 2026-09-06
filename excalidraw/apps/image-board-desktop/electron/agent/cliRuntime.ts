@@ -3,13 +3,17 @@ import { randomUUID } from "node:crypto";
 
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
+  AGENT_HOSTS,
   AGENT_HTTP_ROUTES,
   createAgentError,
   createAgentOk,
   isAgentHost,
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
-import { AGENT_INTEGRATION_VERSION } from "../../src/shared/agentIntegrationContract";
+import {
+  AGENT_HOST_LABELS,
+  AGENT_INTEGRATION_VERSION,
+} from "../../src/shared/agentIntegrationContract";
 import { getPersistedImageAssetIntegrityError } from "../../src/shared/projectRecordIntegrity";
 import { DESKTOP_APP_VERSION } from "../appVersion";
 import { readLocalImagePayload } from "./localImagePayload";
@@ -328,14 +332,9 @@ const parseCommand = (
     const host = parsed.flags["--host"];
     if (!isAgentHost(host)) {
       return badRequestEnvelope(
-        "agent connect --host must be codex, cursor, or claude-code.",
+        `agent connect --host must be one of: ${AGENT_HOSTS.join(", ")}.`,
       );
     }
-    const defaultLabels = {
-      codex: "Codex Agent",
-      cursor: "Cursor Agent",
-      "claude-code": "Claude Code Agent",
-    } as const;
     const label = parsed.flags["--label"]?.trim();
     return {
       route: AGENT_HTTP_ROUTES.agentSession,
@@ -344,8 +343,8 @@ const parseCommand = (
       body: {
         host,
         displayLabel: label
-          ? `${defaultLabels[host].replace(/ Agent$/, "")} · ${label}`
-          : defaultLabels[host],
+          ? `${AGENT_HOST_LABELS[host]} · ${label}`
+          : `${AGENT_HOST_LABELS[host]} Agent`,
         ...(parsed.flags["--external-conversation-id"]?.trim()
           ? {
               externalConversationId:

@@ -26,6 +26,9 @@ const accessSettings = (
     codex: { allowImageGeneration },
     cursor: { allowImageGeneration: cursorAllowImageGeneration },
     "claude-code": { allowImageGeneration: false },
+    workbuddy: { allowImageGeneration: false },
+    qwenwork: { allowImageGeneration: false },
+    doubaowork: { allowImageGeneration: false },
   },
 });
 

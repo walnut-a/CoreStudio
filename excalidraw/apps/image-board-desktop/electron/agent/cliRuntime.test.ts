@@ -244,7 +244,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.3, bridge protocol 7)\n`,
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.2.0, bridge protocol 7)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -262,7 +262,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: DESKTOP_APP_VERSION,
-        integrationVersion: "2.1.3",
+        integrationVersion: "2.2.0",
         bridgeProtocolVersion: 7,
       },
     });
@@ -871,19 +871,24 @@ describe("runCli", () => {
     });
   });
 
-  it("creates a trusted runtime session for Cursor", async () => {
+  it.each([
+    ["cursor", "Cursor"],
+    ["workbuddy", "WorkBuddy"],
+    ["qwenwork", "千问办公"],
+    ["doubaowork", "豆包工作"],
+  ])("creates a trusted runtime session for %s", async (host, label) => {
     const records: RequestRecord[] = [];
     const session = {
       sessionRef: "cursor-session-ref",
       actorId: "agent:cursor:cursor-session-ref",
-      host: "cursor",
-      displayLabel: "Cursor · 工业设计",
+      host,
+      displayLabel: `${label} · 工业设计`,
       issuedAt: "2026-08-02T00:00:00.000Z",
     };
     const fetch = createFetch({ ok: true, data: session }, records);
 
     const result = await runCommand(
-      ["agent", "connect", "--host", "cursor", "--label", "工业设计", "--json"],
+      ["agent", "connect", "--host", host, "--label", "工业设计", "--json"],
       {
         fetch,
         env: {
@@ -904,8 +909,8 @@ describe("runCli", () => {
       },
     });
     expect(JSON.parse(records[0].body ?? "{}")).toEqual({
-      host: "cursor",
-      displayLabel: "Cursor · 工业设计",
+      host,
+      displayLabel: `${label} · 工业设计`,
     });
   });
 

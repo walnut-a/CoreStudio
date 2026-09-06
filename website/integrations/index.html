@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Install the CoreStudio Skill and shared CLI for Codex, Cursor, or Claude Code, then connect your local canvas."
+      content="Install the CoreStudio Skill and shared CLI for Codex, Cursor, Claude Code, WorkBuddy, QwenWork China, or DoubaoWork, then connect your local canvas."
     />
     <meta name="theme-color" content="#f6f6f9" />
     <meta property="og:type" content="website" />
@@ -47,13 +47,13 @@
       href="https://getcorestudio.com/integrations/"
     />
     <link rel="stylesheet" href="../integrations.css?v=20260901-2" />
-    <script type="module" src="../integrations.mjs?v=20260904-2"></script>
-    <script type="module" src="../webmcp-adapter.mjs?v=20260904-2"></script>
+    <script type="module" src="../integrations.mjs?v=20260907-1"></script>
+    <script type="module" src="../webmcp-adapter.mjs?v=20260907-1"></script>
   </head>
   <body
     class="integration-page integration-page-en"
     data-locale="en"
-    data-content-revision="20260904-2"
+    data-content-revision="20260907-1"
   >
     <a class="skip-link" href="#main">Skip to the guide</a>
 
@@ -136,6 +136,33 @@
             data-host-tab="claude-code"
           >
             Claude Code
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            data-host-tab="workbuddy"
+          >
+            WorkBuddy
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            data-host-tab="qwenwork"
+          >
+            QwenWork China
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            data-host-tab="doubaowork"
+          >
+            DoubaoWork
           </button>
         </div>
 
@@ -244,6 +271,106 @@
           </ol>
         </section>
 
+        <section class="guide-section" data-host-setups>
+          <h2>Prepare your Agent</h2>
+          <article data-host-setup="workbuddy">
+            <h3>WorkBuddy</h3>
+            <p>
+              Use agent-browser or playwright-cli exposed by the current local
+              task. A preview panel alone is not browser control.
+            </p>
+            <ol>
+              <li>
+                Sign in to WorkBuddy, use a local task, and install its
+                integration in CoreStudio.
+              </li>
+              <li>
+                Start a new task after installation. Confirm it discovers the
+                CoreStudio Skill and browser skill; use the absolute CLI path in
+                the Skill if PATH lookup fails.
+              </li>
+              <li>
+                Have the Agent open the chosen project’s Agent Board and read
+                the rendered page before claiming it. A preview or downloaded
+                HTML is not a successful connection.
+              </li>
+            </ol>
+            <p>
+              The tested task did not expose native image generation. Check the
+              current task’s tools. If unavailable, explicitly authorize
+              CoreStudio generation as needed; its selected provider charges for
+              usage.
+            </p>
+          </article>
+          <article data-host-setup="qwenwork">
+            <h3>千问办公 / QwenWork China</h3>
+            <p>
+              The tested route controls external Chrome through the official
+              QwenWork extension. A controllable embedded browser and Edge were
+              not validated.
+            </p>
+            <ol>
+              <li>
+                Sign in to QwenWork China, use a local task, and install the
+                QwenWork integration in CoreStudio.
+              </li>
+              <li>
+                Enable Connectors → Installed → Browser in QwenWork. If waiting
+                for the extension, check the official QwenWork extension in the
+                Chrome profile you actually use; load it from the directory
+                provided by QwenWork if missing.
+              </li>
+              <li>
+                Open the target Agent Board, click Connect in the extension, and
+                confirm the current tab is connected. Restricted pages such as
+                chrome://extensions cannot be used for this check.
+              </li>
+              <li>
+                Start a new QwenWork task to load the Skill and browser tools.
+                If tools are still absent, copy the connection instructions from
+                the original Board into the local task; do not refresh that page
+                after copying.
+              </li>
+            </ol>
+            <p>
+              Native image tools were discoverable in the tested task but
+              generation was not invoked; availability depends on the account
+              and task. Save a readable local image before writeback. CoreStudio
+              generation requires separate authorization and uses its current
+              configuration.
+            </p>
+          </article>
+          <article data-host-setup="doubaowork">
+            <h3>豆包工作 / DoubaoWork</h3>
+            <p>
+              Use Operate Browser in a DoubaoWork Local Computer task. Cloud
+              tasks cannot directly access CoreStudio on this Mac.
+            </p>
+            <ol>
+              <li>
+                Sign in and run a Local Computer task once so DoubaoWork creates
+                its default local skill directory.
+              </li>
+              <li>
+                Select DoubaoWork in CoreStudio and install the integration. If
+                the directory is uninitialized, complete the previous step
+                instead of inventing a path.
+              </li>
+              <li>
+                Start a new Local Computer task to load the Skill, then use its
+                browser capability to open and claim the chosen project’s Agent
+                Board.
+              </li>
+            </ol>
+            <p>
+              Visible-reference export and image writeback passed on the actual
+              host. Native image tools were discoverable but paid generation was
+              not tested. A chat preview alone is insufficient: obtain a
+              readable local original. CoreStudio generation still needs
+              separate permission.
+            </p>
+          </article>
+        </section>
         <section class="guide-section" id="verify">
           <h2>Verify installation before project access</h2>
           <p class="section-intro">
@@ -359,7 +486,7 @@
               <div class="cli-command">
                 <code
                   >corestudio write image /absolute/path/result.png
-                  --source-type generated --origin agent-board --prompt
+                  --source-type generated --request-id &lt;requestId&gt; --origin agent-board --prompt
                   "&lt;finalPrompt&gt;" --agent-session &lt;sessionRef&gt;
                   --json</code
                 >
@@ -376,7 +503,7 @@
               <div class="cli-command">
                 <code
                   >corestudio write diagram --format mermaid --file
-                  /absolute/path/process.mmd --anchor auto --agent-session
+                  /absolute/path/process.mmd --request-id &lt;requestId&gt; --anchor auto --agent-session
                   &lt;sessionRef&gt; --json</code
                 >
                 <span
@@ -455,6 +582,9 @@
             <li>Codex</li>
             <li>Cursor</li>
             <li>Claude Code</li>
+            <li>WorkBuddy</li>
+            <li>千问办公 / QwenWork China</li>
+            <li>豆包工作 / DoubaoWork</li>
           </ul>
         </section>
 

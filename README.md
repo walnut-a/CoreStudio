@@ -101,7 +101,7 @@ The following capabilities are backed by current code or documentation:
 - Agent Board, a local web canvas entry point.
 - CoreStudio CLI at `excalidraw/apps/image-board-desktop/bin/corestudio.cjs`.
 - Local Bridge for local project access from Agent Board and the CLI.
-- Codex agent workflows for canvas reads, selection context, controlled writeback, and result location.
+- Local Agent integration for Codex, Cursor, Claude Code, WorkBuddy, QwenWork China, and DoubaoWork: canvas reads, selection context, controlled writeback, and result location. Browser setup differs by host; see the [integration guide](excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md).
 - Project health checks and repair flows covering asset, canvas-element, and generation-record consistency.
 - macOS packaging, notarization, release, and secret-scanning workflows.
 

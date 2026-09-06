@@ -82,7 +82,9 @@ describe("CodexIntegrationSettings", () => {
       screen.getByText("Executable: /Users/tester/.local/bin/corestudio"),
     ).toBeVisible();
     expect(
-      screen.getByText("Codex can discover the CoreStudio usage guide."),
+      screen.getByText(
+        "The CoreStudio Skill file for Codex exists; start a new task to load it.",
+      ),
     ).toBeVisible();
     expect(
       screen.getByText(
@@ -194,6 +196,9 @@ describe("CodexIntegrationSettings", () => {
       codex: { allowImageGeneration: enabled },
       cursor: { allowImageGeneration: false },
       "claude-code": { allowImageGeneration: false },
+      workbuddy: { allowImageGeneration: false },
+      qwenwork: { allowImageGeneration: false },
+      doubaowork: { allowImageGeneration: false },
     }));
     const onOpenImageIntegrations = vi.fn();
     render(
@@ -210,6 +215,9 @@ describe("CodexIntegrationSettings", () => {
           codex: { allowImageGeneration: false },
           cursor: { allowImageGeneration: false },
           "claude-code": { allowImageGeneration: false },
+          workbuddy: { allowImageGeneration: false },
+          qwenwork: { allowImageGeneration: false },
+          doubaowork: { allowImageGeneration: false },
         }))}
         setCodexImageGenerationEnabled={setCodexImageGenerationEnabled}
         loadAgentBridgeStatus={vi.fn(async () => ({
@@ -243,7 +251,12 @@ describe("CodexIntegrationSettings", () => {
     ).toBeInTheDocument();
   });
 
-  it("切换宿主后独立检测、安装并保存对应图片生成权限", async () => {
+  it.each([
+    ["cursor", "Cursor"],
+    ["workbuddy", "WorkBuddy"],
+    ["qwenwork", "千问办公"],
+    ["doubaowork", "豆包工作"],
+  ])("切换 %s 后独立检测、安装并保存权限", async (targetHost, targetLabel) => {
     const inspectAgentIntegration = vi.fn(async (host) => ({
       ...status,
       host,
@@ -262,9 +275,13 @@ describe("CodexIntegrationSettings", () => {
       async (host, enabled: boolean) => ({
         codex: { allowImageGeneration: false },
         cursor: {
-          allowImageGeneration: host === "cursor" ? enabled : false,
+          allowImageGeneration: false,
         },
         "claude-code": { allowImageGeneration: false },
+        workbuddy: { allowImageGeneration: false },
+        qwenwork: { allowImageGeneration: false },
+        doubaowork: { allowImageGeneration: false },
+        [host]: { allowImageGeneration: enabled },
       }),
     );
 
@@ -284,29 +301,34 @@ describe("CodexIntegrationSettings", () => {
           codex: { allowImageGeneration: false },
           cursor: { allowImageGeneration: false },
           "claude-code": { allowImageGeneration: false },
+          workbuddy: { allowImageGeneration: false },
+          qwenwork: { allowImageGeneration: false },
+          doubaowork: { allowImageGeneration: false },
         }))}
         setAgentImageGenerationEnabled={setAgentImageGenerationEnabled}
       />,
     );
 
     await screen.findByText("CoreStudio CLI");
-    fireEvent.click(screen.getByRole("button", { name: "Cursor" }));
+    fireEvent.click(screen.getByRole("button", { name: targetLabel }));
     await waitFor(() =>
-      expect(inspectAgentIntegration).toHaveBeenCalledWith("cursor"),
+      expect(inspectAgentIntegration).toHaveBeenCalledWith(targetHost),
     );
     const permission = await screen.findByRole("switch", {
-      name: "允许 Cursor 使用 CoreStudio 图片生成",
+      name: `允许 ${targetLabel} 使用 CoreStudio 图片生成`,
     });
     fireEvent.click(permission);
     await waitFor(() =>
       expect(setAgentImageGenerationEnabled).toHaveBeenCalledWith(
-        "cursor",
+        targetHost,
         true,
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "安装 Cursor 集成" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: `安装 ${targetLabel} 集成` }),
+    );
     await waitFor(() =>
-      expect(installAgentIntegration).toHaveBeenCalledWith("cursor"),
+      expect(installAgentIntegration).toHaveBeenCalledWith(targetHost),
     );
   });
 
@@ -369,6 +391,47 @@ describe("CodexIntegrationSettings", () => {
     await waitFor(() =>
       expect(removeAgentIntegration).toHaveBeenCalledWith("cursor"),
     );
+  });
+
+  it("切换宿主时展示对应接入条件并复制对应使用指令", async () => {
+    const copyText = vi.fn(async () => true);
+    render(
+      <CodexIntegrationSettings
+        open
+        inspect={vi.fn(async () => status)}
+        install={vi.fn(async () => ({
+          ok: true as const,
+          output: "",
+          warning: null,
+        }))}
+        inspectAgentIntegration={vi.fn(async (host) => ({
+          ...status,
+          host,
+          skillPath: "test",
+          canRemove: false,
+        }))}
+        copyText={copyText}
+      />,
+    );
+    await screen.findByText("CoreStudio CLI");
+    for (const [label, expected] of [
+      ["WorkBuddy", "agent-browser"],
+      ["千问办公", "Chrome"],
+      ["豆包工作", "本地电脑"],
+    ]) {
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", { name: label }),
+        );
+      });
+      expect(
+        screen.getByRole("region", { name: "接入前准备" }),
+      ).toHaveTextContent(expected);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "复制使用指令" }));
+      });
+      expect(copyText).toHaveBeenLastCalledWith(expect.stringContaining(label));
+    }
   });
 
   it("检测失败时不伪造已准备好，并允许重新检测", async () => {

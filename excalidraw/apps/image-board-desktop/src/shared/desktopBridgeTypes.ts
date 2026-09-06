@@ -236,17 +236,10 @@ export interface DesktopAgentBridgeStatus {
   boardUrl: string | null;
 }
 
-export interface DesktopAgentIntegrationSettings {
-  codex: {
-    allowImageGeneration: boolean;
-  };
-  cursor: {
-    allowImageGeneration: boolean;
-  };
-  "claude-code": {
-    allowImageGeneration: boolean;
-  };
-}
+export type DesktopAgentIntegrationSettings = Record<
+  AgentHost,
+  { allowImageGeneration: boolean }
+>;
 
 export interface RecentProjectEntry {
   projectPath: string;

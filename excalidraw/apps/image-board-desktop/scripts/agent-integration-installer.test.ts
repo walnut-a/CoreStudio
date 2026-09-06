@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AGENT_BRIDGE_PROTOCOL_VERSION } from "../src/shared/agentBridgeTypes";
 import {
+  AGENT_HOST_SKILL_DIRECTORIES,
   AGENT_INTEGRATION_CLI_WRAPPER_VERSION,
   AGENT_INTEGRATION_MANIFEST_SCHEMA_VERSION,
   AGENT_INTEGRATION_SKILL_VERSION,
@@ -50,7 +51,14 @@ describe("CoreStudio multi-host Agent installer", () => {
       bridgeProtocolVersion: AGENT_BRIDGE_PROTOCOL_VERSION,
       skillVersion: AGENT_INTEGRATION_SKILL_VERSION,
       cliWrapperVersion: AGENT_INTEGRATION_CLI_WRAPPER_VERSION,
-      hosts: ["codex", "cursor", "claude-code"],
+      hosts: [
+        "codex",
+        "cursor",
+        "claude-code",
+        "workbuddy",
+        "qwenwork",
+        "doubaowork",
+      ],
     });
   });
 
@@ -95,7 +103,14 @@ describe("CoreStudio multi-host Agent installer", () => {
         commonSkill,
         join(commonIntegration, "corestudio-skill", "SKILL.md"),
       );
-      for (const host of ["codex", "cursor", "claude-code"]) {
+      for (const host of [
+        "codex",
+        "cursor",
+        "claude-code",
+        "workbuddy",
+        "qwenwork",
+        "doubaowork",
+      ]) {
         copyFileSync(
           join(sourceRoot, "hosts", `${host}.md`),
           join(integration, "hosts", `${host}.md`),
@@ -128,6 +143,40 @@ describe("CoreStudio multi-host Agent installer", () => {
         "SKILL.md",
       );
       expect(output).toContain("CoreStudio Cursor 集成已准备好");
+      for (const host of ["workbuddy", "qwenwork", "doubaowork"] as const) {
+        const skillPath = join(
+          home,
+          ...AGENT_HOST_SKILL_DIRECTORIES[host],
+          "SKILL.md",
+        );
+        if (host === "doubaowork") {
+          expect(() =>
+            execFileSync("/bin/bash", [installer, host], {
+              env: { ...process.env, HOME: home },
+              stdio: "pipe",
+            }),
+          ).toThrow();
+          expect(existsSync(dirname(dirname(skillPath)))).toBe(false);
+        }
+        mkdirSync(dirname(dirname(skillPath)), { recursive: true });
+        execFileSync("/bin/bash", [installer, host], {
+          env: { ...process.env, HOME: home },
+        });
+        const contents = readFileSync(skillPath, "utf8");
+        expect(contents).toContain(
+          `corestudio-managed-agent-skill host=${host}`,
+        );
+        expect(contents).toContain(`agent connect --host ${host}`);
+        writeFileSync(skillPath, "user custom skill");
+        expect(() =>
+          execFileSync("/bin/bash", [installer, host], {
+            env: { ...process.env, HOME: home },
+            stdio: "pipe",
+          }),
+        ).toThrow();
+        expect(readFileSync(skillPath, "utf8")).toBe("user custom skill");
+      }
+
       expect(existsSync(cursorSkill)).toBe(true);
       expect(readFileSync(cursorSkill, "utf8")).toContain(
         "corestudio-managed-agent-skill host=cursor",

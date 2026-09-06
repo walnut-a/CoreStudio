@@ -3,6 +3,19 @@ import { describe, expect, it } from "vitest";
 import { createLocalAgentSessionStore } from "./localAgentSessionStore";
 
 describe("localAgentSessionStore", () => {
+  it.each(["workbuddy", "qwenwork", "doubaowork"] as const)(
+    "keeps %s tasks isolated",
+    (host) => {
+      const store = createLocalAgentSessionStore();
+      const first = store.issue({ host, displayLabel: "任务一" });
+      const second = store.issue({ host, displayLabel: "任务二" });
+      expect(first.sessionRef).not.toBe(second.sessionRef);
+      expect(first.actorId).toContain(`agent:${host}:`);
+      expect(store.resolve(first.sessionRef)).toEqual(first);
+      expect(store.resolve(second.sessionRef)).toEqual(second);
+    },
+  );
+
   it("issues isolated runtime sessions for supported local Agent hosts", () => {
     const ids = ["cursor-session", "claude-session"];
     const store = createLocalAgentSessionStore({

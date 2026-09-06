@@ -26,8 +26,15 @@ const normalizeVisibleText = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
-test("integration content supports the three shipped local agent hosts", () => {
-  assert.deepEqual(SUPPORTED_HOSTS, ["codex", "cursor", "claude-code"]);
+test("integration content supports all six local agent hosts", () => {
+  assert.deepEqual(SUPPORTED_HOSTS, [
+    "codex",
+    "cursor",
+    "claude-code",
+    "workbuddy",
+    "qwenwork",
+    "doubaowork",
+  ]);
   assert.deepEqual(LOCALES, ["en", "zh-CN"]);
   assert.match(CONTENT_REVISION, /^\d{8}-\d+$/);
 
@@ -273,4 +280,46 @@ test("localized homepages register WebMCP and expose both integration routes", a
   assert.match(chinese, /src="\.\.\/webmcp-adapter\.mjs\?v=/);
   assert.match(sitemap, /https:\/\/getcorestudio\.com\/integrations\//);
   assert.match(sitemap, /https:\/\/getcorestudio\.com\/zh\/integrations\//);
+});
+
+test("new hosts retain their own onboarding in both page and WebMCP guides", async () => {
+  for (const locale of LOCALES) {
+    for (const host of ["workbuddy", "qwenwork", "doubaowork"]) {
+      const guide = getIntegrationGuide({ host, locale, stage: "first-use" });
+      assert.equal(guide.host, host);
+      assert.ok(guide.hostSetup.steps.length >= 3);
+      assert.ok(guide.hostSetup.browser.length > 0);
+      assert.ok(guide.hostSetup.images.length > 0);
+      const tools = createWebMcpToolDefinitions(locale);
+      const result = await tools[0].execute({
+        host,
+        locale,
+        stage: "first-use",
+      });
+      assert.deepEqual(result.hostSetup, guide.hostSetup);
+      assert.ok(
+        tools.every((t) => t.inputSchema.properties.host.enum.includes(host))
+      );
+      const html = await readWebsiteFile(
+        locale === "en"
+          ? "integrations/index.html"
+          : "zh/integrations/index.html"
+      );
+      assert.ok(html.includes(`data-host-tab="${host}"`));
+      assert.ok(
+        normalizeVisibleText(html).includes(
+          normalizeVisibleText(guide.hostSetup.browser)
+        )
+      );
+    }
+  }
+});
+
+test("website supported hosts stay aligned with the packaged integration contract", async () => {
+  const contract = JSON.parse(await readFile(new URL("../excalidraw/apps/image-board-desktop/resources/agent-integration/contract.json", import.meta.url), "utf8"));
+  assert.deepEqual(SUPPORTED_HOSTS, contract.hosts);
+  for (const host of ["workbuddy", "qwenwork", "doubaowork"]) {
+    const setup = getTroubleshootingGuide({host, locale: "zh-CN", symptom: "browser-tools-missing"});
+    assert.deepEqual(setup.hostSetup, getIntegrationGuide({host, locale: "zh-CN"}).hostSetup);
+  }
 });

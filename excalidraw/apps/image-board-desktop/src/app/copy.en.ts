@@ -540,6 +540,49 @@ export const enCopy: DesktopCopy = {
       },
     },
     codexPage: {
+      hostSetupTitle: "Before connecting",
+      hostSetup: {
+        workbuddy: {
+          browser:
+            "Use agent-browser or playwright-cli exposed by the current local task. A preview panel alone is not browser control.",
+          steps: [
+            "Sign in to WorkBuddy, use a local task, and install its integration in CoreStudio.",
+            "Start a new task after installation. Confirm it discovers the CoreStudio Skill and browser skill; use the absolute CLI path in the Skill if PATH lookup fails.",
+            "Have the Agent open the chosen project’s Agent Board and read the rendered page before claiming it. A preview or downloaded HTML is not a successful connection.",
+          ],
+          images:
+            "The tested task did not expose native image generation. Check the current task’s tools. If unavailable, explicitly authorize CoreStudio generation as needed; its selected provider charges for usage.",
+          prompt:
+            "Use the CoreStudio Skill in this local WorkBuddy task. Open my chosen project and connect its Agent Board using the available browser skill. Check the canvas and selection; report missing browser tools clearly. Do not generate images yet.",
+        },
+        qwenwork: {
+          browser:
+            "The tested route controls external Chrome through the official QwenWork extension. A controllable embedded browser and Edge were not validated.",
+          steps: [
+            "Sign in to QwenWork China, use a local task, and install the QwenWork integration in CoreStudio.",
+            "Enable Connectors → Installed → Browser in QwenWork. If waiting for the extension, check the official QwenWork extension in the Chrome profile you actually use; load it from the directory provided by QwenWork if missing.",
+            "Open the target Agent Board, click Connect in the extension, and confirm the current tab is connected. Restricted pages such as chrome://extensions cannot be used for this check.",
+            "Start a new QwenWork task to load the Skill and browser tools. If tools are still absent, copy the connection instructions from the original Board into the local task; do not refresh that page after copying.",
+          ],
+          images:
+            "Native image tools were discoverable in the tested task but generation was not invoked; availability depends on the account and task. Save a readable local image before writeback. CoreStudio generation requires separate authorization and uses its current configuration.",
+          prompt:
+            "Use the CoreStudio Skill in this local QwenWork China task to connect my chosen project. Read the connected Chrome Agent Board tab through the official browser connector, then claim it and inspect the canvas and selection. If browser tools are absent, explain the copy-connection-instructions route. Do not generate images yet.",
+        },
+        doubaowork: {
+          browser:
+            "Use Operate Browser in a DoubaoWork Local Computer task. Cloud tasks cannot directly access CoreStudio on this Mac.",
+          steps: [
+            "Sign in and run a Local Computer task once so DoubaoWork creates its default local skill directory.",
+            "Select DoubaoWork in CoreStudio and install the integration. If the directory is uninitialized, complete the previous step instead of inventing a path.",
+            "Start a new Local Computer task to load the Skill, then use its browser capability to open and claim the chosen project’s Agent Board.",
+          ],
+          images:
+            "Visible-reference export and image writeback passed on the actual host. Native image tools were discoverable but paid generation was not tested. A chat preview alone is insufficient: obtain a readable local original. CoreStudio generation still needs separate permission.",
+          prompt:
+            "Use the CoreStudio Skill in this DoubaoWork Local Computer task. Open my chosen project and connect its Agent Board with Operate Browser. Inspect the canvas and selection and confirm the local CLI is available. Do not generate images yet.",
+        },
+      },
       description:
         "Install the integration for each local Agent you use and manage CoreStudio image generation access separately.",
       refresh: "Check Again",
@@ -552,7 +595,7 @@ export const enCopy: DesktopCopy = {
         install: "Install Codex Integration",
         update: "Update Codex Integration",
         repair: "Repair Codex Integration",
-        ready: "Environment ready",
+        ready: "Skill and CLI ready",
         error: "Unable to complete the check",
       },
       copyToCodex: "Copy for Codex",
@@ -571,13 +614,13 @@ export const enCopy: DesktopCopy = {
       removeDescription:
         "Only the CoreStudio Skill for this Agent is removed. The shared CLI, other Agents, and saved permissions are preserved.",
       readyDescription:
-        "All dependencies are available. You can reinstall from the current app bundle if needed.",
+        "Local installation files and versions passed. Host login, Skill loading, and browser connectivity have not been checked.",
       actionDescription:
         "CoreStudio will run the fixed installer included in the current app bundle.",
       copied: "Copied",
       environmentChecks: "Environment Checks",
       environmentChecksDescription:
-        "Each check is shown separately so missing dependencies are easy to identify.",
+        "Checks local CLI, Skill files, and version records; it does not establish an Agent task connection.",
       checkStatus: {
         ready: "Ready",
         missing: "Missing",
@@ -593,7 +636,8 @@ export const enCopy: DesktopCopy = {
         cliReady: (executablePath: string) => `Executable: ${executablePath}`,
         cliMissing: (executablePath: string) =>
           `Executable not found: ${executablePath}`,
-        skillReady: "Codex can discover the CoreStudio usage guide.",
+        skillReady:
+          "The CoreStudio Skill file for Codex exists; start a new task to load it.",
         skillMissing: "The CoreStudio Skill is not installed for Codex.",
         compatibilityReady: (integrationVersion: string) =>
           `Integration ${integrationVersion}; local CoreStudio session discovery is available.`,

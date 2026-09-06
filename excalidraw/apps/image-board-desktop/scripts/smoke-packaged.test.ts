@@ -47,6 +47,7 @@ const loadModule = () =>
       stderr?: { write: (text: string) => void };
     }) => Promise<void>;
     runCodexIntegrationSmoke: (options: {
+      mkdirSync?: (path: string, options: { recursive: boolean }) => void;
       executablePath: string;
       existsSync: (filePath: string) => boolean;
       mkdtempSync: (prefix: string) => string;
@@ -164,6 +165,9 @@ describe("smoke-packaged", () => {
       .mockReturnValueOnce({ status: 0, stdout: "codex\n", stderr: "" })
       .mockReturnValueOnce({ status: 0, stdout: "cursor\n", stderr: "" })
       .mockReturnValueOnce({ status: 0, stdout: "claude\n", stderr: "" })
+      .mockReturnValueOnce({ status: 0, stdout: "workbuddy\n", stderr: "" })
+      .mockReturnValueOnce({ status: 0, stdout: "qwenwork\n", stderr: "" })
+      .mockReturnValueOnce({ status: 0, stdout: "doubaowork\n", stderr: "" })
       .mockReturnValueOnce({
         status: 0,
         stdout:
@@ -171,6 +175,7 @@ describe("smoke-packaged", () => {
         stderr: "",
       });
     const rmSync = vi.fn();
+    const mkdirSync = vi.fn();
 
     runCodexIntegrationSmoke({
       executablePath:
@@ -185,9 +190,15 @@ describe("smoke-packaged", () => {
           return '{"installedFromAppVersion":"1.1.26","integrationVersion":"1.13.2","bridgeProtocolVersion":7}';
         }
         if (filePath.endsWith("agent-integration/contract.json")) {
-          return '{"schemaVersion":2,"integrationVersion":"2.2.0","bridgeProtocolVersion":7,"skillVersion":24,"cliWrapperVersion":2,"hosts":["codex","cursor","claude-code"]}';
+          return '{"schemaVersion":2,"integrationVersion":"2.2.0","bridgeProtocolVersion":7,"skillVersion":24,"cliWrapperVersion":2,"hosts":["codex","cursor","claude-code","workbuddy","qwenwork","doubaowork"]}';
         }
-        const host = filePath.includes("/.cursor/")
+        const host = filePath.includes("/.workbuddy-ai/")
+          ? "workbuddy"
+          : filePath.includes("/.qwenworkcn/")
+          ? "qwenwork"
+          : filePath.includes("/.doubaowork/")
+          ? "doubaowork"
+          : filePath.includes("/.cursor/")
           ? "cursor"
           : filePath.includes("/.claude/")
           ? "claude-code"
@@ -195,6 +206,7 @@ describe("smoke-packaged", () => {
         return `<!-- corestudio-managed-agent-skill host=${host} -->\n本机安装器已确认 CLI 位于：\`/tmp/corestudio-smoke-home/.local/bin/corestudio\``;
       },
       rmSync,
+      mkdirSync,
       spawnSync,
       tmpdir: () => "/tmp",
       env: { HOME: "/Users/alice" },
@@ -219,7 +231,14 @@ describe("smoke-packaged", () => {
         env: expect.objectContaining({ HOME: "/tmp/corestudio-smoke-home" }),
       }),
     );
-    for (const [index, host] of ["codex", "cursor", "claude-code"].entries()) {
+    for (const [index, host] of [
+      "codex",
+      "cursor",
+      "claude-code",
+      "workbuddy",
+      "qwenwork",
+      "doubaowork",
+    ].entries()) {
       expect(spawnSync).toHaveBeenNthCalledWith(
         index + 3,
         "/bin/bash",
@@ -233,12 +252,16 @@ describe("smoke-packaged", () => {
       );
     }
     expect(spawnSync).toHaveBeenNthCalledWith(
-      6,
+      9,
       "/tmp/corestudio-smoke-home/.local/bin/corestudio",
       ["--version", "--json"],
       expect.objectContaining({
         env: expect.objectContaining({ HOME: "/tmp/corestudio-smoke-home" }),
       }),
+    );
+    expect(mkdirSync).toHaveBeenCalledWith(
+      "/tmp/corestudio-smoke-home/Library/Application Support/DoubaoWork/Default/.doubaowork/agent_mode/workspace/.user_skills",
+      { recursive: true },
     );
     expect(rmSync).toHaveBeenCalledWith("/tmp/corestudio-smoke-home", {
       recursive: true,

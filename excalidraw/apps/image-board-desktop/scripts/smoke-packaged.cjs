@@ -182,6 +182,7 @@ const runCodexIntegrationSmoke = ({
   executablePath,
   existsSync = fs.existsSync,
   mkdtempSync = fs.mkdtempSync,
+  mkdirSync = fs.mkdirSync,
   readFileSync = fs.readFileSync,
   rmSync = fs.rmSync,
   spawnSync = childProcess.spawnSync,
@@ -210,8 +211,17 @@ const runCodexIntegrationSmoke = ({
   );
   const agentInstallerPath = path.join(agentIntegrationDir, "install.sh");
   const agentContractPath = path.join(agentIntegrationDir, "contract.json");
-  const agentHostSkillAddenda = ["codex", "cursor", "claude-code"].map(
-    (host) => path.join(agentIntegrationDir, "hosts", `${host}.md`),
+  const hostSkillRoots = {
+    codex: ".codex/skills",
+    cursor: ".cursor/skills",
+    "claude-code": ".claude/skills",
+    workbuddy: ".workbuddy-ai/skills",
+    qwenwork: ".qwenworkcn/skills",
+    doubaowork:
+      "Library/Application Support/DoubaoWork/Default/.doubaowork/agent_mode/workspace/.user_skills",
+  };
+  const agentHostSkillAddenda = Object.keys(hostSkillRoots).map((host) =>
+    path.join(agentIntegrationDir, "hosts", `${host}.md`),
   );
   const temporaryHome = mkdtempSync(
     path.join(tmpdir(), "corestudio-codex-smoke-"),
@@ -239,7 +249,9 @@ const runCodexIntegrationSmoke = ({
     }
     for (const addendumPath of agentHostSkillAddenda) {
       if (!existsSync(addendumPath)) {
-        throw new Error(`Agent host Skill addendum is missing: ${addendumPath}`);
+        throw new Error(
+          `Agent host Skill addendum is missing: ${addendumPath}`,
+        );
       }
     }
     if (
@@ -263,7 +275,7 @@ const runCodexIntegrationSmoke = ({
       typeof agentContract.skillVersion !== "number" ||
       typeof agentContract.cliWrapperVersion !== "number" ||
       !Array.isArray(agentContract.hosts) ||
-      agentContract.hosts.join(",") !== "codex,cursor,claude-code"
+      agentContract.hosts.join(",") !== Object.keys(hostSkillRoots).join(",")
     ) {
       throw new Error("Packaged Agent integration contract is invalid.");
     }
@@ -332,38 +344,15 @@ const runCodexIntegrationSmoke = ({
       );
     }
 
-    const agentHosts = [
-      {
-        id: "codex",
-        skillPath: path.join(
-          temporaryHome,
-          ".codex",
-          "skills",
-          "corestudio",
-          "SKILL.md",
-        ),
-      },
-      {
-        id: "cursor",
-        skillPath: path.join(
-          temporaryHome,
-          ".cursor",
-          "skills",
-          "corestudio",
-          "SKILL.md",
-        ),
-      },
-      {
-        id: "claude-code",
-        skillPath: path.join(
-          temporaryHome,
-          ".claude",
-          "skills",
-          "corestudio",
-          "SKILL.md",
-        ),
-      },
-    ];
+    const agentHosts = Object.entries(hostSkillRoots).map(([id, root]) => ({
+      id,
+      skillPath: path.join(temporaryHome, root, "corestudio", "SKILL.md"),
+    }));
+    // Simulate the directory created by DoubaoWork's first local task, only in
+    // the isolated smoke HOME. The production installer must not create it.
+    mkdirSync(path.join(temporaryHome, hostSkillRoots.doubaowork), {
+      recursive: true,
+    });
 
     for (const host of agentHosts) {
       const agentInstallResult = spawnSync(
@@ -394,9 +383,7 @@ const runCodexIntegrationSmoke = ({
         !installedSkill.includes(
           `corestudio-managed-agent-skill host=${host.id}`,
         ) ||
-        !installedSkill.includes(
-          `本机安装器已确认 CLI 位于：\`${cliPath}\``,
-        )
+        !installedSkill.includes(`本机安装器已确认 CLI 位于：\`${cliPath}\``)
       ) {
         throw new Error(
           `Packaged ${host.id} Agent Skill does not contain the managed host marker and CLI fallback.`,
@@ -433,7 +420,9 @@ const runCodexIntegrationSmoke = ({
       );
     }
 
-    stdout.write("Packaged legacy and multi-host Agent integration smoke passed.\n");
+    stdout.write(
+      "Packaged legacy and multi-host Agent integration smoke passed.\n",
+    );
   } finally {
     rmSync(temporaryHome, { recursive: true, force: true });
   }

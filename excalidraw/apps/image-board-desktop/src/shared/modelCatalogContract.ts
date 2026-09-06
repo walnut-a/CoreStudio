@@ -45,7 +45,11 @@ const PROVIDER_IDS: readonly ProviderId[] = [
 const PROVIDER_ADAPTERS: Record<ProviderId, readonly ProviderRequestAdapter[]> =
   {
     gemini: ["gemini-generate-content"],
-    zenmux: ["zenmux-vertex-generate-content", "zenmux-vertex-gpt-image"],
+    zenmux: [
+      "zenmux-vertex-generate-content",
+      "zenmux-vertex-gpt-image",
+      "zenmux-openai-images",
+    ],
     fal: ["fal-image"],
     jimeng: ["jimeng-image"],
     openai: ["openai-images"],

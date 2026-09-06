@@ -24,6 +24,7 @@ export type ProviderRequestAdapter =
   | "gemini-generate-content"
   | "zenmux-vertex-generate-content"
   | "zenmux-vertex-gpt-image"
+  | "zenmux-openai-images"
   | "fal-image"
   | "jimeng-image"
   | "openai-images"

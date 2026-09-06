@@ -1,3 +1,4 @@
+import { ZENMUX_OPENAI_IMAGE_MODELS } from "./zenmuxOpenAIModels";
 import type {
   AspectRatioOption,
   CustomModelCapabilityTemplateId,
@@ -16,6 +17,7 @@ export const PROVIDER_REQUEST_ADAPTERS: readonly ProviderRequestAdapter[] = [
   "gemini-generate-content",
   "zenmux-vertex-generate-content",
   "zenmux-vertex-gpt-image",
+  "zenmux-openai-images",
   "fal-image",
   "jimeng-image",
   "openai-images",
@@ -29,6 +31,7 @@ export const PROVIDER_REQUEST_ADAPTER_LABELS: Record<
   "gemini-generate-content": "Gemini 官方接口",
   "zenmux-vertex-generate-content": "ZenMux Vertex：Gemini / Nano Banana",
   "zenmux-vertex-gpt-image": "ZenMux Vertex：图片 API",
+  "zenmux-openai-images": "ZenMux OpenAI：图片 API",
   "fal-image": "fal.ai 生图接口",
   "jimeng-image": "火山方舟 Seedream 接口",
   "openai-images": "OpenAI Images 接口",
@@ -40,7 +43,11 @@ export const PROVIDER_REQUEST_ADAPTER_OPTIONS: Record<
   readonly ProviderRequestAdapter[]
 > = {
   gemini: ["gemini-generate-content"],
-  zenmux: ["zenmux-vertex-generate-content", "zenmux-vertex-gpt-image"],
+  zenmux: [
+    "zenmux-vertex-generate-content",
+    "zenmux-vertex-gpt-image",
+    "zenmux-openai-images",
+  ],
   fal: ["fal-image"],
   jimeng: ["jimeng-image"],
   openai: ["openai-images"],
@@ -511,6 +518,7 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
     label: "ZenMux",
     defaultModel: "google/gemini-2.5-flash-image",
     models: {
+      ...ZENMUX_OPENAI_IMAGE_MODELS,
       "google/gemini-2.5-flash-image": createZenMuxGeminiImageModel(
         "google/gemini-2.5-flash-image",
         "Gemini 2.5 Flash Image",
@@ -780,6 +788,7 @@ export const inferProviderRequestAdapter = ({
   modelId: string;
 }): ProviderRequestAdapter => {
   if (provider === "zenmux") {
+    if (ZENMUX_OPENAI_IMAGE_MODELS[modelId]) return "zenmux-openai-images";
     return isZenMuxVertexImageApiModel(modelId)
       ? "zenmux-vertex-gpt-image"
       : "zenmux-vertex-generate-content";
@@ -1039,7 +1048,11 @@ export const getAspectRatioOptions = (args: {
     return OPENAI_GPT_IMAGE_2_ASPECT_RATIO_OPTIONS;
   }
 
-  if (adapter === "openai-images" || adapter === "zenmux-vertex-gpt-image") {
+  if (
+    adapter === "openai-images" ||
+    adapter === "zenmux-vertex-gpt-image" ||
+    adapter === "zenmux-openai-images"
+  ) {
     return OPENAI_IMAGE_ASPECT_RATIO_OPTIONS;
   }
 

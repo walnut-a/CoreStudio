@@ -57,6 +57,123 @@ describe("generateZenMuxImages", () => {
     generateImages.mockReset();
   });
 
+  it.each(["meta/muse-image-1.0", "x-ai/grok-imagine-image-2.0"])(
+    "generates %s through the ZenMux OpenAI Images endpoint without GPT-only fields",
+    async (model) => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [{ b64_json: Buffer.from("new image").toString("base64") }],
+        }),
+      });
+      const controller = new AbortController();
+      const result = await generateZenMuxImages({
+        apiKey: "test-key",
+        signal: controller.signal,
+        request: {
+          provider: "zenmux",
+          model,
+          prompt: "产品渲染图",
+          width: 1536,
+          height: 1024,
+          imageCount: 10,
+        },
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://zenmux.ai/api/v1/images/generations",
+        expect.objectContaining({
+          signal: controller.signal,
+          headers: {
+            Authorization: "Bearer test-key",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            prompt: "产品渲染图",
+            size: "1536x1024",
+          }),
+        }),
+      );
+      expect(result).toMatchObject({ provider: "zenmux", model });
+      expect(result.images).toHaveLength(1);
+      expect(googleGenAI).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["meta/muse-image-1.0", "x-ai/grok-imagine-image-2.0"])(
+    "edits %s using a multipart reference and downloads URL output without forwarding the API key",
+    async (model) => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [{ url: "https://images.example/result.webp" }],
+        }),
+      });
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "content-type": "image/webp" }),
+        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      });
+      const result = await generateZenMuxImages({
+        apiKey: "test-key",
+        request: {
+          provider: "zenmux",
+          model,
+          prompt: "改成暖白色",
+          aspectRatio: null,
+          width: 1024,
+          height: 1024,
+          imageCount: 1,
+          reference: {
+            enabled: true,
+            elementCount: 1,
+            textCount: 0,
+            textNotes: [],
+            image: {
+              mimeType: "image/png",
+              dataBase64: Buffer.from("reference").toString("base64"),
+            },
+          },
+        },
+      });
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        "https://zenmux.ai/api/v1/images/edits",
+      );
+      const body = fetchMock.mock.calls[0][1].body as FormData;
+      expect(body.get("model")).toBe(model);
+      expect(body.get("image")).toBeInstanceOf(Blob);
+      expect(body.get("output_format")).toBeNull();
+      expect(body.get("size")).toBe("auto");
+      expect(fetchMock.mock.calls[1][1].headers).toBeUndefined();
+      expect(result.images[0].mimeType).toBe("image/webp");
+    },
+  );
+
+  it("reports ZenMux errors for OpenAI Images responses and preserves cancellation", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [] }),
+    });
+    const args = {
+      apiKey: "test-key",
+      request: {
+        provider: "zenmux" as const,
+        model: "meta/muse-image-1.0",
+        prompt: "产品",
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+      },
+    };
+    await expect(generateZenMuxImages(args)).rejects.toThrow(
+      "ZenMux 没有返回图片",
+    );
+    fetchMock.mockRejectedValueOnce(new DOMException("取消生成", "AbortError"));
+    await expect(generateZenMuxImages(args)).rejects.toMatchObject({
+      name: "AbortError",
+    });
+  });
+
   it("uses the ZenMux Vertex AI endpoint for Google image models", async () => {
     generateContent.mockResolvedValue({
       candidates: [
@@ -222,8 +339,9 @@ describe("generateZenMuxImages", () => {
       json: async () => ({
         predictions: [
           {
-            bytesBase64Encoded:
-              Buffer.from("zenmux 4k gpt image").toString("base64"),
+            bytesBase64Encoded: Buffer.from("zenmux 4k gpt image").toString(
+              "base64",
+            ),
             mimeType: "image/png",
           },
         ],
@@ -257,8 +375,9 @@ describe("generateZenMuxImages", () => {
       json: async () => ({
         predictions: [
           {
-            bytesBase64Encoded:
-              Buffer.from("zenmux auto gpt image").toString("base64"),
+            bytesBase64Encoded: Buffer.from("zenmux auto gpt image").toString(
+              "base64",
+            ),
             mimeType: "image/png",
           },
         ],

@@ -140,11 +140,13 @@ const buildLoggedMultipartPayload = ({
   prompt,
   size,
   images,
+  outputFormat = "png",
 }: {
   endpoint: string;
   model: string;
   prompt: string;
   size: string;
+  outputFormat?: "png" | null;
   images: Array<{
     mimeType: string;
     dataBase64: string;
@@ -157,7 +159,7 @@ const buildLoggedMultipartPayload = ({
         model,
         prompt,
         size,
-        output_format: "png",
+        ...(outputFormat ? { output_format: outputFormat } : {}),
         images: images.map((image, index) => ({
           kind: "multipart-file",
           field: images.length > 1 ? "image[]" : "image",
@@ -176,10 +178,11 @@ const buildLoggedMultipartPayload = ({
 const ensureOpenAIImages = async (
   data: OpenAIImageResponse,
   signal?: AbortSignal,
+  providerLabel = "OpenAI",
 ) => {
   if (data.error) {
     throw new Error(
-      `OpenAI 返回错误：${[data.error.code, data.error.message]
+      `${providerLabel} 返回错误：${[data.error.code, data.error.message]
         .filter(Boolean)
         .join(" ")}`,
     );
@@ -193,12 +196,12 @@ const ensureOpenAIImages = async (
       if (item.url) {
         return imageFromUrl(item.url, index, signal);
       }
-      throw new Error("OpenAI 返回了空图片项。");
+      throw new Error(`${providerLabel} 返回了空图片项。`);
     }),
   );
 
   if (!images.length) {
-    throw new Error("OpenAI 没有返回图片。");
+    throw new Error(`${providerLabel} 没有返回图片。`);
   }
 
   return images;
@@ -210,13 +213,15 @@ export const generateOpenAIImages = async ({
   baseUrl,
   responseProvider = "openai",
   providerLabel = "OpenAI",
+  outputFormat = "png",
   projectPath,
   signal,
 }: {
   apiKey: string;
   request: GenerationRequest;
   baseUrl?: string;
-  responseProvider?: "openai" | "openai-compatible";
+  responseProvider?: "openai" | "openai-compatible" | "zenmux";
+  outputFormat?: "png" | null;
   providerLabel?: string;
   projectPath?: string | null;
   signal?: AbortSignal;
@@ -253,6 +258,7 @@ export const generateOpenAIImages = async ({
         prompt,
         size,
         images: uploadReferenceImages,
+        outputFormat,
       })
     : JSON.stringify(
         {
@@ -261,7 +267,7 @@ export const generateOpenAIImages = async ({
             model: request.model,
             prompt,
             size,
-            output_format: "png",
+            ...(outputFormat ? { output_format: outputFormat } : {}),
             ...(imageCount > 1 ? { n: imageCount } : {}),
           },
         },
@@ -282,7 +288,7 @@ export const generateOpenAIImages = async ({
             formData.set("model", request.model);
             formData.set("prompt", prompt);
             formData.set("size", size);
-            formData.set("output_format", "png");
+            if (outputFormat) formData.set("output_format", outputFormat);
             if (imageCount > 1) {
               formData.set("n", String(imageCount));
             }
@@ -307,7 +313,7 @@ export const generateOpenAIImages = async ({
             model: request.model,
             prompt,
             size,
-            output_format: "png",
+            ...(outputFormat ? { output_format: outputFormat } : {}),
             ...(imageCount > 1 ? { n: imageCount } : {}),
           }),
         });
@@ -325,6 +331,7 @@ export const generateOpenAIImages = async ({
     const images = await ensureOpenAIImages(
       (await response.json()) as OpenAIImageResponse,
       signal,
+      providerLabel,
     );
 
     const generationResponse: GenerationResponse = {
@@ -345,6 +352,13 @@ export const generateOpenAIImages = async ({
 
     return generationResponse;
   } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "name" in error &&
+      error.name === "AbortError"
+    )
+      throw error;
     const nextError = appendRequestSummaryToError(
       error,
       requestSummary,

@@ -512,6 +512,7 @@ const zhCnCopy = {
         "gemini-generate-content": "Gemini 官方接口",
         "zenmux-vertex-generate-content": "ZenMux Vertex：Gemini / Nano Banana",
         "zenmux-vertex-gpt-image": "ZenMux Vertex：图片 API",
+        "zenmux-openai-images": "ZenMux OpenAI：图片 API",
         "fal-image": "fal.ai 生图接口",
         "jimeng-image": "火山方舟 Seedream 接口",
         "openai-images": "OpenAI Images 接口",

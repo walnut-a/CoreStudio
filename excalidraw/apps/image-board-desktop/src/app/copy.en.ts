@@ -532,6 +532,7 @@ export const enCopy: DesktopCopy = {
         "gemini-generate-content": "Gemini official API",
         "zenmux-vertex-generate-content": "ZenMux Vertex: Gemini / Nano Banana",
         "zenmux-vertex-gpt-image": "ZenMux Vertex: Image API",
+        "zenmux-openai-images": "ZenMux OpenAI: Image API",
         "fal-image": "fal.ai image API",
         "jimeng-image": "Volcengine Ark Seedream API",
         "openai-images": "OpenAI Images API",

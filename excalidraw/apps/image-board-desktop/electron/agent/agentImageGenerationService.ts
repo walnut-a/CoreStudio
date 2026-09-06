@@ -1,3 +1,7 @@
+import type {
+  AgentReferenceImage,
+  ReadAgentReferenceImages,
+} from "./agentReferenceImages";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -14,7 +18,6 @@ import type {
 } from "../../src/shared/agentBridgeTypes";
 import type {
   PersistedImageAssetInput,
-  ProjectAssetPayload,
   ProviderConfigurationSnapshot,
 } from "../../src/shared/desktopBridgeTypes";
 import type {
@@ -49,16 +52,14 @@ const getCurrentProviderSnapshot = (
 
 const buildPromptReferences = ({
   assets,
-  referenceElementIds,
 }: {
-  assets: ProjectAssetPayload[];
-  referenceElementIds: string[];
+  assets: AgentReferenceImage[];
 }): GenerationPromptReferencePayload[] =>
   assets.map((asset, index) => ({
     id: `agent-reference-${index + 1}-${asset.fileId}`,
     label: `参考图 ${index + 1}`,
     enabled: true,
-    elementCount: referenceElementIds.length,
+    elementCount: asset.elementId ? 1 : 0,
     textCount: 0,
     image: {
       mimeType: asset.mimeType,
@@ -66,9 +67,7 @@ const buildPromptReferences = ({
     },
     source: {
       fileIds: [asset.fileId],
-      ...(referenceElementIds.length
-        ? { elementIds: referenceElementIds }
-        : {}),
+      ...(asset.elementId ? { elementIds: [asset.elementId] } : {}),
     },
     items: [
       {
@@ -104,7 +103,7 @@ export interface AgentGenerationPlaceholderSlot {
 export const createAgentImageGenerationService = ({
   loadAgentAccessSettings,
   loadProviderSettings,
-  readProjectAssetPayloads,
+  readReferenceImages,
   generateImages,
   createPlaceholders,
   markPlaceholdersFailed,
@@ -113,11 +112,7 @@ export const createAgentImageGenerationService = ({
 }: {
   loadAgentAccessSettings: () => Promise<AgentAccessSettings>;
   loadProviderSettings: () => Promise<ProviderConfigurationSnapshot>;
-  readProjectAssetPayloads: (input: {
-    projectPath: string;
-    fileIds: string[];
-    rendition: "original";
-  }) => Promise<Array<ProjectAssetPayload | null>>;
+  readReferenceImages: ReadAgentReferenceImages;
   generateImages: (input: {
     projectPath: string;
     request: GenerationRequest;
@@ -222,36 +217,25 @@ export const createAgentImageGenerationService = ({
         "The current model does not support the requested image count.",
       );
     }
+    const referenceAssets =
+      referenceFileIds.length || referenceElementIds.length
+        ? await readReferenceImages({
+            projectPath,
+            fileIds: referenceFileIds,
+            elementIds: referenceElementIds,
+          })
+        : [];
     if (
-      referenceFileIds.length > 0 &&
+      referenceAssets.length &&
       (!current.capabilities.supportsReferenceImages ||
-        referenceFileIds.length > current.capabilities.maxReferenceImageCount)
+        referenceAssets.length > current.capabilities.maxReferenceImageCount)
     ) {
       throw createAgentImageGenerationError(
         "IMAGE_MODEL_CAPABILITY_UNSUPPORTED",
         "The current model does not support the requested image references.",
       );
     }
-    const referenceAssets = referenceFileIds.length
-      ? await readProjectAssetPayloads({
-          projectPath,
-          fileIds: referenceFileIds,
-          rendition: "original",
-        })
-      : [];
-    if (
-      referenceAssets.length !== referenceFileIds.length ||
-      referenceAssets.some((asset) => !asset)
-    ) {
-      throw createAgentImageGenerationError(
-        "BAD_REQUEST",
-        "One or more reference image assets could not be read.",
-      );
-    }
-    const promptReferences = buildPromptReferences({
-      assets: referenceAssets as ProjectAssetPayload[],
-      referenceElementIds,
-    });
+    const promptReferences = buildPromptReferences({ assets: referenceAssets });
     const request = normalizeGenerationRequest(
       {
         generationSource: "agent",

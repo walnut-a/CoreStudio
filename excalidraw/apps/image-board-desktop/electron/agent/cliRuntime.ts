@@ -388,8 +388,8 @@ const parseCommand = (
   if (tool === "read") {
     if (target === "image-paths") {
       const parsed = parseArgs(argv.slice(2), {
-        valueFlags: ["--file-ids"],
-        boolFlags: ["--selection", "--all"],
+        valueFlags: ["--file-ids", "--element-ids"],
+        boolFlags: ["--selection", "--all", "--visible"],
       });
       if (isEnvelope(parsed)) {
         return parsed;
@@ -402,8 +402,22 @@ const parseCommand = (
       if (isEnvelope(fileIds)) {
         return fileIds;
       }
+      const elementIds = parseFileIdsFlag(parsed.flags["--element-ids"]);
+      if (isEnvelope(elementIds)) return elementIds;
+      const visible = parsed.boolFlags.has("--visible");
+      if (elementIds && !visible)
+        return badRequestEnvelope("--element-ids requires --visible.");
+      if (
+        visible &&
+        (parsed.boolFlags.has("--all") ||
+          (!elementIds && !parsed.boolFlags.has("--selection")))
+      )
+        return badRequestEnvelope(
+          "--visible requires --element-ids or --selection, without --all.",
+        );
       if (
         !fileIds &&
+        !elementIds &&
         !parsed.boolFlags.has("--selection") &&
         !parsed.boolFlags.has("--all")
       ) {
@@ -416,6 +430,8 @@ const parseCommand = (
         method: "POST",
         body: {
           ...(fileIds ? { fileIds } : {}),
+          ...(visible ? { visible: true } : {}),
+          ...(elementIds ? { elementIds } : {}),
           ...(parsed.boolFlags.has("--selection")
             ? { selectionOnly: true }
             : {}),
@@ -1414,6 +1430,25 @@ const requestBridge = async (
     return invalidWriteResponse("Agent Bridge returned an invalid response.");
   }
 
+  if (
+    body?.visible === true &&
+    command.route === AGENT_HTTP_ROUTES.sceneImagePaths &&
+    json.ok
+  ) {
+    const data = json.data as {
+      rendition?: string;
+      items?: Array<{ rendition?: string }>;
+    } | null;
+    if (
+      data?.rendition !== "visible" ||
+      !Array.isArray(data.items) ||
+      data.items.some((item) => item.rendition !== "visible")
+    ) {
+      return commandFailedEnvelope(
+        "当前 CoreStudio 未返回可见参考图，请更新客户端；不会使用原图替代。",
+      );
+    }
+  }
   return json;
 };
 

@@ -78,14 +78,18 @@ describe("agent integration docs", () => {
     expect(corestudioSkill).toContain(
       "有选区时，以该选区作为本次任务的首要上下文",
     );
-    expect(corestudioSkill).toContain("使用首次读取到的 `fileIds` 解析原图");
+    expect(corestudioSkill).toContain(
+      "使用首次读取到的 `elementIds` 导出可见参考图",
+    );
     expect(corestudioSkill).toContain("后续选区变化不得静默改变正在执行的引用");
     expect(corestudioSkill).toContain(
       '`<corestudio-selection-reference version="1">`',
     );
     expect(corestudioSkill).toContain("固定选区引用优先于实时选区");
     expect(corestudioSkill).toContain("不得重新读取实时选区来替换这组 ID");
-    expect(corestudioSkill).toContain("使用引用块中的 `fileIds` 直接解析原图");
+    expect(corestudioSkill).toContain(
+      "使用引用块中的图片 `elementIds` 导出可见参考图",
+    );
     expect(corestudioSkill).toContain(
       "使用引用块中的 `elementIds` 从场景中定位",
     );

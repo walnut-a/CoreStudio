@@ -1,3 +1,4 @@
+import { createAgentReferenceImages } from "./agent/agentReferenceImages";
 import type { CreateProjectThumbnail } from "./project/projectRepair";
 import { createExternalImageDecoder } from "./project/externalImageDecoder";
 import { createExternalImageIntakeRuntime } from "./project/externalImageIntakeRuntime";
@@ -322,7 +323,23 @@ const prepareAgentWriterCommand = createPrepareAgentWriterCommand({
   readProjectBundle,
   parseMermaidDiagram: parseAgentMermaidDiagram,
 });
+const agentReferenceImages = createAgentReferenceImages({
+  getRoomScene: async (projectPath) =>
+    (await projectRoomService.openProject(projectPath)).getSnapshot().scene,
+  readProjectAssetPayloads,
+  render: async (asset, transform) => {
+    const result = await intakeDecoder.decode(
+      Buffer.from(asset.dataBase64, "base64"),
+      asset.mimeType,
+      0,
+      transform,
+    );
+    if (!result.dataBase64) throw new Error("参考图导出失败。");
+    return { ...result, dataBase64: result.dataBase64 };
+  },
+});
 const readAgentProjectCommand = createReadAgentProjectCommand({
+  readVisibleImagePaths: agentReferenceImages.paths,
   readProjectBundle,
   getRoomScene: async (projectPath) =>
     (await projectRoomService.openProject(projectPath)).getSnapshot().scene,
@@ -510,7 +527,7 @@ const executeAgentImageGenerationWriterCommand = async ({
 const agentImageGenerationService = createAgentImageGenerationService({
   loadAgentAccessSettings,
   loadProviderSettings,
-  readProjectAssetPayloads,
+  readReferenceImages: agentReferenceImages.read,
   generateImages: ({ projectPath, request }) =>
     generationRequestController.generate({
       projectPath,
@@ -3502,6 +3519,7 @@ app.on("will-quit", (event) => {
   }
 
   void stopLocalBridge({ final: true })
+    .then(() => agentReferenceImages.dispose())
     .then(() =>
       removeDesktopStartupIdentity(desktopIdentityPath, process.pid).catch(
         (error) => {

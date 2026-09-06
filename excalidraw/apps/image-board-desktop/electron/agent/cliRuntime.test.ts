@@ -244,7 +244,7 @@ describe("runCli", () => {
 
       expect(result).toEqual({
         exitCode: 0,
-        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.2, bridge protocol 7)\n`,
+        stdout: `CoreStudio ${DESKTOP_APP_VERSION} (Agent integration 2.1.3, bridge protocol 7)\n`,
         stderr: "",
       });
       expect(fetch).not.toHaveBeenCalled();
@@ -262,7 +262,7 @@ describe("runCli", () => {
       ok: true,
       data: {
         appVersion: DESKTOP_APP_VERSION,
-        integrationVersion: "2.1.2",
+        integrationVersion: "2.1.3",
         bridgeProtocolVersion: 7,
       },
     });
@@ -322,6 +322,43 @@ describe("runCli", () => {
       expect(readFile).not.toHaveBeenCalled();
     },
   );
+
+  it("requests visible pixels by element and rejects legacy original-only responses", async () => {
+    const records: RequestRecord[] = [];
+    const argv = [
+      "read",
+      "image-paths",
+      "--visible",
+      "--element-ids",
+      "crop-left,crop-right",
+      "--json",
+    ];
+    const result = await runCommand(argv, {
+      fetch: createFetch(
+        {
+          ok: true,
+          data: {
+            rendition: "visible",
+            items: [{ rendition: "visible", path: "/tmp/crop.png" }],
+          },
+        },
+        records,
+      ),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(records[0].body!)).toEqual({
+      visible: true,
+      elementIds: ["crop-left", "crop-right"],
+    });
+    const legacy = await runCommand(argv, {
+      fetch: createFetch(
+        { ok: true, data: { items: [{ path: "/project/original.png" }] } },
+        [],
+      ),
+    });
+    expect(legacy.exitCode).not.toBe(0);
+    expect(legacy.stdout).not.toContain("/project/original.png");
+  });
 
   it.each([
     {

@@ -30,11 +30,85 @@ const accessSettings = (
 });
 
 describe("createAgentImageGenerationService", () => {
+  it("sends materialized element references, with per-image provenance, to the provider", async () => {
+    const readReferenceImages = vi.fn(async () => [
+      {
+        fileId: "source",
+        elementId: "crop-right",
+        mimeType: "image/png",
+        dataBase64: "visible-pixels",
+        width: 100,
+        height: 50,
+        createdAt: "now",
+      },
+    ]);
+    const generateImages = vi.fn(async () => {
+      throw new Error("stop after capture");
+    });
+    const service = createAgentImageGenerationService({
+      loadAgentAccessSettings: async () => accessSettings(true),
+      loadProviderSettings: async () => configuration,
+      readReferenceImages,
+      generateImages,
+      writeImages: vi.fn(),
+    });
+    await expect(
+      service.generate({
+        projectPath: "/project",
+        prompt: "draw",
+        count: 1,
+        referenceFileIds: [],
+        referenceElementIds: ["crop-right"],
+      }),
+    ).rejects.toMatchObject({ code: "IMAGE_GENERATION_FAILED" });
+    expect(readReferenceImages).toHaveBeenCalledWith({
+      projectPath: "/project",
+      fileIds: [],
+      elementIds: ["crop-right"],
+    });
+    expect(generateImages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          promptReferences: [
+            expect.objectContaining({
+              image: { mimeType: "image/png", dataBase64: "visible-pixels" },
+              source: { fileIds: ["source"], elementIds: ["crop-right"] },
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+  it("does not contact the provider when visible reference preparation fails", async () => {
+    const generateImages = vi.fn();
+    const createPlaceholders = vi.fn();
+    const service = createAgentImageGenerationService({
+      loadAgentAccessSettings: async () => accessSettings(true),
+      loadProviderSettings: async () => configuration,
+      readReferenceImages: vi.fn(async () => {
+        throw new Error("invalid crop");
+      }),
+      generateImages,
+      createPlaceholders,
+      writeImages: vi.fn(),
+    });
+    await expect(
+      service.generate({
+        projectPath: "/project",
+        prompt: "draw",
+        count: 1,
+        referenceFileIds: ["source"],
+        referenceElementIds: ["crop"],
+      }),
+    ).rejects.toThrow("invalid crop");
+    expect(generateImages).not.toHaveBeenCalled();
+    expect(createPlaceholders).not.toHaveBeenCalled();
+  });
   it("reports the current provider and model without exposing credentials", async () => {
     const service = createAgentImageGenerationService({
       loadAgentAccessSettings: async () => accessSettings(true),
       loadProviderSettings: async () => configuration,
-      readProjectAssetPayloads: vi.fn(),
+      readReferenceImages: vi.fn(),
       generateImages: vi.fn(),
       writeImages: vi.fn(),
     });
@@ -58,7 +132,7 @@ describe("createAgentImageGenerationService", () => {
     const service = createAgentImageGenerationService({
       loadAgentAccessSettings: async () => accessSettings(false),
       loadProviderSettings: async () => configuration,
-      readProjectAssetPayloads: vi.fn(),
+      readReferenceImages: vi.fn(),
       generateImages,
       writeImages: vi.fn(),
     });
@@ -80,7 +154,7 @@ describe("createAgentImageGenerationService", () => {
     const service = createAgentImageGenerationService({
       loadAgentAccessSettings: async () => accessSettings(true, false),
       loadProviderSettings: async () => configuration,
-      readProjectAssetPayloads: vi.fn(),
+      readReferenceImages: vi.fn(),
       generateImages,
       writeImages: vi.fn(),
     });
@@ -144,7 +218,7 @@ describe("createAgentImageGenerationService", () => {
     const service = createAgentImageGenerationService({
       loadAgentAccessSettings: async () => accessSettings(true),
       loadProviderSettings: async () => configuration,
-      readProjectAssetPayloads: vi.fn(async () => []),
+      readReferenceImages: vi.fn(async () => []),
       generateImages,
       createPlaceholders,
       writeImages,

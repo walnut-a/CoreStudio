@@ -44,7 +44,8 @@ corestudio agent connect --host claude-code --json
 - `read board --json`
 - `read scene --json`
 - `read selection --json`
-- `read image-paths --selection|--file-ids <ids>|--all --json`
+- `read image-paths --selection|--file-ids <ids>|--all --json`：完整原始资产。
+- `read image-paths --visible --element-ids <ids>|--selection --json`：逐元素导出可见参考图。
 - `read board-url --json`
 - `read projects --json`
 - `read board-url --project <projectPath> --json`
@@ -233,3 +234,11 @@ corestudio write image /absolute/path/to/result.png --source-type imported --req
 - 请求记录仅在当前房间生命周期有效，不承诺跨 CoreStudio 重启的幂等。重新认领其他项目、房间关闭或客户端重启后，先检查原画布结果，不自动重放旧请求。
 - 每个房间最多保留 4,096 个带 ID 的请求，达到上限时拒绝新请求，已有请求仍可重试；不静默淘汰记录后重复执行。旧版直接 HTTP 调用省略 requestId 时不提供请求级去重保证。
 - `generate image` 不在此协议内：它可能消耗模型费用，不能套用写入重试规则。`--dry-run` 不占用写入 ID。
+
+## 可见参考图（Agent integration 2.1.3 / Skill 22）
+
+分析或生图时优先使用 `corestudio read image-paths --visible --element-ids <已读取的图片元素ID> --json`。导出应用元素裁切、翻转和旋转，按原图分辨率计算，返回 `rendition: visible`、逐图的 elementId/fileId、实际宽高与临时 path。同一原图的不同元素分别返回，不合并；文字、图形与多选空间布局不合成到图片中，空间关系仍由 Board 提供。
+
+不带 `--visible` 的读取继续返回完整原始资产，语义不变。可见导出需要明确元素或当前选区，不支持 `--all`。应优先冻结选区中的 elementIds，避免下一次读取时选区变化。临时文件不进入项目，当前 CoreStudio 进程正常退出后清理；导出失败或旧客户端不支持时，禁止回退完整原图。
+
+`generate image --reference-element-ids <ids>` 使用同一可见参考图处理。若同时传 fileIds，必须与图片元素对应；只传 fileIds 时，唯一画布实例自动应用裁切，存在多个实例则要求指定元素；没有画布实例的原始资产仍可明确按 fileId 使用。无效裁切、失效元素、缺失资产会在请求模型前失败，不暴露隐藏原图区。生成记录中每张参考图只关联自身来源元素，模型参考数量限制按实际图片数计算。

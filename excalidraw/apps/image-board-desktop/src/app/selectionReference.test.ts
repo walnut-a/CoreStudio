@@ -770,6 +770,114 @@ describe("selectionReference", () => {
     });
   });
 
+  it("exports only the crop at original resolution and preserves its source metadata", async () => {
+    exportToBlob.mockResolvedValue(
+      new Blob(["cropped-image"], { type: "image/png" }),
+    );
+    const element = {
+      id: "crop",
+      type: "image",
+      fileId: "file",
+      isDeleted: false,
+      groupIds: [],
+      x: 20,
+      y: 30,
+      width: 100,
+      height: 50,
+      angle: 0,
+      scale: [-1, 1],
+      crop: {
+        x: 256,
+        y: 128,
+        width: 512,
+        height: 256,
+        naturalWidth: 1024,
+        naturalHeight: 512,
+      },
+    };
+    const result = await buildSelectionReference({
+      scene: {
+        elements: [element] as any,
+        appState: { ...baseAppState, selectedElementIds: { crop: true } },
+        files: {
+          file: {
+            id: "file",
+            dataURL: "data:image/png;base64,b3JpZ2luYWw=",
+            mimeType: "image/png",
+            created: 1,
+          },
+        } as any,
+      },
+      imageRecords: {
+        file: {
+          fileId: "file",
+          width: 2048,
+          height: 1024,
+          sourceType: "generated",
+          provider: "zenmux",
+        },
+      } as any,
+      includeImage: true,
+    });
+    expect(exportToBlob).toHaveBeenCalledOnce();
+    const options = exportToBlob.mock.calls[0][0];
+    expect(options.exportPadding).toBe(0);
+    expect(options.elements[0]).toMatchObject({
+      scale: [-1, 1],
+      crop: { x: 512, y: 256, width: 1024, height: 512 },
+    });
+    expect(options.getDimensions(100, 50)).toEqual({
+      width: 1024,
+      height: 512,
+      scale: 10.24,
+    });
+    expect(result?.image?.dataBase64).toBe(btoa("cropped-image"));
+    expect(result?.debug).toMatchObject({
+      fileId: "file",
+      sourceProvider: "zenmux",
+    });
+    expect(element.crop.width).toBe(512);
+  });
+
+  it("does not fall back to the hidden original when cropped export fails", async () => {
+    exportToBlob.mockRejectedValue(new Error("crop export failed"));
+    await expect(
+      buildSelectionReference({
+        scene: {
+          elements: [
+            {
+              id: "crop",
+              type: "image",
+              fileId: "file",
+              isDeleted: false,
+              groupIds: [],
+              width: 100,
+              height: 100,
+              crop: {
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 100,
+                naturalWidth: 200,
+                naturalHeight: 200,
+              },
+            },
+          ] as any,
+          appState: { ...baseAppState, selectedElementIds: { crop: true } },
+          files: {
+            file: {
+              id: "file",
+              dataURL: "data:image/png;base64,b3JpZ2luYWw=",
+              mimeType: "image/png",
+              created: 1,
+            },
+          } as any,
+        },
+        includeImage: true,
+      }),
+    ).rejects.toThrow("crop export failed");
+  });
+
   it("returns null when there is no current selection", async () => {
     await expect(
       buildSelectionReference({

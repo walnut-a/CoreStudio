@@ -1012,13 +1012,21 @@ export const buildProjectMaintenanceAssetSceneApplyState = <
 
 export const buildProjectThumbnailMaintenanceFromRepairResult = (
   result: RebuildProjectThumbnailsResult,
-): ProjectThumbnailMaintenanceResult =>
-  result.failedFileIds.length
-    ? {
-        status: "failed",
-        total: result.failedFileIds.length,
-      }
+): ProjectThumbnailMaintenanceResult => {
+  // Display-cache failures do not make an original unavailable. Keep them in
+  // the maintenance report, but reserve the canvas warning for source errors.
+  const cacheOnlyFailures = new Set(
+    (result.failedDetails ?? [])
+      .filter((detail) => detail.reason === "thumbnail-rebuild-failed")
+      .map((detail) => detail.fileId),
+  );
+  const unavailableCount = result.failedFileIds.filter(
+    (fileId) => !cacheOnlyFailures.has(fileId),
+  ).length;
+  return unavailableCount
+    ? { status: "failed" as const, total: unavailableCount }
     : null;
+};
 
 export const buildProjectThumbnailRebuildResultState = ({
   result,

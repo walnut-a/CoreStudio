@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.46",
-  "publishedAt": "2026-09-05T20:27:22Z",
+  "version": "1.1.49",
+  "publishedAt": "2026-09-06T10:41:40Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.46",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.49",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.46/CoreStudio-1.1.46-arm64.dmg",
-    "size": 137379737,
-    "sha256": "525727f0de8fc9a3f92233f6111f406dad2a375365af64b09c3db6cfbb0dafef"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.49/CoreStudio-1.1.49-arm64.dmg",
+    "size": 137396685,
+    "sha256": "103a472143ec75a78ed76c34a0fa198a2d5c30a513b2ffefe0370f8a7613d889"
   },
   "summary": {
     "zh-CN": [
-      "项目目录新增图片自动进入资产与画布，无需开关或扫描",
-      "完善内容去重、文件修复后重试及删除保护",
-      "改善 Agent 项目可靠性，升级 Electron 44.2.0"
+      "新增图片网格查看模式，支持大图浏览与返回画布定位",
+      "大图详情增加可折叠的只读属性、提示词与生成链",
+      "适配 ZenMux Muse 和 Grok 图片模型，更新模型目录"
     ],
     "en": [
-      "Automatically add project-folder images to assets and canvas",
-      "Improve deduplication, recovery after file repairs, and deletion protection",
-      "Improve Agent project reliability and upgrade to Electron 44.2.0"
+      "Browse project images in a read-only grid and locate them on the canvas",
+      "View collapsible image details, prompts, and generation history",
+      "Add ZenMux Muse and Grok image model adapters and update the model catalog"
     ]
   }
 }

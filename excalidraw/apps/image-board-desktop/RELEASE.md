@@ -219,6 +219,15 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。新模型已完成协议测试及界面验收，尚未进行付费生图质量验收。本版不修改 Excalidraw 基座、项目文件格式或 Agent 集成协议。
 
+### 1.1.49 发布验收
+
+- 来源提交：`04012434ed6babfc6bce0878c68ff14376870d40`，PR #133 已合并。
+- 远端 desktop：301 个文件、2299 项测试通过，2 项跳过；Agent Node integration 33 项通过。
+- Developer ID 签名、Apple 公证（`8cf6290f-73b3-4b0e-a1fe-d72b708e4ecc`）、App / DMG 票据与 Gatekeeper 均通过。
+- 正式模式与隔离 QA 模式 packaged smoke、DMG 完整性、源码与打包输出扫描、包体预算通过；测试进程已退出。
+- Release 公开后重新下载 DMG，大小 137396685 字节，SHA-256 与本地及 GitHub 附件摘要一致：`103a472143ec75a78ed76c34a0fa198a2d5c30a513b2ffefe0370f8a7613d889`。
+- 仅在上述验证通过后更新 `website/updates/stable.json`；不替换本机已安装应用。
+
 ## 1.1.46 发布说明
 
 - 图片放入已加载项目的根目录或普通子目录后，自动登记并追加到画布，无需开关、扫描按钮或专门面板；支持 PNG、JPEG、WebP 和静态 SVG。

@@ -232,10 +232,7 @@ describe("buildProjectRepairCompletionViewModel", () => {
         failedDetails: result.failedDetails,
         backupPath: "/tmp/project/backups/backup.zip",
       },
-      thumbnailMaintenance: {
-        status: "failed",
-        total: 1,
-      },
+      thumbnailMaintenance: null,
       notice: {
         generatedCount: 3,
         skippedCount: 2,
@@ -1686,6 +1683,21 @@ describe("buildProjectThumbnailRefreshFileIds", () => {
 });
 
 describe("buildProjectThumbnailRebuildResultState", () => {
+  it("keeps readable originals quiet while retaining true source failures", () => {
+    const state = buildProjectThumbnailRebuildResultState({
+      result: createRepairResult({ failedFileIds: ["cache", "missing"], generatedFileIds: [], skippedFileIds: [],
+        failedDetails: [{ fileId: "cache", reason: "thumbnail-rebuild-failed", message: "cache failed" },
+          { fileId: "missing", reason: "thumbnail-source-unreadable", message: "source missing" }] }),
+      loadedPreviewFileIds: new Set(), loadedOriginalFileIds: new Set(["cache"]),
+    });
+    expect(state.thumbnailMaintenance).toEqual({ status: "failed", total: 1 });
+    expect(buildProjectThumbnailRebuildResultState({
+      result: createRepairResult({ failedFileIds: ["cache"], generatedFileIds: [], skippedFileIds: [],
+        failedDetails: [{ fileId: "cache", reason: "thumbnail-rebuild-failed", message: "cache failed" }] }),
+      loadedPreviewFileIds: new Set(), loadedOriginalFileIds: new Set(["cache"]),
+    }).thumbnailMaintenance).toBeNull();
+  });
+
   it("combines thumbnail maintenance and refresh ids from a rebuild result", () => {
     expect(
       buildProjectThumbnailRebuildResultState({

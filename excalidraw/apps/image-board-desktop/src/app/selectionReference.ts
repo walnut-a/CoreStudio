@@ -152,7 +152,7 @@ const parseDataUrl = (dataURL: string) => {
   };
 };
 
-const getSingleImageReferencePayload = (
+const getSingleImageReferencePayload = async (
   scene: SceneSnapshot,
   selectedElements: readonly NonDeleted<ExcalidrawElement>[],
   imageRecords?: ImageRecordMap | null,
@@ -171,12 +171,52 @@ const getSingleImageReferencePayload = (
     return null;
   }
 
-  const image = parseDataUrl(file.dataURL);
+  let image = parseDataUrl(file.dataURL);
   if (!image) {
     return null;
   }
 
   const imageRecord = imageRecords?.[element.fileId];
+  if (element.crop) {
+    const crop = element.crop;
+    // Crop coordinates may have been recorded against a display rendition.
+    // Convert them to the original loaded for generation before exporting.
+    const sourceScaleX =
+      (imageRecord?.width || crop.naturalWidth) / crop.naturalWidth;
+    const sourceScaleY =
+      (imageRecord?.height || crop.naturalHeight) / crop.naturalHeight;
+    const originalCrop = {
+      x: crop.x * sourceScaleX,
+      y: crop.y * sourceScaleY,
+      width: crop.width * sourceScaleX,
+      height: crop.height * sourceScaleY,
+      naturalWidth: crop.naturalWidth * sourceScaleX,
+      naturalHeight: crop.naturalHeight * sourceScaleY,
+    };
+    const scale = Math.max(
+      originalCrop.width / element.width,
+      originalCrop.height / element.height,
+    );
+    const blob = await exportToBlob({
+      elements: [{ ...element, crop: originalCrop }],
+      appState: {
+        exportBackground: false,
+        viewBackgroundColor: scene.appState.viewBackgroundColor,
+      },
+      files: scene.files,
+      exportPadding: 0,
+      mimeType: "image/png",
+      getDimensions: (width, height) => ({
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+        scale,
+      }),
+    });
+    image = {
+      mimeType: blob.type || "image/png",
+      dataBase64: await toBase64(blob),
+    };
+  }
   return {
     image,
     debug: {
@@ -531,7 +571,7 @@ export const buildSelectionReference = async ({
   }
 
   const selectedElements = getSelectedReferenceElements(scene);
-  const originalImage = getSingleImageReferencePayload(
+  const originalImage = await getSingleImageReferencePayload(
     scene,
     selectedElements,
     imageRecords,

@@ -176,12 +176,69 @@ describe("ImageBrowseView", () => {
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     const retried = await screen.findByRole("img", { name: "图片 0" });
     fireEvent.load(retried);
-    expect(preview).toHaveClass("image-browse-original__preview--loaded");
+    await waitFor(() => expect(preview).not.toBeInTheDocument());
     expect(retried).toHaveClass("image-browse-original__full--ready");
     fireEvent.click(screen.getByRole("button", { name: "原始尺寸" }));
     expect(preview).not.toBeInTheDocument();
     expect(screen.queryByText("正在读取图片…")).toBeNull();
   });
+  it("保留上一张直到新图完成解码，并忽略已跳过图片的迟到解码", async () => {
+    const input = props();
+    render(<ImageBrowseView {...input} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    const first = await screen.findByRole("img", { name: "图片 0" });
+    fireEvent.load(first);
+    await waitFor(() =>
+      expect(first).toHaveClass("image-browse-original__full--ready"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    expect(first).toBeInTheDocument();
+    const second = await screen.findByRole("img", { name: "图片 1" });
+    let finish!: () => void;
+    Object.defineProperty(second, "decode", {
+      value: () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    });
+    fireEvent.load(second);
+    expect(first).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    const third = await screen.findByRole("img", { name: "图片 2" });
+    fireEvent.load(third);
+    await waitFor(() =>
+      expect(third).toHaveClass("image-browse-original__full--ready"),
+    );
+    expect(first).not.toBeInTheDocument();
+    await act(async () => finish());
+    expect(third).toBeInTheDocument();
+    expect(second).not.toBeInTheDocument();
+  });
+
+  it("新图解码失败时保留旧图，并允许重试完成替换", async () => {
+    const input = props();
+    render(<ImageBrowseView {...input} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    const first = await screen.findByRole("img", { name: "图片 0" });
+    fireEvent.load(first);
+    await waitFor(() =>
+      expect(first).toHaveClass("image-browse-original__full--ready"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    const next = await screen.findByRole("img", { name: "图片 1" });
+    Object.defineProperty(next, "decode", {
+      value: () => Promise.reject(new Error("decode failed")),
+    });
+    fireEvent.load(next);
+    const retry = await screen.findByRole("button", { name: "重试" });
+    expect(first).toBeInTheDocument();
+    fireEvent.click(retry);
+    const retried = await screen.findByRole("img", { name: "图片 1" });
+    fireEvent.load(retried);
+    await waitFor(() => expect(first).not.toBeInTheDocument());
+    expect(retried).toHaveClass("image-browse-original__full--ready");
+  });
+
   it("renders a bounded grid and requests only its visible thumbnails", () => {
     const input = props();
     render(<ImageBrowseView {...input} />);

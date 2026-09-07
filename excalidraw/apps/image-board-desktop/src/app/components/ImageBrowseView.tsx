@@ -50,66 +50,103 @@ const OriginalImage = ({
   actualSize: boolean;
   thumbnail?: string;
 }) => {
-  const [asset, setAsset] = useState<ProjectAssetPayload>();
-  const [ready, setReady] = useState(false);
+  type LoadedImage = { asset: ProjectAssetPayload; title: string };
+  type PendingImage = LoadedImage & {
+    loaded: (image: HTMLImageElement) => Promise<void>;
+    failed: () => void;
+  };
+  const [displayed, setDisplayed] = useState<LoadedImage>();
+  const [pending, setPending] = useState<PendingImage>();
   const [failed, setFailed] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const ready = displayed?.asset.fileId === item.fileId && !pending && !failed;
   useEffect(() => {
     let current = true;
-    setAsset(undefined);
-    setReady(false);
+    setPending(undefined);
     setFailed(false);
+    setPreviewFailed(false);
+    if (displayed?.asset.fileId === item.fileId) return;
+    const fail = () => {
+      if (current) {
+        setPending(undefined);
+        setFailed(true);
+      }
+    };
     void readOriginal(item.fileId)
-      .then((result) => {
-        if (current) {
-          setAsset(result);
-          setFailed(!result);
+      .then((asset) => {
+        if (!current) return;
+        if (!asset) {
+          fail();
+          return;
         }
+        const next = { asset, title: item.title };
+        setPending({
+          ...next,
+          failed: fail,
+          loaded: async (image) => {
+            try {
+              await image.decode?.();
+              if (current) {
+                // Keep the decoded DOM image mounted while replacing the old frame.
+                setDisplayed(next);
+                setPending(undefined);
+              }
+            } catch {
+              fail();
+            }
+          },
+        });
       })
-      .catch(() => {
-        if (current) {
-          setFailed(true);
-        }
-      });
+      .catch(fail);
     return () => {
       current = false;
     };
   }, [item.fileId, readOriginal, attempt]);
+  const frames = [displayed, pending].filter(
+    (frame): frame is LoadedImage | PendingImage => Boolean(frame),
+  );
   return (
     <div
       className={`image-browse-original${
-        actualSize && ready ? " image-browse-original--actual" : ""
+        actualSize && displayed ? " image-browse-original--actual" : ""
       }`}
     >
-      {(!ready || !actualSize) && thumbnail && !previewFailed && (
+      {!displayed && thumbnail && !previewFailed && (
         <img
-          className={`image-browse-original__preview${
-            ready ? " image-browse-original__preview--loaded" : ""
-          }`}
+          className="image-browse-original__preview"
           src={thumbnail}
           alt=""
           draggable={false}
           onError={() => setPreviewFailed(true)}
         />
       )}
-      {asset && !failed && (
-        <img
-          className={`image-browse-original__full${
-            ready ? " image-browse-original__full--ready" : ""
-          }`}
-          src={`data:${asset.mimeType};base64,${asset.dataBase64}`}
-          alt={item.title}
-          draggable={false}
-          width={asset.width}
-          height={asset.height}
-          onLoad={() => setReady(true)}
-          onError={() => {
-            setReady(false);
-            setFailed(true);
-          }}
-        />
-      )}
+      {frames.map((frame) => {
+        const isPending = "loaded" in frame;
+        return (
+          <img
+            key={frame.asset.fileId}
+            className={`image-browse-original__full${
+              isPending
+                ? " image-browse-original__full--pending"
+                : " image-browse-original__full--ready"
+            }`}
+            src={`data:${frame.asset.mimeType};base64,${frame.asset.dataBase64}`}
+            alt={frame.title}
+            draggable={false}
+            width={frame.asset.width}
+            height={frame.asset.height}
+            onLoad={
+              isPending
+                ? (event) => {
+                    void frame.loaded(event.currentTarget);
+                  }
+                : undefined
+            }
+            onError={isPending ? frame.failed : undefined}
+          />
+        );
+      })}
       {!ready && (
         <div className="image-browse-original__status" role="status">
           <span>{failed ? copy.browse.loadFailed : copy.browse.loading}</span>
@@ -231,7 +268,7 @@ const ImageDetail = ({
         </DesktopButton>
       </header>
       <div className="image-browse-detail__body">
-        <div key={item.fileId} className="image-browse-detail__image">
+        <div className="image-browse-detail__image">
           <OriginalImage
             item={item}
             readOriginal={readOriginal}

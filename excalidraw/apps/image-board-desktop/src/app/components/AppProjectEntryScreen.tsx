@@ -24,6 +24,7 @@ interface AppProjectEntryScreenProps {
   onReloadRecentProjects?: () => void | Promise<void>;
   onOpenProviderSettings: () => void;
   onOpenRecentProject: (projectPath: string) => void;
+  onEndAgentConnection?: (actorId: string) => Promise<void>;
   onOpenAgentProject?: (projectPath: string) => void;
   onRemoveRecentProject: (projectPath: string) => void | Promise<void>;
   onRevealProject: (projectPath: string) => void | Promise<void>;
@@ -47,6 +48,7 @@ export const AppProjectEntryScreen = ({
   onReloadRecentProjects,
   onOpenProviderSettings,
   onOpenRecentProject,
+  onEndAgentConnection,
   onOpenAgentProject,
   onRemoveRecentProject,
   onRevealProject,
@@ -69,6 +71,7 @@ export const AppProjectEntryScreen = ({
         providerConfigurationStatus={providerConfigurationStatus}
         onOpenProviderSettings={onOpenProviderSettings}
         onOpenRecentProject={onOpenRecentProject}
+        onEndAgentConnection={onEndAgentConnection}
         onOpenAgentProject={onOpenAgentProject}
         onRemoveRecentProject={onRemoveRecentProject}
         onRevealProject={onRevealProject}

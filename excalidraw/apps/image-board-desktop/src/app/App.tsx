@@ -536,6 +536,7 @@ const App = ({
   );
   const [loadingProject, setLoadingProject] = useState(false);
   const [projectRoomReady, setProjectRoomReady] = useState(false);
+  const [agentConnectionEnded, setAgentConnectionEnded] = useState(false);
   const [agentBoardRefreshRequired, setAgentBoardRefreshRequired] =
     useState(false);
 
@@ -715,7 +716,7 @@ const App = ({
           projectPath,
           fileIds: fileIdsToLoad,
           rendition: "thumbnail",
-          thumbnailMode: "cache-only",
+          thumbnailMode: "read-through",
         });
         applyImageAssetThumbnailPayloads(projectPath, assets);
       } catch (error) {
@@ -1746,6 +1747,16 @@ const App = ({
         return;
       }
       setProjectRoomReady(false);
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "AGENT_CONNECTION_ENDED"
+      ) {
+        setAgentConnectionEnded(true);
+        setProjectRoomError(null);
+        return;
+      }
       if (hasJoinedStableRoom) {
         setProjectRoomError(null);
         setAgentBoardRefreshRequired(true);
@@ -2851,7 +2862,9 @@ const App = ({
             {isEditorInitializing || !projectRoomReady ? (
               <EditorLoadingOverlay
                 mode={
-                  isAgentBrowserRoute && agentBoardRefreshRequired
+                  agentConnectionEnded
+                    ? "connection-ended"
+                    : isAgentBrowserRoute && agentBoardRefreshRequired
                     ? "refresh-required"
                     : "loading"
                 }

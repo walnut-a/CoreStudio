@@ -62,3 +62,18 @@ describe("image asset thumbnail store", () => {
     });
   });
 });
+
+it("does not treat pending placeholders as loaded thumbnails or replace real images", () => {
+  const store = createImageAssetThumbnailStore();
+  const pending = {
+    ...asset("pending", "cGVuZGluZw=="),
+    rendition: "placeholder" as const,
+  };
+  store.replace("/project-a", [pending]);
+  expect(store.getSnapshot().dataUrls).toEqual({});
+  store.merge("/project-a", [asset("pending", "cmVhbA==")]);
+  store.merge("/project-a", [pending]);
+  expect(store.getSnapshot().dataUrls.pending).toBe(
+    "data:image/png;base64,cmVhbA==",
+  );
+});

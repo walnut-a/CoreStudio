@@ -31,6 +31,7 @@ interface WelcomePaneProps {
   providerConfigurationStatus?: ProviderConfigurationStatus;
   onOpenProviderSettings?: () => void;
   onOpenRecentProject?: (projectPath: string) => void;
+  onEndAgentConnection?: (actorId: string) => Promise<void>;
   onOpenAgentProject?: (projectPath: string) => void;
   onRemoveRecentProject?: (projectPath: string) => void | Promise<void>;
   onRevealProject?: (projectPath: string) => void | Promise<void>;
@@ -48,11 +49,26 @@ export const WelcomePane = ({
   providerConfigurationStatus = "loading",
   onOpenProviderSettings,
   onOpenRecentProject,
+  onEndAgentConnection,
   onOpenAgentProject,
   onRemoveRecentProject,
   onRevealProject,
   manualProjectActionsVisible = true,
 }: WelcomePaneProps) => {
+  const [endingActor, setEndingActor] = useState<string | null>(null);
+  const [endError, setEndError] = useState<string | null>(null);
+  const endConnection = async (actorId: string) => {
+    if (!onEndAgentConnection || endingActor) return;
+    setEndingActor(actorId);
+    setEndError(null);
+    try {
+      await onEndAgentConnection(actorId);
+    } catch {
+      setEndError(copy.welcome.endAgentConnectionFailed);
+    } finally {
+      setEndingActor(null);
+    }
+  };
   const [deleteTarget, setDeleteTarget] = useState<RecentProjectEntry | null>(
     null,
   );
@@ -130,6 +146,7 @@ export const WelcomePane = ({
                   {copy.welcome.agentActiveTitle}
                 </h2>
               </div>
+              {endError ? <p role="alert">{endError}</p> : null}
               <div className="welcome-pane__agent-active-list">
                 {agentActiveProjects.map((project) => {
                   const statusLabel =
@@ -153,10 +170,12 @@ export const WelcomePane = ({
                           </span>
                         </div>
                         <span className="welcome-pane__agent-summary">
-                          {copy.welcome.agentCount(project.agentCount)} ·{" "}
-                          {project.agents
-                            .map((agent) => agent.displayLabel)
-                            .join("、")}
+                          {copy.welcome.agentCount(project.agentCount)}
+                          {!onEndAgentConnection
+                            ? ` · ${project.agents
+                                .map((agent) => agent.displayLabel)
+                                .join("、")}`
+                            : ""}
                         </span>
                       </div>
                       <DesktopButton
@@ -168,6 +187,28 @@ export const WelcomePane = ({
                       >
                         {copy.welcome.openAgentProject}
                       </DesktopButton>
+                      {onEndAgentConnection ? (
+                        <ul className="welcome-pane__agent-connections">
+                          {project.agents.map((agent) => (
+                            <li key={agent.actorId}>
+                              <span>{agent.displayLabel}</span>
+                              <DesktopButton
+                                size="small"
+                                title={copy.welcome.endAgentConnectionHint}
+                                aria-label={`${copy.welcome.endAgentConnection}：${agent.displayLabel}`}
+                                disabled={loading || endingActor !== null}
+                                onClick={() => {
+                                  void endConnection(agent.actorId);
+                                }}
+                              >
+                                {endingActor === agent.actorId
+                                  ? copy.welcome.endingAgentConnection
+                                  : copy.welcome.endAgentConnection}
+                              </DesktopButton>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </article>
                   );
                 })}

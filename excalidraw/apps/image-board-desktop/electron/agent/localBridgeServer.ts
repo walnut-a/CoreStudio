@@ -233,6 +233,7 @@ export interface LocalBridgeServerOptions {
 }
 
 export interface LocalBridgeServerHandle {
+  disconnectAgent(roomId: string, actorId: string): void;
   host: "127.0.0.1";
   port: number;
   baseUrl: string;
@@ -2447,6 +2448,8 @@ export const createLocalBridgeServer = async (
   let closePromise: Promise<void> | null = null;
 
   return {
+    disconnectAgent: (roomId, actorId) =>
+      projectRoomWebSocket?.disconnectActor(roomId, actorId),
     host: "127.0.0.1",
     port: address.port,
     baseUrl: `http://127.0.0.1:${address.port}`,

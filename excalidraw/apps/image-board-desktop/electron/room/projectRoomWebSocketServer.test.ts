@@ -166,7 +166,13 @@ describe("attachProjectRoomWebSocketServer", () => {
       launchTicket: "launch-ticket",
       resumeToken: null,
     });
-    socket.close();
+    attached.disconnectActor("room-1", "another-actor");
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+    const closed = new Promise<number>((resolve) =>
+      socket.once("close", (code) => resolve(code)),
+    );
+    attached.disconnectActor("room-1", "codex:thread-b");
+    expect(await closed).toBe(4001);
   });
 
   it("joins with an authenticated ticket and exchanges room operations", async () => {

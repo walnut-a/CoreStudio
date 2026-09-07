@@ -30,10 +30,21 @@ export const createAgentProjectLifecycle = (input: {
     readProject: input.readProject,
     getRoom: input.getRoom,
   });
+  const endedActors = new Set<string>();
+  const assertActorActive = (actorId: string) => {
+    if (endedActors.has(actorId))
+      throw Object.assign(
+        new Error(
+          "This Agent connection was ended in CoreStudio. Start a new session to reconnect.",
+        ),
+        { code: "AUTH_REQUIRED" },
+      );
+  };
   let active = false;
   let bridgeGeneration = Symbol();
 
   const assertCurrent = (actorId: string, claim: symbol) => {
+    assertActorActive(actorId);
     if (!active || pendingClaims.get(actorId) !== claim) {
       throw Object.assign(
         new Error(
@@ -65,6 +76,13 @@ export const createAgentProjectLifecycle = (input: {
   };
 
   return {
+    assertActorActive,
+    end(actorId: string) {
+      endedActors.add(actorId);
+      pendingClaims.delete(actorId);
+      bindings.releaseByActorId(actorId);
+      input.onChanged();
+    },
     start() {
       active = true;
     },
@@ -81,9 +99,11 @@ export const createAgentProjectLifecycle = (input: {
     observeRoom,
     listBindings: () => bindings.list(),
     async resolveTarget(actorId: string) {
+      assertActorActive(actorId);
       if (!active) return null;
       const generation = bridgeGeneration;
       const target = await resolveTarget(actorId);
+      assertActorActive(actorId);
       if (!active || generation !== bridgeGeneration) {
         throw Object.assign(
           new Error(

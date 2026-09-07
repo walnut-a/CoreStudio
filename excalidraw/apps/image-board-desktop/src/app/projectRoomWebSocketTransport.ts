@@ -327,7 +327,16 @@ export const createProjectRoomWebSocketTransport = (
       rejectInitialJoin?.(error);
       rejectPendingPersistence(error);
     });
-    nextSocket.addEventListener("close", () => {
+    nextSocket.addEventListener("close", (event) => {
+      if ((event as CloseEvent).code === 4001) {
+        stopped = true;
+        const ended = Object.assign(
+          new Error("Agent connection ended in CoreStudio."),
+          { code: "AGENT_CONNECTION_ENDED" },
+        );
+        rejectAllPending(ended);
+        input.onTerminalError?.(ended);
+      }
       const error = new Error("Project room WebSocket disconnected.");
       rejectInitialJoin?.(error);
       rejectPendingPersistence(error);

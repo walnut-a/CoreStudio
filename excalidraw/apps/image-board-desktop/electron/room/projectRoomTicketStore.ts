@@ -172,6 +172,14 @@ export class ProjectRoomTicketStore {
     return structuredClone(grant.identity);
   }
 
+  public revokeActor(actorId: string) {
+    for (const grants of [this.launchTickets, this.resumeTokens]) {
+      for (const [token, grant] of grants) {
+        if (grant.actorId === actorId) grants.delete(token);
+      }
+    }
+  }
+
   public revokeRoom(identity: ProjectRoomIdentity) {
     for (const [token, grant] of this.launchTickets) {
       if (grant.identity.roomId === identity.roomId) {

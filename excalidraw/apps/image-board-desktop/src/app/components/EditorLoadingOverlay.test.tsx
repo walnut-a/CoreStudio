@@ -44,3 +44,13 @@ describe("EditorLoadingOverlay", () => {
     expect(onReload).toHaveBeenCalledTimes(1);
   });
 });
+
+it("does not offer refresh as recovery for a manually ended connection", () => {
+  render(<EditorLoadingOverlay mode="connection-ended" />);
+  expect(
+    screen.getByRole("alert", { name: "Agent 连接已结束" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "刷新页面" }),
+  ).not.toBeInTheDocument();
+});

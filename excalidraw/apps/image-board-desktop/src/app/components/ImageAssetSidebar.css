@@ -104,10 +104,6 @@
   background: var(--button-hover-bg);
 }
 
-.image-asset-sidebar__item--selected {
-  box-shadow: inset 3px 0 0 var(--color-primary);
-}
-
 .image-asset-sidebar__item:disabled {
   cursor: not-allowed;
   opacity: 0.62;

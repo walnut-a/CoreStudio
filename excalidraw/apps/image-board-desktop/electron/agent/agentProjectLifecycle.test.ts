@@ -185,3 +185,36 @@ describe("Agent project lifecycle", () => {
     h.lifecycle.stop();
   });
 });
+
+describe("ending an Agent connection", () => {
+  it("revokes one actor without closing the project or another actor", async () => {
+    const h = harness();
+    await h.claim("a");
+    await h.claim("a", "agent:b");
+    h.lifecycle.end("agent:a");
+    expect(h.lifecycle.listBindings().map((b) => b.actorId)).toEqual([
+      "agent:b",
+    ]);
+    await expect(h.lifecycle.resolveTarget("agent:a")).rejects.toMatchObject({
+      code: "AUTH_REQUIRED",
+    });
+    await expect(h.claim("a")).rejects.toMatchObject({ code: "AUTH_REQUIRED" });
+    await expect(h.lifecycle.resolveTarget("agent:b")).resolves.toMatchObject({
+      name: "a",
+    });
+    expect(h.rooms[0].lifecycle).not.toBe("closed");
+    h.lifecycle.stop();
+  });
+  it("prevents a pending claim from restoring an ended connection", async () => {
+    const h = harness();
+    await h.claim("a");
+    const pending = deferred<typeof h.projects[number] | null>();
+    h.lookup.mockImplementationOnce(() => pending.promise);
+    const claiming = h.claim("b");
+    h.lifecycle.end("agent:a");
+    pending.resolve(h.projects[1]);
+    await expect(claiming).rejects.toMatchObject({ code: "AUTH_REQUIRED" });
+    expect(h.lifecycle.listBindings()).toEqual([]);
+    h.lifecycle.stop();
+  });
+});

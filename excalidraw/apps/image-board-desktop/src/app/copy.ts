@@ -57,6 +57,11 @@ const zhCnCopy = {
     agentConnected: "已连接",
     agentReconnecting: "等待重连",
     agentCount: (count: number) => `${count} 个 Agent`,
+    endAgentConnection: "结束连接",
+    endingAgentConnection: "正在结束…",
+    endAgentConnectionHint:
+      "结束该会话对 CoreStudio 的访问，保留已保存内容；不会关闭第三方 Agent 软件。",
+    endAgentConnectionFailed: "未能结束连接，请重试。",
     openAgentProject: "打开查看",
     projectSelectionTitle: "选择要切换到的项目",
     projectSelectionDescription:
@@ -260,6 +265,9 @@ const zhCnCopy = {
     retryInstruction:
       "开发模式下运行 `corepack yarn start:desktop`；正式包请退出后重新打开 CoreStudio。",
     editorLoading: "正在加载画板…",
+    agentConnectionEnded: "Agent 连接已结束",
+    agentConnectionEndedInstruction:
+      "该会话已在 CoreStudio 中结束，已保存内容不受影响。如需继续，请在 Agent 中新建会话并重新连接项目。",
     editorReloadRequired: "画板连接已断开",
     editorReloadInstruction:
       "当前页面闲置时间较长，或 CoreStudio 已重新启动。刷新页面即可恢复连接。",

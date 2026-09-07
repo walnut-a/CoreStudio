@@ -355,3 +355,28 @@ describe("executeProjectRoomAgentWriterCommand", () => {
     expect(room.getSnapshot().participants).toEqual([]);
   });
 });
+
+it("does not write a prepared result after its Agent was ended", async () => {
+  const room = createRoom();
+  let active = true;
+  const persistAssets = vi.fn();
+  await expect(
+    executeProjectRoomAgentWriterCommand({
+      room,
+      actorId: "a",
+      displayLabel: "a",
+      persistAssets,
+      assertActorActive: () => {
+        if (!active)
+          throw Object.assign(new Error("ended"), { code: "AUTH_REQUIRED" });
+      },
+      prepare: async () => {
+        active = false;
+        return { type: "agent-writer.prepared", elements: [imageElement] };
+      },
+    }),
+  ).rejects.toMatchObject({ code: "AUTH_REQUIRED" });
+  expect(room.getSnapshot().scene.elements).toEqual([]);
+  expect(persistAssets).not.toHaveBeenCalled();
+  expect(room.getSnapshot().participants).toEqual([]);
+});

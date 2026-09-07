@@ -93,3 +93,14 @@ describe("localAgentSessionStore", () => {
     );
   });
 });
+
+it("revokes one session while keeping the other session usable", () => {
+  const store = createLocalAgentSessionStore();
+  const a = store.issue({ host: "workbuddy", displayLabel: "a" });
+  const b = store.issue({ host: "workbuddy", displayLabel: "b" });
+  store.revokeActor(a.actorId);
+  expect(() => store.resolve(a.sessionRef)).toThrowError(
+    expect.objectContaining({ code: "AUTH_REQUIRED" }),
+  );
+  expect(store.resolve(b.sessionRef)).toEqual(b);
+});

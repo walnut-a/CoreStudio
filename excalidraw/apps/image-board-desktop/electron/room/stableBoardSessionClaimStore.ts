@@ -31,6 +31,12 @@ export interface StableBoardActorClaim extends StableBoardPageIdentity {
 export class StableBoardSessionClaimStore {
   private readonly pages = new Map<string, PendingStableBoardPage>();
 
+  public revokeActor(actorId: string) {
+    for (const page of this.pages.values()) {
+      if (page.claim?.actorId === actorId) delete page.claim;
+    }
+  }
+
   public register(input: StableBoardPageIdentity) {
     this.assertInput(input);
     const existing = this.pages.get(input.pageNonce);

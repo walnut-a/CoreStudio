@@ -73,9 +73,9 @@ describe("ProjectRoomTicketStore", () => {
         displayLabel: "任务 B",
       },
     });
-    expect(() =>
-      store.resume(exchanged.resumeToken, identity),
-    ).toThrowError(expect.objectContaining({ code: "AUTH_REQUIRED" }));
+    expect(() => store.resume(exchanged.resumeToken, identity)).toThrowError(
+      expect.objectContaining({ code: "AUTH_REQUIRED" }),
+    );
   });
 
   it("authorizes scoped HTTP reads without creating another participant session", () => {
@@ -123,9 +123,7 @@ describe("ProjectRoomTicketStore", () => {
   it("expires and removes launch and resume tokens", () => {
     let now = 1_000;
     const launchStore = createProjectRoomTicketStore({
-      randomId: vi
-        .fn()
-        .mockReturnValueOnce("expired-launch-ticket"),
+      randomId: vi.fn().mockReturnValueOnce("expired-launch-ticket"),
       now: () => now,
       launchTicketTtlMs: 100,
       resumeTokenTtlMs: 200,
@@ -168,4 +166,19 @@ describe("ProjectRoomTicketStore", () => {
       resumeStore.resume(exchange.resumeToken, identity),
     ).toThrowError(expect.objectContaining({ code: "AUTH_REQUIRED" }));
   });
+});
+
+it("revokes one actor's launch and resume tokens without affecting another", () => {
+  const store = createProjectRoomTicketStore();
+  const issue = (actorId: string) =>
+    store.issueLaunchTicket({ identity, actorId, displayLabel: actorId });
+  const resume = store.consumeLaunchTicket(issue("a"), identity).resumeToken;
+  const launch = issue("a");
+  const other = issue("b");
+  store.revokeActor("a");
+  expect(() => store.resume(resume, identity)).toThrow();
+  expect(() => store.consumeLaunchTicket(launch, identity)).toThrow();
+  expect(store.consumeLaunchTicket(other, identity).participant.actorId).toBe(
+    "b",
+  );
 });

@@ -118,3 +118,22 @@ describe("StableBoardSessionClaimStore", () => {
     });
   });
 });
+
+it("revokes only the ended actor's page claims", () => {
+  const store = createStableBoardSessionClaimStore();
+  for (const actorId of ["actor-a", "actor-b"]) {
+    store.claim({
+      stableBoardId: "board-1",
+      pageNonce: actorId,
+      actorId,
+      displayLabel: actorId,
+    });
+  }
+  store.revokeActor("actor-a");
+  expect(() =>
+    store.consume({ stableBoardId: "board-1", pageNonce: "actor-a" }),
+  ).toThrowError(expect.objectContaining({ code: "ACTOR_CLAIM_REQUIRED" }));
+  expect(
+    store.consume({ stableBoardId: "board-1", pageNonce: "actor-b" }),
+  ).toMatchObject({ actorId: "actor-b" });
+});

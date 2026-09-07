@@ -24,8 +24,8 @@ class FakeWebSocket {
     this.sent.push(data);
   }
 
-  close() {
-    this.emit("close", {});
+  close(code = 1000) {
+    this.emit("close", { code });
   }
 
   open() {
@@ -533,4 +533,36 @@ describe("createProjectRoomWebSocketTransport", () => {
     );
     expect(scheduled).toHaveLength(0);
   });
+});
+
+it("does not reconnect after CoreStudio ends the Agent connection", async () => {
+  FakeWebSocket.instances = [];
+  const onTerminalError = vi.fn();
+  const scheduleReconnect = vi.fn();
+  const transport = createProjectRoomWebSocketTransport({
+    bridgeBaseUrl: "http://127.0.0.1:60909",
+    resumeToken: "resume-token",
+    WebSocketImpl: FakeWebSocket as any,
+    onTerminalError,
+    scheduleReconnect,
+  });
+  const joining = transport.join({
+    projectPath: "/projects/project-1",
+    sessionId: "ignored",
+  });
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  socket.receive({
+    type: "room.joined",
+    sessionId: "board-session",
+    resumeToken: "resume-token",
+    snapshot,
+  });
+  await joining;
+  socket.close(4001);
+  expect(onTerminalError).toHaveBeenCalledWith(
+    expect.objectContaining({ code: "AGENT_CONNECTION_ENDED" }),
+  );
+  expect(scheduleReconnect).not.toHaveBeenCalled();
+  expect(FakeWebSocket.instances).toHaveLength(1);
 });

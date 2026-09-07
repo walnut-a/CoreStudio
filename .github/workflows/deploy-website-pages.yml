@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "website/**"
+      - "docs/agent-integration/**"
+      - "excalidraw/apps/image-board-desktop/resources/agent-integration/**"
       - ".github/workflows/deploy-website-pages.yml"
   workflow_dispatch:
 
@@ -31,6 +33,9 @@ jobs:
 
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
+
+      - name: 检查接入内容来自同一来源
+        run: node docs/agent-integration/generate.mjs --check
 
       - name: 校验官网契约
         run: node --test website/update-manifest-contract.test.mjs website/canvas-engine.test.mjs website/integrations-contract.test.mjs

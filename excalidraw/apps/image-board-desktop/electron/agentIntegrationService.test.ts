@@ -13,69 +13,104 @@ import {
 } from "./agentIntegrationService";
 
 describe("Agent integration service", () => {
-  it("inspects each host using its own Skill path and the neutral manifest", async () => {
-    const root = await mkdtemp(join(tmpdir(), "corestudio-agent-inspect-"));
-    const homeDir = join(root, "home");
-    const settingsDirectory = join(root, "settings");
-    const cliPath = join(homeDir, ".local", "bin", "corestudio");
-    const skillPath = join(
-      homeDir,
-      ".cursor",
-      "skills",
-      "corestudio",
-      "SKILL.md",
-    );
-    const manifestPath = join(settingsDirectory, "agent-integration.json");
-    await mkdir(join(homeDir, ".local", "bin"), { recursive: true });
-    await mkdir(join(homeDir, ".cursor", "skills", "corestudio"), {
-      recursive: true,
-    });
-    await mkdir(settingsDirectory, { recursive: true });
-    await writeFile(cliPath, "#!/bin/sh\n");
-    const skillContents = "managed cursor skill\n";
-    await writeFile(skillPath, skillContents);
-    await writeFile(
-      manifestPath,
-      JSON.stringify({
-        schemaVersion: 2,
-        integrationVersion: "2.2.0",
-        installedFromAppVersion: "1.2.0",
-        bridgeProtocolVersion: 7,
-        cli: { path: cliPath, wrapperVersion: 2 },
-        hosts: {
-          cursor: {
-            skillPath,
-            skillVersion: 24,
-            managedSha256: createHash("sha256")
-              .update(skillContents)
-              .digest("hex"),
-          },
+  it.each(["cursor", "workbuddy"] as const)(
+    "inspects %s and detects updated host references without an app version bump",
+    async (host) => {
+      const root = await mkdtemp(join(tmpdir(), "corestudio-agent-inspect-"));
+      const homeDir = join(root, "home");
+      const settingsDirectory = join(root, "settings");
+      const cliPath = join(homeDir, ".local", "bin", "corestudio");
+      const skillPath = join(
+        homeDir,
+        host === "cursor" ? ".cursor" : ".workbuddy-ai",
+        "skills",
+        "corestudio",
+        "SKILL.md",
+      );
+      const manifestPath = join(settingsDirectory, "agent-integration.json");
+      await mkdir(join(homeDir, ".local", "bin"), { recursive: true });
+      await mkdir(
+        join(
+          homeDir,
+          host === "cursor" ? ".cursor" : ".workbuddy-ai",
+          "skills",
+          "corestudio",
+        ),
+        {
+          recursive: true,
         },
-      }),
-    );
+      );
+      await mkdir(settingsDirectory, { recursive: true });
+      await writeFile(cliPath, "#!/bin/sh\n");
+      const skillContents = "managed skill references/host.md\n";
+      await writeFile(skillPath, skillContents);
+      await writeFile(
+        manifestPath,
+        JSON.stringify({
+          schemaVersion: 2,
+          integrationVersion: "2.2.0",
+          installedFromAppVersion: "1.2.0",
+          bridgeProtocolVersion: 7,
+          cli: { path: cliPath, wrapperVersion: 2 },
+          hosts: {
+            [host]: {
+              skillPath,
+              skillVersion: 24,
+              managedSha256: createHash("sha256")
+                .update(skillContents)
+                .digest("hex"),
+            },
+          },
+        }),
+      );
 
-    const result = await inspectAgentIntegration({
-      host: "cursor",
-      homeDir,
-      settingsDirectory,
-      resourcesPath: "/Applications/CoreStudio.app/Contents/Resources",
-      appVersion: "1.2.0",
-      access: async (path, mode) => {
-        expect(mode).toBe(path === cliPath ? constants.X_OK : constants.R_OK);
-      },
-    });
+      const resourcesPath = join(root, "resources");
+      const referencePath = join(skillPath, "..", "references", "host.md");
+      const bundledReferencePath = join(
+        resourcesPath,
+        "agent-integration",
+        "hosts",
+        `${host}.md`,
+      );
+      await mkdir(join(referencePath, ".."), { recursive: true });
+      await mkdir(join(bundledReferencePath, ".."), { recursive: true });
+      await writeFile(referencePath, "host guidance");
+      await writeFile(bundledReferencePath, "host guidance");
+      const result = await inspectAgentIntegration({
+        host,
+        homeDir,
+        settingsDirectory,
+        resourcesPath,
+        appVersion: "1.2.0",
+        access: async (path, mode) => {
+          expect(mode).toBe(path === cliPath ? constants.X_OK : constants.R_OK);
+        },
+      });
 
-    expect(result).toMatchObject({
-      host: "cursor",
-      skillPath,
-      state: "ready",
-      canRemove: true,
-    });
-    expect(result.command).toBeUndefined();
-    expect(result.guideUrl).toContain(
-      "/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md",
-    );
-  });
+      expect(result).toMatchObject({
+        host,
+        skillPath,
+        state: "ready",
+        canRemove: true,
+      });
+      if (host === "workbuddy") {
+        await writeFile(bundledReferencePath, "updated host guidance");
+        const updated = await inspectAgentIntegration({
+          host,
+          homeDir,
+          settingsDirectory,
+          resourcesPath,
+          appVersion: "1.2.0",
+          access: async () => {},
+        });
+        expect(updated.state).toBe("update");
+      }
+      expect(result.command).toBeUndefined();
+      expect(result.guideUrl).toBe(
+        "https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md",
+      );
+    },
+  );
 
   it("reports a managed Skill changed by the user as needing repair", async () => {
     const root = await mkdtemp(join(tmpdir(), "corestudio-agent-conflict-"));

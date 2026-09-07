@@ -54,7 +54,7 @@ describe("inspectCodexIntegration", () => {
     );
     expect(result.appVersion).toBe("1.1.16");
     expect(result.guideUrl).toBe(
-      "https://github.com/walnut-a/CoreStudio/blob/v1.1.16/docs/codex-integration.md",
+      "https://github.com/walnut-a/CoreStudio/blob/main/docs/codex-integration.md",
     );
   });
 

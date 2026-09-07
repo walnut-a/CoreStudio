@@ -119,6 +119,7 @@ export const AssetLabApp = () => {
         onSelectRecord={setSelectedFileId}
       />
       <InspectorSidebar
+        projectPath="/Users/designer/Documents/工业设计项目"
         open
         onOpenChange={() => undefined}
         selectedShapeActions={null}

@@ -42,6 +42,7 @@ const parentRecord: ImageRecord = {
 const renderInspector = (
   overrides: Partial<{
     record: ImageRecord;
+    projectPath: string;
     onLocateImageRecord: (fileId: string) => void;
     onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
     onCopyImageId: () => void;
@@ -51,6 +52,7 @@ const renderInspector = (
   render(
     <ImageInspector
       record={overrides.record ?? generatedRecord}
+      projectPath={overrides.projectPath}
       ancestorRecords={[parentRecord]}
       descendantRecords={[
         {
@@ -469,4 +471,22 @@ describe("ImageInspector", () => {
     selectionSpy.mockRestore();
     expect(container.querySelector(".image-inspector")).not.toBeNull();
   });
+});
+
+it("shows the full location of images in the project root and nested folders", () => {
+  const view = renderInspector({
+    projectPath: "/Users/test/Documents/项目/",
+    record: { ...generatedRecord, assetPath: "apple-esslinger-05.jpg" },
+  });
+  expect(
+    screen.getByText("/Users/test/Documents/项目/apple-esslinger-05.jpg"),
+  ).toBeInTheDocument();
+  view.unmount();
+  renderInspector({
+    projectPath: "/Users/test/Documents/项目",
+    record: generatedRecord,
+  });
+  expect(
+    screen.getByText("/Users/test/Documents/项目/assets/file-1.png"),
+  ).toBeInTheDocument();
 });

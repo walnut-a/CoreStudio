@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: corepack yarn install --frozen-lockfile
 
+      - name: Agent guidance source consistency
+        run: node ../docs/agent-integration/generate.mjs --check
+
       - name: Workspace scope
         run: corepack yarn vitest apps/image-board-desktop/scripts/workspaceScope.test.ts --run
 

@@ -16,6 +16,7 @@ import { copyIcon } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 
 interface ImageInspectorProps {
+  projectPath?: string | null;
   record: ImageRecord | null;
   ancestorRecords: ImageRecord[];
   descendantRecords: ImageLineageEntry[];
@@ -171,6 +172,7 @@ const getPromptReferenceList = (
     .sort((left, right) => left.index - right.index);
 
 export const ImageInspector = ({
+  projectPath,
   record,
   ancestorRecords,
   descendantRecords,
@@ -490,7 +492,9 @@ export const ImageInspector = ({
             <div className="image-inspector__detail-item">
               <dt>{copy.inspector.assetPath}</dt>
               <dd className="image-inspector__detail-value image-inspector__detail-code">
-                {record.assetPath}
+                {projectPath
+                  ? `${projectPath.replace(/\/$/, "")}/${record.assetPath}`
+                  : record.assetPath}
               </dd>
             </div>
             <div className="image-inspector__detail-item">

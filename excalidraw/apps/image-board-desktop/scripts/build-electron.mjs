@@ -28,6 +28,7 @@ export const createElectronBuildOptions = () => ({
     "electron/main.ts",
     "electron/preload.ts",
     "electron/agent/cliRuntime.ts",
+    "electron/agentIntegrationSetup.ts",
   ],
   bundle: true,
   platform: "node",

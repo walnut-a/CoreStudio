@@ -14,6 +14,10 @@ import { dirname, join, resolve } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { runIntegrationSetup } from "../electron/agentIntegrationSetup";
+import { inspectAgentIntegration } from "../electron/agentIntegrationService";
+import { getAgentSessionDirectory } from "../electron/agent/sessionPaths";
+
 import { AGENT_BRIDGE_PROTOCOL_VERSION } from "../src/shared/agentBridgeTypes";
 import {
   AGENT_HOST_SKILL_DIRECTORIES,
@@ -77,7 +81,7 @@ describe("CoreStudio multi-host Agent installer", () => {
 
   it.runIf(process.platform === "darwin")(
     "installs only the selected host Skill from a packaged app",
-    () => {
+    async () => {
       const root = mkdtempSync(join(tmpdir(), "corestudio-agent-installer-"));
       temporaryDirectories.push(root);
       const home = join(root, "home");
@@ -159,14 +163,27 @@ describe("CoreStudio multi-host Agent installer", () => {
           expect(existsSync(dirname(dirname(skillPath)))).toBe(false);
         }
         mkdirSync(dirname(dirname(skillPath)), { recursive: true });
-        execFileSync("/bin/bash", [installer, host], {
-          env: { ...process.env, HOME: home },
+        const installed = await runIntegrationSetup([host], {
+          homeDir: home, resourcesPath: resources, appVersion: "1.1.50",
         });
+        expect(installed.ok).toBe(true);
+        const status = await inspectAgentIntegration({
+          host, homeDir: home, resourcesPath: resources, appVersion: "1.1.50",
+          settingsDirectory: getAgentSessionDirectory({ platform: "darwin", homeDir: home }),
+        });
+        expect(status.state).toBe("ready");
         const contents = readFileSync(skillPath, "utf8");
         expect(contents).toContain(
           `corestudio-managed-agent-skill host=${host}`,
         );
-        expect(contents).toContain(`agent connect --host ${host}`);
+        expect(contents).toContain("references/host.md");
+        expect(contents).not.toContain(`agent connect --host ${host}`);
+        expect(
+          readFileSync(
+            join(dirname(skillPath), "references", "host.md"),
+            "utf8",
+          ),
+        ).toContain(`agent connect --host ${host}`);
         writeFileSync(skillPath, "user custom skill");
         expect(() =>
           execFileSync("/bin/bash", [installer, host], {

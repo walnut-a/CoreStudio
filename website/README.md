@@ -113,4 +113,11 @@ Assistant 字体文件只保留 Basic Latin 字符。中文版仅按需使用 Se
 正式英文版地址为 `https://getcorestudio.com/`，中文版位于
 `https://getcorestudio.com/zh/`。
 
-三款新增宿主的准备步骤由 `integrations-content.mjs` 提供，静态中英文 HTML 保留相同说明供无 JavaScript 阅读，宿主切换和 WebMCP 必须返回对应说明。更新后运行 `node --test website/integrations-contract.test.mjs` 并实际检查中英文、移动端和六宿主切换；修改内容修订号时同步模块缓存参数。千问按官方扩展连接外部 Chrome 描述，不能统一称为内置浏览器。源码更新与 GitHub Pages 部署是两个交付状态。
+接入内容唯一维护入口是仓库根 `docs/agent-integration/content.mjs`，工作流补充为同目录 `workflows.md`，宿主深度参考来自应用的 `resources/agent-integration/hosts/`。修改后运行：
+
+```sh
+node docs/agent-integration/generate.mjs
+node docs/agent-integration/generate.mjs --check
+```
+
+生成器同时输出官网浏览器/WebMCP 内容模块、中英文 HTML 正文、仓库用户指南和随包 USER_GUIDE.md。禁止手改生成文件。官网 CI 和桌面 CI 都检查生成结果，源文件变化也触发官网部署。安装优先使用签名应用包内 setup.sh，不依赖 Computer Use；只有浏览器工具的 Agent 请用户执行一次命令。宿主登录与浏览器授权不等于安装。

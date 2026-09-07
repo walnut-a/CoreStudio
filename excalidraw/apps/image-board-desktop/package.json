@@ -11,6 +11,7 @@
   "scripts": {
     "ensure:electron": "node scripts/ensure-electron.cjs",
     "check:dev-port": "node scripts/ensure-dev-port.cjs",
+    "check:agent-docs:online": "node scripts/check-agent-docs-online.cjs",
     "check:bundle-budget": "node scripts/desktopBundleBudget.mts",
     "check:secrets": "node scripts/check-secrets.cjs",
     "dev:renderer": "vite --config vite.config.mts --host 127.0.0.1 --port 5174",

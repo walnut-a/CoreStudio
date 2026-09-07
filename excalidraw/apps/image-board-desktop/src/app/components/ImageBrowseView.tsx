@@ -128,6 +128,7 @@ const OriginalImage = ({
 };
 
 const ImageDetail = ({
+  projectPath,
   item,
   index,
   count,
@@ -139,6 +140,7 @@ const ImageDetail = ({
   imageRecords,
   onCopyText,
 }: {
+  projectPath: string;
   imageRecords: ImageRecordMap;
   onCopyText: ImageBrowseViewProps["onCopyText"];
   item: ImageBrowseItem;
@@ -245,6 +247,7 @@ const ImageDetail = ({
           >
             {record ? (
               <ImageInspector
+                projectPath={projectPath}
                 key={record.fileId}
                 record={record}
                 ancestorRecords={relationships.ancestors}
@@ -424,6 +427,7 @@ export const ImageBrowseView = ({
       </div>
       {selectedIndex >= 0 && (
         <ImageDetail
+          projectPath={projectPath}
           imageRecords={imageRecords}
           onCopyText={onCopyText}
           item={items[selectedIndex]}

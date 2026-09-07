@@ -67,7 +67,7 @@ export const DesktopShellApp = ({
     useState<DesktopProjectTheme>(getInitialShellTheme);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [appSettingsCategory, setAppSettingsCategory] =
-    useState<ApplicationSettingsCategory>("image-generation");
+    useState<ApplicationSettingsCategory>("general");
 
   const applyOpenedBundle = useCallback(
     async (bundle: DesktopProjectBundle | null) => {
@@ -216,7 +216,7 @@ export const DesktopShellApp = ({
       } else if (event.action === "project-open-failed") {
         setProjectError(event.errorMessage ?? "项目打开失败。");
       } else if (event.action === "app-settings") {
-        setAppSettingsCategory("image-generation");
+        setAppSettingsCategory("general");
         setAppSettingsOpen(true);
       }
     });

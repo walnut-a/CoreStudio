@@ -26,6 +26,7 @@ interface InspectorSidebarProps {
   shouldRenderSelectedShapeActions: boolean;
   isImageCropping: boolean;
   onFinishImageCropping: () => void;
+  projectPath?: string | null;
   record: ImageRecord | null;
   ancestorRecords: ImageRecord[];
   descendantRecords: ImageLineageEntry[];
@@ -46,6 +47,7 @@ export const InspectorSidebar = ({
   shouldRenderSelectedShapeActions,
   isImageCropping,
   onFinishImageCropping,
+  projectPath,
   record,
   ancestorRecords,
   descendantRecords,
@@ -122,6 +124,7 @@ export const InspectorSidebar = ({
             <h3>{copy.inspector.title}</h3>
           </header>
           <ImageInspector
+            projectPath={projectPath}
             record={record}
             ancestorRecords={ancestorRecords}
             descendantRecords={descendantRecords}

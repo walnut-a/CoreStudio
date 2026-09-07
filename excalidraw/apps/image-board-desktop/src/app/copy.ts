@@ -528,48 +528,13 @@ const zhCnCopy = {
       },
     },
     codexPage: {
-      hostSetupTitle: "接入前准备",
-      hostSetup: {
-        workbuddy: {
-          browser:
-            "使用当前本地任务提供的 agent-browser 或 playwright-cli；预览面板不等于可操作的浏览器。",
-          steps: [
-            "先登录 WorkBuddy，使用本地任务，并在 CoreStudio 中选择 WorkBuddy 安装集成。",
-            "安装后新建任务，确认已发现 CoreStudio Skill 和浏览器技能；CLI 找不到时使用 Skill 记录的绝对路径。",
-            "让 Agent 打开所选项目的 Agent Board，读取真实页面并连接；仅打开预览或下载网页不代表连接成功。",
-          ],
-          images:
-            "实测任务未提供原生生图工具。能力以当前任务为准；无可用工具时，可按需授权使用 CoreStudio 当前图片服务，费用由对应服务商计收。",
-          prompt:
-            "在 WorkBuddy 本地任务中使用 CoreStudio Skill，打开我选择的项目并连接 Agent Board。使用当前任务的浏览器技能读取页面，检查画布和选区；没有浏览器工具时明确说明。暂不生成图片。",
-        },
-        qwenwork: {
-          browser:
-            "通过官方 QwenWork 扩展操作外部 Chrome；本次接入未验证可操作的内置浏览器，Edge 未做实机验收。",
-          steps: [
-            "登录千问办公中国版，使用本地任务，在 CoreStudio 中选择千问办公安装集成。",
-            "在千问“连接器 → 已安装 → 浏览器”启用连接器。若等待扩展连接，检查实际使用的 Chrome 配置中的官方 QwenWork 扩展；缺失时按千问客户端提供的目录加载。",
-            "打开目标 Agent Board，在扩展中点击“连接”，确认当前标签页已连接。chrome://extensions 等受限页面不能用于连接验证。",
-            "新建千问任务加载 Skill 与浏览器工具。若仍没有工具，可在原画布点击“复制连接指令”，完整粘贴到千问本地任务；发送后不要刷新原页面。",
-          ],
-          images:
-            "实测任务能发现原生图片工具，但本轮未调用生图，不能保证每个账号或任务都有。生成结果需保存为本机可读图片再写回；CoreStudio 生图需另行授权并使用当前配置。",
-          prompt:
-            "在千问办公本地任务中使用 CoreStudio Skill，连接我选择的 CoreStudio 项目。通过官方浏览器连接器读取已连接的 Chrome Agent Board 标签页，再认领并检查画布与选区；没有浏览器工具时说明如何复制连接指令。暂不生成图片。",
-        },
-        doubaowork: {
-          browser:
-            "使用豆包工作“本地电脑”任务中的“操作浏览器”能力；云端任务无法直接访问这台 Mac 的 CoreStudio。",
-          steps: [
-            "先登录豆包工作并运行一次“本地电脑”任务，让客户端建立默认本地技能目录。",
-            "在 CoreStudio 中选择豆包工作安装集成；目录未初始化时先完成上一步，不手工创建猜测路径。",
-            "新建本地电脑任务加载 Skill，用任务的操作浏览器能力打开并连接所选项目的 Agent Board。",
-          ],
-          images:
-            "实测已完成可见参考图导出和图片写回。原生图片工具可发现但未做收费生图验收；仅聊天预览不能写回，需取得本机原图。使用 CoreStudio 生图仍需单独开启权限。",
-          prompt:
-            "在豆包工作“本地电脑”任务中使用 CoreStudio Skill，打开我选择的项目。用操作浏览器能力连接 Agent Board，检查画布与选区，并确认本机 CLI 可用。暂不生成图片。",
-        },
+      hostStartPrompts: {
+        workbuddy:
+          "在 WorkBuddy 本地任务中使用 CoreStudio Skill，先读取 Skill 目录中的 references/host.md，检查当前工具并连接我选择的项目，验证画布与选区。能够完成的接入步骤由你执行；只有遇到登录、权限或必须手动连接的阻碍时，再告诉我具体需要做什么。暂不生成图片。",
+        qwenwork:
+          "在 千问办公 本地任务中使用 CoreStudio Skill，先读取 Skill 目录中的 references/host.md，检查当前工具并连接我选择的项目，验证画布与选区。能够完成的接入步骤由你执行；只有遇到登录、权限或必须手动连接的阻碍时，再告诉我具体需要做什么。暂不生成图片。",
+        doubaowork:
+          "在 豆包工作 本地任务中使用 CoreStudio Skill，先读取 Skill 目录中的 references/host.md，检查当前工具并连接我选择的项目，验证画布与选区。能够完成的接入步骤由你执行；只有遇到登录、权限或必须手动连接的阻碍时，再告诉我具体需要做什么。暂不生成图片。",
       },
       description:
         "为你使用的本地 Agent 安装集成，并分别管理 CoreStudio 图片生成权限。",
@@ -660,7 +625,7 @@ const zhCnCopy = {
       openImageIntegrations: "前往图片集成",
       bridgeDisabledPermissionNote: "权限已保存，开启 Agent Bridge 后生效。",
       installPrompt: (appVersion: string, guideUrl: string) =>
-        `请打开本机正式 CoreStudio ${appVersion} 的“应用设置 → Agent 集成”，选择 Codex 后执行安装、更新或修复，不要从网络下载或重写安装脚本。完成后只验证 CLI、Skill 和集成兼容性记录；安装说明可参考：${guideUrl}`,
+        `请为 Codex 安装本机 CoreStudio ${appVersion} 集成。先读取接入指南 ${guideUrl}，优先使用应用包内 setup.sh 的无界面安装入口，不依赖 Computer Use，也不要从网络下载或重写安装脚本。若旧包没有该入口，再请用户在“应用设置 → Agent 集成”安装。完成后只验证 CLI、Skill 和兼容性记录，暂不访问项目或生成图片。`,
     },
   },
   agentUi: {

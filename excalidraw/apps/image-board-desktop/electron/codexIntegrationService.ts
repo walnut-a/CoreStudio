@@ -162,7 +162,7 @@ export const inspectCodexIntegration = async ({
   const manifestPath = join(homeDir, ".codex", "corestudio-integration.json");
   const installerPath = join(resourcesPath, "codex-integration", "install.sh");
   const command = ["/bin/bash", shellQuote(installerPath)].join(" ");
-  const guideUrl = `https://github.com/walnut-a/CoreStudio/blob/v${appVersion}/docs/codex-integration.md`;
+  const guideUrl = `https://github.com/walnut-a/CoreStudio/blob/main/docs/codex-integration.md`;
 
   const [cliReady, skillReady, manifestReadable] = await Promise.all([
     canAccess(access, cliPath, constants.X_OK),

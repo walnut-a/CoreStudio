@@ -1,4 +1,3 @@
-// 自动生成，请修改 docs/agent-integration/content.mjs。
 
 export const INSTALL_COMMAND = '/bin/bash "/Applications/CoreStudio.app/Contents/Resources/agent-integration/setup.sh" codex';
 export const INSTALL_NOTES = {

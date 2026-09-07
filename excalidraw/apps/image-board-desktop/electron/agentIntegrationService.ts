@@ -211,6 +211,23 @@ export const inspectAgentIntegration = async ({
     installedSkillSha && hostEntry
       ? installedSkillSha === hostEntry.managedSha256
       : false;
+  const usesHostReference =
+    host === "workbuddy" || host === "qwenwork" || host === "doubaowork";
+  const hostReferenceCurrent =
+    !usesHostReference ||
+    (await Promise.all([
+      readFile(join(dirname(paths.skillPath), "references", "host.md"), "utf8"),
+      readFile(
+        join(resourcesPath, "agent-integration", "hosts", `${host}.md`),
+        "utf8",
+      ),
+      readFile(paths.skillPath, "utf8"),
+    ])
+      .then(
+        ([installed, bundled, skill]) =>
+          installed === bundled && skill.includes("references/host.md"),
+      )
+      .catch(() => false));
   const contractReady = Boolean(
     manifest &&
       hostEntry &&
@@ -221,7 +238,8 @@ export const inspectAgentIntegration = async ({
       manifest.cli.wrapperVersion === AGENT_INTEGRATION_CLI_WRAPPER_VERSION &&
       hostEntry.skillPath === paths.skillPath &&
       hostEntry.skillVersion === AGENT_INTEGRATION_SKILL_VERSION &&
-      skillHashMatches,
+      skillHashMatches &&
+      hostReferenceCurrent,
   );
   const compatibilityStatus: CodexIntegrationCheck["status"] =
     !manifest || !hostEntry
@@ -229,8 +247,8 @@ export const inspectAgentIntegration = async ({
         ? "outdated"
         : "missing"
       : manifest.cli.path !== paths.cliPath ||
-      hostEntry.skillPath !== paths.skillPath ||
-      (skillReady && !skillHashMatches)
+        hostEntry.skillPath !== paths.skillPath ||
+        (skillReady && !skillHashMatches)
       ? "broken"
       : contractReady
       ? "ready"
@@ -269,7 +287,7 @@ export const inspectAgentIntegration = async ({
     state,
     appVersion,
     integrationVersion: AGENT_INTEGRATION_VERSION,
-    guideUrl: `https://github.com/walnut-a/CoreStudio/blob/v${appVersion}/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md`,
+    guideUrl: `https://github.com/walnut-a/CoreStudio/blob/main/excalidraw/apps/image-board-desktop/docs/agent-integration-user-guide.md`,
     checks,
     detectedAt: new Date().toISOString(),
   };

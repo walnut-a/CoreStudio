@@ -59,6 +59,7 @@ describe("CoreStudio Electron build hermeticity", () => {
       "electron/main.ts",
       "electron/preload.ts",
       "electron/agent/cliRuntime.ts",
+      "electron/agentIntegrationSetup.ts",
     ]);
     expect(options.external).toEqual(["electron"]);
     expect(options.outdir).toBe("dist-electron");

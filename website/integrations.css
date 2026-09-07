@@ -739,17 +739,17 @@ a {
 }
 
 .evidence-status {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
+  position: relative;
+  padding-left: 16px;
 }
 
 .evidence-status::before {
   content: "";
+  position: absolute;
+  left: 0;
+  top: calc(0.775em - 3.5px);
   width: 7px;
   height: 7px;
-  margin-top: 5px;
-  flex: 0 0 auto;
   background: var(--primary);
   border-radius: 2px;
 }
@@ -779,8 +779,8 @@ a {
   .evidence-status-group,
   .evidence-sources-group {
     grid-column: 1 / -1;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
     align-items: baseline;
     gap: 8px 24px;
   }
@@ -902,7 +902,7 @@ a {
 
   .evidence-status-group,
   .evidence-sources-group {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .guide-hero {

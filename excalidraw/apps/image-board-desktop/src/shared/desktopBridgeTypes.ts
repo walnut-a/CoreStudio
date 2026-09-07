@@ -120,6 +120,7 @@ export const IPC_CHANNELS = {
   projectViewsState: "image-board:project-views-state",
   loadProjectViewsState: "image-board:load-project-views-state",
   agentActiveProjectsChanged: "image-board:agent-active-projects-changed",
+  endAgentConnection: "image-board:end-agent-connection",
   loadAgentActiveProjects: "image-board:load-agent-active-projects",
   openProjectView: "image-board:open-project-view",
   activateProjectView: "image-board:activate-project-view",
@@ -641,6 +642,7 @@ export interface DesktopBridgeApi {
     listener: (sessionId: string, event: ProjectRoomEvent) => void,
   ): () => void;
   loadProjectViewsState?(): Promise<DesktopProjectViewsState>;
+  endAgentConnection?(actorId: string): Promise<DesktopAgentActiveProject[]>;
   loadAgentActiveProjects?(): Promise<DesktopAgentActiveProject[]>;
   openProjectView?(
     projectPath: string,

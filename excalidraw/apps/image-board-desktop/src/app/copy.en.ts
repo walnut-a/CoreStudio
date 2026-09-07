@@ -47,6 +47,11 @@ export const enCopy: DesktopCopy = {
     agentReconnecting: "Waiting to reconnect",
     agentCount: (count: number) =>
       `${count} ${count === 1 ? "Agent" : "Agents"}`,
+    endAgentConnection: "End connection",
+    endingAgentConnection: "Ending…",
+    endAgentConnectionHint:
+      "End this session’s access to CoreStudio. Saved content is kept. This does not stop the external Agent app.",
+    endAgentConnectionFailed: "Could not end the connection. Try again.",
     openAgentProject: "Open to view",
     projectSelectionTitle: "Choose a project to switch to",
     projectSelectionDescription:
@@ -257,6 +262,9 @@ export const enCopy: DesktopCopy = {
     retryInstruction:
       "In development, run `corepack yarn start:desktop`. For a packaged app, quit and reopen CoreStudio.",
     editorLoading: "Loading board...",
+    agentConnectionEnded: "Agent connection ended",
+    agentConnectionEndedInstruction:
+      "This session was ended in CoreStudio. Saved content is kept. To continue, start a new Agent session and connect the project again.",
     editorReloadRequired: "Board connection lost",
     editorReloadInstruction:
       "This page may have been idle for a while, or CoreStudio may have restarted. Refresh the page to reconnect.",

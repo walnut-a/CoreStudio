@@ -63,6 +63,11 @@ export const createLocalAgentSessionStore = (
       sessions.set(sessionRef, session);
       return structuredClone(session);
     },
+    revokeActor(actorId: string) {
+      for (const [ref, session] of sessions) {
+        if (session.actorId === actorId) sessions.delete(ref);
+      }
+    },
     resolve(sessionRef: string): LocalAgentSession {
       const session = sessions.get(sessionRef.trim());
       if (!session) {

@@ -2,7 +2,7 @@ import { copy } from "../copy";
 import { DesktopButton } from "./DesktopButton";
 
 interface EditorLoadingOverlayProps {
-  mode?: "loading" | "refresh-required";
+  mode?: "loading" | "refresh-required" | "connection-ended";
   onReload?: () => void;
 }
 
@@ -10,15 +10,18 @@ export const EditorLoadingOverlay = ({
   mode = "loading",
   onReload,
 }: EditorLoadingOverlayProps) => {
-  const refreshRequired = mode === "refresh-required";
+  const ended = mode === "connection-ended";
+  const refreshRequired = mode === "refresh-required" || ended;
+  const title = ended
+    ? copy.startup.agentConnectionEnded
+    : copy.startup.editorReloadRequired;
+  const instruction = ended
+    ? copy.startup.agentConnectionEndedInstruction
+    : copy.startup.editorReloadInstruction;
 
   return (
     <div
-      aria-label={
-        refreshRequired
-          ? copy.startup.editorReloadRequired
-          : copy.startup.editorLoading
-      }
+      aria-label={refreshRequired ? title : copy.startup.editorLoading}
       className="image-board-canvas__loading"
       role={refreshRequired ? "alert" : "status"}
     >
@@ -35,12 +38,14 @@ export const EditorLoadingOverlay = ({
         {refreshRequired ? (
           <>
             <div className="image-board-canvas__loading-copy">
-              <strong>{copy.startup.editorReloadRequired}</strong>
-              <span>{copy.startup.editorReloadInstruction}</span>
+              <strong>{title}</strong>
+              <span>{instruction}</span>
             </div>
-            <DesktopButton size="small" variant="primary" onClick={onReload}>
-              {copy.startup.editorReloadAction}
-            </DesktopButton>
+            {!ended ? (
+              <DesktopButton size="small" variant="primary" onClick={onReload}>
+                {copy.startup.editorReloadAction}
+              </DesktopButton>
+            ) : null}
           </>
         ) : (
           <>

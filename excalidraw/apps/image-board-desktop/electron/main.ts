@@ -447,9 +447,11 @@ const resolveAgentActorId = ({
   threadId?: string;
 }) => {
   if (actorId) {
+    agentProjectLifecycle.assertActorActive(actorId);
     return actorId;
   }
   if (threadId) {
+    agentProjectLifecycle.assertActorActive(`codex:${threadId}`);
     return `codex:${threadId}`;
   }
   throw Object.assign(
@@ -500,6 +502,8 @@ const executeAgentImageGenerationWriterCommand = async ({
   return executeProjectRoomAgentWriterCommand({
     room,
     actorId: resolvedActorId,
+    assertActorActive: () =>
+      agentProjectLifecycle.assertActorActive(resolvedActorId),
     displayLabel,
     prepare: (context) =>
       prepareAgentWriterCommand({
@@ -1369,14 +1373,16 @@ const startLocalBridge = async () => {
             pageNonce,
           })
         ) {
+          const recoveredActor = stableBoardActorResumeTokenService.verify({
+            token: actorResumeToken,
+            stableBoardId,
+            pageNonce,
+          });
+          agentProjectLifecycle.assertActorActive(recoveredActor.actorId);
           stableBoardSessionClaimStore.claim({
             stableBoardId,
             pageNonce,
-            ...stableBoardActorResumeTokenService.verify({
-              token: actorResumeToken,
-              stableBoardId,
-              pageNonce,
-            }),
+            ...recoveredActor,
           });
         }
         const project = await getAgentProjectByStableBoardId(stableBoardId);
@@ -1390,7 +1396,9 @@ const startLocalBridge = async () => {
           stableBoardId,
           pageNonce,
         });
+        agentProjectLifecycle.assertActorActive(actor.actorId);
         const room = await projectRoomService.openProject(project.projectPath);
+        agentProjectLifecycle.assertActorActive(actor.actorId);
         observeAgentProjectRoom(room);
         return {
           launchTicket: projectRoomTicketStore.issueLaunchTicket({
@@ -1464,19 +1472,22 @@ const startLocalBridge = async () => {
             { code: "PROJECT_REQUIRED", details: { stableBoardId } },
           );
         }
+        const actor = stableBoardActorResumeTokenService.verify({
+          token: actorResumeToken,
+          stableBoardId,
+          pageNonce,
+        });
+        agentProjectLifecycle.assertActorActive(actor.actorId);
         return {
           selectionToken: boardProjectSelectionStore.issue({
-            ...stableBoardActorResumeTokenService.verify({
-              token: actorResumeToken,
-              stableBoardId,
-              pageNonce,
-            }),
+            ...actor,
             currentProjectPath: project.projectPath,
           }),
         };
       },
       listBoardProjectCandidates: async (selectionToken) => {
         const grant = boardProjectSelectionStore.authorize(selectionToken);
+        agentProjectLifecycle.assertActorActive(grant.actorId);
         return buildBoardProjectCandidates({
           projects: await loadRecentProjects(),
           currentProjectPath: grant.currentProjectPath,
@@ -1487,6 +1498,7 @@ const startLocalBridge = async () => {
       },
       openBoardProjectCandidate: async ({ selectionToken, projectPath }) => {
         const grant = boardProjectSelectionStore.authorize(selectionToken);
+        agentProjectLifecycle.assertActorActive(grant.actorId);
         if (grant.currentProjectPath === projectPath) {
           throw Object.assign(
             new Error("The selected project is already current."),
@@ -1513,6 +1525,7 @@ const startLocalBridge = async () => {
             { code: "CAPABILITY_UNAVAILABLE" },
           );
         }
+        agentProjectLifecycle.assertActorActive(grant.actorId);
         boardProjectSelectionStore.consume(selectionToken);
         const returnSelectionToken = boardProjectSelectionStore.issue({
           actorId: grant.actorId,
@@ -1549,6 +1562,7 @@ const startLocalBridge = async () => {
         const bundle = await readProjectBundle(
           room.identity.canonicalProjectPath,
         );
+        agentProjectLifecycle.assertActorActive(exchange.participant.actorId);
         return {
           room,
           exchange,
@@ -1661,6 +1675,9 @@ const startLocalBridge = async () => {
         return executeProjectRoomAgentWriterCommand({
           room,
           actorId: resolveAgentActorId({ actorId, threadId }),
+          assertActorActive: () => {
+            resolveAgentActorId({ actorId, threadId });
+          },
           displayLabel,
           prepare: run,
           request,
@@ -2324,6 +2341,31 @@ const registerIpcHandlers = () => {
     requireShellSender(event.sender);
     return getProjectViewRegistry().snapshot();
   });
+  ipcMain.handle(
+    IPC_CHANNELS.endAgentConnection,
+    async (event, actorId: unknown) => {
+      requireShellSender(event.sender);
+      if (typeof actorId !== "string" || !actorId.trim())
+        throw new Error("An Agent identity is required.");
+      const binding = agentProjectLifecycle
+        .listBindings()
+        .find((candidate) => candidate.actorId === actorId);
+      if (!binding) return getAgentActiveProjects();
+      agentProjectLifecycle.end(actorId);
+      localAgentSessionStore.revokeActor(actorId);
+      stableBoardSessionClaimStore.revokeActor(actorId);
+      projectRoomTicketStore.revokeActor(actorId);
+      for (const room of projectRoomService.manager.list()) {
+        localBridgeHandle?.disconnectAgent(room.identity.roomId, actorId);
+        for (const participant of room.getSnapshot().participants) {
+          if (participant.actorId === actorId)
+            room.leave(participant.sessionId);
+        }
+      }
+      publishAgentActiveProjects();
+      return getAgentActiveProjects();
+    },
+  );
   ipcMain.handle(IPC_CHANNELS.loadAgentActiveProjects, async (event) => {
     requireShellSender(event.sender);
     return getAgentActiveProjects();

@@ -21,10 +21,12 @@ export const IMAGE_ASSET_THUMBNAIL_CACHE_LIMIT = 96;
 
 const buildDataUrls = (assets: readonly ProjectAssetPayload[]) =>
   Object.fromEntries(
-    assets.map((asset) => [
-      asset.fileId,
-      `data:${asset.mimeType};base64,${asset.dataBase64}`,
-    ]),
+    assets
+      .filter((asset) => asset.rendition !== "placeholder")
+      .map((asset) => [
+        asset.fileId,
+        `data:${asset.mimeType};base64,${asset.dataBase64}`,
+      ]),
   );
 
 export const createImageAssetThumbnailStore = ({

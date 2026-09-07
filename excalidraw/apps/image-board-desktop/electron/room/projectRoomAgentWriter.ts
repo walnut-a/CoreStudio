@@ -63,6 +63,7 @@ export const executeProjectRoomAgentWriterCommand = async ({
   prepare,
   persistAssets,
   validateOperation,
+  assertActorActive = () => undefined,
   dryRun = false,
   randomId = randomUUID,
   request,
@@ -80,10 +81,12 @@ export const executeProjectRoomAgentWriterCommand = async ({
     files: NonNullable<PreparedAgentWriterCommand["files"]>,
   ) => Promise<unknown>;
   validateOperation?: (operation: ProjectRoomSceneOperation) => Promise<void>;
+  assertActorActive?: () => void;
   dryRun?: boolean;
   randomId?: () => string;
   request?: AgentWriteRequest;
 }): Promise<AgentWriteReceipt> => {
+  assertActorActive();
   let entry: WriteRequestEntry | undefined;
   let entries: Map<string, WriteRequestEntry> | undefined;
   const requestKey = request ? JSON.stringify([actorId, request.id]) : null;
@@ -158,6 +161,7 @@ export const executeProjectRoomAgentWriterCommand = async ({
     if (entry?.receipt) {
       return persistReceipt(entry.receipt);
     }
+    assertActorActive();
     const sessionId = randomId();
     room.join({
       actorId,
@@ -176,6 +180,7 @@ export const executeProjectRoomAgentWriterCommand = async ({
           scene: snapshot.scene,
         }),
       );
+      assertActorActive();
       if (!dryRun && command.files?.length) {
         await persistAssets(command.files);
       }
@@ -186,6 +191,7 @@ export const executeProjectRoomAgentWriterCommand = async ({
         elements: command.elements,
       };
       await validateOperation?.(operation);
+      assertActorActive();
       if (dryRun) {
         return {
           ...(command.result ?? {}),

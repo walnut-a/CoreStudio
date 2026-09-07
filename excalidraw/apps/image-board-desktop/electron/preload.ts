@@ -210,6 +210,8 @@ const desktopBridge: DesktopBridgeApi = {
   },
   loadProjectViewsState: () =>
     ipcRenderer.invoke(IPC_CHANNELS.loadProjectViewsState),
+  endAgentConnection: (actorId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.endAgentConnection, actorId),
   loadAgentActiveProjects: () =>
     ipcRenderer.invoke(IPC_CHANNELS.loadAgentActiveProjects),
   openProjectView: (projectPath, options) =>

@@ -794,3 +794,27 @@
     padding: 24px;
   }
 }
+
+.welcome-pane__agent-connections {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--default-border-color);
+}
+.welcome-pane__agent-connections li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 4px;
+}
+.welcome-pane__agent-connections li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+.welcome-pane__agent-connections .image-board-button {
+  flex-shrink: 0;
+}

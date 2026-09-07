@@ -2666,6 +2666,7 @@ describe("App startup", () => {
     const readProjectAssetPayloads = vi.fn(
       async ({
         rendition,
+        thumbnailMode,
         fileIds,
       }: {
         rendition?: string;
@@ -2679,7 +2680,10 @@ describe("App startup", () => {
           width: rendition === "preview" ? 1280 : 320,
           height: rendition === "preview" ? 853 : 213,
           createdAt: "2026-04-12T08:00:00.000Z",
-          rendition: rendition ?? "original",
+          rendition:
+            thumbnailMode === "cache-only"
+              ? "placeholder"
+              : rendition ?? "original",
         })),
     );
     const referencedRecords = Object.fromEntries(
@@ -2753,10 +2757,10 @@ describe("App startup", () => {
         .filter(
           (input) =>
             input.rendition === "thumbnail" &&
-            input.thumbnailMode === "cache-only",
+            input.thumbnailMode === "read-through",
         );
       expect(thumbnailCalls).toHaveLength(1);
-      expect(thumbnailCalls[0].fileIds.length).toBeGreaterThan(0);
+      expect(thumbnailCalls[0].fileIds).toContain("generated-file");
       expect(thumbnailCalls[0].fileIds.length).toBeLessThanOrEqual(18);
     });
   });
@@ -3218,23 +3222,29 @@ describe("App startup", () => {
           thumbnailMode?: string;
           fileIds: string[];
         }) => {
-          if (rendition !== "thumbnail" || thumbnailMode !== "cache-only") {
+          if (rendition !== "thumbnail") {
             return [];
           }
 
           thumbnailReadCount += 1;
           return fileIds.map((fileId) => ({
             fileId,
-            mimeType: thumbnailReadCount === 1 ? "image/svg+xml" : "image/png",
+            mimeType:
+              thumbnailMode === "cache-only" && thumbnailReadCount === 1
+                ? "image/svg+xml"
+                : "image/png",
             dataBase64: Buffer.from(
-              thumbnailReadCount === 1
+              thumbnailMode === "cache-only" && thumbnailReadCount === 1
                 ? `${fileId}-placeholder`
                 : `${fileId}-thumbnail`,
             ).toString("base64"),
             width: 768,
             height: 512,
             createdAt: "2026-04-12T08:00:00.000Z",
-            rendition: thumbnailReadCount === 1 ? "placeholder" : "thumbnail",
+            rendition:
+              thumbnailMode === "cache-only" && thumbnailReadCount === 1
+                ? "placeholder"
+                : "thumbnail",
           }));
         },
       );
@@ -3321,12 +3331,14 @@ describe("App startup", () => {
     const importedAssetRow = within(imageAssetList).getByRole("button", {
       name: /导入图片/,
     });
-    expect(importedAssetRow.querySelector("img")).toHaveAttribute(
-      "src",
-      `data:image/svg+xml;base64,${Buffer.from("far-file-placeholder").toString(
-        "base64",
-      )}`,
-    );
+    await waitFor(() => {
+      expect(importedAssetRow.querySelector("img")).toHaveAttribute(
+        "src",
+        `data:image/png;base64,${Buffer.from("far-file-thumbnail").toString(
+          "base64",
+        )}`,
+      );
+    });
 
     await act(async () => {
       rebuildDeferred.resolve({

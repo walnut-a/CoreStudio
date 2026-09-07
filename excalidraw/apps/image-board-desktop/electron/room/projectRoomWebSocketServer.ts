@@ -39,6 +39,7 @@ export interface AttachProjectRoomWebSocketServerInput {
 }
 
 export interface ProjectRoomWebSocketServerHandle {
+  disconnectActor(roomId: string, actorId: string): void;
   requestAgentBoardCommand(input: {
     roomId: string;
     actorId: string;
@@ -224,6 +225,7 @@ export const attachProjectRoomWebSocketServer = ({
             let requestId: string | undefined;
             messageQueue = messageQueue.then(async () => {
               try {
+                if (webSocket.readyState !== WebSocket.OPEN) return;
                 const message = JSON.parse(String(data)) as unknown;
                 if (
                   !message ||
@@ -379,6 +381,19 @@ export const attachProjectRoomWebSocketServer = ({
   server.on("upgrade", handleUpgrade);
 
   return {
+    disconnectActor: (roomId, actorId) => {
+      const key = participantKey(roomId, actorId);
+      for (const socket of participantSockets.get(key) ?? []) {
+        rejectSocketCommands(
+          socket,
+          Object.assign(new Error("Agent connection ended."), {
+            code: "AUTH_REQUIRED",
+          }),
+        );
+        socket.close(4001, "Agent connection ended");
+      }
+      participantSockets.delete(key);
+    },
     requestAgentBoardCommand: ({
       roomId,
       actorId,

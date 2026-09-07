@@ -354,6 +354,15 @@ export const DesktopShellApp = ({
         }}
         onOpenRecentProject={openVisibleProject}
         onOpenAgentProject={openVisibleProject}
+        onEndAgentConnection={
+          bridge.endAgentConnection
+            ? async (actorId) => {
+                setAgentActiveProjects(
+                  await bridge.endAgentConnection!(actorId),
+                );
+              }
+            : undefined
+        }
         onRemoveRecentProject={async (projectPath) => {
           if (!bridge.removeRecentProject) {
             return;

@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  within,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setActiveDesktopLocale } from "../copy";
@@ -399,4 +405,41 @@ describe("WelcomePane", () => {
       ),
     ).toBeInTheDocument();
   });
+});
+
+it("ends only the selected Agent and reports failure without hiding the connection", async () => {
+  const onEndAgentConnection = vi
+    .fn()
+    .mockRejectedValue(new Error("IPC failed"));
+  render(
+    <WelcomePane
+      loading={false}
+      onCreateProject={vi.fn()}
+      onOpenProject={vi.fn()}
+      onEndAgentConnection={onEndAgentConnection}
+      agentActiveProjects={[
+        {
+          projectId: "p",
+          projectPath: "/p",
+          name: "项目",
+          status: "connected",
+          agentCount: 2,
+          agents: [
+            { actorId: "a", displayLabel: "任务 A", status: "connected" },
+            { actorId: "b", displayLabel: "任务 B", status: "connected" },
+          ],
+        },
+      ]}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "结束连接：任务 A" }));
+  await waitFor(() =>
+    expect(screen.getByRole("alert")).toHaveTextContent("未能结束连接"),
+  );
+  expect(onEndAgentConnection).toHaveBeenCalledWith("a");
+  expect(onEndAgentConnection).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("任务 B")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "结束连接：任务 A" }),
+  ).not.toBeDisabled();
 });

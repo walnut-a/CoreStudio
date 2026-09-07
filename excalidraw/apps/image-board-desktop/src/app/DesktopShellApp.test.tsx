@@ -429,6 +429,20 @@ describe("DesktopShellApp", () => {
 
     expect(settingsDialog).toBeVisible();
     expect(settingsDialog.closest(".image-board-app")).not.toBeNull();
+    expect(
+      within(settingsDialog).getByRole("tab", { name: "通用" }),
+    ).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(within(settingsDialog).getByRole("tab", { name: "关于" }));
+    fireEvent.click(
+      within(settingsDialog).getByRole("button", { name: "关闭" }),
+    );
+    act(() => {
+      menuListenerRef.current?.({ action: "app-settings" });
+    });
+    expect(screen.getByRole("tab", { name: "通用" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("persists composer visibility from Home settings", async () => {

@@ -114,14 +114,12 @@ export const CodexIntegrationSettings = ({
 }: CodexIntegrationSettingsProps) => {
   const [activeHost, setActiveHost] = useState<AgentHost>("codex");
   const hostLabel = AGENT_HOST_LABELS[activeHost];
-  const hostSetup =
+  const firstPrompt =
     activeHost === "workbuddy" ||
     activeHost === "qwenwork" ||
     activeHost === "doubaowork"
-      ? copy.applicationSettings.codexPage.hostSetup[activeHost]
-      : null;
-  const firstPrompt =
-    hostSetup?.prompt ?? copy.applicationSettings.codexPage.openCurrentProject;
+      ? copy.applicationSettings.codexPage.hostStartPrompts[activeHost]
+      : copy.applicationSettings.codexPage.openCurrentProject;
   const hostText = useCallback(
     (value: string) => value.replaceAll("Codex", hostLabel),
     [hostLabel],
@@ -242,24 +240,6 @@ export const CodexIntegrationSettings = ({
           </button>
         ))}
       </div>
-
-      {hostSetup ? (
-        <section
-          className="settings-start-card"
-          aria-label={copy.applicationSettings.codexPage.hostSetupTitle}
-        >
-          <div>
-            <h4>{copy.applicationSettings.codexPage.hostSetupTitle}</h4>
-            <p>{hostSetup.browser}</p>
-            <ol>
-              {hostSetup.steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-            <p className="settings-inline-note">{hostSetup.images}</p>
-          </div>
-        </section>
-      ) : null}
 
       {loading && !status ? (
         <div className="settings-detection-loading">
@@ -570,7 +550,6 @@ export const CodexIntegrationSettings = ({
             {hostText(copy.applicationSettings.codexPage.startInCodex)}
           </span>
           <h4>{copy.applicationSettings.codexPage.openCurrentProject}</h4>
-          {hostSetup ? <p>{firstPrompt}</p> : null}
           <p>{hostText(copy.applicationSettings.codexPage.startDescription)}</p>
         </div>
         <DesktopButton

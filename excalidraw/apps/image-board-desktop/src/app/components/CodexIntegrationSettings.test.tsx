@@ -393,7 +393,7 @@ describe("CodexIntegrationSettings", () => {
     );
   });
 
-  it("切换宿主时展示对应接入条件并复制对应使用指令", async () => {
+  it("切换宿主时使用统一引导并复制宿主文档读取指令", async () => {
     const copyText = vi.fn(async () => true);
     render(
       <CodexIntegrationSettings
@@ -414,23 +414,20 @@ describe("CodexIntegrationSettings", () => {
       />,
     );
     await screen.findByText("CoreStudio CLI");
-    for (const [label, expected] of [
-      ["WorkBuddy", "agent-browser"],
-      ["千问办公", "Chrome"],
-      ["豆包工作", "本地电脑"],
-    ]) {
+    for (const label of ["WorkBuddy", "千问办公", "豆包工作"]) {
       await act(async () => {
-        fireEvent.click(
-          screen.getByRole("button", { name: label }),
-        );
+        fireEvent.click(screen.getByRole("button", { name: label }));
       });
       expect(
-        screen.getByRole("region", { name: "接入前准备" }),
-      ).toHaveTextContent(expected);
+        screen.queryByRole("region", { name: "接入前准备" }),
+      ).not.toBeInTheDocument();
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: "复制使用指令" }));
       });
       expect(copyText).toHaveBeenLastCalledWith(expect.stringContaining(label));
+      expect(copyText).toHaveBeenLastCalledWith(
+        expect.stringContaining("references/host.md"),
+      );
     }
   });
 

@@ -637,7 +637,7 @@ const App = ({
   const [startupError, setStartupError] = useState<string | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [appSettingsCategory, setAppSettingsCategory] =
-    useState<ApplicationSettingsCategory>("image-generation");
+    useState<ApplicationSettingsCategory>("general");
   const [appSettingsDirty, setAppSettingsDirty] = useState(false);
   const [appSettingsDiscardToken, setAppSettingsDiscardToken] = useState(0);
   const appUpdate = useAppUpdate(desktopBridge);
@@ -2302,7 +2302,10 @@ const App = ({
         setAppSettingsCategory("image-generation");
         setAppSettingsOpen(true);
       },
-      openAppSettings: () => setAppSettingsOpen(true),
+      openAppSettings: () => {
+        setAppSettingsCategory("general");
+        setAppSettingsOpen(true);
+      },
       setAgentBridgeEnabled: agentBridgeStatusRendererActions.setEnabled,
       revealProject: currentProjectEntryRendererActions.revealProject,
     },
@@ -2960,6 +2963,7 @@ const App = ({
                   shouldRenderSelectedShapeActions,
                 }) => (
                   <InspectorSidebar
+                    projectPath={currentProject?.projectPath}
                     rootRef={inspectorDockRef}
                     open={inspectorDockOpen}
                     onOpenChange={setInspectorDockOpen}

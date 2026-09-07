@@ -100,8 +100,21 @@ mv -f "$CLI_TEMP" "$CLI_PATH"
   printf '\n## 本机 CLI 入口\n\n'
   printf '本机安装器已确认 CLI 位于：`%s`\n\n' "$CLI_PATH"
   printf '下文所有 `corestudio` 命令都表示这个可执行文件。先尝试直接运行 `corestudio`；如果当前 Agent 的 PATH 无法发现它，必须改用上述绝对路径，不要重复安装或自行改写 CLI。\n\n'
-  cat "$HOST_ADDENDUM"
+  case "$HOST" in
+    workbuddy|qwenwork|doubaowork)
+      printf '\n## 当前宿主：%s\n\n' "$HOST_LABEL"
+      printf '首次接入或遇到宿主工具、浏览器、登录和权限问题时，先读取本 Skill 目录下的 [宿主接入说明](references/host.md)。只读取当前宿主文档，按当前实际工具执行；不要要求用户预先完成整套准备清单。\n'
+      ;;
+    *) cat "$HOST_ADDENDUM" ;;
+  esac
 } > "$SKILL_TEMP"
+case "$HOST" in
+  workbuddy|qwenwork|doubaowork)
+    mkdir -p "$SKILL_DIR/references"
+    cp "$HOST_ADDENDUM" "$SKILL_DIR/references/host.md"
+    chmod 644 "$SKILL_DIR/references/host.md"
+    ;;
+esac
 chmod 644 "$SKILL_TEMP"
 mv -f "$SKILL_TEMP" "$SKILL_PATH"
 

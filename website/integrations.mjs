@@ -6,7 +6,7 @@ import {
   getLocalizedContent,
   getTroubleshootingGuide,
   normalizeHost,
-} from "./integrations-content.mjs?v=20260907-1";
+} from "./integrations-content.mjs?v=20260907-2";
 
 const locale = document.body.dataset.locale ?? "en";
 const content = getLocalizedContent(locale);
@@ -101,6 +101,7 @@ const renderHost = (host, { updateHistory = true, announce = false } = {}) => {
   });
 
   setText("[data-host-name]", selected.name);
+  setText("#install-agent-command", selected.installCommand);
   setText("[data-skill-path]", selected.skillPath);
   setText("[data-first-prompt]", selected.prompt);
   setText("[data-host-note]", selected.note);

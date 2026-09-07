@@ -1621,7 +1621,7 @@ describe("generate composer styles", () => {
 
     expect(source).not.toContain("createAgentStatusDockRendererActions");
     expect(source).not.toContain("<AgentStatusDock");
-    expect(source).toContain("openAppSettings: () => setAppSettingsOpen(true)");
+    expect(source).toMatch(/openAppSettings: \(\) => \{\s*setAppSettingsCategory\("general"\);\s*setAppSettingsOpen\(true\);/);
     expect(source).toContain(
       "agentBridgeStatusRendererActions.refreshBrowserConnection",
     );

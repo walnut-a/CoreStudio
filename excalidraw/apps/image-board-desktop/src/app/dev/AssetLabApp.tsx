@@ -3,6 +3,9 @@ import { useMemo, useState } from "react";
 import type { ImageRecord, ImageRecordMap } from "../../shared/projectTypes";
 import { buildImageAssetItems } from "../imageAssetViewModel";
 import { ImageAssetSidebar } from "../components/ImageAssetSidebar";
+import { ImageBrowseView } from "../components/ImageBrowseView";
+import { createImageAssetThumbnailStore } from "../imageAssetThumbnailStore";
+import { buildImageBrowseItems } from "../imageBrowseModel";
 import { InspectorSidebar } from "../components/InspectorSidebar";
 
 import "./AssetLabApp.css";
@@ -90,6 +93,43 @@ export const AssetLabApp = () => {
     [records],
   );
   const selectedRecord: ImageRecord | null = records[selectedFileId] ?? null;
+  const browseFixture = useMemo(() => {
+    const store = createImageAssetThumbnailStore();
+    const assets = Object.entries(thumbnails).map(([fileId, url]) => ({
+      fileId,
+      mimeType: "image/svg+xml",
+      width: 100,
+      height: 100,
+      dataBase64: btoa(decodeURIComponent(url.split(",")[1])),
+      createdAt: "2026-09-07",
+    }));
+    store.replace("/asset-lab", assets);
+    return {
+      store,
+      readOriginal: async (fileId: string) => {
+        // Slow I/O fixture makes an empty switching frame easy to detect.
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        return assets.find((asset) => asset.fileId === fileId);
+      },
+    };
+  }, []);
+  if (new URLSearchParams(window.location.search).has("browse")) {
+    return (
+      <main className="image-board-app asset-lab" data-theme={theme}>
+        <ImageBrowseView
+          items={buildImageBrowseItems(Object.keys(records), records)}
+          imageRecords={records}
+          projectPath="/asset-lab"
+          thumbnailStore={browseFixture.store}
+          readOriginal={browseFixture.readOriginal}
+          onVisibleFileIdsChange={() => undefined}
+          onBackToCanvas={() => window.location.assign("/asset-lab.html")}
+          onLocateImage={setSelectedFileId}
+          onCopyText={() => undefined}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="image-board-app asset-lab" data-theme={theme}>
@@ -119,6 +159,7 @@ export const AssetLabApp = () => {
         onSelectRecord={setSelectedFileId}
       />
       <InspectorSidebar
+        projectPath="/Users/designer/Documents/工业设计项目"
         open
         onOpenChange={() => undefined}
         selectedShapeActions={null}

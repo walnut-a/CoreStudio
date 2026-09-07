@@ -34,7 +34,8 @@ describe("agent integration docs", () => {
     expect(userGuide).toContain("任务从哪个 Agent 发起");
     expect(userGuide).toContain("Agent 集成");
     expect(userGuide).toContain("Codex、Cursor、Claude Code、WorkBuddy、千问办公和豆包工作");
-    expect(userGuide).toContain("点击安装、更新或修复");
+    expect(userGuide).toContain("setup.sh");
+    expect(userGuide).toContain("不需要 Computer Use");
     expect(userGuide).toContain("CLI / Local Bridge");
     expect(userGuide).toContain("~/.local/bin/corestudio");
     expect(userGuide).toContain("新建一个本地 Agent 对话");

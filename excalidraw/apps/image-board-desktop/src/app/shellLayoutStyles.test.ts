@@ -67,7 +67,10 @@ describe("CoreStudio shell layout styles", () => {
       inspectorCss,
       ".inspector-sidebar .selected-shape-actions",
     );
-    const imageScrollRule = getRule(inspectorCss, ".image-inspector__scroll");
+    const imageGroupRule = getRule(
+      inspectorCss,
+      ".image-inspector__group,\n.image-palette",
+    );
 
     expect(dockRule).toContain(
       "--side-dock-content-padding-inline: var(--ui-space-2xl)",
@@ -92,9 +95,7 @@ describe("CoreStudio shell layout styles", () => {
     expect(shapeActionsRule).toContain(
       "var(--side-dock-content-padding-inline)",
     );
-    expect(imageScrollRule).toContain(
-      "var(--side-dock-content-padding-inline)",
-    );
+    expect(imageGroupRule).toContain("var(--image-inspector-padding-inline)");
   });
 
   it("uses mirrored motion and one timing contract for both side docks", () => {
@@ -981,36 +982,36 @@ describe("CoreStudio shell layout styles", () => {
     const appCss = readAppCss();
     const inspectorRule = getRule(appCss, ".image-inspector");
     const scrollRule = getRule(appCss, ".image-inspector__scroll");
-    const valueRule = getRule(appCss, ".image-inspector__detail-value");
     const preRule = getRule(appCss, ".image-inspector__pre");
 
     expect(inspectorRule).toContain("user-select: text");
     expect(scrollRule).toContain("user-select: text");
-    expect(valueRule).toContain("user-select: text");
-    expect(preRule).toContain("user-select: text");
+    expect(preRule).not.toContain("user-select: none");
   });
 
-  it("uses the approved inspector hierarchy, external prompt gutter, and edit timeline", () => {
+  it("uses the approved inspector groups, prompt card, and edit timeline", () => {
     const appCss = readAppCss();
     const inspectorSource = readImageInspector();
     const inspectorRule = getRule(appCss, ".image-inspector");
-    const heroRule = getRule(appCss, ".image-inspector__hero");
+    const groupRule = getRule(appCss, ".image-inspector__group");
+    const groupTitleRule = getRule(
+      appCss,
+      ".inspector-sidebar__section-header h3,\n.image-inspector__group-title",
+    );
     const promptRule = getRule(appCss, ".image-inspector__prompt-section");
-    const promptBodyRule = getRule(appCss, ".image-inspector__prompt-body");
     const copyButtonRule = getRule(
       appCss,
-      ".image-board-app .image-inspector__copy-button.image-board-button",
+      ".image-inspector__copy-button.image-board-button",
     );
-    const copyIconRule = getRule(
-      appCss,
-      ".image-board-app .image-inspector__copy-button.image-board-button svg",
-    );
+    const copyIconRule = getRule(appCss, ".image-inspector__copy-button svg");
     const chainItemRule = getRule(appCss, ".image-inspector__chain-item");
     const chainMarkerRule = getRule(appCss, ".image-inspector__chain-marker");
     const detailGridRule = getRule(appCss, ".image-inspector__detail-grid");
     const detailItemRule = getRule(appCss, ".image-inspector__detail-item");
 
-    expect(inspectorSource).toContain("image-inspector__hero");
+    expect(inspectorSource).toContain("image-inspector__file-info");
+    expect(inspectorSource).toContain("image-inspector__group-title");
+    expect(inspectorSource).toContain("image-inspector__disclosure");
     expect(inspectorSource).toContain("image-inspector__prompt-section");
     expect(inspectorSource).toContain("image-inspector__prompt-body");
     expect(inspectorSource).toContain("image-inspector__copy-button");
@@ -1018,33 +1019,24 @@ describe("CoreStudio shell layout styles", () => {
     expect(inspectorSource).not.toContain("image-inspector__prompt-card");
     expect(inspectorSource).toContain("image-inspector__detail-grid");
     expect(inspectorRule).toContain("font-size: var(--ui-text-size-md)");
-    expect(heroRule).toContain("display: grid");
-    expect(heroRule).toContain("border: 1px solid");
-    expect(heroRule).toContain("background: var(--island-bg-color)");
+    expect(groupRule).toContain("display: grid");
+    expect(groupTitleRule).toContain(
+      "font-weight: var(--font-weight-semibold)",
+    );
     expect(promptRule).toContain("border: 1px solid");
     expect(promptRule).toContain("padding: var(--ui-space-lg)");
-    expect(promptRule).toContain("--image-inspector-prompt-scroll-gutter");
-    expect(promptBodyRule).toContain("max-height:");
-    expect(promptBodyRule).toContain("overflow-y: auto");
-    expect(promptBodyRule).toContain("scrollbar-gutter: stable");
-    expect(promptBodyRule).toContain(
-      "width: calc(100% + var(--image-inspector-prompt-scroll-gutter))",
-    );
-    expect(promptBodyRule).toContain(
-      "padding-right: var(--image-inspector-prompt-scroll-gutter)",
-    );
-    expect(copyButtonRule).toContain("border: 0");
+    expect(promptRule).toContain("border-radius: var(--border-radius-lg)");
+    expect(copyButtonRule).toContain("border-color: transparent");
     expect(copyButtonRule).toContain("background: transparent");
-    expect(copyButtonRule).toContain("box-shadow: none");
-    expect(copyIconRule).toContain("width: var(--ui-space-2xl)");
-    expect(copyIconRule).toContain("height: var(--ui-space-2xl)");
+    expect(copyIconRule).toContain("width: var(--ui-icon-size-md)");
+    expect(copyIconRule).toContain("height: var(--ui-icon-size-md)");
     expect(chainItemRule).toContain(
       "grid-template-columns: var(--ui-space-xl) minmax(0, 1fr)",
     );
     expect(chainMarkerRule).toContain("border-radius: 50%");
     expect(detailGridRule).not.toContain("grid-template-columns");
     expect(detailItemRule).toContain(
-      "grid-template-columns: minmax(72px, 0.38fr) minmax(0, 1fr)",
+      "grid-template-columns: 64px minmax(0, 1fr)",
     );
     expect(detailItemRule).not.toContain("border-radius:");
     expect(detailItemRule).not.toContain("background:");

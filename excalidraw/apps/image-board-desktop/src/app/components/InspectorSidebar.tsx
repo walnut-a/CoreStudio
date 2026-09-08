@@ -15,11 +15,14 @@ import type { ImageLineageEntry } from "../imageRelationships";
 import type { GenerationTaskRecord } from "../generationTaskState";
 import { copy } from "../copy";
 import { cropImageIcon } from "./CoreStudioIcons";
+import { ImagePalette, type ReadPaletteOriginal } from "./ImagePalette";
 import { ImageInspector } from "./ImageInspector";
 import { SideDock } from "./SideDock";
 import "./ImageInspector.css";
 
 interface InspectorSidebarProps {
+  readOriginal?: ReadPaletteOriginal;
+  onCopyText?: (text: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedShapeActions: ReactNode;
@@ -41,6 +44,8 @@ interface InspectorSidebarProps {
 }
 
 export const InspectorSidebar = ({
+  readOriginal,
+  onCopyText,
   open,
   onOpenChange,
   selectedShapeActions,
@@ -124,6 +129,16 @@ export const InspectorSidebar = ({
             <h3>{copy.inspector.title}</h3>
           </header>
           <ImageInspector
+            colorProperties={
+              record && readOriginal && onCopyText ? (
+                <ImagePalette
+                  projectPath={projectPath}
+                  fileId={record.fileId}
+                  readOriginal={readOriginal}
+                  onCopyText={onCopyText}
+                />
+              ) : undefined
+            }
             projectPath={projectPath}
             record={record}
             ancestorRecords={ancestorRecords}

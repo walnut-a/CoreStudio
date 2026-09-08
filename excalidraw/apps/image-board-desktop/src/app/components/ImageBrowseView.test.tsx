@@ -7,10 +7,16 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as imageColors from "../imageColors";
 import { ImageBrowseView } from "./ImageBrowseView";
 import { createImageAssetThumbnailStore } from "../imageAssetThumbnailStore";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
+
+vi.mock("../imageColors", async (original) => ({
+  ...(await original<typeof import("../imageColors")>()),
+  readImagePalette: vi.fn(() => ["#FF0000", "#0000FF"]),
+}));
 
 const asset = (fileId: string): ProjectAssetPayload => ({
   fileId,
@@ -82,6 +88,52 @@ beforeEach(() => {
 });
 
 describe("ImageBrowseView", () => {
+  it("仅展开属性后提取主色，支持单色和整组复制；切图不沿用旧颜色", async () => {
+    vi.mocked(imageColors.readImagePalette).mockClear();
+    const input = props();
+    render(<ImageBrowseView {...input} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    const first = await screen.findByRole("img", { name: "图片 0" });
+    fireEvent.load(first);
+    await waitFor(() =>
+      expect(first).toHaveClass("image-browse-original__full--ready"),
+    );
+    expect(imageColors.readImagePalette).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "属性" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "复制色值 #FF0000" }),
+    );
+    expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000");
+    fireEvent.click(screen.getByRole("button", { name: "复制配色" }));
+    expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000, #0000FF");
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    expect(
+      screen.queryByRole("button", { name: "复制色值 #FF0000" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "图片取色" })).toBeNull();
+    await screen.findByRole("img", { name: "图片 1" });
+  });
+
+  it("配色读取失败不影响原图和导航", async () => {
+    vi.mocked(imageColors.readImagePalette).mockImplementationOnce(() => {
+      throw new Error("tainted");
+    });
+    const input = props();
+    render(<ImageBrowseView {...input} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    const first = await screen.findByRole("img", { name: "图片 0" });
+    fireEvent.load(first);
+    await waitFor(() =>
+      expect(first).toHaveClass("image-browse-original__full--ready"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "属性" }));
+    expect(await screen.findByText("无法读取图片颜色")).toBeVisible();
+    expect(first).toBeVisible();
+    expect(screen.getByRole("button", { name: "复制配色" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    await screen.findByRole("img", { name: "图片 1" });
+  });
+
   it("shows a collapsible read-only inspector for the displayed image and follows navigation", async () => {
     const input = props();
     render(<ImageBrowseView {...input} />);

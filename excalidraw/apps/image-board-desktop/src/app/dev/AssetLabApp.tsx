@@ -78,7 +78,11 @@ const thumbnails = {
 };
 
 export const AssetLabApp = () => {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    new URLSearchParams(window.location.search).get("theme") === "dark"
+      ? "dark"
+      : "light",
+  );
   const [records, setRecords] = useState(initialRecords);
   const [selectedFileId, setSelectedFileId] = useState("agent-result");
   const items = useMemo(
@@ -95,14 +99,43 @@ export const AssetLabApp = () => {
   const selectedRecord: ImageRecord | null = records[selectedFileId] ?? null;
   const browseFixture = useMemo(() => {
     const store = createImageAssetThumbnailStore();
-    const assets = Object.entries(thumbnails).map(([fileId, url]) => ({
-      fileId,
-      mimeType: "image/svg+xml",
-      width: 100,
-      height: 100,
-      dataBase64: btoa(decodeURIComponent(url.split(",")[1])),
-      createdAt: "2026-09-07",
-    }));
+    const useColorFixture = new URLSearchParams(window.location.search).has(
+      "colors",
+    );
+    const assets = Object.entries(thumbnails).map(([fileId, url], index) => {
+      if (useColorFixture) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 800;
+        canvas.height = 400;
+        const ctx = canvas.getContext("2d")!;
+        const colors =
+          index === 0
+            ? ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FFFFFF", "#222222"]
+            : index === 1
+            ? []
+            : ["#888888"];
+        colors.forEach((color, i) => {
+          ctx.fillStyle = color;
+          ctx.fillRect((i * 800) / colors.length, 0, 800 / colors.length, 400);
+        });
+        return {
+          fileId,
+          mimeType: "image/png",
+          width: 800,
+          height: 400,
+          dataBase64: canvas.toDataURL("image/png").split(",")[1],
+          createdAt: "2026-09-07",
+        };
+      }
+      return {
+        fileId,
+        mimeType: "image/svg+xml",
+        width: 100,
+        height: 100,
+        dataBase64: btoa(decodeURIComponent(url.split(",")[1])),
+        createdAt: "2026-09-07",
+      };
+    });
     store.replace("/asset-lab", assets);
     return {
       store,
@@ -125,7 +158,9 @@ export const AssetLabApp = () => {
           onVisibleFileIdsChange={() => undefined}
           onBackToCanvas={() => window.location.assign("/asset-lab.html")}
           onLocateImage={setSelectedFileId}
-          onCopyText={() => undefined}
+          onCopyText={(text) => {
+            void navigator.clipboard.writeText(text);
+          }}
         />
       </main>
     );
@@ -159,6 +194,10 @@ export const AssetLabApp = () => {
         onSelectRecord={setSelectedFileId}
       />
       <InspectorSidebar
+        readOriginal={browseFixture.readOriginal}
+        onCopyText={(text) => {
+          void navigator.clipboard.writeText(text);
+        }}
         projectPath="/Users/designer/Documents/工业设计项目"
         open
         onOpenChange={() => undefined}

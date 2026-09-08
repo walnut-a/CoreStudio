@@ -513,7 +513,7 @@ const App = ({
       ),
     [sceneImageFileIds, currentProject?.imageRecords],
   );
-  const readBrowseOriginal = useCallback(
+  const readImageOriginal = useCallback(
     async (fileId: string) => {
       const project = currentProjectRef.current;
       if (!project) {
@@ -2963,6 +2963,10 @@ const App = ({
                   shouldRenderSelectedShapeActions,
                 }) => (
                   <InspectorSidebar
+                    readOriginal={readImageOriginal}
+                    onCopyText={(text) => {
+                      void clipboardTextRendererActions.copy(text);
+                    }}
                     projectPath={currentProject?.projectPath}
                     rootRef={inspectorDockRef}
                     open={inspectorDockOpen}
@@ -3133,7 +3137,7 @@ const App = ({
               projectPath={currentProject.projectPath}
               thumbnailStore={imageAssetThumbnailStore}
               onVisibleFileIdsChange={loadVisibleImageAssetThumbnails}
-              readOriginal={readBrowseOriginal}
+              readOriginal={readImageOriginal}
               onBackToCanvas={() => changeMode(false)}
               onLocateImage={locateImage}
             />

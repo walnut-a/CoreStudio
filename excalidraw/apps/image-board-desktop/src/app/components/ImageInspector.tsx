@@ -16,6 +16,7 @@ import { copyIcon } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 
 interface ImageInspectorProps {
+  colorProperties?: ReactNode;
   projectPath?: string | null;
   record: ImageRecord | null;
   ancestorRecords: ImageRecord[];
@@ -172,6 +173,7 @@ const getPromptReferenceList = (
     .sort((left, right) => left.index - right.index);
 
 export const ImageInspector = ({
+  colorProperties,
   projectPath,
   record,
   ancestorRecords,
@@ -403,6 +405,7 @@ export const ImageInspector = ({
       ref={inspectorRef}
     >
       <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
+        {colorProperties}
         <header className="image-inspector__hero">
           <div className="image-inspector__hero-main">
             {renaming ? (

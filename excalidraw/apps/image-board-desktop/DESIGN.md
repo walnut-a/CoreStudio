@@ -208,6 +208,11 @@ CoreStudio 使用 Excalidraw 的 island shadow 作为唯一常规浮层深度。
 - **Density:** 分组内使用轻量标签和值，按空间 token 排列；仅组间使用细分隔线，不将只读属性做成逐行带边框的表格。
 - **Copy actions:** 提示词和图片 ID 共用 32px 方形点击区域及 16px 图标，常态透明无边框，hover／focus 使用现有控件反馈。显式限制按钮和 SVG 尺寸，不能只调整外层按钮。
 
+### Image Palette
+
+- 画布和画廊共用图片属性中的主色板，最多显示六个代表色，支持单色及整组 HEX 复制。不提供取色、颜色占比、分布或直方图。
+- 功能限定在 CoreStudio 适配层，零新增依赖。属性展开且原图解码完成后，使用最长边 128px 的 sRGB 采样提取配色；透明像素不作为黑色参与统计，切换选图或项目时清除旧结果。
+
 ### Agent Board
 
 Agent Board 是同一产品的浏览器入口，不是另一个 app。默认可以启用 Agent 操作模式、项目切换和 bridge 状态，但视觉上仍沿用桌面画板的按钮、菜单、floating composer 和 canvas 控件。

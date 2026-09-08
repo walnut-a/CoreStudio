@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -9,6 +10,7 @@ import {
 } from "react";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import { getImageAncestors, getImageDescendants } from "../imageRelationships";
+import { ImagePalette } from "./ImagePalette";
 import { ImageInspector } from "./ImageInspector";
 import "./ImageInspector.css";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
@@ -44,7 +46,9 @@ const OriginalImage = ({
   readOriginal,
   actualSize,
   thumbnail,
+  onReady,
 }: {
+  onReady: (fileId: string, image: HTMLImageElement) => void;
   item: ImageBrowseItem;
   readOriginal: ImageBrowseViewProps["readOriginal"];
   actualSize: boolean;
@@ -89,6 +93,7 @@ const OriginalImage = ({
               await image.decode?.();
               if (current) {
                 // Keep the decoded DOM image mounted while replacing the old frame.
+                onReady(item.fileId, image);
                 setDisplayed(next);
                 setPending(undefined);
               }
@@ -193,6 +198,24 @@ const ImageDetail = ({
   const [actualSize, setActualSize] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const propertiesId = useId();
+  const [loadedImage, setLoadedImage] = useState<{
+    fileId: string;
+    image: HTMLImageElement;
+  } | null>(null);
+  const onImageReady = useCallback(
+    (fileId: string, image: HTMLImageElement) =>
+      setLoadedImage({ fileId, image }),
+    [],
+  );
+
+  const colorProperties = (
+    <ImagePalette
+      fileId={item.fileId}
+      projectPath={projectPath}
+      image={loadedImage?.fileId === item.fileId ? loadedImage.image : null}
+      onCopyText={onCopyText}
+    />
+  );
   const record = imageRecords[item.fileId] ?? null;
   const relationships = useMemo(
     () =>
@@ -274,6 +297,7 @@ const ImageDetail = ({
             readOriginal={readOriginal}
             actualSize={actualSize}
             thumbnail={thumbnail}
+            onReady={onImageReady}
           />
         </div>
         {propertiesOpen && relationships && (
@@ -284,6 +308,7 @@ const ImageDetail = ({
           >
             {record ? (
               <ImageInspector
+                colorProperties={colorProperties}
                 projectPath={projectPath}
                 key={record.fileId}
                 record={record}
@@ -294,9 +319,12 @@ const ImageDetail = ({
                 onCopyImageId={() => onCopyText(record.fileId)}
               />
             ) : (
-              <p className="image-browse-detail__properties-empty">
-                {copy.browse.noProperties}
-              </p>
+              <>
+                {colorProperties}
+                <p className="image-browse-detail__properties-empty">
+                  {copy.browse.noProperties}
+                </p>
+              </>
             )}
           </aside>
         )}

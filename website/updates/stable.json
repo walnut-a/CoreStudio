@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.50",
-  "publishedAt": "2026-09-07T05:15:16Z",
+  "version": "1.1.51",
+  "publishedAt": "2026-09-08T19:47:07Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.50",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.51",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.50/CoreStudio-1.1.50-arm64.dmg",
-    "size": 137451855,
-    "sha256": "e9175957362abc6666ac178ba745c6013673c22ae823e642c11b07a0eaa6d158"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.51/CoreStudio-1.1.51-arm64.dmg",
+    "size": 137453282,
+    "sha256": "aa5d777e1a640771bcd3d759e80f7a8a5ff841f518dfbe98891afd30ca1377a6"
   },
   "summary": {
     "zh-CN": [
-      "统一官网、仓库与随包接入文档，支持无界面安装多个 Agent 宿主",
-      "增加主动结束 Agent 连接，修复缩略图、资产选中样式与文件位置展示",
-      "修复画廊切换闪烁，打开设置时默认进入通用；本次为 1.1.50 同版本修订"
+      "在画布和画廊的图片属性面板中增加本地主色板，悬停查看色值并点击复制",
+      "重构图片信息、配色、生成信息与编辑链的层级和排版",
+      "统一生成中、失败和裁切状态，画布与画廊共用侧栏设计规范"
     ],
     "en": [
-      "Unify integration guidance across the website, repository, and app; install multiple Agent hosts without opening a window",
-      "End Agent connections from CoreStudio and fix thumbnails, asset selection styles, and file locations",
-      "Fix gallery navigation flicker and open General settings by default; this is a same-version 1.1.50 revision"
+      "Extract a local image palette in canvas and gallery details; hover for HEX and click to copy",
+      "Reorganize image facts, palette, generation details, and edit history",
+      "Unify pending, failed, and crop states across canvas and gallery sidebars"
     ]
   }
 }

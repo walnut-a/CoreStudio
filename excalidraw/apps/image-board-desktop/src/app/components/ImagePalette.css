@@ -1,28 +1,27 @@
-.image-palette {
-  padding: 4px 20px 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--default-border-color);
-}
 .image-palette h3 {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--ui-text-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--ui-line-height-relaxed);
 }
+
 .image-palette p {
-  margin: 12px 0 0;
+  margin: var(--ui-space-lg) 0 0;
   color: var(--corestudio-secondary-text-color, var(--color-gray-70));
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--ui-text-size-sm);
+  line-height: var(--ui-line-height-relaxed);
 }
+
 .image-palette__swatches {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--ui-space-sm);
+  margin-top: var(--ui-space-lg);
 }
+
 .image-palette__swatch {
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
+  flex: 0 0 var(--ui-control-size-md);
+  width: var(--ui-control-size-md);
+  height: var(--ui-control-size-md);
   padding: 0;
   border: 0;
   border-radius: var(--border-radius-md);
@@ -30,20 +29,13 @@
     color-mix(in srgb, var(--text-primary-color) 18%, transparent);
   cursor: pointer;
 }
+
 .image-palette__swatch:hover {
   outline: 1px solid var(--text-primary-color);
   outline-offset: 2px;
 }
+
 .image-palette :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 3px;
-}
-.image-inspector__scroll > .image-palette {
-  padding-inline: 0;
-  margin-bottom: 0;
-}
-@media (max-width: 700px) {
-  .image-palette {
-    padding-inline: 12px;
-  }
 }

@@ -140,7 +140,7 @@ describe("InspectorSidebar", () => {
     expect(screen.queryByText("╭")).not.toBeInTheDocument();
   });
 
-  it("keeps an active crop control in the Excalidraw action group while cropping", () => {
+  it("uses the shared small primary button for finishing a crop", () => {
     const onFinishImageCropping = vi.fn();
 
     render(
@@ -172,8 +172,13 @@ describe("InspectorSidebar", () => {
     );
 
     const cropButton = screen.getByRole("button", { name: "完成裁切" });
-    expect(cropButton).toHaveAttribute("aria-pressed", "true");
-    expect(cropButton.closest(".buttonList")).not.toBeNull();
+    expect(cropButton).toHaveClass(
+      "image-board-button--small",
+      "image-board-button--primary",
+    );
+    expect(
+      cropButton.closest(".inspector-sidebar__crop-footer"),
+    ).not.toBeNull();
 
     fireEvent.click(cropButton);
     expect(onFinishImageCropping).toHaveBeenCalledOnce();

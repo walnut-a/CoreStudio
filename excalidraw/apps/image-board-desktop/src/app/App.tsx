@@ -1214,29 +1214,6 @@ const App = ({
     copyText: clipboardTextRendererActions.copy,
   });
 
-  const renameSelectedImage = useCallback(
-    async (displayName: string | null) => {
-      const project = currentProjectRef.current;
-      const fileId = selectedRecord?.fileId;
-      if (!project || !fileId || !desktopBridge.updateImageRecordMetadata) {
-        return;
-      }
-      try {
-        const imageRecords = await desktopBridge.updateImageRecordMetadata({
-          projectPath: project.projectPath,
-          fileId,
-          displayName,
-        });
-        updateCurrentProject({ ...project, imageRecords });
-        setSelectedRecord(imageRecords[fileId] ?? null);
-      } catch (error) {
-        setProjectError(formatProjectSaveError(error));
-        throw error;
-      }
-    },
-    [desktopBridge, selectedRecord?.fileId, updateCurrentProject],
-  );
-
   const imageRecordLocatorRendererActions =
     createImageRecordLocatorRendererActions({
       getApi: () => excalidrawAPIRef.current,
@@ -3001,11 +2978,6 @@ const App = ({
                         );
                       }
                     }}
-                    onRenameImage={
-                      desktopBridge.updateImageRecordMetadata
-                        ? renameSelectedImage
-                        : undefined
-                    }
                     onCopyTaskError={() => {
                       void generationErrorRendererActions.copyTaskError();
                     }}

@@ -161,6 +161,9 @@ export const AssetLabApp = () => {
           onCopyText={(text) => {
             void navigator.clipboard.writeText(text);
           }}
+          onCopyColor={(hex) => {
+            void navigator.clipboard.writeText(hex);
+          }}
         />
       </main>
     );
@@ -195,8 +198,8 @@ export const AssetLabApp = () => {
       />
       <InspectorSidebar
         readOriginal={browseFixture.readOriginal}
-        onCopyText={(text) => {
-          void navigator.clipboard.writeText(text);
+        onCopyColor={(hex) => {
+          void navigator.clipboard.writeText(hex);
         }}
         projectPath="/Users/designer/Documents/工业设计项目"
         open

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Tooltip } from "@excalidraw/excalidraw/components/Tooltip";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
 import { copy } from "../copy";
 import { readImagePalette } from "../imageColors";
@@ -12,17 +13,17 @@ interface ImagePaletteProps {
   fileId: string;
   image?: HTMLImageElement | null;
   readOriginal?: ReadPaletteOriginal;
-  onCopyText: (text: string) => void;
+  onCopyColor: (hex: string) => void;
 }
 
 const PaletteColors = ({
   image,
   loadFailed,
-  onCopyText,
+  onCopyColor,
 }: {
   image: HTMLImageElement | null;
   loadFailed: boolean;
-  onCopyText: (text: string) => void;
+  onCopyColor: (hex: string) => void;
 }) => {
   const [palette, setPalette] = useState<string[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -45,15 +46,15 @@ const PaletteColors = ({
       {palette?.length ? (
         <div className="image-palette__swatches">
           {palette.map((hex) => (
-            <button
-              key={hex}
-              type="button"
-              className="image-palette__swatch"
-              aria-label={copy.imageColors.copyColor(hex)}
-              title={copy.imageColors.copyColor(hex)}
-              style={{ backgroundColor: hex }}
-              onClick={() => onCopyText(hex)}
-            />
+            <Tooltip key={hex} label={hex}>
+              <button
+                type="button"
+                className="image-palette__swatch"
+                aria-label={copy.imageColors.copyColor(hex)}
+                style={{ backgroundColor: hex }}
+                onClick={() => onCopyColor(hex)}
+              />
+            </Tooltip>
           ))}
         </div>
       ) : (
@@ -73,7 +74,7 @@ const ImagePaletteContent = ({
   fileId,
   image,
   readOriginal,
-  onCopyText,
+  onCopyColor,
 }: ImagePaletteProps) => {
   const [asset, setAsset] = useState<ProjectAssetPayload>();
   const [source, setSource] = useState<HTMLImageElement | null>(null);
@@ -99,7 +100,7 @@ const ImagePaletteContent = ({
       <PaletteColors
         image={image === undefined ? source : image}
         loadFailed={failed}
-        onCopyText={onCopyText}
+        onCopyColor={onCopyColor}
       />
       {image === undefined && asset && (
         <img

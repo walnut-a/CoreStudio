@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { getTooltipDiv } from "@excalidraw/excalidraw/components/Tooltip";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import { getImageAncestors, getImageDescendants } from "../imageRelationships";
 import { ImagePalette } from "./ImagePalette";
@@ -33,6 +34,7 @@ interface ImageBrowseViewProps {
   items: readonly ImageBrowseItem[];
   imageRecords: ImageRecordMap;
   onCopyText: (text: string) => void;
+  onCopyColor: (hex: string) => void;
   projectPath: string;
   thumbnailStore: ImageAssetThumbnailStore;
   onVisibleFileIdsChange: (fileIds: string[]) => unknown;
@@ -181,10 +183,12 @@ const ImageDetail = ({
   thumbnail,
   imageRecords,
   onCopyText,
+  onCopyColor,
 }: {
   projectPath: string;
   imageRecords: ImageRecordMap;
   onCopyText: ImageBrowseViewProps["onCopyText"];
+  onCopyColor: ImageBrowseViewProps["onCopyColor"];
   item: ImageBrowseItem;
   index: number;
   count: number;
@@ -213,7 +217,7 @@ const ImageDetail = ({
       fileId={item.fileId}
       projectPath={projectPath}
       image={loadedImage?.fileId === item.fileId ? loadedImage.image : null}
-      onCopyText={onCopyText}
+      onCopyColor={onCopyColor}
     />
   );
   const record = imageRecords[item.fileId] ?? null;
@@ -230,7 +234,13 @@ const ImageDetail = ({
   useLayoutEffect(() => {
     const dialog = dialogRef.current!;
     dialog.showModal();
-    return () => dialog.close();
+    const tooltip = getTooltipDiv();
+    dialog.appendChild(tooltip);
+    return () => {
+      tooltip.classList.remove("excalidraw-tooltip--visible");
+      document.body.appendChild(tooltip);
+      dialog.close();
+    };
   }, []);
   useEffect(() => setActualSize(false), [item.fileId]);
   return (
@@ -362,6 +372,7 @@ export const ImageBrowseView = ({
   items,
   imageRecords,
   onCopyText,
+  onCopyColor,
   projectPath,
   thumbnailStore,
   onVisibleFileIdsChange,
@@ -495,6 +506,7 @@ export const ImageBrowseView = ({
           projectPath={projectPath}
           imageRecords={imageRecords}
           onCopyText={onCopyText}
+          onCopyColor={onCopyColor}
           item={items[selectedIndex]}
           index={selectedIndex}
           count={items.length}

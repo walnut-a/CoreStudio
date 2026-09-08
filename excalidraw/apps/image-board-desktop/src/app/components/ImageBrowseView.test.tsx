@@ -70,6 +70,7 @@ const props = () => ({
     },
   } as ImageRecordMap,
   onCopyText: vi.fn(),
+  onCopyColor: vi.fn(),
   projectPath: "/project-a",
   thumbnailStore: createImageAssetThumbnailStore(),
   onVisibleFileIdsChange: vi.fn(),
@@ -100,12 +101,18 @@ describe("ImageBrowseView", () => {
     );
     expect(imageColors.readImagePalette).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "属性" }));
-    fireEvent.click(
-      await screen.findByRole("button", { name: "复制色值 #FF0000" }),
-    );
-    expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000");
-    expect(screen.queryByRole("button", { name: "复制配色" })).toBeNull();
+    const swatch = await screen.findByRole("button", {
+      name: "复制色值 #FF0000",
+    });
     expect(screen.queryByText("#FF0000")).toBeNull();
+    fireEvent.pointerEnter(swatch);
+    expect(screen.getByText("#FF0000")).toHaveClass(
+      "excalidraw-tooltip--visible",
+    );
+    expect(screen.getByText("#FF0000").closest("dialog")).not.toBeNull();
+    fireEvent.click(swatch);
+    expect(input.onCopyColor).toHaveBeenLastCalledWith("#FF0000");
+    expect(screen.queryByRole("button", { name: "复制配色" })).toBeNull();
     expect(screen.queryByText("#0000FF")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "下一张" }));
     expect(

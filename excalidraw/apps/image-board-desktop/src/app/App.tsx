@@ -851,6 +851,14 @@ const App = ({
     [setProjectNotice],
   );
 
+  const copyImagePaletteColor = async (hex: string) => {
+    await clipboardTextRendererActions.copyWithSuccessNotice(
+      hex,
+      copy.imageColors.colorCopied(hex),
+      projectNoticeRendererActions.show,
+    );
+  };
+
   const agentBrowserRuntimePublishRendererActions = useMemo(
     () =>
       createAgentBrowserRuntimePublishRendererActions({
@@ -2964,8 +2972,8 @@ const App = ({
                 }) => (
                   <InspectorSidebar
                     readOriginal={readImageOriginal}
-                    onCopyText={(text) => {
-                      void clipboardTextRendererActions.copy(text);
+                    onCopyColor={(hex) => {
+                      void copyImagePaletteColor(hex);
                     }}
                     projectPath={currentProject?.projectPath}
                     rootRef={inspectorDockRef}
@@ -3133,6 +3141,9 @@ const App = ({
               imageRecords={currentProject.imageRecords}
               onCopyText={(text) => {
                 void clipboardTextRendererActions.copy(text);
+              }}
+              onCopyColor={(hex) => {
+                void copyImagePaletteColor(hex);
               }}
               projectPath={currentProject.projectPath}
               thumbnailStore={imageAssetThumbnailStore}

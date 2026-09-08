@@ -29,6 +29,7 @@ const zhCnCopy = {
   imageColors: {
     palette: "配色",
     copyColor: (hex: string) => `复制色值 ${hex}`,
+    colorCopied: (hex: string) => `色值 ${hex} 已复制`,
     paletteLoading: "正在提取配色…",
     paletteEmpty: "暂无可提取的颜色",
     paletteFailed: "无法读取图片颜色",

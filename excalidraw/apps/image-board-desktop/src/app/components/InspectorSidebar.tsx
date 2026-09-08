@@ -22,7 +22,7 @@ import "./ImageInspector.css";
 
 interface InspectorSidebarProps {
   readOriginal?: ReadPaletteOriginal;
-  onCopyText?: (text: string) => void;
+  onCopyColor?: (hex: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedShapeActions: ReactNode;
@@ -45,7 +45,7 @@ interface InspectorSidebarProps {
 
 export const InspectorSidebar = ({
   readOriginal,
-  onCopyText,
+  onCopyColor,
   open,
   onOpenChange,
   selectedShapeActions,
@@ -130,12 +130,12 @@ export const InspectorSidebar = ({
           </header>
           <ImageInspector
             colorProperties={
-              record && readOriginal && onCopyText ? (
+              record && readOriginal && onCopyColor ? (
                 <ImagePalette
                   projectPath={projectPath}
                   fileId={record.fileId}
                   readOriginal={readOriginal}
-                  onCopyText={onCopyText}
+                  onCopyColor={onCopyColor}
                 />
               ) : undefined
             }

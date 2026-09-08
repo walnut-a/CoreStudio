@@ -111,4 +111,27 @@ describe("createPlainTextClipboardRendererActions", () => {
     expect(copyText).toHaveBeenCalledWith("Agent Board 链接");
     expect(onError).toHaveBeenCalledWith("复制失败");
   });
+
+  it("通过共用通知回调反馈复制成功，复制失败时不误报", async () => {
+    const showNotice = vi.fn();
+    const copyText = vi
+      .fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const actions = createPlainTextClipboardRendererActions({
+      failureMessage: "复制失败",
+      copyText,
+      onError: vi.fn(),
+    });
+
+    await expect(
+      actions.copyWithSuccessNotice("#FF0000", "色值 #FF0000 已复制", showNotice),
+    ).resolves.toBe(true);
+    await expect(
+      actions.copyWithSuccessNotice("#0000FF", "色值 #0000FF 已复制", showNotice),
+    ).resolves.toBe(false);
+
+    expect(showNotice).toHaveBeenCalledTimes(1);
+    expect(showNotice).toHaveBeenCalledWith("色值 #FF0000 已复制");
+  });
 });

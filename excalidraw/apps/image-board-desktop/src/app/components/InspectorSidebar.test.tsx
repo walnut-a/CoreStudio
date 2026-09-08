@@ -39,7 +39,7 @@ const colorProps = () => ({
   onCopyTaskError: vi.fn(),
   onLocateImageRecord: vi.fn(),
   onLocatePromptReference: vi.fn(),
-  onCopyText: vi.fn(),
+  onCopyColor: vi.fn(),
   readOriginal: vi.fn(
     async (fileId: string): Promise<ProjectAssetPayload | undefined> => ({
       fileId,
@@ -60,14 +60,19 @@ describe("InspectorSidebar", () => {
     render(<InspectorSidebar {...input} />);
     const preview = await screen.findByAltText("");
     fireEvent.load(preview);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "复制色值 #FF0000" }),
+    const swatch = await screen.findByRole("button", {
+      name: "复制色值 #FF0000",
+    });
+    expect(screen.queryByText("#FF0000")).toBeNull();
+    fireEvent.pointerEnter(swatch);
+    expect(screen.getByText("#FF0000")).toHaveClass(
+      "excalidraw-tooltip--visible",
     );
-    expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000");
+    fireEvent.click(swatch);
+    expect(input.onCopyColor).toHaveBeenLastCalledWith("#FF0000");
     expect(preview).not.toBeVisible();
     expect(screen.queryByRole("button", { name: "图片取色" })).toBeNull();
     expect(screen.queryByRole("button", { name: "复制配色" })).toBeNull();
-    expect(screen.queryByText("#FF0000")).toBeNull();
     expect(input.readOriginal).toHaveBeenCalledTimes(1);
   });
 

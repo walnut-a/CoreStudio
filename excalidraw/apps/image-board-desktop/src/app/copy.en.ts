@@ -18,6 +18,7 @@ export const enCopy: DesktopCopy = {
   imageColors: {
     palette: "Palette",
     copyColor: (hex: string) => `Copy color ${hex}`,
+    colorCopied: (hex: string) => `Color ${hex} copied`,
     paletteLoading: "Extracting colors…",
     paletteEmpty: "No colors to extract",
     paletteFailed: "Could not read image colors",

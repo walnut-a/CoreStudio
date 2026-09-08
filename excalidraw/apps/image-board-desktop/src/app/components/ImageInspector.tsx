@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useRef } from "react";
 
 import type {
   ImagePromptReferenceRecord,
@@ -11,11 +11,15 @@ import { getImageAssetTitle } from "../imageAssetViewModel";
 import { buildImageProvenanceViewModel } from "../imageProvenance";
 import { copy, DESKTOP_LANG_CODE, getOptionalText } from "../copy";
 import { usePlainTextCopyWithin } from "../usePlainTextCopyWithin";
-import { getProviderDefinition } from "../../shared/providerCatalog";
+import {
+  getModelDefinition,
+  getOptionalProviderDefinition,
+} from "../../shared/providerCatalog";
 import { copyIcon } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 
 interface ImageInspectorProps {
+  colorProperties?: ReactNode;
   projectPath?: string | null;
   record: ImageRecord | null;
   ancestorRecords: ImageRecord[];
@@ -26,7 +30,6 @@ interface ImageInspectorProps {
   onLocateImageRecord?: (fileId: string) => void;
   onLocatePromptReference?: (reference: ImagePromptReferenceRecord) => void;
   onCopyImageId?: () => void;
-  onRenameImage?: (displayName: string | null) => Promise<void> | void;
 }
 
 // Without a navigation capability, references and lineage remain selectable text.
@@ -70,6 +73,18 @@ const formatChainDateTime = (value: string) => {
       });
 };
 
+const formatCompactDateTime = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? copy.inspector.unknownTime
+    : date.toLocaleString(DESKTOP_LANG_CODE, {
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+};
+
 const getImageRecordPromptSummary = (record: ImageRecord) => {
   const prompt = record.prompt?.trim();
   return prompt
@@ -85,10 +100,43 @@ const getImageRecordSummary = (record: ImageRecord) =>
   )}`;
 
 const formatSize = (width: number, height: number) => `${width} × ${height}`;
-const formatTaskSize = (task: GenerationTaskRecord) =>
-  task.aspectRatio === null
-    ? copy.inspector.autoAspectRatio
-    : formatSize(task.width, task.height);
+
+const getModelLabel = (
+  provider: string | undefined,
+  model: string | undefined,
+) => {
+  const normalizedModel = model?.trim();
+  if (!normalizedModel) {
+    return copy.inspector.emptyValue;
+  }
+  const providerDefinition = getOptionalProviderDefinition(provider);
+  if (!providerDefinition) {
+    return normalizedModel;
+  }
+  const providerPrefix = `${providerDefinition.id}/`;
+  const catalogModel = normalizedModel.startsWith(providerPrefix)
+    ? normalizedModel.slice(providerPrefix.length)
+    : normalizedModel;
+  return getModelDefinition(providerDefinition.id, catalogModel).label;
+};
+
+const formatImageFormat = (mimeType: string) => {
+  const subtype = mimeType.split("/")[1]?.split("+")[0]?.trim();
+  return subtype ? subtype.toUpperCase().replace("JPG", "JPEG") : mimeType;
+};
+
+const InspectorDisclosure = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) => (
+  <details className="image-inspector__disclosure">
+    <summary>{label}</summary>
+    <div className="image-inspector__disclosure-content">{children}</div>
+  </details>
+);
 
 const getImageRecordTitle = (record: ImageRecord) =>
   record.sourceType === "generated"
@@ -172,6 +220,7 @@ const getPromptReferenceList = (
     .sort((left, right) => left.index - right.index);
 
 export const ImageInspector = ({
+  colorProperties,
   projectPath,
   record,
   ancestorRecords,
@@ -182,19 +231,9 @@ export const ImageInspector = ({
   onLocateImageRecord,
   onLocatePromptReference,
   onCopyImageId,
-  onRenameImage,
 }: ImageInspectorProps) => {
   const inspectorRef = useRef<HTMLElement | null>(null);
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState("");
-  const [renameSaving, setRenameSaving] = useState(false);
   usePlainTextCopyWithin(inspectorRef);
-
-  useEffect(() => {
-    setRenaming(false);
-    setRenameValue(record?.displayName ?? record?.sourceFileName ?? "");
-    setRenameSaving(false);
-  }, [record?.displayName, record?.fileId, record?.sourceFileName]);
 
   const handleScrollWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     const container = event.currentTarget;
@@ -217,99 +256,99 @@ export const ImageInspector = ({
   };
 
   if (task) {
-    const taskStatusText =
-      task.status === "error"
-        ? copy.inspector.taskFailed
-        : copy.inspector.taskPending;
+    const failed = task.status === "error";
+    const taskStatusText = failed
+      ? copy.inspector.taskFailed
+      : copy.inspector.taskPending;
 
     return (
       <section className="image-inspector" ref={inspectorRef}>
         <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
-          <header className="image-inspector__hero">
-            <div className="image-inspector__hero-main">
-              <span className="image-inspector__eyebrow">{taskStatusText}</span>
-              <h4>{copy.inspector.taskTitle}</h4>
-              <p>{getOptionalText(task.model)}</p>
+          <section
+            className="image-inspector__group image-inspector__task-status"
+            aria-label={copy.inspector.taskStatusTitle}
+          >
+            <h3 className="image-inspector__group-title">
+              {copy.inspector.taskStatusTitle}
+            </h3>
+            <div
+              className={`image-inspector__task-state${
+                failed ? " image-inspector__task-state--error" : ""
+              }`}
+            >
+              <span className="image-inspector__task-dot" aria-hidden="true" />
+              <div className="image-inspector__task-state-copy">
+                <strong>{taskStatusText}</strong>
+                <span>
+                  {failed
+                    ? getOptionalText(task.errorMessage)
+                    : copy.inspector.taskStarted(
+                        formatCompactDateTime(task.startedAt),
+                      )}
+                </span>
+              </div>
             </div>
-            <div className="image-inspector__hero-facts">
-              <span>{getProviderDefinition(task.provider).label}</span>
-              <span>{formatTaskSize(task)}</span>
-            </div>
-          </header>
-
-          <section className="image-inspector__prompt-section">
-            <div className="image-inspector__section-header">
-              <h4>{copy.inspector.prompt}</h4>
-            </div>
-            <div className="image-inspector__prompt-body">
-              <p className="image-inspector__prompt-text">
-                {getOptionalText(task.prompt)}
-              </p>
-            </div>
+            {failed && (
+              <InspectorDisclosure label={copy.inspector.errorDetails}>
+                <div className="image-inspector__section-header">
+                  <h4>{copy.inspector.technicalInfo}</h4>
+                  {onCopyTaskError && (
+                    <DesktopButton
+                      type="button"
+                      size="small"
+                      className="image-inspector__copy-button"
+                      aria-label={copy.inspector.copyTaskError}
+                      title={copy.inspector.copyTaskError}
+                      onClick={onCopyTaskError}
+                    >
+                      {copyIcon}
+                    </DesktopButton>
+                  )}
+                </div>
+                <div className="image-inspector__pre">
+                  {getOptionalText(task.rawError)}
+                  {task.stack ? `\n\n${task.stack}` : ""}
+                </div>
+              </InspectorDisclosure>
+            )}
           </section>
 
-          <section className="image-inspector__section">
-            <h4>{copy.inspector.detailsTitle}</h4>
-            <dl className="image-inspector__detail-grid">
+          <section
+            className="image-inspector__group image-inspector__generation"
+            aria-label={copy.inspector.generationInfo}
+          >
+            <h3 className="image-inspector__group-title">
+              {copy.inspector.generationInfo}
+            </h3>
+            <section className="image-inspector__prompt-section">
+              <div className="image-inspector__section-header">
+                <h4>{copy.inspector.prompt}</h4>
+                <DesktopButton
+                  type="button"
+                  size="small"
+                  className="image-inspector__copy-button"
+                  aria-label={copy.inspector.copyPrompt}
+                  title={copy.inspector.copyPrompt}
+                  onClick={onCopyPrompt}
+                >
+                  {copyIcon}
+                </DesktopButton>
+              </div>
+              <div className="image-inspector__prompt-body">
+                <p className="image-inspector__prompt-text">
+                  {getOptionalText(task.prompt)}
+                </p>
+              </div>
+            </section>
+            <dl className="image-inspector__detail-grid image-inspector__metadata">
               <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.taskStatus}</dt>
+                <dt>{copy.inspector.model}</dt>
                 <dd className="image-inspector__detail-value">
-                  {taskStatusText}
+                  {getModelLabel(task.provider, task.model)}
                 </dd>
               </div>
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.taskStartedAt}</dt>
-                <dd className="image-inspector__detail-value">
-                  {formatDateTime(task.startedAt)}
-                </dd>
-              </div>
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.negativePrompt}</dt>
-                <dd className="image-inspector__detail-value">
-                  {getOptionalText(task.negativePrompt)}
-                </dd>
-              </div>
-              <div className="image-inspector__detail-item">
-                <dt>{copy.inspector.seed}</dt>
-                <dd className="image-inspector__detail-value">
-                  {getOptionalText(task.seed)}
-                </dd>
-              </div>
-              {task.status === "error" && (
-                <div className="image-inspector__detail-item image-inspector__detail-item--wide">
-                  <dt>{copy.inspector.taskMessage}</dt>
-                  <dd className="image-inspector__detail-value">
-                    {getOptionalText(task.errorMessage)}
-                  </dd>
-                </div>
-              )}
-              {task.status === "error" && (
-                <div className="image-inspector__detail-item image-inspector__detail-item--wide">
-                  <dt>{copy.inspector.taskRawError}</dt>
-                  <dd className="image-inspector__pre">
-                    {getOptionalText(task.rawError)}
-                  </dd>
-                </div>
-              )}
-              {task.status === "error" && task.stack && (
-                <div className="image-inspector__detail-item image-inspector__detail-item--wide">
-                  <dt>{copy.inspector.taskStack}</dt>
-                  <dd className="image-inspector__pre">{task.stack}</dd>
-                </div>
-              )}
             </dl>
           </section>
-          {task.status === "error" && onCopyTaskError && (
-            <div className="image-inspector__actions">
-              <DesktopButton
-                type="button"
-                size="small"
-                onClick={onCopyTaskError}
-              >
-                {copy.inspector.copyTaskError}
-              </DesktopButton>
-            </div>
-          )}
         </div>
       </section>
     );
@@ -321,8 +360,10 @@ export const ImageInspector = ({
         className="image-inspector image-inspector--empty"
         ref={inspectorRef}
       >
-        <div className="image-inspector__empty-card">
-          <h2>{copy.inspector.title}</h2>
+        <div className="image-inspector__group image-inspector__empty-card">
+          <h3 className="image-inspector__group-title">
+            {copy.inspector.title}
+          </h3>
           <p>{copy.inspector.empty}</p>
         </div>
       </section>
@@ -338,7 +379,6 @@ export const ImageInspector = ({
     record.sourceType === "generated" &&
     Boolean(
       record.model?.trim() ||
-        record.provider?.trim() ||
         record.seed != null ||
         record.negativePrompt?.trim(),
     );
@@ -403,68 +443,18 @@ export const ImageInspector = ({
       ref={inspectorRef}
     >
       <div className="image-inspector__scroll" onWheel={handleScrollWheel}>
-        <header className="image-inspector__hero">
-          <div className="image-inspector__hero-main">
-            {renaming ? (
-              <form
-                className="image-inspector__rename-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!onRenameImage || renameSaving) {
-                    return;
-                  }
-                  const nextName = renameValue.trim() || null;
-                  setRenameSaving(true);
-                  void Promise.resolve(onRenameImage(nextName))
-                    .then(() => setRenaming(false))
-                    .catch(() => undefined)
-                    .finally(() => setRenameSaving(false));
-                }}
-              >
-                <input
-                  autoFocus
-                  aria-label={copy.inspector.assetName}
-                  placeholder={imageTitle}
-                  value={renameValue}
-                  maxLength={120}
-                  onChange={(event) => setRenameValue(event.target.value)}
-                />
-                <div className="image-inspector__rename-actions">
-                  <DesktopButton
-                    type="submit"
-                    size="small"
-                    disabled={renameSaving}
-                  >
-                    {copy.inspector.saveName}
-                  </DesktopButton>
-                  <DesktopButton
-                    type="button"
-                    size="small"
-                    onClick={() => setRenaming(false)}
-                  >
-                    {copy.inspector.cancelRename}
-                  </DesktopButton>
-                </div>
-              </form>
-            ) : (
-              <div className="image-inspector__title-row">
-                <h4>{imageTitle}</h4>
-                {onRenameImage ? (
-                  <DesktopButton
-                    type="button"
-                    size="small"
-                    onClick={() => {
-                      setRenameValue(record.displayName ?? "");
-                      setRenaming(true);
-                    }}
-                  >
-                    {copy.inspector.rename}
-                  </DesktopButton>
-                ) : null}
-              </div>
-            )}
-          </div>
+        <section
+          className="image-inspector__group image-inspector__file-info"
+          aria-label={copy.inspector.title}
+        >
+          <h3 className="image-inspector__group-title">
+            {copy.inspector.title}
+          </h3>
           <dl className="image-inspector__detail-grid image-inspector__metadata">
+            <div className="image-inspector__detail-item">
+              <dt>{copy.inspector.name}</dt>
+              <dd className="image-inspector__detail-value">{imageTitle}</dd>
+            </div>
             <div className="image-inspector__detail-item">
               <dt>{copy.inspector.size}</dt>
               <dd className="image-inspector__detail-value">
@@ -472,66 +462,74 @@ export const ImageInspector = ({
               </dd>
             </div>
             <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.mimeType}</dt>
+              <dt>{copy.inspector.format}</dt>
               <dd className="image-inspector__detail-value">
-                {record.mimeType}
-              </dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.createdAt}</dt>
-              <dd className="image-inspector__detail-value">
-                {formatDateTime(record.createdAt)}
-              </dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.source}</dt>
-              <dd className="image-inspector__detail-value">
-                {generationAttribution || provenance.sourceLabel}
-              </dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.assetPath}</dt>
-              <dd className="image-inspector__detail-value image-inspector__detail-code">
-                {projectPath
-                  ? `${projectPath.replace(/\/$/, "")}/${record.assetPath}`
-                  : record.assetPath}
-              </dd>
-            </div>
-            <div className="image-inspector__detail-item">
-              <dt>{copy.inspector.imageId}</dt>
-              <dd className="image-inspector__id-value">
-                <code title={record.fileId}>{record.fileId}</code>
-                {onCopyImageId ? (
-                  <DesktopButton
-                    type="button"
-                    size="small"
-                    className="image-inspector__copy-button"
-                    aria-label={copy.inspector.copyImageId}
-                    title={copy.inspector.copyImageId}
-                    onClick={onCopyImageId}
-                  >
-                    {copyIcon}
-                  </DesktopButton>
-                ) : null}
+                {formatImageFormat(record.mimeType)}
               </dd>
             </div>
           </dl>
-        </header>
+          <InspectorDisclosure label={copy.inspector.moreInfo}>
+            <dl className="image-inspector__detail-grid image-inspector__metadata">
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.source}</dt>
+                <dd className="image-inspector__detail-value">
+                  {generationAttribution || provenance.sourceLabel}
+                </dd>
+              </div>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.createdAt}</dt>
+                <dd className="image-inspector__detail-value">
+                  {formatDateTime(record.createdAt)}
+                </dd>
+              </div>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.assetPath}</dt>
+                <dd className="image-inspector__detail-value image-inspector__detail-code">
+                  {projectPath
+                    ? `${projectPath.replace(/\/$/, "")}/${record.assetPath}`
+                    : record.assetPath}
+                </dd>
+              </div>
+              <div className="image-inspector__detail-item">
+                <dt>{copy.inspector.imageId}</dt>
+                <dd className="image-inspector__id-value">
+                  <code title={record.fileId}>{record.fileId}</code>
+                  {onCopyImageId ? (
+                    <DesktopButton
+                      type="button"
+                      size="small"
+                      className="image-inspector__copy-button"
+                      aria-label={copy.inspector.copyImageId}
+                      title={copy.inspector.copyImageId}
+                      onClick={onCopyImageId}
+                    >
+                      {copyIcon}
+                    </DesktopButton>
+                  ) : null}
+                </dd>
+              </div>
+            </dl>
+          </InspectorDisclosure>
+        </section>
+
+        {colorProperties}
 
         {(hasGenerationParameters ||
           record.prompt?.trim() ||
           promptReferenceList.length > 0) && (
           <section
-            className="image-inspector__generation"
+            className="image-inspector__group image-inspector__generation"
             aria-label={
               record.sourceType === "generated"
                 ? copy.inspector.generationInfo
                 : copy.inspector.prompt
             }
           >
-            {record.sourceType === "generated" && (
-              <h4>{copy.inspector.generationInfo}</h4>
-            )}
+            <h3 className="image-inspector__group-title">
+              {record.sourceType === "generated"
+                ? copy.inspector.generationInfo
+                : copy.inspector.prompt}
+            </h3>
             {(record.prompt?.trim() || promptReferenceList.length > 0) && (
               <section className="image-inspector__prompt-section">
                 <div className="image-inspector__section-header">
@@ -592,15 +590,7 @@ export const ImageInspector = ({
                   <div className="image-inspector__detail-item">
                     <dt>{copy.inspector.model}</dt>
                     <dd className="image-inspector__detail-value">
-                      {record.model}
-                    </dd>
-                  </div>
-                )}
-                {record.sourceType === "generated" && record.provider && (
-                  <div className="image-inspector__detail-item">
-                    <dt>{copy.inspector.provider}</dt>
-                    <dd className="image-inspector__detail-value">
-                      {provenance.providerLabel}
+                      {getModelLabel(record.provider, record.model)}
                     </dd>
                   </div>
                 )}
@@ -627,9 +617,13 @@ export const ImageInspector = ({
         )}
 
         {(ancestorRecords.length > 0 || descendantRecords.length > 0) && (
-          <section className="image-inspector__chain">
-            <h4>{copy.inspector.chainTitle}</h4>
-
+          <section
+            className="image-inspector__group image-inspector__chain"
+            aria-label={copy.inspector.chainTitle}
+          >
+            <h3 className="image-inspector__group-title">
+              {copy.inspector.chainTitle}
+            </h3>
             <ol className="image-inspector__chain-list">
               {ancestorRecords.map((ancestorRecord) =>
                 renderLocateChainItem(ancestorRecord),
@@ -657,7 +651,6 @@ export const ImageInspector = ({
                 </span>
               </li>
             </ol>
-
             {descendantRecords.length > 0 && (
               <div className="image-inspector__chain-group">
                 <p className="image-inspector__chain-group-title">

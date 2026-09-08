@@ -1,15 +1,10 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ImageRecord } from "../../shared/projectTypes";
 import type { ImagePromptReferenceRecord } from "../../shared/projectTypes";
 import { setActiveDesktopLocale } from "../copy";
+import type { GenerationTaskRecord } from "../generationTaskState";
 import { ImageInspector } from "./ImageInspector";
 
 const generatedRecord: ImageRecord = {
@@ -39,6 +34,19 @@ const parentRecord: ImageRecord = {
   prompt: "第一版结构草图",
 };
 
+const generationTask: GenerationTaskRecord = {
+  status: "pending",
+  provider: "openai",
+  model: "openai/gpt-image-2",
+  prompt: "保持产品结构，生成一张克制的工业设计渲染图。",
+  negativePrompt: "不要文字",
+  seed: 42,
+  aspectRatio: "3:2",
+  width: 1536,
+  height: 1024,
+  startedAt: "2026-09-08T10:47:22.000Z",
+};
+
 const renderInspector = (
   overrides: Partial<{
     record: ImageRecord;
@@ -46,7 +54,6 @@ const renderInspector = (
     onLocateImageRecord: (fileId: string) => void;
     onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
     onCopyImageId: () => void;
-    onRenameImage: (displayName: string | null) => Promise<void>;
   }> = {},
 ) =>
   render(
@@ -71,9 +78,6 @@ const renderInspector = (
       onLocateImageRecord={overrides.onLocateImageRecord ?? vi.fn()}
       onLocatePromptReference={overrides.onLocatePromptReference ?? vi.fn()}
       onCopyImageId={overrides.onCopyImageId ?? vi.fn()}
-      onRenameImage={
-        overrides.onRenameImage ?? vi.fn().mockResolvedValue(undefined)
-      }
     />,
   );
 
@@ -83,6 +87,65 @@ afterEach(() => {
 });
 
 describe("ImageInspector", () => {
+  it("organizes a pending task into status and generation groups without presenting request settings as image facts", () => {
+    render(
+      <ImageInspector
+        record={null}
+        ancestorRecords={[]}
+        descendantRecords={[]}
+        task={generationTask}
+        onCopyPrompt={vi.fn()}
+        onCopyTaskError={vi.fn()}
+      />,
+    );
+
+    const status = screen.getByRole("region", { name: "生成状态" });
+    expect(within(status).getByText("生成中")).toBeVisible();
+    expect(within(status).getByText(/开始于/)).toBeVisible();
+
+    const generation = screen.getByRole("region", { name: "生成信息" });
+    expect(within(generation).getByText(generationTask.prompt)).toBeVisible();
+    expect(within(generation).getByText("GPT Image 2")).toBeVisible();
+    expect(screen.queryByText("1536 × 1024")).toBeNull();
+    expect(screen.queryByText("OpenAI")).toBeNull();
+    expect(screen.queryByText("反向提示词")).toBeNull();
+    expect(screen.queryByText("种子")).toBeNull();
+  });
+
+  it("keeps error details inside the failed status group and uses the shared disclosure with an icon copy action", () => {
+    const onCopyTaskError = vi.fn();
+    render(
+      <ImageInspector
+        record={null}
+        ancestorRecords={[]}
+        descendantRecords={[]}
+        task={{
+          ...generationTask,
+          status: "error",
+          errorMessage: "图片输入无法读取",
+          rawError: "HTTP 400 INVALID_IMAGE",
+          stack: "at requestImage",
+        }}
+        onCopyPrompt={vi.fn()}
+        onCopyTaskError={onCopyTaskError}
+      />,
+    );
+
+    const status = screen.getByRole("region", { name: "生成状态" });
+    expect(within(status).getByText("生成失败")).toBeVisible();
+    expect(within(status).getByText("图片输入无法读取")).toBeVisible();
+    const disclosure = within(status).getByText("错误详情").closest("details");
+    expect(disclosure).toHaveClass("image-inspector__disclosure");
+    expect(disclosure).not.toHaveAttribute("open");
+    fireEvent.click(within(status).getByText("错误详情"));
+    const copyButton = within(status).getByRole("button", {
+      name: "复制详细报错",
+    });
+    expect(copyButton).toHaveTextContent("");
+    fireEvent.click(copyButton);
+    expect(onCopyTaskError).toHaveBeenCalledOnce();
+  });
+
   it("groups file metadata once and leaves imported images free of empty generation sections", () => {
     render(
       <ImageInspector
@@ -98,14 +161,15 @@ describe("ImageInspector", () => {
     expect(screen.queryByRole("heading", { name: "提示词" })).toBeNull();
     expect(screen.queryByText("无")).toBeNull();
     expect(screen.getAllByText("1024 × 768")).toHaveLength(1);
-    expect(screen.getAllByText("image/png")).toHaveLength(1);
+    expect(screen.getAllByText("PNG")).toHaveLength(1);
+    fireEvent.click(screen.getByText("更多信息"));
     expect(screen.getByText("assets/file-0.png")).toBeVisible();
   });
   it("keeps model, prompt and seed in the generation group instead of file metadata", () => {
     renderInspector();
     const group = screen.getByRole("region", { name: "生成信息" });
     expect(within(group).getByText(generatedRecord.prompt!)).toBeVisible();
-    expect(within(group).getByText(generatedRecord.model!)).toBeVisible();
+    expect(within(group).getByText("Nano Banana 2")).toBeVisible();
     expect(within(group).getByText("12")).toBeVisible();
     expect(within(group).queryByText("图片 ID")).toBeNull();
     expect(screen.getAllByText("1024 × 768")).toHaveLength(1);
@@ -159,27 +223,22 @@ describe("ImageInspector", () => {
     expect(screen.getByText("0")).toBeVisible();
   });
 
-  it("uses a concrete image heading instead of repeating the generic panel label", () => {
+  it("uses a functional image-information heading instead of the filename", () => {
     renderInspector();
 
     expect(
-      screen.queryByRole("heading", { name: "图片参数" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "AI 生成图片", level: 4 }),
-    ).toBeInTheDocument();
+      screen.getByRole("heading", { name: "图片信息", level: 3 }),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "AI 生成图片" })).toBeNull();
   });
 
-  it("surfaces the selected image summary before detailed parameters", () => {
-    const { container } = renderInspector();
-    const hero = container.querySelector(
-      ".image-inspector__hero",
-    ) as HTMLElement;
-
-    expect(hero).not.toBeNull();
-    expect(within(hero).getByText("AI 生成")).toBeInTheDocument();
-    expect(within(hero).queryByText("fal-ai/nano-banana-2")).toBeNull();
-    expect(within(hero).getByText("1024 × 768")).toBeInTheDocument();
+  it("shows name, size and format as the primary image facts", () => {
+    renderInspector();
+    const group = screen.getByRole("region", { name: "图片信息" });
+    expect(within(group).getByText("AI 生成图片")).toBeVisible();
+    expect(within(group).getByText("1024 × 768")).toBeVisible();
+    expect(within(group).getByText("PNG")).toBeVisible();
+    expect(within(group).queryByText("fal-ai/nano-banana-2")).toBeNull();
   });
 
   it("shows file properties directly and copies the complete id on demand", () => {
@@ -188,31 +247,19 @@ describe("ImageInspector", () => {
 
     expect(screen.queryByRole("button", { name: "技术信息" })).toBeNull();
     expect(screen.queryByText("技术信息")).toBeNull();
+    expect(screen.getByText("file-1")).not.toBeVisible();
+    fireEvent.click(screen.getByText("更多信息"));
     expect(screen.getByText("file-1")).toBeInTheDocument();
     expect(screen.getByText("assets/file-1.png")).toBeInTheDocument();
-    expect(screen.getByText("image/png")).toBeInTheDocument();
+    expect(screen.getByText("PNG")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "复制图片 ID" }));
     expect(onCopyImageId).toHaveBeenCalledOnce();
   });
 
-  it("renames an asset from the inspector", async () => {
-    const onRenameImage = vi.fn().mockResolvedValue(undefined);
-    renderInspector({ onRenameImage });
-
-    fireEvent.click(screen.getByRole("button", { name: "重命名" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "图片名称" }), {
-      target: { value: "机床主视觉" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "保存名称" }));
-
-    await waitFor(() =>
-      expect(onRenameImage).toHaveBeenCalledWith("机床主视觉"),
-    );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "保存名称" }),
-      ).not.toBeInTheDocument(),
-    );
+  it("does not offer filename editing in the inspector", () => {
+    renderInspector();
+    expect(screen.queryByRole("button", { name: "重命名" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "图片名称" })).toBeNull();
   });
 
   it("identifies CoreStudio generations initiated by Codex", () => {
@@ -224,6 +271,7 @@ describe("ImageInspector", () => {
       },
     });
 
+    fireEvent.click(screen.getByText("更多信息"));
     expect(
       screen.getByText("CoreStudio 图片生成 · 由 Codex 发起"),
     ).toBeInTheDocument();
@@ -272,7 +320,7 @@ describe("ImageInspector", () => {
       screen.getByRole("heading", { name: "提示词", level: 4 }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "编辑链", level: 4 }),
+      screen.getByRole("heading", { name: "编辑链", level: 3 }),
     ).toBeInTheDocument();
   });
 

@@ -1,11 +1,4 @@
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type Ref,
-} from "react";
-import { createPortal } from "react-dom";
+import { type ReactNode, type Ref } from "react";
 
 import type {
   ImagePromptReferenceRecord,
@@ -14,12 +7,15 @@ import type {
 import type { ImageLineageEntry } from "../imageRelationships";
 import type { GenerationTaskRecord } from "../generationTaskState";
 import { copy } from "../copy";
-import { cropImageIcon } from "./CoreStudioIcons";
+import { DesktopButton } from "./DesktopButton";
+import { ImagePalette, type ReadPaletteOriginal } from "./ImagePalette";
 import { ImageInspector } from "./ImageInspector";
 import { SideDock } from "./SideDock";
 import "./ImageInspector.css";
 
 interface InspectorSidebarProps {
+  readOriginal?: ReadPaletteOriginal;
+  onCopyColor?: (hex: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedShapeActions: ReactNode;
@@ -36,11 +32,12 @@ interface InspectorSidebarProps {
   onLocateImageRecord: (fileId: string) => void;
   onLocatePromptReference: (reference: ImagePromptReferenceRecord) => void;
   onCopyImageId?: () => void;
-  onRenameImage?: (displayName: string | null) => Promise<void> | void;
   rootRef?: Ref<HTMLElement>;
 }
 
 export const InspectorSidebar = ({
+  readOriginal,
+  onCopyColor,
   open,
   onOpenChange,
   selectedShapeActions,
@@ -57,25 +54,8 @@ export const InspectorSidebar = ({
   onLocateImageRecord,
   onLocatePromptReference,
   onCopyImageId,
-  onRenameImage,
   rootRef,
 }: InspectorSidebarProps) => {
-  const elementActionsHostRef = useRef<HTMLDivElement | null>(null);
-  const [elementActionList, setElementActionList] =
-    useState<HTMLElement | null>(null);
-
-  useLayoutEffect(() => {
-    const nextActionList =
-      isImageCropping && shouldRenderSelectedShapeActions
-        ? elementActionsHostRef.current?.querySelector<HTMLElement>(
-            ".selected-shape-actions fieldset:last-of-type .buttonList",
-          ) ?? null
-        : null;
-    setElementActionList((current) =>
-      current === nextActionList ? current : nextActionList,
-    );
-  }, [isImageCropping, selectedShapeActions, shouldRenderSelectedShapeActions]);
-
   return (
     <SideDock
       side="right"
@@ -89,10 +69,7 @@ export const InspectorSidebar = ({
           <header className="inspector-sidebar__section-header">
             <h3>{copy.elementActions.title}</h3>
           </header>
-          <div
-            ref={elementActionsHostRef}
-            className="inspector-sidebar__section-body"
-          >
+          <div className="inspector-sidebar__section-body">
             {shouldRenderSelectedShapeActions ? (
               selectedShapeActions
             ) : (
@@ -101,42 +78,42 @@ export const InspectorSidebar = ({
               </p>
             )}
           </div>
-          {elementActionList &&
-            createPortal(
-              <button
+          {isImageCropping && shouldRenderSelectedShapeActions && (
+            <div className="inspector-sidebar__crop-footer">
+              <DesktopButton
                 type="button"
-                className="ToolIcon ToolIcon_type_toggle ToolIcon_size_medium ToolIcon--checked inspector-sidebar__active-crop-action"
-                title={copy.elementActions.finishCrop}
-                aria-label={copy.elementActions.finishCrop}
-                aria-pressed="true"
+                size="small"
+                variant="primary"
                 onClick={onFinishImageCropping}
               >
-                <span className="ToolIcon__icon" aria-hidden="true">
-                  {cropImageIcon}
-                </span>
-              </button>,
-              elementActionList,
-            )}
+                {copy.elementActions.finishCrop}
+              </DesktopButton>
+            </div>
+          )}
         </section>
 
-        <section className="inspector-sidebar__section inspector-sidebar__section--image">
-          <header className="inspector-sidebar__section-header">
-            <h3>{copy.inspector.title}</h3>
-          </header>
-          <ImageInspector
-            projectPath={projectPath}
-            record={record}
-            ancestorRecords={ancestorRecords}
-            descendantRecords={descendantRecords}
-            task={task}
-            onCopyPrompt={onCopyPrompt}
-            onCopyTaskError={onCopyTaskError}
-            onLocateImageRecord={onLocateImageRecord}
-            onLocatePromptReference={onLocatePromptReference}
-            onCopyImageId={onCopyImageId}
-            onRenameImage={onRenameImage}
-          />
-        </section>
+        <ImageInspector
+          colorProperties={
+            record && readOriginal && onCopyColor ? (
+              <ImagePalette
+                projectPath={projectPath}
+                fileId={record.fileId}
+                readOriginal={readOriginal}
+                onCopyColor={onCopyColor}
+              />
+            ) : undefined
+          }
+          projectPath={projectPath}
+          record={record}
+          ancestorRecords={ancestorRecords}
+          descendantRecords={descendantRecords}
+          task={task}
+          onCopyPrompt={onCopyPrompt}
+          onCopyTaskError={onCopyTaskError}
+          onLocateImageRecord={onLocateImageRecord}
+          onLocatePromptReference={onLocatePromptReference}
+          onCopyImageId={onCopyImageId}
+        />
       </div>
     </SideDock>
   );

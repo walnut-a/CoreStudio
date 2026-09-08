@@ -513,7 +513,7 @@ const App = ({
       ),
     [sceneImageFileIds, currentProject?.imageRecords],
   );
-  const readBrowseOriginal = useCallback(
+  const readImageOriginal = useCallback(
     async (fileId: string) => {
       const project = currentProjectRef.current;
       if (!project) {
@@ -850,6 +850,14 @@ const App = ({
       }),
     [setProjectNotice],
   );
+
+  const copyImagePaletteColor = async (hex: string) => {
+    await clipboardTextRendererActions.copyWithSuccessNotice(
+      hex,
+      copy.imageColors.colorCopied(hex),
+      projectNoticeRendererActions.show,
+    );
+  };
 
   const agentBrowserRuntimePublishRendererActions = useMemo(
     () =>
@@ -1205,29 +1213,6 @@ const App = ({
     getSelectedRecord: () => selectedRecord,
     copyText: clipboardTextRendererActions.copy,
   });
-
-  const renameSelectedImage = useCallback(
-    async (displayName: string | null) => {
-      const project = currentProjectRef.current;
-      const fileId = selectedRecord?.fileId;
-      if (!project || !fileId || !desktopBridge.updateImageRecordMetadata) {
-        return;
-      }
-      try {
-        const imageRecords = await desktopBridge.updateImageRecordMetadata({
-          projectPath: project.projectPath,
-          fileId,
-          displayName,
-        });
-        updateCurrentProject({ ...project, imageRecords });
-        setSelectedRecord(imageRecords[fileId] ?? null);
-      } catch (error) {
-        setProjectError(formatProjectSaveError(error));
-        throw error;
-      }
-    },
-    [desktopBridge, selectedRecord?.fileId, updateCurrentProject],
-  );
 
   const imageRecordLocatorRendererActions =
     createImageRecordLocatorRendererActions({
@@ -2963,6 +2948,10 @@ const App = ({
                   shouldRenderSelectedShapeActions,
                 }) => (
                   <InspectorSidebar
+                    readOriginal={readImageOriginal}
+                    onCopyColor={(hex) => {
+                      void copyImagePaletteColor(hex);
+                    }}
                     projectPath={currentProject?.projectPath}
                     rootRef={inspectorDockRef}
                     open={inspectorDockOpen}
@@ -2989,11 +2978,6 @@ const App = ({
                         );
                       }
                     }}
-                    onRenameImage={
-                      desktopBridge.updateImageRecordMetadata
-                        ? renameSelectedImage
-                        : undefined
-                    }
                     onCopyTaskError={() => {
                       void generationErrorRendererActions.copyTaskError();
                     }}
@@ -3130,10 +3114,13 @@ const App = ({
               onCopyText={(text) => {
                 void clipboardTextRendererActions.copy(text);
               }}
+              onCopyColor={(hex) => {
+                void copyImagePaletteColor(hex);
+              }}
               projectPath={currentProject.projectPath}
               thumbnailStore={imageAssetThumbnailStore}
               onVisibleFileIdsChange={loadVisibleImageAssetThumbnails}
-              readOriginal={readBrowseOriginal}
+              readOriginal={readImageOriginal}
               onBackToCanvas={() => changeMode(false)}
               onLocateImage={locateImage}
             />

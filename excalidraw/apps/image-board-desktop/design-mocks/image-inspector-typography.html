@@ -2,187 +2,67 @@
 <html lang="zh-CN" class="image-board-app" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CoreStudio · 详情侧栏排版实验</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CoreStudio · 右侧栏完整状态 Lab</title>
     <link rel="stylesheet" href="../src/app/styles/designTokens.css" />
     <style>
       @font-face {
-        font-family: "Assistant";
+        font-family: Assistant;
         src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-Regular.woff2")
           format("woff2");
-        font-style: normal;
         font-weight: 400;
         font-display: swap;
       }
-
       @font-face {
-        font-family: "Assistant";
-        src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-Medium.woff2")
-          format("woff2");
-        font-style: normal;
-        font-weight: 500;
-        font-display: swap;
-      }
-
-      @font-face {
-        font-family: "Assistant";
+        font-family: Assistant;
         src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-SemiBold.woff2")
           format("woff2");
-        font-style: normal;
         font-weight: 600;
         font-display: swap;
       }
-
-      @font-face {
-        font-family: "Assistant";
-        src: url("../../../packages/excalidraw/fonts/Assistant/Assistant-Bold.woff2")
-          format("woff2");
-        font-style: normal;
-        font-weight: 700;
-        font-display: swap;
-      }
-
       :root {
         color-scheme: light;
         font-family: var(--ui-font);
         font-synthesis: none;
-        /*
-         * Mock-local aliases may only compose values exported by
-         * designTokens.css. Do not add raw typography, color, radius, or
-         * spacing values here.
-         */
-        --accent: var(--color-primary);
-        --accent-strong: var(--color-primary-darkest);
-        --accent-soft: var(--color-surface-high);
-        --page-bg: var(--color-surface-low);
-        --stage-bg: var(--color-surface-mid);
+        --side: var(--corestudio-right-sidebar-width);
+        --page: var(--color-surface-low);
+        --stage: var(--color-surface-mid);
         --surface: var(--island-bg-color);
-        --surface-muted: var(--color-surface-mid);
-        --text: var(--text-primary-color);
-        --text-secondary: var(
-          --corestudio-secondary-text-color,
-          var(--color-gray-70)
-        );
+        --muted: var(--corestudio-secondary-text-color, var(--color-gray-70));
         --border: var(--default-border-color);
-        --border-strong: var(--color-border-outline-variant);
-        --control-bg: var(--input-bg-color);
-        --control-hover: var(--input-hover-bg-color);
-        --shadow: none;
-        --radius-sm: var(--border-radius-md);
-        --radius-md: var(--border-radius-lg);
-        --sidebar-width: var(--corestudio-right-sidebar-width);
-        --sidebar-inline: var(--ui-space-2xl);
-        --sidebar-block: var(--ui-space-xl);
+        --inline: var(--ui-space-2xl);
+        --block: var(--ui-space-lg);
         --section-gap: var(--ui-space-2xl);
-        --card-padding: var(--ui-space-lg);
-        --card-gap: var(--ui-space-sm);
-        --prompt-scroll-gutter: calc(var(--card-padding) + var(--ui-space-sm));
-        --panel-title-size: var(--ui-text-size-title);
-        --panel-title-weight: var(--font-weight-semibold);
-        --panel-title-leading: var(--ui-line-height-tight);
-        --major-title-size: var(--ui-text-size-md);
-        --major-title-weight: var(--font-weight-semibold);
-        --major-title-leading: var(--ui-line-height-normal);
-        --section-title-size: var(--ui-text-size-sm);
-        --section-title-weight: var(--font-weight-medium);
-        --section-title-leading: var(--ui-line-height-relaxed);
-        --field-label-size: var(--ui-text-size-sm);
-        --field-label-weight: var(--font-weight-regular);
-        --field-label-leading: var(--ui-line-height-relaxed);
-        --card-title-size: var(--ui-text-size-md);
-        --card-title-weight: var(--font-weight-semibold);
-        --card-title-leading: var(--ui-line-height-relaxed);
-        --body-size: var(--ui-text-size-md);
-        --body-leading: var(--ui-line-height-relaxed);
-        --meta-size: var(--ui-text-size-sm);
-        --meta-leading: var(--ui-line-height-relaxed);
-        --prompt-max-height: 16rem;
+        --major: var(--ui-text-size-md);
+        --body: var(--ui-text-size-md);
+        --label: 64px;
       }
-
-      :root[data-preset="current"] {
-        --sidebar-inline: var(--ui-space-lg);
-        --sidebar-block: var(--ui-space-md);
-        --section-gap: var(--ui-space-2xl);
-        --card-padding: var(--ui-space-lg);
-        --card-gap: var(--ui-space-sm);
-        --panel-title-size: var(--ui-text-size-title);
-        --panel-title-weight: var(--font-weight-bold);
-        --panel-title-leading: var(--ui-line-height-normal);
-        --major-title-size: var(--ui-text-size-sm);
-        --major-title-weight: var(--font-weight-bold);
-        --major-title-leading: var(--ui-line-height-tight);
-        --section-title-size: var(--ui-text-size-sm);
-        --section-title-weight: var(--font-weight-bold);
-        --section-title-leading: var(--ui-line-height-tight);
-        --field-label-size: var(--ui-text-size-sm);
-        --field-label-weight: var(--font-weight-semibold);
-        --field-label-leading: var(--ui-line-height-relaxed);
-        --card-title-size: var(--ui-text-size-lg);
-        --card-title-weight: var(--font-weight-semibold);
-        --card-title-leading: var(--ui-line-height-normal);
-        --body-size: var(--ui-text-size-lg);
-        --body-leading: var(--ui-line-height-relaxed);
-        --meta-size: var(--ui-text-size-sm);
-        --meta-leading: var(--ui-line-height-relaxed);
-      }
-
-      :root[data-preset="compact"] {
-        --sidebar-inline: var(--ui-space-xl);
-        --sidebar-block: var(--ui-space-md);
-        --section-gap: var(--ui-space-xl);
-        --card-padding: var(--ui-space-md);
-        --card-gap: var(--ui-space-xs);
-        --panel-title-size: var(--ui-text-size-title);
-        --panel-title-weight: var(--font-weight-semibold);
-        --panel-title-leading: var(--ui-line-height-tight);
-        --major-title-size: var(--ui-text-size-sm);
-        --major-title-weight: var(--font-weight-semibold);
-        --major-title-leading: var(--ui-line-height-normal);
-        --section-title-size: var(--ui-text-size-xs);
-        --section-title-weight: var(--font-weight-semibold);
-        --section-title-leading: var(--ui-line-height-normal);
-        --field-label-size: var(--ui-text-size-xs);
-        --field-label-weight: var(--font-weight-medium);
-        --field-label-leading: var(--ui-line-height-normal);
-        --card-title-size: var(--ui-text-size-md);
-        --card-title-weight: var(--font-weight-semibold);
-        --card-title-leading: var(--ui-line-height-normal);
-        --body-size: var(--ui-text-size-md);
-        --body-leading: var(--ui-line-height-relaxed);
-        --meta-size: var(--ui-text-size-xs);
-        --meta-leading: var(--ui-line-height-normal);
-      }
-
       * {
         box-sizing: border-box;
       }
-
       html,
       body {
         min-height: 100%;
       }
-
       body {
         margin: 0;
-        background: var(--page-bg);
-        color: var(--text);
+        background: var(--page);
+        color: var(--text-primary-color);
       }
-
       button,
-      select {
+      select,
+      input {
         font: inherit;
-      }
-
-      button {
         color: inherit;
       }
-
+      button {
+        cursor: pointer;
+      }
       .lab {
         min-height: 100vh;
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
       }
-
       .lab-header {
         display: flex;
         align-items: center;
@@ -192,150 +72,112 @@
         border-bottom: 1px solid var(--border);
         background: var(--surface);
       }
-
-      .lab-heading {
-        min-width: 0;
-      }
-
-      .lab-kicker {
+      .kicker {
         margin: 0 0 var(--ui-space-xs);
-        color: var(--accent-strong);
+        color: var(--color-primary-darkest);
         font-size: var(--ui-text-size-xs);
-        font-weight: var(--font-weight-bold);
-        line-height: var(--ui-line-height-tight);
+        font-weight: var(--font-weight-semibold);
         letter-spacing: 0.08em;
         text-transform: uppercase;
       }
-
-      .lab-heading h1 {
+      .lab-header h1 {
         margin: 0;
         font-size: var(--ui-text-size-page-title);
-        font-weight: var(--font-weight-bold);
         line-height: var(--ui-line-height-tight);
       }
-
-      .lab-heading p {
-        max-width: 720px;
+      .lab-header p:last-child {
+        max-width: 760px;
         margin: var(--ui-space-sm) 0 0;
-        color: var(--text-secondary);
+        color: var(--muted);
         font-size: var(--ui-text-size-md);
         line-height: var(--ui-line-height-relaxed);
       }
-
-      .dev-badge {
+      .badge {
         flex: none;
         padding: var(--ui-space-xs) var(--ui-space-sm);
-        border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-        border-radius: var(--radius-sm);
-        background: var(--accent-soft);
-        color: var(--accent-strong);
+        border: 1px solid
+          color-mix(in srgb, var(--color-primary) 28%, var(--border));
+        border-radius: var(--border-radius-md);
+        background: var(--color-surface-high);
+        color: var(--color-primary-darkest);
         font-size: var(--ui-text-size-xs);
-        font-weight: var(--font-weight-bold);
-        line-height: var(--ui-line-height-tight);
-        letter-spacing: 0.04em;
+        font-weight: var(--font-weight-semibold);
       }
-
       .lab-body {
         min-height: 0;
         display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
+        grid-template-columns: 292px minmax(0, 1fr);
       }
-
       .controls {
         min-height: 0;
-        overflow-y: auto;
+        overflow: auto;
         padding: var(--ui-space-2xl);
         border-right: 1px solid var(--border);
         background: var(--surface);
       }
-
-      .control-section + .control-section {
+      .control-group + .control-group {
         margin-top: var(--ui-space-2xl);
         padding-top: var(--ui-space-2xl);
         border-top: 1px solid var(--border);
       }
-
-      .control-section h2 {
+      .control-group h2 {
         margin: 0 0 var(--ui-space-lg);
+        color: var(--muted);
         font-size: var(--ui-text-size-sm);
-        font-weight: var(--font-weight-bold);
-        line-height: var(--ui-line-height-tight);
-        color: var(--text-secondary);
       }
-
       .field {
         display: grid;
         gap: var(--ui-space-xs);
       }
-
       .field + .field {
         margin-top: var(--ui-space-xl);
       }
-
       .field label {
-        color: var(--text-secondary);
+        color: var(--muted);
         font-size: var(--ui-text-size-sm);
         font-weight: var(--font-weight-semibold);
-        line-height: var(--ui-line-height-tight);
       }
-
       select {
         width: 100%;
         height: var(--ui-button-height-md);
-        padding: 0 calc(var(--ui-space-2xl) + var(--ui-space-2xl)) 0
-          var(--ui-space-md);
-        border: 1px solid var(--border-strong);
-        border-radius: var(--radius-md);
+        padding: 0 var(--ui-space-md);
+        border: 1px solid var(--color-border-outline-variant);
+        border-radius: var(--border-radius-lg);
+        background: var(--input-bg-color);
         outline: none;
-        appearance: none;
-        background: var(--control-bg) var(--corestudio-dropdown-icon) no-repeat
-          right var(--ui-space-md) center;
-        color: var(--text);
-        font-size: var(--ui-text-size-md);
       }
-
-      select:focus-visible {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+      select:focus-visible,
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: var(--ui-space-xxs);
       }
-
-      .preset-note {
-        margin: var(--ui-space-lg) 0 0;
-        color: var(--text-secondary);
+      .state-note,
+      .coverage {
+        color: var(--muted);
         font-size: var(--ui-text-size-sm);
         line-height: var(--ui-line-height-relaxed);
       }
-
-      .metric-list {
+      .state-note {
+        margin: var(--ui-space-lg) 0 0;
+      }
+      .coverage {
         display: grid;
-        gap: 0;
+        gap: var(--ui-space-sm);
         margin: 0;
+        padding: 0;
+        list-style: none;
       }
-
-      .metric {
+      .coverage li {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: var(--ui-space-lg);
-        padding: var(--ui-space-sm) 0;
-        border-bottom: 1px solid var(--border);
-        font-size: var(--ui-text-size-sm);
-        line-height: var(--ui-line-height-normal);
+        grid-template-columns: auto 1fr;
+        gap: var(--ui-space-sm);
       }
-
-      .metric:last-child {
-        border-bottom: 0;
-      }
-
-      .metric dt {
-        color: var(--text-secondary);
-      }
-
-      .metric dd {
-        margin: 0;
-        font-variant-numeric: tabular-nums;
+      .coverage li:before {
+        content: "✓";
+        color: var(--color-primary);
         font-weight: var(--font-weight-semibold);
       }
-
       .stage {
         min-width: 0;
         min-height: 0;
@@ -343,608 +185,523 @@
         place-items: start center;
         overflow: auto;
         padding: var(--ui-space-2xl);
-        background: var(--stage-bg);
+        background: var(--stage);
       }
-
-      .preview-frame {
+      .preview {
         display: grid;
         gap: var(--ui-space-lg);
         justify-items: center;
       }
-
       .preview-caption {
-        width: var(--sidebar-width);
+        width: var(--side);
         display: flex;
         justify-content: space-between;
-        color: var(--text-secondary);
+        color: var(--muted);
         font-size: var(--ui-text-size-xs);
-        line-height: var(--ui-line-height-tight);
       }
-
       .sidebar {
-        width: var(--sidebar-width);
-        height: min(790px, calc(100vh - 155px));
+        width: var(--side);
+        height: min(800px, calc(100vh - 154px));
         min-height: 620px;
         display: grid;
         grid-template-rows: 64px minmax(0, 1fr);
         overflow: hidden;
         border: 1px solid var(--border);
         background: var(--surface);
-        box-shadow: var(--shadow);
       }
-
       .sidebar-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        min-width: 0;
-        padding: 0 var(--sidebar-inline);
+        padding: 0 var(--inline);
         border-bottom: 1px solid var(--border);
       }
-
       .sidebar-header h2 {
         margin: 0;
-        font-size: var(--panel-title-size);
-        font-weight: var(--panel-title-weight);
-        line-height: var(--panel-title-leading);
+        font-size: var(--ui-text-size-title);
+        font-weight: var(--font-weight-bold);
+        line-height: var(--ui-line-height-tight);
       }
-
-      .icon-button {
+      .icon-button,
+      .tool-button,
+      .copy-button {
         width: var(--ui-control-size-md);
-        min-width: var(--ui-control-size-md);
         height: var(--ui-control-size-md);
-        min-height: var(--ui-control-size-md);
-        display: grid;
+        min-width: var(--ui-control-size-md);
+        display: inline-grid;
         place-items: center;
-        flex: none;
         padding: 0;
         border: 0;
-        border-radius: var(--radius-md);
+        border-radius: var(--border-radius-md);
         background: transparent;
-        color: var(--text-secondary);
-        cursor: pointer;
       }
-
-      .sidebar-header .icon-button {
-        margin-right: calc(
-          (var(--ui-space-2xl) - var(--ui-control-size-md)) / 2
-        );
+      .icon-button:hover,
+      .tool-button:hover,
+      .copy-button:hover {
+        background: var(--button-hover-bg);
       }
-
-      .icon-button svg {
-        width: var(--ui-space-2xl);
-        height: var(--ui-space-2xl);
-      }
-
-      .icon-button:hover {
-        background: var(--control-hover);
-        color: var(--text);
-      }
-
-      .icon-button:active {
-        background: var(--button-active-bg);
-      }
-
-      .icon-button:focus-visible,
-      .tool-button:focus-visible,
-      .chain-button:focus-visible {
-        outline: 2px solid var(--color-primary);
-        outline-offset: var(--ui-space-xxs);
-      }
-
       .sidebar-scroll {
         min-height: 0;
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-gutter: stable;
       }
-
       .sidebar-section {
-        padding: var(--sidebar-block) var(--sidebar-inline)
-          calc(var(--sidebar-block) + var(--ui-space-xs));
+        padding: var(--block) var(--inline) var(--section-gap);
         border-bottom: 1px solid var(--border);
       }
-
       .sidebar-section:last-child {
         border-bottom: 0;
       }
-
-      .section-title {
-        margin: 0 0 var(--ui-space-md);
-        color: var(--text-secondary);
-        font-size: var(--section-title-size);
-        font-weight: var(--section-title-weight);
-        line-height: var(--section-title-leading);
+      .major-title {
+        margin: 0 0 var(--ui-space-lg);
+        font-size: var(--major);
+        font-weight: var(--font-weight-semibold);
+        line-height: var(--ui-line-height-normal);
       }
-
-      .section-title--major {
-        margin-bottom: var(--ui-space-xl);
-        color: var(--text);
-        font-size: var(--major-title-size);
-        font-weight: var(--major-title-weight);
-        line-height: var(--major-title-leading);
+      .element-empty,
+      .inspector-empty {
+        margin: 0;
+        color: var(--muted);
+        font-size: var(--body);
+        line-height: var(--ui-line-height-relaxed);
       }
-
-      .section-title--subsection {
-        margin-bottom: var(--ui-space-sm);
+      .empty-card {
+        display: grid;
+        gap: var(--ui-space-sm);
+        padding-top: var(--ui-space-xs);
       }
-
-      .shape-grid {
+      .empty-card h3 {
+        margin: 0;
+        font-size: var(--ui-text-size-md);
+      }
+      .action-grid {
         display: grid;
         gap: var(--ui-space-xl);
       }
-
-      .property-group {
-        min-width: 0;
+      .action-row {
         display: grid;
         gap: var(--ui-space-sm);
       }
-
-      .property-label {
-        color: var(--text);
-        font-size: var(--field-label-size);
-        font-weight: var(--field-label-weight);
-        line-height: var(--field-label-leading);
+      .action-row > span {
+        font-size: var(--ui-text-size-sm);
+        font-weight: var(--font-weight-medium);
+        line-height: var(--ui-line-height-normal);
       }
-
-      .corner-buttons,
-      .layer-buttons,
-      .operation-buttons {
+      .button-row {
         display: flex;
-        min-width: 0;
         flex-wrap: wrap;
         gap: var(--ui-space-sm);
       }
-
       .tool-button {
-        width: var(--ui-control-size-md);
-        height: var(--ui-control-size-md);
-        display: grid;
-        place-items: center;
-        padding: 0;
         border: 1px solid transparent;
-        border-radius: var(--radius-md);
-        background: var(--surface-muted);
-        color: var(--text);
-        cursor: pointer;
+        background: var(--color-surface-mid);
       }
-
-      .tool-button:hover {
-        background: var(--control-hover);
-      }
-
-      .tool-button:active {
-        background: var(--button-active-bg);
-      }
-
       .tool-button.is-active {
-        border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-        background: var(--accent-soft);
-        color: var(--accent-strong);
-      }
-
-      .range-input {
-        --range-progress: 100%;
-        width: 100%;
-        height: var(--ui-space-xs);
-        margin: var(--ui-space-xs) 0 var(--ui-space-xxs);
-        border: 0;
-        border-radius: var(--ui-space-xxs);
-        outline: none;
-        appearance: none;
-        background: linear-gradient(
-          to right,
-          color-mix(in srgb, var(--accent) 48%, var(--border)) 0,
-          color-mix(in srgb, var(--accent) 48%, var(--border))
-            var(--range-progress),
-          var(--surface-muted) var(--range-progress),
-          var(--surface-muted) 100%
+        border-color: color-mix(
+          in srgb,
+          var(--color-primary) 30%,
+          var(--border)
         );
-        cursor: pointer;
+        background: var(--color-surface-high);
+        color: var(--color-primary-darkest);
       }
-
-      .range-input::-webkit-slider-thumb {
-        appearance: none;
-        width: var(--ui-space-xl);
-        height: var(--ui-space-xl);
-        border: 0;
-        border-radius: 50%;
-        background: var(--text-secondary);
-        box-shadow: var(--shadow-control-knob);
+      .range-wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--ui-space-sm);
+        align-items: center;
       }
-
-      .range-input::-moz-range-thumb {
-        width: var(--ui-space-xl);
-        height: var(--ui-space-xl);
-        border: 0;
-        border-radius: 50%;
-        background: var(--text-secondary);
-        box-shadow: var(--shadow-control-knob);
+      .range-wrap input {
+        width: 100%;
+        accent-color: var(--color-primary);
       }
-
-      .range-input:focus-visible {
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
+      .range-wrap output {
+        min-width: 32px;
+        color: var(--muted);
+        font-size: var(--ui-text-size-sm);
+        text-align: right;
       }
-
-      .range-values {
+      .action-footer {
         display: flex;
-        justify-content: space-between;
-        color: var(--text-secondary);
-        font-size: var(--meta-size);
-        line-height: var(--meta-leading);
-        font-variant-numeric: tabular-nums;
+        justify-content: flex-end;
+        padding-top: var(--ui-space-xs);
       }
-
-      .range-values output {
-        font: inherit;
-        color: inherit;
-      }
-
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
+      .ui-button {
+        height: var(--ui-button-height-sm);
+        min-height: var(--ui-button-height-sm);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--ui-space-sm);
+        padding: 0 var(--ui-button-padding-inline-sm);
+        border: 1px solid var(--default-border-color);
+        border-radius: var(--border-radius-lg);
+        background: var(--island-bg-color);
+        color: var(--text-primary-color);
+        font-size: var(--ui-text-size-md);
+        font-weight: var(--font-weight-regular);
+        line-height: 1.2;
         white-space: nowrap;
-        border: 0;
       }
-
-      .inspector-content {
+      .ui-button:hover {
+        border-color: var(--color-surface-primary-container);
+        background: var(--color-surface-high);
+      }
+      .ui-button--primary {
+        border-color: var(--color-primary);
+        background: var(--color-primary);
+        color: var(--color-icon-white);
+        font-weight: var(--font-weight-semibold);
+      }
+      .ui-button--primary:hover {
+        border-color: var(--color-primary-hover);
+        background: var(--color-primary-hover);
+      }
+      .inspector {
         display: grid;
         gap: var(--section-gap);
       }
-
-      .inspector-content > section {
-        min-width: 0;
-      }
-
-      .summary-card,
-      .prompt-card {
-        min-width: 0;
+      .asset-overview {
         display: grid;
-        gap: var(--card-gap);
-        padding: var(--card-padding);
-        border: 1px solid var(--border-strong);
-        border-radius: var(--radius-md);
-        background: var(--surface);
+        gap: var(--ui-space-lg);
       }
-
-      .summary-main {
-        display: grid;
-        gap: var(--ui-space-xs);
+      .asset-overview > .major-title {
+        margin-bottom: 0;
       }
-
-      .summary-card h4 {
-        margin: 0;
-        font-size: var(--card-title-size);
-        font-weight: var(--card-title-weight);
-        line-height: var(--card-title-leading);
+      .palette {
+        display: block;
       }
-
-      .summary-model {
-        margin: 0;
-        color: var(--text-secondary);
-        font-size: var(--body-size);
-        line-height: var(--body-leading);
-      }
-
-      .summary-facts {
+      .swatches {
         display: flex;
-        flex-wrap: wrap;
+        gap: var(--ui-space-sm);
+      }
+      .swatch {
+        width: var(--ui-control-size-md);
+        height: var(--ui-control-size-md);
+        padding: 0;
+        border: 0;
+        border-radius: var(--border-radius-md);
+        box-shadow: inset 0 0 0 1px
+          color-mix(in srgb, var(--text-primary-color) 18%, transparent);
+      }
+      .palette-message {
+        margin: 0;
+        color: var(--muted);
+        font-size: var(--ui-text-size-sm);
+        line-height: var(--ui-line-height-relaxed);
+      }
+      .generation,
+      .chain {
+        display: grid;
+        gap: var(--ui-space-lg);
+      }
+      .chain {
+        padding-top: var(--ui-space-2xl);
+        border-top: 1px solid var(--border);
+      }
+      .generation > h3,
+      .chain > h3 {
+        margin: 0;
+        font-size: var(--ui-text-size-md);
+        font-weight: var(--font-weight-semibold);
+        line-height: var(--ui-line-height-relaxed);
+      }
+      .file-details {
+        color: var(--muted);
+      }
+      .file-details summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: var(--ui-button-height-sm);
+        color: var(--muted);
+        font-size: var(--ui-text-size-sm);
+        line-height: var(--ui-line-height-normal);
+        cursor: pointer;
+        list-style: none;
+      }
+      .file-details summary::-webkit-details-marker {
+        display: none;
+      }
+      .file-details summary::after {
+        content: "⌄";
+        transition: transform 120ms ease;
+      }
+      .file-details[open] summary::after {
+        transform: rotate(180deg);
+      }
+      .file-details .meta {
+        padding-top: var(--ui-space-md);
+      }
+      .meta {
+        display: grid;
+        gap: var(--ui-space-sm);
+        margin: 0;
+      }
+      .meta-row {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: var(--label) minmax(0, 1fr);
+        gap: var(--ui-space-sm);
+        align-items: baseline;
+      }
+      .meta-row.wide {
+        grid-template-columns: minmax(0, 1fr);
         gap: var(--ui-space-xs);
       }
-
-      .summary-facts span {
-        padding: var(--ui-space-xs) var(--ui-space-sm);
-        border-radius: var(--radius-sm);
-        background: var(--surface-muted);
-        color: var(--text-secondary);
-        font-size: var(--meta-size);
-        line-height: var(--meta-leading);
-        font-variant-numeric: tabular-nums;
+      .meta dt {
+        color: var(--muted);
+        font-size: var(--ui-text-size-sm);
+        font-weight: var(--font-weight-medium);
+        line-height: var(--ui-line-height-relaxed);
       }
-
-      .prompt-header {
+      .meta dd {
+        min-width: 0;
+        margin: 0;
+        font-size: var(--body);
+        line-height: var(--ui-line-height-relaxed);
+        overflow-wrap: anywhere;
+      }
+      .id-value {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-xs);
+      }
+      .id-value code {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font: inherit;
+      }
+      .section-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--ui-space-sm);
       }
-
-      .prompt-header .section-title {
+      .section-header h4 {
         margin: 0;
+        color: var(--muted);
+        font-size: var(--ui-text-size-sm);
+        font-weight: var(--font-weight-medium);
       }
-
-      .prompt-actions {
-        min-width: 0;
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: var(--ui-space-xs);
-      }
-
-      .copy-status {
-        color: var(--accent-strong);
-        font-size: var(--meta-size);
-        line-height: var(--meta-leading);
-        white-space: nowrap;
-      }
-
-      .copy-status.is-error {
-        color: var(--color-danger);
-      }
-
-      .copy-status:empty {
-        display: none;
-      }
-
-      .copy-button {
-        width: var(--ui-control-size-sm);
-        min-width: var(--ui-control-size-sm);
-        height: var(--ui-control-size-sm);
-        min-height: var(--ui-control-size-sm);
-        display: inline-grid;
-        place-items: center;
-        flex: none;
-        margin-right: calc(
-          (var(--ui-space-2xl) - var(--ui-control-size-sm)) / 2
-        );
-        padding: 0;
-        border: 0;
-        border-radius: var(--radius-md);
-        background: transparent;
-        box-shadow: none;
-        color: var(--text);
-        cursor: pointer;
-        transition: background-color 150ms ease, color 150ms ease;
-      }
-
-      .copy-button:hover {
-        background: var(--color-surface-high);
-      }
-
-      .copy-button:active {
-        background: var(--color-surface-low);
-      }
-
-      .copy-button:focus-visible {
-        outline: 2px solid var(--color-primary);
-        outline-offset: var(--ui-space-xxs);
-      }
-
-      .copy-button svg {
-        width: var(--ui-space-2xl);
-        height: var(--ui-space-2xl);
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 1.25;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-
-      .copy-button [data-icon="check"] {
-        display: none;
-      }
-
-      .copy-button.is-copied {
-        color: var(--accent-strong);
-        background: var(--accent-soft);
-      }
-
-      .copy-button.is-copied [data-icon="copy"] {
-        display: none;
-      }
-
-      .copy-button.is-copied [data-icon="check"] {
-        display: block;
-      }
-
-      .prompt-body {
-        box-sizing: border-box;
-        width: calc(100% + var(--prompt-scroll-gutter));
-        max-height: var(--prompt-max-height);
-        margin-right: calc(0px - var(--prompt-scroll-gutter));
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding-right: var(--prompt-scroll-gutter);
-        scrollbar-gutter: stable;
-      }
-
-      .prompt-body p {
-        margin: 0;
-        font-size: var(--body-size);
-        line-height: var(--body-leading);
-        white-space: pre-wrap;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-      }
-
-      .prompt-reference {
-        color: var(--accent-strong);
-        font-weight: var(--font-weight-semibold);
-        text-decoration: underline;
-        text-underline-offset: var(--ui-space-xxs);
-      }
-
-      .chain {
+      .prompt {
         display: grid;
         gap: var(--ui-space-sm);
+        padding: var(--ui-space-lg);
+        border: 1px solid var(--border);
+        border-radius: var(--border-radius-lg);
+        background: color-mix(
+          in srgb,
+          var(--color-surface-mid) 56%,
+          var(--surface)
+        );
       }
-
-      .chain .section-title {
+      .prompt p {
         margin: 0;
+        font-size: var(--body);
+        line-height: var(--ui-line-height-relaxed);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
       }
-
+      .reference {
+        color: var(--color-primary);
+        font-weight: var(--font-weight-semibold);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
       .chain-list {
         display: grid;
         margin: 0;
         padding: 0;
         list-style: none;
       }
-
       .chain-item {
-        box-sizing: border-box;
-        min-width: 0;
         position: relative;
         display: grid;
         grid-template-columns: var(--ui-space-xl) minmax(0, 1fr);
-        align-items: start;
         gap: var(--ui-space-sm);
-        padding: 0 0 var(--ui-space-sm);
+        padding-bottom: var(--ui-space-sm);
       }
-
-      .chain-item:last-child {
-        padding-bottom: 0;
-      }
-
-      .chain-item:not(:last-child)::after {
+      .chain-item:after {
         content: "";
         position: absolute;
         left: calc(var(--ui-space-xl) / 2);
-        top: calc(var(--ui-space-md) + var(--ui-space-xs));
-        bottom: calc(0px - var(--ui-space-xl));
+        top: var(--ui-space-xl);
+        bottom: calc(0px - var(--ui-space-sm));
         width: 1px;
         background: var(--border);
       }
-
+      .chain-item:last-child:after {
+        display: none;
+      }
       .chain-marker {
         z-index: 1;
         width: var(--ui-space-sm);
         height: var(--ui-space-sm);
         justify-self: center;
         margin-top: var(--ui-space-md);
-        border: 1px solid var(--border-strong);
+        border: 1px solid var(--color-border-outline-variant);
         border-radius: 50%;
         background: var(--surface);
       }
-
+      .chain-item.current .chain-marker {
+        border-color: var(--color-primary);
+        background: var(--color-primary);
+        outline: var(--ui-space-xxs) solid var(--surface);
+      }
       .chain-content {
         min-width: 0;
         display: grid;
         gap: var(--ui-space-xs);
         padding: var(--ui-space-sm) var(--ui-space-md);
-        border-radius: var(--radius-md);
+        border-radius: var(--border-radius-lg);
       }
-
-      .chain-button {
-        width: 100%;
-        min-width: 0;
-        margin: 0;
-        border: 0;
-        text-align: left;
-        background: transparent;
-        color: inherit;
-        cursor: pointer;
+      .chain-item.current .chain-content {
+        background: color-mix(
+          in srgb,
+          var(--color-surface-primary-container) 64%,
+          transparent
+        );
       }
-
-      .chain-item--actionable .chain-button:hover {
-        background: var(--control-hover);
-      }
-
-      .chain-item--actionable .chain-button:active {
-        background: var(--button-active-bg);
-      }
-
-      .chain-item.is-current .chain-marker {
-        border-color: var(--accent);
-        background: var(--accent);
-        outline: var(--ui-space-xxs) solid var(--surface);
-      }
-
-      .chain-item.is-current .chain-content {
-        background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
-      }
-
       .chain-heading {
-        min-width: 0;
         display: flex;
-        align-items: baseline;
         justify-content: space-between;
         gap: var(--ui-space-sm);
+        font-size: var(--ui-text-size-sm);
       }
-
-      .chain-label {
-        min-width: 0;
-        color: var(--text);
-        font-size: var(--meta-size);
-        font-weight: var(--font-weight-semibold);
-        line-height: var(--meta-leading);
-      }
-
-      .chain-item.is-current .chain-label {
-        color: var(--accent-strong);
-      }
-
-      .chain-time {
+      .chain-heading time {
         flex: none;
-        color: var(--text-secondary);
-        font-size: var(--meta-size);
-        line-height: var(--meta-leading);
-        font-variant-numeric: tabular-nums;
+        color: var(--muted);
       }
-
-      .chain-summary {
+      .chain-content p {
         display: -webkit-box;
         margin: 0;
         overflow: hidden;
-        font-size: var(--body-size);
-        line-height: var(--body-leading);
-        word-break: break-word;
-        overflow-wrap: anywhere;
+        font-size: var(--body);
+        line-height: var(--ui-line-height-relaxed);
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
       }
-
-      .hidden {
-        display: none !important;
+      .task-status {
+        display: grid;
+        gap: var(--ui-space-lg);
       }
-
-      @media (max-width: 860px) {
+      .task-state {
+        display: grid;
+        grid-template-columns: var(--ui-space-lg) minmax(0, 1fr);
+        align-items: start;
+        gap: var(--ui-space-sm);
+        padding: var(--ui-space-md) var(--ui-space-lg);
+        border-radius: var(--border-radius-lg);
+        background: color-mix(
+          in srgb,
+          var(--color-surface-primary-container) 64%,
+          transparent
+        );
+      }
+      .task-state.is-error {
+        background: var(--color-danger-background);
+        color: var(--color-danger-color);
+      }
+      .status-dot {
+        width: var(--ui-space-sm);
+        height: var(--ui-space-sm);
+        margin-top: var(--ui-space-xs);
+        border-radius: 50%;
+        background: var(--color-primary);
+      }
+      .task-state.is-error .status-dot {
+        background: var(--color-danger);
+      }
+      .task-state-copy {
+        min-width: 0;
+        display: grid;
+        gap: var(--ui-space-xs);
+      }
+      .task-state-copy strong {
+        font-size: var(--body);
+        font-weight: var(--font-weight-semibold);
+        line-height: var(--ui-line-height-normal);
+      }
+      .task-state-copy span {
+        color: var(--muted);
+        font-size: var(--ui-text-size-sm);
+        font-weight: var(--font-weight-regular);
+        line-height: var(--ui-line-height-relaxed);
+      }
+      .task-state.is-error .task-state-copy span {
+        color: var(--color-danger-color);
+      }
+      .error-details-body {
+        display: grid;
+        gap: var(--ui-space-sm);
+        padding-top: var(--ui-space-md);
+      }
+      .error-pre {
+        max-height: 150px;
+        overflow: auto;
+        padding: var(--ui-space-md);
+        border-radius: var(--border-radius-md);
+        background: var(--color-surface-mid);
+        font-family: ui-monospace, monospace;
+        font-size: var(--ui-text-size-xs);
+        white-space: pre-wrap;
+      }
+      .tooltip {
+        position: fixed;
+        z-index: 10;
+        display: none;
+        min-width: 10ch;
+        padding: var(--ui-space-xs) var(--ui-space-sm);
+        border-radius: var(--border-radius-md);
+        background: var(--text-primary-color);
+        color: var(--island-bg-color);
+        font-size: var(--ui-text-size-sm);
+        text-align: center;
+        pointer-events: none;
+      }
+      .tooltip.visible {
+        display: block;
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: var(--ui-space-2xl);
+        z-index: 20;
+        display: none;
+        align-items: center;
+        gap: var(--ui-space-sm);
+        padding: var(--ui-space-md) var(--ui-space-lg);
+        border: 1px solid var(--border);
+        border-radius: var(--border-radius-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow-island);
+        font-size: var(--ui-text-size-sm);
+        transform: translateX(-50%);
+      }
+      .toast.visible {
+        display: flex;
+      }
+      .toast:before {
+        content: "";
+        width: var(--ui-space-sm);
+        height: var(--ui-space-sm);
+        border-radius: 50%;
+        background: var(--color-primary);
+      }
+      @media (max-width: 840px) {
         .lab-header {
           align-items: flex-start;
-          padding: var(--ui-space-2xl);
         }
-
         .lab-body {
           grid-template-columns: 1fr;
         }
-
         .controls {
           border-right: 0;
           border-bottom: 1px solid var(--border);
-        }
-
-        .control-sections {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: var(--ui-space-2xl);
-        }
-
-        .control-section + .control-section {
-          margin: 0;
-          padding: 0;
-          border-top: 0;
-        }
-
-        .stage {
-          padding: var(--ui-space-2xl);
-        }
-
-        .sidebar {
-          height: 740px;
-        }
-      }
-
-      @media (max-width: 560px) {
-        .lab-header {
-          display: grid;
-        }
-
-        .control-sections {
-          grid-template-columns: 1fr;
         }
       }
     </style>
@@ -952,644 +709,299 @@
   <body>
     <main class="lab">
       <header class="lab-header">
-        <div class="lab-heading">
-          <p class="lab-kicker">CoreStudio typography lab</p>
-          <h1>详情侧栏排版实验</h1>
+        <div>
+          <p class="kicker">CoreStudio right sidebar lab</p>
+          <h1>右侧栏完整状态</h1>
           <p>
-            在真实侧栏尺度中比较信息层级、正文阅读密度和垂直节奏。页面直接引用产品设计
-            token，但不引用或修改产品组件。
+            把元素编辑、图片信息、任务状态、配色和编辑链放进同一个可切换的评审页，集中调整排版，不直接改产品组件。
           </p>
         </div>
-        <span class="dev-badge">DEVELOPMENT ONLY</span>
+        <span class="badge">DEVELOPMENT ONLY</span>
       </header>
-
       <div class="lab-body">
         <aside class="controls" aria-label="预览参数">
-          <div class="control-sections">
-            <section class="control-section">
-              <h2>预览设置</h2>
-              <div class="field">
-                <label for="preset">排版方案</label>
-                <select id="preset">
-                  <option value="recommended" selected>
-                    推荐 · 设计系统组合
-                  </option>
-                  <option value="current">当前 · 正文偏重</option>
-                  <option value="compact">紧凑 · 高密度</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="scenario">内容场景</label>
-                <select id="scenario">
-                  <option value="long" selected>长提示词</option>
-                  <option value="short">短提示词</option>
-                  <option value="imported">导入图片</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="sidebar-width">侧栏宽度</label>
-                <select id="sidebar-width">
-                  <option value="300" selected>300px · 产品默认</option>
-                  <option value="340">340px · 对照</option>
-                  <option value="380">380px · 对照</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="theme">主题</label>
-                <select id="theme">
-                  <option value="light" selected>浅色</option>
-                  <option value="dark">深色</option>
-                </select>
-              </div>
-              <p class="preset-note" id="preset-note">
-                推荐方案只组合现有字号、字重、行高和间距 token，不在 mock
-                内定义新的基础值。
-              </p>
-            </section>
-
-            <section class="control-section">
-              <h2>设计系统映射</h2>
-              <dl class="metric-list">
-                <div class="metric">
-                  <dt>面板标题</dt>
-                  <dd id="metric-panel-title">title · semibold · tight</dd>
-                </div>
-                <div class="metric">
-                  <dt>一级 section</dt>
-                  <dd id="metric-major-title">md · semibold · normal</dd>
-                </div>
-                <div class="metric">
-                  <dt>二级 section</dt>
-                  <dd id="metric-section-title">sm · medium · relaxed</dd>
-                </div>
-                <div class="metric">
-                  <dt>字段标签</dt>
-                  <dd id="metric-field-label">sm · regular · relaxed</dd>
-                </div>
-                <div class="metric">
-                  <dt>卡片标题</dt>
-                  <dd id="metric-card-title">md · semibold · relaxed</dd>
-                </div>
-                <div class="metric">
-                  <dt>正文</dt>
-                  <dd id="metric-body">md · regular · relaxed</dd>
-                </div>
-                <div class="metric">
-                  <dt>元数据</dt>
-                  <dd id="metric-meta">sm · regular · relaxed</dd>
-                </div>
-                <div class="metric">
-                  <dt>侧栏内边距</dt>
-                  <dd id="metric-padding">space-2xl</dd>
-                </div>
-                <div class="metric">
-                  <dt>区块间距</dt>
-                  <dd id="metric-gap">space-2xl</dd>
-                </div>
-                <div class="metric">
-                  <dt>提示词上限</dt>
-                  <dd id="metric-prompt-height">16rem · 生产约束</dd>
-                </div>
-              </dl>
-            </section>
-          </div>
-        </aside>
-
-        <section class="stage" aria-label="详情侧栏预览">
-          <div class="preview-frame">
-            <div class="preview-caption">
-              <span id="preview-label">推荐 · 长提示词</span>
-              <span id="preview-width">300px</span>
+          <section class="control-group">
+            <h2>预览设置</h2>
+            <div class="field">
+              <label for="scenario">面板状态</label
+              ><select id="scenario">
+                <option value="generated" selected>生成图片</option>
+                <option value="generated-minimal">生成图片 · 最少信息</option>
+                <option value="imported">导入图片</option>
+                <option value="task-pending">生成任务 · 进行中</option>
+                <option value="task-error">生成任务 · 失败</option>
+                <option value="shape">普通元素</option>
+                <option value="crop">图片裁剪中</option>
+                <option value="empty">未选择元素</option>
+              </select>
             </div>
-
-            <aside class="sidebar">
+            <div class="field">
+              <label for="palette">配色状态</label
+              ><select id="palette">
+                <option value="ready" selected>已提取</option>
+                <option value="loading">提取中</option>
+                <option value="failed">读取失败</option>
+                <option value="hidden">不显示</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="theme">主题</label
+              ><select id="theme">
+                <option value="light" selected>浅色</option>
+                <option value="dark">深色</option>
+              </select>
+            </div>
+            <p class="state-note" id="state-note"></p>
+          </section>
+          <section class="control-group">
+            <h2>覆盖范围</h2>
+            <ul class="coverage">
+              <li>元素编辑：空、常规、裁剪</li>
+              <li>图片：导入、生成</li>
+              <li>任务：进行中、失败与详细报错</li>
+              <li>配色：完成、加载、失败、隐藏</li>
+              <li>信息：元数据、提示词、参数、编辑链</li>
+            </ul>
+          </section>
+        </aside>
+        <section class="stage" aria-label="右侧栏预览">
+          <div class="preview">
+            <div class="preview-caption">
+              <span id="preview-label"></span>
+            </div>
+            <aside class="sidebar" aria-label="详情">
               <header class="sidebar-header">
                 <h2>详情</h2>
-                <button class="icon-button" type="button" aria-label="关闭">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="m4.25 4.25 7.5 7.5m0-7.5-7.5 7.5"
-                      stroke="currentColor"
-                      stroke-width="1.25"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
+                <button class="icon-button" aria-label="关闭详情">×</button>
               </header>
-
-              <div class="sidebar-scroll">
-                <section class="sidebar-section">
-                  <h3 class="section-title section-title--major">元素编辑</h3>
-                  <div class="shape-grid">
-                    <div class="property-group">
-                      <span class="property-label">边角</span>
-                      <div class="corner-buttons">
-                        <button
-                          class="tool-button is-active"
-                          type="button"
-                          data-corner="square"
-                          aria-label="直角"
-                          aria-pressed="true"
-                          title="直角"
-                        >
-                          ⌜
-                        </button>
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-corner="round"
-                          aria-label="圆角"
-                          aria-pressed="false"
-                          title="圆角"
-                        >
-                          ╭
-                        </button>
-                      </div>
-                    </div>
-                    <div class="property-group">
-                      <label class="property-label" for="opacity-range">
-                        透明度
-                      </label>
-                      <input
-                        class="range-input"
-                        id="opacity-range"
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value="100"
-                      />
-                      <div class="range-values">
-                        <span>0</span>
-                        <output id="opacity-value" for="opacity-range">
-                          100
-                        </output>
-                      </div>
-                    </div>
-                    <div class="property-group">
-                      <span class="property-label">图层</span>
-                      <div class="layer-buttons">
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="置于底层"
-                          aria-label="置于底层"
-                          title="置于底层"
-                        >
-                          ⇩
-                        </button>
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="下移一层"
-                          aria-label="下移一层"
-                          title="下移一层"
-                        >
-                          ↓
-                        </button>
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="上移一层"
-                          aria-label="上移一层"
-                          title="上移一层"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="置于顶层"
-                          aria-label="置于顶层"
-                          title="置于顶层"
-                        >
-                          ⇧
-                        </button>
-                      </div>
-                    </div>
-                    <div class="property-group">
-                      <span class="property-label">操作</span>
-                      <div class="operation-buttons">
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="复制元素"
-                          aria-label="复制元素"
-                          title="复制元素"
-                        >
-                          ⧉
-                        </button>
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="删除元素"
-                          aria-label="删除元素"
-                          title="删除元素"
-                        >
-                          ⌫
-                        </button>
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="复制图片链接"
-                          aria-label="复制图片链接"
-                          title="复制图片链接"
-                        >
-                          ↗
-                        </button>
-                        <button
-                          class="tool-button"
-                          type="button"
-                          data-mock-action="裁剪图片"
-                          aria-label="裁剪图片"
-                          title="裁剪图片"
-                        >
-                          ⌗
-                        </button>
-                      </div>
-                    </div>
-                    <p
-                      class="visually-hidden"
-                      id="tool-status"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      当前：直角 · 透明度 100%
-                    </p>
-                  </div>
-                </section>
-
-                <section class="sidebar-section">
-                  <h3 class="section-title section-title--major">图片信息</h3>
-                  <div class="inspector-content">
-                    <article class="summary-card">
-                      <div class="summary-main">
-                        <h4 id="summary-title">AI 生成图片</h4>
-                        <p class="summary-model" id="summary-model">
-                          openai/gpt-image-2
-                        </p>
-                      </div>
-                      <div class="summary-facts">
-                        <span>1548 × 1016</span>
-                        <span>2026/7/28 18:19:13</span>
-                      </div>
-                    </article>
-
-                    <article class="prompt-card" id="prompt-card">
-                      <header class="prompt-header">
-                        <h4 class="section-title section-title--subsection">
-                          提示词
-                        </h4>
-                        <div class="prompt-actions">
-                          <span
-                            class="copy-status"
-                            id="copy-status"
-                            role="status"
-                            aria-live="polite"
-                          ></span>
-                          <button
-                            class="copy-button"
-                            type="button"
-                            id="copy-button"
-                            aria-label="复制提示词"
-                            title="复制提示词"
-                          >
-                            <svg
-                              data-icon="copy"
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                            >
-                              <rect
-                                x="8.25"
-                                y="8.25"
-                                width="10.5"
-                                height="10.5"
-                                rx="1.75"
-                              />
-                              <path
-                                d="M15.75 8.25v-1.5A1.5 1.5 0 0 0 14.25 5.25h-7.5a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h1.5"
-                              />
-                            </svg>
-                            <svg
-                              data-icon="check"
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                            >
-                              <path d="m6.5 12 3.25 3.25 7.75-7.75" />
-                            </svg>
-                          </button>
-                        </div>
-                      </header>
-                      <div class="prompt-body">
-                        <p id="prompt-text">
-                          这是我自己建模的产品模型，我需要你帮我生成渲染图效果。这张模型上分成了几个主要区域：
-                          1.
-                          整体布局：左右分成两块，中间有一套竖向分割线，左右接近黄金比例。
-                          2.
-                          左侧区域：最大的区域是透明玻璃，外框采用深色阳极氧化铝合金。
-                          3.
-                          右侧区域：较窄区域使用浅色金属原色，与左侧形成对比。
-                          4. 右下角区域：黑框内是设备屏幕。 整台机器是桌面级 CNC
-                          设备。生成渲染图时保持整体结构，只优化材质、光影和细节，使它更精致。参考
-                          <span class="prompt-reference">参考图 1</span>
-                          的摄影棚光线与背景质感。
-                        </p>
-                      </div>
-                    </article>
-
-                    <section class="chain" id="chain">
-                      <h4 class="section-title section-title--subsection">
-                        编辑链
-                      </h4>
-                      <ol class="chain-list">
-                        <li class="chain-item chain-item--actionable">
-                          <span class="chain-marker" aria-hidden="true"></span>
-                          <button
-                            class="chain-content chain-button"
-                            type="button"
-                            aria-label="定位到图片：原始图片，2026/6/8 17:03"
-                            title="定位到图片"
-                            data-mock-action="定位到原始图片"
-                          >
-                            <div class="chain-heading">
-                              <span class="chain-label">原始图片</span>
-                              <time
-                                class="chain-time"
-                                datetime="2026-06-08T17:03:08"
-                              >
-                                2026/6/8 17:03
-                              </time>
-                            </div>
-                            <p class="chain-summary">
-                              导入产品模型正视图，保留初始结构。
-                            </p>
-                          </button>
-                        </li>
-                        <li class="chain-item is-current">
-                          <span class="chain-marker" aria-hidden="true"></span>
-                          <div class="chain-content">
-                            <div class="chain-heading">
-                              <span class="chain-label">当前图片</span>
-                              <time
-                                class="chain-time"
-                                datetime="2026-06-08T17:04:10"
-                              >
-                                2026/6/8 17:04
-                              </time>
-                            </div>
-                            <p class="chain-summary">
-                              这是我自己建模的产品模型，我需要你帮我生成渲染图效果。这张模型上分成了几个主要区域……
-                            </p>
-                          </div>
-                        </li>
-                      </ol>
-                    </section>
-                  </div>
-                </section>
-              </div>
+              <div class="sidebar-scroll" id="sidebar-content"></div>
             </aside>
           </div>
         </section>
       </div>
     </main>
-
+    <div class="tooltip" id="tooltip" role="tooltip"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script>
-      const root = document.documentElement;
-      const presetSelect = document.querySelector("#preset");
-      const scenarioSelect = document.querySelector("#scenario");
-      const widthSelect = document.querySelector("#sidebar-width");
-      const themeSelect = document.querySelector("#theme");
-      const copyButton = document.querySelector("#copy-button");
-      const copyStatus = document.querySelector("#copy-status");
-      const opacityRange = document.querySelector("#opacity-range");
-      const opacityValue = document.querySelector("#opacity-value");
-      const toolStatus = document.querySelector("#tool-status");
-      let copyResetTimer;
-
-      const presets = {
-        recommended: {
-          label: "推荐",
-          note: "推荐方案只组合现有字号、字重、行高和间距 token，不在 mock 内定义新的基础值。",
-        },
-        current: {
-          label: "当前",
-          note: "当前方案让一级、二级 section 都使用 12px 粗体，字段标签也偏重；标题数量一多就会互相竞争。",
-        },
-        compact: {
-          label: "紧凑",
-          note: "紧凑方案适合高频专业用户，但长提示词阅读舒适度较低，不建议作为当前默认值。",
-        },
+      const $ = (s) => document.querySelector(s),
+        root = document.documentElement,
+        scenario = $("#scenario"),
+        palette = $("#palette"),
+        theme = $("#theme"),
+        content = $("#sidebar-content"),
+        tooltip = $("#tooltip"),
+        toast = $("#toast");
+      let toastTimer;
+      const states = {
+        generated: [
+          "生成图片",
+          "首屏只保留识别图片所需的信息，低频文件参数按需展开。",
+        ],
+        "generated-minimal": [
+          "生成图片 · 最少信息",
+          "只有必要图片信息和短提示词，不用空字段撑高面板。",
+        ],
+        imported: ["导入图片", "不显示空的模型、服务、种子和编辑链。"],
+        "task-pending": [
+          "生成任务 · 进行中",
+          "状态优先，只显示任务当前已经成立的信息。",
+        ],
+        "task-error": [
+          "生成任务 · 失败",
+          "直接说明失败原因，技术报错按需展开。",
+        ],
+        shape: ["普通元素", "只有元素编辑，图片信息保持明确空态。"],
+        crop: ["图片裁剪中", "裁剪动作保持选中，并提供明确的完成入口。"],
+        empty: ["未选择元素", "元素编辑和图片信息同时使用轻量空态。"],
       };
-
-      const scenarios = {
-        long: {
-          label: "长提示词",
-          title: "AI 生成图片",
-          model: "openai/gpt-image-2",
-          prompt: `这是我自己建模的产品模型，我需要你帮我生成渲染图效果。这张模型上分成了几个主要区域：
-
-1. 整体布局：左右分成两块，中间有一套竖向分割线，左右接近黄金比例。
-2. 左侧区域：最大的区域是透明玻璃，外框采用深色阳极氧化铝合金。
-3. 右侧区域：较窄区域使用浅色金属原色，与左侧形成对比。
-4. 右下角区域：黑框内是设备屏幕。
-
-整台机器是桌面级 CNC 设备。生成渲染图时保持整体结构，只优化材质、光影和细节，使它更精致。参考参考图 1的摄影棚光线与背景质感。`,
-        },
-        short: {
-          label: "短提示词",
-          title: "AI 生成图片",
-          model: "google/gemini-2.5-flash-image",
-          prompt:
-            "保持产品结构不变，优化金属与玻璃材质，使用柔和摄影棚光线和浅灰背景。",
-        },
-        imported: {
-          label: "导入图片",
-          title: "导入图片",
-          model: "无",
-          prompt: "无",
-        },
-      };
-
-      const presetTokenLabels = {
-        recommended: {
-          panel: "title · semibold · tight",
-          major: "md · semibold · normal",
-          subsection: "sm · medium · relaxed",
-          field: "sm · regular · relaxed",
-          card: "md · semibold · relaxed",
-          body: "md · regular · relaxed",
-          meta: "sm · regular · relaxed",
-          padding: "space-2xl",
-          gap: "space-2xl",
-        },
-        current: {
-          panel: "title · bold · normal",
-          major: "sm · bold · tight",
-          subsection: "sm · bold · tight",
-          field: "sm · semibold · relaxed",
-          card: "lg · semibold · normal",
-          body: "lg · regular · relaxed",
-          meta: "sm · regular · relaxed",
-          padding: "space-lg",
-          gap: "space-2xl",
-        },
-        compact: {
-          panel: "title · semibold · tight",
-          major: "sm · semibold · normal",
-          subsection: "xs · semibold · normal",
-          field: "xs · medium · normal",
-          card: "md · semibold · normal",
-          body: "md · regular · relaxed",
-          meta: "xs · regular · normal",
-          padding: "space-xl",
-          gap: "space-xl",
-        },
-      };
-
-      function updateMetrics() {
-        const labels = presetTokenLabels[presetSelect.value];
-        document.querySelector("#metric-panel-title").textContent =
-          labels.panel;
-        document.querySelector("#metric-major-title").textContent =
-          labels.major;
-        document.querySelector("#metric-section-title").textContent =
-          labels.subsection;
-        document.querySelector("#metric-field-label").textContent =
-          labels.field;
-        document.querySelector("#metric-card-title").textContent = labels.card;
-        document.querySelector("#metric-body").textContent = labels.body;
-        document.querySelector("#metric-meta").textContent = labels.meta;
-        document.querySelector("#metric-padding").textContent = labels.padding;
-        document.querySelector("#metric-gap").textContent = labels.gap;
-        document.querySelector("#metric-prompt-height").textContent =
-          "16rem · 生产约束";
+      const icon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.2" y="5.2" width="7" height="7" rx="1.2" stroke="currentColor"/><path d="M10.8 5.2V4.4c0-.8-.4-1.2-1.2-1.2H4.4c-.8 0-1.2.4-1.2 1.2v5.2c0 .8.4 1.2 1.2 1.2h.8" stroke="currentColor"/></svg>`;
+      function elements(s) {
+        if (s === "empty")
+          return `<section class="sidebar-section"><h3 class="major-title">元素编辑</h3><p class="element-empty">选中元素后可在这里调整样式。</p></section>`;
+        const image = [
+          "generated",
+          "generated-minimal",
+          "imported",
+          "crop",
+        ].includes(s);
+        return `<section class="sidebar-section"><h3 class="major-title">元素编辑</h3><div class="action-grid"><div class="action-row"><span>边角</span><div class="button-row"><button class="tool-button is-active" title="直角">⌜</button><button class="tool-button" title="圆角">╭</button></div></div><div class="action-row"><span>透明度</span><div class="range-wrap"><input id="opacity" type="range" min="0" max="100" value="100"><output id="opacity-value">100</output></div></div><div class="action-row"><span>图层</span><div class="button-row"><button class="tool-button" title="置于底层">⇩</button><button class="tool-button" title="下移一层">↓</button><button class="tool-button" title="上移一层">↑</button><button class="tool-button" title="置于顶层">⇧</button></div></div><div class="action-row"><span>操作</span><div class="button-row"><button class="tool-button" title="复制元素">⧉</button><button class="tool-button" title="删除元素">⌫</button>${
+          image
+            ? `<button class="tool-button" title="复制图片链接">↗</button><button class="tool-button ${
+                s === "crop" ? "is-active" : ""
+              }" title="裁剪图片">⌗</button>`
+            : ""
+        }</div></div>${
+          s === "crop"
+            ? '<div class="action-footer"><button class="ui-button ui-button--primary">完成裁切</button></div>'
+            : ""
+        }</div></section>`;
       }
-
-      function renderScenario() {
-        const scenario = scenarios[scenarioSelect.value];
-        document.querySelector("#summary-title").textContent = scenario.title;
-        document.querySelector("#summary-model").textContent = scenario.model;
-        document.querySelector("#prompt-text").textContent = scenario.prompt;
-        document
-          .querySelector("#chain")
-          .classList.toggle("hidden", scenarioSelect.value === "imported");
+      function colors(s) {
+        if (
+          !["generated", "generated-minimal", "imported", "crop"].includes(s) ||
+          palette.value === "hidden"
+        )
+          return "";
+        if (palette.value !== "ready")
+          return `<section class="sidebar-section palette"><h3 class="major-title">配色</h3><p class="palette-message">${
+            palette.value === "loading" ? "正在提取配色…" : "无法读取图片颜色"
+          }</p></section>`;
+        return `<section class="sidebar-section palette"><h3 class="major-title">配色</h3><div class="swatches">${[
+          "#E7E1D8",
+          "#B7A58E",
+          "#72665B",
+          "#302823",
+          "#171819",
+          "#D8D8DA",
+        ]
+          .map(
+            (x) =>
+              `<button class="swatch" aria-label="复制色值 ${x}" data-color="${x}" style="background:${x}"></button>`,
+          )
+          .join("")}</div></section>`;
       }
-
-      function syncUrl() {
-        const params = new URLSearchParams({
-          preset: presetSelect.value,
-          scenario: scenarioSelect.value,
-          width: widthSelect.value,
-          theme: themeSelect.value,
-        });
-        history.replaceState(null, "", `?${params.toString()}`);
+      function metadata(title) {
+        return `<dl class="meta"><div class="meta-row"><dt>名称</dt><dd>${title}</dd></div><div class="meta-row"><dt>尺寸</dt><dd>1548 × 1016</dd></div><div class="meta-row"><dt>格式</dt><dd>PNG</dd></div></dl>`;
       }
-
-      function render() {
-        root.dataset.preset = presetSelect.value;
-        root.dataset.theme = themeSelect.value;
-        if (widthSelect.value === "300") {
-          root.style.removeProperty("--sidebar-width");
-        } else {
-          root.style.setProperty("--sidebar-width", `${widthSelect.value}px`);
-        }
-        document.querySelector("#preset-note").textContent =
-          presets[presetSelect.value].note;
-        document.querySelector("#preview-label").textContent = `${
-          presets[presetSelect.value].label
-        } · ${scenarios[scenarioSelect.value].label}`;
-        document.querySelector(
-          "#preview-width",
-        ).textContent = `${widthSelect.value}px`;
-        renderScenario();
-        requestAnimationFrame(updateMetrics);
-        syncUrl();
+      function fileDetails(source) {
+        return `<details class="file-details"><summary>更多信息</summary><dl class="meta"><div class="meta-row"><dt>来源</dt><dd>${source}</dd></div><div class="meta-row"><dt>创建时间</dt><dd>2026/9/8 18:19:13</dd></div><div class="meta-row"><dt>文件位置</dt><dd>/工业设计项目/assets/desktop-cnc-render.png</dd></div><div class="meta-row"><dt>图片 ID</dt><dd class="id-value"><code>img_7f3c9e2a</code><button class="copy-button" title="复制图片 ID">${icon}</button></dd></div></dl></details>`;
       }
-
-      const initial = new URLSearchParams(location.search);
-      if (presets[initial.get("preset")]) {
-        presetSelect.value = initial.get("preset");
+      function assetOverview(title, source) {
+        return `<div class="asset-overview"><h3 class="major-title">图片信息</h3>${metadata(
+          title,
+        )}${fileDetails(source)}</div>`;
       }
-      if (scenarios[initial.get("scenario")]) {
-        scenarioSelect.value = initial.get("scenario");
+      function generation(minimal = false) {
+        const prompt = minimal
+          ? "保持结构不变，优化金属和玻璃材质。"
+          : `保持现有桌面 CNC 的结构比例，左侧使用深色阳极氧化铝和透明玻璃，右侧保留浅色金属控制区。优化材质、光影和接缝细节，并参考 <span class="reference">参考图 1</span> 的柔和摄影棚背景。`;
+        return `<section class="generation"><h3>生成信息</h3><div class="prompt"><div class="section-header"><h4>提示词</h4><button class="copy-button" title="复制提示词">${icon}</button></div><p>${prompt}</p></div>${
+          minimal
+            ? ""
+            : `<dl class="meta"><div class="meta-row"><dt>模型</dt><dd>GPT Image 2</dd></div></dl>`
+        }</section>`;
       }
-      if (["300", "340", "380"].includes(initial.get("width"))) {
-        widthSelect.value = initial.get("width");
+      function chain() {
+        return `<section class="chain"><h3>编辑链</h3><ol class="chain-list"><li class="chain-item"><span class="chain-marker"></span><div class="chain-content"><div class="chain-heading"><strong>导入图片</strong><time>9/8 17:03</time></div><p>桌面 CNC 产品模型正视图。</p></div></li><li class="chain-item current"><span class="chain-marker"></span><div class="chain-content"><div class="chain-heading"><strong>当前图片</strong><time>9/8 18:19</time></div><p>优化金属、玻璃和摄影棚光影。</p></div></li><li class="chain-item"><span class="chain-marker"></span><div class="chain-content"><div class="chain-heading"><strong>AI 生成图片</strong><time>9/8 18:42</time></div><p>细化控制区和门体接缝。</p></div></li></ol></section>`;
       }
-      if (["light", "dark"].includes(initial.get("theme"))) {
-        themeSelect.value = initial.get("theme");
+      function task(error) {
+        const errorDetails = error
+          ? `<details class="file-details"><summary>错误详情</summary><div class="error-details-body"><div class="section-header"><h4>技术信息</h4><button class="copy-button" title="复制详细报错">${icon}</button></div><div class="error-pre">HTTP 400 INVALID_IMAGE\nThe input image could not be decoded.\n\nGenerationRequestError\n  at requestImage\n  at runGenerationTask</div></div></details>`
+          : "";
+        const status = `<section class="sidebar-section"><div class="task-status"><h3 class="major-title">生成状态</h3><div class="task-state ${
+          error ? "is-error" : ""
+        }"><span class="status-dot"></span><div class="task-state-copy"><strong>${
+          error ? "生成失败" : "正在生成图片"
+        }</strong><span>${
+          error ? "图片输入无法读取" : "开始于 9/8 18:47"
+        }</span></div></div>${errorDetails}</div></section>`;
+        const generationInfo = `<section class="sidebar-section"><section class="generation"><h3>生成信息</h3><div class="prompt"><div class="section-header"><h4>提示词</h4><button class="copy-button" title="复制提示词">${icon}</button></div><p>保持产品结构，生成一张克制的工业设计渲染图。</p></div><dl class="meta"><div class="meta-row"><dt>模型</dt><dd>GPT Image 2</dd></div></dl></section></section>`;
+        return status + generationInfo;
       }
-
-      [presetSelect, scenarioSelect, widthSelect, themeSelect].forEach(
-        (control) => control.addEventListener("change", render),
-      );
-
-      document.querySelectorAll("[data-corner]").forEach((button) => {
-        button.addEventListener("click", () => {
-          document.querySelectorAll("[data-corner]").forEach((candidate) => {
-            const isSelected = candidate === button;
-            candidate.classList.toggle("is-active", isSelected);
-            candidate.setAttribute("aria-pressed", String(isSelected));
-          });
-          toolStatus.textContent = `当前：${button.getAttribute(
-            "aria-label",
-          )} · 透明度 ${opacityRange.value}%`;
-        });
-      });
-
-      opacityRange.addEventListener("input", () => {
-        const value = opacityRange.value;
-        opacityRange.style.setProperty("--range-progress", `${value}%`);
-        opacityValue.value = value;
-        const selectedCorner = document.querySelector(
-          "[data-corner][aria-pressed='true']",
+      function images(s) {
+        let sections;
+        if (["empty", "shape"].includes(s))
+          sections =
+            '<section class="sidebar-section"><div class="empty-card"><h3>图片信息</h3><p class="inspector-empty">选中一张 AI 生成图片，或一个生成任务占位框，查看提示词、模型、尺寸和任务状态。</p></div></section>';
+        else if (s === "task-pending") sections = task(false);
+        else if (s === "task-error") sections = task(true);
+        else if (s === "imported")
+          sections = `<section class="sidebar-section">${assetOverview(
+            "工业设计参考图.png",
+            "本地导入",
+          )}</section>${colors(s)}`;
+        else if (s === "generated-minimal")
+          sections = `<section class="sidebar-section">${assetOverview(
+            "AI 生成图片",
+            "CoreStudio 图片生成",
+          )}</section>${colors(s)}<section class="sidebar-section">${generation(
+            true,
+          )}</section>`;
+        else
+          sections = `<section class="sidebar-section">${assetOverview(
+            "桌面 CNC 设备精修图",
+            "CoreStudio 图片生成 · 由 Codex 发起",
+          )}</section>${colors(
+            s,
+          )}<section class="sidebar-section"><div class="inspector">${generation()}${chain()}</div></section>`;
+        return sections;
+      }
+      function tip(target, text) {
+        const r = target.getBoundingClientRect();
+        tooltip.textContent = text;
+        tooltip.classList.add("visible");
+        const t = tooltip.getBoundingClientRect();
+        tooltip.style.left = `${Math.max(
+          5,
+          r.left + r.width / 2 - t.width / 2,
+        )}px`;
+        tooltip.style.top = `${r.bottom + 5}px`;
+      }
+      function hideTip() {
+        tooltip.classList.remove("visible");
+      }
+      function notice(text) {
+        clearTimeout(toastTimer);
+        toast.textContent = text;
+        toast.classList.add("visible");
+        toastTimer = setTimeout(() => toast.classList.remove("visible"), 2200);
+      }
+      function bind() {
+        const o = $("#opacity");
+        o?.addEventListener(
+          "input",
+          () => ($("#opacity-value").value = o.value),
         );
-        toolStatus.textContent = `当前：${selectedCorner.getAttribute(
-          "aria-label",
-        )} · 透明度 ${value}%`;
-      });
-
-      document.querySelectorAll("[data-mock-action]").forEach((button) => {
-        button.addEventListener("click", () => {
-          toolStatus.textContent = `已模拟：${button.dataset.mockAction}`;
+        document
+          .querySelectorAll(".copy-button")
+          .forEach((b) => b.addEventListener("click", () => notice("已复制")));
+        document.querySelectorAll(".swatch").forEach((b) => {
+          b.addEventListener("pointerenter", () => tip(b, b.dataset.color));
+          b.addEventListener("pointerleave", hideTip);
+          b.addEventListener("focus", () => tip(b, b.dataset.color));
+          b.addEventListener("blur", hideTip);
+          b.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(b.dataset.color);
+            } catch {}
+            notice(`色值 ${b.dataset.color} 已复制`);
+          });
         });
+      }
+      function render() {
+        const s = scenario.value;
+        root.dataset.theme = theme.value;
+        palette.disabled = ![
+          "generated",
+          "generated-minimal",
+          "imported",
+          "crop",
+        ].includes(s);
+        $("#preview-label").textContent = states[s][0];
+        $("#state-note").textContent = states[s][1];
+        content.innerHTML = elements(s) + images(s);
+        bind();
+        history.replaceState(
+          null,
+          "",
+          `?${new URLSearchParams({
+            scenario: s,
+            palette: palette.value,
+            theme: theme.value,
+          })}`,
+        );
+      }
+      const initial = new URLSearchParams(location.search),
+        valid = {
+          scenario: states,
+          palette: { ready: 1, loading: 1, failed: 1, hidden: 1 },
+          theme: { light: 1, dark: 1 },
+        };
+      [scenario, palette, theme].forEach((c) => {
+        const v = initial.get(c.id);
+        if (valid[c.id][v]) c.value = v;
+        c.addEventListener("change", render);
       });
-
-      copyButton.addEventListener("click", async () => {
-        const prompt = scenarios[scenarioSelect.value].prompt;
-        window.clearTimeout(copyResetTimer);
-        copyStatus.classList.remove("is-error");
-        try {
-          await navigator.clipboard.writeText(prompt);
-          copyButton.classList.add("is-copied");
-          copyButton.setAttribute("aria-label", "提示词已复制");
-          copyButton.setAttribute("title", "提示词已复制");
-          copyResetTimer = window.setTimeout(() => {
-            copyButton.classList.remove("is-copied");
-            copyButton.setAttribute("aria-label", "复制提示词");
-            copyButton.setAttribute("title", "复制提示词");
-            copyStatus.textContent = "";
-          }, 1200);
-        } catch {
-          copyButton.setAttribute("aria-label", "复制提示词失败");
-          copyButton.setAttribute("title", "复制提示词失败");
-          copyStatus.classList.add("is-error");
-          copyStatus.textContent = "复制失败，请重试";
-          copyResetTimer = window.setTimeout(() => {
-            copyButton.setAttribute("aria-label", "复制提示词");
-            copyButton.setAttribute("title", "复制提示词");
-            copyStatus.classList.remove("is-error");
-            copyStatus.textContent = "";
-          }, 2400);
-        }
-      });
-
       render();
     </script>
   </body>

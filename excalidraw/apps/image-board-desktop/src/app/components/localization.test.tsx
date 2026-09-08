@@ -192,7 +192,7 @@ describe("Chinese localization", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "AI 生成图片", level: 4 }),
+      screen.getByRole("heading", { name: "图片信息", level: 3 }),
     ).toBeInTheDocument();
     expect(screen.getByText("提示词")).toBeInTheDocument();
     expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
@@ -235,11 +235,11 @@ describe("Chinese localization", () => {
       />,
     );
 
-    expect(screen.getByText("生成任务")).toBeInTheDocument();
+    expect(screen.getByText("生成状态")).toBeInTheDocument();
     expect(screen.getByText("提示词")).toBeInTheDocument();
-    expect(screen.getByText("生成参数")).toBeInTheDocument();
-    expect(screen.getAllByText("生成失败")).toHaveLength(2);
-    expect(screen.getByText("原始报错")).toBeInTheDocument();
+    expect(screen.queryByText("生成参数")).not.toBeInTheDocument();
+    expect(screen.getByText("生成失败")).toBeInTheDocument();
+    expect(screen.getByText("错误详情")).toBeInTheDocument();
     expect(document.querySelector(".image-inspector__scroll")).not.toBeNull();
     expect(screen.getByRole("button", { name: "复制详细报错" })).toHaveClass(
       "excalidraw-button",

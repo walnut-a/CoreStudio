@@ -58,12 +58,27 @@ export const createPlainTextClipboardRendererActions = ({
   failureMessage: string;
   copyText?: (text: string) => Promise<boolean>;
   onError: (message: string) => void;
-}) => ({
-  copy: (text: string) =>
+}) => {
+  const copy = (text: string) =>
     copyPlainTextWithFailureMessage({
       text,
       failureMessage,
       copyText,
       onError,
-    }),
-});
+    });
+
+  return {
+    copy,
+    copyWithSuccessNotice: async (
+      text: string,
+      successMessage: string,
+      showNotice: (message: string) => void,
+    ) => {
+      const copied = await copy(text);
+      if (copied) {
+        showNotice(successMessage);
+      }
+      return copied;
+    },
+  };
+};

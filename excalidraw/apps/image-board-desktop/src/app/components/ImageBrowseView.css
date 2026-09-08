@@ -268,15 +268,12 @@
   min-height: 0;
 }
 .image-browse-detail__properties {
-  flex: 0 0 320px;
+  flex: 0 0 var(--corestudio-right-sidebar-width);
   min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   border-left: 1px solid var(--default-border-color);
   scrollbar-gutter: stable;
-}
-.image-browse-detail__properties .image-inspector__scroll {
-  padding: 4px 20px 20px;
 }
 .image-browse-detail__properties-empty {
   padding: 0 20px;

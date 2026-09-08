@@ -63,14 +63,15 @@ describe("generate composer styles", () => {
     const appCss = readAppCss();
     const rootAppCss = readRootAppCss();
     const inspectorRule = getRule(appCss, ".image-inspector");
-    const titleRule = getRule(appCss, ".image-inspector__hero h4");
-    const emptyTitleRule = getRule(appCss, ".image-inspector__empty-card h2");
-    const eyebrowRule = getRule(appCss, ".image-inspector__eyebrow");
+    const groupTitleRule = getRule(
+      appCss,
+      ".inspector-sidebar__section-header h3,\n.image-inspector__group-title",
+    );
     const sectionTitleRule = getRule(
       appCss,
-      ".image-inspector__section h4,\n.image-inspector__section-header h4",
+      ".image-inspector__section-header h4",
     );
-    const detailValueRule = getRule(appCss, ".image-inspector__detail-value");
+    const detailValueRule = getRule(appCss, ".image-inspector__detail-item dd");
     const sidebarTitleRule = getRule(appCss, ".side-dock__header h2");
     const sidebarEmptyRule = getRule(appCss, ".inspector-sidebar__empty");
     const inspectorSidebarSource = readFileSync(
@@ -81,25 +82,26 @@ describe("generate composer styles", () => {
       "utf8",
     );
 
-    expect(inspectorRule).not.toContain("--image-inspector-");
+    expect(inspectorRule).toContain(
+      "--image-inspector-padding-inline: var(\n    --side-dock-content-padding-inline",
+    );
     expect(inspectorRule).toContain("font-size: var(--ui-text-size-md)");
     expect(sidebarTitleRule).toContain("font-size: var(--ui-text-size-title)");
-    expect(titleRule).toContain("font-size: var(--ui-text-size-md)");
-    expect(titleRule).toContain("font-weight: var(--font-weight-semibold)");
-    expect(emptyTitleRule).toContain("font-size: var(--ui-text-size-lg)");
-    expect(eyebrowRule).toContain("font-size: var(--ui-text-size-sm)");
+    expect(groupTitleRule).toContain("font-size: var(--ui-text-size-md)");
+    expect(groupTitleRule).toContain(
+      "font-weight: var(--font-weight-semibold)",
+    );
     expect(sectionTitleRule).toContain("font-size: var(--ui-text-size-sm)");
     expect(sectionTitleRule).toContain(
       "font-weight: var(--font-weight-medium)",
     );
     expect(detailValueRule).toContain("font-size: var(--ui-text-size-md)");
-    expect(sidebarEmptyRule).toContain("font-size: var(--ui-text-size-lg)");
+    expect(sidebarEmptyRule).toContain("font-size: var(--ui-text-size-md)");
     expect(inspectorSidebarSource).toContain('side="right"');
     expect(inspectorSidebarSource).toContain(
       "title={copy.inspector.sidebarTitle}",
     );
     expect(inspectorSidebarSource).toContain("copy.elementActions.title");
-    expect(inspectorSidebarSource).toContain("copy.inspector.title");
     expect(inspectorSidebarSource).toContain('import "./ImageInspector.css";');
     expect(inspectorSidebarSource).not.toContain("DefaultSidebar");
     expect(rootAppCss).not.toContain(".image-inspector");
@@ -112,10 +114,6 @@ describe("generate composer styles", () => {
     const actionsSectionRule = getRule(
       appCss,
       ".inspector-sidebar__section--actions",
-    );
-    const imageSectionRule = getRule(
-      appCss,
-      ".inspector-sidebar__section--image",
     );
     const sectionBodyRule = getRule(appCss, ".inspector-sidebar__section-body");
     const shapeActionsRule = getRule(
@@ -135,7 +133,6 @@ describe("generate composer styles", () => {
     expect(actionsSectionRule).toContain("align-content: start");
     expect(actionsSectionRule).toContain("overflow: visible");
     expect(actionsSectionRule).not.toContain("max-height");
-    expect(imageSectionRule).not.toContain("grid-template-rows");
     expect(sectionBodyRule).toContain("overflow: visible");
     expect(shapeActionsRule).toContain("height: auto");
     expect(shapeActionsRule).toContain("overflow: visible");
@@ -1621,7 +1618,9 @@ describe("generate composer styles", () => {
 
     expect(source).not.toContain("createAgentStatusDockRendererActions");
     expect(source).not.toContain("<AgentStatusDock");
-    expect(source).toMatch(/openAppSettings: \(\) => \{\s*setAppSettingsCategory\("general"\);\s*setAppSettingsOpen\(true\);/);
+    expect(source).toMatch(
+      /openAppSettings: \(\) => \{\s*setAppSettingsCategory\("general"\);\s*setAppSettingsOpen\(true\);/,
+    );
     expect(source).toContain(
       "agentBridgeStatusRendererActions.refreshBrowserConnection",
     );

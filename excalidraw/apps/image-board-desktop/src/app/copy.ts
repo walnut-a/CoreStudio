@@ -26,6 +26,14 @@ const formatFileSize = (bytes: number) => {
 };
 
 const zhCnCopy = {
+  imageColors: {
+    palette: "配色",
+    copyColor: (hex: string) => `复制色值 ${hex}`,
+    colorCopied: (hex: string) => `色值 ${hex} 已复制`,
+    paletteLoading: "正在提取配色…",
+    paletteEmpty: "暂无可提取的颜色",
+    paletteFailed: "无法读取图片颜色",
+  },
   browse: {
     properties: "属性",
     imageProperties: "图片属性",
@@ -204,6 +212,10 @@ const zhCnCopy = {
     taskTitle: "生成任务",
     taskPending: "生成中",
     taskFailed: "生成失败",
+    taskStatusTitle: "生成状态",
+    taskStarted: (value: string) => `开始于 ${value}`,
+    errorDetails: "错误详情",
+    technicalInfo: "技术信息",
     taskStatus: "状态",
     taskStartedAt: "开始时间",
     taskMessage: "当前提示",
@@ -249,6 +261,9 @@ const zhCnCopy = {
     emptyValue: "无",
     copyPrompt: "复制提示词",
     copyTaskError: "复制详细报错",
+    moreInfo: "更多信息",
+    name: "名称",
+    format: "格式",
   },
   elementActions: {
     title: "元素编辑",

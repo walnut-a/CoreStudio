@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -7,8 +8,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { getTooltipDiv } from "@excalidraw/excalidraw/components/Tooltip";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import { getImageAncestors, getImageDescendants } from "../imageRelationships";
+import { ImagePalette } from "./ImagePalette";
 import { ImageInspector } from "./ImageInspector";
 import "./ImageInspector.css";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
@@ -31,6 +34,7 @@ interface ImageBrowseViewProps {
   items: readonly ImageBrowseItem[];
   imageRecords: ImageRecordMap;
   onCopyText: (text: string) => void;
+  onCopyColor: (hex: string) => void;
   projectPath: string;
   thumbnailStore: ImageAssetThumbnailStore;
   onVisibleFileIdsChange: (fileIds: string[]) => unknown;
@@ -44,7 +48,9 @@ const OriginalImage = ({
   readOriginal,
   actualSize,
   thumbnail,
+  onReady,
 }: {
+  onReady: (fileId: string, image: HTMLImageElement) => void;
   item: ImageBrowseItem;
   readOriginal: ImageBrowseViewProps["readOriginal"];
   actualSize: boolean;
@@ -89,6 +95,7 @@ const OriginalImage = ({
               await image.decode?.();
               if (current) {
                 // Keep the decoded DOM image mounted while replacing the old frame.
+                onReady(item.fileId, image);
                 setDisplayed(next);
                 setPending(undefined);
               }
@@ -176,10 +183,12 @@ const ImageDetail = ({
   thumbnail,
   imageRecords,
   onCopyText,
+  onCopyColor,
 }: {
   projectPath: string;
   imageRecords: ImageRecordMap;
   onCopyText: ImageBrowseViewProps["onCopyText"];
+  onCopyColor: ImageBrowseViewProps["onCopyColor"];
   item: ImageBrowseItem;
   index: number;
   count: number;
@@ -193,6 +202,24 @@ const ImageDetail = ({
   const [actualSize, setActualSize] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const propertiesId = useId();
+  const [loadedImage, setLoadedImage] = useState<{
+    fileId: string;
+    image: HTMLImageElement;
+  } | null>(null);
+  const onImageReady = useCallback(
+    (fileId: string, image: HTMLImageElement) =>
+      setLoadedImage({ fileId, image }),
+    [],
+  );
+
+  const colorProperties = (
+    <ImagePalette
+      fileId={item.fileId}
+      projectPath={projectPath}
+      image={loadedImage?.fileId === item.fileId ? loadedImage.image : null}
+      onCopyColor={onCopyColor}
+    />
+  );
   const record = imageRecords[item.fileId] ?? null;
   const relationships = useMemo(
     () =>
@@ -207,7 +234,13 @@ const ImageDetail = ({
   useLayoutEffect(() => {
     const dialog = dialogRef.current!;
     dialog.showModal();
-    return () => dialog.close();
+    const tooltip = getTooltipDiv();
+    dialog.appendChild(tooltip);
+    return () => {
+      tooltip.classList.remove("excalidraw-tooltip--visible");
+      document.body.appendChild(tooltip);
+      dialog.close();
+    };
   }, []);
   useEffect(() => setActualSize(false), [item.fileId]);
   return (
@@ -274,6 +307,7 @@ const ImageDetail = ({
             readOriginal={readOriginal}
             actualSize={actualSize}
             thumbnail={thumbnail}
+            onReady={onImageReady}
           />
         </div>
         {propertiesOpen && relationships && (
@@ -284,6 +318,7 @@ const ImageDetail = ({
           >
             {record ? (
               <ImageInspector
+                colorProperties={colorProperties}
                 projectPath={projectPath}
                 key={record.fileId}
                 record={record}
@@ -294,9 +329,12 @@ const ImageDetail = ({
                 onCopyImageId={() => onCopyText(record.fileId)}
               />
             ) : (
-              <p className="image-browse-detail__properties-empty">
-                {copy.browse.noProperties}
-              </p>
+              <>
+                {colorProperties}
+                <p className="image-browse-detail__properties-empty">
+                  {copy.browse.noProperties}
+                </p>
+              </>
             )}
           </aside>
         )}
@@ -334,6 +372,7 @@ export const ImageBrowseView = ({
   items,
   imageRecords,
   onCopyText,
+  onCopyColor,
   projectPath,
   thumbnailStore,
   onVisibleFileIdsChange,
@@ -467,6 +506,7 @@ export const ImageBrowseView = ({
           projectPath={projectPath}
           imageRecords={imageRecords}
           onCopyText={onCopyText}
+          onCopyColor={onCopyColor}
           item={items[selectedIndex]}
           index={selectedIndex}
           count={items.length}

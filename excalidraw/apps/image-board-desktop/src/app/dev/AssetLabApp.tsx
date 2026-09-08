@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import type { ImageRecord, ImageRecordMap } from "../../shared/projectTypes";
+import type { GenerationTaskRecord } from "../generationTaskState";
 import { buildImageAssetItems } from "../imageAssetViewModel";
 import { ImageAssetSidebar } from "../components/ImageAssetSidebar";
 import { ImageBrowseView } from "../components/ImageBrowseView";
@@ -77,9 +78,29 @@ const thumbnails = {
   "unused-concept": createThumbnail("#d4d0ff", "#695fba"),
 };
 
+const pendingTask: GenerationTaskRecord = {
+  status: "pending",
+  provider: "openai",
+  model: "openai/gpt-image-2",
+  prompt:
+    "保持产品结构，生成一张克制的工业设计渲染图，优化金属、玻璃和摄影棚光影。",
+  negativePrompt: "",
+  seed: null,
+  aspectRatio: "3:2",
+  width: 1536,
+  height: 1024,
+  startedAt: "2026-09-08T10:47:22.000Z",
+};
+
 export const AssetLabApp = () => {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [records, setRecords] = useState(initialRecords);
+  const searchParams = new URLSearchParams(window.location.search);
+  const scenario = searchParams.get("scenario") ?? "generated";
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    new URLSearchParams(window.location.search).get("theme") === "dark"
+      ? "dark"
+      : "light",
+  );
+  const records = initialRecords;
   const [selectedFileId, setSelectedFileId] = useState("agent-result");
   const items = useMemo(
     () =>
@@ -90,19 +111,63 @@ export const AssetLabApp = () => {
         ...item,
         thumbnailDataUrl: thumbnails[item.fileId as keyof typeof thumbnails],
       })),
-    [records],
+    [],
   );
-  const selectedRecord: ImageRecord | null = records[selectedFileId] ?? null;
+  const task =
+    scenario === "task-pending"
+      ? pendingTask
+      : scenario === "task-error"
+      ? {
+          ...pendingTask,
+          status: "error" as const,
+          errorMessage: "图片输入无法读取",
+          rawError: "HTTP 400 INVALID_IMAGE",
+          stack: "at requestImage (generation.ts:184:17)",
+        }
+      : null;
+  const isCropping = scenario === "crop";
+  const selectedRecord: ImageRecord | null = task
+    ? null
+    : records[selectedFileId] ?? null;
   const browseFixture = useMemo(() => {
     const store = createImageAssetThumbnailStore();
-    const assets = Object.entries(thumbnails).map(([fileId, url]) => ({
-      fileId,
-      mimeType: "image/svg+xml",
-      width: 100,
-      height: 100,
-      dataBase64: btoa(decodeURIComponent(url.split(",")[1])),
-      createdAt: "2026-09-07",
-    }));
+    const useColorFixture = new URLSearchParams(window.location.search).has(
+      "colors",
+    );
+    const assets = Object.entries(thumbnails).map(([fileId, url], index) => {
+      if (useColorFixture) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 800;
+        canvas.height = 400;
+        const ctx = canvas.getContext("2d")!;
+        const colors =
+          index === 0
+            ? ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FFFFFF", "#222222"]
+            : index === 1
+            ? ["#E9E1D4", "#B6A58B", "#81766A", "#2E2722", "#8B4A3B", "#D8D8DA"]
+            : ["#888888"];
+        colors.forEach((color, i) => {
+          ctx.fillStyle = color;
+          ctx.fillRect((i * 800) / colors.length, 0, 800 / colors.length, 400);
+        });
+        return {
+          fileId,
+          mimeType: "image/png",
+          width: 800,
+          height: 400,
+          dataBase64: canvas.toDataURL("image/png").split(",")[1],
+          createdAt: "2026-09-07",
+        };
+      }
+      return {
+        fileId,
+        mimeType: "image/svg+xml",
+        width: 100,
+        height: 100,
+        dataBase64: btoa(decodeURIComponent(url.split(",")[1])),
+        createdAt: "2026-09-07",
+      };
+    });
     store.replace("/asset-lab", assets);
     return {
       store,
@@ -125,7 +190,12 @@ export const AssetLabApp = () => {
           onVisibleFileIdsChange={() => undefined}
           onBackToCanvas={() => window.location.assign("/asset-lab.html")}
           onLocateImage={setSelectedFileId}
-          onCopyText={() => undefined}
+          onCopyText={(text) => {
+            void navigator.clipboard.writeText(text);
+          }}
+          onCopyColor={(hex) => {
+            void navigator.clipboard.writeText(hex);
+          }}
         />
       </main>
     );
@@ -137,7 +207,7 @@ export const AssetLabApp = () => {
         <div>
           <p>DEVELOPMENT ONLY</p>
           <h1>图片资产 Lab</h1>
-          <span>生产组件 · 列表、筛选、详情与重命名</span>
+          <span>生产组件 · 图片信息、配色、生成状态与编辑链</span>
         </div>
         <button
           type="button"
@@ -149,7 +219,7 @@ export const AssetLabApp = () => {
         </button>
       </header>
       <div className="asset-lab__canvas">
-        <p>选择左侧资产，在右侧查看提示词、重命名和技术信息。</p>
+        <p>选择左侧资产，在右侧查看统一排版后的图片属性。</p>
       </div>
       <ImageAssetSidebar
         open
@@ -159,31 +229,32 @@ export const AssetLabApp = () => {
         onSelectRecord={setSelectedFileId}
       />
       <InspectorSidebar
+        readOriginal={browseFixture.readOriginal}
+        onCopyColor={(hex) => {
+          void navigator.clipboard.writeText(hex);
+        }}
         projectPath="/Users/designer/Documents/工业设计项目"
         open
         onOpenChange={() => undefined}
-        selectedShapeActions={null}
-        shouldRenderSelectedShapeActions={false}
-        isImageCropping={false}
+        selectedShapeActions={
+          isCropping ? (
+            <div className="selected-shape-actions">
+              <div className="Island">裁切区域与比例控件</div>
+            </div>
+          ) : null
+        }
+        shouldRenderSelectedShapeActions={isCropping}
+        isImageCropping={isCropping}
         onFinishImageCropping={() => undefined}
         record={selectedRecord}
         ancestorRecords={[]}
         descendantRecords={[]}
-        task={null}
+        task={task}
         onCopyPrompt={() => undefined}
         onCopyTaskError={() => undefined}
         onLocateImageRecord={setSelectedFileId}
         onLocatePromptReference={() => undefined}
         onCopyImageId={() => undefined}
-        onRenameImage={async (displayName) => {
-          setRecords((current) => ({
-            ...current,
-            [selectedFileId]: {
-              ...current[selectedFileId],
-              ...(displayName ? { displayName } : { displayName: undefined }),
-            },
-          }));
-        }}
       />
     </main>
   );

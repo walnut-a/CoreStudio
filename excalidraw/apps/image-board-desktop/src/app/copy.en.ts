@@ -15,6 +15,14 @@ const formatFileSize = (bytes: number) => {
 };
 
 export const enCopy: DesktopCopy = {
+  imageColors: {
+    palette: "Palette",
+    copyColor: (hex: string) => `Copy color ${hex}`,
+    colorCopied: (hex: string) => `Color ${hex} copied`,
+    paletteLoading: "Extracting colors…",
+    paletteEmpty: "No colors to extract",
+    paletteFailed: "Could not read image colors",
+  },
   browse: {
     properties: "Properties",
     imageProperties: "Image properties",
@@ -201,6 +209,10 @@ export const enCopy: DesktopCopy = {
     taskTitle: "Generation task",
     taskPending: "Generating",
     taskFailed: "Generation failed",
+    taskStatusTitle: "Generation status",
+    taskStarted: (value: string) => `Started ${value}`,
+    errorDetails: "Error details",
+    technicalInfo: "Technical information",
     taskStatus: "Status",
     taskStartedAt: "Started",
     taskMessage: "Current message",
@@ -246,6 +258,9 @@ export const enCopy: DesktopCopy = {
     emptyValue: "None",
     copyPrompt: "Copy prompt",
     copyTaskError: "Copy error details",
+    moreInfo: "More information",
+    name: "Name",
+    format: "Format",
   },
   elementActions: {
     title: "Element editing",

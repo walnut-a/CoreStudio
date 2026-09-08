@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import type { ProjectAssetPayload } from "../../shared/desktopBridgeTypes";
 import { copy } from "../copy";
 import { readImagePalette } from "../imageColors";
-import { DesktopButton } from "./DesktopButton";
 import "./ImagePalette.css";
 
 export type ReadPaletteOriginal = (
@@ -42,16 +41,7 @@ const PaletteColors = ({
   }, [image]);
   return (
     <section className="image-palette" aria-label={copy.imageColors.palette}>
-      <div className="image-palette__header">
-        <h3>{copy.imageColors.palette}</h3>
-        <DesktopButton
-          size="small"
-          disabled={!palette?.length}
-          onClick={() => onCopyText(palette!.join(", "))}
-        >
-          {copy.imageColors.copyPalette}
-        </DesktopButton>
-      </div>
+      <h3>{copy.imageColors.palette}</h3>
       {palette?.length ? (
         <div className="image-palette__swatches">
           {palette.map((hex) => (
@@ -61,11 +51,9 @@ const PaletteColors = ({
               className="image-palette__swatch"
               aria-label={copy.imageColors.copyColor(hex)}
               title={copy.imageColors.copyColor(hex)}
+              style={{ backgroundColor: hex }}
               onClick={() => onCopyText(hex)}
-            >
-              <span style={{ backgroundColor: hex }} />
-              <span>{hex}</span>
-            </button>
+            />
           ))}
         </div>
       ) : (

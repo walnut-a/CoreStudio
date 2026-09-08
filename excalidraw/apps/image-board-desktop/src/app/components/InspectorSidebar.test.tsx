@@ -55,7 +55,7 @@ const colorProps = () => ({
 afterEach(() => setActiveDesktopLocale("zh-CN"));
 
 describe("InspectorSidebar", () => {
-  it("画布属性提供相同配色及复制，不提供取色和预览", async () => {
+  it("画布属性只显示可单击复制的色块，不显示色值和整组复制", async () => {
     const input = colorProps();
     render(<InspectorSidebar {...input} />);
     const preview = await screen.findByAltText("");
@@ -66,8 +66,8 @@ describe("InspectorSidebar", () => {
     expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000");
     expect(preview).not.toBeVisible();
     expect(screen.queryByRole("button", { name: "图片取色" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "复制配色" }));
-    expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000");
+    expect(screen.queryByRole("button", { name: "复制配色" })).toBeNull();
+    expect(screen.queryByText("#FF0000")).toBeNull();
     expect(input.readOriginal).toHaveBeenCalledTimes(1);
   });
 

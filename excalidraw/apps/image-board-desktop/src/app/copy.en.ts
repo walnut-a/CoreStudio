@@ -17,7 +17,6 @@ const formatFileSize = (bytes: number) => {
 export const enCopy: DesktopCopy = {
   imageColors: {
     palette: "Palette",
-    copyPalette: "Copy palette",
     copyColor: (hex: string) => `Copy color ${hex}`,
     paletteLoading: "Extracting colors…",
     paletteEmpty: "No colors to extract",

@@ -28,7 +28,6 @@ const formatFileSize = (bytes: number) => {
 const zhCnCopy = {
   imageColors: {
     palette: "配色",
-    copyPalette: "复制配色",
     copyColor: (hex: string) => `复制色值 ${hex}`,
     paletteLoading: "正在提取配色…",
     paletteEmpty: "暂无可提取的颜色",

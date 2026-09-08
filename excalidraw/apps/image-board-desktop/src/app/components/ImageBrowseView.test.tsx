@@ -88,7 +88,7 @@ beforeEach(() => {
 });
 
 describe("ImageBrowseView", () => {
-  it("仅展开属性后提取主色，支持单色和整组复制；切图不沿用旧颜色", async () => {
+  it("仅展开属性后提取主色，色块单击复制且不显示色值；切图不沿用旧颜色", async () => {
     vi.mocked(imageColors.readImagePalette).mockClear();
     const input = props();
     render(<ImageBrowseView {...input} />);
@@ -104,8 +104,9 @@ describe("ImageBrowseView", () => {
       await screen.findByRole("button", { name: "复制色值 #FF0000" }),
     );
     expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000");
-    fireEvent.click(screen.getByRole("button", { name: "复制配色" }));
-    expect(input.onCopyText).toHaveBeenLastCalledWith("#FF0000, #0000FF");
+    expect(screen.queryByRole("button", { name: "复制配色" })).toBeNull();
+    expect(screen.queryByText("#FF0000")).toBeNull();
+    expect(screen.queryByText("#0000FF")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "下一张" }));
     expect(
       screen.queryByRole("button", { name: "复制色值 #FF0000" }),
@@ -129,7 +130,7 @@ describe("ImageBrowseView", () => {
     fireEvent.click(screen.getByRole("button", { name: "属性" }));
     expect(await screen.findByText("无法读取图片颜色")).toBeVisible();
     expect(first).toBeVisible();
-    expect(screen.getByRole("button", { name: "复制配色" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "复制配色" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "下一张" }));
     await screen.findByRole("img", { name: "图片 1" });
   });

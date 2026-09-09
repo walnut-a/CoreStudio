@@ -5,6 +5,7 @@ import {
   getProviderDefinition,
   getProviderModels,
   getRequestAspectRatioOption,
+  getSupportedGenerationQualities,
   getVisibleGenerationFields,
 } from "../shared/providerCatalog";
 import type { PublicProviderSettings } from "../shared/desktopBridgeTypes";
@@ -67,6 +68,11 @@ export const buildGenerateDialogViewModel = ({
     ...request,
     customModels: currentProviderCustomModels,
   });
+  const qualityOptions = getSupportedGenerationQualities({
+    provider: request.provider,
+    model: request.model,
+    customModels: currentProviderCustomModels,
+  });
   const selectedAspectRatio =
     request.aspectRatio === null
       ? ASPECT_RATIO_AUTO_ID
@@ -105,6 +111,7 @@ export const buildGenerateDialogViewModel = ({
     visibleFields,
     maxPromptReferenceCount,
     aspectRatioOptions,
+    qualityOptions,
     selectedAspectRatio,
     referenceLimitMessage,
     canSubmit,

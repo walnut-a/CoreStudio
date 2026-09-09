@@ -7,12 +7,15 @@ import {
   normalizeGenerationRequest,
   resetRemoteModelCatalog,
 } from "./providerCatalog";
-import { ZENMUX_OPENAI_IMAGE_MODELS } from "./zenmuxOpenAIModels";
+import {
+  ZENMUX_BASELINE_OPENAI_IMAGE_MODELS,
+  ZENMUX_OPENAI_IMAGE_MODELS,
+} from "./zenmuxOpenAIModels";
 
 afterEach(resetRemoteModelCatalog);
 
 describe("ZenMux OpenAI image presets", () => {
-  it.each(Object.keys(ZENMUX_OPENAI_IMAGE_MODELS))(
+  it.each(Object.keys(ZENMUX_BASELINE_OPENAI_IMAGE_MODELS))(
     "routes %s to OpenAI Images and limits generation to the supported baseline",
     (model) => {
       expect(getProviderRequestAdapter({ provider: "zenmux", model })).toBe(
@@ -40,7 +43,7 @@ describe("ZenMux OpenAI image presets", () => {
     },
   );
 
-  it("allows the new remote directory to update the new presets without switching existing Vertex routes", () => {
+  it("keeps GPT Image 2 on OpenAI Images when a remote catalog still names the old Vertex route", () => {
     const vertex = getProviderModels("zenmux")["openai/gpt-image-2"];
     applyRemoteModelCatalog({
       schemaVersion: 1,
@@ -60,7 +63,7 @@ describe("ZenMux OpenAI image presets", () => {
     });
     expect(
       getProviderRequestAdapter({ provider: "zenmux", model: vertex.id }),
-    ).toBe("zenmux-vertex-gpt-image");
+    ).toBe("zenmux-openai-images");
     for (const model of Object.keys(ZENMUX_OPENAI_IMAGE_MODELS))
       expect(getProviderModels("zenmux")[model]).toBeDefined();
   });

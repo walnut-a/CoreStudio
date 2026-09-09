@@ -5,6 +5,7 @@ import {
   getAspectRatioOptions,
   getProviderRequestAdapter,
   getRequestAspectRatioOption,
+  isGptImage2OrLaterModel,
   normalizeGenerationRequest,
 } from "../../src/shared/providerCatalog";
 
@@ -447,6 +448,7 @@ export const generateZenMuxImages = async ({
   customModels?: readonly CustomProviderModel[];
   signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
+  const isGptImage2OrLater = isGptImage2OrLaterModel(request.model);
   const adapter = getProviderRequestAdapter({
     provider: "zenmux",
     model: request.model,
@@ -462,7 +464,9 @@ export const generateZenMuxImages = async ({
       baseUrl: "https://zenmux.ai/api/v1",
       responseProvider: "zenmux",
       providerLabel: "ZenMux",
-      outputFormat: null,
+      outputFormat: isGptImage2OrLater ? "png" : null,
+      moderation: isGptImage2OrLater ? "low" : null,
+      maxImageCount: isGptImage2OrLater ? 10 : 1,
     });
   }
 

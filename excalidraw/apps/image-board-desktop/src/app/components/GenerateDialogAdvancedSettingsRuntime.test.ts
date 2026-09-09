@@ -48,6 +48,8 @@ const visibleFields: Record<GenerationField, boolean> = {
   aspectRatio: true,
   seed: true,
   imageCount: true,
+  quality: false,
+  background: false,
 };
 
 const aspectRatioOptions: readonly AspectRatioOption[] = [
@@ -96,6 +98,7 @@ const createRuntimeInput = () => {
     visibleFields,
     selectedAspectRatio: "4:3",
     aspectRatioOptions,
+    qualityOptions: [],
     configuredProviders: ["gemini"] as const,
     updateRequest,
     onModelSelectionChange: vi.fn(),

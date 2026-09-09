@@ -133,6 +133,8 @@ export const isSameGenerationRequest = (
     left.height === right.height &&
     (left.seed ?? null) === (right.seed ?? null) &&
     left.imageCount === right.imageCount &&
+    (left.quality ?? "auto") === (right.quality ?? "auto") &&
+    (left.background ?? "auto") === (right.background ?? "auto") &&
     isSameReferencePayload(left.reference, right.reference)
   );
 };
@@ -162,9 +164,9 @@ export type GenerationExecutionPlan = {
 export const buildGenerationExecutionPlan = (
   _request: GenerationRequest,
 ): GenerationExecutionPlan => ({
-    kind: "start-builtin-generation",
-    generationSource: "builtin",
-  });
+  kind: "start-builtin-generation",
+  generationSource: "builtin",
+});
 
 export const buildBuiltinGenerationSubmittedRequest = (
   request: GenerationRequest,

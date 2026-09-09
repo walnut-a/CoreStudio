@@ -123,6 +123,8 @@ const parseCapabilities = (
       "supportsSeed",
       "supportsImageCount",
       "supportsReferenceImages",
+      "supportsQuality",
+      "supportsTransparentBackground",
       "maxImageCount",
       "maxReferenceImageCount",
       "sizeControlMode",
@@ -136,6 +138,14 @@ const parseCapabilities = (
     "supportsReferenceImages",
   ] as const) {
     if (typeof value[field] !== "boolean") {
+      throw new Error(`${context}.${field}必须是布尔值`);
+    }
+  }
+  for (const field of [
+    "supportsQuality",
+    "supportsTransparentBackground",
+  ] as const) {
+    if (value[field] !== undefined && typeof value[field] !== "boolean") {
       throw new Error(`${context}.${field}必须是布尔值`);
     }
   }

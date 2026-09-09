@@ -180,6 +180,8 @@ describe("createGenerateAdvancedRequestHandlers", () => {
     handlers.changeHeight(960);
     handlers.changeSeed(42);
     handlers.changeImageCount(3);
+    handlers.changeQuality("high");
+    handlers.changeBackground("transparent");
 
     expect(getRequest()).toMatchObject({
       provider: "gemini" satisfies ProviderId,
@@ -189,6 +191,8 @@ describe("createGenerateAdvancedRequestHandlers", () => {
       height: 960,
       seed: 42,
       imageCount: 3,
+      quality: "high",
+      background: "transparent",
     });
   });
 });

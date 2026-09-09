@@ -16,7 +16,18 @@ export type GenerationField =
   | "height"
   | "aspectRatio"
   | "seed"
-  | "imageCount";
+  | "imageCount"
+  | "quality"
+  | "background";
+
+export type GenerationQuality =
+  | "auto"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
+export type GenerationBackground = "auto" | "transparent";
 
 export type SizeControlMode = "exact" | "aspect-ratio";
 
@@ -41,6 +52,8 @@ export interface ProviderCapabilities {
   supportsSeed: boolean;
   supportsImageCount: boolean;
   supportsReferenceImages: boolean;
+  supportsQuality?: boolean;
+  supportsTransparentBackground?: boolean;
   maxImageCount: number;
   maxReferenceImageCount: number;
   sizeControlMode: SizeControlMode;
@@ -93,6 +106,8 @@ export interface GenerationRequest {
   height: number;
   seed?: number | null;
   imageCount: number;
+  quality?: GenerationQuality;
+  background?: GenerationBackground;
   reference?: GenerationReferencePayload | null;
 }
 

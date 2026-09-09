@@ -11,6 +11,7 @@ import {
   getProviderCapabilities,
   getProviderDefinition,
   getProviderRequestAdapter,
+  getSupportedGenerationQualities,
   getVisibleGenerationFields,
   normalizeGenerationRequest,
   PROVIDER_CATALOG,
@@ -24,7 +25,7 @@ afterEach(() => {
 });
 
 describe("providerCatalog", () => {
-  it("replaces built-in presets with a validated remote provider catalog", () => {
+  it("applies a validated remote provider catalog and preserves required new presets", () => {
     const catalog: RemoteModelCatalog = {
       schemaVersion: 1,
       revision: 2,
@@ -62,6 +63,8 @@ describe("providerCatalog", () => {
 
     expect(getDefaultModel("zenmux")).toBe("google/gemini-3-pro-image");
     expect(Object.keys(getProviderModels("zenmux"))).toEqual([
+      "openai/gpt-image-2.5-flare",
+      "openai/gpt-image-2.5-sunburst",
       "google/gemini-3-pro-image",
     ]);
     expect(
@@ -70,6 +73,34 @@ describe("providerCatalog", () => {
         model: "google/gemini-3-pro-image",
       }),
     ).toBe("zenmux-vertex-generate-content");
+  });
+
+  it("preserves direct OpenAI GPT Image 2.5 presets with an older remote catalog", () => {
+    const legacyModel = PROVIDER_CATALOG.openai.models["gpt-image-1.5"];
+    applyRemoteModelCatalog({
+      schemaVersion: 1,
+      revision: 4,
+      publishedAt: "2026-09-06T00:00:00Z",
+      minClientVersion: "1.1.49",
+      modelAliases: {},
+      providers: {
+        openai: {
+          defaultModel: legacyModel.id,
+          models: [
+            {
+              ...legacyModel,
+              adapter: legacyModel.adapter ?? "openai-images",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(Object.keys(getProviderModels("openai"))).toEqual([
+      "gpt-image-2.5-flare",
+      "gpt-image-2.5-sunburst",
+      "gpt-image-1.5",
+    ]);
   });
 
   it("不会让旧远程目录覆盖应用内更新的 Seedream 官方模型", () => {
@@ -206,6 +237,12 @@ describe("providerCatalog", () => {
       "openai/gpt-image-2",
     );
     expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "openai/gpt-image-2.5-flare",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
+      "openai/gpt-image-2.5-sunburst",
+    );
+    expect(Object.keys(zenmuxDefinition.models)).toContain(
       "qwen/qwen-image-2.0",
     );
     expect(Object.keys(zenmuxDefinition.models)).toContain(
@@ -228,6 +265,12 @@ describe("providerCatalog", () => {
     );
     expect(Object.keys(openaiDefinition.models)).toContain("gpt-image-1.5");
     expect(Object.keys(openaiDefinition.models)).toContain("gpt-image-2");
+    expect(Object.keys(openaiDefinition.models)).toContain(
+      "gpt-image-2.5-flare",
+    );
+    expect(Object.keys(openaiDefinition.models)).toContain(
+      "gpt-image-2.5-sunburst",
+    );
     expect(Object.keys(openrouterDefinition.models)).toContain(
       "google/gemini-3.1-flash-image-preview",
     );
@@ -322,7 +365,7 @@ describe("providerCatalog", () => {
         provider: "zenmux",
         model: "openai/gpt-image-2",
       }),
-    ).toBe("zenmux-vertex-gpt-image");
+    ).toBe("zenmux-openai-images");
 
     expect(
       getProviderRequestAdapter({
@@ -524,6 +567,8 @@ describe("providerCatalog", () => {
       aspectRatio: true,
       seed: false,
       imageCount: false,
+      quality: false,
+      background: false,
     });
   });
 
@@ -594,6 +639,8 @@ describe("providerCatalog", () => {
       height: false,
       aspectRatio: true,
       imageCount: true,
+      quality: true,
+      background: true,
     });
   });
 
@@ -816,10 +863,14 @@ describe("providerCatalog", () => {
         height: 1024,
         seed: 42,
         imageCount: 12,
+        quality: "high",
+        background: "transparent",
       }),
     ).toMatchObject({
       seed: null,
       imageCount: 10,
+      quality: "high",
+      background: "transparent",
     });
 
     expect(
@@ -832,6 +883,8 @@ describe("providerCatalog", () => {
         height: 1024,
         seed: 42,
         imageCount: 4,
+        quality: "high",
+        background: "transparent",
         reference: {
           enabled: true,
           elementCount: 2,
@@ -843,6 +896,8 @@ describe("providerCatalog", () => {
       negativePrompt: undefined,
       seed: null,
       imageCount: 1,
+      quality: undefined,
+      background: undefined,
       reference: {
         enabled: true,
       },
@@ -911,5 +966,48 @@ describe("providerCatalog", () => {
     ).toMatchObject({
       aspectRatio: null,
     });
+  });
+
+  it("exposes the complete GPT Image 2.5 quality and reference capabilities", () => {
+    for (const provider of ["openai", "zenmux"] as const) {
+      const model =
+        provider === "openai"
+          ? "gpt-image-2.5-sunburst"
+          : "openai/gpt-image-2.5-sunburst";
+
+      expect(getProviderCapabilities({ provider, model })).toMatchObject({
+        supportsImageCount: true,
+        supportsReferenceImages: true,
+        supportsQuality: true,
+        supportsTransparentBackground: true,
+        maxImageCount: 10,
+        maxReferenceImageCount: 16,
+      });
+      expect(getProviderRequestAdapter({ provider, model })).toBe(
+        provider === "openai" ? "openai-images" : "zenmux-openai-images",
+      );
+      expect(getSupportedGenerationQualities({ provider, model })).toEqual([
+        "auto",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+      ]);
+    }
+  });
+
+  it("resets extended quality when switching from GPT Image 2.5 to GPT Image 2", () => {
+    expect(
+      normalizeGenerationRequest({
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+        prompt: "产品渲染",
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+        quality: "max",
+      }).quality,
+    ).toBe("auto");
   });
 });

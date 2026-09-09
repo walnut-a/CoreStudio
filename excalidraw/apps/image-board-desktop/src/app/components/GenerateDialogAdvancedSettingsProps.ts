@@ -13,6 +13,7 @@ interface CreateGenerateDialogAdvancedSettingsPropsInput {
   visibleFields: AdvancedFieldsProps["visibleFields"];
   selectedAspectRatio: AdvancedFieldsProps["selectedAspectRatio"];
   aspectRatioOptions: AdvancedFieldsProps["aspectRatioOptions"];
+  qualityOptions: AdvancedFieldsProps["qualityOptions"];
   configuredProviders: AdvancedFieldsProps["configuredProviders"];
   advancedRequestHandlers: {
     changeProvider: AdvancedFieldsProps["onProviderChange"];
@@ -23,6 +24,8 @@ interface CreateGenerateDialogAdvancedSettingsPropsInput {
     changeHeight: AdvancedFieldsProps["onHeightChange"];
     changeSeed: AdvancedFieldsProps["onSeedChange"];
     changeImageCount: AdvancedFieldsProps["onImageCountChange"];
+    changeQuality: AdvancedFieldsProps["onQualityChange"];
+    changeBackground: AdvancedFieldsProps["onBackgroundChange"];
   };
   handleTextInputKeyDown: AdvancedFieldsProps["onTextInputKeyDown"];
 }
@@ -33,6 +36,7 @@ export const createGenerateDialogAdvancedSettingsProps = ({
   visibleFields,
   selectedAspectRatio,
   aspectRatioOptions,
+  qualityOptions,
   configuredProviders,
   advancedRequestHandlers,
   handleTextInputKeyDown,
@@ -43,6 +47,7 @@ export const createGenerateDialogAdvancedSettingsProps = ({
     visibleFields,
     selectedAspectRatio,
     aspectRatioOptions,
+    qualityOptions,
     configuredProviders,
     onProviderChange: advancedRequestHandlers.changeProvider,
     onModelChange: advancedRequestHandlers.changeModel,
@@ -52,6 +57,8 @@ export const createGenerateDialogAdvancedSettingsProps = ({
     onHeightChange: advancedRequestHandlers.changeHeight,
     onSeedChange: advancedRequestHandlers.changeSeed,
     onImageCountChange: advancedRequestHandlers.changeImageCount,
+    onQualityChange: advancedRequestHandlers.changeQuality,
+    onBackgroundChange: advancedRequestHandlers.changeBackground,
     onTextInputKeyDown: handleTextInputKeyDown,
   },
 });

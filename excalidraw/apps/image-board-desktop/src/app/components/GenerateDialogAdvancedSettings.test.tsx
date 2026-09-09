@@ -18,6 +18,8 @@ const visibleFields: Record<GenerationField, boolean> = {
   aspectRatio: true,
   seed: true,
   imageCount: true,
+  quality: false,
+  background: false,
 };
 
 const request: Pick<
@@ -64,6 +66,7 @@ const createAdvancedSettingsProps = (): Parameters<
     visibleFields,
     selectedAspectRatio: "4:3",
     aspectRatioOptions: [{ id: "4:3", label: "4:3", width: 4, height: 3 }],
+    qualityOptions: [],
     configuredProviders: ["gemini"],
     onProviderChange: vi.fn(),
     onModelChange: vi.fn(),
@@ -73,6 +76,8 @@ const createAdvancedSettingsProps = (): Parameters<
     onHeightChange: vi.fn(),
     onSeedChange: vi.fn(),
     onImageCountChange: vi.fn(),
+    onQualityChange: vi.fn(),
+    onBackgroundChange: vi.fn(),
     onTextInputKeyDown: vi.fn(),
   },
 });

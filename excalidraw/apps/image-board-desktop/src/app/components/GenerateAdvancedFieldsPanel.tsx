@@ -9,6 +9,8 @@ import { copy } from "../copy";
 import type {
   AspectRatioOption,
   GenerationField,
+  GenerationBackground,
+  GenerationQuality,
   GenerationRequest,
   ProviderId,
   ProviderModelDefinition,
@@ -24,11 +26,14 @@ interface GenerateAdvancedFieldsPanelProps {
     | "height"
     | "seed"
     | "imageCount"
+    | "quality"
+    | "background"
   >;
   providerModels: Record<string, ProviderModelDefinition>;
   visibleFields: Record<GenerationField, boolean>;
   selectedAspectRatio: string;
   aspectRatioOptions: readonly AspectRatioOption[];
+  qualityOptions: readonly GenerationQuality[];
   configuredProviders: readonly ProviderId[];
   onProviderChange: (provider: ProviderId) => void;
   onModelChange: (model: string) => void;
@@ -38,6 +43,8 @@ interface GenerateAdvancedFieldsPanelProps {
   onHeightChange: (height: number) => void;
   onSeedChange: (seed: number | null) => void;
   onImageCountChange: (imageCount: number) => void;
+  onQualityChange: (quality: GenerationQuality) => void;
+  onBackgroundChange: (background: GenerationBackground) => void;
   onTextInputKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
@@ -47,6 +54,7 @@ export const GenerateAdvancedFieldsPanel = ({
   visibleFields,
   selectedAspectRatio,
   aspectRatioOptions,
+  qualityOptions,
   configuredProviders,
   onProviderChange,
   onModelChange,
@@ -56,6 +64,8 @@ export const GenerateAdvancedFieldsPanel = ({
   onHeightChange,
   onSeedChange,
   onImageCountChange,
+  onQualityChange,
+  onBackgroundChange,
   onTextInputKeyDown,
 }: GenerateAdvancedFieldsPanelProps) => {
   if (configuredProviders.length === 0) {
@@ -181,6 +191,46 @@ export const GenerateAdvancedFieldsPanel = ({
             value={request.imageCount}
             onChange={(event) => onImageCountChange(Number(event.target.value))}
           />
+        </label>
+      ) : null}
+
+      {visibleFields.quality ? (
+        <label>
+          {copy.generateDialog.quality}
+          <select
+            value={request.quality ?? "auto"}
+            onChange={(event) =>
+              onQualityChange(event.target.value as GenerationQuality)
+            }
+          >
+            {qualityOptions.map((quality) => (
+              <option key={quality} value={quality}>
+                {
+                  {
+                    auto: copy.generateDialog.qualityAuto,
+                    low: copy.generateDialog.qualityLow,
+                    medium: copy.generateDialog.qualityMedium,
+                    high: copy.generateDialog.qualityHigh,
+                    xhigh: copy.generateDialog.qualityXHigh,
+                    max: copy.generateDialog.qualityMax,
+                  }[quality]
+                }
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
+      {visibleFields.background ? (
+        <label className="dialog-checkbox dialog-checkbox--compact generate-panel__option-toggle">
+          <input
+            type="checkbox"
+            checked={request.background === "transparent"}
+            onChange={(event) =>
+              onBackgroundChange(event.target.checked ? "transparent" : "auto")
+            }
+          />
+          {copy.generateDialog.transparentBackground}
         </label>
       ) : null}
     </>

@@ -101,6 +101,47 @@ describe("generateOpenAIImages", () => {
           prompt: "一张横版产品发布海报",
           size: "auto",
           output_format: "png",
+          moderation: "low",
+        }),
+      }),
+    );
+  });
+
+  it("sends GPT Image 2.5 extended quality, transparency, and minimum moderation", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [{ b64_json: Buffer.from("image 2.5").toString("base64") }],
+      }),
+    });
+
+    await generateOpenAIImages({
+      apiKey: "openai-key",
+      request: {
+        provider: "openai",
+        model: "gpt-image-2.5-flare",
+        prompt: "透明背景的产品渲染图",
+        aspectRatio: "16:9-4k",
+        width: 3840,
+        height: 2160,
+        imageCount: 10,
+        quality: "max",
+        background: "transparent",
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/images/generations",
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: "gpt-image-2.5-flare",
+          prompt: "透明背景的产品渲染图",
+          size: "3840x2160",
+          output_format: "png",
+          moderation: "low",
+          quality: "max",
+          background: "transparent",
+          n: 10,
         }),
       }),
     );

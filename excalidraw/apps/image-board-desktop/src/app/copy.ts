@@ -159,6 +159,8 @@ const zhCnCopy = {
     qualityLow: "低",
     qualityMedium: "中",
     qualityHigh: "高",
+    qualityXHigh: "超高",
+    qualityMax: "最高",
     transparentBackground: "透明背景",
     customModel: (label: string) => `自定义：${label}`,
     referenceThumbnail: (label: string) => `${label} 缩略图`,

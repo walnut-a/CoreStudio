@@ -1,6 +1,8 @@
 import {
   getAspectRatioOptions,
   getRequestAspectRatioOption,
+  isGptImage25Model,
+  isGptImage2OrLaterModel,
 } from "../../src/shared/providerCatalog";
 
 import { writeGenerationLog } from "../generationLogs";
@@ -253,7 +255,15 @@ export const generateOpenAIImages = async ({
   const size = toOpenAIImageSize(request);
   const effectiveOutputFormat =
     request.background === "transparent" ? "png" : outputFormat;
-  const imageCount = clampImageCount(request, maxImageCount);
+  const effectiveModeration =
+    moderation ??
+    (request.provider === "openai" && isGptImage2OrLaterModel(request.model)
+      ? "low"
+      : null);
+  const imageCount = clampImageCount(
+    request,
+    isGptImage25Model(request.model) ? 10 : maxImageCount,
+  );
   const endpoint = uploadReferenceImages.length
     ? endpoints.edits
     : endpoints.generations;
@@ -274,7 +284,7 @@ export const generateOpenAIImages = async ({
         size,
         images: uploadReferenceImages,
         outputFormat: effectiveOutputFormat,
-        moderation,
+        moderation: effectiveModeration,
         quality: request.quality,
         background: request.background,
       })
@@ -288,7 +298,7 @@ export const generateOpenAIImages = async ({
             ...(effectiveOutputFormat
               ? { output_format: effectiveOutputFormat }
               : {}),
-            ...(moderation ? { moderation } : {}),
+            ...(effectiveModeration ? { moderation: effectiveModeration } : {}),
             ...(request.quality ? { quality: request.quality } : {}),
             ...(request.background ? { background: request.background } : {}),
             ...(imageCount > 1 ? { n: imageCount } : {}),
@@ -314,7 +324,9 @@ export const generateOpenAIImages = async ({
             if (effectiveOutputFormat) {
               formData.set("output_format", effectiveOutputFormat);
             }
-            if (moderation) formData.set("moderation", moderation);
+            if (effectiveModeration) {
+              formData.set("moderation", effectiveModeration);
+            }
             if (request.quality) formData.set("quality", request.quality);
             if (request.background) {
               formData.set("background", request.background);
@@ -346,7 +358,7 @@ export const generateOpenAIImages = async ({
             ...(effectiveOutputFormat
               ? { output_format: effectiveOutputFormat }
               : {}),
-            ...(moderation ? { moderation } : {}),
+            ...(effectiveModeration ? { moderation: effectiveModeration } : {}),
             ...(request.quality ? { quality: request.quality } : {}),
             ...(request.background ? { background: request.background } : {}),
             ...(imageCount > 1 ? { n: imageCount } : {}),

@@ -20,7 +20,13 @@ export type GenerationField =
   | "quality"
   | "background";
 
-export type GenerationQuality = "auto" | "low" | "medium" | "high";
+export type GenerationQuality =
+  | "auto"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
 export type GenerationBackground = "auto" | "transparent";
 
 export type SizeControlMode = "exact" | "aspect-ratio";

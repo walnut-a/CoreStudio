@@ -7,12 +7,15 @@ import {
   normalizeGenerationRequest,
   resetRemoteModelCatalog,
 } from "./providerCatalog";
-import { ZENMUX_OPENAI_IMAGE_MODELS } from "./zenmuxOpenAIModels";
+import {
+  ZENMUX_BASELINE_OPENAI_IMAGE_MODELS,
+  ZENMUX_OPENAI_IMAGE_MODELS,
+} from "./zenmuxOpenAIModels";
 
 afterEach(resetRemoteModelCatalog);
 
 describe("ZenMux OpenAI image presets", () => {
-  it.each(Object.keys(ZENMUX_OPENAI_IMAGE_MODELS))(
+  it.each(Object.keys(ZENMUX_BASELINE_OPENAI_IMAGE_MODELS))(
     "routes %s to OpenAI Images and limits generation to the supported baseline",
     (model) => {
       expect(getProviderRequestAdapter({ provider: "zenmux", model })).toBe(

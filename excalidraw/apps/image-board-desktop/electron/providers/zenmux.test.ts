@@ -254,6 +254,48 @@ describe("generateZenMuxImages", () => {
     expect(body.get("background")).toBe("transparent");
   });
 
+  it.each(["openai/gpt-image-2.5-flare", "openai/gpt-image-2.5-sunburst"])(
+    "fully forwards GPT Image 2.5 controls for %s",
+    async (model) => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [{ b64_json: Buffer.from("gpt 2.5").toString("base64") }],
+        }),
+      });
+
+      await generateZenMuxImages({
+        apiKey: "test-key",
+        request: {
+          provider: "zenmux",
+          model,
+          prompt: "高精度产品渲染图",
+          width: 2048,
+          height: 2048,
+          imageCount: 10,
+          quality: "xhigh",
+          background: "transparent",
+        },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://zenmux.ai/api/v1/images/generations",
+        expect.objectContaining({
+          body: JSON.stringify({
+            model,
+            prompt: "高精度产品渲染图",
+            size: "2048x2048",
+            output_format: "png",
+            moderation: "low",
+            quality: "xhigh",
+            background: "transparent",
+            n: 10,
+          }),
+        }),
+      );
+    },
+  );
+
   it("uses the ZenMux Vertex AI endpoint for Google image models", async () => {
     generateContent.mockResolvedValue({
       candidates: [

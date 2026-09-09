@@ -66,6 +66,7 @@ const createAdvancedSettingsProps = (): Parameters<
     visibleFields,
     selectedAspectRatio: "4:3",
     aspectRatioOptions: [{ id: "4:3", label: "4:3", width: 4, height: 3 }],
+    qualityOptions: [],
     configuredProviders: ["gemini"],
     onProviderChange: vi.fn(),
     onModelChange: vi.fn(),

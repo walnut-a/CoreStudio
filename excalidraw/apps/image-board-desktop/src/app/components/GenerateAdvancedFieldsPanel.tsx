@@ -33,6 +33,7 @@ interface GenerateAdvancedFieldsPanelProps {
   visibleFields: Record<GenerationField, boolean>;
   selectedAspectRatio: string;
   aspectRatioOptions: readonly AspectRatioOption[];
+  qualityOptions: readonly GenerationQuality[];
   configuredProviders: readonly ProviderId[];
   onProviderChange: (provider: ProviderId) => void;
   onModelChange: (model: string) => void;
@@ -53,6 +54,7 @@ export const GenerateAdvancedFieldsPanel = ({
   visibleFields,
   selectedAspectRatio,
   aspectRatioOptions,
+  qualityOptions,
   configuredProviders,
   onProviderChange,
   onModelChange,
@@ -201,10 +203,20 @@ export const GenerateAdvancedFieldsPanel = ({
               onQualityChange(event.target.value as GenerationQuality)
             }
           >
-            <option value="auto">{copy.generateDialog.qualityAuto}</option>
-            <option value="low">{copy.generateDialog.qualityLow}</option>
-            <option value="medium">{copy.generateDialog.qualityMedium}</option>
-            <option value="high">{copy.generateDialog.qualityHigh}</option>
+            {qualityOptions.map((quality) => (
+              <option key={quality} value={quality}>
+                {
+                  {
+                    auto: copy.generateDialog.qualityAuto,
+                    low: copy.generateDialog.qualityLow,
+                    medium: copy.generateDialog.qualityMedium,
+                    high: copy.generateDialog.qualityHigh,
+                    xhigh: copy.generateDialog.qualityXHigh,
+                    max: copy.generateDialog.qualityMax,
+                  }[quality]
+                }
+              </option>
+            ))}
           </select>
         </label>
       ) : null}

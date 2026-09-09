@@ -91,6 +91,7 @@ const renderPanel = (
     request,
     providerModels,
     visibleFields,
+    qualityOptions: ["auto", "low", "medium", "high"],
     selectedAspectRatio: "4:3",
     aspectRatioOptions: [
       { id: "1:1", label: "1:1", width: 1024, height: 1024 },
@@ -302,6 +303,22 @@ describe("GenerateAdvancedFieldsPanel", () => {
 
     expect(onQualityChange).toHaveBeenCalledWith("high");
     expect(onBackgroundChange).toHaveBeenCalledWith("auto");
+  });
+
+  it("shows the extended GPT Image 2.5 quality levels", () => {
+    renderPanel({
+      visibleFields: { ...visibleFields, quality: true },
+      qualityOptions: ["auto", "low", "medium", "high", "xhigh", "max"],
+    });
+
+    expect(
+      Array.from(
+        screen
+          .getByLabelText(copy.generateDialog.quality)
+          .querySelectorAll("option"),
+        (option) => option.value,
+      ),
+    ).toEqual(["auto", "low", "medium", "high", "xhigh", "max"]);
   });
 
   it("hides optional generation fields when they are unavailable", () => {

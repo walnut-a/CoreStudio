@@ -96,6 +96,7 @@ export const useGenerateImageDialogRuntime = ({
     providerModels,
     visibleFields,
     aspectRatioOptions,
+    qualityOptions,
     selectedAspectRatio,
     pendingReference,
     referenceLimitMessage,
@@ -160,6 +161,7 @@ export const useGenerateImageDialogRuntime = ({
       visibleFields,
       selectedAspectRatio,
       aspectRatioOptions,
+      qualityOptions,
       configuredProviders: getConfiguredProviderIds(providerSettings ?? {}),
       handleTextInputKeyDown,
     });

@@ -98,6 +98,7 @@ const createRuntimeInput = () => {
     visibleFields,
     selectedAspectRatio: "4:3",
     aspectRatioOptions,
+    qualityOptions: [],
     configuredProviders: ["gemini"] as const,
     updateRequest,
     onModelSelectionChange: vi.fn(),

@@ -154,6 +154,8 @@ export const enCopy: DesktopCopy = {
     qualityLow: "Low",
     qualityMedium: "Medium",
     qualityHigh: "High",
+    qualityXHigh: "Extra high",
+    qualityMax: "Maximum",
     transparentBackground: "Transparent background",
     customModel: (label: string) => `Custom: ${label}`,
     referenceThumbnail: (label: string) => `${label} thumbnail`,

@@ -79,6 +79,7 @@ const createInput = () => {
     visibleFields,
     selectedAspectRatio: "4:3",
     aspectRatioOptions,
+    qualityOptions: [],
     configuredProviders: ["gemini"] as const,
     advancedRequestHandlers,
     handleTextInputKeyDown: vi.fn(),
@@ -96,6 +97,7 @@ describe("createGenerateDialogAdvancedSettingsProps", () => {
       visibleFields,
       selectedAspectRatio: "4:3",
       aspectRatioOptions,
+      qualityOptions: [],
       configuredProviders: ["gemini"],
     });
     expect(props.advancedFieldsProps.onProviderChange).toBe(

@@ -13,6 +13,7 @@ interface CreateGenerateDialogAdvancedSettingsPropsInput {
   visibleFields: AdvancedFieldsProps["visibleFields"];
   selectedAspectRatio: AdvancedFieldsProps["selectedAspectRatio"];
   aspectRatioOptions: AdvancedFieldsProps["aspectRatioOptions"];
+  qualityOptions: AdvancedFieldsProps["qualityOptions"];
   configuredProviders: AdvancedFieldsProps["configuredProviders"];
   advancedRequestHandlers: {
     changeProvider: AdvancedFieldsProps["onProviderChange"];
@@ -35,6 +36,7 @@ export const createGenerateDialogAdvancedSettingsProps = ({
   visibleFields,
   selectedAspectRatio,
   aspectRatioOptions,
+  qualityOptions,
   configuredProviders,
   advancedRequestHandlers,
   handleTextInputKeyDown,
@@ -45,6 +47,7 @@ export const createGenerateDialogAdvancedSettingsProps = ({
     visibleFields,
     selectedAspectRatio,
     aspectRatioOptions,
+    qualityOptions,
     configuredProviders,
     onProviderChange: advancedRequestHandlers.changeProvider,
     onModelChange: advancedRequestHandlers.changeModel,

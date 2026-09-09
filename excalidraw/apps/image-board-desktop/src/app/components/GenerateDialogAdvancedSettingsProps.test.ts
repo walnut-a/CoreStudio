@@ -52,6 +52,8 @@ const visibleFields: Record<GenerationField, boolean> = {
   aspectRatio: true,
   seed: true,
   imageCount: true,
+  quality: false,
+  background: false,
 };
 
 const aspectRatioOptions: readonly AspectRatioOption[] = [
@@ -68,6 +70,8 @@ const createInput = () => {
     changeHeight: vi.fn(),
     changeSeed: vi.fn(),
     changeImageCount: vi.fn(),
+    changeQuality: vi.fn(),
+    changeBackground: vi.fn(),
   };
   return {
     request,

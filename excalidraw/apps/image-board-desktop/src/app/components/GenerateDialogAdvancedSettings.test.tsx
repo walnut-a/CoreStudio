@@ -18,6 +18,8 @@ const visibleFields: Record<GenerationField, boolean> = {
   aspectRatio: true,
   seed: true,
   imageCount: true,
+  quality: false,
+  background: false,
 };
 
 const request: Pick<
@@ -73,6 +75,8 @@ const createAdvancedSettingsProps = (): Parameters<
     onHeightChange: vi.fn(),
     onSeedChange: vi.fn(),
     onImageCountChange: vi.fn(),
+    onQualityChange: vi.fn(),
+    onBackgroundChange: vi.fn(),
     onTextInputKeyDown: vi.fn(),
   },
 });

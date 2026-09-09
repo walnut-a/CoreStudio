@@ -23,6 +23,8 @@ interface CreateGenerateDialogAdvancedSettingsPropsInput {
     changeHeight: AdvancedFieldsProps["onHeightChange"];
     changeSeed: AdvancedFieldsProps["onSeedChange"];
     changeImageCount: AdvancedFieldsProps["onImageCountChange"];
+    changeQuality: AdvancedFieldsProps["onQualityChange"];
+    changeBackground: AdvancedFieldsProps["onBackgroundChange"];
   };
   handleTextInputKeyDown: AdvancedFieldsProps["onTextInputKeyDown"];
 }
@@ -52,6 +54,8 @@ export const createGenerateDialogAdvancedSettingsProps = ({
     onHeightChange: advancedRequestHandlers.changeHeight,
     onSeedChange: advancedRequestHandlers.changeSeed,
     onImageCountChange: advancedRequestHandlers.changeImageCount,
+    onQualityChange: advancedRequestHandlers.changeQuality,
+    onBackgroundChange: advancedRequestHandlers.changeBackground,
     onTextInputKeyDown: handleTextInputKeyDown,
   },
 });

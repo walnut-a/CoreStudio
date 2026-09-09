@@ -447,6 +447,8 @@ export const generateZenMuxImages = async ({
   customModels?: readonly CustomProviderModel[];
   signal?: AbortSignal;
 }): Promise<GenerationResponse> => {
+  const isGptImage2 =
+    request.model.trim().toLowerCase() === "openai/gpt-image-2";
   const adapter = getProviderRequestAdapter({
     provider: "zenmux",
     model: request.model,
@@ -462,7 +464,9 @@ export const generateZenMuxImages = async ({
       baseUrl: "https://zenmux.ai/api/v1",
       responseProvider: "zenmux",
       providerLabel: "ZenMux",
-      outputFormat: null,
+      outputFormat: isGptImage2 ? "png" : null,
+      moderation: isGptImage2 ? "low" : null,
+      maxImageCount: isGptImage2 ? 10 : 1,
     });
   }
 

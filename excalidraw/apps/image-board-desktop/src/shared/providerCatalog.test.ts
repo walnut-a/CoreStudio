@@ -322,7 +322,7 @@ describe("providerCatalog", () => {
         provider: "zenmux",
         model: "openai/gpt-image-2",
       }),
-    ).toBe("zenmux-vertex-gpt-image");
+    ).toBe("zenmux-openai-images");
 
     expect(
       getProviderRequestAdapter({
@@ -524,6 +524,8 @@ describe("providerCatalog", () => {
       aspectRatio: true,
       seed: false,
       imageCount: false,
+      quality: false,
+      background: false,
     });
   });
 
@@ -594,6 +596,8 @@ describe("providerCatalog", () => {
       height: false,
       aspectRatio: true,
       imageCount: true,
+      quality: true,
+      background: true,
     });
   });
 
@@ -816,10 +820,14 @@ describe("providerCatalog", () => {
         height: 1024,
         seed: 42,
         imageCount: 12,
+        quality: "high",
+        background: "transparent",
       }),
     ).toMatchObject({
       seed: null,
       imageCount: 10,
+      quality: "high",
+      background: "transparent",
     });
 
     expect(
@@ -832,6 +840,8 @@ describe("providerCatalog", () => {
         height: 1024,
         seed: 42,
         imageCount: 4,
+        quality: "high",
+        background: "transparent",
         reference: {
           enabled: true,
           elementCount: 2,
@@ -843,6 +853,8 @@ describe("providerCatalog", () => {
       negativePrompt: undefined,
       seed: null,
       imageCount: 1,
+      quality: undefined,
+      background: undefined,
       reference: {
         enabled: true,
       },

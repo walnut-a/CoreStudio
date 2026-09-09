@@ -174,6 +174,86 @@ describe("generateZenMuxImages", () => {
     });
   });
 
+  it("sends GPT Image 2 through OpenAI Images with the lowest moderation level", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [{ b64_json: Buffer.from("gpt image").toString("base64") }],
+      }),
+    });
+
+    await generateZenMuxImages({
+      apiKey: "test-key",
+      request: {
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+        prompt: "透明材质产品渲染图",
+        width: 1536,
+        height: 1024,
+        imageCount: 10,
+        quality: "high",
+        background: "transparent",
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://zenmux.ai/api/v1/images/generations",
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: "openai/gpt-image-2",
+          prompt: "透明材质产品渲染图",
+          size: "1536x1024",
+          output_format: "png",
+          moderation: "low",
+          quality: "high",
+          background: "transparent",
+          n: 10,
+        }),
+      }),
+    );
+  });
+
+  it("sends the lowest moderation level for GPT Image 2 edits", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [{ b64_json: Buffer.from("gpt edit").toString("base64") }],
+      }),
+    });
+
+    await generateZenMuxImages({
+      apiKey: "test-key",
+      request: {
+        provider: "zenmux",
+        model: "openai/gpt-image-2",
+        prompt: "保留结构并修改材质",
+        width: 1024,
+        height: 1024,
+        imageCount: 1,
+        quality: "medium",
+        background: "transparent",
+        reference: {
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+          image: {
+            mimeType: "image/png",
+            dataBase64: Buffer.from("reference").toString("base64"),
+          },
+        },
+      },
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://zenmux.ai/api/v1/images/edits",
+    );
+    const body = fetchMock.mock.calls[0][1].body as FormData;
+    expect(body.get("moderation")).toBe("low");
+    expect(body.get("output_format")).toBe("png");
+    expect(body.get("quality")).toBe("medium");
+    expect(body.get("background")).toBe("transparent");
+  });
+
   it("uses the ZenMux Vertex AI endpoint for Google image models", async () => {
     generateContent.mockResolvedValue({
       candidates: [
@@ -229,15 +309,13 @@ describe("generateZenMuxImages", () => {
     expect(response.images).toHaveLength(1);
   });
 
-  it("uses ZenMux Vertex AI image generation for GPT image models", async () => {
+  it("preserves the ZenMux provider identity for GPT Image 2", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        predictions: [
+        data: [
           {
-            bytesBase64Encoded:
-              Buffer.from("zenmux gpt image").toString("base64"),
-            mimeType: "image/png",
+            b64_json: Buffer.from("zenmux gpt image").toString("base64"),
           },
         ],
       }),
@@ -257,27 +335,14 @@ describe("generateZenMuxImages", () => {
 
     expect(googleGenAI).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://zenmux.ai/api/vertex-ai/v1/publishers/openai/models/gpt-image-2:predict",
+      "https://zenmux.ai/api/v1/images/generations",
       expect.objectContaining({
         method: "POST",
         headers: {
           Authorization: "Bearer sk-ai-v1-test",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          instances: [
-            {
-              prompt: "一把折刀的工业设计渲染图",
-            },
-          ],
-          parameters: {
-            sampleCount: 1,
-            sampleImageSize: "1024x1024",
-            outputOptions: {
-              mimeType: "image/png",
-            },
-          },
-        }),
+        body: expect.stringContaining('"moderation":"low"'),
       }),
     );
     expect(response.provider).toBe("zenmux");
@@ -333,16 +398,13 @@ describe("generateZenMuxImages", () => {
     );
   });
 
-  it("passes expanded GPT Image 2 size presets to ZenMux Vertex image API models", async () => {
+  it("passes expanded GPT Image 2 sizes to ZenMux OpenAI Images", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        predictions: [
+        data: [
           {
-            bytesBase64Encoded: Buffer.from("zenmux 4k gpt image").toString(
-              "base64",
-            ),
-            mimeType: "image/png",
+            b64_json: Buffer.from("zenmux 4k gpt image").toString("base64"),
           },
         ],
       }),
@@ -362,23 +424,20 @@ describe("generateZenMuxImages", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://zenmux.ai/api/vertex-ai/v1/publishers/openai/models/gpt-image-2:predict",
+      "https://zenmux.ai/api/v1/images/generations",
       expect.objectContaining({
-        body: expect.stringContaining('"sampleImageSize":"3840x2160"'),
+        body: expect.stringContaining('"size":"3840x2160"'),
       }),
     );
   });
 
-  it("omits ZenMux GPT image size controls when ratio is automatic", async () => {
+  it("sends automatic size for ZenMux GPT Image 2 when ratio is automatic", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        predictions: [
+        data: [
           {
-            bytesBase64Encoded: Buffer.from("zenmux auto gpt image").toString(
-              "base64",
-            ),
-            mimeType: "image/png",
+            b64_json: Buffer.from("zenmux auto gpt image").toString("base64"),
           },
         ],
       }),
@@ -398,21 +457,9 @@ describe("generateZenMuxImages", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://zenmux.ai/api/vertex-ai/v1/publishers/openai/models/gpt-image-2:predict",
+      "https://zenmux.ai/api/v1/images/generations",
       expect.objectContaining({
-        body: JSON.stringify({
-          instances: [
-            {
-              prompt: "一张横版产品发布海报",
-            },
-          ],
-          parameters: {
-            sampleCount: 1,
-            outputOptions: {
-              mimeType: "image/png",
-            },
-          },
-        }),
+        body: expect.stringContaining('"size":"auto"'),
       }),
     );
   });

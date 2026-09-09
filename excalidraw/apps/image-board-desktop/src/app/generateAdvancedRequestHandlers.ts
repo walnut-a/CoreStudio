@@ -48,7 +48,8 @@ export const createGenerateAdvancedRequestHandlers = ({
         ...current,
         provider,
         model:
-          providerSettings?.[provider]?.defaultModel || getDefaultModel(provider),
+          providerSettings?.[provider]?.defaultModel ||
+          getDefaultModel(provider),
       }),
       nextCustomModels,
     );
@@ -117,6 +118,18 @@ export const createGenerateAdvancedRequestHandlers = ({
       updateRequest((current) => ({
         ...current,
         imageCount,
+      }));
+    },
+    changeQuality: (quality: GenerationRequest["quality"]) => {
+      updateRequest((current) => ({
+        ...current,
+        quality,
+      }));
+    },
+    changeBackground: (background: GenerationRequest["background"]) => {
+      updateRequest((current) => ({
+        ...current,
+        background,
       }));
     },
   };

@@ -149,6 +149,12 @@ export const enCopy: DesktopCopy = {
     height: "Height",
     seed: "Seed",
     imageCount: "Image count",
+    quality: "Quality",
+    qualityAuto: "Auto",
+    qualityLow: "Low",
+    qualityMedium: "Medium",
+    qualityHigh: "High",
+    transparentBackground: "Transparent background",
     customModel: (label: string) => `Custom: ${label}`,
     referenceThumbnail: (label: string) => `${label} thumbnail`,
     pendingReference: (index: number, label: string) =>

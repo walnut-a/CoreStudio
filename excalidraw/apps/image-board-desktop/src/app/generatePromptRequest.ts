@@ -56,6 +56,8 @@ export const buildGenerationRequestFromSelection = (
       height: 1024,
       seed: null,
       imageCount: 1,
+      quality: "auto",
+      background: "auto",
       reference: null,
     },
     {

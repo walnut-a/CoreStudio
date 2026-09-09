@@ -52,7 +52,7 @@ const toOpenAIImageSize = (request: GenerationRequest) => {
   const option = getRequestAspectRatioOption(
     request,
     getAspectRatioOptions({
-      provider: "openai",
+      provider: request.provider,
       model: request.model,
     }),
   );
@@ -141,12 +141,18 @@ const buildLoggedMultipartPayload = ({
   size,
   images,
   outputFormat = "png",
+  moderation,
+  quality,
+  background,
 }: {
   endpoint: string;
   model: string;
   prompt: string;
   size: string;
   outputFormat?: "png" | null;
+  moderation?: "low" | null;
+  quality?: GenerationRequest["quality"];
+  background?: GenerationRequest["background"];
   images: Array<{
     mimeType: string;
     dataBase64: string;
@@ -160,6 +166,9 @@ const buildLoggedMultipartPayload = ({
         prompt,
         size,
         ...(outputFormat ? { output_format: outputFormat } : {}),
+        ...(moderation ? { moderation } : {}),
+        ...(quality ? { quality } : {}),
+        ...(background ? { background } : {}),
         images: images.map((image, index) => ({
           kind: "multipart-file",
           field: images.length > 1 ? "image[]" : "image",
@@ -214,6 +223,8 @@ export const generateOpenAIImages = async ({
   responseProvider = "openai",
   providerLabel = "OpenAI",
   outputFormat = "png",
+  moderation = null,
+  maxImageCount = 4,
   projectPath,
   signal,
 }: {
@@ -222,6 +233,8 @@ export const generateOpenAIImages = async ({
   baseUrl?: string;
   responseProvider?: "openai" | "openai-compatible" | "zenmux";
   outputFormat?: "png" | null;
+  moderation?: "low" | null;
+  maxImageCount?: number;
   providerLabel?: string;
   projectPath?: string | null;
   signal?: AbortSignal;
@@ -238,7 +251,9 @@ export const generateOpenAIImages = async ({
         (image): image is NonNullable<typeof image> => Boolean(image),
       );
   const size = toOpenAIImageSize(request);
-  const imageCount = clampImageCount(request, 4);
+  const effectiveOutputFormat =
+    request.background === "transparent" ? "png" : outputFormat;
+  const imageCount = clampImageCount(request, maxImageCount);
   const endpoint = uploadReferenceImages.length
     ? endpoints.edits
     : endpoints.generations;
@@ -258,7 +273,10 @@ export const generateOpenAIImages = async ({
         prompt,
         size,
         images: uploadReferenceImages,
-        outputFormat,
+        outputFormat: effectiveOutputFormat,
+        moderation,
+        quality: request.quality,
+        background: request.background,
       })
     : JSON.stringify(
         {
@@ -267,7 +285,12 @@ export const generateOpenAIImages = async ({
             model: request.model,
             prompt,
             size,
-            ...(outputFormat ? { output_format: outputFormat } : {}),
+            ...(effectiveOutputFormat
+              ? { output_format: effectiveOutputFormat }
+              : {}),
+            ...(moderation ? { moderation } : {}),
+            ...(request.quality ? { quality: request.quality } : {}),
+            ...(request.background ? { background: request.background } : {}),
             ...(imageCount > 1 ? { n: imageCount } : {}),
           },
         },
@@ -288,7 +311,14 @@ export const generateOpenAIImages = async ({
             formData.set("model", request.model);
             formData.set("prompt", prompt);
             formData.set("size", size);
-            if (outputFormat) formData.set("output_format", outputFormat);
+            if (effectiveOutputFormat) {
+              formData.set("output_format", effectiveOutputFormat);
+            }
+            if (moderation) formData.set("moderation", moderation);
+            if (request.quality) formData.set("quality", request.quality);
+            if (request.background) {
+              formData.set("background", request.background);
+            }
             if (imageCount > 1) {
               formData.set("n", String(imageCount));
             }
@@ -313,7 +343,12 @@ export const generateOpenAIImages = async ({
             model: request.model,
             prompt,
             size,
-            ...(outputFormat ? { output_format: outputFormat } : {}),
+            ...(effectiveOutputFormat
+              ? { output_format: effectiveOutputFormat }
+              : {}),
+            ...(moderation ? { moderation } : {}),
+            ...(request.quality ? { quality: request.quality } : {}),
+            ...(request.background ? { background: request.background } : {}),
             ...(imageCount > 1 ? { n: imageCount } : {}),
           }),
         });

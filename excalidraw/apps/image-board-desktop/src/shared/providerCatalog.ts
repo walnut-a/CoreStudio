@@ -121,6 +121,12 @@ const OPENAI_IMAGE_CAPABILITIES: ProviderCapabilities = {
   sizeControlMode: "aspect-ratio",
 };
 
+const OPENAI_GPT_IMAGE_2_CAPABILITIES: ProviderCapabilities = {
+  ...OPENAI_IMAGE_CAPABILITIES,
+  supportsQuality: true,
+  supportsTransparentBackground: true,
+};
+
 const FAL_NANO_BANANA_IMAGE_CAPABILITIES: ProviderCapabilities = {
   supportsNegativePrompt: false,
   supportsSeed: true,
@@ -337,6 +343,8 @@ const ALL_IMAGE_FIELDS: Record<GenerationField, true> = {
   aspectRatio: true,
   seed: true,
   imageCount: true,
+  quality: true,
+  background: true,
 };
 
 export const COMMON_ASPECT_RATIO_OPTIONS: readonly AspectRatioOption[] = [
@@ -561,6 +569,16 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
         "zenmux-vertex-gpt-image",
         ZENMUX_VERTEX_IMAGE_API_CAPABILITIES,
       ),
+      "openai/gpt-image-2": {
+        id: "openai/gpt-image-2",
+        label: "GPT Image 2",
+        capabilities: {
+          ...ZENMUX_VERTEX_IMAGE_API_CAPABILITIES,
+          supportsQuality: true,
+          supportsTransparentBackground: true,
+        },
+        adapter: "zenmux-openai-images",
+      },
       "qwen/qwen-image-2.0": createZenMuxVertexImageApiModel(
         "qwen/qwen-image-2.0",
         "Qwen Image 2.0",
@@ -639,7 +657,7 @@ export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
       "gpt-image-2": {
         id: "gpt-image-2",
         label: "GPT Image 2",
-        capabilities: OPENAI_IMAGE_CAPABILITIES,
+        capabilities: OPENAI_GPT_IMAGE_2_CAPABILITIES,
         adapter: "openai-images",
       },
       "gpt-image-1.5": {
@@ -760,6 +778,8 @@ const fieldVisibilityFromCapabilities = (
     aspectRatio: capabilities.sizeControlMode === "aspect-ratio",
     seed: capabilities.supportsSeed,
     imageCount: capabilities.supportsImageCount,
+    quality: capabilities.supportsQuality === true,
+    background: capabilities.supportsTransparentBackground === true,
   };
 };
 
@@ -788,6 +808,9 @@ export const inferProviderRequestAdapter = ({
   modelId: string;
 }): ProviderRequestAdapter => {
   if (provider === "zenmux") {
+    if (modelId.trim().toLowerCase() === "openai/gpt-image-2") {
+      return "zenmux-openai-images";
+    }
     if (ZENMUX_OPENAI_IMAGE_MODELS[modelId]) return "zenmux-openai-images";
     return isZenMuxVertexImageApiModel(modelId)
       ? "zenmux-vertex-gpt-image"
@@ -953,8 +976,24 @@ export const getProviderCapabilities = (args: {
   provider: ProviderId;
   model?: string;
   customModels?: readonly CustomProviderModel[];
-}) =>
-  getModelDefinition(args.provider, args.model, args.customModels).capabilities;
+}) => {
+  const capabilities = getModelDefinition(
+    args.provider,
+    args.model,
+    args.customModels,
+  ).capabilities;
+  if (
+    args.provider === "zenmux" &&
+    args.model?.trim().toLowerCase() === "openai/gpt-image-2"
+  ) {
+    return {
+      ...capabilities,
+      supportsQuality: true,
+      supportsTransparentBackground: true,
+    };
+  }
+  return capabilities;
+};
 
 export const getProviderRequestAdapter = (args: {
   provider: ProviderId;
@@ -962,6 +1001,12 @@ export const getProviderRequestAdapter = (args: {
   customModels?: readonly CustomProviderModel[];
 }) => {
   const modelId = args.model || getDefaultModel(args.provider);
+  if (
+    args.provider === "zenmux" &&
+    modelId.trim().toLowerCase() === "openai/gpt-image-2"
+  ) {
+    return "zenmux-openai-images";
+  }
   return (
     getModelDefinition(args.provider, modelId, args.customModels).adapter ??
     inferProviderRequestAdapter({
@@ -1015,6 +1060,12 @@ export const normalizeGenerationRequest = (
     imageCount: capabilities.supportsImageCount
       ? Math.max(1, Math.min(request.imageCount, capabilities.maxImageCount))
       : 1,
+    quality: capabilities.supportsQuality
+      ? request.quality ?? "auto"
+      : undefined,
+    background: capabilities.supportsTransparentBackground
+      ? request.background ?? "auto"
+      : undefined,
     reference: request.reference
       ? {
           ...request.reference,
@@ -1037,10 +1088,7 @@ export const getAspectRatioOptions = (args: {
 }): readonly AspectRatioOption[] => {
   const adapter = getProviderRequestAdapter(args);
 
-  if (
-    adapter === "zenmux-vertex-gpt-image" &&
-    args.model?.includes("gpt-image-2")
-  ) {
+  if (args.provider === "zenmux" && args.model?.includes("gpt-image-2")) {
     return ZENMUX_GPT_IMAGE_2_SIZE_OPTIONS;
   }
 

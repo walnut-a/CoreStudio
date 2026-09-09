@@ -48,6 +48,8 @@ const visibleFields: Record<GenerationField, boolean> = {
   aspectRatio: true,
   seed: true,
   imageCount: true,
+  quality: false,
+  background: false,
 };
 
 const aspectRatioOptions: readonly AspectRatioOption[] = [

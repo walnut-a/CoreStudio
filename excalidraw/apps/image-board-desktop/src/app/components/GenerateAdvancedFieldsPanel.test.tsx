@@ -18,6 +18,8 @@ const visibleFields: Record<GenerationField, boolean> = {
   aspectRatio: true,
   seed: true,
   imageCount: true,
+  quality: false,
+  background: false,
 };
 
 const request: Pick<
@@ -103,6 +105,8 @@ const renderPanel = (
     onHeightChange: vi.fn(),
     onSeedChange: vi.fn(),
     onImageCountChange: vi.fn(),
+    onQualityChange: vi.fn(),
+    onBackgroundChange: vi.fn(),
     onTextInputKeyDown: vi.fn(),
     ...overrides,
   };
@@ -245,6 +249,59 @@ describe("GenerateAdvancedFieldsPanel", () => {
     expect(
       screen.getByLabelText(copy.generateDialog.imageCount),
     ).toHaveAttribute("max", "10");
+  });
+
+  it("shows GPT Image 2 quality and transparent background controls", () => {
+    const onQualityChange = vi.fn();
+    const onBackgroundChange = vi.fn();
+    renderPanel({
+      request: {
+        ...request,
+        provider: "zenmux",
+        model: "zenmux-image-api-model",
+        quality: "medium",
+        background: "transparent",
+      },
+      providerModels: {
+        ...providerModels,
+        "zenmux-image-api-model": {
+          ...providerModels["zenmux-image-api-model"],
+          capabilities: {
+            ...providerModels["zenmux-image-api-model"].capabilities,
+            supportsQuality: true,
+            supportsTransparentBackground: true,
+          },
+        },
+      },
+      visibleFields: {
+        ...visibleFields,
+        quality: true,
+        background: true,
+      },
+      onQualityChange,
+      onBackgroundChange,
+    });
+
+    expect(screen.getByLabelText(copy.generateDialog.quality)).toHaveValue(
+      "medium",
+    );
+    expect(
+      screen.getByRole("checkbox", {
+        name: copy.generateDialog.transparentBackground,
+      }),
+    ).toBeChecked();
+
+    fireEvent.change(screen.getByLabelText(copy.generateDialog.quality), {
+      target: { value: "high" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: copy.generateDialog.transparentBackground,
+      }),
+    );
+
+    expect(onQualityChange).toHaveBeenCalledWith("high");
+    expect(onBackgroundChange).toHaveBeenCalledWith("auto");
   });
 
   it("hides optional generation fields when they are unavailable", () => {

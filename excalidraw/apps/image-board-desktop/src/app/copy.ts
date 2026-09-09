@@ -154,6 +154,12 @@ const zhCnCopy = {
     height: "高度",
     seed: "种子",
     imageCount: "出图数量",
+    quality: "质量",
+    qualityAuto: "自动",
+    qualityLow: "低",
+    qualityMedium: "中",
+    qualityHigh: "高",
+    transparentBackground: "透明背景",
     customModel: (label: string) => `自定义：${label}`,
     referenceThumbnail: (label: string) => `${label} 缩略图`,
     pendingReference: (index: number, label: string) =>

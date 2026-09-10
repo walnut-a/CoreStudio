@@ -634,6 +634,8 @@ describe("selectionReference", () => {
         {
           reference: {
             enabled: true,
+            elementCount: 2,
+            textCount: 0,
           },
         },
         scene,
@@ -650,6 +652,8 @@ describe("selectionReference", () => {
         {
           reference: {
             enabled: false,
+            elementCount: 0,
+            textCount: 0,
           },
         },
         scene,
@@ -660,6 +664,8 @@ describe("selectionReference", () => {
         {
           reference: {
             enabled: true,
+            elementCount: 2,
+            textCount: 0,
           },
         },
         null,

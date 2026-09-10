@@ -240,6 +240,15 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版不修改 Excalidraw 基座、项目文件格式或 Agent 集成协议；未增加独立蒙版或局部编辑入口，继续复用画布批注和整张参考图能力。
 
+### 1.1.52 发布验收
+
+- 发布源码：`1d6ca7389d425831fd369e7635be82fa7de043bf`，PR #146 的合并提交；标签 `v1.1.52` 精确指向该提交。
+- 本地完整桌面测试通过：306 个测试文件、2373 项测试；TypeScript 类型检查通过。远端必需检查两次均通过：[34347725573](https://github.com/walnut-a/CoreStudio/actions/runs/34347725573)、[34347969635](https://github.com/walnut-a/CoreStudio/actions/runs/34347969635)。
+- packaged smoke 的正式模式、QA 模式、旧版与多宿主 Agent 集成检查通过，测试进程已退出。
+- Apple 公证：`0aaea94d-d5a6-4554-928c-0b3cd92d40c4`，Accepted；App 与 DMG 票据、Gatekeeper、DMG 完整性和发布产物敏感信息扫描通过。
+- 安装包：`CoreStudio-1.1.52-arm64.dmg`，137448488 字节；SHA-256：`b42615ed0c8b4f92ad1434ba8090ae2b226d01742d4b2823c4a74f59227f4ddf`。
+- GitHub Release 附件已通过公开地址重新下载，大小、SHA-256 与本地产物完全一致。
+
 ## 1.1.51 发布说明
 
 - 在画布和画廊的图片属性面板中增加本地主色板提取，显示最多六个圆角方形色块；悬停显示 HEX 色值，点击直接复制并复用现有成功提示。

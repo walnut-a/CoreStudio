@@ -237,6 +237,8 @@ node --test website/update-manifest-contract.test.mjs
 - 完整开放模型支持的质量档位，包括自动、低、中、高、超高和最高；切换到旧模型时会自动归一化不支持的档位。
 - 支持透明背景、最多 10 张批量输出、最多 16 张参考图，以及正方形、横版和竖版的 2K / 4K 尺寸预设；透明输出自动使用 PNG。
 - GPT Image 2 及 2.5 默认使用最低审核级别。客户端会保留新版内置模型，旧版远端目录缓存不会再导致 2.5 模型从列表消失。
+- 项目文件夹自动接入图片时使用限定宽度的分批布局，达到边界后向下换行，并避开画布上的现有内容。
+- 生成任务根据提示词中记录的参考元素定位结果；即使提交时选区已经清空，生成图仍优先落在参考图右侧的最近空位。
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版不修改 Excalidraw 基座、项目文件格式或 Agent 集成协议；未增加独立蒙版或局部编辑入口，继续复用画布批注和整张参考图能力。
 
@@ -248,6 +250,15 @@ node --test website/update-manifest-contract.test.mjs
 - Apple 公证：`0aaea94d-d5a6-4554-928c-0b3cd92d40c4`，Accepted；App 与 DMG 票据、Gatekeeper、DMG 完整性和发布产物敏感信息扫描通过。
 - 安装包：`CoreStudio-1.1.52-arm64.dmg`，137448488 字节；SHA-256：`b42615ed0c8b4f92ad1434ba8090ae2b226d01742d4b2823c4a74f59227f4ddf`。
 - GitHub Release 附件已通过公开地址重新下载，大小、SHA-256 与本地产物完全一致。
+
+### 1.1.52 同版本替换记录（2026-09-10）
+
+- 替换源码：`267e582d1f09c62a4b358d0075a7716d86803648`，PR #148 的合并提交；保留原 `v1.1.52` 标签，不强推标签。
+- 变更覆盖：项目文件夹图片自动换行布局，以及生成图按已记录的参考元素就近落点。
+- 远端必需检查通过：[34435215784](https://github.com/walnut-a/CoreStudio/actions/runs/34435215784)；本地相关定向测试、TypeScript 类型检查和 packaged smoke 通过。
+- Apple 公证：`24a6b430-6d87-4421-8a04-6f18fbf763ab`，Accepted；App 与 DMG 票据、Gatekeeper 和发布产物敏感信息扫描通过。
+- 替换时间：`2026-09-10T04:09:50Z`；安装包：`CoreStudio-1.1.52-arm64.dmg`，137454231 字节；SHA-256：`a0a7a50fa60f4cb6610ceb70842133773e7abc831220871a2cb9f596557efc53`。
+- GitHub Release 同名附件已替换，并从公开地址重新下载；大小、SHA-256 与本地产物完全一致。
 
 ## 1.1.51 发布说明
 

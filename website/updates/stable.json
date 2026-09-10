@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.51",
-  "publishedAt": "2026-09-08T19:47:07Z",
+  "version": "1.1.52",
+  "publishedAt": "2026-09-10T03:02:31Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.51",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.52",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.51/CoreStudio-1.1.51-arm64.dmg",
-    "size": 137453282,
-    "sha256": "aa5d777e1a640771bcd3d759e80f7a8a5ff841f518dfbe98891afd30ca1377a6"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.52/CoreStudio-1.1.52-arm64.dmg",
+    "size": 137448488,
+    "sha256": "b42615ed0c8b4f92ad1434ba8090ae2b226d01742d4b2823c4a74f59227f4ddf"
   },
   "summary": {
     "zh-CN": [
-      "在画布和画廊的图片属性面板中增加本地主色板，悬停查看色值并点击复制",
-      "重构图片信息、配色、生成信息与编辑链的层级和排版",
-      "统一生成中、失败和裁切状态，画布与画廊共用侧栏设计规范"
+      "新增 GPT Image 2.5 Flare 与 Sunburst，支持 OpenAI 直连和 ZenMux",
+      "开放完整质量档位、透明背景、批量输出及 2K / 4K 尺寸预设",
+      "支持最多 16 张参考图，并默认使用最低审核级别"
     ],
     "en": [
-      "Extract a local image palette in canvas and gallery details; hover for HEX and click to copy",
-      "Reorganize image facts, palette, generation details, and edit history",
-      "Unify pending, failed, and crop states across canvas and gallery sidebars"
+      "Add GPT Image 2.5 Flare and Sunburst through OpenAI and ZenMux",
+      "Enable all quality levels, transparent backgrounds, batch output, and 2K / 4K presets",
+      "Support up to 16 reference images and default to the lowest moderation level"
     ]
   }
 }

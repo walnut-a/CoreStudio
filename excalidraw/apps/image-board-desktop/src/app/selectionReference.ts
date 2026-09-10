@@ -5,7 +5,10 @@ import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ImageRecordMap } from "../shared/projectTypes";
 import type { ProjectAssetPayload } from "../shared/desktopBridgeTypes";
 
-import type { GenerationReferencePayload } from "../shared/providerTypes";
+import type {
+  GenerationReferencePayload,
+  GenerationRequest,
+} from "../shared/providerTypes";
 import { buildExcalidrawBinaryFilesFromProjectAssets } from "./canvasImageAssetState";
 import { copy } from "./copy";
 import { getElementsSceneBounds } from "./sceneGeometry";
@@ -491,11 +494,36 @@ export const createSelectionReferenceOriginalSceneRendererActions = <
 });
 
 export const getGenerationReferenceAnchorBounds = (
-  request: { reference?: { enabled?: boolean } | null },
+  request: Pick<GenerationRequest, "reference" | "promptReferences">,
   scene: SceneSnapshot | null,
 ) => {
-  if (!request.reference?.enabled) {
+  if (!scene) {
     return null;
+  }
+
+  const references = [
+    ...(request.promptReferences ?? []),
+    ...(request.reference?.enabled ? [request.reference] : []),
+  ];
+  if (!references.length) {
+    return null;
+  }
+
+  const sourceElementIds = new Set(
+    references.flatMap(
+      (reference) =>
+        reference.source?.elementIds ??
+        reference.items?.map((item) => item.id) ??
+        [],
+    ),
+  );
+  if (sourceElementIds.size) {
+    return getElementsSceneBounds(
+      scene.elements.filter(
+        (element) =>
+          !element.isDeleted && sourceElementIds.has(element.id),
+      ),
+    );
   }
 
   return getElementsSceneBounds(getSelectedReferenceElements(scene));

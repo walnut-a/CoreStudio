@@ -31,26 +31,138 @@ import {
   type ExternalImageObservation,
 } from "./externalImageFiles";
 
+const INTAKE_BATCH_GAP = 120;
+const INTAKE_LAYOUT_MAX_WIDTH = 2800;
+
+interface IntakeSceneBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const getSceneElementBounds = (
+  element: ProjectRoomSceneElement,
+): IntakeSceneBounds | null => {
+  if (element.isDeleted) return null;
+  const x = Number(element.x ?? 0),
+    y = Number(element.y ?? 0),
+    width = Number(element.width ?? 0),
+    height = Number(element.height ?? 0),
+    angle = Number(element.angle ?? 0);
+  if (![x, y, width, height, angle].every(Number.isFinite)) return null;
+  const rotatedWidth =
+    Math.abs(width * Math.cos(angle)) + Math.abs(height * Math.sin(angle));
+  const rotatedHeight =
+    Math.abs(width * Math.sin(angle)) + Math.abs(height * Math.cos(angle));
+  return {
+    x: x + width / 2 - rotatedWidth / 2,
+    y: y + height / 2 - rotatedHeight / 2,
+    width: rotatedWidth,
+    height: rotatedHeight,
+  };
+};
+
+const measureIntakeBounds = (
+  elements: readonly ProjectRoomSceneElement[],
+): IntakeSceneBounds | null => {
+  const bounds = elements
+    .map(getSceneElementBounds)
+    .filter((value): value is IntakeSceneBounds => Boolean(value));
+  if (!bounds.length) return null;
+  const left = Math.min(...bounds.map((value) => value.x));
+  const top = Math.min(...bounds.map((value) => value.y));
+  const right = Math.max(...bounds.map((value) => value.x + value.width));
+  const bottom = Math.max(...bounds.map((value) => value.y + value.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+};
+
+const boundsOverlap = (first: IntakeSceneBounds, second: IntakeSceneBounds) =>
+  first.x < second.x + second.width &&
+  first.x + first.width > second.x &&
+  first.y < second.y + second.height &&
+  first.y + first.height > second.y;
+
 const getIntakeAnchor = (elements: readonly ProjectRoomSceneElement[]) => {
   let right = -Infinity,
     top = Infinity;
   for (const element of elements) {
-    if (element.isDeleted) continue;
-    const x = Number(element.x ?? 0),
-      y = Number(element.y ?? 0),
-      w = Number(element.width ?? 0),
-      h = Number(element.height ?? 0),
-      angle = Number(element.angle ?? 0);
-    if (![x, y, w, h, angle].every(Number.isFinite)) continue;
-    const rw = Math.abs(w * Math.cos(angle)) + Math.abs(h * Math.sin(angle));
-    const rh = Math.abs(w * Math.sin(angle)) + Math.abs(h * Math.cos(angle));
-    right = Math.max(right, x + w / 2 + rw / 2);
-    top = Math.min(top, y + h / 2 - rh / 2);
+    const bounds = getSceneElementBounds(element);
+    if (!bounds) continue;
+    right = Math.max(right, bounds.x + bounds.width);
+    top = Math.min(top, bounds.y);
   }
   return {
-    x: Number.isFinite(right) ? right + 120 : 0,
+    x: Number.isFinite(right) ? right + INTAKE_BATCH_GAP : 0,
     y: Number.isFinite(top) ? top : 0,
   };
+};
+
+const getIntakeBatchOrigin = ({
+  state,
+  currentBatchId,
+  batchElements,
+  sceneElements,
+}: {
+  state: IntakeState;
+  currentBatchId: string;
+  batchElements: readonly ProjectRoomSceneElement[];
+  sceneElements: readonly ProjectRoomSceneElement[];
+}) => {
+  const batchBounds = measureIntakeBounds(batchElements);
+  if (!batchBounds) return { x: 0, y: 0 };
+  const acceptedBatches = new Map<string, ProjectRoomSceneElement[]>();
+  for (const entry of Object.values(state.entries)) {
+    if (entry.phase !== "accepted" || entry.batchId === currentBatchId)
+      continue;
+    const entries = acceptedBatches.get(entry.batchId) ?? [];
+    entries.push(entry.element);
+    acceptedBatches.set(entry.batchId, entries);
+  }
+  const acceptedBounds = [...acceptedBatches.values()]
+    .map(measureIntakeBounds)
+    .filter((value): value is IntakeSceneBounds => Boolean(value));
+  const currentIds = new Set(batchElements.map((element) => element.id));
+  const existingElements = sceneElements.filter(
+    (element) => !currentIds.has(element.id),
+  );
+
+  let origin = getIntakeAnchor(existingElements);
+  if (acceptedBounds.length) {
+    const previous = acceptedBounds.at(-1)!;
+    const workspaceLeft = Math.min(...acceptedBounds.map((bounds) => bounds.x));
+    const workspaceBottom = Math.max(
+      ...acceptedBounds.map((bounds) => bounds.y + bounds.height),
+    );
+    const nextX = previous.x + previous.width + INTAKE_BATCH_GAP;
+    origin =
+      nextX + batchBounds.width - workspaceLeft > INTAKE_LAYOUT_MAX_WIDTH
+        ? { x: workspaceLeft, y: workspaceBottom + INTAKE_BATCH_GAP }
+        : { x: nextX, y: previous.y };
+  }
+
+  const occupiedBounds = existingElements
+    .map(getSceneElementBounds)
+    .filter((value): value is IntakeSceneBounds => Boolean(value));
+  for (let attempt = 0; attempt <= occupiedBounds.length; attempt++) {
+    const candidate = {
+      x: origin.x,
+      y: origin.y,
+      width: batchBounds.width,
+      height: batchBounds.height,
+    };
+    const blockers = occupiedBounds.filter((bounds) =>
+      boundsOverlap(candidate, bounds),
+    );
+    if (!blockers.length) return origin;
+    origin = {
+      x: origin.x,
+      y:
+        Math.max(...blockers.map((bounds) => bounds.y + bounds.height)) +
+        INTAKE_BATCH_GAP,
+    };
+  }
+  return origin;
 };
 
 export interface DecodedIntakeImage {
@@ -512,21 +624,22 @@ export class ExternalImageIntake {
             (entry) => !current.has(entry.element.id),
           );
           if (freshEntries.length) {
-            const batchIds = new Set(entries.map((entry) => entry.element.id));
-            const latestAnchor = getIntakeAnchor(
-              room
-                .getSnapshot()
-                .scene.elements.filter((element) => !batchIds.has(element.id)),
-            );
-            const left = Math.min(
-              ...freshEntries.map((entry) => Number(entry.element.x)),
-            );
-            const shift = Math.max(0, latestAnchor.x - left);
-            if (shift) {
+            const batchElements = freshEntries.map((entry) => entry.element);
+            const batchBounds = measureIntakeBounds(batchElements);
+            const origin = getIntakeBatchOrigin({
+              state,
+              currentBatchId: id,
+              batchElements,
+              sceneElements: room.getSnapshot().scene.elements,
+            });
+            if (batchBounds) {
+              const shiftX = origin.x - batchBounds.x;
+              const shiftY = origin.y - batchBounds.y;
               for (const entry of freshEntries)
                 entry.element = {
                   ...entry.element,
-                  x: Number(entry.element.x) + shift,
+                  x: Number(entry.element.x) + shiftX,
+                  y: Number(entry.element.y) + shiftY,
                 };
             }
           }

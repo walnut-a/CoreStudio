@@ -124,4 +124,71 @@ describe("buildPendingGenerationPlacements", () => {
       height: 100,
     });
   });
+
+  it("uses committed prompt reference bounds after the canvas selection is cleared", () => {
+    const request = createRequest();
+    request.promptReferences = [
+      {
+        id: "prompt-reference-1",
+        label: "图片",
+        enabled: true,
+        elementCount: 1,
+        textCount: 0,
+        source: {
+          elementIds: ["reference-image"],
+        },
+      },
+    ];
+
+    const result = buildPendingGenerationPlacements({
+      api: {
+        getAppState: () => createAppState(),
+        getSceneElementsIncludingDeleted: () =>
+          [
+            {
+              id: "reference-image",
+              type: "image",
+              isDeleted: false,
+              x: 300,
+              y: 400,
+              width: 100,
+              height: 100,
+              angle: 0,
+              groupIds: [],
+            },
+          ] as any,
+      },
+      request,
+      referenceScene: {
+        elements: [
+          {
+            id: "reference-image",
+            type: "image",
+            isDeleted: false,
+            x: 300,
+            y: 400,
+            width: 100,
+            height: 100,
+            angle: 0,
+            groupIds: [],
+          },
+        ] as any,
+        appState: createAppState(),
+        files: {},
+      },
+      fallbackReferenceScene: null,
+      lastCanvasPointer: { x: 900, y: 900 },
+      previousBatchBounds: null,
+      explicitPlacementViewport: null,
+    });
+
+    expect(result.placements).toEqual([
+      {
+        x: 464,
+        y: 400,
+        width: 100,
+        height: 100,
+      },
+    ]);
+  });
 });

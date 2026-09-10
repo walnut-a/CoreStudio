@@ -515,10 +515,17 @@ it("appends a bounded batch to a 5000-element Room without moving existing conte
   const intake = make();
   await intake.scan({ forceRetry: true });
   const first = room.getSnapshot().scene.elements;
-  expect(first.filter((element) => element.type === "image")).toHaveLength(8);
+  const firstImages = first.filter((element) => element.type === "image");
+  const firstImageIds = new Set(firstImages.map((element) => element.id));
+  expect(firstImages).toHaveLength(8);
   await intake.scan({ forceRetry: true });
   const final = room.getSnapshot().scene.elements;
-  expect(final.filter((element) => element.type === "image")).toHaveLength(12);
+  const finalImages = final.filter((element) => element.type === "image");
+  const secondBatch = finalImages.filter(
+    (element) => !firstImageIds.has(element.id),
+  );
+  expect(finalImages).toHaveLength(12);
+  expect(secondBatch).toHaveLength(4);
   expect(
     final
       .filter((element) => element.type === "rectangle")
@@ -535,11 +542,17 @@ it("appends a bounded batch to a 5000-element Room without moving existing conte
         height,
       })),
   );
-  expect(
-    final
-      .filter((element) => element.type === "image")
-      .every((element) => Number(element.x) >= 50120),
-  ).toBe(true);
+  expect(finalImages.every((element) => Number(element.x) >= 50120)).toBe(true);
+  expect(Math.min(...secondBatch.map((element) => Number(element.x)))).toBe(
+    Math.min(...firstImages.map((element) => Number(element.x))),
+  );
+  expect(Math.min(...secondBatch.map((element) => Number(element.y)))).toBe(
+    Math.max(
+      ...firstImages.map(
+        (element) => Number(element.y) + Number(element.height),
+      ),
+    ) + 120,
+  );
 });
 
 it("automatically accepts files from a legacy paused project and retires its pause setting", async () => {

@@ -260,6 +260,15 @@ node --test website/update-manifest-contract.test.mjs
 - 替换时间：`2026-09-10T04:09:50Z`；安装包：`CoreStudio-1.1.52-arm64.dmg`，137454231 字节；SHA-256：`a0a7a50fa60f4cb6610ceb70842133773e7abc831220871a2cb9f596557efc53`。
 - GitHub Release 同名附件已替换，并从公开地址重新下载；大小、SHA-256 与本地产物完全一致。
 
+### 1.1.52 同版本替换记录（2026-09-13）
+
+- 替换源码：`ed89b8ddef6b928e22cc0e36a461054ab27d701c`，PR #150 的合并提交；保留原 `v1.1.52` 标签，不强推标签。
+- 变更覆盖：修复图片详情侧栏中的复制按钮被 Excalidraw 通用内边距挤压，统一图片 ID、提示词和错误信息复制入口为 32px 点击区域与 16px 图标。
+- 远端必需检查通过：[34767137306](https://github.com/walnut-a/CoreStudio/actions/runs/34767137306)；本地 58 项定向测试、TypeScript 类型检查和 SOURCE DEV 真实窗口验收通过。
+- Apple 公证：`30465b52-d561-4cc3-97d2-020134990842`，Accepted；App 与 DMG 票据、Gatekeeper、packaged smoke、路径扫描和发布产物敏感信息扫描通过。
+- 替换时间：`2026-09-13T16:05:49Z`；安装包：`CoreStudio-1.1.52-arm64.dmg`，137454799 字节；SHA-256：`69652b5d9fe1f05e1ed3ebcd95765b0433f934a31e6605ca151ef6179442c4f9`。
+- GitHub Release 同名附件已替换，并从公开地址重新下载；大小、SHA-256 与本地产物完全一致。
+
 ## 1.1.51 发布说明
 
 - 在画布和画廊的图片属性面板中增加本地主色板提取，显示最多六个圆角方形色块；悬停显示 HEX 色值，点击直接复制并复用现有成功提示。

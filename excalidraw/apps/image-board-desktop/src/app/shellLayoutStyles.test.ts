@@ -991,6 +991,9 @@ describe("CoreStudio shell layout styles", () => {
 
   it("uses the approved inspector groups, prompt card, and edit timeline", () => {
     const appCss = readAppCss();
+    const designTokens = readCssFile(
+      "apps/image-board-desktop/src/app/styles/designTokens.css",
+    );
     const inspectorSource = readImageInspector();
     const inspectorRule = getRule(appCss, ".image-inspector");
     const groupRule = getRule(appCss, ".image-inspector__group");
@@ -1001,9 +1004,12 @@ describe("CoreStudio shell layout styles", () => {
     const promptRule = getRule(appCss, ".image-inspector__prompt-section");
     const copyButtonRule = getRule(
       appCss,
-      ".image-inspector__copy-button.image-board-button",
+      ".image-board-app .image-inspector__copy-button.image-board-button",
     );
-    const copyIconRule = getRule(appCss, ".image-inspector__copy-button svg");
+    const copyIconRule = getRule(
+      appCss,
+      ".image-board-app .image-inspector__copy-button.image-board-button > svg",
+    );
     const chainItemRule = getRule(appCss, ".image-inspector__chain-item");
     const chainMarkerRule = getRule(appCss, ".image-inspector__chain-marker");
     const detailGridRule = getRule(appCss, ".image-inspector__detail-grid");
@@ -1028,6 +1034,9 @@ describe("CoreStudio shell layout styles", () => {
     expect(promptRule).toContain("border-radius: var(--border-radius-lg)");
     expect(copyButtonRule).toContain("border-color: transparent");
     expect(copyButtonRule).toContain("background: transparent");
+    expect(copyButtonRule).toContain("width: var(--ui-control-size-md)");
+    expect(copyButtonRule).toContain("height: var(--ui-control-size-md)");
+    expect(designTokens).toContain("--ui-icon-size-md: 16px");
     expect(copyIconRule).toContain("width: var(--ui-icon-size-md)");
     expect(copyIconRule).toContain("height: var(--ui-icon-size-md)");
     expect(chainItemRule).toContain(

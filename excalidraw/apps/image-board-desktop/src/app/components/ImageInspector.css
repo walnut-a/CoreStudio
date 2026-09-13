@@ -261,18 +261,18 @@
   line-height: var(--ui-line-height-normal);
 }
 
-.image-inspector__copy-button.image-board-button {
-  flex: 0 0 var(--ui-control-size-sm);
-  width: var(--ui-control-size-sm);
-  min-width: var(--ui-control-size-sm);
-  height: var(--ui-control-size-sm);
-  min-height: var(--ui-control-size-sm);
+.image-board-app .image-inspector__copy-button.image-board-button {
+  flex: 0 0 var(--ui-control-size-md);
+  width: var(--ui-control-size-md);
+  min-width: var(--ui-control-size-md);
+  height: var(--ui-control-size-md);
+  min-height: var(--ui-control-size-md);
   padding: 0;
   border-color: transparent;
   background: transparent;
 }
 
-.image-inspector__copy-button svg {
+.image-board-app .image-inspector__copy-button.image-board-button > svg {
   width: var(--ui-icon-size-md);
   height: var(--ui-icon-size-md);
 }

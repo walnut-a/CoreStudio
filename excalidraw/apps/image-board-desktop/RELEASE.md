@@ -240,6 +240,15 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版不修改项目文件格式或 Agent 集成协议。
 
+### 1.1.53 发布验收
+
+- 发布源码：`75f96d725ed35234f913d7ccfc57d67656bb25a1`，PR #152 的合并提交；标签 `v1.1.53` 精确指向该提交。
+- 本地完整桌面测试通过：306 个测试文件、2385 项测试；TypeScript 类型检查通过。远端必需检查通过：[34804537944](https://github.com/walnut-a/CoreStudio/actions/runs/34804537944)。
+- SOURCE DEV 真实窗口已验收连续缩放、放大后拖动、图片信息排版及配色色板复制提醒；packaged smoke 的正式模式、QA 模式、旧版与多宿主 Agent 集成检查通过，测试进程已退出。
+- Apple 公证：`32aa5397-e12f-4548-a664-26c76995f2c8`，Accepted；App 与 DMG 票据、Gatekeeper、DMG 完整性、路径扫描和发布产物敏感信息扫描通过。
+- 安装包：`CoreStudio-1.1.53-arm64.dmg`，137444594 字节；SHA-256：`6d3400e3f9d0d6b3ac1c0a74bcd4b8910e37426017e64d6c5351696e1a67622a`。
+- GitHub Release 附件已通过公开地址重新下载，大小、SHA-256 与本地产物完全一致。
+
 ## 1.1.52 发布说明
 
 - 新增 GPT Image 2.5 Flare 与 GPT Image 2.5 Sunburst，支持 OpenAI 直连和 ZenMux，统一使用 OpenAI Images 生成与编辑接口。

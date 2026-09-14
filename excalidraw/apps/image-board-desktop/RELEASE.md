@@ -249,6 +249,15 @@ node --test website/update-manifest-contract.test.mjs
 - 安装包：`CoreStudio-1.1.53-arm64.dmg`，137444594 字节；SHA-256：`6d3400e3f9d0d6b3ac1c0a74bcd4b8910e37426017e64d6c5351696e1a67622a`。
 - GitHub Release 附件已通过公开地址重新下载，大小、SHA-256 与本地产物完全一致。
 
+### 1.1.53 同版本替换记录（2026-09-14）
+
+- 替换源码：`12f8ff595d2e2ccf0f58e27d19c8566361c1ddf9`，PR #154 的合并提交；保留原 `v1.1.53` 标签，不强推标签。
+- 变更覆盖：画廊详情首次打开与连续切图时不再显示短暂的读取提示；缩略图或上一张会稳定承接到原图解码完成，真实读取失败时仍保留错误和重试入口。
+- 远端必需检查通过：[34811486248](https://github.com/walnut-a/CoreStudio/actions/runs/34811486248)；本地 23 项定向测试、TypeScript 类型检查和 SOURCE DEV 真实窗口验收通过。
+- Apple 公证：`dc0a172a-55d6-47b8-93a6-cb496de35853`，Accepted；App 与 DMG 票据、Gatekeeper、packaged smoke、路径扫描和发布产物敏感信息扫描通过。
+- 替换时间：`2026-09-14T06:17:20Z`；安装包：`CoreStudio-1.1.53-arm64.dmg`，137443765 字节；SHA-256：`5f9663b8ff5aae66eebe2934769166cf3f609b694dbfa336c6f386af2b825392`。
+- GitHub Release 同名附件已替换，并从公开地址重新下载；大小、SHA-256 与本地产物完全一致。已安装 1.1.53 的用户需重新下载覆盖安装，同版本修订不会触发版本号更新提醒。
+
 ## 1.1.52 发布说明
 
 - 新增 GPT Image 2.5 Flare 与 GPT Image 2.5 Sunburst，支持 OpenAI 直连和 ZenMux，统一使用 OpenAI Images 生成与编辑接口。

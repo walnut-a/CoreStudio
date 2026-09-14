@@ -2,23 +2,23 @@
   "schemaVersion": 1,
   "channel": "stable",
   "version": "1.1.53",
-  "publishedAt": "2026-09-14T04:12:51Z",
+  "publishedAt": "2026-09-14T06:17:20Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
   "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.53",
   "asset": {
     "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.53/CoreStudio-1.1.53-arm64.dmg",
-    "size": 137444594,
-    "sha256": "6d3400e3f9d0d6b3ac1c0a74bcd4b8910e37426017e64d6c5351696e1a67622a"
+    "size": 137443765,
+    "sha256": "5f9663b8ff5aae66eebe2934769166cf3f609b694dbfa336c6f386af2b825392"
   },
   "summary": {
     "zh-CN": [
-      "重构画廊详情的打开关闭动画、遮罩时序和纵向图片导航",
+      "画廊首次打开与连续切图不再闪现读取提示，缩略图或上一张会稳定承接到原图解码完成",
       "新增连续缩放与放大后拖动，并统一画布与画廊的图片信息和配色提醒",
       "记住画廊浏览位置，滚动条按需显示并支持平滑回到顶部"
     ],
     "en": [
-      "Refine gallery detail transitions, overlay timing, and vertical image navigation",
+      "Keep the thumbnail or previous image visible until the decoded original is ready, without flashing a loading prompt",
       "Add continuous zooming and panning while aligning image details and palette feedback across canvas and gallery modes",
       "Restore the previous gallery position, show scrollbars only while scrolling, and smoothly return to the top"
     ]

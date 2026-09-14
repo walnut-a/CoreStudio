@@ -213,7 +213,7 @@
   --generate-composer-editor-max-height: min(30vh, 10rem);
   --generate-composer-editor-font-size: var(--ui-text-size-lg);
   --generate-composer-control-size: var(--ui-control-size-sm);
-  --generate-composer-control-icon-size: 20px;
+  --generate-composer-control-icon-size: var(--ui-icon-size-md);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas: "field controls";

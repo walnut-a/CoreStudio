@@ -24,11 +24,13 @@ export const enCopy: DesktopCopy = {
     paletteFailed: "Could not read image colors",
   },
   browse: {
+    imageActions: "Image actions",
     properties: "Properties",
     imageProperties: "Image properties",
     noProperties: "No image properties available",
     openGrid: "Grid view",
     backToCanvas: "Back to canvas",
+    backToTop: "Back to top",
     locateOnCanvas: "Locate on canvas",
     grid: "Image grid",
     untitled: "Image",

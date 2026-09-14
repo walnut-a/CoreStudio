@@ -23,9 +23,15 @@ import {
 } from "../imageBrowseModel";
 import { copy } from "../copy";
 import {
+  actualSizeIcon,
   closeIcon,
+  browseDownIcon,
   browsePreviousIcon,
   browseNextIcon,
+  browseUpIcon,
+  fitImageIcon,
+  locateImageIcon,
+  rightDockIcon,
 } from "./CoreStudioIcons";
 import { DesktopButton } from "./DesktopButton";
 import "./ImageBrowseView.css";
@@ -41,7 +47,11 @@ interface ImageBrowseViewProps {
   readOriginal: (fileId: string) => Promise<ProjectAssetPayload | undefined>;
   onBackToCanvas: () => void;
   onLocateImage: (fileId: string) => void;
+  initialScrollTop?: number;
+  onScrollTopChange?: (scrollTop: number) => void;
 }
+
+type DetailOriginRect = Pick<DOMRect, "left" | "top" | "width" | "height">;
 
 const OriginalImage = ({
   item,
@@ -184,6 +194,7 @@ const ImageDetail = ({
   imageRecords,
   onCopyText,
   onCopyColor,
+  originRect,
 }: {
   projectPath: string;
   imageRecords: ImageRecordMap;
@@ -197,8 +208,13 @@ const ImageDetail = ({
   onNavigate: (delta: number) => void;
   onLocateImage: ImageBrowseViewProps["onLocateImage"];
   thumbnail?: string;
+  originRect: DetailOriginRect;
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const imageStageRef = useRef<HTMLDivElement>(null);
+  const [motion, setMotion] = useState<
+    "preparing" | "opening" | "idle" | "closing"
+  >("preparing");
   const [actualSize, setActualSize] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const propertiesId = useId();
@@ -234,31 +250,92 @@ const ImageDetail = ({
   useLayoutEffect(() => {
     const dialog = dialogRef.current!;
     dialog.showModal();
+    const animationFrame = window.requestAnimationFrame(() => {
+      setMotion((current) => (current === "preparing" ? "opening" : current));
+    });
     const tooltip = getTooltipDiv();
     dialog.appendChild(tooltip);
     return () => {
       tooltip.classList.remove("excalidraw-tooltip--visible");
       document.body.appendChild(tooltip);
+      window.cancelAnimationFrame(animationFrame);
       dialog.close();
     };
   }, []);
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current!;
+    const bounds = imageStageRef.current!.getBoundingClientRect();
+    if (bounds.width > 0 && bounds.height > 0) {
+      const targetAspectRatio = Math.max(0.01, item.aspectRatio);
+      const stageAspectRatio = bounds.width / bounds.height;
+      const targetWidth =
+        targetAspectRatio >= stageAspectRatio
+          ? bounds.width
+          : bounds.height * targetAspectRatio;
+      const targetHeight =
+        targetAspectRatio >= stageAspectRatio
+          ? bounds.width / targetAspectRatio
+          : bounds.height;
+      const originScale = Math.max(
+        0.04,
+        Math.min(
+          1,
+          originRect.width / targetWidth,
+          originRect.height / targetHeight,
+        ),
+      );
+      const originCenterX = originRect.left + originRect.width / 2;
+      const originCenterY = originRect.top + originRect.height / 2;
+      dialog.style.setProperty(
+        "--image-browse-origin-x",
+        `${originCenterX - (bounds.left + bounds.width / 2)}px`,
+      );
+      dialog.style.setProperty(
+        "--image-browse-origin-y",
+        `${originCenterY - (bounds.top + bounds.height / 2)}px`,
+      );
+      dialog.style.setProperty(
+        "--image-browse-origin-scale-x",
+        String(originScale),
+      );
+      dialog.style.setProperty(
+        "--image-browse-origin-scale-y",
+        String(originScale),
+      );
+    }
+  }, [item.aspectRatio, originRect]);
+  useEffect(() => {
+    if (motion !== "closing") return;
+    const fallback = window.setTimeout(onClose, 280);
+    return () => window.clearTimeout(fallback);
+  }, [motion, onClose]);
   useEffect(() => setActualSize(false), [item.fileId]);
+  const requestClose = useCallback(() => {
+    setMotion((current) => (current === "closing" ? current : "closing"));
+  }, []);
   return (
     <dialog
       ref={dialogRef}
       className="image-browse-detail"
+      style={{ overflow: "hidden" }}
+      data-motion={motion}
       aria-label={item.title}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        requestClose();
+      }}
+      onAnimationEnd={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (motion === "closing") onClose();
       }}
       onKeyDown={(event) => {
         event.stopPropagation();
         if (event.key === "Escape") {
           event.preventDefault();
-          onClose();
+          requestClose();
         }
         if (
+          motion !== "closing" &&
           !actualSize &&
           (event.key === "ArrowLeft" || event.key === "ArrowRight")
         ) {
@@ -267,53 +344,33 @@ const ImageDetail = ({
         }
       }}
     >
-      <header className="image-browse-detail__header">
-        <div className="image-browse-detail__title">
-          <strong title={item.title}>{item.title}</strong>
-          <span>{item.sizeLabel}</span>
-        </div>
-        <DesktopButton size="small" onClick={() => onLocateImage(item.fileId)}>
-          {copy.browse.locateOnCanvas}
-        </DesktopButton>
-        <DesktopButton
-          size="small"
-          aria-pressed={actualSize}
-          onClick={() => setActualSize((value) => !value)}
-        >
-          {actualSize ? copy.browse.fit : copy.browse.actualSize}
-        </DesktopButton>
-        <DesktopButton
-          size="small"
-          aria-expanded={propertiesOpen}
-          aria-controls={propertiesId}
-          onClick={() => setPropertiesOpen((open) => !open)}
-        >
-          {copy.browse.properties}
-        </DesktopButton>
-        <DesktopButton
-          size="small"
-          className="image-browse-icon-button"
-          aria-label={copy.browse.close}
-          title={copy.browse.close}
-          onClick={onClose}
-        >
-          {closeIcon}
-        </DesktopButton>
-      </header>
       <div className="image-browse-detail__body">
-        <div className="image-browse-detail__image">
-          <OriginalImage
-            item={item}
-            readOriginal={readOriginal}
-            actualSize={actualSize}
-            thumbnail={thumbnail}
-            onReady={onImageReady}
-          />
+        <div ref={imageStageRef} className="image-browse-detail__image">
+          <div
+            className="image-browse-detail__media"
+            onAnimationEnd={(event) => {
+              if (event.target !== event.currentTarget) return;
+              if (motion === "closing") {
+                onClose();
+              } else if (motion === "opening") {
+                setMotion("idle");
+              }
+            }}
+          >
+            <OriginalImage
+              item={item}
+              readOriginal={readOriginal}
+              actualSize={actualSize}
+              thumbnail={thumbnail}
+              onReady={onImageReady}
+            />
+          </div>
         </div>
         {propertiesOpen && relationships && (
           <aside
             id={propertiesId}
             className="image-browse-detail__properties"
+            data-open="true"
             aria-label={copy.browse.imageProperties}
           >
             {record ? (
@@ -339,31 +396,87 @@ const ImageDetail = ({
           </aside>
         )}
       </div>
-      <footer className="image-browse-detail__footer">
-        <DesktopButton
-          size="small"
-          className="image-browse-icon-button"
-          aria-label={copy.browse.previous}
-          title={copy.browse.previous}
-          disabled={index === 0}
-          onClick={() => onNavigate(-1)}
-        >
-          {browsePreviousIcon}
-        </DesktopButton>
-        <span>
-          {index + 1} / {count}
-        </span>
-        <DesktopButton
-          size="small"
-          className="image-browse-icon-button"
-          aria-label={copy.browse.next}
-          title={copy.browse.next}
-          disabled={index === count - 1}
-          onClick={() => onNavigate(1)}
-        >
-          {browseNextIcon}
-        </DesktopButton>
-      </footer>
+      <div
+        className="image-browse-detail__actions"
+        role="toolbar"
+        aria-label={copy.browse.imageActions}
+      >
+        <div className="image-browse-detail__action-group">
+          <DesktopButton
+            size="small"
+            className="image-browse-detail__action"
+            aria-label={copy.browse.close}
+            title={copy.browse.close}
+            data-label={copy.browse.close}
+            disabled={motion === "closing"}
+            onClick={requestClose}
+          >
+            {closeIcon}
+          </DesktopButton>
+          <span className="image-browse-detail__action-separator" />
+          <DesktopButton
+            size="small"
+            className="image-browse-detail__action"
+            aria-label={copy.browse.locateOnCanvas}
+            title={copy.browse.locateOnCanvas}
+            data-label={copy.browse.locateOnCanvas}
+            onClick={() => onLocateImage(item.fileId)}
+          >
+            {locateImageIcon}
+          </DesktopButton>
+          <DesktopButton
+            size="small"
+            className="image-browse-detail__action"
+            aria-label={actualSize ? copy.browse.fit : copy.browse.actualSize}
+            title={actualSize ? copy.browse.fit : copy.browse.actualSize}
+            data-label={actualSize ? copy.browse.fit : copy.browse.actualSize}
+            aria-pressed={actualSize}
+            onClick={() => setActualSize((value) => !value)}
+          >
+            {actualSize ? fitImageIcon : actualSizeIcon}
+          </DesktopButton>
+          <DesktopButton
+            size="small"
+            className="image-browse-detail__action"
+            aria-label={copy.browse.properties}
+            title={copy.browse.properties}
+            data-label={copy.browse.properties}
+            aria-expanded={propertiesOpen}
+            aria-controls={propertiesId}
+            aria-pressed={propertiesOpen}
+            onClick={() => setPropertiesOpen((open) => !open)}
+          >
+            {rightDockIcon}
+          </DesktopButton>
+        </div>
+        <div className="image-browse-detail__navigation">
+          <DesktopButton
+            size="small"
+            className="image-browse-detail__action"
+            aria-label={copy.browse.previous}
+            title={copy.browse.previous}
+            data-label={copy.browse.previous}
+            disabled={index === 0}
+            onClick={() => onNavigate(-1)}
+          >
+            {browseUpIcon}
+          </DesktopButton>
+          <span className="image-browse-detail__counter">
+            {index + 1} / {count}
+          </span>
+          <DesktopButton
+            size="small"
+            className="image-browse-detail__action"
+            aria-label={copy.browse.next}
+            title={copy.browse.next}
+            data-label={copy.browse.next}
+            disabled={index === count - 1}
+            onClick={() => onNavigate(1)}
+          >
+            {browseDownIcon}
+          </DesktopButton>
+        </div>
+      </div>
     </dialog>
   );
 };
@@ -379,14 +492,22 @@ export const ImageBrowseView = ({
   readOriginal,
   onBackToCanvas,
   onLocateImage,
+  initialScrollTop = 0,
+  onScrollTopChange,
 }: ImageBrowseViewProps) => {
   const gridRef = useRef<HTMLDivElement>(null);
+  const scrollIdleTimerRef = useRef<number | undefined>(undefined);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const tileRefs = useRef(new Map<string, HTMLButtonElement>());
+  const [detailOrigin, setDetailOrigin] = useState<DetailOriginRect | null>(
+    null,
+  );
   const [viewport, setViewport] = useState({
     width: 900,
     height: 600,
-    scrollTop: 0,
+    scrollTop: initialScrollTop,
   });
+  const [scrolling, setScrolling] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const thumbnails = useSyncExternalStore(
     thumbnailStore.subscribe,
@@ -394,6 +515,7 @@ export const ImageBrowseView = ({
   );
   useLayoutEffect(() => {
     const grid = gridRef.current!;
+    grid.scrollTop = initialScrollTop;
     const resize = () => {
       const style = getComputedStyle(grid);
       const padding =
@@ -409,7 +531,8 @@ export const ImageBrowseView = ({
     const observer = new ResizeObserver(resize);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, []);
+  }, [initialScrollTop]);
+  useEffect(() => () => window.clearTimeout(scrollIdleTimerRef.current), []);
   const layout = useMemo(
     () => buildBrowseLayout(items, viewport.width),
     [items, viewport.width],
@@ -423,15 +546,60 @@ export const ImageBrowseView = ({
     void onVisibleFileIdsChange(visibleItems.map((item) => item.fileId));
   }, [visibleItems, onVisibleFileIdsChange]);
   const selectedIndex = items.findIndex((item) => item.fileId === selectedId);
+  useLayoutEffect(() => {
+    if (!selectedId || selectedIndex < 0) return;
+    const grid = gridRef.current;
+    const tile = layout.tiles[selectedIndex];
+    if (!grid || !tile) return;
+    const viewportTop = viewport.scrollTop;
+    const viewportBottom = viewportTop + viewport.height;
+    let nextScrollTop = viewportTop;
+    if (tile.top < viewportTop) {
+      nextScrollTop = Math.max(0, tile.top);
+    } else if (tile.top + tile.height > viewportBottom) {
+      nextScrollTop = Math.min(
+        tile.top,
+        Math.max(0, layout.totalHeight - viewport.height),
+      );
+    }
+    if (nextScrollTop !== viewportTop) {
+      grid.scrollTop = nextScrollTop;
+      setViewport((value) => ({ ...value, scrollTop: nextScrollTop }));
+      onScrollTopChange?.(nextScrollTop);
+      return;
+    }
+    const currentTile = tileRefs.current.get(selectedId);
+    if (!currentTile) return;
+    triggerRef.current = currentTile;
+    const { left, top, width, height } = currentTile.getBoundingClientRect();
+    setDetailOrigin((current) =>
+      current &&
+      current.left === left &&
+      current.top === top &&
+      current.width === width &&
+      current.height === height
+        ? current
+        : { left, top, width, height },
+    );
+  }, [
+    layout,
+    onScrollTopChange,
+    selectedId,
+    selectedIndex,
+    viewport.height,
+    viewport.scrollTop,
+  ]);
   const close = () => {
     setSelectedId(null);
     // Keep the grid mounted: its scroll position and originating focus survive the dialog.
-    queueMicrotask(() => {
-      if (triggerRef.current?.isConnected) {
-        triggerRef.current.focus({ preventScroll: true });
-      } else {
-        gridRef.current?.focus({ preventScroll: true });
-      }
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        if (triggerRef.current?.isConnected) {
+          triggerRef.current.focus({ preventScroll: true });
+        } else {
+          gridRef.current?.focus({ preventScroll: true });
+        }
+      }, 0);
     });
   };
   useEffect(() => {
@@ -449,16 +617,43 @@ export const ImageBrowseView = ({
           {browsePreviousIcon}
           {copy.browse.backToCanvas}
         </DesktopButton>
+        {viewport.scrollTop > 160 && (
+          <DesktopButton
+            size="small"
+            onClick={() => {
+              const grid = gridRef.current;
+              if (!grid) return;
+              const reduceMotion =
+                window.matchMedia?.("(prefers-reduced-motion: reduce)")
+                  ?.matches ?? false;
+              grid.scrollTo({
+                top: 0,
+                behavior: reduceMotion ? "auto" : "smooth",
+              });
+            }}
+          >
+            {browseUpIcon}
+            {copy.browse.backToTop}
+          </DesktopButton>
+        )}
       </header>
       <div
         ref={gridRef}
         className="image-browse-grid"
+        data-scrolling={scrolling ? "true" : "false"}
         role="region"
         aria-label={copy.browse.grid}
         tabIndex={0}
         onScroll={(event) => {
           const scrollTop = event.currentTarget.scrollTop;
           setViewport((value) => ({ ...value, scrollTop }));
+          onScrollTopChange?.(scrollTop);
+          setScrolling(true);
+          window.clearTimeout(scrollIdleTimerRef.current);
+          scrollIdleTimerRef.current = window.setTimeout(
+            () => setScrolling(false),
+            650,
+          );
         }}
       >
         {items.length === 0 ? (
@@ -476,6 +671,10 @@ export const ImageBrowseView = ({
               return (
                 <button
                   key={item.fileId}
+                  ref={(element) => {
+                    if (element) tileRefs.current.set(item.fileId, element);
+                    else tileRefs.current.delete(item.fileId);
+                  }}
                   type="button"
                   className="image-browse-tile"
                   style={layout.tiles[range.start + index]}
@@ -483,6 +682,9 @@ export const ImageBrowseView = ({
                   title={item.title}
                   onClick={(event) => {
                     triggerRef.current = event.currentTarget;
+                    const { left, top, width, height } =
+                      event.currentTarget.getBoundingClientRect();
+                    setDetailOrigin({ left, top, width, height });
                     setSelectedId(item.fileId);
                   }}
                 >
@@ -501,12 +703,13 @@ export const ImageBrowseView = ({
           </div>
         )}
       </div>
-      {selectedIndex >= 0 && (
+      {selectedIndex >= 0 && detailOrigin && (
         <ImageDetail
           projectPath={projectPath}
           imageRecords={imageRecords}
           onCopyText={onCopyText}
           onCopyColor={onCopyColor}
+          originRect={detailOrigin}
           item={items[selectedIndex]}
           index={selectedIndex}
           count={items.length}

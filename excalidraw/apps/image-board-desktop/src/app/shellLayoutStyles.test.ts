@@ -905,14 +905,29 @@ describe("CoreStudio shell layout styles", () => {
     expect(scrollBackRule).toContain("display: none");
   });
 
-  it("keeps CoreStudio-only icons in the Excalidraw fine-line style", () => {
+  it("keeps canvas and gallery icons on the shared fine-line control tiers", () => {
     const iconSource = readCoreStudioIcons();
     const appCss = readAppCss();
+    const browseCss = readCssFile(
+      "apps/image-board-desktop/src/app/components/ImageBrowseView.css",
+    );
     const tokenRule = getRule(
       readCssFile("apps/image-board-desktop/src/app/styles/designTokens.css"),
       ".image-board-app",
     );
     const sideDockToggleIconRule = getRule(appCss, ".side-dock__toggle svg");
+    const mainMenuTriggerIconRule = getRule(
+      appCss,
+      ".image-board-app .App-menu_top__left .main-menu-trigger svg",
+    );
+    const browseNavigationIconRule = getRule(
+      browseCss,
+      ".image-browse-navigation .image-board-button svg",
+    );
+    const browseDetailActionIconRule = getRule(
+      browseCss,
+      ".image-browse-detail__action svg",
+    );
     const sideDockSource = readFileSync(
       resolve(
         process.cwd(),
@@ -940,6 +955,22 @@ describe("CoreStudio shell layout styles", () => {
       "height: var(--side-dock-icon-size)",
     );
     expect(sideDockToggleIconRule).not.toContain("--lg-icon-size");
+    expect(mainMenuTriggerIconRule).toContain(
+      "width: var(--side-dock-icon-size)",
+    );
+    expect(mainMenuTriggerIconRule).toContain(
+      "height: var(--side-dock-icon-size)",
+    );
+    expect(browseNavigationIconRule).toContain("width: var(--ui-icon-size-md)");
+    expect(browseNavigationIconRule).toContain(
+      "height: var(--ui-icon-size-md)",
+    );
+    expect(browseDetailActionIconRule).toContain(
+      "width: var(--side-dock-icon-size)",
+    );
+    expect(browseDetailActionIconRule).toContain(
+      "height: var(--side-dock-icon-size)",
+    );
     expect(iconSource).toMatch(
       /export const homeIcon = \(\s*<LineIcon size=\{20\}>/,
     );

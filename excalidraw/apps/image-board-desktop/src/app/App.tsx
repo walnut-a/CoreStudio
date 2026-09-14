@@ -496,6 +496,7 @@ const App = ({
     currentProject?.projectPath ?? null,
     excalidrawAPIRef,
   );
+  const imageBrowseScrollPositionsRef = useRef(new Map<string, number>());
   const wasBrowsingRef = useRef(false);
   useEffect(() => {
     if (wasBrowsingRef.current && !browsing) {
@@ -3123,6 +3124,17 @@ const App = ({
               readOriginal={readImageOriginal}
               onBackToCanvas={() => changeMode(false)}
               onLocateImage={locateImage}
+              initialScrollTop={
+                imageBrowseScrollPositionsRef.current.get(
+                  currentProject.projectPath,
+                ) ?? 0
+              }
+              onScrollTopChange={(scrollTop) => {
+                imageBrowseScrollPositionsRef.current.set(
+                  currentProject.projectPath,
+                  scrollTop,
+                );
+              }}
             />
           )}
         </div>

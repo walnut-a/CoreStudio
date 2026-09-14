@@ -35,11 +35,13 @@ const zhCnCopy = {
     paletteFailed: "无法读取图片颜色",
   },
   browse: {
+    imageActions: "图片操作",
     properties: "属性",
     imageProperties: "图片属性",
     noProperties: "暂无图片属性",
     openGrid: "网格查看",
     backToCanvas: "返回画布",
+    backToTop: "回到顶部",
     locateOnCanvas: "在画布中定位",
     grid: "图片网格",
     untitled: "图片",

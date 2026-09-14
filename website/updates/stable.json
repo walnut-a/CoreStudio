@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.52",
-  "publishedAt": "2026-09-13T16:05:49Z",
+  "version": "1.1.53",
+  "publishedAt": "2026-09-14T04:12:51Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.52",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.53",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.52/CoreStudio-1.1.52-arm64.dmg",
-    "size": 137454799,
-    "sha256": "69652b5d9fe1f05e1ed3ebcd95765b0433f934a31e6605ca151ef6179442c4f9"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.53/CoreStudio-1.1.53-arm64.dmg",
+    "size": 137444594,
+    "sha256": "6d3400e3f9d0d6b3ac1c0a74bcd4b8910e37426017e64d6c5351696e1a67622a"
   },
   "summary": {
     "zh-CN": [
-      "新增 GPT Image 2.5，并开放质量档位、透明背景、批量输出及 2K / 4K 预设",
-      "项目文件夹图片按限定宽度自动换行，并避开画布现有内容",
-      "修复图片详情侧栏中复制图标被通用按钮样式压缩的问题"
+      "重构画廊详情的打开关闭动画、遮罩时序和纵向图片导航",
+      "新增连续缩放与放大后拖动，并统一画布与画廊的图片信息和配色提醒",
+      "记住画廊浏览位置，滚动条按需显示并支持平滑回到顶部"
     ],
     "en": [
-      "Add GPT Image 2.5 with quality controls, transparent backgrounds, batch output, and 2K / 4K presets",
-      "Wrap project-folder images within a bounded layout while avoiding existing canvas content",
-      "Fix copy icons being compressed by shared button styles in the image inspector"
+      "Refine gallery detail transitions, overlay timing, and vertical image navigation",
+      "Add continuous zooming and panning while aligning image details and palette feedback across canvas and gallery modes",
+      "Restore the previous gallery position, show scrollbars only while scrolling, and smoothly return to the top"
     ]
   }
 }

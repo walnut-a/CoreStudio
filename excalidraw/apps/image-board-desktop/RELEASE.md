@@ -240,6 +240,15 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版不修改项目文件格式、Agent Bridge 协议或上游 Excalidraw 基座。
 
+### 1.1.54 发布验收
+
+- 发布源码：`0c61950fa2cfc0135a2e9912f7837b5b0425c9c8`，PR #156 的合并提交；标签 `v1.1.54` 精确指向该提交。
+- 本地完整桌面测试通过：307 个测试文件、2409 项测试；Agent Node integration 5 个测试文件、37 项测试；TypeScript 类型检查通过。远端必需检查通过：[34834284080](https://github.com/walnut-a/CoreStudio/actions/runs/34834284080)。
+- SOURCE DEV 已验证 9 类实际图片样本解码；packaged smoke 的正式模式、QA 模式、旧版与多宿主 Agent 集成检查通过，测试进程已退出。
+- Apple 公证：`68318a6b-479f-480c-935a-314554babc8d`，Accepted；App 与 DMG 票据、Gatekeeper、DMG 完整性、路径扫描和发布产物敏感信息扫描通过。
+- 安装包：`CoreStudio-1.1.54-arm64.dmg`，137446445 字节；SHA-256：`e43465cd47f6512c38bec0038acb5b70217daf455a841a904c095be843c7a272`。
+- GitHub Release 附件已通过公开地址重新下载，大小、SHA-256 与本地产物完全一致。
+
 ## 1.1.53 发布说明
 
 - 重构画廊图片详情：从所选缩略图平滑放大进入，关闭时缩回原位置；图片切换改为右侧纵向导航，并统一弹窗、遮罩和侧栏的出现时序。

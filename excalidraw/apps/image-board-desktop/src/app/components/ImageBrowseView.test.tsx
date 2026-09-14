@@ -212,6 +212,7 @@ describe("ImageBrowseView", () => {
     fireEvent.click(toggle);
     const panel = screen.getByRole("complementary", { name: "图片属性" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(panel.firstElementChild).toHaveClass("inspector-sidebar");
     expect(within(panel).getByText("test-model")).toBeVisible();
     expect(within(panel).getByText("最初的结构草图")).toBeVisible();
     expect(
@@ -317,7 +318,13 @@ describe("ImageBrowseView", () => {
       within(actions).getByRole("button", { name: "在画布中定位" }),
     ).toBeVisible();
     expect(
-      within(actions).getByRole("button", { name: "原始尺寸" }),
+      within(actions).queryByRole("button", { name: "原始尺寸" }),
+    ).toBeNull();
+    expect(
+      within(actions).getByRole("button", { name: "缩小" }),
+    ).toBeDisabled();
+    expect(
+      within(actions).getByRole("button", { name: "放大" }),
     ).toBeVisible();
     const previous = within(actions).getByRole("button", { name: "上一张" });
     const next = within(actions).getByRole("button", { name: "下一张" });
@@ -338,6 +345,63 @@ describe("ImageBrowseView", () => {
     expect(
       screen.getByRole("complementary", { name: "图片属性" }),
     ).toHaveAttribute("data-open", "true");
+  });
+
+  it("支持连续缩放，并在放大后拖动图片", async () => {
+    render(<ImageBrowseView {...props()} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    await screen.findByRole("img", { name: "图片 0" });
+    const dialog = screen.getByRole("dialog");
+    const stage = dialog.querySelector(
+      ".image-browse-detail__image",
+    ) as HTMLDivElement;
+    const image = dialog.querySelector(
+      ".image-browse-original__viewport",
+    ) as HTMLDivElement;
+    vi.spyOn(stage, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 800,
+      bottom: 600,
+      width: 800,
+      height: 600,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "放大" }));
+    fireEvent.click(screen.getByRole("button", { name: "放大" }));
+    expect(Number(image.dataset.zoom)).toBeGreaterThan(1.25);
+    expect(screen.getByRole("button", { name: "缩小" })).toBeEnabled();
+
+    const pointerEvent = (
+      type: string,
+      clientX: number,
+      clientY: number,
+    ) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        button: 0,
+        clientX,
+        clientY,
+      });
+      Object.defineProperty(event, "pointerId", { value: 1 });
+      return event;
+    };
+    fireEvent(stage, pointerEvent("pointerdown", 400, 300));
+    fireEvent(stage, pointerEvent("pointermove", 450, 330));
+    expect(image.style.transform).toContain("translate3d(50px, 30px, 0)");
+    fireEvent(stage, pointerEvent("pointerup", 450, 330));
+
+    const zoomBeforeWheel = Number(image.dataset.zoom);
+    fireEvent.wheel(stage, { clientX: 400, clientY: 300, deltaY: -120 });
+    expect(Number(image.dataset.zoom)).toBeGreaterThan(zoomBeforeWheel);
+
+    fireEvent.click(screen.getByRole("button", { name: "下一张" }));
+    await screen.findByRole("img", { name: "图片 1" });
+    expect(image).toHaveAttribute("data-zoom", "1");
+    expect(image.style.transform).toContain("scale(1)");
   });
 
   it("keeps navigation outside the scrollable image grid", () => {
@@ -379,7 +443,6 @@ describe("ImageBrowseView", () => {
     fireEvent.load(retried);
     await waitFor(() => expect(preview).not.toBeInTheDocument());
     expect(retried).toHaveClass("image-browse-original__full--ready");
-    fireEvent.click(screen.getByRole("button", { name: "原始尺寸" }));
     expect(preview).not.toBeInTheDocument();
     expect(screen.queryByText("正在读取图片…")).toBeNull();
   });

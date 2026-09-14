@@ -53,8 +53,8 @@ const zhCnCopy = {
     close: "关闭详情",
     previous: "上一张",
     next: "下一张",
-    fit: "适应窗口",
-    actualSize: "原始尺寸",
+    zoomOut: "缩小",
+    zoomIn: "放大",
   },
   welcome: {
     eyebrow: "本地项目",

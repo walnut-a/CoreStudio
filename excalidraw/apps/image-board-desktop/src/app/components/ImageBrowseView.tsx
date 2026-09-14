@@ -1,4 +1,5 @@
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -9,6 +10,10 @@ import {
   useSyncExternalStore,
 } from "react";
 import { getTooltipDiv } from "@excalidraw/excalidraw/components/Tooltip";
+import {
+  ZoomInIcon,
+  ZoomOutIcon,
+} from "@excalidraw/excalidraw/components/icons";
 import type { ImageRecordMap } from "../../shared/projectTypes";
 import { getImageAncestors, getImageDescendants } from "../imageRelationships";
 import { ImagePalette } from "./ImagePalette";
@@ -23,13 +28,11 @@ import {
 } from "../imageBrowseModel";
 import { copy } from "../copy";
 import {
-  actualSizeIcon,
   closeIcon,
   browseDownIcon,
   browsePreviousIcon,
   browseNextIcon,
   browseUpIcon,
-  fitImageIcon,
   locateImageIcon,
   rightDockIcon,
 } from "./CoreStudioIcons";
@@ -47,6 +50,7 @@ interface ImageBrowseViewProps {
   readOriginal: (fileId: string) => Promise<ProjectAssetPayload | undefined>;
   onBackToCanvas: () => void;
   onLocateImage: (fileId: string) => void;
+  statusToast?: ReactNode;
   initialScrollTop?: number;
   onScrollTopChange?: (scrollTop: number) => void;
 }
@@ -56,15 +60,17 @@ type DetailOriginRect = Pick<DOMRect, "left" | "top" | "width" | "height">;
 const OriginalImage = ({
   item,
   readOriginal,
-  actualSize,
   thumbnail,
   onReady,
+  transform,
+  panning,
 }: {
   onReady: (fileId: string, image: HTMLImageElement) => void;
   item: ImageBrowseItem;
   readOriginal: ImageBrowseViewProps["readOriginal"];
-  actualSize: boolean;
   thumbnail?: string;
+  transform: DetailViewTransform;
+  panning: boolean;
 }) => {
   type LoadedImage = { asset: ProjectAssetPayload; title: string };
   type PendingImage = LoadedImage & {
@@ -124,46 +130,51 @@ const OriginalImage = ({
     (frame): frame is LoadedImage | PendingImage => Boolean(frame),
   );
   return (
-    <div
-      className={`image-browse-original${
-        actualSize && displayed ? " image-browse-original--actual" : ""
-      }`}
-    >
-      {!displayed && thumbnail && !previewFailed && (
-        <img
-          className="image-browse-original__preview"
-          src={thumbnail}
-          alt=""
-          draggable={false}
-          onError={() => setPreviewFailed(true)}
-        />
-      )}
-      {frames.map((frame) => {
-        const isPending = "loaded" in frame;
-        return (
+    <div className="image-browse-original">
+      <div
+        className="image-browse-original__viewport"
+        data-panning={panning ? "true" : "false"}
+        data-zoom={transform.scale}
+        style={{
+          transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})`,
+        }}
+      >
+        {!displayed && thumbnail && !previewFailed && (
           <img
-            key={frame.asset.fileId}
-            className={`image-browse-original__full${
-              isPending
-                ? " image-browse-original__full--pending"
-                : " image-browse-original__full--ready"
-            }`}
-            src={`data:${frame.asset.mimeType};base64,${frame.asset.dataBase64}`}
-            alt={frame.title}
+            className="image-browse-original__preview"
+            src={thumbnail}
+            alt=""
             draggable={false}
-            width={frame.asset.width}
-            height={frame.asset.height}
-            onLoad={
-              isPending
-                ? (event) => {
-                    void frame.loaded(event.currentTarget);
-                  }
-                : undefined
-            }
-            onError={isPending ? frame.failed : undefined}
+            onError={() => setPreviewFailed(true)}
           />
-        );
-      })}
+        )}
+        {frames.map((frame) => {
+          const isPending = "loaded" in frame;
+          return (
+            <img
+              key={frame.asset.fileId}
+              className={`image-browse-original__full${
+                isPending
+                  ? " image-browse-original__full--pending"
+                  : " image-browse-original__full--ready"
+              }`}
+              src={`data:${frame.asset.mimeType};base64,${frame.asset.dataBase64}`}
+              alt={frame.title}
+              draggable={false}
+              width={frame.asset.width}
+              height={frame.asset.height}
+              onLoad={
+                isPending
+                  ? (event) => {
+                      void frame.loaded(event.currentTarget);
+                    }
+                  : undefined
+              }
+              onError={isPending ? frame.failed : undefined}
+            />
+          );
+        })}
+      </div>
       {!ready && (
         <div className="image-browse-original__status" role="status">
           <span>{failed ? copy.browse.loadFailed : copy.browse.loading}</span>
@@ -181,6 +192,52 @@ const OriginalImage = ({
   );
 };
 
+const MIN_DETAIL_ZOOM = 1;
+const MAX_DETAIL_ZOOM = 8;
+const DETAIL_ZOOM_STEP = 1.25;
+
+interface DetailViewTransform {
+  scale: number;
+  x: number;
+  y: number;
+}
+
+const DEFAULT_DETAIL_TRANSFORM: DetailViewTransform = {
+  scale: MIN_DETAIL_ZOOM,
+  x: 0,
+  y: 0,
+};
+
+const clampDetailTransform = (
+  transform: DetailViewTransform,
+  bounds: Pick<DOMRect, "width" | "height">,
+  aspectRatio: number,
+): DetailViewTransform => {
+  if (transform.scale <= MIN_DETAIL_ZOOM || !bounds.width || !bounds.height) {
+    return { scale: Math.max(MIN_DETAIL_ZOOM, transform.scale), x: 0, y: 0 };
+  }
+  const safeAspectRatio = Math.max(0.01, aspectRatio);
+  const stageAspectRatio = bounds.width / bounds.height;
+  const baseWidth =
+    safeAspectRatio >= stageAspectRatio
+      ? bounds.width
+      : bounds.height * safeAspectRatio;
+  const baseHeight =
+    safeAspectRatio >= stageAspectRatio
+      ? bounds.width / safeAspectRatio
+      : bounds.height;
+  const maxX = Math.max(0, (baseWidth * transform.scale - bounds.width) / 2);
+  const maxY = Math.max(
+    0,
+    (baseHeight * transform.scale - bounds.height) / 2,
+  );
+  return {
+    scale: transform.scale,
+    x: Math.max(-maxX, Math.min(maxX, transform.x)),
+    y: Math.max(-maxY, Math.min(maxY, transform.y)),
+  };
+};
+
 const ImageDetail = ({
   projectPath,
   item,
@@ -195,6 +252,7 @@ const ImageDetail = ({
   onCopyText,
   onCopyColor,
   originRect,
+  statusToast,
 }: {
   projectPath: string;
   imageRecords: ImageRecordMap;
@@ -209,13 +267,24 @@ const ImageDetail = ({
   onLocateImage: ImageBrowseViewProps["onLocateImage"];
   thumbnail?: string;
   originRect: DetailOriginRect;
+  statusToast?: ReactNode;
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const imageStageRef = useRef<HTMLDivElement>(null);
   const [motion, setMotion] = useState<
     "preparing" | "opening" | "idle" | "closing"
   >("preparing");
-  const [actualSize, setActualSize] = useState(false);
+  const [viewTransform, setViewTransform] = useState<DetailViewTransform>(
+    DEFAULT_DETAIL_TRANSFORM,
+  );
+  const [panning, setPanning] = useState(false);
+  const panGestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const propertiesId = useId();
   const [loadedImage, setLoadedImage] = useState<{
@@ -309,7 +378,41 @@ const ImageDetail = ({
     const fallback = window.setTimeout(onClose, 280);
     return () => window.clearTimeout(fallback);
   }, [motion, onClose]);
-  useEffect(() => setActualSize(false), [item.fileId]);
+  useEffect(() => {
+    setViewTransform(DEFAULT_DETAIL_TRANSFORM);
+    setPanning(false);
+    panGestureRef.current = null;
+  }, [item.fileId]);
+  const zoomBy = useCallback(
+    (factor: number, clientPoint?: { x: number; y: number }) => {
+      const stage = imageStageRef.current;
+      if (!stage) return;
+      const bounds = stage.getBoundingClientRect();
+      setViewTransform((current) => {
+        const scale = Math.max(
+          MIN_DETAIL_ZOOM,
+          Math.min(MAX_DETAIL_ZOOM, current.scale * factor),
+        );
+        const ratio = scale / current.scale;
+        const anchorX = clientPoint
+          ? clientPoint.x - (bounds.left + bounds.width / 2)
+          : 0;
+        const anchorY = clientPoint
+          ? clientPoint.y - (bounds.top + bounds.height / 2)
+          : 0;
+        return clampDetailTransform(
+          {
+            scale,
+            x: anchorX - (anchorX - current.x) * ratio,
+            y: anchorY - (anchorY - current.y) * ratio,
+          },
+          bounds,
+          item.aspectRatio,
+        );
+      });
+    },
+    [item.aspectRatio],
+  );
   const requestClose = useCallback(() => {
     setMotion((current) => (current === "closing" ? current : "closing"));
   }, []);
@@ -336,16 +439,82 @@ const ImageDetail = ({
         }
         if (
           motion !== "closing" &&
-          !actualSize &&
           (event.key === "ArrowLeft" || event.key === "ArrowRight")
         ) {
           event.preventDefault();
           onNavigate(event.key === "ArrowLeft" ? -1 : 1);
         }
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          zoomBy(DETAIL_ZOOM_STEP);
+        } else if (event.key === "-") {
+          event.preventDefault();
+          zoomBy(1 / DETAIL_ZOOM_STEP);
+        } else if (event.key === "0") {
+          event.preventDefault();
+          setViewTransform(DEFAULT_DETAIL_TRANSFORM);
+        }
       }}
     >
       <div className="image-browse-detail__body">
-        <div ref={imageStageRef} className="image-browse-detail__image">
+        <div
+          ref={imageStageRef}
+          className="image-browse-detail__image"
+          data-panning={panning ? "true" : "false"}
+          data-zoomed={
+            viewTransform.scale > MIN_DETAIL_ZOOM ? "true" : "false"
+          }
+          onWheel={(event) => {
+            event.preventDefault();
+            zoomBy(Math.exp(-event.deltaY * 0.002), {
+              x: event.clientX,
+              y: event.clientY,
+            });
+          }}
+          onPointerDown={(event) => {
+            if (
+              (event.button ?? 0) !== 0 ||
+              viewTransform.scale <= MIN_DETAIL_ZOOM
+            ) {
+              return;
+            }
+            panGestureRef.current = {
+              pointerId: event.pointerId,
+              startX: event.clientX,
+              startY: event.clientY,
+              originX: viewTransform.x,
+              originY: viewTransform.y,
+            };
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            setPanning(true);
+          }}
+          onPointerMove={(event) => {
+            const gesture = panGestureRef.current;
+            if (!gesture || gesture.pointerId !== event.pointerId) return;
+            const bounds = event.currentTarget.getBoundingClientRect();
+            setViewTransform((current) =>
+              clampDetailTransform(
+                {
+                  ...current,
+                  x: gesture.originX + event.clientX - gesture.startX,
+                  y: gesture.originY + event.clientY - gesture.startY,
+                },
+                bounds,
+                item.aspectRatio,
+              ),
+            );
+          }}
+          onPointerUp={(event) => {
+            if (panGestureRef.current?.pointerId !== event.pointerId) return;
+            panGestureRef.current = null;
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+            setPanning(false);
+          }}
+          onPointerCancel={() => {
+            panGestureRef.current = null;
+            setPanning(false);
+          }}
+        >
           <div
             className="image-browse-detail__media"
             onAnimationEnd={(event) => {
@@ -360,9 +529,10 @@ const ImageDetail = ({
             <OriginalImage
               item={item}
               readOriginal={readOriginal}
-              actualSize={actualSize}
               thumbnail={thumbnail}
               onReady={onImageReady}
+              transform={viewTransform}
+              panning={panning}
             />
           </div>
         </div>
@@ -373,26 +543,28 @@ const ImageDetail = ({
             data-open="true"
             aria-label={copy.browse.imageProperties}
           >
-            {record ? (
-              <ImageInspector
-                colorProperties={colorProperties}
-                projectPath={projectPath}
-                key={record.fileId}
-                record={record}
-                ancestorRecords={relationships.ancestors}
-                descendantRecords={relationships.descendants}
-                task={null}
-                onCopyPrompt={() => onCopyText(record.prompt ?? "")}
-                onCopyImageId={() => onCopyText(record.fileId)}
-              />
-            ) : (
-              <>
-                {colorProperties}
-                <p className="image-browse-detail__properties-empty">
-                  {copy.browse.noProperties}
-                </p>
-              </>
-            )}
+            <div className="inspector-sidebar image-browse-detail__inspector">
+              {record ? (
+                <ImageInspector
+                  colorProperties={colorProperties}
+                  projectPath={projectPath}
+                  key={record.fileId}
+                  record={record}
+                  ancestorRecords={relationships.ancestors}
+                  descendantRecords={relationships.descendants}
+                  task={null}
+                  onCopyPrompt={() => onCopyText(record.prompt ?? "")}
+                  onCopyImageId={() => onCopyText(record.fileId)}
+                />
+              ) : (
+                <>
+                  {colorProperties}
+                  <p className="image-browse-detail__properties-empty">
+                    {copy.browse.noProperties}
+                  </p>
+                </>
+              )}
+            </div>
           </aside>
         )}
       </div>
@@ -427,13 +599,24 @@ const ImageDetail = ({
           <DesktopButton
             size="small"
             className="image-browse-detail__action"
-            aria-label={actualSize ? copy.browse.fit : copy.browse.actualSize}
-            title={actualSize ? copy.browse.fit : copy.browse.actualSize}
-            data-label={actualSize ? copy.browse.fit : copy.browse.actualSize}
-            aria-pressed={actualSize}
-            onClick={() => setActualSize((value) => !value)}
+            aria-label={copy.browse.zoomOut}
+            title={copy.browse.zoomOut}
+            data-label={copy.browse.zoomOut}
+            disabled={viewTransform.scale <= MIN_DETAIL_ZOOM}
+            onClick={() => zoomBy(1 / DETAIL_ZOOM_STEP)}
           >
-            {actualSize ? fitImageIcon : actualSizeIcon}
+            {ZoomOutIcon}
+          </DesktopButton>
+          <DesktopButton
+            size="small"
+            className="image-browse-detail__action"
+            aria-label={copy.browse.zoomIn}
+            title={copy.browse.zoomIn}
+            data-label={copy.browse.zoomIn}
+            disabled={viewTransform.scale >= MAX_DETAIL_ZOOM}
+            onClick={() => zoomBy(DETAIL_ZOOM_STEP)}
+          >
+            {ZoomInIcon}
           </DesktopButton>
           <DesktopButton
             size="small"
@@ -477,6 +660,7 @@ const ImageDetail = ({
           </DesktopButton>
         </div>
       </div>
+      {statusToast}
     </dialog>
   );
 };
@@ -492,6 +676,7 @@ export const ImageBrowseView = ({
   readOriginal,
   onBackToCanvas,
   onLocateImage,
+  statusToast,
   initialScrollTop = 0,
   onScrollTopChange,
 }: ImageBrowseViewProps) => {
@@ -721,6 +906,7 @@ export const ImageBrowseView = ({
           }
           onClose={close}
           onLocateImage={onLocateImage}
+          statusToast={statusToast}
           onNavigate={(delta) => {
             const next = items[selectedIndex + delta];
             if (next) {

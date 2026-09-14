@@ -1404,6 +1404,13 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("clearTimedNoticeAction");
   });
 
+  it("keeps the shared project toast visible in canvas and gallery layers", () => {
+    const source = readImageBoardApp();
+
+    expect(source).toContain("{!browsing && renderProjectStatusToast()}");
+    expect(source).toContain("statusToast={renderProjectStatusToast()}");
+  });
+
   it("keeps Agent Board runtime publish timer wiring outside the root app", () => {
     const source = readImageBoardApp();
 

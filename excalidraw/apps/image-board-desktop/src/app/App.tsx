@@ -2864,7 +2864,7 @@ const App = ({
                 }
               />
             ) : null}
-            {renderProjectStatusToast()}
+            {!browsing && renderProjectStatusToast()}
             <Suspense fallback={null}>
               <LazyExcalidraw
                 interaction={!browsing}
@@ -3124,6 +3124,7 @@ const App = ({
               readOriginal={readImageOriginal}
               onBackToCanvas={() => changeMode(false)}
               onLocateImage={locateImage}
+              statusToast={renderProjectStatusToast()}
               initialScrollTop={
                 imageBrowseScrollPositionsRef.current.get(
                   currentProject.projectPath,

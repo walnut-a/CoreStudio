@@ -42,8 +42,8 @@ export const enCopy: DesktopCopy = {
     close: "Close details",
     previous: "Previous image",
     next: "Next image",
-    fit: "Fit to window",
-    actualSize: "Actual size",
+    zoomOut: "Zoom out",
+    zoomIn: "Zoom in",
   },
   welcome: {
     eyebrow: "Local projects",

@@ -77,6 +77,27 @@ describe("readLocalImagePayload", () => {
     });
   });
 
+  it.each([
+    ["sample.jfif", "image/jpeg"],
+    ["sample.avif", "image/avif"],
+    ["sample.gif", "image/gif"],
+    ["sample.bmp", "image/bmp"],
+    ["sample.ico", "image/x-icon"],
+    ["sample.svg", "image/svg+xml"],
+  ])(
+    "accepts the unified image protocol for %s",
+    async (fileName, mimeType) => {
+      await expect(
+        readLocalImagePayload(`/tmp/mock/${fileName}`, {
+          readFile: vi.fn(async () => Buffer.from("image bytes")),
+          inspectImage: vi.fn(() => ({ width: 32, height: 24 })),
+          now: () => fixedDate,
+          randomId: () => "protocol-id",
+        }),
+      ).resolves.toMatchObject({ fileName, mimeType });
+    },
+  );
+
   it("allows inspectImage to override the inferred mime type", async () => {
     await expect(
       readLocalImagePayload("/tmp/mock/source.png", {

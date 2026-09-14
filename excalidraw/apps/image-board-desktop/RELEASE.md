@@ -231,6 +231,15 @@ node --test website/update-manifest-contract.test.mjs
 
 官网部署工作流会再次执行同一合同测试。部署成功后，在线复核清单内容和 DMG 链接；低版本客户端只有在这一步完成后才应发现更新。开发中的 `package.json` 可以高于线上稳定版，不能为了让版本相等而提前发布清单。
 
+## 1.1.54 发布说明
+
+- 统一 CoreStudio 桌面端图片输入协议，桌面文件选择、项目目录自动接纳、Inbox、Agent/CLI 写入和系统剪贴板不再分别维护格式白名单。
+- 自动接纳与 Agent/CLI 写入扩展支持 AVIF、GIF、BMP、ICO 和 JFIF，并继续支持 PNG、JPEG、WebP 与静态 SVG；JFIF 统一按 JPEG 原图和 `image/jpeg` 持久化。
+- 新增 GIF、BMP、ICO、AVIF 的容器头与尺寸检查，所有持久化入口继续执行 64 MiB、6400 万像素和隔离真实解码限制；系统剪贴板输入仍统一转换为 PNG。
+- CoreStudio 协议保留在桌面适配层，不修改上游 Excalidraw；契约测试负责检测上游画布白名单与桌面协议的格式或 MIME 漂移。
+
+系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版不修改项目文件格式、Agent Bridge 协议或上游 Excalidraw 基座。
+
 ## 1.1.53 发布说明
 
 - 重构画廊图片详情：从所选缩略图平滑放大进入，关闭时缩回原位置；图片切换改为右侧纵向导航，并统一弹窗、遮罩和侧栏的出现时序。

@@ -178,6 +178,46 @@ const createJpegBuffer = (width: number, height: number) => {
   return buffer;
 };
 
+const createGifBuffer = (width: number, height: number) => {
+  const buffer = Buffer.alloc(14);
+  buffer.write("GIF89a");
+  buffer.writeUInt16LE(width, 6);
+  buffer.writeUInt16LE(height, 8);
+  buffer[13] = 0x3b;
+  return buffer;
+};
+
+const createBmpBuffer = (width: number, height: number) => {
+  const buffer = Buffer.alloc(54);
+  buffer.write("BM");
+  buffer.writeUInt32LE(40, 14);
+  buffer.writeInt32LE(width, 18);
+  buffer.writeInt32LE(height, 22);
+  return buffer;
+};
+
+const createIcoBuffer = (width: number, height: number) => {
+  const buffer = Buffer.alloc(22);
+  buffer.writeUInt16LE(1, 2);
+  buffer.writeUInt16LE(1, 4);
+  buffer[6] = width === 256 ? 0 : width;
+  buffer[7] = height === 256 ? 0 : height;
+  return buffer;
+};
+
+const createAvifBuffer = (width: number, height: number) => {
+  const buffer = Buffer.alloc(44);
+  buffer.writeUInt32BE(20, 0);
+  buffer.write("ftyp", 4);
+  buffer.write("avif", 8);
+  buffer.write("mif1", 16);
+  buffer.writeUInt32BE(20, 20);
+  buffer.write("ispe", 24);
+  buffer.writeUInt32BE(width, 32);
+  buffer.writeUInt32BE(height, 36);
+  return buffer;
+};
+
 const createWebpVp8xBuffer = (width: number, height: number) => {
   const buffer = Buffer.alloc(30);
   buffer.write("RIFF", 0, "ascii");
@@ -1221,12 +1261,52 @@ describe("runCli", () => {
       height: 480,
     },
     {
+      name: "jfif",
+      filePath: "/tmp/source.jfif",
+      buffer: createJpegBuffer(640, 480),
+      mimeType: "image/jpeg",
+      width: 640,
+      height: 480,
+    },
+    {
       name: "webp vp8x",
       filePath: "/tmp/source.webp",
       buffer: createWebpVp8xBuffer(800, 600),
       mimeType: "image/webp",
       width: 800,
       height: 600,
+    },
+    {
+      name: "avif",
+      filePath: "/tmp/source.avif",
+      buffer: createAvifBuffer(800, 600),
+      mimeType: "image/avif",
+      width: 800,
+      height: 600,
+    },
+    {
+      name: "gif",
+      filePath: "/tmp/source.gif",
+      buffer: createGifBuffer(320, 240),
+      mimeType: "image/gif",
+      width: 320,
+      height: 240,
+    },
+    {
+      name: "bmp",
+      filePath: "/tmp/source.bmp",
+      buffer: createBmpBuffer(640, 480),
+      mimeType: "image/bmp",
+      width: 640,
+      height: 480,
+    },
+    {
+      name: "ico",
+      filePath: "/tmp/source.ico",
+      buffer: createIcoBuffer(64, 32),
+      mimeType: "image/x-icon",
+      width: 64,
+      height: 32,
     },
     {
       name: "svg viewBox",

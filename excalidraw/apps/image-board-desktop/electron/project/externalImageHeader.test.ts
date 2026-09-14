@@ -30,3 +30,65 @@ it("accepts a bounded PNG header for the later full decoder", () => {
   bytes.write("IEND", 32);
   expect(() => validateExternalImageHeader(bytes, "image/png")).not.toThrow();
 });
+
+it.each([
+  [
+    "image/gif",
+    (() => {
+      const bytes = Buffer.alloc(14);
+      bytes.write("GIF89a");
+      bytes.writeUInt16LE(320, 6);
+      bytes.writeUInt16LE(240, 8);
+      bytes[13] = 0x3b;
+      return bytes;
+    })(),
+    { width: 320, height: 240 },
+  ],
+  [
+    "image/bmp",
+    (() => {
+      const bytes = Buffer.alloc(54);
+      bytes.write("BM");
+      bytes.writeUInt32LE(40, 14);
+      bytes.writeInt32LE(640, 18);
+      bytes.writeInt32LE(-480, 22);
+      return bytes;
+    })(),
+    { width: 640, height: 480 },
+  ],
+  [
+    "image/x-icon",
+    (() => {
+      const bytes = Buffer.alloc(22);
+      bytes.writeUInt16LE(1, 2);
+      bytes.writeUInt16LE(1, 4);
+      bytes[6] = 64;
+      bytes[7] = 32;
+      return bytes;
+    })(),
+    { width: 64, height: 32 },
+  ],
+  [
+    "image/avif",
+    (() => {
+      const bytes = Buffer.alloc(44);
+      bytes.writeUInt32BE(20, 0);
+      bytes.write("ftyp", 4);
+      bytes.write("avif", 8);
+      bytes.write("mif1", 16);
+      bytes.writeUInt32BE(20, 20);
+      bytes.write("ispe", 24);
+      bytes.writeUInt32BE(800, 32);
+      bytes.writeUInt32BE(600, 36);
+      return bytes;
+    })(),
+    { width: 800, height: 600 },
+  ],
+])(
+  "accepts %s through the unified image header contract",
+  (mimeType, bytes, dimensions) => {
+    expect(
+      validateExternalImageHeader(bytes as Buffer, mimeType as string),
+    ).toEqual(dimensions);
+  },
+);

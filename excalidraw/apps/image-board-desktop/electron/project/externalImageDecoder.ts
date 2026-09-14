@@ -4,6 +4,7 @@ import {
 } from "./visibleImageTransform";
 import { validateExternalImageHeader } from "./externalImageHeader";
 import { BrowserWindow } from "electron";
+import { IMAGE_INPUT_MIME_TYPES } from "../../src/shared/imageFormatProtocol";
 
 // Decode in a sandboxed renderer, never on the editor or main process thread.
 export const decodeExpression = (
@@ -14,6 +15,9 @@ export const decodeExpression = (
 ) => `
 (async () => {
  const raw=atob(${JSON.stringify(data)}), mime=${JSON.stringify(mimeType)};
+ const embeddedImageMimes=${JSON.stringify(
+   IMAGE_INPUT_MIME_TYPES.filter((candidate) => candidate !== "image/svg+xml"),
+ )};
  const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
  if(mime==='image/png' && (raw.slice(1,4)!=='PNG'||raw.slice(-8,-4)!=='IEND')) throw Error('PNG 文件不完整。');
  if(mime==='image/jpeg' && (bytes[0]!==255||bytes[1]!==216||bytes[bytes.length-2]!==255||bytes[bytes.length-1]!==217)) throw Error('JPEG 文件不完整。');
@@ -23,7 +27,7 @@ export const decodeExpression = (
   if(doc.querySelector('parsererror,script,foreignObject')||doc.documentElement.localName!=='svg'||/<!DOCTYPE|<!ENTITY/i.test(text)) throw Error('SVG 格式无效或含有不支持的活动内容。');
   const sw=parseFloat(doc.documentElement.getAttribute('width')),sh=parseFloat(doc.documentElement.getAttribute('height')); if(sw>0&&sh>0&&sw*sh>64000000)throw Error('SVG 超过 6400 万像素限制。');
   for(const element of doc.querySelectorAll('*')) for(const attribute of element.attributes) {
-   if(/^on/i.test(attribute.name)||(/href$/i.test(attribute.name)&&attribute.value&&!attribute.value.startsWith('#')&&!['png','jpeg','webp'].some(format=>attribute.value.toLowerCase().startsWith('data:image/'+format+';base64,')))||/url\\(\\s*[^#]/i.test(attribute.value)) throw Error('SVG 不能依赖外部内容。');
+   if(/^on/i.test(attribute.name)||(/href$/i.test(attribute.name)&&attribute.value&&!attribute.value.startsWith('#')&&!embeddedImageMimes.some(type=>attribute.value.toLowerCase().startsWith('data:'+type+';base64,')))||/url\\(\\s*[^#]/i.test(attribute.value)) throw Error('SVG 不能依赖外部内容。');
   }
   if(/@import|url\\(\\s*[^#]/i.test(text)) throw Error('SVG 不能依赖外部内容。');
  }

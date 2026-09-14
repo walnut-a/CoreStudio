@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { Clipboard, ClipboardItem, NativeImage } from "electron";
 
+import { IMAGE_INPUT_MIME_TYPES } from "../src/shared/imageFormatProtocol";
+
 /** Electron-specific clipboard adaptation stays outside the upstream canvas. */
 export const createSystemClipboard = (input: {
   clipboard: Pick<Clipboard, "read" | "write" | "writeText">;
@@ -35,7 +37,7 @@ export const createSystemClipboard = (input: {
 
   async readImage() {
     const items = await input.clipboard.read();
-    for (const mimeType of ["image/png", "image/jpeg", "image/webp"]) {
+    for (const mimeType of IMAGE_INPUT_MIME_TYPES) {
       const item = items.find((candidate) =>
         candidate.types.includes(mimeType),
       );

@@ -37,7 +37,13 @@ describe("external image discovery", () => {
     for (const relativePath of [
       "image.png",
       "参考/中文 图.jpg",
+      "参考/photo.jpeg",
+      "参考/photo.jfif",
       "collection/inbox/photo.webp",
+      "collection/photo.avif",
+      "collection/animation.gif",
+      "collection/legacy.bmp",
+      "collection/favicon.ico",
       "assets/new.png",
     ]) {
       expect(classifyExternalImagePath(relativePath)).toMatchObject({

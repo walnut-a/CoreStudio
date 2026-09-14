@@ -201,7 +201,7 @@ describe("generate composer styles", () => {
     expect(appCss).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
-  it("optically balances the generation footer icon with the help icon", () => {
+  it("uses the shared footer icon size for the generation footer toggle", () => {
     const toggleCss = readCssFile(
       "apps/image-board-desktop/src/app/components/GenerateComposerFooterToggle.css",
     );
@@ -210,7 +210,7 @@ describe("generate composer styles", () => {
       ".generate-composer-footer-toggle-slot\n  .help-icon.generate-composer-footer-toggle\n  svg",
     );
 
-    expect(iconRule).toContain("transform: scale(1.25)");
+    expect(iconRule).toBeUndefined();
   });
 
   it("matches the single-outline composer layout from the reference mock", () => {
@@ -348,7 +348,7 @@ describe("generate composer styles", () => {
       "--generate-composer-editor-font-size: var(--ui-text-size-lg)",
     );
     expect(composerRule).toContain(
-      "--generate-composer-control-icon-size: 20px",
+      "--generate-composer-control-icon-size: var(--ui-icon-size-md)",
     );
     expect(composerRule).toContain(
       "--generate-composer-placeholder-color: color-mix(",
@@ -1402,6 +1402,13 @@ describe("generate composer styles", () => {
     expect(source).not.toContain("const clearProjectNotice");
     expect(source).not.toContain("showTimedNoticeAction");
     expect(source).not.toContain("clearTimedNoticeAction");
+  });
+
+  it("keeps the shared project toast visible in canvas and gallery layers", () => {
+    const source = readImageBoardApp();
+
+    expect(source).toContain("{!browsing && renderProjectStatusToast()}");
+    expect(source).toContain("statusToast={renderProjectStatusToast()}");
   });
 
   it("keeps Agent Board runtime publish timer wiring outside the root app", () => {

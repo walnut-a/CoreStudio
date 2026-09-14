@@ -181,3 +181,20 @@ export const browseNextIcon = (
     <path d="m9.5 6.5 5.5 5.5-5.5 5.5" />
   </LineIcon>
 );
+export const browseUpIcon = (
+  <LineIcon size={18}>
+    <path d="m6.5 14.5 5.5-5.5 5.5 5.5" />
+  </LineIcon>
+);
+export const browseDownIcon = (
+  <LineIcon size={18}>
+    <path d="m6.5 9.5 5.5 5.5 5.5-5.5" />
+  </LineIcon>
+);
+
+export const locateImageIcon = (
+  <LineIcon size={20}>
+    <circle cx="12" cy="12" r="3.25" />
+    <path d="M12 4.25v2.5M12 17.25v2.5M4.25 12h2.5M17.25 12h2.5" />
+  </LineIcon>
+);

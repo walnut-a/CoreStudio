@@ -248,6 +248,11 @@
   color: var(--text-primary-color);
 }
 
+.image-board-app .App-menu_top__left .main-menu-trigger svg {
+  width: var(--side-dock-icon-size);
+  height: var(--side-dock-icon-size);
+}
+
 .image-board-app .App-menu_top__left .main-menu-trigger:hover {
   background: var(--button-hover-bg);
   border-color: var(--color-surface-primary-container);

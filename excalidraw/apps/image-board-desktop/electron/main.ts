@@ -10,6 +10,11 @@ import path from "path";
 import type { BaseWindow, IpcMainEvent, WebContents } from "electron";
 
 import {
+  IMAGE_FILE_EXTENSIONS,
+  IMAGE_MIME_TYPE_BY_EXTENSION,
+} from "../src/shared/imageFormatProtocol";
+
+import {
   BrowserWindow,
   Menu,
   WebContentsView,
@@ -3411,7 +3416,7 @@ const importImagesFromDisk = async () => {
     filters: [
       {
         name: "Images",
-        extensions: ["png", "jpg", "jpeg", "webp", "svg"],
+        extensions: [...IMAGE_FILE_EXTENSIONS],
       },
     ],
   });
@@ -3423,25 +3428,23 @@ const importImagesFromDisk = async () => {
   return Promise.all(
     result.filePaths.map(async (filePath) => {
       const fileBuffer = await fs.readFile(filePath);
-      const image = nativeImage.createFromBuffer(fileBuffer);
-      const size = image.getSize();
       const extension = path.extname(filePath).toLowerCase();
       const mimeType =
-        extension === ".jpg" || extension === ".jpeg"
-          ? "image/jpeg"
-          : extension === ".webp"
-          ? "image/webp"
-          : extension === ".svg"
-          ? "image/svg+xml"
-          : "image/png";
+        IMAGE_MIME_TYPE_BY_EXTENSION[
+          extension.slice(1) as keyof typeof IMAGE_MIME_TYPE_BY_EXTENSION
+        ];
+      if (!mimeType) {
+        throw new Error(`Unsupported image file type: ${extension}`);
+      }
+      const size = await intakeDecoder.decode(fileBuffer, mimeType);
 
       return {
         fileName: path.basename(filePath),
         fileId: randomUUID(),
         mimeType,
         dataBase64: fileBuffer.toString("base64"),
-        width: size.width || 1024,
-        height: size.height || 1024,
+        width: size.width,
+        height: size.height,
         createdAt: new Date().toISOString(),
       };
     }),

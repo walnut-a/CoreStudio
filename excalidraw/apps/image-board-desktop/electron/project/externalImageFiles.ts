@@ -3,15 +3,22 @@ import { constants } from "node:fs";
 import fs, { type FileHandle } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  IMAGE_FILE_EXTENSIONS,
+  IMAGE_MIME_TYPE_BY_EXTENSION,
+} from "../../src/shared/imageFormatProtocol";
+
 import { PROJECT_FILENAMES } from "../../src/shared/projectTypes";
 
-export const EXTERNAL_IMAGE_MIME_TYPES: Readonly<Record<string, string>> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-};
+export const EXTERNAL_IMAGE_MIME_TYPES: Readonly<Record<string, string>> =
+  Object.freeze(
+    Object.fromEntries(
+      IMAGE_FILE_EXTENSIONS.map((extension) => [
+        `.${extension}`,
+        IMAGE_MIME_TYPE_BY_EXTENSION[extension],
+      ]),
+    ),
+  );
 
 export type ExternalImageFile = {
   relativePath: string;

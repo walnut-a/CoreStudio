@@ -2,6 +2,7 @@
 const checkDimensions = (width: number, height: number) => {
   if (!width || !height || width * height > 64_000_000)
     throw new Error("图片尺寸无效或超过 6400 万像素限制。");
+  return { width, height };
 };
 export const validateExternalImageHeader = (
   bytes: Buffer,
@@ -19,10 +20,9 @@ export const validateExternalImageHeader = (
       bytes.toString("ascii", bytes.length - 8, bytes.length - 4) !== "IEND"
     )
       throw new Error("PNG 文件不完整。");
-    checkDimensions(bytes.readUInt32BE(16), bytes.readUInt32BE(20));
-    return;
+    return checkDimensions(bytes.readUInt32BE(16), bytes.readUInt32BE(20));
   }
-  if (mimeType === "image/jpeg") {
+  if (mimeType === "image/jpeg" || mimeType === "image/jfif") {
     if (
       bytes.length < 4 ||
       bytes.readUInt16BE(0) !== 0xffd8 ||
@@ -46,11 +46,10 @@ export const validateExternalImageHeader = (
         ].includes(marker) &&
         length >= 8
       ) {
-        checkDimensions(
+        return checkDimensions(
           bytes.readUInt16BE(offset + 5),
           bytes.readUInt16BE(offset + 3),
         );
-        return;
       }
       offset += length;
     }
@@ -70,30 +69,90 @@ export const validateExternalImageHeader = (
         data = offset + 8;
       if (data + length > bytes.length) break;
       if (type === "VP8X" && length >= 10) {
-        checkDimensions(
+        return checkDimensions(
           bytes.readUIntLE(data + 4, 3) + 1,
           bytes.readUIntLE(data + 7, 3) + 1,
         );
-        return;
       }
       if (type === "VP8L" && length >= 5 && bytes[data] === 0x2f) {
         const dimensions = bytes.readUInt32LE(data + 1);
-        checkDimensions(
+        return checkDimensions(
           (dimensions & 0x3fff) + 1,
           ((dimensions >>> 14) & 0x3fff) + 1,
         );
-        return;
       }
       if (type === "VP8 " && length >= 10) {
-        checkDimensions(
+        return checkDimensions(
           bytes.readUInt16LE(data + 6) & 0x3fff,
           bytes.readUInt16LE(data + 8) & 0x3fff,
         );
-        return;
       }
       offset = data + length + (length % 2);
     }
     throw new Error("WebP 尺寸头无效。");
   }
-  if (mimeType !== "image/svg+xml") throw new Error("不支持的图片格式。");
+  if (mimeType === "image/gif") {
+    if (
+      bytes.length < 14 ||
+      !["GIF87a", "GIF89a"].includes(bytes.toString("ascii", 0, 6)) ||
+      bytes[bytes.length - 1] !== 0x3b
+    )
+      throw new Error("GIF 文件不完整。");
+    return checkDimensions(bytes.readUInt16LE(6), bytes.readUInt16LE(8));
+  }
+  if (mimeType === "image/bmp") {
+    if (bytes.length < 26 || bytes.toString("ascii", 0, 2) !== "BM")
+      throw new Error("BMP 文件不完整。");
+    const dibSize = bytes.readUInt32LE(14);
+    if (dibSize === 12 && bytes.length >= 26)
+      return checkDimensions(bytes.readUInt16LE(18), bytes.readUInt16LE(20));
+    if (dibSize < 40 || bytes.length < 30) throw new Error("BMP 尺寸头无效。");
+    return checkDimensions(
+      Math.abs(bytes.readInt32LE(18)),
+      Math.abs(bytes.readInt32LE(22)),
+    );
+  }
+  if (mimeType === "image/x-icon") {
+    const count = bytes.length >= 6 ? bytes.readUInt16LE(4) : 0;
+    if (
+      !count ||
+      bytes.length < 6 + count * 16 ||
+      bytes.readUInt16LE(0) !== 0 ||
+      bytes.readUInt16LE(2) !== 1
+    )
+      throw new Error("ICO 文件不完整。");
+    let width = 0;
+    let height = 0;
+    for (let index = 0; index < count; index++) {
+      const offset = 6 + index * 16;
+      width = Math.max(width, bytes[offset] || 256);
+      height = Math.max(height, bytes[offset + 1] || 256);
+    }
+    return checkDimensions(width, height);
+  }
+  if (mimeType === "image/avif") {
+    if (
+      bytes.length < 20 ||
+      bytes.toString("ascii", 4, 8) !== "ftyp" ||
+      !["avif", "avis"].some((brand) =>
+        bytes
+          .subarray(8, Math.min(bytes.length, 64))
+          .includes(Buffer.from(brand)),
+      )
+    )
+      throw new Error("AVIF 文件不完整。");
+    for (let offset = 4; offset + 16 <= bytes.length; offset++) {
+      if (bytes.toString("ascii", offset, offset + 4) !== "ispe") continue;
+      const boxStart = offset - 4;
+      const boxSize = boxStart >= 0 ? bytes.readUInt32BE(boxStart) : 0;
+      if (boxSize < 20 || boxStart + boxSize > bytes.length) continue;
+      return checkDimensions(
+        bytes.readUInt32BE(offset + 8),
+        bytes.readUInt32BE(offset + 12),
+      );
+    }
+    throw new Error("AVIF 尺寸头无效。");
+  }
+  if (mimeType === "image/svg+xml") return null;
+  throw new Error("不支持的图片格式。");
 };

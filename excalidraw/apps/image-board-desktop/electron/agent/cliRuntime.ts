@@ -18,6 +18,7 @@ import { getPersistedImageAssetIntegrityError } from "../../src/shared/projectRe
 import { DESKTOP_APP_VERSION } from "../appVersion";
 import { readLocalImagePayload } from "./localImagePayload";
 import { getAgentSessionPath } from "./sessionPaths";
+import { validateExternalImageHeader } from "../project/externalImageHeader";
 
 import type { AgentEnvelope } from "../../src/shared/agentBridgeTypes";
 import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
@@ -1093,11 +1094,22 @@ const inspectImageDimensions: NonNullable<
     case "image/png":
       return inspectPngDimensions(buffer);
     case "image/jpeg":
+    case "image/jfif":
       return inspectJpegDimensions(buffer);
     case "image/webp":
       return inspectWebpDimensions(buffer);
     case "image/svg+xml":
       return inspectSvgDimensions(buffer);
+    case "image/avif":
+    case "image/gif":
+    case "image/bmp":
+    case "image/x-icon": {
+      const dimensions = validateExternalImageHeader(buffer, mimeType);
+      if (!dimensions) {
+        throw new Error(`Unable to inspect ${mimeType} dimensions.`);
+      }
+      return dimensions;
+    }
     default:
       throw new Error(`Unsupported image mime type: ${mimeType}`);
   }

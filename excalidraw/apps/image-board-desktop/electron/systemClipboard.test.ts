@@ -100,6 +100,26 @@ describe("Electron system clipboard adapter", () => {
     expect(decodeBuffer).toHaveBeenCalledWith(Buffer.from("jpeg"));
   });
 
+  it.each([
+    "image/jfif",
+    "image/webp",
+    "image/avif",
+    "image/gif",
+    "image/bmp",
+    "image/x-icon",
+    "image/svg+xml",
+  ])(
+    "reads %s through the unified protocol and normalizes it to PNG",
+    async (mimeType) => {
+      const { clipboard, adapter, decodeBuffer } = setup();
+      clipboard.read.mockResolvedValue([makeItem({ [mimeType]: "image" })]);
+      expect(await adapter.readImage()).toMatchObject({
+        mimeType: "image/png",
+      });
+      expect(decodeBuffer).toHaveBeenCalledWith(Buffer.from("image"));
+    },
+  );
+
   it("returns null for text-only and undecodable images, but propagates access failure", async () => {
     const { clipboard, adapter, decodeBuffer } = setup();
     clipboard.read.mockResolvedValue([makeItem({ "text/plain": "text" })]);

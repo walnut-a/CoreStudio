@@ -4,6 +4,8 @@ import { readFile as fsReadFile } from "node:fs/promises";
 
 import path from "node:path";
 
+import { IMAGE_MIME_TYPE_BY_EXTENSION } from "../../src/shared/imageFormatProtocol";
+
 import type { Buffer } from "node:buffer";
 
 import type { ImportedImagePayload } from "../../src/shared/desktopBridgeTypes";
@@ -19,17 +21,12 @@ export interface LocalImagePayloadOptions {
   randomId?: () => string;
 }
 
-const MIME_TYPES_BY_EXTENSION: Record<string, string> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-};
-
 const inferMimeType = (filePath: string): string => {
   const extension = path.extname(filePath).toLowerCase();
-  const mimeType = MIME_TYPES_BY_EXTENSION[extension];
+  const mimeType =
+    IMAGE_MIME_TYPE_BY_EXTENSION[
+      extension.slice(1) as keyof typeof IMAGE_MIME_TYPE_BY_EXTENSION
+    ];
   if (!mimeType) {
     throw new Error(`Unsupported image file type: ${extension}`);
   }

@@ -82,7 +82,6 @@ const OriginalImage = ({
   const [failed, setFailed] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const ready = displayed?.asset.fileId === item.fileId && !pending && !failed;
   useEffect(() => {
     let current = true;
     setPending(undefined);
@@ -175,17 +174,15 @@ const OriginalImage = ({
           );
         })}
       </div>
-      {!ready && (
+      {failed && (
         <div className="image-browse-original__status" role="status">
-          <span>{failed ? copy.browse.loadFailed : copy.browse.loading}</span>
-          {failed && (
-            <DesktopButton
-              size="small"
-              onClick={() => setAttempt((value) => value + 1)}
-            >
-              {copy.browse.retry}
-            </DesktopButton>
-          )}
+          <span>{copy.browse.loadFailed}</span>
+          <DesktopButton
+            size="small"
+            onClick={() => setAttempt((value) => value + 1)}
+          >
+            {copy.browse.retry}
+          </DesktopButton>
         </div>
       )}
     </div>

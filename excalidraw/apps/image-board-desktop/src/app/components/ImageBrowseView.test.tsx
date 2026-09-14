@@ -429,6 +429,7 @@ describe("ImageBrowseView", () => {
     );
     render(<ImageBrowseView {...input} />);
     fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    expect(screen.queryByText("正在读取图片…")).toBeNull();
     const preview = screen
       .getByRole("dialog")
       .querySelector('img[src="data:image/png;base64,thumbnail"]');
@@ -457,6 +458,7 @@ describe("ImageBrowseView", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "下一张" }));
     expect(first).toBeInTheDocument();
+    expect(screen.queryByText("正在读取图片…")).toBeNull();
     const second = await screen.findByRole("img", { name: "图片 1" });
     let finish!: () => void;
     Object.defineProperty(second, "decode", {

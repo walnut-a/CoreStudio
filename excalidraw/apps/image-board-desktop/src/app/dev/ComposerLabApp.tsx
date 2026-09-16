@@ -912,6 +912,8 @@ export const ComposerLabApp = () => {
                 referenceLimitMessage={referenceLimitMessage}
                 advancedOpen={advancedOpen}
                 canSubmit={canSubmit}
+                modelName="Gemini 3.1 Flash Image Preview (Nano Banana 2)"
+                modelShortName="Gemini 3.1"
                 onStopInputEvent={onStopInputEvent}
                 onCommitPendingReference={commitPendingReference}
                 onPromptChange={updatePromptParts}

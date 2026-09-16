@@ -9,6 +9,7 @@ import {
   actionCopy,
   actionCopyAsPng,
   actionCut,
+  actionPaste,
   copyText,
 } from "./actionClipboard";
 
@@ -100,6 +101,36 @@ describe("project-aware clipboard hooks", () => {
     });
 
     await waitFor(() => expect(onCopyAsPng).toHaveBeenCalled());
+  });
+
+  it("lets the host fall back when context-menu clipboard reads are denied", async () => {
+    const onPaste = vi.fn().mockResolvedValue(false);
+    const pasteFromClipboard = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        read: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error("denied"), { name: "NotAllowedError" }),
+          ),
+        readText: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error("denied"), { name: "NotAllowedError" }),
+          ),
+      },
+    });
+
+    await actionPaste.perform([], {} as any, null, {
+      props: { onPaste },
+      pasteFromClipboard,
+    } as any);
+
+    expect(pasteFromClipboard).toHaveBeenCalledOnce();
+    expect(pasteFromClipboard).toHaveBeenCalledWith(
+      expect.objectContaining({ clipboardData: expect.any(DataTransfer) }),
+    );
   });
 });
 

@@ -514,6 +514,23 @@ export const getConfiguredProviderIds = (
     ? PROVIDER_IDS.filter((provider) => settings[provider]?.isConfigured)
     : [];
 
+export const getCompactModelLabel = (label: string) => {
+  const withoutAlias = label.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  const geminiMatch = withoutAlias.match(
+    /^Gemini\s+((?:\d+(?:\.\d+)?|Omni)(?:\s+Pro)?)/,
+  );
+  if (geminiMatch) {
+    const variant = /\bLite\b/.test(withoutAlias)
+      ? " Lite"
+      : /\bFree\b/.test(withoutAlias)
+        ? " Free"
+        : "";
+    return `Gemini ${geminiMatch[1]}${variant}`;
+  }
+
+  return withoutAlias.replace(/^GPT Image\s+/, "GPT ");
+};
+
 export const PROVIDER_CATALOG: Record<ProviderId, ProviderDefinition> = {
   gemini: {
     id: "gemini",

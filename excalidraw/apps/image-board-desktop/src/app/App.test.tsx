@@ -17,7 +17,6 @@ import {
   mockExcalidrawAPI,
   newFrameElement,
   newImageElement,
-  rememberGenerationModelSelection,
   render,
   renderChangeEmissionCount,
   screen,
@@ -1424,12 +1423,7 @@ describe("App startup", () => {
     );
   });
 
-  it("prefers remembered generation settings over configured providers", async () => {
-    rememberGenerationModelSelection({
-      provider: "openrouter",
-      model: "google/gemini-3.1-flash-image-preview",
-    });
-
+  it("prefers the project's generation model over the configured default", async () => {
     window.imageBoardDesktop = {
       createProject: vi.fn().mockResolvedValue({
         projectPath: "/tmp/mock-project",
@@ -1443,6 +1437,10 @@ describe("App startup", () => {
           imageRecordsFile: "image-records.json",
           assetsDir: "assets",
           exportsDir: "exports",
+          generationModelSelection: {
+            provider: "openrouter",
+            model: "google/gemini-3.1-flash-image-preview",
+          },
         },
         sceneJson: "{}",
         imageRecords: {},

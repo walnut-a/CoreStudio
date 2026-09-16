@@ -22,6 +22,7 @@ import {
   readProjectManifestSnapshot,
   rebuildProjectThumbnails,
   updateProjectAgentAccess,
+  updateProjectGenerationModelSelection,
   writeProjectScene,
 } from "./projectFs";
 
@@ -504,6 +505,35 @@ describe("projectFs", () => {
     });
   });
 
+  it("persists the selected generation model in the project manifest", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
+    tempDirectories.push(root);
+
+    const project = await createProjectStructure(root, "Model Preference");
+    const nextProject = await updateProjectGenerationModelSelection(
+      project.projectPath,
+      {
+        provider: "openai",
+        model: "gpt-image-2.5-sunburst",
+      },
+    );
+
+    expect(nextProject.generationModelSelection).toEqual({
+      provider: "openai",
+      model: "gpt-image-2.5-sunburst",
+    });
+    await expect(
+      readProjectManifestSnapshot(project.projectPath),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        generationModelSelection: {
+          provider: "openai",
+          model: "gpt-image-2.5-sunburst",
+        },
+      }),
+    );
+  });
+
   it("rejects creating a project over an existing non-empty folder", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
@@ -680,7 +710,10 @@ describe("projectFs", () => {
   it("reuses the image-record index parsed while opening the project bundle", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-board-"));
     tempDirectories.push(root);
-    const project = await createProjectStructure(root, "Bundle Index Cache Test");
+    const project = await createProjectStructure(
+      root,
+      "Bundle Index Cache Test",
+    );
     await persistImageAssets({
       projectPath: project.projectPath,
       files: [

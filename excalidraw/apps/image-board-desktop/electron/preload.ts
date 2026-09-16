@@ -118,6 +118,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.loadProviderSettings),
   saveProviderSettings: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.saveProviderSettings, input),
+  saveProjectGenerationModelSelection: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveProjectGenerationModelSelection, input),
   deleteProviderSettings: (input) =>
     ipcRenderer.invoke(IPC_CHANNELS.deleteProviderSettings, input),
   setGenerateComposerVisible: (visible) =>

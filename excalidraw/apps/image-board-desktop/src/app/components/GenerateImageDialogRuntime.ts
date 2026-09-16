@@ -1,5 +1,9 @@
 import { useRef } from "react";
-import { getConfiguredProviderIds } from "../../shared/providerCatalog";
+import {
+  getConfiguredProviderIds,
+  getCompactModelLabel,
+  getModelDefinition,
+} from "../../shared/providerCatalog";
 
 import { type InlinePromptEditorHandle } from "./InlinePromptEditor";
 import { createGenerateDialogComposerRuntime } from "./GenerateDialogComposerRuntime";
@@ -165,6 +169,11 @@ export const useGenerateImageDialogRuntime = ({
       configuredProviders: getConfiguredProviderIds(providerSettings ?? {}),
       handleTextInputKeyDown,
     });
+  const modelDefinition = getModelDefinition(
+    request.provider,
+    request.model,
+    providerContext.currentProviderCustomModels,
+  );
 
   return {
     panelRef,
@@ -179,6 +188,8 @@ export const useGenerateImageDialogRuntime = ({
       referenceLimitMessage,
       advancedOpen,
       canSubmit,
+      modelName: modelDefinition.label,
+      modelShortName: getCompactModelLabel(modelDefinition.label),
       onStopInputEvent: stopInputEventPropagation,
       onCommitPendingReference: commitPendingReference,
       onPromptChange: updatePromptParts,

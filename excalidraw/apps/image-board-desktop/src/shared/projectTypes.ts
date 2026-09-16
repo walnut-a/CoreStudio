@@ -54,6 +54,12 @@ export interface ProjectManifest {
   assetsDir: string;
   exportsDir: string;
   agentAccess: ProjectAgentAccess;
+  generationModelSelection?: ProjectGenerationModelSelection;
+}
+
+export interface ProjectGenerationModelSelection {
+  provider: import("./providerTypes").ProviderId;
+  model: string;
 }
 
 export interface ProjectAgentAccess {

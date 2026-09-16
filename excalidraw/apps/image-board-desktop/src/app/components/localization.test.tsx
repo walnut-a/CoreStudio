@@ -1486,7 +1486,7 @@ describe("Chinese localization", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "展开设置" }));
+    fireEvent.click(screen.getByRole("button", { name: /^展开设置，当前模型：/ }));
     fireEvent.change(screen.getByLabelText("模型服务"), {
       target: { value: "gemini" },
     });

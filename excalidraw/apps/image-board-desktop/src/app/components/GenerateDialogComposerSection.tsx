@@ -26,6 +26,8 @@ interface GenerateDialogComposerSectionProps {
   referenceLimitMessage: string | null;
   advancedOpen: boolean;
   canSubmit: boolean;
+  modelName: string;
+  modelShortName: string;
   onStopInputEvent: (event: SyntheticEvent<HTMLElement>) => void;
   onCommitPendingReference: () => void | Promise<unknown>;
   onPromptChange: (parts: GenerationPromptPart[]) => void;
@@ -47,6 +49,8 @@ export const GenerateDialogComposerSection = ({
   referenceLimitMessage,
   advancedOpen,
   canSubmit,
+  modelName,
+  modelShortName,
   onStopInputEvent,
   onCommitPendingReference,
   onPromptChange,
@@ -77,6 +81,8 @@ export const GenerateDialogComposerSection = ({
     <GenerateDialogComposerActionsSection
       advancedOpen={advancedOpen}
       canSubmit={canSubmit}
+      modelName={modelName}
+      modelShortName={modelShortName}
       onStopInputEvent={onStopInputEvent}
       setAdvancedOpen={setAdvancedOpen}
     />

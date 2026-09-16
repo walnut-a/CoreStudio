@@ -97,8 +97,8 @@ import { createDesktopProjectRepairSceneRefreshRendererActions } from "./project
 import { createDesktopProjectAssetSceneApplyRendererAction } from "./projectAssetSceneApplyRendererController";
 import {
   createGenerationModelSelectionRendererActions,
-  readRememberedGenerationModelSelection,
   resolvePreferredGenerationModelSelection,
+  type GenerationModelSelection,
 } from "./generationModelSelection";
 import { createPlainTextClipboardRendererActions } from "./clipboardText";
 import {
@@ -393,9 +393,9 @@ const App = ({
   } | null>(null);
   const agentRuntimeRefsController = useAgentRuntimeRefsController();
   const latestMenuProjectOpenRequestIdRef = useRef(0);
-  const rememberedGenerationModelSelectionRef = useRef(
-    readRememberedGenerationModelSelection(),
-  );
+  const rememberedGenerationModelSelectionRef =
+    useRef<GenerationModelSelection | null>(null);
+  const generationModelSelectionProjectPathRef = useRef<string | null>(null);
   const generationModelSelectionLockedRef = useRef(false);
   const currentProjectRef = useRef<DesktopProjectBundle | null>(null);
   const projectRoomClientRef = useRef<ProjectRoomClientController | null>(null);
@@ -466,14 +466,6 @@ const App = ({
   const { setStatus: setAgentBridgeStatus } =
     agentBridgeConnectionStateController.setters;
   const [appInfo, setAppInfo] = useState<DesktopAppInfo | null>(null);
-  const generationModelSelectionRendererActions = useMemo(
-    () =>
-      createGenerationModelSelectionRendererActions({
-        selectionLockedRef: generationModelSelectionLockedRef,
-        rememberedSelectionRef: rememberedGenerationModelSelectionRef,
-      }),
-    [generationModelSelectionLockedRef, rememberedGenerationModelSelectionRef],
-  );
   const [recentProjects, setRecentProjects] = useState<RecentProjectEntry[]>(
     [],
   );
@@ -601,6 +593,70 @@ const App = ({
   );
   const [pendingGenerationCount, setPendingGenerationCount] = useState(0);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const generationModelSelectionRendererActions = useMemo(
+    () =>
+      createGenerationModelSelectionRendererActions({
+        selectionLockedRef: generationModelSelectionLockedRef,
+        rememberedSelectionRef: rememberedGenerationModelSelectionRef,
+        rememberSelection: (selection) => {
+          const project = currentProjectRef.current;
+          if (!project || !desktopBridge.saveProjectGenerationModelSelection) {
+            return;
+          }
+          void desktopBridge
+            .saveProjectGenerationModelSelection({
+              projectPath: project.projectPath,
+              selection,
+            })
+            .catch((error) => {
+              setProjectError(
+                error instanceof Error ? error.message : String(error),
+              );
+            });
+        },
+      }),
+    [desktopBridge.saveProjectGenerationModelSelection],
+  );
+  useEffect(() => {
+    const projectPath = currentProject?.projectPath ?? null;
+    if (generationModelSelectionProjectPathRef.current !== projectPath) {
+      generationModelSelectionProjectPathRef.current = projectPath;
+      rememberedGenerationModelSelectionRef.current =
+        currentProject?.project.generationModelSelection ?? null;
+      generationModelSelectionLockedRef.current = Boolean(
+        currentProject?.project.generationModelSelection,
+      );
+    }
+    if (!providerConfiguration) {
+      return;
+    }
+    const preferredSelection = resolvePreferredGenerationModelSelection({
+      configuration: providerConfiguration,
+      rememberedSelection: rememberedGenerationModelSelectionRef.current,
+    });
+    if (!preferredSelection) {
+      return;
+    }
+    setGenerateRequest((current) => {
+      if (
+        current.provider === preferredSelection.provider &&
+        current.model === preferredSelection.model
+      ) {
+        return current;
+      }
+      const next = buildDefaultGenerationRequest(
+        providerConfiguration,
+        preferredSelection,
+      );
+      return {
+        ...next,
+        prompt: current.prompt,
+        promptParts: current.promptParts,
+        promptReferences: current.promptReferences,
+        reference: current.reference,
+      };
+    });
+  }, [currentProject?.projectPath, providerConfiguration]);
   const [projectRoomError, setProjectRoomError] = useState<string | null>(null);
   const [agentBoardReconnectGeneration, setAgentBoardReconnectGeneration] =
     useState(0);

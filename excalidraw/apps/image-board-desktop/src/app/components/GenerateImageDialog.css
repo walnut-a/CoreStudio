@@ -214,6 +214,7 @@
   --generate-composer-editor-font-size: var(--ui-text-size-lg);
   --generate-composer-control-size: var(--ui-control-size-sm);
   --generate-composer-control-icon-size: var(--ui-icon-size-md);
+  container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas: "field controls";
@@ -572,6 +573,22 @@
   box-shadow: none;
   align-self: center;
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.image-board-button.generate-composer__model-button {
+  width: auto;
+  max-width: min(7rem, 32cqw);
+  padding: 0 var(--ui-space-sm);
+  gap: var(--ui-space-xs);
+}
+
+.generate-composer__model-button-label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--ui-text-size-sm);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .generate-composer__icon:hover {

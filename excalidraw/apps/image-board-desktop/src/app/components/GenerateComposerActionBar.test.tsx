@@ -11,6 +11,8 @@ const renderActionBar = (
     showPromptTools: true,
     advancedOpen: false,
     canSubmit: true,
+    modelName: "GPT Image 2.5 Sunburst",
+    modelShortName: "GPT 2.5 Sunburst",
     sourceSelect: <span>生成方式选择</span>,
     onToggleAdvanced: vi.fn(),
     onStopInputEvent: vi.fn(),
@@ -33,7 +35,7 @@ describe("GenerateComposerActionBar", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: copy.generateDialog.expandSettings,
+        name: `${copy.generateDialog.expandSettings}，当前模型：GPT Image 2.5 Sunburst`,
       }),
     );
 
@@ -46,7 +48,7 @@ describe("GenerateComposerActionBar", () => {
 
     expect(
       screen.getByRole("button", {
-        name: copy.generateDialog.collapseSettings,
+        name: `${copy.generateDialog.collapseSettings}，当前模型：GPT Image 2.5 Sunburst`,
       }),
     ).toBeInTheDocument();
   });
@@ -68,4 +70,17 @@ describe("GenerateComposerActionBar", () => {
     ).toBeDisabled();
   });
 
+  it("shows the current model name and exposes its full value on hover", () => {
+    const modelName =
+      "A deliberately long generation model name that cannot fit inline";
+    const modelShortName = "Long Model";
+
+    renderActionBar({ modelName, modelShortName });
+
+    expect(screen.getByText(modelShortName).closest("button")).toHaveAttribute(
+      "title",
+      modelName,
+    );
+    expect(screen.queryByText(modelName)).toBeNull();
+  });
 });

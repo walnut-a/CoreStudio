@@ -6,6 +6,7 @@ import {
   type ProjectAgentAccess,
   type ProjectManifest,
 } from "../../src/shared/projectTypes";
+import { PROVIDER_IDS } from "../../src/shared/providerCatalog";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -75,6 +76,21 @@ export const parseProjectManifest = ({
   const stableBoardId = isNonEmptyString(value.stableBoardId)
     ? value.stableBoardId
     : undefined;
+  const rawGenerationModelSelection = isRecord(value.generationModelSelection)
+    ? value.generationModelSelection
+    : undefined;
+  const generationModelSelection =
+    rawGenerationModelSelection &&
+    PROVIDER_IDS.includes(
+      rawGenerationModelSelection.provider as typeof PROVIDER_IDS[number],
+    ) &&
+    isNonEmptyString(rawGenerationModelSelection.model)
+      ? {
+          provider:
+            rawGenerationModelSelection.provider as typeof PROVIDER_IDS[number],
+          model: rawGenerationModelSelection.model,
+        }
+      : undefined;
   const createdAt = isNonEmptyString(value.createdAt) ? value.createdAt : now;
   const updatedAt = isNonEmptyString(value.updatedAt)
     ? value.updatedAt
@@ -97,20 +113,34 @@ export const parseProjectManifest = ({
     assetsDir: PROJECT_FILENAMES.assetsDir,
     exportsDir: PROJECT_FILENAMES.exportsDir,
     agentAccess,
+    generationModelSelection,
   };
   if (!stableBoardId) {
     delete project.stableBoardId;
+  }
+  if (!generationModelSelection) {
+    delete project.generationModelSelection;
   }
 
   const changed =
     Object.keys(value).length !== Object.keys(project).length ||
     Object.entries(project).some(([key, fieldValue]) => {
       const existing = value[key];
-      return key === "agentAccess"
-        ? !isRecord(existing) ||
-            existing.token !== agentAccess.token ||
-            existing.enabled !== true
-        : existing !== fieldValue;
+      if (key === "agentAccess") {
+        return (
+          !isRecord(existing) ||
+          existing.token !== agentAccess.token ||
+          existing.enabled !== true
+        );
+      }
+      if (key === "generationModelSelection") {
+        return (
+          !isRecord(existing) ||
+          existing.provider !== generationModelSelection?.provider ||
+          existing.model !== generationModelSelection?.model
+        );
+      }
+      return existing !== fieldValue;
     });
 
   return { project, changed };

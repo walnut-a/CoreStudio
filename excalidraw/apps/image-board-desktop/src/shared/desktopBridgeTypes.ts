@@ -81,6 +81,8 @@ export const IPC_CHANNELS = {
   removeAgentIntegration: "image-board:remove-agent-integration",
   loadProviderSettings: "image-board:load-provider-settings",
   saveProviderSettings: "image-board:save-provider-settings",
+  saveProjectGenerationModelSelection:
+    "image-board:save-project-generation-model-selection",
   deleteProviderSettings: "image-board:delete-provider-settings",
   setGenerateComposerVisible: "image-board:set-generate-composer-visible",
   refreshModelCatalog: "image-board:refresh-model-catalog",
@@ -574,6 +576,10 @@ export interface DesktopBridgeApi {
   saveProviderSettings(
     input: SaveProviderSettingsInput,
   ): Promise<ProviderConfigurationSnapshot>;
+  saveProjectGenerationModelSelection?(input: {
+    projectPath: string;
+    selection: import("./projectTypes").ProjectGenerationModelSelection;
+  }): Promise<ProjectManifest>;
   deleteProviderSettings(
     input: DeleteProviderSettingsInput,
   ): Promise<ProviderConfigurationSnapshot>;

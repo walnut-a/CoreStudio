@@ -6,6 +6,7 @@ import {
   inferProviderRequestAdapter,
   getAspectRatioOptions,
   getConfiguredProviderIds,
+  getCompactModelLabel,
   getDefaultModel,
   getProviderModels,
   getProviderCapabilities,
@@ -25,6 +26,23 @@ afterEach(() => {
 });
 
 describe("providerCatalog", () => {
+  it("creates semantic compact labels without losing meaningful variants", () => {
+    expect(
+      getCompactModelLabel(
+        "Gemini 3.1 Flash Image Preview (Nano Banana 2)",
+      ),
+    ).toBe("Gemini 3.1");
+    expect(
+      getCompactModelLabel("Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite)"),
+    ).toBe("Gemini 3.1 Lite");
+    expect(getCompactModelLabel("GPT Image 2.5 Sunburst")).toBe(
+      "GPT 2.5 Sunburst",
+    );
+    expect(
+      getCompactModelLabel("Nano Banana Pro (Gemini 3 Pro Image)"),
+    ).toBe("Nano Banana Pro");
+  });
+
   it("applies a validated remote provider catalog and preserves required new presets", () => {
     const catalog: RemoteModelCatalog = {
       schemaVersion: 1,

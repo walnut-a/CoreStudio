@@ -69,6 +69,13 @@ export const actionPaste = register({
     try {
       types = await readSystemClipboard();
     } catch (error: any) {
+      if (app.props.onPaste) {
+        await app.pasteFromClipboard(createPasteEvent({ types: {} }));
+        return {
+          captureUpdate: CaptureUpdateAction.EVENTUALLY,
+        };
+      }
+
       if (error.name === "AbortError" || error.name === "NotAllowedError") {
         // user probably aborted the action. Though not 100% sure, it's best
         // to not annoy them with an error message.

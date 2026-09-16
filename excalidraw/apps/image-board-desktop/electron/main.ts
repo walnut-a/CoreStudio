@@ -66,7 +66,10 @@ import {
   type AgentRendererCommandResponse,
 } from "../src/shared/agentBridgeTypes";
 import { AGENT_INTEGRATION_VERSION } from "../src/shared/agentIntegrationContract";
-import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
+import {
+  PROJECT_FILENAMES,
+  type ProjectGenerationModelSelection,
+} from "../src/shared/projectTypes";
 import {
   beginProjectImageWriteback,
   commitProjectImageWriteback,
@@ -83,6 +86,7 @@ import {
   readProjectManifestSnapshot,
   rebuildProjectThumbnails,
   updateProjectImageRecordMetadata,
+  updateProjectGenerationModelSelection,
   writeProjectScene,
 } from "./projectFs";
 import {
@@ -3060,6 +3064,23 @@ const registerIpcHandlers = () => {
     async (event, input: GenerateImagesInput) => {
       requireProjectRendererSender(event.sender, input.projectPath);
       return generationRequestController.generate(input);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.saveProjectGenerationModelSelection,
+    async (
+      event,
+      input: {
+        projectPath: string;
+        selection: ProjectGenerationModelSelection;
+      },
+    ) => {
+      requireProjectRendererSender(event.sender, input.projectPath);
+      return updateProjectGenerationModelSelection(
+        input.projectPath,
+        input.selection,
+      );
     },
   );
 

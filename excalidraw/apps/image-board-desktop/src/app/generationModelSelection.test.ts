@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   ProviderConfigurationSnapshot,
@@ -6,8 +6,6 @@ import type {
 } from "../shared/desktopBridgeTypes";
 import {
   createGenerationModelSelectionRendererActions,
-  readRememberedGenerationModelSelection,
-  rememberGenerationModelSelection,
   resolvePreferredGenerationModelSelection,
   runGenerationModelSelectionRememberAction,
 } from "./generationModelSelection";
@@ -69,24 +67,8 @@ const configuration: ProviderConfigurationSnapshot = {
   providers: providerSettings,
 };
 
-afterEach(() => {
-  window.localStorage.clear();
-});
-
 describe("generationModelSelection", () => {
-  it("remembers the last selected provider and model locally", () => {
-    rememberGenerationModelSelection({
-      provider: "openrouter",
-      model: "google/gemini-3.1-flash-image-preview",
-    });
-
-    expect(readRememberedGenerationModelSelection()).toEqual({
-      provider: "openrouter",
-      model: "google/gemini-3.1-flash-image-preview",
-    });
-  });
-
-  it("applies remembered model selection to renderer refs and storage", () => {
+  it("applies a project model selection to renderer refs and persistence", () => {
     const selection = {
       provider: "openrouter",
       model: "google/gemini-3.1-flash-image-preview",
@@ -151,7 +133,7 @@ describe("generationModelSelection", () => {
     });
   });
 
-  it("uses the configured default provider when no local memory exists", () => {
+  it("uses the configured default provider when the project has no preference", () => {
     const selection = resolvePreferredGenerationModelSelection({
       configuration,
       rememberedSelection: null,

@@ -13,6 +13,7 @@ import {
   type ImageRecord,
   type ImageRecordMap,
   type ProjectAgentAccess,
+  type ProjectGenerationModelSelection,
   type ProjectManifest,
   type ProjectThumbnailReadMode,
 } from "../src/shared/projectTypes";
@@ -24,6 +25,7 @@ import type {
 
 import { getSceneContentHash } from "../src/shared/sceneVersion";
 import { DESKTOP_APP_VERSION } from "./appVersion";
+import { PROVIDER_IDS } from "../src/shared/providerCatalog";
 import { inspectProjectHealth as inspectProjectHealthWithDeps } from "./project/projectHealth";
 import {
   readProjectImageRecords as readProjectImageRecordsWithDeps,
@@ -476,6 +478,28 @@ export const updateProjectAgentAccess = async (
   };
   await writeProjectManifest(projectPath, nextProject);
   return nextProject;
+};
+
+export const updateProjectGenerationModelSelection = async (
+  projectPath: string,
+  generationModelSelection: ProjectGenerationModelSelection,
+) => {
+  if (
+    !PROVIDER_IDS.includes(generationModelSelection.provider) ||
+    !generationModelSelection.model.trim()
+  ) {
+    throw new Error("项目的生图模型偏好无效。");
+  }
+  return runProjectSceneMutation(projectPath, async () => {
+    const project = await readProjectManifestSnapshot(projectPath);
+    const nextProject: ProjectManifest = {
+      ...project,
+      generationModelSelection,
+      updatedAt: new Date().toISOString(),
+    };
+    await writeProjectManifest(projectPath, nextProject);
+    return nextProject;
+  });
 };
 
 export const ensureProjectStableBoardId = async (

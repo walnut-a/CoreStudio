@@ -2,15 +2,12 @@ import {
   getDefaultModel,
   getConfiguredProviderIds,
   getProviderModels,
-  PROVIDER_IDS,
 } from "../shared/providerCatalog";
 import type {
   ProviderConfigurationSnapshot,
   PublicProviderSettings,
 } from "../shared/desktopBridgeTypes";
 import type { ProviderId } from "../shared/providerTypes";
-
-const STORAGE_KEY = "corestudio.generation-model-selection.v1";
 
 export interface GenerationModelSelection {
   provider: ProviderId;
@@ -19,18 +16,6 @@ export interface GenerationModelSelection {
 
 type MutableCurrent<T> = {
   current: T;
-};
-
-const isProviderId = (value: unknown): value is ProviderId =>
-  typeof value === "string" &&
-  PROVIDER_IDS.includes(value as ProviderId);
-
-const getStorage = () => {
-  try {
-    return globalThis.localStorage ?? null;
-  } catch {
-    return null;
-  }
 };
 
 const getDefaultModelForProvider = (
@@ -56,60 +41,16 @@ const getKnownModelForProvider = (
   return providerModels[model] ? model : fallbackModel;
 };
 
-export const readRememberedGenerationModelSelection =
-  (): GenerationModelSelection | null => {
-    const storage = getStorage();
-    if (!storage) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(storage.getItem(STORAGE_KEY) || "null") as {
-        provider?: unknown;
-        model?: unknown;
-      } | null;
-
-      if (!parsed || !isProviderId(parsed.provider)) {
-        return null;
-      }
-
-      return {
-        provider: parsed.provider,
-        model:
-          typeof parsed.model === "string"
-            ? parsed.model
-            : getDefaultModel(parsed.provider),
-      };
-    } catch {
-      return null;
-    }
-  };
-
-export const rememberGenerationModelSelection = (
-  selection: GenerationModelSelection,
-) => {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-
-  try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(selection));
-  } catch {
-    // Local storage can be unavailable in restricted renderer contexts.
-  }
-};
-
 export const runGenerationModelSelectionRememberAction = ({
   selection,
   selectionLockedRef,
   rememberedSelectionRef,
-  rememberSelection = rememberGenerationModelSelection,
+  rememberSelection,
 }: {
   selection: GenerationModelSelection;
   selectionLockedRef: MutableCurrent<boolean>;
   rememberedSelectionRef: MutableCurrent<GenerationModelSelection | null>;
-  rememberSelection?: (selection: GenerationModelSelection) => void;
+  rememberSelection: (selection: GenerationModelSelection) => void;
 }) => {
   selectionLockedRef.current = true;
   rememberedSelectionRef.current = selection;
@@ -128,7 +69,7 @@ export const createGenerationModelSelectionRendererActions = ({
 }: {
   selectionLockedRef: MutableCurrent<boolean>;
   rememberedSelectionRef: MutableCurrent<GenerationModelSelection | null>;
-  rememberSelection?: (selection: GenerationModelSelection) => void;
+  rememberSelection: (selection: GenerationModelSelection) => void;
 }) => ({
   rememberSelection: (selection: GenerationModelSelection) =>
     runGenerationModelSelectionRememberAction({
@@ -157,9 +98,9 @@ export const resolvePreferredGenerationModelSelection = ({
     configuredProviders.includes(rememberedSelection.provider)
       ? rememberedSelection.provider
       : configuration?.defaultProvider &&
-          configuredProviders.includes(configuration.defaultProvider)
-        ? configuration.defaultProvider
-        : configuredProviders[0];
+        configuredProviders.includes(configuration.defaultProvider)
+      ? configuration.defaultProvider
+      : configuredProviders[0];
 
   return {
     provider: configuredProvider,

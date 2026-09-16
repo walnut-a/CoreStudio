@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.54",
-  "publishedAt": "2026-09-14T10:49:09Z",
+  "version": "1.1.55",
+  "publishedAt": "2026-09-16T11:47:17Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.54",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.55",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.54/CoreStudio-1.1.54-arm64.dmg",
-    "size": 137446445,
-    "sha256": "e43465cd47f6512c38bec0038acb5b70217daf455a841a904c095be843c7a272"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.55/CoreStudio-1.1.55-arm64.dmg",
+    "size": 137458133,
+    "sha256": "c92d443095d8ddd54c3921e1b3c432282ff980182dde0554d2d54fb418a79a98"
   },
   "summary": {
     "zh-CN": [
-      "统一桌面导入、项目自动接纳、Inbox、Agent/CLI 与系统剪贴板的图片输入协议",
-      "自动接纳与 Agent/CLI 新增 AVIF、GIF、BMP、ICO 和 JFIF 支持",
-      "补齐新格式的容器头、尺寸限制与隔离解码校验，同时保持上游 Excalidraw 不变"
+      "修复右键菜单粘贴图片没有反应的问题",
+      "生成模型选择按项目保存，没有项目偏好时使用默认模型",
+      "输入框显示紧凑模型短名称，悬停查看完整名称，点击打开设置"
     ],
     "en": [
-      "Unify image input across desktop import, project intake, Inbox, Agent/CLI, and the system clipboard",
-      "Add AVIF, GIF, BMP, ICO, and JFIF support to automatic intake and Agent/CLI writes",
-      "Validate container headers, dimensions, and isolated decoding for the new formats while leaving upstream Excalidraw unchanged"
+      "Fix image pasting from the context menu",
+      "Save model choices per project and use the default when no project preference exists",
+      "Show a compact model label with the full name on hover and settings on click"
     ]
   }
 }

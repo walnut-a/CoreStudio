@@ -275,7 +275,7 @@ const resolveProjectCachePath = (projectPath: string, cachePath: string) =>
     errorMessage: "缓存资源路径不在项目 cache 文件夹内。",
   });
 
-const buildProjectManifest = (name: string): ProjectManifest => {
+export const buildProjectManifest = (name: string): ProjectManifest => {
   const timestamp = new Date().toISOString();
   return {
     formatVersion: PROJECT_FORMAT_VERSION,
@@ -749,7 +749,7 @@ const backupSceneBeforeEmptyOverwrite = async ({
   return backupPath;
 };
 
-const createMaintenanceBackup = async ({
+export const createMaintenanceBackup = async ({
   projectPath,
   reason,
 }: {

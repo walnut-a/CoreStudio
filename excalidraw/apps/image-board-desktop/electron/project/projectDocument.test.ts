@@ -245,3 +245,21 @@ it("does not replay malformed scene contents from an externally damaged pending 
     await fs.readFile(path.join(dir, "scene.excalidraw.json"), "utf8"),
   ).toBe(scene);
 });
+it("does not discard a newer pending write when resolving an older conflict", async () => {
+  const dir = await setup();
+  await migrateProjectDocument(dir);
+  await fs.mkdir(path.join(dir, "cache"), { recursive: true });
+  const pending = path.join(dir, "cache/scene-commit.json");
+  await fs.writeFile(pending, "newer attempt");
+  await expect(
+    updateProjectDocument(
+      dir,
+      (doc) => {
+        doc.name = "chosen";
+      },
+      undefined,
+      { discardPending: "reviewed attempt" },
+    ),
+  ).rejects.toThrow(/预览/);
+  expect(await fs.readFile(pending, "utf8")).toBe("newer attempt");
+});

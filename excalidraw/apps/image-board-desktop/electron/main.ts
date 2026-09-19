@@ -1,5 +1,9 @@
 import { migrateProjectDocument } from "./project/projectDocument";
 import {
+  reconstructProjectWithDialog,
+  resolveProjectStorageWithDialog,
+} from "./project/projectRecoveryDialogs";
+import {
   createProjectLayoutRuntime,
   synchronizeProjectLayout,
 } from "./project/projectLayoutBridge";
@@ -1901,9 +1905,23 @@ const buildProjectBundle = async (
   projectPath: string,
   options: { safeMode?: boolean } = {},
 ) => {
-  const { room, bundle } = await projectRoomService.openProjectWithBundle(
-    projectPath,
-  );
+  let opened;
+  try {
+    opened = await projectRoomService.openProjectWithBundle(projectPath);
+  } catch (error) {
+    const recovered = await reconstructProjectWithDialog({
+      root: projectPath,
+      decode: ({ buffer, mimeType }) => intakeDecoder.decode(buffer, mimeType),
+      present: (options) =>
+        mainWindow
+          ? dialog.showMessageBox(mainWindow, options)
+          : dialog.showMessageBox(options),
+      acquire: () => projectProcessLeaseRegistry.acquire(projectPath),
+    });
+    if (!recovered) throw error;
+    opened = await projectRoomService.openProjectWithBundle(projectPath);
+  }
+  const { room, bundle } = opened;
   const canonicalProjectPath = room.identity.canonicalProjectPath;
   currentRecentProjects = await rememberRecentProject(
     canonicalProjectPath,
@@ -2773,6 +2791,23 @@ const registerIpcHandlers = () => {
     }
     return buildProjectBundle(selectedPath);
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.resolveProjectStorage,
+    async (event, input: { projectPath: string }) => {
+      const project = requireProjectRendererSender(
+        event.sender,
+        input.projectPath,
+      );
+      const room = await projectRoomService.openProject(project.projectPath);
+      await projectRoomService.reconcileProjectPath(room);
+      return resolveProjectStorageWithDialog(room, (options) =>
+        mainWindow
+          ? dialog.showMessageBox(mainWindow, options)
+          : dialog.showMessageBox(options),
+      );
+    },
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.openRecentProject,

@@ -1,4 +1,6 @@
 import { randomInt } from "node:crypto";
+export const INTAKE_IMAGE_GAP = 60;
+export const INTAKE_LAYOUT_MAX_WIDTH = 10 * 640 + 9 * INTAKE_IMAGE_GAP;
 import type { ProjectRoomSceneElement } from "../../src/shared/projectRoomProtocol";
 const fields = ["x", "y", "width", "height", "angle"] as const;
 type Placement = Record<typeof fields[number], number> & {

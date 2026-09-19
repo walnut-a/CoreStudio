@@ -182,9 +182,21 @@ export const updateProjectDocument = async <T>(
   root: string,
   update: (doc: ProjectDocument) => T | Promise<T>,
   scene?: { before: string; after: string },
+  resolution?: { discardPending: string | null },
 ) =>
   withProjectDocumentLock(root, async () => {
-    await recoverSceneCommitUnlocked(root);
+    const checkPending = async () => {
+      let raw: string | null = null;
+      try {
+        raw = await fs.readFile(sceneCommitFile(root), "utf8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      if (raw !== resolution?.discardPending)
+        throw new Error("预览后待保存记录发生变化，请重新查看冲突。");
+    };
+    if (resolution) await checkPending();
+    else await recoverSceneCommitUnlocked(root);
     const { document, text } = await readProjectDocument(root);
     const result = await update(document),
       file = path.join(root, "project.json");
@@ -194,12 +206,19 @@ export const updateProjectDocument = async <T>(
         { code: "PROJECT_STORAGE_DIVERGED" },
       );
     const next = JSON.stringify(document, null, 2);
+    const discardPending = async () => {
+      if (!resolution) return;
+      await checkPending();
+      if (resolution.discardPending !== null)
+        await fs.unlink(sceneCommitFile(root));
+    };
     if (scene) {
       const sceneFile = path.join(root, "scene.excalidraw.json");
       if ((await fs.readFile(sceneFile, "utf8")) !== scene.before)
         throw Object.assign(new Error("原生画布已在外部修改，保存暂停。"), {
           code: "PROJECT_STORAGE_DIVERGED",
         });
+      await discardPending();
       if (scene.after !== scene.before) {
         await writeJsonAtomic(sceneCommitFile(root), {
           schemaVersion: 1,
@@ -210,7 +229,10 @@ export const updateProjectDocument = async <T>(
         });
         await recoverSceneCommitUnlocked(root);
       } else if (next !== text) await writeTextAtomic(file, next);
-    } else if (next !== text) await writeTextAtomic(file, next);
+    } else {
+      await discardPending();
+      if (next !== text) await writeTextAtomic(file, next);
+    }
     return result;
   });
 

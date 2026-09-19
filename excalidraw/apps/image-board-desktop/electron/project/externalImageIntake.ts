@@ -1,4 +1,5 @@
 import { readProjectDataText, writeProjectDataJson } from "./projectDocument";
+import { INTAKE_IMAGE_GAP, INTAKE_LAYOUT_MAX_WIDTH } from "./projectLayout";
 import fs from "node:fs/promises";
 import {
   readExternalImageIntakeState,
@@ -33,8 +34,6 @@ import {
 } from "./externalImageFiles";
 
 const INTAKE_BATCH_GAP = 120;
-const INTAKE_IMAGE_GAP = 60;
-const INTAKE_LAYOUT_MAX_WIDTH = 10 * 640 + 9 * INTAKE_IMAGE_GAP;
 
 interface IntakeSceneBounds {
   x: number;

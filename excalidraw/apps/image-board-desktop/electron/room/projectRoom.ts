@@ -15,6 +15,7 @@ import type {
   ProjectRoomPersisted,
   ProjectRoomParticipantsChanged,
   ProjectRoomScene,
+  ProjectRoomSceneElement,
   ProjectRoomSceneOperation,
   ProjectRoomSceneUpdate,
   ProjectRoomSnapshot,
@@ -539,6 +540,43 @@ export class ProjectRoom {
     }
   }
 
+  private resolvingStorage = false;
+  public resolveStorageConflict(
+    expectedSequence: number,
+    commit: () => Promise<{
+      elements: ProjectRoomSceneElement[];
+      projectRevision: string;
+    }>,
+  ): Promise<void> {
+    const task = this.persistenceQueue.then(async () => {
+      this.assertActive();
+      if (this.sequence !== expectedSequence)
+        throw new Error("预览后画布发生变化，请重新查看冲突。");
+      this.resolvingStorage = true;
+      this.clearPersistenceTimer();
+      try {
+        const resolved = await commit();
+        this.resolvingStorage = false;
+        this.applyMaintenanceOperation({
+          ...this.identity,
+          operationId: `resolution-${this.sequence}-${Date.now()}`,
+          baseSequence: this.sequence,
+          elements: resolved.elements,
+        });
+        this.clearPersistenceTimer();
+        this.projectRevision = resolved.projectRevision;
+        this.persistedSequence = this.sequence;
+        this.lifecycle = "active";
+        this.lastPersistenceError = null;
+        this.clearExternalStorageError();
+      } finally {
+        this.resolvingStorage = false;
+      }
+    });
+    this.persistenceQueue = task.catch(() => undefined);
+    return task;
+  }
+
   public flushPersistence(): Promise<void> {
     this.clearPersistenceTimer();
     if (!this.persistence) {
@@ -684,6 +722,11 @@ export class ProjectRoom {
   }
 
   private assertActive() {
+    if (this.resolvingStorage)
+      throw new ProjectRoomError(
+        "PERSISTENCE_FAILED",
+        "正在处理文件冲突，请稍后重试。",
+      );
     if (this.lifecycle === "closing") {
       throw new ProjectRoomError(
         "ROOM_CLOSING",

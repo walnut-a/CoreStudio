@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.55",
-  "publishedAt": "2026-09-16T11:47:17Z",
+  "version": "1.1.56",
+  "publishedAt": "2026-09-19T15:09:55Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.55",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.56",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.55/CoreStudio-1.1.55-arm64.dmg",
-    "size": 137458133,
-    "sha256": "c92d443095d8ddd54c3921e1b3c432282ff980182dde0554d2d54fb418a79a98"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.56/CoreStudio-1.1.56-arm64.dmg",
+    "size": 137469682,
+    "sha256": "1bc4966acbdefeea729c7e131d36eaa98ba088a947f122324949b8ffcc1e2d56"
   },
   "summary": {
     "zh-CN": [
-      "修复右键菜单粘贴图片没有反应的问题",
-      "生成模型选择按项目保存，没有项目偏好时使用默认模型",
-      "输入框显示紧凑模型短名称，悬停查看完整名称，点击打开设置"
+      "图片自动接纳合理换行，保持新增顺序和已有手动排布",
+      "支持外部编辑项目顺序与坐标，补齐文件冲突处理和恢复",
+      "CLI 与 Skill 同步开放项目规范，提供存储状态诊断"
     ],
     "en": [
-      "Fix image pasting from the context menu",
-      "Save model choices per project and use the default when no project preference exists",
-      "Show a compact model label with the full name on hover and settings on click"
+      "Wrap automatically imported images while preserving arrival order and existing placement",
+      "Edit project order and positions externally, with conflict handling and recovery",
+      "Update CLI and Skills for open projects and storage status diagnostics"
     ]
   }
 }

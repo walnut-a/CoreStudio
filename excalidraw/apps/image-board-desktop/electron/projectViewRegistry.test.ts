@@ -450,3 +450,51 @@ describe("project view registry", () => {
     }
   });
 });
+it("retains the renderer and its authorization across a confirmed directory rename", () => {
+  const handle = createHandle("/projects/old", 42);
+  const registry = createProjectViewRegistry({ createView: () => handle });
+  registry.open({ projectPath: "/projects/old", projectId: "p", name: "Name" });
+  registry.relocate("/projects/old", "/projects/new");
+  expect(registry.snapshot().activeProjectPath).toBe("/projects/new");
+  expect(registry.requireSenderProject(42, "/projects/old").projectPath).toBe(
+    "/projects/new",
+  );
+  expect(registry.requireSenderProject(42, "/projects/new").name).toBe("Name");
+  expect(handle.destroy).not.toHaveBeenCalled();
+  expect(() => registry.requireSenderProject(7, "/projects/new")).toThrow();
+});
+
+it("keeps rename aliases local to their renderer when a different project reuses the old path", () => {
+  let nextId = 50;
+  const registry = createProjectViewRegistry({
+    createView: ({ projectPath }) => createHandle(projectPath, nextId++),
+  });
+  const original = registry.open({
+    projectPath: "/projects/old",
+    projectId: "original",
+    name: "Original",
+  });
+  registry.relocate("/projects/old", "/projects/new");
+  const replacement = registry.open({
+    projectPath: "/projects/old",
+    projectId: "replacement",
+    name: "Replacement",
+  });
+  expect(replacement).not.toBe(original);
+  expect(registry.snapshot().projects).toHaveLength(2);
+  expect(
+    registry.requireSenderProject(original.webContentsId, "/projects/old")
+      .projectId,
+  ).toBe("original");
+  expect(
+    registry.requireSenderProject(replacement.webContentsId, "/projects/old")
+      .projectId,
+  ).toBe("replacement");
+  expect(() =>
+    registry.requireSenderProject(replacement.webContentsId, "/projects/new"),
+  ).toThrow();
+  registry.close("/projects/new");
+  expect(registry.resolveCommandProject("/projects/old").projectId).toBe(
+    "replacement",
+  );
+});

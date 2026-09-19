@@ -19,6 +19,7 @@ import {
   PROJECT_ROOM_PROTOCOL_VERSION,
 } from "../../src/shared/projectRoomProtocol";
 
+import { runCli } from "./cliRuntime";
 import { createLocalBridgeServer } from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
 import { createProjectRoom } from "../room/projectRoom";
@@ -1371,6 +1372,81 @@ describe("createLocalBridgeServer", () => {
           capabilities: null,
         },
       },
+    });
+  });
+
+  it("advertises open-project diagnostics only when supplied by the runtime", async () => {
+    const capability = {
+      formatVersion: 2,
+      externalLayout: true,
+      storageStatus: true,
+      recovery: "desktop",
+    } as const;
+    const { server } = await track(
+      startServer({ openProjectCapability: capability }),
+    );
+    const result = await requestJson(
+      server.baseUrl,
+      AGENT_HTTP_ROUTES.capabilities,
+    );
+    expect(result.body.data.openProject).toEqual(capability);
+  });
+
+  it("returns an external conflict and its recovery through the real CLI status path", async () => {
+    const room = createProjectRoom({
+      identity: {
+        projectId: "p",
+        canonicalProjectPath: currentProject.projectPath,
+        roomId: "r",
+        sessionEpoch: 1,
+      },
+      initialScene: { elements: [], sharedSceneConfig: {} },
+      persistedSequence: 0,
+      projectRevision: "rev",
+    });
+    const { server } = await track(
+      startServer({
+        getProjectRoomStatus: async () => ({
+          sceneWriteMode: "room",
+          roomId: "r",
+          sessionEpoch: 1,
+          roomSequence: room.sequence,
+          persistedSequence: room.persistedSequence,
+          lifecycle: room.lifecycle,
+          storage: room.getStorageStatus(),
+        }),
+      }),
+    );
+    const readStatus = async () => {
+      let stdout = "";
+      const code = await runCli(["read", "status", "--json"], {
+        env: {
+          CORESTUDIO_AGENT_BRIDGE_URL: server.baseUrl,
+          CORESTUDIO_AGENT_PROJECT_TOKEN: projectToken,
+        },
+        stdout: {
+          write: (chunk: string) => {
+            stdout += chunk;
+          },
+        },
+        stderr: { write: () => {} },
+      });
+      expect(code).toBe(0);
+      return JSON.parse(stdout).data;
+    };
+    room.reportExternalStorageError(new Error("整理坐标冲突"));
+    expect(await readStatus()).toMatchObject({
+      ready: true,
+      projectRoom: {
+        storage: {
+          state: "blocked",
+          error: { code: "PROJECT_STORAGE_DIVERGED" },
+        },
+      },
+    });
+    room.clearExternalStorageError();
+    expect(await readStatus()).toMatchObject({
+      projectRoom: { storage: { state: "saved", error: null } },
     });
   });
 

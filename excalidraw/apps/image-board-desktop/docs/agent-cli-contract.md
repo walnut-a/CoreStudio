@@ -55,9 +55,37 @@ corestudio agent connect --host doubaowork --json
 
 `board-url` 返回 `http://127.0.0.1:60909/board/<stableBoardId>` 形式的项目稳定入口。地址不包含开发服务器端口、Bridge 查询参数或任何连接凭证。
 
-带 `--agent-session` 的 `read project --json` 返回该 Agent session 所绑定项目的 `projectId`、名称、创建时间、更新时间和本地路径。`projectId` 是固定选区引用使用的非敏感稳定身份；不得用项目名或创建时间代替它进行项目匹配。
+带 `--agent-session` 的 `read project --json` 返回该 Agent session 所绑定项目的 `projectId`、`formatVersion`、名称、创建时间、更新时间和本地路径。`projectId` 是固定选区引用使用的非敏感稳定身份；不得用项目名或创建时间代替它进行项目匹配。
 
 带 `--agent-session` 的 `read status --json` 和全部项目级命令都按 session 绑定解析目标。桌面客户端当前标签、是否打开目标标签以及最近项目顺序均不参与路由。目标项目没有人类标签时，Bridge 会在主进程中按需打开 Project Room；客户端只需保持运行并开启 Agent Bridge。
+
+## 开放项目诊断（Agent integration 2.2.1 / Skill 25）
+
+本次保持 Bridge 协议 7 兼容，沿用现有命令，增加可选能力和状态字段。以运行时返回为准，不凭应用或 Skill 版本推断本机功能。
+
+`read capabilities --json` 的 `openProject` 在支持的新运行时返回：
+
+```json
+{ "formatVersion": 2, "externalLayout": true, "storageStatus": true, "recovery": "desktop" }
+```
+
+`formatVersion` 是运行时支持的项目格式；目标项目格式通过 `read project` 查看。`recovery: desktop` 表示修复与冲突选择通过桌面入口完成，不声明 CLI 提供重建或强制覆盖命令。
+
+`read status --agent-session <sessionRef> --json` 的 `projectRoom.storage` 是绑定房间最近已知的存储状态：
+
+| state | 含义 | 后续动作 |
+| --- | --- | --- |
+| `saved` | 房间序列已落盘，没有已知保存或外部同步错误 | 不是实时磁盘健康证明；写入仍需检查回执 |
+| `pending` | 仍有未保存的房间操作 | 等待保存回执，不报告持久化完成 |
+| `blocked` | 已知外部同步冲突或保存失败 | 查看 `error.code/message`，处理文件变化后重新查询 |
+
+没有错误时 `error` 为 null。外部同步问题优先于最近一次普通保存失败显示。Bridge `ready: true`、房间 `lifecycle: active` 或两个序列相等，都不能单独否定外部文件冲突。旧运行时没有 `openProject`、没有 `storage` 或没有已加载房间时视为未知；这些字段不触发额外扫描或修改文件。
+
+`read health` 继续负责图片、记录与元素关系检查，不先重复加载一次无关场景。项目清单无法解析、身份无法确认或格式不支持时，CLI 可能受控报错，不能承诺健康报告总可返回，更不能回退到另一个项目。根据错误从桌面打开对应文件夹进行恢复。
+
+v2 的公开结果在 `project.json`，原生完整场景在 `scene.excalidraw.json`；不再新建旧图片记录、接纳文件或单独 layout 文件。`layout.order` 与原生层叠顺序、记录列表顺序不同；修改顺序不隐式重排。创建时间只用于新图初始排序，后发现的追加，已有排布保留。原图是素材事实来源，生成参数与用户删除意图不能由原图猜测。
+
+有内存画布时显式恢复可以保留项目 ID；仅剩原图时显式重建会产生新身份，旧 Agent 绑定和固定引用必须重新核对。项目目录改名后以 Bridge 返回路径为准。完整格式及恢复边界见[开放项目数据协议](../../../../docs/doc/corestudio-open-project-contract.md)。
 
 ## Write Commands
 
@@ -136,7 +164,7 @@ Agent 应根据 `error.code` 分支，不解析本地化 `message`：
 - `CAPABILITY_UNAVAILABLE`：当前运行时缺少对应能力。
 - `BAD_REQUEST`：参数无效。
 - `BRIDGE_UNAVAILABLE`：CoreStudio 未运行或会话不可达。
-- `PROJECT_STORAGE_DIVERGED`：磁盘项目与房间持有的持久化基线不一致；本次持久化已停止，需要检查项目文件为何被房间之外的写入者修改。
+- `PROJECT_STORAGE_DIVERGED`：磁盘项目与房间持有的持久化基线不一致；存在未合并的外部修改或保存基线冲突；外部编辑是正常入口，保留双方并使用“处理文件变化”选择版本，不能自动覆盖。
 - `IMAGE_GENERATION_DISABLED`：当前 Agent 宿主没有获得图片生成权限。
 - `IMAGE_PROVIDER_NOT_CONFIGURED`：当前默认服务或模型尚未配置完成。
 - `IMAGE_MODEL_CAPABILITY_UNSUPPORTED`：当前模型不支持请求的数量或参考图能力。
@@ -221,7 +249,7 @@ corestudio read health --json
 
 图片、提示词、图表和生成结果都由 CoreStudio 主进程直接准备并提交到 Agent session 绑定的 Project Room，不要求桌面打开该项目，也不使用浏览器剪贴板、粘贴、拖放或模拟点击传输文件。房间立即协调并广播元素，磁盘持久化由主进程统一完成。
 
-房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。`PROJECT_STORAGE_DIVERGED` 表示房间之外出现了磁盘写入，必须先查明来源，不能绕过 CoreStudio 直接修改项目文件。
+房间已经接受操作后，即使磁盘持久化失败，也不会撤销双方已经看到的元素或删除对应资产。`PROJECT_STORAGE_DIVERGED` 表示外部变化尚未合并或与当前保存基线冲突。先处理文件变化，再决定是否用原请求 ID 继续保存；不能通过手工覆盖 JSON 或删除待提交记录绕过冲突。
 
 ### 请求身份与安全重试
 

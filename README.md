@@ -165,6 +165,7 @@ Generated installers are written to `excalidraw/apps/image-board-desktop/release
 Start here:
 
 - [docs/README.md](docs/README.md): Main repository documentation index.
+- [开放项目数据协议](docs/doc/corestudio-open-project-contract.md)：原图事实来源、外部整理与容错恢复的已确认原则，包含当前实现差距。
 - [docs/doc/repository-analysis.md](docs/doc/repository-analysis.md): Current repository, branch, structure, capability, and maintenance-boundary analysis.
 - [docs/doc/excalidraw-fork-maintenance.md](docs/doc/excalidraw-fork-maintenance.md): Excalidraw fork maintenance guide.
 - [excalidraw/apps/image-board-desktop/README.md](excalidraw/apps/image-board-desktop/README.md): CoreStudio CLI and Agent Bridge guide.

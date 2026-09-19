@@ -14,8 +14,12 @@ import {
   isAgentErrorCode,
 } from "../../src/shared/agentBridgeTypes";
 
-import type { AgentBoardEditCommandName } from "../../src/shared/projectRoomProtocol";
 import type {
+  AgentBoardEditCommandName,
+  ProjectRoomStorageStatus,
+} from "../../src/shared/projectRoomProtocol";
+import type {
+  AGENT_OPEN_PROJECT_CAPABILITY,
   AgentBoardCommandContext,
   AgentBrowserRuntimeState,
   AgentDesktopBridgeMethod,
@@ -76,6 +80,7 @@ export interface LocalBridgeServerOptions {
   getStableBoardUrl?: (
     project: LocalBridgeCurrentProject,
   ) => Promise<string | null>;
+  openProjectCapability?: typeof AGENT_OPEN_PROJECT_CAPABILITY;
   getProjectRoomStatus?: (projectPath: string) => Promise<{
     sceneWriteMode: "room";
     roomId: string;
@@ -83,6 +88,7 @@ export interface LocalBridgeServerOptions {
     roomSequence: number;
     persistedSequence: number;
     lifecycle: string;
+    storage?: ProjectRoomStorageStatus;
   } | null>;
   readProjectRoomScene?: (input: {
     project: LocalBridgeCurrentProject;
@@ -1974,6 +1980,9 @@ export const createLocalBridgeServer = async (
             routes: AGENT_HTTP_ROUTES,
             permissions: AGENT_PERMISSIONS,
             imageGeneration,
+            ...(options.openProjectCapability
+              ? { openProject: options.openProjectCapability }
+              : {}),
           }),
         );
         return;

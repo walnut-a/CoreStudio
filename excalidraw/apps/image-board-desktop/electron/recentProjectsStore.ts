@@ -1,3 +1,7 @@
+import {
+  readProjectLocationIdentity,
+  resolveRenamedProject,
+} from "./project/projectLocation";
 import fs from "fs/promises";
 import path from "path";
 
@@ -99,6 +103,33 @@ const isValidProjectDirectory = async (projectPath: string) => {
   }
 };
 
+const resolveEntryPath = async (entry: RecentProjectEntry) => {
+  if (!entry.projectId) return entry.projectPath;
+  try {
+    const actual = await readProjectLocationIdentity(entry.projectPath);
+    if (
+      actual.projectId === entry.projectId &&
+      (!entry.directoryId || actual.directoryId === entry.directoryId)
+    ) {
+      return entry.projectPath;
+    }
+  } catch {
+    /* A missing or replaced path must be re-identified below. */
+  }
+  return resolveRenamedProject(entry.projectPath, {
+    projectId: entry.projectId,
+    directoryId: entry.directoryId,
+  });
+};
+
+// Resolve again at click time: the folder may have changed since the list was shown.
+export const resolveRecentProjectPath = (projectPath: string) =>
+  enqueueRecentProjectsOperation(async () => {
+    const { entries } = await readRecentProjectsFile();
+    const entry = entries.find((entry) => entry.projectPath === projectPath);
+    return entry ? resolveEntryPath(entry) : projectPath;
+  });
+
 export const getDefaultProjectsRoot = () =>
   path.join(app.getPath("documents"), DEFAULT_PROJECTS_DIRECTORY_NAME);
 
@@ -117,7 +148,16 @@ const loadRecentProjectsUnsafe = async () => {
   const validEntries: RecentProjectEntry[] = [];
 
   for (const entry of storedEntries) {
-    if (await isValidProjectDirectory(entry.projectPath)) {
+    if (entry.projectId) {
+      try {
+        const projectPath = await resolveEntryPath(entry);
+        validEntries.push({ ...entry, projectPath });
+      } catch {
+        validEntries.push(
+          entry,
+        ); /* Keep a re-location entry instead of forgetting the missing project. */
+      }
+    } else if (await isValidProjectDirectory(entry.projectPath)) {
       validEntries.push(entry);
     }
   }
@@ -157,13 +197,28 @@ export const rememberRecentProject = async (
 ) =>
   enqueueRecentProjectsOperation(async () => {
     const existingEntries = await loadRecentProjectsUnsafe();
+    let identity: { projectId?: string; directoryId?: string } = {};
+    try {
+      identity = await readProjectLocationIdentity(projectPath);
+    } catch {
+      /* Older projects can be remembered by path. */
+    }
     const nextEntries = [
       {
+        ...identity,
         projectPath,
         name,
         lastOpenedAt,
       },
-      ...existingEntries.filter((entry) => entry.projectPath !== projectPath),
+      ...existingEntries.filter(
+        (entry) =>
+          entry.projectPath !== projectPath &&
+          !(
+            identity.projectId &&
+            entry.projectId === identity.projectId &&
+            entry.directoryId === identity.directoryId
+          ),
+      ),
     ].slice(0, MAX_RECENT_PROJECTS);
 
     await writeRecentProjectsFile(nextEntries);

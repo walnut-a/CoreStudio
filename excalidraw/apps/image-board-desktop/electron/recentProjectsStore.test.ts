@@ -26,6 +26,7 @@ import {
   loadRecentProjects,
   rememberRecentProject,
   removeRecentProject,
+  resolveRecentProjectPath,
 } from "./recentProjectsStore";
 import { PROJECT_FILENAMES } from "../src/shared/projectTypes";
 
@@ -55,6 +56,62 @@ describe("recentProjectsStore", () => {
     }
   });
 
+  it("finds a same-parent rename from recent projects without renaming the project", async () => {
+    const old = path.join(mockDocumentsPath, "Old"),
+      next = path.join(mockDocumentsPath, "New");
+    await fs.mkdir(old);
+    await fs.writeFile(
+      path.join(old, "project.json"),
+      JSON.stringify({ projectId: "stable-project" }),
+    );
+    await rememberRecentProject(old, "Display name");
+    await fs.rename(old, next);
+    const entries = await loadRecentProjects();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      projectPath: await fs.realpath(next),
+      name: "Display name",
+      projectId: "stable-project",
+    });
+  });
+
+  it("resolves a stale click and does not bind a different project reusing the old path", async () => {
+    const old = path.join(mockDocumentsPath, "Old");
+    const next = path.join(mockDocumentsPath, "New");
+    await fs.mkdir(old);
+    await fs.writeFile(
+      path.join(old, "project.json"),
+      JSON.stringify({ projectId: "original" }),
+    );
+    await rememberRecentProject(old, "Original");
+    await fs.rename(old, next);
+    await fs.mkdir(old);
+    await fs.writeFile(
+      path.join(old, "project.json"),
+      JSON.stringify({ projectId: "replacement" }),
+    );
+    expect(await resolveRecentProjectPath(old)).toBe(await fs.realpath(next));
+    expect((await loadRecentProjects())[0].projectPath).toBe(
+      await fs.realpath(next),
+    );
+  });
+
+  it("rejects an unresolved saved identity instead of opening its replacement", async () => {
+    const old = path.join(mockDocumentsPath, "Old");
+    await fs.mkdir(old);
+    await fs.writeFile(
+      path.join(old, "project.json"),
+      JSON.stringify({ projectId: "original" }),
+    );
+    await rememberRecentProject(old, "Original");
+    await fs.writeFile(
+      path.join(old, "project.json"),
+      JSON.stringify({ projectId: "replacement" }),
+    );
+    await expect(resolveRecentProjectPath(old)).rejects.toThrow(/重新定位/);
+    expect((await loadRecentProjects())[0].projectId).toBe("original");
+  });
+
   it("keeps recent projects deduplicated and sorted by latest open time", async () => {
     const projectPath = path.join(mockDocumentsPath, "项目 A");
     await fs.mkdir(projectPath, { recursive: true });
@@ -64,8 +121,16 @@ describe("recentProjectsStore", () => {
       "utf8",
     );
 
-    await rememberRecentProject(projectPath, "项目 A", "2026-04-16T01:00:00.000Z");
-    await rememberRecentProject(projectPath, "项目 A（重命名）", "2026-04-16T02:00:00.000Z");
+    await rememberRecentProject(
+      projectPath,
+      "项目 A",
+      "2026-04-16T01:00:00.000Z",
+    );
+    await rememberRecentProject(
+      projectPath,
+      "项目 A（重命名）",
+      "2026-04-16T02:00:00.000Z",
+    );
 
     await expect(loadRecentProjects()).resolves.toEqual([
       {
@@ -265,7 +330,11 @@ describe("recentProjectsStore", () => {
       "utf8",
     );
 
-    await rememberRecentProject(projectPath, "项目 C", "2026-04-16T03:00:00.000Z");
+    await rememberRecentProject(
+      projectPath,
+      "项目 C",
+      "2026-04-16T03:00:00.000Z",
+    );
 
     await expect(removeRecentProject(projectPath)).resolves.toEqual([]);
     await expect(fs.access(projectPath)).resolves.toBeUndefined();

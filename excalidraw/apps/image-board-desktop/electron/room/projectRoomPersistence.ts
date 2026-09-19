@@ -13,6 +13,7 @@ interface ProjectSceneWriteInput {
   projectPath: string;
   sceneJson: string;
   expectedSceneHash?: string | null;
+  expectedProjectId?: string;
 }
 
 export interface CreateProjectRoomPersistenceInput {
@@ -63,9 +64,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 const isMissingPathError = (error: unknown) =>
-  error instanceof Error &&
-  "code" in error &&
-  error.code === "ENOENT";
+  error instanceof Error && "code" in error && error.code === "ENOENT";
 
 const parseInitialScene = (sceneJson: string) => {
   let document: Record<string, unknown>;
@@ -122,11 +121,13 @@ export const createProjectRoomPersistence = ({
         null,
         2,
       );
+      let written: unknown;
       try {
-        await writeProjectScene({
-          projectPath,
+        written = await writeProjectScene({
+          projectPath: input.identity.canonicalProjectPath,
           sceneJson,
           expectedSceneHash: input.previousProjectRevision,
+          expectedProjectId: input.identity.projectId,
         });
       } catch (error) {
         if (isMissingPathError(error)) {
@@ -135,7 +136,10 @@ export const createProjectRoomPersistence = ({
         throw error;
       }
       return {
-        projectRevision: getSceneContentHash(sceneJson),
+        projectRevision:
+          isObject(written) && typeof written.sceneHash === "string"
+            ? written.sceneHash
+            : getSceneContentHash(sceneJson),
       };
     },
   };

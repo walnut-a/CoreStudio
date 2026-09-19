@@ -44,6 +44,7 @@ interface ProjectViewEntry {
   handle: ProjectViewHandle;
   status: ProjectViewStatus;
   theme?: DesktopProjectTheme;
+  previousPaths: Set<string>;
 }
 
 interface CreateProjectViewRegistryInput {
@@ -141,6 +142,7 @@ export const createProjectViewRegistry = ({
       descriptor,
       handle,
       status: "ready",
+      previousPaths: new Set(),
     });
     return activate(descriptor.projectPath);
   };
@@ -222,7 +224,10 @@ export const createProjectViewRegistry = ({
         "The IPC sender is not a registered project renderer.",
       );
     }
-    if (senderEntry.descriptor.projectPath !== projectPath) {
+    if (
+      senderEntry.descriptor.projectPath !== projectPath &&
+      !senderEntry.previousPaths.has(projectPath)
+    ) {
       throw createProjectViewError(
         "PROJECT_MISMATCH",
         "The IPC sender is not bound to the requested project.",
@@ -316,6 +321,21 @@ export const createProjectViewRegistry = ({
   };
 
   return {
+    relocate(previousPath: string, nextPath: string) {
+      const entry = findEntry(previousPath);
+      if (!entry) return;
+      const occupied = findEntry(nextPath);
+      if (occupied && occupied !== entry)
+        throw createProjectViewError(
+          "PROJECT_MISMATCH",
+          "The renamed project path is already bound to another renderer.",
+        );
+      entry.previousPaths.add(previousPath);
+      entry.descriptor = { ...entry.descriptor, projectPath: nextPath };
+      entry.handle.projectPath = nextPath;
+      if (activeProjectPath === previousPath) activeProjectPath = nextPath;
+      publish();
+    },
     open,
     activate,
     showHome,

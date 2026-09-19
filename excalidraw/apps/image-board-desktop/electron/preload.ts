@@ -56,6 +56,8 @@ if (document.readyState === "loading") {
 const desktopBridge: DesktopBridgeApi = {
   createProject: () => ipcRenderer.invoke(IPC_CHANNELS.createProject),
   openProject: () => ipcRenderer.invoke(IPC_CHANNELS.openProject),
+  resolveProjectStorage: (input) =>
+    ipcRenderer.invoke(IPC_CHANNELS.resolveProjectStorage, input),
   openRecentProject: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.openRecentProject, projectPath),
   loadRecentProjects: () => ipcRenderer.invoke(IPC_CHANNELS.loadRecentProjects),

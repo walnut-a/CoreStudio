@@ -54,6 +54,7 @@ export const parseProjectManifest = ({
   }
   if (
     value.formatVersion !== undefined &&
+    value.formatVersion !== 1 &&
     value.formatVersion !== PROJECT_FORMAT_VERSION
   ) {
     throw createReadError(
@@ -97,7 +98,7 @@ export const parseProjectManifest = ({
     : createdAt;
   const project: ProjectManifest = {
     ...value,
-    formatVersion: PROJECT_FORMAT_VERSION,
+    formatVersion: value.formatVersion === 2 ? 2 : 1,
     appVersion: isNonEmptyString(value.appVersion)
       ? value.appVersion
       : appVersion,
@@ -109,7 +110,10 @@ export const parseProjectManifest = ({
     createdAt,
     updatedAt,
     sceneFile: PROJECT_FILENAMES.scene,
-    imageRecordsFile: PROJECT_FILENAMES.imageRecords,
+    imageRecordsFile:
+      value.formatVersion === 2
+        ? PROJECT_FILENAMES.project
+        : PROJECT_FILENAMES.imageRecords,
     assetsDir: PROJECT_FILENAMES.assetsDir,
     exportsDir: PROJECT_FILENAMES.exportsDir,
     agentAccess,

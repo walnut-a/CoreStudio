@@ -38,13 +38,21 @@ CoreStudio 是一个基于 Excalidraw 底座的本地优先图像画板。它把
 4. **本地优先清晰可见。** Bridge、项目、token、生成方式等状态要让用户知道当前连接到哪里，但不要把安全或协议细节放大成主要界面。
 5. **标准控件胜过新奇控件。** 下拉、按钮、开关、菜单、tab、侧栏都应使用熟悉结构和完整交互状态。除非有明确收益，不发明新 affordance。
 
+## Open Project Data Principles
+
+项目文件夹内的原图是素材存在与内容的事实来源。CoreStudio 负责核对和维护数据关系；索引、整理结果、原生场景及其他附加信息都可能被外部修改或丢失。局部异常不得带崩应用或阻断整个项目的维护，能读取的有效内容继续可用，无法安全写回的部分单独暂停，不能用降级结果覆盖原件。
+
+整理结果随项目保存、公开可读且不加密。原生 Excalidraw 场景继续完整保存，由 CoreStudio 项目适配桥接纳外部整理结果；不另建排布历史系统。图片可以帮助重建基础记录，但不能凭空恢复手动坐标、标注或生成信息。
+
+这些是已确认的演进原则，不表示当前版本支持任意文件的完整双向同步。完整合同、现状差距与验收要求见[开放项目数据协议](../../../docs/doc/corestudio-open-project-contract.md)。
+
 ## Agent Integration Principles
 
 **任务发起位置决定调度者。** 在 CoreStudio 发起的直接生成由 CoreStudio 调度，并使用 CoreStudio 已配置的模型 API；在 Codex 发起的任务由 Codex 调度，默认使用 Codex 自身的生图能力。Codex 通过 CLI / Local Bridge 读取和写回 CoreStudio 数据，内置画布只承担查看、选择、标注和结果确认。
 
 CoreStudio 不内置 Agent runtime，也不承担多 Agent 调度。应用内输入框只负责单次生成；需要分析、连续迭代或并行工作的任务从 Codex 发起，由 Codex 调度。
 
-所有外部项目写回都必须经过 CoreStudio CLI / Local Bridge，不能绕过本地数据层直接修改项目。这样可以保证桌面客户端、CLI 和 Agent Board 共享同一套项目格式、事务和校验规则。
+Agent 的正式项目操作默认经过 CoreStudio CLI / Local Bridge，使桌面客户端、CLI 和 Agent Board 共享同一套项目格式、事务和校验规则。用户通过文件管理器新增图片，以及后续通过公开整理文件修改排布，是独立的产品入口，由同一项目数据层核对接纳；这不构成 Agent 绕过授权直接改写内部事务文件的许可。
 
 ## Accessibility & Inclusion
 

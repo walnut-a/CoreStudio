@@ -105,7 +105,7 @@ Agent 主动写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参
 
 ## 迭代原则
 
-1. 项目数据由 CoreStudio 持有，Agent 不直接改项目文件。
+1. 项目原图是素材事实来源，文件夹可外部编辑；CoreStudio 协调应用内写入与外部结果接纳。Agent 的正式项目操作继续通过 CLI / Local Bridge，不通过改内部文件绕过冲突。
 2. 外部写入前后都校验图片资产、记录和画布元素关系；scene 只由项目房间协调。
 3. Agent 集成版本独立于客户端版本；只有 CLI、Skill 或 Bridge 协议变化时才要求更新集成。
 4. 本地生成与 Agent 工作流保持两套清晰入口，不共享隐式会话状态。
@@ -116,4 +116,9 @@ Agent 主动写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参
 
 CoreStudio 对已加载 Room 提供独立的本地图片接纳服务：用户或外部采集工具只新增图片文件，由 `electron/project/externalImageIntake*` 共用分类、持久化任务和 Room 增量提交补齐项目数据。普通项目目录的图片就地登记，仅根目录 inbox 子树复制到 assets；不因桌面标签关闭而停止仍被使用的 Room。
 
-这是新增原图的产品入口，不授权 Agent 或外部脚本编辑 project.json、image-records.json、image-intake.json 或 scene。Agent 的正式项目操作仍使用已认领 Board 对应的 CLI / Local Bridge。接纳 ledger 属于项目持久化状态，不能随 Agent session 或视图释放而删除。目录规则、版本恢复和验收证据见 [外部图片接纳需求](../../../../docs/spec/2026-09-05-corestudio-external-image-intake.md)。
+这是当前已实现的新增原图入口，不构成 Agent 直接编辑内部项目文件的授权。Agent 的正式项目操作仍使用已认领 Board 对应的 CLI / Local Bridge。v2 接纳状态位于 `project.json.intake`，完成项仅引用素材与元素 ID，不能随 Agent session 或视图释放而删除。目录规则、版本恢复和验收证据见 [外部图片接纳需求](../../../../docs/spec/2026-09-05-corestudio-external-image-intake.md)。
+
+外部整理遵循[开放项目数据协议](../../../../docs/doc/corestudio-open-project-contract.md)：用户可通过公开结果文件编辑顺序与排布，由项目适配桥核对并进入现有房间协调；文件异常要局部隔离，不能绕过保存冲突检查或另建磁盘写入者。当前 v2 已实现外部坐标接纳、原生写回、文件缺失恢复与显式冲突选择；“项目房间是权威状态”指应用内已接纳的协作状态，不意味着可以忽略或覆盖磁盘上的外部修改。
+
+
+Agent integration 2.2.1 / Skill 25 将开放项目规范同步到能力与诊断：`read capabilities` 提供 `openProject`，`read status` 提供房间最近已知 `storage` 状态，外部同步错误即使发生在已保存序列上也可查询。读取状态不扫描全量图片；恢复和冲突选择沿用桌面入口，不新增 CLI 强制覆盖通道。Bridge 协议 7 保持兼容，缺少新字段的旧客户端按未知能力处理。

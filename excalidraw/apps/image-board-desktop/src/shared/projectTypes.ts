@@ -1,4 +1,4 @@
-export const PROJECT_FORMAT_VERSION = 1;
+export const PROJECT_FORMAT_VERSION = 2;
 export const PROJECT_FILENAMES = {
   project: "project.json",
   scene: "scene.excalidraw.json",

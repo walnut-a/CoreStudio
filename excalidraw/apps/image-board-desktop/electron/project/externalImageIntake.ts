@@ -1,3 +1,5 @@
+import { readProjectDataText, writeProjectDataJson } from "./projectDocument";
+import { INTAKE_IMAGE_GAP, INTAKE_LAYOUT_MAX_WIDTH } from "./projectLayout";
 import fs from "node:fs/promises";
 import {
   readExternalImageIntakeState,
@@ -17,7 +19,6 @@ import type {
   ExternalImageIntakeStatus,
 } from "../../src/shared/externalImageIntakeTypes";
 import { readProjectImageRecords, persistImageAssets } from "../projectFs";
-import { writeJsonAtomic } from "./atomicProjectFile";
 import {
   registerProjectOriginal,
   withSettledProjectWriteback,
@@ -29,10 +30,10 @@ import {
   readStableExternalImage,
   classifyExternalImagePath,
   type ExternalImageObservation,
+  resolveExternalImagePath,
 } from "./externalImageFiles";
 
 const INTAKE_BATCH_GAP = 120;
-const INTAKE_LAYOUT_MAX_WIDTH = 2800;
 
 interface IntakeSceneBounds {
   x: number;
@@ -51,6 +52,7 @@ const getSceneElementBounds = (
     height = Number(element.height ?? 0),
     angle = Number(element.angle ?? 0);
   if (![x, y, width, height, angle].every(Number.isFinite)) return null;
+  if (angle === 0) return { x, y, width, height };
   const rotatedWidth =
     Math.abs(width * Math.cos(angle)) + Math.abs(height * Math.sin(angle));
   const rotatedHeight =
@@ -63,25 +65,11 @@ const getSceneElementBounds = (
   };
 };
 
-const measureIntakeBounds = (
-  elements: readonly ProjectRoomSceneElement[],
-): IntakeSceneBounds | null => {
-  const bounds = elements
-    .map(getSceneElementBounds)
-    .filter((value): value is IntakeSceneBounds => Boolean(value));
-  if (!bounds.length) return null;
-  const left = Math.min(...bounds.map((value) => value.x));
-  const top = Math.min(...bounds.map((value) => value.y));
-  const right = Math.max(...bounds.map((value) => value.x + value.width));
-  const bottom = Math.max(...bounds.map((value) => value.y + value.height));
-  return { x: left, y: top, width: right - left, height: bottom - top };
-};
-
 const boundsOverlap = (first: IntakeSceneBounds, second: IntakeSceneBounds) =>
-  first.x < second.x + second.width &&
-  first.x + first.width > second.x &&
-  first.y < second.y + second.height &&
-  first.y + first.height > second.y;
+  first.x < second.x + second.width + INTAKE_IMAGE_GAP &&
+  first.x + first.width + INTAKE_IMAGE_GAP > second.x &&
+  first.y < second.y + second.height + INTAKE_IMAGE_GAP &&
+  first.y + first.height + INTAKE_IMAGE_GAP > second.y;
 
 const getIntakeAnchor = (elements: readonly ProjectRoomSceneElement[]) => {
   let right = -Infinity,
@@ -98,71 +86,72 @@ const getIntakeAnchor = (elements: readonly ProjectRoomSceneElement[]) => {
   };
 };
 
-const getIntakeBatchOrigin = ({
-  state,
-  currentBatchId,
-  batchElements,
-  sceneElements,
-}: {
-  state: IntakeState;
-  currentBatchId: string;
-  batchElements: readonly ProjectRoomSceneElement[];
-  sceneElements: readonly ProjectRoomSceneElement[];
-}) => {
-  const batchBounds = measureIntakeBounds(batchElements);
-  if (!batchBounds) return { x: 0, y: 0 };
-  const acceptedBatches = new Map<string, ProjectRoomSceneElement[]>();
-  for (const entry of Object.values(state.entries)) {
-    if (entry.phase !== "accepted" || entry.batchId === currentBatchId)
-      continue;
-    const entries = acceptedBatches.get(entry.batchId) ?? [];
-    entries.push(entry.element);
-    acceptedBatches.set(entry.batchId, entries);
-  }
-  const acceptedBounds = [...acceptedBatches.values()]
-    .map(measureIntakeBounds)
-    .filter((value): value is IntakeSceneBounds => Boolean(value));
-  const currentIds = new Set(batchElements.map((element) => element.id));
-  const existingElements = sceneElements.filter(
-    (element) => !currentIds.has(element.id),
+// Continue from the current scene, including deleted slots, never from an old layout copy.
+const placeIntakeImages = (
+  entries: IntakeEntry[],
+  state: IntakeState,
+  sceneElements: readonly ProjectRoomSceneElement[],
+) => {
+  const current = new Map(
+    sceneElements.map((element) => [element.id, element]),
   );
-
-  let origin = getIntakeAnchor(existingElements);
-  if (acceptedBounds.length) {
-    const previous = acceptedBounds.at(-1)!;
-    const workspaceLeft = Math.min(...acceptedBounds.map((bounds) => bounds.x));
-    const workspaceBottom = Math.max(
-      ...acceptedBounds.map((bounds) => bounds.y + bounds.height),
-    );
-    const nextX = previous.x + previous.width + INTAKE_BATCH_GAP;
-    origin =
-      nextX + batchBounds.width - workspaceLeft > INTAKE_LAYOUT_MAX_WIDTH
-        ? { x: workspaceLeft, y: workspaceBottom + INTAKE_BATCH_GAP }
-        : { x: nextX, y: previous.y };
-  }
-
-  const occupiedBounds = existingElements
+  const previous = Object.values(state.entries)
+    .flatMap((entry) => {
+      const element = current.get(entry.element.id);
+      return element ? [{ ...element, isDeleted: false }] : [];
+    })
     .map(getSceneElementBounds)
-    .filter((value): value is IntakeSceneBounds => Boolean(value));
-  for (let attempt = 0; attempt <= occupiedBounds.length; attempt++) {
-    const candidate = {
-      x: origin.x,
-      y: origin.y,
-      width: batchBounds.width,
-      height: batchBounds.height,
-    };
-    const blockers = occupiedBounds.filter((bounds) =>
-      boundsOverlap(candidate, bounds),
-    );
-    if (!blockers.length) return origin;
-    origin = {
-      x: origin.x,
-      y:
-        Math.max(...blockers.map((bounds) => bounds.y + bounds.height)) +
-        INTAKE_BATCH_GAP,
-    };
+    .filter((bounds): bounds is IntakeSceneBounds => !!bounds);
+  const anchor = getIntakeAnchor(sceneElements);
+  const left = previous.length
+    ? Math.min(...previous.map((bounds) => bounds.x))
+    : anchor.x;
+  let y = previous.length
+    ? Math.max(...previous.map((bounds) => bounds.y))
+    : anchor.y;
+  const lastRow = previous.filter((bounds) => bounds.y === y);
+  let x = lastRow.length
+    ? Math.max(...lastRow.map((bounds) => bounds.x + bounds.width)) +
+      INTAKE_IMAGE_GAP
+    : left;
+  let rowBottom = lastRow.length
+    ? Math.max(...lastRow.map((bounds) => bounds.y + bounds.height))
+    : y;
+  const occupied = sceneElements
+    .map(getSceneElementBounds)
+    .filter((bounds): bounds is IntakeSceneBounds => !!bounds);
+  const nextRow = () => {
+    x = left;
+    y = rowBottom + INTAKE_IMAGE_GAP;
+    rowBottom = y;
+  };
+  for (const entry of entries) {
+    const width = Number(entry.element.width),
+      height = Number(entry.element.height);
+    if (x + width > left + INTAKE_LAYOUT_MAX_WIDTH) nextRow();
+    // Move only forward in reading order. Never fill holes in earlier rows.
+    while (true) {
+      const blockers = occupied.filter((bounds) =>
+        boundsOverlap({ x, y, width, height }, bounds),
+      );
+      if (!blockers.length) break;
+      const nextX =
+        Math.max(...blockers.map((bounds) => bounds.x + bounds.width)) +
+        INTAKE_IMAGE_GAP;
+      if (nextX + width <= left + INTAKE_LAYOUT_MAX_WIDTH) x = nextX;
+      else {
+        rowBottom = Math.max(
+          rowBottom,
+          ...blockers.map((bounds) => bounds.y + bounds.height),
+        );
+        nextRow();
+      }
+    }
+    entry.element = { ...entry.element, x, y };
+    occupied.push({ x, y, width, height });
+    x += width + INTAKE_IMAGE_GAP;
+    rowBottom = Math.max(rowBottom, y + height);
   }
-  return origin;
 };
 
 export interface DecodedIntakeImage {
@@ -186,10 +175,10 @@ export class ExternalImageIntake {
   private seededIds = new Set<string>();
   private queue: Promise<unknown> = Promise.resolve();
   private discoveryIssues: ExternalImageIntakeIssue[] = [];
-  private readonly projectPath: string;
-  constructor(private readonly input: ExternalImageIntakeInput) {
-    this.projectPath = input.room.identity.canonicalProjectPath;
+  private get projectPath() {
+    return this.input.room.identity.canonicalProjectPath;
   }
+  constructor(private readonly input: ExternalImageIntakeInput) {}
   private read = () =>
     readExternalImageIntakeState(
       this.projectPath,
@@ -199,11 +188,11 @@ export class ExternalImageIntake {
     const filePath = path.join(this.projectPath, PROJECT_FILENAMES.imageIntake);
     const serialized = JSON.stringify(state, null, 2);
     try {
-      if ((await fs.readFile(filePath, "utf8")) === serialized) return;
+      if ((await readProjectDataText(filePath)) === serialized) return;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    await writeJsonAtomic(filePath, state);
+    await writeProjectDataJson(filePath, state);
   };
   private active = () =>
     this.input.room.lifecycle === "active" ||
@@ -296,19 +285,62 @@ export class ExternalImageIntake {
       const batchId = randomUUID();
       let batchIndex = 0;
       const ready = new Map<string, IntakeEntry[]>();
-      const anchor = getIntakeAnchor(
-        this.input.room.getSnapshot().scene.elements,
-      );
       const pendingPaths = new Set(
         Object.values(state.entries)
           .filter((e) => e.phase === "pending")
           .map((e) => e.path),
       );
-      for (const candidate of discovery.files.sort(
+      // Fix the order of the entire discovery before the eight-image processing
+      // limit. A later scan must not insert older files ahead of this queue.
+      const newlyDiscovered = [];
+      for (const candidate of discovery.files) {
+        const source = state.sources[candidate.relativePath];
+        if (
+          source?.discovery ||
+          source?.hash ||
+          knownPaths.has(candidate.relativePath) ||
+          (candidate.location === "managed" && !source?.confirmed)
+        )
+          continue;
+        let createdAt = now;
+        try {
+          const filePath = await resolveExternalImagePath(
+            this.projectPath,
+            candidate.relativePath,
+          );
+          const stats = await fs.stat(filePath);
+          if (Number.isFinite(stats.birthtimeMs) && stats.birthtimeMs > 0)
+            createdAt = stats.birthtimeMs;
+        } catch {
+          // The normal intake path reports inaccessible or changing files.
+        }
+        newlyDiscovered.push({ candidate, createdAt });
+      }
+      let order = Math.max(
+        0,
+        ...Object.values(state.sources).map(
+          (source) => source.discovery?.order ?? 0,
+        ),
+      );
+      newlyDiscovered.sort(
         (a, b) =>
-          Number(a.storageMode === "copy-to-assets") -
-          Number(b.storageMode === "copy-to-assets"),
-      )) {
+          a.createdAt - b.createdAt ||
+          (a.candidate.relativePath < b.candidate.relativePath ? -1 : 1),
+      );
+      for (const { candidate, createdAt } of newlyDiscovered) {
+        state.sources[candidate.relativePath] = {
+          ...state.sources[candidate.relativePath],
+          discovery: { order: ++order, createdAt },
+        };
+      }
+      if (newlyDiscovered.length) await this.save(state);
+      const orderedFiles = discovery.files.sort(
+        (a, b) =>
+          (state.sources[a.relativePath]?.discovery?.order ?? 0) -
+          (state.sources[b.relativePath]?.discovery?.order ?? 0),
+      );
+      let waitingForEarlier = false;
+      for (const candidate of orderedFiles) {
         if (!this.active()) break;
         if (batchIndex >= 8) {
           this.discoveryIssues.push({
@@ -378,6 +410,7 @@ export class ExternalImageIntake {
           });
           this.observations.set(relative, file.observation);
           if (file.status === "waiting") {
+            waitingForEarlier = true;
             state.sources[relative] = {
               ...source,
               issue: {
@@ -408,12 +441,14 @@ export class ExternalImageIntake {
             (!entry && this.knownHashes.has(hash))
           ) {
             state.sources[relative] = {
+              discovery: source.discovery,
               hash,
               signature: file.observation.signature,
             };
             continue;
           }
           if (!entry) {
+            if (waitingForEarlier) continue;
             if (batchIndex >= 8) continue;
             const decoded = await this.input.decode({
               buffer: file.buffer,
@@ -449,8 +484,8 @@ export class ExternalImageIntake {
               id: `intake-${hash.slice(0, 32)}`,
               type: "image",
               fileId,
-              x: anchor.x + (batchIndex % 3) * 700,
-              y: anchor.y + Math.floor(batchIndex / 3) * 700,
+              x: 0,
+              y: 0,
               width: decoded.width * scale,
               height: decoded.height * scale,
               angle: 0,
@@ -487,6 +522,7 @@ export class ExternalImageIntake {
             state.entries[hash] = entry;
             batchIndex++;
             state.sources[relative] = {
+              discovery: source.discovery,
               hash,
               signature: file.observation.signature,
             };
@@ -494,6 +530,7 @@ export class ExternalImageIntake {
             await this.input.checkpoint?.("journal-saved");
           }
           state.sources[relative] = {
+            discovery: source.discovery,
             hash,
             signature: file.observation.signature,
           };
@@ -587,6 +624,7 @@ export class ExternalImageIntake {
           entry.cache = "ready";
           if (source.issue?.kind === "cache")
             state.sources[entry.path] = {
+              discovery: source.discovery,
               hash: entry.hash,
               signature: source.signature,
             };
@@ -617,32 +655,24 @@ export class ExternalImageIntake {
               entries.map((entry) => [entry.record.fileId, entry.record]),
             ),
           );
-          const current = new Set(
-            room.getSnapshot().scene.elements.map((element) => element.id),
+          const sceneElements = room.getSnapshot().scene.elements;
+          const current = new Map(
+            sceneElements.map((element) => [element.id, element]),
           );
-          const freshEntries = entries.filter(
-            (entry) => !current.has(entry.element.id),
-          );
-          if (freshEntries.length) {
-            const batchElements = freshEntries.map((entry) => entry.element);
-            const batchBounds = measureIntakeBounds(batchElements);
-            const origin = getIntakeBatchOrigin({
-              state,
-              currentBatchId: id,
-              batchElements,
-              sceneElements: room.getSnapshot().scene.elements,
-            });
-            if (batchBounds) {
-              const shiftX = origin.x - batchBounds.x;
-              const shiftY = origin.y - batchBounds.y;
-              for (const entry of freshEntries)
-                entry.element = {
-                  ...entry.element,
-                  x: Number(entry.element.x) + shiftX,
-                  y: Number(entry.element.y) + shiftY,
-                };
-            }
+          // A crash after Room persistence may leave a pending ledger entry.
+          // Recover the actual insertion position before continuing the next row.
+          for (const entry of entries) {
+            const existing = current.get(entry.element.id);
+            if (existing) entry.element = existing;
           }
+          const freshEntries = entries
+            .filter((entry) => !current.has(entry.element.id))
+            .sort(
+              (a, b) =>
+                (state.sources[a.path]?.discovery?.order ?? 0) -
+                (state.sources[b.path]?.discovery?.order ?? 0),
+            );
+          placeIntakeImages(freshEntries, state, sceneElements);
           const elements = freshEntries.map((entry) => entry.element);
           if (elements.length)
             room.applyExternalIntakeOperation({
@@ -660,6 +690,7 @@ export class ExternalImageIntake {
               source?.issue?.kind === "cache"
                 ? source
                 : {
+                    discovery: source?.discovery,
                     hash: entry.hash,
                     signature: source?.signature,
                   };

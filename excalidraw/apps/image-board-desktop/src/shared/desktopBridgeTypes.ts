@@ -53,6 +53,7 @@ import type {
 export const IPC_CHANNELS = {
   createProject: "image-board:create-project",
   openProject: "image-board:open-project",
+  resolveProjectStorage: "image-board:resolve-project-storage",
   openRecentProject: "image-board:open-recent-project",
   loadRecentProjects: "image-board:load-recent-projects",
   removeRecentProject: "image-board:remove-recent-project",
@@ -245,6 +246,8 @@ export type DesktopAgentIntegrationSettings = Record<
 >;
 
 export interface RecentProjectEntry {
+  projectId?: string;
+  directoryId?: string;
   projectPath: string;
   name: string;
   lastOpenedAt: string;
@@ -510,6 +513,9 @@ export interface DesktopBridgeApi {
   }): Promise<ProjectHealthReport>;
   createProject(): Promise<DesktopProjectBundle | null>;
   openProject(): Promise<DesktopProjectBundle | null>;
+  resolveProjectStorage?(input: {
+    projectPath: string;
+  }): Promise<{ resolved: boolean; backupPath?: string }>;
   openRecentProject(projectPath: string): Promise<DesktopProjectBundle | null>;
   loadRecentProjects(): Promise<RecentProjectEntry[]>;
   removeRecentProject?(projectPath: string): Promise<RecentProjectEntry[]>;

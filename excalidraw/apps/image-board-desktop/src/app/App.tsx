@@ -658,6 +658,31 @@ const App = ({
     });
   }, [currentProject?.projectPath, providerConfiguration]);
   const [projectRoomError, setProjectRoomError] = useState<string | null>(null);
+  const [resolvingProjectStorage, setResolvingProjectStorage] = useState(false);
+  const resolveProjectStorage = async () => {
+    const project = currentProjectRef.current;
+    if (
+      !project ||
+      !desktopBridge.resolveProjectStorage ||
+      resolvingProjectStorage
+    )
+      return;
+    setResolvingProjectStorage(true);
+    try {
+      await projectRoomClientRef.current?.waitForSubmission();
+      const result = await desktopBridge.resolveProjectStorage({
+        projectPath: project.projectPath,
+      });
+      if (result.resolved) {
+        setProjectRoomError(null);
+        setProjectError(null);
+      }
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setResolvingProjectStorage(false);
+    }
+  };
   const [agentBoardReconnectGeneration, setAgentBoardReconnectGeneration] =
     useState(0);
   const [stableBoardIntegrationStatus, setStableBoardIntegrationStatus] =
@@ -2889,7 +2914,27 @@ const App = ({
     >
       <AppErrorBanners
         startupError={startupError}
-        projectError={projectError ?? projectRoomError}
+        projectError={
+          projectError ??
+          (desktopBridge.resolveProjectStorage &&
+          currentProject &&
+          projectRoomError
+            ? null
+            : projectRoomError)
+        }
+        projectRecovery={
+          desktopBridge.resolveProjectStorage &&
+          currentProject &&
+          projectRoomError
+            ? {
+                message: projectRoomError,
+                actionLabel: "处理文件变化",
+                actionPendingLabel: "正在处理…",
+                pending: resolvingProjectStorage,
+                onAction: () => void resolveProjectStorage(),
+              }
+            : null
+        }
       />
       {globalDialogs}
       <ProjectRenderBoundary

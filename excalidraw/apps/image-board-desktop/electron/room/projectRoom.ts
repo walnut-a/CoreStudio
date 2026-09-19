@@ -4,6 +4,7 @@ import {
   type RoomSceneElement,
 } from "./roomElementReconciliation";
 import type {
+  ProjectRoomStorageStatus,
   ProjectRoomClosed,
   ProjectRoomErrorCode,
   ProjectRoomEvent,
@@ -15,6 +16,7 @@ import type {
   ProjectRoomPersisted,
   ProjectRoomParticipantsChanged,
   ProjectRoomScene,
+  ProjectRoomSceneElement,
   ProjectRoomSceneOperation,
   ProjectRoomSceneUpdate,
   ProjectRoomSnapshot,
@@ -93,6 +95,7 @@ const sameIdentity = (left: ProjectRoomIdentity, right: ProjectRoomIdentity) =>
 
 export class ProjectRoom {
   public readonly identity: ProjectRoomIdentity;
+  private readonly previousProjectPaths = new Set<string>();
   public lifecycle: ProjectRoomLifecycle = "opening";
   public sequence = 0;
   public persistedSequence: number;
@@ -135,6 +138,14 @@ export class ProjectRoom {
     this.lifecycle = "active";
   }
 
+  public relocateProjectPath(projectPath: string) {
+    this.previousProjectPaths.add(this.identity.canonicalProjectPath);
+    this.identity.canonicalProjectPath = projectPath;
+    for (const selection of this.participantSelections.values())
+      selection.projectPath = projectPath;
+    this.broadcastParticipants();
+  }
+
   public join(
     participant: ProjectRoomParticipant,
     listener?: ProjectRoomListener,
@@ -170,7 +181,10 @@ export class ProjectRoom {
         { sessionId },
       );
     }
-    if (selection.projectPath !== this.identity.canonicalProjectPath) {
+    if (
+      selection.projectPath !== this.identity.canonicalProjectPath &&
+      !this.previousProjectPaths.has(selection.projectPath)
+    ) {
       throw new ProjectRoomError(
         "PROJECT_MISMATCH",
         "The participant selection targets a different project.",
@@ -202,6 +216,58 @@ export class ProjectRoom {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  private externalStorageError: ProjectRoomStorageStatus["error"] = null;
+  public getStorageStatus(): ProjectRoomStorageStatus {
+    const failure = this.lastPersistenceError;
+    const error =
+      this.externalStorageError ??
+      (failure
+        ? {
+            code:
+              failure &&
+              typeof failure === "object" &&
+              "code" in failure &&
+              failure.code === "PROJECT_STORAGE_DIVERGED"
+                ? ("PROJECT_STORAGE_DIVERGED" as const)
+                : ("PERSISTENCE_FAILED" as const),
+            message:
+              failure instanceof Error
+                ? failure.message
+                : "Project room persistence failed.",
+          }
+        : null);
+    return {
+      state: error
+        ? "blocked"
+        : this.persistedSequence < this.sequence
+        ? "pending"
+        : "saved",
+      error: error ? { ...error } : null,
+    };
+  }
+  public reportExternalStorageError(error: Error) {
+    this.externalStorageError = {
+      code: "PROJECT_STORAGE_DIVERGED",
+      message: error.message,
+    };
+    this.broadcast({
+      type: "scene.persistence-failed",
+      identity: clone(this.identity),
+      sequence: this.sequence,
+      error: { code: "PROJECT_STORAGE_DIVERGED", message: error.message },
+    });
+  }
+  public clearExternalStorageError() {
+    this.externalStorageError = null;
+    if (this.persistedSequence >= this.sequence)
+      this.broadcast({
+        type: "scene.persisted",
+        identity: clone(this.identity),
+        sequence: this.persistedSequence,
+        projectRevision: this.projectRevision,
+      });
   }
 
   public publishAssetRecords(imageRecords: ImageRecordMap) {
@@ -509,6 +575,43 @@ export class ProjectRoom {
     }
   }
 
+  private resolvingStorage = false;
+  public resolveStorageConflict(
+    expectedSequence: number,
+    commit: () => Promise<{
+      elements: ProjectRoomSceneElement[];
+      projectRevision: string;
+    }>,
+  ): Promise<void> {
+    const task = this.persistenceQueue.then(async () => {
+      this.assertActive();
+      if (this.sequence !== expectedSequence)
+        throw new Error("预览后画布发生变化，请重新查看冲突。");
+      this.resolvingStorage = true;
+      this.clearPersistenceTimer();
+      try {
+        const resolved = await commit();
+        this.resolvingStorage = false;
+        this.applyMaintenanceOperation({
+          ...this.identity,
+          operationId: `resolution-${this.sequence}-${Date.now()}`,
+          baseSequence: this.sequence,
+          elements: resolved.elements,
+        });
+        this.clearPersistenceTimer();
+        this.projectRevision = resolved.projectRevision;
+        this.persistedSequence = this.sequence;
+        this.lifecycle = "active";
+        this.lastPersistenceError = null;
+        this.clearExternalStorageError();
+      } finally {
+        this.resolvingStorage = false;
+      }
+    });
+    this.persistenceQueue = task.catch(() => undefined);
+    return task;
+  }
+
   public flushPersistence(): Promise<void> {
     this.clearPersistenceTimer();
     if (!this.persistence) {
@@ -654,6 +757,11 @@ export class ProjectRoom {
   }
 
   private assertActive() {
+    if (this.resolvingStorage)
+      throw new ProjectRoomError(
+        "PERSISTENCE_FAILED",
+        "正在处理文件冲突，请稍后重试。",
+      );
     if (this.lifecycle === "closing") {
       throw new ProjectRoomError(
         "ROOM_CLOSING",
@@ -673,7 +781,8 @@ export class ProjectRoom {
   private assertOperationIdentity(operation: ProjectRoomSceneOperation) {
     if (
       operation.projectId !== this.identity.projectId ||
-      operation.canonicalProjectPath !== this.identity.canonicalProjectPath
+      (operation.canonicalProjectPath !== this.identity.canonicalProjectPath &&
+        !this.previousProjectPaths.has(operation.canonicalProjectPath))
     ) {
       throw new ProjectRoomError(
         "PROJECT_MISMATCH",

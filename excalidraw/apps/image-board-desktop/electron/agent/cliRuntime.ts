@@ -193,6 +193,12 @@ Global options:
   --jsonl         Print a JSON Lines envelope
   --agent-session Use a Bridge-issued local Agent session
 
+Open projects:
+  read capabilities --json reports openProject support on compatible runtimes.
+  read status --agent-session <sessionRef> --json reports projectRoom.storage.
+  Bridge ready does not mean project files are saved or free of conflicts.
+  Use read health for asset diagnostics; resolve file conflicts in CoreStudio.
+
 Examples:
   corestudio agent connect --host cursor --json
   corestudio read context --json

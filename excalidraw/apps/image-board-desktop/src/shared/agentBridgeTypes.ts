@@ -7,6 +7,14 @@ import type {
 
 export const AGENT_BRIDGE_PROTOCOL_VERSION = 7;
 
+// Additive capability: absence on older runtimes means unknown, not healthy.
+export const AGENT_OPEN_PROJECT_CAPABILITY = {
+  formatVersion: 2,
+  externalLayout: true,
+  storageStatus: true,
+  recovery: "desktop",
+} as const;
+
 export const AGENT_SESSION_FILE_NAME = "agent-session.json";
 export const AGENT_SETTINGS_DIRECTORY_NAME = "Excalidraw Image Board";
 export const AGENT_BOARD_ROUTE = "/board";

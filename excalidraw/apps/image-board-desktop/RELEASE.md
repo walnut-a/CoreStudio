@@ -240,6 +240,16 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版启用项目格式 v2；旧项目由应用迁移。仅剩原图时重建会创建新项目身份，无法还原已丢失的手动位置、文字或生成参数。Agent Bridge 协议仍兼容版本 7。
 
+### 1.1.56 发布验收
+
+- 发布源码：`62f132bbc7da48c6053b0e19f9acb07df40f78e0`，PR #161 合并提交；标签 `v1.1.56` 精确指向该提交。
+- 正式 Desktop CI 通过：[35449381443](https://github.com/walnut-a/CoreStudio/actions/runs/35449381443)。功能阶段的完整桌面回归及 SOURCE DEV 验收记录见开放项目协议，CLI / Skill 配套 244 项定向测试通过。
+- Apple 公证：`a62b59cd-613b-4e71-a5fa-174d8b57d18d`，Accepted；签名、App 与 DMG 票据、Gatekeeper、路径与密钥扫描及 DMG 完整性验证通过。
+- 正式模式与 QA packaged smoke、旧版及六宿主 Agent 安装通过；额外验证三宿主参考文档、版本 25、摘要、重复安装、旧版记录升级和用户修改保护，临时 HOME 已清理，无测试进程残留。
+- 接入文档在线检查：23 个源码文件与 GitHub main 一致，中英文官网内容一致。
+- 安装包：`CoreStudio-1.1.56-arm64.dmg`，137469682 字节；SHA-256：`1bc4966acbdefeea729c7e131d36eaa98ba088a947f122324949b8ffcc1e2d56`。公开附件重新下载后大小和摘要一致。
+- Release 于 `2026-09-19T15:09:55Z` 公开发布；稳定版清单在公开附件核验后更新。本次未替换本机正式应用或已安装 Skill，未修改正式用户数据。
+
 ## 1.1.55 发布说明
 
 - 修复右键菜单粘贴图片没有反应的问题，保留快捷键粘贴行为。

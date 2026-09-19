@@ -92,7 +92,7 @@ Skill -> CoreStudio CLI -> Local Bridge -> Project Room
 ### 3.4 数据与安全边界
 
 - CoreStudio 项目数据继续只由 CoreStudio 持有。
-- Agent 不得直接修改 `project.json`、`scene.excalidraw.json`、图片记录或资产目录。
+- Agent 的正式项目操作使用 CLI / Local Bridge，不直接覆盖 `project.json`、`scene.excalidraw.json` 或内部事务。用户外部添加原图、修改公开 layout 是受支持入口，由底层适配桥核对；详见开放项目协议。
 - Local Bridge 继续只监听 `127.0.0.1`。
 - Bridge session 和本地凭证不得写入 Skill、画布 URL、项目文件或用户可复制文本。
 - 外部写入继续通过 Project Room 协调和持久化。

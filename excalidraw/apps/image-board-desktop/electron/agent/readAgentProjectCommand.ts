@@ -292,6 +292,8 @@ export const createReadAgentProjectCommand =
     >["paths"];
   }): NonNullable<LocalBridgeServerOptions["readAgentProjectCommand"]> =>
   async ({ command, project, payload }) => {
+    if (command === "project.health")
+      return inspectProjectHealth(project.projectPath);
     const bundle = await readProjectBundle(project.projectPath);
     const scene = await getRoomScene(project.projectPath);
     const selectedElementIds = getAgentBoardSelectedElementIds(
@@ -303,14 +305,13 @@ export const createReadAgentProjectCommand =
         return {
           projectPath: project.projectPath,
           projectId: bundle.project.projectId,
+          formatVersion: bundle.project.formatVersion,
           name: bundle.project.name,
           createdAt: bundle.project.createdAt,
           updatedAt: bundle.project.updatedAt,
         };
       case "project.records":
         return buildProjectRecords(project.projectPath, bundle, scene);
-      case "project.health":
-        return inspectProjectHealth(project.projectPath);
       case "scene.selection":
         return buildSelectionContext(scene, selectedElementIds);
       case "scene.imagePaths": {

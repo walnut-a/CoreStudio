@@ -137,3 +137,33 @@ describe("createReadAgentProjectCommand", () => {
     });
   });
 });
+
+it("allows health diagnosis without first loading a broken scene or index", async () => {
+  const readProjectBundle = vi.fn(async () => {
+    throw Error("broken metadata");
+  });
+  const getRoomScene = vi.fn(async () => {
+    throw Error("not required");
+  });
+  const report = {
+    healthy: false,
+    issues: [{ code: "PROJECT_MANIFEST_INVALID" }],
+  };
+  const read = createReadAgentProjectCommand({
+    readProjectBundle,
+    getRoomScene,
+    inspectProjectHealth: async () => report,
+  });
+  expect(
+    await read({
+      command: "project.health",
+      project: {
+        projectPath: "/project",
+        name: "test",
+        agentAccess: { enabled: true, token: "test" },
+      },
+    }),
+  ).toEqual(report);
+  expect(readProjectBundle).not.toHaveBeenCalled();
+  expect(getRoomScene).not.toHaveBeenCalled();
+});

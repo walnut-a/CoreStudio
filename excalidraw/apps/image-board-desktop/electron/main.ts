@@ -70,6 +70,7 @@ import {
 } from "../src/shared/recentProjectErrors";
 import {
   AGENT_BRIDGE_PROTOCOL_VERSION,
+  AGENT_OPEN_PROJECT_CAPABILITY,
   isAgentHost,
   type AgentRendererCommandName,
   type AgentRendererCommandResponse,
@@ -1656,19 +1657,20 @@ const startLocalBridge = async () => {
             payload !== null,
         );
       },
+      openProjectCapability: AGENT_OPEN_PROJECT_CAPABILITY,
       getProjectRoomStatus: async (projectPath) => {
         const room = await projectRoomService.findOpenRoom(projectPath);
         if (!room) {
           return null;
         }
-        const snapshot = room.getSnapshot();
         return {
           sceneWriteMode: "room",
           roomId: room.identity.roomId,
           sessionEpoch: room.identity.sessionEpoch,
-          roomSequence: snapshot.sequence,
-          persistedSequence: snapshot.persistedSequence,
+          roomSequence: room.sequence,
+          persistedSequence: room.persistedSequence,
           lifecycle: room.lifecycle,
+          storage: room.getStorageStatus(),
         };
       },
       readProjectRoomScene: async ({ project, command }) => {

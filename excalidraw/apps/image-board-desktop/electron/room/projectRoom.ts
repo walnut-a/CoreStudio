@@ -4,6 +4,7 @@ import {
   type RoomSceneElement,
 } from "./roomElementReconciliation";
 import type {
+  ProjectRoomStorageStatus,
   ProjectRoomClosed,
   ProjectRoomErrorCode,
   ProjectRoomEvent,
@@ -217,7 +218,40 @@ export class ProjectRoom {
     };
   }
 
+  private externalStorageError: ProjectRoomStorageStatus["error"] = null;
+  public getStorageStatus(): ProjectRoomStorageStatus {
+    const failure = this.lastPersistenceError;
+    const error =
+      this.externalStorageError ??
+      (failure
+        ? {
+            code:
+              failure &&
+              typeof failure === "object" &&
+              "code" in failure &&
+              failure.code === "PROJECT_STORAGE_DIVERGED"
+                ? ("PROJECT_STORAGE_DIVERGED" as const)
+                : ("PERSISTENCE_FAILED" as const),
+            message:
+              failure instanceof Error
+                ? failure.message
+                : "Project room persistence failed.",
+          }
+        : null);
+    return {
+      state: error
+        ? "blocked"
+        : this.persistedSequence < this.sequence
+        ? "pending"
+        : "saved",
+      error: error ? { ...error } : null,
+    };
+  }
   public reportExternalStorageError(error: Error) {
+    this.externalStorageError = {
+      code: "PROJECT_STORAGE_DIVERGED",
+      message: error.message,
+    };
     this.broadcast({
       type: "scene.persistence-failed",
       identity: clone(this.identity),
@@ -226,6 +260,7 @@ export class ProjectRoom {
     });
   }
   public clearExternalStorageError() {
+    this.externalStorageError = null;
     if (this.persistedSequence >= this.sequence)
       this.broadcast({
         type: "scene.persisted",

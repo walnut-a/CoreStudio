@@ -916,6 +916,10 @@ describe("ProjectRoom", () => {
 
     await expect(room.flushPersistence()).rejects.toThrow("disk unavailable");
     expect(room.lifecycle).toBe("storage-error");
+    expect(room.getStorageStatus()).toMatchObject({
+      state: "blocked",
+      error: { code: "PERSISTENCE_FAILED" },
+    });
     expect(listener).toHaveBeenCalledWith({
       type: "scene.persistence-failed",
       identity: room.identity,
@@ -938,6 +942,10 @@ describe("ProjectRoom", () => {
     await expect(room.flushPersistence()).resolves.toBeUndefined();
     expect(room.lifecycle).toBe("active");
     expect(room.persistedSequence).toBe(2);
+    expect(room.getStorageStatus()).toMatchObject({
+      state: "saved",
+      error: null,
+    });
   });
 
   it("preserves a structured storage divergence error in room events", async () => {
@@ -988,5 +996,34 @@ describe("ProjectRoom", () => {
         },
       }),
     );
+  });
+});
+
+it("keeps external storage failures queryable even when room sequences are saved", () => {
+  const room = createRoom();
+  expect(room.getStorageStatus()).toMatchObject({
+    state: "saved",
+    error: null,
+  });
+  room.reportExternalStorageError(new Error("整理信息冲突"));
+  expect(room.persistedSequence).toBe(room.sequence);
+  const status = room.getStorageStatus();
+  expect(status).toMatchObject({
+    state: "blocked",
+    error: { code: "PROJECT_STORAGE_DIVERGED", message: "整理信息冲突" },
+  });
+  status.error!.message = "caller changed";
+  expect(room.getStorageStatus().error?.message).toBe("整理信息冲突");
+  room.clearExternalStorageError();
+  room.join(desktopParticipant);
+  room.applySceneOperation(desktopParticipant.sessionId, {
+    ...room.identity,
+    operationId: "pending",
+    baseSequence: 0,
+    elements: [{ ...initialElements[0], version: 2, x: 40 }],
+  });
+  expect(room.getStorageStatus()).toMatchObject({
+    state: "pending",
+    error: null,
   });
 });

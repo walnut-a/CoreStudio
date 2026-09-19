@@ -102,6 +102,15 @@ export type ProjectRoomErrorCode =
   | "PROJECT_OPEN_IN_ANOTHER_APP"
   | "OPERATION_ID_CONFLICT";
 
+export interface ProjectRoomStorageStatus {
+  /** Last observed persistence state, not a fresh disk scan. */
+  state: "saved" | "pending" | "blocked";
+  error: {
+    code: "PROJECT_STORAGE_DIVERGED" | "PERSISTENCE_FAILED";
+    message: string;
+  } | null;
+}
+
 export interface ProjectRoomSnapshot {
   type: "room.snapshot";
   identity: ProjectRoomIdentity;

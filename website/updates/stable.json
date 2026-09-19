@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.56",
-  "publishedAt": "2026-09-19T15:09:55Z",
+  "version": "1.1.57",
+  "publishedAt": "2026-09-19T17:03:55Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.56",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.57",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.56/CoreStudio-1.1.56-arm64.dmg",
-    "size": 137469682,
-    "sha256": "1bc4966acbdefeea729c7e131d36eaa98ba088a947f122324949b8ffcc1e2d56"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.57/CoreStudio-1.1.57-arm64.dmg",
+    "size": 137470105,
+    "sha256": "ccc7dfc4dd9f98e065ee2cdf5fb7f77cf6db45ef2ee57fac0b8ef7272275776a"
   },
   "summary": {
     "zh-CN": [
-      "图片自动接纳合理换行，保持新增顺序和已有手动排布",
-      "支持外部编辑项目顺序与坐标，补齐文件冲突处理和恢复",
-      "CLI 与 Skill 同步开放项目规范，提供存储状态诊断"
+      "补齐已有图片整理流程，明确文件创建时间与项目添加时间的区别",
+      "调整顺序时同步坐标，核验外部文件变化及画布保存结果",
+      "Agent 集成升级为 2.2.2，公共 Skill 升级为 26"
     ],
     "en": [
-      "Wrap automatically imported images while preserving arrival order and existing placement",
-      "Edit project order and positions externally, with conflict handling and recovery",
-      "Update CLI and Skills for open projects and storage status diagnostics"
+      "Clarify existing-image sorting and distinguish file creation time from project arrival time",
+      "Update order and positions together, checking external changes and saved canvas state",
+      "Update Agent integration to 2.2.2 and the shared Skill to revision 26"
     ]
   }
 }

@@ -239,6 +239,16 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版修订 Agent 操作指引与安装版本，不改变自动接纳算法、项目格式 v2 或 Bridge 协议 7。
 
+### 1.1.57 发布验收
+
+- 发布源码：`38d5959155427642ffabc22fd6061b545c9cdd34`，PR #163 合并提交；标签 `v1.1.57` 精确指向该提交。
+- 正式 Desktop CI 通过：[35455838605](https://github.com/walnut-a/CoreStudio/actions/runs/35455838605)；119 项定向测试、Skill 校验及生成文档一致性检查通过。
+- Apple 公证：`c2f60602-ea66-4b7d-a97d-b7f397858b93`，Accepted；签名、App 与 DMG 票据、Gatekeeper、路径与密钥扫描及 DMG 完整性验证通过。
+- 正式模式与 QA packaged smoke、旧版及六宿主 Agent 安装通过；额外验证三宿主参考文档、版本 26、摘要、重复安装、旧版记录升级和用户修改保护，临时 HOME 已清理，无测试进程残留。
+- 接入文档在线检查：23 个源码文件与 GitHub main 一致，中英文官网内容一致。
+- 安装包：`CoreStudio-1.1.57-arm64.dmg`，137470105 字节；SHA-256：`ccc7dfc4dd9f98e065ee2cdf5fb7f77cf6db45ef2ee57fac0b8ef7272275776a`。公开附件重新下载后大小和摘要一致。
+- Release 于 `2026-09-19T17:03:55Z` 公开发布；稳定版清单在公开附件核验后更新。本次未替换本机正式应用或已安装 Skill，未修改正式用户数据。
+
 ## 1.1.56 发布说明
 
 - 调整项目文件夹图片自动接纳：合理使用横向宽度后向下换行，同批按创建时间排序，后发现的追加，保留已有手动排布。

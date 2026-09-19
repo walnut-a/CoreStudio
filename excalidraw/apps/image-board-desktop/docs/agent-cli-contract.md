@@ -87,6 +87,12 @@ v2 的公开结果在 `project.json`，原生完整场景在 `scene.excalidraw.j
 
 有内存画布时显式恢复可以保留项目 ID；仅剩原图时显式重建会产生新身份，旧 Agent 绑定和固定引用必须重新核对。项目目录改名后以 Bridge 返回路径为准。完整格式及恢复边界见[开放项目数据协议](../../../../docs/doc/corestudio-open-project-contract.md)。
 
+## 已有图片的公开排布整理（Agent integration 2.2.2 / Skill 26）
+
+CLI 不提供批量重排命令。用户授权整理已有图片后，Agent 先完成目标认领，成功读取项目身份、能力、场景和存储状态；仅在 v2、`openProject.externalLayout/storageStatus` 可用且 `projectRoom.storage` 为 `saved` 时，使用公开 `project.json.layout` 入口修改授权顺序和坐标，由 Bridge 合并并写回原生场景。该入口不用于绕过 CLI、身份或保存失败；不得同时重写原生文件或修改 `sceneHash`、素材记录和内部事务。
+
+排序依据沿用用户约定。`layout.order` 是结果，`imageRecords.createdAt` 可能是同批记录时间，都不能替代逐图添加时间证据。使用文件创建时间时读取原图 birth time，同时间按文件名和相对路径排序，重复放置保留相对顺序；创建时间缺失或不能代表添加时间时说明局限，不静默改用 mtime、ctime、随机 ID 或旧顺序。实际重排需一起更新顺序和坐标，写前核对快照并原子发布，写后按同一时间依据核对公开结果、Room、原生场景及保存状态。
+
 ## Write Commands
 
 - `write image <path...> --source-type generated --origin agent-board --prompt <prompt> --reference-file-ids <ids> --reference-element-ids <ids> --json`

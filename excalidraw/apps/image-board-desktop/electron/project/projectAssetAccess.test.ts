@@ -109,10 +109,10 @@ it("preserves other records and rejects conflicting reuse of a file identity", a
     }),
   ).rejects.toThrow("冲突");
   const records = JSON.parse(
-    await fs.readFile(
-      path.join(bundle.projectPath, "image-records.json"),
-      "utf8",
-    ),
+    await fs.readFile(path.join(bundle.projectPath, "project.json"), "utf8"),
   );
-  expect(Object.keys(records).sort()).toEqual(["intake-original", "second"]);
+  expect(Object.keys(records.imageRecords).sort()).toEqual([
+    "intake-original",
+    "second",
+  ]);
 });

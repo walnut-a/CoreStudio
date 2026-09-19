@@ -1,3 +1,4 @@
+import { createLegacyProjectStructure as createProjectStructure } from "./test/legacyProjectFixture";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
@@ -14,7 +15,6 @@ import {
 import {
   cleanProjectCache,
   createNativeImageThumbnailWithAdapter,
-  createProjectStructure,
   inspectProjectHealth,
   persistImageAssets,
   readProjectAssetPayloads,

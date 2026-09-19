@@ -1,18 +1,23 @@
+import { createLegacyProjectStructure as createProjectStructure } from "../test/legacyProjectFixture";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  createProjectStructure,
-  readProjectBundle,
-  writeProjectScene,
-} from "../projectFs";
+import { readProjectBundle, writeProjectScene } from "../projectFs";
 import { createProjectRoomService } from "../room/projectRoomService";
 import { createExternalImageIntake } from "./externalImageIntake";
+
+const readingOrder = <T extends Record<string, unknown>>(
+  elements: readonly T[],
+) =>
+  [...elements].sort(
+    (a, b) => Number(a.y) - Number(b.y) || Number(a.x) - Number(b.x),
+  );
 
 const roots: string[] = [];
 const services: ReturnType<typeof createProjectRoomService>[] = [];
 afterEach(async () => {
+  vi.restoreAllMocks();
   for (const service of services.splice(0))
     for (const room of service.manager.list())
       await service.closeProject(room.identity.projectId, { force: true });
@@ -515,12 +520,16 @@ it("appends a bounded batch to a 5000-element Room without moving existing conte
   const intake = make();
   await intake.scan({ forceRetry: true });
   const first = room.getSnapshot().scene.elements;
-  const firstImages = first.filter((element) => element.type === "image");
+  const firstImages = readingOrder(
+    first.filter((element) => element.type === "image"),
+  );
   const firstImageIds = new Set(firstImages.map((element) => element.id));
   expect(firstImages).toHaveLength(8);
   await intake.scan({ forceRetry: true });
   const final = room.getSnapshot().scene.elements;
-  const finalImages = final.filter((element) => element.type === "image");
+  const finalImages = readingOrder(
+    final.filter((element) => element.type === "image"),
+  );
   const secondBatch = finalImages.filter(
     (element) => !firstImageIds.has(element.id),
   );
@@ -543,15 +552,14 @@ it("appends a bounded batch to a 5000-element Room without moving existing conte
       })),
   );
   expect(finalImages.every((element) => Number(element.x) >= 50120)).toBe(true);
-  expect(Math.min(...secondBatch.map((element) => Number(element.x)))).toBe(
-    Math.min(...firstImages.map((element) => Number(element.x))),
-  );
-  expect(Math.min(...secondBatch.map((element) => Number(element.y)))).toBe(
-    Math.max(
-      ...firstImages.map(
-        (element) => Number(element.y) + Number(element.height),
-      ),
-    ) + 120,
+  expect(secondBatch.map((element) => Number(element.y))).toEqual([
+    0,
+    0,
+    Number(firstImages[0].height) + 60,
+    Number(firstImages[0].height) + 60,
+  ]);
+  expect(Number(secondBatch[0].x)).toBe(
+    Number(firstImages[7].x) + Number(firstImages[7].width) + 60,
   );
 });
 
@@ -619,4 +627,221 @@ it("does not replace the ledger when idle reconciliation changes nothing", async
   const after = await fs.stat(ledger);
   expect(after.ino).toBe(before.ino);
   expect(after.mtimeMs).toBe(before.mtimeMs);
+});
+
+const mockCreationTimes = async (
+  projectPath: string,
+  times: Record<string, number>,
+) => {
+  projectPath = await fs.realpath(projectPath);
+  const original = fs.stat.bind(fs);
+  vi.spyOn(fs, "stat").mockImplementation((async (
+    ...args: Parameters<typeof fs.stat>
+  ) => {
+    const stats = await original(...args);
+    const time = times[path.relative(projectPath, String(args[0]))];
+    if (time !== undefined)
+      Object.defineProperty(stats, "birthtimeMs", { value: time });
+    return stats;
+  }) as typeof fs.stat);
+};
+
+it("orders one discovery by creation time across folders and scan limits, then appends later discoveries", async () => {
+  const { project, room, make, put } = await setup();
+  const names = [
+    "inbox/z.png",
+    "sub/y.png",
+    "x.png",
+    "w.png",
+    "v.png",
+    "u.png",
+    "t.png",
+    "s.png",
+    "r.png",
+    "q.png",
+    "p.png",
+    "o.png",
+  ];
+  const times: Record<string, number> = {};
+  for (const [index, name] of names.entries()) {
+    await put(name, name);
+    times[name] = 1000 + index;
+  }
+  await mockCreationTimes(project.projectPath, times);
+  await make().scan({ forceRetry: true });
+  expect(room.getSnapshot().scene.elements).toHaveLength(8);
+  await put("late.png", "later discovery with older birthtime");
+  times["late.png"] = 1;
+  await make().scan({ forceRetry: true });
+  const bundle = await readProjectBundle(project.projectPath);
+  const images = readingOrder(room.getSnapshot().scene.elements);
+  expect(
+    images.map((e) => bundle.imageRecords[String(e.fileId)].sourceFileName),
+  ).toEqual([...names.map((name) => path.basename(name)), "late.png"]);
+  expect(images.slice(0, 10).map((e) => e.y)).toEqual(Array(10).fill(0));
+  expect(images.slice(10).map((e) => e.y)).toEqual(
+    Array(3).fill(Number(images[10].y)),
+  );
+  expect(Number(images[10].y)).toBeGreaterThan(Number(images[9].y));
+});
+
+it("uses the path to break creation-time ties and discovery time when creation time is unavailable", async () => {
+  const { project, room, make, put } = await setup();
+  for (const name of ["z.png", "b.png", "a.png"]) await put(name, name);
+  await mockCreationTimes(project.projectPath, {
+    "z.png": 10,
+    "a.png": 0,
+    "b.png": 0,
+  });
+  await make().scan({ now: 1000 });
+  const bundle = await readProjectBundle(project.projectPath);
+  expect(
+    readingOrder(room.getSnapshot().scene.elements).map(
+      (e) => bundle.imageRecords[String(e.fileId)].sourceFileName,
+    ),
+  ).toEqual(["z.png", "a.png", "b.png"]);
+});
+
+it("continues the original row after moved and deleted imports without filling their old slots", async () => {
+  const { project, room, make, put } = await setup();
+  for (const name of ["a.png", "b.png", "c.png"]) await put(name, name);
+  await mockCreationTimes(project.projectPath, {
+    "a.png": 1,
+    "b.png": 2,
+    "c.png": 3,
+  });
+  await make().scan();
+  const [a, b, c] = readingOrder(room.getSnapshot().scene.elements);
+  room.applyMaintenanceOperation({
+    ...room.identity,
+    operationId: "manual-layout",
+    baseSequence: room.sequence,
+    elements: [
+      { ...a, x: -1000, y: -1000, version: a.version + 1 },
+      { ...c, isDeleted: true, version: c.version + 1 },
+    ],
+  });
+  await room.flushPersistence();
+  await put("d.png", "d");
+  await make().scan();
+  const images = readingOrder(room.getSnapshot().scene.elements);
+  const added = images.find((e) => ![a.id, b.id, c.id].includes(e.id))!;
+  expect(added).toMatchObject({
+    x: Number(c.x) + Number(c.width) + 60,
+    y: c.y,
+  });
+  expect(images.find((e) => e.id === a.id)).toMatchObject({
+    x: -1000,
+    y: -1000,
+  });
+  expect(images.find((e) => e.id === c.id)?.isDeleted).toBe(true);
+});
+
+it("uses available row width for mixed aspect ratios and wraps below the tallest image", async () => {
+  const { project, room, put } = await setup();
+  const names = Array.from(
+    { length: 16 },
+    (_, i) => `${String(i).padStart(2, "0")}.png`,
+  );
+  for (const name of names) await put(name, name);
+  await mockCreationTimes(
+    project.projectPath,
+    Object.fromEntries(names.map((name, i) => [name, i + 1])),
+  );
+  const make = () =>
+    createExternalImageIntake({
+      room,
+      stableMs: 0,
+      decode: async ({ buffer }) =>
+        Number(buffer.toString().slice(0, 2)) < 12
+          ? { width: 320, height: 640 }
+          : { width: 640, height: 320 },
+    });
+  await make().scan();
+  await make().scan();
+  const images = readingOrder(room.getSnapshot().scene.elements);
+  expect(images.slice(0, 15).map((e) => e.y)).toEqual(Array(15).fill(0));
+  expect(images[14]).toMatchObject({ x: 5960, width: 640, height: 320 });
+  expect(images[15]).toMatchObject({ x: 0, y: 700, width: 640, height: 320 });
+});
+
+it("does not let a ready later image overtake an earlier file that is still being written", async () => {
+  const { project, room, put } = await setup();
+  await put("a.png", "first");
+  await put("b.png", "second");
+  await mockCreationTimes(project.projectPath, { "a.png": 1, "b.png": 2 });
+  const intake = createExternalImageIntake({
+    room,
+    stableMs: 1000,
+    decode: async () => ({ width: 640, height: 400 }),
+  });
+  await intake.scan({ now: 1000 });
+  await put("a.png", "first complete");
+  await intake.scan({ now: 2100 });
+  expect(room.getSnapshot().scene.elements).toHaveLength(0);
+  await intake.scan({ now: 3200 });
+  const bundle = await readProjectBundle(project.projectPath);
+  expect(
+    readingOrder(room.getSnapshot().scene.elements).map(
+      (e) => bundle.imageRecords[String(e.fileId)].sourceFileName,
+    ),
+  ).toEqual(["a.png", "b.png"]);
+});
+
+it("skips a rotated obstacle while preserving the row width, reading order and existing geometry", async () => {
+  const { room, make, put } = await setup();
+  await put("first.png", "first");
+  await make().scan();
+  const first = room.getSnapshot().scene.elements[0];
+  const obstacle = {
+    id: "obstacle",
+    type: "rectangle",
+    x: 900,
+    y: -100,
+    width: 500,
+    height: 500,
+    angle: Math.PI / 4,
+    version: 1,
+    versionNonce: 1,
+    isDeleted: false,
+  };
+  room.applyMaintenanceOperation({
+    ...room.identity,
+    operationId: "obstacle",
+    baseSequence: room.sequence,
+    elements: [obstacle],
+  });
+  const originalObstacle = room
+    .getSnapshot()
+    .scene.elements.find((e) => e.id === obstacle.id);
+  await put("second.png", "second");
+  await make().scan();
+  const elements = room.getSnapshot().scene.elements;
+  const second = elements.find((e) => e.type === "image" && e.id !== first.id)!;
+  const obstacleRight = 1150 + (500 * Math.SQRT2) / 2;
+  expect(Number(second.x)).toBeGreaterThanOrEqual(obstacleRight + 60);
+  expect(Number(second.x) + Number(second.width)).toBeLessThanOrEqual(6940);
+  expect(second.y).toBe(first.y);
+  expect(elements.find((e) => e.id === first.id)).toEqual(first);
+  expect(elements.find((e) => e.id === obstacle.id)).toEqual(originalObstacle);
+});
+
+it("continues the last row after a scene checkpoint failure without duplicating or moving images", async () => {
+  const { room, make, put } = await setup();
+  for (let i = 0; i < 8; i++) await put(`${i}.png`, `${i}`);
+  await make(async (stage) => {
+    if (stage === "scene-saved") throw new Error("interrupted");
+  }).scan();
+  const before = room.getSnapshot().scene.elements;
+  expect(before).toHaveLength(8);
+  await put("later.png", "later");
+  await make().scan({ forceRetry: true });
+  const after = room.getSnapshot().scene.elements;
+  expect(after).toHaveLength(9);
+  for (const element of before)
+    expect(after.find((e) => e.id === element.id)).toEqual(element);
+  expect(readingOrder(after)[8]).toMatchObject({
+    x: 5600,
+    y: Number(readingOrder(before)[7].y),
+  });
 });

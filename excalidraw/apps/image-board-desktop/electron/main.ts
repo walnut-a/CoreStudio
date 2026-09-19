@@ -1,3 +1,8 @@
+import { migrateProjectDocument } from "./project/projectDocument";
+import {
+  createProjectLayoutRuntime,
+  synchronizeProjectLayout,
+} from "./project/projectLayoutBridge";
 import { createAgentReferenceImages } from "./agent/agentReferenceImages";
 import type { CreateProjectThumbnail } from "./project/projectRepair";
 import { createExternalImageDecoder } from "./project/externalImageDecoder";
@@ -123,6 +128,7 @@ import {
   loadRecentProjects,
   rememberRecentProject,
   removeRecentProject,
+  resolveRecentProjectPath,
 } from "./recentProjectsStore";
 import { DESKTOP_LANG_CODE, setActiveDesktopLocale } from "../src/app/copy";
 import { selectProjectRoomAgentPresence } from "../src/app/projectRoomPresence";
@@ -305,11 +311,50 @@ const imageIntakeRuntime = createExternalImageIntakeRuntime({
       });
   },
 });
+const projectLayoutRuntime = createProjectLayoutRuntime((room) =>
+  projectRoomService.reconcileProjectPath(room),
+);
 const projectRoomService = createProjectRoomService({
+  onProjectRelocated: (room, previousPath) => {
+    projectViewRegistry?.relocate(
+      previousPath,
+      room.identity.canonicalProjectPath,
+    );
+    void readProjectBundle(room.identity.canonicalProjectPath)
+      .then((bundle) =>
+        rememberRecentProject(
+          room.identity.canonicalProjectPath,
+          bundle.project.name,
+        ),
+      )
+      .catch((error) => console.warn("[project-relocation]", error));
+    void imageIntakeRuntime
+      .stop(room)
+      .then(() => {
+        if (room.lifecycle === "active" || room.lifecycle === "storage-error")
+          imageIntakeRuntime.attach(room);
+      })
+      .catch((error) => console.warn("[project-relocation]", error));
+  },
+  prepareProject: async (projectPath) => {
+    try {
+      await migrateProjectDocument(projectPath);
+      await synchronizeProjectLayout(projectPath);
+    } catch (error) {
+      console.warn(
+        "[project-prepare]",
+        error instanceof Error ? error.message : error,
+      );
+    }
+  },
   onRoomOpened: (room) => {
     imageIntakeRuntime.attach(room);
+    projectLayoutRuntime.attach(room);
   },
-  beforeRoomClosed: (room) => imageIntakeRuntime.stop(room),
+  beforeRoomClosed: async (room) => {
+    await projectLayoutRuntime.stop(room);
+    await imageIntakeRuntime.stop(room);
+  },
   readProjectBundle,
   writeProjectScene,
   projectProcessLeaseRegistry,
@@ -1911,6 +1956,7 @@ const openRecentProjectBundle = async (
   options: DesktopProjectViewOpenOptions = {},
 ) => {
   try {
+    projectPath = await resolveRecentProjectPath(projectPath);
     return await buildProjectBundle(projectPath, options);
   } catch (error) {
     if (isMissingProjectFileError(error)) {
@@ -2758,13 +2804,19 @@ const registerIpcHandlers = () => {
   ipcMain.handle(
     IPC_CHANNELS.readProjectAssetPayloads,
     async (event, input) => {
-      requireProjectRendererSender(event.sender, input.projectPath);
+      input.projectPath = requireProjectRendererSender(
+        event.sender,
+        input.projectPath,
+      ).projectPath;
       return readProjectAssetPayloads(input);
     },
   );
 
   ipcMain.handle(IPC_CHANNELS.confirmProjectImage, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     const room = await projectRoomService.findOpenRoom(input.projectPath);
     if (!room) throw new Error("项目尚未加载。");
     const report = await inspectProjectHealth({
@@ -2783,14 +2835,20 @@ const registerIpcHandlers = () => {
     return inspectProjectHealth({ projectPath: input.projectPath });
   });
   ipcMain.handle(IPC_CHANNELS.inspectProjectHealth, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     return inspectProjectHealth(input);
   });
 
   ipcMain.handle(
     IPC_CHANNELS.rebuildProjectThumbnails,
     async (event, input) => {
-      requireProjectRendererSender(event.sender, input.projectPath);
+      input.projectPath = requireProjectRendererSender(
+        event.sender,
+        input.projectPath,
+      ).projectPath;
       const activeRoom = await projectRoomService.findOpenRoom(
         input.projectPath,
       );
@@ -2824,19 +2882,28 @@ const registerIpcHandlers = () => {
   );
 
   ipcMain.handle(IPC_CHANNELS.cleanProjectCache, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     return cleanProjectCache(input);
   });
 
   ipcMain.handle(IPC_CHANNELS.persistImageAssets, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     return persistAndPublishProjectRoomAssets(input);
   });
 
   ipcMain.handle(
     IPC_CHANNELS.updateImageRecordMetadata,
     async (event, input) => {
-      requireProjectRendererSender(event.sender, input.projectPath);
+      input.projectPath = requireProjectRendererSender(
+        event.sender,
+        input.projectPath,
+      ).projectPath;
       const imageRecords = await updateProjectImageRecordMetadata(input);
       const room = await projectRoomService.findOpenRoom(input.projectPath);
       if (
@@ -2850,12 +2917,18 @@ const registerIpcHandlers = () => {
   );
 
   ipcMain.handle(IPC_CHANNELS.beginImageWriteback, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     return beginProjectImageWriteback(input);
   });
 
   ipcMain.handle(IPC_CHANNELS.commitImageWriteback, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     const result = await commitProjectImageWriteback(input);
     const room = await projectRoomService.findOpenRoom(input.projectPath);
     if (room) {
@@ -2868,7 +2941,10 @@ const registerIpcHandlers = () => {
   });
 
   ipcMain.handle(IPC_CHANNELS.rollbackImageWriteback, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     return rollbackProjectImageWriteback(input);
   });
 
@@ -3062,7 +3138,10 @@ const registerIpcHandlers = () => {
   ipcMain.handle(
     IPC_CHANNELS.generateImages,
     async (event, input: GenerateImagesInput) => {
-      requireProjectRendererSender(event.sender, input.projectPath);
+      input.projectPath = requireProjectRendererSender(
+        event.sender,
+        input.projectPath,
+      ).projectPath;
       return generationRequestController.generate(input);
     },
   );
@@ -3076,7 +3155,10 @@ const registerIpcHandlers = () => {
         selection: ProjectGenerationModelSelection;
       },
     ) => {
-      requireProjectRendererSender(event.sender, input.projectPath);
+      input.projectPath = requireProjectRendererSender(
+        event.sender,
+        input.projectPath,
+      ).projectPath;
       return updateProjectGenerationModelSelection(
         input.projectPath,
         input.selection,
@@ -3098,7 +3180,10 @@ const registerIpcHandlers = () => {
   });
 
   ipcMain.handle(IPC_CHANNELS.writeProjectClipboard, async (event, input) => {
-    requireProjectRendererSender(event.sender, input.projectPath);
+    input.projectPath = requireProjectRendererSender(
+      event.sender,
+      input.projectPath,
+    ).projectPath;
     if (!Array.isArray(input.elements)) {
       throw new Error("Project clipboard elements must be an array.");
     }

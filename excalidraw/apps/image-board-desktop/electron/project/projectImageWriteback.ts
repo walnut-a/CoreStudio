@@ -1,3 +1,8 @@
+import {
+  readProjectDataText,
+  withProjectSectionBaseline,
+  writeProjectDataJson as writeJsonAtomic,
+} from "./projectDocument";
 import fs from "fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "path";
@@ -13,7 +18,7 @@ import {
 } from "../../src/shared/projectTypes";
 import { assertPersistedImageAssetIntegrity } from "../../src/shared/projectRecordIntegrity";
 import { DESKTOP_APP_VERSION } from "../appVersion";
-import { writeBufferAtomic, writeJsonAtomic } from "./atomicProjectFile";
+import { writeBufferAtomic } from "./atomicProjectFile";
 import { parseProjectImageRecords } from "./projectImageRecords";
 import { readRegisteredProjectAsset } from "./projectAssetAccess";
 import {
@@ -58,7 +63,7 @@ const isNodeError = (error: unknown): error is NodeJS.ErrnoException =>
   error instanceof Error && "code" in error;
 
 const readJson = async <T>(filePath: string): Promise<T> =>
-  JSON.parse(await fs.readFile(filePath, "utf8")) as T;
+  JSON.parse(await readProjectDataText(filePath)) as T;
 
 interface ProjectImageRecordsWritebackSnapshot {
   rawRecords: Record<string, unknown>;
@@ -71,8 +76,10 @@ const readImageRecordsWritebackSnapshot = async (
 ): Promise<ProjectImageRecordsWritebackSnapshot> => {
   let value: unknown;
   try {
-    value = JSON.parse(await fs.readFile(filePath, "utf8"));
+    value = JSON.parse(await readProjectDataText(filePath));
   } catch (error) {
+    if ((error as { code?: string }).code === "PROJECT_MANIFEST_INVALID")
+      throw error;
     throw Object.assign(new Error("图片索引 JSON 已损坏，已停止图片写回。"), {
       code: "IMAGE_RECORDS_INVALID" as const,
       details: error instanceof Error ? error.message : String(error),
@@ -105,16 +112,27 @@ const buildPersistedImageRecords = ({
   updates?: ImageRecordMap;
 }) => {
   const normalizedSafeRecords = Object.fromEntries(
-    Object.entries(snapshot.imageRecords).filter(
-      ([fileId]) => !snapshot.unsafeFileIds.has(fileId),
-    ),
+    Object.entries(snapshot.imageRecords)
+      .filter(([fileId]) => !snapshot.unsafeFileIds.has(fileId))
+      .map(([fileId, record]) => [
+        fileId,
+        {
+          ...(isRecord(snapshot.rawRecords[fileId])
+            ? snapshot.rawRecords[fileId]
+            : {}),
+          ...record,
+        },
+      ]),
   );
 
-  return {
-    ...snapshot.rawRecords,
-    ...normalizedSafeRecords,
-    ...updates,
-  };
+  return withProjectSectionBaseline(
+    {
+      ...snapshot.rawRecords,
+      ...normalizedSafeRecords,
+      ...updates,
+    },
+    snapshot.rawRecords,
+  );
 };
 
 const createAvailableWritebackTransactionId = (

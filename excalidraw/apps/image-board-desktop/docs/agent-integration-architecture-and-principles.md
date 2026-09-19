@@ -116,4 +116,6 @@ Agent 主动写入必须经过 CLI / Local Bridge，并携带可信的 Agent 参
 
 CoreStudio 对已加载 Room 提供独立的本地图片接纳服务：用户或外部采集工具只新增图片文件，由 `electron/project/externalImageIntake*` 共用分类、持久化任务和 Room 增量提交补齐项目数据。普通项目目录的图片就地登记，仅根目录 inbox 子树复制到 assets；不因桌面标签关闭而停止仍被使用的 Room。
 
-这是新增原图的产品入口，不授权 Agent 或外部脚本编辑 project.json、image-records.json、image-intake.json 或 scene。Agent 的正式项目操作仍使用已认领 Board 对应的 CLI / Local Bridge。接纳 ledger 属于项目持久化状态，不能随 Agent session 或视图释放而删除。目录规则、版本恢复和验收证据见 [外部图片接纳需求](../../../../docs/spec/2026-09-05-corestudio-external-image-intake.md)。
+这是当前已实现的新增原图入口，不构成 Agent 直接编辑内部项目文件的授权。Agent 的正式项目操作仍使用已认领 Board 对应的 CLI / Local Bridge。接纳 ledger 属于项目持久化状态，不能随 Agent session 或视图释放而删除。目录规则、版本恢复和验收证据见 [外部图片接纳需求](../../../../docs/spec/2026-09-05-corestudio-external-image-intake.md)。
+
+后续外部整理遵循[开放项目数据协议](../../../../docs/doc/corestudio-open-project-contract.md)：用户可通过公开结果文件编辑顺序与排布，由项目适配桥核对并进入现有房间协调；文件异常要局部隔离，不能绕过保存冲突检查或另建磁盘写入者。该协议是演进目标，尚未实现完整双向同步；“项目房间是权威状态”指应用内已接纳的协作状态，不意味着可以忽略或覆盖磁盘上的外部修改。

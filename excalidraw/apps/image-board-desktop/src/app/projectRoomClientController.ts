@@ -444,6 +444,7 @@ export class ProjectRoomClientController {
     ) {
       return;
     }
+    this.identity.canonicalProjectPath = event.identity.canonicalProjectPath;
     if (event.type === "participants.changed") {
       this.input.applyParticipants?.(structuredClone(event.participants));
       return;

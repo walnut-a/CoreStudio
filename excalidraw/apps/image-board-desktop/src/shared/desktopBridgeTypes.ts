@@ -245,6 +245,8 @@ export type DesktopAgentIntegrationSettings = Record<
 >;
 
 export interface RecentProjectEntry {
+  projectId?: string;
+  directoryId?: string;
   projectPath: string;
   name: string;
   lastOpenedAt: string;

@@ -1,3 +1,4 @@
+import { readProjectDataText } from "./projectDocument";
 import { parseProjectImageRecords } from "./projectImageRecords";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -24,6 +25,7 @@ export interface IntakeEntry {
   cache: "pending" | "ready";
 }
 interface IntakeSource {
+  discovery?: { order: number; createdAt: number };
   hash?: string;
   signature?: string;
   failedSignature?: string;
@@ -48,9 +50,8 @@ export const readExternalImageIntakeState = async (
   let raw: unknown;
   try {
     raw = JSON.parse(
-      await fs.readFile(
+      await readProjectDataText(
         path.join(projectPath, PROJECT_FILENAMES.imageIntake),
-        "utf8",
       ),
     );
   } catch (error) {
@@ -94,9 +95,19 @@ export const readExternalImageIntakeState = async (
     )
       throw new Error("接纳任务的图片记录无效。");
   }
-  for (const [source, entry] of Object.entries(raw.sources))
+  for (const [source, entry] of Object.entries(raw.sources)) {
     if (!classifyExternalImagePath(source) || !object(entry))
       throw new Error("图片接纳来源记录格式不正确，已停止自动写入。");
+    if (
+      entry.discovery !== undefined &&
+      (!object(entry.discovery) ||
+        !Number.isSafeInteger(entry.discovery.order) ||
+        Number(entry.discovery.order) <= 0 ||
+        typeof entry.discovery.createdAt !== "number" ||
+        !Number.isFinite(entry.discovery.createdAt))
+    )
+      throw new Error("图片接纳排序记录格式不正确，已停止自动写入。");
+  }
   // Older development projects may have paused intake. It is always automatic now.
   delete raw.paused;
   delete raw.lastBatch;

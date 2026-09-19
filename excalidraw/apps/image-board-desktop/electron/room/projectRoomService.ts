@@ -1,3 +1,8 @@
+import {
+  readProjectLocationIdentity,
+  resolveRenamedProject,
+  type ProjectLocationIdentity,
+} from "../project/projectLocation";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
@@ -58,11 +63,66 @@ export interface CreateProjectRoomServiceInput {
   persistenceDebounceMs?: number;
   projectProcessLeaseRegistry?: ProjectProcessLeaseRegistry;
   onRoomOpened?: (room: ProjectRoom) => void;
+  prepareProject?: (projectPath: string) => Promise<void>;
+  onProjectRelocated?: (room: ProjectRoom, previousPath: string) => void;
   beforeRoomClosed?: (room: ProjectRoom) => Promise<unknown>;
 }
 
 export class ProjectRoomService {
   public readonly manager: ProjectRoomManager;
+  private readonly locations = new WeakMap<
+    ProjectRoom,
+    ProjectLocationIdentity
+  >();
+  private readonly relocations = new WeakMap<ProjectRoom, Promise<void>>();
+  public async reconcileProjectPath(room: ProjectRoom): Promise<void> {
+    const previous = this.relocations.get(room);
+    if (previous) return previous;
+    const task = (async () => {
+      const identity = this.locations.get(room);
+      if (!identity) return;
+      const current = room.identity.canonicalProjectPath;
+      try {
+        const stat = await fs.lstat(current, { bigint: true });
+        if (
+          identity.directoryId &&
+          `${stat.dev}:${stat.ino}` !== identity.directoryId
+        )
+          throw new Error("原项目路径已被另一文件夹替换，请重新定位。");
+        return;
+      } catch (error) {
+        if (!isMissingPathError(error)) throw error;
+      }
+      const next = await resolveRenamedProject(current, identity);
+      const lease = await this.input.projectProcessLeaseRegistry?.acquire(next);
+      try {
+        const confirmed = await readProjectLocationIdentity(next);
+        if (
+          confirmed.projectId !== identity.projectId ||
+          confirmed.directoryId !== identity.directoryId
+        )
+          throw new Error("项目身份在重新定位期间改变。");
+        const oldLease = this.processLeaseByProjectId.get(
+          room.identity.projectId,
+        );
+        if (lease)
+          this.processLeaseByProjectId.set(room.identity.projectId, lease);
+        this.projectIdByPath.set(next, room.identity.projectId);
+        room.relocateProjectPath(next);
+        await oldLease?.release();
+        this.input.onProjectRelocated?.(room, current);
+      } catch (error) {
+        await lease?.release();
+        throw error;
+      }
+    })();
+    this.relocations.set(room, task);
+    try {
+      await task;
+    } finally {
+      this.relocations.delete(room);
+    }
+  }
 
   private readonly projectIdByPath = new Map<string, string>();
   private readonly lastEpochByProjectId = new Map<string, number>();
@@ -84,6 +144,25 @@ export class ProjectRoomService {
   }
 
   public async openProject(projectPath: string) {
+    const aliasId = this.projectIdByPath.get(projectPath);
+    const aliased = aliasId ? this.manager.get(aliasId) : null;
+    if (aliased) {
+      let reusedPath = false;
+      if (projectPath !== aliased.identity.canonicalProjectPath) {
+        try {
+          await fs.lstat(projectPath);
+          reusedPath = true;
+        } catch (error) {
+          if (!isMissingPathError(error)) throw error;
+        }
+      }
+      if (!reusedPath) {
+        await this.reconcileProjectPath(aliased);
+        return aliased;
+      }
+      this.projectIdByPath.delete(projectPath);
+    }
+
     const canonicalProjectPath = await (
       this.input.canonicalizeProjectPath ?? fs.realpath
     )(projectPath);
@@ -341,6 +420,7 @@ export class ProjectRoomService {
       canonicalProjectPath,
     );
     try {
+      await this.input.prepareProject?.(canonicalProjectPath);
       const bundle = await this.input.readProjectBundle(canonicalProjectPath);
       const projectId = bundle.project.projectId ?? canonicalProjectPath;
       const persistence = createProjectRoomPersistence({
@@ -361,7 +441,13 @@ export class ProjectRoomService {
         projectRevision: persistence.initialProjectRevision,
         persistence: {
           debounceMs: this.input.persistenceDebounceMs ?? 750,
-          persist: persistence.persist,
+          persist: async (input) => {
+            await this.reconcileProjectPath(room);
+            return persistence.persist({
+              ...input,
+              identity: { ...room.identity },
+            });
+          },
         },
       });
       if (processLease) {
@@ -370,6 +456,14 @@ export class ProjectRoomService {
       this.lastEpochByProjectId.set(projectId, sessionEpoch);
       this.projectIdByPath.set(canonicalProjectPath, projectId);
       this.initialBundleByRoom.set(room, bundle);
+      try {
+        this.locations.set(
+          room,
+          await readProjectLocationIdentity(canonicalProjectPath),
+        );
+      } catch {
+        /* Legacy or mocked projects may lack stable directory identity. */
+      }
       this.input.onRoomOpened?.(room);
       return room;
     } catch (error) {

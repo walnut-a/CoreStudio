@@ -93,6 +93,7 @@ const sameIdentity = (left: ProjectRoomIdentity, right: ProjectRoomIdentity) =>
 
 export class ProjectRoom {
   public readonly identity: ProjectRoomIdentity;
+  private readonly previousProjectPaths = new Set<string>();
   public lifecycle: ProjectRoomLifecycle = "opening";
   public sequence = 0;
   public persistedSequence: number;
@@ -135,6 +136,14 @@ export class ProjectRoom {
     this.lifecycle = "active";
   }
 
+  public relocateProjectPath(projectPath: string) {
+    this.previousProjectPaths.add(this.identity.canonicalProjectPath);
+    this.identity.canonicalProjectPath = projectPath;
+    for (const selection of this.participantSelections.values())
+      selection.projectPath = projectPath;
+    this.broadcastParticipants();
+  }
+
   public join(
     participant: ProjectRoomParticipant,
     listener?: ProjectRoomListener,
@@ -170,7 +179,10 @@ export class ProjectRoom {
         { sessionId },
       );
     }
-    if (selection.projectPath !== this.identity.canonicalProjectPath) {
+    if (
+      selection.projectPath !== this.identity.canonicalProjectPath &&
+      !this.previousProjectPaths.has(selection.projectPath)
+    ) {
       throw new ProjectRoomError(
         "PROJECT_MISMATCH",
         "The participant selection targets a different project.",
@@ -202,6 +214,24 @@ export class ProjectRoom {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  public reportExternalStorageError(error: Error) {
+    this.broadcast({
+      type: "scene.persistence-failed",
+      identity: clone(this.identity),
+      sequence: this.sequence,
+      error: { code: "PROJECT_STORAGE_DIVERGED", message: error.message },
+    });
+  }
+  public clearExternalStorageError() {
+    if (this.persistedSequence >= this.sequence)
+      this.broadcast({
+        type: "scene.persisted",
+        identity: clone(this.identity),
+        sequence: this.persistedSequence,
+        projectRevision: this.projectRevision,
+      });
   }
 
   public publishAssetRecords(imageRecords: ImageRecordMap) {
@@ -673,7 +703,8 @@ export class ProjectRoom {
   private assertOperationIdentity(operation: ProjectRoomSceneOperation) {
     if (
       operation.projectId !== this.identity.projectId ||
-      operation.canonicalProjectPath !== this.identity.canonicalProjectPath
+      (operation.canonicalProjectPath !== this.identity.canonicalProjectPath &&
+        !this.previousProjectPaths.has(operation.canonicalProjectPath))
     ) {
       throw new ProjectRoomError(
         "PROJECT_MISMATCH",

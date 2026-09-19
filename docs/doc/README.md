@@ -18,6 +18,7 @@
 
 ## 文档索引
 
+- [corestudio-open-project-contract.md](corestudio-open-project-contract.md)：开放项目数据协议；统一原图事实来源、外部整理、同步冲突、局部降级与重建边界，区分目标合同与当前能力。
 - [2026-09-06-chinese-agent-integration-research.md](2026-09-06-chinese-agent-integration-research.md)：WorkBuddy、千问办公、豆包工作的官方能力调研、接入路径、参考图缺口与验收门槛。
 
 - [corestudio-dependency-security.md](corestudio-dependency-security.md)：CoreStudio 桌面 bundle 的依赖安全口径、已修复链路、Vitest mock 隔离、持续门禁和剩余上游风险。

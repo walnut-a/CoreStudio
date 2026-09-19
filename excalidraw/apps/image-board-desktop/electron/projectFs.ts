@@ -1,3 +1,15 @@
+import {
+  addNativeRecoveryLinks,
+  recoverImageRecords,
+} from "./project/projectRecovery";
+import { captureLayout, mergeExternalLayout } from "./project/projectLayout";
+import {
+  readProjectDataText,
+  writeProjectDataJson,
+  readProjectDocument,
+  updateProjectDocument,
+  recoverProjectSceneCommit,
+} from "./project/projectDocument";
 import { assertProjectAssetFile } from "./project/projectAssetAccess";
 import { inspectExternalImageIntake } from "./project/externalImageIntakeState";
 import { withSettledProjectWriteback } from "./project/projectImageWriteback";
@@ -38,10 +50,7 @@ import {
   type CreateProjectThumbnail,
   type RebuildProjectThumbnailsOptions,
 } from "./project/projectRepair";
-import {
-  writeJsonAtomic as writeJson,
-  writeTextAtomic,
-} from "./project/atomicProjectFile";
+import { writeTextAtomic } from "./project/atomicProjectFile";
 import {
   beginProjectImageWriteback,
   commitProjectImageWriteback,
@@ -53,7 +62,12 @@ import {
   parseProjectManifest,
   parseProjectScene,
 } from "./project/projectReadIntegrity";
-import { resolveProjectAssetPath, readRegisteredProjectAsset } from "./project/projectAssetAccess";
+import {
+  resolveProjectAssetPath,
+  readRegisteredProjectAsset,
+} from "./project/projectAssetAccess";
+
+const writeJson = writeProjectDataJson;
 
 const SCENE_BACKUPS_DIR = "scene-backups";
 const MAINTENANCE_BACKUPS_DIR = "maintenance-backups";
@@ -83,11 +97,27 @@ const cacheProjectImageRecords = (
 };
 
 const getImageRecordsFileSignature = async (projectPath: string) => {
-  const stats = await fs.stat(
-    path.join(projectPath, PROJECT_FILENAMES.imageRecords),
-    { bigint: true },
-  );
-  return `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeNs}`;
+  const signatures: string[] = [];
+  for (const name of [
+    PROJECT_FILENAMES.project,
+    PROJECT_FILENAMES.imageRecords,
+  ]) {
+    try {
+      const stats = await fs.stat(path.join(projectPath, name), {
+        bigint: true,
+      });
+      signatures.push(
+        `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeNs}`,
+      );
+    } catch (error) {
+      if (
+        name === PROJECT_FILENAMES.project ||
+        (error as NodeJS.ErrnoException).code !== "ENOENT"
+      )
+        throw error;
+    }
+  }
+  return signatures.join("/");
 };
 export const PROJECT_THUMBNAIL_MAX_DIMENSION = 320;
 export const PROJECT_PREVIEW_MAX_DIMENSION = 1280;
@@ -255,7 +285,7 @@ const buildProjectManifest = (name: string): ProjectManifest => {
     createdAt: timestamp,
     updatedAt: timestamp,
     sceneFile: PROJECT_FILENAMES.scene,
-    imageRecordsFile: PROJECT_FILENAMES.imageRecords,
+    imageRecordsFile: PROJECT_FILENAMES.project,
     assetsDir: PROJECT_FILENAMES.assetsDir,
     exportsDir: PROJECT_FILENAMES.exportsDir,
     agentAccess: createProjectAgentAccess(),
@@ -281,10 +311,10 @@ export const createProjectStructure = async (
   const project = buildProjectManifest(name);
 
   await Promise.all([
-    writeJsonExclusive(
-      path.join(projectPath, PROJECT_FILENAMES.project),
-      project,
-    ),
+    writeJsonExclusive(path.join(projectPath, PROJECT_FILENAMES.project), {
+      ...project,
+      imageRecords: {},
+    }),
     fs.writeFile(
       path.join(projectPath, PROJECT_FILENAMES.scene),
       EMPTY_PROJECT_SCENE,
@@ -292,10 +322,6 @@ export const createProjectStructure = async (
         encoding: "utf8",
         flag: "wx",
       },
-    ),
-    writeJsonExclusive(
-      path.join(projectPath, PROJECT_FILENAMES.imageRecords),
-      {},
     ),
   ]);
 
@@ -306,28 +332,23 @@ const readProjectBundleFiles = async (
   projectPath: string,
   options: { validateScene?: boolean } = {},
 ) => {
-  const [
-    projectJson,
-    sceneJson,
-    imageRecordsJson,
-    imageRecordsSignature,
-  ] = await Promise.all([
-    fs.readFile(path.join(projectPath, PROJECT_FILENAMES.project), "utf8"),
-    fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
-    fs.readFile(path.join(projectPath, PROJECT_FILENAMES.imageRecords), "utf8"),
-    getImageRecordsFileSignature(projectPath),
-  ]);
+  const [projectJson, sceneJson, imageRecordsJson, imageRecordsSignature] =
+    await Promise.all([
+      readProjectDataText(path.join(projectPath, PROJECT_FILENAMES.project)),
+      fs.readFile(path.join(projectPath, PROJECT_FILENAMES.scene), "utf8"),
+      readProjectDataText(
+        path.join(projectPath, PROJECT_FILENAMES.imageRecords),
+      ),
+      getImageRecordsFileSignature(projectPath),
+    ]);
   let manifestValue: unknown;
   try {
     manifestValue = JSON.parse(projectJson);
   } catch (error) {
-    throw Object.assign(
-      new Error("项目清单 JSON 已损坏，已保留原文件。"),
-      {
-        code: "PROJECT_MANIFEST_INVALID",
-        details: error instanceof Error ? error.message : String(error),
-      },
-    );
+    throw Object.assign(new Error("项目清单 JSON 已损坏，已保留原文件。"), {
+      code: "PROJECT_MANIFEST_INVALID",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
   const { project, changed } = parseProjectManifest({
     value: manifestValue,
@@ -343,17 +364,29 @@ const readProjectBundleFiles = async (
   try {
     imageRecordsValue = JSON.parse(imageRecordsJson);
   } catch (error) {
-    throw Object.assign(
-      new Error("图片索引 JSON 已损坏，已保留原文件。"),
-      {
-        code: "IMAGE_RECORDS_INVALID",
-        details: error instanceof Error ? error.message : String(error),
-      },
-    );
+    throw Object.assign(new Error("图片索引 JSON 已损坏，已保留原文件。"), {
+      code: "IMAGE_RECORDS_INVALID",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
-  const parsedImageRecords = parseProjectImageRecords(
-    imageRecordsValue,
-  );
+  const parsedImageRecords = parseProjectImageRecords(imageRecordsValue);
+  if (project.formatVersion === 2 && options.validateScene !== false) {
+    const scene = JSON.parse(sceneJson);
+    const missing = (scene.elements ?? []).some(
+      (e: Record<string, any>) =>
+        e.type === "image" &&
+        typeof e.fileId === "string" &&
+        !parsedImageRecords.imageRecords[e.fileId],
+    );
+    if (missing) {
+      const recovered = await recoverImageRecords(
+        projectPath,
+        scene,
+        imageRecordsValue,
+      );
+      parsedImageRecords.imageRecords = recovered.records;
+    }
+  }
   cacheProjectImageRecords(projectPath, {
     signature: imageRecordsSignature,
     imageRecords: parsedImageRecords.imageRecords,
@@ -377,13 +410,13 @@ export const readProjectManifestSnapshot = async (
   const projectFile = path.join(projectPath, PROJECT_FILENAMES.project);
   let manifestValue: unknown;
   try {
-    manifestValue = JSON.parse(await fs.readFile(projectFile, "utf8"));
+    manifestValue = JSON.parse(await readProjectDataText(projectFile));
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw Object.assign(
-        new Error("项目清单 JSON 已损坏，已保留原文件。"),
-        { code: "PROJECT_MANIFEST_INVALID", details: error.message },
-      );
+      throw Object.assign(new Error("项目清单 JSON 已损坏，已保留原文件。"), {
+        code: "PROJECT_MANIFEST_INVALID",
+        details: error.message,
+      });
     }
     throw error;
   }
@@ -397,12 +430,145 @@ export const readProjectManifestSnapshot = async (
 };
 
 export const readProjectBundle = async (projectPath: string) => {
-  const initialBundle = await readProjectBundleFiles(projectPath);
+  let sceneCommitIssue: string | undefined;
+  try {
+    await recoverProjectSceneCommit(projectPath);
+  } catch (error) {
+    sceneCommitIssue = error instanceof Error ? error.message : String(error);
+  }
+  let initialBundle: Awaited<ReturnType<typeof readProjectBundleFiles>>;
+  try {
+    initialBundle = await readProjectBundleFiles(projectPath);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (
+      ![
+        "ENOENT",
+        "PROJECT_MANIFEST_INVALID",
+        "IMAGE_RECORDS_INVALID",
+        "PROJECT_SCENE_INVALID",
+        "PROJECT_FORMAT_UNSUPPORTED",
+      ].includes(code ?? "")
+    )
+      throw error;
+    if (code === "PROJECT_SCENE_INVALID" || code === "ENOENT") {
+      try {
+        const { document } = await readProjectDocument(projectPath);
+        if (document.formatVersion !== 2 || !document.projectId) throw error;
+        const elements = Object.entries(
+          document.layout?.elements ?? {},
+        ).flatMap(([id, raw]) => {
+          if (
+            !isRecord(raw) ||
+            typeof raw.fileId !== "string" ||
+            !["x", "y", "width", "height", "angle"].every(
+              (k) => typeof raw[k] === "number" && Number.isFinite(raw[k]),
+            )
+          )
+            return [];
+          return [
+            {
+              ...raw,
+              id,
+              type: "image",
+              version: 1,
+              versionNonce: 1,
+              status: "saved",
+              scale: [1, 1],
+              isDeleted: raw.isDeleted === true,
+            },
+          ];
+        });
+        const sceneJson = JSON.stringify({
+          type: "excalidraw",
+          version: 2,
+          source: "CoreStudio",
+          elements,
+          appState: {},
+          files: {},
+          corestudioProject: {
+            projectId: document.projectId,
+            name: document.name,
+          },
+        });
+        const project = parseProjectManifest({
+          value: JSON.parse(
+            await readProjectDataText(
+              path.join(projectPath, PROJECT_FILENAMES.project),
+            ),
+          ),
+          projectPath,
+          appVersion: DESKTOP_APP_VERSION,
+          createAgentAccess: createProjectAgentAccess,
+          createProjectId: randomUUID,
+        }).project;
+        return {
+          project,
+          sceneJson,
+          imageRecords: parseProjectImageRecords(document.imageRecords)
+            .imageRecords,
+          imageRecordReadIssues: [
+            {
+              code: "invalid-record-field" as const,
+              fileId: "scene.excalidraw.json",
+              message:
+                "原生画布不可读取，当前根据整理结果恢复图片；其他画布内容尚未恢复，原文件已保留，保存暂停。",
+              repairable: false,
+            },
+          ],
+        };
+      } catch {
+        if (code === "PROJECT_SCENE_INVALID") throw error;
+      }
+    }
+    const sceneJson = await fs.readFile(
+      path.join(projectPath, PROJECT_FILENAMES.scene),
+      "utf8",
+    );
+    const scene = parseProjectScene(sceneJson) as Record<string, any>;
+    const identity = scene.corestudioProject;
+    if (!identity?.projectId) throw error;
+    const project = {
+      ...buildProjectManifest(identity.name ?? path.basename(projectPath)),
+      projectId: identity.projectId,
+      agentAccess: { token: "", enabled: false },
+    };
+    const recovered = await recoverImageRecords(projectPath, scene);
+    return {
+      project,
+      sceneJson,
+      imageRecords: recovered.records,
+      imageRecordReadIssues: [
+        {
+          code: "invalid-record-field" as const,
+          fileId: "project.json",
+          message:
+            "项目数据不可读取，当前根据原图与原生画布恢复显示；原文件已保留，保存暂停。",
+          repairable: false,
+        },
+      ],
+    };
+  }
   const recovery = await recoverProjectImageWritebacks(projectPath);
-  const withRecoveryIssues = <T extends Awaited<
-    ReturnType<typeof readProjectBundleFiles>
-  >>(bundle: T) => ({
+  const withRecoveryIssues = <
+    T extends Awaited<ReturnType<typeof readProjectBundleFiles>>,
+  >(
+    bundle: T,
+  ) => ({
     ...bundle,
+    ...(sceneCommitIssue
+      ? {
+          imageRecordReadIssues: [
+            ...(bundle.imageRecordReadIssues ?? []),
+            {
+              code: "invalid-record-field" as const,
+              fileId: "cache/scene-commit.json",
+              message: sceneCommitIssue,
+              repairable: false,
+            },
+          ],
+        }
+      : {}),
     ...(recovery.invalidJournals?.length
       ? { writebackJournalReadIssues: recovery.invalidJournals }
       : {}),
@@ -414,15 +580,37 @@ export const readProjectBundle = async (projectPath: string) => {
 };
 
 export const readProjectImageRecords = async (projectPath: string) => {
-  const signature = await getImageRecordsFileSignature(projectPath);
+  let signature: string;
+  try {
+    signature = await getImageRecordsFileSignature(projectPath);
+  } catch (error) {
+    if (
+      ["ENOENT", "PROJECT_MANIFEST_INVALID", "IMAGE_RECORDS_INVALID"].includes(
+        (error as { code?: string }).code ?? "",
+      )
+    )
+      return (await readProjectBundle(projectPath)).imageRecords;
+    throw error;
+  }
   const cached = projectImageRecordsReadCache.get(projectPath);
   if (cached?.signature === signature) {
     cacheProjectImageRecords(projectPath, cached);
     return cached.imageRecords;
   }
-  const parsed = await readProjectImageRecordsWithDeps(projectPath, {
-    readText: (filePath) => fs.readFile(filePath, "utf8"),
-  });
+  let parsed: ImageRecordMap;
+  try {
+    parsed = await readProjectImageRecordsWithDeps(projectPath, {
+      readText: readProjectDataText,
+    });
+  } catch (error) {
+    if (
+      ["ENOENT", "PROJECT_MANIFEST_INVALID", "IMAGE_RECORDS_INVALID"].includes(
+        (error as { code?: string }).code ?? "",
+      )
+    )
+      return (await readProjectBundle(projectPath)).imageRecords;
+    throw error;
+  }
   cacheProjectImageRecords(projectPath, {
     signature,
     imageRecords: parsed,
@@ -432,9 +620,8 @@ export const readProjectImageRecords = async (projectPath: string) => {
 
 const readRawProjectImageRecords = async (projectPath: string) =>
   JSON.parse(
-    await fs.readFile(
+    await readProjectDataText(
       path.join(projectPath, PROJECT_FILENAMES.imageRecords),
-      "utf8",
     ),
   ) as ImageRecordMap;
 
@@ -595,8 +782,9 @@ const createMaintenanceBackup = async ({
         path.join(backupPath, fileName),
       );
       copiedFiles.push(fileName);
-    } catch {
-      // 维护备份尽量收集已有元数据；缺失文件会在健康检查里报告。
+    } catch (error) {
+      // 缺失文件可跳过；读写失败必须停止，不能在没有备份时覆盖损坏原件。
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
 
@@ -638,17 +826,35 @@ const writeProjectSceneUnlocked = async ({
   projectPath,
   sceneJson,
   expectedSceneHash,
+  expectedProjectId,
 }: {
   projectPath: string;
   sceneJson: string;
   expectedSceneHash?: string | null;
+  expectedProjectId?: string;
 }) => {
   const bundle = await readProjectBundleFiles(projectPath, {
     validateScene: false,
   });
+  if (expectedProjectId && bundle.project.projectId !== expectedProjectId)
+    throw createProjectAgentError(
+      "PROJECT_STORAGE_DIVERGED",
+      "项目身份已在外部改变，已停止保存，请重新定位项目。",
+    );
   const currentScene = analyzeSceneJson(bundle.sceneJson);
   const nextScene = analyzeSceneJson(sceneJson);
   const currentSceneHash = getSceneContentHash(bundle.sceneJson);
+  if (bundle.project.formatVersion === 2) {
+    sceneJson = JSON.stringify(
+      addNativeRecoveryLinks(
+        JSON.parse(sceneJson),
+        bundle.project,
+        bundle.imageRecords,
+      ),
+      null,
+      2,
+    );
+  }
   const nextSceneHash = getSceneContentHash(sceneJson);
 
   if (nextScene.parseFailed) {
@@ -684,16 +890,62 @@ const writeProjectSceneUnlocked = async ({
     );
   }
 
-  await writeTextAtomic(
-    path.join(projectPath, PROJECT_FILENAMES.scene),
-    sceneJson,
-  );
   const nextProject: ProjectManifest = {
     ...bundle.project,
     updatedAt: new Date().toISOString(),
   };
-  await writeProjectManifest(projectPath, nextProject);
-  return nextProject;
+  if (bundle.project.formatVersion === 2) {
+    await updateProjectDocument(
+      projectPath,
+      async (doc) => {
+        const before = JSON.parse(bundle.sceneJson),
+          next = JSON.parse(sceneJson);
+        if (
+          doc.layout?.sceneHash &&
+          doc.layout.sceneHash !== currentSceneHash
+        ) {
+          throw createProjectAgentError(
+            "PROJECT_STORAGE_DIVERGED",
+            "整理信息与原生画布的基线不一致，保存已暂停。",
+          );
+        }
+        const merged = mergeExternalLayout(
+          before.elements,
+          next.elements,
+          doc.layout,
+        );
+        if (
+          merged.elements.some(
+            (element, index) => element !== next.elements[index],
+          )
+        ) {
+          throw createProjectAgentError(
+            "PROJECT_STORAGE_DIVERGED",
+            "发现外部排布修改，等待同步后再保存。",
+          );
+        }
+        const scenePath = path.join(projectPath, PROJECT_FILENAMES.scene);
+        if ((await fs.readFile(scenePath, "utf8")) !== bundle.sceneJson)
+          throw createProjectAgentError(
+            "PROJECT_STORAGE_DIVERGED",
+            "原生画布已在外部修改。",
+          );
+        doc.layout = {
+          ...captureLayout(next.elements, doc.layout),
+          sceneHash: nextSceneHash,
+        };
+        doc.updatedAt = nextProject.updatedAt;
+      },
+      { before: bundle.sceneJson, after: sceneJson },
+    );
+  } else {
+    await writeTextAtomic(
+      path.join(projectPath, PROJECT_FILENAMES.scene),
+      sceneJson,
+    );
+    await writeProjectManifest(projectPath, nextProject);
+  }
+  return { ...nextProject, sceneHash: nextSceneHash };
 };
 
 export const writeProjectScene = async (
@@ -703,7 +955,10 @@ export const writeProjectScene = async (
     writeProjectSceneUnlocked(input),
   );
 
-type CachedImageAssetRendition = Exclude<ImageAssetRequestRendition, "original">;
+type CachedImageAssetRendition = Exclude<
+  ImageAssetRequestRendition,
+  "original"
+>;
 
 const getCachedRenditionConfig = (rendition: CachedImageAssetRendition) =>
   IMAGE_CACHE_RENDITION_CONFIG[rendition];
@@ -959,10 +1214,7 @@ export const createCachedRenditionPayload = async ({
   }
 
   const cachePath = getCachedRenditionCachePath(record, rendition);
-  const resolvedCachePath = resolveProjectCachePath(
-    projectPath,
-    cachePath,
-  );
+  const resolvedCachePath = resolveProjectCachePath(projectPath, cachePath);
   const { maxDimension } = getCachedRenditionConfig(rendition);
   const thumbnail = await createThumbnail({
     sourceBuffer,
@@ -1044,7 +1296,10 @@ const collectFilesRecursively = async (directory: string) => {
   return files;
 };
 
-const getExpectedCachePaths = (projectPath: string, imageRecords: ImageRecordMap) => {
+const getExpectedCachePaths = (
+  projectPath: string,
+  imageRecords: ImageRecordMap,
+) => {
   const expectedPaths = new Set<string>();
 
   for (const record of Object.values(imageRecords)) {
@@ -1072,7 +1327,9 @@ export const cleanProjectCache = async ({
     path.join(projectPath, PROJECT_FILENAMES.cacheDir, directory),
   );
   const cacheFiles = (
-    await Promise.all(cacheRoots.map((directory) => collectFilesRecursively(directory)))
+    await Promise.all(
+      cacheRoots.map((directory) => collectFilesRecursively(directory)),
+    )
   ).flat();
   let removedFileCount = 0;
   let removedBytes = 0;
@@ -1108,7 +1365,11 @@ export const cleanProjectCache = async ({
 export const inspectProjectHealth = (input: { projectPath: string }) =>
   inspectProjectHealthWithDeps(input, {
     inspectIntake: inspectExternalImageIntake,
-    validateOriginal: async(projectPath,record)=>{if(record.contentHash)await readRegisteredProjectAsset(projectPath,record);else await assertProjectAssetFile(projectPath,record.assetPath);},
+    validateOriginal: async (projectPath, record) => {
+      if (record.contentHash)
+        await readRegisteredProjectAsset(projectPath, record);
+      else await assertProjectAssetFile(projectPath, record.assetPath);
+    },
     readProjectBundle: async (projectPath) => {
       const [bundle, writebackJournalReadIssues] = await Promise.all([
         readProjectBundleFiles(projectPath, { validateScene: false }),
@@ -1126,7 +1387,10 @@ export const inspectProjectHealth = (input: { projectPath: string }) =>
         path.join(projectPath, PROJECT_FILENAMES.assetsDir),
       );
       return assetFiles.map((assetFile) =>
-        path.relative(projectPath, assetFile).split(path.sep).join(path.posix.sep),
+        path
+          .relative(projectPath, assetFile)
+          .split(path.sep)
+          .join(path.posix.sep),
       );
     },
     resolveProjectAssetPath,
@@ -1256,8 +1520,103 @@ export const rebuildProjectThumbnails = async (
   },
   options: RebuildProjectThumbnailsOptions = {},
 ) =>
-  withSettledProjectWriteback(projectPath, () =>
-    rebuildProjectThumbnailsWithDeps(
+  withSettledProjectWriteback(projectPath, async () => {
+    if (createBackup) {
+      const projectFile = path.join(projectPath, PROJECT_FILENAMES.project),
+        sceneFile = path.join(projectPath, PROJECT_FILENAMES.scene);
+      const beforeProject = await fs
+        .readFile(projectFile, "utf8")
+        .catch((error) => {
+          if (error.code !== "ENOENT") throw error;
+          return null;
+        });
+      const beforeScene = await fs
+        .readFile(sceneFile, "utf8")
+        .catch((error) => {
+          if (error.code !== "ENOENT") throw error;
+          return null;
+        });
+      try {
+        const bundle = await readProjectBundleFiles(projectPath);
+        if (bundle.project.formatVersion === 2) {
+          const raw = await readRawProjectImageRecords(projectPath);
+          const missing = Object.keys(bundle.imageRecords).filter(
+            (id) => !raw[id],
+          );
+          if (missing.length) {
+            await createMaintenanceBackup({
+              projectPath,
+              reason: "recover-image-records",
+            });
+            await updateProjectDocument(projectPath, (doc) => {
+              doc.imageRecords = {
+                ...doc.imageRecords,
+                ...Object.fromEntries(
+                  missing.map((id) => [id, bundle.imageRecords[id]]),
+                ),
+              };
+            });
+          }
+        }
+      } catch (error) {
+        if (
+          ![
+            "ENOENT",
+            "PROJECT_MANIFEST_INVALID",
+            "IMAGE_RECORDS_INVALID",
+            "PROJECT_SCENE_INVALID",
+          ].includes((error as { code?: string }).code ?? "")
+        )
+          throw error;
+        const recovered = await readProjectBundle(projectPath);
+        if (!recovered.project.projectId) throw error;
+        await createMaintenanceBackup({
+          projectPath,
+          reason: "recover-project-document",
+        });
+        const currentProject = await fs
+          .readFile(projectFile, "utf8")
+          .catch((error) => {
+            if (error.code !== "ENOENT") throw error;
+            return null;
+          });
+        const currentScene = await fs
+          .readFile(sceneFile, "utf8")
+          .catch((error) => {
+            if (error.code !== "ENOENT") throw error;
+            return null;
+          });
+        if (currentProject !== beforeProject || currentScene !== beforeScene)
+          throw new Error("修复期间项目已在外部修改，已停止替换。");
+        const native = JSON.parse(recovered.sceneJson);
+        let originalDocument: Record<string, any> = {};
+        try {
+          const parsed = JSON.parse(beforeProject ?? "{}");
+          if (isRecord(parsed)) originalDocument = parsed;
+        } catch {
+          /* The damaged original has been preserved in the backup. */
+        }
+        const repaired = {
+          ...originalDocument,
+          ...recovered.project,
+          agentAccess: recovered.project.agentAccess?.enabled
+            ? recovered.project.agentAccess
+            : createProjectAgentAccess(),
+          imageRecords: {
+            ...originalDocument.imageRecords,
+            ...recovered.imageRecords,
+          },
+          layout: {
+            ...captureLayout(native.elements, originalDocument.layout),
+            sceneHash: getSceneContentHash(recovered.sceneJson),
+          },
+        };
+        if (beforeScene !== recovered.sceneJson)
+          await writeTextAtomic(sceneFile, recovered.sceneJson);
+        await writeTextAtomic(projectFile, JSON.stringify(repaired, null, 2));
+      }
+    }
+    return rebuildProjectThumbnailsWithDeps(
       {
         projectPath,
         fileIds,
@@ -1281,8 +1640,8 @@ export const rebuildProjectThumbnails = async (
         createCachedRenditionPayload,
         createNativeImageThumbnail,
       },
-    ),
-  );
+    );
+  });
 
 export const persistImageAssets = async ({
   projectPath,

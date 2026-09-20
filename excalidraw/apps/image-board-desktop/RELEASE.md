@@ -239,6 +239,16 @@ node --test website/update-manifest-contract.test.mjs
 
 系统要求：Apple Silicon Mac，macOS 13 或更高版本。本版不改变项目格式、Bridge 协议或 Agent 集成版本。
 
+### 1.1.58 发布验收
+
+- 发布源码：`4ac767ab45b2d42a87dd801f0bcb9f1094bc2668`，PR #165 合并提交；标签 `v1.1.58` 精确指向该提交。
+- 正式 Desktop CI 通过：[35515447974](https://github.com/walnut-a/CoreStudio/actions/runs/35515447974)；316 个桌面测试文件通过，2484 项测试通过、2 项跳过，另有 44 项 Agent Node 集成测试通过；类型检查及生产构建通过。
+- Apple 公证：`f87176bb-d286-4342-b478-677829cd011c`，Accepted；签名、App 与 DMG 票据、Gatekeeper、路径与密钥扫描及 DMG 完整性验证通过。
+- 正式模式与 QA packaged smoke、旧版及多宿主 Agent 安装通过；测试进程及临时用户目录已清理。
+- 接入文档在线检查：23 个源码文件与 GitHub main 一致，中英文官网内容一致。
+- 安装包：`CoreStudio-1.1.58-arm64.dmg`，137464992 字节；SHA-256：`f2f57d1a23f097e5c83dd493f05ce7c263b8cf0608d159e09e7026c52df07b29`。公开附件重新下载后大小和摘要一致。
+- Release 于 `2026-09-20T14:53:15Z` 公开发布；稳定版清单在公开附件核验后更新。本次未替换本机正式应用或已安装 Skill，未修改正式用户数据。
+
 ## 1.1.57 发布说明
 
 - 补齐 Agent 整理已有图片的流程，区分已存整理顺序、素材批次记录时间、文件创建时间和真实添加时间，避免把旧顺序直接当成时间顺序。

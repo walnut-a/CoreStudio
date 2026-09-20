@@ -18,6 +18,7 @@ import { DesktopButton } from "./components/DesktopButton";
 import { DesktopProjectTabs } from "./components/DesktopProjectTabs";
 import { ShellApplicationSettings } from "./components/ShellApplicationSettings";
 import type { RecentProjectsLoadStatus } from "./desktopStartupState";
+import { formatProjectOpenError } from "./currentProjectState";
 
 const EMPTY_PROJECT_VIEWS_STATE: DesktopProjectViewsState = {
   activeProjectPath: null,
@@ -329,7 +330,9 @@ export const DesktopShellApp = ({
         titlebar={titlebar}
         content={projectFailureContent}
         startupError={startupError}
-        projectError={projectError}
+        projectError={
+          projectError ? formatProjectOpenError(projectError) : null
+        }
         loadingProject={loadingProject}
         recentProjects={recentProjects}
         agentActiveProjects={agentActiveProjects}

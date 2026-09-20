@@ -56,7 +56,7 @@ describe("recentProjectsStore", () => {
     }
   });
 
-  it("finds a same-parent rename from recent projects without renaming the project", async () => {
+  it("keeps a renamed recent project for explicit relocation without guessing a new path", async () => {
     const old = path.join(mockDocumentsPath, "Old"),
       next = path.join(mockDocumentsPath, "New");
     await fs.mkdir(old);
@@ -69,13 +69,13 @@ describe("recentProjectsStore", () => {
     const entries = await loadRecentProjects();
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
-      projectPath: await fs.realpath(next),
+      projectPath: old,
       name: "Display name",
       projectId: "stable-project",
     });
   });
 
-  it("resolves a stale click and does not bind a different project reusing the old path", async () => {
+  it("rejects a different project reusing the old path even when the original is nearby", async () => {
     const old = path.join(mockDocumentsPath, "Old");
     const next = path.join(mockDocumentsPath, "New");
     await fs.mkdir(old);
@@ -90,10 +90,167 @@ describe("recentProjectsStore", () => {
       path.join(old, "project.json"),
       JSON.stringify({ projectId: "replacement" }),
     );
-    expect(await resolveRecentProjectPath(old)).toBe(await fs.realpath(next));
-    expect((await loadRecentProjects())[0].projectPath).toBe(
-      await fs.realpath(next),
+    await expect(resolveRecentProjectPath(old)).rejects.toThrow(/重新定位/);
+    expect((await loadRecentProjects())[0].projectPath).toBe(old);
+  });
+
+  const rememberWithPreviousDevice = async (projectPath: string) => {
+    await fs.mkdir(projectPath);
+    await fs.writeFile(
+      path.join(projectPath, "project.json"),
+      JSON.stringify({ projectId: "stable-project" }),
     );
+    const stat = await fs.lstat(projectPath, { bigint: true });
+    const recentProjectsFile = getRecentProjectsFile();
+    await fs.mkdir(path.dirname(recentProjectsFile), { recursive: true });
+    await fs.writeFile(
+      recentProjectsFile,
+      JSON.stringify([
+        {
+          projectPath,
+          projectId: "stable-project",
+          directoryId: `${stat.dev + 1n}:${stat.ino}`,
+          name: "Saved project",
+          lastOpenedAt: "2026-09-20T01:00:00.000Z",
+        },
+      ]),
+    );
+  };
+
+  it("opens the saved path after the volume device number changes", async () => {
+    const projectPath = path.join(mockDocumentsPath, "Project");
+    await rememberWithPreviousDevice(projectPath);
+    // A copy elsewhere must not make the explicit, still-valid path ambiguous.
+    const copy = path.join(mockDocumentsPath, "Copy");
+    await fs.mkdir(copy);
+    await fs.copyFile(
+      path.join(projectPath, "project.json"),
+      path.join(copy, "project.json"),
+    );
+    expect(await resolveRecentProjectPath(projectPath)).toBe(projectPath);
+  });
+
+  it("requires explicit relocation after an offline rename regardless of old device numbers", async () => {
+    const old = path.join(mockDocumentsPath, "Old");
+    const next = path.join(mockDocumentsPath, "New");
+    await rememberWithPreviousDevice(old);
+    await fs.rename(old, next);
+    // The original path may have been reused by a different project.
+    await fs.mkdir(old);
+    await fs.writeFile(
+      path.join(old, "project.json"),
+      JSON.stringify({ projectId: "replacement" }),
+    );
+    await expect(resolveRecentProjectPath(old)).rejects.toThrow(/重新定位/);
+    expect((await loadRecentProjects())[0].projectPath).toBe(old);
+  });
+
+  it("still rejects ambiguous copies or a different project after a device change", async () => {
+    const old = path.join(mockDocumentsPath, "Old");
+    const next = path.join(mockDocumentsPath, "New");
+    const copy = path.join(mockDocumentsPath, "Copy");
+    await rememberWithPreviousDevice(old);
+    await fs.rename(old, next);
+    await fs.mkdir(copy);
+    await fs.copyFile(
+      path.join(next, "project.json"),
+      path.join(copy, "project.json"),
+    );
+    await expect(resolveRecentProjectPath(old)).rejects.toThrow(/重新定位/);
+    await fs.rm(next, { recursive: true });
+    await fs.rm(copy, { recursive: true });
+    await fs.mkdir(old);
+    await fs.writeFile(
+      path.join(old, "project.json"),
+      JSON.stringify({ projectId: "replacement" }),
+    );
+    await expect(resolveRecentProjectPath(old)).rejects.toThrow(/重新定位/);
+  });
+
+  it.each(["{incomplete", null, JSON.stringify({ name: "identity missing" })])(
+    "keeps the original path when its manifest is unreadable (%s), even with a readable backup",
+    async (content) => {
+      const original = path.join(mockDocumentsPath, "Original");
+      const backup = path.join(mockDocumentsPath, "Backup");
+      await rememberWithPreviousDevice(original);
+      await fs.mkdir(backup);
+      await fs.copyFile(
+        path.join(original, "project.json"),
+        path.join(backup, "project.json"),
+      );
+      const manifest = path.join(original, "project.json");
+      const valid = await fs.readFile(manifest, "utf8");
+      if (content === null) await fs.unlink(manifest);
+      else await fs.writeFile(manifest, content);
+      await expect(resolveRecentProjectPath(original)).rejects.toThrow(
+        /项目文件暂时无法读取/,
+      );
+      expect((await loadRecentProjects())[0].projectPath).toBe(original);
+      expect((await fs.stat(original)).isDirectory()).toBe(true);
+      if (content === null)
+        await expect(fs.stat(manifest)).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+      else expect(await fs.readFile(manifest, "utf8")).toBe(content);
+      await fs.writeFile(manifest, valid);
+      expect(await resolveRecentProjectPath(original)).toBe(original);
+    },
+  );
+
+  it("does not mistake a remaining backup for the original moved outside its parent", async () => {
+    const original = path.join(mockDocumentsPath, "Original");
+    const backup = path.join(mockDocumentsPath, "Backup");
+    const elsewhere = path.join(mockAppDataPath, "Moved original");
+    await rememberWithPreviousDevice(original);
+    await fs.mkdir(backup);
+    await fs.copyFile(
+      path.join(original, "project.json"),
+      path.join(backup, "project.json"),
+    );
+    await fs.rename(original, elsewhere);
+    await expect(resolveRecentProjectPath(original)).rejects.toThrow(
+      /重新定位/,
+    );
+    expect((await loadRecentProjects())[0].projectPath).toBe(original);
+    await expect(fs.stat(original)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("remembers project IDs without persisting device numbers or merging distinct copies", async () => {
+    const original = path.join(mockDocumentsPath, "Original");
+    const copy = path.join(mockDocumentsPath, "Copy");
+    for (const projectPath of [original, copy]) {
+      await fs.mkdir(projectPath);
+      await fs.writeFile(
+        path.join(projectPath, "project.json"),
+        JSON.stringify({ projectId: "same" }),
+      );
+      await rememberRecentProject(projectPath, path.basename(projectPath));
+    }
+    const saved = JSON.parse(
+      await fs.readFile(getRecentProjectsFile(), "utf8"),
+    );
+    expect(saved).toHaveLength(2);
+    expect(
+      saved.map((entry: { projectPath: string }) => entry.projectPath),
+    ).toEqual([copy, original]);
+    for (const entry of saved) {
+      expect(entry.projectId).toBe("same");
+      expect(entry).not.toHaveProperty("directoryId");
+    }
+  });
+
+  it("keeps one recent entry when reopening through an alias of the parent directory", async () => {
+    const projectPath = path.join(mockDocumentsPath, "Project");
+    await fs.mkdir(projectPath);
+    await fs.writeFile(
+      path.join(projectPath, "project.json"),
+      JSON.stringify({ projectId: "same" }),
+    );
+    const alias = path.join(mockAppDataPath, "documents-alias");
+    await fs.symlink(mockDocumentsPath, alias, "dir");
+    await rememberRecentProject(projectPath, "Project");
+    await rememberRecentProject(path.join(alias, "Project"), "Project");
+    expect(await loadRecentProjects()).toHaveLength(1);
   });
 
   it("rejects an unresolved saved identity instead of opening its replacement", async () => {

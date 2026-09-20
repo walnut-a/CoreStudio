@@ -84,6 +84,27 @@ describe("DesktopShellApp", () => {
     });
   });
 
+  it("shows one readable project error and clears it on a successful retry", async () => {
+    const openProjectView = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "Error invoking remote method 'image-board:open-project-view': Error: 项目文件暂时无法读取，请稍后重试。",
+        ),
+      )
+      .mockResolvedValue({ activeProjectPath: null, projects: [] });
+    window.imageBoardDesktop = createBridge({ openProjectView });
+    render(<DesktopShellApp />);
+    const recentProject = await screen.findByText("项目 A");
+    fireEvent.click(recentProject.closest("button")!);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("项目文件暂时无法读取，请稍后重试。");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    fireEvent.click(recentProject.closest("button")!);
+    await waitFor(() => expect(openProjectView).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("renders shell navigation without mounting a project canvas", async () => {
     const bridge = createBridge({
       loadProjectViewsState: vi.fn().mockResolvedValue({

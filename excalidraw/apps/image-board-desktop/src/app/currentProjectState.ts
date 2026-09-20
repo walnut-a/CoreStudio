@@ -87,8 +87,11 @@ export const formatProjectOpenError = (error: unknown) => {
   const message = formatUnknownErrorMessage(
     error,
     copy.startup.openProjectFailed,
+  ).replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, "");
+  return (
+    (unmarkMissingRecentProjectMessage(message) ?? message).trim() ||
+    copy.startup.openProjectFailed
   );
-  return unmarkMissingRecentProjectMessage(message) ?? message;
 };
 
 export const formatProjectCreateError = (error: unknown) =>

@@ -1,7 +1,4 @@
-import {
-  readProjectLocationIdentity,
-  resolveRenamedProject,
-} from "./project/projectLocation";
+import { readProjectLocationIdentity } from "./project/projectLocation";
 import fs from "fs/promises";
 import path from "path";
 
@@ -105,21 +102,33 @@ const isValidProjectDirectory = async (projectPath: string) => {
 
 const resolveEntryPath = async (entry: RecentProjectEntry) => {
   if (!entry.projectId) return entry.projectPath;
+  let stat;
   try {
-    const actual = await readProjectLocationIdentity(entry.projectPath);
-    if (
-      actual.projectId === entry.projectId &&
-      (!entry.directoryId || actual.directoryId === entry.directoryId)
-    ) {
-      return entry.projectPath;
-    }
-  } catch {
-    /* A missing or replaced path must be re-identified below. */
+    stat = await fs.lstat(entry.projectPath);
+  } catch (cause) {
+    throw new Error(
+      "无法访问原项目文件夹，请点击“打开项目”重新定位。",
+      { cause },
+    );
   }
-  return resolveRenamedProject(entry.projectPath, {
-    projectId: entry.projectId,
-    directoryId: entry.directoryId,
-  });
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error("原项目位置不是文件夹，请点击“打开项目”重新定位。");
+  }
+  let actual;
+  try {
+    actual = await readProjectLocationIdentity(entry.projectPath);
+  } catch (cause) {
+    throw new Error(
+      "项目文件暂时无法读取，请稍后重试。",
+      { cause },
+    );
+  }
+  // Historical device numbers are not durable, and a nearby same-ID copy is
+  // not proof of a rename. Only live rooms have identity evidence to follow one.
+  if (actual.projectId !== entry.projectId) {
+    throw new Error("原位置的项目已发生变化，请点击“打开项目”重新定位。");
+  }
+  return entry.projectPath;
 };
 
 // Resolve again at click time: the folder may have changed since the list was shown.
@@ -197,11 +206,27 @@ export const rememberRecentProject = async (
 ) =>
   enqueueRecentProjectsOperation(async () => {
     const existingEntries = await loadRecentProjectsUnsafe();
-    let identity: { projectId?: string; directoryId?: string } = {};
+    let identity: { projectId?: string } = {};
+    let canonicalProjectPath: string | undefined;
     try {
-      identity = await readProjectLocationIdentity(projectPath);
+      const { projectId } = await readProjectLocationIdentity(projectPath);
+      canonicalProjectPath = await fs.realpath(projectPath);
+      identity = { projectId };
     } catch {
       /* Older projects can be remembered by path. */
+    }
+    const retainedEntries: RecentProjectEntry[] = [];
+    for (const entry of existingEntries) {
+      if (entry.projectPath === projectPath) continue;
+      if (canonicalProjectPath && entry.projectId === identity.projectId) {
+        try {
+          if ((await fs.realpath(entry.projectPath)) === canonicalProjectPath)
+            continue;
+        } catch {
+          // Keep unavailable entries for explicit relocation.
+        }
+      }
+      retainedEntries.push(entry);
     }
     const nextEntries = [
       {
@@ -210,15 +235,7 @@ export const rememberRecentProject = async (
         name,
         lastOpenedAt,
       },
-      ...existingEntries.filter(
-        (entry) =>
-          entry.projectPath !== projectPath &&
-          !(
-            identity.projectId &&
-            entry.projectId === identity.projectId &&
-            entry.directoryId === identity.directoryId
-          ),
-      ),
+      ...retainedEntries,
     ].slice(0, MAX_RECENT_PROJECTS);
 
     await writeRecentProjectsFile(nextEntries);

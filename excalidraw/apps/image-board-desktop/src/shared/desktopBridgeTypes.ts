@@ -247,6 +247,7 @@ export type DesktopAgentIntegrationSettings = Record<
 
 export interface RecentProjectEntry {
   projectId?: string;
+  /** Legacy snapshot, ignored for reopening; device numbers are not durable. */
   directoryId?: string;
   projectPath: string;
   name: string;

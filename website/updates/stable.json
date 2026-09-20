@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.57",
-  "publishedAt": "2026-09-19T17:03:55Z",
+  "version": "1.1.58",
+  "publishedAt": "2026-09-20T14:53:15Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.57",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.58",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.57/CoreStudio-1.1.57-arm64.dmg",
-    "size": 137470105,
-    "sha256": "ccc7dfc4dd9f98e065ee2cdf5fb7f77cf6db45ef2ee57fac0b8ef7272275776a"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.58/CoreStudio-1.1.58-arm64.dmg",
+    "size": 137464992,
+    "sha256": "f2f57d1a23f097e5c83dd493f05ce7c263b8cf0608d159e09e7026c52df07b29"
   },
   "summary": {
     "zh-CN": [
-      "补齐已有图片整理流程，明确文件创建时间与项目添加时间的区别",
-      "调整顺序时同步坐标，核验外部文件变化及画布保存结果",
-      "Agent 集成升级为 2.2.2，公共 Skill 升级为 26"
+      "修复重启或磁盘重新挂载后，原项目仍在却无法打开的问题",
+      "原项目移动或暂时不可读时保留记录，避免误打开同 ID 的备份",
+      "打开失败显示简短中文提示，不增加弹窗"
     ],
     "en": [
-      "Clarify existing-image sorting and distinguish file creation time from project arrival time",
-      "Update order and positions together, checking external changes and saved canvas state",
-      "Update Agent integration to 2.2.2 and the shared Skill to revision 26"
+      "Fix opening existing recent projects after a restart or disk remount",
+      "Keep unavailable project entries and avoid opening a backup with the same project ID",
+      "Show concise project-opening errors without additional dialogs"
     ]
   }
 }

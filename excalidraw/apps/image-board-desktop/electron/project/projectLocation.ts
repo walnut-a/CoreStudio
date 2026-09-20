@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 export interface ProjectLocationIdentity {
   projectId: string;
+  /** Only compare within a live runtime, never against a persisted snapshot. */
   directoryId?: string;
 }
 export const readProjectLocationIdentity = async (

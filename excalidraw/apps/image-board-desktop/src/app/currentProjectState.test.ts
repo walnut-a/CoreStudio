@@ -180,6 +180,23 @@ describe("project open sequence helpers", () => {
 });
 
 describe("project action error formatting", () => {
+  it.each([
+    "Error invoking remote method 'image-board:open-project-view': Error: 项目文件暂时无法读取，请稍后重试。",
+    "Error invoking remote method 'image-board:open-project': Error: 项目文件暂时无法读取，请稍后重试。",
+  ])("removes Electron transport prefixes from project errors", (message) => {
+    expect(formatProjectOpenError(new Error(message))).toBe(
+      "项目文件暂时无法读取，请稍后重试。",
+    );
+  });
+
+  it("uses the localized fallback when the transport error has no reason", () => {
+    expect(
+      formatProjectOpenError(
+        "Error invoking remote method 'image-board:open-project-view': Error: ",
+      ),
+    ).toBe("打开项目失败。");
+  });
+
   it("localizes owner fallbacks and preserves the reported failure reason", () => {
     setActiveDesktopLocale("en");
 

@@ -737,6 +737,102 @@ it("continues the original row after moved and deleted imports without filling t
   expect(images.find((e) => e.id === c.id)?.isDeleted).toBe(true);
 });
 
+it.each([
+  { x: 4457.6, y: 25990.266666666666, width: 640, height: 402 },
+  { x: -25000, y: 0, width: 640, height: 400 },
+  { x: 25000, y: 0, width: 640, height: 400 },
+  { x: 700, y: 0, width: 640, height: 25000 },
+])(
+  "ignores a deleted outlier when appending after a compacted layout: %j",
+  async (deletedBounds) => {
+    const { room, make, put } = await setup();
+    await put("a.png", "a");
+    await put("b.png", "b");
+    await make().scan();
+    const [a, b] = readingOrder(room.getSnapshot().scene.elements);
+    room.applyMaintenanceOperation({
+      ...room.identity,
+      operationId: "compact-live-delete-outlier",
+      baseSequence: room.sequence,
+      elements: [
+        { ...a, x: 0, y: 0, version: a.version + 1 },
+        { ...b, ...deletedBounds, isDeleted: true, version: b.version + 1 },
+      ],
+    });
+    await room.flushPersistence();
+    const before = room.getSnapshot().scene.elements;
+    // Cross scan and intake-instance boundaries, including a row wrap.
+    for (let index = 0; index < 12; index++) {
+      await put(`new-${index}.png`, `new-${index}`);
+    }
+    await make().scan();
+    await make().scan();
+    const after = room.getSnapshot().scene.elements;
+    for (const element of before)
+      expect(after.find((item) => item.id === element.id)).toEqual(element);
+    const added = readingOrder(
+      after.filter((e) => ![a.id, b.id].includes(e.id)),
+    );
+    expect(added).toHaveLength(12);
+    expect(added[0]).toMatchObject({ x: 700, y: 0 });
+    expect(added[9]).toMatchObject({ x: 0, y: Number(a.height) + 60 });
+    expect(Math.max(...added.map((e) => Number(e.y)))).toBe(
+      Number(a.height) + 60,
+    );
+  },
+);
+
+it("starts fresh when all previous imports are deleted without resurrecting them", async () => {
+  const { room, make, put } = await setup();
+  await put("old.png", "old");
+  await make().scan();
+  const old = room.getSnapshot().scene.elements[0];
+  room.applyMaintenanceOperation({
+    ...room.identity,
+    operationId: "delete-all-imports",
+    baseSequence: room.sequence,
+    elements: [
+      {
+        ...old,
+        x: -25000,
+        y: 25000,
+        isDeleted: true,
+        version: old.version + 1,
+      },
+    ],
+  });
+  await room.flushPersistence();
+  await put("new.png", "new");
+  await make().scan();
+  const after = room.getSnapshot().scene.elements;
+  expect(after).toHaveLength(2);
+  expect(after.find((e) => e.id !== old.id)).toMatchObject({ x: 0, y: 0 });
+  expect(after.find((e) => e.id === old.id)?.isDeleted).toBe(true);
+});
+
+it("continues from a distant live image without moving or ignoring user placement", async () => {
+  const { room, make, put } = await setup();
+  await put("old.png", "old");
+  await make().scan();
+  const old = room.getSnapshot().scene.elements[0];
+  room.applyMaintenanceOperation({
+    ...room.identity,
+    operationId: "move-live-image",
+    baseSequence: room.sequence,
+    elements: [{ ...old, x: 100, y: 25000, version: old.version + 1 }],
+  });
+  await room.flushPersistence();
+  const before = room.getSnapshot().scene.elements[0];
+  await put("new.png", "new");
+  await make().scan();
+  const after = room.getSnapshot().scene.elements;
+  expect(after.find((e) => e.id !== old.id)).toMatchObject({
+    x: 800,
+    y: 25000,
+  });
+  expect(after.find((e) => e.id === old.id)).toEqual(before);
+});
+
 it("uses available row width for mixed aspect ratios and wraps below the tallest image", async () => {
   const { project, room, put } = await setup();
   const names = Array.from(

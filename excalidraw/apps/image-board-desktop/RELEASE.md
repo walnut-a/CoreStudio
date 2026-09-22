@@ -240,7 +240,13 @@ node --test website/update-manifest-contract.test.mjs
 
 ### 1.1.59 发布验收
 
-发版完成后记录源码提交、CI、签名与公证、包内启动、线上文档、安装包校验值及公开下载验证结果。
+- 发布源码：`9b1ccfcf7a3b9572dba7680e32d59cf8752f586d`，修复 PR #167、版本 PR #168；标签 `v1.1.59` 精确指向该提交。
+- 正式 Desktop CI 通过：[35767830965](https://github.com/walnut-a/CoreStudio/actions/runs/35767830965)；桌面测试、Agent 集成、类型检查、密钥扫描与生产构建均通过。
+- Apple 公证：`465a4663-8ce1-4b36-8a28-8a1e59e8a9b6`，Accepted；App 与 DMG 票据、Gatekeeper、路径扫描及 DMG 完整性验证通过。
+- 正式模式与 QA packaged smoke、旧版及多宿主 Agent 安装通过；隔离测试进程已退出。
+- 接入文档在线检查：23 个源码文件与 GitHub main 一致，中英文官网内容一致。
+- 安装包：`CoreStudio-1.1.59-arm64.dmg`，137465111 字节；SHA-256：`7ca21b31df2f760ef7acf0d36827a58e9a60ab56e81de820ea7246e21b5b23f4`。公开附件重新下载后大小和摘要一致。
+- Release 于 `2026-09-22T18:46:34Z` 公开发布；稳定版清单在公开附件核验后更新。本次未替换本机正式应用或已安装 Skill，未修改正式用户数据。
 
 ## 1.1.58 发布说明
 

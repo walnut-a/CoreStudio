@@ -86,7 +86,7 @@ const getIntakeAnchor = (elements: readonly ProjectRoomSceneElement[]) => {
   };
 };
 
-// Continue from the current scene, including deleted slots, never from an old layout copy.
+// Live geometry defines the intake area; deleted slots cannot extend its bounds.
 const placeIntakeImages = (
   entries: IntakeEntry[],
   state: IntakeState,
@@ -95,11 +95,11 @@ const placeIntakeImages = (
   const current = new Map(
     sceneElements.map((element) => [element.id, element]),
   );
-  const previous = Object.values(state.entries)
-    .flatMap((entry) => {
-      const element = current.get(entry.element.id);
-      return element ? [{ ...element, isDeleted: false }] : [];
-    })
+  const imported = Object.values(state.entries).flatMap((entry) => {
+    const element = current.get(entry.element.id);
+    return element ? [element] : [];
+  });
+  const previous = imported
     .map(getSceneElementBounds)
     .filter((bounds): bounds is IntakeSceneBounds => !!bounds);
   const anchor = getIntakeAnchor(sceneElements);
@@ -110,13 +110,29 @@ const placeIntakeImages = (
     ? Math.max(...previous.map((bounds) => bounds.y))
     : anchor.y;
   const lastRow = previous.filter((bounds) => bounds.y === y);
-  let x = lastRow.length
-    ? Math.max(...lastRow.map((bounds) => bounds.x + bounds.width)) +
-      INTAKE_IMAGE_GAP
-    : left;
   let rowBottom = lastRow.length
     ? Math.max(...lastRow.map((bounds) => bounds.y + bounds.height))
     : y;
+  // Keep holes in the current row, but discard stale slots left behind by
+  // compacting/moving the live images. A deleted-only row is not an anchor.
+  const deletedSlots = imported
+    .filter((element) => element.isDeleted)
+    .map((element) => getSceneElementBounds({ ...element, isDeleted: false }))
+    .filter(
+      (bounds): bounds is IntakeSceneBounds =>
+        !!bounds &&
+        lastRow.length > 0 &&
+        bounds.y === y &&
+        bounds.x >= left &&
+        bounds.x + bounds.width <= left + INTAKE_LAYOUT_MAX_WIDTH &&
+        bounds.y + bounds.height <= rowBottom,
+    );
+  let x = lastRow.length
+    ? Math.max(
+        ...lastRow.map((bounds) => bounds.x + bounds.width),
+        ...deletedSlots.map((bounds) => bounds.x + bounds.width),
+      ) + INTAKE_IMAGE_GAP
+    : left;
   const occupied = sceneElements
     .map(getSceneElementBounds)
     .filter((bounds): bounds is IntakeSceneBounds => !!bounds);

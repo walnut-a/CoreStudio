@@ -1,26 +1,24 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.58",
-  "publishedAt": "2026-09-20T14:53:15Z",
+  "version": "1.1.59",
+  "publishedAt": "2026-09-22T18:46:34Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.58",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.59",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.58/CoreStudio-1.1.58-arm64.dmg",
-    "size": 137464992,
-    "sha256": "f2f57d1a23f097e5c83dd493f05ce7c263b8cf0608d159e09e7026c52df07b29"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.59/CoreStudio-1.1.59-arm64.dmg",
+    "size": 137465111,
+    "sha256": "7ca21b31df2f760ef7acf0d36827a58e9a60ab56e81de820ea7246e21b5b23f4"
   },
   "summary": {
     "zh-CN": [
-      "修复重启或磁盘重新挂载后，原项目仍在却无法打开的问题",
-      "原项目移动或暂时不可读时保留记录，避免误打开同 ID 的备份",
-      "打开失败显示简短中文提示，不增加弹窗"
+      "修复删除旧图片后，新图片自动加入画布时出现大段空白的问题",
+      "自动追加只参考仍存在且仍显示的图片，保留已有布局"
     ],
     "en": [
-      "Fix opening existing recent projects after a restart or disk remount",
-      "Keep unavailable project entries and avoid opening a backup with the same project ID",
-      "Show concise project-opening errors without additional dialogs"
+      "Fix large gaps when new images join a canvas after older images were deleted",
+      "Place new images using only existing visible images while preserving the current layout"
     ]
   }
 }

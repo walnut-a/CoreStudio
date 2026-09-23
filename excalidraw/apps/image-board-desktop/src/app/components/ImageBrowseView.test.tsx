@@ -347,6 +347,30 @@ describe("ImageBrowseView", () => {
     ).toHaveAttribute("data-open", "true");
   });
 
+  it("在大图中用上下或左右方向键切图，并在首尾停住", () => {
+    const input = props();
+    input.readOriginal.mockImplementation(() => new Promise(() => {}));
+    render(<ImageBrowseView {...input} items={items.slice(0, 3)} />);
+    fireEvent.click(screen.getByRole("button", { name: "图片 0" }));
+    const dialog = screen.getByRole("dialog");
+    const closeButton = screen.getByRole("button", { name: "关闭详情" });
+
+    fireEvent.keyDown(closeButton, { key: "ArrowUp" });
+    expect(dialog).toHaveAccessibleName("图片 0");
+    fireEvent.keyDown(closeButton, { key: "ArrowDown", metaKey: true });
+    expect(dialog).toHaveAccessibleName("图片 0");
+    fireEvent.keyDown(closeButton, { key: "ArrowDown" });
+    expect(dialog).toHaveAccessibleName("图片 1");
+    fireEvent.keyDown(closeButton, { key: "ArrowRight" });
+    expect(dialog).toHaveAccessibleName("图片 2");
+    fireEvent.keyDown(closeButton, { key: "ArrowDown" });
+    expect(dialog).toHaveAccessibleName("图片 2");
+    fireEvent.keyDown(closeButton, { key: "ArrowLeft" });
+    expect(dialog).toHaveAccessibleName("图片 1");
+    fireEvent.keyDown(closeButton, { key: "ArrowUp" });
+    expect(dialog).toHaveAccessibleName("图片 0");
+  });
+
   it("支持连续缩放，并在放大后拖动图片", async () => {
     render(<ImageBrowseView {...props()} />);
     fireEvent.click(screen.getByRole("button", { name: "图片 0" }));

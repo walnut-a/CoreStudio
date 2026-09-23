@@ -434,12 +434,22 @@ const ImageDetail = ({
           event.preventDefault();
           requestClose();
         }
+        const navigationDelta =
+          event.key === "ArrowLeft" || event.key === "ArrowUp"
+            ? -1
+            : event.key === "ArrowRight" || event.key === "ArrowDown"
+            ? 1
+            : 0;
         if (
           motion !== "closing" &&
-          (event.key === "ArrowLeft" || event.key === "ArrowRight")
+          navigationDelta !== 0 &&
+          !event.altKey &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey
         ) {
           event.preventDefault();
-          onNavigate(event.key === "ArrowLeft" ? -1 : 1);
+          onNavigate(navigationDelta);
         }
         if (event.key === "+" || event.key === "=") {
           event.preventDefault();

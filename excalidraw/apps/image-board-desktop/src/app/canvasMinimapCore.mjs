@@ -149,6 +149,9 @@ export const canvasMinimapHasPoint = (bounds, point, minimumSize = 0) => {
 const readColor = (styles, token, fallback) =>
   styles.getPropertyValue(token).trim() || fallback;
 
+// One small backing canvas per mounted minimap; discarded with its owner.
+const minimapSceneCache = new WeakMap();
+
 export const renderCanvasMinimapScene = ({
   canvas,
   elements,
@@ -174,9 +177,11 @@ export const renderCanvasMinimapScene = ({
 
   const normalizedOffsets = normalizeOffsets(offsets);
   const viewportBounds = getCanvasViewportBounds(appState, normalizedOffsets);
-  const contentBounds = unionCanvasMinimapBounds(
-    elements.map((item) => item.bounds),
-  );
+  const cached = minimapSceneCache.get(canvas);
+  const contentBounds =
+    cached?.elements === elements
+      ? cached.contentBounds
+      : unionCanvasMinimapBounds(elements.map((item) => item.bounds));
   const transform = createCanvasMinimapTransform({
     contentBounds,
     viewportBounds,
@@ -185,58 +190,105 @@ export const renderCanvasMinimapScene = ({
     padding: 8,
   });
   const viewportMapBounds = sceneBoundsToMinimap(viewportBounds, transform);
-  const styles = getComputedStyle(canvas);
-  const background = readColor(styles, "--color-surface-mid", "#f6f6f9");
-  const shapeColor = readColor(
-    styles,
-    "--color-border-outline-variant",
-    "#c5c5d0",
-  );
-  const imageColor = readColor(styles, "--color-gray-60", "#7a7a7a");
-  const primary = readColor(styles, "--color-primary", "#6965db");
-  const viewportFill = readColor(styles, "--island-bg-color", "#ffffff");
-  const viewportStroke = readColor(styles, "--text-primary-color", "#1b1b1f");
+  const sameTransform =
+    cached &&
+    cached.transform.scale === transform.scale &&
+    cached.transform.offsetX === transform.offsetX &&
+    cached.transform.offsetY === transform.offsetY;
+  let layer = cached;
+  if (
+    !cached ||
+    cached.elements !== elements ||
+    !sameTransform ||
+    cached.theme !== appState.theme ||
+    cached.pixelWidth !== pixelWidth ||
+    cached.pixelHeight !== pixelHeight ||
+    cached.dpr !== dpr ||
+    cached.mapWidth !== mapWidth ||
+    cached.mapHeight !== mapHeight
+  ) {
+    const styles = getComputedStyle(canvas);
+    const background = readColor(styles, "--color-surface-mid", "#f6f6f9");
+    const shapeColor = readColor(
+      styles,
+      "--color-border-outline-variant",
+      "#c5c5d0",
+    );
+    const imageColor = readColor(styles, "--color-gray-60", "#7a7a7a");
+    const primary = readColor(styles, "--color-primary", "#6965db");
+    const viewportFill = readColor(styles, "--island-bg-color", "#ffffff");
+    const viewportStroke = readColor(styles, "--text-primary-color", "#1b1b1f");
 
-  context.setTransform(dpr, 0, 0, dpr, 0, 0);
-  context.clearRect(0, 0, mapWidth, mapHeight);
-  context.fillStyle = background;
-  context.fillRect(0, 0, mapWidth, mapHeight);
+    const bitmap =
+      cached?.bitmap ?? canvas.ownerDocument.createElement("canvas");
+    bitmap.width = pixelWidth;
+    bitmap.height = pixelHeight;
+    const bitmapContext = bitmap.getContext("2d");
+    if (!bitmapContext) {
+      return null;
+    }
+    bitmapContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    bitmapContext.clearRect(0, 0, mapWidth, mapHeight);
+    bitmapContext.fillStyle = background;
+    bitmapContext.fillRect(0, 0, mapWidth, mapHeight);
 
-  for (const category of ["shape", "image"]) {
-    context.beginPath();
+    for (const category of ["shape", "image"]) {
+      bitmapContext.beginPath();
+      for (const item of elements) {
+        if (item.category !== category || item.selected) {
+          continue;
+        }
+        const bounds = sceneBoundsToMinimap(item.bounds, transform);
+        bitmapContext.rect(
+          bounds.x,
+          bounds.y,
+          Math.max(1, bounds.width),
+          Math.max(1, bounds.height),
+        );
+      }
+      bitmapContext.fillStyle = category === "image" ? imageColor : shapeColor;
+      bitmapContext.globalAlpha = category === "image" ? 0.55 : 0.42;
+      bitmapContext.fill();
+    }
+
+    bitmapContext.beginPath();
     for (const item of elements) {
-      if (item.category !== category || item.selected) {
+      if (!item.selected) {
         continue;
       }
       const bounds = sceneBoundsToMinimap(item.bounds, transform);
-      context.rect(
+      bitmapContext.rect(
         bounds.x,
         bounds.y,
-        Math.max(1, bounds.width),
-        Math.max(1, bounds.height),
+        Math.max(1.5, bounds.width),
+        Math.max(1.5, bounds.height),
       );
     }
-    context.fillStyle = category === "image" ? imageColor : shapeColor;
-    context.globalAlpha = category === "image" ? 0.55 : 0.42;
-    context.fill();
-  }
+    bitmapContext.fillStyle = primary;
+    bitmapContext.globalAlpha = 0.72;
+    bitmapContext.fill();
 
-  context.beginPath();
-  for (const item of elements) {
-    if (!item.selected) {
-      continue;
-    }
-    const bounds = sceneBoundsToMinimap(item.bounds, transform);
-    context.rect(
-      bounds.x,
-      bounds.y,
-      Math.max(1.5, bounds.width),
-      Math.max(1.5, bounds.height),
-    );
+    bitmapContext.globalAlpha = 1;
+    layer = {
+      elements,
+      contentBounds,
+      transform,
+      theme: appState.theme,
+      pixelWidth,
+      pixelHeight,
+      dpr,
+      mapWidth,
+      mapHeight,
+      bitmap,
+      viewportFill,
+      viewportStroke,
+    };
+    minimapSceneCache.set(canvas, layer);
   }
-  context.fillStyle = primary;
-  context.globalAlpha = 0.72;
-  context.fill();
+  context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  context.clearRect(0, 0, mapWidth, mapHeight);
+  context.drawImage(layer.bitmap, 0, 0, mapWidth, mapHeight);
+  const { viewportFill, viewportStroke } = layer;
 
   context.globalAlpha = 0.18;
   context.fillStyle = viewportFill;

@@ -1,3 +1,5 @@
+import { createImageRenditionRuntime } from "./imageRenditionScheduler";
+import { predecodeImageRenditionAssets } from "./imageRenditionPredecode";
 import {
   Suspense,
   lazy,
@@ -45,6 +47,7 @@ import {
 import { createProjectRoomFlushLifecycleActions } from "./projectRoomFlushLifecycle";
 import { createQueuedExcalidrawBinaryFilesRendererActions } from "./canvasImageAssetState";
 import { createCanvasSceneChangeRendererActions } from "./canvasSceneChangeRendererController";
+import { createCanvasNavigationChangeTracker } from "./canvasNavigationChange";
 import { createDesktopProjectRoomTransport } from "./desktopProjectRoomTransport";
 import {
   createProjectRoomClientController,
@@ -1109,8 +1112,11 @@ const App = ({
       applyThumbnailMaintenance: setThumbnailMaintenance,
     });
 
+  const imageRenditionRuntimeRef = useRef(createImageRenditionRuntime());
   const visibleImageRenditionLoadRendererActions =
     createVisibleImageRenditionLoadRendererActions({
+      runtime: imageRenditionRuntimeRef.current,
+      prepareAssets: predecodeImageRenditionAssets,
       delayMs: IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
       getProject: () => currentProjectRef.current,
       getSceneReader: () => excalidrawAPIRef.current,
@@ -1688,10 +1694,7 @@ const App = ({
         }
 
         const hydratedFileIds = assets.map((asset) => asset.fileId);
-        loadedPreviewImageFileIdsRef.current = new Set([
-          ...loadedPreviewImageFileIdsRef.current,
-          ...hydratedFileIds,
-        ]);
+        visibleImageRenditionLoadRendererActions.markLoaded(assets);
         return [
           ...fileIds.filter((fileId) => !missingFileIds.includes(fileId)),
           ...hydratedFileIds,
@@ -2087,6 +2090,11 @@ const App = ({
     });
   };
 
+  const canvasNavigationTracker = useMemo(
+    createCanvasNavigationChangeTracker,
+    [],
+  );
+
   const handleCanvasSceneChange = (
     elements: readonly ExcalidrawElement[],
     appState: AppState,
@@ -2094,6 +2102,37 @@ const App = ({
   ) => {
     setIsImageCropping(Boolean(appState.croppingElementId));
     reportDesktopProjectTheme(appState);
+    const getNavigationSnapshot = () => ({
+      appState,
+      elements,
+      dependencies: [
+        excalidrawAPIRef.current,
+        currentProjectRef.current,
+        currentProjectRef.current?.imageRecords,
+        elements,
+        files,
+        removedSelectionReferenceSignatureRef.current,
+        pendingGenerationJobsRef.current,
+        generationTaskByElementIdRef.current,
+        projectRoomReady,
+        projectRoomAssetTransactionDepthRef.current,
+        isEditorInitializingRef.current,
+        isAgentBrowserRoute,
+        desktopProjectRuntimeRef.current,
+        projectRoomClientRef.current,
+      ],
+    });
+    if (
+      currentProjectRef.current &&
+      canvasNavigationTracker.isNavigationOnly(getNavigationSnapshot())
+    ) {
+      const scene = { elements, appState, files };
+      latestSceneRef.current = scene;
+      visibleImageRenditionLoadRendererActions.schedule(scene);
+      agentBrowserRuntimePublishRendererActions.schedule(scene);
+      canvasNavigationTracker.remember(getNavigationSnapshot());
+      return { status: "updated" as const };
+    }
     if (
       currentProjectRef.current &&
       projectRoomAssetTransactionDepthRef.current === 0 &&
@@ -2142,6 +2181,9 @@ const App = ({
         setProjectRoomError(formatProjectSaveError(error));
       });
     }
+    // Reconciliation above can replace job maps and selection signatures.
+    // Remember the resulting dependencies, not their pre-reconciliation values.
+    canvasNavigationTracker.remember(getNavigationSnapshot());
     return result;
   };
 

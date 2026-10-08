@@ -454,7 +454,12 @@ describe("App Agent Board room route", () => {
               launchTicket: "launch-ticket",
               actorResumeToken: "actor-resume-token",
             }
-          : pathname === AGENT_HTTP_ROUTES.roomAssets
+          : // The initial empty scene requests no IDs. Do not pre-populate the
+          // later CLI image before its room update actually arrives.
+          pathname === AGENT_HTTP_ROUTES.roomAssets &&
+            JSON.parse(String(_init?.body ?? "{}"))?.fileIds?.includes(
+              "cli-image",
+            )
           ? [
               {
                 fileId: "cli-image",
@@ -561,6 +566,8 @@ describe("App Agent Board room route", () => {
     await waitFor(() => {
       expect(screen.queryByText("正在加载画板…")).not.toBeInTheDocument();
     });
+
+    expect(mockExcalidrawAPI?.getFiles()["cli-image"]).toBeUndefined();
 
     act(() => {
       triggerExcalidrawScrollChange?.({

@@ -842,7 +842,7 @@ describe("imageRenditionLoadPlan", () => {
     const actions = createVisibleImageRenditionLoadRendererActions({
       delayMs: 120,
       getProject: () => project,
-      getSceneReader: () => ({
+      getSceneReader: vi.fn().mockReturnValue({
         getSceneElementsIncludingDeleted: () => activeScene.elements,
         getAppState: () => activeScene.appState,
         getFiles: () => activeScene.files,

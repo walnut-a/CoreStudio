@@ -1,24 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.59",
-  "publishedAt": "2026-09-22T18:46:34Z",
+  "version": "1.1.60",
+  "publishedAt": "2026-10-08T15:48:34Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.59",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.60",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.59/CoreStudio-1.1.59-arm64.dmg",
-    "size": 137465111,
-    "sha256": "7ca21b31df2f760ef7acf0d36827a58e9a60ab56e81de820ea7246e21b5b23f4"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.60/CoreStudio-1.1.60-arm64.dmg",
+    "size": 137469889,
+    "sha256": "f16494eda8e04e65d3840c9dc59bf1484c09eb082b12873448eeb627566e75be"
   },
   "summary": {
     "zh-CN": [
-      "修复删除旧图片后，新图片自动加入画布时出现大段空白的问题",
-      "自动追加只参考仍存在且仍显示的图片，保留已有布局"
+      "优化图片密集画布的平移与缩放，减少重复计算和小地图绘制",
+      "按视口分批切换图片清晰度，缩回总览后降低高清图占用",
+      "修复画廊大图的方向键切换"
     ],
     "en": [
-      "Fix large gaps when new images join a canvas after older images were deleted",
-      "Place new images using only existing visible images while preserving the current layout"
+      "Reduce repeated processing and minimap drawing when navigating image-heavy canvases",
+      "Load image detail in viewport-based batches and reduce high-resolution usage when zooming out",
+      "Fix arrow-key navigation in the gallery image viewer"
     ]
   }
 }

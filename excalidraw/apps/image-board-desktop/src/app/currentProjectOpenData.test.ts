@@ -164,3 +164,53 @@ describe("prepareProjectBundleOpenData", () => {
     expect(prepared.latestScene.files).toEqual({});
   });
 });
+
+it("opens cropped images with pixels matching saved source coordinates even outside the viewport", async () => {
+  const project = createProject();
+  const cropped = API.createElement({
+    type: "image",
+    fileId: "image-file",
+    x: 10000,
+    y: 10000,
+    width: 200,
+    height: 200,
+  });
+  Object.assign(cropped, {
+    crop: {
+      x: 200,
+      y: 100,
+      width: 600,
+      height: 600,
+      naturalWidth: 1024,
+      naturalHeight: 1024,
+    },
+  });
+  project.sceneJson = serializeSceneForProject({
+    elements: [cropped],
+    appState: {
+      ...getDefaultAppState(),
+      width: 800,
+      height: 600,
+      zoom: { value: 0.05 },
+    } as AppState,
+  });
+  const readProjectAssets = vi.fn(async ({ rendition }) => [
+    createProjectAssetPayload("image-file", {
+      rendition,
+      width: rendition === "thumbnail" ? 320 : 1024,
+      height: rendition === "thumbnail" ? 320 : 1024,
+      dataBase64: rendition,
+    }),
+  ]);
+  const result = await prepareProjectBundleOpenData({
+    project,
+    devicePixelRatio: 1,
+    fallbackCreatedAt: 0,
+    readProjectAssets,
+  });
+  expect(result.assets.map((asset) => asset.rendition)).toEqual(["original"]);
+  expect(result.initialData.files!["image-file"].dataURL).toBe(
+    "data:image/png;base64,original",
+  );
+  expect(result.latestScene.elements[0]).toMatchObject({ crop: cropped.crop });
+});

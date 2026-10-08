@@ -13,6 +13,15 @@ import {
   getImageRenditionRequestsNearViewport,
   type ImageRenditionRequest,
 } from "./imageRenditions";
+import {
+  createImageRenditionRuntime,
+  loadAdaptiveImageRenditions,
+  type ImageRenditionRuntime,
+} from "./imageRenditionScheduler";
+import {
+  planImageRenditions,
+  takeImageRenditionBatch,
+} from "./imageRenditionPolicy";
 import { clearTimerRefAction } from "./timerRefController";
 
 export interface ImageRenditionFileIdState {
@@ -169,6 +178,10 @@ export const applyLoadedImageRenditionAssetsState = ({
   assets,
   sets,
 }: ApplyLoadedImageRenditionAssetsStateInput): ImageRenditionFileIdState => {
+  for (const asset of assets) {
+    sets.previewFileIds.delete(asset.fileId);
+    sets.originalFileIds.delete(asset.fileId);
+  }
   const state = buildImageRenditionLoadedState(assets);
   addImageRenditionFileIdState(state, sets);
   return state;
@@ -292,16 +305,17 @@ export const readInitialImageRenditionAssets = async ({
     return [];
   }
 
-  const requests = getImageRenditionRequestsNearViewport({
-    elements,
-    appState: appState as AppState,
+  const requests = takeImageRenditionBatch(
+    planImageRenditions({
+      elements,
+      appState: appState as AppState,
+      imageRecords,
+      devicePixelRatio,
+      loadedPreviewFileIds: new Set(),
+      loadedOriginalFileIds: new Set(),
+    }).requests,
     imageRecords,
-    loadedPreviewFileIds: new Set(),
-    loadingPreviewFileIds: new Set(),
-    loadedOriginalFileIds: new Set(),
-    loadingOriginalFileIds: new Set(),
-    devicePixelRatio,
-  });
+  );
   if (!requests.length) {
     return [];
   }
@@ -415,6 +429,11 @@ export type VisibleImageRenditionLoadRendererResult =
 export interface CreateVisibleImageRenditionLoadRendererActionsInput<
   TProject extends VisibleImageRenditionLoadProject,
 > {
+  runtime?: ImageRenditionRuntime;
+  yieldToRenderer?: () => Promise<void>;
+  prepareAssets?: (
+    assets: readonly ProjectAssetPayload[],
+  ) => Promise<readonly ProjectAssetPayload[]>;
   delayMs: number;
   getProject: () => TProject | null | undefined;
   getSceneReader: () => ImageRenditionSceneSnapshotReader | null | undefined;
@@ -458,138 +477,36 @@ export interface VisibleImageRenditionLoadRendererActions {
   resetTracking: () => ImageRenditionTrackingSets;
 }
 
-export const runVisibleImageRenditionLoadRendererAction = async <
+export const createVisibleImageRenditionLoadRendererActions = <
   TProject extends VisibleImageRenditionLoadProject,
->({
-  scene,
-  project,
-  sceneReader,
-  devicePixelRatio,
-  loadedPreviewFileIds,
-  loadingPreviewFileIds,
-  loadedOriginalFileIds,
-  loadingOriginalFileIds,
-  setLatestScene,
-  readAssets,
-  applyAssetsToScene,
-}: {
-  scene: ImageRenditionSceneSnapshot;
-  project: TProject | null | undefined;
-  sceneReader: ImageRenditionSceneSnapshotReader | null | undefined;
-  devicePixelRatio: number;
-  loadedPreviewFileIds: Set<string>;
-  loadingPreviewFileIds: Set<string>;
-  loadedOriginalFileIds: Set<string>;
-  loadingOriginalFileIds: Set<string>;
-  setLatestScene: (scene: ImageRenditionSceneSnapshot) => void;
-  readAssets: CreateVisibleImageRenditionLoadRendererActionsInput<TProject>["readAssets"];
-  applyAssetsToScene: CreateVisibleImageRenditionLoadRendererActionsInput<TProject>["applyAssetsToScene"];
-}): Promise<VisibleImageRenditionLoadRendererResult> => {
-  if (!project) {
-    return { status: "skipped", reason: "missing-project" };
-  }
-  if (!sceneReader) {
-    return { status: "skipped", reason: "missing-scene-reader" };
-  }
-  if (project.safeMode) {
-    return { status: "skipped", reason: "safe-mode" };
-  }
-
-  const activeScene = buildActiveImageRenditionSceneSnapshot(
-    scene,
-    sceneReader,
-  );
-  setLatestScene(activeScene);
-
-  const loadPlan = buildVisibleImageRenditionLoadPlan({
-    elements: activeScene.elements,
-    appState: activeScene.appState,
-    imageRecords: project.imageRecords,
-    loadedPreviewFileIds,
-    loadingPreviewFileIds,
-    loadedOriginalFileIds,
-    loadingOriginalFileIds,
-    devicePixelRatio,
-  });
-
-  if (!loadPlan) {
-    return { status: "skipped", reason: "no-rendition-needed" };
-  }
-
-  const { requests, loadingState } = loadPlan;
-  const loadingSets = {
-    previewFileIds: loadingPreviewFileIds,
-    originalFileIds: loadingOriginalFileIds,
-  };
-  applyImageRenditionLoadingState({
-    loadingState,
-    sets: loadingSets,
-  });
-
-  try {
-    const assets = await readImageRenditionAssetsForRequests(
-      requests,
-      (rendition, fileIds) => readAssets({ project, rendition, fileIds }),
-    );
-    if (!applyAssetsToScene(project, assets)) {
-      return { status: "skipped", reason: "stale-scene" };
-    }
+>(
+  options: CreateVisibleImageRenditionLoadRendererActionsInput<TProject>,
+): VisibleImageRenditionLoadRendererActions => {
+  const {
+    runtime = createImageRenditionRuntime(),
+    delayMs,
+    getLatestScene,
+    getTimerId,
+    clearTimer,
+    setTimerId,
+    scheduleTimeout,
+    getLoadedPreviewFileIds,
+    getLoadedOriginalFileIds,
+    setLoadedPreviewFileIds,
+    setLoadingPreviewFileIds,
+    setLoadedOriginalFileIds,
+    setLoadingOriginalFileIds,
+  } = options;
+  const markLoaded = (assets: readonly ProjectAssetPayload[]) =>
     applyLoadedImageRenditionAssetsState({
       assets,
       sets: {
-        previewFileIds: loadedPreviewFileIds,
-        originalFileIds: loadedOriginalFileIds,
+        previewFileIds: getLoadedPreviewFileIds(),
+        originalFileIds: getLoadedOriginalFileIds(),
       },
     });
-    return { status: "applied", assetCount: assets.length };
-  } catch {
-    return { status: "failed" };
-  } finally {
-    clearImageRenditionLoadingState({
-      loadingState,
-      sets: loadingSets,
-    });
-  }
-};
-
-export const createVisibleImageRenditionLoadRendererActions = <
-  TProject extends VisibleImageRenditionLoadProject,
->({
-  delayMs,
-  getProject,
-  getSceneReader,
-  getDevicePixelRatio,
-  getLatestScene,
-  getTimerId,
-  clearTimer,
-  setTimerId,
-  scheduleTimeout,
-  getLoadedPreviewFileIds,
-  getLoadingPreviewFileIds,
-  getLoadedOriginalFileIds,
-  getLoadingOriginalFileIds,
-  setLoadedPreviewFileIds,
-  setLoadingPreviewFileIds,
-  setLoadedOriginalFileIds,
-  setLoadingOriginalFileIds,
-  setLatestScene,
-  readAssets,
-  applyAssetsToScene,
-}: CreateVisibleImageRenditionLoadRendererActionsInput<TProject>): VisibleImageRenditionLoadRendererActions => {
   const load = (scene: ImageRenditionSceneSnapshot) =>
-    runVisibleImageRenditionLoadRendererAction({
-      scene,
-      project: getProject(),
-      sceneReader: getSceneReader(),
-      devicePixelRatio: getDevicePixelRatio(),
-      loadedPreviewFileIds: getLoadedPreviewFileIds(),
-      loadingPreviewFileIds: getLoadingPreviewFileIds(),
-      loadedOriginalFileIds: getLoadedOriginalFileIds(),
-      loadingOriginalFileIds: getLoadingOriginalFileIds(),
-      setLatestScene,
-      readAssets,
-      applyAssetsToScene,
-    });
+    loadAdaptiveImageRenditions(options, scene, runtime, markLoaded);
 
   const clearTimerRef = () =>
     clearTimerRefAction({
@@ -612,16 +529,14 @@ export const createVisibleImageRenditionLoadRendererActions = <
           void load(activeScene);
         },
       }),
-    markLoaded: (assets) =>
-      applyLoadedImageRenditionAssetsState({
-        assets,
-        sets: {
-          previewFileIds: getLoadedPreviewFileIds(),
-          originalFileIds: getLoadedOriginalFileIds(),
-        },
-      }),
-    clearTimer: clearTimerRef,
+    markLoaded,
+    clearTimer: () => {
+      runtime.epoch++;
+      return clearTimerRef();
+    },
     resetTracking: () => {
+      runtime.epoch++;
+      runtime.unavailable.clear();
       clearTimerRef();
       return applyEmptyImageRenditionTrackingSets({
         setLoadedPreviewFileIds,

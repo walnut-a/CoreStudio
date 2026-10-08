@@ -16,6 +16,7 @@ import type {
 import { collectAgentImageFileIds } from "./agent/agentCommandHandlers";
 import { buildExcalidrawBinaryFilesFromProjectAssets } from "./canvasImageAssetState";
 import { readInitialProjectImageRenditionAssets } from "./imageRenditionLoadPlan";
+import { createImageRenditionCropGuard } from "./imageRenditionPolicy";
 import {
   buildProjectMissingThumbnailFileIds,
   buildProjectThumbnailMaintenanceFromMissingFileIds,
@@ -86,7 +87,11 @@ export const prepareProjectBundleOpenData = async ({
           }),
       });
 
-  const assets = [...thumbnailAssets, ...visibleRenditionAssets];
+  // A mismatched thumbnail would draw the saved crop in the wrong pixel space.
+  // Omit it until the matching rendition arrives through the bounded queue.
+  const assets = [...thumbnailAssets, ...visibleRenditionAssets].filter(
+    createImageRenditionCropGuard(restoredElements),
+  );
   const files = buildExcalidrawBinaryFilesFromProjectAssets({
     assets,
     imageRecords: project.imageRecords,

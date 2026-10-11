@@ -1323,6 +1323,21 @@ const startLocalBridge = async () => {
         ? undefined
         : path.join(__dirname, "..", "dist"),
       agentBoardDevServerUrl: rendererUrl ?? undefined,
+      onRequestError: async (entry) => {
+        const logDirectory = path.join(
+          desktopRuntime.settingsDirectory,
+          "logs",
+        );
+        await fs.mkdir(logDirectory, { recursive: true });
+        await fs.appendFile(
+          path.join(logDirectory, "local-bridge-errors.log"),
+          `${JSON.stringify({
+            timestamp: new Date().toISOString(),
+            ...entry,
+          })}\n`,
+          { encoding: "utf8", mode: 0o600 },
+        );
+      },
       isAgentAccessEnabled: () => agentAccessEnabled,
       getAgentImageGenerationCapability: (host) =>
         agentImageGenerationService.getCapability(host),

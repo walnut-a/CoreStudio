@@ -1,8 +1,14 @@
+import http from "node:http";
+import { once } from "node:events";
+import { transferableAbortController } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AGENT_HTTP_ROUTES } from "../../src/shared/agentBridgeTypes";
 
-import { createLocalBridgeServer } from "./localBridgeServer";
+import {
+  createLocalBridgeServer,
+  type LocalBridgeRequestError,
+} from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
 import { createLocalAgentSessionStore } from "./localAgentSessionStore";
 
@@ -45,6 +51,7 @@ const startServer = async (
       payload,
     })),
   };
+  const onRequestError = vi.fn();
   const grants = createTaskGrantStore({
     now: () => new Date("2026-06-24T08:00:00.000Z"),
     randomId: () => "id-1",
@@ -65,6 +72,7 @@ const startServer = async (
     getStableBoardUrl: async () => stableBoardUrl,
     renderer,
     grants,
+    onRequestError,
     ...overrides,
   });
 
@@ -72,6 +80,7 @@ const startServer = async (
     server,
     renderer,
     grants,
+    onRequestError,
   };
 };
 
@@ -88,6 +97,240 @@ describe("createLocalBridgeServer", () => {
     handles.push(serverContext.server);
     return serverContext;
   };
+
+  it.each(["circular", "bigint"])(
+    "%s 序列化失败只返回一次完整 500，并记录无敏感输入的原始栈",
+    async (kind) => {
+      const circular: Record<string, unknown> = {};
+      circular["private-prompt"] = circular;
+      const result = kind === "circular" ? circular : BigInt(1);
+      const { server, onRequestError } = await track(
+        startServer({ renderer: { request: async () => result } }),
+      );
+      const controller = transferableAbortController();
+      const timeout = setTimeout(() => controller.abort(), 1_000);
+      try {
+        const response = await requestJson(
+          server.baseUrl,
+          `${AGENT_HTTP_ROUTES.desktopBridge}?token=query-secret`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              method: "loadAppInfo",
+              args: ["private-prompt"],
+            }),
+            signal: controller.signal,
+          },
+        );
+        expect(response).toMatchObject({
+          status: 500,
+          body: { ok: false, error: { code: "COMMAND_FAILED" } },
+        });
+        expect(onRequestError).toHaveBeenCalledTimes(1);
+        expect(onRequestError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            requestId: expect.any(String),
+            method: "POST",
+            route: AGENT_HTTP_ROUTES.desktopBridge,
+            phase: "serialize",
+            response: expect.objectContaining({ headersSent: false }),
+            error: expect.objectContaining({
+              name: "TypeError",
+              reason: `${kind}-json`,
+              stack: expect.arrayContaining([
+                expect.stringContaining("localBridgeServer"),
+              ]),
+            }),
+          }),
+        );
+        const diagnostic = JSON.stringify(onRequestError.mock.calls);
+        expect(diagnostic).not.toMatch(
+          /query-secret|private-prompt|project-token/,
+        );
+        expect(
+          await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.status),
+        ).toMatchObject({ status: 200 });
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  );
+
+  it("错误详情无法序列化且诊断写入失败时，仍返回固定错误并保留首次异常", async () => {
+    const details: Record<string, unknown> = {};
+    details.self = details;
+    const original = Object.assign(
+      new Error("private-prompt apiKey=secret\n    at secret-body:1:2"),
+      {
+        code: "COMMAND_FAILED",
+        details,
+      },
+    );
+    const onRequestError = vi.fn(async (_entry: LocalBridgeRequestError) => {
+      throw new Error("diagnostic sink unavailable");
+    });
+    const fallbackLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { server } = await track(
+      startServer({
+        renderer: {
+          request: async () => {
+            throw original;
+          },
+        },
+        onRequestError,
+      }),
+    );
+    expect(
+      await requestJson(server.baseUrl, AGENT_HTTP_ROUTES.sceneBoard),
+    ).toEqual({
+      status: 500,
+      body: {
+        ok: false,
+        error: {
+          code: "COMMAND_FAILED",
+          message: "Local Bridge request failed",
+        },
+      },
+    });
+    expect(onRequestError).toHaveBeenCalledTimes(2);
+    const [first, second] = onRequestError.mock.calls.map(([entry]) => entry);
+    expect(first).toMatchObject({
+      phase: "handler",
+      error: { name: "Error", code: "COMMAND_FAILED" },
+    });
+    expect(second).toMatchObject({
+      phase: "error-response",
+      originalError: first.error,
+      error: { name: "TypeError" },
+    });
+    await vi.waitFor(() => expect(fallbackLog).toHaveBeenCalledTimes(2));
+    expect(JSON.stringify(fallbackLog.mock.calls)).not.toMatch(
+      /private-prompt|apiKey|secret/,
+    );
+  });
+
+  it.each(["headers-sent", "ended", "disconnected"])(
+    "%s 后异步任务失败不再写响应，并保留首次失败",
+    async (state) => {
+      const created = vi.spyOn(http, "createServer");
+      let fail!: (error: Error) => void;
+      let entered!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const pending = new Promise<never>((_, reject) => {
+        fail = reject;
+      });
+      const { server, onRequestError } = await track(
+        startServer({
+          renderer: {
+            request: () => {
+              entered();
+              return pending;
+            },
+          },
+        }),
+      );
+      const rawServer = created.mock.results[0].value as http.Server;
+      const incoming = once(rawServer, "request");
+      const controller = transferableAbortController();
+      const outcome = fetch(
+        `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneBoard}`,
+        {
+          headers: { Authorization: `Bearer ${projectToken}` },
+          signal: controller.signal,
+        },
+      )
+        .then(async (response) => ({
+          status: response.status,
+          body: await response.text(),
+        }))
+        .catch(() => "disconnected");
+      const [, response] = (await incoming) as [
+        http.IncomingMessage,
+        http.ServerResponse,
+      ];
+      await started;
+      if (state === "headers-sent") {
+        response.writeHead(202);
+        response.flushHeaders();
+      } else if (state === "ended") {
+        response.end("already complete");
+        await outcome;
+      } else {
+        const closed = once(response, "close");
+        controller.abort();
+        await closed;
+      }
+      const writeHead = vi.spyOn(response, "writeHead");
+      const end = vi.spyOn(response, "end");
+      fail(new Error("private-prompt failure"));
+      await vi.waitFor(() => expect(onRequestError).toHaveBeenCalledTimes(1));
+      expect(writeHead).not.toHaveBeenCalled();
+      expect(end).not.toHaveBeenCalled();
+      expect(await outcome).toEqual(
+        state === "ended"
+          ? { status: 200, body: "already complete" }
+          : "disconnected",
+      );
+      expect(onRequestError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: "handler",
+          error: expect.objectContaining({ name: "Error" }),
+          response: expect.objectContaining(
+            state === "disconnected"
+              ? { destroyed: true }
+              : { headersSent: true },
+          ),
+        }),
+      );
+    },
+  );
+
+  it("异步 socket 写入错误被收束，迟到结果不再序列化或写入", async () => {
+    const created = vi.spyOn(http, "createServer");
+    let finish!: (value: unknown) => void;
+    const pending = new Promise((resolve) => {
+      finish = resolve;
+    });
+    const { server, onRequestError } = await track(
+      startServer({
+        renderer: { request: () => pending },
+      }),
+    );
+    const rawServer = created.mock.results[0].value as http.Server;
+    const incoming = once(rawServer, "request");
+    const outcome = fetch(`${server.baseUrl}${AGENT_HTTP_ROUTES.sceneBoard}`, {
+      headers: { Authorization: `Bearer ${projectToken}` },
+    })
+      .then((response) => response.text())
+      .catch(() => "disconnected");
+    const [, response] = (await incoming) as [
+      http.IncomingMessage,
+      http.ServerResponse,
+    ];
+    const writeHead = vi.spyOn(response, "writeHead");
+    const end = vi.spyOn(response, "end");
+    response.emit(
+      "error",
+      Object.assign(new Error("socket failed"), { code: "ECONNRESET" }),
+    );
+    const toJSON = vi.fn(() => {
+      throw new Error("should not serialize");
+    });
+    finish({ toJSON });
+    expect(await outcome).toBe("disconnected");
+    expect(toJSON).not.toHaveBeenCalled();
+    expect(writeHead).not.toHaveBeenCalled();
+    expect(end).not.toHaveBeenCalled();
+    expect(onRequestError).toHaveBeenCalledTimes(1);
+    expect(onRequestError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "response-stream",
+        error: expect.objectContaining({ code: "ECONNRESET" }),
+      }),
+    );
+  });
 
   it("rejects requests while global Agent access is disabled", async () => {
     const { server } = await track(

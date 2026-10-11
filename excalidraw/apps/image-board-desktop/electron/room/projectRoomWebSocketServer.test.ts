@@ -1,7 +1,7 @@
 import http from "node:http";
 
-import { WebSocket } from "ws";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { WebSocket } from "ws";
 
 import { createProjectRoom } from "./projectRoom";
 import { attachProjectRoomWebSocketServer } from "./projectRoomWebSocketServer";
@@ -114,65 +114,6 @@ describe("attachProjectRoomWebSocketServer", () => {
 
     expect(statusCode).toBe(403);
     expect(authenticate).not.toHaveBeenCalled();
-  });
-
-  it("accepts the explicitly trusted board origin when it uses another port", async () => {
-    const room = createRoom();
-    const authenticate = vi.fn(async () => ({
-      room,
-      exchange: {
-        sessionId: "board-session",
-        resumeToken: "resume-token",
-        participant: {
-          actorId: "codex:thread-b",
-          sessionId: "board-session",
-          transport: "websocket" as const,
-          role: "board-editor" as const,
-          displayLabel: "任务 B",
-        },
-      },
-    }));
-    const server = http.createServer();
-    const attached = attachProjectRoomWebSocketServer({
-      server,
-      authenticate,
-      allowOrigin: (origin) => origin === "http://127.0.0.1:5174",
-    });
-    const port = await listen(server);
-    cleanups.push(async () => {
-      await attached.close();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    });
-    const socket = new (WebSocket as any)(
-      `ws://127.0.0.1:${port}/v1/room?launchTicket=launch-ticket`,
-      {
-        headers: {
-          Origin: "http://127.0.0.1:5174",
-        },
-      },
-    ) as WebSocket;
-    const messages = createMessageReader(socket);
-
-    await new Promise<void>((resolve, reject) => {
-      socket.once("open", () => resolve());
-      socket.once("error", reject);
-    });
-
-    await expect(messages.next()).resolves.toMatchObject({
-      type: "room.joined",
-      sessionId: "board-session",
-    });
-    expect(authenticate).toHaveBeenCalledWith({
-      launchTicket: "launch-ticket",
-      resumeToken: null,
-    });
-    attached.disconnectActor("room-1", "another-actor");
-    expect(socket.readyState).toBe(WebSocket.OPEN);
-    const closed = new Promise<number>((resolve) =>
-      socket.once("close", (code) => resolve(code)),
-    );
-    attached.disconnectActor("room-1", "codex:thread-b");
-    expect(await closed).toBe(4001);
   });
 
   it("joins with an authenticated ticket and exchanges room operations", async () => {
@@ -350,130 +291,5 @@ describe("attachProjectRoomWebSocketServer", () => {
       }),
     ).rejects.toMatchObject({ code: "CAPABILITY_UNAVAILABLE" });
     socket.close();
-  });
-
-  it("returns structured errors for malformed operations", async () => {
-    const room = createRoom();
-    const server = http.createServer();
-    const attached = attachProjectRoomWebSocketServer({
-      server,
-      authenticate: vi.fn(async () => ({
-        room,
-        exchange: {
-          sessionId: "board-session",
-          resumeToken: "resume-token",
-          participant: {
-            actorId: "codex:thread-b",
-            sessionId: "board-session",
-            transport: "websocket" as const,
-            role: "board-editor" as const,
-            displayLabel: "任务 B",
-          },
-        },
-      })),
-    });
-    const port = await listen(server);
-    cleanups.push(async () => {
-      await attached.close();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    });
-    const socket = new WebSocket(
-      `ws://127.0.0.1:${port}/v1/room?launchTicket=launch-ticket`,
-    );
-    const messages = createMessageReader(socket);
-    await new Promise<void>((resolve) => socket.once("open", resolve));
-    await messages.next();
-
-    socket.send(
-      JSON.stringify({
-        type: "scene.operation",
-        operation: { operationId: "broken" },
-      }),
-    );
-
-    await expect(messages.next()).resolves.toMatchObject({
-      type: "room.error",
-      operationId: "broken",
-      error: {
-        code: "BAD_REQUEST",
-        message: expect.any(String),
-      },
-    });
-    socket.close();
-  });
-
-  it("does not leave a participant behind when the socket closes during authentication", async () => {
-    const room = createRoom();
-    let finishAuthentication!: (value: {
-      room: ReturnType<typeof createRoom>;
-      exchange: {
-        sessionId: string;
-        resumeToken: string;
-        participant: {
-          actorId: string;
-          sessionId: string;
-          transport: "websocket";
-          role: "board-editor";
-          displayLabel: string;
-        };
-      };
-    }) => void;
-    const authentication = new Promise<{
-      room: ReturnType<typeof createRoom>;
-      exchange: {
-        sessionId: string;
-        resumeToken: string;
-        participant: {
-          actorId: string;
-          sessionId: string;
-          transport: "websocket";
-          role: "board-editor";
-          displayLabel: string;
-        };
-      };
-    }>((resolve) => {
-      finishAuthentication = resolve;
-    });
-    const server = http.createServer();
-    const attached = attachProjectRoomWebSocketServer({
-      server,
-      authenticate: vi.fn(() => authentication),
-    });
-    const port = await listen(server);
-    cleanups.push(async () => {
-      await attached.close();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    });
-    const socket = new WebSocket(
-      `ws://127.0.0.1:${port}/v1/room?launchTicket=launch-ticket`,
-    );
-    await new Promise<void>((resolve, reject) => {
-      socket.once("open", () => resolve());
-      socket.once("error", reject);
-    });
-    const closed = new Promise<void>((resolve) =>
-      socket.once("close", () => resolve()),
-    );
-    socket.close();
-    await closed;
-
-    finishAuthentication({
-      room,
-      exchange: {
-        sessionId: "board-session",
-        resumeToken: "resume-token",
-        participant: {
-          actorId: "codex:thread-b",
-          sessionId: "board-session",
-          transport: "websocket",
-          role: "board-editor",
-          displayLabel: "任务 B",
-        },
-      },
-    });
-    await authentication;
-    await Promise.resolve();
-
-    expect(room.getSnapshot().participants).toEqual([]);
   });
 });

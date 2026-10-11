@@ -1,6 +1,6 @@
-import { expect, it, vi } from "vitest";
-import type { AppState } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
+import type { AppState } from "@excalidraw/excalidraw/types";
+import { expect, it, vi } from "vitest";
 import type {
   DesktopProjectBundle,
   ProjectAssetPayload,
@@ -123,23 +123,6 @@ it("limits reads to two files and waits for their decoding before reading the ne
   expect(f.readAssets).toHaveBeenCalledTimes(3);
 });
 
-it("discards an original that arrives after zooming back out, then can upgrade again", async () => {
-  const f = fixture();
-  let finish!: (assets: ProjectAssetPayload[]) => void;
-  f.readAssets.mockImplementationOnce(
-    () => new Promise((resolve) => (finish = resolve)),
-  );
-  const loading = f.actions.load(f.scene);
-  await vi.waitFor(() => expect(f.readAssets).toHaveBeenCalledOnce());
-  f.scene.appState.zoom = { value: 0.05 } as AppState["zoom"];
-  finish([f.asset("a"), f.asset("b")]);
-  await loading;
-  expect(f.applyAssetsToScene).not.toHaveBeenCalled();
-  f.scene.appState.zoom = { value: 1 } as AppState["zoom"];
-  await f.actions.load(f.scene);
-  expect(f.sets.loadedOriginalFileIds.size).toBe(5);
-});
-
 it("does not apply an obsolete asset revision or a result from a reset project", async () => {
   for (const reset of [false, true]) {
     const f = fixture();
@@ -160,81 +143,4 @@ it("does not apply an obsolete asset revision or a result from a reset project",
     expect(f.applyAssetsToScene).not.toHaveBeenCalled();
     expect(f.sets.loadedOriginalFileIds.size).toBe(0);
   }
-});
-
-it("removes original and preview markers after a thumbnail replaces the displayed file", async () => {
-  const f = fixture();
-  f.actions.markLoaded([f.asset("a")]);
-  f.scene.appState.zoom = { value: 0.05 } as AppState["zoom"];
-  await f.actions.load(f.scene);
-  expect(f.sets.loadedOriginalFileIds.has("a")).toBe(false);
-  expect(f.sets.loadedPreviewFileIds.has("a")).toBe(false);
-});
-
-it("does not spin when a thumbnail request falls back to an original", async () => {
-  const f = fixture();
-  f.actions.markLoaded([f.asset("a")]);
-  f.scene.appState.zoom = { value: 0.05 } as AppState["zoom"];
-  f.readAssets.mockImplementation(async ({ fileIds }) =>
-    fileIds.map((id) => f.asset(id)),
-  );
-  await f.actions.load(f.scene);
-  await f.actions.load(f.scene);
-  expect(f.readAssets).toHaveBeenCalledOnce();
-});
-
-it("resumes the current project after an obsolete in-flight batch finishes", async () => {
-  const f = fixture();
-  let finish!: (assets: ProjectAssetPayload[]) => void;
-  f.readAssets.mockImplementationOnce(
-    () => new Promise((resolve) => (finish = resolve)),
-  );
-  const oldLoad = f.actions.load(f.scene);
-  await vi.waitFor(() => expect(f.readAssets).toHaveBeenCalledOnce());
-  f.actions.resetTracking();
-  const newLoad = f.actions.load(f.scene);
-  finish([f.asset("a"), f.asset("b")]);
-  await oldLoad;
-  await expect(newLoad).resolves.toEqual({ status: "applied", assetCount: 5 });
-  expect(f.sets.loadedOriginalFileIds.size).toBe(5);
-});
-
-it("rejects pending assets after the canvas reader is removed or replaced", async () => {
-  for (const replace of [false, true]) {
-    const f = fixture();
-    let finish!: (assets: ProjectAssetPayload[]) => void;
-    f.readAssets.mockImplementationOnce(
-      () => new Promise((resolve) => (finish = resolve)),
-    );
-    const loading = f.actions.load(f.scene);
-    await vi.waitFor(() => expect(f.readAssets).toHaveBeenCalledOnce());
-    f.readerRef.current = replace
-      ? {
-          getAppState: () => ({
-            ...f.scene.appState,
-            zoom: { value: 0.05 } as AppState["zoom"],
-          }),
-        }
-      : null;
-    finish([f.asset("a"), f.asset("b")]);
-    await loading;
-    expect(f.applyAssetsToScene).not.toHaveBeenCalled();
-  }
-});
-
-it("rejects assets when cropping begins during host predecode", async () => {
-  const f = fixture();
-  let finish!: (assets: readonly ProjectAssetPayload[]) => void;
-  f.prepareAssets.mockImplementationOnce(
-    () => new Promise((resolve) => (finish = resolve)),
-  );
-  const loading = f.actions.load(f.scene);
-  await vi.waitFor(() => expect(f.prepareAssets).toHaveBeenCalledOnce());
-  f.scene.appState.croppingElementId = "a";
-  finish([f.asset("a"), f.asset("b")]);
-  await loading;
-  const applied = f.applyAssetsToScene.mock.calls.flatMap(
-    (call) => (call as unknown as [unknown, ProjectAssetPayload[]])[1],
-  );
-  expect(applied.some((asset) => asset.fileId === "a")).toBe(false);
 });

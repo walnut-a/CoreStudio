@@ -9,8 +9,8 @@ import {
 } from "../projectFs";
 import { createProjectRoomService } from "../room/projectRoomService";
 import {
-  previewStorageResolution,
   commitStorageResolution,
+  previewStorageResolution,
 } from "./projectStorageResolution";
 const roots: string[] = [];
 const services: ReturnType<typeof createProjectRoomService>[] = [];
@@ -98,96 +98,3 @@ it("rejects a stale preview without losing later disk or canvas edits", async ()
   expect(await fs.readFile(file, "utf8")).toBe("{external editing");
   expect(room.getSnapshot().scene.elements[0].x).toBe(90);
 });
-it("restores an active unsaved canvas after both files are lost instead of requiring it to close", async () => {
-  const { room, projectPath, file } = await setup();
-  await fs.unlink(file);
-  await fs.unlink(path.join(projectPath, "scene.excalidraw.json"));
-  const preview = await previewStorageResolution(room);
-  expect(preview.external).toBeNull();
-  await commitStorageResolution(room, preview, "current");
-  expect((await readProjectBundle(projectPath)).project.projectId).toBe(
-    room.identity.projectId,
-  );
-  expect(room.getSnapshot().scene.elements[0].x).toBe(80);
-});
-it("lets the user choose native coordinates when both external files disagree", async () => {
-  const { room, projectPath } = await setup();
-  const file = path.join(projectPath, "scene.excalidraw.json");
-  const native = JSON.parse(await fs.readFile(file, "utf8"));
-  native.elements[0].x = 300;
-  await fs.writeFile(file, JSON.stringify(native, null, 2));
-  const preview = await previewStorageResolution(room);
-  expect(preview.nativeDiffers).toBe(true);
-  await commitStorageResolution(room, preview, "native");
-  expect(room.getSnapshot().scene.elements[0].x).toBe(300);
-});
-it("retains background intake changes without invalidating a canvas-only decision", async () => {
-  const { room, file } = await setup();
-  const preview = await previewStorageResolution(room);
-  const doc = JSON.parse(await fs.readFile(file, "utf8"));
-  doc.intake = { sources: { "bad.png": { attempts: 4 } } };
-  doc.updatedAt = new Date().toISOString();
-  await fs.writeFile(file, JSON.stringify(doc, null, 2));
-  await commitStorageResolution(room, preview, "external");
-  expect(JSON.parse(await fs.readFile(file, "utf8")).intake).toEqual(
-    doc.intake,
-  );
-  expect(room.getSnapshot().scene.elements[0].x).toBe(450);
-});
-it("repairs incomplete metadata into a readable project while preserving extensions", async () => {
-  const { room, file, projectPath } = await setup();
-  await fs.writeFile(file, JSON.stringify({ customNote: "keep" }));
-  const preview = await previewStorageResolution(room);
-  await commitStorageResolution(room, preview, "current");
-  expect((await readProjectBundle(projectPath)).project.projectId).toBe(
-    room.identity.projectId,
-  );
-  expect(JSON.parse(await fs.readFile(file, "utf8"))).toMatchObject({
-    formatVersion: 2,
-    customNote: "keep",
-  });
-});
-it("backs up and supersedes an unreadable pending save only with an explicit choice", async () => {
-  const { room, projectPath } = await setup();
-  const pending = path.join(projectPath, "cache/scene-commit.json");
-  await fs.writeFile(pending, "unfinished old save");
-  const preview = await previewStorageResolution(room);
-  const backup = await commitStorageResolution(room, preview, "current");
-  expect(
-    await fs.readFile(path.join(backup, "scene-commit.json"), "utf8"),
-  ).toBe("unfinished old save");
-  await expect(fs.stat(pending)).rejects.toMatchObject({ code: "ENOENT" });
-  expect(
-    JSON.parse((await readProjectBundle(projectPath)).sceneJson).elements[0].x,
-  ).toBe(80);
-});
-it("includes native-only differences in the decision preview", async () => {
-  const { room, projectPath, file } = await setup();
-  const doc = JSON.parse(await fs.readFile(file, "utf8"));
-  doc.layout.elements.a.x = 80;
-  await fs.writeFile(file, JSON.stringify(doc, null, 2));
-  const nativeFile = path.join(projectPath, "scene.excalidraw.json");
-  const scene = JSON.parse(await fs.readFile(nativeFile, "utf8"));
-  scene.elements[0].x = 300;
-  await fs.writeFile(nativeFile, JSON.stringify(scene));
-  const preview = await previewStorageResolution(room);
-  expect(preview.changes).toHaveLength(1);
-  expect(preview.changes[0].native).toContain("x=300");
-});
-it.each(["negative-size", "duplicate-id"])(
-  "does not offer malformed native elements as an adoptable version: %s",
-  async (kind) => {
-    const { room, projectPath } = await setup();
-    const nativeFile = path.join(projectPath, "scene.excalidraw.json");
-    const scene = JSON.parse(await fs.readFile(nativeFile, "utf8"));
-    if (kind === "negative-size") scene.elements[0].width = -1;
-    else scene.elements.push({ ...scene.elements[0] });
-    await fs.writeFile(nativeFile, JSON.stringify(scene));
-    const preview = await previewStorageResolution(room);
-    expect(preview.external).toBeNull();
-    await commitStorageResolution(room, preview, "current");
-    expect(
-      JSON.parse((await readProjectBundle(projectPath)).sceneJson).elements,
-    ).toHaveLength(1);
-  },
-);

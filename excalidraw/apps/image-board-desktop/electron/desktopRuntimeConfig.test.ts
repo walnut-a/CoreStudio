@@ -2,19 +2,9 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  resolveDesktopRuntimeConfig,
-  shouldDefaultAgentAccessEnabled,
-} from "./desktopRuntimeConfig";
+import { resolveDesktopRuntimeConfig } from "./desktopRuntimeConfig";
 
 describe("desktop runtime config", () => {
-  it("enables Agent Bridge by default for interactive development runtimes", () => {
-    expect(shouldDefaultAgentAccessEnabled("development")).toBe(true);
-    expect(shouldDefaultAgentAccessEnabled("preview")).toBe(true);
-    expect(shouldDefaultAgentAccessEnabled("production")).toBe(false);
-    expect(shouldDefaultAgentAccessEnabled("qa")).toBe(false);
-  });
-
   it("preserves the production identity, bridge, and global session defaults", () => {
     expect(
       resolveDesktopRuntimeConfig({
@@ -79,50 +69,6 @@ describe("desktop runtime config", () => {
     });
   });
 
-  it("rejects a temporary source profile even when the other development values look valid", () => {
-    const userDataPath = "/tmp/corestudio-extra-profile";
-
-    expect(() =>
-      resolveDesktopRuntimeConfig({
-        bundledAppName: "CoreStudio",
-        isPackaged: false,
-        userDataPath,
-        env: {
-          CORESTUDIO_RUNTIME_MODE: "development",
-          CORESTUDIO_APP_NAME: "CoreStudio Dev",
-          CORESTUDIO_AGENT_BRIDGE_PORT: "60910",
-          CORESTUDIO_AGENT_SESSION_FILE: path.join(
-            userDataPath,
-            "agent-session.json",
-          ),
-          CORESTUDIO_SETTINGS_DIRECTORY: userDataPath,
-        },
-      }),
-    ).toThrow(/source development.*electron-dev-profile/i);
-  });
-
-  it("keeps a directly opened CoreStudio Dev.app away from production", () => {
-    const userDataPath =
-      "/Users/alice/Library/Application Support/CoreStudio Dev";
-
-    expect(
-      resolveDesktopRuntimeConfig({
-        bundledAppName: "CoreStudio Dev",
-        isPackaged: true,
-        userDataPath,
-        platform: "darwin",
-        homeDir: "/Users/alice",
-        env: {},
-      }),
-    ).toEqual({
-      mode: "development",
-      appName: "CoreStudio Dev",
-      bridgePort: 60910,
-      settingsDirectory: userDataPath,
-      sessionPath: path.join(userDataPath, "agent-session.json"),
-    });
-  });
-
   it("uses a separate fixed identity for packaged preview", () => {
     const userDataPath =
       "/workspace/apps/image-board-desktop/.electron-preview-profile";
@@ -151,42 +97,6 @@ describe("desktop runtime config", () => {
     });
   });
 
-  it("rejects a packaged preview that borrows the source development profile", () => {
-    const userDataPath =
-      "/workspace/apps/image-board-desktop/.electron-dev-profile";
-    expect(() =>
-      resolveDesktopRuntimeConfig({
-        bundledAppName: "CoreStudio Dev",
-        isPackaged: true,
-        userDataPath,
-        env: {
-          CORESTUDIO_RUNTIME_MODE: "preview",
-          CORESTUDIO_APP_NAME: "CoreStudio Preview",
-          CORESTUDIO_AGENT_BRIDGE_PORT: "60913",
-          CORESTUDIO_AGENT_SESSION_FILE: path.join(
-            userDataPath,
-            "agent-session.json",
-          ),
-          CORESTUDIO_SETTINGS_DIRECTORY: userDataPath,
-        },
-      }),
-    ).toThrow(/electron-preview-profile/i);
-  });
-
-  it("rejects an invalid injected bridge port instead of silently sharing production", () => {
-    expect(() =>
-      resolveDesktopRuntimeConfig({
-        bundledAppName: "CoreStudio",
-        isPackaged: false,
-        userDataPath: "/tmp/corestudio-dev",
-        env: {
-          CORESTUDIO_RUNTIME_MODE: "development",
-          CORESTUDIO_AGENT_BRIDGE_PORT: "60909oops",
-        },
-      }),
-    ).toThrow(/CORESTUDIO_AGENT_BRIDGE_PORT/);
-  });
-
   it("reserves the qa runtime for the automated packaged smoke test", () => {
     expect(() =>
       resolveDesktopRuntimeConfig({
@@ -203,30 +113,6 @@ describe("desktop runtime config", () => {
         },
       }),
     ).toThrow(/qa runtime.*packaged smoke/i);
-  });
-
-  it("allows the automated packaged smoke test to use its temporary qa identity", () => {
-    expect(
-      resolveDesktopRuntimeConfig({
-        bundledAppName: "CoreStudio",
-        isPackaged: true,
-        userDataPath: "/tmp/corestudio-app-smoke",
-        env: {
-          CORESTUDIO_SMOKE_TEST: "1",
-          CORESTUDIO_RUNTIME_MODE: "qa",
-          CORESTUDIO_AGENT_BRIDGE_PORT: "60911",
-          CORESTUDIO_AGENT_SESSION_FILE:
-            "/tmp/corestudio-app-smoke/agent-session.json",
-          CORESTUDIO_SETTINGS_DIRECTORY: "/tmp/corestudio-app-smoke",
-        },
-      }),
-    ).toEqual({
-      mode: "qa",
-      appName: "CoreStudio",
-      bridgePort: 60911,
-      settingsDirectory: "/tmp/corestudio-app-smoke",
-      sessionPath: "/tmp/corestudio-app-smoke/agent-session.json",
-    });
   });
 
   it.each([

@@ -1,4 +1,5 @@
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -71,6 +72,7 @@ export interface LocalBridgeServerOptions {
   maxRequestBodyBytes?: number;
   agentBoardAssetsDir?: string;
   agentBoardDevServerUrl?: string;
+  onRequestError?: (error: LocalBridgeRequestError) => void | Promise<void>;
   isAgentAccessEnabled: () => boolean;
   getCurrentProject: () => LocalBridgeCurrentProject | null;
   getProjectByToken?: (
@@ -237,6 +239,51 @@ export interface LocalBridgeServerOptions {
     },
   ) => Promise<unknown>;
 }
+
+type ResponsePhase =
+  | "handler"
+  | "serialize"
+  | "write"
+  | "error-response"
+  | "request-stream"
+  | "response-stream"
+  | "asset-proxy";
+
+interface BridgeErrorSummary {
+  name: string;
+  code?: string;
+  reason?: "circular-json" | "bigint-json";
+  stack: string[];
+}
+
+export interface LocalBridgeRequestError {
+  requestId: string;
+  method: string;
+  route: string;
+  elapsedMs: number;
+  phase: ResponsePhase;
+  error: BridgeErrorSummary;
+  originalError?: BridgeErrorSummary;
+  response: {
+    headersSent: boolean;
+    writableEnded: boolean;
+    destroyed: boolean;
+    statusCode: number;
+  };
+}
+
+interface ResponseContext {
+  requestId: string;
+  method: string;
+  route: string;
+  startedAt: number;
+  phase: ResponsePhase;
+  originalError?: BridgeErrorSummary;
+  lastError?: unknown;
+  onRequestError?: LocalBridgeServerOptions["onRequestError"];
+}
+
+const responseContexts = new WeakMap<http.ServerResponse, ResponseContext>();
 
 export interface LocalBridgeServerHandle {
   disconnectAgent(roomId: string, actorId: string): void;
@@ -453,7 +500,7 @@ const applyCorsHeaders = (
   response: http.ServerResponse,
   allowedOrigin: string | null,
 ) => {
-  if (!allowedOrigin) {
+  if (!allowedOrigin || !canWriteResponse(response)) {
     return;
   }
 
@@ -463,22 +510,64 @@ const applyCorsHeaders = (
   response.setHeader("Vary", "Origin");
 };
 
+const canWriteResponse = (response: http.ServerResponse) => {
+  if (
+    response.writableEnded ||
+    response.destroyed ||
+    response.req.aborted ||
+    response.socket?.destroyed
+  ) {
+    return false;
+  }
+  if (response.headersSent) {
+    // This server sends complete responses, never a second body after a partial one.
+    response.destroy();
+    return false;
+  }
+  return true;
+};
+
+const sendResponse = (
+  response: http.ServerResponse,
+  statusCode: number,
+  headers: http.OutgoingHttpHeaders,
+  body?: string | Buffer,
+) => {
+  if (!canWriteResponse(response)) {
+    return;
+  }
+  const context = responseContexts.get(response)!;
+  context.phase = "write";
+  response.writeHead(statusCode, headers);
+  response.end(body);
+  context.phase = "handler";
+};
+
 const sendJson = (
   response: http.ServerResponse,
   statusCode: number,
   body: unknown,
 ) => {
-  response.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-  });
-  response.end(JSON.stringify(body));
+  if (!canWriteResponse(response)) {
+    return;
+  }
+  responseContexts.get(response)!.phase = "serialize";
+  // Serialization (including user-defined toJSON) must finish before headers commit.
+  const json = JSON.stringify(body);
+  sendResponse(
+    response,
+    statusCode,
+    {
+      "Content-Type": "application/json; charset=utf-8",
+    },
+    json,
+  );
 };
 
 const sendCorsPreflight = (response: http.ServerResponse) => {
-  response.writeHead(204, {
+  sendResponse(response, 204, {
     "Access-Control-Max-Age": "600",
   });
-  response.end();
 };
 
 const isAgentBoardRoutePath = (pathname: string) =>
@@ -533,14 +622,23 @@ const serveAgentBoardAsset = async (
   const root = path.resolve(assetsDir);
   const filePath = path.resolve(root, relativePath);
   if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
-    response.writeHead(404);
-    response.end();
+    sendResponse(response, 404, {});
     return true;
   }
 
+  let contents: Buffer;
   try {
-    const contents = await fsReadFile(filePath);
-    response.writeHead(200, {
+    contents = await fsReadFile(filePath);
+  } catch {
+    sendResponse(response, 404, {});
+    return true;
+  }
+  const body =
+    relativePath === "index.html" ? addAgentBoardBaseHref(contents) : contents;
+  sendResponse(
+    response,
+    200,
+    {
       "Content-Type":
         STATIC_CONTENT_TYPES[path.extname(filePath).toLowerCase()] ??
         "application/octet-stream",
@@ -548,16 +646,9 @@ const serveAgentBoardAsset = async (
         relativePath === "index.html"
           ? "no-cache"
           : "public, max-age=31536000, immutable",
-    });
-    response.end(
-      relativePath === "index.html"
-        ? addAgentBoardBaseHref(contents)
-        : contents,
-    );
-  } catch {
-    response.writeHead(404);
-    response.end();
-  }
+    },
+    body,
+  );
   return true;
 };
 
@@ -575,8 +666,7 @@ const proxyAgentBoardDevAsset = async (
     return false;
   }
   if (isRetiredAgentBoardPagePath(url.pathname)) {
-    response.writeHead(404);
-    response.end();
+    sendResponse(response, 404, {});
     return true;
   }
   if (
@@ -598,6 +688,9 @@ const proxyAgentBoardDevAsset = async (
     target.search = "";
   }
 
+  let statusCode: number;
+  let body: Buffer;
+  const headers: Record<string, string> = {};
   try {
     const upstream = await fetch(target, {
       headers: {
@@ -608,7 +701,6 @@ const proxyAgentBoardDevAsset = async (
         "Accept-Encoding": "identity",
       },
     });
-    const headers: Record<string, string> = {};
     for (const name of [
       "content-type",
       "cache-control",
@@ -620,16 +712,22 @@ const proxyAgentBoardDevAsset = async (
         headers[name] = value;
       }
     }
-    const body = Buffer.from(await upstream.arrayBuffer());
-    response.writeHead(upstream.status, headers);
-    response.end(body);
-  } catch {
-    response.writeHead(502, {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-    });
-    response.end("CoreStudio development renderer is unavailable.");
+    body = Buffer.from(await upstream.arrayBuffer());
+    statusCode = upstream.status;
+  } catch (error) {
+    reportRequestError(response, error, "asset-proxy");
+    sendResponse(
+      response,
+      502,
+      {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+      "CoreStudio development renderer is unavailable.",
+    );
+    return true;
   }
+  sendResponse(response, statusCode, headers, body);
   return true;
 };
 
@@ -662,21 +760,193 @@ const getErrorDetails = (error: unknown) =>
     ? error.details
     : undefined;
 
-const sendRendererError = (response: http.ServerResponse, error: unknown) => {
-  const code = getErrorCode(error);
-  if (code) {
-    sendError(
-      response,
-      RENDERER_STATUS_BY_CODE[code] ?? 500,
-      code,
-      getErrorMessage(error),
-      getErrorDetails(error),
-    );
+// Error messages/details may contain prompts, credentials or JSON input excerpts.
+// Keep the original type, known code and stack locations, never arbitrary error text.
+const summarizeBridgeError = (error: unknown): BridgeErrorSummary => {
+  try {
+    const candidate = error as Error & { code?: unknown };
+    const name = [
+      "Error",
+      "TypeError",
+      "RangeError",
+      "SyntaxError",
+      "AbortError",
+      "URIError",
+    ].includes(candidate?.name)
+      ? candidate.name
+      : "Error";
+    const code =
+      getErrorCode(error) ??
+      (typeof candidate?.code === "string" &&
+      [
+        "ECONNRESET",
+        "EPIPE",
+        "ETIMEDOUT",
+        "ENOENT",
+        "EACCES",
+        "ERR_HTTP_HEADERS_SENT",
+        "ERR_STREAM_WRITE_AFTER_END",
+        "ERR_STREAM_DESTROYED",
+      ].includes(candidate.code)
+        ? candidate.code
+        : undefined);
+    const message =
+      typeof candidate?.message === "string" ? candidate.message : "";
+    const stack = typeof candidate?.stack === "string" ? candidate.stack : "";
+    // Remove the whole message first: it may itself contain newlines and fake frames.
+    const stackHeader = [candidate?.name, `${candidate?.name} [${code}]`]
+      .map((label) => (message ? `${label}: ${message}` : label))
+      .find((header) => header && stack.startsWith(`${header}\n`));
+    const reason =
+      name === "TypeError"
+        ? message.startsWith("Converting circular structure to JSON")
+          ? "circular-json"
+          : message === "Do not know how to serialize a BigInt"
+          ? "bigint-json"
+          : undefined
+        : undefined;
+    return {
+      name,
+      ...(code ? { code } : {}),
+      ...(reason ? { reason } : {}),
+      stack: stackHeader
+        ? stack
+            .slice(stackHeader.length)
+            .split("\n")
+            .filter((line) => /^\s+at .+:\d+:\d+\)?$/.test(line))
+            .slice(0, 12)
+        : [],
+    };
+  } catch {
+    return { name: "Error", stack: [] };
+  }
+};
+
+const reportRequestError = (
+  response: http.ServerResponse,
+  error: unknown,
+  phase = responseContexts.get(response)!.phase,
+) => {
+  const context = responseContexts.get(response)!;
+  if (context.originalError && context.lastError === error) {
     return;
   }
+  const summary = summarizeBridgeError(error);
+  const entry: LocalBridgeRequestError = {
+    requestId: context.requestId,
+    method: context.method,
+    route: context.route,
+    elapsedMs: Date.now() - context.startedAt,
+    phase,
+    error: summary,
+    ...(context.originalError ? { originalError: context.originalError } : {}),
+    response: {
+      headersSent: response.headersSent,
+      writableEnded: response.writableEnded,
+      destroyed: response.destroyed,
+      statusCode: response.statusCode,
+    },
+  };
+  context.originalError ??= summary;
+  context.lastError = error;
+  const fallback = () => {
+    try {
+      console.error("[agent:bridge-request-failed]", entry);
+    } catch {
+      // A closed log stream must not turn a handled HTTP failure into a rejection.
+    }
+  };
+  if (!context.onRequestError) {
+    fallback();
+    return;
+  }
+  try {
+    void Promise.resolve(context.onRequestError(entry)).catch(fallback);
+  } catch {
+    fallback();
+  }
+};
 
-  sendError(response, 500, "COMMAND_FAILED", "Renderer command failed", {
-    message: getErrorMessage(error),
+const sendRendererError = (response: http.ServerResponse, error: unknown) => {
+  reportRequestError(response, error);
+  if (!canWriteResponse(response)) {
+    return;
+  }
+  try {
+    const code = getErrorCode(error);
+    if (code) {
+      sendError(
+        response,
+        RENDERER_STATUS_BY_CODE[code] ?? 500,
+        code,
+        getErrorMessage(error),
+        getErrorDetails(error),
+      );
+    } else {
+      sendError(response, 500, "COMMAND_FAILED", "Renderer command failed", {
+        message: getErrorMessage(error),
+      });
+    }
+  } catch (responseError) {
+    reportRequestError(response, responseError, "error-response");
+    try {
+      // Fixed payload: it cannot repeat the failed serializer or error getters.
+      sendResponse(
+        response,
+        500,
+        {
+          "Content-Type": "application/json; charset=utf-8",
+        },
+        '{"ok":false,"error":{"code":"COMMAND_FAILED","message":"Local Bridge request failed"}}',
+      );
+    } catch (writeError) {
+      reportRequestError(response, writeError, "error-response");
+      response.destroy();
+    }
+  }
+};
+
+const initializeResponse = (
+  request: http.IncomingMessage,
+  response: http.ServerResponse,
+  onRequestError: LocalBridgeServerOptions["onRequestError"],
+) => {
+  let route = "<unknown>";
+  try {
+    const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+    route =
+      Object.values(AGENT_HTTP_ROUTES).find((value) => value === pathname) ??
+      (isAgentBoardRoutePath(pathname) ? "/board/:id" : "<asset-or-unknown>");
+  } catch {
+    route = "<invalid>";
+  }
+  responseContexts.set(response, {
+    requestId: randomUUID(),
+    method: [
+      "GET",
+      "POST",
+      "OPTIONS",
+      "HEAD",
+      "PUT",
+      "PATCH",
+      "DELETE",
+    ].includes(request.method ?? "")
+      ? request.method!
+      : "<unknown>",
+    route,
+    startedAt: Date.now(),
+    phase: "handler",
+    onRequestError,
+  });
+  response.on("error", (error) => {
+    reportRequestError(response, error, "response-stream");
+    response.destroy();
+  });
+  request.on("error", (error) => {
+    if (!request.aborted) {
+      reportRequestError(response, error, "request-stream");
+    }
+    response.destroy();
   });
 };
 
@@ -1236,6 +1506,7 @@ export const createLocalBridgeServer = async (
 ): Promise<LocalBridgeServerHandle> => {
   let projectRoomWebSocket: ProjectRoomWebSocketServerHandle | null = null;
   const server = http.createServer((request, response) => {
+    initializeResponse(request, response, options.onRequestError);
     void (async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
       if (

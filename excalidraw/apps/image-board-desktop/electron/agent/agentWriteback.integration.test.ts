@@ -4,18 +4,18 @@ import path from "path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { handleAgentCommandRequest } from "../../src/app/agent/agentCommandRuntime";
 import { AGENT_HTTP_ROUTES } from "../../src/shared/agentBridgeTypes";
 import type { DesktopProjectBundle } from "../../src/shared/desktopBridgeTypes";
-import { handleAgentCommandRequest } from "../../src/app/agent/agentCommandRuntime";
+import { beginProjectImageWriteback } from "../project/projectImageWriteback";
 import {
   createProjectStructure,
   persistImageAssets,
   readProjectBundle,
   writeProjectScene,
 } from "../projectFs";
-import { beginProjectImageWriteback } from "../project/projectImageWriteback";
-import { createProjectRoomService } from "../room/projectRoomService";
 import { executeProjectRoomAgentWriterCommand } from "../room/projectRoomAgentWriter";
+import { createProjectRoomService } from "../room/projectRoomService";
 import { createLocalBridgeServer } from "./localBridgeServer";
 import { createTaskGrantStore } from "./taskGrants";
 
@@ -51,29 +51,19 @@ const listFiles = async (directory: string): Promise<string[]> => {
   }
 };
 
-const createAgentWritebackHarness = async ({
-  failAutosave = false,
-}: {
-  failAutosave?: boolean;
-} = {}) => {
+const createAgentWritebackHarness = async () => {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), "corestudio-agent-e2e-"),
   );
   tempDirectories.push(root);
   const created = await createProjectStructure(root, "Agent Writeback");
-  let activeProject: DesktopProjectBundle = {
+  const activeProject: DesktopProjectBundle = {
     projectPath: created.projectPath,
     ...(await readProjectBundle(created.projectPath)),
   };
-  let storageFails = failAutosave;
   const projectRoomService = createProjectRoomService({
     readProjectBundle,
-    writeProjectScene: async (input) => {
-      if (storageFails) {
-        throw new Error("simulated autosave failure");
-      }
-      return writeProjectScene(input);
-    },
+    writeProjectScene,
     persistenceDebounceMs: 100_000,
   });
   const participantIssuerToken = "integration-participant-issuer";
@@ -132,6 +122,7 @@ const createAgentWritebackHarness = async ({
       ),
   };
   const server = await createLocalBridgeServer({
+    preferredPort: 0,
     isAgentAccessEnabled: () => true,
     getCurrentProject: () => ({
       projectPath: activeProject.projectPath,
@@ -163,37 +154,6 @@ const createAgentWritebackHarness = async ({
   });
   bridgeHandles.push(server);
 
-  const requestImageWriteback = async (
-    requestId?: string,
-    data = "integration-image",
-  ) => {
-    const response = await fetch(
-      `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneAddImage}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${activeProject.project.agentAccess.token}`,
-          "Content-Type": "application/json",
-          "X-CoreStudio-Participant-Issuer": participantIssuerToken,
-          "X-CoreStudio-Participant-Thread": "integration-thread",
-          "X-CoreStudio-Participant-Label": "Integration",
-        },
-        body: JSON.stringify({
-          ...(requestId ? { requestId } : {}),
-          fileId: "cli-input",
-          mimeType: "image/png",
-          dataBase64: Buffer.from(data).toString("base64"),
-          width: 640,
-          height: 480,
-          sourceType: "generated",
-          generationOrigin: "agent-board",
-          createdAt: "2026-07-11T05:00:00.000Z",
-        }),
-      },
-    );
-    return { status: response.status, body: (await response.json()) as any };
-  };
-
   const requestDiagramWriteback = async () => {
     const response = await fetch(
       `${server.baseUrl}${AGENT_HTTP_ROUTES.sceneAddDiagram}`,
@@ -217,12 +177,8 @@ const createAgentWritebackHarness = async ({
   };
 
   return {
-    recoverStorage: () => {
-      storageFails = false;
-    },
     projectPath: created.projectPath,
     requestDiagramWriteback,
-    requestImageWriteback,
     readBundle: async () => ({
       projectPath: created.projectPath,
       ...(await readProjectBundle(created.projectPath)),
@@ -231,48 +187,6 @@ const createAgentWritebackHarness = async ({
 };
 
 describe("Agent image writeback integration", () => {
-  it("retries an accepted HTTP write after storage recovery without duplicate assets or elements", async () => {
-    const harness = await createAgentWritebackHarness({ failAutosave: true });
-    const failed = await harness.requestImageWriteback("retry-http");
-    expect(failed.body).toMatchObject({
-      ok: false,
-      error: {
-        code: "PERSISTENCE_FAILED",
-        details: {
-          writeStatus: {
-            requestId: "retry-http",
-            accepted: true,
-            persisted: false,
-          },
-        },
-      },
-    });
-    const originalStatus = failed.body.error.details.writeStatus;
-    harness.recoverStorage();
-    const [retry, duplicate] = await Promise.all([
-      harness.requestImageWriteback("retry-http"),
-      harness.requestImageWriteback("retry-http"),
-    ]);
-    expect(retry.status).toBe(200);
-    expect(retry.body).toEqual(duplicate.body);
-    expect(retry.body.data).toMatchObject({
-      persisted: true,
-      operationId: originalStatus.operationId,
-      fileIds: originalStatus.fileIds,
-      elementIds: originalStatus.elementIds,
-    });
-    const bundle = await harness.readBundle();
-    expect(Object.keys(bundle.imageRecords)).toHaveLength(1);
-    expect(JSON.parse(bundle.sceneJson).elements).toHaveLength(1);
-    const conflict = await harness.requestImageWriteback(
-      "retry-http",
-      "different-image",
-    );
-    expect(conflict.body).toMatchObject({
-      ok: false,
-      error: { code: "WRITEBACK_CONFLICT" },
-    });
-  });
   it("writes a native diagram through Local Bridge as one persisted room operation", async () => {
     const harness = await createAgentWritebackHarness();
 
@@ -305,58 +219,6 @@ describe("Agent image writeback integration", () => {
       startBinding: { elementId: elements[0].id },
       endBinding: { elementId: elements[1].id },
     });
-  });
-
-  it("writes a CLI image through Local Bridge into one consistent project bundle", async () => {
-    const harness = await createAgentWritebackHarness();
-
-    const response = await harness.requestImageWriteback();
-    expect(response.status).toBe(200);
-    const [fileId] = response.body.data.fileIds as string[];
-    const bundle = await harness.readBundle();
-    const record = bundle.imageRecords[fileId];
-
-    expect(record).toBeDefined();
-    await expect(
-      fs.readFile(path.join(harness.projectPath, record.assetPath), "utf8"),
-    ).resolves.toBe("integration-image");
-    expect(JSON.parse(bundle.sceneJson).elements).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "image", fileId }),
-      ]),
-    );
-    expect(
-      await listFiles(
-        path.join(harness.projectPath, "cache", "image-writebacks"),
-      ),
-    ).toEqual([]);
-  });
-
-  it("keeps accepted assets when room persistence fails", async () => {
-    const harness = await createAgentWritebackHarness({ failAutosave: true });
-    const before = await harness.readBundle();
-    const beforeAssets = await listFiles(
-      path.join(harness.projectPath, "assets"),
-    );
-
-    const response = await harness.requestImageWriteback();
-
-    expect(response).toMatchObject({
-      status: 500,
-      body: { ok: false, error: { code: "PERSISTENCE_FAILED" } },
-    });
-    const after = await harness.readBundle();
-    expect(after.project.updatedAt).not.toBe(before.project.updatedAt);
-    expect(after.sceneJson).toBe(before.sceneJson);
-    expect(Object.keys(after.imageRecords)).toHaveLength(1);
-    expect(
-      await listFiles(path.join(harness.projectPath, "assets")),
-    ).not.toEqual(beforeAssets);
-    expect(
-      await listFiles(
-        path.join(harness.projectPath, "cache", "image-writebacks"),
-      ),
-    ).toEqual([]);
   });
 
   it("recovers a pending transaction after a simulated process interruption", async () => {

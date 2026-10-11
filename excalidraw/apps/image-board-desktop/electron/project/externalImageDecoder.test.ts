@@ -1,29 +1,38 @@
-import { expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({
-  destroy: vi.fn(),
-  execute: vi.fn(async (code: string) => {
-    new Function(`return ${code}`);
-    return { width: 10, height: 10 };
-  }),
-}));
-vi.mock("electron", () => ({
-  BrowserWindow: class {
-    webContents = { executeJavaScript: mocks.execute };
-    loadURL = async () => {};
-    isDestroyed = () => false;
-    destroy = mocks.destroy;
+import { afterEach, expect, it, vi } from "vitest";
+
+import { decodeExpression } from "./externalImageDecoder";
+
+// 执行实际解码脚本的输入校验；不启动 Electron 或加载不可信图片。
+vi.mock("electron", () => ({ BrowserWindow: vi.fn() }));
+
+afterEach(() => vi.unstubAllGlobals());
+
+it.each([
+  {
+    name: "SVG 活动内容",
+    content: "<script>alert(1)</script>",
+    error: /活动内容/,
   },
-}));
-import { createExternalImageDecoder } from "./externalImageDecoder";
-it("runs syntactically valid isolated decoder code and destroys the worker", async () => {
-  const decoder = createExternalImageDecoder();
-  await expect(
-    decoder.decode(
-      Buffer.from(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>',
-      ),
+  {
+    name: "SVG 外部资源",
+    content: '<image href="https://example.invalid/image.png"/>',
+    error: /外部内容/,
+  },
+])("解码前拒绝 $name", async ({ content, error }) => {
+  const createObjectURL = vi.fn(() => {
+    throw new Error("不可信内容越过校验，进入图片解码");
+  });
+  vi.stubGlobal("URL", { createObjectURL });
+  const source = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">${content}</svg>`,
+  );
+  const decode = new Function(
+    `return (${decodeExpression(
+      source.toString("base64"),
       "image/svg+xml",
-    ),
-  ).resolves.toEqual({ width: 10, height: 10 });
-  expect(mocks.destroy).toHaveBeenCalledTimes(1);
+      0,
+    )})`,
+  );
+  await expect(decode()).rejects.toThrow(error);
+  expect(createObjectURL).not.toHaveBeenCalled();
 });

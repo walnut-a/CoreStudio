@@ -2,8 +2,6 @@ import path from "path";
 
 import { configDefaults, defineConfig } from "vitest/config";
 
-const appTestPattern = "apps/image-board-desktop/src/app/App*.test.tsx";
-
 export default defineConfig({
   resolve: {
     extensions: [".ts", ".tsx", ".mts", ".js", ".jsx", ".json"],
@@ -108,24 +106,7 @@ export default defineConfig({
             ...configDefaults.exclude,
             "**/dist-electron/**",
             "excalidraw-app/**",
-            appTestPattern,
           ],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: "corestudio-app",
-          environment: "jsdom",
-          globals: true,
-          include: [appTestPattern],
-          setupFiles: [
-            "./setupTests.ts",
-            "./apps/image-board-desktop/src/app/App.testSetup.tsx",
-          ],
-          sequence: {
-            hooks: "parallel",
-          },
         },
       },
     ],

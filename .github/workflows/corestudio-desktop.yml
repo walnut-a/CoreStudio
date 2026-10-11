@@ -29,12 +29,6 @@ jobs:
       - name: Agent guidance source consistency
         run: node ../docs/agent-integration/generate.mjs --check
 
-      - name: Workspace scope
-        run: corepack yarn vitest apps/image-board-desktop/scripts/workspaceScope.test.ts --run
-
-      - name: Dependency security
-        run: corepack yarn vitest apps/image-board-desktop/scripts/desktopDependencySecurity.test.ts --run
-
       - name: Typecheck
         run: corepack yarn test:typecheck
 

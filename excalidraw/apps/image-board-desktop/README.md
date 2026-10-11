@@ -62,6 +62,8 @@ corepack yarn test:typecheck
 
 打包不是普通 UI 修改的默认验证。完整 `corepack yarn test:desktop` 只在收尾或高风险改动时运行一次；已经取得更高层级充分证据时，不机械重复同类低价值流程。
 
+测试维护优先覆盖当前行为与安全边界，不再为历史重构、已删除功能或旧稿像素值保留源码字符串清单。精简依据、覆盖对应关系与验证记录见[测试维护说明](../../../docs/doc/corestudio-test-maintenance.md)。
+
 桌面测试的其他固定入口：
 
 | 场景 | 命令 | 说明 |

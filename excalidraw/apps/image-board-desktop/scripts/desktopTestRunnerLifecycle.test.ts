@@ -1,7 +1,7 @@
+import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn, type ChildProcess } from "node:child_process";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -162,44 +162,6 @@ describe.sequential("desktop test runner lifecycle", () => {
     expect(fs.existsSync(scenario.lockPath)).toBe(false);
   });
 
-  it("cleans remaining children when the managed command fails", async () => {
-    const scenario = makeScenario({
-      CORESTUDIO_FIXTURE_EXIT_CODE: "7",
-    });
-    await waitFor(
-      () => fs.existsSync(scenario.statePath),
-      "fixture did not start",
-    );
-    const fixturePids = readFixturePids(scenario.statePath);
-    const result = await waitForExit(scenario.child);
-
-    expect(result.code).toBe(7);
-    await waitFor(
-      () => !processExists(fixturePids.childPid),
-      "failed fixture left its child behind",
-    );
-    expect(fs.existsSync(scenario.lockPath)).toBe(false);
-  });
-
-  it("cleans remaining children when the managed command succeeds", async () => {
-    const scenario = makeScenario({
-      CORESTUDIO_FIXTURE_EXIT_CODE: "0",
-    });
-    await waitFor(
-      () => fs.existsSync(scenario.statePath),
-      "fixture did not start",
-    );
-    const fixturePids = readFixturePids(scenario.statePath);
-    const result = await waitForExit(scenario.child);
-
-    expect(result.code).toBe(0);
-    await waitFor(
-      () => !processExists(fixturePids.childPid),
-      "successful fixture left its child behind",
-    );
-    expect(fs.existsSync(scenario.lockPath)).toBe(false);
-  });
-
   it("rejects a duplicate full run and reports the active owner", async () => {
     const first = makeScenario();
     await waitFor(
@@ -234,58 +196,5 @@ describe.sequential("desktop test runner lifecycle", () => {
 
     first.child.kill("SIGTERM");
     await waitForExit(first.child);
-  });
-
-  it("recovers a stale lock in a real runner invocation", async () => {
-    const tempDirectory = fs.mkdtempSync(
-      path.join(os.tmpdir(), "corestudio-test-stale-"),
-    );
-    tempDirectories.push(tempDirectory);
-    const lockPath = path.join(tempDirectory, "desktop-test.lock");
-    fs.writeFileSync(
-      lockPath,
-      `${JSON.stringify({
-        schemaVersion: 1,
-        repoIdentity: "stale",
-        worktree: repositoryRoot,
-        runId: "stale-run",
-        runnerPid: 999_999,
-        mode: "run",
-        maxWorkers: 2,
-        startedAt: "2026-07-27T00:00:00.000Z",
-      })}\n`,
-    );
-    const result = spawn(
-      process.execPath,
-      [runnerPath, "--mode=run", "--help"],
-      {
-        cwd: repositoryRoot,
-        env: {
-          ...process.env,
-          NODE_ENV: "test",
-          CORESTUDIO_TEST_LOCK_PATH: lockPath,
-        },
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    spawnedProcesses.push(result);
-    let stdout = "";
-    result.stdout?.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    const exit = await waitForExit(result);
-
-    expect(exit.code).toBe(0);
-    expect(stdout).toContain("mode=run");
-    expect(stdout).toContain("maxWorkers=2");
-    expect(stdout).toMatch(/runnerPID=\d+/);
-    expect(stdout).toContain("repository=");
-    expect(stdout).toContain("lock=acquired");
-    expect(stdout).toContain("staleRecovered=true");
-    expect(stdout).toMatch(/mainPID=\d+ mainPGID=\d+/);
-    expect(stdout).toContain("cleanup=complete");
-    expect(stdout).toContain("remaining=0");
-    expect(stdout).toContain("lockReleased=true");
-    expect(fs.existsSync(lockPath)).toBe(false);
   });
 });

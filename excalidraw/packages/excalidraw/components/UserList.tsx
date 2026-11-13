@@ -2,9 +2,7 @@ import { Popover } from "radix-ui";
 import clsx from "clsx";
 import React, { useLayoutEffect } from "react";
 
-import { supportsResizeObserver, isShallowEqual } from "@excalidraw/common";
-
-import type { MarkRequired } from "@excalidraw/common/utility-types";
+import { isShallowEqual } from "@excalidraw/common";
 
 import { t } from "../i18n";
 
@@ -26,9 +24,6 @@ export type GoToCollaboratorComponentProps = {
   withName: boolean;
   isBeingFollowed: boolean;
 };
-
-/** collaborator user id or socket id (fallback) */
-type ClientId = string & { _brand: "UserId" };
 
 const DEFAULT_MAX_AVATARS = 4;
 const SHOW_COLLABORATORS_FILTER_AT = 8;
@@ -138,45 +133,39 @@ export const UserList = React.memo(
         ? currentUserControls(!!mobile)
         : currentUserControls;
 
-    const uniqueCollaboratorsMap = new Map<
-      ClientId,
-      MarkRequired<Collaborator, "socketId">
-    >();
-
-    collaborators.forEach((collaborator, socketId) => {
-      const userId = (collaborator.id || socketId) as ClientId;
-      uniqueCollaboratorsMap.set(
-        // filter on user id, else fall back on unique socketId
-        userId,
-        { ...collaborator, socketId },
-      );
-    });
-
-    const uniqueCollaboratorsArray = Array.from(
-      uniqueCollaboratorsMap.values(),
+    const collaboratorsArray = Array.from(
+      collaborators,
+      ([socketId, collaborator]) => ({
+        ...collaborator,
+        socketId,
+      }),
     ).filter((collaborator) => collaborator.username?.trim());
+    const currentUser = collaboratorsArray.find((c) => c.isCurrentUser);
+    const otherCollaborators = collaboratorsArray.filter(
+      (c) => !c.isCurrentUser,
+    );
 
     const [searchTerm, setSearchTerm] = React.useState("");
-    const filteredCollaborators = uniqueCollaboratorsArray.filter(
-      (collaborator) =>
-        collaborator.username?.toLowerCase().includes(searchTerm),
+    const filteredCollaborators = collaboratorsArray.filter((collaborator) =>
+      collaborator.username?.toLowerCase().includes(searchTerm),
     );
 
     const userListWrapper = React.useRef<HTMLDivElement | null>(null);
 
     useLayoutEffect(() => {
       if (userListWrapper.current) {
+        const ownerWindow = userListWrapper.current.ownerDocument.defaultView;
         const updateWrapperWidth = (width: number) => {
           setWrapperWidth(width);
         };
 
         updateWrapperWidth(userListWrapper.current.clientWidth);
 
-        if (!supportsResizeObserver) {
+        if (!ownerWindow || typeof ownerWindow.ResizeObserver !== "function") {
           return;
         }
 
-        const resizeObserver = new ResizeObserver((entries) => {
+        const resizeObserver = new ownerWindow.ResizeObserver((entries) => {
           for (const entry of entries) {
             const { width } = entry.contentRect;
             updateWrapperWidth(width);
@@ -193,11 +182,6 @@ export const UserList = React.memo(
 
     const [wrapperWidth, setWrapperWidth] = React.useState(
       DEFAULT_MAX_AVATARS * AVATAR_SLOT_WIDTH,
-    );
-
-    const currentUser = uniqueCollaboratorsArray.find((c) => c.isCurrentUser);
-    const otherCollaborators = uniqueCollaboratorsArray.filter(
-      (c) => !c.isCurrentUser,
     );
 
     // the current user's avatar is always shown, reserved as the last
@@ -255,8 +239,7 @@ export const UserList = React.memo(
             sideOffset={10}
           >
             <Island padding={2}>
-              {uniqueCollaboratorsArray.length >=
-                SHOW_COLLABORATORS_FILTER_AT && (
+              {collaboratorsArray.length >= SHOW_COLLABORATORS_FILTER_AT && (
                 <QuickSearch
                   placeholder={t("quickSearch.placeholder")}
                   onChange={setSearchTerm}
@@ -269,7 +252,9 @@ export const UserList = React.memo(
                 {/* The list checks for `Children.count()`, hence defensively returning empty list */}
                 {filteredCollaborators.length > 0
                   ? [
-                      <div className="hint">{t("userList.hint.text")}</div>,
+                      <div key="hint" className="hint">
+                        {t("userList.hint.text")}
+                      </div>,
                       filteredCollaborators.map((c) =>
                         renderCollaborator({
                           actionManager,
@@ -309,7 +294,7 @@ export const UserList = React.memo(
     return mobile ? (
       <div className={clsx("UserList UserList_mobile", className)}>
         <div className="UserList_mobile__avatars">
-          {uniqueCollaboratorsArray.map((collaborator) =>
+          {collaboratorsArray.map((collaborator) =>
             renderCollaborator({
               actionManager,
               collaborator,

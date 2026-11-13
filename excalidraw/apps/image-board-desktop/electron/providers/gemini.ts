@@ -26,6 +26,10 @@ import type {
 } from "../../src/shared/providerTypes";
 
 const GEMINI_NATIVE_IMAGE_MODELS = new Set([
+  "gemini-nano-banana-2.1",
+  "gemini-3.1-flash-lite-image",
+  "gemini-3.1-flash-image",
+  "gemini-3-pro-image",
   "gemini-2.5-flash-image",
   "gemini-3.1-flash-image-preview",
   "gemini-3-pro-image-preview",
@@ -70,8 +74,8 @@ export const generateGeminiImages = async ({
       : explicitAspectRatio;
   const nativeImageConfig = {
     ...(geminiAspectRatio ? { aspectRatio: geminiAspectRatio } : {}),
-    ...(request.model === "gemini-3.1-flash-image-preview" ||
-    request.model === "gemini-3-pro-image-preview"
+    ...(isGeminiNativeImageModel(request.model) &&
+    request.model !== "gemini-2.5-flash-image"
       ? {
           imageSize:
             Math.max(request.width, request.height) > 1024 ? "2K" : "1K",

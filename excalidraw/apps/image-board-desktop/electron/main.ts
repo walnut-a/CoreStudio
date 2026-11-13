@@ -3268,6 +3268,13 @@ const registerIpcHandlers = () => {
     }
     return canvasInteractionSettingsController.getSettings();
   });
+  ipcMain.handle(IPC_CHANNELS.saveCanvasPreferences, async (event, preferences) => {
+    requireShellOrProjectRendererSender(event.sender);
+    if (!canvasInteractionSettingsController) {
+      throw new Error("Canvas interaction settings are not ready.");
+    }
+    return canvasInteractionSettingsController.savePreferences(preferences);
+  });
   ipcMain.handle(
     IPC_CHANNELS.saveTrackpadZoomSpeed,
     async (event, speed: TrackpadZoomSpeed) => {

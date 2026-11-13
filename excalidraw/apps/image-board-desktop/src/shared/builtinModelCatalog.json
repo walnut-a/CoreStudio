@@ -1,0 +1,1085 @@
+{
+  "schemaVersion": 1,
+  "revision": 6,
+  "publishedAt": "2026-11-13T05:00:00.000Z",
+  "minClientVersion": "1.1.61",
+  "modelAliases": {
+    "zenmux": {
+      "google/gemini-3.1-flash-image-preview": "google/gemini-3.1-flash-image",
+      "google/gemini-3-pro-image-preview": "google/gemini-3-pro-image",
+      "google/gemini-3-pro-image-preview-free": "google/gemini-3-pro-image"
+    }
+  },
+  "providers": {
+    "gemini": {
+      "defaultModel": "gemini-2.5-flash-image",
+      "models": [
+        {
+          "id": "gemini-2.5-flash-image",
+          "label": "Gemini 2.5 Flash Image (Nano Banana)",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 3,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gemini-3.1-flash-image-preview",
+          "label": "Gemini 3.1 Flash Image Preview (Nano Banana 2)",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gemini-3-pro-image-preview",
+          "label": "Gemini 3 Pro Image Preview (Nano Banana Pro)",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "imagen-4.0-fast-generate-001",
+          "label": "Imagen 4 Fast",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": false,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 0,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "imagen-4.0-generate-001",
+          "label": "Imagen 4",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": false,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 0,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gemini-nano-banana-2.1",
+          "label": "Nano Banana 2.1",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gemini-3.1-flash-lite-image",
+          "label": "Nano Banana 2 Lite",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gemini-3.1-flash-image",
+          "label": "Nano Banana 2",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gemini-3-pro-image",
+          "label": "Nano Banana Pro",
+          "adapter": "gemini-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        }
+      ]
+    },
+    "zenmux": {
+      "defaultModel": "google/gemini-2.5-flash-image",
+      "models": [
+        {
+          "id": "google/gemini-2.5-flash-image",
+          "label": "Gemini 2.5 Flash Image",
+          "adapter": "zenmux-vertex-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 3,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-flash-lite-image",
+          "label": "Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite)",
+          "adapter": "zenmux-vertex-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-flash-image",
+          "label": "Gemini 3.1 Flash Image (Nano Banana 2)",
+          "adapter": "zenmux-vertex-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-3-pro-image",
+          "label": "Gemini 3 Pro Image (Nano Banana Pro)",
+          "adapter": "zenmux-vertex-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "openai/gpt-image-1.5",
+          "label": "GPT Image 1.5",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "openai/gpt-image-2",
+          "label": "GPT Image 2",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        },
+        {
+          "id": "qwen/qwen-image-2.0",
+          "label": "Qwen Image 2.0",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "qwen/qwen-image-2.0-pro",
+          "label": "Qwen Image 2.0 Pro",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "bytedance/doubao-seedream-5.0-lite",
+          "label": "Doubao Seedream 5.0 Lite",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "z-ai/glm-image",
+          "label": "GLM Image",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": false,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 0,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "tencent/hy-image-v3.0",
+          "label": "HY Image V3.0",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "qwen/qwen-image-3.0",
+          "label": "Qwen Image 3.0",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "qwen/qwen-image-3.0-pro",
+          "label": "Qwen Image 3.0 Pro",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "bytedance/doubao-seedream-5.0-pro",
+          "label": "Doubao Seedream 5.0 Pro",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 10,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "klingai/kling-v3",
+          "label": "Kling v3",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "sapiens-ai/agnes-image-2.1-flash",
+          "label": "Agnes Image 2.1 Flash",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "bfl/flux-2-pro",
+          "label": "FLUX.2 Pro",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 8,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "bfl/flux-2-flex",
+          "label": "FLUX.2 Flex",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 8,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "bfl/flux-2-max",
+          "label": "FLUX.2 Max",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 8,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "meta/muse-image-1.0",
+          "label": "Muse Image 1.0",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "x-ai/grok-imagine-image-2.0",
+          "label": "Grok Imagine Image 2.0",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-nano-banana-2.1",
+          "label": "Nano Banana 2.1",
+          "adapter": "zenmux-vertex-generate-content",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "bytedance/doubao-seedream-5.0-flash",
+          "label": "Seedream 5.0 Flash",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 10,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "bfl/flux-3-image",
+          "label": "FLUX.3 Image",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 10,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "tencent/hy-image-v3.5-preview",
+          "label": "HY Image 3.5 Preview",
+          "adapter": "zenmux-vertex-gpt-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 20,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "minimax/minimax-h3-image",
+          "label": "MiniMax H3 Image",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "minimax/minimax-h3-image-highspeed",
+          "label": "MiniMax H3 Image Highspeed",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "inclusionai/llada-image",
+          "label": "LLaDA Image",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "inclusionai/llada-image-turbo",
+          "label": "LLaDA Image Turbo",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "inclusionai/ming-image-0.1-design",
+          "label": "Ming Image 0.1 Design",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": false,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 0,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "openai/gpt-image-2.5-flare",
+          "label": "GPT Image 2.5 Flare",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        },
+        {
+          "id": "openai/gpt-image-2.5-sunburst",
+          "label": "GPT Image 2.5 Sunburst",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        },
+        {
+          "id": "openai/gpt-image-2.6-flare",
+          "label": "GPT Image 2.6 Flare",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        },
+        {
+          "id": "openai/gpt-image-2.6-sunburst",
+          "label": "GPT Image 2.6 Sunburst",
+          "adapter": "zenmux-openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        }
+      ]
+    },
+    "fal": {
+      "defaultModel": "fal-ai/nano-banana-2",
+      "models": [
+        {
+          "id": "fal-ai/nano-banana-2",
+          "label": "Nano Banana 2",
+          "adapter": "fal-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": true,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "fal-ai/flux/schnell",
+          "label": "FLUX Schnell",
+          "adapter": "fal-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": true,
+            "supportsImageCount": true,
+            "supportsReferenceImages": false,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 0,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "fal-ai/flux/dev",
+          "label": "FLUX Dev",
+          "adapter": "fal-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": true,
+            "supportsImageCount": true,
+            "supportsReferenceImages": false,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 0,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "google/nano-banana-2.1",
+          "label": "Nano Banana 2.1",
+          "adapter": "fal-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": true,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        }
+      ]
+    },
+    "jimeng": {
+      "defaultModel": "doubao-seedream-5-0-pro-260628",
+      "models": [
+        {
+          "id": "doubao-seedream-5-0-lite-260128",
+          "label": "Seedream 5.0 Lite",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "doubao-seedream-5-0-260128",
+          "label": "Seedream 5.0",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "doubao-seedream-4-5-251128",
+          "label": "Seedream 4.5",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "doubao-seedream-4-0-250828",
+          "label": "Seedream 4.0",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "doubao-seedream-3-0-t2i-250415",
+          "label": "Seedream 3.0 T2I",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": true,
+            "supportsImageCount": false,
+            "supportsReferenceImages": false,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 0,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "doubao-seedream-5-0-pro-260628",
+          "label": "Seedream 5.0 Pro",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 10,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "doubao-seedream-5-0-flash-260915",
+          "label": "Seedream 5.0 Flash",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 10,
+            "sizeControlMode": "exact"
+          }
+        },
+        {
+          "id": "doubao-seedream-5-5-261028",
+          "label": "Seedream 5.5",
+          "adapter": "jimeng-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 10,
+            "sizeControlMode": "exact"
+          }
+        }
+      ]
+    },
+    "openai": {
+      "defaultModel": "gpt-image-1.5",
+      "models": [
+        {
+          "id": "gpt-image-2",
+          "label": "GPT Image 2",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gpt-image-1.5",
+          "label": "GPT Image 1.5",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gpt-image-1",
+          "label": "GPT Image 1",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gpt-image-1-mini",
+          "label": "GPT Image 1 Mini",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 4,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "gpt-image-2.5-flare",
+          "label": "GPT Image 2.5 Flare",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        },
+        {
+          "id": "gpt-image-2.5-sunburst",
+          "label": "GPT Image 2.5 Sunburst",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        },
+        {
+          "id": "gpt-image-2.6-flare",
+          "label": "GPT Image 2.6 Flare",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        },
+        {
+          "id": "gpt-image-2.6-sunburst",
+          "label": "GPT Image 2.6 Sunburst",
+          "adapter": "openai-images",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": true,
+            "supportsReferenceImages": true,
+            "maxImageCount": 10,
+            "maxReferenceImageCount": 16,
+            "sizeControlMode": "aspect-ratio",
+            "supportsQuality": true,
+            "supportsTransparentBackground": true
+          }
+        }
+      ]
+    },
+    "openrouter": {
+      "defaultModel": "google/gemini-3.1-flash-image-preview",
+      "models": [
+        {
+          "id": "google/gemini-3.1-flash-image-preview",
+          "label": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-3-pro-image-preview",
+          "label": "Nano Banana Pro (Gemini 3 Pro Image)",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-2.5-flash-image",
+          "label": "Nano Banana (Gemini 2.5 Flash Image)",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 3,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-nano-banana-2.1",
+          "label": "Nano Banana 2.1",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-flash-lite-image",
+          "label": "Nano Banana 2 Lite",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 1,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-3.1-flash-image",
+          "label": "Nano Banana 2",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "google/gemini-3-pro-image",
+          "label": "Nano Banana Pro",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 14,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "openai/gpt-5.4-image-2",
+          "label": "GPT 5.4 Image 2",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "openai/gpt-5-image",
+          "label": "GPT 5 Image",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        },
+        {
+          "id": "openai/gpt-5-image-mini",
+          "label": "GPT 5 Image Mini",
+          "adapter": "openrouter-chat-image",
+          "capabilities": {
+            "supportsNegativePrompt": false,
+            "supportsSeed": false,
+            "supportsImageCount": false,
+            "supportsReferenceImages": true,
+            "maxImageCount": 1,
+            "maxReferenceImageCount": 4,
+            "sizeControlMode": "aspect-ratio"
+          }
+        }
+      ]
+    }
+  }
+}

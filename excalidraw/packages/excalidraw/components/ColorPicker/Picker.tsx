@@ -8,12 +8,13 @@ import {
   KEYS,
 } from "@excalidraw/common";
 
-import type { ExcalidrawElement } from "@excalidraw/element/types";
+import type { ExcalidrawElement, Theme } from "@excalidraw/element/types";
 
 import type { ColorPaletteCustom } from "@excalidraw/common";
 
 import { useAtom } from "../../editor-jotai";
 import { t } from "../../i18n";
+import { TopPicksTip } from "../TopPicksDnD/TopPicksTip";
 
 import { CustomColorList } from "./CustomColorList";
 import PickerColorList from "./PickerColorList";
@@ -26,10 +27,12 @@ import {
   isCustomColor,
 } from "./colorPickerUtils";
 import { colorPickerKeyNavHandler } from "./keyboardNavHandlers";
+import { useColorPickerDnD } from "./colorTopPicksDnD";
 
 import type { ColorPickerType } from "./colorPickerUtils";
 
 interface PickerProps {
+  theme: Theme;
   color: string | null;
   onChange: (color: string) => void;
   type: ColorPickerType;
@@ -42,11 +45,14 @@ interface PickerProps {
   onEscape: (event: React.KeyboardEvent | KeyboardEvent) => void;
   showHotKey?: boolean;
   excludedColors?: readonly string[];
+  /** present only while the top picks are customized */
+  onResetTopPicks?: () => void;
 }
 
 export const Picker = React.forwardRef(
   (
     {
+      theme,
       color,
       onChange,
       type,
@@ -59,6 +65,7 @@ export const Picker = React.forwardRef(
       onEscape,
       showHotKey = true,
       excludedColors,
+      onResetTopPicks,
     }: PickerProps,
     ref,
   ) => {
@@ -80,6 +87,7 @@ export const Picker = React.forwardRef(
     const [activeColorPickerSection, setActiveColorPickerSection] = useAtom(
       activeColorPickerSectionAtom,
     );
+    const dnd = useColorPickerDnD();
 
     const colorObj = getColorNameAndShadeFromColor({
       color,
@@ -177,6 +185,7 @@ export const Picker = React.forwardRef(
                 {t("colorPicker.mostUsedCustomColors")}
               </PickerHeading>
               <CustomColorList
+                theme={theme}
                 colors={customColors}
                 color={color}
                 label={t("colorPicker.mostUsedCustomColors")}
@@ -188,6 +197,7 @@ export const Picker = React.forwardRef(
           <div>
             <PickerHeading>{t("colorPicker.colors")}</PickerHeading>
             <PickerColorList
+              theme={theme}
               color={color}
               palette={palette}
               onChange={onChange}
@@ -200,6 +210,7 @@ export const Picker = React.forwardRef(
           <div>
             <PickerHeading>{t("colorPicker.shades")}</PickerHeading>
             <ShadeList
+              theme={theme}
               color={color}
               onChange={onChange}
               palette={palette}
@@ -207,6 +218,14 @@ export const Picker = React.forwardRef(
             />
           </div>
           {children}
+          {/* dnd context is only provided when top picks are customizable */}
+          {dnd && (
+            <TopPicksTip
+              tip={t("colorPicker.topPicksTip")}
+              onReset={onResetTopPicks}
+              resetTitle={t("colorPicker.resetTopPicks")}
+            />
+          )}
         </div>
       </div>
     );

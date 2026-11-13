@@ -19,7 +19,6 @@ type IconButtonBaseProps = {
   icon?: React.ReactNode;
   "aria-label": string;
   "aria-keyshortcuts"?: string;
-  "aria-pressed"?: boolean;
   "data-testid"?: string;
   label?: string;
   title?: string;
@@ -57,6 +56,8 @@ type IconButtonProps =
        * (unlike the click event's own pointerType on iOS).
        */
       onSelect?(data: { pointerType: PointerType | null }): void;
+      /** the press that may become a click — e.g. to arm a drag out of the toolbar */
+      onPointerDown?(event: React.PointerEvent<HTMLButtonElement>): void;
     });
 
 export const IconButton = React.forwardRef(
@@ -127,7 +128,6 @@ export const IconButton = React.forwardRef(
           hidden={props.hidden}
           title={props.title}
           aria-label={props["aria-label"]}
-          aria-pressed={props["aria-pressed"]}
           type="button"
           onClick={onClick}
           ref={innerRef}
@@ -174,6 +174,7 @@ export const IconButton = React.forwardRef(
         aria-disabled={!!props.disabled}
         onPointerDown={(event) => {
           lastPointerTypeRef.current = event.pointerType || null;
+          props.onPointerDown?.(event);
         }}
         onPointerUp={() => {
           requestAnimationFrame(() => {

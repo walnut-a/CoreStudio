@@ -48,7 +48,7 @@ const FAL_ASPECT_RATIOS = [
 ];
 
 const isFalNanoBananaModel = (model: string) =>
-  model === "fal-ai/nano-banana-2";
+  ["fal-ai/nano-banana-2", "google/nano-banana-2.1"].includes(model);
 
 const toClosestFalAspectRatio = (width: number, height: number) => {
   const targetRatio = width / height;
@@ -59,12 +59,13 @@ const toClosestFalAspectRatio = (width: number, height: number) => {
   ).label;
 };
 
-const toFalResolution = (width: number, height: number) => {
+const toFalResolution = (width: number, height: number, model: string) => {
   const longestEdge = Math.max(width, height);
+  if (longestEdge > 3072) return "4K";
   if (longestEdge > 1536) {
     return "2K";
   }
-  if (longestEdge < 768) {
+  if (longestEdge < 768 && model !== "google/nano-banana-2.1") {
     return "0.5K";
   }
   return "1K";
@@ -108,7 +109,11 @@ export const generateFalImages = async ({
         ...(falAspectRatio
           ? {
               aspect_ratio: falAspectRatio,
-              resolution: toFalResolution(request.width, request.height),
+              resolution: toFalResolution(
+                request.width,
+                request.height,
+                request.model,
+              ),
             }
           : {}),
         output_format: "png",

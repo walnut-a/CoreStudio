@@ -1,4 +1,4 @@
-import { exportToBlob } from "@excalidraw/utils";
+import { exportScene } from "@excalidraw/utils";
 
 import type { ExcalidrawElement, NonDeleted } from "@excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
@@ -200,20 +200,14 @@ const getSingleImageReferencePayload = async (
       originalCrop.width / element.width,
       originalCrop.height / element.height,
     );
-    const blob = await exportToBlob({
-      elements: [{ ...element, crop: originalCrop }],
-      appState: {
-        exportBackground: false,
-        viewBackgroundColor: scene.appState.viewBackgroundColor,
+    const blob = await exportScene({
+      type: "png",
+      data: {
+        elements: [{ ...element, crop: originalCrop }],
+        appState: { viewBackgroundColor: scene.appState.viewBackgroundColor },
+        files: scene.files,
       },
-      files: scene.files,
-      exportPadding: 0,
-      mimeType: "image/png",
-      getDimensions: (width, height) => ({
-        width: Math.round(width * scale),
-        height: Math.round(height * scale),
-        scale,
-      }),
+      config: { canvasBackgroundColor: false, padding: 0, scale },
     });
     image = {
       mimeType: blob.type || "image/png",
@@ -520,8 +514,7 @@ export const getGenerationReferenceAnchorBounds = (
   if (sourceElementIds.size) {
     return getElementsSceneBounds(
       scene.elements.filter(
-        (element) =>
-          !element.isDeleted && sourceElementIds.has(element.id),
+        (element) => !element.isDeleted && sourceElementIds.has(element.id),
       ),
     );
   }
@@ -612,15 +605,14 @@ export const buildSelectionReference = async ({
     };
   }
 
-  const blob = await exportToBlob({
-    elements: selectedElements,
-    appState: {
-      exportBackground: false,
-      viewBackgroundColor: scene.appState.viewBackgroundColor,
+  const blob = await exportScene({
+    type: "png",
+    data: {
+      elements: selectedElements,
+      appState: { viewBackgroundColor: scene.appState.viewBackgroundColor },
+      files: scene.files,
     },
-    files: scene.files,
-    exportPadding: REFERENCE_EXPORT_PADDING,
-    mimeType: "image/png",
+    config: { canvasBackgroundColor: false, padding: REFERENCE_EXPORT_PADDING },
   });
 
   return {

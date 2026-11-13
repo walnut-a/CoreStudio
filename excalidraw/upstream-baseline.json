@@ -1,172 +1,195 @@
 {
   "repository": "https://github.com/excalidraw/excalidraw.git",
   "managedRoot": "excalidraw",
-  "currentSha": "85270fcc8db26f98d119e2d2752b0c0139e86e16",
-  "targetSha": "85270fcc8db26f98d119e2d2752b0c0139e86e16",
-  "ownedPaths": ["apps/image-board-desktop"],
+  "currentSha": "82d5847e57dcb6fb5982833ea9ec2137fe0b2bd5",
+  "targetSha": "82d5847e57dcb6fb5982833ea9ec2137fe0b2bd5",
+  "ownedPaths": [
+    "apps/image-board-desktop"
+  ],
   "sharedPaths": [
     {
-      "path": "packages/excalidraw/components/Actions.tsx",
-      "groups": ["arrange-grid", "footer-host-actions"],
-      "reason": "The native action surface provides both Arrange Into Grid and host-controlled compact zoom controls."
-    },
-    {
       "path": "packages/excalidraw/components/App.tsx",
-      "groups": ["clipboard-and-images", "file-replacement", "host-ui-action-policy", "inspector-integration", "trackpad-wheel-zoom", "upstream-selection-color-backports"],
+      "groups": [
+        "clipboard-and-images",
+        "file-replacement",
+        "host-ui-action-policy",
+        "inspector-integration"
+      ],
       "reason": "The upstream App class is the integration point for file replacement, host UI actions, inspector rendering, clipboard behavior, and CoreStudio wheel zoom behavior."
     },
     {
       "path": "packages/excalidraw/components/HelpDialog.tsx",
-      "groups": ["arrange-grid", "host-ui-action-policy"],
+      "groups": [
+        "arrange-grid",
+        "host-ui-action-policy"
+      ],
       "reason": "The help dialog exposes Arrange Into Grid and must also hide actions disabled by host UI policy."
     },
     {
       "path": "packages/excalidraw/index.tsx",
-      "groups": ["clipboard-and-images", "footer-host-actions", "inspector-integration", "trackpad-wheel-zoom"],
+      "groups": [
+        "clipboard-and-images",
+        "footer-right-host-actions",
+        "inspector-integration",
+        "trackpad-wheel-zoom"
+      ],
       "reason": "The package entry forwards active inspector, clipboard, footer, and wheel zoom host APIs."
     },
     {
-      "path": "packages/excalidraw/tests/excalidraw.test.tsx",
-      "groups": ["footer-host-actions", "i18n-module-compatibility"],
-      "reason": "The public component suite covers both footer host placement and locale-compatible rendering."
-    },
-    {
       "path": "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
-      "groups": ["file-replacement", "host-action-integration", "host-ui-action-policy", "inspector-integration", "trackpad-wheel-zoom"],
+      "groups": [
+        "file-replacement",
+        "host-action-integration",
+        "host-ui-action-policy",
+        "inspector-integration",
+        "trackpad-wheel-zoom"
+      ],
       "reason": "This compatibility suite currently covers several public CoreStudio host contracts, including focus-safe wheel zoom anchoring."
     },
     {
       "path": "packages/excalidraw/types.ts",
-      "groups": ["clipboard-and-images", "file-replacement", "inspector-integration", "trackpad-wheel-zoom", "upstream-selection-color-backports"],
+      "groups": [
+        "clipboard-and-images",
+        "file-replacement",
+        "inspector-integration",
+        "trackpad-wheel-zoom"
+      ],
       "reason": "The public type surface declares file replacement, clipboard, inspector, default sidebar, and wheel zoom host APIs."
+    },
+    {
+      "path": "packages/excalidraw/tests/excalidraw.test.tsx",
+      "groups": [
+        "footer-right-host-actions",
+        "i18n-module-compatibility"
+      ],
+      "reason": "该文件覆盖多个仍在使用的宿主合同。"
     }
   ],
   "patchGroups": [
-    {
-      "id": "upstream-selection-color-backports",
-      "purpose": "定向回补套索包围选择、填色取色器支持及深色主题取色修复；后续完整上游同步时采用上游实现并移除此组。",
-      "disposition": "adopt-upstream",
-      "upstreamCommits": [
-        "c5a50d223feb5fceaebc916ad75f2dcecb399467",
-        "4872083c044491b6d5c96ae134a75464f96d6831",
-        "cf212b2f3354c09bd6f960b53a9cfb0a3ecbfa58"
-      ],
-      "corePaths": [
-        "packages/common/src/colors.ts",
-        "packages/excalidraw/actions/actionDeselect.ts",
-        "packages/excalidraw/actions/actionProperties.tsx",
-        "packages/excalidraw/components/App.bucketFill.ts",
-        "packages/excalidraw/components/App.cursor.ts",
-        "packages/excalidraw/components/App.tsx",
-        "packages/excalidraw/components/EyeDropper.scss",
-        "packages/excalidraw/components/EyeDropper.tsx",
-        "packages/excalidraw/components/icons.tsx",
-        "packages/excalidraw/lasso/index.ts",
-        "packages/excalidraw/lasso/utils.ts",
-        "packages/excalidraw/types.ts"
-      ],
-      "contractTests": [
-        "packages/common/src/colors.test.ts",
-        "packages/excalidraw/tests/bucketFill.test.tsx",
-        "packages/excalidraw/tests/eyeDropper.test.tsx",
-        "packages/excalidraw/tests/lasso.test.tsx",
-        "packages/excalidraw/tests/selection.test.tsx"
-      ]
-    },
     {
       "id": "environment-sanitization",
       "purpose": "Keep upstream example credentials out of the CoreStudio vendor tree and preserve desktop build assets.",
       "disposition": "keep-support",
       "corePaths": [],
       "contractTests": [],
-      "supportPaths": [".env.development", ".env.production", ".gitignore"]
+      "supportPaths": [
+        ".env.development",
+        ".env.production",
+        ".gitignore"
+      ]
     },
     {
       "id": "file-replacement",
       "purpose": "Replace existing image files and invalidate image caches without duplicating records.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/components/App.tsx", "packages/excalidraw/types.ts"],
-      "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx", "apps/image-board-desktop/src/app/canvasImageAssetState.test.ts"]
+      "corePaths": [
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/types.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
+        "apps/image-board-desktop/src/app/canvasImageAssetState.test.ts"
+      ]
     },
     {
       "id": "host-action-integration",
       "purpose": "Preserve host action predicates and presence-only collaborators without enabling follow mode.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/actions/actionNavigate.tsx", "packages/excalidraw/actions/manager.tsx"],
-      "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx"]
+      "corePaths": [
+        "packages/excalidraw/actions/actionNavigate.tsx",
+        "packages/excalidraw/actions/manager.tsx"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx"
+      ]
     },
     {
       "id": "host-ui-action-policy",
       "purpose": "Prevent shortcuts and help entries from exposing canvas actions disabled by the host.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/components/App.tsx", "packages/excalidraw/components/HelpDialog.tsx", "packages/excalidraw/components/main-menu/MainMenu.tsx"],
-      "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx"]
+      "corePaths": [
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/components/HelpDialog.tsx",
+        "packages/excalidraw/components/main-menu/MainMenu.tsx"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx"
+      ]
     },
     {
       "id": "host-ui-fallback",
       "purpose": "Suppress default UI fallbacks when host components mount asynchronously.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/components/hoc/withInternalFallback.tsx"],
-      "contractTests": ["packages/excalidraw/components/hoc/withInternalFallback.test.tsx"]
+      "corePaths": [
+        "packages/excalidraw/components/hoc/withInternalFallback.tsx"
+      ],
+      "contractTests": [
+        "packages/excalidraw/components/hoc/withInternalFallback.test.tsx"
+      ]
     },
     {
       "id": "default-sidebar-host-policy",
       "purpose": "Keep the default search sidebar and its shortcut disabled when the host opts out of the default sidebar.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/actions/actionToggleSearchMenu.ts"],
-      "contractTests": ["apps/image-board-desktop/src/app/App.test.tsx"]
+      "corePaths": [
+        "packages/excalidraw/actions/actionToggleSearchMenu.ts"
+      ],
+      "contractTests": [
+        "apps/image-board-desktop/src/app/App.test.tsx"
+      ]
     },
     {
       "id": "inspector-integration",
       "purpose": "Render selected shape actions in the CoreStudio inspector and suppress the default sidebar.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/components/App.tsx", "packages/excalidraw/components/LayerUI.tsx", "packages/excalidraw/index.tsx", "packages/excalidraw/types.ts"],
-      "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx", "apps/image-board-desktop/src/app/App.test.tsx"]
-    },
-    {
-      "id": "footer-host-actions",
-      "purpose": "Let CoreStudio place canvas utility actions beside native footer controls without coordinate-based overlays.",
-      "disposition": "keep-core-patch",
       "corePaths": [
-        "packages/excalidraw/components/Actions.scss",
-        "packages/excalidraw/components/Actions.tsx",
-        "packages/excalidraw/components/footer/Footer.tsx",
-        "packages/excalidraw/components/footer/FooterNavigation.tsx",
-        "packages/excalidraw/components/footer/FooterNavigationContext.tsx",
-        "packages/excalidraw/components/footer/FooterRight.tsx",
-        "packages/excalidraw/context/tunnels.ts",
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/components/LayerUI.tsx",
         "packages/excalidraw/index.tsx",
-        "packages/excalidraw/tests/__snapshots__/excalidraw.test.tsx.snap"
+        "packages/excalidraw/types.ts"
       ],
-      "contractTests": ["packages/excalidraw/tests/excalidraw.test.tsx", "apps/image-board-desktop/src/app/App.test.tsx"]
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
+        "apps/image-board-desktop/src/app/App.test.tsx"
+      ]
     },
     {
       "id": "viewport-minimum-zoom",
       "purpose": "Keep one-percent minimum zoom for large CoreStudio workspaces.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/common/src/constants.ts"],
-      "contractTests": ["packages/excalidraw/tests/fitToContent.test.tsx"]
+      "corePaths": [
+        "packages/common/src/constants.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/fitToContent.test.tsx"
+      ]
     },
     {
       "id": "desktop-node-runtime-compatibility",
       "purpose": "Keep shared environment helpers safe when they are bundled into the Electron main process without Vite import-meta environment injection.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/common/src/utils.ts"],
-      "contractTests": ["apps/image-board-desktop/electron/agent/prepareAgentWriterCommand.test.ts"]
+      "corePaths": [
+        "packages/common/src/utils.ts"
+      ],
+      "contractTests": [
+        "apps/image-board-desktop/electron/agent/prepareAgentWriterCommand.test.ts"
+      ]
     },
     {
       "id": "trackpad-wheel-zoom",
       "purpose": "Provide host-configurable trackpad sensitivity and anchor wheel zoom to the current event so focus transitions cannot reuse a stale pointer position.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/components/App.tsx", "packages/excalidraw/index.tsx", "packages/excalidraw/scene/zoom.ts", "packages/excalidraw/types.ts"],
-      "contractTests": ["packages/excalidraw/tests/corestudioCompatibility.test.tsx", "packages/excalidraw/tests/zoom.test.ts"]
-    },
-    {
-      "id": "minimap-toggle-accessibility",
-      "purpose": "Preserve the pressed-state accessibility contract for the CoreStudio minimap toggle.",
-      "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/components/IconButton.tsx"],
-      "contractTests": ["apps/image-board-desktop/src/app/components/CanvasMinimap.test.tsx"]
+      "corePaths": [
+        "packages/excalidraw/components/App.wheel.ts",
+        "packages/excalidraw/index.tsx",
+        "packages/excalidraw/scene/zoom.ts",
+        "packages/excalidraw/types.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/corestudioCompatibility.test.tsx",
+        "packages/excalidraw/tests/zoom.test.ts",
+        "packages/excalidraw/tests/wheel.test.tsx"
+      ]
     },
     {
       "id": "arrange-grid",
@@ -184,35 +207,66 @@
         "packages/excalidraw/locales/en.json",
         "packages/excalidraw/locales/zh-CN.json"
       ],
-      "contractTests": ["packages/element/src/__tests__/arrange.test.ts"]
+      "contractTests": [
+        "packages/element/src/__tests__/arrange.test.ts"
+      ]
     },
     {
       "id": "clipboard-and-images",
       "purpose": "Preserve editable clipboard payloads, full-resolution PNG copy, copy failure handling, and image replacement ordering.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/element/src/image.ts", "packages/excalidraw/actions/actionClipboard.tsx", "packages/excalidraw/components/App.tsx", "packages/excalidraw/index.tsx", "packages/excalidraw/types.ts"],
-      "contractTests": ["packages/element/tests/image.test.ts", "packages/excalidraw/actions/actionClipboard.test.tsx", "packages/excalidraw/tests/clipboard.test.tsx", "apps/image-board-desktop/src/app/projectImageImportController.test.ts"]
+      "corePaths": [
+        "packages/element/src/image.ts",
+        "packages/excalidraw/actions/actionClipboard.tsx",
+        "packages/excalidraw/components/App.tsx",
+        "packages/excalidraw/index.tsx",
+        "packages/excalidraw/types.ts",
+        "packages/excalidraw/components/App.clipboard.ts"
+      ],
+      "contractTests": [
+        "packages/element/tests/image.test.ts",
+        "packages/excalidraw/actions/actionClipboard.test.tsx",
+        "packages/excalidraw/tests/clipboard.test.tsx",
+        "apps/image-board-desktop/src/app/projectImageImportController.test.ts",
+        "packages/excalidraw/actions/actionDeleteSelected.test.tsx"
+      ]
     },
     {
       "id": "export-rendering-policy",
       "purpose": "Hide frame names and outlines in image exports while preserving frame clipping and editor rendering.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/data/exportFrameRendering.ts", "packages/excalidraw/data/index.ts", "packages/excalidraw/components/ImageExportDialog.tsx"],
-      "contractTests": ["packages/excalidraw/data/exportFrameRendering.test.ts", "packages/excalidraw/data/exportCanvas.test.ts"]
+      "corePaths": [
+        "packages/excalidraw/data/exportFrameRendering.ts",
+        "packages/excalidraw/data/index.ts",
+        "packages/excalidraw/components/ImageExportDialog.tsx"
+      ],
+      "contractTests": [
+        "packages/excalidraw/data/exportFrameRendering.test.ts",
+        "packages/excalidraw/data/exportCanvas.test.ts"
+      ]
     },
     {
       "id": "i18n-module-compatibility",
       "purpose": "Normalize dynamic JSON locale modules produced by the desktop bundler.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/i18n.ts"],
-      "contractTests": ["packages/excalidraw/tests/i18n.test.ts", "packages/excalidraw/tests/excalidraw.test.tsx"]
+      "corePaths": [
+        "packages/excalidraw/i18n.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/i18n.test.ts",
+        "packages/excalidraw/tests/excalidraw.test.tsx"
+      ]
     },
     {
       "id": "self-hosted-font-policy",
       "purpose": "Use only host-provided font roots in strict-CSP and offline desktop environments.",
       "disposition": "keep-core-patch",
-      "corePaths": ["packages/excalidraw/fonts/ExcalidrawFontFace.ts"],
-      "contractTests": ["packages/excalidraw/fonts/ExcalidrawFontFace.test.ts"]
+      "corePaths": [
+        "packages/excalidraw/fonts/ExcalidrawFontFace.ts"
+      ],
+      "contractTests": [
+        "packages/excalidraw/fonts/ExcalidrawFontFace.test.ts"
+      ]
     },
     {
       "id": "build-and-test-integration",
@@ -220,7 +274,15 @@
       "disposition": "keep-support",
       "corePaths": [],
       "contractTests": [],
-      "supportPaths": ["package.json", "packages/excalidraw/package.json", "packages/excalidraw/vite-env.d.ts", "setupTests.ts", "tsconfig.json", "vitest.config.mts", "yarn.lock"]
+      "supportPaths": [
+        "package.json",
+        "packages/excalidraw/package.json",
+        "packages/excalidraw/vite-env.d.ts",
+        "setupTests.ts",
+        "tsconfig.json",
+        "vitest.config.mts",
+        "yarn.lock"
+      ]
     },
     {
       "id": "upstream-maintenance",
@@ -228,7 +290,28 @@
       "disposition": "keep-support",
       "corePaths": [],
       "contractTests": [],
-      "supportPaths": ["scripts/syncUpstream.mjs", "scripts/syncUpstream.test.ts", "scripts/upstreamBaseline.test.ts", "upstream-baseline.json"]
+      "supportPaths": [
+        "scripts/syncUpstream.mjs",
+        "scripts/syncUpstream.test.ts",
+        "scripts/upstreamBaseline.test.ts",
+        "upstream-baseline.json",
+        "packages/excalidraw/tests/hostAbstraction.test.tsx"
+      ]
+    },
+    {
+      "id": "footer-right-host-actions",
+      "purpose": "保留右下角宿主操作入口；小地图与缩放直接采用上游实现。",
+      "disposition": "keep-core-patch",
+      "corePaths": [
+        "packages/excalidraw/components/footer/FooterRight.tsx",
+        "packages/excalidraw/index.tsx",
+        "packages/excalidraw/context/tunnels.ts",
+        "packages/excalidraw/components/footer/Footer.tsx"
+      ],
+      "contractTests": [
+        "packages/excalidraw/tests/excalidraw.test.tsx",
+        "packages/excalidraw/tests/__snapshots__/excalidraw.test.tsx.snap"
+      ]
     }
   ],
   "generatedArtifactPolicy": {

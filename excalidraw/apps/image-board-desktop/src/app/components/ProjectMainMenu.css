@@ -28,3 +28,12 @@
   background: var(--color-danger-darker);
   box-shadow: 0 0 0 2px var(--color-surface-lowest);
 }
+
+.excalidraw .excalidraw-main-menu-preferences-submenu {
+  min-width: 16rem;
+}
+
+.excalidraw .excalidraw-main-menu-preferences-submenu .RadioGroup {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

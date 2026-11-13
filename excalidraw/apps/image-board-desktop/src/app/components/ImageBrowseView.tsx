@@ -224,10 +224,7 @@ const clampDetailTransform = (
       ? bounds.width / safeAspectRatio
       : bounds.height;
   const maxX = Math.max(0, (baseWidth * transform.scale - bounds.width) / 2);
-  const maxY = Math.max(
-    0,
-    (baseHeight * transform.scale - bounds.height) / 2,
-  );
+  const maxY = Math.max(0, (baseHeight * transform.scale - bounds.height) / 2);
   return {
     scale: transform.scale,
     x: Math.max(-maxX, Math.min(maxX, transform.x)),
@@ -319,7 +316,7 @@ const ImageDetail = ({
     const animationFrame = window.requestAnimationFrame(() => {
       setMotion((current) => (current === "preparing" ? "opening" : current));
     });
-    const tooltip = getTooltipDiv();
+    const tooltip = getTooltipDiv(dialog.ownerDocument);
     dialog.appendChild(tooltip);
     return () => {
       tooltip.classList.remove("excalidraw-tooltip--visible");
@@ -468,9 +465,7 @@ const ImageDetail = ({
           ref={imageStageRef}
           className="image-browse-detail__image"
           data-panning={panning ? "true" : "false"}
-          data-zoomed={
-            viewTransform.scale > MIN_DETAIL_ZOOM ? "true" : "false"
-          }
+          data-zoomed={viewTransform.scale > MIN_DETAIL_ZOOM ? "true" : "false"}
           onWheel={(event) => {
             event.preventDefault();
             zoomBy(Math.exp(-event.deltaY * 0.002), {

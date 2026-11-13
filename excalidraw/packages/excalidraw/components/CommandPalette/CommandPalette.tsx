@@ -6,6 +6,7 @@ import {
   DEFAULT_SIDEBAR,
   EVENT,
   KEYS,
+  arrayToMap,
   isWritableElement,
 } from "@excalidraw/common";
 
@@ -313,6 +314,7 @@ function CommandPaletteInner({
         actionManager.actions.copy,
         actionManager.actions.deleteSelectedElements,
         actionManager.actions.wrapSelectionInFrame,
+        actionManager.actions.toggleWrap,
         actionManager.actions.copyStyles,
         actionManager.actions.pasteStyles,
         actionManager.actions.bringToFront,
@@ -367,7 +369,9 @@ function CommandPaletteInner({
         actionManager.actions.zenMode,
         actionManager.actions.viewMode,
         actionManager.actions.gridMode,
+        actionManager.actions.minimap,
         actionManager.actions.objectsSnapMode,
+        actionManager.actions.showHints,
         actionManager.actions.toggleShortcuts,
         actionManager.actions.selectAll,
         actionManager.actions.toggleElementLock,
@@ -487,7 +491,11 @@ function CommandPaletteInner({
             const selectedElements = getSelectedElements(elements, appState);
             return (
               selectedElements.length > 0 &&
-              canChangeBackgroundColor(appState, selectedElements)
+              canChangeBackgroundColor(
+                appState,
+                selectedElements,
+                arrayToMap(elements),
+              )
             );
           },
           perform: () => {

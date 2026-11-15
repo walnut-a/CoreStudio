@@ -1267,3 +1267,16 @@ sha256: c9f4565fee75fb87de2c5672ff6efb7c5fa22585b4ffaf59ac2f145f3e4fc673
 - 排除主工作区未提交的 README、性能分析文档、浮动状态提示样式和 tools 目录；正式包从干净提交构建。
 - 保持原生小地图避让所需的生成框高度上报接线；既有 SOURCE DEV 新功能、偏好冷启动恢复验收证据继续适用。
 - 正式交付按 Desktop CI、一次生产构建、签名公证、packaged smoke、公开 DMG 下载校验、模型目录与稳定版清单的顺序执行。更新清单只在公开附件验证成功后发布。
+
+### 1.1.61 发布验收
+
+- 发布源码：`68e384aa72bce8af6abe8c4ea647ec9d0ac58415`，PR #174；标签 `v1.1.61` 精确指向该提交。
+- 正式 Desktop CI 通过：[43725925584](https://github.com/walnut-a/CoreStudio/actions/runs/43725925584)。30 个桌面测试文件、114 项测试通过；3 个 Agent Node 集成测试文件、8 项测试通过；类型检查、文档一致性、密钥扫描、生产构建和包体预算通过。本地 4 个定向测试文件、12 项回归通过。
+- 从干净主线执行一次正式生产打包；Apple 公证 `0065d4a7-33c5-4282-ba2d-efe5cd8a5f0a` 为 Accepted，App 和 DMG 的签名、公证票据及 Gatekeeper 校验通过；构建路径与发布密钥扫描通过。
+- 已签名包的 packaged smoke 通过：旧版与多宿主 Agent 安装资源、隔离正式模式和 QA 模式均正常加载；测试进程已退出。
+- 23 个 Agent 接入文件与 GitHub main 的哈希、中英文官网内容一致性检查通过。
+- 唯一发布附件 `CoreStudio-1.1.61-arm64.dmg`，135870500 字节；`hdiutil verify` 通过。
+- SHA-256：`f320855879eb9f75a80ac097cea13f2041121311a3f08d50ab4760196bdc13df`。
+- [GitHub Release](https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.61) 于 `2026-11-15T15:04:37Z` 公开；从公开链接重新下载，大小和 SHA-256 与验收包一致。
+- 模型目录仓库已发布至 `ccb937e`，公开 revision 6 JSON 与客户端内置目录一致；旧版目录保留。稳定版清单使用实际 Release 时间、附件大小和哈希，合同测试通过。
+- 本次仅发布安装包，不替换本机已安装正式 App；主工作区未提交修改保留。未执行付费生图测试。

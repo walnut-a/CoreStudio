@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.60",
-  "publishedAt": "2026-10-08T15:48:34Z",
+  "version": "1.1.61",
+  "publishedAt": "2026-11-15T15:04:37Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.60",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.61",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.60/CoreStudio-1.1.60-arm64.dmg",
-    "size": 137469889,
-    "sha256": "f16494eda8e04e65d3840c9dc59bf1484c09eb082b12873448eeb627566e75be"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.61/CoreStudio-1.1.61-arm64.dmg",
+    "size": 135870500,
+    "sha256": "f320855879eb9f75a80ac097cea13f2041121311a3f08d50ab4760196bdc13df"
   },
   "summary": {
     "zh-CN": [
-      "优化图片密集画布的平移与缩放，减少重复计算和小地图绘制",
-      "按视口分批切换图片清晰度，缩回总览后降低高清图占用",
-      "修复画廊大图的方向键切换"
+      "升级画布内核与上游小地图，新增便签、文字包裹等编辑功能",
+      "保存常用字体、颜色收藏与鼠标或触控板偏好，完善 Mermaid 和中文体验",
+      "更新 revision 6 图片模型目录，内置 73 个模型预置"
     ],
     "en": [
-      "Reduce repeated processing and minimap drawing when navigating image-heavy canvases",
-      "Load image detail in viewport-based batches and reduce high-resolution usage when zooming out",
-      "Fix arrow-key navigation in the gallery image viewer"
+      "Upgrade the canvas engine and minimap with sticky notes, text wrapping, and more editing tools",
+      "Persist favorite fonts, colors, and input device preferences; improve Mermaid and Chinese localization",
+      "Update the image model catalog to revision 6 with 73 built-in presets"
     ]
   }
 }

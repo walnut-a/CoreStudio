@@ -12,8 +12,10 @@ export const DESKTOP_RENDERER_BUDGETS: Record<string, number> = {
   "subset-shared.chunk": 2_005_000,
   index: 805_000,
   "mermaid-to-excalidraw": 795_000,
-  cynefin: 760_000,
-  "excalidraw-core": 615_000,
+  // Mermaid 3.6 已拆分图表模块，不再产出 cynefin；补上桌面入口预算。
+  main: 760_000,
+  // 82d5847 引入便签与新版渲染/导出，当前实测 627,126 bytes。
+  "excalidraw-core": 635_000,
   "codemirror.chunk": 320_000,
   "vendor-ui": 225_000,
   "vendor-react": 205_000,

@@ -1,7 +1,7 @@
 import {
   getAspectRatioOptions,
   getRequestAspectRatioOption,
-  isGptImage25Model,
+  isGptImageExtendedQualityModel,
   isGptImage2OrLaterModel,
 } from "../../src/shared/providerCatalog";
 
@@ -262,7 +262,7 @@ export const generateOpenAIImages = async ({
       : null);
   const imageCount = clampImageCount(
     request,
-    isGptImage25Model(request.model) ? 10 : maxImageCount,
+    isGptImageExtendedQualityModel(request.model) ? 10 : maxImageCount,
   );
   const endpoint = uploadReferenceImages.length
     ? endpoints.edits

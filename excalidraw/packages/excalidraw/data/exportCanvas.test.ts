@@ -10,14 +10,12 @@ const {
   canvasToBlob,
   copyBlobToClipboardAsPng,
   copyTextToSystemClipboard,
-  exportToCanvas,
-  exportToSvg,
+  exportScene,
 } = vi.hoisted(() => ({
   canvasToBlob: vi.fn(),
   copyBlobToClipboardAsPng: vi.fn(),
   copyTextToSystemClipboard: vi.fn(),
-  exportToCanvas: vi.fn(),
-  exportToSvg: vi.fn(),
+  exportScene: vi.fn(),
 }));
 
 vi.mock("../clipboard", () => ({
@@ -25,9 +23,9 @@ vi.mock("../clipboard", () => ({
   copyTextToSystemClipboard,
 }));
 
-vi.mock("../scene/export", () => ({
-  exportToCanvas,
-  exportToSvg,
+vi.mock("../scene/export", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../scene/export")>(),
+  exportScene,
 }));
 
 vi.mock("./blob", () => ({
@@ -65,7 +63,7 @@ describe("exportCanvas frame rendering", () => {
   });
 
   it("hides frame names and outlines in SVG clipboard exports", async () => {
-    exportToSvg.mockResolvedValue(
+    exportScene.mockResolvedValue(
       document.createElementNS("http://www.w3.org/2000/svg", "svg"),
     );
 
@@ -77,25 +75,16 @@ describe("exportCanvas frame rendering", () => {
       exportOptions,
     );
 
-    expect(exportToSvg).toHaveBeenCalledWith(
-      elements,
-      expect.objectContaining({
-        frameRendering: {
-          enabled: true,
-          clip: true,
-          name: false,
-          outline: false,
-        },
-      }),
-      {},
-      { exportingFrame: null },
-    );
+    expect(exportScene).toHaveBeenCalledWith(expect.objectContaining({
+      type: "svg",
+      config: expect.objectContaining({ frames: { enabled: true, clip: true, name: false, outline: false } }),
+    }));
   });
 
   it("hides frame names and outlines in PNG clipboard exports", async () => {
     const canvas = document.createElement("canvas");
     const blob = new Blob();
-    exportToCanvas.mockReturnValue(canvas);
+    exportScene.mockResolvedValue(canvas);
     canvasToBlob.mockResolvedValue(blob);
 
     await exportCanvas(
@@ -106,19 +95,10 @@ describe("exportCanvas frame rendering", () => {
       exportOptions,
     );
 
-    expect(exportToCanvas).toHaveBeenCalledWith(
-      elements,
-      expect.objectContaining({
-        frameRendering: {
-          enabled: true,
-          clip: true,
-          name: false,
-          outline: false,
-        },
-      }),
-      {},
-      expect.objectContaining({ exportingFrame: null }),
-    );
+    expect(exportScene).toHaveBeenCalledWith(expect.objectContaining({
+      type: "canvas",
+      config: expect.objectContaining({ frames: { enabled: true, clip: true, name: false, outline: false } }),
+    }));
     const [blobPromise] = copyBlobToClipboardAsPng.mock.calls[0];
     await expect(blobPromise).resolves.toBe(blob);
   });

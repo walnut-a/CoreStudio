@@ -86,6 +86,11 @@ export const ProjectMainMenu = ({
     </MainMenu.Group>
 
     <MainMenu.Separator />
+    {canvasUtilityActionsVisible ? (
+      <MainMenu.DefaultItems.Preferences>
+        <MainMenu.DefaultItems.Preferences.InputDevice />
+      </MainMenu.DefaultItems.Preferences>
+    ) : null}
     {canvasUtilityActionsVisible ? <MainMenu.DefaultItems.Help /> : null}
     <MainMenu.DefaultItems.ToggleTheme allowSystemTheme={false} />
   </MainMenu>

@@ -1,5 +1,7 @@
 {
   "labels": {
+    "signUp": "",
+    "signIn": "",
     "paste": "粘贴",
     "pasteAsPlaintext": "粘贴为纯文本",
     "pasteCharts": "粘贴图表",
@@ -27,6 +29,7 @@
     "stroke": "描边",
     "changeStroke": "更改描边颜色",
     "background": "背景",
+    "textColor": "文字颜色",
     "changeBackground": "更改背景颜色",
     "fill": "填充",
     "strokeWidth": "描边宽度",
@@ -109,7 +112,10 @@
     "group": "编组",
     "ungroup": "解除编组",
     "collaborators": "协作者",
+    "you": "",
     "toggleGrid": "切换网格显示",
+    "minimap": "小地图",
+    "zoom": "缩放",
     "addToLibrary": "添加到素材库中",
     "removeFromLibrary": "从素材库中移除",
     "libraryLoadingMessage": "正在加载素材库…",
@@ -193,7 +199,10 @@
     "boxSelectionContain": "",
     "boxSelectionOverlap": "",
     "arrowBinding": "箭头绑定",
-    "midpointSnapping": "吸附到中点"
+    "midpointSnapping": "吸附到中点",
+    "inputDevice": "输入设备",
+    "inputDeviceTrackpad": "触控板",
+    "inputDeviceMouse": "鼠标"
   },
   "elementLink": {
     "title": "链接到对象",
@@ -243,6 +252,7 @@
     "undo": "撤销",
     "redo": "重做",
     "resetLibrary": "重置素材库",
+    "reset": "重置",
     "createNewRoom": "新建会议室",
     "fullScreen": "全屏",
     "darkMode": "深色模式",
@@ -333,10 +343,16 @@
     "embeddable": "嵌入网页",
     "laser": "激光笔",
     "autoshape": "",
+    "bucketfill": "",
     "hand": "抓手（平移工具）",
     "extraTools": "更多工具",
     "mermaidToExcalidraw": "Mermaid 至 Excalidraw",
-    "convertElementType": "切换形状种类"
+    "convertElementType": "切换形状种类",
+    "stickynote": "便签"
+  },
+  "bucketfill": {
+    "noRegion": "",
+    "tooComplex": ""
   },
   "element": {
     "rectangle": "矩形",
@@ -352,7 +368,8 @@
     "magicframe": "线框图至代码",
     "embeddable": "嵌入网页",
     "selection": "选择",
-    "iframe": "IFrame"
+    "iframe": "IFrame",
+    "stickynote": "便签"
   },
   "headings": {
     "canvasActions": "画布动作",
@@ -389,7 +406,8 @@
     "firefox_clipboard_write": "将高级配置首选项“dom.events.asyncClipboard.clipboardItem”设置为“true”可以启用此功能。要更改 Firefox 的高级配置首选项，请前往“about:config”页面。",
     "disableSnapping": "按住{{shortcut}}禁用吸附",
     "enterCropEditor": "双击图片或按{{shortcut}}开始裁剪",
-    "leaveCropEditor": "点击图片以外的区域或按{{shortcut_1}}或{{shortcut_2}}完成裁剪"
+    "leaveCropEditor": "点击图片以外的区域或按{{shortcut_1}}或{{shortcut_2}}完成裁剪",
+    "stickynote": "点击放置便签，或拖动调整大小"
   },
   "canvasError": {
     "cannotShowPreview": "无法显示预览",
@@ -607,7 +625,9 @@
     "hexCode": "十六进制值",
     "noShades": "此颜色没有可用的明暗变化",
     "invalidColor": "",
-    "invalidHexLength": ""
+    "invalidHexLength": "",
+    "topPicksTip": "提示：将颜色拖到常用颜色栏即可固定",
+    "resetTopPicks": "恢复默认常用颜色"
   },
   "overwriteConfirm": {
     "action": {
@@ -643,7 +663,7 @@
   "mermaid": {
     "title": "Mermaid 至 Excalidraw",
     "button": "插入",
-    "description": "目前仅支持<flowchartLink>流程图</flowchartLink>、<sequenceLink>序列图</sequenceLink>、<classLink>类图</classLink>和<erdLink>实体关系（ER）图</erdLink>。其他类型在 Excalidraw 中将以图像呈现。",
+    "description": "<flowchartLink>流程图</flowchartLink>、<sequenceLink>序列图</sequenceLink>、<classLink>类图</classLink>、<stateLink>状态图</stateLink>、<erdLink>实体关系图</erdLink>、<ganttLink>甘特图</ganttLink>、<quadrantLink>象限图</quadrantLink>和<timelineLink>时间线</timelineLink>会转换为可编辑的 Excalidraw 图元。其他类型将作为图片插入。",
     "syntax": "Mermaid 语法",
     "preview": "预览",
     "label": "Mermaid",
@@ -705,7 +725,9 @@
     },
     "sceneFonts": "画布中的",
     "availableFonts": "可用字体",
-    "empty": "未找到字体"
+    "empty": "未找到字体",
+    "topPicksTip": "提示：将字体拖到常用字体栏即可固定",
+    "resetTopPicks": "恢复默认常用字体"
   },
   "userList": {
     "empty": "未找到用户",

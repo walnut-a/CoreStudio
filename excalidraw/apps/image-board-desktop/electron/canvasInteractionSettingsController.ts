@@ -1,6 +1,7 @@
 import {
   DEFAULT_TRACKPAD_ZOOM_SPEED,
   type DesktopCanvasInteractionSettings,
+  type DesktopCanvasPreferences,
   type TrackpadZoomSpeed,
 } from "../src/shared/canvasInteractionSettings";
 
@@ -8,6 +9,9 @@ interface CanvasInteractionSettingsStore {
   load: () => Promise<DesktopCanvasInteractionSettings>;
   save: (
     trackpadZoomSpeed: TrackpadZoomSpeed,
+  ) => Promise<DesktopCanvasInteractionSettings>;
+  savePreferences: (
+    preferences: DesktopCanvasPreferences,
   ) => Promise<DesktopCanvasInteractionSettings>;
 }
 
@@ -36,5 +40,7 @@ export const createCanvasInteractionSettingsController = ({
     getSettings: () => settings,
     saveTrackpadZoomSpeed: async (trackpadZoomSpeed: TrackpadZoomSpeed) =>
       apply(await store.save(trackpadZoomSpeed)),
+    savePreferences: async (preferences: DesktopCanvasPreferences) =>
+      apply(await store.savePreferences(preferences)),
   };
 };

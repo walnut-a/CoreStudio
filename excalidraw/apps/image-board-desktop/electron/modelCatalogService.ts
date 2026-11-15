@@ -7,7 +7,10 @@ import {
   type RemoteModelCatalog,
 } from "../src/shared/modelCatalogContract";
 import { MODEL_CATALOG_DOWNLOAD_URL } from "../src/shared/modelCatalogMetadata";
-import { applyRemoteModelCatalog } from "../src/shared/providerCatalog";
+import {
+  applyRemoteModelCatalog,
+  BUILTIN_MODEL_CATALOG,
+} from "../src/shared/providerCatalog";
 
 const CATALOG_FILE_NAME = "model-catalog.v1.json";
 const MAX_CATALOG_BYTES = 256 * 1024;
@@ -30,9 +33,9 @@ export const createModelCatalogService = ({
 }: ModelCatalogServiceOptions) => {
   let state: ModelCatalogSnapshot = {
     source: "builtin",
-    revision: null,
+    revision: BUILTIN_MODEL_CATALOG.revision,
     checkedAt: null,
-    catalog: null,
+    catalog: BUILTIN_MODEL_CATALOG,
   };
   const cachePath = path.join(cacheDirectory, CATALOG_FILE_NAME);
 
@@ -41,6 +44,8 @@ export const createModelCatalogService = ({
     source: ModelCatalogSnapshot["source"],
     checkedAt: string | null,
   ) => {
+    if (catalog.revision < (state.revision ?? BUILTIN_MODEL_CATALOG.revision))
+      return state;
     applyRemoteModelCatalog(catalog);
     state = {
       source,
@@ -109,6 +114,9 @@ export const createModelCatalogService = ({
       throw new Error("模型目录不是有效的 JSON");
     }
     const catalog = parseRemoteModelCatalog(parsed, appVersion);
+
+    if (catalog.revision < (state.revision ?? BUILTIN_MODEL_CATALOG.revision))
+      return state;
 
     await fs.mkdir(cacheDirectory, { recursive: true });
     const temporaryPath = `${cachePath}.${process.pid}.tmp`;

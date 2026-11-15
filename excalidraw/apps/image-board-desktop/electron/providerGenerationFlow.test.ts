@@ -308,3 +308,88 @@ describe("配置服务后生成图片", () => {
     });
   });
 });
+
+describe("新目录的请求协议", () => {
+  it("Nano Banana 2.1 直连走 generateContent 并发送尺寸档位", async () => {
+    const model = "gemini-nano-banana-2.1";
+    await saveProviderSettings({
+      provider: "gemini",
+      apiKey: "test-key",
+      defaultModel: model,
+    });
+    host.generateContent.mockResolvedValue({
+      candidates: [
+        {
+          content: {
+            parts: [
+              { inlineData: { mimeType: "image/png", data: imageBase64 } },
+            ],
+          },
+        },
+      ],
+    });
+    await generateImages({
+      request: { ...request("gemini", model), width: 2048, height: 2048 },
+    });
+    expect(host.generateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model,
+        config: expect.objectContaining({
+          imageConfig: expect.objectContaining({ imageSize: "2K" }),
+        }),
+      }),
+    );
+  });
+
+  it("fal Nano Banana 2.1 参考图进入 edit，低尺寸请求不发送不支持的 0.5K", async () => {
+    const model = "google/nano-banana-2.1";
+    await saveProviderSettings({
+      provider: "fal",
+      apiKey: "test-key",
+      defaultModel: model,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          images: [{ url: "https://images.example.com/new.png" }],
+        }),
+      )
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => imageBytes });
+    await generateImages({
+      request: {
+        ...request("fal", model),
+        width: 512,
+        height: 512,
+        reference: {
+          enabled: true,
+          elementCount: 1,
+          textCount: 0,
+          image: { mimeType: "image/png", dataBase64: imageBase64 },
+        },
+      },
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://fal.run/google/nano-banana-2.1/edit",
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      resolution: "1K",
+      image_urls: [`data:image/png;base64,${imageBase64}`],
+    });
+  });
+
+  it("Seedream 5.5 不发送不支持的组图参数", async () => {
+    const model = "doubao-seedream-5-5-261028";
+    await saveProviderSettings({
+      provider: "jimeng",
+      apiKey: "test-key",
+      defaultModel: model,
+    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ data: [{ b64_json: imageBase64 }] }),
+    );
+    await generateImages({ request: request("jimeng", model) });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.model).toBe(model);
+    expect(body).not.toHaveProperty("sequential_image_generation");
+  });
+});

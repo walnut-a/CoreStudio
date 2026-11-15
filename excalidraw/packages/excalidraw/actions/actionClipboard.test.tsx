@@ -124,7 +124,7 @@ describe("project-aware clipboard hooks", () => {
 
     await actionPaste.perform([], {} as any, null, {
       props: { onPaste },
-      pasteFromClipboard,
+      clipboard: { pasteFromClipboard },
     } as any);
 
     expect(pasteFromClipboard).toHaveBeenCalledOnce();

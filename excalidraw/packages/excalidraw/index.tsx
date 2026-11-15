@@ -21,7 +21,6 @@ import App, {
 import { InitializeApp } from "./components/InitializeApp";
 import Footer from "./components/footer/FooterCenter";
 import FooterRight from "./components/footer/FooterRight";
-import FooterNavigation from "./components/footer/FooterNavigation";
 import LiveCollaborationTrigger from "./components/live-collaboration/LiveCollaborationTrigger";
 import MainMenu from "./components/main-menu/MainMenu";
 import WelcomeScreen from "./components/welcome-screen/WelcomeScreen";
@@ -42,6 +41,7 @@ import type {
   AppState,
   ExcalidrawImperativeAPI,
   ExcalidrawProps,
+  UIConfig,
 } from "./types";
 
 polyfill();
@@ -69,6 +69,9 @@ export const ExcalidrawAPIProvider = ({
 const ExcalidrawBase = (props: ExcalidrawProps) => {
   const {
     onExport,
+    className,
+    ownerDocument = document,
+    renderEnvironment,
     onChange,
     onThemeChange,
     onIncrement,
@@ -199,20 +202,23 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
       }
     };
 
-    document.addEventListener("touchmove", handleTouchMove, {
+    ownerDocument.addEventListener("touchmove", handleTouchMove, {
       passive: false,
     });
 
     return () => {
-      document.removeEventListener("touchmove", handleTouchMove);
+      ownerDocument.removeEventListener("touchmove", handleTouchMove);
     };
-  }, [browserZoomAllowed]);
+  }, [browserZoomAllowed, ownerDocument]);
 
   return (
     <EditorJotaiProvider store={editorJotaiStore}>
       <InitializeApp langCode={langCode} theme={theme}>
         <App
           onExport={onExport}
+          className={className}
+          ownerDocument={ownerDocument}
+          renderEnvironment={renderEnvironment}
           onChange={onChange}
           onThemeChange={onThemeChange}
           onIncrement={onIncrement}
@@ -270,6 +276,22 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
       </InitializeApp>
     </EditorJotaiProvider>
   );
+};
+
+/** Same form (`enabled` or `disabled`), with the same controls in it. */
+const isUIConfigSame = (prev: UIConfig, next: UIConfig) => {
+  const getControls = (config: UIConfig) =>
+    ("enabled" in config ? config.enabled : config.disabled) as
+      | Record<string, boolean | undefined>
+      | undefined;
+  if ("enabled" in prev !== "enabled" in next) {
+    return false;
+  }
+  const prevControls = getControls(prev) ?? {};
+  const nextControls = getControls(next) ?? {};
+  return [
+    ...new Set([...Object.keys(prevControls), ...Object.keys(nextControls)]),
+  ].every((control) => !!prevControls[control] === !!nextControls[control]);
 };
 
 const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
@@ -343,9 +365,7 @@ const areEqual = (prevProps: ExcalidrawProps, nextProps: ExcalidrawProps) => {
       prevUI !== null &&
       typeof nextUI === "object" &&
       nextUI !== null &&
-      !!prevUI.enabled?.zoom === !!nextUI.enabled?.zoom &&
-      !!prevUI.enabled?.scrollBackToContent ===
-        !!nextUI.enabled?.scrollBackToContent);
+      isUIConfigSame(prevUI, nextUI));
 
   if (!isUISame) {
     return false;
@@ -427,12 +447,13 @@ export {
 
 export { reconcileElements } from "./data/reconcile";
 
-export {
-  exportToCanvas,
-  exportToBlob,
-  exportToSvg,
-  exportToClipboard,
-} from "@excalidraw/utils/export";
+export { exportScene, exportToClipboard } from "./scene/export";
+
+export type {
+  ExportSceneData,
+  ExportSceneConfig,
+  ExportSceneOptions,
+} from "./scene/export";
 
 export { serializeAsJSON, serializeLibraryAsJSON } from "./data/json";
 export {
@@ -469,7 +490,7 @@ export { parseLibraryTokensFromUrl, useHandleLibrary } from "./data/library";
 
 export { Sidebar } from "./components/Sidebar/Sidebar";
 export { Button } from "./components/Button";
-export { Footer, FooterNavigation, FooterRight };
+export { Footer, FooterRight };
 export { MainMenu };
 export { Ellipsify } from "./components/Ellipsify";
 export {
@@ -486,14 +507,22 @@ export { Stats } from "./components/Stats";
 export { DefaultSidebar } from "./components/DefaultSidebar";
 export { TTDDialog } from "./components/TTDDialog/TTDDialog";
 export { TTDDialogTrigger } from "./components/TTDDialog/TTDDialogTrigger";
-export { TTDStreamFetch } from "./components/TTDDialog/utils/TTDStreamFetch";
+export {
+  TTDStreamFetch,
+  parseSSEStream,
+} from "./components/TTDDialog/utils/TTDStreamFetch";
+export type { StreamChunk } from "./components/TTDDialog/utils/TTDStreamFetch";
 export type {
   TTDPersistenceAdapter,
   SavedChat,
   SavedChats,
 } from "./components/TTDDialog/types";
 
-export type { ViewportStatusFrame } from "./types";
+export type {
+  ViewportStatusFrame,
+  ElementRenderOverride,
+  ElementRenderOverrides,
+} from "./types";
 
 export { zoomToFitBounds, DEFAULT_OVERSCROLL } from "./viewport";
 
@@ -512,6 +541,7 @@ export { isElementLink } from "@excalidraw/element";
 export { Fonts } from "./fonts/Fonts";
 
 export { setCustomTextMetricsProvider } from "@excalidraw/element";
+export type { RenderEnvironment } from "@excalidraw/element";
 
 export { CommandPalette } from "./components/CommandPalette/CommandPalette";
 

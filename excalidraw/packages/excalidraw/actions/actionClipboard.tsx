@@ -70,7 +70,7 @@ export const actionPaste = register({
       types = await readSystemClipboard();
     } catch (error: any) {
       if (app.props.onPaste) {
-        await app.pasteFromClipboard(createPasteEvent({ types: {} }));
+        await app.clipboard.pasteFromClipboard(createPasteEvent({ types: {} }));
         return {
           captureUpdate: CaptureUpdateAction.EVENTUALLY,
         };
@@ -104,7 +104,7 @@ export const actionPaste = register({
     }
 
     try {
-      app.pasteFromClipboard(createPasteEvent({ types }));
+      app.clipboard.pasteFromClipboard(createPasteEvent({ types }));
     } catch (error: any) {
       console.error(error);
       return {
@@ -134,7 +134,12 @@ export const actionCut = register<ClipboardEvent | null>({
     if (copyResult === false || copyResult?.appState?.errorMessage) {
       return copyResult;
     }
-    return actionDeleteSelected.perform(elements, appState, null, app);
+    return actionDeleteSelected.perform(
+      elements,
+      appState,
+      { withFrameChildren: true },
+      app,
+    );
   },
   keyTest: (event) => event[KEYS.CTRL_OR_CMD] && event.key === KEYS.X,
 });
@@ -164,9 +169,9 @@ export const actionCopyAsSvg = register({
         appState,
         app.files,
         {
-          ...appState,
           exportingFrame,
           name: app.getName(),
+          renderEnvironment: app.renderEnvironment,
         },
       );
 
@@ -234,9 +239,9 @@ export const actionCopyAsPng = register({
         (await app.props.onCopyAsPng?.(exportedElements, app.files)) ??
         app.files;
       await exportCanvas("clipboard", exportedElements, appState, exportFiles, {
-        ...appState,
         exportingFrame,
         name: app.getName(),
+        renderEnvironment: app.renderEnvironment,
       });
       return {
         appState: {

@@ -142,6 +142,8 @@ const desktopBridge: DesktopBridgeApi = {
     ipcRenderer.invoke(IPC_CHANNELS.loadCanvasInteractionSettings),
   saveTrackpadZoomSpeed: (speed) =>
     ipcRenderer.invoke(IPC_CHANNELS.saveTrackpadZoomSpeed, speed),
+  saveCanvasPreferences: (preferences) =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveCanvasPreferences, preferences),
   onCanvasInteractionSettingsChanged: (listener) => {
     const handler = (
       _event: unknown,

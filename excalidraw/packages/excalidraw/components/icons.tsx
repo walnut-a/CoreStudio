@@ -1987,6 +1987,17 @@ export const frameToolIcon = createIcon(
   tablerIconProps,
 );
 
+export const stickyNoteToolIcon = createIcon(
+  <g strokeWidth={1.5}>
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+    <path d="M6 4h12a2 2 0 0 1 2 2v9l-5 5h-9a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z"></path>
+    <path d="M14 20v-4a2 2 0 0 1 2 -2h4"></path>
+    <path d="M8 9h8"></path>
+    <path d="M8 13h5"></path>
+  </g>,
+  tablerIconProps,
+);
+
 export const mermaidLogoIcon = createIcon(
   <path
     fill="currentColor"
@@ -2319,6 +2330,16 @@ export const magnetIcon = createIcon(
     <path d="M4 13v-8a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v8a2 2 0 0 0 6 0v-8a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v8a8 8 0 0 1 -16 0" />
     <path d="M4 8l5 0" />
     <path d="M15 8l4 0" />
+  </g>,
+  tablerIconProps,
+);
+
+export const minimapIcon = createIcon(
+  <g strokeWidth={1.25}>
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M3 7l6 -3l6 3l6 -3v13l-6 3l-6 -3l-6 3v-13" />
+    <path d="M9 4v13" />
+    <path d="M15 7v13" />
   </g>,
   tablerIconProps,
 );

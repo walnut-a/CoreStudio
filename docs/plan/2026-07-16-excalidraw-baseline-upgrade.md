@@ -298,3 +298,119 @@ Arrange Into Grid 本轮没有外移到 CoreStudio 产品层。它依赖 Excalid
 - 补丁范围明显超过 5～8 组，且无法说明每组职责；
 - 自动化测试通过但关键交互出现无法解释的行为变化；
 - 工作区出现与本任务范围重叠的并发修改。
+
+## 2026-11-13 增量升级
+
+目标固定为 `82d5847e57dcb6fb5982833ea9ec2137fe0b2bd5`（11 月 12 日），相较当前基线新增 90 个提交、425 个变更路径；三方合并预检发现 19 个冲突。保留任务开始前的 README、性能分析文档、App.css、App.tsx、GenerateImageDialog.tsx 修改及 tools 目录；恢复补丁位于本机 `/tmp/corestudio-update-20261113/original-changes.patch`。
+
+迁移剪贴板优先级至 `App.clipboard.ts`，滚轮灵敏度与焦点恢复锚点至 `App.wheel.ts`，导出适配新 `exportScene` API。采用上游已经包含的套索与取色修复；依赖保持 CoreStudio 工作区和安全 resolutions，不恢复上游 Web 安装图。
+
+用户追加要求：比较上游小地图，满足需求则删除自定义实现。结论是采用上游：点击定位、拖动视口、滚轮缩放、边缘自动平移、按需加载与 Worker/OffscreenCanvas 已覆盖主要需求。删除自定义组件、几何计算、渲染器及 FooterNavigation 专用隧道；保留仍用于生成框开关的 FooterRight。
+
+实机发现侧栏会覆盖原生底栏，因此只在宿主 SideDock.css 增加侧栏与生成框避让，不修改上游小地图。补齐小地图、缩放和便签的中文文案。原自定义版的方向键导航、独立 localStorage 开关记忆不再保留；上游视口框对应整个画布，没有扣除覆盖在画布上的侧栏，这不影响点击和拖动导航。
+
+模型目录同期更新 revision 6，并将源码最低适配版本设置为 1.1.61；这不是发布记录。外置目录仓库仅本地编辑，不提交、不推送。模型目录详情和验证记录维护在桌面端 `docs/model-catalog.md`。
+
+验证与交付记录：
+
+- 上游补丁登记检查：65 个本地补丁路径全部有分组，无遗漏或冲突标记。
+- `test:typecheck` 通过；桌面测试 27 个文件、105 项通过。定向测试覆盖新小地图、缩放菜单、剪贴板、文件替换、导出和模型目录。
+- `build:desktop` 通过，源码及打包输入 secret scan 检查 800 个文件通过。Mermaid 3.6 的拆包不再产生 cynefin，因此预算删除失效项，新增桌面 main 入口 760 KB；新版核心实际 627,126 bytes，预算由 615 KB 调整到 635 KB。其余预算不变，检查通过。构建仍有 import.meta / CJS 与 chunk 大小提示，无构建错误。
+- 固定 SOURCE DEV / 1.1.61 / b9403708c-dirty 实机检查：1000 元素场景，点击定位、拖拽和滚轮缩放；1470×879 浅色、1000×700 深色、双侧栏与展开的生成设置。确认仅有上游小地图且实际创建 Worker；PNG 导出返回有效图片。
+- 模型设置中确认 ZenMux 34 个预置，并选择 GPT Image 2.6 Flare 检查；未保存测试凭证或发起付费请求。截图与命令日志在本机 `/tmp/corestudio-update-20261113/`。
+- 原有 README、性能分析文档、App.css 和 GenerateImageDialog.tsx 的 diff 与任务前逐字相同；App.tsx 在保留既有改动的基础上删除小地图接入。
+- 验收后通过固定停止入口关闭 PGID 8298，再检查启动器 PGID 7935；剩余进程为 0，5174 / 9331 / 60910 无监听。正式 CoreStudio 未触碰。
+- 本次仅修改工作区和外置目录仓库的本地文件；没有 Git 提交、推送、PR、打包发布或生产安装。
+
+全量回归覆盖 185 个文件：首轮 184 个文件、2,810 项通过，47 项跳过、1 项 todo。
+仅上游新增的两个 frame 剪切用例失败，原因是测试同步断言，而 CoreStudio 会等待
+剪贴板成功后才删除。给测试补齐异步等待后，剪切、剪贴板及补丁登记共 3 个文件、
+15 项定向复测通过；未修改产品剪切行为，未重复运行已通过的全量测试。
+
+## 2026-11-13 新功能专项实机验收
+
+结论：主要新增画布交互在 CoreStudio 中可用；发现常用字体/颜色偏好未持久保存、输入设备偏好缺少入口，以及中文说明未同步三项接入问题。本轮仅验收并记录，没有修复产品代码。
+
+### 环境与方法
+
+- L3 固定入口 `corepack yarn dev:desktop`；启动和收尾均通过 `verify:desktop:source` 核验 SOURCE DEV / 1.1.61 / b9403708c-dirty。
+- 使用专用临时项目 `/private/tmp/corestudio-update-20261113/上游小地图验收`，不操作正式项目、不配置凭证、不发起付费生成。
+- 在真实 Electron 项目窗口，通过生产界面执行键鼠操作；生产 API 仅布置测试夹具。以截图、元素状态与刷新前后数据交叉核对，不把直接调用 API 算作交互通过。
+- 原始证据保存在本机 `/tmp/corestudio-feature-qa-20261113/`：`evidence.json`、`mermaid-fixtures.json`、截图、身份核验和进程收尾日志。临时目录不是长期归档。
+
+### 功能结果
+
+| 功能 | 实机结果 | 关键证据 |
+| --- | --- | --- |
+| 便签 | N 创建、中文多行编辑、详情面板、复制编号递增通过；与流程图一起刷新恢复后，内容和绑定关系一致 | `01-sticky-inspector.png`、`21-restored-content.png` |
+| W 包裹/拆包 | 文本生成矩形容器，再按 W 解除容器，原文保留 | `02-wrap.png`、`wrap/unwrap` |
+| Option 重叠轮选 | 同一位置重复 Option 点击，在两个重叠元素之间轮选 | `03-overlap-selection.png`、`overlap` |
+| 箭头标签拖动 | 标签沿箭头移动，labelPosition 从 0.5 到 0.825，箭头位置和尺寸未改变 | `04-arrow-label.png`、`arrowLabel` |
+| 编辑中文字拖拽复制 | Option 拖拽生成副本，编号从 1 自动变 2，原文保留 | `05-text-alt-duplicate.png`、`textAltDrag` |
+| 生成框与文字焦点 | 输入 n/w 不切换画布工具、不新增元素；便签文字编辑同样正常 | `composerFocus`、`contentBeforeReload` |
+| 图片裁剪 | 导入 600×400 PNG；拖手柄裁剪、双击手柄恢复、Option 对称裁剪、Option+Shift 保持比例通过；宿主详情和图片引用正常 | `08-crop-editor.png`、`09-cropped.png`、`10-crop-modifiers.png` |
+| 常用字体与颜色 | 拖排、从字体列表固定字体、点击应用正常；刷新后收藏顺序丢失，见 F1 | `11-custom-picks.png`、`19-font-pinned.png` |
+| Mermaid | 流程图、甘特图、象限图、时间线均通过真实预览和插入；分别新增 11、21、17、20 个可编辑图元，无图片替代；时间线刷新恢复正常 | `14-mermaid-flow-preview.png`、`15-mermaid-*-preview.png`、`16-mermaid-*-canvas.png` |
+| 画布导航 | 右键拖动平移通过；按住中键滚轮缩放从 1 到 1.116836；Option+方向键沿连接关系选择下一节点 | `navigation`、`middleWheel`、`17-flowchart-navigation.png` |
+| 撤销/重做 | 界面按钮撤销复制后元素数 3→2，重做恢复 3；原生菜单快捷键补验受阻，见限制 | `undoRedo` |
+| 深色与窄窗 | 1000×700、双侧栏下交互可用；本轮截图处于侧栏动画中，不据此判定静态布局问题；稳定布局证据复用前一轮 `minimap-narrow-dark.png` | `20-narrow-dark-docks.png`、前轮小地图证据 |
+
+### 接入问题
+
+**F1 · P2：常用字体和颜色收藏刷新后恢复默认。** 在样式面板把常用字体拖为 `[8,5,6]`，把蓝色拖到常用描边色首位，然后刷新项目。`fontTopPicks` 从该数组变为 `null`，`colorTopPicks.elementStroke` 从自定义数组变为 `null`。已经应用到图元的样式不受此问题影响。
+
+源码核对：`apps/image-board-desktop/src/app/project/sceneSerialization.ts` 的项目序列化使用 `serializeAsJSON(..., "local")`，共享配置使用 `cleanAppStateForExport`；`packages/excalidraw/data/json.ts` 的 local 分支也清理导出状态。`packages/excalidraw/appState.ts` 将这两个偏好字段标为仅 browser 保存，export/server 均不保存，宿主未接入对应的独立偏好持久化。后续应在桌面用户偏好层保存/恢复，避免把个人收藏写进共享项目。复现数据见 `prefsBeforeReload` / `prefsAfterReload`。
+
+**F2 · P3：输入设备偏好缺少产品入口。** 实机主菜单仅有项目操作、关于与更新、帮助、主题；上游输入设备选择未接入。`apps/image-board-desktop/src/app/components/ProjectMainMenu.tsx` 自定义菜单没有上游偏好入口。因此默认导航交互可用，但用户无法从界面选择鼠标/触控板等模式。此项是接入缺口，不是中键缩放或右键平移失效。截图见 `06-main-menu.png`。
+
+**F3 · P3：新增能力的中文说明过时或缺失。** `packages/excalidraw/locales/zh-CN.json` 的 Mermaid 说明仍声称其他图表只能以图片呈现，与甘特图、象限图、时间线实际生成可编辑图元相矛盾。便签样式面板还显示英文 `Text color`，常用颜色相关提示翻译未完整补齐。截图见 `14-mermaid-flow-preview.png`、`01-sticky-inspector.png`。此项不阻断功能，但会误导使用者。
+
+### 验证限制与收尾
+
+- 未发现本轮测试场景的画布内容丢失，未捕获的 renderer 异常为 0。日志中的两次 data URL CSP 拒绝来自测试夹具脚本；改用 File 导入后通过，不计为产品错误。
+- macOS 原生菜单 Cmd+Z / Cmd+D 补验未完成：Computer Use 读取窗口和截图成功，发送原生输入前报 `noWindowsAvailable`。这是工具阻塞，不能据此认定产品快捷键有缺陷。画布快捷键及撤销/重做按钮的通过证据也不替代该原生菜单补验。
+- 箭头变形后标签跟随未取得本轮有效交互证据；本轮确认的是沿路径拖动标签。没有开展发布包、真实付费生成或性能量化验收。
+- 本轮未改产品实现，复用前轮类型、定向测试与构建结果，没有重复全量测试或打包。
+- 已断开本轮 CDP 连接，通过固定 `runtime:stop:source` 停止 SOURCE DEV。Electron PGID 20548 与启动器 PGID 19867 均无残留，5174 / 9331 / 60910 无监听；正式 CoreStudio 和宿主管理的共享运行时未清理。日志见 `stop.log`、`cleanup-final.txt`。
+- 本轮交付为本节验收记录与本机证据，没有 Git 提交、推送、发布或生产安装。
+
+## 2026-11-13 三项接入问题修复与复验
+
+用户授权修复上述 F1、F2、F3。三项均已在工作区完成，SOURCE DEV 实机复验通过。
+
+### 修复结果
+
+- **F1：收藏持久化。** 常用字体、五类常用颜色和输入设备选择通过现有桌面设置 IPC 保存到开发版 profile 的 `canvas-interaction-settings.json`。项目窗口使用临时 Chromium partition，浏览器存储只能覆盖刷新，不能覆盖完整退出；因此最终实现不依赖 localStorage，也不改变项目窗口隔离策略。主进程串行执行原子写入，保留已有滚轮速度配置，并通过现有设置事件同步其他项目窗口。加载期间的用户选择不会被较晚返回的设置覆盖，偏好恢复不进入画布撤销记录，也不写进共享项目。
+- **F2：输入设备入口。** 项目主菜单增加“首选项 → 输入设备”，直接复用上游鼠标/触控板选项。宿主样式为中文选项保留足够宽度，避免文字竖排；没有开放其他未经本轮验收的上游首选项。
+- **F3：中文说明。** Mermaid 说明与当前支持范围一致，明确甘特图、象限图、时间线等转换为可编辑图元；补齐便签“文字颜色”、字体/颜色收藏提示、恢复默认及重置按钮、输入设备选项的中文。
+
+主要实现位于桌面端 `src/app/canvasInteraction/canvasPreferences.ts`、`electron/canvasInteractionSettingsStore.ts`、`electron/canvasInteractionSettingsController.ts`、`ProjectMainMenu.tsx/css`，通过 `desktopBridgeTypes.ts`、`preload.ts` 和 `main.ts` 接入现有设置通道。上游内核仅补充 `locales/zh-CN.json` 文案。
+
+### 验证结果
+
+| 检查 | 结果 |
+| --- | --- |
+| 新增定向测试 | 3 个文件、9 项通过；覆盖实际设置文件重建后恢复、旧配置兼容、并行保存不丢滚轮速度、刷新恢复、恢复默认、共享项目排除偏好、初始化竞态、跨窗口事件和卸载清理 |
+| 上游字体交互回归 | 6 项通过 |
+| 上游补丁登记 | 2 项通过；扫描耗时约 10 秒，首次触及 Vitest 默认 5 秒超时，单独用 30 秒限时重跑通过；未修改测试逻辑 |
+| 类型与格式 | `corepack yarn test:typecheck` 通过；相关新增/独立修改文件的 Prettier 检查通过 |
+| 收藏自定义与刷新 | 真实拖拽字体为 `[8,5,6]`，将蓝色移到描边收藏首位；刷新后顺序保持，并核对实际设置文件 |
+| 恢复默认 | 点击中文恢复默认入口后，字体/颜色偏好恢复 `null`；刷新后仍为默认值 |
+| 完整退出再启动 | 固定停止入口关闭整个开发版及 renderer 后，通过 `dev:desktop` 重启；字体 `[8,5,6]`、蓝色首位和鼠标模式全部恢复 |
+| 画布数据 | 冷启动前后 76 个图元按 ID 比较，类型和文字内容一致 |
+| 输入设备实际行为 | 鼠标模式普通滚轮使缩放从 1 变为 0.895386；触控板模式相同滚轮输入保持缩放、改变视口位置 |
+| 中文与布局 | 便签、字体/颜色收藏提示和 Mermaid 说明实机确认；1400×880 浅色、1000×700 深色菜单文字完整且可操作 |
+| Mermaid 回归 | 流程图、甘特图、象限图、时间线重新预览和插入，分别新增 11、21、17、20 个可编辑图元，无图片替代 |
+| 生成框焦点 | 输入 n/w 文本未触发画布工具切换 |
+
+本轮采用 L1 定向验证和 L3 固定源码 Electron 验收，没有重复全量测试、打包或生产安装。其他未受影响的新功能复用上一节验收证据；上一轮 macOS 原生菜单快捷键补验的工具限制仍保留，不把它混入本次三项修复的通过结论。
+
+本机证据目录：`/tmp/corestudio-fixes-20261113/`。以 `durable-evidence.json`、`14-cold-start-restored.png`、`15-cold-start-menu.png` 和 `identity-final-start.log` 为最终持久化证据；`06-font-tip-zh.png`、`08-mermaid-zh.png`、`09-*-preview.png`、`12-dark-narrow-stable.png` 为界面证据。目录内较早的 `evidence.json` 记录了排查过程，其中浏览器存储方案在冷重启失败，已被最终桌面设置实现替代。
+
+收尾：本轮四次固定入口启动均已停止，对应 Electron/启动器进程组 `64685/64052`、`68331/67742`、`72208/71611`、`74194/73598` 残留为 0，5174 / 9331 / 60910 无监听；最终结果在 `cleanup-final.json`。未操作正式版项目或设置，未提交、推送或发布。
+
+### 本地提交交付范围
+
+用户随后授权将上游更新、模型清单与接入修复一起提交，提交说明使用中文。主仓库合并为一个本地提交；独立的 `CoreStudio-Model-Catalog` 仓库同步提交 revision 6 及说明，两个目录 JSON 内容一致。此授权不包含推送或发布。
+
+小地图与底栏避让依赖生成框高度上报，因此将已有的 `GenerateImageDialog.tsx` 高度上报及 `App.tsx` 接线一并纳入，确保提交可独立还原已验收的布局。主仓库 README、性能分析文档、`App.css` 浮动状态提示避让和 `tools/` 的无关改动不纳入，继续留在工作区。

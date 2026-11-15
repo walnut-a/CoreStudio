@@ -21,6 +21,7 @@ import type {
   NonDeleted,
   NonDeletedExcalidrawElement,
 } from "@excalidraw/element/types";
+import type { RenderEnvironment } from "@excalidraw/element";
 
 import {
   copyBlobToClipboardAsPng,
@@ -29,7 +30,7 @@ import {
 
 import { t } from "../i18n";
 import { getSelectedElements, isSomeElementSelected } from "../scene";
-import { exportToCanvas, exportToSvg } from "../scene/export";
+import { exportScene, getExportConfigFromAppState } from "../scene/export";
 
 import { canvasToBlob } from "./blob";
 import { getFrameRenderingForExport } from "./exportFrameRendering";
@@ -102,42 +103,44 @@ export const exportCanvas = async (
   appState: AppState,
   files: BinaryFiles,
   {
-    exportBackground,
     exportPadding = DEFAULT_EXPORT_PADDING,
-    viewBackgroundColor,
     name = appState.name || DEFAULT_FILENAME,
     fileHandle = null,
     exportingFrame = null,
+    renderEnvironment,
   }: {
-    exportBackground: boolean;
     exportPadding?: number;
-    viewBackgroundColor: string;
     /** filename, if applicable */
     name?: string;
     fileHandle?: FileSystemFileHandle | null;
     exportingFrame: NonDeleted<ExcalidrawFrameLikeElement> | null;
+    renderEnvironment?: RenderEnvironment;
   },
 ) => {
   if (elements.length === 0) {
     throw new Error(t("alerts.cannotExportEmptyCanvas"));
   }
-  const frameRendering = getFrameRenderingForExport(appState.frameRendering);
+
+  const config = {
+    ...getExportConfigFromAppState({ ...appState, frameRendering: getFrameRenderingForExport(appState.frameRendering) }),
+    padding: exportPadding,
+    exportingFrame,
+  };
 
   if (type === "svg" || type === "clipboard-svg") {
-    const svgPromise = exportToSvg(
-      elements,
-      {
-        exportBackground,
-        exportWithDarkMode: appState.exportWithDarkMode,
-        viewBackgroundColor,
-        exportPadding,
-        exportScale: appState.exportScale,
-        exportEmbedScene: appState.exportEmbedScene && type === "svg",
-        frameRendering,
+    const svgPromise = exportScene({
+      type: "svg",
+      data: {
+        elements,
+        appState,
+        files,
       },
-      files,
-      { exportingFrame },
-    );
+      config: {
+        ...config,
+        embedScene: appState.exportEmbedScene && type === "svg",
+        environment: renderEnvironment,
+      },
+    });
 
     if (type === "svg") {
       return fileSave(
@@ -167,20 +170,15 @@ export const exportCanvas = async (
     }
   }
 
-  const tempCanvas = exportToCanvas(
-    elements,
-    {
-      ...appState,
-      frameRendering,
+  const tempCanvas = exportScene({
+    type: "canvas",
+    data: {
+      elements,
+      appState,
+      files,
     },
-    files,
-    {
-      exportBackground,
-      viewBackgroundColor,
-      exportPadding,
-      exportingFrame,
-    },
-  );
+    config: { ...config, environment: renderEnvironment },
+  });
 
   if (type === "png") {
     let blob = canvasToBlob(tempCanvas);

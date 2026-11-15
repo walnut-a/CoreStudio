@@ -10,6 +10,7 @@ import type {
   BinaryFiles,
 } from "@excalidraw/excalidraw/types";
 
+import { getRenderEnvironment } from "./renderEnvironment";
 import { isInitializedImageElement } from "./typeChecks";
 
 import type {
@@ -22,9 +23,13 @@ type ImageCacheValue = NonNullable<
   ReturnType<AppClassProperties["imageCache"]["get"]>
 >;
 
-export const loadHTMLImageElement = (dataURL: DataURL) => {
+export const loadHTMLImageElement = (
+  dataURL: DataURL,
+  createImage: () => HTMLImageElement = () =>
+    getRenderEnvironment().createImage(),
+) => {
   return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
+    const image = createImage();
     image.onload = () => {
       resolve(image);
     };
@@ -41,10 +46,14 @@ export const updateImageCache = async ({
   fileIds,
   files,
   imageCache,
+  createImage,
 }: {
   fileIds: FileId[];
   files: BinaryFiles;
   imageCache: AppClassProperties["imageCache"];
+  /** creates images in the owner window so cross-document scenes keep
+   * runtime ownership of their HTMLImageElements */
+  createImage?: () => HTMLImageElement;
 }) => {
   const updatedFiles = new Map<FileId, true>();
   const erroredFiles = new Map<FileId, true>();
@@ -63,7 +72,10 @@ export const updateImageCache = async ({
                 throw new Error("Only images can be added to ImageCache");
               }
 
-              const imagePromise = loadHTMLImageElement(fileData.dataURL);
+              const imagePromise = loadHTMLImageElement(
+                fileData.dataURL,
+                createImage,
+              );
               pendingEntry = {
                 image: imagePromise,
                 mimeType,

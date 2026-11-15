@@ -4,7 +4,9 @@ import path from "path";
 import {
   DEFAULT_TRACKPAD_ZOOM_SPEED,
   isTrackpadZoomSpeed,
+  normalizeCanvasPreferences,
   type DesktopCanvasInteractionSettings,
+  type DesktopCanvasPreferences,
   type TrackpadZoomSpeed,
 } from "../src/shared/canvasInteractionSettings";
 
@@ -12,47 +14,65 @@ interface CanvasInteractionSettingsStoreOptions {
   settingsPath: string;
 }
 
-const toSettings = (
-  trackpadZoomSpeed: TrackpadZoomSpeed,
-): DesktopCanvasInteractionSettings => ({
-  schemaVersion: 1,
-  trackpadZoomSpeed,
-});
-
-const readTrackpadZoomSpeed = async (
+const readSettings = async (
   settingsPath: string,
-): Promise<TrackpadZoomSpeed> => {
+): Promise<DesktopCanvasInteractionSettings> => {
+  const defaults: DesktopCanvasInteractionSettings = {
+    schemaVersion: 1,
+    trackpadZoomSpeed: DEFAULT_TRACKPAD_ZOOM_SPEED,
+  };
   try {
-    const parsed = JSON.parse(
-      await fs.readFile(settingsPath, "utf8"),
-    ) as Partial<DesktopCanvasInteractionSettings>;
-    return parsed.schemaVersion === 1 &&
-      isTrackpadZoomSpeed(parsed.trackpadZoomSpeed)
-      ? parsed.trackpadZoomSpeed
-      : DEFAULT_TRACKPAD_ZOOM_SPEED;
+    const parsed = JSON.parse(await fs.readFile(settingsPath, "utf8"));
+    if (parsed?.schemaVersion !== 1) {
+      return defaults;
+    }
+    const canvasPreferences = normalizeCanvasPreferences(
+      parsed.canvasPreferences,
+    );
+    return {
+      ...defaults,
+      trackpadZoomSpeed: isTrackpadZoomSpeed(parsed.trackpadZoomSpeed)
+        ? parsed.trackpadZoomSpeed
+        : DEFAULT_TRACKPAD_ZOOM_SPEED,
+      ...(canvasPreferences ? { canvasPreferences } : {}),
+    };
   } catch {
-    return DEFAULT_TRACKPAD_ZOOM_SPEED;
+    return defaults;
   }
 };
 
 export const createCanvasInteractionSettingsStore = ({
   settingsPath,
-}: CanvasInteractionSettingsStoreOptions) => ({
-  load: async () => toSettings(await readTrackpadZoomSpeed(settingsPath)),
-  save: async (
-    trackpadZoomSpeed: TrackpadZoomSpeed,
-  ): Promise<DesktopCanvasInteractionSettings> => {
-    const safeSpeed = isTrackpadZoomSpeed(trackpadZoomSpeed)
-      ? trackpadZoomSpeed
-      : DEFAULT_TRACKPAD_ZOOM_SPEED;
-    const payload = toSettings(safeSpeed);
-    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
-    const temporaryPath = `${settingsPath}.tmp`;
-    await fs.writeFile(temporaryPath, JSON.stringify(payload, null, 2), {
-      encoding: "utf8",
-      mode: 0o600,
+}: CanvasInteractionSettingsStoreOptions) => {
+  // Speed and picker updates can arrive from different project windows.
+  // Serialize read-modify-write so neither update loses the other's fields.
+  let pending: Promise<unknown> = Promise.resolve();
+  const update = (patch: Partial<DesktopCanvasInteractionSettings>) => {
+    const next = pending.then(async () => {
+      const payload = { ...(await readSettings(settingsPath)), ...patch };
+      await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+      const temporaryPath = `${settingsPath}.tmp`;
+      await fs.writeFile(temporaryPath, JSON.stringify(payload, null, 2), {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+      await fs.rename(temporaryPath, settingsPath);
+      return payload;
     });
-    await fs.rename(temporaryPath, settingsPath);
-    return payload;
-  },
-});
+    pending = next.catch(() => undefined);
+    return next;
+  };
+  return {
+    load: () => readSettings(settingsPath),
+    save: (speed: TrackpadZoomSpeed) =>
+      update({
+        trackpadZoomSpeed: isTrackpadZoomSpeed(speed)
+          ? speed
+          : DEFAULT_TRACKPAD_ZOOM_SPEED,
+      }),
+    savePreferences: (preferences: DesktopCanvasPreferences) =>
+      update({
+        canvasPreferences: normalizeCanvasPreferences(preferences),
+      }),
+  };
+};

@@ -34,6 +34,7 @@ import type {
 } from "./desktopLocale";
 import type {
   DesktopCanvasInteractionSettings,
+  DesktopCanvasPreferences,
   TrackpadZoomSpeed,
 } from "./canvasInteractionSettings";
 import type {
@@ -95,6 +96,7 @@ export const IPC_CHANNELS = {
   saveLocalePreference: "image-board:save-locale-preference",
   loadCanvasInteractionSettings: "image-board:load-canvas-interaction-settings",
   saveTrackpadZoomSpeed: "image-board:save-trackpad-zoom-speed",
+  saveCanvasPreferences: "image-board:save-canvas-preferences",
   canvasInteractionSettingsChanged:
     "image-board:canvas-interaction-settings-changed",
   menuAction: "image-board:menu-action",
@@ -606,6 +608,9 @@ export interface DesktopBridgeApi {
     preference: DesktopLocalePreference,
   ): Promise<DesktopLocaleSettings>;
   loadCanvasInteractionSettings?(): Promise<DesktopCanvasInteractionSettings>;
+  saveCanvasPreferences?(
+    preferences: DesktopCanvasPreferences,
+  ): Promise<DesktopCanvasInteractionSettings>;
   saveTrackpadZoomSpeed?(
     speed: TrackpadZoomSpeed,
   ): Promise<DesktopCanvasInteractionSettings>;

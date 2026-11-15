@@ -10,7 +10,7 @@ import {
   isShallowEqual,
 } from "@excalidraw/common";
 
-import { mutateElement } from "@excalidraw/element";
+import { getColorUpdate, mutateElement } from "@excalidraw/element";
 
 import { showSelectedShapeActions } from "@excalidraw/element";
 
@@ -18,14 +18,19 @@ import { ShapeCache } from "@excalidraw/element";
 
 import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
 
-import { actionToggleStats } from "../actions";
+import { actionToggleMinimap, actionToggleStats } from "../actions";
 import { trackEvent } from "../analytics";
 import { TunnelsContext, useInitializeTunnels } from "../context/tunnels";
 import { UIAppStateContext } from "../context/ui-appState";
 import { useAtom, useAtomValue } from "../editor-jotai";
 
 import { t } from "../i18n";
-import { getScrollToContentState } from "../scene";
+import { getScrollToContentState, getSelectedElements } from "../scene";
+import {
+  getColorTargetAppStateUpdates,
+  resolveColorTarget,
+  type ColorDefaultKey,
+} from "../actions/colorTargets";
 
 import { SelectedShapeActions, CompactShapeActions } from "./Actions";
 import { LoadingMessage } from "./LoadingMessage";
@@ -36,6 +41,7 @@ import Stack from "./Stack";
 import { UserList } from "./UserList";
 import { PenModeButton } from "./PenModeButton";
 import Footer from "./footer/Footer";
+import { MINIMAP_RESERVED_HEIGHT } from "./Minimap/Minimap";
 import { isSidebarDockedAtom } from "./Sidebar/Sidebar";
 import MainMenu from "./main-menu/MainMenu";
 import { ActiveConfirmDialog } from "./ActiveConfirmDialog";
@@ -56,6 +62,10 @@ import { JSONExportDialog } from "./JSONExportDialog";
 import { LaserPointerButton } from "./LaserPointerButton";
 import { Toast } from "./Toast";
 import { Toolbar } from "./Toolbar";
+import {
+  ViewportStatusBadge,
+  ViewportStatusBorder,
+} from "./ViewportStatusFrame/ViewportStatusFrame";
 
 import "./LayerUI.scss";
 import "./Toolbar.scss";
@@ -99,6 +109,12 @@ interface LayerUIProps {
   generateLinkForSelection?: AppProps["generateLinkForSelection"];
   currentUserControls?: ExcalidrawProps["currentUserControls"];
 }
+
+/**
+ * The space (px) the floating pen mode button of the compact UI takes up
+ * below the styles panel: the button (`--lg-button-size`) + the gap above.
+ */
+const PEN_MODE_BUTTON_RESERVED_HEIGHT = 54;
 
 const DefaultMainMenu: React.FC<{
   UIOptions: AppProps["UIOptions"];
@@ -229,6 +245,8 @@ const LayerUI = ({
     );
   };
 
+  const minimapUIEnabled = actionManager.isActionEnabled(actionToggleMinimap);
+
   const renderCanvasActions = () => (
     <div style={{ position: "relative" }}>
       <div className="excalidraw-ui-top-left">
@@ -270,6 +288,22 @@ const LayerUI = ({
   );
 
   const renderSelectedShapeActions = () => {
+    // we want to make sure this doesn't overflow so subtracting the
+    // approximate height of hamburgerMenu + footer
+    let stylesPanelMaxHeight = appState.height - 166;
+    // the minimap sits above the footer, in the way of this column
+    if (minimapUIEnabled && appState.minimapEnabled) {
+      stylesPanelMaxHeight -= MINIMAP_RESERVED_HEIGHT;
+      // ...which, in compact UI, ends with the pen mode button (see below)
+      if (
+        isCompactStylesPanel &&
+        appState.penDetected &&
+        !appState.viewModeEnabled
+      ) {
+        stylesPanelMaxHeight -= PEN_MODE_BUTTON_RESERVED_HEIGHT;
+      }
+    }
+
     return (
       <Section
         heading="selectedShapeActions"
@@ -284,9 +318,7 @@ const LayerUI = ({
             data-viewport-ui="side"
             data-viewport-ui-name="stylesPanel"
             style={{
-              // we want to make sure this doesn't overflow so subtracting the
-              // approximate height of hamburgerMenu + footer
-              maxHeight: `${appState.height - 166}px`,
+              maxHeight: `${stylesPanelMaxHeight}px`,
             }}
           >
             {renderSelectedShapeActionsContent()}
@@ -296,9 +328,7 @@ const LayerUI = ({
             className={CLASSES.SHAPE_ACTIONS_MENU}
             padding={2}
             style={{
-              // we want to make sure this doesn't overflow so subtracting the
-              // approximate height of hamburgerMenu + footer
-              maxHeight: `${appState.height - 166}px`,
+              maxHeight: `${stylesPanelMaxHeight}px`,
             }}
             data-viewport-ui="side"
             data-viewport-ui-name="stylesPanel"
@@ -477,6 +507,11 @@ const LayerUI = ({
   };
 
   const isSidebarDocked = useAtomValue(isSidebarDockedAtom);
+  const isSidebarDockedAndFits = !!(
+    appState.openSidebar &&
+    isSidebarDocked &&
+    editorInterface.canFitSidebar
+  );
 
   const layerUIJSX = (
     <>
@@ -545,26 +580,38 @@ const LayerUI = ({
                 return;
               }
 
+              const property =
+                altKey && eyeDropperState.swapPreviewOnAlt
+                  ? colorPickerType === "elementBackground"
+                    ? "strokeColor"
+                    : "backgroundColor"
+                  : colorPickerType === "elementBackground"
+                  ? "backgroundColor"
+                  : "strokeColor";
+
               if (selectedElements.length) {
-                for (const element of selectedElements) {
-                  mutateElement(element, arrayToMap(elements), {
-                    [altKey && eyeDropperState.swapPreviewOnAlt
-                      ? colorPickerType === "elementBackground"
-                        ? "strokeColor"
-                        : "backgroundColor"
-                      : colorPickerType === "elementBackground"
-                      ? "backgroundColor"
-                      : "strokeColor"]: color,
-                  });
+                const elementsMap = arrayToMap(elements);
+                // a note's visible text is its label, so stroke picks
+                // include bound labels
+                const targets = getSelectedElements(elements, appState, {
+                  includeBoundTextElement: property === "strokeColor",
+                });
+                for (const element of targets) {
+                  mutateElement(
+                    element,
+                    elementsMap,
+                    getColorUpdate(element, property, color, elementsMap),
+                  );
                   ShapeCache.delete(element);
                 }
                 app.scene.triggerUpdate();
-              } else if (colorPickerType === "elementBackground") {
-                setAppState({
-                  currentItemBackgroundColor: color,
-                });
               } else {
-                setAppState({ currentItemStrokeColor: color });
+                setAppState(
+                  getColorTargetAppStateUpdates(
+                    resolveColorTarget(appState, elements, property),
+                    color,
+                  ) as Pick<AppState, ColorDefaultKey>,
+                );
               }
             }}
             onSelect={(color, event) => {
@@ -630,12 +677,25 @@ const LayerUI = ({
       )}
       {editorInterface.formFactor !== "phone" && (
         <>
+          {appProps.viewportStatusFrame?.border && (
+            <ViewportStatusBorder
+              border={appProps.viewportStatusFrame.border}
+              style={
+                isSidebarDockedAndFits
+                  ? {
+                      // flush against the sidebar's own visible edge, not
+                      // just the --right-sidebar-width column it reserves
+                      // (which includes the sidebar's own outer margin)
+                      right: `calc(var(--right-sidebar-width) - var(--space-factor) * 2)`,
+                    }
+                  : undefined
+              }
+            />
+          )}
           <div
             className="layer-ui__wrapper"
             style={
-              appState.openSidebar &&
-              isSidebarDocked &&
-              editorInterface.canFitSidebar
+              isSidebarDockedAndFits
                 ? { width: `calc(100% - var(--right-sidebar-width))` }
                 : {}
             }
@@ -658,9 +718,11 @@ const LayerUI = ({
               renderWelcomeScreen={renderWelcomeScreen}
               defaultUIEnabled={defaultUIEnabled}
               zoomUIEnabled={zoomUIEnabled}
+              minimapUIEnabled={minimapUIEnabled}
             />
             {(appState.toast ||
-              (scrollBackToContentUIEnabled && appState.scrolledOutside)) && (
+              (scrollBackToContentUIEnabled && appState.scrolledOutside) ||
+              appProps.viewportStatusFrame?.label) && (
               <div className="floating-status-stack">
                 {appState.toast && (
                   <Toast
@@ -685,6 +747,12 @@ const LayerUI = ({
                       {t("buttons.scrollBackToContent")}
                     </button>
                   )}
+                {appProps.viewportStatusFrame?.label && (
+                  <ViewportStatusBadge
+                    label={appProps.viewportStatusFrame.label}
+                    border={appProps.viewportStatusFrame.border}
+                  />
+                )}
               </div>
             )}
           </div>

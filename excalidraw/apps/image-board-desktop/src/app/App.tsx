@@ -21,7 +21,6 @@ import type {
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
-import type { FooterNavigationControls } from "@excalidraw/excalidraw/components/footer/FooterNavigation";
 
 import {
   AGENT_BOARD_ROOM_SESSION_EXPIRED_EVENT,
@@ -152,6 +151,7 @@ import { InspectorSidebar } from "./components/InspectorSidebar";
 import { AppErrorBanners } from "./components/AppErrorBanners";
 import { AppGlobalDialogs } from "./components/AppGlobalDialogs";
 import { type ApplicationSettingsCategory } from "./components/ApplicationSettingsDialog";
+import { bindCanvasPreferences } from "./canvasInteraction/canvasPreferences";
 import { ImageGenerationSettings } from "./components/ImageGenerationSettings";
 import { GeneralSettingsSection } from "./components/GeneralSettingsSection";
 import { AboutSettingsSection } from "./components/AboutSettingsSection";
@@ -165,7 +165,6 @@ import { AgentBoardClaimInstructions } from "./components/AgentBoardClaimInstruc
 import { DesktopButton } from "./components/DesktopButton";
 import { ExcalidrawThemeTokenBridge } from "./components/ExcalidrawThemeTokenBridge";
 import { GenerateComposerFooterToggle } from "./components/GenerateComposerFooterToggle";
-import { CanvasMinimap } from "./components/CanvasMinimap";
 import {
   createDesktopProjectRuntime,
   type DesktopProjectRuntime,
@@ -271,13 +270,6 @@ const LazyProjectMainMenu = lazy(async () => {
 const LazyFooterRight = lazy(async () => {
   const { FooterRight } = await import("@excalidraw/excalidraw");
   return { default: FooterRight };
-});
-
-const LazyFooterNavigation = lazy(async () => {
-  const { default: FooterNavigation } = await import(
-    "@excalidraw/excalidraw/components/footer/FooterNavigation"
-  );
-  return { default: FooterNavigation };
 });
 
 type AppSceneSnapshot = {
@@ -386,6 +378,14 @@ const App = ({
   const inspectorDockRef = useRef<HTMLElement | null>(null);
   const generatePanelRef = useRef<HTMLElement | null>(null);
   const appRootRef = useRef<HTMLDivElement | null>(null);
+  const canvasPreferencesCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => canvasPreferencesCleanupRef.current?.(), []);
+  const updateGeneratePanelOcclusion = useCallback((height: number) => {
+    appRootRef.current?.style.setProperty(
+      "--generate-panel-occlusion-height",
+      `${height}px`,
+    );
+  }, []);
   const isEditorInitializingRef = useRef(false);
   const initializingRenderNonceRef = useRef<number | null>(null);
   const projectRenderNonceRef = useRef(0);
@@ -846,26 +846,6 @@ const App = ({
       }),
     [currentProject?.imageRecords, sceneImageFileIds],
   );
-  const renderCanvasMinimap = useCallback(
-    (
-      api: ExcalidrawImperativeAPI | null,
-      navigation: FooterNavigationControls,
-    ) => (
-      <CanvasMinimap
-        api={api}
-        onOpenChange={navigation.setZoomControlsExpanded}
-        preferenceKey={`corestudio:minimap:${
-          isAgentBrowserRoute ? "agent-board" : "desktop"
-        }`}
-        canvasContainerRef={canvasContainerRef}
-        leftOcclusionRef={imageAssetDockRef}
-        rightOcclusionRef={inspectorDockRef}
-        avoidElementRef={generatePanelRef}
-      />
-    ),
-    [isAgentBrowserRoute],
-  );
-
   const sceneImageFileIdsRendererActions =
     createSceneImageFileIdsRendererActions({
       setSceneImageFileIds,
@@ -3017,6 +2997,9 @@ const App = ({
                 )}
                 initialData={initialData}
                 onInitialize={(api) => {
+                  canvasPreferencesCleanupRef.current?.();
+                  canvasPreferencesCleanupRef.current =
+                    api ? bindCanvasPreferences(api, desktopBridge) : null;
                   const runtime = desktopProjectRuntimeRef.current;
                   if (!isAgentBrowserRoute && api && runtime) {
                     runtime.attachApi(api);
@@ -3046,6 +3029,10 @@ const App = ({
                 onExcalidrawAPI={(api) => {
                   if (projectRenderNonce !== projectRenderNonceRef.current) {
                     return;
+                  }
+                  if (excalidrawAPIRef.current !== api) {
+                    canvasPreferencesCleanupRef.current?.();
+                    canvasPreferencesCleanupRef.current = null;
                   }
                   excalidrawAPIRef.current = api;
                   if (!isAgentBrowserRoute) {
@@ -3180,9 +3167,6 @@ const App = ({
                       });
                   }}
                 />
-                <LazyFooterNavigation collapseZoomControls>
-                  {renderCanvasMinimap}
-                </LazyFooterNavigation>
                 {!isAgentBrowserRoute &&
                 providerConfiguration !== null &&
                 providerConfiguration.composerVisible !== false ? (
@@ -3288,6 +3272,7 @@ const App = ({
       providerConfiguration !== null &&
       providerConfiguration.composerVisible !== false ? (
         <GenerateImageDialog
+          onOcclusionHeightChange={updateGeneratePanelOcclusion}
           onPanelElementChange={(element) => {
             generatePanelRef.current = element;
           }}

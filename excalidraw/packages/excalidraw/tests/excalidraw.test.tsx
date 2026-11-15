@@ -7,7 +7,6 @@ import { t } from "../i18n";
 import {
   Excalidraw,
   Footer,
-  FooterNavigation,
   FooterRight,
   MainMenu,
 } from "../index";
@@ -48,6 +47,9 @@ describe("<Excalidraw/>", () => {
       const contextMenu = document.querySelector(".context-menu");
       fireEvent.click(queryByText(contextMenu as HTMLElement, "Zen mode")!);
       expect(h.state.zenModeEnabled).toBe(true);
+      expect(container.querySelector(".excalidraw")).toHaveClass(
+        "excalidraw--zen-mode",
+      );
       expect(
         container.getElementsByClassName("disable-zen-mode--visible").length,
       ).toBe(1);
@@ -528,79 +530,13 @@ describe("<Excalidraw/>", () => {
     expect(queryByText(document.body, "Export image...")).toBe(null);
   });
 
-  it("renders host navigation actions after the zoom controls", async () => {
+  it("should apply a custom class name to the editor root", async () => {
     const { container } = await render(
-      <Excalidraw>
-        <FooterNavigation>
-          <button type="button">Minimap</button>
-        </FooterNavigation>
-      </Excalidraw>,
+      <Excalidraw className="custom-excalidraw" />,
     );
 
-    const footerLeft = container.querySelector(
-      ".layer-ui__wrapper__footer-left",
+    expect(container.querySelector(".excalidraw")).toHaveClass(
+      "custom-excalidraw",
     );
-    const zoomActions = footerLeft?.querySelector(".zoom-actions");
-    const hostAction = queryByText(footerLeft as HTMLElement, "Minimap");
-    const undoActions = footerLeft?.querySelector(".undo-redo-buttons");
-
-    expect(zoomActions).not.toBeNull();
-    expect(zoomActions?.querySelector(".zoom-out-button")).not.toBeNull();
-    expect(zoomActions?.querySelector(".zoom-in-button")).not.toBeNull();
-    expect(hostAction).not.toBeNull();
-    expect(undoActions).not.toBeNull();
-    expect(
-      (zoomActions as Node).compareDocumentPosition(hostAction as Node) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      (hostAction as Node).compareDocumentPosition(undoActions as Node) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it("uses expanded host navigation as the zoom control", async () => {
-    const { container } = await render(
-      <Excalidraw>
-        <FooterNavigation collapseZoomControls>
-          {(_api, controls) => (
-            <button
-              type="button"
-              onClick={() =>
-                controls.setZoomControlsExpanded(!controls.zoomControlsExpanded)
-              }
-            >
-              Toggle navigation
-            </button>
-          )}
-        </FooterNavigation>
-      </Excalidraw>,
-    );
-
-    const toggle = queryByText(container, "Toggle navigation")!;
-    const zoomActions = container.querySelector(".zoom-actions")!;
-    expect(zoomActions.contains(toggle)).toBe(true);
-    expect(container.querySelector(".reset-zoom-button")).toBeNull();
-    expect(container.querySelector(".zoom-out-button")).toBeNull();
-    expect(container.querySelector(".zoom-in-button")).toBeNull();
-
-    fireEvent.click(toggle);
-
-    const zoomOut = container.querySelector(".zoom-out-button")!;
-    const zoomIn = container.querySelector(".zoom-in-button")!;
-    expect(zoomOut).not.toBeNull();
-    expect(zoomIn).not.toBeNull();
-    expect(
-      zoomOut.compareDocumentPosition(toggle) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      toggle.compareDocumentPosition(zoomIn) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-
-    fireEvent.click(toggle);
-
-    expect(container.querySelector(".zoom-out-button")).toBeNull();
-    expect(container.querySelector(".zoom-in-button")).toBeNull();
   });
 });

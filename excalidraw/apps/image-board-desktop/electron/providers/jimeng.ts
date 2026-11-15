@@ -24,6 +24,8 @@ const ARK_IMAGE_GENERATIONS_URL =
 const SEEDREAM_T2I_MODELS = new Set(["doubao-seedream-3-0-t2i-250415"]);
 const SEEDREAM_MODELS_WITHOUT_SEQUENTIAL_IMAGE_GENERATION = new Set([
   "doubao-seedream-5-0-pro-260628",
+  "doubao-seedream-5-0-flash-260915",
+  "doubao-seedream-5-5-261028",
 ]);
 
 type JimengImageGenerationResponse = {

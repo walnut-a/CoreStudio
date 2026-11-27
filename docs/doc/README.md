@@ -19,6 +19,7 @@
 ## 文档索引
 
 - [corestudio-test-maintenance.md](corestudio-test-maintenance.md)：测试精简依据、保留的行为与安全覆盖，以及当前验证记录。
+- [2026-11-27-review.md](2026-11-27-review.md) 记录 1.1.60 审查中的 13 项问题在 1.1.61 上的修复与后台验收。
 - [corestudio-open-project-contract.md](corestudio-open-project-contract.md)：开放项目数据协议；统一原图事实来源、外部整理、同步冲突、局部降级与重建边界，区分目标合同与当前能力。
 - [2026-09-06-chinese-agent-integration-research.md](2026-09-06-chinese-agent-integration-research.md)：WorkBuddy、千问办公、豆包工作的官方能力调研、接入路径、参考图缺口与验收门槛。
 

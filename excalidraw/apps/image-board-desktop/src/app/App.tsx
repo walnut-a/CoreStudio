@@ -1,3 +1,4 @@
+import { useStableCallback } from "@excalidraw/excalidraw/hooks/useStableCallback";
 import { createImageRenditionRuntime } from "./imageRenditionScheduler";
 import { predecodeImageRenditionAssets } from "./imageRenditionPredecode";
 import {
@@ -17,6 +18,7 @@ import type {
   AppState,
   BinaryFileData,
   BinaryFiles,
+  ExcalidrawProps,
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
@@ -256,6 +258,18 @@ import type {
   ProjectHealthReport,
   RecentProjectEntry,
 } from "../shared/desktopBridgeTypes";
+
+const CANVAS_UI_OPTIONS = {
+  defaultSidebar: false,
+  canvasActions: {
+    clearCanvas: false,
+    loadScene: false,
+    saveToActiveFile: false,
+    export: false,
+    saveAsImage: false,
+    toggleTheme: true,
+  },
+} as const;
 
 const LazyExcalidraw = lazy(async () => {
   const { Excalidraw } = await import("@excalidraw/excalidraw");
@@ -1043,17 +1057,20 @@ const App = ({
       clearProjectNotice: projectNoticeRendererActions.clear,
     });
 
-  const projectAssetSceneApplyRendererAction =
-    createDesktopProjectAssetSceneApplyRendererAction({
-      getActiveProject: () => currentProjectRef.current,
-      getLatestScene: () => latestSceneRef.current,
-      getFallbackCreatedAt: () => Date.now(),
-      getEditorApi: () => excalidrawAPIRef.current,
-      queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
-      setLatestScene: (scene) => {
-        latestSceneRef.current = scene;
-      },
-    });
+  const projectAssetSceneApplyRendererAction = useMemo(
+    () =>
+      createDesktopProjectAssetSceneApplyRendererAction({
+        getActiveProject: () => currentProjectRef.current,
+        getLatestScene: () => latestSceneRef.current,
+        getFallbackCreatedAt: () => Date.now(),
+        getEditorApi: () => excalidrawAPIRef.current,
+        queueFiles: queuedExcalidrawBinaryFilesRendererActions.queue,
+        setLatestScene: (scene) => {
+          latestSceneRef.current = scene;
+        },
+      }),
+    [queuedExcalidrawBinaryFilesRendererActions],
+  );
 
   const projectThumbnailAssetRefreshRendererActions =
     createProjectThumbnailAssetRefreshRendererActions<DesktopProjectBundle>({
@@ -1092,46 +1109,66 @@ const App = ({
       applyThumbnailMaintenance: setThumbnailMaintenance,
     });
 
-  const imageRenditionRuntimeRef = useRef(createImageRenditionRuntime());
-  const visibleImageRenditionLoadRendererActions =
-    createVisibleImageRenditionLoadRendererActions({
-      runtime: imageRenditionRuntimeRef.current,
-      prepareAssets: predecodeImageRenditionAssets,
-      delayMs: IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
-      getProject: () => currentProjectRef.current,
-      getSceneReader: () => excalidrawAPIRef.current,
-      getDevicePixelRatio: () => window.devicePixelRatio,
-      getLatestScene: () => latestSceneRef.current,
-      getTimerId: () => highResImageLoadTimerRef.current,
-      clearTimer: (timerId) => window.clearTimeout(timerId),
-      setTimerId: (timerId) => {
-        highResImageLoadTimerRef.current = timerId;
-      },
-      scheduleTimeout: (callback, delayMs) =>
-        window.setTimeout(callback, delayMs),
-      getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
-      getLoadingPreviewFileIds: () => loadingPreviewImageFileIdsRef.current,
-      getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
-      getLoadingOriginalFileIds: () => loadingOriginalImageFileIdsRef.current,
-      setLoadedPreviewFileIds: (fileIds) => {
-        loadedPreviewImageFileIdsRef.current = fileIds;
-      },
-      setLoadingPreviewFileIds: (fileIds) => {
-        loadingPreviewImageFileIdsRef.current = fileIds;
-      },
-      setLoadedOriginalFileIds: (fileIds) => {
-        loadedOriginalImageFileIdsRef.current = fileIds;
-      },
-      setLoadingOriginalFileIds: (fileIds) => {
-        loadingOriginalImageFileIdsRef.current = fileIds;
-      },
-      setLatestScene: (scene) => {
-        latestSceneRef.current = scene;
-      },
-      readAssets: ({ project, rendition, fileIds }) =>
-        readProjectImageAssets(project, fileIds, rendition),
-      applyAssetsToScene: projectAssetSceneApplyRendererAction,
+  const [imageRenditionRuntime] = useState(createImageRenditionRuntime);
+  const diagnosticProjectPath = currentProject?.projectPath;
+  useEffect(() => {
+    const ownerWindow = appRootRef.current?.ownerDocument.defaultView;
+    if (!diagnosticProjectPath || !ownerWindow) return;
+    const snapshot = () => imageRenditionRuntime.getDiagnostics?.() ?? null;
+    Object.defineProperty(ownerWindow, "corestudioImageRenditionSnapshot", {
+      value: snapshot,
+      configurable: true,
     });
+    return () => {
+      Reflect.deleteProperty(ownerWindow, "corestudioImageRenditionSnapshot");
+    };
+  }, [diagnosticProjectPath, imageRenditionRuntime]);
+  const visibleImageRenditionLoadRendererActions = useMemo(
+    () =>
+      createVisibleImageRenditionLoadRendererActions({
+        runtime: imageRenditionRuntime,
+        prepareAssets: predecodeImageRenditionAssets,
+        delayMs: IMAGE_HIGH_RES_LOAD_DEBOUNCE_MS,
+        getProject: () => currentProjectRef.current,
+        getSceneReader: () => excalidrawAPIRef.current,
+        getDevicePixelRatio: () => window.devicePixelRatio,
+        getLatestScene: () => latestSceneRef.current,
+        getTimerId: () => highResImageLoadTimerRef.current,
+        clearTimer: (timerId) => window.clearTimeout(timerId),
+        setTimerId: (timerId) => {
+          highResImageLoadTimerRef.current = timerId;
+        },
+        scheduleTimeout: (callback, delayMs) =>
+          window.setTimeout(callback, delayMs),
+        getLoadedPreviewFileIds: () => loadedPreviewImageFileIdsRef.current,
+        getLoadingPreviewFileIds: () => loadingPreviewImageFileIdsRef.current,
+        getLoadedOriginalFileIds: () => loadedOriginalImageFileIdsRef.current,
+        getLoadingOriginalFileIds: () => loadingOriginalImageFileIdsRef.current,
+        setLoadedPreviewFileIds: (fileIds) => {
+          loadedPreviewImageFileIdsRef.current = fileIds;
+        },
+        setLoadingPreviewFileIds: (fileIds) => {
+          loadingPreviewImageFileIdsRef.current = fileIds;
+        },
+        setLoadedOriginalFileIds: (fileIds) => {
+          loadedOriginalImageFileIdsRef.current = fileIds;
+        },
+        setLoadingOriginalFileIds: (fileIds) => {
+          loadingOriginalImageFileIdsRef.current = fileIds;
+        },
+        setLatestScene: (scene) => {
+          latestSceneRef.current = scene;
+        },
+        readAssets: ({ project, rendition, fileIds }) =>
+          readProjectImageAssets(project, fileIds, rendition),
+        applyAssetsToScene: projectAssetSceneApplyRendererAction,
+      }),
+    [
+      imageRenditionRuntime,
+      readProjectImageAssets,
+      projectAssetSceneApplyRendererAction,
+    ],
+  );
 
   const projectRepairSceneRefreshRendererActions =
     createDesktopProjectRepairSceneRefreshRendererActions({
@@ -1184,32 +1221,40 @@ const App = ({
         projectMaintenanceRendererActions.resetThumbnailMaintenance,
     });
 
-  const viewportChangeRendererActions = createViewportChangeRendererActions({
-    getScene: () => latestSceneRef.current,
-    getSceneReader: () => excalidrawAPIRef.current ?? {},
-    recordViewportChange: (scrollX, scrollY, zoom) => {
-      if (stableBoardId && !isEditorInitializingRef.current) {
-        writeAgentBoardViewportState(
-          stableBoardId,
-          {
-            scrollX,
-            scrollY,
-            zoom,
-          },
-          {
-            pageNonce: stableBoardPageNonceRef.current,
-          },
-        );
-      }
-    },
-    setLatestScene: (scene) => {
-      latestSceneRef.current = scene;
-    },
-    scheduleVisibleImageRenditionLoad:
-      visibleImageRenditionLoadRendererActions.schedule,
-    scheduleAgentBrowserRuntimeStatePublish:
-      agentBrowserRuntimePublishRendererActions.schedule,
-  });
+  const viewportChangeRendererActions = useMemo(
+    () =>
+      createViewportChangeRendererActions({
+        getScene: () => latestSceneRef.current,
+        getSceneReader: () => excalidrawAPIRef.current ?? {},
+        recordViewportChange: (scrollX, scrollY, zoom) => {
+          if (stableBoardId && !isEditorInitializingRef.current) {
+            writeAgentBoardViewportState(
+              stableBoardId,
+              {
+                scrollX,
+                scrollY,
+                zoom,
+              },
+              {
+                pageNonce: stableBoardPageNonceRef.current,
+              },
+            );
+          }
+        },
+        setLatestScene: (scene) => {
+          latestSceneRef.current = scene;
+        },
+        scheduleVisibleImageRenditionLoad:
+          visibleImageRenditionLoadRendererActions.schedule,
+        scheduleAgentBrowserRuntimeStatePublish:
+          agentBrowserRuntimePublishRendererActions.schedule,
+      }),
+    [
+      stableBoardId,
+      visibleImageRenditionLoadRendererActions,
+      agentBrowserRuntimePublishRendererActions,
+    ],
+  );
 
   const desktopStartupRendererActions = createDesktopStartupRendererActions({
     getBridge: () => bridge,
@@ -2075,97 +2120,159 @@ const App = ({
     [],
   );
 
-  const handleCanvasSceneChange = (
-    elements: readonly ExcalidrawElement[],
-    appState: AppState,
-    files: BinaryFiles,
-  ) => {
-    setIsImageCropping(Boolean(appState.croppingElementId));
-    reportDesktopProjectTheme(appState);
-    const getNavigationSnapshot = () => ({
-      appState,
-      elements,
-      dependencies: [
-        excalidrawAPIRef.current,
-        currentProjectRef.current,
-        currentProjectRef.current?.imageRecords,
+  const handleCanvasSceneChange = useStableCallback(
+    (
+      elements: readonly ExcalidrawElement[],
+      appState: AppState,
+      files: BinaryFiles,
+    ) => {
+      setIsImageCropping(Boolean(appState.croppingElementId));
+      reportDesktopProjectTheme(appState);
+      const getNavigationSnapshot = () => ({
+        appState,
         elements,
-        files,
-        removedSelectionReferenceSignatureRef.current,
-        pendingGenerationJobsRef.current,
-        generationTaskByElementIdRef.current,
-        projectRoomReady,
-        projectRoomAssetTransactionDepthRef.current,
-        isEditorInitializingRef.current,
-        isAgentBrowserRoute,
-        desktopProjectRuntimeRef.current,
-        projectRoomClientRef.current,
-      ],
-    });
-    if (
-      currentProjectRef.current &&
-      canvasNavigationTracker.isNavigationOnly(getNavigationSnapshot())
-    ) {
-      const scene = { elements, appState, files };
-      latestSceneRef.current = scene;
-      visibleImageRenditionLoadRendererActions.schedule(scene);
-      agentBrowserRuntimePublishRendererActions.schedule(scene);
-      canvasNavigationTracker.remember(getNavigationSnapshot());
-      return { status: "updated" as const };
-    }
-    if (
-      currentProjectRef.current &&
-      projectRoomAssetTransactionDepthRef.current === 0 &&
-      !isEditorInitializingRef.current
-    ) {
-      const reconciliation = reconcilePendingGenerationScene({
-        generationJobs: pendingGenerationJobsRef.current,
-        generationTasks: generationTaskByElementIdRef.current,
-        elements,
+        dependencies: [
+          excalidrawAPIRef.current,
+          currentProjectRef.current,
+          currentProjectRef.current?.imageRecords,
+          elements,
+          files,
+          removedSelectionReferenceSignatureRef.current,
+          pendingGenerationJobsRef.current,
+          generationTaskByElementIdRef.current,
+          projectRoomReady,
+          projectRoomAssetTransactionDepthRef.current,
+          isEditorInitializingRef.current,
+          isAgentBrowserRoute,
+          desktopProjectRuntimeRef.current,
+          projectRoomClientRef.current,
+        ],
       });
-      pendingGenerationJobsRef.current = reconciliation.pendingJobs;
-      generationTaskByElementIdRef.current = reconciliation.generationTasks;
-      setPendingGenerationCount(reconciliation.pendingCount);
-      reconciliation.cancelledJobIds.forEach((jobId) => {
-        void desktopBridge.cancelGenerateImages?.(jobId).catch((error) => {
-          console.error("取消已删除占位对应的生成任务失败", error);
+      if (
+        currentProjectRef.current &&
+        canvasNavigationTracker.isNavigationOnly(getNavigationSnapshot())
+      ) {
+        const scene = { elements, appState, files };
+        latestSceneRef.current = scene;
+        visibleImageRenditionLoadRendererActions.schedule(scene);
+        agentBrowserRuntimePublishRendererActions.schedule(scene);
+        canvasNavigationTracker.remember(getNavigationSnapshot());
+        return { status: "updated" as const };
+      }
+      if (
+        currentProjectRef.current &&
+        projectRoomAssetTransactionDepthRef.current === 0 &&
+        !isEditorInitializingRef.current
+      ) {
+        const reconciliation = reconcilePendingGenerationScene({
+          generationJobs: pendingGenerationJobsRef.current,
+          generationTasks: generationTaskByElementIdRef.current,
+          elements,
         });
-      });
+        pendingGenerationJobsRef.current = reconciliation.pendingJobs;
+        generationTaskByElementIdRef.current = reconciliation.generationTasks;
+        setPendingGenerationCount(reconciliation.pendingCount);
+        reconciliation.cancelledJobIds.forEach((jobId) => {
+          void desktopBridge.cancelGenerateImages?.(jobId).catch((error) => {
+            console.error("取消已删除占位对应的生成任务失败", error);
+          });
+        });
+      }
+      const result = canvasSceneChangeRendererActions.changeScene(
+        elements,
+        appState,
+        files,
+      );
+      if (
+        projectRoomReady &&
+        projectRoomAssetTransactionDepthRef.current === 0 &&
+        !isEditorInitializingRef.current
+      ) {
+        const sharedSceneConfig = isAgentBrowserRoute
+          ? undefined
+          : extractSharedSceneConfig(appState);
+        const submission =
+          !isAgentBrowserRoute && desktopProjectRuntimeRef.current
+            ? desktopProjectRuntimeRef.current.handleLocalSceneChange(
+                elements,
+                files,
+                sharedSceneConfig ?? {},
+              )
+            : projectRoomClientRef.current?.handleLocalSceneChange(
+                elements,
+                files,
+                sharedSceneConfig,
+              );
+        void submission?.catch((error) => {
+          setProjectRoomError(formatProjectSaveError(error));
+        });
+      }
+      // Reconciliation above can replace job maps and selection signatures.
+      // Remember the resulting dependencies, not their pre-reconciliation values.
+      canvasNavigationTracker.remember(getNavigationSnapshot());
+      return result;
+    },
+  );
+
+  const initializeCanvas = useStableCallback<
+    NonNullable<ExcalidrawProps["onInitialize"]>
+  >((api) => {
+    canvasPreferencesCleanupRef.current?.();
+    canvasPreferencesCleanupRef.current = api ? bindCanvasPreferences(api, desktopBridge) : null;
+    const runtime = desktopProjectRuntimeRef.current;
+    if (!isAgentBrowserRoute && api && runtime) {
+      runtime.attachApi(api);
+      projectRoomClientRef.current = runtime.getController();
+      void runtime.start().catch(() => undefined);
     }
-    const result = canvasSceneChangeRendererActions.changeScene(
-      elements,
-      appState,
-      files,
+    applyProjectRoomCollaborators(api ?? null);
+    if (api && stableBoardId) {
+      const savedViewport = pendingAgentBoardViewportRestoreRef.current;
+      if (savedViewport) {
+        api.updateScene({
+          appState: savedViewport,
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+      }
+      pendingAgentBoardViewportRestoreRef.current = null;
+    }
+    currentProjectEditorReadyRendererActions.ready(
+      api ?? null,
+      projectRenderNonce,
     );
-    if (
-      projectRoomReady &&
-      projectRoomAssetTransactionDepthRef.current === 0 &&
-      !isEditorInitializingRef.current
-    ) {
-      const sharedSceneConfig = isAgentBrowserRoute
-        ? undefined
-        : extractSharedSceneConfig(appState);
-      const submission =
-        !isAgentBrowserRoute && desktopProjectRuntimeRef.current
-          ? desktopProjectRuntimeRef.current.handleLocalSceneChange(
-              elements,
-              files,
-              sharedSceneConfig ?? {},
-            )
-          : projectRoomClientRef.current?.handleLocalSceneChange(
-              elements,
-              files,
-              sharedSceneConfig,
-            );
-      void submission?.catch((error) => {
-        setProjectRoomError(formatProjectSaveError(error));
-      });
+    if (api) {
+      reportDesktopProjectTheme(api.getAppState());
     }
-    // Reconciliation above can replace job maps and selection signatures.
-    // Remember the resulting dependencies, not their pre-reconciliation values.
-    canvasNavigationTracker.remember(getNavigationSnapshot());
-    return result;
-  };
+  });
+  const attachCanvasApi = useStableCallback<
+    NonNullable<ExcalidrawProps["onExcalidrawAPI"]>
+  >((api) => {
+    if (projectRenderNonce !== projectRenderNonceRef.current) {
+      return;
+    }
+    if (excalidrawAPIRef.current !== api) {
+      canvasPreferencesCleanupRef.current?.();
+      canvasPreferencesCleanupRef.current = null;
+    }
+    excalidrawAPIRef.current = api;
+    if (!isAgentBrowserRoute) {
+      const runtime = desktopProjectRuntimeRef.current;
+      runtime?.attachApi(api);
+      if (runtime) {
+        projectRoomClientRef.current = runtime.getController();
+      }
+    }
+    queuedExcalidrawBinaryFilesRendererActions.flush();
+    visibleImageRenditionLoadRendererActions.schedule(latestSceneRef.current);
+  });
+  const trackCanvasPointer = useStableCallback<
+    NonNullable<ExcalidrawProps["onPointerUpdate"]>
+  >(({ pointer }) => {
+    lastCanvasPointerRef.current = {
+      x: pointer.x,
+      y: pointer.y,
+    };
+  });
 
   const finishImageCropping = () => {
     const api = excalidrawAPIRef.current;
@@ -2996,63 +3103,9 @@ const App = ({
                   trackpadZoomSpeed,
                 )}
                 initialData={initialData}
-                onInitialize={(api) => {
-                  canvasPreferencesCleanupRef.current?.();
-                  canvasPreferencesCleanupRef.current =
-                    api ? bindCanvasPreferences(api, desktopBridge) : null;
-                  const runtime = desktopProjectRuntimeRef.current;
-                  if (!isAgentBrowserRoute && api && runtime) {
-                    runtime.attachApi(api);
-                    projectRoomClientRef.current = runtime.getController();
-                    void runtime.start().catch(() => undefined);
-                  }
-                  applyProjectRoomCollaborators(api ?? null);
-                  if (api && stableBoardId) {
-                    const savedViewport =
-                      pendingAgentBoardViewportRestoreRef.current;
-                    if (savedViewport) {
-                      api.updateScene({
-                        appState: savedViewport,
-                        captureUpdate: CaptureUpdateAction.NEVER,
-                      });
-                    }
-                    pendingAgentBoardViewportRestoreRef.current = null;
-                  }
-                  currentProjectEditorReadyRendererActions.ready(
-                    api ?? null,
-                    projectRenderNonce,
-                  );
-                  if (api) {
-                    reportDesktopProjectTheme(api.getAppState());
-                  }
-                }}
-                onExcalidrawAPI={(api) => {
-                  if (projectRenderNonce !== projectRenderNonceRef.current) {
-                    return;
-                  }
-                  if (excalidrawAPIRef.current !== api) {
-                    canvasPreferencesCleanupRef.current?.();
-                    canvasPreferencesCleanupRef.current = null;
-                  }
-                  excalidrawAPIRef.current = api;
-                  if (!isAgentBrowserRoute) {
-                    const runtime = desktopProjectRuntimeRef.current;
-                    runtime?.attachApi(api);
-                    if (runtime) {
-                      projectRoomClientRef.current = runtime.getController();
-                    }
-                  }
-                  queuedExcalidrawBinaryFilesRendererActions.flush();
-                  visibleImageRenditionLoadRendererActions.schedule(
-                    latestSceneRef.current,
-                  );
-                }}
-                onPointerUpdate={({ pointer }) => {
-                  lastCanvasPointerRef.current = {
-                    x: pointer.x,
-                    y: pointer.y,
-                  };
-                }}
+                onInitialize={initializeCanvas}
+                onExcalidrawAPI={attachCanvasApi}
+                onPointerUpdate={trackCanvasPointer}
                 onScrollChange={viewportChangeRendererActions.changeViewport}
                 onCopy={projectClipboardRendererActions.copyElements}
                 onCopyAsPng={
@@ -3060,17 +3113,7 @@ const App = ({
                 }
                 onPaste={projectImageImportRendererActions.pasteClipboardImage}
                 onChange={handleCanvasSceneChange}
-                UIOptions={{
-                  defaultSidebar: false,
-                  canvasActions: {
-                    clearCanvas: false,
-                    loadScene: false,
-                    saveToActiveFile: false,
-                    export: false,
-                    saveAsImage: false,
-                    toggleTheme: true,
-                  },
-                }}
+                UIOptions={CANVAS_UI_OPTIONS}
                 detectScroll={false}
                 handleKeyboardGlobally={!browsing}
                 autoFocus={true}

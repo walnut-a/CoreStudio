@@ -65,11 +65,10 @@ Upstream Excalidraw is released under the MIT License, and so is this repository
 │   ├── packages/
 │   ├── excalidraw-app/
 │   └── package.json
-├── website/
-│   ├── index.html
-│   ├── zh/
-│   └── assets/
-└── review-packets/
+└── website/
+    ├── index.html
+    ├── zh/
+    └── assets/
 ```
 
 | Path                                              | Purpose                                                                                 |
@@ -86,7 +85,6 @@ Upstream Excalidraw is released under the MIT License, and so is this repository
 | `excalidraw/apps/image-board-desktop/src/shared/` | Shared renderer/Electron types and data-integrity logic                                 |
 | `excalidraw/packages/`                            | Excalidraw workspace packages                                                           |
 | `website/`                                        | Static website pages, responsive assets, and GitHub Pages configuration                 |
-| `review-packets/`                                 | Local review material; not a primary source-code entry point                            |
 
 ## Core capabilities
 
@@ -150,7 +148,7 @@ corepack yarn test:typecheck
 corepack yarn check:desktop-secrets --source --package-inputs
 ```
 
-The root `.github/workflows/corestudio-desktop.yml` workflow runs `test:typecheck`, `test:desktop --run`, and the source secret scan on GitHub.
+Pull requests and pushes to `main` run the website contracts, desktop tests, typecheck and build. The CI secret scan checks repository sources and freshly built desktop bundles.
 
 Package the desktop client:
 
@@ -165,7 +163,7 @@ Generated installers are written to `excalidraw/apps/image-board-desktop/release
 Start here:
 
 - [docs/README.md](docs/README.md): Main repository documentation index.
-- [开放项目数据协议](docs/doc/corestudio-open-project-contract.md)：原图事实来源、外部整理与容错恢复的已确认原则，包含当前实现差距。
+- [Open project data contract](docs/doc/corestudio-open-project-contract.md) covers original assets, external edits, recovery, and known implementation gaps.
 - [docs/doc/repository-analysis.md](docs/doc/repository-analysis.md): Current repository, branch, structure, capability, and maintenance-boundary analysis.
 - [docs/doc/excalidraw-fork-maintenance.md](docs/doc/excalidraw-fork-maintenance.md): Excalidraw fork maintenance guide.
 - [excalidraw/apps/image-board-desktop/README.md](excalidraw/apps/image-board-desktop/README.md): CoreStudio CLI and Agent Bridge guide.

@@ -537,6 +537,7 @@ export const createVisibleImageRenditionLoadRendererActions = <
     resetTracking: () => {
       runtime.epoch++;
       runtime.unavailable.clear();
+      runtime.getDiagnostics = null;
       clearTimerRef();
       return applyEmptyImageRenditionTrackingSets({
         setLoadedPreviewFileIds,

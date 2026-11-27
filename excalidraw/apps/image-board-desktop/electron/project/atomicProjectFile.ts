@@ -2,7 +2,11 @@ import fs from "fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "path";
 
-const writeAtomic = async (filePath: string, value: string | Buffer) => {
+const writeAtomic = async (
+  filePath: string,
+  value: string | Buffer,
+  mode?: number,
+) => {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const tempPath = path.join(
     path.dirname(filePath),
@@ -10,7 +14,7 @@ const writeAtomic = async (filePath: string, value: string | Buffer) => {
   );
 
   try {
-    await fs.writeFile(tempPath, value);
+    await fs.writeFile(tempPath, value, { mode, flag: "wx" });
     await fs.rename(tempPath, filePath);
   } catch (error) {
     await fs.unlink(tempPath).catch(() => undefined);
@@ -18,8 +22,11 @@ const writeAtomic = async (filePath: string, value: string | Buffer) => {
   }
 };
 
-export const writeTextAtomic = (filePath: string, value: string) =>
-  writeAtomic(filePath, value);
+export const writeTextAtomic = (
+  filePath: string,
+  value: string,
+  mode?: number,
+) => writeAtomic(filePath, value, mode);
 
 export const writeJsonAtomic = (filePath: string, value: unknown) =>
   writeTextAtomic(filePath, JSON.stringify(value, null, 2));

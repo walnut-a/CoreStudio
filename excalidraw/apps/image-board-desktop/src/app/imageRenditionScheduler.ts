@@ -15,6 +15,15 @@ import {
 } from "./imageRenditionPolicy";
 
 export const createImageRenditionRuntime = () => ({
+  getDiagnostics: null as
+    | (() => {
+        desired: Record<string, string>;
+        current: Record<string, string>;
+        unavailable: string[];
+        estimatedBytes: number;
+        overBudgetBytes: number;
+      })
+    | null,
   epoch: 0,
   runningEpoch: 0,
   running: null as Promise<VisibleImageRenditionLoadRendererResult> | null,
@@ -104,6 +113,22 @@ export const loadAdaptiveImageRenditions = <TProject extends Project>(
             runtime.unavailable.delete(id);
           }
         }
+        runtime.getDiagnostics = () => ({
+          desired: Object.fromEntries(planned.desired),
+          current: Object.fromEntries(
+            [...planned.desired.keys()].map((id) => [
+              id,
+              options.getLoadedOriginalFileIds().has(id)
+                ? "original"
+                : options.getLoadedPreviewFileIds().has(id)
+                ? "preview"
+                : "thumbnail",
+            ]),
+          ),
+          unavailable: [...runtime.unavailable.keys()],
+          estimatedBytes: planned.estimatedBytes,
+          overBudgetBytes: planned.overBudgetBytes,
+        });
         const requests = takeImageRenditionBatch(
           planned.requests.filter(
             (request) => !runtime.unavailable.has(request.fileId),
@@ -173,7 +198,15 @@ export const loadAdaptiveImageRenditions = <TProject extends Project>(
             ) {
               runtime.unavailable.set(request.fileId, {
                 key: `${revisions.get(request.fileId)}:${request.rendition}`,
-                retryAfter: payload ? Infinity : Date.now() + 10_000,
+                retryAfter:
+                  payload &&
+                  request.rendition === "preview" &&
+                  Math.max(
+                    records[request.fileId].width,
+                    records[request.fileId].height,
+                  ) <= 1280
+                    ? Infinity
+                    : Date.now() + 10_000,
               });
             }
           }
@@ -202,7 +235,11 @@ export const loadAdaptiveImageRenditions = <TProject extends Project>(
             reason:
               discarded || !isCurrent() ? "stale-scene" : "no-rendition-needed",
           };
-    } catch {
+    } catch (error) {
+      console.warn("CoreStudio image rendition load failed", {
+        error: error instanceof Error ? error.message : String(error),
+        diagnostics: runtime.getDiagnostics?.(),
+      });
       return { status: "failed" };
     }
   };

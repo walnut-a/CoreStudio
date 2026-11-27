@@ -114,46 +114,11 @@ DMG 安装窗口布局由 `apps/image-board-desktop/package.json` 里的 `build.
 
 ## 签名
 
-当前配置使用这个 Developer ID：
-
-```text
-Developer ID Application: junyan liu (CUP682RD2S)
-```
-
-如果 macOS 询问是否允许 `codesign` 使用私钥，请允许后继续打包。
-
-验证 app 签名：
-
-```sh
-codesign -dv --verbose=4 apps/image-board-desktop/release/mac-arm64/CoreStudio.app
-```
-
-预期能看到：
-
-```text
-Developer ID Application: junyan liu (CUP682RD2S)
-TeamIdentifier=CUP682RD2S
-```
+正式打包前，将 `CSC_NAME` 设置为钥匙串中 Developer ID Application 证书的 SHA-1 指纹（也可使用去掉证书类型前缀的名称），将 `CORESTUDIO_NOTARY_PROFILE` 设置为本机的 notarytool 配置名称。electron-builder 使用 `CSC_NAME` 选择证书，公证脚本使用同一身份签名 DMG。可以通过 `CSC_KEYCHAIN` 指定钥匙串。
 
 ## Apple 公证脚本
 
-这台开发机已有 FileBox 共用的 `notarytool` profile：
-
-```text
-filebox-notary
-```
-
-正式打包时会自动运行：
-
-```sh
-corepack yarn --cwd apps/image-board-desktop notarize:release
-```
-
-这个脚本会使用：
-
-- `CORESTUDIO_NOTARY_PROFILE`：默认 `filebox-notary`
-- `CORESTUDIO_CODESIGN_IDENTITY`：默认 `Developer ID Application: junyan liu (CUP682RD2S)`
-- `CSC_KEYCHAIN`：默认 `$HOME/Library/Keychains/login.keychain-db`
+`package:app` 在生成 DMG 后调用 `notarize:release`。单独运行公证脚本时也支持 `CORESTUDIO_CODESIGN_IDENTITY`。可以用 `codesign -dv --verbose=4` 检查 app 的签名身份和 TeamIdentifier。
 
 如果只是临时打一个不公证的内部包，可以显式跳过：
 
@@ -1280,3 +1245,11 @@ sha256: c9f4565fee75fb87de2c5672ff6efb7c5fa22585b4ffaf59ac2f145f3e4fc673
 - [GitHub Release](https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.61) 于 `2026-11-15T15:04:37Z` 公开；从公开链接重新下载，大小和 SHA-256 与验收包一致。
 - 模型目录仓库已发布至 `ccb937e`，公开 revision 6 JSON 与客户端内置目录一致；旧版目录保留。稳定版清单使用实际 Release 时间、附件大小和哈希，合同测试通过。
 - 本次仅发布安装包，不替换本机已安装正式 App；主工作区未提交修改保留。未执行付费生图测试。
+
+## 1.1.62 发布说明
+
+- 改进画布放大时的原图加载，缩略图暂时不可用时可以重试。生成面板展开后，画布底部提示会随面板高度避让。
+- 保存模型设置时保留已配置的密钥，避免生成任务和设置窗口同时写入时覆盖修改。Gemini 图片请求支持传递取消信号。
+- 加强桌面窗口导航、Local Bridge 和协作房间的访问校验，完善源码和安装包的密钥扫描。
+
+系统要求为 Apple Silicon Mac，macOS 13 或更高版本。

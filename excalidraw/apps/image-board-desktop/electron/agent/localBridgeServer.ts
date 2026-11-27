@@ -1,10 +1,20 @@
+import {
+  readRoutes,
+  WRITE_ROUTES,
+  PROJECT_COMMAND_ROUTES,
+  type WriteRouteConfig,
+  type ProjectCommandRouteConfig,
+} from "./localBridgeRoutes";
+import {
+  isAgentBoardRoutePath,
+  serveAgentBoardAsset,
+  proxyAgentBoardDevAsset,
+} from "./agentBoardAssets";
+import { matchesBridgeToken } from "./bridgeToken";
 import http from "node:http";
 import { randomUUID } from "node:crypto";
-import { readFile as fsReadFile } from "node:fs/promises";
-import path from "node:path";
 
 import {
-  AGENT_BOARD_ROUTE,
   AGENT_BRIDGE_PROTOCOL_VERSION,
   AGENT_HTTP_ROUTES,
   AGENT_PERMISSIONS,
@@ -295,48 +305,6 @@ export interface LocalBridgeServerHandle {
 
 type JsonBody = Record<string, unknown>;
 
-interface WriteRouteConfig {
-  route: string;
-  command: AgentRendererCommandName;
-  completeGrant?: boolean;
-}
-
-interface ProjectCommandRouteConfig {
-  route: string;
-  command: AgentBoardEditCommandName;
-}
-
-const WRITE_ROUTES: WriteRouteConfig[] = [
-  {
-    route: AGENT_HTTP_ROUTES.sceneAddImage,
-    command: "scene.addImage",
-  },
-  {
-    route: AGENT_HTTP_ROUTES.sceneAddPrompt,
-    command: "scene.addPrompt",
-  },
-  {
-    route: AGENT_HTTP_ROUTES.sceneAddDiagram,
-    command: "scene.addDiagram",
-  },
-  {
-    route: AGENT_HTTP_ROUTES.taskComplete,
-    command: "task.complete",
-    completeGrant: true,
-  },
-];
-
-const PROJECT_COMMAND_ROUTES: ProjectCommandRouteConfig[] = [
-  {
-    route: AGENT_HTTP_ROUTES.sceneLocate,
-    command: "scene.locate",
-  },
-  {
-    route: AGENT_HTTP_ROUTES.sceneSelect,
-    command: "scene.select",
-  },
-];
-
 const RENDERER_STATUS_BY_CODE: Partial<Record<AgentErrorCode, number>> = {
   ACTOR_CLAIM_REQUIRED: 409,
   AGENT_TARGET_REQUIRED: 409,
@@ -372,9 +340,6 @@ const PARTICIPANT_ISSUER_HEADER = "x-corestudio-participant-issuer";
 const PARTICIPANT_THREAD_HEADER = "x-corestudio-participant-thread";
 const PARTICIPANT_LABEL_HEADER = "x-corestudio-participant-label";
 const AGENT_SESSION_HEADER = "x-corestudio-agent-session";
-const AGENT_BOARD_ASSET_ROUTE_PREFIX = "/assets/";
-const RETIRED_AGENT_BOARD_ROUTE = "/agent-board";
-
 const parseStringArray = (value: unknown, fieldName: string): string[] => {
   if (value === undefined) {
     return [];
@@ -450,21 +415,6 @@ const parseAgentImageGenerationInput = (
     referenceElementIds,
   };
 };
-const STATIC_CONTENT_TYPES: Record<string, string> = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-};
-
 const PUBLIC_DESKTOP_BRIDGE_METHODS = new Set<AgentDesktopBridgeMethod>([
   "loadAppInfo",
 ]);
@@ -568,167 +518,6 @@ const sendCorsPreflight = (response: http.ServerResponse) => {
   sendResponse(response, 204, {
     "Access-Control-Max-Age": "600",
   });
-};
-
-const isAgentBoardRoutePath = (pathname: string) =>
-  pathname === AGENT_BOARD_ROUTE ||
-  pathname.startsWith(`${AGENT_BOARD_ROUTE}/`);
-
-const isAgentBoardPagePath = (pathname: string) => {
-  if (pathname === AGENT_BOARD_ROUTE) {
-    return true;
-  }
-  const stableBoardPathSegment = pathname.startsWith(`${AGENT_BOARD_ROUTE}/`)
-    ? pathname.slice(`${AGENT_BOARD_ROUTE}/`.length)
-    : "";
-  return (
-    stableBoardPathSegment.length > 0 && !stableBoardPathSegment.includes("/")
-  );
-};
-
-const isRetiredAgentBoardPagePath = (pathname: string) =>
-  pathname === RETIRED_AGENT_BOARD_ROUTE ||
-  pathname === `${RETIRED_AGENT_BOARD_ROUTE}/` ||
-  pathname.startsWith(`${RETIRED_AGENT_BOARD_ROUTE}/`);
-
-const addAgentBoardBaseHref = (contents: Buffer) => {
-  const html = contents.toString("utf8");
-  if (/<base\b/i.test(html)) {
-    return contents;
-  }
-  const nextHtml = html.replace(
-    /<head(\s[^>]*)?>/i,
-    (head) => `${head}<base href="/" />`,
-  );
-  return Buffer.from(nextHtml === html ? `<base href="/" />${html}` : nextHtml);
-};
-
-const serveAgentBoardAsset = async (
-  response: http.ServerResponse,
-  pathname: string,
-  assetsDir: string | undefined,
-) => {
-  if (
-    !assetsDir ||
-    (!isAgentBoardPagePath(pathname) &&
-      !pathname.startsWith(AGENT_BOARD_ASSET_ROUTE_PREFIX))
-  ) {
-    return false;
-  }
-
-  const relativePath = isAgentBoardPagePath(pathname)
-    ? "index.html"
-    : pathname.slice(1);
-  const root = path.resolve(assetsDir);
-  const filePath = path.resolve(root, relativePath);
-  if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
-    sendResponse(response, 404, {});
-    return true;
-  }
-
-  let contents: Buffer;
-  try {
-    contents = await fsReadFile(filePath);
-  } catch {
-    sendResponse(response, 404, {});
-    return true;
-  }
-  const body =
-    relativePath === "index.html" ? addAgentBoardBaseHref(contents) : contents;
-  sendResponse(
-    response,
-    200,
-    {
-      "Content-Type":
-        STATIC_CONTENT_TYPES[path.extname(filePath).toLowerCase()] ??
-        "application/octet-stream",
-      "Cache-Control":
-        relativePath === "index.html"
-          ? "no-cache"
-          : "public, max-age=31536000, immutable",
-    },
-    body,
-  );
-  return true;
-};
-
-const proxyAgentBoardDevAsset = async (
-  request: http.IncomingMessage,
-  response: http.ServerResponse,
-  url: URL,
-  devServerUrl: string | undefined,
-) => {
-  if (
-    !devServerUrl ||
-    request.method !== "GET" ||
-    url.pathname.startsWith("/v1/")
-  ) {
-    return false;
-  }
-  if (isRetiredAgentBoardPagePath(url.pathname)) {
-    sendResponse(response, 404, {});
-    return true;
-  }
-  if (
-    isAgentBoardRoutePath(url.pathname) &&
-    !isAgentBoardPagePath(url.pathname)
-  ) {
-    return false;
-  }
-  if (
-    request.headers.accept?.includes("text/html") &&
-    !isAgentBoardPagePath(url.pathname)
-  ) {
-    return false;
-  }
-
-  const target = new URL(`${url.pathname}${url.search}`, devServerUrl);
-  if (isAgentBoardPagePath(url.pathname)) {
-    target.pathname = "/";
-    target.search = "";
-  }
-
-  let statusCode: number;
-  let body: Buffer;
-  const headers: Record<string, string> = {};
-  try {
-    const upstream = await fetch(target, {
-      headers: {
-        Accept:
-          typeof request.headers.accept === "string"
-            ? request.headers.accept
-            : "*/*",
-        "Accept-Encoding": "identity",
-      },
-    });
-    for (const name of [
-      "content-type",
-      "cache-control",
-      "etag",
-      "last-modified",
-    ]) {
-      const value = upstream.headers.get(name);
-      if (value) {
-        headers[name] = value;
-      }
-    }
-    body = Buffer.from(await upstream.arrayBuffer());
-    statusCode = upstream.status;
-  } catch (error) {
-    reportRequestError(response, error, "asset-proxy");
-    sendResponse(
-      response,
-      502,
-      {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-      "CoreStudio development renderer is unavailable.",
-    );
-    return true;
-  }
-  sendResponse(response, statusCode, headers, body);
-  return true;
 };
 
 const sendError = (
@@ -873,6 +662,12 @@ const sendRendererError = (response: http.ServerResponse, error: unknown) => {
     return;
   }
   try {
+    if (error instanceof RequestBodyTooLargeError) {
+      sendError(response, 413, "BAD_REQUEST", error.message, {
+        maxBytes: error.maxBytes,
+      });
+      return;
+    }
     const code = getErrorCode(error);
     if (code) {
       sendError(
@@ -989,8 +784,10 @@ const getTrustedParticipantIdentity = (
   }
   if (
     !options.participantIssuerToken ||
-    getSingleHeader(request, PARTICIPANT_ISSUER_HEADER) !==
-      options.participantIssuerToken
+    !matchesBridgeToken(
+      getSingleHeader(request, PARTICIPANT_ISSUER_HEADER),
+      options.participantIssuerToken,
+    )
   ) {
     return null;
   }
@@ -1018,7 +815,10 @@ const resolveProjectByToken = async (
   >,
 ) => {
   const currentProject = options.getCurrentProject();
-  if (currentProject?.agentAccess.token === token) {
+  if (
+    currentProject &&
+    matchesBridgeToken(token, currentProject.agentAccess.token)
+  ) {
     return currentProject;
   }
 
@@ -1202,11 +1002,16 @@ const readRequestBody = async (
     return {};
   }
 
-  const parsedBody = JSON.parse(rawBody) as unknown;
-  if (!isObjectBody(parsedBody)) {
-    throw new Error("Expected a JSON object body");
+  try {
+    const body: unknown = JSON.parse(rawBody);
+    if (!isObjectBody(body)) throw new Error("Expected a JSON object body");
+    return body;
+  } catch (error) {
+    throw Object.assign(new Error("Invalid JSON body"), {
+      code: "BAD_REQUEST",
+      details: { message: getErrorMessage(error) },
+    });
   }
-  return parsedBody;
 };
 
 const listenLocalBridgeServer = async (
@@ -1505,6 +1310,9 @@ export const createLocalBridgeServer = async (
   options: LocalBridgeServerOptions,
 ): Promise<LocalBridgeServerHandle> => {
   let projectRoomWebSocket: ProjectRoomWebSocketServerHandle | null = null;
+  const payloadLimit =
+    options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES;
+  const controlLimit = Math.min(payloadLimit, 1024 * 1024);
   const server = http.createServer((request, response) => {
     initializeResponse(request, response, options.onRequestError);
     void (async () => {
@@ -1515,14 +1323,35 @@ export const createLocalBridgeServer = async (
           response,
           url.pathname,
           options.agentBoardAssetsDir,
+          sendResponse,
         )) ||
           (await proxyAgentBoardDevAsset(
             request,
             response,
             url,
             options.agentBoardDevServerUrl,
+            sendResponse,
+            reportRequestError,
           )))
       ) {
+        return;
+      }
+
+      const requestOrigin = getRequestOrigin(request);
+      const allowedCorsOrigin = getAllowedCorsOrigin(
+        requestOrigin,
+        options.getBoardUrl?.() ?? null,
+      );
+
+      if (requestOrigin && !allowedCorsOrigin) {
+        sendError(response, 403, "FORBIDDEN", "Origin is not allowed");
+        return;
+      }
+
+      applyCorsHeaders(response, allowedCorsOrigin);
+
+      if (request.method === "OPTIONS") {
+        sendCorsPreflight(response);
         return;
       }
 
@@ -1532,8 +1361,10 @@ export const createLocalBridgeServer = async (
       ) {
         if (
           !options.participantIssuerToken ||
-          getSingleHeader(request, PARTICIPANT_ISSUER_HEADER) !==
-            options.participantIssuerToken ||
+          !matchesBridgeToken(
+            getSingleHeader(request, PARTICIPANT_ISSUER_HEADER),
+            options.participantIssuerToken,
+          ) ||
           !options.issueAgentSession
         ) {
           sendError(
@@ -1545,10 +1376,7 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
-          const body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
+          const body = await readRequestBody(request, controlLimit);
           if (
             !isAgentHost(body.host) ||
             typeof body.displayLabel !== "string" ||
@@ -1601,7 +1429,7 @@ export const createLocalBridgeServer = async (
         const issuerToken = request.headers[PARTICIPANT_ISSUER_HEADER];
         if (
           !options.participantIssuerToken ||
-          issuerToken !== options.participantIssuerToken ||
+          !matchesBridgeToken(issuerToken, options.participantIssuerToken) ||
           !options.issueProjectRoomTicket
         ) {
           sendError(
@@ -1612,10 +1440,7 @@ export const createLocalBridgeServer = async (
           );
           return;
         }
-        const body = await readRequestBody(
-          request,
-          options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-        );
+        const body = await readRequestBody(request, controlLimit);
         if (
           typeof body.threadId !== "string" ||
           !body.threadId.trim() ||
@@ -1645,24 +1470,6 @@ export const createLocalBridgeServer = async (
         );
         return;
       }
-      const requestOrigin = getRequestOrigin(request);
-      const allowedCorsOrigin = getAllowedCorsOrigin(
-        requestOrigin,
-        options.getBoardUrl?.() ?? null,
-      );
-
-      if (requestOrigin && !allowedCorsOrigin) {
-        sendError(response, 403, "FORBIDDEN", "Origin is not allowed");
-        return;
-      }
-
-      applyCorsHeaders(response, allowedCorsOrigin);
-
-      if (request.method === "OPTIONS") {
-        sendCorsPreflight(response);
-        return;
-      }
-
       if (
         request.method === "POST" &&
         url.pathname === AGENT_HTTP_ROUTES.boardProjectSelectionSession
@@ -1680,18 +1487,7 @@ export const createLocalBridgeServer = async (
           );
           return;
         }
-        let body: JsonBody;
-        try {
-          body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
-        } catch (error) {
-          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
-            message: getErrorMessage(error),
-          });
-          return;
-        }
+        const body = await readRequestBody(request, controlLimit);
         if (
           typeof body.stableBoardId !== "string" ||
           !body.stableBoardId.trim() ||
@@ -1746,18 +1542,7 @@ export const createLocalBridgeServer = async (
           );
           return;
         }
-        let body: JsonBody;
-        try {
-          body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
-        } catch (error) {
-          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
-            message: getErrorMessage(error),
-          });
-          return;
-        }
+        const body = await readRequestBody(request, controlLimit);
         try {
           if (body.listProjects === true) {
             if (
@@ -1857,10 +1642,7 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
-          const body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
+          const body = await readRequestBody(request, controlLimit);
           if (
             typeof body.stableBoardId !== "string" ||
             !body.stableBoardId.trim() ||
@@ -1898,10 +1680,7 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
-          const body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
+          const body = await readRequestBody(request, controlLimit);
           if (
             typeof body.stableBoardId !== "string" ||
             !body.stableBoardId.trim() ||
@@ -1947,10 +1726,7 @@ export const createLocalBridgeServer = async (
           return;
         }
         try {
-          const body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
+          const body = await readRequestBody(request, controlLimit);
           if (
             typeof body.stableBoardId !== "string" ||
             !body.stableBoardId.trim() ||
@@ -2020,18 +1796,7 @@ export const createLocalBridgeServer = async (
           );
           return;
         }
-        let body: JsonBody;
-        try {
-          body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
-        } catch (error) {
-          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
-            message: getErrorMessage(error),
-          });
-          return;
-        }
+        const body = await readRequestBody(request, controlLimit);
         if (typeof body.projectPath !== "string" || !body.projectPath.trim()) {
           sendError(
             response,
@@ -2072,18 +1837,7 @@ export const createLocalBridgeServer = async (
           );
           return;
         }
-        let body: JsonBody;
-        try {
-          body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
-        } catch (error) {
-          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
-            message: getErrorMessage(error),
-          });
-          return;
-        }
+        const body = await readRequestBody(request, controlLimit);
         const rendition =
           body.rendition === "preview" || body.rendition === "thumbnail"
             ? body.rendition
@@ -2129,18 +1883,7 @@ export const createLocalBridgeServer = async (
           );
           return;
         }
-        let body: JsonBody;
-        try {
-          body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
-        } catch (error) {
-          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
-            message: getErrorMessage(error),
-          });
-          return;
-        }
+        const body = await readRequestBody(request, payloadLimit);
         if (
           !Array.isArray(body.files) ||
           body.files.length === 0 ||
@@ -2361,13 +2104,6 @@ export const createLocalBridgeServer = async (
         return;
       }
 
-      const readRoutes = new Map<string, AgentRendererCommandName>([
-        [AGENT_HTTP_ROUTES.projectCurrent, "project.current"],
-        [AGENT_HTTP_ROUTES.projectRecords, "project.records"],
-        [AGENT_HTTP_ROUTES.projectHealth, "project.health"],
-        [AGENT_HTTP_ROUTES.sceneBoard, "scene.board"],
-        [AGENT_HTTP_ROUTES.sceneSnapshot, "scene.snapshot"],
-      ]);
       const readCommand = readRoutes.get(url.pathname);
       if (request.method === "GET" && readCommand) {
         const currentProject = await authenticateProjectRequest(
@@ -2456,26 +2192,15 @@ export const createLocalBridgeServer = async (
         return;
       }
 
-      let body: JsonBody | null = null;
-      if (request.method === "POST") {
-        try {
-          body = await readRequestBody(
-            request,
-            options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES,
-          );
-        } catch (error) {
-          if (error instanceof RequestBodyTooLargeError) {
-            sendError(response, 413, "BAD_REQUEST", error.message, {
-              maxBytes: error.maxBytes,
-            });
-            return;
-          }
-          sendError(response, 400, "BAD_REQUEST", "Invalid JSON body", {
-            message: error instanceof Error ? error.message : String(error),
-          });
-          return;
-        }
-      }
+      const body =
+        request.method === "POST"
+          ? await readRequestBody(
+              request,
+              writeRoute?.command === "scene.addImage" || isDesktopBridgeRoute
+                ? payloadLimit
+                : controlLimit,
+            )
+          : null;
 
       if (request.method === "POST" && isAuthorizeRoute) {
         const currentProject = await authenticateProjectRequest(

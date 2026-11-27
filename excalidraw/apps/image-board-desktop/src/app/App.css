@@ -68,6 +68,13 @@ html.image-board-desktop-titlebar-hidden {
   height: 100%;
 }
 
+.image-board-app .excalidraw .floating-status-stack {
+  bottom: max(
+    calc(30px + var(--sab, 0px)),
+    calc(var(--generate-panel-occlusion-height, 0px) + var(--ui-space-lg))
+  );
+}
+
 .image-board-canvas--editor-initializing .LoadingMessage {
   display: none;
 }

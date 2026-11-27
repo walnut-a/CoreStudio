@@ -90,6 +90,8 @@ const runPackagedSmoke = ({
     );
     let settled = false;
     let stderr = "";
+    let sawReady = false;
+    let stdoutTail = "";
     let child;
     try {
       const smokeEnv = {
@@ -132,7 +134,6 @@ const runPackagedSmoke = ({
 
     const cleanup = () => {
       clearTimer(timeout);
-      child.kill();
       rmSync(temporaryUserDataDir, { recursive: true, force: true });
     };
     const resolveOnce = () => {
@@ -148,6 +149,7 @@ const runPackagedSmoke = ({
         return;
       }
       settled = true;
+      child.kill();
       cleanup();
       reject(error);
     };
@@ -155,9 +157,9 @@ const runPackagedSmoke = ({
     child.stdout?.on("data", (chunk) => {
       const text = chunk.toString("utf8");
       stdout.write(text);
-      if (text.includes(SMOKE_READY_SIGNAL)) {
-        resolveOnce();
-      }
+      stdoutTail += text;
+      sawReady ||= stdoutTail.includes(SMOKE_READY_SIGNAL);
+      stdoutTail = stdoutTail.slice(-SMOKE_READY_SIGNAL.length);
     });
     child.stderr?.on("data", (chunk) => {
       const text = chunk.toString("utf8");
@@ -165,11 +167,13 @@ const runPackagedSmoke = ({
       stderrWriter.write(text);
     });
     child.on("error", rejectOnce);
-    child.on("exit", (code, signal) => {
-      if (!settled) {
+    child.on("close", (code, signal) => {
+      if (sawReady && code === 0) {
+        resolveOnce();
+      } else if (!settled) {
         rejectOnce(
           new Error(
-            `Packaged app exited before smoke-ready signal: code=${code} signal=${signal}${
+            `Packaged app failed: code=${code} signal=${signal}${
               stderr ? `\n${stderr}` : ""
             }`,
           ),

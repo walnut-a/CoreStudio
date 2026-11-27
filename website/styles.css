@@ -17,7 +17,7 @@
 
 @font-face {
   font-family: "Excalifont";
-  src: url("/excalidraw/packages/excalidraw/fonts/Excalifont/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2")
+  src: url("./assets/fonts/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2")
     format("woff2");
   font-style: normal;
   font-weight: 400;

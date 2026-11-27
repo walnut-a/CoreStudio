@@ -144,3 +144,23 @@ it("does not apply an obsolete asset revision or a result from a reset project",
     expect(f.sets.loadedOriginalFileIds.size).toBe(0);
   }
 });
+
+it("does not spin when a thumbnail request falls back to an original", async () => {
+  const f = fixture();
+  f.actions.markLoaded([f.asset("a")]);
+  f.scene.appState.zoom = { value: 0.05 } as AppState["zoom"];
+  f.readAssets.mockImplementation(async ({ fileIds }) =>
+    fileIds.map((id) => f.asset(id)),
+  );
+  await f.actions.load(f.scene);
+  await f.actions.load(f.scene);
+  expect(f.readAssets).toHaveBeenCalledOnce();
+  const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 11_000);
+  try {
+    f.readAssets.mockResolvedValueOnce([f.asset("a", "thumbnail")]);
+    await f.actions.load(f.scene);
+    expect(f.sets.loadedOriginalFileIds.has("a")).toBe(false);
+  } finally {
+    clock.mockRestore();
+  }
+});

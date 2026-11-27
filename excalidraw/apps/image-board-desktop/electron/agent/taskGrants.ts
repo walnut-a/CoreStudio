@@ -1,4 +1,5 @@
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { matchesBridgeToken } from "./bridgeToken";
+import { randomUUID } from "node:crypto";
 
 import {
   type AgentErrorCode,
@@ -47,16 +48,6 @@ export type VerifyGrantResult =
 const isGrantExpired = (grant: AgentTaskGrant, nowDate: Date) =>
   nowDate.getTime() >= new Date(grant.expiresAt).getTime();
 
-const tokenMatches = (actual: string, expected: string) => {
-  const actualBuffer = Buffer.from(actual);
-  const expectedBuffer = Buffer.from(expected);
-
-  return (
-    actualBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(actualBuffer, expectedBuffer)
-  );
-};
-
 export const createTaskGrantStore = (options: TaskGrantStoreOptions = {}) => {
   const now = options.now ?? (() => new Date());
   const randomId = options.randomId ?? randomUUID;
@@ -97,7 +88,7 @@ export const createTaskGrantStore = (options: TaskGrantStoreOptions = {}) => {
     permission,
   }: VerifyGrantParams): VerifyGrantResult => {
     const grant = grants.get(taskId);
-    if (!grant || !tokenMatches(grant.writeToken, writeToken)) {
+    if (!grant || !matchesBridgeToken(grant.writeToken, writeToken)) {
       return { ok: false, code: "AUTH_DENIED" };
     }
     if (grant.projectPath !== projectPath) {

@@ -21,3 +21,5 @@ source font. Xiaolai SC is Copyright © 2020 LXGW and is distributed under the
 SIL Open Font License 1.1. The subset contains only the non-Latin glyphs used
 by the current annotations; Latin glyphs continue to use Excalifont. The
 bundled license text is stored at `assets/fonts/Xiaolai-LICENSE.txt`.
+
+The Latin Excalifont subset ships alongside its [SIL Open Font License](assets/fonts/Excalifont-LICENSE.txt).

@@ -229,25 +229,41 @@ export const planImageRenditions = ({
         estimateImageRenditionBytes(imageRecords[id], "thumbnail");
     }
   }
+  // At high zoom allow one focus image to borrow at most a quarter of the
+  // budget when the thumbnail baseline or mandatory crop/undo pixels fill it.
+  const extraBytes = (id: string, grade: ImageAssetRequestRendition) =>
+    estimateImageRenditionBytes(imageRecords[id], grade) -
+    estimateImageRenditionBytes(imageRecords[id], "thumbnail");
+  const focusLimit =
+    Math.max(memoryBudgetBytes, estimatedBytes) + memoryBudgetBytes / 4;
+  const focusId =
+    zoom >= 2
+      ? ordered.find(
+          ([id, item]) =>
+            !item.pinned &&
+            item.rendition === "original" &&
+            estimateImageRenditionBytes(imageRecords[id], "original") <=
+              memoryBudgetBytes &&
+            estimatedBytes + extraBytes(id, "original") <= focusLimit,
+        )?.[0]
+      : undefined;
+  if (focusId) estimatedBytes += extraBytes(focusId, "original");
   for (const [id, item] of ordered) {
     let rendition = item.rendition;
-    const extra = (grade: ImageAssetRequestRendition) =>
-      estimateImageRenditionBytes(imageRecords[id], grade) -
-      estimateImageRenditionBytes(imageRecords[id], "thumbnail");
-    if (!item.pinned) {
+    if (!item.pinned && id !== focusId) {
       if (
         rendition === "original" &&
-        estimatedBytes + extra(rendition) > memoryBudgetBytes
+        estimatedBytes + extraBytes(id, rendition) > memoryBudgetBytes
       ) {
         rendition = "preview";
       }
       if (
         rendition === "preview" &&
-        estimatedBytes + extra(rendition) > memoryBudgetBytes
+        estimatedBytes + extraBytes(id, rendition) > memoryBudgetBytes
       ) {
         rendition = "thumbnail";
       }
-      estimatedBytes += extra(rendition);
+      estimatedBytes += extraBytes(id, rendition);
     }
     desired.set(id, rendition);
   }

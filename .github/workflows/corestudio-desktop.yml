@@ -2,6 +2,11 @@ name: CoreStudio Desktop Checks
 
 on:
   pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   desktop:
@@ -29,6 +34,9 @@ jobs:
       - name: Agent guidance source consistency
         run: node ../docs/agent-integration/generate.mjs --check
 
+      - name: 官网契约
+        run: node --test ../website/*.test.mjs
+
       - name: Typecheck
         run: corepack yarn test:typecheck
 
@@ -38,11 +46,11 @@ jobs:
       - name: Agent Node integration
         run: corepack yarn --cwd apps/image-board-desktop test:agent-integration
 
-      - name: Secret scan
-        run: corepack yarn check:desktop-secrets --source --package-inputs
-
       - name: Build desktop
         run: corepack yarn build:desktop
+
+      - name: Secret scan
+        run: corepack yarn check:desktop-secrets --source --package-inputs
 
       - name: Bundle budget
         run: corepack yarn --cwd apps/image-board-desktop check:bundle-budget

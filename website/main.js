@@ -64,7 +64,7 @@ if (app) {
         : "Expand zoom controls";
       zoomToggle.setAttribute(
         "aria-label",
-        `${action}，${isChinese ? "当前缩放" : "current zoom"} ${Math.round(
+        `${action}${isChinese ? "，当前缩放" : ", current zoom"} ${Math.round(
           view.zoom * 100
         )}%`
       );

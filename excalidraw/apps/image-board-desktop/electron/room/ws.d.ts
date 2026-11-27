@@ -19,7 +19,7 @@ declare module "ws" {
   }
 
   export class WebSocketServer {
-    constructor(options: { noServer: true });
+    constructor(options: { noServer: true; maxPayload?: number });
     handleUpgrade(
       request: IncomingMessage,
       socket: Duplex,

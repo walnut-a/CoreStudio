@@ -1,6 +1,6 @@
 {
   "name": "image-board-desktop",
-  "version": "1.1.61",
+  "version": "1.1.62",
   "private": true,
   "license": "MIT",
   "description": "CoreStudio desktop image board",
@@ -42,7 +42,8 @@
   "dependencies": {
     "@lexical/react": "0.44.0",
     "lexical": "0.44.0",
-    "ws": "8.21.3"
+    "ws": "8.21.3",
+    "yjs": "13.6.33"
   },
   "devDependencies": {
     "@excalidraw/common": "0.18.0",
@@ -95,7 +96,6 @@
     "mac": {
       "category": "public.app-category.graphics-design",
       "minimumSystemVersion": "13.0",
-      "identity": "junyan liu (CUP682RD2S)",
       "icon": "build/icon.icns"
     },
     "dmg": {

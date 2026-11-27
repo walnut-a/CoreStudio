@@ -44,8 +44,6 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/corestudio-site"
           cp -R website/. "$RUNNER_TEMP/corestudio-site/"
-          mkdir -p "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Excalifont"
-          cp excalidraw/packages/excalidraw/fonts/Excalifont/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2 "$RUNNER_TEMP/corestudio-site/excalidraw/packages/excalidraw/fonts/Excalifont/"
 
       - name: 上传官网文件
         uses: actions/upload-pages-artifact@v4

@@ -1,3 +1,6 @@
+import { registerDesktopSettingsIpc } from "./desktopSettingsIpc";
+import { matchesBridgeToken } from "./agent/bridgeToken";
+import { guardDesktopNavigation } from "./desktopNavigation";
 import { migrateProjectDocument } from "./project/projectDocument";
 import {
   reconstructProjectWithDialog,
@@ -56,7 +59,6 @@ import {
   buildDesktopProjectRendererUrl,
   buildDesktopShellRendererUrl,
 } from "../src/shared/desktopRendererRoute";
-import type { DesktopLocalePreference } from "../src/shared/desktopLocale";
 import type {
   DesktopProjectRoomEventEnvelope,
   DesktopProjectRoomJoinInput,
@@ -174,10 +176,7 @@ import { createLocaleSettingsController } from "./localeSettingsController";
 import { createCanvasInteractionSettingsStore } from "./canvasInteractionSettingsStore";
 import { createCanvasInteractionSettingsController } from "./canvasInteractionSettingsController";
 import { createAppUpdateService } from "./appUpdateService";
-import type {
-  DesktopCanvasInteractionSettings,
-  TrackpadZoomSpeed,
-} from "../src/shared/canvasInteractionSettings";
+import type { DesktopCanvasInteractionSettings } from "../src/shared/canvasInteractionSettings";
 import type { DesktopAppUpdateAvailability } from "../src/shared/appUpdate";
 import { createProjectRoomService } from "./room/projectRoomService";
 import { createProjectProcessLeaseRegistry } from "./room/projectProcessLease";
@@ -226,6 +225,11 @@ import {
 } from "./desktopRuntimeConfig";
 
 installBrokenPipeConsoleGuard();
+
+const isPackagedSmoke = app.isPackaged && process.env.CORESTUDIO_SMOKE_TEST === "1";
+if (isPackagedSmoke && process.platform === "darwin") {
+  app.setActivationPolicy("prohibited");
+}
 
 const bundledDesktopAppName = app.getName();
 const configuredDesktopAppName = resolveDesktopAppName({
@@ -956,9 +960,7 @@ installMainProcessErrorHandlers(
         "logs",
         "main-process-errors.log",
       ),
-    showErrorBox: (title, content) => {
-      dialog.showErrorBox(title, content);
-    },
+    showErrorBox: isPackagedSmoke ? undefined : dialog.showErrorBox,
   }),
 );
 
@@ -1093,7 +1095,10 @@ const getCurrentProject = (): LocalBridgeCurrentProject | null =>
 const getAgentProjectByToken = async (
   token: string,
 ): Promise<LocalBridgeCurrentProject | null> => {
-  if (currentProject?.agentAccess.token === token) {
+  if (
+    currentProject &&
+    matchesBridgeToken(token, currentProject.agentAccess.token)
+  ) {
     return { ...currentProject };
   }
 
@@ -1105,7 +1110,7 @@ const getAgentProjectByToken = async (
 
     try {
       const manifest = await readProjectManifestSnapshot(project.projectPath);
-      if (manifest.agentAccess.token === token) {
+      if (matchesBridgeToken(token, manifest.agentAccess.token)) {
         return {
           projectPath: project.projectPath,
           name: manifest.name,
@@ -2839,7 +2844,8 @@ const registerIpcHandlers = () => {
     },
   );
 
-  ipcMain.handle(IPC_CHANNELS.loadRecentProjects, async () => {
+  ipcMain.handle(IPC_CHANNELS.loadRecentProjects, async (event) => {
+    requireShellOrProjectRendererSender(event.sender);
     return loadRecentProjects();
   });
 
@@ -3249,41 +3255,10 @@ const registerIpcHandlers = () => {
       writeClipboard: systemClipboard.writeProject,
     });
   });
-  ipcMain.handle(IPC_CHANNELS.loadLocaleSettings, async () =>
-    localeSettingsController?.getSettings(),
-  );
-  ipcMain.handle(
-    IPC_CHANNELS.saveLocalePreference,
-    async (_event, preference: DesktopLocalePreference) => {
-      if (!localeSettingsController) {
-        throw new Error("Locale settings are not ready.");
-      }
-      return localeSettingsController.savePreference(preference);
-    },
-  );
-  ipcMain.handle(IPC_CHANNELS.loadCanvasInteractionSettings, async (event) => {
-    requireShellOrProjectRendererSender(event.sender);
-    if (!canvasInteractionSettingsController) {
-      throw new Error("Canvas interaction settings are not ready.");
-    }
-    return canvasInteractionSettingsController.getSettings();
-  });
-  ipcMain.handle(IPC_CHANNELS.saveCanvasPreferences, async (event, preferences) => {
-    requireShellOrProjectRendererSender(event.sender);
-    if (!canvasInteractionSettingsController) {
-      throw new Error("Canvas interaction settings are not ready.");
-    }
-    return canvasInteractionSettingsController.savePreferences(preferences);
-  });
-  ipcMain.handle(
-    IPC_CHANNELS.saveTrackpadZoomSpeed,
-    async (event, speed: TrackpadZoomSpeed) => {
-      requireShellOrProjectRendererSender(event.sender);
-      if (!canvasInteractionSettingsController) {
-        throw new Error("Canvas interaction settings are not ready.");
-      }
-      return canvasInteractionSettingsController.saveTrackpadZoomSpeed(speed);
-    },
+  registerDesktopSettingsIpc(
+    requireShellOrProjectRendererSender,
+    () => localeSettingsController,
+    () => canvasInteractionSettingsController,
   );
 };
 
@@ -3339,6 +3314,7 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
     createView: (descriptor) => {
       const view = new WebContentsView({
         webPreferences: {
+          sandbox: true,
           backgroundThrottling: false,
           contextIsolation: true,
           nodeIntegration: false,
@@ -3355,6 +3331,7 @@ const createProjectViewRegistryForWindow = (targetWindow: BrowserWindow) =>
           projectViewRegistry?.markCrashed(webContentsId);
         },
       });
+      guardDesktopNavigation(projectWebContents);
       configureProjectRendererPermissions(projectWebContents);
       registerDesktopEditShortcuts(projectWebContents);
       view.setVisible(false);
@@ -3460,6 +3437,7 @@ const createWindow = async () => {
   rendererReady = false;
   pendingRendererMenuEvents.length = 0;
   mainWindow = new BrowserWindow({
+    show: !isPackagedSmoke,
     width: 1600,
     height: 1000,
     minWidth: 1180,
@@ -3475,6 +3453,7 @@ const createWindow = async () => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       preload: path.join(__dirname, "preload.js"),
     },
   });
@@ -3483,6 +3462,7 @@ const createWindow = async () => {
     requireProjectSender: (senderId, projectPath) =>
       getProjectViewRegistry().requireSenderProject(senderId, projectPath),
   });
+  guardDesktopNavigation(mainWindow.webContents);
   configureRendererPermissions(mainWindow);
   registerDesktopEditShortcuts(mainWindow.webContents);
   disableRendererPageZoom(mainWindow);
@@ -3531,11 +3511,24 @@ const createWindow = async () => {
   mainWindow.webContents.on("did-start-loading", () => {
     rendererReady = false;
   });
-  mainWindow.webContents.on("did-finish-load", () => {
-    if (process.env.CORESTUDIO_SMOKE_TEST === "1") {
+  const shellWindow = mainWindow;
+  shellWindow.webContents.once("did-finish-load", async () => {
+    if (!isPackagedSmoke) {
+      return;
+    }
+    try {
+      if (shellWindow.isVisible()) {
+        throw new Error("Packaged smoke window must stay hidden.");
+      }
+      await shellWindow.webContents.executeJavaScript(
+        "Promise.all([window.imageBoardDesktop.loadRecentProjects(), window.imageBoardDesktop.loadCanvasInteractionSettings()]).then(() => true)",
+      );
       console.log(PACKAGED_SMOKE_READY_SIGNAL);
       allowWindowClose = true;
       app.quit();
+    } catch (error) {
+      console.error("[corestudio:smoke-failed]", error);
+      app.exit(1);
     }
   });
   mainWindow.webContents.on("render-process-gone", (_event, details) => {

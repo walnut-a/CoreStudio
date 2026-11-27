@@ -80,14 +80,16 @@ const hasAllowedOrigin = (
   request: http.IncomingMessage,
   allowOrigin?: (origin: string) => boolean,
 ) => {
-  const origin = request.headers.origin;
-  if (!origin) {
-    return true;
-  }
+  const port = request.socket.localPort;
   const host = request.headers.host;
-  if (!host) {
+  if (
+    host !== `127.0.0.1:${port}` &&
+    host !== `localhost:${port}` &&
+    host !== `[::1]:${port}`
+  )
     return false;
-  }
+  const origin = request.headers.origin;
+  if (!origin) return true;
   return (
     origin === `http://${host}` ||
     origin === `https://${host}` ||
@@ -101,7 +103,10 @@ export const attachProjectRoomWebSocketServer = ({
   allowOrigin,
   authenticate,
 }: AttachProjectRoomWebSocketServerInput): ProjectRoomWebSocketServerHandle => {
-  const webSocketServer = new WebSocketServer({ noServer: true });
+  const webSocketServer = new WebSocketServer({
+    noServer: true,
+    maxPayload: 16 * 1024 * 1024,
+  });
   const sockets = new Set<WebSocket>();
   const participantSockets = new Map<string, Set<WebSocket>>();
   const pendingAgentCommands = new Map<
@@ -132,10 +137,11 @@ export const attachProjectRoomWebSocketServer = ({
     socket: import("node:stream").Duplex,
     head: Buffer,
   ) => {
-    const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    if (url.pathname !== path) {
+    const target = request.url;
+    if (!target || target.split("?", 1)[0] !== path) {
       return;
     }
+    const url = new URL(target, "http://127.0.0.1");
     if (!hasAllowedOrigin(request, allowOrigin)) {
       socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
       socket.destroy();

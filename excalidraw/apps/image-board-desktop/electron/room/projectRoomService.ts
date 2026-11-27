@@ -206,6 +206,12 @@ export class ProjectRoomService {
     };
   }
 
+  private forgetProjectPaths(projectId: string) {
+    for (const [path, id] of this.projectIdByPath) {
+      if (id === projectId) this.projectIdByPath.delete(path);
+    }
+  }
+
   public async closeProject(
     projectId: string,
     options: {
@@ -228,10 +234,9 @@ export class ProjectRoomService {
         throw error;
       }
     }
-    const canonicalProjectPath = room.identity.canonicalProjectPath;
     const closed = this.manager.close(projectId, options.reason);
     if (closed) {
-      this.projectIdByPath.delete(canonicalProjectPath);
+      this.forgetProjectPaths(projectId);
       await this.releaseProcessLease(projectId);
     }
     return closed;
@@ -345,7 +350,7 @@ export class ProjectRoomService {
           options.reason ?? "app-closed",
         )
       ) {
-        this.projectIdByPath.delete(room.identity.canonicalProjectPath);
+        this.forgetProjectPaths(room.identity.projectId);
         await this.releaseProcessLease(room.identity.projectId);
         closedRoomCount += 1;
       }

@@ -1,3 +1,4 @@
+import { writeTextAtomic } from "./project/atomicProjectFile";
 import fs from "fs/promises";
 import path from "path";
 
@@ -20,6 +21,7 @@ import type {
   ProviderId,
   ProviderSettings,
 } from "../src/shared/providerTypes";
+import { AGENT_SETTINGS_DIRECTORY_NAME } from "../src/shared/agentBridgeTypes";
 import { getDesktopSettingsDirectory } from "./desktopSettingsDirectory";
 
 type StoredProviderSettings = Record<ProviderId, Partial<ProviderSettings>>;
@@ -67,15 +69,6 @@ const getSettingsPath = () =>
 const getLegacySettingsPath = () =>
   path.join(app.getPath("userData"), SETTINGS_FILE_NAME);
 
-const serializePlainApiKey = (apiKey: string | undefined) => {
-  const normalizedApiKey = apiKey?.trim();
-  if (!normalizedApiKey) {
-    return apiKey;
-  }
-
-  return `plain:${normalizedApiKey}`;
-};
-
 const normalizeStoredApiKey = (apiKey: string | undefined) => {
   if (!apiKey) {
     return {
@@ -91,42 +84,19 @@ const normalizeStoredApiKey = (apiKey: string | undefined) => {
   }
   if (apiKey.startsWith("plain:")) {
     return {
-      apiKey: apiKey.slice(6),
+      apiKey: apiKey.slice(6).trim(),
       formatError: null as string | null,
     };
   }
   return {
-    apiKey,
+    apiKey: apiKey.trim(),
     formatError: null as string | null,
   };
 };
 
-const getPublicApiKeyState = (apiKey: string | undefined) => {
-  if (!apiKey) {
-    return {
-      isConfigured: false,
-      formatError: null as string | null,
-    };
-  }
-
-  if (apiKey.startsWith("enc:")) {
-    return {
-      isConfigured: false,
-      formatError: KEY_LEGACY_ENCRYPTED_ERROR,
-    };
-  }
-
-  if (apiKey.startsWith("plain:")) {
-    return {
-      isConfigured: Boolean(apiKey.slice("plain:".length)),
-      formatError: null as string | null,
-    };
-  }
-
-  return {
-    isConfigured: Boolean(apiKey),
-    formatError: null as string | null,
-  };
+const getPublicApiKeyState = (value: string | undefined) => {
+  const { apiKey, formatError } = normalizeStoredApiKey(value);
+  return { isConfigured: Boolean(apiKey), formatError };
 };
 
 const normalizeProviderCapabilities = (
@@ -322,29 +292,52 @@ const readSettings = async (): Promise<StoredProviderConfigurationV2> => {
 
 const writeSettings = async (settings: StoredProviderConfigurationV2) => {
   const settingsPath = getSettingsPath();
-  await fs.mkdir(path.dirname(settingsPath), {
+  const directory = path.dirname(settingsPath);
+  await fs.mkdir(directory, {
     recursive: true,
     mode: SETTINGS_DIRECTORY_MODE,
   });
-  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), {
-    encoding: "utf8",
-    mode: SETTINGS_FILE_MODE,
-  });
-  if (process.platform !== "win32") {
-    await fs.chmod(settingsPath, SETTINGS_FILE_MODE);
+  if (
+    process.platform !== "win32" &&
+    directory ===
+      path.join(app.getPath("appData"), AGENT_SETTINGS_DIRECTORY_NAME)
+  ) {
+    await fs.chmod(directory, SETTINGS_DIRECTORY_MODE);
   }
+  await writeTextAtomic(
+    settingsPath,
+    JSON.stringify(settings, null, 2),
+    SETTINGS_FILE_MODE,
+  );
 };
 
-export const loadProviderSettings = async () => {
+// Reads can migrate legacy files, so they share the mutation queue.
+let pendingSettingsAccess = Promise.resolve();
+const serializeSettingsAccess =
+  <Args extends unknown[], Result>(
+    operation: (...args: Args) => Promise<Result>,
+  ) =>
+  (...args: Args): Promise<Result> => {
+    const result = pendingSettingsAccess.then(() => operation(...args));
+    pendingSettingsAccess = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  };
+
+export const loadProviderSettings = serializeSettingsAccess(async () => {
   return toPublicConfiguration(await readSettings());
-};
+});
 
-export const setGenerateComposerVisible = async (visible: boolean) => {
-  const configuration = await readSettings();
-  configuration.composerVisible = visible;
-  await writeSettings(configuration);
-  return toPublicConfiguration(configuration);
-};
+export const setGenerateComposerVisible = serializeSettingsAccess(
+  async (visible: boolean) => {
+    const configuration = await readSettings();
+    configuration.composerVisible = visible;
+    await writeSettings(configuration);
+    return toPublicConfiguration(configuration);
+  },
+);
 
 const normalizeBaseUrl = (baseUrl: string | undefined) =>
   baseUrl?.trim().replace(/\/+$/, "") || undefined;
@@ -353,7 +346,8 @@ const assertValidProviderInput = (
   input: SaveProviderSettingsInput,
   existing: Partial<ProviderSettings>,
 ) => {
-  if (!input.apiKey.trim() && !existing.apiKey) {
+  const saved = normalizeStoredApiKey(existing.apiKey);
+  if (!input.apiKey.trim() && !saved.apiKey && !saved.formatError) {
     throw new Error("请填写 API Key。");
   }
   if (!input.defaultModel?.trim()) {
@@ -376,118 +370,131 @@ const assertValidProviderInput = (
   }
 };
 
-export const saveProviderSettings = async (
-  input: SaveProviderSettingsInput,
-) => {
-  const configuration = await readSettings();
-  const existing = configuration.providers[input.provider] ?? {};
-  assertValidProviderInput(input, existing);
-  configuration.providers[input.provider] = {
-    ...existing,
-    apiKey: input.apiKey ? serializePlainApiKey(input.apiKey) : existing.apiKey,
-    displayName: input.displayName?.trim() || undefined,
-    baseUrl: normalizeBaseUrl(input.baseUrl),
-    defaultModel: input.defaultModel?.trim(),
-    customModels:
-      input.customModels === undefined
-        ? existing.customModels
-        : normalizeCustomModels(input.customModels),
-    lastStatus: "unknown",
-    lastCheckedAt: null,
-    lastError: null,
-  };
-  configuration.defaultProvider = normalizeDefaultProvider(
-    configuration.providers,
-    configuration.defaultProvider,
-  );
-  await writeSettings(configuration);
-  return toPublicConfiguration(configuration);
-};
-
-export const deleteProviderSettings = async (
-  input: DeleteProviderSettingsInput,
-) => {
-  const configuration = await readSettings();
-  configuration.providers[input.provider] = {};
-  configuration.defaultProvider = normalizeDefaultProvider(
-    configuration.providers,
-    configuration.defaultProvider,
-  );
-  await writeSettings(configuration);
-  return toPublicConfiguration(configuration);
-};
-
-export const migrateProviderDefaultModels = async (
-  modelAliases: Partial<Record<ProviderId, Record<string, string>>>,
-) => {
-  const configuration = await readSettings();
-  let changed = false;
-  for (const provider of PROVIDER_IDS) {
-    const currentModel = configuration.providers[provider]?.defaultModel;
-    const replacement = currentModel
-      ? modelAliases[provider]?.[currentModel]
-      : undefined;
-    if (!replacement || replacement === currentModel) {
-      continue;
-    }
-    configuration.providers[provider] = {
-      ...configuration.providers[provider],
-      defaultModel: replacement,
+export const saveProviderSettings = serializeSettingsAccess(
+  async (input: SaveProviderSettingsInput) => {
+    const configuration = await readSettings();
+    const existing = configuration.providers[input.provider] ?? {};
+    assertValidProviderInput(input, existing);
+    const key = input.apiKey.trim();
+    configuration.providers[input.provider] = {
+      ...existing,
+      apiKey: key ? `plain:${key}` : existing.apiKey,
+      displayName: input.displayName?.trim() || undefined,
+      baseUrl:
+        input.provider === "openai-compatible"
+          ? normalizeBaseUrl(input.baseUrl)
+          : undefined,
+      defaultModel: input.defaultModel?.trim(),
+      customModels:
+        input.customModels === undefined
+          ? existing.customModels
+          : normalizeCustomModels(input.customModels),
       lastStatus: "unknown",
       lastCheckedAt: null,
       lastError: null,
     };
-    changed = true;
-  }
-  if (changed) {
+    configuration.defaultProvider = normalizeDefaultProvider(
+      configuration.providers,
+      configuration.defaultProvider,
+    );
     await writeSettings(configuration);
-  }
-  return toPublicConfiguration(configuration);
-};
+    return toPublicConfiguration(configuration);
+  },
+);
 
-export const getProviderApiKey = async (provider: ProviderId) => {
-  const settings = await readSettings();
-  const storedApiKey = settings.providers[provider].apiKey;
-  const apiKeyState = normalizeStoredApiKey(storedApiKey);
-  if (apiKeyState.formatError) {
-    throw new Error(apiKeyState.formatError);
-  }
-  return apiKeyState.apiKey;
-};
+export const deleteProviderSettings = serializeSettingsAccess(
+  async (input: DeleteProviderSettingsInput) => {
+    const configuration = await readSettings();
+    configuration.providers[input.provider] = {};
+    configuration.defaultProvider = normalizeDefaultProvider(
+      configuration.providers,
+      configuration.defaultProvider,
+    );
+    await writeSettings(configuration);
+    return toPublicConfiguration(configuration);
+  },
+);
 
-export const getProviderCustomModels = async (provider: ProviderId) => {
-  const settings = await readSettings();
-  return normalizeCustomModels(settings.providers[provider].customModels);
-};
+export const migrateProviderDefaultModels = serializeSettingsAccess(
+  async (modelAliases: Partial<Record<ProviderId, Record<string, string>>>) => {
+    const configuration = await readSettings();
+    let changed = false;
+    for (const provider of PROVIDER_IDS) {
+      const currentModel = configuration.providers[provider]?.defaultModel;
+      const replacement = currentModel
+        ? modelAliases[provider]?.[currentModel]
+        : undefined;
+      if (!replacement || replacement === currentModel) {
+        continue;
+      }
+      configuration.providers[provider] = {
+        ...configuration.providers[provider],
+        defaultModel: replacement,
+        lastStatus: "unknown",
+        lastCheckedAt: null,
+        lastError: null,
+      };
+      changed = true;
+    }
+    if (changed) {
+      await writeSettings(configuration);
+    }
+    return toPublicConfiguration(configuration);
+  },
+);
 
-export const getProviderRuntimeSettings = async (
-  provider: ProviderId,
-): Promise<ProviderRuntimeSettings> => {
-  const configuration = await readSettings();
-  const settings = configuration.providers[provider] ?? {};
-  const apiKeyState = normalizeStoredApiKey(settings.apiKey);
-  if (apiKeyState.formatError) {
-    throw new Error(apiKeyState.formatError);
-  }
-  return {
-    apiKey: apiKeyState.apiKey,
-    displayName: settings.displayName,
-    baseUrl: normalizeBaseUrl(settings.baseUrl),
-    customModels: normalizeCustomModels(settings.customModels),
-  };
-};
+export const getProviderApiKey = serializeSettingsAccess(
+  async (provider: ProviderId) => {
+    const settings = await readSettings();
+    const storedApiKey = settings.providers[provider].apiKey;
+    const apiKeyState = normalizeStoredApiKey(storedApiKey);
+    if (apiKeyState.formatError) {
+      throw new Error(apiKeyState.formatError);
+    }
+    return apiKeyState.apiKey;
+  },
+);
 
-export const updateProviderStatus = async (
-  provider: ProviderId,
-  status: "success" | "error",
-  errorMessage?: string,
-) => {
-  const settings = await readSettings();
-  settings.providers[provider] = {
-    ...settings.providers[provider],
-    lastStatus: status,
-    lastCheckedAt: new Date().toISOString(),
-    lastError: errorMessage ?? null,
-  };
-  await writeSettings(settings);
-};
+export const getProviderCustomModels = serializeSettingsAccess(
+  async (provider: ProviderId) => {
+    const settings = await readSettings();
+    return normalizeCustomModels(settings.providers[provider].customModels);
+  },
+);
+
+export const getProviderRuntimeSettings = serializeSettingsAccess(
+  async (provider: ProviderId): Promise<ProviderRuntimeSettings> => {
+    const configuration = await readSettings();
+    const settings = configuration.providers[provider] ?? {};
+    const apiKeyState = normalizeStoredApiKey(settings.apiKey);
+    if (apiKeyState.formatError) {
+      throw new Error(apiKeyState.formatError);
+    }
+    return {
+      apiKey: apiKeyState.apiKey,
+      displayName: settings.displayName,
+      baseUrl:
+        provider === "openai-compatible"
+          ? normalizeBaseUrl(settings.baseUrl)
+          : undefined,
+      customModels: normalizeCustomModels(settings.customModels),
+    };
+  },
+);
+
+export const updateProviderStatus = serializeSettingsAccess(
+  async (
+    provider: ProviderId,
+    status: "success" | "error",
+    errorMessage?: string,
+  ) => {
+    const settings = await readSettings();
+    settings.providers[provider] = {
+      ...settings.providers[provider],
+      lastStatus: status,
+      lastCheckedAt: new Date().toISOString(),
+      lastError: errorMessage ?? null,
+    };
+    await writeSettings(settings);
+  },
+);

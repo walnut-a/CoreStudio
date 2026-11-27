@@ -5,7 +5,12 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { generateImages } from "./providers";
-import { loadProviderSettings, saveProviderSettings } from "./settingsStore";
+import {
+  loadProviderSettings,
+  saveProviderSettings,
+  setGenerateComposerVisible,
+  updateProviderStatus,
+} from "./settingsStore";
 
 import type {
   GenerationRequest,
@@ -64,6 +69,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   await fs.rm(host.directory, { recursive: true, force: true });
 });
 
@@ -106,6 +112,15 @@ describe("配置服务后生成图片", () => {
     "$provider 从保存配置到生成结果，密钥只进入服务端请求",
     async ({ provider, model, endpoint }) => {
       const apiKey = `local-test-key-${provider}`;
+      const privateDirectory = path.join(
+        host.directory,
+        "Excalidraw Image Board",
+      );
+      if (provider === "gemini" && process.platform !== "win32") {
+        await fs.mkdir(privateDirectory);
+        await fs.chmod(privateDirectory, 0o755);
+        vi.stubEnv("CORESTUDIO_SETTINGS_DIRECTORY", privateDirectory);
+      }
       const configured = await saveProviderSettings({
         provider,
         apiKey,
@@ -136,6 +151,7 @@ describe("配置服务后生成图片", () => {
       );
       if (process.platform !== "win32") {
         expect((await fs.stat(settingsPath)).mode & 0o777).toBe(0o600);
+        expect((await fs.stat(privateDirectory)).mode & 0o777).toBe(0o700);
       }
 
       const input = request(provider, model);
@@ -209,7 +225,23 @@ describe("配置服务后生成图片", () => {
         );
       }
 
-      const result = await generateImages({ request: input });
+      const signal = new AbortController().signal;
+      if (provider === "gemini") {
+        await Promise.all([
+          saveProviderSettings({
+            provider,
+            apiKey: "   ",
+            defaultModel: model,
+          }),
+          setGenerateComposerVisible(false),
+          updateProviderStatus(provider, "success"),
+        ]);
+        expect(await loadProviderSettings()).toMatchObject({
+          composerVisible: false,
+          providers: { gemini: { lastStatus: "success" } },
+        });
+      }
+      const result = await generateImages({ request: input, signal });
       expect(result).toMatchObject({
         provider,
         model,
@@ -241,6 +273,11 @@ describe("配置服务后生成图片", () => {
         expect(host.generateContent).toHaveBeenCalledWith(
           expect.objectContaining({ model, contents: prompt }),
         );
+        if (provider === "gemini") {
+          expect(host.generateContent.mock.calls[0][0].config.abortSignal).toBe(
+            signal,
+          );
+        }
         expect(fetchMock).not.toHaveBeenCalled();
       } else {
         expect(fetchMock.mock.calls[0][0]).toBe(endpoint);

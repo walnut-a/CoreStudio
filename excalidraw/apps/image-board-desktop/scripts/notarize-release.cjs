@@ -12,7 +12,6 @@ const packageJson = require(path.join(appRoot, "package.json"));
 const productName = packageJson.build?.productName ?? "CoreStudio";
 const version = packageJson.version;
 
-const defaultIdentity = "Developer ID Application: junyan liu (CUP682RD2S)";
 const defaultKeychain = path.join(
   process.env.HOME ?? "",
   "Library",
@@ -118,11 +117,13 @@ const main = () => {
   }
 
   const identity =
-    process.env.CORESTUDIO_CODESIGN_IDENTITY ||
-    process.env.CSC_NAME ||
-    defaultIdentity;
+    process.env.CSC_NAME || process.env.CORESTUDIO_CODESIGN_IDENTITY;
   const keychain = process.env.CSC_KEYCHAIN || defaultKeychain;
-  const profile = process.env.CORESTUDIO_NOTARY_PROFILE || "filebox-notary";
+  const profile = process.env.CORESTUDIO_NOTARY_PROFILE;
+  if (!identity || !profile)
+    throw new Error(
+      "Set CSC_NAME and CORESTUDIO_NOTARY_PROFILE before notarizing a release.",
+    );
   const appPath = findAppBundle();
   const dmgFiles = findDmgFiles();
 

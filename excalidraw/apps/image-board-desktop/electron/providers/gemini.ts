@@ -1,3 +1,4 @@
+import { DEFAULT_PROVIDER_FETCH_TIMEOUT_MS } from "./providerFetch";
 import { GoogleGenAI } from "@google/genai";
 
 import { writeGenerationLog } from "../generationLogs";
@@ -42,12 +43,18 @@ export const generateGeminiImages = async ({
   apiKey,
   request,
   projectPath,
+  signal,
 }: {
+  signal?: AbortSignal;
   apiKey: string;
   request: GenerationRequest;
   projectPath?: string | null;
 }): Promise<GenerationResponse> => {
-  const client = new GoogleGenAI({ apiKey });
+  signal?.throwIfAborted();
+  const client = new GoogleGenAI({
+    apiKey,
+    httpOptions: { timeout: DEFAULT_PROVIDER_FETCH_TIMEOUT_MS },
+  });
   const createdAt = new Date().toISOString();
   const prompt = buildPromptWithReferenceNotes(request);
   const reference = getEnabledReference(request);
@@ -116,7 +123,7 @@ export const generateGeminiImages = async ({
             .generateContent({
               model: request.model,
               contents,
-              config,
+              config: { ...config, abortSignal: signal },
             })
             .catch((error) => {
               throw appendRequestSummaryToError(
@@ -134,6 +141,7 @@ export const generateGeminiImages = async ({
             model: request.model,
             prompt,
             config: {
+              abortSignal: signal,
               numberOfImages: clampImageCount(request, 4),
               ...(geminiAspectRatio ? { aspectRatio: geminiAspectRatio } : {}),
               ...(request.model !== "imagen-4.0-fast-generate-001"

@@ -65,11 +65,10 @@ CoreStudio 本身不额外收取使用费用；第三方模型 API 和 Agent 产
 │   ├── packages/
 │   ├── excalidraw-app/
 │   └── package.json
-├── website/
-│   ├── index.html
-│   ├── zh/
-│   └── assets/
-└── review-packets/
+└── website/
+    ├── index.html
+    ├── zh/
+    └── assets/
 ```
 
 | 路径                                              | 用途                                                    |
@@ -86,7 +85,6 @@ CoreStudio 本身不额外收取使用费用；第三方模型 API 和 Agent 产
 | `excalidraw/apps/image-board-desktop/src/shared/` | renderer / Electron 共享类型和数据完整性逻辑            |
 | `excalidraw/packages/`                            | Excalidraw workspace packages                           |
 | `website/`                                        | 官方网站静态页面、响应式素材与 GitHub Pages 配置        |
-| `review-packets/`                                 | 本地审核材料；当前没有作为主代码入口                    |
 
 ## 核心能力
 
@@ -158,7 +156,7 @@ corepack yarn test:typecheck
 corepack yarn check:desktop-secrets --source --package-inputs
 ```
 
-仓库根目录的 `.github/workflows/corestudio-desktop.yml` 会在 GitHub 上运行 `test:typecheck`、`test:desktop --run` 和源码密钥扫描。
+PR 和推送到 `main` 时会运行官网契约、桌面测试、类型检查和构建。密钥扫描覆盖仓库源码和本次构建的桌面产物。
 
 打包桌面客户端：
 
@@ -172,6 +170,7 @@ corepack yarn package:desktop
 
 先读：
 
+- [开放项目数据协议](docs/doc/corestudio-open-project-contract.md)：原图事实来源、外部整理与容错恢复的已确认原则，包含当前实现差距。
 - [docs/README.md](docs/README.md)：仓库文档总入口。
 - [docs/doc/repository-analysis.md](docs/doc/repository-analysis.md)：当前仓库、分支、结构、能力和维护边界分析。
 - [docs/doc/excalidraw-fork-maintenance.md](docs/doc/excalidraw-fork-maintenance.md)：Excalidraw 源码 fork 维护说明。

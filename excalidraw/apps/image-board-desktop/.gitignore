@@ -8,3 +8,5 @@ release-dev/
 .env
 .env.*
 !.env.example
+
+build/icon-candidate-*.png

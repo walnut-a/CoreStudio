@@ -3,10 +3,10 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
+const { execFileSync } = require("node:child_process");
 const appRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(appRoot, "../..");
+const repoRoot = path.resolve(appRoot, "../../..");
 
-const maxTextFileBytes = 24 * 1024 * 1024;
 const allowedExtensions = new Set([
   ".cjs",
   ".css",
@@ -29,48 +29,6 @@ const allowedExtensions = new Set([
   ".yml",
 ]);
 
-const skippedDirectoryNames = new Set([
-  ".git",
-  ".electron-dev-profile",
-  ".electron-preview-profile",
-  ".turbo",
-  ".vite",
-  "build",
-  "coverage",
-  "dist",
-  "dist-electron",
-  "node_modules",
-  "release",
-  "release-dev",
-]);
-
-const allowlistMarkers = [
-  "dummy",
-  "example",
-  "fake",
-  "fixture",
-  "mock",
-  "placeholder",
-  "sample",
-  "http://",
-  "https://",
-  "test-api-key",
-  "test-key",
-  "sk-ai-v1-test",
-  "openai-key",
-  "openrouter-key",
-  "ark-key",
-  "zenmux-key",
-  "legacy-key",
-  "saved-key",
-  "updated-key",
-  "initial-key",
-  "process.env",
-  "import.meta.env",
-  "$",
-  "<",
-];
-
 const rules = [
   {
     name: "openai-or-compatible-key",
@@ -91,40 +49,20 @@ const rules = [
   {
     name: "generic-secret-assignment",
     pattern:
-      /\b(?:api[_-]?key|authorization|bearer|token|secret|password)\b[\w\s"'`.-]{0,40}[:=]\s*["'`]([A-Za-z0-9_./+=:-]{24,})["'`]/gi,
+      /\b(?:api[_-]?key|authorization|bearer|token|secret|password)\b["']?\s*[:=]\s*["'`]([A-Za-z0-9_./+=:-]{24,})["'`]/gi,
   },
 ];
 
-const shouldAllowLine = (line) => {
-  const lowerLine = line.toLowerCase();
-  return allowlistMarkers.some((marker) =>
-    lowerLine.includes(marker.toLowerCase()),
-  );
-};
+// Excalidraw's published Algolia search-only credential is shipped to browsers.
+const publicSearchKeyHash =
+  "dc83228112095f1d7594295b69833d2e5f2adf1f968ba6cd4be9b97c0e01980c";
+const isReviewedValue = (file, value) =>
+  path.relative(repoRoot, file) ===
+    "excalidraw/dev-docs/docusaurus.config.js" &&
+    require("node:crypto").createHash("sha256").update(value).digest("hex") ===
+      publicSearchKeyHash;
 
 const getLineNumber = (text, index) => text.slice(0, index).split("\n").length;
-
-const getLineAt = (text, index) => {
-  const naturalLineStart = text.lastIndexOf("\n", index) + 1;
-  const naturalLineEnd = text.indexOf("\n", index);
-  const lineEnd = naturalLineEnd === -1 ? text.length : naturalLineEnd;
-
-  if (lineEnd - naturalLineStart <= 500) {
-    return text.slice(naturalLineStart, lineEnd);
-  }
-
-  const snippetStart = Math.max(naturalLineStart, index - 180);
-  const snippetEnd = Math.min(lineEnd, index + 320);
-  return text.slice(snippetStart, snippetEnd);
-};
-
-const redactExcerpt = (line, matchedSecret) => {
-  const redactedSecret =
-    matchedSecret.length <= 16
-      ? "[REDACTED]"
-      : `${matchedSecret.slice(0, 8)}…${matchedSecret.slice(-4)}`;
-  return line.replace(matchedSecret, redactedSecret).trim().slice(0, 220);
-};
 
 const isPotentialTextFile = (filePath) => {
   const basename = path.basename(filePath);
@@ -159,10 +97,6 @@ const scanSecretFiles = async (files) => {
       continue;
     }
 
-    if (basename !== "app.asar" && stat.size > maxTextFileBytes) {
-      continue;
-    }
-
     if (basename === "image-board-settings.json") {
       findings.push({
         filePath,
@@ -179,6 +113,7 @@ const scanSecretFiles = async (files) => {
       rule.pattern.lastIndex = 0;
       let match;
       while ((match = rule.pattern.exec(text)) !== null) {
+        if (isReviewedValue(filePath, match[1] ?? match[0])) continue;
         const matchStart = match.index;
         const matchEnd = match.index + match[0].length;
         const overlapsExistingMatch = matchedRanges.some(
@@ -188,10 +123,6 @@ const scanSecretFiles = async (files) => {
           continue;
         }
 
-        const line = getLineAt(text, match.index);
-        if (shouldAllowLine(line)) {
-          continue;
-        }
         matchedRanges.push({
           start: matchStart,
           end: matchEnd,
@@ -200,7 +131,7 @@ const scanSecretFiles = async (files) => {
           filePath,
           line: getLineNumber(text, match.index),
           rule: rule.name,
-          excerpt: redactExcerpt(line, match[0]),
+          excerpt: "[REDACTED]",
         });
       }
     }
@@ -209,10 +140,7 @@ const scanSecretFiles = async (files) => {
   return findings;
 };
 
-const shouldSkipSourceDirectory = (directoryPath) =>
-  skippedDirectoryNames.has(path.basename(directoryPath));
-
-const walkFiles = async (root, options = {}) => {
+const walkFiles = async (root, skipDirectories) => {
   const files = [];
   let stat;
   try {
@@ -233,10 +161,8 @@ const walkFiles = async (root, options = {}) => {
   for (const entry of entries) {
     const entryPath = path.join(root, entry.name);
     if (entry.isDirectory()) {
-      if (options.skipDirectory?.(entryPath)) {
-        continue;
-      }
-      files.push(...(await walkFiles(entryPath, options)));
+      if (!skipDirectories?.has(entry.name))
+        files.push(...(await walkFiles(entryPath, skipDirectories)));
       continue;
     }
     if (entry.isFile()) {
@@ -247,36 +173,88 @@ const walkFiles = async (root, options = {}) => {
   return files;
 };
 
-const collectSourceFiles = async () =>
-  walkFiles(appRoot, {
-    skipDirectory: shouldSkipSourceDirectory,
-  });
+const generatedDirectories = new Set([
+  ".git",
+  ".git-backups",
+  ".worktrees",
+  ".electron-dev-profile",
+  ".electron-preview-profile",
+  ".turbo",
+  ".vite",
+  "build",
+  "coverage",
+  "dist",
+  "dist-electron",
+  "node_modules",
+  "release",
+  "release-dev",
+]);
+
+const collectSourceFiles = async () => {
+  const repositoryFiles = execFileSync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+    },
+  )
+    .split("\0")
+    .filter(isPotentialTextFile)
+    .map((name) => path.join(repoRoot, name));
+  // Preserve the desktop source scan, including local .env and settings files
+  // that would otherwise disappear through Git's ignore rules.
+  const desktopFiles = await walkFiles(appRoot, generatedDirectories);
+  return [
+    ...new Set([
+      ...repositoryFiles,
+      ...desktopFiles.filter(isPotentialTextFile),
+    ]),
+  ];
+};
 
 const collectPackageInputFiles = async () => {
   const roots = [
     path.join(appRoot, "dist"),
     path.join(appRoot, "dist-electron"),
+    path.join(appRoot, "bin"),
+    ...require("../package.json").build.extraResources.map(({ from }) =>
+      path.resolve(appRoot, from),
+    ),
   ];
   const files = [];
   for (const root of roots) {
-    files.push(...(await walkFiles(root)));
+    const inputs = (await walkFiles(root)).filter(isPotentialTextFile);
+    if (!inputs.length) throw new Error(`Missing build inputs: ${root}`);
+    files.push(...inputs);
   }
   return files;
 };
 
-const collectReleaseFiles = async () => {
-  const appBundle = path.join(
-    appRoot,
-    "release",
-    "mac-arm64",
-    "CoreStudio.app",
-  );
-  const resources = path.join(appBundle, "Contents", "Resources");
-  const files = [
-    path.join(appBundle, "Contents", "Info.plist"),
-    path.join(resources, "app.asar"),
-  ];
-  files.push(...(await walkFiles(path.join(resources, "app.asar.unpacked"))));
+const collectReleaseFiles = async (
+  releaseDir = path.join(appRoot, "release"),
+) => {
+  const files = [];
+  for (const entry of await fs.readdir(releaseDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^mac(?:-|$)/.test(entry.name)) continue;
+    const contents = path.join(
+      releaseDir,
+      entry.name,
+      "CoreStudio.app",
+      "Contents",
+    );
+    const resources = path.join(contents, "Resources");
+    for (const file of [
+      path.join(contents, "Info.plist"),
+      path.join(resources, "app.asar"),
+    ]) {
+      if (!(await fs.stat(file)).isFile())
+        throw new Error(`Missing release input: ${file}`);
+    }
+    files.push(...(await walkFiles(contents)).filter(isPotentialTextFile));
+  }
+  if (!files.length) throw new Error("No CoreStudio release bundle found.");
   return files;
 };
 

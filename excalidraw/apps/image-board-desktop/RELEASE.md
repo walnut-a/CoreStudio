@@ -1253,3 +1253,11 @@ sha256: c9f4565fee75fb87de2c5672ff6efb7c5fa22585b4ffaf59ac2f145f3e4fc673
 - 加强桌面窗口导航、Local Bridge 和协作房间的访问校验，完善源码和安装包的密钥扫描。
 
 系统要求为 Apple Silicon Mac，macOS 13 或更高版本。
+
+### 1.1.62 发布验收
+
+- 发布标签 `v1.1.62` 指向主线 `846d995a73e0a2e6f4c445b1811f30434a00438b`。构建提交 `14c5f8b9` 与标签文件树相同。PR #176 纳入审查修复，PR #177 排除了 lib0 自带的覆盖率数据。
+- [主线桌面 CI](https://github.com/walnut-a/CoreStudio/actions/runs/46030150255) 通过，覆盖类型检查、119 项桌面测试、8 项 Agent 集成、官网测试、构建、密钥扫描与体积预算。签名包内 137 个 JS、CSS 和 HTML 文件与构建输出一致。
+- Apple 公证 `d30074ea-25b4-4018-b954-16262b0a59bb` 已获 Accepted。App 与 DMG 的票据和 Gatekeeper 校验通过，DMG 完整性校验通过。隔离正式模式、QA 模式和多宿主 Agent 安装冒烟测试通过，临时进程已退出。
+- 23 个接入文件与 GitHub 主线内容一致，中英文官网接入页已在线核验。
+- [公开安装包](https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.62) 于 `2026-11-27T16:04:26Z` 发布，附件大小为 136657404 字节。公开下载与本地公证包逐字节相同，SHA-256 为 `78d0b5c5cf5065568f61c4bb9f34c7d383195e0829bcbec81b81463ec31847c3`。

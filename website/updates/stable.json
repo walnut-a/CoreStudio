@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "1.1.61",
-  "publishedAt": "2026-11-15T15:04:37Z",
+  "version": "1.1.62",
+  "publishedAt": "2026-11-27T16:04:26Z",
   "minimumSystemVersion": "13.0",
   "downloadPageURL": "https://getcorestudio.com/",
-  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.61",
+  "releaseNotesURL": "https://github.com/walnut-a/CoreStudio/releases/tag/v1.1.62",
   "asset": {
-    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.61/CoreStudio-1.1.61-arm64.dmg",
-    "size": 135870500,
-    "sha256": "f320855879eb9f75a80ac097cea13f2041121311a3f08d50ab4760196bdc13df"
+    "url": "https://github.com/walnut-a/CoreStudio/releases/download/v1.1.62/CoreStudio-1.1.62-arm64.dmg",
+    "size": 136657404,
+    "sha256": "78d0b5c5cf5065568f61c4bb9f34c7d383195e0829bcbec81b81463ec31847c3"
   },
   "summary": {
     "zh-CN": [
-      "升级画布内核与上游小地图，新增便签、文字包裹等编辑功能",
-      "保存常用字体、颜色收藏与鼠标或触控板偏好，完善 Mermaid 和中文体验",
-      "更新 revision 6 图片模型目录，内置 73 个模型预置"
+      "改进画布放大时的原图加载，修复生成面板遮挡底部提示",
+      "保留已配置的模型密钥，修复并发保存设置时丢失修改的问题",
+      "支持取消 Gemini 图片请求，加强桌面窗口与本地协作请求的访问校验"
     ],
     "en": [
-      "Upgrade the canvas engine and minimap with sticky notes, text wrapping, and more editing tools",
-      "Persist favorite fonts, colors, and input device preferences; improve Mermaid and Chinese localization",
-      "Update the image model catalog to revision 6 with 73 built-in presets"
+      "Improve original image loading on zoom and keep canvas hints clear of the generation panel",
+      "Preserve saved API keys and prevent concurrent settings updates from overwriting changes",
+      "Support cancellation of Gemini image requests and strengthen access checks for desktop windows and local collaboration"
     ]
   }
 }
